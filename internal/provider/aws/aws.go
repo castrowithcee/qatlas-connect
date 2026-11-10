@@ -103,7 +103,7 @@ func Register(reg *capability.Registry, version string) error {
 		ID: Provider, Name: "Amazon Web Services", DefaultBaseURL: consoleOrigin, ValidateBaseURL: validBaseURL,
 		Description:    "Amazon Web Services account: read-only identity checks through STS, bound to one account and its regions",
 		DefaultEffects: []config.Effect{config.EffectRead},
-		Groups:         toolGroups, ServiceLevel: true, DocPage: "aws.md",
+		Groups:         toolGroups, ServiceLevel: true,
 		SecretRoles: []config.SecretRole{{
 			Name: roleAccessKeyID,
 			Description: "Access key ID of an IAM user or of temporary credentials (AKIA... or ASIA...). Use a key " +
