@@ -60,6 +60,9 @@ type toolSpec struct {
 	targetArgs  []string
 	policyCheck string
 	policyArgs  []string
+	// selfRole is the argument that names a role the tool changes or deletes; the call is refused when it is
+	// the role whose session signs it (see Client.refuseOwnRole).
+	selfRole string
 	// accountCheck marks GetCallerIdentity, whose answer is the account check itself.
 	accountCheck bool
 	// truncated adds the truncated field: true when a string of the answer was cut at its cap.
@@ -88,9 +91,15 @@ var targetChecks = map[string]targetCheck{
 	"arn-region":                    checkARNRegion,
 }
 
-// policyChecks are the client-side document checks of the service packages, by name. None exists yet, so a
-// tool that names one other than "none" is a registration error.
-var policyChecks = map[string]func(name, value string) error{"none": nil}
+// policyCheck judges one policy document against the binding before any secret is read or request is built.
+type policyCheck func(b binding, name, value string) error
+
+// policyChecks are the client-side document checks, by the name a curation table gives them. A tool that
+// names one without an implementation here is a registration error.
+var policyChecks = map[string]policyCheck{
+	"none":         nil,
+	"trust-policy": checkTrustPolicy,
+}
 
 // generatedTools checks every generated tool against the runtime and binds it to its handler.
 func generatedTools() ([]capability.Operation, error) {
@@ -132,6 +141,9 @@ func (s toolSpec) check() error {
 	}
 	if _, ok := policyChecks[s.policyCheck]; !ok {
 		return fmt.Errorf("policy check %q has no implementation", s.policyCheck)
+	}
+	if s.selfRole != "" && (s.accountCheck || s.descriptor.Risk.Effect == capability.EffectRead) {
+		return errors.New("the own-role check belongs to a tool that changes or deletes a role")
 	}
 	for _, r := range s.rules {
 		if _, ok := forms[r.form]; r.form != "" && !ok {
@@ -210,6 +222,12 @@ func (s toolSpec) handler() capability.Handler {
 			creds, err := client.authorize(ctx, op, region)
 			if err != nil {
 				return nil, err
+			}
+			if s.selfRole != "" {
+				target, _ := args[s.selfRole].(string)
+				if err := client.refuseOwnRole(ctx, op, region, creds, s.selfRole, target); err != nil {
+					return nil, err
+				}
 			}
 			var failure *provider.Error
 			if truncated, failure = send(ctx, client, creds, region, &out); failure != nil {
@@ -311,7 +329,7 @@ func (s toolSpec) checkArguments(b binding, global bool, args map[string]any) er
 		for _, name := range s.policyArgs {
 			if v, set := args[name]; set {
 				text, _ := v.(string)
-				if err := check(name, text); err != nil {
+				if err := check(b, name, text); err != nil {
 					return err
 				}
 			}

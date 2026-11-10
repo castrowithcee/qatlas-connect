@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -194,6 +195,7 @@ func TestTableRefusesWhatIsNotAllowed(t *testing.T) {
 		{"hidden without reason", withOperation(func(o *Operation) { o.HiddenOutputs = []Hidden{{Member: "Arn"}} }), "no reason"},
 		{"unknown form", withOperation(func(o *Operation) { o.Fields = map[string]Field{"Arn": {Description: "d", Form: "arn-ish"}} }), "unknown form"},
 		{"unknown effect", withOperation(func(o *Operation) { o.Effect = "read-write" }), "unknown effect"},
+		{"own-role check on a read", withOperation(func(o *Operation) { o.SelfRole = "Arn" }), "self_role"},
 		{"excluded operation as a tool", func() Table {
 			table := withOperation(func(*Operation) {})
 			table.Operations = append(table.Operations, Operation{Operation: "AssumeRole", Object: "role", Action: "assume",
@@ -516,6 +518,48 @@ func TestListedOnlyAndConfirmReachTheDescriptor(t *testing.T) {
 	if !strings.Contains(b.String(), "RequiresToolAllowList: true") || !strings.Contains(b.String(), "capability.ConfirmationRequired") ||
 		!strings.Contains(b.String(), "capability.EffectCreate") {
 		t.Errorf("rendered:\n%s", b.String())
+	}
+}
+
+// self_role becomes the selfRole of the spec, by its argument name, and only a required top-level string
+// member offered as an argument may carry it. A trust-policy argument gets a sample that passes the check.
+func TestSelfRoleAndTrustSamples(t *testing.T) {
+	m := syntheticModel(t)
+	op := readOp("CreateThing")
+	op.Effect, op.Confirm, op.Idempotency = "delete", true, "non-idempotent"
+	op.Arguments = map[string]Argument{"ThingName": {Description: "n"}}
+	op.Fields = map[string]Field{"ThingId": {Description: "i"}}
+	op.SelfRole = "ThingName"
+	tl, err := build(m, &syntheticTable, op)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var b bytes.Buffer
+	renderTools(&b, []*tool{tl})
+	if !strings.Contains(b.String(), `selfRole: "thing_name"`) {
+		t.Errorf("rendered:\n%s", b.String())
+	}
+	op.SelfRole = "ClientToken"
+	if _, err := build(m, &syntheticTable, op); err == nil || !strings.Contains(err.Error(), "self_role ClientToken") {
+		t.Errorf("an unoffered self_role: %v", err)
+	}
+	list := readOp("ListThings")
+	list.Effect, list.Confirm, list.Idempotency = "update", true, "idempotent"
+	list.Arguments = map[string]Argument{"Prefix": {Description: "p"}, "Filters": {Description: "f"}}
+	list.Fields = map[string]Field{"Things": {Description: "t"}, "Tags": {Description: "t"}}
+	list.SelfRole = "Prefix"
+	if _, err := build(m, &syntheticTable, list); err == nil || !strings.Contains(err.Error(), "self_role Prefix") {
+		t.Errorf("an optional self_role: %v", err)
+	}
+	list.SelfRole, list.PolicyCheck, list.PolicyArgs = "", "trust-policy", []string{"Prefix"}
+	list.Arguments["Prefix"] = Argument{Description: "p"}
+	tl, err = build(m, &syntheticTable, list)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var args map[string]any
+	if err := json.Unmarshal([]byte(tl.sampleArgs), &args); err != nil || args["prefix"] != sampleTrustPolicy {
+		t.Errorf("trust sample = %s, %v", tl.sampleArgs, err)
 	}
 }
 
