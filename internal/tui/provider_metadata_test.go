@@ -15,7 +15,7 @@ import (
 	"github.com/castrowithcee/qatlas-connect/internal/provider/seatable"
 	"github.com/castrowithcee/qatlas-connect/internal/provider/telegram"
 	"github.com/castrowithcee/qatlas-connect/internal/provider/twentycrm"
-	"github.com/castrowithcee/qatlas-connect/internal/redact"
+	"github.com/castrowithcee/qatlas-kit/redact"
 )
 
 func TestProviderMetadataDrivesMultipleProviderConnections(t *testing.T) {

@@ -7,8 +7,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/castrowithcee/qatlas-connect/internal/redact"
 	"github.com/castrowithcee/qatlas-connect/internal/secret"
+	"github.com/castrowithcee/qatlas-kit/redact"
 )
 
 const webhookCanary = "https://canary.example/hook-SECRETPATH"
