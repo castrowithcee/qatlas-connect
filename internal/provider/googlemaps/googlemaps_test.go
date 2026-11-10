@@ -198,8 +198,8 @@ func TestRegisterPublishesMetadataAndTool(t *testing.T) {
 	wantTools := []string{"google.maps.addressvalidation.feedback", "google.maps.addressvalidation.validate",
 		"google.maps.geocoding.geocode", "google.maps.geocoding.reverse", "google.maps.photos.get",
 		"google.maps.places.autocomplete", "google.maps.places.get", "google.maps.places.search-nearby",
-		"google.maps.places.search-text", "google.maps.weather.current", "google.maps.weather.days",
-		"google.maps.weather.hours", "google.maps.weather.minutes"}
+		"google.maps.places.search-text", "google.maps.weather.alerts", "google.maps.weather.current", "google.maps.weather.days",
+		"google.maps.weather.history", "google.maps.weather.hours", "google.maps.weather.minutes"}
 	if !reflect.DeepEqual(ids, wantTools) {
 		t.Errorf("tools = %v", ids)
 	}
@@ -208,7 +208,7 @@ func TestRegisterPublishesMetadataAndTool(t *testing.T) {
 			"google.maps.places.search-text", "google.maps.places.search-nearby", "google.maps.places.autocomplete",
 			"google.maps.photos.get", "google.maps.geocoding.geocode", "google.maps.geocoding.reverse",
 			"google.maps.addressvalidation.validate", "google.maps.weather.current", "google.maps.weather.minutes",
-			"google.maps.weather.hours", "google.maps.weather.days"}) {
+			"google.maps.weather.hours", "google.maps.weather.days", "google.maps.weather.history", "google.maps.weather.alerts"}) {
 		t.Errorf("profiles = %+v", metadata.Profiles)
 	}
 	for _, descriptor := range reg.Provider(Provider) {

@@ -413,7 +413,7 @@ func TestWeatherToolsRiskAndDescriptions(t *testing.T) {
 			}
 		}
 	}
-	if found != 4 {
+	if found != 6 {
 		t.Errorf("weather tools = %d", found)
 	}
 	if weatherRoot != "https://weather.googleapis.com" || metadata.ValidateBaseURL(weatherRoot) == nil {
