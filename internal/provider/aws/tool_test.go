@@ -272,7 +272,7 @@ func TestGeneratedRulesRefuseInvalidAnswers(t *testing.T) {
 // A tool that names a check the runtime does not implement is a registration error.
 func TestGeneratedSpecsNeedImplementedChecks(t *testing.T) {
 	for _, change := range []func(*toolSpec){
-		func(s *toolSpec) { s.policyCheck = "trust-policy" },
+		func(s *toolSpec) { s.policyCheck = "bucket-policy" },
 		func(s *toolSpec) { s.targetCheck = "bucket-owner" },
 		func(s *toolSpec) { s.rules = []outputRule{{key: "names", form: "arn-ish"}} },
 		func(s *toolSpec) { s.descriptor.Group = "undeclared" },

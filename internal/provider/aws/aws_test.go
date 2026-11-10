@@ -260,10 +260,23 @@ type env struct {
 
 func newEnv(t *testing.T, f *fakeAWS, v values, targets ...string) *env {
 	t.Helper()
+	return newConnEnv(t, f, v, config.Connection{Targets: targets})
+}
+
+// newToolsEnv is newEnv for a connection that offers exactly the listed tools; nil offers by effect.
+func newToolsEnv(t *testing.T, f *fakeAWS, v values, tools []string) *env {
+	t.Helper()
+	return newConnEnv(t, f, v, config.Connection{Tools: tools})
+}
+
+// newConnEnv is newEnv for a connection with its own selection; service, credential, and default targets
+// are filled in.
+func newConnEnv(t *testing.T, f *fakeAWS, v values, conn config.Connection) *env {
+	t.Helper()
 	install(t, f)
 	red := &redact.Redactor{}
-	conn := config.Connection{Service: "aws", Credential: "aws-cred", Targets: targets}
-	if len(targets) == 0 {
+	conn.Service, conn.Credential = "aws", "aws-cred"
+	if len(conn.Targets) == 0 {
 		conn.Targets = []string{"account/" + testAccount, "region/" + testRegion}
 	}
 	cfg := &config.Config{
@@ -277,8 +290,13 @@ func newEnv(t *testing.T, f *fakeAWS, v values, targets ...string) *env {
 }
 
 func (e *env) invoke(operation, arguments string) (string, error) {
+	return e.invokeConfirmed(operation, arguments, false)
+}
+
+// invokeConfirmed is invoke with the confirmation of the request set as given.
+func (e *env) invokeConfirmed(operation, arguments string, confirmed bool) (string, error) {
 	response, err := e.core.Invoke(context.Background(), application.InvokeRequest{
-		Operation: operation, Connection: "prod", Arguments: json.RawMessage(arguments)})
+		Operation: operation, Connection: "prod", Arguments: json.RawMessage(arguments), Confirmed: confirmed})
 	return string(response.Result), err
 }
 

@@ -67,14 +67,16 @@ var (
 		p("segments", listOf(maxMinutesPageSize, object(p("timeFrame", wxInterval), p("probability", integer),
 			p("type", short), p("intensity", short), p("qpf", wxQpf), p("snowfallAmount", wxQpf))))}
 
-	wxHoursProps = []prop{p("timeZone", wxTimeZone),
-		p("forecastHours", listOf(maxHoursPageSize, object(p("interval", wxInterval), p("displayDateTime", wxDateTime),
-			p("isDaytime", boolean), p("weatherCondition", wxCondition), p("temperature", wxTemperature),
-			p("feelsLikeTemperature", wxTemperature), p("dewPoint", wxTemperature), p("heatIndex", wxTemperature),
-			p("windChill", wxTemperature), p("wetBulbTemperature", wxTemperature), p("precipitation", wxPrecip),
-			p("airPressure", wxPressure), p("wind", wxWind), p("visibility", wxVisibility),
-			p("iceThickness", wxIce), p("cloudCover", integer), p("relativeHumidity", integer),
-			p("uvIndex", integer), p("thunderstormProbability", integer))))}
+	// wxHourRecord is the hour of both the forecast and the history; Google documents the same members.
+	wxHourRecord = object(p("interval", wxInterval), p("displayDateTime", wxDateTime),
+		p("isDaytime", boolean), p("weatherCondition", wxCondition), p("temperature", wxTemperature),
+		p("feelsLikeTemperature", wxTemperature), p("dewPoint", wxTemperature), p("heatIndex", wxTemperature),
+		p("windChill", wxTemperature), p("wetBulbTemperature", wxTemperature), p("precipitation", wxPrecip),
+		p("airPressure", wxPressure), p("wind", wxWind), p("visibility", wxVisibility),
+		p("iceThickness", wxIce), p("cloudCover", integer), p("relativeHumidity", integer),
+		p("uvIndex", integer), p("thunderstormProbability", integer))
+
+	wxHoursProps = []prop{p("timeZone", wxTimeZone), p("forecastHours", listOf(maxHoursPageSize, wxHourRecord))}
 
 	wxDaysProps = []prop{p("timeZone", wxTimeZone),
 		p("forecastDays", listOf(maxDaysPageSize, object(p("interval", wxInterval),
@@ -264,19 +266,33 @@ type weatherCall struct {
 	total        *int   // the hours or days argument of this request, set per call
 	totalName    string // "hours", "days", or empty when the endpoint has no total
 	totalMax     int
-	pageMax      int // 0 when the endpoint takes no paging
+	pageMax      int    // 0 when the endpoint takes no paging
+	noUnits      bool   // the endpoint documents no unitsSystem
+	listName     string // member that is always present, an empty list when Google sends none
 }
 
-func weatherQuery(c weatherCall, a weatherArguments) (url.Values, error) {
-	if a.Location == nil || a.Location.Latitude == nil || a.Location.Longitude == nil ||
-		math.IsNaN(*a.Location.Latitude) || math.IsNaN(*a.Location.Longitude) ||
-		*a.Location.Latitude < -90 || *a.Location.Latitude > 90 || *a.Location.Longitude < -180 || *a.Location.Longitude > 180 {
+// locationQuery checks a coordinate and returns the query that carries it. It runs before any key is read.
+func locationQuery(location *geoPoint) (url.Values, error) {
+	if location == nil || location.Latitude == nil || location.Longitude == nil ||
+		math.IsNaN(*location.Latitude) || math.IsNaN(*location.Longitude) ||
+		*location.Latitude < -90 || *location.Latitude > 90 || *location.Longitude < -180 || *location.Longitude > 180 {
 		return nil, badRequest("location needs a latitude from -90 to 90 and a longitude from -180 to 180")
 	}
 	query := url.Values{}
-	query.Set("location.latitude", strconv.FormatFloat(*a.Location.Latitude, 'f', -1, 64))
-	query.Set("location.longitude", strconv.FormatFloat(*a.Location.Longitude, 'f', -1, 64))
+	query.Set("location.latitude", strconv.FormatFloat(*location.Latitude, 'f', -1, 64))
+	query.Set("location.longitude", strconv.FormatFloat(*location.Longitude, 'f', -1, 64))
+	return query, nil
+}
+
+func weatherQuery(c weatherCall, a weatherArguments) (url.Values, error) {
+	query, err := locationQuery(a.Location)
+	if err != nil {
+		return nil, err
+	}
 	if a.UnitsSystem != "" {
+		if c.noUnits {
+			return nil, badRequest("units_system is not available for this tool")
+		}
 		if !unitsSystems[a.UnitsSystem] {
 			return nil, badRequest("units_system must be METRIC, IMPERIAL, or UNITS_SYSTEM_UNSPECIFIED")
 		}
@@ -359,6 +375,10 @@ func runWeather(ctx context.Context, c weatherCall, shaped *shape, a weatherArgu
 	}
 	cleaned, _ := shaped.clean(answer)
 	out, _ := cleaned.(map[string]any)
+	if c.listName != "" && out[c.listName] == nil {
+		// No hit is a valid answer: Google leaves the list out.
+		out[c.listName] = []any{}
+	}
 	if len(out) == 0 {
 		return nil, provider.InvalidResponse(c.op, "Google returned no weather data")
 	}

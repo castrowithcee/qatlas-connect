@@ -1,6 +1,7 @@
 // Package googlemaps implements read-only access to Google Maps Platform with one API key. It starts with
 // Places API (New): the details of one place, the text and nearby searches, autocomplete predictions, and photo addresses.
-// Geocoding, Address Validation, and Weather API (current conditions and forecasts) follow.
+// Geocoding, Address Validation, Weather API (current conditions, forecasts, history, and public alerts), Air
+// Quality API, and Pollen API (daily forecast) follow.
 //
 // A connection binds one API key, sent only in the X-Goog-Api-Key header, and takes no target: the key
 // reaches what its Cloud project and its restrictions allow. The base URL is fixed to the official origin;
@@ -73,7 +74,7 @@ func noTarget(string) error {
 func Register(reg *capability.Registry) error {
 	if err := reg.RegisterProvider(config.ProviderMetadata{
 		ID: Provider, Name: "Google Maps", DefaultBaseURL: apiRoot,
-		Description:    "Places, geocoding, address validation, and weather data from Google Maps Platform with an API key, billed by Google",
+		Description:    "Places, geocoding, address validation, weather, and pollen data from Google Maps Platform with an API key, billed by Google",
 		DefaultEffects: []config.Effect{config.EffectRead},
 		ValidateBaseURL: func(raw string) error {
 			if !isAPIRoot(raw) {
@@ -84,7 +85,7 @@ func Register(reg *capability.Registry) error {
 		SecretRoles: []config.SecretRole{{
 			Name: roleKey,
 			Description: "API key of a Google Cloud project with Places API (New), for geocoding also Geocoding API, " +
-				"for address validation Address Validation API, for weather Weather API, for air quality Air Quality API, " +
+				"for address validation Address Validation API, for weather Weather API, for air quality Air Quality API, for pollen Pollen API, " +
 				"enabled and a billing account; requests are billed to that project",
 		}},
 		Target: config.TargetMetadata{
@@ -95,11 +96,12 @@ func Register(reg *capability.Registry) error {
 		Profiles: []config.ToolProfile{{
 			ID: "read", Title: "Read", Recommended: true,
 			Description: "reads place details, searches places by text or around a point, predicts places from typed input, and resolves place photos to short-lived addresses from Google Places, " +
-				"geocodes addresses and coordinates, validates postal addresses, reads current weather and forecasts for a coordinate, and reads the current air quality, its forecast, and its history at a coordinate; the field mask of each Places " +
+				"geocodes addresses and coordinates, validates postal addresses, reads current weather, forecasts, history, and public alerts for a coordinate, reads the current air quality, its forecast, and its history at a coordinate, and reads the daily pollen forecast for a coordinate; the field mask of each Places " +
 				"request decides what Google bills, and nothing is changed",
 			Tools: []string{placesGet.ID, textSearch.ID, nearbySearch.ID, autocomplete.ID, photosGet.ID,
 				geocodingGeocode.ID, geocodingReverse.ID, addressValidate.ID, weatherCurrent.ID, weatherMinutes.ID,
-				weatherHours.ID, weatherDays.ID, airQualityCurrent.ID, airQualityForecast.ID, airQualityHistory.ID},
+				weatherHours.ID, weatherDays.ID, weatherHistory.ID, weatherAlerts.ID, airQualityCurrent.ID,
+				airQualityForecast.ID, airQualityHistory.ID, pollenForecast.ID},
 		}},
 	}, TestConnection); err != nil {
 		return err
@@ -118,7 +120,10 @@ func Register(reg *capability.Registry) error {
 		capability.Operation{Descriptor: weatherMinutes, Handler: handleWeatherMinutes},
 		capability.Operation{Descriptor: weatherHours, Handler: handleWeatherHours},
 		capability.Operation{Descriptor: weatherDays, Handler: handleWeatherDays},
+		capability.Operation{Descriptor: weatherHistory, Handler: handleWeatherHistory},
+		capability.Operation{Descriptor: weatherAlerts, Handler: handleWeatherAlerts},
 		capability.Operation{Descriptor: airQualityCurrent, Handler: handleAirQualityCurrent},
 		capability.Operation{Descriptor: airQualityForecast, Handler: handleAirQualityForecast},
-		capability.Operation{Descriptor: airQualityHistory, Handler: handleAirQualityHistory})
+		capability.Operation{Descriptor: airQualityHistory, Handler: handleAirQualityHistory},
+		capability.Operation{Descriptor: pollenForecast, Handler: handlePollenForecast})
 }

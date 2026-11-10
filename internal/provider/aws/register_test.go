@@ -27,9 +27,13 @@ var wantTools = []string{
 	"aws.iam.inline-policy.list-for-group",
 	"aws.iam.inline-policy.list-for-role",
 	"aws.iam.inline-policy.list-for-user",
+	"aws.iam.instance-profile.add-role",
+	"aws.iam.instance-profile.create",
+	"aws.iam.instance-profile.delete",
 	"aws.iam.instance-profile.get",
 	"aws.iam.instance-profile.list",
 	"aws.iam.instance-profile.list-for-role",
+	"aws.iam.instance-profile.remove-role",
 	"aws.iam.login-profile.get",
 	"aws.iam.mfa-device.list",
 	"aws.iam.policy-simulation.get-context-keys-custom",
@@ -42,9 +46,17 @@ var wantTools = []string{
 	"aws.iam.policy.list",
 	"aws.iam.policy.list-entities",
 	"aws.iam.policy.list-tags",
+	"aws.iam.role.create",
+	"aws.iam.role.delete",
+	"aws.iam.role.delete-permissions-boundary",
 	"aws.iam.role.get",
 	"aws.iam.role.list",
 	"aws.iam.role.list-tags",
+	"aws.iam.role.put-permissions-boundary",
+	"aws.iam.role.tag",
+	"aws.iam.role.untag",
+	"aws.iam.role.update",
+	"aws.iam.role.update-trust-policy",
 	"aws.iam.service-specific-credential.list",
 	"aws.iam.signing-certificate.list",
 	"aws.iam.ssh-public-key.get",
@@ -66,16 +78,19 @@ func TestRegisterPublishesMetadataAndTools(t *testing.T) {
 	var ids []string
 	for _, tool := range metadata.Tools {
 		ids = append(ids, tool.ID)
-		if tool.Effect != config.EffectRead || tool.RequiresToolAllowList || tool.Group != strings.Split(tool.ID, ".")[1] {
-			t.Errorf("tool %+v, want an open read of the group named by its service segment", tool)
+		// A read is open; every other tool is an IAM write that only a tools list naming it offers.
+		open := tool.Effect == config.EffectRead && !tool.RequiresToolAllowList
+		write := tool.Effect != config.EffectRead && tool.RequiresToolAllowList && strings.HasPrefix(tool.ID, "aws.iam.")
+		if !(open || write) || tool.Group != strings.Split(tool.ID, ".")[1] {
+			t.Errorf("tool %+v, want an open read or a listed-only IAM write of the group named by its service segment", tool)
 		}
 	}
 	if !reflect.DeepEqual(ids, wantTools) {
 		t.Errorf("tools = %v, want %v", ids, wantTools)
 	}
-	if !reflect.DeepEqual(metadata.SupportedEffects, []config.Effect{config.EffectRead}) ||
+	if !reflect.DeepEqual(metadata.SupportedEffects, []config.Effect{config.EffectRead, config.EffectCreate, config.EffectUpdate, config.EffectDelete}) ||
 		!reflect.DeepEqual(metadata.DefaultEffects, []config.Effect{config.EffectRead}) {
-		t.Errorf("effects = %v / %v, want read only", metadata.SupportedEffects, metadata.DefaultEffects)
+		t.Errorf("effects = %v / %v, want read, create, update, delete supported and read by default", metadata.SupportedEffects, metadata.DefaultEffects)
 	}
 	groups := map[string]bool{}
 	for _, g := range metadata.Groups {
@@ -130,13 +145,20 @@ func TestBaseURLIsFixed(t *testing.T) {
 	}
 }
 
-// Every tool is a credential-free read with the full risk and the strict schema. The AWS actions that return a
-// credential or token are no tools, and the actions the tools send are exactly the three STS reads.
+// Every read is credential-free with the full risk, every other tool is a listed-only IAM write with
+// confirmation, and every tool has the strict schema. The AWS actions that return a credential or token are no
+// tools, and the actions the STS tools send are exactly the three STS reads.
 func TestSTSToolsAreTheCredentialFreeActions(t *testing.T) {
 	reg := registered(t)
 	for _, d := range reg.Provider(Provider) {
 		want := capability.Risk{Effect: capability.EffectRead, Idempotency: capability.IdempotencySafe,
 			Confirmation: capability.ConfirmationNone, OpenWorld: true, DataSensitivity: d.Risk.DataSensitivity}
+		if d.Risk.Effect != capability.EffectRead {
+			want.Effect, want.Idempotency, want.Confirmation = d.Risk.Effect, d.Risk.Idempotency, capability.ConfirmationRequired
+			if !d.RequiresToolAllowList || !strings.HasPrefix(d.ID, "aws.iam.") || d.Risk.Idempotency == capability.IdempotencySafe {
+				t.Errorf("%s is a write that is not a listed-only IAM tool: %+v", d.ID, d)
+			}
+		}
 		if d.Risk != want || d.Risk.DataSensitivity == "" {
 			t.Errorf("%s risk = %+v", d.ID, d.Risk)
 		}
