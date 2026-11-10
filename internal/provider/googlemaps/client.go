@@ -18,8 +18,8 @@ import (
 	"github.com/castrowithcee/qatlas-connect/internal/secret"
 )
 
-// apiRoot is the only origin this provider talks to: the key belongs to this one service, so a second
-// origin could only be a mistake or an exfiltration route.
+// apiRoot is the only origin a connection may name: the key belongs to this one service, so a second
+// configured origin could only be a mistake or an exfiltration route. The other origins are fixed constants.
 const apiRoot = "https://places.googleapis.com"
 
 // addressValidationRoot is the second fixed origin: Address Validation API is a separate Google service that
@@ -39,6 +39,12 @@ const weatherHost = "weather.googleapis.com"
 const airQualityRoot = "https://airquality.googleapis.com"
 
 const airQualityHost = "airquality.googleapis.com"
+
+// routesRoot is the fifth fixed origin: Routes API is a separate Google service that accepts the same key. Only
+// the route tools use it, through postTo and postListTo.
+const routesRoot = "https://routes.googleapis.com"
+
+const routesHost = "routes.googleapis.com"
 
 // Bounds of one request. The timeout stays below the 60 seconds an invoke may take, so a slow answer ends
 // as a timeout of this provider and not as a cancelled call.
@@ -155,19 +161,44 @@ func (c *Client) post(ctx context.Context, op, path string, body map[string]any,
 	return c.postTo(ctx, apiRoot, op, path, body, mask)
 }
 
-// postTo is post for one of the two fixed origins. root is always one of the package constants, never text of
-// a caller.
+// postTo is post for one of the fixed origins. root is always one of the package constants, never text of a
+// caller.
 func (c *Client) postTo(ctx context.Context, root, op, path string, body map[string]any, mask string) (map[string]any, error) {
+	req, err := postRequest(ctx, root+path, body)
+	if err != nil {
+		return nil, failure(op, "the request could not be built")
+	}
+	return c.send(ctx, op, req, mask)
+}
+
+// postListTo is postTo for an answer that is a JSON array, such as the elements of a route matrix. The array is
+// read whole within maxResponseBytes, so a cut or unfinished array is an invalid response.
+func (c *Client) postListTo(ctx context.Context, root, op, path string, body map[string]any, mask string) ([]any, error) {
+	req, err := postRequest(ctx, root+path, body)
+	if err != nil {
+		return nil, failure(op, "the request could not be built")
+	}
+	var out []any
+	if err := c.exchange(ctx, op, req, mask, &out); err != nil {
+		return nil, err
+	}
+	if out == nil {
+		return nil, c.unsure(provider.InvalidResponse(op, "Google returned an invalid response"))
+	}
+	return out, nil
+}
+
+func postRequest(ctx context.Context, endpoint string, body map[string]any) (*http.Request, error) {
 	payload, err := json.Marshal(body)
 	if err != nil {
-		return nil, failure(op, "the request could not be built")
+		return nil, err
 	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, root+path, bytes.NewReader(payload))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewReader(payload))
 	if err != nil {
-		return nil, failure(op, "the request could not be built")
+		return nil, err
 	}
 	req.Header.Set("Content-Type", "application/json")
-	return c.send(ctx, op, req, mask)
+	return req, nil
 }
 
 // unsure marks a failure whose outcome at Google is open, when the client belongs to a tool that changes
@@ -179,9 +210,21 @@ func (c *Client) unsure(failed *provider.Error) *provider.Error {
 	return failed
 }
 
-// send adds the key and, when the request has one, the field mask as headers, waits for the rate slot, sends the request once, and
-// decodes a JSON object answer.
+// send is exchange for a JSON object answer.
 func (c *Client) send(ctx context.Context, op string, req *http.Request, mask string) (map[string]any, error) {
+	var out map[string]any
+	if err := c.exchange(ctx, op, req, mask, &out); err != nil {
+		return nil, err
+	}
+	if out == nil {
+		return nil, c.unsure(provider.InvalidResponse(op, "Google returned an invalid response"))
+	}
+	return out, nil
+}
+
+// exchange adds the key and, when the request has one, the field mask as headers, waits for the rate slot,
+// sends the request once, and decodes the JSON answer into out.
+func (c *Client) exchange(ctx context.Context, op string, req *http.Request, mask string, out any) error {
 	req.Header.Set("X-Goog-Api-Key", c.key)
 	if mask != "" {
 		// Autocomplete and photo media take no field mask.
@@ -191,7 +234,7 @@ func (c *Client) send(ctx context.Context, op string, req *http.Request, mask st
 	req.Header.Set("User-Agent", userAgent)
 
 	if err := c.limiter.Wait(ctx); err != nil {
-		return nil, provider.Waited(op, "Google", err)
+		return provider.Waited(op, "Google", err)
 	}
 	response, err := c.http.Do(req)
 	if err != nil {
@@ -199,12 +242,12 @@ func (c *Client) send(ctx context.Context, op string, req *http.Request, mask st
 		if failed.MayHaveArrived() {
 			failed = c.unsure(failed)
 		}
-		return nil, failed
+		return failed
 	}
 	defer response.Body.Close()
 	if c.redirectInvalid && response.StatusCode >= 300 && response.StatusCode < 400 {
 		_, _ = io.Copy(io.Discard, io.LimitReader(response.Body, 1<<10))
-		return nil, c.unsure(provider.InvalidResponse(op, "Google answered with a redirect although the request asked "+
+		return c.unsure(provider.InvalidResponse(op, "Google answered with a redirect although the request asked "+
 			"for JSON; Qatlas Connect does not follow it"))
 	}
 	if response.StatusCode < 200 || response.StatusCode > 299 {
@@ -234,22 +277,21 @@ func (c *Client) send(ctx context.Context, op string, req *http.Request, mask st
 		if req.URL.Host == airQualityHost {
 			failed = airQualityError(failed, response.StatusCode)
 		}
+		if req.URL.Host == routesHost {
+			failed = routesError(failed, response.StatusCode)
+		}
 		if response.StatusCode >= 300 && (response.StatusCode < 400 || response.StatusCode >= 500) {
 			failed = c.unsure(failed)
 		}
-		return nil, failed
+		return failed
 	}
 	if mediaType, _, err := mime.ParseMediaType(response.Header.Get("Content-Type")); err != nil ||
 		mediaType != "application/json" {
 		_, _ = io.Copy(io.Discard, io.LimitReader(response.Body, 1<<10))
-		return nil, c.unsure(provider.InvalidResponse(op, "Google returned an answer that is not JSON"))
+		return c.unsure(provider.InvalidResponse(op, "Google returned an answer that is not JSON"))
 	}
-	var out map[string]any
-	if failed := provider.ReadJSON(op, "Google", response.Body, maxResponseBytes, &out); failed != nil {
-		return nil, c.unsure(failed)
+	if failed := provider.ReadJSON(op, "Google", response.Body, maxResponseBytes, out); failed != nil {
+		return c.unsure(failed)
 	}
-	if out == nil {
-		return nil, c.unsure(provider.InvalidResponse(op, "Google returned an invalid response"))
-	}
-	return out, nil
+	return nil
 }
