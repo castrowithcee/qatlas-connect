@@ -14,9 +14,9 @@ import (
 	"github.com/castrowithcee/qatlas-connect/internal/application"
 	"github.com/castrowithcee/qatlas-connect/internal/config"
 	"github.com/castrowithcee/qatlas-connect/internal/provider"
-	"github.com/castrowithcee/qatlas-connect/internal/provider/ratelimit"
-	"github.com/castrowithcee/qatlas-connect/internal/redact"
 	"github.com/castrowithcee/qatlas-connect/internal/secret"
+	"github.com/castrowithcee/qatlas-kit/ratelimit"
+	"github.com/castrowithcee/qatlas-kit/redact"
 )
 
 // solarRewrite sends the Solar host to the test server and refuses every other host, so an address from an
