@@ -542,10 +542,17 @@ func formerSource(t *testing.T) string {
 	return src
 }
 
-// buildFormer builds formerTag from src into path, offline with the modules this host has, trusting keyLine
-// and updating from releasesURL, as the release before the rename was built for its own tests.
+// buildFormer builds formerTag from src into path, trusting keyLine and updating from releasesURL, as the
+// release before the rename was built for its own tests. Its modules are downloaded first, since they need
+// not be the ones this module uses; the build itself then runs offline.
 func buildFormer(t *testing.T, src, path, keyLine, releasesURL string) []byte {
 	t.Helper()
+	download := exec.Command("go", "mod", "download")
+	download.Dir = src
+	download.Env = append(os.Environ(), "GOFLAGS=-mod=mod", "GOWORK=off")
+	if out, err := download.CombinedOutput(); err != nil {
+		t.Fatalf("downloading the modules of %s: %v: %s", formerTag, err, out)
+	}
 	const module = "github.com/castrowithcee/qatlas-cli"
 	cmd := exec.Command("go", "build", "-tags", "e2e", "-buildvcs=false", "-ldflags",
 		"-X "+module+"/internal/cli.version="+formerTag+
