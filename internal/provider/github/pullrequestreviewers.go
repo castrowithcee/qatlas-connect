@@ -31,9 +31,10 @@ var reviewerArgumentDescriptors = []capability.Argument{
 }
 
 var pullRequestReviewersRequest = capability.Descriptor{
-	ID:      Provider + ".pull-request-reviewers.request",
-	Version: 1,
-	Title:   "Request GitHub pull request reviewers",
+	ID:            Provider + ".pull-request-reviewers.request",
+	Version:       2,
+	DefaultFields: pullChangeFields,
+	Title:         "Request GitHub pull request reviewers",
 	Description: "Request the given users, teams, or both as reviewers of one pull request of a repository " +
 		"a connection allows; a reviewer already requested, or the pull request's author, is left " +
 		"as it is",
@@ -52,9 +53,10 @@ var pullRequestReviewersRequest = capability.Descriptor{
 }
 
 var pullRequestReviewersRemove = capability.Descriptor{
-	ID:      Provider + ".pull-request-reviewers.remove",
-	Version: 1,
-	Title:   "Remove GitHub pull request reviewers",
+	ID:            Provider + ".pull-request-reviewers.remove",
+	Version:       2,
+	DefaultFields: pullChangeFields,
+	Title:         "Remove GitHub pull request reviewers",
 	Description: "Remove the given users, teams, or both from the requested reviewers of one pull request " +
 		"of a repository a connection allows; a reviewer not requested is left as it is",
 	Tags:     []string{"github", "pulls", "pullrequests", "reviewers", "remove"},

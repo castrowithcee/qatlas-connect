@@ -69,9 +69,10 @@ var issuePlanningFields = append(slices.Clone(planningFields),
 		"absent when the item holds no issue"})
 
 var issuesCreate = capability.Descriptor{
-	ID:      Provider + ".issues.create",
-	Version: 1,
-	Title:   "Create a GitHub issue",
+	ID:            Provider + ".issues.create",
+	Version:       2,
+	DefaultFields: issueChangeFields,
+	Title:         "Create a GitHub issue",
 	Description: "Open one issue in a repository a connection allows; a repeated call opens a " +
 		"second issue, and GitHub creates any label the repository does not have yet",
 	Tags:     []string{"github", "issues", "create"},
@@ -103,9 +104,10 @@ const milestoneUpdateSchema = `{"type":"integer","minimum":0,"maximum":100000000
 const typeUpdateSchema = `{"type":"string","maxLength":100}`
 
 var issuesUpdate = capability.Descriptor{
-	ID:      Provider + ".issues.update",
-	Version: 1,
-	Title:   "Update a GitHub issue",
+	ID:            Provider + ".issues.update",
+	Version:       2,
+	DefaultFields: issueChangeFields,
+	Title:         "Update a GitHub issue",
 	Description: "Replace the title, body, labels, assignees, milestone, or issue type of one issue of " +
 		"a repository a connection allows; fields left out stay unchanged, GitHub creates any " +
 		"label the repository does not have yet, and a type change is silently dropped by GitHub without " +
@@ -134,13 +136,14 @@ var issuesUpdate = capability.Descriptor{
 }
 
 var issuesClose = capability.Descriptor{
-	ID:          Provider + ".issues.close",
-	Version:     1,
-	Title:       "Close a GitHub issue",
-	Description: "Close one issue of a repository a connection allows with a reason",
-	Tags:        []string{"github", "issues", "close", "update"},
-	Risk:        changeRisk(capability.EffectUpdate, capability.IdempotencyIdempotent),
-	Provider:    Provider,
+	ID:            Provider + ".issues.close",
+	Version:       2,
+	DefaultFields: issueChangeFields,
+	Title:         "Close a GitHub issue",
+	Description:   "Close one issue of a repository a connection allows with a reason",
+	Tags:          []string{"github", "issues", "close", "update"},
+	Risk:          changeRisk(capability.EffectUpdate, capability.IdempotencyIdempotent),
+	Provider:      Provider,
 	InputSchema: json.RawMessage(`{"type":"object","properties":{"number":` + numberSchema + `,` +
 		`"state_reason":{"type":"string","enum":["completed","not_planned","duplicate"]}},` +
 		`"required":["number"],"additionalProperties":false}`),
@@ -157,13 +160,14 @@ var issuesClose = capability.Descriptor{
 }
 
 var issuesReopen = capability.Descriptor{
-	ID:          Provider + ".issues.reopen",
-	Version:     1,
-	Title:       "Reopen a GitHub issue",
-	Description: "Open one closed issue of a repository a connection allows again",
-	Tags:        []string{"github", "issues", "reopen", "update"},
-	Risk:        changeRisk(capability.EffectUpdate, capability.IdempotencyIdempotent),
-	Provider:    Provider,
+	ID:            Provider + ".issues.reopen",
+	Version:       2,
+	DefaultFields: issueChangeFields,
+	Title:         "Reopen a GitHub issue",
+	Description:   "Open one closed issue of a repository a connection allows again",
+	Tags:          []string{"github", "issues", "reopen", "update"},
+	Risk:          changeRisk(capability.EffectUpdate, capability.IdempotencyIdempotent),
+	Provider:      Provider,
 	InputSchema: json.RawMessage(`{"type":"object","properties":{"number":` + numberSchema + `},` +
 		`"required":["number"],"additionalProperties":false}`),
 	OutputSchema: issuesGet.OutputSchema,
@@ -224,9 +228,10 @@ var commentsList = capability.Descriptor{
 }
 
 var commentsCreate = capability.Descriptor{
-	ID:      Provider + ".comments.create",
-	Version: 1,
-	Title:   "Comment on a GitHub issue",
+	ID:            Provider + ".comments.create",
+	Version:       2,
+	DefaultFields: commentChangeFields,
+	Title:         "Comment on a GitHub issue",
 	Description: "Write exactly one comment on one issue of a repository a connection allows; a " +
 		"repeated call writes a second comment",
 	Tags:     []string{"github", "issues", "comments", "create"},
