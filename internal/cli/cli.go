@@ -21,6 +21,7 @@ import (
 	"github.com/castrowithcee/qatlas-connect/internal/redact"
 	"github.com/castrowithcee/qatlas-connect/internal/secret"
 	"github.com/castrowithcee/qatlas-connect/internal/selfupdate"
+	kithelp "github.com/castrowithcee/qatlas-kit/helptopics"
 )
 
 // version is overridden at build time with
@@ -259,7 +260,7 @@ func newRootCommand(opts *Options, reg *capability.Registry) *cobra.Command {
 	// root help lists it under the additional help topics.
 	for _, topic := range helptopics.All() {
 		cmd.AddCommand(&cobra.Command{
-			Use: topic.Name, Short: topic.Short, Long: helptopics.Wrap(topic.Text, 80),
+			Use: topic.Name, Short: topic.Short, Long: kithelp.CLIText(topic),
 		})
 	}
 

@@ -8,10 +8,11 @@ import (
 	"github.com/charmbracelet/x/ansi"
 
 	"github.com/castrowithcee/qatlas-connect/internal/helptopics"
+	kithelp "github.com/castrowithcee/qatlas-kit/helptopics"
 )
 
 // firstWords is the start of a topic's text, short enough to stand on one line of any workspace.
-func firstWords(topic helptopics.Topic) string {
+func firstWords(topic kithelp.Topic) string {
 	return strings.Join(strings.Fields(topic.Text)[:3], " ")
 }
 

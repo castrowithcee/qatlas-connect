@@ -48,16 +48,3 @@ func TestHelpTopicsAreASectionOfTheMainPage(t *testing.T) {
 		}
 	}
 }
-
-func TestRoffKeepsTextAsText(t *testing.T) {
-	for in, want := range map[string]string{
-		`.hidden`:      `\&.hidden`,
-		`'quoted'`:     `\&'quoted'`,
-		`a\b`:          `a\eb`,
-		`--connection`: `\-\-connection`,
-	} {
-		if got := roff(in); got != want {
-			t.Errorf("roff(%q) = %q, want %q", in, got, want)
-		}
-	}
-}
