@@ -14,6 +14,7 @@ import (
 	"github.com/castrowithcee/qatlas-connect/internal/helptopics"
 	"github.com/castrowithcee/qatlas-connect/internal/output"
 	"github.com/castrowithcee/qatlas-connect/internal/selfupdate"
+	kithelp "github.com/castrowithcee/qatlas-kit/helptopics"
 )
 
 // Every topic is printed by 'qconnect help <topic>' as exactly its text, and the root help lists it.
@@ -34,7 +35,7 @@ func TestHelpTopicsArePrintedAndListed(t *testing.T) {
 		if code := Run([]string{"help", topic.Name}, &stdout, &stderr); code != exitOK || stderr.Len() != 0 {
 			t.Fatalf("help %s: exit %d stderr %q", topic.Name, code, stderr.String())
 		}
-		if got := strings.TrimSpace(stdout.String()); got != helptopics.Wrap(topic.Text, 80) {
+		if got := strings.TrimSpace(stdout.String()); got != kithelp.CLIText(topic) {
 			t.Errorf("help %s printed\n%s\nwant exactly its text, wrapped at 80 columns", topic.Name, got)
 		}
 	}

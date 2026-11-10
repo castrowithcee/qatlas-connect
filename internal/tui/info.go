@@ -10,6 +10,7 @@ import (
 
 	"github.com/castrowithcee/qatlas-connect/internal/helptopics"
 	"github.com/castrowithcee/qatlas-connect/internal/uiprefs"
+	kithelp "github.com/castrowithcee/qatlas-kit/helptopics"
 )
 
 const (
@@ -30,7 +31,7 @@ const (
 type infoSubject struct {
 	title string
 	long  string
-	term  helptopics.Term
+	term  kithelp.Term
 	// doc is the address of the user page of the provider the subject is about, or empty.
 	doc string
 }
@@ -41,7 +42,7 @@ func (s infoSubject) empty() bool {
 
 // withTerm sets the term with the given ID.
 func (s infoSubject) withTerm(id string) infoSubject {
-	s.term, _ = helptopics.LookupTerm(id)
+	s.term, _ = kithelp.LookupTerm(helptopics.Terms(), id)
 	return s
 }
 
@@ -64,7 +65,7 @@ func (s infoSubject) lines(width int) []string {
 		if i > 0 {
 			out = append(out, "")
 		}
-		out = append(out, strings.Split(helptopics.Wrap(p, width), "\n")...)
+		out = append(out, strings.Split(kithelp.Wrap(p, width), "\n")...)
 	}
 	if lines := docLines(s.doc, width); len(lines) > 0 {
 		if len(out) > 0 {

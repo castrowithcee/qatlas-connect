@@ -1,10 +1,10 @@
 ---
 description: >
-  Describes the Google Maps provider: the API key, its header and query paths, and its fixed origin, the read profile, the mandatory field mask, with and without the places. prefix, and the billing group it selects, the cost of autocomplete and photos, attribution and storage rules, the two Google error forms and their classes, rate spacing, the connection test, and the limits of what is verified.
+  Describes the Google Maps provider: the API key, its header and query paths, and its fixed origins, the read profile, the mandatory field mask, with and without the places. prefix, and the billing group it selects, the cost of autocomplete and photos, attribution and storage rules, the two Google error forms and their classes, rate spacing, the connection test, and the limits of what is verified.
 type: knowledge
 edit: shared
 created: 2026-11-06
-updated: 2026-11-07
+updated: 2026-11-10
 ---
 
 # Google Maps
@@ -12,28 +12,32 @@ updated: 2026-11-07
 Google Maps is a provider for Google Maps Platform with one API key. It reads the details of one place,
 searches places by text or around a point, predicts places from typed input, and resolves place photos to
 short-lived addresses in Places API (New), geocodes addresses and coordinates with the Geocoding API, and
-validates postal addresses with Address Validation API. Every tool is a read except
+validates postal addresses with Address Validation API, and reads current weather and forecasts for a
+coordinate with Weather API. Every tool is a read except
 `addressvalidation.feedback`, which reports to Google and needs confirmation. The connection takes no target, because a key
 reaches what its Cloud project and the key's restrictions allow, not a part of an account.
 
 [Set up Google Maps](setup.md) leads through creating the key. The tools are described in [places](places.md),
-[photos](photos.md), [geocoding](geocoding.md), and [addressvalidation](addressvalidation.md).
+[photos](photos.md), [geocoding](geocoding.md), [addressvalidation](addressvalidation.md), and [weather](weather.md).
 
 ## Configuration
 
 A service is always the official origin `https://places.googleapis.com`, which applies when `base_url` is
 left out. Qatlas refuses any other URL before the key is read, because the key belongs to that one service.
-The Address Validation tools use the second fixed origin `https://addressvalidation.googleapis.com`; it cannot be configured either. A
+The Address Validation tools use the second fixed origin `https://addressvalidation.googleapis.com` and the
+weather tools the third, `https://weather.googleapis.com`; neither can be configured. A
 connection with a target is refused.
 
-The credential provides `api_key`. The Places and Address Validation tools send it only in the `X-Goog-Api-Key` header. The geocoding
+The credential provides `api_key`. The Places, Address Validation, and weather tools send it only in the `X-Goog-Api-Key` header. The geocoding
 tools call the legacy Geocoding service, which takes no header, and send it as the `key` query parameter of
 a fixed URL; they are the only requests that do so, see [geocoding](geocoding.md#endpoint-and-key). The key is
 never a tool argument, never part of a message or result, and masked in every output.
 
 The profile `read` is the recommended one and holds `google.maps.places.get`, `google.maps.places.search-text`,
 `google.maps.places.search-nearby`, `google.maps.places.autocomplete`, `google.maps.photos.get`,
-`google.maps.geocoding.geocode`, `google.maps.geocoding.reverse`, and `google.maps.addressvalidation.validate`.
+`google.maps.geocoding.geocode`, `google.maps.geocoding.reverse`, `google.maps.addressvalidation.validate`,
+`google.maps.weather.current`, `google.maps.weather.minutes`, `google.maps.weather.hours`, and
+`google.maps.weather.days`.
 `google.maps.addressvalidation.feedback` is in no profile; see [addressvalidation](addressvalidation.md#profiles-and-effects).
 
 ## Field mask and billing group
@@ -73,7 +77,8 @@ two groups as Pro, and Nearby Search has no group below Pro. The SKUs are listed
 
 Every tool call can be billed above the free usage of its SKU, and a search is billed once per request, so
 each page of the text search is one request. The sources used do not state the free usage of the search SKUs.
-Autocomplete and photos have no field mask and their own SKUs, described below.
+Autocomplete and photos have no field mask and their own SKUs, described below. The SKU and free usage of the
+weather requests are not verified; see [weather](weather.md#cost).
 
 Google documents a free monthly usage cap per SKU and billing account for Place Details: IDs Only is unlimited,
 Essentials 10,000, Pro 5,000, Enterprise 1,000, and Enterprise + Atmosphere 1,000. Requests beyond a cap are
@@ -91,7 +96,8 @@ group with 1,000 free requests. Prices and caps change; the price list is author
 
 ## Attribution and storage
 
-Google Maps attribution is mandatory wherever Places content is shown, and the `attributions` field names data
+Google Maps attribution is mandatory wherever Places content is shown (for the weather tools see
+[weather](weather.md#attribution-and-storage)), and the `attributions` field names data
 providers that must be shown with a result. A photo also has author attributions in the `authorAttributions` of
 its `photos` entry, which must be shown wherever the image is shown. Place IDs may be stored without limit.
 The remaining caching and
@@ -178,4 +184,5 @@ Left out on purpose:
   `searchAlongRouteParameters` that need a polyline of the Routes API, and the `routeModifiers` of the routing
   parameters.
 - Photo media: the image is never loaded, its address is never fetched, and a redirect is never followed.
+- Weather history, public weather alerts, and weather map tiles; see [weather](weather.md#left-out-on-purpose).
 - A tool that creates session tokens: the token is the caller's string and is only passed on.

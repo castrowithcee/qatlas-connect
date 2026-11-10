@@ -1,25 +1,14 @@
-// Package helptopics holds the short guides that ship inside the binary. The command line prints them as
-// help topics, the manpage carries them, and the terminal editor shows them behind ?, so all three read
-// the same text. The package imports nothing of this module, which keeps it usable from every one of them.
+// Package helptopics holds the short guides and terms that ship inside the binary. The command line prints
+// the guides as help topics, the manpage carries them, and the terminal editor shows them behind ?, so all
+// three read the same text. The package imports nothing of this module, which keeps it usable from every
+// one of them.
 package helptopics
 
-import (
-	"regexp"
-	"strings"
-	"unicode/utf8"
-)
-
-// Topic is one guide: the name it is asked for by, one line on what it covers, and its text. The text is plain
-// ASCII with one line per paragraph, list item, or command; Wrap fits it to the width where it is shown.
-type Topic struct {
-	Name  string
-	Short string
-	Text  string
-}
+import "github.com/castrowithcee/qatlas-kit/helptopics"
 
 // All returns the topics in the order a newcomer reads them.
-func All() []Topic {
-	return []Topic{
+func All() []helptopics.Topic {
+	return []helptopics.Topic{
 		{Name: "start", Short: "Set up a first connection and run a first tool", Text: start},
 		Agents(),
 		{Name: "configuration", Short: "Services, credentials, connections, and defaults explained",
@@ -29,69 +18,17 @@ func All() []Topic {
 
 // Agents returns the guide for agents. 'qconnect agents' prints it; it is the one guide for the CLI, and MCP
 // clients read the shorter guide MCP returns instead, drawn from the same source.
-func Agents() Topic {
-	return Topic{Name: "agents", Short: "Let an agent discover and invoke tools through qconnect", Text: agents}
+func Agents() helptopics.Topic {
+	return helptopics.Topic{Name: "agents", Short: "Let an agent discover and invoke tools through qconnect",
+		Text: agents}
 }
 
 // MCP returns the guide 'qconnect mcp' hands its client as server instructions: a copy the client cannot
 // truncate, describing only the three MCP tools, their arguments, and their error codes. It is not listed by
 // All, since only the MCP server and 'qconnect mcp --help' show it; 'qconnect agents' stays the one guide for
 // the CLI and covers the full catalog, including MCP, in more depth.
-func MCP() Topic {
-	return Topic{Name: "mcp", Short: "The MCP tools search, describe, and invoke", Text: mcpGuide}
-}
-
-// listMarker is the start of a numbered or bulleted item; a wrapped item continues under its text.
-var listMarker = regexp.MustCompile(`^ *(\d+\. |- )`)
-
-// Wrap breaks every line of text wider than width at its spaces. A continuation keeps the indentation of
-// its line, and under a list item the column of the item's text, so items and commands stay recognisable.
-// An indentation deeper than half the width is given up, and a word wider than the width is cut, so no
-// line of the result is wider than width.
-func Wrap(text string, width int) string {
-	width = max(width, 1)
-	var out []string
-	for _, line := range strings.Split(text, "\n") {
-		out = append(out, wrapLine(line, width)...)
-	}
-	return strings.Join(out, "\n")
-}
-
-func wrapLine(line string, width int) []string {
-	if utf8.RuneCountInString(line) <= width {
-		return []string{line}
-	}
-	lead := len(line) - len(strings.TrimLeft(line, " "))
-	hang := lead
-	if marker := listMarker.FindString(line); marker != "" {
-		hang = len(marker)
-	}
-	if lead > width/2 {
-		lead = 0
-	}
-	if hang > width/2 {
-		hang = lead
-	}
-	var lines []string
-	current, empty := strings.Repeat(" ", lead), true
-	for _, word := range strings.Fields(line) {
-		if !empty && utf8.RuneCountInString(current)+1+utf8.RuneCountInString(word) <= width {
-			current += " " + word
-			continue
-		}
-		if !empty {
-			lines = append(lines, current)
-			current = strings.Repeat(" ", hang)
-		}
-		for utf8.RuneCountInString(current)+utf8.RuneCountInString(word) > width {
-			room := width - utf8.RuneCountInString(current)
-			runes := []rune(word)
-			lines = append(lines, current+string(runes[:room]))
-			current, word = strings.Repeat(" ", hang), string(runes[room:])
-		}
-		current, empty = current+word, false
-	}
-	return append(lines, current)
+func MCP() helptopics.Topic {
+	return helptopics.Topic{Name: "mcp", Short: "The MCP tools search, describe, and invoke", Text: mcpGuide}
 }
 
 const start = `Qatlas Connect reaches the services you already run through named connections. A first session takes a few minutes:
