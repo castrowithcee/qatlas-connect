@@ -19,7 +19,7 @@ var wantTools = []string{
 func TestRegisterPublishesMetadataAndTools(t *testing.T) {
 	reg := registered(t)
 	metadata, ok := reg.ProviderMetadata(Provider)
-	if !ok || metadata.Name != "Amazon Web Services" || !metadata.ServiceLevel || metadata.DocPage != "aws.md" {
+	if !ok || metadata.Name != "Amazon Web Services" || !metadata.ServiceLevel || metadata.DocPath() != "aws/setup.md" {
 		t.Fatalf("metadata = %+v", metadata)
 	}
 	var ids []string
