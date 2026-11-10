@@ -12,9 +12,9 @@ updated: 2026-11-10
 Google Maps is a provider for Google Maps Platform with one API key. It reads the details of one place,
 searches places by text or around a point, predicts places from typed input, and resolves place photos to
 short-lived addresses in Places API (New), geocodes addresses and coordinates with the Geocoding API, and
-validates postal addresses with Address Validation API, reads current weather and forecasts for a coordinate
-with Weather API, and reads the current air quality, its forecast, and its history at a coordinate with Air
-Quality API. Every tool is a read except
+validates postal addresses with Address Validation API, reads current weather, forecasts, history, and public
+alerts for a coordinate with Weather API, and reads the current air quality, its forecast, and its history at a
+coordinate with Air Quality API. Every tool is a read except
 `addressvalidation.feedback`, which reports to Google and needs confirmation. The connection takes no target, because a key
 reaches what its Cloud project and the key's restrictions allow, not a part of an account.
 
@@ -39,8 +39,8 @@ The profile `read` is the recommended one and holds `google.maps.places.get`, `g
 `google.maps.places.search-nearby`, `google.maps.places.autocomplete`, `google.maps.photos.get`,
 `google.maps.geocoding.geocode`, `google.maps.geocoding.reverse`, `google.maps.addressvalidation.validate`,
 `google.maps.weather.current`, `google.maps.weather.minutes`, `google.maps.weather.hours`,
-`google.maps.weather.days`, `google.maps.airquality.current`, `google.maps.airquality.forecast`, and
-`google.maps.airquality.history`.
+`google.maps.weather.days`, `google.maps.weather.history`, `google.maps.weather.alerts`,
+`google.maps.airquality.current`, `google.maps.airquality.forecast`, and `google.maps.airquality.history`.
 `google.maps.addressvalidation.feedback` is in no profile; see [addressvalidation](addressvalidation.md#profiles-and-effects).
 
 ## Field mask and billing group
@@ -188,6 +188,6 @@ Left out on purpose:
   `searchAlongRouteParameters` that need a polyline of the Routes API, and the `routeModifiers` of the routing
   parameters.
 - Photo media: the image is never loaded, its address is never fetched, and a redirect is never followed.
-- Weather history, public weather alerts, and weather map tiles; see [weather](weather.md#left-out-on-purpose).
+- Weather map tiles; see [weather](weather.md#left-out-on-purpose).
 - A tool that creates session tokens: the token is the caller's string and is only passed on.
 - Air Quality heatmap tiles, which return image data; see [airquality](airquality.md#left-out-on-purpose).
