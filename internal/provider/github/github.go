@@ -849,7 +849,7 @@ func Register(reg *capability.Registry) error {
 		labelsOperations(), milestonesOperations(), commentMaintenanceOperations(), commentVisibilityOperations(), reactionsOperations(),
 		subIssuesOperations(), issueDependenciesOperations(), issueTypesOperations(), issueFieldsOperations(),
 		discussionOperations(), notificationOperations(), gistOperations(), securityAlertOperations(), advisoryOperations(),
-		copilotOperations(), environmentsOperations(), referenceOperations())...)
+		copilotOperations(), environmentsOperations(), deploymentsOperations(), referenceOperations())...)
 	for i := range operations {
 		operations[i].Descriptor = withGroup(withTargetArgument(operations[i].Descriptor))
 	}
@@ -1710,6 +1710,9 @@ func (c *Client) restSubject(request *http.Request) subject {
 			s.what = what
 		}
 		if what := environmentsSubject(parts[2]); what != "" {
+			s.what = what
+		}
+		if what := deploymentsSubject(parts[2]); what != "" {
 			s.what = what
 		}
 		// After environmentsSubject, which names a variables path below an environment only generically.
