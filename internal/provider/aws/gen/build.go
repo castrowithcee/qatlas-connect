@@ -662,6 +662,14 @@ func (c *converter) convert(target string, traits *object, output bool, depth in
 		return shape, schema, nil
 	case "structure":
 		return c.structure(s, output, depth)
+	case "union":
+		shape, schema, err := c.structure(s, output, depth)
+		if err == nil && !output {
+			// A union is a structure with exactly one member set; the query protocol encodes it the same way.
+			schema.set("minProperties", 1)
+			schema.set("maxProperties", 1)
+		}
+		return shape, schema, err
 	case "list", "set":
 		mo := s.obj("member")
 		_, ts, err := c.m.resolve(mo.str("target"))
@@ -806,6 +814,11 @@ func (t *tool) makeSamples(m *Model) error {
 		if f.IdempotencyToken {
 			continue
 		}
+		if strings.HasPrefix(t.op.TargetCheck, "arn-") && slices.Contains(t.targetArgs, f.Key) {
+			// The generated test binds this account; a repeated character would fail the target check.
+			args.set(f.Key, sampleARN)
+			continue
+		}
 		v, err := t.sample(f.Key, f.Shape, props[f.Key])
 		if err != nil {
 			return err
@@ -845,6 +858,13 @@ func (t *tool) makeSamples(m *Model) error {
 // sampleChars are the characters a sample string is made of, tried in order until one fits the pattern.
 var sampleChars = []string{"a", "A", "0", "x", "-", "_", "/", " "}
 
+// sampleARN is an ARN that passes the ARN target checks in the account the generated tests bind.
+const sampleARN = "arn:aws:iam::123456789012:role/a"
+
+// sampleWords are whole values tried after the repeated characters, for patterns with a fixed prefix such as
+// the version IDs of IAM policies.
+var sampleWords = []string{"v1"}
+
 func (t *tool) sample(path string, s *awsquery.Shape, rawSchema any) (any, error) {
 	schema, _ := rawSchema.(map[string]any)
 	switch s.Kind {
@@ -863,6 +883,11 @@ func (t *tool) sample(path string, s *awsquery.Shape, rawSchema any) (any, error
 		for _, ch := range sampleChars {
 			v := strings.Repeat(ch, n)
 			if max := intOf(schema["maxLength"], len(v)); len(v) <= max && (re == nil || re.MatchString(v)) {
+				return v, nil
+			}
+		}
+		for _, v := range sampleWords {
+			if len(v) >= n && len(v) <= intOf(schema["maxLength"], len(v)) && re != nil && re.MatchString(v) {
 				return v, nil
 			}
 		}
@@ -885,6 +910,9 @@ func (t *tool) sample(path string, s *awsquery.Shape, rawSchema any) (any, error
 		props, _ := schema["properties"].(map[string]any)
 		o := newObject()
 		for _, f := range s.Fields {
+			if _, one := schema["maxProperties"]; one && len(o.keys) == 1 {
+				break
+			}
 			v, err := t.sample(path+"."+f.Key, f.Shape, props[f.Key])
 			if err != nil {
 				return nil, err

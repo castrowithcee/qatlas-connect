@@ -131,7 +131,7 @@ type Example struct {
 var (
 	Effects      = []string{"read", "create", "update", "delete", "execute"}
 	Idempotency  = []string{"safe", "idempotent", "non-idempotent"}
-	TargetChecks = []string{"none", "account-argument", "arn-account", "arn-region", "bucket-owner"}
+	TargetChecks = []string{"none", "account-argument", "arn-account", "arn-account-or-managed-policy", "arn-region", "bucket-owner"}
 	PolicyChecks = []string{"none", "trust-policy", "bucket-policy", "identity-policy", "pab-tighten"}
 	Forms        = []string{"account-id"}
 )
