@@ -17,9 +17,9 @@ import (
 	"github.com/castrowithcee/qatlas-connect/internal/config"
 	"github.com/castrowithcee/qatlas-connect/internal/invokelog"
 	"github.com/castrowithcee/qatlas-connect/internal/provider"
-	"github.com/castrowithcee/qatlas-connect/internal/redact"
 	"github.com/castrowithcee/qatlas-connect/internal/secret"
 	"github.com/castrowithcee/qatlas-connect/internal/vault"
+	"github.com/castrowithcee/qatlas-kit/redact"
 )
 
 // invokeTimeout bounds one invoke in the CLI and in the MCP broker: reading stdin, resolving the secret,

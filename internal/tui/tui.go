@@ -27,10 +27,10 @@ import (
 	"github.com/castrowithcee/qatlas-connect/internal/config"
 	"github.com/castrowithcee/qatlas-connect/internal/manage"
 	"github.com/castrowithcee/qatlas-connect/internal/provider"
-	"github.com/castrowithcee/qatlas-connect/internal/redact"
 	"github.com/castrowithcee/qatlas-connect/internal/secret"
 	"github.com/castrowithcee/qatlas-connect/internal/selfupdate"
 	"github.com/castrowithcee/qatlas-connect/internal/uiprefs"
+	"github.com/castrowithcee/qatlas-kit/redact"
 )
 
 // Tester checks one configured connection and reports the stable outcome class. The editor holds no

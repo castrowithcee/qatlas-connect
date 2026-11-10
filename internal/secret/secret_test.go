@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"github.com/castrowithcee/qatlas-connect/internal/config"
-	"github.com/castrowithcee/qatlas-connect/internal/redact"
+	"github.com/castrowithcee/qatlas-kit/redact"
 )
 
 // Every stage gets its own canary, so a test can tell not only that a secret arrived but from where.

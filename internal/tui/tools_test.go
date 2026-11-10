@@ -18,8 +18,8 @@ import (
 	"github.com/castrowithcee/qatlas-connect/internal/provider/bookstack"
 	"github.com/castrowithcee/qatlas-connect/internal/provider/github"
 	"github.com/castrowithcee/qatlas-connect/internal/provider/telegram"
-	"github.com/castrowithcee/qatlas-connect/internal/redact"
 	"github.com/castrowithcee/qatlas-connect/internal/secret"
+	"github.com/castrowithcee/qatlas-kit/redact"
 )
 
 // toolsModel builds an editor over the given registry with one service and one credential of its first

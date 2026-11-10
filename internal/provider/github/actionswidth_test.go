@@ -10,7 +10,7 @@ import (
 	"testing"
 
 	"github.com/castrowithcee/qatlas-connect/internal/application"
-	"github.com/castrowithcee/qatlas-connect/internal/redact"
+	"github.com/castrowithcee/qatlas-kit/redact"
 )
 
 const widthHeadSHA = "009b8a3a9ccbb128af87f9b1c0f4c62e8a304f6d"

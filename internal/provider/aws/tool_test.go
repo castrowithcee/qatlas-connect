@@ -13,7 +13,7 @@ import (
 	"github.com/castrowithcee/qatlas-connect/internal/provider/aws/awsquery"
 	"github.com/castrowithcee/qatlas-connect/internal/provider/aws/endpoints"
 	"github.com/castrowithcee/qatlas-connect/internal/provider/aws/gen"
-	"github.com/castrowithcee/qatlas-connect/internal/redact"
+	"github.com/castrowithcee/qatlas-kit/redact"
 )
 
 // maxDecodedBytes is the cap of DecodedMessage in the STS curation table (gen/table_sts.go).

@@ -9,7 +9,7 @@ import (
 	"testing"
 
 	"github.com/castrowithcee/qatlas-connect/internal/application"
-	"github.com/castrowithcee/qatlas-connect/internal/redact"
+	"github.com/castrowithcee/qatlas-kit/redact"
 )
 
 const widthIssueRef = `{"id":"I_9","number":9,"title":"Other","state":"OPEN","url":"https://github.com/octo-org/example/issues/9",` +

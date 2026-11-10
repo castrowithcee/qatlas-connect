@@ -15,7 +15,7 @@ import (
 	"time"
 
 	"github.com/castrowithcee/qatlas-connect/internal/provider"
-	"github.com/castrowithcee/qatlas-connect/internal/provider/ratelimit"
+	"github.com/castrowithcee/qatlas-kit/ratelimit"
 )
 
 // The canaries stand for everything a transport failure carries and no diagnostic may publish: the full
