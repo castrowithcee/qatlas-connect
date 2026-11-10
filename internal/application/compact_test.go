@@ -202,7 +202,7 @@ func TestFieldsSelectOnlyEntriesOfTheResultList(t *testing.T) {
 	}{
 		{"fake.things.list", []string{"nme"}, `unknown field "nme" (did you mean "name"?); valid fields: id, name`},
 		{"fake.things.list", []string{}, "fields must name at least one field; valid fields: id, name"},
-		{"fake.pairs.list", []string{"x"}, "fields is not supported: fake.pairs.list returns no result list"},
+		{"fake.pairs.list", []string{"x"}, `unknown field "x" (did you mean "a"?); valid fields: a, b`},
 	} {
 		_, err := invoke(tt.id, tt.fields)
 		var invalid *InvalidRequestError
@@ -248,5 +248,47 @@ func TestUnionTypesAreDescribed(t *testing.T) {
 		if row.Type != want[row.Name] {
 			t.Errorf("%s: type = %q, want %q", row.Name, row.Type, want[row.Name])
 		}
+	}
+}
+
+func TestDefaultFieldsAreCheckedAndPublished(t *testing.T) {
+	object := `{"type":"object","properties":{"id":{"type":"integer"},"detail":{"type":"string"},` +
+		`"tags":{"type":"array","items":{"type":"object","properties":{"n":{"type":"string"}}}},` +
+		`"truncated":{"type":"boolean"}},"required":["id","detail","truncated"]}`
+	for _, tt := range []struct {
+		output string
+		fields []string
+		want   string
+	}{
+		{object, []string{"id", "nope"}, `default field "nope" is not a member of the result`},
+		{object, []string{"id", "id"}, `default field "id" is declared twice`},
+		{object, []string{"id"}, "default fields need a result without exactly one list of objects"},
+	} {
+		descriptor := testDescriptor("fake.things.get", capability.EffectRead, capability.ConfirmationNone)
+		descriptor.OutputSchema = json.RawMessage(tt.output)
+		descriptor.DefaultFields = tt.fields
+		err := capability.NewRegistry().Register("fake", capability.Operation{Descriptor: descriptor,
+			Handler: func(context.Context, *config.Resolved, *secret.Resolver, *redact.Redactor, json.RawMessage) (any, error) {
+				return nil, nil
+			}})
+		if err == nil || !strings.Contains(err.Error(), tt.want) {
+			t.Errorf("%v: err = %v, want %q", tt.fields, err, tt.want)
+		}
+	}
+
+	descriptor := testDescriptor("fake.things.get", capability.EffectRead, capability.ConfirmationNone)
+	descriptor.OutputSchema = json.RawMessage(`{"type":"object","properties":{"id":{"type":"integer"},` +
+		`"detail":{"type":"string"},"truncated":{"type":"boolean"}},"required":["id","detail","truncated"]}`)
+	descriptor.DefaultFields = []string{"id"}
+	if got := string(PublishedDescriptor(descriptor).OutputSchema); !strings.Contains(got, `"required":["id","truncated"]`) {
+		t.Errorf("published schema = %s, want detail no longer required", got)
+	}
+	compact := Compact(descriptor)
+	var shown []string
+	for _, field := range compact.Fields {
+		shown = append(shown, field.Name)
+	}
+	if !equalStrings(shown, []string{"id", "truncated"}) || !equalStrings(compact.SelectableFields, []string{"detail"}) {
+		t.Errorf("compact fields = %v, selectable = %v", shown, compact.SelectableFields)
 	}
 }

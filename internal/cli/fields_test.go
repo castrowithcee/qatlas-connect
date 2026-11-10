@@ -12,8 +12,8 @@ import (
 	"github.com/castrowithcee/qatlas-kit/redact"
 )
 
-// listRegistry adds a tool with a result list, and one without, to the fake registry; calls counts how often
-// a handler ran.
+// listRegistry adds a tool with a result list, one without, and one with default fields to the fake
+// registry; calls counts how often a handler ran.
 func listRegistry(t *testing.T, calls *int) *capability.Registry {
 	t.Helper()
 	registry := fakeRegistry(t)
@@ -45,6 +45,17 @@ func listRegistry(t *testing.T, calls *int) *capability.Registry {
 			Descriptor: descriptor("bookstack.things.get", `{"type":"object","properties":{"id":{"type":"integer"}},`+
 				`"required":["id"],"additionalProperties":false}`),
 			Handler: handler(map[string]any{"id": 1}),
+		},
+		capability.Operation{
+			Descriptor: func() capability.Descriptor {
+				d := descriptor("bookstack.things.read", `{"type":"object","properties":{"id":{"type":"integer"},`+
+					`"body":{"type":"string"},"body_truncated":{"type":"boolean"},"detail":{"type":"string"},`+
+					`"truncated":{"type":"boolean"}},"required":["id","detail"],"additionalProperties":false}`)
+				d.DefaultFields = []string{"id", "body"}
+				return d
+			}(),
+			Handler: handler(map[string]any{"id": 1, "body": "b", "body_truncated": true, "detail": "d",
+				"truncated": false}),
 		},
 	)
 	if err != nil {
@@ -78,8 +89,16 @@ func TestFieldsSelectAlikeOverCLIAndMCP(t *testing.T) {
 		`"arguments":{"operation":"bookstack.things.list","fields":["id","name"]}}}` + "\n" +
 		`{"jsonrpc":"2.0","id":"bad","method":"tools/call","params":{` + mcpTestMeta + `,"name":"invoke",` +
 		`"arguments":{"operation":"bookstack.things.list","fields":["id","nam"]}}}` + "\n" +
-		`{"jsonrpc":"2.0","id":"none","method":"tools/call","params":{` + mcpTestMeta + `,"name":"invoke",` +
+		`{"jsonrpc":"2.0","id":"object","method":"tools/call","params":{` + mcpTestMeta + `,"name":"invoke",` +
 		`"arguments":{"operation":"bookstack.things.get","fields":["id"]}}}` + "\n" +
+		`{"jsonrpc":"2.0","id":"default","method":"tools/call","params":{` + mcpTestMeta + `,"name":"invoke",` +
+		`"arguments":{"operation":"bookstack.things.read"}}}` + "\n" +
+		`{"jsonrpc":"2.0","id":"full","method":"tools/call","params":{` + mcpTestMeta + `,"name":"invoke",` +
+		`"arguments":{"operation":"bookstack.things.read","full":true}}}` + "\n" +
+		`{"jsonrpc":"2.0","id":"detail","method":"tools/call","params":{` + mcpTestMeta + `,"name":"invoke",` +
+		`"arguments":{"operation":"bookstack.things.read","fields":["detail"]}}}` + "\n" +
+		`{"jsonrpc":"2.0","id":"describe-read","method":"tools/call","params":{` + mcpTestMeta + `,"name":"describe",` +
+		`"arguments":{"operation":"bookstack.things.read"}}}` + "\n" +
 		`{"jsonrpc":"2.0","id":"describe","method":"tools/call","params":{` + mcpTestMeta + `,"name":"describe",` +
 		`"arguments":{"operation":"bookstack.things.list"}}}` + "\n" +
 		`{"jsonrpc":"2.0","id":"describe-get","method":"tools/call","params":{` + mcpTestMeta + `,"name":"describe",` +
@@ -97,29 +116,59 @@ func TestFieldsSelectAlikeOverCLIAndMCP(t *testing.T) {
 	if string(envelope.Result) != fieldsWant {
 		t.Fatalf("MCP result = %s, want %s", envelope.Result, fieldsWant)
 	}
+	refused := toolResultFrom(t, responses[`"bad"`])
+	if want := `invalid-request: unknown field "nam" (did you mean "name"?); valid fields: id, name, note`; !refused.IsError ||
+		refused.Content[0].Text != want {
+		t.Errorf("bad = %+v, want %q", refused.Content, want)
+	}
+	// A result without a list selects among its own members; default fields narrow it unless full is set.
 	for id, want := range map[string]string{
-		`"bad"`:  `invalid-request: unknown field "nam" (did you mean "name"?); valid fields: id, name, note`,
-		`"none"`: "invalid-request: fields is not supported: bookstack.things.get returns no result list",
+		`"object"`:  `{"id":1}`,
+		`"default"`: `{"body":"b","body_truncated":true,"id":1,"truncated":false}`,
+		`"full"`:    `{"body":"b","body_truncated":true,"detail":"d","id":1,"truncated":false}`,
+		`"detail"`:  `{"detail":"d","truncated":false}`,
 	} {
-		refused := toolResultFrom(t, responses[id])
-		if !refused.IsError || refused.Content[0].Text != want {
-			t.Errorf("%s = %+v, want %q", id, refused.Content, want)
+		answer := toolResultFrom(t, responses[id])
+		if answer.IsError {
+			t.Fatalf("%s failed: %s", id, answer.Content[0].Text)
 		}
+		var envelope struct {
+			Result json.RawMessage `json:"result"`
+		}
+		decodeRaw(t, answer.Structured, &envelope)
+		if string(envelope.Result) != want {
+			t.Errorf("%s = %s, want %s", id, envelope.Result, want)
+		}
+	}
+	if text := toolResultFrom(t, responses[`"describe-read"`]).Content[0].Text; !strings.Contains(text,
+		`"selectable_fields":["detail"]`) || strings.Contains(text, `{"name":"detail"`) {
+		t.Errorf("describe of a tool with default fields = %s", text)
 	}
 	if !strings.Contains(toolResultFrom(t, responses[`"describe"`]).Content[0].Text,
 		`"selectable_fields":["id","name","note"]`) ||
 		strings.Contains(toolResultFrom(t, responses[`"describe-get"`]).Content[0].Text, "selectable_fields") {
 		t.Errorf("describe does not name the selectable fields of the list tool alone")
 	}
-	if calls != 3 {
-		t.Fatalf("handler ran %d times, want 3: the refused calls must not reach the provider", calls)
+	if calls != 7 {
+		t.Fatalf("handler ran %d times, want 7: the refused call must not reach the provider", calls)
+	}
+
+	var stdout, stderr strings.Builder
+	opts := testOptions(t, nil)
+	opts.Input = strings.NewReader("")
+	if code := run(newRootCommand(opts, registry), opts,
+		[]string{"invoke", "bookstack.things.read", "--config", config, "--full"}, &stdout, &stderr); code != exitOK {
+		t.Fatalf("--full: exit=%d stderr=%q", code, stderr.String())
+	}
+	if _, _, _, result := invokeResult(t, stdout.String()); !strings.Contains(string(result), `"detail":"d"`) {
+		t.Fatalf("--full result = %s", result)
 	}
 
 	// The CLI refuses the same requests, before any provider, with the same message.
 	calls = 0
 	for _, tc := range []struct{ tool, fields, want string }{
 		{"bookstack.things.list", "id,nam", `unknown field "nam"`},
-		{"bookstack.things.get", "id", "returns no result list"},
+		{"bookstack.things.get", "nme", `unknown field "nme"`},
 	} {
 		var stdout, stderr strings.Builder
 		opts := testOptions(t, nil)

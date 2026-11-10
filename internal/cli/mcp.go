@@ -858,7 +858,7 @@ func mcpTools() []mcpTool {
 		{
 			Name:        "invoke",
 			Description: "Invoke one tool through a configured connection; operation is the tool ID",
-			InputSchema: json.RawMessage(`{"type":"object","properties":{"operation":{"type":"string"},"version":{"type":"integer"},"connection":{"type":"string"},"arguments":{"type":"object"},"confirm":{"type":"boolean"},"fields":{"type":"array","items":{"type":"string"},"description":"Keep only these members in each entry of the tool's result list; see selectable_fields of describe"}},"required":["operation"],"additionalProperties":false}`),
+			InputSchema: json.RawMessage(`{"type":"object","properties":{"operation":{"type":"string"},"version":{"type":"integer"},"connection":{"type":"string"},"arguments":{"type":"object"},"confirm":{"type":"boolean"},"fields":{"type":"array","items":{"type":"string"},"description":"Keep only these members in each entry of the tool's result list, or of a result without one; see fields and selectable_fields of describe"},"full":{"type":"boolean","description":"Return the whole result instead of the default fields describe lists"}},"required":["operation"],"additionalProperties":false}`),
 		},
 	}
 }

@@ -122,7 +122,11 @@ type Descriptor struct {
 	Arguments     []Argument        `json:"arguments"`
 	Fields        []Field           `json:"fields"`
 	ImpliedFields []ImpliedField    `json:"implied_fields,omitempty"`
-	Examples      []Example         `json:"examples"`
+	// DefaultFields names the top-level members of the result object that an invoke answers unless the
+	// caller asks for the whole result or selects fields; empty answers every member. A tool whose result
+	// has exactly one list of objects selects within that list instead and declares none.
+	DefaultFields []string  `json:"default_fields,omitempty"`
+	Examples      []Example `json:"examples"`
 }
 
 // Handler is the provider-independent dispatch seam used by the application core. Implementations open
@@ -711,6 +715,10 @@ func (d Descriptor) clone() Descriptor {
 	out.InputSchema = append(json.RawMessage(nil), d.InputSchema...)
 	out.OutputSchema = append(json.RawMessage(nil), d.OutputSchema...)
 	out.Tags, out.Arguments, out.Fields, out.Examples, out.ImpliedFields = nil, nil, nil, nil, nil
+	out.DefaultFields = append([]string(nil), d.DefaultFields...)
+	if len(out.DefaultFields) == 0 {
+		out.DefaultFields = nil
+	}
 	if len(d.ImpliedFields) > 0 {
 		out.ImpliedFields = make([]ImpliedField, len(d.ImpliedFields))
 		for i, implied := range d.ImpliedFields {
@@ -799,6 +807,9 @@ func (d Descriptor) validate(provider string, serviceLevel bool) error {
 	if err := d.validateImplied(); err != nil {
 		return err
 	}
+	if err := d.validateDefaultFields(); err != nil {
+		return err
+	}
 	for i, example := range d.Examples {
 		if err := validateSchemaValue(example.Arguments); err != nil {
 			return fmt.Errorf("operation %q: example %d arguments %w", d.ID, i+1, err)
@@ -837,6 +848,43 @@ func (d Descriptor) validateImplied() error {
 		if _, ok := list.Items.Properties[implied.Field]; !ok {
 			return fmt.Errorf("operation %q: implied field %q is not a member of the entries of %q", d.ID, implied.Field, implied.List)
 		}
+	}
+	return nil
+}
+
+// validateDefaultFields checks that every default field is a distinct top-level member of the output
+// schema and that the result is not a single list of objects, whose entries a selection names instead.
+func (d Descriptor) validateDefaultFields() error {
+	if len(d.DefaultFields) == 0 {
+		return nil
+	}
+	if err := uniqueNames("default field", len(d.DefaultFields), func(i int) string { return d.DefaultFields[i] }); err != nil {
+		return fmt.Errorf("operation %q: %w", d.ID, err)
+	}
+	var output struct {
+		Properties map[string]struct {
+			Type  string `json:"type"`
+			Items struct {
+				Type string `json:"type"`
+			} `json:"items"`
+		} `json:"properties"`
+	}
+	if json.Unmarshal(d.OutputSchema, &output) != nil {
+		return fmt.Errorf("operation %q: output schema cannot be read", d.ID)
+	}
+	for _, name := range d.DefaultFields {
+		if _, ok := output.Properties[name]; !ok {
+			return fmt.Errorf("operation %q: default field %q is not a member of the result", d.ID, name)
+		}
+	}
+	lists := 0
+	for _, property := range output.Properties {
+		if property.Type == "array" && property.Items.Type == "object" {
+			lists++
+		}
+	}
+	if lists == 1 {
+		return fmt.Errorf("operation %q: default fields need a result without exactly one list of objects", d.ID)
 	}
 	return nil
 }

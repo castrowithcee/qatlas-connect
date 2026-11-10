@@ -316,7 +316,7 @@ func newDescribeCommand(opts *Options, registry *capability.Registry, use string
 // newInvokeCommand runs one tool. The tool ID is positional and only the schema-dependent arguments come
 // from --arg or stdin, so an agent can never smuggle a route, a header, or a credential past the contract.
 func newInvokeCommand(opts *Options, registry *capability.Registry) *cobra.Command {
-	var confirm bool
+	var confirm, full bool
 	var flagArgs, fields []string
 	cmd := &cobra.Command{
 		Use:   "invoke <tool-id>",
@@ -333,8 +333,13 @@ func newInvokeCommand(opts *Options, registry *capability.Registry) *cobra.Comma
 			"--confirm carries the confirmation a mutating tool requires for this request.\n\n" +
 			"--fields keeps only the named members in each entry of the tool's result list, as a comma\n" +
 			"separated list or repeated; the other members of the result stay. The selectable names are the\n" +
-			"selectable_fields of 'qconnect describe'. An unknown name, or a tool without a result list, is\n" +
-			"refused with invalid-request before any provider is contacted.\n\n" +
+			"selectable_fields of 'qconnect describe'. For a result without a list, --fields keeps those\n" +
+			"members of the result itself. An unknown name is refused with invalid-request before any\n" +
+			"provider is contacted.\n\n" +
+			"Where 'qconnect describe' lists only some result fields and names the others under\n" +
+			"selectable_fields, invoke answers only the listed ones; --full returns the whole result.\n" +
+			"has_more, next_cursor, truncated, and the _truncated and _total_count member of a kept field\n" +
+			"always stay.\n\n" +
 			"Every invoke ends within 60 seconds, reading stdin, resolving the secret, waiting for a rate\n" +
 			"limit, and the provider's requests included. What reaches that limit ends with timeout and\n" +
 			"the next step; a rate-limit pause that would outlast it ends at once with rate-limited and the\n" +
@@ -367,7 +372,7 @@ func newInvokeCommand(opts *Options, registry *capability.Registry) *cobra.Comma
 			core.SetAudit(&audit)
 			response, err := core.Invoke(ctx, application.InvokeRequest{
 				Operation: args[0], Connection: opts.Connection, Arguments: arguments, Confirmed: confirm,
-				Fields: fields,
+				Fields: fields, Full: full,
 			})
 			if err != nil {
 				if errors.Is(ctx.Err(), context.DeadlineExceeded) {
@@ -385,7 +390,9 @@ func newInvokeCommand(opts *Options, registry *capability.Registry) *cobra.Comma
 	cmd.Flags().BoolVar(&confirm, "confirm", false,
 		"confirm this exact request; required by a tool whose contract demands confirmation")
 	cmd.Flags().StringSliceVar(&fields, "fields", nil,
-		"keep only these members in each entry of the result list, comma separated or repeated")
+		"keep only these members in each entry of the result list, or of a result without one, comma separated or repeated")
+	cmd.Flags().BoolVar(&full, "full", false,
+		"return the whole result instead of the default fields that describe lists")
 	cmd.Flags().StringArrayVar(&flagArgs, "arg", nil,
 		"one tool argument as name=value, repeated per argument; typed by the input schema")
 	return cmd
