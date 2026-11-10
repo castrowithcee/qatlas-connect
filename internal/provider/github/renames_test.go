@@ -247,6 +247,7 @@ var currentToolIDs = []string{
 	"github.traffic-views.get",
 	"github.trees.get",
 	"github.users.search",
+	"github.workflow-artifacts.delete",
 	"github.workflow-artifacts.list",
 	"github.workflow-files.create",
 	"github.workflow-files.get",
@@ -257,8 +258,12 @@ var currentToolIDs = []string{
 	"github.workflow-jobs.log",
 	"github.workflow-permissions.get",
 	"github.workflow-permissions.update",
+	"github.workflow-run-approvals.list",
+	"github.workflow-run-attempts.get",
 	"github.workflow-run-logs.delete",
 	"github.workflow-runs.cancel",
+	"github.workflow-runs.delete",
+	"github.workflow-runs.force-cancel",
 	"github.workflow-runs.get",
 	"github.workflow-runs.list",
 	"github.workflow-runs.rerun",
@@ -283,7 +288,7 @@ func TestRegistryHoldsExactlyTheCurrentToolIDs(t *testing.T) {
 	sort.Strings(got)
 	want := append([]string(nil), currentToolIDs...)
 	sort.Strings(want)
-	if strings.Join(got, "\n") != strings.Join(want, "\n") || len(got) != 258 {
+	if strings.Join(got, "\n") != strings.Join(want, "\n") || len(got) != 263 {
 		t.Errorf("registry holds %d tools, differing from the expected %d IDs", len(got), len(want))
 	}
 	if err := reg.ValidateRenames(); err != nil {
@@ -325,6 +330,9 @@ func TestRenamedToolsCoverEveryChangedID(t *testing.T) {
 		"github.action-variables.list": true, "github.action-variables.get": true, "github.action-variables.create": true,
 		"github.action-variables.update": true, "github.action-variables.delete": true,
 		"github.action-caches.list": true, "github.action-caches.delete": true, "github.action-cache-usage.get": true,
+		"github.workflow-runs.delete": true, "github.workflow-runs.force-cancel": true,
+		"github.workflow-artifacts.delete": true, "github.workflow-run-attempts.get": true,
+		"github.workflow-run-approvals.list":     true,
 		"github.deployment-branch-policies.list": true, "github.deployment-branch-policies.create": true,
 		"github.deployment-branch-policies.update": true, "github.deployment-branch-policies.delete": true,
 		"github.deployment-protection-rules.list": true, "github.deployment-protection-rules.get": true,
