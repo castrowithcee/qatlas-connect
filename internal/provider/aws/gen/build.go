@@ -63,6 +63,7 @@ type tool struct {
 	fields                    []descField
 	rules                     []outputRule
 	targetArgs, policyArgs    []string
+	selfRole                  string
 
 	// Generated test: the arguments, the form parameters they encode to, the answer, and the result keys.
 	sampleArgs   string
@@ -359,6 +360,14 @@ func (t *tool) bindInput(m *Model, in []member, pag *pagingPlan) error {
 			}
 			*list.out = append(*list.out, orDefault(t.op.Arguments[name].Name, snake(name)))
 		}
+	}
+	if name := t.op.SelfRole; name != "" {
+		// A required member, so the own-role check can never be skipped by leaving the argument out.
+		mm, ok := find(in, name)
+		if !ok || !offered[name] || mm.kind != "string" || !mm.traits.has("smithy.api#required") {
+			return t.failf("self_role %s is not an offered, required top-level string member", name)
+		}
+		t.selfRole = orDefault(t.op.Arguments[name].Name, snake(name))
 	}
 	if pag != nil {
 		if pag.sizeMember != "" {
@@ -819,6 +828,10 @@ func (t *tool) makeSamples(m *Model) error {
 			args.set(f.Key, sampleARN)
 			continue
 		}
+		if t.op.PolicyCheck == "trust-policy" && slices.Contains(t.policyArgs, f.Key) {
+			args.set(f.Key, sampleTrustPolicy)
+			continue
+		}
 		v, err := t.sample(f.Key, f.Shape, props[f.Key])
 		if err != nil {
 			return err
@@ -860,6 +873,9 @@ var sampleChars = []string{"a", "A", "0", "x", "-", "_", "/", " "}
 
 // sampleARN is an ARN that passes the ARN target checks in the account the generated tests bind.
 const sampleARN = "arn:aws:iam::123456789012:role/a"
+
+// sampleTrustPolicy is a trust policy that passes the trust-policy check: one AWS service principal.
+const sampleTrustPolicy = `{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Principal":{"Service":"ec2.amazonaws.com"},"Action":"sts:AssumeRole"}]}`
 
 // sampleWords are whole values tried after the repeated characters, for patterns with a fixed prefix such as
 // the version IDs of IAM policies.

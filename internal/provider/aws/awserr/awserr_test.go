@@ -48,6 +48,8 @@ func TestClassify(t *testing.T) {
 		{"conflict", 409, "ConflictException", "", provider.ClassProviderError, 0},
 		{"limit exceeded", 400, "LimitExceededException", "", provider.ClassProviderError, 0},
 		{"service quota", 402, "ServiceQuotaExceededException", "", provider.ClassProviderError, 0},
+		{"iam limit exceeded", 409, "LimitExceeded", "", provider.ClassProviderError, 0},
+		{"malformed policy document", 400, "MalformedPolicyDocument", "", provider.ClassProviderError, 0},
 		{"retry-after ignored when not limited", 400, "AccessDenied", "9", provider.ClassPermission, 0},
 	}
 	for _, test := range tests {

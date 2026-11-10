@@ -282,6 +282,9 @@ var generatedSpecs = []toolSpec{
 		}
 		fmt.Fprintf(b, "targetCheck: %s, targetArgs: %s, policyCheck: %s, policyArgs: %s,\n",
 			lit(t.op.TargetCheck), stringSlice(t.targetArgs), lit(t.op.PolicyCheck), stringSlice(t.policyArgs))
+		if t.selfRole != "" {
+			fmt.Fprintf(b, "selfRole: %s,\n", lit(t.selfRole))
+		}
 		if t.op.AccountCheck {
 			b.WriteString("accountCheck: true,\n")
 		}
@@ -340,7 +343,7 @@ func renderTests(b *bytes.Buffer, tools []*tool, exclusions []exclusion) {
 var generatedCases = []struct {
 	tool, action, arguments, answer string
 	form                            map[string]string
-	token                           bool
+	token, confirm, listed          bool
 	result                          []string
 }{
 `)
@@ -349,7 +352,7 @@ var generatedCases = []struct {
 		for _, k := range sortedKeys(t.sampleForm) {
 			fmt.Fprintf(b, "%s: %s, ", lit(k), lit(t.sampleForm[k]))
 		}
-		fmt.Fprintf(b, "},\ntoken: %t, result: %s},\n", t.hasToken, stringSlice(t.resultKeys))
+		fmt.Fprintf(b, "},\ntoken: %t, confirm: %t, listed: %t, result: %s},\n", t.hasToken, t.op.Confirm, t.op.ListedOnly, stringSlice(t.resultKeys))
 	}
 	b.WriteString(`}
 
@@ -367,8 +370,12 @@ func TestGeneratedTools(t *testing.T) {
 				}
 				return reply{status: 500}
 			}}
-			e := newEnv(t, f, baseValues())
-			text, err := e.invoke(c.tool, c.arguments)
+			var tools []string
+			if c.listed {
+				tools = []string{c.tool}
+			}
+			e := newToolsEnv(t, f, baseValues(), tools)
+			text, err := e.invokeConfirmed(c.tool, c.arguments, c.confirm)
 			if err != nil {
 				t.Fatalf("invoke: %v", err)
 			}
