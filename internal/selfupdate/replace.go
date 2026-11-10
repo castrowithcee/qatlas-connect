@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/castrowithcee/qatlas-connect/internal/fileretry"
+	"github.com/castrowithcee/qatlas-kit/fileretry"
 )
 
 // fileOps are the file operations of a replacement, injectable so that the sequence and its rollback are
@@ -30,7 +30,8 @@ var osFileOps = fileOps{rename: os.Rename, remove: os.Remove, transient: fileret
 // renameRetrying renames through fileretry.Do: a rename that fails changed nothing, so repeating it after
 // a transient lock error is safe.
 func (o fileOps) renameRetrying(oldPath, newPath string) error {
-	return fileretry.Do(func() error { return o.rename(oldPath, newPath) }, o.transient, o.sleep)
+	return fileretry.Do(func() error { return o.rename(oldPath, newPath) },
+		fileretry.Options{Transient: o.transient, Sleep: o.sleep})
 }
 
 // replaceRunning puts the staged file in place of target, which may be a running Windows executable: such

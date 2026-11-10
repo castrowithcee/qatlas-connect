@@ -10,7 +10,7 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/castrowithcee/qatlas-connect/internal/filelock"
+	"github.com/castrowithcee/qatlas-kit/filelock"
 )
 
 // Revision identifies the exact bytes of a configuration file as one LoadVersioned call read them. It is

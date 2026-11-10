@@ -18,7 +18,7 @@ import (
 	"sort"
 	"time"
 
-	"github.com/castrowithcee/qatlas-connect/internal/fileretry"
+	"github.com/castrowithcee/qatlas-kit/fileretry"
 )
 
 // Value is one named number of a measurement. The unit is part of the name, such as "read-p95-ms".
@@ -126,7 +126,7 @@ func Run(ctx context.Context, opts Options) (report *Report, err error) {
 	}
 	defer func() {
 		// On Windows a process that just ended may hold a file for a moment, so a sharing violation is retried.
-		rmErr := fileretry.Do(func() error { return os.RemoveAll(dir) }, fileretry.Transient, nil)
+		rmErr := fileretry.Do(func() error { return os.RemoveAll(dir) }, fileretry.Options{Transient: fileretry.Transient})
 		if rmErr != nil {
 			err = errors.Join(err, fmt.Errorf("cannot remove the scratch directory %s: %w", dir, rmErr))
 		}

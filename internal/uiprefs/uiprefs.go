@@ -17,7 +17,7 @@ import (
 
 	"go.yaml.in/yaml/v3"
 
-	"github.com/castrowithcee/qatlas-connect/internal/fileretry"
+	"github.com/castrowithcee/qatlas-kit/fileretry"
 )
 
 // FileName is the name of the preferences file inside the configuration directory.
@@ -242,7 +242,7 @@ func Save(path string, prefs Prefs) error {
 	if err := os.Chmod(name, 0o600); err != nil {
 		return fmt.Errorf("cannot set the permissions of %s: %w", name, err)
 	}
-	if err := fileretry.Do(func() error { return os.Rename(name, target) }, fileretry.Transient, nil); err != nil {
+	if err := fileretry.Do(func() error { return os.Rename(name, target) }, fileretry.Options{Transient: fileretry.Transient}); err != nil {
 		return fmt.Errorf("cannot replace %s: %w", target, err)
 	}
 	moved = true

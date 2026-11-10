@@ -8,7 +8,7 @@ import (
 	"testing"
 
 	"github.com/castrowithcee/qatlas-connect/internal/config"
-	"github.com/castrowithcee/qatlas-connect/internal/i18n"
+	"github.com/castrowithcee/qatlas-kit/i18n"
 )
 
 // viewSet collects the views of one run through the screens of the forms, each checked against the size.

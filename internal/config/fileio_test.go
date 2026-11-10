@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/castrowithcee/qatlas-connect/internal/fileretry"
+	"github.com/castrowithcee/qatlas-kit/fileretry"
 )
 
 // seamFile replaces the retry seam for one test. Every failure except a missing file counts as transient,
@@ -133,8 +133,8 @@ func TestSaveGivesUpAfterBudgetAndCleansUp(t *testing.T) {
 		!strings.Contains(err.Error(), filepath.Base(path)) {
 		t.Fatalf("err = %v, want cannot replace", err)
 	}
-	if *slept != len(fileretry.Delays) {
-		t.Errorf("waited %d times, want %d", *slept, len(fileretry.Delays))
+	if *slept != len(fileretry.DefaultDelays()) {
+		t.Errorf("waited %d times, want %d", *slept, len(fileretry.DefaultDelays()))
 	}
 	if fi, err := os.Stat(path); err != nil || !fi.IsDir() {
 		t.Errorf("target changed: %v, %v", fi, err)
