@@ -489,6 +489,8 @@ func TestToolsFiltersByNamespaceAndQuery(t *testing.T) {
 		"aws.iam.role.put-permissions-boundary", "aws.iam.role.delete-permissions-boundary", "aws.iam.role.tag",
 		"aws.iam.role.untag", "aws.iam.role.delete", "aws.iam.instance-profile.create", "aws.iam.instance-profile.delete",
 		"aws.iam.instance-profile.add-role", "aws.iam.instance-profile.remove-role",
+		"aws.iam.credential-report.generate", "aws.iam.credential-report.get", "aws.iam.service-last-accessed.generate",
+		"aws.iam.service-last-accessed.get-details", "aws.iam.service-last-accessed.get-entities", "aws.iam.service-access.list-policies",
 		"aws.iam.account.get-summary", "aws.iam.account.get-authorization-details",
 		"aws.iam.account.get-password-policy", "aws.iam.account.list-aliases", "aws.iam.account.get-properties",
 		"aws.iam.oidc-provider.list", "aws.iam.oidc-provider.get", "aws.iam.oidc-provider.list-tags",

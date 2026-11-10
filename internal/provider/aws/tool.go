@@ -53,8 +53,10 @@ type toolSpec struct {
 	// rest, when set, makes the tool a restJson1 tool: the protocol switch. It carries the method, the URI
 	// and both shapes, so input, output, action, version and accountCheck stay empty. The pager keeps the
 	// same meaning; its members are the "~" fields of rest.Input and rest.Output.
-	rest        *httpbind.Operation
-	pager       *awsquery.Pager
+	rest  *httpbind.Operation
+	pager *awsquery.Pager
+	// csv, when set, turns the blob member of the answer into the rows of a CSV table with its own paging.
+	csv         *csvReport
 	rules       []outputRule
 	targetCheck string
 	targetArgs  []string
@@ -194,6 +196,12 @@ func (s toolSpec) handler() capability.Handler {
 		if err != nil {
 			return nil, err
 		}
+		var rowPage csvPage
+		if s.csv != nil {
+			if rowPage, err = s.startCSV(region, args); err != nil {
+				return nil, err
+			}
+		}
 		token, send, err := s.encode(args, page)
 		if err != nil {
 			return nil, err
@@ -232,6 +240,11 @@ func (s toolSpec) handler() capability.Handler {
 			var failure *provider.Error
 			if truncated, failure = send(ctx, client, creds, region, &out); failure != nil {
 				return nil, failure
+			}
+		}
+		if s.csv != nil {
+			if err := s.csv.apply(op, out, rowPage); err != nil {
+				return nil, err
 			}
 		}
 		return s.result(op, out, page, region, global, truncated, token)
