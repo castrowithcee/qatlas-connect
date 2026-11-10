@@ -64,7 +64,7 @@ func TestGitHubToolsAreDiscoverable(t *testing.T) {
 		t.Fatalf("exit=%d stderr=%q", code, stderr)
 	}
 	for _, want := range []string{
-		"tools[111]{id,title,effect,requires,target,confirm,connections}:\n",
+		"tools[116]{id,title,effect,requires,target,confirm,connections}:\n",
 		"  github.issues.get,Get a GitHub issue,read,number,\"\",false,code\n",
 		"  github.labels.list,List GitHub labels,read,\"\",\"\",false,code\n",
 		"  github.labels.get,Get a GitHub label,read,name,\"\",false,code\n",
@@ -133,7 +133,7 @@ func TestGitHubToolsAreDiscoverable(t *testing.T) {
 		t.Fatalf("exit=%d stderr=%q", code, stderr)
 	}
 	for _, want := range []string{
-		"tools[225]{id,title,effect,requires,target,confirm,connections,reason}:", "github.issues.get,Get a GitHub issue,read,", "github.issues.list,List GitHub issues,read,",
+		"tools[238]{id,title,effect,requires,target,confirm,connections,reason}:", "github.issues.get,Get a GitHub issue,read,", "github.issues.list,List GitHub issues,read,",
 		"github.contents.get,Get GitHub repository contents,read,", "github.trees.get,Get a GitHub repository tree,read,",
 		"github.branches.create,Create a GitHub branch,create,", "github.branches.delete,Delete a GitHub branch,delete,", "github.contents.put,Create or update a GitHub repository file,update,",
 		"github.contents.delete,Delete a GitHub repository file,delete,",
@@ -189,6 +189,12 @@ func TestGitHubToolsAreDiscoverable(t *testing.T) {
 		"github.workflow-files.update,Update a GitHub workflow file,update,", "github.workflows.enable,Enable a GitHub Actions workflow,update,", "github.workflows.disable,Disable a GitHub Actions workflow,update,",
 		"github.actions-permissions.get,Get the GitHub Actions permissions of a repository,read,", "github.actions-permissions.update,Change the GitHub Actions permissions of a repository,update,",
 		"github.workflow-permissions.get,Get the default GITHUB_TOKEN permissions of a repository,read,", "github.workflow-permissions.update,Change the default GITHUB_TOKEN permissions of a repository,update,",
+		"github.environments.list,List GitHub environments,read,", "github.environments.get,Get a GitHub environment,read,",
+		"github.environments.set,Create or update a GitHub environment,update,", "github.environments.delete,Delete a GitHub environment,delete,",
+		"github.deployment-branch-policies.list,List GitHub deployment branch policies,read,",
+		"github.deployment-branch-policies.create,Create a GitHub deployment branch policy,create,",
+		"github.deployment-branch-policies.update,Update a GitHub deployment branch policy,update,",
+		"github.deployment-branch-policies.delete,Delete a GitHub deployment branch policy,delete,",
 	} {
 		if !strings.Contains(stdout, want) {
 			t.Errorf("tools output does not contain %q:\n%s", want, stdout)

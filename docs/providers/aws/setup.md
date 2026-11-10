@@ -41,6 +41,12 @@ stay narrow. The recommended profile `read` needs `iam:ListUsers`, `iam:GetUser`
 `iam:ListGroups`, `iam:GetGroup`, `iam:ListGroupsForUser`, `iam:ListRoles`, `iam:GetRole`, `iam:ListRoleTags`,
 `iam:ListAccessKeys`, and `iam:GetAccessKeyLastUsed`.
 
+The policy tools need `iam:ListPolicies`, `iam:GetPolicy`, `iam:ListPolicyTags`, `iam:ListEntitiesForPolicy`,
+`iam:ListPolicyVersions`, `iam:GetPolicyVersion`, `iam:ListAttached{User,Group,Role}Policies`,
+`iam:List{User,Group,Role}Policies`, `iam:Get{User,Group,Role}Policy`, and for the simulation
+`iam:SimulateCustomPolicy`, `iam:SimulatePrincipalPolicy`, `iam:GetContextKeysForCustomPolicy`, and
+`iam:GetContextKeysForPrincipalPolicy`. They are not part of the profile `read`.
+
 ## Connection test
 
 The test assumes the role if one is configured, calls `sts:GetCallerIdentity` at the STS endpoint of the first

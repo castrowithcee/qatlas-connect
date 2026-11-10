@@ -882,6 +882,7 @@ func TestRegisterPublishesMetadataAndTheReadOperations(t *testing.T) {
 		if descriptor.Risk.Effect != capability.EffectRead || descriptor.Risk.Idempotency != capability.IdempotencySafe ||
 			descriptor.Risk.Confirmation != capability.ConfirmationNone ||
 			(descriptor.Risk.DataSensitivity != dataSensitivity && descriptor.ID != jobsLog.ID &&
+				descriptor.ID != actionVariablesList.ID && descriptor.ID != actionVariablesGet.ID &&
 				!descriptor.RequiresToolAllowList) {
 			t.Errorf("descriptor %s = %+v, want a safe read", descriptor.ID, descriptor.Risk)
 		}
@@ -899,15 +900,15 @@ func TestRegisterPublishesMetadataAndTheReadOperations(t *testing.T) {
 			}
 		}
 	}
-	equalSortedIDs(t, ids, []string{"github.accounts.me", "github.actions-permissions.get", "github.blame.get",
+	equalSortedIDs(t, ids, []string{"github.accounts.me", "github.action-variables.get", "github.action-variables.list", "github.actions-permissions.get", "github.blame.get",
 		"github.branches.get", "github.branches.list", "github.check-annotations.list", "github.check-runs.get", "github.check-runs.list",
 		"github.check-suite-runs.list", "github.check-suites.list", "github.code.search", "github.code-quality-findings.get", "github.code-scanning-alerts.get", "github.code-scanning-alerts.list",
 		"github.collaborators.list", "github.commit-branches.list", "github.commit-comments.get", "github.commit-comments.list", "github.commit-pulls.list", "github.compare.get", "github.community-profile.get", "github.contributors.list", "github.stats-contributors.get", "github.stats-commit-activity.get", "github.stats-code-frequency.get", "github.stats-participation.get", "github.stats-punch-card.get", "github.activity.list", "github.languages.get", "github.repositories.get",
 
 		"github.comments.list", "github.commits.get", "github.commits.list", "github.commits.search",
 		"github.contents.get", "github.custom-properties.get", "github.dependabot-alerts.get",
-		"github.dependabot-alerts.list", "github.discussion-categories.list",
-		"github.discussion-comments.list", "github.discussions.get", "github.discussions.list", "github.gists.get", "github.gists.list", "github.global-advisories.get", "github.global-advisories.list",
+		"github.dependabot-alerts.list", "github.deployment-branch-policies.list", "github.discussion-categories.list",
+		"github.discussion-comments.list", "github.discussions.get", "github.discussions.list", "github.environments.get", "github.environments.list", "github.gists.get", "github.gists.list", "github.global-advisories.get", "github.global-advisories.list",
 		"github.issue-dependencies.list",
 		"github.issue-fields.list",
 		"github.issues.get",
@@ -933,7 +934,7 @@ func TestRegisterPublishesMetadataAndTheReadOperations(t *testing.T) {
 	if jobsLog.Risk.DataSensitivity != logSensitivity {
 		t.Errorf("the job log is classified as %q, want %q", jobsLog.Risk.DataSensitivity, logSensitivity)
 	}
-	if len(metadata.Tools) != 225 {
+	if len(metadata.Tools) != 238 {
 		t.Errorf("tools = %+v, want every operation offered to connection allow-lists", metadata.Tools)
 	}
 }

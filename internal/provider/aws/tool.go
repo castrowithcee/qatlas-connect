@@ -81,10 +81,11 @@ type targetCheck func(b binding, global bool, name, value string) error
 // targetChecks are the hand-written target checks, by the name a curation table gives them. "none" checks
 // nothing; bucket-owner belongs to the S3 protocol package and the generator refuses it for awsQuery.
 var targetChecks = map[string]targetCheck{
-	"none":             nil,
-	"account-argument": checkAccountArgument,
-	"arn-account":      checkARNAccount,
-	"arn-region":       checkARNRegion,
+	"none":                          nil,
+	"account-argument":              checkAccountArgument,
+	"arn-account":                   checkARNAccount,
+	"arn-account-or-managed-policy": checkARNAccountOrManagedPolicy,
+	"arn-region":                    checkARNRegion,
 }
 
 // policyChecks are the client-side document checks of the service packages, by name. None exists yet, so a
@@ -417,6 +418,21 @@ func checkARNAccount(b binding, _ bool, name, value string) error {
 	if !ok || partition != "aws" || account != b.account {
 		return &provider.InvalidRequestError{
 			Message: name + " must be an ARN of the aws partition in the account this connection is bound to"}
+	}
+	return nil
+}
+
+// checkARNAccountOrManagedPolicy accepts an ARN of the bound account, or an AWS managed policy: the account
+// segment is exactly "aws", the service is iam, and the resource is a policy. Nothing else outside the
+// account passes.
+func checkARNAccountOrManagedPolicy(b binding, global bool, name, value string) error {
+	if parts := strings.SplitN(value, ":", 6); len(parts) == 6 && parts[0] == "arn" && parts[1] == "aws" &&
+		parts[2] == "iam" && parts[3] == "" && parts[4] == "aws" && strings.HasPrefix(parts[5], "policy/") && len(parts[5]) > len("policy/") {
+		return nil
+	}
+	if err := checkARNAccount(b, global, name, value); err != nil {
+		return &provider.InvalidRequestError{
+			Message: name + " must be an AWS managed policy ARN or an ARN of the aws partition in the account this connection is bound to"}
 	}
 	return nil
 }

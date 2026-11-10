@@ -34,7 +34,13 @@ const weatherRoot = "https://weather.googleapis.com"
 
 const weatherHost = "weather.googleapis.com"
 
-// pollenRoot is the fourth fixed origin: Pollen API is a separate Google service that accepts the same key.
+// airQualityRoot is the fourth fixed origin: Air Quality API is a separate Google service that accepts the same
+// key. Only the Air Quality tools use it, through postTo.
+const airQualityRoot = "https://airquality.googleapis.com"
+
+const airQualityHost = "airquality.googleapis.com"
+
+// pollenRoot is the fifth fixed origin: Pollen API is a separate Google service that accepts the same key.
 // Only the pollen tool uses it, through getFrom.
 const pollenRoot = "https://pollen.googleapis.com"
 
@@ -230,6 +236,9 @@ func (c *Client) send(ctx context.Context, op string, req *http.Request, mask st
 				failed.Message = "Google rejected the weather request (HTTP " + itoa(response.StatusCode) + "); the " +
 					"location may be outside the coverage of the Weather API, or the API may have changed"
 			}
+		}
+		if req.URL.Host == airQualityHost {
+			failed = airQualityError(failed, response.StatusCode)
 		}
 		if req.URL.Host == pollenHost {
 			switch failed.Class {
