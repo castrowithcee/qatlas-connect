@@ -11,8 +11,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"net/http"
-	"net/http/httptest"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -26,14 +24,17 @@ import (
 
 	"golang.org/x/crypto/ssh"
 
+	kitrelease "github.com/castrowithcee/qatlas-kit/release"
+	"github.com/castrowithcee/qatlas-kit/release/releasetest"
+
 	"github.com/castrowithcee/qatlas-connect/internal/release"
-	"github.com/castrowithcee/qatlas-connect/internal/release/releasetest"
 	"github.com/castrowithcee/qatlas-connect/internal/secret"
+	"github.com/castrowithcee/qatlas-connect/internal/selfupdate/selfupdatetest"
 )
 
 const (
-	// formerTag is the release before the rename an update starts from and a rollback returns to.
-	formerTag = "v2.1.0"
+	// formerTag is the last release before the rename, which an update starts from and a rollback returns to.
+	formerTag = "v2.2.0"
 	// renamedTag is the version of this program in these tests, a release after the rename.
 	renamedTag = "v3.1.0"
 	// adoptedNote is what the first start under the former name says once it took the current one.
@@ -80,111 +81,41 @@ func layoutArchive(t *testing.T, layout release.Layout, program []byte) []byte {
 	)
 }
 
-// testRelease is one release on a local release server: its assets by name.
-type testRelease struct {
-	tag    string
-	assets map[string][]byte
-}
-
 // renamedRelease is a release after the rename as it is published until the next major release: the
 // current archive and, for updaters of the releases before the rename, the former one with the same
 // program; checksums.txt over both; the current signature and, for those updaters, the former one.
-func renamedRelease(t *testing.T, signer ssh.Signer, tag string, program []byte) testRelease {
+func renamedRelease(t *testing.T, signer ssh.Signer, tag string, program []byte) selfupdatetest.Release {
 	t.Helper()
 	current, err := release.LayoutOf(tag)
 	if err != nil {
 		t.Fatal(err)
 	}
-	former := release.Layout{Program: "qatlas"}
-	assets := map[string][]byte{}
-	var checksums strings.Builder
-	for _, layout := range []release.Layout{current, former} {
-		name := layout.ArchiveName(tag, "linux", runtime.GOARCH)
-		assets[name] = layoutArchive(t, layout, program)
-		sum := sha256.Sum256(assets[name])
-		fmt.Fprintf(&checksums, "%s  %s\n", hex.EncodeToString(sum[:]), name)
+	archives := map[string][]byte{}
+	for _, layout := range []release.Layout{current, {Program: "qatlas"}} {
+		archives[layout.ArchiveName(tag, "linux", runtime.GOARCH)] = layoutArchive(t, layout, program)
 	}
-	assets["checksums.txt"] = []byte(checksums.String())
-	assets[release.SignatureAsset] = releasetest.Sign(t, signer, release.Namespace, "sha512", assets["checksums.txt"])
-	assets[release.LegacySignatureAsset] = releasetest.Sign(t, signer, release.LegacyNamespace, "sha512", assets["checksums.txt"])
-	return testRelease{tag: tag, assets: assets}
+	return selfupdatetest.Signed(t, signer, tag, archives, selfupdatetest.Current, selfupdatetest.Former)
 }
 
 // formerRelease is a release before the rename: the former archive, its checksums, and the former signature.
-func formerRelease(t *testing.T, signer ssh.Signer, tag string, program []byte) testRelease {
+func formerRelease(t *testing.T, signer ssh.Signer, tag string, program []byte) selfupdatetest.Release {
 	t.Helper()
 	layout, err := release.LayoutOf(tag)
 	if err != nil || !layout.Legacy {
 		t.Fatalf("%s is no release before the rename: %v", tag, err)
 	}
-	name := layout.ArchiveName(tag, "linux", runtime.GOARCH)
-	archive := layoutArchive(t, layout, program)
-	sum := sha256.Sum256(archive)
-	checksums := []byte(hex.EncodeToString(sum[:]) + "  " + name + "\n")
-	return testRelease{tag: tag, assets: map[string][]byte{
-		name: archive, "checksums.txt": checksums,
-		release.LegacySignatureAsset: releasetest.Sign(t, signer, release.LegacyNamespace, "sha512", checksums),
-	}}
+	archives := map[string][]byte{layout.ArchiveName(tag, "linux", runtime.GOARCH): layoutArchive(t, layout, program)}
+	return selfupdatetest.Signed(t, signer, tag, archives, selfupdatetest.Former)
 }
 
-// releaseAPI serves releases the way the GitHub API does for the updater: the latest one, each by tag, and
-// the list, with their assets. The first release is the latest.
-func releaseAPI(t *testing.T, releases func() []testRelease) *httptest.Server {
-	t.Helper()
-	var server *httptest.Server
-	describe := func(r testRelease) map[string]any {
-		var assets []map[string]string
-		for name := range r.assets {
-			assets = append(assets, map[string]string{"name": name, "url": server.URL + "/download/" + r.tag + "/" + name})
-		}
-		return map[string]any{"tag_name": r.tag, "assets": assets}
-	}
-	server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		all := releases()
-		switch {
-		case r.URL.Path == "/releases/latest" && len(all) > 0:
-			_ = json.NewEncoder(w).Encode(describe(all[0]))
-		case r.URL.Path == "/releases":
-			var list []map[string]any
-			if r.URL.Query().Get("page") == "1" {
-				for _, rel := range all {
-					list = append(list, describe(rel))
-				}
-			}
-			_ = json.NewEncoder(w).Encode(list)
-		case strings.HasPrefix(r.URL.Path, "/releases/tags/"):
-			for _, rel := range all {
-				if rel.tag == strings.TrimPrefix(r.URL.Path, "/releases/tags/") {
-					_ = json.NewEncoder(w).Encode(describe(rel))
-					return
-				}
-			}
-			http.NotFound(w, r)
-		case strings.HasPrefix(r.URL.Path, "/download/"):
-			tag, name, _ := strings.Cut(strings.TrimPrefix(r.URL.Path, "/download/"), "/")
-			for _, rel := range all {
-				if body, ok := rel.assets[name]; ok && rel.tag == tag {
-					_, _ = w.Write(body)
-					return
-				}
-			}
-			http.NotFound(w, r)
-		default:
-			http.NotFound(w, r)
-		}
-	}))
-	t.Cleanup(server.Close)
-	return server
-}
-
-// buildRenamed builds this program as version renamedTag into path, trusting keyLine and updating from
-// releasesURL.
-func buildRenamed(t *testing.T, path, keyLine, releasesURL string) []byte {
+// buildRenamed builds this program as version renamedTag into path, trusting keyLine and updating from the
+// repository API at repositoryAPI.
+func buildRenamed(t *testing.T, path, keyLine, repositoryAPI string) []byte {
 	t.Helper()
 	cmd := exec.Command("go", "build", "-tags", "e2e", "-buildvcs=false", "-ldflags",
 		"-X github.com/castrowithcee/qatlas-connect/internal/cli.version="+renamedTag+
 			" -X 'github.com/castrowithcee/qatlas-connect/internal/release.extraKeyLines="+keyLine+"'"+
-			" -X github.com/castrowithcee/qatlas-connect/internal/selfupdate.testBaseURL="+releasesURL,
+			" -X github.com/castrowithcee/qatlas-connect/internal/selfupdate.testBaseURL="+repositoryAPI,
 		"-o", path, ".")
 	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {
@@ -200,21 +131,21 @@ func buildRenamed(t *testing.T, path, keyLine, releasesURL string) []byte {
 // installFormerly puts the program of archive at <prefix>/bin/qatlas the way an updater of a release before
 // the rename does: it checks the former signature over checksums.txt, the archive's checksum, and replaces
 // bin/qatlas and share/man/man1/qatlas.1 from the archive's bin/qatlas and its manual page.
-func installFormerly(t *testing.T, prefix string, rel testRelease, key ssh.PublicKey) {
+func installFormerly(t *testing.T, prefix string, rel selfupdatetest.Release, key ssh.PublicKey) {
 	t.Helper()
-	name := release.Layout{Program: "qatlas"}.ArchiveName(rel.tag, "linux", runtime.GOARCH)
-	checksums := rel.assets["checksums.txt"]
-	if err := release.VerifyChecksums(checksums, rel.assets["checksums.txt.sig"], "qatlas-release", []ssh.PublicKey{key}); err != nil {
+	name := release.Layout{Program: "qatlas"}.ArchiveName(rel.Tag, "linux", runtime.GOARCH)
+	checksums := rel.Assets["checksums.txt"]
+	if err := kitrelease.VerifyChecksums(checksums, rel.Assets["checksums.txt.sig"], "qatlas-release", []ssh.PublicKey{key}); err != nil {
 		t.Fatalf("the former signature does not verify: %v", err)
 	}
-	want, err := release.ChecksumFor(checksums, name)
+	want, err := kitrelease.ChecksumFor(checksums, name)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if sum := sha256.Sum256(rel.assets[name]); hex.EncodeToString(sum[:]) != want {
+	if sum := sha256.Sum256(rel.Assets[name]); hex.EncodeToString(sum[:]) != want {
 		t.Fatal("the former archive does not match its checksum")
 	}
-	gz, err := gzip.NewReader(bytes.NewReader(rel.assets[name]))
+	gz, err := gzip.NewReader(bytes.NewReader(rel.Assets[name]))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -298,7 +229,7 @@ func TestUpdateInTheFormerFormGetsTheCurrentName(t *testing.T) {
 	dir := t.TempDir()
 	signer := releasetest.NewSigner(t)
 	keyLine := strings.TrimSpace(string(ssh.MarshalAuthorizedKey(signer.PublicKey())))
-	program := buildRenamed(t, filepath.Join(dir, "build", "qconnect"), keyLine, "http://127.0.0.1:1")
+	program := buildRenamed(t, filepath.Join(dir, "build", "qconnect"), keyLine, "http://127.0.0.1:1"+selfupdatetest.RepositoryPath)
 	rel := renamedRelease(t, signer, renamedTag, program)
 
 	t.Run("adopts the current name once", func(t *testing.T) {
@@ -595,14 +526,12 @@ func TestUpdateFromTheFormerReleaseAndRollBack(t *testing.T) {
 
 	signer := releasetest.NewSigner(t)
 	keyLine := strings.TrimSpace(string(ssh.MarshalAuthorizedKey(signer.PublicKey())))
-	var releases []testRelease
-	var releasesMu sync.Mutex
-	server := releaseAPI(t, func() []testRelease { releasesMu.Lock(); defer releasesMu.Unlock(); return releases })
+	// The former updater asks the server's root, as it was built to in its own tests; this program asks the
+	// repository API path.
+	server := selfupdatetest.NewServer(t)
 	formerProgram := buildFormer(t, src, filepath.Join(dir, "build", "former", "qatlas"), keyLine, server.URL)
-	renamedProgram := buildRenamed(t, filepath.Join(dir, "build", "renamed", "qconnect"), keyLine, server.URL)
-	releasesMu.Lock()
-	releases = []testRelease{renamedRelease(t, signer, renamedTag, renamedProgram), formerRelease(t, signer, formerTag, formerProgram)}
-	releasesMu.Unlock()
+	renamedProgram := buildRenamed(t, filepath.Join(dir, "build", "renamed", "qconnect"), keyLine, server.RepositoryAPI())
+	server.Set(renamedRelease(t, signer, renamedTag, renamedProgram), formerRelease(t, signer, formerTag, formerProgram))
 
 	home := filepath.Join(dir, "home")
 	legacyHome := filepath.Join(home, ".qatlas", "cli")

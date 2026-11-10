@@ -5,6 +5,8 @@ import (
 	"runtime"
 	"strings"
 
+	kitselfupdate "github.com/castrowithcee/qatlas-kit/selfupdate"
+
 	releaseverify "github.com/castrowithcee/qatlas-connect/internal/release"
 )
 
@@ -92,4 +94,15 @@ func plural(n int, one, many string) string {
 		return one
 	}
 	return many
+}
+
+// OtherProcesses counts the qconnect processes of the current user besides this one, under the current and,
+// until the next major release, the former name. It is -1 where they cannot be counted, never an error: the
+// count only informs a question.
+func OtherProcesses() int {
+	current, former := kitselfupdate.OtherProcesses(currentName), kitselfupdate.OtherProcesses(formerName)
+	if current < 0 || former < 0 {
+		return -1
+	}
+	return current + former
 }

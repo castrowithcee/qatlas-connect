@@ -5,108 +5,19 @@ import (
 	"archive/zip"
 	"bytes"
 	"compress/gzip"
-	"crypto/rand"
-	"crypto/rsa"
 	"crypto/sha256"
 	"encoding/hex"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
 
 	"golang.org/x/crypto/ssh"
 
-	"github.com/castrowithcee/qatlas-connect/internal/release/releasetest"
+	"github.com/castrowithcee/qatlas-kit/release/releasetest"
 )
 
 const checksumsText = "0000000000000000000000000000000000000000000000000000000000000001  qconnect_v3.0.0_linux_amd64.tar.gz\n"
-
-func TestVerifyChecksums(t *testing.T) {
-	signer := releasetest.NewSigner(t)
-	other := releasetest.NewSigner(t)
-	keys := []ssh.PublicKey{other.PublicKey(), signer.PublicKey()}
-	data := []byte(checksumsText)
-
-	for _, hash := range []string{"sha256", "sha512"} {
-		if err := VerifyChecksums(data, releasetest.Sign(t, signer, Namespace, hash, data), Namespace, keys); err != nil {
-			t.Errorf("%s: %v", hash, err)
-		}
-	}
-
-	rsaKey, err := rsa.GenerateKey(rand.Reader, 2048)
-	if err != nil {
-		t.Fatal(err)
-	}
-	rsaSigner, err := ssh.NewSignerFromKey(rsaKey)
-	if err != nil {
-		t.Fatal(err)
-	}
-	good := releasetest.Sign(t, signer, Namespace, "sha512", data)
-	tests := map[string]struct {
-		data, sig []byte
-		keys      []ssh.PublicKey
-	}{
-		"tampered data":    {[]byte(checksumsText + "x"), good, keys},
-		"unknown key":      {data, releasetest.Sign(t, releasetest.NewSigner(t), Namespace, "sha512", data), keys},
-		"no keys":          {data, good, nil},
-		"wrong namespace":  {data, releasetest.Sign(t, signer, "file", "sha512", data), keys},
-		"former namespace": {data, releasetest.Sign(t, signer, LegacyNamespace, "sha512", data), keys},
-		"unknown hash":     {data, releasetest.Sign(t, signer, Namespace, "md5", data), keys},
-		"rsa key":          {data, releasetest.Sign(t, rsaSigner, Namespace, "sha512", data), append(keys, rsaSigner.PublicKey())},
-		"not armored":      {data, []byte("hello"), keys},
-		"bad base64":       {data, []byte("-----BEGIN SSH SIGNATURE-----\n!!!\n-----END SSH SIGNATURE-----\n"), keys},
-		"short blob":       {data, []byte("-----BEGIN SSH SIGNATURE-----\nU1NIU0lH\n-----END SSH SIGNATURE-----\n"), keys},
-		"truncated":        {data, []byte(strings.Join(strings.SplitN(string(good), "\n", 3)[:2], "\n") + "\n-----END SSH SIGNATURE-----\n"), keys},
-	}
-	for name, tt := range tests {
-		t.Run(name, func(t *testing.T) {
-			if err := VerifyChecksums(tt.data, tt.sig, Namespace, tt.keys); err == nil {
-				t.Fatal("VerifyChecksums() = nil, want error")
-			}
-		})
-	}
-}
-
-func TestVerifyChecksumsAcceptsSSHKeygenSignature(t *testing.T) {
-	keygen, err := exec.LookPath("ssh-keygen")
-	if err != nil {
-		t.Skip("ssh-keygen is not installed")
-	}
-	dir := t.TempDir()
-	key := filepath.Join(dir, "key")
-	if out, err := exec.Command(keygen, "-q", "-t", "ed25519", "-N", "", "-f", key).CombinedOutput(); err != nil {
-		t.Fatalf("ssh-keygen: %v: %s", err, out)
-	}
-	file := filepath.Join(dir, "checksums.txt")
-	if err := os.WriteFile(file, []byte(checksumsText), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	publicLine, err := os.ReadFile(key + ".pub")
-	if err != nil {
-		t.Fatal(err)
-	}
-	public, _, _, _, err := ssh.ParseAuthorizedKey(publicLine)
-	if err != nil {
-		t.Fatal(err)
-	}
-	for _, namespace := range []string{Namespace, LegacyNamespace} {
-		if out, err := exec.Command(keygen, "-Y", "sign", "-f", key, "-n", namespace, file).CombinedOutput(); err != nil {
-			t.Fatalf("ssh-keygen -Y sign: %v: %s", err, out)
-		}
-		signature, err := os.ReadFile(file + ".sig")
-		if err != nil {
-			t.Fatal(err)
-		}
-		_ = os.Remove(file + ".sig")
-		if err := VerifyChecksums([]byte(checksumsText), signature, namespace, []ssh.PublicKey{public}); err != nil {
-			t.Fatalf("%s: %v", namespace, err)
-		}
-		if err := VerifyChecksums([]byte(checksumsText+"x"), signature, namespace, []ssh.PublicKey{public}); err == nil {
-			t.Fatalf("%s: tampered checksums accepted", namespace)
-		}
-	}
-}
 
 // The version decides the names and the signature: up to LastLegacyVersion the former ones, after it the
 // current ones, a prerelease of the next version included.
@@ -301,5 +212,24 @@ func TestTrustedKeysMatchAllowedSigners(t *testing.T) {
 	}
 	if len(TrustedKeys()) < len(got) {
 		t.Fatal("TrustedKeys() lost a key")
+	}
+}
+
+// A signature cut short is refused like any other broken one.
+func TestVerifyReleaseRefusesATruncatedSignature(t *testing.T) {
+	signer := releasetest.NewSigner(t)
+	keys := []ssh.PublicKey{signer.PublicKey()}
+	data := []byte(checksumsText)
+	good := string(releasetest.Sign(t, signer, Namespace, "sha512", data))
+	for name, sig := range map[string]string{
+		"magic only": "-----BEGIN SSH SIGNATURE-----\nU1NIU0lH\n-----END SSH SIGNATURE-----\n",
+		"truncated":  strings.Join(strings.SplitN(good, "\n", 3)[:2], "\n") + "\n-----END SSH SIGNATURE-----\n",
+	} {
+		if err := VerifyRelease(data, []byte(sig), "qconnect_v3.0.0_linux_amd64.tar.gz", keys); err == nil {
+			t.Errorf("%s: VerifyRelease() accepted the signature", name)
+		}
+	}
+	if err := VerifyRelease(data, []byte(good), "qconnect_v3.0.0_linux_amd64.tar.gz", keys); err != nil {
+		t.Fatalf("VerifyRelease() refused the intact signature: %v", err)
 	}
 }

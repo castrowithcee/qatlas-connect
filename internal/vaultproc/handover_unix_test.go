@@ -30,9 +30,9 @@ import (
 
 	"github.com/castrowithcee/qatlas-connect/internal/invokelog"
 	"github.com/castrowithcee/qatlas-connect/internal/release"
-	"github.com/castrowithcee/qatlas-connect/internal/release/releasetest"
 	"github.com/castrowithcee/qatlas-connect/internal/vault"
 	"github.com/castrowithcee/qatlas-kit/filelock"
+	"github.com/castrowithcee/qatlas-kit/release/releasetest"
 )
 
 // These tests run the old vault process in the test process, with the program it was started from played by
