@@ -31,7 +31,7 @@ import (
 
 	"github.com/castrowithcee/qatlas-connect/internal/capability"
 	"github.com/castrowithcee/qatlas-connect/internal/config"
-	"github.com/castrowithcee/qatlas-connect/internal/projectpath"
+	"github.com/castrowithcee/qatlas-kit/projectpath"
 )
 
 // MaxFileBytes bounds every file this package reads or writes: 10 GiB.
