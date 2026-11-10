@@ -207,9 +207,9 @@ func relaxImplied(descriptor capability.Descriptor) json.RawMessage {
 }
 
 // PublishedDescriptor returns the descriptor as describe publishes it: its output schema relaxed for the
-// members a result can lack.
+// members a result can lack, including those outside the default fields.
 func PublishedDescriptor(descriptor capability.Descriptor) capability.Descriptor {
-	descriptor.OutputSchema = PublishedOutputSchema(relaxImplied(descriptor))
+	descriptor.OutputSchema = PublishedOutputSchema(relaxDefault(descriptor, relaxImplied(descriptor)))
 	return descriptor
 }
 
@@ -240,15 +240,45 @@ func SelectableFields(descriptor capability.Descriptor) []string {
 	return names
 }
 
-// validateFields checks a field selection against the tool's result list. It runs before any route is
-// chosen, so a refused selection never reaches a provider.
+// resultMembers names the top-level members of a result object, or nil where the result is no object with
+// declared members.
+func resultMembers(schema json.RawMessage) []string {
+	root := parseSchema(schema)
+	if root.Type != "object" || len(root.Properties) == 0 {
+		return nil
+	}
+	return memberOrder(root, nil)
+}
+
+// alwaysKept names the members of a result object that no selection removes: they tell whether the answer is
+// complete. A member named after a kept member with _truncated or _total_count stays with it.
+var alwaysKept = []string{"has_more", "next_cursor", "truncated"}
+
+func keptWith(name string, keep []string) bool {
+	if containsString(keep, name) || containsString(alwaysKept, name) {
+		return true
+	}
+	for _, suffix := range []string{"_truncated", "_total_count"} {
+		if base, ok := strings.CutSuffix(name, suffix); ok && containsString(keep, base) {
+			return true
+		}
+	}
+	return false
+}
+
+// validateFields checks a field selection: against the entries of the tool's result list, or, for a result
+// without one, against the top-level members of the result object. It runs before any route is chosen, so a
+// refused selection never reaches a provider.
 func validateFields(descriptor capability.Descriptor, fields []string) error {
 	if fields == nil {
 		return nil
 	}
 	names := SelectableFields(descriptor)
 	if len(names) == 0 {
-		return &InvalidRequestError{Message: fmt.Sprintf("fields is not supported: %s returns no result list", descriptor.ID)}
+		names = resultMembers(descriptor.OutputSchema)
+	}
+	if len(names) == 0 {
+		return &InvalidRequestError{Message: fmt.Sprintf("fields is not supported: %s returns neither a result list nor an object", descriptor.ID)}
 	}
 	if len(fields) == 0 {
 		return &InvalidRequestError{Message: "fields must name at least one field; valid fields: " + strings.Join(names, ", ")}
@@ -262,23 +292,66 @@ func validateFields(descriptor capability.Descriptor, fields []string) error {
 	return nil
 }
 
-// selectFields keeps, in each entry of the result list, only the selected members. Every other member of
-// the result stays as it is.
-func selectFields(descriptor capability.Descriptor, fields []string, value any) any {
-	list, _ := resultList(descriptor.OutputSchema)
+// selectFields narrows the result. With a result list, a selection keeps only the selected members of each
+// entry and every other member of the result stays. Without one, a selection keeps the selected top-level
+// members, and otherwise the descriptor's default fields unless full asks for the whole result. The members
+// alwaysKept names stay in either case.
+func selectFields(descriptor capability.Descriptor, fields []string, full bool, value any) any {
 	root, ok := value.(map[string]any)
-	if !ok || fields == nil || list == "" {
+	if !ok {
 		return value
 	}
-	entries, _ := root[list].([]any)
-	for _, entry := range entries {
-		if object, ok := entry.(map[string]any); ok {
-			for key := range object {
-				if !containsString(fields, key) {
-					delete(object, key)
+	keep := fields
+	if list, _ := resultList(descriptor.OutputSchema); list != "" {
+		if fields != nil {
+			entries, _ := root[list].([]any)
+			for _, entry := range entries {
+				if object, ok := entry.(map[string]any); ok {
+					for key := range object {
+						if !containsString(fields, key) {
+							delete(object, key)
+						}
+					}
 				}
 			}
 		}
+		keep = nil
+	} else if keep == nil && !full {
+		keep = descriptor.DefaultFields
+	}
+	if keep == nil {
+		return value
+	}
+	for key := range root {
+		if !keptWith(key, keep) {
+			delete(root, key)
+		}
 	}
 	return value
+}
+
+// relaxDefault drops from the required members of the published result those outside the default fields,
+// since the default answer lacks them.
+func relaxDefault(descriptor capability.Descriptor, raw json.RawMessage) json.RawMessage {
+	var schema map[string]any
+	if len(descriptor.DefaultFields) == 0 || json.Unmarshal(raw, &schema) != nil {
+		return raw
+	}
+	required, _ := schema["required"].([]any)
+	kept := make([]any, 0, len(required))
+	for _, name := range required {
+		if text, _ := name.(string); keptWith(text, descriptor.DefaultFields) {
+			kept = append(kept, name)
+		}
+	}
+	if len(kept) == 0 {
+		delete(schema, "required")
+	} else {
+		schema["required"] = kept
+	}
+	encoded, err := json.Marshal(schema)
+	if err != nil {
+		return raw
+	}
+	return encoded
 }
