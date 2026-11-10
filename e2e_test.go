@@ -16,9 +16,9 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/castrowithcee/qatlas-connect/internal/redact"
 	"github.com/castrowithcee/qatlas-connect/internal/secret"
 	"github.com/castrowithcee/qatlas-connect/internal/vault"
+	"github.com/castrowithcee/qatlas-kit/redact"
 )
 
 // Canary values stand in for real tokens. No part of the acceptance run needs a real secret or a real

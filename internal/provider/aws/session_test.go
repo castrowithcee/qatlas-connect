@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/castrowithcee/qatlas-connect/internal/provider"
-	"github.com/castrowithcee/qatlas-connect/internal/redact"
+	"github.com/castrowithcee/qatlas-kit/redact"
 )
 
 // roleAWS answers like STS with a role: AssumeRole issues the session, and GetCallerIdentity answers the

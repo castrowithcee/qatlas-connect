@@ -85,12 +85,10 @@ var storeHandles = map[string]map[string]bool{
 // Packages a provider may import from the module.
 var providerAllowed = map[string]bool{
 	"internal/provider":           true,
-	"internal/provider/ratelimit": true,
 	"internal/provider/dav":       true,
 	"internal/provider/googleapi": true,
 	"internal/capability":         true,
 	"internal/config":             true,
-	"internal/redact":             true,
 	"internal/localfile":          true,
 	"internal/secret":             true,
 }

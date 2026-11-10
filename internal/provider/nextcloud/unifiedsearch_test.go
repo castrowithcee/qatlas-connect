@@ -9,8 +9,8 @@ import (
 	"testing"
 
 	"github.com/castrowithcee/qatlas-connect/internal/capability"
-	"github.com/castrowithcee/qatlas-connect/internal/redact"
 	"github.com/castrowithcee/qatlas-connect/internal/secret"
+	"github.com/castrowithcee/qatlas-kit/redact"
 )
 
 const searchProvidersJSON = `[{"id":"files","appId":"files","name":"Files","icon":"/apps/files/img/app.svg","order":-2,"triggers":["files","f"],` +

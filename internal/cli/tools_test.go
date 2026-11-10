@@ -25,8 +25,8 @@ import (
 	"github.com/castrowithcee/qatlas-connect/internal/capability"
 	"github.com/castrowithcee/qatlas-connect/internal/config"
 	"github.com/castrowithcee/qatlas-connect/internal/output"
-	"github.com/castrowithcee/qatlas-connect/internal/redact"
 	"github.com/castrowithcee/qatlas-connect/internal/secret"
+	"github.com/castrowithcee/qatlas-kit/redact"
 )
 
 // catalogEnvironment configures one BookStack and one Telegram connection against local servers that fail
@@ -484,7 +484,11 @@ func TestToolsFiltersByNamespaceAndQuery(t *testing.T) {
 		"aws.iam.inline-policy.list-for-role", "aws.iam.inline-policy.get-for-user",
 		"aws.iam.inline-policy.get-for-group", "aws.iam.inline-policy.get-for-role",
 		"aws.iam.policy-simulation.simulate-custom", "aws.iam.policy-simulation.simulate-principal",
-		"aws.iam.policy-simulation.get-context-keys-custom", "aws.iam.policy-simulation.get-context-keys-principal")
+		"aws.iam.policy-simulation.get-context-keys-custom", "aws.iam.policy-simulation.get-context-keys-principal",
+		"aws.iam.role.create", "aws.iam.role.update", "aws.iam.role.update-trust-policy",
+		"aws.iam.role.put-permissions-boundary", "aws.iam.role.delete-permissions-boundary", "aws.iam.role.tag",
+		"aws.iam.role.untag", "aws.iam.role.delete", "aws.iam.instance-profile.create", "aws.iam.instance-profile.delete",
+		"aws.iam.instance-profile.add-role", "aws.iam.instance-profile.remove-role")
 	wikiOffered := registryToolIDs(t, "bookstack", offeredBy(capability.EffectRead))
 	alertsOffered := registryToolIDs(t, "telegram", offeredBy(capability.EffectCreate))
 
@@ -500,7 +504,7 @@ func TestToolsFiltersByNamespaceAndQuery(t *testing.T) {
 		{"namespace seatable.base", []string{"seatable.base"}, registryToolIDs(t, "seatable.base", nil)},
 		{"namespace github", []string{"github", "--query", "github"}, registryToolIDs(t, "github", nil)},
 		{"namespace nextcloud", []string{"nextcloud", "--query", "nextcloud"}, registryToolIDs(t, "nextcloud", nil)},
-		{"namespace aws", []string{"aws"}, registryToolIDs(t, "aws", nil)},
+		{"namespace aws", []string{"aws", "--query", "aws"}, registryToolIDs(t, "aws", nil)},
 		{"query", []string{"--query", "pages"}, []string{"bookstack.pages.create", "bookstack.pages.delete", "bookstack.pages.get", "bookstack.pages.list", "bookstack.pages.update", "forgejo.wiki-pages.create", "forgejo.wiki-pages.delete", "forgejo.wiki-pages.get", "forgejo.wiki-pages.list", "forgejo.wiki-pages.update", "gitea.wiki-pages.create", "gitea.wiki-pages.delete", "gitea.wiki-pages.get", "gitea.wiki-pages.list", "gitea.wiki-pages.update", "google.pagespeed.crux.query-history-record", "google.pagespeed.crux.query-record", "google.pagespeed.pagespeed.run", "bookstack.attachments.download", "bookstack.attachments.get", "bookstack.attachments.list", "bookstack.attachments.update", "bookstack.books.delete", "bookstack.books.get", "bookstack.chapters.delete", "bookstack.chapters.get", "bookstack.content.search", "bookstack.images.delete", "bookstack.imports.get", "bookstack.recycle-bin.list", "google.maps.places.search-nearby", "google.maps.places.search-text", "matomo.bot-realtime.get", "matomo.transitions.get"}},
 		{"namespace and query", []string{"bookstack", "--query", "list"}, []string{"bookstack.attachments.list", "bookstack.audit-log.list", "bookstack.books.list", "bookstack.chapters.list", "bookstack.comments.list", "bookstack.images.list", "bookstack.imports.list", "bookstack.pages.list", "bookstack.recycle-bin.list", "bookstack.roles.list", "bookstack.shelves.list", "bookstack.tags.list", "bookstack.tags.values", "bookstack.users.list", "bookstack.attachments.download", "bookstack.attachments.get", "bookstack.chapters.get", "bookstack.content-permissions.update", "bookstack.roles.create", "bookstack.roles.delete", "bookstack.roles.update", "bookstack.shelves.create", "bookstack.shelves.get", "bookstack.shelves.update", "bookstack.users.delete", "bookstack.users.update"}},
 		{"query without a match", []string{"--query", "absent"}, []string{}},

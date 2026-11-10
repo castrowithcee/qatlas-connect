@@ -21,9 +21,9 @@ import (
 	"github.com/castrowithcee/qatlas-connect/internal/capability"
 	"github.com/castrowithcee/qatlas-connect/internal/config"
 	"github.com/castrowithcee/qatlas-connect/internal/provider"
-	"github.com/castrowithcee/qatlas-connect/internal/provider/ratelimit"
-	"github.com/castrowithcee/qatlas-connect/internal/redact"
 	"github.com/castrowithcee/qatlas-connect/internal/secret"
+	"github.com/castrowithcee/qatlas-kit/ratelimit"
+	"github.com/castrowithcee/qatlas-kit/redact"
 )
 
 // The canaries stand for a token and for provider content. No test reaches GitHub: every request is
@@ -907,7 +907,10 @@ func TestRegisterPublishesMetadataAndTheReadOperations(t *testing.T) {
 
 		"github.comments.list", "github.commits.get", "github.commits.list", "github.commits.search",
 		"github.contents.get", "github.custom-properties.get", "github.dependabot-alerts.get",
-		"github.dependabot-alerts.list", "github.deployment-branch-policies.list", "github.discussion-categories.list",
+		"github.dependabot-alerts.list", "github.deployment-branch-policies.list",
+		"github.deployment-protection-rules.get", "github.deployment-protection-rules.list",
+		"github.deployment-statuses.get", "github.deployment-statuses.list", "github.deployments.get",
+		"github.deployments.list", "github.discussion-categories.list",
 		"github.discussion-comments.list", "github.discussions.get", "github.discussions.list", "github.environments.get", "github.environments.list", "github.gists.get", "github.gists.list", "github.global-advisories.get", "github.global-advisories.list",
 		"github.issue-dependencies.list",
 		"github.issue-fields.list",
@@ -930,11 +933,14 @@ func TestRegisterPublishesMetadataAndTheReadOperations(t *testing.T) {
 		"github.workflow-artifacts.list",
 		"github.workflow-files.get", "github.workflow-files.list", "github.workflow-jobs.get", "github.workflow-jobs.list",
 		"github.workflow-jobs.log", "github.workflow-permissions.get", "github.workflow-runs.get",
-		"github.workflow-runs.list", "github.workflow-runs.usage", "github.workflows.get", "github.workflows.list"})
+		"github.workflow-runs.list", "github.workflow-runs.usage", "github.workflows.get", "github.workflows.list",
+		"github.rate-limit.get", "github.meta.get", "github.licenses.list", "github.licenses.get",
+		"github.gitignore-templates.list", "github.gitignore-templates.get", "github.codes-of-conduct.list",
+		"github.codes-of-conduct.get", "github.emojis.list", "github.markdown.render"})
 	if jobsLog.Risk.DataSensitivity != logSensitivity {
 		t.Errorf("the job log is classified as %q, want %q", jobsLog.Risk.DataSensitivity, logSensitivity)
 	}
-	if len(metadata.Tools) != 238 {
+	if len(metadata.Tools) != 255 {
 		t.Errorf("tools = %+v, want every operation offered to connection allow-lists", metadata.Tools)
 	}
 }

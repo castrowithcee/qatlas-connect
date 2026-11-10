@@ -20,6 +20,7 @@ const (
 	kName              // text kept whole up to max bytes and dropped when longer: an identifier that is useless cut
 	kPoly              // an encoded polyline: kept whole up to max bytes in the polyline alphabet, dropped otherwise
 	kAddr              // an address: bounded text that is never fetched, dropped unless safe to show
+	kLink              // an address that a tool-specific rule rewrites or refuses, never fetched
 	kInt               // a whole number
 	kNum               // any number
 	kBool              // a boolean
@@ -32,6 +33,10 @@ type shape struct {
 	props []prop
 	elem  *shape
 	max   int
+	// link is the rule of a kLink shape: it returns the address to show, or "" to withhold it. keepSlot makes a
+	// withheld address an empty string instead of a missing member, for lists whose order carries meaning.
+	link     func(string) string
+	keepSlot bool
 	// whole drops an object when a member it keeps does not fit, and a list when it is longer than max or
 	// an entry does not fit: a geometry that is cut or patched would show a wrong line.
 	whole bool
@@ -63,6 +68,14 @@ var (
 
 // keepWhole is an identifier of at most limit bytes that is shown whole or not at all.
 func keepWhole(limit int) *shape { return &shape{kind: kName, max: limit} }
+
+// linkOf is an address that rule rewrites or withholds.
+func linkOf(rule func(string) string) *shape { return &shape{kind: kLink, link: rule} }
+
+// linkSlot is linkOf for a list whose order matters: a withheld address stays as an empty string.
+func linkSlot(rule func(string) string) *shape {
+	return &shape{kind: kLink, link: rule, keepSlot: true}
+}
 
 // encoded is an encoded polyline of at most limit bytes.
 func encoded(limit int) *shape { return &shape{kind: kPoly, max: limit} }
@@ -139,6 +152,12 @@ func (s *shape) clean(value any) (any, bool) {
 			return nil, false
 		}
 		return str, true
+	case kLink:
+		str, _ := value.(string)
+		if shown := s.link(str); shown != "" {
+			return shown, true
+		}
+		return "", s.keepSlot
 	case kInt:
 		number, ok := value.(float64)
 		if !ok || math.Abs(math.Trunc(number)) >= 1<<53 {
@@ -209,7 +228,7 @@ func (s *shape) limit() int {
 // schema renders the shape as the JSON schema of the cleaned value.
 func (s *shape) schema() string {
 	switch s.kind {
-	case kShort, kTitle, kText, kName, kPoly, kAddr:
+	case kShort, kTitle, kText, kName, kPoly, kAddr, kLink:
 		return `{"type":"string"}`
 	case kInt:
 		return `{"type":"integer"}`

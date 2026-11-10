@@ -23,7 +23,7 @@ import (
 	"github.com/castrowithcee/qatlas-connect/internal/provider/telegram"
 	"github.com/castrowithcee/qatlas-connect/internal/provider/todoist"
 	"github.com/castrowithcee/qatlas-connect/internal/provider/twentycrm"
-	"github.com/castrowithcee/qatlas-connect/internal/redact"
+	"github.com/castrowithcee/qatlas-kit/redact"
 )
 
 var shippedRegistry struct {

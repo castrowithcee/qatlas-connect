@@ -15,8 +15,8 @@ import (
 	"github.com/castrowithcee/qatlas-connect/internal/capability"
 	"github.com/castrowithcee/qatlas-connect/internal/config"
 	"github.com/castrowithcee/qatlas-connect/internal/provider"
-	"github.com/castrowithcee/qatlas-connect/internal/provider/ratelimit"
-	"github.com/castrowithcee/qatlas-connect/internal/redact"
+	"github.com/castrowithcee/qatlas-kit/ratelimit"
+	"github.com/castrowithcee/qatlas-kit/redact"
 )
 
 // planningTargets binds the project together with the one repository its planning tools may use.
@@ -452,6 +452,24 @@ func TestRegisterPublishesTheChangeContracts(t *testing.T) {
 			capability.IdempotencyIdempotent),
 		"github.deployment-branch-policies.delete": guardedRisk(capability.EffectDelete, capability.IdempotencyUnknown,
 			environmentSensitivity),
+		"github.deployments.list":                 readRisk,
+		"github.deployments.get":                  readRisk,
+		"github.deployment-statuses.list":         readRisk,
+		"github.deployment-statuses.get":          readRisk,
+		"github.deployment-protection-rules.list": readRisk,
+		"github.deployment-protection-rules.get":  readRisk,
+		"github.deployment-protection-rules.delete": guardedRisk(capability.EffectDelete, capability.IdempotencyUnknown,
+			environmentSensitivity),
+		"github.rate-limit.get":           readRisk,
+		"github.meta.get":                 readRisk,
+		"github.licenses.list":            readRisk,
+		"github.licenses.get":             readRisk,
+		"github.gitignore-templates.list": readRisk,
+		"github.gitignore-templates.get":  readRisk,
+		"github.codes-of-conduct.list":    readRisk,
+		"github.codes-of-conduct.get":     readRisk,
+		"github.emojis.list":              readRisk,
+		"github.markdown.render":          readRisk,
 	}
 	operations := reg.Provider(Provider)
 	if len(operations) != len(want) {

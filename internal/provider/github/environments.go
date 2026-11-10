@@ -12,8 +12,8 @@ import (
 	"github.com/castrowithcee/qatlas-connect/internal/capability"
 	"github.com/castrowithcee/qatlas-connect/internal/config"
 	"github.com/castrowithcee/qatlas-connect/internal/provider"
-	"github.com/castrowithcee/qatlas-connect/internal/redact"
 	"github.com/castrowithcee/qatlas-connect/internal/secret"
+	"github.com/castrowithcee/qatlas-kit/redact"
 )
 
 // Deployment environments of a repository. github.environments.list and github.environments.get read them;
@@ -234,10 +234,17 @@ type environmentReviewer struct {
 	Name string `json:"name"`
 }
 
-// environmentsArguments holds the arguments of every environment and deployment branch policy tool; the
-// input schema of each tool admits only its own. page, perPage, and binding are derived by the checks.
+// environmentsArguments holds the arguments of every environment, deployment branch policy, deployment,
+// deployment status, and deployment protection rule tool; the input schema of each tool admits only its own.
+// page, perPage, and binding are derived by the checks.
 type environmentsArguments struct {
 	Environment            string                `json:"environment"`
+	DeploymentID           int64                 `json:"deployment_id"`
+	StatusID               int64                 `json:"status_id"`
+	ProtectionRuleID       int64                 `json:"protection_rule_id"`
+	SHA                    string                `json:"sha"`
+	Ref                    string                `json:"ref"`
+	Task                   string                `json:"task"`
 	WaitTimer              *int64                `json:"wait_timer"`
 	PreventSelfReview      *bool                 `json:"prevent_self_review"`
 	Reviewers              []environmentReviewer `json:"reviewers"`
@@ -652,8 +659,8 @@ func (c *Client) deleteEnvironment(ctx context.Context, name string) (*Environme
 	return &EnvironmentDeleted{Deleted: true, Environment: name}, nil
 }
 
-// environmentsSubject names the environment, or the deployment branch policy of one, a repository path below
-// environments addresses. It names only a name the input schema allows, unescaped, and is empty for any other
+// environmentsSubject names the environment, or the deployment branch policy or deployment protection rule of
+// one, a repository path below environments addresses. It names only a name the input schema allows, unescaped, and is empty for any other
 // path.
 func environmentsSubject(path string) string {
 	if path == "environments" {
@@ -669,6 +676,15 @@ func environmentsSubject(path string) string {
 		return "an environment"
 	}
 	environment := "environment " + name
+	if rules, ok := strings.CutPrefix(below, "deployment_protection_rules"); ok {
+		if rules == "" {
+			return "the deployment protection rules of " + environment
+		}
+		if id, err := strconv.ParseInt(strings.TrimPrefix(rules, "/"), 10, 64); err == nil && id > 0 {
+			return "deployment protection rule " + strconv.FormatInt(id, 10) + " of " + environment
+		}
+		return "a deployment protection rule of " + environment
+	}
 	policies, ok := strings.CutPrefix(below, "deployment-branch-policies")
 	switch {
 	case below == "":

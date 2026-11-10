@@ -13,7 +13,7 @@ import (
 	"github.com/castrowithcee/qatlas-connect/internal/provider/aws/awsquery"
 	"github.com/castrowithcee/qatlas-connect/internal/provider/aws/endpoints"
 	"github.com/castrowithcee/qatlas-connect/internal/provider/aws/gen"
-	"github.com/castrowithcee/qatlas-connect/internal/redact"
+	"github.com/castrowithcee/qatlas-kit/redact"
 )
 
 // maxDecodedBytes is the cap of DecodedMessage in the STS curation table (gen/table_sts.go).
@@ -272,7 +272,7 @@ func TestGeneratedRulesRefuseInvalidAnswers(t *testing.T) {
 // A tool that names a check the runtime does not implement is a registration error.
 func TestGeneratedSpecsNeedImplementedChecks(t *testing.T) {
 	for _, change := range []func(*toolSpec){
-		func(s *toolSpec) { s.policyCheck = "trust-policy" },
+		func(s *toolSpec) { s.policyCheck = "bucket-policy" },
 		func(s *toolSpec) { s.targetCheck = "bucket-owner" },
 		func(s *toolSpec) { s.rules = []outputRule{{key: "names", form: "arn-ish"}} },
 		func(s *toolSpec) { s.descriptor.Group = "undeclared" },

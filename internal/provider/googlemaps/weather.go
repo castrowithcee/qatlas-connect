@@ -10,8 +10,8 @@ import (
 	"github.com/castrowithcee/qatlas-connect/internal/capability"
 	"github.com/castrowithcee/qatlas-connect/internal/config"
 	"github.com/castrowithcee/qatlas-connect/internal/provider"
-	"github.com/castrowithcee/qatlas-connect/internal/redact"
 	"github.com/castrowithcee/qatlas-connect/internal/secret"
+	"github.com/castrowithcee/qatlas-kit/redact"
 )
 
 const (
@@ -271,15 +271,24 @@ type weatherCall struct {
 	listName     string // member that is always present, an empty list when Google sends none
 }
 
-func weatherQuery(c weatherCall, a weatherArguments) (url.Values, error) {
-	if a.Location == nil || a.Location.Latitude == nil || a.Location.Longitude == nil ||
-		math.IsNaN(*a.Location.Latitude) || math.IsNaN(*a.Location.Longitude) ||
-		*a.Location.Latitude < -90 || *a.Location.Latitude > 90 || *a.Location.Longitude < -180 || *a.Location.Longitude > 180 {
+// locationQuery checks a coordinate and returns the query that carries it. It runs before any key is read.
+func locationQuery(location *geoPoint) (url.Values, error) {
+	if location == nil || location.Latitude == nil || location.Longitude == nil ||
+		math.IsNaN(*location.Latitude) || math.IsNaN(*location.Longitude) ||
+		*location.Latitude < -90 || *location.Latitude > 90 || *location.Longitude < -180 || *location.Longitude > 180 {
 		return nil, badRequest("location needs a latitude from -90 to 90 and a longitude from -180 to 180")
 	}
 	query := url.Values{}
-	query.Set("location.latitude", strconv.FormatFloat(*a.Location.Latitude, 'f', -1, 64))
-	query.Set("location.longitude", strconv.FormatFloat(*a.Location.Longitude, 'f', -1, 64))
+	query.Set("location.latitude", strconv.FormatFloat(*location.Latitude, 'f', -1, 64))
+	query.Set("location.longitude", strconv.FormatFloat(*location.Longitude, 'f', -1, 64))
+	return query, nil
+}
+
+func weatherQuery(c weatherCall, a weatherArguments) (url.Values, error) {
+	query, err := locationQuery(a.Location)
+	if err != nil {
+		return nil, err
+	}
 	if a.UnitsSystem != "" {
 		if c.noUnits {
 			return nil, badRequest("units_system is not available for this tool")

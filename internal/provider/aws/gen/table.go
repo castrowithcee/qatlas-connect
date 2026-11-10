@@ -85,6 +85,10 @@ type Operation struct {
 	// before the call.
 	PolicyCheck string
 	PolicyArgs  []string
+	// SelfRole is the input member (a top-level string) that names a role the tool changes or deletes. The
+	// runtime asks GetCallerIdentity before the call and refuses it when that role is the one whose session
+	// signs it, so a connection never changes or deletes its own role. Only a tool that is not a read may set it.
+	SelfRole string
 	// AccountCheck marks the operation that is the account check itself (STS GetCallerIdentity): its answer
 	// is the result, so the call is made once and is its own proof.
 	AccountCheck bool
@@ -223,6 +227,8 @@ func (op Operation) validate() error {
 		return fmt.Errorf("target_check %s needs the arguments it checks, and none only without", op.TargetCheck)
 	case (op.PolicyCheck == "none") != (len(op.PolicyArgs) == 0):
 		return fmt.Errorf("policy_check %s needs the arguments it checks, and none only without", op.PolicyCheck)
+	case op.SelfRole != "" && (op.Effect == "read" || !opName.MatchString(op.SelfRole)):
+		return fmt.Errorf("self_role %q must name an input member of a tool that is not a read", op.SelfRole)
 	case strings.TrimSpace(op.Title) == "" || strings.TrimSpace(op.Description) == "" || op.DataSensitivity == "":
 		return fmt.Errorf("title, description and data sensitivity are required")
 	}
