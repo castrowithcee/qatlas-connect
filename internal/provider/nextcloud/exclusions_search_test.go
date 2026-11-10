@@ -5,7 +5,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"github.com/castrowithcee/qatlas-connect/internal/capability"
-	"github.com/castrowithcee/qatlas-connect/internal/redact"
+	"github.com/castrowithcee/qatlas-kit/redact"
 	"strings"
 	"testing"
 

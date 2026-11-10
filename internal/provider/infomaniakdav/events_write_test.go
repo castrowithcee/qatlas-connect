@@ -15,7 +15,7 @@ import (
 	"github.com/castrowithcee/qatlas-connect/internal/capability"
 	"github.com/castrowithcee/qatlas-connect/internal/config"
 	"github.com/castrowithcee/qatlas-connect/internal/provider"
-	"github.com/castrowithcee/qatlas-connect/internal/redact"
+	"github.com/castrowithcee/qatlas-kit/redact"
 )
 
 const baseEvent = `"calendar":"work","summary":"Review","start":"2026-03-10T09:00:00","end":"2026-03-10T10:00:00","timezone":"Europe/Zurich"`

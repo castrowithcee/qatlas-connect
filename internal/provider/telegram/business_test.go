@@ -11,8 +11,8 @@ import (
 
 	"github.com/castrowithcee/qatlas-connect/internal/capability"
 	"github.com/castrowithcee/qatlas-connect/internal/config"
-	"github.com/castrowithcee/qatlas-connect/internal/redact"
 	"github.com/castrowithcee/qatlas-connect/internal/secret"
+	"github.com/castrowithcee/qatlas-kit/redact"
 )
 
 const businessConnectionBody = `{"id":"b1","user":{"id":7,"is_bot":false,"first_name":"Ann","last_name":"LASTNAME","username":"ann","language_code":"de"},` +

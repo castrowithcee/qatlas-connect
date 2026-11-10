@@ -8,7 +8,7 @@ import (
 	"testing"
 
 	"github.com/castrowithcee/qatlas-connect/internal/config"
-	"github.com/castrowithcee/qatlas-connect/internal/redact"
+	"github.com/castrowithcee/qatlas-kit/redact"
 )
 
 func browseResolved() *config.Resolved {

@@ -11,7 +11,7 @@ import (
 	"testing"
 
 	"github.com/castrowithcee/qatlas-connect/internal/provider"
-	"github.com/castrowithcee/qatlas-connect/internal/redact"
+	"github.com/castrowithcee/qatlas-kit/redact"
 )
 
 func exportFailure(t *testing.T, handler func(call) (*http.Response, error)) *provider.Error {
