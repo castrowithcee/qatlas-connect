@@ -16,6 +16,9 @@ import (
 // generic map carries a literal with the members the handler sets; the three delete tools are the only ones.
 var outputSamples = map[string]any{
 	"github.accounts.me":                           Account{},
+	"github.action-cache-usage.get":                ActionCacheUsage{},
+	"github.action-caches.delete":                  ActionCachesDeleted{},
+	"github.action-caches.list":                    ActionCacheList{},
 	"github.action-variables.create":               ActionVariableCreated{},
 	"github.action-variables.delete":               ActionVariableDeleted{},
 	"github.action-variables.get":                  ActionVariable{},
