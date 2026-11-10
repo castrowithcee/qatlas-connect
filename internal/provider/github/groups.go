@@ -32,6 +32,7 @@ var groupBySegment = map[string]string{
 	"copilot-reviews": "pull-requests", "check-runs": "pull-requests", "check-annotations": "pull-requests",
 	"check-suites": "pull-requests", "check-suite-runs": "pull-requests",
 	"workflows": "actions", "workflow-runs": "actions", "workflow-jobs": "actions", "workflow-run-logs": "actions",
+	"workflow-run-attempts": "actions", "workflow-run-approvals": "actions",
 	"workflow-artifacts": "actions", "workflow-files": "actions", "workflow-permissions": "actions",
 	"actions-permissions": "actions", "action-variables": "actions", "action-caches": "actions",
 	"action-cache-usage": "actions", "environments": "actions",

@@ -167,6 +167,8 @@ your token holds. A repository or organization policy can forbid a run although 
 | List Actions caches | `repo` | Actions: read |
 | Read the Actions cache usage | `repo` for private repositories, none for public | Actions: read |
 | Delete Actions caches | `repo` | Actions: read and write |
+| Read a run attempt or the deployment reviews of a run | `repo` for private repositories, none for public | Actions: read |
+| Delete a run or an artifact, or force-cancel a run | `repo` | Actions: read and write |
 | Read workflow files | `repo` for private repositories | Contents: read |
 | Create or update workflow files | `repo` and `workflow` | Contents: read and write, and Workflows: read and write |
 | Enable or disable a workflow | `repo` | Actions: read and write |

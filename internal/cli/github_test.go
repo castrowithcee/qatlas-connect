@@ -64,7 +64,7 @@ func TestGitHubToolsAreDiscoverable(t *testing.T) {
 		t.Fatalf("exit=%d stderr=%q", code, stderr)
 	}
 	for _, want := range []string{
-		"tools[134]{id,title,effect,requires,target,confirm,connections}:\n",
+		"tools[136]{id,title,effect,requires,target,confirm,connections}:\n",
 		"  github.issues.get,Get a GitHub issue,read,number,\"\",false,code\n",
 		"  github.labels.list,List GitHub labels,read,\"\",\"\",false,code\n",
 		"  github.labels.get,Get a GitHub label,read,name,\"\",false,code\n",
@@ -135,7 +135,7 @@ func TestGitHubToolsAreDiscoverable(t *testing.T) {
 		t.Fatalf("exit=%d stderr=%q", code, stderr)
 	}
 	for _, want := range []string{
-		"tools[258]{id,title,effect,requires,target,confirm,connections,reason}:", "github.issues.get,Get a GitHub issue,read,", "github.issues.list,List GitHub issues,read,",
+		"tools[263]{id,title,effect,requires,target,confirm,connections,reason}:", "github.issues.get,Get a GitHub issue,read,", "github.issues.list,List GitHub issues,read,",
 		"github.contents.get,Get GitHub repository contents,read,", "github.trees.get,Get a GitHub repository tree,read,",
 		"github.branches.create,Create a GitHub branch,create,", "github.branches.delete,Delete a GitHub branch,delete,", "github.contents.put,Create or update a GitHub repository file,update,",
 		"github.contents.delete,Delete a GitHub repository file,delete,",
@@ -186,6 +186,9 @@ func TestGitHubToolsAreDiscoverable(t *testing.T) {
 		"github.workflow-runs.get,Get a GitHub Actions workflow run,read,", "github.workflow-jobs.list,List GitHub Actions jobs of a run,read,", "github.workflow-jobs.get,Get a GitHub Actions job,read,",
 		"github.workflow-jobs.log,Read the end of a GitHub Actions job log,read,", "github.workflow-artifacts.list,List GitHub Actions artifacts of a run,read,", "github.workflow-runs.usage,Get the billable time of a GitHub Actions run,read,", "github.workflow-run-logs.delete,Delete the logs of a GitHub Actions run,delete,",
 		"github.action-caches.list,List GitHub Actions caches,read,", "github.action-cache-usage.get,Get the GitHub Actions cache usage of a repository,read,", "github.action-caches.delete,Delete GitHub Actions caches,delete,",
+		"github.workflow-runs.delete,Delete a GitHub Actions workflow run,delete,", "github.workflow-runs.force-cancel,Force-cancel a GitHub Actions workflow run,update,",
+		"github.workflow-artifacts.delete,Delete a GitHub Actions artifact,delete,", "github.workflow-run-attempts.get,Get an attempt of a GitHub Actions workflow run,read,",
+		"github.workflow-run-approvals.list,List the deployment reviews of a GitHub Actions run,read,",
 		"github.workflows.dispatch,Dispatch a GitHub Actions workflow,execute,", "github.workflow-runs.rerun,Re-run a GitHub Actions workflow run,execute,",
 		"github.workflow-runs.rerun-failed,Re-run the failed jobs of a GitHub Actions run,execute,", "github.workflow-runs.cancel,Cancel a GitHub Actions workflow run,execute,",
 		"github.workflow-files.list,List GitHub workflow files,read,", "github.workflow-files.get,Get a GitHub workflow file,read,", "github.workflow-files.create,Create a GitHub workflow file,create,",

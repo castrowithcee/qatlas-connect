@@ -566,6 +566,10 @@ type actionsArguments struct {
 	CacheID int64  `json:"cache_id"`
 	AllRefs *bool  `json:"all_refs"`
 
+	// The arguments of the run cleanup tools; run_id is shared with the run tools above.
+	ArtifactID    int64 `json:"artifact_id"`
+	AttemptNumber int   `json:"attempt_number"`
+
 	// The arguments of github.repository-settings.update.
 	AllowMergeCommit         *bool  `json:"allow_merge_commit"`
 	AllowSquashMerge         *bool  `json:"allow_squash_merge"`
