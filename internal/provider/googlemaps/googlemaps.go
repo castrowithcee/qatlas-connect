@@ -1,5 +1,6 @@
 // Package googlemaps implements read-only access to Google Maps Platform with one API key. It starts with
 // Places API (New): the details of one place, the text and nearby searches, autocomplete predictions, and photo addresses.
+// Geocoding, Address Validation, and Weather API (current conditions and forecasts) follow.
 //
 // A connection binds one API key, sent only in the X-Goog-Api-Key header, and takes no target: the key
 // reaches what its Cloud project and its restrictions allow. The base URL is fixed to the official origin;
@@ -72,7 +73,7 @@ func noTarget(string) error {
 func Register(reg *capability.Registry) error {
 	if err := reg.RegisterProvider(config.ProviderMetadata{
 		ID: Provider, Name: "Google Maps", DefaultBaseURL: apiRoot,
-		Description:    "Places data from Google Maps Platform with an API key, billed per field group by Google",
+		Description:    "Places, geocoding, address validation, and weather data from Google Maps Platform with an API key, billed by Google",
 		DefaultEffects: []config.Effect{config.EffectRead},
 		ValidateBaseURL: func(raw string) error {
 			if !isAPIRoot(raw) {
@@ -83,8 +84,8 @@ func Register(reg *capability.Registry) error {
 		SecretRoles: []config.SecretRole{{
 			Name: roleKey,
 			Description: "API key of a Google Cloud project with Places API (New), for geocoding also Geocoding API, " +
-				"enabled and a billing account; " +
-				"requests are billed to that project",
+				"for address validation Address Validation API, for weather Weather API, " +
+				"enabled and a billing account; requests are billed to that project",
 		}},
 		Target: config.TargetMetadata{
 			Label:       "target",
@@ -94,10 +95,11 @@ func Register(reg *capability.Registry) error {
 		Profiles: []config.ToolProfile{{
 			ID: "read", Title: "Read", Recommended: true,
 			Description: "reads place details, searches places by text or around a point, predicts places from typed input, and resolves place photos to short-lived addresses from Google Places, " +
-				"geocodes addresses and coordinates, and validates postal addresses; the field mask of each Places " +
+				"geocodes addresses and coordinates, validates postal addresses, and reads current weather and forecasts for a coordinate; the field mask of each Places " +
 				"request decides what Google bills, and nothing is changed",
 			Tools: []string{placesGet.ID, textSearch.ID, nearbySearch.ID, autocomplete.ID, photosGet.ID,
-				geocodingGeocode.ID, geocodingReverse.ID, addressValidate.ID},
+				geocodingGeocode.ID, geocodingReverse.ID, addressValidate.ID, weatherCurrent.ID, weatherMinutes.ID,
+				weatherHours.ID, weatherDays.ID},
 		}},
 	}, TestConnection); err != nil {
 		return err
@@ -111,5 +113,9 @@ func Register(reg *capability.Registry) error {
 		capability.Operation{Descriptor: geocodingGeocode, Handler: handleGeocode},
 		capability.Operation{Descriptor: geocodingReverse, Handler: handleReverse},
 		capability.Operation{Descriptor: addressValidate, Handler: handleAddressValidate},
-		capability.Operation{Descriptor: addressFeedback, Handler: handleAddressFeedback})
+		capability.Operation{Descriptor: addressFeedback, Handler: handleAddressFeedback},
+		capability.Operation{Descriptor: weatherCurrent, Handler: handleWeatherCurrent},
+		capability.Operation{Descriptor: weatherMinutes, Handler: handleWeatherMinutes},
+		capability.Operation{Descriptor: weatherHours, Handler: handleWeatherHours},
+		capability.Operation{Descriptor: weatherDays, Handler: handleWeatherDays})
 }
