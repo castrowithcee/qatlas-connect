@@ -900,7 +900,7 @@ func TestRegisterPublishesMetadataAndTheReadOperations(t *testing.T) {
 			}
 		}
 	}
-	equalSortedIDs(t, ids, []string{"github.accounts.me", "github.action-variables.get", "github.action-variables.list", "github.actions-permissions.get", "github.blame.get",
+	equalSortedIDs(t, ids, []string{"github.accounts.me", "github.action-cache-usage.get", "github.action-caches.list", "github.action-variables.get", "github.action-variables.list", "github.actions-permissions.get", "github.blame.get",
 		"github.branches.get", "github.branches.list", "github.check-annotations.list", "github.check-runs.get", "github.check-runs.list",
 		"github.check-suite-runs.list", "github.check-suites.list", "github.code.search", "github.code-quality-findings.get", "github.code-scanning-alerts.get", "github.code-scanning-alerts.list",
 		"github.collaborators.list", "github.commit-branches.list", "github.commit-comments.get", "github.commit-comments.list", "github.commit-pulls.list", "github.compare.get", "github.community-profile.get", "github.contributors.list", "github.stats-contributors.get", "github.stats-commit-activity.get", "github.stats-code-frequency.get", "github.stats-participation.get", "github.stats-punch-card.get", "github.activity.list", "github.languages.get", "github.repositories.get",
@@ -940,7 +940,7 @@ func TestRegisterPublishesMetadataAndTheReadOperations(t *testing.T) {
 	if jobsLog.Risk.DataSensitivity != logSensitivity {
 		t.Errorf("the job log is classified as %q, want %q", jobsLog.Risk.DataSensitivity, logSensitivity)
 	}
-	if len(metadata.Tools) != 255 {
+	if len(metadata.Tools) != 258 {
 		t.Errorf("tools = %+v, want every operation offered to connection allow-lists", metadata.Tools)
 	}
 }
