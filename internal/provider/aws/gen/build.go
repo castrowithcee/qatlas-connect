@@ -2,6 +2,7 @@ package gen
 
 import (
 	"bytes"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"regexp"
@@ -20,9 +21,16 @@ const (
 	fieldNext      = "next_cursor"
 	fieldHasMore   = "has_more"
 	fieldTruncated = "truncated"
+	// Names of the result members of a CSV tool.
+	fieldRows     = "rows"
+	fieldDropped  = "dropped_columns"
+	fieldTotal    = "total_rows"
+	csvMemberKey  = "~csv"
+	csvMaxDropped = 32
 )
 
-var reservedNames = []string{argRegion, awsquery.ArgPageSize, awsquery.ArgCursor, argClientToken, fieldNext, fieldHasMore, fieldTruncated}
+var reservedNames = []string{argRegion, awsquery.ArgPageSize, awsquery.ArgCursor, argClientToken, fieldNext, fieldHasMore, fieldTruncated,
+	fieldRows, fieldDropped, fieldTotal}
 
 // regionMarker stands for the region schema in a rendered schema; the renderer replaces it with the
 // provider's regionSchema constant, so the schema has one source.
@@ -64,6 +72,7 @@ type tool struct {
 	rules                     []outputRule
 	targetArgs, policyArgs    []string
 	selfRole                  string
+	csv                       *CSVReport
 	// nested are the dotted HiddenOutputs paths, true once the converter left the member out.
 	nested map[string]bool
 
@@ -124,6 +133,15 @@ func build(m *Model, table *Table, op Operation) (*tool, error) {
 	pag, err := t.paging(m, shape, in, out)
 	if err != nil {
 		return nil, err
+	}
+	if op.CSV != nil {
+		if pag != nil {
+			return nil, t.failf("a csv tool pages over its rows, not over a service token")
+		}
+		if mm, ok := find(out, op.CSV.Member); !ok || mm.kind != "blob" {
+			return nil, t.failf("csv member %s is not an output blob member", op.CSV.Member)
+		}
+		t.csv = op.CSV
 	}
 	if err := t.bindInput(m, in, pag); err != nil {
 		return nil, err
@@ -397,6 +415,14 @@ func (t *tool) bindInput(m *Model, in []member, pag *pagingPlan) error {
 		t.args = append(t.args, descArg{name: awsquery.ArgCursor, description: "next_cursor of the previous page, to " +
 			"continue the list; valid only with the same arguments"})
 	}
+	if t.csv != nil {
+		props.set(awsquery.ArgPageSize, newObject("type", "integer", "minimum", 1, "maximum", t.csv.MaxPage))
+		t.args = append(t.args, descArg{name: awsquery.ArgPageSize, description: fmt.Sprintf(
+			"Rows per page, 1 to %d; %d when left out", t.csv.MaxPage, t.csv.DefaultPage)})
+		props.set(awsquery.ArgCursor, newObject("type", "string", "maxLength", awsquery.MaxCursorLength))
+		t.args = append(t.args, descArg{name: awsquery.ArgCursor, description: "next_cursor of the previous page, to " +
+			"continue the rows; valid only for the same report"})
+	}
 	if t.hasToken {
 		props.set(argClientToken, newObject("type", "string", "minLength", 1, "maxLength", 128, "pattern", `^[\x21-\x7e]{1,128}$`))
 		t.args = append(t.args, descArg{name: argClientToken, description: "Idempotency token to send instead of a " +
@@ -473,6 +499,16 @@ func (t *tool) bindOutput(m *Model, out []member, pag *pagingPlan) error {
 			shape.Fields = append(shape.Fields, awsquery.Field{Key: "~" + mm.name, Name: wire(mm), Shape: s})
 			continue
 		}
+		if t.csv != nil && mm.name == t.csv.Member {
+			// Kept in the shape for the CSV step of the runtime, never returned as it is.
+			c := converter{m: m, t: t, path: mm.name, output: true, maxLen: t.csv.MaxBytes}
+			s, _, err := c.convert(mm.target, mm.traits, true, 0)
+			if err != nil {
+				return err
+			}
+			shape.Fields = append(shape.Fields, awsquery.Field{Key: csvMemberKey, Name: wire(mm), Shape: s})
+			continue
+		}
 		f, ok := t.op.Fields[mm.name]
 		if !ok {
 			return t.failf("output member %s has no field entry in the table", mm.name)
@@ -533,6 +569,33 @@ func (t *tool) bindOutput(m *Model, out []member, pag *pagingPlan) error {
 		t.fields = append(t.fields,
 			descField{name: fieldNext, description: "Cursor of the next page; absent at the end of the list"},
 			descField{name: fieldHasMore, description: "True when more entries follow; a full page alone never says so"})
+	}
+	if t.csv != nil {
+		rowProps, rowRequired := newObject(), []string{}
+		for _, col := range t.csv.Columns {
+			if col.Bool {
+				rowProps.set(col.Name, newObject("type", "boolean"))
+			} else {
+				rowProps.set(col.Name, newObject("type", "string", "maxLength", t.csv.MaxField))
+			}
+			if col.Required {
+				rowRequired = append(rowRequired, col.Name)
+			}
+		}
+		props.set(fieldRows, newObject("type", "array", "maxItems", t.csv.MaxPage, "items",
+			newObject("type", "object", "properties", rowProps, "required", rowRequired, "additionalProperties", false)))
+		props.set(fieldDropped, newObject("type", "array", "maxItems", csvMaxDropped, "items", newObject("type", "string", "maxLength", 64)))
+		props.set(fieldTotal, newObject("type", "integer", "minimum", 0))
+		props.set(fieldNext, newObject("type", "string", "maxLength", awsquery.MaxCursorLength))
+		props.set(fieldHasMore, newObject("type", "boolean"))
+		required = append(required, fieldRows, fieldTotal, fieldHasMore)
+		t.fields = append(t.fields,
+			descField{name: fieldRows, description: "Rows of this page, one per IAM user and the root account, with the known report columns " +
+				"under their names in the report; a field that is empty, N/A, or not_supported is left out"},
+			descField{name: fieldDropped, description: "Names of report columns that this tool does not know and therefore dropped; absent when none"},
+			descField{name: fieldTotal, description: "Number of rows in the whole report"},
+			descField{name: fieldNext, description: "Cursor of the next page; absent at the end of the rows"},
+			descField{name: fieldHasMore, description: "True when more rows follow"})
 	}
 	if t.hasToken {
 		props.set(argClientToken, newObject("type", "string", "maxLength", 128))
@@ -688,8 +751,12 @@ func (c *converter) convert(target string, traits *object, output bool, depth in
 		shape := &awsquery.Shape{Kind: awsquery.KindBlob}
 		schema := newObject("type", "string")
 		if output {
-			shape.MaxLen = defaultMaxString
-			schema.set("maxLength", defaultMaxString)
+			limit := defaultMaxString
+			if c.maxLen > 0 {
+				limit, c.maxLen = c.maxLen, 0
+			}
+			shape.MaxLen = limit
+			schema.set("maxLength", limit)
 		}
 		return shape, schema, nil
 	case "structure":
@@ -895,6 +962,9 @@ func (t *tool) makeSamples(m *Model) error {
 	return nil
 }
 
+// sampleCSV is the report of a generated CSV test: the required columns and the root account.
+const sampleCSV = "user,arn\n<root_account>,arn:aws:iam::123456789012:root\n"
+
 // sampleChars are the characters a sample string is made of, tried in order until one fits the pattern.
 var sampleChars = []string{"a", "A", "0", "x", "-", "_", "/", " "}
 
@@ -1054,6 +1124,9 @@ func (t *tool) scalarSample(f awsquery.Field) string {
 	case awsquery.KindTimestamp:
 		return "2026-01-02T03:04:05Z"
 	case awsquery.KindBlob:
+		if t.csv != nil && f.Key == csvMemberKey {
+			return base64.StdEncoding.EncodeToString([]byte(sampleCSV))
+		}
 		return "AA=="
 	}
 	for _, r := range t.rules {

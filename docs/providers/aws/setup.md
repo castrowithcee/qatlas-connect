@@ -59,6 +59,11 @@ The [account and identity provider tools](iam.md#account-state-identity-provider
 tool. `iam:GetAccountAuthorizationDetails` returns every policy document of the account, so grant it with care. They
 are not part of the profile `read`.
 
+The [report tools](iam.md#reports) need `iam:GenerateCredentialReport`, `iam:GetCredentialReport`,
+`iam:GenerateServiceLastAccessedDetails`, `iam:GetServiceLastAccessedDetails`,
+`iam:GetServiceLastAccessedDetailsWithEntities`, and `iam:ListPoliciesGrantingServiceAccess`, each for its own tool.
+The two generate tools are listed-only and need confirmation. They are not part of the profile `read`.
+
 The [role tools](iam.md#roles-and-instance-profiles) need `iam:CreateRole`, `iam:UpdateRole`,
 `iam:UpdateAssumeRolePolicy`, `iam:PutRolePermissionsBoundary`, `iam:DeleteRolePermissionsBoundary`, `iam:TagRole`,
 `iam:UntagRole`, `iam:DeleteRole`, `iam:CreateInstanceProfile`, `iam:DeleteInstanceProfile`,

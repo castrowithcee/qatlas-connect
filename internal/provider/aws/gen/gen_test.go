@@ -727,6 +727,77 @@ func TestUnionInputsAndSamplesOfCheckedArguments(t *testing.T) {
 	}
 }
 
+// A CSV member turns the blob into rows with their own paging: the schema offers the rows and the paging
+// members and never the blob, the blob keeps its own cap in the shape, and a description that does not fit
+// the operation stops the generation.
+func TestCSVReportBindsRowsAndRefusesMisuse(t *testing.T) {
+	p, err := LoadPin(ModelDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	m, err := LoadTableModel(ModelDir, p, iamTable)
+	if err != nil {
+		t.Fatal(err)
+	}
+	find := func(name string) Operation {
+		for _, o := range iamTable.Operations {
+			if o.Operation == name {
+				return o
+			}
+		}
+		t.Fatalf("no operation %s", name)
+		return Operation{}
+	}
+	op := find("GetCredentialReport")
+	tl, err := build(m, &iamTable, op)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{`"rows":{"type":"array"`, `"total_rows"`, `"next_cursor"`, `"has_more"`, `"dropped_columns"`, `"mfa_active":{"type":"boolean"}`} {
+		if !strings.Contains(tl.outputSchema, want) {
+			t.Errorf("output schema lacks %s: %s", want, tl.outputSchema)
+		}
+	}
+	if strings.Contains(tl.outputSchema, "content") || !strings.Contains(tl.inputSchema, `"page_size":{"type":"integer","minimum":1,"maximum":500}`) {
+		t.Errorf("schemas: %s / %s", tl.inputSchema, tl.outputSchema)
+	}
+	var rendered bytes.Buffer
+	renderTools(&rendered, []*tool{tl})
+	if !strings.Contains(rendered.String(), "MaxLen: 4194304") || !strings.Contains(rendered.String(), `csv: &csvReport{Member: "~csv"`) {
+		t.Error("the blob cap or the csv description is not rendered")
+	}
+
+	bad := op
+	bad.CSV = &CSVReport{Member: "ReportFormat", Columns: op.CSV.Columns, MaxBytes: 1, MaxRows: 1, MaxField: 1, DefaultPage: 1, MaxPage: 1}
+	if _, err := build(m, &iamTable, bad); err == nil {
+		t.Error("a csv member that is not a blob was accepted")
+	}
+	paged := find("ListUsers")
+	paged.CSV = op.CSV
+	if _, err := build(m, &iamTable, paged); err == nil {
+		t.Error("a csv description on a paged operation was accepted")
+	}
+	for name, mutate := range map[string]func(*CSVReport){
+		"no columns":      func(c *CSVReport) { c.Columns = nil },
+		"duplicate":       func(c *CSVReport) { c.Columns = append(slices.Clone(c.Columns), c.Columns[0]) },
+		"bad name":        func(c *CSVReport) { c.Columns = []CSVColumn{{Name: "User"}} },
+		"page above rows": func(c *CSVReport) { c.MaxPage = c.MaxRows + 1 },
+	} {
+		c := *op.CSV
+		mutate(&c)
+		o := op
+		o.CSV = &c
+		if err := o.validate(); err == nil {
+			t.Errorf("%s: accepted", name)
+		}
+	}
+	write := op
+	write.Effect, write.Idempotency, write.Confirm = "execute", "non-idempotent", true
+	if err := write.validate(); err == nil {
+		t.Error("a csv description on a write was accepted")
+	}
+}
+
 // A member below a top-level output member is hidden by a dotted path, and a sensitive member that is not
 // hidden stops the generation; a path that names nothing is refused. ListDelegationRequests spells its
 // truncation flag in lower case and still pages.
