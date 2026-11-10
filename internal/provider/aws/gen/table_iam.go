@@ -1,11 +1,16 @@
 package gen
 
-// iamTable curates the IAM model. This package offers no IAM tool yet: the operations that handle a
-// credential, a password, a private key, or an MFA secret are excluded for good, and all others wait for
-// the IAM service package, which brings the trust-policy and identity-policy checks and the confirmation
-// rules they need. The completeness test runs on this table all the same, so a new IAM operation shows up.
+// iamTable curates the IAM model. The tools read identities and the metadata of their credentials:
+// users, groups, roles, instance profiles, access keys, MFA devices, SSH public keys, signing certificates,
+// and service-specific credentials. A secret, a password, a seed, or a private key is never a field, and the
+// operations that create or change a credential are excluded for good. The remaining operations wait for the
+// IAM tools that follow; the completeness test runs on the whole table, so a new IAM operation shows up.
 var iamTable = Table{
 	Service: "iam", Segment: "iam", Geltung: Global,
+	Operations: iamIdentityTools,
+	// IAM returns policy documents percent-encoded. A trust policy is decoded to JSON text and cut at 32 KiB;
+	// it is untrusted like every provider content.
+	URLEncoded: []URLEncoded{{Shape: "policyDocumentType", MaxLen: 32 << 10}},
 	Exclude: []Omission{
 		{Operation: "ChangePassword", Reason: "takes the password of an IAM user as an argument; a password never passes through a tool"},
 		{Operation: "CreateAccessKey", Reason: "returns the secret access key of the new key; a credential never appears in a result"},
@@ -18,7 +23,9 @@ var iamTable = Table{
 		{Operation: "ResyncMFADevice", Reason: "takes one-time codes of an MFA device; resynchronizing a device is a step of the person who holds it"},
 		{Operation: "UpdateLoginProfile", Reason: "takes the console password of an IAM user as an argument; a password never passes through a tool"},
 		{Operation: "UpdateSAMLProvider", Reason: "takes the private key of the SAML provider as an argument; a private key never passes through a tool"},
+		{Operation: "UploadSSHPublicKey", Reason: "adds a key that authenticates an IAM user over SSH; a new credential is never created through a tool"},
 		{Operation: "UploadServerCertificate", Reason: "takes the private key of the certificate as an argument; a private key never passes through a tool"},
+		{Operation: "UploadSigningCertificate", Reason: "adds a certificate that authenticates requests of an IAM user; a new credential is never created through a tool"},
 	},
 	Defer: []Omission{
 		{Operation: "AcceptDelegationRequest", Reason: deferIAM},
@@ -76,7 +83,6 @@ var iamTable = Table{
 		{Operation: "GenerateCredentialReport", Reason: deferIAM},
 		{Operation: "GenerateOrganizationsAccessReport", Reason: deferIAM},
 		{Operation: "GenerateServiceLastAccessedDetails", Reason: deferIAM},
-		{Operation: "GetAccessKeyLastUsed", Reason: deferIAM},
 		{Operation: "GetAccountAuthorizationDetails", Reason: deferIAM},
 		{Operation: "GetAccountPasswordPolicy", Reason: deferIAM},
 		{Operation: "GetAccountProperties", Reason: deferIAM},
@@ -85,29 +91,22 @@ var iamTable = Table{
 		{Operation: "GetContextKeysForPrincipalPolicy", Reason: deferIAM},
 		{Operation: "GetCredentialReport", Reason: deferIAM},
 		{Operation: "GetDelegationRequest", Reason: deferIAM},
-		{Operation: "GetGroup", Reason: deferIAM},
 		{Operation: "GetGroupPolicy", Reason: deferIAM},
 		{Operation: "GetHumanReadableSummary", Reason: deferIAM},
-		{Operation: "GetInstanceProfile", Reason: deferIAM},
-		{Operation: "GetLoginProfile", Reason: deferIAM},
 		{Operation: "GetMFADevice", Reason: deferIAM},
 		{Operation: "GetOpenIDConnectProvider", Reason: deferIAM},
 		{Operation: "GetOrganizationsAccessReport", Reason: deferIAM},
 		{Operation: "GetOutboundWebIdentityFederationInfo", Reason: deferIAM},
 		{Operation: "GetPolicy", Reason: deferIAM},
 		{Operation: "GetPolicyVersion", Reason: deferIAM},
-		{Operation: "GetRole", Reason: deferIAM},
 		{Operation: "GetRolePolicy", Reason: deferIAM},
 		{Operation: "GetRoleTemplateVersion", Reason: deferIAM},
 		{Operation: "GetSAMLProvider", Reason: deferIAM},
-		{Operation: "GetSSHPublicKey", Reason: deferIAM},
 		{Operation: "GetServerCertificate", Reason: deferIAM},
 		{Operation: "GetServiceLastAccessedDetails", Reason: deferIAM},
 		{Operation: "GetServiceLastAccessedDetailsWithEntities", Reason: deferIAM},
 		{Operation: "GetServiceLinkedRoleDeletionStatus", Reason: deferIAM},
-		{Operation: "GetUser", Reason: deferIAM},
 		{Operation: "GetUserPolicy", Reason: deferIAM},
-		{Operation: "ListAccessKeys", Reason: deferIAM},
 		{Operation: "ListAccountAliases", Reason: deferIAM},
 		{Operation: "ListAttachedGroupPolicies", Reason: deferIAM},
 		{Operation: "ListAttachedRolePolicies", Reason: deferIAM},
@@ -115,13 +114,8 @@ var iamTable = Table{
 		{Operation: "ListDelegationRequests", Reason: deferIAM},
 		{Operation: "ListEntitiesForPolicy", Reason: deferIAM},
 		{Operation: "ListGroupPolicies", Reason: deferIAM},
-		{Operation: "ListGroups", Reason: deferIAM},
-		{Operation: "ListGroupsForUser", Reason: deferIAM},
 		{Operation: "ListInstanceProfileTags", Reason: deferIAM},
-		{Operation: "ListInstanceProfiles", Reason: deferIAM},
-		{Operation: "ListInstanceProfilesForRole", Reason: deferIAM},
 		{Operation: "ListMFADeviceTags", Reason: deferIAM},
-		{Operation: "ListMFADevices", Reason: deferIAM},
 		{Operation: "ListOpenIDConnectProviderTags", Reason: deferIAM},
 		{Operation: "ListOpenIDConnectProviders", Reason: deferIAM},
 		{Operation: "ListOrganizationsFeatures", Reason: deferIAM},
@@ -130,18 +124,11 @@ var iamTable = Table{
 		{Operation: "ListPolicyTags", Reason: deferIAM},
 		{Operation: "ListPolicyVersions", Reason: deferIAM},
 		{Operation: "ListRolePolicies", Reason: deferIAM},
-		{Operation: "ListRoleTags", Reason: deferIAM},
-		{Operation: "ListRoles", Reason: deferIAM},
 		{Operation: "ListSAMLProviderTags", Reason: deferIAM},
 		{Operation: "ListSAMLProviders", Reason: deferIAM},
-		{Operation: "ListSSHPublicKeys", Reason: deferIAM},
 		{Operation: "ListServerCertificateTags", Reason: deferIAM},
 		{Operation: "ListServerCertificates", Reason: deferIAM},
-		{Operation: "ListServiceSpecificCredentials", Reason: deferIAM},
-		{Operation: "ListSigningCertificates", Reason: deferIAM},
 		{Operation: "ListUserPolicies", Reason: deferIAM},
-		{Operation: "ListUserTags", Reason: deferIAM},
-		{Operation: "ListUsers", Reason: deferIAM},
 		{Operation: "ListVirtualMFADevices", Reason: deferIAM},
 		{Operation: "PutAccountProperties", Reason: deferIAM},
 		{Operation: "PutGroupPolicy", Reason: deferIAM},
@@ -187,9 +174,7 @@ var iamTable = Table{
 		{Operation: "UpdateServiceSpecificCredential", Reason: deferIAM},
 		{Operation: "UpdateSigningCertificate", Reason: deferIAM},
 		{Operation: "UpdateUser", Reason: deferIAM},
-		{Operation: "UploadSSHPublicKey", Reason: deferIAM},
-		{Operation: "UploadSigningCertificate", Reason: deferIAM},
 	},
 }
 
-const deferIAM = "follows with the IAM service package and its policy checks"
+const deferIAM = "left for the IAM tools that follow: policies, account state, reports, and changes"
