@@ -845,7 +845,7 @@ func Register(reg *capability.Registry) error {
 		pullRequestReviewOperations(), pullRequestReviewCommentOperations(), pullRequestReviewThreadOperations(),
 		pullRequestReviewerOperations(), accountOperations(), organizationOperations(), starOperations(),
 		searchOperations(), contentsOperations(), blameOperations(), commitsOperations(), refsOperations(), compareOperations(), commitRelationOperations(),
-		contentsWriteOperations(), repositoriesOperations(), repositoryDetailOperations(), trafficOperations(), repositoryStatsOperations(), rulesetsOperations(), customPropertiesOperations(), actionVariablesOperations(),
+		contentsWriteOperations(), repositoriesOperations(), repositoryDetailOperations(), trafficOperations(), repositoryStatsOperations(), rulesetsOperations(), customPropertiesOperations(), actionVariablesOperations(), actionCachesOperations(),
 		labelsOperations(), milestonesOperations(), commentMaintenanceOperations(), commentVisibilityOperations(), reactionsOperations(),
 		subIssuesOperations(), issueDependenciesOperations(), issueTypesOperations(), issueFieldsOperations(),
 		discussionOperations(), notificationOperations(), gistOperations(), securityAlertOperations(), advisoryOperations(),
@@ -1894,6 +1894,10 @@ func actionsSubject(path string) string {
 		return "workflow run " + value
 	case kind == "jobs" && numeric:
 		return "workflow job " + value
+	case kind == "caches" && numeric:
+		return "Actions cache " + value
+	case kind == "caches" || kind == "cache":
+		return "the Actions caches"
 	case kind == "workflows" && (numeric || validRepoName(value) &&
 		(strings.HasSuffix(value, ".yml") || strings.HasSuffix(value, ".yaml"))):
 		return "workflow " + value

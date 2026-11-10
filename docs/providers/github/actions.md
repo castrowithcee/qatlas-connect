@@ -37,7 +37,8 @@ or a free REST path.
 
 No observer or operator tool changes a workflow file or a setting; that is the listed-only group under
 [workflow maintenance and Actions administration](#workflow-maintenance-and-actions-administration).
-Environments and their deployment branch policies have [their own page](environments.md), and Actions variables
+Environments and their deployment branch policies have [their own page](environments.md), as do
+[Actions caches](actions-maintenance.md), and Actions variables
 have tools of their own under [Actions variables](#actions-variables). No tool force-cancels a run, approves a
 deployment, or administers secrets, deployment protection rules, runners, deployments, or an organization.
 

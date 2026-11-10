@@ -560,6 +560,12 @@ type actionsArguments struct {
 	DefaultWorkflowPermissions string `json:"default_workflow_permissions"`
 	CanApprove                 *bool  `json:"can_approve_pull_request_reviews"`
 
+	// The arguments of the cache tools; direction and ref are shared with the lists and the dispatch above.
+	Key     string `json:"key"`
+	Sort    string `json:"sort"`
+	CacheID int64  `json:"cache_id"`
+	AllRefs *bool  `json:"all_refs"`
+
 	// The arguments of github.repository-settings.update.
 	AllowMergeCommit         *bool  `json:"allow_merge_commit"`
 	AllowSquashMerge         *bool  `json:"allow_squash_merge"`
