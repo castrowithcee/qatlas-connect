@@ -12,7 +12,7 @@ import (
 	"github.com/castrowithcee/qatlas-connect/internal/application"
 	"github.com/castrowithcee/qatlas-connect/internal/config"
 	"github.com/castrowithcee/qatlas-connect/internal/provider"
-	"github.com/castrowithcee/qatlas-connect/internal/redact"
+	"github.com/castrowithcee/qatlas-kit/redact"
 )
 
 // The issue documented by GitHub's REST reference for "Get an issue", its accounts shortened to

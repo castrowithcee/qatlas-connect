@@ -6,7 +6,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/castrowithcee/qatlas-connect/internal/provider"
-	"github.com/castrowithcee/qatlas-connect/internal/redact"
+	"github.com/castrowithcee/qatlas-kit/redact"
 )
 
 // Bounds of the provider's own account of a refusal. They keep a hostile or verbose answer from flooding a

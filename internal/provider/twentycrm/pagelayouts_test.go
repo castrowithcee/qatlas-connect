@@ -8,7 +8,7 @@ import (
 	"testing"
 
 	"github.com/castrowithcee/qatlas-connect/internal/provider"
-	"github.com/castrowithcee/qatlas-connect/internal/redact"
+	"github.com/castrowithcee/qatlas-kit/redact"
 )
 
 const (

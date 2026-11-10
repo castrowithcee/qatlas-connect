@@ -12,7 +12,7 @@ import (
 
 	"github.com/castrowithcee/qatlas-connect/internal/config"
 	"github.com/castrowithcee/qatlas-connect/internal/provider"
-	"github.com/castrowithcee/qatlas-connect/internal/provider/ratelimit"
+	"github.com/castrowithcee/qatlas-kit/ratelimit"
 )
 
 // maxTrackingAnswer bounds what is read of a tracker answer: the GIF Matomo returns has 43 bytes.

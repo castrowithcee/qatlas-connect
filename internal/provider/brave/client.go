@@ -15,9 +15,9 @@ import (
 
 	"github.com/castrowithcee/qatlas-connect/internal/config"
 	"github.com/castrowithcee/qatlas-connect/internal/provider"
-	"github.com/castrowithcee/qatlas-connect/internal/provider/ratelimit"
-	"github.com/castrowithcee/qatlas-connect/internal/redact"
 	"github.com/castrowithcee/qatlas-connect/internal/secret"
+	"github.com/castrowithcee/qatlas-kit/ratelimit"
+	"github.com/castrowithcee/qatlas-kit/redact"
 )
 
 // apiRoot is the only origin this provider talks to: the key belongs to this one service, so a second

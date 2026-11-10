@@ -8,8 +8,8 @@ import (
 	"testing"
 
 	"github.com/castrowithcee/qatlas-connect/internal/application"
-	"github.com/castrowithcee/qatlas-connect/internal/redact"
 	"github.com/castrowithcee/qatlas-connect/internal/secret"
+	"github.com/castrowithcee/qatlas-kit/redact"
 )
 
 // twentyConfig configures two Twenty workspaces, a managed one and a self-hosted one, with separate API

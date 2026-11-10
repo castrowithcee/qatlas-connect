@@ -11,7 +11,7 @@ import (
 
 	"github.com/castrowithcee/qatlas-connect/internal/application"
 	"github.com/castrowithcee/qatlas-connect/internal/capability"
-	"github.com/castrowithcee/qatlas-connect/internal/redact"
+	"github.com/castrowithcee/qatlas-kit/redact"
 )
 
 type shareTool func(context.Context, *redact.Redactor, json.RawMessage) (any, error)

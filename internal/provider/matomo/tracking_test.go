@@ -13,8 +13,8 @@ import (
 	"github.com/castrowithcee/qatlas-connect/internal/capability"
 	"github.com/castrowithcee/qatlas-connect/internal/config"
 	"github.com/castrowithcee/qatlas-connect/internal/provider"
-	"github.com/castrowithcee/qatlas-connect/internal/provider/ratelimit"
-	"github.com/castrowithcee/qatlas-connect/internal/redact"
+	"github.com/castrowithcee/qatlas-kit/ratelimit"
+	"github.com/castrowithcee/qatlas-kit/redact"
 )
 
 // The tracker answers an empty 204 or, for an image request, a 43 byte GIF; every other answer is unclear.

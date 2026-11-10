@@ -12,8 +12,8 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 
-	"github.com/castrowithcee/qatlas-connect/internal/redact"
 	"github.com/castrowithcee/qatlas-connect/internal/selftest"
+	"github.com/castrowithcee/qatlas-kit/redact"
 )
 
 func fakeScenarios(names ...string) func() []selftest.Scenario {

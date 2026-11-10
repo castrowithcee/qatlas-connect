@@ -7,8 +7,8 @@ import (
 	"testing"
 
 	"github.com/castrowithcee/qatlas-connect/internal/config"
-	"github.com/castrowithcee/qatlas-connect/internal/redact"
 	"github.com/castrowithcee/qatlas-connect/internal/vault"
+	"github.com/castrowithcee/qatlas-kit/redact"
 )
 
 // scopeChanges are the ways a connection can change after it was approved, each of which leaves it open.

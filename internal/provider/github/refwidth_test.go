@@ -9,7 +9,7 @@ import (
 	"testing"
 
 	"github.com/castrowithcee/qatlas-connect/internal/application"
-	"github.com/castrowithcee/qatlas-connect/internal/redact"
+	"github.com/castrowithcee/qatlas-kit/redact"
 )
 
 // The fixture address is assembled so the source holds no literal e-mail address.

@@ -9,7 +9,7 @@ import (
 	"testing"
 
 	"github.com/castrowithcee/qatlas-connect/internal/config"
-	"github.com/castrowithcee/qatlas-connect/internal/redact"
+	"github.com/castrowithcee/qatlas-kit/redact"
 )
 
 const historyCanary = "history-value-canary-seatable-9e4d"

@@ -10,7 +10,7 @@ import (
 
 	"github.com/castrowithcee/qatlas-connect/internal/application"
 	"github.com/castrowithcee/qatlas-connect/internal/provider"
-	"github.com/castrowithcee/qatlas-connect/internal/redact"
+	"github.com/castrowithcee/qatlas-kit/redact"
 )
 
 // fakeBranch is one branch of the fake repository.

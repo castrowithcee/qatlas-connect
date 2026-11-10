@@ -14,8 +14,8 @@ import (
 	"github.com/castrowithcee/qatlas-connect/internal/connlog"
 	"github.com/castrowithcee/qatlas-connect/internal/manage"
 	"github.com/castrowithcee/qatlas-connect/internal/provider"
-	"github.com/castrowithcee/qatlas-connect/internal/redact"
 	"github.com/castrowithcee/qatlas-connect/internal/secret"
+	"github.com/castrowithcee/qatlas-kit/redact"
 )
 
 // testerCanarySecret stands in for a real secret a Tester's own error text might otherwise leak.

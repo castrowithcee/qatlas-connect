@@ -13,7 +13,7 @@ import (
 	"github.com/castrowithcee/qatlas-connect/internal/provider/aws/httpbind"
 	"github.com/castrowithcee/qatlas-connect/internal/provider/aws/restjson"
 	"github.com/castrowithcee/qatlas-connect/internal/provider/aws/sigv4"
-	"github.com/castrowithcee/qatlas-connect/internal/provider/ratelimit"
+	"github.com/castrowithcee/qatlas-kit/ratelimit"
 )
 
 // restOperation is an Account style call: POST with the account in the body.

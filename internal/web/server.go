@@ -20,9 +20,9 @@ import (
 
 	"github.com/castrowithcee/qatlas-connect/internal/manage"
 	"github.com/castrowithcee/qatlas-connect/internal/provider"
-	"github.com/castrowithcee/qatlas-connect/internal/redact"
 	"github.com/castrowithcee/qatlas-connect/internal/secret"
 	"github.com/castrowithcee/qatlas-connect/internal/vault"
+	"github.com/castrowithcee/qatlas-kit/redact"
 )
 
 // Tester runs the same safe connection test internal/tui's own editor runs, for one saved connection by

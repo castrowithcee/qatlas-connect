@@ -4,8 +4,8 @@ import (
 	"context"
 
 	"github.com/castrowithcee/qatlas-connect/internal/config"
-	"github.com/castrowithcee/qatlas-connect/internal/redact"
 	"github.com/castrowithcee/qatlas-connect/internal/secret"
+	"github.com/castrowithcee/qatlas-kit/redact"
 )
 
 const browsePageSize = 100

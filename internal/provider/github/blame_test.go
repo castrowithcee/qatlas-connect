@@ -8,7 +8,7 @@ import (
 
 	"github.com/castrowithcee/qatlas-connect/internal/application"
 	"github.com/castrowithcee/qatlas-connect/internal/provider"
-	"github.com/castrowithcee/qatlas-connect/internal/redact"
+	"github.com/castrowithcee/qatlas-kit/redact"
 )
 
 // blame answers github.blame.get's GraphQL query for the repository bound by the "repo" connection of

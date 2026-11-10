@@ -10,7 +10,7 @@ import (
 
 	"github.com/castrowithcee/qatlas-connect/internal/capability"
 	"github.com/castrowithcee/qatlas-connect/internal/provider"
-	"github.com/castrowithcee/qatlas-connect/internal/provider/ratelimit"
+	"github.com/castrowithcee/qatlas-kit/ratelimit"
 )
 
 // The report fixtures are answers of the public demo (getConfiguredReports, getConfiguredReport,

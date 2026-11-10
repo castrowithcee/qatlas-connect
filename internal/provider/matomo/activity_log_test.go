@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/castrowithcee/qatlas-connect/internal/provider"
-	"github.com/castrowithcee/qatlas-connect/internal/provider/ratelimit"
+	"github.com/castrowithcee/qatlas-kit/ratelimit"
 )
 
 // Assumptions, as the ActivityLog reference gives no example and the plugin source is not public: getEntries
