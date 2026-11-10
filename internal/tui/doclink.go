@@ -7,8 +7,8 @@ import (
 	"github.com/charmbracelet/x/ansi"
 
 	"github.com/castrowithcee/qatlas-connect/internal/config"
-	"github.com/castrowithcee/qatlas-connect/internal/helptopics"
 	"github.com/castrowithcee/qatlas-connect/internal/provider"
+	kithelp "github.com/castrowithcee/qatlas-kit/helptopics"
 )
 
 // providerDocsBase is the one place that knows where the public provider documentation lives; a later site
@@ -38,7 +38,7 @@ func docLines(url string, width int) []string {
 	if url == "" {
 		return nil
 	}
-	out := strings.Split(helptopics.Wrap(tr(tDocGuide), width), "\n")
+	out := strings.Split(kithelp.Wrap(tr(tDocGuide), width), "\n")
 	link := styles.cell.Underline(true).Hyperlink(url)
 	for _, piece := range strings.Split(ansi.Hardwrap(url, max(width, 1), true), "\n") {
 		out = append(out, link.Render(piece))

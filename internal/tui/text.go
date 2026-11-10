@@ -7,6 +7,7 @@ import (
 	"github.com/castrowithcee/qatlas-connect/internal/helptopics"
 	"github.com/castrowithcee/qatlas-connect/internal/i18n"
 	"github.com/castrowithcee/qatlas-connect/internal/uiprefs"
+	kithelp "github.com/castrowithcee/qatlas-kit/helptopics"
 )
 
 // The editor's own texts live in a catalog of typed keys per language (text_keys.go, text_en.go,
@@ -110,8 +111,8 @@ func footerText(text string) string {
 }
 
 // termText is the explanation of a term, and termName its title.
-func termText(t helptopics.Term) string { return trOr(termID(t.ID), t.Text) }
-func termName(t helptopics.Term) string { return trOr(termTitleID(t.ID), t.Title) }
+func termText(t kithelp.Term) string { return trOr(termID(t.ID), t.Text) }
+func termName(t kithelp.Term) string { return trOr(termTitleID(t.ID), t.Title) }
 
 // wordText is how a word or short phrase is drawn that the editor takes from its own tables: the titles of
 // a list bar, the labels of the detail pane, the words of an empty row. An unknown word is drawn as it is.
