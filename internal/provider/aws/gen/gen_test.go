@@ -589,3 +589,61 @@ func TestLiteralsNeverHoldAnAccessKeyID(t *testing.T) {
 		t.Errorf("lit = %s", got)
 	}
 }
+
+// A table's URLEncoded shape makes every output string of that shape decoded and capped, nested ones
+// included; a shape the model does not have as a string is refused.
+func TestURLEncodedShapesAreDecodedAndChecked(t *testing.T) {
+	p, err := LoadPin(ModelDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	m, err := LoadTableModel(ModelDir, p, iamTable)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var op Operation
+	for _, o := range iamTable.Operations {
+		if o.Operation == "ListInstanceProfiles" {
+			op = o
+		}
+	}
+	tl, err := build(m, &iamTable, op)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var rendered bytes.Buffer
+	renderTools(&rendered, []*tool{tl})
+	if !strings.Contains(rendered.String(), "MaxLen: 32768, URLDecoded: true") {
+		t.Error("the nested trust policy of an instance profile is not decoded and capped")
+	}
+	plain := iamTable
+	plain.URLEncoded = nil
+	tl, err = build(m, &plain, op)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rendered.Reset()
+	renderTools(&rendered, []*tool{tl})
+	if strings.Contains(rendered.String(), "URLDecoded") {
+		t.Error("a table without URLEncoded decodes")
+	}
+	for _, shape := range []string{"userNameType", "noSuchShape"} {
+		bad := iamTable
+		bad.URLEncoded = []URLEncoded{{Shape: shape}}
+		if shape == "userNameType" {
+			// A string shape of the model is fine.
+			if err := Complete(bad, m); err != nil {
+				t.Errorf("%s: %v", shape, err)
+			}
+			continue
+		}
+		if err := Complete(bad, m); err == nil || !strings.Contains(err.Error(), "url_encoded") {
+			t.Errorf("%s: %v, want a refusal", shape, err)
+		}
+	}
+	bad := iamTable
+	bad.URLEncoded = []URLEncoded{{Shape: "policy-document", MaxLen: -1}}
+	if err := bad.Validate(); err == nil {
+		t.Error("an invalid URLEncoded entry passed validation")
+	}
+}

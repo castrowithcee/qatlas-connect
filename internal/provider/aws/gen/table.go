@@ -25,6 +25,17 @@ type Table struct {
 	Exclude []Omission
 	// Defer lists operations left for later, each with its reason.
 	Defer []Omission
+	// URLEncoded lists model string shapes whose values the service returns percent-encoded, such as the
+	// IAM policy documents. Every output string of such a shape is decoded and then cut at MaxLen.
+	URLEncoded []URLEncoded
+}
+
+// URLEncoded is a model string shape whose output values arrive percent-encoded.
+type URLEncoded struct {
+	// Shape is the shape name in the model namespace, such as policyDocumentType.
+	Shape string
+	// MaxLen caps the decoded value in bytes; the model's length maximum applies when zero.
+	MaxLen int
 }
 
 // Values of Table.Geltung.
@@ -126,10 +137,11 @@ var (
 )
 
 var (
-	idPart   = regexp.MustCompile(`^[a-z][a-z0-9]*(-[a-z0-9]+)*$`)
-	argName  = regexp.MustCompile(`^[a-z][a-z0-9]*(_[a-z0-9]+)*$`)
-	opName   = regexp.MustCompile(`^[A-Z][A-Za-z0-9]*$`)
-	tagValue = regexp.MustCompile(`^[a-z0-9][a-z0-9-]*$`)
+	idPart    = regexp.MustCompile(`^[a-z][a-z0-9]*(-[a-z0-9]+)*$`)
+	argName   = regexp.MustCompile(`^[a-z][a-z0-9]*(_[a-z0-9]+)*$`)
+	opName    = regexp.MustCompile(`^[A-Z][A-Za-z0-9]*$`)
+	shapeName = regexp.MustCompile(`^[A-Za-z][A-Za-z0-9_]*$`)
+	tagValue  = regexp.MustCompile(`^[a-z0-9][a-z0-9-]*$`)
 )
 
 // Validate checks a table on its own, before the model is consulted.
@@ -167,6 +179,11 @@ func (t Table) Validate() error {
 			if strings.TrimSpace(o.Reason) == "" {
 				return fmt.Errorf("table %s: %s %s has no reason", t.Service, list.name, o.Operation)
 			}
+		}
+	}
+	for _, e := range t.URLEncoded {
+		if !shapeName.MatchString(e.Shape) || e.MaxLen < 0 {
+			return fmt.Errorf("table %s: url_encoded entry %q is not a shape name with a non-negative cap", t.Service, e.Shape)
 		}
 	}
 	ids := map[string]bool{}
