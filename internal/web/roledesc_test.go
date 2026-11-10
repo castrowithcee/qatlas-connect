@@ -10,8 +10,8 @@ import (
 	"github.com/castrowithcee/qatlas-connect/internal/config"
 	"github.com/castrowithcee/qatlas-connect/internal/connlog"
 	"github.com/castrowithcee/qatlas-connect/internal/manage"
-	"github.com/castrowithcee/qatlas-connect/internal/redact"
 	"github.com/castrowithcee/qatlas-connect/internal/secret"
+	"github.com/castrowithcee/qatlas-kit/redact"
 )
 
 // sharedRoleCatalog has two providers that name their only secret role alike and explain it differently.

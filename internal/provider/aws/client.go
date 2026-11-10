@@ -13,9 +13,9 @@ import (
 	"github.com/castrowithcee/qatlas-connect/internal/provider/aws/endpoints"
 	"github.com/castrowithcee/qatlas-connect/internal/provider/aws/httpbind"
 	"github.com/castrowithcee/qatlas-connect/internal/provider/aws/sigv4"
-	"github.com/castrowithcee/qatlas-connect/internal/provider/ratelimit"
-	"github.com/castrowithcee/qatlas-connect/internal/redact"
 	"github.com/castrowithcee/qatlas-connect/internal/secret"
+	"github.com/castrowithcee/qatlas-kit/ratelimit"
+	"github.com/castrowithcee/qatlas-kit/redact"
 )
 
 // Bounds of one request and of one invoke. The budget stays below the 60 s invoke limit even when a call

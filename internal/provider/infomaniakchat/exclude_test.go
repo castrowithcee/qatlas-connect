@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"github.com/castrowithcee/qatlas-connect/internal/application"
-	"github.com/castrowithcee/qatlas-connect/internal/redact"
+	"github.com/castrowithcee/qatlas-kit/redact"
 )
 
 // newExcludingEnvironment is newEnvironment with the given exclusions on every connection of coreConfig.

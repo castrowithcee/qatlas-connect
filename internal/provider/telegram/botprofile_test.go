@@ -9,8 +9,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/castrowithcee/qatlas-connect/internal/redact"
 	"github.com/castrowithcee/qatlas-connect/internal/secret"
+	"github.com/castrowithcee/qatlas-kit/redact"
 )
 
 func profileFake(calls *[]recorded, status int, body string) roundTripFunc {
