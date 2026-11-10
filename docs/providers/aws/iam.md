@@ -1,6 +1,6 @@
 ---
 description: >
-  Describes the tools of the AWS Identity and Access Management group: reading users, groups, roles, instance profiles, the metadata of their credentials, and policies with their simulation, writing roles and instance profiles with the trust policy check and the own-role check, and which credential operations are never tools.
+  Describes the tools of the AWS Identity and Access Management group: reading users, groups, roles, instance profiles, the metadata of their credentials, policies with their simulation, the account state, identity providers, server certificates, and further lookups, writing roles and instance profiles with the trust policy check and the own-role check, and which credential operations are never tools.
 type: knowledge
 edit: shared
 created: 2026-11-10
@@ -153,10 +153,58 @@ attached.
 is refused before a request. `resource_arns` and `resource_owner` are only compared as text and may name any
 account.
 
+## Account state, identity providers, and further reads
+
+All tools are reads and need no confirmation. Every list tool that pages takes `page_size` and `cursor` and returns
+`next_cursor` and `has_more`. Names, descriptions, tags, URLs, certificate text, SAML metadata, and policy documents
+are set by whoever manages the account and are untrusted data: they are cut at their limits, and a URL is never
+opened. Policy documents are decoded JSON text cut at 32 KiB, with `truncated` set when one was.
+
+An ARN argument must be an ARN of the `aws` partition in the bound account. Any other ARN is refused before a
+request, without being repeated in the message.
+
+| Tool | AWS action | Arguments | Result |
+| --- | --- | --- | --- |
+| `aws.iam.account.get-summary` | `GetAccountSummary` | | `summary_map` (counter name to number) |
+| `aws.iam.account.get-authorization-details` | `GetAccountAuthorizationDetails` | `filter` (list of `User`, `Role`, `Group`, `LocalManagedPolicy`, `AWSManagedPolicy`) | `user_detail_list`, `group_detail_list`, `role_detail_list`, `policies`, `truncated`, paged |
+| `aws.iam.account.get-password-policy` | `GetAccountPasswordPolicy` | | `password_policy`; `not-found` when the account has none |
+| `aws.iam.account.list-aliases` | `ListAccountAliases` | | `account_aliases`, paged |
+| `aws.iam.account.get-properties` | `GetAccountProperties` | | `properties` |
+| `aws.iam.oidc-provider.list` | `ListOpenIDConnectProviders` | | `open_id_connect_provider_list` (ARNs) |
+| `aws.iam.oidc-provider.get` | `GetOpenIDConnectProvider` | `open_id_connect_provider_arn` (required) | `url`, `client_id_list`, `thumbprint_list`, `create_date`, `tags` |
+| `aws.iam.oidc-provider.list-tags` | `ListOpenIDConnectProviderTags` | `open_id_connect_provider_arn` (required) | `tags`, paged |
+| `aws.iam.saml-provider.list` | `ListSAMLProviders` | | `saml_provider_list` (ARN, creation and expiry date) |
+| `aws.iam.saml-provider.get` | `GetSAMLProvider` | `saml_provider_arn` (required) | `saml_provider_uuid`, `saml_metadata_document`, dates, `tags`, `assertion_encryption_mode`, `key_list`, `truncated` |
+| `aws.iam.saml-provider.list-tags` | `ListSAMLProviderTags` | `saml_provider_arn` (required) | `tags`, paged |
+| `aws.iam.server-certificate.list` | `ListServerCertificates` | `path_prefix` | `server_certificate_metadata_list`, paged |
+| `aws.iam.server-certificate.get` | `GetServerCertificate` | `server_certificate_name` (required) | `server_certificate` (metadata, public certificate and chain, tags), `truncated` |
+| `aws.iam.server-certificate.list-tags` | `ListServerCertificateTags` | `server_certificate_name` (required) | `tags`, paged |
+| `aws.iam.mfa-device.get` | `GetMFADevice` | `serial_number` (required), `user_name` | `user_name`, `serial_number`, `enable_date`, `certifications` |
+| `aws.iam.mfa-device.list-tags` | `ListMFADeviceTags` | `serial_number` (required) | `tags`, paged |
+| `aws.iam.virtual-mfa-device.list` | `ListVirtualMFADevices` | `assignment_status` (`Assigned`, `Unassigned`, `Any`) | `virtual_mfa_devices` (serial number, user, enable date, tags), paged |
+| `aws.iam.instance-profile.list-tags` | `ListInstanceProfileTags` | `instance_profile_name` (required) | `tags`, paged |
+| `aws.iam.service-linked-role.get-deletion-status` | `GetServiceLinkedRoleDeletionStatus` | `deletion_task_id` (required) | `status`, `reason` |
+| `aws.iam.role-template.get-version` | `GetRoleTemplateVersion` | `template_arn` (required), `minor_version` | `role_template_version`, `truncated` |
+| `aws.iam.human-readable-summary.get` | `GetHumanReadableSummary` | `entity_arn` (required), `locale` | `summary_content`, `locale`, `summary_state` |
+| `aws.iam.outbound-federation.get-info` | `GetOutboundWebIdentityFederationInfo` | | `issuer_identifier`, `jwt_vending_enabled` |
+| `aws.iam.organizations-features.list` | `ListOrganizationsFeatures` | | `organization_id`, `enabled_features` |
+| `aws.iam.organizations-access-report.get` | `GetOrganizationsAccessReport` | `job_id` (required), `sort_key` | `job_status`, dates, counts, `access_details`, `error_details`, paged |
+| `aws.iam.delegation-request.get` | `GetDelegationRequest` | `delegation_request_id` (required), `delegation_permission_check` | `delegation_request`, `permission_check_status`, `permission_check_result` |
+| `aws.iam.delegation-request.list` | `ListDelegationRequests` | `owner_id` | `delegation_requests`, paged |
+
+Secrets never reach a result. The seed and the QR code of a virtual MFA device are removed from
+`aws.iam.virtual-mfa-device.list`, even when AWS sends them. `key_list` of a SAML provider holds only the ID and the
+date of each key, never the key. A server certificate result holds the public certificate text and chain, which
+authenticate nothing on their own; a private key is not part of the answer. A password policy holds the rules for
+passwords, not a password.
+
 ## Never a tool
 
-The operations that create a credential, return one, or take a password, a private key, or a one-time code are
-excluded for good: `ChangePassword`, `CreateAccessKey`, `CreateLoginProfile`, `UpdateLoginProfile`,
-`CreateServiceSpecificCredential`, `ResetServiceSpecificCredential`, `CreateVirtualMFADevice`,
-`EnableMFADevice`, `ResyncMFADevice`, `UploadSSHPublicKey`, `UploadSigningCertificate`,
-`UploadServerCertificate`, `CreateSAMLProvider`, and `UpdateSAMLProvider`.
+The operations that create a credential, return one, take a password, a private key, or a one-time code, or grant
+trust to an identity outside the account are excluded for good: `ChangePassword`, `CreateAccessKey`,
+`CreateLoginProfile`, `UpdateLoginProfile`, `CreateServiceSpecificCredential`, `ResetServiceSpecificCredential`,
+`CreateUser`, `CreateVirtualMFADevice`, `EnableMFADevice`, `ResyncMFADevice`, `UploadSSHPublicKey`,
+`UploadSigningCertificate`, `UploadServerCertificate`, `CreateSAMLProvider`, `UpdateSAMLProvider`,
+`CreateOpenIDConnectProvider`, `UpdateOpenIDConnectProviderThumbprint`, `AddClientIDToOpenIDConnectProvider`,
+`EnableOutboundWebIdentityFederation`, `CreateDelegationRequest`, `SendDelegationToken`, and
+`AcceptDelegationRequest`.
