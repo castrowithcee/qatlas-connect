@@ -196,6 +196,7 @@ func TestRegisterPublishesMetadataAndTool(t *testing.T) {
 		}
 	}
 	wantTools := []string{"google.maps.addressvalidation.feedback", "google.maps.addressvalidation.validate",
+		"google.maps.airquality.current", "google.maps.airquality.forecast", "google.maps.airquality.history",
 		"google.maps.geocoding.geocode", "google.maps.geocoding.reverse", "google.maps.photos.get",
 		"google.maps.places.autocomplete", "google.maps.places.get", "google.maps.places.search-nearby",
 		"google.maps.places.search-text"}
@@ -206,12 +207,16 @@ func TestRegisterPublishesMetadataAndTool(t *testing.T) {
 		!reflect.DeepEqual(metadata.Profiles[0].Tools, []string{"google.maps.places.get",
 			"google.maps.places.search-text", "google.maps.places.search-nearby", "google.maps.places.autocomplete",
 			"google.maps.photos.get", "google.maps.geocoding.geocode", "google.maps.geocoding.reverse",
-			"google.maps.addressvalidation.validate"}) {
+			"google.maps.addressvalidation.validate", "google.maps.airquality.current",
+			"google.maps.airquality.forecast", "google.maps.airquality.history"}) {
 		t.Errorf("profiles = %+v", metadata.Profiles)
 	}
 	for _, descriptor := range reg.Provider(Provider) {
 		if strings.HasPrefix(descriptor.ID, Provider+".addressvalidation.") {
 			continue // addressvalidation_test.go checks the address tools
+		}
+		if strings.HasPrefix(descriptor.ID, Provider+".airquality.") {
+			continue // airquality_test.go checks the air quality tools
 		}
 		sensitivity := dataSensitivity
 		if strings.HasPrefix(descriptor.ID, "google.maps.geocoding.") {

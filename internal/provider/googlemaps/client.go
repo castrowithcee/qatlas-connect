@@ -28,6 +28,12 @@ const addressValidationRoot = "https://addressvalidation.googleapis.com"
 
 const addressValidationHost = "addressvalidation.googleapis.com"
 
+// airQualityRoot is the third fixed origin: Air Quality API is a separate Google service that accepts the same
+// key. Only the Air Quality tools use it, through postTo.
+const airQualityRoot = "https://airquality.googleapis.com"
+
+const airQualityHost = "airquality.googleapis.com"
+
 // Bounds of one request. The timeout stays below the 60 seconds an invoke may take, so a slow answer ends
 // as a timeout of this provider and not as a cancelled call.
 const (
@@ -200,6 +206,9 @@ func (c *Client) send(ctx context.Context, op string, req *http.Request, mask st
 		if req.URL.Host == addressValidationHost && failed.Class == provider.ClassPermission {
 			failed.Message = "Google refused the key for the Address Validation API; check that the API is enabled " +
 				"in the key's project, that the project has a billing account, and the key's restrictions"
+		}
+		if req.URL.Host == airQualityHost {
+			failed = airQualityError(failed, response.StatusCode)
 		}
 		if response.StatusCode >= 300 && (response.StatusCode < 400 || response.StatusCode >= 500) {
 			failed = c.unsure(failed)
