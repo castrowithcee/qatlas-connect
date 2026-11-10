@@ -13,8 +13,8 @@ The `aws` provider gives agents controlled access to one AWS account, read-only 
 connection names in its tools list. Qatlas signs requests with
 Signature Version 4 using the Go standard library; it uses no AWS SDK. It ships the foundation (credential, role
 assumption, account and region binding, connection test, endpoint table, error mapping), the Security Token Service
-(STS) tools, and the IAM tools that read identities and the metadata of their credentials. Further services build on
-it.
+(STS) tools, the IAM tools that read identities, the metadata of their credentials, and policies with their simulation,
+and the IAM tools that write roles and instance profiles. Further services build on it.
 
 [Set up AWS](setup.md) lists the secret roles, the permissions, and what the connection test proves. The tools are
 described per group: [Security Token Service](sts.md) and [Identity and Access Management](iam.md).

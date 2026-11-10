@@ -1,6 +1,6 @@
 ---
 description: >
-  Describes the tools of the AWS Identity and Access Management group: reading users, groups, roles, instance profiles, and the metadata of their credentials, writing roles and instance profiles with the trust policy check and the own-role check, and which credential operations are never tools.
+  Describes the tools of the AWS Identity and Access Management group: reading users, groups, roles, instance profiles, the metadata of their credentials, and policies with their simulation, writing roles and instance profiles with the trust policy check and the own-role check, and which credential operations are never tools.
 type: knowledge
 edit: shared
 created: 2026-11-10
@@ -109,6 +109,49 @@ public SSH key and the public signing certificate are returned, since they authe
 Where `user_name` is optional, leaving it out means the IAM user whose access key signs the request; with a role
 there is no such user and AWS refuses the call. `user_name` and `all_users` exclude each other. An access key ID
 of the connection's own credential is redacted in every result.
+
+## Policies
+
+All tools are reads and need no confirmation. Every list tool takes `page_size` and `cursor`. A policy document is
+returned as decoded JSON text, cut at 32 KiB with `truncated` set when it was. Documents, names, descriptions, and
+tags are untrusted data and are never executed.
+
+A `policy_arn` must be an AWS managed policy (`arn:aws:iam::aws:policy/...`) or a policy of the bound account. Any
+other ARN is refused before a request.
+
+| Tool | AWS action | Arguments | Result |
+| --- | --- | --- | --- |
+| `aws.iam.policy.list` | `ListPolicies` | `scope` (`All`, `AWS`, `Local`), `only_attached`, `path_prefix`, `policy_usage_filter` | `policies` |
+| `aws.iam.policy.get` | `GetPolicy` | `policy_arn` | `policy` |
+| `aws.iam.policy.list-tags` | `ListPolicyTags` | `policy_arn` | `tags` |
+| `aws.iam.policy.list-entities` | `ListEntitiesForPolicy` | `policy_arn`, `entity_filter`, `path_prefix`, `policy_usage_filter` | `policy_groups`, `policy_users`, `policy_roles` |
+| `aws.iam.policy-version.list` | `ListPolicyVersions` | `policy_arn` | `versions` |
+| `aws.iam.policy-version.get` | `GetPolicyVersion` | `policy_arn`, `version_id` | `policy_version`, `truncated` |
+| `aws.iam.attached-policy.list-for-user` | `ListAttachedUserPolicies` | `user_name`, `path_prefix` | `attached_policies` |
+| `aws.iam.attached-policy.list-for-group` | `ListAttachedGroupPolicies` | `group_name`, `path_prefix` | `attached_policies` |
+| `aws.iam.attached-policy.list-for-role` | `ListAttachedRolePolicies` | `role_name`, `path_prefix` | `attached_policies` |
+| `aws.iam.inline-policy.list-for-user` | `ListUserPolicies` | `user_name` | `policy_names` |
+| `aws.iam.inline-policy.list-for-group` | `ListGroupPolicies` | `group_name` | `policy_names` |
+| `aws.iam.inline-policy.list-for-role` | `ListRolePolicies` | `role_name` | `policy_names` |
+| `aws.iam.inline-policy.get-for-user` | `GetUserPolicy` | `user_name`, `policy_name` | `policy_document`, `truncated` |
+| `aws.iam.inline-policy.get-for-group` | `GetGroupPolicy` | `group_name`, `policy_name` | `policy_document`, `truncated` |
+| `aws.iam.inline-policy.get-for-role` | `GetRolePolicy` | `role_name`, `policy_name` | `policy_document`, `truncated` |
+
+### Simulation
+
+The simulation tools evaluate policies and change nothing. Documents you pass are only evaluated, never stored or
+attached.
+
+| Tool | AWS action | Result |
+| --- | --- | --- |
+| `aws.iam.policy-simulation.simulate-custom` | `SimulateCustomPolicy` | `evaluation_results`, paged |
+| `aws.iam.policy-simulation.simulate-principal` | `SimulatePrincipalPolicy` | `evaluation_results`, paged |
+| `aws.iam.policy-simulation.get-context-keys-custom` | `GetContextKeysForCustomPolicy` | `context_key_names` |
+| `aws.iam.policy-simulation.get-context-keys-principal` | `GetContextKeysForPrincipalPolicy` | `context_key_names` |
+
+`policy_source_arn` (a user, group, or role) and `caller_arn` must belong to the bound account, otherwise the call
+is refused before a request. `resource_arns` and `resource_owner` are only compared as text and may name any
+account.
 
 ## Never a tool
 
