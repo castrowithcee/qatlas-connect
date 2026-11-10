@@ -95,7 +95,32 @@ type Operation struct {
 	// Truncated, when set, adds a boolean result field truncated with this description, true when a string
 	// of the result was cut at its limit.
 	Truncated string
-	Examples  []Example
+	// CSV turns one blob output member that holds a CSV table into rows with the tool's own paging.
+	CSV      *CSVReport
+	Examples []Example
+}
+
+// CSVReport describes a CSV table returned as a base64 blob, such as the IAM credential report. The
+// runtime decodes the blob, parses it as CSV, keeps only the listed columns, and returns the rows one page
+// at a time; the blob itself is never part of a result.
+type CSVReport struct {
+	// Member is the output blob member, such as Content.
+	Member string
+	// Columns are the known header columns, in report order; any other column is dropped and named.
+	Columns []CSVColumn
+	// MaxBytes caps the base64 text of the blob, MaxRows the data rows, MaxField one field in bytes.
+	MaxBytes, MaxRows, MaxField int
+	// DefaultPage and MaxPage are the page sizes in rows.
+	DefaultPage, MaxPage int
+}
+
+// CSVColumn is one known column of a CSVReport.
+type CSVColumn struct {
+	Name string
+	// Bool columns hold true or false and become booleans; every other column stays text.
+	Bool bool
+	// Required columns must be in the header and filled in every row.
+	Required bool
 }
 
 // Argument describes one offered input member.
@@ -244,6 +269,14 @@ func (op Operation) validate() error {
 			}
 		}
 	}
+	if op.CSV != nil {
+		if err := op.CSV.validate(); err != nil {
+			return err
+		}
+		if op.Effect != "read" {
+			return fmt.Errorf("csv belongs to a read")
+		}
+	}
 	for member, a := range op.Arguments {
 		if a.Name != "" && !argName.MatchString(a.Name) {
 			return fmt.Errorf("argument %s: name %q is not snake_case", member, a.Name)
@@ -265,6 +298,21 @@ func (op Operation) validate() error {
 		if f.MaxLen < 0 {
 			return fmt.Errorf("field %s: negative cap", member)
 		}
+	}
+	return nil
+}
+
+func (c CSVReport) validate() error {
+	if !opName.MatchString(c.Member) || len(c.Columns) == 0 || len(c.Columns) > 64 ||
+		c.MaxBytes < 1 || c.MaxRows < 1 || c.MaxField < 1 || c.DefaultPage < 1 || c.MaxPage < c.DefaultPage || c.MaxPage > c.MaxRows {
+		return fmt.Errorf("csv description is incomplete or its limits disagree")
+	}
+	seen := map[string]bool{}
+	for _, col := range c.Columns {
+		if !argName.MatchString(col.Name) || seen[col.Name] {
+			return fmt.Errorf("csv column %q is not a snake_case name or is listed twice", col.Name)
+		}
+		seen[col.Name] = true
 	}
 	return nil
 }

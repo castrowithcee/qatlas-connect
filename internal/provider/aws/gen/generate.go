@@ -273,6 +273,14 @@ var generatedSpecs = []toolSpec{
 			fmt.Fprintf(b, "pager: &awsquery.Pager{TokenIn: %s, TokenOut: %s, Truncated: %s, SizeParam: %s, MaxSize: %d},\n",
 				lit(t.pager.TokenIn), lit(t.pager.TokenOut), lit(t.pager.Truncated), lit(t.pager.SizeParam), t.pager.MaxSize)
 		}
+		if t.csv != nil {
+			fmt.Fprintf(b, "csv: &csvReport{Member: %s, MaxBytes: %d, MaxRows: %d, MaxField: %d, DefaultPage: %d, MaxPage: %d, Columns: []csvColumn{",
+				lit(csvMemberKey), t.csv.MaxBytes, t.csv.MaxRows, t.csv.MaxField, t.csv.DefaultPage, t.csv.MaxPage)
+			for _, col := range t.csv.Columns {
+				fmt.Fprintf(b, "{Name: %s, Bool: %t, Required: %t}, ", lit(col.Name), col.Bool, col.Required)
+			}
+			b.WriteString("}},\n")
+		}
 		if len(t.rules) > 0 {
 			b.WriteString("rules: []outputRule{")
 			for _, r := range t.rules {

@@ -1,6 +1,6 @@
 ---
 description: >
-  Describes the tools of the AWS Identity and Access Management group: reading users, groups, roles, instance profiles, the metadata of their credentials, and policies with their simulation, writing roles and instance profiles with the trust policy check and the own-role check, and which credential operations are never tools.
+  Describes the tools of the AWS Identity and Access Management group: reading users, groups, roles, instance profiles, the metadata of their credentials, and policies with their simulation, writing roles and instance profiles with the trust policy check and the own-role check, generating and reading the credential report and the service last accessed reports, and which credential operations are never tools.
 type: knowledge
 edit: shared
 created: 2026-11-10
@@ -152,6 +152,63 @@ attached.
 `policy_source_arn` (a user, group, or role) and `caller_arn` must belong to the bound account, otherwise the call
 is refused before a request. `resource_arns` and `resource_owner` are only compared as text and may name any
 account.
+
+## Reports
+
+The credential report lists every IAM user and the root account with the state of their passwords, access keys,
+MFA devices, and signing certificates. A service last accessed report shows which services an identity or policy
+used last. A report is made in two steps: a generate tool starts it, and a get tool reads it once it is ready.
+
+The two generate tools are `listed-only` and need confirmation: a connection offers one only when its `tools` list
+names the exact tool ID, as for the role tools. They are free, change no account data, and only produce a report.
+They are not repeated after an unclear outcome. The read tools are open reads and need no confirmation.
+
+| Tool | AWS action | Arguments | Result |
+| --- | --- | --- | --- |
+| `aws.iam.credential-report.generate` | `GenerateCredentialReport` | none | `state` (`STARTED`, `INPROGRESS`, `COMPLETE`), `description` |
+| `aws.iam.credential-report.get` | `GetCredentialReport` | `page_size` (1 to 500, 100 when left out), `cursor` | `rows`, `total_rows`, `dropped_columns`, `generated_time`, `report_format` |
+| `aws.iam.service-last-accessed.generate` | `GenerateServiceLastAccessedDetails` | `arn` (required), `granularity` (`SERVICE_LEVEL` or `ACTION_LEVEL`) | `job_id` |
+| `aws.iam.service-last-accessed.get-details` | `GetServiceLastAccessedDetails` | `job_id` (required), `page_size` (1 to 1000), `cursor` | `job_status`, `job_type`, `job_creation_date`, `job_completion_date`, `services_last_accessed`, `error` |
+| `aws.iam.service-last-accessed.get-entities` | `GetServiceLastAccessedDetailsWithEntities` | `job_id`, `service_namespace` (both required), `page_size` (1 to 1000), `cursor` | `job_status`, `job_creation_date`, `job_completion_date`, `entity_details_list`, `error` |
+| `aws.iam.service-access.list-policies` | `ListPoliciesGrantingServiceAccess` | `arn`, `service_namespaces` (both required), `cursor` | `policies_granting_service_access` |
+
+### Credential report rows
+
+`aws.iam.credential-report.get` never returns the report as it comes. AWS sends it as a base64 CSV file; Qatlas
+decodes and parses it and returns one object per row in `rows`, one for each IAM user and one for the root account
+(`user` is `<root_account>`). The keys are the column names of the report, which are already snake_case:
+`user`, `arn`, `user_creation_time`, `password_enabled`, `password_last_used`, `password_last_changed`,
+`password_next_rotation`, `mfa_active`, `access_key_1_active`, `access_key_1_last_rotated`,
+`access_key_1_last_used_date`, `access_key_1_last_used_region`, `access_key_1_last_used_service`, the same five
+for `access_key_2`, `cert_1_active`, `cert_1_last_rotated`, `cert_2_active`, and `cert_2_last_rotated`.
+
+- A field that is empty, `N/A`, or `not_supported` is left out of its row, so a missing key means no value.
+  Other words of the report, such as `no_information`, stay as text.
+- `password_enabled`, `mfa_active`, and the `*_active` columns are booleans. Any other value in them makes the
+  answer invalid. All other columns are text, including the dates.
+- Only the columns above are returned. Any other column is dropped; its name is listed in `dropped_columns` when it
+  is a plain name, at most 32 names. `user` and `arn` must be in the report and filled in every row.
+- The report is capped at 4 MiB (base64), 10000 rows, 64 columns, and 2048 bytes per field. A report that is not
+  base64, not UTF-8, not valid CSV, has rows of a different width than the header, repeats a column, or breaks a cap
+  is refused as an invalid provider response.
+- `rows` pages by `page_size` and `cursor`. `next_cursor` is bound to the tool and carries the generation time of the
+  report: it is refused when changed, and when the report was generated again meanwhile, so start the rows again
+  without `cursor`. `total_rows` counts the whole report. `generated_time` and `report_format` are AWS's.
+
+If no report exists, the call fails as `not-found`. While AWS is still generating one, or when the last one
+expired, it fails as a `provider-error` whose message says so. Start a new report with
+`aws.iam.credential-report.generate` and read it again when the state is `COMPLETE`; AWS makes a new report at most
+every four hours.
+
+### Service last accessed reports
+
+`arn` of `aws.iam.service-last-accessed.generate` must be an ARN of the `aws` partition in the bound account: a
+user, group, role, or customer managed policy. An AWS managed policy ARN is refused, as is any other account.
+`arn` of `aws.iam.service-access.list-policies` must be a user, group, or role of the bound account. The check runs
+before any request. Each generate call starts a new job; read the job with its `job_id` until `job_status` is
+`COMPLETED`. Names, ARNs, and the `error` message of a job are set by whoever manages the account or by AWS and are
+untrusted data. `aws.iam.service-access.list-policies` has no `page_size`, since AWS has no such parameter; the
+others take it up to 1000.
 
 ## Never a tool
 

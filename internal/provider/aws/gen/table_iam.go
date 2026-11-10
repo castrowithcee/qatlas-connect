@@ -6,11 +6,12 @@ import "slices"
 // users, groups, roles, instance profiles, access keys, MFA devices, SSH public keys, signing certificates,
 // and service-specific credentials. A secret, a password, a seed, or a private key is never a field, and the
 // operations that create or change a credential are excluded for good. The role tools create, change, and
-// delete roles and instance profiles, listed-only and with confirmation. The remaining operations wait for
+// delete roles and instance profiles, listed-only and with confirmation. The report tools generate and read
+// the credential report and the service last accessed reports; their generators are listed-only and need confirmation. The remaining operations wait for
 // the IAM tools that follow; the completeness test runs on the whole table, so a new IAM operation shows up.
 var iamTable = Table{
 	Service: "iam", Segment: "iam", Geltung: Global,
-	Operations: slices.Concat(iamIdentityTools, iamPolicyTools, iamRoleTools),
+	Operations: slices.Concat(iamIdentityTools, iamPolicyTools, iamRoleTools, iamReportTools),
 	// IAM returns policy documents percent-encoded. A trust policy is decoded to JSON text and cut at 32 KiB;
 	// it is untrusted like every provider content.
 	URLEncoded: []URLEncoded{{Shape: "policyDocumentType", MaxLen: 32 << 10}},
@@ -77,14 +78,11 @@ var iamTable = Table{
 		{Operation: "EnableOrganizationsRootCredentialsManagement", Reason: deferIAM},
 		{Operation: "EnableOrganizationsRootSessions", Reason: deferIAM},
 		{Operation: "EnableOutboundWebIdentityFederation", Reason: deferIAM},
-		{Operation: "GenerateCredentialReport", Reason: deferIAM},
 		{Operation: "GenerateOrganizationsAccessReport", Reason: deferIAM},
-		{Operation: "GenerateServiceLastAccessedDetails", Reason: deferIAM},
 		{Operation: "GetAccountAuthorizationDetails", Reason: deferIAM},
 		{Operation: "GetAccountPasswordPolicy", Reason: deferIAM},
 		{Operation: "GetAccountProperties", Reason: deferIAM},
 		{Operation: "GetAccountSummary", Reason: deferIAM},
-		{Operation: "GetCredentialReport", Reason: deferIAM},
 		{Operation: "GetDelegationRequest", Reason: deferIAM},
 		{Operation: "GetHumanReadableSummary", Reason: deferIAM},
 		{Operation: "GetMFADevice", Reason: deferIAM},
@@ -94,8 +92,6 @@ var iamTable = Table{
 		{Operation: "GetRoleTemplateVersion", Reason: deferIAM},
 		{Operation: "GetSAMLProvider", Reason: deferIAM},
 		{Operation: "GetServerCertificate", Reason: deferIAM},
-		{Operation: "GetServiceLastAccessedDetails", Reason: deferIAM},
-		{Operation: "GetServiceLastAccessedDetailsWithEntities", Reason: deferIAM},
 		{Operation: "GetServiceLinkedRoleDeletionStatus", Reason: deferIAM},
 		{Operation: "ListAccountAliases", Reason: deferIAM},
 		{Operation: "ListDelegationRequests", Reason: deferIAM},
@@ -104,7 +100,6 @@ var iamTable = Table{
 		{Operation: "ListOpenIDConnectProviderTags", Reason: deferIAM},
 		{Operation: "ListOpenIDConnectProviders", Reason: deferIAM},
 		{Operation: "ListOrganizationsFeatures", Reason: deferIAM},
-		{Operation: "ListPoliciesGrantingServiceAccess", Reason: deferIAM},
 		{Operation: "ListSAMLProviderTags", Reason: deferIAM},
 		{Operation: "ListSAMLProviders", Reason: deferIAM},
 		{Operation: "ListServerCertificateTags", Reason: deferIAM},
@@ -149,4 +144,4 @@ var iamTable = Table{
 	},
 }
 
-const deferIAM = "left for the IAM tools that follow: account state, reports, providers, certificates, and changes"
+const deferIAM = "left for the IAM tools that follow: account state, providers, certificates, and changes"

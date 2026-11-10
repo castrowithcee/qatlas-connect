@@ -18,6 +18,8 @@ var wantTools = []string{
 	"aws.iam.attached-policy.list-for-group",
 	"aws.iam.attached-policy.list-for-role",
 	"aws.iam.attached-policy.list-for-user",
+	"aws.iam.credential-report.generate",
+	"aws.iam.credential-report.get",
 	"aws.iam.group.get",
 	"aws.iam.group.list",
 	"aws.iam.group.list-for-user",
@@ -57,6 +59,10 @@ var wantTools = []string{
 	"aws.iam.role.untag",
 	"aws.iam.role.update",
 	"aws.iam.role.update-trust-policy",
+	"aws.iam.service-access.list-policies",
+	"aws.iam.service-last-accessed.generate",
+	"aws.iam.service-last-accessed.get-details",
+	"aws.iam.service-last-accessed.get-entities",
 	"aws.iam.service-specific-credential.list",
 	"aws.iam.signing-certificate.list",
 	"aws.iam.ssh-public-key.get",
@@ -88,9 +94,9 @@ func TestRegisterPublishesMetadataAndTools(t *testing.T) {
 	if !reflect.DeepEqual(ids, wantTools) {
 		t.Errorf("tools = %v, want %v", ids, wantTools)
 	}
-	if !reflect.DeepEqual(metadata.SupportedEffects, []config.Effect{config.EffectRead, config.EffectCreate, config.EffectUpdate, config.EffectDelete}) ||
+	if !reflect.DeepEqual(metadata.SupportedEffects, []config.Effect{config.EffectRead, config.EffectCreate, config.EffectUpdate, config.EffectDelete, config.EffectExecute}) ||
 		!reflect.DeepEqual(metadata.DefaultEffects, []config.Effect{config.EffectRead}) {
-		t.Errorf("effects = %v / %v, want read, create, update, delete supported and read by default", metadata.SupportedEffects, metadata.DefaultEffects)
+		t.Errorf("effects = %v / %v, want read, create, update, delete, execute supported and read by default", metadata.SupportedEffects, metadata.DefaultEffects)
 	}
 	groups := map[string]bool{}
 	for _, g := range metadata.Groups {

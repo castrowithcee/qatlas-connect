@@ -44,6 +44,9 @@ var iamPaged = []struct{ tool, action, list, extra, args string }{
 	{"aws.iam.inline-policy.list-for-user", "ListUserPolicies", "PolicyNames", "", `{"user_name":"alice"}`},
 	{"aws.iam.inline-policy.list-for-group", "ListGroupPolicies", "PolicyNames", "", `{"group_name":"g"}`},
 	{"aws.iam.inline-policy.list-for-role", "ListRolePolicies", "PolicyNames", "", `{"role_name":"r"}`},
+	{"aws.iam.service-last-accessed.get-details", "GetServiceLastAccessedDetails", "ServicesLastAccessed", jobExtra, `{"job_id":"` + jobID + `"}`},
+	{"aws.iam.service-last-accessed.get-entities", "GetServiceLastAccessedDetailsWithEntities", "EntityDetailsList", jobExtra,
+		`{"job_id":"` + jobID + `","service_namespace":"s3"}`},
 	{"aws.iam.policy-simulation.simulate-custom", "SimulateCustomPolicy", "EvaluationResults", "", simCustomArgs},
 	{"aws.iam.policy-simulation.simulate-principal", "SimulatePrincipalPolicy", "EvaluationResults", "", simPrincipalArgs},
 }
@@ -385,7 +388,9 @@ func TestIAMNeverReturnsASecret(t *testing.T) {
 // metadata about a password, never a password.
 var secretName = regexp.MustCompile(`(?i)(secret|password|seed|qr_?code|private_?key|session_?token)`)
 
-var metadataNames = map[string]bool{"password_last_used": true, "password_reset_required": true}
+var metadataNames = map[string]bool{"password_last_used": true, "password_reset_required": true,
+	// Columns of the credential report: a flag and two dates about the password of a user, never the password.
+	"password_enabled": true, "password_last_changed": true, "password_next_rotation": true}
 
 func schemaNames(t *testing.T, raw json.RawMessage) []string {
 	t.Helper()
