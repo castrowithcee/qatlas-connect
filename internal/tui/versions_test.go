@@ -9,8 +9,8 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 
-	"github.com/castrowithcee/qatlas-connect/internal/i18n"
 	"github.com/castrowithcee/qatlas-connect/internal/selfupdate"
+	"github.com/castrowithcee/qatlas-kit/i18n"
 )
 
 // fakeRollback is an older version that was checked against the configuration.

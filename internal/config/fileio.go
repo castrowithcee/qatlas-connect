@@ -5,7 +5,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/castrowithcee/qatlas-connect/internal/fileretry"
+	"github.com/castrowithcee/qatlas-kit/fileretry"
 )
 
 // transientFile reports a file failure a short wait may cure, such as a sharing violation while another
@@ -40,9 +40,9 @@ func retryFile(obs Observer, op func() error) error {
 			wait(d)
 		}
 	}
-	return fileretry.Do(op, func(err error) bool {
+	return fileretry.Do(op, fileretry.Options{Transient: func(err error) bool {
 		return !errors.Is(err, os.ErrNotExist) && transientFile(err)
-	}, sleep)
+	}, Sleep: sleep})
 }
 
 // readFile reads the whole file and closes it before it returns, so a decode that follows holds no handle
