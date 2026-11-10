@@ -295,6 +295,10 @@ func checkEnvironmentName(a *environmentsArguments, _ target, _ allowlist) error
 	if strings.TrimSpace(a.Environment) == "" || len([]rune(a.Environment)) > maxEnvironmentNameLength {
 		return invalidRequest("environment must name an environment of 1 to 255 characters")
 	}
+	// PathEscape keeps a dot segment, which a server may resolve to the repository itself.
+	if a.Environment == "." || a.Environment == ".." {
+		return invalidRequest("environment must not be . or ..")
+	}
 	return checkText("environment", a.Environment)
 }
 

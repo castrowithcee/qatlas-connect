@@ -519,6 +519,33 @@ func TestEnvironmentSetRefusesUnknownReviewersWithoutAChange(t *testing.T) {
 	}
 }
 
+// A dot segment as environment name never reaches GitHub, since the escaped path would address the repository.
+func TestEnvironmentToolsRefuseDotSegmentNamesBeforeIO(t *testing.T) {
+	_, e, base := serveEnvironments(t)
+	reads := 0
+	red := &redact.Redactor{}
+	core := application.New(registry(t), environmentsConfig(base), resolver(red, &reads), red)
+	for _, name := range []string{".", ".."} {
+		for id, arguments := range map[string]string{
+			environmentsGet.ID:      `{"environment":"` + name + `"}`,
+			environmentsDelete.ID:   `{"environment":"` + name + `"}`,
+			branchPoliciesList.ID:   `{"environment":"` + name + `"}`,
+			branchPoliciesDelete.ID: `{"environment":"` + name + `","id":7}`,
+			environmentsSet.ID: `{"environment":"` + name + `","wait_timer":0,"prevent_self_review":false,` +
+				`"reviewers":[],"deployment_branch_policy":"all"}`,
+		} {
+			reads = 0
+			before := len(e.rawPaths)
+			if _, err := invoke(t, core, id, "listed", arguments, true); !isInvalidRequest(err) {
+				t.Errorf("%s %q: %v, want an invalid request", id, name, err)
+			}
+			if reads != 0 || len(e.rawPaths) != before {
+				t.Errorf("%s %q reached the credential or GitHub", id, name)
+			}
+		}
+	}
+}
+
 // A refusal names what the request needs and the plan environments require, never GitHub's own text; a
 // refused change says nothing was changed rather than that it may have been applied.
 func TestEnvironmentRefusalsNameTheCauseWithoutProviderText(t *testing.T) {
