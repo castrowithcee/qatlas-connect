@@ -81,6 +81,10 @@ var (
 		"NameConflict":                  conflict,
 		"DuplicateCertificate":          conflict,
 		"DuplicateSSHPublicKey":         conflict,
+
+		// IAM writes: the quota code of IAM has no Exception suffix, and a policy document AWS cannot parse.
+		"LimitExceeded":           quota,
+		"MalformedPolicyDocument": invalid,
 	}
 )
 

@@ -10,16 +10,17 @@ updated: 2026-11-10
 # Set up Google Maps
 
 This page shows how to connect Qatlas to Google Maps Platform. Fields, cost, and errors are described in the
-[Google Maps provider](README.md); the tools are described in [places](places.md), [addressvalidation](addressvalidation.md), [weather](weather.md),
-[airquality](airquality.md), and [solar](solar.md).
+[Google Maps provider](README.md); the tools are described in [places](places.md),
+[addressvalidation](addressvalidation.md), [weather](weather.md), [airquality](airquality.md),
+[pollen](pollen.md), and [solar](solar.md).
 
 ## What you need
 
 - A Google Cloud project with a billing account. Google bills Places requests to that account; see
   [Cost](README.md#cost) for the free monthly caps.
 - Places API (New) enabled in that project, Geocoding API for the geocoding tools, Address Validation API
-  for the address tools, Weather API for the weather tools, Air Quality API for the air quality tools, and
-  Solar API for the solar tools.
+  for the address tools, Weather API for the weather tools, Air Quality API for the air quality tools,
+  Pollen API for the pollen tool, and Solar API for the solar tools.
 - An API key of that project.
 - Qatlas keeps the key in the system keyring or the vault, or reads it from an environment variable.
 - The service is always `https://places.googleapis.com`; there is nothing to change for it. The Address
@@ -29,9 +30,9 @@ This page shows how to connect Qatlas to Google Maps Platform. Fields, cost, and
 
 In the Google Cloud console, choose or create the project and link a billing account to it. Under APIs and
 services, enable **Places API (New)**, for the geocoding tools **Geocoding API**, for the address tools
-**Address Validation API**, for the weather tools **Weather API**, for the air quality tools **Air Quality API**, and for the solar tools
-**Solar API**. Under Credentials, create an API key. Google changes its pages from time to time; look for these
-names.
+**Address Validation API**, for the weather tools **Weather API**, for the air quality tools **Air Quality
+API**, for the pollen tool **Pollen API**, and for the solar tools **Solar API**. Under Credentials, create an
+API key. Google changes its pages from time to time; look for these names.
 
 Restrict the key to the APIs you enabled. A leaked key is not narrowed by the connection's `tools`, so keep it
 for Qatlas only and restrict it as far as your use allows.

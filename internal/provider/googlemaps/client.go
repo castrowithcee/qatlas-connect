@@ -40,7 +40,13 @@ const airQualityRoot = "https://airquality.googleapis.com"
 
 const airQualityHost = "airquality.googleapis.com"
 
-// solarRoot is a further fixed origin: Solar API is a separate Google service that accepts the same key. Only
+// pollenRoot is the fifth fixed origin: Pollen API is a separate Google service that accepts the same key.
+// Only the pollen tool uses it, through getFrom.
+const pollenRoot = "https://pollen.googleapis.com"
+
+const pollenHost = "pollen.googleapis.com"
+
+// solarRoot is the sixth fixed origin: Solar API is a separate Google service that accepts the same key. Only
 // the solar tools use it, through getFrom.
 const solarRoot = "https://solar.googleapis.com"
 
@@ -239,6 +245,18 @@ func (c *Client) send(ctx context.Context, op string, req *http.Request, mask st
 		}
 		if req.URL.Host == airQualityHost {
 			failed = airQualityError(failed, response.StatusCode)
+		}
+		if req.URL.Host == pollenHost {
+			switch failed.Class {
+			case provider.ClassPermission:
+				failed.Message = "Google refused the key for the Pollen API; check that the API is enabled in the " +
+					"key's project, that the project has a billing account, and the key's restrictions"
+			case provider.ClassNotFound:
+				failed.Message = "Google has no pollen data for this location; it may be outside the coverage of the Pollen API"
+			case provider.ClassInvalidResponse:
+				failed.Message = "Google rejected the pollen request (HTTP " + itoa(response.StatusCode) + "); the " +
+					"location may be outside the coverage of the Pollen API, or the API may have changed"
+			}
 		}
 		if req.URL.Host == solarHost {
 			failed = solarError(failed, response.StatusCode)

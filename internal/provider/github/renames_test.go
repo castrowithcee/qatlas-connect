@@ -17,6 +17,16 @@ var currentToolIDs = []string{
 	"github.action-variables.get",
 	"github.action-variables.list",
 	"github.action-variables.update",
+	"github.rate-limit.get",
+	"github.meta.get",
+	"github.licenses.list",
+	"github.licenses.get",
+	"github.gitignore-templates.list",
+	"github.gitignore-templates.get",
+	"github.codes-of-conduct.list",
+	"github.codes-of-conduct.get",
+	"github.emojis.list",
+	"github.markdown.render",
 	"github.actions-permissions.get",
 	"github.actions-permissions.update",
 	"github.blame.get",
@@ -263,7 +273,7 @@ func TestRegistryHoldsExactlyTheCurrentToolIDs(t *testing.T) {
 	sort.Strings(got)
 	want := append([]string(nil), currentToolIDs...)
 	sort.Strings(want)
-	if strings.Join(got, "\n") != strings.Join(want, "\n") || len(got) != 238 {
+	if strings.Join(got, "\n") != strings.Join(want, "\n") || len(got) != 248 {
 		t.Errorf("registry holds %d tools, differing from the expected %d IDs", len(got), len(want))
 	}
 	if err := reg.ValidateRenames(); err != nil {
@@ -305,7 +315,9 @@ func TestRenamedToolsCoverEveryChangedID(t *testing.T) {
 		"github.action-variables.list": true, "github.action-variables.get": true, "github.action-variables.create": true,
 		"github.action-variables.update": true, "github.action-variables.delete": true,
 		"github.deployment-branch-policies.list": true, "github.deployment-branch-policies.create": true,
-		"github.deployment-branch-policies.update": true, "github.deployment-branch-policies.delete": true}
+		"github.deployment-branch-policies.update": true, "github.deployment-branch-policies.delete": true,
+		"github.rate-limit.get": true, "github.gitignore-templates.list": true, "github.gitignore-templates.get": true,
+		"github.codes-of-conduct.list": true, "github.codes-of-conduct.get": true}
 	for id := range current {
 		if strings.Contains(id, "-") && !targets[id] && !bornHyphenated[id] {
 			t.Errorf("hyphenated tool %s has no former ID", id)
