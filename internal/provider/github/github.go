@@ -20,7 +20,12 @@
 // the issue tools read, create, and change issues of a repository and read or write the comments of one issue on explicit
 // request. The Actions tools observe the GitHub Actions of a repository and, only with the execute permission,
 // dispatch, re-run, or cancel one named workflow or run; they read the billable time of a run and, listed
-// only, delete the logs of one. Only a connection whose tools list names them
+// only, delete the logs of one. github.environments.list and github.environments.get read the deployment
+// environments of a repository and github.deployment-branch-policies.list the branch and tag patterns of
+// one; github.deployment-branch-policies.create and .update change those patterns, and, only on a connection
+// whose tools list names them, github.environments.set creates an environment or replaces its protection
+// settings as a whole, resolving reviewers given by login or team slug first, and github.environments.delete
+// and github.deployment-branch-policies.delete remove one. Only a connection whose tools list names them
 // maintains workflow files below .github/workflows/, Actions settings, and repository settings and topics. The pull request tools, offered only
 // by the not-recommended setup profile pull-requests, read the pull requests of a repository: their list, one
 // pull request, its changed files, its commits, its diff, and the checks at its head commit; the project
@@ -570,7 +575,13 @@ func Register(reg *capability.Registry) error {
 				"token: assigning Copilot to an issue needs repo on a classic token, or Metadata: read plus " +
 				"Actions, Contents, Issues, and Pull requests: read and write on a fine-grained token, and " +
 				"requesting a Copilot review needs repo on a classic token, or Pull requests: read and write on a " +
-				"fine-grained token, plus write access to the repository",
+				"fine-grained token, plus write access to the repository; reading the environments of a repository " +
+				"and the deployment branch policies of one needs repo on a classic token for a private " +
+				"repository, or Actions: read on a fine-grained token; creating, changing, or deleting them, " +
+				"including the listed-only environment set and delete and deployment branch policy delete, needs " +
+				"repo on a classic token, or Administration: read and write on a fine-grained token, and a team " +
+				"reviewer is resolved with read:org on a classic token, or Members: read of the organization on " +
+				"a fine-grained token",
 		}},
 		Target: config.TargetMetadata{
 			Label:    "project, repository, or owner",
@@ -816,7 +827,7 @@ func Register(reg *capability.Registry) error {
 		labelsOperations(), milestonesOperations(), commentMaintenanceOperations(), commentVisibilityOperations(), reactionsOperations(),
 		subIssuesOperations(), issueDependenciesOperations(), issueTypesOperations(), issueFieldsOperations(),
 		discussionOperations(), notificationOperations(), gistOperations(), securityAlertOperations(), advisoryOperations(),
-		copilotOperations())...)
+		copilotOperations(), environmentsOperations())...)
 	for i := range operations {
 		operations[i].Descriptor = withGroup(withTargetArgument(operations[i].Descriptor))
 	}
@@ -1669,6 +1680,9 @@ func (c *Client) restSubject(request *http.Request) subject {
 			s.what = what
 		}
 		if what := notificationRepositorySubject(parts[2]); what != "" {
+			s.what = what
+		}
+		if what := environmentsSubject(parts[2]); what != "" {
 			s.what = what
 		}
 	}
