@@ -4,7 +4,7 @@ description: >
 type: knowledge
 edit: shared
 created: 2026-10-22
-updated: 2026-11-07
+updated: 2026-11-10
 ---
 
 # GitHub
@@ -17,7 +17,7 @@ the terminal editor, and a tool marked listed only is offered only when a `tools
 
 The tools are sorted into groups; each group has a page: [issues](issues.md), [pull requests](pull-requests.md),
 [pull request reviews](pull-request-reviews.md),
-[projects](projects.md), [Actions](actions.md), [code](code.md), [repositories](repositories.md),
+[projects](projects.md), [Actions](actions.md), [environments](environments.md), [code](code.md), [repositories](repositories.md),
 [releases](releases.md), [security](security.md), [discussions](discussions.md), [gists](gists.md),
 [notifications](notifications.md), and [accounts](accounts.md). The rules every search tool shares are
 described under [search](search.md). The [setup profiles](profiles.md) have their own

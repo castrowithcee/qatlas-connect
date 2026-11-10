@@ -471,7 +471,12 @@ func TestToolsFiltersByNamespaceAndQuery(t *testing.T) {
 	requireIDs(t, registryToolIDs(t, "github", nil), "github.issues.list")
 	requireIDs(t, registryToolIDs(t, "nextcloud", nil), "nextcloud.files.files.list")
 	requireIDs(t, registryToolIDs(t, "aws", nil), "aws.sts.access-key.get-info", "aws.sts.authorization-message.decode",
-		"aws.sts.caller-identity.get")
+		"aws.sts.caller-identity.get", "aws.iam.user.list", "aws.iam.user.get", "aws.iam.user.list-tags",
+		"aws.iam.group.list", "aws.iam.group.get", "aws.iam.group.list-for-user", "aws.iam.role.list",
+		"aws.iam.role.get", "aws.iam.role.list-tags", "aws.iam.instance-profile.list", "aws.iam.instance-profile.get",
+		"aws.iam.instance-profile.list-for-role", "aws.iam.access-key.list", "aws.iam.access-key.get-last-used",
+		"aws.iam.login-profile.get", "aws.iam.mfa-device.list", "aws.iam.ssh-public-key.list",
+		"aws.iam.ssh-public-key.get", "aws.iam.signing-certificate.list", "aws.iam.service-specific-credential.list")
 	wikiOffered := registryToolIDs(t, "bookstack", offeredBy(capability.EffectRead))
 	alertsOffered := registryToolIDs(t, "telegram", offeredBy(capability.EffectCreate))
 

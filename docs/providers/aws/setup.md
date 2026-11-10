@@ -10,8 +10,8 @@ updated: 2026-11-10
 # Set up AWS
 
 This page names what a connection of the `aws` provider needs. Role assumption, targets, errors, and limits are
-described in the [AWS provider](README.md); the tools are described per group, starting with the
-[Security Token Service](sts.md).
+described in the [AWS provider](README.md); the tools are described per group: the
+[Security Token Service](sts.md) and [Identity and Access Management](iam.md).
 
 ## Configuration
 
@@ -29,8 +29,17 @@ Every value is registered with the redactor. No tool, argument, result, error te
 credential. The service has no base URL of your own: leave `base_url` out, since every endpoint comes from a fixed
 table and any other value is refused.
 
-Use an IAM identity with the least permissions the tools you enable need. The STS tools in this package need no
-permission except `sts:DecodeAuthorizationMessage` for the decode tool.
+Use an IAM identity with the least permissions the tools you enable need. The STS tools need no permission except
+`sts:DecodeAuthorizationMessage` for the decode tool.
+
+### IAM
+
+Each [IAM tool](iam.md) needs the permission `iam:<action>` of its AWS action, for example `iam:ListUsers` for
+`aws.iam.user.list` and `iam:GetAccessKeyLastUsed` for `aws.iam.access-key.get-last-used`. A policy that grants
+`iam:List*` and `iam:Get*` covers every IAM read, but also reads that are not tools yet; grant the single actions to
+stay narrow. The recommended profile `read` needs `iam:ListUsers`, `iam:GetUser`, `iam:ListUserTags`,
+`iam:ListGroups`, `iam:GetGroup`, `iam:ListGroupsForUser`, `iam:ListRoles`, `iam:GetRole`, `iam:ListRoleTags`,
+`iam:ListAccessKeys`, and `iam:GetAccessKeyLastUsed`.
 
 ## Connection test
 

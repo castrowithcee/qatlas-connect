@@ -13,6 +13,26 @@ import (
 )
 
 var wantTools = []string{
+	"aws.iam.access-key.get-last-used",
+	"aws.iam.access-key.list",
+	"aws.iam.group.get",
+	"aws.iam.group.list",
+	"aws.iam.group.list-for-user",
+	"aws.iam.instance-profile.get",
+	"aws.iam.instance-profile.list",
+	"aws.iam.instance-profile.list-for-role",
+	"aws.iam.login-profile.get",
+	"aws.iam.mfa-device.list",
+	"aws.iam.role.get",
+	"aws.iam.role.list",
+	"aws.iam.role.list-tags",
+	"aws.iam.service-specific-credential.list",
+	"aws.iam.signing-certificate.list",
+	"aws.iam.ssh-public-key.get",
+	"aws.iam.ssh-public-key.list",
+	"aws.iam.user.get",
+	"aws.iam.user.list",
+	"aws.iam.user.list-tags",
 	"aws.sts.access-key.get-info", "aws.sts.authorization-message.decode", "aws.sts.caller-identity.get",
 }
 
@@ -25,8 +45,8 @@ func TestRegisterPublishesMetadataAndTools(t *testing.T) {
 	var ids []string
 	for _, tool := range metadata.Tools {
 		ids = append(ids, tool.ID)
-		if tool.Effect != config.EffectRead || tool.RequiresToolAllowList || tool.Group != "sts" {
-			t.Errorf("tool %+v, want an open read of the sts group", tool)
+		if tool.Effect != config.EffectRead || tool.RequiresToolAllowList || tool.Group != strings.Split(tool.ID, ".")[1] {
+			t.Errorf("tool %+v, want an open read of the group named by its service segment", tool)
 		}
 	}
 	if !reflect.DeepEqual(ids, wantTools) {
@@ -36,9 +56,20 @@ func TestRegisterPublishesMetadataAndTools(t *testing.T) {
 		!reflect.DeepEqual(metadata.DefaultEffects, []config.Effect{config.EffectRead}) {
 		t.Errorf("effects = %v / %v, want read only", metadata.SupportedEffects, metadata.DefaultEffects)
 	}
+	groups := map[string]bool{}
+	for _, g := range metadata.Groups {
+		groups[g.ID] = true
+	}
+	if len(groups) != 2 || !groups["sts"] || !groups["iam"] {
+		t.Errorf("groups = %+v, want sts and iam", metadata.Groups)
+	}
 	profile, ok := metadata.RecommendedProfile()
 	if !ok || profile.ID != "read" || !reflect.DeepEqual(append([]string{}, profile.Tools...), []string{
-		"aws.sts.caller-identity.get", "aws.sts.access-key.get-info", "aws.sts.authorization-message.decode"}) {
+		"aws.sts.caller-identity.get", "aws.sts.access-key.get-info", "aws.sts.authorization-message.decode",
+		"aws.iam.user.list", "aws.iam.user.get", "aws.iam.user.list-tags",
+		"aws.iam.group.list", "aws.iam.group.get", "aws.iam.group.list-for-user",
+		"aws.iam.role.list", "aws.iam.role.get", "aws.iam.role.list-tags",
+		"aws.iam.access-key.list", "aws.iam.access-key.get-last-used"}) {
 		t.Errorf("profile = %+v", profile)
 	}
 	if !metadata.Target.Required || !metadata.Target.Multiple || metadata.Target.Wildcard != "" {
