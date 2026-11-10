@@ -797,3 +797,55 @@ func TestCSVReportBindsRowsAndRefusesMisuse(t *testing.T) {
 		t.Error("a csv description on a write was accepted")
 	}
 }
+
+// A member below a top-level output member is hidden by a dotted path, and a sensitive member that is not
+// hidden stops the generation; a path that names nothing is refused. ListDelegationRequests spells its
+// truncation flag in lower case and still pages.
+func TestNestedHiddenOutputsAndLowerCaseTruncationFlag(t *testing.T) {
+	p, err := LoadPin(ModelDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	m, err := LoadTableModel(ModelDir, p, iamTable)
+	if err != nil {
+		t.Fatal(err)
+	}
+	iam := &Table{Service: "iam", Segment: "iam", Geltung: Global}
+	byName := func(name string) Operation {
+		i := slices.IndexFunc(iamAccountTools, func(o Operation) bool { return o.Operation == name })
+		if i < 0 {
+			t.Fatalf("no tool for %s", name)
+		}
+		return iamAccountTools[i]
+	}
+	virtual := byName("ListVirtualMFADevices")
+	tl, err := build(m, iam, virtual)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(tl.outputSchema, "seed") || strings.Contains(tl.outputSchema, "qr_code") || !strings.Contains(tl.outputSchema, "serial_number") {
+		t.Errorf("output schema = %s", tl.outputSchema)
+	}
+	open := virtual
+	open.HiddenOutputs = virtual.HiddenOutputs[:1]
+	if _, err := build(m, iam, open); err == nil || !strings.Contains(err.Error(), "QRCodePNG: the member is sensitive") {
+		t.Errorf("a sensitive member left in: %v", err)
+	}
+	for _, c := range []struct{ member, want string }{
+		{"VirtualMFADevices.Invented", "hidden output VirtualMFADevices.Invented is not a member below an output member"},
+		{"Invented.Seed", "hidden output Invented is not an output member"},
+	} {
+		wrong := virtual
+		wrong.HiddenOutputs = append(slices.Clone(virtual.HiddenOutputs), Hidden{Member: c.member, Reason: "r"})
+		if _, err := build(m, iam, wrong); err == nil || !strings.Contains(err.Error(), c.want) {
+			t.Errorf("hidden path %s: %v", c.member, err)
+		}
+	}
+	tl, err = build(m, iam, byName("ListDelegationRequests"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if tl.pager == nil || tl.pager.Truncated != "~isTruncated" || tl.pager.TokenOut != "~Marker" {
+		t.Errorf("pager = %+v", tl.pager)
+	}
+}

@@ -20,9 +20,9 @@ import (
 	"github.com/castrowithcee/qatlas-connect/internal/capability"
 	"github.com/castrowithcee/qatlas-connect/internal/config"
 	"github.com/castrowithcee/qatlas-connect/internal/provider"
-	"github.com/castrowithcee/qatlas-connect/internal/provider/ratelimit"
-	"github.com/castrowithcee/qatlas-connect/internal/redact"
 	"github.com/castrowithcee/qatlas-connect/internal/secret"
+	"github.com/castrowithcee/qatlas-kit/ratelimit"
+	"github.com/castrowithcee/qatlas-kit/redact"
 )
 
 // The canaries stand for the key and for text a failing Google echoes. No test reaches Google: every request
@@ -199,9 +199,10 @@ func TestRegisterPublishesMetadataAndTool(t *testing.T) {
 		"google.maps.airquality.current", "google.maps.airquality.forecast", "google.maps.airquality.history",
 		"google.maps.geocoding.geocode", "google.maps.geocoding.reverse", "google.maps.photos.get",
 		"google.maps.places.autocomplete", "google.maps.places.get", "google.maps.places.search-nearby",
-		"google.maps.places.search-text", "google.maps.pollen.forecast", "google.maps.weather.alerts",
-		"google.maps.weather.current", "google.maps.weather.days", "google.maps.weather.history",
-		"google.maps.weather.hours", "google.maps.weather.minutes"}
+		"google.maps.places.search-text", "google.maps.pollen.forecast", "google.maps.solar.building-insights",
+		"google.maps.solar.data-layers", "google.maps.weather.alerts", "google.maps.weather.current",
+		"google.maps.weather.days", "google.maps.weather.history", "google.maps.weather.hours",
+		"google.maps.weather.minutes"}
 	if !reflect.DeepEqual(ids, wantTools) {
 		t.Errorf("tools = %v", ids)
 	}
@@ -212,14 +213,16 @@ func TestRegisterPublishesMetadataAndTool(t *testing.T) {
 			"google.maps.addressvalidation.validate", "google.maps.weather.current", "google.maps.weather.minutes",
 			"google.maps.weather.hours", "google.maps.weather.days", "google.maps.weather.history",
 			"google.maps.weather.alerts", "google.maps.airquality.current", "google.maps.airquality.forecast",
-			"google.maps.airquality.history", "google.maps.pollen.forecast"}) {
+			"google.maps.airquality.history", "google.maps.pollen.forecast", "google.maps.solar.building-insights",
+			"google.maps.solar.data-layers"}) {
 		t.Errorf("profiles = %+v", metadata.Profiles)
 	}
 	for _, descriptor := range reg.Provider(Provider) {
 		if strings.HasPrefix(descriptor.ID, Provider+".addressvalidation.") ||
 			strings.HasPrefix(descriptor.ID, Provider+".weather.") ||
 			strings.HasPrefix(descriptor.ID, Provider+".airquality.") ||
-			strings.HasPrefix(descriptor.ID, Provider+".pollen.") {
+			strings.HasPrefix(descriptor.ID, Provider+".pollen.") ||
+			strings.HasPrefix(descriptor.ID, Provider+".solar.") {
 			continue // the test file of each of these groups checks its tools
 		}
 		sensitivity := dataSensitivity

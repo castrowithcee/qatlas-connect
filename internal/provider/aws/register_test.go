@@ -15,14 +15,22 @@ import (
 var wantTools = []string{
 	"aws.iam.access-key.get-last-used",
 	"aws.iam.access-key.list",
+	"aws.iam.account.get-authorization-details",
+	"aws.iam.account.get-password-policy",
+	"aws.iam.account.get-properties",
+	"aws.iam.account.get-summary",
+	"aws.iam.account.list-aliases",
 	"aws.iam.attached-policy.list-for-group",
 	"aws.iam.attached-policy.list-for-role",
 	"aws.iam.attached-policy.list-for-user",
 	"aws.iam.credential-report.generate",
 	"aws.iam.credential-report.get",
+	"aws.iam.delegation-request.get",
+	"aws.iam.delegation-request.list",
 	"aws.iam.group.get",
 	"aws.iam.group.list",
 	"aws.iam.group.list-for-user",
+	"aws.iam.human-readable-summary.get",
 	"aws.iam.inline-policy.get-for-group",
 	"aws.iam.inline-policy.get-for-role",
 	"aws.iam.inline-policy.get-for-user",
@@ -35,9 +43,18 @@ var wantTools = []string{
 	"aws.iam.instance-profile.get",
 	"aws.iam.instance-profile.list",
 	"aws.iam.instance-profile.list-for-role",
+	"aws.iam.instance-profile.list-tags",
 	"aws.iam.instance-profile.remove-role",
 	"aws.iam.login-profile.get",
+	"aws.iam.mfa-device.get",
 	"aws.iam.mfa-device.list",
+	"aws.iam.mfa-device.list-tags",
+	"aws.iam.oidc-provider.get",
+	"aws.iam.oidc-provider.list",
+	"aws.iam.oidc-provider.list-tags",
+	"aws.iam.organizations-access-report.get",
+	"aws.iam.organizations-features.list",
+	"aws.iam.outbound-federation.get-info",
 	"aws.iam.policy-simulation.get-context-keys-custom",
 	"aws.iam.policy-simulation.get-context-keys-principal",
 	"aws.iam.policy-simulation.simulate-custom",
@@ -48,6 +65,7 @@ var wantTools = []string{
 	"aws.iam.policy.list",
 	"aws.iam.policy.list-entities",
 	"aws.iam.policy.list-tags",
+	"aws.iam.role-template.get-version",
 	"aws.iam.role.create",
 	"aws.iam.role.delete",
 	"aws.iam.role.delete-permissions-boundary",
@@ -59,10 +77,17 @@ var wantTools = []string{
 	"aws.iam.role.untag",
 	"aws.iam.role.update",
 	"aws.iam.role.update-trust-policy",
+	"aws.iam.saml-provider.get",
+	"aws.iam.saml-provider.list",
+	"aws.iam.saml-provider.list-tags",
+	"aws.iam.server-certificate.get",
+	"aws.iam.server-certificate.list",
+	"aws.iam.server-certificate.list-tags",
 	"aws.iam.service-access.list-policies",
 	"aws.iam.service-last-accessed.generate",
 	"aws.iam.service-last-accessed.get-details",
 	"aws.iam.service-last-accessed.get-entities",
+	"aws.iam.service-linked-role.get-deletion-status",
 	"aws.iam.service-specific-credential.list",
 	"aws.iam.signing-certificate.list",
 	"aws.iam.ssh-public-key.get",
@@ -70,6 +95,7 @@ var wantTools = []string{
 	"aws.iam.user.get",
 	"aws.iam.user.list",
 	"aws.iam.user.list-tags",
+	"aws.iam.virtual-mfa-device.list",
 	"aws.sts.access-key.get-info",
 	"aws.sts.authorization-message.decode",
 	"aws.sts.caller-identity.get",
@@ -151,6 +177,13 @@ func TestBaseURLIsFixed(t *testing.T) {
 	}
 }
 
+// readOnlyIdentityProviderTools are reads whose IDs name an identity provider or federation setting; they
+// return metadata only, and the operations that create or change trust are excluded.
+var readOnlyIdentityProviderTools = map[string]bool{
+	"aws.iam.saml-provider.list": true, "aws.iam.saml-provider.get": true, "aws.iam.saml-provider.list-tags": true,
+	"aws.iam.outbound-federation.get-info": true,
+}
+
 // Every read is credential-free with the full risk, every other tool is a listed-only IAM write with
 // confirmation, and every tool has the strict schema. The AWS actions that return a credential or token are no
 // tools, and the actions the STS tools send are exactly the three STS reads.
@@ -172,7 +205,7 @@ func TestSTSToolsAreTheCredentialFreeActions(t *testing.T) {
 			t.Errorf("%s input schema is open", d.ID)
 		}
 		for _, banned := range []string{"assume", "session", "federation", "token", "root", "delegated", "saml", "web-identity"} {
-			if strings.Contains(d.ID, banned) {
+			if strings.Contains(d.ID, banned) && !readOnlyIdentityProviderTools[d.ID] {
 				t.Errorf("%s names a credential action (%s)", d.ID, banned)
 			}
 		}

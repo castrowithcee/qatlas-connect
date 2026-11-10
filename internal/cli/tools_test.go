@@ -25,8 +25,8 @@ import (
 	"github.com/castrowithcee/qatlas-connect/internal/capability"
 	"github.com/castrowithcee/qatlas-connect/internal/config"
 	"github.com/castrowithcee/qatlas-connect/internal/output"
-	"github.com/castrowithcee/qatlas-connect/internal/redact"
 	"github.com/castrowithcee/qatlas-connect/internal/secret"
+	"github.com/castrowithcee/qatlas-kit/redact"
 )
 
 // catalogEnvironment configures one BookStack and one Telegram connection against local servers that fail
@@ -490,7 +490,18 @@ func TestToolsFiltersByNamespaceAndQuery(t *testing.T) {
 		"aws.iam.role.untag", "aws.iam.role.delete", "aws.iam.instance-profile.create", "aws.iam.instance-profile.delete",
 		"aws.iam.instance-profile.add-role", "aws.iam.instance-profile.remove-role",
 		"aws.iam.credential-report.generate", "aws.iam.credential-report.get", "aws.iam.service-last-accessed.generate",
-		"aws.iam.service-last-accessed.get-details", "aws.iam.service-last-accessed.get-entities", "aws.iam.service-access.list-policies")
+		"aws.iam.service-last-accessed.get-details", "aws.iam.service-last-accessed.get-entities", "aws.iam.service-access.list-policies",
+		"aws.iam.account.get-summary", "aws.iam.account.get-authorization-details",
+		"aws.iam.account.get-password-policy", "aws.iam.account.list-aliases", "aws.iam.account.get-properties",
+		"aws.iam.oidc-provider.list", "aws.iam.oidc-provider.get", "aws.iam.oidc-provider.list-tags",
+		"aws.iam.saml-provider.list", "aws.iam.saml-provider.get", "aws.iam.saml-provider.list-tags",
+		"aws.iam.server-certificate.list", "aws.iam.server-certificate.get", "aws.iam.server-certificate.list-tags",
+		"aws.iam.mfa-device.get", "aws.iam.mfa-device.list-tags", "aws.iam.virtual-mfa-device.list",
+		"aws.iam.instance-profile.list-tags", "aws.iam.service-linked-role.get-deletion-status",
+		"aws.iam.role-template.get-version", "aws.iam.human-readable-summary.get",
+		"aws.iam.outbound-federation.get-info", "aws.iam.organizations-features.list",
+		"aws.iam.organizations-access-report.get", "aws.iam.delegation-request.get",
+		"aws.iam.delegation-request.list")
 	wikiOffered := registryToolIDs(t, "bookstack", offeredBy(capability.EffectRead))
 	alertsOffered := registryToolIDs(t, "telegram", offeredBy(capability.EffectCreate))
 

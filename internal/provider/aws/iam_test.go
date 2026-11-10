@@ -390,7 +390,10 @@ var secretName = regexp.MustCompile(`(?i)(secret|password|seed|qr_?code|private_
 
 var metadataNames = map[string]bool{"password_last_used": true, "password_reset_required": true,
 	// Columns of the credential report: a flag and two dates about the password of a user, never the password.
-	"password_enabled": true, "password_last_changed": true, "password_next_rotation": true}
+	"password_enabled": true, "password_last_changed": true, "password_next_rotation": true,
+	// The rules of the account password policy, which hold no password.
+	"password_policy": true, "minimum_password_length": true, "password_reuse_prevention": true,
+	"allow_users_to_change_password": true, "expire_passwords": true, "max_password_age": true}
 
 func schemaNames(t *testing.T, raw json.RawMessage) []string {
 	t.Helper()

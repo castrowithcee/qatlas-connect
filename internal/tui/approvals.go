@@ -18,8 +18,8 @@ import (
 
 	"github.com/castrowithcee/qatlas-connect/internal/approval"
 	"github.com/castrowithcee/qatlas-connect/internal/manage"
-	"github.com/castrowithcee/qatlas-connect/internal/redact"
 	"github.com/castrowithcee/qatlas-connect/internal/vault"
+	"github.com/castrowithcee/qatlas-kit/redact"
 )
 
 // approvalsReport is the Approvals section's data: which connections still need approval, right now, in an

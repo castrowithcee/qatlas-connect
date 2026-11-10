@@ -18,8 +18,8 @@ import (
 	"github.com/castrowithcee/qatlas-connect/internal/provider/aws/httpbind"
 	"github.com/castrowithcee/qatlas-connect/internal/provider/aws/restjson"
 	"github.com/castrowithcee/qatlas-connect/internal/provider/aws/sigv4"
-	"github.com/castrowithcee/qatlas-connect/internal/redact"
 	"github.com/castrowithcee/qatlas-connect/internal/secret"
+	"github.com/castrowithcee/qatlas-kit/redact"
 )
 
 //go:generate go run ./gen/awsgen

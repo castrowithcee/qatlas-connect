@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/castrowithcee/qatlas-connect/internal/provider"
-	"github.com/castrowithcee/qatlas-connect/internal/redact"
+	"github.com/castrowithcee/qatlas-kit/redact"
 )
 
 // toolFails answers every call but GetCallerIdentity (the account check) with the given reply and invokes

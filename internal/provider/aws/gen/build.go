@@ -73,6 +73,8 @@ type tool struct {
 	targetArgs, policyArgs    []string
 	selfRole                  string
 	csv                       *CSVReport
+	// nested are the dotted HiddenOutputs paths, true once the converter left the member out.
+	nested map[string]bool
 
 	// Generated test: the arguments, the form parameters they encode to, the answer, and the result keys.
 	sampleArgs   string
@@ -251,7 +253,7 @@ func (t *tool) paging(m *Model, shape *object, in, out []member) (*pagingPlan, e
 	} else {
 		_, inMarker := find(in, "Marker")
 		_, outMarker := find(out, "Marker")
-		_, truncated := find(out, "IsTruncated")
+		_, truncated := find(out, truncatedMember(out))
 		if !inMarker || !outMarker || !truncated {
 			return nil, nil
 		}
@@ -271,11 +273,11 @@ func (t *tool) paging(m *Model, shape *object, in, out []member) (*pagingPlan, e
 	if mm, ok := find(out, p.tokenOut); !ok || mm.kind != "string" {
 		return nil, t.failf("paging output token %s is not a string member", p.tokenOut)
 	}
-	if mm, ok := find(out, "IsTruncated"); ok {
+	if mm, ok := find(out, truncatedMember(out)); ok {
 		if mm.kind != "boolean" {
-			return nil, t.failf("IsTruncated is not a boolean")
+			return nil, t.failf("%s is not a boolean", mm.name)
 		}
-		p.truncated = "IsTruncated"
+		p.truncated = mm.name
 	}
 	if p.sizeMember != "" {
 		mm, ok := find(in, p.sizeMember)
@@ -287,6 +289,15 @@ func (t *tool) paging(m *Model, shape *object, in, out []member) (*pagingPlan, e
 		}
 	}
 	return &p, nil
+}
+
+// truncatedMember names the output member that says more entries follow: IsTruncated, which one operation
+// (ListDelegationRequests) spells isTruncated.
+func truncatedMember(out []member) string {
+	if _, ok := find(out, "isTruncated"); ok {
+		return "isTruncated"
+	}
+	return "IsTruncated"
 }
 
 func isInteger(kind string) bool {
@@ -449,7 +460,14 @@ func orDefault(value, fallback string) string {
 // bindOutput builds the output shape, the output schema, the fields, and the runtime rules.
 func (t *tool) bindOutput(m *Model, out []member, pag *pagingPlan) error {
 	hidden := hiddenSet(t.op.HiddenOutputs)
+	t.nested = map[string]bool{}
 	for name := range hidden {
+		if top, _, nested := strings.Cut(name, "."); nested {
+			// A dotted name hides a member below a top-level one, such as Devices.Seed; lists add no segment.
+			t.nested[name] = false
+			delete(hidden, name)
+			name = top
+		}
 		if _, ok := find(out, name); !ok {
 			return t.failf("hidden output %s is not an output member", name)
 		}
@@ -529,6 +547,11 @@ func (t *tool) bindOutput(m *Model, out []member, pag *pagingPlan) error {
 	for name := range t.op.Fields {
 		if !returned[name] {
 			return t.failf("field entry %s is not a returned output member", name)
+		}
+	}
+	for name, hit := range t.nested {
+		if !hit {
+			return t.failf("hidden output %s is not a member below an output member", name)
 		}
 	}
 	if pag != nil {
@@ -829,6 +852,10 @@ func (c *converter) structure(s *object, output bool, depth int) (*awsquery.Shap
 			continue
 		}
 		c.path = parent + "." + name
+		if _, hide := c.t.nested[c.path]; output && hide {
+			c.t.nested[c.path] = true
+			continue
+		}
 		if traits.has("smithy.api#idempotencyToken") {
 			return nil, nil, c.failf("an idempotency token below the top level has no binding")
 		}

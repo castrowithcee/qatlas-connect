@@ -15,8 +15,8 @@ import (
 	"github.com/castrowithcee/qatlas-connect/internal/capability"
 	"github.com/castrowithcee/qatlas-connect/internal/config"
 	"github.com/castrowithcee/qatlas-connect/internal/provider"
-	"github.com/castrowithcee/qatlas-connect/internal/provider/ratelimit"
-	"github.com/castrowithcee/qatlas-connect/internal/redact"
+	"github.com/castrowithcee/qatlas-kit/ratelimit"
+	"github.com/castrowithcee/qatlas-kit/redact"
 )
 
 // planningTargets binds the project together with the one repository its planning tools may use.
@@ -451,6 +451,14 @@ func TestRegisterPublishesTheChangeContracts(t *testing.T) {
 		"github.deployment-branch-policies.update": changeRisk(capability.EffectUpdate,
 			capability.IdempotencyIdempotent),
 		"github.deployment-branch-policies.delete": guardedRisk(capability.EffectDelete, capability.IdempotencyUnknown,
+			environmentSensitivity),
+		"github.deployments.list":                 readRisk,
+		"github.deployments.get":                  readRisk,
+		"github.deployment-statuses.list":         readRisk,
+		"github.deployment-statuses.get":          readRisk,
+		"github.deployment-protection-rules.list": readRisk,
+		"github.deployment-protection-rules.get":  readRisk,
+		"github.deployment-protection-rules.delete": guardedRisk(capability.EffectDelete, capability.IdempotencyUnknown,
 			environmentSensitivity),
 		"github.rate-limit.get":           readRisk,
 		"github.meta.get":                 readRisk,

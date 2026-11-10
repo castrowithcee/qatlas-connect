@@ -8,8 +8,8 @@ import (
 	"testing"
 
 	"github.com/castrowithcee/qatlas-connect/internal/capability"
-	"github.com/castrowithcee/qatlas-connect/internal/redact"
 	"github.com/castrowithcee/qatlas-connect/internal/secret"
+	"github.com/castrowithcee/qatlas-kit/redact"
 )
 
 func tagAdmin(t *testing.T, invoke capability.Handler, args string) (any, error) {

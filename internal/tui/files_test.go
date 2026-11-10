@@ -11,8 +11,8 @@ import (
 	"github.com/castrowithcee/qatlas-connect/internal/approval"
 	"github.com/castrowithcee/qatlas-connect/internal/capability"
 	"github.com/castrowithcee/qatlas-connect/internal/config"
-	"github.com/castrowithcee/qatlas-connect/internal/redact"
 	"github.com/castrowithcee/qatlas-connect/internal/vault"
+	"github.com/castrowithcee/qatlas-kit/redact"
 )
 
 // filesCatalog gives the bookstack provider of a real registry the local file directions under test; no
