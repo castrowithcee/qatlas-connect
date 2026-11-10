@@ -60,7 +60,9 @@ func withTargetArgument(d capability.Descriptor) capability.Descriptor {
 	// gist tools belong to a user account and take a gist id or none, checked against the user targets. The
 	// global advisory tools are GitHub-wide and name no target; the organization advisory list takes the owner
 	// of an organization like the team lists. github.repositories.rename declares its repository argument
-	// itself, since its result field of that name holds the new name, not the one it acted on.
+	// itself, since its result field of that name holds the new name, not the one it acted on. The reference
+	// tools read GitHub-wide data or the token's rate limit; github.markdown.render takes an optional context
+	// repository of its own that never defaults to a target.
 	switch d.ID {
 	case accountsMe.ID, starsList.ID, repositoriesSearch.ID, codeSearch.ID, issuesSearch.ID,
 		pullRequestsSearch.ID, commitsSearch.ID, usersSearch.ID, organizationsSearch.ID, repositoriesCreate.ID,
@@ -70,7 +72,9 @@ func withTargetArgument(d capability.Descriptor) capability.Descriptor {
 		actionVariablesDelete.ID,
 		notificationsList.ID, notificationsGet.ID, notificationsDismiss.ID, notificationsMarkAll.ID,
 		threadSubscriptionsSet.ID, gistsList.ID, gistsGet.ID, gistsCreate.ID, gistsUpdate.ID, gistsDelete.ID,
-		globalAdvisoriesList.ID, globalAdvisoriesGet.ID, repositoriesRename.ID:
+		globalAdvisoriesList.ID, globalAdvisoriesGet.ID, repositoriesRename.ID, rateLimitGet.ID, metaGet.ID,
+		licensesList.ID, licensesGet.ID, gitignoreTemplatesList.ID, gitignoreTemplatesGet.ID, codesOfConductList.ID,
+		codesOfConductGet.ID, emojisList.ID, markdownRender.ID:
 		return d
 	}
 	name, schema, argument := "repository", repoSchema, repositoryArgument

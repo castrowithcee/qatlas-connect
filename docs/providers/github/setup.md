@@ -274,6 +274,8 @@ is off or the token may not read it.
 | List teams of an organization and their members | `read:org` | Members: read (organization) |
 | Search repositories, code, issues, pull requests, commits | none for public results; `repo` for private ones | Contents: read for private code and repositories; also Issues or Pull requests: read for issue and pull request search |
 | Search users and organizations | none beyond your identity | none beyond your identity |
+| Read the rate limit, meta information, license, `.gitignore`, and code of conduct templates, and emojis | none | none |
+| Render Markdown | none for public references; `repo` for a private repository as `context` | Contents: read for a private repository as `context` |
 
 ## What happens without a right
 
