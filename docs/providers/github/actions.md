@@ -4,7 +4,7 @@ description: >
 type: knowledge
 edit: shared
 created: 2026-10-22
-updated: 2026-10-23
+updated: 2026-11-10
 ---
 
 # GitHub Actions
@@ -35,9 +35,10 @@ or a free REST path.
 | `github.workflow-run-logs.delete` | deletes all logs of one run; listed-only, see [Deleting run logs](#deleting-run-logs) |
 
 No observer or operator tool changes a workflow file or a setting; that is the listed-only group under
-[workflow maintenance and Actions administration](#workflow-maintenance-and-actions-administration). No tool
-force-cancels a run, approves a deployment, or administers secrets, variables, environments,
-runners, deployments, or an organization.
+[workflow maintenance and Actions administration](#workflow-maintenance-and-actions-administration).
+Environments and their deployment branch policies have [their own page](environments.md).
+No tool force-cancels a run, approves a deployment, or administers secrets, variables, deployment protection
+rules, runners, deployments, or an organization.
 
 ## Observer and operator
 
