@@ -5,6 +5,7 @@ import (
 	"encoding/xml"
 	"errors"
 	"math"
+	"net/url"
 	"strconv"
 	"strings"
 	"time"
@@ -235,6 +236,15 @@ func (dec *decoded) scalar(s *Shape, raw []byte) (any, error) {
 	text := string(raw)
 	switch s.Kind {
 	case KindString:
+		if s.URLDecoded {
+			// Decode before the cap: the cap bounds what the caller sees, not the encoded form. A malformed
+			// escape or a result that is not UTF-8 is an invalid answer, never a guessed value.
+			plain, err := url.PathUnescape(text)
+			if err != nil || !utf8.ValidString(plain) {
+				return nil, errInvalidResult
+			}
+			text = plain
+		}
 		if len(text) > limit {
 			text = text[:limit]
 			for !utf8.ValidString(text) {

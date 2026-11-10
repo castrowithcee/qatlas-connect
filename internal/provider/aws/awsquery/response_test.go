@@ -425,3 +425,30 @@ func TestDoMapsIAMErrorsAndNeverShowsTheMessage(t *testing.T) {
 		t.Errorf("unreadable body: %v", failure)
 	}
 }
+
+// A URLDecoded string is percent-decoded (RFC 3986: '+' stays) before its cap applies; a malformed escape
+// or a result that is not UTF-8 is an invalid answer.
+func TestDecodeURLDecodedStrings(t *testing.T) {
+	shape := &Shape{Kind: KindStruct, Fields: []Field{
+		{Key: "doc", Name: "doc", Shape: &Shape{Kind: KindString, MaxLen: 6, URLDecoded: true}},
+	}}
+	wrap := func(inner string) string {
+		return `<XmlTestResponse><XmlTestResult>` + inner + `</XmlTestResult></XmlTestResponse>`
+	}
+	out, meta, failure := decode(t, wrap(`<doc>%7B%22a%22%7D</doc>`), shape)
+	if failure != nil || out["doc"] != `{"a"}` || meta.Truncated {
+		t.Errorf("doc = %q truncated = %v (%v)", out["doc"], meta.Truncated, failure)
+	}
+	out, meta, failure = decode(t, wrap(`<doc>a+b%20cdefgh</doc>`), shape)
+	if failure != nil || out["doc"] != "a+b cd" || !meta.Truncated {
+		t.Errorf("doc = %q truncated = %v (%v), want the decoded text cut at the cap", out["doc"], meta.Truncated, failure)
+	}
+	for _, bad := range []string{`%zz`, `%`, `%ff`} {
+		if _, _, failure := decode(t, wrap(`<doc>`+bad+`</doc>`), shape); failure == nil || failure.Class != provider.ClassInvalidResponse {
+			t.Errorf("%q: %v, want an invalid response", bad, failure)
+		}
+	}
+	if (&Shape{Kind: KindInteger, URLDecoded: true}).Validate() == nil {
+		t.Error("URLDecoded on a non-string shape was accepted")
+	}
+}

@@ -10,12 +10,13 @@ updated: 2026-11-10
 # Amazon Web Services
 
 The `aws` provider gives agents controlled, read-only access to one AWS account. Qatlas signs requests with
-Signature Version 4 using the Go standard library; it uses no AWS SDK. This first package ships the foundation
-(credential, role assumption, account and region binding, connection test, endpoint table, error mapping) and the
-three Security Token Service (STS) tools. Further services build on it.
+Signature Version 4 using the Go standard library; it uses no AWS SDK. It ships the foundation (credential, role
+assumption, account and region binding, connection test, endpoint table, error mapping), the Security Token Service
+(STS) tools, and the IAM tools that read identities and the metadata of their credentials. Further services build on
+it.
 
 [Set up AWS](setup.md) lists the secret roles, the permissions, and what the connection test proves. The tools are
-described per group: [Security Token Service](sts.md).
+described per group: [Security Token Service](sts.md) and [Identity and Access Management](iam.md).
 
 ## Role assumption
 
@@ -70,7 +71,7 @@ sends only over HTTPS without following redirects.
 | Account (global) | `account.us-east-1.amazonaws.com` | `us-east-1` |
 
 Global services hang on the account and ignore the region allowlist; a connection reaches them with its account
-target alone. Only STS is used in this package.
+target alone. Only STS and IAM are used so far.
 
 ## CloudTrail
 
@@ -131,7 +132,9 @@ fixed model operation; there is no general call.
   (`requires_tool_allow_list`).
 - **From the model.** Arguments, fields and their limits come from the model. Deprecated members are left out. A
   member the model marks sensitive, or whose name says it holds a credential, stops the generation unless the table
-  hides it. A paged operation takes `page_size` (where the service has a page size) and `cursor` and returns
+  hides it; only a top-level member can be hidden. A table may name string shapes the service returns
+  percent-encoded, such as the IAM policy documents; their values are decoded before the cap applies, and a
+  malformed value is an invalid answer. A paged operation takes `page_size` (where the service has a page size) and `cursor` and returns
   `next_cursor` and `has_more`. An operation with an idempotency token generates the token, accepts `client_token`
   to repeat a request after a timeout, and returns the token it sent.
 

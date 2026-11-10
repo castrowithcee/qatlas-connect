@@ -596,6 +596,12 @@ func (c *converter) convert(target string, traits *object, output bool, depth in
 		shape := &awsquery.Shape{Kind: awsquery.KindString}
 		if output {
 			limit := c.maxLen
+			if enc, ok := c.t.urlEncoded(c.m, target); ok {
+				shape.URLDecoded = true
+				if limit == 0 {
+					limit = enc.MaxLen
+				}
+			}
 			if limit == 0 {
 				if max, ok := number(length, "max"); ok {
 					limit = int(max)
@@ -995,4 +1001,17 @@ func sortedKeys(m map[string]string) []string {
 	}
 	slices.Sort(keys)
 	return keys
+}
+
+// urlEncoded reports whether the table lists the string shape target as returned percent-encoded.
+func (t *tool) urlEncoded(m *Model, target string) (URLEncoded, bool) {
+	if !strings.HasPrefix(target, m.namespace()+"#") {
+		return URLEncoded{}, false
+	}
+	for _, e := range t.table.URLEncoded {
+		if e.Shape == shortName(target) {
+			return e, true
+		}
+	}
+	return URLEncoded{}, false
 }
