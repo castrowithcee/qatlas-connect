@@ -46,6 +46,12 @@ const pollenRoot = "https://pollen.googleapis.com"
 
 const pollenHost = "pollen.googleapis.com"
 
+// solarRoot is the sixth fixed origin: Solar API is a separate Google service that accepts the same key. Only
+// the solar tools use it, through getFrom.
+const solarRoot = "https://solar.googleapis.com"
+
+const solarHost = "solar.googleapis.com"
+
 // Bounds of one request. The timeout stays below the 60 seconds an invoke may take, so a slow answer ends
 // as a timeout of this provider and not as a cancelled call.
 const (
@@ -251,6 +257,9 @@ func (c *Client) send(ctx context.Context, op string, req *http.Request, mask st
 				failed.Message = "Google rejected the pollen request (HTTP " + itoa(response.StatusCode) + "); the " +
 					"location may be outside the coverage of the Pollen API, or the API may have changed"
 			}
+		}
+		if req.URL.Host == solarHost {
+			failed = solarError(failed, response.StatusCode)
 		}
 		if response.StatusCode >= 300 && (response.StatusCode < 400 || response.StatusCode >= 500) {
 			failed = c.unsure(failed)

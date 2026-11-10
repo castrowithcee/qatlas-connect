@@ -47,6 +47,18 @@ The policy tools need `iam:ListPolicies`, `iam:GetPolicy`, `iam:ListPolicyTags`,
 `iam:SimulateCustomPolicy`, `iam:SimulatePrincipalPolicy`, `iam:GetContextKeysForCustomPolicy`, and
 `iam:GetContextKeysForPrincipalPolicy`. They are not part of the profile `read`.
 
+The [account and identity provider tools](iam.md#account-state-identity-providers-and-further-reads) need
+`iam:GetAccountSummary`, `iam:GetAccountAuthorizationDetails`, `iam:GetAccountPasswordPolicy`,
+`iam:ListAccountAliases`, `iam:GetAccountProperties`, `iam:ListOpenIDConnectProviders`,
+`iam:GetOpenIDConnectProvider`, `iam:ListOpenIDConnectProviderTags`, `iam:ListSAMLProviders`, `iam:GetSAMLProvider`,
+`iam:ListSAMLProviderTags`, `iam:ListServerCertificates`, `iam:GetServerCertificate`,
+`iam:ListServerCertificateTags`, `iam:GetMFADevice`, `iam:ListMFADeviceTags`, `iam:ListVirtualMFADevices`,
+`iam:ListInstanceProfileTags`, `iam:GetServiceLinkedRoleDeletionStatus`, `iam:GetRoleTemplateVersion`,
+`iam:GetHumanReadableSummary`, `iam:GetOutboundWebIdentityFederationInfo`, `iam:ListOrganizationsFeatures`,
+`iam:GetOrganizationsAccessReport`, `iam:GetDelegationRequest`, and `iam:ListDelegationRequests`, each for its own
+tool. `iam:GetAccountAuthorizationDetails` returns every policy document of the account, so grant it with care. They
+are not part of the profile `read`.
+
 The [role tools](iam.md#roles-and-instance-profiles) need `iam:CreateRole`, `iam:UpdateRole`,
 `iam:UpdateAssumeRolePolicy`, `iam:PutRolePermissionsBoundary`, `iam:DeleteRolePermissionsBoundary`, `iam:TagRole`,
 `iam:UntagRole`, `iam:DeleteRole`, `iam:CreateInstanceProfile`, `iam:DeleteInstanceProfile`,
