@@ -1,5 +1,7 @@
 package gen
 
+import "slices"
+
 // iamTable curates the IAM model. The tools read identities and the metadata of their credentials:
 // users, groups, roles, instance profiles, access keys, MFA devices, SSH public keys, signing certificates,
 // and service-specific credentials. A secret, a password, a seed, or a private key is never a field, and the
@@ -7,7 +9,7 @@ package gen
 // IAM tools that follow; the completeness test runs on the whole table, so a new IAM operation shows up.
 var iamTable = Table{
 	Service: "iam", Segment: "iam", Geltung: Global,
-	Operations: iamIdentityTools,
+	Operations: slices.Concat(iamIdentityTools, iamPolicyTools),
 	// IAM returns policy documents percent-encoded. A trust policy is decoded to JSON text and cut at 32 KiB;
 	// it is untrusted like every provider content.
 	URLEncoded: []URLEncoded{{Shape: "policyDocumentType", MaxLen: 32 << 10}},
@@ -87,48 +89,31 @@ var iamTable = Table{
 		{Operation: "GetAccountPasswordPolicy", Reason: deferIAM},
 		{Operation: "GetAccountProperties", Reason: deferIAM},
 		{Operation: "GetAccountSummary", Reason: deferIAM},
-		{Operation: "GetContextKeysForCustomPolicy", Reason: deferIAM},
-		{Operation: "GetContextKeysForPrincipalPolicy", Reason: deferIAM},
 		{Operation: "GetCredentialReport", Reason: deferIAM},
 		{Operation: "GetDelegationRequest", Reason: deferIAM},
-		{Operation: "GetGroupPolicy", Reason: deferIAM},
 		{Operation: "GetHumanReadableSummary", Reason: deferIAM},
 		{Operation: "GetMFADevice", Reason: deferIAM},
 		{Operation: "GetOpenIDConnectProvider", Reason: deferIAM},
 		{Operation: "GetOrganizationsAccessReport", Reason: deferIAM},
 		{Operation: "GetOutboundWebIdentityFederationInfo", Reason: deferIAM},
-		{Operation: "GetPolicy", Reason: deferIAM},
-		{Operation: "GetPolicyVersion", Reason: deferIAM},
-		{Operation: "GetRolePolicy", Reason: deferIAM},
 		{Operation: "GetRoleTemplateVersion", Reason: deferIAM},
 		{Operation: "GetSAMLProvider", Reason: deferIAM},
 		{Operation: "GetServerCertificate", Reason: deferIAM},
 		{Operation: "GetServiceLastAccessedDetails", Reason: deferIAM},
 		{Operation: "GetServiceLastAccessedDetailsWithEntities", Reason: deferIAM},
 		{Operation: "GetServiceLinkedRoleDeletionStatus", Reason: deferIAM},
-		{Operation: "GetUserPolicy", Reason: deferIAM},
 		{Operation: "ListAccountAliases", Reason: deferIAM},
-		{Operation: "ListAttachedGroupPolicies", Reason: deferIAM},
-		{Operation: "ListAttachedRolePolicies", Reason: deferIAM},
-		{Operation: "ListAttachedUserPolicies", Reason: deferIAM},
 		{Operation: "ListDelegationRequests", Reason: deferIAM},
-		{Operation: "ListEntitiesForPolicy", Reason: deferIAM},
-		{Operation: "ListGroupPolicies", Reason: deferIAM},
 		{Operation: "ListInstanceProfileTags", Reason: deferIAM},
 		{Operation: "ListMFADeviceTags", Reason: deferIAM},
 		{Operation: "ListOpenIDConnectProviderTags", Reason: deferIAM},
 		{Operation: "ListOpenIDConnectProviders", Reason: deferIAM},
 		{Operation: "ListOrganizationsFeatures", Reason: deferIAM},
-		{Operation: "ListPolicies", Reason: deferIAM},
 		{Operation: "ListPoliciesGrantingServiceAccess", Reason: deferIAM},
-		{Operation: "ListPolicyTags", Reason: deferIAM},
-		{Operation: "ListPolicyVersions", Reason: deferIAM},
-		{Operation: "ListRolePolicies", Reason: deferIAM},
 		{Operation: "ListSAMLProviderTags", Reason: deferIAM},
 		{Operation: "ListSAMLProviders", Reason: deferIAM},
 		{Operation: "ListServerCertificateTags", Reason: deferIAM},
 		{Operation: "ListServerCertificates", Reason: deferIAM},
-		{Operation: "ListUserPolicies", Reason: deferIAM},
 		{Operation: "ListVirtualMFADevices", Reason: deferIAM},
 		{Operation: "PutAccountProperties", Reason: deferIAM},
 		{Operation: "PutGroupPolicy", Reason: deferIAM},
@@ -143,8 +128,6 @@ var iamTable = Table{
 		{Operation: "SendDelegationToken", Reason: deferIAM},
 		{Operation: "SetDefaultPolicyVersion", Reason: deferIAM},
 		{Operation: "SetSecurityTokenServicePreferences", Reason: deferIAM},
-		{Operation: "SimulateCustomPolicy", Reason: deferIAM},
-		{Operation: "SimulatePrincipalPolicy", Reason: deferIAM},
 		{Operation: "TagInstanceProfile", Reason: deferIAM},
 		{Operation: "TagMFADevice", Reason: deferIAM},
 		{Operation: "TagOpenIDConnectProvider", Reason: deferIAM},
@@ -177,4 +160,4 @@ var iamTable = Table{
 	},
 }
 
-const deferIAM = "left for the IAM tools that follow: policies, account state, reports, and changes"
+const deferIAM = "left for the IAM tools that follow: account state, reports, providers, certificates, and changes"
