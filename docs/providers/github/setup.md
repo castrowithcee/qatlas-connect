@@ -174,6 +174,9 @@ your token holds. A repository or organization policy can forbid a run although 
 | Read Actions variables of a repository; create, change, or delete them | `repo` | Variables: read; read and write to change |
 | Read Actions variables of an environment; create, change, or delete them | `repo` | Environments: read; read and write to change |
 | Read Actions variables of an organization; create, change, or delete them | `admin:org`, plus `repo` where a private repository is involved | Variables: read, read and write to change (organization); selecting repositories also needs Metadata: read on them |
+| Read environments and deployment branch policies | `repo` for private repositories, none for public | Actions: read |
+| Create, change, or delete environments and deployment branch policies | `repo` | Administration: read and write |
+| Name a team as reviewer of an environment | `read:org` | Members: read (organization) |
 
 Workflow files, Actions permissions, and repository settings are high risk. Give those connections a token of their
 own that no other connection uses, ideally fine-grained and limited to the one repository, with only the

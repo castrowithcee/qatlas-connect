@@ -7,6 +7,7 @@ import (
 	"charm.land/lipgloss/v2"
 
 	"github.com/castrowithcee/qatlas-connect/internal/helptopics"
+	kithelp "github.com/castrowithcee/qatlas-kit/helptopics"
 )
 
 // A form is drawn in one of three ways. With the section list, the list stands in a panel at the left and
@@ -29,7 +30,7 @@ func (m *Model) sectionLead(name string) string {
 	if id == "" {
 		return ""
 	}
-	term, ok := helptopics.LookupTerm(id)
+	term, ok := kithelp.LookupTerm(helptopics.Terms(), id)
 	if !ok {
 		return ""
 	}

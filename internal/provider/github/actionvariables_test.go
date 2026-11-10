@@ -19,11 +19,11 @@ import (
 	"github.com/castrowithcee/qatlas-connect/internal/redact"
 )
 
-// valueCanary stands for a variable value; it must never reach a message. providerCanary stands for GitHub's
+// valueCanary stands for a variable value; it must never reach a message. variableProviderCanary stands for GitHub's
 // own text of a refusal.
 const (
-	valueCanary    = "variable-value-canary-7c2d"
-	providerCanary = "provider-text-canary-91ab"
+	valueCanary            = "variable-value-canary-7c2d"
+	variableProviderCanary = "provider-text-canary-91ab"
 )
 
 // fakeVariables answers the Actions variable routes of repository octo-org/example, its environments, and
@@ -106,7 +106,7 @@ func (v *fakeVariables) route(w http.ResponseWriter, req *http.Request) bool {
 	v.paths = append(v.paths, escaped)
 	if v.status != 0 {
 		w.WriteHeader(v.status)
-		fmt.Fprintf(w, `{"message":%q}`, providerCanary)
+		fmt.Fprintf(w, `{"message":%q}`, variableProviderCanary)
 		return true
 	}
 	var body map[string]any
@@ -144,7 +144,7 @@ func (v *fakeVariables) route(w http.ResponseWriter, req *http.Request) bool {
 		created, _ := body["name"].(string)
 		if _, exists := v.store[level][strings.ToUpper(created)]; exists {
 			w.WriteHeader(http.StatusConflict)
-			fmt.Fprintf(w, `{"message":%q}`, providerCanary)
+			fmt.Fprintf(w, `{"message":%q}`, variableProviderCanary)
 			return true
 		}
 		variable := map[string]any{"name": created, "value": body["value"], "created_at": "2026-11-10T00:00:00Z",
@@ -551,7 +551,7 @@ func TestActionVariablesFailuresAreNamed(t *testing.T) {
 				strings.Contains(err.Error(), uncertain) != tt.uncertain {
 				t.Errorf("%s create answered %d = %v, want %s naming %q", name, tt.status, err, tt.class, tt.fragment)
 			}
-			if err != nil && (strings.Contains(err.Error(), valueCanary) || strings.Contains(err.Error(), providerCanary)) {
+			if err != nil && (strings.Contains(err.Error(), valueCanary) || strings.Contains(err.Error(), variableProviderCanary)) {
 				t.Errorf("%s create answered %d quotes the value or GitHub's text: %v", name, tt.status, err)
 			}
 			if requests := f.recorded()[before:]; len(requests) != 1 {

@@ -5,9 +5,8 @@ import (
 	"flag"
 	"fmt"
 	"os"
-	"path/filepath"
-	"strings"
 
+	"github.com/castrowithcee/qatlas-kit/manpage"
 	"github.com/spf13/cobra/doc"
 
 	"github.com/castrowithcee/qatlas-connect/internal/cli"
@@ -31,47 +30,10 @@ func main() {
 // generate writes one manpage per command into output. Cobra leaves help topics out of the tree, so their
 // text becomes a section of qconnect.1, the one page every installation carries.
 func generate(output, version string) error {
-	if err := os.MkdirAll(output, 0o755); err != nil {
-		return err
-	}
-	header := &doc.GenManHeader{Section: "1", Source: "Qatlas Connect " + version, Manual: "Qatlas Connect Manual"}
-	if err := doc.GenManTree(cli.DocumentationCommand(version), header, output); err != nil {
-		return err
-	}
-	root := filepath.Join(output, "qconnect.1")
-	page, err := os.ReadFile(root)
-	if err != nil {
-		return err
-	}
-	return os.WriteFile(root, []byte(withHelpTopics(string(page))), 0o644)
+	return manpage.Generate(output, "qconnect", version, topicsIntro, helptopics.All(), func(dir, version string) error {
+		header := &doc.GenManHeader{Section: "1", Source: "Qatlas Connect " + version, Manual: "Qatlas Connect Manual"}
+		return doc.GenManTree(cli.DocumentationCommand(version), header, dir)
+	})
 }
 
-// withHelpTopics inserts the help topics before SEE ALSO, or at the end of a page without it.
-func withHelpTopics(page string) string {
-	var b strings.Builder
-	b.WriteString(".SH HELP TOPICS\n.PP\nThe same text is printed by \\fBqconnect help\\fP \\fItopic\\fP " +
-		"and shown by ? in \\fBqconnect tui\\fP.\n")
-	for _, topic := range helptopics.All() {
-		b.WriteString(".SS " + roff(topic.Name) + "\n.PP\n" + roff(topic.Short) + "\n.PP\n.nf\n")
-		// The page indents its text, so the topic is wrapped narrower than for a terminal.
-		for _, line := range strings.Split(helptopics.Wrap(topic.Text, 72), "\n") {
-			b.WriteString(roff(line) + "\n")
-		}
-		b.WriteString(".fi\n\n")
-	}
-	if before, after, found := strings.Cut(page, ".SH SEE ALSO"); found {
-		return before + b.String() + "\n.SH SEE ALSO" + after
-	}
-	return page + "\n" + b.String()
-}
-
-// roff escapes one line of plain text for a manpage: backslashes and hyphens keep their meaning, and a
-// line that starts like a request is kept as text.
-func roff(line string) string {
-	line = strings.ReplaceAll(line, `\`, `\e`)
-	line = strings.ReplaceAll(line, "-", `\-`)
-	if strings.HasPrefix(line, ".") || strings.HasPrefix(line, "'") {
-		line = `\&` + line
-	}
-	return line
-}
+const topicsIntro = `The same text is printed by \fBqconnect help\fP \fItopic\fP and shown by ? in \fBqconnect tui\fP.`

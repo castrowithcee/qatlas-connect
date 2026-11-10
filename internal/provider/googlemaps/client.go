@@ -28,6 +28,12 @@ const addressValidationRoot = "https://addressvalidation.googleapis.com"
 
 const addressValidationHost = "addressvalidation.googleapis.com"
 
+// weatherRoot is the third fixed origin: Weather API is a separate Google service that accepts the same key.
+// Only the weather tools use it, through getFrom.
+const weatherRoot = "https://weather.googleapis.com"
+
+const weatherHost = "weather.googleapis.com"
+
 // Bounds of one request. The timeout stays below the 60 seconds an invoke may take, so a slow answer ends
 // as a timeout of this provider and not as a cancelled call.
 const (
@@ -119,7 +125,13 @@ func open(ctx context.Context, resolved *config.Resolved, secrets *secret.Resolv
 // get sends one GET request, once, and decodes a JSON object answer. path is below the API root and query is
 // encoded into the URL; neither ever holds the key. The key and the field mask travel as headers only.
 func (c *Client) get(ctx context.Context, op, path string, query url.Values, mask string) (map[string]any, error) {
-	endpoint := apiRoot + path
+	return c.getFrom(ctx, apiRoot, op, path, query, mask)
+}
+
+// getFrom is get for one of the fixed origins. root is always one of the package constants, never text of a
+// caller.
+func (c *Client) getFrom(ctx context.Context, root, op, path string, query url.Values, mask string) (map[string]any, error) {
+	endpoint := root + path
 	if len(query) > 0 {
 		endpoint += "?" + query.Encode()
 	}
@@ -200,6 +212,18 @@ func (c *Client) send(ctx context.Context, op string, req *http.Request, mask st
 		if req.URL.Host == addressValidationHost && failed.Class == provider.ClassPermission {
 			failed.Message = "Google refused the key for the Address Validation API; check that the API is enabled " +
 				"in the key's project, that the project has a billing account, and the key's restrictions"
+		}
+		if req.URL.Host == weatherHost {
+			switch failed.Class {
+			case provider.ClassPermission:
+				failed.Message = "Google refused the key for the Weather API; check that the API is enabled in the " +
+					"key's project, that the project has a billing account, and the key's restrictions"
+			case provider.ClassNotFound:
+				failed.Message = "Google has no weather data for this location; it may be outside the coverage of the Weather API"
+			case provider.ClassInvalidResponse:
+				failed.Message = "Google rejected the weather request (HTTP " + itoa(response.StatusCode) + "); the " +
+					"location may be outside the coverage of the Weather API, or the API may have changed"
+			}
 		}
 		if response.StatusCode >= 300 && (response.StatusCode < 400 || response.StatusCode >= 500) {
 			failed = c.unsure(failed)

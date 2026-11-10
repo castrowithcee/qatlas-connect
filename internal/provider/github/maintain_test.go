@@ -225,7 +225,8 @@ func TestGuardedToolsStayOutOfEveryStandardProfile(t *testing.T) {
 		projectWorkflowsDelete.ID: true, releasesDelete.ID: true, contentsDelete.ID: true,
 		repositoriesDelete.ID: true, collaboratorsUpdate.ID: true, teamsLink.ID: true, teamsUnlink.ID: true,
 		filesPush.ID: true, branchesDelete.ID: true, rulesetsDelete.ID: true, labelsDelete.ID: true, actionVariablesDelete.ID: true, commentsDelete.ID: true,
-		discussionCommentsDelete.ID: true, runLogsDelete.ID: true}
+		discussionCommentsDelete.ID: true, runLogsDelete.ID: true, environmentsDelete.ID: true,
+		branchPoliciesDelete.ID: true}
 	// github.pull-requests.merge and github.pull-request-reviews.approve are each guarded on their own: neither is
 	// a maintainer or administrator tool nor a delete, but each is offered only where a connection's tools list
 	// names it, because merging into the wrong repository's default branch, and approving on the connection's
@@ -233,12 +234,14 @@ func TestGuardedToolsStayOutOfEveryStandardProfile(t *testing.T) {
 	// a ruleset governs what a repository or an organization allows at all. github.custom-properties.set is
 	// guarded the same way too: a custom property can gate what a ruleset condition matches.
 	// github.notifications.mark-all is guarded because GitHub marks every notification of the account read.
+	// github.environments.set is guarded because it decides who must approve a deployment and which branches
+	// may deploy at all.
 	for _, descriptor := range reg.Provider(Provider) {
 		want := guarded[descriptor.ID] || deletes[descriptor.ID] || descriptor.ID == pullsMerge.ID ||
 			descriptor.ID == pullRequestReviewsApprove.ID || descriptor.ID == rulesetsCreate.ID ||
 			descriptor.ID == rulesetsUpdate.ID || descriptor.ID == customPropertiesSet.ID ||
 			descriptor.ID == notificationsMarkAll.ID || descriptor.ID == gistsDelete.ID ||
-			descriptor.ID == repositoriesRename.ID
+			descriptor.ID == repositoriesRename.ID || descriptor.ID == environmentsSet.ID
 		if descriptor.RequiresToolAllowList != want {
 			t.Errorf("%s requires an allow-list = %t", descriptor.ID, descriptor.RequiresToolAllowList)
 		}
@@ -250,10 +253,11 @@ func TestGuardedToolsStayOutOfEveryStandardProfile(t *testing.T) {
 			marked++
 		}
 	}
-	if marked != len(guardedTools)+len(deletes)+8 || len(guardedTools) != 13 {
-		t.Errorf("marked tools = %d, want the thirteen maintainer and administrator tools, the thirteen deletes and "+
+	if marked != len(guardedTools)+len(deletes)+9 || len(guardedTools) != 13 {
+		t.Errorf("marked tools = %d, want the thirteen maintainer and administrator tools, the fifteen deletes and "+
 			"the three access tools, files.push, and github.labels.delete, the merge, the approve, the ruleset "+
-			"create and update, the custom properties set, the notifications mark-all, the gist delete, and the repository rename", marked)
+			"create and update, the custom properties set, the notifications mark-all, the gist delete, the repository rename, "+
+			"and the environment set", marked)
 	}
 	profiles := map[string]config.ToolProfile{}
 	for _, profile := range metadata.Profiles {

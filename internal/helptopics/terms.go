@@ -1,16 +1,10 @@
 package helptopics
 
-// Term is the short explanation of one technical word. ID is the stable key an editor or a manpage refers to
-// (term.<word>); it never changes once shipped. Text is one to three plain ASCII sentences.
-type Term struct {
-	ID    string
-	Title string
-	Text  string
-}
+import "github.com/castrowithcee/qatlas-kit/helptopics"
 
 // Terms returns the terms in the order a newcomer meets them.
-func Terms() []Term {
-	return []Term{
+func Terms() []helptopics.Term {
+	return []helptopics.Term{
 		{ID: "term.service", Title: "Service", Text: "A service is one instance of a system, such as one wiki or one " +
 			"issue tracker: a provider and the root URL it is reached at. Several connections can share a service."},
 		{ID: "term.credential", Title: "Credential", Text: "A credential says where the secrets for a service come " +
@@ -34,14 +28,4 @@ func Terms() []Term {
 			"passphrase. Reading needs no passphrase while a vault process holds it unlocked; managing it needs an " +
 			"admin session."},
 	}
-}
-
-// LookupTerm returns the term with the given ID.
-func LookupTerm(id string) (Term, bool) {
-	for _, t := range Terms() {
-		if t.ID == id {
-			return t, true
-		}
-	}
-	return Term{}, false
 }

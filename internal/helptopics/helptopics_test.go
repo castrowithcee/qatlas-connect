@@ -4,6 +4,8 @@ import (
 	"strings"
 	"testing"
 	"unicode/utf8"
+
+	"github.com/castrowithcee/qatlas-kit/helptopics"
 )
 
 // The topics are plain ASCII, so a rune is a cell wherever they are shown, and each has a unique name.
@@ -25,7 +27,7 @@ func TestTopicsArePlainAndDistinct(t *testing.T) {
 func TestWrapFitsEveryWidthAndKeepsTheText(t *testing.T) {
 	for _, topic := range All() {
 		for _, width := range []int{1, 2, 7, 20, 36, 40, 56, 72, 80, 200} {
-			wrapped := Wrap(topic.Text, width)
+			wrapped := helptopics.Wrap(topic.Text, width)
 			for _, line := range strings.Split(wrapped, "\n") {
 				if utf8.RuneCountInString(line) > width {
 					t.Errorf("%s at %d: line %q is wider", topic.Name, width, line)
@@ -35,31 +37,12 @@ func TestWrapFitsEveryWidthAndKeepsTheText(t *testing.T) {
 				t.Errorf("%s at %d: wrapping changed the words", topic.Name, width)
 			}
 		}
-		if Wrap(topic.Text, 1<<20) != topic.Text {
+		if helptopics.Wrap(topic.Text, 1<<20) != topic.Text {
 			t.Errorf("%s: a line that fits was changed", topic.Name)
 		}
 	}
 }
 
-func TestWrapIndentsContinuations(t *testing.T) {
-	for _, tt := range []struct {
-		line  string
-		width int
-		want  string
-	}{
-		{"one two three four", 9, "one two\nthree\nfour"},
-		{"1. first item text", 12, "1. first\n   item text"},
-		{"  - bullet item here", 14, "  - bullet\n    item here"},
-		{"  qconnect tools --query x", 16, "  qconnect tools\n  --query x"},
-		{"abcdefghij", 4, "abcd\nefgh\nij"},
-	} {
-		if got := Wrap(tt.line, tt.width); got != tt.want {
-			t.Errorf("Wrap(%q, %d) = %q, want %q", tt.line, tt.width, got, tt.want)
-		}
-	}
-}
-
-// The files release and its refusal are explained where an agent and a person look for them.
 func TestTopicsExplainLocalFiles(t *testing.T) {
 	var configuration, agents string
 	for _, topic := range All() {
@@ -105,12 +88,9 @@ func TestTermIDsAreUniqueAndStable(t *testing.T) {
 				t.Errorf("term %q has the character %q", term.ID, r)
 			}
 		}
-		if got, ok := LookupTerm(term.ID); !ok || got != term {
-			t.Errorf("LookupTerm(%q) failed", term.ID)
-		}
 	}
-	if _, ok := LookupTerm("term.nothing"); ok {
-		t.Error("LookupTerm found an unknown ID")
+	if err := helptopics.CheckTerms(terms); err != nil {
+		t.Error(err)
 	}
 }
 

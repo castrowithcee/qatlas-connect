@@ -33,16 +33,16 @@ import (
 const variableSensitivity = "github-actions-variable"
 
 // Bounds of an Actions variable. GitHub documents 48 KB per value, case-insensitive names of letters, digits,
-// and _, and environment names of up to 255 characters; it documents no name length, so 255 bounds it here.
+// and _, and environment names of up to 255 characters (maxEnvironmentNameLength); it documents no name
+// length, so 255 bounds it here.
 // A list page holds at most 30 variables, the most GitHub serves on these routes.
 const (
-	maxVariableNameLength    = 255
-	maxVariableValueBytes    = 48 << 10
-	maxEnvironmentNameLength = 255
-	maxSelectedRepositories  = 50
-	maxVariablesPerPage      = 30
-	variableListValueLimit   = 1000
-	variableValueLimit       = 20000
+	maxVariableNameLength   = 255
+	maxVariableValueBytes   = 48 << 10
+	maxSelectedRepositories = 50
+	maxVariablesPerPage     = 30
+	variableListValueLimit  = 1000
+	variableValueLimit      = 20000
 )
 
 const (
@@ -50,7 +50,6 @@ const (
 	variableNameSchema  = `{"type":"string","minLength":1,"maxLength":255,"pattern":"` + variableNamePattern + `",` +
 		`"x-form":"letters, digits, and _, not starting with a digit or GITHUB_"}`
 	variableValueSchema        = `{"type":"string","minLength":1,"maxLength":49152}`
-	environmentNameSchema      = `{"type":"string","minLength":1,"maxLength":255}`
 	variableVisibilitySchema   = `{"type":"string","enum":["all","private","selected"]}`
 	selectedRepositoriesSchema = `{"type":"array","maxItems":50,"uniqueItems":true,"items":` + repoSchema + `}`
 	variableLimitSchema        = `{"type":"integer","minimum":1,"maximum":30}`
@@ -378,7 +377,7 @@ func selectVariableTarget(resolved *config.Resolved, raw json.RawMessage) (targe
 	environment := ""
 	if arguments.Environment != nil {
 		environment = *arguments.Environment
-		if err := checkEnvironmentName(environment); err != nil {
+		if err := checkVariableEnvironment(environment); err != nil {
 			return target{}, "", err
 		}
 	}
@@ -394,10 +393,10 @@ func selectVariableTarget(resolved *config.Resolved, raw json.RawMessage) (targe
 	return bound, "", err
 }
 
-// checkEnvironmentName bounds an environment name, which travels as one opaque path segment: one line of
+// checkVariableEnvironment bounds an environment name, which travels as one opaque path segment: one line of
 // text without control characters. "." and ".." are refused because a dot segment could address another
 // route once a server resolves the path.
-func checkEnvironmentName(name string) error {
+func checkVariableEnvironment(name string) error {
 	if !utf8.ValidString(name) || strings.IndexFunc(name, unicode.IsControl) >= 0 {
 		return invalidRequest("environment must be one line of text without control characters")
 	}
@@ -860,7 +859,7 @@ func variableSubject(path string) string {
 			return ""
 		}
 		of = " of an environment"
-		if environment, err := url.PathUnescape(segment); err == nil && checkEnvironmentName(environment) == nil {
+		if environment, err := url.PathUnescape(segment); err == nil && checkVariableEnvironment(environment) == nil {
 			of = " of environment " + environment
 		}
 		collection, member = "the variables"+of, "variable"
