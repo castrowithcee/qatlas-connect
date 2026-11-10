@@ -12,6 +12,11 @@ import (
 // currentToolIDs is the complete set of GitHub tool IDs.
 var currentToolIDs = []string{
 	"github.accounts.me",
+	"github.action-variables.create",
+	"github.action-variables.delete",
+	"github.action-variables.get",
+	"github.action-variables.list",
+	"github.action-variables.update",
 	"github.actions-permissions.get",
 	"github.actions-permissions.update",
 	"github.blame.get",
@@ -250,7 +255,7 @@ func TestRegistryHoldsExactlyTheCurrentToolIDs(t *testing.T) {
 	sort.Strings(got)
 	want := append([]string(nil), currentToolIDs...)
 	sort.Strings(want)
-	if strings.Join(got, "\n") != strings.Join(want, "\n") || len(got) != 225 {
+	if strings.Join(got, "\n") != strings.Join(want, "\n") || len(got) != 230 {
 		t.Errorf("registry holds %d tools, differing from the expected %d IDs", len(got), len(want))
 	}
 	if err := reg.ValidateRenames(); err != nil {
@@ -288,7 +293,9 @@ func TestRenamedToolsCoverEveryChangedID(t *testing.T) {
 		"github.community-profile.get": true,
 		"github.traffic-views.get":     true, "github.traffic-clones.get": true, "github.traffic-paths.list": true,
 		"github.traffic-referrers.list": true,
-		"github.stats-contributors.get": true, "github.stats-commit-activity.get": true, "github.stats-code-frequency.get": true, "github.stats-participation.get": true, "github.stats-punch-card.get": true}
+		"github.stats-contributors.get": true, "github.stats-commit-activity.get": true, "github.stats-code-frequency.get": true, "github.stats-participation.get": true, "github.stats-punch-card.get": true,
+		"github.action-variables.list": true, "github.action-variables.get": true, "github.action-variables.create": true,
+		"github.action-variables.update": true, "github.action-variables.delete": true}
 	for id := range current {
 		if strings.Contains(id, "-") && !targets[id] && !bornHyphenated[id] {
 			t.Errorf("hyphenated tool %s has no former ID", id)

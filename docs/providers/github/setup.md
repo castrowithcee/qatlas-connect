@@ -4,7 +4,7 @@ description: >
 type: knowledge
 edit: shared
 created: 2026-10-25
-updated: 2026-11-07
+updated: 2026-11-10
 ---
 
 # Set up GitHub
@@ -171,6 +171,9 @@ your token holds. A repository or organization policy can forbid a run although 
 | Change Actions or workflow permissions | `repo`, as a repository administrator | Administration: read and write |
 | Read repository settings | `repo` for private repositories | Metadata: read |
 | Change repository settings and topics, including archiving and unarchiving | `repo`, as a repository administrator | Administration: write |
+| Read Actions variables of a repository; create, change, or delete them | `repo` | Variables: read; read and write to change |
+| Read Actions variables of an environment; create, change, or delete them | `repo` | Environments: read; read and write to change |
+| Read Actions variables of an organization; create, change, or delete them | `admin:org`, plus `repo` where a private repository is involved | Variables: read, read and write to change (organization); selecting repositories also needs Metadata: read on them |
 
 Workflow files, Actions permissions, and repository settings are high risk. Give those connections a token of their
 own that no other connection uses, ideally fine-grained and limited to the one repository, with only the

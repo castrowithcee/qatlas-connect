@@ -195,6 +195,9 @@ func TestDiscoveryDescribesTheTargetArguments(t *testing.T) {
 			descriptor.ID == rulesetsCreate.ID || descriptor.ID == rulesetsUpdate.ID ||
 			descriptor.ID == rulesetsDelete.ID || descriptor.ID == customPropertiesGet.ID ||
 			descriptor.ID == customPropertiesSet.ID || descriptor.ID == issueFieldsList.ID ||
+			descriptor.ID == actionVariablesList.ID || descriptor.ID == actionVariablesGet.ID ||
+			descriptor.ID == actionVariablesCreate.ID || descriptor.ID == actionVariablesUpdate.ID ||
+			descriptor.ID == actionVariablesDelete.ID ||
 			descriptor.ID == notificationsList.ID || descriptor.ID == notificationsGet.ID ||
 			descriptor.ID == notificationsDismiss.ID || descriptor.ID == notificationsMarkAll.ID ||
 			descriptor.ID == threadSubscriptionsSet.ID ||

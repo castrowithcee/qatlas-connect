@@ -73,6 +73,13 @@
 // instead, the custom property definitions (schema) an organization declares, the same exclusive selection;
 // only on a connection whose tools list names it, github.custom-properties.set changes them: for a repository
 // it sets or removes property values, and for an organization it creates or updates property definitions.
+// github.action-variables.list and github.action-variables.get read the GitHub Actions variables, never the
+// secrets, of a repository, of one environment of it, or, with organization instead, of an organization, the
+// same exclusive selection; github.action-variables.create and github.action-variables.update change them, an
+// organization variable restricted to selected repositories only to repositories of that organization inside
+// the connection's repository targets; only on a connection whose tools list names it,
+// github.action-variables.delete removes one. A value is plain text, cut at fixed lengths in every answer and
+// never quoted in a message.
 // github.labels.list and github.labels.get read the labels of a repository; github.labels.create and
 // github.labels.update change them; only on a connection whose tools list names it, github.labels.delete
 // removes one permanently, which also strips it from every issue and pull request that carries it.
@@ -527,7 +534,14 @@ func Register(reg *capability.Registry) error {
 				"classic token, and changing them, listed-only, needs Custom properties: write instead; reading " +
 				"or changing the custom property schema of an organization needs the organization permission " +
 				"Custom properties, read or read and write, on a fine-grained token, or, as far as GitHub " +
-				"documents it, admin:org on a classic token; reading the labels of a repository needs no scope " +
+				"documents it, admin:org on a classic token; reading the Actions variables of a repository needs " +
+				"repo on a classic token, or Variables: read on a fine-grained token, and of an environment " +
+				"Environments: read instead; changing them, including delete which is listed-only, needs " +
+				"Variables or Environments: read and write instead; reading or changing the Actions variables of " +
+				"an organization needs admin:org on a classic token, and repo as well where a private repository " +
+				"is involved, or the organization permission Variables, read or read and write, on a fine-grained " +
+				"token, and selecting repositories for one reads each of them, which needs Metadata: read; " +
+				"reading the labels of a repository needs no scope " +
 				"for a public repository, or repo on a classic token, or Issues: read on a fine-grained token, " +
 				"for a private one; changing them, including delete which is listed-only, needs Issues: read " +
 				"and write instead, since GitHub keeps a label under a repository's issues and pull requests " +
@@ -812,7 +826,7 @@ func Register(reg *capability.Registry) error {
 		pullRequestReviewOperations(), pullRequestReviewCommentOperations(), pullRequestReviewThreadOperations(),
 		pullRequestReviewerOperations(), accountOperations(), organizationOperations(), starOperations(),
 		searchOperations(), contentsOperations(), blameOperations(), commitsOperations(), refsOperations(), compareOperations(), commitRelationOperations(),
-		contentsWriteOperations(), repositoriesOperations(), repositoryDetailOperations(), trafficOperations(), repositoryStatsOperations(), rulesetsOperations(), customPropertiesOperations(),
+		contentsWriteOperations(), repositoriesOperations(), repositoryDetailOperations(), trafficOperations(), repositoryStatsOperations(), rulesetsOperations(), customPropertiesOperations(), actionVariablesOperations(),
 		labelsOperations(), milestonesOperations(), commentMaintenanceOperations(), commentVisibilityOperations(), reactionsOperations(),
 		subIssuesOperations(), issueDependenciesOperations(), issueTypesOperations(), issueFieldsOperations(),
 		discussionOperations(), notificationOperations(), gistOperations(), securityAlertOperations(), advisoryOperations(),
@@ -1671,6 +1685,9 @@ func (c *Client) restSubject(request *http.Request) subject {
 		if what := notificationRepositorySubject(parts[2]); what != "" {
 			s.what = what
 		}
+		if what := variableSubject(parts[2]); what != "" {
+			s.what = what
+		}
 	}
 	return s
 }
@@ -1701,6 +1718,11 @@ func organizationSubject(tail string) subject {
 			}
 		}
 		return subject{what: what}
+	}
+	if len(parts) >= 3 && parts[1] == "actions" {
+		if what := variableSubject(strings.Join(parts[1:], "/")); what != "" {
+			return subject{what: what + " of orgs/" + owner}
+		}
 	}
 	if len(parts) >= 2 && parts[1] == "properties" {
 		return subject{what: "the custom property schema of orgs/" + owner}
