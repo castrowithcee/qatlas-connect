@@ -1,6 +1,6 @@
 // Package googlemaps implements read-only access to Google Maps Platform with one API key. It starts with
 // Places API (New): the details of one place, the text and nearby searches, autocomplete predictions, and photo addresses.
-// Geocoding, Address Validation, and Weather API (current conditions and forecasts) follow.
+// Geocoding, Address Validation, and Weather API (current conditions, forecasts, history, and public alerts) follow.
 //
 // A connection binds one API key, sent only in the X-Goog-Api-Key header, and takes no target: the key
 // reaches what its Cloud project and its restrictions allow. The base URL is fixed to the official origin;
@@ -95,11 +95,12 @@ func Register(reg *capability.Registry) error {
 		Profiles: []config.ToolProfile{{
 			ID: "read", Title: "Read", Recommended: true,
 			Description: "reads place details, searches places by text or around a point, predicts places from typed input, and resolves place photos to short-lived addresses from Google Places, " +
-				"geocodes addresses and coordinates, validates postal addresses, reads current weather and forecasts for a coordinate, and reads the current air quality, its forecast, and its history at a coordinate; the field mask of each Places " +
+				"geocodes addresses and coordinates, validates postal addresses, reads current weather, forecasts, history, and public alerts for a coordinate, and reads the current air quality, its forecast, and its history at a coordinate; the field mask of each Places " +
 				"request decides what Google bills, and nothing is changed",
 			Tools: []string{placesGet.ID, textSearch.ID, nearbySearch.ID, autocomplete.ID, photosGet.ID,
 				geocodingGeocode.ID, geocodingReverse.ID, addressValidate.ID, weatherCurrent.ID, weatherMinutes.ID,
-				weatherHours.ID, weatherDays.ID, airQualityCurrent.ID, airQualityForecast.ID, airQualityHistory.ID},
+				weatherHours.ID, weatherDays.ID, weatherHistory.ID, weatherAlerts.ID, airQualityCurrent.ID,
+				airQualityForecast.ID, airQualityHistory.ID},
 		}},
 	}, TestConnection); err != nil {
 		return err
@@ -118,6 +119,8 @@ func Register(reg *capability.Registry) error {
 		capability.Operation{Descriptor: weatherMinutes, Handler: handleWeatherMinutes},
 		capability.Operation{Descriptor: weatherHours, Handler: handleWeatherHours},
 		capability.Operation{Descriptor: weatherDays, Handler: handleWeatherDays},
+		capability.Operation{Descriptor: weatherHistory, Handler: handleWeatherHistory},
+		capability.Operation{Descriptor: weatherAlerts, Handler: handleWeatherAlerts},
 		capability.Operation{Descriptor: airQualityCurrent, Handler: handleAirQualityCurrent},
 		capability.Operation{Descriptor: airQualityForecast, Handler: handleAirQualityForecast},
 		capability.Operation{Descriptor: airQualityHistory, Handler: handleAirQualityHistory})
