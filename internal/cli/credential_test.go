@@ -13,8 +13,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/castrowithcee/qatlas-connect/internal/redact"
 	"github.com/castrowithcee/qatlas-connect/internal/secret"
+	"github.com/castrowithcee/qatlas-kit/redact"
 )
 
 // Canaries for the two stages a command can write to. Neither may ever reach a stream.

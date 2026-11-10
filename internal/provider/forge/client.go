@@ -16,9 +16,9 @@ import (
 
 	"github.com/castrowithcee/qatlas-connect/internal/config"
 	"github.com/castrowithcee/qatlas-connect/internal/provider"
-	"github.com/castrowithcee/qatlas-connect/internal/provider/ratelimit"
-	"github.com/castrowithcee/qatlas-connect/internal/redact"
 	"github.com/castrowithcee/qatlas-connect/internal/secret"
+	"github.com/castrowithcee/qatlas-kit/ratelimit"
+	"github.com/castrowithcee/qatlas-kit/redact"
 )
 
 // Client binds one access token to the origin of its instance and the rate limit that token shares. The

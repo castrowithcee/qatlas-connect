@@ -8,8 +8,8 @@ import (
 	"testing"
 
 	"github.com/castrowithcee/qatlas-connect/internal/application"
-	"github.com/castrowithcee/qatlas-connect/internal/redact"
 	"github.com/castrowithcee/qatlas-connect/internal/secret"
+	"github.com/castrowithcee/qatlas-kit/redact"
 )
 
 // lexwareConfig configures two Lexware connections with separate API keys next to a BookStack connection.

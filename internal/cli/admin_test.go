@@ -9,9 +9,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/castrowithcee/qatlas-connect/internal/redact"
 	"github.com/castrowithcee/qatlas-connect/internal/secret"
 	"github.com/castrowithcee/qatlas-connect/internal/vault"
+	"github.com/castrowithcee/qatlas-kit/redact"
 )
 
 // TestMain runs every test of this package as if a person ran it from an interactive terminal: almost

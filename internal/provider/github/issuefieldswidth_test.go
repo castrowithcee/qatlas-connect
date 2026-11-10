@@ -8,7 +8,7 @@ import (
 	"testing"
 
 	"github.com/castrowithcee/qatlas-connect/internal/application"
-	"github.com/castrowithcee/qatlas-connect/internal/redact"
+	"github.com/castrowithcee/qatlas-kit/redact"
 )
 
 // The issue fields carry the creation time and the identifiers of GitHub's IssueFieldCommon, and their

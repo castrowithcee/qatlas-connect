@@ -9,7 +9,7 @@ import (
 	"testing"
 
 	"github.com/castrowithcee/qatlas-connect/internal/application"
-	"github.com/castrowithcee/qatlas-connect/internal/redact"
+	"github.com/castrowithcee/qatlas-kit/redact"
 )
 
 // The release, release asset, ruleset, and custom property objects of GitHub's REST reference; the members the

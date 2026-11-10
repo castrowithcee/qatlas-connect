@@ -10,7 +10,7 @@ import (
 	"testing"
 
 	"github.com/castrowithcee/qatlas-connect/internal/config"
-	"github.com/castrowithcee/qatlas-connect/internal/redact"
+	"github.com/castrowithcee/qatlas-kit/redact"
 )
 
 func row(id int64, name, slug string, extra map[string]any) map[string]any {
