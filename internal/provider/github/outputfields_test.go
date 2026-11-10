@@ -16,6 +16,16 @@ import (
 // generic map carries a literal with the members the handler sets; the three delete tools are the only ones.
 var outputSamples = map[string]any{
 	"github.accounts.me":                           Account{},
+	"github.rate-limit.get":                        RateLimitStatus{},
+	"github.meta.get":                              Meta{},
+	"github.licenses.list":                         LicenseList{},
+	"github.licenses.get":                          License{},
+	"github.gitignore-templates.list":              GitignoreTemplateList{},
+	"github.gitignore-templates.get":               GitignoreTemplate{},
+	"github.codes-of-conduct.list":                 CodeOfConductList{},
+	"github.codes-of-conduct.get":                  CodeOfConduct{},
+	"github.emojis.list":                           EmojiList{},
+	"github.markdown.render":                       RenderedMarkdown{},
 	"github.actions-permissions.get":               ActionsPermissionsRead{},
 	"github.actions-permissions.update":            SettingsChange[ActionsPermissions]{},
 	"github.blame.get":                             BlameResult{},

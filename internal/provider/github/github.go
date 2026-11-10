@@ -143,7 +143,12 @@
 // argument of their own, and a connection whose targets name any is instead narrowed by qualifiers Qatlas
 // forces ahead of the caller's terms, so it never searches beyond them, and a term list that could escape
 // that narrowing, such as a repeated repo:, org:, user:, or owner: qualifier, or OR and parentheses, is
-// refused. Nothing here accepts a free filter expression, a GraphQL document, or a route from an agent, and
+// refused. github.rate-limit.get reads the rate limit of the token, github.meta.get GitHub's meta information,
+// github.licenses.list and .get, github.gitignore-templates.list and .get, and github.codes-of-conduct.list and
+// .get the templates GitHub offers for a repository, github.emojis.list its emojis in bounded batches, and
+// github.markdown.render renders Markdown as GitHub does, optionally against a repository as context; they name
+// no target, follow the account-wide rule of github.accounts.me, and cut template texts and the rendered HTML,
+// which are untrusted data. Nothing here accepts a free filter expression, a GraphQL document, or a route from an agent, and
 // every target is checked against the allow-list before a credential is resolved.
 //
 // A change is sent at most once. Several field values of one item are written in small, serial batches of
@@ -570,7 +575,10 @@ func Register(reg *capability.Registry) error {
 				"token: assigning Copilot to an issue needs repo on a classic token, or Metadata: read plus " +
 				"Actions, Contents, Issues, and Pull requests: read and write on a fine-grained token, and " +
 				"requesting a Copilot review needs repo on a classic token, or Pull requests: read and write on a " +
-				"fine-grained token, plus write access to the repository",
+				"fine-grained token, plus write access to the repository; the rate limit, meta, license, .gitignore " +
+				"template, code of conduct, and emoji reads need no scope; rendering Markdown needs no scope for " +
+				"public references, or repo on a classic token, or Contents: read on a fine-grained token, for a " +
+				"private repository as context",
 		}},
 		Target: config.TargetMetadata{
 			Label:    "project, repository, or owner",
@@ -816,7 +824,7 @@ func Register(reg *capability.Registry) error {
 		labelsOperations(), milestonesOperations(), commentMaintenanceOperations(), commentVisibilityOperations(), reactionsOperations(),
 		subIssuesOperations(), issueDependenciesOperations(), issueTypesOperations(), issueFieldsOperations(),
 		discussionOperations(), notificationOperations(), gistOperations(), securityAlertOperations(), advisoryOperations(),
-		copilotOperations())...)
+		copilotOperations(), referenceOperations())...)
 	for i := range operations {
 		operations[i].Descriptor = withGroup(withTargetArgument(operations[i].Descriptor))
 	}
@@ -1559,6 +1567,11 @@ func (c *Client) restSubject(request *http.Request) subject {
 		return fallback
 	}
 	full := request.URL.String()
+	if tail, ok := strings.CutPrefix(full, c.endpoints.rest); ok {
+		if what := referenceSubject(tail); what != "" {
+			return subject{what: what}
+		}
+	}
 	if tail, ok := strings.CutPrefix(full, c.endpoints.rest+"/search/"); ok {
 		return searchSubject(tail)
 	}

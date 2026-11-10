@@ -64,7 +64,7 @@ func TestGitHubToolsAreDiscoverable(t *testing.T) {
 		t.Fatalf("exit=%d stderr=%q", code, stderr)
 	}
 	for _, want := range []string{
-		"tools[111]{id,title,effect,requires,target,confirm,connections}:\n",
+		"tools[121]{id,title,effect,requires,target,confirm,connections}:\n",
 		"  github.issues.get,Get a GitHub issue,read,number,\"\",false,code\n",
 		"  github.labels.list,List GitHub labels,read,\"\",\"\",false,code\n",
 		"  github.labels.get,Get a GitHub label,read,name,\"\",false,code\n",
@@ -94,6 +94,8 @@ func TestGitHubToolsAreDiscoverable(t *testing.T) {
 		"  github.commits.search,Search GitHub commits,read,terms,\"\",false,code\n",
 		"  github.users.search,Search GitHub users,read,terms,\"\",false,code\n",
 		"  github.organizations.search,Search GitHub organizations,read,terms,\"\",false,code\n",
+		"  github.rate-limit.get,Get the GitHub rate limit of this connection's token,read,\"\",\"\",false,code\n",
+		"  github.markdown.render,Render Markdown as GitHub does,read,text,\"\",false,code\n",
 	} {
 		if !strings.Contains(stdout, want) {
 			t.Errorf("tools output does not contain %q:\n%s", want, stdout)
@@ -133,7 +135,7 @@ func TestGitHubToolsAreDiscoverable(t *testing.T) {
 		t.Fatalf("exit=%d stderr=%q", code, stderr)
 	}
 	for _, want := range []string{
-		"tools[225]{id,title,effect,requires,target,confirm,connections,reason}:", "github.issues.get,Get a GitHub issue,read,", "github.issues.list,List GitHub issues,read,",
+		"tools[235]{id,title,effect,requires,target,confirm,connections,reason}:", "github.issues.get,Get a GitHub issue,read,", "github.issues.list,List GitHub issues,read,",
 		"github.contents.get,Get GitHub repository contents,read,", "github.trees.get,Get a GitHub repository tree,read,",
 		"github.branches.create,Create a GitHub branch,create,", "github.branches.delete,Delete a GitHub branch,delete,", "github.contents.put,Create or update a GitHub repository file,update,",
 		"github.contents.delete,Delete a GitHub repository file,delete,",
