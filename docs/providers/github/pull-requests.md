@@ -50,7 +50,10 @@ connections:
 and orders by `sort` and `direction`; without them it keeps GitHub's own order. `sort` and `direction` are
 part of the cursor binding, so a continuation never pages in another order. Title, body, branch names, and
 commit messages are untrusted data, and a list entry carries its body cut, with `body_truncated`.
-`github.pull-requests.get` reports `mergeable` and `rebaseable` as absent while GitHub is still computing them.
+`github.pull-requests.get` reports `mergeable` and `rebaseable` as absent while GitHub is still computing them. By default it
+answers the flat members with the full body, without the account, detail, and address members, and the tools that
+change a pull request or its reviewers answer only `number`, `state`, `draft`, `merged`, `head_sha`, `url`, and
+`repository`; `full` answers the whole pull request, and `fields` picks members.
 
 The pull request tools report the object behind a flat member as described under
 [result objects](README.md#result-objects). The repositories of head and base are reported in full only where the
@@ -77,7 +80,8 @@ unbounded.
 GitHub Checks API, which Actions and most third-party CI systems report through) and the combined legacy commit
 status (the older Status API) at that commit, and merges them into one compact list; a legacy status is mapped
 into the same vocabulary, with `pending` becoming `in_progress` without a conclusion. The check runs and the
-statuses are also reported in full, beside the merged list. `overall` summarises the merged list:
+statuses are also read in full, beside the merged list, and answered with `full` or `fields`; by default the
+answer holds `number`, `head_sha`, `checks`, `overall`, `truncated`, and `repository`. `overall` summarises the merged list:
 `pending` while a check still runs, `failure` once a finished check did not succeed, `success` when every one
 did, and `none` when nothing reported a check for the commit. `truncated` says when GitHub held more than the
 100 check runs or 100 statuses read per call.

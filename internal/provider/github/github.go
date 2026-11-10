@@ -427,13 +427,14 @@ var issuesList = capability.Descriptor{
 }
 
 var issuesGet = capability.Descriptor{
-	ID:          Provider + ".issues.get",
-	Version:     1,
-	Title:       "Get a GitHub issue",
-	Description: "Read one issue of a repository a connection allows with its full body, without comments",
-	Tags:        []string{"github", "issues", "get"},
-	Risk:        readRisk,
-	Provider:    Provider,
+	ID:            Provider + ".issues.get",
+	Version:       2,
+	DefaultFields: issueDefaultFields,
+	Title:         "Get a GitHub issue",
+	Description:   "Read one issue of a repository a connection allows with its full body, without comments",
+	Tags:          []string{"github", "issues", "get"},
+	Risk:          readRisk,
+	Provider:      Provider,
 	InputSchema: json.RawMessage(`{"type":"object","properties":{` +
 		`"number":{"type":"integer","minimum":1,"maximum":1000000000}},` +
 		`"required":["number"],"additionalProperties":false}`),
