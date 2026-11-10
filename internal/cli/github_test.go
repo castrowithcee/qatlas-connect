@@ -64,7 +64,7 @@ func TestGitHubToolsAreDiscoverable(t *testing.T) {
 		t.Fatalf("exit=%d stderr=%q", code, stderr)
 	}
 	for _, want := range []string{
-		"tools[126]{id,title,effect,requires,target,confirm,connections}:\n",
+		"tools[132]{id,title,effect,requires,target,confirm,connections}:\n",
 		"  github.issues.get,Get a GitHub issue,read,number,\"\",false,code\n",
 		"  github.labels.list,List GitHub labels,read,\"\",\"\",false,code\n",
 		"  github.labels.get,Get a GitHub label,read,name,\"\",false,code\n",
@@ -135,7 +135,7 @@ func TestGitHubToolsAreDiscoverable(t *testing.T) {
 		t.Fatalf("exit=%d stderr=%q", code, stderr)
 	}
 	for _, want := range []string{
-		"tools[248]{id,title,effect,requires,target,confirm,connections,reason}:", "github.issues.get,Get a GitHub issue,read,", "github.issues.list,List GitHub issues,read,",
+		"tools[255]{id,title,effect,requires,target,confirm,connections,reason}:", "github.issues.get,Get a GitHub issue,read,", "github.issues.list,List GitHub issues,read,",
 		"github.contents.get,Get GitHub repository contents,read,", "github.trees.get,Get a GitHub repository tree,read,",
 		"github.branches.create,Create a GitHub branch,create,", "github.branches.delete,Delete a GitHub branch,delete,", "github.contents.put,Create or update a GitHub repository file,update,",
 		"github.contents.delete,Delete a GitHub repository file,delete,",
@@ -197,6 +197,12 @@ func TestGitHubToolsAreDiscoverable(t *testing.T) {
 		"github.deployment-branch-policies.create,Create a GitHub deployment branch policy,create,",
 		"github.deployment-branch-policies.update,Update a GitHub deployment branch policy,update,",
 		"github.deployment-branch-policies.delete,Delete a GitHub deployment branch policy,delete,",
+		"github.deployments.list,List GitHub deployments,read,", "github.deployments.get,Get a GitHub deployment,read,",
+		"github.deployment-statuses.list,List GitHub deployment statuses,read,",
+		"github.deployment-statuses.get,Get a GitHub deployment status,read,",
+		"github.deployment-protection-rules.list,List GitHub deployment protection rules,read,",
+		"github.deployment-protection-rules.get,Get a GitHub deployment protection rule,read,",
+		"github.deployment-protection-rules.delete,Delete a GitHub deployment protection rule,delete,",
 	} {
 		if !strings.Contains(stdout, want) {
 			t.Errorf("tools output does not contain %q:\n%s", want, stdout)
