@@ -64,6 +64,11 @@ func Complete(t Table, m *Model) error {
 		unknown = append(unknown, op)
 	}
 	slices.Sort(unknown)
+	for _, e := range t.URLEncoded {
+		if !m.hasStringShape(e.Shape) {
+			return fmt.Errorf("table %s: url_encoded shape %s is not a string shape of the model", t.Service, e.Shape)
+		}
+	}
 	switch {
 	case len(missing) > 0:
 		return fmt.Errorf("table %s: model operations in neither operations, exclude nor defer: %s", t.Service, strings.Join(missing, ", "))
@@ -314,6 +319,9 @@ func shapeLit(s *awsquery.Shape) string {
 	}
 	if s.MaxLen > 0 {
 		parts = append(parts, "MaxLen: "+strconv.Itoa(s.MaxLen))
+	}
+	if s.URLDecoded {
+		parts = append(parts, "URLDecoded: true")
 	}
 	if s.MaxItems > 0 {
 		parts = append(parts, "MaxItems: "+strconv.Itoa(s.MaxItems))

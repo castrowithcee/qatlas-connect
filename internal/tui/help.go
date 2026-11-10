@@ -8,6 +8,7 @@ import (
 
 	"github.com/castrowithcee/qatlas-connect/internal/helptopics"
 	"github.com/castrowithcee/qatlas-connect/internal/uiprefs"
+	kithelp "github.com/castrowithcee/qatlas-kit/helptopics"
 )
 
 // openHelp shows the help topics in the workspace, over the tab line or the list it was opened from.
@@ -62,7 +63,7 @@ func (m *Model) helpLines() []string {
 	if topic.Name == helptopics.All()[0].Name {
 		text += "\n\n" + keyListText()
 	}
-	return strings.Split(helptopics.Wrap(text, m.helpInner()), "\n")
+	return strings.Split(kithelp.Wrap(text, m.helpInner()), "\n")
 }
 
 // isHeading reports whether a line of a topic is a heading: short, without indent, ending in a colon.

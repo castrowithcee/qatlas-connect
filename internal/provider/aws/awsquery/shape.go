@@ -47,6 +47,9 @@ type Shape struct {
 	// boundary and reported in Meta.Truncated. A blob, a timestamp and a map key above the cap are refused,
 	// as a cut value would no longer mean what it said.
 	MaxLen int
+	// URLDecoded makes the decoder percent-decode (RFC 3986, '+' stays) a KindString value before the cap
+	// applies, for services that return documents URL-encoded. Only a string may carry it.
+	URLDecoded bool
 	// MaxItems caps a decoded list or map, DefaultMaxItems when zero. A longer one is refused: cutting it
 	// would present a partial list as complete.
 	MaxItems int
@@ -106,6 +109,9 @@ func (s *Shape) validate(depth int, top bool) error {
 		}
 		return s.Elem.validate(depth+1, false)
 	default:
+		return ErrShape
+	}
+	if s.URLDecoded && s.Kind != KindString {
 		return ErrShape
 	}
 	return nil

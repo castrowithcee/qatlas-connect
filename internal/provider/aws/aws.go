@@ -48,6 +48,10 @@ func validBaseURL(raw string) error {
 var toolGroups = []config.ToolGroup{{
 	ID: "sts", Title: "Security Token Service",
 	Description: "Identity of the calling credential, the account of an access key, and decoded authorization failures",
+}, {
+	ID: "iam", Title: "Identity and Access Management",
+	Description: "Users, groups, roles, instance profiles, and the metadata of their credentials: access keys, MFA " +
+		"devices, SSH public keys, signing certificates, and service-specific credentials; never a secret",
 }}
 
 var targetKinds = []config.TargetKind{{
@@ -101,9 +105,9 @@ func Register(reg *capability.Registry, version string) error {
 	userAgent = agentFor(version)
 	if err := reg.RegisterProvider(config.ProviderMetadata{
 		ID: Provider, Name: "Amazon Web Services", DefaultBaseURL: consoleOrigin, ValidateBaseURL: validBaseURL,
-		Description:    "Amazon Web Services account: read-only identity checks through STS, bound to one account and its regions",
+		Description:    "Amazon Web Services account: read-only identity checks through STS and IAM identities and credential metadata, bound to one account and its regions",
 		DefaultEffects: []config.Effect{config.EffectRead},
-		Groups:         toolGroups, ServiceLevel: true, DocPage: "aws.md",
+		Groups:         toolGroups, ServiceLevel: true,
 		SecretRoles: []config.SecretRole{{
 			Name: roleAccessKeyID,
 			Description: "Access key ID of an IAM user or of temporary credentials (AKIA... or ASIA...). Use a key " +
@@ -139,10 +143,16 @@ func Register(reg *capability.Registry, version string) error {
 			Reaches:     reaches,
 		},
 		Profiles: []config.ToolProfile{{
-			ID: "read", Title: "Identity (STS)", Recommended: true,
-			Description: "reads the identity of the credential, the account of an access key, and decoded " +
-				"authorization failures; changes nothing",
-			Tools: []string{"aws.sts.caller-identity.get", "aws.sts.access-key.get-info", "aws.sts.authorization-message.decode"},
+			ID: "read", Title: "Identity (STS and IAM)", Recommended: true,
+			Description: "reads the identity of the credential, the account of an access key, decoded " +
+				"authorization failures, and IAM users, groups, roles, and access key metadata; changes nothing",
+			Tools: []string{
+				"aws.sts.caller-identity.get", "aws.sts.access-key.get-info", "aws.sts.authorization-message.decode",
+				"aws.iam.user.list", "aws.iam.user.get", "aws.iam.user.list-tags",
+				"aws.iam.group.list", "aws.iam.group.get", "aws.iam.group.list-for-user",
+				"aws.iam.role.list", "aws.iam.role.get", "aws.iam.role.list-tags",
+				"aws.iam.access-key.list", "aws.iam.access-key.get-last-used",
+			},
 		}},
 	}, TestConnection); err != nil {
 		return err
