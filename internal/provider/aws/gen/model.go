@@ -191,3 +191,15 @@ func mergedTraits(member, target *object) *object {
 	}
 	return out
 }
+
+// namespace is the Smithy namespace of the service shape.
+func (m *Model) namespace() string {
+	ns, _, _ := strings.Cut(m.serviceID, "#")
+	return ns
+}
+
+// hasStringShape reports whether the model defines a string shape of this name in its namespace.
+func (m *Model) hasStringShape(name string) bool {
+	s := m.shapes.obj(m.namespace() + "#" + name)
+	return s != nil && s.str("type") == "string"
+}

@@ -12,6 +12,11 @@ import (
 // currentToolIDs is the complete set of GitHub tool IDs.
 var currentToolIDs = []string{
 	"github.accounts.me",
+	"github.action-variables.create",
+	"github.action-variables.delete",
+	"github.action-variables.get",
+	"github.action-variables.list",
+	"github.action-variables.update",
 	"github.rate-limit.get",
 	"github.meta.get",
 	"github.licenses.list",
@@ -70,6 +75,10 @@ var currentToolIDs = []string{
 	"github.custom-properties.set",
 	"github.dependabot-alerts.get",
 	"github.dependabot-alerts.list",
+	"github.deployment-branch-policies.create",
+	"github.deployment-branch-policies.delete",
+	"github.deployment-branch-policies.list",
+	"github.deployment-branch-policies.update",
 	"github.discussion-categories.list",
 	"github.discussion-comments.create",
 	"github.discussion-comments.delete",
@@ -79,6 +88,10 @@ var currentToolIDs = []string{
 	"github.discussions.get",
 	"github.discussions.list",
 	"github.files.push",
+	"github.environments.delete",
+	"github.environments.get",
+	"github.environments.list",
+	"github.environments.set",
 	"github.gists.create",
 	"github.gists.delete",
 	"github.gists.get",
@@ -260,7 +273,7 @@ func TestRegistryHoldsExactlyTheCurrentToolIDs(t *testing.T) {
 	sort.Strings(got)
 	want := append([]string(nil), currentToolIDs...)
 	sort.Strings(want)
-	if strings.Join(got, "\n") != strings.Join(want, "\n") || len(got) != 235 {
+	if strings.Join(got, "\n") != strings.Join(want, "\n") || len(got) != 248 {
 		t.Errorf("registry holds %d tools, differing from the expected %d IDs", len(got), len(want))
 	}
 	if err := reg.ValidateRenames(); err != nil {
@@ -299,6 +312,10 @@ func TestRenamedToolsCoverEveryChangedID(t *testing.T) {
 		"github.traffic-views.get":     true, "github.traffic-clones.get": true, "github.traffic-paths.list": true,
 		"github.traffic-referrers.list": true,
 		"github.stats-contributors.get": true, "github.stats-commit-activity.get": true, "github.stats-code-frequency.get": true, "github.stats-participation.get": true, "github.stats-punch-card.get": true,
+		"github.action-variables.list": true, "github.action-variables.get": true, "github.action-variables.create": true,
+		"github.action-variables.update": true, "github.action-variables.delete": true,
+		"github.deployment-branch-policies.list": true, "github.deployment-branch-policies.create": true,
+		"github.deployment-branch-policies.update": true, "github.deployment-branch-policies.delete": true,
 		"github.rate-limit.get": true, "github.gitignore-templates.list": true, "github.gitignore-templates.get": true,
 		"github.codes-of-conduct.list": true, "github.codes-of-conduct.get": true}
 	for id := range current {
