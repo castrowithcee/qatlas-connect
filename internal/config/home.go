@@ -10,7 +10,7 @@ import (
 	"strings"
 
 	"github.com/castrowithcee/qatlas-connect/internal/envvar"
-	"github.com/castrowithcee/qatlas-connect/internal/filelock"
+	"github.com/castrowithcee/qatlas-kit/filelock"
 )
 
 const (

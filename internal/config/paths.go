@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/castrowithcee/qatlas-connect/internal/projectpath"
+	"github.com/castrowithcee/qatlas-kit/projectpath"
 )
 
 // pathRule states what a paths entry must look like. Like the other rules it never quotes the entry: an
