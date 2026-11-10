@@ -476,7 +476,15 @@ func TestToolsFiltersByNamespaceAndQuery(t *testing.T) {
 		"aws.iam.role.get", "aws.iam.role.list-tags", "aws.iam.instance-profile.list", "aws.iam.instance-profile.get",
 		"aws.iam.instance-profile.list-for-role", "aws.iam.access-key.list", "aws.iam.access-key.get-last-used",
 		"aws.iam.login-profile.get", "aws.iam.mfa-device.list", "aws.iam.ssh-public-key.list",
-		"aws.iam.ssh-public-key.get", "aws.iam.signing-certificate.list", "aws.iam.service-specific-credential.list")
+		"aws.iam.ssh-public-key.get", "aws.iam.signing-certificate.list", "aws.iam.service-specific-credential.list",
+		"aws.iam.policy.list", "aws.iam.policy.get", "aws.iam.policy.list-tags", "aws.iam.policy.list-entities",
+		"aws.iam.policy-version.list", "aws.iam.policy-version.get", "aws.iam.attached-policy.list-for-user",
+		"aws.iam.attached-policy.list-for-group", "aws.iam.attached-policy.list-for-role",
+		"aws.iam.inline-policy.list-for-user", "aws.iam.inline-policy.list-for-group",
+		"aws.iam.inline-policy.list-for-role", "aws.iam.inline-policy.get-for-user",
+		"aws.iam.inline-policy.get-for-group", "aws.iam.inline-policy.get-for-role",
+		"aws.iam.policy-simulation.simulate-custom", "aws.iam.policy-simulation.simulate-principal",
+		"aws.iam.policy-simulation.get-context-keys-custom", "aws.iam.policy-simulation.get-context-keys-principal")
 	wikiOffered := registryToolIDs(t, "bookstack", offeredBy(capability.EffectRead))
 	alertsOffered := registryToolIDs(t, "telegram", offeredBy(capability.EffectCreate))
 
