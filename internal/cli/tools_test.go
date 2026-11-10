@@ -476,7 +476,11 @@ func TestToolsFiltersByNamespaceAndQuery(t *testing.T) {
 		"aws.iam.role.get", "aws.iam.role.list-tags", "aws.iam.instance-profile.list", "aws.iam.instance-profile.get",
 		"aws.iam.instance-profile.list-for-role", "aws.iam.access-key.list", "aws.iam.access-key.get-last-used",
 		"aws.iam.login-profile.get", "aws.iam.mfa-device.list", "aws.iam.ssh-public-key.list",
-		"aws.iam.ssh-public-key.get", "aws.iam.signing-certificate.list", "aws.iam.service-specific-credential.list")
+		"aws.iam.ssh-public-key.get", "aws.iam.signing-certificate.list", "aws.iam.service-specific-credential.list",
+		"aws.iam.role.create", "aws.iam.role.update", "aws.iam.role.update-trust-policy",
+		"aws.iam.role.put-permissions-boundary", "aws.iam.role.delete-permissions-boundary", "aws.iam.role.tag",
+		"aws.iam.role.untag", "aws.iam.role.delete", "aws.iam.instance-profile.create", "aws.iam.instance-profile.delete",
+		"aws.iam.instance-profile.add-role", "aws.iam.instance-profile.remove-role")
 	wikiOffered := registryToolIDs(t, "bookstack", offeredBy(capability.EffectRead))
 	alertsOffered := registryToolIDs(t, "telegram", offeredBy(capability.EffectCreate))
 

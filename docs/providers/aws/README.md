@@ -9,7 +9,8 @@ updated: 2026-11-10
 
 # Amazon Web Services
 
-The `aws` provider gives agents controlled, read-only access to one AWS account. Qatlas signs requests with
+The `aws` provider gives agents controlled access to one AWS account, read-only except for the IAM role tools a
+connection names in its tools list. Qatlas signs requests with
 Signature Version 4 using the Go standard library; it uses no AWS SDK. It ships the foundation (credential, role
 assumption, account and region binding, connection test, endpoint table, error mapping), the Security Token Service
 (STS) tools, and the IAM tools that read identities and the metadata of their credentials. Further services build on
@@ -122,8 +123,8 @@ fixed model operation; there is no general call.
   checks the extracts against the pin file without network access.
 - **Curation table.** One table per service decides which operations become tools and how: the tool ID, effect,
   confirmation, `listed-only`, idempotency, title and descriptions, renames for readability, members hidden for a
-  security reason, and the target check and client-side policy check that run before the call. Every operation that
-  is not a read requires confirmation.
+  security reason, the target check and client-side policy check that run before the call, and the own-role check
+  of a tool that changes or deletes a role. Every operation that is not a read requires confirmation.
 - **Completeness.** Every operation of a model is a tool, in `exclude`, or in `defer`, each with a reason; a test
   fails otherwise, so a new operation of an updated model never becomes a tool or disappears silently. `exclude`
   means never a tool, such as every operation that returns a credential; a test proves that none of them is one.

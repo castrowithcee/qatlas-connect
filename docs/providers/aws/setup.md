@@ -41,6 +41,14 @@ stay narrow. The recommended profile `read` needs `iam:ListUsers`, `iam:GetUser`
 `iam:ListGroups`, `iam:GetGroup`, `iam:ListGroupsForUser`, `iam:ListRoles`, `iam:GetRole`, `iam:ListRoleTags`,
 `iam:ListAccessKeys`, and `iam:GetAccessKeyLastUsed`.
 
+The [role tools](iam.md#roles-and-instance-profiles) need `iam:CreateRole`, `iam:UpdateRole`,
+`iam:UpdateAssumeRolePolicy`, `iam:PutRolePermissionsBoundary`, `iam:DeleteRolePermissionsBoundary`, `iam:TagRole`,
+`iam:UntagRole`, `iam:DeleteRole`, `iam:CreateInstanceProfile`, `iam:DeleteInstanceProfile`,
+`iam:AddRoleToInstanceProfile`, and `iam:RemoveRoleFromInstanceProfile`, each for its own tool. Creating with tags
+also needs `iam:TagRole` or `iam:TagInstanceProfile`, and adding a role to an instance profile also needs
+`iam:PassRole` for that role. The own-role check calls `sts:GetCallerIdentity`, which needs no permission. Grant
+only the actions of the tools the connection lists.
+
 ## Connection test
 
 The test assumes the role if one is configured, calls `sts:GetCallerIdentity` at the STS endpoint of the first

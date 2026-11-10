@@ -1,6 +1,6 @@
 ---
 description: >
-  Describes the tools of the AWS Identity and Access Management group: reading users, groups, roles, instance profiles, and the metadata of their credentials, and which credential operations are never tools.
+  Describes the tools of the AWS Identity and Access Management group: reading users, groups, roles, instance profiles, and the metadata of their credentials, writing roles and instance profiles with the trust policy check and the own-role check, and which credential operations are never tools.
 type: knowledge
 edit: shared
 created: 2026-11-10
@@ -37,6 +37,57 @@ returns `next_cursor` and `has_more`; the list tools of users, groups, roles, an
 A role carries its trust policy as `assume_role_policy_document`. IAM sends it URL-encoded; Qatlas decodes it to
 JSON text, cuts it at 32 KiB, and sets `truncated` when it did. Names, paths, descriptions, tags, and trust
 policies are set by whoever manages the account and are untrusted data.
+
+## Roles and instance profiles
+
+These tools create, change, and delete roles and instance profiles. Each one is `listed-only`: a connection offers
+it only when its `tools` list names the exact tool ID. Neither effects nor a prefix such as `aws.iam.role.*` select
+it. Each one needs confirmation. A create or delete is not repeated after an unclear outcome, so read the entity
+before trying again.
+
+| Tool | AWS action | Arguments | Result |
+| --- | --- | --- | --- |
+| `aws.iam.role.create` | `CreateRole` | `role_name`, `assume_role_policy_document` (both required), `path`, `description`, `max_session_duration`, `permissions_boundary`, `tags` | `role`, `truncated` |
+| `aws.iam.role.update` | `UpdateRole` | `role_name` (required), `description`, `max_session_duration` | |
+| `aws.iam.role.update-trust-policy` | `UpdateAssumeRolePolicy` | `role_name`, `assume_role_policy_document`, both required | |
+| `aws.iam.role.put-permissions-boundary` | `PutRolePermissionsBoundary` | `role_name`, `permissions_boundary`, both required | |
+| `aws.iam.role.delete-permissions-boundary` | `DeleteRolePermissionsBoundary` | `role_name` (required) | |
+| `aws.iam.role.tag` | `TagRole` | `role_name`, `tags`, both required | |
+| `aws.iam.role.untag` | `UntagRole` | `role_name`, `tag_keys`, both required | |
+| `aws.iam.role.delete` | `DeleteRole` | `role_name` (required) | |
+| `aws.iam.instance-profile.create` | `CreateInstanceProfile` | `instance_profile_name` (required), `path`, `tags` | `instance_profile`, `truncated` |
+| `aws.iam.instance-profile.delete` | `DeleteInstanceProfile` | `instance_profile_name` (required) | |
+| `aws.iam.instance-profile.add-role` | `AddRoleToInstanceProfile` | `instance_profile_name`, `role_name`, both required | |
+| `aws.iam.instance-profile.remove-role` | `RemoveRoleFromInstanceProfile` | `instance_profile_name`, `role_name`, both required | |
+
+`permissions_boundary` must be an AWS managed policy (`arn:aws:iam::aws:policy/...`) or an ARN of the bound
+account. Any other ARN is refused before a request. `aws.iam.role.delete` and `aws.iam.instance-profile.delete` do
+not detach anything themselves. AWS refuses them with a conflict while the role still has policies or an instance
+profile, or while the instance profile still holds a role.
+
+Every trust policy that `aws.iam.role.create` or `aws.iam.role.update-trust-policy` would send is checked first,
+without a request. A document that breaks a rule is refused with the rule and the position of the statement, never
+with a value of the document.
+
+- The document is a JSON object with `Statement` as one object or a non-empty list of objects, at most 2048
+  characters long, the default IAM quota of a trust policy. A key given twice in one object is refused.
+- Only the elements of the policy grammar are allowed, in their exact spelling: `Version`, `Id`, and `Statement` at
+  the top, and `Sid`, `Effect`, `Principal`, `NotPrincipal`, `Action`, `NotAction`, `Resource`, `NotResource`, and
+  `Condition` in a statement.
+- Every statement needs `Principal`, whatever its `Effect`, `Deny` included. `NotPrincipal` is never allowed.
+- `Principal` is an object with `AWS`, `Service`, or both. A wildcard `"*"`, `{"AWS":"*"}`, `Federated`,
+  `CanonicalUser`, and any other key are refused.
+- `AWS` names only the bound account: its 12-digit ID, or `arn:aws:iam::<account>:root`, `:user/...`, or
+  `:role/...`. Other accounts, other partitions, unique IDs such as `AROA...`, STS ARNs, and values with `*` or `?`
+  are refused.
+- `Service` names only service principals `<name>.amazonaws.com` in lower case letters, digits, hyphens, and dots.
+  `aws:SourceAccount` is not required.
+
+The tools that change or delete a role (`update`, `update-trust-policy`, `put-permissions-boundary`,
+`delete-permissions-boundary`, `tag`, `untag`, `delete`, and `instance-profile.remove-role`) never act on the role
+whose credentials the connection uses. Before the call they ask `sts:GetCallerIdentity` and refuse a `role_name`
+that matches the role of an assumed-role session, in any case. An IAM user or the root user has no own role. A
+failed or unreadable answer refuses the call.
 
 ## Credential metadata
 
