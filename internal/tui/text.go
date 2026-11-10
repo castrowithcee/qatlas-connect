@@ -5,9 +5,9 @@ import (
 	"strings"
 
 	"github.com/castrowithcee/qatlas-connect/internal/helptopics"
-	"github.com/castrowithcee/qatlas-connect/internal/i18n"
 	"github.com/castrowithcee/qatlas-connect/internal/uiprefs"
 	kithelp "github.com/castrowithcee/qatlas-kit/helptopics"
+	"github.com/castrowithcee/qatlas-kit/i18n"
 )
 
 // The editor's own texts live in a catalog of typed keys per language (text_keys.go, text_en.go,

@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/castrowithcee/qatlas-connect/internal/projectpath"
+	"github.com/castrowithcee/qatlas-kit/projectpath"
 )
 
 // LocalFiles is the direction in which a tool touches local files: it reads them (an upload) or writes them

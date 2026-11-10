@@ -13,8 +13,8 @@ import (
 
 	"github.com/castrowithcee/qatlas-connect/internal/approval"
 	"github.com/castrowithcee/qatlas-connect/internal/config"
-	"github.com/castrowithcee/qatlas-connect/internal/i18n"
 	"github.com/castrowithcee/qatlas-connect/internal/vault"
+	"github.com/castrowithcee/qatlas-kit/i18n"
 )
 
 // A germanScreen opens one screen of the editor in the language the test runs in, so the same list serves the

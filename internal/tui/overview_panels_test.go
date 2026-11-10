@@ -12,9 +12,9 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"github.com/charmbracelet/x/ansi"
 
-	"github.com/castrowithcee/qatlas-connect/internal/i18n"
 	"github.com/castrowithcee/qatlas-connect/internal/invokelog"
 	"github.com/castrowithcee/qatlas-connect/internal/uiprefs"
+	"github.com/castrowithcee/qatlas-kit/i18n"
 )
 
 // demoOverview is the Overview of the snapshot setup at the given size, with its log read.

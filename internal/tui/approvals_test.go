@@ -15,10 +15,10 @@ import (
 
 	"github.com/castrowithcee/qatlas-connect/internal/approval"
 	"github.com/castrowithcee/qatlas-connect/internal/config"
-	"github.com/castrowithcee/qatlas-connect/internal/i18n"
 	"github.com/castrowithcee/qatlas-connect/internal/invokelog"
 	"github.com/castrowithcee/qatlas-connect/internal/secret"
 	"github.com/castrowithcee/qatlas-connect/internal/vault"
+	"github.com/castrowithcee/qatlas-kit/i18n"
 )
 
 // newApprovalFixture builds, under dir, a configuration with one service ("wiki"), one vault credential
