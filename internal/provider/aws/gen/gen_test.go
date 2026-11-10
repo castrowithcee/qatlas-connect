@@ -647,3 +647,38 @@ func TestURLEncodedShapesAreDecodedAndChecked(t *testing.T) {
 		t.Error("an invalid URLEncoded entry passed validation")
 	}
 }
+
+// A union input is a structure with exactly one member, the sample picks one member only, and a checked
+// ARN argument and a version ID with a fixed prefix get samples that pass.
+func TestUnionInputsAndSamplesOfCheckedArguments(t *testing.T) {
+	var op Operation
+	for _, o := range iamPolicyTools {
+		if o.Operation == "SimulatePrincipalPolicy" {
+			op = o
+		}
+	}
+	p, err := LoadPin(ModelDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	m, err := LoadTableModel(ModelDir, p, iamTable)
+	if err != nil {
+		t.Fatal(err)
+	}
+	tl, err := build(m, &Table{Service: "iam", Segment: "iam", Geltung: Global}, op)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{`"policy_exclusion_list":{"type":"array","items":{"type":"object"`, `"minProperties":1,"maxProperties":1`} {
+		if !strings.Contains(tl.inputSchema, want) {
+			t.Errorf("input schema lacks %s: %s", want, tl.inputSchema)
+		}
+	}
+	if err := tl.makeSamples(m); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(tl.sampleArgs, `"policy_source_arn":"`+sampleARN+`"`) || strings.Count(tl.sampleArgs, `"policy_type"`)+
+		strings.Count(tl.sampleArgs, `"policy_arn"`)+strings.Count(tl.sampleArgs, `"inline_policy_identifier"`) != 1 {
+		t.Errorf("sample arguments = %s", tl.sampleArgs)
+	}
+}
