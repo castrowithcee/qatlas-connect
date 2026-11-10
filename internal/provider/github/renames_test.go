@@ -82,6 +82,13 @@ var currentToolIDs = []string{
 	"github.deployment-branch-policies.delete",
 	"github.deployment-branch-policies.list",
 	"github.deployment-branch-policies.update",
+	"github.deployment-protection-rules.delete",
+	"github.deployment-protection-rules.get",
+	"github.deployment-protection-rules.list",
+	"github.deployment-statuses.get",
+	"github.deployment-statuses.list",
+	"github.deployments.get",
+	"github.deployments.list",
 	"github.discussion-categories.list",
 	"github.discussion-comments.create",
 	"github.discussion-comments.delete",
@@ -276,7 +283,7 @@ func TestRegistryHoldsExactlyTheCurrentToolIDs(t *testing.T) {
 	sort.Strings(got)
 	want := append([]string(nil), currentToolIDs...)
 	sort.Strings(want)
-	if strings.Join(got, "\n") != strings.Join(want, "\n") || len(got) != 251 {
+	if strings.Join(got, "\n") != strings.Join(want, "\n") || len(got) != 258 {
 		t.Errorf("registry holds %d tools, differing from the expected %d IDs", len(got), len(want))
 	}
 	if err := reg.ValidateRenames(); err != nil {
@@ -320,7 +327,10 @@ func TestRenamedToolsCoverEveryChangedID(t *testing.T) {
 		"github.action-caches.list": true, "github.action-caches.delete": true, "github.action-cache-usage.get": true,
 		"github.deployment-branch-policies.list": true, "github.deployment-branch-policies.create": true,
 		"github.deployment-branch-policies.update": true, "github.deployment-branch-policies.delete": true,
-		"github.rate-limit.get": true, "github.gitignore-templates.list": true, "github.gitignore-templates.get": true,
+		"github.deployment-protection-rules.list": true, "github.deployment-protection-rules.get": true,
+		"github.deployment-protection-rules.delete": true, "github.deployment-statuses.list": true,
+		"github.deployment-statuses.get": true,
+		"github.rate-limit.get":          true, "github.gitignore-templates.list": true, "github.gitignore-templates.get": true,
 		"github.codes-of-conduct.list": true, "github.codes-of-conduct.get": true}
 	for id := range current {
 		if strings.Contains(id, "-") && !targets[id] && !bornHyphenated[id] {

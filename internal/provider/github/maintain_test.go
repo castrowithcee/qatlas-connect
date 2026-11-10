@@ -226,7 +226,7 @@ func TestGuardedToolsStayOutOfEveryStandardProfile(t *testing.T) {
 		repositoriesDelete.ID: true, collaboratorsUpdate.ID: true, teamsLink.ID: true, teamsUnlink.ID: true,
 		filesPush.ID: true, branchesDelete.ID: true, rulesetsDelete.ID: true, labelsDelete.ID: true, actionVariablesDelete.ID: true, actionCachesDelete.ID: true, commentsDelete.ID: true,
 		discussionCommentsDelete.ID: true, runLogsDelete.ID: true, environmentsDelete.ID: true,
-		branchPoliciesDelete.ID: true}
+		branchPoliciesDelete.ID: true, protectionRulesDelete.ID: true}
 	// github.pull-requests.merge and github.pull-request-reviews.approve are each guarded on their own: neither is
 	// a maintainer or administrator tool nor a delete, but each is offered only where a connection's tools list
 	// names it, because merging into the wrong repository's default branch, and approving on the connection's
