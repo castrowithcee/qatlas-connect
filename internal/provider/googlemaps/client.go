@@ -34,6 +34,12 @@ const weatherRoot = "https://weather.googleapis.com"
 
 const weatherHost = "weather.googleapis.com"
 
+// pollenRoot is the fourth fixed origin: Pollen API is a separate Google service that accepts the same key.
+// Only the pollen tool uses it, through getFrom.
+const pollenRoot = "https://pollen.googleapis.com"
+
+const pollenHost = "pollen.googleapis.com"
+
 // Bounds of one request. The timeout stays below the 60 seconds an invoke may take, so a slow answer ends
 // as a timeout of this provider and not as a cancelled call.
 const (
@@ -223,6 +229,18 @@ func (c *Client) send(ctx context.Context, op string, req *http.Request, mask st
 			case provider.ClassInvalidResponse:
 				failed.Message = "Google rejected the weather request (HTTP " + itoa(response.StatusCode) + "); the " +
 					"location may be outside the coverage of the Weather API, or the API may have changed"
+			}
+		}
+		if req.URL.Host == pollenHost {
+			switch failed.Class {
+			case provider.ClassPermission:
+				failed.Message = "Google refused the key for the Pollen API; check that the API is enabled in the " +
+					"key's project, that the project has a billing account, and the key's restrictions"
+			case provider.ClassNotFound:
+				failed.Message = "Google has no pollen data for this location; it may be outside the coverage of the Pollen API"
+			case provider.ClassInvalidResponse:
+				failed.Message = "Google rejected the pollen request (HTTP " + itoa(response.StatusCode) + "); the " +
+					"location may be outside the coverage of the Pollen API, or the API may have changed"
 			}
 		}
 		if response.StatusCode >= 300 && (response.StatusCode < 400 || response.StatusCode >= 500) {
