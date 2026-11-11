@@ -127,8 +127,57 @@ type Operation struct {
 	// of the result was cut at its limit.
 	Truncated string
 	// CSV turns one blob output member that holds a CSV table into rows with the tool's own paging.
-	CSV      *CSVReport
-	Examples []Example
+	CSV *CSVReport
+	// PageSizeMax bounds page_size of a paginated tool whose model gives the page size member no range
+	// maximum. The model's own maximum applies, and must not be exceeded, when it has one.
+	PageSizeMax int
+	// ResultHook names a hand-written step of the provider package that adds the result field the hook
+	// declares to the result, computed from the arguments and the answer. Empty for none.
+	ResultHook string
+	// ExcludeEnum narrows the enum of an input member, so a value that would bring something the tool must
+	// not take (such as key material) cannot be sent.
+	ExcludeEnum []EnumExclusion
+	// Release keeps a member open that the model marks sensitive, because it is an identifier and not a
+	// secret, such as the ID of a KMS key. It applies to input and output, also below the top level.
+	Release []Release
+	// Limits cap a string or a list of the input that the model leaves unbounded.
+	Limits []InputLimit
+	// Guards name hand-written steps of the provider package that judge the arguments before any I/O, each
+	// with the binding of the connection and the region of the call.
+	Guards []string
+	// Readback names a hand-written step that reads the current state with a call of its own after the
+	// account check and before the change, and refuses the change on what it finds. Only a tool that is not a
+	// read may name one.
+	Readback string
+	// ReadbackAnswer is the XML answer of the generated test to that read; required with Readback.
+	ReadbackAnswer string
+	// SampleArgs replaces top-level arguments of the generated test, a JSON object by argument name, where
+	// the derived sample cannot pass a guard.
+	SampleArgs string
+	Examples   []Example
+}
+
+// InputLimit caps one input member: MaxLen a string, MaxItems a list. Member is dotted like Release.Member; a
+// list adds no segment, so the members of its elements follow the list's own name.
+type InputLimit struct {
+	Member           string
+	MaxLen, MaxItems int
+	Reason           string
+}
+
+// Release is a sensitive model member that stays open, with the reason.
+type Release struct {
+	// Member is the model member, dotted below the top level, as for HiddenOutputs.
+	Member string
+	Reason string
+}
+
+// EnumExclusion removes values from the enum of an input member.
+type EnumExclusion struct {
+	// Member is the model member, dotted below the top level, such as SigningAttributes.Origin.
+	Member string
+	Values []string
+	Reason string
 }
 
 // CSVReport describes a CSV table returned as a base64 blob, such as the IAM credential report. The
@@ -168,6 +217,9 @@ type Field struct {
 	Description string
 	// MaxLen caps a string; the model's length maximum or the default cap applies when zero.
 	MaxLen int
+	// MaxItems caps a top-level list; the default cap applies when zero. It is raised for a list whose page can
+	// be larger than the default, and it never overrides a smaller maximum of the model.
+	MaxItems int
 	// Form names a hand-written check of the value, such as account-id.
 	Form string
 	// Required makes the tool refuse an answer without the member, and the schema require it.
@@ -191,9 +243,15 @@ type Example struct {
 var (
 	Effects      = []string{"read", "create", "update", "delete", "execute"}
 	Idempotency  = []string{"safe", "idempotent", "non-idempotent"}
-	TargetChecks = []string{"none", "account-argument", "arn-account", "arn-account-or-managed-policy", "arn-region", "bucket-owner"}
-	PolicyChecks = []string{"none", "trust-policy", "bucket-policy", "identity-policy", "pab-tighten"}
-	Forms        = []string{"account-id"}
+	TargetChecks = []string{"none", "account-argument", "arn-account", "arn-account-or-managed-policy", "arn-region", "bucket-owner",
+		"ses-identity", "ses-identity-arn"}
+	PolicyChecks = []string{"none", "trust-policy", "resource-policy-own-account", "bucket-policy", "identity-policy"}
+	// Guards are the pure argument steps and Readbacks the steps with a read of their own; see Operation.
+	Guards    = []string{"location-constraint", "new-bucket-name", "kms-key-arn"}
+	Readbacks = []string{"pab-tighten"}
+	Forms     = []string{"account-id"}
+	// ResultHooks are the hand-written result steps a table may name; see resultHookFields.
+	ResultHooks = []string{"dns-records"}
 )
 
 var (
@@ -306,12 +364,54 @@ func (op Operation) validate() error {
 		return fmt.Errorf("policy_check %s needs the arguments it checks, and none only without", op.PolicyCheck)
 	case op.SelfRole != "" && (op.Effect == "read" || !opName.MatchString(op.SelfRole)):
 		return fmt.Errorf("self_role %q must name an input member of a tool that is not a read", op.SelfRole)
+	case op.ResultHook != "" && !slices.Contains(ResultHooks, op.ResultHook):
+		return fmt.Errorf("unknown result_hook %q", op.ResultHook)
+	case op.PageSizeMax < 0:
+		return fmt.Errorf("negative page size maximum")
 	case strings.TrimSpace(op.Title) == "" || strings.TrimSpace(op.Description) == "" || op.DataSensitivity == "":
 		return fmt.Errorf("title, description and data sensitivity are required")
 	}
 	for _, tag := range op.Tags {
 		if !tagValue.MatchString(tag) {
 			return fmt.Errorf("tag %q is not a lower case word", tag)
+		}
+	}
+	for _, g := range op.Guards {
+		if !slices.Contains(Guards, g) {
+			return fmt.Errorf("unknown guard %q", g)
+		}
+	}
+	switch {
+	case op.Readback != "" && !slices.Contains(Readbacks, op.Readback):
+		return fmt.Errorf("unknown readback %q", op.Readback)
+	case op.Readback != "" && (op.Effect == "read" || strings.TrimSpace(op.ReadbackAnswer) == ""):
+		return fmt.Errorf("readback %s belongs to a tool that is not a read and needs the answer of its generated test", op.Readback)
+	case op.Readback == "" && op.ReadbackAnswer != "":
+		return fmt.Errorf("a readback answer without a readback")
+	}
+	limits := map[string]bool{}
+	for _, l := range op.Limits {
+		if strings.TrimSpace(l.Member) == "" || strings.TrimSpace(l.Reason) == "" || (l.MaxLen > 0) == (l.MaxItems > 0) ||
+			l.MaxLen < 0 || l.MaxItems < 0 || limits[l.Member] {
+			return fmt.Errorf("limit %q needs a reason, exactly one positive cap, and no repetition", l.Member)
+		}
+		limits[l.Member] = true
+	}
+	releases := map[string]bool{}
+	for _, r := range op.Release {
+		switch {
+		case strings.TrimSpace(r.Member) == "" || strings.TrimSpace(r.Reason) == "":
+			return fmt.Errorf("release needs a member and a reason")
+		case releases[r.Member]:
+			return fmt.Errorf("release %s is listed twice", r.Member)
+		case credentialName.MatchString(lastSegment(r.Member)):
+			return fmt.Errorf("release %s: the member looks like a credential and is never released", r.Member)
+		}
+		releases[r.Member] = true
+	}
+	for _, e := range op.ExcludeEnum {
+		if strings.TrimSpace(e.Member) == "" || len(e.Values) == 0 || strings.TrimSpace(e.Reason) == "" {
+			return fmt.Errorf("enum exclusion needs a member, values and a reason")
 		}
 	}
 	for _, hidden := range [][]Hidden{op.HiddenInputs, op.HiddenOutputs} {
@@ -347,7 +447,7 @@ func (op Operation) validate() error {
 		if f.Form != "" && !slices.Contains(Forms, f.Form) {
 			return fmt.Errorf("field %s: unknown form %q", member, f.Form)
 		}
-		if f.MaxLen < 0 {
+		if f.MaxLen < 0 || f.MaxItems < 0 {
 			return fmt.Errorf("field %s: negative cap", member)
 		}
 	}

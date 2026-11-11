@@ -379,16 +379,16 @@ func TestClickOnATickPickerValueMarksItAndASecondClickTicksIt(t *testing.T) {
 	m, _, _ := groupedPicker(t, 100)
 	group := m.pickerGroups.groups[0]
 	m.render()
-	clickOn(t, m, "Pull requests (34)")
+	clickOn(t, m, "Pull requests (39)")
 	if len(m.pickerMarks) != 0 {
 		t.Fatalf("the first click ticked %d tools", len(m.pickerMarks))
 	}
 	if got, _ := m.picker.selected(); got == groupRowPrefix+group.ID {
 		t.Fatalf("the first click left the mark on the first group")
 	}
-	clickOn(t, m, "Pull requests (34)")
-	if len(m.pickerMarks) != 34 {
-		t.Fatalf("the click on the marked group ticked %d tools, want 34", len(m.pickerMarks))
+	clickOn(t, m, "Pull requests (39)")
+	if len(m.pickerMarks) != 39 {
+		t.Fatalf("the click on the marked group ticked %d tools, want 39", len(m.pickerMarks))
 	}
 }
 

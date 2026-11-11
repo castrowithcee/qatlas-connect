@@ -27,11 +27,18 @@ var (
 		"NotFound":                notFound,
 		"BucketAlreadyExists":     conflict,
 		"BucketAlreadyOwnedByYou": conflict, "IdempotencyParameterMismatch": conflict,
+		// The S3 codes of the bucket writes: the model defines none of them, the service sends them.
+		"BucketNotEmpty": conflict, "OperationAborted": conflict, "TooManyBuckets": quota,
+		"InvalidBucketName": invalid, "InvalidLocationConstraint": invalid, "MalformedXML": invalid,
+		"InvalidBucketState": badState,
 		"InvalidObjectState": badState, "ObjectAlreadyInActiveTierError": badState, "ObjectNotInActiveTierError": badState,
 		"EncryptionTypeMismatch": invalid, "InvalidAnnotationName": invalid, "InvalidPrefix": invalid,
 		"InvalidRequest": invalid, "InvalidWriteOffset": invalid, "TooManyParts": invalid,
 		"UnsupportedMediaType": invalid, "AnnotationNameTooLong": invalid,
 		"AnnotationLimitExceeded": quota,
+		// A bucket without such a configuration; the models do not define these codes, the service sends them.
+		"ServerSideEncryptionConfigurationNotFoundError": notFound, "NoSuchTagSet": notFound,
+		"NoSuchPublicAccessBlockConfiguration": notFound,
 
 		// Route 53.
 		"NoSuchChange": notFound, "NoSuchCidrCollectionException": notFound, "NoSuchCidrLocationException": notFound,

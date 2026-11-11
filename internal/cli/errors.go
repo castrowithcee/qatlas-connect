@@ -10,6 +10,7 @@ import (
 	"github.com/castrowithcee/qatlas-connect/internal/config"
 	"github.com/castrowithcee/qatlas-connect/internal/secret"
 	"github.com/castrowithcee/qatlas-connect/internal/vault"
+	kitcli "github.com/castrowithcee/qatlas-kit/cli"
 	"github.com/castrowithcee/qatlas-kit/output"
 	"github.com/castrowithcee/qatlas-kit/redact"
 )
@@ -24,13 +25,56 @@ func codeFor(err error) output.Code {
 	}
 	code := application.ErrorCode(err)
 	var (
-		projection *output.ProjectionError
-		usage      *UsageError
+		projection  *output.ProjectionError
+		unsupported *output.UnsupportedValueError
+		usage       *UsageError
 	)
-	if code == output.CodeRuntime && (errors.As(err, &projection) || errors.As(err, &usage)) {
+	if code == output.CodeRuntime &&
+		(errors.As(err, &projection) || errors.As(err, &unsupported) || errors.As(err, &usage)) {
 		return output.CodeUsage
 	}
 	return code
+}
+
+// fallbackStep is the next step of a refusal whose message already says what to do; the kit's diagnostic
+// always carries one.
+const fallbackStep = "Check the message and try again."
+
+// failureFor is the diagnostic of err on the command line, for the kit to write and to map to an exit code.
+// It adds only what Connect owns: the code, the next step per route, and the detail. A value that cannot be
+// shown and a bad field selection are handed on as they are, so the kit classifies them as usage problems.
+func failureFor(err error, format output.Format, redactor *redact.Redactor) error {
+	var (
+		unsupported *output.UnsupportedValueError
+		projection  *output.ProjectionError
+		deadline    *deadlineError
+	)
+	if !errors.As(err, &deadline) && (errors.As(err, &unsupported) || errors.As(err, &projection)) {
+		if unsupported != nil {
+			return unsupported
+		}
+		return projection
+	}
+	step := nextStep(err, routeCLI)
+	if step == "" {
+		step = fallbackStep
+	}
+	failure := &kitcli.Failure{Code: codeFor(err), Message: err.Error(), NextStep: step, Cause: err}
+	if agent := nextStep(err, routeAgent); agent != "" && agent != nextStep(err, routeCLI) {
+		failure.AgentNextStep = agent
+	}
+	var usage *UsageError
+	failure.Usage = errors.As(err, &usage)
+	var syntax *syntaxError
+	failure.Syntax = errors.As(err, &syntax)
+	if original := application.ProviderOriginalOf(err); original != nil && format != output.FormatJSON {
+		// The provider's answer is a block of its own, so a person never reads it as Qatlas' text; with
+		// --output json the detail below carries it instead.
+		failure.External = &kitcli.ExternalAnswer{Source: "provider", Original: *original}
+		return failure
+	}
+	failure.Detail = errorDetailFor(err, redactor)
+	return failure
 }
 
 // route is the way a diagnostic reaches its caller. A next step that is an action of a person reads the

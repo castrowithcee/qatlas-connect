@@ -6,6 +6,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/castrowithcee/qatlas-connect/internal/provider"
+	"github.com/castrowithcee/qatlas-kit/httpx"
 	"github.com/castrowithcee/qatlas-kit/redact"
 )
 
@@ -81,4 +82,22 @@ func ProviderDetailOf(err error, redactor *redact.Redactor) *ProviderDetail {
 		return nil
 	}
 	return detail
+}
+
+// ProviderOriginalOf returns the provider's raw answer carried by err in the kit's shape, or nil when err
+// carries none. It is neither redacted nor bounded: the kit's diagnostic does both before it shows the answer.
+func ProviderOriginalOf(err error) *httpx.Original {
+	var failure *provider.Error
+	if !errors.As(err, &failure) || failure.Original == nil {
+		return nil
+	}
+	original := &httpx.Original{
+		Status: failure.Original.Status, Documentation: failure.Original.Documentation,
+	}
+	for _, e := range failure.Original.Entries {
+		original.Entries = append(original.Entries, httpx.OriginalEntry{
+			Type: e.Type, Code: e.Code, Path: e.Path, Message: e.Message,
+		})
+	}
+	return original
 }
