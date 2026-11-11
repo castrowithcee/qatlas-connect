@@ -17,6 +17,7 @@ import (
 	"github.com/castrowithcee/qatlas-connect/internal/manage"
 	"github.com/castrowithcee/qatlas-connect/internal/secret"
 	"github.com/castrowithcee/qatlas-connect/internal/vault"
+	"github.com/castrowithcee/qatlas-kit/cobracli"
 )
 
 // maxSecretBytes bounds what a piped secret may be, so a wrong redirection cannot pull a whole file into
@@ -83,7 +84,7 @@ func newCredentialCommand(opts *Options, reg *capability.Registry) *cobra.Comman
 		},
 	}
 
-	var assumeYes bool
+	var gate *cobracli.Gate
 	remove := &cobra.Command{
 		Use:   "delete <credential> <role>",
 		Short: "Remove the secret of one credential role",
@@ -95,14 +96,16 @@ func newCredentialCommand(opts *Options, reg *capability.Registry) *cobra.Comman
 			"is locked or cannot be reached, the command says so and what to do, and never reports a secret\n" +
 			"as removed that may still be stored.\n" +
 			"The command first asks \"delete the secret of <credential> <role>? [y/N]\" at the terminal and\n" +
-			"removes nothing unless the answer is y or yes. --yes answers it in advance; without a terminal the\n" +
-			"command still fails as admin-required.",
+			"removes nothing unless the answer is y or yes. --yes answers it in advance. Removing a secret\n" +
+			"changes data, so --confirm is required in addition to the answer; without it nothing is removed and\n" +
+			"the command fails as confirmation-required. Without a terminal the command still fails as\n" +
+			"admin-required.",
 		Args: exactlyTwoArgs,
 		RunE: func(c *cobra.Command, args []string) error {
-			return deleteCredential(c, opts, reg, args[0], args[1], assumeYes)
+			return deleteCredential(c, opts, reg, args[0], args[1], gate)
 		},
 	}
-	remove.Flags().BoolVar(&assumeYes, "yes", false, "answer the confirmation question with yes")
+	gate = opts.program.AddGate(remove, cobracli.Gates{Question: true, Change: true})
 
 	cmd.AddCommand(set, remove)
 	return cmd
@@ -192,7 +195,7 @@ func offerVaultPassphrase(prompt string) (string, error) {
 	return passphrase, nil
 }
 
-func deleteCredential(c *cobra.Command, opts *Options, reg *capability.Registry, name, role string, yes bool) error {
+func deleteCredential(c *cobra.Command, opts *Options, reg *capability.Registry, name, role string, gate *cobracli.Gate) error {
 	if err := requireAdmin(opts); err != nil {
 		return err
 	}
@@ -200,16 +203,26 @@ func deleteCredential(c *cobra.Command, opts *Options, reg *capability.Registry,
 	if err != nil {
 		return err
 	}
-	if !yes {
-		confirmed, err := confirmDelete(fmt.Sprintf("delete the secret of %s %s? [y/N] ", name, role))
-		if err != nil {
-			return err
+	// The admin check and the validation come first. --confirm is the kit's gate for a request that changes
+	// data; the question below is answered by --yes or by the person, as before. Nothing is removed before
+	// both have passed.
+	yes, _ := c.Flags().GetBool("yes")
+	return gate.Run(cobracli.Request{Changes: true}, func() error {
+		if !yes {
+			confirmed, err := confirmDelete(fmt.Sprintf("delete the secret of %s %s? [y/N] ", name, role))
+			if err != nil {
+				return err
+			}
+			if !confirmed {
+				fmt.Fprintf(c.OutOrStdout(), "kept the secret of %s %s\n", name, role)
+				return nil
+			}
 		}
-		if !confirmed {
-			fmt.Fprintf(c.OutOrStdout(), "kept the secret of %s %s\n", name, role)
-			return nil
-		}
-	}
+		return removeSecret(c, opts, name, role, cfg, cred)
+	})
+}
+
+func removeSecret(c *cobra.Command, opts *Options, name, role string, cfg *config.Config, cred config.Credential) error {
 	secrets, err := opts.resolver()
 	if err != nil {
 		return err

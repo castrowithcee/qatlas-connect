@@ -291,15 +291,14 @@ func TestInvalidRequestIsNamedOnce(t *testing.T) {
 func TestOptionsAreParsed(t *testing.T) {
 	opts := &Options{}
 	cmd := newRootCommand(opts, sharedRegistry())
-	cmd.SetArgs([]string{"--config", "/tmp/c.yaml", "--connection", "wiki", "--agent", "--output", "compact"})
-	cmd.SetOut(new(bytes.Buffer))
-	cmd.SetErr(new(bytes.Buffer))
-
-	if err := cmd.Execute(); err != nil {
-		t.Fatalf("Execute() = %v, want nil", err)
+	var stderr bytes.Buffer
+	code := run(cmd, opts, []string{"--config", "/tmp/c.yaml", "--connection", "wiki", "--agent", "--output", "compact"},
+		new(bytes.Buffer), &stderr)
+	if code != exitOK {
+		t.Fatalf("run = %d, stderr %q, want 0", code, stderr.String())
 	}
 
-	if opts.Config != "/tmp/c.yaml" || opts.Connection != "wiki" || !opts.Agent || opts.Output != "compact" {
+	if opts.Config != "/tmp/c.yaml" || opts.Connection != "wiki" || !opts.Agent || opts.Format != output.FormatCompact {
 		t.Errorf("options = %+v", *opts)
 	}
 }
