@@ -1,17 +1,19 @@
 ---
 description: >
-  Describes the GitHub security tools: the code scanning, Dependabot, and secret scanning alerts of a repository, the global, repository, and organization security advisories, and code quality findings, with their targets and cuts.
+  Describes the GitHub security tools: the code scanning, Dependabot, and secret scanning alerts of a repository, the global, repository, and organization security advisories, code quality findings, the security switches of a repository, and its code scanning default setup, with their targets and cuts.
 type: knowledge
 edit: shared
 created: 2026-10-22
-updated: 2026-10-23
+updated: 2026-11-11
 ---
 
 # GitHub security
 
-The security tools of the [GitHub provider](README.md). All of them only read. The not-recommended setup
-profile `security` selects the six alert tools and the five advisory and finding tools, eleven in all; the
-recommended profile `read` is unchanged.
+The security tools of the [GitHub provider](README.md). The alert, advisory, and finding tools only read;
+[the security switches](#security-switches) and [the code scanning default setup](#code-scanning-default-setup)
+read and, listed-only, change. The not-recommended setup profile `security` selects the six alert tools, the five
+advisory and finding tools, and the two reads of the switches and the default setup, thirteen in all and none
+that changes anything; the recommended profile `read` is unchanged.
 
 ## Security alerts
 
@@ -97,3 +99,111 @@ The token rights are listed under [Security](setup.md#security). Sources:
 https://docs.github.com/en/rest/security-advisories/global-advisories,
 https://docs.github.com/en/rest/security-advisories/repository-advisories, and
 https://docs.github.com/en/rest/code-quality/code-quality.
+
+## Security switches
+
+Two tools read and change the security switches of one repository.
+
+| Tool | Does | Offered |
+| --- | --- | --- |
+| `github.security-settings.get` | reads the state of every switch | with the `read` permission |
+| `github.security-settings.update` | switches the given switches on or off | only where the connection's `tools` list names it |
+
+`.get` reads the repository, which carries the `security_and_analysis` object, and four routes: Dependabot
+alerts, Dependabot security updates, private vulnerability reporting, and immutable releases. It answers one
+entry per switch with a `state` of `enabled`, `disabled`, or `unavailable`: `dependabot_alerts`,
+`automated_security_fixes` (with `paused` while enabled), `private_vulnerability_reporting`,
+`immutable_releases` (with `enforced_by_owner`), and the `security_and_analysis` members `advanced_security`,
+`code_security`, `dependabot_security_updates`, `secret_scanning`, `secret_scanning_push_protection`,
+`secret_scanning_non_provider_patterns`, `secret_scanning_ai_detection`,
+`secret_scanning_delegated_alert_dismissal`, and `secret_scanning_delegated_bypass`, plus the reviewers of
+delegated bypass as `secret_scanning_delegated_bypass_reviewers` (`reviewer_id`, `reviewer_type`, `mode`). A
+read that GitHub refuses with 403 or 404 on the repository, or with 403 on a route, fails with the permission
+the read needs and quotes nothing of GitHub.
+
+`unavailable` is a state of its own, not an error, and no switch GitHub does not offer is reported as on or off:
+
+| Switch | Reported as `unavailable` when |
+| --- | --- |
+| a `security_and_analysis` member | GitHub leaves it out of the repository, as it does for a plan without the feature and for a token without administrator rights; the two cannot be told apart |
+| `private_vulnerability_reporting` | the route answers 422 |
+
+The routes for Dependabot alerts, Dependabot security updates, and immutable releases answer 404 when the switch is
+not enabled, which GitHub documents, and also to a token without administrator rights. A 404 of one of them is
+therefore read as `disabled` only when the repository read showed `permissions.admin` as true. Without that proof
+the read fails with the permission hint instead of reporting a state; no state is guessed. The alerts route answers
+204 for on. An answer with a status value other than `enabled` or `disabled` fails as an invalid response.
+
+`.update` takes any of `dependabot_alerts`, `automated_security_fixes`, `private_vulnerability_reporting`,
+`immutable_releases`, `secret_scanning`, `secret_scanning_push_protection`,
+`secret_scanning_non_provider_patterns`, `secret_scanning_ai_detection`,
+`secret_scanning_delegated_alert_dismissal`, and `secret_scanning_delegated_bypass` as `true` or `false`, and at
+least one. Each switch is exactly one request and is never repeated: a route switch is a `PUT` or `DELETE` of its
+route, an analysis switch is a `PATCH` of the repository that names this one member. The switches go in the order
+above. The result lists every given switch as `set` (GitHub accepted the request), `rejected` with a `reason`
+(`permission`, `not-found`, `conflict`, `invalid`, `auth`, `rate-limited`, or `refused`), `unknown` (the outcome is
+unclear: a timeout, a 5xx, an unreadable answer, or an answer whose state differs from the request; read the
+settings before repeating), or `not-sent`. A refusal that proves nothing was applied and concerns only that
+switch (`permission`, `not-found`, `conflict`, `invalid`) lets the next switch follow. An `unknown` outcome, an
+`auth` or `rate-limited` refusal, or any other refusal ends the call, and the rest are `not-sent`. `reported` names
+the state GitHub's answer gives for an analysis switch where it gives one. When no switch was set, the call
+fails with the class of the first failure and a message naming each switch and its outcome; an unclear outcome adds
+that the change may have been applied.
+
+Switching off secret scanning, push protection, or Dependabot alerts lowers the protection of the repository,
+and so does turning on delegated bypass, which lets named reviewers approve bypassing push protection. A
+`rejected` with `invalid` is GitHub's 422 or 400, which also covers a feature the plan does not include.
+
+Limits of the change:
+
+- `advanced_security` and `code_security` are never written: they change what an organization is billed for.
+- `secret_scanning_delegated_bypass_options` is never written: it names reviewers by team or role identifier
+  that Qatlas cannot check, so the reviewers of delegated bypass are read only. Enabling
+  `secret_scanning_delegated_bypass` sends only its state and leaves the reviewers as they are.
+- Dependabot security updates are switched only through `automated_security_fixes`, not through the
+  `security_and_analysis` member of the same name.
+- The organization-wide security configurations are not offered.
+
+The token rights are listed under [Security](setup.md#security). Sources:
+https://docs.github.com/en/rest/repos/repos#update-a-repository,
+https://docs.github.com/en/rest/repos/repos#enable-vulnerability-alerts,
+https://docs.github.com/en/rest/repos/repos#enable-dependabot-security-updates,
+https://docs.github.com/en/rest/repos/repos#enable-private-vulnerability-reporting-for-a-repository, and
+https://docs.github.com/en/rest/repos/repos#enable-immutable-releases.
+
+## Code scanning default setup
+
+Two tools read and change the code scanning default setup of one repository.
+
+| Tool | Does | Offered |
+| --- | --- | --- |
+| `github.code-scanning-setup.get` | reads the default setup | with the `read` permission |
+| `github.code-scanning-setup.update` | changes the default setup | only where the connection's `tools` list names it |
+
+`.get` answers `state` (`configured` or `not-configured`), `languages`, `runner_type`, `runner_label`,
+`query_suite`, `threat_model`, `updated_at`, and `schedule`; a member GitHub reports as `null` is left out. A
+repository for which GitHub answers 403 or 503, which GitHub documents for a repository without the license for
+code scanning and for an unavailable service, is answered with the state `unavailable` alone, not as an error. A
+token without the right shows the same 403, so the state names no cause. A 404 stays an error naming the
+permission. The runner label is untrusted data of the repository owner.
+
+GitHub has no route that lists the languages a repository could be analyzed with, so there is no
+`github.code-scanning-languages.list`: `.get` already gives the languages of the configuration in full, and the
+languages that could be added are not listed anywhere by the API. A language GitHub reports that the tool does not
+know yet is passed through when it is a short lower-case name.
+
+`.update` takes `state` (`configured` or `not-configured`), `runner_type` (`standard` or `labeled`),
+`runner_label` (only together with `runner_type` `labeled`, which in turn needs it), `query_suite` (`default` or
+`extended`), `threat_model` (`remote` or `remote_and_local`), and `languages` (one to nine of `actions`, `c-cpp`,
+`csharp`, `go`, `java-kotlin`, `javascript-typescript`, `python`, `ruby`, `swift`, each once), at least one, and
+sends only the given values in one `PATCH` that is never repeated. The result is `started`, which is true when
+GitHub answered 202 by starting a configuration run, with that run's `run_id` and `run_url` (the address is untrusted
+text and never fetched); a 200 answer, with or without a body, is `started` false. Qatlas never waits for the run.
+A 403 or 404 names the permission, a 409 says a validation run with a different configuration is in progress,
+and a 422 says the repository is not in the state the change needs; a 5xx or an unreadable answer says the change
+may have been applied. Setting `state` to `not-configured` turns code scanning off and lowers the protection of the
+repository.
+
+The token rights are listed under [Security](setup.md#security). Sources:
+https://docs.github.com/en/rest/code-scanning/code-scanning#get-a-code-scanning-default-setup-configuration and
+https://docs.github.com/en/rest/code-scanning/code-scanning#update-a-code-scanning-default-setup-configuration.
