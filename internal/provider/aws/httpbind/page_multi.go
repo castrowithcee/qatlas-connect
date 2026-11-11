@@ -23,6 +23,8 @@ type Position struct {
 	// Required says that an answer which reports more entries must carry the member. Optional members, such as
 	// the identifier of a record set that has none, are left out of the request when the answer has none.
 	Required bool
+	// Start is the key of the tool argument that offers this member as the place a list starts at; empty for none.
+	Start string
 }
 
 // MultiPager pages a list whose next page starts at a position of several members: S3 KeyMarker and
@@ -44,9 +46,14 @@ func (p MultiPager) Check() error {
 		return shapeErr("a multi-member pager needs two to four positions, the first required, and a truncation member")
 	}
 	seen := map[string]bool{}
-	for _, pos := range p.Positions {
-		if pos.In == "" || pos.Out == "" || seen[pos.In] {
-			return shapeErr("a position has no names or repeats one")
+	for i, pos := range p.Positions {
+		if pos.In == "" || pos.Out == "" || seen[pos.In] || (pos.Start == "") != (p.Positions[0].Start == "") {
+			return shapeErr("a position has no names or repeats one, or only some offer a start argument")
+		}
+		for _, other := range p.Positions[:i] {
+			if pos.Start != "" && pos.Start == other.Start {
+				return shapeErr("two positions share a start argument")
+			}
 		}
 		seen[pos.In] = true
 	}
@@ -92,6 +99,52 @@ func (p MultiPager) Start(binding []byte, pageSize int, cursor string) (MultiPag
 		page.at = at
 	}
 	return page, nil
+}
+
+// TakeStart removes the start arguments of a list from args and returns the position they name, by wire name, nil
+// when none is given. A start argument is a string within the bounds of a position, and each needs the ones before
+// it: a later member of a position means nothing without the earlier ones.
+func (p MultiPager) TakeStart(args map[string]any) (map[string]string, error) {
+	var start map[string]string
+	missing := ""
+	for _, pos := range p.Positions {
+		if pos.Start == "" {
+			return nil, nil
+		}
+		raw, set := args[pos.Start]
+		delete(args, pos.Start)
+		if !set {
+			if missing == "" {
+				missing = pos.Start
+			}
+			continue
+		}
+		text, ok := raw.(string)
+		if !ok || !usablePosition(text) {
+			return nil, &provider.InvalidRequestError{Message: pos.Start + " must be a non-empty text of at most " + strconv.Itoa(maxPositionValue) + " bytes"}
+		}
+		if missing != "" {
+			return nil, &provider.InvalidRequestError{Message: pos.Start + " needs " + missing}
+		}
+		if start == nil {
+			start = map[string]string{}
+		}
+		start[pos.In] = text
+	}
+	return start, nil
+}
+
+// StartAt is Start for a list that begins at the position start (from TakeStart) instead of at its first
+// entry. It cannot be combined with a cursor, which already holds a position.
+func (p MultiPager) StartAt(binding []byte, pageSize int, cursor string, start map[string]string) (MultiPage, error) {
+	if len(start) > 0 && cursor != "" {
+		return MultiPage{}, &provider.InvalidRequestError{Message: "cursor continues a list and cannot be combined with a start argument; leave one out"}
+	}
+	page, err := p.Start(binding, pageSize, cursor)
+	if err == nil && len(start) > 0 {
+		page.at = start
+	}
+	return page, err
 }
 
 // validPosition accepts a position of known members whose required ones are all there.

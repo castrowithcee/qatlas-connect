@@ -728,10 +728,12 @@ func Register(reg *capability.Registry) error {
 		}, {
 			ID: "actions-admin", Title: "Actions administrator",
 			Description: "high risk: reads and changes whether Actions run in a repository, which " +
-				"actions they may use, the default rights of its GITHUB_TOKEN, and its merge and branch settings; a " +
-				"connection offers these tools only while its tools list names them, and every change needs its own " +
-				"confirmation",
-			Tools: append([]string{}, adminTools...),
+				"actions they may use, the default rights of its GITHUB_TOKEN, and its merge and branch settings, and " +
+				"reads its finer Actions settings (selected actions, fork pull request approval, retention, access, " +
+				"OIDC subject claim); a connection offers these tools only while its tools list names them, and " +
+				"every change needs its own confirmation; the changes of the finer settings stay unticked, since " +
+				"each is offered only where a connection's tools list names it",
+			Tools: append(append([]string{}, adminTools...), actionsSettingsReads...),
 		}, {
 			ID: "pull-requests", Title: "Pull requests",
 			Description: "reads the pull requests of a repository: their list, one pull request with its " +
@@ -896,7 +898,7 @@ func Register(reg *capability.Registry) error {
 		capability.Operation{Descriptor: projectIssuesCreate, Handler: capability.Handler(invokeProjectIssuesCreate)},
 	}, slices.Concat(itemOperations(), lifecycleOperations(), fieldOperations(), viewOperations(),
 		statusOperations(), accessOperations(), automationOperations(), actionsOperations(),
-		maintenanceOperations(), pullRequestOperations(), checkOperations(), releaseOperations(), pullRequestCommentOperations(),
+		maintenanceOperations(), actionsSettingsOperations(), pullRequestOperations(), checkOperations(), releaseOperations(), pullRequestCommentOperations(),
 		pullRequestReviewOperations(), pullRequestReviewMaintenanceOperations(), pullRequestReviewCommentOperations(),
 		pullRequestReviewCommentMaintenanceOperations(), pullRequestReviewThreadOperations(),
 		pullRequestReviewerOperations(), accountOperations(), organizationOperations(), starOperations(),

@@ -900,7 +900,7 @@ func TestRegisterPublishesMetadataAndTheReadOperations(t *testing.T) {
 			}
 		}
 	}
-	equalSortedIDs(t, ids, []string{"github.accounts.me", "github.action-cache-usage.get", "github.action-caches.list", "github.action-variables.get", "github.action-variables.list", "github.actions-permissions.get", "github.blame.get",
+	equalSortedIDs(t, ids, []string{"github.accounts.me", "github.action-cache-usage.get", "github.action-caches.list", "github.action-variables.get", "github.action-variables.list", "github.actions-access.get", "github.actions-fork-approval.get", "github.actions-oidc.get", "github.actions-permissions.get", "github.actions-retention.get", "github.actions-selected.get", "github.blame.get",
 		"github.branch-protection.get", "github.branch-rules.get", "github.branches.get", "github.branches.list", "github.check-annotations.list", "github.check-runs.get", "github.check-runs.list",
 		"github.check-suite-runs.list", "github.check-suites.list", "github.code.search", "github.code-quality-findings.get", "github.code-scanning-alerts.get", "github.code-scanning-alerts.list", "github.code-scanning-setup.get", "github.security-settings.get",
 		"github.collaborators.list", "github.commit-branches.list", "github.commit-comments.get", "github.commit-comments.list", "github.commit-pulls.list", "github.compare.get", "github.community-profile.get", "github.contributors.list", "github.stats-contributors.get", "github.stats-commit-activity.get", "github.stats-code-frequency.get", "github.stats-participation.get", "github.stats-punch-card.get", "github.activity.list", "github.languages.get", "github.repositories.get",
@@ -940,7 +940,7 @@ func TestRegisterPublishesMetadataAndTheReadOperations(t *testing.T) {
 	if jobsLog.Risk.DataSensitivity != logSensitivity {
 		t.Errorf("the job log is classified as %q, want %q", jobsLog.Risk.DataSensitivity, logSensitivity)
 	}
-	if len(metadata.Tools) != 302 {
+	if len(metadata.Tools) != 312 {
 		t.Errorf("tools = %+v, want every operation offered to connection allow-lists", metadata.Tools)
 	}
 }
@@ -1929,6 +1929,10 @@ func ownerFiltersStripped(descriptor capability.Descriptor) string {
 	if descriptor.ID == branchProtectionSet.ID {
 		// GitHub names a protection setting require_code_owner_reviews; it is no owner argument.
 		schema = strings.ReplaceAll(schema, "require_code_owner_reviews", "")
+	}
+	if descriptor.ID == actionsOIDCSet.ID {
+		// GitHub names two claim keys repository_owner and repository_owner_id; they are no owner argument.
+		schema = strings.ReplaceAll(schema, "repository_owner", "")
 	}
 	if descriptor.ID == projectsList.ID {
 		// The project list takes a bounded search text, which travels as a GraphQL variable.

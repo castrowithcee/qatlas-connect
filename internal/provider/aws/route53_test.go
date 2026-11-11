@@ -14,7 +14,8 @@ const route53NS = `xmlns="https://route53.amazonaws.com/doc/2013-04-01/"`
 
 var route53ToolIDs = []string{"aws.route53.hosted-zone.list", "aws.route53.hosted-zone.list-by-name", "aws.route53.hosted-zone.get",
 	"aws.route53.hosted-zone.count", "aws.route53.hosted-zone.create", "aws.route53.hosted-zone.update-comment",
-	"aws.route53.hosted-zone.delete", "aws.route53.change.get", "aws.route53.tag.list", "aws.route53.tag.change"}
+	"aws.route53.hosted-zone.delete", "aws.route53.change.get", "aws.route53.tag.list", "aws.route53.tag.change",
+	"aws.route53.record-set.list", "aws.route53.record-set.change", "aws.route53.dns-answer.test"}
 
 // route53Env offers the Route 53 tools by name on a connection bound to the account and the given regions.
 func route53Env(t *testing.T, f *fakeAWS, regions ...string) *env {

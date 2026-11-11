@@ -218,12 +218,10 @@ func keyListText() string {
 	lines := []string{tr(tKeysHeading)}
 	for _, r := range keyRows {
 		a := userActions[r.action]
-		key := keyName(keyOf(a))
 		if r.action == uiprefs.ActionInfo {
 			a = actInfo
-			key = keyLabel(a)
 		}
-		lines = append(lines, "- "+strings.TrimSuffix(r.label, " key")+": "+key)
+		lines = append(lines, "- "+strings.TrimSuffix(r.label, " key")+": "+keyLabel(a))
 	}
 	return strings.Join(lines, "\n")
 }
