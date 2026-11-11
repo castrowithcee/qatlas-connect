@@ -1,11 +1,12 @@
 // Package googlemaps implements read-only access to Google Maps Platform with one API key. It starts with
 // Places API (New): the details of one place, the text and nearby searches, autocomplete predictions, and photo addresses.
 // Geocoding, Address Validation, Weather API (current conditions, forecasts, history, and public alerts), Air
-// Quality API, Pollen API (daily forecast), Solar API (building insights and data layer addresses), and Routes
-// API (routes and route matrices) follow.
+// Quality API, Pollen API (daily forecast), Solar API (building insights and data layer addresses), Routes
+// API (routes and route matrices), and Roads API (snap to roads, nearest roads, speed limits) follow.
 //
-// A connection binds one API key, sent only in the X-Goog-Api-Key header, and takes no target: the key
-// reaches what its Cloud project and its restrictions allow. The base URL is fixed to the official origin;
+// A connection binds one API key and takes no target: the key reaches what its Cloud project and its
+// restrictions allow. The key is sent in the X-Goog-Api-Key header, except for Geocoding and Roads, whose
+// documentation names only the key query parameter. The base URL is fixed to the official origin;
 // any other value is refused before the key is read.
 //
 // Google bills a Places request by the fields it asks for, so a field mask is mandatory: it is checked
@@ -75,7 +76,7 @@ func noTarget(string) error {
 func Register(reg *capability.Registry) error {
 	if err := reg.RegisterProvider(config.ProviderMetadata{
 		ID: Provider, Name: "Google Maps", DefaultBaseURL: apiRoot,
-		Description:    "Places, geocoding, address validation, weather, air quality, pollen, solar data, and routes from Google Maps Platform with an API key, billed by Google",
+		Description:    "Places, geocoding, address validation, weather, air quality, pollen, solar data, routes, and roads from Google Maps Platform with an API key, billed by Google",
 		DefaultEffects: []config.Effect{config.EffectRead},
 		ValidateBaseURL: func(raw string) error {
 			if !isAPIRoot(raw) {
@@ -87,7 +88,7 @@ func Register(reg *capability.Registry) error {
 			Name: roleKey,
 			Description: "API key of a Google Cloud project with Places API (New), for geocoding also Geocoding API, " +
 				"for address validation Address Validation API, for weather Weather API, for air quality Air Quality API, for pollen Pollen API, for solar Solar API, " +
-				"for routes Routes API, enabled and a billing account; requests are billed to that project",
+				"for routes Routes API, for roads Roads API, enabled and a billing account; requests are billed to that project",
 		}},
 		Target: config.TargetMetadata{
 			Label:       "target",
@@ -97,13 +98,13 @@ func Register(reg *capability.Registry) error {
 		Profiles: []config.ToolProfile{{
 			ID: "read", Title: "Read", Recommended: true,
 			Description: "reads place details, searches places by text or around a point, predicts places from typed input, and resolves place photos to short-lived addresses from Google Places, " +
-				"geocodes addresses and coordinates, validates postal addresses, reads current weather, forecasts, history, and public alerts for a coordinate, reads the current air quality, its forecast, and its history at a coordinate, reads the daily pollen forecast for a coordinate, reads the solar potential of the closest building and the addresses of the solar data layers around a coordinate, and computes routes and route matrices; the field mask of each Places " +
+				"geocodes addresses and coordinates, validates postal addresses, reads current weather, forecasts, history, and public alerts for a coordinate, reads the current air quality, its forecast, and its history at a coordinate, reads the daily pollen forecast for a coordinate, reads the solar potential of the closest building and the addresses of the solar data layers around a coordinate, computes routes and route matrices, and snaps coordinates to roads, finds the nearest roads, and reads posted speed limits; the field mask of each Places " +
 				"request decides what Google bills, and nothing is changed",
 			Tools: []string{placesGet.ID, textSearch.ID, nearbySearch.ID, autocomplete.ID, photosGet.ID,
 				geocodingGeocode.ID, geocodingReverse.ID, addressValidate.ID, weatherCurrent.ID, weatherMinutes.ID,
 				weatherHours.ID, weatherDays.ID, weatherHistory.ID, weatherAlerts.ID, airQualityCurrent.ID,
 				airQualityForecast.ID, airQualityHistory.ID, pollenForecast.ID, solarBuildingInsights.ID,
-				solarDataLayers.ID, routesCompute.ID, routesMatrix.ID},
+				solarDataLayers.ID, routesCompute.ID, routesMatrix.ID, roadsSnap.ID, roadsNearest.ID, roadsSpeedLimits.ID},
 		}},
 	}, TestConnection); err != nil {
 		return err
@@ -131,5 +132,8 @@ func Register(reg *capability.Registry) error {
 		capability.Operation{Descriptor: solarBuildingInsights, Handler: handleSolarBuildingInsights},
 		capability.Operation{Descriptor: solarDataLayers, Handler: handleSolarDataLayers},
 		capability.Operation{Descriptor: routesCompute, Handler: handleRoutesCompute},
-		capability.Operation{Descriptor: routesMatrix, Handler: handleRoutesMatrix})
+		capability.Operation{Descriptor: routesMatrix, Handler: handleRoutesMatrix},
+		capability.Operation{Descriptor: roadsSnap, Handler: handleRoadsSnap},
+		capability.Operation{Descriptor: roadsNearest, Handler: handleRoadsNearest},
+		capability.Operation{Descriptor: roadsSpeedLimits, Handler: handleRoadsSpeedLimits})
 }
