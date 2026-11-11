@@ -18,8 +18,8 @@ assumption, account and region binding, connection test, endpoint table, error m
 the account state, identity providers, and server certificates, the IAM report tools (credential report and service
 last accessed), the IAM tools that write roles and instance profiles, the SES v2 tools that read, create, configure, tag, and delete
 sender identities with DKIM and MAIL FROM, and the S3 tools that read buckets and create, delete, and configure them
-(versioning, default encryption, tags, public access block), remove their lifecycle and CORS rules, and read the rest
-of their configuration. Further services build on it.
+(versioning, default encryption, tags, public access block, object ownership), remove their lifecycle and CORS rules,
+and read the rest of their configuration and the Object Lock state of their objects. Further services build on it.
 
 [Set up AWS](setup.md) lists the secret roles, the permissions, and what the connection test proves. The tools are
 described per group: [Security Token Service](sts.md), [Identity and Access Management](iam.md), [Simple Email Service](ses.md), and [Amazon S3](s3.md).

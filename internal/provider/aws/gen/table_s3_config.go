@@ -73,7 +73,7 @@ var s3ConfigReads = []Operation{
 		Title: "Get the object ownership of an S3 bucket",
 		Description: "Return the object ownership rules of a bucket: BucketOwnerEnforced (ACLs off), BucketOwnerPreferred, or " +
 			"ObjectWriter. Needs s3:GetBucketOwnershipControls. A bucket without such controls answers not-found " +
-			"(OwnershipControlsNotFoundError).",
+			"(OwnershipControlsNotFoundError). aws.s3.ownership.put sets BucketOwnerEnforced.",
 		Fields: map[string]Field{
 			"OwnershipControls": {Description: "The controls: rules, each with object_ownership"},
 		},
