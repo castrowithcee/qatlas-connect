@@ -71,7 +71,7 @@ func withTargetArgument(d capability.Descriptor) capability.Descriptor {
 		actionVariablesList.ID, actionVariablesGet.ID, actionVariablesCreate.ID, actionVariablesUpdate.ID,
 		actionVariablesDelete.ID, actionsSelectedGet.ID, actionsSelectedSet.ID, actionsForkApprovalGet.ID,
 		actionsForkApprovalSet.ID, actionsRetentionGet.ID, actionsRetentionSet.ID, actionsOIDCGet.ID,
-		actionsOIDCSet.ID,
+		actionsOIDCSet.ID, runnerGroupsList.ID, runnerGroupsGet.ID, runnerGroupsUpdate.ID, hostedRunnersList.ID,
 		notificationsList.ID, notificationsGet.ID, notificationsDismiss.ID, notificationsMarkAll.ID,
 		threadSubscriptionsSet.ID, gistsList.ID, gistsGet.ID, gistsCreate.ID, gistsUpdate.ID, gistsDelete.ID,
 		globalAdvisoriesList.ID, globalAdvisoriesGet.ID, repositoriesRename.ID, rateLimitGet.ID, metaGet.ID,

@@ -249,7 +249,8 @@ func TestGuardedToolsStayOutOfEveryStandardProfile(t *testing.T) {
 			descriptor.ID == notificationsMarkAll.ID || descriptor.ID == gistsDelete.ID ||
 			descriptor.ID == repositoriesRename.ID || descriptor.ID == environmentsSet.ID ||
 			descriptor.ID == runsForceCancel.ID || slices.Contains(actionsSettingsReads, descriptor.ID) ||
-			slices.Contains(actionsSettingsChanges, descriptor.ID)
+			slices.Contains(actionsSettingsChanges, descriptor.ID) ||
+			slices.Contains(runnerGroupReads, descriptor.ID) || slices.Contains(runnerGroupWrites, descriptor.ID)
 		if descriptor.RequiresToolAllowList != want {
 			t.Errorf("%s requires an allow-list = %t", descriptor.ID, descriptor.RequiresToolAllowList)
 		}
@@ -261,11 +262,11 @@ func TestGuardedToolsStayOutOfEveryStandardProfile(t *testing.T) {
 			marked++
 		}
 	}
-	if marked != len(guardedTools)+len(deletes)+26 || len(guardedTools) != 13 {
+	if marked != len(guardedTools)+len(deletes)+30 || len(guardedTools) != 13 {
 		t.Errorf("marked tools = %d, want the thirteen maintainer and administrator tools, the fifteen deletes and "+
 			"the three access tools, files.push, and github.labels.delete, the merge, the auto-merge enable, the approve, the review dismissal, the ruleset "+
 			"create and update, the branch protection set, the custom properties set, the notifications mark-all, the gist delete, the repository rename, "+
-			"the environment set, the run force-cancel, the three security alert updates, and the ten tools of the finer Actions settings", marked)
+			"the environment set, the run force-cancel, the three security alert updates, the ten tools of the finer Actions settings, and the four runner group and hosted runner tools", marked)
 	}
 	profiles := map[string]config.ToolProfile{}
 	for _, profile := range metadata.Profiles {
@@ -288,7 +289,7 @@ func TestGuardedToolsStayOutOfEveryStandardProfile(t *testing.T) {
 	if want := append([]string{workflowsList.ID, workflowsGet.ID}, maintainerTools...); !reflect.DeepEqual(maintainer.Tools, want) {
 		t.Errorf("maintainer profile = %v, want %v", maintainer.Tools, want)
 	}
-	if want := append(append([]string{}, adminTools...), actionsSettingsReads...); !reflect.DeepEqual(admin.Tools, want) {
+	if want := slices.Concat(adminTools, actionsSettingsReads, runnerGroupReads); !reflect.DeepEqual(admin.Tools, want) {
 		t.Errorf("admin profile = %v, want %v", admin.Tools, want)
 	}
 	if got := metadata.ProfileEffects(maintainer); !reflect.DeepEqual(got, []config.Effect{

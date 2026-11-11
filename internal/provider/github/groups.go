@@ -36,7 +36,7 @@ var groupBySegment = map[string]string{
 	"workflow-run-attempts": "actions", "workflow-run-approvals": "actions",
 	"workflow-artifacts": "actions", "workflow-files": "actions", "workflow-permissions": "actions",
 	"actions-permissions": "actions", "actions-selected": "actions", "actions-fork-approval": "actions",
-	"actions-retention": "actions", "actions-access": "actions", "actions-oidc": "actions", "action-variables": "actions", "action-caches": "actions",
+	"actions-retention": "actions", "actions-access": "actions", "actions-oidc": "actions", "action-variables": "actions", "runner-groups": "actions", "hosted-runners": "actions", "action-caches": "actions",
 	"action-cache-usage": "actions", "environments": "actions",
 	"deployment-branch-policies": "actions", "deployment-protection-rules": "actions", "deployments": "actions",
 	"deployment-statuses": "actions",

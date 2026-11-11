@@ -1,6 +1,6 @@
 ---
 description: >
-  Describes the GitHub Actions tools: the observer and operator tools, diagnosing a run, log and artifact limits, billable time, the listed-only deletion of run logs, executions, the Actions variables of a repository, an environment, or an organization, and the listed-only workflow maintainer and Actions administrator tools with their paths and settings, including the finer Actions settings of a repository or an organization: selected actions, fork pull request approval, artifact and log retention, access of outside workflows, and the OIDC subject claim.
+  Describes the GitHub Actions tools: the observer and operator tools, diagnosing a run, log and artifact limits, billable time, the listed-only deletion of run logs, executions, the Actions variables of a repository, an environment, or an organization, and the listed-only workflow maintainer and Actions administrator tools with their paths and settings, including the finer Actions settings of a repository or an organization: selected actions, fork pull request approval, artifact and log retention, access of outside workflows, and the OIDC subject claim, and the listed-only runner group and hosted runner tools of an organization.
 type: knowledge
 edit: shared
 created: 2026-10-22
@@ -11,7 +11,7 @@ updated: 2026-11-11
 
 The Actions tools of the [GitHub provider](README.md). Every tool takes `repository` as described under
 [the target of a call](README.md#the-target-of-a-call), except the [Actions variable](#actions-variables) tools,
-which take exactly one of `repository` or `organization`, and the [finer Actions settings](#finer-actions-settings), which do the same except the access tools, which take `repository` only.
+which take exactly one of `repository` or `organization`, and the [finer Actions settings](#finer-actions-settings), which do the same except the access tools, which take `repository` only, and the [runner group and hosted runner tools](#runner-groups-and-hosted-runners), which take `organization` only.
 
 A connection can observe the GitHub Actions of a repository it allows and, separately, operate them. The two
 groups are distinct tools with distinct effects: the observer tools are reads, and the operator tools are
@@ -40,7 +40,8 @@ No observer or operator tool changes a workflow file or a setting; that is the l
 Environments with their deployment branch policies and protection rules, and deployments, have [their own
 page](environments.md), as do [Actions caches and the cleanup of runs and artifacts](actions-maintenance.md);
 Actions variables have tools under [Actions variables](#actions-variables). No tool approves or creates a
-deployment, or administers secrets, runners, or an organization.
+deployment, administers secrets, or registers or removes runners; the [runner group and hosted runner
+tools](#runner-groups-and-hosted-runners) of an organization are the only runner tools.
 
 ## Observer and operator
 
@@ -330,6 +331,56 @@ with `state: "unavailable"` and a fixed `reason` and gives no value of the setti
 refusal with 403 or 404 stays an error, because GitHub does not tell a missing right or target apart from it. A
 change on such a setting stays an error that says nothing was changed. No tool changes the enterprise level of
 these settings, runners, runner groups, or secrets.
+
+### Runner groups and hosted runners
+
+Four tools read and change the runner groups of an organization and read its GitHub-hosted runners. A runner
+group decides which repositories may send jobs to which machines, so every one is listed only like the rest of
+this group: a connection offers it only when its `tools` list names it. The three reads join the profile
+`actions-admin`; `github.runner-groups.update` is in no profile. All four take `organization` as `orgs/LOGIN`
+and no `repository`: a user, a repository, an organization outside the connection's owner targets, and an
+organization the connection excludes are refused before a credential is resolved. An answer names the
+organization it addressed. Runners and runner labels are not part of these tools.
+
+| Tool | Does |
+| --- | --- |
+| `github.runner-groups.list` | lists the self-hosted runner groups of the organization, including those inherited from an enterprise; `visible_to_repository` keeps only the groups one repository may use, `limit` and `cursor` page |
+| `github.runner-groups.get` | reads one group by `id` |
+| `github.runner-groups.update` | changes the `name` or the `visibility` (`selected`, `all`, `private`) of one group |
+| `github.hosted-runners.list` | lists the GitHub-hosted runners of the organization; `limit` and `cursor` page |
+
+Each read answers every member GitHub documents for its route. A group has `id`, `name`, `visibility`,
+`default`, `selected_repositories_url`, `runners_url`, `hosted_runners_url`, `network_configuration_id`,
+`inherited`, `inherited_allows_public_repositories`, `allows_public_repositories`,
+`workflow_restrictions_read_only`, `restricted_to_workflows`, and `selected_workflows`. A hosted runner has `id`,
+`name`, `runner_group_id`, `image_details`, `machine_size_details`, `status`, `platform`, `maximum_runners`,
+`public_ip_enabled`, `public_ips`, `last_active_on`, and `image_gen`. Names, labels, workflow names, and every
+address are untrusted data, cut at fixed lengths, and the addresses are never fetched. The IP and network details
+of a hosted runner are cut hard: at most ten `public_ips` entries, each prefix at 64 characters, and
+`public_ips_truncated` says when entries were left out. `visible_to_repository` takes `OWNER/REPO`, which must
+belong to the organization and lie inside the connection's repository targets; GitHub receives its name. GitHub
+documents the filter without saying whether it expects the name alone, so confirm it against a live organization
+before relying on it.
+
+`github.runner-groups.update` sends exactly one `PATCH` and offers only `name` and `visibility`, at least one of
+them. GitHub's route also takes `allows_public_repositories`, `restricted_to_workflows`, `selected_workflows`,
+and `network_configuration_id`, and the selected repositories of a group have a route of their own; none of them
+is offered, so `selected` leaves the repositories of the group as GitHub holds them. GitHub requires a name with
+every change, so a call that gives only `visibility` sends the group's current name, exactly as GitHub reported
+it. The group is first read below the organization, which binds its `id` to the connection's target: a group
+GitHub does not find there, or answers with another identifier, ends the call before anything is changed. The
+default group and an inherited group are not refused by Qatlas; GitHub decides what it allows. The answer holds
+the `id`, the `name` and `visibility` before the change, and the group as GitHub answered the change in `after`;
+there is no further read, since the answer to the change is the group. GitHub documents defaults for the settings
+the request leaves out, so compare `after` with the group you read before relying on the settings the tool does not
+touch. A refusal or an unclear outcome follows the rules above: GitHub's text never reaches a message, 409 and
+422 say that nothing was changed, and a timeout, a server error, or an answer that cannot be read says that the
+change may have been applied; the change is never repeated. Changing `visibility` decides which repositories may
+run jobs on the group's machines, so treat it as security relevant and grant the change only to a connection that
+needs it.
+
+No tool creates or deletes a runner group or a hosted runner, registers a runner, or answers a registration token,
+a JIT configuration, or a download address of the runner application.
 
 ### Credential
 

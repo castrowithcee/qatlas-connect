@@ -43,6 +43,10 @@ var currentToolIDs = []string{
 	"github.actions-access.set",
 	"github.actions-oidc.get",
 	"github.actions-oidc.set",
+	"github.hosted-runners.list",
+	"github.runner-groups.get",
+	"github.runner-groups.list",
+	"github.runner-groups.update",
 	"github.blame.get",
 	"github.branch-protection.delete",
 	"github.branch-protection.get",
@@ -333,7 +337,7 @@ func TestRegistryHoldsExactlyTheCurrentToolIDs(t *testing.T) {
 	sort.Strings(got)
 	want := append([]string(nil), currentToolIDs...)
 	sort.Strings(want)
-	if strings.Join(got, "\n") != strings.Join(want, "\n") || len(got) != 308 {
+	if strings.Join(got, "\n") != strings.Join(want, "\n") || len(got) != 312 {
 		t.Errorf("registry holds %d tools, differing from the expected %d IDs", len(got), len(want))
 	}
 	if err := reg.ValidateRenames(); err != nil {
@@ -372,7 +376,8 @@ func TestRenamedToolsCoverEveryChangedID(t *testing.T) {
 		"github.code-scanning-analyses.get": true, "github.code-scanning-analyses.list": true,
 		"github.dependabot-alerts.update": true, "github.secret-scanning-alerts.update": true,
 		"github.secret-scanning-locations.list": true,
-		"github.actions-selected.get":           true, "github.actions-selected.set": true, "github.actions-fork-approval.get": true, "github.actions-fork-approval.set": true, "github.actions-retention.get": true, "github.actions-retention.set": true, "github.actions-access.get": true, "github.actions-access.set": true, "github.actions-oidc.get": true, "github.actions-oidc.set": true, "github.commit-branches.list": true,
+		"github.actions-selected.get":           true, "github.actions-selected.set": true, "github.actions-fork-approval.get": true, "github.actions-fork-approval.set": true, "github.actions-retention.get": true, "github.actions-retention.set": true, "github.actions-access.get": true, "github.actions-access.set": true, "github.actions-oidc.get": true, "github.actions-oidc.set": true,
+		"github.runner-groups.list": true, "github.runner-groups.get": true, "github.runner-groups.update": true, "github.hosted-runners.list": true, "github.commit-branches.list": true,
 		"github.commit-comments.get": true, "github.commit-comments.list": true, "github.commit-pulls.list": true,
 		"github.community-profile.get": true,
 		"github.traffic-views.get":     true, "github.traffic-clones.get": true, "github.traffic-paths.list": true,
