@@ -223,18 +223,23 @@ blocked-by dependency are stable, generally available REST endpoints, not a prev
 | `github.assignees.check` | tells whether one `assignee` login may be assigned |
 
 All four read and change nothing. Each lists one bounded batch, oldest first, paged by `limit` and `cursor` the same
-way [labels](#labels) are; GitHub offers no other filter on these routes. A cursor is bound to the tool, the
-repository, and the issue. GitHub treats a pull request as an issue on these routes, so a pull request number is
+way [labels](#labels) are. The only other filter GitHub offers is `exclude` on the timeline: up to 50 event types by
+their lower-case GitHub name (such as `commented`), sent as one comma-separated list. A cursor is bound to the tool,
+the repository, the issue, and, for the timeline, the `exclude` list; GitHub decides what it leaves out. GitHub treats a pull request as an issue on these routes, so a pull request number is
 accepted; the route always stays inside the repository the call names.
 
 An event reports its `event` type, `actor`, `created_at`, `commit_id`, and the members of its type: `label`,
 `assignee`, `assigner`, `review_requester`, `requested_reviewer`, `requested_team`, `dismissed_review`,
-`milestone`, `project_card`, `rename`, `lock_reason`, `author_association`, and `performed_via_github_app`; its REST
-addresses sit in `links`. The repository-wide list adds the `issue` of each event, as an entry of the
-[sub-issue list](#sub-issues) plus `is_pull_request`. The timeline adds the members of the types only it carries:
+`milestone`, `project_card`, `rename`, `lock_reason`, `author_association`, `performed_via_github_app`, `intent`
+(an agent's `rationale`, cut at 1000 characters, and `confidence`; only while GitHub's issue suggestions are on),
+`issue_type` and `prev_issue_type` (`id`, `name`, `color`), and, for sub-issue, parent-issue, and dependency events,
+`sub_issue`, `parent_issue`, `blocked_by`, and `blocking`; its REST addresses (the event's `url`, `issue_url`, and
+`pull_request_url`) sit in `links`. The repository-wide list adds the `issue` of each event, as an entry of the
+[sub-issue list](#sub-issues) plus `is_pull_request` and, for a pull request, its `pull_request` members. The timeline adds the members of the types only it carries:
 comments and reviews (`body`, `user`, `reactions`, `state`, `submitted_at`), cross-references (`source`), commits
 (`sha`, `author`, `committer`, `message`, `tree`, `parents`, `verification`), line comments and commit comments
-(`line_comments`, `commit_comments`), and `state_reason`. Event types are an open set: an event of a type Qatlas
+(`line_comments`, which also report `is_copilot_code_review` and `copilot_code_review_sources`, and
+`commit_comments`), the `minimized` and `pin` state of a comment, and `state_reason`. Event types are an open set: an event of a type Qatlas
 does not know, or of an unexpected shape, keeps its `event` type, `id`, `node_id`, and `created_at`, and whatever
 it shares with the known types, never a raw copy.
 
@@ -243,7 +248,10 @@ characters, commit messages at 4096, with `*_truncated` saying so. The rendered 
 variants and the `_links` member are left out; the `pull_request` member of an issue is reported only as
 `is_pull_request`.
 
-Objects outside the connection's targets, or in an excluded repository, show only identifiers. A cross-referenced
+Objects outside the connection's targets, or in an excluded repository, show only identifiers. The issue of a
+sub-issue, parent-issue, or dependency event shows `number`, `title`, `state`, `state_reason`, `repository`, and
+`issue_type` inside the targets, with `title` untrusted data; outside them it keeps `number` and the `id`, `node_id`,
+and `full_name` of `repository`, with `withheld`, and when its repository cannot be told only `withheld`. A cross-referenced
 issue of such a repository keeps its `number`, `repository`, and `is_pull_request` and sets `withheld` on its
 `source`; when its repository cannot be told, `source` holds `withheld` alone. A commit of another repository
 keeps `commit_id` and, in `commit_repository`, its `OWNER/REPO`, but loses its address; inside the targets the

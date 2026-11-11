@@ -342,3 +342,115 @@ func TestAssigneeCheckSendsOneEscapedSegment(t *testing.T) {
 		t.Errorf("request = %+v", request)
 	}
 }
+
+func historyReference(repo string, number int, title string) string {
+	return fmt.Sprintf(`{"number":%d,"title":%q,"state":"open","state_reason":null,"repository":{"id":9,"node_id":"R9",`+
+		`"name":%q,"full_name":%q,"private":false,"html_url":"https://github.com/%s","description":%q},`+
+		`"issue_type":{"id":4,"node_id":"IT4","name":"Bug","color":"red"}}`, number, title,
+		repo[strings.Index(repo, "/")+1:], repo, repo, title)
+}
+
+// The events GitHub added for agents, issue types, sub-issues, and dependencies carry their own members.
+var historyNewEvents = `[` +
+	`{"id":1,"event":"labeled","created_at":"2026-01-01T00:00:00Z","label":{"name":"bug","color":"f29513"},` +
+	`"intent":{"rationale":"` + strings.Repeat("i", 1500) + `","confidence":"HIGH"}},` +
+	`{"id":2,"event":"issue_type_changed","created_at":"2026-01-01T00:00:00Z","issue_type":{"id":4,"name":"Bug","color":"red"},` +
+	`"prev_issue_type":{"id":3,"name":"Task","color":null}},` +
+	`{"id":3,"event":"sub_issue_added","created_at":"2026-01-01T00:00:00Z","sub_issue":` + historyReference("octo-org/example", 7, "Inside") + `},` +
+	`{"id":4,"event":"parent_issue_added","created_at":"2026-01-01T00:00:00Z","parent_issue":` + historyReference("octo-org/secret", 8, historyCanary) + `},` +
+	`{"id":5,"event":"blocked_by_added","created_at":"2026-01-01T00:00:00Z","blocked_by":{"number":9,"title":"` + historyCanary + `","state":"open"}},` +
+	`{"id":6,"event":"blocking_added","created_at":"2026-01-01T00:00:00Z","blocking":` + historyReference("octo-org/example", 10, "Blocks") + `}]`
+
+func TestIssueEventsReportIntentTypesAndIssueReferences(t *testing.T) {
+	for _, tool := range []struct{ id, arguments string }{
+		{issueEventsList.ID, `{"number":42}`}, {issueEventsList.ID, `{}`}, {issueTimelineList.ID, `{"number":42}`}} {
+		_, core := historyCore(t, historyNewEvents, false)
+		got, err := invoke(t, core, tool.id, "repo", tool.arguments, false)
+		if err != nil {
+			t.Fatal(err)
+		}
+		coversSchema(t, tool.id, got)
+		intent := members(t, got, "events", "#0", "intent")
+		wantMembers(t, "intent", intent, map[string]string{"confidence": `"HIGH"`, "rationale_truncated": `true`})
+		if len(string(intent["rationale"])) > 1100 {
+			t.Errorf("rationale holds %d bytes, want it cut", len(intent["rationale"]))
+		}
+		wantMembers(t, "type", members(t, got, "events", "#1"), map[string]string{
+			"issue_type": `{"id":4,"name":"Bug","color":"red"}`, "prev_issue_type": `{"id":3,"name":"Task"}`})
+		inside := members(t, got, "events", "#2", "sub_issue")
+		wantMembers(t, "sub_issue", inside, map[string]string{"number": `7`, "title": `"Inside"`, "state": `"open"`,
+			"issue_type": `{"id":4,"node_id":"IT4","name":"Bug","color":"red"}`})
+		wantMembers(t, "repository", members(t, got, "events", "#2", "sub_issue", "repository"),
+			map[string]string{"full_name": `"octo-org/example"`, "description": `"Inside"`})
+		// Outside the targets or without a repository, an issue shows identifiers only.
+		foreign := members(t, got, "events", "#3", "parent_issue")
+		wantMembers(t, "foreign reference", foreign, map[string]string{"number": `8`, "withheld": `true`,
+			"repository": `{"id":9,"node_id":"R9","full_name":"octo-org/secret"}`})
+		unknown := members(t, got, "events", "#4", "blocked_by")
+		wantMembers(t, "unknown reference", unknown, map[string]string{"withheld": `true`})
+		if _, ok := unknown["number"]; ok {
+			t.Error("a reference of unknown repository shows its number")
+		}
+		wantMembers(t, "blocking", members(t, got, "events", "#5", "blocking"), map[string]string{"number": `10`})
+		if strings.Contains(string(got), historyCanary) {
+			t.Errorf("%s leaked an issue outside the targets: %s", tool.id, got)
+		}
+	}
+}
+
+func TestIssueTimelineReportsCommentPinsAndCopilotLineComments(t *testing.T) {
+	body := `[{"event":"commented","id":1,"url":"` + historyAPI + `/issues/comments/1","issue_url":"` + historyAPI + `/issues/42",` +
+		`"body":"x","minimized":{"reason":"spam"},"pin":{"pinned_at":"2026-01-01T00:00:00Z","pinned_by":` + historyUser + `}},` +
+		`{"event":"reviewed","id":2,"pull_request_url":"` + historyAPI + `/pulls/42","state":"approved"},` +
+		`{"event":"line-commented","comments":[{"id":5,"path":"a.go","is_copilot_code_review":true,` +
+		`"copilot_code_review_sources":[{"kind":"file","name":"n","path":"p.go"}],"pull_request_url":"` + historyAPI + `/pulls/42",` +
+		`"url":"` + historyAPI + `/pulls/comments/5","reactions":{"total_count":2}}]}]`
+	_, core := historyCore(t, body, false)
+	got, err := invoke(t, core, issueTimelineList.ID, "repo", `{"number":42}`, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	coversSchema(t, issueTimelineList.ID, got)
+	wantMembers(t, "comment", members(t, got, "events", "#0"), map[string]string{"minimized": `{"reason":"spam"}`,
+		"links": `{"url":"` + historyAPI + `/issues/comments/1","issue_url":"` + historyAPI + `/issues/42"}`})
+	wantMembers(t, "pin", members(t, got, "events", "#0", "pin"), map[string]string{"pinned_at": `"2026-01-01T00:00:00Z"`})
+	wantMembers(t, "pin account", members(t, got, "events", "#0", "pin", "pinned_by"), map[string]string{"login": `"octocat"`})
+	wantMembers(t, "review", members(t, got, "events", "#1"), map[string]string{
+		"links": `{"pull_request_url":"` + historyAPI + `/pulls/42"}`})
+	line := members(t, got, "events", "#2", "line_comments", "#0")
+	wantMembers(t, "line comment", line, map[string]string{"is_copilot_code_review": `true`,
+		"copilot_code_review_sources": `[{"kind":"file","name":"n","path":"p.go"}]`})
+}
+
+func TestIssueTimelineExcludeIsSentAndBoundToTheCursor(t *testing.T) {
+	f, core := historyCore(t, `[{"event":"commented","id":1}]`, true)
+	got, err := invoke(t, core, issueTimelineList.ID, "repo", `{"number":42,"limit":1,"exclude":["commented","cross-referenced"]}`, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	query, _ := url.ParseQuery(lastRequest(t, f).query)
+	if query.Get("exclude") != "commented,cross-referenced" || query.Get("per_page") != "1" {
+		t.Errorf("query = %v, want the excluded names as one comma-separated list", query)
+	}
+	_, after, _ := strings.Cut(string(got), `"next_cursor":"`)
+	cursor, _, _ := strings.Cut(after, `"`)
+	for _, tt := range []struct {
+		name, arguments string
+		ok              bool
+	}{
+		{"same filter", `{"number":42,"exclude":["commented","cross-referenced"],"cursor":%q}`, true},
+		{"no filter", `{"number":42,"cursor":%q}`, false},
+		{"other filter", `{"number":42,"exclude":["commented"],"cursor":%q}`, false},
+	} {
+		_, err := invoke(t, core, issueTimelineList.ID, "repo", fmt.Sprintf(tt.arguments, cursor), false)
+		if (err == nil) != tt.ok {
+			t.Errorf("%s: err = %v, want ok %t", tt.name, err, tt.ok)
+		}
+	}
+	for _, arguments := range []string{`{"number":42,"exclude":["Commented"]}`, `{"number":42,"exclude":["a,b"]}`,
+		`{"number":42,"exclude":[""]}`, `{"number":42,"exclude":["x"],"unknown":1}`} {
+		if _, err := invoke(t, core, issueTimelineList.ID, "repo", arguments, false); err == nil {
+			t.Errorf("%s was accepted", arguments)
+		}
+	}
+}

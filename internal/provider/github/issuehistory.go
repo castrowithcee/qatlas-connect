@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -100,11 +101,37 @@ func (r *eventParentRaw) UnmarshalJSON(data []byte) (err error) {
 	return err
 }
 
+// eventReferenceRaw is the minimal issue reference of a sub-issue, parent-issue, or dependency event.
+type eventReferenceRaw struct {
+	Number      *int64         `json:"number"`
+	Title       *string        `json:"title"`
+	State       *string        `json:"state"`
+	StateReason *string        `json:"state_reason"`
+	Repository  *repositoryRaw `json:"repository"`
+	IssueType   *issueTypeJSON `json:"issue_type"`
+}
+
 // eventIssueRaw is an issue an event carries, with whether it is a pull request.
 type eventIssueRaw struct {
 	issue       subIssueJSON
 	pullRequest bool
+	pull        eventPullRequestRaw
 	links       Links
+}
+
+type eventPullRequestRaw struct {
+	MergedAt *string `json:"merged_at"`
+	HTMLURL  *string `json:"html_url"`
+	links    Links
+}
+
+func (r *eventPullRequestRaw) UnmarshalJSON(data []byte) (err error) {
+	type plain eventPullRequestRaw
+	if err = json.Unmarshal(data, (*plain)(r)); err != nil {
+		return err
+	}
+	r.links, err = readLinks(data, []string{"url", "diff_url", "patch_url"})
+	return err
 }
 
 func (r *eventIssueRaw) UnmarshalJSON(data []byte) error {
@@ -116,22 +143,31 @@ func (r *eventIssueRaw) UnmarshalJSON(data []byte) error {
 	}
 	_ = json.Unmarshal(data, &probe)
 	r.pullRequest = len(probe.PullRequest) > 0 && string(probe.PullRequest) != "null"
+	if r.pullRequest {
+		_ = json.Unmarshal(probe.PullRequest, &r.pull)
+	}
 	r.links, _ = readLinks(data, []string{"repository_url"})
 	return nil
 }
 
 // lineCommentRaw is a pull request line comment of a timeline: the compact members and the width.
 type lineCommentRaw struct {
-	ID          *int64  `json:"id"`
-	Path        *string `json:"path"`
-	Line        *int64  `json:"line"`
-	Side        *string `json:"side"`
-	CommitID    *string `json:"commit_id"`
-	InReplyToID *int64  `json:"in_reply_to_id"`
-	Body        *string `json:"body"`
-	CreatedAt   *string `json:"created_at"`
-	UpdatedAt   *string `json:"updated_at"`
-	wide        reviewCommentWideRaw
+	ID             *int64  `json:"id"`
+	Path           *string `json:"path"`
+	Line           *int64  `json:"line"`
+	Side           *string `json:"side"`
+	CommitID       *string `json:"commit_id"`
+	InReplyToID    *int64  `json:"in_reply_to_id"`
+	Body           *string `json:"body"`
+	CreatedAt      *string `json:"created_at"`
+	UpdatedAt      *string `json:"updated_at"`
+	CopilotReview  *bool   `json:"is_copilot_code_review"`
+	CopilotSources []struct {
+		Kind *string `json:"kind"`
+		Name *string `json:"name"`
+		Path *string `json:"path"`
+	} `json:"copilot_code_review_sources"`
+	wide reviewCommentWideRaw
 }
 
 func (r *lineCommentRaw) UnmarshalJSON(data []byte) error {
@@ -167,15 +203,32 @@ type timelineRaw struct {
 	LockReason            *string                  `json:"lock_reason"`
 	AuthorAssociation     *string                  `json:"author_association"`
 	PerformedViaGitHubApp *appRaw                  `json:"performed_via_github_app"`
-	Issue                 json.RawMessage          `json:"issue"`
-	Body                  *string                  `json:"body"`
-	User                  *accountRaw              `json:"user"`
-	HTMLURL               *string                  `json:"html_url"`
-	Reactions             *reactionsRaw            `json:"reactions"`
-	State                 *string                  `json:"state"`
-	StateReason           *string                  `json:"state_reason"`
-	SubmittedAt           *string                  `json:"submitted_at"`
-	Source                *struct {
+	Intent                *struct {
+		Rationale  *string `json:"rationale"`
+		Confidence *string `json:"confidence"`
+	} `json:"intent"`
+	IssueType     *issueTypeJSON     `json:"issue_type"`
+	PrevIssueType *issueTypeJSON     `json:"prev_issue_type"`
+	SubIssue      *eventReferenceRaw `json:"sub_issue"`
+	ParentIssue   *eventReferenceRaw `json:"parent_issue"`
+	BlockedBy     *eventReferenceRaw `json:"blocked_by"`
+	Blocking      *eventReferenceRaw `json:"blocking"`
+	Minimized     *struct {
+		Reason *string `json:"reason"`
+	} `json:"minimized"`
+	Pin *struct {
+		PinnedAt *string     `json:"pinned_at"`
+		PinnedBy *accountRaw `json:"pinned_by"`
+	} `json:"pin"`
+	Issue       json.RawMessage `json:"issue"`
+	Body        *string         `json:"body"`
+	User        *accountRaw     `json:"user"`
+	HTMLURL     *string         `json:"html_url"`
+	Reactions   *reactionsRaw   `json:"reactions"`
+	State       *string         `json:"state"`
+	StateReason *string         `json:"state_reason"`
+	SubmittedAt *string         `json:"submitted_at"`
+	Source      *struct {
 		Type  *string         `json:"type"`
 		Issue json.RawMessage `json:"issue"`
 	} `json:"source"`
@@ -262,11 +315,39 @@ type EventTeam struct {
 	Parent      *RESTTeamSimple  `json:"parent,omitempty"`
 }
 
+// EventIntent is the intent an agent gave for the change of an event. Rationale is untrusted data.
+type EventIntent struct {
+	Rationale          *string `json:"rationale,omitempty"`
+	RationaleTruncated bool    `json:"rationale_truncated,omitempty"`
+	Confidence         *string `json:"confidence,omitempty"`
+}
+
+// EventIssueReference is the issue a sub-issue, parent-issue, or dependency event names. Outside the
+// connection's targets only Number and the identifiers of Repository are set, with Withheld; when the
+// repository cannot be told, only Withheld. Title is untrusted data.
+type EventIssueReference struct {
+	Number      *int64          `json:"number,omitempty"`
+	Title       *string         `json:"title,omitempty"`
+	State       *string         `json:"state,omitempty"`
+	StateReason *string         `json:"state_reason,omitempty"`
+	Repository  *RESTRepository `json:"repository,omitempty"`
+	IssueType   *RESTIssueType  `json:"issue_type,omitempty"`
+	Withheld    bool            `json:"withheld,omitempty"`
+}
+
 // EventIssue is an issue an event names. Outside the connection's targets only Number, Repository, and
 // IsPullRequest are set.
 type EventIssue struct {
 	IssueEntry
-	IsPullRequest bool `json:"is_pull_request,omitempty"`
+	IsPullRequest bool              `json:"is_pull_request,omitempty"`
+	PullRequest   *EventPullRequest `json:"pull_request,omitempty"`
+}
+
+// EventPullRequest is the pull request an issue stands for.
+type EventPullRequest struct {
+	MergedAt *string `json:"merged_at,omitempty"`
+	URL      *string `json:"url,omitempty"`
+	Links    Links   `json:"links,omitempty"`
 }
 
 // IssueEventBase holds the members every issue event and timeline event may carry.
@@ -291,6 +372,13 @@ type IssueEventBase struct {
 	LockReason            *string               `json:"lock_reason,omitempty"`
 	AuthorAssociation     *string               `json:"author_association,omitempty"`
 	PerformedViaGitHubApp *RESTApp              `json:"performed_via_github_app,omitempty"`
+	Intent                *EventIntent          `json:"intent,omitempty"`
+	IssueType             *RESTIssueType        `json:"issue_type,omitempty"`
+	PrevIssueType         *RESTIssueType        `json:"prev_issue_type,omitempty"`
+	SubIssue              *EventIssueReference  `json:"sub_issue,omitempty"`
+	ParentIssue           *EventIssueReference  `json:"parent_issue,omitempty"`
+	BlockedBy             *EventIssueReference  `json:"blocked_by,omitempty"`
+	Blocking              *EventIssueReference  `json:"blocking,omitempty"`
 	Links                 Links                 `json:"links,omitempty"`
 }
 
@@ -310,17 +398,27 @@ type TimelineSource struct {
 
 // TimelineLineComment is a pull request line comment of a timeline. Body is untrusted data.
 type TimelineLineComment struct {
-	ID            *int64  `json:"id,omitempty"`
-	Path          *string `json:"path,omitempty"`
-	Line          *int64  `json:"line,omitempty"`
-	Side          *string `json:"side,omitempty"`
-	CommitID      *string `json:"commit_id,omitempty"`
-	InReplyToID   *int64  `json:"in_reply_to_id,omitempty"`
-	Body          *string `json:"body,omitempty"`
-	BodyTruncated bool    `json:"body_truncated,omitempty"`
-	CreatedAt     *string `json:"created_at,omitempty"`
-	UpdatedAt     *string `json:"updated_at,omitempty"`
+	ID                          *int64                    `json:"id,omitempty"`
+	Path                        *string                   `json:"path,omitempty"`
+	Line                        *int64                    `json:"line,omitempty"`
+	Side                        *string                   `json:"side,omitempty"`
+	CommitID                    *string                   `json:"commit_id,omitempty"`
+	InReplyToID                 *int64                    `json:"in_reply_to_id,omitempty"`
+	Body                        *string                   `json:"body,omitempty"`
+	BodyTruncated               bool                      `json:"body_truncated,omitempty"`
+	CreatedAt                   *string                   `json:"created_at,omitempty"`
+	UpdatedAt                   *string                   `json:"updated_at,omitempty"`
+	IsCopilotCodeReview         *bool                     `json:"is_copilot_code_review,omitempty"`
+	CopilotCodeReviewSources    []CopilotCodeReviewSource `json:"copilot_code_review_sources,omitempty"`
+	CopilotCodeReviewSourcesCut bool                      `json:"copilot_code_review_sources_truncated,omitempty"`
 	ReviewCommentWidth
+}
+
+// CopilotCodeReviewSource is a source a Copilot code review comment drew on. Untrusted data.
+type CopilotCodeReviewSource struct {
+	Kind *string `json:"kind,omitempty"`
+	Name *string `json:"name,omitempty"`
+	Path *string `json:"path,omitempty"`
 }
 
 // TimelineEvent is one event of an issue timeline: the shared members and those of the event types that only
@@ -334,6 +432,8 @@ type TimelineEvent struct {
 	User                    *RESTAccount            `json:"user,omitempty"`
 	URL                     *string                 `json:"url,omitempty"`
 	Reactions               *RESTReactions          `json:"reactions,omitempty"`
+	Minimized               *RESTCommentMinimized   `json:"minimized,omitempty"`
+	Pin                     *RESTCommentPin         `json:"pin,omitempty"`
 	State                   *string                 `json:"state,omitempty"`
 	StateReason             *string                 `json:"state_reason,omitempty"`
 	Source                  *TimelineSource         `json:"source,omitempty"`
@@ -445,7 +545,12 @@ func eventIssue(op string, data json.RawMessage, own target, allowed allowlist, 
 	if err != nil {
 		return nil, false, err
 	}
-	return &EventIssue{IssueEntry: entry, IsPullRequest: raw.pullRequest}, false, nil
+	result := &EventIssue{IssueEntry: entry, IsPullRequest: raw.pullRequest}
+	if raw.pullRequest {
+		result.PullRequest = &EventPullRequest{MergedAt: shortText(raw.pull.MergedAt), URL: address(raw.pull.HTMLURL),
+			Links: raw.pull.links}
+	}
+	return result, false, nil
 }
 
 func optional(s string) *string {
@@ -464,6 +569,13 @@ func (r *timelineRaw) base(own target, allowed allowlist) IssueEventBase {
 		RequestedReviewer: r.RequestedReviewer.project(), LockReason: shortText(r.LockReason),
 		AuthorAssociation: shortText(r.AuthorAssociation), PerformedViaGitHubApp: r.PerformedViaGitHubApp.project(),
 		Links: r.links}
+	if i := r.Intent; i != nil {
+		rationale, cut := cleanText(filled(i.Rationale), projectionTextLimit, true)
+		base.Intent = &EventIntent{Rationale: rationale, RationaleTruncated: cut, Confidence: shortText(i.Confidence)}
+	}
+	base.IssueType, base.PrevIssueType = r.IssueType.detail(), r.PrevIssueType.detail()
+	base.SubIssue, base.ParentIssue = r.SubIssue.project(allowed), r.ParentIssue.project(allowed)
+	base.BlockedBy, base.Blocking = r.BlockedBy.project(allowed), r.Blocking.project(allowed)
 	if l := r.Label; l != nil {
 		base.Label = &EventLabel{Name: shortText(l.Name), Color: shortText(l.Color)}
 	}
@@ -506,6 +618,24 @@ func (r *timelineRaw) base(own target, allowed allowlist) IssueEventBase {
 	return base
 }
 
+// project reduces a reference to identifiers unless its repository lies inside the connection's targets.
+func (r *eventReferenceRaw) project(allowed allowlist) *EventIssueReference {
+	if r == nil || r.Number == nil {
+		return nil
+	}
+	repo := r.Repository
+	if repo == nil || repo.FullName == nil {
+		return &EventIssueReference{Withheld: true}
+	}
+	owner, name, _ := strings.Cut(*repo.FullName, "/")
+	if !repo.admitted(allowed) || !allowed.allows(target{kind: kindRepository, owner: owner, repo: name}) {
+		return &EventIssueReference{Number: r.Number, Withheld: true,
+			Repository: &RESTRepository{ID: repo.ID, NodeID: nameText(repo.NodeID), FullName: nameText(repo.FullName)}}
+	}
+	return &EventIssueReference{Number: r.Number, Title: longText(r.Title), State: shortText(r.State),
+		StateReason: shortText(r.StateReason), Repository: repo.project(allowed), IssueType: r.IssueType.detail()}
+}
+
 // withEventLink returns a copy of links with key set; links is never modified, since the raw event shares it.
 func withEventLink(links Links, key, value string) Links {
 	out := Links{key: value}
@@ -537,6 +667,14 @@ func (r *lineCommentRaw) project() TimelineLineComment {
 	comment := TimelineLineComment{ID: r.ID, Line: r.Line, Side: nameText(r.Side), CommitID: nameText(r.CommitID),
 		InReplyToID: r.InReplyToID, CreatedAt: nameText(r.CreatedAt), UpdatedAt: nameText(r.UpdatedAt),
 		ReviewCommentWidth: width}
+	comment.IsCopilotCodeReview = r.CopilotReview
+	sources, cut := capped(r.CopilotSources)
+	for _, source := range sources {
+		path, _ := cleanText(source.Path, projectionPathLimit, false)
+		comment.CopilotCodeReviewSources = append(comment.CopilotCodeReviewSources,
+			CopilotCodeReviewSource{Kind: shortText(source.Kind), Name: longText(source.Name), Path: path})
+	}
+	comment.CopilotCodeReviewSourcesCut = cut
 	comment.Path, _ = cleanText(r.Path, projectionPathLimit, false)
 	comment.Body, comment.BodyTruncated = cleanText(r.Body, projectionBodyLimit, true)
 	return comment
@@ -565,6 +703,12 @@ func (r *timelineRaw) timeline(op string, own target, allowed allowlist) (Timeli
 		Reactions: r.Reactions.project(), State: shortText(r.State), StateReason: shortText(r.StateReason),
 		SHA: shortText(r.SHA), Author: r.Author.project(), Committer: r.Committer.project(),
 		Verification: r.Verification.project()}
+	if m := r.Minimized; m != nil {
+		event.Minimized = &RESTCommentMinimized{Reason: shortText(m.Reason)}
+	}
+	if p := r.Pin; p != nil {
+		event.Pin = &RESTCommentPin{PinnedAt: shortText(p.PinnedAt), PinnedBy: p.PinnedBy.project()}
+	}
 	event.Body, event.BodyTruncated = cleanText(filled(r.Body), projectionBodyLimit, true)
 	event.Message, event.MessageTruncated = cleanText(filled(r.Message), maxCommitMessageLength, true)
 	if t := r.Tree; t != nil {
@@ -604,10 +748,11 @@ func (r *timelineRaw) timeline(op string, own target, allowed allowlist) (Timeli
 // issueHistoryArguments holds the arguments of every tool of this file; each input schema admits only its
 // own. page, perPage, binding, and allowed are derived by the checks.
 type issueHistoryArguments struct {
-	Number   int    `json:"number"`
-	Assignee string `json:"assignee"`
-	Limit    int    `json:"limit"`
-	Cursor   string `json:"cursor"`
+	Number   int      `json:"number"`
+	Assignee string   `json:"assignee"`
+	Exclude  []string `json:"exclude"`
+	Limit    int      `json:"limit"`
+	Cursor   string   `json:"cursor"`
 
 	page, perPage int
 	binding       []byte
@@ -615,7 +760,11 @@ type issueHistoryArguments struct {
 }
 
 func (a *issueHistoryArguments) query() url.Values {
-	return url.Values{"per_page": {strconv.Itoa(a.perPage)}, "page": {strconv.Itoa(a.page)}}
+	query := url.Values{"per_page": {strconv.Itoa(a.perPage)}, "page": {strconv.Itoa(a.page)}}
+	if len(a.Exclude) > 0 {
+		query.Set("exclude", strings.Join(a.Exclude, ","))
+	}
+	return query
 }
 
 // paging binds the cursor to the tool, the repository, and the issue and reads the requested page.
@@ -624,7 +773,7 @@ func (a *issueHistoryArguments) paging(tool string, bound target) error {
 	if err != nil {
 		return err
 	}
-	a.binding = fingerprint(tool, bound.String(), a.Number)
+	a.binding = fingerprint(tool, bound.String(), a.Number, a.Exclude)
 	a.page, a.perPage, err = pageOf(a.binding, a.Cursor, limit)
 	return err
 }
@@ -638,11 +787,36 @@ func checkIssueEvents(a *issueHistoryArguments, bound target) error {
 	return a.paging("issue-events", bound)
 }
 
+// maxTimelineExcludes bounds the event names one timeline request may exclude.
+const maxTimelineExcludes = 50
+
 func checkIssueTimeline(a *issueHistoryArguments, bound target) error {
 	if err := checkNumber(a.Number); err != nil {
 		return err
 	}
+	if len(a.Exclude) > maxTimelineExcludes {
+		return invalidRequest(fmt.Sprintf("exclude names at most %d event types", maxTimelineExcludes))
+	}
+	for _, name := range a.Exclude {
+		if !validEventName(name) {
+			return invalidRequest("exclude names event types by their lower-case GitHub name, such as commented")
+		}
+	}
 	return a.paging("issue-timeline", bound)
+}
+
+// validEventName accepts the shape of a GitHub timeline event name: lower-case words joined by - or _.
+func validEventName(name string) bool {
+	if name == "" || len(name) > 64 {
+		return false
+	}
+	for i, r := range name {
+		letter := r >= 'a' && r <= 'z'
+		if !letter && (i == 0 || (r != '-' && r != '_' && (r < '0' || r > '9'))) {
+			return false
+		}
+	}
+	return true
 }
 
 func checkAssigneesList(a *issueHistoryArguments, bound target) error {
@@ -801,8 +975,15 @@ var (
 	eventTeamSchema = strings.TrimSuffix(teamSimpleSchema, `},"additionalProperties":false}`) +
 		`,"permissions":` + teamPermissionsSchema + `,"parent":` + teamSimpleSchema + `},"additionalProperties":false}`
 	eventIssueSchema = `{"type":"object","properties":{` + issueEntryProperties +
-		`,"is_pull_request":{"type":"boolean"}},` + issueRefRequired + `}`
-	eventLinksSchema = linksSchema(eventLinkKeys)
+		`,"is_pull_request":{"type":"boolean"},"pull_request":` + objectSchema(`"merged_at":{"type":"string"},`+
+		`"url":{"type":"string"},"links":`+linksSchema([]string{"url", "diff_url", "patch_url"})) + `},` +
+		issueRefRequired + `}`
+	eventLinksSchema  = linksSchema(eventLinkKeys)
+	eventIntentSchema = objectSchema(`"rationale":{"type":"string"},"rationale_truncated":{"type":"boolean"},` +
+		`"confidence":{"type":"string"}`)
+	eventReferenceSchema = objectSchema(`"number":{"type":"integer"},"title":{"type":"string"},` +
+		`"state":{"type":"string"},"state_reason":{"type":"string"},"repository":` + restRepositorySchema +
+		`,"issue_type":` + objectSchema(issueTypeProperties) + `,"withheld":{"type":"boolean"}`)
 )
 
 var issueEventBaseProperties = `"id":{"type":"integer"},"node_id":{"type":"string"},"event":{"type":"string"},` +
@@ -812,18 +993,26 @@ var issueEventBaseProperties = `"id":{"type":"integer"},"node_id":{"type":"strin
 	restAccountSchema + `,"requested_team":` + eventTeamSchema + `,"dismissed_review":` + eventDismissedSchema +
 	`,"milestone":` + eventMilestoneSchema + `,"project_card":` + eventProjectCardSchema + `,"rename":` +
 	eventRenameSchema + `,"lock_reason":{"type":"string"},"author_association":{"type":"string"},` +
-	`"performed_via_github_app":` + restAppSchema + `,"links":` + eventLinksSchema
+	`"performed_via_github_app":` + restAppSchema + `,"intent":` + eventIntentSchema +
+	`,"issue_type":` + objectSchema(issueTypeProperties) + `,"prev_issue_type":` + objectSchema(issueTypeProperties) +
+	`,"sub_issue":` + eventReferenceSchema + `,"parent_issue":` + eventReferenceSchema + `,"blocked_by":` +
+	eventReferenceSchema + `,"blocking":` + eventReferenceSchema + `,"links":` + eventLinksSchema
 
 var issueEventProperties = issueEventBaseProperties + `,"issue":` + eventIssueSchema
 
 var lineCommentSchema = objectSchema(`"id":{"type":"integer"},"path":{"type":"string"},"line":{"type":"integer"},` +
 	`"side":{"type":"string"},"commit_id":{"type":"string"},"in_reply_to_id":{"type":"integer"},` +
 	`"body":{"type":"string"},"body_truncated":{"type":"boolean"},"created_at":{"type":"string"},` +
-	`"updated_at":{"type":"string"},` + reviewCommentWidthProperties)
+	`"updated_at":{"type":"string"},"is_copilot_code_review":{"type":"boolean"},` +
+	`"copilot_code_review_sources":{"type":"array","maxItems":100,"items":` +
+	objectSchema(`"kind":{"type":"string"},"name":{"type":"string"},"path":{"type":"string"}`) + `},` +
+	`"copilot_code_review_sources_truncated":{"type":"boolean"},` + reviewCommentWidthProperties)
 
 var timelineEventProperties = issueEventBaseProperties + `,"updated_at":{"type":"string"},` +
 	`"submitted_at":{"type":"string"},"body":{"type":"string"},"body_truncated":{"type":"boolean"},` +
 	`"user":` + restAccountSchema + `,"url":{"type":"string"},"reactions":` + restReactionsSchema + `,` +
+	`"minimized":` + objectSchema(`"reason":{"type":"string"}`) + `,"pin":` +
+	objectSchema(`"pinned_at":{"type":"string"},"pinned_by":`+restAccountSchema) + `,` +
 	`"state":{"type":"string"},"state_reason":{"type":"string"},"source":` +
 	objectSchema(`"type":{"type":"string"},"issue":`+eventIssueSchema+`,"withheld":{"type":"boolean"}`) + `,` +
 	`"sha":{"type":"string"},"author":` + restCommitIdentitySchema + `,"committer":` + restCommitIdentitySchema +
@@ -833,6 +1022,9 @@ var timelineEventProperties = issueEventBaseProperties + `,"updated_at":{"type":
 	`,"line_comments":{"type":"array","maxItems":100,"items":` + lineCommentSchema + `},` +
 	`"line_comments_truncated":{"type":"boolean"},"commit_comments":{"type":"array","maxItems":100,"items":` +
 	objectSchema(restCommitCommentProperties) + `},"commit_comments_truncated":{"type":"boolean"}`
+
+const timelineExcludeSchema = `{"type":"array","maxItems":50,"uniqueItems":true,"items":{"type":"string",` +
+	`"minLength":1,"maxLength":64,"pattern":"^[a-z][a-z0-9_-]*$"}}`
 
 const eventEntryRequired = `"additionalProperties":false`
 
@@ -868,8 +1060,26 @@ var issueEventBaseFields = []capability.Field{
 	{Name: "lock_reason", Description: "Why the conversation was locked, of a locked event"},
 	{Name: "author_association", Description: "How the actor relates to the repository, such as OWNER or MEMBER"},
 	{Name: "performed_via_github_app", Description: "App the event was made through: " + restAppMembers},
+	{Name: "intent", Description: "Intent an agent gave for the change of a labeled, unlabeled, assigned, " +
+		"state-change, or issue type event: rationale (cut at 1000 characters, rationale_truncated says so, " +
+		"untrusted data) and confidence (LOW, MEDIUM, or HIGH); only while GitHub's issue suggestions are on"},
+	{Name: "issue_type", Description: "Issue type of an issue-type event: id, name, and color, untrusted data"},
+	{Name: "prev_issue_type", Description: "Issue type before an issue-type-changed event: id, name, and color, " +
+		"untrusted data"},
+	{Name: "sub_issue", Description: refDescription("sub-issue added or removed")},
+	{Name: "parent_issue", Description: refDescription("parent issue added or removed")},
+	{Name: "blocked_by", Description: refDescription("blocked-by dependency added or removed")},
+	{Name: "blocking", Description: refDescription("blocking dependency added or removed")},
 	{Name: "links", Description: "REST url, issue_url, and pull_request_url of the event and, inside the " +
 		"connection's targets, the commit_url of its commit, by their GitHub names, untrusted data, never fetched"},
+}
+
+// refDescription describes the issue reference of one event type.
+func refDescription(what string) string {
+	return "Issue of a " + what + " event: number, title, state, state_reason, repository as the members of a " +
+		"repository, and issue_type (id, node_id, name, color); untrusted data. Outside the connection's " +
+		"targets only number and the id, node_id, and full_name of repository are set, with withheld; when " +
+		"the repository cannot be told, withheld alone"
 }
 
 var issueEventFields = append(append([]capability.Field{
@@ -877,7 +1087,8 @@ var issueEventFields = append(append([]capability.Field{
 		"members the event type carries are set"},
 }, issueEventBaseFields...), capability.Field{Name: "issue", Description: "Issue of the event, only in the list of " +
 	"the whole repository: the members of an issue entry as github.sub-issues.list answers them, plus " +
-	"is_pull_request; outside the connection's targets only number, repository, and is_pull_request"})
+	"is_pull_request and, for a pull request, pull_request (merged_at, url, links); outside the connection's " +
+	"targets only number, repository, and is_pull_request"})
 
 var timelineEventFields = append(append([]capability.Field{
 	{Name: "events", Description: "Timeline events, oldest first, untrusted data, with the members below; only " +
@@ -891,6 +1102,8 @@ var timelineEventFields = append(append([]capability.Field{
 	{Name: "user", Description: "Author of a comment or review as an account: " + restAccountMembers},
 	{Name: "url", Description: "Web address of the comment, review, or commit, untrusted data, never fetched"},
 	{Name: "reactions", Description: "Reaction counts of a comment: " + restReactionsMembers},
+	{Name: "minimized", Description: "reason a comment was minimized, untrusted data"},
+	{Name: "pin", Description: "pinned_at and pinned_by (an account) of a pinned comment"},
 	{Name: "state", Description: "State of a review, such as approved or changes_requested"},
 	{Name: "state_reason", Description: "Why the issue was closed or reopened, such as completed or not_planned"},
 	{Name: "source", Description: "Source of a cross-referenced event: type, the issue as the members of an issue " +
@@ -908,7 +1121,8 @@ var timelineEventFields = append(append([]capability.Field{
 		"verified_at, payload, and signature, the last two cut at 4096 characters"},
 	{Name: "line_comments", Description: "Pull request line comments of a line-commented event, at most 100: id, " +
 		"path, line, side, commit_id, in_reply_to_id, body (cut, body_truncated says so), created_at, updated_at, " +
-		"then the members of a line comment as github.pull-request-review-comments.list answers them; untrusted data"},
+		"is_copilot_code_review, copilot_code_review_sources (at most 100: kind, name, path), then the members of a " +
+		"line comment as github.pull-request-review-comments.list answers them; untrusted data"},
 	{Name: "line_comments_truncated", Description: "True when the event holds more line comments than shown"},
 	{Name: "commit_comments", Description: "Commit comments of a commit-commented event, at most 100, with the " +
 		"members of a commit comment as github.commit-comments.list answers them; untrusted data"},
@@ -949,10 +1163,13 @@ var issueTimelineList = capability.Descriptor{
 	Tags:         []string{"github", "issues", "timeline", "list"},
 	Risk:         readRisk,
 	Provider:     Provider,
-	InputSchema:  inputSchema(`"number":`+numberSchema+`,`+pagingKeys, "number"),
+	InputSchema:  inputSchema(`"number":`+numberSchema+`,"exclude":`+timelineExcludeSchema+`,`+pagingKeys, "number"),
 	OutputSchema: listOutput("events", timelineEventProperties, eventEntryRequired),
 	Arguments: append([]capability.Argument{
 		{Name: "number", Description: "Issue or pull request number in the repository", Required: true},
+		{Name: "exclude", Description: "Timeline event types to leave out, at most 50, each by its lower-case " +
+			"GitHub name such as commented or cross-referenced; sent to GitHub as one comma-separated list, and " +
+			"part of what a cursor is bound to"},
 	}, pagingArguments...),
 	Fields: append(timelineEventFields, pagingFields...),
 	Examples: []capability.Example{{
