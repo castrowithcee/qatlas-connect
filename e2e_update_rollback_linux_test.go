@@ -3,15 +3,7 @@
 package main
 
 import (
-	"archive/tar"
 	"bytes"
-	"compress/gzip"
-	"crypto/sha256"
-	"encoding/hex"
-	"encoding/json"
-	"fmt"
-	"net/http"
-	"net/http/httptest"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -21,9 +13,10 @@ import (
 
 	"golang.org/x/crypto/ssh"
 
-	"github.com/castrowithcee/qatlas-connect/internal/release"
-	"github.com/castrowithcee/qatlas-connect/internal/release/releasetest"
+	"github.com/castrowithcee/qatlas-kit/release/releasetest"
+
 	"github.com/castrowithcee/qatlas-connect/internal/secret"
+	"github.com/castrowithcee/qatlas-connect/internal/selfupdate/selfupdatetest"
 )
 
 // TestUpdateToAnOlderVersionRestoresABackupItReads rolls real binaries back against a local signed test
@@ -42,35 +35,14 @@ func TestUpdateToAnOlderVersionRestoresABackupItReads(t *testing.T) {
 
 	signer := releasetest.NewSigner(t)
 	keyLine := strings.TrimSpace(string(ssh.MarshalAuthorizedKey(signer.PublicKey())))
-	var archive, checksums []byte
-	asset := fmt.Sprintf("qconnect_v3.0.0_linux_%s.tar.gz", runtime.GOARCH)
-	var releases *httptest.Server
-	releases = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		switch r.URL.Path {
-		case "/releases/tags/v3.0.0":
-			_ = json.NewEncoder(w).Encode(map[string]any{"tag_name": "v3.0.0", "assets": []map[string]string{
-				{"name": asset, "url": releases.URL + "/asset"},
-				{"name": "checksums.txt", "url": releases.URL + "/checksums"},
-				{"name": release.SignatureAsset, "url": releases.URL + "/signature"},
-			}})
-		case "/asset":
-			_, _ = w.Write(archive)
-		case "/checksums":
-			_, _ = w.Write(checksums)
-		case "/signature":
-			_, _ = w.Write(releasetest.Sign(t, signer, release.Namespace, "sha512", checksums))
-		default:
-			http.NotFound(w, r)
-		}
-	}))
-	t.Cleanup(releases.Close)
+	releases := selfupdatetest.NewServer(t)
 
 	build := func(path, version string) {
 		t.Helper()
 		cmd := exec.Command("go", "build", "-tags", "e2e", "-buildvcs=false", "-ldflags",
 			"-X github.com/castrowithcee/qatlas-connect/internal/cli.version="+version+
 				" -X 'github.com/castrowithcee/qatlas-connect/internal/release.extraKeyLines="+keyLine+"'"+
-				" -X github.com/castrowithcee/qatlas-connect/internal/selfupdate.testBaseURL="+releases.URL,
+				" -X github.com/castrowithcee/qatlas-connect/internal/selfupdate.testBaseURL="+releases.RepositoryAPI(),
 			"-o", path, ".")
 		cmd.Stderr = os.Stderr
 		if err := cmd.Run(); err != nil {
@@ -84,27 +56,7 @@ func TestUpdateToAnOlderVersionRestoresABackupItReads(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	var tarred bytes.Buffer
-	gz := gzip.NewWriter(&tarred)
-	tw := tar.NewWriter(gz)
-	for _, entry := range []struct {
-		name string
-		body []byte
-	}{{"bin/qconnect", program}, {"share/man/man1/qconnect.1", []byte(".TH QCONNECT 1\n")}} {
-		if err := tw.WriteHeader(&tar.Header{Name: entry.name, Mode: 0o755, Size: int64(len(entry.body)), Typeflag: tar.TypeReg}); err != nil {
-			t.Fatal(err)
-		}
-		_, _ = tw.Write(entry.body)
-	}
-	if err := tw.Close(); err != nil {
-		t.Fatal(err)
-	}
-	if err := gz.Close(); err != nil {
-		t.Fatal(err)
-	}
-	archive = tarred.Bytes()
-	sum := sha256.Sum256(archive)
-	checksums = []byte(hex.EncodeToString(sum[:]) + "  " + asset + "\n")
+	releases.Set(selfupdatetest.Program(t, signer, "v3.0.0", "linux", runtime.GOARCH, program))
 
 	const goodConfig = `version: 4
 services:

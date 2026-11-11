@@ -14,7 +14,7 @@ import (
 
 	"golang.org/x/crypto/ssh"
 
-	"github.com/castrowithcee/qatlas-connect/internal/release/releasetest"
+	"github.com/castrowithcee/qatlas-kit/release/releasetest"
 )
 
 // psShells lists the PowerShell flavours available for running install.ps1: Windows PowerShell 5.1 on

@@ -1,7 +1,6 @@
 package selfupdate
 
 import (
-	"context"
 	"errors"
 	"os"
 	"path/filepath"
@@ -81,11 +80,6 @@ func TestReplaceRunningUsesUniqueNameForStuckLeftover(t *testing.T) {
 		t.Fatalf("unique old files = %v", matches)
 	}
 	assertFile(t, matches[0], "old")
-	removeLeftovers(osFileOps, target)
-	if matches, _ := filepath.Glob(target + ".old*"); len(matches) != 0 {
-		t.Errorf("leftovers remain: %v", matches)
-	}
-	assertFile(t, target, "new")
 }
 
 func TestReplaceRunningRestoresOldFileWhenMoveFails(t *testing.T) {
@@ -121,105 +115,6 @@ func TestReplaceRunningFirstStepFailureChangesNothing(t *testing.T) {
 	}
 	assertFile(t, target, "old")
 	assertFile(t, staged, "new")
-}
-
-func TestRemoveLeftoversTouchesOnlyOwnOldFiles(t *testing.T) {
-	_, target := replacementFiles(t)
-	dir := filepath.Dir(target)
-	for _, name := range []string{"qatlas.exe.old", "qatlas.exe.old-1x", "other.exe.old", "notes.txt"} {
-		if err := os.WriteFile(filepath.Join(dir, name), nil, 0o644); err != nil {
-			t.Fatal(err)
-		}
-	}
-	removeLeftovers(osFileOps, target)
-	entries, _ := os.ReadDir(dir)
-	var left []string
-	for _, e := range entries {
-		left = append(left, e.Name())
-	}
-	if got := strings.Join(left, ","); got != "notes.txt,other.exe.old,qatlas.exe,staged" {
-		t.Errorf("left = %s", got)
-	}
-}
-
-// A Windows installation is replaced without a manpage, and no manpage or share directory appears.
-func TestInstallOnWindowsLayoutHasNoManpage(t *testing.T) {
-	prefix := t.TempDir()
-	executable := filepath.Join(prefix, "bin", "qconnect.exe")
-	if err := os.MkdirAll(filepath.Dir(executable), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(executable, []byte("old-binary"), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(executable+".old", []byte("stale"), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	c := &Client{Executable: executable}
-	calls := 0
-	c.BeforeReplace = func(context.Context, Release) error { calls++; return nil }
-	if err := c.install(context.Background(), payload{executable: []byte("new-binary")}, "windows", layoutOf(t, "v3.0.0"), Release{}); err != nil {
-		t.Fatal(err)
-	}
-	assertFile(t, executable, "new-binary")
-	if calls != 1 {
-		t.Errorf("BeforeReplace ran %d times", calls)
-	}
-	if _, err := os.Stat(filepath.Join(prefix, "share")); !errors.Is(err, os.ErrNotExist) {
-		t.Errorf("share directory exists: %v", err)
-	}
-	entries, _ := os.ReadDir(filepath.Dir(executable))
-	for _, e := range entries {
-		if strings.HasPrefix(e.Name(), ".qconnect-") || e.Name() == "qatlas.exe" {
-			t.Errorf("unexpected file remains or appears: %s", e.Name())
-		}
-	}
-}
-
-// On Windows the former name is a copy of the program: an installation running as qatlas.exe gets
-// qconnect.exe, and an update replaces both copies. A rollback to a release before the rename puts that
-// program in qatlas.exe and takes qconnect.exe away.
-func TestInstallOnWindowsKeepsBothNames(t *testing.T) {
-	bin := filepath.Join(t.TempDir(), "bin")
-	former, current := filepath.Join(bin, "qatlas.exe"), filepath.Join(bin, "qconnect.exe")
-	if err := os.MkdirAll(bin, 0o755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(former, []byte("v1"), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	c := &Client{Executable: former}
-	if err := c.install(context.Background(), payload{executable: []byte("v3")}, "windows", layoutOf(t, "v3.0.0"), Release{}); err != nil {
-		t.Fatal(err)
-	}
-	assertFile(t, current, "v3")
-	assertFile(t, former, "v3")
-	c.Executable = current
-	if err := c.install(context.Background(), payload{executable: []byte("v4")}, "windows", layoutOf(t, "v4.0.0"), Release{}); err != nil {
-		t.Fatal(err)
-	}
-	assertFile(t, current, "v4")
-	assertFile(t, former, "v4")
-	if err := c.install(context.Background(), payload{executable: []byte("v2.1")}, "windows", layoutOf(t, "v2.1.0"), Release{}); err != nil {
-		t.Fatal(err)
-	}
-	assertFile(t, former, "v2.1")
-	if _, err := os.Stat(current); !errors.Is(err, os.ErrNotExist) {
-		t.Errorf("qconnect.exe remains after the rollback: %v", err)
-	}
-}
-
-func TestUpdateNoLongerRefusesWindows(t *testing.T) {
-	archive := releaseArchive(t, []byte("x"), []byte("y"))
-	server := releaseServer(t, "v3.1.0", archive, "")
-	defer server.Close()
-	_, executable := installedPrefix(t)
-	c := &Client{BaseURL: server.URL, HTTPClient: server.Client(), Version: "v3.0.0", SigningKeys: testKeys(t), GOOS: "windows", GOARCH: "amd64", Executable: executable}
-	_, err := c.Update(context.Background())
-	var unsupported *UnsupportedInstallationError
-	if errors.As(err, &unsupported) && strings.Contains(unsupported.Reason, "not supported yet") {
-		t.Fatalf("Windows is still refused: %v", err)
-	}
 }
 
 func TestConsequencesTextOnWindowsNamesRunningProcesses(t *testing.T) {

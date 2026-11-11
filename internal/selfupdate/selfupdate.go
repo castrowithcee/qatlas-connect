@@ -1,55 +1,30 @@
-// Package selfupdate checks and installs tagged qconnect releases.
+// Package selfupdate checks and installs signed qconnect releases with the kit's selfupdate package. What it
+// adds is qconnect's: the repository, the names and the signature of a release by its version, the trusted
+// keys, the installation under <prefix>/bin, the former name qatlas beside the program, the manual pages,
+// and the words of its errors and questions.
 package selfupdate
 
 import (
-	"archive/tar"
-	"archive/zip"
-	"bytes"
-	"compress/gzip"
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"net/http"
-	"net/url"
 	"os"
-	"path"
-	"path/filepath"
 	"runtime"
 	"strings"
-	"sync/atomic"
 	"time"
 
+	kitselfupdate "github.com/castrowithcee/qatlas-kit/selfupdate"
 	"golang.org/x/crypto/ssh"
 
-	releaseverify "github.com/castrowithcee/qatlas-connect/internal/release"
+	"github.com/castrowithcee/qatlas-connect/internal/release"
 )
 
 const (
-	repositoryAPI     = "https://api.github.com/repos/castrowithcee/qatlas-connect"
-	maxMetadataBytes  = 1 << 20
-	maxArchiveBytes   = 128 << 20
-	maxExecutableSize = 64 << 20
-	maxManpageSize    = 2 << 20
-	maxSubpages       = 200
-	maxSubpagesSize   = 16 << 20
-	// requestTimeout only bounds a request that keeps trickling; a slow download that moves goes on.
-	requestTimeout = 30 * time.Minute
-	// stallTimeout ends a request that receives no byte for this long, waiting for the answer included.
-	stallTimeout = 30 * time.Second
+	repositoryAPI = "https://api.github.com/repos/castrowithcee/qatlas-connect"
+	// MinVersion is the oldest release that can be listed or installed.
+	MinVersion = "v0.30.0"
 )
-
-// stallTimer is the part of *time.Timer the stall watchdog uses.
-type stallTimer interface {
-	Reset(d time.Duration) bool
-	Stop() bool
-}
-
-// newStallTimer is a seam so a test can fire the watchdog without waiting on the wall clock.
-var newStallTimer = func(d time.Duration, f func()) stallTimer { return time.AfterFunc(d, f) }
 
 var ErrDevelopmentBuild = errors.New("self-update is unavailable in a dev build; install a tagged release first")
 
@@ -60,38 +35,68 @@ func (e *UnsupportedInstallationError) Error() string {
 	return "cannot self-update this installation: " + e.Reason
 }
 
+// TargetError reports a release that cannot be chosen, with the reason in words for the person.
+type TargetError struct{ Reason string }
+
+func (e *TargetError) Error() string { return e.Reason }
+
 // Result is the stable payload of an update check or installation.
 type Result struct {
 	Current         string
 	Latest          string
 	UpdateAvailable bool
 	Updated         bool
-	// Signed reports that the installed release carries a valid signature over its checksums. It is only
-	// set by Update.
+	// Signed reports that the installed release carries a valid signature over its checksums: set with
+	// Updated, since nothing unverified is installed.
 	Signed bool
 }
 
-// Client checks GitHub Releases and updates one installed executable. Exported fields are test seams;
-// zero values select the production repository, platform, executable, and HTTP client.
+// Entry is one release a person can choose.
+type Entry = kitselfupdate.Entry
+
+// Release names copies of the verified release files a hook of Client may read, in a private directory
+// that exists until the installation returns.
+type Release = kitselfupdate.ReleaseFiles
+
+// Target is a release chosen for installation, resolved and checked but not yet downloaded.
+type Target struct {
+	Version    string
+	Prerelease bool
+	// Current reports that Version is the running version; installing it changes nothing.
+	Current bool
+	// Older reports that Version is older than the running version: installing it is a rollback.
+	Older bool
+	// running is the running version, for the result.
+	running string
+	target  kitselfupdate.Target
+}
+
+// Client checks the GitHub releases of qconnect and updates one installed executable. Exported fields are
+// test seams; zero values select the production repository, architecture, executable, and HTTP client.
 type Client struct {
+	// BaseURL is the repository API URL, https://api.github.com/repos/<owner>/<repository> or a local test
+	// server under the same path.
 	BaseURL    string
 	HTTPClient *http.Client
 	Version    string
 	Token      string
-	GOOS       string
+	// GOARCH selects the archive; the program and its paths are always those of runtime.GOOS.
 	GOARCH     string
 	Executable string
 	// SigningKeys replaces the compiled-in release keys; tests only.
 	SigningKeys []ssh.PublicKey
 	// BeforeReplace, when set, runs once the release is downloaded and verified and the new files are staged
-	// next to the installed ones, right before the first of them replaces an installed file, and not at all
-	// when nothing is replaced. A process of the old program that has to be stopped while it still passes
-	// for this program, such as the vault process, is stopped there, or prepared for a successor. An error
-	// from it ends the update with nothing installed.
+	// next to the installed ones, right before the first of them replaces an installed file. A process of the
+	// old program that has to be stopped while it still passes for this program, such as the vault process,
+	// is stopped there, or prepared for a successor. An error from it ends the update with nothing installed.
 	BeforeReplace func(ctx context.Context, release Release) error
-	// AfterReplace, when set, runs once the program is replaced, with the same release. The update is done
-	// by then, so it has no error to return; what it has to say, it keeps for its caller.
+	// AfterReplace, when set, runs once the program is replaced and the names beside it are in order, with
+	// the same release. The update is done by then, so it has no error to return.
 	AfterReplace func(ctx context.Context, release Release)
+	// ValidateRollback must check the program of an older release against an isolated copy of the
+	// configuration (see Prepared.ReadsConfig) right before it is installed; without it an older release is
+	// refused.
+	ValidateRollback func(ctx context.Context, p *Prepared) error
 	// Progress, when set, is called while the release archive downloads, with the bytes received so far and
 	// the archive's size, or -1 when the server does not say.
 	Progress func(done, total int64)
@@ -99,42 +104,154 @@ type Client struct {
 	CheckTimeout time.Duration
 }
 
-// Release names the files of the verified release a hook of Client may read: copies in a private directory
-// that exists until Update returns.
-type Release struct {
-	// Signed reports that Signature holds a valid signature over Checksums. It is always true.
-	Signed bool
-	// Checksums, Signature, and Archive are absolute paths.
-	Checksums, Signature, Archive string
-	// ArchiveName is the archive's file name in the release, which Checksums lists it by.
-	ArchiveName string
-}
-
-// testBaseURL is set at build time only (-ldflags -X) to point the updater of a test binary at a local
-// release server instead of GitHub, so that end-to-end tests can run real binaries against test releases.
+// testBaseURL is set at build time only (-ldflags -X) to point the updater of a test binary at the
+// repository API of a local release server instead of GitHub, so that end-to-end tests can run real
+// binaries against test releases.
 var testBaseURL string
+
+// prepareTimeout bounds the downloads of a release as a whole: the kit only ends a download that stalls, so
+// a server that keeps trickling would otherwise hold it open. A variable so that a test can shorten it.
+var prepareTimeout = 30 * time.Minute
 
 // New returns the production updater for version.
 func New(version string) *Client { return &Client{Version: version, BaseURL: testBaseURL} }
 
-// Check reports whether GitHub has a newer stable release without downloading an artifact.
-func (c *Client) Check(ctx context.Context) (Result, error) {
-	result, _, err := c.checkWithRelease(ctx)
-	return result, err
+// kit returns the kit client that reads, verifies, and installs the releases of qconnect, with program as
+// the program name of the release.
+func (c *Client) kit(program string) *kitselfupdate.Client {
+	keys := c.SigningKeys
+	if keys == nil {
+		keys = release.TrustedKeys()
+	}
+	goarch := c.GOARCH
+	if goarch == "" {
+		goarch = runtime.GOARCH
+	}
+	return &kitselfupdate.Client{
+		RepositoryAPI:  c.repository(),
+		CurrentVersion: c.Version,
+		MinimumVersion: MinVersion,
+		// The version asked for decides the names and the signature, never the files the release offers.
+		ArchiveName: func(version string) string {
+			layout, err := release.LayoutOf(version)
+			if err != nil {
+				return ""
+			}
+			return layout.ArchiveName(version, runtime.GOOS, goarch)
+		},
+		UserAgent:      "qatlas-connect/" + c.Version,
+		HTTPClient:     c.HTTPClient,
+		Token:          c.token(),
+		Namespace:      release.Namespace,
+		SignatureAsset: release.SignatureAsset,
+		TrustedKeys:    keys,
+		PreviousSignature: &kitselfupdate.PreviousSignature{
+			LastVersion: release.LastLegacyVersion, Namespace: release.LegacyNamespace,
+			SignatureAsset: release.LegacySignatureAsset,
+		},
+		ProgramName: program,
+		Progress:    c.Progress,
+	}
 }
 
-// Update installs the newest stable release when it is newer than the running version.
+// kitFor is kit for the release version: its program and, except on Windows, its manual page beside it,
+// whose path is left to the installation.
+func (c *Client) kitFor(version string) (*kitselfupdate.Client, release.Layout, error) {
+	layout, err := release.LayoutOf(version)
+	if err != nil {
+		return nil, release.Layout{}, &TargetError{fmt.Sprintf("%q is not a release version: %v", version, err)}
+	}
+	k := c.kit(layout.Program)
+	if runtime.GOOS != "windows" {
+		k.Companions = []kitselfupdate.Companion{{Entry: layout.ManpageFile()}}
+	}
+	return k, layout, nil
+}
+
+func (c *Client) repository() string {
+	if base := strings.TrimRight(c.BaseURL, "/"); base != "" {
+		return base
+	}
+	return repositoryAPI
+}
+
+// token is the GitHub token for the production repository; another repository URL never receives one from
+// the environment.
+func (c *Client) token() string {
+	if c.Token != "" {
+		return c.Token
+	}
+	if c.repository() != repositoryAPI {
+		return ""
+	}
+	if token := os.Getenv("GH_TOKEN"); token != "" {
+		return token
+	}
+	return os.Getenv("GITHUB_TOKEN")
+}
+
+func (c *Client) development() bool { return c.Version == "" || c.Version == "dev" }
+
+// Check reports whether GitHub has a newer signed stable release without downloading an artifact.
+func (c *Client) Check(ctx context.Context) (Result, error) {
+	if c.development() {
+		return Result{}, ErrDevelopmentBuild
+	}
+	r, err := c.kit(currentName).Check(ctx)
+	if err != nil {
+		return Result{}, explain(err)
+	}
+	return Result{Current: r.Current, Latest: r.Latest, UpdateAvailable: r.UpdateAvailable}, nil
+}
+
+// Update installs the newest signed stable release when it is newer than the running version.
 func (c *Client) Update(ctx context.Context) (Result, error) {
-	result, release, err := c.checkWithRelease(ctx)
+	result, err := c.Check(ctx)
 	if err != nil || !result.UpdateAvailable {
 		return result, err
 	}
-	return c.installRelease(ctx, result, release)
+	target, err := c.Target(ctx, result.Latest)
+	if err != nil {
+		return Result{}, err
+	}
+	return c.UpdateTo(ctx, target)
 }
 
-// installRelease downloads, verifies, and installs rel, the release named by result.Latest.
-func (c *Client) installRelease(ctx context.Context, result Result, rel release) (Result, error) {
-	p, err := c.prepareRelease(ctx, result, rel)
+// List returns the releases a person can choose, newest first: the ten newest stable releases, every
+// prerelease newer than the newest stable one, and the running version when it is such a release. Only
+// signed releases from MinVersion on appear.
+func (c *Client) List(ctx context.Context) ([]Entry, error) {
+	if c.development() {
+		return nil, ErrDevelopmentBuild
+	}
+	entries, err := c.kit(currentName).List(ctx)
+	return entries, explain(err)
+}
+
+// Target resolves tag to a release that can be installed. It refuses a tag that is not a signed release
+// from MinVersion on. A version older than the running one is allowed and marked Older.
+func (c *Client) Target(ctx context.Context, tag string) (Target, error) {
+	if c.development() {
+		return Target{}, ErrDevelopmentBuild
+	}
+	t, err := c.kit(currentName).Target(ctx, tag)
+	if err != nil {
+		return Target{}, explain(err)
+	}
+	return Target{Version: t.Version, Prerelease: t.Prerelease, Current: t.Current, Older: t.Older, running: c.Version, target: t}, nil
+}
+
+// UpdateTo installs the release t names, through the same download, verification, and replacement as
+// Update. Nothing is changed when t is the running version. An older version is refused here: a rollback
+// goes through Prepare, a check of the program against the configuration, and InstallPrepared.
+func (c *Client) UpdateTo(ctx context.Context, t Target) (Result, error) {
+	if t.Older {
+		return Result{}, &TargetError{fmt.Sprintf("%s is older than the running version and is installed as a checked rollback", t.Version)}
+	}
+	if t.Current {
+		return Result{Current: t.running, Latest: t.Version}, nil
+	}
+	p, err := c.Prepare(ctx, t)
 	if err != nil {
 		return Result{}, err
 	}
@@ -144,654 +261,112 @@ func (c *Client) installRelease(ctx context.Context, result Result, rel release)
 // Prepared is a release that is downloaded and verified (signature, checksum, archive contents) but not
 // installed. A caller can run the program it holds before it replaces anything (see ReadsConfig).
 type Prepared struct {
-	result      Result
-	goos        string
-	layout      releaseverify.Layout
-	archiveName string
-	payload     payload
-	checksums   []byte
-	signature   []byte
-	archive     []byte
-	timeout     time.Duration
+	prepared *kitselfupdate.Prepared
+	layout   release.Layout
+	timeout  time.Duration
 }
 
 // Version is the release's tag.
-func (p *Prepared) Version() string { return p.result.Latest }
+func (p *Prepared) Version() string { return p.prepared.Version() }
 
-// prepareRelease downloads and verifies rel, the release named by result.Latest. Nothing is installed.
-func (c *Client) prepareRelease(ctx context.Context, result Result, rel release) (*Prepared, error) {
-	goos, goarch := c.platform()
-	// The version asked for decides the names and the signature, never the files the release offers.
-	layout, err := releaseverify.LayoutOf(result.Latest)
-	if err != nil {
-		return nil, fmt.Errorf("release has an invalid version: %w", err)
+// Prepare downloads and verifies the release t names without installing it. It refuses the running
+// version, which has nothing to install.
+func (c *Client) Prepare(ctx context.Context, t Target) (*Prepared, error) {
+	if t.Current {
+		return nil, &TargetError{fmt.Sprintf("%s is the running version", t.Version)}
 	}
-	archiveName := layout.ArchiveName(result.Latest, goos, goarch)
-	archiveURL, checksumURL, signatureURL, err := releaseURLs(rel, archiveName, layout.SignatureAsset)
+	k, layout, err := c.kitFor(t.Version)
 	if err != nil {
 		return nil, err
 	}
-	checksums, err := c.download(ctx, checksumURL, maxMetadataBytes, nil)
+	ctx, cancel := context.WithTimeout(ctx, prepareTimeout)
+	defer cancel()
+	p, err := k.Prepare(ctx, t.target)
 	if err != nil {
-		return nil, fmt.Errorf("download checksums: %w", err)
+		var target *kitselfupdate.TargetError
+		if errors.As(err, &target) {
+			return nil, explain(err)
+		}
+		return nil, fmt.Errorf("release %s could not be downloaded and verified, nothing was changed: %w", t.Version, err)
 	}
-	if signatureURL == "" {
-		return nil, fmt.Errorf("release %s is not signed, nothing was changed", result.Latest)
-	}
-	signature, err := c.download(ctx, signatureURL, maxMetadataBytes, nil)
-	if err != nil {
-		return nil, fmt.Errorf("download checksums signature: %w", err)
-	}
-	keys := c.SigningKeys
-	if keys == nil {
-		keys = releaseverify.TrustedKeys()
-	}
-	if err := releaseverify.VerifyRelease(checksums, signature, archiveName, keys); err != nil {
-		return nil, fmt.Errorf("release signature is invalid, nothing was changed: %w", err)
-	}
-	result.Signed = true
-	want, err := releaseverify.ChecksumFor(checksums, archiveName)
-	if err != nil {
-		return nil, err
-	}
-	archive, err := c.download(ctx, archiveURL, maxArchiveBytes, c.Progress)
-	if err != nil {
-		return nil, fmt.Errorf("download %s: %w", archiveName, err)
-	}
-	got := sha256.Sum256(archive)
-	if !strings.EqualFold(hex.EncodeToString(got[:]), want) {
-		return nil, fmt.Errorf("checksum mismatch for %s", archiveName)
-	}
-	files, err := extractPayload(archiveName, archive, goos, layout)
-	if err != nil {
-		return nil, err
-	}
-	return &Prepared{result: result, goos: goos, layout: layout, archiveName: archiveName, payload: files,
-		checksums: checksums, signature: signature, archive: archive, timeout: c.CheckTimeout}, nil
+	return &Prepared{prepared: p, layout: layout, timeout: c.CheckTimeout}, nil
 }
 
-// InstallPrepared installs a release Prepare returned, with the hooks of c.
+// ReadsConfig reports whether the program of the prepared release reads config, the bytes of a
+// configuration file: the kit runs the verified program, under its own name, with 'config validate' against
+// a copy in a private directory and an environment of its own, so neither the real file nor anything beside
+// it is ever passed to it. A run that cannot be carried out is an error, not an answer.
+func (p *Prepared) ReadsConfig(ctx context.Context, config []byte) (bool, error) {
+	return p.prepared.ReadsConfig(ctx, kitselfupdate.ConfigCheck{
+		Config:   config,
+		FileName: "config.yaml",
+		Args:     func(path string) []string { return []string{"--config", path, "config", "validate"} },
+		Timeout:  p.timeout,
+	})
+}
+
+// InstallPrepared installs a release Prepare returned, with the hooks of c, at the installation of the
+// running program (see installationOf).
 func (c *Client) InstallPrepared(ctx context.Context, p *Prepared) (Result, error) {
-	result := p.result
-	files := Release{Signed: result.Signed, ArchiveName: p.archiveName}
-	if c.BeforeReplace != nil || c.AfterReplace != nil {
-		dir, err := os.MkdirTemp("", "qconnect-release-*")
-		if err != nil {
-			return Result{}, fmt.Errorf("create release directory: %w", err)
-		}
-		defer os.RemoveAll(dir)
-		if files, err = writeRelease(dir, files, p.layout.SignatureAsset, p.checksums, p.signature, p.archive); err != nil {
-			return Result{}, err
-		}
-	}
-	if err := c.install(ctx, p.payload, p.goos, p.layout, files); err != nil {
+	inst, err := c.installationOf(p.layout)
+	if err != nil {
 		return Result{}, err
 	}
-	result.Updated = true
-	if c.AfterReplace != nil {
-		c.AfterReplace(ctx, files)
-	}
-	return result, nil
-}
-
-// writeRelease stores the verified release files in dir, which is private to this user, under their names in
-// the release, and names them; signatureName is the name of the signature the release was verified with.
-func writeRelease(dir string, files Release, signatureName string, checksums, signature, archive []byte) (Release, error) {
-	files.Checksums = filepath.Join(dir, "checksums.txt")
-	files.Archive = filepath.Join(dir, files.ArchiveName)
-	if err := os.WriteFile(files.Checksums, checksums, 0o600); err != nil {
-		return Release{}, fmt.Errorf("store checksums: %w", err)
-	}
-	if signature != nil {
-		files.Signature = filepath.Join(dir, signatureName)
-		if err := os.WriteFile(files.Signature, signature, 0o600); err != nil {
-			return Release{}, fmt.Errorf("store checksums signature: %w", err)
-		}
-	}
-	if err := os.WriteFile(files.Archive, archive, 0o600); err != nil {
-		return Release{}, fmt.Errorf("store %s: %w", files.ArchiveName, err)
-	}
-	return files, nil
-}
-
-type release struct {
-	TagName    string `json:"tag_name"`
-	Draft      bool   `json:"draft"`
-	Prerelease bool   `json:"prerelease"`
-	Assets     []struct {
-		Name       string `json:"name"`
-		APIURL     string `json:"url"`
-		BrowserURL string `json:"browser_download_url"`
-	} `json:"assets"`
-}
-
-func (c *Client) checkWithRelease(ctx context.Context) (Result, release, error) {
-	current, err := c.currentVersion()
+	k, _, err := c.kitFor(p.Version())
 	if err != nil {
-		return Result{}, release{}, err
+		return Result{}, err
 	}
-	r, err := c.latest(ctx)
+	k.Executable = inst.program
+	for i := range k.Companions {
+		k.Companions[i].Path = inst.manpage
+	}
+	k.BeforeReplace = c.BeforeReplace
+	if c.ValidateRollback != nil {
+		k.ValidateRollback = func(ctx context.Context, _ *kitselfupdate.Prepared) error { return c.ValidateRollback(ctx, p) }
+	}
+	var finishErr error
+	k.AfterReplace = func(ctx context.Context, files Release) {
+		if finishErr = inst.finish(files); finishErr == nil && c.AfterReplace != nil {
+			c.AfterReplace(ctx, files)
+		}
+	}
+	undo, err := inst.prepare()
 	if err != nil {
-		return Result{}, release{}, err
+		return Result{}, err
 	}
-	if !hasSignature(r) {
-		// The newest release cannot be installed; offer the newest signed stable one instead.
-		if r, err = c.newestSigned(ctx); err != nil {
-			return Result{}, release{}, err
-		}
-		if r.TagName == "" {
-			return Result{Current: c.Version, Latest: c.Version}, release{}, nil
-		}
+	if _, err := k.InstallPrepared(ctx, p.prepared); err != nil {
+		undo()
+		return Result{}, explain(err)
 	}
-	latest, err := parseSemver(r.TagName)
-	if err != nil {
-		return Result{}, release{}, fmt.Errorf("latest release has an invalid version: %w", err)
+	if finishErr != nil {
+		return Result{}, finishErr
 	}
-	result := Result{Current: c.Version, Latest: r.TagName, UpdateAvailable: current.Compare(latest) < 0}
-	return result, r, nil
+	return Result{Current: c.Version, Latest: p.Version(), UpdateAvailable: true, Updated: true, Signed: true}, nil
 }
 
-// newestSigned returns the newest signed stable release, or the zero release when there is none.
-func (c *Client) newestSigned(ctx context.Context) (release, error) {
-	all, err := c.releases(ctx)
-	if err != nil {
-		return release{}, err
-	}
-	var best release
-	var bestV semver
-	for _, r := range all {
-		v, ok := eligible(r)
-		if !ok || r.Prerelease {
-			continue
-		}
-		if best.TagName == "" || v.Compare(bestV) > 0 {
-			best, bestV = r, v
-		}
-	}
-	return best, nil
-}
-
-func (c *Client) currentVersion() (semver, error) {
-	if c.Version == "" || c.Version == "dev" {
-		return semver{}, ErrDevelopmentBuild
-	}
-	parsed, err := parseSemver(c.Version)
-	if err != nil {
-		return semver{}, fmt.Errorf("running build has an invalid version: %w", err)
-	}
-	return parsed, nil
-}
-
-func (c *Client) baseURL() string {
-	base := strings.TrimRight(c.BaseURL, "/")
-	if base == "" {
-		base = repositoryAPI
-	}
-	return base
-}
-
-func (c *Client) latest(ctx context.Context) (release, error) {
-	base := c.baseURL()
-	body, err := c.request(ctx, base+"/releases/latest", maxMetadataBytes, "application/vnd.github+json", nil)
-	if err != nil {
-		return release{}, fmt.Errorf("check latest release: %w", err)
-	}
-	var r release
-	if err := json.Unmarshal(body, &r); err != nil {
-		return release{}, fmt.Errorf("decode latest release: %w", err)
-	}
-	if r.TagName == "" {
-		return release{}, errors.New("latest release does not declare a tag")
-	}
-	return r, nil
-}
-
-func (c *Client) download(ctx context.Context, rawURL string, limit int64, progress func(done, total int64)) ([]byte, error) {
-	if err := c.validateAssetURL(rawURL); err != nil {
-		return nil, err
-	}
-	return c.request(ctx, rawURL, limit, "application/octet-stream", progress)
-}
-
-func (c *Client) request(ctx context.Context, rawURL string, limit int64, accept string, progress func(done, total int64)) ([]byte, error) {
-	ctx, cancel := context.WithTimeout(ctx, requestTimeout)
-	defer cancel()
-	var stalled atomic.Bool
-	stall := newStallTimer(stallTimeout, func() {
-		stalled.Store(true)
-		cancel()
-	})
-	defer stall.Stop()
-	body, err := c.fetch(ctx, rawURL, limit, accept, func(done, total int64) {
-		stall.Reset(stallTimeout)
-		if progress != nil {
-			progress(done, total)
-		}
-	})
-	if err != nil && stalled.Load() {
-		return nil, fmt.Errorf("no data received for %s", stallTimeout)
-	}
-	return body, err
-}
-
-func (c *Client) fetch(ctx context.Context, rawURL string, limit int64, accept string, received func(done, total int64)) ([]byte, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, rawURL, nil)
-	if err != nil {
-		return nil, err
-	}
-	req.Header.Set("Accept", accept)
-	req.Header.Set("X-GitHub-Api-Version", "2022-11-28")
-	req.Header.Set("User-Agent", "qatlas-connect/"+c.Version)
-	if token := c.token(); token != "" {
-		req.Header.Set("Authorization", "Bearer "+token)
-	}
-	client := c.HTTPClient
-	if client == nil {
-		// No client timeout: it would also cut off a slow download that still moves; request bounds it.
-		client = &http.Client{}
-	}
-	resp, err := client.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return nil, fmt.Errorf("GitHub returned %s", resp.Status)
-	}
-	reader := &progressReader{r: resp.Body, total: resp.ContentLength, received: received}
-	body, err := io.ReadAll(io.LimitReader(reader, limit+1))
-	if err != nil {
-		return nil, err
-	}
-	if int64(len(body)) > limit {
-		return nil, fmt.Errorf("response exceeds %d bytes", limit)
-	}
-	return body, nil
-}
-
-// progressReader reports every read that brings bytes, with the running count and the announced total.
-type progressReader struct {
-	r        io.Reader
-	done     int64
-	total    int64
-	received func(done, total int64)
-}
-
-func (p *progressReader) Read(b []byte) (int, error) {
-	n, err := p.r.Read(b)
-	if n > 0 {
-		p.done += int64(n)
-		p.received(p.done, p.total)
-	}
-	return n, err
-}
-
-func (c *Client) token() string {
-	if c.Token != "" {
-		return c.Token
-	}
-	base := strings.TrimRight(c.BaseURL, "/")
-	if base != "" && base != repositoryAPI {
-		return ""
-	}
-	if token := os.Getenv("GH_TOKEN"); token != "" {
-		return token
-	}
-	return os.Getenv("GITHUB_TOKEN")
-}
-
-func (c *Client) validateAssetURL(rawURL string) error {
-	asset, err := url.Parse(rawURL)
-	if err != nil || asset.Host == "" {
-		return errors.New("release contains an invalid asset URL")
-	}
-	baseRaw := c.BaseURL
-	if baseRaw == "" {
-		baseRaw = repositoryAPI
-	}
-	base, err := url.Parse(baseRaw)
-	if err != nil {
-		return errors.New("updater has an invalid repository URL")
-	}
-	if base.Scheme == "https" {
-		if asset.Scheme != "https" || !(asset.Host == "github.com" || strings.HasSuffix(asset.Host, ".github.com") || strings.HasSuffix(asset.Host, ".githubusercontent.com")) {
-			return errors.New("release asset URL is outside trusted GitHub HTTPS hosts")
-		}
-		return nil
-	}
-	if asset.Scheme != base.Scheme || asset.Host != base.Host {
-		return errors.New("release asset URL is outside the configured test origin")
-	}
-	return nil
-}
-
-func (c *Client) platform() (string, string) {
-	goos, goarch := c.GOOS, c.GOARCH
-	if goos == "" {
-		goos = runtime.GOOS
-	}
-	if goarch == "" {
-		goarch = runtime.GOARCH
-	}
-	return goos, goarch
-}
-
-// releaseURLs finds the archive, checksums.txt, and the signature named signatureName among the assets of r.
-// Only that signature counts: another one the release carries is not looked at.
-func releaseURLs(r release, archiveName, signatureName string) (string, string, string, error) {
-	var archiveURL, checksumURL, signatureURL string
-	for _, asset := range r.Assets {
-		assetURL := asset.APIURL
-		if assetURL == "" {
-			assetURL = asset.BrowserURL
-		}
-		switch asset.Name {
-		case archiveName:
-			archiveURL = assetURL
-		case "checksums.txt":
-			checksumURL = assetURL
-		case signatureName:
-			signatureURL = assetURL
-		}
-	}
-	if archiveURL == "" || checksumURL == "" {
-		return "", "", "", fmt.Errorf("release %s does not contain %s and checksums.txt", r.TagName, archiveName)
-	}
-	return archiveURL, checksumURL, signatureURL, nil
-}
-
-type payload struct {
-	executable []byte
-	manpage    []byte
-	// subpages are the other manual pages of the archive, by file name; manSkipped says an entry that
-	// looked like one was left out, so the installed pages that the archive lacks may not be stale.
-	subpages    map[string][]byte
-	manSkipped  bool
-	subpagesLen int64
-}
-
-func extractPayload(filename string, body []byte, goos string, layout releaseverify.Layout) (payload, error) {
-	if strings.HasSuffix(filename, ".zip") {
-		return extractZip(body, goos, layout)
-	}
-	gz, err := gzip.NewReader(bytes.NewReader(body))
-	if err != nil {
-		return payload{}, fmt.Errorf("open release archive: %w", err)
-	}
-	defer gz.Close()
-	return extractTar(tar.NewReader(gz), goos, layout)
-}
-
-func extractTar(reader *tar.Reader, goos string, layout releaseverify.Layout) (payload, error) {
-	var out payload
-	for {
-		header, err := reader.Next()
-		if errors.Is(err, io.EOF) {
-			break
-		}
-		if err != nil {
-			return payload{}, fmt.Errorf("read release archive: %w", err)
-		}
-		if header.Typeflag != tar.TypeReg {
-			continue
-		}
-		if err := capturePayload(&out, filepath.ToSlash(strings.TrimPrefix(header.Name, "./")), reader, goos, layout); err != nil {
-			return payload{}, err
-		}
-	}
-	return requirePayload(out, goos, layout)
-}
-
-func extractZip(body []byte, goos string, layout releaseverify.Layout) (payload, error) {
-	reader, err := zip.NewReader(bytes.NewReader(body), int64(len(body)))
-	if err != nil {
-		return payload{}, fmt.Errorf("open release archive: %w", err)
-	}
-	var out payload
-	for _, file := range reader.File {
-		if file.FileInfo().IsDir() {
-			continue
-		}
-		entry, err := file.Open()
-		if err != nil {
-			return payload{}, fmt.Errorf("open %s in release archive: %w", file.Name, err)
-		}
-		err = capturePayload(&out, filepath.ToSlash(strings.TrimPrefix(file.Name, "./")), entry, goos, layout)
-		entry.Close()
-		if err != nil {
-			return payload{}, err
-		}
-	}
-	return requirePayload(out, goos, layout)
-}
-
-func capturePayload(out *payload, name string, reader io.Reader, goos string, layout releaseverify.Layout) error {
-	switch name {
-	case layout.ProgramFile(goos):
-		body, err := readEntry(reader, maxExecutableSize)
-		if err != nil {
-			return fmt.Errorf("read %s: %w", name, err)
-		}
-		out.executable = body
-	case layout.ManpageFile():
-		body, err := readEntry(reader, maxManpageSize)
-		if err != nil {
-			return fmt.Errorf("read %s: %w", name, err)
-		}
-		out.manpage = body
-	default:
-		captureSubpage(out, name, reader, goos, layout)
-	}
-	return nil
-}
-
-// captureSubpage takes a manual page qconnect-<name>.1 directly under share/man/man1/ of a current
-// archive. An archive is foreign data and the pages are secondary: whatever does not fit the name, count,
-// or size limits is left out and never fails the update.
-func captureSubpage(out *payload, name string, reader io.Reader, goos string, layout releaseverify.Layout) {
-	dir, base := path.Split(name)
-	if goos == "windows" || layout.Legacy || dir != "share/man/man1/" || !strings.HasPrefix(base, currentName+"-") ||
-		!strings.HasSuffix(base, ".1") {
-		return
-	}
-	_, replaces := out.subpages[base]
-	if !subpageName.MatchString(base) || (!replaces && len(out.subpages) >= maxSubpages) {
-		out.manSkipped = true
-		return
-	}
-	body, err := readEntry(reader, maxManpageSize)
-	if err != nil || out.subpagesLen+int64(len(body)) > maxSubpagesSize {
-		out.manSkipped = true
-		return
-	}
-	if out.subpages == nil {
-		out.subpages = map[string][]byte{}
-	}
-	out.subpagesLen += int64(len(body)) - int64(len(out.subpages[base]))
-	out.subpages[base] = body
-}
-
-func readEntry(reader io.Reader, limit int64) ([]byte, error) {
-	body, err := io.ReadAll(io.LimitReader(reader, limit+1))
-	if err != nil {
-		return nil, err
-	}
-	if int64(len(body)) > limit {
-		return nil, fmt.Errorf("entry exceeds %d bytes", limit)
-	}
-	return body, nil
-}
-
-func requirePayload(out payload, goos string, layout releaseverify.Layout) (payload, error) {
-	if len(out.executable) == 0 {
-		return payload{}, fmt.Errorf("release archive does not contain the %s executable", layout.Program)
-	}
-	if goos != "windows" && len(out.manpage) == 0 {
-		return payload{}, fmt.Errorf("release archive does not contain %s.1", layout.Program)
-	}
-	return out, nil
-}
-
-// install puts the program of a release with layout in place of the installed one, <prefix>/bin/qconnect or,
-// on Windows, <prefix>\bin\qconnect.exe, and its manual page beside it. An installation under the former
-// name qatlas, or with qatlas as an alias, is replaced under both names: the program goes to qconnect and
-// qatlas becomes an alias of it. A release before the rename goes to qatlas instead, and qconnect is removed:
-// that program does not call itself so. Transition until the next major release.
-func (c *Client) install(ctx context.Context, files payload, goos string, layout releaseverify.Layout, release Release) error {
-	executable := c.Executable
-	if executable == "" {
-		var err error
-		executable, err = os.Executable()
-		if err != nil {
-			return fmt.Errorf("locate running executable: %w", err)
-		}
-	}
-	absolute, err := filepath.Abs(executable)
-	if err != nil {
-		return fmt.Errorf("resolve executable path: %w", err)
-	}
-	absolute = followAlias(absolute, goos)
-	info, err := os.Lstat(absolute)
-	if err != nil {
-		return fmt.Errorf("inspect installed executable: %w", err)
-	}
-	if info.Mode()&os.ModeSymlink != 0 || !info.Mode().IsRegular() {
-		return &UnsupportedInstallationError{Reason: "the running executable must be a regular file, not a symlink"}
-	}
-	extension := ""
-	if goos == "windows" {
-		extension = ".exe"
-	}
-	binDir := filepath.Dir(absolute)
-	if base := filepath.Base(absolute); (base != currentName+extension && base != formerName+extension) ||
-		filepath.Base(binDir) != "bin" {
-		return &UnsupportedInstallationError{Reason: "install the release as <prefix>/bin/" + currentName + extension}
-	}
-	target := filepath.Join(binDir, layout.Program+extension)
-	other := filepath.Join(binDir, currentName+extension)
-	if !layout.Legacy {
-		other = filepath.Join(binDir, formerName+extension)
-	}
-	prefix := filepath.Dir(binDir)
-	manDir := filepath.Join(prefix, "share", "man", "man1")
-	stagedMan := ""
-	if len(files.manpage) > 0 {
-		if err := os.MkdirAll(manDir, 0o755); err != nil {
-			return fmt.Errorf("create man directory: %w", err)
-		}
-		var err error
-		stagedMan, err = stageFile(manDir, ".qconnect-man-*", files.manpage, 0o644)
-		if err != nil {
-			return fmt.Errorf("stage manpage: %w", err)
-		}
-		defer os.Remove(stagedMan)
-	}
-	// The other pages are best effort: one that cannot be staged is left out, and the installed pages stay.
-	stagedPages, complete := map[string]string{}, !files.manSkipped
-	for name, body := range files.subpages {
-		if stagedMan == "" {
-			break
-		}
-		staged, err := stageFile(manDir, ".qconnect-man-*", body, 0o644)
-		if err != nil {
-			complete = false
-			continue
-		}
-		defer os.Remove(staged)
-		stagedPages[name] = staged
-	}
-	mode := info.Mode().Perm() | 0o500
-	stagedBinary, err := stageFile(binDir, ".qconnect-bin-*", files.executable, mode)
-	if err != nil {
-		return fmt.Errorf("stage executable: %w", err)
-	}
-	defer os.Remove(stagedBinary)
-	// Windows keeps the former name as a copy of the program (see AdoptCurrentName), replaced alongside.
-	stagedCopy := ""
-	if goos == "windows" && !layout.Legacy {
-		if existing, err := os.Lstat(other); err == nil && existing.Mode().IsRegular() {
-			if stagedCopy, err = stageFile(binDir, ".qconnect-bin-*", files.executable, mode); err != nil {
-				return fmt.Errorf("stage executable: %w", err)
-			}
-			defer os.Remove(stagedCopy)
-		}
-	}
-	if c.BeforeReplace != nil {
-		if err := c.BeforeReplace(ctx, release); err != nil {
-			return err
-		}
-	}
-	if stagedMan != "" {
-		if err := os.Rename(stagedMan, filepath.Join(manDir, layout.Program+".1")); err != nil {
-			return fmt.Errorf("install manpage: %w", err)
-		}
-	}
-	if err := replaceProgram(goos, stagedBinary, target); err != nil {
+// explain words the kit's errors about a release, the installation, or the running build for the person;
+// any other error comes back as it is.
+func explain(err error) error {
+	var target *kitselfupdate.TargetError
+	var unsupported *kitselfupdate.UnsupportedInstallationError
+	switch {
+	case errors.Is(err, kitselfupdate.ErrDevelopmentBuild):
+		return ErrDevelopmentBuild
+	case errors.As(err, &unsupported):
+		return &UnsupportedInstallationError{Reason: unsupported.Reason + " (" + unsupported.Path + ")"}
+	case !errors.As(err, &target):
 		return err
 	}
-	if layout.Legacy {
-		dropCurrentName(goos, other, manDir)
-		return nil
+	switch target.Reason {
+	case kitselfupdate.TargetInvalidVersion:
+		return &TargetError{fmt.Sprintf("%q is not a release version", target.Version)}
+	case kitselfupdate.TargetBelowMinimum:
+		return &TargetError{fmt.Sprintf("%s is older than %s, the oldest version qconnect installs", target.Version, MinVersion)}
+	case kitselfupdate.TargetNotFound:
+		return &TargetError{fmt.Sprintf("release %s does not exist", target.Version)}
+	case kitselfupdate.TargetRunning:
+		return &TargetError{fmt.Sprintf("%s is the running version", target.Version)}
+	default:
+		return &TargetError{fmt.Sprintf("release %s is not signed or is incomplete and cannot be chosen", target.Version)}
 	}
-	installSubpages(manDir, stagedPages, complete)
-	if goos == "windows" {
-		if stagedCopy == "" {
-			return nil
-		}
-		if err := replaceRunning(osFileOps, stagedCopy, other); err != nil {
-			return fmt.Errorf("replace %s: %w", filepath.Base(other), err)
-		}
-		return nil
-	}
-	return aliasFormerName(other)
-}
-
-// installSubpages puts the staged manual pages, by file name, in place and, when they are all of the
-// archive's, removes the qconnect-*.1 files that the archive no longer has. An archive without any such page
-// removes none. Best effort: the program is replaced already.
-func installSubpages(manDir string, staged map[string]string, complete bool) {
-	for name, path := range staged {
-		if err := os.Rename(path, filepath.Join(manDir, name)); err != nil {
-			complete = false
-		}
-	}
-	if complete && len(staged) > 0 {
-		removeRegular(manDir, currentName+"-*.1", staged)
-	}
-}
-
-// replaceProgram puts staged in place of target, which on Windows may be running or not exist yet.
-func replaceProgram(goos, staged, target string) error {
-	if goos == "windows" {
-		if _, err := os.Lstat(target); err == nil {
-			return replaceRunning(osFileOps, staged, target)
-		}
-	}
-	if err := os.Rename(staged, target); err != nil {
-		return fmt.Errorf("replace executable: %w", err)
-	}
-	return nil
-}
-
-func stageFile(dir, pattern string, body []byte, mode os.FileMode) (path string, err error) {
-	file, err := os.CreateTemp(dir, pattern)
-	if err != nil {
-		return "", err
-	}
-	path = file.Name()
-	defer func() {
-		if closeErr := file.Close(); err == nil && closeErr != nil {
-			err = closeErr
-		}
-		if err != nil {
-			os.Remove(path)
-		}
-	}()
-	if err = file.Chmod(mode); err != nil {
-		return "", err
-	}
-	if _, err = file.Write(body); err != nil {
-		return "", err
-	}
-	return path, file.Sync()
 }
