@@ -213,13 +213,16 @@ Files below `.github/workflows/` are changed only with the workflow file tools; 
 | Read the statistics or the activity feed of a repository | none for public, `repo` for private | read access to the repository; GitHub names no specific permission |
 | Read rulesets of a repository | `repo` | Administration: read |
 | Change rulesets of a repository | `repo` | Administration: read and write |
+| Read the protection of a branch | `repo`, with the Admin role on the repository | Administration: read |
+| Change or remove the protection of a branch | `repo`, with the Admin role on the repository | Administration: read and write |
+| Read the rules that apply to a branch | none for public, `repo` for private | Metadata: read; as far as GitHub documents it |
 | Read or change rulesets of an organization | `admin:org` | Administration: read, or read and write (organization); as far as GitHub documents it |
 | Read custom property values of a repository | `repo` | Custom properties: read |
 | Change custom property values of a repository | `repo` | Custom properties: write |
 | Read or change the custom property schema of an organization | `admin:org`; as far as GitHub documents it | Custom properties: read, or read and write (organization) |
 | Watch, ignore, or unsubscribe a repository | GitHub decides per request | GitHub decides per request |
 
-Qatlas cannot check the fine-grained mappings for organization rulesets and custom properties against GitHub live,
+Qatlas cannot check the fine-grained mappings for organization rulesets, custom properties, and branch rules against GitHub live,
 so treat them as likely, not certain.
 
 ### Stars
