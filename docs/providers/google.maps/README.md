@@ -1,6 +1,6 @@
 ---
 description: >
-  Describes the Google Maps provider: the API key, its header and query paths, and its fixed origins, the read profile, the mandatory field mask, with and without the places. prefix, and the billing group it selects, the cost of autocomplete and photos, attribution and storage rules, the two Google error forms and their classes, rate spacing, the connection test, and the limits of what is verified; the route, road, area insights, elevation, time zone, and geolocation tools have their own pages.
+  Describes the Google Maps provider: the API key, its header and query paths, and its fixed origins, the read profile, the mandatory field mask, with and without the places. prefix, and the billing group it selects, the cost of autocomplete and photos, attribution and storage rules, the two Google error forms and their classes, rate spacing, the connection test, and the limits of what is verified; the route, road, area insights, elevation, time zone, geolocation, and video tools have their own pages.
 type: knowledge
 edit: shared
 created: 2026-11-06
@@ -19,15 +19,16 @@ solar potential of the closest building and the addresses of the solar data laye
 Solar API, computes routes and route matrices with Routes API, snaps coordinates to roads, finds the nearest
 roads, and reads posted speed limits with Roads API, counts the places in an area or lists their place IDs
 with Places Aggregate API, reads elevations with Elevation API, reads the time zone of a coordinate with Time
-Zone API, and estimates a position from radio data with Geolocation API. Every tool is a read except
-`addressvalidation.feedback`, which reports to Google and needs confirmation. The connection takes no target,
+Zone API, estimates a position from radio data with Geolocation API, and looks up and renders aerial view
+videos of US addresses with Aerial View API. Every tool is a read except `addressvalidation.feedback` and
+`videos.render`, which change data at Google and need confirmation. The connection takes no target,
 because a key reaches what its Cloud project and the key's restrictions allow, not a part of an account.
 
 [Set up Google Maps](setup.md) leads through creating the key. The tools are described in [places](places.md),
 [photos](photos.md), [geocoding](geocoding.md), [addressvalidation](addressvalidation.md), [weather](weather.md),
 [airquality](airquality.md), [pollen](pollen.md), [solar](solar.md), [routes](routes.md), [roads](roads.md),
-[areainsights](areainsights.md), [elevation](elevation.md), [timezone](timezone.md), and
-[geolocation](geolocation.md).
+[areainsights](areainsights.md), [elevation](elevation.md), [timezone](timezone.md),
+[geolocation](geolocation.md), and [videos](videos.md).
 
 ## Configuration
 
@@ -38,13 +39,14 @@ weather tools the third, `https://weather.googleapis.com`, the Air Quality tools
 `https://airquality.googleapis.com`, the pollen tool the fifth, `https://pollen.googleapis.com`, the solar
 tools the sixth, `https://solar.googleapis.com`, the route tools the seventh, `https://routes.googleapis.com`,
 the road tools the eighth, `https://roads.googleapis.com`, the area insights tool the ninth,
-`https://areainsights.googleapis.com`, and the geolocation tool the tenth, `https://www.googleapis.com`, a host
-shared with other Google APIs of which only the fixed path `/geolocation/v1/geolocate` is reachable; the
-elevation and time zone tools use `https://maps.googleapis.com` with fixed paths. None of them can be
-configured. A connection with a target is refused.
+`https://areainsights.googleapis.com`, the geolocation tool the tenth, `https://www.googleapis.com`, a host
+shared with other Google APIs of which only the fixed path `/geolocation/v1/geolocate` is reachable, and the
+video tools the eleventh, `https://aerialview.googleapis.com`; the elevation and time zone tools use
+`https://maps.googleapis.com` with fixed paths. None of them can be configured. A connection with a target is
+refused.
 
 The credential provides `api_key`. The Places, Address Validation, weather, Air Quality, pollen, solar, route,
-and area insights tools send it only in the `X-Goog-Api-Key` header. The geocoding tools call the legacy
+area insights, and video tools send it only in the `X-Goog-Api-Key` header. The geocoding tools call the legacy
 Geocoding service, which takes no header, and the road, elevation, time zone, and geolocation tools follow the
 only way Google documents for their APIs; all of them send it as the `key` query parameter of a fixed URL and
 are the only requests that do so, see [geocoding](geocoding.md#endpoint-and-key),
@@ -61,8 +63,11 @@ The profile `read` is the recommended one and holds `google.maps.places.get`, `g
 `google.maps.pollen.forecast`, `google.maps.solar.building-insights`, `google.maps.solar.data-layers`,
 `google.maps.routes.compute`, `google.maps.routes.matrix`, `google.maps.roads.snap`,
 `google.maps.roads.nearest`, `google.maps.roads.speed-limits`, `google.maps.areainsights.compute`,
-`google.maps.elevation.get`, `google.maps.timezone.get`, and `google.maps.geolocation.locate`.
-`google.maps.addressvalidation.feedback` is in no profile; see [addressvalidation](addressvalidation.md#profiles-and-effects).
+`google.maps.elevation.get`, `google.maps.timezone.get`, `google.maps.geolocation.locate`, and
+`google.maps.videos.metadata`. `google.maps.addressvalidation.feedback` and `google.maps.videos.render` are in
+no profile; see [addressvalidation](addressvalidation.md#profiles-and-effects) and
+[videos](videos.md#profiles-and-effects). `google.maps.videos.lookup` returns signed video addresses, so a
+connection offers it only when its `tools` list names it.
 
 ## Field mask and billing group
 
@@ -109,7 +114,8 @@ billed by the features a request uses, a matrix per element; see [routes](routes
 billed under Roads SKUs; see [roads](roads.md#cost). The area insights tool is one request per call, and Qatlas
 does not verify its SKU, free usage, or quota; see [areainsights](areainsights.md#cost). Elevation (Pro), Time
 Zone (Essentials), and Geolocation (Essentials) have their own SKUs; see [elevation](elevation.md#cost),
-[timezone](timezone.md#cost), and [geolocation](geolocation.md#cost).
+[timezone](timezone.md#cost), and [geolocation](geolocation.md#cost). The video tools are one Aerial View SKU,
+and every lookup call can be billed; see [videos](videos.md#cost).
 
 Google documents a free monthly usage cap per SKU and billing account for Place Details: IDs Only is unlimited,
 Essentials 10,000, Pro 5,000, Enterprise 1,000, and Enterprise + Atmosphere 1,000. Requests beyond a cap are
@@ -128,12 +134,12 @@ group with 1,000 free requests. Prices and caps change; the price list is author
 ## Attribution and storage
 
 Google Maps attribution is mandatory wherever Places content is shown (for the weather, air quality,
-pollen, solar, route, road, area insights, elevation, time zone, and geolocation tools see [weather](weather.md#attribution-and-storage),
+pollen, solar, route, road, area insights, elevation, time zone, geolocation, and video tools see [weather](weather.md#attribution-and-storage),
 [airquality](airquality.md#attribution-and-storage), [pollen](pollen.md#attribution-and-storage),
 [solar](solar.md#attribution-and-storage), [routes](routes.md#attribution-and-storage),
 [roads](roads.md#attribution-and-storage), [areainsights](areainsights.md#attribution-and-storage),
-[elevation](elevation.md#attribution-and-storage), [timezone](timezone.md#attribution-and-storage), and
-[geolocation](geolocation.md#attribution-and-storage)), and the
+[elevation](elevation.md#attribution-and-storage), [timezone](timezone.md#attribution-and-storage),
+[geolocation](geolocation.md#attribution-and-storage), and [videos](videos.md#attribution-and-storage)), and the
 `attributions` field names data
 providers that must be shown with a result. A photo also has author attributions in the `authorAttributions` of
 its `photos` entry, which must be shown wherever the image is shown. Place IDs may be stored without limit.
@@ -229,3 +235,4 @@ Left out on purpose:
 - A tool that creates session tokens: the token is the caller's string and is only passed on.
 - Air Quality heatmap tiles, which return image data; see [airquality](airquality.md#left-out-on-purpose).
 - The GeoTIFF download of Solar API, which returns image data; see [solar](solar.md#left-out-on-purpose).
+- Fetching, playing, or saving an Aerial View video or its signed addresses; see [videos](videos.md#left-out-on-purpose).

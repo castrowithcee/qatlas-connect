@@ -89,7 +89,7 @@ func runProviderFailure(t *testing.T, args ...string) string {
 
 func TestCLIPrintsProviderAnswerAsSeparateBlock(t *testing.T) {
 	got := runProviderFailure(t)
-	want := "qconnect: permission: list: this token may not read x\n" +
+	want := "qconnect: permission: list: this token may not read x\n" + fallbackStep + "\n" +
 		"provider answer (untrusted, not written by qconnect), HTTP 200:\n" +
 		"  | INSUFFICIENT_SCOPES at node.name: needs read:org, token [redacted] has only [repo]\n"
 	if got != want {
@@ -100,7 +100,7 @@ func TestCLIPrintsProviderAnswerAsSeparateBlock(t *testing.T) {
 func TestCLIJSONOutputCarriesProviderSection(t *testing.T) {
 	got := runProviderFailure(t, "--output", "json")
 	lines := strings.Split(strings.TrimSpace(got), "\n")
-	if len(lines) != 2 || !strings.HasPrefix(lines[0], "qconnect: permission: ") {
+	if len(lines) != 3 || !strings.HasPrefix(lines[0], "qconnect: permission: ") {
 		t.Fatalf("stderr = %q", got)
 	}
 	if strings.Contains(got, providerDetailSecret) {
@@ -116,11 +116,11 @@ func TestCLIJSONOutputCarriesProviderSection(t *testing.T) {
 			} `json:"errors"`
 		} `json:"provider"`
 	}
-	if err := json.Unmarshal([]byte(lines[1]), &detail); err != nil {
+	if err := json.Unmarshal([]byte(lines[2]), &detail); err != nil {
 		t.Fatal(err)
 	}
 	if detail.Code != "permission" || !detail.Provider.Untrusted || len(detail.Provider.Errors) != 1 ||
 		!strings.Contains(detail.Provider.Errors[0].Message, "[redacted]") {
-		t.Errorf("detail = %s", lines[1])
+		t.Errorf("detail = %s", lines[2])
 	}
 }
