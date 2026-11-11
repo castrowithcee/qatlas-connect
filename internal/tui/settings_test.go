@@ -11,6 +11,7 @@ import (
 	"github.com/charmbracelet/x/ansi"
 
 	"github.com/castrowithcee/qatlas-connect/internal/uiprefs"
+	kittui "github.com/castrowithcee/qatlas-kit/tui"
 )
 
 // lockedVaultModel is an editor over an encrypted vault that is locked, with preferences stored at the
@@ -60,7 +61,7 @@ func TestGeneralSavesWithoutAdminSession(t *testing.T) {
 	if m.prefs != want {
 		t.Errorf("model prefs = %+v, want %+v", m.prefs, want)
 	}
-	if styles.palette != paletteOf(false, currentProfile()) || !styles.filled {
+	if styles.Palette() != paletteOfTheme(uiprefs.ThemeQatlasLight, currentProfile(), nil) || !styles.filled {
 		t.Error("the theme did not change at once")
 	}
 	if m.formDirty() {
@@ -78,7 +79,7 @@ func TestGeneralOffersTheThemes(t *testing.T) {
 		}
 	}
 	theme := m.fields[0]
-	if theme.label != themeLabel || strings.Join(theme.choices, ",") != strings.Join(themeNames(), ",") ||
+	if theme.label != themeLabel || strings.Join(theme.choices, ",") != strings.Join(themeSet.Names(), ",") ||
 		strings.Join(theme.choices[:3], ",") != "terminal,qatlas dark,qatlas light" ||
 		theme.choices[theme.index] != uiprefs.ThemeTerminal {
 		t.Errorf("theme row = %q %v at %d, want the registry on terminal, led by qatlas dark and qatlas light",
@@ -89,7 +90,7 @@ func TestGeneralOffersTheThemes(t *testing.T) {
 // Saving the terminal theme after another one asks the terminal for its colours, as the start does.
 func TestSavingTheTerminalThemeAsksForTheColours(t *testing.T) {
 	restoreRenderer(t)
-	setProfile(profileTrueColor)
+	setProfile(kittui.ProfileTrueColor)
 	t.Setenv("NO_COLOR", "")
 	m, _ := lockedVaultModel(t)
 	m.prefs.Theme = uiprefs.ThemeQatlasDark

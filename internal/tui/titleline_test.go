@@ -5,6 +5,8 @@ import (
 	"testing"
 
 	tea "charm.land/bubbletea/v2"
+
+	kittui "github.com/castrowithcee/qatlas-kit/tui"
 	"github.com/charmbracelet/x/ansi"
 )
 
@@ -13,7 +15,7 @@ import (
 func TestListScreensTitleAboveThePanels(t *testing.T) {
 	before := currentProfile()
 	t.Cleanup(func() { setProfile(before) })
-	for _, profile := range []colorProfile{profileNone, profile16} {
+	for _, profile := range []kittui.ColorProfile{kittui.ProfileNone, kittui.ProfileANSI16} {
 		setProfile(profile)
 		for _, s := range []section{sectionConnections, sectionServices, sectionCredentials} {
 			m := newTableModel(t, 100)

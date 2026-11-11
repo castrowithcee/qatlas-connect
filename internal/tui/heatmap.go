@@ -8,6 +8,7 @@ import (
 	"charm.land/lipgloss/v2"
 
 	"github.com/castrowithcee/qatlas-connect/internal/invokelog"
+	kittui "github.com/castrowithcee/qatlas-kit/tui"
 )
 
 // The square heatmap: days drawn as squares in the heat colours of the theme, as columns of weeks (the Overview)
@@ -24,7 +25,7 @@ const (
 // heatColoured reports whether the squares can carry their level as a colour. With 16 colours there are too
 // few greens to tell four levels apart, so the shade glyphs carry them.
 func heatColoured() bool {
-	return styles.palette.heat[0] != "" && !noColour() && currentProfile() != profile16 && utf8Terminal()
+	return styles.Palette().Heat[0] != "" && !noColour() && currentProfile() != kittui.ProfileANSI16 && utf8Terminal()
 }
 
 // heatSquare is the two-cell mark of a level: a square in its heat colour, or the glyph of the level.
@@ -40,14 +41,14 @@ func heatBlock(level, n int) string {
 		}
 		mark := strings.Repeat(glyph, n)
 		switch {
-		case styles.palette.heat[0] == "":
+		case styles.Palette().Heat[0] == "":
 			return mark
 		case level > 0:
 			return styles.ok.Render(mark)
 		}
 		return styles.hint.Render(mark)
 	}
-	return lipgloss.NewStyle().Foreground(styles.palette.heat[level].lip()).Render(strings.Repeat("■", n))
+	return lipgloss.NewStyle().Foreground(lip(styles.Palette().Heat[level])).Render(strings.Repeat("■", n))
 }
 
 // heatCell is the n-cell mark of one day: a day the check flagged or one outside the retention shows that
