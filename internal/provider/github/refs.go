@@ -426,6 +426,12 @@ func refsSubject(path string) string {
 		}
 		return ""
 	}
+	if rest, ok := strings.CutPrefix(path, "git/ref/tags/"); ok {
+		if tag, err := url.PathUnescape(rest); err == nil && validRef(tag) {
+			return "tag " + tag
+		}
+		return ""
+	}
 	if rest, ok := strings.CutPrefix(path, "git/refs/heads/"); ok {
 		if branch, err := url.PathUnescape(rest); err == nil && validRef(branch) {
 			return "branch " + branch

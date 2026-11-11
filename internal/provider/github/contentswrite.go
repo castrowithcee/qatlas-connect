@@ -307,6 +307,13 @@ type contentsWriteArguments struct {
 	Branch  string `json:"branch"`
 	// ExpectedSHA is used by github.branches.delete only.
 	ExpectedSHA string `json:"expected_sha"`
+	// The members below belong to the ref tools of refswrite.go.
+	NewName       string `json:"new_name"`
+	Base          string `json:"base"`
+	Head          string `json:"head"`
+	CommitMessage string `json:"commit_message"`
+	Tag           string `json:"tag"`
+	Target        string `json:"target"`
 }
 
 // contentsWriteHandler decodes and checks the arguments and the repository before a credential is resolved,
@@ -464,12 +471,16 @@ func (c *Client) defaultBranch(ctx context.Context) (string, error) {
 // resolveCommit reads the commit SHA a branch, a tag, or a commit SHA names, through the same commits route
 // github.commits.get uses, so a branch is always created from a real commit of the bound repository.
 func (c *Client) resolveCommit(ctx context.Context, ref string) (string, error) {
-	const op = "create branch"
+	return c.resolveCommitFor(ctx, "create branch", ref, branchesChangePermission)
+}
+
+// resolveCommitFor is resolveCommit for another tool, with its own operation name and permission message.
+func (c *Client) resolveCommitFor(ctx context.Context, op, ref, permission string) (string, error) {
 	var raw struct {
 		SHA string `json:"sha"`
 	}
 	if err := c.rest(ctx, op, c.repoPath("commits/"+url.PathEscape(ref)), &raw); err != nil {
-		return "", actionsFailure(err, branchesChangePermission)
+		return "", actionsFailure(err, permission)
 	}
 	if !validCommitSHA(raw.SHA) {
 		return "", invalidEntry(op, "a commit")

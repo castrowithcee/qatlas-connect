@@ -57,7 +57,10 @@
 // it, github.files.push writes several files as one commit through the Git Data API, fast-forward only, so a
 // branch that moved since it was read is refused with nothing written; none of the four ever touches a path
 // below .github/workflows/, which the listed-only workflow maintainer covers instead. Only on a connection
-// whose tools list names it, github.branches.delete deletes one branch other than the default branch. github.repositories.
+// whose tools list names it, github.branches.delete deletes one branch other than the default branch,
+// github.branches.rename renames one, github.branches.sync-fork brings a fork's branch up to date with its
+// upstream, github.merges.create merges a branch or commit into a branch, and github.tags.delete deletes one
+// tag; github.tags.create makes a lightweight or, with a message, an annotated tag. github.repositories.
 // create makes one new repository, under the token's own account or an organization the connection names as
 // an owner target; github.repositories.fork forks a repository a connection allows the same way,
 // answered asynchronously; only on a connection whose tools list names it, github.repositories.delete deletes
@@ -533,7 +536,9 @@ func Register(reg *capability.Registry) error {
 				"classic token, or Contents: read on a fine-grained token, for a private one, and reading the " +
 				"pull requests of a commit needs Pull requests: read as well on a fine-grained token; creating a branch, creating, updating, or deleting a " +
 				"file below the repository root, and pushing several files as one commit, listed-only, need " +
-				"repo on a classic token, or Contents: read and write on a fine-grained token; creating or " +
+				"repo on a classic token, or Contents: read and write on a fine-grained token, as do creating " +
+				"or deleting a tag, syncing a fork branch, and merging, all listed-only except creating a tag, and " +
+				"renaming a branch, listed-only, which needs Administration: read and write instead; creating or " +
 				"forking a repository need repo on a classic token, or Administration: read and write on a " +
 				"fine-grained token; deleting a repository, listed-only, needs delete_repo as well on a classic " +
 				"token; listing collaborators needs repo on a classic token, or Metadata: read on a fine-grained " +
@@ -853,7 +858,7 @@ func Register(reg *capability.Registry) error {
 		pullRequestReviewOperations(), pullRequestReviewCommentOperations(), pullRequestReviewThreadOperations(),
 		pullRequestReviewerOperations(), accountOperations(), organizationOperations(), starOperations(),
 		searchOperations(), contentsOperations(), blameOperations(), commitsOperations(), refsOperations(), compareOperations(), commitRelationOperations(),
-		contentsWriteOperations(), repositoriesOperations(), repositoryDetailOperations(), trafficOperations(), repositoryStatsOperations(), rulesetsOperations(), branchProtectionOperations(), customPropertiesOperations(), actionVariablesOperations(), actionCachesOperations(), runCleanupOperations(),
+		contentsWriteOperations(), refsWriteOperations(), repositoriesOperations(), repositoryDetailOperations(), trafficOperations(), repositoryStatsOperations(), rulesetsOperations(), branchProtectionOperations(), customPropertiesOperations(), actionVariablesOperations(), actionCachesOperations(), runCleanupOperations(),
 		labelsOperations(), milestonesOperations(), commentMaintenanceOperations(), commentVisibilityOperations(), reactionsOperations(),
 		subIssuesOperations(), issueDependenciesOperations(), issueTypesOperations(), issueFieldsOperations(),
 		discussionOperations(), notificationOperations(), gistOperations(), securityAlertOperations(), advisoryOperations(),
