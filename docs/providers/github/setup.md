@@ -115,6 +115,9 @@ Find your tool group, then add the scope or permission to the token. Each row is
 | Set an issue's type or an issue field value | `repo` | Issues: read and write |
 | React to an issue or an issue comment | `repo` | Issues: read and write |
 | Hide or show an issue comment | `repo` | Issues: read and write |
+| Lock or unlock an issue conversation | `repo`, or `public_repo` for public repositories, plus push access | Issues: read and write |
+| Lock or unlock a pull request conversation | `repo`, or `public_repo` for public repositories, plus push access | Pull requests: read and write; as far as GitHub documents it |
+| Pin or unpin an issue | `repo`, plus write access to the repository; as far as GitHub documents it | Issues: read and write; as far as GitHub documents it |
 | Hide or show a pull request conversation comment, a review, or a pull request line comment | `repo` | Pull requests: read and write |
 | React to a pull request line comment | `repo` | Pull requests: read and write |
 | Assign Copilot to an issue | `repo` | Metadata: read; Actions, Contents, Issues, and Pull requests: read and write |

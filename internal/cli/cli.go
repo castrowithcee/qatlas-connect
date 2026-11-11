@@ -3,8 +3,6 @@
 package cli
 
 import (
-	"errors"
-	"fmt"
 	"io"
 	"log"
 	"os"
@@ -18,8 +16,7 @@ import (
 	"github.com/castrowithcee/qatlas-connect/internal/helptopics"
 	"github.com/castrowithcee/qatlas-connect/internal/secret"
 	"github.com/castrowithcee/qatlas-connect/internal/selfupdate"
-	kitcli "github.com/castrowithcee/qatlas-kit/cli"
-	kithelp "github.com/castrowithcee/qatlas-kit/helptopics"
+	"github.com/castrowithcee/qatlas-kit/cobracli"
 	"github.com/castrowithcee/qatlas-kit/output"
 	"github.com/castrowithcee/qatlas-kit/redact"
 )
@@ -40,7 +37,6 @@ type Options struct {
 	Config     string
 	Connection string
 	Agent      bool
-	Output     string
 	Input      io.Reader
 	Updater    *selfupdate.Client
 	// Opener starts a browser on the given URL for 'qconnect web'. A test injects a fake so no run of the
@@ -59,6 +55,16 @@ type Options struct {
 	// unattended marks a run that serves requests nobody watches, so the resolver never waits for an
 	// unlock prompt.
 	unattended bool
+
+	// program is the command tree with the shared conventions; the commands register their gates and
+	// field selections through it, and run executes it.
+	program *cobracli.Program
+	// notice is written to stderr once before the command runs, see legacyNotice.
+	notice string
+	// errOut is where the audit event of a failed run goes, after its diagnostic; run sets it.
+	errOut io.Writer
+	// audit is the audit event of the mutation the failed command completed, if any.
+	audit []byte
 }
 
 // resolver returns the credential resolver of this run, building it once.
@@ -118,52 +124,23 @@ func Run(args []string, stdout, stderr io.Writer) int {
 	log.SetOutput(opts.Redactor.Writer(stderr))
 	// Fallbacks to the former QATLAS_ variable names warn on stderr, never on stdout.
 	defer envvar.SetWarnWriter(opts.Redactor.Writer(stderr))()
-	root := newRootCommand(opts, defaultRegistry())
-	code := run(root, opts, args, stdout, stderr)
-	noteLegacyName(os.Args[0], root, args, stderr)
-	return code
+	reg := defaultRegistry()
+	opts.notice = legacyNotice(os.Args[0], args, reg)
+	root := newRootCommand(opts, reg)
+	return run(root, opts, args, stdout, stderr)
 }
 
-func run(cmd *cobra.Command, opts *Options, args []string, stdout, stderr io.Writer) int {
-	cmd.SetArgs(args)
-	cmd.SetOut(stdout)
-	cmd.SetErr(stderr)
+// run executes the command tree of root, which newRootCommand built for opts, and returns the exit code.
+// The diagnostic of a failure, the usage block of a syntax error, the exit code and the notice before the
+// command belong to the kit's Execute; the audit event of a completed mutation follows the diagnostic.
+func run(root *cobra.Command, opts *Options, args []string, stdout, stderr io.Writer) int {
+	opts.errOut = stderr
+	// The tree is complete here, also where a test replaced the function of a command.
+	adaptErrors(root, opts)
 	if opts.Input != nil {
-		cmd.SetIn(opts.Input)
+		root.SetIn(opts.Input)
 	}
-
-	executed, err := cmd.ExecuteC()
-	if err == nil {
-		return exitOK
-	}
-	var quiet *quietExit
-	if errors.As(err, &quiet) {
-		return quiet.code
-	}
-
-	failure := failureFor(err, opts.Format, opts.Redactor)
-	var syntax *syntaxError
-	errOpts := kitcli.ErrorOptions{Redact: opts.Redactor.Apply}
-	if opts.Agent {
-		errOpts.Route = kitcli.RouteAgent
-	}
-	if errors.As(err, &syntax) {
-		errOpts.Usage = executed.UsageString()
-	}
-	// The kit redacts every text before it cuts or escapes it, so a secret in an unexpected error never
-	// reaches stderr.
-	if kitcli.WriteError(stderr, "qconnect", failure, errOpts) != nil {
-		// A detail that cannot be encoded must not hide the diagnostic itself.
-		var plain *kitcli.Failure
-		if errors.As(failure, &plain) {
-			bare := *plain
-			bare.Detail, bare.External = nil, nil
-			_ = kitcli.WriteError(stderr, "qconnect", &bare, errOpts)
-		}
-	}
-	code := kitcli.ExitCode(failure)
-	writeAudit(stderr, auditFrom(err), opts.Redactor)
-	return code
+	return opts.program.Execute(args, stdout, stderr)
 }
 
 func newRootCommand(opts *Options, reg *capability.Registry) *cobra.Command {
@@ -186,19 +163,9 @@ func newRootCommand(opts *Options, reg *capability.Registry) *cobra.Command {
 			"contract, and 'qconnect invoke <tool-id>' runs it. Discovery writes " + toonContract + ";\n" +
 			"--output json is the interoperable alternative. 'qconnect mcp' serves the same steps as fixed\n" +
 			"MCP tools over stdio and hands the guide of 'qconnect agents' to its client.",
-		Version:       version,
-		SilenceErrors: true,
-		SilenceUsage:  true,
-		Args: func(_ *cobra.Command, args []string) error {
-			if len(args) > 0 {
-				return newSyntaxError(fmt.Errorf("unknown command %q", args[0]))
-			}
-			return nil
-		},
 		PersistentPreRunE: func(c *cobra.Command, _ []string) error {
-			if err := resolveFormat(c, opts); err != nil {
-				return err
-			}
+			// The kit resolved --output and --agent before this hook runs; the commands read them from opts.
+			opts.Agent, opts.Format = opts.program.Agent(), opts.program.Format()
 			adoptProgramName(c)
 			migrateConfig(c, opts, reg)
 			return nil
@@ -213,19 +180,26 @@ func newRootCommand(opts *Options, reg *capability.Registry) *cobra.Command {
 		},
 	}
 
-	// Help and version follow Cobra conventions and go to stdout. Version output stays deterministic.
-	cmd.SetVersionTemplate("{{.Name}} {{.Version}}\n")
-	cmd.SetFlagErrorFunc(func(_ *cobra.Command, err error) error { return newSyntaxError(err) })
+	prog, err := cobracli.New(cmd, cobracli.Options{
+		Version: version, Topics: helptopics.All(), Redactor: opts.Redactor,
+		OutputHelp: "output format: table (default), json, compact, or toon; providers, connections, tools, and describe " +
+			"write toon (default) or json; invoke writes json",
+		AgentHelp: "agent mode: default output compact, next steps for agents, no progress display, update needs --yes --confirm, " +
+			"tui is refused",
+		Notice: opts.notice,
+		Diagnosed: func(cobracli.Diagnosis) {
+			writeAudit(opts.errOut, opts.audit, opts.Redactor)
+		},
+	})
+	if err != nil {
+		// The tree breaks a convention of the kit: a defect of this program, caught by TestCommandTreeFollowsKit.
+		panic("qconnect: command tree: " + err.Error())
+	}
+	opts.program = prog
 
 	f := cmd.PersistentFlags()
 	f.StringVar(&opts.Config, "config", "", "path to the configuration file")
 	f.StringVar(&opts.Connection, "connection", "", "name, id, or name|id of the connection to use (the id decides; 'qconnect connections' shows it); left out, the default or the one connection that offers the tool is used")
-	f.BoolVar(&opts.Agent, "agent", false, "agent mode: default output compact, next steps for agents, no progress display, update needs --yes, tui is refused")
-	// The default depends on the command, so the flag carries none of its own; resolveFormat and the
-	// commands with a narrower choice apply it.
-	f.StringVar(&opts.Output, "output", "",
-		"output format: table (default), json, compact, or toon; providers, connections, tools, and describe "+
-			"write toon (default) or json; invoke writes json")
 
 	cmd.AddCommand(
 		newConfigCommand(opts, reg),
@@ -244,14 +218,6 @@ func newRootCommand(opts *Options, reg *capability.Registry) *cobra.Command {
 		newUpdateCommand(opts, reg, version),
 		newSelftestCommand(opts),
 	)
-	// A command without a run function is a help topic: 'qconnect help <topic>' prints its text, and the
-	// root help lists it under the additional help topics.
-	for _, topic := range helptopics.All() {
-		cmd.AddCommand(&cobra.Command{
-			Use: topic.Name, Short: topic.Short, Long: kithelp.CLIText(topic),
-		})
-	}
-
 	return cmd
 }
 
@@ -263,25 +229,6 @@ func DocumentationCommand(buildVersion string) *cobra.Command {
 	cmd.Version = buildVersion
 	cmd.DisableAutoGenTag = true
 	return cmd
-}
-
-// resolveFormat decides the output format once, before any command runs. An explicit --output always
-// wins; otherwise agent mode selects the compact format.
-func resolveFormat(c *cobra.Command, opts *Options) error {
-	if c.Flags().Changed("output") {
-		format, err := output.ParseFormat(opts.Output)
-		if err != nil {
-			return newSyntaxError(err)
-		}
-		opts.Format = format
-		return nil
-	}
-	if opts.Agent {
-		opts.Format = output.FormatCompact
-		return nil
-	}
-	opts.Format = output.FormatTable
-	return nil
 }
 
 // emit redacts and encodes a result to stdout. Only payload data reaches stdout. A command that offers a

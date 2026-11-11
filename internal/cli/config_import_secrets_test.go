@@ -147,7 +147,7 @@ func TestConfigImportSecretsUnencryptedFileIntoNewVault(t *testing.T) {
 	d.install()
 	target := transferTarget(t)
 
-	code, stdout, stderr := importInto(t, target, nil, file, "--secret-store", "vault")
+	code, stdout, stderr := importInto(t, target, nil, file, "--secret-store", "vault", "--confirm")
 	if code != exitOK {
 		t.Fatalf("exit %d, stdout %q, stderr %q", code, stdout, stderr)
 	}
@@ -176,7 +176,7 @@ func TestConfigImportSecretsUnencryptedFileIntoNewVault(t *testing.T) {
 
 func TestConfigImportSecretsKeepsFileOnNoAndYes(t *testing.T) {
 	withInteractive(t, true)
-	for _, args := range [][]string{{}, {"--yes"}} {
+	for _, args := range [][]string{{"--confirm"}, {"--yes", "--confirm"}} {
 		file := secretExport(t, false)
 		d := &dialog{t: t, delete: false}
 		d.install()
@@ -187,7 +187,7 @@ func TestConfigImportSecretsKeepsFileOnNoAndYes(t *testing.T) {
 		if _, err := os.Stat(file); err != nil {
 			t.Errorf("%v: the file is gone: %v", args, err)
 		}
-		if len(args) > 0 && d.askedFor("delete") {
+		if len(args) > 1 && d.askedFor("delete") {
 			t.Error("--yes asked to delete")
 		}
 	}
@@ -201,7 +201,7 @@ func TestConfigImportSecretsEncryptedFileIntoKeyring(t *testing.T) {
 	target := transferTarget(t)
 	store := secret.NewMemoryStore()
 
-	code, stdout, stderr := importInto(t, target, store, file, "--output", "json")
+	code, stdout, stderr := importInto(t, target, store, file, "--confirm", "--output", "json")
 	if code != exitOK {
 		t.Fatalf("exit %d, stdout %q, stderr %q", code, stdout, stderr)
 	}
@@ -238,7 +238,7 @@ func TestConfigImportSecretsWrongExportPassphraseChangesNothing(t *testing.T) {
 	withVaultConfirm(t, func(string) (bool, error) { t.Error("asked a question"); return true, nil })
 	store := secret.NewMemoryStore()
 
-	code, stdout, stderr := importInto(t, target, store, file, "--yes", "--secret-store", "vault")
+	code, stdout, stderr := importInto(t, target, store, file, "--yes", "--confirm", "--secret-store", "vault")
 	if code != exitUsage || stdout != "" || !strings.Contains(stderr, "wrong export passphrase") {
 		t.Errorf("exit %d, stdout %q, stderr %q", code, stdout, stderr)
 	}
@@ -266,7 +266,7 @@ func TestConfigImportSecretsApprovalQuestion(t *testing.T) {
 		d := &dialog{t: t, approve: approve}
 		d.install()
 
-		code, stdout, stderr := importInto(t, target, secret.NewMemoryStore(), file, "--secret-store", "vault", "--mode", "merge")
+		code, stdout, stderr := importInto(t, target, secret.NewMemoryStore(), file, "--confirm", "--secret-store", "vault", "--mode", "merge")
 		if code != exitOK || !d.askedFor("approve the imported connections now? [y/N]") ||
 			!strings.Contains(stdout, "to approve: wiki, ") {
 			t.Fatalf("approve=%v: exit %d, asked %q, stdout %q, stderr %q", approve, code, d.asked, stdout, stderr)
@@ -294,7 +294,7 @@ func TestConfigImportSecretsYesNeverApproves(t *testing.T) {
 	d := &dialog{t: t, approve: true}
 	d.install()
 
-	code, stdout, stderr := importInto(t, target, secret.NewMemoryStore(), file, "--secret-store", "vault", "--yes")
+	code, stdout, stderr := importInto(t, target, secret.NewMemoryStore(), file, "--secret-store", "vault", "--yes", "--confirm")
 	if code != exitOK || d.askedFor("approve") || !strings.Contains(stdout, "--yes does not approve") ||
 		!strings.Contains(stdout, "open: imported connection wiki") {
 		t.Errorf("exit %d, asked %q, stdout %q, stderr %q", code, d.asked, stdout, stderr)
@@ -306,7 +306,7 @@ func TestConfigImportSecretsRequiresATerminal(t *testing.T) {
 	target := transferTarget(t)
 	withInteractive(t, false)
 	withVaultPassphrase(t, func(string) (string, error) { t.Error("asked for a passphrase"); return "", nil })
-	code, stdout, stderr := importInto(t, target, nil, file, "--yes")
+	code, stdout, stderr := importInto(t, target, nil, file, "--yes", "--confirm")
 	if code != exitUsage || stdout != "" || !strings.Contains(stderr, "admin-required") {
 		t.Errorf("exit %d, stdout %q, stderr %q", code, stdout, stderr)
 	}

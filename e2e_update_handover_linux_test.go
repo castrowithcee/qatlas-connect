@@ -86,8 +86,9 @@ func updateHandoverCase(t *testing.T, behaviour vault.UpdateBehaviour, earlier, 
 
 	build := func(path, version, tags string) {
 		t.Helper()
-		cmd := exec.Command("go", "build", "-tags", tags, "-buildvcs=false", "-ldflags",
-			"-X github.com/castrowithcee/qatlas-connect/internal/cli.version="+version+
+		// Stripped like a release build: the updater refuses a program over its size limit.
+		cmd := exec.Command("go", "build", "-tags", tags, "-buildvcs=false", "-trimpath", "-ldflags",
+			"-s -w -X github.com/castrowithcee/qatlas-connect/internal/cli.version="+version+
 				" -X 'github.com/castrowithcee/qatlas-connect/internal/release.extraKeyLines="+keyLine+"'"+
 				" -X github.com/castrowithcee/qatlas-connect/internal/selfupdate.testBaseURL="+releases.RepositoryAPI(),
 			"-o", path, ".")
@@ -239,7 +240,7 @@ defaults:
 	}
 	before := dirState(t, configDir)
 
-	code, stdout, stderr := c.run(t, "update", "--yes", "--output", "json")
+	code, stdout, stderr := c.run(t, "update", "--yes", "--confirm", "--output", "json")
 	if code != 0 || !strings.Contains(stdout, `"updated":true`) || !strings.Contains(stdout, `"signed":true`) {
 		t.Fatalf("update: exit %d, stdout %q, stderr %q", code, stdout, stderr)
 	}
