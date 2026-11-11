@@ -209,10 +209,10 @@ func (m *Model) updateExport(key tea.KeyPressMsg) tea.Cmd {
 	if e.writing {
 		return nil
 	}
-	if key.String() == keyOf(actBack) {
+	if keyIs(key, actBack) {
 		return m.exportBack()
 	}
-	if key.String() == keyOf(actSave) {
+	if keyIs(key, actSave) {
 		switch e.step {
 		case exportSelect, exportMode, exportPassphrase, exportTarget:
 			// F2 goes on like enter, which also confirms the one-line dialogs.

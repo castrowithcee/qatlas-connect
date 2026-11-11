@@ -116,7 +116,8 @@ grants every object action.
 
 Each [Route 53 tool](route53.md) needs the permission `route53:<Action>` of its AWS operation. The permissions
 `route53:ListHostedZones` (`hosted-zone.list`), `route53:ListHostedZonesByName`, `route53:GetHostedZone`,
-`route53:GetHostedZoneCount`, `route53:GetChange`, and `route53:ListTagsForResource` read. The writes need:
+`route53:GetHostedZoneCount`, `route53:GetChange`, `route53:ListTagsForResource`, `route53:ListResourceRecordSets`
+(`record-set.list`), and `route53:TestDNSAnswer` (`dns-answer.test`) read. The writes need:
 
 | Tool | Permission |
 | --- | --- |
@@ -124,6 +125,7 @@ Each [Route 53 tool](route53.md) needs the permission `route53:<Action>` of its 
 | `aws.route53.hosted-zone.update-comment` | `route53:UpdateHostedZoneComment` |
 | `aws.route53.hosted-zone.delete` | `route53:DeleteHostedZone` |
 | `aws.route53.tag.change` | `route53:ChangeTagsForResource` |
+| `aws.route53.record-set.change` | `route53:ChangeResourceRecordSets` |
 
 Route 53 permissions name hosted zones as `arn:aws:route53:::hostedzone/<id>` and changes as
 `arn:aws:route53:::change/<id>`; `route53:CreateHostedZone`, `route53:ListHostedZones`, and `route53:GetHostedZoneCount`

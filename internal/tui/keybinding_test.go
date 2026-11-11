@@ -4,7 +4,6 @@ import (
 	"strings"
 	"testing"
 
-	"charm.land/bubbles/v2/key"
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/castrowithcee/qatlas-connect/internal/uiprefs"
@@ -13,15 +12,12 @@ import (
 // keepKeys puts the process-wide keymap back after a test that changes it.
 func keepKeys(t *testing.T) {
 	t.Helper()
-	saved, extra := map[action]key.Binding{}, infoExtra
-	for a, b := range keymap {
-		saved[a] = b
-	}
+	table, km := keyTable, keymap
 	t.Cleanup(func() {
-		for a, b := range saved {
-			keymap[a] = b
+		keyTable, keymap = table, km
+		if err := keymap.Bind(nil); err != nil {
+			t.Error(err)
 		}
-		infoExtra = extra
 	})
 }
 
@@ -105,8 +101,8 @@ func TestSettingsBindsKeysAndFootersFollow(t *testing.T) {
 	if got.Keys.Info != "f3" || got.Keys.Save != "f4" || len(warnings) != 0 {
 		t.Fatalf("stored keys = %+v %v", got.Keys, warnings)
 	}
-	if infoExtra != "f3" || keyLabel(actSave) != "F4" {
-		t.Fatalf("keymap not applied: info extra %q, save %q", infoExtra, keyLabel(actSave))
+	if infoExtraLabel() != "F3" || keyLabel(actSave) != "F4" {
+		t.Fatalf("keymap not applied: info extra %q, save %q", infoExtraLabel(), keyLabel(actSave))
 	}
 	if view := m.render(); !strings.Contains(view, "F4 save") || strings.Contains(view, "F2 save") {
 		t.Fatalf("the footer does not show the new save key:\n%s", view)
@@ -165,8 +161,8 @@ func TestSettingsCaptureShadowsGlobalKeys(t *testing.T) {
 func TestStandardKeysNeedNoExtra(t *testing.T) {
 	keepKeys(t)
 	applyKeys(uiprefs.DefaultKeys())
-	if infoExtra != "" || keyLabel(actInfo) != "i" || keyLabel(actSave) != "F2" {
-		t.Fatalf("defaults: extra %q info %q save %q", infoExtra, keyLabel(actInfo), keyLabel(actSave))
+	if infoExtraLabel() != "" || keyLabel(actInfo) != "i" || keyLabel(actSave) != "F2" {
+		t.Fatalf("defaults: extra %q info %q save %q", infoExtraLabel(), keyLabel(actInfo), keyLabel(actSave))
 	}
 }
 
@@ -236,7 +232,7 @@ func TestKeyCaptureEndsWhenTheResizeNoticeLeavesTheForm(t *testing.T) {
 		sizedModel(m, 100, 40)
 		openSectionByName(t, m, sectionGeneral)
 		focusKeyRow(t, m, "info key")
-		bound := keyOf(actInfo)
+		bound := keyLabel(actInfo)
 		press(t, m, "enter")
 		if !m.keyCapture {
 			t.Fatal("enter did not start the capture")
@@ -252,8 +248,8 @@ func TestKeyCaptureEndsWhenTheResizeNoticeLeavesTheForm(t *testing.T) {
 	}
 	sizedModel(m, 100, 40)
 	press(t, m, "x")
-	if keyOf(actInfo) != bound {
-		t.Errorf("a key after leaving rebound the info key: %q, was %q", keyOf(actInfo), bound)
+	if keyLabel(actInfo) != bound {
+		t.Errorf("a key after leaving rebound the info key: %q, was %q", keyLabel(actInfo), bound)
 	}
 
 	m, _ = setup()

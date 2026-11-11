@@ -11,6 +11,7 @@ import (
 	"github.com/castrowithcee/qatlas-connect/internal/helptopics"
 	"github.com/castrowithcee/qatlas-connect/internal/uiprefs"
 	kithelp "github.com/castrowithcee/qatlas-kit/helptopics"
+	kit "github.com/castrowithcee/qatlas-kit/tui"
 )
 
 const (
@@ -229,11 +230,11 @@ func (m *Model) infoReachable() bool {
 // infoPressed reports whether the key press asks for the explanation. The letter works only where the
 // screen reads no text; the extra key is none, so it works wherever there is something to explain.
 func (m *Model) infoPressed(key tea.KeyPressMsg) bool {
-	switch key.String() {
-	case keyOf(actInfo):
+	switch {
+	case keymap.Is(key, actInfo, kit.InputText):
+		return !m.infoOpen && !m.keyCapture
+	case keyIs(key, actInfo):
 		return m.infoReachable()
-	case infoExtra:
-		return infoExtra != "" && !m.infoOpen && !m.keyCapture
 	}
 	return false
 }
@@ -243,13 +244,13 @@ func (m *Model) infoWorks() bool {
 	if m.keyCapture || m.infoSubject().empty() {
 		return false
 	}
-	return m.infoReachable() || (infoExtra != "" && !m.infoOpen)
+	return m.infoReachable() || (infoExtraLabel() != "" && !m.infoOpen)
 }
 
 // infoLabel names the info keys that work right now: the extra key alone where the letter is typed text.
 func (m *Model) infoLabel() string {
-	if infoExtra != "" && !m.infoReachable() {
-		return keyName(infoExtra)
+	if extra := infoExtraLabel(); extra != "" && !m.infoReachable() {
+		return extra
 	}
 	return keyLabel(actInfo)
 }
@@ -268,8 +269,7 @@ func (m *Model) openInfo() bool {
 // updateInfo handles the keys while the overlay is open: the key that closes it, and the keys that scroll a
 // text longer than the overlay.
 func (m *Model) updateInfo(msg tea.KeyPressMsg) {
-	key := msg.String()
-	if key == keyOf(actBack) || key == keyOf(actInfo) || (infoExtra != "" && key == infoExtra) {
+	if keyIs(msg, actBack) || keyIs(msg, actInfo) {
 		m.infoOpen = false
 		return
 	}
