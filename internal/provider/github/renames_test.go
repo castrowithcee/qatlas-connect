@@ -248,6 +248,10 @@ var currentToolIDs = []string{
 	"github.stars.add",
 	"github.stars.list",
 	"github.stars.remove",
+	"github.assignees.check",
+	"github.assignees.list",
+	"github.issue-events.list",
+	"github.issue-timeline.list",
 	"github.sub-issues.add",
 	"github.sub-issues.list",
 	"github.sub-issues.remove",
@@ -306,7 +310,7 @@ func TestRegistryHoldsExactlyTheCurrentToolIDs(t *testing.T) {
 	sort.Strings(got)
 	want := append([]string(nil), currentToolIDs...)
 	sort.Strings(want)
-	if strings.Join(got, "\n") != strings.Join(want, "\n") || len(got) != 281 {
+	if strings.Join(got, "\n") != strings.Join(want, "\n") || len(got) != 285 {
 		t.Errorf("registry holds %d tools, differing from the expected %d IDs", len(got), len(want))
 	}
 	if err := reg.ValidateRenames(); err != nil {
@@ -359,7 +363,7 @@ func TestRenamedToolsCoverEveryChangedID(t *testing.T) {
 		"github.deployment-statuses.get": true,
 		"github.rate-limit.get":          true, "github.gitignore-templates.list": true, "github.gitignore-templates.get": true,
 		"github.codes-of-conduct.list": true, "github.codes-of-conduct.get": true,
-		"github.branches.sync-fork":          true,
+		"github.branches.sync-fork": true, "github.issue-events.list": true, "github.issue-timeline.list": true,
 		"github.pull-request-reviews.update": true, "github.pull-request-reviews.dismiss": true,
 		"github.pull-request-reviews.delete-pending": true, "github.pull-request-review-comments.update": true,
 		"github.pull-request-review-comments.delete": true}

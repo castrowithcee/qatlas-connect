@@ -101,6 +101,11 @@
 // github.issue-dependencies.add records a blocked-by relationship and github.issue-dependencies.remove detaches
 // one, the same way a sub-issue may cross repositories; neither the sub-issue nor the dependency removal is
 // listed-only, because each detaches only the one relationship between the two named issues.
+// github.issue-events.list reads the events of one issue or, without a number, of every issue of a repository,
+// github.issue-timeline.list the timeline of one issue with its comments, reviews, commits, and references, and
+// github.assignees.list and github.assignees.check the users that may be assigned and whether one login may be;
+// they change nothing. A timeline names issues and commits of other repositories only by identifiers unless the
+// connection's targets allow them, and its texts are cut and untrusted.
 // github.issue-types.list reads the issue types an organization declares; github.issues.update also takes an
 // optional type name, "" removing the issue's current one. github.issue-fields.list reads the organization
 // issue fields of a repository, inherited from its organization, or, with organization instead, directly of
@@ -586,7 +591,8 @@ func Register(reg *capability.Registry) error {
 				"Issues: read and write on a fine-grained token; reacting to a pull request line comment needs " +
 				"repo on a classic token, or Pull requests: read and write on a fine-grained token; removing a " +
 				"reaction additionally reads the account behind the token, which needs no scope beyond its own " +
-				"identity; reading the sub-issues or the dependencies of an issue needs the same scope as reading " +
+				"identity; reading the sub-issues or the dependencies of an issue, its events, its timeline, and the " +
+				"assignable users of a repository needs the same scope as reading " +
 				"its labels, and changing them, including remove, needs the same scope as writing an issue: repo " +
 				"on a classic token, or Issues: read and write on a fine-grained token, of every repository a " +
 				"sub-issue or a dependency names; reading the issue types of an organization, and the issue " +
@@ -803,15 +809,17 @@ func Register(reg *capability.Registry) error {
 		}, {
 			ID: "issue-maintainer", Title: "Issue maintainer",
 			Description: "not recommended: lists and reads the labels of a repository, lists and reads its " +
-				"milestones, creates and updates labels and milestones and issue comments, hides and shows comments and reviews, and reacts to issues, comments, " +
-				"and pull request line comments; every change needs its own confirmation, and deleting a " +
+				"milestones, reads the events and the timeline of an issue and the users that may be assigned, " +
+				"creates and updates labels and milestones and issue comments, hides and shows comments and reviews, and reacts " +
+				"to issues, comments, and pull request line comments; every change needs its own confirmation, and deleting a " +
 				"label, a milestone, or a comment stays unticked, since each is offered only where a connection's tools " +
 				"list names it",
 			Tools: []string{labelsList.ID, labelsGet.ID, labelsCreate.ID, labelsUpdate.ID, milestonesList.ID, milestonesGet.ID,
 				milestonesCreate.ID, milestonesUpdate.ID,
 				commentsUpdate.ID, commentsHide.ID, commentsUnhide.ID, reactionsAdd.ID, reactionsRemove.ID, subIssuesList.ID, subIssuesAdd.ID,
 				subIssuesRemove.ID, subIssuesReprioritize.ID, issueDependenciesList.ID, issueDependenciesAdd.ID,
-				issueDependenciesRemove.ID, issueTypesList.ID, issueFieldsList.ID, issueFieldsSet.ID},
+				issueDependenciesRemove.ID, issueEventsList.ID, issueTimelineList.ID, assigneesList.ID,
+				assigneesCheck.ID, issueTypesList.ID, issueFieldsList.ID, issueFieldsSet.ID},
 		}, {
 			ID: "discussions", Title: "Discussions",
 			Description: "not recommended: reads the discussion categories of a repository, its discussions " +
@@ -875,7 +883,7 @@ func Register(reg *capability.Registry) error {
 		searchOperations(), contentsOperations(), blameOperations(), commitsOperations(), refsOperations(), compareOperations(), commitRelationOperations(),
 		contentsWriteOperations(), refsWriteOperations(), repositoriesOperations(), repositoryDetailOperations(), trafficOperations(), repositoryStatsOperations(), rulesetsOperations(), branchProtectionOperations(), customPropertiesOperations(), actionVariablesOperations(), actionCachesOperations(), runCleanupOperations(),
 		labelsOperations(), milestonesOperations(), commentMaintenanceOperations(), commentVisibilityOperations(), reactionsOperations(),
-		subIssuesOperations(), issueDependenciesOperations(), issueTypesOperations(), issueFieldsOperations(),
+		subIssuesOperations(), issueDependenciesOperations(), issueHistoryOperations(), issueTypesOperations(), issueFieldsOperations(),
 		discussionOperations(), notificationOperations(), gistOperations(), securityAlertOperations(), advisoryOperations(),
 		copilotOperations(), environmentsOperations(), deploymentsOperations(), referenceOperations())...)
 	for i := range operations {
