@@ -27,6 +27,7 @@ var guards = map[string]guard{
 	"route53-vpc":         checkRoute53VPC,
 	"route53-change":      checkRoute53Change,
 	"route53-name":        checkRoute53Name,
+	"route53-health":      checkRoute53Health,
 }
 
 // readback runs after the account check and before the change, with the credentials that passed it.

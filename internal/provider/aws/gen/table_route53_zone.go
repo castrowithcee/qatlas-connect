@@ -192,31 +192,29 @@ var route53ZoneTools = []Operation{
 	}, "change"),
 	r53Read(Operation{
 		Operation: "ListTagsForResource", Object: "tag", Action: "list",
-		Title:       "List the tags of a Route 53 hosted zone",
-		Description: "Return the tags of a hosted zone, each with key and value. Needs route53:ListTagsForResource.",
+		Title:       "List the tags of a Route 53 hosted zone or health check",
+		Description: "Return the tags of a hosted zone or a health check, each with key and value. Needs route53:ListTagsForResource.",
 		Arguments: map[string]Argument{
-			"ResourceType": {Description: "hostedzone, the only type offered"},
-			"ResourceId":   {Description: descR53Zone},
+			"ResourceType": {Description: "hostedzone or healthcheck"},
+			"ResourceId":   {Description: "ID of the hosted zone (with or without the /hostedzone/ prefix) or of the health check, of the bound account"},
 		},
 		Fields: map[string]Field{
 			"ResourceTagSet": {Description: "resource_type, resource_id, and tags, each with key and value"},
 		},
-		ExcludeEnum: []EnumExclusion{{Member: "ResourceType", Values: []string{"healthcheck"}, Reason: "only the tags of hosted zones are offered"}},
-		Examples:    []Example{{Description: "Read the tags of a zone", Arguments: `{"resource_type":"hostedzone","resource_id":"Z0123456789ABCDEFGHIJ"}`}},
+		Examples: []Example{{Description: "Read the tags of a zone", Arguments: `{"resource_type":"hostedzone","resource_id":"Z0123456789ABCDEFGHIJ"}`}},
 	}, "tag"),
 	r53Write(Operation{
 		Operation: "ChangeTagsForResource", Object: "tag", Action: "change", Effect: "update", Idempotency: "idempotent",
-		Title: "Add and remove tags of a Route 53 hosted zone",
-		Description: "Add or overwrite tags of a hosted zone and remove tags by key, in one call. Route 53 allows up to 10 tags in " +
+		Title: "Add and remove tags of a Route 53 hosted zone or health check",
+		Description: "Add or overwrite tags of a hosted zone or a health check and remove tags by key, in one call. Route 53 allows up to 10 tags in " +
 			"each list per call. Needs route53:ChangeTagsForResource. Repeating the call with the same arguments leaves the same result.",
 		Arguments: map[string]Argument{
-			"ResourceType":  {Description: "hostedzone, the only type offered"},
-			"ResourceId":    {Description: descR53Zone},
+			"ResourceType":  {Description: "hostedzone or healthcheck"},
+			"ResourceId":    {Description: "ID of the hosted zone (with or without the /hostedzone/ prefix) or of the health check, of the bound account"},
 			"AddTags":       {Description: "Tags to add or overwrite, each with key and value"},
 			"RemoveTagKeys": {Description: "Keys of the tags to remove"},
 		},
-		ExcludeEnum: []EnumExclusion{{Member: "ResourceType", Values: []string{"healthcheck"}, Reason: "only the tags of hosted zones are offered"}},
-		SampleArgs:  `{"resource_type":"hostedzone"}`,
-		Examples:    []Example{{Description: "Tag a zone", Arguments: `{"resource_type":"hostedzone","resource_id":"Z0123456789ABCDEFGHIJ","add_tags":[{"key":"team","value":"web"}]}`}},
+		SampleArgs: `{"resource_type":"hostedzone"}`,
+		Examples:   []Example{{Description: "Tag a zone", Arguments: `{"resource_type":"hostedzone","resource_id":"Z0123456789ABCDEFGHIJ","add_tags":[{"key":"team","value":"web"}]}`}},
 	}, "tag"),
 }

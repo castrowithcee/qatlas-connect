@@ -15,7 +15,10 @@ const route53NS = `xmlns="https://route53.amazonaws.com/doc/2013-04-01/"`
 var route53ToolIDs = []string{"aws.route53.hosted-zone.list", "aws.route53.hosted-zone.list-by-name", "aws.route53.hosted-zone.get",
 	"aws.route53.hosted-zone.count", "aws.route53.hosted-zone.create", "aws.route53.hosted-zone.update-comment",
 	"aws.route53.hosted-zone.delete", "aws.route53.change.get", "aws.route53.tag.list", "aws.route53.tag.change",
-	"aws.route53.record-set.list", "aws.route53.record-set.change", "aws.route53.dns-answer.test"}
+	"aws.route53.record-set.list", "aws.route53.record-set.change", "aws.route53.dns-answer.test",
+	"aws.route53.health-check.list", "aws.route53.health-check.get", "aws.route53.health-check.count",
+	"aws.route53.health-check.get-status", "aws.route53.health-check.get-last-failure-reason",
+	"aws.route53.health-check.create", "aws.route53.health-check.update", "aws.route53.health-check.delete"}
 
 // route53Env offers the Route 53 tools by name on a connection bound to the account and the given regions.
 func route53Env(t *testing.T, f *fakeAWS, regions ...string) *env {
@@ -229,7 +232,7 @@ func TestRoute53IDsAreTakenWithAndWithoutPrefix(t *testing.T) {
 		{"aws.route53.hosted-zone.get", `{"id":"/hostedzone/Z1/../Z2"}`},
 		{"aws.route53.hosted-zone.get", `{"id":"/change/Z1"}`},
 		{"aws.route53.change.get", `{"id":"/hostedzone/C1"}`},
-		{"aws.route53.tag.list", `{"resource_type":"healthcheck","resource_id":"abc"}`},
+		{"aws.route53.tag.list", `{"resource_type":"queue","resource_id":"abc"}`},
 		{"aws.route53.tag.list", `{"resource_type":"hostedzone","resource_id":"Z1/x"}`},
 	} {
 		if _, err := e.invoke(c.id, c.args); err == nil {
@@ -299,6 +302,7 @@ func TestRoute53WritesNeedConfirmation(t *testing.T) {
 		{"aws.route53.hosted-zone.update-comment", `{"id":"Z1","comment":"c"}`},
 		{"aws.route53.hosted-zone.delete", `{"id":"Z1"}`},
 		{"aws.route53.tag.change", `{"resource_type":"hostedzone","resource_id":"Z1","add_tags":[{"key":"a","value":"b"}]}`},
+		{"aws.route53.tag.change", `{"resource_type":"healthcheck","resource_id":"h1","add_tags":[{"key":"a","value":"b"}]}`},
 	} {
 		if _, err := e.invoke(c.id, c.args); !isConfirmationRequired(err) {
 			t.Errorf("%s: err = %v, want a confirmation", c.id, err)
@@ -309,7 +313,7 @@ func TestRoute53WritesNeedConfirmation(t *testing.T) {
 	}
 }
 
-// The tag change sends the tags to add and the keys to remove for a hosted zone only.
+// The tag change sends the tags to add and the keys to remove for a hosted zone or a health check.
 func TestRoute53TagChangeBody(t *testing.T) {
 	f := restAnswer(xmlReply(`<ChangeTagsForResourceResponse ` + route53NS + `/>`))
 	e := route53Env(t, f, testRegion)
@@ -323,8 +327,8 @@ func TestRoute53TagChangeBody(t *testing.T) {
 		!strings.Contains(r.body, "<RemoveTagKeys><Key>old</Key></RemoveTagKeys>") {
 		t.Errorf("request = %+v", r)
 	}
-	if _, err := e.invokeConfirmed("aws.route53.tag.change", `{"resource_type":"healthcheck","resource_id":"x"}`, true); err == nil {
-		t.Error("a health check was accepted")
+	if _, err := e.invokeConfirmed("aws.route53.tag.change", `{"resource_type":"queue","resource_id":"x"}`, true); err == nil {
+		t.Error("an unknown resource type was accepted")
 	}
 }
 
