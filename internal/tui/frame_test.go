@@ -12,6 +12,7 @@ import (
 	"github.com/charmbracelet/x/ansi"
 
 	"github.com/castrowithcee/qatlas-connect/internal/uiprefs"
+	kittui "github.com/castrowithcee/qatlas-kit/tui"
 )
 
 // vaultCases are the vault states the header shows, each with the word it must name.
@@ -258,7 +259,7 @@ func TestFrameReadsWithoutColour(t *testing.T) {
 	before := currentProfile()
 	prior := styles
 	t.Cleanup(func() { setProfile(before); setTheme(prior) })
-	setProfile(profileASCII)
+	setProfile(kittui.ProfileMono)
 	applyTheme(uiprefs.ThemeTerminal)
 
 	m, _ := newEncryptedVaultModel(t, filepath.Join(t.TempDir(), "qconnect"), "hunter2", true)

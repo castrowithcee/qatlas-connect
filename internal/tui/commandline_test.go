@@ -9,6 +9,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/castrowithcee/qatlas-connect/internal/uiprefs"
+	kittui "github.com/castrowithcee/qatlas-kit/tui"
 )
 
 func commandNames(list []command) []string {
@@ -355,7 +356,7 @@ func TestPaletteReadsWithoutColour(t *testing.T) {
 	before := currentProfile()
 	prior := styles
 	t.Cleanup(func() { setProfile(before); setTheme(prior) })
-	setProfile(profileNone)
+	setProfile(kittui.ProfileNone)
 	applyTheme(uiprefs.ThemeTerminal)
 	m := paletteModel(t, 150, 42)
 	view := m.render()

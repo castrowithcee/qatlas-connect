@@ -5,15 +5,10 @@ import (
 	"testing"
 
 	tea "charm.land/bubbletea/v2"
-	"github.com/charmbracelet/x/ansi"
 
 	"github.com/castrowithcee/qatlas-connect/internal/uiprefs"
+	kittui "github.com/castrowithcee/qatlas-kit/tui"
 )
-
-// forbiddenIconRune reports a code point that makes the width of an emoji differ between terminals.
-func forbiddenIconRune(r rune) bool {
-	return r == 0xFE0F || r == 0x200D || r >= 0x1F3FB && r <= 0x1F3FF || r >= 0x1F1E6 && r <= 0x1F1FF
-}
 
 func TestIconTableIsUniqueAndSafeToMeasure(t *testing.T) {
 	seen := map[string]string{}
@@ -33,14 +28,8 @@ func TestIconTableIsUniqueAndSafeToMeasure(t *testing.T) {
 				t.Errorf("%s %s: glyph %q is also used for %s", e.meaning, kind, glyph, other)
 			}
 			seen[kind+glyph] = e.meaning
-			narrow, wide := ansi.StringWidth(glyph), ansi.StringWidthWc(glyph)
-			if narrow != wide || narrow < 1 || narrow > 2 {
-				t.Errorf("%s %s %q: width %d (grapheme) vs %d (wcwidth)", e.meaning, kind, glyph, narrow, wide)
-			}
-			for _, r := range glyph {
-				if forbiddenIconRune(r) {
-					t.Errorf("%s %s %q: contains U+%04X", e.meaning, kind, glyph, r)
-				}
+			if err := kittui.CheckIcon(glyph); err != nil {
+				t.Errorf("%s %s: %v", e.meaning, kind, err)
 			}
 		}
 	}

@@ -21,6 +21,7 @@ import (
 	"github.com/castrowithcee/qatlas-connect/internal/secret"
 	"github.com/castrowithcee/qatlas-connect/internal/vault"
 	"github.com/castrowithcee/qatlas-kit/redact"
+	kittui "github.com/castrowithcee/qatlas-kit/tui"
 )
 
 // Canary values prove that a secret in the environment never reaches the editor or the file.
@@ -650,7 +651,7 @@ func TestTabLineKeepsTheActiveTabWhole(t *testing.T) {
 	before := currentProfile()
 	t.Cleanup(func() { setProfile(before) })
 	ascii := before
-	ascii = profileNone
+	ascii = kittui.ProfileNone
 	setProfile(ascii)
 
 	m, _, _ := newModel(t)
@@ -966,12 +967,12 @@ func TestTheScreenReadsWithoutColour(t *testing.T) {
 	openSectionByName(t, m, sectionConnections)
 
 	colour := before
-	colour = profile16
+	colour = kittui.ProfileANSI16
 	setProfile(colour)
 	if view := m.render(); !strings.Contains(view, "\x1b[") {
 		t.Fatalf("a colour terminal got no colour:\n%s", view)
 	}
-	colour = profileNone
+	colour = kittui.ProfileNone
 	setProfile(colour)
 
 	view := m.render()
