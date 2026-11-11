@@ -10,6 +10,7 @@ import (
 	"time"
 
 	tea "charm.land/bubbletea/v2"
+	kittui "github.com/castrowithcee/qatlas-kit/tui"
 	uv "github.com/charmbracelet/ultraviolet"
 )
 
@@ -38,6 +39,9 @@ func (c *testClock) now() time.Time { return time.Now().Add(time.Duration(c.offs
 
 // pause is a key that is a gap in the input instead: when the event loop meets it, the real timers run out and
 // the filter's clock moves on by a second. Handled there, not by the reader, which runs ahead of the loop.
+// holdWait outlasts the hold the kit filter puts on a "[" (200 ms).
+const holdWait = 200 * time.Millisecond
+
 const pause = "\x1b[23~"
 
 func (r *chunkReader) Read(p []byte) (int, error) {
@@ -79,15 +83,15 @@ func runPaused(t *testing.T, model *Model, gap time.Duration, chunks ...string) 
 		reader.chunks = append(reader.chunks, []byte(c))
 	}
 	reader.chunks = append(reader.chunks, []byte(inputEnd))
-	fragments := newFragmentFilter(clock.now)
+	fragments := kittui.NewInputFilter(clock.now)
 	var seen []string
 	observe := func(m tea.Model, msg tea.Msg) tea.Msg {
 		if key, ok := msg.(tea.KeyPressMsg); ok && key.Code == tea.KeyF11 {
 			clock.offset.Add(int64(time.Second))
-			time.Sleep(2 * bracketHold)
+			time.Sleep(2 * holdWait)
 			return nil
 		}
-		msg = fragments.filter(m, msg)
+		msg = fragments.Filter(m, msg)
 		if key, ok := msg.(tea.KeyPressMsg); ok && key.Code == tea.KeyF12 {
 			return tea.QuitMsg{}
 		}
@@ -95,17 +99,19 @@ func runPaused(t *testing.T, model *Model, gap time.Duration, chunks ...string) 
 		case tea.MouseMsg:
 			seen = append(seen, "mouse")
 		case tea.KeyPressMsg:
-			seen = append(seen, msg.String())
-		case keysMsg:
-			for _, key := range msg {
-				seen = append(seen, key.String())
+			seen = append(seen, legacyKey(msg).String()) // the model names the key, see Update
+		case kittui.InputBatch:
+			for _, next := range msg {
+				if key, ok := next.(tea.KeyPressMsg); ok {
+					seen = append(seen, legacyKey(key).String())
+				}
 			}
 		}
 		return msg
 	}
 	p := tea.NewProgram(model, tea.WithInput(reader), tea.WithOutput(io.Discard), tea.WithFilter(observe),
 		tea.WithoutSignals())
-	fragments.send = p.Send
+	fragments.Attach(p.Send)
 	done := make(chan error, 1)
 	go func() { _, err := p.Run(); done <- err }()
 	select {
@@ -180,6 +186,10 @@ func TestMouseReportsSplitWithinTheEscapeWaitStayMouseEvents(t *testing.T) {
 	for _, report := range splitReports {
 		stream := report + report
 		want := 2 * strings.Count(report, "\x1b")
+		if strings.HasPrefix(report, "\x1b[<6") {
+			// The kit filter merges the second of two equal wheel events: one notch, one event.
+			want = 1
+		}
 		for i := 1; i < len(report); i++ {
 			t.Run(fmt.Sprintf("%q/%d", report, i), func(t *testing.T) {
 				var keys []string
@@ -292,78 +302,59 @@ func TestAPasteReachesTheFocusedField(t *testing.T) {
 	}
 }
 
-// heldFilter is a filter on a clock the test moves, which holds a "[" without a program: the release is sent
-// by hand, so the order of the timer and the rest of the report is the test's choice.
-func heldFilter() (*fragmentFilter, *time.Time) {
+// wheelFilter feeds wheel events through the kit input filter on a clock the test moves, then to the model.
+func wheelFilter(m *Model) (send func(x, y int, button tea.MouseButton), advance func(time.Duration)) {
 	now := time.Unix(1000, 0)
-	f := newFragmentFilter(func() time.Time { return now })
-	f.send = func(tea.Msg) {}
-	return f, &now
-}
-
-// keyTexts lists what a filter result delivers as keys, in order.
-func keyTexts(msg tea.Msg) []string {
-	switch msg := msg.(type) {
-	case nil:
-		return nil
-	case tea.KeyPressMsg:
-		return []string{msg.String()}
-	case keysMsg:
-		var out []string
-		for _, key := range msg {
-			out = append(out, key.String())
+	f := kittui.NewInputFilter(func() time.Time { return now })
+	send = func(x, y int, button tea.MouseButton) {
+		if msg := f.Filter(m, mouseEvent(x, y, button)); msg != nil {
+			_, cmd := m.Update(msg)
+			deliver(m, cmd)
 		}
-		return out
 	}
-	return []string{fmt.Sprintf("%T", msg)}
+	return send, func(d time.Duration) { now = now.Add(d) }
 }
 
-// The rest of a report that arrives while the "[" is still held, even late in the window, makes no key at all.
-func TestHeldBracketSwallowsTheRestWithinTheWindow(t *testing.T) {
-	f, now := heldFilter()
-	if got := f.filter(nil, tea.KeyPressMsg{Code: '[', Mod: tea.ModAlt}); got != nil {
-		t.Fatalf("alt+[ passed at once: %v", keyTexts(got))
+// A terminal that reports a notch and its release delivers two presses at once; they are one step. Notches
+// that follow each other at the pace of a hand are each a step.
+func TestOneNotchIsOneStepWhateverTheTerminalReports(t *testing.T) {
+	m := sizedModel(groupModel(t), 100, 40)
+	openSectionByName(t, m, sectionConnections)
+	m.list.cursor = 0
+	wheel, advance := wheelFilter(m)
+	wheel(5, 10, tea.MouseWheelDown)
+	wheel(5, 10, tea.MouseWheelDown)
+	if m.list.cursor != 1 {
+		t.Fatalf("a notch with its release moved the cursor to %d, want one row", m.list.cursor)
 	}
-	*now = now.Add(bracketHold - time.Millisecond)
-	if got := f.filter(nil, textKey("<65;12;5M")); got != nil {
-		t.Errorf("the rest made keys %v", keyTexts(got))
+	for range 3 {
+		advance(15 * time.Millisecond)
+		wheel(5, 10, tea.MouseWheelDown)
+		wheel(5, 10, tea.MouseWheelDown)
 	}
-	if got := f.filter(nil, heldKeyMsg{f.id}); got != nil {
-		t.Errorf("the release made keys %v", keyTexts(got))
+	if m.list.cursor != 4 {
+		t.Errorf("three more notches ended on %d, want 4", m.list.cursor)
 	}
-}
-
-// A head that comes after the hold ended is text, whether or not the window would still take it.
-func TestHeadAfterTheReleaseIsText(t *testing.T) {
-	f, now := heldFilter()
-	f.filter(nil, tea.KeyPressMsg{Code: tea.KeyEscape})
-	f.filter(nil, textKey("["))
-	*now = now.Add(bracketHold)
-	if got := keyTexts(f.filter(nil, heldKeyMsg{f.id})); len(got) != 1 || got[0] != "[" {
-		t.Fatalf("release: %v", got)
+	wheel(5, 10, tea.MouseWheelUp)
+	if m.list.cursor != 3 {
+		t.Errorf("the wheel up right after a wheel down ended on %d, want 3", m.list.cursor)
 	}
-	*now = now.Add(time.Millisecond)
-	if got := keyTexts(f.filter(nil, textKey("<65;12;5M"))); len(got) != 1 || got[0] != "<65;12;5M" {
-		t.Errorf("head after the release: %v", got)
-	}
-}
-
-// A head after the window is text too, and the held "[" goes first.
-func TestHeadAfterTheWindowIsText(t *testing.T) {
-	f, now := heldFilter()
-	f.filter(nil, tea.KeyPressMsg{Code: '[', Mod: tea.ModAlt})
-	*now = now.Add(fragmentWindow + time.Millisecond)
-	got := keyTexts(f.filter(nil, textKey("<65;12;5M")))
-	if len(got) != 2 || got[0] != "alt+[" {
-		t.Errorf("keys %v, want alt+[ then the text", got)
+	wheel(6, 10, tea.MouseWheelUp)
+	if m.list.cursor != 2 {
+		t.Errorf("the wheel up in another cell ended on %d, want 2", m.list.cursor)
 	}
 }
 
-// An alt+[ typed alone reaches the model once the hold ends.
-func TestLoneAltBracketArrivesAfterTheHold(t *testing.T) {
-	f, _ := heldFilter()
-	f.filter(nil, tea.KeyPressMsg{Code: '[', Mod: tea.ModAlt})
-	if got := keyTexts(f.filter(nil, heldKeyMsg{f.id})); len(got) != 1 || got[0] != "alt+[" {
-		t.Errorf("keys %v, want alt+[", got)
+// Events that queue up while the editor draws arrive as pairs without a gap: n notches are n rows.
+func TestQueuedWheelPairsMoveOneRowEach(t *testing.T) {
+	m := sizedModel(groupModel(t), 100, 40)
+	openSectionByName(t, m, sectionConnections)
+	m.list.cursor = 0
+	wheel, _ := wheelFilter(m)
+	for range 4 {
+		wheel(5, 10, tea.MouseWheelDown)
+	}
+	if m.list.cursor != 2 {
+		t.Errorf("four queued events moved the cursor to %d, want 2", m.list.cursor)
 	}
 }
