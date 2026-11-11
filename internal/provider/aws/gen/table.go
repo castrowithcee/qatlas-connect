@@ -127,8 +127,25 @@ type Operation struct {
 	// of the result was cut at its limit.
 	Truncated string
 	// CSV turns one blob output member that holds a CSV table into rows with the tool's own paging.
-	CSV      *CSVReport
-	Examples []Example
+	CSV *CSVReport
+	// PageSizeMax bounds page_size of a paginated tool whose model gives the page size member no range
+	// maximum. The model's own maximum applies, and must not be exceeded, when it has one.
+	PageSizeMax int
+	// ResultHook names a hand-written step of the provider package that adds the result field the hook
+	// declares to the result, computed from the arguments and the answer. Empty for none.
+	ResultHook string
+	// ExcludeEnum narrows the enum of an input member, so a value that would bring something the tool must
+	// not take (such as key material) cannot be sent.
+	ExcludeEnum []EnumExclusion
+	Examples    []Example
+}
+
+// EnumExclusion removes values from the enum of an input member.
+type EnumExclusion struct {
+	// Member is the model member, dotted below the top level, such as SigningAttributes.Origin.
+	Member string
+	Values []string
+	Reason string
 }
 
 // CSVReport describes a CSV table returned as a base64 blob, such as the IAM credential report. The
@@ -191,9 +208,12 @@ type Example struct {
 var (
 	Effects      = []string{"read", "create", "update", "delete", "execute"}
 	Idempotency  = []string{"safe", "idempotent", "non-idempotent"}
-	TargetChecks = []string{"none", "account-argument", "arn-account", "arn-account-or-managed-policy", "arn-region", "bucket-owner"}
+	TargetChecks = []string{"none", "account-argument", "arn-account", "arn-account-or-managed-policy", "arn-region", "bucket-owner",
+		"ses-identity", "ses-identity-arn"}
 	PolicyChecks = []string{"none", "trust-policy", "bucket-policy", "identity-policy", "pab-tighten"}
 	Forms        = []string{"account-id"}
+	// ResultHooks are the hand-written result steps a table may name; see resultHookFields.
+	ResultHooks = []string{"dns-records"}
 )
 
 var (
@@ -306,12 +326,21 @@ func (op Operation) validate() error {
 		return fmt.Errorf("policy_check %s needs the arguments it checks, and none only without", op.PolicyCheck)
 	case op.SelfRole != "" && (op.Effect == "read" || !opName.MatchString(op.SelfRole)):
 		return fmt.Errorf("self_role %q must name an input member of a tool that is not a read", op.SelfRole)
+	case op.ResultHook != "" && !slices.Contains(ResultHooks, op.ResultHook):
+		return fmt.Errorf("unknown result_hook %q", op.ResultHook)
+	case op.PageSizeMax < 0:
+		return fmt.Errorf("negative page size maximum")
 	case strings.TrimSpace(op.Title) == "" || strings.TrimSpace(op.Description) == "" || op.DataSensitivity == "":
 		return fmt.Errorf("title, description and data sensitivity are required")
 	}
 	for _, tag := range op.Tags {
 		if !tagValue.MatchString(tag) {
 			return fmt.Errorf("tag %q is not a lower case word", tag)
+		}
+	}
+	for _, e := range op.ExcludeEnum {
+		if strings.TrimSpace(e.Member) == "" || len(e.Values) == 0 || strings.TrimSpace(e.Reason) == "" {
+			return fmt.Errorf("enum exclusion needs a member, values and a reason")
 		}
 	}
 	for _, hidden := range [][]Hidden{op.HiddenInputs, op.HiddenOutputs} {
