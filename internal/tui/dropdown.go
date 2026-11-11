@@ -183,7 +183,8 @@ func (m *Model) overlayDropdown(view string) string {
 
 // clickDropdown handles a click while a list is open: on an entry it takes that value, anywhere else it only
 // closes the list.
-func (m *Model) clickDropdown(x, y int) tea.Cmd {
+func (m *Model) clickDropdown(msg tea.MouseMsg) tea.Cmd {
+	x, y := msg.Mouse().X, msg.Mouse().Y
 	d := m.dd
 	b := d.box
 	if x > b.x0 && x < b.x1-1 && y > b.y0 && y < b.y1-1 {
@@ -191,7 +192,7 @@ func (m *Model) clickDropdown(x, y int) tea.Cmd {
 	}
 	// Any other click closes the list, as esc does; a click on a tab then goes on.
 	m.dd = nil
-	cmd, _ := m.clickBar(tea.Mouse{X: x, Y: y})
+	cmd, _ := m.clickBar(msg)
 	return cmd
 }
 

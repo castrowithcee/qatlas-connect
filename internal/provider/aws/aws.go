@@ -62,8 +62,8 @@ var toolGroups = []config.ToolGroup{{
 		"tags, and the public access block; never the content of an object",
 }, {
 	ID: "route53", Title: "Route 53",
-	Description: "Hosted zones, records, and health checks of the bound account, their tags, and the status of a change; " +
-		"the name servers to enter at the registrar",
+	Description: "Hosted zones, records, health checks, and DNSSEC of the bound account, their tags, and the status of a change; " +
+		"the name servers and the DS record to enter at the registrar",
 }}
 
 var targetKinds = []config.TargetKind{{
