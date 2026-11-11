@@ -340,7 +340,7 @@ func (r *vaultReplacement) before(ctx context.Context, release selfupdate.Releas
 		return
 	}
 	why := "before qconnect was replaced"
-	if r.lock {
+	if r.lock || release.Rollback {
 		why = "because an older version cannot take over an unlocked vault, before qconnect was replaced"
 	} else if !vaultHandoverPlatform {
 		// Windows has no handover, so neither the update behaviour nor the signature matters here: the vault

@@ -25,9 +25,9 @@ import (
 	"golang.org/x/crypto/ssh"
 
 	"github.com/castrowithcee/qatlas-connect/internal/release"
-	"github.com/castrowithcee/qatlas-connect/internal/release/releasetest"
 	"github.com/castrowithcee/qatlas-connect/internal/vault"
 	"github.com/castrowithcee/qatlas-connect/internal/vaultproc"
+	"github.com/castrowithcee/qatlas-kit/release/releasetest"
 )
 
 // copiedProgram copies this test binary to bin/qconnect in a directory of the test's own, which plays the
