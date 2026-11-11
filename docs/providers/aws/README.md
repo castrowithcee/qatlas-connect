@@ -4,21 +4,23 @@ description: >
 type: knowledge
 edit: shared
 created: 2026-11-06
-updated: 2026-11-10
+updated: 2026-11-11
 ---
 
 # Amazon Web Services
 
 The `aws` provider gives agents controlled access to one AWS account, read-only except for the IAM role tools and the two
-IAM report generators a connection names in its tools list. Qatlas signs requests with
+IAM report generators a connection names in its tools list, and the SES identity tools that change state with
+confirmation. Qatlas signs requests with
 Signature Version 4 using the Go standard library; it uses no AWS SDK. It ships the foundation (credential, role
 assumption, account and region binding, connection test, endpoint table, error mapping), the Security Token Service
 (STS) tools, the IAM tools that read identities, the metadata of their credentials, policies with their simulation,
 the account state, identity providers, and server certificates, the IAM report tools (credential report and service
-last accessed), and the IAM tools that write roles and instance profiles. Further services build on it.
+last accessed), the IAM tools that write roles and instance profiles, and the SES v2 tools that read, create, configure, tag, and delete
+sender identities with DKIM and MAIL FROM. Further services build on it.
 
 [Set up AWS](setup.md) lists the secret roles, the permissions, and what the connection test proves. The tools are
-described per group: [Security Token Service](sts.md) and [Identity and Access Management](iam.md).
+described per group: [Security Token Service](sts.md), [Identity and Access Management](iam.md), and [Simple Email Service](ses.md).
 
 ## Role assumption
 
@@ -73,7 +75,7 @@ sends only over HTTPS without following redirects.
 | Account (global) | `account.us-east-1.amazonaws.com` | `us-east-1` |
 
 Global services hang on the account and ignore the region allowlist; a connection reaches them with its account
-target alone. Only STS and IAM are used so far.
+target alone. Of the services in the table, STS, IAM, and SES v2 have tools.
 
 ## CloudTrail
 
@@ -124,7 +126,7 @@ fixed model operation; there is no general call.
   checks the extracts against the pin file without network access.
 - **Curation table.** One table per service decides which operations become tools and how: the tool ID, effect,
   confirmation, `listed-only`, idempotency, title and descriptions, renames for readability, members hidden for a
-  security reason, the target check and client-side policy check that run before the call, and the own-role check
+  security reason (also members nested in an input), enum values left out of an argument, the target check and client-side policy check that run before the call, and the own-role check
   of a tool that changes or deletes a role. Every operation that is not a read requires confirmation.
 - **Completeness.** Every operation of a model is a tool, in `exclude`, or in `defer`, each with a reason; a test
   fails otherwise, so a new operation of an updated model never becomes a tool or disappears silently. `exclude`
@@ -134,7 +136,8 @@ fixed model operation; there is no general call.
   (`requires_tool_allow_list`).
 - **From the model.** Arguments, fields and their limits come from the model. Deprecated members are left out. A
   member the model marks sensitive, or whose name says it holds a credential, stops the generation unless the table
-  hides it; only a top-level member can be hidden. A table may name string shapes the service returns
+  hides it; a table can hide a top-level or a nested input member, and can exclude single values of an enum
+  argument, so a value such as a key origin is never accepted. A table may name string shapes the service returns
   percent-encoded, such as the IAM policy documents; their values are decoded before the cap applies, and a
   malformed value is an invalid answer. A paged operation takes `page_size` (where the service has a page size) and `cursor` and returns
   `next_cursor` and `has_more`. An operation with an idempotency token generates the token, accepts `client_token`
@@ -148,10 +151,11 @@ fixed model operation; there is no general call.
   with `MaxResults` or `PageSize`. The HTTP bindings are a separate package (`httpbind`) that a `restXml` layer
   reuses; only the body format differs. The generator knows no operation names: an operation whose traits do not
   bind unambiguously, or that uses a trait the runtime does not carry (such as streaming), stops the generation and
-  names the operation. A model gives `PageSize` no maximum, so the tool offers no `page_size` there rather than
-  guessing one. The tables of `account` and `sesv2` are raw scaffolds: every operation is in `defer`, and no tool
-  exists for either service yet. Tools are rendered for `awsQuery` only; a table of a `restJson1` model with tools
-  is refused until the first service package.
+  names the operation. A model gives `PageSize` no maximum, so the tool offers no `page_size` unless the table
+  states the maximum of the service. A table can name a hand-written result step, which adds a member computed
+  from the checked answer and the arguments, such as the SES `dns_records`; the generator declares the member in the
+  result schema, and the step reads only values the answer validated. The `account` table is still a scaffold with
+  every operation in `defer`.
 
 A model update is a deliberate change. Set the commit, the retrieval day and the upstream hashes in
 `internal/provider/aws/gen/model/pin.json`, download the upstream files into a directory laid out like

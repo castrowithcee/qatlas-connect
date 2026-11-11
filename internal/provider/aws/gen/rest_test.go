@@ -33,7 +33,7 @@ func describeBinding(b *RestBinding) string {
 }
 
 // Every operation of both real models binds to the runtime, and the table of each lists exactly these
-// operations in defer: nothing is a tool yet, nothing is missing.
+// operations in operations, exclude or defer: nothing is missing.
 func TestEveryOperationOfTheRestModelsBinds(t *testing.T) {
 	for _, c := range []struct {
 		table Table
@@ -44,8 +44,8 @@ func TestEveryOperationOfTheRestModelsBinds(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if len(ops) != c.count || len(c.table.Defer) != c.count || len(c.table.Operations) != 0 || len(c.table.Exclude) != 0 {
-			t.Errorf("%s: %d operations in the model, %d deferred, %d tools", c.table.Service, len(ops), len(c.table.Defer), len(c.table.Operations))
+		if listed := len(c.table.Defer) + len(c.table.Operations) + len(c.table.Exclude); len(ops) != c.count || listed != c.count {
+			t.Errorf("%s: %d operations in the model, %d listed in the table", c.table.Service, len(ops), listed)
 		}
 		for _, op := range ops {
 			b, err := m.BindRest(op)
