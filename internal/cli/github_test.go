@@ -411,7 +411,7 @@ defaults: {}
 		var reads atomic.Int32
 		code, stdout, stderr := runTwentyCLI(t, &reads, `{"number":42}`,
 			"invoke", "github.issues.get", "--connection", connection, "--config", path)
-		if code != exitUsage || stdout != "" || strings.TrimSpace(stderr) != "qconnect: "+want {
+		if code != exitUsage || stdout != "" || messageWithStep(stderr) != want {
 			t.Errorf("CLI on %s: exit=%d stdout=%q stderr=%q, want exit %d and %q", connection, code, stdout,
 				stderr, exitUsage, want)
 		}

@@ -12,6 +12,7 @@ import (
 
 	"github.com/castrowithcee/qatlas-connect/internal/application"
 	"github.com/castrowithcee/qatlas-connect/internal/secret"
+	kitcli "github.com/castrowithcee/qatlas-kit/cli"
 	"github.com/castrowithcee/qatlas-kit/output"
 	"github.com/castrowithcee/qatlas-kit/redact"
 )
@@ -157,6 +158,14 @@ func TestRemovedGlobalFlagsAreGone(t *testing.T) {
 	}
 }
 
+// exitCodeOf is the process exit code the command line gives err.
+func exitCodeOf(err error) int {
+	if err == nil {
+		return exitOK
+	}
+	return kitcli.ExitCode(failureFor(err, output.FormatTable, &redact.Redactor{}))
+}
+
 func TestExitCode(t *testing.T) {
 	tests := []struct {
 		name string
@@ -178,8 +187,8 @@ func TestExitCode(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := exitCode(tt.err); got != tt.want {
-				t.Errorf("exitCode(%v) = %d, want %d", tt.err, got, tt.want)
+			if got := exitCodeOf(tt.err); got != tt.want {
+				t.Errorf("exit code of %v = %d, want %d", tt.err, got, tt.want)
 			}
 		})
 	}
@@ -203,8 +212,8 @@ func TestRunRuntimeError(t *testing.T) {
 	if stdout.Len() != 0 {
 		t.Errorf("stdout = %q, want empty", stdout.String())
 	}
-	if got := stderr.String(); got != "qconnect: runtime: synthetic internal failure\n" {
-		t.Errorf("stderr = %q, want the diagnostic line only", got)
+	if got := stderr.String(); got != "qconnect: runtime: synthetic internal failure\n"+fallbackStep+"\n" {
+		t.Errorf("stderr = %q, want the diagnostic line and the fallback step", got)
 	}
 }
 

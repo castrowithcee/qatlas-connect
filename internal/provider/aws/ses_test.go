@@ -40,7 +40,7 @@ func sesFake(answer func(sent) reply) *fakeAWS {
 func restCalls(f *fakeAWS) []sent { return restRequests(f) }
 
 // The identity tools and their risk: reads are safe and open, writes need confirmation, Put* repeat safely,
-// create and delete do not, and none is listed-only.
+// create and delete do not, and only the identity policy writes are listed-only.
 func TestSESIdentityToolsRisk(t *testing.T) {
 	want := map[string]struct {
 		effect capability.Effect
@@ -50,6 +50,9 @@ func TestSESIdentityToolsRisk(t *testing.T) {
 		"aws.ses.email-identity.get":                              {capability.EffectRead, capability.IdempotencySafe},
 		"aws.ses.email-identity.list-tags":                        {capability.EffectRead, capability.IdempotencySafe},
 		"aws.ses.email-identity-policy.list":                      {capability.EffectRead, capability.IdempotencySafe},
+		"aws.ses.email-identity-policy.create":                    {capability.EffectCreate, capability.IdempotencyNonIdempotent},
+		"aws.ses.email-identity-policy.update":                    {capability.EffectUpdate, capability.IdempotencyIdempotent},
+		"aws.ses.email-identity-policy.delete":                    {capability.EffectDelete, capability.IdempotencyNonIdempotent},
 		"aws.ses.email-identity.create":                           {capability.EffectCreate, capability.IdempotencyNonIdempotent},
 		"aws.ses.email-identity.delete":                           {capability.EffectDelete, capability.IdempotencyNonIdempotent},
 		"aws.ses.email-identity.put-dkim-attributes":              {capability.EffectUpdate, capability.IdempotencyIdempotent},
@@ -73,7 +76,7 @@ func TestSESIdentityToolsRisk(t *testing.T) {
 			confirmation = capability.ConfirmationRequired
 		}
 		if !ok || d.Risk.Effect != w.effect || d.Risk.Idempotency != w.idem || d.Risk.Confirmation != confirmation ||
-			!d.Risk.OpenWorld || d.Risk.DataSensitivity == "" || d.RequiresToolAllowList || d.Group != "ses" || s.rest == nil {
+			!d.Risk.OpenWorld || d.Risk.DataSensitivity == "" || d.RequiresToolAllowList != (w.effect != capability.EffectRead && strings.HasPrefix(d.ID, "aws.ses.email-identity-policy.")) || d.Group != "ses" || s.rest == nil {
 			t.Errorf("%s descriptor = %+v", d.ID, d)
 		}
 	}
