@@ -11,6 +11,7 @@ import (
 	"github.com/charmbracelet/x/ansi"
 
 	"github.com/castrowithcee/qatlas-connect/internal/uiprefs"
+	kittui "github.com/castrowithcee/qatlas-kit/tui"
 )
 
 // configBytes is the content of the configuration file, or a marker where it does not exist yet.
@@ -124,7 +125,7 @@ func TestDropdownReadsWithoutColour(t *testing.T) {
 	before := currentProfile()
 	prior := styles
 	t.Cleanup(func() { setProfile(before); setTheme(prior) })
-	setProfile(profileASCII)
+	setProfile(kittui.ProfileMono)
 	applyTheme(uiprefs.ThemeTerminal)
 
 	m := newTableModel(t, 100)
