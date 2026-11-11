@@ -9,9 +9,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/castrowithcee/qatlas-connect/internal/release/releasetest"
 	"github.com/castrowithcee/qatlas-connect/internal/selfupdate"
 	"github.com/castrowithcee/qatlas-connect/internal/vault"
+	"github.com/castrowithcee/qatlas-kit/release/releasetest"
 )
 
 const (

@@ -3,15 +3,16 @@
 package selfupdate
 
 import (
-	"archive/tar"
-	"bytes"
-	"compress/gzip"
 	"context"
-	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
+
+	"github.com/castrowithcee/qatlas-kit/release/releasetest"
+
+	"github.com/castrowithcee/qatlas-connect/internal/selfupdate/selfupdatetest"
 )
 
 // writeFiles creates the files, by path relative to dir, with their bodies.
@@ -25,13 +26,6 @@ func writeFiles(t *testing.T, dir string, files map[string]string) {
 		if err := os.WriteFile(path, []byte(body), 0o644); err != nil {
 			t.Fatal(err)
 		}
-	}
-}
-
-func assertMissing(t *testing.T, path string) {
-	t.Helper()
-	if _, err := os.Lstat(path); !errors.Is(err, os.ErrNotExist) {
-		t.Errorf("%s exists: %v", path, err)
 	}
 }
 
@@ -122,37 +116,14 @@ func TestAdoptManpagesLeavesALinkedFormerPage(t *testing.T) {
 	assertMissing(t, filepath.Join(dir, "qconnect.1"))
 }
 
-// archiveOf packs files, by archive path, into a release archive with the program.
-func archiveOf(t *testing.T, files map[string]string) []byte {
+// updateWith updates the installation at executable from v3.0.0 to a signed v3.1.0 with the program
+// "new-binary" and the files, by archive path.
+func updateWith(t *testing.T, executable string, files map[string]string) {
 	t.Helper()
-	var body bytes.Buffer
-	gz := gzip.NewWriter(&body)
-	tw := tar.NewWriter(gz)
-	files["bin/qconnect"] = "new-binary"
-	for name, content := range files {
-		if err := tw.WriteHeader(&tar.Header{Name: name, Mode: 0o644, Size: int64(len(content)), Typeflag: tar.TypeReg}); err != nil {
-			t.Fatal(err)
-		}
-		if _, err := tw.Write([]byte(content)); err != nil {
-			t.Fatal(err)
-		}
-	}
-	if err := tw.Close(); err != nil {
-		t.Fatal(err)
-	}
-	if err := gz.Close(); err != nil {
-		t.Fatal(err)
-	}
-	return body.Bytes()
-}
-
-func updateWith(t *testing.T, executable string, archive []byte) {
-	t.Helper()
-	server := releaseServer(t, "v3.1.0", archive, "")
-	defer server.Close()
-	client := &Client{BaseURL: server.URL, HTTPClient: server.Client(), Version: "v3.0.0", SigningKeys: testKeys(t),
-		GOOS: "linux", GOARCH: "amd64", Executable: executable}
-	if result, err := client.Update(context.Background()); err != nil || !result.Updated {
+	signer := releasetest.NewSigner(t)
+	files[layoutOf(t, "v3.1.0").ProgramFile(runtime.GOOS)] = "new-binary"
+	server := selfupdatetest.NewServer(t, published(t, signer, "v3.1.0", files))
+	if result, err := clientFor(server, signer, "v3.0.0", executable).Update(context.Background()); err != nil || !result.Updated {
 		t.Fatalf("Update() = %+v, %v", result, err)
 	}
 }
@@ -169,7 +140,7 @@ func TestUpdateInstallsAllManpagesAndDropsGoneOnes(t *testing.T) {
 	if err := os.Symlink("qconnect.1", filepath.Join(manDir, "qatlas.1")); err != nil {
 		t.Fatal(err)
 	}
-	updateWith(t, executable, archiveOf(t, map[string]string{
+	updateWith(t, executable, map[string]string{
 		"share/man/man1/qconnect.1":       "new-main",
 		"share/man/man1/qconnect-a.1":     "new-a",
 		"share/man/man1/qconnect-b-c.1":   "new-b",
@@ -178,7 +149,7 @@ func TestUpdateInstallsAllManpagesAndDropsGoneOnes(t *testing.T) {
 		"share/man/man1/qconnect-../x.1":  "rejected path",
 		"share/man/man1/other.1":          "not ours",
 		"share/doc/qconnect/qconnect-e.1": "not a manpage",
-	}))
+	})
 	assertFile(t, filepath.Join(manDir, "qconnect.1"), "new-main")
 	assertFile(t, filepath.Join(manDir, "qconnect-a.1"), "new-a")
 	assertFile(t, filepath.Join(manDir, "qconnect-b-c.1"), "new-b")
@@ -198,9 +169,9 @@ func TestUpdateRemovesAGoneSubpage(t *testing.T) {
 	prefix, executable := installedPrefix(t)
 	manDir := filepath.Join(prefix, "share", "man", "man1")
 	writeFiles(t, manDir, map[string]string{"qconnect-gone.1": "old", "qconnect-a.1": "old-a", "other.1": "foreign"})
-	updateWith(t, executable, archiveOf(t, map[string]string{
+	updateWith(t, executable, map[string]string{
 		"share/man/man1/qconnect.1": "new-main", "share/man/man1/qconnect-a.1": "new-a",
-	}))
+	})
 	assertFile(t, filepath.Join(manDir, "qconnect-a.1"), "new-a")
 	assertMissing(t, filepath.Join(manDir, "qconnect-gone.1"))
 	assertFile(t, filepath.Join(manDir, "other.1"), "foreign")
@@ -229,7 +200,7 @@ func TestUpdateKeepsPagesWhenTheArchiveCannotBeTrusted(t *testing.T) {
 			prefix, executable := installedPrefix(t)
 			manDir := filepath.Join(prefix, "share", "man", "man1")
 			writeFiles(t, manDir, map[string]string{"qconnect-old.1": "old"})
-			updateWith(t, executable, archiveOf(t, files))
+			updateWith(t, executable, files)
 			assertFile(t, filepath.Join(manDir, "qconnect.1"), "new-main")
 			assertFile(t, filepath.Join(manDir, "qconnect-old.1"), "old")
 			if name == "too many" {
@@ -250,9 +221,9 @@ func TestUpdateSurvivesAnUninstallableSubpage(t *testing.T) {
 		t.Fatal(err)
 	}
 	writeFiles(t, manDir, map[string]string{"qconnect-gone.1": "old"})
-	updateWith(t, executable, archiveOf(t, map[string]string{
+	updateWith(t, executable, map[string]string{
 		"share/man/man1/qconnect.1": "new-main", "share/man/man1/qconnect-a.1": "new-a", "share/man/man1/qconnect-b.1": "new-b",
-	}))
+	})
 	assertFile(t, executable, "new-binary")
 	assertFile(t, filepath.Join(manDir, "qconnect.1"), "new-main")
 	assertFile(t, filepath.Join(manDir, "qconnect-b.1"), "new-b")
