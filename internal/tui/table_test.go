@@ -12,6 +12,7 @@ import (
 
 	"github.com/castrowithcee/qatlas-connect/internal/config"
 	"github.com/castrowithcee/qatlas-connect/internal/secret"
+	kittui "github.com/castrowithcee/qatlas-kit/tui"
 )
 
 // newTableModel is an editor on two providers with entries in every section, sized to a terminal of the
@@ -374,10 +375,10 @@ func hasBackground(row string) bool { return background.MatchString(withoutPanel
 // withoutPanelFill drops the sequences that set the panel colour, which every panel line carries behind its
 // content.
 func withoutPanelFill(row string) string {
-	if styles.palette.panel == "" {
+	if styles.Palette().Panel == "" {
 		return row
 	}
-	out := shown(lipgloss.NewStyle().Background(styles.palette.panel.lip()).Render("x"))
+	out := shown(lipgloss.NewStyle().Background(lip(styles.Palette().Panel)).Render("x"))
 	return strings.ReplaceAll(row, out[:strings.Index(out, "x")], "")
 }
 
@@ -402,7 +403,7 @@ func TestListRowsAreHighlightedFullWidthAndReadWithoutColour(t *testing.T) {
 		}
 		marked, alt := entries[0], entries[1]
 
-		lookOf(profile16)
+		lookOf(kittui.ProfileANSI16)
 		coloured := screenOf(m)
 		assertViewFits(t, coloured, width, m.height)
 		if row := findRow(coloured, marked); !hasBackground(row) || !strings.Contains(row, "▌") {
@@ -412,7 +413,7 @@ func TestListRowsAreHighlightedFullWidthAndReadWithoutColour(t *testing.T) {
 			t.Errorf("width %d: the unmarked row carries the bar, so it is not shaded: %q\n%s", width, row, coloured)
 		}
 
-		lookOf(profileNone)
+		lookOf(kittui.ProfileNone)
 		plain := screenOf(m)
 		assertViewFits(t, plain, width, m.height)
 		if strings.Contains(plain, "\x1b") {

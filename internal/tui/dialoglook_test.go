@@ -13,6 +13,7 @@ import (
 
 	"github.com/castrowithcee/qatlas-connect/internal/provider/github"
 	"github.com/castrowithcee/qatlas-connect/internal/selftest"
+	kittui "github.com/castrowithcee/qatlas-kit/tui"
 )
 
 // dialogScreen brings a model to one dialog screen; the model is sized by the caller afterwards.
@@ -189,7 +190,7 @@ func TestResultsCarryTheirColourAndWord(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			visualSetup(t, false)
 			useDarkColours()
-			setProfile(profileTrueColor)
+			setProfile(kittui.ProfileTrueColor)
 			m := tc.open(t)
 			m.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
 			view := withoutPanelFill(m.render())

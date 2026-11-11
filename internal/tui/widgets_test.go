@@ -6,6 +6,8 @@ import (
 	"testing"
 
 	"charm.land/lipgloss/v2"
+
+	kittui "github.com/castrowithcee/qatlas-kit/tui"
 )
 
 var sgr = regexp.MustCompile("\x1b\\[[0-9;]*m")
@@ -14,10 +16,10 @@ func withTheme(t *testing.T, th theme) {
 	t.Helper()
 	before, profile := styles, currentProfile()
 	// A theme without a palette is the theme of a profile without colour.
-	if th.palette == (palette{}) {
-		setProfile(profileASCII)
+	if th.Palette() == (kittui.Palette{}) {
+		setProfile(kittui.ProfileMono)
 	} else {
-		setProfile(profileTrueColor)
+		setProfile(kittui.ProfileTrueColor)
 	}
 	setTheme(th)
 	t.Cleanup(func() { setTheme(before); setProfile(profile) })
@@ -75,7 +77,7 @@ func TestProviderMarkIsStableAndUsesBrandColours(t *testing.T) {
 			t.Fatalf("%q unstable", name)
 		}
 		found := false
-		for _, b := range styles.palette.brand {
+		for _, b := range styles.Palette().Brand {
 			found = found || b == c
 		}
 		if !found {
@@ -120,14 +122,14 @@ func TestTabStripActiveTabIsASurfaceAndBracketsWithoutColour(t *testing.T) {
 
 func TestPanelAndFieldCarrySurfaces(t *testing.T) {
 	withTheme(t, darkTheme())
-	p := styles.palette
-	bgOf := func(c colour) string {
-		out := lipgloss.NewStyle().Background(c.lip()).Render("x")
+	p := styles.Palette()
+	bgOf := func(c kittui.Color) string {
+		out := lipgloss.NewStyle().Background(lip(c)).Render("x")
 		return out[:strings.Index(out, "x")]
 	}
-	panelBG, fieldBG := bgOf(p.panel), bgOf(p.surface)
-	if panelBG == fieldBG || bgOf(p.base) == panelBG || bgOf(p.base) == fieldBG {
-		t.Fatalf("base, panel and surface must differ: %q %q %q", bgOf(p.base), panelBG, fieldBG)
+	panelBG, fieldBG := bgOf(p.Panel), bgOf(p.Surface)
+	if panelBG == fieldBG || bgOf(p.Base) == panelBG || bgOf(p.Base) == fieldBG {
+		t.Fatalf("base, panel and surface must differ: %q %q %q", bgOf(p.Base), panelBG, fieldBG)
 	}
 	// A styled text inside a panel keeps the panel colour behind it, also after its own reset.
 	lines := panel("t", []string{styles.hint.Render("dim") + " tail"}, 20, 1, panelOpts{})

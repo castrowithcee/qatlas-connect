@@ -18,6 +18,7 @@ import (
 	"github.com/castrowithcee/qatlas-connect/internal/manage"
 	"github.com/castrowithcee/qatlas-connect/internal/vault"
 	"github.com/castrowithcee/qatlas-connect/internal/vaultproc"
+	kittui "github.com/castrowithcee/qatlas-kit/tui"
 )
 
 // TestMain keeps the ordinary test suite from ever spawning a second copy of this test binary as a vault
@@ -154,12 +155,12 @@ func TestVaultHeaderAdminAbbreviationWithOnlyTheVaultProcessUnlocked(t *testing.
 	}
 }
 
-// Neither symbol nor word is colour alone: with NO_COLOR (profileNone, what SetColorProfile(3) also
+// Neither symbol nor word is colour alone: with NO_COLOR (kittui.ProfileNone, what SetColorProfile(3) also
 // produces) the header still names every state in plain words, and emits no escape sequence.
 func TestVaultHeaderReadsWithoutColour(t *testing.T) {
 	before := currentProfile()
 	t.Cleanup(func() { setProfile(before) })
-	setProfile(profileNone)
+	setProfile(kittui.ProfileNone)
 
 	for _, tt := range []struct {
 		name  string

@@ -450,7 +450,7 @@ func (m *Model) listRowIn(room int, active bool, text string) string {
 // so the selection never depends on colour alone.
 func selectionMark() string {
 	// The plain terminal palette has colour but no selection fill for the bar to stand on.
-	if noColour() || styles.palette.selection == "" {
+	if noColour() || styles.Palette().Selection == "" {
 		return ">"
 	}
 	return "▌"
