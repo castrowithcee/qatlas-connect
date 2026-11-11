@@ -187,8 +187,10 @@ var currentToolIDs = []string{
 	"github.pull-request-commits.list",
 	"github.pull-request-diffs.get",
 	"github.pull-request-files.list",
+	"github.pull-request-review-comments.delete",
 	"github.pull-request-review-comments.list",
 	"github.pull-request-review-comments.reply",
+	"github.pull-request-review-comments.update",
 	"github.pull-request-review-threads.list",
 	"github.pull-request-review-threads.resolve",
 	"github.pull-request-review-threads.unresolve",
@@ -196,7 +198,10 @@ var currentToolIDs = []string{
 	"github.pull-request-reviewers.request",
 	"github.pull-request-reviews.approve",
 	"github.pull-request-reviews.create",
+	"github.pull-request-reviews.delete-pending",
+	"github.pull-request-reviews.dismiss",
 	"github.pull-request-reviews.list",
+	"github.pull-request-reviews.update",
 	"github.pull-requests.close",
 	"github.pull-requests.create",
 	"github.pull-requests.get",
@@ -293,7 +298,7 @@ func TestRegistryHoldsExactlyTheCurrentToolIDs(t *testing.T) {
 	sort.Strings(got)
 	want := append([]string(nil), currentToolIDs...)
 	sort.Strings(want)
-	if strings.Join(got, "\n") != strings.Join(want, "\n") || len(got) != 268 {
+	if strings.Join(got, "\n") != strings.Join(want, "\n") || len(got) != 273 {
 		t.Errorf("registry holds %d tools, differing from the expected %d IDs", len(got), len(want))
 	}
 	if err := reg.ValidateRenames(); err != nil {
@@ -345,7 +350,10 @@ func TestRenamedToolsCoverEveryChangedID(t *testing.T) {
 		"github.deployment-statuses.get": true,
 		"github.rate-limit.get":          true, "github.gitignore-templates.list": true, "github.gitignore-templates.get": true,
 		"github.codes-of-conduct.list": true, "github.codes-of-conduct.get": true,
-		"github.branches.sync-fork": true}
+		"github.branches.sync-fork":          true,
+		"github.pull-request-reviews.update": true, "github.pull-request-reviews.dismiss": true,
+		"github.pull-request-reviews.delete-pending": true, "github.pull-request-review-comments.update": true,
+		"github.pull-request-review-comments.delete": true}
 	for id := range current {
 		if strings.Contains(id, "-") && !targets[id] && !bornHyphenated[id] {
 			t.Errorf("hyphenated tool %s has no former ID", id)
