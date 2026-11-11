@@ -1056,6 +1056,10 @@ func (t *tool) makeSamples(m *Model) error {
 			args.set(f.Key, sampleTrustPolicy)
 			continue
 		}
+		if t.op.PolicyCheck == "resource-policy-own-account" && slices.Contains(t.policyArgs, f.Key) {
+			args.set(f.Key, sampleResourcePolicy)
+			continue
+		}
 		v, err := t.sample(f.Key, f.Shape, props[f.Key])
 		if err != nil {
 			return err
@@ -1116,6 +1120,9 @@ var targetSamples = map[string]string{
 
 // sampleTrustPolicy is a trust policy that passes the trust-policy check: one AWS service principal.
 const sampleTrustPolicy = `{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Principal":{"Service":"ec2.amazonaws.com"},"Action":"sts:AssumeRole"}]}`
+
+// sampleResourcePolicy passes the resource-policy-own-account check in the account the generated tests bind.
+const sampleResourcePolicy = `{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Principal":{"AWS":"123456789012"},"Action":"ses:SendEmail","Resource":"*"}]}`
 
 // sampleWords are whole values tried after the repeated characters, for patterns with a fixed prefix such as
 // the version IDs of IAM policies.
