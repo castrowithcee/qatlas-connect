@@ -6,7 +6,7 @@ import "slices"
 // curates the tools moves each operation it takes into operations or exclude.
 const deferRoute53 = "not curated yet; the Route 53 service package decides effect, confirmation and zone target first"
 
-// route53Table curates the route-53 model. The hosted zone, record set, and health check tools are curated; the other operations wait for their tool groups.
+// route53Table curates the route-53 model. The hosted zone, record set, health check, and DNSSEC tools are curated; the other operations wait for their tool groups.
 var route53Table = Table{
 	Service: "route-53", Segment: "route53", Geltung: Global,
 	// A record set list continues at a name and a type, and at an identifier when the records are weighted,
@@ -20,35 +20,28 @@ var route53Table = Table{
 	// Route 53 answers zone IDs as /hostedzone/Z..., and accepts both forms only in some places. The tools take both.
 	IDPrefixes: []IDPrefix{{Shape: "ResourceId", Prefix: "/hostedzone/"}, {Shape: "TagResourceId", Prefix: "/hostedzone/"},
 		{Shape: "ChangeId", Prefix: "/change/"}},
-	Operations: slices.Concat(route53ZoneTools, route53RecordTools, route53HealthTools),
+	Operations: slices.Concat(route53ZoneTools, route53RecordTools, route53HealthTools, route53DNSSECTools),
 	Exclude: []Omission{
 		{Operation: "CreateVPCAssociationAuthorization", Reason: "authorizing a VPC of another account to join a private zone lets that account resolve the zone's records; nothing checks the account, so it is not offered"},
 	},
 	Defer: []Omission{
-		{Operation: "ActivateKeySigningKey", Reason: deferRoute53},
 		{Operation: "AssociateVPCWithHostedZone", Reason: deferRoute53},
 		{Operation: "ChangeCidrCollection", Reason: deferRoute53},
 		{Operation: "CreateCidrCollection", Reason: deferRoute53},
-		{Operation: "CreateKeySigningKey", Reason: deferRoute53},
 		{Operation: "CreateQueryLoggingConfig", Reason: deferRoute53},
 		{Operation: "CreateReusableDelegationSet", Reason: deferRoute53},
 		{Operation: "CreateTrafficPolicy", Reason: deferRoute53},
 		{Operation: "CreateTrafficPolicyInstance", Reason: deferRoute53},
 		{Operation: "CreateTrafficPolicyVersion", Reason: deferRoute53},
-		{Operation: "DeactivateKeySigningKey", Reason: deferRoute53},
 		{Operation: "DeleteCidrCollection", Reason: deferRoute53},
-		{Operation: "DeleteKeySigningKey", Reason: deferRoute53},
 		{Operation: "DeleteQueryLoggingConfig", Reason: deferRoute53},
 		{Operation: "DeleteReusableDelegationSet", Reason: deferRoute53},
 		{Operation: "DeleteTrafficPolicy", Reason: deferRoute53},
 		{Operation: "DeleteTrafficPolicyInstance", Reason: deferRoute53},
 		{Operation: "DeleteVPCAssociationAuthorization", Reason: deferRoute53},
-		{Operation: "DisableHostedZoneDNSSEC", Reason: deferRoute53},
 		{Operation: "DisassociateVPCFromHostedZone", Reason: deferRoute53},
-		{Operation: "EnableHostedZoneDNSSEC", Reason: deferRoute53},
 		{Operation: "GetAccountLimit", Reason: deferRoute53},
 		{Operation: "GetCheckerIpRanges", Reason: deferRoute53},
-		{Operation: "GetDNSSEC", Reason: deferRoute53},
 		{Operation: "GetGeoLocation", Reason: deferRoute53},
 		{Operation: "GetHostedZoneLimit", Reason: deferRoute53},
 		{Operation: "GetQueryLoggingConfig", Reason: deferRoute53},

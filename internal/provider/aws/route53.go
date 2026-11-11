@@ -222,3 +222,20 @@ func checkRoute53Health(b binding, _ string, args map[string]any) error {
 	}
 	return nil
 }
+
+// kskRegion is the only region of the KMS key of a key signing key.
+const kskRegion = "us-east-1"
+
+// checkRoute53KSK judges the KMS key of a new key signing key before any request. DNSSEC signing keys must lie in
+// us-east-1, which the connection need not allow, so the region is fixed and not tied to the allow-list. The key
+// must be named by the ARN of a key (not an alias) in the bound account.
+func checkRoute53KSK(b binding, _ string, args map[string]any) error {
+	arn, _ := args["key_management_service_arn"].(string)
+	parts := strings.SplitN(arn, ":", 6)
+	if len(parts) == 6 && parts[0] == "arn" && parts[1] == "aws" && parts[2] == "kms" && parts[3] == kskRegion && parts[4] == b.account {
+		if id, ok := strings.CutPrefix(parts[5], "key/"); ok && kmsKeyID.MatchString(id) {
+			return nil
+		}
+	}
+	return &provider.InvalidRequestError{Message: "key_management_service_arn must be the ARN of a KMS key (key/...) in us-east-1 in the account this connection is bound to"}
+}
