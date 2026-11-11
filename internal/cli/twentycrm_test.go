@@ -189,6 +189,11 @@ func TestTwentyInvokeRefusalsHappenBeforeSecretsAndProviderIO(t *testing.T) {
 			code: "invalid-request",
 		},
 		{
+			name: "an identifier of UUID length that is not a UUID", input: `{"id":"zzzzzzzz-zzzz-zzzz-zzzz-zzzzzzzzzzzz"}`,
+			args: []string{"invoke", "twenty-crm.companies.get", "--connection", "crm", "--config", path},
+			code: "invalid-request",
+		},
+		{
 			name: "a connection of another provider", input: `{"id":"8f14e45f-ceea-467a-9e60-3b4b5e0f0e21"}`,
 			args: []string{"invoke", "twenty-crm.companies.get", "--connection", "wiki", "--config", path},
 			code: "unsupported-capability",

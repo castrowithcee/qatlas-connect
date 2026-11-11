@@ -5,14 +5,17 @@ package capability
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 	"sort"
 	"strings"
+	"sync"
 
 	"github.com/castrowithcee/qatlas-connect/internal/config"
 	"github.com/castrowithcee/qatlas-connect/internal/provider"
 	"github.com/castrowithcee/qatlas-connect/internal/secret"
+	"github.com/castrowithcee/qatlas-kit/jsonschema"
 	"github.com/castrowithcee/qatlas-kit/redact"
 )
 
@@ -966,7 +969,25 @@ func validateSchema(kind, id string, schema json.RawMessage) error {
 	if err := json.Unmarshal(schema, &object); err != nil || object == nil {
 		return fmt.Errorf("operation %q: %s schema must be a JSON object", id, kind)
 	}
+	if err := checkSchemaOnce(schema); err != nil {
+		return fmt.Errorf("operation %q: %s schema is invalid: %w", id, kind, err)
+	}
 	return nil
+}
+
+// checkedSchemas remembers the kit's verdict per schema text, so a process that builds a registry more than
+// once checks each distinct schema only once. The kit's check is the only judge; this only avoids repeating it.
+var checkedSchemas sync.Map // [32]byte -> error
+
+func checkSchemaOnce(schema json.RawMessage) error {
+	key := sha256.Sum256(schema)
+	if verdict, ok := checkedSchemas.Load(key); ok {
+		err, _ := verdict.(error)
+		return err
+	}
+	err := jsonschema.CheckSchema(schema)
+	checkedSchemas.Store(key, err)
+	return err
 }
 
 func validateSchemaValue(value json.RawMessage) error {

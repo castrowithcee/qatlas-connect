@@ -116,6 +116,8 @@ func TestRegisterRejectsInvalidOperations(t *testing.T) {
 		{"missing input schema", "fakewiki", operation(withInputSchema(pagesList, nil)), "input schema must be valid JSON"},
 		{"invalid input schema", "fakewiki", operation(withInputSchema(pagesList, json.RawMessage(`{"type":`))), "input schema must be valid JSON"},
 		{"non-object input schema", "fakewiki", operation(withInputSchema(pagesList, json.RawMessage(`[]`))), "input schema must be a JSON object"},
+		{"unknown input keyword", "fakewiki", operation(withInputSchema(pagesList, json.RawMessage(`{"type":"object","contains":{}}`))), `operation "fakewiki.pages.list": input schema is invalid`},
+		{"unknown output format", "fakewiki", operation(withOutputSchema(pagesList, json.RawMessage(`{"type":"string","format":"email"}`))), `operation "fakewiki.pages.list": output schema is invalid`},
 		{"missing output schema", "fakewiki", operation(withOutputSchema(pagesList, nil)), "output schema must be valid JSON"},
 		{
 			"duplicate argument", "fakewiki",
