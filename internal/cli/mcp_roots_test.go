@@ -13,9 +13,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/castrowithcee/qatlas-connect/internal/application"
 	"github.com/castrowithcee/qatlas-connect/internal/config"
-	"github.com/castrowithcee/qatlas-connect/internal/output"
 	"github.com/castrowithcee/qatlas-connect/internal/secret"
+	"github.com/castrowithcee/qatlas-kit/output"
 	"github.com/castrowithcee/qatlas-kit/redact"
 )
 
@@ -208,8 +209,8 @@ func TestMCPRootsNameTheProjectsOfTheSession(t *testing.T) {
 	// The stale answer to the first request is dropped without a response; only the latest one counts.
 	session.send(rootsReply(first, projectURI))
 	session.send(rootsReply(second, fileURI(outside)))
-	if code := session.describe(""); code != output.CodeUnknownConnection {
-		t.Fatalf("describe with roots outside = %q, want %s", code, output.CodeUnknownConnection)
+	if code := session.describe(""); code != application.CodeUnknownConnection {
+		t.Fatalf("describe with roots outside = %q, want %s", code, application.CodeUnknownConnection)
 	}
 }
 
@@ -268,8 +269,8 @@ func TestMCPRootsThatComeLateOrDoNotApply(t *testing.T) {
 	}
 
 	session.send(rootsReply(id, fileURI(outside)))
-	if code := session.describe(""); code != output.CodeUnknownConnection {
-		t.Fatalf("describe after the late answer = %q, want %s", code, output.CodeUnknownConnection)
+	if code := session.describe(""); code != application.CodeUnknownConnection {
+		t.Fatalf("describe after the late answer = %q, want %s", code, application.CodeUnknownConnection)
 	}
 	if code := session.describe(mcpTestMeta); code != "" {
 		t.Fatalf("per-request describe = %s, want the connection of the working directory", code)
@@ -278,8 +279,8 @@ func TestMCPRootsThatComeLateOrDoNotApply(t *testing.T) {
 	// Without listChanged in the offer, a change notification asks for nothing: describe reads the next
 	// message and would fail on a roots/list request.
 	session.send(`{"jsonrpc":"2.0","method":"notifications/roots/list_changed"}`)
-	if code := session.describe(""); code != output.CodeUnknownConnection {
-		t.Fatalf("describe after an unannounced change = %q, want %s", code, output.CodeUnknownConnection)
+	if code := session.describe(""); code != application.CodeUnknownConnection {
+		t.Fatalf("describe after an unannounced change = %q, want %s", code, application.CodeUnknownConnection)
 	}
 }
 

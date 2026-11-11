@@ -16,6 +16,12 @@ type (
 	Page  = awsquery.Page
 )
 
+// PageParams is what ApplyPage reads of a page: the request members it sets, by wire name. Page and MultiPage
+// both have it.
+type PageParams interface {
+	Params() map[string]string
+}
+
 // The paging members belong in the description of the input, where their place (query or body) is bound,
 // under a key that starts with "~" (as the output members of the pager do), so that they never collide with
 // an argument of the tool and the tool reads page_size and cursor instead.
@@ -24,7 +30,7 @@ type (
 // top-level members of the input by their wire name, in the query or in the body. A paging member the input
 // lacks, or an argument that already holds one, is an error: the description or the call would otherwise
 // disagree with the cursor.
-func ApplyPage(input *Shape, args map[string]any, page Page) (map[string]any, error) {
+func ApplyPage(input *Shape, args map[string]any, page PageParams) (map[string]any, error) {
 	out := make(map[string]any, len(args)+2)
 	for k, v := range args {
 		out[k] = v
