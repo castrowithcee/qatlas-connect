@@ -674,7 +674,7 @@ defaults:
 
 	// The rollback names the state the former release works on before it installs anything.
 	formerCalls := logCalls(t, legacyHome)
-	out, code := runDialog(t, current, "", []dialogStep{{"[y/N] ", "y", false}}, "update", "--to", formerTag)
+	out, code := runDialog(t, current, "", []dialogStep{{"[y/N] ", "y", false}}, "update", "--to", formerTag, "--confirm")
 	question := out
 	if i := strings.Index(out, "[y/N]"); i >= 0 {
 		question = out[:i]

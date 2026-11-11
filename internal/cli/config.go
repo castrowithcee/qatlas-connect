@@ -14,6 +14,7 @@ import (
 	"github.com/castrowithcee/qatlas-connect/internal/config"
 	"github.com/castrowithcee/qatlas-connect/internal/manage"
 	"github.com/castrowithcee/qatlas-connect/internal/secret"
+	"github.com/castrowithcee/qatlas-kit/cobracli"
 	"github.com/castrowithcee/qatlas-kit/output"
 )
 
@@ -27,7 +28,7 @@ func newConfigCommand(opts *Options, reg *capability.Registry) *cobra.Command {
 
 	var (
 		secrets bool
-		fields  []string
+		fields  *cobracli.Fields
 	)
 	validate := &cobra.Command{
 		Use:   "validate",
@@ -115,7 +116,7 @@ func newConfigCommand(opts *Options, reg *capability.Registry) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			projected, err := output.Project(result, fields)
+			projected, err := fields.Project(result)
 			if err != nil {
 				return classifyUserError(err)
 			}
@@ -124,8 +125,7 @@ func newConfigCommand(opts *Options, reg *capability.Registry) *cobra.Command {
 	}
 	validate.Flags().BoolVar(&secrets, "secrets", false,
 		"also report which source delivers each secret, without showing any value")
-	validate.Flags().StringSliceVar(&fields, "fields", nil,
-		"restrict the report to these fields, in this order")
+	fields = opts.program.AddFields(validate)
 
 	cmd.AddCommand(validate, newConfigRenameCommand(opts, reg), newConfigExportCommand(opts, reg),
 		newConfigImportCommand(opts, reg))
