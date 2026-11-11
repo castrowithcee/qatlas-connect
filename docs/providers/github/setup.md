@@ -149,6 +149,7 @@ assignment; `repo` is the scope of the issue and pull request routes it changes.
 | Create, update, close, reopen, update the branch | `repo` | Pull requests: read and write |
 | Merge | `repo` | Pull requests: read and write, plus Contents: read and write |
 | Review, approve, reply, resolve or unresolve a thread, request or remove reviewers | `repo` | Pull requests: read and write |
+| Change the text of a review or a line comment, dismiss a review, delete a pending review or a line comment | `repo` | Pull requests: read and write |
 | Read or write conversation comments | `repo` or `public_repo` | Pull requests or Issues: read; read and write to write |
 | Request a Copilot review | `repo`, and write access to the repository | Pull requests: read and write, and write access to the repository |
 
