@@ -1,6 +1,7 @@
 package gen
 
 import (
+	"bytes"
 	"fmt"
 	"slices"
 	"strconv"
@@ -130,7 +131,11 @@ func (t *tool) rootOf(dst, src *httpbind.Shape) {
 // restField builds a top-level field from the converted member f and the field bf of the binding: the place,
 // the wire name and, for restXml, the XML form and the roles of the layer.
 func (t *tool) restField(f awsquery.Field, bf *httpbind.Field) (httpbind.Field, error) {
-	field := httpbind.Field{Key: f.Key, Name: bf.Name, Shape: restShape(f.Shape), Loc: bf.Loc}
+	field := httpbind.Field{Key: f.Key, Name: bf.Name, Shape: restShape(f.Shape), Loc: bf.Loc, IdempotencyToken: f.IdempotencyToken}
+	if field.Shape.Kind == httpbind.KindString && bf.Shape != nil && (bf.Loc == httpbind.LocLabel || bf.Loc == httpbind.LocQuery) {
+		// What an identifier argument may carry in front of the value, such as /hostedzone/.
+		field.Shape.Prefixes = bf.Shape.Prefixes
+	}
 	if !t.xml {
 		return field, nil
 	}
@@ -208,7 +213,7 @@ func (t *tool) restSamples(plain map[string]any) error {
 	if t.xml {
 		codec = restxml.Codec{NoErrorWrapping: t.noWrap}
 	}
-	req, err := t.restOp.EncodeWith(codec, plain, httpbind.EncodeOptions{Owner: sampleOwner})
+	req, err := t.restOp.EncodeWith(codec, plain, httpbind.EncodeOptions{Owner: sampleOwner, Rand: bytes.NewReader(make([]byte, 16))})
 	if err != nil {
 		return t.failf("sample arguments do not encode: %v", err)
 	}
