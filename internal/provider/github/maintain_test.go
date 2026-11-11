@@ -224,7 +224,7 @@ func TestGuardedToolsStayOutOfEveryStandardProfile(t *testing.T) {
 		iterationsReplace.ID: true, viewsDelete.ID: true, itemsDelete.ID: true, statusDelete.ID: true,
 		projectWorkflowsDelete.ID: true, releasesDelete.ID: true, contentsDelete.ID: true,
 		repositoriesDelete.ID: true, collaboratorsUpdate.ID: true, teamsLink.ID: true, teamsUnlink.ID: true,
-		filesPush.ID: true, branchesDelete.ID: true, branchesRename.ID: true, branchesSyncFork.ID: true, mergesCreate.ID: true, tagsDelete.ID: true, rulesetsDelete.ID: true, branchProtectionDelete.ID: true, labelsDelete.ID: true, milestonesDelete.ID: true, actionVariablesDelete.ID: true, actionCachesDelete.ID: true, runsDelete.ID: true, artifactsDelete.ID: true, commentsDelete.ID: true, pullRequestReviewCommentsDelete.ID: true,
+		filesPush.ID: true, branchesDelete.ID: true, branchesRename.ID: true, issuesLock.ID: true, branchesSyncFork.ID: true, mergesCreate.ID: true, tagsDelete.ID: true, rulesetsDelete.ID: true, branchProtectionDelete.ID: true, labelsDelete.ID: true, milestonesDelete.ID: true, actionVariablesDelete.ID: true, actionCachesDelete.ID: true, runsDelete.ID: true, artifactsDelete.ID: true, commentsDelete.ID: true, pullRequestReviewCommentsDelete.ID: true,
 		discussionCommentsDelete.ID: true, runLogsDelete.ID: true, environmentsDelete.ID: true,
 		branchPoliciesDelete.ID: true, protectionRulesDelete.ID: true}
 	// github.pull-requests.merge and github.pull-request-reviews.approve are each guarded on their own: neither is
