@@ -376,7 +376,7 @@ func restShapeLit(s *httpbind.Shape) string {
 			for _, flag := range []struct {
 				set  bool
 				name string
-			}{{f.Flattened, "Flattened"}, {f.Attribute, "Attribute"}, {f.Unwrapped, "Unwrapped"}, {f.Bucket, "Bucket"},
+			}{{f.IdempotencyToken, "IdempotencyToken"}, {f.Flattened, "Flattened"}, {f.Attribute, "Attribute"}, {f.Unwrapped, "Unwrapped"}, {f.Bucket, "Bucket"},
 				{f.Owner, "Owner"}, {f.ContentType, "ContentType"}} {
 				if flag.set {
 					field += ", " + flag.name + ": true"
@@ -397,6 +397,13 @@ func restShapeLit(s *httpbind.Shape) string {
 	}
 	if s.MaxItems > 0 {
 		parts = append(parts, "MaxItems: "+strconv.Itoa(s.MaxItems))
+	}
+	if len(s.Prefixes) > 0 {
+		quoted := make([]string, len(s.Prefixes))
+		for i, p := range s.Prefixes {
+			quoted[i] = lit(p)
+		}
+		parts = append(parts, "Prefixes: []string{"+strings.Join(quoted, ", ")+"}")
 	}
 	if s.XMLName != "" {
 		parts = append(parts, "XMLName: "+lit(s.XMLName))
@@ -550,9 +557,18 @@ func TestGeneratedTools(t *testing.T) {
 				t.Fatalf("requests = %v, want %s", f.actions(), c.action)
 			}
 			if c.method != "" {
-				if call.method != c.method || call.path != c.path || call.rawQuery != c.rawQuery || call.body != c.body {
+				// The body of the test names the all-zero token of the encoder; the tool sent a random one and returned it.
+				wantBody := c.body
+				if c.token {
+					token, _ := got["client_token"].(string)
+					if token == "" || !strings.Contains(call.body, token) {
+						t.Errorf("client_token = %v, not the token sent", got["client_token"])
+					}
+					wantBody = strings.ReplaceAll(c.body, "00000000-0000-4000-8000-000000000000", token)
+				}
+				if call.method != c.method || call.path != c.path || call.rawQuery != c.rawQuery || call.body != wantBody {
 					t.Errorf("request = %s %s?%s %s, want %s %s?%s %s", call.method, call.path, call.rawQuery, call.body,
-						c.method, c.path, c.rawQuery, c.body)
+						c.method, c.path, c.rawQuery, wantBody)
 				}
 				if c.bucket != "" && call.host != c.bucket+".s3."+testRegion+".amazonaws.com" {
 					t.Errorf("host = %s, want the bucket as its first label", call.host)
