@@ -11,8 +11,8 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/castrowithcee/qatlas-connect/internal/application"
-	"github.com/castrowithcee/qatlas-connect/internal/output"
 	"github.com/castrowithcee/qatlas-connect/internal/secret"
+	"github.com/castrowithcee/qatlas-kit/output"
 	"github.com/castrowithcee/qatlas-kit/redact"
 )
 
@@ -382,5 +382,38 @@ func TestAgentFlagHelpNamesEffects(t *testing.T) {
 		if !strings.Contains(flag.Usage, word) {
 			t.Errorf("--agent help %q lacks %q", flag.Usage, word)
 		}
+	}
+}
+
+// A control character in a provider text never reaches the terminal as itself: the table and compact
+// formats show it as an escape, and an unrepresentable value is refused before anything is written.
+func TestEmitMasksControlCharacters(t *testing.T) {
+	hostile := "ok\x1b[2J\x07\nnext"
+	results := map[string]output.Result{
+		"collection": output.Collection{Columns: []string{"title"}, Rows: []output.Row{{"title": hostile}}},
+		"object":     output.Object{Fields: []output.Field{{Name: "title", Value: hostile}}},
+	}
+	for name, result := range results {
+		for _, format := range []output.Format{output.FormatTable, output.FormatCompact} {
+			cmd := &cobra.Command{}
+			var stdout bytes.Buffer
+			cmd.SetOut(&stdout)
+			if err := emit(cmd, &Options{Format: format}, result); err != nil {
+				t.Fatalf("%s %s: emit() = %v", name, format, err)
+			}
+			if strings.ContainsAny(stdout.String(), "\x1b\x07") || strings.Count(stdout.String(), "\n") > 2 {
+				t.Errorf("%s %s: control characters reach the output: %q", name, format, stdout.String())
+			}
+		}
+	}
+
+	var unsupported *output.UnsupportedValueError
+	cmd := &cobra.Command{}
+	var stdout bytes.Buffer
+	cmd.SetOut(&stdout)
+	err := emit(cmd, &Options{Format: output.FormatTable},
+		output.Object{Fields: []output.Field{{Name: "nested", Value: []any{"a"}}}})
+	if !errors.As(err, &unsupported) || stdout.Len() != 0 {
+		t.Errorf("a nested value: err %v, stdout %q, want an UnsupportedValueError and no output", err, stdout.String())
 	}
 }

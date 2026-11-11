@@ -57,7 +57,10 @@
 // it, github.files.push writes several files as one commit through the Git Data API, fast-forward only, so a
 // branch that moved since it was read is refused with nothing written; none of the four ever touches a path
 // below .github/workflows/, which the listed-only workflow maintainer covers instead. Only on a connection
-// whose tools list names it, github.branches.delete deletes one branch other than the default branch. github.repositories.
+// whose tools list names it, github.branches.delete deletes one branch other than the default branch,
+// github.branches.rename renames one, github.branches.sync-fork brings a fork's branch up to date with its
+// upstream, github.merges.create merges a branch or commit into a branch, and github.tags.delete deletes one
+// tag; github.tags.create makes a lightweight or, with a message, an annotated tag. github.repositories.
 // create makes one new repository, under the token's own account or an organization the connection names as
 // an owner target; github.repositories.fork forks a repository a connection allows the same way,
 // answered asynchronously; only on a connection whose tools list names it, github.repositories.delete deletes
@@ -74,7 +77,10 @@
 // of a repository or, with organization instead of repository, an organization the connection allows;
 // exactly one of the two is required. Only on a connection whose tools list names them, github.rulesets.
 // create, github.rulesets.update, and github.rulesets.delete change them; an update replaces a ruleset as a
-// whole. github.custom-properties.get reads the custom property values of a repository or, with organization
+// whole. github.branch-protection.get reads the protection of one branch and github.branch-rules.get the rules
+// that effectively apply to it; only on a connection whose tools list names them, github.branch-protection.set
+// replaces the whole protection of a branch, every setting given explicitly, and github.branch-protection.delete
+// removes it. github.custom-properties.get reads the custom property values of a repository or, with organization
 // instead, the custom property definitions (schema) an organization declares, the same exclusive selection;
 // only on a connection whose tools list names it, github.custom-properties.set changes them: for a repository
 // it sets or removes property values, and for an organization it creates or updates property definitions.
@@ -478,7 +484,7 @@ var issuesGet = capability.Descriptor{
 // draft tools, the project lifecycle, field schema, view, status update, access, and automation tools, the Actions observer and operator tools, the listed-only
 // workflow maintainer and Actions administrator tools, the account, organization, and star tools, the
 // contents, tree, and blame tools, the repository lifecycle and collaborators tools, the repository and
-// organization ruleset tools, and the repository and organization custom properties tools. Only reads are a
+// organization ruleset tools, the branch protection and branch rules tools, and the repository and organization custom properties tools. Only reads are a
 // connection's default: every change and every execution needs a permission of its own, and a listed-only
 // tool also its name in the connection's tools list.
 func Register(reg *capability.Registry) error {
@@ -532,7 +538,9 @@ func Register(reg *capability.Registry) error {
 				"classic token, or Contents: read on a fine-grained token, for a private one, and reading the " +
 				"pull requests of a commit needs Pull requests: read as well on a fine-grained token; creating a branch, creating, updating, or deleting a " +
 				"file below the repository root, and pushing several files as one commit, listed-only, need " +
-				"repo on a classic token, or Contents: read and write on a fine-grained token; creating or " +
+				"repo on a classic token, or Contents: read and write on a fine-grained token, as do creating " +
+				"or deleting a tag, syncing a fork branch, and merging, all listed-only except creating a tag, and " +
+				"renaming a branch, listed-only, which needs Administration: read and write instead; creating or " +
 				"forking a repository need repo on a classic token, or Administration: read and write on a " +
 				"fine-grained token; deleting a repository, listed-only, needs delete_repo as well on a classic " +
 				"token; listing collaborators needs repo on a classic token, or Metadata: read on a fine-grained " +
@@ -542,7 +550,11 @@ func Register(reg *capability.Registry) error {
 				"read on a fine-grained token; changing them, listed-only, needs Administration: read and write " +
 				"on a fine-grained token instead; reading or changing the rulesets of an organization needs " +
 				"admin:org on a classic token, or, as far as GitHub documents it, Administration read, or read " +
-				"and write, access of the organization on a fine-grained token; reading the custom property " +
+				"and write, access of the organization on a fine-grained token; reading the protection of a branch needs " +
+				"repo on a classic token with the Admin role, or Administration: read on a fine-grained token, and " +
+				"replacing or removing it, listed-only, needs Administration: read and write instead; reading the " +
+				"rules that apply to a branch needs no scope for a public repository, or repo on a classic token, " +
+				"or Metadata: read on a fine-grained token, for a private one; reading the custom property " +
 				"values of a repository needs Custom properties: read on a fine-grained token, or repo on a " +
 				"classic token, and changing them, listed-only, needs Custom properties: write instead; reading " +
 				"or changing the custom property schema of an organization needs the organization permission " +
@@ -850,7 +862,7 @@ func Register(reg *capability.Registry) error {
 		pullRequestReviewOperations(), pullRequestReviewCommentOperations(), pullRequestReviewThreadOperations(),
 		pullRequestReviewerOperations(), accountOperations(), organizationOperations(), starOperations(),
 		searchOperations(), contentsOperations(), blameOperations(), commitsOperations(), refsOperations(), compareOperations(), commitRelationOperations(),
-		contentsWriteOperations(), repositoriesOperations(), repositoryDetailOperations(), trafficOperations(), repositoryStatsOperations(), rulesetsOperations(), customPropertiesOperations(), actionVariablesOperations(), actionCachesOperations(), runCleanupOperations(),
+		contentsWriteOperations(), refsWriteOperations(), repositoriesOperations(), repositoryDetailOperations(), trafficOperations(), repositoryStatsOperations(), rulesetsOperations(), branchProtectionOperations(), customPropertiesOperations(), actionVariablesOperations(), actionCachesOperations(), runCleanupOperations(),
 		labelsOperations(), milestonesOperations(), commentMaintenanceOperations(), commentVisibilityOperations(), reactionsOperations(),
 		subIssuesOperations(), issueDependenciesOperations(), issueTypesOperations(), issueFieldsOperations(),
 		discussionOperations(), notificationOperations(), gistOperations(), securityAlertOperations(), advisoryOperations(),
