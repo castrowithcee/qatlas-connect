@@ -5,6 +5,8 @@ import (
 	"strings"
 
 	"charm.land/lipgloss/v2"
+
+	kittui "github.com/castrowithcee/qatlas-kit/tui"
 )
 
 // Shared building blocks of the screens. Every block returns lines of exactly the requested width in cells,
@@ -83,12 +85,12 @@ func panelTop(title, note string, inner int, focused bool) string {
 // content area carries the panel colour; cells with a background of their own (fields, marked rows) keep it.
 func panelSide(text string, inner int, focused bool) string {
 	inner = max(inner, 0)
-	bg := styles.palette.panel
+	bg := styles.Palette().Panel
 	style := panelStyle(focused)
 	_, v, _ := frameChars(focused)
 	body := lipgloss.NewStyle()
 	if bg != "" {
-		body = body.Background(bg.lip())
+		body = body.Background(lip(bg))
 	}
 	text = keepBackground(clipCells(text, inner), bg)
 	return style.Render(v) + body.Render(" "+padLine(text, inner)+" ") + style.Render(v)
@@ -102,11 +104,11 @@ func panelBottom(inner int, focused bool) string {
 
 // keepBackground makes a finished line keep the background bg across the resets of its own styles, so a
 // filled area stays filled behind styled text. Without a colour it returns the line as it is.
-func keepBackground(text string, bg colour) string {
+func keepBackground(text string, bg kittui.Color) string {
 	if bg == "" || !strings.Contains(text, "\x1b[") {
 		return text
 	}
-	set := lipgloss.NewStyle().Background(bg.lip()).Render("x")
+	set := lipgloss.NewStyle().Background(lip(bg)).Render("x")
 	set = set[:strings.Index(set, "x")]
 	if set == "" {
 		return text
@@ -129,7 +131,7 @@ func keepStyle(text string, style lipgloss.Style) string {
 }
 
 // afterResets puts set behind every full reset of text, in both spellings: Lip Gloss writes the short one,
-// paintCanvas the long one.
+// the painted canvas (see Styles.Paint) the long one.
 func afterResets(text, set string) string {
 	return strings.NewReplacer("\x1b[0m", "\x1b[0m"+set, "\x1b[m", "\x1b[m"+set).Replace(text)
 }
@@ -138,20 +140,20 @@ func afterResets(text, set string) string {
 // Without a colour the row is only padded.
 func surfaceRow(text string, width int) string {
 	text = padLine(clipCells(text, width), width)
-	if styles.palette.surface == "" {
+	if styles.Palette().Surface == "" {
 		return text
 	}
-	return lipgloss.NewStyle().Background(styles.palette.surface.lip()).Render(keepBackground(text, styles.palette.surface))
+	return lipgloss.NewStyle().Background(lip(styles.Palette().Surface)).Render(keepBackground(text, styles.Palette().Surface))
 }
 
 // accentFill is the surface of the tab that has the focus: bold base text on the accent colour. Without colour
 // it is the bold style of the plain tabs.
 func accentFill() lipgloss.Style {
-	p := styles.palette
+	p := styles.Palette()
 	if plainTabs() {
 		return styles.active
 	}
-	return lipgloss.NewStyle().Bold(true).Background(p.accent.lip()).Foreground(p.base.lip())
+	return lipgloss.NewStyle().Bold(true).Background(lip(p.Accent)).Foreground(lip(p.Base))
 }
 
 // tabStrip draws a row of tabs and returns the cells each takes, counted from the first cell of the row. The
@@ -238,21 +240,21 @@ func button(kind buttonKind, label string, focused bool) string {
 		text = "> " + label + " <"
 	}
 	style := lipgloss.NewStyle()
-	p := styles.palette
+	p := styles.Palette()
 	switch kind {
 	case buttonPrimary:
 		style = style.Bold(true)
-		if p.accent != "" {
-			style = style.Background(p.accent.lip()).Foreground(p.base.lip())
+		if p.Accent != "" {
+			style = style.Background(lip(p.Accent)).Foreground(lip(p.Base))
 		}
 	case buttonDanger:
 		style = style.Bold(true)
-		if p.fail != "" {
-			style = style.Background(p.fail.lip()).Foreground(p.base.lip())
+		if p.Fail != "" {
+			style = style.Background(lip(p.Fail)).Foreground(lip(p.Base))
 		}
 	default:
-		if p.border != "" {
-			style = style.Foreground(p.text.lip())
+		if p.Border != "" {
+			style = style.Foreground(lip(p.Text))
 		}
 	}
 	if focused {
@@ -262,17 +264,17 @@ func button(kind buttonKind, label string, focused bool) string {
 }
 
 // brandColor is the stable brand colour of a provider name.
-func brandColor(name string) colour {
+func brandColor(name string) kittui.Color {
 	h := fnv.New32a()
 	h.Write([]byte(name))
-	return styles.palette.brand[h.Sum32()%uint32(len(styles.palette.brand))]
+	return styles.Palette().Brand[h.Sum32()%uint32(len(styles.Palette().Brand))]
 }
 
 // providerMark is the square in the colour of the provider.
 func providerMark(name string) string {
 	style := lipgloss.NewStyle()
 	if c := brandColor(name); c != "" {
-		style = style.Foreground(c.lip())
+		style = style.Foreground(lip(c))
 	}
 	return style.Render("■")
 }

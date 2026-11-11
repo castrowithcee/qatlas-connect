@@ -5,6 +5,8 @@ import (
 	"testing"
 
 	tea "charm.land/bubbletea/v2"
+
+	kittui "github.com/castrowithcee/qatlas-kit/tui"
 	"github.com/charmbracelet/x/ansi"
 )
 
@@ -44,7 +46,7 @@ func focusBaseURL(t *testing.T, m *Model) {
 
 func TestTheCursorStandsInTheFocusedFormField(t *testing.T) {
 	const url = "https://wiki.example.invalid"
-	for _, p := range []colorProfile{profileTrueColor, profile16, profileNone} {
+	for _, p := range []kittui.ColorProfile{kittui.ProfileTrueColor, kittui.ProfileANSI16, kittui.ProfileNone} {
 		restoreRenderer(t)
 		setProfile(p)
 		m, _, _ := newModel(t)

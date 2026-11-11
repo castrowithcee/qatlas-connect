@@ -18,15 +18,15 @@ const dropdownArrow = "▾"
 // fieldStyle is the surface of a field: the field colour behind the text, the accent colour and bold while
 // the field has the focus. Without colour it names nothing; the marker carries the focus then.
 func fieldStyle(focused bool) lipgloss.Style {
-	p := styles.palette
+	p := styles.Palette()
 	style := lipgloss.NewStyle()
-	if p.surface != "" {
-		style = style.Background(p.surface.lip()).Foreground(p.text.lip())
+	if p.Surface != "" {
+		style = style.Background(lip(p.Surface)).Foreground(lip(p.Text))
 	}
 	if focused {
 		style = style.Bold(true)
-		if p.accent != "" {
-			style = style.Foreground(p.accent.lip())
+		if p.Accent != "" {
+			style = style.Foreground(lip(p.Accent))
 		}
 	}
 	return style
@@ -71,8 +71,8 @@ const searchFieldMax = 30
 func searchField(content string, width int) string {
 	if content == "" {
 		hint := styles.hint
-		if styles.palette.surface != "" {
-			hint = hint.Background(styles.palette.surface.lip())
+		if styles.Palette().Surface != "" {
+			hint = hint.Background(lip(styles.Palette().Surface))
 		}
 		return hint.Render(padLine(clipCells(" "+tr(tSearchField), width), width))
 	}
