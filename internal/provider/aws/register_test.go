@@ -96,6 +96,16 @@ var wantTools = []string{
 	"aws.iam.user.list",
 	"aws.iam.user.list-tags",
 	"aws.iam.virtual-mfa-device.list",
+	"aws.route53.change.get",
+	"aws.route53.hosted-zone.count",
+	"aws.route53.hosted-zone.create",
+	"aws.route53.hosted-zone.delete",
+	"aws.route53.hosted-zone.get",
+	"aws.route53.hosted-zone.list",
+	"aws.route53.hosted-zone.list-by-name",
+	"aws.route53.hosted-zone.update-comment",
+	"aws.route53.tag.change",
+	"aws.route53.tag.list",
 	"aws.s3.accelerate.get",
 	"aws.s3.acl.get",
 	"aws.s3.bucket.create",
@@ -165,8 +175,9 @@ func TestRegisterPublishesMetadataAndTools(t *testing.T) {
 		sesWrite := tool.Effect != config.EffectRead && strings.HasPrefix(tool.ID, "aws.ses.") &&
 			tool.RequiresToolAllowList == strings.HasPrefix(tool.ID, "aws.ses.email-identity-policy.")
 		s3Write := tool.Effect != config.EffectRead && !tool.RequiresToolAllowList && strings.HasPrefix(tool.ID, "aws.s3.")
-		if !(open || write || sesWrite || s3Write) || tool.Group != strings.Split(tool.ID, ".")[1] {
-			t.Errorf("tool %+v, want an open read, a listed-only IAM write, an SES write (listed-only for identity policies), or an S3 write of the group named by its service segment", tool)
+		route53Write := tool.Effect != config.EffectRead && !tool.RequiresToolAllowList && strings.HasPrefix(tool.ID, "aws.route53.")
+		if !(open || write || sesWrite || s3Write || route53Write) || tool.Group != strings.Split(tool.ID, ".")[1] {
+			t.Errorf("tool %+v, want an open read, a listed-only IAM write, an SES write (listed-only for identity policies), an S3 or a Route 53 write of the group named by its service segment", tool)
 		}
 	}
 	if !reflect.DeepEqual(ids, wantTools) {
@@ -180,8 +191,8 @@ func TestRegisterPublishesMetadataAndTools(t *testing.T) {
 	for _, g := range metadata.Groups {
 		groups[g.ID] = true
 	}
-	if len(groups) != 4 || !groups["sts"] || !groups["iam"] || !groups["ses"] || !groups["s3"] {
-		t.Errorf("groups = %+v, want sts, iam, ses and s3", metadata.Groups)
+	if len(groups) != 5 || !groups["sts"] || !groups["iam"] || !groups["ses"] || !groups["s3"] || !groups["route53"] {
+		t.Errorf("groups = %+v, want sts, iam, ses, s3 and route53", metadata.Groups)
 	}
 	profile, ok := metadata.RecommendedProfile()
 	if !ok || profile.ID != "read" || !reflect.DeepEqual(append([]string{}, profile.Tools...), []string{
@@ -249,7 +260,7 @@ func TestSTSToolsAreTheCredentialFreeActions(t *testing.T) {
 			listedIAM := d.RequiresToolAllowList && strings.HasPrefix(d.ID, "aws.iam.")
 			sesWrite := strings.HasPrefix(d.ID, "aws.ses.") &&
 				d.RequiresToolAllowList == strings.HasPrefix(d.ID, "aws.ses.email-identity-policy.")
-			s3Write := !d.RequiresToolAllowList && strings.HasPrefix(d.ID, "aws.s3.")
+			s3Write := !d.RequiresToolAllowList && (strings.HasPrefix(d.ID, "aws.s3.") || strings.HasPrefix(d.ID, "aws.route53."))
 			if !(listedIAM || sesWrite || s3Write) || d.Risk.Idempotency == capability.IdempotencySafe {
 				t.Errorf("%s is a write that is neither a listed-only IAM tool nor an SES or S3 tool: %+v", d.ID, d)
 			}

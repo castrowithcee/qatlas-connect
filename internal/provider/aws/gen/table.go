@@ -144,6 +144,10 @@ type Operation struct {
 	// leaving it out would change what the answer means, such as the old rule-level prefix of an S3 lifecycle rule.
 	// Member is dotted like Release.Member. Input members that are deprecated stay out.
 	KeepDeprecated []Release
+	// TokenMember names a required top-level string member of a restXml input that serves as the idempotency token
+	// although the model gives it no idempotencyToken trait, such as the CallerReference of Route 53. The tool
+	// generates it and returns it as client_token, like a member with the trait.
+	TokenMember string
 	// Limits cap a string or a list of the input that the model leaves unbounded.
 	Limits []InputLimit
 	// Guards name hand-written steps of the provider package that judge the arguments before any I/O, each
@@ -251,7 +255,7 @@ var (
 		"ses-identity", "ses-identity-arn"}
 	PolicyChecks = []string{"none", "trust-policy", "resource-policy-own-account", "bucket-policy", "identity-policy"}
 	// Guards are the pure argument steps and Readbacks the steps with a read of their own; see Operation.
-	Guards    = []string{"location-constraint", "new-bucket-name", "kms-key-arn", "ownership-enforce"}
+	Guards    = []string{"location-constraint", "new-bucket-name", "kms-key-arn", "ownership-enforce", "route53-vpc"}
 	Readbacks = []string{"pab-tighten"}
 	Forms     = []string{"account-id"}
 	// ResultHooks are the hand-written result steps a table may name; see resultHookFields.
@@ -370,6 +374,8 @@ func (op Operation) validate() error {
 		return fmt.Errorf("self_role %q must name an input member of a tool that is not a read", op.SelfRole)
 	case op.ResultHook != "" && !slices.Contains(ResultHooks, op.ResultHook):
 		return fmt.Errorf("unknown result_hook %q", op.ResultHook)
+	case op.TokenMember != "" && (!opName.MatchString(op.TokenMember) || op.Effect != "create"):
+		return fmt.Errorf("token_member %q must name a member of a tool that creates something", op.TokenMember)
 	case op.PageSizeMax < 0:
 		return fmt.Errorf("negative page size maximum")
 	case strings.TrimSpace(op.Title) == "" || strings.TrimSpace(op.Description) == "" || op.DataSensitivity == "":

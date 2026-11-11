@@ -12,7 +12,7 @@ updated: 2026-11-11
 This page names what a connection of the `aws` provider needs. Role assumption, targets, errors, and limits are
 described in the [AWS provider](README.md); the tools are described per group: the
 [Security Token Service](sts.md), [Identity and Access Management](iam.md), [Simple Email Service](ses.md), and
-[Amazon S3](s3.md).
+[Amazon S3](s3.md), and [Amazon Route 53](route53.md).
 
 ## Configuration
 
@@ -111,6 +111,24 @@ which needs `s3:ListAllMyBuckets` on all resources. The reads need `s3:ListAllMy
 Creating with tags also needs `s3:PutBucketTagging`. Setting a KMS key also needs the permissions the key's policy
 requires for the identity. Grant only the actions of the tools the connection offers; a policy such as `s3:*` also
 grants every object action.
+
+### Route 53
+
+Each [Route 53 tool](route53.md) needs the permission `route53:<Action>` of its AWS operation. The permissions
+`route53:ListHostedZones` (`hosted-zone.list`), `route53:ListHostedZonesByName`, `route53:GetHostedZone`,
+`route53:GetHostedZoneCount`, `route53:GetChange`, and `route53:ListTagsForResource` read. The writes need:
+
+| Tool | Permission |
+| --- | --- |
+| `aws.route53.hosted-zone.create` | `route53:CreateHostedZone`; for a private zone also `ec2:DescribeVpcs`, `ec2:DescribeRegions`, and `route53:AssociateVPCWithHostedZone` |
+| `aws.route53.hosted-zone.update-comment` | `route53:UpdateHostedZoneComment` |
+| `aws.route53.hosted-zone.delete` | `route53:DeleteHostedZone` |
+| `aws.route53.tag.change` | `route53:ChangeTagsForResource` |
+
+Route 53 permissions name hosted zones as `arn:aws:route53:::hostedzone/<id>` and changes as
+`arn:aws:route53:::change/<id>`; `route53:CreateHostedZone`, `route53:ListHostedZones`, and `route53:GetHostedZoneCount`
+apply to all resources. Grant only the actions of the tools the connection offers; a policy such as `route53:*` also
+grants every change of the records of a zone.
 
 ## Connection test
 
