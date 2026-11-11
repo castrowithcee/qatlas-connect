@@ -731,10 +731,10 @@ func Register(reg *capability.Registry) error {
 			Description: "high risk: reads and changes whether Actions run in a repository, which " +
 				"actions they may use, the default rights of its GITHUB_TOKEN, and its merge and branch settings, and " +
 				"reads its finer Actions settings (selected actions, fork pull request approval, retention, access, " +
-				"OIDC subject claim); a connection offers these tools only while its tools list names them, and " +
-				"every change needs its own confirmation; the changes of the finer settings stay unticked, since " +
+				"OIDC subject claim) and the self-hosted runners with their labels; a connection offers these tools only while its tools list names them, and " +
+				"every change needs its own confirmation; the changes of the finer settings and of the runners stay unticked, since " +
 				"each is offered only where a connection's tools list names it",
-			Tools: append(append([]string{}, adminTools...), actionsSettingsReads...),
+			Tools: slices.Concat(adminTools, actionsSettingsReads, runnersReads),
 		}, {
 			ID: "pull-requests", Title: "Pull requests",
 			Description: "reads the pull requests of a repository: their list, one pull request with its " +
@@ -900,7 +900,7 @@ func Register(reg *capability.Registry) error {
 		capability.Operation{Descriptor: projectIssuesCreate, Handler: capability.Handler(invokeProjectIssuesCreate)},
 	}, slices.Concat(itemOperations(), lifecycleOperations(), fieldOperations(), viewOperations(),
 		statusOperations(), accessOperations(), automationOperations(), actionsOperations(),
-		maintenanceOperations(), actionsSettingsOperations(), pullRequestOperations(), checkOperations(), releaseOperations(), releaseAssetOperations(), pullRequestCommentOperations(),
+		maintenanceOperations(), actionsSettingsOperations(), runnersOperations(), pullRequestOperations(), checkOperations(), releaseOperations(), releaseAssetOperations(), pullRequestCommentOperations(),
 		pullRequestReviewOperations(), pullRequestReviewMaintenanceOperations(), pullRequestReviewCommentOperations(),
 		pullRequestReviewCommentMaintenanceOperations(), pullRequestReviewThreadOperations(),
 		pullRequestReviewerOperations(), accountOperations(), organizationOperations(), starOperations(),
@@ -1811,7 +1811,11 @@ func organizationSubject(tail string) subject {
 		return subject{what: what}
 	}
 	if len(parts) >= 3 && parts[1] == "actions" {
-		if what := variableSubject(strings.Join(parts[1:], "/")); what != "" {
+		rest := strings.Join(parts[1:], "/")
+		if what := runnerSubject(rest); what != "" {
+			return subject{what: what + " of orgs/" + owner}
+		}
+		if what := variableSubject(rest); what != "" {
 			return subject{what: what + " of orgs/" + owner}
 		}
 	}
@@ -1940,6 +1944,9 @@ func treesSubject(path string) string {
 // actions/runs/ID, actions/jobs/ID, or actions/workflows/ID-or-file, with or without a further segment. It
 // names only an identifier or a file name of the characters the input schema allows, and is empty otherwise.
 func actionsSubject(path string) string {
+	if what := runnerSubject(path); what != "" {
+		return what
+	}
 	rest, ok := strings.CutPrefix(path, "actions/")
 	if !ok {
 		return ""
