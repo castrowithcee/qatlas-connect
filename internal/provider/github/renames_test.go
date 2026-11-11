@@ -50,6 +50,13 @@ var currentToolIDs = []string{
 	"github.check-suite-runs.list",
 	"github.check-suites.list",
 	"github.code-quality-findings.get",
+	"github.code-scanning-alert-instances.list",
+	"github.code-scanning-alerts.update",
+	"github.code-scanning-analyses.get",
+	"github.code-scanning-analyses.list",
+	"github.dependabot-alerts.update",
+	"github.secret-scanning-alerts.update",
+	"github.secret-scanning-locations.list",
 	"github.code-scanning-alerts.get",
 	"github.code-scanning-alerts.list",
 	"github.code.search",
@@ -316,7 +323,7 @@ func TestRegistryHoldsExactlyTheCurrentToolIDs(t *testing.T) {
 	sort.Strings(got)
 	want := append([]string(nil), currentToolIDs...)
 	sort.Strings(want)
-	if strings.Join(got, "\n") != strings.Join(want, "\n") || len(got) != 291 {
+	if strings.Join(got, "\n") != strings.Join(want, "\n") || len(got) != 298 {
 		t.Errorf("registry holds %d tools, differing from the expected %d IDs", len(got), len(want))
 	}
 	if err := reg.ValidateRenames(); err != nil {
@@ -350,7 +357,11 @@ func TestRenamedToolsCoverEveryChangedID(t *testing.T) {
 		"github.check-runs.get": true, "github.check-runs.list": true, "github.check-suite-runs.list": true,
 		"github.check-suites.list":        true,
 		"github.pull-request-checks.wait": true, "github.pull-request-auto-merge.enable": true,
-		"github.pull-request-auto-merge.disable": true, "github.commit-branches.list": true,
+		"github.pull-request-auto-merge.disable":    true,
+		"github.code-scanning-alert-instances.list": true, "github.code-scanning-alerts.update": true,
+		"github.code-scanning-analyses.get": true, "github.code-scanning-analyses.list": true,
+		"github.dependabot-alerts.update": true, "github.secret-scanning-alerts.update": true,
+		"github.secret-scanning-locations.list": true, "github.commit-branches.list": true,
 		"github.commit-comments.get": true, "github.commit-comments.list": true, "github.commit-pulls.list": true,
 		"github.community-profile.get": true,
 		"github.traffic-views.get":     true, "github.traffic-clones.get": true, "github.traffic-paths.list": true,
