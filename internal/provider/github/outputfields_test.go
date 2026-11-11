@@ -197,6 +197,8 @@ var outputSamples = map[string]any{
 	"github.projects.unlink":                       Linked{},
 	"github.projects.unlink-team":                  TeamLink{},
 	"github.projects.update":                       ProjectState{},
+	"github.pull-request-auto-merge.disable":       PullRequestAutoMerge{},
+	"github.pull-request-auto-merge.enable":        PullRequestAutoMerge{},
 	"github.pull-request-branches.update":          PullRequestBranchUpdate{},
 	"github.pull-request-checks.list":              PullRequestChecks{},
 	"github.pull-request-checks.wait":              PullRequestChecksWait{},
