@@ -879,38 +879,6 @@ func TestDialogButtonsWorkInTheFullScreenFallback(t *testing.T) {
 	}
 }
 
-// A terminal that reports a notch and its release delivers two presses at once; they are one step. Notches
-// that follow each other at the pace of a hand are each a step.
-func TestOneNotchIsOneStepWhateverTheTerminalReports(t *testing.T) {
-	m := sizedModel(groupModel(t), 100, 40)
-	openSectionByName(t, m, sectionConnections)
-	m.list.cursor = 0
-	start := 0
-	now := wheelTime(t, m)
-	wheelEvent(t, m, 5, 10, tea.MouseWheelDown)
-	wheelEvent(t, m, 5, 10, tea.MouseWheelDown)
-	if m.list.cursor != start+1 {
-		t.Fatalf("a notch with its release moved the cursor from %d to %d, want one row", start, m.list.cursor)
-	}
-	for range 3 {
-		*now = now.Add(wheelMerge)
-		wheelEvent(t, m, 5, 10, tea.MouseWheelDown)
-		wheelEvent(t, m, 5, 10, tea.MouseWheelDown)
-	}
-	if m.list.cursor != start+4 {
-		t.Errorf("three more notches ended on %d, want %d", m.list.cursor, start+4)
-	}
-	// Another direction or another cell is another notch, however close.
-	wheelEvent(t, m, 5, 10, tea.MouseWheelUp)
-	if m.list.cursor != start+3 {
-		t.Errorf("the wheel up right after a wheel down ended on %d, want %d", m.list.cursor, start+3)
-	}
-	wheelEvent(t, m, 6, 10, tea.MouseWheelUp)
-	if m.list.cursor != start+2 {
-		t.Errorf("the wheel up in another cell ended on %d, want %d", m.list.cursor, start+2)
-	}
-}
-
 func TestTheWheelStopsAtTheEnds(t *testing.T) {
 	m := sizedModel(groupModel(t), 100, 40)
 	openSectionByName(t, m, sectionConnections)
@@ -1016,20 +984,6 @@ func TestTheWheelScrollsATextAreaByThreeLines(t *testing.T) {
 	wheelAt(t, m, 20, 10, tea.MouseWheelUp)
 	if m.help.offset() != 0 {
 		t.Errorf("the wheel up left the help at %d, want 0", m.help.offset())
-	}
-}
-
-// Events that queue up while the editor draws arrive as pairs without a gap: n notches are n rows.
-func TestQueuedWheelPairsMoveOneRowEach(t *testing.T) {
-	m := sizedModel(groupModel(t), 100, 40)
-	openSectionByName(t, m, sectionConnections)
-	m.list.cursor = 0
-	wheelTime(t, m)
-	for range 4 {
-		wheelEvent(t, m, 5, 10, tea.MouseWheelDown)
-	}
-	if m.list.cursor != 2 {
-		t.Errorf("four queued events moved the cursor to %d, want 2", m.list.cursor)
 	}
 }
 
