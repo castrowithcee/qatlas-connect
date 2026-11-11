@@ -18,7 +18,9 @@ var route53ToolIDs = []string{"aws.route53.hosted-zone.list", "aws.route53.hoste
 	"aws.route53.record-set.list", "aws.route53.record-set.change", "aws.route53.dns-answer.test",
 	"aws.route53.health-check.list", "aws.route53.health-check.get", "aws.route53.health-check.count",
 	"aws.route53.health-check.get-status", "aws.route53.health-check.get-last-failure-reason",
-	"aws.route53.health-check.create", "aws.route53.health-check.update", "aws.route53.health-check.delete"}
+	"aws.route53.health-check.create", "aws.route53.health-check.update", "aws.route53.health-check.delete",
+	"aws.route53.dnssec.get", "aws.route53.dnssec.enable", "aws.route53.dnssec.disable", "aws.route53.key-signing-key.create",
+	"aws.route53.key-signing-key.activate", "aws.route53.key-signing-key.deactivate", "aws.route53.key-signing-key.delete"}
 
 // route53Env offers the Route 53 tools by name on a connection bound to the account and the given regions.
 func route53Env(t *testing.T, f *fakeAWS, regions ...string) *env {

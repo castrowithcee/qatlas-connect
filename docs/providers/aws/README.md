@@ -11,7 +11,7 @@ updated: 2026-11-11
 
 The `aws` provider gives agents controlled access to one AWS account, read-only except for the IAM role tools and the two
 IAM report generators a connection names in its tools list, the SES identity tools, the S3 bucket tools, and the Route 53
-hosted zone, record, and health check tools, which change state with confirmation. Qatlas signs requests with
+hosted zone, record, and health check tools, which change state with confirmation, and the Route 53 DNSSEC writes a connection names in its tools list. Qatlas signs requests with
 Signature Version 4 using the Go standard library; it uses no AWS SDK. It ships the foundation (credential, role
 assumption, account and region binding, connection test, endpoint table, error mapping), the Security Token Service
 (STS) tools, the IAM tools that read identities, the metadata of their credentials, policies with their simulation,
@@ -20,7 +20,7 @@ last accessed), the IAM tools that write roles and instance profiles, the SES v2
 sender identities with DKIM and MAIL FROM, and the S3 tools that read buckets and create, delete, and configure them
 (versioning, default encryption, tags, public access block, object ownership), remove their lifecycle and CORS rules,
 and read the rest of their configuration and the Object Lock state of their objects, and the Route 53 tools that list, read, create,
-and delete hosted zones, change their comments and tags, list and change their records in atomic batches, test a DNS answer, read the status of a change, and list, read, create, change, and delete health checks with their status and tags. Further services build on it.
+and delete hosted zones, change their comments and tags, list and change their records in atomic batches, test a DNS answer, read the status of a change, list, read, create, change, and delete health checks with their status and tags, and read DNSSEC and manage key signing keys. Further services build on it.
 
 [Set up AWS](setup.md) lists the secret roles, the permissions, and what the connection test proves. The tools are
 described per group: [Security Token Service](sts.md), [Identity and Access Management](iam.md), [Simple Email Service](ses.md), [Amazon S3](s3.md), and [Amazon Route 53](route53.md).
