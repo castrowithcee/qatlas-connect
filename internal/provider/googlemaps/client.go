@@ -64,6 +64,12 @@ const roadsRoot = "https://roads.googleapis.com"
 
 const roadsHost = "roads.googleapis.com"
 
+// areaInsightsRoot is the ninth fixed origin: Places Aggregate API is a separate Google service that accepts the
+// same key. Only the area insights tool uses it, through postTo.
+const areaInsightsRoot = "https://areainsights.googleapis.com"
+
+const areaInsightsHost = "areainsights.googleapis.com"
+
 // Bounds of one request. The timeout stays below the 60 seconds an invoke may take, so a slow answer ends
 // as a timeout of this provider and not as a cancelled call.
 const (
@@ -342,6 +348,9 @@ func (c *Client) exchangeAs(ctx context.Context, op string, req *http.Request, m
 		}
 		if req.URL.Host == roadsHost {
 			failed = roadsError(failed, response.StatusCode)
+		}
+		if req.URL.Host == areaInsightsHost {
+			failed = areaInsightsError(failed, response.StatusCode)
 		}
 		if response.StatusCode >= 300 && (response.StatusCode < 400 || response.StatusCode >= 500) {
 			failed = c.unsure(failed)

@@ -10,7 +10,7 @@ import (
 	"testing"
 
 	"github.com/castrowithcee/qatlas-connect/internal/capability"
-	"github.com/castrowithcee/qatlas-connect/internal/output"
+	"github.com/castrowithcee/qatlas-kit/output"
 )
 
 func hit(typ string, id, book, chapter int64) map[string]any {
