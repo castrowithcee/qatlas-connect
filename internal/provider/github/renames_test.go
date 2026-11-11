@@ -252,7 +252,10 @@ var currentToolIDs = []string{
 	"github.pull-requests.update",
 	"github.reactions.add",
 	"github.reactions.remove",
+	"github.release-assets.delete",
 	"github.release-assets.list",
+	"github.release-assets.update",
+	"github.release-notes.generate",
 	"github.releases.create",
 	"github.releases.delete",
 	"github.releases.get",
@@ -344,7 +347,7 @@ func TestRegistryHoldsExactlyTheCurrentToolIDs(t *testing.T) {
 	sort.Strings(got)
 	want := append([]string(nil), currentToolIDs...)
 	sort.Strings(want)
-	if strings.Join(got, "\n") != strings.Join(want, "\n") || len(got) != 319 {
+	if strings.Join(got, "\n") != strings.Join(want, "\n") || len(got) != 322 {
 		t.Errorf("registry holds %d tools, differing from the expected %d IDs", len(got), len(want))
 	}
 	if err := reg.ValidateRenames(); err != nil {
@@ -386,6 +389,7 @@ func TestRenamedToolsCoverEveryChangedID(t *testing.T) {
 		"github.actions-selected.get":           true, "github.actions-selected.set": true, "github.actions-fork-approval.get": true, "github.actions-fork-approval.set": true, "github.actions-retention.get": true, "github.actions-retention.set": true, "github.actions-access.get": true, "github.actions-access.set": true, "github.actions-oidc.get": true, "github.actions-oidc.set": true, "github.runners.list": true, "github.runners.get": true, "github.runners.delete": true, "github.runner-labels.list": true, "github.runner-labels.add": true, "github.runner-labels.set": true, "github.runner-labels.remove": true, "github.commit-branches.list": true,
 		"github.security-settings.get": true, "github.security-settings.update": true,
 		"github.code-scanning-setup.get": true, "github.code-scanning-setup.update": true,
+		"github.release-assets.update": true, "github.release-assets.delete": true, "github.release-notes.generate": true,
 		"github.commit-comments.get": true, "github.commit-comments.list": true, "github.commit-pulls.list": true,
 		"github.community-profile.get": true,
 		"github.traffic-views.get":     true, "github.traffic-clones.get": true, "github.traffic-paths.list": true,

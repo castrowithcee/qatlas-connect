@@ -41,6 +41,19 @@ func checkRoute53VPC(b binding, _ string, args map[string]any) error {
 	return nil
 }
 
+// checkRoute53VPCLookup judges the VPC of a lookup of the hosted zones of a VPC before any request: the region
+// must be one the connection allows and the ID a well formed VPC ID. A VPC ID carries no account, and Route 53
+// answers only the zones of the bound account.
+func checkRoute53VPCLookup(b binding, _ string, args map[string]any) error {
+	if region, _ := args["vpc_region"].(string); !slices.Contains(b.regions, region) {
+		return &provider.InvalidRequestError{Message: "vpc_region must be a region the connection allows"}
+	}
+	if id, _ := args["vpc_id"].(string); !vpcID.MatchString(id) {
+		return &provider.InvalidRequestError{Message: "vpc_id must be a VPC ID such as vpc-0123456789abcdef0"}
+	}
+	return nil
+}
+
 // Limits of one ChangeResourceRecordSets call that Route 53 documents and the model does not state: at most 1000
 // record values and 32000 characters of values in a batch, an UPSERT counting twice.
 const (
@@ -221,4 +234,21 @@ func checkRoute53Health(b binding, _ string, args map[string]any) error {
 		}
 	}
 	return nil
+}
+
+// kskRegion is the only region of the KMS key of a key signing key.
+const kskRegion = "us-east-1"
+
+// checkRoute53KSK judges the KMS key of a new key signing key before any request. DNSSEC signing keys must lie in
+// us-east-1, which the connection need not allow, so the region is fixed and not tied to the allow-list. The key
+// must be named by the ARN of a key (not an alias) in the bound account.
+func checkRoute53KSK(b binding, _ string, args map[string]any) error {
+	arn, _ := args["key_management_service_arn"].(string)
+	parts := strings.SplitN(arn, ":", 6)
+	if len(parts) == 6 && parts[0] == "arn" && parts[1] == "aws" && parts[2] == "kms" && parts[3] == kskRegion && parts[4] == b.account {
+		if id, ok := strings.CutPrefix(parts[5], "key/"); ok && kmsKeyID.MatchString(id) {
+			return nil
+		}
+	}
+	return &provider.InvalidRequestError{Message: "key_management_service_arn must be the ARN of a KMS key (key/...) in us-east-1 in the account this connection is bound to"}
 }

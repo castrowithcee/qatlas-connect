@@ -212,7 +212,7 @@ func (b *restBinder) paging(traits *object) (*restPlan, error) {
 			return nil, b.failf("the model and the table both page the operation")
 		}
 		p := &restPlan{size: spec.PageSize, truncated: spec.Truncated, explicit: true}
-		if p.truncated == "" {
+		if p.truncated == "" && !spec.TokenEnds {
 			p.truncated = "IsTruncated"
 		}
 		for _, pos := range spec.Positions {
@@ -618,7 +618,7 @@ func (b *restBinder) prefixes(target string) []string {
 	}
 	var out []string
 	for _, p := range b.table.IDPrefixes {
-		if p.Shape == shortName(target) {
+		if p.Shape == shortName(target) && (len(p.Operations) == 0 || slices.Contains(p.Operations, b.op)) {
 			out = append(out, p.Prefix)
 		}
 	}

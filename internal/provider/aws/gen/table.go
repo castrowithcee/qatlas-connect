@@ -44,6 +44,9 @@ type PagerSpec struct {
 	Positions []PositionSpec
 	// Truncated is the boolean output member that says whether the list continues; IsTruncated when empty.
 	Truncated string
+	// TokenEnds says that the output has no truncation member and the list ends where the token is absent.
+	// It excludes Truncated and takes one position.
+	TokenEnds bool
 	// PageSize is the integer request member that sets the page size, empty for none.
 	PageSize string
 	// StartArguments also offers the position members as optional arguments of the first page, each with the
@@ -63,6 +66,8 @@ type PositionSpec struct {
 type IDPrefix struct {
 	Shape  string
 	Prefix string
+	// Operations limit the prefix to the arguments of these operations; empty for every operation.
+	Operations []string
 }
 
 // URLEncoded is a model string shape whose output values arrive percent-encoded.
@@ -259,7 +264,7 @@ var (
 		"ses-identity", "ses-identity-arn"}
 	PolicyChecks = []string{"none", "trust-policy", "resource-policy-own-account", "bucket-policy", "identity-policy"}
 	// Guards are the pure argument steps and Readbacks the steps with a read of their own; see Operation.
-	Guards    = []string{"location-constraint", "new-bucket-name", "kms-key-arn", "ownership-enforce", "route53-vpc", "route53-change", "route53-name", "route53-health"}
+	Guards    = []string{"location-constraint", "new-bucket-name", "kms-key-arn", "ownership-enforce", "route53-vpc", "route53-vpc-lookup", "route53-change", "route53-name", "route53-health", "route53-ksk"}
 	Readbacks = []string{"pab-tighten"}
 	Forms     = []string{"account-id"}
 	// ResultHooks are the hand-written result steps a table may name; see resultHookFields.
@@ -328,8 +333,11 @@ func (t Table) Validate() error {
 				return fmt.Errorf("table %s: pager of %s names a malformed member", t.Service, p.Operation)
 			}
 		}
-		if len(p.Positions) > 1 && !p.Positions[0].Required {
-			return fmt.Errorf("table %s: pager of %s: the first position must be required", t.Service, p.Operation)
+		if p.StartArguments && !p.Positions[0].Required {
+			return fmt.Errorf("table %s: pager of %s: the first position must be required to offer start arguments", t.Service, p.Operation)
+		}
+		if p.TokenEnds && (p.Truncated != "" || len(p.Positions) != 1) {
+			return fmt.Errorf("table %s: pager of %s: a list that ends at a missing token has one position and no truncation member", t.Service, p.Operation)
 		}
 	}
 	for _, p := range t.IDPrefixes {

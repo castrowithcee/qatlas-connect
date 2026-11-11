@@ -118,7 +118,7 @@ Each [Route 53 tool](route53.md) needs the permission `route53:<Action>` of its 
 `route53:ListHostedZones` (`hosted-zone.list`), `route53:ListHostedZonesByName`, `route53:GetHostedZone`,
 `route53:GetHostedZoneCount`, `route53:GetChange`, `route53:ListTagsForResource`, `route53:ListResourceRecordSets`
 (`record-set.list`), `route53:TestDNSAnswer` (`dns-answer.test`), `route53:ListHealthChecks`, `route53:GetHealthCheck`,
-`route53:GetHealthCheckCount`, `route53:GetHealthCheckStatus`, and `route53:GetHealthCheckLastFailureReason` read. The writes need:
+`route53:GetHealthCheckCount`, `route53:GetHealthCheckStatus`, `route53:GetHealthCheckLastFailureReason`, `route53:GetDNSSEC` (`dnssec.get`), `route53:ListQueryLoggingConfigs`, `route53:GetQueryLoggingConfig`, `route53:ListReusableDelegationSets`, `route53:GetReusableDelegationSet`, `route53:GetReusableDelegationSetLimit`, `route53:ListTrafficPolicies`, `route53:GetTrafficPolicy`, `route53:ListTrafficPolicyVersions`, `route53:ListTrafficPolicyInstances`, `route53:ListTrafficPolicyInstancesByHostedZone`, `route53:ListTrafficPolicyInstancesByPolicy`, `route53:GetTrafficPolicyInstance`, `route53:GetTrafficPolicyInstanceCount`, `route53:ListCidrCollections`, `route53:ListCidrLocations`, `route53:ListCidrBlocks`, `route53:GetAccountLimit`, `route53:GetHostedZoneLimit`, `route53:ListGeoLocations`, `route53:GetGeoLocation`, `route53:GetCheckerIpRanges`, `route53:ListHostedZonesByVPC`, `route53:ListVPCAssociationAuthorizations`, and `route53:ListTagsForResources` (`tag.list-many`) read. The writes need:
 
 | Tool | Permission |
 | --- | --- |
@@ -130,13 +130,28 @@ Each [Route 53 tool](route53.md) needs the permission `route53:<Action>` of its 
 | `aws.route53.health-check.create` | `route53:CreateHealthCheck` |
 | `aws.route53.health-check.update` | `route53:UpdateHealthCheck` |
 | `aws.route53.health-check.delete` | `route53:DeleteHealthCheck` |
+| `aws.route53.dnssec.enable` | `route53:EnableHostedZoneDNSSEC` |
+| `aws.route53.dnssec.disable` | `route53:DisableHostedZoneDNSSEC` |
+| `aws.route53.key-signing-key.create` | `route53:CreateKeySigningKey`; also `kms:DescribeKey`, `kms:GetPublicKey`, `kms:Sign`, and `kms:CreateGrant` on the KMS key |
+| `aws.route53.key-signing-key.activate` | `route53:ActivateKeySigningKey`; also the `kms` permissions above on the KMS key |
+| `aws.route53.key-signing-key.deactivate` | `route53:DeactivateKeySigningKey` |
+| `aws.route53.key-signing-key.delete` | `route53:DeleteKeySigningKey`; also the `kms` permissions above on the KMS key |
 
 Route 53 permissions name hosted zones as `arn:aws:route53:::hostedzone/<id>`, health checks as
 `arn:aws:route53:::healthcheck/<id>`, and changes as `arn:aws:route53:::change/<id>`; `route53:CreateHostedZone`,
 `route53:ListHostedZones`, `route53:GetHostedZoneCount`, `route53:CreateHealthCheck`, `route53:ListHealthChecks`, and
-`route53:GetHealthCheckCount` apply to all resources. The tag tools need `route53:ListTagsForResource` and
-`route53:ChangeTagsForResource` for health checks as for zones. Grant only the actions of the tools the connection offers; a policy such as `route53:*` also
-grants every change of the records of a zone.
+`route53:GetHealthCheckCount`, `route53:ListQueryLoggingConfigs`, `route53:ListReusableDelegationSets`, `route53:ListTrafficPolicies`, `route53:ListTrafficPolicyInstances`, `route53:GetTrafficPolicyInstanceCount`, `route53:ListCidrCollections`, `route53:GetAccountLimit`, `route53:ListGeoLocations`, `route53:GetGeoLocation`, `route53:GetCheckerIpRanges`, and `route53:ListHostedZonesByVPC` apply to all resources. The tag tools need `route53:ListTagsForResource` (`route53:ListTagsForResources` for `tag.list-many`) and
+`route53:ChangeTagsForResource` for health checks as for zones. `route53:ListHostedZonesByVPC` also needs `ec2:DescribeVpcs` for the VPC. Grant only the actions of the tools the connection offers; a policy such as `route53:*` also
+grants every change of the records of a zone. The `kms` permissions are the minimum the policy of the identity needs on the
+one KMS key in `us-east-1`; the DNSSEC writes are listed-only and need the tools to be named in the connection's tools list.
+
+**The KMS key policy.** Route 53 uses the key through the service principal, so the key policy of the KMS key, not
+the identity policy, must allow `dnssec-route53.amazonaws.com` to `kms:DescribeKey`, `kms:GetPublicKey`, `kms:Sign`,
+and `kms:CreateGrant` (the grant with the condition `kms:GrantIsForAWSResource` true), and the statement should limit the
+service with the condition keys `aws:SourceAccount` (the bound account) and `aws:SourceArn` (`arn:aws:route53:::hostedzone/*`). The key must be an asymmetric `ECC_NIST_P256` key for signing and verifying in
+`us-east-1`. Without that, `key-signing-key.create`, `key-signing-key.activate`, and `dnssec.enable` are refused by Route 53, as
+`InvalidKMSArn` or `InvalidKeySigningKeyStatus` (the exact code is not measured): add the principal to the key policy, then repeat the call. Qatlas does not
+create or change the KMS key.
 
 ## Connection test
 

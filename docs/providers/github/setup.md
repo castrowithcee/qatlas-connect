@@ -250,7 +250,7 @@ so treat them as likely, not certain.
 | Tools | Classic | Fine-grained |
 | --- | --- | --- |
 | Read releases and assets | `repo` for private repositories, `public_repo` for public | Contents: read |
-| Create, update, delete | `repo` | Contents: read and write |
+| Generate release notes, create, update, delete releases, update and delete assets | `repo` | Contents: read and write |
 
 ### Security
 
