@@ -10,17 +10,29 @@ import (
 	"testing"
 
 	tea "charm.land/bubbletea/v2"
+	kit "github.com/castrowithcee/qatlas-kit/tui"
 	"github.com/charmbracelet/x/ansi"
 
 	"github.com/castrowithcee/qatlas-connect/internal/uiprefs"
 )
 
-// rebind replaces the key of an action for one test.
+// rebind gives an action another default key for one test: the table is checked again by the kit, so the key
+// must be one a table may hold.
 func rebind(t *testing.T, a action, key string) {
 	t.Helper()
-	old := keymap[a]
-	setKeys(a, key)
-	t.Cleanup(func() { keymap[a] = old })
+	keepKeys(t)
+	table := make([]kit.Action, len(keyTable))
+	for i, e := range keyTable {
+		if e.ID == a {
+			e.DefaultKeys = []string{key}
+		}
+		table[i] = e
+	}
+	km, err := newKeymap(table)
+	if err != nil {
+		t.Fatalf("rebind %s to %q: %v", a, key, err)
+	}
+	keyTable, keymap = table, km
 }
 
 func TestDefaultKeymapKeepsTheKnownKeys(t *testing.T) {
@@ -37,12 +49,12 @@ func TestDefaultKeymapKeepsTheKnownKeys(t *testing.T) {
 		actRemoveField: "f8", actSuggestPrev: "ctrl+p", actSuggestNext: "ctrl+n", actNextKind: "ctrl+y",
 		actReload: "ctrl+r", actArea: "1",
 	}
-	if len(keymap) != len(want) {
-		t.Fatalf("keymap has %d actions, want %d", len(keymap), len(want))
+	if len(keyTable) != len(want) {
+		t.Fatalf("keymap has %d actions, want %d", len(keyTable), len(want))
 	}
 	for a, key := range want {
-		if keyOf(a) != key {
-			t.Errorf("action %q is bound to %q, want %q", a, keyOf(a), key)
+		if tableKey(a) != key {
+			t.Errorf("action %q is bound to %q, want %q", a, tableKey(a), key)
 		}
 	}
 	if !keyIs(tea.KeyPressMsg{Code: 'i', Text: "i"}, actInfo) || keyIs(tea.KeyPressMsg{}, actInfo) {
@@ -55,13 +67,13 @@ func TestDefaultKeymapKeepsTheKnownKeys(t *testing.T) {
 
 func TestRebindingChangesFooterAndDispatchTogether(t *testing.T) {
 	rebind(t, actHelp, "ctrl+x")
-	rebind(t, actCommand, "ctrl+k")
-	rebind(t, actSave, "f5")
+	rebind(t, actCommand, "f3")
+	rebind(t, actSave, "f4")
 	m, _, _ := newModel(t)
 	m.Update(tea.WindowSizeMsg{Width: 140, Height: 40})
 
 	view := m.render()
-	if !strings.Contains(flatText(view), "ctrl+k cmds ctrl+x help") || strings.Contains(view, "? help") || strings.Contains(view, ": cmds") {
+	if !strings.Contains(flatText(view), "F3 cmds ctrl+x help") || strings.Contains(view, "? help") || strings.Contains(view, ": cmds") {
 		t.Fatalf("the footer does not follow the keymap:\n%s", view)
 	}
 	press(t, m, "?")
@@ -72,7 +84,7 @@ func TestRebindingChangesFooterAndDispatchTogether(t *testing.T) {
 	if m.screen == screenCommand {
 		t.Fatal("the old command key still opens the command line")
 	}
-	m.Update(tea.KeyPressMsg{Code: 'k', Mod: tea.ModCtrl})
+	m.Update(tea.KeyPressMsg{Code: tea.KeyF3})
 	if m.screen != screenCommand {
 		t.Fatalf("the new command key left screen %v", m.screen)
 	}
@@ -90,14 +102,14 @@ func TestRebindingChangesFooterAndDispatchTogether(t *testing.T) {
 	}
 
 	press(t, m, "2", "n")
-	if view := m.render(); !strings.Contains(view, "F5 save") || strings.Contains(view, "F2 save") {
+	if view := m.render(); !strings.Contains(view, "F4 save") || strings.Contains(view, "F2 save") {
 		t.Fatalf("the form footer does not follow the save key:\n%s", view)
 	}
 	m.Update(tea.KeyPressMsg{Code: tea.KeyF2})
 	if m.fail != "" || m.status != "" {
 		t.Fatalf("the old save key still saves: fail %q status %q", m.fail, m.status)
 	}
-	m.Update(tea.KeyPressMsg{Code: tea.KeyF5})
+	m.Update(tea.KeyPressMsg{Code: tea.KeyF4})
 	if m.fail == "" && m.status == "" {
 		t.Fatal("the new save key does nothing")
 	}
@@ -132,86 +144,48 @@ func TestFooterTextsNameGlobalKeysOnlyByPlaceholder(t *testing.T) {
 	}
 }
 
-// assertNoCollisions fails when two actions of one level share a key.
-func assertNoCollisions(t *testing.T) {
-	t.Helper()
-	seen := map[keyLevel]map[string]action{}
-	for _, d := range keyDefs {
-		if seen[d.level] == nil {
-			seen[d.level] = map[string]action{}
-		}
-		for _, k := range keymap[d.act].Keys() {
-			if other, ok := seen[d.level][k]; ok {
-				t.Errorf("%s and %s share %q on level %s", other, d.act, k, d.level)
-			}
-			seen[d.level][k] = d.act
-		}
-	}
-}
-
-func TestNoTwoActionsOfALevelShareAKey(t *testing.T) {
+// The key table is one the kit accepts: no action without a help text in both languages, no key two actions of
+// the main levels share, no key a terminal or multiplexer takes, and a binding of the preferences keeps it so.
+func TestKeyTableIsValidAndRebindingKeepsItValid(t *testing.T) {
 	keepKeys(t)
-	assertNoCollisions(t)
+	if _, err := newKeymap(keyTable); err != nil {
+		t.Fatal(err)
+	}
 	// d is both delete and, in a question, discard; n is both new and, in a question, no: different levels.
-	if keyOf(actDelete) != keyOf(actDiscard) || actDelete == actDiscard || keyOf(actNew) != keyOf(actNo) || actNew == actNo {
+	if tableKey(actDelete) != tableKey(actDiscard) || actDelete == actDiscard || tableKey(actNew) != tableKey(actNo) || actNew == actNo {
 		t.Error("delete and discard, new and no should share a key on different levels")
 	}
+	// A swap of two keys is valid as a whole, a collision is refused as a whole.
 	applyKeys(uiprefs.Keys{Info: "f3", Save: "f4", Help: "ctrl+x", Command: "ctrl+l", Lock: "f6"})
-	assertNoCollisions(t)
+	if keyLabel(actCommand) != "ctrl+l" || keyLabel(actHelp) != "ctrl+x" || keyLabel(actLock) != "F6" {
+		t.Errorf("the swapped keys are not in force: %s %s %s", keyLabel(actCommand), keyLabel(actHelp), keyLabel(actLock))
+	}
+	applyKeys(uiprefs.Keys{Save: "f4", Lock: "f4"})
+	if keyLabel(actSave) != "F2" || keyLabel(actLock) != "ctrl+l" {
+		t.Errorf("two actions on one key were taken: %s %s", keyLabel(actSave), keyLabel(actLock))
+	}
 }
 
 func TestEveryActionHasALevelAndHelpInBothLanguages(t *testing.T) {
-	keepKeys(t)
-	for _, d := range keyDefs {
-		if _, ok := keymap[d.act]; !ok || d.level == "" {
-			t.Errorf("action %q has no binding or level", d.act)
+	for _, d := range keyTable {
+		if d.Level == "" || len(d.DefaultKeys) == 0 {
+			t.Errorf("action %q has no level or key", d.ID)
 		}
-		if textEN[d.help] == "" || textDE[d.help] == "" {
-			t.Errorf("action %q lacks a help text in a language", d.act)
+		if textEN[textID(d.Help)] == "" || textDE[textID(d.Help)] == "" {
+			t.Errorf("action %q lacks a help text in a language", d.ID)
 		}
 	}
 }
 
-func TestKeyHelpFollowsTheLanguageAndTheKeys(t *testing.T) {
-	keepKeys(t)
-	t.Cleanup(func() { setLanguage(uiprefs.LanguageEnglish) })
-	setLanguage(uiprefs.LanguageEnglish)
-	if h := keymap[actSave].Help(); h.Key != "F2" || h.Desc != "save" {
-		t.Errorf("English save help = %+v", h)
-	}
-	setLanguage(uiprefs.LanguageGerman)
-	if h := keymap[actSave].Help(); h.Key != "F2" || h.Desc != "Speichern" {
-		t.Errorf("German save help = %+v", h)
-	}
-	if h := keymap[actUp].Help(); h.Key != "↑" || h.Desc != "Hoch" {
-		t.Errorf("German up help = %+v", h)
-	}
-	applyKeys(uiprefs.Keys{Save: "f4", Info: "f3"})
-	if h := keymap[actSave].Help(); h.Key != "F4" || h.Desc != "Speichern" {
-		t.Errorf("rebound save help = %+v", h)
-	}
-	if h := keymap[actInfo].Help(); h.Key != "i/F3" {
-		t.Errorf("info help = %+v", h)
-	}
-	setLanguage(uiprefs.LanguageEnglish)
-	if h := keymap[actSave].Help(); h.Desc != "save" {
-		t.Errorf("back to English: %+v", h)
-	}
-}
-
-// Check refuses exactly the keys the table gives to actions that cannot be rebound, whatever the other
+// Check refuses exactly the keys the table gives to actions that cannot be replaced, whatever the other
 // rules say, and accepts a free key.
 func TestCheckRefusesTheKeysOfTheTable(t *testing.T) {
 	keepKeys(t)
-	rebindable := map[action]bool{}
-	for _, a := range userActions {
-		rebindable[a] = true
-	}
-	for _, d := range keyDefs {
-		if rebindable[d.act] {
+	for _, d := range keyTable {
+		if d.Rebind == kit.RebindReplace {
 			continue
 		}
-		for _, k := range keymap[d.act].Keys() {
+		for _, k := range d.DefaultKeys {
 			for _, name := range uiprefs.Actions {
 				// A table space is spelled "space", the rules know it as " ".
 				if k == "space" {
@@ -222,7 +196,7 @@ func TestCheckRefusesTheKeysOfTheTable(t *testing.T) {
 					continue
 				}
 				if _, err := uiprefs.DefaultKeys().Check(name, k); err == nil {
-					t.Errorf("Check(%s, %q) accepts the key of %s", name, k, d.act)
+					t.Errorf("Check(%s, %q) accepts the key of %s", name, k, d.ID)
 				}
 			}
 		}
@@ -231,18 +205,13 @@ func TestCheckRefusesTheKeysOfTheTable(t *testing.T) {
 		t.Errorf("a free key is refused: %v", err)
 	}
 	// The table itself, not a copy of the rules, decides: a key it newly gives away is refused.
-	keyDefs = append(keyDefs, keyDefs[0])
-	keyDefs[len(keyDefs)-1].act = "probe"
-	keymap["probe"] = keymap[actInfo]
-	setKeys("probe", "ctrl+x")
-	t.Cleanup(func() { keyDefs = keyDefs[:len(keyDefs)-1]; delete(keymap, "probe") })
-	if _, err := uiprefs.DefaultKeys().Check(uiprefs.ActionHelp, "ctrl+x"); err == nil || !strings.Contains(err.Error(), "probe") {
+	rebind(t, actQuit, "ctrl+x")
+	if _, err := uiprefs.DefaultKeys().Check(uiprefs.ActionHelp, "ctrl+x"); err == nil || !strings.Contains(err.Error(), string(actQuit)) {
 		t.Errorf("Check does not consult the table: %v", err)
 	}
-	// A key of a rebindable action stays free for another one to take when it is not in the form.
-	applyKeys(uiprefs.DefaultKeys())
+	// A key of a replaceable action stays free for another one to take when it is not in the form.
 	if owner := reservedOwner("f2"); owner != "" {
-		t.Errorf("f2 is reserved by %s, but save can be rebound", owner)
+		t.Errorf("f2 is reserved by %s, but save can be replaced", owner)
 	}
 }
 
@@ -254,8 +223,8 @@ var keyLiteral = regexp.MustCompile(`^\s*case\s+(?:(?:"[^"]*"|[\w.]+\([^()]*\)|[
 // spells one as a key value.
 func tableKeys() []string {
 	var keys []string
-	for _, d := range keyDefs {
-		for _, k := range d.keys {
+	for _, d := range keyTable {
+		for _, k := range d.DefaultKeys {
 			if !slices.Contains(keys, k) {
 				keys = append(keys, k)
 			}
@@ -368,28 +337,6 @@ func TestVimLettersMoveOnlyWhereNothingIsTyped(t *testing.T) {
 	}
 }
 
-// No default key lies on a key that tmux, GNU screen, zellij, or the VS Code terminal take. The control keys
-// of text lines that sit beside an arrow key are the allowed second way.
-func TestNoDefaultKeyLiesOnAMultiplexerKey(t *testing.T) {
-	keepKeys(t)
-	taken := map[string]bool{
-		"ctrl+s": true, "ctrl+q": true, "ctrl+z": true, "ctrl+b": true, "ctrl+a": true, "ctrl+g": true,
-		"ctrl+o": true, "ctrl+t": true, "ctrl+f": true, "ctrl+k": true,
-		"alt+f": true, "alt+n": true, "alt+i": true, "alt+o": true, "alt+p": true, "alt+h": true,
-		"alt+j": true, "alt+k": true, "alt+l": true, "alt+left": true, "alt+right": true, "alt+up": true,
-		"alt+down": true, "f1": true, "f5": true, "f10": true, "f11": true, "f12": true,
-		"ctrl+i": true, "ctrl+m": true, "ctrl+h": true,
-	}
-	secondWay := map[action]bool{actSuggestPrev: true, actSuggestNext: true}
-	for _, d := range keyDefs {
-		for _, k := range d.keys {
-			if (taken[k] || strings.HasPrefix(k, "alt+") && len(k) == 5 && k[4] >= '0' && k[4] <= '9') && !secondWay[d.act] {
-				t.Errorf("%s is bound to %s but a multiplexer or terminal takes it", k, d.act)
-			}
-		}
-	}
-}
-
 // The shortcut column of the command line shows the binding in force, also after a rebinding, and the
 // descriptions name no key.
 func TestPaletteShortcutsFollowTheKeymap(t *testing.T) {
@@ -435,7 +382,7 @@ func lineWith(view, text string) string {
 func TestFooterNamesFixedKeysFromTheTable(t *testing.T) {
 	rebind(t, actQuit, "x")
 	rebind(t, actNew, "N")
-	rebind(t, actUp, "ctrl+u")
+	rebind(t, actUp, "ctrl+x")
 	m, _, _ := newModel(t)
 	m.Update(tea.WindowSizeMsg{Width: 160, Height: 40})
 	m.screen, m.section, m.navSub = screenNav, sectionOverview, false
@@ -448,10 +395,10 @@ func TestFooterNamesFixedKeysFromTheTable(t *testing.T) {
 	if strings.Contains(foot, "q quit") {
 		t.Errorf("the footer still names the old quit key:\n%s", foot)
 	}
-	if got := keyLabel(actUp) + "/" + keyLabel(actDown); got != "ctrl+u/↓" {
+	if got := keyLabel(actUp) + "/" + keyLabel(actDown); got != "ctrl+x/↓" {
 		t.Errorf("label = %q", got)
 	}
-	if got := footerKeys("{up}/{down} move · {area} open · {pageup}/{pagedown} page"); got != "ctrl+u/↓ move · 1-6 open · pgup/pgdown page" {
+	if got := footerKeys("{up}/{down} move · {area} open · {pageup}/{pagedown} page"); got != "ctrl+x/↓ move · 1-6 open · pgup/pgdown page" {
 		t.Errorf("footerKeys = %q", got)
 	}
 	if got := keyLabel(actLeft) + keyLabel(actRight); got != "←→" {
@@ -461,10 +408,10 @@ func TestFooterNamesFixedKeysFromTheTable(t *testing.T) {
 
 // The header names help and the command line through the binding in force.
 func TestHeaderNamesTheBoundCommandKey(t *testing.T) {
-	rebind(t, actCommand, "ctrl+k")
+	rebind(t, actCommand, "f3")
 	m, _, _ := newModel(t)
 	m.Update(tea.WindowSizeMsg{Width: 140, Height: 40})
-	if head := ansi.Strip(m.headerHints()); !strings.Contains(head, "[ctrl+k] cmd") || strings.Contains(head, "[:]") {
+	if head := ansi.Strip(m.headerHints()); !strings.Contains(head, "[F3] cmd") || strings.Contains(head, "[:]") {
 		t.Errorf("header = %q", head)
 	}
 }

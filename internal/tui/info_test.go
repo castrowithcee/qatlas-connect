@@ -20,8 +20,8 @@ func connectionForm(t *testing.T, width int) *Model {
 }
 
 func TestInfoKeyIsBoundToI(t *testing.T) {
-	if keyOf(actInfo) != "i" || keyLabel(actInfo) != "i" {
-		t.Errorf("the info action is bound to %q, want i", keyOf(actInfo))
+	if keyLabel(actInfo) != "i" {
+		t.Errorf("the info action is bound to %q, want i", keyLabel(actInfo))
 	}
 }
 

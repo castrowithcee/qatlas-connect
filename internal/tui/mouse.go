@@ -433,7 +433,7 @@ func (m *Model) backShown() bool {
 	if m.backdrop || m.infoOpen || m.keyCapture || m.dd != nil || m.testResultShown() {
 		return false
 	}
-	if _, ok := keyPress(keyOf(actBack)); !ok {
+	if _, ok := keyPress(keyLabel(actBack)); !ok {
 		return false
 	}
 	switch m.screen {
@@ -473,7 +473,7 @@ func (m *Model) backShown() bool {
 // pressBack is a press of the key bound to esc; the click on the back button and the climb out of a deeper
 // screen use it so they meet every rule the key meets.
 func (m *Model) pressBack() tea.Cmd {
-	key, ok := keyPress(keyOf(actBack))
+	key, ok := keyPress(keyLabel(actBack))
 	if !ok {
 		return nil
 	}

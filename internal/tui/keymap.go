@@ -5,15 +5,15 @@ import (
 	"strconv"
 	"strings"
 
-	"charm.land/bubbles/v2/key"
 	tea "charm.land/bubbletea/v2"
+	kit "github.com/castrowithcee/qatlas-kit/tui"
 
 	"github.com/castrowithcee/qatlas-connect/internal/uiprefs"
 )
 
 // action names a key-bound action of the editor. Dispatch and footers refer to the action, never to the
 // key, so the binding lives in exactly one place.
-type action string
+type action = kit.ActionID
 
 const (
 	actInfo      action = "info"
@@ -77,93 +77,87 @@ const (
 	actReload      action = "reload"
 )
 
-// keyLevel is the set of actions that can be pressed in the same place. Within one level no two actions
-// share a key; across levels one key may mean different things only where the levels never meet: the
-// answers of a question (y, n, d) and the keys only the help overlay knows. Every other key has one meaning
-// on every screen.
-type keyLevel string
+// row is one entry of the key table with fixed keys.
+func row(id action, level kit.KeyLevel, help textID, keys ...string) kit.Action {
+	return kit.Action{ID: id, Level: level, DefaultKeys: keys, Help: kit.TextID(help)}
+}
 
-const (
-	levelGlobal  keyLevel = "global"
-	levelLetter  keyLevel = "letter"
-	levelCtrl    keyLevel = "ctrl"
-	levelMove    keyLevel = "move"
-	levelConfirm keyLevel = "confirm"
-	levelVim     keyLevel = "vim"
-	levelHelp    keyLevel = "help"
-)
+// rebindable marks an entry as one the preferences may change.
+func rebindable(a kit.Action, how kit.Rebinding) kit.Action { a.Rebind = how; return a }
 
-// keyDefs is the key table: every action with its level, default keys, and the catalog text of its help.
-// Keys are the names bubbletea reports (tea.KeyPressMsg.String). The vim letters are entries of their own
-// that only moveKey reads: on a screen that reads text they are text, so the movement bindings hold arrows only.
-// The help level holds the keys only the help overlay knows; tab there steps through topics, not fields.
-var keyDefs = []struct {
-	act   action
-	level keyLevel
-	keys  []string
-	help  textID
-}{
-	{actSave, levelGlobal, []string{"f2"}, tKeyHelpSave},
-	{actHelp, levelGlobal, []string{"?"}, tKeyHelpHelp},
-	{actCommand, levelGlobal, []string{":"}, tKeyHelpCommand},
-	{actLock, levelGlobal, []string{"ctrl+l"}, tKeyHelpLock},
-	{actBack, levelGlobal, []string{"esc"}, tKeyHelpBack},
-	{actForceQuit, levelGlobal, []string{"ctrl+c"}, tKeyHelpForceQuit},
+// secondWayOf marks an entry as the second way of another action: the control keys of text lines beside the
+// arrow keys, which terminals and multiplexers would otherwise take.
+func secondWayOf(a kit.Action, first action) kit.Action { a.SecondWayOf = first; return a }
 
-	// The letter actions: each letter means one thing on every screen where nothing is typed.
-	{actInfo, levelLetter, []string{"i"}, tKeyHelpInfo},
-	{actDelete, levelLetter, []string{"d"}, tKeyHelpDelete},
-	{actQuit, levelLetter, []string{"q"}, tKeyHelpQuit},
-	{actSetup, levelLetter, []string{"g"}, tKeyHelpSetup},
-	{actCopy, levelLetter, []string{"c"}, tKeyHelpCopy},
-	{actNew, levelLetter, []string{"n"}, tKeyHelpNew},
-	{actApproveAll, levelLetter, []string{"A"}, tKeyHelpApproveAll},
-	{actEdit, levelLetter, []string{"e"}, tKeyHelpEdit},
-	{actRename, levelLetter, []string{"r"}, tKeyHelpRename},
-	{actReveal, levelLetter, []string{"V"}, tKeyHelpReveal},
-	{actSummary, levelLetter, []string{"s"}, tKeyHelpSummary},
-	{actFilter, levelLetter, []string{"f"}, tKeyHelpFilter},
-	{actRevert, levelLetter, []string{"B"}, tKeyHelpRevert},
-	{actSessions, levelLetter, []string{"M"}, tKeyHelpSessions},
-	{actLogs, levelLetter, []string{"o"}, tKeyHelpLogs},
-	{actDuplicate, levelLetter, []string{"p"}, tKeyHelpDuplicate},
-	{actTest, levelLetter, []string{"t"}, tKeyHelpTest},
-	{actUpdate, levelLetter, []string{"U"}, tKeyHelpUpdate},
-	{actWrite, levelLetter, []string{"W"}, tKeyHelpWrite},
+// keyTable is the key table of the editor: every action with its level, default keys, and the catalog text
+// of its help, as the kit checks and binds it. The vim letters are entries of their own that only moveKey
+// reads: on a screen that reads text they are text, so the movement bindings hold arrows only. The help level
+// holds the keys only the help overlay knows; tab there steps through topics, not fields. Within the main
+// levels no two actions share a key; across them one key may mean different things only where the levels
+// never meet: the answers of a question (y, n, d) and the keys only the help overlay knows.
+var keyTable = []kit.Action{
+	rebindable(row(actSave, kit.LevelGlobal, tKeyHelpSave, "f2"), kit.RebindReplace),
+	rebindable(row(actHelp, kit.LevelGlobal, tKeyHelpHelp, "?"), kit.RebindReplace),
+	rebindable(row(actCommand, kit.LevelGlobal, tKeyHelpCommand, ":"), kit.RebindReplace),
+	rebindable(row(actLock, kit.LevelGlobal, tKeyHelpLock, "ctrl+l"), kit.RebindReplace),
+	row(actBack, kit.LevelGlobal, tKeyHelpBack, "esc"),
+	row(actForceQuit, kit.LevelGlobal, tKeyHelpForceQuit, "ctrl+c"),
+
+	// The letter actions: each letter means one thing on every screen where nothing is typed. The info letter
+	// takes an optional second key that, unlike the letter, also works on text lines.
+	rebindable(row(actInfo, kit.LevelLetter, tKeyHelpInfo, "i"), kit.RebindExtra),
+	row(actDelete, kit.LevelLetter, tKeyHelpDelete, "d"),
+	row(actQuit, kit.LevelLetter, tKeyHelpQuit, "q"),
+	row(actSetup, kit.LevelLetter, tKeyHelpSetup, "g"),
+	row(actCopy, kit.LevelLetter, tKeyHelpCopy, "c"),
+	row(actNew, kit.LevelLetter, tKeyHelpNew, "n"),
+	row(actApproveAll, kit.LevelLetter, tKeyHelpApproveAll, "A"),
+	row(actEdit, kit.LevelLetter, tKeyHelpEdit, "e"),
+	row(actRename, kit.LevelLetter, tKeyHelpRename, "r"),
+	row(actReveal, kit.LevelLetter, tKeyHelpReveal, "V"),
+	row(actSummary, kit.LevelLetter, tKeyHelpSummary, "s"),
+	row(actFilter, kit.LevelLetter, tKeyHelpFilter, "f"),
+	row(actRevert, kit.LevelLetter, tKeyHelpRevert, "B"),
+	row(actSessions, kit.LevelLetter, tKeyHelpSessions, "M"),
+	row(actLogs, kit.LevelLetter, tKeyHelpLogs, "o"),
+	row(actDuplicate, kit.LevelLetter, tKeyHelpDuplicate, "p"),
+	row(actTest, kit.LevelLetter, tKeyHelpTest, "t"),
+	row(actUpdate, kit.LevelLetter, tKeyHelpUpdate, "U"),
+	row(actWrite, kit.LevelLetter, tKeyHelpWrite, "W"),
 
 	// The control keys of text lines and of the target picker, and F8 of the payload form. None can be rebound to a global action.
-	{actRemoveField, levelCtrl, []string{"f8"}, tKeyHelpRemoveField},
-	{actSuggestPrev, levelCtrl, []string{"ctrl+p"}, tKeyHelpSuggestPrev},
-	{actSuggestNext, levelCtrl, []string{"ctrl+n"}, tKeyHelpSuggestNext},
-	{actNextKind, levelCtrl, []string{"ctrl+y"}, tKeyHelpNextKind},
-	{actReload, levelCtrl, []string{"ctrl+r"}, tKeyHelpReload},
+	row(actRemoveField, kit.LevelCtrl, tKeyHelpRemoveField, "f8"),
+	secondWayOf(row(actSuggestPrev, kit.LevelCtrl, tKeyHelpSuggestPrev, "ctrl+p"), actUp),
+	secondWayOf(row(actSuggestNext, kit.LevelCtrl, tKeyHelpSuggestNext, "ctrl+n"), actDown),
+	row(actNextKind, kit.LevelCtrl, tKeyHelpNextKind, "ctrl+y"),
+	row(actReload, kit.LevelCtrl, tKeyHelpReload, "ctrl+r"),
 
-	{actUp, levelMove, []string{"up"}, tKeyHelpUp},
-	{actDown, levelMove, []string{"down"}, tKeyHelpDown},
-	{actLeft, levelMove, []string{"left"}, tKeyHelpLeft},
-	{actRight, levelMove, []string{"right"}, tKeyHelpRight},
-	{actHome, levelMove, []string{"home"}, tKeyHelpHome},
-	{actEnd, levelMove, []string{"end"}, tKeyHelpEnd},
-	{actPageUp, levelMove, []string{"pgup"}, tKeyHelpPageUp},
-	{actPageDown, levelMove, []string{"pgdown"}, tKeyHelpPageDown},
-	{actNext, levelMove, []string{"tab"}, tKeyHelpNext},
-	{actPrev, levelMove, []string{"shift+tab"}, tKeyHelpPrev},
-	{actEnter, levelMove, []string{"enter"}, tKeyHelpEnter},
-	{actSpace, levelMove, []string{"space"}, tKeyHelpSpace},
-	{actSearch, levelMove, []string{"/"}, tKeyHelpSearch},
-	{actArea, levelMove, areaKeys(), tKeyHelpArea},
+	row(actUp, kit.LevelMove, tKeyHelpUp, "up"),
+	row(actDown, kit.LevelMove, tKeyHelpDown, "down"),
+	row(actLeft, kit.LevelMove, tKeyHelpLeft, "left"),
+	row(actRight, kit.LevelMove, tKeyHelpRight, "right"),
+	row(actHome, kit.LevelMove, tKeyHelpHome, "home"),
+	row(actEnd, kit.LevelMove, tKeyHelpEnd, "end"),
+	row(actPageUp, kit.LevelMove, tKeyHelpPageUp, "pgup"),
+	row(actPageDown, kit.LevelMove, tKeyHelpPageDown, "pgdown"),
+	row(actNext, kit.LevelMove, tKeyHelpNext, "tab"),
+	row(actPrev, kit.LevelMove, tKeyHelpPrev, "shift+tab"),
+	row(actEnter, kit.LevelMove, tKeyHelpEnter, "enter"),
+	row(actSpace, kit.LevelMove, tKeyHelpSpace, "space"),
+	row(actSearch, kit.LevelMove, tKeyHelpSearch, "/"),
+	row(actArea, kit.LevelMove, tKeyHelpArea, areaKeys()...),
 
-	{actVimUp, levelVim, []string{"k"}, tKeyHelpUp},
-	{actVimDown, levelVim, []string{"j"}, tKeyHelpDown},
-	{actVimLeft, levelVim, []string{"h"}, tKeyHelpLeft},
-	{actVimRight, levelVim, []string{"l"}, tKeyHelpRight},
+	row(actVimUp, kit.LevelVim, tKeyHelpUp, "k"),
+	row(actVimDown, kit.LevelVim, tKeyHelpDown, "j"),
+	row(actVimLeft, kit.LevelVim, tKeyHelpLeft, "h"),
+	row(actVimRight, kit.LevelVim, tKeyHelpRight, "l"),
 
-	{actTopicNext, levelHelp, []string{"tab"}, tKeyHelpTopicNext},
-	{actTopicPrev, levelHelp, []string{"shift+tab"}, tKeyHelpTopicPrev},
+	row(actTopicNext, kit.LevelHelp, tKeyHelpTopicNext, "tab"),
+	row(actTopicPrev, kit.LevelHelp, tKeyHelpTopicPrev, "shift+tab"),
 
-	{actYes, levelConfirm, []string{"y"}, tKeyHelpYes},
-	{actNo, levelConfirm, []string{"n"}, tKeyHelpNo},
-	{actDiscard, levelConfirm, []string{"d"}, tKeyHelpDiscard},
+	row(actYes, kit.LevelConfirm, tKeyHelpYes, "y"),
+	row(actNo, kit.LevelConfirm, tKeyHelpNo, "n"),
+	row(actDiscard, kit.LevelConfirm, tKeyHelpDiscard, "d"),
 }
 
 // areaKeys are the digits that open the areas, one per area in the order of the tab line.
@@ -175,19 +169,20 @@ func areaKeys() []string {
 	return keys
 }
 
-// keymap is the key table as bindings. Dispatch and footers read it alone; setKeys and refreshKeyHelp are
-// the only writers.
-var keymap = func() map[action]key.Binding {
-	m := map[action]key.Binding{}
-	for _, d := range keyDefs {
-		m[d.act] = key.NewBinding(key.WithKeys(d.keys...))
-	}
-	return m
-}()
+// newKeymap checks table and binds its default keys. The arrows are drawn as glyphs; a terminal without
+// them gets the footer's own ASCII conversion.
+func newKeymap(table []kit.Action) (*kit.Keymap, error) {
+	return kit.NewKeymap(table, kit.CharsetUnicode)
+}
 
-// infoExtra is the optional second key of the info action, set in the preferences. Unlike i it is no
-// letter, so it also works on text lines; "" means none.
-var infoExtra string
+// keymap is the key table in force. Dispatch and footers read it alone; applyKeys is the only writer.
+var keymap = func() *kit.Keymap {
+	km, err := newKeymap(keyTable)
+	if err != nil {
+		panic("the key table is invalid: " + err.Error())
+	}
+	return km
+}()
 
 // userActions maps the rebindable actions of the preferences to the actions of the keymap.
 var userActions = map[string]action{
@@ -196,110 +191,64 @@ var userActions = map[string]action{
 
 func init() { uiprefs.Reserved = reservedOwner }
 
-// reservedOwner names the action of the table that owns k and that the preferences cannot rebind, so no
-// binding may take it; "" means the key is free.
+// reservedOwner names the action of the table that owns k and that the preferences cannot replace, so no
+// binding may take it; "" means the key is free. The info letter is such an owner: its second key is a
+// preference, the letter is not.
 func reservedOwner(k string) string {
-	rebindable := map[action]bool{}
-	for _, a := range userActions {
-		rebindable[a] = true
-	}
-	for _, d := range keyDefs {
-		if !rebindable[d.act] && slices.Contains(keymap[d.act].Keys(), k) {
-			return string(d.act)
+	for _, a := range keymap.Actions() {
+		if a.Rebind != kit.RebindReplace && slices.Contains(a.DefaultKeys, k) {
+			return string(a.ID)
 		}
 	}
 	return ""
-}
-
-// setKeys replaces the keys of an action; none unbinds it.
-func setKeys(a action, keys ...string) {
-	b := keymap[a]
-	b.SetKeys(slices.DeleteFunc(slices.Clone(keys), func(k string) bool { return k == "" })...)
-	keymap[a] = b
 }
 
 // applyKeys makes the keys of the preferences the keymap. Dispatch and footers read the keymap alone, so
-// both follow at once.
+// both follow at once. The preferences are checked before they get here; a set the table still refuses
+// leaves the default keys.
 func applyKeys(k uiprefs.Keys) {
 	k = k.WithDefaults()
+	overrides := map[action]string{actInfo: k.Info}
 	for name, a := range userActions {
-		setKeys(a, k.Get(name))
+		overrides[a] = k.Get(name)
 	}
-	infoExtra = k.Info
-	refreshKeyHelp()
-}
-
-// refreshKeyHelp sets the help of every binding from the catalog in the current language and the keys in
-// force. It runs when either changes, never at package start, so no text is fixed in a language early.
-func refreshKeyHelp() {
-	for _, d := range keyDefs {
-		b := keymap[d.act]
-		b.SetHelp(keyLabel(d.act), tr(d.help))
-		keymap[d.act] = b
+	if err := keymap.Bind(overrides); err != nil {
+		_ = keymap.Bind(nil)
 	}
 }
 
-// keyOf is the first key bound to an action, "" when unbound. A switch can take it as a case, so one
-// screen's key switch stays a switch.
-func keyOf(a action) string {
-	if keys := keymap[a].Keys(); len(keys) > 0 {
-		return keys[0]
-	}
-	return ""
-}
-
-// keyIs reports whether the key press triggers the action. An unbound action never matches.
-func keyIs(msg tea.KeyPressMsg, a action) bool { return key.Matches(msg, keymap[a]) }
-
-// arrowNames are the glyphs a footer draws for the arrow keys.
-var arrowNames = map[string]string{"up": "↑", "down": "↓", "left": "←", "right": "→"}
-
-// keyName is how a footer spells a key: function keys capitalized, arrows as glyphs, everything else as bound.
-func keyName(k string) string {
-	if len(k) >= 2 && k[0] == 'f' && strings.Trim(k[1:], "0123456789") == "" {
-		return "F" + k[1:]
-	}
-	if glyph, ok := arrowNames[k]; ok {
-		return glyph
-	}
-	return k
-}
+// keyIs reports whether the key press triggers the action, where every key of the table acts: the screens
+// decide themselves where text is typed.
+func keyIs(msg tea.KeyPressMsg, a action) bool { return keymap.Is(msg, a, kit.InputNavigation) }
 
 // keyLabel is how a footer names the keys of an action, joined by "/": function keys capitalized,
 // everything else as bound, the second info key last. A run of three or more digits is written as a range.
-func keyLabel(a action) string {
-	keys := keymap[a].Keys()
-	if len(keys) > 2 && digitRun(keys) {
-		return keys[0] + "-" + keys[len(keys)-1]
-	}
-	var names []string
-	for _, k := range keys {
-		names = append(names, keyName(k))
-	}
-	if a == actInfo && infoExtra != "" {
-		names = append(names, keyName(infoExtra))
-	}
-	return strings.Join(names, "/")
+func keyLabel(a action) string { return keymap.Label(a) }
+
+// infoExtraLabel is the second info key, which also acts on text lines, as a footer names it; "" means none.
+func infoExtraLabel() string {
+	label, _ := keymap.Labels(kit.InputText).KeyLabel(actInfo)
+	return label
 }
 
-// digitRun reports whether keys are the single digits n, n+1, n+2 and so on.
-func digitRun(keys []string) bool {
-	for i, k := range keys {
-		if len(k) != 1 || k[0] < '0' || k[0] > '9' || k[0] != keys[0][0]+byte(i) {
-			return false
+// tableKey is the first default key of an action of the table.
+func tableKey(a action) string {
+	for _, e := range keyTable {
+		if e.ID == a {
+			return e.DefaultKeys[0]
 		}
 	}
-	return true
+	return ""
 }
 
 // keyPress is the key press a key name of the table stands for, for the keys a footer button may send.
 func keyPress(name string) (tea.KeyPressMsg, bool) {
 	switch name {
-	case keyOf(actEnter):
+	case keyLabel(actEnter):
 		return tea.KeyPressMsg{Code: tea.KeyEnter}, true
-	case keyOf(actBack):
+	case keyLabel(actBack):
 		return tea.KeyPressMsg{Code: tea.KeyEscape}, true
-	case keyOf(actNext):
+	case keyLabel(actNext):
 		return tea.KeyPressMsg{Code: tea.KeyTab}, true
 	}
 	if len(name) >= 2 && (name[0] == 'F' || name[0] == 'f') {
@@ -327,9 +276,9 @@ func keyPlaceholders(text string) string {
 	if !strings.Contains(text, "{") {
 		return text
 	}
-	for _, d := range keyDefs {
-		if p := footerPlaceholder(d.act); strings.Contains(text, p) {
-			text = strings.ReplaceAll(text, p, keyLabel(d.act))
+	for _, e := range keyTable {
+		if p := footerPlaceholder(e.ID); strings.Contains(text, p) {
+			text = strings.ReplaceAll(text, p, keyLabel(e.ID))
 		}
 	}
 	return text
