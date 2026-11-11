@@ -15,7 +15,8 @@ connection lists exactly one region and otherwise must name an allowed one. Ever
 
 ## Tools
 
-Reads need no confirmation. Every other tool needs confirmation. None is listed-only.
+Reads need no confirmation. Every other tool needs confirmation. The three identity policy tools that write are
+listed-only: a connection offers them only when its tools list names each one exactly, not by effect or prefix.
 
 | Tool | AWS operation | Effect | Confirmation |
 | --- | --- | --- | --- |
@@ -23,6 +24,9 @@ Reads need no confirmation. Every other tool needs confirmation. None is listed-
 | `aws.ses.email-identity.get` | `GetEmailIdentity` | read | no |
 | `aws.ses.email-identity.list-tags` | `ListTagsForResource` | read | no |
 | `aws.ses.email-identity-policy.list` | `GetEmailIdentityPolicies` | read | no |
+| `aws.ses.email-identity-policy.create` | `CreateEmailIdentityPolicy` | create, not repeated | yes, listed-only |
+| `aws.ses.email-identity-policy.update` | `UpdateEmailIdentityPolicy` | update | yes, listed-only |
+| `aws.ses.email-identity-policy.delete` | `DeleteEmailIdentityPolicy` | delete, not repeated | yes, listed-only |
 | `aws.ses.email-identity.create` | `CreateEmailIdentity` | create, not repeated | yes |
 | `aws.ses.email-identity.delete` | `DeleteEmailIdentity` | delete, not repeated | yes |
 | `aws.ses.email-identity.put-dkim-attributes` | `PutEmailIdentityDkimAttributes` | update | yes |
@@ -33,9 +37,8 @@ Reads need no confirmation. Every other tool needs confirmation. None is listed-
 | `aws.ses.email-identity.tag` | `TagResource` | update | yes |
 | `aws.ses.email-identity.untag` | `UntagResource` | update | yes |
 
-The identity policies are readable only; the tools that write or delete them are not offered. `create` with tags also
-needs `ses:TagResource`. An answer that says the outcome of a create or delete is unclear is not repeated: read the
-identity first.
+`aws.ses.email-identity.create` with tags also needs `ses:TagResource`. A create or delete whose outcome is unclear
+is not repeated: read the identity or its policies first.
 
 ## Checks before the call
 
@@ -44,6 +47,27 @@ identity first.
 - **ARN.** The tools that take `resource_arn` (`tag`, `untag`, `list-tags`) accept only the ARN of an SES identity in
   the bound account and in an allowed region of the connection. Another account, another region, or another resource
   type is refused.
+
+## Identity policies
+
+`create` and `update` check the `policy` document before any call; a document that breaks a rule is refused and
+nothing is sent. The rules hold for every statement, whatever its `Effect`:
+
+- A principal is only the bound account (its 12-digit ID or `arn:aws:iam::<account>:root`), a user or a role of the bound
+  account, or an AWS service principal `<name>.amazonaws.com`.
+- A service principal needs, in the same statement, `aws:SourceAccount` with exactly the bound account under
+  `StringEquals`, or `aws:SourceArn` with only ARNs of the bound account (the account field spelled out, no `*` or `?`)
+  under `ArnEquals`, `ArnLike`, or `StringEquals`. Values are a string or a list. Condition keys are compared without
+  case, and two spellings of one key in an operator are refused. `ForAnyValue:`, `ForAllValues:`, and `...IfExists`
+  operators on these keys are refused.
+- Refused: `*` in any form, `NotPrincipal`, `Federated`, `CanonicalUser` and every principal type except `AWS` and
+  `Service`, another account, a service without the condition, a wildcard in the account field, a missing `Principal`,
+  invalid JSON, a key twice in one object, an element the policy grammar does not define, and a document above 131072
+  characters.
+
+A refusal names the rule and the statement by position, never a value of the document. `delete` takes the identity and
+the policy name and needs no document. `ses:CreateEmailIdentityPolicy`, `ses:UpdateEmailIdentityPolicy`, and
+`ses:DeleteEmailIdentityPolicy` are the permissions.
 
 ## DNS help
 
