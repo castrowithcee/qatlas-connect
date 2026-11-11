@@ -90,7 +90,10 @@ access is in the SES sandbox and sends only to verified recipients.
 Each [S3 tool](s3.md) needs the permission `s3:<Action>` for the bucket (`arn:aws:s3:::<bucket>`), except `bucket.list`,
 which needs `s3:ListAllMyBuckets` on all resources. The reads need `s3:ListAllMyBuckets` (`bucket.list`),
 `s3:ListBucket` (`bucket.head`), `s3:GetBucketLocation`, `s3:GetBucketVersioning`, `s3:GetEncryptionConfiguration`,
-`s3:GetBucketTagging`, and `s3:GetBucketPublicAccessBlock`, each for its own tool. The writes need:
+`s3:GetBucketTagging`, `s3:GetBucketPublicAccessBlock`, `s3:GetLifecycleConfiguration` (`lifecycle.get`),
+`s3:GetBucketCORS` (`cors.get`), `s3:GetBucketAcl` (`acl.get`), `s3:GetBucketWebsite`, `s3:GetBucketLogging` (`logging.get`), `s3:GetBucketNotification` (`notification.get`),
+`s3:GetReplicationConfiguration` (`replication.get`), `s3:GetBucketOwnershipControls`, `s3:GetAccelerateConfiguration`, and
+`s3:GetBucketRequestPayment`, each for its own tool. The writes need:
 
 | Tool | Permission |
 | --- | --- |
@@ -100,6 +103,8 @@ which needs `s3:ListAllMyBuckets` on all resources. The reads need `s3:ListAllMy
 | `aws.s3.encryption.put`, `aws.s3.encryption.delete` | `s3:PutEncryptionConfiguration` |
 | `aws.s3.tagging.put`, `aws.s3.tagging.delete` | `s3:PutBucketTagging` |
 | `aws.s3.public-access-block.put` | `s3:PutBucketPublicAccessBlock` and `s3:GetBucketPublicAccessBlock` (the read before the change) |
+| `aws.s3.lifecycle.delete` | `s3:PutLifecycleConfiguration` |
+| `aws.s3.cors.delete` | `s3:PutBucketCORS` |
 
 Creating with tags also needs `s3:PutBucketTagging`. Setting a KMS key also needs the permissions the key's policy
 requires for the identity. Grant only the actions of the tools the connection offers; a policy such as `s3:*` also

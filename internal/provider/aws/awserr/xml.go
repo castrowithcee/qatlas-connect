@@ -38,7 +38,9 @@ var (
 		"AnnotationLimitExceeded": quota,
 		// A bucket without such a configuration; the models do not define these codes, the service sends them.
 		"ServerSideEncryptionConfigurationNotFoundError": notFound, "NoSuchTagSet": notFound,
-		"NoSuchPublicAccessBlockConfiguration": notFound,
+		"NoSuchPublicAccessBlockConfiguration": notFound, "NoSuchLifecycleConfiguration": notFound,
+		"NoSuchCORSConfiguration": notFound, "NoSuchWebsiteConfiguration": notFound,
+		"ReplicationConfigurationNotFoundError": notFound, "OwnershipControlsNotFoundError": notFound,
 
 		// Route 53.
 		"NoSuchChange": notFound, "NoSuchCidrCollectionException": notFound, "NoSuchCidrLocationException": notFound,

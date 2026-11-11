@@ -2,6 +2,7 @@ package gen
 
 import (
 	"fmt"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -133,7 +134,7 @@ func (t *tool) restField(f awsquery.Field, bf *httpbind.Field) (httpbind.Field, 
 	if !t.xml {
 		return field, nil
 	}
-	if err := checkXMLForm(bf.Shape, bf.Key); err != nil {
+	if err := carryXMLForm(field.Shape, bf.Shape, bf.Key); err != nil {
 		return field, t.failf("%v", err)
 	}
 	t.rootOf(field.Shape, bf.Shape)
@@ -145,21 +146,28 @@ func (t *tool) restField(f awsquery.Field, bf *httpbind.Field) (httpbind.Field, 
 	return field, nil
 }
 
-// checkXMLForm refuses a member whose members below the top level carry an attribute or a namespace, which
-// the converted shapes do not carry.
-func checkXMLForm(s *httpbind.Shape, path string) error {
-	if s == nil {
+// carryXMLForm gives the members below the top level the XML form of the binding that the converted shapes do not
+// carry: an attribute (such as the xsi:type of a grantee) and the namespace declared on the element of a member. The
+// converted members are matched to the bound ones by their snake_case key; a member the binding lacks is a defect.
+func carryXMLForm(dst, src *httpbind.Shape, path string) error {
+	if dst == nil || src == nil {
 		return nil
 	}
-	for _, f := range s.Fields {
-		if f.Attribute || f.Namespace != (httpbind.Namespace{}) {
-			return fmt.Errorf("member %s.%s has an XML attribute or namespace, which is not rendered yet", path, f.Key)
+	for i := range dst.Fields {
+		df := &dst.Fields[i]
+		j := slices.IndexFunc(src.Fields, func(f httpbind.Field) bool { return snake(f.Key) == df.Key })
+		if j < 0 {
+			return fmt.Errorf("member %s.%s is not in the binding", path, df.Key)
 		}
-		if err := checkXMLForm(f.Shape, path+"."+f.Key); err != nil {
+		sf := src.Fields[j]
+		if sf.Attribute || sf.Namespace != (httpbind.Namespace{}) {
+			df.Attribute, df.Namespace, df.Name = sf.Attribute, sf.Namespace, sf.Name
+		}
+		if err := carryXMLForm(df.Shape, sf.Shape, path+"."+sf.Key); err != nil {
 			return err
 		}
 	}
-	return checkXMLForm(s.Elem, path+"[]")
+	return carryXMLForm(dst.Elem, src.Elem, path+"[]")
 }
 
 // restShape turns a converted shape into the description of the REST runtime.

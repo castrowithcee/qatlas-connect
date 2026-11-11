@@ -93,7 +93,7 @@ func TestUpdateToInstallsAPrereleaseAfterTheQuestion(t *testing.T) {
 		asked = append(asked, prompt)
 		return true, nil
 	})
-	code, stdout, stderr, program, replaced := chosenRun(t, "--to", "v3.3.0-rc.1", "--output", "json")
+	code, stdout, stderr, program, replaced := chosenRun(t, "--to", "v3.3.0-rc.1", "--confirm", "--output", "json")
 	if code != exitOK || program != "new-program" || replaced != 1 || len(asked) != 1 {
 		t.Fatalf("exit code = %d, stderr = %q, program = %q, replaced %d, questions %d", code, stderr, program, replaced, len(asked))
 	}
@@ -111,7 +111,7 @@ func TestUpdateToInstallsAPrereleaseAfterTheQuestion(t *testing.T) {
 
 func TestUpdateToAnsweringNoChangesNothing(t *testing.T) {
 	withVaultConfirm(t, func(string) (bool, error) { return false, nil })
-	code, _, stderr, program, replaced := chosenRun(t, "--to", "v3.2.0")
+	code, _, stderr, program, replaced := chosenRun(t, "--to", "v3.2.0", "--confirm")
 	if code != exitOK || program != "old-program" || replaced != 0 || !strings.Contains(stderr, "cancelled") {
 		t.Fatalf("exit code = %d, stderr = %q, program = %q, replaced %d", code, stderr, program, replaced)
 	}
@@ -130,7 +130,7 @@ func TestUpdateToWithoutTerminalNeedsYes(t *testing.T) {
 		}
 	}
 	withInteractive(t, false)
-	code, _, stderr, program, replaced := chosenRun(t, "--to", "v3.2.0", "--yes")
+	code, _, stderr, program, replaced := chosenRun(t, "--to", "v3.2.0", "--yes", "--confirm")
 	if code != exitOK || program != "new-program" || replaced != 1 {
 		t.Errorf("--yes: exit code = %d, stderr = %q, program = %q, replaced %d", code, stderr, program, replaced)
 	}
@@ -145,7 +145,7 @@ func TestUpdateToRefusesWithoutChanges(t *testing.T) {
 		"unsigned":      {"v3.4.0", "not signed"},
 		"below minimum": {"v0.29.0", "oldest version"},
 	} {
-		code, _, stderr, program, replaced := chosenRun(t, "--to", tt.tag, "--yes")
+		code, _, stderr, program, replaced := chosenRun(t, "--to", tt.tag, "--yes", "--confirm")
 		if code != exitUsage || !strings.Contains(stderr, tt.want) || program != "old-program" || replaced != 0 {
 			t.Errorf("%s: exit code = %d, stderr = %q, program = %q, replaced %d", name, code, stderr, program, replaced)
 		}

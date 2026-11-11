@@ -240,7 +240,7 @@ defaults:
 	}
 	before := dirState(t, configDir)
 
-	code, stdout, stderr := c.run(t, "update", "--yes", "--output", "json")
+	code, stdout, stderr := c.run(t, "update", "--yes", "--confirm", "--output", "json")
 	if code != 0 || !strings.Contains(stdout, `"updated":true`) || !strings.Contains(stdout, `"signed":true`) {
 		t.Fatalf("update: exit %d, stdout %q, stderr %q", code, stdout, stderr)
 	}
