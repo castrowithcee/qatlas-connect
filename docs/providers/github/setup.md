@@ -182,6 +182,10 @@ your token holds. A repository or organization policy can forbid a run although 
 | Read the selected actions, fork pull request approval, retention, access, or OIDC subject claim of a repository | `repo`, as a repository administrator | Administration: read |
 | Change them | `repo`, as a repository administrator | Administration: read and write |
 | Read or change the selected actions, fork pull request approval, retention, or OIDC subject claim of an organization | `admin:org` | Administration or Actions policies, read, or read and write (organization); as far as GitHub documents it |
+| Read the self-hosted runners and their labels of a repository | `repo`, as a repository administrator | Administration: read |
+| Remove a runner or change its labels in a repository | `repo`, as a repository administrator | Administration: read and write |
+| Read the self-hosted runners and their labels of an organization | `admin:org` | Self-hosted runners: read (organization) |
+| Remove a runner or change its labels in an organization | `admin:org` | Self-hosted runners: read and write (organization) |
 | Read repository settings | `repo` for private repositories | Metadata: read |
 | Change repository settings and topics, including archiving and unarchiving | `repo`, as a repository administrator | Administration: write |
 | Read Actions variables of a repository; create, change, or delete them | `repo` | Variables: read; read and write to change |
@@ -192,7 +196,7 @@ your token holds. A repository or organization policy can forbid a run although 
 | Read deployments and deployment statuses | `repo` for private repositories, none for public | Deployments: read |
 | Name a team as reviewer of an environment | `read:org` | Members: read (organization) |
 
-Workflow files, Actions permissions and settings, and repository settings are high risk. Give those connections a token of their
+Workflow files, Actions permissions and settings, self-hosted runners, and repository settings are high risk. Give those connections a token of their
 own that no other connection uses, ideally fine-grained and limited to the one repository, with only the
 permissions of the tools that connection lists. A branch protection or repository rule can refuse a file change
 although the token allows it.
