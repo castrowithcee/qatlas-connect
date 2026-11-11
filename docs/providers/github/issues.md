@@ -40,6 +40,10 @@ body. It reads projects only with `project_details`; the token rights are listed
 | `github.issues.update` | replaces the given fields; left-out fields stay |
 | `github.issues.close` | closes an issue with a `state_reason` |
 | `github.issues.reopen` | opens a closed issue again |
+| `github.issues.lock` | locks the conversation of an issue or pull request, optionally with a `lock_reason`; offered only where a connection's `tools` list names it |
+| `github.issues.unlock` | unlocks the conversation of an issue or pull request |
+| `github.issues.pin` | pins an issue to the top of the repository's issue list |
+| `github.issues.unpin` | releases the pin of an issue |
 | `github.comments.create` | writes exactly one comment on one issue |
 | `github.comments.update` | replaces the body of one comment |
 | `github.comments.delete` | deletes one comment permanently; offered only where a connection's `tools` list names it |
@@ -78,6 +82,22 @@ identifier. Both change tools read the comment first: its route scopes it to the
 repository, so a comment of another repository answers `not-found`, and a pull request's own conversation
 comment is refused as `invalid-request` before anything changes. `github.comments.delete` removes a comment
 permanently and is offered only where a connection's `tools` list names it, as `github.labels.delete` is.
+
+`github.issues.lock`, `github.issues.unlock`, `github.issues.pin`, and `github.issues.unpin` take only the `number`
+of an issue, and for lock and unlock of a pull request too; `github.issues.lock` also takes an optional `lock_reason`: `off-topic`, `too heated`, `resolved`, or
+`spam`, checked before anything is sent. Each tool first reads the issue below the connection's repository, so a
+number GitHub does not hold there is `not-found`; `github.issues.pin` and `github.issues.unpin` refuse a pull
+request number as `invalid-request`, since GitHub pins only issues, while `github.issues.lock` and
+`github.issues.unlock` accept one, as GitHub locks a pull request's conversation on the same route, and mark the
+answer `is_pull_request`; only then it sends exactly one request that is never repeated. Locking and unlocking are one REST request each. GitHub
+offers pinning only as a GraphQL mutation on a node identifier, which the caller never supplies: it is the
+`node_id` of that read. `github.issues.lock` is offered only where a connection's `tools` list names it, because
+it shuts everyone without push access out of the conversation. Locking a locked issue and unlocking an unlocked one
+succeed, as GitHub answers both; pinning or unpinning follows what GitHub's mutation answers. A repository holds at
+most three pinned issues: GitHub's refusal of a fourth is reported as its own message that names the limit, not
+GitHub's text. The answers hold the `number` and the state (`locked` with the `lock_reason` that was sent, or
+`pinned`) and never issue text. An outcome that stays unclear after a timeout or a dropped connection is reported
+as uncertain, not as failure or success.
 
 `github.comments.hide` and `github.comments.unhide` minimize and restore one object, chosen by `kind`:
 `issue-comment` (the `comment_id` above), `pull-request-comment` (the `comment_id` of a conversation comment of a
