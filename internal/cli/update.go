@@ -16,12 +16,14 @@ import (
 	"github.com/castrowithcee/qatlas-connect/internal/selfupdate"
 	"github.com/castrowithcee/qatlas-connect/internal/vault"
 	"github.com/castrowithcee/qatlas-connect/internal/vaultproc"
+	"github.com/castrowithcee/qatlas-kit/cobracli"
 	"github.com/castrowithcee/qatlas-kit/output"
 )
 
 func newUpdateCommand(opts *Options, reg *capability.Registry, buildVersion string) *cobra.Command {
-	var check, yes, list, restoreBackup bool
+	var check, list, restoreBackup bool
 	var to string
+	var gate *cobracli.Gate
 	cmd := &cobra.Command{
 		Use:   "update",
 		Short: "Update qconnect to the latest stable release",
@@ -65,7 +67,9 @@ func newUpdateCommand(opts *Options, reg *capability.Registry, buildVersion stri
 			"Before it downloads anything, update names the new version and what the replacement does to\n" +
 			"running qconnect processes and asks for y/n at the terminal; n or an empty answer changes nothing.\n" +
 			"--yes answers y. Without a terminal, and in agent mode, update refuses unless --yes is given;\n" +
-			"an agent runs it only after the user approved the update, and then with --yes.\n\n" +
+			"an agent runs it only after the user approved the update, and then with --yes --confirm. Replacing the\n" +
+			"program changes data, so --confirm is required in addition to the answer; without it nothing is\n" +
+			"downloaded or replaced and the update fails as confirmation-required.\n\n" +
 			"A vault process that holds the vault unlocked would not serve the new program. When the update\n" +
 			"behaviour is handover (the default, see 'qconnect vault handover'), the vault process verifies the\n" +
 			"release itself and hands the unlocked vault over to the new program, so running agents go on\n" +
@@ -77,6 +81,7 @@ func newUpdateCommand(opts *Options, reg *capability.Registry, buildVersion stri
 			"before anything is touched.",
 		Args: noArgs,
 		RunE: func(c *cobra.Command, _ []string) error {
+			yes, _ := c.Flags().GetBool("yes")
 			if (list && (to != "" || check || yes)) || (c.Flags().Changed("to") && (to == "" || check)) {
 				return &UsageError{errors.New("--list, --to <tag>, and --check cannot be combined, and --to needs a tag; " +
 					"--yes only goes with an installation")}
@@ -98,20 +103,25 @@ func newUpdateCommand(opts *Options, reg *capability.Registry, buildVersion stri
 				}
 				return emit(c, opts, listCollection(entries))
 			case to != "":
-				result, err = updateTo(c, opts, reg, updater, to, yes, restoreBackup)
+				result, err = updateTo(c, opts, reg, updater, to, gate, yes, restoreBackup)
 			default:
 				if !check && !yes && (opts.Agent || !checkInteractive()) {
 					return &UsageError{errors.New(refusal)}
 				}
 				result, err = updater.Check(c.Context())
 				if err == nil && !check && result.UpdateAvailable {
-					if yes || confirmUpdate(result.Latest) {
-						result, err = replaceProgram(c, opts, updater, func(client *selfupdate.Client) (selfupdate.Result, error) {
+					// --confirm is the kit's gate for a request that changes data; nothing is replaced without it.
+					err = gate.Run(cobracli.Request{Changes: true}, func() error {
+						if !yes && !confirmUpdate(result.Latest) {
+							fmt.Fprintln(c.ErrOrStderr(), "qconnect: update cancelled, nothing was changed")
+							return nil
+						}
+						var replaceErr error
+						result, replaceErr = replaceProgram(c, opts, updater, func(client *selfupdate.Client) (selfupdate.Result, error) {
 							return client.Update(c.Context())
 						})
-					} else {
-						fmt.Fprintln(c.ErrOrStderr(), "qconnect: update cancelled, nothing was changed")
-					}
+						return replaceErr
+					})
 				}
 			}
 			if err != nil {
@@ -126,7 +136,7 @@ func newUpdateCommand(opts *Options, reg *capability.Registry, buildVersion stri
 			}})
 		},
 	}
-	cmd.Flags().BoolVar(&yes, "yes", false, "confirm the update without asking")
+	gate = opts.program.AddGate(cmd, cobracli.Gates{Question: true, Change: true})
 	cmd.Flags().BoolVar(&restoreBackup, "restore-backup", false,
 		"with --to <older version>, restore the newest backup that version reads when it does not read the configuration")
 	cmd.Flags().BoolVar(&check, "check", false, "only report whether a newer stable release is available")
@@ -136,7 +146,7 @@ func newUpdateCommand(opts *Options, reg *capability.Registry, buildVersion stri
 }
 
 const refusal = "update replaces the installed program and needs a confirmation: " +
-	"run it at a terminal, or pass --yes; an agent runs it only after the user approved the update"
+	"run it at a terminal with --confirm, or pass --yes --confirm; an agent runs it only after the user approved the update"
 
 // updateError makes the errors that come from the request, not from the system, usage errors.
 func updateError(err error) error {
@@ -160,7 +170,7 @@ func listCollection(entries []selfupdate.Entry) output.Collection {
 // updateTo installs the release named tag after the confirmation. The running version is reported as
 // installed without asking and without a change. An older version is a rollback (see rollbackTo).
 func updateTo(c *cobra.Command, opts *Options, reg *capability.Registry, updater *selfupdate.Client, tag string,
-	yes, restoreBackup bool) (selfupdate.Result, error) {
+	gate *cobracli.Gate, yes, restoreBackup bool) (selfupdate.Result, error) {
 	target, err := updater.Target(c.Context(), tag)
 	if err != nil {
 		return selfupdate.Result{}, err
@@ -172,16 +182,25 @@ func updateTo(c *cobra.Command, opts *Options, reg *capability.Registry, updater
 	if !yes && (opts.Agent || !checkInteractive()) {
 		return selfupdate.Result{}, &UsageError{errors.New(refusal)}
 	}
-	if !yes && !confirmTarget(target) {
-		fmt.Fprintln(c.ErrOrStderr(), "qconnect: update cancelled, nothing was changed")
-		return selfupdate.Result{Current: updater.Version, Latest: tag, UpdateAvailable: true}, nil
-	}
-	if target.Older {
-		return rollbackTo(c, opts, reg, updater, target, yes, restoreBackup)
-	}
-	return replaceProgram(c, opts, updater, func(client *selfupdate.Client) (selfupdate.Result, error) {
-		return client.UpdateTo(c.Context(), target)
+	var result selfupdate.Result
+	// --confirm is the kit's gate for a request that changes data; nothing is installed without it.
+	err = gate.Run(cobracli.Request{Changes: true}, func() error {
+		if !yes && !confirmTarget(target) {
+			fmt.Fprintln(c.ErrOrStderr(), "qconnect: update cancelled, nothing was changed")
+			result = selfupdate.Result{Current: updater.Version, Latest: tag, UpdateAvailable: true}
+			return nil
+		}
+		var installErr error
+		if target.Older {
+			result, installErr = rollbackTo(c, opts, reg, updater, target, yes, restoreBackup)
+			return installErr
+		}
+		result, installErr = replaceProgram(c, opts, updater, func(client *selfupdate.Client) (selfupdate.Result, error) {
+			return client.UpdateTo(c.Context(), target)
+		})
+		return installErr
 	})
+	return result, err
 }
 
 // rollbackTo installs the older release target once its program was checked against the configuration (see
