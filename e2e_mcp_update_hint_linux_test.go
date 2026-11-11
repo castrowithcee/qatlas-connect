@@ -11,7 +11,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"regexp"
 	"strconv"
 	"strings"
 	"syscall"
@@ -113,16 +112,21 @@ defaults:
 		_, _, _ = c.run(t, "vault", "lock")
 		if vaultPID != 0 {
 			_ = syscall.Kill(vaultPID, syscall.SIGKILL)
+			unregisterVaultProcess(vaultPID)
 		}
 	})
 	unlock := func() {
 		t.Helper()
 		out, code := runAtTerminal(t, c, passphrase+"\n", "vault", "unlock")
-		match := regexp.MustCompile(`unlocked in a vault process \(pid (\d+)\)`).FindStringSubmatch(out)
-		if code != 0 || match == nil {
+		pid, ok := unlockedVaultPID(out, c.bin)
+		if code != 0 || !ok {
 			t.Fatalf("unlock: exit %d, output %q", code, out)
 		}
-		vaultPID, _ = strconv.Atoi(match[1])
+		// The process of the replaced program ended before this unlock.
+		if vaultPID != 0 {
+			unregisterVaultProcess(vaultPID)
+		}
+		vaultPID = pid
 	}
 	unlock()
 

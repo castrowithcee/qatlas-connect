@@ -14,7 +14,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"regexp"
 	"runtime"
 	"strings"
 	"sync"
@@ -589,18 +588,16 @@ defaults:
 		}
 		for _, pid := range vaultPIDs {
 			_ = syscall.Kill(pid, syscall.SIGKILL)
+			unregisterVaultProcess(pid)
 		}
 	})
-	unlockedPID := regexp.MustCompile(`unlocked in a vault process \(pid (\d+)\)`)
 	unlock := func(r *runner) {
 		t.Helper()
 		out, code := runDialog(t, r, "", []dialogStep{{"passphrase: ", passphrase, true}}, "vault", "unlock")
-		match := unlockedPID.FindStringSubmatch(out)
-		if code != 0 || match == nil {
+		pid, ok := unlockedVaultPID(out, r.bin)
+		if code != 0 || !ok {
 			t.Fatalf("%s vault unlock: exit %d, output %q", filepath.Base(r.bin), code, out)
 		}
-		var pid int
-		_, _ = fmt.Sscan(match[1], &pid)
 		vaultPIDs = append(vaultPIDs, pid)
 	}
 	invoke := func(r *runner) string {
