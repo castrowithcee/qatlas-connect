@@ -42,8 +42,8 @@ type MultiPager struct {
 
 // Check validates the description of a multi-member pager.
 func (p MultiPager) Check() error {
-	if len(p.Positions) < 2 || len(p.Positions) > 4 || p.Truncated == "" || !p.Positions[0].Required {
-		return shapeErr("a multi-member pager needs two to four positions, the first required, and a truncation member")
+	if len(p.Positions) < 2 || len(p.Positions) > 4 || p.Truncated == "" || (p.Positions[0].Start != "" && !p.Positions[0].Required) {
+		return shapeErr("a multi-member pager needs two to four positions, the first required when it offers a start argument, and a truncation member")
 	}
 	seen := map[string]bool{}
 	for i, pos := range p.Positions {
