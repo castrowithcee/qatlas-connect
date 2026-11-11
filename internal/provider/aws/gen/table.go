@@ -140,6 +140,10 @@ type Operation struct {
 	// Release keeps a member open that the model marks sensitive, because it is an identifier and not a
 	// secret, such as the ID of a KMS key. It applies to input and output, also below the top level.
 	Release []Release
+	// KeepDeprecated keeps a deprecated output member below the top level that the generator would leave out, because
+	// leaving it out would change what the answer means, such as the old rule-level prefix of an S3 lifecycle rule.
+	// Member is dotted like Release.Member. Input members that are deprecated stay out.
+	KeepDeprecated []Release
 	// Limits cap a string or a list of the input that the model leaves unbounded.
 	Limits []InputLimit
 	// Guards name hand-written steps of the provider package that judge the arguments before any I/O, each
@@ -388,6 +392,11 @@ func (op Operation) validate() error {
 		return fmt.Errorf("readback %s belongs to a tool that is not a read and needs the answer of its generated test", op.Readback)
 	case op.Readback == "" && op.ReadbackAnswer != "":
 		return fmt.Errorf("a readback answer without a readback")
+	}
+	for _, k := range op.KeepDeprecated {
+		if strings.TrimSpace(k.Member) == "" || !strings.Contains(k.Member, ".") || strings.TrimSpace(k.Reason) == "" {
+			return fmt.Errorf("keep_deprecated needs a dotted member below the top level and a reason")
+		}
 	}
 	limits := map[string]bool{}
 	for _, l := range op.Limits {
