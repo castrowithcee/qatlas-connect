@@ -158,7 +158,7 @@ func build(m *Model, table *Table, op Operation) (*tool, error) {
 		}
 		t.rest, t.action, t.version = true, "", ""
 		t.xml, t.noWrap = m.Protocol == ProtocolRestXML, m.NoErrorWrapping
-		if t.restBind, err = m.BindRest(op.Operation); err != nil {
+		if t.restBind, err = m.BindRestCurated(table, op.Operation); err != nil {
 			return nil, t.failf("%v", err)
 		}
 	}
@@ -446,14 +446,15 @@ func (t *tool) bindInput(m *Model, in []member, pag *pagingPlan) error {
 		if pag != nil && (mm.name == pag.tokenIn || mm.name == pag.sizeMember) {
 			continue
 		}
-		if mm.traits.has("smithy.api#idempotencyToken") {
-			if t.rest {
+		if mm.traits.has("smithy.api#idempotencyToken") || (t.op.TokenMember != "" && mm.name == t.op.TokenMember) {
+			if t.rest && !t.xml {
 				return t.failf("the idempotency token %s of a restJson1 tool is not rendered yet", mm.name)
 			}
 			if t.hasToken || mm.kind != "string" || !idempotency.IsParam(mm.name) {
 				return t.failf("idempotency token %s is not one known string member", mm.name)
 			}
 			t.hasToken = true
+			t.inModel[argClientToken] = mm.name
 			shape.Fields = append(shape.Fields, awsquery.Field{Key: argClientToken, Name: t.wire(mm), Shape: &awsquery.Shape{Kind: awsquery.KindString}, IdempotencyToken: true})
 			continue
 		}

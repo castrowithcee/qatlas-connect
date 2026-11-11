@@ -19,6 +19,9 @@ var excludedSESActions = []string{"SendCustomVerificationEmail"}
 // excludedS3Actions are the operations the s3 table excludes; no tool may send one.
 var excludedS3Actions = []string{"DeleteBucketOwnershipControls", "DeletePublicAccessBlock", "PutBucketAcl", "PutObjectAcl", "PutBucketWebsite", "PutBucketLogging", "PutBucketNotificationConfiguration", "PutBucketReplication", "DeleteBucketReplication"}
 
+// excludedROUTE53Actions are the operations the route53 table excludes; no tool may send one.
+var excludedROUTE53Actions = []string{"CreateVPCAssociationAuthorization"}
+
 // generatedCases are the basic tests of the generated tools: arguments derived from the input schema,
 // the form parameters they must encode to, and an answer derived from the output shape.
 var generatedCases = []struct {
@@ -750,6 +753,67 @@ var generatedCases = []struct {
 		form:      map[string]string{},
 		token:     false, confirm: true, listed: false, result: []string{"region"},
 		method: "PUT", path: "/", rawQuery: "ownershipControls", body: `<OwnershipControls xmlns="http://s3.amazonaws.com/doc/2006-03-01/"><Rule><ObjectOwnership>BucketOwnerEnforced</ObjectOwnership></Rule></OwnershipControls>`, owner: "123456789012", bucket: "my-bucket"},
+	{tool: "aws.route53.hosted-zone.list", action: "",
+		arguments: `{"delegation_set_id":"a","hosted_zone_type":"PrivateHostedZone"}`,
+		answer:    `<ListHostedZonesResponse xmlns="https://route53.amazonaws.com/doc/2013-04-01/"><HostedZones><HostedZone><Id>x</Id><Name>x</Name><CallerReference>x</CallerReference><Config><Comment>x</Comment><PrivateZone>true</PrivateZone></Config><ResourceRecordSetCount>1</ResourceRecordSetCount><LinkedService><ServicePrincipal>x</ServicePrincipal><Description>x</Description></LinkedService><Features><AcceleratedRecoveryStatus>x</AcceleratedRecoveryStatus><FailureReasons><AcceleratedRecovery>x</AcceleratedRecovery></FailureReasons></Features></HostedZone></HostedZones><Marker>x</Marker><IsTruncated>false</IsTruncated><MaxItems>1</MaxItems></ListHostedZonesResponse>`,
+		form:      map[string]string{},
+		token:     false, confirm: false, listed: false, result: []string{"has_more"},
+		method: "GET", path: "/2013-04-01/hostedzone", rawQuery: "delegationsetid=a&hostedzonetype=PrivateHostedZone", body: ""},
+	{tool: "aws.route53.hosted-zone.list-by-name", action: "",
+		arguments: `{"dns_name":"a","hosted_zone_id":"a","max_items":1}`,
+		answer:    `<ListHostedZonesByNameResponse xmlns="https://route53.amazonaws.com/doc/2013-04-01/"><HostedZones><HostedZone><Id>x</Id><Name>x</Name><CallerReference>x</CallerReference><Config><Comment>x</Comment><PrivateZone>true</PrivateZone></Config><ResourceRecordSetCount>1</ResourceRecordSetCount><LinkedService><ServicePrincipal>x</ServicePrincipal><Description>x</Description></LinkedService><Features><AcceleratedRecoveryStatus>x</AcceleratedRecoveryStatus><FailureReasons><AcceleratedRecovery>x</AcceleratedRecovery></FailureReasons></Features></HostedZone></HostedZones><DNSName>x</DNSName><HostedZoneId>x</HostedZoneId><IsTruncated>true</IsTruncated><NextDNSName>x</NextDNSName><NextHostedZoneId>x</NextHostedZoneId><MaxItems>1</MaxItems></ListHostedZonesByNameResponse>`,
+		form:      map[string]string{},
+		token:     false, confirm: false, listed: false, result: nil,
+		method: "GET", path: "/2013-04-01/hostedzonesbyname", rawQuery: "dnsname=a&hostedzoneid=a&maxitems=1", body: ""},
+	{tool: "aws.route53.hosted-zone.get", action: "",
+		arguments: `{"id":"a"}`,
+		answer:    `<GetHostedZoneResponse xmlns="https://route53.amazonaws.com/doc/2013-04-01/"><HostedZone><Id>x</Id><Name>x</Name><CallerReference>x</CallerReference><Config><Comment>x</Comment><PrivateZone>true</PrivateZone></Config><ResourceRecordSetCount>1</ResourceRecordSetCount><LinkedService><ServicePrincipal>x</ServicePrincipal><Description>x</Description></LinkedService><Features><AcceleratedRecoveryStatus>x</AcceleratedRecoveryStatus><FailureReasons><AcceleratedRecovery>x</AcceleratedRecovery></FailureReasons></Features></HostedZone><DelegationSet><Id>x</Id><CallerReference>x</CallerReference><NameServers><NameServer>x</NameServer></NameServers></DelegationSet><VPCs><VPC><VPCRegion>x</VPCRegion><VPCId>x</VPCId></VPC></VPCs></GetHostedZoneResponse>`,
+		form:      map[string]string{},
+		token:     false, confirm: false, listed: false, result: nil,
+		method: "GET", path: "/2013-04-01/hostedzone/a", rawQuery: "", body: ""},
+	{tool: "aws.route53.hosted-zone.count", action: "",
+		arguments: "{}",
+		answer:    `<GetHostedZoneCountResponse xmlns="https://route53.amazonaws.com/doc/2013-04-01/"><HostedZoneCount>1</HostedZoneCount></GetHostedZoneCountResponse>`,
+		form:      map[string]string{},
+		token:     false, confirm: false, listed: false, result: nil,
+		method: "GET", path: "/2013-04-01/hostedzonecount", rawQuery: "", body: ""},
+	{tool: "aws.route53.hosted-zone.create", action: "",
+		arguments: `{"name":"example.com","vpc":{"vpc_region":"eu-central-1","vpc_id":"vpc-0123456789abcdef0"},"hosted_zone_config":{"private_zone":true}}`,
+		answer:    `<CreateHostedZoneResponse xmlns="https://route53.amazonaws.com/doc/2013-04-01/"><HostedZone><Id>x</Id><Name>x</Name><CallerReference>x</CallerReference><Config><Comment>x</Comment><PrivateZone>true</PrivateZone></Config><ResourceRecordSetCount>1</ResourceRecordSetCount><LinkedService><ServicePrincipal>x</ServicePrincipal><Description>x</Description></LinkedService><Features><AcceleratedRecoveryStatus>x</AcceleratedRecoveryStatus><FailureReasons><AcceleratedRecovery>x</AcceleratedRecovery></FailureReasons></Features></HostedZone><ChangeInfo><Id>x</Id><Status>x</Status><SubmittedAt>2026-01-02T03:04:05Z</SubmittedAt><Comment>x</Comment></ChangeInfo><DelegationSet><Id>x</Id><CallerReference>x</CallerReference><NameServers><NameServer>x</NameServer></NameServers></DelegationSet><VPC><VPCRegion>x</VPCRegion><VPCId>x</VPCId></VPC></CreateHostedZoneResponse>`,
+		form:      map[string]string{},
+		token:     true, confirm: true, listed: false, result: []string{"client_token"},
+		method: "POST", path: "/2013-04-01/hostedzone", rawQuery: "", body: `<CreateHostedZoneRequest xmlns="https://route53.amazonaws.com/doc/2013-04-01/"><Name>example.com</Name><VPC><VPCRegion>eu-central-1</VPCRegion><VPCId>vpc-0123456789abcdef0</VPCId></VPC><CallerReference>00000000-0000-4000-8000-000000000000</CallerReference><HostedZoneConfig><PrivateZone>true</PrivateZone></HostedZoneConfig></CreateHostedZoneRequest>`,
+		answerHeader: map[string]string{"Location": "x"}},
+	{tool: "aws.route53.hosted-zone.update-comment", action: "",
+		arguments: `{"id":"a","comment":"a"}`,
+		answer:    `<UpdateHostedZoneCommentResponse xmlns="https://route53.amazonaws.com/doc/2013-04-01/"><HostedZone><Id>x</Id><Name>x</Name><CallerReference>x</CallerReference><Config><Comment>x</Comment><PrivateZone>true</PrivateZone></Config><ResourceRecordSetCount>1</ResourceRecordSetCount><LinkedService><ServicePrincipal>x</ServicePrincipal><Description>x</Description></LinkedService><Features><AcceleratedRecoveryStatus>x</AcceleratedRecoveryStatus><FailureReasons><AcceleratedRecovery>x</AcceleratedRecovery></FailureReasons></Features></HostedZone></UpdateHostedZoneCommentResponse>`,
+		form:      map[string]string{},
+		token:     false, confirm: true, listed: false, result: nil,
+		method: "POST", path: "/2013-04-01/hostedzone/a", rawQuery: "", body: `<UpdateHostedZoneCommentRequest xmlns="https://route53.amazonaws.com/doc/2013-04-01/"><Comment>a</Comment></UpdateHostedZoneCommentRequest>`},
+	{tool: "aws.route53.hosted-zone.delete", action: "",
+		arguments: `{"id":"a"}`,
+		answer:    `<DeleteHostedZoneResponse xmlns="https://route53.amazonaws.com/doc/2013-04-01/"><ChangeInfo><Id>x</Id><Status>x</Status><SubmittedAt>2026-01-02T03:04:05Z</SubmittedAt><Comment>x</Comment></ChangeInfo></DeleteHostedZoneResponse>`,
+		form:      map[string]string{},
+		token:     false, confirm: true, listed: false, result: nil,
+		method: "DELETE", path: "/2013-04-01/hostedzone/a", rawQuery: "", body: ""},
+	{tool: "aws.route53.change.get", action: "",
+		arguments: `{"id":"a"}`,
+		answer:    `<GetChangeResponse xmlns="https://route53.amazonaws.com/doc/2013-04-01/"><ChangeInfo><Id>x</Id><Status>x</Status><SubmittedAt>2026-01-02T03:04:05Z</SubmittedAt><Comment>x</Comment></ChangeInfo></GetChangeResponse>`,
+		form:      map[string]string{},
+		token:     false, confirm: false, listed: false, result: nil,
+		method: "GET", path: "/2013-04-01/change/a", rawQuery: "", body: ""},
+	{tool: "aws.route53.tag.list", action: "",
+		arguments: `{"resource_type":"hostedzone","resource_id":"a"}`,
+		answer:    `<ListTagsForResourceResponse xmlns="https://route53.amazonaws.com/doc/2013-04-01/"><ResourceTagSet><ResourceType>x</ResourceType><ResourceId>x</ResourceId><Tags><Tag><Key>x</Key><Value>x</Value></Tag></Tags></ResourceTagSet></ListTagsForResourceResponse>`,
+		form:      map[string]string{},
+		token:     false, confirm: false, listed: false, result: nil,
+		method: "GET", path: "/2013-04-01/tags/hostedzone/a", rawQuery: "", body: ""},
+	{tool: "aws.route53.tag.change", action: "",
+		arguments: `{"resource_type":"hostedzone","resource_id":"a","add_tags":[{"key":"a","value":"a"}],"remove_tag_keys":["a"]}`,
+		answer:    "",
+		form:      map[string]string{},
+		token:     false, confirm: true, listed: false, result: nil,
+		method: "POST", path: "/2013-04-01/tags/hostedzone/a", rawQuery: "", body: `<ChangeTagsForResourceRequest xmlns="https://route53.amazonaws.com/doc/2013-04-01/"><AddTags><Tag><Key>a</Key><Value>a</Value></Tag></AddTags><RemoveTagKeys><Key>a</Key></RemoveTagKeys></ChangeTagsForResourceRequest>`},
 }
 
 // Every generated tool sends its one action with exactly the encoded parameters and returns a result its
@@ -795,9 +859,18 @@ func TestGeneratedTools(t *testing.T) {
 				t.Fatalf("requests = %v, want %s", f.actions(), c.action)
 			}
 			if c.method != "" {
-				if call.method != c.method || call.path != c.path || call.rawQuery != c.rawQuery || call.body != c.body {
+				// The body of the test names the all-zero token of the encoder; the tool sent a random one and returned it.
+				wantBody := c.body
+				if c.token {
+					token, _ := got["client_token"].(string)
+					if token == "" || !strings.Contains(call.body, token) {
+						t.Errorf("client_token = %v, not the token sent", got["client_token"])
+					}
+					wantBody = strings.ReplaceAll(c.body, "00000000-0000-4000-8000-000000000000", token)
+				}
+				if call.method != c.method || call.path != c.path || call.rawQuery != c.rawQuery || call.body != wantBody {
 					t.Errorf("request = %s %s?%s %s, want %s %s?%s %s", call.method, call.path, call.rawQuery, call.body,
-						c.method, c.path, c.rawQuery, c.body)
+						c.method, c.path, c.rawQuery, wantBody)
 				}
 				if c.bucket != "" && call.host != c.bucket+".s3."+testRegion+".amazonaws.com" {
 					t.Errorf("host = %s, want the bucket as its first label", call.host)
@@ -830,10 +903,11 @@ func TestGeneratedTools(t *testing.T) {
 // No generated tool sends an operation its table excludes.
 func TestGeneratedExclusionsAreNoTools(t *testing.T) {
 	excluded := map[string][]string{
-		"sts": excludedSTSActions,
-		"iam": excludedIAMActions,
-		"ses": excludedSESActions,
-		"s3":  excludedS3Actions,
+		"sts":     excludedSTSActions,
+		"iam":     excludedIAMActions,
+		"ses":     excludedSESActions,
+		"s3":      excludedS3Actions,
+		"route53": excludedROUTE53Actions,
 	}
 	for _, s := range generatedSpecs {
 		// A restJson1 tool sends no action; its op is the operation name in words.

@@ -60,6 +60,10 @@ var toolGroups = []config.ToolGroup{{
 	ID: "s3", Title: "Simple Storage Service",
 	Description: "Buckets of the bound account and their configuration: region, versioning, default encryption, " +
 		"tags, and the public access block; never the content of an object",
+}, {
+	ID: "route53", Title: "Route 53",
+	Description: "Hosted zones of the bound account, their tags, and the status of a change; the name servers to " +
+		"enter at the registrar",
 }}
 
 var targetKinds = []config.TargetKind{{
