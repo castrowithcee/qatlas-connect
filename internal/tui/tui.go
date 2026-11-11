@@ -1877,7 +1877,7 @@ func (m *Model) updateForm(key tea.KeyPressMsg) tea.Cmd {
 		}
 		return nil
 	}
-	if key.String() == keyOf(actSave) {
+	if keyIs(key, actSave) {
 		// F2 saves, or goes on to the next setup step, from any row; enter never saves.
 		if m.wizard != nil {
 			m.setupNext()
@@ -3893,7 +3893,7 @@ func wrap(i, n int) int {
 
 // sectionShortcut is the digit of an area: the section it opens on.
 func sectionShortcut(key string) (section, bool) {
-	at := slices.Index(keymap[actArea].Keys(), key)
+	at := slices.Index(areaKeys(), key)
 	if at < 0 || at >= int(areaCount) {
 		return 0, false
 	}
@@ -5340,5 +5340,5 @@ func (m *Model) confirmView() string {
 		consequence = tr(tFormItsStoredSecretsAreNot)
 	}
 	return m.questionText(question{title: tr(tFormDelete, name), consequence: consequence, keys: keys, danger: true,
-		labels: map[string]string{keyOf(actYes): tr(tButtonDelete), keyOf(actNo): tr(tButtonCancel)}})
+		labels: map[string]string{keyLabel(actYes): tr(tButtonDelete), keyLabel(actNo): tr(tButtonCancel)}})
 }
