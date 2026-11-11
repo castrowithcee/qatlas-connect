@@ -147,8 +147,10 @@
 // requests a Copilot review of a pull request; they are offered only by the not-recommended setup profile
 // copilot. An assignment reads the issue and the assignable actors of the same repository first, keeps the
 // other assignees, and refuses with a permission error, changing nothing, where Copilot is not assignable.
-// github.milestones.list reads the milestones of a repository, filtered by state; github.issues.update also
-// takes an optional milestone number, 0 removing the issue's current one. github.comments.update replaces
+// github.milestones.list and github.milestones.get read the milestones of a repository;
+// github.milestones.create and github.milestones.update change them; only on a connection whose tools list
+// names it, github.milestones.delete removes one permanently, which also clears it from every issue and pull
+// request that carries it. github.issues.update also takes an optional milestone number, 0 removing the issue's current one. github.comments.update replaces
 // the body of one issue comment by its comment_id, and, only on a connection whose tools list names it,
 // github.comments.delete removes one permanently; both refuse a comment of another repository and a pull
 // request conversation comment the same way the issue tools refuse a pull request number.
@@ -569,7 +571,8 @@ func Register(reg *capability.Registry) error {
 				"for a private one; changing them, including delete which is listed-only, needs Issues: read " +
 				"and write instead, since GitHub keeps a label under a repository's issues and pull requests " +
 				"rather than a scope of its own; reading the milestones of a repository needs the same scope " +
-				"as reading its labels; setting an issue's milestone through github.issues.update, and " +
+				"as reading its labels, and changing them, including delete which is listed-only, needs the same " +
+				"scope as changing its labels; setting an issue's milestone through github.issues.update, and " +
 				"updating or deleting an issue comment, need the same scope as writing an issue or a comment: " +
 				"repo on a classic token, or Issues: read and write on a fine-grained token; reacting to an " +
 				"issue or an issue or pull request conversation comment needs the same scope as writing one, " +
@@ -789,12 +792,13 @@ func Register(reg *capability.Registry) error {
 			Tools: []string{collaboratorsList.ID, rulesetsList.ID, rulesetsGet.ID, customPropertiesGet.ID},
 		}, {
 			ID: "issue-maintainer", Title: "Issue maintainer",
-			Description: "not recommended: lists and reads the labels of a repository, lists its " +
-				"milestones, creates and updates labels and issue comments, hides and shows comments and reviews, and reacts to issues, comments, " +
+			Description: "not recommended: lists and reads the labels of a repository, lists and reads its " +
+				"milestones, creates and updates labels and milestones and issue comments, hides and shows comments and reviews, and reacts to issues, comments, " +
 				"and pull request line comments; every change needs its own confirmation, and deleting a " +
-				"label or a comment stays unticked, since each is offered only where a connection's tools " +
+				"label, a milestone, or a comment stays unticked, since each is offered only where a connection's tools " +
 				"list names it",
-			Tools: []string{labelsList.ID, labelsGet.ID, labelsCreate.ID, labelsUpdate.ID, milestonesList.ID,
+			Tools: []string{labelsList.ID, labelsGet.ID, labelsCreate.ID, labelsUpdate.ID, milestonesList.ID, milestonesGet.ID,
+				milestonesCreate.ID, milestonesUpdate.ID,
 				commentsUpdate.ID, commentsHide.ID, commentsUnhide.ID, reactionsAdd.ID, reactionsRemove.ID, subIssuesList.ID, subIssuesAdd.ID,
 				subIssuesRemove.ID, subIssuesReprioritize.ID, issueDependenciesList.ID, issueDependenciesAdd.ID,
 				issueDependenciesRemove.ID, issueTypesList.ID, issueFieldsList.ID, issueFieldsSet.ID},

@@ -110,7 +110,7 @@ Find your tool group, then add the scope or permission to the token. Each row is
 | Read issues and comments | `repo`, or `public_repo` for public repositories | Issues: read |
 | Create or change issues and comments | `repo`, or `public_repo` for public repositories | Issues: read and write |
 | Read labels, milestones, sub-issues, issue dependencies | `repo` for private repositories, none for public | Issues: read |
-| Create or change labels, add, remove or reorder sub-issues, add or remove dependencies | `repo` | Issues: read and write, in every repository the call names |
+| Create or change labels or milestones, add, remove or reorder sub-issues, add or remove dependencies | `repo` | Issues: read and write, in every repository the call names |
 | Issue types and issue fields of an organization: read | `read:org` | Issue types: read, or Administration: read (organization); as far as GitHub documents it |
 | Set an issue's type or an issue field value | `repo` | Issues: read and write |
 | React to an issue or an issue comment | `repo` | Issues: read and write |
