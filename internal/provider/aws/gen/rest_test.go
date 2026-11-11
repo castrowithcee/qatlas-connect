@@ -71,7 +71,7 @@ func TestProtocolIsReadFromTheService(t *testing.T) {
 	loadRest(t, sesv2Table)
 	for name, traits := range map[string]string{
 		"both":    `"aws.protocols#awsQuery":{},"aws.protocols#restJson1":{}`,
-		"neither": `"aws.protocols#restXml":{}`,
+		"neither": `"aws.protocols#ec2Query":{}`,
 	} {
 		data := `{"smithy":"2.0","shapes":{"com.example#S":{"type":"service","version":"2020-01-01","traits":{` + traits + `}}}}`
 		if _, err := LoadModel([]byte(data)); err == nil {

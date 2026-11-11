@@ -145,13 +145,40 @@ fixed model operation; there is no general call.
   each member by the model's HTTP traits: `http` method, URI and status, `httpLabel` (also greedy), `httpQuery`,
   `httpQueryParams`, `httpHeader`, `httpPrefixHeaders`, `httpPayload` and `httpResponseCode`, plus `jsonName`,
   `timestampFormat`, unions, the document type and `idempotencyToken`. The body is JSON; paging uses `NextToken`
-  with `MaxResults` or `PageSize`. The HTTP bindings are a separate package (`httpbind`) that a `restXml` layer
-  reuses; only the body format differs. The generator knows no operation names: an operation whose traits do not
-  bind unambiguously, or that uses a trait the runtime does not carry (such as streaming), stops the generation and
-  names the operation. A model gives `PageSize` no maximum, so the tool offers no `page_size` there rather than
-  guessing one. The tables of `account` and `sesv2` are raw scaffolds: every operation is in `defer`, and no tool
-  exists for either service yet. Tools are rendered for `awsQuery` only; a table of a `restJson1` model with tools
-  is refused until the first service package.
+  with `MaxResults` or `PageSize`. The HTTP bindings are a separate package (`httpbind`) that `restXml` reuses, so
+  only the body format differs. The generator knows no operation names: an operation whose traits do not bind
+  unambiguously, or that uses a trait the runtime does not carry, stops the generation and names the operation.
+  A model gives `PageSize` no maximum, so the tool offers no `page_size` there rather than guessing one. The tables
+  of `account`, `sesv2`, `s3` and `route-53` are raw scaffolds: every operation is in `defer`, and no tool exists
+  for these services yet. Tools are rendered for `awsQuery` only, and a table of a REST model with tools is refused
+  until the first service package.
+- **`restXml` (S3, Route 53).** The body is XML in the form the model's traits describe: `xmlName`,
+  `xmlAttribute`, `xmlNamespace`, `xmlFlattened`, wrapped lists and maps, and a structure payload. A character
+  XML 1.0 cannot carry is refused in a request and read as U+FFFD in an answer. The error shape follows the
+  model: `<Error>` for S3, `<ErrorResponse><Error><Type><Code>` for Route 53. S3 can answer `CopyObject` or
+  `CompleteMultipartUpload` with status 200 and an `<Error>` body, which is an error that says the operation may
+  not have completed. A list that continues at several members, such as S3 versions by key and version marker
+  or Route 53 record sets by name, type and identifier, keeps them in one cursor. A Route 53 zone ID is accepted
+  with or without `/hostedzone/` and never adds a path segment. An operation the runtime cannot yet send, such as
+  an event stream, is bound with the reason noted and never becomes a tool until the reason is gone.
+- **S3 addressing.** The bucket name is checked against the naming rules of general purpose buckets before any
+  I/O. A name that is one lower case DNS label goes in the host (`<bucket>.s3.<region>.amazonaws.com`), every
+  other valid name, such as one with dots or upper case letters, goes in the path of the regional host. Access
+  points, Express One Zone buckets and aliases are refused. The host is built from the checked name and the
+  endpoint table only. A bucket in another region answers `PermanentRedirect` or `AuthorizationHeaderMalformed`.
+  Qatlas does not follow it and reports the region of `x-amz-bucket-region` when it has the form of a region.
+- **S3 signature and checksums.** The payload hash is sent as `x-amz-content-sha256`. A payload that is streamed
+  is signed `UNSIGNED-PAYLOAD`, which only goes over HTTPS. Where the model requires a checksum of the body,
+  Qatlas sends the SHA-256 of it, and it asks for the checksum of a downloaded object and compares it. These
+  headers are never arguments.
+- **`ExpectedBucketOwner`.** Every operation that has the expected-owner header, and the source-owner header of a
+  copy, sends the account the connection is bound to. It is not an argument, so no other value is possible.
+  `ListBuckets` and `CreateBucket` have none, and the account check of the connection covers them.
+- **Streams.** An object is uploaded from and downloaded to a local file of a directory the connection releases,
+  at most 100 MiB per call, exactly 100 MiB allowed. A larger upload is refused before a request, and a larger
+  download before the first byte is written. A download counts as done only when all announced bytes arrived,
+  so a partial file never remains. A stream is read once and its call is never repeated. No tool returns or
+  creates a presigned URL.
 
 A model update is a deliberate change. Set the commit, the retrieval day and the upstream hashes in
 `internal/provider/aws/gen/model/pin.json`, download the upstream files into a directory laid out like
