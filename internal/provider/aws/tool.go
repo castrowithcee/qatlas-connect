@@ -73,6 +73,10 @@ type toolSpec struct {
 	selfRole string
 	// resultHook names the step in resultHooks that adds a member to the result.
 	resultHook string
+	// guards name steps in guards that judge the arguments before any I/O.
+	guards []string
+	// readback names the step in readbacks that reads the current state and may refuse the change.
+	readback string
 	// accountCheck marks GetCallerIdentity, whose answer is the account check itself.
 	accountCheck bool
 	// truncated adds the truncated field: true when a string of the answer was cut at its cap.
@@ -185,6 +189,14 @@ func (s toolSpec) check() error {
 	if _, ok := resultHooks[s.resultHook]; s.resultHook != "" && !ok {
 		return fmt.Errorf("result hook %q has no implementation", s.resultHook)
 	}
+	for _, name := range s.guards {
+		if guards[name] == nil {
+			return fmt.Errorf("guard %q has no implementation", name)
+		}
+	}
+	if s.readback != "" && (readbacks[s.readback] == nil || s.rest == nil || s.descriptor.Risk.Effect == capability.EffectRead) {
+		return fmt.Errorf("readback %q has no implementation or does not belong to a REST tool that changes something", s.readback)
+	}
 	if s.selfRole != "" && (s.accountCheck || s.descriptor.Risk.Effect == capability.EffectRead) {
 		return errors.New("the own-role check belongs to a tool that changes or deletes a role")
 	}
@@ -233,6 +245,11 @@ func (s toolSpec) handler() capability.Handler {
 		if err := s.checkArguments(b, global, args); err != nil {
 			return nil, err
 		}
+		for _, name := range s.guards {
+			if err := guards[name](b, region, args); err != nil {
+				return nil, err
+			}
+		}
 		page, err := s.startPage(region, args)
 		if err != nil {
 			return nil, err
@@ -275,6 +292,12 @@ func (s toolSpec) handler() capability.Handler {
 			if s.selfRole != "" {
 				target, _ := args[s.selfRole].(string)
 				if err := client.refuseOwnRole(ctx, op, region, creds, s.selfRole, target); err != nil {
+					return nil, err
+				}
+			}
+			if check := readbacks[s.readback]; check != nil {
+				// The read is part of the change: a refusal here means nothing was sent that changes anything.
+				if err := check(ctx, client, s, creds, region, args); err != nil {
 					return nil, err
 				}
 			}
