@@ -48,19 +48,19 @@ func footerGroupRank(group string, index int) (rank int, right bool) {
 		return footerHelp, false
 	case isNavigation(key):
 		return footerNavigate + index, true
-	case slices.Contains(strings.Split(key, "/"), keyName(keyOf(actBack))):
+	case slices.Contains(strings.Split(key, "/"), keyLabel(actBack)):
 		return footerBack, false
-	case key == keyName(keyOf(actSave)) || key == keyLabel(actSave):
+	case key == keyLabel(actSave):
 		return footerSave, false
-	case key == keyOf(actQuit):
+	case key == keyLabel(actQuit):
 		return footerQuit, false
-	case slices.Contains(strings.Split(key, "/"), keyOf(actEnter)) || key == keyOf(actYes) || key == keyOf(actNo) || key == keyOf(actFilter) || key == keyName(keyOf(actDelete)) || isSectionRange(key):
+	case slices.Contains(strings.Split(key, "/"), keyLabel(actEnter)) || key == keyLabel(actYes) || key == keyLabel(actNo) || key == keyLabel(actFilter) || key == keyLabel(actDelete) || isSectionRange(key):
 		return footerPrimary, false
-	case key == keyName(keyOf(actLock)):
+	case key == keyLabel(actLock):
 		return footerLock, false
-	case key == keyName(keyOf(actCommand)):
+	case key == keyLabel(actCommand):
 		return footerCommand, false
-	case key == keyLabel(actInfo) || key == keyName(keyOf(actInfo)):
+	case key == keyLabel(actInfo) || key == tableKey(actInfo):
 		return footerInfo, false
 	case key == keyLabel(actCopy):
 		return footerCopy, false
@@ -81,7 +81,7 @@ func isNavigation(key string) bool {
 			return true
 		}
 	}
-	return key == keyName(keyOf(actNext))
+	return key == keyLabel(actNext)
 }
 
 // footerItems splits the key text of a screen into its groups and ranks them. A screen that names no keys

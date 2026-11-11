@@ -24,6 +24,7 @@ var guards = map[string]guard{
 	"new-bucket-name":     checkNewBucketName,
 	"kms-key-arn":         checkKMSKeys,
 	"ownership-enforce":   checkOwnershipEnforce,
+	"route53-vpc":         checkRoute53VPC,
 }
 
 // readback runs after the account check and before the change, with the credentials that passed it.
