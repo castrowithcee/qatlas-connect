@@ -114,6 +114,35 @@ func TestXMLTablesAreChecked(t *testing.T) {
 	}
 }
 
+// A pager that ends at a missing token has one position and no truncation member, and start arguments need a required
+// first position; a list without any required position is fine without them.
+func TestPagerSpecRules(t *testing.T) {
+	check := func(p PagerSpec) error {
+		tab := route53Table
+		tab.Pagers = []PagerSpec{p}
+		return tab.Validate()
+	}
+	one := []PositionSpec{{In: "NextToken", Out: "NextToken"}}
+	two := []PositionSpec{{In: "A", Out: "B"}, {In: "C", Out: "D"}}
+	for name, p := range map[string]PagerSpec{
+		"token ends with a truncation member": {Operation: "ListX", TokenEnds: true, Truncated: "IsTruncated", Positions: one},
+		"token ends with two positions":       {Operation: "ListX", TokenEnds: true, Positions: two},
+		"start arguments, first optional":     {Operation: "ListX", StartArguments: true, Positions: two},
+	} {
+		if err := check(p); err == nil {
+			t.Errorf("%s was accepted", name)
+		}
+	}
+	for name, p := range map[string]PagerSpec{
+		"token ends":              {Operation: "ListX", TokenEnds: true, Positions: one},
+		"all optional, no starts": {Operation: "ListX", Positions: two},
+	} {
+		if err := check(p); err != nil {
+			t.Errorf("%s: %v", name, err)
+		}
+	}
+}
+
 func encodeXML(t *testing.T, b *RestBinding, args map[string]any) httpbind.Request {
 	t.Helper()
 	req, err := b.Operation.Encode(restxml.Codec{}, args, nil)

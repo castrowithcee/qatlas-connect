@@ -323,6 +323,9 @@ func (t *tool) paging(m *Model, shape *object, in, out []member) (*pagingPlan, e
 			p.ins, p.outs = append(p.ins, pos.In), append(p.outs, pos.Out)
 		}
 		p.tokenIn, p.tokenOut, p.sizeMember, p.truncated = p.ins[0], p.outs[0], spec.PageSize, orDefault(spec.Truncated, "IsTruncated")
+		if spec.TokenEnds {
+			p.truncated = ""
+		}
 		if p.starts = spec.StartArguments; p.starts && len(p.ins) < 2 {
 			return nil, t.failf("start arguments need a list of several positions")
 		}
