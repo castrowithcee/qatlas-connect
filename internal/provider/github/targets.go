@@ -53,7 +53,7 @@ func withTargetArgument(d capability.Descriptor) capability.Descriptor {
 	// or, for the star list and the search tools, narrow by the connection's targets as a whole, not by a
 	// target argument of their own. github.repositories.create names no existing repository either, since it
 	// makes one; its own optional owner argument is defined on its descriptor directly. The ruleset tools, the
-	// custom properties tools, the Actions variable tools, and github.issue-fields.list take an exclusive
+	// custom properties tools, the Actions variable tools, the finer Actions settings tools except the access ones, and github.issue-fields.list take an exclusive
 	// repository or organization argument of their own, since exactly one of the two, never a default,
 	// addresses a call. The notification
 	// tools take an optional repository of their own, or a thread id whose repository is read and checked. The
@@ -69,7 +69,9 @@ func withTargetArgument(d capability.Descriptor) capability.Descriptor {
 		rulesetsList.ID, rulesetsGet.ID, rulesetsCreate.ID, rulesetsUpdate.ID, rulesetsDelete.ID,
 		customPropertiesGet.ID, customPropertiesSet.ID, issueFieldsList.ID,
 		actionVariablesList.ID, actionVariablesGet.ID, actionVariablesCreate.ID, actionVariablesUpdate.ID,
-		actionVariablesDelete.ID,
+		actionVariablesDelete.ID, actionsSelectedGet.ID, actionsSelectedSet.ID, actionsForkApprovalGet.ID,
+		actionsForkApprovalSet.ID, actionsRetentionGet.ID, actionsRetentionSet.ID, actionsOIDCGet.ID,
+		actionsOIDCSet.ID,
 		notificationsList.ID, notificationsGet.ID, notificationsDismiss.ID, notificationsMarkAll.ID,
 		threadSubscriptionsSet.ID, gistsList.ID, gistsGet.ID, gistsCreate.ID, gistsUpdate.ID, gistsDelete.ID,
 		globalAdvisoriesList.ID, globalAdvisoriesGet.ID, repositoriesRename.ID, rateLimitGet.ID, metaGet.ID,

@@ -198,6 +198,10 @@ func TestDiscoveryDescribesTheTargetArguments(t *testing.T) {
 			descriptor.ID == actionVariablesList.ID || descriptor.ID == actionVariablesGet.ID ||
 			descriptor.ID == actionVariablesCreate.ID || descriptor.ID == actionVariablesUpdate.ID ||
 			descriptor.ID == actionVariablesDelete.ID ||
+			descriptor.ID == actionsSelectedGet.ID || descriptor.ID == actionsSelectedSet.ID ||
+			descriptor.ID == actionsForkApprovalGet.ID || descriptor.ID == actionsForkApprovalSet.ID ||
+			descriptor.ID == actionsRetentionGet.ID || descriptor.ID == actionsRetentionSet.ID ||
+			descriptor.ID == actionsOIDCGet.ID || descriptor.ID == actionsOIDCSet.ID ||
 			descriptor.ID == notificationsList.ID || descriptor.ID == notificationsGet.ID ||
 			descriptor.ID == notificationsDismiss.ID || descriptor.ID == notificationsMarkAll.ID ||
 			descriptor.ID == threadSubscriptionsSet.ID ||
