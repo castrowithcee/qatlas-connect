@@ -7,12 +7,14 @@ import (
 	"testing"
 
 	"github.com/castrowithcee/qatlas-connect/internal/application"
+	"github.com/castrowithcee/qatlas-connect/internal/capability"
 	"github.com/castrowithcee/qatlas-connect/internal/config"
 	"github.com/castrowithcee/qatlas-connect/internal/provider"
 )
 
 var s3WriteToolIDs = []string{"aws.s3.bucket.create", "aws.s3.bucket.delete", "aws.s3.versioning.put", "aws.s3.encryption.put",
-	"aws.s3.encryption.delete", "aws.s3.tagging.put", "aws.s3.tagging.delete", "aws.s3.public-access-block.put"}
+	"aws.s3.encryption.delete", "aws.s3.tagging.put", "aws.s3.tagging.delete", "aws.s3.public-access-block.put", "aws.s3.lifecycle.put", "aws.s3.lifecycle.delete",
+	"aws.s3.cors.put", "aws.s3.cors.delete"}
 
 // s3WriteEnv offers the S3 write tools by name on a connection bound to the account and the given regions.
 func s3WriteEnv(t *testing.T, f *fakeAWS, regions ...string) *env {
@@ -429,10 +431,12 @@ func TestS3ReadbackBelongsToTheNamedToolOnly(t *testing.T) {
 	}
 }
 
-// The excluded operations are no tools, and nothing offers an ACL, a website, a presigned URL, or the removal
-// of a public access block.
+// The excluded operations are no tools, and no write offers an ACL, a website, logging, notifications,
+// replication, a presigned URL, or the removal of a public access block. The readers of the website, logging,
+// notification and replication configuration are not writes and are checked elsewhere.
 func TestS3ExcludedOperationsCannotBeSent(t *testing.T) {
-	want := []string{"DeletePublicAccessBlock", "PutBucketAcl", "PutObjectAcl", "PutBucketWebsite"}
+	want := []string{"DeletePublicAccessBlock", "PutBucketAcl", "PutObjectAcl", "PutBucketWebsite", "PutBucketLogging",
+		"PutBucketNotificationConfiguration", "PutBucketReplication", "DeleteBucketReplication"}
 	if len(excludedS3Actions) != len(want) {
 		t.Fatalf("excluded = %v, want %v", excludedS3Actions, want)
 	}
@@ -449,7 +453,15 @@ func TestS3ExcludedOperationsCannotBeSent(t *testing.T) {
 		}
 		tools++
 		schema := strings.ToLower(string(d.InputSchema) + string(d.OutputSchema))
-		for _, banned := range []string{`"acl"`, "grant", "website", "presign", "object_lock", "redirect"} {
+		for _, banned := range []string{"presign", "object_lock"} {
+			if strings.Contains(schema, banned) {
+				t.Errorf("%s offers %s: %s", d.ID, banned, schema)
+			}
+		}
+		if d.Risk.Effect == capability.EffectRead {
+			continue
+		}
+		for _, banned := range []string{`"acl"`, "grant", "website", "redirect", "logging", "notification", "replication", "target_bucket", "destination"} {
 			if strings.Contains(schema, banned) {
 				t.Errorf("%s offers %s: %s", d.ID, banned, schema)
 			}
@@ -458,21 +470,24 @@ func TestS3ExcludedOperationsCannotBeSent(t *testing.T) {
 		if strings.Contains(strings.ToLower(string(d.InputSchema)), "mfa") {
 			t.Errorf("%s takes an MFA argument: %s", d.ID, d.InputSchema)
 		}
-		for _, banned := range []string{"acl", "website", "presign", "policy"} {
+		for _, banned := range []string{"acl", "website", "presign", "policy", "logging", "notification", "replication"} {
 			if strings.Contains(d.ID, banned) {
 				t.Errorf("%s names %s", d.ID, banned)
 			}
 		}
 	}
-	if tools != 15 {
-		t.Errorf("s3 tools = %d, want 15", tools)
+	if tools != 29 {
+		t.Errorf("s3 tools = %d, want 29", tools)
 	}
 	for _, s := range generatedSpecs {
 		if s.service != "s3" {
 			continue
 		}
 		uri := strings.ToLower(s.rest.URI)
-		if strings.Contains(uri, "acl") || strings.Contains(uri, "website") || (s.rest.Method == "DELETE" && strings.Contains(uri, "publicaccessblock")) ||
+		write := s.rest.Method != "GET" && s.rest.Method != "HEAD"
+		if write && (strings.Contains(uri, "acl") || strings.Contains(uri, "website") || strings.Contains(uri, "logging") ||
+			strings.Contains(uri, "notification") || strings.Contains(uri, "replication")) ||
+			(s.rest.Method == "DELETE" && strings.Contains(uri, "publicaccessblock")) ||
 			(s.rest.Method != "GET" && s.rest.Method != "HEAD" && s.rest.Method != "PUT" && s.rest.Method != "DELETE") {
 			t.Errorf("%s sends %s %s", s.descriptor.ID, s.rest.Method, s.rest.URI)
 		}

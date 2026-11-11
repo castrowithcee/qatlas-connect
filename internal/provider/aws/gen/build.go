@@ -84,6 +84,8 @@ type tool struct {
 	enumHit  map[string]bool
 	// released are the Release members of the table, true once a sensitive member of that path was kept.
 	released map[string]bool
+	// kept are the KeepDeprecated members of the table, true once the converter kept one.
+	kept map[string]bool
 	// limited are the Limits of the table, true once a member of that path took its cap.
 	limited map[string]bool
 
@@ -182,12 +184,15 @@ func build(m *Model, table *Table, op Operation) (*tool, error) {
 		}
 		t.csv = op.CSV
 	}
-	t.released, t.limited = map[string]bool{}, map[string]bool{}
+	t.released, t.limited, t.kept = map[string]bool{}, map[string]bool{}, map[string]bool{}
+	for _, k := range op.KeepDeprecated {
+		t.kept[k.Member] = false
+	}
 	for _, r := range op.Release {
 		t.released[r.Member] = false
 	}
 	for _, l := range op.Limits {
-		t.limited[l.Member] = false
+		t.limited[limitKey(l)] = false
 	}
 	if err := t.bindInput(m, in, pag); err != nil {
 		return nil, err
@@ -198,6 +203,11 @@ func build(m *Model, table *Table, op Operation) (*tool, error) {
 	for name, hit := range t.released {
 		if !hit {
 			return nil, t.failf("release %s is not a sensitive member of the input or the output", name)
+		}
+	}
+	for name, hit := range t.kept {
+		if !hit {
+			return nil, t.failf("keep_deprecated %s is not a deprecated member of the output", name)
 		}
 	}
 	for name, hit := range t.limited {
@@ -883,7 +893,9 @@ func (c *converter) convert(target string, traits *object, output bool, depth in
 	case "boolean":
 		return &awsquery.Shape{Kind: awsquery.KindBoolean}, newObject("type", "boolean"), nil
 	case "timestamp":
-		if f := traits.str("smithy.api#timestampFormat"); c.t.rest && f != "" {
+		// A restXml body writes timestamps as date-time, so that format needs no rendering below the top level; a
+		// top-level member can be a header, whose default differs.
+		if f := traits.str("smithy.api#timestampFormat"); c.t.rest && f != "" && !(f == "date-time" && c.t.xml && depth > 0) {
 			return nil, nil, c.failf("timestamp format %s is not rendered for restJson1 tools yet", f)
 		} else if f != "" && f != "date-time" {
 			return nil, nil, c.failf("timestamp format %s is not the query protocol's date-time", f)
@@ -956,6 +968,14 @@ func (c *converter) convert(target string, traits *object, output bool, depth in
 	return nil, nil, c.failf("shape type %s has no query-protocol binding here", kind)
 }
 
+// limitKey names a cap: a list of strings may carry one cap for the list and one for its strings.
+func limitKey(l InputLimit) string {
+	if l.MaxItems > 0 {
+		return l.Member + " (items)"
+	}
+	return l.Member
+}
+
 // limit returns the table cap of the input member at c.path and marks it used.
 func (c *converter) limit(items bool) (InputLimit, bool) {
 	if c.output {
@@ -963,7 +983,7 @@ func (c *converter) limit(items bool) (InputLimit, bool) {
 	}
 	for _, l := range c.t.op.Limits {
 		if l.Member == c.path && (l.MaxItems > 0) == items {
-			c.t.limited[l.Member] = true
+			c.t.limited[limitKey(l)] = true
 			return l, true
 		}
 	}
@@ -1030,10 +1050,13 @@ func (c *converter) structure(s *object, output bool, depth int) (*awsquery.Shap
 			return nil, nil, c.failf("%v", err)
 		}
 		traits := mergedTraits(mo, ts)
-		if traits.has("smithy.api#deprecated") {
-			continue
-		}
 		c.path = parent + "." + name
+		if traits.has("smithy.api#deprecated") {
+			if _, keep := c.t.kept[c.path]; !output || !keep {
+				continue
+			}
+			c.t.kept[c.path] = true
+		}
 		if _, hide := c.t.nested[c.path]; output && hide {
 			c.t.nested[c.path] = true
 			continue

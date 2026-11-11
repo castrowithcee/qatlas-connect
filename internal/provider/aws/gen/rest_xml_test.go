@@ -711,3 +711,42 @@ func TestRestXMLToolsAreAssembled(t *testing.T) {
 		t.Errorf("bucket-owner on restJson1: %v", err)
 	}
 }
+
+// An attribute and a namespace below the top level are carried from the binding to the tool: the xsi:type of a
+// grantee, and the deprecated rule prefix that a table keeps in an answer only.
+func TestRestXMLNestedAttributeAndNamespaceAreCarried(t *testing.T) {
+	m := loadXML(t, s3Table)
+	built := map[string]*tool{}
+	for _, op := range s3Table.Operations {
+		if op.Operation == "GetBucketAcl" || op.Operation == "GetBucketLifecycleConfiguration" || op.Operation == "PutBucketLifecycleConfiguration" {
+			tl, err := build(m, &s3Table, op)
+			if err != nil {
+				t.Fatal(err)
+			}
+			built[op.Operation] = tl
+		}
+	}
+	grants := fieldByKey(built["GetBucketAcl"].restOp.Output, "grants")
+	if grants == nil || grants.Shape.Elem == nil {
+		t.Fatalf("grants = %+v", grants)
+	}
+	grantee := fieldByKey(grants.Shape.Elem, "grantee")
+	if grantee == nil || grantee.Namespace != (httpbind.Namespace{URI: "http://www.w3.org/2001/XMLSchema-instance", Prefix: "xsi"}) {
+		t.Fatalf("grantee = %+v", grantee)
+	}
+	typ := fieldByKey(grantee.Shape, "type")
+	if typ == nil || !typ.Attribute || typ.Name != "xsi:type" {
+		t.Errorf("type = %+v", typ)
+	}
+	if id := fieldByKey(grantee.Shape, "id"); id == nil || id.Attribute {
+		t.Errorf("id = %+v", id)
+	}
+	if !strings.Contains(built["GetBucketLifecycleConfiguration"].outputSchema, `"prefix"`) {
+		t.Error("the kept rule prefix is not in the lifecycle answer")
+	}
+	rules := fieldByKey(built["PutBucketLifecycleConfiguration"].restOp.Input, "lifecycle_configuration")
+	if rules == nil || strings.Contains(built["PutBucketLifecycleConfiguration"].inputSchema, `"id":{"type":"string","maxLength":255},"prefix"`) ||
+		fieldByKey(rules.Shape, "rules").Shape.Elem == nil || fieldByKey(fieldByKey(rules.Shape, "rules").Shape.Elem, "prefix") != nil {
+		t.Error("the put offers the deprecated rule prefix")
+	}
+}
