@@ -179,9 +179,9 @@ func TestHeaderNamesTheBoundKeys(t *testing.T) {
 		t.Fatalf("header %q lacks the default keys", got)
 	}
 	rebind(t, actHelp, "ctrl+x")
-	rebind(t, actCommand, "ctrl+k")
+	rebind(t, actCommand, "f3")
 	got := m.headerLines()[0]
-	if !strings.Contains(got, "[ctrl+x] help") || !strings.Contains(got, "[ctrl+k] cmd") || strings.Contains(got, "[?]") {
+	if !strings.Contains(got, "[ctrl+x] help") || !strings.Contains(got, "[F3] cmd") || strings.Contains(got, "[?]") {
 		t.Errorf("header %q does not follow the keymap", got)
 	}
 	m.Update(tea.WindowSizeMsg{Width: 30, Height: 30})

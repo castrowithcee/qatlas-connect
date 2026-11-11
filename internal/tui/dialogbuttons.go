@@ -52,11 +52,11 @@ func (m *Model) dialogButtons(keys string, danger bool, labels map[string]string
 		switch {
 		case rank == footerBack:
 			kind = buttonNormal
-		case danger && (key == keyOf(actYes) || key == keyOf(actDiscard)):
+		case danger && (key == keyLabel(actYes) || key == keyLabel(actDiscard)):
 			kind = buttonDanger
 		}
 		first, _, _ := strings.Cut(group, " ")
-		focused := first == keyOf(actEnter) || strings.HasPrefix(group, first+tr(tFooterKeysOr)+keyLabel(actEnter)+" ")
+		focused := first == keyLabel(actEnter) || strings.HasPrefix(group, first+tr(tFooterKeysOr)+keyLabel(actEnter)+" ")
 		buttons = append(buttons, dialogButton{key: key, label: label, kind: kind, focused: focused})
 	}
 	return buttons

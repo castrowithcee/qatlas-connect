@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -164,6 +165,13 @@ func keyMsg(k string) tea.KeyPressMsg {
 	case "right":
 		return tea.KeyPressMsg{Code: tea.KeyRight}
 	default:
+		// A function key or a control key carries no text, as a terminal reports it.
+		if n, err := strconv.Atoi(strings.TrimPrefix(k, "f")); err == nil && strings.HasPrefix(k, "f") && n >= 1 && n <= 20 {
+			return tea.KeyPressMsg{Code: tea.KeyF1 + rune(n-1)}
+		}
+		if letter, ok := strings.CutPrefix(k, "ctrl+"); ok && len(letter) == 1 {
+			return tea.KeyPressMsg{Code: rune(letter[0]), Mod: tea.ModCtrl}
+		}
 		return textKey(k)
 	}
 }
