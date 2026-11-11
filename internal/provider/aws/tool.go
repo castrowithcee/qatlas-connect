@@ -111,8 +111,9 @@ type policyCheck func(b binding, name, value string) error
 // policyChecks are the client-side document checks, by the name a curation table gives them. A tool that
 // names one without an implementation here is a registration error.
 var policyChecks = map[string]policyCheck{
-	"none":         nil,
-	"trust-policy": checkTrustPolicy,
+	"none":                        nil,
+	"trust-policy":                checkTrustPolicy,
+	"resource-policy-own-account": checkResourcePolicyOwnAccount,
 }
 
 // generatedTools checks every generated tool against the runtime and binds it to its handler.

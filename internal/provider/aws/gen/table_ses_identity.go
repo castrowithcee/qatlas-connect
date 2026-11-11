@@ -15,6 +15,14 @@ const (
 	descSESDkimSign = "Easy DKIM settings; your own key (selector and private key) is not offered"
 	descSESDKIMAttr = "DKIM state: signing switch, status, the tokens for the CNAME records, key lengths, and where the key comes from"
 
+	descSESPolicyName = "Name of the identity policy, 1 to 64 characters"
+	descSESPolicy     = "Policy document as JSON text. Only the bound account may be named: its ID, its root, or its users and " +
+		"roles; a service principal (name.amazonaws.com) only with a StringEquals condition of aws:SourceAccount on the bound " +
+		"account or an ArnEquals, ArnLike, or StringEquals condition of aws:SourceArn on ARNs of the bound account. " +
+		"Wildcard principals, NotPrincipal, Federated, CanonicalUser, other accounts, ForAnyValue, ForAllValues, and IfExists are refused"
+	sesPolicyRule = "The policy is checked before the call, for every statement whatever its effect, and a document that " +
+		"breaks the rule is not sent. Offered only when the tools list of the connection names it."
+
 	reasonSESKey = "a private key never passes through a tool, and with the key the selector has no use"
 )
 
@@ -37,7 +45,9 @@ func sesIdentityWrite(op Operation, effect, idempotency string, tags ...string) 
 	if op.TargetCheck == "" {
 		op.TargetCheck, op.TargetArgs = "ses-identity", []string{"EmailIdentity"}
 	}
-	op.PolicyCheck = "none"
+	if op.PolicyCheck == "" {
+		op.PolicyCheck = "none"
+	}
 	return op
 }
 
@@ -225,4 +235,48 @@ var sesIdentityTools = []Operation{
 		Fields:      map[string]Field{"Policies": {Description: "Identity policies by name, as JSON text; untrusted"}},
 		Examples:    []Example{{Description: "Show the policies of a domain", Arguments: `{"email_identity":"example.com"}`}},
 	}),
+	sesIdentityWrite(Operation{
+		Operation: "CreateEmailIdentityPolicy", Object: "email-identity-policy", Action: "create",
+		Title: "Create an SES identity policy",
+		Description: "Create a named sending-authorization policy on a sender identity of the bound account; it decides who " +
+			"may send with the identity. Needs ses:CreateEmailIdentityPolicy. Not repeated after an unclear outcome: read " +
+			"the policies before trying again. " + sesPolicyRule + " " + sesWriteRule,
+		Arguments: map[string]Argument{
+			"EmailIdentity": {Description: descSESIdentity},
+			"PolicyName":    {Description: descSESPolicyName},
+			"Policy":        {Description: descSESPolicy},
+		},
+		ListedOnly:  true,
+		PolicyCheck: "resource-policy-own-account", PolicyArgs: []string{"Policy"},
+		Examples: []Example{{Description: "Let a user of the account send with a domain",
+			Arguments: `{"email_identity":"example.com","policy_name":"send","policy":"{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Principal\":{\"AWS\":\"arn:aws:iam::123456789012:user/mailer\"},\"Action\":\"ses:SendEmail\",\"Resource\":\"arn:aws:ses:eu-central-1:123456789012:identity/example.com\"}]}"}`}},
+	}, "create", "non-idempotent", "policy"),
+	sesIdentityWrite(Operation{
+		Operation: "UpdateEmailIdentityPolicy", Object: "email-identity-policy", Action: "update",
+		Title: "Replace an SES identity policy",
+		Description: "Replace the document of a named policy on a sender identity of the bound account. Needs " +
+			"ses:UpdateEmailIdentityPolicy. " + sesPolicyRule + " " + sesWriteRule,
+		Arguments: map[string]Argument{
+			"EmailIdentity": {Description: descSESIdentity},
+			"PolicyName":    {Description: descSESPolicyName},
+			"Policy":        {Description: descSESPolicy},
+		},
+		ListedOnly:  true,
+		PolicyCheck: "resource-policy-own-account", PolicyArgs: []string{"Policy"},
+		Examples: []Example{{Description: "Let the account send with a domain",
+			Arguments: `{"email_identity":"example.com","policy_name":"send","policy":"{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Principal\":{\"AWS\":\"123456789012\"},\"Action\":\"ses:SendEmail\",\"Resource\":\"arn:aws:ses:eu-central-1:123456789012:identity/example.com\"}]}"}`}},
+	}, "update", "idempotent", "policy"),
+	sesIdentityWrite(Operation{
+		Operation: "DeleteEmailIdentityPolicy", Object: "email-identity-policy", Action: "delete",
+		Title: "Delete an SES identity policy",
+		Description: "Delete a named policy from a sender identity of the bound account. Needs " +
+			"ses:DeleteEmailIdentityPolicy. Not repeated after an unclear outcome. Offered only when the tools list of " +
+			"the connection names it. " + sesWriteRule,
+		Arguments: map[string]Argument{
+			"EmailIdentity": {Description: descSESIdentity},
+			"PolicyName":    {Description: descSESPolicyName},
+		},
+		ListedOnly: true,
+		Examples:   []Example{{Description: "Delete a policy", Arguments: `{"email_identity":"example.com","policy_name":"send"}`}},
+	}, "delete", "non-idempotent", "policy"),
 }
