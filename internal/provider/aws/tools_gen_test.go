@@ -16,6 +16,9 @@ var excludedIAMActions = []string{"AcceptDelegationRequest", "AddClientIDToOpenI
 // excludedSESActions are the operations the ses table excludes; no tool may send one.
 var excludedSESActions = []string{"SendCustomVerificationEmail"}
 
+// excludedS3Actions are the operations the s3 table excludes; no tool may send one.
+var excludedS3Actions = []string{"DeleteBucketOwnershipControls", "DeletePublicAccessBlock", "PutBucketAcl", "PutObjectAcl", "PutBucketWebsite", "PutBucketLogging", "PutBucketNotificationConfiguration", "PutBucketReplication", "DeleteBucketReplication"}
+
 // generatedCases are the basic tests of the generated tools: arguments derived from the input schema,
 // the form parameters they must encode to, and an answer derived from the output shape.
 var generatedCases = []struct {
@@ -23,8 +26,13 @@ var generatedCases = []struct {
 	form                            map[string]string
 	token, confirm, listed          bool
 	result                          []string
-	// method, path, rawQuery and body are the request of a restJson1 tool, which sends no action.
-	method, path, rawQuery, body string
+	// method, path, rawQuery and body are the request of a REST tool, which sends no action. owner is the
+	// expected-owner header it must carry, bucket the bucket that is the first label of its host, and
+	// answerHeader the headers of the answer.
+	method, path, rawQuery, body, owner, bucket string
+	answerHeader                                map[string]string
+	// readback is the answer to the read a tool makes before its change.
+	readback string
 }{
 	{tool: "aws.sts.caller-identity.get", action: "GetCallerIdentity",
 		arguments: "{}",
@@ -552,6 +560,196 @@ var generatedCases = []struct {
 		form:      map[string]string{},
 		token:     false, confirm: true, listed: true, result: []string{"region"},
 		method: "DELETE", path: "/v2/email/identities/example.com/policies/a", rawQuery: "", body: ""},
+	{tool: "aws.s3.bucket.list", action: "",
+		arguments: `{"prefix":"a","bucket_region":"a"}`,
+		answer:    `<ListAllMyBucketsResult xmlns="http://s3.amazonaws.com/doc/2006-03-01/"><Buckets><Bucket><Name>x</Name><CreationDate>2026-01-02T03:04:05Z</CreationDate><BucketRegion>x</BucketRegion><BucketArn>x</BucketArn></Bucket></Buckets><Owner><DisplayName>x</DisplayName><ID>x</ID></Owner><Prefix>x</Prefix></ListAllMyBucketsResult>`,
+		form:      map[string]string{},
+		token:     false, confirm: false, listed: false, result: []string{"region", "has_more"},
+		method: "GET", path: "/", rawQuery: "x-id=ListBuckets&bucket-region=a&prefix=a", body: ""},
+	{tool: "aws.s3.bucket.head", action: "",
+		arguments: `{"bucket":"my-bucket"}`,
+		answer:    "",
+		form:      map[string]string{},
+		token:     false, confirm: false, listed: false, result: []string{"region"},
+		method: "HEAD", path: "/", rawQuery: "", body: "", owner: "123456789012", bucket: "my-bucket",
+		answerHeader: map[string]string{"x-amz-access-point-alias": "true", "x-amz-bucket-arn": "x", "x-amz-bucket-location-name": "x", "x-amz-bucket-location-type": "x", "x-amz-bucket-region": "x"}},
+	{tool: "aws.s3.bucket.get-location", action: "",
+		arguments: `{"bucket":"my-bucket"}`,
+		answer:    `<LocationConstraint xmlns="http://s3.amazonaws.com/doc/2006-03-01/">x</LocationConstraint>`,
+		form:      map[string]string{},
+		token:     false, confirm: false, listed: false, result: []string{"region"},
+		method: "GET", path: "/", rawQuery: "location", body: "", owner: "123456789012", bucket: "my-bucket"},
+	{tool: "aws.s3.versioning.get", action: "",
+		arguments: `{"bucket":"my-bucket"}`,
+		answer:    `<VersioningConfiguration xmlns="http://s3.amazonaws.com/doc/2006-03-01/"><Status>x</Status><MfaDelete>x</MfaDelete></VersioningConfiguration>`,
+		form:      map[string]string{},
+		token:     false, confirm: false, listed: false, result: []string{"region"},
+		method: "GET", path: "/", rawQuery: "versioning", body: "", owner: "123456789012", bucket: "my-bucket"},
+	{tool: "aws.s3.encryption.get", action: "",
+		arguments: `{"bucket":"my-bucket"}`,
+		answer:    `<ServerSideEncryptionConfiguration xmlns="http://s3.amazonaws.com/doc/2006-03-01/"><Rule><ApplyServerSideEncryptionByDefault><SSEAlgorithm>x</SSEAlgorithm><KMSMasterKeyID>x</KMSMasterKeyID></ApplyServerSideEncryptionByDefault><BucketKeyEnabled>true</BucketKeyEnabled><BlockedEncryptionTypes><EncryptionType>x</EncryptionType></BlockedEncryptionTypes></Rule></ServerSideEncryptionConfiguration>`,
+		form:      map[string]string{},
+		token:     false, confirm: false, listed: false, result: []string{"region"},
+		method: "GET", path: "/", rawQuery: "encryption", body: "", owner: "123456789012", bucket: "my-bucket"},
+	{tool: "aws.s3.tagging.get", action: "",
+		arguments: `{"bucket":"my-bucket"}`,
+		answer:    `<Tagging xmlns="http://s3.amazonaws.com/doc/2006-03-01/"><TagSet><Tag><Key>x</Key><Value>x</Value></Tag></TagSet></Tagging>`,
+		form:      map[string]string{},
+		token:     false, confirm: false, listed: false, result: []string{"region"},
+		method: "GET", path: "/", rawQuery: "tagging", body: "", owner: "123456789012", bucket: "my-bucket"},
+	{tool: "aws.s3.public-access-block.get", action: "",
+		arguments: `{"bucket":"my-bucket"}`,
+		answer:    `<PublicAccessBlockConfiguration xmlns="http://s3.amazonaws.com/doc/2006-03-01/"><BlockPublicAcls>true</BlockPublicAcls><IgnorePublicAcls>true</IgnorePublicAcls><BlockPublicPolicy>true</BlockPublicPolicy><RestrictPublicBuckets>true</RestrictPublicBuckets></PublicAccessBlockConfiguration>`,
+		form:      map[string]string{},
+		token:     false, confirm: false, listed: false, result: []string{"region"},
+		method: "GET", path: "/", rawQuery: "publicAccessBlock", body: "", owner: "123456789012", bucket: "my-bucket"},
+	{tool: "aws.s3.bucket.create", action: "",
+		arguments: `{"bucket":"my-bucket","create_bucket_configuration":{"location_constraint":"eu-central-1"},"object_ownership":"BucketOwnerEnforced"}`,
+		answer:    "",
+		form:      map[string]string{},
+		token:     false, confirm: true, listed: false, result: []string{"region"},
+		method: "PUT", path: "/", rawQuery: "", body: `<CreateBucketConfiguration xmlns="http://s3.amazonaws.com/doc/2006-03-01/"><LocationConstraint>eu-central-1</LocationConstraint></CreateBucketConfiguration>`, bucket: "my-bucket",
+		answerHeader: map[string]string{"Location": "x", "x-amz-bucket-arn": "x"}},
+	{tool: "aws.s3.bucket.delete", action: "",
+		arguments: `{"bucket":"my-bucket"}`,
+		answer:    "",
+		form:      map[string]string{},
+		token:     false, confirm: true, listed: false, result: []string{"region"},
+		method: "DELETE", path: "/", rawQuery: "", body: "", owner: "123456789012", bucket: "my-bucket"},
+	{tool: "aws.s3.versioning.put", action: "",
+		arguments: `{"bucket":"my-bucket","versioning_configuration":{"status":"Enabled"}}`,
+		answer:    "",
+		form:      map[string]string{},
+		token:     false, confirm: true, listed: false, result: []string{"region"},
+		method: "PUT", path: "/", rawQuery: "versioning", body: `<VersioningConfiguration xmlns="http://s3.amazonaws.com/doc/2006-03-01/"><Status>Enabled</Status></VersioningConfiguration>`, owner: "123456789012", bucket: "my-bucket"},
+	{tool: "aws.s3.encryption.put", action: "",
+		arguments: `{"bucket":"my-bucket","server_side_encryption_configuration":{"rules":[{"apply_server_side_encryption_by_default":{"sse_algorithm":"aws:kms","kms_master_key_id":"arn:aws:kms:eu-central-1:123456789012:key/a"}}]}}`,
+		answer:    "",
+		form:      map[string]string{},
+		token:     false, confirm: true, listed: false, result: []string{"region"},
+		method: "PUT", path: "/", rawQuery: "encryption", body: `<ServerSideEncryptionConfiguration xmlns="http://s3.amazonaws.com/doc/2006-03-01/"><Rule><ApplyServerSideEncryptionByDefault><SSEAlgorithm>aws:kms</SSEAlgorithm><KMSMasterKeyID>arn:aws:kms:eu-central-1:123456789012:key/a</KMSMasterKeyID></ApplyServerSideEncryptionByDefault></Rule></ServerSideEncryptionConfiguration>`, owner: "123456789012", bucket: "my-bucket"},
+	{tool: "aws.s3.encryption.delete", action: "",
+		arguments: `{"bucket":"my-bucket"}`,
+		answer:    "",
+		form:      map[string]string{},
+		token:     false, confirm: true, listed: false, result: []string{"region"},
+		method: "DELETE", path: "/", rawQuery: "encryption", body: "", owner: "123456789012", bucket: "my-bucket"},
+	{tool: "aws.s3.tagging.put", action: "",
+		arguments: `{"bucket":"my-bucket","tagging":{"tag_set":[{"key":"a","value":"a"}]}}`,
+		answer:    "",
+		form:      map[string]string{},
+		token:     false, confirm: true, listed: false, result: []string{"region"},
+		method: "PUT", path: "/", rawQuery: "tagging", body: `<Tagging xmlns="http://s3.amazonaws.com/doc/2006-03-01/"><TagSet><Tag><Key>a</Key><Value>a</Value></Tag></TagSet></Tagging>`, owner: "123456789012", bucket: "my-bucket"},
+	{tool: "aws.s3.tagging.delete", action: "",
+		arguments: `{"bucket":"my-bucket"}`,
+		answer:    "",
+		form:      map[string]string{},
+		token:     false, confirm: true, listed: false, result: []string{"region"},
+		method: "DELETE", path: "/", rawQuery: "tagging", body: "", owner: "123456789012", bucket: "my-bucket"},
+	{tool: "aws.s3.public-access-block.put", action: "",
+		arguments: `{"bucket":"my-bucket","public_access_block_configuration":{"block_public_acls":true,"ignore_public_acls":true,"block_public_policy":true,"restrict_public_buckets":true}}`,
+		answer:    "",
+		form:      map[string]string{},
+		token:     false, confirm: true, listed: false, result: []string{"region"},
+		method: "PUT", path: "/", rawQuery: "publicAccessBlock", body: `<PublicAccessBlockConfiguration xmlns="http://s3.amazonaws.com/doc/2006-03-01/"><BlockPublicAcls>true</BlockPublicAcls><IgnorePublicAcls>true</IgnorePublicAcls><BlockPublicPolicy>true</BlockPublicPolicy><RestrictPublicBuckets>true</RestrictPublicBuckets></PublicAccessBlockConfiguration>`, owner: "123456789012", bucket: "my-bucket",
+		readback: `<PublicAccessBlockConfiguration xmlns="http://s3.amazonaws.com/doc/2006-03-01/"><BlockPublicAcls>false</BlockPublicAcls><IgnorePublicAcls>false</IgnorePublicAcls><BlockPublicPolicy>false</BlockPublicPolicy><RestrictPublicBuckets>false</RestrictPublicBuckets></PublicAccessBlockConfiguration>`},
+	{tool: "aws.s3.lifecycle.get", action: "",
+		arguments: `{"bucket":"my-bucket"}`,
+		answer:    `<LifecycleConfiguration xmlns="http://s3.amazonaws.com/doc/2006-03-01/"><Rule><Expiration><Date>2026-01-02T03:04:05Z</Date><Days>1</Days><ExpiredObjectDeleteMarker>true</ExpiredObjectDeleteMarker></Expiration><ID>x</ID><Prefix>x</Prefix><Filter><Prefix>x</Prefix><Tag><Key>x</Key><Value>x</Value></Tag><ObjectSizeGreaterThan>1</ObjectSizeGreaterThan><ObjectSizeLessThan>1</ObjectSizeLessThan><And><Prefix>x</Prefix><Tag><Key>x</Key><Value>x</Value></Tag><ObjectSizeGreaterThan>1</ObjectSizeGreaterThan><ObjectSizeLessThan>1</ObjectSizeLessThan></And></Filter><Status>x</Status><Transition><Date>2026-01-02T03:04:05Z</Date><Days>1</Days><StorageClass>x</StorageClass></Transition><NoncurrentVersionTransition><NoncurrentDays>1</NoncurrentDays><StorageClass>x</StorageClass><NewerNoncurrentVersions>1</NewerNoncurrentVersions></NoncurrentVersionTransition><NoncurrentVersionExpiration><NoncurrentDays>1</NoncurrentDays><NewerNoncurrentVersions>1</NewerNoncurrentVersions></NoncurrentVersionExpiration><AbortIncompleteMultipartUpload><DaysAfterInitiation>1</DaysAfterInitiation></AbortIncompleteMultipartUpload></Rule></LifecycleConfiguration>`,
+		form:      map[string]string{},
+		token:     false, confirm: false, listed: false, result: []string{"region"},
+		method: "GET", path: "/", rawQuery: "lifecycle", body: "", owner: "123456789012", bucket: "my-bucket",
+		answerHeader: map[string]string{"x-amz-transition-default-minimum-object-size": "x"}},
+	{tool: "aws.s3.cors.get", action: "",
+		arguments: `{"bucket":"my-bucket"}`,
+		answer:    `<CORSConfiguration xmlns="http://s3.amazonaws.com/doc/2006-03-01/"><CORSRule><ID>x</ID><AllowedHeader>x</AllowedHeader><AllowedMethod>x</AllowedMethod><AllowedOrigin>x</AllowedOrigin><ExposeHeader>x</ExposeHeader><MaxAgeSeconds>1</MaxAgeSeconds></CORSRule></CORSConfiguration>`,
+		form:      map[string]string{},
+		token:     false, confirm: false, listed: false, result: []string{"region"},
+		method: "GET", path: "/", rawQuery: "cors", body: "", owner: "123456789012", bucket: "my-bucket"},
+	{tool: "aws.s3.acl.get", action: "",
+		arguments: `{"bucket":"my-bucket"}`,
+		answer:    `<AccessControlPolicy xmlns="http://s3.amazonaws.com/doc/2006-03-01/"><Owner><DisplayName>x</DisplayName><ID>x</ID></Owner><AccessControlList><Grant><Grantee><DisplayName>x</DisplayName><EmailAddress>x</EmailAddress><ID>x</ID><URI>x</URI><xsi:type>x</xsi:type></Grantee><Permission>x</Permission></Grant></AccessControlList></AccessControlPolicy>`,
+		form:      map[string]string{},
+		token:     false, confirm: false, listed: false, result: []string{"region"},
+		method: "GET", path: "/", rawQuery: "acl", body: "", owner: "123456789012", bucket: "my-bucket"},
+	{tool: "aws.s3.website.get", action: "",
+		arguments: `{"bucket":"my-bucket"}`,
+		answer:    `<WebsiteConfiguration xmlns="http://s3.amazonaws.com/doc/2006-03-01/"><RedirectAllRequestsTo><HostName>x</HostName><Protocol>x</Protocol></RedirectAllRequestsTo><IndexDocument><Suffix>x</Suffix></IndexDocument><ErrorDocument><Key>x</Key></ErrorDocument><RoutingRules><RoutingRule><Condition><HttpErrorCodeReturnedEquals>x</HttpErrorCodeReturnedEquals><KeyPrefixEquals>x</KeyPrefixEquals></Condition><Redirect><HostName>x</HostName><HttpRedirectCode>x</HttpRedirectCode><Protocol>x</Protocol><ReplaceKeyPrefixWith>x</ReplaceKeyPrefixWith><ReplaceKeyWith>x</ReplaceKeyWith></Redirect></RoutingRule></RoutingRules></WebsiteConfiguration>`,
+		form:      map[string]string{},
+		token:     false, confirm: false, listed: false, result: []string{"region"},
+		method: "GET", path: "/", rawQuery: "website", body: "", owner: "123456789012", bucket: "my-bucket"},
+	{tool: "aws.s3.logging.get", action: "",
+		arguments: `{"bucket":"my-bucket"}`,
+		answer:    `<BucketLoggingStatus xmlns="http://s3.amazonaws.com/doc/2006-03-01/"><LoggingEnabled><TargetBucket>x</TargetBucket><TargetGrants><Grant><Grantee><DisplayName>x</DisplayName><EmailAddress>x</EmailAddress><ID>x</ID><URI>x</URI><xsi:type>x</xsi:type></Grantee><Permission>x</Permission></Grant></TargetGrants><TargetPrefix>x</TargetPrefix><TargetObjectKeyFormat><SimplePrefix></SimplePrefix><PartitionedPrefix><PartitionDateSource>x</PartitionDateSource></PartitionedPrefix></TargetObjectKeyFormat></LoggingEnabled></BucketLoggingStatus>`,
+		form:      map[string]string{},
+		token:     false, confirm: false, listed: false, result: []string{"region"},
+		method: "GET", path: "/", rawQuery: "logging", body: "", owner: "123456789012", bucket: "my-bucket"},
+	{tool: "aws.s3.notification.get", action: "",
+		arguments: `{"bucket":"my-bucket"}`,
+		answer:    `<NotificationConfiguration xmlns="http://s3.amazonaws.com/doc/2006-03-01/"><TopicConfiguration><Id>x</Id><Topic>x</Topic><Event>x</Event><Filter><S3Key><FilterRule><Name>x</Name><Value>x</Value></FilterRule></S3Key></Filter></TopicConfiguration><QueueConfiguration><Id>x</Id><Queue>x</Queue><Event>x</Event><Filter><S3Key><FilterRule><Name>x</Name><Value>x</Value></FilterRule></S3Key></Filter></QueueConfiguration><CloudFunctionConfiguration><Id>x</Id><CloudFunction>x</CloudFunction><Event>x</Event><Filter><S3Key><FilterRule><Name>x</Name><Value>x</Value></FilterRule></S3Key></Filter></CloudFunctionConfiguration><EventBridgeConfiguration></EventBridgeConfiguration></NotificationConfiguration>`,
+		form:      map[string]string{},
+		token:     false, confirm: false, listed: false, result: []string{"region"},
+		method: "GET", path: "/", rawQuery: "notification", body: "", owner: "123456789012", bucket: "my-bucket"},
+	{tool: "aws.s3.replication.get", action: "",
+		arguments: `{"bucket":"my-bucket"}`,
+		answer:    `<ReplicationConfiguration xmlns="http://s3.amazonaws.com/doc/2006-03-01/"><Role>x</Role><Rule><ID>x</ID><Priority>1</Priority><Filter><Prefix>x</Prefix><Tag><Key>x</Key><Value>x</Value></Tag><And><Prefix>x</Prefix><Tag><Key>x</Key><Value>x</Value></Tag></And></Filter><Status>x</Status><SourceSelectionCriteria><SseKmsEncryptedObjects><Status>x</Status></SseKmsEncryptedObjects><ReplicaModifications><Status>x</Status></ReplicaModifications></SourceSelectionCriteria><ExistingObjectReplication><Status>x</Status></ExistingObjectReplication><Destination><Bucket>x</Bucket><Account>x</Account><StorageClass>x</StorageClass><AccessControlTranslation><Owner>x</Owner></AccessControlTranslation><EncryptionConfiguration><ReplicaKmsKeyID>x</ReplicaKmsKeyID></EncryptionConfiguration><ReplicationTime><Status>x</Status><Time><Minutes>1</Minutes></Time></ReplicationTime><Metrics><Status>x</Status><EventThreshold><Minutes>1</Minutes></EventThreshold></Metrics></Destination><DeleteMarkerReplication><Status>x</Status></DeleteMarkerReplication></Rule></ReplicationConfiguration>`,
+		form:      map[string]string{},
+		token:     false, confirm: false, listed: false, result: []string{"region"},
+		method: "GET", path: "/", rawQuery: "replication", body: "", owner: "123456789012", bucket: "my-bucket"},
+	{tool: "aws.s3.ownership.get", action: "",
+		arguments: `{"bucket":"my-bucket"}`,
+		answer:    `<OwnershipControls xmlns="http://s3.amazonaws.com/doc/2006-03-01/"><Rule><ObjectOwnership>x</ObjectOwnership></Rule></OwnershipControls>`,
+		form:      map[string]string{},
+		token:     false, confirm: false, listed: false, result: []string{"region"},
+		method: "GET", path: "/", rawQuery: "ownershipControls", body: "", owner: "123456789012", bucket: "my-bucket"},
+	{tool: "aws.s3.accelerate.get", action: "",
+		arguments: `{"bucket":"my-bucket"}`,
+		answer:    `<AccelerateConfiguration xmlns="http://s3.amazonaws.com/doc/2006-03-01/"><Status>x</Status></AccelerateConfiguration>`,
+		form:      map[string]string{},
+		token:     false, confirm: false, listed: false, result: []string{"region"},
+		method: "GET", path: "/", rawQuery: "accelerate", body: "", owner: "123456789012", bucket: "my-bucket"},
+	{tool: "aws.s3.request-payment.get", action: "",
+		arguments: `{"bucket":"my-bucket"}`,
+		answer:    `<RequestPaymentConfiguration xmlns="http://s3.amazonaws.com/doc/2006-03-01/"><Payer>x</Payer></RequestPaymentConfiguration>`,
+		form:      map[string]string{},
+		token:     false, confirm: false, listed: false, result: []string{"region"},
+		method: "GET", path: "/", rawQuery: "requestPayment", body: "", owner: "123456789012", bucket: "my-bucket"},
+	{tool: "aws.s3.lifecycle.delete", action: "",
+		arguments: `{"bucket":"my-bucket"}`,
+		answer:    "",
+		form:      map[string]string{},
+		token:     false, confirm: true, listed: false, result: []string{"region"},
+		method: "DELETE", path: "/", rawQuery: "lifecycle", body: "", owner: "123456789012", bucket: "my-bucket"},
+	{tool: "aws.s3.cors.delete", action: "",
+		arguments: `{"bucket":"my-bucket"}`,
+		answer:    "",
+		form:      map[string]string{},
+		token:     false, confirm: true, listed: false, result: []string{"region"},
+		method: "DELETE", path: "/", rawQuery: "cors", body: "", owner: "123456789012", bucket: "my-bucket"},
+	{tool: "aws.s3.object-lock.get", action: "",
+		arguments: `{"bucket":"my-bucket"}`,
+		answer:    `<ObjectLockConfiguration xmlns="http://s3.amazonaws.com/doc/2006-03-01/"><ObjectLockEnabled>x</ObjectLockEnabled><Rule><DefaultRetention><Mode>x</Mode><Days>1</Days><Years>1</Years><DefaultEventHold><Days>1</Days><Years>1</Years></DefaultEventHold></DefaultRetention></Rule></ObjectLockConfiguration>`,
+		form:      map[string]string{},
+		token:     false, confirm: false, listed: false, result: []string{"region"},
+		method: "GET", path: "/", rawQuery: "object-lock", body: "", owner: "123456789012", bucket: "my-bucket"},
+	{tool: "aws.s3.object-retention.get", action: "",
+		arguments: `{"bucket":"my-bucket","key":"a","version_id":"a"}`,
+		answer:    `<Retention xmlns="http://s3.amazonaws.com/doc/2006-03-01/"><Mode>x</Mode><RetainUntilDate>2026-01-02T03:04:05Z</RetainUntilDate><EventHold>x</EventHold><EventHoldDuration><Days>1</Days><Years>1</Years></EventHoldDuration></Retention>`,
+		form:      map[string]string{},
+		token:     false, confirm: false, listed: false, result: []string{"region"},
+		method: "GET", path: "/a", rawQuery: "retention&versionId=a", body: "", owner: "123456789012", bucket: "my-bucket"},
+	{tool: "aws.s3.object-legal-hold.get", action: "",
+		arguments: `{"bucket":"my-bucket","key":"a","version_id":"a"}`,
+		answer:    `<LegalHold xmlns="http://s3.amazonaws.com/doc/2006-03-01/"><Status>x</Status></LegalHold>`,
+		form:      map[string]string{},
+		token:     false, confirm: false, listed: false, result: []string{"region"},
+		method: "GET", path: "/a", rawQuery: "legal-hold&versionId=a", body: "", owner: "123456789012", bucket: "my-bucket"},
+	{tool: "aws.s3.ownership.put", action: "",
+		arguments: `{"bucket":"my-bucket","ownership_controls":{"rules":[{"object_ownership":"BucketOwnerEnforced"}]}}`,
+		answer:    "",
+		form:      map[string]string{},
+		token:     false, confirm: true, listed: false, result: []string{"region"},
+		method: "PUT", path: "/", rawQuery: "ownershipControls", body: `<OwnershipControls xmlns="http://s3.amazonaws.com/doc/2006-03-01/"><Rule><ObjectOwnership>BucketOwnerEnforced</ObjectOwnership></Rule></OwnershipControls>`, owner: "123456789012", bucket: "my-bucket"},
 }
 
 // Every generated tool sends its one action with exactly the encoded parameters and returns a result its
@@ -560,9 +758,12 @@ func TestGeneratedTools(t *testing.T) {
 	for _, c := range generatedCases {
 		t.Run(c.tool, func(t *testing.T) {
 			f := &fakeAWS{answer: func(r sent, _ int) reply {
+				if c.readback != "" && r.method == "GET" {
+					return reply{status: 200, body: c.readback}
+				}
 				switch r.action {
 				case c.action:
-					return ok(c.answer)
+					return reply{status: 200, header: c.answerHeader, body: c.answer}
 				case "GetCallerIdentity":
 					return ok(identityXML)
 				}
@@ -598,6 +799,13 @@ func TestGeneratedTools(t *testing.T) {
 					t.Errorf("request = %s %s?%s %s, want %s %s?%s %s", call.method, call.path, call.rawQuery, call.body,
 						c.method, c.path, c.rawQuery, c.body)
 				}
+				if c.bucket != "" && call.host != c.bucket+".s3."+testRegion+".amazonaws.com" {
+					t.Errorf("host = %s, want the bucket as its first label", call.host)
+				}
+				// The expected owner is the account of the connection, whatever an argument says.
+				if got := call.header.Get("X-Amz-Expected-Bucket-Owner"); got != c.owner {
+					t.Errorf("expected bucket owner = %q, want %q", got, c.owner)
+				}
 				return
 			}
 			want := len(c.form) + 2
@@ -625,6 +833,7 @@ func TestGeneratedExclusionsAreNoTools(t *testing.T) {
 		"sts": excludedSTSActions,
 		"iam": excludedIAMActions,
 		"ses": excludedSESActions,
+		"s3":  excludedS3Actions,
 	}
 	for _, s := range generatedSpecs {
 		// A restJson1 tool sends no action; its op is the operation name in words.

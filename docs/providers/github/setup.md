@@ -4,7 +4,7 @@ description: >
 type: knowledge
 edit: shared
 created: 2026-10-25
-updated: 2026-11-10
+updated: 2026-11-11
 ---
 
 # Set up GitHub
@@ -109,12 +109,15 @@ Find your tool group, then add the scope or permission to the token. Each row is
 | --- | --- | --- |
 | Read issues and comments | `repo`, or `public_repo` for public repositories | Issues: read |
 | Create or change issues and comments | `repo`, or `public_repo` for public repositories | Issues: read and write |
-| Read labels, milestones, sub-issues, issue dependencies | `repo` for private repositories, none for public | Issues: read |
+| Read labels, milestones, sub-issues, issue dependencies, issue events, issue timelines, assignable users | `repo` for private repositories, none for public | Issues: read |
 | Create or change labels or milestones, add, remove or reorder sub-issues, add or remove dependencies | `repo` | Issues: read and write, in every repository the call names |
 | Issue types and issue fields of an organization: read | `read:org` | Issue types: read, or Administration: read (organization); as far as GitHub documents it |
 | Set an issue's type or an issue field value | `repo` | Issues: read and write |
 | React to an issue or an issue comment | `repo` | Issues: read and write |
 | Hide or show an issue comment | `repo` | Issues: read and write |
+| Lock or unlock an issue conversation | `repo`, or `public_repo` for public repositories, plus push access | Issues: read and write |
+| Lock or unlock a pull request conversation | `repo`, or `public_repo` for public repositories, plus push access | Pull requests: read and write; as far as GitHub documents it |
+| Pin or unpin an issue | `repo`, plus write access to the repository; as far as GitHub documents it | Issues: read and write; as far as GitHub documents it |
 | Hide or show a pull request conversation comment, a review, or a pull request line comment | `repo` | Pull requests: read and write |
 | React to a pull request line comment | `repo` | Pull requests: read and write |
 | Assign Copilot to an issue | `repo` | Metadata: read; Actions, Contents, Issues, and Pull requests: read and write |
@@ -148,7 +151,9 @@ assignment; `repo` is the scope of the issue and pull request routes it changes.
 | Read check runs, annotations, check suites | `repo` for private repositories, none for public | Checks: read |
 | Create, update, close, reopen, update the branch | `repo` | Pull requests: read and write |
 | Merge | `repo` | Pull requests: read and write, plus Contents: read and write |
+| Enable or disable auto-merge | `repo` | Pull requests: read and write, plus Contents: read and write |
 | Review, approve, reply, resolve or unresolve a thread, request or remove reviewers | `repo` | Pull requests: read and write |
+| Change the text of a review or a line comment, dismiss a review, delete a pending review or a line comment | `repo` | Pull requests: read and write |
 | Read or write conversation comments | `repo` or `public_repo` | Pull requests or Issues: read; read and write to write |
 | Request a Copilot review | `repo`, and write access to the repository | Pull requests: read and write, and write access to the repository |
 

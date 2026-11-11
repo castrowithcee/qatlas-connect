@@ -1,10 +1,10 @@
 ---
 description: >
-  Describes the GitHub issue tools: issue and comment reads and changes, labels, milestones, sub-issues, issue dependencies, issue types, issue fields, reactions, assigning Copilot to an issue, and issue search.
+  Describes the GitHub issue tools: issue and comment reads and changes, labels, milestones, sub-issues, issue dependencies, issue events and timelines, assignees, issue types, issue fields, reactions, assigning Copilot to an issue, and issue search.
 type: knowledge
 edit: shared
 created: 2026-10-22
-updated: 2026-11-06
+updated: 2026-11-11
 ---
 
 # GitHub issues
@@ -40,6 +40,10 @@ body. It reads projects only with `project_details`; the token rights are listed
 | `github.issues.update` | replaces the given fields; left-out fields stay |
 | `github.issues.close` | closes an issue with a `state_reason` |
 | `github.issues.reopen` | opens a closed issue again |
+| `github.issues.lock` | locks the conversation of an issue or pull request, optionally with a `lock_reason`; offered only where a connection's `tools` list names it |
+| `github.issues.unlock` | unlocks the conversation of an issue or pull request |
+| `github.issues.pin` | pins an issue to the top of the repository's issue list |
+| `github.issues.unpin` | releases the pin of an issue |
 | `github.comments.create` | writes exactly one comment on one issue |
 | `github.comments.update` | replaces the body of one comment |
 | `github.comments.delete` | deletes one comment permanently; offered only where a connection's `tools` list names it |
@@ -78,6 +82,22 @@ identifier. Both change tools read the comment first: its route scopes it to the
 repository, so a comment of another repository answers `not-found`, and a pull request's own conversation
 comment is refused as `invalid-request` before anything changes. `github.comments.delete` removes a comment
 permanently and is offered only where a connection's `tools` list names it, as `github.labels.delete` is.
+
+`github.issues.lock`, `github.issues.unlock`, `github.issues.pin`, and `github.issues.unpin` take only the `number`
+of an issue, and for lock and unlock of a pull request too; `github.issues.lock` also takes an optional `lock_reason`: `off-topic`, `too heated`, `resolved`, or
+`spam`, checked before anything is sent. Each tool first reads the issue below the connection's repository, so a
+number GitHub does not hold there is `not-found`; `github.issues.pin` and `github.issues.unpin` refuse a pull
+request number as `invalid-request`, since GitHub pins only issues, while `github.issues.lock` and
+`github.issues.unlock` accept one, as GitHub locks a pull request's conversation on the same route, and mark the
+answer `is_pull_request`; only then it sends exactly one request that is never repeated. Locking and unlocking are one REST request each. GitHub
+offers pinning only as a GraphQL mutation on a node identifier, which the caller never supplies: it is the
+`node_id` of that read. `github.issues.lock` is offered only where a connection's `tools` list names it, because
+it shuts everyone without push access out of the conversation. Locking a locked issue and unlocking an unlocked one
+succeed, as GitHub answers both; pinning or unpinning follows what GitHub's mutation answers. A repository holds at
+most three pinned issues: GitHub's refusal of a fourth is reported as its own message that names the limit, not
+GitHub's text. The answers hold the `number` and the state (`locked` with the `lock_reason` that was sent, or
+`pinned`) and never issue text. An outcome that stays unclear after a timeout or a dropped connection is reported
+as uncertain, not as failure or success.
 
 `github.comments.hide` and `github.comments.unhide` minimize and restore one object, chosen by `kind`:
 `issue-comment` (the `comment_id` above), `pull-request-comment` (the `comment_id` of a conversation comment of a
@@ -212,6 +232,61 @@ The token rights are listed under [Issues and comments](setup.md#issues-and-comm
 Source: the official REST documentation (<https://docs.github.com/en/rest/issues/issue-dependencies>,
 `X-GitHub-Api-Version: 2022-11-28`): List issues blocked by, List issues blocking, and Add and Remove a
 blocked-by dependency are stable, generally available REST endpoints, not a preview feature.
+
+## Issue events, timeline, and assignees
+
+| Tool | Does |
+| --- | --- |
+| `github.issue-events.list` | lists the events of one issue by `number`, or, without `number`, of every issue of the repository |
+| `github.issue-timeline.list` | lists the timeline of one issue by `number` |
+| `github.assignees.list` | lists the users that may be assigned in the repository |
+| `github.assignees.check` | tells whether one `assignee` login may be assigned |
+
+All four read and change nothing. Each lists one bounded batch, oldest first, paged by `limit` and `cursor` the same
+way [labels](#labels) are. The only other filter GitHub offers is `exclude` on the timeline: up to 50 event types by
+their lower-case GitHub name (such as `commented`), sent as one comma-separated list. A cursor is bound to the tool,
+the repository, the issue, and, for the timeline, the `exclude` list; GitHub decides what it leaves out. GitHub treats a pull request as an issue on these routes, so a pull request number is
+accepted; the route always stays inside the repository the call names.
+
+An event reports its `event` type, `actor`, `created_at`, `commit_id`, and the members of its type: `label`,
+`assignee`, `assigner`, `review_requester`, `requested_reviewer`, `requested_team`, `dismissed_review`,
+`milestone`, `project_card`, `rename`, `lock_reason`, `author_association`, `performed_via_github_app`, `intent`
+(an agent's `rationale`, cut at 1000 characters, and `confidence`; only while GitHub's issue suggestions are on),
+`issue_type` and `prev_issue_type` (`id`, `name`, `color`), and, for sub-issue, parent-issue, and dependency events,
+`sub_issue`, `parent_issue`, `blocked_by`, and `blocking`; its REST addresses (the event's `url`, `issue_url`, and
+`pull_request_url`) sit in `links`. The repository-wide list adds the `issue` of each event, as an entry of the
+[sub-issue list](#sub-issues) plus `is_pull_request` and, for a pull request, its `pull_request` members. The timeline adds the members of the types only it carries:
+comments and reviews (`body`, `user`, `reactions`, `state`, `submitted_at`), cross-references (`source`), commits
+(`sha`, `author`, `committer`, `message`, `tree`, `parents`, `verification`), line comments and commit comments
+(`line_comments`, which also report `is_copilot_code_review` and `copilot_code_review_sources`, and
+`commit_comments`), the `minimized` and `pin` state of a comment, and `state_reason`. Event types are an open set: an event of a type Qatlas
+does not know, or of an unexpected shape, keeps its `event` type, `id`, `node_id`, and `created_at`, and whatever
+it shares with the known types, never a raw copy.
+
+Texts are untrusted data and cut: comment, review, and line comment bodies and the dismissal message at 4000
+characters, commit messages at 4096, with `*_truncated` saying so. The rendered `body_html` and `body_text`
+variants and the `_links` member are left out; the `pull_request` member of an issue is reported only as
+`is_pull_request`.
+
+Objects outside the connection's targets, or in an excluded repository, show only identifiers. The issue of a
+sub-issue, parent-issue, or dependency event shows `number`, `title`, `state`, `state_reason`, `repository`, and
+`issue_type` inside the targets, with `title` untrusted data; outside them it keeps `number` and the `id`, `node_id`,
+and `full_name` of `repository`, with `withheld`, and when its repository cannot be told only `withheld`. A cross-referenced
+issue of such a repository keeps its `number`, `repository`, and `is_pull_request` and sets `withheld` on its
+`source`; when its repository cannot be told, `source` holds `withheld` alone. A commit of another repository
+keeps `commit_id` and, in `commit_repository`, its `OWNER/REPO`, but loses its address; inside the targets the
+address stays in `links.commit_url`. Commit comments and commits of a pull request timeline are shown as GitHub
+delivers them for the pull request.
+
+`github.assignees.check` answers `assignable: true` for GitHub's 204 and `assignable: false` for its 404, as a result
+and not as an error. GitHub answers 404 as well for a repository the token cannot see, so the two are not told
+apart. `assignee` is checked locally as a login: letters, digits, `-`, and `_`, so a bot login with a `[bot]`
+suffix is refused. The token rights are listed under [Issues and comments](setup.md#issues-and-comments).
+
+Source: the official REST documentation (<https://docs.github.com/en/rest/issues/events>,
+<https://docs.github.com/en/rest/issues/timeline>, <https://docs.github.com/en/rest/issues/assignees>,
+`X-GitHub-Api-Version: 2022-11-28`), schemas `issue-event`, `issue-event-for-issue`, `timeline-issue-events`, and
+`simple-user`.
 
 ## Issue types
 

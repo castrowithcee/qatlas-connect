@@ -9,8 +9,8 @@ import (
 
 // toolGroups are the subject areas GitHub's tools are sorted into for display.
 var toolGroups = []config.ToolGroup{
-	{ID: "issues", Title: "Issues", Description: "Issues, comments, reactions, labels, milestones, types, fields, dependencies, sub-issues, and Copilot assignments"},
-	{ID: "pull-requests", Title: "Pull requests", Description: "Pull requests with their files, commits, checks, check runs and suites, reviews, review threads, reviewers, and Copilot reviews"},
+	{ID: "issues", Title: "Issues", Description: "Issues, comments, reactions, labels, milestones, types, fields, dependencies, sub-issues, events and timelines, assignees, and Copilot assignments"},
+	{ID: "pull-requests", Title: "Pull requests", Description: "Pull requests with their files, commits, checks, check runs and suites, reviews, review threads, reviewers, auto-merge, and Copilot reviews"},
 	{ID: "projects", Title: "Projects", Description: "Projects with their items, drafts, fields, views, status updates, iterations, templates, and access"},
 	{ID: "actions", Title: "Actions", Description: "Workflows, runs, jobs, logs, artifacts, caches, Actions variables, workflow and Actions permissions, environments with their deployment branch policies and protection rules, and deployments with their statuses"},
 	{ID: "code", Title: "Code", Description: "Repository contents, files, trees, branches, merges, tags, commits, comparisons, commit comments, and blame"},
@@ -28,8 +28,9 @@ var toolGroups = []config.ToolGroup{
 var groupBySegment = map[string]string{
 	"issues": "issues", "comments": "issues", "reactions": "issues", "labels": "issues",
 	"milestones": "issues", "issue-types": "issues", "issue-fields": "issues", "issue-dependencies": "issues",
-	"sub-issues": "issues", "copilot-assignments": "issues",
-	"copilot-reviews": "pull-requests", "check-runs": "pull-requests", "check-annotations": "pull-requests",
+	"sub-issues": "issues", "issue-events": "issues", "issue-timeline": "issues", "assignees": "issues",
+	"copilot-assignments": "issues",
+	"copilot-reviews":     "pull-requests", "check-runs": "pull-requests", "check-annotations": "pull-requests",
 	"check-suites": "pull-requests", "check-suite-runs": "pull-requests",
 	"workflows": "actions", "workflow-runs": "actions", "workflow-jobs": "actions", "workflow-run-logs": "actions",
 	"workflow-run-attempts": "actions", "workflow-run-approvals": "actions",

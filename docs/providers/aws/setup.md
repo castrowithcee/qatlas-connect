@@ -11,7 +11,8 @@ updated: 2026-11-11
 
 This page names what a connection of the `aws` provider needs. Role assumption, targets, errors, and limits are
 described in the [AWS provider](README.md); the tools are described per group: the
-[Security Token Service](sts.md), [Identity and Access Management](iam.md), and [Simple Email Service](ses.md).
+[Security Token Service](sts.md), [Identity and Access Management](iam.md), [Simple Email Service](ses.md), and
+[Amazon S3](s3.md).
 
 ## Configuration
 
@@ -83,6 +84,33 @@ Each [SES tool](ses.md) needs the permission `ses:<Operation>` of its AWS operat
 Creating with tags also needs `ses:TagResource`. The identity policy write tools are offered only when the tools list
 of the connection names them. Grant only the actions of the tools the connection offers. An account without production
 access is in the SES sandbox and sends only to verified recipients.
+
+### S3
+
+Each [S3 tool](s3.md) needs the permission `s3:<Action>` for the bucket (`arn:aws:s3:::<bucket>`), except `bucket.list`,
+which needs `s3:ListAllMyBuckets` on all resources. The reads need `s3:ListAllMyBuckets` (`bucket.list`),
+`s3:ListBucket` (`bucket.head`), `s3:GetBucketLocation`, `s3:GetBucketVersioning`, `s3:GetEncryptionConfiguration`,
+`s3:GetBucketTagging`, `s3:GetBucketPublicAccessBlock`, `s3:GetLifecycleConfiguration` (`lifecycle.get`),
+`s3:GetBucketCORS` (`cors.get`), `s3:GetBucketAcl` (`acl.get`), `s3:GetBucketWebsite`, `s3:GetBucketLogging` (`logging.get`), `s3:GetBucketNotification` (`notification.get`),
+`s3:GetReplicationConfiguration` (`replication.get`), `s3:GetBucketOwnershipControls`, `s3:GetAccelerateConfiguration`,
+`s3:GetBucketRequestPayment`, `s3:GetBucketObjectLockConfiguration` (`object-lock.get`), `s3:GetObjectRetention` and
+`s3:GetObjectLegalHold` (`object-retention.get` and `object-legal-hold.get`, for the object `arn:aws:s3:::<bucket>/<key>`), each for its own tool. The writes need:
+
+| Tool | Permission |
+| --- | --- |
+| `aws.s3.bucket.create` | `s3:CreateBucket` |
+| `aws.s3.bucket.delete` | `s3:DeleteBucket` |
+| `aws.s3.versioning.put` | `s3:PutBucketVersioning` |
+| `aws.s3.encryption.put`, `aws.s3.encryption.delete` | `s3:PutEncryptionConfiguration` |
+| `aws.s3.tagging.put`, `aws.s3.tagging.delete` | `s3:PutBucketTagging` |
+| `aws.s3.public-access-block.put` | `s3:PutBucketPublicAccessBlock` and `s3:GetBucketPublicAccessBlock` (the read before the change) |
+| `aws.s3.ownership.put` | `s3:PutBucketOwnershipControls` |
+| `aws.s3.lifecycle.delete` | `s3:PutLifecycleConfiguration` |
+| `aws.s3.cors.delete` | `s3:PutBucketCORS` |
+
+Creating with tags also needs `s3:PutBucketTagging`. Setting a KMS key also needs the permissions the key's policy
+requires for the identity. Grant only the actions of the tools the connection offers; a policy such as `s3:*` also
+grants every object action.
 
 ## Connection test
 

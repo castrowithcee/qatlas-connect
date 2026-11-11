@@ -56,6 +56,10 @@ var toolGroups = []config.ToolGroup{{
 	ID: "ses", Title: "Simple Email Service",
 	Description: "Sender identities of SES v2: domains and email addresses, their DKIM, MAIL FROM, and feedback " +
 		"settings, tags, and the DNS records to create; never a DKIM private key",
+}, {
+	ID: "s3", Title: "Simple Storage Service",
+	Description: "Buckets of the bound account and their configuration: region, versioning, default encryption, " +
+		"tags, and the public access block; never the content of an object",
 }}
 
 var targetKinds = []config.TargetKind{{

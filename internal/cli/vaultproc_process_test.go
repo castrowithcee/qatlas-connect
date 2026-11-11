@@ -5,6 +5,7 @@ package cli
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -28,6 +29,8 @@ func withVaultProcess(t *testing.T, dir string) *vaultproc.Client {
 	vaultProcessSupported = true
 	t.Cleanup(func() { vaultProcessSupported = original })
 	t.Setenv(runAsQatlasEnv, "1")
+	registry := t.TempDir()
+	t.Setenv(pidRegistryEnv, registry)
 	t.Setenv("XDG_RUNTIME_DIR", shortRuntimeDir(t))
 
 	v := vault.New(dir)
@@ -40,7 +43,7 @@ func withVaultProcess(t *testing.T, dir string) *vaultproc.Client {
 		t.Fatalf("SocketPath() = %v", err)
 	}
 	client := vaultproc.NewClient(path, recipient)
-	t.Cleanup(func() { endVaultProcess(t, client) })
+	t.Cleanup(func() { endVaultProcess(t, client, registry) })
 	return client
 }
 
@@ -61,21 +64,71 @@ func shortRuntimeDir(t *testing.T) string {
 	return dir
 }
 
-// endVaultProcess locks a vault process a test left running, and kills it should it not end.
-func endVaultProcess(t *testing.T, client *vaultproc.Client) {
+// endVaultProcess locks the vault process a test left running, if it still answers, and then ends every
+// process in the registry that is still alive, whether or not the socket answered. A process that had to
+// be killed is an error.
+func endVaultProcess(t errorReporter, client *vaultproc.Client, registry string) {
+	if _, err := client.Status(context.Background()); err == nil {
+		_ = client.Lock(context.Background())
+	}
+	endRegistered(t, registry)
+}
+
+// recordedErrors catches what endVaultProcess reports, so a test can expect it without failing.
+type recordedErrors struct{ messages []string }
+
+func (r *recordedErrors) Errorf(format string, args ...any) {
+	r.messages = append(r.messages, fmt.Sprintf(format, args...))
+}
+
+// A vault process that no longer answers on its socket is still ended on cleanup, and the cleanup reports
+// the kill, so a test that leaves one behind fails.
+func TestEndVaultProcessKillsAProcessThatDoesNotAnswer(t *testing.T) {
+	dir := encryptedVaultFixture(t, "")
+	client := withVaultProcess(t, dir)
+	withVaultPassphrase(t, offeringPassphrase("s3cret-phrase"))
+	code, stdout, stderr := runWithInput(t, &Options{}, "", "vault", "unlock", "--config", configIn(dir))
+	if code != exitOK {
+		t.Fatalf("unlock: exit code = %d (stdout: %s, stderr: %s)", code, stdout, stderr)
+	}
 	status, err := client.Status(context.Background())
 	if err != nil {
-		return
+		t.Fatalf("Status() = %v", err)
 	}
-	_ = client.Lock(context.Background())
-	for deadline := time.Now().Add(5 * time.Second); time.Now().Before(deadline); {
-		if !processAlive(status.PID) {
-			return
+	recipient, err := vault.New(dir).Recipient()
+	if err != nil {
+		t.Fatal(err)
+	}
+	// A client of a socket nobody serves stands for a vault process whose own socket is gone.
+	unreachable := vaultproc.NewClient(filepath.Join(t.TempDir(), "none"), recipient)
+	if _, err := unreachable.Status(context.Background()); err == nil {
+		t.Fatal("Status() of an unreachable socket succeeded")
+	}
+
+	var recorded recordedErrors
+	endVaultProcess(&recorded, unreachable, os.Getenv(pidRegistryEnv))
+	if len(recorded.messages) != 1 || !strings.Contains(recorded.messages[0], strconv.Itoa(status.PID)) {
+		t.Fatalf("reported %q, want one error naming process %d", recorded.messages, status.PID)
+	}
+	for deadline := time.Now().Add(5 * time.Second); processAlive(status.PID); {
+		if time.Now().After(deadline) {
+			t.Fatalf("the vault process %d still runs after the cleanup", status.PID)
 		}
 		time.Sleep(20 * time.Millisecond)
 	}
-	killProcess(status.PID)
-	t.Errorf("the vault process %d did not end when it was locked", status.PID)
+}
+
+// A vault process ends by itself, within seconds, once the test binary that started it is gone without
+// any cleanup having run.
+func TestVaultProcessEndsWithTheTestBinary(t *testing.T) {
+	dir := encryptedVaultFixture(t, "")
+	pid := startOrphan(t, dir, pidRegistry(t))
+	for deadline := time.Now().Add(10 * time.Second); processAlive(pid); {
+		if time.Now().After(deadline) {
+			t.Fatalf("the vault process %d still runs after its test binary ended", pid)
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
 }
 
 // encryptedVaultFixture writes the vault fixture's configuration, with extra appended, and an encrypted
@@ -313,7 +366,7 @@ func TestVaultServeRefusesToRunByHand(t *testing.T) {
 	}
 	dir := vaultCredentialFixture(t)
 	cmd := exec.Command(program, "vault", "serve", "--config", configIn(dir))
-	cmd.Env = append(os.Environ(), runAsQatlasEnv+"=1", "XDG_RUNTIME_DIR="+t.TempDir())
+	cmd.Env = append(os.Environ(), runAsQatlasEnv+"=1", "XDG_RUNTIME_DIR="+t.TempDir(), pidRegistry(t))
 	out, err := cmd.CombinedOutput()
 	var exit *exec.ExitError
 	if !errors.As(err, &exit) || exit.ExitCode() != exitUsage || !strings.Contains(string(out), "'qconnect vault unlock'") {

@@ -96,6 +96,37 @@ var wantTools = []string{
 	"aws.iam.user.list",
 	"aws.iam.user.list-tags",
 	"aws.iam.virtual-mfa-device.list",
+	"aws.s3.accelerate.get",
+	"aws.s3.acl.get",
+	"aws.s3.bucket.create",
+	"aws.s3.bucket.delete",
+	"aws.s3.bucket.get-location",
+	"aws.s3.bucket.head",
+	"aws.s3.bucket.list",
+	"aws.s3.cors.delete",
+	"aws.s3.cors.get",
+	"aws.s3.encryption.delete",
+	"aws.s3.encryption.get",
+	"aws.s3.encryption.put",
+	"aws.s3.lifecycle.delete",
+	"aws.s3.lifecycle.get",
+	"aws.s3.logging.get",
+	"aws.s3.notification.get",
+	"aws.s3.object-legal-hold.get",
+	"aws.s3.object-lock.get",
+	"aws.s3.object-retention.get",
+	"aws.s3.ownership.get",
+	"aws.s3.ownership.put",
+	"aws.s3.public-access-block.get",
+	"aws.s3.public-access-block.put",
+	"aws.s3.replication.get",
+	"aws.s3.request-payment.get",
+	"aws.s3.tagging.delete",
+	"aws.s3.tagging.get",
+	"aws.s3.tagging.put",
+	"aws.s3.versioning.get",
+	"aws.s3.versioning.put",
+	"aws.s3.website.get",
 	"aws.ses.email-identity-policy.create",
 	"aws.ses.email-identity-policy.delete",
 	"aws.ses.email-identity-policy.list",
@@ -133,8 +164,9 @@ func TestRegisterPublishesMetadataAndTools(t *testing.T) {
 		// Identity policy writes change who may send, so they are listed-only like the IAM writes.
 		sesWrite := tool.Effect != config.EffectRead && strings.HasPrefix(tool.ID, "aws.ses.") &&
 			tool.RequiresToolAllowList == strings.HasPrefix(tool.ID, "aws.ses.email-identity-policy.")
-		if !(open || write || sesWrite) || tool.Group != strings.Split(tool.ID, ".")[1] {
-			t.Errorf("tool %+v, want an open read, a listed-only IAM write, or an SES write (listed-only for identity policies) of the group named by its service segment", tool)
+		s3Write := tool.Effect != config.EffectRead && !tool.RequiresToolAllowList && strings.HasPrefix(tool.ID, "aws.s3.")
+		if !(open || write || sesWrite || s3Write) || tool.Group != strings.Split(tool.ID, ".")[1] {
+			t.Errorf("tool %+v, want an open read, a listed-only IAM write, an SES write (listed-only for identity policies), or an S3 write of the group named by its service segment", tool)
 		}
 	}
 	if !reflect.DeepEqual(ids, wantTools) {
@@ -148,8 +180,8 @@ func TestRegisterPublishesMetadataAndTools(t *testing.T) {
 	for _, g := range metadata.Groups {
 		groups[g.ID] = true
 	}
-	if len(groups) != 3 || !groups["sts"] || !groups["iam"] || !groups["ses"] {
-		t.Errorf("groups = %+v, want sts, iam and ses", metadata.Groups)
+	if len(groups) != 4 || !groups["sts"] || !groups["iam"] || !groups["ses"] || !groups["s3"] {
+		t.Errorf("groups = %+v, want sts, iam, ses and s3", metadata.Groups)
 	}
 	profile, ok := metadata.RecommendedProfile()
 	if !ok || profile.ID != "read" || !reflect.DeepEqual(append([]string{}, profile.Tools...), []string{
@@ -217,8 +249,9 @@ func TestSTSToolsAreTheCredentialFreeActions(t *testing.T) {
 			listedIAM := d.RequiresToolAllowList && strings.HasPrefix(d.ID, "aws.iam.")
 			sesWrite := strings.HasPrefix(d.ID, "aws.ses.") &&
 				d.RequiresToolAllowList == strings.HasPrefix(d.ID, "aws.ses.email-identity-policy.")
-			if !(listedIAM || sesWrite) || d.Risk.Idempotency == capability.IdempotencySafe {
-				t.Errorf("%s is a write that is neither a listed-only IAM tool nor an SES tool: %+v", d.ID, d)
+			s3Write := !d.RequiresToolAllowList && strings.HasPrefix(d.ID, "aws.s3.")
+			if !(listedIAM || sesWrite || s3Write) || d.Risk.Idempotency == capability.IdempotencySafe {
+				t.Errorf("%s is a write that is neither a listed-only IAM tool nor an SES or S3 tool: %+v", d.ID, d)
 			}
 		}
 		if d.Risk != want || d.Risk.DataSensitivity == "" {

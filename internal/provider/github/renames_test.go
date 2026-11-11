@@ -126,7 +126,11 @@ var currentToolIDs = []string{
 	"github.issues.create",
 	"github.issues.get",
 	"github.issues.list",
+	"github.issues.lock",
+	"github.issues.pin",
 	"github.issues.reopen",
+	"github.issues.unlock",
+	"github.issues.unpin",
 	"github.issues.search",
 	"github.issues.update",
 	"github.labels.create",
@@ -187,6 +191,8 @@ var currentToolIDs = []string{
 	"github.projects.unlink",
 	"github.projects.unlink-team",
 	"github.projects.update",
+	"github.pull-request-auto-merge.disable",
+	"github.pull-request-auto-merge.enable",
 	"github.pull-request-branches.update",
 	"github.pull-request-checks.list",
 	"github.pull-request-checks.wait",
@@ -195,8 +201,10 @@ var currentToolIDs = []string{
 	"github.pull-request-commits.list",
 	"github.pull-request-diffs.get",
 	"github.pull-request-files.list",
+	"github.pull-request-review-comments.delete",
 	"github.pull-request-review-comments.list",
 	"github.pull-request-review-comments.reply",
+	"github.pull-request-review-comments.update",
 	"github.pull-request-review-threads.list",
 	"github.pull-request-review-threads.resolve",
 	"github.pull-request-review-threads.unresolve",
@@ -204,7 +212,10 @@ var currentToolIDs = []string{
 	"github.pull-request-reviewers.request",
 	"github.pull-request-reviews.approve",
 	"github.pull-request-reviews.create",
+	"github.pull-request-reviews.delete-pending",
+	"github.pull-request-reviews.dismiss",
 	"github.pull-request-reviews.list",
+	"github.pull-request-reviews.update",
 	"github.pull-requests.close",
 	"github.pull-requests.create",
 	"github.pull-requests.get",
@@ -243,6 +254,10 @@ var currentToolIDs = []string{
 	"github.stars.add",
 	"github.stars.list",
 	"github.stars.remove",
+	"github.assignees.check",
+	"github.assignees.list",
+	"github.issue-events.list",
+	"github.issue-timeline.list",
 	"github.sub-issues.add",
 	"github.sub-issues.list",
 	"github.sub-issues.remove",
@@ -301,7 +316,7 @@ func TestRegistryHoldsExactlyTheCurrentToolIDs(t *testing.T) {
 	sort.Strings(got)
 	want := append([]string(nil), currentToolIDs...)
 	sort.Strings(want)
-	if strings.Join(got, "\n") != strings.Join(want, "\n") || len(got) != 276 {
+	if strings.Join(got, "\n") != strings.Join(want, "\n") || len(got) != 291 {
 		t.Errorf("registry holds %d tools, differing from the expected %d IDs", len(got), len(want))
 	}
 	if err := reg.ValidateRenames(); err != nil {
@@ -334,7 +349,8 @@ func TestRenamedToolsCoverEveryChangedID(t *testing.T) {
 	bornHyphenated := map[string]bool{"github.repository-topics.set": true, "github.check-annotations.list": true,
 		"github.check-runs.get": true, "github.check-runs.list": true, "github.check-suite-runs.list": true,
 		"github.check-suites.list":        true,
-		"github.pull-request-checks.wait": true, "github.commit-branches.list": true,
+		"github.pull-request-checks.wait": true, "github.pull-request-auto-merge.enable": true,
+		"github.pull-request-auto-merge.disable": true, "github.commit-branches.list": true,
 		"github.commit-comments.get": true, "github.commit-comments.list": true, "github.commit-pulls.list": true,
 		"github.community-profile.get": true,
 		"github.traffic-views.get":     true, "github.traffic-clones.get": true, "github.traffic-paths.list": true,
@@ -354,7 +370,10 @@ func TestRenamedToolsCoverEveryChangedID(t *testing.T) {
 		"github.deployment-statuses.get": true,
 		"github.rate-limit.get":          true, "github.gitignore-templates.list": true, "github.gitignore-templates.get": true,
 		"github.codes-of-conduct.list": true, "github.codes-of-conduct.get": true,
-		"github.branches.sync-fork": true}
+		"github.branches.sync-fork": true, "github.issue-events.list": true, "github.issue-timeline.list": true,
+		"github.pull-request-reviews.update": true, "github.pull-request-reviews.dismiss": true,
+		"github.pull-request-reviews.delete-pending": true, "github.pull-request-review-comments.update": true,
+		"github.pull-request-review-comments.delete": true}
 	for id := range current {
 		if strings.Contains(id, "-") && !targets[id] && !bornHyphenated[id] {
 			t.Errorf("hyphenated tool %s has no former ID", id)

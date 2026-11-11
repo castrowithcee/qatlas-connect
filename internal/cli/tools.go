@@ -13,6 +13,7 @@ import (
 
 	"github.com/castrowithcee/qatlas-connect/internal/application"
 	"github.com/castrowithcee/qatlas-connect/internal/capability"
+	"github.com/castrowithcee/qatlas-kit/cobracli"
 	"github.com/castrowithcee/qatlas-kit/output"
 )
 
@@ -316,8 +317,9 @@ func newDescribeCommand(opts *Options, registry *capability.Registry, use string
 // newInvokeCommand runs one tool. The tool ID is positional and only the schema-dependent arguments come
 // from --arg or stdin, so an agent can never smuggle a route, a header, or a credential past the contract.
 func newInvokeCommand(opts *Options, registry *capability.Registry) *cobra.Command {
-	var confirm, full bool
-	var flagArgs, fields []string
+	var full bool
+	var flagArgs []string
+	var fields *cobracli.Fields
 	cmd := &cobra.Command{
 		Use:   "invoke <tool-id>",
 		Short: "Invoke one tool",
@@ -358,6 +360,8 @@ func newInvokeCommand(opts *Options, registry *capability.Registry) *cobra.Comma
 			if err := checkInvokeFormat(c, opts); err != nil {
 				return err
 			}
+			// --confirm is the kit's flag; the contract of the tool decides whether a request needs it.
+			confirm, _ := c.Flags().GetBool("confirm")
 			ctx, cancel := context.WithTimeout(c.Context(), invokeTimeout)
 			defer cancel()
 			arguments, err := invokeArguments(ctx, c, registry, args[0], flagArgs)
@@ -372,7 +376,7 @@ func newInvokeCommand(opts *Options, registry *capability.Registry) *cobra.Comma
 			core.SetAudit(&audit)
 			response, err := core.Invoke(ctx, application.InvokeRequest{
 				Operation: args[0], Connection: opts.Connection, Arguments: arguments, Confirmed: confirm,
-				Fields: fields, Full: full,
+				Fields: fields.Names(), Full: full,
 			})
 			if err != nil {
 				if errors.Is(ctx.Err(), context.DeadlineExceeded) {
@@ -387,10 +391,10 @@ func newInvokeCommand(opts *Options, registry *capability.Registry) *cobra.Comma
 			return nil
 		},
 	}
-	cmd.Flags().BoolVar(&confirm, "confirm", false,
-		"confirm this exact request; required by a tool whose contract demands confirmation")
-	cmd.Flags().StringSliceVar(&fields, "fields", nil,
-		"keep only these members in each entry of the result list, or of a result without one, comma separated or repeated")
+	// A tool's contract, not the command, says whether a request changes data, so the application core checks
+	// --confirm against it; the flag itself is the kit's.
+	opts.program.AddGate(cmd, cobracli.Gates{Change: true})
+	fields = opts.program.AddFields(cmd)
 	cmd.Flags().BoolVar(&full, "full", false,
 		"return the whole result instead of the default fields that describe lists")
 	cmd.Flags().StringArrayVar(&flagArgs, "arg", nil,

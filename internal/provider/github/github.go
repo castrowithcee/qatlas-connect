@@ -31,12 +31,13 @@
 // pull request, its changed files, its commits, its diff, and the checks at its head commit; the project
 // items still see a pull request only as an item, and the issue and comment tools still refuse a pull request
 // number. The not-recommended setup profile pull-requests-operator adds the changes: it creates, updates,
-// closes, and reopens a pull request, and updates its head branch with its base while the head is still a
-// given commit; only merging is not in it, because a merge into the wrong repository's default branch is the
-// costliest mistake there, so only a connection whose tools list names github.pull-requests.merge offers it,
-// and it always needs the pull request's current head commit and its own confirmation. The not-recommended
-// setup profile releases lists releases, reads one by identifier, tag, or as the latest published one, lists
-// the metadata of a release's assets, and creates and updates releases; only a connection whose tools list
+// closes, and reopens a pull request, updates its head branch with its base while the head is still a
+// given commit, and turns off its auto-merge; only merging is not in it, because a merge into the wrong
+// repository's default branch is the costliest mistake there, so only a connection whose tools list names
+// github.pull-requests.merge offers it, and it always needs the pull request's current head commit and its
+// own confirmation. Enabling auto-merge schedules such a merge, so github.pull-request-auto-merge.enable is
+// listed-only the same way. The not-recommended setup profile releases lists releases, reads one by
+// identifier, tag, or as the latest published one, lists the metadata of a release's assets, and creates and updates releases; only a connection whose tools list
 // names it deletes a release, because the tag it was cut from stays behind and the notes and attachments do
 // not. A tool that touches a project and a repository checks both. The account tool reads the login, name,
 // type, and plan of the account behind the connection's token; it and the star list, which reads the
@@ -101,6 +102,11 @@
 // github.issue-dependencies.add records a blocked-by relationship and github.issue-dependencies.remove detaches
 // one, the same way a sub-issue may cross repositories; neither the sub-issue nor the dependency removal is
 // listed-only, because each detaches only the one relationship between the two named issues.
+// github.issue-events.list reads the events of one issue or, without a number, of every issue of a repository,
+// github.issue-timeline.list the timeline of one issue with its comments, reviews, commits, and references, and
+// github.assignees.list and github.assignees.check the users that may be assigned and whether one login may be;
+// they change nothing. A timeline names issues and commits of other repositories only by identifiers unless the
+// connection's targets allow them, and its texts are cut and untrusted.
 // github.issue-types.list reads the issue types an organization declares; github.issues.update also takes an
 // optional type name, "" removing the issue's current one. github.issue-fields.list reads the organization
 // issue fields of a repository, inherited from its organization, or, with organization instead, directly of
@@ -154,10 +160,20 @@
 // the body of one issue comment by its comment_id, and, only on a connection whose tools list names it,
 // github.comments.delete removes one permanently; both refuse a comment of another repository and a pull
 // request conversation comment the same way the issue tools refuse a pull request number.
+// github.pull-request-reviews.update replaces the text of one review and github.pull-request-review-comments.update
+// the body of one line comment; github.pull-request-reviews.delete-pending deletes one pending review. Each
+// reads its review or line comment below the chosen repository first, and a review of another pull request or
+// a line comment of another repository is refused before anything changes. Only on a connection whose tools
+// list names it, github.pull-request-reviews.dismiss dismisses an approval or a request for changes and
+// github.pull-request-review-comments.delete removes a line comment permanently.
 // github.comments.hide hides one issue comment, pull request review, or pull request line comment with a
 // reason, and github.comments.unhide shows it again; both read the object below the chosen repository first
 // and only then send one GraphQL mutation with the node identifier of that answer, and a review is
-// addressed together with its pull_number. The search
+// addressed together with its pull_number. github.issues.pin and github.issues.unpin pin an issue to the
+// repository's issue list, three at most, and release it, and github.issues.unlock unlocks its conversation;
+// only on a connection whose tools list names it, github.issues.lock locks the conversation, optionally with a
+// reason; lock and unlock also take a pull request number. All four read the issue below the chosen repository first, and pinning sends the node identifier of
+// that answer, never one from the caller. The search
 // tools read GitHub's own search index for repositories, code, issues, pull requests, commits, users, and
 // organizations with search terms and GitHub qualifiers; they take no repository, project, or owner
 // argument of their own, and a connection whose targets name any is instead narrowed by qualifiers Qatlas
@@ -518,7 +534,8 @@ func Register(reg *capability.Registry) error {
 				"Contents: read and write on a fine-grained token; pull request review and line comment " +
 				"reads need repo or public_repo on a classic token, or Pull requests: read on a " +
 				"fine-grained token; submitting a review, replying to a line comment, resolving or " +
-				"unresolving a thread, and requesting or removing reviewers need repo on a classic token, " +
+				"unresolving a thread, requesting or removing reviewers, and changing, dismissing, or deleting a " +
+				"review or a line comment need repo on a classic token, " +
 				"or Pull requests: read and write on a fine-grained token; pull request conversation " +
 				"comments need the same scopes as github.comments.*: repo or public_repo on a classic " +
 				"token, or Pull requests or Issues: read, and read and write for a comment, on a " +
@@ -574,12 +591,15 @@ func Register(reg *capability.Registry) error {
 				"as reading its labels, and changing them, including delete which is listed-only, needs the same " +
 				"scope as changing its labels; setting an issue's milestone through github.issues.update, and " +
 				"updating or deleting an issue comment, need the same scope as writing an issue or a comment: " +
-				"repo on a classic token, or Issues: read and write on a fine-grained token; reacting to an " +
+				"repo on a classic token, or Issues: read and write on a fine-grained token; locking, " +
+				"unlocking, pinning, or unpinning an issue, locking being listed-only, needs the same scope as " +
+				"writing an issue, and the push access of the repository, as far as GitHub documents it; reacting to an " +
 				"issue or an issue or pull request conversation comment needs the same scope as writing one, " +
 				"Issues: read and write on a fine-grained token; reacting to a pull request line comment needs " +
 				"repo on a classic token, or Pull requests: read and write on a fine-grained token; removing a " +
 				"reaction additionally reads the account behind the token, which needs no scope beyond its own " +
-				"identity; reading the sub-issues or the dependencies of an issue needs the same scope as reading " +
+				"identity; reading the sub-issues or the dependencies of an issue, its events, its timeline, and the " +
+				"assignable users of a repository needs the same scope as reading " +
 				"its labels, and changing them, including remove, needs the same scope as writing an issue: repo " +
 				"on a classic token, or Issues: read and write on a fine-grained token, of every repository a " +
 				"sub-issue or a dependency names; reading the issue types of an organization, and the issue " +
@@ -722,11 +742,13 @@ func Register(reg *capability.Registry) error {
 			ID: "pull-requests-operator", Title: "Pull requests operator",
 			Description: "reads the pull requests of a repository and creates, updates, closes, and reopens " +
 				"them, and updates a pull request's head branch with its base while the head is still a given " +
-				"commit; every change needs its own confirmation, and merging stays unticked, since it is " +
-				"offered only where a connection's tools list names github.pull-requests.merge",
+				"commit, and turns off a pull request's auto-merge; every change needs its own confirmation, and " +
+				"merging and enabling auto-merge stay unticked, since each is offered only where a " +
+				"connection's tools list names github.pull-requests.merge or " +
+				"github.pull-request-auto-merge.enable",
 			Tools: []string{pullsList.ID, pullsGet.ID, pullFilesList.ID, pullCommitsList.ID, pullDiffsGet.ID,
 				pullChecksList.ID, pullChecksWait.ID, pullsCreate.ID, pullsUpdate.ID, pullsClose.ID, pullsReopen.ID,
-				pullBranchesUpdate.ID},
+				pullBranchesUpdate.ID, pullAutoMergeDisable.ID},
 		}, {
 			ID: "releases", Title: "Releases",
 			Description: "lists releases and their asset metadata, reads one release by identifier, tag, or " +
@@ -738,13 +760,16 @@ func Register(reg *capability.Registry) error {
 		}, {
 			ID: "pull-request-reviews", Title: "Pull request reviews",
 			Description: "reads and writes the conversation comments, reviews with line comments, replies, " +
-				"and requested reviewers of a pull request, and reads, resolves, and unresolves its review " +
-				"threads; every change needs its own confirmation, and approving stays unticked, since it is " +
-				"offered only where a connection's tools list names github.pull-request-reviews.approve",
-			MutationReason: "reviewing a pull request needs to write comments and reviews; approving is kept " +
-				"out of every profile so it always needs its own tools list entry",
+				"and requested reviewers of a pull request, changes the text of a review and of a line comment, " +
+				"and reads, resolves, and unresolves its review threads; every change needs its own " +
+				"confirmation, and approving, dismissing a review, deleting a line comment, and deleting a " +
+				"pending review stay unticked: the first three are offered only where a connection's tools " +
+				"list names them, the last one needs the effect delete",
+			MutationReason: "reviewing a pull request needs to write comments and reviews and to correct their " +
+				"text; approving is kept out of every profile so it always needs its own tools list entry",
 			Tools: []string{pullRequestCommentsList.ID, pullRequestCommentsCreate.ID, pullRequestReviewsList.ID,
-				pullRequestReviewsCreate.ID, pullRequestReviewCommentsList.ID, pullRequestReviewCommentsReply.ID,
+				pullRequestReviewsCreate.ID, pullRequestReviewsUpdate.ID, pullRequestReviewCommentsList.ID,
+				pullRequestReviewCommentsReply.ID, pullRequestReviewCommentsUpdate.ID,
 				pullRequestReviewThreadsList.ID, pullRequestReviewThreadsResolve.ID,
 				pullRequestReviewThreadsUnresolve.ID, pullRequestReviewersRequest.ID, pullRequestReviewersRemove.ID},
 		}, {
@@ -793,15 +818,18 @@ func Register(reg *capability.Registry) error {
 		}, {
 			ID: "issue-maintainer", Title: "Issue maintainer",
 			Description: "not recommended: lists and reads the labels of a repository, lists and reads its " +
-				"milestones, creates and updates labels and milestones and issue comments, hides and shows comments and reviews, and reacts to issues, comments, " +
-				"and pull request line comments; every change needs its own confirmation, and deleting a " +
-				"label, a milestone, or a comment stays unticked, since each is offered only where a connection's tools " +
+				"milestones, reads the events and the timeline of an issue and the users that may be assigned, " +
+				"creates and updates labels and milestones and issue comments, hides and shows comments and reviews, " +
+				"pins and unpins issues, unlocks conversations, and reacts " +
+				"to issues, comments, and pull request line comments; every change needs its own confirmation, and deleting a " +
+				"label, a milestone, or a comment and locking a conversation stay unticked, since each is offered only where a connection's tools " +
 				"list names it",
 			Tools: []string{labelsList.ID, labelsGet.ID, labelsCreate.ID, labelsUpdate.ID, milestonesList.ID, milestonesGet.ID,
 				milestonesCreate.ID, milestonesUpdate.ID,
-				commentsUpdate.ID, commentsHide.ID, commentsUnhide.ID, reactionsAdd.ID, reactionsRemove.ID, subIssuesList.ID, subIssuesAdd.ID,
+				commentsUpdate.ID, commentsHide.ID, commentsUnhide.ID, issuesPin.ID, issuesUnpin.ID, issuesUnlock.ID, reactionsAdd.ID, reactionsRemove.ID, subIssuesList.ID, subIssuesAdd.ID,
 				subIssuesRemove.ID, subIssuesReprioritize.ID, issueDependenciesList.ID, issueDependenciesAdd.ID,
-				issueDependenciesRemove.ID, issueTypesList.ID, issueFieldsList.ID, issueFieldsSet.ID},
+				issueDependenciesRemove.ID, issueEventsList.ID, issueTimelineList.ID, assigneesList.ID,
+				assigneesCheck.ID, issueTypesList.ID, issueFieldsList.ID, issueFieldsSet.ID},
 		}, {
 			ID: "discussions", Title: "Discussions",
 			Description: "not recommended: reads the discussion categories of a repository, its discussions " +
@@ -859,12 +887,13 @@ func Register(reg *capability.Registry) error {
 	}, slices.Concat(itemOperations(), lifecycleOperations(), fieldOperations(), viewOperations(),
 		statusOperations(), accessOperations(), automationOperations(), actionsOperations(),
 		maintenanceOperations(), pullRequestOperations(), checkOperations(), releaseOperations(), pullRequestCommentOperations(),
-		pullRequestReviewOperations(), pullRequestReviewCommentOperations(), pullRequestReviewThreadOperations(),
+		pullRequestReviewOperations(), pullRequestReviewMaintenanceOperations(), pullRequestReviewCommentOperations(),
+		pullRequestReviewCommentMaintenanceOperations(), pullRequestReviewThreadOperations(),
 		pullRequestReviewerOperations(), accountOperations(), organizationOperations(), starOperations(),
 		searchOperations(), contentsOperations(), blameOperations(), commitsOperations(), refsOperations(), compareOperations(), commitRelationOperations(),
 		contentsWriteOperations(), refsWriteOperations(), repositoriesOperations(), repositoryDetailOperations(), trafficOperations(), repositoryStatsOperations(), rulesetsOperations(), branchProtectionOperations(), customPropertiesOperations(), actionVariablesOperations(), actionCachesOperations(), runCleanupOperations(),
-		labelsOperations(), milestonesOperations(), commentMaintenanceOperations(), commentVisibilityOperations(), reactionsOperations(),
-		subIssuesOperations(), issueDependenciesOperations(), issueTypesOperations(), issueFieldsOperations(),
+		labelsOperations(), milestonesOperations(), commentMaintenanceOperations(), commentVisibilityOperations(), issueLockOperations(), reactionsOperations(),
+		subIssuesOperations(), issueDependenciesOperations(), issueHistoryOperations(), issueTypesOperations(), issueFieldsOperations(),
 		discussionOperations(), notificationOperations(), gistOperations(), securityAlertOperations(), advisoryOperations(),
 		copilotOperations(), environmentsOperations(), deploymentsOperations(), referenceOperations())...)
 	for i := range operations {

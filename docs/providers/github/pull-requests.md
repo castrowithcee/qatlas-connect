@@ -1,6 +1,6 @@
 ---
 description: >
-  Describes the GitHub pull request tools: pull request reads and changes, the listed-only merge and its conflicts, pull request search, Copilot reviews, and the check runs, annotations, and check suites of a commit.
+  Describes the GitHub pull request tools: pull request reads and changes, the listed-only merge and its conflicts, auto-merge, pull request search, Copilot reviews, and the check runs, annotations, and check suites of a commit.
 type: knowledge
 edit: shared
 created: 2026-10-22
@@ -20,10 +20,11 @@ its number as an `invalid-request`; the tools of this section read, create, chan
 the pull requests of a repository themselves. Reviewing a pull request, commenting on its conversation, and
 line comments are a separate group of tools, described under
 [Pull request reviews and comments](pull-request-reviews.md#pull-request-reviews-and-comments). The seven reads are offered by the not-recommended setup profile `pull-requests`; the not-recommended
-profile `pull-requests-operator` adds the changes, described under [Changes](#changes) below, but never the
-merge, described under [Merge and conflicts](#merge-and-conflicts): it is offered only where a connection's
-`tools` list names `github.pull-requests.merge`, because a merge into the wrong repository's default branch is
-the costliest mistake there. Neither profile is offered by the recommended profile `read`. Every route lies
+profile `pull-requests-operator` adds the changes, described under [Changes](#changes) below, and turning off
+auto-merge, but never the merge, described under [Merge and conflicts](#merge-and-conflicts), nor enabling
+auto-merge, described under [Auto-merge](#auto-merge): each is offered only where a connection's `tools` list
+names `github.pull-requests.merge` or `github.pull-request-auto-merge.enable`, because a merge into the wrong
+repository's default branch is the costliest mistake there. Neither profile is offered by the recommended profile `read`. Every route lies
 below the chosen repository; no tool accepts an owner or a free REST path.
 
 | Tool | Does |
@@ -221,6 +222,54 @@ connections:
 commit and merges with it in two calls on the same connection.
 
 The token rights are listed under [Pull requests](setup.md#pull-requests).
+
+### Auto-merge
+
+Auto-merge lets GitHub merge a pull request once its required checks and reviews pass. GitHub offers it only
+through GraphQL, so both tools send one mutation, `enablePullRequestAutoMerge` or
+`disablePullRequestAutoMerge`, for the pull request's node id. Qatlas reads that id from the pull request in
+the chosen repository, never from the caller, so a number that is not a pull request of that repository ends as
+`not-found` before any mutation.
+
+| Tool | Does |
+| --- | --- |
+| `github.pull-request-auto-merge.enable` | enables auto-merge on one open pull request; offered only where a connection's `tools` list names it |
+| `github.pull-request-auto-merge.disable` | disables auto-merge on one pull request; a pull request without auto-merge is left as it is |
+
+`github.pull-request-auto-merge.enable` is listed-only like the merge, since it schedules a merge that no later
+confirmation guards, and no profile selects it. It requires `number`, `expected_head_sha` (the full head commit,
+as `github.pull-requests.get` reports it), and `merge_method` (`merge`, `squash`, or `rebase`; there is no
+default). `commit_title` (1 to 256 characters) and `commit_message` (at most 65536 characters) are optional
+and bounded like the merge's. A pull request that is closed or merged, or whose head differs from
+`expected_head_sha`, is refused as `invalid-request` without a mutation; Qatlas also passes the head to GitHub
+as `expectedHeadOid`, so a head that moves between the read and the mutation is refused by GitHub, and Qatlas
+answers `invalid-request` naming the expected and the current commit. The window between that read and the
+mutation is a documented limit. Branch protection and required checks stay GitHub's to enforce.
+
+Auto-merge must be allowed in the repository (`allow_auto_merge`, see
+[repository settings](repositories.md#repository-settings)). Otherwise GitHub refuses, and Qatlas answers `provider-error` that
+auto-merge is not allowed in the repository, without GitHub's text. A pull request that is already ready to
+merge cannot wait for anything; GitHub refuses it and Qatlas says to merge it instead. Every other refusal is
+`provider-error` "GitHub rejected the change"; GitHub's own text stays in the diagnostic marked as untrusted
+provider data and is never part of Qatlas' message.
+
+`github.pull-request-auto-merge.disable` reads the pull request first and sends no mutation when auto-merge is
+already off, so a repeated call is success. Both tools answer `number`, `auto_merge`, and, while it is on,
+`merge_method`; no pull request content.
+
+Each mutation is sent exactly once and never repeated. A timeout, a dropped connection, a 5xx answer, or an
+unreadable answer is reported as an unclear outcome: the change may have been applied, so read the pull request
+with `github.pull-requests.get` (`auto_merge`) before trying again.
+
+```yaml
+connections:
+  pull-auto-merger:
+    service: github
+    credential: github-operator
+    target: repos/octo-org/example
+    tools: [github.pull-requests.get, github.pull-request-auto-merge.enable,
+      github.pull-request-auto-merge.disable]
+```
 
 ## Pull request search
 

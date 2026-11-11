@@ -10,17 +10,19 @@ updated: 2026-11-11
 # Amazon Web Services
 
 The `aws` provider gives agents controlled access to one AWS account, read-only except for the IAM role tools and the two
-IAM report generators a connection names in its tools list, and the SES identity tools that change state with
-confirmation. Qatlas signs requests with
+IAM report generators a connection names in its tools list, the SES identity tools, and the S3 bucket tools, which
+change state with confirmation. Qatlas signs requests with
 Signature Version 4 using the Go standard library; it uses no AWS SDK. It ships the foundation (credential, role
 assumption, account and region binding, connection test, endpoint table, error mapping), the Security Token Service
 (STS) tools, the IAM tools that read identities, the metadata of their credentials, policies with their simulation,
 the account state, identity providers, and server certificates, the IAM report tools (credential report and service
-last accessed), the IAM tools that write roles and instance profiles, and the SES v2 tools that read, create, configure, tag, and delete
-sender identities with DKIM and MAIL FROM. Further services build on it.
+last accessed), the IAM tools that write roles and instance profiles, the SES v2 tools that read, create, configure, tag, and delete
+sender identities with DKIM and MAIL FROM, and the S3 tools that read buckets and create, delete, and configure them
+(versioning, default encryption, tags, public access block, object ownership), remove their lifecycle and CORS rules,
+and read the rest of their configuration and the Object Lock state of their objects. Further services build on it.
 
 [Set up AWS](setup.md) lists the secret roles, the permissions, and what the connection test proves. The tools are
-described per group: [Security Token Service](sts.md), [Identity and Access Management](iam.md), and [Simple Email Service](ses.md).
+described per group: [Security Token Service](sts.md), [Identity and Access Management](iam.md), [Simple Email Service](ses.md), and [Amazon S3](s3.md).
 
 ## Role assumption
 
@@ -75,7 +77,7 @@ sends only over HTTPS without following redirects.
 | Account (global) | `account.us-east-1.amazonaws.com` | `us-east-1` |
 
 Global services hang on the account and ignore the region allowlist; a connection reaches them with its account
-target alone. Of the services in the table, STS, IAM, and SES v2 have tools.
+target alone. Of the services in the table, STS, IAM, SES v2, and S3 have tools.
 
 ## CloudTrail
 
@@ -139,7 +141,9 @@ fixed model operation; there is no general call.
   hides it; a table can hide a top-level or a nested input member, and can exclude single values of an enum
   argument, so a value such as a key origin is never accepted. A table may name string shapes the service returns
   percent-encoded, such as the IAM policy documents; their values are decoded before the cap applies, and a
-  malformed value is an invalid answer. A paged operation takes `page_size` (where the service has a page size) and `cursor` and returns
+  malformed value is an invalid answer. A table can also keep open a member the model marks sensitive when it is an identifier and not a secret, such
+  as the ID of a KMS key; the release names the member and gives a reason, covers input and output, and never applies to a
+  member whose name looks like a credential. A paged operation takes `page_size` (where the service has a page size) and `cursor` and returns
   `next_cursor` and `has_more`. An operation with an idempotency token generates the token, accepts `client_token`
   to repeat a request after a timeout, and returns the token it sent.
 
@@ -154,9 +158,14 @@ fixed model operation; there is no general call.
   A model gives `PageSize` no maximum, so the tool offers no `page_size` unless the table states the maximum of the
   service. A table can name a hand-written result step, which adds a member computed from the checked answer and
   the arguments, such as the SES `dns_records`; the generator declares the member in the result schema, and the
-  step reads only values the answer validated. Tools are rendered for `awsQuery` and `restJson1`; the tables of
-  `account`, `s3` and `route-53` are raw scaffolds with every operation in `defer`, and a `restXml` table with tools
-  is refused until the first service package.
+  step reads only values the answer validated. A table can also name guards, hand-written steps that judge the
+  arguments, also below the top level, before any I/O (such as the KMS key ARN of a bucket encryption rule, or the
+  location constraint of a new bucket), and one readback, a step that reads the current state with a call of its own
+  after the account check and before a change and refuses the change on what it finds (the public access block of
+  S3); only a tool whose table names a step runs it, and no argument can skip it. A table can cap an input list or
+  string that the model leaves unbounded, and keep a deprecated output member whose absence would change the meaning of
+  an answer (the old rule-level prefix of an S3 lifecycle rule); other deprecated members are never rendered. Tools are rendered for `awsQuery`, `restJson1`, and `restXml`; the tables of
+  `account` and `route-53` are raw scaffolds with every operation in `defer`, and the `s3` table has the bucket tools.
 - **`restXml` (S3, Route 53).** The body is XML in the form the model's traits describe: `xmlName`,
   `xmlAttribute`, `xmlNamespace`, `xmlFlattened`, wrapped lists and maps, and a structure payload. A character
   XML 1.0 cannot carry is refused in a request and read as U+FFFD in an answer. The error shape follows the

@@ -5,12 +5,15 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/spf13/cobra"
+
 	"github.com/castrowithcee/qatlas-connect/internal/application"
 	"github.com/castrowithcee/qatlas-connect/internal/capability"
 	"github.com/castrowithcee/qatlas-connect/internal/config"
 	"github.com/castrowithcee/qatlas-connect/internal/secret"
 	"github.com/castrowithcee/qatlas-connect/internal/vault"
 	kitcli "github.com/castrowithcee/qatlas-kit/cli"
+	"github.com/castrowithcee/qatlas-kit/cobracli"
 	"github.com/castrowithcee/qatlas-kit/output"
 	"github.com/castrowithcee/qatlas-kit/redact"
 )
@@ -341,4 +344,42 @@ func providerBlock(detail *application.ProviderDetail) string {
 		fmt.Fprintf(&w, "  | documentation: %s\n", detail.Documentation)
 	}
 	return w.String()
+}
+
+// adaptErrors makes every command of the tree return what the kit's Execute writes: the diagnostic of
+// failureFor, or an Exit for a code the command chose itself. A Failure or Exit a command already returns,
+// the confirmation gate's refusal for one, stays as it is. The audit event of a mutation that completed
+// before the failure is kept for opts.Diagnosed, which writes it after the diagnostic.
+func adaptErrors(root *cobra.Command, opts *Options) {
+	for _, c := range append([]*cobra.Command{root}, allCommands(root)...) {
+		if runE := c.RunE; runE != nil {
+			c.RunE = func(cmd *cobra.Command, args []string) error {
+				return adaptError(runE(cmd, args), opts)
+			}
+		}
+	}
+}
+
+func allCommands(c *cobra.Command) []*cobra.Command {
+	var all []*cobra.Command
+	for _, sub := range c.Commands() {
+		all = append(all, sub)
+		all = append(all, allCommands(sub)...)
+	}
+	return all
+}
+
+func adaptError(err error, opts *Options) error {
+	if err == nil {
+		return nil
+	}
+	opts.audit = auditFrom(err)
+	var (
+		exit    *cobracli.Exit
+		failure *kitcli.Failure
+	)
+	if errors.As(err, &exit) || errors.As(err, &failure) {
+		return err
+	}
+	return failureFor(err, opts.Format, opts.Redactor)
 }
