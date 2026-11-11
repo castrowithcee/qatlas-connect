@@ -64,7 +64,13 @@ const roadsRoot = "https://roads.googleapis.com"
 
 const roadsHost = "roads.googleapis.com"
 
-// geolocationRoot is the ninth fixed origin: Geolocation API lives on the shared Google APIs host. Only the
+// areaInsightsRoot is the ninth fixed origin: Places Aggregate API is a separate Google service that accepts the
+// same key. Only the area insights tool uses it, through postTo.
+const areaInsightsRoot = "https://areainsights.googleapis.com"
+
+const areaInsightsHost = "areainsights.googleapis.com"
+
+// geolocationRoot is the tenth fixed origin: Geolocation API lives on the shared Google APIs host. Only the
 // fixed geolocate path below it is reachable, through postKeyedTo; no argument or configuration reaches another
 // path of that host.
 const geolocationRoot = "https://www.googleapis.com"
@@ -367,6 +373,9 @@ func (c *Client) exchangeAs(ctx context.Context, op string, req *http.Request, m
 		}
 		if req.URL.Host == roadsHost {
 			failed = roadsError(failed, response.StatusCode)
+		}
+		if req.URL.Host == areaInsightsHost {
+			failed = areaInsightsError(failed, response.StatusCode)
 		}
 		if req.URL.Host == geolocationHost {
 			failed = geolocationError(failed, response.StatusCode, body)

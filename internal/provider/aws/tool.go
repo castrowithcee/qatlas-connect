@@ -55,6 +55,12 @@ type toolSpec struct {
 	// same meaning; its members are the "~" fields of rest.Input and rest.Output.
 	rest  *httpbind.Operation
 	pager *awsquery.Pager
+	// multi is the pager of a REST list whose next page starts at several members (S3 versions, Route 53
+	// record sets). It excludes pager and belongs to a REST tool.
+	multi *httpbind.MultiPager
+	// codec is the body format of a REST tool: restxml.Codec for S3 and Route 53, with the service's
+	// noErrorWrapping. Nil means restjson.Codec.
+	codec httpbind.Codec
 	// csv, when set, turns the blob member of the answer into the rows of a CSV table with its own paging.
 	csv         *csvReport
 	rules       []outputRule
@@ -84,9 +90,11 @@ var forms = map[string]func(string) bool{"account-id": accountID.MatchString}
 type targetCheck func(b binding, global bool, name, value string) error
 
 // targetChecks are the hand-written target checks, by the name a curation table gives them. "none" checks
-// nothing; bucket-owner belongs to the S3 protocol package and the generator refuses it for awsQuery.
+// nothing. bucket-owner checks the bucket name of a REST tool, whose request then carries the account of the
+// connection as the expected owner of the bucket (httpbind.EncodeOptions.Owner).
 var targetChecks = map[string]targetCheck{
 	"none":                          nil,
+	"bucket-owner":                  checkBucketOwner,
 	"account-argument":              checkAccountArgument,
 	"arn-account":                   checkARNAccount,
 	"arn-account-or-managed-policy": checkARNAccountOrManagedPolicy,
@@ -115,7 +123,32 @@ func generatedTools() ([]capability.Operation, error) {
 	return ops, nil
 }
 
+// restCodec is the body format of a REST tool.
+func (s toolSpec) restCodec() httpbind.Codec {
+	if s.codec != nil {
+		return s.codec
+	}
+	return restjson.Codec{}
+}
+
 func (s toolSpec) check() error {
+	if s.pager != nil && s.multi != nil {
+		return errors.New("a tool has one pager")
+	}
+	if s.multi != nil {
+		if s.rest == nil {
+			return errors.New("only a REST tool pages by several members")
+		}
+		if err := s.multi.Check(); err != nil {
+			return err
+		}
+	}
+	if s.codec != nil && s.rest == nil {
+		return errors.New("only a REST tool has a body format")
+	}
+	if s.targetCheck == "bucket-owner" && s.rest == nil {
+		return errors.New("the bucket-owner check belongs to a REST tool")
+	}
 	if s.rest != nil {
 		// A restJson1 tool has no awsQuery parts, and nothing but a described operation may be sent.
 		if s.input != nil || s.output != nil || s.action != "" || s.version != "" || s.accountCheck {
@@ -202,7 +235,7 @@ func (s toolSpec) handler() capability.Handler {
 				return nil, err
 			}
 		}
-		token, send, err := s.encode(args, page)
+		token, send, err := s.encode(args, page, b.account)
 		if err != nil {
 			return nil, err
 		}
@@ -257,21 +290,25 @@ type sender func(ctx context.Context, c *Client, creds sigv4.Credentials, region
 
 // encode binds the arguments (and the paging members) to the request of the tool's protocol, before any
 // secret is read. It returns the idempotency token the request carries and the call that sends it.
-func (s toolSpec) encode(args map[string]any, page awsquery.Page) (string, sender, error) {
+//
+// owner is the account the connection is bound to. A REST operation that has an expected-owner header sends
+// it with that account, and nothing an argument says can change it.
+func (s toolSpec) encode(args map[string]any, page listPage, owner string) (string, sender, error) {
 	if s.rest != nil {
-		if s.pager != nil {
+		if page != nil {
 			var err error
 			if args, err = httpbind.ApplyPage(s.rest.Input, args, page); err != nil {
 				return "", nil, encodeRefusal(s.op, err, "httpbind: ")
 			}
 		}
-		req, err := s.rest.Encode(restjson.Codec{}, args, nil)
+		codec := s.restCodec()
+		req, err := s.rest.EncodeWith(codec, args, httpbind.EncodeOptions{Owner: owner})
 		if err != nil {
 			return "", nil, encodeRefusal(s.op, err, "httpbind: ")
 		}
 		return req.Token, func(ctx context.Context, c *Client, creds sigv4.Credentials, region string, out *map[string]any) (bool, *provider.Error) {
 			meta, failure := c.sendRest(ctx, s.op, s.service, region, creds, s.descriptor.Risk.Idempotency,
-				restjson.Codec{}, s.rest, req, out)
+				codec, s.rest, req, out)
 			return meta.Truncated, failure
 		}, nil
 	}
@@ -279,7 +316,7 @@ func (s toolSpec) encode(args map[string]any, page awsquery.Page) (string, sende
 	if err != nil {
 		return "", nil, &provider.InvalidRequestError{Message: strings.TrimPrefix(err.Error(), "awsquery: ")}
 	}
-	if s.pager != nil {
+	if page != nil {
 		for k, v := range page.Params() {
 			if _, dup := req.Params[k]; dup {
 				return "", nil, provider.Fail(s.op, "the paging parameters collide with an argument")
@@ -351,11 +388,17 @@ func (s toolSpec) checkArguments(b binding, global bool, args map[string]any) er
 	return nil
 }
 
+// listPage is one request of a list: the paging members it sets and the cursor of the next page.
+type listPage interface {
+	Params() map[string]string
+	Next(op string, out map[string]any) (string, *provider.Error)
+}
+
 // startPage reads page_size and cursor. The cursor is bound to the tool, the region and every other
 // argument, so it cannot continue another list.
-func (s toolSpec) startPage(region string, args map[string]any) (awsquery.Page, error) {
-	if s.pager == nil {
-		return awsquery.Page{}, nil
+func (s toolSpec) startPage(region string, args map[string]any) (listPage, error) {
+	if s.pager == nil && s.multi == nil {
+		return nil, nil
 	}
 	size := 0
 	if v, set := args[awsquery.ArgPageSize]; set {
@@ -363,7 +406,7 @@ func (s toolSpec) startPage(region string, args map[string]any) (awsquery.Page, 
 		i, err := n.Int64()
 		// Zero would read as "no page size" below, so an explicit one is refused here.
 		if !ok || err != nil || i < 1 {
-			return awsquery.Page{}, &provider.InvalidRequestError{Message: "page_size must be a positive integer"}
+			return nil, &provider.InvalidRequestError{Message: "page_size must be a positive integer"}
 		}
 		size = int(i)
 	}
@@ -375,7 +418,22 @@ func (s toolSpec) startPage(region string, args map[string]any) (awsquery.Page, 
 		bound[k] = v
 	}
 	bound[argRegion] = region
-	return s.pager.Start(awsquery.Binding(s.descriptor.ID, bound), size, cursor)
+	if s.rest != nil && s.rest.Input != nil {
+		// The cursor belongs to the list, not to the spelling of its identifiers: a zone ID with and without
+		// its prefix continues the same list.
+		for _, f := range s.rest.Input.Fields {
+			if text, isString := bound[f.Key].(string); isString && len(f.Shape.Prefixes) > 0 {
+				if plain, ok := httpbind.Text(f.Shape, text, httpbind.FormatDefault); ok {
+					bound[f.Key] = plain
+				}
+			}
+		}
+	}
+	binding := awsquery.Binding(s.descriptor.ID, bound)
+	if s.multi != nil {
+		return s.multi.Start(binding, size, cursor)
+	}
+	return s.pager.Start(binding, size, cursor)
 }
 
 // identityAnswer is the answer of the account check, by the wire names of the output shape.
@@ -391,7 +449,7 @@ func (s toolSpec) identityAnswer(who callerIdentity) map[string]any {
 }
 
 // result checks the answer by the rules of the table and adds what the tool itself reports.
-func (s toolSpec) result(op string, out map[string]any, page awsquery.Page, region string, global bool,
+func (s toolSpec) result(op string, out map[string]any, page listPage, region string, global bool,
 	truncated bool, token string) (any, error) {
 	result := map[string]any{}
 	for k, v := range out {
@@ -406,7 +464,7 @@ func (s toolSpec) result(op string, out map[string]any, page awsquery.Page, regi
 			return nil, provider.InvalidResponse(op, "AWS returned an invalid response")
 		}
 	}
-	if s.pager != nil {
+	if page != nil {
 		next, failure := page.Next(op, out)
 		if failure != nil {
 			return nil, failure
@@ -426,6 +484,13 @@ func (s toolSpec) result(op string, out map[string]any, page awsquery.Page, regi
 		result[argClientToken] = token
 	}
 	return result, nil
+}
+
+func checkBucketOwner(_ binding, _ bool, name, value string) error {
+	if !httpbind.ValidBucketName(value) {
+		return &provider.InvalidRequestError{Message: name + " must be the name of a general purpose bucket"}
+	}
+	return nil
 }
 
 func checkAccountArgument(b binding, _ bool, name, value string) error {

@@ -50,7 +50,8 @@ func (o *Operation) Decode(c Codec, status int, header http.Header, body []byte)
 	switch {
 	case prep.out.payload != nil:
 		f := *prep.out.payload
-		if len(body) == 0 {
+		if len(body) == 0 || f.Stream {
+			// A streamed payload goes to a Sink and is never part of the result.
 			break
 		}
 		limit := orInt(f.Shape.MaxLen, DefaultMaxString)
