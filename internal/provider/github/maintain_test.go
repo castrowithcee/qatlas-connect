@@ -239,6 +239,8 @@ func TestGuardedToolsStayOutOfEveryStandardProfile(t *testing.T) {
 	// cleanup step of the run finish.
 	for _, descriptor := range reg.Provider(Provider) {
 		want := guarded[descriptor.ID] || deletes[descriptor.ID] || descriptor.ID == pullsMerge.ID || descriptor.ID == pullAutoMergeEnable.ID ||
+			descriptor.ID == codeScanningAlertsUpdate.ID || descriptor.ID == dependabotAlertsUpdate.ID ||
+			descriptor.ID == secretScanningAlertsUpdate.ID ||
 			descriptor.ID == pullRequestReviewsApprove.ID || descriptor.ID == pullRequestReviewsDismiss.ID ||
 			descriptor.ID == rulesetsCreate.ID ||
 			descriptor.ID == rulesetsUpdate.ID || descriptor.ID == branchProtectionSet.ID ||
@@ -257,11 +259,11 @@ func TestGuardedToolsStayOutOfEveryStandardProfile(t *testing.T) {
 			marked++
 		}
 	}
-	if marked != len(guardedTools)+len(deletes)+13 || len(guardedTools) != 13 {
+	if marked != len(guardedTools)+len(deletes)+16 || len(guardedTools) != 13 {
 		t.Errorf("marked tools = %d, want the thirteen maintainer and administrator tools, the fifteen deletes and "+
 			"the three access tools, files.push, and github.labels.delete, the merge, the auto-merge enable, the approve, the review dismissal, the ruleset "+
 			"create and update, the branch protection set, the custom properties set, the notifications mark-all, the gist delete, the repository rename, "+
-			"the environment set, and the run force-cancel", marked)
+			"the environment set, the run force-cancel, and the three security alert updates", marked)
 	}
 	profiles := map[string]config.ToolProfile{}
 	for _, profile := range metadata.Profiles {
