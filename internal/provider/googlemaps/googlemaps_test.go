@@ -191,7 +191,7 @@ func TestRegisterPublishesMetadataAndTool(t *testing.T) {
 	var ids []string
 	for _, tool := range metadata.Tools {
 		ids = append(ids, tool.ID)
-		if tool.Effect != config.EffectRead && tool.ID != addressFeedbackID {
+		if tool.Effect != config.EffectRead && tool.ID != addressFeedbackID && tool.ID != videosRenderID {
 			t.Errorf("%s effect = %v", tool.ID, tool.Effect)
 		}
 	}
@@ -201,6 +201,7 @@ func TestRegisterPublishesMetadataAndTool(t *testing.T) {
 		"google.maps.places.autocomplete", "google.maps.places.get", "google.maps.places.search-nearby",
 		"google.maps.places.search-text", "google.maps.pollen.forecast", "google.maps.routes.compute",
 		"google.maps.routes.matrix", "google.maps.solar.building-insights", "google.maps.solar.data-layers",
+		"google.maps.videos.lookup", "google.maps.videos.metadata", "google.maps.videos.render",
 		"google.maps.weather.alerts", "google.maps.weather.current", "google.maps.weather.days",
 		"google.maps.weather.history", "google.maps.weather.hours", "google.maps.weather.minutes"}
 	if !reflect.DeepEqual(ids, wantTools) {
@@ -214,7 +215,8 @@ func TestRegisterPublishesMetadataAndTool(t *testing.T) {
 			"google.maps.weather.hours", "google.maps.weather.days", "google.maps.weather.history",
 			"google.maps.weather.alerts", "google.maps.airquality.current", "google.maps.airquality.forecast",
 			"google.maps.airquality.history", "google.maps.pollen.forecast", "google.maps.solar.building-insights",
-			"google.maps.solar.data-layers", "google.maps.routes.compute", "google.maps.routes.matrix"}) {
+			"google.maps.solar.data-layers", "google.maps.routes.compute", "google.maps.routes.matrix",
+			"google.maps.videos.metadata"}) {
 		t.Errorf("profiles = %+v", metadata.Profiles)
 	}
 	for _, descriptor := range reg.Provider(Provider) {
@@ -223,7 +225,8 @@ func TestRegisterPublishesMetadataAndTool(t *testing.T) {
 			strings.HasPrefix(descriptor.ID, Provider+".airquality.") ||
 			strings.HasPrefix(descriptor.ID, Provider+".pollen.") ||
 			strings.HasPrefix(descriptor.ID, Provider+".solar.") ||
-			strings.HasPrefix(descriptor.ID, Provider+".routes.") {
+			strings.HasPrefix(descriptor.ID, Provider+".routes.") ||
+			strings.HasPrefix(descriptor.ID, Provider+".videos.") {
 			continue // the test file of each of these groups checks its tools
 		}
 		sensitivity := dataSensitivity

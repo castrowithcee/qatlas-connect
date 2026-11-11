@@ -4,7 +4,7 @@ description: >
 type: knowledge
 edit: shared
 created: 2026-11-06
-updated: 2026-11-10
+updated: 2026-11-11
 ---
 
 # Set up Google Maps
@@ -12,7 +12,7 @@ updated: 2026-11-10
 This page shows how to connect Qatlas to Google Maps Platform. Fields, cost, and errors are described in the
 [Google Maps provider](README.md); the tools are described in [places](places.md),
 [addressvalidation](addressvalidation.md), [weather](weather.md), [airquality](airquality.md),
-[pollen](pollen.md), [solar](solar.md), and [routes](routes.md).
+[pollen](pollen.md), [solar](solar.md), [routes](routes.md), and [videos](videos.md).
 
 ## What you need
 
@@ -20,11 +20,11 @@ This page shows how to connect Qatlas to Google Maps Platform. Fields, cost, and
   [Cost](README.md#cost) for the free monthly caps.
 - Places API (New) enabled in that project, Geocoding API for the geocoding tools, Address Validation API
   for the address tools, Weather API for the weather tools, Air Quality API for the air quality tools,
-  Pollen API for the pollen tool, Solar API for the solar tools, and Routes API for the route tools.
+  Pollen API for the pollen tool, Solar API for the solar tools, Routes API for the route tools, and Aerial View API for the video tools.
 - An API key of that project.
 - Qatlas keeps the key in the system keyring or the vault, or reads it from an environment variable.
 - The service is always `https://places.googleapis.com`; there is nothing to change for it. The Address
-  Validation, weather, Air Quality, pollen, solar, and route tools use their own fixed origins, which need no
+  Validation, weather, Air Quality, pollen, solar, route, and video tools use their own fixed origins, which need no
   setting either.
 
 ## Create a key
@@ -32,8 +32,8 @@ This page shows how to connect Qatlas to Google Maps Platform. Fields, cost, and
 In the Google Cloud console, choose or create the project and link a billing account to it. Under APIs and
 services, enable **Places API (New)**, for the geocoding tools **Geocoding API**, for the address tools
 **Address Validation API**, for the weather tools **Weather API**, for the air quality tools **Air Quality
-API**, for the pollen tool **Pollen API**, for the solar tools **Solar API**, and for the route tools **Routes
-API**. Under Credentials, create an API key. Google changes its pages from time to time; look for these names.
+API**, for the pollen tool **Pollen API**, for the solar tools **Solar API**, for the route tools **Routes
+API**, and for the video tools **Aerial View API**. Under Credentials, create an API key. Google changes its pages from time to time; look for these names.
 
 Restrict the key to the APIs you enabled. A leaked key is not narrowed by the connection's `tools`, so keep it
 for Qatlas only and restrict it as far as your use allows.
@@ -80,7 +80,7 @@ In `qconnect tui`, open Connections, select the connection, and press `t`. `[ok]
 for Places API (New) and the project may call it. Qatlas reads one fixed place with the field mask `id`, which
 Google documents as free.
 
-**A passing test does not mean every Maps API works.** It does not test Routes, Geocoding, or any other API,
+**A passing test does not mean every Maps API works.** It does not test Routes, Geocoding, Aerial View, or any other API,
 and it does not show the restrictions of the key for them.
 
 | Result | Meaning |

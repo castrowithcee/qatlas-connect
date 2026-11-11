@@ -1,10 +1,10 @@
 ---
 description: >
-  Describes the Google Maps provider: the API key, its header and query paths, and its fixed origins, the read profile, the mandatory field mask, with and without the places. prefix, and the billing group it selects, the cost of autocomplete and photos, attribution and storage rules, the two Google error forms and their classes, rate spacing, the connection test, and the limits of what is verified; the route tools have their own page.
+  Describes the Google Maps provider: the API key, its header and query paths, and its fixed origins, the read profile, the mandatory field mask, with and without the places. prefix, and the billing group it selects, the cost of autocomplete and photos, attribution and storage rules, the two Google error forms and their classes, rate spacing, the connection test, and the limits of what is verified; the route and video tools have their own pages.
 type: knowledge
 edit: shared
 created: 2026-11-06
-updated: 2026-11-10
+updated: 2026-11-11
 ---
 
 # Google Maps
@@ -16,13 +16,14 @@ validates postal addresses with Address Validation API, reads current weather, f
 alerts for a coordinate with Weather API, reads the current air quality, its forecast, and its history at a
 coordinate with Air Quality API, reads the daily pollen forecast for a coordinate with Pollen API, reads the
 solar potential of the closest building and the addresses of the solar data layers around a coordinate with
-Solar API, and computes routes and route matrices with Routes API. Every tool is a read except
-`addressvalidation.feedback`, which reports to Google and needs confirmation. The connection takes no target,
+Solar API, computes routes and route matrices with Routes API, and looks up and renders aerial view videos of US
+addresses with Aerial View API. Every tool is a read except `addressvalidation.feedback` and `videos.render`,
+which change data at Google and need confirmation. The connection takes no target,
 because a key reaches what its Cloud project and the key's restrictions allow, not a part of an account.
 
 [Set up Google Maps](setup.md) leads through creating the key. The tools are described in [places](places.md),
 [photos](photos.md), [geocoding](geocoding.md), [addressvalidation](addressvalidation.md), [weather](weather.md),
-[airquality](airquality.md), [pollen](pollen.md), [solar](solar.md), and [routes](routes.md).
+[airquality](airquality.md), [pollen](pollen.md), [solar](solar.md), [routes](routes.md), and [videos](videos.md).
 
 ## Configuration
 
@@ -31,11 +32,11 @@ left out. Qatlas refuses any other URL before the key is read, because the key b
 The Address Validation tools use the second fixed origin `https://addressvalidation.googleapis.com`, the
 weather tools the third, `https://weather.googleapis.com`, the Air Quality tools the fourth,
 `https://airquality.googleapis.com`, the pollen tool the fifth, `https://pollen.googleapis.com`, the solar
-tools the sixth, `https://solar.googleapis.com`, and the route tools the seventh, `https://routes.googleapis.com`;
-none of them can be configured. A connection with a target is refused.
+tools the sixth, `https://solar.googleapis.com`, the route tools the seventh, `https://routes.googleapis.com`, and
+the video tools the eighth, `https://aerialview.googleapis.com`; none of them can be configured. A connection with a target is refused.
 
-The credential provides `api_key`. The Places, Address Validation, weather, Air Quality, pollen, solar, and
-route tools send it only in the `X-Goog-Api-Key` header. The geocoding
+The credential provides `api_key`. The Places, Address Validation, weather, Air Quality, pollen, solar,
+route, and video tools send it only in the `X-Goog-Api-Key` header. The geocoding
 tools call the legacy Geocoding service, which takes no header, and send it as the `key` query parameter of
 a fixed URL; they are the only requests that do so, see [geocoding](geocoding.md#endpoint-and-key). The key is
 never a tool argument, never part of a message or result, and masked in every output.
@@ -47,8 +48,11 @@ The profile `read` is the recommended one and holds `google.maps.places.get`, `g
 `google.maps.weather.days`, `google.maps.weather.history`, `google.maps.weather.alerts`,
 `google.maps.airquality.current`, `google.maps.airquality.forecast`, `google.maps.airquality.history`,
 `google.maps.pollen.forecast`, `google.maps.solar.building-insights`, `google.maps.solar.data-layers`,
-`google.maps.routes.compute`, and `google.maps.routes.matrix`.
-`google.maps.addressvalidation.feedback` is in no profile; see [addressvalidation](addressvalidation.md#profiles-and-effects).
+`google.maps.routes.compute`, `google.maps.routes.matrix`, and `google.maps.videos.metadata`.
+`google.maps.addressvalidation.feedback` and `google.maps.videos.render` are in no profile; see
+[addressvalidation](addressvalidation.md#profiles-and-effects) and [videos](videos.md#profiles-and-effects).
+`google.maps.videos.lookup` returns signed video addresses, so a connection offers it only when its `tools`
+list names it.
 
 ## Field mask and billing group
 
@@ -91,7 +95,8 @@ Autocomplete and photos have no field mask and their own SKUs, described below. 
 pollen, and solar tools take no field mask; every call, and each page of a forecast or history, is its own
 request, and Qatlas does not verify their SKUs or free usage, see [weather](weather.md#cost),
 [airquality](airquality.md#cost), [pollen](pollen.md#cost), and [solar](solar.md#cost). The route tools are
-billed by the features a request uses, a matrix per element; see [routes](routes.md#cost).
+billed by the features a request uses, a matrix per element; see [routes](routes.md#cost). The video tools are
+one Aerial View SKU, and every lookup call can be billed; see [videos](videos.md#cost).
 
 Google documents a free monthly usage cap per SKU and billing account for Place Details: IDs Only is unlimited,
 Essentials 10,000, Pro 5,000, Enterprise 1,000, and Enterprise + Atmosphere 1,000. Requests beyond a cap are
@@ -112,7 +117,8 @@ group with 1,000 free requests. Prices and caps change; the price list is author
 Google Maps attribution is mandatory wherever Places content is shown (for the weather, air quality,
 pollen, solar, and route tools see [weather](weather.md#attribution-and-storage),
 [airquality](airquality.md#attribution-and-storage), [pollen](pollen.md#attribution-and-storage),
-[solar](solar.md#attribution-and-storage), and [routes](routes.md#attribution-and-storage)), and the
+[solar](solar.md#attribution-and-storage), [routes](routes.md#attribution-and-storage), and
+[videos](videos.md#attribution-and-storage)), and the
 `attributions` field names data
 providers that must be shown with a result. A photo also has author attributions in the `authorAttributions` of
 its `photos` entry, which must be shown wherever the image is shown. Place IDs may be stored without limit.
@@ -205,3 +211,4 @@ Left out on purpose:
 - A tool that creates session tokens: the token is the caller's string and is only passed on.
 - Air Quality heatmap tiles, which return image data; see [airquality](airquality.md#left-out-on-purpose).
 - The GeoTIFF download of Solar API, which returns image data; see [solar](solar.md#left-out-on-purpose).
+- Fetching, playing, or saving an Aerial View video or its signed addresses; see [videos](videos.md#left-out-on-purpose).
