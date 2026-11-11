@@ -70,6 +70,16 @@ func Complete(t Table, m *Model) error {
 			return fmt.Errorf("table %s: url_encoded shape %s is not a string shape of the model", t.Service, e.Shape)
 		}
 	}
+	for _, e := range t.IDPrefixes {
+		if !m.hasStringShape(e.Shape) {
+			return fmt.Errorf("table %s: id prefix shape %s is not a string shape of the model", t.Service, e.Shape)
+		}
+	}
+	for _, p := range t.Pagers {
+		if !slices.Contains(ops, p.Operation) {
+			return fmt.Errorf("table %s: pager of %s: the model has no such operation", t.Service, p.Operation)
+		}
+	}
 	switch {
 	case len(missing) > 0:
 		return fmt.Errorf("table %s: model operations in neither operations, exclude nor defer: %s", t.Service, strings.Join(missing, ", "))
@@ -107,6 +117,10 @@ func Render(modelDir string, tables []Table) (map[string][]byte, error) {
 		}
 		if err := Complete(*t, m); err != nil {
 			return nil, err
+		}
+		if m.Protocol == ProtocolRestXML && len(t.Operations) > 0 {
+			return nil, fmt.Errorf("table %s: restXml operation %s cannot become a tool yet: tools are rendered for awsQuery and restJson1 only",
+				t.Service, t.Operations[0].Operation)
 		}
 		for _, op := range t.Operations {
 			built, err := build(m, t, op)

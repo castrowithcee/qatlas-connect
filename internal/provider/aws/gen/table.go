@@ -28,6 +28,37 @@ type Table struct {
 	// URLEncoded lists model string shapes whose values the service returns percent-encoded, such as the
 	// IAM policy documents. Every output string of such a shape is decoded and then cut at MaxLen.
 	URLEncoded []URLEncoded
+	// Pagers describe the paging of REST list operations whose model has no paginated trait, or pages by
+	// more than one member. A tool takes its pager from here, not from a guess.
+	Pagers []PagerSpec
+	// IDPrefixes list model string shapes whose arguments may carry a leading text that is not part of the
+	// identifier, such as the /hostedzone/ of a Route 53 zone ID.
+	IDPrefixes []IDPrefix
+}
+
+// PagerSpec is the paging of one REST list operation, by model member names.
+type PagerSpec struct {
+	Operation string
+	// Positions are the members that together name the place the list continues at: the request member and
+	// the output member that reports it. One position is a plain token; several travel in one cursor.
+	Positions []PositionSpec
+	// Truncated is the boolean output member that says whether the list continues; IsTruncated when empty.
+	Truncated string
+	// PageSize is the integer request member that sets the page size, empty for none.
+	PageSize string
+}
+
+// PositionSpec is one member of the position of a list.
+type PositionSpec struct {
+	In, Out string
+	// Required says that an answer that reports more entries must carry the member.
+	Required bool
+}
+
+// IDPrefix is a string shape of the model namespace and the leading text its arguments may carry.
+type IDPrefix struct {
+	Shape  string
+	Prefix string
 }
 
 // URLEncoded is a model string shape whose output values arrive percent-encoded.
@@ -233,6 +264,27 @@ func (t Table) Validate() error {
 	for _, e := range t.URLEncoded {
 		if !shapeName.MatchString(e.Shape) || e.MaxLen < 0 {
 			return fmt.Errorf("table %s: url_encoded entry %q is not a shape name with a non-negative cap", t.Service, e.Shape)
+		}
+	}
+	pagers := map[string]bool{}
+	for _, p := range t.Pagers {
+		if !opName.MatchString(p.Operation) || pagers[p.Operation] || len(p.Positions) == 0 || len(p.Positions) > 4 ||
+			(p.Truncated != "" && !shapeName.MatchString(p.Truncated)) || (p.PageSize != "" && !shapeName.MatchString(p.PageSize)) {
+			return fmt.Errorf("table %s: pager of %q is malformed or repeated", t.Service, p.Operation)
+		}
+		pagers[p.Operation] = true
+		for _, pos := range p.Positions {
+			if !shapeName.MatchString(pos.In) || !shapeName.MatchString(pos.Out) {
+				return fmt.Errorf("table %s: pager of %s names a malformed member", t.Service, p.Operation)
+			}
+		}
+		if len(p.Positions) > 1 && !p.Positions[0].Required {
+			return fmt.Errorf("table %s: pager of %s: the first position must be required", t.Service, p.Operation)
+		}
+	}
+	for _, p := range t.IDPrefixes {
+		if !shapeName.MatchString(p.Shape) || p.Prefix == "" || len(p.Prefix) > 64 || strings.ContainsAny(p.Prefix, " \t\r\n\x00?#") {
+			return fmt.Errorf("table %s: id prefix of %q is malformed", t.Service, p.Shape)
 		}
 	}
 	ids := map[string]bool{}

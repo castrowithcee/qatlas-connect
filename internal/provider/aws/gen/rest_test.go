@@ -71,7 +71,7 @@ func TestProtocolIsReadFromTheService(t *testing.T) {
 	loadRest(t, sesv2Table)
 	for name, traits := range map[string]string{
 		"both":    `"aws.protocols#awsQuery":{},"aws.protocols#restJson1":{}`,
-		"neither": `"aws.protocols#restXml":{}`,
+		"neither": `"aws.protocols#ec2Query":{}`,
 	} {
 		data := `{"smithy":"2.0","shapes":{"com.example#S":{"type":"service","version":"2020-01-01","traits":{` + traits + `}}}}`
 		if _, err := LoadModel([]byte(data)); err == nil {
@@ -85,6 +85,14 @@ func TestProtocolIsReadFromTheService(t *testing.T) {
 	table.Defer = slices.DeleteFunc(slices.Clone(table.Defer), func(o Omission) bool { return o.Operation == "GetPrimaryEmail" })
 	if _, err := Render(ModelDir, []Table{table}); err == nil || !strings.Contains(err.Error(), "GetPrimaryEmail") {
 		t.Errorf("a restJson1 tool was rendered: %v", err)
+	}
+	// A restXml model has no tool rendering yet.
+	xml := s3Table
+	xml.Operations = []Operation{{Operation: "ListBuckets", Object: "bucket", Action: "list", Effect: "read",
+		Idempotency: "safe", Title: "t", Description: "d", DataSensitivity: "s", TargetCheck: "none", PolicyCheck: "none"}}
+	xml.Defer = slices.DeleteFunc(slices.Clone(xml.Defer), func(o Omission) bool { return o.Operation == "ListBuckets" })
+	if _, err := Render(ModelDir, []Table{xml}); err == nil || !strings.Contains(err.Error(), "restXml operation ListBuckets") {
+		t.Errorf("a restXml tool was rendered: %v", err)
 	}
 }
 
