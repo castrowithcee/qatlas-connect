@@ -1,12 +1,9 @@
 package tui
 
 import (
-	"regexp"
 	"strings"
-	"time"
 
 	tea "charm.land/bubbletea/v2"
-	uv "github.com/charmbracelet/ultraviolet"
 	"github.com/charmbracelet/x/ansi"
 )
 
@@ -130,31 +127,9 @@ func (m *Model) mouseMode() tea.MouseMode {
 // wheelText is how many rows one notch of the wheel moves in a text area; elsewhere it is one step.
 const wheelText = 3
 
-// wheelMerge is the longest gap between a wheel event and the event after it that can be its release half. A
-// terminal that reports a notch as a press and a release delivers both as presses, back to back.
-const wheelMerge = 15 * time.Millisecond
-
 // wheelClamp makes wrap stop at the ends while the wheel presses a key: the wheel never jumps from the last
 // row to the first or the other way round, the keys keep their wraparound.
 var wheelClamp bool
-
-// wheelSeen is the last wheel event that moved something.
-type wheelSeen struct {
-	button tea.MouseButton
-	x, y   int
-	at     time.Time
-	ok     bool
-}
-
-// repeats reports whether the event is the release half of the notch seen last. It claims at most one event
-// per notch: after it dropped one, the next equal event is a notch of its own however close it is.
-func (w *wheelSeen) repeats(event tea.Mouse, now time.Time) bool {
-	if w.ok && w.button == event.Button && w.x == event.X && w.y == event.Y && now.Sub(w.at) < wheelMerge {
-		w.ok = false
-		return true
-	}
-	return false
-}
 
 // updateMouse handles one mouse event. It acts only on a press of the left button and on the wheel; motion and
 // release do nothing. A terminal too small for the screen, an editor with the mouse switched off, and the
@@ -171,9 +146,6 @@ func (m *Model) updateMouse(msg tea.MouseMsg) tea.Cmd {
 	}
 	wheel := event.Button == tea.MouseWheelUp || event.Button == tea.MouseWheelDown
 	if !wheel && event.Button != tea.MouseLeft {
-		return nil
-	}
-	if wheel && m.wheelSeen.repeats(event, m.timeNow()) {
 		return nil
 	}
 	// The targets are those of the state the event meets: the frame drawn after the last message has them, and
@@ -201,9 +173,7 @@ func (m *Model) updateMouse(msg tea.MouseMsg) tea.Cmd {
 		if m.dd != nil {
 			return nil
 		}
-		cmd := m.wheel(event)
-		m.wheelSeen = wheelSeen{button: event.Button, x: event.X, y: event.Y, at: m.timeNow(), ok: true}
-		return cmd
+		return m.wheel(event)
 	}
 	if m.dd != nil {
 		return m.clickDropdown(event.X, event.Y)
@@ -433,7 +403,7 @@ func (m *Model) backShown() bool {
 	if m.backdrop || m.infoOpen || m.keyCapture || m.dd != nil || m.testResultShown() {
 		return false
 	}
-	if _, ok := keyPress(keyOf(actBack)); !ok {
+	if _, ok := keyPress(keyLabel(actBack)); !ok {
 		return false
 	}
 	switch m.screen {
@@ -473,7 +443,7 @@ func (m *Model) backShown() bool {
 // pressBack is a press of the key bound to esc; the click on the back button and the climb out of a deeper
 // screen use it so they meet every rule the key meets.
 func (m *Model) pressBack() tea.Cmd {
-	key, ok := keyPress(keyOf(actBack))
+	key, ok := keyPress(keyLabel(actBack))
 	if !ok {
 		return nil
 	}
@@ -981,168 +951,4 @@ func (m *Model) clickField(i int) tea.Cmd {
 		}
 	}
 	return nil
-}
-
-// fragmentWindow is the longest gap between the pieces of one split mouse report. Typing is slower than this.
-const fragmentWindow = 200 * time.Millisecond
-
-// bracketHold is how long a "[" that may open the rest of a report, alt+[ or a "[" after an escape, waits
-// for it before it counts as the key it is. The text field types it, so it cannot be let through first and
-// taken back. It is as long as fragmentWindow: a head the filter would still take as the rest must find the
-// "[" still held, or the "[" is typed and the rest dropped. The input reader reports the "[" only after it
-// waited for the rest itself, so the rest is later here than at the terminal.
-const bracketHold = fragmentWindow
-
-// fragmentTail matches what a mouse report of the SGR form can still lack: the rest of its parameters and the
-// final M or m.
-var fragmentTail = regexp.MustCompile(`^[0-9;]*[Mm]?`)
-
-// fragmentHead matches the start of such a report that is left once its escape and "[" went into keys of their own.
-var fragmentHead = regexp.MustCompile(`^<[0-9;]*[Mm]?`)
-
-// reportStart matches the start of such a report the input reader gave up on, its rest still to come.
-var reportStart = regexp.MustCompile(`^\x1b\[<[0-9;]*$`)
-
-// keysMsg delivers keys the filter held back, in order, as one message.
-type keysMsg []tea.KeyPressMsg
-
-// heldKeyMsg is the end of the hold of the "[" number id.
-type heldKeyMsg struct{ id int }
-
-// fragmentEsc is the filter state after a lone escape; it names that state, not a key to dispatch on.
-const (
-	fragmentEsc     = "esc"
-	fragmentBracket = "["
-	fragmentDouble  = "[["
-	fragmentPending = "tail"
-)
-
-// fragmentFilter drops the pieces of a mouse report that the terminal delivered in more than one read with a
-// pause between them longer than the input reader waits: the reader then reports the start it has as an
-// unknown sequence, or as an escape or alt+[, and the rest as typed characters like "<65;12;5M", which a text
-// field would take. The input reader joins pieces that follow each other within its escape wait, so the filter
-// only meets those after a longer pause. A piece counts only when it follows the one before it within
-// fragmentWindow and fits the report form, so the same characters typed by hand, pasted, or standing alone pass
-// unchanged. Only a "[" that may open a piece is held back, briefly; a lone escape is a real key and passes at
-// once, so an escape byte the reader already gave up on still reaches the model as esc.
-// On the way it gives keys the names stored key bindings know (see legacyKey and linuxFunctionKey).
-type fragmentFilter struct {
-	now  func() time.Time
-	send func(tea.Msg) // delivers heldKeyMsg to the event loop; without it nothing is held back
-
-	state string // fragmentEsc or fragmentBracket when that key came last, fragmentPending while a report lacks its end
-	at    time.Time
-	held  *tea.KeyPressMsg
-	id    int
-}
-
-func newFragmentFilter(now func() time.Time) *fragmentFilter {
-	if now == nil {
-		now = time.Now
-	}
-	return &fragmentFilter{now: now}
-}
-
-// unknownSequence returns the bytes of an input sequence the input reader could not name.
-func unknownSequence(msg tea.Msg) (string, bool) {
-	switch u := msg.(type) {
-	case uv.UnknownEvent:
-		return string(u), true
-	case uv.UnknownCsiEvent:
-		return string(u), true
-	}
-	return "", false
-}
-
-// filter is the tea.WithFilter function. It runs in the event loop, one message at a time.
-func (f *fragmentFilter) filter(_ tea.Model, msg tea.Msg) tea.Msg {
-	if h, ok := msg.(heldKeyMsg); ok {
-		if f.held == nil || h.id != f.id {
-			return nil
-		}
-		key := *f.held
-		f.held = nil
-		// The hold is over: a head arriving now is text, whatever the window says, so no race remains
-		// between this timer and the window comparison.
-		if f.state == fragmentBracket {
-			f.state = ""
-		}
-		return key
-	}
-	if unknown, ok := unknownSequence(msg); ok && (reportStart.MatchString(unknown) || unknown == "\x1b[[") {
-		f.state, f.at = fragmentPending, f.now()
-		if unknown == "\x1b[[" {
-			f.state = fragmentDouble
-		}
-		if held := f.held; held != nil {
-			f.held = nil
-			return keysMsg{*held}
-		}
-		return nil
-	}
-	if paste, ok := msg.(tea.PasteMsg); ok {
-		msg = pasteKey(paste.Content)
-	}
-	key, ok := msg.(tea.KeyPressMsg)
-	if !ok {
-		return msg
-	}
-	key = legacyKey(key)
-	at, last := f.now(), f.state
-	f.state = ""
-	if last != "" && at.Sub(f.at) > fragmentWindow {
-		last = ""
-	}
-	if last == fragmentDouble {
-		if fn, ok := linuxFunctionKey(key); ok {
-			return fn
-		}
-	}
-	held := f.held
-	f.held = nil
-	_, isPaste := pasted(key)
-	text, plain := "", key.Text != "" && !key.Mod.Contains(tea.ModAlt) && !isPaste
-	if plain {
-		text = key.Text
-	}
-	var n int
-	switch last {
-	case fragmentBracket:
-		if plain && strings.HasPrefix(text, "<") {
-			n = len(fragmentHead.FindString(text))
-		}
-	case fragmentPending:
-		if plain {
-			n = len(fragmentTail.FindString(text))
-		}
-	}
-	if n > 0 {
-		if piece := text[:n]; !strings.HasSuffix(piece, "M") && !strings.HasSuffix(piece, "m") {
-			f.state, f.at = fragmentPending, at
-		}
-		if n == len(text) {
-			return nil
-		}
-		return textKey(text[n:])
-	}
-	// Not a piece: a held "[" was a key after all and goes first.
-	switch {
-	case isPaste:
-	case key.Code == tea.KeyEscape && key.Mod == 0:
-		f.state, f.at = fragmentEsc, at
-	case f.send != nil && (key.Code == '[' && key.Mod == tea.ModAlt || last == fragmentEsc && text == "["):
-		f.state, f.at = fragmentBracket, at
-		f.held = &key
-		f.id++
-		id, send := f.id, f.send
-		time.AfterFunc(bracketHold, func() { send(heldKeyMsg{id}) })
-		if held != nil {
-			return keysMsg{*held}
-		}
-		return nil
-	}
-	if held != nil {
-		return keysMsg{*held, key}
-	}
-	return key
 }

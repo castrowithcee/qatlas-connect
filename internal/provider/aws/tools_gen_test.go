@@ -19,6 +19,9 @@ var excludedSESActions = []string{"SendCustomVerificationEmail"}
 // excludedS3Actions are the operations the s3 table excludes; no tool may send one.
 var excludedS3Actions = []string{"DeleteBucketOwnershipControls", "DeletePublicAccessBlock", "PutBucketAcl", "PutObjectAcl", "PutBucketWebsite", "PutBucketLogging", "PutBucketNotificationConfiguration", "PutBucketReplication", "DeleteBucketReplication"}
 
+// excludedROUTE53Actions are the operations the route53 table excludes; no tool may send one.
+var excludedROUTE53Actions = []string{"CreateVPCAssociationAuthorization"}
+
 // generatedCases are the basic tests of the generated tools: arguments derived from the input schema,
 // the form parameters they must encode to, and an answer derived from the output shape.
 var generatedCases = []struct {
@@ -750,6 +753,134 @@ var generatedCases = []struct {
 		form:      map[string]string{},
 		token:     false, confirm: true, listed: false, result: []string{"region"},
 		method: "PUT", path: "/", rawQuery: "ownershipControls", body: `<OwnershipControls xmlns="http://s3.amazonaws.com/doc/2006-03-01/"><Rule><ObjectOwnership>BucketOwnerEnforced</ObjectOwnership></Rule></OwnershipControls>`, owner: "123456789012", bucket: "my-bucket"},
+	{tool: "aws.route53.hosted-zone.list", action: "",
+		arguments: `{"delegation_set_id":"a","hosted_zone_type":"PrivateHostedZone"}`,
+		answer:    `<ListHostedZonesResponse xmlns="https://route53.amazonaws.com/doc/2013-04-01/"><HostedZones><HostedZone><Id>x</Id><Name>x</Name><CallerReference>x</CallerReference><Config><Comment>x</Comment><PrivateZone>true</PrivateZone></Config><ResourceRecordSetCount>1</ResourceRecordSetCount><LinkedService><ServicePrincipal>x</ServicePrincipal><Description>x</Description></LinkedService><Features><AcceleratedRecoveryStatus>x</AcceleratedRecoveryStatus><FailureReasons><AcceleratedRecovery>x</AcceleratedRecovery></FailureReasons></Features></HostedZone></HostedZones><Marker>x</Marker><IsTruncated>false</IsTruncated><MaxItems>1</MaxItems></ListHostedZonesResponse>`,
+		form:      map[string]string{},
+		token:     false, confirm: false, listed: false, result: []string{"has_more"},
+		method: "GET", path: "/2013-04-01/hostedzone", rawQuery: "delegationsetid=a&hostedzonetype=PrivateHostedZone", body: ""},
+	{tool: "aws.route53.hosted-zone.list-by-name", action: "",
+		arguments: `{"dns_name":"a","hosted_zone_id":"a","max_items":1}`,
+		answer:    `<ListHostedZonesByNameResponse xmlns="https://route53.amazonaws.com/doc/2013-04-01/"><HostedZones><HostedZone><Id>x</Id><Name>x</Name><CallerReference>x</CallerReference><Config><Comment>x</Comment><PrivateZone>true</PrivateZone></Config><ResourceRecordSetCount>1</ResourceRecordSetCount><LinkedService><ServicePrincipal>x</ServicePrincipal><Description>x</Description></LinkedService><Features><AcceleratedRecoveryStatus>x</AcceleratedRecoveryStatus><FailureReasons><AcceleratedRecovery>x</AcceleratedRecovery></FailureReasons></Features></HostedZone></HostedZones><DNSName>x</DNSName><HostedZoneId>x</HostedZoneId><IsTruncated>true</IsTruncated><NextDNSName>x</NextDNSName><NextHostedZoneId>x</NextHostedZoneId><MaxItems>1</MaxItems></ListHostedZonesByNameResponse>`,
+		form:      map[string]string{},
+		token:     false, confirm: false, listed: false, result: nil,
+		method: "GET", path: "/2013-04-01/hostedzonesbyname", rawQuery: "dnsname=a&hostedzoneid=a&maxitems=1", body: ""},
+	{tool: "aws.route53.hosted-zone.get", action: "",
+		arguments: `{"id":"a"}`,
+		answer:    `<GetHostedZoneResponse xmlns="https://route53.amazonaws.com/doc/2013-04-01/"><HostedZone><Id>x</Id><Name>x</Name><CallerReference>x</CallerReference><Config><Comment>x</Comment><PrivateZone>true</PrivateZone></Config><ResourceRecordSetCount>1</ResourceRecordSetCount><LinkedService><ServicePrincipal>x</ServicePrincipal><Description>x</Description></LinkedService><Features><AcceleratedRecoveryStatus>x</AcceleratedRecoveryStatus><FailureReasons><AcceleratedRecovery>x</AcceleratedRecovery></FailureReasons></Features></HostedZone><DelegationSet><Id>x</Id><CallerReference>x</CallerReference><NameServers><NameServer>x</NameServer></NameServers></DelegationSet><VPCs><VPC><VPCRegion>x</VPCRegion><VPCId>x</VPCId></VPC></VPCs></GetHostedZoneResponse>`,
+		form:      map[string]string{},
+		token:     false, confirm: false, listed: false, result: nil,
+		method: "GET", path: "/2013-04-01/hostedzone/a", rawQuery: "", body: ""},
+	{tool: "aws.route53.hosted-zone.count", action: "",
+		arguments: "{}",
+		answer:    `<GetHostedZoneCountResponse xmlns="https://route53.amazonaws.com/doc/2013-04-01/"><HostedZoneCount>1</HostedZoneCount></GetHostedZoneCountResponse>`,
+		form:      map[string]string{},
+		token:     false, confirm: false, listed: false, result: nil,
+		method: "GET", path: "/2013-04-01/hostedzonecount", rawQuery: "", body: ""},
+	{tool: "aws.route53.hosted-zone.create", action: "",
+		arguments: `{"name":"example.com","vpc":{"vpc_region":"eu-central-1","vpc_id":"vpc-0123456789abcdef0"},"hosted_zone_config":{"private_zone":true}}`,
+		answer:    `<CreateHostedZoneResponse xmlns="https://route53.amazonaws.com/doc/2013-04-01/"><HostedZone><Id>x</Id><Name>x</Name><CallerReference>x</CallerReference><Config><Comment>x</Comment><PrivateZone>true</PrivateZone></Config><ResourceRecordSetCount>1</ResourceRecordSetCount><LinkedService><ServicePrincipal>x</ServicePrincipal><Description>x</Description></LinkedService><Features><AcceleratedRecoveryStatus>x</AcceleratedRecoveryStatus><FailureReasons><AcceleratedRecovery>x</AcceleratedRecovery></FailureReasons></Features></HostedZone><ChangeInfo><Id>x</Id><Status>x</Status><SubmittedAt>2026-01-02T03:04:05Z</SubmittedAt><Comment>x</Comment></ChangeInfo><DelegationSet><Id>x</Id><CallerReference>x</CallerReference><NameServers><NameServer>x</NameServer></NameServers></DelegationSet><VPC><VPCRegion>x</VPCRegion><VPCId>x</VPCId></VPC></CreateHostedZoneResponse>`,
+		form:      map[string]string{},
+		token:     true, confirm: true, listed: false, result: []string{"client_token"},
+		method: "POST", path: "/2013-04-01/hostedzone", rawQuery: "", body: `<CreateHostedZoneRequest xmlns="https://route53.amazonaws.com/doc/2013-04-01/"><Name>example.com</Name><VPC><VPCRegion>eu-central-1</VPCRegion><VPCId>vpc-0123456789abcdef0</VPCId></VPC><CallerReference>00000000-0000-4000-8000-000000000000</CallerReference><HostedZoneConfig><PrivateZone>true</PrivateZone></HostedZoneConfig></CreateHostedZoneRequest>`,
+		answerHeader: map[string]string{"Location": "x"}},
+	{tool: "aws.route53.hosted-zone.update-comment", action: "",
+		arguments: `{"id":"a","comment":"a"}`,
+		answer:    `<UpdateHostedZoneCommentResponse xmlns="https://route53.amazonaws.com/doc/2013-04-01/"><HostedZone><Id>x</Id><Name>x</Name><CallerReference>x</CallerReference><Config><Comment>x</Comment><PrivateZone>true</PrivateZone></Config><ResourceRecordSetCount>1</ResourceRecordSetCount><LinkedService><ServicePrincipal>x</ServicePrincipal><Description>x</Description></LinkedService><Features><AcceleratedRecoveryStatus>x</AcceleratedRecoveryStatus><FailureReasons><AcceleratedRecovery>x</AcceleratedRecovery></FailureReasons></Features></HostedZone></UpdateHostedZoneCommentResponse>`,
+		form:      map[string]string{},
+		token:     false, confirm: true, listed: false, result: nil,
+		method: "POST", path: "/2013-04-01/hostedzone/a", rawQuery: "", body: `<UpdateHostedZoneCommentRequest xmlns="https://route53.amazonaws.com/doc/2013-04-01/"><Comment>a</Comment></UpdateHostedZoneCommentRequest>`},
+	{tool: "aws.route53.hosted-zone.delete", action: "",
+		arguments: `{"id":"a"}`,
+		answer:    `<DeleteHostedZoneResponse xmlns="https://route53.amazonaws.com/doc/2013-04-01/"><ChangeInfo><Id>x</Id><Status>x</Status><SubmittedAt>2026-01-02T03:04:05Z</SubmittedAt><Comment>x</Comment></ChangeInfo></DeleteHostedZoneResponse>`,
+		form:      map[string]string{},
+		token:     false, confirm: true, listed: false, result: nil,
+		method: "DELETE", path: "/2013-04-01/hostedzone/a", rawQuery: "", body: ""},
+	{tool: "aws.route53.change.get", action: "",
+		arguments: `{"id":"a"}`,
+		answer:    `<GetChangeResponse xmlns="https://route53.amazonaws.com/doc/2013-04-01/"><ChangeInfo><Id>x</Id><Status>x</Status><SubmittedAt>2026-01-02T03:04:05Z</SubmittedAt><Comment>x</Comment></ChangeInfo></GetChangeResponse>`,
+		form:      map[string]string{},
+		token:     false, confirm: false, listed: false, result: nil,
+		method: "GET", path: "/2013-04-01/change/a", rawQuery: "", body: ""},
+	{tool: "aws.route53.tag.list", action: "",
+		arguments: `{"resource_type":"healthcheck","resource_id":"a"}`,
+		answer:    `<ListTagsForResourceResponse xmlns="https://route53.amazonaws.com/doc/2013-04-01/"><ResourceTagSet><ResourceType>x</ResourceType><ResourceId>x</ResourceId><Tags><Tag><Key>x</Key><Value>x</Value></Tag></Tags></ResourceTagSet></ListTagsForResourceResponse>`,
+		form:      map[string]string{},
+		token:     false, confirm: false, listed: false, result: nil,
+		method: "GET", path: "/2013-04-01/tags/healthcheck/a", rawQuery: "", body: ""},
+	{tool: "aws.route53.tag.change", action: "",
+		arguments: `{"resource_type":"hostedzone","resource_id":"a","add_tags":[{"key":"a","value":"a"}],"remove_tag_keys":["a"]}`,
+		answer:    "",
+		form:      map[string]string{},
+		token:     false, confirm: true, listed: false, result: nil,
+		method: "POST", path: "/2013-04-01/tags/hostedzone/a", rawQuery: "", body: `<ChangeTagsForResourceRequest xmlns="https://route53.amazonaws.com/doc/2013-04-01/"><AddTags><Tag><Key>a</Key><Value>a</Value></Tag></AddTags><RemoveTagKeys><Key>a</Key></RemoveTagKeys></ChangeTagsForResourceRequest>`},
+	{tool: "aws.route53.record-set.list", action: "",
+		arguments: `{"hosted_zone_id":"a"}`,
+		answer:    `<ListResourceRecordSetsResponse xmlns="https://route53.amazonaws.com/doc/2013-04-01/"><ResourceRecordSets><ResourceRecordSet><Name>x</Name><Type>x</Type><SetIdentifier>x</SetIdentifier><Weight>1</Weight><Region>x</Region><GeoLocation><ContinentCode>x</ContinentCode><CountryCode>x</CountryCode><SubdivisionCode>x</SubdivisionCode></GeoLocation><Failover>x</Failover><MultiValueAnswer>true</MultiValueAnswer><TTL>1</TTL><ResourceRecords><ResourceRecord><Value>x</Value></ResourceRecord></ResourceRecords><AliasTarget><HostedZoneId>x</HostedZoneId><DNSName>x</DNSName><EvaluateTargetHealth>true</EvaluateTargetHealth></AliasTarget><HealthCheckId>x</HealthCheckId><TrafficPolicyInstanceId>x</TrafficPolicyInstanceId><CidrRoutingConfig><CollectionId>x</CollectionId><LocationName>x</LocationName></CidrRoutingConfig><GeoProximityLocation><AWSRegion>x</AWSRegion><LocalZoneGroup>x</LocalZoneGroup><Coordinates><Latitude>x</Latitude><Longitude>x</Longitude></Coordinates><Bias>1</Bias></GeoProximityLocation></ResourceRecordSet></ResourceRecordSets><IsTruncated>false</IsTruncated><MaxItems>1</MaxItems></ListResourceRecordSetsResponse>`,
+		form:      map[string]string{},
+		token:     false, confirm: false, listed: false, result: []string{"has_more"},
+		method: "GET", path: "/2013-04-01/hostedzone/a/rrset", rawQuery: "", body: ""},
+	{tool: "aws.route53.record-set.change", action: "",
+		arguments: `{"hosted_zone_id":"a","change_batch":{"changes":[{"action":"UPSERT","resource_record_set":{"name":"www.example.com.","type":"A","ttl":300,"resource_records":[{"value":"192.0.2.1"}]}}]}}`,
+		answer:    `<ChangeResourceRecordSetsResponse xmlns="https://route53.amazonaws.com/doc/2013-04-01/"><ChangeInfo><Id>x</Id><Status>x</Status><SubmittedAt>2026-01-02T03:04:05Z</SubmittedAt><Comment>x</Comment></ChangeInfo></ChangeResourceRecordSetsResponse>`,
+		form:      map[string]string{},
+		token:     false, confirm: true, listed: false, result: nil,
+		method: "POST", path: "/2013-04-01/hostedzone/a/rrset", rawQuery: "", body: `<ChangeResourceRecordSetsRequest xmlns="https://route53.amazonaws.com/doc/2013-04-01/"><ChangeBatch><Changes><Change><Action>UPSERT</Action><ResourceRecordSet><Name>www.example.com.</Name><Type>A</Type><TTL>300</TTL><ResourceRecords><ResourceRecord><Value>192.0.2.1</Value></ResourceRecord></ResourceRecords></ResourceRecordSet></Change></Changes></ChangeBatch></ChangeResourceRecordSetsRequest>`},
+	{tool: "aws.route53.dns-answer.test", action: "",
+		arguments: `{"hosted_zone_id":"a","record_name":"www.example.com","record_type":"SOA","resolver_ip":"192.0.2.1","edns0_client_subnet_ip":"192.0.2.1","edns0_client_subnet_mask":"a"}`,
+		answer:    `<TestDNSAnswerResponse xmlns="https://route53.amazonaws.com/doc/2013-04-01/"><Nameserver>x</Nameserver><RecordName>x</RecordName><RecordType>x</RecordType><RecordData><RecordDataEntry>x</RecordDataEntry></RecordData><ResponseCode>x</ResponseCode><Protocol>x</Protocol></TestDNSAnswerResponse>`,
+		form:      map[string]string{},
+		token:     false, confirm: false, listed: false, result: nil,
+		method: "GET", path: "/2013-04-01/testdnsanswer", rawQuery: "edns0clientsubnetip=192.0.2.1&edns0clientsubnetmask=a&hostedzoneid=a&recordname=www.example.com&recordtype=SOA&resolverip=192.0.2.1", body: ""},
+	{tool: "aws.route53.health-check.list", action: "",
+		arguments: "{}",
+		answer:    `<ListHealthChecksResponse xmlns="https://route53.amazonaws.com/doc/2013-04-01/"><HealthChecks><HealthCheck><Id>x</Id><CallerReference>x</CallerReference><LinkedService><ServicePrincipal>x</ServicePrincipal><Description>x</Description></LinkedService><HealthCheckConfig><IPAddress>x</IPAddress><Port>1</Port><Type>x</Type><ResourcePath>x</ResourcePath><FullyQualifiedDomainName>x</FullyQualifiedDomainName><SearchString>x</SearchString><RequestInterval>1</RequestInterval><FailureThreshold>1</FailureThreshold><MeasureLatency>true</MeasureLatency><Inverted>true</Inverted><Disabled>true</Disabled><HealthThreshold>1</HealthThreshold><ChildHealthChecks><ChildHealthCheck>x</ChildHealthCheck></ChildHealthChecks><EnableSNI>true</EnableSNI><Regions><Region>x</Region></Regions><AlarmIdentifier><Region>x</Region><Name>x</Name></AlarmIdentifier><InsufficientDataHealthStatus>x</InsufficientDataHealthStatus><RoutingControlArn>x</RoutingControlArn></HealthCheckConfig><HealthCheckVersion>1</HealthCheckVersion><CloudWatchAlarmConfiguration><EvaluationPeriods>1</EvaluationPeriods><Threshold>1.5</Threshold><ComparisonOperator>x</ComparisonOperator><Period>1</Period><MetricName>x</MetricName><Namespace>x</Namespace><Statistic>x</Statistic><Dimensions><Dimension><Name>x</Name><Value>x</Value></Dimension></Dimensions></CloudWatchAlarmConfiguration></HealthCheck></HealthChecks><Marker>x</Marker><IsTruncated>false</IsTruncated><MaxItems>1</MaxItems></ListHealthChecksResponse>`,
+		form:      map[string]string{},
+		token:     false, confirm: false, listed: false, result: []string{"has_more"},
+		method: "GET", path: "/2013-04-01/healthcheck", rawQuery: "", body: ""},
+	{tool: "aws.route53.health-check.get", action: "",
+		arguments: `{"health_check_id":"a"}`,
+		answer:    `<GetHealthCheckResponse xmlns="https://route53.amazonaws.com/doc/2013-04-01/"><HealthCheck><Id>x</Id><CallerReference>x</CallerReference><LinkedService><ServicePrincipal>x</ServicePrincipal><Description>x</Description></LinkedService><HealthCheckConfig><IPAddress>x</IPAddress><Port>1</Port><Type>x</Type><ResourcePath>x</ResourcePath><FullyQualifiedDomainName>x</FullyQualifiedDomainName><SearchString>x</SearchString><RequestInterval>1</RequestInterval><FailureThreshold>1</FailureThreshold><MeasureLatency>true</MeasureLatency><Inverted>true</Inverted><Disabled>true</Disabled><HealthThreshold>1</HealthThreshold><ChildHealthChecks><ChildHealthCheck>x</ChildHealthCheck></ChildHealthChecks><EnableSNI>true</EnableSNI><Regions><Region>x</Region></Regions><AlarmIdentifier><Region>x</Region><Name>x</Name></AlarmIdentifier><InsufficientDataHealthStatus>x</InsufficientDataHealthStatus><RoutingControlArn>x</RoutingControlArn></HealthCheckConfig><HealthCheckVersion>1</HealthCheckVersion><CloudWatchAlarmConfiguration><EvaluationPeriods>1</EvaluationPeriods><Threshold>1.5</Threshold><ComparisonOperator>x</ComparisonOperator><Period>1</Period><MetricName>x</MetricName><Namespace>x</Namespace><Statistic>x</Statistic><Dimensions><Dimension><Name>x</Name><Value>x</Value></Dimension></Dimensions></CloudWatchAlarmConfiguration></HealthCheck></GetHealthCheckResponse>`,
+		form:      map[string]string{},
+		token:     false, confirm: false, listed: false, result: nil,
+		method: "GET", path: "/2013-04-01/healthcheck/a", rawQuery: "", body: ""},
+	{tool: "aws.route53.health-check.count", action: "",
+		arguments: "{}",
+		answer:    `<GetHealthCheckCountResponse xmlns="https://route53.amazonaws.com/doc/2013-04-01/"><HealthCheckCount>1</HealthCheckCount></GetHealthCheckCountResponse>`,
+		form:      map[string]string{},
+		token:     false, confirm: false, listed: false, result: nil,
+		method: "GET", path: "/2013-04-01/healthcheckcount", rawQuery: "", body: ""},
+	{tool: "aws.route53.health-check.get-status", action: "",
+		arguments: `{"health_check_id":"a"}`,
+		answer:    `<GetHealthCheckStatusResponse xmlns="https://route53.amazonaws.com/doc/2013-04-01/"><HealthCheckObservations><HealthCheckObservation><Region>x</Region><IPAddress>x</IPAddress><StatusReport><Status>x</Status><CheckedTime>2026-01-02T03:04:05Z</CheckedTime></StatusReport></HealthCheckObservation></HealthCheckObservations></GetHealthCheckStatusResponse>`,
+		form:      map[string]string{},
+		token:     false, confirm: false, listed: false, result: nil,
+		method: "GET", path: "/2013-04-01/healthcheck/a/status", rawQuery: "", body: ""},
+	{tool: "aws.route53.health-check.get-last-failure-reason", action: "",
+		arguments: `{"health_check_id":"a"}`,
+		answer:    `<GetHealthCheckLastFailureReasonResponse xmlns="https://route53.amazonaws.com/doc/2013-04-01/"><HealthCheckObservations><HealthCheckObservation><Region>x</Region><IPAddress>x</IPAddress><StatusReport><Status>x</Status><CheckedTime>2026-01-02T03:04:05Z</CheckedTime></StatusReport></HealthCheckObservation></HealthCheckObservations></GetHealthCheckLastFailureReasonResponse>`,
+		form:      map[string]string{},
+		token:     false, confirm: false, listed: false, result: nil,
+		method: "GET", path: "/2013-04-01/healthcheck/a/lastfailurereason", rawQuery: "", body: ""},
+	{tool: "aws.route53.health-check.create", action: "",
+		arguments: `{"health_check_config":{"type":"HTTPS","fully_qualified_domain_name":"www.example.com","port":443,"resource_path":"/health"}}`,
+		answer:    `<CreateHealthCheckResponse xmlns="https://route53.amazonaws.com/doc/2013-04-01/"><HealthCheck><Id>x</Id><CallerReference>x</CallerReference><LinkedService><ServicePrincipal>x</ServicePrincipal><Description>x</Description></LinkedService><HealthCheckConfig><IPAddress>x</IPAddress><Port>1</Port><Type>x</Type><ResourcePath>x</ResourcePath><FullyQualifiedDomainName>x</FullyQualifiedDomainName><SearchString>x</SearchString><RequestInterval>1</RequestInterval><FailureThreshold>1</FailureThreshold><MeasureLatency>true</MeasureLatency><Inverted>true</Inverted><Disabled>true</Disabled><HealthThreshold>1</HealthThreshold><ChildHealthChecks><ChildHealthCheck>x</ChildHealthCheck></ChildHealthChecks><EnableSNI>true</EnableSNI><Regions><Region>x</Region></Regions><AlarmIdentifier><Region>x</Region><Name>x</Name></AlarmIdentifier><InsufficientDataHealthStatus>x</InsufficientDataHealthStatus><RoutingControlArn>x</RoutingControlArn></HealthCheckConfig><HealthCheckVersion>1</HealthCheckVersion><CloudWatchAlarmConfiguration><EvaluationPeriods>1</EvaluationPeriods><Threshold>1.5</Threshold><ComparisonOperator>x</ComparisonOperator><Period>1</Period><MetricName>x</MetricName><Namespace>x</Namespace><Statistic>x</Statistic><Dimensions><Dimension><Name>x</Name><Value>x</Value></Dimension></Dimensions></CloudWatchAlarmConfiguration></HealthCheck></CreateHealthCheckResponse>`,
+		form:      map[string]string{},
+		token:     true, confirm: true, listed: false, result: []string{"client_token"},
+		method: "POST", path: "/2013-04-01/healthcheck", rawQuery: "", body: `<CreateHealthCheckRequest xmlns="https://route53.amazonaws.com/doc/2013-04-01/"><CallerReference>00000000-0000-4000-8000-000000000000</CallerReference><HealthCheckConfig><Port>443</Port><Type>HTTPS</Type><ResourcePath>/health</ResourcePath><FullyQualifiedDomainName>www.example.com</FullyQualifiedDomainName></HealthCheckConfig></CreateHealthCheckRequest>`,
+		answerHeader: map[string]string{"Location": "x"}},
+	{tool: "aws.route53.health-check.update", action: "",
+		arguments: `{"health_check_id":"a","health_check_version":1,"ip_address":"8.8.8.8","port":1,"resource_path":"a","fully_qualified_domain_name":"www.example.com","search_string":"a","failure_threshold":1,"inverted":true,"disabled":true,"health_threshold":0,"child_health_checks":["a"],"enable_sni":true,"regions":["us-east-1","us-west-1","eu-west-1"],"alarm_identifier":{"region":"eu-central-1","name":"a"},"insufficient_data_health_status":"Healthy","reset_elements":["FullyQualifiedDomainName"]}`,
+		answer:    `<UpdateHealthCheckResponse xmlns="https://route53.amazonaws.com/doc/2013-04-01/"><HealthCheck><Id>x</Id><CallerReference>x</CallerReference><LinkedService><ServicePrincipal>x</ServicePrincipal><Description>x</Description></LinkedService><HealthCheckConfig><IPAddress>x</IPAddress><Port>1</Port><Type>x</Type><ResourcePath>x</ResourcePath><FullyQualifiedDomainName>x</FullyQualifiedDomainName><SearchString>x</SearchString><RequestInterval>1</RequestInterval><FailureThreshold>1</FailureThreshold><MeasureLatency>true</MeasureLatency><Inverted>true</Inverted><Disabled>true</Disabled><HealthThreshold>1</HealthThreshold><ChildHealthChecks><ChildHealthCheck>x</ChildHealthCheck></ChildHealthChecks><EnableSNI>true</EnableSNI><Regions><Region>x</Region></Regions><AlarmIdentifier><Region>x</Region><Name>x</Name></AlarmIdentifier><InsufficientDataHealthStatus>x</InsufficientDataHealthStatus><RoutingControlArn>x</RoutingControlArn></HealthCheckConfig><HealthCheckVersion>1</HealthCheckVersion><CloudWatchAlarmConfiguration><EvaluationPeriods>1</EvaluationPeriods><Threshold>1.5</Threshold><ComparisonOperator>x</ComparisonOperator><Period>1</Period><MetricName>x</MetricName><Namespace>x</Namespace><Statistic>x</Statistic><Dimensions><Dimension><Name>x</Name><Value>x</Value></Dimension></Dimensions></CloudWatchAlarmConfiguration></HealthCheck></UpdateHealthCheckResponse>`,
+		form:      map[string]string{},
+		token:     false, confirm: true, listed: false, result: nil,
+		method: "POST", path: "/2013-04-01/healthcheck/a", rawQuery: "", body: `<UpdateHealthCheckRequest xmlns="https://route53.amazonaws.com/doc/2013-04-01/"><HealthCheckVersion>1</HealthCheckVersion><IPAddress>8.8.8.8</IPAddress><Port>1</Port><ResourcePath>a</ResourcePath><FullyQualifiedDomainName>www.example.com</FullyQualifiedDomainName><SearchString>a</SearchString><FailureThreshold>1</FailureThreshold><Inverted>true</Inverted><Disabled>true</Disabled><HealthThreshold>0</HealthThreshold><ChildHealthChecks><ChildHealthCheck>a</ChildHealthCheck></ChildHealthChecks><EnableSNI>true</EnableSNI><Regions><Region>us-east-1</Region><Region>us-west-1</Region><Region>eu-west-1</Region></Regions><AlarmIdentifier><Region>eu-central-1</Region><Name>a</Name></AlarmIdentifier><InsufficientDataHealthStatus>Healthy</InsufficientDataHealthStatus><ResetElements><ResettableElementName>FullyQualifiedDomainName</ResettableElementName></ResetElements></UpdateHealthCheckRequest>`},
+	{tool: "aws.route53.health-check.delete", action: "",
+		arguments: `{"health_check_id":"a"}`,
+		answer:    "",
+		form:      map[string]string{},
+		token:     false, confirm: true, listed: false, result: nil,
+		method: "DELETE", path: "/2013-04-01/healthcheck/a", rawQuery: "", body: ""},
 }
 
 // Every generated tool sends its one action with exactly the encoded parameters and returns a result its
@@ -795,9 +926,18 @@ func TestGeneratedTools(t *testing.T) {
 				t.Fatalf("requests = %v, want %s", f.actions(), c.action)
 			}
 			if c.method != "" {
-				if call.method != c.method || call.path != c.path || call.rawQuery != c.rawQuery || call.body != c.body {
+				// The body of the test names the all-zero token of the encoder; the tool sent a random one and returned it.
+				wantBody := c.body
+				if c.token {
+					token, _ := got["client_token"].(string)
+					if token == "" || !strings.Contains(call.body, token) {
+						t.Errorf("client_token = %v, not the token sent", got["client_token"])
+					}
+					wantBody = strings.ReplaceAll(c.body, "00000000-0000-4000-8000-000000000000", token)
+				}
+				if call.method != c.method || call.path != c.path || call.rawQuery != c.rawQuery || call.body != wantBody {
 					t.Errorf("request = %s %s?%s %s, want %s %s?%s %s", call.method, call.path, call.rawQuery, call.body,
-						c.method, c.path, c.rawQuery, c.body)
+						c.method, c.path, c.rawQuery, wantBody)
 				}
 				if c.bucket != "" && call.host != c.bucket+".s3."+testRegion+".amazonaws.com" {
 					t.Errorf("host = %s, want the bucket as its first label", call.host)
@@ -830,10 +970,11 @@ func TestGeneratedTools(t *testing.T) {
 // No generated tool sends an operation its table excludes.
 func TestGeneratedExclusionsAreNoTools(t *testing.T) {
 	excluded := map[string][]string{
-		"sts": excludedSTSActions,
-		"iam": excludedIAMActions,
-		"ses": excludedSESActions,
-		"s3":  excludedS3Actions,
+		"sts":     excludedSTSActions,
+		"iam":     excludedIAMActions,
+		"ses":     excludedSESActions,
+		"s3":      excludedS3Actions,
+		"route53": excludedROUTE53Actions,
 	}
 	for _, s := range generatedSpecs {
 		// A restJson1 tool sends no action; its op is the operation name in words.

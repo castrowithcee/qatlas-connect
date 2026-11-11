@@ -1,6 +1,7 @@
 package gen
 
 import (
+	"bytes"
 	"fmt"
 	"slices"
 	"strconv"
@@ -23,9 +24,6 @@ func (t *tool) assembleRest() error {
 	if len(t.restBind.Unsupported) > 0 {
 		return t.failf("the runtime does not carry what the model asks for: %s", strings.Join(t.restBind.Unsupported, "; "))
 	}
-	if t.restBind.Multi != nil {
-		return t.failf("paging by several members is not rendered yet")
-	}
 	op := &httpbind.Operation{Method: bound.Method, URI: bound.URI,
 		ChecksumRequired: bound.ChecksumRequired, ValidateResponseChecksum: bound.ValidateResponseChecksum}
 	var owners []httpbind.Field
@@ -36,7 +34,7 @@ func (t *tool) assembleRest() error {
 			}
 		}
 	}
-	if len(t.input.Fields) > 0 || t.pager != nil || len(owners) > 0 {
+	if len(t.input.Fields) > 0 || t.pager != nil || t.multi != nil || len(owners) > 0 {
 		op.Input = &httpbind.Shape{Kind: httpbind.KindStruct}
 		t.rootOf(op.Input, bound.Input)
 	}
@@ -58,10 +56,10 @@ func (t *tool) assembleRest() error {
 	if len(owners) > 0 {
 		op.Input.Fields = append(op.Input.Fields, owners...)
 	}
-	if t.pager != nil {
+	if t.pager != nil || t.multi != nil {
 		// The paging members are bound under "~"+name; the table's page size maximum may apply to a member
 		// the model leaves unbounded, which the binding then carries without a size parameter.
-		for _, name := range []string{t.plan.tokenIn, t.plan.sizeMember} {
+		for _, name := range append(slices.Clone(t.plan.ins), t.plan.sizeMember) {
 			if name == "" {
 				continue
 			}
@@ -70,10 +68,13 @@ func (t *tool) assembleRest() error {
 				return t.failf("paging member %s is not in the binding", name)
 			}
 			op.Input.Fields = append(op.Input.Fields, *bf)
-			if name == t.plan.tokenIn {
-				t.pager.TokenIn = bf.Name
-			} else {
+			switch {
+			case name == t.plan.sizeMember && t.multi != nil:
+				t.multi.SizeParam = bf.Name
+			case name == t.plan.sizeMember:
 				t.pager.SizeParam = bf.Name
+			case t.pager != nil:
+				t.pager.TokenIn = bf.Name
 			}
 		}
 	}
@@ -130,7 +131,11 @@ func (t *tool) rootOf(dst, src *httpbind.Shape) {
 // restField builds a top-level field from the converted member f and the field bf of the binding: the place,
 // the wire name and, for restXml, the XML form and the roles of the layer.
 func (t *tool) restField(f awsquery.Field, bf *httpbind.Field) (httpbind.Field, error) {
-	field := httpbind.Field{Key: f.Key, Name: bf.Name, Shape: restShape(f.Shape), Loc: bf.Loc}
+	field := httpbind.Field{Key: f.Key, Name: bf.Name, Shape: restShape(f.Shape), Loc: bf.Loc, IdempotencyToken: f.IdempotencyToken}
+	if field.Shape.Kind == httpbind.KindString && bf.Shape != nil && (bf.Loc == httpbind.LocLabel || bf.Loc == httpbind.LocQuery) {
+		// What an identifier argument may carry in front of the value, such as /hostedzone/.
+		field.Shape.Prefixes = bf.Shape.Prefixes
+	}
 	if !t.xml {
 		return field, nil
 	}
@@ -208,7 +213,7 @@ func (t *tool) restSamples(plain map[string]any) error {
 	if t.xml {
 		codec = restxml.Codec{NoErrorWrapping: t.noWrap}
 	}
-	req, err := t.restOp.EncodeWith(codec, plain, httpbind.EncodeOptions{Owner: sampleOwner})
+	req, err := t.restOp.EncodeWith(codec, plain, httpbind.EncodeOptions{Owner: sampleOwner, Rand: bytes.NewReader(make([]byte, 16))})
 	if err != nil {
 		return t.failf("sample arguments do not encode: %v", err)
 	}
@@ -304,7 +309,7 @@ func (t *tool) xmlAnswer() error {
 	var body strings.Builder
 	for _, f := range out.Fields {
 		qf := byKey[f.Key]
-		if t.pager != nil && f.Key == t.pager.TokenOut {
+		if t.pagedOut(f.Key) {
 			continue
 		}
 		switch f.Loc {
@@ -355,7 +360,7 @@ func (t *tool) jsonStruct(b *strings.Builder, s *httpbind.Shape) error {
 	b.WriteByte('{')
 	first := true
 	for _, f := range s.Fields {
-		if t.pager != nil && f.Key == t.pager.TokenOut {
+		if t.pagedOut(f.Key) {
 			continue
 		}
 		if f.Loc == httpbind.LocPayload {

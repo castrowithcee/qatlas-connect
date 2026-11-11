@@ -1,17 +1,17 @@
 ---
 description: >
-  Describes the GitHub Actions tools: the observer and operator tools, diagnosing a run, log and artifact limits, billable time, the listed-only deletion of run logs, executions, the Actions variables of a repository, an environment, or an organization, and the listed-only workflow maintainer and Actions administrator tools with their paths and settings.
+  Describes the GitHub Actions tools: the observer and operator tools, diagnosing a run, log and artifact limits, billable time, the listed-only deletion of run logs, executions, the Actions variables of a repository, an environment, or an organization, and the listed-only workflow maintainer and Actions administrator tools with their paths and settings, including the finer Actions settings of a repository or an organization: selected actions, fork pull request approval, artifact and log retention, access of outside workflows, and the OIDC subject claim.
 type: knowledge
 edit: shared
 created: 2026-10-22
-updated: 2026-11-10
+updated: 2026-11-11
 ---
 
 # GitHub Actions
 
 The Actions tools of the [GitHub provider](README.md). Every tool takes `repository` as described under
 [the target of a call](README.md#the-target-of-a-call), except the [Actions variable](#actions-variables) tools,
-which take exactly one of `repository` or `organization`.
+which take exactly one of `repository` or `organization`, and the [finer Actions settings](#finer-actions-settings), which do the same except the access tools, which take `repository` only.
 
 A connection can observe the GitHub Actions of a repository it allows and, separately, operate them. The two
 groups are distinct tools with distinct effects: the observer tools are reads, and the operator tools are
@@ -210,7 +210,8 @@ and Qatlas keeps them behind a boundary of their own:
   of a provider may not. The profiles `workflow-maintainer` and `actions-admin` exist only to be chosen on
   purpose; they keep the two groups apart.
 - **One repository per call.** Each call acts on one repository inside the connection's targets, and every
-  route lies below that repository. Without targets, such a connection reaches every repository its token can
+  route lies below that repository; only the [finer Actions settings](#finer-actions-settings) may address one
+  organization instead. Without targets, such a connection reaches every repository its token can
   change, so give it targets that name exactly the repositories it may maintain.
 - **Confirmed and sent once.** Every change needs confirmation in its own invoke request, is sent exactly
   once, and is never retried; an unclear outcome says that the change may have been applied. A refused or
@@ -228,6 +229,11 @@ and Qatlas keeps them behind a boundary of their own:
 | `github.actions-permissions.update` | changes whether Actions run and which actions they may use |
 | `github.workflow-permissions.get` | reads the default `GITHUB_TOKEN` permissions and whether Actions may approve pull request reviews |
 | `github.workflow-permissions.update` | changes either of them |
+| `github.actions-selected.get` / `.set` | reads or changes which actions and reusable workflows may run while `allowed_actions` is `selected`; repository or organization |
+| `github.actions-fork-approval.get` / `.set` | reads or changes which contributors' fork pull requests need approval before workflows run; repository or organization |
+| `github.actions-retention.get` / `.set` | reads or changes how many days checks, runs, statuses, artifacts, and logs are kept; repository or organization |
+| `github.actions-access.get` / `.set` | reads or changes which workflows outside a private repository may use its actions; repository only |
+| `github.actions-oidc.get` / `.set` | reads or changes the customization of the OIDC subject claim; repository or organization |
 
 The reads are listed only as well: a workflow file and the Actions settings are part of what this group
 maintains, and the observer tools already read what diagnosing a run needs. A create and an update are
@@ -271,6 +277,59 @@ a value left out stays as it is: GitHub replaces a setting as a whole, so Qatlas
 the requested values in one change. `allowed_actions` applies only while Actions are enabled and is refused for
 disabled Actions unless `enabled: true` comes with it. An organization or enterprise policy may fix a value; GitHub's refusal is reported, and nothing is changed or
 retried.
+
+### Finer Actions settings
+
+Five more settings have one tool that reads and one that changes them, ten tools in all, and every one is
+listed only like the rest of this group. The reads join the profile `actions-admin`; the five changes are in no
+profile and need their name in a connection's `tools` list. Four settings exist for a repository and for an
+organization and take exactly one of `repository` or `organization`, like the
+[Actions variables](#actions-variables): both, neither, an organization outside the connection's owner targets,
+a user instead of an organization, and a target the connection excludes are refused before a credential is
+resolved. The access setting exists for a repository only and takes `repository` like the other repository
+tools. An answer names the repository or the organization it addressed.
+
+| Setting | Values | Notes |
+| --- | --- | --- |
+| Selected actions | `github_owned_allowed`, `verified_allowed`, `patterns_allowed` | applies only while `allowed_actions` is `selected` |
+| Fork pull request approval | `approval_policy`: `first_time_contributors_new_to_github`, `first_time_contributors`, `all_external_contributors` | |
+| Retention | `days` from 1 through 400, and the read's `maximum_allowed_days` | GitHub rejects what the plan or a policy does not allow |
+| Access | `access_level`: `none`, `user`, `organization` | only for private and internal repositories |
+| OIDC subject claim | `use_default` (repository only), `include_claim_keys`, `use_immutable_subject` | the read also answers `sub_claim_prefix` for a repository |
+
+Each read answers every documented member of its route. Patterns, claim keys, and prefixes are untrusted data.
+
+Every change reads the setting first, sends one request that is never repeated, and reads it again, so the answer
+holds `before` and `after` for the values the call gave, as GitHub reports them; a value left out stays as it is
+and is not named. A read that fails after an applied change does not turn it into an error: `after` is then left
+out and `after_unconfirmed` is `true`, which says that GitHub accepted the change but its state could not be read
+back. A value that was sent never stands in for GitHub's state. A refusal or an unclear outcome follows the rules above: GitHub's text never reaches a
+message, 409 and 422 become messages that say nothing was changed, and a timeout or a server error says that the
+change may have been applied. A refused first read ends the call before anything is changed.
+
+`patterns_allowed` takes patterns as text, such as `octo-org/*`, `octo-org/action@v1`, or `!octo-org/denied`, at
+most 1000, each of at most 255 letters, digits, and `_ . / @ * ! + -` without whitespace, and replaces the
+current patterns; an empty list removes them. The selection is a security boundary: changing from only
+GitHub-owned actions to all of them, allowing verified creators, or adding a pattern such as `*` lets workflows
+run code Qatlas does not review, so treat each loosening as security relevant and grant the change only to a
+connection that needs it. `include_claim_keys` takes only the claim keys GitHub documents for the subject claim
+(`actor`, `actor_id`, `base_ref`, `context`, `environment`, `event_name`, `head_ref`, `job_workflow_ref`,
+`job_workflow_sha`, `ref`, `ref_type`, `repo`, `repository`, `repository_id`, `repository_owner`,
+`repository_owner_id`, `repository_visibility`, `run_attempt`, `run_id`, `run_number`, `runner_environment`, `sha`,
+`workflow`, `workflow_ref`, `workflow_sha`, `check_run_id`) and the repository property claims, written `repo_property_` and the
+name of the property, with letters, digits, and `_` only, at least one and none twice. A cloud provider that trusts a subject
+claim trusts the new form at once, so a change can lock workflows out or widen who may assume a role. For a
+repository `use_default` is required: `true` selects the default claim and comes without keys, `false` needs the
+keys. An organization takes `include_claim_keys`, `use_immutable_subject`, or both and refuses `use_default`; with
+only `use_immutable_subject` it keeps the keys it has, and without customized keys they must be given.
+
+Plan and policy limits are a state, not an error, for the reads. When GitHub refuses a read with a conflict
+because the plan, an organization or enterprise policy, or another setting does not offer the setting, for example
+the selection while `allowed_actions` is not `selected` or the access of a public repository, the tool answers
+with `state: "unavailable"` and a fixed `reason` and gives no value of the setting and no text of GitHub. A
+refusal with 403 or 404 stays an error, because GitHub does not tell a missing right or target apart from it. A
+change on such a setting stays an error that says nothing was changed. No tool changes the enterprise level of
+these settings, runners, runner groups, or secrets.
 
 ### Credential
 

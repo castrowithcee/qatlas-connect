@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"net/http"
 	"reflect"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -239,13 +240,16 @@ func TestGuardedToolsStayOutOfEveryStandardProfile(t *testing.T) {
 	// cleanup step of the run finish.
 	for _, descriptor := range reg.Provider(Provider) {
 		want := guarded[descriptor.ID] || deletes[descriptor.ID] || descriptor.ID == pullsMerge.ID || descriptor.ID == pullAutoMergeEnable.ID ||
+			descriptor.ID == codeScanningAlertsUpdate.ID || descriptor.ID == dependabotAlertsUpdate.ID ||
+			descriptor.ID == secretScanningAlertsUpdate.ID ||
 			descriptor.ID == pullRequestReviewsApprove.ID || descriptor.ID == pullRequestReviewsDismiss.ID ||
 			descriptor.ID == rulesetsCreate.ID ||
 			descriptor.ID == rulesetsUpdate.ID || descriptor.ID == branchProtectionSet.ID ||
 			descriptor.ID == customPropertiesSet.ID ||
 			descriptor.ID == notificationsMarkAll.ID || descriptor.ID == gistsDelete.ID ||
 			descriptor.ID == repositoriesRename.ID || descriptor.ID == environmentsSet.ID ||
-			descriptor.ID == runsForceCancel.ID
+			descriptor.ID == runsForceCancel.ID || slices.Contains(actionsSettingsReads, descriptor.ID) ||
+			slices.Contains(actionsSettingsChanges, descriptor.ID)
 		if descriptor.RequiresToolAllowList != want {
 			t.Errorf("%s requires an allow-list = %t", descriptor.ID, descriptor.RequiresToolAllowList)
 		}
@@ -257,11 +261,11 @@ func TestGuardedToolsStayOutOfEveryStandardProfile(t *testing.T) {
 			marked++
 		}
 	}
-	if marked != len(guardedTools)+len(deletes)+13 || len(guardedTools) != 13 {
+	if marked != len(guardedTools)+len(deletes)+26 || len(guardedTools) != 13 {
 		t.Errorf("marked tools = %d, want the thirteen maintainer and administrator tools, the fifteen deletes and "+
 			"the three access tools, files.push, and github.labels.delete, the merge, the auto-merge enable, the approve, the review dismissal, the ruleset "+
 			"create and update, the branch protection set, the custom properties set, the notifications mark-all, the gist delete, the repository rename, "+
-			"the environment set, and the run force-cancel", marked)
+			"the environment set, the run force-cancel, the three security alert updates, and the ten tools of the finer Actions settings", marked)
 	}
 	profiles := map[string]config.ToolProfile{}
 	for _, profile := range metadata.Profiles {
@@ -284,8 +288,8 @@ func TestGuardedToolsStayOutOfEveryStandardProfile(t *testing.T) {
 	if want := append([]string{workflowsList.ID, workflowsGet.ID}, maintainerTools...); !reflect.DeepEqual(maintainer.Tools, want) {
 		t.Errorf("maintainer profile = %v, want %v", maintainer.Tools, want)
 	}
-	if !reflect.DeepEqual(admin.Tools, adminTools) {
-		t.Errorf("admin profile = %v, want %v", admin.Tools, adminTools)
+	if want := append(append([]string{}, adminTools...), actionsSettingsReads...); !reflect.DeepEqual(admin.Tools, want) {
+		t.Errorf("admin profile = %v, want %v", admin.Tools, want)
 	}
 	if got := metadata.ProfileEffects(maintainer); !reflect.DeepEqual(got, []config.Effect{
 		config.EffectRead, config.EffectCreate, config.EffectUpdate}) {

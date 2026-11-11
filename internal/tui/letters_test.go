@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	tea "charm.land/bubbletea/v2"
+	kit "github.com/castrowithcee/qatlas-kit/tui"
 	uv "github.com/charmbracelet/ultraviolet"
 
 	"github.com/castrowithcee/qatlas-connect/internal/config"
@@ -17,28 +18,28 @@ import (
 
 // answerLevels are the levels in which one key may mean something else: a question's answers and the keys only
 // the help overlay knows. Everywhere else a key has exactly one meaning.
-var answerLevels = []keyLevel{levelConfirm, levelHelp}
+var answerLevels = []kit.KeyLevel{kit.LevelConfirm, kit.LevelHelp}
 
 // Outside the answers of a question no key, letter or other, has two meanings, whatever level its actions sit in.
 func TestNoKeyHasTwoMeaningsOutsideTheAnswerLevels(t *testing.T) {
 	keepKeys(t)
 	owner := map[string]action{}
-	for _, d := range keyDefs {
-		if slices.Contains(answerLevels, d.level) {
+	for _, d := range keyTable {
+		if slices.Contains(answerLevels, d.Level) {
 			continue
 		}
-		for _, k := range keymap[d.act].Keys() {
+		for _, k := range d.DefaultKeys {
 			if other, ok := owner[k]; ok {
-				t.Errorf("%q means both %s and %s", k, other, d.act)
+				t.Errorf("%q means both %s and %s", k, other, d.ID)
 			}
-			owner[k] = d.act
+			owner[k] = d.ID
 		}
 	}
 	// The answers reuse letters of actions on purpose: they are a level of their own.
 	for _, a := range []action{actYes, actNo, actDiscard} {
 		found := false
-		for _, d := range keyDefs {
-			found = found || (d.act == a && d.level == levelConfirm)
+		for _, d := range keyTable {
+			found = found || (d.ID == a && d.Level == kit.LevelConfirm)
 		}
 		if !found {
 			t.Errorf("%s is not an answer of a question", a)
@@ -55,9 +56,9 @@ func TestLetterActionsAreTheAgreedLetters(t *testing.T) {
 		"p": actDuplicate, "q": actQuit, "t": actTest, "U": actUpdate, "W": actWrite,
 	}
 	got := map[string]action{}
-	for _, d := range keyDefs {
-		if d.level == levelLetter {
-			got[d.keys[0]] = d.act
+	for _, d := range keyTable {
+		if d.Level == kit.LevelLetter {
+			got[d.DefaultKeys[0]] = d.ID
 		}
 	}
 	for k, a := range want {
@@ -86,17 +87,17 @@ func TestHelpNamesEveryLetterOfTheTable(t *testing.T) {
 	}
 	help := text.String()
 	isLetter := regexp.MustCompile(`^[a-zA-Z]$`)
-	for _, d := range keyDefs {
-		for _, k := range d.keys {
+	for _, d := range keyTable {
+		for _, k := range d.DefaultKeys {
 			if !isLetter.MatchString(k) {
 				continue
 			}
 			phrase, ok := helpWording[k]
 			switch {
 			case !ok:
-				t.Errorf("letter %q of %s has no wording in helpWording", k, d.act)
+				t.Errorf("letter %q of %s has no wording in helpWording", k, d.ID)
 			case !strings.Contains(help, phrase):
-				t.Errorf("the help does not name %q (%s) as %q", k, d.act, phrase)
+				t.Errorf("the help does not name %q (%s) as %q", k, d.ID, phrase)
 			}
 		}
 	}
@@ -325,7 +326,7 @@ func TestChangedFootersFitTheSmallestTerminalInBothLanguages(t *testing.T) {
 			// The key row has no room for more than its own answer at this width.
 			want := keyLabel(actHelp)
 			if name == "key row" {
-				want = keyOf(actEnter)
+				want = keyLabel(actEnter)
 			}
 			if !strings.Contains(footer, want) {
 				t.Errorf("%s (%s): the footer lost %q: %q", name, lang, want, footer)
@@ -337,8 +338,8 @@ func TestChangedFootersFitTheSmallestTerminalInBothLanguages(t *testing.T) {
 // A footer group that names a letter names one the table binds, so no footer teaches a key that does nothing.
 func TestFooterGroupsNameOnlyBoundLetters(t *testing.T) {
 	bound := map[string]bool{}
-	for _, d := range keyDefs {
-		for _, k := range d.keys {
+	for _, d := range keyTable {
+		for _, k := range d.DefaultKeys {
 			bound[k] = true
 		}
 	}

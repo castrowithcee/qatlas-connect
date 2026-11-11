@@ -505,8 +505,6 @@ type Model struct {
 	pathRemove bool
 	// now is the clock the active-for row and the connection list read; nil means time.Now.
 	now func() time.Time
-	// wheelSeen is the wheel event last acted on; see wheelMerge.
-	wheelSeen wheelSeen
 	// startDir is the working directory the TUI was started in, the first suggestion for a new path.
 	startDir string
 	// confirmRole names the role whose stored secret the confirmation removes. Empty means the
@@ -863,10 +861,10 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	// Deferred last, so it runs first: the vault or admin state, and with it the header, may have changed.
 	defer m.layoutWorkspace()
 	switch msg := msg.(type) {
-	case keysMsg:
+	case kittui.InputBatch:
 		var cmds []tea.Cmd
-		for _, key := range msg {
-			_, cmd := m.Update(key)
+		for _, next := range msg {
+			_, cmd := m.Update(next)
 			cmds = append(cmds, cmd)
 		}
 		return m, tea.Batch(cmds...)
@@ -970,6 +968,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.layoutWorkspace()
 		return m, nil
 	case tea.KeyPressMsg:
+		msg = legacyKey(msg)
 		if m.infoOpen {
 			if keyIs(msg, actForceQuit) {
 				return m, m.interrupt()
@@ -1877,7 +1876,7 @@ func (m *Model) updateForm(key tea.KeyPressMsg) tea.Cmd {
 		}
 		return nil
 	}
-	if key.String() == keyOf(actSave) {
+	if keyIs(key, actSave) {
 		// F2 saves, or goes on to the next setup step, from any row; enter never saves.
 		if m.wizard != nil {
 			m.setupNext()
@@ -3893,7 +3892,7 @@ func wrap(i, n int) int {
 
 // sectionShortcut is the digit of an area: the section it opens on.
 func sectionShortcut(key string) (section, bool) {
-	at := slices.Index(keymap[actArea].Keys(), key)
+	at := slices.Index(areaKeys(), key)
 	if at < 0 || at >= int(areaCount) {
 		return 0, false
 	}
@@ -5268,10 +5267,10 @@ func Run(opts Options) error {
 	if predecessor != nil {
 		model.adopt(predecessor)
 	}
-	fragments := newFragmentFilter(time.Now)
+	input := kittui.NewInputFilter(time.Now)
 	program := tea.NewProgram(model, tea.WithInput(opts.In), tea.WithOutput(legacyKeys{opts.Out}),
-		tea.WithFilter(fragments.filter), tea.WithColorProfile(toColorprofile(currentProfile())))
-	fragments.send = program.Send
+		tea.WithFilter(input.Filter), tea.WithColorProfile(toColorprofile(currentProfile())))
+	input.Attach(program.Send)
 	_, err = program.Run()
 	return err
 }
@@ -5340,5 +5339,5 @@ func (m *Model) confirmView() string {
 		consequence = tr(tFormItsStoredSecretsAreNot)
 	}
 	return m.questionText(question{title: tr(tFormDelete, name), consequence: consequence, keys: keys, danger: true,
-		labels: map[string]string{keyOf(actYes): tr(tButtonDelete), keyOf(actNo): tr(tButtonCancel)}})
+		labels: map[string]string{keyLabel(actYes): tr(tButtonDelete), keyLabel(actNo): tr(tButtonCancel)}})
 }

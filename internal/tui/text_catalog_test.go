@@ -73,9 +73,9 @@ func TestEveryCatalogIDHasANonEmptyTextInBothLanguages(t *testing.T) {
 func TestProseNamesTheKeysInForce(t *testing.T) {
 	keepKeys(t)
 	eachLanguage(t, func(t *testing.T) {
-		applyKeys(uiprefs.Keys{Save: "f4", Lock: "f6"})
 		rebind(t, actSetup, "G")
-		rebind(t, actBack, "ctrl+b")
+		rebind(t, actBack, "ctrl+x")
+		applyKeys(uiprefs.Keys{Save: "f4", Lock: "f6"})
 		for _, c := range []struct {
 			id        textID
 			want, not string
@@ -83,7 +83,7 @@ func TestProseNamesTheKeysInForce(t *testing.T) {
 			{tVaultLockedUnlockKey, "F6", "ctrl+l"},
 			{tFormSaveTheCredentialWithF2, "F4", "F2"},
 			{tStepSetup, "G", " g"},
-			{tKeyDetailSuffix, "ctrl+b", "esc"},
+			{tKeyDetailSuffix, "ctrl+x", "esc"},
 			{tSearchField, "/", ""},
 		} {
 			got := tr(c.id)
@@ -91,7 +91,7 @@ func TestProseNamesTheKeysInForce(t *testing.T) {
 				t.Errorf("%s = %q, want %q and not %q", c.id, got, c.want, c.not)
 			}
 		}
-		if got := tr(tCmdCannot, "quit"); !strings.Contains(got, "ctrl+b") || strings.Contains(got, "esc") {
+		if got := tr(tCmdCannot, "quit"); !strings.Contains(got, "ctrl+x") || strings.Contains(got, "esc") {
 			t.Errorf("the command line refusal = %q, want the rebound back key", got)
 		}
 	})

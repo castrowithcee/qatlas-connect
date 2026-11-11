@@ -179,6 +179,9 @@ your token holds. A repository or organization policy can forbid a run although 
 | Enable or disable a workflow | `repo` | Actions: read and write |
 | Read Actions or workflow permissions | `repo`, as a repository administrator | Administration: read |
 | Change Actions or workflow permissions | `repo`, as a repository administrator | Administration: read and write |
+| Read the selected actions, fork pull request approval, retention, access, or OIDC subject claim of a repository | `repo`, as a repository administrator | Administration: read |
+| Change them | `repo`, as a repository administrator | Administration: read and write |
+| Read or change the selected actions, fork pull request approval, retention, or OIDC subject claim of an organization | `admin:org` | Administration or Actions policies, read, or read and write (organization); as far as GitHub documents it |
 | Read repository settings | `repo` for private repositories | Metadata: read |
 | Change repository settings and topics, including archiving and unarchiving | `repo`, as a repository administrator | Administration: write |
 | Read Actions variables of a repository; create, change, or delete them | `repo` | Variables: read; read and write to change |
@@ -189,7 +192,7 @@ your token holds. A repository or organization policy can forbid a run although 
 | Read deployments and deployment statuses | `repo` for private repositories, none for public | Deployments: read |
 | Name a team as reviewer of an environment | `read:org` | Members: read (organization) |
 
-Workflow files, Actions permissions, and repository settings are high risk. Give those connections a token of their
+Workflow files, Actions permissions and settings, and repository settings are high risk. Give those connections a token of their
 own that no other connection uses, ideally fine-grained and limited to the one repository, with only the
 permissions of the tools that connection lists. A branch protection or repository rule can refuse a file change
 although the token allows it.
@@ -249,9 +252,12 @@ so treat them as likely, not certain.
 
 | Tools | Classic | Fine-grained |
 | --- | --- | --- |
-| Code scanning alerts | `security_events` or `repo`; `public_repo` for a public repository | Code scanning alerts: read |
+| Code scanning alerts, instances, and analyses | `security_events` or `repo`; `public_repo` for a public repository | Code scanning alerts: read |
 | Dependabot alerts | `security_events` or `repo`; `public_repo` for a public repository | Dependabot alerts: read |
-| Secret scanning alerts | `repo` or `security_events` | Secret scanning alerts: read |
+| Secret scanning alerts and their locations | `repo` or `security_events` | Secret scanning alerts: read |
+| Dismiss or reopen a code scanning alert | `security_events` or `repo`; `public_repo` for a public repository | Code scanning alerts: read and write |
+| Dismiss or reopen a Dependabot alert | `security_events` or `repo`; `public_repo` for a public repository | Dependabot alerts: read and write |
+| Resolve or reopen a secret scanning alert | `repo` or `security_events` | Secret scanning alerts: read and write |
 | Global security advisories | none | none |
 | Repository security advisories | `repo` or `repository_advisories:read`, for a private repository or an unpublished advisory | Repository security advisories: read |
 | Organization security advisories | `repo` or `repository_advisories:write`, and an organization owner or security manager | Repository security advisories: write (GitHub requires write although the tool only reads) |
