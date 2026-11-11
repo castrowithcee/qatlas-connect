@@ -755,7 +755,7 @@ func TestToolDescribesOneCompactContract(t *testing.T) {
 			for _, format := range []string{"table", "compact"} {
 				code, stdout, stderr := runTools(t, nil, append(args, "--config", cfg, "--output", format)...)
 				want := "qconnect: usage: 'qconnect " + args[0] + "' writes toon or json, not " + format +
-					"; omit --output for toon or pass --output json\n"
+					"; omit --output for toon or pass --output json\n" + fallbackStep + "\n"
 				if code != exitUsage || stdout != "" || stderr != want {
 					t.Errorf("%v --output %s: exit=%d stdout=%q stderr=%q, want %q", args, format, code,
 						stdout, stderr, want)
@@ -1208,14 +1208,15 @@ func TestUnsupportedCapabilityNamesTheReason(t *testing.T) {
 			code, stdout, stderr := runTools(t, &reads, append(tt.args, "--config", cfg)...)
 			lines := strings.Split(strings.TrimSuffix(stderr, "\n"), "\n")
 			wantMessage := `qconnect: unsupported-capability: connection "wiki" does not offer tool ` +
-				`"bookstack.pages.delete" (effect-not-permitted); 'qconnect describe bookstack.pages.delete' names ` +
-				`the connections that offer it, or change the connection in 'qconnect tui'`
-			if code != exitUsage || stdout != "" || len(lines) != 2 || lines[0] != wantMessage {
+				`"bookstack.pages.delete" (effect-not-permitted)`
+			wantStep := `'qconnect describe bookstack.pages.delete' names the connections that offer it, or change ` +
+				`the connection in 'qconnect tui'`
+			if code != exitUsage || stdout != "" || len(lines) != 3 || lines[0] != wantMessage || lines[1] != wantStep {
 				t.Fatalf("exit=%d stdout=%q stderr=%q", code, stdout, stderr)
 			}
 			var detail map[string]any
-			if err := json.Unmarshal([]byte(lines[1]), &detail); err != nil {
-				t.Fatalf("detail = %q: %v", lines[1], err)
+			if err := json.Unmarshal([]byte(lines[2]), &detail); err != nil {
+				t.Fatalf("detail = %q: %v", lines[2], err)
 			}
 			if detail["code"] != "unsupported-capability" || detail["operation"] != "bookstack.pages.delete" ||
 				detail["connection"] != "wiki" || detail["reason"] != "effect-not-permitted" ||
