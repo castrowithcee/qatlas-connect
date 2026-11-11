@@ -11,9 +11,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"regexp"
 	"runtime"
-	"strconv"
 	"strings"
 	"syscall"
 	"testing"
@@ -185,6 +183,7 @@ defaults:
 		_, _, _ = c.run(t, "vault", "lock")
 		for _, pid := range vaultPIDs {
 			_ = syscall.Kill(pid, syscall.SIGKILL)
+			unregisterVaultProcess(pid)
 		}
 	})
 	statusPID := func() int {
@@ -200,11 +199,10 @@ defaults:
 	}
 
 	out, code := runAtTerminal(t, c, passphrase+"\n", "vault", "unlock")
-	match := regexp.MustCompile(`unlocked in a vault process \(pid (\d+)\)`).FindStringSubmatch(out)
-	if code != 0 || match == nil {
+	oldPID, ok := unlockedVaultPID(out, bin)
+	if code != 0 || !ok {
 		t.Fatalf("unlock: exit %d, output %q", code, out)
 	}
-	oldPID, _ := strconv.Atoi(match[1])
 	vaultPIDs = append(vaultPIDs, oldPID)
 	sockets := func(name string) []string {
 		found, _ := filepath.Glob(filepath.Join(runtimeDir, name, "vault-*"))
@@ -275,6 +273,7 @@ defaults:
 		}
 		newPID := statusPID()
 		vaultPIDs = append(vaultPIDs, newPID)
+		registerVaultProcess(newPID, bin)
 		if newPID == oldPID {
 			t.Errorf("the vault process is still %d, want a new one", oldPID)
 		}
