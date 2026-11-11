@@ -1,10 +1,10 @@
 ---
 description: >
-  Describes the GitHub pull request review tools: conversation comments, reviews with bundled line comments, replies, review threads, requested reviewers, and the listed-only approve.
+  Describes the GitHub pull request review tools: conversation comments, reviews with bundled line comments, replies, review threads, requested reviewers, changes to existing reviews and line comments, and the listed-only approve, dismiss, and line comment delete.
 type: knowledge
 edit: shared
 created: 2026-11-05
-updated: 2026-11-06
+updated: 2026-11-11
 ---
 
 # GitHub pull request reviews
@@ -22,10 +22,14 @@ reviewers. `github.comments.*` is unchanged and keeps refusing a pull request nu
 comment tools of this section are its mirror image, refusing an issue number instead, described below. A
 line comment is never written on its own: it exists only bundled into the one review
 that creates it, in `github.pull-request-reviews.create` or `.approve`, or as a reply to an existing one in
-`github.pull-request-review-comments.reply`. The eleven reads and changes below `approve` are offered by the
-not-recommended setup profile `pull-request-reviews`; approving is in no profile, offered only while a
-connection's `tools` list names `github.pull-request-reviews.approve`, because an approval given on the
-connection's behalf is the one outcome no other review tool can reach.
+`github.pull-request-review-comments.reply`. Existing reviews and line comments change with the tools described
+under [changing reviews and line comments](#changing-reviews-and-line-comments) below. The thirteen tools of this
+section that neither approve, dismiss, nor delete are offered by the not-recommended setup profile
+`pull-request-reviews`; approving is in no profile, offered only while a connection's `tools` list names
+`github.pull-request-reviews.approve`, because an approval given on the connection's behalf is the one outcome
+no other review tool can reach. `github.pull-request-reviews.dismiss` and
+`github.pull-request-review-comments.delete` are listed only as well, and
+`github.pull-request-reviews.delete-pending`, a delete, is in no profile.
 
 | Tool | Does |
 | --- | --- |
@@ -34,8 +38,13 @@ connection's behalf is the one outcome no other review tool can reach.
 | `github.pull-request-reviews.list` | lists the reviews of a pull request |
 | `github.pull-request-reviews.create` | submits a review as `comment` or `request_changes`, with its line comments bundled in |
 | `github.pull-request-reviews.approve` | approves, with an optional body and line comments; offered only where a connection's `tools` list names it |
+| `github.pull-request-reviews.update` | replaces the text of a pending review or of a review the token's user wrote |
+| `github.pull-request-reviews.dismiss` | dismisses an approval or a request for changes, with a required message; offered only where a connection's `tools` list names it |
+| `github.pull-request-reviews.delete-pending` | deletes a pending review that was not submitted yet |
 | `github.pull-request-review-comments.list` | lists the line comments of a pull request, across every review |
 | `github.pull-request-review-comments.reply` | writes exactly one reply in the thread of one line comment |
+| `github.pull-request-review-comments.update` | replaces the body of a line comment |
+| `github.pull-request-review-comments.delete` | deletes a line comment permanently; offered only where a connection's `tools` list names it |
 | `github.pull-request-review-threads.list` | lists the review threads of a pull request, each with its resolved state and its comments |
 | `github.pull-request-review-threads.resolve` | marks one review thread resolved |
 | `github.pull-request-review-threads.unresolve` | opens one resolved review thread again |
@@ -49,8 +58,9 @@ connections:
     credential: github-operator
     target: repos/octo-org/example
     tools: [github.pull-request-comments.list, github.pull-request-comments.create,
-      github.pull-request-reviews.list, github.pull-request-reviews.create,
+      github.pull-request-reviews.list, github.pull-request-reviews.create, github.pull-request-reviews.update,
       github.pull-request-review-comments.list, github.pull-request-review-comments.reply,
+      github.pull-request-review-comments.update,
       github.pull-request-review-threads.list, github.pull-request-review-threads.resolve,
       github.pull-request-review-threads.unresolve, github.pull-request-reviewers.request,
       github.pull-request-reviewers.remove]
@@ -81,6 +91,32 @@ and refuses `invalid-request` naming the expected and the current commit, or, fo
 continuation never pages with other filters.
 `github.pull-request-review-comments.reply` takes `comment_id`, as the list reports it, and writes exactly one
 reply in its thread; a `comment_id` GitHub does not hold answers not found, naming the review comment.
+
+### Changing reviews and line comments
+
+`github.pull-request-reviews.update`, `.dismiss`, and `.delete-pending` take `number` and `review_id`, the `id`
+`github.pull-request-reviews.list` reports. Every one reads the review first, below that pull request of the
+chosen repository: a review that GitHub does not hold there, such as one of another pull request or another
+repository, answers `not-found` and nothing is sent. The change itself is one request that is never repeated;
+a timeout, a server error, or an unreadable answer is reported as an uncertain outcome.
+
+`.update` replaces the review's summary (`body`, required). GitHub decides who may change a review, a pending
+one or one the token's user wrote; its rejection is reported as `provider-error` naming that rule, and a
+refusal for lack of a right as `permission`. `.dismiss` takes a required `message`, 1 to 65536 characters, which
+GitHub shows with the dismissal; it discards an approval or a request for changes of another reviewer and is
+listed only for that reason. GitHub dismisses only an approval or a request for changes that is not dismissed
+yet and rejects anything else. `.delete-pending` deletes the review and the line comments bundled in it, and only
+when the read before it shows the state `PENDING`; a submitted review is refused as `invalid-request` without a
+request. Reviews are still created in one call and never as a multi-step draft, so a pending review exists only
+where it was started outside Qatlas.
+
+`github.pull-request-review-comments.update` and `.delete` take `comment_id`, the `id`
+`github.pull-request-review-comments.list` reports, and an optional `number`. The comment is read first, below
+the chosen repository; a comment of another repository answers `not-found`. With `number` it must also belong to
+that pull request, otherwise it answers `not-found` too and nothing is sent; without `number` the repository
+alone binds it. GitHub changes only comments the token's user wrote or that its rights reach. `.delete` removes
+the comment permanently. The texts of a change are untrusted data, bounded to 65536 characters, and GitHub's own
+text never appears in a message.
 
 GitHub keeps whether a review thread is resolved only in GraphQL, never in the REST line comments read
 above, so `github.pull-request-review-threads.list`, `.resolve`, and `.unresolve` read and change that state on

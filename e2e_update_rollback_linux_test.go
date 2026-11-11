@@ -39,8 +39,9 @@ func TestUpdateToAnOlderVersionRestoresABackupItReads(t *testing.T) {
 
 	build := func(path, version string) {
 		t.Helper()
-		cmd := exec.Command("go", "build", "-tags", "e2e", "-buildvcs=false", "-ldflags",
-			"-X github.com/castrowithcee/qatlas-connect/internal/cli.version="+version+
+		// Stripped like a release build: the updater refuses a program over its size limit.
+		cmd := exec.Command("go", "build", "-tags", "e2e", "-buildvcs=false", "-trimpath", "-ldflags",
+			"-s -w -X github.com/castrowithcee/qatlas-connect/internal/cli.version="+version+
 				" -X 'github.com/castrowithcee/qatlas-connect/internal/release.extraKeyLines="+keyLine+"'"+
 				" -X github.com/castrowithcee/qatlas-connect/internal/selfupdate.testBaseURL="+releases.RepositoryAPI(),
 			"-o", path, ".")

@@ -790,8 +790,8 @@ func TestPullRequestReviewsProfileExcludesApproveAndIsNotRecommended(t *testing.
 		t.Fatalf("profile = %+v, found=%v, want an existing, not-recommended profile", profile, found)
 	}
 	want := []string{pullRequestCommentsList.ID, pullRequestCommentsCreate.ID, pullRequestReviewsList.ID,
-		pullRequestReviewsCreate.ID, pullRequestReviewCommentsList.ID, pullRequestReviewCommentsReply.ID,
-		pullRequestReviewThreadsList.ID, pullRequestReviewThreadsResolve.ID, pullRequestReviewThreadsUnresolve.ID,
+		pullRequestReviewsCreate.ID, pullRequestReviewsUpdate.ID, pullRequestReviewCommentsList.ID,
+		pullRequestReviewCommentsReply.ID, pullRequestReviewCommentsUpdate.ID, pullRequestReviewThreadsList.ID, pullRequestReviewThreadsResolve.ID, pullRequestReviewThreadsUnresolve.ID,
 		pullRequestReviewersRequest.ID, pullRequestReviewersRemove.ID}
 	if strings.Join(profile.Tools, ",") != strings.Join(want, ",") {
 		t.Errorf("tools = %v, want %v", profile.Tools, want)
