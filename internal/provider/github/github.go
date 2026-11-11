@@ -40,7 +40,10 @@
 // identifier, tag, or as the latest published one, lists the metadata of a release's assets, generates
 // release notes, creates and updates releases, and renames or relabels an asset; only a connection whose tools
 // list names them deletes a release or one of its assets, because the tag it was cut from stays behind and the
-// notes and attachments do not. A tool that touches a project and a repository checks both. The account tool reads the login, name,
+// notes and attachments do not. The security tools read the security switches of a repository and its code
+// scanning default setup; only a connection whose tools list names github.security-settings.update or
+// github.code-scanning-setup.update changes them, and a switch GitHub does not offer is reported as
+// unavailable, never as off. A tool that touches a project and a repository checks both. The account tool reads the login, name,
 // type, and plan of the account behind the connection's token; it and the star list, which reads the
 // account's starred repositories, name no repository, project, or owner and are offered only by a connection
 // whose targets name neither a repository nor a project. The star tools also star and unstar one repository
@@ -862,9 +865,10 @@ func Register(reg *capability.Registry) error {
 			ID: "security", Title: "Security alerts",
 			Description: "not recommended: lists and reads the code scanning, Dependabot, and secret scanning " +
 				"alerts of a repository, the global and repository security advisories, and code quality " +
-				"findings, and the instances, analyses, and locations behind the alerts; the found secret of a secret " +
-				"scanning alert is never shown; changes nothing, since the alert updates are offered only where a " +
-				"connection's tools list names them",
+				"findings, the instances, analyses, and locations behind the alerts, and the security switches and the " +
+				"code scanning default setup of a repository; the found secret of a secret scanning alert is never " +
+				"shown; changes nothing, since the alert updates and the changes of the switches and the default setup " +
+				"are offered only where a connection's tools list names them",
 			Tools: securityAlertTools,
 		}, {
 			ID: "copilot", Title: "Copilot",
@@ -904,7 +908,7 @@ func Register(reg *capability.Registry) error {
 		contentsWriteOperations(), refsWriteOperations(), repositoriesOperations(), repositoryDetailOperations(), trafficOperations(), repositoryStatsOperations(), rulesetsOperations(), branchProtectionOperations(), customPropertiesOperations(), actionVariablesOperations(), actionCachesOperations(), runCleanupOperations(),
 		labelsOperations(), milestonesOperations(), commentMaintenanceOperations(), commentVisibilityOperations(), issueLockOperations(), reactionsOperations(),
 		subIssuesOperations(), issueDependenciesOperations(), issueHistoryOperations(), issueTypesOperations(), issueFieldsOperations(),
-		discussionOperations(), notificationOperations(), gistOperations(), securityAlertOperations(), securityAlertUpdateOperations(), securityAlertDetailOperations(), advisoryOperations(),
+		discussionOperations(), notificationOperations(), gistOperations(), securityAlertOperations(), securityAlertUpdateOperations(), securityAlertDetailOperations(), advisoryOperations(), securitySettingsOperations(),
 		copilotOperations(), environmentsOperations(), deploymentsOperations(), referenceOperations())...)
 	for i := range operations {
 		operations[i].Descriptor = withGroup(withTargetArgument(operations[i].Descriptor))
@@ -2090,13 +2094,21 @@ func (c *Client) do(ctx context.Context, op, method, endpoint string, payload []
 	}
 	// A read GitHub answers 202 or 204 sends no body; the caller tells the two apart by status.
 	if status != nil && len(bytes.TrimSpace(data)) == 0 &&
-		(*status == http.StatusAccepted || *status == http.StatusNoContent) {
+		(*status == http.StatusAccepted || *status == http.StatusNoContent || acceptsEmptyBody(out)) {
 		return nil
 	}
 	if err := json.Unmarshal(data, out); err != nil {
 		return invalidResponse(op, change)
 	}
 	return nil
+}
+
+// emptyBodyAnswer marks a decode target of a route that may answer 200 without any body.
+type emptyBodyAnswer interface{ allowsEmptyBody() }
+
+func acceptsEmptyBody(out any) bool {
+	_, ok := out.(emptyBodyAnswer)
+	return ok
 }
 
 // authorize sets the shared authentication, version, and client headers of a GitHub API request.

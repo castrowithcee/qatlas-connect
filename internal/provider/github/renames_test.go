@@ -69,6 +69,8 @@ var currentToolIDs = []string{
 	"github.secret-scanning-locations.list",
 	"github.code-scanning-alerts.get",
 	"github.code-scanning-alerts.list",
+	"github.code-scanning-setup.get",
+	"github.code-scanning-setup.update",
 	"github.code.search",
 	"github.collaborators.list",
 	"github.comments.create",
@@ -271,6 +273,8 @@ var currentToolIDs = []string{
 	"github.rulesets.update",
 	"github.secret-scanning-alerts.get",
 	"github.secret-scanning-alerts.list",
+	"github.security-settings.get",
+	"github.security-settings.update",
 	"github.stars.add",
 	"github.stars.list",
 	"github.stars.remove",
@@ -336,7 +340,7 @@ func TestRegistryHoldsExactlyTheCurrentToolIDs(t *testing.T) {
 	sort.Strings(got)
 	want := append([]string(nil), currentToolIDs...)
 	sort.Strings(want)
-	if strings.Join(got, "\n") != strings.Join(want, "\n") || len(got) != 311 {
+	if strings.Join(got, "\n") != strings.Join(want, "\n") || len(got) != 315 {
 		t.Errorf("registry holds %d tools, differing from the expected %d IDs", len(got), len(want))
 	}
 	if err := reg.ValidateRenames(); err != nil {
@@ -376,6 +380,8 @@ func TestRenamedToolsCoverEveryChangedID(t *testing.T) {
 		"github.dependabot-alerts.update": true, "github.secret-scanning-alerts.update": true,
 		"github.secret-scanning-locations.list": true,
 		"github.actions-selected.get":           true, "github.actions-selected.set": true, "github.actions-fork-approval.get": true, "github.actions-fork-approval.set": true, "github.actions-retention.get": true, "github.actions-retention.set": true, "github.actions-access.get": true, "github.actions-access.set": true, "github.actions-oidc.get": true, "github.actions-oidc.set": true, "github.commit-branches.list": true,
+		"github.security-settings.get": true, "github.security-settings.update": true,
+		"github.code-scanning-setup.get": true, "github.code-scanning-setup.update": true,
 		"github.release-assets.update": true, "github.release-assets.delete": true, "github.release-notes.generate": true,
 		"github.commit-comments.get": true, "github.commit-comments.list": true, "github.commit-pulls.list": true,
 		"github.community-profile.get": true,
