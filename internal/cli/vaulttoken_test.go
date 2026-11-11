@@ -293,8 +293,8 @@ func TestVaultTokenModelFlagAndHiddenAlias(t *testing.T) {
 	for _, flag := range []string{"--model", "--vorbild"} {
 		name := map[string]string{"--model": "via-new", "--vorbild": "via-old"}[flag]
 		code, stdout, stderr := run("vault", "token", "create", name, flag, "wiki")
-		if code != exitOK || !strings.Contains(stdout, "models") || strings.Contains(stdout, "vorbild") {
-			t.Fatalf("create %s: exit %d, stdout %q, stderr %q, want models", flag, code, stdout, stderr)
+		if code != exitOK || !strings.Contains(stdout, "MODELS") || strings.Contains(strings.ToLower(stdout), "vorbild") {
+			t.Fatalf("create %s: exit %d, stdout %q, stderr %q, want MODELS", flag, code, stdout, stderr)
 		}
 	}
 	code, stdout, _ := run("vault", "token", "create", "mixed", "--model", "wiki", "--vorbild", "wiki")

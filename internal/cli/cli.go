@@ -17,10 +17,10 @@ import (
 	"github.com/castrowithcee/qatlas-connect/internal/config"
 	"github.com/castrowithcee/qatlas-connect/internal/envvar"
 	"github.com/castrowithcee/qatlas-connect/internal/helptopics"
-	"github.com/castrowithcee/qatlas-connect/internal/output"
 	"github.com/castrowithcee/qatlas-connect/internal/secret"
 	"github.com/castrowithcee/qatlas-connect/internal/selfupdate"
 	kithelp "github.com/castrowithcee/qatlas-kit/helptopics"
+	"github.com/castrowithcee/qatlas-kit/output"
 	"github.com/castrowithcee/qatlas-kit/redact"
 )
 
