@@ -67,6 +67,7 @@ type tool struct {
 
 	input, output *awsquery.Shape
 	pager         *awsquery.Pager
+	multi         *httpbind.MultiPager
 	hasToken      bool
 
 	// rest is true for a restJson1 or restXml tool; xml says it is restXml, and noWrap is the service's
@@ -305,13 +306,27 @@ func deprecated(mm member) bool { return mm.traits.has("smithy.api#deprecated") 
 // pagingPlan is what paging takes out of the public arguments and fields.
 type pagingPlan struct {
 	tokenIn, tokenOut, sizeMember, truncated string
+	// ins and outs hold every member of the position, the first being tokenIn and tokenOut. More than one
+	// makes a cursor over several members (Route 53 record sets).
+	ins, outs []string
+	// starts says that the members of ins are also offered as arguments of the first page.
+	starts bool
 }
 
 // paging derives the pager from the paginated trait, or from Marker with IsTruncated without one.
 func (t *tool) paging(m *Model, shape *object, in, out []member) (*pagingPlan, error) {
 	var p pagingPlan
 	trait := shape.obj("traits").obj("smithy.api#paginated")
-	if trait != nil {
+	if spec := t.pagerSpec(); spec != nil {
+		// The table names the paging of a list the model leaves unpaged or pages by several members.
+		for _, pos := range spec.Positions {
+			p.ins, p.outs = append(p.ins, pos.In), append(p.outs, pos.Out)
+		}
+		p.tokenIn, p.tokenOut, p.sizeMember, p.truncated = p.ins[0], p.outs[0], spec.PageSize, orDefault(spec.Truncated, "IsTruncated")
+		if p.starts = spec.StartArguments; p.starts && len(p.ins) < 2 {
+			return nil, t.failf("start arguments need a list of several positions")
+		}
+	} else if trait != nil {
 		base := m.service.obj("traits").obj("smithy.api#paginated")
 		pick := func(k string) string {
 			if trait.has(k) {
@@ -335,18 +350,29 @@ func (t *tool) paging(m *Model, shape *object, in, out []member) (*pagingPlan, e
 			p.sizeMember = "MaxItems"
 		}
 	}
-	for _, name := range []string{p.tokenIn, p.tokenOut, p.sizeMember} {
+	if p.ins == nil {
+		p.ins, p.outs = []string{p.tokenIn}, []string{p.tokenOut}
+	}
+	for _, name := range slices.Concat(p.ins, p.outs, []string{p.sizeMember}) {
 		if strings.Contains(name, ".") {
 			return nil, t.failf("paging member %s is nested", name)
 		}
 	}
-	if mm, ok := find(in, p.tokenIn); !ok || mm.kind != "string" {
-		return nil, t.failf("paging input token %s is not a string member", p.tokenIn)
+	for _, name := range p.ins {
+		if mm, ok := find(in, name); !ok || !stringKind(mm.kind) {
+			return nil, t.failf("paging input token %s is not a string member", name)
+		}
 	}
-	if mm, ok := find(out, p.tokenOut); !ok || mm.kind != "string" {
-		return nil, t.failf("paging output token %s is not a string member", p.tokenOut)
+	for _, name := range p.outs {
+		if mm, ok := find(out, name); !ok || !stringKind(mm.kind) {
+			return nil, t.failf("paging output token %s is not a string member", name)
+		}
 	}
-	if mm, ok := find(out, truncatedMember(out)); ok {
+	truncated := truncatedMember(out)
+	if t.pagerSpec() != nil {
+		truncated = p.truncated
+	}
+	if mm, ok := find(out, truncated); ok {
 		if mm.kind != "boolean" {
 			return nil, t.failf("%s is not a boolean", mm.name)
 		}
@@ -443,7 +469,8 @@ func (t *tool) bindInput(m *Model, in []member, pag *pagingPlan) error {
 		if t.layerOwned(mm.name) {
 			continue
 		}
-		if pag != nil && (mm.name == pag.tokenIn || mm.name == pag.sizeMember) {
+		startArg := pag != nil && pag.starts && slices.Contains(pag.ins, mm.name)
+		if pag != nil && !startArg && (slices.Contains(pag.ins, mm.name) || mm.name == pag.sizeMember) {
 			continue
 		}
 		if mm.traits.has("smithy.api#idempotencyToken") || (t.op.TokenMember != "" && mm.name == t.op.TokenMember) {
@@ -473,8 +500,11 @@ func (t *tool) bindInput(m *Model, in []member, pag *pagingPlan) error {
 		if err != nil {
 			return err
 		}
-		shape.Fields = append(shape.Fields, awsquery.Field{Key: name, Name: t.wire(mm), Shape: s, Flattened: mm.traits.has("smithy.api#xmlFlattened")})
-		t.inModel[name] = mm.name
+		if !startArg {
+			// A start argument is only in the schema: the page carries it to the request, like the cursor.
+			shape.Fields = append(shape.Fields, awsquery.Field{Key: name, Name: t.wire(mm), Shape: s, Flattened: mm.traits.has("smithy.api#xmlFlattened")})
+			t.inModel[name] = mm.name
+		}
 		props.set(name, schema)
 		isRequired := mm.traits.has("smithy.api#required")
 		if isRequired {
@@ -530,6 +560,20 @@ func (t *tool) bindInput(m *Model, in []member, pag *pagingPlan) error {
 		}
 		tokenIn, _ := find(in, pag.tokenIn)
 		t.pager.TokenIn = t.wire(tokenIn)
+		if len(pag.ins) > 1 {
+			// The positions come from the binding of the model; assembleRest sets the page size name.
+			if t.restBind == nil || t.restBind.Multi == nil {
+				return t.failf("paging by several members needs a REST binding")
+			}
+			t.multi = &httpbind.MultiPager{Positions: slices.Clone(t.restBind.Multi.Positions), Truncated: t.restBind.Multi.Truncated,
+				SizeParam: t.pager.SizeParam, MaxSize: t.pager.MaxSize}
+			if pag.starts {
+				for i, name := range pag.ins {
+					t.multi.Positions[i].Start = orDefault(t.op.Arguments[name].Name, snake(name))
+				}
+			}
+			t.pager = nil
+		}
 		props.set(awsquery.ArgCursor, newObject("type", "string", "maxLength", awsquery.MaxCursorLength))
 		t.args = append(t.args, descArg{name: awsquery.ArgCursor, description: "next_cursor of the previous page, to " +
 			"continue the list; valid only with the same arguments"})
@@ -616,7 +660,7 @@ func (t *tool) bindOutput(m *Model, out []member, pag *pagingPlan) error {
 		if t.op.AccountCheck && !slices.Contains(accountCheckMembers, mm.name) {
 			return t.failf("the account check answers only %v, not %s", accountCheckMembers, mm.name)
 		}
-		if pag != nil && (mm.name == pag.tokenOut || mm.name == pag.truncated) {
+		if pag != nil && (slices.Contains(pag.outs, mm.name) || mm.name == pag.truncated) {
 			// Kept in the shape for the pager, never returned.
 			c := converter{m: m, t: t, path: mm.name, output: true}
 			s, _, err := c.convert(mm.target, mm.traits, true, 0)
@@ -688,6 +732,9 @@ func (t *tool) bindOutput(m *Model, out []member, pag *pagingPlan) error {
 	}
 	if pag != nil {
 		for _, f := range shape.Fields {
+			if t.pager == nil {
+				break
+			}
 			switch f.Name {
 			case t.pagingWire(out, pag.tokenOut):
 				t.pager.TokenOut = f.Key
@@ -1217,8 +1264,8 @@ const sampleTrustPolicy = `{"Version":"2012-10-17","Statement":[{"Effect":"Allow
 const sampleResourcePolicy = `{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Principal":{"AWS":"123456789012"},"Action":"ses:SendEmail","Resource":"*"}]}`
 
 // sampleWords are whole values tried after the repeated characters, for patterns with a fixed prefix such as
-// the version IDs of IAM policies.
-var sampleWords = []string{"v1"}
+// the version IDs of IAM policies the UUID of a Route 53 CIDR collection, or an IPv4 address.
+var sampleWords = []string{"v1", "00000000-0000-0000-0000-000000000000", "192.0.2.1"}
 
 func (t *tool) sample(path string, s *awsquery.Shape, rawSchema any) (any, error) {
 	schema, _ := rawSchema.(map[string]any)
@@ -1297,7 +1344,7 @@ func intOf(v any, fallback int) int {
 // answer writes the members of a struct shape as the XML of an answer. Paging ends on the first page.
 func (t *tool) answer(b *strings.Builder, s *awsquery.Shape) error {
 	for _, f := range s.Fields {
-		if t.pager != nil && f.Key == t.pager.TokenOut {
+		if t.pagedOut(f.Key) {
 			continue
 		}
 		var inner strings.Builder
@@ -1359,7 +1406,7 @@ func (t *tool) scalarSample(f awsquery.Field) string {
 	case awsquery.KindFloat:
 		return "1.5"
 	case awsquery.KindBoolean:
-		if t.pager != nil && f.Key == t.pager.Truncated {
+		if t.pagedTruncated(f.Key) {
 			return "false"
 		}
 		return "true"
@@ -1410,3 +1457,39 @@ func (t *tool) urlEncoded(m *Model, target string) (URLEncoded, bool) {
 	}
 	return URLEncoded{}, false
 }
+
+// pagerSpec is the table's paging of the operation, nil for none.
+func (t *tool) pagerSpec() *PagerSpec {
+	if t.table == nil || !t.rest {
+		return nil
+	}
+	for i := range t.table.Pagers {
+		if t.table.Pagers[i].Operation == t.op.Operation {
+			return &t.table.Pagers[i]
+		}
+	}
+	return nil
+}
+
+// pagedOut reports an output key that carries a position of the list: it never reaches a result, and a
+// generated answer leaves it out so that the list ends on the first page.
+func (t *tool) pagedOut(key string) bool {
+	if t.pager != nil {
+		return key == t.pager.TokenOut
+	}
+	if t.multi != nil {
+		return slices.ContainsFunc(t.multi.Positions, func(p httpbind.Position) bool { return p.Out == key })
+	}
+	return false
+}
+
+// pagedTruncated reports the output key that says whether the list continues.
+func (t *tool) pagedTruncated(key string) bool {
+	if t.pager != nil {
+		return key == t.pager.Truncated
+	}
+	return t.multi != nil && key == t.multi.Truncated
+}
+
+// stringKind reports a member that is text on the wire: a string, or an enum, which a position of a list may be.
+func stringKind(kind string) bool { return kind == "string" || kind == "enum" }

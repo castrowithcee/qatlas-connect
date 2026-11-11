@@ -448,6 +448,14 @@ func (s toolSpec) startPage(region string, args map[string]any) (listPage, error
 	cursor, _ := args[awsquery.ArgCursor].(string)
 	delete(args, awsquery.ArgPageSize)
 	delete(args, awsquery.ArgCursor)
+	var start map[string]string
+	if s.multi != nil {
+		// The start arguments leave args here, so the cursor of a list that began at one is the cursor of the same list.
+		var err error
+		if start, err = s.multi.TakeStart(args); err != nil {
+			return nil, err
+		}
+	}
 	bound := make(map[string]any, len(args)+1)
 	for k, v := range args {
 		bound[k] = v
@@ -466,7 +474,7 @@ func (s toolSpec) startPage(region string, args map[string]any) (listPage, error
 	}
 	binding := awsquery.Binding(s.descriptor.ID, bound)
 	if s.multi != nil {
-		return s.multi.Start(binding, size, cursor)
+		return s.multi.StartAt(binding, size, cursor, start)
 	}
 	return s.pager.Start(binding, size, cursor)
 }
