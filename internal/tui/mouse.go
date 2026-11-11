@@ -1,9 +1,11 @@
 package tui
 
 import (
+	"strconv"
 	"strings"
 
 	tea "charm.land/bubbletea/v2"
+	kittui "github.com/castrowithcee/qatlas-kit/tui"
 	"github.com/charmbracelet/x/ansi"
 )
 
@@ -54,29 +56,6 @@ func (m *Model) markDialog(dialog []string, top, left int) {
 		w = max(w, ansi.StringWidth(line))
 	}
 	m.dialogBox = hit{x0: left, y0: top, x1: left + w, y1: top + len(dialog)}
-}
-
-// barAt is the click on a tab at the cell, unless a dialog covers it.
-func (m *Model) barAt(x, y int) (func() tea.Cmd, bool) {
-	if d := m.dialogBox; x >= d.x0 && x < d.x1 && y >= d.y0 && y < d.y1 {
-		return nil, false
-	}
-	for _, h := range m.barHits {
-		if x >= h.x0 && x < h.x1 && y >= h.y0 && y < h.y1 {
-			return h.act, true
-		}
-	}
-	return nil, false
-}
-
-// clickBar is the click on a tab, if the cell is one.
-func (m *Model) clickBar(event tea.Mouse) (tea.Cmd, bool) {
-	act, ok := m.barAt(event.X, event.Y)
-	if !ok {
-		return nil, false
-	}
-	m.touchAdminSessionIfActive()
-	return act(), true
 }
 
 // addZone registers a focus zone: the free area of a part of the screen that a key press can focus. A click on
@@ -157,39 +136,106 @@ func (m *Model) updateMouse(msg tea.MouseMsg) tea.Cmd {
 	// the event does leaves the frame stale.
 	m.verified = !m.tooSmall
 	defer func() { m.verified, m.drawn = false, false }()
-	if m.infoOpen {
-		if wheel {
-			return m.wheel(event)
-		}
-		// The explanation closes the way esc closes it; a click on a tab then goes on.
-		m.infoOpen = false
-		cmd, _ := m.clickBar(event)
-		return cmd
-	}
 	if m.tooSmall {
 		return nil
 	}
+	// The targets of the frame go through the kit map; the acts stay with the application, which runs the
+	// click as the key or the tab click it stands for.
 	if wheel {
-		if m.dd != nil {
+		targets, _ := m.mouseTargets(false)
+		if !kittui.NewMouseMap(targets, true).Handle(msg).Handled || (m.dd != nil && !m.infoOpen) {
 			return nil
 		}
 		return m.wheel(event)
 	}
-	if m.dd != nil {
-		return m.clickDropdown(event.X, event.Y)
-	}
-	if cmd, ok := m.clickBar(event); ok {
+	if m.infoOpen {
+		// The explanation closes the way esc closes it; a click on a tab then goes on.
+		m.infoOpen = false
+		cmd, _ := m.clickBar(msg)
 		return cmd
 	}
-	hits := append(append(append([]hit{}, m.zones...), m.frameHits...), m.hits...)
-	for i := len(hits) - 1; i >= 0; i-- {
-		h := hits[i]
-		if event.X >= h.x0 && event.X < h.x1 && event.Y >= h.y0 && event.Y < h.y1 {
-			m.touchAdminSessionIfActive()
-			return h.act()
+	if m.dd != nil {
+		return m.clickDropdown(msg)
+	}
+	targets, acts := m.mouseTargets(false)
+	return m.runTarget(kittui.NewMouseMap(targets, true).Handle(msg), acts)
+}
+
+// clickBar is the click on a tab of the tab line or the option bar, if the event is one. A dialog covers the
+// tabs under it.
+func (m *Model) clickBar(msg tea.MouseMsg) (tea.Cmd, bool) {
+	targets, acts := m.mouseTargets(true)
+	r := kittui.NewMouseMap(targets, true).Handle(msg)
+	if !r.Handled || acts[targetIndex(r)] == nil {
+		return nil, false
+	}
+	return m.runTarget(r, acts), true
+}
+
+// mouseTargets is the bridge from the click targets of the frame to kit targets. Each old target becomes one
+// kit target whose Item (or, for a zone, Zone) is its index in acts; the kit map finds the target, the act
+// stays the application's. Later stages replace the bridged targets of a part by the part's own. Stacking
+// follows from the order: a zone lies below every element, a tab bar target below the frame and workspace
+// targets (a dialog over a tab takes the click there), and the explanation leaves the tab bars alone.
+func (m *Model) mouseTargets(barsOnly bool) ([]kittui.Target, []func() tea.Cmd) {
+	var targets []kittui.Target
+	var acts []func() tea.Cmd
+	add := func(h hit, zone bool) {
+		id := strconv.Itoa(len(acts))
+		t := kittui.Target{Rect: kittui.Rect{X: h.x0, Y: h.y0, Width: h.x1 - h.x0, Height: h.y1 - h.y0}}
+		if zone {
+			t.Zone = kittui.FocusZone(id)
+		} else {
+			t.Item = id
+		}
+		targets = append(targets, t)
+		acts = append(acts, h.act)
+	}
+	if !barsOnly {
+		for _, h := range m.zones {
+			add(h, true)
 		}
 	}
-	return nil
+	for _, h := range m.barHits {
+		add(h, false)
+	}
+	if d := m.dialogBox; d.x1 > d.x0 && d.y1 > d.y0 {
+		// The dialog covers the tabs under it: a click on its text reaches no tab and does nothing.
+		add(d, false)
+		acts[len(acts)-1] = nil
+	}
+	if !barsOnly {
+		for _, h := range m.frameHits {
+			add(h, false)
+		}
+		for _, h := range m.hits {
+			add(h, false)
+		}
+	}
+	return targets, acts
+}
+
+// targetIndex is the index in acts that a kit result names: its item, or for a bare zone the zone.
+func targetIndex(r kittui.MouseResult) int {
+	id := r.Item
+	if id == "" {
+		id = string(r.Zone)
+	}
+	i, err := strconv.Atoi(id)
+	if err != nil {
+		return -1
+	}
+	return i
+}
+
+// runTarget runs the act of a kit result as the click it stands for: a bare zone focuses, an item acts.
+func (m *Model) runTarget(r kittui.MouseResult, acts []func() tea.Cmd) tea.Cmd {
+	i := targetIndex(r)
+	if i < 0 || i >= len(acts) || acts[i] == nil {
+		return nil
+	}
+	m.touchAdminSessionIfActive()
+	return acts[i]()
 }
 
 // wheelScreens are the screens whose up and down keys move over rows; the wheel is those keys there.
