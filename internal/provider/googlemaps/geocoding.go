@@ -7,6 +7,7 @@ import (
 	"mime"
 	"net/http"
 	"net/url"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -21,8 +22,8 @@ import (
 	"github.com/castrowithcee/qatlas-kit/redact"
 )
 
-// Geocoding runs on the legacy web service. It takes no key header, so the key travels in the query; this is
-// the only request of the package that does that. The host and path are constants and no argument can change
+// Geocoding runs on the legacy web service. It takes no key header, so the key travels in the query; Roads,
+// Elevation, Time Zone, and Geolocation do the same. The host and path are constants and no argument can change
 // them.
 const (
 	geocodingRoot = "https://maps.googleapis.com"
@@ -39,12 +40,29 @@ var geocodingRisk = capability.Risk{
 	OpenWorld: true, DataSensitivity: addressDataSensitivity,
 }
 
-// geocode sends one GET request, once, to the fixed legacy endpoint and returns the answer object of an HTTP
-// 200 whose status is OK or ZERO_RESULTS. The URL carries the key, so it never leaves this function: Go's
-// url.Error would quote it, and provider.Transport copies no error text. query holds checked arguments only.
+// legacyService names one of the Maps web services of the legacy form: a GET with the key in the query that
+// answers HTTP 200 with a status in the body. root and path are package constants, never text of a caller.
+// empty lists statuses besides OK and ZERO_RESULTS that stand for "no data" and not for a failure.
+type legacyService struct {
+	root, path, name string
+	empty            []string
+}
+
+var geocodingService = legacyService{root: geocodingRoot, path: geocodingPath, name: "Geocoding"}
+
+// geocode sends one request to the Geocoding web service and returns the answer object of an HTTP 200 whose
+// status is OK or ZERO_RESULTS.
 func (c *Client) geocode(ctx context.Context, op string, query url.Values) (map[string]any, error) {
+	return c.legacyGet(ctx, op, geocodingService, query)
+}
+
+// legacyGet sends one GET request, once, to the fixed endpoint of svc and returns the answer object of an HTTP
+// 200 whose status is OK, ZERO_RESULTS, or one of svc.empty. The URL carries the key, so it never leaves this
+// function: Go's url.Error would quote it, and provider.Transport copies no error text. query holds checked
+// arguments only.
+func (c *Client) legacyGet(ctx context.Context, op string, svc legacyService, query url.Values) (map[string]any, error) {
 	query.Set("key", c.key)
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, geocodingRoot+geocodingPath+"?"+query.Encode(), nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, svc.root+svc.path+"?"+query.Encode(), nil)
 	if err != nil {
 		return nil, failure(op, "the request could not be built")
 	}
@@ -67,8 +85,8 @@ func (c *Client) geocode(ctx context.Context, op string, query url.Values) (map[
 		mapped := provider.ClassifyStatus(op, response.StatusCode, provider.StatusTexts{
 			Subject:    "Google",
 			Auth:       "Google rejected the API key; check the key",
-			Permission: "Google refused the key for the Geocoding API; check that the API is enabled in the key's project, that the project has a billing account, and the key's restrictions",
-			NotFound:   "Google did not find the Geocoding endpoint; the API may have changed",
+			Permission: "Google refused the key for the " + svc.name + " API; check that the API is enabled in the key's project, that the project has a billing account, and the key's restrictions",
+			NotFound:   "Google did not find the " + svc.name + " endpoint; the API may have changed",
 		})
 		mapped.Original = provider.ErrorOriginal(response.StatusCode, body, googleapi.Fields)
 		return nil, mapped
@@ -82,7 +100,7 @@ func (c *Client) geocode(ctx context.Context, op string, query url.Values) (map[
 	if err != nil || len(body) > maxResponseBytes {
 		return nil, provider.InvalidResponse(op, "the Google response could not be read within the size limit")
 	}
-	if _, failed := legacyStatus(op, body); failed != nil {
+	if state, failed := legacyStatus(op, body); failed != nil && !slices.Contains(svc.empty, state) {
 		return nil, failed
 	}
 	var out map[string]any

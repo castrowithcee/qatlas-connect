@@ -3,7 +3,7 @@
 package aws
 
 import (
-	"slices"
+	"strings"
 	"testing"
 )
 
@@ -13,6 +13,9 @@ var excludedSTSActions = []string{"AssumeRole", "AssumeRoleWithSAML", "AssumeRol
 // excludedIAMActions are the operations the iam table excludes; no tool may send one.
 var excludedIAMActions = []string{"AcceptDelegationRequest", "AddClientIDToOpenIDConnectProvider", "ChangePassword", "CreateAccessKey", "CreateDelegationRequest", "CreateLoginProfile", "CreateOpenIDConnectProvider", "CreateSAMLProvider", "CreateServiceSpecificCredential", "CreateUser", "CreateVirtualMFADevice", "EnableMFADevice", "EnableOutboundWebIdentityFederation", "ResetServiceSpecificCredential", "ResyncMFADevice", "SendDelegationToken", "UpdateLoginProfile", "UpdateOpenIDConnectProviderThumbprint", "UpdateSAMLProvider", "UploadSSHPublicKey", "UploadServerCertificate", "UploadSigningCertificate"}
 
+// excludedSESActions are the operations the ses table excludes; no tool may send one.
+var excludedSESActions = []string{"SendCustomVerificationEmail"}
+
 // generatedCases are the basic tests of the generated tools: arguments derived from the input schema,
 // the form parameters they must encode to, and an answer derived from the output shape.
 var generatedCases = []struct {
@@ -20,6 +23,8 @@ var generatedCases = []struct {
 	form                            map[string]string
 	token, confirm, listed          bool
 	result                          []string
+	// method, path, rawQuery and body are the request of a restJson1 tool, which sends no action.
+	method, path, rawQuery, body string
 }{
 	{tool: "aws.sts.caller-identity.get", action: "GetCallerIdentity",
 		arguments: "{}",
@@ -451,6 +456,84 @@ var generatedCases = []struct {
 		answer:    `<ListPoliciesGrantingServiceAccessResponse xmlns="https://iam.amazonaws.com/doc/2010-05-08/"><ListPoliciesGrantingServiceAccessResult><PoliciesGrantingServiceAccess><member><ServiceNamespace>x</ServiceNamespace><Policies><member><PolicyName>x</PolicyName><PolicyType>x</PolicyType><PolicyArn>x</PolicyArn><EntityType>x</EntityType><EntityName>x</EntityName></member></Policies></member></PoliciesGrantingServiceAccess><IsTruncated>false</IsTruncated></ListPoliciesGrantingServiceAccessResult></ListPoliciesGrantingServiceAccessResponse>`,
 		form:      map[string]string{"Arn": "arn:aws:iam::123456789012:role/a", "ServiceNamespaces.member.1": "a"},
 		token:     false, confirm: false, listed: false, result: []string{"policies_granting_service_access", "has_more"}},
+	{tool: "aws.ses.email-identity.list", action: "",
+		arguments: `{"filter":{"k":"a"}}`,
+		answer:    `{"EmailIdentities":[{"IdentityType":"x","IdentityName":"x","SendingEnabled":true,"VerificationStatus":"x"}]}`,
+		form:      map[string]string{},
+		token:     false, confirm: false, listed: false, result: []string{"region", "has_more"},
+		method: "POST", path: "/v2/email/list-identities", rawQuery: "", body: `{"Filter":{"k":"a"}}`},
+	{tool: "aws.ses.email-identity.get", action: "",
+		arguments: `{"email_identity":"example.com"}`,
+		answer:    `{"IdentityType":"x","FeedbackForwardingStatus":true,"VerifiedForSendingStatus":true,"DkimAttributes":{"SigningEnabled":true,"Status":"x","Tokens":["x"],"SigningHostedZone":"x","SigningAttributesOrigin":"x","NextSigningKeyLength":"x","CurrentSigningKeyLength":"x","LastKeyGenerationTimestamp":1767323045},"MailFromAttributes":{"MailFromDomain":"x","MailFromDomainStatus":"x","BehaviorOnMxFailure":"x"},"Policies":{"k":"x"},"Tags":[{"Key":"x","Value":"x"}],"ConfigurationSetName":"x","VerificationStatus":"x","VerificationInfo":{"LastCheckedTimestamp":1767323045,"LastSuccessTimestamp":1767323045,"ErrorType":"x","SOARecord":{"PrimaryNameServer":"x","AdminEmail":"x","SerialNumber":1}}}`,
+		form:      map[string]string{},
+		token:     false, confirm: false, listed: false, result: []string{"region"},
+		method: "GET", path: "/v2/email/identities/example.com", rawQuery: "", body: ""},
+	{tool: "aws.ses.email-identity.create", action: "",
+		arguments: `{"email_identity":"example.com","tags":[{"key":"a","value":"a"}],"dkim_signing_attributes":{"next_signing_key_length":"RSA_1024_BIT","domain_signing_attributes_origin":"AWS_SES"},"configuration_set_name":"a"}`,
+		answer:    `{"IdentityType":"x","VerifiedForSendingStatus":true,"DkimAttributes":{"SigningEnabled":true,"Status":"x","Tokens":["x"],"SigningHostedZone":"x","SigningAttributesOrigin":"x","NextSigningKeyLength":"x","CurrentSigningKeyLength":"x","LastKeyGenerationTimestamp":1767323045}}`,
+		form:      map[string]string{},
+		token:     false, confirm: true, listed: false, result: []string{"region"},
+		method: "POST", path: "/v2/email/identities", rawQuery: "", body: `{"EmailIdentity":"example.com","Tags":[{"Key":"a","Value":"a"}],"DkimSigningAttributes":{"NextSigningKeyLength":"RSA_1024_BIT","DomainSigningAttributesOrigin":"AWS_SES"},"ConfigurationSetName":"a"}`},
+	{tool: "aws.ses.email-identity.delete", action: "",
+		arguments: `{"email_identity":"example.com"}`,
+		answer:    "{}",
+		form:      map[string]string{},
+		token:     false, confirm: true, listed: false, result: []string{"region"},
+		method: "DELETE", path: "/v2/email/identities/example.com", rawQuery: "", body: ""},
+	{tool: "aws.ses.email-identity.put-dkim-attributes", action: "",
+		arguments: `{"email_identity":"example.com","signing_enabled":true}`,
+		answer:    "{}",
+		form:      map[string]string{},
+		token:     false, confirm: true, listed: false, result: []string{"region"},
+		method: "PUT", path: "/v2/email/identities/example.com/dkim", rawQuery: "", body: `{"SigningEnabled":true}`},
+	{tool: "aws.ses.email-identity.put-dkim-signing-attributes", action: "",
+		arguments: `{"email_identity":"example.com","signing_attributes_origin":"AWS_SES","signing_attributes":{"next_signing_key_length":"RSA_1024_BIT","domain_signing_attributes_origin":"AWS_SES"}}`,
+		answer:    `{"DkimStatus":"x","DkimTokens":["x"],"SigningHostedZone":"x"}`,
+		form:      map[string]string{},
+		token:     false, confirm: true, listed: false, result: []string{"region"},
+		method: "PUT", path: "/v2/email/identities/example.com/dkim/signing", rawQuery: "", body: `{"SigningAttributesOrigin":"AWS_SES","SigningAttributes":{"NextSigningKeyLength":"RSA_1024_BIT","DomainSigningAttributesOrigin":"AWS_SES"}}`},
+	{tool: "aws.ses.email-identity.put-mail-from-attributes", action: "",
+		arguments: `{"email_identity":"example.com","mail_from_domain":"a","behavior_on_mx_failure":"USE_DEFAULT_VALUE"}`,
+		answer:    "{}",
+		form:      map[string]string{},
+		token:     false, confirm: true, listed: false, result: []string{"region"},
+		method: "PUT", path: "/v2/email/identities/example.com/mail-from", rawQuery: "", body: `{"MailFromDomain":"a","BehaviorOnMxFailure":"USE_DEFAULT_VALUE"}`},
+	{tool: "aws.ses.email-identity.put-feedback-attributes", action: "",
+		arguments: `{"email_identity":"example.com","email_forwarding_enabled":true}`,
+		answer:    "{}",
+		form:      map[string]string{},
+		token:     false, confirm: true, listed: false, result: []string{"region"},
+		method: "PUT", path: "/v2/email/identities/example.com/feedback", rawQuery: "", body: `{"EmailForwardingEnabled":true}`},
+	{tool: "aws.ses.email-identity.put-configuration-set-attributes", action: "",
+		arguments: `{"email_identity":"example.com","configuration_set_name":"a"}`,
+		answer:    "{}",
+		form:      map[string]string{},
+		token:     false, confirm: true, listed: false, result: []string{"region"},
+		method: "PUT", path: "/v2/email/identities/example.com/configuration-set", rawQuery: "", body: `{"ConfigurationSetName":"a"}`},
+	{tool: "aws.ses.email-identity.tag", action: "",
+		arguments: `{"resource_arn":"arn:aws:ses:eu-central-1:123456789012:identity/example.com","tags":[{"key":"a","value":"a"}]}`,
+		answer:    "{}",
+		form:      map[string]string{},
+		token:     false, confirm: true, listed: false, result: []string{"region"},
+		method: "POST", path: "/v2/email/tags", rawQuery: "", body: `{"ResourceArn":"arn:aws:ses:eu-central-1:123456789012:identity/example.com","Tags":[{"Key":"a","Value":"a"}]}`},
+	{tool: "aws.ses.email-identity.untag", action: "",
+		arguments: `{"resource_arn":"arn:aws:ses:eu-central-1:123456789012:identity/example.com","tag_keys":["a"]}`,
+		answer:    "{}",
+		form:      map[string]string{},
+		token:     false, confirm: true, listed: false, result: []string{"region"},
+		method: "DELETE", path: "/v2/email/tags", rawQuery: "ResourceArn=arn%3Aaws%3Ases%3Aeu-central-1%3A123456789012%3Aidentity%2Fexample.com&TagKeys=a", body: ""},
+	{tool: "aws.ses.email-identity.list-tags", action: "",
+		arguments: `{"resource_arn":"arn:aws:ses:eu-central-1:123456789012:identity/example.com"}`,
+		answer:    `{"Tags":[{"Key":"x","Value":"x"}]}`,
+		form:      map[string]string{},
+		token:     false, confirm: false, listed: false, result: []string{"region", "tags"},
+		method: "GET", path: "/v2/email/tags", rawQuery: "ResourceArn=arn%3Aaws%3Ases%3Aeu-central-1%3A123456789012%3Aidentity%2Fexample.com", body: ""},
+	{tool: "aws.ses.email-identity-policy.list", action: "",
+		arguments: `{"email_identity":"example.com"}`,
+		answer:    `{"Policies":{"k":"x"}}`,
+		form:      map[string]string{},
+		token:     false, confirm: false, listed: false, result: []string{"region"},
+		method: "GET", path: "/v2/email/identities/example.com/policies", rawQuery: "", body: ""},
 }
 
 // Every generated tool sends its one action with exactly the encoded parameters and returns a result its
@@ -467,8 +550,9 @@ func TestGeneratedTools(t *testing.T) {
 				}
 				return reply{status: 500}
 			}}
+			// A write is offered by name here: the effect defaults of a connection offer reads only.
 			var tools []string
-			if c.listed {
+			if c.listed || c.confirm {
 				tools = []string{c.tool}
 			}
 			e := newToolsEnv(t, f, baseValues(), tools)
@@ -490,6 +574,13 @@ func TestGeneratedTools(t *testing.T) {
 			}
 			if call == nil {
 				t.Fatalf("requests = %v, want %s", f.actions(), c.action)
+			}
+			if c.method != "" {
+				if call.method != c.method || call.path != c.path || call.rawQuery != c.rawQuery || call.body != c.body {
+					t.Errorf("request = %s %s?%s %s, want %s %s?%s %s", call.method, call.path, call.rawQuery, call.body,
+						c.method, c.path, c.rawQuery, c.body)
+				}
+				return
 			}
 			want := len(c.form) + 2
 			if c.token {
@@ -515,10 +606,18 @@ func TestGeneratedExclusionsAreNoTools(t *testing.T) {
 	excluded := map[string][]string{
 		"sts": excludedSTSActions,
 		"iam": excludedIAMActions,
+		"ses": excludedSESActions,
 	}
 	for _, s := range generatedSpecs {
-		if slices.Contains(excluded[string(s.service)], s.action) {
-			t.Errorf("%s sends the excluded operation %s", s.descriptor.ID, s.action)
+		// A restJson1 tool sends no action; its op is the operation name in words.
+		name := s.action
+		if s.rest != nil {
+			name = strings.ReplaceAll(s.op, " ", "")
+		}
+		for _, action := range excluded[string(s.service)] {
+			if strings.EqualFold(name, action) {
+				t.Errorf("%s sends the excluded operation %s", s.descriptor.ID, action)
+			}
 		}
 	}
 }

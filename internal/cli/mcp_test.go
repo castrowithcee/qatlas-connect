@@ -20,9 +20,9 @@ import (
 	"github.com/castrowithcee/qatlas-connect/internal/capability"
 	"github.com/castrowithcee/qatlas-connect/internal/config"
 	"github.com/castrowithcee/qatlas-connect/internal/helptopics"
-	"github.com/castrowithcee/qatlas-connect/internal/output"
 	"github.com/castrowithcee/qatlas-connect/internal/provider"
 	"github.com/castrowithcee/qatlas-connect/internal/secret"
+	"github.com/castrowithcee/qatlas-kit/output"
 	"github.com/castrowithcee/qatlas-kit/redact"
 )
 
@@ -371,7 +371,7 @@ defaults: {}
 	}
 	decodeRaw(t, invoke.Structured, &detail)
 	want := []application.ConnectionRef{{Name: "primary", Description: "team pages"}, {Name: "secondary"}}
-	if detail.Code != string(output.CodeConnectionAmbiguous) || detail.Operation != "fake.pages.get" ||
+	if detail.Code != string(application.CodeConnectionAmbiguous) || detail.Operation != "fake.pages.get" ||
 		!reflect.DeepEqual(detail.Connections, want) {
 		t.Fatalf("detail = %+v, want the candidates %+v", detail, want)
 	}
@@ -470,7 +470,7 @@ func TestConnectionAmbiguityNamesCandidatesOverCLIAndMCP(t *testing.T) {
 		{Name: "wiki-2", Description: ""},
 		{Name: "wiki-staging", Description: "staging wiki " + redact.Marker},
 	}
-	if detail.Code != string(output.CodeConnectionAmbiguous) || detail.Operation != "bookstack.pages.list" ||
+	if detail.Code != string(application.CodeConnectionAmbiguous) || detail.Operation != "bookstack.pages.list" ||
 		detail.Message != strings.TrimPrefix(invoke.Content[0].Text, "connection-ambiguous: ") ||
 		!reflect.DeepEqual(detail.Connections, want) {
 		t.Fatalf("detail = %+v, want the candidates %+v", detail, want)
@@ -1008,15 +1008,15 @@ func TestMCPToolErrorsCarryCodeAndMessage(t *testing.T) {
 		timeout   bool
 	}{
 		{output.CodeInvalidRequest, unused, "search", `{"cursor":"bogus"}`, false},
-		{output.CodeUnknownOperation, unused, "describe", `{"operation":"absent.operation.get"}`, false},
-		{output.CodeUnknownConnection, unused, "describe", `{"operation":"fake.pages.get","connection":"absent"}`, false},
+		{application.CodeUnknownOperation, unused, "describe", `{"operation":"absent.operation.get"}`, false},
+		{application.CodeUnknownConnection, unused, "describe", `{"operation":"fake.pages.get","connection":"absent"}`, false},
 		{output.CodeConfirmationRequired, mcpSendRegistry, "invoke",
 			`{"operation":"fake.messages.send","connection":"target","arguments":{"text":"hello"}}`, false},
 		{output.CodeAuth, failing(&provider.Error{Class: provider.ClassAuth, Op: "get page", Message: "rejected"}),
 			"invoke", `{"operation":"fake.pages.get","connection":"primary","arguments":{}}`, false},
 		{output.CodeNotFound, failing(&provider.Error{Class: provider.ClassNotFound, Op: "get page", Message: "absent"}),
 			"invoke", `{"operation":"fake.pages.get","connection":"primary","arguments":{}}`, false},
-		{output.CodeProviderError, failing(&provider.Error{Class: provider.ClassProviderError, Op: "get page", Message: "failed"}),
+		{application.CodeProviderError, failing(&provider.Error{Class: provider.ClassProviderError, Op: "get page", Message: "failed"}),
 			"invoke", `{"operation":"fake.pages.get","connection":"primary","arguments":{}}`, false},
 		{output.CodeTimeout, waiting, "invoke",
 			`{"operation":"fake.pages.get","connection":"primary","arguments":{}}`, true},

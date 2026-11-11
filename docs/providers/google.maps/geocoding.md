@@ -4,7 +4,7 @@ description: >
 type: knowledge
 edit: shared
 created: 2026-11-07
-updated: 2026-11-07
+updated: 2026-11-11
 ---
 
 # Google Maps geocoding
@@ -21,8 +21,10 @@ host and the path are fixed; no argument and no configured `base_url` can change
 followed. The `base_url` of the connection still has to be the official Places origin, which the provider checks
 for every tool.
 
-The legacy service takes no key header, so Qatlas sends the key as the `key` query parameter. This is the only
-request of the provider that does so; Places requests send the key in the `X-Goog-Api-Key` header. The URL is
+The legacy service takes no key header, so Qatlas sends the key as the `key` query parameter. Only the
+geocoding, [road](roads.md#endpoint-and-key), [elevation](elevation.md#endpoint-and-key),
+[time zone](timezone.md#endpoint-and-key), and [geolocation](geolocation.md#endpoint-and-key) requests do so;
+the other requests send the key in the `X-Goog-Api-Key` header. The URL is
 never shown: no message, log entry, or result carries it, a transport error is reduced to a class without the
 error text, and the key is registered with the redactor. A request is sent once and never repeated; the
 requests of one key share the rate spacing of the provider and the timeout is 30 seconds.

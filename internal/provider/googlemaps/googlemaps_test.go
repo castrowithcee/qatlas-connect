@@ -197,13 +197,16 @@ func TestRegisterPublishesMetadataAndTool(t *testing.T) {
 	}
 	wantTools := []string{"google.maps.addressvalidation.feedback", "google.maps.addressvalidation.validate",
 		"google.maps.airquality.current", "google.maps.airquality.forecast", "google.maps.airquality.history",
-		"google.maps.geocoding.geocode", "google.maps.geocoding.reverse", "google.maps.photos.get",
+		"google.maps.areainsights.compute", "google.maps.elevation.get", "google.maps.geocoding.geocode",
+		"google.maps.geocoding.reverse", "google.maps.geolocation.locate", "google.maps.photos.get",
 		"google.maps.places.autocomplete", "google.maps.places.get", "google.maps.places.search-nearby",
-		"google.maps.places.search-text", "google.maps.pollen.forecast", "google.maps.routes.compute",
+		"google.maps.places.search-text", "google.maps.pollen.forecast", "google.maps.roads.nearest",
+		"google.maps.roads.snap", "google.maps.roads.speed-limits", "google.maps.routes.compute",
 		"google.maps.routes.matrix", "google.maps.solar.building-insights", "google.maps.solar.data-layers",
-		"google.maps.videos.lookup", "google.maps.videos.metadata", "google.maps.videos.render",
-		"google.maps.weather.alerts", "google.maps.weather.current", "google.maps.weather.days",
-		"google.maps.weather.history", "google.maps.weather.hours", "google.maps.weather.minutes"}
+		"google.maps.timezone.get", "google.maps.videos.lookup", "google.maps.videos.metadata",
+		"google.maps.videos.render", "google.maps.weather.alerts", "google.maps.weather.current",
+		"google.maps.weather.days", "google.maps.weather.history", "google.maps.weather.hours",
+		"google.maps.weather.minutes"}
 	if !reflect.DeepEqual(ids, wantTools) {
 		t.Errorf("tools = %v", ids)
 	}
@@ -216,7 +219,9 @@ func TestRegisterPublishesMetadataAndTool(t *testing.T) {
 			"google.maps.weather.alerts", "google.maps.airquality.current", "google.maps.airquality.forecast",
 			"google.maps.airquality.history", "google.maps.pollen.forecast", "google.maps.solar.building-insights",
 			"google.maps.solar.data-layers", "google.maps.routes.compute", "google.maps.routes.matrix",
-			"google.maps.videos.metadata"}) {
+			"google.maps.roads.snap", "google.maps.roads.nearest", "google.maps.roads.speed-limits",
+			"google.maps.areainsights.compute", "google.maps.elevation.get", "google.maps.timezone.get",
+			"google.maps.geolocation.locate", "google.maps.videos.metadata"}) {
 		t.Errorf("profiles = %+v", metadata.Profiles)
 	}
 	for _, descriptor := range reg.Provider(Provider) {
@@ -226,6 +231,11 @@ func TestRegisterPublishesMetadataAndTool(t *testing.T) {
 			strings.HasPrefix(descriptor.ID, Provider+".pollen.") ||
 			strings.HasPrefix(descriptor.ID, Provider+".solar.") ||
 			strings.HasPrefix(descriptor.ID, Provider+".routes.") ||
+			strings.HasPrefix(descriptor.ID, Provider+".roads.") ||
+			strings.HasPrefix(descriptor.ID, Provider+".areainsights.") ||
+			strings.HasPrefix(descriptor.ID, Provider+".elevation.") ||
+			strings.HasPrefix(descriptor.ID, Provider+".timezone.") ||
+			strings.HasPrefix(descriptor.ID, Provider+".geolocation.") ||
 			strings.HasPrefix(descriptor.ID, Provider+".videos.") {
 			continue // the test file of each of these groups checks its tools
 		}

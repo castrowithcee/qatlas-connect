@@ -58,7 +58,26 @@ const routesRoot = "https://routes.googleapis.com"
 
 const routesHost = "routes.googleapis.com"
 
-// aerialViewRoot is the eighth fixed origin: Aerial View API is a separate Google service that accepts the same
+// roadsRoot is the eighth fixed origin: Roads API is a separate Google service that accepts the same key. Only
+// the road tools use it, through getKeyedFrom, because its documentation names the key as a query parameter only.
+const roadsRoot = "https://roads.googleapis.com"
+
+const roadsHost = "roads.googleapis.com"
+
+// areaInsightsRoot is the ninth fixed origin: Places Aggregate API is a separate Google service that accepts the
+// same key. Only the area insights tool uses it, through postTo.
+const areaInsightsRoot = "https://areainsights.googleapis.com"
+
+const areaInsightsHost = "areainsights.googleapis.com"
+
+// geolocationRoot is the tenth fixed origin: Geolocation API lives on the shared Google APIs host. Only the
+// fixed geolocate path below it is reachable, through postKeyedTo; no argument or configuration reaches another
+// path of that host.
+const geolocationRoot = "https://www.googleapis.com"
+
+const geolocationHost = "www.googleapis.com"
+
+// aerialViewRoot is the eleventh fixed origin: Aerial View API is a separate Google service that accepts the same
 // key. Only the video tools use it, through getFrom and postTo.
 const aerialViewRoot = "https://aerialview.googleapis.com"
 
@@ -228,6 +247,43 @@ func (c *Client) unsure(failed *provider.Error) *provider.Error {
 	return failed
 }
 
+// getKeyedFrom sends one GET request, once, to a fixed origin whose documentation names the key as a query
+// parameter only, and decodes a JSON object answer. Like geocode, it keeps the URL inside this function: Go's
+// url.Error would quote it, and every error built here omits it. query holds checked arguments only.
+func (c *Client) getKeyedFrom(ctx context.Context, root, op, path string, query url.Values) (map[string]any, error) {
+	query.Set("key", c.key)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, root+path+"?"+query.Encode(), nil)
+	if err != nil {
+		return nil, failure(op, "the request could not be built")
+	}
+	var out map[string]any
+	if err := c.exchangeAs(ctx, op, req, "", false, &out); err != nil {
+		return nil, err
+	}
+	if out == nil {
+		return nil, c.unsure(provider.InvalidResponse(op, "Google returned an invalid response"))
+	}
+	return out, nil
+}
+
+// postKeyedTo is getKeyedFrom for a POST whose documentation names the key as a query parameter only. The key
+// is appended to the URL here and the URL never leaves this function. body is built by the tool from checked
+// arguments.
+func (c *Client) postKeyedTo(ctx context.Context, root, op, path string, body map[string]any) (map[string]any, error) {
+	req, err := postRequest(ctx, root+path+"?"+url.Values{"key": {c.key}}.Encode(), body)
+	if err != nil {
+		return nil, failure(op, "the request could not be built")
+	}
+	var out map[string]any
+	if err := c.exchangeAs(ctx, op, req, "", false, &out); err != nil {
+		return nil, err
+	}
+	if out == nil {
+		return nil, c.unsure(provider.InvalidResponse(op, "Google returned an invalid response"))
+	}
+	return out, nil
+}
+
 // send is exchange for a JSON object answer.
 func (c *Client) send(ctx context.Context, op string, req *http.Request, mask string) (map[string]any, error) {
 	var out map[string]any
@@ -243,7 +299,15 @@ func (c *Client) send(ctx context.Context, op string, req *http.Request, mask st
 // exchange adds the key and, when the request has one, the field mask as headers, waits for the rate slot,
 // sends the request once, and decodes the JSON answer into out.
 func (c *Client) exchange(ctx context.Context, op string, req *http.Request, mask string, out any) error {
-	req.Header.Set("X-Goog-Api-Key", c.key)
+	return c.exchangeAs(ctx, op, req, mask, true, out)
+}
+
+// exchangeAs is exchange; keyHeader false leaves the key to the query that the caller built.
+func (c *Client) exchangeAs(ctx context.Context, op string, req *http.Request, mask string, keyHeader bool,
+	out any) error {
+	if keyHeader {
+		req.Header.Set("X-Goog-Api-Key", c.key)
+	}
 	if mask != "" {
 		// Autocomplete and photo media take no field mask.
 		req.Header.Set("X-Goog-FieldMask", mask)
@@ -312,6 +376,15 @@ func (c *Client) exchange(ctx context.Context, op string, req *http.Request, mas
 		}
 		if req.URL.Host == routesHost {
 			failed = routesError(failed, response.StatusCode)
+		}
+		if req.URL.Host == roadsHost {
+			failed = roadsError(failed, response.StatusCode)
+		}
+		if req.URL.Host == areaInsightsHost {
+			failed = areaInsightsError(failed, response.StatusCode)
+		}
+		if req.URL.Host == geolocationHost {
+			failed = geolocationError(failed, response.StatusCode, body)
 		}
 		if req.URL.Host == aerialViewHost {
 			failed = aerialViewError(failed, response.StatusCode)

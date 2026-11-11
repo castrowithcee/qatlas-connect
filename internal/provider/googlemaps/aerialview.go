@@ -130,7 +130,8 @@ const (
 		`"day":{"type":"integer"}},"additionalProperties":false}`
 	videoUrisSchema = `{"type":"object","additionalProperties":{"type":"object","properties":{` +
 		`"landscapeUri":{"type":"string"},"portraitUri":{"type":"string"}},"additionalProperties":false}}`
-	videoOneOf = `"oneOf":[{"required":["video_id"]},{"required":["address"]}]`
+	// anyOf, not oneOf: the validator ignores oneOf, and the handler refuses both together before any request.
+	videoAnyOf = `"anyOf":[{"required":["video_id"]},{"required":["address"]}]`
 )
 
 var videoMetaSchema = videoMetadata.schema()
@@ -180,7 +181,7 @@ var videosLookup = capability.Descriptor{
 		"addresses." + videosTail,
 	Tags: []string{"google", "maps", "aerial-view", "videos"}, Risk: videoRisk, Provider: Provider,
 	InputSchema: json.RawMessage(`{"type":"object","properties":{"video_id":` + videoIDSchema + `,"address":` +
-		videoAddressSchema + `},` + videoOneOf + `,"additionalProperties":false}`),
+		videoAddressSchema + `},` + videoAnyOf + `,"additionalProperties":false}`),
 	OutputSchema: json.RawMessage(`{"type":"object","properties":{"state":{"type":"string"},"metadata":` +
 		videoMetaSchema + `,"uris":` + videoUrisSchema + `},"additionalProperties":false}`),
 	Arguments: videoSelectorArguments,
@@ -206,7 +207,7 @@ var videosMetadataTool = capability.Descriptor{
 		"not-found, and google.maps.videos.render queues it." + videosTail,
 	Tags: []string{"google", "maps", "aerial-view", "videos"}, Risk: videoRisk, Provider: Provider,
 	InputSchema: json.RawMessage(`{"type":"object","properties":{"video_id":` + videoIDSchema + `,"address":` +
-		videoAddressSchema + `},` + videoOneOf + `,"additionalProperties":false}`),
+		videoAddressSchema + `},` + videoAnyOf + `,"additionalProperties":false}`),
 	OutputSchema: json.RawMessage(videoMetaSchema),
 	Arguments:    videoSelectorArguments,
 	Fields:       videoMetadataFields,

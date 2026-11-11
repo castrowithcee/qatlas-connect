@@ -28,6 +28,37 @@ type Table struct {
 	// URLEncoded lists model string shapes whose values the service returns percent-encoded, such as the
 	// IAM policy documents. Every output string of such a shape is decoded and then cut at MaxLen.
 	URLEncoded []URLEncoded
+	// Pagers describe the paging of REST list operations whose model has no paginated trait, or pages by
+	// more than one member. A tool takes its pager from here, not from a guess.
+	Pagers []PagerSpec
+	// IDPrefixes list model string shapes whose arguments may carry a leading text that is not part of the
+	// identifier, such as the /hostedzone/ of a Route 53 zone ID.
+	IDPrefixes []IDPrefix
+}
+
+// PagerSpec is the paging of one REST list operation, by model member names.
+type PagerSpec struct {
+	Operation string
+	// Positions are the members that together name the place the list continues at: the request member and
+	// the output member that reports it. One position is a plain token; several travel in one cursor.
+	Positions []PositionSpec
+	// Truncated is the boolean output member that says whether the list continues; IsTruncated when empty.
+	Truncated string
+	// PageSize is the integer request member that sets the page size, empty for none.
+	PageSize string
+}
+
+// PositionSpec is one member of the position of a list.
+type PositionSpec struct {
+	In, Out string
+	// Required says that an answer that reports more entries must carry the member.
+	Required bool
+}
+
+// IDPrefix is a string shape of the model namespace and the leading text its arguments may carry.
+type IDPrefix struct {
+	Shape  string
+	Prefix string
 }
 
 // URLEncoded is a model string shape whose output values arrive percent-encoded.
@@ -96,8 +127,25 @@ type Operation struct {
 	// of the result was cut at its limit.
 	Truncated string
 	// CSV turns one blob output member that holds a CSV table into rows with the tool's own paging.
-	CSV      *CSVReport
-	Examples []Example
+	CSV *CSVReport
+	// PageSizeMax bounds page_size of a paginated tool whose model gives the page size member no range
+	// maximum. The model's own maximum applies, and must not be exceeded, when it has one.
+	PageSizeMax int
+	// ResultHook names a hand-written step of the provider package that adds the result field the hook
+	// declares to the result, computed from the arguments and the answer. Empty for none.
+	ResultHook string
+	// ExcludeEnum narrows the enum of an input member, so a value that would bring something the tool must
+	// not take (such as key material) cannot be sent.
+	ExcludeEnum []EnumExclusion
+	Examples    []Example
+}
+
+// EnumExclusion removes values from the enum of an input member.
+type EnumExclusion struct {
+	// Member is the model member, dotted below the top level, such as SigningAttributes.Origin.
+	Member string
+	Values []string
+	Reason string
 }
 
 // CSVReport describes a CSV table returned as a base64 blob, such as the IAM credential report. The
@@ -160,9 +208,12 @@ type Example struct {
 var (
 	Effects      = []string{"read", "create", "update", "delete", "execute"}
 	Idempotency  = []string{"safe", "idempotent", "non-idempotent"}
-	TargetChecks = []string{"none", "account-argument", "arn-account", "arn-account-or-managed-policy", "arn-region", "bucket-owner"}
+	TargetChecks = []string{"none", "account-argument", "arn-account", "arn-account-or-managed-policy", "arn-region", "bucket-owner",
+		"ses-identity", "ses-identity-arn"}
 	PolicyChecks = []string{"none", "trust-policy", "bucket-policy", "identity-policy", "pab-tighten"}
 	Forms        = []string{"account-id"}
+	// ResultHooks are the hand-written result steps a table may name; see resultHookFields.
+	ResultHooks = []string{"dns-records"}
 )
 
 var (
@@ -215,6 +266,27 @@ func (t Table) Validate() error {
 			return fmt.Errorf("table %s: url_encoded entry %q is not a shape name with a non-negative cap", t.Service, e.Shape)
 		}
 	}
+	pagers := map[string]bool{}
+	for _, p := range t.Pagers {
+		if !opName.MatchString(p.Operation) || pagers[p.Operation] || len(p.Positions) == 0 || len(p.Positions) > 4 ||
+			(p.Truncated != "" && !shapeName.MatchString(p.Truncated)) || (p.PageSize != "" && !shapeName.MatchString(p.PageSize)) {
+			return fmt.Errorf("table %s: pager of %q is malformed or repeated", t.Service, p.Operation)
+		}
+		pagers[p.Operation] = true
+		for _, pos := range p.Positions {
+			if !shapeName.MatchString(pos.In) || !shapeName.MatchString(pos.Out) {
+				return fmt.Errorf("table %s: pager of %s names a malformed member", t.Service, p.Operation)
+			}
+		}
+		if len(p.Positions) > 1 && !p.Positions[0].Required {
+			return fmt.Errorf("table %s: pager of %s: the first position must be required", t.Service, p.Operation)
+		}
+	}
+	for _, p := range t.IDPrefixes {
+		if !shapeName.MatchString(p.Shape) || p.Prefix == "" || len(p.Prefix) > 64 || strings.ContainsAny(p.Prefix, " \t\r\n\x00?#") {
+			return fmt.Errorf("table %s: id prefix of %q is malformed", t.Service, p.Shape)
+		}
+	}
 	ids := map[string]bool{}
 	for _, op := range t.Operations {
 		if err := mark(op.Operation, "operations"); err != nil {
@@ -254,12 +326,21 @@ func (op Operation) validate() error {
 		return fmt.Errorf("policy_check %s needs the arguments it checks, and none only without", op.PolicyCheck)
 	case op.SelfRole != "" && (op.Effect == "read" || !opName.MatchString(op.SelfRole)):
 		return fmt.Errorf("self_role %q must name an input member of a tool that is not a read", op.SelfRole)
+	case op.ResultHook != "" && !slices.Contains(ResultHooks, op.ResultHook):
+		return fmt.Errorf("unknown result_hook %q", op.ResultHook)
+	case op.PageSizeMax < 0:
+		return fmt.Errorf("negative page size maximum")
 	case strings.TrimSpace(op.Title) == "" || strings.TrimSpace(op.Description) == "" || op.DataSensitivity == "":
 		return fmt.Errorf("title, description and data sensitivity are required")
 	}
 	for _, tag := range op.Tags {
 		if !tagValue.MatchString(tag) {
 			return fmt.Errorf("tag %q is not a lower case word", tag)
+		}
+	}
+	for _, e := range op.ExcludeEnum {
+		if strings.TrimSpace(e.Member) == "" || len(e.Values) == 0 || strings.TrimSpace(e.Reason) == "" {
+			return fmt.Errorf("enum exclusion needs a member, values and a reason")
 		}
 	}
 	for _, hidden := range [][]Hidden{op.HiddenInputs, op.HiddenOutputs} {

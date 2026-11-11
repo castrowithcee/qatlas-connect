@@ -15,8 +15,8 @@ import (
 	"github.com/castrowithcee/qatlas-connect/internal/config"
 	"github.com/castrowithcee/qatlas-connect/internal/invokelog"
 	"github.com/castrowithcee/qatlas-connect/internal/localfile"
-	"github.com/castrowithcee/qatlas-connect/internal/output"
 	"github.com/castrowithcee/qatlas-connect/internal/secret"
+	"github.com/castrowithcee/qatlas-kit/output"
 	"github.com/castrowithcee/qatlas-kit/redact"
 )
 
@@ -210,7 +210,7 @@ func TestLocalFileErrorsMapToCodes(t *testing.T) {
 		return d.ExpectSize(5) // the tool writes nothing, so Commit finds it shorter
 	})
 	err := invokeDownload(core, filepath.Join(dir, "short.txt"), true)
-	if ErrorCode(err) != output.CodeInvalidProviderResult {
+	if ErrorCode(err) != CodeInvalidProviderResult {
 		t.Errorf("integrity error = %v (%s), want invalid-provider-response", err, ErrorCode(err))
 	}
 	if _, statErr := os.Stat(filepath.Join(dir, "short.txt")); statErr == nil {
