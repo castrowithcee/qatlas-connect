@@ -10,6 +10,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/castrowithcee/qatlas-connect/internal/config"
+	kittui "github.com/castrowithcee/qatlas-kit/tui"
 )
 
 // seedConnections stores one service, one credential and the named connections over them, so a test can
@@ -444,12 +445,12 @@ func TestPickerRowsAreHighlightedFullWidthReadWithoutColourAndSearchByTyping(t *
 		}
 		marked, alt := names[0], names[1]
 
-		setProfile(profileNone)
+		setProfile(kittui.ProfileNone)
 		if view := screenOf(m); !strings.Contains(view, "Type to search") {
 			t.Errorf("width %d: the empty picker shows no 'Type to search' placeholder:\n%s", width, view)
 		}
 
-		setProfile(profile16)
+		setProfile(kittui.ProfileANSI16)
 		coloured := screenOf(m)
 		assertViewFits(t, coloured, width, m.height+1)
 		if row := findRow(coloured, marked); !strings.Contains(row, "\x1b[") {
@@ -459,7 +460,7 @@ func TestPickerRowsAreHighlightedFullWidthReadWithoutColourAndSearchByTyping(t *
 			t.Errorf("width %d: the unmarked picker row carries colour, so it is not shaded: %q\n%s", width, row, coloured)
 		}
 
-		setProfile(profileNone)
+		setProfile(kittui.ProfileNone)
 		plain := screenOf(m)
 		assertViewFits(t, plain, width, m.height+1)
 		if strings.Contains(plain, "\x1b") {

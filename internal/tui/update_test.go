@@ -11,6 +11,7 @@ import (
 
 	"github.com/castrowithcee/qatlas-connect/internal/selfupdate"
 	"github.com/castrowithcee/qatlas-connect/internal/uiprefs"
+	kittui "github.com/castrowithcee/qatlas-kit/tui"
 )
 
 // fakeUpdater answers the check and the installation from its fields and counts the installations.
@@ -277,12 +278,12 @@ func TestTheBannerReadsWithoutColour(t *testing.T) {
 
 	m := startedWith(t, newerRelease())
 	colour := before
-	colour = profile16
+	colour = kittui.ProfileANSI16
 	setProfile(colour)
 	if line := strings.Split(m.render(), "\n")[0]; !strings.Contains(line, "\x1b[") {
 		t.Errorf("a colour terminal got a plain banner: %q", line)
 	}
-	colour = profileNone
+	colour = kittui.ProfileNone
 	setProfile(colour)
 	view := m.render()
 	if strings.Contains(view, "\x1b") {

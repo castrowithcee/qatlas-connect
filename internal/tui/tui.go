@@ -31,6 +31,7 @@ import (
 	"github.com/castrowithcee/qatlas-connect/internal/selfupdate"
 	"github.com/castrowithcee/qatlas-connect/internal/uiprefs"
 	"github.com/castrowithcee/qatlas-kit/redact"
+	kittui "github.com/castrowithcee/qatlas-kit/tui"
 )
 
 // Tester checks one configured connection and reports the stable outcome class. The editor holds no
@@ -3914,7 +3915,7 @@ func (m *Model) render() string {
 	view, cursor := takeCursor(m.renderFrame())
 	m.cursor = cursor
 	if styles.filled && view != "" {
-		view = paintCanvas(view, styles.canvasPrefix(), m.termWidth, m.termHeight)
+		view = styles.Paint(view, m.termWidth, m.termHeight)
 	}
 	return shown(view)
 }
@@ -5232,7 +5233,7 @@ func Run(opts Options) error {
 	if prefs == (uiprefs.Prefs{}) {
 		prefs = uiprefs.Default()
 	}
-	setProfile(detectProfile(opts.Out))
+	setProfile(kittui.DetectColorProfile(opts.Out, os.Environ()))
 	setLanguage(prefs.Language)
 	known, themeWarning := knownTheme(prefs.Theme)
 	prefs.Theme = known

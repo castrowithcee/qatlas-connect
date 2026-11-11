@@ -6,6 +6,8 @@ import (
 	"testing"
 
 	tea "charm.land/bubbletea/v2"
+
+	kittui "github.com/castrowithcee/qatlas-kit/tui"
 )
 
 // lookScreen builds one picker or setup screen on the model of its test.
@@ -101,14 +103,14 @@ func TestPickerAndSetupScreensFitEverySizeAndReadWithoutColour(t *testing.T) {
 			t.Run(fmt.Sprintf("%s/%dx%d", screen.name, size[0], size[1]), func(t *testing.T) {
 				m := screen.open(t)
 				m.Update(tea.WindowSizeMsg{Width: size[0], Height: size[1]})
-				for _, profile := range []colorProfile{profileNone, profile16} {
+				for _, profile := range []kittui.ColorProfile{kittui.ProfileNone, kittui.ProfileANSI16} {
 					setProfile(profile)
 					view := screenOf(m)
 					if strings.Contains(view, "Resize terminal") {
 						t.Fatalf("the screen is replaced by the resize notice:\n%s", view)
 					}
 					assertViewFits(t, view, size[0], size[1])
-					if profile == profileNone {
+					if profile == kittui.ProfileNone {
 						if strings.Contains(view, "\x1b") {
 							t.Errorf("without colour the screen still emits escape sequences:\n%s", view)
 						}
@@ -146,14 +148,14 @@ func TestTickedEntriesShowAColouredTickAndReadWithoutColour(t *testing.T) {
 		t.Fatalf("no ticked and unticked tool row on screen: %v", m.picker.matches)
 	}
 
-	setProfile(profile16)
+	setProfile(kittui.ProfileANSI16)
 	if row := shown(m.pickerRowText(ticked)); !strings.Contains(row, shown(styles.ok.Render("[x]"))) {
 		t.Errorf("the ticked row has no coloured tick: %q", row)
 	}
 	if row := shown(m.pickerRowText(open)); strings.Contains(row, shown(styles.ok.Render("[x]"))) || !strings.Contains(row, "[ ]") {
 		t.Errorf("the unticked row reads like a ticked one: %q", row)
 	}
-	setProfile(profileNone)
+	setProfile(kittui.ProfileNone)
 	if row := shown(m.pickerRowText(ticked)); strings.Contains(row, "\x1b") || !strings.Contains(row, "[x] ") {
 		t.Errorf("without colour the tick is not plain text: %q", row)
 	}

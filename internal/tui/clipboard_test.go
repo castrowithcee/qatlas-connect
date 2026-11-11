@@ -9,6 +9,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/castrowithcee/qatlas-connect/internal/uiprefs"
+	kittui "github.com/castrowithcee/qatlas-kit/tui"
 )
 
 // clipboardOf is the text a command hands to the terminal, and whether it is a clipboard command at all.
@@ -108,7 +109,7 @@ func TestCopyRawTabIsWholeAndSafe(t *testing.T) {
 	}
 
 	before := currentProfile()
-	setProfile(profileNone)
+	setProfile(kittui.ProfileNone)
 	t.Cleanup(func() { setProfile(before) })
 	m = rawModel(t)
 	m.redactor.Add("canary-redacted-registered")

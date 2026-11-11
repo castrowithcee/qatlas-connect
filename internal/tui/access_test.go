@@ -12,13 +12,14 @@ import (
 
 	"github.com/castrowithcee/qatlas-connect/internal/config"
 	"github.com/castrowithcee/qatlas-connect/internal/uiprefs"
+	kittui "github.com/castrowithcee/qatlas-kit/tui"
 )
 
 // withNoColor makes the rest of the test draw as a terminal with NO_COLOR does.
 func withNoColor(t *testing.T) {
 	t.Helper()
 	restoreRenderer(t)
-	setProfile(profileNone)
+	setProfile(kittui.ProfileNone)
 	applyTheme(uiprefs.ThemeTerminal)
 }
 
@@ -27,7 +28,7 @@ func withNoColor(t *testing.T) {
 func TestAccessDetailsKeepTheirStatusWordsAtEverySize(t *testing.T) {
 	for _, noColor := range []bool{false, true} {
 		restoreRenderer(t)
-		setProfile(profileTrueColor)
+		setProfile(kittui.ProfileTrueColor)
 		t.Setenv("NO_COLOR", "")
 		useDarkColours()
 		if noColor {
