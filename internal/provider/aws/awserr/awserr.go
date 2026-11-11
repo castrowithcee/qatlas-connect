@@ -81,6 +81,13 @@ var (
 		"LimitExceededException":        quota,
 		"ServiceQuotaExceededException": quota,
 
+		// SES v2: the codes of the identity operations.
+		"NotFoundException":               notFound,
+		"AlreadyExistsException":          conflict,
+		"ConcurrentModificationException": conflict,
+		"BadRequestException":             invalid,
+		"InvalidNextTokenException":       invalid,
+
 		"EntityAlreadyExists":           conflict,
 		"DeleteConflict":                conflict,
 		"EntityTemporarilyUnmodifiable": conflict,

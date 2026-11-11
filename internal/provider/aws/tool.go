@@ -71,6 +71,8 @@ type toolSpec struct {
 	// selfRole is the argument that names a role the tool changes or deletes; the call is refused when it is
 	// the role whose session signs it (see Client.refuseOwnRole).
 	selfRole string
+	// resultHook names the step in resultHooks that adds a member to the result.
+	resultHook string
 	// accountCheck marks GetCallerIdentity, whose answer is the account check itself.
 	accountCheck bool
 	// truncated adds the truncated field: true when a string of the answer was cut at its cap.
@@ -99,6 +101,8 @@ var targetChecks = map[string]targetCheck{
 	"arn-account":                   checkARNAccount,
 	"arn-account-or-managed-policy": checkARNAccountOrManagedPolicy,
 	"arn-region":                    checkARNRegion,
+	"ses-identity":                  checkSESIdentity,
+	"ses-identity-arn":              checkSESIdentityARN,
 }
 
 // policyCheck judges one policy document against the binding before any secret is read or request is built.
@@ -176,6 +180,9 @@ func (s toolSpec) check() error {
 	}
 	if _, ok := policyChecks[s.policyCheck]; !ok {
 		return fmt.Errorf("policy check %q has no implementation", s.policyCheck)
+	}
+	if _, ok := resultHooks[s.resultHook]; s.resultHook != "" && !ok {
+		return fmt.Errorf("result hook %q has no implementation", s.resultHook)
 	}
 	if s.selfRole != "" && (s.accountCheck || s.descriptor.Risk.Effect == capability.EffectRead) {
 		return errors.New("the own-role check belongs to a tool that changes or deletes a role")
@@ -280,7 +287,11 @@ func (s toolSpec) handler() capability.Handler {
 				return nil, err
 			}
 		}
-		return s.result(op, out, page, region, global, truncated, token)
+		res, err := s.result(op, out, page, region, global, truncated, token)
+		if hook := resultHooks[s.resultHook]; err == nil && hook != nil {
+			hook(res.(map[string]any), region, args)
+		}
+		return res, err
 	}
 }
 

@@ -52,6 +52,11 @@ func TestClassify(t *testing.T) {
 		{"service quota", 402, "ServiceQuotaExceededException", "", provider.ClassProviderError, 0},
 		{"iam limit exceeded", 409, "LimitExceeded", "", provider.ClassProviderError, 0},
 		{"malformed policy document", 400, "MalformedPolicyDocument", "", provider.ClassProviderError, 0},
+		{"ses not found", 404, "NotFoundException", "", provider.ClassNotFound, 0},
+		{"ses already exists", 400, "AlreadyExistsException", "", provider.ClassProviderError, 0},
+		{"ses bad request", 400, "BadRequestException", "", provider.ClassProviderError, 0},
+		{"ses concurrent modification", 500, "ConcurrentModificationException", "", provider.ClassProviderError, 0},
+		{"ses invalid next token", 400, "InvalidNextTokenException", "", provider.ClassProviderError, 0},
 		{"retry-after ignored when not limited", 400, "AccessDenied", "9", provider.ClassPermission, 0},
 	}
 	for _, test := range tests {
@@ -140,8 +145,8 @@ func TestClassifyStrict(t *testing.T) {
 	}{
 		{"known code", 404, "ResourceNotFoundException", provider.ClassNotFound},
 		{"unknown client error code", 400, "BrandNewException", provider.ClassInvalidResponse},
-		{"unknown code, not found", 404, "NotFoundException", provider.ClassInvalidResponse},
-		{"unknown code, conflict status", 409, "AlreadyExistsException", provider.ClassInvalidResponse},
+		{"unknown code, not found", 404, "NoSuchThingException", provider.ClassInvalidResponse},
+		{"unknown code, conflict status", 409, "ThingExistsException", provider.ClassInvalidResponse},
 		{"unknown code with 401", 401, "Whatever", provider.ClassAuth},
 		{"unknown code with 403", 403, "Whatever", provider.ClassPermission},
 		{"unknown code with 429", 429, "Whatever", provider.ClassRateLimited},
