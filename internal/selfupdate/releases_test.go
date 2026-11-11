@@ -2,401 +2,353 @@ package selfupdate
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
-	"strconv"
 	"strings"
+	"sync/atomic"
 	"testing"
 
+	"github.com/castrowithcee/qatlas-kit/release/releasetest"
 	"golang.org/x/crypto/ssh"
 
-	"github.com/castrowithcee/qatlas-connect/internal/release/releasetest"
+	"github.com/castrowithcee/qatlas-connect/internal/selfupdate/selfupdatetest"
 )
-
-type fixture struct {
-	tag               string
-	prerelease, draft bool
-	unsigned          bool
-	badSignature      bool
-}
-
-// multiReleaseServer serves the paginated release list, single releases by tag, and their assets.
-func multiReleaseServer(t *testing.T, signer ssh.Signer, fixtures []fixture, pageRequests *int) *httptest.Server {
-	t.Helper()
-	archives := map[bool][]byte{
-		false: releaseArchive(t, []byte("new-binary"), []byte("new-manpage")),
-		true:  programArchive(t, "qatlas", []byte("new-binary"), []byte("new-manpage")),
-	}
-	archiveOf := func(tag string) []byte { return archives[layoutOf(t, tag).Legacy] }
-	byTag := map[string]fixture{}
-	for _, f := range fixtures {
-		byTag[f.tag] = f
-	}
-	var server *httptest.Server
-	describe := func(f fixture) map[string]any {
-		assets := []map[string]string{
-			{"name": assetName(f.tag, "linux", "amd64"), "url": server.URL + "/asset/" + f.tag},
-			{"name": "checksums.txt", "url": server.URL + "/checksums/" + f.tag},
-		}
-		if !f.unsigned {
-			assets = append(assets, map[string]string{"name": layoutOf(t, f.tag).SignatureAsset, "url": server.URL + "/signature/" + f.tag})
-		}
-		return map[string]any{"tag_name": f.tag, "prerelease": f.prerelease, "draft": f.draft, "assets": assets}
-	}
-	server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		path := r.URL.Path
-		switch {
-		case path == "/releases":
-			if pageRequests != nil {
-				*pageRequests++
-			}
-			perPage, _ := strconv.Atoi(r.URL.Query().Get("per_page"))
-			page, _ := strconv.Atoi(r.URL.Query().Get("page"))
-			out := []map[string]any{}
-			for i := (page - 1) * perPage; i < page*perPage && i < len(fixtures); i++ {
-				out = append(out, describe(fixtures[i]))
-			}
-			_ = json.NewEncoder(w).Encode(out)
-		case strings.HasPrefix(path, "/releases/tags/"):
-			f, ok := byTag[strings.TrimPrefix(path, "/releases/tags/")]
-			if !ok {
-				http.NotFound(w, r)
-				return
-			}
-			_ = json.NewEncoder(w).Encode(describe(f))
-		case strings.HasPrefix(path, "/asset/"):
-			_, _ = w.Write(archiveOf(strings.TrimPrefix(path, "/asset/")))
-		case strings.HasPrefix(path, "/checksums/"):
-			tag := strings.TrimPrefix(path, "/checksums/")
-			_, _ = w.Write(checksumsOf(archiveOf(tag), tag))
-		case strings.HasPrefix(path, "/signature/"):
-			tag := strings.TrimPrefix(path, "/signature/")
-			sum := checksumsOf(archiveOf(tag), tag)
-			if byTag[tag].badSignature {
-				sum = append([]byte("x"), sum...)
-			}
-			_, _ = w.Write(releasetest.Sign(t, signer, layoutOf(t, tag).Namespace, "sha512", sum))
-		default:
-			http.NotFound(w, r)
-		}
-	}))
-	t.Cleanup(server.Close)
-	return server
-}
-
-func checksumsOf(archive []byte, tag string) []byte {
-	sum := sha256.Sum256(archive)
-	return []byte(fmt.Sprintf("%s  %s\n", hex.EncodeToString(sum[:]), assetName(tag, "linux", "amd64")))
-}
 
 func tags(entries []Entry) string {
 	var out []string
 	for _, e := range entries {
-		s := e.Version
+		marks := ""
 		if e.Prerelease {
-			s += "!"
+			marks += "p"
 		}
 		if e.Current {
-			s += "*"
+			marks += "c"
 		}
 		if e.Older {
-			s += "<"
+			marks += "o"
 		}
-		out = append(out, s)
+		out = append(out, e.Version+marks)
 	}
 	return strings.Join(out, " ")
 }
 
+// The list shows the ten newest signed stable releases from MinVersion on, newer prereleases, and the
+// running version, across the rename: a release before it counts with its former signature. Unsigned
+// releases and prereleases, drafts, older prereleases, and releases below MinVersion are left out.
 func TestListSelectionRule(t *testing.T) {
 	signer := releasetest.NewSigner(t)
-	var fixtures []fixture
-	// Stable v0.30.0 to v0.43.0: fourteen releases, only the ten newest are listed.
-	for minor := 43; minor >= 30; minor-- {
-		fixtures = append(fixtures, fixture{tag: fmt.Sprintf("v0.%d.0", minor)})
+	var releases []selfupdatetest.Release
+	for i := 0; i <= 11; i++ {
+		releases = append(releases, programRelease(t, signer, fmt.Sprintf("v3.%d.0", i)))
 	}
-	fixtures = append(fixtures,
-		fixture{tag: "v0.44.0-rc.1", prerelease: true},              // newer than the newest stable
-		fixture{tag: "v0.42.5-rc.1", prerelease: true},              // older than the newest stable
-		fixture{tag: "v0.45.0", unsigned: true},                     // unsigned
-		fixture{tag: "v0.45.0-rc.1", prerelease: true, draft: true}, // draft
-		fixture{tag: "v0.29.0"},                                     // below the minimum
-		fixture{tag: "v0.45.0-beta.1", prerelease: true, unsigned: true},
-	)
-	server := multiReleaseServer(t, signer, fixtures, nil)
-	client := &Client{BaseURL: server.URL, HTTPClient: server.Client(), Version: "v0.35.0", SigningKeys: []ssh.PublicKey{signer.PublicKey()}}
-	entries, err := client.List(context.Background())
+	releases = append(releases, programRelease(t, signer, "v3.12.0-rc.1"), programRelease(t, signer, "v3.5.0-rc.1"),
+		programRelease(t, signer, "v2.2.0"), programRelease(t, signer, "v0.29.0"),
+		unsigned(t, programRelease(t, signer, "v3.13.0")),
+		draft(programRelease(t, signer, "v3.13.0-rc.1")),
+		unsigned(t, programRelease(t, signer, "v3.14.0-beta.1")))
+	server := selfupdatetest.NewServer(t, releases...)
+	entries, err := clientFor(server, signer, "v3.2.0", "").List(context.Background())
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := "v0.44.0-rc.1! v0.43.0 v0.42.0 v0.41.0 v0.40.0 v0.39.0 v0.38.0 v0.37.0 v0.36.0 v0.35.0* v0.34.0<"
+	want := "v3.12.0-rc.1p v3.11.0 v3.10.0 v3.9.0 v3.8.0 v3.7.0 v3.6.0 v3.5.0 v3.4.0 v3.3.0 v3.2.0c"
 	if got := tags(entries); got != want {
-		t.Fatalf("List() =\n%s\nwant\n%s", got, want)
+		t.Fatalf("List() = %s, want %s", got, want)
+	}
+	entries, err = clientFor(server, signer, "v3.3.0", "").List(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	want = "v3.12.0-rc.1p v3.11.0 v3.10.0 v3.9.0 v3.8.0 v3.7.0 v3.6.0 v3.5.0 v3.4.0 v3.3.0c v3.2.0o"
+	if got := tags(entries); got != want {
+		t.Fatalf("List() from v3.3.0 = %s, want %s", got, want)
+	}
+	server.Set(programRelease(t, signer, "v3.0.0"), programRelease(t, signer, "v2.2.0"))
+	entries, err = clientFor(server, signer, "v3.0.0", "").List(context.Background())
+	if err != nil || tags(entries) != "v3.0.0c v2.2.0o" {
+		t.Fatalf("List() across the rename = %s, %v", tags(entries), err)
 	}
 }
 
+// The running version is listed even outside the ten newest, marked as current; a running version that is
+// no signed release from MinVersion on is not, even when such a release exists.
 func TestListMarksRunningVersionOutsideTheTen(t *testing.T) {
 	signer := releasetest.NewSigner(t)
-	var fixtures []fixture
+	var releases []selfupdatetest.Release
 	for minor := 43; minor >= 30; minor-- {
-		fixtures = append(fixtures, fixture{tag: fmt.Sprintf("v0.%d.0", minor)})
+		releases = append(releases, programRelease(t, signer, fmt.Sprintf("v0.%d.0", minor)))
 	}
-	server := multiReleaseServer(t, signer, fixtures, nil)
-	client := &Client{BaseURL: server.URL, HTTPClient: server.Client(), Version: "v0.31.0"}
-	entries, err := client.List(context.Background())
+	releases = append(releases, programRelease(t, signer, "v0.29.5"))
+	server := selfupdatetest.NewServer(t, releases...)
+	entries, err := clientFor(server, signer, "v0.31.0", "").List(context.Background())
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(entries) != 11 || !entries[10].Current || entries[10].Version != "v0.31.0" || entries[9].Older {
+	if len(entries) != 11 || !entries[10].Current || entries[10].Version != "v0.31.0" || entries[10].Older || entries[9].Older ||
+		entries[9].Version != "v0.34.0" {
 		t.Fatalf("List() = %s", tags(entries))
 	}
-	// A running version that is no signed release from the minimum on is not listed.
-	client.Version = "v0.29.5"
-	entries, err = client.List(context.Background())
+	entries, err = clientFor(server, signer, "v0.29.5", "").List(context.Background())
 	if err != nil {
 		t.Fatal(err)
 	}
+	if len(entries) != 10 {
+		t.Fatalf("List() = %s, want the ten newest only", tags(entries))
+	}
 	for _, e := range entries {
-		if e.Current || e.Older {
+		if e.Current || e.Older || e.Version == "v0.29.5" {
 			t.Fatalf("List() = %s", tags(entries))
 		}
 	}
 }
 
+// The list reads every page of the release list: with three full pages of a hundred, the newest releases
+// on the last one, a fourth, empty page ends the read.
 func TestListReadsEveryPage(t *testing.T) {
-	old := releasePageSize
-	releasePageSize = 3
-	t.Cleanup(func() { releasePageSize = old })
-	signer := releasetest.NewSigner(t)
-	var fixtures []fixture
-	for minor := 38; minor >= 30; minor-- {
-		fixtures = append(fixtures, fixture{tag: fmt.Sprintf("v0.%d.0", minor)})
+	var releases []selfupdatetest.Release
+	for minor := range 300 {
+		releases = append(releases, listed(t, fmt.Sprintf("v3.%d.0", minor)))
 	}
-	pages := 0
-	server := multiReleaseServer(t, signer, fixtures, &pages)
-	client := &Client{BaseURL: server.URL, HTTPClient: server.Client(), Version: "v0.30.0"}
-	entries, err := client.List(context.Background())
+	server := selfupdatetest.NewServer(t, releases...)
+	entries, err := clientFor(server, releasetest.NewSigner(t), "v3.0.0", "").List(context.Background())
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(entries) != 9 || entries[0].Version != "v0.38.0" || !entries[8].Current {
+	if len(entries) != 11 || entries[0].Version != "v3.299.0" || entries[9].Version != "v3.290.0" || !entries[10].Current ||
+		entries[10].Version != "v3.0.0" {
 		t.Fatalf("List() = %s", tags(entries))
 	}
-	// Nine releases on pages of three: the third page is full, so a fourth (empty) page ends the read.
-	if pages != 4 {
+	if pages := server.Requests(selfupdatetest.RepositoryPath + "/releases"); pages != 4 {
 		t.Fatalf("read %d pages, want 4", pages)
 	}
 }
 
+// A server that never ends its release list is read up to the page limit of twenty pages, and the list
+// fails instead of being cut short. So do Check and Update, with nothing installed.
 func TestListStopsAtThePageLimit(t *testing.T) {
-	old := releasePageSize
-	releasePageSize = 1
-	t.Cleanup(func() { releasePageSize = old })
-	pages := 0
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		pages++
-		_ = json.NewEncoder(w).Encode([]map[string]any{{"tag_name": "v0.30.0"}})
+	signer := releasetest.NewSigner(t)
+	var pages atomic.Int32
+	var server *httptest.Server
+	server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != selfupdatetest.RepositoryPath+"/releases" {
+			http.NotFound(w, r)
+			return
+		}
+		pages.Add(1)
+		page := make([]map[string]any, 100)
+		for i := range page {
+			page[i] = map[string]any{"tag_name": "v3.1.0", "assets": []map[string]string{
+				{"name": archiveName(t, "v3.1.0"), "url": server.URL + selfupdatetest.RepositoryPath + "/releases/assets/1"},
+				{"name": "checksums.txt", "url": server.URL + selfupdatetest.RepositoryPath + "/releases/assets/2"},
+				{"name": "checksums.txt.qconnect.sig", "url": server.URL + selfupdatetest.RepositoryPath + "/releases/assets/3"},
+			}}
+		}
+		_ = json.NewEncoder(w).Encode(page)
 	}))
-	defer server.Close()
-	client := &Client{BaseURL: server.URL, HTTPClient: server.Client(), Version: "v0.30.0"}
-	if _, err := client.List(context.Background()); err != nil {
-		t.Fatal(err)
+	t.Cleanup(server.Close)
+	prefix, executable := installedPrefix(t)
+	client := &Client{BaseURL: server.URL + selfupdatetest.RepositoryPath, HTTPClient: server.Client(), Version: "v3.0.0",
+		GOARCH: testArch, Executable: executable, SigningKeys: []ssh.PublicKey{signer.PublicKey()}}
+	forbidReplace(t, client)
+	if entries, err := client.List(context.Background()); err == nil || !strings.Contains(err.Error(), "page limit") {
+		t.Fatalf("List() = %s, %v, want the page limit reported", tags(entries), err)
 	}
-	if pages != maxReleasePages {
-		t.Fatalf("read %d pages, want %d", pages, maxReleasePages)
+	if got := pages.Load(); got != 20 {
+		t.Fatalf("read %d pages, want 20", got)
 	}
-}
-
-func newTargetClient(t *testing.T, server *httptest.Server, signer ssh.Signer, version string) (*Client, string) {
-	t.Helper()
-	// The versions here predate the rename, so the installation is still called qatlas.
-	_, executable := installedPrefixNamed(t, "qatlas")
-	return &Client{
-		BaseURL: server.URL, HTTPClient: server.Client(), Version: version,
-		GOOS: "linux", GOARCH: "amd64", Executable: executable,
-		SigningKeys: []ssh.PublicKey{signer.PublicKey()},
-		BeforeReplace: func(_ context.Context, rel Release) error {
-			if !rel.Signed {
-				return errors.New("unsigned release reached the replacement")
-			}
-			return nil
-		},
-	}, executable
-}
-
-func TestUpdateToInstallsAPrerelease(t *testing.T) {
-	signer := releasetest.NewSigner(t)
-	// The prerelease is not the newest stable release, and not in the list's reach either.
-	server := multiReleaseServer(t, signer, []fixture{{tag: "v0.40.0"}, {tag: "v0.41.0-rc.1", prerelease: true}}, nil)
-	client, executable := newTargetClient(t, server, signer, "v0.35.0")
-	target, err := client.Target(context.Background(), "v0.41.0-rc.1")
-	if err != nil {
-		t.Fatal(err)
+	if result, err := client.Check(context.Background()); err == nil {
+		t.Fatalf("Check() = %+v, want the page limit reported", result)
 	}
-	if !target.Prerelease || target.Current {
-		t.Fatalf("Target() = %+v", target)
+	if result, err := client.Update(context.Background()); err == nil || result.Updated {
+		t.Fatalf("Update() = %+v, %v, want the page limit reported", result, err)
 	}
-	result, err := client.UpdateTo(context.Background(), target)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !result.Updated || !result.Signed || result.Latest != "v0.41.0-rc.1" || result.Current != "v0.35.0" || !result.UpdateAvailable {
-		t.Fatalf("UpdateTo() = %+v", result)
-	}
-	assertFile(t, executable, "new-binary")
-}
-
-func TestUpdateToAcceptsAReleaseOutsideTheList(t *testing.T) {
-	signer := releasetest.NewSigner(t)
-	var fixtures []fixture
-	for minor := 43; minor >= 30; minor-- {
-		fixtures = append(fixtures, fixture{tag: fmt.Sprintf("v0.%d.0", minor)})
-	}
-	server := multiReleaseServer(t, signer, fixtures, nil)
-	client, executable := newTargetClient(t, server, signer, "v0.30.0")
-	target, err := client.Target(context.Background(), "v0.32.0")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err := client.UpdateTo(context.Background(), target); err != nil {
-		t.Fatal(err)
-	}
-	assertFile(t, executable, "new-binary")
+	assertUntouched(t, prefix, executable)
 }
 
 func TestTargetRefusals(t *testing.T) {
 	signer := releasetest.NewSigner(t)
-	server := multiReleaseServer(t, signer, []fixture{
-		{tag: "v0.40.0"}, {tag: "v0.41.0", unsigned: true}, {tag: "v0.29.0"}, {tag: "v0.34.0"},
-		{tag: "v0.42.0", draft: true},
-	}, nil)
-	tests := map[string]struct{ tag, want string }{
-		"unsigned":      {"v0.41.0", "not signed"},
-		"below minimum": {"v0.29.0", "oldest version"},
-		"draft":         {"v0.42.0", "does not exist"},
-		"missing":       {"v0.99.0", "look up release"},
-		"not a version": {"latest", "not a release version"},
-	}
-	for name, tt := range tests {
-		t.Run(name, func(t *testing.T) {
-			client, executable := newTargetClient(t, server, signer, "v0.35.0")
-			_, err := client.Target(context.Background(), tt.tag)
-			if err == nil || !strings.Contains(err.Error(), tt.want) {
-				t.Fatalf("Target(%s) error = %v, want %q", tt.tag, err, tt.want)
+	server := selfupdatetest.NewServer(t, programRelease(t, signer, "v3.2.0"), unsigned(t, programRelease(t, signer, "v3.4.0")),
+		programRelease(t, signer, "v0.29.0"), draft(programRelease(t, signer, "v3.5.0")))
+	for tag, want := range map[string]string{
+		"3.1.0":   "is not a release version",
+		"latest":  "is not a release version",
+		"v0.29.0": "older than v0.30.0",
+		"v3.9.0":  "does not exist",
+		"v3.4.0":  "is not signed or is incomplete and cannot be chosen",
+		"v3.5.0":  "is not signed or is incomplete and cannot be chosen",
+	} {
+		t.Run(tag, func(t *testing.T) {
+			prefix, executable := installedPrefix(t)
+			client := clientFor(server, signer, "v3.0.0", executable)
+			forbidReplace(t, client)
+			_, err := client.Target(context.Background(), tag)
+			var target *TargetError
+			if !errors.As(err, &target) || !strings.Contains(err.Error(), want) {
+				t.Errorf("Target(%s) = %v, want a TargetError with %q", tag, err, want)
 			}
-			if name != "missing" {
-				var refused *TargetError
-				if !errors.As(err, &refused) {
-					t.Errorf("error %T is not a TargetError", err)
-				}
-			}
-			assertFile(t, executable, "old-binary")
+			assertUntouched(t, prefix, executable)
 		})
 	}
 }
 
 func TestTargetMarksAnOlderVersionAndUpdateToRefusesIt(t *testing.T) {
 	signer := releasetest.NewSigner(t)
-	server := multiReleaseServer(t, signer, []fixture{{tag: "v0.34.0"}, {tag: "v0.36.0"}}, nil)
-	client, executable := newTargetClient(t, server, signer, "v0.35.0")
-	client.BeforeReplace = func(context.Context, Release) error {
-		t.Error("BeforeReplace ran although nothing is replaced")
-		return nil
-	}
-	older, err := client.Target(context.Background(), "v0.34.0")
+	server := selfupdatetest.NewServer(t, programRelease(t, signer, "v3.0.0"), programRelease(t, signer, "v3.2.0"))
+	prefix, executable := installedPrefix(t)
+	client := clientFor(server, signer, "v3.1.0", executable)
+	forbidReplace(t, client)
+	client.ValidateRollback = func(context.Context, *Prepared) error { return nil }
+	older, err := client.Target(context.Background(), "v3.0.0")
 	if err != nil || !older.Older || older.Current {
-		t.Fatalf("Target(v0.34.0) = %+v, %v", older, err)
+		t.Fatalf("Target(v3.0.0) = %+v, %v", older, err)
 	}
-	newer, err := client.Target(context.Background(), "v0.36.0")
-	if err != nil || newer.Older {
-		t.Fatalf("Target(v0.36.0) = %+v, %v", newer, err)
+	newer, err := client.Target(context.Background(), "v3.2.0")
+	if err != nil || newer.Older || newer.Current {
+		t.Fatalf("Target(v3.2.0) = %+v, %v", newer, err)
 	}
 	var refused *TargetError
-	if _, err := client.UpdateTo(context.Background(), older); !errors.As(err, &refused) {
-		t.Fatalf("UpdateTo(older) error = %v, want a TargetError", err)
+	if result, err := client.UpdateTo(context.Background(), older); !errors.As(err, &refused) || result.Updated {
+		t.Fatalf("UpdateTo(older) = %+v, %v, want a TargetError", result, err)
 	}
-	assertFile(t, executable, "old-binary")
+	assertUntouched(t, prefix, executable)
 }
 
 func TestTargetOfTheRunningVersionChangesNothing(t *testing.T) {
 	signer := releasetest.NewSigner(t)
-	server := multiReleaseServer(t, signer, []fixture{{tag: "v0.35.0"}}, nil)
-	client, executable := newTargetClient(t, server, signer, "v0.35.0")
-	client.BeforeReplace = func(context.Context, Release) error {
-		t.Error("BeforeReplace ran although nothing is replaced")
-		return nil
+	server := selfupdatetest.NewServer(t, programRelease(t, signer, "v3.0.0"))
+	prefix, executable := installedPrefix(t)
+	client := clientFor(server, signer, "v3.0.0", executable)
+	forbidReplace(t, client)
+	target, err := client.Target(context.Background(), "v3.0.0")
+	if err != nil || !target.Current || target.Older {
+		t.Fatalf("Target() = %+v, %v", target, err)
 	}
-	target, err := client.Target(context.Background(), "v0.35.0")
-	if err != nil || !target.Current {
+	if result, err := client.UpdateTo(context.Background(), target); err != nil || result.Updated || result.UpdateAvailable {
+		t.Fatalf("UpdateTo() = %+v, %v", result, err)
+	}
+	var refused *TargetError
+	if _, err := client.Prepare(context.Background(), target); !errors.As(err, &refused) {
+		t.Fatalf("Prepare() = %v, want the running version refused", err)
+	}
+	assertUntouched(t, prefix, executable)
+}
+
+// A prerelease that is not the newest release, and not in the list's reach either, installs by its tag.
+func TestUpdateToInstallsAPrerelease(t *testing.T) {
+	signer := releasetest.NewSigner(t)
+	server := selfupdatetest.NewServer(t, programRelease(t, signer, "v3.2.0"), programRelease(t, signer, "v3.1.0-rc.1"))
+	_, executable := installedPrefix(t)
+	client := clientFor(server, signer, "v3.0.0", executable)
+	target, err := client.Target(context.Background(), "v3.1.0-rc.1")
+	if err != nil || !target.Prerelease || target.Current || target.Older {
 		t.Fatalf("Target() = %+v, %v", target, err)
 	}
 	result, err := client.UpdateTo(context.Background(), target)
-	if err != nil || result.Updated || result.UpdateAvailable {
+	if err != nil || !result.Updated || !result.Signed || !result.UpdateAvailable || result.Latest != "v3.1.0-rc.1" || result.Current != "v3.0.0" {
 		t.Fatalf("UpdateTo() = %+v, %v", result, err)
 	}
-	assertFile(t, executable, "old-binary")
+	assertRegular(t, executable, "new-binary")
 }
 
-func TestUpdateToRefusesAnInvalidSignatureWithoutChanges(t *testing.T) {
+func TestUpdateToAcceptsAReleaseOutsideTheList(t *testing.T) {
 	signer := releasetest.NewSigner(t)
-	server := multiReleaseServer(t, signer, []fixture{{tag: "v0.41.0-rc.1", prerelease: true, badSignature: true}}, nil)
-	client, executable := newTargetClient(t, server, signer, "v0.35.0")
-	client.BeforeReplace = func(context.Context, Release) error {
-		t.Error("BeforeReplace ran although nothing is replaced")
-		return nil
+	var releases []selfupdatetest.Release
+	for minor := 13; minor >= 0; minor-- {
+		releases = append(releases, programRelease(t, signer, fmt.Sprintf("v3.%d.0", minor)))
 	}
-	target, err := client.Target(context.Background(), "v0.41.0-rc.1")
+	server := selfupdatetest.NewServer(t, releases...)
+	_, executable := installedPrefix(t)
+	client := clientFor(server, signer, "v3.0.0", executable)
+	entries, err := client.List(context.Background())
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := client.UpdateTo(context.Background(), target); err == nil || !strings.Contains(err.Error(), "signature is invalid") {
-		t.Fatalf("UpdateTo() error = %v", err)
+	for _, e := range entries {
+		if e.Version == "v3.2.0" {
+			t.Fatalf("List() = %s, want v3.2.0 outside it", tags(entries))
+		}
 	}
-	assertFile(t, executable, "old-binary")
+	target, err := client.Target(context.Background(), "v3.2.0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result, err := client.UpdateTo(context.Background(), target); err != nil || !result.Updated || result.Latest != "v3.2.0" {
+		t.Fatalf("UpdateTo() = %+v, %v", result, err)
+	}
+	assertRegular(t, executable, "new-binary")
 }
 
+// Prepare verifies without installing and runs no hook, refuses a release whose signature does not verify
+// and the running version; InstallPrepared installs what it verified, here an older release after its
+// check, with each hook once.
 func TestPrepareVerifiesWithoutInstallingAndInstallPreparedInstalls(t *testing.T) {
 	signer := releasetest.NewSigner(t)
-	server := multiReleaseServer(t, signer, []fixture{{tag: "v0.34.0"}, {tag: "v0.41.0", badSignature: true}, {tag: "v0.35.0"}}, nil)
-	client, executable := newTargetClient(t, server, signer, "v0.35.0")
-	var before, after int
+	bad := programRelease(t, signer, "v3.2.0")
+	bad.Assets["checksums.txt.qconnect.sig"] = releasetest.Sign(t, signer, selfupdatetest.Current.Namespace, "sha512",
+		append([]byte("x"), bad.Assets["checksums.txt"]...))
+	server := selfupdatetest.NewServer(t, programRelease(t, signer, "v3.0.0"), bad, programRelease(t, signer, "v3.1.0"))
+	prefix, executable := installedPrefix(t)
+	client := clientFor(server, signer, "v3.1.0", executable)
+	var before, after, validated int
 	client.BeforeReplace = func(context.Context, Release) error { before++; return nil }
 	client.AfterReplace = func(context.Context, Release) { after++ }
+	client.ValidateRollback = func(_ context.Context, p *Prepared) error {
+		validated++
+		if p.Version() != "v3.0.0" {
+			t.Errorf("validated %s", p.Version())
+		}
+		return nil
+	}
 
-	bad, err := client.Target(context.Background(), "v0.41.0")
+	badTarget, err := client.Target(context.Background(), "v3.2.0")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := client.Prepare(context.Background(), bad); err == nil || !strings.Contains(err.Error(), "signature is invalid") {
-		t.Fatalf("Prepare() with a bad signature error = %v", err)
+	if _, err := client.Prepare(context.Background(), badTarget); err == nil || !strings.Contains(err.Error(), "does not match checksums") {
+		t.Fatalf("Prepare() with a bad signature = %v", err)
 	}
-	current, _ := client.Target(context.Background(), "v0.35.0")
+	current, err := client.Target(context.Background(), "v3.1.0")
+	if err != nil {
+		t.Fatal(err)
+	}
 	if _, err := client.Prepare(context.Background(), current); err == nil {
 		t.Fatal("Prepare() of the running version succeeded")
 	}
 
-	older, err := client.Target(context.Background(), "v0.34.0")
+	older, err := client.Target(context.Background(), "v3.0.0")
 	if err != nil {
 		t.Fatal(err)
 	}
 	prepared, err := client.Prepare(context.Background(), older)
-	if err != nil || prepared.Version() != "v0.34.0" {
+	if err != nil || prepared.Version() != "v3.0.0" {
 		t.Fatalf("Prepare() = %+v, %v", prepared, err)
 	}
-	assertFile(t, executable, "old-binary")
-	if before != 0 || after != 0 {
-		t.Fatalf("hooks ran during Prepare: %d, %d", before, after)
+	assertUntouched(t, prefix, executable)
+	if before != 0 || after != 0 || validated != 0 {
+		t.Fatalf("hooks ran during Prepare: %d, %d, %d", before, after, validated)
 	}
 	result, err := client.InstallPrepared(context.Background(), prepared)
-	if err != nil || !result.Updated || !result.Signed || result.Latest != "v0.34.0" || result.Current != "v0.35.0" {
+	if err != nil || !result.Updated || !result.Signed || result.Latest != "v3.0.0" || result.Current != "v3.1.0" {
 		t.Fatalf("InstallPrepared() = %+v, %v", result, err)
 	}
-	assertFile(t, executable, "new-binary")
-	if before != 1 || after != 1 {
-		t.Fatalf("hooks = %d, %d", before, after)
+	assertRegular(t, executable, "new-binary")
+	if before != 1 || after != 1 || validated != 1 {
+		t.Fatalf("hooks = %d, %d, %d, want each once", before, after, validated)
+	}
+}
+
+// The question before a rollback to a release before the rename says what that version works on.
+func TestTargetQuestionNamesTheStateBeforeTheMigration(t *testing.T) {
+	question := TargetQuestion("v2.2.0", false, true)
+	for _, want := range []string{"~/.qatlas/cli/", "qatlas-cli", "installed as qatlas", "qconnect is removed"} {
+		if !strings.Contains(question, want) {
+			t.Errorf("question lacks %q: %s", want, question)
+		}
+	}
+	if question := TargetQuestion("v2.2.1", false, true); strings.Contains(question, "~/.qatlas/cli/") {
+		t.Errorf("a rollback after the rename names the former state: %s", question)
 	}
 }

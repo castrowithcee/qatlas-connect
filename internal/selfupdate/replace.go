@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/castrowithcee/qatlas-kit/fileretry"
+	kitselfupdate "github.com/castrowithcee/qatlas-kit/selfupdate"
 )
 
 // fileOps are the file operations of a replacement, injectable so that the sequence and its rollback are
@@ -34,10 +35,10 @@ func (o fileOps) renameRetrying(oldPath, newPath string) error {
 		fileretry.Options{Transient: o.transient, Sleep: o.sleep})
 }
 
-// replaceRunning puts the staged file in place of target, which may be a running Windows executable: such
-// a file can be renamed but not overwritten. The running file becomes target+".old", a leftover of an
-// earlier replacement is removed first or, when it cannot be, avoided by a unique name. Should the second
-// step fail, the old file is renamed back, so the installation is never left without target.
+// replaceRunning puts the staged file in place of target, the former name's copy of the program on Windows,
+// which may be running: such a file can be renamed but not overwritten. The running file becomes
+// target+".old", a leftover of an earlier replacement is removed first or, when it cannot be, avoided by a
+// unique name. Should the second step fail, the old file is renamed back, so target never goes missing.
 func replaceRunning(ops fileOps, staged, target string) error {
 	old := target + ".old"
 	if err := ops.remove(old); err != nil && !errors.Is(err, os.ErrNotExist) {
@@ -55,19 +56,6 @@ func replaceRunning(ops fileOps, staged, target string) error {
 	// The old file is still the running program, so this usually fails; the next start or update removes it.
 	_ = ops.remove(old)
 	return nil
-}
-
-// removeLeftovers removes the files an earlier replacement of executable left beside it: executable+".old"
-// and the uniquely named ones. It is best effort and silent.
-func removeLeftovers(ops fileOps, executable string) {
-	_ = ops.remove(executable + ".old")
-	matches, err := filepath.Glob(strings.NewReplacer("[", "[[]").Replace(executable) + ".old-*")
-	if err != nil {
-		return
-	}
-	for _, match := range matches {
-		_ = ops.remove(match)
-	}
 }
 
 // retire removes path, which on Windows may be a running executable: such a file cannot be removed but can
@@ -100,6 +88,6 @@ func CleanupLeftovers() {
 		return
 	}
 	for _, name := range []string{currentName + ".exe", formerName + ".exe"} {
-		removeLeftovers(osFileOps, filepath.Join(filepath.Dir(executable), name))
+		_ = kitselfupdate.CleanupLeftovers(filepath.Join(filepath.Dir(executable), name))
 	}
 }

@@ -3,20 +3,13 @@
 package cli
 
 import (
-	"archive/tar"
-	"bytes"
-	"compress/gzip"
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net"
-	"net/http"
-	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"testing"
@@ -24,12 +17,12 @@ import (
 	"filippo.io/age"
 	"golang.org/x/crypto/ssh"
 
-	"github.com/castrowithcee/qatlas-connect/internal/release"
-	"github.com/castrowithcee/qatlas-connect/internal/release/releasetest"
 	"github.com/castrowithcee/qatlas-connect/internal/selfupdate"
+	"github.com/castrowithcee/qatlas-connect/internal/selfupdate/selfupdatetest"
 	"github.com/castrowithcee/qatlas-connect/internal/vault"
 	"github.com/castrowithcee/qatlas-connect/internal/vaultproc"
 	"github.com/castrowithcee/qatlas-kit/redact"
+	"github.com/castrowithcee/qatlas-kit/release/releasetest"
 )
 
 // serveVaultInProcess serves the encrypted vault of the fixture in dir from this test process, the way
@@ -322,46 +315,14 @@ func releaseUpdater(t *testing.T, executable string, before func()) *selfupdate.
 // trusts only if trusted is that signer's key;
 func signedReleaseUpdater(t *testing.T, executable string, signer ssh.Signer, trusted ssh.PublicKey, before func()) *selfupdate.Client {
 	t.Helper()
-	var archive bytes.Buffer
-	gz := gzip.NewWriter(&archive)
-	tw := tar.NewWriter(gz)
-	for name, content := range map[string]string{"bin/qconnect": "new-program", "share/man/man1/qconnect.1": "manual"} {
-		if err := tw.WriteHeader(&tar.Header{Name: name, Mode: 0o755, Size: int64(len(content)), Typeflag: tar.TypeReg}); err != nil {
-			t.Fatal(err)
-		}
-		_, _ = tw.Write([]byte(content))
+	name, archive := selfupdatetest.Archive(t, "v3.1.0", runtime.GOOS, "amd64", []byte("new-program"))
+	var sets []selfupdatetest.Signature
+	if signer != nil {
+		sets = append(sets, selfupdatetest.Current)
 	}
-	_ = tw.Close()
-	_ = gz.Close()
-	const asset = "qconnect_v3.1.0_linux_amd64.tar.gz"
-	sum := sha256.Sum256(archive.Bytes())
-	checksums := []byte(fmt.Sprintf("%s  %s\n", hex.EncodeToString(sum[:]), asset))
-
-	var server *httptest.Server
-	server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		switch r.URL.Path {
-		case "/releases/latest":
-			assets := []map[string]string{
-				{"name": asset, "url": server.URL + "/asset"},
-				{"name": "checksums.txt", "url": server.URL + "/checksums"},
-			}
-			if signer != nil {
-				assets = append(assets, map[string]string{"name": release.SignatureAsset, "url": server.URL + "/signature"})
-			}
-			_ = json.NewEncoder(w).Encode(map[string]any{"tag_name": "v3.1.0", "assets": assets})
-		case "/asset":
-			_, _ = w.Write(archive.Bytes())
-		case "/checksums":
-			_, _ = w.Write(checksums)
-		case "/signature":
-			_, _ = w.Write(releasetest.Sign(t, signer, release.Namespace, "sha512", checksums))
-		default:
-			http.NotFound(w, r)
-		}
-	}))
-	t.Cleanup(server.Close)
+	server := selfupdatetest.NewServer(t, selfupdatetest.Signed(t, signer, "v3.1.0", map[string][]byte{name: archive}, sets...))
 	client := &selfupdate.Client{
-		BaseURL: server.URL, HTTPClient: server.Client(), Version: "v3.0.0", GOOS: "linux", GOARCH: "amd64",
+		BaseURL: server.RepositoryAPI(), HTTPClient: server.Client(), Version: "v3.0.0", GOARCH: "amd64",
 		Executable: executable,
 		BeforeReplace: func(context.Context, selfupdate.Release) error {
 			before()
