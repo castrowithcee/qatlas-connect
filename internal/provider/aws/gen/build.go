@@ -69,10 +69,11 @@ type tool struct {
 	pager         *awsquery.Pager
 	hasToken      bool
 
-	// rest is true for a restJson1 tool. restBind is the binding of its operation; restOp is the description
+	// rest is true for a restJson1 or restXml tool; xml says it is restXml, and noWrap is the service's
+	// noErrorWrapping. restBind is the binding of its operation; restOp is the description
 	// the runtime sends and decodes with, assembled from the converted shapes. inModel and outModel map the
 	// key of a top-level member of the converted input and output to its member key in the binding.
-	rest              bool
+	rest, xml, noWrap bool
 	restBind          *RestBinding
 	restOp            *httpbind.Operation
 	plan              *pagingPlan
@@ -81,6 +82,10 @@ type tool struct {
 	// ExcludeEnum members the converter narrowed.
 	nestedIn map[string]bool
 	enumHit  map[string]bool
+	// released are the Release members of the table, true once a sensitive member of that path was kept.
+	released map[string]bool
+	// limited are the Limits of the table, true once a member of that path took its cap.
+	limited map[string]bool
 
 	inputSchema, outputSchema string
 	args                      []descArg
@@ -94,6 +99,10 @@ type tool struct {
 
 	// Generated test of a restJson1 tool: the request the sample arguments encode to.
 	sampleMethod, samplePath, sampleQuery, sampleBody string
+	// sampleOwner is the expected-owner header the sample request carries, sampleBucket the bucket that is the
+	// first label of its host, sampleHeader the headers of the sample answer.
+	sampleOwner, sampleBucket string
+	sampleHeader              map[string]string
 
 	// Generated test: the arguments, the form parameters they encode to, the answer, and the result keys.
 	sampleArgs   string
@@ -138,14 +147,15 @@ func build(m *Model, table *Table, op Operation) (*tool, error) {
 	if op.AccountCheck && (table.Service != "sts" || op.Operation != "GetCallerIdentity") {
 		return nil, t.failf("only STS GetCallerIdentity is the account check")
 	}
-	if op.TargetCheck == "bucket-owner" {
-		return nil, t.failf("target_check bucket-owner needs the S3 protocol package, not awsQuery")
+	if op.TargetCheck == "bucket-owner" && m.Protocol != ProtocolRestXML {
+		return nil, t.failf("target_check bucket-owner needs the S3 protocol package (restXml), not %s", m.Protocol)
 	}
-	if m.Protocol == ProtocolRestJSON {
+	if m.Protocol == ProtocolRestJSON || m.Protocol == ProtocolRestXML {
 		if op.AccountCheck || op.CSV != nil {
 			return nil, t.failf("the account check and csv reports belong to awsQuery tools")
 		}
 		t.rest, t.action, t.version = true, "", ""
+		t.xml, t.noWrap = m.Protocol == ProtocolRestXML, m.NoErrorWrapping
 		if t.restBind, err = m.BindRest(op.Operation); err != nil {
 			return nil, t.failf("%v", err)
 		}
@@ -172,11 +182,28 @@ func build(m *Model, table *Table, op Operation) (*tool, error) {
 		}
 		t.csv = op.CSV
 	}
+	t.released, t.limited = map[string]bool{}, map[string]bool{}
+	for _, r := range op.Release {
+		t.released[r.Member] = false
+	}
+	for _, l := range op.Limits {
+		t.limited[l.Member] = false
+	}
 	if err := t.bindInput(m, in, pag); err != nil {
 		return nil, err
 	}
 	if err := t.bindOutput(m, out, pag); err != nil {
 		return nil, err
+	}
+	for name, hit := range t.released {
+		if !hit {
+			return nil, t.failf("release %s is not a sensitive member of the input or the output", name)
+		}
+	}
+	for name, hit := range t.limited {
+		if !hit {
+			return nil, t.failf("limit %s is not a string or list member of the input", name)
+		}
 	}
 	if t.rest {
 		if err := t.assembleRest(); err != nil {
@@ -403,6 +430,9 @@ func (t *tool) bindInput(m *Model, in []member, pag *pagingPlan) error {
 		if deprecated(mm) || hidden[mm.name] {
 			continue
 		}
+		if t.layerOwned(mm.name) {
+			continue
+		}
 		if pag != nil && (mm.name == pag.tokenIn || mm.name == pag.sizeMember) {
 			continue
 		}
@@ -521,10 +551,10 @@ func (t *tool) bindInput(m *Model, in []member, pag *pagingPlan) error {
 	return nil
 }
 
-// wire is the name of a member on the wire: the jsonName of a restJson1 member, the xmlName of an awsQuery
-// member, else its name. mm.traits holds the merged traits of the member.
+// wire is the name of a member on the wire: the jsonName of a restJson1 member, the xmlName of an awsQuery or
+// restXml member, else its name. mm.traits holds the merged traits of the member.
 func (t *tool) wire(mm member) string {
-	if t.rest {
+	if t.rest && !t.xml {
 		if name := mm.traits.str("smithy.api#jsonName"); name != "" {
 			return name
 		}
@@ -612,7 +642,10 @@ func (t *tool) bindOutput(m *Model, out []member, pag *pagingPlan) error {
 		if f.MaxLen > 0 && mm.kind != "string" {
 			return t.failf("field %s has a cap but is not a string", mm.name)
 		}
-		c := converter{m: m, t: t, path: mm.name, output: true, maxLen: f.MaxLen}
+		if f.MaxItems > 0 && mm.kind != "list" && mm.kind != "set" {
+			return t.failf("field %s has an item cap but is not a list", mm.name)
+		}
+		c := converter{m: m, t: t, path: mm.name, output: true, maxLen: f.MaxLen, maxItems: f.MaxItems}
 		s, schema, err := c.convert(mm.target, mm.traits, true, 0)
 		if err != nil {
 			return err
@@ -725,9 +758,9 @@ type converter struct {
 	t      *tool
 	path   string
 	output bool
-	// maxLen is the table cap of a top-level output string.
-	maxLen int
-	stack  []string
+	// maxLen is the table cap of a top-level output string, maxItems that of a top-level output list.
+	maxLen, maxItems int
+	stack            []string
 }
 
 func (c *converter) failf(format string, args ...any) error {
@@ -775,7 +808,10 @@ func (c *converter) convert(target string, traits *object, output bool, depth in
 		return nil, nil, c.failf("%v", err)
 	}
 	if traits.has("smithy.api#sensitive") {
-		return nil, nil, c.failf("the member is sensitive; hide it with a reason, or exclude the operation")
+		if _, released := c.t.released[c.path]; !released {
+			return nil, nil, c.failf("the member is sensitive; hide it with a reason, or exclude the operation")
+		}
+		c.t.released[c.path] = true
 	}
 	if output && (kind == "string" || kind == "blob") && credentialName.MatchString(lastSegment(c.path)) {
 		return nil, nil, c.failf("the member looks like a credential; hide it with a reason, or exclude the operation")
@@ -810,6 +846,11 @@ func (c *converter) convert(target string, traits *object, output bool, depth in
 		}
 		if max, ok := number(length, "max"); ok {
 			schema.set("maxLength", max)
+		}
+		if l, ok := c.limit(false); ok {
+			if max, bounded := number(length, "max"); !bounded || int64(l.MaxLen) < max {
+				schema.set("maxLength", l.MaxLen)
+			}
 		}
 		if p := traits.str("smithy.api#pattern"); p != "" {
 			p, err := c.pattern(p)
@@ -882,7 +923,12 @@ func (c *converter) convert(target string, traits *object, output bool, depth in
 		}
 		shape := &awsquery.Shape{Kind: awsquery.KindList, Elem: elem, ElemName: mo.obj("traits").str("smithy.api#xmlName")}
 		schema := newObject("type", "array", "items", items)
-		c.items(shape, schema, length, output)
+		c.items(shape, schema, length, output, depth)
+		if l, ok := c.limit(true); ok {
+			if max, bounded := number(length, "max"); !bounded || int64(l.MaxItems) < max {
+				schema.set("maxItems", l.MaxItems)
+			}
+		}
 		return shape, schema, nil
 	case "map":
 		ko, vo := s.obj("key"), s.obj("value")
@@ -910,6 +956,20 @@ func (c *converter) convert(target string, traits *object, output bool, depth in
 	return nil, nil, c.failf("shape type %s has no query-protocol binding here", kind)
 }
 
+// limit returns the table cap of the input member at c.path and marks it used.
+func (c *converter) limit(items bool) (InputLimit, bool) {
+	if c.output {
+		return InputLimit{}, false
+	}
+	for _, l := range c.t.op.Limits {
+		if l.Member == c.path && (l.MaxItems > 0) == items {
+			c.t.limited[l.Member] = true
+			return l, true
+		}
+	}
+	return InputLimit{}, false
+}
+
 // narrow removes the values the table excludes from the enum of the member at c.path.
 func (c *converter) narrow(values []any) ([]any, error) {
 	for _, e := range c.t.op.ExcludeEnum {
@@ -935,11 +995,14 @@ func lastSegment(path string) string {
 	return path
 }
 
-func (c *converter) items(shape *awsquery.Shape, schema, length *object, output bool) {
+func (c *converter) items(shape *awsquery.Shape, schema, length *object, output bool, depth int) {
 	if output {
 		limit := defaultMaxItems
 		if max, ok := number(length, "max"); ok {
 			limit = int(max)
+		}
+		if _, bounded := number(length, "max"); c.maxItems > 0 && depth == 0 && (!bounded || c.maxItems < limit) {
+			limit = c.maxItems
 		}
 		shape.MaxItems = limit
 		schema.set("maxItems", limit)
@@ -1066,6 +1129,18 @@ func (t *tool) makeSamples(m *Model) error {
 		}
 		args.set(f.Key, v)
 	}
+	if t.op.SampleArgs != "" {
+		var over map[string]json.RawMessage
+		if err := json.Unmarshal([]byte(t.op.SampleArgs), &over); err != nil {
+			return t.failf("sample arguments of the table do not parse: %v", err)
+		}
+		for _, name := range sortedRawKeys(over) {
+			if !args.has(name) {
+				return t.failf("sample argument %s is not an argument of the generated test", name)
+			}
+			args.set(name, rawJSON(over[name]))
+		}
+	}
 	t.sampleArgs = encodeCompact(args)
 	var plain map[string]any
 	pd := json.NewDecoder(strings.NewReader(t.sampleArgs))
@@ -1114,6 +1189,7 @@ const sampleARN = "arn:aws:iam::123456789012:role/a"
 // targetSamples are values that pass a target check in the account and region the generated tests bind, by
 // the name of the check.
 var targetSamples = map[string]string{
+	"bucket-owner":     "my-bucket",
 	"ses-identity":     "example.com",
 	"ses-identity-arn": "arn:aws:ses:eu-central-1:123456789012:identity/example.com",
 }
@@ -1285,6 +1361,15 @@ func (t *tool) scalarSample(f awsquery.Field) string {
 		}
 	}
 	return "x"
+}
+
+func sortedRawKeys(m map[string]json.RawMessage) []string {
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	slices.Sort(keys)
+	return keys
 }
 
 // sortedKeys returns the keys of a form parameter map in order, for a deterministic rendering.
