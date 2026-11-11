@@ -5,7 +5,6 @@ package vaultproc
 import (
 	"context"
 	"errors"
-	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -21,6 +20,14 @@ func earlierFixture(t *testing.T) (vaultDir, legacy string) {
 	legacy, err := socketPath(vaultDir, legacyRuntimeDirName)
 	if err != nil {
 		t.Fatal(err)
+	}
+	// The channel FindEarlier looks at is the socket the earlier release keeps, by its own names.
+	e, ok := earlierEndpoint(vaultDir)
+	if !ok {
+		t.Fatal("earlierEndpoint() found no channel of the earlier release")
+	}
+	if path, err := e.Path(); err != nil || path != legacy {
+		t.Fatalf("the earlier channel is %q, %v, want %q", path, err, legacy)
 	}
 	return vaultDir, legacy
 }
@@ -79,6 +86,9 @@ func TestFindEarlierIgnoresWhatIsNoEarlierProcess(t *testing.T) {
 				t.Fatal(err)
 			}
 			t.Cleanup(func() { _ = l.Close() })
+			if err := os.Chmod(legacy, 0o600); err != nil {
+				t.Fatal(err)
+			}
 		},
 		"orphaned socket and lock": func(t *testing.T, _, legacy string) {
 			prepareSocketDir(t, legacy)
@@ -116,56 +126,40 @@ func TestFindEarlierIgnoresWhatIsNoEarlierProcess(t *testing.T) {
 	}
 }
 
-// A process at the earlier socket that the kernel says runs as another user is neither found nor ended.
-func TestEarlierProcessOfAnotherUserIsNeverEnded(t *testing.T) {
+// A socket at the earlier place that others may open fails localipc's checks of a channel: it is reported
+// and left alone, whether or not a lock beside it is held.
+func TestEarlierSocketNotPrivateIsNotEnded(t *testing.T) {
 	vaultDir, legacy := earlierFixture(t)
-	cmd, _ := startEarlier(t, legacy)
-	original := earlierCred
-	t.Cleanup(func() { earlierCred = original })
-	earlierCred = func(conn net.Conn) (uint32, int, error) {
-		_, pid, err := original(conn)
-		return uint32(os.Getuid()) + 1, pid, err
+	prepareSocketDir(t, legacy)
+	l, err := rawListen(legacy)
+	if err != nil {
+		t.Fatal(err)
 	}
-	if pid, err := FindEarlier(vaultDir); pid != 0 || err != nil {
-		t.Fatalf("FindEarlier() of another user's process = %d, %v, want none", pid, err)
+	t.Cleanup(func() { _ = l.Close() })
+	if err := os.Chmod(legacy, 0o660); err != nil {
+		t.Fatal(err)
 	}
-	if pid, err := EndEarlier(context.Background(), vaultDir); pid != 0 || err != nil {
-		t.Fatalf("EndEarlier() of another user's process = %d, %v, want none", pid, err)
+	if pid, err := FindEarlier(vaultDir); pid != 0 || !errors.Is(err, ErrEarlierUnknown) {
+		t.Fatalf("FindEarlier() = %d, %v, want ErrEarlierUnknown", pid, err)
 	}
-	earlierCred = original
-	if pid, err := FindEarlier(vaultDir); pid != cmd.Process.Pid || err != nil {
-		t.Fatalf("FindEarlier() afterwards = %d, %v, want the helper still serving", pid, err)
+	if pid, err := EndEarlier(context.Background(), vaultDir); pid != 0 || !errors.Is(err, ErrEarlierUnknown) {
+		t.Fatalf("EndEarlier() = %d, %v, want ErrEarlierUnknown", pid, err)
 	}
 }
 
-// A served earlier socket whose process cannot be identified, or whose credentials cannot be read, is
-// reported and left alone.
+// A served earlier socket whose process cannot be identified as another process of this user is reported
+// and left alone. A process of another user and unreadable credentials are refused the same way by
+// localipc's Holder, whose own tests cover them.
 func TestEarlierProcessThatCannotBeIdentifiedIsNotEnded(t *testing.T) {
-	t.Run("served by this process", func(t *testing.T) {
-		vaultDir, legacy := earlierFixture(t)
-		listenFor(t, legacy)
-		if pid, err := FindEarlier(vaultDir); pid != 0 || !errors.Is(err, ErrEarlierUnknown) {
-			t.Fatalf("FindEarlier() = %d, %v, want ErrEarlierUnknown", pid, err)
-		}
-		if pid, err := EndEarlier(context.Background(), vaultDir); pid != 0 || !errors.Is(err, ErrEarlierUnknown) {
-			t.Fatalf("EndEarlier() = %d, %v, want ErrEarlierUnknown", pid, err)
-		}
-		if !serves(legacy) {
-			t.Fatal("the socket is no longer served")
-		}
-	})
-	t.Run("credentials unavailable", func(t *testing.T) {
-		vaultDir, legacy := earlierFixture(t)
-		cmd, _ := startEarlier(t, legacy)
-		original := earlierCred
-		t.Cleanup(func() { earlierCred = original })
-		earlierCred = func(net.Conn) (uint32, int, error) { return 0, 0, errors.New("unavailable") }
-		if pid, err := EndEarlier(context.Background(), vaultDir); pid != 0 || !errors.Is(err, ErrEarlierUnknown) {
-			t.Fatalf("EndEarlier() = %d, %v, want ErrEarlierUnknown", pid, err)
-		}
-		earlierCred = original
-		if pid, err := FindEarlier(vaultDir); pid != cmd.Process.Pid || err != nil {
-			t.Fatalf("FindEarlier() afterwards = %d, %v, want the helper still serving", pid, err)
-		}
-	})
+	vaultDir, legacy := earlierFixture(t)
+	listenFor(t, legacy)
+	if pid, err := FindEarlier(vaultDir); pid != 0 || !errors.Is(err, ErrEarlierUnknown) {
+		t.Fatalf("FindEarlier() = %d, %v, want ErrEarlierUnknown", pid, err)
+	}
+	if pid, err := EndEarlier(context.Background(), vaultDir); pid != 0 || !errors.Is(err, ErrEarlierUnknown) {
+		t.Fatalf("EndEarlier() = %d, %v, want ErrEarlierUnknown", pid, err)
+	}
+	if !serves(legacy) {
+		t.Fatal("the socket is no longer served")
+	}
 }

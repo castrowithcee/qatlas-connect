@@ -18,10 +18,10 @@ func TestEarlierPipePath(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	path := earlierPathOf(vaultDir)
-	if path == "" || path == current || !strings.HasPrefix(path, pipePrefix+legacyPipeName) ||
+	path := earlierPipe(t, vaultDir)
+	if path == current || !strings.HasPrefix(path, pipePrefix+legacyPipeName) ||
 		strings.TrimPrefix(path, pipePrefix+legacyPipeName) != strings.TrimPrefix(current, pipePrefix+pipeName) {
-		t.Fatalf("earlierPathOf() = %q, want the earlier name of %q", path, current)
+		t.Fatalf("the earlier pipe is %q, want the earlier name of %q", path, current)
 	}
 }
 
@@ -32,7 +32,7 @@ func TestEarlierPipeServedByThisProcessIsNotEnded(t *testing.T) {
 	if pid, err := FindEarlier(vaultDir); pid != 0 || err != nil {
 		t.Fatalf("FindEarlier() without a pipe = %d, %v, want none", pid, err)
 	}
-	l, err := Listen(earlierPathOf(vaultDir))
+	l, err := Listen(earlierPipe(t, vaultDir))
 	if err != nil {
 		t.Fatalf("Listen() error = %v", err)
 	}
@@ -55,4 +55,18 @@ func TestEarlierPipeServedByThisProcessIsNotEnded(t *testing.T) {
 	if pid, err := FindEarlier(vaultDir); pid != 0 || !errors.Is(err, ErrEarlierUnknown) {
 		t.Fatalf("FindEarlier() afterwards = %d, %v, want the pipe still served", pid, err)
 	}
+}
+
+// earlierPipe returns the pipe FindEarlier looks at for vaultDir.
+func earlierPipe(t *testing.T, vaultDir string) string {
+	t.Helper()
+	e, ok := earlierEndpoint(vaultDir)
+	if !ok {
+		t.Fatal("earlierEndpoint() found no pipe of the earlier release")
+	}
+	path, err := e.Path()
+	if err != nil {
+		t.Fatal(err)
+	}
+	return path
 }
