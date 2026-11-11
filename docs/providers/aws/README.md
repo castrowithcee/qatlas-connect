@@ -18,7 +18,8 @@ assumption, account and region binding, connection test, endpoint table, error m
 the account state, identity providers, and server certificates, the IAM report tools (credential report and service
 last accessed), the IAM tools that write roles and instance profiles, the SES v2 tools that read, create, configure, tag, and delete
 sender identities with DKIM and MAIL FROM, and the S3 tools that read buckets and create, delete, and configure them
-(versioning, default encryption, tags, public access block). Further services build on it.
+(versioning, default encryption, tags, public access block), remove their lifecycle and CORS rules, and read the rest
+of their configuration. Further services build on it.
 
 [Set up AWS](setup.md) lists the secret roles, the permissions, and what the connection test proves. The tools are
 described per group: [Security Token Service](sts.md), [Identity and Access Management](iam.md), [Simple Email Service](ses.md), and [Amazon S3](s3.md).
@@ -162,7 +163,8 @@ fixed model operation; there is no general call.
   location constraint of a new bucket), and one readback, a step that reads the current state with a call of its own
   after the account check and before a change and refuses the change on what it finds (the public access block of
   S3); only a tool whose table names a step runs it, and no argument can skip it. A table can cap an input list or
-  string that the model leaves unbounded. Tools are rendered for `awsQuery`, `restJson1`, and `restXml`; the tables of
+  string that the model leaves unbounded, and keep a deprecated output member whose absence would change the meaning of
+  an answer (the old rule-level prefix of an S3 lifecycle rule); other deprecated members are never rendered. Tools are rendered for `awsQuery`, `restJson1`, and `restXml`; the tables of
   `account` and `route-53` are raw scaffolds with every operation in `defer`, and the `s3` table has the bucket tools.
 - **`restXml` (S3, Route 53).** The body is XML in the form the model's traits describe: `xmlName`,
   `xmlAttribute`, `xmlNamespace`, `xmlFlattened`, wrapped lists and maps, and a structure payload. A character
