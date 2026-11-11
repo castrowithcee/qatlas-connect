@@ -1,6 +1,6 @@
 ---
 description: >
-  Describes the GitHub Actions tools: the observer and operator tools, diagnosing a run, log and artifact limits, billable time, the listed-only deletion of run logs, executions, the Actions variables of a repository, an environment, or an organization, and the listed-only workflow maintainer and Actions administrator tools with their paths and settings, including the finer Actions settings of a repository or an organization: selected actions, fork pull request approval, artifact and log retention, access of outside workflows, and the OIDC subject claim, and the listed-only runner group and hosted runner tools of an organization.
+  Describes the GitHub Actions tools: the observer and operator tools, diagnosing a run, log and artifact limits, billable time, the listed-only deletion of run logs, executions, the Actions variables of a repository, an environment, or an organization, and the listed-only workflow maintainer and Actions administrator tools with their paths and settings, including the finer Actions settings of a repository or an organization: selected actions, fork pull request approval, artifact and log retention, access of outside workflows, and the OIDC subject claim, and the self-hosted runners of a repository or an organization with their labels and the listed-only removal of a runner, and the listed-only runner group and hosted runner tools of an organization.
 type: knowledge
 edit: shared
 created: 2026-10-22
@@ -11,7 +11,7 @@ updated: 2026-11-11
 
 The Actions tools of the [GitHub provider](README.md). Every tool takes `repository` as described under
 [the target of a call](README.md#the-target-of-a-call), except the [Actions variable](#actions-variables) tools,
-which take exactly one of `repository` or `organization`, and the [finer Actions settings](#finer-actions-settings), which do the same except the access tools, which take `repository` only, and the [runner group and hosted runner tools](#runner-groups-and-hosted-runners), which take `organization` only.
+which take exactly one of `repository` or `organization`, and the [finer Actions settings](#finer-actions-settings), which do the same except the access tools, which take `repository` only, as do the [self-hosted runner](#self-hosted-runners) tools, and the [runner group and hosted runner tools](#runner-groups-and-hosted-runners), which take `organization` only.
 
 A connection can observe the GitHub Actions of a repository it allows and, separately, operate them. The two
 groups are distinct tools with distinct effects: the observer tools are reads, and the operator tools are
@@ -40,8 +40,9 @@ No observer or operator tool changes a workflow file or a setting; that is the l
 Environments with their deployment branch policies and protection rules, and deployments, have [their own
 page](environments.md), as do [Actions caches and the cleanup of runs and artifacts](actions-maintenance.md);
 Actions variables have tools under [Actions variables](#actions-variables). No tool approves or creates a
-deployment, administers secrets, or registers or removes runners; the [runner group and hosted runner
-tools](#runner-groups-and-hosted-runners) of an organization are the only runner tools.
+deployment, administers secrets or an organization, or registers runners; the [self-hosted
+runners](#self-hosted-runners) and the [runner groups and hosted runners](#runner-groups-and-hosted-runners)
+have their own listed-only tools.
 
 ## Observer and operator
 
@@ -330,7 +331,54 @@ the selection while `allowed_actions` is not `selected` or the access of a publi
 with `state: "unavailable"` and a fixed `reason` and gives no value of the setting and no text of GitHub. A
 refusal with 403 or 404 stays an error, because GitHub does not tell a missing right or target apart from it. A
 change on such a setting stays an error that says nothing was changed. No tool changes the enterprise level of
-these settings, runners, runner groups, or secrets.
+these settings, runner groups, hosted runners, or secrets.
+
+### Self-hosted runners
+
+Seven tools read the self-hosted runners of a repository or an organization, change their custom labels, and remove
+a runner. Each takes exactly one of `repository` or `organization`, with the refusals of the
+[finer Actions settings](#finer-actions-settings): both, neither, an organization outside the connection's owner
+targets, a user instead of an organization, and a target the connection excludes end before a credential is resolved.
+Every tool is listed only like the rest of this group: the three reads join the profile `actions-admin`, the four
+changes are in no profile, and all need their name in a connection's `tools` list. An answer names the repository or
+the organization it addressed.
+
+| Tool | Effect | Does |
+| --- | --- | --- |
+| `github.runners.list` | read | lists one batch of runners, optionally by `name`, with `limit` up to 100 and `cursor` |
+| `github.runners.get` | read | reads one runner by `runner_id` |
+| `github.runners.delete` | delete | removes one runner for good |
+| `github.runner-labels.list` | read | lists the labels of one runner |
+| `github.runner-labels.add` | update | adds 1 to 100 custom labels, none twice |
+| `github.runner-labels.set` | update | replaces all custom labels with 0 to 100 labels; an empty list removes them all |
+| `github.runner-labels.remove` | update | removes one custom label by `label` |
+
+A runner answers every documented member: `id`, `runner_group_id`, `name`, `os`, `status`, `busy`, `labels` (each
+with `id`, `name`, and `type`, which is `read-only` or `custom`), `ephemeral`, and `version`. The list adds
+`total_count`, `next_cursor`, and `has_more`. Names, labels, operating system, status, and version are untrusted data and cut at
+200 characters. The `name` filter is applied by GitHub; Qatlas drops an entry whose name differs when compared
+without case, so a server that ignores the filter lets nothing else through. A repository lists the organization
+runners available to it as well; the organization list shows the runners of the organization.
+
+`runner_id` is bound to the chosen target by evidence: every removal and every label change first reads the runner
+below that repository or organization, and ends with GitHub's refusal, without a change, when the target does not
+hold it or when the answer names another runner. The runner is the one GitHub shows the target; whether GitHub
+lets that target change a runner that belongs to another level is GitHub's decision, and the call reports a
+refusal as nothing removed or changed. The time between the evidence read and the change is a known boundary. A
+removal and a label change are one request that is never repeated; a timeout or a server error says that the
+change may have been applied, and an answer without a readable label list after a change says so as well.
+
+Read-only labels, such as `self-hosted`, the operating system, and the architecture, are applied by GitHub and cannot
+be changed. `remove` refuses a label that the evidence read shows as read-only, and `add` and `set` refuse a name
+equal to a read-only label, compared without case; the refusal says so and nothing is sent. A label is 1 to 100
+characters of one line without control characters, is not padded with spaces, and is not `.` or `..`; it travels
+as one escaped path segment. The change answers `runner_id`, `total_count`, and the labels GitHub reports afterwards.
+
+Removing a runner takes its registration from GitHub; GitHub refuses a runner that is running a job, and the machine
+must be registered again to return, which no tool does. Labels decide which jobs a runner takes, so a label change
+can move jobs to another machine or leave them waiting. No tool registers a runner or issues a registration or
+removal token, a JIT configuration, or the download of the runner application; runner groups and GitHub-hosted
+runners have no tool.
 
 ### Runner groups and hosted runners
 

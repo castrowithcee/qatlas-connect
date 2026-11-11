@@ -1,12 +1,11 @@
 package tui
 
 import (
-	"regexp"
+	"strconv"
 	"strings"
-	"time"
 
 	tea "charm.land/bubbletea/v2"
-	uv "github.com/charmbracelet/ultraviolet"
+	kittui "github.com/castrowithcee/qatlas-kit/tui"
 	"github.com/charmbracelet/x/ansi"
 )
 
@@ -59,29 +58,6 @@ func (m *Model) markDialog(dialog []string, top, left int) {
 	m.dialogBox = hit{x0: left, y0: top, x1: left + w, y1: top + len(dialog)}
 }
 
-// barAt is the click on a tab at the cell, unless a dialog covers it.
-func (m *Model) barAt(x, y int) (func() tea.Cmd, bool) {
-	if d := m.dialogBox; x >= d.x0 && x < d.x1 && y >= d.y0 && y < d.y1 {
-		return nil, false
-	}
-	for _, h := range m.barHits {
-		if x >= h.x0 && x < h.x1 && y >= h.y0 && y < h.y1 {
-			return h.act, true
-		}
-	}
-	return nil, false
-}
-
-// clickBar is the click on a tab, if the cell is one.
-func (m *Model) clickBar(event tea.Mouse) (tea.Cmd, bool) {
-	act, ok := m.barAt(event.X, event.Y)
-	if !ok {
-		return nil, false
-	}
-	m.touchAdminSessionIfActive()
-	return act(), true
-}
-
 // addZone registers a focus zone: the free area of a part of the screen that a key press can focus. A click on
 // it does only what tabbing there does, never more, and a zone ranks below every other target, so that a click
 // on an element inside it stays that element's click.
@@ -130,31 +106,9 @@ func (m *Model) mouseMode() tea.MouseMode {
 // wheelText is how many rows one notch of the wheel moves in a text area; elsewhere it is one step.
 const wheelText = 3
 
-// wheelMerge is the longest gap between a wheel event and the event after it that can be its release half. A
-// terminal that reports a notch as a press and a release delivers both as presses, back to back.
-const wheelMerge = 15 * time.Millisecond
-
 // wheelClamp makes wrap stop at the ends while the wheel presses a key: the wheel never jumps from the last
 // row to the first or the other way round, the keys keep their wraparound.
 var wheelClamp bool
-
-// wheelSeen is the last wheel event that moved something.
-type wheelSeen struct {
-	button tea.MouseButton
-	x, y   int
-	at     time.Time
-	ok     bool
-}
-
-// repeats reports whether the event is the release half of the notch seen last. It claims at most one event
-// per notch: after it dropped one, the next equal event is a notch of its own however close it is.
-func (w *wheelSeen) repeats(event tea.Mouse, now time.Time) bool {
-	if w.ok && w.button == event.Button && w.x == event.X && w.y == event.Y && now.Sub(w.at) < wheelMerge {
-		w.ok = false
-		return true
-	}
-	return false
-}
 
 // updateMouse handles one mouse event. It acts only on a press of the left button and on the wheel; motion and
 // release do nothing. A terminal too small for the screen, an editor with the mouse switched off, and the
@@ -173,9 +127,6 @@ func (m *Model) updateMouse(msg tea.MouseMsg) tea.Cmd {
 	if !wheel && event.Button != tea.MouseLeft {
 		return nil
 	}
-	if wheel && m.wheelSeen.repeats(event, m.timeNow()) {
-		return nil
-	}
 	// The targets are those of the state the event meets: the frame drawn after the last message has them, and
 	// only a state changed since then needs a new draw. The event itself may change the state.
 	if !m.drawn {
@@ -185,41 +136,106 @@ func (m *Model) updateMouse(msg tea.MouseMsg) tea.Cmd {
 	// the event does leaves the frame stale.
 	m.verified = !m.tooSmall
 	defer func() { m.verified, m.drawn = false, false }()
-	if m.infoOpen {
-		if wheel {
-			return m.wheel(event)
-		}
-		// The explanation closes the way esc closes it; a click on a tab then goes on.
-		m.infoOpen = false
-		cmd, _ := m.clickBar(event)
-		return cmd
-	}
 	if m.tooSmall {
 		return nil
 	}
+	// The targets of the frame go through the kit map; the acts stay with the application, which runs the
+	// click as the key or the tab click it stands for.
 	if wheel {
-		if m.dd != nil {
+		targets, _ := m.mouseTargets(false)
+		if !kittui.NewMouseMap(targets, true).Handle(msg).Handled || (m.dd != nil && !m.infoOpen) {
 			return nil
 		}
-		cmd := m.wheel(event)
-		m.wheelSeen = wheelSeen{button: event.Button, x: event.X, y: event.Y, at: m.timeNow(), ok: true}
+		return m.wheel(event)
+	}
+	if m.infoOpen {
+		// The explanation closes the way esc closes it; a click on a tab then goes on.
+		m.infoOpen = false
+		cmd, _ := m.clickBar(msg)
 		return cmd
 	}
 	if m.dd != nil {
-		return m.clickDropdown(event.X, event.Y)
+		return m.clickDropdown(msg)
 	}
-	if cmd, ok := m.clickBar(event); ok {
-		return cmd
+	targets, acts := m.mouseTargets(false)
+	return m.runTarget(kittui.NewMouseMap(targets, true).Handle(msg), acts)
+}
+
+// clickBar is the click on a tab of the tab line or the option bar, if the event is one. A dialog covers the
+// tabs under it.
+func (m *Model) clickBar(msg tea.MouseMsg) (tea.Cmd, bool) {
+	targets, acts := m.mouseTargets(true)
+	r := kittui.NewMouseMap(targets, true).Handle(msg)
+	if !r.Handled || acts[targetIndex(r)] == nil {
+		return nil, false
 	}
-	hits := append(append(append([]hit{}, m.zones...), m.frameHits...), m.hits...)
-	for i := len(hits) - 1; i >= 0; i-- {
-		h := hits[i]
-		if event.X >= h.x0 && event.X < h.x1 && event.Y >= h.y0 && event.Y < h.y1 {
-			m.touchAdminSessionIfActive()
-			return h.act()
+	return m.runTarget(r, acts), true
+}
+
+// mouseTargets is the bridge from the click targets of the frame to kit targets. Each old target becomes one
+// kit target whose Item (or, for a zone, Zone) is its index in acts; the kit map finds the target, the act
+// stays the application's. Later stages replace the bridged targets of a part by the part's own. Stacking
+// follows from the order: a zone lies below every element, a tab bar target below the frame and workspace
+// targets (a dialog over a tab takes the click there), and the explanation leaves the tab bars alone.
+func (m *Model) mouseTargets(barsOnly bool) ([]kittui.Target, []func() tea.Cmd) {
+	var targets []kittui.Target
+	var acts []func() tea.Cmd
+	add := func(h hit, zone bool) {
+		id := strconv.Itoa(len(acts))
+		t := kittui.Target{Rect: kittui.Rect{X: h.x0, Y: h.y0, Width: h.x1 - h.x0, Height: h.y1 - h.y0}}
+		if zone {
+			t.Zone = kittui.FocusZone(id)
+		} else {
+			t.Item = id
+		}
+		targets = append(targets, t)
+		acts = append(acts, h.act)
+	}
+	if !barsOnly {
+		for _, h := range m.zones {
+			add(h, true)
 		}
 	}
-	return nil
+	for _, h := range m.barHits {
+		add(h, false)
+	}
+	if d := m.dialogBox; d.x1 > d.x0 && d.y1 > d.y0 {
+		// The dialog covers the tabs under it: a click on its text reaches no tab and does nothing.
+		add(d, false)
+		acts[len(acts)-1] = nil
+	}
+	if !barsOnly {
+		for _, h := range m.frameHits {
+			add(h, false)
+		}
+		for _, h := range m.hits {
+			add(h, false)
+		}
+	}
+	return targets, acts
+}
+
+// targetIndex is the index in acts that a kit result names: its item, or for a bare zone the zone.
+func targetIndex(r kittui.MouseResult) int {
+	id := r.Item
+	if id == "" {
+		id = string(r.Zone)
+	}
+	i, err := strconv.Atoi(id)
+	if err != nil {
+		return -1
+	}
+	return i
+}
+
+// runTarget runs the act of a kit result as the click it stands for: a bare zone focuses, an item acts.
+func (m *Model) runTarget(r kittui.MouseResult, acts []func() tea.Cmd) tea.Cmd {
+	i := targetIndex(r)
+	if i < 0 || i >= len(acts) || acts[i] == nil {
+		return nil
+	}
+	m.touchAdminSessionIfActive()
+	return acts[i]()
 }
 
 // wheelScreens are the screens whose up and down keys move over rows; the wheel is those keys there.
@@ -981,168 +997,4 @@ func (m *Model) clickField(i int) tea.Cmd {
 		}
 	}
 	return nil
-}
-
-// fragmentWindow is the longest gap between the pieces of one split mouse report. Typing is slower than this.
-const fragmentWindow = 200 * time.Millisecond
-
-// bracketHold is how long a "[" that may open the rest of a report, alt+[ or a "[" after an escape, waits
-// for it before it counts as the key it is. The text field types it, so it cannot be let through first and
-// taken back. It is as long as fragmentWindow: a head the filter would still take as the rest must find the
-// "[" still held, or the "[" is typed and the rest dropped. The input reader reports the "[" only after it
-// waited for the rest itself, so the rest is later here than at the terminal.
-const bracketHold = fragmentWindow
-
-// fragmentTail matches what a mouse report of the SGR form can still lack: the rest of its parameters and the
-// final M or m.
-var fragmentTail = regexp.MustCompile(`^[0-9;]*[Mm]?`)
-
-// fragmentHead matches the start of such a report that is left once its escape and "[" went into keys of their own.
-var fragmentHead = regexp.MustCompile(`^<[0-9;]*[Mm]?`)
-
-// reportStart matches the start of such a report the input reader gave up on, its rest still to come.
-var reportStart = regexp.MustCompile(`^\x1b\[<[0-9;]*$`)
-
-// keysMsg delivers keys the filter held back, in order, as one message.
-type keysMsg []tea.KeyPressMsg
-
-// heldKeyMsg is the end of the hold of the "[" number id.
-type heldKeyMsg struct{ id int }
-
-// fragmentEsc is the filter state after a lone escape; it names that state, not a key to dispatch on.
-const (
-	fragmentEsc     = "esc"
-	fragmentBracket = "["
-	fragmentDouble  = "[["
-	fragmentPending = "tail"
-)
-
-// fragmentFilter drops the pieces of a mouse report that the terminal delivered in more than one read with a
-// pause between them longer than the input reader waits: the reader then reports the start it has as an
-// unknown sequence, or as an escape or alt+[, and the rest as typed characters like "<65;12;5M", which a text
-// field would take. The input reader joins pieces that follow each other within its escape wait, so the filter
-// only meets those after a longer pause. A piece counts only when it follows the one before it within
-// fragmentWindow and fits the report form, so the same characters typed by hand, pasted, or standing alone pass
-// unchanged. Only a "[" that may open a piece is held back, briefly; a lone escape is a real key and passes at
-// once, so an escape byte the reader already gave up on still reaches the model as esc.
-// On the way it gives keys the names stored key bindings know (see legacyKey and linuxFunctionKey).
-type fragmentFilter struct {
-	now  func() time.Time
-	send func(tea.Msg) // delivers heldKeyMsg to the event loop; without it nothing is held back
-
-	state string // fragmentEsc or fragmentBracket when that key came last, fragmentPending while a report lacks its end
-	at    time.Time
-	held  *tea.KeyPressMsg
-	id    int
-}
-
-func newFragmentFilter(now func() time.Time) *fragmentFilter {
-	if now == nil {
-		now = time.Now
-	}
-	return &fragmentFilter{now: now}
-}
-
-// unknownSequence returns the bytes of an input sequence the input reader could not name.
-func unknownSequence(msg tea.Msg) (string, bool) {
-	switch u := msg.(type) {
-	case uv.UnknownEvent:
-		return string(u), true
-	case uv.UnknownCsiEvent:
-		return string(u), true
-	}
-	return "", false
-}
-
-// filter is the tea.WithFilter function. It runs in the event loop, one message at a time.
-func (f *fragmentFilter) filter(_ tea.Model, msg tea.Msg) tea.Msg {
-	if h, ok := msg.(heldKeyMsg); ok {
-		if f.held == nil || h.id != f.id {
-			return nil
-		}
-		key := *f.held
-		f.held = nil
-		// The hold is over: a head arriving now is text, whatever the window says, so no race remains
-		// between this timer and the window comparison.
-		if f.state == fragmentBracket {
-			f.state = ""
-		}
-		return key
-	}
-	if unknown, ok := unknownSequence(msg); ok && (reportStart.MatchString(unknown) || unknown == "\x1b[[") {
-		f.state, f.at = fragmentPending, f.now()
-		if unknown == "\x1b[[" {
-			f.state = fragmentDouble
-		}
-		if held := f.held; held != nil {
-			f.held = nil
-			return keysMsg{*held}
-		}
-		return nil
-	}
-	if paste, ok := msg.(tea.PasteMsg); ok {
-		msg = pasteKey(paste.Content)
-	}
-	key, ok := msg.(tea.KeyPressMsg)
-	if !ok {
-		return msg
-	}
-	key = legacyKey(key)
-	at, last := f.now(), f.state
-	f.state = ""
-	if last != "" && at.Sub(f.at) > fragmentWindow {
-		last = ""
-	}
-	if last == fragmentDouble {
-		if fn, ok := linuxFunctionKey(key); ok {
-			return fn
-		}
-	}
-	held := f.held
-	f.held = nil
-	_, isPaste := pasted(key)
-	text, plain := "", key.Text != "" && !key.Mod.Contains(tea.ModAlt) && !isPaste
-	if plain {
-		text = key.Text
-	}
-	var n int
-	switch last {
-	case fragmentBracket:
-		if plain && strings.HasPrefix(text, "<") {
-			n = len(fragmentHead.FindString(text))
-		}
-	case fragmentPending:
-		if plain {
-			n = len(fragmentTail.FindString(text))
-		}
-	}
-	if n > 0 {
-		if piece := text[:n]; !strings.HasSuffix(piece, "M") && !strings.HasSuffix(piece, "m") {
-			f.state, f.at = fragmentPending, at
-		}
-		if n == len(text) {
-			return nil
-		}
-		return textKey(text[n:])
-	}
-	// Not a piece: a held "[" was a key after all and goes first.
-	switch {
-	case isPaste:
-	case key.Code == tea.KeyEscape && key.Mod == 0:
-		f.state, f.at = fragmentEsc, at
-	case f.send != nil && (key.Code == '[' && key.Mod == tea.ModAlt || last == fragmentEsc && text == "["):
-		f.state, f.at = fragmentBracket, at
-		f.held = &key
-		f.id++
-		id, send := f.id, f.send
-		time.AfterFunc(bracketHold, func() { send(heldKeyMsg{id}) })
-		if held != nil {
-			return keysMsg{*held}
-		}
-		return nil
-	}
-	if held != nil {
-		return keysMsg{*held, key}
-	}
-	return key
 }

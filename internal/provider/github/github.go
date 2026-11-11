@@ -37,9 +37,13 @@
 // github.pull-requests.merge offers it, and it always needs the pull request's current head commit and its
 // own confirmation. Enabling auto-merge schedules such a merge, so github.pull-request-auto-merge.enable is
 // listed-only the same way. The not-recommended setup profile releases lists releases, reads one by
-// identifier, tag, or as the latest published one, lists the metadata of a release's assets, and creates and updates releases; only a connection whose tools list
-// names it deletes a release, because the tag it was cut from stays behind and the notes and attachments do
-// not. A tool that touches a project and a repository checks both. The account tool reads the login, name,
+// identifier, tag, or as the latest published one, lists the metadata of a release's assets, generates
+// release notes, creates and updates releases, and renames or relabels an asset; only a connection whose tools
+// list names them deletes a release or one of its assets, because the tag it was cut from stays behind and the
+// notes and attachments do not. The security tools read the security switches of a repository and its code
+// scanning default setup; only a connection whose tools list names github.security-settings.update or
+// github.code-scanning-setup.update changes them, and a switch GitHub does not offer is reported as
+// unavailable, never as off. A tool that touches a project and a repository checks both. The account tool reads the login, name,
 // type, and plan of the account behind the connection's token; it and the star list, which reads the
 // account's starred repositories, name no repository, project, or owner and are offered only by a connection
 // whose targets name neither a repository nor a project. The star tools also star and unstar one repository
@@ -731,11 +735,11 @@ func Register(reg *capability.Registry) error {
 			Description: "high risk: reads and changes whether Actions run in a repository, which " +
 				"actions they may use, the default rights of its GITHUB_TOKEN, and its merge and branch settings, and " +
 				"reads its finer Actions settings (selected actions, fork pull request approval, retention, access, " +
-				"OIDC subject claim), and reads the runner groups and the GitHub-hosted runners of an organization; a " +
-				"connection offers these tools only while its tools list names them, and every change needs its own " +
-				"confirmation; the changes of the finer settings and of runner groups stay unticked, since each is " +
-				"offered only where a connection's tools list names it",
-			Tools: slices.Concat(adminTools, actionsSettingsReads, runnerGroupReads),
+				"OIDC subject claim), the self-hosted runners with their labels, and the runner groups and the GitHub-hosted " +
+				"runners of an organization; a connection offers these tools only while its tools list names them, and " +
+				"every change needs its own confirmation; the changes of the finer settings, the runners, and the runner " +
+				"groups stay unticked, since each is offered only where a connection's tools list names it",
+			Tools: slices.Concat(adminTools, actionsSettingsReads, runnersReads, runnerGroupReads),
 		}, {
 			ID: "pull-requests", Title: "Pull requests",
 			Description: "reads the pull requests of a repository: their list, one pull request with its " +
@@ -763,11 +767,12 @@ func Register(reg *capability.Registry) error {
 		}, {
 			ID: "releases", Title: "Releases",
 			Description: "lists releases and their asset metadata, reads one release by identifier, tag, or " +
-				"as the latest published one, and creates and updates releases; every change needs its own " +
-				"confirmation, and deleting stays unticked, since it is offered only where a connection's " +
-				"tools list names github.releases.delete",
-			Tools: []string{releasesList.ID, releasesGet.ID, releaseAssetsList.ID, releasesCreate.ID,
-				releasesUpdate.ID},
+				"as the latest published one, generates release notes, creates and updates releases, and renames " +
+				"or relabels an asset; every change needs its own confirmation, and deleting stays unticked, " +
+				"since it is offered only where a connection's tools list names github.releases.delete or " +
+				"github.release-assets.delete",
+			Tools: []string{releasesList.ID, releasesGet.ID, releaseAssetsList.ID, releaseNotesGenerate.ID,
+				releasesCreate.ID, releasesUpdate.ID, releaseAssetsUpdate.ID},
 		}, {
 			ID: "pull-request-reviews", Title: "Pull request reviews",
 			Description: "reads and writes the conversation comments, reviews with line comments, replies, " +
@@ -865,9 +870,10 @@ func Register(reg *capability.Registry) error {
 			ID: "security", Title: "Security alerts",
 			Description: "not recommended: lists and reads the code scanning, Dependabot, and secret scanning " +
 				"alerts of a repository, the global and repository security advisories, and code quality " +
-				"findings, and the instances, analyses, and locations behind the alerts; the found secret of a secret " +
-				"scanning alert is never shown; changes nothing, since the alert updates are offered only where a " +
-				"connection's tools list names them",
+				"findings, the instances, analyses, and locations behind the alerts, and the security switches and the " +
+				"code scanning default setup of a repository; the found secret of a secret scanning alert is never " +
+				"shown; changes nothing, since the alert updates and the changes of the switches and the default setup " +
+				"are offered only where a connection's tools list names them",
 			Tools: securityAlertTools,
 		}, {
 			ID: "copilot", Title: "Copilot",
@@ -899,7 +905,7 @@ func Register(reg *capability.Registry) error {
 		capability.Operation{Descriptor: projectIssuesCreate, Handler: capability.Handler(invokeProjectIssuesCreate)},
 	}, slices.Concat(itemOperations(), lifecycleOperations(), fieldOperations(), viewOperations(),
 		statusOperations(), accessOperations(), automationOperations(), actionsOperations(),
-		maintenanceOperations(), actionsSettingsOperations(), runnerGroupOperations(), pullRequestOperations(), checkOperations(), releaseOperations(), pullRequestCommentOperations(),
+		maintenanceOperations(), actionsSettingsOperations(), runnersOperations(), runnerGroupOperations(), pullRequestOperations(), checkOperations(), releaseOperations(), releaseAssetOperations(), pullRequestCommentOperations(),
 		pullRequestReviewOperations(), pullRequestReviewMaintenanceOperations(), pullRequestReviewCommentOperations(),
 		pullRequestReviewCommentMaintenanceOperations(), pullRequestReviewThreadOperations(),
 		pullRequestReviewerOperations(), accountOperations(), organizationOperations(), starOperations(),
@@ -907,7 +913,7 @@ func Register(reg *capability.Registry) error {
 		contentsWriteOperations(), refsWriteOperations(), repositoriesOperations(), repositoryDetailOperations(), trafficOperations(), repositoryStatsOperations(), rulesetsOperations(), branchProtectionOperations(), customPropertiesOperations(), actionVariablesOperations(), actionCachesOperations(), runCleanupOperations(),
 		labelsOperations(), milestonesOperations(), commentMaintenanceOperations(), commentVisibilityOperations(), issueLockOperations(), reactionsOperations(),
 		subIssuesOperations(), issueDependenciesOperations(), issueHistoryOperations(), issueTypesOperations(), issueFieldsOperations(),
-		discussionOperations(), notificationOperations(), gistOperations(), securityAlertOperations(), securityAlertUpdateOperations(), securityAlertDetailOperations(), advisoryOperations(),
+		discussionOperations(), notificationOperations(), gistOperations(), securityAlertOperations(), securityAlertUpdateOperations(), securityAlertDetailOperations(), advisoryOperations(), securitySettingsOperations(),
 		copilotOperations(), environmentsOperations(), deploymentsOperations(), referenceOperations())...)
 	for i := range operations {
 		operations[i].Descriptor = withGroup(withTargetArgument(operations[i].Descriptor))
@@ -1810,7 +1816,11 @@ func organizationSubject(tail string) subject {
 		return subject{what: what}
 	}
 	if len(parts) >= 3 && parts[1] == "actions" {
-		if what := variableSubject(strings.Join(parts[1:], "/")); what != "" {
+		rest := strings.Join(parts[1:], "/")
+		if what := runnerSubject(rest); what != "" {
+			return subject{what: what + " of orgs/" + owner}
+		}
+		if what := variableSubject(rest); what != "" {
 			return subject{what: what + " of orgs/" + owner}
 		}
 	}
@@ -1939,6 +1949,9 @@ func treesSubject(path string) string {
 // actions/runs/ID, actions/jobs/ID, or actions/workflows/ID-or-file, with or without a further segment. It
 // names only an identifier or a file name of the characters the input schema allows, and is empty otherwise.
 func actionsSubject(path string) string {
+	if what := runnerSubject(path); what != "" {
+		return what
+	}
 	rest, ok := strings.CutPrefix(path, "actions/")
 	if !ok {
 		return ""
@@ -2093,13 +2106,21 @@ func (c *Client) do(ctx context.Context, op, method, endpoint string, payload []
 	}
 	// A read GitHub answers 202 or 204 sends no body; the caller tells the two apart by status.
 	if status != nil && len(bytes.TrimSpace(data)) == 0 &&
-		(*status == http.StatusAccepted || *status == http.StatusNoContent) {
+		(*status == http.StatusAccepted || *status == http.StatusNoContent || acceptsEmptyBody(out)) {
 		return nil
 	}
 	if err := json.Unmarshal(data, out); err != nil {
 		return invalidResponse(op, change)
 	}
 	return nil
+}
+
+// emptyBodyAnswer marks a decode target of a route that may answer 200 without any body.
+type emptyBodyAnswer interface{ allowsEmptyBody() }
+
+func acceptsEmptyBody(out any) bool {
+	_, ok := out.(emptyBodyAnswer)
+	return ok
 }
 
 // authorize sets the shared authentication, version, and client headers of a GitHub API request.

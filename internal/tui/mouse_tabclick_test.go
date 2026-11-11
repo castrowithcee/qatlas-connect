@@ -4,6 +4,8 @@ import (
 	"path/filepath"
 	"testing"
 
+	tea "charm.land/bubbletea/v2"
+
 	"github.com/castrowithcee/qatlas-connect/internal/uiprefs"
 )
 
@@ -161,7 +163,7 @@ func TestTabClickUnderADialogIsNotATabClick(t *testing.T) {
 		if box.x0 < h.x1 && h.x0 < box.x1 && box.y0 <= h.y0 && h.y0 < box.y1 {
 			covered++
 			x, y := max(h.x0, box.x0), h.y0
-			if act, ok := m.barAt(x, y); ok || act != nil {
+			if _, ok := m.clickBar(tea.MouseClickMsg{X: x, Y: y, Button: tea.MouseLeft}); ok {
 				t.Fatalf("a tab under the dialog is a target at %d,%d", x, y)
 			}
 		}

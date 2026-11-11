@@ -15,7 +15,22 @@ const route53NS = `xmlns="https://route53.amazonaws.com/doc/2013-04-01/"`
 var route53ToolIDs = []string{"aws.route53.hosted-zone.list", "aws.route53.hosted-zone.list-by-name", "aws.route53.hosted-zone.get",
 	"aws.route53.hosted-zone.count", "aws.route53.hosted-zone.create", "aws.route53.hosted-zone.update-comment",
 	"aws.route53.hosted-zone.delete", "aws.route53.change.get", "aws.route53.tag.list", "aws.route53.tag.change",
-	"aws.route53.record-set.list", "aws.route53.record-set.change", "aws.route53.dns-answer.test"}
+	"aws.route53.record-set.list", "aws.route53.record-set.change", "aws.route53.dns-answer.test",
+	"aws.route53.health-check.list", "aws.route53.health-check.get", "aws.route53.health-check.count",
+	"aws.route53.health-check.get-status", "aws.route53.health-check.get-last-failure-reason",
+	"aws.route53.health-check.create", "aws.route53.health-check.update", "aws.route53.health-check.delete",
+	"aws.route53.dnssec.get", "aws.route53.dnssec.enable", "aws.route53.dnssec.disable", "aws.route53.key-signing-key.create",
+	"aws.route53.key-signing-key.activate", "aws.route53.key-signing-key.deactivate", "aws.route53.key-signing-key.delete",
+	"aws.route53.account-limit.get", "aws.route53.checker-ip-range.list", "aws.route53.cidr-block.list",
+	"aws.route53.cidr-collection.list", "aws.route53.cidr-location.list", "aws.route53.delegation-set.get",
+	"aws.route53.delegation-set.get-limit", "aws.route53.delegation-set.list", "aws.route53.geo-location.get",
+	"aws.route53.geo-location.list", "aws.route53.hosted-zone.get-limit", "aws.route53.hosted-zone.list-by-vpc",
+	"aws.route53.query-logging-config.get", "aws.route53.query-logging-config.list", "aws.route53.tag.list-many",
+	"aws.route53.traffic-policy.get", "aws.route53.traffic-policy-instance.count",
+	"aws.route53.traffic-policy-instance.get", "aws.route53.traffic-policy-instance.list",
+	"aws.route53.traffic-policy-instance.list-by-hosted-zone",
+	"aws.route53.traffic-policy-instance.list-by-policy", "aws.route53.traffic-policy.list",
+	"aws.route53.traffic-policy.list-versions", "aws.route53.vpc-association-authorization.list"}
 
 // route53Env offers the Route 53 tools by name on a connection bound to the account and the given regions.
 func route53Env(t *testing.T, f *fakeAWS, regions ...string) *env {
@@ -229,7 +244,7 @@ func TestRoute53IDsAreTakenWithAndWithoutPrefix(t *testing.T) {
 		{"aws.route53.hosted-zone.get", `{"id":"/hostedzone/Z1/../Z2"}`},
 		{"aws.route53.hosted-zone.get", `{"id":"/change/Z1"}`},
 		{"aws.route53.change.get", `{"id":"/hostedzone/C1"}`},
-		{"aws.route53.tag.list", `{"resource_type":"healthcheck","resource_id":"abc"}`},
+		{"aws.route53.tag.list", `{"resource_type":"queue","resource_id":"abc"}`},
 		{"aws.route53.tag.list", `{"resource_type":"hostedzone","resource_id":"Z1/x"}`},
 	} {
 		if _, err := e.invoke(c.id, c.args); err == nil {
@@ -299,6 +314,7 @@ func TestRoute53WritesNeedConfirmation(t *testing.T) {
 		{"aws.route53.hosted-zone.update-comment", `{"id":"Z1","comment":"c"}`},
 		{"aws.route53.hosted-zone.delete", `{"id":"Z1"}`},
 		{"aws.route53.tag.change", `{"resource_type":"hostedzone","resource_id":"Z1","add_tags":[{"key":"a","value":"b"}]}`},
+		{"aws.route53.tag.change", `{"resource_type":"healthcheck","resource_id":"h1","add_tags":[{"key":"a","value":"b"}]}`},
 	} {
 		if _, err := e.invoke(c.id, c.args); !isConfirmationRequired(err) {
 			t.Errorf("%s: err = %v, want a confirmation", c.id, err)
@@ -309,7 +325,7 @@ func TestRoute53WritesNeedConfirmation(t *testing.T) {
 	}
 }
 
-// The tag change sends the tags to add and the keys to remove for a hosted zone only.
+// The tag change sends the tags to add and the keys to remove for a hosted zone or a health check.
 func TestRoute53TagChangeBody(t *testing.T) {
 	f := restAnswer(xmlReply(`<ChangeTagsForResourceResponse ` + route53NS + `/>`))
 	e := route53Env(t, f, testRegion)
@@ -323,13 +339,12 @@ func TestRoute53TagChangeBody(t *testing.T) {
 		!strings.Contains(r.body, "<RemoveTagKeys><Key>old</Key></RemoveTagKeys>") {
 		t.Errorf("request = %+v", r)
 	}
-	if _, err := e.invokeConfirmed("aws.route53.tag.change", `{"resource_type":"healthcheck","resource_id":"x"}`, true); err == nil {
-		t.Error("a health check was accepted")
+	if _, err := e.invokeConfirmed("aws.route53.tag.change", `{"resource_type":"queue","resource_id":"x"}`, true); err == nil {
+		t.Error("an unknown resource type was accepted")
 	}
 }
 
-// The authorization of a VPC of another account is not a tool, and the other Route 53 operations stay out until
-// their tools exist.
+// The authorization of a VPC of another account is not a tool; only the list of authorizations is read.
 func TestRoute53ExcludesTheVPCAuthorization(t *testing.T) {
 	if !slices.Equal(excludedROUTE53Actions, []string{"CreateVPCAssociationAuthorization"}) {
 		t.Errorf("excluded = %v", excludedROUTE53Actions)
@@ -341,7 +356,7 @@ func TestRoute53ExcludesTheVPCAuthorization(t *testing.T) {
 			continue
 		}
 		tools++
-		if strings.Contains(d.ID, "authorization") || (d.ID == "aws.route53.hosted-zone.create" && strings.Contains(string(d.InputSchema), "delegation_set_id")) {
+		if (strings.Contains(d.ID, "authorization") && d.ID != "aws.route53.vpc-association-authorization.list") || (d.ID == "aws.route53.hosted-zone.create" && strings.Contains(string(d.InputSchema), "delegation_set_id")) {
 			t.Errorf("%s offers what is not offered: %s", d.ID, d.InputSchema)
 		}
 	}
@@ -349,7 +364,7 @@ func TestRoute53ExcludesTheVPCAuthorization(t *testing.T) {
 		t.Errorf("route53 tools = %d, want %d", tools, len(route53ToolIDs))
 	}
 	for _, s := range generatedSpecs {
-		if s.service == "route53" && strings.Contains(strings.ToLower(s.rest.URI), "authorizevpcassociation") {
+		if s.service == "route53" && s.rest.Method != "GET" && strings.Contains(strings.ToLower(s.rest.URI), "authorizevpcassociation") {
 			t.Errorf("%s sends %s", s.descriptor.ID, s.rest.URI)
 		}
 	}

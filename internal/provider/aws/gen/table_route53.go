@@ -2,11 +2,17 @@ package gen
 
 import "slices"
 
-// deferRoute53 is the reason for every route-53 operation: the table is a raw scaffold, and the service package that
-// curates the tools moves each operation it takes into operations or exclude.
-const deferRoute53 = "not curated yet; the Route 53 service package decides effect, confirmation and zone target first"
+const (
+	deferR53VPC      = "VPC association writes wait for their own tool group: a VPC of another account must be ruled out before a zone is associated or an authorization is removed"
+	deferR53CIDR     = "CIDR collection writes wait for their own tool group: routing records refer to collections, so a change needs the records that use it checked first"
+	deferR53Logging  = "query logging writes wait for their own tool group: a log group target outside the account must be ruled out first"
+	deferR53Delegate = "reusable delegation set writes wait for their own tool group: zones share a set, so removing or reusing one needs the zones that use it checked first"
+	deferR53Policy   = "traffic policy writes wait for their own tool group: a policy document drives live DNS answers once an instance applies it"
+	deferR53Instance = "traffic policy instance writes wait for their own tool group: an instance creates and replaces record sets of a zone"
+	deferR53Features = "hosted zone feature changes wait for their own tool group"
+)
 
-// route53Table curates the route-53 model. The hosted zone tools are curated; the other operations wait for their tool groups.
+// route53Table curates the route-53 model. Every reader is curated; the writes of the areas that are only read so far wait for their tool groups.
 var route53Table = Table{
 	Service: "route-53", Segment: "route53", Geltung: Global,
 	// A record set list continues at a name and a type, and at an identifier when the records are weighted,
@@ -16,71 +22,55 @@ var route53Table = Table{
 			{In: "StartRecordName", Out: "NextRecordName", Required: true},
 			{In: "StartRecordType", Out: "NextRecordType", Required: true},
 			{In: "StartRecordIdentifier", Out: "NextRecordIdentifier"}}},
+		{Operation: "ListReusableDelegationSets", PageSize: "MaxItems", Positions: []PositionSpec{{In: "Marker", Out: "NextMarker"}}},
+		{Operation: "ListTrafficPolicies", PageSize: "MaxItems", Positions: []PositionSpec{{In: "TrafficPolicyIdMarker", Out: "TrafficPolicyIdMarker"}}},
+		{Operation: "ListTrafficPolicyVersions", PageSize: "MaxItems", Positions: []PositionSpec{{In: "TrafficPolicyVersionMarker", Out: "TrafficPolicyVersionMarker"}}},
+		// The marker of an instance list is three members that Route 53 reports together; they only continue a list.
+		{Operation: "ListTrafficPolicyInstances", PageSize: "MaxItems", Positions: []PositionSpec{
+			{In: "HostedZoneIdMarker", Out: "HostedZoneIdMarker", Required: true},
+			{In: "TrafficPolicyInstanceNameMarker", Out: "TrafficPolicyInstanceNameMarker", Required: true},
+			{In: "TrafficPolicyInstanceTypeMarker", Out: "TrafficPolicyInstanceTypeMarker", Required: true}}},
+		{Operation: "ListTrafficPolicyInstancesByHostedZone", PageSize: "MaxItems", Positions: []PositionSpec{
+			{In: "TrafficPolicyInstanceNameMarker", Out: "TrafficPolicyInstanceNameMarker", Required: true},
+			{In: "TrafficPolicyInstanceTypeMarker", Out: "TrafficPolicyInstanceTypeMarker", Required: true}}},
+		{Operation: "ListTrafficPolicyInstancesByPolicy", PageSize: "MaxItems", Positions: []PositionSpec{
+			{In: "HostedZoneIdMarker", Out: "HostedZoneIdMarker", Required: true},
+			{In: "TrafficPolicyInstanceNameMarker", Out: "TrafficPolicyInstanceNameMarker", Required: true},
+			{In: "TrafficPolicyInstanceTypeMarker", Out: "TrafficPolicyInstanceTypeMarker", Required: true}}},
+		// A geolocation list continues at a continent, a country, or a country with a subdivision, whichever comes next, so no
+		// member is always there; the first page has no start arguments.
+		{Operation: "ListGeoLocations", PageSize: "MaxItems", Positions: []PositionSpec{
+			{In: "StartContinentCode", Out: "NextContinentCode"}, {In: "StartCountryCode", Out: "NextCountryCode"},
+			{In: "StartSubdivisionCode", Out: "NextSubdivisionCode"}}},
+		// These two lists answer no truncation member; the end is a missing token.
+		{Operation: "ListHostedZonesByVPC", PageSize: "MaxItems", TokenEnds: true, Positions: []PositionSpec{{In: "NextToken", Out: "NextToken"}}},
+		{Operation: "ListVPCAssociationAuthorizations", PageSize: "MaxResults", TokenEnds: true, Positions: []PositionSpec{{In: "NextToken", Out: "NextToken"}}},
 	},
 	// Route 53 answers zone IDs as /hostedzone/Z..., and accepts both forms only in some places. The tools take both.
-	IDPrefixes: []IDPrefix{{Shape: "ResourceId", Prefix: "/hostedzone/"}, {Shape: "TagResourceId", Prefix: "/hostedzone/"},
+	IDPrefixes: []IDPrefix{{Shape: "ResourceId", Prefix: "/hostedzone/"}, {Shape: "ResourceId", Prefix: "/delegationset/", Operations: []string{"GetReusableDelegationSet", "GetReusableDelegationSetLimit"}}, {Shape: "TagResourceId", Prefix: "/hostedzone/"},
 		{Shape: "ChangeId", Prefix: "/change/"}},
-	Operations: slices.Concat(route53ZoneTools, route53RecordTools),
+	Operations: slices.Concat(route53ZoneTools, route53RecordTools, route53HealthTools, route53DNSSECTools, route53ReadTools),
 	Exclude: []Omission{
 		{Operation: "CreateVPCAssociationAuthorization", Reason: "authorizing a VPC of another account to join a private zone lets that account resolve the zone's records; nothing checks the account, so it is not offered"},
 	},
 	Defer: []Omission{
-		{Operation: "ActivateKeySigningKey", Reason: deferRoute53},
-		{Operation: "AssociateVPCWithHostedZone", Reason: deferRoute53},
-		{Operation: "ChangeCidrCollection", Reason: deferRoute53},
-		{Operation: "CreateCidrCollection", Reason: deferRoute53},
-		{Operation: "CreateHealthCheck", Reason: deferRoute53},
-		{Operation: "CreateKeySigningKey", Reason: deferRoute53},
-		{Operation: "CreateQueryLoggingConfig", Reason: deferRoute53},
-		{Operation: "CreateReusableDelegationSet", Reason: deferRoute53},
-		{Operation: "CreateTrafficPolicy", Reason: deferRoute53},
-		{Operation: "CreateTrafficPolicyInstance", Reason: deferRoute53},
-		{Operation: "CreateTrafficPolicyVersion", Reason: deferRoute53},
-		{Operation: "DeactivateKeySigningKey", Reason: deferRoute53},
-		{Operation: "DeleteCidrCollection", Reason: deferRoute53},
-		{Operation: "DeleteHealthCheck", Reason: deferRoute53},
-		{Operation: "DeleteKeySigningKey", Reason: deferRoute53},
-		{Operation: "DeleteQueryLoggingConfig", Reason: deferRoute53},
-		{Operation: "DeleteReusableDelegationSet", Reason: deferRoute53},
-		{Operation: "DeleteTrafficPolicy", Reason: deferRoute53},
-		{Operation: "DeleteTrafficPolicyInstance", Reason: deferRoute53},
-		{Operation: "DeleteVPCAssociationAuthorization", Reason: deferRoute53},
-		{Operation: "DisableHostedZoneDNSSEC", Reason: deferRoute53},
-		{Operation: "DisassociateVPCFromHostedZone", Reason: deferRoute53},
-		{Operation: "EnableHostedZoneDNSSEC", Reason: deferRoute53},
-		{Operation: "GetAccountLimit", Reason: deferRoute53},
-		{Operation: "GetCheckerIpRanges", Reason: deferRoute53},
-		{Operation: "GetDNSSEC", Reason: deferRoute53},
-		{Operation: "GetGeoLocation", Reason: deferRoute53},
-		{Operation: "GetHealthCheck", Reason: deferRoute53},
-		{Operation: "GetHealthCheckCount", Reason: deferRoute53},
-		{Operation: "GetHealthCheckLastFailureReason", Reason: deferRoute53},
-		{Operation: "GetHealthCheckStatus", Reason: deferRoute53},
-		{Operation: "GetHostedZoneLimit", Reason: deferRoute53},
-		{Operation: "GetQueryLoggingConfig", Reason: deferRoute53},
-		{Operation: "GetReusableDelegationSet", Reason: deferRoute53},
-		{Operation: "GetReusableDelegationSetLimit", Reason: deferRoute53},
-		{Operation: "GetTrafficPolicy", Reason: deferRoute53},
-		{Operation: "GetTrafficPolicyInstance", Reason: deferRoute53},
-		{Operation: "GetTrafficPolicyInstanceCount", Reason: deferRoute53},
-		{Operation: "ListCidrBlocks", Reason: deferRoute53},
-		{Operation: "ListCidrCollections", Reason: deferRoute53},
-		{Operation: "ListCidrLocations", Reason: deferRoute53},
-		{Operation: "ListGeoLocations", Reason: deferRoute53},
-		{Operation: "ListHealthChecks", Reason: deferRoute53},
-		{Operation: "ListHostedZonesByVPC", Reason: deferRoute53},
-		{Operation: "ListQueryLoggingConfigs", Reason: deferRoute53},
-		{Operation: "ListReusableDelegationSets", Reason: deferRoute53},
-		{Operation: "ListTagsForResources", Reason: deferRoute53},
-		{Operation: "ListTrafficPolicies", Reason: deferRoute53},
-		{Operation: "ListTrafficPolicyInstances", Reason: deferRoute53},
-		{Operation: "ListTrafficPolicyInstancesByHostedZone", Reason: deferRoute53},
-		{Operation: "ListTrafficPolicyInstancesByPolicy", Reason: deferRoute53},
-		{Operation: "ListTrafficPolicyVersions", Reason: deferRoute53},
-		{Operation: "ListVPCAssociationAuthorizations", Reason: deferRoute53},
-		{Operation: "UpdateHealthCheck", Reason: deferRoute53},
-		{Operation: "UpdateHostedZoneFeatures", Reason: deferRoute53},
-		{Operation: "UpdateTrafficPolicyComment", Reason: deferRoute53},
-		{Operation: "UpdateTrafficPolicyInstance", Reason: deferRoute53},
+		{Operation: "AssociateVPCWithHostedZone", Reason: deferR53VPC},
+		{Operation: "ChangeCidrCollection", Reason: deferR53CIDR},
+		{Operation: "CreateCidrCollection", Reason: deferR53CIDR},
+		{Operation: "CreateQueryLoggingConfig", Reason: deferR53Logging},
+		{Operation: "CreateReusableDelegationSet", Reason: deferR53Delegate},
+		{Operation: "CreateTrafficPolicy", Reason: deferR53Policy},
+		{Operation: "CreateTrafficPolicyInstance", Reason: deferR53Instance},
+		{Operation: "CreateTrafficPolicyVersion", Reason: deferR53Policy},
+		{Operation: "DeleteCidrCollection", Reason: deferR53CIDR},
+		{Operation: "DeleteQueryLoggingConfig", Reason: deferR53Logging},
+		{Operation: "DeleteReusableDelegationSet", Reason: deferR53Delegate},
+		{Operation: "DeleteTrafficPolicy", Reason: deferR53Policy},
+		{Operation: "DeleteTrafficPolicyInstance", Reason: deferR53Instance},
+		{Operation: "DeleteVPCAssociationAuthorization", Reason: deferR53VPC},
+		{Operation: "DisassociateVPCFromHostedZone", Reason: deferR53VPC},
+		{Operation: "UpdateHostedZoneFeatures", Reason: deferR53Features},
+		{Operation: "UpdateTrafficPolicyComment", Reason: deferR53Policy},
+		{Operation: "UpdateTrafficPolicyInstance", Reason: deferR53Instance},
 	},
 }

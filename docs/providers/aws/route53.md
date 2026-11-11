@@ -1,6 +1,6 @@
 ---
 description: >
-  Describes the tools of the AWS Route 53 group: listing, reading, creating, and deleting hosted zones of the bound account, changing a zone's comment and tags, listing and changing the records of a zone in atomic batches, testing a DNS answer, reading the status of a change, the name servers to enter at the registrar, zone and change IDs, private zones and the allowed VPC region, the cost of a zone, the confirmation of a record change, and what is not a tool.
+  Describes the tools of the AWS Route 53 group: listing, reading, creating, and deleting hosted zones of the bound account, changing a zone's comment and tags, listing and changing the records of a zone in atomic batches, testing a DNS answer, reading the status of a change, listing, reading, creating, changing, and deleting health checks with their status and last failure reason, reading DNSSEC and managing key signing keys (listed-only), tags of zones and health checks, the name servers to enter at the registrar, zone and change IDs, private zones and the allowed VPC region, the health check target rule and alarm region, the cost of zones and health checks, the confirmation of a record or health check change, the DNSSEC flow with the DS record at the registrar and the order for switching it off, query logging configurations, reusable delegation sets, traffic policies and their instances, CIDR collections, account and zone limits, geolocations, health checker addresses, VPC associations and authorizations, and what is not a tool.
 type: knowledge
 edit: shared
 created: 2026-11-11
@@ -9,14 +9,14 @@ updated: 2026-11-11
 
 # Amazon Route 53
 
-Group `route53`, the Route 53 API for hosted zones and their records. Route 53 is a global service: the tools hang on the bound account,
+Group `route53`, the Route 53 API for hosted zones, their records, health checks, DNSSEC, and the read side of query logging, reusable delegation sets, traffic policies, CIDR collections, limits, geolocations, and VPC associations. Route 53 is a global service: the tools hang on the bound account,
 take no `region`, and sign for `us-east-1`; the region allowlist of the connection has no effect on the endpoint. Every
-permission a tool needs is listed in [Set up AWS](setup.md#route-53). A zone belongs to the account whose credential
-signs the request, so a zone of another account cannot be reached.
+permission a tool needs is listed in [Set up AWS](setup.md#route-53). A zone or health check belongs to the account whose credential
+signs the request, so one of another account cannot be reached.
 
 ## Tools
 
-Reads need no confirmation. Every other tool needs confirmation. None is listed-only.
+Reads need no confirmation. Every other tool needs confirmation. The DNSSEC writes are listed-only: a connection offers them only when its tools list names each tool exactly; no effect and no prefix such as `aws.route53.*` offers them.
 
 | Tool | AWS operation | Effect | Confirmation |
 | --- | --- | --- | --- |
@@ -28,11 +28,50 @@ Reads need no confirmation. Every other tool needs confirmation. None is listed-
 | `aws.route53.tag.list` | `ListTagsForResource` | read | no |
 | `aws.route53.record-set.list` | `ListResourceRecordSets` | read | no |
 | `aws.route53.dns-answer.test` | `TestDNSAnswer` | read | no |
+| `aws.route53.health-check.list` | `ListHealthChecks` | read | no |
+| `aws.route53.health-check.get` | `GetHealthCheck` | read | no |
+| `aws.route53.health-check.count` | `GetHealthCheckCount` | read | no |
+| `aws.route53.health-check.get-status` | `GetHealthCheckStatus` | read | no |
+| `aws.route53.health-check.get-last-failure-reason` | `GetHealthCheckLastFailureReason` | read | no |
+| `aws.route53.dnssec.get` | `GetDNSSEC` | read | no |
+| `aws.route53.query-logging-config.list` | `ListQueryLoggingConfigs` | read | no |
+| `aws.route53.query-logging-config.get` | `GetQueryLoggingConfig` | read | no |
+| `aws.route53.delegation-set.list` | `ListReusableDelegationSets` | read | no |
+| `aws.route53.delegation-set.get` | `GetReusableDelegationSet` | read | no |
+| `aws.route53.delegation-set.get-limit` | `GetReusableDelegationSetLimit` | read | no |
+| `aws.route53.traffic-policy.list` | `ListTrafficPolicies` | read | no |
+| `aws.route53.traffic-policy.get` | `GetTrafficPolicy` | read | no |
+| `aws.route53.traffic-policy.list-versions` | `ListTrafficPolicyVersions` | read | no |
+| `aws.route53.traffic-policy-instance.list` | `ListTrafficPolicyInstances` | read | no |
+| `aws.route53.traffic-policy-instance.list-by-hosted-zone` | `ListTrafficPolicyInstancesByHostedZone` | read | no |
+| `aws.route53.traffic-policy-instance.list-by-policy` | `ListTrafficPolicyInstancesByPolicy` | read | no |
+| `aws.route53.traffic-policy-instance.get` | `GetTrafficPolicyInstance` | read | no |
+| `aws.route53.traffic-policy-instance.count` | `GetTrafficPolicyInstanceCount` | read | no |
+| `aws.route53.cidr-collection.list` | `ListCidrCollections` | read | no |
+| `aws.route53.cidr-location.list` | `ListCidrLocations` | read | no |
+| `aws.route53.cidr-block.list` | `ListCidrBlocks` | read | no |
+| `aws.route53.account-limit.get` | `GetAccountLimit` | read | no |
+| `aws.route53.hosted-zone.get-limit` | `GetHostedZoneLimit` | read | no |
+| `aws.route53.geo-location.list` | `ListGeoLocations` | read | no |
+| `aws.route53.geo-location.get` | `GetGeoLocation` | read | no |
+| `aws.route53.checker-ip-range.list` | `GetCheckerIpRanges` | read | no |
+| `aws.route53.hosted-zone.list-by-vpc` | `ListHostedZonesByVPC` | read | no |
+| `aws.route53.vpc-association-authorization.list` | `ListVPCAssociationAuthorizations` | read | no |
+| `aws.route53.tag.list-many` | `ListTagsForResources` | read | no |
 | `aws.route53.hosted-zone.create` | `CreateHostedZone` | create, not repeated | yes |
 | `aws.route53.hosted-zone.update-comment` | `UpdateHostedZoneComment` | update | yes |
 | `aws.route53.hosted-zone.delete` | `DeleteHostedZone` | delete, not repeated | yes |
 | `aws.route53.tag.change` | `ChangeTagsForResource` | update | yes |
 | `aws.route53.record-set.change` | `ChangeResourceRecordSets` | update, not repeated | yes |
+| `aws.route53.health-check.create` | `CreateHealthCheck` | create, not repeated | yes |
+| `aws.route53.health-check.update` | `UpdateHealthCheck` | update, not repeated | yes |
+| `aws.route53.health-check.delete` | `DeleteHealthCheck` | delete, not repeated | yes |
+| `aws.route53.dnssec.enable` | `EnableHostedZoneDNSSEC` | update | yes, listed-only |
+| `aws.route53.dnssec.disable` | `DisableHostedZoneDNSSEC` | update | yes, listed-only |
+| `aws.route53.key-signing-key.create` | `CreateKeySigningKey` | create, repeatable with its token | yes, listed-only |
+| `aws.route53.key-signing-key.activate` | `ActivateKeySigningKey` | update | yes, listed-only |
+| `aws.route53.key-signing-key.deactivate` | `DeactivateKeySigningKey` | update | yes, listed-only |
+| `aws.route53.key-signing-key.delete` | `DeleteKeySigningKey` | delete, not repeated | yes, listed-only |
 
 ## Zones
 
@@ -78,7 +117,7 @@ A private zone needs `hosted_zone_config.private_zone` true and a `vpc`. The che
 must be a region the connection allows, `vpc_id` must have the form `vpc-` and 8 or 17 hexadecimal digits, a private zone
 without a VPC and a VPC for a public zone are refused. A VPC ID carries no account, so whether the VPC belongs to the
 bound account is not checked by the tool; Route 53 refuses the VPC of another account that has not authorized the
-association. Reusable delegation sets are not offered.
+association. A zone is created without a reusable delegation set and gets name servers of its own.
 
 ### Changing and deleting a zone
 
@@ -170,32 +209,178 @@ or answers `PriorRequestNotComplete` with a wait of at most 10 seconds, and afte
 `resolver_ip` and `edns0_client_subnet_ip` with `edns0_client_subnet_mask`. It returns `response_code` (`NOERROR`,
 `NXDOMAIN`, and others), `record_data`, `nameserver`, and `protocol`.
 
+## Health checks
+
+A health check is a probe that Route 53 runs from checker regions: an endpoint check (`HTTP`, `HTTPS`, `HTTP_STR_MATCH`,
+`HTTPS_STR_MATCH`, `TCP`) of an IP address or a domain name, a `CALCULATED` check over `child_health_checks`, a
+`CLOUDWATCH_METRIC` check over an alarm, or a `RECOVERY_CONTROL` check. A check carries `id`, `caller_reference`,
+`health_check_config`, `health_check_version`, and for a metric check `cloud_watch_alarm_configuration`. The
+configuration holds `type`, `ip_address`, `fully_qualified_domain_name`, `port`, `resource_path`, `search_string`,
+`request_interval`, `failure_threshold`, `measure_latency`, `inverted`, `disabled`, `health_threshold`,
+`child_health_checks`, `enable_sni`, `regions`, `alarm_identifier`, `insufficient_data_health_status`, and
+`routing_control_arn`. A health check ID has no prefix.
+
+`health-check.list` takes `page_size` (1 to 1000) and `cursor` and returns `health_checks`, `next_cursor`, and
+`has_more`; the marker travels inside the cursor. `health-check.get` returns one check with its version.
+`health-check.count` returns the number of checks of the account. `health-check.get-status` returns
+`health_check_observations`, one per checker region with `region`, `ip_address` of the checker, and `status_report`
+(`status` text and `checked_time`). `health-check.get-last-failure-reason` returns the same shape for the last failure
+of each region. The status texts come from the checked endpoint and are data.
+
+### Creating a check
+
+`health-check.create` takes `health_check_config` (`type` is required). The tool generates the `CallerReference` and
+returns it as `client_token`; pass `client_token` to send a token of your own. The same token with the same configuration
+returns the existing check, the same token with another configuration answers `HealthCheckAlreadyExists`, and the account's
+quota answers `TooManyHealthChecks`. A create is never repeated automatically.
+
+A health check is billed per month while it exists, with extra charges for HTTPS, string matching, latency
+measurement, a 10 second request interval, and endpoints outside AWS. The tools read no price: check the Route 53 pricing
+before confirming.
+
+### Target rule
+
+The checkers send a request to the target in many regions every 10 or 30 seconds, so the target is judged before any
+request, in `create` (inside `health_check_config`) and in `update`:
+
+- `ip_address` must be a public unicast address. Refused are the unspecified, loopback, link-local, multicast, and
+  private addresses (RFC 1918, `fc00::/7`), shared address space `100.64.0.0/10`, `0.0.0.0/8`, `192.0.0.0/24`,
+  the documentation ranges (`192.0.2.0/24`, `198.51.100.0/24`, `203.0.113.0/24`, `2001:db8::/32`, `3fff::/20`),
+  `192.88.99.0/24`, benchmarking `198.18.0.0/15`, the reserved block `240.0.0.0/4`, the IPv6 protocol range `2001::/23`,
+  6to4 `2002::/16`, and every IPv6 address outside `2000::/3`. An IPv4-mapped IPv6 address is judged as IPv4, and a zone
+  suffix is refused.
+- `fully_qualified_domain_name` must be a domain name of at most 255 characters: labels of letters, digits, hyphens, and
+  underscores separated by dots, no escapes, no wildcard, not `localhost` or a name below it. A name that is the text of an
+  IP address is judged by the address rule.
+
+A name or public address cannot be tied to the account: the target is any endpoint, own or not, and the tool cannot tell
+whose it is. The confirmation does not show the target; the caller shows `fully_qualified_domain_name` or `ip_address`,
+`port`, and `resource_path` to the person who confirms.
+
+### Alarm region
+
+`alarm_identifier` names a CloudWatch alarm by `region` and `name`. The `region` must be one the connection allows, else the
+call is refused before any request. The identifier carries no account: Route 53 looks the alarm up by name in the account
+whose credential signs the request, which is the bound account. A `name` given as an ARN must be an alarm ARN of the bound
+account in the same region, else it is refused. A `routing_control_arn` must carry the bound account.
+
+### Changing and deleting a check
+
+`health-check.update` changes the members that are given and leaves the others; `health_check_version` is the
+precondition: when the check has another version, Route 53 answers `HealthCheckVersionMismatch` and changes nothing.
+Read the version with `health-check.get`. Every successful update raises the version, so repeating a call with the same
+version fails; the update is therefore not idempotent and is never repeated automatically. `reset_elements` sets
+`FullyQualifiedDomainName`, `Regions`, `ResourcePath`, or `ChildHealthChecks` back to the default. The type of a check
+cannot change.
+
+`health-check.delete` deletes a check that no record set uses; otherwise Route 53 answers `HealthCheckInUse` and the check
+stays. The confirmation does not list the records: before confirming, read the record sets of the zones with
+`record-set.list` and look at the `health_check_id` of each set, and change the sets that use the check first. A
+`CALCULATED` check that names the deleted check as a child counts it as unhealthy. A deleted check cannot be restored.
+
+The confirmation of `create`, `update`, and `delete` is the generic one: it names the tool, not the target, the
+configuration, or the records.
+
+## DNSSEC
+
+DNSSEC lets validating resolvers check that the answers of a public zone are signed. It works with a key signing key
+(KSK) that Route 53 holds in a KMS key of your account, and with a DS record at the registrar of the domain, which ties
+the parent zone to that key. A wrong setup makes the domain unreachable for validating resolvers, so every DNSSEC write
+is listed-only and needs confirmation. DNSSEC is meant for public zones.
+
+`dnssec.get` returns `status` (`serve_signature`, `status_message`) and the `key_signing_keys` of the zone, each with
+`name`, `kms_arn`, `flag`, the algorithm and digest fields, `key_tag`, `digest_value`, `public_key`, `ds_record`,
+`dnskey_record`, `status` (`ACTIVE`, `INACTIVE`, `DELETING`, `ACTION_NEEDED`, or `INTERNAL_FAILURE`), `status_message`,
+and the dates. The `ds_record` is what you enter at the registrar. A zone without DNSSEC answers an empty list. Route 53
+Domains is not a tool, so the DS record is always entered by hand; no tool does it.
+
+### Enabling
+
+1. Create an asymmetric KMS key (`ECC_NIST_P256`, sign and verify) in `us-east-1` in the bound account. KMS is not a tool
+   of this provider. The key policy must allow the service principal `dnssec-route53.amazonaws.com` (see
+   [Set up AWS](setup.md#route-53)).
+2. `key-signing-key.create` with the ARN of that key, a `name`, and `status` `ACTIVE` or `INACTIVE`.
+3. `key-signing-key.activate`, if the key was created inactive.
+4. `dnssec.enable`. Read the status with `change.get` until it is `INSYNC`, and with `dnssec.get` until
+   `serve_signature` shows that Route 53 signs the zone.
+5. Enter the `ds_record` of the key at the registrar. Do this only after Route 53 serves the signatures.
+
+### Switching off
+
+The order matters, because validating resolvers refuse a domain whose parent holds a DS record that no signed zone
+answers: remove the DS record at the registrar, wait for the TTL of the DS record to pass, then `dnssec.disable`, then
+`key-signing-key.deactivate`, then `key-signing-key.delete`. While a key is in the parent DS record Route 53
+answers `KeySigningKeyInParentDSRecord`, and the only active key of a signing zone cannot be deactivated
+(`KeySigningKeyInUse`).
+
+### KMS key rule
+
+`key_management_service_arn` of `key-signing-key.create` must be the ARN of a key (`key/...`, no alias) in the account the
+connection is bound to and in `us-east-1`; another account, another region, or a bare ID is refused before any request.
+Route 53 requires `us-east-1` for the key of a DNSSEC signing key, so the rule does not depend on the regions the
+connection allows: `us-east-1` need not be one of them. Whether the key policy and the key type fit is judged by Route 53:
+an unusable key answers `InvalidKMSArn`. A zone holds at most two key signing keys.
+
+### Confirmation, retry, and errors
+
+The confirmation is the generic one: it names the tool, not the zone or its effect. Before confirming, check the zone ID
+and the action in the arguments and the effect described in the tool description. `dnssec.enable`, `dnssec.disable`,
+`key-signing-key.activate`, and `key-signing-key.deactivate` are idempotent by their definition, but only a safe
+read is repeated automatically. `key-signing-key.create` carries a generated token, returned as `client_token`;
+repeating the call with the same token creates no second key. `key-signing-key.delete` is not idempotent. The results
+carry a `change_info` that `change.get` reads. Route 53 errors keep their code: `KeySigningKeyAlreadyExists`,
+`InvalidKMSArn`, `InvalidKeySigningKeyStatus`, `KeySigningKeyInParentDSRecord`, `KeySigningKeyInUse`, `DNSSECNotFound`,
+`NoSuchKeySigningKey`, `NoSuchHostedZone`, and `TooManyKeySigningKeys` are returned as such.
+
+## Other readers
+
+The tools of these areas only read. A list takes `page_size` and `cursor` (`next_cursor` and `has_more` in the result); a
+page ends anywhere, so continue with the same arguments. IDs of zones and delegation sets are taken with or without
+`/hostedzone/` and `/delegationset/`.
+
+| Area | Tools | Boundary |
+| --- | --- | --- |
+| Query logging | `query-logging-config.list` (optionally of one zone), `.get` | Configuration and the log group ARN as text; the ARN is not checked for whose log group it is. Pages of up to 100. |
+| Reusable delegation sets | `delegation-set.list`, `.get`, `.get-limit` | Name servers of a set and the zone limit of a set. Pages of up to 100. |
+| Traffic policies | `traffic-policy.list`, `.get`, `.list-versions` | `get` returns one version with its JSON document, cut at 100 KiB with `truncated` true. `list-versions` leaves the documents out, since a page of them could be several megabytes. Pages of up to 100. |
+| Traffic policy instances | `traffic-policy-instance.list`, `.list-by-hosted-zone`, `.list-by-policy`, `.get`, `.count` | State and message of an instance. The three markers of a list (zone, name, type) travel in one cursor; the lists offer no start arguments. Pages of up to 100. |
+| CIDR collections | `cidr-collection.list`, `cidr-location.list`, `cidr-block.list` | Collections, location names, and blocks of a collection or one location (`location_name`). Pages of up to 100. |
+| Limits | `account-limit.get`, `hosted-zone.get-limit` | One limit by `type` and the current count. The VPC limit exists for private zones only. |
+| Geolocations | `geo-location.list`, `.get` | The locations geolocation routing supports, the same for every account. The list continues at a continent, a country, or a country with a subdivision, whichever comes next; it offers no start arguments. Pages of up to 100. |
+| Health checkers | `checker-ip-range.list` | The CIDR ranges the health checkers send from, the same for every account. |
+| VPC associations | `hosted-zone.list-by-vpc`, `vpc-association-authorization.list` | `list-by-vpc` takes `vpc_id` (`vpc-` and 8 or 17 hexadecimal digits) and `vpc_region` (a region the connection allows), both checked before the request, and lists only zones of the bound account, since a VPC ID carries no account. `vpc-association-authorization.list` lists the VPCs a private zone authorized; pages of up to 50. |
+
+A missing object answers the not-found class with the Route 53 code (`NoSuchQueryLoggingConfig`, `NoSuchDelegationSet`,
+`NoSuchTrafficPolicy`, `NoSuchTrafficPolicyInstance`, `NoSuchCidrCollectionException`, `NoSuchCidrLocationException`,
+`NoSuchGeoLocation`, `NoSuchHostedZone`).
+
 ## Tags
 
-`tag.list` and `tag.change` work on hosted zones: `resource_type` is `hostedzone`, the only value offered, and
-`resource_id` is the zone ID. `tag.change` takes `add_tags` (each with `key` and `value`, adding or overwriting) and
-`remove_tag_keys`, up to 10 of each per call. Health check tags are not offered.
+`tag.list` and `tag.change` work on hosted zones and health checks: `resource_type` is `hostedzone` or `healthcheck`, and
+`resource_id` is the zone ID (with or without `/hostedzone/`) or the health check ID. `tag.change` takes `add_tags` (each with `key`
+and `value`, adding or overwriting) and `remove_tag_keys`, up to 10 of each per call. The `Name` tag is the name the
+Route 53 console shows for a health check. `tag.list-many` reads the tags of up to 10 zones or up to 10 health checks of one `resource_type` in one call (`resource_ids`).
 
 ## Untrusted data
 
-Zone names, comments, tags, change comments, name servers, record names, record values, and TXT contents are data of the
-account's users and of the zone's domain. They are shown capped and never followed as instructions, and nothing fetched
+Zone names, comments, tags (of zones and health checks, including the `Name` tag), change comments, name servers, record names, record values, TXT contents, the status and failure texts of health checks, the DS and DNSKEY records, KMS ARNs, and status messages of DNSSEC, and the log group ARNs, policy documents and comments, instance messages, delegation set references, CIDR blocks, and collection and location names of the other readers are data of the
+account's users, of the zone's domain, and of the checked endpoint. They are shown capped and never followed as instructions, and nothing fetched
 from them is requested. Provider error texts are not shown; the code and the class are, except the single messages of an
 `InvalidChangeBatch`, which are shown capped as provider text.
 
 ## Not tools
 
 `CreateVPCAssociationAuthorization` is never a tool: it lets another account associate its VPC with a private zone and
-resolve its records, and nothing can check that account. The other Route 53 operations (health checks, traffic
-policies, DNSSEC, query logging, reusable delegation sets, CIDR collections, VPC association, account limits) are not
-tools of this group.
+resolve its records, and nothing can check that account. The writes of query logging, reusable delegation sets, traffic policies and their instances, CIDR
+collections, VPC association and its authorizations, and the zone features are not tools of this group yet.
 
 ## Limits
 
-- No live test has been run against Route 53. The price of a zone is not read by any tool, and the behavior of a private
+- No live test has been run against Route 53. The price of a zone or health check is not read by any tool, and the behavior of a private
   zone with a VPC of another account is documented by AWS only.
 - The generated test of each tool covers the request and the result shape; the zone IDs, paging, errors, the VPC
-  checks, the record list over several pages, the batch checks, the retry rules, and the DNS answer are tested against a
-  fake transport.
+  checks, the record list over several pages, the batch checks, the retry rules, the DNS answer, the health check types, the
+  target and alarm checks, and the health check errors, and the DNSSEC reads, writes, KMS key rule, errors, and the listed-only offer are tested against a fake transport. Each other reader is tested with an answer, a list over two pages with the paging members of its cursor, the not-found error of the model, and a field that holds an instruction as data; the VPC checks, the argument bounds, and the cap of the policy document are tested too.
+- DNSSEC has not been run against a real account: the key policy requirements, the algorithm of the KMS key, the time until the signatures are served, and the idempotent repetition of enable, disable, activate, and deactivate are as AWS documents them and are not measured.
 - The record limits of a batch come from the AWS documentation, not from the model, and no quota or throttling value of
   Route 53 is measured.

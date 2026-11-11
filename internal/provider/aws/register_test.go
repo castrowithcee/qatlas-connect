@@ -96,19 +96,58 @@ var wantTools = []string{
 	"aws.iam.user.list",
 	"aws.iam.user.list-tags",
 	"aws.iam.virtual-mfa-device.list",
+	"aws.route53.account-limit.get",
 	"aws.route53.change.get",
+	"aws.route53.checker-ip-range.list",
+	"aws.route53.cidr-block.list",
+	"aws.route53.cidr-collection.list",
+	"aws.route53.cidr-location.list",
+	"aws.route53.delegation-set.get",
+	"aws.route53.delegation-set.get-limit",
+	"aws.route53.delegation-set.list",
 	"aws.route53.dns-answer.test",
+	"aws.route53.dnssec.disable",
+	"aws.route53.dnssec.enable",
+	"aws.route53.dnssec.get",
+	"aws.route53.geo-location.get",
+	"aws.route53.geo-location.list",
+	"aws.route53.health-check.count",
+	"aws.route53.health-check.create",
+	"aws.route53.health-check.delete",
+	"aws.route53.health-check.get",
+	"aws.route53.health-check.get-last-failure-reason",
+	"aws.route53.health-check.get-status",
+	"aws.route53.health-check.list",
+	"aws.route53.health-check.update",
 	"aws.route53.hosted-zone.count",
 	"aws.route53.hosted-zone.create",
 	"aws.route53.hosted-zone.delete",
 	"aws.route53.hosted-zone.get",
+	"aws.route53.hosted-zone.get-limit",
 	"aws.route53.hosted-zone.list",
 	"aws.route53.hosted-zone.list-by-name",
+	"aws.route53.hosted-zone.list-by-vpc",
 	"aws.route53.hosted-zone.update-comment",
+	"aws.route53.key-signing-key.activate",
+	"aws.route53.key-signing-key.create",
+	"aws.route53.key-signing-key.deactivate",
+	"aws.route53.key-signing-key.delete",
+	"aws.route53.query-logging-config.get",
+	"aws.route53.query-logging-config.list",
 	"aws.route53.record-set.change",
 	"aws.route53.record-set.list",
 	"aws.route53.tag.change",
 	"aws.route53.tag.list",
+	"aws.route53.tag.list-many",
+	"aws.route53.traffic-policy-instance.count",
+	"aws.route53.traffic-policy-instance.get",
+	"aws.route53.traffic-policy-instance.list",
+	"aws.route53.traffic-policy-instance.list-by-hosted-zone",
+	"aws.route53.traffic-policy-instance.list-by-policy",
+	"aws.route53.traffic-policy.get",
+	"aws.route53.traffic-policy.list",
+	"aws.route53.traffic-policy.list-versions",
+	"aws.route53.vpc-association-authorization.list",
 	"aws.s3.accelerate.get",
 	"aws.s3.acl.get",
 	"aws.s3.bucket.create",
@@ -178,7 +217,9 @@ func TestRegisterPublishesMetadataAndTools(t *testing.T) {
 		sesWrite := tool.Effect != config.EffectRead && strings.HasPrefix(tool.ID, "aws.ses.") &&
 			tool.RequiresToolAllowList == strings.HasPrefix(tool.ID, "aws.ses.email-identity-policy.")
 		s3Write := tool.Effect != config.EffectRead && !tool.RequiresToolAllowList && strings.HasPrefix(tool.ID, "aws.s3.")
-		route53Write := tool.Effect != config.EffectRead && !tool.RequiresToolAllowList && strings.HasPrefix(tool.ID, "aws.route53.")
+		// DNSSEC writes can make a domain unreachable, so they are listed-only; every other Route 53 write is not.
+		route53Write := tool.Effect != config.EffectRead && strings.HasPrefix(tool.ID, "aws.route53.") &&
+			tool.RequiresToolAllowList == route53DNSSECWrite(tool.ID)
 		if !(open || write || sesWrite || s3Write || route53Write) || tool.Group != strings.Split(tool.ID, ".")[1] {
 			t.Errorf("tool %+v, want an open read, a listed-only IAM write, an SES write (listed-only for identity policies), an S3 or a Route 53 write of the group named by its service segment", tool)
 		}
@@ -263,8 +304,9 @@ func TestSTSToolsAreTheCredentialFreeActions(t *testing.T) {
 			listedIAM := d.RequiresToolAllowList && strings.HasPrefix(d.ID, "aws.iam.")
 			sesWrite := strings.HasPrefix(d.ID, "aws.ses.") &&
 				d.RequiresToolAllowList == strings.HasPrefix(d.ID, "aws.ses.email-identity-policy.")
-			s3Write := !d.RequiresToolAllowList && (strings.HasPrefix(d.ID, "aws.s3.") || strings.HasPrefix(d.ID, "aws.route53."))
-			if !(listedIAM || sesWrite || s3Write) || d.Risk.Idempotency == capability.IdempotencySafe {
+			s3Write := !d.RequiresToolAllowList && (strings.HasPrefix(d.ID, "aws.s3.") || strings.HasPrefix(d.ID, "aws.route53.") && !route53DNSSECWrite(d.ID))
+			route53Listed := d.RequiresToolAllowList && route53DNSSECWrite(d.ID)
+			if !(listedIAM || sesWrite || s3Write || route53Listed) || d.Risk.Idempotency == capability.IdempotencySafe {
 				t.Errorf("%s is a write that is neither a listed-only IAM tool nor an SES or S3 tool: %+v", d.ID, d)
 			}
 		}

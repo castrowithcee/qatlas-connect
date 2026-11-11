@@ -1,6 +1,7 @@
 package aws
 
 import (
+	"net/netip"
 	"regexp"
 	"slices"
 	"strconv"
@@ -36,6 +37,19 @@ func checkRoute53VPC(b binding, _ string, args map[string]any) error {
 	}
 	if id, _ := vpc["vpc_id"].(string); !vpcID.MatchString(id) {
 		return &provider.InvalidRequestError{Message: "vpc.vpc_id must be a VPC ID such as vpc-0123456789abcdef0"}
+	}
+	return nil
+}
+
+// checkRoute53VPCLookup judges the VPC of a lookup of the hosted zones of a VPC before any request: the region
+// must be one the connection allows and the ID a well formed VPC ID. A VPC ID carries no account, and Route 53
+// answers only the zones of the bound account.
+func checkRoute53VPCLookup(b binding, _ string, args map[string]any) error {
+	if region, _ := args["vpc_region"].(string); !slices.Contains(b.regions, region) {
+		return &provider.InvalidRequestError{Message: "vpc_region must be a region the connection allows"}
+	}
+	if id, _ := args["vpc_id"].(string); !vpcID.MatchString(id) {
+		return &provider.InvalidRequestError{Message: "vpc_id must be a VPC ID such as vpc-0123456789abcdef0"}
 	}
 	return nil
 }
@@ -130,4 +144,111 @@ func checkRoute53Change(_ binding, _ string, args map[string]any) error {
 			" values and " + strconv.Itoa(maxBatchChars) + " characters in one batch, an UPSERT counting twice; split it into several calls"}
 	}
 	return nil
+}
+
+// blockedV4 and blockedV6 are the ranges of an address a health check may not probe, beyond what netip classifies:
+// "this" network, shared address space, protocol assignments, documentation, 6to4 relay, benchmarking, and the
+// reserved block. Private, loopback, link-local, multicast, and unspecified addresses are judged by netip itself.
+var blockedV4 = []netip.Prefix{
+	netip.MustParsePrefix("0.0.0.0/8"), netip.MustParsePrefix("100.64.0.0/10"), netip.MustParsePrefix("192.0.0.0/24"),
+	netip.MustParsePrefix("192.0.2.0/24"), netip.MustParsePrefix("192.88.99.0/24"), netip.MustParsePrefix("198.18.0.0/15"),
+	netip.MustParsePrefix("198.51.100.0/24"), netip.MustParsePrefix("203.0.113.0/24"), netip.MustParsePrefix("240.0.0.0/4"),
+}
+
+var blockedV6 = []netip.Prefix{
+	netip.MustParsePrefix("2001::/23"), netip.MustParsePrefix("2001:db8::/32"), netip.MustParsePrefix("2002::/16"),
+	netip.MustParsePrefix("3fff::/20"),
+}
+
+var globalV6 = netip.MustParsePrefix("2000::/3")
+
+// publicAddr reports whether an address is a public unicast address: IPv4 outside the blocked ranges, and IPv6
+// inside the global unicast block 2000::/3 and outside the blocked ranges. An IPv4-mapped IPv6 address is judged as IPv4.
+func publicAddr(a netip.Addr) bool {
+	a = a.Unmap()
+	if !a.IsValid() || a.Zone() != "" || a.IsUnspecified() || a.IsLoopback() || a.IsPrivate() || a.IsLinkLocalUnicast() ||
+		a.IsLinkLocalMulticast() || a.IsInterfaceLocalMulticast() || a.IsMulticast() {
+		return false
+	}
+	blocked := blockedV6
+	if a.Is4() {
+		blocked = blockedV4
+	} else if !globalV6.Contains(a) {
+		return false
+	}
+	return !slices.ContainsFunc(blocked, func(p netip.Prefix) bool { return p.Contains(a) })
+}
+
+// validHealthName judges the domain name a health check probes: the form of validDNSName without escapes and
+// wildcards, at most 255 characters, not localhost, and not the text form of an IP address that is not public.
+func validHealthName(name string) bool {
+	host := strings.TrimSuffix(name, ".")
+	if len(name) > 255 || !validDNSName(name) || name == "." || strings.ContainsAny(name, `\*`) {
+		return false
+	}
+	if host == "localhost" || strings.HasSuffix(host, ".localhost") {
+		return false
+	}
+	if a, err := netip.ParseAddr(host); err == nil {
+		return publicAddr(a)
+	}
+	return true
+}
+
+// cloudWatchAlarmARN is the form of the ARN of a CloudWatch alarm, as a name in an alarm identifier could carry it.
+var cloudWatchAlarmARN = regexp.MustCompile(`^arn:aws:cloudwatch:([a-z0-9-]*):([0-9]*):alarm:.+$`)
+
+// checkRoute53Health judges the target, the alarm, and the routing control of a health check before any request.
+// Create nests them in health_check_config, update takes them at the top level. The target must be a valid name
+// or a public address. The alarm names a region, which the connection must allow; the alarm itself is looked up by
+// Route 53 in the bound account, as the identifier carries no account. A name given as an ARN must carry the
+// bound account and an allowed region. A routing control ARN must carry the bound account.
+func checkRoute53Health(b binding, _ string, args map[string]any) error {
+	config := args
+	if nested, ok := args["health_check_config"].(map[string]any); ok {
+		config = nested
+	}
+	if name, set := config["fully_qualified_domain_name"].(string); set && !validHealthName(name) {
+		return &provider.InvalidRequestError{Message: "fully_qualified_domain_name must be a domain name that is not localhost nor a non-public IP address: dot separated labels of letters, digits, hyphens, and underscores"}
+	}
+	if text, set := config["ip_address"].(string); set {
+		if a, err := netip.ParseAddr(text); err != nil || !publicAddr(a) {
+			return &provider.InvalidRequestError{Message: "ip_address must be a public IPv4 or IPv6 address: private, loopback, link-local, unspecified, multicast, shared (100.64.0.0/10), documentation, and reserved ranges are refused"}
+		}
+	}
+	if alarm, set := config["alarm_identifier"].(map[string]any); set {
+		region, _ := alarm["region"].(string)
+		if !slices.Contains(b.regions, region) {
+			return &provider.InvalidRequestError{Message: "alarm_identifier.region must be a region the connection allows"}
+		}
+		if name, _ := alarm["name"].(string); strings.HasPrefix(name, "arn:") {
+			m := cloudWatchAlarmARN.FindStringSubmatch(name)
+			if m == nil || m[2] != b.account || m[1] != region {
+				return &provider.InvalidRequestError{Message: "alarm_identifier.name as an ARN must be an alarm of the account this connection is bound to, in the region of alarm_identifier.region"}
+			}
+		}
+	}
+	if arn, set := config["routing_control_arn"].(string); set {
+		if parts := strings.SplitN(arn, ":", 6); len(parts) != 6 || parts[0] != "arn" || parts[1] != "aws" || parts[4] != b.account {
+			return &provider.InvalidRequestError{Message: "routing_control_arn must be an ARN of the account this connection is bound to"}
+		}
+	}
+	return nil
+}
+
+// kskRegion is the only region of the KMS key of a key signing key.
+const kskRegion = "us-east-1"
+
+// checkRoute53KSK judges the KMS key of a new key signing key before any request. DNSSEC signing keys must lie in
+// us-east-1, which the connection need not allow, so the region is fixed and not tied to the allow-list. The key
+// must be named by the ARN of a key (not an alias) in the bound account.
+func checkRoute53KSK(b binding, _ string, args map[string]any) error {
+	arn, _ := args["key_management_service_arn"].(string)
+	parts := strings.SplitN(arn, ":", 6)
+	if len(parts) == 6 && parts[0] == "arn" && parts[1] == "aws" && parts[2] == "kms" && parts[3] == kskRegion && parts[4] == b.account {
+		if id, ok := strings.CutPrefix(parts[5], "key/"); ok && kmsKeyID.MatchString(id) {
+			return nil
+		}
+	}
+	return &provider.InvalidRequestError{Message: "key_management_service_arn must be the ARN of a KMS key (key/...) in us-east-1 in the account this connection is bound to"}
 }

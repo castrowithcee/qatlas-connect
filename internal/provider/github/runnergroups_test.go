@@ -16,7 +16,7 @@ import (
 	"github.com/castrowithcee/qatlas-kit/redact"
 )
 
-const runnerProviderCanary = "runner-provider-text-canary-7b2e"
+const runnerGroupProviderCanary = "runner-provider-text-canary-7b2e"
 
 // fakeRunnerGroups answers the runner group and hosted runner routes of the organization octo-org, keeps the
 // groups, and can refuse every request of one method with a status.
@@ -67,7 +67,7 @@ func (s *fakeRunnerGroups) route(f *fakeGitHub, w http.ResponseWriter, req *http
 	w.Header().Set("Content-Type", "application/json")
 	if status := s.status[req.Method]; status != 0 {
 		w.WriteHeader(status)
-		fmt.Fprintf(w, `{"message":%q}`, runnerProviderCanary)
+		fmt.Fprintf(w, `{"message":%q}`, runnerGroupProviderCanary)
 		return true
 	}
 	write := func(value any) { data, _ := json.Marshal(value); w.Write(data) }
@@ -501,7 +501,7 @@ func TestRunnerGroupFailuresNameTheirMeaningWithoutProviderText(t *testing.T) {
 			strings.Contains(err.Error(), uncertain) != tt.uncertain {
 			t.Errorf("%s answered %d = %v, want %s naming %q", tt.method, tt.status, err, tt.class, tt.fragment)
 		}
-		if err != nil && strings.Contains(err.Error(), runnerProviderCanary) {
+		if err != nil && strings.Contains(err.Error(), runnerGroupProviderCanary) {
 			t.Errorf("%s answered %d quotes GitHub's text: %v", tt.method, tt.status, err)
 		}
 		if got := countMethods(f, before)[http.MethodPatch]; got != tt.patches {
@@ -517,7 +517,7 @@ func TestRunnerGroupFailuresNameTheirMeaningWithoutProviderText(t *testing.T) {
 	} {
 		_, err := invoke(t, core, tt.tool, "org-listed", tt.arguments, false)
 		if classOf(err) != provider.ClassPermission || err == nil || !strings.Contains(err.Error(), tt.fragment) ||
-			strings.Contains(err.Error(), runnerProviderCanary) {
+			strings.Contains(err.Error(), runnerGroupProviderCanary) {
 			t.Errorf("%s refused = %v, want the right it needs", tt.tool, err)
 		}
 	}

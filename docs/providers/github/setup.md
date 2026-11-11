@@ -182,6 +182,10 @@ your token holds. A repository or organization policy can forbid a run although 
 | Read the selected actions, fork pull request approval, retention, access, or OIDC subject claim of a repository | `repo`, as a repository administrator | Administration: read |
 | Change them | `repo`, as a repository administrator | Administration: read and write |
 | Read or change the selected actions, fork pull request approval, retention, or OIDC subject claim of an organization | `admin:org` | Administration or Actions policies, read, or read and write (organization); as far as GitHub documents it |
+| Read the self-hosted runners and their labels of a repository | `repo`, as a repository administrator | Administration: read |
+| Remove a runner or change its labels in a repository | `repo`, as a repository administrator | Administration: read and write |
+| Read the self-hosted runners and their labels of an organization | `admin:org` | Self-hosted runners: read (organization) |
+| Remove a runner or change its labels in an organization | `admin:org` | Self-hosted runners: read and write (organization) |
 | Read repository settings | `repo` for private repositories | Metadata: read |
 | Change repository settings and topics, including archiving and unarchiving | `repo`, as a repository administrator | Administration: write |
 | Read Actions variables of a repository; create, change, or delete them | `repo` | Variables: read; read and write to change |
@@ -194,7 +198,7 @@ your token holds. A repository or organization policy can forbid a run although 
 | Read deployments and deployment statuses | `repo` for private repositories, none for public | Deployments: read |
 | Name a team as reviewer of an environment | `read:org` | Members: read (organization) |
 
-Workflow files, Actions permissions and settings, and repository settings are high risk. Give those connections a token of their
+Workflow files, Actions permissions and settings, self-hosted runners, and repository settings are high risk. Give those connections a token of their
 own that no other connection uses, ideally fine-grained and limited to the one repository, with only the
 permissions of the tools that connection lists. A branch protection or repository rule can refuse a file change
 although the token allows it.
@@ -248,7 +252,7 @@ so treat them as likely, not certain.
 | Tools | Classic | Fine-grained |
 | --- | --- | --- |
 | Read releases and assets | `repo` for private repositories, `public_repo` for public | Contents: read |
-| Create, update, delete | `repo` | Contents: read and write |
+| Generate release notes, create, update, delete releases, update and delete assets | `repo` | Contents: read and write |
 
 ### Security
 
@@ -264,6 +268,8 @@ so treat them as likely, not certain.
 | Repository security advisories | `repo` or `repository_advisories:read`, for a private repository or an unpublished advisory | Repository security advisories: read |
 | Organization security advisories | `repo` or `repository_advisories:write`, and an organization owner or security manager | Repository security advisories: write (GitHub requires write although the tool only reads) |
 | Code quality findings | `repo`; `public_repo` for a public repository | Code quality: read |
+| Read the security switches and the code scanning default setup | `repo`, as a repository administrator | Administration: read |
+| Change the security switches and the code scanning default setup | `repo`, as a repository administrator; `security_events` is not enough | Administration: write |
 
 GitHub answers `not-found` for a repository where a feature is off or that the token cannot see. Code scanning
 answers with a refusal without GitHub Advanced Security, and a code quality finding with a refusal when code quality
