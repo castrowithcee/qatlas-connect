@@ -135,11 +135,30 @@ token rights are listed under [Issues and comments](setup.md#issues-and-comments
 
 ## Milestones
 
-`github.milestones.list` reads one bounded batch of the milestones of a repository, paged the same way
-[labels](#labels) are, by GitHub's `Link` response header. The description of a milestone is untrusted data.
+`github.milestones.list` and `github.milestones.get` read the milestones of a repository; `github.milestones.create`
+and `github.milestones.update` change them; `github.milestones.delete` removes one permanently and is offered
+only where a connection's `tools` list names it, as `github.labels.delete` is, since it also clears the milestone
+of every issue and pull request that carries it. A milestone is addressed by its `number` in the chosen
+repository only; milestones exist per repository, not per organization.
 
-Nothing here creates, changes, or deletes a milestone; `github.issues.update` sets or removes the milestone
-of an existing issue instead, under [Changes](#changes). The token rights are listed under [Issues and comments](setup.md#issues-and-comments).
+| Tool | Does |
+| --- | --- |
+| `github.milestones.list` | lists one bounded batch of the milestones of a repository, paged like [labels](#labels) by GitHub's `Link` response header |
+| `github.milestones.get` | reads one milestone by number, with every member GitHub documents |
+| `github.milestones.create` | creates one milestone from `title` and, optionally, `state`, `description`, and `due_on` |
+| `github.milestones.update` | changes `title`, `state`, `description`, or `due_on` of one milestone; only the given values are sent and at least one is required |
+| `github.milestones.delete` | deletes one milestone permanently; offered only where a connection's `tools` list names it |
+
+Every argument is checked before a credential is resolved. `title` is 1 to 255 characters, `description` at most
+65536 characters, and both are refused when they carry a control character. `state` is `open` or `closed`.
+`due_on` is an ISO 8601 timestamp such as `2026-03-01T00:00:00Z` and is refused otherwise. `github.milestones.update`
+clears a description with `""`; a due date cannot be cleared, since GitHub documents no way to do so. Titles and
+descriptions are untrusted data and never appear in a message.
+
+Each change is exactly one request that is never repeated. After a timeout, a dropped connection, a server error,
+or an unreadable answer the outcome is reported as uncertain, not as failure or success. `github.issues.update`
+sets or removes the milestone of an existing issue instead, under [Changes](#changes). The token rights are listed
+under [Issues and comments](setup.md#issues-and-comments).
 
 ## Sub-issues
 

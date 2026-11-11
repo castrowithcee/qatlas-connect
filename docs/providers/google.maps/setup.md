@@ -12,7 +12,8 @@ updated: 2026-11-11
 This page shows how to connect Qatlas to Google Maps Platform. Fields, cost, and errors are described in the
 [Google Maps provider](README.md); the tools are described in [places](places.md),
 [addressvalidation](addressvalidation.md), [weather](weather.md), [airquality](airquality.md),
-[pollen](pollen.md), [solar](solar.md), [routes](routes.md), and [roads](roads.md).
+[pollen](pollen.md), [solar](solar.md), [routes](routes.md), [roads](roads.md), [areainsights](areainsights.md),
+[elevation](elevation.md), [timezone](timezone.md), and [geolocation](geolocation.md).
 
 ## What you need
 
@@ -20,13 +21,14 @@ This page shows how to connect Qatlas to Google Maps Platform. Fields, cost, and
   [Cost](README.md#cost) for the free monthly caps.
 - Places API (New) enabled in that project, Geocoding API for the geocoding tools, Address Validation API
   for the address tools, Weather API for the weather tools, Air Quality API for the air quality tools,
-  Pollen API for the pollen tool, Solar API for the solar tools, Routes API for the route tools, and Roads API
-  for the road tools.
+  Pollen API for the pollen tool, Solar API for the solar tools, Routes API for the route tools, Roads API
+  for the road tools, Places Aggregate API for the area insights tool, Elevation API for the elevation tool,
+  Time Zone API for the time zone tool, and Geolocation API for the geolocation tool.
 - An API key of that project.
 - Qatlas keeps the key in the system keyring or the vault, or reads it from an environment variable.
 - The service is always `https://places.googleapis.com`; there is nothing to change for it. The Address
-  Validation, weather, Air Quality, pollen, solar, route, and road tools use their own fixed origins, which need no
-  setting either.
+  Validation, weather, Air Quality, pollen, solar, route, road, area insights, and geolocation tools use their own
+  fixed origins, which need no setting either.
 
 ## Create a key
 
@@ -34,7 +36,8 @@ In the Google Cloud console, choose or create the project and link a billing acc
 services, enable **Places API (New)**, for the geocoding tools **Geocoding API**, for the address tools
 **Address Validation API**, for the weather tools **Weather API**, for the air quality tools **Air Quality
 API**, for the pollen tool **Pollen API**, for the solar tools **Solar API**, for the route tools **Routes
-API**, and for the road tools **Roads API**. Under Credentials, create an API key. Google changes its pages from time to time; look for these names.
+API**, for the road tools **Roads API**, for the area insights tool **Places Aggregate API**, for the elevation
+tool **Elevation API**, for the time zone tool **Time Zone API**, and for the geolocation tool **Geolocation API**. Under Credentials, create an API key. Google changes its pages from time to time; look for these names.
 
 Restrict the key to the APIs you enabled. A leaked key is not narrowed by the connection's `tools`, so keep it
 for Qatlas only and restrict it as far as your use allows.

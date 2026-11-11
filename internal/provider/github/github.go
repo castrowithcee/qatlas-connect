@@ -77,7 +77,10 @@
 // of a repository or, with organization instead of repository, an organization the connection allows;
 // exactly one of the two is required. Only on a connection whose tools list names them, github.rulesets.
 // create, github.rulesets.update, and github.rulesets.delete change them; an update replaces a ruleset as a
-// whole. github.custom-properties.get reads the custom property values of a repository or, with organization
+// whole. github.branch-protection.get reads the protection of one branch and github.branch-rules.get the rules
+// that effectively apply to it; only on a connection whose tools list names them, github.branch-protection.set
+// replaces the whole protection of a branch, every setting given explicitly, and github.branch-protection.delete
+// removes it. github.custom-properties.get reads the custom property values of a repository or, with organization
 // instead, the custom property definitions (schema) an organization declares, the same exclusive selection;
 // only on a connection whose tools list names it, github.custom-properties.set changes them: for a repository
 // it sets or removes property values, and for an organization it creates or updates property definitions.
@@ -144,8 +147,10 @@
 // requests a Copilot review of a pull request; they are offered only by the not-recommended setup profile
 // copilot. An assignment reads the issue and the assignable actors of the same repository first, keeps the
 // other assignees, and refuses with a permission error, changing nothing, where Copilot is not assignable.
-// github.milestones.list reads the milestones of a repository, filtered by state; github.issues.update also
-// takes an optional milestone number, 0 removing the issue's current one. github.comments.update replaces
+// github.milestones.list and github.milestones.get read the milestones of a repository;
+// github.milestones.create and github.milestones.update change them; only on a connection whose tools list
+// names it, github.milestones.delete removes one permanently, which also clears it from every issue and pull
+// request that carries it. github.issues.update also takes an optional milestone number, 0 removing the issue's current one. github.comments.update replaces
 // the body of one issue comment by its comment_id, and, only on a connection whose tools list names it,
 // github.comments.delete removes one permanently; both refuse a comment of another repository and a pull
 // request conversation comment the same way the issue tools refuse a pull request number.
@@ -485,7 +490,7 @@ var issuesGet = capability.Descriptor{
 // draft tools, the project lifecycle, field schema, view, status update, access, and automation tools, the Actions observer and operator tools, the listed-only
 // workflow maintainer and Actions administrator tools, the account, organization, and star tools, the
 // contents, tree, and blame tools, the repository lifecycle and collaborators tools, the repository and
-// organization ruleset tools, and the repository and organization custom properties tools. Only reads are a
+// organization ruleset tools, the branch protection and branch rules tools, and the repository and organization custom properties tools. Only reads are a
 // connection's default: every change and every execution needs a permission of its own, and a listed-only
 // tool also its name in the connection's tools list.
 func Register(reg *capability.Registry) error {
@@ -552,7 +557,11 @@ func Register(reg *capability.Registry) error {
 				"read on a fine-grained token; changing them, listed-only, needs Administration: read and write " +
 				"on a fine-grained token instead; reading or changing the rulesets of an organization needs " +
 				"admin:org on a classic token, or, as far as GitHub documents it, Administration read, or read " +
-				"and write, access of the organization on a fine-grained token; reading the custom property " +
+				"and write, access of the organization on a fine-grained token; reading the protection of a branch needs " +
+				"repo on a classic token with the Admin role, or Administration: read on a fine-grained token, and " +
+				"replacing or removing it, listed-only, needs Administration: read and write instead; reading the " +
+				"rules that apply to a branch needs no scope for a public repository, or repo on a classic token, " +
+				"or Metadata: read on a fine-grained token, for a private one; reading the custom property " +
 				"values of a repository needs Custom properties: read on a fine-grained token, or repo on a " +
 				"classic token, and changing them, listed-only, needs Custom properties: write instead; reading " +
 				"or changing the custom property schema of an organization needs the organization permission " +
@@ -569,7 +578,8 @@ func Register(reg *capability.Registry) error {
 				"for a private one; changing them, including delete which is listed-only, needs Issues: read " +
 				"and write instead, since GitHub keeps a label under a repository's issues and pull requests " +
 				"rather than a scope of its own; reading the milestones of a repository needs the same scope " +
-				"as reading its labels; setting an issue's milestone through github.issues.update, and " +
+				"as reading its labels, and changing them, including delete which is listed-only, needs the same " +
+				"scope as changing its labels; setting an issue's milestone through github.issues.update, and " +
 				"updating or deleting an issue comment, need the same scope as writing an issue or a comment: " +
 				"repo on a classic token, or Issues: read and write on a fine-grained token; reacting to an " +
 				"issue or an issue or pull request conversation comment needs the same scope as writing one, " +
@@ -792,12 +802,13 @@ func Register(reg *capability.Registry) error {
 			Tools: []string{collaboratorsList.ID, rulesetsList.ID, rulesetsGet.ID, customPropertiesGet.ID},
 		}, {
 			ID: "issue-maintainer", Title: "Issue maintainer",
-			Description: "not recommended: lists and reads the labels of a repository, lists its " +
-				"milestones, creates and updates labels and issue comments, hides and shows comments and reviews, and reacts to issues, comments, " +
+			Description: "not recommended: lists and reads the labels of a repository, lists and reads its " +
+				"milestones, creates and updates labels and milestones and issue comments, hides and shows comments and reviews, and reacts to issues, comments, " +
 				"and pull request line comments; every change needs its own confirmation, and deleting a " +
-				"label or a comment stays unticked, since each is offered only where a connection's tools " +
+				"label, a milestone, or a comment stays unticked, since each is offered only where a connection's tools " +
 				"list names it",
-			Tools: []string{labelsList.ID, labelsGet.ID, labelsCreate.ID, labelsUpdate.ID, milestonesList.ID,
+			Tools: []string{labelsList.ID, labelsGet.ID, labelsCreate.ID, labelsUpdate.ID, milestonesList.ID, milestonesGet.ID,
+				milestonesCreate.ID, milestonesUpdate.ID,
 				commentsUpdate.ID, commentsHide.ID, commentsUnhide.ID, reactionsAdd.ID, reactionsRemove.ID, subIssuesList.ID, subIssuesAdd.ID,
 				subIssuesRemove.ID, subIssuesReprioritize.ID, issueDependenciesList.ID, issueDependenciesAdd.ID,
 				issueDependenciesRemove.ID, issueTypesList.ID, issueFieldsList.ID, issueFieldsSet.ID},
@@ -862,7 +873,7 @@ func Register(reg *capability.Registry) error {
 		pullRequestReviewCommentMaintenanceOperations(), pullRequestReviewThreadOperations(),
 		pullRequestReviewerOperations(), accountOperations(), organizationOperations(), starOperations(),
 		searchOperations(), contentsOperations(), blameOperations(), commitsOperations(), refsOperations(), compareOperations(), commitRelationOperations(),
-		contentsWriteOperations(), refsWriteOperations(), repositoriesOperations(), repositoryDetailOperations(), trafficOperations(), repositoryStatsOperations(), rulesetsOperations(), customPropertiesOperations(), actionVariablesOperations(), actionCachesOperations(), runCleanupOperations(),
+		contentsWriteOperations(), refsWriteOperations(), repositoriesOperations(), repositoryDetailOperations(), trafficOperations(), repositoryStatsOperations(), rulesetsOperations(), branchProtectionOperations(), customPropertiesOperations(), actionVariablesOperations(), actionCachesOperations(), runCleanupOperations(),
 		labelsOperations(), milestonesOperations(), commentMaintenanceOperations(), commentVisibilityOperations(), reactionsOperations(),
 		subIssuesOperations(), issueDependenciesOperations(), issueTypesOperations(), issueFieldsOperations(),
 		discussionOperations(), notificationOperations(), gistOperations(), securityAlertOperations(), advisoryOperations(),

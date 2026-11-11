@@ -4,14 +4,14 @@ description: >
 type: knowledge
 edit: shared
 created: 2026-11-06
-updated: 2026-11-10
+updated: 2026-11-11
 ---
 
 # Set up AWS
 
 This page names what a connection of the `aws` provider needs. Role assumption, targets, errors, and limits are
 described in the [AWS provider](README.md); the tools are described per group: the
-[Security Token Service](sts.md) and [Identity and Access Management](iam.md).
+[Security Token Service](sts.md), [Identity and Access Management](iam.md), and [Simple Email Service](ses.md).
 
 ## Configuration
 
@@ -71,6 +71,18 @@ The [role tools](iam.md#roles-and-instance-profiles) need `iam:CreateRole`, `iam
 also needs `iam:TagRole` or `iam:TagInstanceProfile`, and adding a role to an instance profile also needs
 `iam:PassRole` for that role. The own-role check calls `sts:GetCallerIdentity`, which needs no permission. Grant
 only the actions of the tools the connection lists.
+
+### SES
+
+Each [SES tool](ses.md) needs the permission `ses:<Operation>` of its AWS operation: `ses:ListEmailIdentities`,
+`ses:GetEmailIdentity`, `ses:ListTagsForResource`, `ses:GetEmailIdentityPolicies`, `ses:CreateEmailIdentityPolicy`,
+`ses:UpdateEmailIdentityPolicy`, `ses:DeleteEmailIdentityPolicy`, `ses:CreateEmailIdentity`,
+`ses:DeleteEmailIdentity`, `ses:PutEmailIdentityDkimAttributes`, `ses:PutEmailIdentityDkimSigningAttributes`,
+`ses:PutEmailIdentityMailFromAttributes`, `ses:PutEmailIdentityFeedbackAttributes`,
+`ses:PutEmailIdentityConfigurationSetAttributes`, `ses:TagResource`, and `ses:UntagResource`, each for its own tool.
+Creating with tags also needs `ses:TagResource`. The identity policy write tools are offered only when the tools list
+of the connection names them. Grant only the actions of the tools the connection offers. An account without production
+access is in the SES sandbox and sends only to verified recipients.
 
 ## Connection test
 
