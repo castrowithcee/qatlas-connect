@@ -421,7 +421,7 @@ func (b *restBinder) top(target string, input bool) (*httpbind.Shape, error) {
 			// A required member the model also gives a default stays required: omitting it would send
 			// nothing where the model says a value is always present, and the runtime refuses that call.
 			f.Required = mm.traits.has("smithy.api#required")
-			f.IdempotencyToken = mm.traits.has("smithy.api#idempotencyToken")
+			f.IdempotencyToken = mm.traits.has("smithy.api#idempotencyToken") || b.tokenMember() == mm.name
 		}
 		if f.Shape, err = b.shape(mm.target, mm.traits, 1); err != nil {
 			return nil, b.failf("member %s: %v", mm.name, err)
@@ -596,6 +596,19 @@ func (b *restBinder) shape(target string, traits *object, depth int) (*httpbind.
 		return mp, nil
 	}
 	return nil, fmt.Errorf("shape type %s has no %s binding here", kind, b.m.Protocol)
+}
+
+// tokenMember is the member the table makes the idempotency token of the operation, empty for none.
+func (b *restBinder) tokenMember() string {
+	if b.table == nil {
+		return ""
+	}
+	for _, o := range b.table.Operations {
+		if o.Operation == b.op {
+			return o.TokenMember
+		}
+	}
+	return ""
 }
 
 // prefixes returns the prefixes the table allows for a string shape of the service namespace.
