@@ -9,7 +9,7 @@ const deferS3 = "not curated yet; the S3 service package decides effect, confirm
 // s3Table curates the s3 model. The bucket reads and writes are tools; every other operation waits for the S3 tools that follow.
 var s3Table = Table{
 	Service: "s3", Segment: "s3", Geltung: Regional,
-	Operations: slices.Concat(s3BucketTools, s3BucketWriteTools, s3ConfigTools, s3ConfigWriteTools),
+	Operations: slices.Concat(s3BucketTools, s3BucketWriteTools, s3ConfigTools, s3ConfigWriteTools, s3ObjectLockTools),
 	// These S3 lists continue at a KeyMarker with a second marker, which the model leaves out of its paging.
 	Pagers: []PagerSpec{
 		{Operation: "ListObjectVersions", Truncated: "IsTruncated", PageSize: "MaxKeys", Positions: []PositionSpec{
@@ -20,6 +20,7 @@ var s3Table = Table{
 			{In: "UploadIdMarker", Out: "NextUploadIdMarker"}}},
 	},
 	Exclude: []Omission{
+		{Operation: "DeleteBucketOwnershipControls", Reason: "removing the controls falls back to ObjectWriter, under which ACLs take effect; the ownership is only set to BucketOwnerEnforced, never loosened"},
 		{Operation: "DeletePublicAccessBlock", Reason: "removing the block is a loosening the public access block check cannot see; the block is only kept or tightened"},
 		{Operation: "PutBucketAcl", Reason: "ACLs can open a bucket to the public and bypass the public access block checks of the tools; buckets are created with ACLs off"},
 		{Operation: "PutObjectAcl", Reason: "ACLs can open an object to the public; ACLs are not offered"},
@@ -45,7 +46,6 @@ var s3Table = Table{
 		{Operation: "DeleteBucketMetadataConfiguration", Reason: deferS3},
 		{Operation: "DeleteBucketMetadataTableConfiguration", Reason: deferS3},
 		{Operation: "DeleteBucketMetricsConfiguration", Reason: deferS3},
-		{Operation: "DeleteBucketOwnershipControls", Reason: deferS3},
 		{Operation: "DeleteBucketPolicy", Reason: deferS3},
 		{Operation: "DeleteBucketWebsite", Reason: deferS3},
 		{Operation: "DeleteObject", Reason: deferS3},
@@ -65,9 +65,6 @@ var s3Table = Table{
 		{Operation: "GetObjectAcl", Reason: deferS3},
 		{Operation: "GetObjectAnnotation", Reason: deferS3},
 		{Operation: "GetObjectAttributes", Reason: deferS3},
-		{Operation: "GetObjectLegalHold", Reason: deferS3},
-		{Operation: "GetObjectLockConfiguration", Reason: deferS3},
-		{Operation: "GetObjectRetention", Reason: deferS3},
 		{Operation: "GetObjectTagging", Reason: deferS3},
 		{Operation: "GetObjectTorrent", Reason: deferS3},
 		{Operation: "HeadObject", Reason: deferS3},
@@ -88,14 +85,13 @@ var s3Table = Table{
 		{Operation: "PutBucketIntelligentTieringConfiguration", Reason: deferS3},
 		{Operation: "PutBucketInventoryConfiguration", Reason: deferS3},
 		{Operation: "PutBucketMetricsConfiguration", Reason: deferS3},
-		{Operation: "PutBucketOwnershipControls", Reason: deferS3},
 		{Operation: "PutBucketPolicy", Reason: deferS3},
-		{Operation: "PutBucketRequestPayment", Reason: deferS3},
+		{Operation: "PutBucketRequestPayment", Reason: "waits for its own write tool; not offered yet"},
 		{Operation: "PutObject", Reason: deferS3},
 		{Operation: "PutObjectAnnotation", Reason: deferS3},
-		{Operation: "PutObjectLegalHold", Reason: deferS3},
-		{Operation: "PutObjectLockConfiguration", Reason: deferS3},
-		{Operation: "PutObjectRetention", Reason: deferS3},
+		{Operation: "PutObjectLegalHold", Reason: "waits for its own write tool; not offered yet"},
+		{Operation: "PutObjectLockConfiguration", Reason: "waits for its own write tool; not offered yet"},
+		{Operation: "PutObjectRetention", Reason: "waits for its own write tool; not offered yet"},
 		{Operation: "PutObjectTagging", Reason: deferS3},
 		{Operation: "RenameObject", Reason: deferS3},
 		{Operation: "RestoreObject", Reason: deferS3},

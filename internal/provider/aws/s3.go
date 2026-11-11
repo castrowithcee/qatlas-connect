@@ -23,6 +23,7 @@ var guards = map[string]guard{
 	"location-constraint": checkLocationConstraint,
 	"new-bucket-name":     checkNewBucketName,
 	"kms-key-arn":         checkKMSKeys,
+	"ownership-enforce":   checkOwnershipEnforce,
 }
 
 // readback runs after the account check and before the change, with the credentials that passed it.
@@ -59,6 +60,22 @@ func checkLocationConstraint(b binding, region string, args map[string]any) erro
 	text, _ := constraint.(string)
 	if !slices.Contains(b.regions, text) || text != region {
 		return &provider.InvalidRequestError{Message: "create_bucket_configuration.location_constraint must be the region of the call, which the connection allows"}
+	}
+	return nil
+}
+
+// checkOwnershipEnforce requires the ownership controls to be exactly one rule with BucketOwnerEnforced, checked
+// as a structure: a missing or empty value, an empty rule list, more than one rule, and any other value are refused.
+func checkOwnershipEnforce(_ binding, _ string, args map[string]any) error {
+	const message = "ownership_controls must be exactly one rule with object_ownership BucketOwnerEnforced"
+	controls, _ := args["ownership_controls"].(map[string]any)
+	rules, _ := controls["rules"].([]any)
+	if len(rules) != 1 {
+		return &provider.InvalidRequestError{Message: message}
+	}
+	rule, _ := rules[0].(map[string]any)
+	if value, _ := rule["object_ownership"].(string); len(rule) != 1 || value != "BucketOwnerEnforced" {
+		return &provider.InvalidRequestError{Message: message}
 	}
 	return nil
 }

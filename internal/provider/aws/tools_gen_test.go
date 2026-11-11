@@ -17,7 +17,7 @@ var excludedIAMActions = []string{"AcceptDelegationRequest", "AddClientIDToOpenI
 var excludedSESActions = []string{"SendCustomVerificationEmail"}
 
 // excludedS3Actions are the operations the s3 table excludes; no tool may send one.
-var excludedS3Actions = []string{"DeletePublicAccessBlock", "PutBucketAcl", "PutObjectAcl", "PutBucketWebsite", "PutBucketLogging", "PutBucketNotificationConfiguration", "PutBucketReplication", "DeleteBucketReplication"}
+var excludedS3Actions = []string{"DeleteBucketOwnershipControls", "DeletePublicAccessBlock", "PutBucketAcl", "PutObjectAcl", "PutBucketWebsite", "PutBucketLogging", "PutBucketNotificationConfiguration", "PutBucketReplication", "DeleteBucketReplication"}
 
 // generatedCases are the basic tests of the generated tools: arguments derived from the input schema,
 // the form parameters they must encode to, and an answer derived from the output shape.
@@ -726,6 +726,30 @@ var generatedCases = []struct {
 		form:      map[string]string{},
 		token:     false, confirm: true, listed: false, result: []string{"region"},
 		method: "DELETE", path: "/", rawQuery: "cors", body: "", owner: "123456789012", bucket: "my-bucket"},
+	{tool: "aws.s3.object-lock.get", action: "",
+		arguments: `{"bucket":"my-bucket"}`,
+		answer:    `<ObjectLockConfiguration xmlns="http://s3.amazonaws.com/doc/2006-03-01/"><ObjectLockEnabled>x</ObjectLockEnabled><Rule><DefaultRetention><Mode>x</Mode><Days>1</Days><Years>1</Years><DefaultEventHold><Days>1</Days><Years>1</Years></DefaultEventHold></DefaultRetention></Rule></ObjectLockConfiguration>`,
+		form:      map[string]string{},
+		token:     false, confirm: false, listed: false, result: []string{"region"},
+		method: "GET", path: "/", rawQuery: "object-lock", body: "", owner: "123456789012", bucket: "my-bucket"},
+	{tool: "aws.s3.object-retention.get", action: "",
+		arguments: `{"bucket":"my-bucket","key":"a","version_id":"a"}`,
+		answer:    `<Retention xmlns="http://s3.amazonaws.com/doc/2006-03-01/"><Mode>x</Mode><RetainUntilDate>2026-01-02T03:04:05Z</RetainUntilDate><EventHold>x</EventHold><EventHoldDuration><Days>1</Days><Years>1</Years></EventHoldDuration></Retention>`,
+		form:      map[string]string{},
+		token:     false, confirm: false, listed: false, result: []string{"region"},
+		method: "GET", path: "/a", rawQuery: "retention&versionId=a", body: "", owner: "123456789012", bucket: "my-bucket"},
+	{tool: "aws.s3.object-legal-hold.get", action: "",
+		arguments: `{"bucket":"my-bucket","key":"a","version_id":"a"}`,
+		answer:    `<LegalHold xmlns="http://s3.amazonaws.com/doc/2006-03-01/"><Status>x</Status></LegalHold>`,
+		form:      map[string]string{},
+		token:     false, confirm: false, listed: false, result: []string{"region"},
+		method: "GET", path: "/a", rawQuery: "legal-hold&versionId=a", body: "", owner: "123456789012", bucket: "my-bucket"},
+	{tool: "aws.s3.ownership.put", action: "",
+		arguments: `{"bucket":"my-bucket","ownership_controls":{"rules":[{"object_ownership":"BucketOwnerEnforced"}]}}`,
+		answer:    "",
+		form:      map[string]string{},
+		token:     false, confirm: true, listed: false, result: []string{"region"},
+		method: "PUT", path: "/", rawQuery: "ownershipControls", body: `<OwnershipControls xmlns="http://s3.amazonaws.com/doc/2006-03-01/"><Rule><ObjectOwnership>BucketOwnerEnforced</ObjectOwnership></Rule></OwnershipControls>`, owner: "123456789012", bucket: "my-bucket"},
 }
 
 // Every generated tool sends its one action with exactly the encoded parameters and returns a result its

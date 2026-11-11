@@ -14,7 +14,7 @@ import (
 
 var s3WriteToolIDs = []string{"aws.s3.bucket.create", "aws.s3.bucket.delete", "aws.s3.versioning.put", "aws.s3.encryption.put",
 	"aws.s3.encryption.delete", "aws.s3.tagging.put", "aws.s3.tagging.delete", "aws.s3.public-access-block.put", "aws.s3.lifecycle.delete",
-	"aws.s3.cors.delete"}
+	"aws.s3.cors.delete", "aws.s3.ownership.put"}
 
 // s3WriteEnv offers the S3 write tools by name on a connection bound to the account and the given regions.
 func s3WriteEnv(t *testing.T, f *fakeAWS, regions ...string) *env {
@@ -413,7 +413,7 @@ func TestS3ReadbackBelongsToTheNamedToolOnly(t *testing.T) {
 		if s.readback != "" {
 			named = append(named, s.descriptor.ID)
 		}
-		if len(s.guards) > 0 && !slices.Contains([]string{"aws.s3.bucket.create", "aws.s3.encryption.put"}, s.descriptor.ID) {
+		if len(s.guards) > 0 && !slices.Contains([]string{"aws.s3.bucket.create", "aws.s3.encryption.put", "aws.s3.ownership.put"}, s.descriptor.ID) {
 			t.Errorf("%s names guards %v", s.descriptor.ID, s.guards)
 		}
 	}
@@ -435,7 +435,7 @@ func TestS3ReadbackBelongsToTheNamedToolOnly(t *testing.T) {
 // replication, a presigned URL, or the removal of a public access block. The readers of the website, logging,
 // notification and replication configuration are not writes and are checked elsewhere.
 func TestS3ExcludedOperationsCannotBeSent(t *testing.T) {
-	want := []string{"DeletePublicAccessBlock", "PutBucketAcl", "PutObjectAcl", "PutBucketWebsite", "PutBucketLogging",
+	want := []string{"DeleteBucketOwnershipControls", "DeletePublicAccessBlock", "PutBucketAcl", "PutObjectAcl", "PutBucketWebsite", "PutBucketLogging",
 		"PutBucketNotificationConfiguration", "PutBucketReplication", "DeleteBucketReplication"}
 	if len(excludedS3Actions) != len(want) {
 		t.Fatalf("excluded = %v, want %v", excludedS3Actions, want)
@@ -454,7 +454,15 @@ func TestS3ExcludedOperationsCannotBeSent(t *testing.T) {
 		tools++
 		schema := strings.ToLower(string(d.InputSchema) + string(d.OutputSchema))
 		for _, banned := range []string{"presign", "object_lock"} {
-			if strings.Contains(schema, banned) {
+			// Object Lock is only read: the answer of its reader names it, no input does.
+			text := schema
+			if banned == "object_lock" {
+				text = strings.ToLower(string(d.InputSchema))
+				if d.Risk.Effect != capability.EffectRead && strings.Contains(strings.ToLower(string(d.OutputSchema)), banned) {
+					text += banned
+				}
+			}
+			if strings.Contains(text, banned) && !(banned == "object_lock" && d.ID == "aws.s3.object-lock.get") {
 				t.Errorf("%s offers %s: %s", d.ID, banned, schema)
 			}
 		}
@@ -476,8 +484,8 @@ func TestS3ExcludedOperationsCannotBeSent(t *testing.T) {
 			}
 		}
 	}
-	if tools != 27 {
-		t.Errorf("s3 tools = %d, want 27", tools)
+	if tools != 31 {
+		t.Errorf("s3 tools = %d, want 31", tools)
 	}
 	for _, s := range generatedSpecs {
 		if s.service != "s3" {

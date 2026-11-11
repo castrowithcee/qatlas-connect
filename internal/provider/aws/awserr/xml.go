@@ -41,6 +41,7 @@ var (
 		"NoSuchPublicAccessBlockConfiguration": notFound, "NoSuchLifecycleConfiguration": notFound,
 		"NoSuchCORSConfiguration": notFound, "NoSuchWebsiteConfiguration": notFound,
 		"ReplicationConfigurationNotFoundError": notFound, "OwnershipControlsNotFoundError": notFound,
+		"ObjectLockConfigurationNotFoundError": notFound, "NoSuchObjectLockConfiguration": notFound,
 
 		// Route 53.
 		"NoSuchChange": notFound, "NoSuchCidrCollectionException": notFound, "NoSuchCidrLocationException": notFound,
