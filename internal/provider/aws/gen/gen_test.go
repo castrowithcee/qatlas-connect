@@ -29,10 +29,12 @@ func TestPinMatchesTheExtracts(t *testing.T) {
 		t.Errorf("pin = %+v", p)
 	}
 	want := map[string]string{
-		"sts":     "794c8b2142e3a65bc6cc7922005eb85d6b71b02353fef03c0f395e8f902ee2d0",
-		"iam":     "c1f74d3eda269e4fa2f00b57d57ed19c0e0a6d7fc7c70d4e351e319d178430f9",
-		"account": "c4ce6a205189e3ae2223da18bf426a0eda6aadb347598e787b1cfc1e4bd4b509",
-		"sesv2":   "8866fe8e17fe960ab5b7fb3615326fff0a8af73bbebeb5ba87ba6ee1f694e467",
+		"sts":      "794c8b2142e3a65bc6cc7922005eb85d6b71b02353fef03c0f395e8f902ee2d0",
+		"iam":      "c1f74d3eda269e4fa2f00b57d57ed19c0e0a6d7fc7c70d4e351e319d178430f9",
+		"account":  "c4ce6a205189e3ae2223da18bf426a0eda6aadb347598e787b1cfc1e4bd4b509",
+		"sesv2":    "8866fe8e17fe960ab5b7fb3615326fff0a8af73bbebeb5ba87ba6ee1f694e467",
+		"s3":       "73e4f75747396176053a0fcc910261cf670c7e133c1cebcfffefa703fad3ce68",
+		"route-53": "ecd97d60ded217f7e7e7b5eb7835027b7b426204bfae30c1340f4f55062afcf6",
 	}
 	for _, table := range Tables {
 		entry, ok := p.Model(table.Service)

@@ -1,10 +1,12 @@
 package httpbind
 
 import (
+	"crypto/sha256"
 	"encoding/base64"
 	"fmt"
 	"io"
 	"net/http"
+	"regexp"
 	"sort"
 	"strings"
 	"sync"
@@ -40,6 +42,11 @@ type Operation struct {
 	// /v2/email/identities/{EmailIdentity}.
 	Method, URI   string
 	Input, Output *Shape
+	// ChecksumRequired says the service wants a checksum of the request body: the layer sends the SHA-256
+	// of the body (x-amz-checksum-sha256 and x-amz-sdk-checksum-algorithm), never an argument. A streamed
+	// payload cannot carry one, so an operation that requires it does not stream its input.
+	// ValidateResponseChecksum asks the service for the checksum of the answer (x-amz-checksum-mode).
+	ChecksumRequired, ValidateResponseChecksum bool
 
 	// once guards the single check of the description: generated tools share one Operation and call it
 	// concurrently. The description must not change after its first use.
@@ -78,6 +85,9 @@ func (o *Operation) check() (*prepared, error) {
 	if err != nil {
 		return nil, err
 	}
+	if o.ChecksumRequired && in.payload != nil && in.payload.Stream {
+		return nil, shapeErr("a streamed payload cannot carry the checksum the operation requires")
+	}
 	bodyless := o.Method == http.MethodGet || o.Method == http.MethodHead || o.Method == http.MethodDelete
 	if bodyless && (len(in.body) > 0 || in.payload != nil) {
 		return nil, shapeErr("a %s input cannot carry a body", o.Method)
@@ -106,6 +116,16 @@ func (o *Operation) check() (*prepared, error) {
 	return &prepared{pattern: p, in: in, out: out}, nil
 }
 
+// DocumentBody reports whether the answer of the operation is a document of the body format (members of the
+// body or a structure payload), as opposed to a raw payload, a blob or a string, which may hold any bytes.
+func (o *Operation) DocumentBody() bool {
+	prep, err := o.prepare()
+	if err != nil || prep.out.payload != nil && prep.out.payload.Shape.Kind != KindStruct && prep.out.payload.Shape.Kind != KindDocument {
+		return false
+	}
+	return prep.out.payload != nil || len(prep.out.body) > 0
+}
+
 func (o *Operation) prepare() (*prepared, error) {
 	if o == nil {
 		return nil, shapeErr("no operation")
@@ -127,7 +147,26 @@ type Request struct {
 	// Token is the idempotency token sent, empty when the input has none. Generated says the tool made it.
 	Token     string
 	Generated bool
+	// Bucket is the checked bucket name of an operation with a bucket member, empty otherwise. The client
+	// uses it, and no other text, to choose the host.
+	Bucket string
+	// Stream and Sink are the payload of a streaming upload and the destination of a streaming download,
+	// see SetStream and SetSink.
+	Stream *StreamBody
+	Sink   Sink
 }
+
+// EncodeOptions are what the layer knows and an argument cannot say.
+type EncodeOptions struct {
+	// Rand feeds a generated idempotency token; crypto/rand when nil.
+	Rand io.Reader
+	// Owner is the account the connection is bound to. It is sent as every owner header of the operation
+	// (the expected owner of a bucket); without it no such header is sent.
+	Owner string
+}
+
+var accountForm = regexp.MustCompile(`^[0-9]{12}$`)
+var mediaType = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9!#$&^_.+-]{0,126}/[A-Za-z0-9][A-Za-z0-9!#$&^_.+-]{0,126}(; ?[A-Za-z0-9._-]{1,32}=("?)[A-Za-z0-9._+-]{1,64}"?){0,4}$`)
 
 // Encode binds args (the values of a JSON object, see Text) to the URI, the query, the headers and the body
 // by the traits of the description. A key the shape does not know, a value of the wrong type, a missing
@@ -135,6 +174,14 @@ type Request struct {
 // are errors that name the member and never the value. rnd feeds a generated idempotency token and is
 // crypto/rand when nil.
 func (o *Operation) Encode(c Codec, args map[string]any, rnd io.Reader) (Request, error) {
+	return o.EncodeWith(c, args, EncodeOptions{Rand: rnd})
+}
+
+// EncodeWith is Encode with the options of the layer. A member the layer owns (Owner, Stream) is not an
+// argument: naming it is an unknown argument. A bucket label that is no bucket name, a media type that is
+// malformed and an owner that is no account ID are refused here, before any I/O.
+func (o *Operation) EncodeWith(c Codec, args map[string]any, opts EncodeOptions) (Request, error) {
+	rnd := opts.Rand
 	prep, err := o.prepare()
 	if err != nil {
 		return Request{}, err
@@ -145,7 +192,10 @@ func (o *Operation) Encode(c Codec, args map[string]any, rnd io.Reader) (Request
 	}
 	known := map[string]bool{}
 	for _, f := range fields {
-		known[f.Key] = true
+		known[f.Key] = !f.Owner && !f.Stream
+	}
+	if opts.Owner != "" && !accountForm.MatchString(opts.Owner) {
+		return Request{}, valueErr("the expected owner is not an account ID")
 	}
 	for k := range args {
 		if !known[k] {
@@ -200,6 +250,12 @@ func (o *Operation) Encode(c Codec, args map[string]any, rnd io.Reader) (Request
 				s = candidate
 			}
 		}
+		if f.Bucket {
+			if !ValidBucketName(text) {
+				return Request{}, valueErr("%s is not a valid bucket name", f.Key)
+			}
+			req.Bucket = text
+		}
 		if labels[f.Name], err = labelValue(s, text, f.Key); err != nil {
 			return Request{}, err
 		}
@@ -219,6 +275,28 @@ func (o *Operation) Encode(c Codec, args map[string]any, rnd io.Reader) (Request
 	}
 	if req.Body, err = prep.body(c, vals, req.Header); err != nil {
 		return Request{}, err
+	}
+	for _, f := range prep.in.byLoc[LocHeader] {
+		switch {
+		case f.Owner && opts.Owner != "":
+			req.Header.Set(f.Name, opts.Owner)
+		case f.ContentType:
+			if v, set := vals[f.Key]; set {
+				text, ok := v.(string)
+				if !ok || !mediaType.MatchString(text) {
+					return Request{}, valueErr("%s is not a media type", f.Key)
+				}
+				req.Header.Set("Content-Type", text)
+			}
+		}
+	}
+	if o.ChecksumRequired && len(req.Body) > 0 {
+		sum := sha256.Sum256(req.Body)
+		req.Header.Set("X-Amz-Checksum-Sha256", base64.StdEncoding.EncodeToString(sum[:]))
+		req.Header.Set("X-Amz-Sdk-Checksum-Algorithm", "SHA256")
+	}
+	if o.ValidateResponseChecksum {
+		req.Header.Set("X-Amz-Checksum-Mode", "ENABLED")
 	}
 	return req, nil
 }
@@ -367,7 +445,7 @@ func (p *prepared) headers(vals map[string]any, h http.Header) error {
 	}
 	for _, f := range p.in.byLoc[LocHeader] {
 		v, ok := vals[f.Key]
-		if !ok {
+		if !ok || f.Owner || f.ContentType {
 			continue
 		}
 		texts, err := textList(f, v, FormatHTTPDate)
@@ -430,7 +508,7 @@ func (p *prepared) body(c Codec, vals map[string]any, h http.Header) ([]byte, er
 	case p.in.payload != nil:
 		f := *p.in.payload
 		v, ok := vals[f.Key]
-		if !ok {
+		if !ok || f.Stream {
 			return nil, nil
 		}
 		switch f.Shape.Kind {

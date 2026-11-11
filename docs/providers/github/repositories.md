@@ -1,6 +1,6 @@
 ---
 description: >
-  Describes the GitHub repository tools: the repository list of an owner, the details, languages, contributors, and community profile of one repository, its statistics and activity feed, repository create, fork, rename, and delete, collaborators, repository traffic, rulesets, custom properties, repository settings, starred repositories, and the repository search.
+  Describes the GitHub repository tools: the repository list of an owner, the details, languages, contributors, and community profile of one repository, its statistics and activity feed, repository create, fork, rename, and delete, collaborators, repository traffic, rulesets, branch protection and branch rules, custom properties, repository settings, starred repositories, and the repository search.
 type: knowledge
 edit: shared
 created: 2026-10-22
@@ -231,6 +231,68 @@ and the array and byte-size bounds are checked before a credential is resolved. 
 sends the whole definition in one `PUT` that replaces the ruleset as a whole and is idempotent as long as
 nothing else changes the ruleset between two identical calls; `github.rulesets.create` is not, since a
 repeated call creates a second ruleset.
+
+## Branch protection and branch rules
+
+| Tool | Does |
+| --- | --- |
+| `github.branch-protection.get` | reads the protection of one branch |
+| `github.branch-protection.set` | replaces the whole protection of one branch; offered only where a connection's `tools` list names it |
+| `github.branch-protection.delete` | removes the whole protection of one branch; offered only where a connection's `tools` list names it |
+| `github.branch-rules.get` | lists the rules that effectively apply to one branch, from every ruleset that covers it |
+
+All four act on one repository inside the connection's targets, checked before a secret is read, and take
+`branch` as a plain name: an empty name or one with a `refs/heads/` prefix is an invalid request. Qatlas escapes
+the name as one path segment and sends only the fixed routes `branches/{branch}/protection` and
+`rules/branches/{branch}`. A missing branch answers `not-found`.
+
+`github.branch-protection.get` answers `state` `protected` with `protection`, or `state` `unprotected` without
+it where GitHub reports "Branch not protected"; that is a state, not an error. `protection` holds every
+field of GitHub's protected branch: `required_status_checks`, `enforce_admins`,
+`required_pull_request_reviews` with its dismissal restrictions and bypass allowances, `required_signatures`,
+`restrictions`, the switches `required_linear_history`, `allow_force_pushes`, `allow_deletions`,
+`block_creations`, `required_conversation_resolution`, `lock_branch`, and `allow_fork_syncing`, and the REST
+addresses GitHub names as `links`, untrusted data and never fetched. Users, teams, and apps appear as account
+objects, at most 100 of each; a longer list is cut and marked `*_truncated`. The deprecated `contexts` of the
+status checks is reported next to `checks`.
+
+`github.branch-protection.set` sends the whole protection in one `PUT`, which GitHub applies as a whole: a
+setting that is not sent is reset. The tool therefore requires every setting and never fills in a default:
+`required_status_checks`, `enforce_admins`, `required_pull_request_reviews`, `restrictions`,
+`required_linear_history`, `allow_force_pushes`, `allow_deletions`, `block_creations`,
+`required_conversation_resolution`, `lock_branch`, and `allow_fork_syncing`. A setting left out is an invalid
+request, checked before a credential is resolved and without any request. `required_status_checks`,
+`required_pull_request_reviews`, and `restrictions` take an object or an explicit `null` (no such rule);
+`enforce_admins` and `allow_force_pushes` take a bool or `null`, which GitHub reads as `false`; the other
+settings take a bool.
+
+The objects follow GitHub's field names. `required_status_checks` needs `strict` and `checks`, a list of
+`context` with an optional `app_id` (`-1` accepts any app); the deprecated `contexts` is not accepted.
+`required_pull_request_reviews` needs `dismiss_stale_reviews`, `require_code_owner_reviews`,
+`required_approving_review_count` (0 to 6), and `require_last_push_approval`; `dismissal_restrictions` and
+`bypass_pull_request_allowances` are optional and take `users`, `teams`, and `apps`. `restrictions` needs
+`users` and `teams` and takes optional `apps`. Users, teams, and apps are logins and slugs of existing accounts,
+at most 100 each: they are texts that name who may push, dismiss, or bypass, and nothing is created for them.
+GitHub accepts user and team restrictions and dismissal restrictions for organization repositories only.
+
+The answer is the protection GitHub reports after the change. The change is sent once; after a timeout, a
+server error, or an unreadable answer the refusal says the change may have been applied, and nothing is
+repeated. Sending the same settings again leaves GitHub in the same state.
+
+`github.branch-protection.delete` removes the protection in one request that is never repeated, with the same
+uncertainty message; the removed settings are not kept. A branch without protection answers `not-found`.
+Both changes are listed only, since they change what a branch allows at all.
+
+`github.branch-rules.get` reads the rules that apply to the branch from the repository's rulesets and the
+rulesets inherited from its organization. Each rule reports `type`, its `parameters` in GitHub's own shape, the
+`ruleset_source_type` (`Repository` or `Organization`), the `ruleset_source`, and the `ruleset_id`; parameters
+beyond the bounds of a free-form member are left out and marked `parameters_omitted`, because a cut rule would
+state another rule. The list is paged with `limit` and a cursor bound to the repository and the branch.
+
+Only these four routes are reachable. The partial routes of the protection (`enforce_admins`,
+`required_status_checks`, `required_pull_request_reviews`, `required_signatures`, and `restrictions/*`) are not
+offered: `get` reads and `set` replaces each of them as part of the whole protection. The token rights are listed
+under [Repositories, rulesets, and properties](setup.md#repositories-rulesets-and-properties).
 
 ## Custom properties
 

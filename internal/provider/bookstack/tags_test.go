@@ -12,7 +12,7 @@ import (
 	"testing"
 
 	"github.com/castrowithcee/qatlas-connect/internal/capability"
-	"github.com/castrowithcee/qatlas-connect/internal/output"
+	"github.com/castrowithcee/qatlas-kit/output"
 )
 
 // tagServer serves tag names, tag values, and system information. ignoreFilter makes it answer like an

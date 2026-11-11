@@ -8,9 +8,9 @@ import (
 	"github.com/castrowithcee/qatlas-connect/internal/application"
 	"github.com/castrowithcee/qatlas-connect/internal/capability"
 	"github.com/castrowithcee/qatlas-connect/internal/config"
-	"github.com/castrowithcee/qatlas-connect/internal/output"
 	"github.com/castrowithcee/qatlas-connect/internal/secret"
 	"github.com/castrowithcee/qatlas-connect/internal/vault"
+	"github.com/castrowithcee/qatlas-kit/output"
 	"github.com/castrowithcee/qatlas-kit/redact"
 )
 
@@ -81,7 +81,7 @@ func nextStep(err error, r route) string {
 		// claim which of the two happened.
 		return "check or renew the credential of this connection with " +
 			"'qconnect credential set <credential> <role>' or in 'qconnect tui'"
-	case output.CodeUnsupportedCapability:
+	case application.CodeUnsupportedCapability:
 		// The step is the same whatever the reason: pick a route that offers the tool, or change this one.
 		// Without a refused connection no route offers the tool at all, and nothing is left to pick.
 		var unsupported *capability.UnsupportedError
@@ -94,7 +94,7 @@ func nextStep(err error, r route) string {
 		}
 		return "'qconnect describe " + unsupported.Capability + "' names the connections that offer it, " +
 			"or change the connection in 'qconnect tui'"
-	case output.CodeUnknownConnection:
+	case application.CodeUnknownConnection:
 		var (
 			unknown             *capability.UnknownConnectionError
 			provider, operation string
@@ -186,7 +186,7 @@ func errorDetailFor(err error, redactor *redact.Redactor) any {
 	var unsupported *capability.UnsupportedError
 	if errors.As(err, &unsupported) && unsupported.Connection != "" {
 		return &unsupportedDetail{
-			Code: output.CodeUnsupportedCapability, Message: redactor.Error(err),
+			Code: application.CodeUnsupportedCapability, Message: redactor.Error(err),
 			Operation: redactor.Apply(unsupported.Capability), Connection: redactor.Apply(unsupported.Connection),
 			Reason: unsupported.Reason,
 		}
@@ -200,9 +200,9 @@ func errorDetailFor(err error, redactor *redact.Redactor) any {
 	)
 	switch {
 	case errors.As(err, &ambiguous):
-		code, operation, refs = output.CodeConnectionAmbiguous, ambiguous.Operation, ambiguous.Connections
+		code, operation, refs = application.CodeConnectionAmbiguous, ambiguous.Operation, ambiguous.Connections
 	case errors.As(err, &selection):
-		code, operation, refs = output.CodeConnectionSelection, selection.Operation, nil
+		code, operation, refs = application.CodeConnectionSelection, selection.Operation, nil
 	default:
 		return nil
 	}
