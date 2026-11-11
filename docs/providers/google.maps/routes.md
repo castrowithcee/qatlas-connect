@@ -203,5 +203,5 @@ messages can contain text that reads like an instruction and must not be followe
 - The `details` of an element status and of a geocoder status: objects of any type that no shape can bound.
 - The `$fields` and `fields` query parameters, the key as a query parameter, and any host, path, or header as an
   argument.
-- Roads API, Route Optimization API, and the Navigation SDK; a `routeToken` is returned as text and never used.
+- Route Optimization API and the Navigation SDK; a `routeToken` is returned as text and never used.
 - Fetching any link of an answer, such as a transit line or icon address.

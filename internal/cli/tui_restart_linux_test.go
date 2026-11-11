@@ -3,16 +3,9 @@
 package cli
 
 import (
-	"archive/tar"
 	"bytes"
-	"compress/gzip"
-	"crypto/sha256"
-	"encoding/hex"
-	"encoding/json"
 	"fmt"
 	"io"
-	"net/http"
-	"net/http/httptest"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -28,9 +21,10 @@ import (
 
 	"golang.org/x/crypto/ssh"
 
-	"github.com/castrowithcee/qatlas-connect/internal/release"
-	"github.com/castrowithcee/qatlas-connect/internal/release/releasetest"
+	"github.com/castrowithcee/qatlas-kit/release/releasetest"
+
 	"github.com/castrowithcee/qatlas-connect/internal/secret"
+	"github.com/castrowithcee/qatlas-connect/internal/selfupdate/selfupdatetest"
 	"github.com/castrowithcee/qatlas-connect/internal/vault"
 )
 
@@ -102,42 +96,9 @@ func newUpdateRigArgs(t *testing.T, program, prefs string, args ...string) *upda
 	if program == "" {
 		program = fmt.Sprintf("#!/bin/sh\nexport %s=v3.1.0\nexec %q \"$@\"\n", tuiVersionEnv, self)
 	}
-	archiveName := fmt.Sprintf("qconnect_%s_linux_%s.tar.gz", latest, runtime.GOARCH)
-	var archive bytes.Buffer
-	gz := gzip.NewWriter(&archive)
-	tw := tar.NewWriter(gz)
-	for name, content := range map[string]string{"bin/qconnect": program, "share/man/man1/qconnect.1": ".TH QCONNECT 1\n"} {
-		if err := tw.WriteHeader(&tar.Header{Name: name, Mode: 0o755, Size: int64(len(content))}); err != nil {
-			t.Fatal(err)
-		}
-		_, _ = io.WriteString(tw, content)
-	}
-	if err := tw.Close(); err != nil || gz.Close() != nil {
-		t.Fatal("building the archive")
-	}
-	sum := sha256.Sum256(archive.Bytes())
 	signer := releasetest.NewSigner(t)
-	var server *httptest.Server
-	server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		switch r.URL.Path {
-		case "/releases/latest":
-			_ = json.NewEncoder(w).Encode(map[string]any{"tag_name": latest, "assets": []map[string]string{
-				{"name": archiveName, "browser_download_url": server.URL + "/" + archiveName},
-				{"name": "checksums.txt", "browser_download_url": server.URL + "/checksums.txt"},
-				{"name": release.SignatureAsset, "browser_download_url": server.URL + "/" + release.SignatureAsset},
-			}})
-		case "/checksums.txt":
-			_, _ = fmt.Fprintf(w, "%s  %s\n", hex.EncodeToString(sum[:]), archiveName)
-		case "/" + release.SignatureAsset:
-			_, _ = w.Write(releasetest.Sign(t, signer, release.Namespace, "sha512",
-				[]byte(fmt.Sprintf("%s  %s\n", hex.EncodeToString(sum[:]), archiveName))))
-		case "/" + archiveName:
-			_, _ = w.Write(archive.Bytes())
-		default:
-			http.NotFound(w, r)
-		}
-	}))
-	t.Cleanup(server.Close)
+	name, archive := selfupdatetest.Archive(t, latest, "linux", runtime.GOARCH, []byte(program))
+	server := selfupdatetest.NewServer(t, selfupdatetest.Signed(t, signer, latest, map[string][]byte{name: archive}, selfupdatetest.Current))
 
 	// An encrypted vault beside the configuration.
 	configPath := filepath.Join(dir, "config.yaml")
@@ -166,7 +127,7 @@ func newUpdateRigArgs(t *testing.T, program, prefs string, args ...string) *upda
 	cmd := exec.Command(bin, args...)
 	cmd.Env = []string{"HOME=" + dir, "PATH=" + os.Getenv("PATH"), "TERM=xterm-256color",
 		"QCONNECT_CONFIG=" + configPath, "XDG_RUNTIME_DIR=" + runtimeDir, secret.StoreSelector + "=none",
-		runAsTUIEnv + "=1", tuiVersionEnv + "=v3.0.0", tuiReleasesEnv + "=" + server.URL,
+		runAsTUIEnv + "=1", tuiVersionEnv + "=v3.0.0", tuiReleasesEnv + "=" + server.RepositoryAPI(),
 		tuiKeyEnv + "=" + string(ssh.MarshalAuthorizedKey(signer.PublicKey()))}
 	cmd.Stdin, cmd.Stdout, cmd.Stderr = slave, slave, slave
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true, Setctty: true, Ctty: 0}
