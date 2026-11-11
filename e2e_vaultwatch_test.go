@@ -69,9 +69,7 @@ func registerVaultProcess(pid int, program string) {
 	if pidRegistry == "" || pid <= 0 {
 		return
 	}
-	if resolved, err := filepath.EvalSymlinks(program); err == nil {
-		program = resolved
-	}
+	program = resolvedPath(program)
 	entry := filepath.Join(pidRegistry, strconv.Itoa(pid))
 	// Written aside and renamed, so the watchdog never reads a half-written entry.
 	tmp := entry + ".tmp"
@@ -93,14 +91,20 @@ func sameProgram(pid int, want string) bool {
 	if err != nil || got == "" {
 		return false
 	}
-	if resolved, err := filepath.EvalSymlinks(got); err == nil {
-		got = resolved
-	}
-	got, want = filepath.Clean(got), filepath.Clean(want)
+	got, want = resolvedPath(got), resolvedPath(want)
 	if runtime.GOOS == "windows" {
 		return strings.EqualFold(got, want)
 	}
 	return got == want
+}
+
+// resolvedPath resolves symbolic links and, on Windows, short names, so two spellings of one file compare
+// equal, such as /var and /private/var on macOS.
+func resolvedPath(path string) string {
+	if resolved, err := filepath.EvalSymlinks(path); err == nil {
+		path = resolved
+	}
+	return filepath.Clean(path)
 }
 
 // reapRegistry ends every process recorded in dir that still runs the recorded program, and empties dir.
