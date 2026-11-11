@@ -40,12 +40,12 @@ and the not-recommended profile `repository-admin-reader` under
 rulesets under [Rulesets](repositories.md#rulesets-repository-and-organization-governance) and the custom property values or
 schema under [Custom properties](repositories.md#custom-properties). The not-recommended profile `issue-maintainer` lists and
 reads the labels of a repository, creates and updates them, under [Labels](issues.md#labels), lists the milestones
-under [Milestones](issues.md#milestones), updates issue comments and hides and shows comments and reviews under [Changes](issues.md#changes), reacts to issues,
+under [Milestones](issues.md#milestones), updates issue comments and hides and shows comments and reviews, pins and unpins issues, and unlocks their conversations under [Changes](issues.md#changes), reacts to issues,
 comments, and pull request line comments under [Reactions](issues.md#reactions), lists, adds, removes, and
 reprioritizes sub-issues under [Sub-issues](issues.md#sub-issues), lists, adds, and removes issue dependencies
 under [Issue dependencies](issues.md#issue-dependencies), and lists issue types, lists issue fields, and sets issue
 field values under [Issue types](issues.md#issue-types) and [Issue fields](issues.md#issue-fields); deleting a label or a
-comment stays unticked, since each is offered only where a connection's `tools` list names it. The
+comment and locking an issue stay unticked, since each is offered only where a connection's `tools` list names it. The
 not-recommended profile `discussions` reads discussion categories, discussions, and discussion comments, starts
 discussions, and comments, replies, and edits comments under [Discussions](discussions.md#discussions); deleting a
 discussion comment stays unticked, since it is offered only where a connection's `tools` list names it. The

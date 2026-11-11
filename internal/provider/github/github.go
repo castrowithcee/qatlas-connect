@@ -152,7 +152,11 @@
 // github.comments.hide hides one issue comment, pull request review, or pull request line comment with a
 // reason, and github.comments.unhide shows it again; both read the object below the chosen repository first
 // and only then send one GraphQL mutation with the node identifier of that answer, and a review is
-// addressed together with its pull_number. The search
+// addressed together with its pull_number. github.issues.pin and github.issues.unpin pin an issue to the
+// repository's issue list, three at most, and release it, and github.issues.unlock unlocks its conversation;
+// only on a connection whose tools list names it, github.issues.lock locks the conversation, optionally with a
+// reason; lock and unlock also take a pull request number. All four read the issue below the chosen repository first, and pinning sends the node identifier of
+// that answer, never one from the caller. The search
 // tools read GitHub's own search index for repositories, code, issues, pull requests, commits, users, and
 // organizations with search terms and GitHub qualifiers; they take no repository, project, or owner
 // argument of their own, and a connection whose targets name any is instead narrowed by qualifiers Qatlas
@@ -564,7 +568,9 @@ func Register(reg *capability.Registry) error {
 				"rather than a scope of its own; reading the milestones of a repository needs the same scope " +
 				"as reading its labels; setting an issue's milestone through github.issues.update, and " +
 				"updating or deleting an issue comment, need the same scope as writing an issue or a comment: " +
-				"repo on a classic token, or Issues: read and write on a fine-grained token; reacting to an " +
+				"repo on a classic token, or Issues: read and write on a fine-grained token; locking, " +
+				"unlocking, pinning, or unpinning an issue, locking being listed-only, needs the same scope as " +
+				"writing an issue, and the push access of the repository, as far as GitHub documents it; reacting to an " +
 				"issue or an issue or pull request conversation comment needs the same scope as writing one, " +
 				"Issues: read and write on a fine-grained token; reacting to a pull request line comment needs " +
 				"repo on a classic token, or Pull requests: read and write on a fine-grained token; removing a " +
@@ -783,12 +789,12 @@ func Register(reg *capability.Registry) error {
 		}, {
 			ID: "issue-maintainer", Title: "Issue maintainer",
 			Description: "not recommended: lists and reads the labels of a repository, lists its " +
-				"milestones, creates and updates labels and issue comments, hides and shows comments and reviews, and reacts to issues, comments, " +
+				"milestones, creates and updates labels and issue comments, hides and shows comments and reviews, pins and unpins issues, unlocks their conversations, and reacts to issues, comments, " +
 				"and pull request line comments; every change needs its own confirmation, and deleting a " +
-				"label or a comment stays unticked, since each is offered only where a connection's tools " +
+				"label or a comment and locking an issue stay unticked, since each is offered only where a connection's tools " +
 				"list names it",
 			Tools: []string{labelsList.ID, labelsGet.ID, labelsCreate.ID, labelsUpdate.ID, milestonesList.ID,
-				commentsUpdate.ID, commentsHide.ID, commentsUnhide.ID, reactionsAdd.ID, reactionsRemove.ID, subIssuesList.ID, subIssuesAdd.ID,
+				commentsUpdate.ID, commentsHide.ID, commentsUnhide.ID, issuesPin.ID, issuesUnpin.ID, issuesUnlock.ID, reactionsAdd.ID, reactionsRemove.ID, subIssuesList.ID, subIssuesAdd.ID,
 				subIssuesRemove.ID, subIssuesReprioritize.ID, issueDependenciesList.ID, issueDependenciesAdd.ID,
 				issueDependenciesRemove.ID, issueTypesList.ID, issueFieldsList.ID, issueFieldsSet.ID},
 		}, {
@@ -852,7 +858,7 @@ func Register(reg *capability.Registry) error {
 		pullRequestReviewerOperations(), accountOperations(), organizationOperations(), starOperations(),
 		searchOperations(), contentsOperations(), blameOperations(), commitsOperations(), refsOperations(), compareOperations(), commitRelationOperations(),
 		contentsWriteOperations(), refsWriteOperations(), repositoriesOperations(), repositoryDetailOperations(), trafficOperations(), repositoryStatsOperations(), rulesetsOperations(), customPropertiesOperations(), actionVariablesOperations(), actionCachesOperations(), runCleanupOperations(),
-		labelsOperations(), milestonesOperations(), commentMaintenanceOperations(), commentVisibilityOperations(), reactionsOperations(),
+		labelsOperations(), milestonesOperations(), commentMaintenanceOperations(), commentVisibilityOperations(), issueLockOperations(), reactionsOperations(),
 		subIssuesOperations(), issueDependenciesOperations(), issueTypesOperations(), issueFieldsOperations(),
 		discussionOperations(), notificationOperations(), gistOperations(), securityAlertOperations(), advisoryOperations(),
 		copilotOperations(), environmentsOperations(), deploymentsOperations(), referenceOperations())...)
