@@ -45,8 +45,8 @@ var s3Unsupported = map[string][]string{
 	"WriteGetObjectResponse": {"member RequestRoute uses smithy.api#hostLabel", "the operation uses smithy.api#endpoint"},
 }
 
-// Every operation of both real models binds to the runtime, every table lists exactly these operations in
-// defer, and what the runtime does not carry yet is named, never sent wrongly.
+// Every operation of both real models binds to the runtime, every table lists exactly these operations as tools,
+// in exclude or in defer, and what the runtime does not carry yet is named, never sent wrongly.
 func TestEveryOperationOfTheXMLModelsBinds(t *testing.T) {
 	for _, c := range []struct {
 		table       Table
@@ -62,8 +62,9 @@ func TestEveryOperationOfTheXMLModelsBinds(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if len(ops) != c.count || len(c.table.Defer) != c.count || len(c.table.Operations) != 0 || len(c.table.Exclude) != 0 {
-			t.Errorf("%s: %d operations in the model, %d deferred, %d tools", c.table.Service, len(ops), len(c.table.Defer), len(c.table.Operations))
+		if listed := len(c.table.Defer) + len(c.table.Operations) + len(c.table.Exclude); len(ops) != c.count || listed != c.count {
+			t.Errorf("%s: %d operations in the model, %d deferred, %d tools, %d excluded", c.table.Service, len(ops),
+				len(c.table.Defer), len(c.table.Operations), len(c.table.Exclude))
 		}
 		seen := map[string][]string{}
 		for _, op := range ops {
@@ -652,5 +653,61 @@ func TestS3LayerOwnedMembers(t *testing.T) {
 				t.Errorf("%s: the Bucket label is not checked", op)
 			}
 		}
+	}
+}
+
+// A restXml tool is assembled from the binding: a header of the answer is a header member, the expected-owner
+// header is the layer's and never an argument, the bucket label is checked, and the KMS key ID is released by the
+// table.
+func TestRestXMLToolsAreAssembled(t *testing.T) {
+	m := loadXML(t, s3Table)
+	built := map[string]*tool{}
+	for _, op := range s3Table.Operations {
+		tl, err := build(m, &s3Table, op)
+		if err != nil {
+			t.Fatal(err)
+		}
+		built[op.Operation] = tl
+	}
+	head := built["HeadBucket"].restOp
+	region := fieldByKey(head.Output, "bucket_region")
+	owner := fieldByKey(head.Input, "ExpectedBucketOwner")
+	bucket := fieldByKey(head.Input, "bucket")
+	if region == nil || region.Loc != httpbind.LocHeader || region.Name != "x-amz-bucket-region" ||
+		owner == nil || !owner.Owner || owner.Loc != httpbind.LocHeader || bucket == nil || !bucket.Bucket || !bucket.Required {
+		t.Errorf("HeadBucket = %+v", head)
+	}
+	for _, name := range []string{"expected_bucket_owner", "ExpectedBucketOwner"} {
+		if strings.Contains(built["HeadBucket"].inputSchema, `"`+name+`"`) {
+			t.Errorf("the owner is an argument: %s", built["HeadBucket"].inputSchema)
+		}
+	}
+	if list := built["ListBuckets"]; list.op.TargetCheck != "none" || ownerHeaderOf(list.restOp) != "" || list.pager == nil || list.pager.MaxSize != 10000 {
+		t.Errorf("ListBuckets = %+v", list.pager)
+	}
+	if loc := fieldByKey(built["GetBucketLocation"].restOp.Output, "location_constraint"); loc == nil || !loc.Unwrapped {
+		t.Errorf("GetBucketLocation output = %+v", loc)
+	}
+	enc := built["GetBucketEncryption"]
+	if !strings.Contains(enc.outputSchema, "kms_master_key_id") || !strings.Contains(enc.outputSchema, "sse_algorithm") {
+		t.Errorf("encryption schema = %s", enc.outputSchema)
+	}
+	// bucket-owner on a member that is not the bucket label is refused, and so is a restJson1 tool with it.
+	var list Operation
+	for _, op := range s3Table.Operations {
+		if op.Operation == "ListBuckets" {
+			list = op
+		}
+	}
+	list.TargetCheck, list.TargetArgs = "bucket-owner", []string{"Prefix"}
+	list.Arguments = map[string]Argument{"Prefix": {Description: "d"}, "BucketRegion": {Description: "d"}}
+	if _, err := build(m, &s3Table, list); err == nil || !strings.Contains(err.Error(), "bucket label") {
+		t.Errorf("bucket-owner on a prefix: %v", err)
+	}
+	rj := loadRest(t, sesv2Table)
+	sesOp := sesv2Table.Operations[0]
+	sesOp.TargetCheck, sesOp.TargetArgs = "bucket-owner", []string{"Filter"}
+	if _, err := build(rj, &sesv2Table, sesOp); err == nil || !strings.Contains(err.Error(), "bucket-owner needs the S3 protocol package") {
+		t.Errorf("bucket-owner on restJson1: %v", err)
 	}
 }

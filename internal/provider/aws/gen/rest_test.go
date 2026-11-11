@@ -86,13 +86,23 @@ func TestProtocolIsReadFromTheService(t *testing.T) {
 	if _, err := Render(ModelDir, []Table{table}); err == nil || !strings.Contains(err.Error(), "GetPrimaryEmail") {
 		t.Errorf("a restJson1 tool was rendered: %v", err)
 	}
-	// A restXml model has no tool rendering yet.
-	xml := s3Table
-	xml.Operations = []Operation{{Operation: "ListBuckets", Object: "bucket", Action: "list", Effect: "read",
-		Idempotency: "safe", Title: "t", Description: "d", DataSensitivity: "s", TargetCheck: "none", PolicyCheck: "none"}}
-	xml.Defer = slices.DeleteFunc(slices.Clone(xml.Defer), func(o Omission) bool { return o.Operation == "ListBuckets" })
-	if _, err := Render(ModelDir, []Table{xml}); err == nil || !strings.Contains(err.Error(), "restXml operation ListBuckets") {
-		t.Errorf("a restXml tool was rendered: %v", err)
+	// A restXml model renders tools: the codec of the service, the XML root and namespace of the answer, and
+	// the headers of an answer that has no body.
+	files, err := Render(ModelDir, []Table{s3Table})
+	if err != nil {
+		t.Fatalf("a restXml table was refused: %v", err)
+	}
+	code, tests := string(files[ToolsFile]), string(files[TestsFile])
+	for _, want := range []string{"restxml.Codec{NoErrorWrapping: true}", `ID: "aws.s3.bucket.list"`, `XMLName: "ListAllMyBucketsResult"`,
+		"Owner: true", "Bucket: true"} {
+		if !strings.Contains(code, want) {
+			t.Errorf("the generated tools lack %s", want)
+		}
+	}
+	for _, want := range []string{"<ListAllMyBucketsResult xmlns=", `"x-amz-bucket-region": "x"`, `owner: "123456789012"`} {
+		if !strings.Contains(tests, want) {
+			t.Errorf("the generated tests lack %s", want)
+		}
 	}
 }
 
