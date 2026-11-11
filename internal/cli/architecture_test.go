@@ -93,6 +93,12 @@ var providerAllowed = map[string]bool{
 	"internal/secret":             true,
 }
 
+// Imports outside the module that a provider must not use. The shared output package was debt before the
+// output moved to the kit, so it stays debt under its new path; other kit packages are not restricted.
+var providerForbiddenExternal = map[string]bool{
+	"github.com/castrowithcee/qatlas-kit/output": true,
+}
+
 // Names that are also ordinary words only count as a whole literal, or as a tool ID prefix for IDs.
 var (
 	ambiguousIDs   = map[string]bool{"make": true, "github": true}
@@ -161,39 +167,39 @@ var architectureExceptions = []archException{
 	{ruleProviderNames, "internal/selfupdate/selfupdate.go", "GitHub", releaseHost},
 	{ruleProviderNames, "internal/selfupdate/selfupdate.go", "github.", releaseHost},
 	// Rule 3: provider dependencies.
-	{ruleProviderDeps, "internal/provider/bookstack/attachments.go", "internal/output", debtOutput},
-	{ruleProviderDeps, "internal/provider/bookstack/attachments_test.go", "internal/output", debtOutput},
-	{ruleProviderDeps, "internal/provider/bookstack/attachmentswrite.go", "internal/output", debtOutput},
-	{ruleProviderDeps, "internal/provider/bookstack/attachmentswrite_test.go", "internal/output", debtOutput},
-	{ruleProviderDeps, "internal/provider/bookstack/auditlog.go", "internal/output", debtOutput},
-	{ruleProviderDeps, "internal/provider/bookstack/books.go", "internal/output", debtOutput},
-	{ruleProviderDeps, "internal/provider/bookstack/books_test.go", "internal/output", debtOutput},
-	{ruleProviderDeps, "internal/provider/bookstack/bookstack.go", "internal/output", debtOutput},
-	{ruleProviderDeps, "internal/provider/bookstack/bookstack_test.go", "internal/output", debtOutput},
-	{ruleProviderDeps, "internal/provider/bookstack/comments.go", "internal/output", debtOutput},
-	{ruleProviderDeps, "internal/provider/bookstack/comments_test.go", "internal/output", debtOutput},
-	{ruleProviderDeps, "internal/provider/bookstack/contentpermissions.go", "internal/output", debtOutput},
-	{ruleProviderDeps, "internal/provider/bookstack/contentpermissions_test.go", "internal/output", debtOutput},
-	{ruleProviderDeps, "internal/provider/bookstack/export.go", "internal/output", debtOutput},
-	{ruleProviderDeps, "internal/provider/bookstack/export_test.go", "internal/output", debtOutput},
-	{ruleProviderDeps, "internal/provider/bookstack/images.go", "internal/output", debtOutput},
-	{ruleProviderDeps, "internal/provider/bookstack/images_test.go", "internal/output", debtOutput},
-	{ruleProviderDeps, "internal/provider/bookstack/imageswrite.go", "internal/output", debtOutput},
-	{ruleProviderDeps, "internal/provider/bookstack/imports.go", "internal/output", debtOutput},
-	{ruleProviderDeps, "internal/provider/bookstack/imports_test.go", "internal/output", debtOutput},
-	{ruleProviderDeps, "internal/provider/bookstack/people.go", "internal/output", debtOutput},
-	{ruleProviderDeps, "internal/provider/bookstack/recyclebin.go", "internal/output", debtOutput},
-	{ruleProviderDeps, "internal/provider/bookstack/roleswrite.go", "internal/output", debtOutput},
-	{ruleProviderDeps, "internal/provider/bookstack/roleswrite_test.go", "internal/output", debtOutput},
-	{ruleProviderDeps, "internal/provider/bookstack/search.go", "internal/output", debtOutput},
-	{ruleProviderDeps, "internal/provider/bookstack/search_test.go", "internal/output", debtOutput},
-	{ruleProviderDeps, "internal/provider/bookstack/shelves.go", "internal/output", debtOutput},
-	{ruleProviderDeps, "internal/provider/bookstack/shelves_test.go", "internal/output", debtOutput},
-	{ruleProviderDeps, "internal/provider/bookstack/tags.go", "internal/output", debtOutput},
-	{ruleProviderDeps, "internal/provider/bookstack/tags_test.go", "internal/output", debtOutput},
-	{ruleProviderDeps, "internal/provider/bookstack/userswrite.go", "internal/output", debtOutput},
-	{ruleProviderDeps, "internal/provider/bookstack/userswrite_test.go", "internal/output", debtOutput},
-	{ruleProviderDeps, "internal/provider/bookstack/writes.go", "internal/output", debtOutput},
+	{ruleProviderDeps, "internal/provider/bookstack/attachments.go", "github.com/castrowithcee/qatlas-kit/output", debtOutput},
+	{ruleProviderDeps, "internal/provider/bookstack/attachments_test.go", "github.com/castrowithcee/qatlas-kit/output", debtOutput},
+	{ruleProviderDeps, "internal/provider/bookstack/attachmentswrite.go", "github.com/castrowithcee/qatlas-kit/output", debtOutput},
+	{ruleProviderDeps, "internal/provider/bookstack/attachmentswrite_test.go", "github.com/castrowithcee/qatlas-kit/output", debtOutput},
+	{ruleProviderDeps, "internal/provider/bookstack/auditlog.go", "github.com/castrowithcee/qatlas-kit/output", debtOutput},
+	{ruleProviderDeps, "internal/provider/bookstack/books.go", "github.com/castrowithcee/qatlas-kit/output", debtOutput},
+	{ruleProviderDeps, "internal/provider/bookstack/books_test.go", "github.com/castrowithcee/qatlas-kit/output", debtOutput},
+	{ruleProviderDeps, "internal/provider/bookstack/bookstack.go", "github.com/castrowithcee/qatlas-kit/output", debtOutput},
+	{ruleProviderDeps, "internal/provider/bookstack/bookstack_test.go", "github.com/castrowithcee/qatlas-kit/output", debtOutput},
+	{ruleProviderDeps, "internal/provider/bookstack/comments.go", "github.com/castrowithcee/qatlas-kit/output", debtOutput},
+	{ruleProviderDeps, "internal/provider/bookstack/comments_test.go", "github.com/castrowithcee/qatlas-kit/output", debtOutput},
+	{ruleProviderDeps, "internal/provider/bookstack/contentpermissions.go", "github.com/castrowithcee/qatlas-kit/output", debtOutput},
+	{ruleProviderDeps, "internal/provider/bookstack/contentpermissions_test.go", "github.com/castrowithcee/qatlas-kit/output", debtOutput},
+	{ruleProviderDeps, "internal/provider/bookstack/export.go", "github.com/castrowithcee/qatlas-kit/output", debtOutput},
+	{ruleProviderDeps, "internal/provider/bookstack/export_test.go", "github.com/castrowithcee/qatlas-kit/output", debtOutput},
+	{ruleProviderDeps, "internal/provider/bookstack/images.go", "github.com/castrowithcee/qatlas-kit/output", debtOutput},
+	{ruleProviderDeps, "internal/provider/bookstack/images_test.go", "github.com/castrowithcee/qatlas-kit/output", debtOutput},
+	{ruleProviderDeps, "internal/provider/bookstack/imageswrite.go", "github.com/castrowithcee/qatlas-kit/output", debtOutput},
+	{ruleProviderDeps, "internal/provider/bookstack/imports.go", "github.com/castrowithcee/qatlas-kit/output", debtOutput},
+	{ruleProviderDeps, "internal/provider/bookstack/imports_test.go", "github.com/castrowithcee/qatlas-kit/output", debtOutput},
+	{ruleProviderDeps, "internal/provider/bookstack/people.go", "github.com/castrowithcee/qatlas-kit/output", debtOutput},
+	{ruleProviderDeps, "internal/provider/bookstack/recyclebin.go", "github.com/castrowithcee/qatlas-kit/output", debtOutput},
+	{ruleProviderDeps, "internal/provider/bookstack/roleswrite.go", "github.com/castrowithcee/qatlas-kit/output", debtOutput},
+	{ruleProviderDeps, "internal/provider/bookstack/roleswrite_test.go", "github.com/castrowithcee/qatlas-kit/output", debtOutput},
+	{ruleProviderDeps, "internal/provider/bookstack/search.go", "github.com/castrowithcee/qatlas-kit/output", debtOutput},
+	{ruleProviderDeps, "internal/provider/bookstack/search_test.go", "github.com/castrowithcee/qatlas-kit/output", debtOutput},
+	{ruleProviderDeps, "internal/provider/bookstack/shelves.go", "github.com/castrowithcee/qatlas-kit/output", debtOutput},
+	{ruleProviderDeps, "internal/provider/bookstack/shelves_test.go", "github.com/castrowithcee/qatlas-kit/output", debtOutput},
+	{ruleProviderDeps, "internal/provider/bookstack/tags.go", "github.com/castrowithcee/qatlas-kit/output", debtOutput},
+	{ruleProviderDeps, "internal/provider/bookstack/tags_test.go", "github.com/castrowithcee/qatlas-kit/output", debtOutput},
+	{ruleProviderDeps, "internal/provider/bookstack/userswrite.go", "github.com/castrowithcee/qatlas-kit/output", debtOutput},
+	{ruleProviderDeps, "internal/provider/bookstack/userswrite_test.go", "github.com/castrowithcee/qatlas-kit/output", debtOutput},
+	{ruleProviderDeps, "internal/provider/bookstack/writes.go", "github.com/castrowithcee/qatlas-kit/output", debtOutput},
 }
 
 func TestArchitecture(t *testing.T) {
@@ -329,6 +335,9 @@ func architectureFindings(fsys fs.FS, providers []config.ProviderMetadata) ([]ar
 			}
 			rel, inModule := strings.CutPrefix(target, module+"/")
 			if !inModule {
+				if providerDir != "" && providerForbiddenExternal[target] {
+					findings = append(findings, archFinding{ruleProviderDeps, p, target})
+				}
 				continue
 			}
 			if surface && (surfaceForbidden[rel] || strings.HasPrefix(rel, providerRoot)) {
@@ -617,6 +626,9 @@ func TestArchitectureChecksDetectViolations(t *testing.T) {
 		{"a provider that imports a core package", map[string]string{
 			"internal/provider/alpha/x.go": "package alpha\n\nimport _ \"example.com/m/internal/application\"\n",
 		}, archFinding{ruleProviderDeps, "internal/provider/alpha/x.go", "internal/application"}},
+		{"a provider that imports the kit output package", map[string]string{
+			"internal/provider/alpha/x.go": "package alpha\n\nimport _ \"github.com/castrowithcee/qatlas-kit/output\"\n",
+		}, archFinding{ruleProviderDeps, "internal/provider/alpha/x.go", "github.com/castrowithcee/qatlas-kit/output"}},
 		{"a provider test that imports another provider", map[string]string{
 			"internal/provider/alpha/x_test.go": "package alpha\n\nimport _ \"example.com/m/internal/provider/beta\"\n",
 		}, archFinding{ruleProviderDeps, "internal/provider/alpha/x_test.go", "internal/provider/beta"}},
