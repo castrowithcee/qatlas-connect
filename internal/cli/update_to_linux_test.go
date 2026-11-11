@@ -1,25 +1,18 @@
 package cli
 
 import (
-	"archive/tar"
-	"bytes"
-	"compress/gzip"
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"net/http"
-	"net/http/httptest"
 	"os"
 	"strings"
 	"testing"
 
+	"github.com/castrowithcee/qatlas-kit/release/releasetest"
 	"golang.org/x/crypto/ssh"
 
-	"github.com/castrowithcee/qatlas-connect/internal/release"
-	"github.com/castrowithcee/qatlas-connect/internal/release/releasetest"
 	"github.com/castrowithcee/qatlas-connect/internal/selfupdate"
+	"github.com/castrowithcee/qatlas-connect/internal/selfupdate/selfupdatetest"
 )
 
 // chosenRelease is one release of the local release server.
@@ -37,77 +30,20 @@ var chosenProgram = "new-program"
 func chosenUpdater(t *testing.T, executable string, releases []chosenRelease, replaced *int) *selfupdate.Client {
 	t.Helper()
 	signer := releasetest.NewSigner(t)
-	layout := func(tag string) release.Layout {
-		l, err := release.LayoutOf(tag)
-		if err != nil {
-			t.Fatal(err)
-		}
-		return l
-	}
-	archives := map[string][]byte{}
-	for _, program := range []string{"qconnect", "qatlas"} {
-		var archive bytes.Buffer
-		gz := gzip.NewWriter(&archive)
-		tw := tar.NewWriter(gz)
-		for name, content := range map[string]string{"bin/" + program: chosenProgram, "share/man/man1/" + program + ".1": "manual"} {
-			if err := tw.WriteHeader(&tar.Header{Name: name, Mode: 0o755, Size: int64(len(content)), Typeflag: tar.TypeReg}); err != nil {
-				t.Fatal(err)
-			}
-			_, _ = tw.Write([]byte(content))
-		}
-		_ = tw.Close()
-		_ = gz.Close()
-		archives[program] = archive.Bytes()
-	}
-	asset := func(tag string) string { return layout(tag).ArchiveName(tag, "linux", "amd64") }
-	checksums := func(tag string) []byte {
-		sum := sha256.Sum256(archives[layout(tag).Program])
-		return []byte(fmt.Sprintf("%s  %s\n", hex.EncodeToString(sum[:]), asset(tag)))
-	}
-	var server *httptest.Server
-	describe := func(r chosenRelease) map[string]any {
-		assets := []map[string]string{
-			{"name": asset(r.tag), "url": server.URL + "/asset/" + r.tag},
-			{"name": "checksums.txt", "url": server.URL + "/checksums/" + r.tag},
-		}
+	var published []selfupdatetest.Release
+	for _, r := range releases {
+		name, archive := selfupdatetest.Archive(t, r.tag, "linux", "amd64", []byte(chosenProgram))
+		var sets []selfupdatetest.Signature
 		if !r.unsigned {
-			assets = append(assets, map[string]string{"name": layout(r.tag).SignatureAsset, "url": server.URL + "/signature/" + r.tag})
+			sets = append(sets, selfupdatetest.SignatureOf(t, r.tag))
 		}
-		return map[string]any{"tag_name": r.tag, "prerelease": r.prerelease, "assets": assets}
+		rel := selfupdatetest.Signed(t, signer, r.tag, map[string][]byte{name: archive}, sets...)
+		rel.Prerelease = r.prerelease
+		published = append(published, rel)
 	}
-	server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		path := req.URL.Path
-		switch {
-		case path == "/releases":
-			out := []map[string]any{}
-			if req.URL.Query().Get("page") == "1" {
-				for _, r := range releases {
-					out = append(out, describe(r))
-				}
-			}
-			_ = json.NewEncoder(w).Encode(out)
-		case strings.HasPrefix(path, "/releases/tags/"):
-			for _, r := range releases {
-				if r.tag == strings.TrimPrefix(path, "/releases/tags/") {
-					_ = json.NewEncoder(w).Encode(describe(r))
-					return
-				}
-			}
-			http.NotFound(w, req)
-		case strings.HasPrefix(path, "/asset/"):
-			_, _ = w.Write(archives[layout(strings.TrimPrefix(path, "/asset/")).Program])
-		case strings.HasPrefix(path, "/checksums/"):
-			_, _ = w.Write(checksums(strings.TrimPrefix(path, "/checksums/")))
-		case strings.HasPrefix(path, "/signature/"):
-			tag := strings.TrimPrefix(path, "/signature/")
-			_, _ = w.Write(releasetest.Sign(t, signer, layout(tag).Namespace, "sha512", checksums(tag)))
-		default:
-			http.NotFound(w, req)
-		}
-	}))
-	t.Cleanup(server.Close)
+	server := selfupdatetest.NewServer(t, published...)
 	return &selfupdate.Client{
-		BaseURL: server.URL, HTTPClient: server.Client(), Version: "v3.0.0", GOOS: "linux", GOARCH: "amd64",
+		BaseURL: server.RepositoryAPI(), HTTPClient: server.Client(), Version: "v3.0.0", GOARCH: "amd64",
 		Executable: executable, SigningKeys: []ssh.PublicKey{signer.PublicKey()},
 		BeforeReplace: func(context.Context, selfupdate.Release) error {
 			*replaced++

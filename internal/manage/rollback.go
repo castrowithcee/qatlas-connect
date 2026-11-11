@@ -85,11 +85,16 @@ func (s *Service) CheckRollback(ctx context.Context, p *selfupdate.Prepared) (*R
 // Rollback installs the prepared older release through client. With check.Reads it only installs. Without,
 // it needs restore true and an offered backup: it saves the current configuration as a new backup, writes the
 // offered backup in its place, and then installs, which runs client's hooks (the vault process is locked
-// there). Should the installation fail, the configuration it replaced is put back from that new backup. The
-// vault's files are never touched. Before any change, a configuration that changed since CheckRollback
-// ended the rollback with a *config.ConflictError.
+// there). Right before the program is replaced, the older program is checked once more against the
+// configuration it is going to read; if it does not read it, nothing is installed. Should the installation
+// fail, the configuration it replaced is put back from that new backup. The vault's files are never touched.
+// Before any change, a configuration that changed since CheckRollback ended the rollback with a
+// *config.ConflictError.
 func (s *Service) Rollback(ctx context.Context, client *selfupdate.Client, p *selfupdate.Prepared,
 	check *RollbackCheck, restore bool) (selfupdate.Result, error) {
+	installer := *client
+	installer.ValidateRollback = s.validateRollback
+	client = &installer
 	if check.Reads {
 		return client.InstallPrepared(ctx, p)
 	}
@@ -112,4 +117,24 @@ func (s *Service) Rollback(ctx context.Context, client *selfupdate.Client, p *se
 		return selfupdate.Result{}, err
 	}
 	return result, nil
+}
+
+// validateRollback checks that the program of p reads the configuration as it is now, or that there is none.
+func (s *Service) validateRollback(ctx context.Context, p *selfupdate.Prepared) error {
+	data, _, err := s.store.Snapshot()
+	if err != nil {
+		var nf *config.NotFoundError
+		if errors.As(err, &nf) {
+			return nil
+		}
+		return err
+	}
+	reads, err := p.ReadsConfig(ctx, data)
+	if err != nil {
+		return err
+	}
+	if !reads {
+		return fmt.Errorf("%s does not read the configuration", p.Version())
+	}
+	return nil
 }

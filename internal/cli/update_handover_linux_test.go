@@ -9,10 +9,10 @@ import (
 
 	"golang.org/x/crypto/ssh"
 
-	"github.com/castrowithcee/qatlas-connect/internal/release/releasetest"
 	"github.com/castrowithcee/qatlas-connect/internal/selfupdate"
 	"github.com/castrowithcee/qatlas-connect/internal/vault"
 	"github.com/castrowithcee/qatlas-connect/internal/vaultproc"
+	"github.com/castrowithcee/qatlas-kit/release/releasetest"
 )
 
 // handoverRun is one update through the command or the editor's updater, and what it said.
@@ -180,7 +180,7 @@ func TestUpdateWithAnInvalidSignatureChangesNothing(t *testing.T) {
 			signer := releasetest.NewSigner(t)
 			client := handoverServer(t, dir, signer.PublicKey())
 			run := runHandoverUpdate(t, surface, dir, signer, releasetest.NewSigner(t).PublicKey(), client)
-			if run.err == nil || !strings.Contains(run.err.Error(), "signature is invalid") {
+			if run.err == nil || !strings.Contains(run.err.Error(), "is not trusted") || !strings.Contains(run.err.Error(), "nothing was changed") {
 				t.Fatalf("err = %v, want an invalid signature", run.err)
 			}
 			if run.updated || run.program != "old-program" || run.ranBefore || run.note != "" {
