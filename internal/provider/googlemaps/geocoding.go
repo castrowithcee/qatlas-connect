@@ -21,9 +21,8 @@ import (
 	"github.com/castrowithcee/qatlas-kit/redact"
 )
 
-// Geocoding runs on the legacy web service. It takes no key header, so the key travels in the query; this is
-// the only request of the package that does that. The host and path are constants and no argument can change
-// them.
+// Geocoding runs on the legacy web service. It takes no key header, so the key travels in the query; the Roads
+// requests do the same. The host and path are constants and no argument can change them.
 const (
 	geocodingRoot = "https://maps.googleapis.com"
 	geocodingPath = "/maps/api/geocode/json"

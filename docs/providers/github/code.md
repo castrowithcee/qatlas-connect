@@ -155,12 +155,17 @@ The terminal editor's setup profile `repository-reader` selects the fourteen and
 `github.activity.list`; it is
 not the recommended profile, which stays `read`, unchanged.
 
-## Repository writes: branches and file contents
+## Repository writes: branches, merges, tags, and file contents
 
 | Tool | Does |
 | --- | --- |
 | `github.branches.create` | creates one branch from a branch, a tag, or a commit SHA |
 | `github.branches.delete` | deletes one branch other than the default branch; offered only where a connection's `tools` list names it |
+| `github.branches.rename` | renames one branch, the default branch included; offered only where a connection's `tools` list names it |
+| `github.branches.sync-fork` | brings one branch of a fork up to date with the same branch of its upstream; offered only where a connection's `tools` list names it |
+| `github.merges.create` | merges an existing branch or commit `head` into the branch `base`; offered only where a connection's `tools` list names it |
+| `github.tags.create` | creates one tag at a commit, lightweight or, with `message`, annotated |
+| `github.tags.delete` | deletes one tag; offered only where a connection's `tools` list names it |
 | `github.contents.put` | creates a new file, or updates an existing one while `sha` names its current blob |
 | `github.contents.delete` | deletes one file with its current blob `sha`; offered only where a connection's `tools` list names it |
 | `github.files.push` | writes 1 to 100 files as one commit on an existing branch; offered only where a connection's `tools` list names it |
@@ -216,9 +221,52 @@ ref update ever moves it, though the object it was creating may still exist as a
 effect until referenced. The answer names `parent_sha`, the commit the branch was at before the push, and the
 paths written in the order given, never any file's content.
 
+`github.branches.rename` takes `branch` and `new_name` as plain names, both without a `refs/` prefix and
+different from each other. Renaming the default branch is allowed. GitHub retargets open pull requests and the
+default branch setting and moves branch protection rules that name the branch exactly to the new name; links to
+the old name redirect for a time, but local clones, CI configuration, and anything else that spells the old name
+keep using it, which is why the tool is listed only. A new name that is already taken or unusable is refused by
+GitHub with HTTP 422 and answers `invalid-request`; a missing branch answers `not-found`; a ruleset refusal or a
+token without the right answers `permission`. The answer names `branch`, `new_name`, `ref`, and the `sha` the
+branch points at.
+
+`github.branches.sync-fork` takes `branch`. GitHub merges the same branch of the fork's upstream into it, by
+fast-forward or, where the fork has commits of its own, by a merge commit; the answer names `branch`,
+`merge_type` (`merge`, `fast-forward`, or `none` when it was already up to date) and GitHub's `base_branch`
+(untrusted text). GitHub's answer names no commit, so there is no `sha`. A branch that conflicts with its
+upstream (HTTP 409) answers `provider-error` with its own message and nothing is changed; a repository that is
+not a fork, or a branch its upstream lacks (HTTP 422), answers `invalid-request`.
+
+`github.merges.create` merges `head`, a branch name or a commit SHA of the same repository, into the branch
+`base` as one merge commit, with `commit_message` (at most 1000 characters) or GitHub's default. It merges
+existing commits only and writes nothing else; but, like a pull request merge, it brings in every change of
+`head`, including changes to files below `.github/workflows/`, and a token without the `workflow` scope or the
+Workflows permission may be refused for that reason (`permission`). `result` is `merged` with the merge commit's
+`sha`, or `nothing-to-merge` (HTTP 204) when `base` already holds `head`, which changes nothing. A merge
+conflict (HTTP 409) answers `provider-error` with its own message and merges nothing; a missing `base` or `head`
+answers `not-found`. Branch protection that requires a pull request for `base` is not bypassed; GitHub refuses the merge.
+
+`github.tags.create` takes `tag` (a plain name without `refs/tags/`), `target` (a branch, a tag, or a commit SHA,
+resolved to a commit through the commits route like `github.branches.create`), and optionally `message`. Without
+`message` it creates a lightweight tag with one ref request. With `message` it first creates a tag object
+(`git/tags`) and then the ref that points at it, so `sha` in the answer is the tag object and `commit_sha` the
+commit; `annotated` says which. The tagger is the token's own user. If the ref request fails after the object
+was created, the error keeps its class, names the object's SHA, and says that no tag refers to it; nothing is
+repeated, and the unreferenced object has no effect. A tag name already taken answers `invalid-request` and an
+existing tag is never moved. A ruleset refusal answers `permission`.
+
+`github.tags.delete` takes `tag`. The tag's ref is read first, so a missing tag answers `not-found` without a
+delete and the answer can name the `sha` the tag pointed at; then one DELETE is sent. A release that uses the
+tag is not deleted, but it loses its tag and shows as a draft, so check for a release first. A repository rule
+that makes tags immutable or restricts their deletion answers `permission`. An unclear outcome is reported,
+never repeated.
+
+Each of the five tools sends every change once and reports an unclear outcome after a timeout, a dropped
+connection, a server error, or an unreadable answer instead of repeating it. No answer carries text GitHub sent.
+
 The terminal editor's setup profile `repository-writer` (not recommended) selects the read twenty-four of `repository-reader` plus
 `github.branches.create` and `github.contents.put`. `github.branches.delete`, `github.contents.delete`, and
-`github.files.push` are in no profile, offered only where a connection's `tools` list names them, like
+`github.files.push`, and the four other listed-only tools above are in no profile, offered only where a connection's `tools` list names them, like
 [`github.releases.delete`](releases.md#releases).
 
 ## Search
