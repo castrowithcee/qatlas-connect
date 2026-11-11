@@ -1,6 +1,6 @@
 ---
 description: >
-  Describes the Google Maps provider: the API key, its header and query paths, and its fixed origins, the read profile, the mandatory field mask, with and without the places. prefix, and the billing group it selects, the cost of autocomplete and photos, attribution and storage rules, the two Google error forms and their classes, rate spacing, the connection test, and the limits of what is verified; the route and road tools have their own pages.
+  Describes the Google Maps provider: the API key, its header and query paths, and its fixed origins, the read profile, the mandatory field mask, with and without the places. prefix, and the billing group it selects, the cost of autocomplete and photos, attribution and storage rules, the two Google error forms and their classes, rate spacing, the connection test, and the limits of what is verified; the route, road, and area insights tools have their own pages.
 type: knowledge
 edit: shared
 created: 2026-11-06
@@ -16,14 +16,16 @@ validates postal addresses with Address Validation API, reads current weather, f
 alerts for a coordinate with Weather API, reads the current air quality, its forecast, and its history at a
 coordinate with Air Quality API, reads the daily pollen forecast for a coordinate with Pollen API, reads the
 solar potential of the closest building and the addresses of the solar data layers around a coordinate with
-Solar API, computes routes and route matrices with Routes API, and snaps coordinates to roads, finds the nearest
-roads, and reads posted speed limits with Roads API. Every tool is a read except
+Solar API, computes routes and route matrices with Routes API, snaps coordinates to roads, finds the nearest
+roads, and reads posted speed limits with Roads API, and counts the places in an area or lists their place IDs
+with Places Aggregate API. Every tool is a read except
 `addressvalidation.feedback`, which reports to Google and needs confirmation. The connection takes no target,
 because a key reaches what its Cloud project and the key's restrictions allow, not a part of an account.
 
 [Set up Google Maps](setup.md) leads through creating the key. The tools are described in [places](places.md),
 [photos](photos.md), [geocoding](geocoding.md), [addressvalidation](addressvalidation.md), [weather](weather.md),
-[airquality](airquality.md), [pollen](pollen.md), [solar](solar.md), [routes](routes.md), and [roads](roads.md).
+[airquality](airquality.md), [pollen](pollen.md), [solar](solar.md), [routes](routes.md), [roads](roads.md), and
+[areainsights](areainsights.md).
 
 ## Configuration
 
@@ -33,12 +35,13 @@ The Address Validation tools use the second fixed origin `https://addressvalidat
 weather tools the third, `https://weather.googleapis.com`, the Air Quality tools the fourth,
 `https://airquality.googleapis.com`, the pollen tool the fifth, `https://pollen.googleapis.com`, the solar
 tools the sixth, `https://solar.googleapis.com`, the route tools the seventh, `https://routes.googleapis.com`,
-and the road tools the eighth, `https://roads.googleapis.com`; none of them can be configured. A connection with a target is refused.
+the road tools the eighth, `https://roads.googleapis.com`, and the area insights tool the ninth,
+`https://areainsights.googleapis.com`; none of them can be configured. A connection with a target is refused.
 
-The credential provides `api_key`. The Places, Address Validation, weather, Air Quality, pollen, solar, and
-route tools send it only in the `X-Goog-Api-Key` header. The geocoding tools call the legacy Geocoding service,
-which takes no header, and the road tools follow the only way Google documents for Roads API; both send it as
-the `key` query parameter of a fixed URL and are the only requests that do so, see
+The credential provides `api_key`. The Places, Address Validation, weather, Air Quality, pollen, solar, route,
+and area insights tools send it only in the `X-Goog-Api-Key` header. The geocoding tools call the legacy
+Geocoding service, which takes no header, and the road tools follow the only way Google documents for Roads API;
+both send it as the `key` query parameter of a fixed URL and are the only requests that do so, see
 [geocoding](geocoding.md#endpoint-and-key) and [roads](roads.md#endpoint-and-key). The key is
 never a tool argument, never part of a message or result, and masked in every output.
 
@@ -50,7 +53,7 @@ The profile `read` is the recommended one and holds `google.maps.places.get`, `g
 `google.maps.airquality.current`, `google.maps.airquality.forecast`, `google.maps.airquality.history`,
 `google.maps.pollen.forecast`, `google.maps.solar.building-insights`, `google.maps.solar.data-layers`,
 `google.maps.routes.compute`, `google.maps.routes.matrix`, `google.maps.roads.snap`,
-`google.maps.roads.nearest`, and `google.maps.roads.speed-limits`.
+`google.maps.roads.nearest`, `google.maps.roads.speed-limits`, and `google.maps.areainsights.compute`.
 `google.maps.addressvalidation.feedback` is in no profile; see [addressvalidation](addressvalidation.md#profiles-and-effects).
 
 ## Field mask and billing group
@@ -95,7 +98,8 @@ pollen, and solar tools take no field mask; every call, and each page of a forec
 request, and Qatlas does not verify their SKUs or free usage, see [weather](weather.md#cost),
 [airquality](airquality.md#cost), [pollen](pollen.md#cost), and [solar](solar.md#cost). The route tools are
 billed by the features a request uses, a matrix per element; see [routes](routes.md#cost). The road tools are
-billed under Roads SKUs; see [roads](roads.md#cost).
+billed under Roads SKUs; see [roads](roads.md#cost). The area insights tool is one request per call, and Qatlas
+does not verify its SKU, free usage, or quota; see [areainsights](areainsights.md#cost).
 
 Google documents a free monthly usage cap per SKU and billing account for Place Details: IDs Only is unlimited,
 Essentials 10,000, Pro 5,000, Enterprise 1,000, and Enterprise + Atmosphere 1,000. Requests beyond a cap are
@@ -114,10 +118,10 @@ group with 1,000 free requests. Prices and caps change; the price list is author
 ## Attribution and storage
 
 Google Maps attribution is mandatory wherever Places content is shown (for the weather, air quality,
-pollen, solar, route, and road tools see [weather](weather.md#attribution-and-storage),
+pollen, solar, route, road, and area insights tools see [weather](weather.md#attribution-and-storage),
 [airquality](airquality.md#attribution-and-storage), [pollen](pollen.md#attribution-and-storage),
-[solar](solar.md#attribution-and-storage), [routes](routes.md#attribution-and-storage), and
-[roads](roads.md#attribution-and-storage)), and the
+[solar](solar.md#attribution-and-storage), [routes](routes.md#attribution-and-storage),
+[roads](roads.md#attribution-and-storage), and [areainsights](areainsights.md#attribution-and-storage)), and the
 `attributions` field names data
 providers that must be shown with a result. A photo also has author attributions in the `authorAttributions` of
 its `photos` entry, which must be shown wherever the image is shown. Place IDs may be stored without limit.

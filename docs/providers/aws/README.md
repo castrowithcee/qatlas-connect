@@ -4,21 +4,23 @@ description: >
 type: knowledge
 edit: shared
 created: 2026-11-06
-updated: 2026-11-10
+updated: 2026-11-11
 ---
 
 # Amazon Web Services
 
 The `aws` provider gives agents controlled access to one AWS account, read-only except for the IAM role tools and the two
-IAM report generators a connection names in its tools list. Qatlas signs requests with
+IAM report generators a connection names in its tools list, and the SES identity tools that change state with
+confirmation. Qatlas signs requests with
 Signature Version 4 using the Go standard library; it uses no AWS SDK. It ships the foundation (credential, role
 assumption, account and region binding, connection test, endpoint table, error mapping), the Security Token Service
 (STS) tools, the IAM tools that read identities, the metadata of their credentials, policies with their simulation,
 the account state, identity providers, and server certificates, the IAM report tools (credential report and service
-last accessed), and the IAM tools that write roles and instance profiles. Further services build on it.
+last accessed), the IAM tools that write roles and instance profiles, and the SES v2 tools that read, create, configure, tag, and delete
+sender identities with DKIM and MAIL FROM. Further services build on it.
 
 [Set up AWS](setup.md) lists the secret roles, the permissions, and what the connection test proves. The tools are
-described per group: [Security Token Service](sts.md) and [Identity and Access Management](iam.md).
+described per group: [Security Token Service](sts.md), [Identity and Access Management](iam.md), and [Simple Email Service](ses.md).
 
 ## Role assumption
 
@@ -73,7 +75,7 @@ sends only over HTTPS without following redirects.
 | Account (global) | `account.us-east-1.amazonaws.com` | `us-east-1` |
 
 Global services hang on the account and ignore the region allowlist; a connection reaches them with its account
-target alone. Only STS and IAM are used so far.
+target alone. Of the services in the table, STS, IAM, and SES v2 have tools.
 
 ## CloudTrail
 
@@ -124,7 +126,7 @@ fixed model operation; there is no general call.
   checks the extracts against the pin file without network access.
 - **Curation table.** One table per service decides which operations become tools and how: the tool ID, effect,
   confirmation, `listed-only`, idempotency, title and descriptions, renames for readability, members hidden for a
-  security reason, the target check and client-side policy check that run before the call, and the own-role check
+  security reason (also members nested in an input), enum values left out of an argument, the target check and client-side policy check that run before the call, and the own-role check
   of a tool that changes or deletes a role. Every operation that is not a read requires confirmation.
 - **Completeness.** Every operation of a model is a tool, in `exclude`, or in `defer`, each with a reason; a test
   fails otherwise, so a new operation of an updated model never becomes a tool or disappears silently. `exclude`
@@ -134,7 +136,8 @@ fixed model operation; there is no general call.
   (`requires_tool_allow_list`).
 - **From the model.** Arguments, fields and their limits come from the model. Deprecated members are left out. A
   member the model marks sensitive, or whose name says it holds a credential, stops the generation unless the table
-  hides it; only a top-level member can be hidden. A table may name string shapes the service returns
+  hides it; a table can hide a top-level or a nested input member, and can exclude single values of an enum
+  argument, so a value such as a key origin is never accepted. A table may name string shapes the service returns
   percent-encoded, such as the IAM policy documents; their values are decoded before the cap applies, and a
   malformed value is an invalid answer. A paged operation takes `page_size` (where the service has a page size) and `cursor` and returns
   `next_cursor` and `has_more`. An operation with an idempotency token generates the token, accepts `client_token`
@@ -145,13 +148,42 @@ fixed model operation; there is no general call.
   each member by the model's HTTP traits: `http` method, URI and status, `httpLabel` (also greedy), `httpQuery`,
   `httpQueryParams`, `httpHeader`, `httpPrefixHeaders`, `httpPayload` and `httpResponseCode`, plus `jsonName`,
   `timestampFormat`, unions, the document type and `idempotencyToken`. The body is JSON; paging uses `NextToken`
-  with `MaxResults` or `PageSize`. The HTTP bindings are a separate package (`httpbind`) that a `restXml` layer
-  reuses; only the body format differs. The generator knows no operation names: an operation whose traits do not
-  bind unambiguously, or that uses a trait the runtime does not carry (such as streaming), stops the generation and
-  names the operation. A model gives `PageSize` no maximum, so the tool offers no `page_size` there rather than
-  guessing one. The tables of `account` and `sesv2` are raw scaffolds: every operation is in `defer`, and no tool
-  exists for either service yet. Tools are rendered for `awsQuery` only; a table of a `restJson1` model with tools
+  with `MaxResults` or `PageSize`. The HTTP bindings are a separate package (`httpbind`) that `restXml` reuses, so
+  only the body format differs. The generator knows no operation names: an operation whose traits do not bind
+  unambiguously, or that uses a trait the runtime does not carry, stops the generation and names the operation.
+  A model gives `PageSize` no maximum, so the tool offers no `page_size` unless the table states the maximum of the
+  service. A table can name a hand-written result step, which adds a member computed from the checked answer and
+  the arguments, such as the SES `dns_records`; the generator declares the member in the result schema, and the
+  step reads only values the answer validated. Tools are rendered for `awsQuery` and `restJson1`; the tables of
+  `account`, `s3` and `route-53` are raw scaffolds with every operation in `defer`, and a `restXml` table with tools
   is refused until the first service package.
+- **`restXml` (S3, Route 53).** The body is XML in the form the model's traits describe: `xmlName`,
+  `xmlAttribute`, `xmlNamespace`, `xmlFlattened`, wrapped lists and maps, and a structure payload. A character
+  XML 1.0 cannot carry is refused in a request and read as U+FFFD in an answer. The error shape follows the
+  model: `<Error>` for S3, `<ErrorResponse><Error><Type><Code>` for Route 53. S3 can answer `CopyObject` or
+  `CompleteMultipartUpload` with status 200 and an `<Error>` body, which is an error that says the operation may
+  not have completed. A list that continues at several members, such as S3 versions by key and version marker
+  or Route 53 record sets by name, type and identifier, keeps them in one cursor. A Route 53 zone ID is accepted
+  with or without `/hostedzone/` and never adds a path segment. An operation the runtime cannot yet send, such as
+  an event stream, is bound with the reason noted and never becomes a tool until the reason is gone.
+- **S3 addressing.** The bucket name is checked against the naming rules of general purpose buckets before any
+  I/O. A name that is one lower case DNS label goes in the host (`<bucket>.s3.<region>.amazonaws.com`), every
+  other valid name, such as one with dots or upper case letters, goes in the path of the regional host. Access
+  points, Express One Zone buckets and aliases are refused. The host is built from the checked name and the
+  endpoint table only. A bucket in another region answers `PermanentRedirect` or `AuthorizationHeaderMalformed`.
+  Qatlas does not follow it and reports the region of `x-amz-bucket-region` when it has the form of a region.
+- **S3 signature and checksums.** The payload hash is sent as `x-amz-content-sha256`. A payload that is streamed
+  is signed `UNSIGNED-PAYLOAD`, which only goes over HTTPS. Where the model requires a checksum of the body,
+  Qatlas sends the SHA-256 of it, and it asks for the checksum of a downloaded object and compares it. These
+  headers are never arguments.
+- **`ExpectedBucketOwner`.** Every operation that has the expected-owner header, and the source-owner header of a
+  copy, sends the account the connection is bound to. It is not an argument, so no other value is possible.
+  `ListBuckets` and `CreateBucket` have none, and the account check of the connection covers them.
+- **Streams.** An object is uploaded from and downloaded to a local file of a directory the connection releases,
+  at most 100 MiB per call, exactly 100 MiB allowed. A larger upload is refused before a request, and a larger
+  download before the first byte is written. A download counts as done only when all announced bytes arrived,
+  so a partial file never remains. A stream is read once and its call is never repeated. No tool returns or
+  creates a presigned URL.
 
 A model update is a deliberate change. Set the commit, the retrieval day and the upstream hashes in
 `internal/provider/aws/gen/model/pin.json`, download the upstream files into a directory laid out like

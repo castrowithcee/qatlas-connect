@@ -126,9 +126,10 @@ func (c *Client) sendMeta(ctx context.Context, op string, service endpoints.Serv
 }
 
 // sendRest is sendMeta for a REST protocol: one signed call of an httpbind operation, with the same limiter,
-// retry and endpoint rules. req is the encoded input (Operation.Encode), codec the body format of the
-// protocol (restjson.Codec). The signature covers the body hash and no x-amz-content-sha256 header, which
-// only S3 sends.
+// retry and endpoint rules. req is the encoded input (Operation.EncodeWith), codec the body format of the
+// protocol (restjson.Codec or restxml.Codec). The signature covers the body hash. Only S3 also sends it as
+// x-amz-content-sha256; for S3 the host is the bucket's when the name allows, and a streamed payload is signed
+// UNSIGNED-PAYLOAD. A call with a stream or a sink is never repeated.
 func (c *Client) sendRest(ctx context.Context, op string, service endpoints.Service, region string,
 	creds sigv4.Credentials, idem capability.Idempotency, codec httpbind.Codec, o *httpbind.Operation,
 	req httpbind.Request, out *map[string]any) (httpbind.Meta, *provider.Error) {
@@ -136,9 +137,19 @@ func (c *Client) sendRest(ctx context.Context, op string, service endpoints.Serv
 	if err != nil {
 		return httpbind.Meta{}, provider.Fail(op, "the AWS endpoint is not available for this region")
 	}
-	client := &httpbind.Client{
-		HTTP: c.http, Codec: codec, URL: endpoint.URL(), UserAgent: userAgent,
-		Signer: &sigv4.Signer{Credentials: creds, Region: endpoint.SigningRegion, Service: endpoint.SigningName, Clock: clock},
+	signer := &sigv4.Signer{Credentials: creds, Region: endpoint.SigningRegion, Service: endpoint.SigningName, Clock: clock}
+	client := &httpbind.Client{HTTP: c.http, Codec: codec, URL: endpoint.URL(), UserAgent: userAgent, Signer: signer}
+	if service == endpoints.S3 {
+		// S3 wants the payload hash as a header and canonicalises the path its own way. A streamed payload is
+		// read once and signed as UNSIGNED-PAYLOAD, which only ever goes over this https endpoint.
+		signer.ContentSHA256Header, signer.S3Paths = true, true
+		stream := *signer
+		stream.UnsignedPayload = true
+		client.BucketHost, client.StreamSigner = true, &stream
+	}
+	if req.Stream != nil || req.Sink != nil {
+		// A stream is consumed by the first attempt, and a sink would receive the payload twice.
+		idem = capability.IdempotencyNonIdempotent
 	}
 	var meta httpbind.Meta
 	failure := c.attempts(ctx, op, service, idem, func() (time.Duration, *provider.Error) {

@@ -13,6 +13,7 @@ import (
 	"strings"
 
 	"github.com/castrowithcee/qatlas-connect/internal/provider/aws/awsquery"
+	"github.com/castrowithcee/qatlas-connect/internal/provider/aws/httpbind"
 )
 
 // Header is the first line of every generated file. The generator overwrites only files that start with it.
@@ -69,6 +70,16 @@ func Complete(t Table, m *Model) error {
 			return fmt.Errorf("table %s: url_encoded shape %s is not a string shape of the model", t.Service, e.Shape)
 		}
 	}
+	for _, e := range t.IDPrefixes {
+		if !m.hasStringShape(e.Shape) {
+			return fmt.Errorf("table %s: id prefix shape %s is not a string shape of the model", t.Service, e.Shape)
+		}
+	}
+	for _, p := range t.Pagers {
+		if !slices.Contains(ops, p.Operation) {
+			return fmt.Errorf("table %s: pager of %s: the model has no such operation", t.Service, p.Operation)
+		}
+	}
 	switch {
 	case len(missing) > 0:
 		return fmt.Errorf("table %s: model operations in neither operations, exclude nor defer: %s", t.Service, strings.Join(missing, ", "))
@@ -107,9 +118,9 @@ func Render(modelDir string, tables []Table) (map[string][]byte, error) {
 		if err := Complete(*t, m); err != nil {
 			return nil, err
 		}
-		if m.Protocol != ProtocolQuery && len(t.Operations) > 0 {
-			return nil, fmt.Errorf("table %s: %s operation %s cannot become a tool yet: tools are rendered for awsQuery only",
-				t.Service, m.Protocol, t.Operations[0].Operation)
+		if m.Protocol == ProtocolRestXML && len(t.Operations) > 0 {
+			return nil, fmt.Errorf("table %s: restXml operation %s cannot become a tool yet: tools are rendered for awsQuery and restJson1 only",
+				t.Service, t.Operations[0].Operation)
 		}
 		for _, op := range t.Operations {
 			built, err := build(m, t, op)
@@ -211,6 +222,10 @@ var (
 )
 
 func renderTools(b *bytes.Buffer, tools []*tool) {
+	rest := false
+	for _, t := range tools {
+		rest = rest || t.rest
+	}
 	b.WriteString(Header + `
 package aws
 
@@ -220,7 +235,11 @@ import (
 	"github.com/castrowithcee/qatlas-connect/internal/capability"
 	"github.com/castrowithcee/qatlas-connect/internal/provider/aws/awsquery"
 	"github.com/castrowithcee/qatlas-connect/internal/provider/aws/endpoints"
-)
+`)
+	if rest {
+		b.WriteString("\"github.com/castrowithcee/qatlas-connect/internal/provider/aws/httpbind\"\n")
+	}
+	b.WriteString(`)
 
 // generatedSpecs are the tools of the curation tables, in table order.
 var generatedSpecs = []toolSpec{
@@ -267,8 +286,14 @@ var generatedSpecs = []toolSpec{
 			b.WriteString("},\n")
 		}
 		b.WriteString("},\n")
-		fmt.Fprintf(b, "service: endpoints.Service(%s), action: %s, version: %s, op: %s,\n", lit(t.table.Segment), lit(t.action), lit(t.version), lit(t.opName))
-		fmt.Fprintf(b, "input: %s,\noutput: %s,\n", shapeLit(t.input), shapeLit(t.output))
+		if t.rest {
+			fmt.Fprintf(b, "service: endpoints.Service(%s), op: %s,\n", lit(t.table.Segment), lit(t.opName))
+			fmt.Fprintf(b, "rest: &httpbind.Operation{Method: %s, URI: %s, Input: %s, Output: %s},\n",
+				lit(t.restOp.Method), lit(t.restOp.URI), restShapeLit(t.restOp.Input), restShapeLit(t.restOp.Output))
+		} else {
+			fmt.Fprintf(b, "service: endpoints.Service(%s), action: %s, version: %s, op: %s,\n", lit(t.table.Segment), lit(t.action), lit(t.version), lit(t.opName))
+			fmt.Fprintf(b, "input: %s,\noutput: %s,\n", shapeLit(t.input), shapeLit(t.output))
+		}
 		if t.pager != nil {
 			fmt.Fprintf(b, "pager: &awsquery.Pager{TokenIn: %s, TokenOut: %s, Truncated: %s, SizeParam: %s, MaxSize: %d},\n",
 				lit(t.pager.TokenIn), lit(t.pager.TokenOut), lit(t.pager.Truncated), lit(t.pager.SizeParam), t.pager.MaxSize)
@@ -293,6 +318,9 @@ var generatedSpecs = []toolSpec{
 		if t.selfRole != "" {
 			fmt.Fprintf(b, "selfRole: %s,\n", lit(t.selfRole))
 		}
+		if t.op.ResultHook != "" {
+			fmt.Fprintf(b, "resultHook: %s,\n", lit(t.op.ResultHook))
+		}
 		if t.op.AccountCheck {
 			b.WriteString("accountCheck: true,\n")
 		}
@@ -302,6 +330,48 @@ var generatedSpecs = []toolSpec{
 		b.WriteString("},\n")
 	}
 	b.WriteString("}\n")
+}
+
+var (
+	httpKindNames = map[httpbind.Kind]string{httpbind.KindString: "KindString", httpbind.KindInteger: "KindInteger",
+		httpbind.KindFloat: "KindFloat", httpbind.KindBoolean: "KindBoolean", httpbind.KindTimestamp: "KindTimestamp",
+		httpbind.KindBlob: "KindBlob", httpbind.KindStruct: "KindStruct", httpbind.KindList: "KindList",
+		httpbind.KindMap: "KindMap", httpbind.KindDocument: "KindDocument"}
+	httpLocNames = map[httpbind.Loc]string{httpbind.LocLabel: "LocLabel", httpbind.LocQuery: "LocQuery",
+		httpbind.LocQueryParams: "LocQueryParams", httpbind.LocHeader: "LocHeader", httpbind.LocPrefixHeaders: "LocPrefixHeaders",
+		httpbind.LocPayload: "LocPayload", httpbind.LocResponseCode: "LocResponseCode"}
+)
+
+// restShapeLit renders a shape of the REST runtime, or nil.
+func restShapeLit(s *httpbind.Shape) string {
+	if s == nil {
+		return "nil"
+	}
+	parts := []string{"Kind: httpbind." + httpKindNames[s.Kind]}
+	if len(s.Fields) > 0 {
+		var fields []string
+		for _, f := range s.Fields {
+			field := fmt.Sprintf("{Key: %s, Name: %s, Shape: %s", lit(f.Key), lit(f.Name), restShapeLit(f.Shape))
+			if f.Loc != httpbind.LocBody {
+				field += ", Loc: httpbind." + httpLocNames[f.Loc]
+			}
+			if f.Required {
+				field += ", Required: true"
+			}
+			fields = append(fields, field+"}")
+		}
+		parts = append(parts, "Fields: []httpbind.Field{"+strings.Join(fields, ", ")+"}")
+	}
+	if s.Elem != nil {
+		parts = append(parts, "Elem: "+restShapeLit(s.Elem))
+	}
+	if s.MaxLen > 0 {
+		parts = append(parts, "MaxLen: "+strconv.Itoa(s.MaxLen))
+	}
+	if s.MaxItems > 0 {
+		parts = append(parts, "MaxItems: "+strconv.Itoa(s.MaxItems))
+	}
+	return "&httpbind.Shape{" + strings.Join(parts, ", ") + "}"
 }
 
 func shapeLit(s *awsquery.Shape) string {
@@ -341,7 +411,7 @@ func shapeLit(s *awsquery.Shape) string {
 }
 
 func renderTests(b *bytes.Buffer, tools []*tool, exclusions []exclusion) {
-	b.WriteString(Header + "\npackage aws\n\nimport (\n\t\"slices\"\n\t\"testing\"\n)\n\n")
+	b.WriteString(Header + "\npackage aws\n\nimport (\n\t\"strings\"\n\t\"testing\"\n)\n\n")
 	for _, e := range exclusions {
 		v := exclusionVar(e.segment)
 		fmt.Fprintf(b, "// %s are the operations the %s table excludes; no tool may send one.\nvar %s = %s\n\n", v, e.segment, v, stringSlice(e.actions))
@@ -353,6 +423,8 @@ var generatedCases = []struct {
 	form                            map[string]string
 	token, confirm, listed          bool
 	result                          []string
+	// method, path, rawQuery and body are the request of a restJson1 tool, which sends no action.
+	method, path, rawQuery, body string
 }{
 `)
 	for _, t := range tools {
@@ -360,7 +432,11 @@ var generatedCases = []struct {
 		for _, k := range sortedKeys(t.sampleForm) {
 			fmt.Fprintf(b, "%s: %s, ", lit(k), lit(t.sampleForm[k]))
 		}
-		fmt.Fprintf(b, "},\ntoken: %t, confirm: %t, listed: %t, result: %s},\n", t.hasToken, t.op.Confirm, t.op.ListedOnly, stringSlice(t.resultKeys))
+		fmt.Fprintf(b, "},\ntoken: %t, confirm: %t, listed: %t, result: %s", t.hasToken, t.op.Confirm, t.op.ListedOnly, stringSlice(t.resultKeys))
+		if t.rest {
+			fmt.Fprintf(b, ",\nmethod: %s, path: %s, rawQuery: %s, body: %s", lit(t.sampleMethod), lit(t.samplePath), lit(t.sampleQuery), lit(t.sampleBody))
+		}
+		b.WriteString("},\n")
 	}
 	b.WriteString(`}
 
@@ -378,8 +454,9 @@ func TestGeneratedTools(t *testing.T) {
 				}
 				return reply{status: 500}
 			}}
+			// A write is offered by name here: the effect defaults of a connection offer reads only.
 			var tools []string
-			if c.listed {
+			if c.listed || c.confirm {
 				tools = []string{c.tool}
 			}
 			e := newToolsEnv(t, f, baseValues(), tools)
@@ -401,6 +478,13 @@ func TestGeneratedTools(t *testing.T) {
 			}
 			if call == nil {
 				t.Fatalf("requests = %v, want %s", f.actions(), c.action)
+			}
+			if c.method != "" {
+				if call.method != c.method || call.path != c.path || call.rawQuery != c.rawQuery || call.body != c.body {
+					t.Errorf("request = %s %s?%s %s, want %s %s?%s %s", call.method, call.path, call.rawQuery, call.body,
+						c.method, c.path, c.rawQuery, c.body)
+				}
+				return
 			}
 			want := len(c.form) + 2
 			if c.token {
@@ -430,8 +514,15 @@ func TestGeneratedExclusionsAreNoTools(t *testing.T) {
 	}
 	b.WriteString(`}
 	for _, s := range generatedSpecs {
-		if slices.Contains(excluded[string(s.service)], s.action) {
-			t.Errorf("%s sends the excluded operation %s", s.descriptor.ID, s.action)
+		// A restJson1 tool sends no action; its op is the operation name in words.
+		name := s.action
+		if s.rest != nil {
+			name = strings.ReplaceAll(s.op, " ", "")
+		}
+		for _, action := range excluded[string(s.service)] {
+			if strings.EqualFold(name, action) {
+				t.Errorf("%s sends the excluded operation %s", s.descriptor.ID, action)
+			}
 		}
 	}
 }

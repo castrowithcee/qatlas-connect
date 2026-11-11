@@ -14,7 +14,7 @@ import (
 	"testing"
 
 	"github.com/castrowithcee/qatlas-connect/internal/capability"
-	"github.com/castrowithcee/qatlas-connect/internal/output"
+	"github.com/castrowithcee/qatlas-kit/output"
 )
 
 // commentServer holds pages 1 (book 7) and 2 (book 9) and comments on them. Comment 11 and 12 (a reply to

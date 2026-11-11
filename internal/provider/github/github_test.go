@@ -901,7 +901,7 @@ func TestRegisterPublishesMetadataAndTheReadOperations(t *testing.T) {
 		}
 	}
 	equalSortedIDs(t, ids, []string{"github.accounts.me", "github.action-cache-usage.get", "github.action-caches.list", "github.action-variables.get", "github.action-variables.list", "github.actions-permissions.get", "github.blame.get",
-		"github.branches.get", "github.branches.list", "github.check-annotations.list", "github.check-runs.get", "github.check-runs.list",
+		"github.branch-protection.get", "github.branch-rules.get", "github.branches.get", "github.branches.list", "github.check-annotations.list", "github.check-runs.get", "github.check-runs.list",
 		"github.check-suite-runs.list", "github.check-suites.list", "github.code.search", "github.code-quality-findings.get", "github.code-scanning-alerts.get", "github.code-scanning-alerts.list",
 		"github.collaborators.list", "github.commit-branches.list", "github.commit-comments.get", "github.commit-comments.list", "github.commit-pulls.list", "github.compare.get", "github.community-profile.get", "github.contributors.list", "github.stats-contributors.get", "github.stats-commit-activity.get", "github.stats-code-frequency.get", "github.stats-participation.get", "github.stats-punch-card.get", "github.activity.list", "github.languages.get", "github.repositories.get",
 
@@ -916,7 +916,7 @@ func TestRegisterPublishesMetadataAndTheReadOperations(t *testing.T) {
 		"github.issue-fields.list",
 		"github.issues.get",
 		"github.issues.list", "github.issues.search", "github.issue-types.list", "github.labels.get", "github.labels.list",
-		"github.milestones.list", "github.notifications.get", "github.notifications.list",
+		"github.milestones.get", "github.milestones.list", "github.notifications.get", "github.notifications.list",
 		"github.organization-advisories.list", "github.organizations.search", "github.project-fields.list",
 		"github.project-items.get", "github.project-items.list", "github.projects.list",
 		"github.project-status.list", "github.project-teams.list", "github.project-views.list", "github.project-workflows.list",
@@ -940,7 +940,7 @@ func TestRegisterPublishesMetadataAndTheReadOperations(t *testing.T) {
 	if jobsLog.Risk.DataSensitivity != logSensitivity {
 		t.Errorf("the job log is classified as %q, want %q", jobsLog.Risk.DataSensitivity, logSensitivity)
 	}
-	if len(metadata.Tools) != 272 {
+	if len(metadata.Tools) != 280 {
 		t.Errorf("tools = %+v, want every operation offered to connection allow-lists", metadata.Tools)
 	}
 }
@@ -1925,6 +1925,10 @@ func ownerFiltersStripped(descriptor capability.Descriptor) string {
 	schema := string(descriptor.InputSchema)
 	if descriptor.ID == secretScanningAlertsList.ID {
 		schema = strings.NewReplacer("owner_email_hash", "", "owner-email", "", "owner-id", "", "owner-name", "").Replace(schema)
+	}
+	if descriptor.ID == branchProtectionSet.ID {
+		// GitHub names a protection setting require_code_owner_reviews; it is no owner argument.
+		schema = strings.ReplaceAll(schema, "require_code_owner_reviews", "")
 	}
 	if descriptor.ID == projectsList.ID {
 		// The project list takes a bounded search text, which travels as a GraphQL variable.

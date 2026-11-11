@@ -33,7 +33,7 @@ func describeBinding(b *RestBinding) string {
 }
 
 // Every operation of both real models binds to the runtime, and the table of each lists exactly these
-// operations in defer: nothing is a tool yet, nothing is missing.
+// operations in operations, exclude or defer: nothing is missing.
 func TestEveryOperationOfTheRestModelsBinds(t *testing.T) {
 	for _, c := range []struct {
 		table Table
@@ -44,8 +44,8 @@ func TestEveryOperationOfTheRestModelsBinds(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if len(ops) != c.count || len(c.table.Defer) != c.count || len(c.table.Operations) != 0 || len(c.table.Exclude) != 0 {
-			t.Errorf("%s: %d operations in the model, %d deferred, %d tools", c.table.Service, len(ops), len(c.table.Defer), len(c.table.Operations))
+		if listed := len(c.table.Defer) + len(c.table.Operations) + len(c.table.Exclude); len(ops) != c.count || listed != c.count {
+			t.Errorf("%s: %d operations in the model, %d listed in the table", c.table.Service, len(ops), listed)
 		}
 		for _, op := range ops {
 			b, err := m.BindRest(op)
@@ -71,7 +71,7 @@ func TestProtocolIsReadFromTheService(t *testing.T) {
 	loadRest(t, sesv2Table)
 	for name, traits := range map[string]string{
 		"both":    `"aws.protocols#awsQuery":{},"aws.protocols#restJson1":{}`,
-		"neither": `"aws.protocols#restXml":{}`,
+		"neither": `"aws.protocols#ec2Query":{}`,
 	} {
 		data := `{"smithy":"2.0","shapes":{"com.example#S":{"type":"service","version":"2020-01-01","traits":{` + traits + `}}}}`
 		if _, err := LoadModel([]byte(data)); err == nil {
@@ -85,6 +85,14 @@ func TestProtocolIsReadFromTheService(t *testing.T) {
 	table.Defer = slices.DeleteFunc(slices.Clone(table.Defer), func(o Omission) bool { return o.Operation == "GetPrimaryEmail" })
 	if _, err := Render(ModelDir, []Table{table}); err == nil || !strings.Contains(err.Error(), "GetPrimaryEmail") {
 		t.Errorf("a restJson1 tool was rendered: %v", err)
+	}
+	// A restXml model has no tool rendering yet.
+	xml := s3Table
+	xml.Operations = []Operation{{Operation: "ListBuckets", Object: "bucket", Action: "list", Effect: "read",
+		Idempotency: "safe", Title: "t", Description: "d", DataSensitivity: "s", TargetCheck: "none", PolicyCheck: "none"}}
+	xml.Defer = slices.DeleteFunc(slices.Clone(xml.Defer), func(o Omission) bool { return o.Operation == "ListBuckets" })
+	if _, err := Render(ModelDir, []Table{xml}); err == nil || !strings.Contains(err.Error(), "restXml operation ListBuckets") {
+		t.Errorf("a restXml tool was rendered: %v", err)
 	}
 }
 

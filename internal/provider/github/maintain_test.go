@@ -224,7 +224,7 @@ func TestGuardedToolsStayOutOfEveryStandardProfile(t *testing.T) {
 		iterationsReplace.ID: true, viewsDelete.ID: true, itemsDelete.ID: true, statusDelete.ID: true,
 		projectWorkflowsDelete.ID: true, releasesDelete.ID: true, contentsDelete.ID: true,
 		repositoriesDelete.ID: true, collaboratorsUpdate.ID: true, teamsLink.ID: true, teamsUnlink.ID: true,
-		filesPush.ID: true, branchesDelete.ID: true, branchesRename.ID: true, branchesSyncFork.ID: true, mergesCreate.ID: true, tagsDelete.ID: true, rulesetsDelete.ID: true, labelsDelete.ID: true, actionVariablesDelete.ID: true, actionCachesDelete.ID: true, runsDelete.ID: true, artifactsDelete.ID: true, commentsDelete.ID: true,
+		filesPush.ID: true, branchesDelete.ID: true, branchesRename.ID: true, branchesSyncFork.ID: true, mergesCreate.ID: true, tagsDelete.ID: true, rulesetsDelete.ID: true, branchProtectionDelete.ID: true, labelsDelete.ID: true, milestonesDelete.ID: true, actionVariablesDelete.ID: true, actionCachesDelete.ID: true, runsDelete.ID: true, artifactsDelete.ID: true, commentsDelete.ID: true,
 		discussionCommentsDelete.ID: true, runLogsDelete.ID: true, environmentsDelete.ID: true,
 		branchPoliciesDelete.ID: true, protectionRulesDelete.ID: true}
 	// github.pull-requests.merge and github.pull-request-reviews.approve are each guarded on their own: neither is
@@ -240,7 +240,8 @@ func TestGuardedToolsStayOutOfEveryStandardProfile(t *testing.T) {
 	for _, descriptor := range reg.Provider(Provider) {
 		want := guarded[descriptor.ID] || deletes[descriptor.ID] || descriptor.ID == pullsMerge.ID ||
 			descriptor.ID == pullRequestReviewsApprove.ID || descriptor.ID == rulesetsCreate.ID ||
-			descriptor.ID == rulesetsUpdate.ID || descriptor.ID == customPropertiesSet.ID ||
+			descriptor.ID == rulesetsUpdate.ID || descriptor.ID == branchProtectionSet.ID ||
+			descriptor.ID == customPropertiesSet.ID ||
 			descriptor.ID == notificationsMarkAll.ID || descriptor.ID == gistsDelete.ID ||
 			descriptor.ID == repositoriesRename.ID || descriptor.ID == environmentsSet.ID ||
 			descriptor.ID == runsForceCancel.ID
@@ -255,10 +256,10 @@ func TestGuardedToolsStayOutOfEveryStandardProfile(t *testing.T) {
 			marked++
 		}
 	}
-	if marked != len(guardedTools)+len(deletes)+10 || len(guardedTools) != 13 {
+	if marked != len(guardedTools)+len(deletes)+11 || len(guardedTools) != 13 {
 		t.Errorf("marked tools = %d, want the thirteen maintainer and administrator tools, the fifteen deletes and "+
 			"the three access tools, files.push, and github.labels.delete, the merge, the approve, the ruleset "+
-			"create and update, the custom properties set, the notifications mark-all, the gist delete, the repository rename, "+
+			"create and update, the branch protection set, the custom properties set, the notifications mark-all, the gist delete, the repository rename, "+
 			"the environment set, and the run force-cancel", marked)
 	}
 	profiles := map[string]config.ToolProfile{}
