@@ -112,8 +112,9 @@ func formerRelease(t *testing.T, signer ssh.Signer, tag string, program []byte) 
 // repository API at repositoryAPI.
 func buildRenamed(t *testing.T, path, keyLine, repositoryAPI string) []byte {
 	t.Helper()
-	cmd := exec.Command("go", "build", "-tags", "e2e", "-buildvcs=false", "-ldflags",
-		"-X github.com/castrowithcee/qatlas-connect/internal/cli.version="+renamedTag+
+	// Stripped like a release build: the updater refuses a program over its size limit.
+	cmd := exec.Command("go", "build", "-tags", "e2e", "-buildvcs=false", "-trimpath", "-ldflags",
+		"-s -w -X github.com/castrowithcee/qatlas-connect/internal/cli.version="+renamedTag+
 			" -X 'github.com/castrowithcee/qatlas-connect/internal/release.extraKeyLines="+keyLine+"'"+
 			" -X github.com/castrowithcee/qatlas-connect/internal/selfupdate.testBaseURL="+repositoryAPI,
 		"-o", path, ".")
@@ -485,8 +486,9 @@ func buildFormer(t *testing.T, src, path, keyLine, releasesURL string) []byte {
 		t.Fatalf("downloading the modules of %s: %v: %s", formerTag, err, out)
 	}
 	const module = "github.com/castrowithcee/qatlas-cli"
-	cmd := exec.Command("go", "build", "-tags", "e2e", "-buildvcs=false", "-ldflags",
-		"-X "+module+"/internal/cli.version="+formerTag+
+	// Stripped like a release build: the updater refuses a program over its size limit.
+	cmd := exec.Command("go", "build", "-tags", "e2e", "-buildvcs=false", "-trimpath", "-ldflags",
+		"-s -w -X "+module+"/internal/cli.version="+formerTag+
 			" -X '"+module+"/internal/release.extraKeyLines="+keyLine+"'"+
 			" -X "+module+"/internal/selfupdate.testBaseURL="+releasesURL,
 		"-o", path, ".")
