@@ -70,6 +70,13 @@ const areaInsightsRoot = "https://areainsights.googleapis.com"
 
 const areaInsightsHost = "areainsights.googleapis.com"
 
+// geolocationRoot is the tenth fixed origin: Geolocation API lives on the shared Google APIs host. Only the
+// fixed geolocate path below it is reachable, through postKeyedTo; no argument or configuration reaches another
+// path of that host.
+const geolocationRoot = "https://www.googleapis.com"
+
+const geolocationHost = "www.googleapis.com"
+
 // Bounds of one request. The timeout stays below the 60 seconds an invoke may take, so a slow answer ends
 // as a timeout of this provider and not as a cancelled call.
 const (
@@ -253,6 +260,24 @@ func (c *Client) getKeyedFrom(ctx context.Context, root, op, path string, query 
 	return out, nil
 }
 
+// postKeyedTo is getKeyedFrom for a POST whose documentation names the key as a query parameter only. The key
+// is appended to the URL here and the URL never leaves this function. body is built by the tool from checked
+// arguments.
+func (c *Client) postKeyedTo(ctx context.Context, root, op, path string, body map[string]any) (map[string]any, error) {
+	req, err := postRequest(ctx, root+path+"?"+url.Values{"key": {c.key}}.Encode(), body)
+	if err != nil {
+		return nil, failure(op, "the request could not be built")
+	}
+	var out map[string]any
+	if err := c.exchangeAs(ctx, op, req, "", false, &out); err != nil {
+		return nil, err
+	}
+	if out == nil {
+		return nil, c.unsure(provider.InvalidResponse(op, "Google returned an invalid response"))
+	}
+	return out, nil
+}
+
 // send is exchange for a JSON object answer.
 func (c *Client) send(ctx context.Context, op string, req *http.Request, mask string) (map[string]any, error) {
 	var out map[string]any
@@ -351,6 +376,9 @@ func (c *Client) exchangeAs(ctx context.Context, op string, req *http.Request, m
 		}
 		if req.URL.Host == areaInsightsHost {
 			failed = areaInsightsError(failed, response.StatusCode)
+		}
+		if req.URL.Host == geolocationHost {
+			failed = geolocationError(failed, response.StatusCode, body)
 		}
 		if response.StatusCode >= 300 && (response.StatusCode < 400 || response.StatusCode >= 500) {
 			failed = c.unsure(failed)

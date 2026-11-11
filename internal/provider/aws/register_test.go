@@ -96,7 +96,10 @@ var wantTools = []string{
 	"aws.iam.user.list",
 	"aws.iam.user.list-tags",
 	"aws.iam.virtual-mfa-device.list",
+	"aws.ses.email-identity-policy.create",
+	"aws.ses.email-identity-policy.delete",
 	"aws.ses.email-identity-policy.list",
+	"aws.ses.email-identity-policy.update",
 	"aws.ses.email-identity.create",
 	"aws.ses.email-identity.delete",
 	"aws.ses.email-identity.get",
@@ -127,9 +130,11 @@ func TestRegisterPublishesMetadataAndTools(t *testing.T) {
 		// the connection with confirmation.
 		open := tool.Effect == config.EffectRead && !tool.RequiresToolAllowList
 		write := tool.Effect != config.EffectRead && tool.RequiresToolAllowList && strings.HasPrefix(tool.ID, "aws.iam.")
-		sesWrite := tool.Effect != config.EffectRead && !tool.RequiresToolAllowList && strings.HasPrefix(tool.ID, "aws.ses.")
+		// Identity policy writes change who may send, so they are listed-only like the IAM writes.
+		sesWrite := tool.Effect != config.EffectRead && strings.HasPrefix(tool.ID, "aws.ses.") &&
+			tool.RequiresToolAllowList == strings.HasPrefix(tool.ID, "aws.ses.email-identity-policy.")
 		if !(open || write || sesWrite) || tool.Group != strings.Split(tool.ID, ".")[1] {
-			t.Errorf("tool %+v, want an open read, a listed-only IAM write, or an SES write of the group named by its service segment", tool)
+			t.Errorf("tool %+v, want an open read, a listed-only IAM write, or an SES write (listed-only for identity policies) of the group named by its service segment", tool)
 		}
 	}
 	if !reflect.DeepEqual(ids, wantTools) {
@@ -199,7 +204,7 @@ var readOnlyIdentityProviderTools = map[string]bool{
 	"aws.iam.outbound-federation.get-info": true,
 }
 
-// Every read is credential-free with the full risk, every other tool is a listed-only IAM write or an SES
+// Every read is credential-free with the full risk, every other tool is a listed-only IAM write, a listed-only SES identity policy write, or an SES
 // write with confirmation, and every tool has the strict schema. The AWS actions that return a credential or token are no
 // tools, and the actions the STS tools send are exactly the three STS reads.
 func TestSTSToolsAreTheCredentialFreeActions(t *testing.T) {
@@ -210,7 +215,8 @@ func TestSTSToolsAreTheCredentialFreeActions(t *testing.T) {
 		if d.Risk.Effect != capability.EffectRead {
 			want.Effect, want.Idempotency, want.Confirmation = d.Risk.Effect, d.Risk.Idempotency, capability.ConfirmationRequired
 			listedIAM := d.RequiresToolAllowList && strings.HasPrefix(d.ID, "aws.iam.")
-			sesWrite := !d.RequiresToolAllowList && strings.HasPrefix(d.ID, "aws.ses.")
+			sesWrite := strings.HasPrefix(d.ID, "aws.ses.") &&
+				d.RequiresToolAllowList == strings.HasPrefix(d.ID, "aws.ses.email-identity-policy.")
 			if !(listedIAM || sesWrite) || d.Risk.Idempotency == capability.IdempotencySafe {
 				t.Errorf("%s is a write that is neither a listed-only IAM tool nor an SES tool: %+v", d.ID, d)
 			}

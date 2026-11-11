@@ -210,7 +210,7 @@ var (
 	Idempotency  = []string{"safe", "idempotent", "non-idempotent"}
 	TargetChecks = []string{"none", "account-argument", "arn-account", "arn-account-or-managed-policy", "arn-region", "bucket-owner",
 		"ses-identity", "ses-identity-arn"}
-	PolicyChecks = []string{"none", "trust-policy", "bucket-policy", "identity-policy", "pab-tighten"}
+	PolicyChecks = []string{"none", "trust-policy", "resource-policy-own-account", "bucket-policy", "identity-policy", "pab-tighten"}
 	Forms        = []string{"account-id"}
 	// ResultHooks are the hand-written result steps a table may name; see resultHookFields.
 	ResultHooks = []string{"dns-records"}
