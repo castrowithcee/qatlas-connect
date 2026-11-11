@@ -31,12 +31,13 @@
 // pull request, its changed files, its commits, its diff, and the checks at its head commit; the project
 // items still see a pull request only as an item, and the issue and comment tools still refuse a pull request
 // number. The not-recommended setup profile pull-requests-operator adds the changes: it creates, updates,
-// closes, and reopens a pull request, and updates its head branch with its base while the head is still a
-// given commit; only merging is not in it, because a merge into the wrong repository's default branch is the
-// costliest mistake there, so only a connection whose tools list names github.pull-requests.merge offers it,
-// and it always needs the pull request's current head commit and its own confirmation. The not-recommended
-// setup profile releases lists releases, reads one by identifier, tag, or as the latest published one, lists
-// the metadata of a release's assets, and creates and updates releases; only a connection whose tools list
+// closes, and reopens a pull request, updates its head branch with its base while the head is still a
+// given commit, and turns off its auto-merge; only merging is not in it, because a merge into the wrong
+// repository's default branch is the costliest mistake there, so only a connection whose tools list names
+// github.pull-requests.merge offers it, and it always needs the pull request's current head commit and its
+// own confirmation. Enabling auto-merge schedules such a merge, so github.pull-request-auto-merge.enable is
+// listed-only the same way. The not-recommended setup profile releases lists releases, reads one by
+// identifier, tag, or as the latest published one, lists the metadata of a release's assets, and creates and updates releases; only a connection whose tools list
 // names it deletes a release, because the tag it was cut from stays behind and the notes and attachments do
 // not. A tool that touches a project and a repository checks both. The account tool reads the login, name,
 // type, and plan of the account behind the connection's token; it and the star list, which reads the
@@ -741,11 +742,13 @@ func Register(reg *capability.Registry) error {
 			ID: "pull-requests-operator", Title: "Pull requests operator",
 			Description: "reads the pull requests of a repository and creates, updates, closes, and reopens " +
 				"them, and updates a pull request's head branch with its base while the head is still a given " +
-				"commit; every change needs its own confirmation, and merging stays unticked, since it is " +
-				"offered only where a connection's tools list names github.pull-requests.merge",
+				"commit, and turns off a pull request's auto-merge; every change needs its own confirmation, and " +
+				"merging and enabling auto-merge stay unticked, since each is offered only where a " +
+				"connection's tools list names github.pull-requests.merge or " +
+				"github.pull-request-auto-merge.enable",
 			Tools: []string{pullsList.ID, pullsGet.ID, pullFilesList.ID, pullCommitsList.ID, pullDiffsGet.ID,
 				pullChecksList.ID, pullChecksWait.ID, pullsCreate.ID, pullsUpdate.ID, pullsClose.ID, pullsReopen.ID,
-				pullBranchesUpdate.ID},
+				pullBranchesUpdate.ID, pullAutoMergeDisable.ID},
 		}, {
 			ID: "releases", Title: "Releases",
 			Description: "lists releases and their asset metadata, reads one release by identifier, tag, or " +
