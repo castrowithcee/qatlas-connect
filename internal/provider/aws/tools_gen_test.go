@@ -3,7 +3,7 @@
 package aws
 
 import (
-	"slices"
+	"strings"
 	"testing"
 )
 
@@ -13,6 +13,12 @@ var excludedSTSActions = []string{"AssumeRole", "AssumeRoleWithSAML", "AssumeRol
 // excludedIAMActions are the operations the iam table excludes; no tool may send one.
 var excludedIAMActions = []string{"AcceptDelegationRequest", "AddClientIDToOpenIDConnectProvider", "ChangePassword", "CreateAccessKey", "CreateDelegationRequest", "CreateLoginProfile", "CreateOpenIDConnectProvider", "CreateSAMLProvider", "CreateServiceSpecificCredential", "CreateUser", "CreateVirtualMFADevice", "EnableMFADevice", "EnableOutboundWebIdentityFederation", "ResetServiceSpecificCredential", "ResyncMFADevice", "SendDelegationToken", "UpdateLoginProfile", "UpdateOpenIDConnectProviderThumbprint", "UpdateSAMLProvider", "UploadSSHPublicKey", "UploadServerCertificate", "UploadSigningCertificate"}
 
+// excludedSESActions are the operations the ses table excludes; no tool may send one.
+var excludedSESActions = []string{"SendCustomVerificationEmail"}
+
+// excludedS3Actions are the operations the s3 table excludes; no tool may send one.
+var excludedS3Actions = []string{"DeletePublicAccessBlock", "PutBucketAcl", "PutObjectAcl", "PutBucketWebsite"}
+
 // generatedCases are the basic tests of the generated tools: arguments derived from the input schema,
 // the form parameters they must encode to, and an answer derived from the output shape.
 var generatedCases = []struct {
@@ -20,6 +26,13 @@ var generatedCases = []struct {
 	form                            map[string]string
 	token, confirm, listed          bool
 	result                          []string
+	// method, path, rawQuery and body are the request of a REST tool, which sends no action. owner is the
+	// expected-owner header it must carry, bucket the bucket that is the first label of its host, and
+	// answerHeader the headers of the answer.
+	method, path, rawQuery, body, owner, bucket string
+	answerHeader                                map[string]string
+	// readback is the answer to the read a tool makes before its change.
+	readback string
 }{
 	{tool: "aws.sts.caller-identity.get", action: "GetCallerIdentity",
 		arguments: "{}",
@@ -451,6 +464,195 @@ var generatedCases = []struct {
 		answer:    `<ListPoliciesGrantingServiceAccessResponse xmlns="https://iam.amazonaws.com/doc/2010-05-08/"><ListPoliciesGrantingServiceAccessResult><PoliciesGrantingServiceAccess><member><ServiceNamespace>x</ServiceNamespace><Policies><member><PolicyName>x</PolicyName><PolicyType>x</PolicyType><PolicyArn>x</PolicyArn><EntityType>x</EntityType><EntityName>x</EntityName></member></Policies></member></PoliciesGrantingServiceAccess><IsTruncated>false</IsTruncated></ListPoliciesGrantingServiceAccessResult></ListPoliciesGrantingServiceAccessResponse>`,
 		form:      map[string]string{"Arn": "arn:aws:iam::123456789012:role/a", "ServiceNamespaces.member.1": "a"},
 		token:     false, confirm: false, listed: false, result: []string{"policies_granting_service_access", "has_more"}},
+	{tool: "aws.ses.email-identity.list", action: "",
+		arguments: `{"filter":{"k":"a"}}`,
+		answer:    `{"EmailIdentities":[{"IdentityType":"x","IdentityName":"x","SendingEnabled":true,"VerificationStatus":"x"}]}`,
+		form:      map[string]string{},
+		token:     false, confirm: false, listed: false, result: []string{"region", "has_more"},
+		method: "POST", path: "/v2/email/list-identities", rawQuery: "", body: `{"Filter":{"k":"a"}}`},
+	{tool: "aws.ses.email-identity.get", action: "",
+		arguments: `{"email_identity":"example.com"}`,
+		answer:    `{"IdentityType":"x","FeedbackForwardingStatus":true,"VerifiedForSendingStatus":true,"DkimAttributes":{"SigningEnabled":true,"Status":"x","Tokens":["x"],"SigningHostedZone":"x","SigningAttributesOrigin":"x","NextSigningKeyLength":"x","CurrentSigningKeyLength":"x","LastKeyGenerationTimestamp":1767323045},"MailFromAttributes":{"MailFromDomain":"x","MailFromDomainStatus":"x","BehaviorOnMxFailure":"x"},"Policies":{"k":"x"},"Tags":[{"Key":"x","Value":"x"}],"ConfigurationSetName":"x","VerificationStatus":"x","VerificationInfo":{"LastCheckedTimestamp":1767323045,"LastSuccessTimestamp":1767323045,"ErrorType":"x","SOARecord":{"PrimaryNameServer":"x","AdminEmail":"x","SerialNumber":1}}}`,
+		form:      map[string]string{},
+		token:     false, confirm: false, listed: false, result: []string{"region"},
+		method: "GET", path: "/v2/email/identities/example.com", rawQuery: "", body: ""},
+	{tool: "aws.ses.email-identity.create", action: "",
+		arguments: `{"email_identity":"example.com","tags":[{"key":"a","value":"a"}],"dkim_signing_attributes":{"next_signing_key_length":"RSA_1024_BIT","domain_signing_attributes_origin":"AWS_SES"},"configuration_set_name":"a"}`,
+		answer:    `{"IdentityType":"x","VerifiedForSendingStatus":true,"DkimAttributes":{"SigningEnabled":true,"Status":"x","Tokens":["x"],"SigningHostedZone":"x","SigningAttributesOrigin":"x","NextSigningKeyLength":"x","CurrentSigningKeyLength":"x","LastKeyGenerationTimestamp":1767323045}}`,
+		form:      map[string]string{},
+		token:     false, confirm: true, listed: false, result: []string{"region"},
+		method: "POST", path: "/v2/email/identities", rawQuery: "", body: `{"EmailIdentity":"example.com","Tags":[{"Key":"a","Value":"a"}],"DkimSigningAttributes":{"NextSigningKeyLength":"RSA_1024_BIT","DomainSigningAttributesOrigin":"AWS_SES"},"ConfigurationSetName":"a"}`},
+	{tool: "aws.ses.email-identity.delete", action: "",
+		arguments: `{"email_identity":"example.com"}`,
+		answer:    "{}",
+		form:      map[string]string{},
+		token:     false, confirm: true, listed: false, result: []string{"region"},
+		method: "DELETE", path: "/v2/email/identities/example.com", rawQuery: "", body: ""},
+	{tool: "aws.ses.email-identity.put-dkim-attributes", action: "",
+		arguments: `{"email_identity":"example.com","signing_enabled":true}`,
+		answer:    "{}",
+		form:      map[string]string{},
+		token:     false, confirm: true, listed: false, result: []string{"region"},
+		method: "PUT", path: "/v2/email/identities/example.com/dkim", rawQuery: "", body: `{"SigningEnabled":true}`},
+	{tool: "aws.ses.email-identity.put-dkim-signing-attributes", action: "",
+		arguments: `{"email_identity":"example.com","signing_attributes_origin":"AWS_SES","signing_attributes":{"next_signing_key_length":"RSA_1024_BIT","domain_signing_attributes_origin":"AWS_SES"}}`,
+		answer:    `{"DkimStatus":"x","DkimTokens":["x"],"SigningHostedZone":"x"}`,
+		form:      map[string]string{},
+		token:     false, confirm: true, listed: false, result: []string{"region"},
+		method: "PUT", path: "/v2/email/identities/example.com/dkim/signing", rawQuery: "", body: `{"SigningAttributesOrigin":"AWS_SES","SigningAttributes":{"NextSigningKeyLength":"RSA_1024_BIT","DomainSigningAttributesOrigin":"AWS_SES"}}`},
+	{tool: "aws.ses.email-identity.put-mail-from-attributes", action: "",
+		arguments: `{"email_identity":"example.com","mail_from_domain":"a","behavior_on_mx_failure":"USE_DEFAULT_VALUE"}`,
+		answer:    "{}",
+		form:      map[string]string{},
+		token:     false, confirm: true, listed: false, result: []string{"region"},
+		method: "PUT", path: "/v2/email/identities/example.com/mail-from", rawQuery: "", body: `{"MailFromDomain":"a","BehaviorOnMxFailure":"USE_DEFAULT_VALUE"}`},
+	{tool: "aws.ses.email-identity.put-feedback-attributes", action: "",
+		arguments: `{"email_identity":"example.com","email_forwarding_enabled":true}`,
+		answer:    "{}",
+		form:      map[string]string{},
+		token:     false, confirm: true, listed: false, result: []string{"region"},
+		method: "PUT", path: "/v2/email/identities/example.com/feedback", rawQuery: "", body: `{"EmailForwardingEnabled":true}`},
+	{tool: "aws.ses.email-identity.put-configuration-set-attributes", action: "",
+		arguments: `{"email_identity":"example.com","configuration_set_name":"a"}`,
+		answer:    "{}",
+		form:      map[string]string{},
+		token:     false, confirm: true, listed: false, result: []string{"region"},
+		method: "PUT", path: "/v2/email/identities/example.com/configuration-set", rawQuery: "", body: `{"ConfigurationSetName":"a"}`},
+	{tool: "aws.ses.email-identity.tag", action: "",
+		arguments: `{"resource_arn":"arn:aws:ses:eu-central-1:123456789012:identity/example.com","tags":[{"key":"a","value":"a"}]}`,
+		answer:    "{}",
+		form:      map[string]string{},
+		token:     false, confirm: true, listed: false, result: []string{"region"},
+		method: "POST", path: "/v2/email/tags", rawQuery: "", body: `{"ResourceArn":"arn:aws:ses:eu-central-1:123456789012:identity/example.com","Tags":[{"Key":"a","Value":"a"}]}`},
+	{tool: "aws.ses.email-identity.untag", action: "",
+		arguments: `{"resource_arn":"arn:aws:ses:eu-central-1:123456789012:identity/example.com","tag_keys":["a"]}`,
+		answer:    "{}",
+		form:      map[string]string{},
+		token:     false, confirm: true, listed: false, result: []string{"region"},
+		method: "DELETE", path: "/v2/email/tags", rawQuery: "ResourceArn=arn%3Aaws%3Ases%3Aeu-central-1%3A123456789012%3Aidentity%2Fexample.com&TagKeys=a", body: ""},
+	{tool: "aws.ses.email-identity.list-tags", action: "",
+		arguments: `{"resource_arn":"arn:aws:ses:eu-central-1:123456789012:identity/example.com"}`,
+		answer:    `{"Tags":[{"Key":"x","Value":"x"}]}`,
+		form:      map[string]string{},
+		token:     false, confirm: false, listed: false, result: []string{"region", "tags"},
+		method: "GET", path: "/v2/email/tags", rawQuery: "ResourceArn=arn%3Aaws%3Ases%3Aeu-central-1%3A123456789012%3Aidentity%2Fexample.com", body: ""},
+	{tool: "aws.ses.email-identity-policy.list", action: "",
+		arguments: `{"email_identity":"example.com"}`,
+		answer:    `{"Policies":{"k":"x"}}`,
+		form:      map[string]string{},
+		token:     false, confirm: false, listed: false, result: []string{"region"},
+		method: "GET", path: "/v2/email/identities/example.com/policies", rawQuery: "", body: ""},
+	{tool: "aws.ses.email-identity-policy.create", action: "",
+		arguments: `{"email_identity":"example.com","policy_name":"a","policy":"{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Principal\":{\"AWS\":\"123456789012\"},\"Action\":\"ses:SendEmail\",\"Resource\":\"*\"}]}"}`,
+		answer:    "{}",
+		form:      map[string]string{},
+		token:     false, confirm: true, listed: true, result: []string{"region"},
+		method: "POST", path: "/v2/email/identities/example.com/policies/a", rawQuery: "", body: `{"Policy":"{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Principal\":{\"AWS\":\"123456789012\"},\"Action\":\"ses:SendEmail\",\"Resource\":\"*\"}]}"}`},
+	{tool: "aws.ses.email-identity-policy.update", action: "",
+		arguments: `{"email_identity":"example.com","policy_name":"a","policy":"{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Principal\":{\"AWS\":\"123456789012\"},\"Action\":\"ses:SendEmail\",\"Resource\":\"*\"}]}"}`,
+		answer:    "{}",
+		form:      map[string]string{},
+		token:     false, confirm: true, listed: true, result: []string{"region"},
+		method: "PUT", path: "/v2/email/identities/example.com/policies/a", rawQuery: "", body: `{"Policy":"{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Principal\":{\"AWS\":\"123456789012\"},\"Action\":\"ses:SendEmail\",\"Resource\":\"*\"}]}"}`},
+	{tool: "aws.ses.email-identity-policy.delete", action: "",
+		arguments: `{"email_identity":"example.com","policy_name":"a"}`,
+		answer:    "{}",
+		form:      map[string]string{},
+		token:     false, confirm: true, listed: true, result: []string{"region"},
+		method: "DELETE", path: "/v2/email/identities/example.com/policies/a", rawQuery: "", body: ""},
+	{tool: "aws.s3.bucket.list", action: "",
+		arguments: `{"prefix":"a","bucket_region":"a"}`,
+		answer:    `<ListAllMyBucketsResult xmlns="http://s3.amazonaws.com/doc/2006-03-01/"><Buckets><Bucket><Name>x</Name><CreationDate>2026-01-02T03:04:05Z</CreationDate><BucketRegion>x</BucketRegion><BucketArn>x</BucketArn></Bucket></Buckets><Owner><DisplayName>x</DisplayName><ID>x</ID></Owner><Prefix>x</Prefix></ListAllMyBucketsResult>`,
+		form:      map[string]string{},
+		token:     false, confirm: false, listed: false, result: []string{"region", "has_more"},
+		method: "GET", path: "/", rawQuery: "x-id=ListBuckets&bucket-region=a&prefix=a", body: ""},
+	{tool: "aws.s3.bucket.head", action: "",
+		arguments: `{"bucket":"my-bucket"}`,
+		answer:    "",
+		form:      map[string]string{},
+		token:     false, confirm: false, listed: false, result: []string{"region"},
+		method: "HEAD", path: "/", rawQuery: "", body: "", owner: "123456789012", bucket: "my-bucket",
+		answerHeader: map[string]string{"x-amz-access-point-alias": "true", "x-amz-bucket-arn": "x", "x-amz-bucket-location-name": "x", "x-amz-bucket-location-type": "x", "x-amz-bucket-region": "x"}},
+	{tool: "aws.s3.bucket.get-location", action: "",
+		arguments: `{"bucket":"my-bucket"}`,
+		answer:    `<LocationConstraint xmlns="http://s3.amazonaws.com/doc/2006-03-01/">x</LocationConstraint>`,
+		form:      map[string]string{},
+		token:     false, confirm: false, listed: false, result: []string{"region"},
+		method: "GET", path: "/", rawQuery: "location", body: "", owner: "123456789012", bucket: "my-bucket"},
+	{tool: "aws.s3.versioning.get", action: "",
+		arguments: `{"bucket":"my-bucket"}`,
+		answer:    `<VersioningConfiguration xmlns="http://s3.amazonaws.com/doc/2006-03-01/"><Status>x</Status><MfaDelete>x</MfaDelete></VersioningConfiguration>`,
+		form:      map[string]string{},
+		token:     false, confirm: false, listed: false, result: []string{"region"},
+		method: "GET", path: "/", rawQuery: "versioning", body: "", owner: "123456789012", bucket: "my-bucket"},
+	{tool: "aws.s3.encryption.get", action: "",
+		arguments: `{"bucket":"my-bucket"}`,
+		answer:    `<ServerSideEncryptionConfiguration xmlns="http://s3.amazonaws.com/doc/2006-03-01/"><Rule><ApplyServerSideEncryptionByDefault><SSEAlgorithm>x</SSEAlgorithm><KMSMasterKeyID>x</KMSMasterKeyID></ApplyServerSideEncryptionByDefault><BucketKeyEnabled>true</BucketKeyEnabled><BlockedEncryptionTypes><EncryptionType>x</EncryptionType></BlockedEncryptionTypes></Rule></ServerSideEncryptionConfiguration>`,
+		form:      map[string]string{},
+		token:     false, confirm: false, listed: false, result: []string{"region"},
+		method: "GET", path: "/", rawQuery: "encryption", body: "", owner: "123456789012", bucket: "my-bucket"},
+	{tool: "aws.s3.tagging.get", action: "",
+		arguments: `{"bucket":"my-bucket"}`,
+		answer:    `<Tagging xmlns="http://s3.amazonaws.com/doc/2006-03-01/"><TagSet><Tag><Key>x</Key><Value>x</Value></Tag></TagSet></Tagging>`,
+		form:      map[string]string{},
+		token:     false, confirm: false, listed: false, result: []string{"region"},
+		method: "GET", path: "/", rawQuery: "tagging", body: "", owner: "123456789012", bucket: "my-bucket"},
+	{tool: "aws.s3.public-access-block.get", action: "",
+		arguments: `{"bucket":"my-bucket"}`,
+		answer:    `<PublicAccessBlockConfiguration xmlns="http://s3.amazonaws.com/doc/2006-03-01/"><BlockPublicAcls>true</BlockPublicAcls><IgnorePublicAcls>true</IgnorePublicAcls><BlockPublicPolicy>true</BlockPublicPolicy><RestrictPublicBuckets>true</RestrictPublicBuckets></PublicAccessBlockConfiguration>`,
+		form:      map[string]string{},
+		token:     false, confirm: false, listed: false, result: []string{"region"},
+		method: "GET", path: "/", rawQuery: "publicAccessBlock", body: "", owner: "123456789012", bucket: "my-bucket"},
+	{tool: "aws.s3.bucket.create", action: "",
+		arguments: `{"bucket":"my-bucket","create_bucket_configuration":{"location_constraint":"eu-central-1"},"object_ownership":"BucketOwnerEnforced"}`,
+		answer:    "",
+		form:      map[string]string{},
+		token:     false, confirm: true, listed: false, result: []string{"region"},
+		method: "PUT", path: "/", rawQuery: "", body: `<CreateBucketConfiguration xmlns="http://s3.amazonaws.com/doc/2006-03-01/"><LocationConstraint>eu-central-1</LocationConstraint></CreateBucketConfiguration>`, bucket: "my-bucket",
+		answerHeader: map[string]string{"Location": "x", "x-amz-bucket-arn": "x"}},
+	{tool: "aws.s3.bucket.delete", action: "",
+		arguments: `{"bucket":"my-bucket"}`,
+		answer:    "",
+		form:      map[string]string{},
+		token:     false, confirm: true, listed: false, result: []string{"region"},
+		method: "DELETE", path: "/", rawQuery: "", body: "", owner: "123456789012", bucket: "my-bucket"},
+	{tool: "aws.s3.versioning.put", action: "",
+		arguments: `{"bucket":"my-bucket","versioning_configuration":{"status":"Enabled"}}`,
+		answer:    "",
+		form:      map[string]string{},
+		token:     false, confirm: true, listed: false, result: []string{"region"},
+		method: "PUT", path: "/", rawQuery: "versioning", body: `<VersioningConfiguration xmlns="http://s3.amazonaws.com/doc/2006-03-01/"><Status>Enabled</Status></VersioningConfiguration>`, owner: "123456789012", bucket: "my-bucket"},
+	{tool: "aws.s3.encryption.put", action: "",
+		arguments: `{"bucket":"my-bucket","server_side_encryption_configuration":{"rules":[{"apply_server_side_encryption_by_default":{"sse_algorithm":"aws:kms","kms_master_key_id":"arn:aws:kms:eu-central-1:123456789012:key/a"}}]}}`,
+		answer:    "",
+		form:      map[string]string{},
+		token:     false, confirm: true, listed: false, result: []string{"region"},
+		method: "PUT", path: "/", rawQuery: "encryption", body: `<ServerSideEncryptionConfiguration xmlns="http://s3.amazonaws.com/doc/2006-03-01/"><Rule><ApplyServerSideEncryptionByDefault><SSEAlgorithm>aws:kms</SSEAlgorithm><KMSMasterKeyID>arn:aws:kms:eu-central-1:123456789012:key/a</KMSMasterKeyID></ApplyServerSideEncryptionByDefault></Rule></ServerSideEncryptionConfiguration>`, owner: "123456789012", bucket: "my-bucket"},
+	{tool: "aws.s3.encryption.delete", action: "",
+		arguments: `{"bucket":"my-bucket"}`,
+		answer:    "",
+		form:      map[string]string{},
+		token:     false, confirm: true, listed: false, result: []string{"region"},
+		method: "DELETE", path: "/", rawQuery: "encryption", body: "", owner: "123456789012", bucket: "my-bucket"},
+	{tool: "aws.s3.tagging.put", action: "",
+		arguments: `{"bucket":"my-bucket","tagging":{"tag_set":[{"key":"a","value":"a"}]}}`,
+		answer:    "",
+		form:      map[string]string{},
+		token:     false, confirm: true, listed: false, result: []string{"region"},
+		method: "PUT", path: "/", rawQuery: "tagging", body: `<Tagging xmlns="http://s3.amazonaws.com/doc/2006-03-01/"><TagSet><Tag><Key>a</Key><Value>a</Value></Tag></TagSet></Tagging>`, owner: "123456789012", bucket: "my-bucket"},
+	{tool: "aws.s3.tagging.delete", action: "",
+		arguments: `{"bucket":"my-bucket"}`,
+		answer:    "",
+		form:      map[string]string{},
+		token:     false, confirm: true, listed: false, result: []string{"region"},
+		method: "DELETE", path: "/", rawQuery: "tagging", body: "", owner: "123456789012", bucket: "my-bucket"},
+	{tool: "aws.s3.public-access-block.put", action: "",
+		arguments: `{"bucket":"my-bucket","public_access_block_configuration":{"block_public_acls":true,"ignore_public_acls":true,"block_public_policy":true,"restrict_public_buckets":true}}`,
+		answer:    "",
+		form:      map[string]string{},
+		token:     false, confirm: true, listed: false, result: []string{"region"},
+		method: "PUT", path: "/", rawQuery: "publicAccessBlock", body: `<PublicAccessBlockConfiguration xmlns="http://s3.amazonaws.com/doc/2006-03-01/"><BlockPublicAcls>true</BlockPublicAcls><IgnorePublicAcls>true</IgnorePublicAcls><BlockPublicPolicy>true</BlockPublicPolicy><RestrictPublicBuckets>true</RestrictPublicBuckets></PublicAccessBlockConfiguration>`, owner: "123456789012", bucket: "my-bucket",
+		readback: `<PublicAccessBlockConfiguration xmlns="http://s3.amazonaws.com/doc/2006-03-01/"><BlockPublicAcls>false</BlockPublicAcls><IgnorePublicAcls>false</IgnorePublicAcls><BlockPublicPolicy>false</BlockPublicPolicy><RestrictPublicBuckets>false</RestrictPublicBuckets></PublicAccessBlockConfiguration>`},
 }
 
 // Every generated tool sends its one action with exactly the encoded parameters and returns a result its
@@ -459,16 +661,20 @@ func TestGeneratedTools(t *testing.T) {
 	for _, c := range generatedCases {
 		t.Run(c.tool, func(t *testing.T) {
 			f := &fakeAWS{answer: func(r sent, _ int) reply {
+				if c.readback != "" && r.method == "GET" {
+					return reply{status: 200, body: c.readback}
+				}
 				switch r.action {
 				case c.action:
-					return ok(c.answer)
+					return reply{status: 200, header: c.answerHeader, body: c.answer}
 				case "GetCallerIdentity":
 					return ok(identityXML)
 				}
 				return reply{status: 500}
 			}}
+			// A write is offered by name here: the effect defaults of a connection offer reads only.
 			var tools []string
-			if c.listed {
+			if c.listed || c.confirm {
 				tools = []string{c.tool}
 			}
 			e := newToolsEnv(t, f, baseValues(), tools)
@@ -490,6 +696,20 @@ func TestGeneratedTools(t *testing.T) {
 			}
 			if call == nil {
 				t.Fatalf("requests = %v, want %s", f.actions(), c.action)
+			}
+			if c.method != "" {
+				if call.method != c.method || call.path != c.path || call.rawQuery != c.rawQuery || call.body != c.body {
+					t.Errorf("request = %s %s?%s %s, want %s %s?%s %s", call.method, call.path, call.rawQuery, call.body,
+						c.method, c.path, c.rawQuery, c.body)
+				}
+				if c.bucket != "" && call.host != c.bucket+".s3."+testRegion+".amazonaws.com" {
+					t.Errorf("host = %s, want the bucket as its first label", call.host)
+				}
+				// The expected owner is the account of the connection, whatever an argument says.
+				if got := call.header.Get("X-Amz-Expected-Bucket-Owner"); got != c.owner {
+					t.Errorf("expected bucket owner = %q, want %q", got, c.owner)
+				}
+				return
 			}
 			want := len(c.form) + 2
 			if c.token {
@@ -515,10 +735,19 @@ func TestGeneratedExclusionsAreNoTools(t *testing.T) {
 	excluded := map[string][]string{
 		"sts": excludedSTSActions,
 		"iam": excludedIAMActions,
+		"ses": excludedSESActions,
+		"s3":  excludedS3Actions,
 	}
 	for _, s := range generatedSpecs {
-		if slices.Contains(excluded[string(s.service)], s.action) {
-			t.Errorf("%s sends the excluded operation %s", s.descriptor.ID, s.action)
+		// A restJson1 tool sends no action; its op is the operation name in words.
+		name := s.action
+		if s.rest != nil {
+			name = strings.ReplaceAll(s.op, " ", "")
+		}
+		for _, action := range excluded[string(s.service)] {
+			if strings.EqualFold(name, action) {
+				t.Errorf("%s sends the excluded operation %s", s.descriptor.ID, action)
+			}
 		}
 	}
 }

@@ -3,7 +3,6 @@
 package cli
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -17,10 +16,11 @@ import (
 	"github.com/castrowithcee/qatlas-connect/internal/config"
 	"github.com/castrowithcee/qatlas-connect/internal/envvar"
 	"github.com/castrowithcee/qatlas-connect/internal/helptopics"
-	"github.com/castrowithcee/qatlas-connect/internal/output"
 	"github.com/castrowithcee/qatlas-connect/internal/secret"
 	"github.com/castrowithcee/qatlas-connect/internal/selfupdate"
+	kitcli "github.com/castrowithcee/qatlas-kit/cli"
 	kithelp "github.com/castrowithcee/qatlas-kit/helptopics"
+	"github.com/castrowithcee/qatlas-kit/output"
 	"github.com/castrowithcee/qatlas-kit/redact"
 )
 
@@ -141,41 +141,29 @@ func run(cmd *cobra.Command, opts *Options, args []string, stdout, stderr io.Wri
 		return quiet.code
 	}
 
-	r := routeCLI
+	failure := failureFor(err, opts.Format, opts.Redactor)
+	var syntax *syntaxError
+	errOpts := kitcli.ErrorOptions{Redact: opts.Redactor.Apply}
 	if opts.Agent {
-		r = routeAgent
+		errOpts.Route = kitcli.RouteAgent
 	}
-	err = withNextStep(err, r)
-	// Redaction happens before anything is shown, including unexpected provider errors.
-	fmt.Fprintf(stderr, "qconnect: %s: %s\n", codeFor(err), opts.Redactor.Error(err))
-	// A detail follows the diagnostic as one JSON line, so a caller reads its fields instead of the text.
-	if detail := errorDetailFor(err, opts.Redactor); detail != nil {
-		if provided, ok := detail.(*providerErrorDetail); ok && opts.Format != output.FormatJSON {
-			// The provider's answer is shown as a block of its own, so a person never reads it as Qatlas' text.
-			_, _ = io.WriteString(stderr, providerBlock(provided.Provider))
-		} else {
-			_ = json.NewEncoder(stderr).Encode(detail)
+	if errors.As(err, &syntax) {
+		errOpts.Usage = executed.UsageString()
+	}
+	// The kit redacts every text before it cuts or escapes it, so a secret in an unexpected error never
+	// reaches stderr.
+	if kitcli.WriteError(stderr, "qconnect", failure, errOpts) != nil {
+		// A detail that cannot be encoded must not hide the diagnostic itself.
+		var plain *kitcli.Failure
+		if errors.As(failure, &plain) {
+			bare := *plain
+			bare.Detail, bare.External = nil, nil
+			_ = kitcli.WriteError(stderr, "qconnect", &bare, errOpts)
 		}
 	}
-	code := exitCode(err)
-	var syntax *syntaxError
-	if errors.As(err, &syntax) {
-		fmt.Fprint(stderr, executed.UsageString())
-	}
+	code := kitcli.ExitCode(failure)
 	writeAudit(stderr, auditFrom(err), opts.Redactor)
 	return code
-}
-
-// exitCode maps an error from the command layer to the documented process exit code.
-func exitCode(err error) int {
-	if err == nil {
-		return exitOK
-	}
-	var usage *UsageError
-	if errors.As(err, &usage) {
-		return exitUsage
-	}
-	return exitRuntime
 }
 
 func newRootCommand(opts *Options, reg *capability.Registry) *cobra.Command {

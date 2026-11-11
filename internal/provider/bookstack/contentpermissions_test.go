@@ -14,7 +14,7 @@ import (
 
 	"github.com/castrowithcee/qatlas-connect/internal/capability"
 	"github.com/castrowithcee/qatlas-connect/internal/config"
-	"github.com/castrowithcee/qatlas-connect/internal/output"
+	"github.com/castrowithcee/qatlas-kit/output"
 )
 
 const guestID = 5

@@ -22,8 +22,8 @@ import (
 	"github.com/castrowithcee/qatlas-connect/internal/config"
 	"github.com/castrowithcee/qatlas-connect/internal/invokelog"
 	"github.com/castrowithcee/qatlas-connect/internal/localfile"
-	"github.com/castrowithcee/qatlas-connect/internal/output"
 	"github.com/castrowithcee/qatlas-connect/internal/secret"
+	"github.com/castrowithcee/qatlas-kit/output"
 	"github.com/castrowithcee/qatlas-kit/projectpath"
 	"github.com/castrowithcee/qatlas-kit/redact"
 )

@@ -13,7 +13,7 @@ import (
 
 	"github.com/castrowithcee/qatlas-connect/internal/application"
 	"github.com/castrowithcee/qatlas-connect/internal/capability"
-	"github.com/castrowithcee/qatlas-connect/internal/output"
+	"github.com/castrowithcee/qatlas-kit/output"
 )
 
 // toonContract names the format version of the discovery output. TOON 4.1 is a working draft, so the

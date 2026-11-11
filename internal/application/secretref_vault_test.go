@@ -8,9 +8,9 @@ import (
 	"testing"
 
 	"github.com/castrowithcee/qatlas-connect/internal/config"
-	"github.com/castrowithcee/qatlas-connect/internal/output"
 	"github.com/castrowithcee/qatlas-connect/internal/secret"
 	"github.com/castrowithcee/qatlas-connect/internal/vault"
+	"github.com/castrowithcee/qatlas-kit/output"
 	"github.com/castrowithcee/qatlas-kit/redact"
 )
 

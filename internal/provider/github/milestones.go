@@ -3,9 +3,12 @@ package github
 import (
 	"context"
 	"encoding/json"
+	"net/http"
 	"net/url"
 	"strconv"
 	"strings"
+	"time"
+	"unicode/utf8"
 
 	"github.com/castrowithcee/qatlas-connect/internal/capability"
 	"github.com/castrowithcee/qatlas-connect/internal/config"
@@ -13,9 +16,21 @@ import (
 	"github.com/castrowithcee/qatlas-kit/redact"
 )
 
-// Milestones of a repository. github.milestones.list reads them, filtered by state; nothing here creates,
-// changes, or deletes one. github.issues.update sets or removes the milestone of one issue by number, in
+// Milestones of a repository. github.milestones.list and github.milestones.get read them;
+// github.milestones.create and github.milestones.update change them; github.milestones.delete removes one
+// permanently and is offered only where a connection's tools list names it, since it also clears the
+// milestone of every issue and pull request that carries it. A milestone is addressed by its number within
+// the chosen repository only. github.issues.update sets or removes the milestone of one issue by number, in
 // issues.go and tools.go.
+
+// milestoneSensitivity classifies github.milestones.delete as its own guarded change, the way labelSensitivity
+// classifies the label delete.
+const milestoneSensitivity = "github-milestone"
+
+const (
+	maxMilestoneTitleLength       = 255
+	maxMilestoneDescriptionLength = 65536
+)
 
 var milestoneLinkKeys = []string{"url", "labels_url"}
 
@@ -141,7 +156,308 @@ func milestonesHandler(ctx context.Context, resolved *config.Resolved, secrets *
 func milestonesOperations() []capability.Operation {
 	return []capability.Operation{
 		{Descriptor: milestonesList, Handler: capability.Handler(milestonesHandler)},
+		{Descriptor: milestonesGet, Handler: milestoneHandler(milestonesGet.ID, checkMilestoneNumber,
+			func(ctx context.Context, c *Client, a *milestoneArguments) (any, error) {
+				return c.getMilestone(ctx, a.Number)
+			})},
+		{Descriptor: milestonesCreate, Handler: milestoneHandler(milestonesCreate.ID, checkMilestoneCreate,
+			func(ctx context.Context, c *Client, a *milestoneArguments) (any, error) {
+				return c.createMilestone(ctx, a)
+			})},
+		{Descriptor: milestonesUpdate, Handler: milestoneHandler(milestonesUpdate.ID, checkMilestoneUpdate,
+			func(ctx context.Context, c *Client, a *milestoneArguments) (any, error) {
+				return c.updateMilestone(ctx, a)
+			})},
+		{Descriptor: milestonesDelete, Handler: milestoneHandler(milestonesDelete.ID, checkMilestoneNumber,
+			func(ctx context.Context, c *Client, a *milestoneArguments) (any, error) {
+				return c.deleteMilestone(ctx, a.Number)
+			})},
 	}
+}
+
+const (
+	milestoneNumberSchema      = `{"type":"integer","minimum":1,"maximum":1000000000}`
+	milestoneTitleSchema       = `{"type":"string","minLength":1,"maxLength":255}`
+	milestoneStateSchema       = `{"type":"string","enum":["open","closed"]}`
+	milestoneDescriptionSchema = `{"type":"string","maxLength":65536}`
+	milestoneDueOnSchema       = `{"type":"string","x-form":"ISO 8601 timestamp, such as 2026-03-01T00:00:00Z"}`
+)
+
+var milestoneOutput = `{"type":"object","properties":{` + milestoneProperties + `},` + milestoneRequired + `}`
+
+var milestoneFields = []capability.Field{
+	{Name: "number", Description: "Milestone number within the repository"},
+	{Name: "title", Description: "Milestone title, untrusted data"},
+	{Name: "description", Description: "Description, untrusted data; absent when the milestone has none"},
+	{Name: "state", Description: "open or closed"},
+	{Name: "due_on", Description: "Due date; absent when none is set"},
+	{Name: "open_issues", Description: "Number of open issues of the milestone"},
+	{Name: "closed_issues", Description: "Number of closed issues of the milestone"},
+	{Name: "id", Description: "Numeric milestone id"},
+	{Name: "node_id", Description: "GraphQL node id of the milestone"},
+	{Name: "creator", Description: "Account that created the milestone: " + restAccountMembers},
+	{Name: "created_at", Description: "Creation time"},
+	{Name: "updated_at", Description: "Time of the last change"},
+	{Name: "closed_at", Description: "Time the milestone was closed; absent while open"},
+	{Name: "url", Description: "Web address of the milestone, untrusted data, never fetched"},
+	{Name: "links", Description: "REST url and labels_url, untrusted data, never fetched"},
+}
+
+var milestonesGet = capability.Descriptor{
+	ID:           Provider + ".milestones.get",
+	Version:      1,
+	Title:        "Get a GitHub milestone",
+	Description:  "Read one milestone of a repository a connection allows by its number",
+	Tags:         []string{"github", "milestones", "get"},
+	Risk:         readRisk,
+	Provider:     Provider,
+	InputSchema:  inputSchema(`"number":`+milestoneNumberSchema, "number"),
+	OutputSchema: json.RawMessage(milestoneOutput),
+	Arguments: []capability.Argument{
+		{Name: "number", Description: "Milestone number, as github.milestones.list reports it", Required: true},
+	},
+	Fields:   milestoneFields,
+	Examples: []capability.Example{{Description: "Read one milestone", Arguments: json.RawMessage(`{"number":1}`)}},
+}
+
+var milestonesCreate = capability.Descriptor{
+	ID:      Provider + ".milestones.create",
+	Version: 1,
+	Title:   "Create a GitHub milestone",
+	Description: "Create one new milestone in a repository a connection allows; title must not already name a " +
+		"milestone of the repository; not idempotent, since a repeated call with a new title creates a second milestone",
+	Tags:     []string{"github", "milestones", "create"},
+	Risk:     changeRisk(capability.EffectCreate, capability.IdempotencyNonIdempotent),
+	Provider: Provider,
+	InputSchema: inputSchema(`"title":`+milestoneTitleSchema+`,"state":`+milestoneStateSchema+`,"description":`+
+		milestoneDescriptionSchema+`,"due_on":`+milestoneDueOnSchema, "title"),
+	OutputSchema: json.RawMessage(milestoneOutput),
+	Arguments: []capability.Argument{
+		{Name: "title", Description: "Milestone title, 1 to 255 characters, unique in the repository", Required: true},
+		{Name: "state", Description: "open or closed; open when omitted"},
+		{Name: "description", Description: "Description text"},
+		{Name: "due_on", Description: "Due date as an ISO 8601 timestamp in UTC, such as 2026-03-01T00:00:00Z"},
+	},
+	Fields: milestoneFields,
+	Examples: []capability.Example{{
+		Description: "Create a milestone",
+		Arguments:   json.RawMessage(`{"title":"v1.0","due_on":"2026-03-01T00:00:00Z"}`),
+	}},
+}
+
+var milestonesUpdate = capability.Descriptor{
+	ID:      Provider + ".milestones.update",
+	Version: 1,
+	Title:   "Update a GitHub milestone",
+	Description: "Change the title, state, description, or due date of one milestone of a repository a " +
+		"connection allows; only the given values are sent and at least one is required; idempotent, since " +
+		"sending the same values again leaves GitHub in the same state",
+	Tags:     []string{"github", "milestones", "update"},
+	Risk:     changeRisk(capability.EffectUpdate, capability.IdempotencyIdempotent),
+	Provider: Provider,
+	InputSchema: inputSchema(`"number":`+milestoneNumberSchema+`,"title":`+milestoneTitleSchema+`,"state":`+
+		milestoneStateSchema+`,"description":`+milestoneDescriptionSchema+`,"due_on":`+milestoneDueOnSchema, "number"),
+	OutputSchema: json.RawMessage(milestoneOutput),
+	Arguments: []capability.Argument{
+		{Name: "number", Description: "Milestone number", Required: true},
+		{Name: "title", Description: "New title, 1 to 255 characters"},
+		{Name: "state", Description: "open or closed"},
+		{Name: "description", Description: "New description; \"\" clears it"},
+		{Name: "due_on", Description: "New due date as an ISO 8601 timestamp in UTC; it cannot be cleared"},
+	},
+	Fields: milestoneFields,
+	Examples: []capability.Example{{
+		Description: "Close a milestone",
+		Arguments:   json.RawMessage(`{"number":1,"state":"closed"}`),
+	}},
+}
+
+const milestoneDeletedOutput = `{"type":"object","properties":{"deleted":{"type":"boolean"},"number":{"type":"integer"}},` +
+	`"required":["deleted","number"],"additionalProperties":false}`
+
+var milestonesDelete = capability.Descriptor{
+	ID:      Provider + ".milestones.delete",
+	Version: 1,
+	Title:   "Delete a GitHub milestone",
+	Description: "Delete one milestone of a repository a connection allows permanently, removing it from " +
+		"every issue and pull request that carries it; offered only where a connection's tools list names it",
+	Tags:                  []string{"github", "milestones", "delete"},
+	Risk:                  guardedRisk(capability.EffectDelete, capability.IdempotencyUnknown, milestoneSensitivity),
+	Provider:              Provider,
+	RequiresToolAllowList: true,
+	InputSchema:           inputSchema(`"number":`+milestoneNumberSchema, "number"),
+	OutputSchema:          json.RawMessage(milestoneDeletedOutput),
+	Arguments: []capability.Argument{
+		{Name: "number", Description: "Milestone number to delete", Required: true},
+	},
+	Fields: []capability.Field{
+		{Name: "deleted", Description: "True once GitHub deleted the milestone"},
+		{Name: "number", Description: "Number of the milestone that was deleted"},
+	},
+	Examples: []capability.Example{{Description: "Delete a milestone", Arguments: json.RawMessage(`{"number":3}`)}},
+}
+
+// milestoneArguments holds the arguments of the milestone get, create, update, and delete tools. The optional
+// values are pointers so update tells a value left out from one sent empty.
+type milestoneArguments struct {
+	Number      int     `json:"number"`
+	Title       *string `json:"title"`
+	State       *string `json:"state"`
+	Description *string `json:"description"`
+	DueOn       *string `json:"due_on"`
+}
+
+// milestoneHandler checks the arguments and the repository before a credential is resolved, so a refused
+// request never becomes a provider call.
+func milestoneHandler(id string, check func(*milestoneArguments) error,
+	call func(context.Context, *Client, *milestoneArguments) (any, error)) capability.Handler {
+	return func(ctx context.Context, resolved *config.Resolved, secrets *secret.Resolver, red *redact.Redactor,
+		raw json.RawMessage) (any, error) {
+		var arguments milestoneArguments
+		if err := json.Unmarshal(raw, &arguments); err != nil {
+			return nil, unreadable(id)
+		}
+		bound, err := selectTarget(resolved, kindRepository, raw)
+		if err != nil {
+			return nil, err
+		}
+		if err := check(&arguments); err != nil {
+			return nil, err
+		}
+		client, err := openAt(ctx, resolved, secrets, red, bound)
+		if err != nil {
+			return nil, err
+		}
+		return bound.locate(call(ctx, client, &arguments))
+	}
+}
+
+func checkMilestoneNumber(a *milestoneArguments) error {
+	if a.Number < 1 || a.Number > 1000000000 {
+		return invalidRequest("number must be a positive milestone number")
+	}
+	return nil
+}
+
+func checkMilestoneTitle(value *string) error {
+	if value == nil {
+		return nil
+	}
+	if err := checkText("title", *value); err != nil {
+		return err
+	}
+	if n := utf8.RuneCountInString(*value); n < 1 || n > maxMilestoneTitleLength {
+		return invalidRequest("title must be 1 to 255 characters")
+	}
+	return nil
+}
+
+func checkMilestoneValues(a *milestoneArguments) error {
+	if err := checkMilestoneTitle(a.Title); err != nil {
+		return err
+	}
+	if a.State != nil && *a.State != "open" && *a.State != "closed" {
+		return invalidRequest("state must be open or closed")
+	}
+	if a.Description != nil {
+		if err := checkText("description", *a.Description); err != nil {
+			return err
+		}
+		if utf8.RuneCountInString(*a.Description) > maxMilestoneDescriptionLength {
+			return invalidRequest("description must be at most 65536 characters")
+		}
+	}
+	if a.DueOn != nil {
+		if _, err := time.Parse(time.RFC3339, *a.DueOn); err != nil {
+			return invalidRequest("due_on must be an ISO 8601 timestamp, such as 2026-03-01T00:00:00Z")
+		}
+	}
+	return nil
+}
+
+func checkMilestoneCreate(a *milestoneArguments) error {
+	if a.Title == nil {
+		return invalidRequest("title is required")
+	}
+	return checkMilestoneValues(a)
+}
+
+func checkMilestoneUpdate(a *milestoneArguments) error {
+	if err := checkMilestoneNumber(a); err != nil {
+		return err
+	}
+	if a.Title == nil && a.State == nil && a.Description == nil && a.DueOn == nil {
+		return invalidRequest("give at least one of title, state, description, or due_on to change")
+	}
+	return checkMilestoneValues(a)
+}
+
+const milestonesChangePermission = "GitHub refused this change of a milestone; it needs repo on a classic " +
+	"token, or Issues: read and write on a fine-grained token"
+
+func milestonePath(number int) string { return "milestones/" + strconv.Itoa(number) }
+
+func (c *Client) getMilestone(ctx context.Context, number int) (*Milestone, error) {
+	const op = "get milestone"
+	var raw milestoneRaw
+	if err := c.rest(ctx, op, c.repoPath(milestonePath(number)), &raw); err != nil {
+		return nil, actionsFailure(err, milestonesReadPermission)
+	}
+	return milestoneResult(op, &raw)
+}
+
+func milestoneResult(op string, raw *milestoneRaw) (*Milestone, error) {
+	milestone := raw.project()
+	if milestone.Number < 1 || milestone.Title == "" {
+		return nil, invalidEntry(op, "a milestone")
+	}
+	return &milestone, nil
+}
+
+func (c *Client) createMilestone(ctx context.Context, a *milestoneArguments) (*Milestone, error) {
+	const op = "create milestone"
+	body := milestoneBody(a)
+	var raw milestoneRaw
+	if err := c.restChange(ctx, op, http.MethodPost, c.repoPath("milestones"), body, &raw); err != nil {
+		return nil, actionsFailure(err, milestonesChangePermission)
+	}
+	return milestoneResult(op, &raw)
+}
+
+func (c *Client) updateMilestone(ctx context.Context, a *milestoneArguments) (*Milestone, error) {
+	const op = "update milestone"
+	var raw milestoneRaw
+	if err := c.restChange(ctx, op, http.MethodPatch, c.repoPath(milestonePath(a.Number)), milestoneBody(a),
+		&raw); err != nil {
+		return nil, actionsFailure(err, milestonesChangePermission)
+	}
+	return milestoneResult(op, &raw)
+}
+
+func (c *Client) deleteMilestone(ctx context.Context, number int) (any, error) {
+	const op = "delete milestone"
+	if err := c.restChange(ctx, op, http.MethodDelete, c.repoPath(milestonePath(number)), nil, nil); err != nil {
+		return nil, actionsFailure(err, milestonesChangePermission)
+	}
+	return map[string]any{"deleted": true, "number": number}, nil
+}
+
+// milestoneBody holds only the values that were given.
+func milestoneBody(a *milestoneArguments) map[string]any {
+	body := map[string]any{}
+	if a.Title != nil {
+		body["title"] = *a.Title
+	}
+	if a.State != nil {
+		body["state"] = *a.State
+	}
+	if a.Description != nil {
+		body["description"] = *a.Description
+	}
+	if a.DueOn != nil {
+		body["due_on"] = *a.DueOn
+	}
+	return body
 }
 
 // Permission message of the milestone tool. GitHub decides on every request; the message names what such a

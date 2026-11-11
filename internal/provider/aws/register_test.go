@@ -96,6 +96,37 @@ var wantTools = []string{
 	"aws.iam.user.list",
 	"aws.iam.user.list-tags",
 	"aws.iam.virtual-mfa-device.list",
+	"aws.s3.bucket.create",
+	"aws.s3.bucket.delete",
+	"aws.s3.bucket.get-location",
+	"aws.s3.bucket.head",
+	"aws.s3.bucket.list",
+	"aws.s3.encryption.delete",
+	"aws.s3.encryption.get",
+	"aws.s3.encryption.put",
+	"aws.s3.public-access-block.get",
+	"aws.s3.public-access-block.put",
+	"aws.s3.tagging.delete",
+	"aws.s3.tagging.get",
+	"aws.s3.tagging.put",
+	"aws.s3.versioning.get",
+	"aws.s3.versioning.put",
+	"aws.ses.email-identity-policy.create",
+	"aws.ses.email-identity-policy.delete",
+	"aws.ses.email-identity-policy.list",
+	"aws.ses.email-identity-policy.update",
+	"aws.ses.email-identity.create",
+	"aws.ses.email-identity.delete",
+	"aws.ses.email-identity.get",
+	"aws.ses.email-identity.list",
+	"aws.ses.email-identity.list-tags",
+	"aws.ses.email-identity.put-configuration-set-attributes",
+	"aws.ses.email-identity.put-dkim-attributes",
+	"aws.ses.email-identity.put-dkim-signing-attributes",
+	"aws.ses.email-identity.put-feedback-attributes",
+	"aws.ses.email-identity.put-mail-from-attributes",
+	"aws.ses.email-identity.tag",
+	"aws.ses.email-identity.untag",
 	"aws.sts.access-key.get-info",
 	"aws.sts.authorization-message.decode",
 	"aws.sts.caller-identity.get",
@@ -110,11 +141,16 @@ func TestRegisterPublishesMetadataAndTools(t *testing.T) {
 	var ids []string
 	for _, tool := range metadata.Tools {
 		ids = append(ids, tool.ID)
-		// A read is open; every other tool is an IAM write that only a tools list naming it offers.
+		// A read is open; an IAM write is offered only by a tools list naming it, an SES write by the effect of
+		// the connection with confirmation.
 		open := tool.Effect == config.EffectRead && !tool.RequiresToolAllowList
 		write := tool.Effect != config.EffectRead && tool.RequiresToolAllowList && strings.HasPrefix(tool.ID, "aws.iam.")
-		if !(open || write) || tool.Group != strings.Split(tool.ID, ".")[1] {
-			t.Errorf("tool %+v, want an open read or a listed-only IAM write of the group named by its service segment", tool)
+		// Identity policy writes change who may send, so they are listed-only like the IAM writes.
+		sesWrite := tool.Effect != config.EffectRead && strings.HasPrefix(tool.ID, "aws.ses.") &&
+			tool.RequiresToolAllowList == strings.HasPrefix(tool.ID, "aws.ses.email-identity-policy.")
+		s3Write := tool.Effect != config.EffectRead && !tool.RequiresToolAllowList && strings.HasPrefix(tool.ID, "aws.s3.")
+		if !(open || write || sesWrite || s3Write) || tool.Group != strings.Split(tool.ID, ".")[1] {
+			t.Errorf("tool %+v, want an open read, a listed-only IAM write, an SES write (listed-only for identity policies), or an S3 write of the group named by its service segment", tool)
 		}
 	}
 	if !reflect.DeepEqual(ids, wantTools) {
@@ -128,8 +164,8 @@ func TestRegisterPublishesMetadataAndTools(t *testing.T) {
 	for _, g := range metadata.Groups {
 		groups[g.ID] = true
 	}
-	if len(groups) != 2 || !groups["sts"] || !groups["iam"] {
-		t.Errorf("groups = %+v, want sts and iam", metadata.Groups)
+	if len(groups) != 4 || !groups["sts"] || !groups["iam"] || !groups["ses"] || !groups["s3"] {
+		t.Errorf("groups = %+v, want sts, iam, ses and s3", metadata.Groups)
 	}
 	profile, ok := metadata.RecommendedProfile()
 	if !ok || profile.ID != "read" || !reflect.DeepEqual(append([]string{}, profile.Tools...), []string{
@@ -184,8 +220,8 @@ var readOnlyIdentityProviderTools = map[string]bool{
 	"aws.iam.outbound-federation.get-info": true,
 }
 
-// Every read is credential-free with the full risk, every other tool is a listed-only IAM write with
-// confirmation, and every tool has the strict schema. The AWS actions that return a credential or token are no
+// Every read is credential-free with the full risk, every other tool is a listed-only IAM write, a listed-only SES identity policy write, or an SES
+// write with confirmation, and every tool has the strict schema. The AWS actions that return a credential or token are no
 // tools, and the actions the STS tools send are exactly the three STS reads.
 func TestSTSToolsAreTheCredentialFreeActions(t *testing.T) {
 	reg := registered(t)
@@ -194,8 +230,12 @@ func TestSTSToolsAreTheCredentialFreeActions(t *testing.T) {
 			Confirmation: capability.ConfirmationNone, OpenWorld: true, DataSensitivity: d.Risk.DataSensitivity}
 		if d.Risk.Effect != capability.EffectRead {
 			want.Effect, want.Idempotency, want.Confirmation = d.Risk.Effect, d.Risk.Idempotency, capability.ConfirmationRequired
-			if !d.RequiresToolAllowList || !strings.HasPrefix(d.ID, "aws.iam.") || d.Risk.Idempotency == capability.IdempotencySafe {
-				t.Errorf("%s is a write that is not a listed-only IAM tool: %+v", d.ID, d)
+			listedIAM := d.RequiresToolAllowList && strings.HasPrefix(d.ID, "aws.iam.")
+			sesWrite := strings.HasPrefix(d.ID, "aws.ses.") &&
+				d.RequiresToolAllowList == strings.HasPrefix(d.ID, "aws.ses.email-identity-policy.")
+			s3Write := !d.RequiresToolAllowList && strings.HasPrefix(d.ID, "aws.s3.")
+			if !(listedIAM || sesWrite || s3Write) || d.Risk.Idempotency == capability.IdempotencySafe {
+				t.Errorf("%s is a write that is neither a listed-only IAM tool nor an SES or S3 tool: %+v", d.ID, d)
 			}
 		}
 		if d.Risk != want || d.Risk.DataSensitivity == "" {

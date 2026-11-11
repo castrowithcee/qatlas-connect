@@ -20,9 +20,9 @@ import (
 	"github.com/castrowithcee/qatlas-connect/internal/capability"
 	"github.com/castrowithcee/qatlas-connect/internal/config"
 	"github.com/castrowithcee/qatlas-connect/internal/helptopics"
-	"github.com/castrowithcee/qatlas-connect/internal/output"
 	"github.com/castrowithcee/qatlas-connect/internal/provider"
 	"github.com/castrowithcee/qatlas-connect/internal/secret"
+	"github.com/castrowithcee/qatlas-kit/output"
 	"github.com/castrowithcee/qatlas-kit/redact"
 )
 
@@ -344,7 +344,7 @@ defaults: {}
 	code := run(newRootCommand(options, registry), options,
 		[]string{"invoke", "fake.pages.get", "--config", path}, &stdout, &stderr)
 	lines := strings.Split(stderr.String(), "\n")
-	if code != exitUsage || len(lines) < 2 || !strings.HasPrefix(lines[0], "qconnect: connection-ambiguous: ") {
+	if code != exitUsage || len(lines) < 3 || !strings.HasPrefix(lines[0], "qconnect: connection-ambiguous: ") {
 		t.Fatalf("exit=%d stderr=%q", code, stderr.String())
 	}
 
@@ -355,8 +355,8 @@ defaults: {}
 	if !invoke.IsError || !strings.HasPrefix(invoke.Content[0].Text, "connection-ambiguous: ") {
 		t.Fatalf("invoke = %+v", invoke)
 	}
-	if !jsonEqual([]byte(lines[1]), invoke.Structured) {
-		t.Fatalf("CLI detail = %s, MCP detail = %s", lines[1], invoke.Structured)
+	if !jsonEqual([]byte(lines[2]), invoke.Structured) {
+		t.Fatalf("CLI detail = %s, MCP detail = %s", lines[2], invoke.Structured)
 	}
 	// A client that shows only the text still learns the candidates, and both routes say the same.
 	wantText := `connection-ambiguous: tool "fake.pages.get" has multiple matching connections: ` +
@@ -371,7 +371,7 @@ defaults: {}
 	}
 	decodeRaw(t, invoke.Structured, &detail)
 	want := []application.ConnectionRef{{Name: "primary", Description: "team pages"}, {Name: "secondary"}}
-	if detail.Code != string(output.CodeConnectionAmbiguous) || detail.Operation != "fake.pages.get" ||
+	if detail.Code != string(application.CodeConnectionAmbiguous) || detail.Operation != "fake.pages.get" ||
 		!reflect.DeepEqual(detail.Connections, want) {
 		t.Fatalf("detail = %+v, want the candidates %+v", detail, want)
 	}
@@ -429,11 +429,11 @@ func TestConnectionAmbiguityNamesCandidatesOverCLIAndMCP(t *testing.T) {
 	code := run(newRootCommand(options, registry), options,
 		[]string{"invoke", "bookstack.pages.list", "--config", path}, &stdout, &stderr)
 	lines := strings.Split(stderr.String(), "\n")
-	if code != exitUsage || stdout.Len() != 0 || len(lines) < 2 ||
+	if code != exitUsage || stdout.Len() != 0 || len(lines) < 3 ||
 		!strings.HasPrefix(lines[0], "qconnect: connection-ambiguous: ") {
 		t.Fatalf("exit=%d stdout=%q stderr=%q", code, stdout.String(), stderr.String())
 	}
-	cliDetail := []byte(lines[1])
+	cliDetail := []byte(lines[2])
 
 	input := `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{` + mcpTestMeta +
 		`,"name":"invoke","arguments":{"operation":"bookstack.pages.list","arguments":{}}}}` + "\n"
@@ -470,7 +470,7 @@ func TestConnectionAmbiguityNamesCandidatesOverCLIAndMCP(t *testing.T) {
 		{Name: "wiki-2", Description: ""},
 		{Name: "wiki-staging", Description: "staging wiki " + redact.Marker},
 	}
-	if detail.Code != string(output.CodeConnectionAmbiguous) || detail.Operation != "bookstack.pages.list" ||
+	if detail.Code != string(application.CodeConnectionAmbiguous) || detail.Operation != "bookstack.pages.list" ||
 		detail.Message != strings.TrimPrefix(invoke.Content[0].Text, "connection-ambiguous: ") ||
 		!reflect.DeepEqual(detail.Connections, want) {
 		t.Fatalf("detail = %+v, want the candidates %+v", detail, want)
@@ -768,7 +768,7 @@ func TestNotFoundIsTheSameRuntimeFailureInCLIAndMCP(t *testing.T) {
 	code := run(newRootCommand(opts, registry), opts,
 		[]string{"invoke", "fake.pages.get", "--connection", "primary", "--config", path}, &stdout, &stderr)
 	want := "not-found: get page: " + message
-	if code != exitRuntime || stdout.Len() != 0 || strings.TrimSpace(stderr.String()) != "qconnect: "+want {
+	if code != exitRuntime || stdout.Len() != 0 || messageWithStep(stderr.String()) != want {
 		t.Fatalf("CLI exit=%d stdout=%q stderr=%q, want exit %d and %q", code, stdout.String(), stderr.String(),
 			exitRuntime, want)
 	}
@@ -1008,15 +1008,15 @@ func TestMCPToolErrorsCarryCodeAndMessage(t *testing.T) {
 		timeout   bool
 	}{
 		{output.CodeInvalidRequest, unused, "search", `{"cursor":"bogus"}`, false},
-		{output.CodeUnknownOperation, unused, "describe", `{"operation":"absent.operation.get"}`, false},
-		{output.CodeUnknownConnection, unused, "describe", `{"operation":"fake.pages.get","connection":"absent"}`, false},
+		{application.CodeUnknownOperation, unused, "describe", `{"operation":"absent.operation.get"}`, false},
+		{application.CodeUnknownConnection, unused, "describe", `{"operation":"fake.pages.get","connection":"absent"}`, false},
 		{output.CodeConfirmationRequired, mcpSendRegistry, "invoke",
 			`{"operation":"fake.messages.send","connection":"target","arguments":{"text":"hello"}}`, false},
 		{output.CodeAuth, failing(&provider.Error{Class: provider.ClassAuth, Op: "get page", Message: "rejected"}),
 			"invoke", `{"operation":"fake.pages.get","connection":"primary","arguments":{}}`, false},
 		{output.CodeNotFound, failing(&provider.Error{Class: provider.ClassNotFound, Op: "get page", Message: "absent"}),
 			"invoke", `{"operation":"fake.pages.get","connection":"primary","arguments":{}}`, false},
-		{output.CodeProviderError, failing(&provider.Error{Class: provider.ClassProviderError, Op: "get page", Message: "failed"}),
+		{application.CodeProviderError, failing(&provider.Error{Class: provider.ClassProviderError, Op: "get page", Message: "failed"}),
 			"invoke", `{"operation":"fake.pages.get","connection":"primary","arguments":{}}`, false},
 		{output.CodeTimeout, waiting, "invoke",
 			`{"operation":"fake.pages.get","connection":"primary","arguments":{}}`, true},
@@ -1252,7 +1252,7 @@ func TestMCPAndCLITransportDiagnosisParity(t *testing.T) {
 	if code != exitRuntime || stdout.Len() != 0 {
 		t.Fatalf("CLI exit=%d stdout=%q stderr=%q", code, stdout.String(), stderr.String())
 	}
-	cliDiagnostic := strings.TrimPrefix(strings.TrimSpace(stderr.String()), "qconnect: ")
+	cliDiagnostic := messageWithStep(stderr.String())
 
 	input := `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{` + mcpTestMeta +
 		`,"name":"invoke","arguments":{"operation":"fake.pages.get","connection":"primary"}}}` + "\n"
@@ -1297,8 +1297,7 @@ func TestMisspelledNamesSuggestTheClosestOneOverCLIAndMCP(t *testing.T) {
 		if code != exitUsage || stdout.Len() != 0 {
 			t.Fatalf("%v: exit=%d stdout=%q stderr=%q", args, code, stdout.String(), stderr.String())
 		}
-		first, _, _ := strings.Cut(stderr.String(), "\n")
-		return first
+		return "qconnect: " + messageWithStep(stderr.String())
 	}
 	mcp := func(tool, arguments string) string {
 		t.Helper()

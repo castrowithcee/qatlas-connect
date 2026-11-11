@@ -1,10 +1,10 @@
 ---
 description: >
-  Describes the GitHub issue tools: issue and comment reads and changes, labels, milestones, sub-issues, issue dependencies, issue types, issue fields, reactions, assigning Copilot to an issue, and issue search.
+  Describes the GitHub issue tools: issue and comment reads and changes, labels, milestones, sub-issues, issue dependencies, issue events and timelines, assignees, issue types, issue fields, reactions, assigning Copilot to an issue, and issue search.
 type: knowledge
 edit: shared
 created: 2026-10-22
-updated: 2026-11-06
+updated: 2026-11-11
 ---
 
 # GitHub issues
@@ -155,11 +155,30 @@ token rights are listed under [Issues and comments](setup.md#issues-and-comments
 
 ## Milestones
 
-`github.milestones.list` reads one bounded batch of the milestones of a repository, paged the same way
-[labels](#labels) are, by GitHub's `Link` response header. The description of a milestone is untrusted data.
+`github.milestones.list` and `github.milestones.get` read the milestones of a repository; `github.milestones.create`
+and `github.milestones.update` change them; `github.milestones.delete` removes one permanently and is offered
+only where a connection's `tools` list names it, as `github.labels.delete` is, since it also clears the milestone
+of every issue and pull request that carries it. A milestone is addressed by its `number` in the chosen
+repository only; milestones exist per repository, not per organization.
 
-Nothing here creates, changes, or deletes a milestone; `github.issues.update` sets or removes the milestone
-of an existing issue instead, under [Changes](#changes). The token rights are listed under [Issues and comments](setup.md#issues-and-comments).
+| Tool | Does |
+| --- | --- |
+| `github.milestones.list` | lists one bounded batch of the milestones of a repository, paged like [labels](#labels) by GitHub's `Link` response header |
+| `github.milestones.get` | reads one milestone by number, with every member GitHub documents |
+| `github.milestones.create` | creates one milestone from `title` and, optionally, `state`, `description`, and `due_on` |
+| `github.milestones.update` | changes `title`, `state`, `description`, or `due_on` of one milestone; only the given values are sent and at least one is required |
+| `github.milestones.delete` | deletes one milestone permanently; offered only where a connection's `tools` list names it |
+
+Every argument is checked before a credential is resolved. `title` is 1 to 255 characters, `description` at most
+65536 characters, and both are refused when they carry a control character. `state` is `open` or `closed`.
+`due_on` is an ISO 8601 timestamp such as `2026-03-01T00:00:00Z` and is refused otherwise. `github.milestones.update`
+clears a description with `""`; a due date cannot be cleared, since GitHub documents no way to do so. Titles and
+descriptions are untrusted data and never appear in a message.
+
+Each change is exactly one request that is never repeated. After a timeout, a dropped connection, a server error,
+or an unreadable answer the outcome is reported as uncertain, not as failure or success. `github.issues.update`
+sets or removes the milestone of an existing issue instead, under [Changes](#changes). The token rights are listed
+under [Issues and comments](setup.md#issues-and-comments).
 
 ## Sub-issues
 
@@ -213,6 +232,61 @@ The token rights are listed under [Issues and comments](setup.md#issues-and-comm
 Source: the official REST documentation (<https://docs.github.com/en/rest/issues/issue-dependencies>,
 `X-GitHub-Api-Version: 2022-11-28`): List issues blocked by, List issues blocking, and Add and Remove a
 blocked-by dependency are stable, generally available REST endpoints, not a preview feature.
+
+## Issue events, timeline, and assignees
+
+| Tool | Does |
+| --- | --- |
+| `github.issue-events.list` | lists the events of one issue by `number`, or, without `number`, of every issue of the repository |
+| `github.issue-timeline.list` | lists the timeline of one issue by `number` |
+| `github.assignees.list` | lists the users that may be assigned in the repository |
+| `github.assignees.check` | tells whether one `assignee` login may be assigned |
+
+All four read and change nothing. Each lists one bounded batch, oldest first, paged by `limit` and `cursor` the same
+way [labels](#labels) are. The only other filter GitHub offers is `exclude` on the timeline: up to 50 event types by
+their lower-case GitHub name (such as `commented`), sent as one comma-separated list. A cursor is bound to the tool,
+the repository, the issue, and, for the timeline, the `exclude` list; GitHub decides what it leaves out. GitHub treats a pull request as an issue on these routes, so a pull request number is
+accepted; the route always stays inside the repository the call names.
+
+An event reports its `event` type, `actor`, `created_at`, `commit_id`, and the members of its type: `label`,
+`assignee`, `assigner`, `review_requester`, `requested_reviewer`, `requested_team`, `dismissed_review`,
+`milestone`, `project_card`, `rename`, `lock_reason`, `author_association`, `performed_via_github_app`, `intent`
+(an agent's `rationale`, cut at 1000 characters, and `confidence`; only while GitHub's issue suggestions are on),
+`issue_type` and `prev_issue_type` (`id`, `name`, `color`), and, for sub-issue, parent-issue, and dependency events,
+`sub_issue`, `parent_issue`, `blocked_by`, and `blocking`; its REST addresses (the event's `url`, `issue_url`, and
+`pull_request_url`) sit in `links`. The repository-wide list adds the `issue` of each event, as an entry of the
+[sub-issue list](#sub-issues) plus `is_pull_request` and, for a pull request, its `pull_request` members. The timeline adds the members of the types only it carries:
+comments and reviews (`body`, `user`, `reactions`, `state`, `submitted_at`), cross-references (`source`), commits
+(`sha`, `author`, `committer`, `message`, `tree`, `parents`, `verification`), line comments and commit comments
+(`line_comments`, which also report `is_copilot_code_review` and `copilot_code_review_sources`, and
+`commit_comments`), the `minimized` and `pin` state of a comment, and `state_reason`. Event types are an open set: an event of a type Qatlas
+does not know, or of an unexpected shape, keeps its `event` type, `id`, `node_id`, and `created_at`, and whatever
+it shares with the known types, never a raw copy.
+
+Texts are untrusted data and cut: comment, review, and line comment bodies and the dismissal message at 4000
+characters, commit messages at 4096, with `*_truncated` saying so. The rendered `body_html` and `body_text`
+variants and the `_links` member are left out; the `pull_request` member of an issue is reported only as
+`is_pull_request`.
+
+Objects outside the connection's targets, or in an excluded repository, show only identifiers. The issue of a
+sub-issue, parent-issue, or dependency event shows `number`, `title`, `state`, `state_reason`, `repository`, and
+`issue_type` inside the targets, with `title` untrusted data; outside them it keeps `number` and the `id`, `node_id`,
+and `full_name` of `repository`, with `withheld`, and when its repository cannot be told only `withheld`. A cross-referenced
+issue of such a repository keeps its `number`, `repository`, and `is_pull_request` and sets `withheld` on its
+`source`; when its repository cannot be told, `source` holds `withheld` alone. A commit of another repository
+keeps `commit_id` and, in `commit_repository`, its `OWNER/REPO`, but loses its address; inside the targets the
+address stays in `links.commit_url`. Commit comments and commits of a pull request timeline are shown as GitHub
+delivers them for the pull request.
+
+`github.assignees.check` answers `assignable: true` for GitHub's 204 and `assignable: false` for its 404, as a result
+and not as an error. GitHub answers 404 as well for a repository the token cannot see, so the two are not told
+apart. `assignee` is checked locally as a login: letters, digits, `-`, and `_`, so a bot login with a `[bot]`
+suffix is refused. The token rights are listed under [Issues and comments](setup.md#issues-and-comments).
+
+Source: the official REST documentation (<https://docs.github.com/en/rest/issues/events>,
+<https://docs.github.com/en/rest/issues/timeline>, <https://docs.github.com/en/rest/issues/assignees>,
+`X-GitHub-Api-Version: 2022-11-28`), schemas `issue-event`, `issue-event-for-issue`, `timeline-issue-events`, and
+`simple-user`.
 
 ## Issue types
 
