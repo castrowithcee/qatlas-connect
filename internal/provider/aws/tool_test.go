@@ -13,7 +13,7 @@ import (
 	"github.com/castrowithcee/qatlas-connect/internal/provider/aws/awsquery"
 	"github.com/castrowithcee/qatlas-connect/internal/provider/aws/endpoints"
 	"github.com/castrowithcee/qatlas-connect/internal/provider/aws/gen"
-	"github.com/castrowithcee/qatlas-connect/internal/redact"
+	"github.com/castrowithcee/qatlas-kit/redact"
 )
 
 // maxDecodedBytes is the cap of DecodedMessage in the STS curation table (gen/table_sts.go).
@@ -199,6 +199,15 @@ func TestGeneratedTargetChecks(t *testing.T) {
 		{"arn-account", "arn:aws:iam::210987654321:role/x", false},
 		{"arn-account", "arn:aws-cn:iam::" + testAccount + ":role/x", false},
 		{"arn-account", "not-an-arn", false},
+		{"arn-account-or-managed-policy", "arn:aws:iam::aws:policy/ReadOnlyAccess", true},
+		{"arn-account-or-managed-policy", "arn:aws:iam::aws:policy/service-role/AWSLambdaRole", true},
+		{"arn-account-or-managed-policy", "arn:aws:iam::" + testAccount + ":policy/x", true},
+		{"arn-account-or-managed-policy", "arn:aws:iam::210987654321:policy/x", false},
+		{"arn-account-or-managed-policy", "arn:aws:iam::aws:role/x", false},
+		{"arn-account-or-managed-policy", "arn:aws:iam::aws:policy/", false},
+		{"arn-account-or-managed-policy", "arn:aws:s3::aws:policy/x", false},
+		{"arn-account-or-managed-policy", "arn:aws-cn:iam::aws:policy/x", false},
+		{"arn-account-or-managed-policy", "arn:aws:iam:us-east-1:aws:policy/x", false},
 		{"arn-region", "arn:aws:sqs:" + testRegion + ":" + testAccount + ":q", true},
 		{"arn-region", "arn:aws:sqs:us-west-2:" + testAccount + ":q", false},
 		{"arn-region", "arn:aws:sqs:" + testRegion + ":210987654321:q", false},
@@ -263,7 +272,7 @@ func TestGeneratedRulesRefuseInvalidAnswers(t *testing.T) {
 // A tool that names a check the runtime does not implement is a registration error.
 func TestGeneratedSpecsNeedImplementedChecks(t *testing.T) {
 	for _, change := range []func(*toolSpec){
-		func(s *toolSpec) { s.policyCheck = "trust-policy" },
+		func(s *toolSpec) { s.policyCheck = "bucket-policy" },
 		func(s *toolSpec) { s.targetCheck = "bucket-owner" },
 		func(s *toolSpec) { s.rules = []outputRule{{key: "names", form: "arn-ish"}} },
 		func(s *toolSpec) { s.descriptor.Group = "undeclared" },

@@ -17,11 +17,11 @@ import (
 	"filippo.io/age"
 	"golang.org/x/crypto/ssh"
 
-	"github.com/castrowithcee/qatlas-connect/internal/redact"
 	"github.com/castrowithcee/qatlas-connect/internal/selfupdate"
 	"github.com/castrowithcee/qatlas-connect/internal/selfupdate/selfupdatetest"
 	"github.com/castrowithcee/qatlas-connect/internal/vault"
 	"github.com/castrowithcee/qatlas-connect/internal/vaultproc"
+	"github.com/castrowithcee/qatlas-kit/redact"
 	"github.com/castrowithcee/qatlas-kit/release/releasetest"
 )
 

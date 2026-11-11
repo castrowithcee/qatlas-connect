@@ -12,7 +12,7 @@ var toolGroups = []config.ToolGroup{
 	{ID: "issues", Title: "Issues", Description: "Issues, comments, reactions, labels, milestones, types, fields, dependencies, sub-issues, and Copilot assignments"},
 	{ID: "pull-requests", Title: "Pull requests", Description: "Pull requests with their files, commits, checks, check runs and suites, reviews, review threads, reviewers, and Copilot reviews"},
 	{ID: "projects", Title: "Projects", Description: "Projects with their items, drafts, fields, views, status updates, iterations, templates, and access"},
-	{ID: "actions", Title: "Actions", Description: "Workflows, runs, jobs, logs, artifacts, workflow and Actions permissions, environments, and deployment branch policies"},
+	{ID: "actions", Title: "Actions", Description: "Workflows, runs, jobs, logs, artifacts, caches, Actions variables, workflow and Actions permissions, environments with their deployment branch policies and protection rules, and deployments with their statuses"},
 	{ID: "code", Title: "Code", Description: "Repository contents, files, trees, branches, tags, commits, comparisons, commit comments, and blame"},
 	{ID: "repositories", Title: "Repositories", Description: "Repositories, their languages, contributors, statistics, activity feed, community profiles, custom properties, merge settings, rulesets, collaborators, subscriptions, and stars"},
 	{ID: "releases", Title: "Releases", Description: "Releases and their assets"},
@@ -20,7 +20,7 @@ var toolGroups = []config.ToolGroup{
 	{ID: "discussions", Title: "Discussions", Description: "Discussions, their categories, and their comments"},
 	{ID: "gists", Title: "Gists", Description: "Gists and their files"},
 	{ID: "notifications", Title: "Notifications", Description: "Notification threads and thread subscriptions"},
-	{ID: "accounts", Title: "Accounts", Description: "Users, organizations, teams, team members, and the authenticated account"},
+	{ID: "accounts", Title: "Accounts", Description: "Users, organizations, teams, team members, the authenticated account and its rate limit, GitHub's meta information, license, .gitignore, and code of conduct templates, emojis, and Markdown rendering"},
 }
 
 // groupBySegment maps the resource segment of a tool ID (github.<segment>.<action>) to its group. Segments
@@ -32,9 +32,13 @@ var groupBySegment = map[string]string{
 	"copilot-reviews": "pull-requests", "check-runs": "pull-requests", "check-annotations": "pull-requests",
 	"check-suites": "pull-requests", "check-suite-runs": "pull-requests",
 	"workflows": "actions", "workflow-runs": "actions", "workflow-jobs": "actions", "workflow-run-logs": "actions",
+	"workflow-run-attempts": "actions", "workflow-run-approvals": "actions",
 	"workflow-artifacts": "actions", "workflow-files": "actions", "workflow-permissions": "actions",
-	"actions-permissions": "actions", "environments": "actions", "deployment-branch-policies": "actions",
-	"contents": "code", "files": "code", "branches": "code", "commits": "code", "trees": "code",
+	"actions-permissions": "actions", "action-variables": "actions", "action-caches": "actions",
+	"action-cache-usage": "actions", "environments": "actions",
+	"deployment-branch-policies": "actions", "deployment-protection-rules": "actions", "deployments": "actions",
+	"deployment-statuses": "actions",
+	"contents":            "code", "files": "code", "branches": "code", "commits": "code", "trees": "code",
 	"blame": "code", "code": "code", "tags": "code", "compare": "code", "commit-branches": "code",
 	"commit-pulls": "code", "commit-comments": "code",
 	"repositories": "repositories", "custom-properties": "repositories", "rulesets": "repositories",
@@ -49,7 +53,9 @@ var groupBySegment = map[string]string{
 	"gists":         "gists",
 	"notifications": "notifications", "thread-subscriptions": "notifications",
 	"accounts": "accounts", "users": "accounts", "organizations": "accounts", "teams": "accounts",
-	"team-members": "accounts", "traffic-views": "repositories", "traffic-clones": "repositories",
+	"team-members": "accounts", "rate-limit": "accounts", "meta": "accounts", "licenses": "accounts",
+	"gitignore-templates": "accounts", "codes-of-conduct": "accounts", "emojis": "accounts", "markdown": "accounts",
+	"traffic-views": "repositories", "traffic-clones": "repositories",
 	"traffic-paths": "repositories", "traffic-referrers": "repositories",
 }
 

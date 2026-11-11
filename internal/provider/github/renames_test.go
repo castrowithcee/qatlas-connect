@@ -12,6 +12,24 @@ import (
 // currentToolIDs is the complete set of GitHub tool IDs.
 var currentToolIDs = []string{
 	"github.accounts.me",
+	"github.action-cache-usage.get",
+	"github.action-caches.delete",
+	"github.action-caches.list",
+	"github.action-variables.create",
+	"github.action-variables.delete",
+	"github.action-variables.get",
+	"github.action-variables.list",
+	"github.action-variables.update",
+	"github.rate-limit.get",
+	"github.meta.get",
+	"github.licenses.list",
+	"github.licenses.get",
+	"github.gitignore-templates.list",
+	"github.gitignore-templates.get",
+	"github.codes-of-conduct.list",
+	"github.codes-of-conduct.get",
+	"github.emojis.list",
+	"github.markdown.render",
 	"github.actions-permissions.get",
 	"github.actions-permissions.update",
 	"github.blame.get",
@@ -64,6 +82,13 @@ var currentToolIDs = []string{
 	"github.deployment-branch-policies.delete",
 	"github.deployment-branch-policies.list",
 	"github.deployment-branch-policies.update",
+	"github.deployment-protection-rules.delete",
+	"github.deployment-protection-rules.get",
+	"github.deployment-protection-rules.list",
+	"github.deployment-statuses.get",
+	"github.deployment-statuses.list",
+	"github.deployments.get",
+	"github.deployments.list",
 	"github.discussion-categories.list",
 	"github.discussion-comments.create",
 	"github.discussion-comments.delete",
@@ -222,6 +247,7 @@ var currentToolIDs = []string{
 	"github.traffic-views.get",
 	"github.trees.get",
 	"github.users.search",
+	"github.workflow-artifacts.delete",
 	"github.workflow-artifacts.list",
 	"github.workflow-files.create",
 	"github.workflow-files.get",
@@ -232,8 +258,12 @@ var currentToolIDs = []string{
 	"github.workflow-jobs.log",
 	"github.workflow-permissions.get",
 	"github.workflow-permissions.update",
+	"github.workflow-run-approvals.list",
+	"github.workflow-run-attempts.get",
 	"github.workflow-run-logs.delete",
 	"github.workflow-runs.cancel",
+	"github.workflow-runs.delete",
+	"github.workflow-runs.force-cancel",
 	"github.workflow-runs.get",
 	"github.workflow-runs.list",
 	"github.workflow-runs.rerun",
@@ -258,7 +288,7 @@ func TestRegistryHoldsExactlyTheCurrentToolIDs(t *testing.T) {
 	sort.Strings(got)
 	want := append([]string(nil), currentToolIDs...)
 	sort.Strings(want)
-	if strings.Join(got, "\n") != strings.Join(want, "\n") || len(got) != 233 {
+	if strings.Join(got, "\n") != strings.Join(want, "\n") || len(got) != 263 {
 		t.Errorf("registry holds %d tools, differing from the expected %d IDs", len(got), len(want))
 	}
 	if err := reg.ValidateRenames(); err != nil {
@@ -297,8 +327,19 @@ func TestRenamedToolsCoverEveryChangedID(t *testing.T) {
 		"github.traffic-views.get":     true, "github.traffic-clones.get": true, "github.traffic-paths.list": true,
 		"github.traffic-referrers.list": true,
 		"github.stats-contributors.get": true, "github.stats-commit-activity.get": true, "github.stats-code-frequency.get": true, "github.stats-participation.get": true, "github.stats-punch-card.get": true,
+		"github.action-variables.list": true, "github.action-variables.get": true, "github.action-variables.create": true,
+		"github.action-variables.update": true, "github.action-variables.delete": true,
+		"github.action-caches.list": true, "github.action-caches.delete": true, "github.action-cache-usage.get": true,
+		"github.workflow-runs.delete": true, "github.workflow-runs.force-cancel": true,
+		"github.workflow-artifacts.delete": true, "github.workflow-run-attempts.get": true,
+		"github.workflow-run-approvals.list":     true,
 		"github.deployment-branch-policies.list": true, "github.deployment-branch-policies.create": true,
-		"github.deployment-branch-policies.update": true, "github.deployment-branch-policies.delete": true}
+		"github.deployment-branch-policies.update": true, "github.deployment-branch-policies.delete": true,
+		"github.deployment-protection-rules.list": true, "github.deployment-protection-rules.get": true,
+		"github.deployment-protection-rules.delete": true, "github.deployment-statuses.list": true,
+		"github.deployment-statuses.get": true,
+		"github.rate-limit.get":          true, "github.gitignore-templates.list": true, "github.gitignore-templates.get": true,
+		"github.codes-of-conduct.list": true, "github.codes-of-conduct.get": true}
 	for id := range current {
 		if strings.Contains(id, "-") && !targets[id] && !bornHyphenated[id] {
 			t.Errorf("hyphenated tool %s has no former ID", id)

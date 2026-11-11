@@ -38,6 +38,8 @@ func TestClassify(t *testing.T) {
 		{"slow down is not an awsQuery code", 503, "SlowDown", "9", provider.ClassInvalidResponse, 0},
 		{"no such entity", 404, "NoSuchEntity", "", provider.ClassNotFound, 0},
 		{"report not present", 410, "ReportNotPresent", "", provider.ClassNotFound, 0},
+		{"report in progress", 404, "ReportInProgress", "", provider.ClassProviderError, 0},
+		{"report expired", 410, "ReportExpired", "", provider.ClassProviderError, 0},
 		{"entity already exists", 409, "EntityAlreadyExists", "", provider.ClassProviderError, 0},
 		{"delete conflict", 409, "DeleteConflict", "", provider.ClassProviderError, 0},
 		{"access denied exception", 400, "AccessDeniedException", "", provider.ClassPermission, 0},
@@ -48,6 +50,8 @@ func TestClassify(t *testing.T) {
 		{"conflict", 409, "ConflictException", "", provider.ClassProviderError, 0},
 		{"limit exceeded", 400, "LimitExceededException", "", provider.ClassProviderError, 0},
 		{"service quota", 402, "ServiceQuotaExceededException", "", provider.ClassProviderError, 0},
+		{"iam limit exceeded", 409, "LimitExceeded", "", provider.ClassProviderError, 0},
+		{"malformed policy document", 400, "MalformedPolicyDocument", "", provider.ClassProviderError, 0},
 		{"retry-after ignored when not limited", 400, "AccessDenied", "9", provider.ClassPermission, 0},
 	}
 	for _, test := range tests {

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -194,6 +195,7 @@ func TestTableRefusesWhatIsNotAllowed(t *testing.T) {
 		{"hidden without reason", withOperation(func(o *Operation) { o.HiddenOutputs = []Hidden{{Member: "Arn"}} }), "no reason"},
 		{"unknown form", withOperation(func(o *Operation) { o.Fields = map[string]Field{"Arn": {Description: "d", Form: "arn-ish"}} }), "unknown form"},
 		{"unknown effect", withOperation(func(o *Operation) { o.Effect = "read-write" }), "unknown effect"},
+		{"own-role check on a read", withOperation(func(o *Operation) { o.SelfRole = "Arn" }), "self_role"},
 		{"excluded operation as a tool", func() Table {
 			table := withOperation(func(*Operation) {})
 			table.Operations = append(table.Operations, Operation{Operation: "AssumeRole", Object: "role", Action: "assume",
@@ -519,6 +521,48 @@ func TestListedOnlyAndConfirmReachTheDescriptor(t *testing.T) {
 	}
 }
 
+// self_role becomes the selfRole of the spec, by its argument name, and only a required top-level string
+// member offered as an argument may carry it. A trust-policy argument gets a sample that passes the check.
+func TestSelfRoleAndTrustSamples(t *testing.T) {
+	m := syntheticModel(t)
+	op := readOp("CreateThing")
+	op.Effect, op.Confirm, op.Idempotency = "delete", true, "non-idempotent"
+	op.Arguments = map[string]Argument{"ThingName": {Description: "n"}}
+	op.Fields = map[string]Field{"ThingId": {Description: "i"}}
+	op.SelfRole = "ThingName"
+	tl, err := build(m, &syntheticTable, op)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var b bytes.Buffer
+	renderTools(&b, []*tool{tl})
+	if !strings.Contains(b.String(), `selfRole: "thing_name"`) {
+		t.Errorf("rendered:\n%s", b.String())
+	}
+	op.SelfRole = "ClientToken"
+	if _, err := build(m, &syntheticTable, op); err == nil || !strings.Contains(err.Error(), "self_role ClientToken") {
+		t.Errorf("an unoffered self_role: %v", err)
+	}
+	list := readOp("ListThings")
+	list.Effect, list.Confirm, list.Idempotency = "update", true, "idempotent"
+	list.Arguments = map[string]Argument{"Prefix": {Description: "p"}, "Filters": {Description: "f"}}
+	list.Fields = map[string]Field{"Things": {Description: "t"}, "Tags": {Description: "t"}}
+	list.SelfRole = "Prefix"
+	if _, err := build(m, &syntheticTable, list); err == nil || !strings.Contains(err.Error(), "self_role Prefix") {
+		t.Errorf("an optional self_role: %v", err)
+	}
+	list.SelfRole, list.PolicyCheck, list.PolicyArgs = "", "trust-policy", []string{"Prefix"}
+	list.Arguments["Prefix"] = Argument{Description: "p"}
+	tl, err = build(m, &syntheticTable, list)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var args map[string]any
+	if err := json.Unmarshal([]byte(tl.sampleArgs), &args); err != nil || args["prefix"] != sampleTrustPolicy {
+		t.Errorf("trust sample = %s, %v", tl.sampleArgs, err)
+	}
+}
+
 // What the model does not bind unambiguously, or what would show a credential, stops the generation and
 // names the operation.
 func TestBuildRefusesWhatItWouldHaveToGuess(t *testing.T) {
@@ -645,5 +689,163 @@ func TestURLEncodedShapesAreDecodedAndChecked(t *testing.T) {
 	bad.URLEncoded = []URLEncoded{{Shape: "policy-document", MaxLen: -1}}
 	if err := bad.Validate(); err == nil {
 		t.Error("an invalid URLEncoded entry passed validation")
+	}
+}
+
+// A union input is a structure with exactly one member, the sample picks one member only, and a checked
+// ARN argument and a version ID with a fixed prefix get samples that pass.
+func TestUnionInputsAndSamplesOfCheckedArguments(t *testing.T) {
+	var op Operation
+	for _, o := range iamPolicyTools {
+		if o.Operation == "SimulatePrincipalPolicy" {
+			op = o
+		}
+	}
+	p, err := LoadPin(ModelDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	m, err := LoadTableModel(ModelDir, p, iamTable)
+	if err != nil {
+		t.Fatal(err)
+	}
+	tl, err := build(m, &Table{Service: "iam", Segment: "iam", Geltung: Global}, op)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{`"policy_exclusion_list":{"type":"array","items":{"type":"object"`, `"minProperties":1,"maxProperties":1`} {
+		if !strings.Contains(tl.inputSchema, want) {
+			t.Errorf("input schema lacks %s: %s", want, tl.inputSchema)
+		}
+	}
+	if err := tl.makeSamples(m); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(tl.sampleArgs, `"policy_source_arn":"`+sampleARN+`"`) || strings.Count(tl.sampleArgs, `"policy_type"`)+
+		strings.Count(tl.sampleArgs, `"policy_arn"`)+strings.Count(tl.sampleArgs, `"inline_policy_identifier"`) != 1 {
+		t.Errorf("sample arguments = %s", tl.sampleArgs)
+	}
+}
+
+// A CSV member turns the blob into rows with their own paging: the schema offers the rows and the paging
+// members and never the blob, the blob keeps its own cap in the shape, and a description that does not fit
+// the operation stops the generation.
+func TestCSVReportBindsRowsAndRefusesMisuse(t *testing.T) {
+	p, err := LoadPin(ModelDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	m, err := LoadTableModel(ModelDir, p, iamTable)
+	if err != nil {
+		t.Fatal(err)
+	}
+	find := func(name string) Operation {
+		for _, o := range iamTable.Operations {
+			if o.Operation == name {
+				return o
+			}
+		}
+		t.Fatalf("no operation %s", name)
+		return Operation{}
+	}
+	op := find("GetCredentialReport")
+	tl, err := build(m, &iamTable, op)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{`"rows":{"type":"array"`, `"total_rows"`, `"next_cursor"`, `"has_more"`, `"dropped_columns"`, `"mfa_active":{"type":"boolean"}`} {
+		if !strings.Contains(tl.outputSchema, want) {
+			t.Errorf("output schema lacks %s: %s", want, tl.outputSchema)
+		}
+	}
+	if strings.Contains(tl.outputSchema, "content") || !strings.Contains(tl.inputSchema, `"page_size":{"type":"integer","minimum":1,"maximum":500}`) {
+		t.Errorf("schemas: %s / %s", tl.inputSchema, tl.outputSchema)
+	}
+	var rendered bytes.Buffer
+	renderTools(&rendered, []*tool{tl})
+	if !strings.Contains(rendered.String(), "MaxLen: 4194304") || !strings.Contains(rendered.String(), `csv: &csvReport{Member: "~csv"`) {
+		t.Error("the blob cap or the csv description is not rendered")
+	}
+
+	bad := op
+	bad.CSV = &CSVReport{Member: "ReportFormat", Columns: op.CSV.Columns, MaxBytes: 1, MaxRows: 1, MaxField: 1, DefaultPage: 1, MaxPage: 1}
+	if _, err := build(m, &iamTable, bad); err == nil {
+		t.Error("a csv member that is not a blob was accepted")
+	}
+	paged := find("ListUsers")
+	paged.CSV = op.CSV
+	if _, err := build(m, &iamTable, paged); err == nil {
+		t.Error("a csv description on a paged operation was accepted")
+	}
+	for name, mutate := range map[string]func(*CSVReport){
+		"no columns":      func(c *CSVReport) { c.Columns = nil },
+		"duplicate":       func(c *CSVReport) { c.Columns = append(slices.Clone(c.Columns), c.Columns[0]) },
+		"bad name":        func(c *CSVReport) { c.Columns = []CSVColumn{{Name: "User"}} },
+		"page above rows": func(c *CSVReport) { c.MaxPage = c.MaxRows + 1 },
+	} {
+		c := *op.CSV
+		mutate(&c)
+		o := op
+		o.CSV = &c
+		if err := o.validate(); err == nil {
+			t.Errorf("%s: accepted", name)
+		}
+	}
+	write := op
+	write.Effect, write.Idempotency, write.Confirm = "execute", "non-idempotent", true
+	if err := write.validate(); err == nil {
+		t.Error("a csv description on a write was accepted")
+	}
+}
+
+// A member below a top-level output member is hidden by a dotted path, and a sensitive member that is not
+// hidden stops the generation; a path that names nothing is refused. ListDelegationRequests spells its
+// truncation flag in lower case and still pages.
+func TestNestedHiddenOutputsAndLowerCaseTruncationFlag(t *testing.T) {
+	p, err := LoadPin(ModelDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	m, err := LoadTableModel(ModelDir, p, iamTable)
+	if err != nil {
+		t.Fatal(err)
+	}
+	iam := &Table{Service: "iam", Segment: "iam", Geltung: Global}
+	byName := func(name string) Operation {
+		i := slices.IndexFunc(iamAccountTools, func(o Operation) bool { return o.Operation == name })
+		if i < 0 {
+			t.Fatalf("no tool for %s", name)
+		}
+		return iamAccountTools[i]
+	}
+	virtual := byName("ListVirtualMFADevices")
+	tl, err := build(m, iam, virtual)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(tl.outputSchema, "seed") || strings.Contains(tl.outputSchema, "qr_code") || !strings.Contains(tl.outputSchema, "serial_number") {
+		t.Errorf("output schema = %s", tl.outputSchema)
+	}
+	open := virtual
+	open.HiddenOutputs = virtual.HiddenOutputs[:1]
+	if _, err := build(m, iam, open); err == nil || !strings.Contains(err.Error(), "QRCodePNG: the member is sensitive") {
+		t.Errorf("a sensitive member left in: %v", err)
+	}
+	for _, c := range []struct{ member, want string }{
+		{"VirtualMFADevices.Invented", "hidden output VirtualMFADevices.Invented is not a member below an output member"},
+		{"Invented.Seed", "hidden output Invented is not an output member"},
+	} {
+		wrong := virtual
+		wrong.HiddenOutputs = append(slices.Clone(virtual.HiddenOutputs), Hidden{Member: c.member, Reason: "r"})
+		if _, err := build(m, iam, wrong); err == nil || !strings.Contains(err.Error(), c.want) {
+			t.Errorf("hidden path %s: %v", c.member, err)
+		}
+	}
+	tl, err = build(m, iam, byName("ListDelegationRequests"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if tl.pager == nil || tl.pager.Truncated != "~isTruncated" || tl.pager.TokenOut != "~Marker" {
+		t.Errorf("pager = %+v", tl.pager)
 	}
 }

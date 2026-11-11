@@ -370,8 +370,9 @@ func isType(kind string, value any) bool {
 // are those of its entries. The members of the risk stand beside the others rather than in an object of
 // their own, and all are ordered by meaning: the identifier, its descriptions, the risk, then the tables.
 //
-// SelectableFields names the members of the result list entries that invoke can select with fields; it is
-// left out for a tool without a result list.
+// SelectableFields names the members of the result list entries that invoke can select with fields. For a
+// tool with default fields, Fields lists only those and SelectableFields names the other top-level members,
+// which fields or full returns. It is left out otherwise.
 //
 // The provider is the prefix of the ID, the tags serve the search that found the tool, and whether a tool
 // needs a tools list that names it only decides which connections offer it, which the connections beside
@@ -441,13 +442,26 @@ func Compact(d capability.Descriptor) CompactDescriptor {
 			fields = append(fields, capability.Field{Name: name, Description: result.Properties[name].Description})
 		}
 	}
+	selectable := SelectableFields(d)
+	if len(d.DefaultFields) > 0 {
+		members := resultMembers(d.OutputSchema)
+		shown := fields[:0:0]
+		for _, field := range fields {
+			if keptWith(field.Name, d.DefaultFields) {
+				shown = append(shown, field)
+			} else if containsString(members, field.Name) {
+				selectable = append(selectable, field.Name)
+			}
+		}
+		fields = shown
+	}
 
 	return CompactDescriptor{
 		ID: d.ID, Version: d.Version, Title: d.Title, Description: d.Description,
 		Effect: d.Risk.Effect, Idempotency: d.Risk.Idempotency, Confirmation: d.Risk.Confirmation,
 		OpenWorld: d.Risk.OpenWorld, DataSensitivity: d.Risk.DataSensitivity,
 		Arguments: arguments, Fields: fields,
-		SelectableFields: SelectableFields(d),
+		SelectableFields: selectable,
 		Examples:         append([]capability.Example{}, d.Examples...),
 	}
 }

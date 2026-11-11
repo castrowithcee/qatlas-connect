@@ -41,6 +41,37 @@ stay narrow. The recommended profile `read` needs `iam:ListUsers`, `iam:GetUser`
 `iam:ListGroups`, `iam:GetGroup`, `iam:ListGroupsForUser`, `iam:ListRoles`, `iam:GetRole`, `iam:ListRoleTags`,
 `iam:ListAccessKeys`, and `iam:GetAccessKeyLastUsed`.
 
+The policy tools need `iam:ListPolicies`, `iam:GetPolicy`, `iam:ListPolicyTags`, `iam:ListEntitiesForPolicy`,
+`iam:ListPolicyVersions`, `iam:GetPolicyVersion`, `iam:ListAttached{User,Group,Role}Policies`,
+`iam:List{User,Group,Role}Policies`, `iam:Get{User,Group,Role}Policy`, and for the simulation
+`iam:SimulateCustomPolicy`, `iam:SimulatePrincipalPolicy`, `iam:GetContextKeysForCustomPolicy`, and
+`iam:GetContextKeysForPrincipalPolicy`. They are not part of the profile `read`.
+
+The [account and identity provider tools](iam.md#account-state-identity-providers-and-further-reads) need
+`iam:GetAccountSummary`, `iam:GetAccountAuthorizationDetails`, `iam:GetAccountPasswordPolicy`,
+`iam:ListAccountAliases`, `iam:GetAccountProperties`, `iam:ListOpenIDConnectProviders`,
+`iam:GetOpenIDConnectProvider`, `iam:ListOpenIDConnectProviderTags`, `iam:ListSAMLProviders`, `iam:GetSAMLProvider`,
+`iam:ListSAMLProviderTags`, `iam:ListServerCertificates`, `iam:GetServerCertificate`,
+`iam:ListServerCertificateTags`, `iam:GetMFADevice`, `iam:ListMFADeviceTags`, `iam:ListVirtualMFADevices`,
+`iam:ListInstanceProfileTags`, `iam:GetServiceLinkedRoleDeletionStatus`, `iam:GetRoleTemplateVersion`,
+`iam:GetHumanReadableSummary`, `iam:GetOutboundWebIdentityFederationInfo`, `iam:ListOrganizationsFeatures`,
+`iam:GetOrganizationsAccessReport`, `iam:GetDelegationRequest`, and `iam:ListDelegationRequests`, each for its own
+tool. `iam:GetAccountAuthorizationDetails` returns every policy document of the account, so grant it with care. They
+are not part of the profile `read`.
+
+The [report tools](iam.md#reports) need `iam:GenerateCredentialReport`, `iam:GetCredentialReport`,
+`iam:GenerateServiceLastAccessedDetails`, `iam:GetServiceLastAccessedDetails`,
+`iam:GetServiceLastAccessedDetailsWithEntities`, and `iam:ListPoliciesGrantingServiceAccess`, each for its own tool.
+The two generate tools are listed-only and need confirmation. They are not part of the profile `read`.
+
+The [role tools](iam.md#roles-and-instance-profiles) need `iam:CreateRole`, `iam:UpdateRole`,
+`iam:UpdateAssumeRolePolicy`, `iam:PutRolePermissionsBoundary`, `iam:DeleteRolePermissionsBoundary`, `iam:TagRole`,
+`iam:UntagRole`, `iam:DeleteRole`, `iam:CreateInstanceProfile`, `iam:DeleteInstanceProfile`,
+`iam:AddRoleToInstanceProfile`, and `iam:RemoveRoleFromInstanceProfile`, each for its own tool. Creating with tags
+also needs `iam:TagRole` or `iam:TagInstanceProfile`, and adding a role to an instance profile also needs
+`iam:PassRole` for that role. The own-role check calls `sts:GetCallerIdentity`, which needs no permission. Grant
+only the actions of the tools the connection lists.
+
 ## Connection test
 
 The test assumes the role if one is configured, calls `sts:GetCallerIdentity` at the STS endpoint of the first

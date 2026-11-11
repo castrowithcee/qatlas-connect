@@ -18,8 +18,8 @@ import (
 	"github.com/castrowithcee/qatlas-connect/internal/provider/aws/httpbind"
 	"github.com/castrowithcee/qatlas-connect/internal/provider/aws/restjson"
 	"github.com/castrowithcee/qatlas-connect/internal/provider/aws/sigv4"
-	"github.com/castrowithcee/qatlas-connect/internal/redact"
 	"github.com/castrowithcee/qatlas-connect/internal/secret"
+	"github.com/castrowithcee/qatlas-kit/redact"
 )
 
 //go:generate go run ./gen/awsgen
@@ -53,13 +53,18 @@ type toolSpec struct {
 	// rest, when set, makes the tool a restJson1 tool: the protocol switch. It carries the method, the URI
 	// and both shapes, so input, output, action, version and accountCheck stay empty. The pager keeps the
 	// same meaning; its members are the "~" fields of rest.Input and rest.Output.
-	rest        *httpbind.Operation
-	pager       *awsquery.Pager
+	rest  *httpbind.Operation
+	pager *awsquery.Pager
+	// csv, when set, turns the blob member of the answer into the rows of a CSV table with its own paging.
+	csv         *csvReport
 	rules       []outputRule
 	targetCheck string
 	targetArgs  []string
 	policyCheck string
 	policyArgs  []string
+	// selfRole is the argument that names a role the tool changes or deletes; the call is refused when it is
+	// the role whose session signs it (see Client.refuseOwnRole).
+	selfRole string
 	// accountCheck marks GetCallerIdentity, whose answer is the account check itself.
 	accountCheck bool
 	// truncated adds the truncated field: true when a string of the answer was cut at its cap.
@@ -81,15 +86,22 @@ type targetCheck func(b binding, global bool, name, value string) error
 // targetChecks are the hand-written target checks, by the name a curation table gives them. "none" checks
 // nothing; bucket-owner belongs to the S3 protocol package and the generator refuses it for awsQuery.
 var targetChecks = map[string]targetCheck{
-	"none":             nil,
-	"account-argument": checkAccountArgument,
-	"arn-account":      checkARNAccount,
-	"arn-region":       checkARNRegion,
+	"none":                          nil,
+	"account-argument":              checkAccountArgument,
+	"arn-account":                   checkARNAccount,
+	"arn-account-or-managed-policy": checkARNAccountOrManagedPolicy,
+	"arn-region":                    checkARNRegion,
 }
 
-// policyChecks are the client-side document checks of the service packages, by name. None exists yet, so a
-// tool that names one other than "none" is a registration error.
-var policyChecks = map[string]func(name, value string) error{"none": nil}
+// policyCheck judges one policy document against the binding before any secret is read or request is built.
+type policyCheck func(b binding, name, value string) error
+
+// policyChecks are the client-side document checks, by the name a curation table gives them. A tool that
+// names one without an implementation here is a registration error.
+var policyChecks = map[string]policyCheck{
+	"none":         nil,
+	"trust-policy": checkTrustPolicy,
+}
 
 // generatedTools checks every generated tool against the runtime and binds it to its handler.
 func generatedTools() ([]capability.Operation, error) {
@@ -131,6 +143,9 @@ func (s toolSpec) check() error {
 	}
 	if _, ok := policyChecks[s.policyCheck]; !ok {
 		return fmt.Errorf("policy check %q has no implementation", s.policyCheck)
+	}
+	if s.selfRole != "" && (s.accountCheck || s.descriptor.Risk.Effect == capability.EffectRead) {
+		return errors.New("the own-role check belongs to a tool that changes or deletes a role")
 	}
 	for _, r := range s.rules {
 		if _, ok := forms[r.form]; r.form != "" && !ok {
@@ -181,6 +196,12 @@ func (s toolSpec) handler() capability.Handler {
 		if err != nil {
 			return nil, err
 		}
+		var rowPage csvPage
+		if s.csv != nil {
+			if rowPage, err = s.startCSV(region, args); err != nil {
+				return nil, err
+			}
+		}
 		token, send, err := s.encode(args, page)
 		if err != nil {
 			return nil, err
@@ -210,9 +231,20 @@ func (s toolSpec) handler() capability.Handler {
 			if err != nil {
 				return nil, err
 			}
+			if s.selfRole != "" {
+				target, _ := args[s.selfRole].(string)
+				if err := client.refuseOwnRole(ctx, op, region, creds, s.selfRole, target); err != nil {
+					return nil, err
+				}
+			}
 			var failure *provider.Error
 			if truncated, failure = send(ctx, client, creds, region, &out); failure != nil {
 				return nil, failure
+			}
+		}
+		if s.csv != nil {
+			if err := s.csv.apply(op, out, rowPage); err != nil {
+				return nil, err
 			}
 		}
 		return s.result(op, out, page, region, global, truncated, token)
@@ -310,7 +342,7 @@ func (s toolSpec) checkArguments(b binding, global bool, args map[string]any) er
 		for _, name := range s.policyArgs {
 			if v, set := args[name]; set {
 				text, _ := v.(string)
-				if err := check(name, text); err != nil {
+				if err := check(b, name, text); err != nil {
 					return err
 				}
 			}
@@ -417,6 +449,21 @@ func checkARNAccount(b binding, _ bool, name, value string) error {
 	if !ok || partition != "aws" || account != b.account {
 		return &provider.InvalidRequestError{
 			Message: name + " must be an ARN of the aws partition in the account this connection is bound to"}
+	}
+	return nil
+}
+
+// checkARNAccountOrManagedPolicy accepts an ARN of the bound account, or an AWS managed policy: the account
+// segment is exactly "aws", the service is iam, and the resource is a policy. Nothing else outside the
+// account passes.
+func checkARNAccountOrManagedPolicy(b binding, global bool, name, value string) error {
+	if parts := strings.SplitN(value, ":", 6); len(parts) == 6 && parts[0] == "arn" && parts[1] == "aws" &&
+		parts[2] == "iam" && parts[3] == "" && parts[4] == "aws" && strings.HasPrefix(parts[5], "policy/") && len(parts[5]) > len("policy/") {
+		return nil
+	}
+	if err := checkARNAccount(b, global, name, value); err != nil {
+		return &provider.InvalidRequestError{
+			Message: name + " must be an AWS managed policy ARN or an ARN of the aws partition in the account this connection is bound to"}
 	}
 	return nil
 }

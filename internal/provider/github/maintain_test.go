@@ -19,7 +19,7 @@ import (
 	"github.com/castrowithcee/qatlas-connect/internal/capability"
 	"github.com/castrowithcee/qatlas-connect/internal/config"
 	"github.com/castrowithcee/qatlas-connect/internal/provider"
-	"github.com/castrowithcee/qatlas-connect/internal/redact"
+	"github.com/castrowithcee/qatlas-kit/redact"
 )
 
 const (
@@ -224,9 +224,9 @@ func TestGuardedToolsStayOutOfEveryStandardProfile(t *testing.T) {
 		iterationsReplace.ID: true, viewsDelete.ID: true, itemsDelete.ID: true, statusDelete.ID: true,
 		projectWorkflowsDelete.ID: true, releasesDelete.ID: true, contentsDelete.ID: true,
 		repositoriesDelete.ID: true, collaboratorsUpdate.ID: true, teamsLink.ID: true, teamsUnlink.ID: true,
-		filesPush.ID: true, branchesDelete.ID: true, rulesetsDelete.ID: true, labelsDelete.ID: true, commentsDelete.ID: true,
+		filesPush.ID: true, branchesDelete.ID: true, rulesetsDelete.ID: true, labelsDelete.ID: true, actionVariablesDelete.ID: true, actionCachesDelete.ID: true, runsDelete.ID: true, artifactsDelete.ID: true, commentsDelete.ID: true,
 		discussionCommentsDelete.ID: true, runLogsDelete.ID: true, environmentsDelete.ID: true,
-		branchPoliciesDelete.ID: true}
+		branchPoliciesDelete.ID: true, protectionRulesDelete.ID: true}
 	// github.pull-requests.merge and github.pull-request-reviews.approve are each guarded on their own: neither is
 	// a maintainer or administrator tool nor a delete, but each is offered only where a connection's tools list
 	// names it, because merging into the wrong repository's default branch, and approving on the connection's
@@ -235,13 +235,15 @@ func TestGuardedToolsStayOutOfEveryStandardProfile(t *testing.T) {
 	// guarded the same way too: a custom property can gate what a ruleset condition matches.
 	// github.notifications.mark-all is guarded because GitHub marks every notification of the account read.
 	// github.environments.set is guarded because it decides who must approve a deployment and which branches
-	// may deploy at all.
+	// may deploy at all. github.workflow-runs.force-cancel is guarded because it bypasses always() and lets no
+	// cleanup step of the run finish.
 	for _, descriptor := range reg.Provider(Provider) {
 		want := guarded[descriptor.ID] || deletes[descriptor.ID] || descriptor.ID == pullsMerge.ID ||
 			descriptor.ID == pullRequestReviewsApprove.ID || descriptor.ID == rulesetsCreate.ID ||
 			descriptor.ID == rulesetsUpdate.ID || descriptor.ID == customPropertiesSet.ID ||
 			descriptor.ID == notificationsMarkAll.ID || descriptor.ID == gistsDelete.ID ||
-			descriptor.ID == repositoriesRename.ID || descriptor.ID == environmentsSet.ID
+			descriptor.ID == repositoriesRename.ID || descriptor.ID == environmentsSet.ID ||
+			descriptor.ID == runsForceCancel.ID
 		if descriptor.RequiresToolAllowList != want {
 			t.Errorf("%s requires an allow-list = %t", descriptor.ID, descriptor.RequiresToolAllowList)
 		}
@@ -253,11 +255,11 @@ func TestGuardedToolsStayOutOfEveryStandardProfile(t *testing.T) {
 			marked++
 		}
 	}
-	if marked != len(guardedTools)+len(deletes)+9 || len(guardedTools) != 13 {
+	if marked != len(guardedTools)+len(deletes)+10 || len(guardedTools) != 13 {
 		t.Errorf("marked tools = %d, want the thirteen maintainer and administrator tools, the fifteen deletes and "+
 			"the three access tools, files.push, and github.labels.delete, the merge, the approve, the ruleset "+
 			"create and update, the custom properties set, the notifications mark-all, the gist delete, the repository rename, "+
-			"and the environment set", marked)
+			"the environment set, and the run force-cancel", marked)
 	}
 	profiles := map[string]config.ToolProfile{}
 	for _, profile := range metadata.Profiles {

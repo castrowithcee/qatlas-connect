@@ -20,8 +20,8 @@ import (
 	"github.com/castrowithcee/qatlas-connect/internal/capability"
 	"github.com/castrowithcee/qatlas-connect/internal/config"
 	"github.com/castrowithcee/qatlas-connect/internal/provider"
-	"github.com/castrowithcee/qatlas-connect/internal/provider/ratelimit"
-	"github.com/castrowithcee/qatlas-connect/internal/redact"
+	"github.com/castrowithcee/qatlas-kit/ratelimit"
+	"github.com/castrowithcee/qatlas-kit/redact"
 )
 
 const (
@@ -294,10 +294,12 @@ func actionsConfig(base string) *config.Config {
 	return cfg
 }
 
+// invoke runs a tool with its whole result, since these tests check the provider's projection; the default
+// fields are checked on their own.
 func invoke(t *testing.T, core *application.Core, operation, connection, arguments string, confirmed bool) (json.RawMessage, error) {
 	t.Helper()
 	response, err := core.Invoke(context.Background(), application.InvokeRequest{Operation: operation,
-		Connection: connection, Arguments: json.RawMessage(arguments), Confirmed: confirmed})
+		Connection: connection, Arguments: json.RawMessage(arguments), Confirmed: confirmed, Full: true})
 	return response.Result, err
 }
 

@@ -78,6 +78,13 @@
 // instead, the custom property definitions (schema) an organization declares, the same exclusive selection;
 // only on a connection whose tools list names it, github.custom-properties.set changes them: for a repository
 // it sets or removes property values, and for an organization it creates or updates property definitions.
+// github.action-variables.list and github.action-variables.get read the GitHub Actions variables, never the
+// secrets, of a repository, of one environment of it, or, with organization instead, of an organization, the
+// same exclusive selection; github.action-variables.create and github.action-variables.update change them, an
+// organization variable restricted to selected repositories only to repositories of that organization inside
+// the connection's repository targets; only on a connection whose tools list names it,
+// github.action-variables.delete removes one. A value is plain text, cut at fixed lengths in every answer and
+// never quoted in a message.
 // github.labels.list and github.labels.get read the labels of a repository; github.labels.create and
 // github.labels.update change them; only on a connection whose tools list names it, github.labels.delete
 // removes one permanently, which also strips it from every issue and pull request that carries it.
@@ -148,7 +155,12 @@
 // argument of their own, and a connection whose targets name any is instead narrowed by qualifiers Qatlas
 // forces ahead of the caller's terms, so it never searches beyond them, and a term list that could escape
 // that narrowing, such as a repeated repo:, org:, user:, or owner: qualifier, or OR and parentheses, is
-// refused. Nothing here accepts a free filter expression, a GraphQL document, or a route from an agent, and
+// refused. github.rate-limit.get reads the rate limit of the token, github.meta.get GitHub's meta information,
+// github.licenses.list and .get, github.gitignore-templates.list and .get, and github.codes-of-conduct.list and
+// .get the templates GitHub offers for a repository, github.emojis.list its emojis in bounded batches, and
+// github.markdown.render renders Markdown as GitHub does, optionally against a repository as context; they name
+// no target, follow the account-wide rule of github.accounts.me, and cut template texts and the rendered HTML,
+// which are untrusted data. Nothing here accepts a free filter expression, a GraphQL document, or a route from an agent, and
 // every target is checked against the allow-list before a credential is resolved.
 //
 // A change is sent at most once. Several field values of one item are written in small, serial batches of
@@ -180,9 +192,9 @@ import (
 	"github.com/castrowithcee/qatlas-connect/internal/capability"
 	"github.com/castrowithcee/qatlas-connect/internal/config"
 	"github.com/castrowithcee/qatlas-connect/internal/provider"
-	"github.com/castrowithcee/qatlas-connect/internal/provider/ratelimit"
-	"github.com/castrowithcee/qatlas-connect/internal/redact"
 	"github.com/castrowithcee/qatlas-connect/internal/secret"
+	"github.com/castrowithcee/qatlas-kit/ratelimit"
+	"github.com/castrowithcee/qatlas-kit/redact"
 )
 
 // Provider is the provider name used in the configuration and as the operation namespace.
@@ -415,13 +427,14 @@ var issuesList = capability.Descriptor{
 }
 
 var issuesGet = capability.Descriptor{
-	ID:          Provider + ".issues.get",
-	Version:     1,
-	Title:       "Get a GitHub issue",
-	Description: "Read one issue of a repository a connection allows with its full body, without comments",
-	Tags:        []string{"github", "issues", "get"},
-	Risk:        readRisk,
-	Provider:    Provider,
+	ID:            Provider + ".issues.get",
+	Version:       2,
+	DefaultFields: issueDefaultFields,
+	Title:         "Get a GitHub issue",
+	Description:   "Read one issue of a repository a connection allows with its full body, without comments",
+	Tags:          []string{"github", "issues", "get"},
+	Risk:          readRisk,
+	Provider:      Provider,
 	InputSchema: json.RawMessage(`{"type":"object","properties":{` +
 		`"number":{"type":"integer","minimum":1,"maximum":1000000000}},` +
 		`"required":["number"],"additionalProperties":false}`),
@@ -532,7 +545,14 @@ func Register(reg *capability.Registry) error {
 				"classic token, and changing them, listed-only, needs Custom properties: write instead; reading " +
 				"or changing the custom property schema of an organization needs the organization permission " +
 				"Custom properties, read or read and write, on a fine-grained token, or, as far as GitHub " +
-				"documents it, admin:org on a classic token; reading the labels of a repository needs no scope " +
+				"documents it, admin:org on a classic token; reading the Actions variables of a repository needs " +
+				"repo on a classic token, or Variables: read on a fine-grained token, and of an environment " +
+				"Environments: read instead; changing them, including delete which is listed-only, needs " +
+				"Variables or Environments: read and write instead; reading or changing the Actions variables of " +
+				"an organization needs admin:org on a classic token, and repo as well where a private repository " +
+				"is involved, or the organization permission Variables, read or read and write, on a fine-grained " +
+				"token, and selecting repositories for one reads each of them, which needs Metadata: read; " +
+				"reading the labels of a repository needs no scope " +
 				"for a public repository, or repo on a classic token, or Issues: read on a fine-grained token, " +
 				"for a private one; changing them, including delete which is listed-only, needs Issues: read " +
 				"and write instead, since GitHub keeps a label under a repository's issues and pull requests " +
@@ -581,7 +601,10 @@ func Register(reg *capability.Registry) error {
 				"including the listed-only environment set and delete and deployment branch policy delete, needs " +
 				"repo on a classic token, or Administration: read and write on a fine-grained token, and a team " +
 				"reviewer is resolved with read:org on a classic token, or Members: read of the organization on " +
-				"a fine-grained token",
+				"a fine-grained token; the rate limit, meta, license, .gitignore " +
+				"template, code of conduct, and emoji reads need no scope; rendering Markdown needs no scope for " +
+				"public references, or repo on a classic token, or Contents: read on a fine-grained token, for a " +
+				"private repository as context",
 		}},
 		Target: config.TargetMetadata{
 			Label:    "project, repository, or owner",
@@ -823,11 +846,11 @@ func Register(reg *capability.Registry) error {
 		pullRequestReviewOperations(), pullRequestReviewCommentOperations(), pullRequestReviewThreadOperations(),
 		pullRequestReviewerOperations(), accountOperations(), organizationOperations(), starOperations(),
 		searchOperations(), contentsOperations(), blameOperations(), commitsOperations(), refsOperations(), compareOperations(), commitRelationOperations(),
-		contentsWriteOperations(), repositoriesOperations(), repositoryDetailOperations(), trafficOperations(), repositoryStatsOperations(), rulesetsOperations(), customPropertiesOperations(),
+		contentsWriteOperations(), repositoriesOperations(), repositoryDetailOperations(), trafficOperations(), repositoryStatsOperations(), rulesetsOperations(), customPropertiesOperations(), actionVariablesOperations(), actionCachesOperations(), runCleanupOperations(),
 		labelsOperations(), milestonesOperations(), commentMaintenanceOperations(), commentVisibilityOperations(), reactionsOperations(),
 		subIssuesOperations(), issueDependenciesOperations(), issueTypesOperations(), issueFieldsOperations(),
 		discussionOperations(), notificationOperations(), gistOperations(), securityAlertOperations(), advisoryOperations(),
-		copilotOperations(), environmentsOperations())...)
+		copilotOperations(), environmentsOperations(), deploymentsOperations(), referenceOperations())...)
 	for i := range operations {
 		operations[i].Descriptor = withGroup(withTargetArgument(operations[i].Descriptor))
 	}
@@ -1570,6 +1593,11 @@ func (c *Client) restSubject(request *http.Request) subject {
 		return fallback
 	}
 	full := request.URL.String()
+	if tail, ok := strings.CutPrefix(full, c.endpoints.rest); ok {
+		if what := referenceSubject(tail); what != "" {
+			return subject{what: what}
+		}
+	}
 	if tail, ok := strings.CutPrefix(full, c.endpoints.rest+"/search/"); ok {
 		return searchSubject(tail)
 	}
@@ -1685,6 +1713,13 @@ func (c *Client) restSubject(request *http.Request) subject {
 		if what := environmentsSubject(parts[2]); what != "" {
 			s.what = what
 		}
+		if what := deploymentsSubject(parts[2]); what != "" {
+			s.what = what
+		}
+		// After environmentsSubject, which names a variables path below an environment only generically.
+		if what := variableSubject(parts[2]); what != "" {
+			s.what = what
+		}
 	}
 	return s
 }
@@ -1715,6 +1750,11 @@ func organizationSubject(tail string) subject {
 			}
 		}
 		return subject{what: what}
+	}
+	if len(parts) >= 3 && parts[1] == "actions" {
+		if what := variableSubject(strings.Join(parts[1:], "/")); what != "" {
+			return subject{what: what + " of orgs/" + owner}
+		}
 	}
 	if len(parts) >= 2 && parts[1] == "properties" {
 		return subject{what: "the custom property schema of orgs/" + owner}
@@ -1858,6 +1898,12 @@ func actionsSubject(path string) string {
 		return "workflow run " + value
 	case kind == "jobs" && numeric:
 		return "workflow job " + value
+	case kind == "artifacts" && numeric:
+		return "workflow artifact " + value
+	case kind == "caches" && numeric:
+		return "Actions cache " + value
+	case kind == "caches" || kind == "cache":
+		return "the Actions caches"
 	case kind == "workflows" && (numeric || validRepoName(value) &&
 		(strings.HasSuffix(value, ".yml") || strings.HasSuffix(value, ".yaml"))):
 		return "workflow " + value

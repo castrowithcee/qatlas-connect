@@ -14,9 +14,9 @@ import (
 	"github.com/castrowithcee/qatlas-connect/internal/application"
 	"github.com/castrowithcee/qatlas-connect/internal/config"
 	"github.com/castrowithcee/qatlas-connect/internal/provider"
-	"github.com/castrowithcee/qatlas-connect/internal/provider/ratelimit"
-	"github.com/castrowithcee/qatlas-connect/internal/redact"
 	"github.com/castrowithcee/qatlas-connect/internal/secret"
+	"github.com/castrowithcee/qatlas-kit/ratelimit"
+	"github.com/castrowithcee/qatlas-kit/redact"
 )
 
 // weatherRewrite sends the Weather host to the test server and refuses every other host.
@@ -413,7 +413,7 @@ func TestWeatherToolsRiskAndDescriptions(t *testing.T) {
 			}
 		}
 	}
-	if found != 4 {
+	if found != 6 {
 		t.Errorf("weather tools = %d", found)
 	}
 	if weatherRoot != "https://weather.googleapis.com" || metadata.ValidateBaseURL(weatherRoot) == nil {

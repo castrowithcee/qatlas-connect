@@ -27,10 +27,15 @@ var (
 	rateLimited = rule{provider.ClassRateLimited, Subject + " rate-limited the operation"}
 	notFound    = rule{provider.ClassNotFound, Subject + " did not find the entity; check the name and whether the credential may see it"}
 	conflict    = rule{provider.ClassProviderError, Subject + " reports a conflict: the entity already exists or is being changed; read it again before retrying"}
-	denied      = rule{provider.ClassPermission, Subject + " denied the operation; the identity lacks the required permission"}
-	expired     = rule{provider.ClassAuth, "the " + Subject + " session token has expired"}
-	invalid     = rule{provider.ClassProviderError, Subject + " rejected the request as invalid; check the arguments"}
-	quota       = rule{provider.ClassProviderError, Subject + " refused the operation because a limit or quota is exceeded"}
+	// The credential report: absent is a missing entity; a report that is still being generated or has expired
+	// asks for a new generation, which the message names.
+	reportNotPresent = rule{provider.ClassNotFound, Subject + " has no credential report; generate one first"}
+	reportInProgress = rule{provider.ClassProviderError, Subject + " is still generating the credential report; read it again shortly"}
+	reportExpired    = rule{provider.ClassProviderError, Subject + " reports that the credential report has expired; generate a new one"}
+	denied           = rule{provider.ClassPermission, Subject + " denied the operation; the identity lacks the required permission"}
+	expired          = rule{provider.ClassAuth, "the " + Subject + " session token has expired"}
+	invalid          = rule{provider.ClassProviderError, Subject + " rejected the request as invalid; check the arguments"}
+	quota            = rule{provider.ClassProviderError, Subject + " refused the operation because a limit or quota is exceeded"}
 	// unmapped is for a code the protocol that delivered it does not define.
 	unmapped = rule{provider.ClassInvalidResponse, Subject + " returned an error code this protocol does not define"}
 
@@ -61,9 +66,11 @@ var (
 		"ExpiredTokenException":       expired,
 
 		// IAM: NoSuchEntity is the code of NoSuchEntityException; the report codes and the organization
-		// error name an entity that is not there.
+		// error name an entity that is not there or a report that is not ready.
 		"NoSuchEntity":                  notFound,
-		"ReportNotPresent":              notFound,
+		"ReportNotPresent":              reportNotPresent,
+		"ReportInProgress":              reportInProgress,
+		"ReportExpired":                 reportExpired,
 		"OrganizationNotFoundException": notFound,
 
 		// The restJson1 codes of the Account and SES v2 models. A service package adds the rows of its own
@@ -81,6 +88,10 @@ var (
 		"NameConflict":                  conflict,
 		"DuplicateCertificate":          conflict,
 		"DuplicateSSHPublicKey":         conflict,
+
+		// IAM writes: the quota code of IAM has no Exception suffix, and a policy document AWS cannot parse.
+		"LimitExceeded":           quota,
+		"MalformedPolicyDocument": invalid,
 	}
 )
 

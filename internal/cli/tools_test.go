@@ -25,8 +25,8 @@ import (
 	"github.com/castrowithcee/qatlas-connect/internal/capability"
 	"github.com/castrowithcee/qatlas-connect/internal/config"
 	"github.com/castrowithcee/qatlas-connect/internal/output"
-	"github.com/castrowithcee/qatlas-connect/internal/redact"
 	"github.com/castrowithcee/qatlas-connect/internal/secret"
+	"github.com/castrowithcee/qatlas-kit/redact"
 )
 
 // catalogEnvironment configures one BookStack and one Telegram connection against local servers that fail
@@ -476,7 +476,32 @@ func TestToolsFiltersByNamespaceAndQuery(t *testing.T) {
 		"aws.iam.role.get", "aws.iam.role.list-tags", "aws.iam.instance-profile.list", "aws.iam.instance-profile.get",
 		"aws.iam.instance-profile.list-for-role", "aws.iam.access-key.list", "aws.iam.access-key.get-last-used",
 		"aws.iam.login-profile.get", "aws.iam.mfa-device.list", "aws.iam.ssh-public-key.list",
-		"aws.iam.ssh-public-key.get", "aws.iam.signing-certificate.list", "aws.iam.service-specific-credential.list")
+		"aws.iam.ssh-public-key.get", "aws.iam.signing-certificate.list", "aws.iam.service-specific-credential.list",
+		"aws.iam.policy.list", "aws.iam.policy.get", "aws.iam.policy.list-tags", "aws.iam.policy.list-entities",
+		"aws.iam.policy-version.list", "aws.iam.policy-version.get", "aws.iam.attached-policy.list-for-user",
+		"aws.iam.attached-policy.list-for-group", "aws.iam.attached-policy.list-for-role",
+		"aws.iam.inline-policy.list-for-user", "aws.iam.inline-policy.list-for-group",
+		"aws.iam.inline-policy.list-for-role", "aws.iam.inline-policy.get-for-user",
+		"aws.iam.inline-policy.get-for-group", "aws.iam.inline-policy.get-for-role",
+		"aws.iam.policy-simulation.simulate-custom", "aws.iam.policy-simulation.simulate-principal",
+		"aws.iam.policy-simulation.get-context-keys-custom", "aws.iam.policy-simulation.get-context-keys-principal",
+		"aws.iam.role.create", "aws.iam.role.update", "aws.iam.role.update-trust-policy",
+		"aws.iam.role.put-permissions-boundary", "aws.iam.role.delete-permissions-boundary", "aws.iam.role.tag",
+		"aws.iam.role.untag", "aws.iam.role.delete", "aws.iam.instance-profile.create", "aws.iam.instance-profile.delete",
+		"aws.iam.instance-profile.add-role", "aws.iam.instance-profile.remove-role",
+		"aws.iam.credential-report.generate", "aws.iam.credential-report.get", "aws.iam.service-last-accessed.generate",
+		"aws.iam.service-last-accessed.get-details", "aws.iam.service-last-accessed.get-entities", "aws.iam.service-access.list-policies",
+		"aws.iam.account.get-summary", "aws.iam.account.get-authorization-details",
+		"aws.iam.account.get-password-policy", "aws.iam.account.list-aliases", "aws.iam.account.get-properties",
+		"aws.iam.oidc-provider.list", "aws.iam.oidc-provider.get", "aws.iam.oidc-provider.list-tags",
+		"aws.iam.saml-provider.list", "aws.iam.saml-provider.get", "aws.iam.saml-provider.list-tags",
+		"aws.iam.server-certificate.list", "aws.iam.server-certificate.get", "aws.iam.server-certificate.list-tags",
+		"aws.iam.mfa-device.get", "aws.iam.mfa-device.list-tags", "aws.iam.virtual-mfa-device.list",
+		"aws.iam.instance-profile.list-tags", "aws.iam.service-linked-role.get-deletion-status",
+		"aws.iam.role-template.get-version", "aws.iam.human-readable-summary.get",
+		"aws.iam.outbound-federation.get-info", "aws.iam.organizations-features.list",
+		"aws.iam.organizations-access-report.get", "aws.iam.delegation-request.get",
+		"aws.iam.delegation-request.list")
 	wikiOffered := registryToolIDs(t, "bookstack", offeredBy(capability.EffectRead))
 	alertsOffered := registryToolIDs(t, "telegram", offeredBy(capability.EffectCreate))
 
@@ -492,7 +517,7 @@ func TestToolsFiltersByNamespaceAndQuery(t *testing.T) {
 		{"namespace seatable.base", []string{"seatable.base"}, registryToolIDs(t, "seatable.base", nil)},
 		{"namespace github", []string{"github", "--query", "github"}, registryToolIDs(t, "github", nil)},
 		{"namespace nextcloud", []string{"nextcloud", "--query", "nextcloud"}, registryToolIDs(t, "nextcloud", nil)},
-		{"namespace aws", []string{"aws"}, registryToolIDs(t, "aws", nil)},
+		{"namespace aws", []string{"aws", "--query", "aws"}, registryToolIDs(t, "aws", nil)},
 		{"query", []string{"--query", "pages"}, []string{"bookstack.pages.create", "bookstack.pages.delete", "bookstack.pages.get", "bookstack.pages.list", "bookstack.pages.update", "forgejo.wiki-pages.create", "forgejo.wiki-pages.delete", "forgejo.wiki-pages.get", "forgejo.wiki-pages.list", "forgejo.wiki-pages.update", "gitea.wiki-pages.create", "gitea.wiki-pages.delete", "gitea.wiki-pages.get", "gitea.wiki-pages.list", "gitea.wiki-pages.update", "google.pagespeed.crux.query-history-record", "google.pagespeed.crux.query-record", "google.pagespeed.pagespeed.run", "bookstack.attachments.download", "bookstack.attachments.get", "bookstack.attachments.list", "bookstack.attachments.update", "bookstack.books.delete", "bookstack.books.get", "bookstack.chapters.delete", "bookstack.chapters.get", "bookstack.content.search", "bookstack.images.delete", "bookstack.imports.get", "bookstack.recycle-bin.list", "google.maps.places.search-nearby", "google.maps.places.search-text", "matomo.bot-realtime.get", "matomo.transitions.get"}},
 		{"namespace and query", []string{"bookstack", "--query", "list"}, []string{"bookstack.attachments.list", "bookstack.audit-log.list", "bookstack.books.list", "bookstack.chapters.list", "bookstack.comments.list", "bookstack.images.list", "bookstack.imports.list", "bookstack.pages.list", "bookstack.recycle-bin.list", "bookstack.roles.list", "bookstack.shelves.list", "bookstack.tags.list", "bookstack.tags.values", "bookstack.users.list", "bookstack.attachments.download", "bookstack.attachments.get", "bookstack.chapters.get", "bookstack.content-permissions.update", "bookstack.roles.create", "bookstack.roles.delete", "bookstack.roles.update", "bookstack.shelves.create", "bookstack.shelves.get", "bookstack.shelves.update", "bookstack.users.delete", "bookstack.users.update"}},
 		{"query without a match", []string{"--query", "absent"}, []string{}},

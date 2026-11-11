@@ -21,8 +21,8 @@ import (
 	"github.com/castrowithcee/qatlas-connect/internal/capability"
 	"github.com/castrowithcee/qatlas-connect/internal/config"
 	"github.com/castrowithcee/qatlas-connect/internal/provider"
-	"github.com/castrowithcee/qatlas-connect/internal/redact"
 	"github.com/castrowithcee/qatlas-connect/internal/secret"
+	"github.com/castrowithcee/qatlas-kit/redact"
 )
 
 // GitHub Actions of a repository. The observer tools read compact, paged metadata of workflows,
@@ -559,6 +559,16 @@ type actionsArguments struct {
 	AllowedActions             string `json:"allowed_actions"`
 	DefaultWorkflowPermissions string `json:"default_workflow_permissions"`
 	CanApprove                 *bool  `json:"can_approve_pull_request_reviews"`
+
+	// The arguments of the cache tools; direction and ref are shared with the lists and the dispatch above.
+	Key     string `json:"key"`
+	Sort    string `json:"sort"`
+	CacheID int64  `json:"cache_id"`
+	AllRefs *bool  `json:"all_refs"`
+
+	// The arguments of the run cleanup tools; run_id is shared with the run tools above.
+	ArtifactID    int64 `json:"artifact_id"`
+	AttemptNumber int   `json:"attempt_number"`
 
 	// The arguments of github.repository-settings.update.
 	AllowMergeCommit         *bool  `json:"allow_merge_commit"`

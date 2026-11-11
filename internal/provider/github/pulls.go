@@ -15,8 +15,8 @@ import (
 	"github.com/castrowithcee/qatlas-connect/internal/capability"
 	"github.com/castrowithcee/qatlas-connect/internal/config"
 	"github.com/castrowithcee/qatlas-connect/internal/provider"
-	"github.com/castrowithcee/qatlas-connect/internal/redact"
 	"github.com/castrowithcee/qatlas-connect/internal/secret"
+	"github.com/castrowithcee/qatlas-kit/redact"
 )
 
 // Pull requests of a repository. GitHub's project items, issues, and comments still see a pull request only
@@ -128,9 +128,10 @@ const pullFullRequired = `"required":["number","title","state","draft","labels",
 var pullBaseOutput = json.RawMessage(`{"type":"object","properties":{` + pullFullProperties + `},` + pullFullRequired + `}`)
 
 var pullsGet = capability.Descriptor{
-	ID:      Provider + ".pull-requests.get",
-	Version: 1,
-	Title:   "Get a GitHub pull request",
+	ID:            Provider + ".pull-requests.get",
+	Version:       2,
+	DefaultFields: pullDefaultFields,
+	Title:         "Get a GitHub pull request",
 	Description: "Read one pull request of a repository a connection allows with its full body, " +
 		"merge state, requested reviewers, the counts of its commits and changed files, and the remainder of " +
 		"GitHub's pull request",
@@ -249,11 +250,13 @@ var pullDiffsGet = capability.Descriptor{
 }
 
 var pullChecksList = capability.Descriptor{
-	ID:      Provider + ".pull-request-checks.list",
-	Version: 1,
-	Title:   "List the checks of a GitHub pull request",
+	ID:            Provider + ".pull-request-checks.list",
+	Version:       2,
+	DefaultFields: pullChecksDefaultFields,
+	Title:         "List the checks of a GitHub pull request",
 	Description: "List the check runs and the combined commit status at the head commit of a pull request of " +
-		"a repository a connection allows, with one overall evaluation",
+		"a repository a connection allows, with one overall evaluation. To wait until they finish, use " +
+		Provider + ".pull-request-checks.wait instead of calling this again",
 	Tags:        []string{"github", "pulls", "pullrequests", "checks", "list"},
 	Risk:        readRisk,
 	Provider:    Provider,
@@ -279,9 +282,10 @@ var pullChecksList = capability.Descriptor{
 }
 
 var pullsCreate = capability.Descriptor{
-	ID:      Provider + ".pull-requests.create",
-	Version: 1,
-	Title:   "Create a GitHub pull request",
+	ID:            Provider + ".pull-requests.create",
+	Version:       2,
+	DefaultFields: pullChangeFields,
+	Title:         "Create a GitHub pull request",
 	Description: "Open one pull request in a repository a connection allows; a repeated call opens " +
 		"a second pull request",
 	Tags:     []string{"github", "pulls", "pullrequests", "create"},
@@ -307,9 +311,10 @@ var pullsCreate = capability.Descriptor{
 }
 
 var pullsUpdate = capability.Descriptor{
-	ID:      Provider + ".pull-requests.update",
-	Version: 1,
-	Title:   "Update a GitHub pull request",
+	ID:            Provider + ".pull-requests.update",
+	Version:       2,
+	DefaultFields: pullChangeFields,
+	Title:         "Update a GitHub pull request",
 	Description: "Replace the title, body, or base branch of one pull request of a repository an explicit " +
 		"connection allows, mark it ready for review or convert it to a draft, or change whether maintainers " +
 		"of the base repository may push to its head branch; fields left out stay unchanged",
@@ -336,9 +341,10 @@ var pullsUpdate = capability.Descriptor{
 }
 
 var pullsClose = capability.Descriptor{
-	ID:      Provider + ".pull-requests.close",
-	Version: 1,
-	Title:   "Close a GitHub pull request",
+	ID:            Provider + ".pull-requests.close",
+	Version:       2,
+	DefaultFields: pullChangeFields,
+	Title:         "Close a GitHub pull request",
 	Description: "Close one pull request of a repository a connection allows without merging it; a " +
 		"pull request already closed, merged or not, is left as it is and reported with its current state",
 	Tags:         []string{"github", "pulls", "pullrequests", "close", "update"},
@@ -354,9 +360,10 @@ var pullsClose = capability.Descriptor{
 }
 
 var pullsReopen = capability.Descriptor{
-	ID:      Provider + ".pull-requests.reopen",
-	Version: 1,
-	Title:   "Reopen a GitHub pull request",
+	ID:            Provider + ".pull-requests.reopen",
+	Version:       2,
+	DefaultFields: pullChangeFields,
+	Title:         "Reopen a GitHub pull request",
 	Description: "Open one closed pull request of a repository a connection allows again; a pull " +
 		"request already open is left as it is, and a merged pull request is refused with a clear message",
 	Tags:         []string{"github", "pulls", "pullrequests", "reopen", "update"},
@@ -1548,3 +1555,21 @@ func (c *Client) mergePullRequest(ctx context.Context, a *pullArguments) (*PullR
 	}
 	return &PullRequestMerge{Number: a.Number, Merged: true, SHA: raw.SHA}, nil
 }
+
+// The default fields of the issue, pull request, and comment tools: what a next step needs, while the
+// accounts, the details, and the addresses of GitHub's object stay behind full or fields. A change answers
+// only which object it changed and its state.
+var (
+	issueDefaultFields = []string{"number", "title", "state", "state_reason", "body", "author", "assignees",
+		"labels", "milestone", "issue_type", "draft", "comments", "locked", "url", "created_at", "updated_at",
+		"closed_at", "repository"}
+	issueChangeFields = []string{"id", "number", "state", "state_reason", "url", "repository"}
+	pullDefaultFields = []string{"number", "title", "state", "draft", "merged", "mergeable", "mergeable_state",
+		"rebaseable", "body", "author", "labels", "assignees", "requested_reviewers", "requested_teams",
+		"milestone", "head_branch", "head_sha", "base_branch", "base_sha", "merge_commit_sha", "auto_merge",
+		"maintainer_can_modify", "commits", "changed_files", "additions", "deletions", "comments",
+		"review_comments", "locked", "url", "created_at", "updated_at", "closed_at", "merged_at", "repository"}
+	pullChangeFields        = []string{"number", "state", "draft", "merged", "head_sha", "url", "repository"}
+	pullChecksDefaultFields = []string{"number", "head_sha", "checks", "overall", "truncated", "repository"}
+	commentChangeFields     = []string{"id", "database_id", "url", "repository"}
+)

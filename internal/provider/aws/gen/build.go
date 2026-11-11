@@ -2,6 +2,7 @@ package gen
 
 import (
 	"bytes"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"regexp"
@@ -20,9 +21,16 @@ const (
 	fieldNext      = "next_cursor"
 	fieldHasMore   = "has_more"
 	fieldTruncated = "truncated"
+	// Names of the result members of a CSV tool.
+	fieldRows     = "rows"
+	fieldDropped  = "dropped_columns"
+	fieldTotal    = "total_rows"
+	csvMemberKey  = "~csv"
+	csvMaxDropped = 32
 )
 
-var reservedNames = []string{argRegion, awsquery.ArgPageSize, awsquery.ArgCursor, argClientToken, fieldNext, fieldHasMore, fieldTruncated}
+var reservedNames = []string{argRegion, awsquery.ArgPageSize, awsquery.ArgCursor, argClientToken, fieldNext, fieldHasMore, fieldTruncated,
+	fieldRows, fieldDropped, fieldTotal}
 
 // regionMarker stands for the region schema in a rendered schema; the renderer replaces it with the
 // provider's regionSchema constant, so the schema has one source.
@@ -63,6 +71,10 @@ type tool struct {
 	fields                    []descField
 	rules                     []outputRule
 	targetArgs, policyArgs    []string
+	selfRole                  string
+	csv                       *CSVReport
+	// nested are the dotted HiddenOutputs paths, true once the converter left the member out.
+	nested map[string]bool
 
 	// Generated test: the arguments, the form parameters they encode to, the answer, and the result keys.
 	sampleArgs   string
@@ -121,6 +133,15 @@ func build(m *Model, table *Table, op Operation) (*tool, error) {
 	pag, err := t.paging(m, shape, in, out)
 	if err != nil {
 		return nil, err
+	}
+	if op.CSV != nil {
+		if pag != nil {
+			return nil, t.failf("a csv tool pages over its rows, not over a service token")
+		}
+		if mm, ok := find(out, op.CSV.Member); !ok || mm.kind != "blob" {
+			return nil, t.failf("csv member %s is not an output blob member", op.CSV.Member)
+		}
+		t.csv = op.CSV
 	}
 	if err := t.bindInput(m, in, pag); err != nil {
 		return nil, err
@@ -232,7 +253,7 @@ func (t *tool) paging(m *Model, shape *object, in, out []member) (*pagingPlan, e
 	} else {
 		_, inMarker := find(in, "Marker")
 		_, outMarker := find(out, "Marker")
-		_, truncated := find(out, "IsTruncated")
+		_, truncated := find(out, truncatedMember(out))
 		if !inMarker || !outMarker || !truncated {
 			return nil, nil
 		}
@@ -252,11 +273,11 @@ func (t *tool) paging(m *Model, shape *object, in, out []member) (*pagingPlan, e
 	if mm, ok := find(out, p.tokenOut); !ok || mm.kind != "string" {
 		return nil, t.failf("paging output token %s is not a string member", p.tokenOut)
 	}
-	if mm, ok := find(out, "IsTruncated"); ok {
+	if mm, ok := find(out, truncatedMember(out)); ok {
 		if mm.kind != "boolean" {
-			return nil, t.failf("IsTruncated is not a boolean")
+			return nil, t.failf("%s is not a boolean", mm.name)
 		}
-		p.truncated = "IsTruncated"
+		p.truncated = mm.name
 	}
 	if p.sizeMember != "" {
 		mm, ok := find(in, p.sizeMember)
@@ -268,6 +289,15 @@ func (t *tool) paging(m *Model, shape *object, in, out []member) (*pagingPlan, e
 		}
 	}
 	return &p, nil
+}
+
+// truncatedMember names the output member that says more entries follow: IsTruncated, which one operation
+// (ListDelegationRequests) spells isTruncated.
+func truncatedMember(out []member) string {
+	if _, ok := find(out, "isTruncated"); ok {
+		return "isTruncated"
+	}
+	return "IsTruncated"
 }
 
 func isInteger(kind string) bool {
@@ -360,6 +390,14 @@ func (t *tool) bindInput(m *Model, in []member, pag *pagingPlan) error {
 			*list.out = append(*list.out, orDefault(t.op.Arguments[name].Name, snake(name)))
 		}
 	}
+	if name := t.op.SelfRole; name != "" {
+		// A required member, so the own-role check can never be skipped by leaving the argument out.
+		mm, ok := find(in, name)
+		if !ok || !offered[name] || mm.kind != "string" || !mm.traits.has("smithy.api#required") {
+			return t.failf("self_role %s is not an offered, required top-level string member", name)
+		}
+		t.selfRole = orDefault(t.op.Arguments[name].Name, snake(name))
+	}
 	if pag != nil {
 		if pag.sizeMember != "" {
 			mm, _ := find(in, pag.sizeMember)
@@ -376,6 +414,14 @@ func (t *tool) bindInput(m *Model, in []member, pag *pagingPlan) error {
 		props.set(awsquery.ArgCursor, newObject("type", "string", "maxLength", awsquery.MaxCursorLength))
 		t.args = append(t.args, descArg{name: awsquery.ArgCursor, description: "next_cursor of the previous page, to " +
 			"continue the list; valid only with the same arguments"})
+	}
+	if t.csv != nil {
+		props.set(awsquery.ArgPageSize, newObject("type", "integer", "minimum", 1, "maximum", t.csv.MaxPage))
+		t.args = append(t.args, descArg{name: awsquery.ArgPageSize, description: fmt.Sprintf(
+			"Rows per page, 1 to %d; %d when left out", t.csv.MaxPage, t.csv.DefaultPage)})
+		props.set(awsquery.ArgCursor, newObject("type", "string", "maxLength", awsquery.MaxCursorLength))
+		t.args = append(t.args, descArg{name: awsquery.ArgCursor, description: "next_cursor of the previous page, to " +
+			"continue the rows; valid only for the same report"})
 	}
 	if t.hasToken {
 		props.set(argClientToken, newObject("type", "string", "minLength", 1, "maxLength", 128, "pattern", `^[\x21-\x7e]{1,128}$`))
@@ -414,7 +460,14 @@ func orDefault(value, fallback string) string {
 // bindOutput builds the output shape, the output schema, the fields, and the runtime rules.
 func (t *tool) bindOutput(m *Model, out []member, pag *pagingPlan) error {
 	hidden := hiddenSet(t.op.HiddenOutputs)
+	t.nested = map[string]bool{}
 	for name := range hidden {
+		if top, _, nested := strings.Cut(name, "."); nested {
+			// A dotted name hides a member below a top-level one, such as Devices.Seed; lists add no segment.
+			t.nested[name] = false
+			delete(hidden, name)
+			name = top
+		}
 		if _, ok := find(out, name); !ok {
 			return t.failf("hidden output %s is not an output member", name)
 		}
@@ -444,6 +497,16 @@ func (t *tool) bindOutput(m *Model, out []member, pag *pagingPlan) error {
 				return err
 			}
 			shape.Fields = append(shape.Fields, awsquery.Field{Key: "~" + mm.name, Name: wire(mm), Shape: s})
+			continue
+		}
+		if t.csv != nil && mm.name == t.csv.Member {
+			// Kept in the shape for the CSV step of the runtime, never returned as it is.
+			c := converter{m: m, t: t, path: mm.name, output: true, maxLen: t.csv.MaxBytes}
+			s, _, err := c.convert(mm.target, mm.traits, true, 0)
+			if err != nil {
+				return err
+			}
+			shape.Fields = append(shape.Fields, awsquery.Field{Key: csvMemberKey, Name: wire(mm), Shape: s})
 			continue
 		}
 		f, ok := t.op.Fields[mm.name]
@@ -486,6 +549,11 @@ func (t *tool) bindOutput(m *Model, out []member, pag *pagingPlan) error {
 			return t.failf("field entry %s is not a returned output member", name)
 		}
 	}
+	for name, hit := range t.nested {
+		if !hit {
+			return t.failf("hidden output %s is not a member below an output member", name)
+		}
+	}
 	if pag != nil {
 		for _, f := range shape.Fields {
 			switch f.Name {
@@ -501,6 +569,33 @@ func (t *tool) bindOutput(m *Model, out []member, pag *pagingPlan) error {
 		t.fields = append(t.fields,
 			descField{name: fieldNext, description: "Cursor of the next page; absent at the end of the list"},
 			descField{name: fieldHasMore, description: "True when more entries follow; a full page alone never says so"})
+	}
+	if t.csv != nil {
+		rowProps, rowRequired := newObject(), []string{}
+		for _, col := range t.csv.Columns {
+			if col.Bool {
+				rowProps.set(col.Name, newObject("type", "boolean"))
+			} else {
+				rowProps.set(col.Name, newObject("type", "string", "maxLength", t.csv.MaxField))
+			}
+			if col.Required {
+				rowRequired = append(rowRequired, col.Name)
+			}
+		}
+		props.set(fieldRows, newObject("type", "array", "maxItems", t.csv.MaxPage, "items",
+			newObject("type", "object", "properties", rowProps, "required", rowRequired, "additionalProperties", false)))
+		props.set(fieldDropped, newObject("type", "array", "maxItems", csvMaxDropped, "items", newObject("type", "string", "maxLength", 64)))
+		props.set(fieldTotal, newObject("type", "integer", "minimum", 0))
+		props.set(fieldNext, newObject("type", "string", "maxLength", awsquery.MaxCursorLength))
+		props.set(fieldHasMore, newObject("type", "boolean"))
+		required = append(required, fieldRows, fieldTotal, fieldHasMore)
+		t.fields = append(t.fields,
+			descField{name: fieldRows, description: "Rows of this page, one per IAM user and the root account, with the known report columns " +
+				"under their names in the report; a field that is empty, N/A, or not_supported is left out"},
+			descField{name: fieldDropped, description: "Names of report columns that this tool does not know and therefore dropped; absent when none"},
+			descField{name: fieldTotal, description: "Number of rows in the whole report"},
+			descField{name: fieldNext, description: "Cursor of the next page; absent at the end of the rows"},
+			descField{name: fieldHasMore, description: "True when more rows follow"})
 	}
 	if t.hasToken {
 		props.set(argClientToken, newObject("type", "string", "maxLength", 128))
@@ -656,12 +751,24 @@ func (c *converter) convert(target string, traits *object, output bool, depth in
 		shape := &awsquery.Shape{Kind: awsquery.KindBlob}
 		schema := newObject("type", "string")
 		if output {
-			shape.MaxLen = defaultMaxString
-			schema.set("maxLength", defaultMaxString)
+			limit := defaultMaxString
+			if c.maxLen > 0 {
+				limit, c.maxLen = c.maxLen, 0
+			}
+			shape.MaxLen = limit
+			schema.set("maxLength", limit)
 		}
 		return shape, schema, nil
 	case "structure":
 		return c.structure(s, output, depth)
+	case "union":
+		shape, schema, err := c.structure(s, output, depth)
+		if err == nil && !output {
+			// A union is a structure with exactly one member set; the query protocol encodes it the same way.
+			schema.set("minProperties", 1)
+			schema.set("maxProperties", 1)
+		}
+		return shape, schema, err
 	case "list", "set":
 		mo := s.obj("member")
 		_, ts, err := c.m.resolve(mo.str("target"))
@@ -745,6 +852,10 @@ func (c *converter) structure(s *object, output bool, depth int) (*awsquery.Shap
 			continue
 		}
 		c.path = parent + "." + name
+		if _, hide := c.t.nested[c.path]; output && hide {
+			c.t.nested[c.path] = true
+			continue
+		}
 		if traits.has("smithy.api#idempotencyToken") {
 			return nil, nil, c.failf("an idempotency token below the top level has no binding")
 		}
@@ -806,6 +917,15 @@ func (t *tool) makeSamples(m *Model) error {
 		if f.IdempotencyToken {
 			continue
 		}
+		if strings.HasPrefix(t.op.TargetCheck, "arn-") && slices.Contains(t.targetArgs, f.Key) {
+			// The generated test binds this account; a repeated character would fail the target check.
+			args.set(f.Key, sampleARN)
+			continue
+		}
+		if t.op.PolicyCheck == "trust-policy" && slices.Contains(t.policyArgs, f.Key) {
+			args.set(f.Key, sampleTrustPolicy)
+			continue
+		}
 		v, err := t.sample(f.Key, f.Shape, props[f.Key])
 		if err != nil {
 			return err
@@ -842,8 +962,21 @@ func (t *tool) makeSamples(m *Model) error {
 	return nil
 }
 
+// sampleCSV is the report of a generated CSV test: the required columns and the root account.
+const sampleCSV = "user,arn\n<root_account>,arn:aws:iam::123456789012:root\n"
+
 // sampleChars are the characters a sample string is made of, tried in order until one fits the pattern.
 var sampleChars = []string{"a", "A", "0", "x", "-", "_", "/", " "}
+
+// sampleARN is an ARN that passes the ARN target checks in the account the generated tests bind.
+const sampleARN = "arn:aws:iam::123456789012:role/a"
+
+// sampleTrustPolicy is a trust policy that passes the trust-policy check: one AWS service principal.
+const sampleTrustPolicy = `{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Principal":{"Service":"ec2.amazonaws.com"},"Action":"sts:AssumeRole"}]}`
+
+// sampleWords are whole values tried after the repeated characters, for patterns with a fixed prefix such as
+// the version IDs of IAM policies.
+var sampleWords = []string{"v1"}
 
 func (t *tool) sample(path string, s *awsquery.Shape, rawSchema any) (any, error) {
 	schema, _ := rawSchema.(map[string]any)
@@ -866,6 +999,11 @@ func (t *tool) sample(path string, s *awsquery.Shape, rawSchema any) (any, error
 				return v, nil
 			}
 		}
+		for _, v := range sampleWords {
+			if len(v) >= n && len(v) <= intOf(schema["maxLength"], len(v)) && re != nil && re.MatchString(v) {
+				return v, nil
+			}
+		}
 		return nil, t.failf("%s: no sample value fits its pattern", path)
 	case awsquery.KindInteger:
 		n := intOf(schema["minimum"], 1)
@@ -885,6 +1023,9 @@ func (t *tool) sample(path string, s *awsquery.Shape, rawSchema any) (any, error
 		props, _ := schema["properties"].(map[string]any)
 		o := newObject()
 		for _, f := range s.Fields {
+			if _, one := schema["maxProperties"]; one && len(o.keys) == 1 {
+				break
+			}
 			v, err := t.sample(path+"."+f.Key, f.Shape, props[f.Key])
 			if err != nil {
 				return nil, err
@@ -983,6 +1124,9 @@ func (t *tool) scalarSample(f awsquery.Field) string {
 	case awsquery.KindTimestamp:
 		return "2026-01-02T03:04:05Z"
 	case awsquery.KindBlob:
+		if t.csv != nil && f.Key == csvMemberKey {
+			return base64.StdEncoding.EncodeToString([]byte(sampleCSV))
+		}
 		return "AA=="
 	}
 	for _, r := range t.rules {

@@ -14,7 +14,7 @@ import (
 	"github.com/castrowithcee/qatlas-connect/internal/application"
 	"github.com/castrowithcee/qatlas-connect/internal/config"
 	"github.com/castrowithcee/qatlas-connect/internal/provider"
-	"github.com/castrowithcee/qatlas-connect/internal/redact"
+	"github.com/castrowithcee/qatlas-kit/redact"
 )
 
 // targetsConfig holds connections with every shape of target list: none at all, a pattern, one project and
@@ -195,14 +195,22 @@ func TestDiscoveryDescribesTheTargetArguments(t *testing.T) {
 			descriptor.ID == rulesetsCreate.ID || descriptor.ID == rulesetsUpdate.ID ||
 			descriptor.ID == rulesetsDelete.ID || descriptor.ID == customPropertiesGet.ID ||
 			descriptor.ID == customPropertiesSet.ID || descriptor.ID == issueFieldsList.ID ||
+			descriptor.ID == actionVariablesList.ID || descriptor.ID == actionVariablesGet.ID ||
+			descriptor.ID == actionVariablesCreate.ID || descriptor.ID == actionVariablesUpdate.ID ||
+			descriptor.ID == actionVariablesDelete.ID ||
 			descriptor.ID == notificationsList.ID || descriptor.ID == notificationsGet.ID ||
 			descriptor.ID == notificationsDismiss.ID || descriptor.ID == notificationsMarkAll.ID ||
 			descriptor.ID == threadSubscriptionsSet.ID ||
 			descriptor.ID == gistsList.ID || descriptor.ID == gistsGet.ID || descriptor.ID == gistsCreate.ID ||
 			descriptor.ID == gistsUpdate.ID || descriptor.ID == gistsDelete.ID ||
-			descriptor.ID == globalAdvisoriesList.ID || descriptor.ID == globalAdvisoriesGet.ID:
+			descriptor.ID == globalAdvisoriesList.ID || descriptor.ID == globalAdvisoriesGet.ID ||
+			descriptor.ID == rateLimitGet.ID || descriptor.ID == metaGet.ID || descriptor.ID == licensesList.ID ||
+			descriptor.ID == licensesGet.ID || descriptor.ID == gitignoreTemplatesList.ID ||
+			descriptor.ID == gitignoreTemplatesGet.ID || descriptor.ID == codesOfConductList.ID ||
+			descriptor.ID == codesOfConductGet.ID || descriptor.ID == emojisList.ID || descriptor.ID == markdownRender.ID:
 			// The notification tools take an optional repository of their own or a thread id; the gist tools take a
-			// gist id or none; the global advisory tools name no target.
+			// gist id or none; the global advisory and the reference tools name no target, and the Markdown
+			// rendering takes an optional context repository of its own.
 			names = []string{}
 		case descriptor.ID == projectsList.ID || descriptor.ID == repositoriesList.ID ||
 			descriptor.ID == projectsCreate.ID || descriptor.ID == issueTypesList.ID ||

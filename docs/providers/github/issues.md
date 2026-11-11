@@ -23,8 +23,12 @@ sub-issue not the address of its parent. Rendered variants repeat the text field
 content. A comment reports its reactions and edit history as counts, and reaction groups only for kinds
 somebody gave.
 
-Every issue tool answers GitHub's issue in full without rendered body variants, the pull request member (pull
-requests are refused), and the repository object where the call fixes it. `github.issues.list` reads a page in
+Every issue tool reads GitHub's issue in full without rendered body variants, the pull request member (pull
+requests are refused), and the repository object where the call fixes it. `github.issues.get` answers by default
+the flat members with the full body, without the account, detail, and address members; `github.issues.create`,
+`github.issues.update`, `github.issues.close`, and `github.issues.reopen` answer only `id`, `number`, `state`,
+`state_reason`, `url`, and `repository`, and `github.comments.create` and `github.comments.update` only `id`,
+`database_id`, `url`, and `repository`. `full` answers the whole issue or comment, and `fields` picks members. `github.issues.list` reads a page in
 one query: its lists take at most 10 entries per issue (20 labels) below GitHub's node limit, and it cuts the
 body. It reads projects only with `project_details`; the token rights are listed under [Issues and comments](setup.md#issues-and-comments). `projectV2(number:)` and `hovercard` are queries, not answer fields.
 

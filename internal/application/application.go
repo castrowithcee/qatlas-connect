@@ -23,9 +23,9 @@ import (
 	"github.com/castrowithcee/qatlas-connect/internal/invokelog"
 	"github.com/castrowithcee/qatlas-connect/internal/localfile"
 	"github.com/castrowithcee/qatlas-connect/internal/output"
-	"github.com/castrowithcee/qatlas-connect/internal/redact"
 	"github.com/castrowithcee/qatlas-connect/internal/secret"
 	"github.com/castrowithcee/qatlas-kit/projectpath"
+	"github.com/castrowithcee/qatlas-kit/redact"
 )
 
 const (
@@ -1058,8 +1058,11 @@ type InvokeRequest struct {
 	Connection string          `json:"connection,omitempty"`
 	Arguments  json.RawMessage `json:"arguments"`
 	Confirmed  bool            `json:"confirm,omitempty"`
-	// Fields selects the members of the entries of the tool's result list; the provider never sees it.
+	// Fields selects the members of the entries of the tool's result list, or of the result object where
+	// there is none; the provider never sees it.
 	Fields []string `json:"fields,omitempty"`
+	// Full answers the whole result instead of the default fields the descriptor declares.
+	Full bool `json:"full,omitempty"`
 }
 
 // InvokeResponse records the exact operation contract and route that produced Result.
@@ -1170,7 +1173,7 @@ func (c *Core) Invoke(ctx context.Context, request InvokeRequest) (response Invo
 	}
 	// Only what passed the output schema is compacted: empty values are dropped afterwards, for every
 	// provider alike, so CLI and MCP publish the same result.
-	result, err := json.Marshal(dropEmpty(selectFields(descriptor, request.Fields,
+	result, err := json.Marshal(dropEmpty(selectFields(descriptor, request.Fields, request.Full,
 		dropImplied(descriptor, request.Arguments, normalized))))
 	if err != nil {
 		return InvokeResponse{}, &InvalidProviderResponseError{Operation: descriptor.ID}

@@ -9,8 +9,8 @@ import (
 
 	"github.com/castrowithcee/qatlas-connect/internal/capability"
 	"github.com/castrowithcee/qatlas-connect/internal/config"
-	"github.com/castrowithcee/qatlas-connect/internal/redact"
 	"github.com/castrowithcee/qatlas-connect/internal/secret"
+	"github.com/castrowithcee/qatlas-kit/redact"
 )
 
 // github.comments.update and github.comments.delete change one existing issue comment of a repository, by
@@ -28,9 +28,10 @@ import (
 const commentSensitivity = "github-comment"
 
 var commentsUpdate = capability.Descriptor{
-	ID:      Provider + ".comments.update",
-	Version: 1,
-	Title:   "Update a GitHub issue comment",
+	ID:            Provider + ".comments.update",
+	Version:       2,
+	DefaultFields: commentChangeFields,
+	Title:         "Update a GitHub issue comment",
 	Description: "Replace the body of one comment of a repository a connection allows, by its " +
 		"comment_id; a comment of another repository, or a pull request conversation comment, is refused",
 	Tags:     []string{"github", "issues", "comments", "update"},
