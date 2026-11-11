@@ -190,7 +190,7 @@ var roadsSpeedLimits = capability.Descriptor{
 			"originalIndex, placeId}; cut at " + itoa(maxRoadsSnappedPoint) + " points"},
 		roadsWarningField},
 	Examples: []capability.Example{
-		{Description: "Speed limits of three road segments in miles per hour",
+		{Description: "Speed limits of two road segments in miles per hour",
 			Arguments: json.RawMessage(`{"place_ids":["ChIJX12duJAwGQ0Ra0d4Oi4jOGE","ChIJLQcticc0GQ0RoiNZJVa5GxU"],"units":"MPH"}`)},
 		{Description: "Speed limits along a path in Lisbon",
 			Arguments: json.RawMessage(`{"path":[{"latitude":38.75808,"longitude":-9.03742},{"latitude":38.68965,"longitude":-9.17705}]}`)}},
