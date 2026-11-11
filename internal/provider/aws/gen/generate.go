@@ -307,6 +307,13 @@ var generatedSpecs = []toolSpec{
 			fmt.Fprintf(b, "pager: &awsquery.Pager{TokenIn: %s, TokenOut: %s, Truncated: %s, SizeParam: %s, MaxSize: %d},\n",
 				lit(t.pager.TokenIn), lit(t.pager.TokenOut), lit(t.pager.Truncated), lit(t.pager.SizeParam), t.pager.MaxSize)
 		}
+		if t.multi != nil {
+			b.WriteString("multi: &httpbind.MultiPager{Positions: []httpbind.Position{")
+			for _, pos := range t.multi.Positions {
+				fmt.Fprintf(b, "{In: %s, Out: %s, Required: %t, Start: %s}, ", lit(pos.In), lit(pos.Out), pos.Required, lit(pos.Start))
+			}
+			fmt.Fprintf(b, "}, Truncated: %s, SizeParam: %s, MaxSize: %d},\n", lit(t.multi.Truncated), lit(t.multi.SizeParam), t.multi.MaxSize)
+		}
 		if t.csv != nil {
 			fmt.Fprintf(b, "csv: &csvReport{Member: %s, MaxBytes: %d, MaxRows: %d, MaxField: %d, DefaultPage: %d, MaxPage: %d, Columns: []csvColumn{",
 				lit(csvMemberKey), t.csv.MaxBytes, t.csv.MaxRows, t.csv.MaxField, t.csv.DefaultPage, t.csv.MaxPage)

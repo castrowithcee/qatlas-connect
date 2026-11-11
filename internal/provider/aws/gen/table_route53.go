@@ -1,5 +1,7 @@
 package gen
 
+import "slices"
+
 // deferRoute53 is the reason for every route-53 operation: the table is a raw scaffold, and the service package that
 // curates the tools moves each operation it takes into operations or exclude.
 const deferRoute53 = "not curated yet; the Route 53 service package decides effect, confirmation and zone target first"
@@ -10,7 +12,7 @@ var route53Table = Table{
 	// A record set list continues at a name and a type, and at an identifier when the records are weighted,
 	// latency or failover sets that share a name.
 	Pagers: []PagerSpec{
-		{Operation: "ListResourceRecordSets", Truncated: "IsTruncated", PageSize: "MaxItems", Positions: []PositionSpec{
+		{Operation: "ListResourceRecordSets", Truncated: "IsTruncated", PageSize: "MaxItems", StartArguments: true, Positions: []PositionSpec{
 			{In: "StartRecordName", Out: "NextRecordName", Required: true},
 			{In: "StartRecordType", Out: "NextRecordType", Required: true},
 			{In: "StartRecordIdentifier", Out: "NextRecordIdentifier"}}},
@@ -18,7 +20,7 @@ var route53Table = Table{
 	// Route 53 answers zone IDs as /hostedzone/Z..., and accepts both forms only in some places. The tools take both.
 	IDPrefixes: []IDPrefix{{Shape: "ResourceId", Prefix: "/hostedzone/"}, {Shape: "TagResourceId", Prefix: "/hostedzone/"},
 		{Shape: "ChangeId", Prefix: "/change/"}},
-	Operations: route53ZoneTools,
+	Operations: slices.Concat(route53ZoneTools, route53RecordTools),
 	Exclude: []Omission{
 		{Operation: "CreateVPCAssociationAuthorization", Reason: "authorizing a VPC of another account to join a private zone lets that account resolve the zone's records; nothing checks the account, so it is not offered"},
 	},
@@ -26,7 +28,6 @@ var route53Table = Table{
 		{Operation: "ActivateKeySigningKey", Reason: deferRoute53},
 		{Operation: "AssociateVPCWithHostedZone", Reason: deferRoute53},
 		{Operation: "ChangeCidrCollection", Reason: deferRoute53},
-		{Operation: "ChangeResourceRecordSets", Reason: deferRoute53},
 		{Operation: "CreateCidrCollection", Reason: deferRoute53},
 		{Operation: "CreateHealthCheck", Reason: deferRoute53},
 		{Operation: "CreateKeySigningKey", Reason: deferRoute53},
@@ -69,7 +70,6 @@ var route53Table = Table{
 		{Operation: "ListHealthChecks", Reason: deferRoute53},
 		{Operation: "ListHostedZonesByVPC", Reason: deferRoute53},
 		{Operation: "ListQueryLoggingConfigs", Reason: deferRoute53},
-		{Operation: "ListResourceRecordSets", Reason: deferRoute53},
 		{Operation: "ListReusableDelegationSets", Reason: deferRoute53},
 		{Operation: "ListTagsForResources", Reason: deferRoute53},
 		{Operation: "ListTrafficPolicies", Reason: deferRoute53},
@@ -78,7 +78,6 @@ var route53Table = Table{
 		{Operation: "ListTrafficPolicyInstancesByPolicy", Reason: deferRoute53},
 		{Operation: "ListTrafficPolicyVersions", Reason: deferRoute53},
 		{Operation: "ListVPCAssociationAuthorizations", Reason: deferRoute53},
-		{Operation: "TestDNSAnswer", Reason: deferRoute53},
 		{Operation: "UpdateHealthCheck", Reason: deferRoute53},
 		{Operation: "UpdateHostedZoneFeatures", Reason: deferRoute53},
 		{Operation: "UpdateTrafficPolicyComment", Reason: deferRoute53},
