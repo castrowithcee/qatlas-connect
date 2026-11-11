@@ -235,6 +235,10 @@ var currentToolIDs = []string{
 	"github.stars.add",
 	"github.stars.list",
 	"github.stars.remove",
+	"github.assignees.check",
+	"github.assignees.list",
+	"github.issue-events.list",
+	"github.issue-timeline.list",
 	"github.sub-issues.add",
 	"github.sub-issues.list",
 	"github.sub-issues.remove",
@@ -293,7 +297,7 @@ func TestRegistryHoldsExactlyTheCurrentToolIDs(t *testing.T) {
 	sort.Strings(got)
 	want := append([]string(nil), currentToolIDs...)
 	sort.Strings(want)
-	if strings.Join(got, "\n") != strings.Join(want, "\n") || len(got) != 268 {
+	if strings.Join(got, "\n") != strings.Join(want, "\n") || len(got) != 272 {
 		t.Errorf("registry holds %d tools, differing from the expected %d IDs", len(got), len(want))
 	}
 	if err := reg.ValidateRenames(); err != nil {
@@ -345,7 +349,7 @@ func TestRenamedToolsCoverEveryChangedID(t *testing.T) {
 		"github.deployment-statuses.get": true,
 		"github.rate-limit.get":          true, "github.gitignore-templates.list": true, "github.gitignore-templates.get": true,
 		"github.codes-of-conduct.list": true, "github.codes-of-conduct.get": true,
-		"github.branches.sync-fork": true}
+		"github.branches.sync-fork": true, "github.issue-events.list": true, "github.issue-timeline.list": true}
 	for id := range current {
 		if strings.Contains(id, "-") && !targets[id] && !bornHyphenated[id] {
 			t.Errorf("hyphenated tool %s has no former ID", id)

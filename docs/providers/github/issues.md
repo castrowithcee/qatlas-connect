@@ -1,10 +1,10 @@
 ---
 description: >
-  Describes the GitHub issue tools: issue and comment reads and changes, labels, milestones, sub-issues, issue dependencies, issue types, issue fields, reactions, assigning Copilot to an issue, and issue search.
+  Describes the GitHub issue tools: issue and comment reads and changes, labels, milestones, sub-issues, issue dependencies, issue events and timelines, assignees, issue types, issue fields, reactions, assigning Copilot to an issue, and issue search.
 type: knowledge
 edit: shared
 created: 2026-10-22
-updated: 2026-11-06
+updated: 2026-11-11
 ---
 
 # GitHub issues
@@ -193,6 +193,53 @@ The token rights are listed under [Issues and comments](setup.md#issues-and-comm
 Source: the official REST documentation (<https://docs.github.com/en/rest/issues/issue-dependencies>,
 `X-GitHub-Api-Version: 2022-11-28`): List issues blocked by, List issues blocking, and Add and Remove a
 blocked-by dependency are stable, generally available REST endpoints, not a preview feature.
+
+## Issue events, timeline, and assignees
+
+| Tool | Does |
+| --- | --- |
+| `github.issue-events.list` | lists the events of one issue by `number`, or, without `number`, of every issue of the repository |
+| `github.issue-timeline.list` | lists the timeline of one issue by `number` |
+| `github.assignees.list` | lists the users that may be assigned in the repository |
+| `github.assignees.check` | tells whether one `assignee` login may be assigned |
+
+All four read and change nothing. Each lists one bounded batch, oldest first, paged by `limit` and `cursor` the same
+way [labels](#labels) are; GitHub offers no other filter on these routes. A cursor is bound to the tool, the
+repository, and the issue. GitHub treats a pull request as an issue on these routes, so a pull request number is
+accepted; the route always stays inside the repository the call names.
+
+An event reports its `event` type, `actor`, `created_at`, `commit_id`, and the members of its type: `label`,
+`assignee`, `assigner`, `review_requester`, `requested_reviewer`, `requested_team`, `dismissed_review`,
+`milestone`, `project_card`, `rename`, `lock_reason`, `author_association`, and `performed_via_github_app`; its REST
+addresses sit in `links`. The repository-wide list adds the `issue` of each event, as an entry of the
+[sub-issue list](#sub-issues) plus `is_pull_request`. The timeline adds the members of the types only it carries:
+comments and reviews (`body`, `user`, `reactions`, `state`, `submitted_at`), cross-references (`source`), commits
+(`sha`, `author`, `committer`, `message`, `tree`, `parents`, `verification`), line comments and commit comments
+(`line_comments`, `commit_comments`), and `state_reason`. Event types are an open set: an event of a type Qatlas
+does not know, or of an unexpected shape, keeps its `event` type, `id`, `node_id`, and `created_at`, and whatever
+it shares with the known types, never a raw copy.
+
+Texts are untrusted data and cut: comment, review, and line comment bodies and the dismissal message at 4000
+characters, commit messages at 4096, with `*_truncated` saying so. The rendered `body_html` and `body_text`
+variants and the `_links` member are left out; the `pull_request` member of an issue is reported only as
+`is_pull_request`.
+
+Objects outside the connection's targets, or in an excluded repository, show only identifiers. A cross-referenced
+issue of such a repository keeps its `number`, `repository`, and `is_pull_request` and sets `withheld` on its
+`source`; when its repository cannot be told, `source` holds `withheld` alone. A commit of another repository
+keeps `commit_id` and, in `commit_repository`, its `OWNER/REPO`, but loses its address; inside the targets the
+address stays in `links.commit_url`. Commit comments and commits of a pull request timeline are shown as GitHub
+delivers them for the pull request.
+
+`github.assignees.check` answers `assignable: true` for GitHub's 204 and `assignable: false` for its 404, as a result
+and not as an error. GitHub answers 404 as well for a repository the token cannot see, so the two are not told
+apart. `assignee` is checked locally as a login: letters, digits, `-`, and `_`, so a bot login with a `[bot]`
+suffix is refused. The token rights are listed under [Issues and comments](setup.md#issues-and-comments).
+
+Source: the official REST documentation (<https://docs.github.com/en/rest/issues/events>,
+<https://docs.github.com/en/rest/issues/timeline>, <https://docs.github.com/en/rest/issues/assignees>,
+`X-GitHub-Api-Version: 2022-11-28`), schemas `issue-event`, `issue-event-for-issue`, `timeline-issue-events`, and
+`simple-user`.
 
 ## Issue types
 
