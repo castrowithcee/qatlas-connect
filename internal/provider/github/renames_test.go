@@ -226,7 +226,10 @@ var currentToolIDs = []string{
 	"github.pull-requests.update",
 	"github.reactions.add",
 	"github.reactions.remove",
+	"github.release-assets.delete",
 	"github.release-assets.list",
+	"github.release-assets.update",
+	"github.release-notes.generate",
 	"github.releases.create",
 	"github.releases.delete",
 	"github.releases.get",
@@ -316,7 +319,7 @@ func TestRegistryHoldsExactlyTheCurrentToolIDs(t *testing.T) {
 	sort.Strings(got)
 	want := append([]string(nil), currentToolIDs...)
 	sort.Strings(want)
-	if strings.Join(got, "\n") != strings.Join(want, "\n") || len(got) != 291 {
+	if strings.Join(got, "\n") != strings.Join(want, "\n") || len(got) != 294 {
 		t.Errorf("registry holds %d tools, differing from the expected %d IDs", len(got), len(want))
 	}
 	if err := reg.ValidateRenames(); err != nil {
@@ -350,7 +353,8 @@ func TestRenamedToolsCoverEveryChangedID(t *testing.T) {
 		"github.check-runs.get": true, "github.check-runs.list": true, "github.check-suite-runs.list": true,
 		"github.check-suites.list":        true,
 		"github.pull-request-checks.wait": true, "github.pull-request-auto-merge.enable": true,
-		"github.pull-request-auto-merge.disable": true, "github.commit-branches.list": true,
+		"github.pull-request-auto-merge.disable": true, "github.release-assets.update": true,
+		"github.release-assets.delete": true, "github.release-notes.generate": true, "github.commit-branches.list": true,
 		"github.commit-comments.get": true, "github.commit-comments.list": true, "github.commit-pulls.list": true,
 		"github.community-profile.get": true,
 		"github.traffic-views.get":     true, "github.traffic-clones.get": true, "github.traffic-paths.list": true,

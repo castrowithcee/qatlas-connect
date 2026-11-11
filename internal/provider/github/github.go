@@ -37,9 +37,10 @@
 // github.pull-requests.merge offers it, and it always needs the pull request's current head commit and its
 // own confirmation. Enabling auto-merge schedules such a merge, so github.pull-request-auto-merge.enable is
 // listed-only the same way. The not-recommended setup profile releases lists releases, reads one by
-// identifier, tag, or as the latest published one, lists the metadata of a release's assets, and creates and updates releases; only a connection whose tools list
-// names it deletes a release, because the tag it was cut from stays behind and the notes and attachments do
-// not. A tool that touches a project and a repository checks both. The account tool reads the login, name,
+// identifier, tag, or as the latest published one, lists the metadata of a release's assets, generates
+// release notes, creates and updates releases, and renames or relabels an asset; only a connection whose tools
+// list names them deletes a release or one of its assets, because the tag it was cut from stays behind and the
+// notes and attachments do not. A tool that touches a project and a repository checks both. The account tool reads the login, name,
 // type, and plan of the account behind the connection's token; it and the star list, which reads the
 // account's starred repositories, name no repository, project, or owner and are offered only by a connection
 // whose targets name neither a repository nor a project. The star tools also star and unstar one repository
@@ -752,11 +753,12 @@ func Register(reg *capability.Registry) error {
 		}, {
 			ID: "releases", Title: "Releases",
 			Description: "lists releases and their asset metadata, reads one release by identifier, tag, or " +
-				"as the latest published one, and creates and updates releases; every change needs its own " +
-				"confirmation, and deleting stays unticked, since it is offered only where a connection's " +
-				"tools list names github.releases.delete",
-			Tools: []string{releasesList.ID, releasesGet.ID, releaseAssetsList.ID, releasesCreate.ID,
-				releasesUpdate.ID},
+				"as the latest published one, generates release notes, creates and updates releases, and renames " +
+				"or relabels an asset; every change needs its own confirmation, and deleting stays unticked, " +
+				"since it is offered only where a connection's tools list names github.releases.delete or " +
+				"github.release-assets.delete",
+			Tools: []string{releasesList.ID, releasesGet.ID, releaseAssetsList.ID, releaseNotesGenerate.ID,
+				releasesCreate.ID, releasesUpdate.ID, releaseAssetsUpdate.ID},
 		}, {
 			ID: "pull-request-reviews", Title: "Pull request reviews",
 			Description: "reads and writes the conversation comments, reviews with line comments, replies, " +
@@ -886,7 +888,7 @@ func Register(reg *capability.Registry) error {
 		capability.Operation{Descriptor: projectIssuesCreate, Handler: capability.Handler(invokeProjectIssuesCreate)},
 	}, slices.Concat(itemOperations(), lifecycleOperations(), fieldOperations(), viewOperations(),
 		statusOperations(), accessOperations(), automationOperations(), actionsOperations(),
-		maintenanceOperations(), pullRequestOperations(), checkOperations(), releaseOperations(), pullRequestCommentOperations(),
+		maintenanceOperations(), pullRequestOperations(), checkOperations(), releaseOperations(), releaseAssetOperations(), pullRequestCommentOperations(),
 		pullRequestReviewOperations(), pullRequestReviewMaintenanceOperations(), pullRequestReviewCommentOperations(),
 		pullRequestReviewCommentMaintenanceOperations(), pullRequestReviewThreadOperations(),
 		pullRequestReviewerOperations(), accountOperations(), organizationOperations(), starOperations(),
