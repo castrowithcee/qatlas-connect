@@ -145,7 +145,7 @@ func TestLimitsGuardsAndReadbacksAreChecked(t *testing.T) {
 				t.Errorf("%s: readback %q", o.Operation, o.Readback)
 			}
 			if len(o.Guards) > 0 && o.Operation != "CreateBucket" && o.Operation != "PutBucketEncryption" && o.Operation != "PutBucketOwnershipControls" &&
-				o.Operation != "CreateHostedZone" {
+				o.Operation != "CreateHostedZone" && o.Operation != "ChangeResourceRecordSets" && o.Operation != "TestDNSAnswer" {
 				t.Errorf("%s: guards %v", o.Operation, o.Guards)
 			}
 		}

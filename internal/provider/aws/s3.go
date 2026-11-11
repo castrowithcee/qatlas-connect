@@ -25,6 +25,8 @@ var guards = map[string]guard{
 	"kms-key-arn":         checkKMSKeys,
 	"ownership-enforce":   checkOwnershipEnforce,
 	"route53-vpc":         checkRoute53VPC,
+	"route53-change":      checkRoute53Change,
+	"route53-name":        checkRoute53Name,
 }
 
 // readback runs after the account check and before the change, with the credentials that passed it.

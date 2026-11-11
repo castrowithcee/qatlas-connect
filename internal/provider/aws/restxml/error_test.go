@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 	"time"
+	"unicode/utf8"
 
 	"github.com/castrowithcee/qatlas-connect/internal/capability"
 	"github.com/castrowithcee/qatlas-connect/internal/provider"
@@ -302,5 +303,28 @@ func TestAnswerAboveTheLimitIsRefused(t *testing.T) {
 	_, failure := client.Do(t.Context(), "aws.test", copyObject, req, &out)
 	if failure == nil || failure.Class != provider.ClassInvalidResponse || out != nil {
 		t.Errorf("out = %v, failure = %v", out, failure)
+	}
+}
+
+// Only the single messages of an InvalidChangeBatch are read, bounded and cleaned; no other code yields text.
+func TestErrorMessagesOfAnInvalidChangeBatch(t *testing.T) {
+	c := restxml.Codec{}
+	body := []byte(`<InvalidChangeBatch xmlns="x"><Messages><Message> first </Message><Message><b>nested</b></Message>` +
+		`<Message>` + strings.Repeat("é", 300) + `</Message><Message></Message></Messages></InvalidChangeBatch>`)
+	got := c.ErrorMessages("InvalidChangeBatch", body)
+	if len(got) != 2 || got[0] != "first" || len(got[1]) > 400 || !utf8.ValidString(got[1]) {
+		t.Errorf("messages = %q", got)
+	}
+	wrapped := []byte(`<ErrorResponse><Error><Messages><Message>m</Message></Messages></Error></ErrorResponse>`)
+	if got := c.ErrorMessages("InvalidChangeBatch", wrapped); len(got) != 1 {
+		t.Errorf("wrapped = %q", got)
+	}
+	for _, other := range []string{"NoSuchHostedZone", "InvalidInput", ""} {
+		if got := c.ErrorMessages(other, body); got != nil {
+			t.Errorf("%s gave %q", other, got)
+		}
+	}
+	if got := (restxml.Codec{NoErrorWrapping: true}).ErrorMessages("InvalidChangeBatch", body); got != nil {
+		t.Errorf("S3 form gave %q", got)
 	}
 }
