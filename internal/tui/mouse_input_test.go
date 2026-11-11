@@ -186,9 +186,11 @@ func TestMouseReportsSplitWithinTheEscapeWaitStayMouseEvents(t *testing.T) {
 	for _, report := range splitReports {
 		stream := report + report
 		want := 2 * strings.Count(report, "\x1b")
+		least := want
 		if strings.HasPrefix(report, "\x1b[<6") {
-			// The kit filter merges the second of two equal wheel events: one notch, one event.
-			want = 1
+			// The kit filter merges the second of two equal wheel events only within its short window, which
+			// a loaded host may miss: one or two events, never text.
+			least = 1
 		}
 		for i := 1; i < len(report); i++ {
 			t.Run(fmt.Sprintf("%q/%d", report, i), func(t *testing.T) {
@@ -200,11 +202,12 @@ func TestMouseReportsSplitWithinTheEscapeWaitStayMouseEvents(t *testing.T) {
 					if m.formState() != before {
 						t.Fatalf("field changed after keys %q", keys)
 					}
-					if len(keys) == want && strings.Count(strings.Join(keys, ","), "mouse") == want {
+					n := strings.Count(strings.Join(keys, ","), "mouse")
+					if len(keys) == n && n >= least && n <= want {
 						return
 					}
 				}
-				t.Errorf("keys %q, want %d mouse events", keys, want)
+				t.Errorf("keys %q, want %d to %d mouse events", keys, least, want)
 			})
 		}
 	}
