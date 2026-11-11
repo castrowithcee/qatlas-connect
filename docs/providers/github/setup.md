@@ -249,9 +249,12 @@ so treat them as likely, not certain.
 
 | Tools | Classic | Fine-grained |
 | --- | --- | --- |
-| Code scanning alerts | `security_events` or `repo`; `public_repo` for a public repository | Code scanning alerts: read |
+| Code scanning alerts, instances, and analyses | `security_events` or `repo`; `public_repo` for a public repository | Code scanning alerts: read |
 | Dependabot alerts | `security_events` or `repo`; `public_repo` for a public repository | Dependabot alerts: read |
-| Secret scanning alerts | `repo` or `security_events` | Secret scanning alerts: read |
+| Secret scanning alerts and their locations | `repo` or `security_events` | Secret scanning alerts: read |
+| Dismiss or reopen a code scanning alert | `security_events` or `repo`; `public_repo` for a public repository | Code scanning alerts: read and write |
+| Dismiss or reopen a Dependabot alert | `security_events` or `repo`; `public_repo` for a public repository | Dependabot alerts: read and write |
+| Resolve or reopen a secret scanning alert | `repo` or `security_events` | Secret scanning alerts: read and write |
 | Global security advisories | none | none |
 | Repository security advisories | `repo` or `repository_advisories:read`, for a private repository or an unpublished advisory | Repository security advisories: read |
 | Organization security advisories | `repo` or `repository_advisories:write`, and an organization owner or security manager | Repository security advisories: write (GitHub requires write although the tool only reads) |

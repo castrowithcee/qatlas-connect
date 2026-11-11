@@ -141,7 +141,11 @@
 // untrusted data, cut at fixed lengths, and a binary file shows only its metadata.
 // github.code-scanning-alerts.list and .get, github.dependabot-alerts.list and .get, and
 // github.secret-scanning-alerts.list and .get read the code scanning, Dependabot, and secret scanning alerts of a
-// repository; they are offered only by the not-recommended setup profile security and change nothing. Alert
+// repository, and github.code-scanning-alert-instances.list, github.code-scanning-analyses.list and .get, and
+// github.secret-scanning-locations.list read what lies behind them; they are offered only by the not-recommended
+// setup profile security and change nothing. Only on a connection whose tools list names it, the three tools
+// github.code-scanning-alerts.update, github.dependabot-alerts.update, and github.secret-scanning-alerts.update
+// dismiss, resolve, or reopen one alert after reading it below the chosen repository. Alert
 // texts are untrusted data, cut at fixed lengths. A secret scanning alert never shows the found secret: the
 // request asks GitHub to hide it and the answer has no field for it.
 // github.global-advisories.list and .get read the global security advisories of the GitHub Advisory Database,
@@ -623,7 +627,7 @@ func Register(reg *capability.Registry) error {
 				"on a fine-grained token, while GitHub lists no permission for the gist reads; the security alert " +
 				"tools need security_events or repo on a classic token (public_repo for a public repository), " +
 				"or Code scanning alerts: read, Dependabot alerts: read, and Secret scanning alerts: read on a " +
-				"fine-grained token; the global advisory tools need no scope; the repository advisory list needs repo or " +
+				"fine-grained token, and the listed-only alert updates need the same with write access; the global advisory tools need no scope; the repository advisory list needs repo or " +
 				"repository_advisories:read on a classic token, or Repository security advisories: read on a " +
 				"fine-grained token, and the organization advisory list, although it only reads, needs repo or " +
 				"repository_advisories:write on a classic token, or Repository security advisories: write on a " +
@@ -857,8 +861,10 @@ func Register(reg *capability.Registry) error {
 			ID: "security", Title: "Security alerts",
 			Description: "not recommended: lists and reads the code scanning, Dependabot, and secret scanning " +
 				"alerts of a repository, the global and repository security advisories, and code quality " +
-				"findings, and reads the security switches and the code scanning default setup of a repository; the found " +
-				"secret of a secret scanning alert is never shown; changes nothing",
+				"findings, the instances, analyses, and locations behind the alerts, and the security switches and the " +
+				"code scanning default setup of a repository; the found secret of a secret scanning alert is never " +
+				"shown; changes nothing, since the alert updates and the changes of the switches and the default setup " +
+				"are offered only where a connection's tools list names them",
 			Tools: securityAlertTools,
 		}, {
 			ID: "copilot", Title: "Copilot",
@@ -898,7 +904,7 @@ func Register(reg *capability.Registry) error {
 		contentsWriteOperations(), refsWriteOperations(), repositoriesOperations(), repositoryDetailOperations(), trafficOperations(), repositoryStatsOperations(), rulesetsOperations(), branchProtectionOperations(), customPropertiesOperations(), actionVariablesOperations(), actionCachesOperations(), runCleanupOperations(),
 		labelsOperations(), milestonesOperations(), commentMaintenanceOperations(), commentVisibilityOperations(), issueLockOperations(), reactionsOperations(),
 		subIssuesOperations(), issueDependenciesOperations(), issueHistoryOperations(), issueTypesOperations(), issueFieldsOperations(),
-		discussionOperations(), notificationOperations(), gistOperations(), securityAlertOperations(), advisoryOperations(), securitySettingsOperations(),
+		discussionOperations(), notificationOperations(), gistOperations(), securityAlertOperations(), securityAlertUpdateOperations(), securityAlertDetailOperations(), advisoryOperations(), securitySettingsOperations(),
 		copilotOperations(), environmentsOperations(), deploymentsOperations(), referenceOperations())...)
 	for i := range operations {
 		operations[i].Descriptor = withGroup(withTargetArgument(operations[i].Descriptor))

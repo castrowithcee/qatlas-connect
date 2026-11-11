@@ -55,11 +55,13 @@ thread and repository subscriptions under [Notifications](notifications.md#notif
 unticked, since it is offered only where a connection's `tools` list names it. The not-recommended
 profile `gists` lists and reads gists and creates and updates them under [Gists](gists.md#gists); deleting a gist stays
 unticked, since it is offered only where a connection's `tools` list names it. The not-recommended profile
-`security` lists and reads the code scanning, Dependabot, and secret scanning alerts of a repository, the global
-and repository security advisories, and code quality findings under [Security alerts](security.md#security-alerts), and
-reads the [security switches](security.md#security-switches) and the
-[code scanning default setup](security.md#code-scanning-default-setup); it changes nothing, and the two tools that change
-them stay unticked, since each is offered only where a connection's `tools` list names it. The not-recommended profile `copilot` assigns Copilot to an issue and requests a Copilot review
+`security` lists and reads the code scanning, Dependabot, and secret scanning alerts of a repository, the instances
+and analyses of code scanning, the locations of a secret scanning alert, the global and repository security
+advisories, and code quality findings under [Security alerts](security.md#security-alerts), and reads the
+[security switches](security.md#security-switches) and the
+[code scanning default setup](security.md#code-scanning-default-setup); it changes nothing. Dismissing, resolving,
+and reopening an alert, under [Changing alerts](security.md#changing-alerts), and the two tools that change the
+switches and the default setup stay unticked, since each is offered only where a connection's `tools` list names it. The not-recommended profile `copilot` assigns Copilot to an issue and requests a Copilot review
 of a pull request under [Copilot assignments](issues.md#copilot-assignments) and [Copilot reviews](pull-requests.md#copilot-reviews); every change needs its own confirmation. A
 profile is a
 visible starting selection, not a role: only the ticked `tools` are saved, every tick can be

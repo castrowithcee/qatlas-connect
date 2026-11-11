@@ -49,6 +49,7 @@ var groupBySegment = map[string]string{
 	"stats-code-frequency": "repositories", "stats-participation": "repositories", "stats-punch-card": "repositories", "activity": "repositories", "repository-settings": "repositories", "repository-topics": "repositories", "repository-subscriptions": "repositories", "stars": "repositories",
 	"releases": "releases", "release-assets": "releases",
 	"code-scanning-alerts": "security", "dependabot-alerts": "security", "secret-scanning-alerts": "security",
+	"code-scanning-alert-instances": "security", "code-scanning-analyses": "security", "secret-scanning-locations": "security",
 	"code-quality-findings": "security", "global-advisories": "security", "organization-advisories": "security",
 	"repository-advisories": "security", "security-settings": "security", "code-scanning-setup": "security",
 	"discussions": "discussions", "discussion-categories": "discussions", "discussion-comments": "discussions",

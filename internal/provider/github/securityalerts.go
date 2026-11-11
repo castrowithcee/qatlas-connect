@@ -19,7 +19,8 @@ import (
 )
 
 // The security alert tools read the code scanning, Dependabot, and secret scanning alerts of one repository.
-// They change nothing: alerts are neither dismissed, closed, nor assigned. Alert texts, descriptions, paths,
+// The list and get tools change nothing; the update tools of securityalerts_update.go dismiss, close, and
+// reopen an alert but never assign one. Alert texts, descriptions, paths,
 // and messages come from scanners and other accounts and are untrusted data; each is cut at a fixed length
 // and every cut says so. A secret scanning alert never carries the found secret: the request asks GitHub to
 // hide it (hide_secret=true), and the answer is decoded into a shape that has no place for a secret value, so
@@ -92,6 +93,20 @@ func alertGetOutput(properties string) json.RawMessage {
 const alertCommonProperties = `"number":{"type":"integer"},"state":{"type":"string"},"created_at":{"type":"string"},` +
 	`"updated_at":{"type":"string"},"url":{"type":"string"}`
 
+const codeScanningInstanceProperties = `"ref":{"type":"string"},"analysis_key":{"type":"string"},` +
+	`"environment":{"type":"string"},"category":{"type":"string"},"state":{"type":"string"},` +
+	`"commit_sha":{"type":"string"},"message":` + codeScanningMessageSchema + `,"location":` +
+	codeScanningLocationSchema + `,"url":{"type":"string"},"classifications":{"type":"array","maxItems":100,` +
+	`"items":{"type":"string"}},"classifications_truncated":{"type":"boolean"}`
+
+const codeScanningMessageSchema = `{"type":"object","properties":{"text":{"type":"string"},` +
+	`"text_truncated":{"type":"boolean"},"markdown":{"type":"string"},"markdown_truncated":{"type":"boolean"}},` +
+	`"additionalProperties":false}`
+
+const codeScanningLocationSchema = `{"type":"object","properties":{"path":{"type":"string"},` +
+	`"start_line":{"type":"integer"},"end_line":{"type":"integer"},"start_column":{"type":"integer"},` +
+	`"end_column":{"type":"integer"}},"additionalProperties":false}`
+
 const codeScanningLinkKeysSchema = `{"type":"object","properties":{"url":{"type":"string"},` +
 	`"instances_url":{"type":"string"}},"additionalProperties":false}`
 
@@ -110,14 +125,7 @@ var codeScanningListProperties = alertCommonProperties + `,"fixed_at":{"type":"s
 		`"items":{"type":"string"}},"tags_truncated":{"type":"boolean"},"help":{"type":"string"},`+
 		`"help_truncated":{"type":"boolean"},"help_uri":{"type":"string"}`) + `,"tool_detail":` +
 	objectSchema(`"name":{"type":"string"},"version":{"type":"string"},"guid":{"type":"string"}`) +
-	`,"most_recent_instance":` + objectSchema(`"ref":{"type":"string"},"analysis_key":{"type":"string"},`+
-	`"environment":{"type":"string"},"category":{"type":"string"},"state":{"type":"string"},`+
-	`"commit_sha":{"type":"string"},"message":`+objectSchema(`"text":{"type":"string"},`+
-	`"text_truncated":{"type":"boolean"},"markdown":{"type":"string"},"markdown_truncated":{"type":"boolean"}`)+
-	`,"location":`+objectSchema(`"path":{"type":"string"},"start_line":{"type":"integer"},`+
-	`"end_line":{"type":"integer"},"start_column":{"type":"integer"},"end_column":{"type":"integer"}`)+
-	`,"url":{"type":"string"},"classifications":{"type":"array","maxItems":100,"items":{"type":"string"}},`+
-	`"classifications_truncated":{"type":"boolean"}`) + `,"dismissed_by_detail":` + restAccountSchema +
+	`,"most_recent_instance":` + objectSchema(codeScanningInstanceProperties) + `,"dismissed_by_detail":` + restAccountSchema +
 	`,"dismissal_approved_by":` + restAccountSchema + `,"assignees":{"type":"array","maxItems":100,"items":` +
 	restAccountSchema + `},"assignees_truncated":{"type":"boolean"}`
 
@@ -375,12 +383,14 @@ var secretScanningAlertsGet = capability.Descriptor{
 	Examples: []capability.Example{{Description: "Read one alert", Arguments: json.RawMessage(`{"alert_number":3}`)}},
 }
 
-// securityAlertTools are the tools of the not-recommended setup profile security: the alert tools, then
-// the advisory tools and the code quality finding read, then the reads of the security switches and the code
-// scanning default setup.
+// securityAlertTools are the tools of the not-recommended setup profile security: the alert reads, the reads
+// of instances, analyses, and locations, then the advisory tools and the code quality finding read, then the
+// reads of the security switches and the code scanning default setup. No tool that changes anything is in it:
+// each is offered only where a connection's tools list names it.
 var securityAlertTools = slices.Concat([]string{codeScanningAlertsList.ID, codeScanningAlertsGet.ID,
-	dependabotAlertsList.ID, dependabotAlertsGet.ID, secretScanningAlertsList.ID, secretScanningAlertsGet.ID},
-	advisoryTools, []string{securitySettingsGet.ID, codeScanningSetupGet.ID})
+	dependabotAlertsList.ID, dependabotAlertsGet.ID, secretScanningAlertsList.ID, secretScanningAlertsGet.ID,
+	codeScanningAlertInstancesList.ID, codeScanningAnalysesList.ID, codeScanningAnalysesGet.ID,
+	secretScanningLocationsList.ID}, advisoryTools, []string{securitySettingsGet.ID, codeScanningSetupGet.ID})
 
 // alertArguments holds the arguments of every alert tool; the input schema of each admits only its own.
 type alertArguments struct {
@@ -391,6 +401,8 @@ type alertArguments struct {
 	ToolGUID    string   `json:"tool_guid"`
 	Ref         string   `json:"ref"`
 	PR          *int64   `json:"pr"`
+	AnalysisID  int64    `json:"analysis_id"`
+	SarifID     string   `json:"sarif_id"`
 	Assignees   []string `json:"assignees"`
 	Sort        string   `json:"sort"`
 	Direction   string   `json:"direction"`
@@ -424,11 +436,13 @@ func (a *alertArguments) query() url.Values {
 	return url.Values{"per_page": {strconv.Itoa(a.perPage)}, "page": {strconv.Itoa(a.page)}}
 }
 
+func bindAlert(descriptor capability.Descriptor, check func(*alertArguments, target) error,
+	call func(context.Context, *Client, *alertArguments) (any, error)) capability.Operation {
+	return capability.Operation{Descriptor: descriptor, Handler: alertsHandler(descriptor.ID, check, call)}
+}
+
 func securityAlertOperations() []capability.Operation {
-	bind := func(descriptor capability.Descriptor, check func(*alertArguments, target) error,
-		call func(context.Context, *Client, *alertArguments) (any, error)) capability.Operation {
-		return capability.Operation{Descriptor: descriptor, Handler: alertsHandler(descriptor.ID, check, call)}
-	}
+	bind := bindAlert
 	return []capability.Operation{
 		bind(codeScanningAlertsList, listAlertsCheck("code-scanning", codeScanningStates, codeScanningSeverities),
 			func(ctx context.Context, c *Client, a *alertArguments) (any, error) {
@@ -764,31 +778,63 @@ type codeScanningAlertJSON struct {
 		Version string `json:"version"`
 		GUID    string `json:"guid"`
 	} `json:"tool"`
-	MostRecentInstance struct {
-		Ref         string `json:"ref"`
-		AnalysisKey string `json:"analysis_key"`
-		Environment string `json:"environment"`
-		Category    string `json:"category"`
-		State       string `json:"state"`
-		CommitSHA   string `json:"commit_sha"`
-		Message     struct {
-			Text     string `json:"text"`
-			Markdown string `json:"markdown"`
-		} `json:"message"`
-		Location struct {
-			Path        string `json:"path"`
-			StartLine   int    `json:"start_line"`
-			EndLine     int    `json:"end_line"`
-			StartColumn int    `json:"start_column"`
-			EndColumn   int    `json:"end_column"`
-		} `json:"location"`
-		HTMLURL         string    `json:"html_url"`
-		Classifications []*string `json:"classifications"`
-	} `json:"most_recent_instance"`
-	DismissalApprovedBy *accountRaw     `json:"dismissal_approved_by"`
-	Assignees           []accountRaw    `json:"assignees"`
-	LinkedPullRequests  []pullSimpleRaw `json:"linked_pull_requests"`
+	MostRecentInstance  codeScanningInstanceRaw `json:"most_recent_instance"`
+	DismissalApprovedBy *accountRaw             `json:"dismissal_approved_by"`
+	Assignees           []accountRaw            `json:"assignees"`
+	LinkedPullRequests  []pullSimpleRaw         `json:"linked_pull_requests"`
 	links               Links
+}
+
+// codeScanningInstanceRaw is one alert instance as GitHub sends it, in an alert and in the instance list.
+type codeScanningInstanceRaw struct {
+	Ref         string `json:"ref"`
+	AnalysisKey string `json:"analysis_key"`
+	Environment string `json:"environment"`
+	Category    string `json:"category"`
+	State       string `json:"state"`
+	CommitSHA   string `json:"commit_sha"`
+	Message     struct {
+		Text     string `json:"text"`
+		Markdown string `json:"markdown"`
+	} `json:"message"`
+	Location struct {
+		Path        string `json:"path"`
+		StartLine   int    `json:"start_line"`
+		EndLine     int    `json:"end_line"`
+		StartColumn int    `json:"start_column"`
+		EndColumn   int    `json:"end_column"`
+	} `json:"location"`
+	HTMLURL         string    `json:"html_url"`
+	Classifications []*string `json:"classifications"`
+}
+
+// view projects an instance; every untrusted text is cleaned and cut.
+func (in codeScanningInstanceRaw) view() CodeScanningInstance {
+	instance := CodeScanningInstance{Ref: *nameText(&in.Ref), AnalysisKey: *longText(&in.AnalysisKey),
+		Environment: *longText(&in.Environment), Category: *longText(&in.Category), State: *nameText(&in.State),
+		CommitSHA: *nameText(&in.CommitSHA)}
+	if uri := address(&in.HTMLURL); uri != nil {
+		instance.URL = *uri
+	}
+	message := CodeScanningMessage{}
+	message.Text, message.TextTruncated = clipClean(in.Message.Text, alertTextLimit)
+	message.Markdown, message.MarkdownTruncated = clipClean(in.Message.Markdown, alertTextLimit)
+	if message != (CodeScanningMessage{}) {
+		instance.Message = &message
+	}
+	location := CodeScanningLocation{Path: *longText(&in.Location.Path), StartLine: in.Location.StartLine,
+		EndLine: in.Location.EndLine, StartColumn: in.Location.StartColumn, EndColumn: in.Location.EndColumn}
+	if location != (CodeScanningLocation{}) {
+		instance.Location = &location
+	}
+	classifications, cut := capped(in.Classifications)
+	for _, classification := range classifications {
+		if classification != nil && *classification != "" {
+			instance.Classifications = append(instance.Classifications, *nameText(classification))
+		}
+	}
+	instance.ClassificationsTruncated = cut
+	return instance
 }
 
 func (j *codeScanningAlertJSON) UnmarshalJSON(data []byte) (err error) {
@@ -864,32 +910,7 @@ func (j codeScanningAlertJSON) addDetails(v *CodeScanningAlert, detail bool, all
 		v.ToolDetail = &tool
 	}
 
-	in := j.MostRecentInstance
-	instance := CodeScanningInstance{Ref: *nameText(&in.Ref), AnalysisKey: *longText(&in.AnalysisKey),
-		Environment: *longText(&in.Environment), Category: *longText(&in.Category), State: *nameText(&in.State),
-		CommitSHA: *nameText(&in.CommitSHA)}
-	if uri := address(&in.HTMLURL); uri != nil {
-		instance.URL = *uri
-	}
-	message := CodeScanningMessage{}
-	message.Text, message.TextTruncated = clipClean(in.Message.Text, alertTextLimit)
-	message.Markdown, message.MarkdownTruncated = clipClean(in.Message.Markdown, alertTextLimit)
-	if message != (CodeScanningMessage{}) {
-		instance.Message = &message
-	}
-	location := CodeScanningLocation{Path: *longText(&in.Location.Path), StartLine: in.Location.StartLine,
-		EndLine: in.Location.EndLine, StartColumn: in.Location.StartColumn, EndColumn: in.Location.EndColumn}
-	if location != (CodeScanningLocation{}) {
-		instance.Location = &location
-	}
-	classifications, cut := capped(in.Classifications)
-	for _, classification := range classifications {
-		if classification != nil && *classification != "" {
-			instance.Classifications = append(instance.Classifications, *nameText(classification))
-		}
-	}
-	instance.ClassificationsTruncated = cut
-	if !reflect.ValueOf(instance).IsZero() {
+	if instance := j.MostRecentInstance.view(); !reflect.ValueOf(instance).IsZero() {
 		v.MostRecentInstance = &instance
 	}
 
@@ -1257,6 +1278,16 @@ func alertsSubject(path string) string {
 	}
 	if !ok {
 		return ""
+	}
+	if analyses, ok := strings.CutPrefix(rest, "analyses"); ok && kind == "code-scanning" {
+		id := strings.Trim(analyses, "/")
+		if id == "" {
+			return "the code scanning analyses of this repository"
+		}
+		if n, err := strconv.ParseInt(id, 10, 64); err == nil && n > 0 {
+			return "code scanning analysis " + id
+		}
+		return "a code scanning analysis"
 	}
 	rest, isAlerts := strings.CutPrefix(rest, "alerts")
 	if !isAlerts {
