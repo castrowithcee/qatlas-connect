@@ -159,6 +159,12 @@
 // the body of one issue comment by its comment_id, and, only on a connection whose tools list names it,
 // github.comments.delete removes one permanently; both refuse a comment of another repository and a pull
 // request conversation comment the same way the issue tools refuse a pull request number.
+// github.pull-request-reviews.update replaces the text of one review and github.pull-request-review-comments.update
+// the body of one line comment; github.pull-request-reviews.delete-pending deletes one pending review. Each
+// reads its review or line comment below the chosen repository first, and a review of another pull request or
+// a line comment of another repository is refused before anything changes. Only on a connection whose tools
+// list names it, github.pull-request-reviews.dismiss dismisses an approval or a request for changes and
+// github.pull-request-review-comments.delete removes a line comment permanently.
 // github.comments.hide hides one issue comment, pull request review, or pull request line comment with a
 // reason, and github.comments.unhide shows it again; both read the object below the chosen repository first
 // and only then send one GraphQL mutation with the node identifier of that answer, and a review is
@@ -523,7 +529,8 @@ func Register(reg *capability.Registry) error {
 				"Contents: read and write on a fine-grained token; pull request review and line comment " +
 				"reads need repo or public_repo on a classic token, or Pull requests: read on a " +
 				"fine-grained token; submitting a review, replying to a line comment, resolving or " +
-				"unresolving a thread, and requesting or removing reviewers need repo on a classic token, " +
+				"unresolving a thread, requesting or removing reviewers, and changing, dismissing, or deleting a " +
+				"review or a line comment need repo on a classic token, " +
 				"or Pull requests: read and write on a fine-grained token; pull request conversation " +
 				"comments need the same scopes as github.comments.*: repo or public_repo on a classic " +
 				"token, or Pull requests or Issues: read, and read and write for a comment, on a " +
@@ -744,13 +751,16 @@ func Register(reg *capability.Registry) error {
 		}, {
 			ID: "pull-request-reviews", Title: "Pull request reviews",
 			Description: "reads and writes the conversation comments, reviews with line comments, replies, " +
-				"and requested reviewers of a pull request, and reads, resolves, and unresolves its review " +
-				"threads; every change needs its own confirmation, and approving stays unticked, since it is " +
-				"offered only where a connection's tools list names github.pull-request-reviews.approve",
-			MutationReason: "reviewing a pull request needs to write comments and reviews; approving is kept " +
-				"out of every profile so it always needs its own tools list entry",
+				"and requested reviewers of a pull request, changes the text of a review and of a line comment, " +
+				"and reads, resolves, and unresolves its review threads; every change needs its own " +
+				"confirmation, and approving, dismissing a review, deleting a line comment, and deleting a " +
+				"pending review stay unticked: the first three are offered only where a connection's tools " +
+				"list names them, the last one needs the effect delete",
+			MutationReason: "reviewing a pull request needs to write comments and reviews and to correct their " +
+				"text; approving is kept out of every profile so it always needs its own tools list entry",
 			Tools: []string{pullRequestCommentsList.ID, pullRequestCommentsCreate.ID, pullRequestReviewsList.ID,
-				pullRequestReviewsCreate.ID, pullRequestReviewCommentsList.ID, pullRequestReviewCommentsReply.ID,
+				pullRequestReviewsCreate.ID, pullRequestReviewsUpdate.ID, pullRequestReviewCommentsList.ID,
+				pullRequestReviewCommentsReply.ID, pullRequestReviewCommentsUpdate.ID,
 				pullRequestReviewThreadsList.ID, pullRequestReviewThreadsResolve.ID,
 				pullRequestReviewThreadsUnresolve.ID, pullRequestReviewersRequest.ID, pullRequestReviewersRemove.ID},
 		}, {
@@ -867,7 +877,8 @@ func Register(reg *capability.Registry) error {
 	}, slices.Concat(itemOperations(), lifecycleOperations(), fieldOperations(), viewOperations(),
 		statusOperations(), accessOperations(), automationOperations(), actionsOperations(),
 		maintenanceOperations(), pullRequestOperations(), checkOperations(), releaseOperations(), pullRequestCommentOperations(),
-		pullRequestReviewOperations(), pullRequestReviewCommentOperations(), pullRequestReviewThreadOperations(),
+		pullRequestReviewOperations(), pullRequestReviewMaintenanceOperations(), pullRequestReviewCommentOperations(),
+		pullRequestReviewCommentMaintenanceOperations(), pullRequestReviewThreadOperations(),
 		pullRequestReviewerOperations(), accountOperations(), organizationOperations(), starOperations(),
 		searchOperations(), contentsOperations(), blameOperations(), commitsOperations(), refsOperations(), compareOperations(), commitRelationOperations(),
 		contentsWriteOperations(), refsWriteOperations(), repositoriesOperations(), repositoryDetailOperations(), trafficOperations(), repositoryStatsOperations(), rulesetsOperations(), branchProtectionOperations(), customPropertiesOperations(), actionVariablesOperations(), actionCachesOperations(), runCleanupOperations(),
