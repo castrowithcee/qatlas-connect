@@ -9,6 +9,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"testing"
@@ -314,7 +315,7 @@ func releaseUpdater(t *testing.T, executable string, before func()) *selfupdate.
 // trusts only if trusted is that signer's key;
 func signedReleaseUpdater(t *testing.T, executable string, signer ssh.Signer, trusted ssh.PublicKey, before func()) *selfupdate.Client {
 	t.Helper()
-	name, archive := selfupdatetest.Archive(t, "v3.1.0", "linux", "amd64", []byte("new-program"))
+	name, archive := selfupdatetest.Archive(t, "v3.1.0", runtime.GOOS, "amd64", []byte("new-program"))
 	var sets []selfupdatetest.Signature
 	if signer != nil {
 		sets = append(sets, selfupdatetest.Current)
