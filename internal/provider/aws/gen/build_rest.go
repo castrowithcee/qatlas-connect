@@ -50,6 +50,11 @@ func (t *tool) assembleRest() error {
 		if err != nil {
 			return err
 		}
+		if field.Shape.Kind == httpbind.KindString && bf.Shape != nil && bf.Loc != httpbind.LocHeader {
+			// What an identifier argument may carry in front of the value, such as /hostedzone/; Route 53 takes
+			// the bare value in a body as well as in a path or query.
+			field.Shape.Prefixes = bf.Shape.Prefixes
+		}
 		field.Required = bf.Required
 		op.Input.Fields = append(op.Input.Fields, field)
 	}
@@ -132,10 +137,6 @@ func (t *tool) rootOf(dst, src *httpbind.Shape) {
 // the wire name and, for restXml, the XML form and the roles of the layer.
 func (t *tool) restField(f awsquery.Field, bf *httpbind.Field) (httpbind.Field, error) {
 	field := httpbind.Field{Key: f.Key, Name: bf.Name, Shape: restShape(f.Shape), Loc: bf.Loc, IdempotencyToken: f.IdempotencyToken}
-	if field.Shape.Kind == httpbind.KindString && bf.Shape != nil && (bf.Loc == httpbind.LocLabel || bf.Loc == httpbind.LocQuery) {
-		// What an identifier argument may carry in front of the value, such as /hostedzone/.
-		field.Shape.Prefixes = bf.Shape.Prefixes
-	}
 	if !t.xml {
 		return field, nil
 	}
@@ -151,12 +152,16 @@ func (t *tool) restField(f awsquery.Field, bf *httpbind.Field) (httpbind.Field, 
 	return field, nil
 }
 
-// carryXMLForm gives the members below the top level the XML form of the binding that the converted shapes do not
+// carryXMLForm gives the shape its timestamp format and the members below the top level the XML form of the binding that the converted shapes do not
 // carry: an attribute (such as the xsi:type of a grantee) and the namespace declared on the element of a member. The
 // converted members are matched to the bound ones by their snake_case key; a member the binding lacks is a defect.
 func carryXMLForm(dst, src *httpbind.Shape, path string) error {
 	if dst == nil || src == nil {
 		return nil
+	}
+	if dst.Kind == httpbind.KindTimestamp && src.Kind == httpbind.KindTimestamp {
+		// The explicit format of the trait; the converted shape has none.
+		dst.Format = src.Format
 	}
 	for i := range dst.Fields {
 		df := &dst.Fields[i]

@@ -946,11 +946,12 @@ func (c *converter) convert(target string, traits *object, output bool, depth in
 	case "boolean":
 		return &awsquery.Shape{Kind: awsquery.KindBoolean}, newObject("type", "boolean"), nil
 	case "timestamp":
-		// A restXml body writes timestamps as date-time, so that format needs no rendering below the top level; a
-		// top-level member can be a header, whose default differs.
-		if f := traits.str("smithy.api#timestampFormat"); c.t.rest && f != "" && !(f == "date-time" && c.t.xml && depth > 0) {
+		// The binding layer renders and reads the three formats of the trait for a restXml tool, in a header, a query
+		// member, and the body; the schema is a date-time text either way. restJson1 and the query protocol do not
+		// carry an explicit format here.
+		if f := traits.str("smithy.api#timestampFormat"); c.t.rest && !c.t.xml && f != "" {
 			return nil, nil, c.failf("timestamp format %s is not rendered for restJson1 tools yet", f)
-		} else if f != "" && f != "date-time" {
+		} else if !c.t.rest && f != "" && f != "date-time" {
 			return nil, nil, c.failf("timestamp format %s is not the query protocol's date-time", f)
 		}
 		return &awsquery.Shape{Kind: awsquery.KindTimestamp}, newObject("type", "string", "maxLength", 64), nil
@@ -1257,9 +1258,10 @@ const sampleARN = "arn:aws:iam::123456789012:role/a"
 // targetSamples are values that pass a target check in the account and region the generated tests bind, by
 // the name of the check.
 var targetSamples = map[string]string{
-	"bucket-owner":     "my-bucket",
-	"ses-identity":     "example.com",
-	"ses-identity-arn": "arn:aws:ses:eu-central-1:123456789012:identity/example.com",
+	"bucket-owner":          "my-bucket",
+	"ses-identity":          "example.com",
+	"ses-identity-arn":      "arn:aws:ses:eu-central-1:123456789012:identity/example.com",
+	"ses-configuration-set": "my-set",
 }
 
 // sampleTrustPolicy is a trust policy that passes the trust-policy check: one AWS service principal.
@@ -1269,9 +1271,11 @@ const sampleTrustPolicy = `{"Version":"2012-10-17","Statement":[{"Effect":"Allow
 const sampleResourcePolicy = `{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Principal":{"AWS":"123456789012"},"Action":"ses:SendEmail","Resource":"*"}]}`
 
 // sampleWords are whole values tried after the repeated characters, for patterns with a fixed prefix such as
-// the version IDs of IAM policies the UUID of a Route 53 CIDR collection, an IPv4 address, or an address of
-// the form a@b, which stays outside the mail form that generated code must not hold.
-var sampleWords = []string{"v1", "00000000-0000-0000-0000-000000000000", "192.0.2.1", "aaa@bbb"}
+// the version IDs of IAM policies, the UUID of a Route 53 CIDR collection, an IPv4 address, a bucket/key pair, the ARN
+// of an SES mail archive, or an address of the form a@b, which stays outside the mail form that generated code must
+// not hold.
+var sampleWords = []string{"v1", "00000000-0000-0000-0000-000000000000", "192.0.2.1", "a/b",
+	"arn:aws:ses:eu-central-1:123456789012:mailmanager-archive/a-0123456789abcdefghijklmn", "aaa@bbb"}
 
 func (t *tool) sample(path string, s *awsquery.Shape, rawSchema any) (any, error) {
 	schema, _ := rawSchema.(map[string]any)

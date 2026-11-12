@@ -80,10 +80,22 @@ Each [SES tool](ses.md) needs the permission `ses:<Operation>` of its AWS operat
 `ses:UpdateEmailIdentityPolicy`, `ses:DeleteEmailIdentityPolicy`, `ses:CreateEmailIdentity`,
 `ses:DeleteEmailIdentity`, `ses:PutEmailIdentityDkimAttributes`, `ses:PutEmailIdentityDkimSigningAttributes`,
 `ses:PutEmailIdentityMailFromAttributes`, `ses:PutEmailIdentityFeedbackAttributes`,
-`ses:PutEmailIdentityConfigurationSetAttributes`, `ses:TagResource`, and `ses:UntagResource`, each for its own tool.
-The account tools need `ses:GetAccount`, `ses:PutAccountDetails`, `ses:PutAccountSendingAttributes`,
-`ses:PutAccountSuppressionAttributes`, `ses:PutAccountDedicatedIpWarmupAttributes`, and `ses:PutAccountVdmAttributes`.
-Creating with tags also needs `ses:TagResource`. The identity policy write tools are offered only when the tools list
+`ses:PutEmailIdentityConfigurationSetAttributes`, `ses:TagResource`, `ses:UntagResource`, `ses:ListConfigurationSets`,
+`ses:GetConfigurationSet`, `ses:CreateConfigurationSet`, `ses:DeleteConfigurationSet`,
+`ses:PutConfigurationSetDeliveryOptions`, `ses:PutConfigurationSetReputationOptions`,
+`ses:PutConfigurationSetSendingOptions`, `ses:PutConfigurationSetSuppressionOptions`,
+`ses:PutConfigurationSetTrackingOptions`, `ses:PutConfigurationSetVdmOptions`,
+`ses:PutConfigurationSetArchivingOptions`, `ses:GetConfigurationSetEventDestinations`,
+`ses:ListSuppressedDestinations`, `ses:GetSuppressedDestination`, `ses:PutSuppressedDestination`,
+`ses:DeleteSuppressedDestination`, `ses:ListEmailTemplates`, `ses:GetEmailTemplate`, `ses:CreateEmailTemplate`,
+`ses:UpdateEmailTemplate`, `ses:DeleteEmailTemplate`, `ses:TestRenderEmailTemplate`, `ses:ListContactLists`,
+`ses:GetContactList`, `ses:CreateContactList`, `ses:UpdateContactList`, `ses:DeleteContactList`, `ses:ListContacts`,
+`ses:GetContact`, `ses:CreateContact`, `ses:UpdateContact`, and `ses:DeleteContact`, each for its own tool. `ses:TagResource`, `ses:UntagResource`, and
+`ses:ListTagsForResource` also serve the tags of configuration sets. Creating an identity, a configuration set, a template,
+or a contact list with tags also needs `ses:TagResource`. No permission for creating, changing, or deleting event destinations is needed: those
+actions are not tools. The account tools need `ses:GetAccount`, `ses:PutAccountDetails`,
+`ses:PutAccountSendingAttributes`, `ses:PutAccountSuppressionAttributes`, `ses:PutAccountDedicatedIpWarmupAttributes`,
+and `ses:PutAccountVdmAttributes`. The identity policy write tools are offered only when the tools list
 of the connection names them. Grant only the actions of the tools the connection offers. An account without production
 access is in the SES sandbox and sends only to verified recipients.
 
@@ -103,7 +115,10 @@ which needs `s3:ListAllMyBuckets` on all resources. The reads need `s3:ListAllMy
 `s3:GetBucketCORS` (`cors.get`), `s3:GetBucketAcl` (`acl.get`), `s3:GetBucketWebsite`, `s3:GetBucketLogging` (`logging.get`), `s3:GetBucketNotification` (`notification.get`),
 `s3:GetReplicationConfiguration` (`replication.get`), `s3:GetBucketOwnershipControls`, `s3:GetAccelerateConfiguration`,
 `s3:GetBucketRequestPayment`, `s3:GetBucketObjectLockConfiguration` (`object-lock.get`), `s3:GetObjectRetention` and
-`s3:GetObjectLegalHold` (`object-retention.get` and `object-legal-hold.get`, for the object `arn:aws:s3:::<bucket>/<key>`), `s3:GetBucketPolicy` (`bucket-policy.get`), and `s3:GetBucketPolicyStatus` (`bucket-policy.get-status`), each for its own tool. The writes need:
+`s3:GetObjectLegalHold` (`object-retention.get` and `object-legal-hold.get`, for the object `arn:aws:s3:::<bucket>/<key>`), `s3:GetBucketPolicy` (`bucket-policy.get`), and `s3:GetBucketPolicyStatus` (`bucket-policy.get-status`), each for its own tool. The object reads need `s3:ListBucket` (`object.list`), `s3:ListBucketVersions` (`object.list-versions`),
+`s3:GetObject` (`object.head`, and `s3:GetObjectVersion` for a version; `object.get-attributes` also needs
+`s3:GetObjectAttributes`), `s3:GetObjectTagging` (`object-tagging.get`), and `s3:GetObjectAcl` (`object-acl.get`), for
+the object `arn:aws:s3:::<bucket>/<key>` except the two lists. The writes need:
 
 | Tool | Permission |
 | --- | --- |
@@ -118,6 +133,11 @@ which needs `s3:ListAllMyBuckets` on all resources. The reads need `s3:ListAllMy
 | `aws.s3.cors.delete` | `s3:PutBucketCORS` |
 | `aws.s3.bucket-policy.put` | `s3:PutBucketPolicy` and `s3:GetBucketPolicyStatus` (the read after the change) |
 | `aws.s3.bucket-policy.delete` | `s3:DeleteBucketPolicy` |
+| `aws.s3.object.copy` | `s3:GetObject` (`s3:GetObjectVersion` for a version) on the source and `s3:PutObject` on the destination; with tags also `s3:GetObjectTagging` and `s3:PutObjectTagging` |
+| `aws.s3.object.delete`, `aws.s3.object.delete-many` | `s3:DeleteObject` (`s3:DeleteObjectVersion` for a version) |
+| `aws.s3.object.restore` | `s3:RestoreObject` |
+| `aws.s3.object-tagging.put` | `s3:PutObjectTagging` (`s3:PutObjectVersionTagging` for a version) |
+| `aws.s3.object-tagging.delete` | `s3:DeleteObjectTagging` (`s3:DeleteObjectVersionTagging` for a version) |
 
 The bucket policy write tools are offered only when the tools list of the connection names them. Creating with tags also needs `s3:PutBucketTagging`. Setting a KMS key also needs the permissions the key's policy
 requires for the identity. Grant only the actions of the tools the connection offers; a policy such as `s3:*` also
