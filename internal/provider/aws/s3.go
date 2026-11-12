@@ -38,6 +38,7 @@ var guards = map[string]guard{
 	"route53-policy":              checkRoute53Policy,
 	"ses-send":                    checkSESSend,
 	"route53-cidr":                checkRoute53CIDR,
+	"s3-report-destination":       checkReportDestination,
 
 	"ses-configuration-set-values": checkSESConfigurationSetValues,
 }
@@ -46,7 +47,7 @@ var guards = map[string]guard{
 type readback func(ctx context.Context, c *Client, s toolSpec, creds sigv4.Credentials, region string, args map[string]any) error
 
 // readbacks are the readbacks, by the name a curation table gives them.
-var readbacks = map[string]readback{"pab-tighten": pabTighten}
+var readbacks = map[string]readback{"pab-tighten": pabTighten, "s3-report-destination": reportOwner}
 
 // usEast1 is the region S3 creates a bucket in without a location constraint.
 const usEast1 = "us-east-1"

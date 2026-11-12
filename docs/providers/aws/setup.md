@@ -116,7 +116,7 @@ which needs `s3:ListAllMyBuckets` on all resources. The reads need `s3:ListAllMy
 `s3:GetBucketCORS` (`cors.get`), `s3:GetBucketAcl` (`acl.get`), `s3:GetBucketWebsite`, `s3:GetBucketLogging` (`logging.get`), `s3:GetBucketNotification` (`notification.get`),
 `s3:GetReplicationConfiguration` (`replication.get`), `s3:GetBucketOwnershipControls`, `s3:GetAccelerateConfiguration`,
 `s3:GetBucketRequestPayment`, `s3:GetBucketObjectLockConfiguration` (`object-lock.get`), `s3:GetObjectRetention` and
-`s3:GetObjectLegalHold` (`object-retention.get` and `object-legal-hold.get`, for the object `arn:aws:s3:::<bucket>/<key>`), `s3:GetBucketPolicy` (`bucket-policy.get`), and `s3:GetBucketPolicyStatus` (`bucket-policy.get-status`), each for its own tool. The object reads need `s3:ListBucket` (`object.list`), `s3:ListBucketVersions` (`object.list-versions`),
+`s3:GetObjectLegalHold` (`object-retention.get` and `object-legal-hold.get`, for the object `arn:aws:s3:::<bucket>/<key>`), `s3:GetBucketPolicy` (`bucket-policy.get`), and `s3:GetBucketPolicyStatus` (`bucket-policy.get-status`), `s3:GetInventoryConfiguration` (`inventory.list` and `inventory.get`), and `s3:GetAnalyticsConfiguration` (`analytics.list` and `analytics.get`), each for its own tool. The object reads need `s3:ListBucket` (`object.list`), `s3:ListBucketVersions` (`object.list-versions`),
 `s3:GetObject` (`object.head`, and `s3:GetObjectVersion` for a version; `object.get-attributes` also needs
 `s3:GetObjectAttributes`), `s3:GetObjectTagging` (`object-tagging.get`), and `s3:GetObjectAcl` (`object-acl.get`), for
 the object `arn:aws:s3:::<bucket>/<key>` except the two lists. The writes and the object download need:
@@ -145,6 +145,10 @@ the object `arn:aws:s3:::<bucket>/<key>` except the two lists. The writes and th
 | `aws.s3.object-tagging.put` | `s3:PutObjectTagging` (`s3:PutObjectVersionTagging` for a version) |
 | `aws.s3.object-tagging.delete` | `s3:DeleteObjectTagging` (`s3:DeleteObjectVersionTagging` for a version) |
 | `aws.s3.request-payment.put` | `s3:PutBucketRequestPayment` |
+| `aws.s3.inventory.put` | `s3:PutInventoryConfiguration`, and `s3:ListBucket` on the destination bucket (the `HeadBucket` before the change) |
+| `aws.s3.inventory.delete` | `s3:PutInventoryConfiguration` |
+| `aws.s3.analytics.put` | `s3:PutAnalyticsConfiguration`, and `s3:ListBucket` on the destination bucket (the `HeadBucket` before the change) |
+| `aws.s3.analytics.delete` | `s3:PutAnalyticsConfiguration` |
 
 The bucket policy write tools are offered only when the tools list of the connection names them. Creating with tags also needs `s3:PutBucketTagging`. Setting a KMS key also needs the permissions the key's policy
 requires for the identity. Grant only the actions of the tools the connection offers; a policy such as `s3:*` also
