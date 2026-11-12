@@ -11,7 +11,7 @@ updated: 2026-11-12
 
 The `aws` provider gives agents controlled access to one AWS account, read-only except for the IAM role tools and the two
 IAM report generators a connection names in its tools list, the SES identity tools, the S3 bucket tools, and the Route 53
-hosted zone, record, and health check tools, which change state with confirmation, and the Route 53 DNSSEC writes a connection names in its tools list. Qatlas signs requests with
+hosted zone, record, and health check tools, which change state with confirmation, the Route 53 query logging writes, and the Route 53 DNSSEC writes a connection names in its tools list. Qatlas signs requests with
 Signature Version 4 using the Go standard library; it uses no AWS SDK. It ships the foundation (credential, role
 assumption, account and region binding, connection test, endpoint table, error mapping), the Security Token Service
 (STS) tools, the IAM tools that read identities, the metadata of their credentials, policies with their simulation,

@@ -132,6 +132,8 @@ var wantTools = []string{
 	"aws.route53.key-signing-key.create",
 	"aws.route53.key-signing-key.deactivate",
 	"aws.route53.key-signing-key.delete",
+	"aws.route53.query-logging-config.create",
+	"aws.route53.query-logging-config.delete",
 	"aws.route53.query-logging-config.get",
 	"aws.route53.query-logging-config.list",
 	"aws.route53.record-set.change",
