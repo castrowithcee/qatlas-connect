@@ -256,6 +256,8 @@ var wantTools = []string{
 	"aws.ses.email-template.list",
 	"aws.ses.email-template.test-render",
 	"aws.ses.email-template.update",
+	"aws.ses.email.send",
+	"aws.ses.email.send-bulk",
 	"aws.ses.suppressed-destination.delete",
 	"aws.ses.suppressed-destination.get",
 	"aws.ses.suppressed-destination.list",
