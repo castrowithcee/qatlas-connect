@@ -145,6 +145,8 @@ than a feed that looks complete. GitHub does not document which fine-grained per
 | `github.repositories.rename` | renames one repository under its owner; offered only where a connection's `tools` list names it |
 | `github.repositories.delete` | deletes one repository permanently; offered only where a connection's `tools` list names it |
 | `github.collaborators.list` | lists the collaborators of a repository |
+| `github.collaborators.update` | changes the permission of an existing collaborator; offered only where a connection's `tools` list names it |
+| `github.collaborators.remove` | removes an existing collaborator; offered only where a connection's `tools` list names it |
 
 `github.repositories.create` makes one new repository under the token's own account, or, with `owner`, under
 an organization a connection names as an owner target; it is private by default. `owner` is an organization as
@@ -186,6 +188,23 @@ credential is resolved, since this cannot be undone.
 
 `github.collaborators.list` reads the collaborators of a repository, paged, a cursor bound to the repository
 and its filters.
+
+`github.collaborators.update` changes the `permission` of one existing collaborator (`username`) of a repository
+and `github.collaborators.remove` removes one; both are offered only where a connection's `tools` list names
+them, and no profile selects them. The repository must lie inside the connection's targets and outside its
+exclusions, and `username` must be a GitHub login, checked before any credential is resolved. `permission` is
+`pull`, `triage`, `push`, `maintain`, `admin`, or the name of a custom repository role of the owning
+organization; it is validated as a name without control characters or slashes, so custom roles work. Raising a
+collaborator to `admin` is security-relevant: that user can change settings, invite others, and delete the
+repository, so confirm it deliberately.
+
+Both tools read the relationship first (`GET` answers 204 for a collaborator, 404 for none). For `update`, a
+user who is no collaborator is refused with `invalid-request` and nothing is written, since the same `PUT`
+would send an invitation; should GitHub nevertheless answer 201 (an invitation was created), the tool reports it
+as a deviation and says to check the pending invitations, never as success. For `remove`, a user who is no
+collaborator answers `not-found` without a `DELETE`. Each change is one request, never repeated; a timeout or
+an unclear answer reports that the change may have been applied, so read the collaborators before trying again.
+Messages carry no text from GitHub.
 
 The token rights are listed under [Repositories, rulesets, and properties](setup.md#repositories-rulesets-and-properties).
 
