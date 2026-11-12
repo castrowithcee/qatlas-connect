@@ -181,6 +181,9 @@ type Operation struct {
 	// result names size and sha256 of the file. Such a tool has no generated test, the runtime test of its
 	// package covers it.
 	LocalFile string
+	// LocalRange adds the optional arguments offset and length to a LocalFile "read" tool, which then streams
+	// that range of the file and not the whole file; the tool's result describes the range.
+	LocalRange bool
 	// SampleArgs replaces top-level arguments of the generated test, a JSON object by argument name, where
 	// the derived sample cannot pass a guard.
 	SampleArgs string
@@ -192,7 +195,10 @@ type Operation struct {
 type InputLimit struct {
 	Member           string
 	MaxLen, MaxItems int
-	Reason           string
+	// MaxValue (and MinValue, at least 1 when set) bound an integer. They narrow the range of the model and
+	// never widen it.
+	MaxValue, MinValue int64
+	Reason             string
 }
 
 // Release is a sensitive model member that stays open, with the reason.
@@ -277,11 +283,11 @@ var (
 		"ses-identity", "ses-identity-arn", "ses-configuration-set"}
 	PolicyChecks = []string{"none", "trust-policy", "resource-policy-own-account", "bucket-policy", "identity-policy"}
 	// Guards are the pure argument steps and Readbacks the steps with a read of their own; see Operation.
-	Guards     = []string{"location-constraint", "new-bucket-name", "kms-key-arn", "ownership-enforce", "object-lock-governance-only", "route53-vpc", "route53-vpc-lookup", "route53-vpc-member", "route53-change", "route53-name", "route53-health", "route53-ksk", "route53-instance", "route53-cidr", "route53-log-group", "route53-policy", "ses-configuration-set-values", "copy-source", "object-kms-key", "upload-kms-key", "ses-send", "acm-certificate-arn", "s3-report-destination"}
+	Guards     = []string{"location-constraint", "new-bucket-name", "kms-key-arn", "ownership-enforce", "object-lock-governance-only", "route53-vpc", "route53-vpc-lookup", "route53-vpc-member", "route53-change", "route53-name", "route53-health", "route53-ksk", "route53-instance", "route53-cidr", "route53-log-group", "route53-policy", "ses-configuration-set-values", "copy-source", "object-kms-key", "upload-kms-key", "ses-send", "acm-certificate-arn", "s3-report-destination", "multipart-copy-range", "multipart-checksum"}
 	Readbacks  = []string{"pab-tighten", "s3-report-destination"}
 	Deliveries = []string{"ses-mail"}
 	// FailureHints are the hand-written failure steps a table may name.
-	FailureHints = []string{"bucket-policy-lockout"}
+	FailureHints = []string{"bucket-policy-lockout", "multipart-too-small"}
 	Forms        = []string{"account-id"}
 	// ResultHooks are the hand-written result steps a table may name; see resultHookFields.
 	ResultHooks = []string{"dns-records", "bucket-policy-status"}
@@ -408,6 +414,8 @@ func (op Operation) validate() error {
 		return fmt.Errorf("negative page size maximum")
 	case op.LocalFile != "" && op.LocalFile != "read" && op.LocalFile != "write":
 		return fmt.Errorf("local_file %q must be read or write", op.LocalFile)
+	case op.LocalRange && op.LocalFile != "read":
+		return fmt.Errorf("local_range belongs to a local_file read tool")
 	case op.LocalFile == "read" && op.Effect == "read", op.LocalFile == "write" && op.Effect != "read":
 		return fmt.Errorf("local_file %s does not fit effect %s: an upload changes something, a download reads", op.LocalFile, op.Effect)
 	case strings.TrimSpace(op.Title) == "" || strings.TrimSpace(op.Description) == "" || op.DataSensitivity == "":
@@ -445,8 +453,14 @@ func (op Operation) validate() error {
 	}
 	limits := map[string]bool{}
 	for _, l := range op.Limits {
-		if strings.TrimSpace(l.Member) == "" || strings.TrimSpace(l.Reason) == "" || (l.MaxLen > 0) == (l.MaxItems > 0) ||
-			l.MaxLen < 0 || l.MaxItems < 0 || limits[l.Member] {
+		caps := 0
+		for _, set := range []bool{l.MaxLen > 0, l.MaxItems > 0, l.MaxValue > 0} {
+			if set {
+				caps++
+			}
+		}
+		if strings.TrimSpace(l.Member) == "" || strings.TrimSpace(l.Reason) == "" || caps != 1 || l.MinValue < 0 ||
+			(l.MinValue > 0 && l.MaxValue < l.MinValue) || l.MaxLen < 0 || l.MaxItems < 0 || l.MaxValue < 0 || limits[l.Member] {
 			return fmt.Errorf("limit %q needs a reason, exactly one positive cap, and no repetition", l.Member)
 		}
 		limits[l.Member] = true

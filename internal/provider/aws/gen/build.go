@@ -534,7 +534,20 @@ func (t *tool) bindInput(m *Model, in []member, pag *pagingPlan) error {
 		}
 		props.set(localPathName, rawJSON(localPathSchema))
 		required = append(required, localPathName)
-		t.args = append(t.args, descArg{name: localPathName, required: true, description: localPathHelp[t.op.LocalFile]})
+		help := localPathHelp[t.op.LocalFile]
+		if t.op.LocalRange {
+			help = localPathHelp["read-range"]
+		}
+		t.args = append(t.args, descArg{name: localPathName, required: true, description: help})
+		if t.op.LocalRange {
+			if used[localOffsetName] || used[localLengthName] {
+				return t.failf("argument names %s and %s are reserved or used twice", localOffsetName, localLengthName)
+			}
+			props.set(localOffsetName, newObject("type", "integer", "minimum", 0))
+			props.set(localLengthName, newObject("type", "integer", "minimum", 1, "maximum", localRangeMax))
+			t.args = append(t.args, descArg{name: localOffsetName, description: localOffsetHelp},
+				descArg{name: localLengthName, description: localLengthHelp})
+		}
 	}
 	for name, hit := range t.nestedIn {
 		if !hit {
@@ -966,6 +979,14 @@ func (c *converter) convert(target string, traits *object, output bool, depth in
 			if max, ok := number(r, "max"); ok {
 				schema.set("maximum", max)
 			}
+			if l, ok := c.intLimit(); ok {
+				if min, set := number(r, "min"); l.MinValue > 0 && (!set || min < l.MinValue) {
+					schema.set("minimum", l.MinValue)
+				}
+				if max, set := number(r, "max"); !set || max > l.MaxValue {
+					schema.set("maximum", l.MaxValue)
+				}
+			}
 		}
 		return &awsquery.Shape{Kind: awsquery.KindInteger}, schema, nil
 	case "float", "double":
@@ -1056,6 +1077,20 @@ func (c *converter) limit(items bool) (InputLimit, bool) {
 	}
 	for _, l := range c.t.op.Limits {
 		if l.Member == c.path && (l.MaxItems > 0) == items {
+			c.t.limited[l.Member] = true
+			return l, true
+		}
+	}
+	return InputLimit{}, false
+}
+
+// intLimit returns the table bound of the integer member at c.path and marks it used.
+func (c *converter) intLimit() (InputLimit, bool) {
+	if c.output {
+		return InputLimit{}, false
+	}
+	for _, l := range c.t.op.Limits {
+		if l.Member == c.path && l.MaxValue > 0 {
 			c.t.limited[l.Member] = true
 			return l, true
 		}

@@ -134,6 +134,11 @@ the object `arn:aws:s3:::<bucket>/<key>` except the two lists. The writes and th
 | --- | --- |
 | `aws.s3.object.upload` | `s3:PutObject` on `arn:aws:s3:::<bucket>/<key>`; with `tagging` also `s3:PutObjectTagging`; with `server_side_encryption` `aws:kms` also `kms:GenerateDataKey` and `kms:Decrypt` on the key |
 | `aws.s3.object.download` | `s3:GetObject` on `arn:aws:s3:::<bucket>/<key>` (`s3:GetObjectVersion` with `version_id`); for an object with SSE-KMS also `kms:Decrypt` on the key. It is a read, but also needs a directory in `files.write` |
+| `aws.s3.multipart-upload.create`, `aws.s3.multipart-upload.upload-part`, `aws.s3.multipart-upload.complete` | `s3:PutObject` on `arn:aws:s3:::<bucket>/<key>`; with `tagging` also `s3:PutObjectTagging`; with `aws:kms` also `kms:GenerateDataKey` and `kms:Decrypt` on the key |
+| `aws.s3.multipart-upload.upload-part-copy` | `s3:PutObject` on the destination and `s3:GetObject` (`s3:GetObjectVersion` for a version) on the source |
+| `aws.s3.multipart-upload.abort` | `s3:AbortMultipartUpload` |
+| `aws.s3.multipart-upload.list-parts` | `s3:ListMultipartUploadParts` |
+| `aws.s3.multipart-upload.list` | `s3:ListBucketMultipartUploads` on the bucket |
 | `aws.s3.bucket.create` | `s3:CreateBucket` |
 | `aws.s3.bucket.delete` | `s3:DeleteBucket` |
 | `aws.s3.versioning.put` | `s3:PutBucketVersioning` |

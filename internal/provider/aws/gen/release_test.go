@@ -89,7 +89,9 @@ func TestReleasesOfTheTables(t *testing.T) {
 	}
 	slices.Sort(released)
 	want := []string{
+		"CompleteMultipartUpload SSEKMSKeyId",
 		"CopyObject SSEKMSKeyId",
+		"CreateMultipartUpload SSEKMSKeyId",
 		"GetAccount Details.AdditionalContactEmailAddresses",
 		"GetAccount Details.WebsiteURL",
 		"GetBucketEncryption ServerSideEncryptionConfiguration.Rules.ApplyServerSideEncryptionByDefault.KMSMasterKeyID",
@@ -111,6 +113,8 @@ func TestReleasesOfTheTables(t *testing.T) {
 		"PutBucketEncryption ServerSideEncryptionConfiguration.Rules.ApplyServerSideEncryptionByDefault.KMSMasterKeyID",
 		"PutBucketInventoryConfiguration InventoryConfiguration.Destination.S3BucketDestination.Encryption.SSEKMS.KeyId",
 		"PutObject SSEKMSKeyId",
+		"UploadPart SSEKMSKeyId",
+		"UploadPartCopy SSEKMSKeyId",
 	}
 	if !slices.Equal(released, want) {
 		t.Errorf("releases = %v, want %v", released, want)
@@ -180,7 +184,8 @@ func TestLimitsGuardsAndReadbacksAreChecked(t *testing.T) {
 				o.Operation != "CreateConfigurationSet" && o.Operation != "PutConfigurationSetTrackingOptions" && o.Operation != "PutConfigurationSetArchivingOptions" &&
 				o.Operation != "CopyObject" && o.Operation != "PutObject" && o.Operation != "SendEmail" && o.Operation != "SendBulkEmail" &&
 				o.Operation != "AssociateEmailIdentityCertificate" &&
-				o.Operation != "PutBucketInventoryConfiguration" && o.Operation != "PutBucketAnalyticsConfiguration" {
+				o.Operation != "PutBucketInventoryConfiguration" && o.Operation != "PutBucketAnalyticsConfiguration" &&
+				o.Operation != "CreateMultipartUpload" && o.Operation != "UploadPartCopy" {
 				t.Errorf("%s: guards %v", o.Operation, o.Guards)
 			}
 		}

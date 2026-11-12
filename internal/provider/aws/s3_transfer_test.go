@@ -35,6 +35,8 @@ type s3Seen struct {
 	contentLength                int64
 	bytes                        int64
 	sha256                       string
+	// body is the start of a small body (see keepBody); a large one is only counted.
+	body string
 }
 
 // streamReply is the answer to a transfer request: body is read by the client, length is the Content-Length.
@@ -68,12 +70,13 @@ func (s *s3Stream) RoundTrip(req *http.Request) (*http.Response, error) {
 	}
 	h := sha256.New()
 	var n int64
+	kept := &keepBody{}
 	if req.Body != nil {
-		n, _ = io.Copy(h, req.Body)
+		n, _ = io.Copy(io.MultiWriter(h, kept), req.Body)
 		req.Body.Close()
 	}
 	seen := s3Seen{method: req.Method, host: req.URL.Host, path: req.URL.EscapedPath(), rawQuery: req.URL.RawQuery,
-		header: req.Header.Clone(), contentLength: req.ContentLength, bytes: n, sha256: hex.EncodeToString(h.Sum(nil))}
+		header: req.Header.Clone(), contentLength: req.ContentLength, bytes: n, sha256: hex.EncodeToString(h.Sum(nil)), body: kept.String()}
 	s.mu.Lock()
 	s.seen = append(s.seen, seen)
 	s.mu.Unlock()
@@ -85,6 +88,18 @@ func (s *s3Stream) RoundTrip(req *http.Request) (*http.Response, error) {
 	return &http.Response{StatusCode: answer.status, Header: header, Body: io.NopCloser(answer.body),
 		ContentLength: answer.length, Request: req}, nil
 }
+
+// keepBody keeps the first 64 KiB written to it.
+type keepBody struct{ b []byte }
+
+func (k *keepBody) Write(p []byte) (int, error) {
+	if room := 64<<10 - len(k.b); room > 0 {
+		k.b = append(k.b, p[:min(room, len(p))]...)
+	}
+	return len(p), nil
+}
+
+func (k *keepBody) String() string { return string(k.b) }
 
 type transferDirs struct{ read, write, other string }
 

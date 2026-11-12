@@ -16,9 +16,26 @@ const (
 var localPathHelp = map[string]string{
 	"read": "Local file to upload, at most 100 MiB, absolute or starting with ~/, inside a directory the connection " +
 		"releases for reading; its own name is not sent",
+	// A range tool reads one part of a file that may be larger than a call sends.
+	"read-range": "Local file to read the part from, absolute or starting with ~/, inside a directory the connection " +
+		"releases for reading; the file may be larger than the part, its own name is not sent",
 	"write": "Local file to write, absolute or starting with ~/, in an existing directory the connection releases for " +
 		"writing; an existing file is replaced only with confirmation",
 }
+
+// The members offset and length of a tool with Operation.LocalRange select the part of the file that is sent.
+const (
+	localOffsetName = "offset"
+	localLengthName = "length"
+	// localRangeMax is httpbind.MaxStreamBytes, the most one call sends.
+	localRangeMax = 100 << 20
+)
+
+const (
+	localOffsetHelp = "Byte position in the local file where the range starts; 0 (the start) when left out"
+	localLengthHelp = "Number of bytes of the range, 1 to 104857600 (100 MiB); up to the end of the file when left out, which then " +
+		"must be at most 100 MiB after offset"
+)
 
 // localResult are the result members the runtime adds for the file, by direction of the description.
 var localResult = []struct {
