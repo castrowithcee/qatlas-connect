@@ -31,6 +31,10 @@ var (
 		"BucketNotEmpty": conflict, "OperationAborted": conflict, "TooManyBuckets": quota,
 		"InvalidBucketName": invalid, "InvalidLocationConstraint": invalid, "MalformedXML": invalid,
 		"InvalidBucketState": badState,
+		// The codes of the object tools: a failed condition, a restore that is already running, a version or a range
+		// that does not exist, and a method the object does not allow (a delete marker).
+		"PreconditionFailed": badState, "ConditionalRequestConflict": conflict, "RestoreAlreadyInProgress": conflict,
+		"NoSuchVersion": notFound, "InvalidRange": invalid, "MethodNotAllowed": invalid,
 		"InvalidObjectState": badState, "ObjectAlreadyInActiveTierError": badState, "ObjectNotInActiveTierError": badState,
 		"EncryptionTypeMismatch": invalid, "InvalidAnnotationName": invalid, "InvalidPrefix": invalid,
 		"InvalidRequest": invalid, "InvalidWriteOffset": invalid, "TooManyParts": invalid,
