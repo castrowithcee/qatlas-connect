@@ -4,6 +4,7 @@ import (
 	"context"
 	"regexp"
 	"slices"
+	"strconv"
 	"strings"
 
 	"github.com/castrowithcee/qatlas-connect/internal/provider"
@@ -26,6 +27,8 @@ var guards = map[string]guard{
 	"object-kms-key":              checkObjectKMSKey,
 	"copy-source":                 checkCopySource,
 	"upload-kms-key":              checkUploadKMSKey,
+	"multipart-checksum":          setMultipartChecksum,
+	"multipart-copy-range":        checkCopyRange,
 	"ownership-enforce":           checkOwnershipEnforce,
 	"object-lock-governance-only": checkObjectLockGovernanceOnly,
 	"route53-vpc":                 checkRoute53VPC,
@@ -300,7 +303,7 @@ func addBucketPolicyStatus(ctx context.Context, c *Client, s toolSpec, creds sig
 type failureHint func(failure *provider.Error) *provider.Error
 
 // failureHints are the hand-written failure steps, by the name a curation table gives them.
-var failureHints = map[string]failureHint{"bucket-policy-lockout": bucketPolicyLockout}
+var failureHints = map[string]failureHint{"bucket-policy-lockout": bucketPolicyLockout, "multipart-too-small": multipartTooSmall}
 
 // bucketPolicyLockout explains the two failures of a policy write that can mean the policy locked out its own
 // writer: AccessDenied and MalformedPolicy. The class and the original stay; only the message grows.
@@ -317,4 +320,50 @@ func bucketPolicyLockout(failure *provider.Error) *provider.Error {
 		}
 	}
 	return failure
+}
+
+// multipartTooSmall explains EntityTooSmall of a completed upload: S3 wants every part but the last to hold at least
+// 5 MiB, which no call of a part can check, since the last part is only known at complete.
+func multipartTooSmall(failure *provider.Error) *provider.Error {
+	if failure.Original == nil {
+		return failure
+	}
+	for _, entry := range failure.Original.Entries {
+		if entry.Code == "EntityTooSmall" {
+			out := *failure
+			out.Message += "; every part but the last must hold at least 5 MiB: send the parts again with a larger length, " +
+				"and complete again (the parts stay in place until the upload is completed or aborted)"
+			return &out
+		}
+	}
+	return failure
+}
+
+// setMultipartChecksum fixes the checksum algorithm of a started upload to SHA256, which is what upload-part sends: S3
+// refuses a part whose checksum is not of the algorithm of the upload.
+func setMultipartChecksum(_ binding, _ string, args map[string]any) error {
+	if value, set := args["checksum_algorithm"]; set && value != "SHA256" {
+		return &provider.InvalidRequestError{Message: "checksum_algorithm must be SHA256"}
+	}
+	args["checksum_algorithm"] = "SHA256"
+	return nil
+}
+
+var copyRange = regexp.MustCompile(`^bytes=(\d{1,19})-(\d{1,19})$`)
+
+// checkCopyRange requires the source range of a part copy: bytes=FIRST-LAST with FIRST at most LAST, covering at
+// most httpbind.MaxStreamBytes, the same limit a part sent from a file has.
+func checkCopyRange(_ binding, _ string, args map[string]any) error {
+	const message = "copy_source_range is required and must be bytes=FIRST-LAST, from at most 104857600 (100 MiB) bytes"
+	text, _ := args["copy_source_range"].(string)
+	match := copyRange.FindStringSubmatch(text)
+	if match == nil {
+		return &provider.InvalidRequestError{Message: message}
+	}
+	first, errFirst := strconv.ParseInt(match[1], 10, 64)
+	last, errLast := strconv.ParseInt(match[2], 10, 64)
+	if errFirst != nil || errLast != nil || first > last || last-first+1 > httpbind.MaxStreamBytes {
+		return &provider.InvalidRequestError{Message: message}
+	}
+	return nil
 }

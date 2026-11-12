@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/hex"
+	"encoding/json"
+	"errors"
 	"io"
 	"strings"
 
@@ -23,6 +25,8 @@ import (
 type transfer struct {
 	resolved *config.Resolved
 	path     string
+	// part is the range of the file a tool with offset and length sends; nil sends the whole file.
+	part *localfile.Range
 	// upload is open for a LocalFilesRead tool, download for a LocalFilesWrite tool.
 	upload   *localfile.Upload
 	download *localfile.Download
@@ -53,7 +57,12 @@ func (s toolSpec) openTransfer(ctx context.Context, resolved *config.Resolved, a
 	var err error
 	switch s.descriptor.LocalFiles {
 	case config.LocalFilesRead:
-		if x.upload, err = localfile.OpenForUpload(ctx, resolved, path); err != nil {
+		if s.localRange {
+			if x.part, err = takeRange(args); err != nil {
+				return nil, err
+			}
+		}
+		if x.upload, err = x.openUpload(ctx); err != nil {
 			return nil, err
 		}
 		if x.upload.Size > httpbind.MaxStreamBytes {
@@ -68,6 +77,39 @@ func (s toolSpec) openTransfer(ctx context.Context, resolved *config.Resolved, a
 		return nil, provider.Fail(s.op, "the tool description is invalid")
 	}
 	return x, nil
+}
+
+// takeRange removes offset and length from args: a range from offset to the end of the file, or of length bytes.
+func takeRange(args map[string]any) (*localfile.Range, error) {
+	part := &localfile.Range{Length: localfile.ToEnd}
+	for name, dst := range map[string]*int64{"offset": &part.Offset, "length": &part.Length} {
+		value, set := args[name]
+		delete(args, name)
+		if !set {
+			continue
+		}
+		n, ok := value.(json.Number)
+		v, err := n.Int64()
+		if !ok || err != nil {
+			return nil, &provider.InvalidRequestError{Message: name + " must be an integer"}
+		}
+		*dst = v
+	}
+	return part, nil
+}
+
+// openUpload opens the file of an upload, the range of it when the tool takes one. It is used a second time to
+// stream what the first pass hashed.
+func (x *transfer) openUpload(ctx context.Context) (*localfile.Upload, error) {
+	if x.part == nil {
+		return localfile.OpenForUpload(ctx, x.resolved, x.path)
+	}
+	up, err := localfile.OpenRangeForUpload(ctx, x.resolved, x.path, *x.part, httpbind.MaxStreamBytes)
+	var rangeErr *localfile.RangeError
+	if errors.As(err, &rangeErr) {
+		return nil, &provider.InvalidRequestError{Message: "offset and length: " + rangeErr.Error()}
+	}
+	return up, err
 }
 
 // encodeTransfer is encode for a tool with a local file: the request is built before any secret is read, and
@@ -97,7 +139,7 @@ func (s toolSpec) encodeTransfer(args map[string]any, owner string, x *transfer)
 				return false, failure
 			}
 			req.Header.Set("X-Amz-Checksum-Sha256", base64.StdEncoding.EncodeToString(sum))
-			up, err := localfile.OpenForUpload(ctx, x.resolved, x.path)
+			up, err := x.openUpload(ctx)
 			if err != nil {
 				return false, provider.Fail(s.op, "the local file could not be opened again: "+err.Error())
 			}

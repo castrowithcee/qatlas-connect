@@ -81,6 +81,8 @@ type toolSpec struct {
 	delivery string
 	// failureHint names the step in failureHints that adds what a person needs to know to a failure of the call.
 	failureHint string
+	// localRange makes a tool with a local file to read take offset and length and send just that range.
+	localRange bool
 	// accountCheck marks GetCallerIdentity, whose answer is the account check itself.
 	accountCheck bool
 	// truncated adds the truncated field: true when a string of the answer was cut at its cap.

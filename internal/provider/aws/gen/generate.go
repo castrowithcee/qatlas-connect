@@ -353,6 +353,9 @@ var generatedSpecs = []toolSpec{
 		if t.op.Delivery != "" {
 			fmt.Fprintf(b, "delivery: %s,\n", lit(t.op.Delivery))
 		}
+		if t.op.LocalRange {
+			b.WriteString("localRange: true,\n")
+		}
 		if t.op.AccountCheck {
 			b.WriteString("accountCheck: true,\n")
 		}

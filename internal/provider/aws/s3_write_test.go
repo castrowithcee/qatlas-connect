@@ -414,7 +414,7 @@ func TestS3ReadbackBelongsToTheNamedToolOnly(t *testing.T) {
 		if s.readback != "" {
 			named = append(named, s.descriptor.ID)
 		}
-		if len(s.guards) > 0 && !slices.Contains([]string{"aws.s3.bucket.create", "aws.s3.encryption.put", "aws.s3.ownership.put", "aws.s3.object.copy", "aws.s3.object.upload", "aws.s3.object-lock.put", "aws.s3.object-retention.put", "aws.s3.inventory.put", "aws.s3.analytics.put", "aws.route53.hosted-zone.create", "aws.route53.hosted-zone.list-by-vpc", "aws.route53.record-set.change", "aws.route53.dns-answer.test", "aws.route53.health-check.create", "aws.route53.health-check.update", "aws.route53.key-signing-key.create", "aws.route53.cidr-collection.change", "aws.route53.query-logging-config.create", "aws.route53.traffic-policy.create", "aws.route53.traffic-policy.create-version", "aws.ses.configuration-set.create", "aws.ses.configuration-set.put-tracking-options", "aws.ses.configuration-set.put-archiving-options", "aws.ses.email.send", "aws.ses.email.send-bulk", "aws.ses.email-identity-certificate.associate"}, s.descriptor.ID) {
+		if len(s.guards) > 0 && !slices.Contains([]string{"aws.s3.bucket.create", "aws.s3.encryption.put", "aws.s3.ownership.put", "aws.s3.object.copy", "aws.s3.object.upload", "aws.s3.object-lock.put", "aws.s3.object-retention.put", "aws.s3.inventory.put", "aws.s3.analytics.put", "aws.s3.multipart-upload.create", "aws.s3.multipart-upload.upload-part-copy", "aws.route53.hosted-zone.create", "aws.route53.hosted-zone.list-by-vpc", "aws.route53.record-set.change", "aws.route53.dns-answer.test", "aws.route53.health-check.create", "aws.route53.health-check.update", "aws.route53.key-signing-key.create", "aws.route53.cidr-collection.change", "aws.route53.query-logging-config.create", "aws.route53.traffic-policy.create", "aws.route53.traffic-policy.create-version", "aws.ses.configuration-set.create", "aws.ses.configuration-set.put-tracking-options", "aws.ses.configuration-set.put-archiving-options", "aws.ses.email.send", "aws.ses.email.send-bulk", "aws.ses.email-identity-certificate.associate"}, s.descriptor.ID) {
 			t.Errorf("%s names guards %v", s.descriptor.ID, s.guards)
 		}
 	}
@@ -490,8 +490,8 @@ func TestS3ExcludedOperationsCannotBeSent(t *testing.T) {
 			}
 		}
 	}
-	if tools != 61 {
-		t.Errorf("s3 tools = %d, want 61", tools)
+	if tools != 68 {
+		t.Errorf("s3 tools = %d, want 68", tools)
 	}
 	for _, s := range generatedSpecs {
 		if s.service != "s3" {
@@ -503,8 +503,9 @@ func TestS3ExcludedOperationsCannotBeSent(t *testing.T) {
 			strings.Contains(uri, "notification") || strings.Contains(uri, "replication")) ||
 			(s.rest.Method == "DELETE" && strings.Contains(uri, "publicaccessblock")) ||
 			(s.rest.Method != "GET" && s.rest.Method != "HEAD" && s.rest.Method != "PUT" && s.rest.Method != "DELETE" &&
-				// The two POST tools are the batch delete and the restore of an archived object.
-				!(s.rest.Method == "POST" && (strings.HasSuffix(uri, "?delete") || strings.HasSuffix(uri, "?restore")))) {
+				// The POST tools are the batch delete, the restore of an archived object, and create and complete of a multipart upload.
+				!(s.rest.Method == "POST" && (strings.HasSuffix(uri, "?delete") || strings.HasSuffix(uri, "?restore") ||
+					strings.HasPrefix(s.descriptor.ID, "aws.s3.multipart-upload.")))) {
 			t.Errorf("%s sends %s %s", s.descriptor.ID, s.rest.Method, s.rest.URI)
 		}
 	}
