@@ -4,7 +4,7 @@ description: >
 type: knowledge
 edit: shared
 created: 2026-11-06
-updated: 2026-11-11
+updated: 2026-11-12
 ---
 
 # Set up AWS
@@ -81,9 +81,18 @@ Each [SES tool](ses.md) needs the permission `ses:<Operation>` of its AWS operat
 `ses:DeleteEmailIdentity`, `ses:PutEmailIdentityDkimAttributes`, `ses:PutEmailIdentityDkimSigningAttributes`,
 `ses:PutEmailIdentityMailFromAttributes`, `ses:PutEmailIdentityFeedbackAttributes`,
 `ses:PutEmailIdentityConfigurationSetAttributes`, `ses:TagResource`, and `ses:UntagResource`, each for its own tool.
+The account tools need `ses:GetAccount`, `ses:PutAccountDetails`, `ses:PutAccountSendingAttributes`,
+`ses:PutAccountSuppressionAttributes`, `ses:PutAccountDedicatedIpWarmupAttributes`, and `ses:PutAccountVdmAttributes`.
 Creating with tags also needs `ses:TagResource`. The identity policy write tools are offered only when the tools list
 of the connection names them. Grant only the actions of the tools the connection offers. An account without production
 access is in the SES sandbox and sends only to verified recipients.
+
+**Troubleshooting: the sandbox.** SES rejects mail to an address that is not verified while `aws.ses.account.get`
+reports `production_access_enabled` false for the region. The status is separate for every region, so check the region
+you send from. Verify the recipient identity, or request production access with `aws.ses.account.put-details`, which
+needs `ses:PutAccountDetails` and confirmation. AWS reviews the request and the decision can take a while; read
+`aws.ses.account.get` again and look at `details.review_details`. `AccessDenied` on a call names the missing
+`ses:` permission.
 
 ### S3
 
@@ -94,7 +103,7 @@ which needs `s3:ListAllMyBuckets` on all resources. The reads need `s3:ListAllMy
 `s3:GetBucketCORS` (`cors.get`), `s3:GetBucketAcl` (`acl.get`), `s3:GetBucketWebsite`, `s3:GetBucketLogging` (`logging.get`), `s3:GetBucketNotification` (`notification.get`),
 `s3:GetReplicationConfiguration` (`replication.get`), `s3:GetBucketOwnershipControls`, `s3:GetAccelerateConfiguration`,
 `s3:GetBucketRequestPayment`, `s3:GetBucketObjectLockConfiguration` (`object-lock.get`), `s3:GetObjectRetention` and
-`s3:GetObjectLegalHold` (`object-retention.get` and `object-legal-hold.get`, for the object `arn:aws:s3:::<bucket>/<key>`), each for its own tool. The writes need:
+`s3:GetObjectLegalHold` (`object-retention.get` and `object-legal-hold.get`, for the object `arn:aws:s3:::<bucket>/<key>`), `s3:GetBucketPolicy` (`bucket-policy.get`), and `s3:GetBucketPolicyStatus` (`bucket-policy.get-status`), each for its own tool. The writes need:
 
 | Tool | Permission |
 | --- | --- |
@@ -107,8 +116,10 @@ which needs `s3:ListAllMyBuckets` on all resources. The reads need `s3:ListAllMy
 | `aws.s3.ownership.put` | `s3:PutBucketOwnershipControls` |
 | `aws.s3.lifecycle.delete` | `s3:PutLifecycleConfiguration` |
 | `aws.s3.cors.delete` | `s3:PutBucketCORS` |
+| `aws.s3.bucket-policy.put` | `s3:PutBucketPolicy` and `s3:GetBucketPolicyStatus` (the read after the change) |
+| `aws.s3.bucket-policy.delete` | `s3:DeleteBucketPolicy` |
 
-Creating with tags also needs `s3:PutBucketTagging`. Setting a KMS key also needs the permissions the key's policy
+The bucket policy write tools are offered only when the tools list of the connection names them. Creating with tags also needs `s3:PutBucketTagging`. Setting a KMS key also needs the permissions the key's policy
 requires for the identity. Grant only the actions of the tools the connection offers; a policy such as `s3:*` also
 grants every object action.
 
