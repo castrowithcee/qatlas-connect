@@ -1,6 +1,7 @@
 package aws
 
 import (
+	"encoding/json"
 	"net/netip"
 	"regexp"
 	"slices"
@@ -251,4 +252,20 @@ func checkRoute53KSK(b binding, _ string, args map[string]any) error {
 		}
 	}
 	return &provider.InvalidRequestError{Message: "key_management_service_arn must be the ARN of a KMS key (key/...) in us-east-1 in the account this connection is bound to"}
+}
+
+// maxPolicyDocument is the length limit of a traffic policy document in the Route 53 model, in characters.
+const maxPolicyDocument = 102400
+
+// checkRoute53Policy judges the document of a traffic policy before any request: within the model's limit and
+// valid JSON. The content is not interpreted; Route 53 validates it.
+func checkRoute53Policy(_ binding, _ string, args map[string]any) error {
+	doc, _ := args["document"].(string)
+	if utf8.RuneCountInString(doc) > maxPolicyDocument {
+		return &provider.InvalidRequestError{Message: "document is longer than " + strconv.Itoa(maxPolicyDocument) + " characters, the limit of a traffic policy document"}
+	}
+	if !json.Valid([]byte(doc)) {
+		return &provider.InvalidRequestError{Message: "document must be valid JSON text"}
+	}
+	return nil
 }
