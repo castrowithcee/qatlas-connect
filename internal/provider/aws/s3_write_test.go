@@ -413,7 +413,7 @@ func TestS3ReadbackBelongsToTheNamedToolOnly(t *testing.T) {
 		if s.readback != "" {
 			named = append(named, s.descriptor.ID)
 		}
-		if len(s.guards) > 0 && !slices.Contains([]string{"aws.s3.bucket.create", "aws.s3.encryption.put", "aws.s3.ownership.put", "aws.route53.hosted-zone.create", "aws.route53.hosted-zone.list-by-vpc", "aws.route53.record-set.change", "aws.route53.dns-answer.test", "aws.route53.health-check.create", "aws.route53.health-check.update", "aws.route53.key-signing-key.create", "aws.route53.query-logging-config.create"}, s.descriptor.ID) {
+		if len(s.guards) > 0 && !slices.Contains([]string{"aws.s3.bucket.create", "aws.s3.encryption.put", "aws.s3.ownership.put", "aws.route53.hosted-zone.create", "aws.route53.hosted-zone.list-by-vpc", "aws.route53.record-set.change", "aws.route53.dns-answer.test", "aws.route53.health-check.create", "aws.route53.health-check.update", "aws.route53.key-signing-key.create", "aws.route53.query-logging-config.create", "aws.ses.configuration-set.create", "aws.ses.configuration-set.put-tracking-options", "aws.ses.configuration-set.put-archiving-options"}, s.descriptor.ID) {
 			t.Errorf("%s names guards %v", s.descriptor.ID, s.guards)
 		}
 	}
@@ -479,13 +479,14 @@ func TestS3ExcludedOperationsCannotBeSent(t *testing.T) {
 			t.Errorf("%s takes an MFA argument: %s", d.ID, d.InputSchema)
 		}
 		for _, banned := range []string{"acl", "website", "presign", "policy", "logging", "notification", "replication"} {
-			if strings.Contains(d.ID, banned) {
+			// The bucket policy tools are the checked ones: their own tests hold them to the principal rules.
+			if strings.Contains(d.ID, banned) && !strings.HasPrefix(d.ID, "aws.s3.bucket-policy.") {
 				t.Errorf("%s names %s", d.ID, banned)
 			}
 		}
 	}
-	if tools != 31 {
-		t.Errorf("s3 tools = %d, want 31", tools)
+	if tools != 35 {
+		t.Errorf("s3 tools = %d, want 35", tools)
 	}
 	for _, s := range generatedSpecs {
 		if s.service != "s3" {

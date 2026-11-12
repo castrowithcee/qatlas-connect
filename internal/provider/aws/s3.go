@@ -31,6 +31,8 @@ var guards = map[string]guard{
 	"route53-health":      checkRoute53Health,
 	"route53-ksk":         checkRoute53KSK,
 	"route53-log-group":   checkRoute53LogGroup,
+
+	"ses-configuration-set-values": checkSESConfigurationSetValues,
 }
 
 // readback runs after the account check and before the change, with the credentials that passed it.
@@ -192,4 +194,55 @@ func pabTighten(ctx context.Context, c *Client, s toolSpec, creds sigv4.Credenti
 			" or leave it out; this tool keeps or tightens a public access block and never loosens it"}
 	}
 	return nil
+}
+
+const policyStatusTool = "aws.s3.bucket-policy.get-status"
+
+// addBucketPolicyStatus sets public_status after a policy was written: is_public as S3 evaluates the policy,
+// read with a call of its own. The write has happened by then, so a status that cannot be read is no failure of
+// the tool; it is reported as unavailable, without the answer of AWS. The status is a hint and no check.
+func addBucketPolicyStatus(ctx context.Context, c *Client, s toolSpec, creds sigv4.Credentials, result map[string]any, region string, args map[string]any) {
+	unavailable := map[string]any{"unavailable": "the policy was written, but its public status could not be read " +
+		"(this needs s3:GetBucketPolicyStatus); read it with " + policyStatusTool}
+	result["public_status"] = unavailable
+	read := slices.IndexFunc(generatedSpecs, func(g toolSpec) bool { return g.descriptor.ID == policyStatusTool })
+	if read < 0 || s.service != endpoints.S3 {
+		return
+	}
+	bucket, _ := args["bucket"].(string)
+	_, send, err := generatedSpecs[read].encode(map[string]any{"bucket": bucket}, nil, c.binding.account)
+	if err != nil {
+		return
+	}
+	var out map[string]any
+	if _, failure := send(ctx, c, creds, region, &out); failure != nil {
+		return
+	}
+	status, _ := out["policy_status"].(map[string]any)
+	if public, ok := status["is_public"].(bool); ok {
+		result["public_status"] = map[string]any{"is_public": public}
+	}
+}
+
+// failureHint adds to a failure of a call what a person needs to know about it.
+type failureHint func(failure *provider.Error) *provider.Error
+
+// failureHints are the hand-written failure steps, by the name a curation table gives them.
+var failureHints = map[string]failureHint{"bucket-policy-lockout": bucketPolicyLockout}
+
+// bucketPolicyLockout explains the two failures of a policy write that can mean the policy locked out its own
+// writer: AccessDenied and MalformedPolicy. The class and the original stay; only the message grows.
+func bucketPolicyLockout(failure *provider.Error) *provider.Error {
+	if failure.Original == nil {
+		return failure
+	}
+	for _, entry := range failure.Original.Entries {
+		if entry.Code == "AccessDenied" || entry.Code == "MalformedPolicy" {
+			out := *failure
+			out.Message += "; if the policy was meant to be active, check that it does not deny the access of this connection: " +
+				"a policy that locks out its own writer can only be removed by the root user of the account"
+			return &out
+		}
+	}
+	return failure
 }
