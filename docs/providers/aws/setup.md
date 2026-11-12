@@ -174,6 +174,8 @@ Each [Route 53 tool](route53.md) needs the permission `route53:<Action>` of its 
 | `aws.route53.key-signing-key.activate` | `route53:ActivateKeySigningKey`; also the `kms` permissions above on the KMS key |
 | `aws.route53.key-signing-key.deactivate` | `route53:DeactivateKeySigningKey` |
 | `aws.route53.key-signing-key.delete` | `route53:DeleteKeySigningKey`; also the `kms` permissions above on the KMS key |
+| `aws.route53.query-logging-config.create` | `route53:CreateQueryLoggingConfig`; AWS also requires `logs:CreateLogDelivery` |
+| `aws.route53.query-logging-config.delete` | `route53:DeleteQueryLoggingConfig` |
 
 Route 53 permissions name hosted zones as `arn:aws:route53:::hostedzone/<id>`, health checks as
 `arn:aws:route53:::healthcheck/<id>`, traffic policies as `arn:aws:route53:::trafficpolicy/<id>` (the other traffic policy writes take that resource), and changes as `arn:aws:route53:::change/<id>`; `route53:CreateHostedZone`,
@@ -182,6 +184,11 @@ Route 53 permissions name hosted zones as `arn:aws:route53:::hostedzone/<id>`, h
 `route53:ChangeTagsForResource` for health checks as for zones. `route53:ListHostedZonesByVPC` also needs `ec2:DescribeVpcs` for the VPC. Grant only the actions of the tools the connection offers; a policy such as `route53:*` also
 grants every change of the records of a zone. The `kms` permissions are the minimum the policy of the identity needs on the
 one KMS key in `us-east-1`; the DNSSEC writes are listed-only and need the tools to be named in the connection's tools list.
+
+**The log group policy.** A query logging configuration needs a CloudWatch Logs log group in `us-east-1` of the bound
+account, which the connection must allow, and a resource policy of CloudWatch Logs that allows the service principal
+`route53.amazonaws.com` to `logs:CreateLogStream` and `logs:PutLogEvents` on the group. The tools create neither; without
+the policy Route 53 refuses with `InsufficientCloudWatchLogsResourcePolicy`.
 
 **The KMS key policy.** Route 53 uses the key through the service principal, so the key policy of the KMS key, not
 the identity policy, must allow `dnssec-route53.amazonaws.com` to `kms:DescribeKey`, `kms:GetPublicKey`, `kms:Sign`,
