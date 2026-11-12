@@ -77,6 +77,8 @@ type toolSpec struct {
 	guards []string
 	// readback names the step in readbacks that reads the current state and may refuse the change.
 	readback string
+	// failureHint names the step in failureHints that adds what a person needs to know to a failure of the call.
+	failureHint string
 	// accountCheck marks GetCallerIdentity, whose answer is the account check itself.
 	accountCheck bool
 	// truncated adds the truncated field: true when a string of the answer was cut at its cap.
@@ -118,6 +120,7 @@ var policyChecks = map[string]policyCheck{
 	"none":                        nil,
 	"trust-policy":                checkTrustPolicy,
 	"resource-policy-own-account": checkResourcePolicyOwnAccount,
+	"bucket-policy":               checkBucketPolicy,
 }
 
 // generatedTools checks every generated tool against the runtime and binds it to its handler.
@@ -188,6 +191,9 @@ func (s toolSpec) check() error {
 	}
 	if _, ok := resultHooks[s.resultHook]; s.resultHook != "" && !ok {
 		return fmt.Errorf("result hook %q has no implementation", s.resultHook)
+	}
+	if _, ok := failureHints[s.failureHint]; s.failureHint != "" && !ok {
+		return fmt.Errorf("failure hint %q has no implementation", s.failureHint)
 	}
 	for _, name := range s.guards {
 		if guards[name] == nil {
@@ -272,6 +278,7 @@ func (s toolSpec) handler() capability.Handler {
 			return nil, err
 		}
 		var out map[string]any
+		var changeCreds sigv4.Credentials
 		truncated := false
 		if s.accountCheck {
 			creds, err := client.effective(ctx, region)
@@ -303,8 +310,12 @@ func (s toolSpec) handler() capability.Handler {
 			}
 			var failure *provider.Error
 			if truncated, failure = send(ctx, client, creds, region, &out); failure != nil {
+				if hint := failureHints[s.failureHint]; hint != nil {
+					failure = hint(failure)
+				}
 				return nil, failure
 			}
+			changeCreds = creds
 		}
 		if s.csv != nil {
 			if err := s.csv.apply(op, out, rowPage); err != nil {
@@ -313,7 +324,7 @@ func (s toolSpec) handler() capability.Handler {
 		}
 		res, err := s.result(op, out, page, region, global, truncated, token)
 		if hook := resultHooks[s.resultHook]; err == nil && hook != nil {
-			hook(res.(map[string]any), region, args)
+			hook(ctx, client, s, changeCreds, res.(map[string]any), region, args)
 		}
 		return res, err
 	}

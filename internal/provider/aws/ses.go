@@ -1,10 +1,12 @@
 package aws
 
 import (
+	"context"
 	"regexp"
 	"strings"
 
 	"github.com/castrowithcee/qatlas-connect/internal/provider"
+	"github.com/castrowithcee/qatlas-connect/internal/provider/aws/sigv4"
 )
 
 // The SES tools work on sender identities of the bound account. The checks here run before any I/O, and the
@@ -63,11 +65,17 @@ func checkSESIdentityARN(b binding, global bool, name, value string) error {
 	return nil
 }
 
-// resultHook adds a member to the result of a tool from its arguments and its checked answer.
-type resultHook func(result map[string]any, region string, args map[string]any)
+// resultHook adds a member to the result of a tool from its arguments and its checked answer. A hook may read
+// with the credentials that passed the account check; creds is empty for the tool that is the account check.
+type resultHook func(ctx context.Context, c *Client, s toolSpec, creds sigv4.Credentials, result map[string]any, region string, args map[string]any)
 
 // resultHooks are the hand-written result steps, by the name a curation table gives them.
-var resultHooks = map[string]resultHook{"dns-records": addDNSRecords}
+var resultHooks = map[string]resultHook{
+	"dns-records": func(_ context.Context, _ *Client, _ toolSpec, _ sigv4.Credentials, result map[string]any, region string, args map[string]any) {
+		addDNSRecords(result, region, args)
+	},
+	"bucket-policy-status": addBucketPolicyStatus,
+}
 
 // dkimZone matches the narrow form of an SES DKIM hosted zone: dkim.amazonses.com or
 // dkim.<region-like label>.amazonses.com. SES names the zone per region and identity, so it is taken from the

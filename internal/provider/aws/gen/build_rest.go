@@ -323,6 +323,11 @@ func (t *tool) xmlAnswer() error {
 				return err
 			}
 		case httpbind.LocPayload:
+			if f.Shape.Kind == httpbind.KindString {
+				// A string payload is the whole body, with no element around it.
+				t.sampleAnswer = t.scalarSample(qf)
+				return nil
+			}
 			if f.Shape.Kind != httpbind.KindStruct {
 				return t.failf("payload %s has no sample", f.Key)
 			}
