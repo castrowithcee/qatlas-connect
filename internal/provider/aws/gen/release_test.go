@@ -89,9 +89,11 @@ func TestReleasesOfTheTables(t *testing.T) {
 	}
 	slices.Sort(released)
 	want := []string{
+		"CopyObject SSEKMSKeyId",
 		"GetAccount Details.AdditionalContactEmailAddresses",
 		"GetAccount Details.WebsiteURL",
 		"GetBucketEncryption ServerSideEncryptionConfiguration.Rules.ApplyServerSideEncryptionByDefault.KMSMasterKeyID",
+		"HeadObject SSEKMSKeyId",
 		"PutAccountDetails AdditionalContactEmailAddresses",
 		"PutAccountDetails WebsiteURL",
 		"PutBucketEncryption ServerSideEncryptionConfiguration.Rules.ApplyServerSideEncryptionByDefault.KMSMasterKeyID",
@@ -160,7 +162,7 @@ func TestLimitsGuardsAndReadbacksAreChecked(t *testing.T) {
 				o.Operation != "CreateHostedZone" && o.Operation != "ChangeResourceRecordSets" && o.Operation != "TestDNSAnswer" &&
 				o.Operation != "CreateHealthCheck" && o.Operation != "UpdateHealthCheck" && o.Operation != "CreateKeySigningKey" && o.Operation != "ListHostedZonesByVPC" &&
 				o.Operation != "CreateConfigurationSet" && o.Operation != "PutConfigurationSetTrackingOptions" && o.Operation != "PutConfigurationSetArchivingOptions" &&
-				o.Operation != "SendEmail" && o.Operation != "SendBulkEmail" {
+				o.Operation != "CopyObject" && o.Operation != "SendEmail" && o.Operation != "SendBulkEmail" {
 				t.Errorf("%s: guards %v", o.Operation, o.Guards)
 			}
 		}
