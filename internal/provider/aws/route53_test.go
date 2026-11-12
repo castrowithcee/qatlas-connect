@@ -32,7 +32,8 @@ var route53ToolIDs = []string{"aws.route53.hosted-zone.list", "aws.route53.hoste
 	"aws.route53.traffic-policy-instance.get", "aws.route53.traffic-policy-instance.list",
 	"aws.route53.traffic-policy-instance.list-by-hosted-zone",
 	"aws.route53.traffic-policy-instance.list-by-policy", "aws.route53.traffic-policy.list",
-	"aws.route53.traffic-policy.list-versions", "aws.route53.vpc-association-authorization.list"}
+	"aws.route53.traffic-policy.list-versions", "aws.route53.vpc-association-authorization.list",
+	"aws.route53.vpc-association-authorization.delete", "aws.route53.hosted-zone.associate-vpc", "aws.route53.hosted-zone.disassociate-vpc"}
 
 // route53Env offers the Route 53 tools by name on a connection bound to the account and the given regions.
 func route53Env(t *testing.T, f *fakeAWS, regions ...string) *env {
@@ -346,7 +347,7 @@ func TestRoute53TagChangeBody(t *testing.T) {
 	}
 }
 
-// The authorization of a VPC of another account is not a tool; only the list of authorizations is read.
+// Granting the authorization of a VPC of another account is not a tool; the authorizations are listed and withdrawn only.
 func TestRoute53ExcludesTheVPCAuthorization(t *testing.T) {
 	if !slices.Equal(excludedROUTE53Actions, []string{"CreateVPCAssociationAuthorization"}) {
 		t.Errorf("excluded = %v", excludedROUTE53Actions)
@@ -358,7 +359,7 @@ func TestRoute53ExcludesTheVPCAuthorization(t *testing.T) {
 			continue
 		}
 		tools++
-		if (strings.Contains(d.ID, "authorization") && d.ID != "aws.route53.vpc-association-authorization.list") || (d.ID == "aws.route53.hosted-zone.create" && strings.Contains(string(d.InputSchema), "delegation_set_id")) {
+		if (strings.Contains(d.ID, "authorization") && d.ID != "aws.route53.vpc-association-authorization.list" && d.ID != "aws.route53.vpc-association-authorization.delete") || (d.ID == "aws.route53.hosted-zone.create" && strings.Contains(string(d.InputSchema), "delegation_set_id")) {
 			t.Errorf("%s offers what is not offered: %s", d.ID, d.InputSchema)
 		}
 	}
@@ -366,7 +367,7 @@ func TestRoute53ExcludesTheVPCAuthorization(t *testing.T) {
 		t.Errorf("route53 tools = %d, want %d", tools, len(route53ToolIDs))
 	}
 	for _, s := range generatedSpecs {
-		if s.service == "route53" && s.rest.Method != "GET" && strings.Contains(strings.ToLower(s.rest.URI), "authorizevpcassociation") {
+		if s.service == "route53" && s.rest.Method != "GET" && strings.HasSuffix(strings.ToLower(s.rest.URI), "/authorizevpcassociation") {
 			t.Errorf("%s sends %s", s.descriptor.ID, s.rest.URI)
 		}
 	}

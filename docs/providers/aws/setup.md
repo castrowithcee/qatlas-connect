@@ -158,6 +158,9 @@ Each [Route 53 tool](route53.md) needs the permission `route53:<Action>` of its 
 | `aws.route53.hosted-zone.create` | `route53:CreateHostedZone`; for a private zone also `ec2:DescribeVpcs`, `ec2:DescribeRegions`, and `route53:AssociateVPCWithHostedZone` |
 | `aws.route53.hosted-zone.update-comment` | `route53:UpdateHostedZoneComment` |
 | `aws.route53.hosted-zone.delete` | `route53:DeleteHostedZone` |
+| `aws.route53.hosted-zone.associate-vpc` | `route53:AssociateVPCWithHostedZone`; also `ec2:DescribeVpcs` for the VPC |
+| `aws.route53.hosted-zone.disassociate-vpc` | `route53:DisassociateVPCFromHostedZone`; also `ec2:DescribeVpcs` for the VPC |
+| `aws.route53.vpc-association-authorization.delete` | `route53:DeleteVPCAssociationAuthorization` |
 | `aws.route53.tag.change` | `route53:ChangeTagsForResource` |
 | `aws.route53.record-set.change` | `route53:ChangeResourceRecordSets` |
 | `aws.route53.health-check.create` | `route53:CreateHealthCheck` |

@@ -1,6 +1,6 @@
 ---
 description: >
-  Describes the tools of the AWS Route 53 group: listing, reading, creating, and deleting hosted zones of the bound account, changing a zone's comment and tags, listing and changing the records of a zone in atomic batches, testing a DNS answer, reading the status of a change, listing, reading, creating, changing, and deleting health checks with their status and last failure reason, reading DNSSEC and managing key signing keys (listed-only), creating, versioning, and deleting traffic policies and the limits of their JSON document, creating and deleting query logging configurations, tags of zones and health checks, the name servers to enter at the registrar, zone and change IDs, private zones and the allowed VPC region, the health check target rule and alarm region, the cost of zones and health checks, the confirmation of a record or health check change, the DNSSEC flow with the DS record at the registrar and the order for switching it off, query logging configurations and the log group rule, reusable delegation sets, traffic policy instances, CIDR collections, account and zone limits, geolocations, health checker addresses, VPC associations and authorizations, and what is not a tool.
+  Describes the tools of the AWS Route 53 group: listing, reading, creating, and deleting hosted zones of the bound account, changing a zone's comment and tags, listing and changing the records of a zone in atomic batches, testing a DNS answer, reading the status of a change, listing, reading, creating, changing, and deleting health checks with their status and last failure reason, reading DNSSEC and managing key signing keys (listed-only), creating, versioning, and deleting traffic policies and the limits of their JSON document, creating and deleting query logging configurations, tags of zones and health checks, the name servers to enter at the registrar, zone and change IDs, private zones, the allowed VPC region and associating VPCs with a private zone, the health check target rule and alarm region, the cost of zones and health checks, the confirmation of a record or health check change, the DNSSEC flow with the DS record at the registrar and the order for switching it off, query logging configurations and the log group rule, reusable delegation sets, traffic policy instances, CIDR collections, account and zone limits, geolocations, health checker addresses, VPC associations and their authorizations, and what is not a tool.
 type: knowledge
 edit: shared
 created: 2026-11-11
@@ -9,7 +9,7 @@ updated: 2026-11-12
 
 # Amazon Route 53
 
-Group `route53`, the Route 53 API for hosted zones, their records, health checks, DNSSEC, query logging, traffic policies, and the read side of reusable delegation sets, traffic policy instances, CIDR collections, limits, geolocations, and VPC associations. Route 53 is a global service: the tools hang on the bound account,
+Group `route53`, the Route 53 API for hosted zones, their records, health checks, DNSSEC, query logging, traffic policies, VPC associations of private zones, and the read side of reusable delegation sets, traffic policy instances, CIDR collections, limits, and geolocations. Route 53 is a global service: the tools hang on the bound account,
 take no `region`, and sign for `us-east-1`; the region allowlist of the connection has no effect on the endpoint. Every
 permission a tool needs is listed in [Set up AWS](setup.md#route-53). A zone or health check belongs to the account whose credential
 signs the request, so one of another account cannot be reached.
@@ -61,6 +61,9 @@ Reads need no confirmation. Every other tool needs confirmation. The DNSSEC writ
 | `aws.route53.hosted-zone.create` | `CreateHostedZone` | create, not repeated | yes |
 | `aws.route53.hosted-zone.update-comment` | `UpdateHostedZoneComment` | update | yes |
 | `aws.route53.hosted-zone.delete` | `DeleteHostedZone` | delete, not repeated | yes |
+| `aws.route53.hosted-zone.associate-vpc` | `AssociateVPCWithHostedZone` | update, not repeated | yes |
+| `aws.route53.hosted-zone.disassociate-vpc` | `DisassociateVPCFromHostedZone` | update, not repeated | yes |
+| `aws.route53.vpc-association-authorization.delete` | `DeleteVPCAssociationAuthorization` | delete, not repeated | yes |
 | `aws.route53.tag.change` | `ChangeTagsForResource` | update | yes |
 | `aws.route53.record-set.change` | `ChangeResourceRecordSets` | update, not repeated | yes |
 | `aws.route53.health-check.create` | `CreateHealthCheck` | create, not repeated | yes |
@@ -132,6 +135,28 @@ that holds no records besides NS and SOA; otherwise Route 53 answers `HostedZone
 confirming a delete, read the zone with `hosted-zone.get` and check its name and `resource_record_set_count`: the
 confirmation names the tool, not the zone. A deleted zone cannot be restored, the domain stops resolving through it, and
 the name servers at the registrar then point to nothing.
+
+### Associating VPCs with a private zone
+
+`hosted-zone.associate-vpc` makes a private zone resolvable in a VPC and `hosted-zone.disassociate-vpc` releases it again.
+Both take `hosted_zone_id`, `vpc` (`vpc_region`, `vpc_id`), and an optional `comment`, and return the change
+(`change_info`); read its status with `change.get`. `vpc-association-authorization.delete` withdraws the authorization of a
+VPC for a private zone (`hosted_zone_id`, `vpc`), also one of another account; a VPC that is already associated stays
+associated until it is released.
+
+The checks run before any request: `vpc_region` must be a region the connection allows and `vpc_id` must have the form
+`vpc-` and 8 or 17 hexadecimal digits. A VPC ID carries no account, so the tools cannot tell whether the VPC belongs to the
+bound account. A VPC of another account is only accepted by Route 53 when its owner authorized it for the zone beforehand
+(`NotAuthorizedException` otherwise). The tools never create that authorization; it stays work in the console of the account
+that owns the zone. The remaining risk of an association is that the zone's records become resolvable in a VPC whose
+account the client does not know.
+
+The confirmation names the tool, not the arguments. Before confirming, show the user the zone (`hosted_zone_id`), the VPC ID,
+the region, and that the account of the VPC cannot be checked; the tool descriptions say so. Route 53 answers
+`ConflictingDomainExists` for a VPC with a conflicting domain, `PublicZoneVPCAssociation` for a public zone,
+`LastVPCAssociation` when the VPC is the last one of a private zone, `VPCAssociationNotFound` for a VPC that is not
+associated, and `VPCAssociationAuthorizationNotFound` for an authorization that does not exist. These keep their code; a
+failed write is not repeated.
 
 ### Status of a change
 
@@ -417,7 +442,7 @@ page ends anywhere, so continue with the same arguments. IDs of zones and delega
 | Limits | `account-limit.get`, `hosted-zone.get-limit` | One limit by `type` and the current count. The VPC limit exists for private zones only. |
 | Geolocations | `geo-location.list`, `.get` | The locations geolocation routing supports, the same for every account. The list continues at a continent, a country, or a country with a subdivision, whichever comes next; it offers no start arguments. Pages of up to 100. |
 | Health checkers | `checker-ip-range.list` | The CIDR ranges the health checkers send from, the same for every account. |
-| VPC associations | `hosted-zone.list-by-vpc`, `vpc-association-authorization.list` | `list-by-vpc` takes `vpc_id` (`vpc-` and 8 or 17 hexadecimal digits) and `vpc_region` (a region the connection allows), both checked before the request, and lists only zones of the bound account, since a VPC ID carries no account. `vpc-association-authorization.list` lists the VPCs a private zone authorized; pages of up to 50. |
+| VPC associations | `hosted-zone.list-by-vpc`, `vpc-association-authorization.list` (the writes are under [Associating VPCs with a private zone](#associating-vpcs-with-a-private-zone)) | `list-by-vpc` takes `vpc_id` (`vpc-` and 8 or 17 hexadecimal digits) and `vpc_region` (a region the connection allows), both checked before the request, and lists only zones of the bound account, since a VPC ID carries no account. `vpc-association-authorization.list` lists the VPCs a private zone authorized; pages of up to 50. |
 
 A missing object answers the not-found class with the Route 53 code (`NoSuchQueryLoggingConfig`, `NoSuchDelegationSet`,
 `NoSuchTrafficPolicy`, `NoSuchTrafficPolicyInstance`, `NoSuchCidrCollectionException`, `NoSuchCidrLocationException`,
@@ -441,7 +466,7 @@ from them is requested. Provider error texts are not shown; the code and the cla
 
 `CreateVPCAssociationAuthorization` is never a tool: it lets another account associate its VPC with a private zone and
 resolve its records, and nothing can check that account. The writes of reusable delegation sets, traffic policy instances, CIDR
-collections, VPC association and its authorizations, and the zone features are not tools of this group yet.
+collections, and the zone features are not tools of this group yet.
 
 ## Limits
 
@@ -449,7 +474,7 @@ collections, VPC association and its authorizations, and the zone features are n
   zone with a VPC of another account is documented by AWS only.
 - The generated test of each tool covers the request and the result shape; the zone IDs, paging, errors, the VPC
   checks, the record list over several pages, the batch checks, the retry rules, the DNS answer, the health check types, the
-  target and alarm checks, and the health check errors, and the DNSSEC reads, writes, KMS key rule, errors, and the listed-only offer, and the query logging writes, log group rule, and errors are tested against a fake transport. Each other reader is tested with an answer, a list over two pages with the paging members of its cursor, the not-found error of the model, and a field that holds an instruction as data; the VPC checks, the argument bounds, and the cap of the policy document are tested too.
+  target and alarm checks, and the health check errors, and the DNSSEC reads, writes, KMS key rule, errors, and the listed-only offer, and the query logging writes, log group rule, and errors are tested against a fake transport. Each other reader is tested with an answer, a list over two pages with the paging members of its cursor, the not-found error of the model, and a field that holds an instruction as data; the VPC checks and the VPC association writes, the argument bounds, and the cap of the policy document are tested too.
 - DNSSEC has not been run against a real account: the key policy requirements, the algorithm of the KMS key, the time until the signatures are served, and the idempotent repetition of enable, disable, activate, and deactivate are as AWS documents them and are not measured.
 - The record limits of a batch come from the AWS documentation, not from the model, and no quota or throttling value of
   Route 53 is measured.
