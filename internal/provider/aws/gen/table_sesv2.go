@@ -14,7 +14,7 @@ const reasonSESEvent = "an event destination sends the events of a configuration
 // destinations are read only. The remaining operations wait for the SES tools that follow.
 var sesv2Table = Table{
 	Service: "sesv2", Segment: "ses", Geltung: Regional,
-	Operations: slices.Concat(sesIdentityTools, sesConfigurationTools),
+	Operations: slices.Concat(sesIdentityTools, sesAccountTools, sesConfigurationTools),
 	Exclude: []Omission{
 		{Operation: "CreateConfigurationSetEventDestination", Reason: reasonSESEvent},
 		{Operation: "DeleteConfigurationSetEventDestination", Reason: reasonSESEvent},
@@ -45,7 +45,6 @@ var sesv2Table = Table{
 		{Operation: "DeleteTenant", Reason: deferSESv2},
 		{Operation: "DeleteTenantResourceAssociation", Reason: deferSESv2},
 		{Operation: "DisassociateEmailIdentityCertificate", Reason: deferSESv2},
-		{Operation: "GetAccount", Reason: deferSESv2},
 		{Operation: "GetBlacklistReports", Reason: deferSESv2},
 		{Operation: "GetContact", Reason: deferSESv2},
 		{Operation: "GetContactList", Reason: deferSESv2},
@@ -81,12 +80,7 @@ var sesv2Table = Table{
 		{Operation: "ListResourceTenants", Reason: deferSESv2},
 		{Operation: "ListTenantResources", Reason: deferSESv2},
 		{Operation: "ListTenants", Reason: deferSESv2},
-		{Operation: "PutAccountDedicatedIpWarmupAttributes", Reason: deferSESv2},
-		{Operation: "PutAccountDetails", Reason: deferSESv2},
 		{Operation: "PutAccountPricingAttributes", Reason: deferSESv2},
-		{Operation: "PutAccountSendingAttributes", Reason: deferSESv2},
-		{Operation: "PutAccountSuppressionAttributes", Reason: deferSESv2},
-		{Operation: "PutAccountVdmAttributes", Reason: deferSESv2},
 		{Operation: "PutDedicatedIpInPool", Reason: deferSESv2},
 		{Operation: "PutDedicatedIpPoolScalingAttributes", Reason: deferSESv2},
 		{Operation: "PutDedicatedIpWarmupAttributes", Reason: deferSESv2},

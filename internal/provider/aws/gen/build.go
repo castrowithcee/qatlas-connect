@@ -1268,9 +1268,10 @@ const sampleTrustPolicy = `{"Version":"2012-10-17","Statement":[{"Effect":"Allow
 const sampleResourcePolicy = `{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Principal":{"AWS":"123456789012"},"Action":"ses:SendEmail","Resource":"*"}]}`
 
 // sampleWords are whole values tried after the repeated characters, for patterns with a fixed prefix such as
-// the version IDs of IAM policies the UUID of a Route 53 CIDR collection, an IPv4 address, or the ARN of an SES mail archive.
+// the version IDs of IAM policies the UUID of a Route 53 CIDR collection, an IPv4 address, the ARN of an SES mail
+// archive, or an address of the form a@b, which stays outside the mail form that generated code must not hold.
 var sampleWords = []string{"v1", "00000000-0000-0000-0000-000000000000", "192.0.2.1",
-	"arn:aws:ses:eu-central-1:123456789012:mailmanager-archive/a-0123456789abcdefghijklmn"}
+	"arn:aws:ses:eu-central-1:123456789012:mailmanager-archive/a-0123456789abcdefghijklmn", "aaa@bbb"}
 
 func (t *tool) sample(path string, s *awsquery.Shape, rawSchema any) (any, error) {
 	schema, _ := rawSchema.(map[string]any)
