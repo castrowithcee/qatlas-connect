@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"reflect"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -883,6 +884,7 @@ func TestRegisterPublishesMetadataAndTheReadOperations(t *testing.T) {
 			descriptor.Risk.Confirmation != capability.ConfirmationNone ||
 			(descriptor.Risk.DataSensitivity != dataSensitivity && descriptor.ID != jobsLog.ID &&
 				descriptor.ID != actionVariablesList.ID && descriptor.ID != actionVariablesGet.ID &&
+				!slices.Contains(webhooksReads, descriptor.ID) &&
 				!descriptor.RequiresToolAllowList) {
 			t.Errorf("descriptor %s = %+v, want a safe read", descriptor.ID, descriptor.Risk)
 		}
@@ -930,7 +932,7 @@ func TestRegisterPublishesMetadataAndTheReadOperations(t *testing.T) {
 		"github.tags.list", "github.team-members.list",
 		"github.teams.list", "github.traffic-clones.get", "github.traffic-paths.list", "github.traffic-referrers.list",
 		"github.traffic-views.get", "github.trees.get", "github.users.search",
-		"github.workflow-artifacts.list", "github.workflow-run-approvals.list", "github.workflow-run-attempts.get",
+		"github.webhook-deliveries.get", "github.webhook-deliveries.list", "github.webhooks.get", "github.webhooks.list", "github.workflow-artifacts.list", "github.workflow-run-approvals.list", "github.workflow-run-attempts.get",
 		"github.workflow-files.get", "github.workflow-files.list", "github.workflow-jobs.get", "github.workflow-jobs.list",
 		"github.workflow-jobs.log", "github.workflow-permissions.get", "github.workflow-runs.get",
 		"github.workflow-runs.list", "github.workflow-runs.usage", "github.workflows.get", "github.workflows.list",
@@ -940,7 +942,7 @@ func TestRegisterPublishesMetadataAndTheReadOperations(t *testing.T) {
 	if jobsLog.Risk.DataSensitivity != logSensitivity {
 		t.Errorf("the job log is classified as %q, want %q", jobsLog.Risk.DataSensitivity, logSensitivity)
 	}
-	if len(metadata.Tools) != 326 {
+	if len(metadata.Tools) != 341 {
 		t.Errorf("tools = %+v, want every operation offered to connection allow-lists", metadata.Tools)
 	}
 }

@@ -22,6 +22,7 @@ var (
 
 const (
 	sesIdentityARN = "arn:aws:ses:" + testRegion + ":" + testAccount + ":identity/example.com"
+	sesSetARN      = "arn:aws:ses:" + testRegion + ":" + testAccount + ":configuration-set/newsletter"
 	dkimTokensJSON = `["` + "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" + `","` + "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb" + `","` + "cccccccccccccccccccccccccccccccc" + `"]`
 )
 
@@ -64,10 +65,27 @@ func TestSESIdentityToolsRisk(t *testing.T) {
 		"aws.ses.email-identity.untag":                            {capability.EffectUpdate, capability.IdempotencyIdempotent},
 		"aws.ses.email.send":                                      {capability.EffectExecute, capability.IdempotencyNonIdempotent},
 		"aws.ses.email.send-bulk":                                 {capability.EffectExecute, capability.IdempotencyNonIdempotent},
+
+		"aws.ses.configuration-set.list":                    {capability.EffectRead, capability.IdempotencySafe},
+		"aws.ses.configuration-set.get":                     {capability.EffectRead, capability.IdempotencySafe},
+		"aws.ses.configuration-set.create":                  {capability.EffectCreate, capability.IdempotencyNonIdempotent},
+		"aws.ses.configuration-set.delete":                  {capability.EffectDelete, capability.IdempotencyNonIdempotent},
+		"aws.ses.configuration-set.put-delivery-options":    {capability.EffectUpdate, capability.IdempotencyIdempotent},
+		"aws.ses.configuration-set.put-reputation-options":  {capability.EffectUpdate, capability.IdempotencyIdempotent},
+		"aws.ses.configuration-set.put-sending-options":     {capability.EffectUpdate, capability.IdempotencyIdempotent},
+		"aws.ses.configuration-set.put-suppression-options": {capability.EffectUpdate, capability.IdempotencyIdempotent},
+		"aws.ses.configuration-set.put-tracking-options":    {capability.EffectUpdate, capability.IdempotencyIdempotent},
+		"aws.ses.configuration-set.put-vdm-options":         {capability.EffectUpdate, capability.IdempotencyIdempotent},
+		"aws.ses.configuration-set.put-archiving-options":   {capability.EffectUpdate, capability.IdempotencyIdempotent},
+		"aws.ses.configuration-set-event-destination.get":   {capability.EffectRead, capability.IdempotencySafe},
+		"aws.ses.suppressed-destination.list":               {capability.EffectRead, capability.IdempotencySafe},
+		"aws.ses.suppressed-destination.get":                {capability.EffectRead, capability.IdempotencySafe},
+		"aws.ses.suppressed-destination.put":                {capability.EffectCreate, capability.IdempotencyIdempotent},
+		"aws.ses.suppressed-destination.delete":             {capability.EffectDelete, capability.IdempotencyNonIdempotent},
 	}
 	seen := 0
 	for _, s := range generatedSpecs {
-		if s.service != "ses" {
+		if s.service != "ses" || sesContactTool(s.descriptor.ID) || strings.HasPrefix(s.descriptor.ID, "aws.ses.account.") {
 			continue
 		}
 		seen++
@@ -483,7 +501,10 @@ func TestSESRefusalsBeforeAnyIO(t *testing.T) {
 		{"aws.ses.email-identity.tag", `{"resource_arn":"` + foreign + `","tags":[{"key":"a","value":"b"}]}`, true},
 		{"aws.ses.email-identity.untag", `{"resource_arn":"` + foreign + `","tag_keys":["a"]}`, true},
 		{"aws.ses.email-identity.tag", `{"resource_arn":"arn:aws:ses:us-east-1:` + testAccount + `:identity/example.com","tags":[{"key":"a","value":"b"}]}`, true},
-		{"aws.ses.email-identity.tag", `{"resource_arn":"arn:aws:ses:` + testRegion + `:` + testAccount + `:configuration-set/default","tags":[{"key":"a","value":"b"}]}`, true},
+		{"aws.ses.email-identity.tag", `{"resource_arn":"arn:aws:ses:` + testRegion + `:` + testAccount + `:configuration-set/a b","tags":[{"key":"a","value":"b"}]}`, true},
+		{"aws.ses.email-identity.tag", `{"resource_arn":"arn:aws:ses:` + testRegion + `:` + testAccount + `:dedicated-ip-pool/pool","tags":[{"key":"a","value":"b"}]}`, true},
+		{"aws.ses.email-identity.untag", `{"resource_arn":"arn:aws:ses:` + testRegion + `:210987654321:configuration-set/default","tag_keys":["a"]}`, true},
+		{"aws.ses.email-identity.list-tags", `{"resource_arn":"arn:aws:ses:us-east-1:` + testAccount + `:configuration-set/default"}`, false},
 		{"aws.ses.email-identity.tag", `{"resource_arn":"arn:aws:sns:` + testRegion + `:` + testAccount + `:identity/example.com","tags":[{"key":"a","value":"b"}]}`, true},
 		{"aws.ses.email-identity.tag", `{"resource_arn":"arn:aws-cn:ses:` + testRegion + `:` + testAccount + `:identity/example.com","tags":[{"key":"a","value":"b"}]}`, true},
 		{"aws.ses.email-identity.get", `{"email_identity":"a/b.example.com"}`, false},
@@ -573,14 +594,18 @@ func TestSESIdentityForms(t *testing.T) {
 			t.Errorf("%q was accepted", bad)
 		}
 	}
-	for _, good := range []string{sesIdentityARN, "arn:aws:ses:" + testRegion + ":" + testAccount + ":identity/user@example.com"} {
+	for _, good := range []string{sesIdentityARN, "arn:aws:ses:" + testRegion + ":" + testAccount + ":identity/user@example.com",
+		sesSetARN, "arn:aws:ses:" + testRegion + ":" + testAccount + ":configuration-set/My_set-1"} {
 		if err := checkSESIdentityARN(b, false, "resource_arn", good); err != nil {
 			t.Errorf("%q: %v", good, err)
 		}
 	}
 	for _, bad := range []string{"", "example.com", "arn:aws:ses:eu-central-1:123456789012:identity/", "arn:aws:ses:eu-central-1:123456789012:identity/a b",
 		"arn:aws:ses:eu-central-1:210987654321:identity/example.com", "arn:aws:ses:us-east-1:123456789012:identity/example.com",
-		"arn:aws:ses:eu-central-1:123456789012:configuration-set/x", "arn:aws:ses:eu-central-1:123456789012:identity",
+		"arn:aws:ses:eu-central-1:123456789012:configuration-set/", "arn:aws:ses:eu-central-1:123456789012:configuration-set/a b",
+		"arn:aws:ses:eu-central-1:123456789012:configuration-set/" + strings.Repeat("a", 65), "arn:aws:ses:eu-central-1:210987654321:configuration-set/x",
+		"arn:aws:ses:us-east-1:123456789012:configuration-set/x", "arn:aws:ses:eu-central-1:123456789012:dedicated-ip-pool/x",
+		"arn:aws-cn:ses:eu-central-1:123456789012:configuration-set/x", "arn:aws:ses:eu-central-1:123456789012:identity",
 		"arn:aws:iam:eu-central-1:123456789012:identity/example.com", "arn:aws-cn:ses:eu-central-1:123456789012:identity/example.com"} {
 		if err := checkSESIdentityARN(b, false, "resource_arn", bad); err == nil {
 			t.Errorf("%q was accepted", bad)

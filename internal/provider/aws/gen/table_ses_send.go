@@ -15,18 +15,18 @@ const (
 		"second apart. Never repeated automatically, not even after a timeout or a server error: such a failure says " +
 		"that the mail may have gone out, so check before sending again. Raw MIME content is not offered. Needs confirmation."
 
-	descSESAddress    = "Address, either local@domain or Display Name <local@domain>; a display name of other than printable ASCII must be MIME encoded-word"
-	descSESFrom       = "Sender address of a verified identity of the bound account. " + descSESAddress
-	descSESFromARN    = "Only for sending authorization: ARN of the identity of the sender, in the bound account and an allowed region, such as arn:aws:ses:REGION:ACCOUNT:identity/example.com"
-	descSESReplyTo    = "Reply-To addresses. " + descSESAddress
-	descSESFeedback   = "Address that receives bounce and complaint notifications, local@domain without a display name"
-	descSESFeedbackID = "Only for sending authorization: ARN of the identity of the feedback address, in the bound account and an allowed region"
-	descSESDest       = "Recipients: to_addresses, cc_addresses, and bcc_addresses, 50 together at most. " + descSESAddress
-	descSESMsgTags    = "Message tags for event publishing, each with name and value"
-	descSESConfigSet  = "Name of a configuration set of the bound account to send with"
-	descSESTenant     = "Name of a tenant of the bound account to send through; every identity, configuration set, and template named must belong to it"
-	descSESOverrides  = "Overrides of open and click tracking for this call only: ENABLED or DISABLED"
-	descSESTemplate   = "template_name or template_arn of a stored template (the ARN in the bound account and an allowed region, " +
+	descSESSendAddress = "Address, either local@domain or Display Name <local@domain>; a display name of other than printable ASCII must be MIME encoded-word"
+	descSESFrom        = "Sender address of a verified identity of the bound account. " + descSESSendAddress
+	descSESFromARN     = "Only for sending authorization: ARN of the identity of the sender, in the bound account and an allowed region, such as arn:aws:ses:REGION:ACCOUNT:identity/example.com"
+	descSESReplyTo     = "Reply-To addresses. " + descSESSendAddress
+	descSESFeedback    = "Address that receives bounce and complaint notifications, local@domain without a display name"
+	descSESFeedbackID  = "Only for sending authorization: ARN of the identity of the feedback address, in the bound account and an allowed region"
+	descSESDest        = "Recipients: to_addresses, cc_addresses, and bcc_addresses, 50 together at most. " + descSESSendAddress
+	descSESMsgTags     = "Message tags for event publishing, each with name and value"
+	descSESConfigSet   = "Name of a configuration set of the bound account to send with"
+	descSESTenant      = "Name of a tenant of the bound account to send through; every identity, configuration set, and template named must belong to it"
+	descSESOverrides   = "Overrides of open and click tracking for this call only: ENABLED or DISABLED"
+	descSESTemplate    = "template_name or template_arn of a stored template (the ARN in the bound account and an allowed region, " +
 		"such as arn:aws:ses:REGION:ACCOUNT:template/NAME), or template_content with subject, text, and html; template_data as JSON " +
 		"text, headers, and attachments"
 

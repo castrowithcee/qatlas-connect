@@ -228,6 +228,10 @@ Files below `.github/workflows/` are changed only with the workflow file tools; 
 | Read the statistics or the activity feed of a repository | none for public, `repo` for private | read access to the repository; GitHub names no specific permission |
 | Read rulesets of a repository | `repo` | Administration: read |
 | Change rulesets of a repository | `repo` | Administration: read and write |
+| Read webhooks and their deliveries of a repository | `admin:repo_hook` or `repo` | Webhooks: read |
+| Pause, resume, or delete a webhook of a repository | `admin:repo_hook` or `repo` | Webhooks: read and write |
+| Read webhooks and their deliveries of an organization | `admin:org_hook` | Webhooks: read (organization); as far as GitHub documents it |
+| Pause, resume, or delete a webhook of an organization | `admin:org_hook` | Webhooks: read and write (organization); as far as GitHub documents it |
 | Read the protection of a branch | `repo`, with the Admin role on the repository | Administration: read |
 | Change or remove the protection of a branch | `repo`, with the Admin role on the repository | Administration: read and write |
 | Read the rules that apply to a branch | none for public, `repo` for private | Metadata: read; as far as GitHub documents it |
@@ -237,7 +241,7 @@ Files below `.github/workflows/` are changed only with the workflow file tools; 
 | Read or change the custom property schema of an organization | `admin:org`; as far as GitHub documents it | Custom properties: read, or read and write (organization) |
 | Watch, ignore, or unsubscribe a repository | GitHub decides per request | GitHub decides per request |
 
-Qatlas cannot check the fine-grained mappings for organization rulesets, custom properties, and branch rules against GitHub live,
+Qatlas cannot check the fine-grained mappings for organization rulesets, organization webhooks, custom properties, and branch rules against GitHub live,
 so treat them as likely, not certain.
 
 ### Stars
@@ -280,7 +284,10 @@ is off or the token may not read it.
 | Tools | Classic | Fine-grained |
 | --- | --- | --- |
 | Read categories, discussions, comments | `public_repo` (public) or `repo` | Discussions: read |
-| Create, change, delete discussions and comments | `public_repo` or `repo` | Discussions: read and write |
+| Create, change, close, reopen, lock, unlock, delete discussions and comments, mark or unmark an answer | `public_repo` or `repo` | Discussions: read and write |
+
+Marking an answer works only for a top-level comment of a discussion in a category that accepts answers; GitHub
+refuses it otherwise, and Qatlas checks it before the request.
 
 ### Gists
 

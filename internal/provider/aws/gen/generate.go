@@ -337,6 +337,9 @@ var generatedSpecs = []toolSpec{
 		if t.op.ResultHook != "" {
 			fmt.Fprintf(b, "resultHook: %s,\n", lit(t.op.ResultHook))
 		}
+		if t.op.FailureHint != "" {
+			fmt.Fprintf(b, "failureHint: %s,\n", lit(t.op.FailureHint))
+		}
 		if len(t.op.Guards) > 0 {
 			fmt.Fprintf(b, "guards: %s,\n", stringSlice(t.op.Guards))
 		}
@@ -559,7 +562,8 @@ func TestGeneratedTools(t *testing.T) {
 			}
 			var call *sent
 			for i := range f.requests {
-				if f.requests[i].action == c.action {
+				// A tool may read before or after its change: the call is the one of the tool's own method.
+				if f.requests[i].action == c.action && (c.method == "" || f.requests[i].method == c.method) {
 					call = &f.requests[i]
 				}
 			}
