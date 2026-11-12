@@ -186,6 +186,7 @@ your token holds. A repository or organization policy can forbid a run although 
 | Remove a runner or change its labels in a repository | `repo`, as a repository administrator | Administration: read and write |
 | Read the self-hosted runners and their labels of an organization | `admin:org` | Self-hosted runners: read (organization) |
 | Remove a runner or change its labels in an organization | `admin:org` | Self-hosted runners: read and write (organization) |
+| Change the permission of a collaborator of a repository or remove one (`github.collaborators.update`, `.remove`) | `repo`, as a repository administrator | Administration: read and write |
 | Read repository settings | `repo` for private repositories | Metadata: read |
 | Change repository settings and topics, including archiving and unarchiving | `repo`, as a repository administrator | Administration: write |
 | Read Actions variables of a repository; create, change, or delete them | `repo` | Variables: read; read and write to change |

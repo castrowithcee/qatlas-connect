@@ -96,6 +96,8 @@ var outputSamples = map[string]any{
 	"github.code-scanning-setup.update":            CodeScanningSetupChange{},
 	"github.code.search":                           CodeSearchList{},
 	"github.collaborators.list":                    CollaboratorList{},
+	"github.collaborators.remove":                  CollaboratorRemoved{},
+	"github.collaborators.update":                  CollaboratorUpdated{},
 	"github.comments.create":                       Comment{},
 	"github.comments.delete":                       map[string]any{"deleted": true, "comment_id": int64(0)},
 	"github.comments.hide":                         CommentVisibility{},

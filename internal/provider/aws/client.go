@@ -150,6 +150,12 @@ func (c *Client) sendRest(ctx context.Context, op string, service endpoints.Serv
 	if req.Stream != nil || req.Sink != nil {
 		// A stream is consumed by the first attempt, and a sink would receive the payload twice.
 		idem = capability.IdempotencyNonIdempotent
+		// The request timeout would cut a payload of 100 MiB on a slow link; the budget of the invoke bounds it.
+		if hc, ok := c.http.(*http.Client); ok {
+			long := *hc
+			long.Timeout = invokeBudget
+			client.HTTP = &long
+		}
 	}
 	var meta httpbind.Meta
 	failure := c.attempts(ctx, op, service, idem, func() (time.Duration, *provider.Error) {
