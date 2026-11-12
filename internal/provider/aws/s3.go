@@ -30,6 +30,7 @@ var guards = map[string]guard{
 	"route53-name":        checkRoute53Name,
 	"route53-health":      checkRoute53Health,
 	"route53-ksk":         checkRoute53KSK,
+	"route53-cidr":        checkRoute53CIDR,
 
 	"ses-configuration-set-values": checkSESConfigurationSetValues,
 }
