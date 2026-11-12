@@ -4,7 +4,7 @@ description: >
 type: knowledge
 edit: shared
 created: 2026-11-06
-updated: 2026-11-11
+updated: 2026-11-12
 ---
 
 # Set up AWS
@@ -80,10 +80,11 @@ Each [SES tool](ses.md) needs the permission `ses:<Operation>` of its AWS operat
 `ses:UpdateEmailIdentityPolicy`, `ses:DeleteEmailIdentityPolicy`, `ses:CreateEmailIdentity`,
 `ses:DeleteEmailIdentity`, `ses:PutEmailIdentityDkimAttributes`, `ses:PutEmailIdentityDkimSigningAttributes`,
 `ses:PutEmailIdentityMailFromAttributes`, `ses:PutEmailIdentityFeedbackAttributes`,
-`ses:PutEmailIdentityConfigurationSetAttributes`, `ses:TagResource`, and `ses:UntagResource`, each for its own tool.
-Creating with tags also needs `ses:TagResource`. The identity policy write tools are offered only when the tools list
-of the connection names them. Grant only the actions of the tools the connection offers. An account without production
-access is in the SES sandbox and sends only to verified recipients.
+`ses:PutEmailIdentityConfigurationSetAttributes`, `ses:TagResource`, `ses:UntagResource`, `ses:SendEmail`, and
+`ses:SendBulkEmail`, each for its own tool. Creating with tags also needs `ses:TagResource`. The identity policy write
+tools are offered only when the tools list of the connection names them, the send tools by the effect `execute`. Grant
+only the actions of the tools the connection offers. An account without production access is in the SES sandbox and
+sends only to verified recipients.
 
 ### S3
 

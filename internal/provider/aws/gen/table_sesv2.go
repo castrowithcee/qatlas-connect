@@ -1,15 +1,17 @@
 package gen
 
+import "slices"
+
 // deferSESv2 is the reason for every sesv2 operation not curated yet: the service package that curates the
 // tools moves each operation it takes into operations or exclude.
 const deferSESv2 = "not curated yet; the SES service package decides effect, confirmation and target first"
 
 // sesv2Table curates the sesv2 model. The identity tools read, create, and configure the sender identities of
-// the bound account: DKIM, MAIL FROM, feedback forwarding, the default configuration set, and tags. The
-// remaining operations wait for the SES tools that follow.
+// the bound account: DKIM, MAIL FROM, feedback forwarding, the default configuration set, and tags. The send
+// tools send mail with confirmation. The remaining operations wait for the SES tools that follow.
 var sesv2Table = Table{
 	Service: "sesv2", Segment: "ses", Geltung: Regional,
-	Operations: sesIdentityTools,
+	Operations: slices.Concat(sesIdentityTools, sesSendTools),
 	Exclude: []Omission{
 		{Operation: "SendCustomVerificationEmail", Reason: "sends a verification mail to an address given as an argument, so the tool would send mail to any recipient; a tool never sends mail on its own initiative"},
 	},
@@ -102,8 +104,6 @@ var sesv2Table = Table{
 		{Operation: "PutDeliverabilityDashboardOption", Reason: deferSESv2},
 		{Operation: "PutSuppressedDestination", Reason: deferSESv2},
 		{Operation: "PutTenantSuppressionAttributes", Reason: deferSESv2},
-		{Operation: "SendBulkEmail", Reason: deferSESv2},
-		{Operation: "SendEmail", Reason: deferSESv2},
 		{Operation: "TestRenderEmailTemplate", Reason: deferSESv2},
 		{Operation: "UpdateConfigurationSet", Reason: deferSESv2},
 		{Operation: "UpdateConfigurationSetEventDestination", Reason: deferSESv2},

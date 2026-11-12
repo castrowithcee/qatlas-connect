@@ -39,8 +39,8 @@ func sesFake(answer func(sent) reply) *fakeAWS {
 
 func restCalls(f *fakeAWS) []sent { return restRequests(f) }
 
-// The identity tools and their risk: reads are safe and open, writes need confirmation, Put* repeat safely,
-// create and delete do not, and only the identity policy writes are listed-only.
+// The SES tools and their risk: reads are safe and open, writes need confirmation, Put* repeat safely,
+// create, delete, and the sends do not, and only the identity policy writes are listed-only.
 func TestSESIdentityToolsRisk(t *testing.T) {
 	want := map[string]struct {
 		effect capability.Effect
@@ -62,6 +62,8 @@ func TestSESIdentityToolsRisk(t *testing.T) {
 		"aws.ses.email-identity.put-configuration-set-attributes": {capability.EffectUpdate, capability.IdempotencyIdempotent},
 		"aws.ses.email-identity.tag":                              {capability.EffectUpdate, capability.IdempotencyIdempotent},
 		"aws.ses.email-identity.untag":                            {capability.EffectUpdate, capability.IdempotencyIdempotent},
+		"aws.ses.email.send":                                      {capability.EffectExecute, capability.IdempotencyNonIdempotent},
+		"aws.ses.email.send-bulk":                                 {capability.EffectExecute, capability.IdempotencyNonIdempotent},
 	}
 	seen := 0
 	for _, s := range generatedSpecs {

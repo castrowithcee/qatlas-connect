@@ -343,6 +343,9 @@ var generatedSpecs = []toolSpec{
 		if t.op.Readback != "" {
 			fmt.Fprintf(b, "readback: %s,\n", lit(t.op.Readback))
 		}
+		if t.op.Delivery != "" {
+			fmt.Fprintf(b, "delivery: %s,\n", lit(t.op.Delivery))
+		}
 		if t.op.AccountCheck {
 			b.WriteString("accountCheck: true,\n")
 		}

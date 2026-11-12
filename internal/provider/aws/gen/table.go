@@ -162,6 +162,10 @@ type Operation struct {
 	// Guards name hand-written steps of the provider package that judge the arguments before any I/O, each
 	// with the binding of the connection and the region of the call.
 	Guards []string
+	// Delivery names a hand-written step of a tool that delivers to third parties, such as a mail: it spaces
+	// the calls of one connection and region, and says when a failed call may still have delivered. Only a
+	// non-idempotent tool that is not a read may name one.
+	Delivery string
 	// Readback names a hand-written step that reads the current state with a call of its own after the
 	// account check and before the change, and refuses the change on what it finds. Only a tool that is not a
 	// read may name one.
@@ -264,9 +268,10 @@ var (
 		"ses-identity", "ses-identity-arn"}
 	PolicyChecks = []string{"none", "trust-policy", "resource-policy-own-account", "bucket-policy", "identity-policy"}
 	// Guards are the pure argument steps and Readbacks the steps with a read of their own; see Operation.
-	Guards    = []string{"location-constraint", "new-bucket-name", "kms-key-arn", "ownership-enforce", "route53-vpc", "route53-vpc-lookup", "route53-change", "route53-name", "route53-health", "route53-ksk"}
-	Readbacks = []string{"pab-tighten"}
-	Forms     = []string{"account-id"}
+	Guards     = []string{"location-constraint", "new-bucket-name", "kms-key-arn", "ownership-enforce", "route53-vpc", "route53-vpc-lookup", "route53-change", "route53-name", "route53-health", "route53-ksk", "ses-send"}
+	Readbacks  = []string{"pab-tighten"}
+	Deliveries = []string{"ses-mail"}
+	Forms      = []string{"account-id"}
 	// ResultHooks are the hand-written result steps a table may name; see resultHookFields.
 	ResultHooks = []string{"dns-records"}
 )
@@ -410,6 +415,10 @@ func (op Operation) validate() error {
 		return fmt.Errorf("readback %s belongs to a tool that is not a read and needs the answer of its generated test", op.Readback)
 	case op.Readback == "" && op.ReadbackAnswer != "":
 		return fmt.Errorf("a readback answer without a readback")
+	case op.Delivery != "" && !slices.Contains(Deliveries, op.Delivery):
+		return fmt.Errorf("unknown delivery %q", op.Delivery)
+	case op.Delivery != "" && op.Idempotency != "non-idempotent":
+		return fmt.Errorf("delivery %s belongs to a non-idempotent tool", op.Delivery)
 	}
 	for _, k := range op.KeepDeprecated {
 		if strings.TrimSpace(k.Member) == "" || !strings.Contains(k.Member, ".") || strings.TrimSpace(k.Reason) == "" {

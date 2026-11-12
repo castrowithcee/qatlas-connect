@@ -195,6 +195,8 @@ var wantTools = []string{
 	"aws.ses.email-identity.put-mail-from-attributes",
 	"aws.ses.email-identity.tag",
 	"aws.ses.email-identity.untag",
+	"aws.ses.email.send",
+	"aws.ses.email.send-bulk",
 	"aws.sts.access-key.get-info",
 	"aws.sts.authorization-message.decode",
 	"aws.sts.caller-identity.get",
