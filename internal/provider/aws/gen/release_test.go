@@ -73,7 +73,7 @@ func TestSensitiveMembersAreOpenOnlyByRelease(t *testing.T) {
 }
 
 // The real tables release the KMS key ID only for the two encryption tools and the website and contact
-// addresses only for the two SES account tools that carry the production access request, each with a reason,
+// addresses only for the two SES account tools that carry the production access request, the insights, and the export job filters of SES, each with a reason,
 // and no other tool of the tables shows a sensitive member.
 func TestReleasesOfTheTables(t *testing.T) {
 	var released []string
@@ -92,6 +92,15 @@ func TestReleasesOfTheTables(t *testing.T) {
 		"GetAccount Details.AdditionalContactEmailAddresses",
 		"GetAccount Details.WebsiteURL",
 		"GetBucketEncryption ServerSideEncryptionConfiguration.Rules.ApplyServerSideEncryptionByDefault.KMSMasterKeyID",
+		"GetExportJob ExportDataSource.MessageInsightsDataSource.Exclude.Destination",
+		"GetExportJob ExportDataSource.MessageInsightsDataSource.Exclude.FromEmailAddress",
+		"GetExportJob ExportDataSource.MessageInsightsDataSource.Exclude.Subject",
+		"GetExportJob ExportDataSource.MessageInsightsDataSource.Include.Destination",
+		"GetExportJob ExportDataSource.MessageInsightsDataSource.Include.FromEmailAddress",
+		"GetExportJob ExportDataSource.MessageInsightsDataSource.Include.Subject",
+		"GetMessageInsights FromEmailAddress",
+		"GetMessageInsights Insights.Destination",
+		"GetMessageInsights Subject",
 		"PutAccountDetails AdditionalContactEmailAddresses",
 		"PutAccountDetails WebsiteURL",
 		"PutBucketEncryption ServerSideEncryptionConfiguration.Rules.ApplyServerSideEncryptionByDefault.KMSMasterKeyID",
@@ -143,7 +152,7 @@ func TestLimitsGuardsAndReadbacksAreChecked(t *testing.T) {
 			t.Errorf("%s: %v, want %q", c.name, err, c.want)
 		}
 	}
-	// The tables name the steps they use, and only for the S3 tools.
+	// The tables name the steps they use, and only for the S3, Route 53, and SES tools that need them.
 	for _, table := range Tables {
 		for _, o := range table.Operations {
 			if (o.Readback != "") != (o.Operation == "PutPublicAccessBlock") {
@@ -151,7 +160,8 @@ func TestLimitsGuardsAndReadbacksAreChecked(t *testing.T) {
 			}
 			if len(o.Guards) > 0 && o.Operation != "CreateBucket" && o.Operation != "PutBucketEncryption" && o.Operation != "PutBucketOwnershipControls" &&
 				o.Operation != "CreateHostedZone" && o.Operation != "ChangeResourceRecordSets" && o.Operation != "TestDNSAnswer" &&
-				o.Operation != "CreateHealthCheck" && o.Operation != "UpdateHealthCheck" && o.Operation != "CreateKeySigningKey" && o.Operation != "ListHostedZonesByVPC" {
+				o.Operation != "CreateHealthCheck" && o.Operation != "UpdateHealthCheck" && o.Operation != "CreateKeySigningKey" && o.Operation != "ListHostedZonesByVPC" &&
+				o.Operation != "AssociateEmailIdentityCertificate" {
 				t.Errorf("%s: guards %v", o.Operation, o.Guards)
 			}
 		}

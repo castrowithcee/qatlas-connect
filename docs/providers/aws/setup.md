@@ -83,6 +83,15 @@ Each [SES tool](ses.md) needs the permission `ses:<Operation>` of its AWS operat
 `ses:PutEmailIdentityConfigurationSetAttributes`, `ses:TagResource`, and `ses:UntagResource`, each for its own tool.
 The account tools need `ses:GetAccount`, `ses:PutAccountDetails`, `ses:PutAccountSendingAttributes`,
 `ses:PutAccountSuppressionAttributes`, `ses:PutAccountDedicatedIpWarmupAttributes`, and `ses:PutAccountVdmAttributes`.
+The deliverability tools need `ses:BatchGetMetricData`, `ses:GetMessageInsights`, `ses:GetEmailAddressInsights`,
+`ses:GetBlacklistReports`, `ses:GetDomainStatisticsReport`, `ses:GetDomainDeliverabilityCampaign`,
+`ses:ListDomainDeliverabilityCampaigns`, `ses:ListRecommendations`, `ses:GetDeliverabilityDashboardOptions`,
+`ses:PutDeliverabilityDashboardOption`, `ses:GetDeliverabilityTestReport`, `ses:ListDeliverabilityTestReports`, and
+`ses:CreateDeliverabilityTestReport`; the job tools `ses:GetImportJob`, `ses:ListImportJobs`, `ses:GetExportJob`, and
+`ses:ListExportJobs`; and the certificate tools `ses:ListEmailIdentityCertificates`,
+`ses:AssociateEmailIdentityCertificate`, and `ses:DisassociateEmailIdentityCertificate`, each for its own tool. The
+dashboard subscription, the inbox placement tests, and Virtual Deliverability Manager are charged by AWS; the tools
+need confirmation where they start a charge and retrieve no price.
 Creating with tags also needs `ses:TagResource`. The identity policy write tools are offered only when the tools list
 of the connection names them. Grant only the actions of the tools the connection offers. An account without production
 access is in the SES sandbox and sends only to verified recipients.

@@ -65,7 +65,7 @@ func TestSESIdentityToolsRisk(t *testing.T) {
 	}
 	seen := 0
 	for _, s := range generatedSpecs {
-		if s.service != "ses" || strings.HasPrefix(s.descriptor.ID, "aws.ses.account.") {
+		if s.service != "ses" || !strings.HasPrefix(s.descriptor.ID, "aws.ses.email-identity") || strings.Contains(s.descriptor.ID, "certificate") {
 			continue
 		}
 		seen++
