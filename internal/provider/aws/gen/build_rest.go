@@ -152,12 +152,16 @@ func (t *tool) restField(f awsquery.Field, bf *httpbind.Field) (httpbind.Field, 
 	return field, nil
 }
 
-// carryXMLForm gives the members below the top level the XML form of the binding that the converted shapes do not
+// carryXMLForm gives the shape its timestamp format and the members below the top level the XML form of the binding that the converted shapes do not
 // carry: an attribute (such as the xsi:type of a grantee) and the namespace declared on the element of a member. The
 // converted members are matched to the bound ones by their snake_case key; a member the binding lacks is a defect.
 func carryXMLForm(dst, src *httpbind.Shape, path string) error {
 	if dst == nil || src == nil {
 		return nil
+	}
+	if dst.Kind == httpbind.KindTimestamp && src.Kind == httpbind.KindTimestamp {
+		// The explicit format of the trait; the converted shape has none.
+		dst.Format = src.Format
 	}
 	for i := range dst.Fields {
 		df := &dst.Fields[i]
