@@ -126,7 +126,10 @@
 // by the not-recommended setup profile discussions and change nothing. github.discussions.create starts a
 // discussion, github.discussion-comments.create adds a comment or a reply, and github.discussion-comments.update
 // and github.discussion-comments.delete change and remove one; the delete is offered only where a connection's
-// tools list names it.
+// tools list names it. github.discussions.update, close, reopen, lock, and unlock change one discussion,
+// github.discussion-comments.mark-answer and unmark-answer choose and withdraw its answer, and
+// github.discussions.delete removes a discussion; the delete is offered only where a connection's tools list
+// names it.
 // github.notifications.list, github.notifications.get, github.notifications.dismiss,
 // github.thread-subscriptions.set, and github.repository-subscriptions.set read and manage the notification
 // threads of the account behind the token and its subscriptions to a thread or a repository; they are
@@ -579,7 +582,10 @@ func Register(reg *capability.Registry) error {
 				"read on a fine-grained token; changing them, listed-only, needs Administration: read and write " +
 				"on a fine-grained token instead; reading or changing the rulesets of an organization needs " +
 				"admin:org on a classic token, or, as far as GitHub documents it, Administration read, or read " +
-				"and write, access of the organization on a fine-grained token; reading the protection of a branch needs " +
+				"and write, access of the organization on a fine-grained token; reading, pausing, resuming, or deleting the " +
+				"webhooks of a repository, the three changes listed-only, needs admin:repo_hook or repo on a classic token, or Webhooks: read, or " +
+				"read and write, on a fine-grained token, and of an organization admin:org_hook, or, as far as GitHub documents " +
+				"it, Webhooks of the organization; reading the protection of a branch needs " +
 				"repo on a classic token with the Admin role, or Administration: read on a fine-grained token, and " +
 				"replacing or removing it, listed-only, needs Administration: read and write instead; reading the " +
 				"rules that apply to a branch needs no scope for a public repository, or repo on a classic token, " +
@@ -828,9 +834,12 @@ func Register(reg *capability.Registry) error {
 		}, {
 			ID: "repository-admin-reader", Title: "Repository administration reader",
 			Description: "not recommended: reads the collaborators of a repository, the rulesets of a " +
-				"repository or an organization, and the custom property values of a repository or the custom " +
-				"property schema of an organization; changes nothing",
-			Tools: []string{collaboratorsList.ID, rulesetsList.ID, rulesetsGet.ID, customPropertiesGet.ID},
+				"repository or an organization, the existing webhooks of either with their delivery logs, masked and " +
+				"cut and without secrets, and the custom property values of a repository or the custom " +
+				"property schema of an organization; changes nothing, since pausing, resuming, and deleting a " +
+				"webhook are offered only where a connection's tools list names them",
+			Tools: slices.Concat([]string{collaboratorsList.ID, rulesetsList.ID, rulesetsGet.ID, customPropertiesGet.ID},
+				webhooksReads),
 		}, {
 			ID: "issue-maintainer", Title: "Issue maintainer",
 			Description: "not recommended: lists and reads the labels of a repository, lists and reads its " +
@@ -850,13 +859,16 @@ func Register(reg *capability.Registry) error {
 			ID: "discussions", Title: "Discussions",
 			Description: "not recommended: reads the discussion categories of a repository, its discussions " +
 				"filtered by category, state, and answered status, one discussion, and the comments of a " +
-				"discussion with their replies, starts discussions, and comments, replies, and edits comments; " +
-				"every change needs its own confirmation, and deleting a discussion comment stays unticked, " +
-				"since it is offered only where a connection's tools list names " +
+				"discussion with their replies, starts, edits, closes, reopens, locks, and unlocks discussions, " +
+				"comments, replies, edits comments, and marks or unmarks answers; every change needs its own " +
+				"confirmation, and deleting a discussion or a discussion comment stays unticked, since each is " +
+				"offered only where a connection's tools list names github.discussions.delete or " +
 				"github.discussion-comments.delete",
 			Tools: []string{discussionCategoriesList.ID, discussionsList.ID, discussionsGet.ID,
 				discussionCommentsList.ID, discussionsCreate.ID, discussionCommentsCreate.ID,
-				discussionCommentsUpdate.ID},
+				discussionCommentsUpdate.ID, discussionsUpdate.ID, discussionsClose.ID, discussionsReopen.ID,
+				discussionsLock.ID, discussionsUnlock.ID, discussionCommentsMarkAnswer.ID,
+				discussionCommentsUnmarkAnswer.ID},
 		}, {
 			ID: "notifications", Title: "Notifications",
 			Description: "not recommended: lists the notification threads of the account behind a classic " +
@@ -905,7 +917,7 @@ func Register(reg *capability.Registry) error {
 		capability.Operation{Descriptor: projectIssuesCreate, Handler: capability.Handler(invokeProjectIssuesCreate)},
 	}, slices.Concat(itemOperations(), lifecycleOperations(), fieldOperations(), viewOperations(),
 		statusOperations(), accessOperations(), automationOperations(), actionsOperations(),
-		maintenanceOperations(), actionsSettingsOperations(), runnersOperations(), runnerGroupOperations(), deployKeysOperations(), repositoryInvitationsOperations(), pullRequestOperations(), checkOperations(), releaseOperations(), releaseAssetOperations(), pullRequestCommentOperations(),
+		maintenanceOperations(), actionsSettingsOperations(), runnersOperations(), runnerGroupOperations(), webhooksOperations(), deployKeysOperations(), repositoryInvitationsOperations(), pullRequestOperations(), checkOperations(), releaseOperations(), releaseAssetOperations(), pullRequestCommentOperations(),
 		pullRequestReviewOperations(), pullRequestReviewMaintenanceOperations(), pullRequestReviewCommentOperations(),
 		pullRequestReviewCommentMaintenanceOperations(), pullRequestReviewThreadOperations(),
 		pullRequestReviewerOperations(), accountOperations(), organizationOperations(), starOperations(),
@@ -1744,6 +1756,9 @@ func (c *Client) restSubject(request *http.Request) subject {
 		if what := rulesetsSubject(parts[2]); what != "" {
 			s.what = what
 		}
+		if what := webhooksSubject(parts[2]); what != "" {
+			s.what = what
+		}
 		if what := grantsSubject(parts[2]); what != "" {
 			s.what = what
 		}
@@ -1817,6 +1832,11 @@ func organizationSubject(tail string) subject {
 			}
 		}
 		return subject{what: what}
+	}
+	if len(parts) >= 2 && parts[1] == "hooks" {
+		if what := webhooksSubject(strings.Join(parts[1:], "/")); what != "" {
+			return subject{what: what + " of orgs/" + owner}
+		}
 	}
 	if len(parts) >= 3 && parts[1] == "actions" {
 		rest := strings.Join(parts[1:], "/")

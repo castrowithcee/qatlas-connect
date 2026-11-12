@@ -59,6 +59,13 @@ var currentToolIDs = []string{
 	"github.runner-groups.get",
 	"github.runner-groups.list",
 	"github.runner-groups.update",
+	"github.webhooks.list",
+	"github.webhooks.get",
+	"github.webhooks.pause",
+	"github.webhooks.resume",
+	"github.webhooks.delete",
+	"github.webhook-deliveries.list",
+	"github.webhook-deliveries.get",
 	"github.blame.get",
 	"github.branch-protection.delete",
 	"github.branch-protection.get",
@@ -135,10 +142,18 @@ var currentToolIDs = []string{
 	"github.discussion-comments.create",
 	"github.discussion-comments.delete",
 	"github.discussion-comments.list",
+	"github.discussion-comments.mark-answer",
+	"github.discussion-comments.unmark-answer",
 	"github.discussion-comments.update",
 	"github.discussions.create",
+	"github.discussions.close",
+	"github.discussions.delete",
 	"github.discussions.get",
 	"github.discussions.list",
+	"github.discussions.lock",
+	"github.discussions.reopen",
+	"github.discussions.unlock",
+	"github.discussions.update",
 	"github.files.push",
 	"github.environments.delete",
 	"github.environments.get",
@@ -356,7 +371,7 @@ func TestRegistryHoldsExactlyTheCurrentToolIDs(t *testing.T) {
 	sort.Strings(got)
 	want := append([]string(nil), currentToolIDs...)
 	sort.Strings(want)
-	if strings.Join(got, "\n") != strings.Join(want, "\n") || len(got) != 331 {
+	if strings.Join(got, "\n") != strings.Join(want, "\n") || len(got) != 346 {
 		t.Errorf("registry holds %d tools, differing from the expected %d IDs", len(got), len(want))
 	}
 	if err := reg.ValidateRenames(); err != nil {
@@ -400,6 +415,7 @@ func TestRenamedToolsCoverEveryChangedID(t *testing.T) {
 		"github.code-scanning-setup.get": true, "github.code-scanning-setup.update": true,
 		"github.release-assets.update": true, "github.release-assets.delete": true, "github.release-notes.generate": true,
 		"github.runner-groups.list": true, "github.runner-groups.get": true, "github.runner-groups.update": true, "github.hosted-runners.list": true,
+		"github.webhooks.list": true, "github.webhooks.get": true, "github.webhooks.pause": true, "github.webhooks.resume": true, "github.webhooks.delete": true, "github.webhook-deliveries.list": true, "github.webhook-deliveries.get": true,
 		"github.commit-comments.get": true, "github.commit-comments.list": true, "github.commit-pulls.list": true,
 		"github.community-profile.get": true,
 		"github.traffic-views.get":     true, "github.traffic-clones.get": true, "github.traffic-paths.list": true,
@@ -422,7 +438,8 @@ func TestRenamedToolsCoverEveryChangedID(t *testing.T) {
 		"github.branches.sync-fork": true, "github.issue-events.list": true, "github.issue-timeline.list": true,
 		"github.pull-request-reviews.update": true, "github.pull-request-reviews.dismiss": true,
 		"github.pull-request-reviews.delete-pending": true, "github.pull-request-review-comments.update": true,
-		"github.pull-request-review-comments.delete": true}
+		"github.pull-request-review-comments.delete": true,
+		"github.discussion-comments.mark-answer":     true, "github.discussion-comments.unmark-answer": true}
 	for id := range current {
 		if strings.Contains(id, "-") && !targets[id] && !bornHyphenated[id] {
 			t.Errorf("hyphenated tool %s has no former ID", id)
