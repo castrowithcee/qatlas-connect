@@ -221,7 +221,8 @@ func TestDiscoveryDescribesTheTargetArguments(t *testing.T) {
 		case descriptor.ID == projectsList.ID || descriptor.ID == repositoriesList.ID ||
 			descriptor.ID == projectsCreate.ID || descriptor.ID == issueTypesList.ID ||
 			descriptor.ID == organizationTeamsList.ID ||
-			descriptor.ID == teamMembersList.ID || descriptor.ID == organizationAdvisoriesList.ID:
+			descriptor.ID == teamMembersList.ID || descriptor.ID == organizationAdvisoriesList.ID ||
+			slices.Contains(teamToolIDs, descriptor.ID):
 			names = []string{"owner"}
 		case descriptor.ID == projectsCopy.ID:
 			names = []string{"project", "owner"}

@@ -1,10 +1,10 @@
 ---
 description: >
-  Describes the GitHub account tools: the account behind a connection's token, the account-wide rule for tools that read it as a whole, the rate limit, GitHub's reference data and Markdown rendering, organization teams and their members, and the user and organization search.
+  Describes the GitHub account tools: the account behind a connection's token, the account-wide rule for tools that read it as a whole, the rate limit, GitHub's reference data and Markdown rendering, organization teams, their members, repositories, and, listed only, their management, and the user and organization search.
 type: knowledge
 edit: shared
 created: 2026-10-22
-updated: 2026-11-10
+updated: 2026-11-12
 ---
 
 # GitHub accounts
@@ -87,6 +87,57 @@ refused with `invalid-request`, because teams belong to an organization, not a u
 `github.team-members.list` cursor bound to the organization and the team together.
 
 The token rights are listed under [Accounts and search](setup.md#accounts-and-search).
+
+### Managing teams
+
+| Tool | Does | Offered |
+| --- | --- | --- |
+| `github.teams.get` | reads one team by its slug | by effect |
+| `github.team-memberships.get` | reads the role and state of one account in one team | by effect |
+| `github.team-repositories.list` | lists the repositories of one team, in batches, with the team's permission on each | by effect |
+| `github.teams.create` | creates a team: `name`, optional `description`, `privacy`, `notification_setting`, `parent_team_id` | tools list only |
+| `github.teams.update` | changes the name, description, privacy, notification setting, or parent of a team; `parent_team_id` null makes it top-level | tools list only |
+| `github.teams.delete` | deletes a team permanently | tools list only |
+| `github.team-members.add` | adds an active member of the organization to a team, or changes the role of a team member (`member` or `maintainer`) | tools list only |
+| `github.team-members.remove` | removes an account from a team; the account stays in the organization | tools list only |
+| `github.team-repositories.set` | sets the permission of a team on one repository (`pull`, `triage`, `push`, `maintain`, `admin`) | tools list only |
+| `github.team-repositories.remove` | withdraws a team's access from one repository | tools list only |
+
+Every team tool takes `owner` as `orgs/LOGIN` under the rules above, and every result names it. The tools
+that change something are offered only where a connection's `tools` list names them, need their own
+confirmation, and send exactly one request that is never repeated; after a timeout or a server error the
+message says the change may have been applied, so read the state before repeating it. GitHub's own text of a
+refusal never reaches a message. `team` is a team slug and `username` a login; both are checked as fixed path
+segments before anything is sent.
+
+**No invitations.** GitHub invites an account that is not yet a member of the organization when it is added to
+a team. `github.team-members.add` therefore reads the organization membership first
+(`GET /orgs/{org}/memberships/{username}`) and refuses with `invalid-request`, without any change, unless the
+membership is `active`: a missing account and a pending invitation are both refused. Inviting people is not
+offered. `github.teams.create` offers no `maintainers` or `repo_names` for the same reason, and neither
+`ldap_dn` nor the deprecated `permission` of a team.
+
+**Repositories.** `github.team-repositories.set` and `.remove` take `repository` as `OWNER/REPO`. It must
+belong to the organization named by `owner` and lie inside the connection's targets, with `exclude` applied;
+both the organization and the repository are checked before a secret is read. The organization needs an owner
+target and the repository a repository target (or a pattern of the organization). A custom repository role
+name is not accepted as `permission`. `github.team-repositories.list` is not bound to the targets as a list
+but projects each repository like the other repository reads: a repository outside the targets keeps only its
+`id`, `node_id`, and `full_name`.
+
+**Security.** Two changes raise rights and deserve review before a connection lists them: the role
+`maintainer` in `github.team-members.add` lets the account manage the team, and the permission `admin` in
+`github.team-repositories.set` gives the team administrative control of the repository. Deleting a team
+withdraws all access it granted. Together with `github.teams.create`, which can attach a parent team, these
+tools change who reaches which repository in the organization.
+
+**Omitted fields.** The reads output every member GitHub documents for `team-full`, `team-membership`, and
+`team-repository` (REST OpenAPI 1.1.4), shaped as the other team and repository reads, with these exceptions:
+`temp_clone_token` of a team repository is never output, since it grants clone access without a sign-in, and
+`has_downloads` of a team repository is left out like in every other repository view of the provider.
+`html_url` appears as `url` and the REST addresses as `links`. Text GitHub supplies, including the
+organization object inside a team with its billing contact, is untrusted data; people follow the account view
+used by the member list.
 
 ## Search
 

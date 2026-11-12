@@ -20,7 +20,7 @@ var toolGroups = []config.ToolGroup{
 	{ID: "discussions", Title: "Discussions", Description: "Discussions, their categories, and their comments"},
 	{ID: "gists", Title: "Gists", Description: "Gists and their files"},
 	{ID: "notifications", Title: "Notifications", Description: "Notification threads and thread subscriptions"},
-	{ID: "accounts", Title: "Accounts", Description: "Users, organizations, teams, team members, the authenticated account and its rate limit, GitHub's meta information, license, .gitignore, and code of conduct templates, emojis, and Markdown rendering"},
+	{ID: "accounts", Title: "Accounts", Description: "Users, organizations, teams with their members, memberships, and repositories, the authenticated account and its rate limit, GitHub's meta information, license, .gitignore, and code of conduct templates, emojis, and Markdown rendering"},
 }
 
 // groupBySegment maps the resource segment of a tool ID (github.<segment>.<action>) to its group. Segments
@@ -57,7 +57,7 @@ var groupBySegment = map[string]string{
 	"gists":         "gists",
 	"notifications": "notifications", "thread-subscriptions": "notifications",
 	"accounts": "accounts", "users": "accounts", "organizations": "accounts", "teams": "accounts",
-	"team-members": "accounts", "rate-limit": "accounts", "meta": "accounts", "licenses": "accounts",
+	"team-members": "accounts", "team-memberships": "accounts", "team-repositories": "accounts", "rate-limit": "accounts", "meta": "accounts", "licenses": "accounts",
 	"gitignore-templates": "accounts", "codes-of-conduct": "accounts", "emojis": "accounts", "markdown": "accounts",
 	"traffic-views": "repositories", "traffic-clones": "repositories",
 	"traffic-paths": "repositories", "traffic-referrers": "repositories",
