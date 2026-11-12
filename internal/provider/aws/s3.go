@@ -23,6 +23,9 @@ var guards = map[string]guard{
 	"location-constraint": checkLocationConstraint,
 	"new-bucket-name":     checkNewBucketName,
 	"kms-key-arn":         checkKMSKeys,
+	"object-kms-key":      checkObjectKMSKey,
+	"copy-source":         checkCopySource,
+	"upload-kms-key":      checkUploadKMSKey,
 	"ownership-enforce":   checkOwnershipEnforce,
 	"route53-vpc":         checkRoute53VPC,
 	"route53-vpc-lookup":  checkRoute53VPCLookup,
@@ -31,6 +34,11 @@ var guards = map[string]guard{
 	"route53-health":      checkRoute53Health,
 	"route53-ksk":         checkRoute53KSK,
 	"acm-certificate-arn": checkACMCertificateARN,
+	"route53-log-group":   checkRoute53LogGroup,
+	"route53-policy":      checkRoute53Policy,
+	"ses-send":            checkSESSend,
+
+	"ses-configuration-set-values": checkSESConfigurationSetValues,
 }
 
 // readback runs after the account check and before the change, with the credentials that passed it.
@@ -108,6 +116,35 @@ func checkKMSKeys(b binding, _ string, args map[string]any) error {
 		if !kmsARN(b, text) {
 			return &provider.InvalidRequestError{Message: "kms_master_key_id must be the ARN of a KMS key or alias in the account this connection is bound to and a region it allows"}
 		}
+	}
+	return nil
+}
+
+// checkObjectKMSKey requires the KMS key of a written object to be named like the key of a bucket encryption rule.
+func checkObjectKMSKey(b binding, _ string, args map[string]any) error {
+	value, set := args["ssekms_key_id"]
+	if !set {
+		return nil
+	}
+	if text, _ := value.(string); !kmsARN(b, text) {
+		return &provider.InvalidRequestError{Message: "ssekms_key_id must be the ARN of a KMS key or alias in the account this connection is bound to and a region it allows"}
+	}
+	return nil
+}
+
+// checkCopySource requires the source of a copy to be bucket/key with an optional versionId, naming a general
+// purpose bucket. Access point and other ARNs are refused because their account would not be the one the
+// expected-owner header checks; a plain bucket of another account is refused by S3 on that header.
+func checkCopySource(_ binding, _ string, args map[string]any) error {
+	const message = "copy_source must be bucket/key, percent-encoded, with an optional ?versionId=ID, naming a bucket of the bound account"
+	source, _ := args["copy_source"].(string)
+	path, query, hasQuery := strings.Cut(strings.TrimPrefix(source, "/"), "?")
+	bucket, key, ok := strings.Cut(path, "/")
+	if !ok || key == "" || !httpbind.ValidBucketName(bucket) {
+		return &provider.InvalidRequestError{Message: message}
+	}
+	if id, isVersion := strings.CutPrefix(query, "versionId="); hasQuery && (!isVersion || id == "" || strings.ContainsAny(id, "&?")) {
+		return &provider.InvalidRequestError{Message: message}
 	}
 	return nil
 }
@@ -192,4 +229,55 @@ func pabTighten(ctx context.Context, c *Client, s toolSpec, creds sigv4.Credenti
 			" or leave it out; this tool keeps or tightens a public access block and never loosens it"}
 	}
 	return nil
+}
+
+const policyStatusTool = "aws.s3.bucket-policy.get-status"
+
+// addBucketPolicyStatus sets public_status after a policy was written: is_public as S3 evaluates the policy,
+// read with a call of its own. The write has happened by then, so a status that cannot be read is no failure of
+// the tool; it is reported as unavailable, without the answer of AWS. The status is a hint and no check.
+func addBucketPolicyStatus(ctx context.Context, c *Client, s toolSpec, creds sigv4.Credentials, result map[string]any, region string, args map[string]any) {
+	unavailable := map[string]any{"unavailable": "the policy was written, but its public status could not be read " +
+		"(this needs s3:GetBucketPolicyStatus); read it with " + policyStatusTool}
+	result["public_status"] = unavailable
+	read := slices.IndexFunc(generatedSpecs, func(g toolSpec) bool { return g.descriptor.ID == policyStatusTool })
+	if read < 0 || s.service != endpoints.S3 {
+		return
+	}
+	bucket, _ := args["bucket"].(string)
+	_, send, err := generatedSpecs[read].encode(map[string]any{"bucket": bucket}, nil, c.binding.account)
+	if err != nil {
+		return
+	}
+	var out map[string]any
+	if _, failure := send(ctx, c, creds, region, &out); failure != nil {
+		return
+	}
+	status, _ := out["policy_status"].(map[string]any)
+	if public, ok := status["is_public"].(bool); ok {
+		result["public_status"] = map[string]any{"is_public": public}
+	}
+}
+
+// failureHint adds to a failure of a call what a person needs to know about it.
+type failureHint func(failure *provider.Error) *provider.Error
+
+// failureHints are the hand-written failure steps, by the name a curation table gives them.
+var failureHints = map[string]failureHint{"bucket-policy-lockout": bucketPolicyLockout}
+
+// bucketPolicyLockout explains the two failures of a policy write that can mean the policy locked out its own
+// writer: AccessDenied and MalformedPolicy. The class and the original stay; only the message grows.
+func bucketPolicyLockout(failure *provider.Error) *provider.Error {
+	if failure.Original == nil {
+		return failure
+	}
+	for _, entry := range failure.Original.Entries {
+		if entry.Code == "AccessDenied" || entry.Code == "MalformedPolicy" {
+			out := *failure
+			out.Message += "; if the policy was meant to be active, check that it does not deny the access of this connection: " +
+				"a policy that locks out its own writer can only be removed by the root user of the account"
+			return &out
+		}
+	}
+	return failure
 }

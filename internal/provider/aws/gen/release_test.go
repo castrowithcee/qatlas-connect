@@ -89,6 +89,7 @@ func TestReleasesOfTheTables(t *testing.T) {
 	}
 	slices.Sort(released)
 	want := []string{
+		"CopyObject SSEKMSKeyId",
 		"GetAccount Details.AdditionalContactEmailAddresses",
 		"GetAccount Details.WebsiteURL",
 		"GetBucketEncryption ServerSideEncryptionConfiguration.Rules.ApplyServerSideEncryptionByDefault.KMSMasterKeyID",
@@ -101,9 +102,12 @@ func TestReleasesOfTheTables(t *testing.T) {
 		"GetMessageInsights FromEmailAddress",
 		"GetMessageInsights Insights.Destination",
 		"GetMessageInsights Subject",
+		"GetObject SSEKMSKeyId",
+		"HeadObject SSEKMSKeyId",
 		"PutAccountDetails AdditionalContactEmailAddresses",
 		"PutAccountDetails WebsiteURL",
 		"PutBucketEncryption ServerSideEncryptionConfiguration.Rules.ApplyServerSideEncryptionByDefault.KMSMasterKeyID",
+		"PutObject SSEKMSKeyId",
 	}
 	if !slices.Equal(released, want) {
 		t.Errorf("releases = %v, want %v", released, want)
@@ -145,6 +149,13 @@ func TestLimitsGuardsAndReadbacksAreChecked(t *testing.T) {
 			o.Effect, o.Idempotency, o.Confirm, o.Readback = "update", "idempotent", true, "pab-tighten"
 		}, "needs the answer"},
 		{"answer without a readback", func(o *Operation) { o.ReadbackAnswer = "<x/>" }, "without a readback"},
+		{"unknown delivery", func(o *Operation) {
+			o.Effect, o.Idempotency, o.Confirm, o.Delivery = "execute", "non-idempotent", true, "nothing"
+		}, "unknown delivery"},
+		{"delivery on a repeatable tool", func(o *Operation) {
+			o.Effect, o.Idempotency, o.Confirm, o.Delivery = "update", "idempotent", true, "ses-mail"
+		}, "non-idempotent"},
+		{"delivery on a read", func(o *Operation) { o.Delivery = "ses-mail" }, "non-idempotent"},
 	} {
 		o := readOp("ListThings")
 		c.edit(&o)
@@ -152,7 +163,7 @@ func TestLimitsGuardsAndReadbacksAreChecked(t *testing.T) {
 			t.Errorf("%s: %v, want %q", c.name, err, c.want)
 		}
 	}
-	// The tables name the steps they use, and only for the S3, Route 53, and SES tools that need them.
+	// The tables name the steps they use, and only for the tools that need one.
 	for _, table := range Tables {
 		for _, o := range table.Operations {
 			if (o.Readback != "") != (o.Operation == "PutPublicAccessBlock") {
@@ -160,7 +171,9 @@ func TestLimitsGuardsAndReadbacksAreChecked(t *testing.T) {
 			}
 			if len(o.Guards) > 0 && o.Operation != "CreateBucket" && o.Operation != "PutBucketEncryption" && o.Operation != "PutBucketOwnershipControls" &&
 				o.Operation != "CreateHostedZone" && o.Operation != "ChangeResourceRecordSets" && o.Operation != "TestDNSAnswer" &&
-				o.Operation != "CreateHealthCheck" && o.Operation != "UpdateHealthCheck" && o.Operation != "CreateKeySigningKey" && o.Operation != "ListHostedZonesByVPC" &&
+				o.Operation != "CreateHealthCheck" && o.Operation != "UpdateHealthCheck" && o.Operation != "CreateKeySigningKey" && o.Operation != "CreateQueryLoggingConfig" && o.Operation != "CreateTrafficPolicy" && o.Operation != "CreateTrafficPolicyVersion" && o.Operation != "ListHostedZonesByVPC" &&
+				o.Operation != "CreateConfigurationSet" && o.Operation != "PutConfigurationSetTrackingOptions" && o.Operation != "PutConfigurationSetArchivingOptions" &&
+				o.Operation != "CopyObject" && o.Operation != "PutObject" && o.Operation != "SendEmail" && o.Operation != "SendBulkEmail" &&
 				o.Operation != "AssociateEmailIdentityCertificate" {
 				t.Errorf("%s: guards %v", o.Operation, o.Guards)
 			}

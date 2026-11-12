@@ -203,6 +203,7 @@ func TestDiscoveryDescribesTheTargetArguments(t *testing.T) {
 			descriptor.ID == actionsRetentionGet.ID || descriptor.ID == actionsRetentionSet.ID ||
 			descriptor.ID == actionsOIDCGet.ID || descriptor.ID == actionsOIDCSet.ID ||
 			slices.Contains(runnersReads, descriptor.ID) || slices.Contains(runnersChanges, descriptor.ID) ||
+			slices.Contains(webhooksReads, descriptor.ID) || slices.Contains(webhooksChanges, descriptor.ID) ||
 			slices.Contains(runnerGroupReads, descriptor.ID) || slices.Contains(runnerGroupWrites, descriptor.ID) ||
 			descriptor.ID == notificationsList.ID || descriptor.ID == notificationsGet.ID ||
 			descriptor.ID == notificationsDismiss.ID || descriptor.ID == notificationsMarkAll.ID ||
@@ -221,7 +222,8 @@ func TestDiscoveryDescribesTheTargetArguments(t *testing.T) {
 		case descriptor.ID == projectsList.ID || descriptor.ID == repositoriesList.ID ||
 			descriptor.ID == projectsCreate.ID || descriptor.ID == issueTypesList.ID ||
 			descriptor.ID == organizationTeamsList.ID ||
-			descriptor.ID == teamMembersList.ID || descriptor.ID == organizationAdvisoriesList.ID:
+			descriptor.ID == teamMembersList.ID || descriptor.ID == organizationAdvisoriesList.ID ||
+			slices.Contains(teamToolIDs, descriptor.ID):
 			names = []string{"owner"}
 		case descriptor.ID == projectsCopy.ID:
 			names = []string{"project", "owner"}

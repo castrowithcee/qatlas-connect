@@ -3,6 +3,7 @@ package github
 import (
 	"encoding/json"
 	"errors"
+	"slices"
 	"strings"
 
 	"github.com/castrowithcee/qatlas-connect/internal/capability"
@@ -53,7 +54,7 @@ func withTargetArgument(d capability.Descriptor) capability.Descriptor {
 	// or, for the star list and the search tools, narrow by the connection's targets as a whole, not by a
 	// target argument of their own. github.repositories.create names no existing repository either, since it
 	// makes one; its own optional owner argument is defined on its descriptor directly. The ruleset tools, the
-	// custom properties tools, the Actions variable tools, the finer Actions settings tools except the access ones, the runner tools, and github.issue-fields.list take an exclusive
+	// custom properties tools, the Actions variable tools, the finer Actions settings tools except the access ones, the runner tools, the webhook tools, and github.issue-fields.list take an exclusive
 	// repository or organization argument of their own, since exactly one of the two, never a default,
 	// addresses a call. The notification
 	// tools take an optional repository of their own, or a thread id whose repository is read and checked. The
@@ -73,7 +74,8 @@ func withTargetArgument(d capability.Descriptor) capability.Descriptor {
 		actionsForkApprovalSet.ID, actionsRetentionGet.ID, actionsRetentionSet.ID, actionsOIDCGet.ID,
 		actionsOIDCSet.ID, runnersList.ID, runnersGet.ID, runnersDelete.ID, runnerLabelsList.ID, runnerLabelsAdd.ID,
 		runnerLabelsSet.ID, runnerLabelsRemove.ID, runnerGroupsList.ID, runnerGroupsGet.ID,
-		runnerGroupsUpdate.ID, hostedRunnersList.ID,
+		runnerGroupsUpdate.ID, hostedRunnersList.ID, webhooksList.ID, webhooksGet.ID, webhooksPause.ID,
+		webhooksResume.ID, webhooksDelete.ID, webhookDeliveriesList.ID, webhookDeliveriesGet.ID,
 		notificationsList.ID, notificationsGet.ID, notificationsDismiss.ID, notificationsMarkAll.ID,
 		threadSubscriptionsSet.ID, gistsList.ID, gistsGet.ID, gistsCreate.ID, gistsUpdate.ID, gistsDelete.ID,
 		globalAdvisoriesList.ID, globalAdvisoriesGet.ID, repositoriesRename.ID, rateLimitGet.ID, metaGet.ID,
@@ -87,7 +89,8 @@ func withTargetArgument(d capability.Descriptor) capability.Descriptor {
 	case d.ID == projectsList.ID || d.ID == repositoriesList.ID:
 		name, schema, argument = "owner", ownerSchema, ownerArgument
 		fields = []capability.Field{ownerField}
-	case d.ID == organizationTeamsList.ID || d.ID == teamMembersList.ID || d.ID == organizationAdvisoriesList.ID:
+	case d.ID == organizationTeamsList.ID || d.ID == teamMembersList.ID || d.ID == organizationAdvisoriesList.ID ||
+		slices.Contains(teamToolIDs, d.ID):
 		name, schema, argument = "owner", ownerSchema, organizationArgument
 		fields = []capability.Field{organizationField}
 	case d.ID == issueTypesList.ID:

@@ -34,7 +34,7 @@ func (t *tool) assembleRest() error {
 			}
 		}
 	}
-	if len(t.input.Fields) > 0 || t.pager != nil || t.multi != nil || len(owners) > 0 {
+	if len(t.input.Fields) > 0 || t.op.LocalFile == "read" || t.pager != nil || t.multi != nil || len(owners) > 0 {
 		op.Input = &httpbind.Shape{Kind: httpbind.KindStruct}
 		t.rootOf(op.Input, bound.Input)
 	}
@@ -50,11 +50,20 @@ func (t *tool) assembleRest() error {
 		if err != nil {
 			return err
 		}
+		if field.Shape.Kind == httpbind.KindString && bf.Shape != nil && bf.Loc != httpbind.LocHeader {
+			// What an identifier argument may carry in front of the value, such as /hostedzone/; Route 53 takes
+			// the bare value in a body as well as in a path or query.
+			field.Shape.Prefixes = bf.Shape.Prefixes
+		}
 		field.Required = bf.Required
 		op.Input.Fields = append(op.Input.Fields, field)
 	}
 	if len(owners) > 0 {
 		op.Input.Fields = append(op.Input.Fields, owners...)
+	}
+	if t.op.LocalFile == "read" {
+		// The payload is no argument: the runtime attaches the file as a stream (Request.SetStream).
+		op.Input.Fields = append(op.Input.Fields, t.streamField(bound.Input))
 	}
 	if t.pager != nil || t.multi != nil {
 		// The paging members are bound under "~"+name; the table's page size maximum may apply to a member
@@ -78,7 +87,7 @@ func (t *tool) assembleRest() error {
 			}
 		}
 	}
-	if len(t.output.Fields) > 0 {
+	if len(t.output.Fields) > 0 || t.op.LocalFile == "write" {
 		op.Output = &httpbind.Shape{Kind: httpbind.KindStruct}
 		t.rootOf(op.Output, bound.Output)
 	}
@@ -96,6 +105,9 @@ func (t *tool) assembleRest() error {
 		}
 		op.Output.Fields = append(op.Output.Fields, field)
 	}
+	if t.op.LocalFile == "write" {
+		op.Output.Fields = append(op.Output.Fields, t.streamField(bound.Output))
+	}
 	if t.op.TargetCheck == "bucket-owner" {
 		for _, name := range t.targetArgs {
 			if f := fieldByKey(op.Input, name); f == nil || !f.Bucket {
@@ -108,6 +120,16 @@ func (t *tool) assembleRest() error {
 	}
 	t.restOp = op
 	return nil
+}
+
+// streamField is the streamed payload member of the binding of a local file tool.
+func (t *tool) streamField(shape *httpbind.Shape) httpbind.Field {
+	for _, f := range shape.Fields {
+		if f.Stream {
+			return f
+		}
+	}
+	return httpbind.Field{}
 }
 
 // layerOwned reports an input member of a restXml tool that never becomes an argument: the expected-owner
@@ -132,10 +154,6 @@ func (t *tool) rootOf(dst, src *httpbind.Shape) {
 // the wire name and, for restXml, the XML form and the roles of the layer.
 func (t *tool) restField(f awsquery.Field, bf *httpbind.Field) (httpbind.Field, error) {
 	field := httpbind.Field{Key: f.Key, Name: bf.Name, Shape: restShape(f.Shape), Loc: bf.Loc, IdempotencyToken: f.IdempotencyToken}
-	if field.Shape.Kind == httpbind.KindString && bf.Shape != nil && (bf.Loc == httpbind.LocLabel || bf.Loc == httpbind.LocQuery) {
-		// What an identifier argument may carry in front of the value, such as /hostedzone/.
-		field.Shape.Prefixes = bf.Shape.Prefixes
-	}
 	if !t.xml {
 		return field, nil
 	}
@@ -151,12 +169,16 @@ func (t *tool) restField(f awsquery.Field, bf *httpbind.Field) (httpbind.Field, 
 	return field, nil
 }
 
-// carryXMLForm gives the members below the top level the XML form of the binding that the converted shapes do not
+// carryXMLForm gives the shape its timestamp format and the members below the top level the XML form of the binding that the converted shapes do not
 // carry: an attribute (such as the xsi:type of a grantee) and the namespace declared on the element of a member. The
 // converted members are matched to the bound ones by their snake_case key; a member the binding lacks is a defect.
 func carryXMLForm(dst, src *httpbind.Shape, path string) error {
 	if dst == nil || src == nil {
 		return nil
+	}
+	if dst.Kind == httpbind.KindTimestamp && src.Kind == httpbind.KindTimestamp {
+		// The explicit format of the trait; the converted shape has none.
+		dst.Format = src.Format
 	}
 	for i := range dst.Fields {
 		df := &dst.Fields[i]
@@ -259,7 +281,7 @@ func ownerHeaderOf(o *httpbind.Operation) string {
 // sampleHeaders fills the answer headers of the members bound to a header.
 func (t *tool) sampleHeaders() error {
 	for _, f := range t.restOp.Output.Fields {
-		if f.Loc != httpbind.LocHeader {
+		if f.Loc != httpbind.LocHeader || f.Stream {
 			continue
 		}
 		if f.Shape.Kind == httpbind.KindList || !textScalar(f.Shape) {
@@ -312,6 +334,9 @@ func (t *tool) xmlAnswer() error {
 		if t.pagedOut(f.Key) {
 			continue
 		}
+		if f.Stream {
+			continue
+		}
 		switch f.Loc {
 		case httpbind.LocBody:
 			if f.Unwrapped {
@@ -323,6 +348,11 @@ func (t *tool) xmlAnswer() error {
 				return err
 			}
 		case httpbind.LocPayload:
+			if f.Shape.Kind == httpbind.KindString {
+				// A string payload is the whole body, with no element around it.
+				t.sampleAnswer = t.scalarSample(qf)
+				return nil
+			}
 			if f.Shape.Kind != httpbind.KindStruct {
 				return t.failf("payload %s has no sample", f.Key)
 			}

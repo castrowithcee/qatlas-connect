@@ -848,5 +848,6 @@ func discussionOperations() []capability.Operation {
 		{Descriptor: discussionsGet, Handler: capability.Handler(invokeDiscussionsGet)},
 		{Descriptor: discussionCommentsList, Handler: capability.Handler(invokeDiscussionCommentsList)},
 	}
-	return append(operations, discussionWriteOperations()...)
+	operations = append(operations, discussionWriteOperations()...)
+	return append(operations, discussionMaintainOperations()...)
 }

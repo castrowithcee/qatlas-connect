@@ -28,12 +28,14 @@ const (
 	fieldTotal   = "total_rows"
 	// fieldDNSRecords is the result member of the dns-records hook.
 	fieldDNSRecords = "dns_records"
-	csvMemberKey    = "~csv"
-	csvMaxDropped   = 32
+	// fieldPublicStatus is the result member of the bucket-policy-status hook.
+	fieldPublicStatus = "public_status"
+	csvMemberKey      = "~csv"
+	csvMaxDropped     = 32
 )
 
 var reservedNames = []string{argRegion, awsquery.ArgPageSize, awsquery.ArgCursor, argClientToken, fieldNext, fieldHasMore, fieldTruncated,
-	fieldRows, fieldDropped, fieldTotal, fieldDNSRecords}
+	fieldRows, fieldDropped, fieldTotal, fieldDNSRecords, fieldPublicStatus}
 
 // regionMarker stands for the region schema in a rendered schema; the renderer replaces it with the
 // provider's regionSchema constant, so the schema has one source.
@@ -469,6 +471,9 @@ func (t *tool) bindInput(m *Model, in []member, pag *pagingPlan) error {
 		if deprecated(mm) || hidden[mm.name] {
 			continue
 		}
+		if t.isStream(mm.name, true) {
+			continue
+		}
 		if t.layerOwned(mm.name) {
 			continue
 		}
@@ -519,6 +524,17 @@ func (t *tool) bindInput(m *Model, in []member, pag *pagingPlan) error {
 		if !offered[name] {
 			return t.failf("argument entry %s is not an offered input member", name)
 		}
+	}
+	if t.op.LocalFile != "" {
+		if err := t.checkLocalFile(); err != nil {
+			return err
+		}
+		if used[localPathName] {
+			return t.failf("argument name %s is reserved or used twice", localPathName)
+		}
+		props.set(localPathName, rawJSON(localPathSchema))
+		required = append(required, localPathName)
+		t.args = append(t.args, descArg{name: localPathName, required: true, description: localPathHelp[t.op.LocalFile]})
 	}
 	for name, hit := range t.nestedIn {
 		if !hit {
@@ -660,6 +676,9 @@ func (t *tool) bindOutput(m *Model, out []member, pag *pagingPlan) error {
 		if deprecated(mm) || hidden[mm.name] {
 			continue
 		}
+		if t.isStream(mm.name, false) {
+			continue
+		}
 		if t.op.AccountCheck && !slices.Contains(accountCheckMembers, mm.name) {
 			return t.failf("the account check answers only %v, not %s", accountCheckMembers, mm.name)
 		}
@@ -778,6 +797,16 @@ func (t *tool) bindOutput(m *Model, out []member, pag *pagingPlan) error {
 			descField{name: fieldTotal, description: "Number of rows in the whole report"},
 			descField{name: fieldNext, description: "Cursor of the next page; absent at the end of the rows"},
 			descField{name: fieldHasMore, description: "True when more rows follow"})
+	}
+	if t.op.LocalFile != "" {
+		for _, f := range localResult {
+			if used[f.name] {
+				return t.failf("field name %s is reserved or used twice", f.name)
+			}
+			props.set(f.name, f.schema)
+			required = append(required, f.name)
+			t.fields = append(t.fields, descField{name: f.name, description: f.description[t.op.LocalFile]})
+		}
 	}
 	if t.hasToken {
 		props.set(argClientToken, newObject("type", "string", "maxLength", 128))
@@ -944,11 +973,12 @@ func (c *converter) convert(target string, traits *object, output bool, depth in
 	case "boolean":
 		return &awsquery.Shape{Kind: awsquery.KindBoolean}, newObject("type", "boolean"), nil
 	case "timestamp":
-		// A restXml body writes timestamps as date-time, so that format needs no rendering below the top level; a
-		// top-level member can be a header, whose default differs.
-		if f := traits.str("smithy.api#timestampFormat"); c.t.rest && f != "" && !(f == "date-time" && c.t.xml && depth > 0) {
+		// The binding layer renders and reads the three formats of the trait for a restXml tool, in a header, a query
+		// member, and the body; the schema is a date-time text either way. restJson1 and the query protocol do not
+		// carry an explicit format here.
+		if f := traits.str("smithy.api#timestampFormat"); c.t.rest && !c.t.xml && f != "" {
 			return nil, nil, c.failf("timestamp format %s is not rendered for restJson1 tools yet", f)
-		} else if f != "" && f != "date-time" {
+		} else if !c.t.rest && f != "" && f != "date-time" {
 			return nil, nil, c.failf("timestamp format %s is not the query protocol's date-time", f)
 		}
 		return &awsquery.Shape{Kind: awsquery.KindTimestamp}, newObject("type", "string", "maxLength", 64), nil
@@ -1255,9 +1285,10 @@ const sampleARN = "arn:aws:iam::123456789012:role/a"
 // targetSamples are values that pass a target check in the account and region the generated tests bind, by
 // the name of the check.
 var targetSamples = map[string]string{
-	"bucket-owner":     "my-bucket",
-	"ses-identity":     "example.com",
-	"ses-identity-arn": "arn:aws:ses:eu-central-1:123456789012:identity/example.com",
+	"bucket-owner":          "my-bucket",
+	"ses-identity":          "example.com",
+	"ses-identity-arn":      "arn:aws:ses:eu-central-1:123456789012:identity/example.com",
+	"ses-configuration-set": "my-set",
 }
 
 // sampleTrustPolicy is a trust policy that passes the trust-policy check: one AWS service principal.
@@ -1267,10 +1298,12 @@ const sampleTrustPolicy = `{"Version":"2012-10-17","Statement":[{"Effect":"Allow
 const sampleResourcePolicy = `{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Principal":{"AWS":"123456789012"},"Action":"ses:SendEmail","Resource":"*"}]}`
 
 // sampleWords are whole values tried after the repeated characters, for patterns with a fixed prefix such as
-// the version IDs of IAM policies the UUID of a Route 53 CIDR collection, an IPv4 address, or an address of
-// the form a@b, which stays outside the mail form that generated code must not hold, or an ACM certificate ARN
-// of the account the tests bind.
-var sampleWords = []string{"v1", "00000000-0000-0000-0000-000000000000", "192.0.2.1", "aaa@bbb", "arn:aws:acm:eu-central-1:123456789012:certificate/a"}
+// the version IDs of IAM policies, the UUID of a Route 53 CIDR collection, an IPv4 address, a bucket/key pair, the ARN
+// of an SES mail archive, an ACM certificate ARN of the account the tests bind, or an address of the form a@b, which
+// stays outside the mail form that generated code must not hold.
+var sampleWords = []string{"v1", "00000000-0000-0000-0000-000000000000", "192.0.2.1", "a/b",
+	"arn:aws:ses:eu-central-1:123456789012:mailmanager-archive/a-0123456789abcdefghijklmn",
+	"arn:aws:acm:eu-central-1:123456789012:certificate/a", "aaa@bbb"}
 
 func (t *tool) sample(path string, s *awsquery.Shape, rawSchema any) (any, error) {
 	schema, _ := rawSchema.(map[string]any)

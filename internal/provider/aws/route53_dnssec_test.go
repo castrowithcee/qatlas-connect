@@ -150,6 +150,19 @@ func TestRoute53KeySigningKeyChecksTheKMSKeyBeforeAnyRequest(t *testing.T) {
 	}
 }
 
+// A zone ID in a request body loses its /hostedzone/ prefix as it does in a path.
+func TestRoute53KeySigningKeyTakesAPrefixedZoneID(t *testing.T) {
+	f := restAnswer(xmlReply(`<CreateKeySigningKeyResponse ` + route53NS + `><ChangeInfo><Id>c</Id><Status>PENDING</Status><SubmittedAt>2026-01-02T03:04:05Z</SubmittedAt></ChangeInfo>` + kskXML + `</CreateKeySigningKeyResponse>`))
+	e := route53Env(t, f, testRegion)
+	args := `{"hosted_zone_id":"/hostedzone/Z1","key_management_service_arn":"` + kskARN + `","name":"ksk_1","status":"INACTIVE"}`
+	if _, err := e.invokeConfirmed("aws.route53.key-signing-key.create", args, true); err != nil {
+		t.Fatal(err)
+	}
+	if body := restRequests(f)[0].body; !strings.Contains(body, "<HostedZoneId>Z1</HostedZoneId>") {
+		t.Errorf("body = %s", body)
+	}
+}
+
 // Errors keep their class and code, and a failed write is not repeated.
 func TestRoute53DNSSECErrors(t *testing.T) {
 	zone := `{"hosted_zone_id":"` + dnssecZone + `"}`

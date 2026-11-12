@@ -80,20 +80,33 @@ Each [SES tool](ses.md) needs the permission `ses:<Operation>` of its AWS operat
 `ses:UpdateEmailIdentityPolicy`, `ses:DeleteEmailIdentityPolicy`, `ses:CreateEmailIdentity`,
 `ses:DeleteEmailIdentity`, `ses:PutEmailIdentityDkimAttributes`, `ses:PutEmailIdentityDkimSigningAttributes`,
 `ses:PutEmailIdentityMailFromAttributes`, `ses:PutEmailIdentityFeedbackAttributes`,
-`ses:PutEmailIdentityConfigurationSetAttributes`, `ses:TagResource`, and `ses:UntagResource`, each for its own tool.
-The account tools need `ses:GetAccount`, `ses:PutAccountDetails`, `ses:PutAccountSendingAttributes`,
-`ses:PutAccountSuppressionAttributes`, `ses:PutAccountDedicatedIpWarmupAttributes`, and `ses:PutAccountVdmAttributes`.
-The deliverability tools need `ses:BatchGetMetricData`, `ses:GetMessageInsights`, `ses:GetEmailAddressInsights`,
-`ses:GetBlacklistReports`, `ses:GetDomainStatisticsReport`, `ses:GetDomainDeliverabilityCampaign`,
-`ses:ListDomainDeliverabilityCampaigns`, `ses:ListRecommendations`, `ses:GetDeliverabilityDashboardOptions`,
-`ses:PutDeliverabilityDashboardOption`, `ses:GetDeliverabilityTestReport`, `ses:ListDeliverabilityTestReports`, and
-`ses:CreateDeliverabilityTestReport`; the job tools `ses:GetImportJob`, `ses:ListImportJobs`, `ses:GetExportJob`, and
-`ses:ListExportJobs`; and the certificate tools `ses:ListEmailIdentityCertificates`,
-`ses:AssociateEmailIdentityCertificate`, and `ses:DisassociateEmailIdentityCertificate`, each for its own tool. The
-dashboard subscription, the inbox placement tests, and Virtual Deliverability Manager are charged by AWS; the tools
-need confirmation where they start a charge and retrieve no price.
-Creating with tags also needs `ses:TagResource`. The identity policy write tools are offered only when the tools list
-of the connection names them. Grant only the actions of the tools the connection offers. An account without production
+`ses:PutEmailIdentityConfigurationSetAttributes`, `ses:TagResource`, `ses:UntagResource`, `ses:ListConfigurationSets`,
+`ses:GetConfigurationSet`, `ses:CreateConfigurationSet`, `ses:DeleteConfigurationSet`,
+`ses:PutConfigurationSetDeliveryOptions`, `ses:PutConfigurationSetReputationOptions`,
+`ses:PutConfigurationSetSendingOptions`, `ses:PutConfigurationSetSuppressionOptions`,
+`ses:PutConfigurationSetTrackingOptions`, `ses:PutConfigurationSetVdmOptions`,
+`ses:PutConfigurationSetArchivingOptions`, `ses:GetConfigurationSetEventDestinations`,
+`ses:ListSuppressedDestinations`, `ses:GetSuppressedDestination`, `ses:PutSuppressedDestination`,
+`ses:DeleteSuppressedDestination`, `ses:ListEmailTemplates`, `ses:GetEmailTemplate`, `ses:CreateEmailTemplate`,
+`ses:UpdateEmailTemplate`, `ses:DeleteEmailTemplate`, `ses:TestRenderEmailTemplate`, `ses:ListContactLists`,
+`ses:GetContactList`, `ses:CreateContactList`, `ses:UpdateContactList`, `ses:DeleteContactList`, `ses:ListContacts`,
+`ses:GetContact`, `ses:CreateContact`, `ses:UpdateContact`, `ses:DeleteContact`, `ses:SendEmail`, and
+`ses:SendBulkEmail`, each for its own tool. `ses:TagResource`, `ses:UntagResource`, and
+`ses:ListTagsForResource` also serve the tags of configuration sets. Creating an identity, a configuration set, a template,
+or a contact list with tags also needs `ses:TagResource`. No permission for creating, changing, or deleting event destinations is needed: those
+actions are not tools. The account tools need `ses:GetAccount`, `ses:PutAccountDetails`,
+`ses:PutAccountSendingAttributes`, `ses:PutAccountSuppressionAttributes`, `ses:PutAccountDedicatedIpWarmupAttributes`,
+and `ses:PutAccountVdmAttributes`. The [deliverability tools](ses-deliverability.md) need `ses:BatchGetMetricData`,
+`ses:GetMessageInsights`, `ses:GetEmailAddressInsights`, `ses:GetBlacklistReports`, `ses:GetDomainStatisticsReport`,
+`ses:GetDomainDeliverabilityCampaign`, `ses:ListDomainDeliverabilityCampaigns`, `ses:ListRecommendations`,
+`ses:GetDeliverabilityDashboardOptions`, `ses:PutDeliverabilityDashboardOption`, `ses:GetDeliverabilityTestReport`,
+`ses:ListDeliverabilityTestReports`, and `ses:CreateDeliverabilityTestReport`; the job tools `ses:GetImportJob`,
+`ses:ListImportJobs`, `ses:GetExportJob`, and `ses:ListExportJobs`; and the certificate tools
+`ses:ListEmailIdentityCertificates`, `ses:AssociateEmailIdentityCertificate`, and
+`ses:DisassociateEmailIdentityCertificate`, each for its own tool. The dashboard subscription, the inbox placement
+tests, and Virtual Deliverability Manager are charged by AWS; the tools need confirmation where they start a charge and
+retrieve no price. The identity policy write tools are offered only when the tools list
+of the connection names them, the send tools by the effect `execute`. Grant only the actions of the tools the connection offers. An account without production
 access is in the SES sandbox and sends only to verified recipients.
 
 **Troubleshooting: the sandbox.** SES rejects mail to an address that is not verified while `aws.ses.account.get`
@@ -112,10 +125,15 @@ which needs `s3:ListAllMyBuckets` on all resources. The reads need `s3:ListAllMy
 `s3:GetBucketCORS` (`cors.get`), `s3:GetBucketAcl` (`acl.get`), `s3:GetBucketWebsite`, `s3:GetBucketLogging` (`logging.get`), `s3:GetBucketNotification` (`notification.get`),
 `s3:GetReplicationConfiguration` (`replication.get`), `s3:GetBucketOwnershipControls`, `s3:GetAccelerateConfiguration`,
 `s3:GetBucketRequestPayment`, `s3:GetBucketObjectLockConfiguration` (`object-lock.get`), `s3:GetObjectRetention` and
-`s3:GetObjectLegalHold` (`object-retention.get` and `object-legal-hold.get`, for the object `arn:aws:s3:::<bucket>/<key>`), each for its own tool. The writes need:
+`s3:GetObjectLegalHold` (`object-retention.get` and `object-legal-hold.get`, for the object `arn:aws:s3:::<bucket>/<key>`), `s3:GetBucketPolicy` (`bucket-policy.get`), and `s3:GetBucketPolicyStatus` (`bucket-policy.get-status`), each for its own tool. The object reads need `s3:ListBucket` (`object.list`), `s3:ListBucketVersions` (`object.list-versions`),
+`s3:GetObject` (`object.head`, and `s3:GetObjectVersion` for a version; `object.get-attributes` also needs
+`s3:GetObjectAttributes`), `s3:GetObjectTagging` (`object-tagging.get`), and `s3:GetObjectAcl` (`object-acl.get`), for
+the object `arn:aws:s3:::<bucket>/<key>` except the two lists. The writes and the object download need:
 
 | Tool | Permission |
 | --- | --- |
+| `aws.s3.object.upload` | `s3:PutObject` on `arn:aws:s3:::<bucket>/<key>`; with `tagging` also `s3:PutObjectTagging`; with `server_side_encryption` `aws:kms` also `kms:GenerateDataKey` and `kms:Decrypt` on the key |
+| `aws.s3.object.download` | `s3:GetObject` on `arn:aws:s3:::<bucket>/<key>` (`s3:GetObjectVersion` with `version_id`); for an object with SSE-KMS also `kms:Decrypt` on the key. It is a read, but also needs a directory in `files.write` |
 | `aws.s3.bucket.create` | `s3:CreateBucket` |
 | `aws.s3.bucket.delete` | `s3:DeleteBucket` |
 | `aws.s3.versioning.put` | `s3:PutBucketVersioning` |
@@ -125,8 +143,15 @@ which needs `s3:ListAllMyBuckets` on all resources. The reads need `s3:ListAllMy
 | `aws.s3.ownership.put` | `s3:PutBucketOwnershipControls` |
 | `aws.s3.lifecycle.delete` | `s3:PutLifecycleConfiguration` |
 | `aws.s3.cors.delete` | `s3:PutBucketCORS` |
+| `aws.s3.bucket-policy.put` | `s3:PutBucketPolicy` and `s3:GetBucketPolicyStatus` (the read after the change) |
+| `aws.s3.bucket-policy.delete` | `s3:DeleteBucketPolicy` |
+| `aws.s3.object.copy` | `s3:GetObject` (`s3:GetObjectVersion` for a version) on the source and `s3:PutObject` on the destination; with tags also `s3:GetObjectTagging` and `s3:PutObjectTagging` |
+| `aws.s3.object.delete`, `aws.s3.object.delete-many` | `s3:DeleteObject` (`s3:DeleteObjectVersion` for a version) |
+| `aws.s3.object.restore` | `s3:RestoreObject` |
+| `aws.s3.object-tagging.put` | `s3:PutObjectTagging` (`s3:PutObjectVersionTagging` for a version) |
+| `aws.s3.object-tagging.delete` | `s3:DeleteObjectTagging` (`s3:DeleteObjectVersionTagging` for a version) |
 
-Creating with tags also needs `s3:PutBucketTagging`. Setting a KMS key also needs the permissions the key's policy
+The bucket policy write tools are offered only when the tools list of the connection names them. Creating with tags also needs `s3:PutBucketTagging`. Setting a KMS key also needs the permissions the key's policy
 requires for the identity. Grant only the actions of the tools the connection offers; a policy such as `s3:*` also
 grants every object action.
 
@@ -148,20 +173,31 @@ Each [Route 53 tool](route53.md) needs the permission `route53:<Action>` of its 
 | `aws.route53.health-check.create` | `route53:CreateHealthCheck` |
 | `aws.route53.health-check.update` | `route53:UpdateHealthCheck` |
 | `aws.route53.health-check.delete` | `route53:DeleteHealthCheck` |
+| `aws.route53.traffic-policy.create` | `route53:CreateTrafficPolicy` |
+| `aws.route53.traffic-policy.create-version` | `route53:CreateTrafficPolicyVersion` |
+| `aws.route53.traffic-policy.update-comment` | `route53:UpdateTrafficPolicyComment` |
+| `aws.route53.traffic-policy.delete` | `route53:DeleteTrafficPolicy` |
 | `aws.route53.dnssec.enable` | `route53:EnableHostedZoneDNSSEC` |
 | `aws.route53.dnssec.disable` | `route53:DisableHostedZoneDNSSEC` |
 | `aws.route53.key-signing-key.create` | `route53:CreateKeySigningKey`; also `kms:DescribeKey`, `kms:GetPublicKey`, `kms:Sign`, and `kms:CreateGrant` on the KMS key |
 | `aws.route53.key-signing-key.activate` | `route53:ActivateKeySigningKey`; also the `kms` permissions above on the KMS key |
 | `aws.route53.key-signing-key.deactivate` | `route53:DeactivateKeySigningKey` |
 | `aws.route53.key-signing-key.delete` | `route53:DeleteKeySigningKey`; also the `kms` permissions above on the KMS key |
+| `aws.route53.query-logging-config.create` | `route53:CreateQueryLoggingConfig`; AWS also requires `logs:CreateLogDelivery` |
+| `aws.route53.query-logging-config.delete` | `route53:DeleteQueryLoggingConfig` |
 
 Route 53 permissions name hosted zones as `arn:aws:route53:::hostedzone/<id>`, health checks as
-`arn:aws:route53:::healthcheck/<id>`, and changes as `arn:aws:route53:::change/<id>`; `route53:CreateHostedZone`,
-`route53:ListHostedZones`, `route53:GetHostedZoneCount`, `route53:CreateHealthCheck`, `route53:ListHealthChecks`, and
+`arn:aws:route53:::healthcheck/<id>`, traffic policies as `arn:aws:route53:::trafficpolicy/<id>` (the other traffic policy writes take that resource), and changes as `arn:aws:route53:::change/<id>`; `route53:CreateHostedZone`,
+`route53:CreateTrafficPolicy`, `route53:ListHostedZones`, `route53:GetHostedZoneCount`, `route53:CreateHealthCheck`, `route53:ListHealthChecks`, and
 `route53:GetHealthCheckCount`, `route53:ListQueryLoggingConfigs`, `route53:ListReusableDelegationSets`, `route53:ListTrafficPolicies`, `route53:ListTrafficPolicyInstances`, `route53:GetTrafficPolicyInstanceCount`, `route53:ListCidrCollections`, `route53:GetAccountLimit`, `route53:ListGeoLocations`, `route53:GetGeoLocation`, `route53:GetCheckerIpRanges`, and `route53:ListHostedZonesByVPC` apply to all resources. The tag tools need `route53:ListTagsForResource` (`route53:ListTagsForResources` for `tag.list-many`) and
 `route53:ChangeTagsForResource` for health checks as for zones. `route53:ListHostedZonesByVPC` also needs `ec2:DescribeVpcs` for the VPC. Grant only the actions of the tools the connection offers; a policy such as `route53:*` also
 grants every change of the records of a zone. The `kms` permissions are the minimum the policy of the identity needs on the
 one KMS key in `us-east-1`; the DNSSEC writes are listed-only and need the tools to be named in the connection's tools list.
+
+**The log group policy.** A query logging configuration needs a CloudWatch Logs log group in `us-east-1` of the bound
+account, which the connection must allow, and a resource policy of CloudWatch Logs that allows the service principal
+`route53.amazonaws.com` to `logs:CreateLogStream` and `logs:PutLogEvents` on the group. The tools create neither; without
+the policy Route 53 refuses with `InsufficientCloudWatchLogsResourcePolicy`.
 
 **The KMS key policy.** Route 53 uses the key through the service principal, so the key policy of the KMS key, not
 the identity policy, must allow `dnssec-route53.amazonaws.com` to `kms:DescribeKey`, `kms:GetPublicKey`, `kms:Sign`,

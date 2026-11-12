@@ -306,8 +306,12 @@ func (c *Client) download(op string, o *Operation, resp *http.Response, sink Sin
 
 // statedSHA256 is the SHA-256 of the whole object as hex when the answer states one in x-amz-checksum-sha256:
 // exactly 32 bytes of base64. The checksum of a multipart object is a checksum of checksums and carries a
-// suffix; it states nothing about the content and is ignored.
+// suffix; it states nothing about the content and is ignored, and so is the checksum of an answer to a range request.
 func statedSHA256(h http.Header) string {
+	if h.Get("Content-Range") != "" {
+		// A range or a part is not the object the checksum covers.
+		return ""
+	}
 	raw, err := base64.StdEncoding.DecodeString(h.Get("X-Amz-Checksum-Sha256"))
 	if err != nil || len(raw) != sha256.Size {
 		return ""

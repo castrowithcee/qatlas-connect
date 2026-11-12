@@ -1,6 +1,6 @@
 ---
 description: >
-  Describes the tools of the AWS SES v2 group: reading, creating, configuring, tagging, and deleting sender identities with DKIM and MAIL FROM, the account status, the sandbox, the production access request and the account attributes, deliverability metrics, insights, reputation, the Deliverability Dashboard and inbox placement tests with their costs, reading import and export jobs, identity certificates, the identity, ARN, and size checks, the DNS help derived from checked values, and what is never a tool.
+  Describes the tools of the AWS SES v2 group: reading, creating, configuring, tagging, and deleting sender identities with DKIM and MAIL FROM, the account status, the sandbox, the production access request and the account attributes, creating and configuring configuration sets, reading their event destinations, managing the suppression list, email templates, contact lists with topics, contacts and their privacy, sending mail with confirmation, costs, and no automatic repetition, the identity, address, ARN, archive, and domain checks, the DNS help derived from checked values, and what is never a tool.
 type: knowledge
 edit: shared
 created: 2026-11-11
@@ -11,13 +11,16 @@ updated: 2026-11-12
 
 Group `ses`, the SES v2 API. SES is regional: every tool takes an optional `region`, which may be left out when the
 connection lists exactly one region and otherwise must name an allowed one. Every permission a tool needs is listed in
-[Set up AWS](setup.md#ses). The tools manage the sender identities (domains and email addresses) of the bound account and read and change the
-account status of one region, and they read metrics, insights, reputation, and jobs.
+[Set up AWS](setup.md#ses). The tools manage the sender identities (domains and email addresses), the configuration sets, the suppression list,
+the email templates, the contact lists with their topics, and the contacts of the bound account, read and change the account
+status of one region, and send mail. The tools for deliverability, metrics, insights, import and export job reads, and
+identity certificates are described in [SES deliverability, metrics, and jobs](ses-deliverability.md).
 
 ## Tools
 
 Reads need no confirmation. Every other tool needs confirmation. The three identity policy tools that write are
-listed-only: a connection offers them only when its tools list names each one exactly, not by effect or prefix.
+listed-only: a connection offers them only when its tools list names each one exactly, not by effect or prefix. The
+send tools have the effect `execute`, which no connection offers by default.
 
 | Tool | AWS operation | Effect | Confirmation |
 | --- | --- | --- | --- |
@@ -37,94 +40,63 @@ listed-only: a connection offers them only when its tools list names each one ex
 | `aws.ses.email-identity.put-configuration-set-attributes` | `PutEmailIdentityConfigurationSetAttributes` | update | yes |
 | `aws.ses.email-identity.tag` | `TagResource` | update | yes |
 | `aws.ses.email-identity.untag` | `UntagResource` | update | yes |
+| `aws.ses.email.send` | `SendEmail` | execute, not repeated | yes |
+| `aws.ses.email.send-bulk` | `SendBulkEmail` | execute, not repeated | yes |
 | `aws.ses.account.get` | `GetAccount` | read | no |
 | `aws.ses.account.put-details` | `PutAccountDetails` | update | yes |
 | `aws.ses.account.put-sending-attributes` | `PutAccountSendingAttributes` | update | yes |
 | `aws.ses.account.put-suppression-attributes` | `PutAccountSuppressionAttributes` | update | yes |
 | `aws.ses.account.put-dedicated-ip-warmup-attributes` | `PutAccountDedicatedIpWarmupAttributes` | update | yes |
 | `aws.ses.account.put-vdm-attributes` | `PutAccountVdmAttributes` | update | yes |
-| `aws.ses.metrics.batch-get` | `BatchGetMetricData` | read | no |
-| `aws.ses.message-insights.get` | `GetMessageInsights` | read | no |
-| `aws.ses.email-address-insights.get` | `GetEmailAddressInsights` | read | no |
-| `aws.ses.blacklist-report.get` | `GetBlacklistReports` | read | no |
-| `aws.ses.domain-statistics-report.get` | `GetDomainStatisticsReport` | read | no |
-| `aws.ses.deliverability-campaign.get` | `GetDomainDeliverabilityCampaign` | read | no |
-| `aws.ses.deliverability-campaign.list` | `ListDomainDeliverabilityCampaigns` | read | no |
-| `aws.ses.recommendation.list` | `ListRecommendations` | read | no |
-| `aws.ses.deliverability-dashboard.get` | `GetDeliverabilityDashboardOptions` | read | no |
-| `aws.ses.deliverability-dashboard.put-option` | `PutDeliverabilityDashboardOption` | update, paid | yes |
-| `aws.ses.deliverability-test-report.get` | `GetDeliverabilityTestReport` | read | no |
-| `aws.ses.deliverability-test-report.list` | `ListDeliverabilityTestReports` | read | no |
-| `aws.ses.deliverability-test-report.create` | `CreateDeliverabilityTestReport` | create, paid, sends a test message, not repeated | yes |
-| `aws.ses.import-job.get` | `GetImportJob` | read | no |
-| `aws.ses.import-job.list` | `ListImportJobs` | read | no |
-| `aws.ses.export-job.get` | `GetExportJob` | read | no |
-| `aws.ses.export-job.list` | `ListExportJobs` | read | no |
-| `aws.ses.email-identity-certificate.list` | `ListEmailIdentityCertificates` | read | no |
-| `aws.ses.email-identity-certificate.associate` | `AssociateEmailIdentityCertificate` | update | yes |
-| `aws.ses.email-identity-certificate.disassociate` | `DisassociateEmailIdentityCertificate` | update | yes |
+
+### Configuration sets and suppression
+
+| Tool | AWS operation | Effect | Confirmation |
+| --- | --- | --- | --- |
+| `aws.ses.configuration-set.list` | `ListConfigurationSets` | read | no |
+| `aws.ses.configuration-set.get` | `GetConfigurationSet` | read | no |
+| `aws.ses.configuration-set.create` | `CreateConfigurationSet` | create, not repeated | yes |
+| `aws.ses.configuration-set.delete` | `DeleteConfigurationSet` | delete, not repeated | yes |
+| `aws.ses.configuration-set.put-delivery-options` | `PutConfigurationSetDeliveryOptions` | update | yes |
+| `aws.ses.configuration-set.put-reputation-options` | `PutConfigurationSetReputationOptions` | update | yes |
+| `aws.ses.configuration-set.put-sending-options` | `PutConfigurationSetSendingOptions` | update | yes |
+| `aws.ses.configuration-set.put-suppression-options` | `PutConfigurationSetSuppressionOptions` | update | yes |
+| `aws.ses.configuration-set.put-tracking-options` | `PutConfigurationSetTrackingOptions` | update | yes |
+| `aws.ses.configuration-set.put-vdm-options` | `PutConfigurationSetVdmOptions` | update | yes |
+| `aws.ses.configuration-set.put-archiving-options` | `PutConfigurationSetArchivingOptions` | update | yes |
+| `aws.ses.configuration-set-event-destination.get` | `GetConfigurationSetEventDestinations` | read | no |
+| `aws.ses.suppressed-destination.list` | `ListSuppressedDestinations` | read | no |
+| `aws.ses.suppressed-destination.get` | `GetSuppressedDestination` | read | no |
+| `aws.ses.suppressed-destination.put` | `PutSuppressedDestination` | create | yes |
+| `aws.ses.suppressed-destination.delete` | `DeleteSuppressedDestination` | delete, not repeated | yes |
 
 `aws.ses.email-identity.create` with tags also needs `ses:TagResource`. A create or delete whose outcome is unclear
-is not repeated: read the identity or its policies first.
+is not repeated: read the identity, its policies, or the configuration set first.
 
-## Metrics
+### Templates, contact lists, and contacts
 
-`aws.ses.metrics.batch-get` reads Virtual Deliverability Manager (VDM) metric data of one region. One call carries 1 to
-10 queries; each has an `id` (1 to 255 characters), the `namespace` `VDM`, a `metric` (`SEND`, `COMPLAINT`,
-`PERMANENT_BOUNCE`, `TRANSIENT_BOUNCE`, `OPEN`, `CLICK`, `DELIVERY`, `DELIVERY_OPEN`, `DELIVERY_CLICK`, or
-`DELIVERY_COMPLAINT`), `start_date` and `end_date`, and optionally up to 3 `dimensions` from `EMAIL_IDENTITY`,
-`CONFIGURATION_SET`, `ISP`, and `TENANT_NAME` (AWS checks the number and names of the dimensions). The tool refuses a
-call before any request when the number of queries is outside 1 to 10, an `id` is outside 1 to 255 characters, a
-`metric` or the `namespace` is not one of the listed values, or a date is missing. The API reference names no limit on
-the length of the period, so the tool checks none and leaves it to AWS. AWS allows at most 16 calls and 160 queries per second. The answer has `results` (timestamps and values per query
-`id`) and `errors` for queries that failed. VDM must be on (`aws.ses.account.put-vdm-attributes`).
+| Tool | AWS operation | Effect | Confirmation |
+| --- | --- | --- | --- |
+| `aws.ses.email-template.list` | `ListEmailTemplates` | read | no |
+| `aws.ses.email-template.get` | `GetEmailTemplate` | read | no |
+| `aws.ses.email-template.test-render` | `TestRenderEmailTemplate` | read, sends nothing | no |
+| `aws.ses.email-template.create` | `CreateEmailTemplate` | create, not repeated | yes |
+| `aws.ses.email-template.update` | `UpdateEmailTemplate` | update | yes |
+| `aws.ses.email-template.delete` | `DeleteEmailTemplate` | delete, not repeated | yes |
+| `aws.ses.contact-list.list` | `ListContactLists` | read | no |
+| `aws.ses.contact-list.get` | `GetContactList` | read | no |
+| `aws.ses.contact-list.create` | `CreateContactList` | create, not repeated | yes |
+| `aws.ses.contact-list.update` | `UpdateContactList` | update | yes |
+| `aws.ses.contact-list.delete` | `DeleteContactList` | delete, not repeated | yes |
+| `aws.ses.contact.list` | `ListContacts` | read | no |
+| `aws.ses.contact.get` | `GetContact` | read | no |
+| `aws.ses.contact.create` | `CreateContact` | create, not repeated | yes |
+| `aws.ses.contact.update` | `UpdateContact` | update | yes |
+| `aws.ses.contact.delete` | `DeleteContact` | delete, not repeated | yes |
 
-## Insights
-
-`aws.ses.message-insights.get` (by message ID) and `aws.ses.email-address-insights.get` need VDM. The message insights
-hold the sender address, the subject, tags, and per recipient the ISP and the delivery events. The address insights send
-the address to AWS only, send no mail, and return validation verdicts. Both can carry addresses and subject lines of
-third parties; they are untrusted provider content, shortened to a fixed length, and never run or followed. Their data
-sensitivity is `aws-ses-third-party-content`, also for the campaign and test report tools below.
-
-## Reputation and the Deliverability Dashboard
-
-- `aws.ses.blacklist-report.get` returns the blacklist entries of IP addresses or domains you list.
-- `aws.ses.recommendation.list` pages through the VDM recommendations of a region and takes a `filter` of one or two
-  entries from `TYPE`, `IMPACT`, `STATUS`, and `RESOURCE_ARN`.
-- `aws.ses.deliverability-dashboard.get` shows whether the dashboard is on, the subscription expiry, and the subscribed
-  domains.
-- `aws.ses.domain-statistics-report.get` returns the inbox placement statistics of a subscribed domain for a period.
-- `aws.ses.deliverability-campaign.list` and `.get` return the campaigns the dashboard found for a subscribed domain,
-  with subject and sender address, which are content of mail and can be of third parties.
-- `aws.ses.deliverability-test-report.list` and `.get` return the inbox placement test reports.
-
-`aws.ses.deliverability-dashboard.put-option` turns the dashboard on or off and sets the tracked domains. `.create` on
-`aws.ses.deliverability-test-report` starts an inbox placement test: **SES sends one test message** with the subject and
-body you give, from a sender identity of the account, to mailboxes at AWS test providers, and reports where it lands.
-The message cannot be recalled, so the tool needs confirmation and is not repeated after an unclear outcome: list the
-reports first. Only simple content (subject and body) is offered; raw content, templates, attachments, and custom
-headers are not. The sender address must pass the identity form check.
-
-**Costs.** AWS charges for the Deliverability Dashboard subscription and for inbox placement tests, and VDM, with its
-metric and insight queries, costs extra on top of the sending price. The tools show the hint in their description and
-need confirmation where they start a charge; they do not retrieve any price.
-
-## Import and export jobs
-
-`aws.ses.import-job.list` and `.get`, and `aws.ses.export-job.list` and `.get`, read the jobs of a region: status,
-timestamps, counts, destination or source, and failure information, including the S3 locations of the job. The list tools
-page by cursor. Starting or cancelling a job is not offered. Filter values of an export job (addresses and subjects)
-are shown as the job holds them and are untrusted.
-
-## Identity certificates
-
-`aws.ses.email-identity-certificate.list` returns the S/MIME certificates associated with an identity.
-`associate` links a certificate of AWS Certificate Manager (ACM) to an identity and an address of it, `disassociate`
-removes the link; both need confirmation. For a domain identity `from_address` is required and must belong to the
-domain. `certificate_arn` must be the ARN of an ACM certificate in the bound account and in an allowed region of the
-connection (`arn:aws:acm:<region>:<account>:certificate/<id>`); another account, region, service, resource type, or
-partition is refused before any request. The tools change no certificate in ACM.
+`create` of a template or a contact list with tags also needs `ses:TagResource`. A create or delete whose outcome is
+unclear is not repeated: read the template, list, or contact first. The list tools of templates, contact lists, and
+contacts page with `page_size` (at most 100) and `cursor`.
 
 ## Account status and the sandbox
 
@@ -168,10 +140,54 @@ Each tool needs confirmation and acts on the account of the region it names:
 
 - **Identity form.** `email_identity` must be a domain name or an email address of a domain: letters, digits, dots, and
   hyphens, and for an address also `+` and `_` in the local part. Anything else is refused before any request.
-- **ARN.** The tools that take `resource_arn` (`tag`, `untag`, `list-tags`) accept only the ARN of an SES identity in
-  the bound account and in an allowed region of the connection. Another account, another region, or another resource
-  type is refused. The certificate ARN is checked as described under identity certificates.
-- **Size.** The tools shorten the strings and lists of provider answers to a fixed length.
+- **ARN.** The tools that take `resource_arn` (`aws.ses.email-identity.tag`, `untag`, `list-tags`) accept the ARN of an
+  SES identity (`arn:aws:ses:<region>:<account>:identity/<name>`) or of a configuration set
+  (`arn:aws:ses:<region>:<account>:configuration-set/<name>`) in the bound account and in an allowed region of the
+  connection. The same three tools tag configuration sets; their IDs name the identity for historical reasons. Another
+  account, another region, or another resource type is refused.
+- **Configuration set name.** `configuration_set_name` must be 1 to 64 letters, digits, underscores, or hyphens.
+- **Archive ARN.** `archive_arn` of `put-archiving-options`, and `archiving_options.archive_arn` of
+  `configuration-set.create`, must be the ARN of a mail archive
+  (`arn:aws:ses:<region>:<account>:mailmanager-archive/a-...`) in the bound account and an allowed region. Another
+  account, another region, or another resource type is refused.
+- **Tracking domain.** `custom_redirect_domain` of `put-tracking-options`, and `tracking_options.custom_redirect_domain`
+  of `configuration-set.create`, is checked only for the form of a domain name. SES checks that you own it.
+- **Send ARNs.** The identity ARNs of the send tools (`from_email_address_identity_arn`,
+  `feedback_forwarding_email_address_identity_arn`) must name an SES identity, and a `template_arn` a template, in the
+  bound account and an allowed region. Sending with an identity of another account (sending authorization) is
+  therefore not possible.
+- **Recipients.** A call sends to at most 50 recipients, To, Cc, and Bcc together and across every destination of a
+  bulk call, the per-message limit of the
+  [SES quotas](https://docs.aws.amazon.com/ses/latest/dg/quotas.html). More recipients take more calls, each
+  confirmed on its own.
+- **Addresses.** Every sender, reply-to, and recipient address must be `local@domain` or `Display Name
+  <local@domain>`, 7-bit ASCII as SES requires: an RFC 5322 dot-atom local part of at most 64 characters, a domain
+  name (Punycode for a Unicode domain), at most 254 characters. A display name is printable ASCII without `"(),:;<>@[\]`
+  or is quoted; other characters need MIME encoded-word. The feedback address takes no display name.
+- **Size.** A message above 40 MB, the SES v2 limit, is refused.
+
+## Sending mail
+
+`send` sends one mail with simple content (subject, text, HTML, headers, attachments) or a template: a stored one by
+name or ARN, or one given inline, with template data. `send-bulk` sends one template to several destinations, each its
+own mail with its own recipients, template data, headers, and tags, and returns status and message ID per destination;
+one destination can fail while others succeed.
+
+- **What leaves the account.** Region, sender, recipients (To, Cc, Bcc), subject or template, configuration set, and
+  content go to AWS and from there to the recipients and their mail providers. A sent mail cannot be taken back. The
+  tool fetches no URL from the content and runs nothing in it.
+- **Confirmation.** Each call needs confirmation of exactly its request. The tool description is what the confirmation
+  covers: what is sent, the costs, the sandbox, and that nothing is repeated.
+- **Costs.** According to the [AWS price list](https://aws.amazon.com/ses/pricing/), 0.10 USD per 1,000 mails, each
+  recipient counted, plus 0.12 USD per GB of attachments.
+- **Sandbox.** An account without production access sends only to verified recipients, at most 200 mails a day and one
+  per second.
+- **No automatic repetition.** A send is never repeated, not after a rate limit, a timeout, or a server error. A
+  timeout, a server-side failure, or an answer that cannot be read says that the mail may have gone out: check, for
+  example with the recipient, before sending again. The SES refusals (message rejected, MAIL FROM domain not
+  verified, sending paused, account suspended) mean the mail was not sent.
+- **Pace.** Sends of one connection and region start at least one second apart, the sandbox rate, so no account
+  exceeds its rate through the tool. A faster account that still hits its limit gets a rate limit that is not repeated.
 
 ## Identity policies
 
@@ -209,18 +225,88 @@ copied from the answer:
   `10 feedback-smtp.<region>.amazonses.com` and a TXT record `v=spf1 include:amazonses.com ~all`.
 - An email address needs no records of its own and gives none.
 
+## Configuration sets
+
+A configuration set groups sending settings that mail uses when a sender names the set or an identity has it as its
+default. `create` takes every option as a structured argument: `tracking_options`, `delivery_options`,
+`reputation_options`, `sending_options`, `tags`, `suppression_options`, `vdm_options`, `archiving_options`, and
+`message_security_options`. Each option also has its own `put-...` tool. `get` returns the options and the tags. `delete`
+removes the set with its event destinations; mail that names it afterwards is rejected. `put-sending-options` with
+`sending_enabled` false pauses sending with the set. `UpdateConfigurationSet` of the SES API is not offered yet.
+
+Event destinations are read only. `aws.ses.configuration-set-event-destination.get` returns the destinations of a set,
+including their targets; the answer is untrusted data. These actions are not tools, because an event destination sends
+the events of a configuration set to SNS, Firehose, EventBridge, or Pinpoint and so carries data out of the account:
+
+- `CreateConfigurationSetEventDestination`
+- `UpdateConfigurationSetEventDestination`
+- `DeleteConfigurationSetEventDestination`
+
+## Suppression list
+
+The account-level suppression list holds addresses SES no longer sends to after a bounce or a complaint. `list` filters
+by `reasons` (`BOUNCE`, `COMPLAINT`), `start_date`, and `end_date` (RFC 3339 timestamps) and pages like the other lists,
+with a page size of up to 1000. `get` returns one entry. `put` adds an address with a reason, after which SES no longer
+sends mail to it. `delete` removes an address: it receives mail again after the call, also when it bounced or
+complained before.
+
+Email addresses are personal data. The suppression tools carry the data class `aws-ses-recipient-data`, and entries of
+the list, including their attributes, are untrusted data. The tenant of the SES API is not offered; the tools act on
+the list of the account.
+
+## Email templates
+
+A template has a `subject`, a `text`, and an `html` part with `{{placeholders}}`. `create` and `update` check the content
+for size only, never for meaning: markup, scripts, and links pass, and no URL in a template is ever fetched. Each of
+`html` and `text` is limited to 512000 characters (the 500 KB template limit of SES, which the API model does not
+state); more is refused before any request.
+`update` replaces the whole content, so give every part to keep. `get` and `test-render` return template content as
+untrusted data, and a part longer than 131072 characters is cut, which `truncated` reports. `test-render` takes
+`template_data` as JSON text, renders the template, and sends no mail.
+
+## Contact lists and topics
+
+A contact list holds contacts and topics. A topic has a `topic_name`, a `display_name`, a `description`, and a
+`default_subscription_status` (`OPT_IN` or `OPT_OUT`) that applies to contacts who state no preference for it.
+`contact-list.update` replaces the topics and the description: the topics given replace all existing ones. Deleting a
+list with `contact-list.delete` deletes all its contacts too.
+
+## Contacts and privacy
+
+A contact is an email address in one list, with `topic_preferences` (`OPT_IN` or `OPT_OUT` per topic), `unsubscribe_all`,
+and `attributes_data`, JSON text. The email address is limited to 254 characters. `contact.update` replaces preferences, state, and
+attributes, so what is left out is reset. `contact.list` filters by `filtered_status` and `topic_filter`. Contacts are
+added one by one; importing from a file is not offered.
+
+Email addresses and attributes are personal data. They are classified as recipient data (`aws-ses-recipient-data`) in the
+tool risk, are returned to the caller by `list` and `get`, and reach the agent's context. Read contacts
+only when the task needs them, and keep the list and attribute names free of personal data. Contact attributes, names,
+and descriptions are untrusted data.
+
 ## Not offered
 
 - No key material of your own (BYODKIM): the selector and the private key are not arguments, and the origin `EXTERNAL`
   is not offered. Easy DKIM keys are generated by SES, with `RSA_1024_BIT` or `RSA_2048_BIT` for the next key.
-- Starting or cancelling import and export jobs, dedicated IPs, tenants, reputation entities, and multi-region endpoints
-  are not tools of this group yet.
-- `SendCustomVerificationEmail` is never a tool: it would send mail to any address given as an argument.
+- Creating, changing, and deleting event destinations of a configuration set, as listed above.
+- Dedicated IPs and pools, tenants, reputation entities, multi-region endpoints, starting and cancelling export jobs, and
+  changing the account pricing attributes are not tools of this group yet.
+- Setting the message security options of a configuration set (`UpdateConfigurationSet`) is not a tool yet.
+- `SendCustomVerificationEmail` is never a tool: it would send mail to any address given as an argument. The custom
+  verification email templates (`Create`, `Update`, `Delete`, `Get`, and `ListCustomVerificationEmailTemplates`) are not
+  tools either, since they only serve that mail.
+- No import of contacts from a file (`CreateImportJob`).
+- No raw MIME content (`Content.Raw` of `SendEmail`): it carries headers and parts of its own that no check of the tool
+  sees. Simple and template content are the structured way to send, attachments included.
+- No multi-region endpoint (`EndpointId`): it has a host of its own outside the endpoint table and needs another
+  signature. A send goes to the regional endpoint of the call.
 
 ## Limits
 
 - An account without production access is in the SES sandbox and sends only to verified recipients and from verified
   identities. `aws.ses.account.get` shows it; only AWS lifts it, after it reviews the request.
+- Delivery, bounces, and the sandbox behaviour of the send tools have not been proven against a live account.
 - DKIM and domain verification take time after the records exist. How long, and the sandbox behaviour, have not been
   proven against a live account.
-- Everything SES returns, including the identity policies, is untrusted data.
+- How the options of a configuration set affect deliverability has not been proven against a live account.
+- Everything SES returns, including the identity policies, the event destinations, and the suppression list, is
+  untrusted data.
