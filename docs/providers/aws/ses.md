@@ -1,17 +1,18 @@
 ---
 description: >
-  Describes the tools of the AWS SES v2 group: reading, creating, configuring, tagging, and deleting sender identities with DKIM and MAIL FROM, the identity and ARN checks, the DNS help derived from checked values, and what is never a tool.
+  Describes the tools of the AWS SES v2 group: reading, creating, configuring, tagging, and deleting sender identities with DKIM and MAIL FROM, the account status, the sandbox, the production access request and the account attributes, the identity and ARN checks, the DNS help derived from checked values, and what is never a tool.
 type: knowledge
 edit: shared
 created: 2026-11-11
-updated: 2026-11-11
+updated: 2026-11-12
 ---
 
 # Simple Email Service
 
 Group `ses`, the SES v2 API. SES is regional: every tool takes an optional `region`, which may be left out when the
 connection lists exactly one region and otherwise must name an allowed one. Every permission a tool needs is listed in
-[Set up AWS](setup.md#ses). The tools manage the sender identities (domains and email addresses) of the bound account.
+[Set up AWS](setup.md#ses). The tools manage the sender identities (domains and email addresses) of the bound account and read and change the
+account status of one region.
 
 ## Tools
 
@@ -36,9 +37,53 @@ listed-only: a connection offers them only when its tools list names each one ex
 | `aws.ses.email-identity.put-configuration-set-attributes` | `PutEmailIdentityConfigurationSetAttributes` | update | yes |
 | `aws.ses.email-identity.tag` | `TagResource` | update | yes |
 | `aws.ses.email-identity.untag` | `UntagResource` | update | yes |
+| `aws.ses.account.get` | `GetAccount` | read | no |
+| `aws.ses.account.put-details` | `PutAccountDetails` | update | yes |
+| `aws.ses.account.put-sending-attributes` | `PutAccountSendingAttributes` | update | yes |
+| `aws.ses.account.put-suppression-attributes` | `PutAccountSuppressionAttributes` | update | yes |
+| `aws.ses.account.put-dedicated-ip-warmup-attributes` | `PutAccountDedicatedIpWarmupAttributes` | update | yes |
+| `aws.ses.account.put-vdm-attributes` | `PutAccountVdmAttributes` | update | yes |
 
 `aws.ses.email-identity.create` with tags also needs `ses:TagResource`. A create or delete whose outcome is unclear
 is not repeated: read the identity or its policies first.
+
+## Account status and the sandbox
+
+SES accounts are separate per region. `aws.ses.account.get` returns for one region:
+
+- `production_access_enabled`: false means the region is in the SES sandbox, where SES sends only to verified
+  addresses and domains and the quota is small. True means production.
+- `send_quota`: `max24_hour_send`, `max_send_rate` per second, and `sent_last24_hours`.
+- `sending_enabled` and `enforcement_status` (the reputation state of the account).
+- `details`: the production access request (`mail_type`, `website_url`, `contact_language`,
+  `additional_contact_email_addresses`) and `review_details` with the review `status` and `case_id`. It is data of the
+  account owner and untrusted.
+- `suppression_attributes`, `vdm_attributes`, `dedicated_ip_auto_warmup_enabled`, and `pricing_attributes`.
+
+## Requesting production access
+
+`aws.ses.account.put-details` submits the request for one region and needs confirmation. It takes `mail_type`
+(`MARKETING` or `TRANSACTIONAL`) and `website_url`, both required, and optionally `contact_language` (`EN` or `JA`),
+`additional_contact_email_addresses` (up to four), and `production_access_enabled`. The use case text is deprecated by
+AWS and not offered. What goes to AWS is the region, the mail type, the website, the contact language, and the contact
+addresses; the contact addresses go only to AWS and are not recipients of any mail. The tool sends no mail and does not
+answer AWS on your behalf.
+
+AWS reviews the request, and the decision can take a while; how long, and why a request is refused, are not proven
+against a live account. Call `aws.ses.account.get` again and read `details.review_details`. The request is idempotent:
+the same call can be repeated.
+
+## Account attributes
+
+Each tool needs confirmation and acts on the account of the region it names:
+
+- `put-sending-attributes`: `sending_enabled`. False stops all sending of the account in that region.
+- `put-suppression-attributes`: `suppressed_reasons` (`BOUNCE`, `COMPLAINT`) and `validation_attributes`.
+- `put-dedicated-ip-warmup-attributes`: `auto_warmup_enabled`.
+- `put-vdm-attributes`: `vdm_attributes` with `vdm_enabled` and optionally the dashboard and guardian switches. Virtual
+  Deliverability Manager costs extra on top of the sending price; the price is not retrieved by the tool.
+
+`PutAccountPricingAttributes` is not offered.
 
 ## Checks before the call
 
@@ -93,7 +138,7 @@ copied from the answer:
 ## Limits
 
 - An account without production access is in the SES sandbox and sends only to verified recipients and from verified
-  identities. The tools neither lift nor check this.
+  identities. `aws.ses.account.get` shows it; only AWS lifts it, after it reviews the request.
 - DKIM and domain verification take time after the records exist. How long, and the sandbox behaviour, have not been
   proven against a live account.
 - Everything SES returns, including the identity policies, is untrusted data.
