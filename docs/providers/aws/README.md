@@ -4,7 +4,7 @@ description: >
 type: knowledge
 edit: shared
 created: 2026-11-06
-updated: 2026-11-11
+updated: 2026-11-12
 ---
 
 # Amazon Web Services
@@ -17,7 +17,7 @@ assumption, account and region binding, connection test, endpoint table, error m
 (STS) tools, the IAM tools that read identities, the metadata of their credentials, policies with their simulation,
 the account state, identity providers, and server certificates, the IAM report tools (credential report and service
 last accessed), the IAM tools that write roles and instance profiles, the SES v2 tools that read, create, configure, tag, and delete
-sender identities with DKIM and MAIL FROM, and the S3 tools that read buckets and create, delete, and configure them
+sender identities with DKIM and MAIL FROM and that read the account status and change its attributes and production access request, and the S3 tools that read buckets and create, delete, and configure them
 (versioning, default encryption, tags, public access block, object ownership), remove their lifecycle and CORS rules,
 and read the rest of their configuration and the Object Lock state of their objects, and the Route 53 tools that list, read, create,
 and delete hosted zones, change their comments and tags, list and change their records in atomic batches, test a DNS answer, read the status of a change, list, read, create, change, and delete health checks with their status and tags, read DNSSEC and manage key signing keys, and read query logging configurations, reusable delegation sets, traffic policies and their instances, CIDR collections, limits, geolocations, health checker addresses, and VPC associations. Further services build on it.
