@@ -43,6 +43,11 @@ var currentToolIDs = []string{
 	"github.actions-access.set",
 	"github.actions-oidc.get",
 	"github.actions-oidc.set",
+	"github.deploy-keys.list",
+	"github.deploy-keys.get",
+	"github.deploy-keys.delete",
+	"github.repository-invitations.list",
+	"github.repository-invitations.cancel",
 	"github.runners.list",
 	"github.runners.get",
 	"github.runners.delete",
@@ -294,6 +299,10 @@ var currentToolIDs = []string{
 	"github.repository-settings.update",
 	"github.repository-subscriptions.set",
 	"github.repository-topics.set",
+	"github.autolinks.create",
+	"github.autolinks.delete",
+	"github.autolinks.get",
+	"github.autolinks.list",
 	"github.rulesets.create",
 	"github.rulesets.delete",
 	"github.rulesets.get",
@@ -318,8 +327,18 @@ var currentToolIDs = []string{
 	"github.tags.delete",
 	"github.tags.get",
 	"github.tags.list",
+	"github.team-members.add",
 	"github.team-members.list",
+	"github.team-members.remove",
+	"github.team-memberships.get",
+	"github.team-repositories.list",
+	"github.team-repositories.remove",
+	"github.team-repositories.set",
+	"github.teams.create",
+	"github.teams.delete",
+	"github.teams.get",
 	"github.teams.list",
+	"github.teams.update",
 	"github.thread-subscriptions.set",
 	"github.traffic-clones.get",
 	"github.traffic-paths.list",
@@ -368,7 +387,7 @@ func TestRegistryHoldsExactlyTheCurrentToolIDs(t *testing.T) {
 	sort.Strings(got)
 	want := append([]string(nil), currentToolIDs...)
 	sort.Strings(want)
-	if strings.Join(got, "\n") != strings.Join(want, "\n") || len(got) != 343 {
+	if strings.Join(got, "\n") != strings.Join(want, "\n") || len(got) != 362 {
 		t.Errorf("registry holds %d tools, differing from the expected %d IDs", len(got), len(want))
 	}
 	if err := reg.ValidateRenames(); err != nil {
@@ -398,7 +417,10 @@ func TestRenamedToolsCoverEveryChangedID(t *testing.T) {
 		targets[next] = true
 	}
 	// A tool registered with a hyphen from the start has no former ID.
-	bornHyphenated := map[string]bool{"github.repository-topics.set": true, "github.check-annotations.list": true,
+	bornHyphenated := map[string]bool{"github.team-members.add": true, "github.team-members.remove": true,
+		"github.team-memberships.get": true, "github.team-repositories.list": true, "github.team-repositories.set": true,
+		"github.team-repositories.remove": true,
+		"github.repository-topics.set":    true, "github.check-annotations.list": true,
 		"github.check-runs.get": true, "github.check-runs.list": true, "github.check-suite-runs.list": true,
 		"github.check-suites.list":        true,
 		"github.pull-request-checks.wait": true, "github.pull-request-auto-merge.enable": true,
@@ -407,7 +429,7 @@ func TestRenamedToolsCoverEveryChangedID(t *testing.T) {
 		"github.code-scanning-analyses.get": true, "github.code-scanning-analyses.list": true,
 		"github.dependabot-alerts.update": true, "github.secret-scanning-alerts.update": true,
 		"github.secret-scanning-locations.list": true,
-		"github.actions-selected.get":           true, "github.actions-selected.set": true, "github.actions-fork-approval.get": true, "github.actions-fork-approval.set": true, "github.actions-retention.get": true, "github.actions-retention.set": true, "github.actions-access.get": true, "github.actions-access.set": true, "github.actions-oidc.get": true, "github.actions-oidc.set": true, "github.runners.list": true, "github.runners.get": true, "github.runners.delete": true, "github.runner-labels.list": true, "github.runner-labels.add": true, "github.runner-labels.set": true, "github.runner-labels.remove": true, "github.commit-branches.list": true,
+		"github.actions-selected.get":           true, "github.actions-selected.set": true, "github.actions-fork-approval.get": true, "github.actions-fork-approval.set": true, "github.actions-retention.get": true, "github.actions-retention.set": true, "github.actions-access.get": true, "github.actions-access.set": true, "github.actions-oidc.get": true, "github.actions-oidc.set": true, "github.deploy-keys.list": true, "github.deploy-keys.get": true, "github.deploy-keys.delete": true, "github.repository-invitations.list": true, "github.repository-invitations.cancel": true, "github.runners.list": true, "github.runners.get": true, "github.runners.delete": true, "github.runner-labels.list": true, "github.runner-labels.add": true, "github.runner-labels.set": true, "github.runner-labels.remove": true, "github.commit-branches.list": true,
 		"github.security-settings.get": true, "github.security-settings.update": true,
 		"github.code-scanning-setup.get": true, "github.code-scanning-setup.update": true,
 		"github.release-assets.update": true, "github.release-assets.delete": true, "github.release-notes.generate": true,

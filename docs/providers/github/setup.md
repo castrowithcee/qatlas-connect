@@ -4,7 +4,7 @@ description: >
 type: knowledge
 edit: shared
 created: 2026-10-25
-updated: 2026-11-11
+updated: 2026-11-12
 ---
 
 # Set up GitHub
@@ -229,6 +229,10 @@ Files below `.github/workflows/` are changed only with the workflow file tools; 
 | Read the statistics or the activity feed of a repository | none for public, `repo` for private | read access to the repository; GitHub names no specific permission |
 | Read rulesets of a repository | `repo` | Administration: read |
 | Change rulesets of a repository | `repo` | Administration: read and write |
+| Read the autolinks of a repository | `repo`, as a repository administrator | Administration: read |
+| Create or delete an autolink of a repository | `repo`, as a repository administrator | Administration: read and write |
+| Read the deploy keys or the open invitations of a repository | `repo`, as a repository administrator | Administration: read |
+| Revoke a deploy key or withdraw an invitation | `repo`, as a repository administrator | Administration: read and write |
 | Read webhooks and their deliveries of a repository | `admin:repo_hook` or `repo` | Webhooks: read |
 | Pause, resume, or delete a webhook of a repository | `admin:repo_hook` or `repo` | Webhooks: read and write |
 | Read webhooks and their deliveries of an organization | `admin:org_hook` | Webhooks: read (organization); as far as GitHub documents it |
@@ -308,7 +312,9 @@ refuses it otherwise, and Qatlas checks it before the request.
 | Tools | Classic | Fine-grained |
 | --- | --- | --- |
 | Read your own account | none beyond your identity | none beyond your identity |
-| List teams of an organization and their members | `read:org` | Members: read (organization) |
+| List teams of an organization and their members; read a team, a team membership, and the repositories of a team | `read:org` | Members: read (organization) |
+| Create, change, or delete a team; add an organization member to a team or remove one | `admin:org` | Members: read and write (organization) |
+| Set a team's permission on a repository or withdraw it | `admin:org` | Members: read and write (organization), plus Administration: read and write on the repository |
 | Search repositories, code, issues, pull requests, commits | none for public results; `repo` for private ones | Contents: read for private code and repositories; also Issues or Pull requests: read for issue and pull request search |
 | Search users and organizations | none beyond your identity | none beyond your identity |
 | Read the rate limit, meta information, license, `.gitignore`, and code of conduct templates, and emojis | none | none |

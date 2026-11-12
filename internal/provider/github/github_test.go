@@ -892,7 +892,8 @@ func TestRegisterPublishesMetadataAndTheReadOperations(t *testing.T) {
 			// Only the owner lists and the organization tools take an owner, as their target.
 			owners := descriptor.ID == projectsList.ID || descriptor.ID == repositoriesList.ID ||
 				descriptor.ID == organizationTeamsList.ID || descriptor.ID == teamMembersList.ID ||
-				descriptor.ID == issueTypesList.ID || descriptor.ID == organizationAdvisoriesList.ID
+				descriptor.ID == issueTypesList.ID || descriptor.ID == organizationAdvisoriesList.ID ||
+				slices.Contains(teamToolIDs, descriptor.ID)
 			// The searches over the issue index sort by the comment count, which reads no comment.
 			sortsByComments := (descriptor.ID == issuesSearch.ID || descriptor.ID == pullRequestsSearch.ID) &&
 				forbidden == "comments"
@@ -909,7 +910,7 @@ func TestRegisterPublishesMetadataAndTheReadOperations(t *testing.T) {
 
 		"github.comments.list", "github.commits.get", "github.commits.list", "github.commits.search",
 		"github.contents.get", "github.custom-properties.get", "github.dependabot-alerts.get",
-		"github.dependabot-alerts.list", "github.deployment-branch-policies.list",
+		"github.dependabot-alerts.list", "github.deploy-keys.get", "github.deploy-keys.list", "github.deployment-branch-policies.list",
 		"github.deployment-protection-rules.get", "github.deployment-protection-rules.list",
 		"github.deployment-statuses.get", "github.deployment-statuses.list", "github.deployments.get",
 		"github.deployments.list", "github.discussion-categories.list",
@@ -927,10 +928,10 @@ func TestRegisterPublishesMetadataAndTheReadOperations(t *testing.T) {
 		"github.pull-request-reviews.list", "github.pull-request-review-threads.list", "github.pull-requests.get",
 		"github.pull-requests.list", "github.pull-requests.search",
 		"github.release-assets.list", "github.release-notes.generate", "github.releases.get", "github.releases.list",
-		"github.repositories.list", "github.repositories.search", "github.repository-advisories.list", "github.repository-settings.get", "github.rulesets.get", "github.rulesets.list", "github.runner-labels.list", "github.runners.get", "github.runners.list",
+		"github.repositories.list", "github.repositories.search", "github.repository-advisories.list", "github.repository-invitations.list", "github.repository-settings.get", "github.autolinks.get", "github.autolinks.list", "github.rulesets.get", "github.rulesets.list", "github.runner-labels.list", "github.runners.get", "github.runners.list",
 		"github.secret-scanning-alerts.get", "github.secret-scanning-alerts.list", "github.code-scanning-alert-instances.list", "github.code-scanning-analyses.list", "github.code-scanning-analyses.get", "github.secret-scanning-locations.list", "github.stars.list", "github.sub-issues.list", "github.issue-events.list", "github.issue-timeline.list", "github.assignees.list", "github.assignees.check", "github.tags.get",
-		"github.tags.list", "github.team-members.list",
-		"github.teams.list", "github.traffic-clones.get", "github.traffic-paths.list", "github.traffic-referrers.list",
+		"github.tags.list", "github.team-members.list", "github.team-memberships.get", "github.team-repositories.list",
+		"github.teams.get", "github.teams.list", "github.traffic-clones.get", "github.traffic-paths.list", "github.traffic-referrers.list",
 		"github.traffic-views.get", "github.trees.get", "github.users.search",
 		"github.webhook-deliveries.get", "github.webhook-deliveries.list", "github.webhooks.get", "github.webhooks.list", "github.workflow-artifacts.list", "github.workflow-run-approvals.list", "github.workflow-run-attempts.get",
 		"github.workflow-files.get", "github.workflow-files.list", "github.workflow-jobs.get", "github.workflow-jobs.list",
@@ -942,7 +943,7 @@ func TestRegisterPublishesMetadataAndTheReadOperations(t *testing.T) {
 	if jobsLog.Risk.DataSensitivity != logSensitivity {
 		t.Errorf("the job log is classified as %q, want %q", jobsLog.Risk.DataSensitivity, logSensitivity)
 	}
-	if len(metadata.Tools) != 343 {
+	if len(metadata.Tools) != 362 {
 		t.Errorf("tools = %+v, want every operation offered to connection allow-lists", metadata.Tools)
 	}
 }

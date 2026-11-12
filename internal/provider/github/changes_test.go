@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -294,13 +295,18 @@ func TestRegisterPublishesTheChangeContracts(t *testing.T) {
 			actionsSettingSensitivity),
 		"github.actions-oidc.set": guardedRisk(capability.EffectUpdate, capability.IdempotencyIdempotent,
 			actionsSettingSensitivity),
-		"github.runners.list":         guardedRisk(capability.EffectRead, capability.IdempotencySafe, runnerSensitivity),
-		"github.runners.get":          guardedRisk(capability.EffectRead, capability.IdempotencySafe, runnerSensitivity),
-		"github.runners.delete":       guardedRisk(capability.EffectDelete, capability.IdempotencyUnknown, runnerSensitivity),
-		"github.runner-labels.list":   guardedRisk(capability.EffectRead, capability.IdempotencySafe, runnerSensitivity),
-		"github.runner-labels.add":    guardedRisk(capability.EffectUpdate, capability.IdempotencyIdempotent, runnerSensitivity),
-		"github.runner-labels.set":    guardedRisk(capability.EffectUpdate, capability.IdempotencyIdempotent, runnerSensitivity),
-		"github.runner-labels.remove": guardedRisk(capability.EffectUpdate, capability.IdempotencyIdempotent, runnerSensitivity),
+		"github.deploy-keys.list":              readRisk,
+		"github.deploy-keys.get":               readRisk,
+		"github.deploy-keys.delete":            guardedRisk(capability.EffectDelete, capability.IdempotencyUnknown, accessGrantSensitivity),
+		"github.repository-invitations.list":   readRisk,
+		"github.repository-invitations.cancel": guardedRisk(capability.EffectDelete, capability.IdempotencyUnknown, accessGrantSensitivity),
+		"github.runners.list":                  guardedRisk(capability.EffectRead, capability.IdempotencySafe, runnerSensitivity),
+		"github.runners.get":                   guardedRisk(capability.EffectRead, capability.IdempotencySafe, runnerSensitivity),
+		"github.runners.delete":                guardedRisk(capability.EffectDelete, capability.IdempotencyUnknown, runnerSensitivity),
+		"github.runner-labels.list":            guardedRisk(capability.EffectRead, capability.IdempotencySafe, runnerSensitivity),
+		"github.runner-labels.add":             guardedRisk(capability.EffectUpdate, capability.IdempotencyIdempotent, runnerSensitivity),
+		"github.runner-labels.set":             guardedRisk(capability.EffectUpdate, capability.IdempotencyIdempotent, runnerSensitivity),
+		"github.runner-labels.remove":          guardedRisk(capability.EffectUpdate, capability.IdempotencyIdempotent, runnerSensitivity),
 		"github.runner-groups.list": guardedRisk(capability.EffectRead, capability.IdempotencySafe,
 			actionsSettingSensitivity),
 		"github.runner-groups.get": guardedRisk(capability.EffectRead, capability.IdempotencySafe,
@@ -377,6 +383,16 @@ func TestRegisterPublishesTheChangeContracts(t *testing.T) {
 		"github.accounts.me":                    readRisk,
 		"github.teams.list":                     readRisk,
 		"github.team-members.list":              readRisk,
+		"github.teams.get":                      readRisk,
+		"github.teams.create":                   changeRisk(capability.EffectCreate, capability.IdempotencyNonIdempotent),
+		"github.teams.update":                   changeRisk(capability.EffectUpdate, capability.IdempotencyIdempotent),
+		"github.teams.delete":                   changeRisk(capability.EffectDelete, capability.IdempotencyUnknown),
+		"github.team-members.add":               changeRisk(capability.EffectUpdate, capability.IdempotencyIdempotent),
+		"github.team-members.remove":            changeRisk(capability.EffectDelete, capability.IdempotencyUnknown),
+		"github.team-memberships.get":           readRisk,
+		"github.team-repositories.list":         readRisk,
+		"github.team-repositories.set":          changeRisk(capability.EffectUpdate, capability.IdempotencyIdempotent),
+		"github.team-repositories.remove":       changeRisk(capability.EffectDelete, capability.IdempotencyUnknown),
 		"github.stars.list":                     readRisk,
 		"github.stars.add":                      changeRisk(capability.EffectCreate, capability.IdempotencyIdempotent),
 		"github.stars.remove":                   changeRisk(capability.EffectDelete, capability.IdempotencyIdempotent),
@@ -444,8 +460,13 @@ func TestRegisterPublishesTheChangeContracts(t *testing.T) {
 		"github.branch-protection.delete": guardedRisk(capability.EffectDelete, capability.IdempotencyUnknown,
 			branchProtectionSensitivity),
 		"github.branch-rules.get": readRisk,
-		"github.rulesets.list":    readRisk,
-		"github.rulesets.get":     readRisk,
+		"github.autolinks.list":   readRisk,
+		"github.autolinks.get":    readRisk,
+		"github.autolinks.create": changeRisk(capability.EffectCreate, capability.IdempotencyNonIdempotent),
+		"github.autolinks.delete": guardedRisk(capability.EffectDelete, capability.IdempotencyUnknown,
+			autolinkSensitivity),
+		"github.rulesets.list": readRisk,
+		"github.rulesets.get":  readRisk,
 		"github.rulesets.create": guardedRisk(capability.EffectCreate, capability.IdempotencyNonIdempotent,
 			rulesetSensitivity),
 		"github.rulesets.update": guardedRisk(capability.EffectUpdate, capability.IdempotencyIdempotent,
@@ -603,7 +624,7 @@ func TestRegisterPublishesTheChangeContracts(t *testing.T) {
 			descriptor.ID == projectsCreate.ID || descriptor.ID == projectsCopy.ID ||
 			descriptor.ID == organizationTeamsList.ID || descriptor.ID == teamMembersList.ID ||
 			descriptor.ID == repositoriesCreate.ID || descriptor.ID == issueTypesList.ID ||
-			descriptor.ID == organizationAdvisoriesList.ID
+			descriptor.ID == organizationAdvisoriesList.ID || slices.Contains(teamToolIDs, descriptor.ID)
 		for _, forbidden := range []string{"owner", "base_url", "query\"", "project_id", "document"} {
 			if strings.Contains(ownerFiltersStripped(descriptor), forbidden) && !(owners && forbidden == "owner") {
 				t.Errorf("%s input offers %q: %s", descriptor.ID, forbidden, descriptor.InputSchema)
