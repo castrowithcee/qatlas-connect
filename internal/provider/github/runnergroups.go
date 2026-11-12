@@ -563,9 +563,23 @@ type RunnerGroupChange struct {
 	After  RunnerGroup      `json:"after"`
 }
 
+const runnerGroupWorkflowsTooLong = "the group is restricted to more selected workflows than this tool can read " +
+	"whole, so changing it here could widen what it may run; nothing was changed"
+
+// longWorkflowEntry reports whether an entry is longer than the view keeps.
+func longWorkflowEntry(workflows []string) bool {
+	for _, workflow := range workflows {
+		if utf8.RuneCountInString(workflow) > projectionTextLimit {
+			return true
+		}
+	}
+	return false
+}
+
 // updateRunnerGroup reads the group below the bound organization, then sends one PATCH with the name and the
 // visibility, never repeated. GitHub requires the name, so the current one is sent when the call gave none;
-// it is sent as GitHub reported it, not as the cut view. The answer to the PATCH is the group after the change,
+// it is sent as GitHub reported it, not as the cut view. The public repository setting and, while the group is
+// restricted to workflows, that restriction and its whole list go back as read. The answer to the PATCH is the group after the change,
 // so no further request follows and an unreadable answer is an open outcome.
 func (c *Client) updateRunnerGroup(ctx context.Context, a *runnerGroupArguments) (*RunnerGroupChange, error) {
 	const op = "change runner group"
@@ -578,6 +592,20 @@ func (c *Client) updateRunnerGroup(ctx context.Context, a *runnerGroupArguments)
 		return nil, invalidEntry(op, "a runner group")
 	}
 	body := map[string]any{"name": *current.Name}
+	// GitHub documents defaults for the settings a PATCH leaves out and does not say whether it resets them, so
+	// the values just read go back unchanged: nothing is loosened that the caller did not ask to change.
+	if current.AllowsPublicRepositories != nil {
+		body["allows_public_repositories"] = *current.AllowsPublicRepositories
+	}
+	if current.RestrictedToWorkflows != nil && *current.RestrictedToWorkflows {
+		// The list must go back whole; a list this tool cannot hold whole would be sent shortened, which
+		// widens what the group may run, so the call ends before the request.
+		if before.SelectedWorkflowsTruncated || longWorkflowEntry(current.SelectedWorkflows) {
+			return nil, invalidRequest(runnerGroupWorkflowsTooLong)
+		}
+		body["restricted_to_workflows"] = true
+		body["selected_workflows"] = append([]string{}, current.SelectedWorkflows...)
+	}
 	if a.Name != nil {
 		body["name"] = *a.Name
 	}

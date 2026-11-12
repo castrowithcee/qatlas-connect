@@ -254,6 +254,14 @@ func TestRunnerViewsCutUntrustedText(t *testing.T) {
 	}
 }
 
+// withKept adds the settings of group 2 that an update sends back as read.
+func withKept(body map[string]any) map[string]any {
+	body["allows_public_repositories"] = false
+	body["restricted_to_workflows"] = true
+	body["selected_workflows"] = []any{"octo-org/example/.github/workflows/deploy.yml@main"}
+	return body
+}
+
 // An update reads the group below the organization, sends exactly one PATCH with the name and the visibility
 // and nothing else, and answers with the group as GitHub answered the change.
 func TestRunnerGroupUpdateSendsOnePatch(t *testing.T) {
@@ -264,11 +272,11 @@ func TestRunnerGroupUpdateSendsOnePatch(t *testing.T) {
 		want       map[string]any
 		wantAnswer []string
 	}{
-		{"both", `"name":"renamed","visibility":"private"`, map[string]any{"name": "renamed", "visibility": "private"},
+		{"both", `"name":"renamed","visibility":"private"`, withKept(map[string]any{"name": "renamed", "visibility": "private"}),
 			[]string{`"before":{"name":"builders","visibility":"selected"}`, `"name":"renamed"`, `"visibility":"private"`}},
-		{"visibility only", `"visibility":"all"`, map[string]any{"name": "renamed", "visibility": "all"},
+		{"visibility only", `"visibility":"all"`, withKept(map[string]any{"name": "renamed", "visibility": "all"}),
 			[]string{`"before":{"name":"renamed","visibility":"private"}`, `"visibility":"all"`}},
-		{"name only", `"name":"again"`, map[string]any{"name": "again"},
+		{"name only", `"name":"again"`, withKept(map[string]any{"name": "again"}),
 			[]string{`"before":{"name":"renamed","visibility":"all"}`, `"name":"again"`}},
 	} {
 		before := len(f.recorded())
@@ -560,5 +568,64 @@ func TestRunnerReadsRefuseUnusableEntries(t *testing.T) {
 	s.hosted = []any{map[string]any{"name": "no-id"}}
 	if _, err := invoke(t, core, hostedRunnersList.ID, "org-listed", `{"organization":"orgs/octo-org"}`, false); classOf(err) != provider.ClassInvalidResponse {
 		t.Errorf("a hosted runner without an identifier = %v, want an invalid response", err)
+	}
+}
+
+func lastPatch(f *fakeGitHub, since int) (recorded, bool) {
+	for _, request := range f.recorded()[since:] {
+		if request.method == http.MethodPatch {
+			return request, true
+		}
+	}
+	return recorded{}, false
+}
+
+// The settings an update does not change go back as read, so nothing is loosened: the public repository
+// setting in both states, and the restriction with its whole list only while the group is restricted.
+func TestRunnerGroupUpdateSendsBackWhatItRead(t *testing.T) {
+	f, s, base := serveRunnerGroups(t)
+	core := runnerGroupsCore(t, base, nil)
+	for _, allows := range []bool{true, false} {
+		s.groups[2]["allows_public_repositories"] = allows
+		before := len(f.recorded())
+		if _, err := invoke(t, core, runnerGroupsUpdate.ID, "org-listed", `{"organization":"orgs/octo-org","id":2,"visibility":"all"}`, true); err != nil {
+			t.Fatal(err)
+		}
+		patch, _ := lastPatch(f, before)
+		if patch.body["allows_public_repositories"] != allows || patch.body["restricted_to_workflows"] != true ||
+			!reflect.DeepEqual(patch.body["selected_workflows"], []any{"octo-org/example/.github/workflows/deploy.yml@main"}) {
+			t.Errorf("allows %t: sent %v", allows, patch.body)
+		}
+	}
+	s.groups[2]["restricted_to_workflows"] = false
+	before := len(f.recorded())
+	if _, err := invoke(t, core, runnerGroupsUpdate.ID, "org-listed", `{"organization":"orgs/octo-org","id":2,"visibility":"all"}`, true); err != nil {
+		t.Fatal(err)
+	}
+	patch, _ := lastPatch(f, before)
+	if _, ok := patch.body["restricted_to_workflows"]; ok || patch.body["selected_workflows"] != nil {
+		t.Errorf("an unrestricted group sent %v, want no restriction and no list", patch.body)
+	}
+}
+
+// A list this tool cannot read whole ends the call before the request, without provider text.
+func TestRunnerGroupUpdateRefusesAShortenedWorkflowList(t *testing.T) {
+	f, s, base := serveRunnerGroups(t)
+	core := runnerGroupsCore(t, base, nil)
+	many := make([]any, 101)
+	for i := range many {
+		many[i] = "a/b/.github/workflows/w.yml@main"
+	}
+	for name, list := range map[string][]any{"too many entries": many,
+		"a long entry": {strings.Repeat("w", 1001)}} {
+		s.groups[2]["selected_workflows"] = list
+		before := len(f.recorded())
+		_, err := invoke(t, core, runnerGroupsUpdate.ID, "org-listed", `{"organization":"orgs/octo-org","id":2,"visibility":"all"}`, true)
+		if !isInvalidRequest(err) || !strings.Contains(err.Error(), "nothing was changed") || strings.Contains(err.Error(), runnerGroupProviderCanary) {
+			t.Errorf("%s = %v, want a refusal that changed nothing", name, err)
+		}
+		if _, patched := lastPatch(f, before); patched {
+			t.Errorf("%s sent a change", name)
+		}
 	}
 }

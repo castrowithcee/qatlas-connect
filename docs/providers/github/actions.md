@@ -419,9 +419,7 @@ it. The group is first read below the organization, which binds its `id` to the 
 GitHub does not find there, or answers with another identifier, ends the call before anything is changed. The
 default group and an inherited group are not refused by Qatlas; GitHub decides what it allows. The answer holds
 the `id`, the `name` and `visibility` before the change, and the group as GitHub answered the change in `after`;
-there is no further read, since the answer to the change is the group. GitHub documents defaults for the settings
-the request leaves out, so compare `after` with the group you read before relying on the settings the tool does not
-touch. A refusal or an unclear outcome follows the rules above: GitHub's text never reaches a message, 409 and
+there is no further read, since the answer to the change is the group. GitHub documents defaults for the settings the request leaves out, so the tool sends the values it just read for them: `allows_public_repositories` as read and, while the group is restricted, `restricted_to_workflows` with the whole `selected_workflows` list as GitHub reported it. It loosens nothing the call did not ask to change. A group restricted to more workflows than the tool can read whole (over 100 entries or an entry over 1000 characters) is refused before the request, with a message that says nothing was changed. For an unrestricted group neither the restriction nor the list is sent. A refusal or an unclear outcome follows the rules above: GitHub's text never reaches a message, 409 and
 422 say that nothing was changed, and a timeout, a server error, or an answer that cannot be read says that the
 change may have been applied; the change is never repeated. Changing `visibility` decides which repositories may
 run jobs on the group's machines, so treat it as security relevant and grant the change only to a connection that
