@@ -4,7 +4,6 @@ import "slices"
 
 const (
 	deferR53VPC      = "VPC association writes wait for their own tool group: a VPC of another account must be ruled out before a zone is associated or an authorization is removed"
-	deferR53Instance = "traffic policy instance writes wait for their own tool group: an instance creates and replaces record sets of a zone"
 	deferR53Features = "hosted zone feature changes wait for their own tool group"
 )
 
@@ -46,17 +45,14 @@ var route53Table = Table{
 	// delegation set arguments, so those take /hostedzone/ as well (stripped, then refused by Route 53 as an unknown set).
 	IDPrefixes: []IDPrefix{{Shape: "ResourceId", Prefix: "/hostedzone/"}, {Shape: "ResourceId", Prefix: "/delegationset/", Operations: []string{"GetReusableDelegationSet", "GetReusableDelegationSetLimit", "DeleteReusableDelegationSet", "CreateHostedZone"}}, {Shape: "TagResourceId", Prefix: "/hostedzone/"},
 		{Shape: "ChangeId", Prefix: "/change/"}},
-	Operations: slices.Concat(route53ZoneTools, route53RecordTools, route53HealthTools, route53DNSSECTools, route53DelegationTools, route53CIDRTools, route53PolicyTools, route53ReadTools, route53LoggingTools),
+	Operations: slices.Concat(route53ZoneTools, route53RecordTools, route53HealthTools, route53DNSSECTools, route53DelegationTools, route53CIDRTools, route53PolicyTools, route53InstanceTools, route53ReadTools, route53LoggingTools),
 	Exclude: []Omission{
 		{Operation: "CreateVPCAssociationAuthorization", Reason: "authorizing a VPC of another account to join a private zone lets that account resolve the zone's records; nothing checks the account, so it is not offered"},
 	},
 	Defer: []Omission{
 		{Operation: "AssociateVPCWithHostedZone", Reason: deferR53VPC},
-		{Operation: "CreateTrafficPolicyInstance", Reason: deferR53Instance},
-		{Operation: "DeleteTrafficPolicyInstance", Reason: deferR53Instance},
 		{Operation: "DeleteVPCAssociationAuthorization", Reason: deferR53VPC},
 		{Operation: "DisassociateVPCFromHostedZone", Reason: deferR53VPC},
 		{Operation: "UpdateHostedZoneFeatures", Reason: deferR53Features},
-		{Operation: "UpdateTrafficPolicyInstance", Reason: deferR53Instance},
 	},
 }

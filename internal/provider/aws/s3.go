@@ -36,6 +36,7 @@ var guards = map[string]guard{
 	"route53-ksk":                 checkRoute53KSK,
 	"route53-log-group":           checkRoute53LogGroup,
 	"route53-policy":              checkRoute53Policy,
+	"route53-instance":            checkRoute53Instance,
 	"ses-send":                    checkSESSend,
 	"route53-cidr":                checkRoute53CIDR,
 	"acm-certificate-arn":         checkACMCertificateARN,

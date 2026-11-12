@@ -277,7 +277,7 @@ var (
 		"ses-identity", "ses-identity-arn", "ses-configuration-set"}
 	PolicyChecks = []string{"none", "trust-policy", "resource-policy-own-account", "bucket-policy", "identity-policy"}
 	// Guards are the pure argument steps and Readbacks the steps with a read of their own; see Operation.
-	Guards     = []string{"location-constraint", "new-bucket-name", "kms-key-arn", "ownership-enforce", "object-lock-governance-only", "route53-vpc", "route53-vpc-lookup", "route53-change", "route53-name", "route53-health", "route53-ksk", "route53-cidr", "route53-log-group", "route53-policy", "ses-configuration-set-values", "copy-source", "object-kms-key", "upload-kms-key", "ses-send", "acm-certificate-arn", "s3-report-destination"}
+	Guards     = []string{"location-constraint", "new-bucket-name", "kms-key-arn", "ownership-enforce", "object-lock-governance-only", "route53-vpc", "route53-vpc-lookup", "route53-change", "route53-name", "route53-health", "route53-ksk", "route53-instance", "route53-cidr", "route53-log-group", "route53-policy", "ses-configuration-set-values", "copy-source", "object-kms-key", "upload-kms-key", "ses-send", "acm-certificate-arn", "s3-report-destination"}
 	Readbacks  = []string{"pab-tighten", "s3-report-destination"}
 	Deliveries = []string{"ses-mail"}
 	// FailureHints are the hand-written failure steps a table may name.

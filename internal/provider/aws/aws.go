@@ -63,8 +63,8 @@ var toolGroups = []config.ToolGroup{{
 }, {
 	ID: "route53", Title: "Route 53",
 	Description: "Hosted zones, records, health checks, DNSSEC, reusable delegation sets, and CIDR collections of the bound account, " +
-		"their tags, and the status of a change; the name servers and the DS record to enter at the registrar; query logging, " +
-		"traffic policies, limits, geolocations, and VPC associations, read only",
+		"their tags, and the status of a change; the name servers and the DS record to enter at the registrar; traffic policies and their instances; query logging, " +
+		"limits, geolocations, and VPC associations, read only",
 }}
 
 var targetKinds = []config.TargetKind{{
