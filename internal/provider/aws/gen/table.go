@@ -143,6 +143,9 @@ type Operation struct {
 	// ResultHook names a hand-written step of the provider package that adds the result field the hook
 	// declares to the result, computed from the arguments and the answer. Empty for none.
 	ResultHook string
+	// FailureHint names a hand-written step of the provider package that adds to the message of a failed call
+	// what a person needs to know. Empty for none.
+	FailureHint string
 	// ExcludeEnum narrows the enum of an input member, so a value that would bring something the tool must
 	// not take (such as key material) cannot be sent.
 	ExcludeEnum []EnumExclusion
@@ -266,9 +269,11 @@ var (
 	// Guards are the pure argument steps and Readbacks the steps with a read of their own; see Operation.
 	Guards    = []string{"location-constraint", "new-bucket-name", "kms-key-arn", "ownership-enforce", "route53-vpc", "route53-vpc-lookup", "route53-change", "route53-name", "route53-health", "route53-ksk", "copy-source", "object-kms-key"}
 	Readbacks = []string{"pab-tighten"}
-	Forms     = []string{"account-id"}
+	// FailureHints are the hand-written failure steps a table may name.
+	FailureHints = []string{"bucket-policy-lockout"}
+	Forms        = []string{"account-id"}
 	// ResultHooks are the hand-written result steps a table may name; see resultHookFields.
-	ResultHooks = []string{"dns-records"}
+	ResultHooks = []string{"dns-records", "bucket-policy-status"}
 )
 
 var (
@@ -402,6 +407,9 @@ func (op Operation) validate() error {
 		if !slices.Contains(Guards, g) {
 			return fmt.Errorf("unknown guard %q", g)
 		}
+	}
+	if op.FailureHint != "" && !slices.Contains(FailureHints, op.FailureHint) {
+		return fmt.Errorf("unknown failure_hint %q", op.FailureHint)
 	}
 	switch {
 	case op.Readback != "" && !slices.Contains(Readbacks, op.Readback):

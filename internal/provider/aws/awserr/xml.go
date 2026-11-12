@@ -43,6 +43,7 @@ var (
 		// A bucket without such a configuration; the models do not define these codes, the service sends them.
 		"ServerSideEncryptionConfigurationNotFoundError": notFound, "NoSuchTagSet": notFound,
 		"NoSuchPublicAccessBlockConfiguration": notFound, "NoSuchLifecycleConfiguration": notFound,
+		"NoSuchBucketPolicy": notFound, "MalformedPolicy": invalid,
 		"NoSuchCORSConfiguration": notFound, "NoSuchWebsiteConfiguration": notFound,
 		"ReplicationConfigurationNotFoundError": notFound, "OwnershipControlsNotFoundError": notFound,
 		"ObjectLockConfigurationNotFoundError": notFound, "NoSuchObjectLockConfiguration": notFound,

@@ -789,6 +789,30 @@ var generatedCases = []struct {
 		form:      map[string]string{},
 		token:     false, confirm: true, listed: false, result: []string{"region"},
 		method: "PUT", path: "/", rawQuery: "ownershipControls", body: `<OwnershipControls xmlns="http://s3.amazonaws.com/doc/2006-03-01/"><Rule><ObjectOwnership>BucketOwnerEnforced</ObjectOwnership></Rule></OwnershipControls>`, owner: "123456789012", bucket: "my-bucket"},
+	{tool: "aws.s3.bucket-policy.get", action: "",
+		arguments: `{"bucket":"my-bucket"}`,
+		answer:    "x",
+		form:      map[string]string{},
+		token:     false, confirm: false, listed: false, result: []string{"region"},
+		method: "GET", path: "/", rawQuery: "policy", body: "", owner: "123456789012", bucket: "my-bucket"},
+	{tool: "aws.s3.bucket-policy.get-status", action: "",
+		arguments: `{"bucket":"my-bucket"}`,
+		answer:    `<PolicyStatus xmlns="http://s3.amazonaws.com/doc/2006-03-01/"><IsPublic>true</IsPublic></PolicyStatus>`,
+		form:      map[string]string{},
+		token:     false, confirm: false, listed: false, result: []string{"region"},
+		method: "GET", path: "/", rawQuery: "policyStatus", body: "", owner: "123456789012", bucket: "my-bucket"},
+	{tool: "aws.s3.bucket-policy.put", action: "",
+		arguments: `{"bucket":"my-bucket","policy":"{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Principal\":{\"AWS\":\"123456789012\"},\"Action\":\"s3:GetObject\",\"Resource\":\"arn:aws:s3:::example-bucket/*\"}]}"}`,
+		answer:    "",
+		form:      map[string]string{},
+		token:     false, confirm: true, listed: true, result: []string{"region"},
+		method: "PUT", path: "/", rawQuery: "policy", body: `{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Principal":{"AWS":"123456789012"},"Action":"s3:GetObject","Resource":"arn:aws:s3:::example-bucket/*"}]}`, owner: "123456789012", bucket: "my-bucket"},
+	{tool: "aws.s3.bucket-policy.delete", action: "",
+		arguments: `{"bucket":"my-bucket"}`,
+		answer:    "",
+		form:      map[string]string{},
+		token:     false, confirm: true, listed: true, result: []string{"region"},
+		method: "DELETE", path: "/", rawQuery: "policy", body: "", owner: "123456789012", bucket: "my-bucket"},
 	{tool: "aws.s3.object.list", action: "",
 		arguments: `{"bucket":"my-bucket","delimiter":"a","encoding_type":"url","prefix":"a","fetch_owner":true,"start_after":"a","optional_object_attributes":["RestoreStatus"]}`,
 		answer:    `<ListBucketResult xmlns="http://s3.amazonaws.com/doc/2006-03-01/"><IsTruncated>false</IsTruncated><Contents><Key>x</Key><LastModified>2026-01-02T03:04:05Z</LastModified><ETag>x</ETag><ChecksumAlgorithm>x</ChecksumAlgorithm><ChecksumType>x</ChecksumType><Size>1</Size><StorageClass>x</StorageClass><Owner><DisplayName>x</DisplayName><ID>x</ID></Owner><RestoreStatus><IsRestoreInProgress>true</IsRestoreInProgress><RestoreExpiryDate>2026-01-02T03:04:05Z</RestoreExpiryDate></RestoreStatus></Contents><Name>x</Name><Prefix>x</Prefix><Delimiter>x</Delimiter><MaxKeys>1</MaxKeys><CommonPrefixes><Prefix>x</Prefix></CommonPrefixes><EncodingType>x</EncodingType><KeyCount>1</KeyCount><ContinuationToken>x</ContinuationToken><StartAfter>x</StartAfter></ListBucketResult>`,
@@ -1220,7 +1244,8 @@ func TestGeneratedTools(t *testing.T) {
 			}
 			var call *sent
 			for i := range f.requests {
-				if f.requests[i].action == c.action {
+				// A tool may read before or after its change: the call is the one of the tool's own method.
+				if f.requests[i].action == c.action && (c.method == "" || f.requests[i].method == c.method) {
 					call = &f.requests[i]
 				}
 			}

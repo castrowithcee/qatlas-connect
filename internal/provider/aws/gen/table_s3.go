@@ -9,7 +9,7 @@ const deferS3 = "not curated yet; the S3 service package decides effect, confirm
 // s3Table curates the s3 model. The bucket and object tools without a local file are tools; every other operation waits for the S3 tools that follow.
 var s3Table = Table{
 	Service: "s3", Segment: "s3", Geltung: Regional,
-	Operations: slices.Concat(s3BucketTools, s3BucketWriteTools, s3ConfigTools, s3ConfigWriteTools, s3ObjectLockTools, s3ObjectTools),
+	Operations: slices.Concat(s3BucketTools, s3BucketWriteTools, s3ConfigTools, s3ConfigWriteTools, s3ObjectLockTools, s3PolicyTools, s3PolicyWriteTools, s3ObjectTools),
 	// These S3 lists continue at a KeyMarker with a second marker, which the model leaves out of its paging.
 	Pagers: []PagerSpec{
 		{Operation: "ListObjectVersions", Truncated: "IsTruncated", PageSize: "MaxKeys", Positions: []PositionSpec{
@@ -45,7 +45,6 @@ var s3Table = Table{
 		{Operation: "DeleteBucketMetadataConfiguration", Reason: deferS3},
 		{Operation: "DeleteBucketMetadataTableConfiguration", Reason: deferS3},
 		{Operation: "DeleteBucketMetricsConfiguration", Reason: deferS3},
-		{Operation: "DeleteBucketPolicy", Reason: deferS3},
 		{Operation: "DeleteBucketWebsite", Reason: deferS3},
 		{Operation: "DeleteObjectAnnotation", Reason: deferS3},
 		{Operation: "GetBucketAbac", Reason: deferS3},
@@ -55,8 +54,6 @@ var s3Table = Table{
 		{Operation: "GetBucketMetadataConfiguration", Reason: deferS3},
 		{Operation: "GetBucketMetadataTableConfiguration", Reason: deferS3},
 		{Operation: "GetBucketMetricsConfiguration", Reason: deferS3},
-		{Operation: "GetBucketPolicy", Reason: deferS3},
-		{Operation: "GetBucketPolicyStatus", Reason: deferS3},
 		{Operation: "GetObject", Reason: deferS3},
 		{Operation: "GetObjectAnnotation", Reason: deferS3},
 		{Operation: "GetObjectTorrent", Reason: deferS3},
@@ -75,7 +72,6 @@ var s3Table = Table{
 		{Operation: "PutBucketIntelligentTieringConfiguration", Reason: deferS3},
 		{Operation: "PutBucketInventoryConfiguration", Reason: deferS3},
 		{Operation: "PutBucketMetricsConfiguration", Reason: deferS3},
-		{Operation: "PutBucketPolicy", Reason: deferS3},
 		{Operation: "PutBucketRequestPayment", Reason: "waits for its own write tool; not offered yet"},
 		{Operation: "PutObject", Reason: deferS3},
 		{Operation: "PutObjectAnnotation", Reason: deferS3},
