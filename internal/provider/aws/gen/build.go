@@ -28,12 +28,14 @@ const (
 	fieldTotal   = "total_rows"
 	// fieldDNSRecords is the result member of the dns-records hook.
 	fieldDNSRecords = "dns_records"
-	csvMemberKey    = "~csv"
-	csvMaxDropped   = 32
+	// fieldPublicStatus is the result member of the bucket-policy-status hook.
+	fieldPublicStatus = "public_status"
+	csvMemberKey      = "~csv"
+	csvMaxDropped     = 32
 )
 
 var reservedNames = []string{argRegion, awsquery.ArgPageSize, awsquery.ArgCursor, argClientToken, fieldNext, fieldHasMore, fieldTruncated,
-	fieldRows, fieldDropped, fieldTotal, fieldDNSRecords}
+	fieldRows, fieldDropped, fieldTotal, fieldDNSRecords, fieldPublicStatus}
 
 // regionMarker stands for the region schema in a rendered schema; the renderer replaces it with the
 // provider's regionSchema constant, so the schema has one source.

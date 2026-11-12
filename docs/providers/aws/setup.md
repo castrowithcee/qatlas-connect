@@ -103,7 +103,7 @@ which needs `s3:ListAllMyBuckets` on all resources. The reads need `s3:ListAllMy
 `s3:GetBucketCORS` (`cors.get`), `s3:GetBucketAcl` (`acl.get`), `s3:GetBucketWebsite`, `s3:GetBucketLogging` (`logging.get`), `s3:GetBucketNotification` (`notification.get`),
 `s3:GetReplicationConfiguration` (`replication.get`), `s3:GetBucketOwnershipControls`, `s3:GetAccelerateConfiguration`,
 `s3:GetBucketRequestPayment`, `s3:GetBucketObjectLockConfiguration` (`object-lock.get`), `s3:GetObjectRetention` and
-`s3:GetObjectLegalHold` (`object-retention.get` and `object-legal-hold.get`, for the object `arn:aws:s3:::<bucket>/<key>`), each for its own tool. The writes need:
+`s3:GetObjectLegalHold` (`object-retention.get` and `object-legal-hold.get`, for the object `arn:aws:s3:::<bucket>/<key>`), `s3:GetBucketPolicy` (`bucket-policy.get`), and `s3:GetBucketPolicyStatus` (`bucket-policy.get-status`), each for its own tool. The writes need:
 
 | Tool | Permission |
 | --- | --- |
@@ -116,8 +116,10 @@ which needs `s3:ListAllMyBuckets` on all resources. The reads need `s3:ListAllMy
 | `aws.s3.ownership.put` | `s3:PutBucketOwnershipControls` |
 | `aws.s3.lifecycle.delete` | `s3:PutLifecycleConfiguration` |
 | `aws.s3.cors.delete` | `s3:PutBucketCORS` |
+| `aws.s3.bucket-policy.put` | `s3:PutBucketPolicy` and `s3:GetBucketPolicyStatus` (the read after the change) |
+| `aws.s3.bucket-policy.delete` | `s3:DeleteBucketPolicy` |
 
-Creating with tags also needs `s3:PutBucketTagging`. Setting a KMS key also needs the permissions the key's policy
+The bucket policy write tools are offered only when the tools list of the connection names them. Creating with tags also needs `s3:PutBucketTagging`. Setting a KMS key also needs the permissions the key's policy
 requires for the identity. Grant only the actions of the tools the connection offers; a policy such as `s3:*` also
 grants every object action.
 

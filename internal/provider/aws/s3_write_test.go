@@ -479,13 +479,14 @@ func TestS3ExcludedOperationsCannotBeSent(t *testing.T) {
 			t.Errorf("%s takes an MFA argument: %s", d.ID, d.InputSchema)
 		}
 		for _, banned := range []string{"acl", "website", "presign", "policy", "logging", "notification", "replication"} {
-			if strings.Contains(d.ID, banned) {
+			// The bucket policy tools are the checked ones: their own tests hold them to the principal rules.
+			if strings.Contains(d.ID, banned) && !strings.HasPrefix(d.ID, "aws.s3.bucket-policy.") {
 				t.Errorf("%s names %s", d.ID, banned)
 			}
 		}
 	}
-	if tools != 31 {
-		t.Errorf("s3 tools = %d, want 31", tools)
+	if tools != 35 {
+		t.Errorf("s3 tools = %d, want 35", tools)
 	}
 	for _, s := range generatedSpecs {
 		if s.service != "s3" {
