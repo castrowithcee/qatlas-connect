@@ -37,6 +37,7 @@ var guards = map[string]guard{
 	"route53-log-group":           checkRoute53LogGroup,
 	"route53-policy":              checkRoute53Policy,
 	"ses-send":                    checkSESSend,
+	"route53-cidr":                checkRoute53CIDR,
 
 	"ses-configuration-set-values": checkSESConfigurationSetValues,
 }

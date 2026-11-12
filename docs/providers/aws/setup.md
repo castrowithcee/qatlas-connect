@@ -171,6 +171,11 @@ Each [Route 53 tool](route53.md) needs the permission `route53:<Action>` of its 
 | `aws.route53.traffic-policy.create-version` | `route53:CreateTrafficPolicyVersion` |
 | `aws.route53.traffic-policy.update-comment` | `route53:UpdateTrafficPolicyComment` |
 | `aws.route53.traffic-policy.delete` | `route53:DeleteTrafficPolicy` |
+| `aws.route53.delegation-set.create` | `route53:CreateReusableDelegationSet` |
+| `aws.route53.delegation-set.delete` | `route53:DeleteReusableDelegationSet` |
+| `aws.route53.cidr-collection.create` | `route53:CreateCidrCollection` |
+| `aws.route53.cidr-collection.change` | `route53:ChangeCidrCollection` |
+| `aws.route53.cidr-collection.delete` | `route53:DeleteCidrCollection` |
 | `aws.route53.dnssec.enable` | `route53:EnableHostedZoneDNSSEC` |
 | `aws.route53.dnssec.disable` | `route53:DisableHostedZoneDNSSEC` |
 | `aws.route53.key-signing-key.create` | `route53:CreateKeySigningKey`; also `kms:DescribeKey`, `kms:GetPublicKey`, `kms:Sign`, and `kms:CreateGrant` on the KMS key |
