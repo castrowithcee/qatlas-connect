@@ -5,7 +5,6 @@ import "slices"
 const (
 	deferR53VPC      = "VPC association writes wait for their own tool group: a VPC of another account must be ruled out before a zone is associated or an authorization is removed"
 	deferR53CIDR     = "CIDR collection writes wait for their own tool group: routing records refer to collections, so a change needs the records that use it checked first"
-	deferR53Logging  = "query logging writes wait for their own tool group: a log group target outside the account must be ruled out first"
 	deferR53Delegate = "reusable delegation set writes wait for their own tool group: zones share a set, so removing or reusing one needs the zones that use it checked first"
 	deferR53Policy   = "traffic policy writes wait for their own tool group: a policy document drives live DNS answers once an instance applies it"
 	deferR53Instance = "traffic policy instance writes wait for their own tool group: an instance creates and replaces record sets of a zone"
@@ -49,7 +48,7 @@ var route53Table = Table{
 	// Route 53 answers zone IDs as /hostedzone/Z..., and accepts both forms only in some places. The tools take both.
 	IDPrefixes: []IDPrefix{{Shape: "ResourceId", Prefix: "/hostedzone/"}, {Shape: "ResourceId", Prefix: "/delegationset/", Operations: []string{"GetReusableDelegationSet", "GetReusableDelegationSetLimit"}}, {Shape: "TagResourceId", Prefix: "/hostedzone/"},
 		{Shape: "ChangeId", Prefix: "/change/"}},
-	Operations: slices.Concat(route53ZoneTools, route53RecordTools, route53HealthTools, route53DNSSECTools, route53ReadTools),
+	Operations: slices.Concat(route53ZoneTools, route53RecordTools, route53HealthTools, route53DNSSECTools, route53ReadTools, route53LoggingTools),
 	Exclude: []Omission{
 		{Operation: "CreateVPCAssociationAuthorization", Reason: "authorizing a VPC of another account to join a private zone lets that account resolve the zone's records; nothing checks the account, so it is not offered"},
 	},
@@ -57,13 +56,11 @@ var route53Table = Table{
 		{Operation: "AssociateVPCWithHostedZone", Reason: deferR53VPC},
 		{Operation: "ChangeCidrCollection", Reason: deferR53CIDR},
 		{Operation: "CreateCidrCollection", Reason: deferR53CIDR},
-		{Operation: "CreateQueryLoggingConfig", Reason: deferR53Logging},
 		{Operation: "CreateReusableDelegationSet", Reason: deferR53Delegate},
 		{Operation: "CreateTrafficPolicy", Reason: deferR53Policy},
 		{Operation: "CreateTrafficPolicyInstance", Reason: deferR53Instance},
 		{Operation: "CreateTrafficPolicyVersion", Reason: deferR53Policy},
 		{Operation: "DeleteCidrCollection", Reason: deferR53CIDR},
-		{Operation: "DeleteQueryLoggingConfig", Reason: deferR53Logging},
 		{Operation: "DeleteReusableDelegationSet", Reason: deferR53Delegate},
 		{Operation: "DeleteTrafficPolicy", Reason: deferR53Policy},
 		{Operation: "DeleteTrafficPolicyInstance", Reason: deferR53Instance},

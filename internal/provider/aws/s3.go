@@ -30,6 +30,7 @@ var guards = map[string]guard{
 	"route53-name":        checkRoute53Name,
 	"route53-health":      checkRoute53Health,
 	"route53-ksk":         checkRoute53KSK,
+	"route53-log-group":   checkRoute53LogGroup,
 }
 
 // readback runs after the account check and before the change, with the credentials that passed it.

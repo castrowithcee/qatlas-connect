@@ -252,3 +252,23 @@ func checkRoute53KSK(b binding, _ string, args map[string]any) error {
 	}
 	return &provider.InvalidRequestError{Message: "key_management_service_arn must be the ARN of a KMS key (key/...) in us-east-1 in the account this connection is bound to"}
 }
+
+// logGroupResource is the resource of a log group ARN: the type and a log group name, nothing else. Wildcards,
+// further colons, and the ":*" suffix of a console ARN do not match.
+var logGroupResource = regexp.MustCompile(`^log-group:[A-Za-z0-9_./#-]{1,512}$`)
+
+// checkRoute53LogGroup judges the log group of a new query logging configuration before any request. Route 53
+// query logs can only go to us-east-1, so the region is fixed and must also be one the connection allows. The ARN
+// must name a log group (not another resource or service) of the bound account, without wildcards.
+func checkRoute53LogGroup(b binding, _ string, args map[string]any) error {
+	arn, _ := args["cloud_watch_logs_log_group_arn"].(string)
+	parts := strings.SplitN(arn, ":", 6)
+	if len(parts) == 6 && parts[0] == "arn" && parts[1] == "aws" && parts[2] == "logs" && parts[3] == kskRegion &&
+		parts[4] == b.account && logGroupResource.MatchString(parts[5]) {
+		if !slices.Contains(b.regions, kskRegion) {
+			return &provider.InvalidRequestError{Message: "cloud_watch_logs_log_group_arn is in us-east-1, which this connection does not allow"}
+		}
+		return nil
+	}
+	return &provider.InvalidRequestError{Message: "cloud_watch_logs_log_group_arn must be the ARN of a log group (log-group:<name>, no wildcard) in us-east-1 in the account this connection is bound to"}
+}

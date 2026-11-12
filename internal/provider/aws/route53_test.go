@@ -21,6 +21,7 @@ var route53ToolIDs = []string{"aws.route53.hosted-zone.list", "aws.route53.hoste
 	"aws.route53.health-check.create", "aws.route53.health-check.update", "aws.route53.health-check.delete",
 	"aws.route53.dnssec.get", "aws.route53.dnssec.enable", "aws.route53.dnssec.disable", "aws.route53.key-signing-key.create",
 	"aws.route53.key-signing-key.activate", "aws.route53.key-signing-key.deactivate", "aws.route53.key-signing-key.delete",
+	"aws.route53.query-logging-config.create", "aws.route53.query-logging-config.delete",
 	"aws.route53.account-limit.get", "aws.route53.checker-ip-range.list", "aws.route53.cidr-block.list",
 	"aws.route53.cidr-collection.list", "aws.route53.cidr-location.list", "aws.route53.delegation-set.get",
 	"aws.route53.delegation-set.get-limit", "aws.route53.delegation-set.list", "aws.route53.geo-location.get",
