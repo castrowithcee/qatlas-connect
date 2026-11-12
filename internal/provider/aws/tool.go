@@ -109,6 +109,7 @@ var targetChecks = map[string]targetCheck{
 	"arn-region":                    checkARNRegion,
 	"ses-identity":                  checkSESIdentity,
 	"ses-identity-arn":              checkSESIdentityARN,
+	"ses-configuration-set":         checkSESConfigurationSet,
 }
 
 // policyCheck judges one policy document against the binding before any secret is read or request is built.

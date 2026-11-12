@@ -183,7 +183,7 @@ func (c *Client) ownsRepository(r *discussionRepositoryJSON) bool {
 }
 
 const discussionCommentNodeQuery = `query($id:ID!){node(id:$id){__typename ... on DiscussionComment{id ` +
-	`replyTo{id} discussion{number repository{name owner{login}}}}}}`
+	`replyTo{id} discussion{number category{isAnswerable} repository{name owner{login}}}}}}`
 
 type discussionCommentNodeJSON struct {
 	Node *struct {
@@ -193,25 +193,47 @@ type discussionCommentNodeJSON struct {
 			ID string `json:"id"`
 		} `json:"replyTo"`
 		Discussion *struct {
-			Number     int                       `json:"number"`
+			Number   int `json:"number"`
+			Category *struct {
+				IsAnswerable bool `json:"isAnswerable"`
+			} `json:"category"`
 			Repository *discussionRepositoryJSON `json:"repository"`
 		} `json:"discussion"`
 	} `json:"node"`
 }
 
-// findDiscussionComment reads one discussion comment by node id and refuses it unless it belongs to the bound
-// repository. It returns the discussion number and whether the comment is itself a reply.
-func (c *Client) findDiscussionComment(ctx context.Context, op, id string) (int, bool, error) {
+// discussionCommentRef is a discussion comment read back and bound to the repository.
+type discussionCommentRef struct {
+	ID         string
+	Number     int
+	IsReply    bool
+	Answerable bool
+}
+
+// readDiscussionComment reads one discussion comment by node id and refuses it unless it belongs to the bound
+// repository.
+func (c *Client) readDiscussionComment(ctx context.Context, op, id string) (*discussionCommentRef, error) {
 	var answer discussionCommentNodeJSON
 	if err := c.graphql(ctx, op, discussionCommentNodeQuery, map[string]any{"id": id}, &answer); err != nil {
-		return 0, false, actionsFailure(err, discussionWritePermission)
+		return nil, actionsFailure(err, discussionWritePermission)
 	}
 	node := answer.Node
 	if node == nil || node.Typename != "DiscussionComment" || node.Discussion == nil ||
 		!c.ownsRepository(node.Discussion.Repository) {
-		return 0, false, notFound(op, subject{in: c.target, what: "this discussion comment"})
+		return nil, notFound(op, subject{in: c.target, what: "this discussion comment"})
 	}
-	return node.Discussion.Number, node.ReplyTo != nil, nil
+	return &discussionCommentRef{ID: node.ID, Number: node.Discussion.Number, IsReply: node.ReplyTo != nil,
+		Answerable: node.Discussion.Category != nil && node.Discussion.Category.IsAnswerable}, nil
+}
+
+// findDiscussionComment returns the discussion number of a comment of the bound repository and whether the
+// comment is itself a reply.
+func (c *Client) findDiscussionComment(ctx context.Context, op, id string) (int, bool, error) {
+	ref, err := c.readDiscussionComment(ctx, op, id)
+	if err != nil {
+		return 0, false, err
+	}
+	return ref.Number, ref.IsReply, nil
 }
 
 const discussionCommentFields = `comment{id databaseId author{login} createdAt updatedAt url}`
@@ -340,18 +362,9 @@ const createDiscussionMutation = `mutation($repository:ID!,$category:ID!,$title:
 	`createDiscussion(input:{repositoryId:$repository,categoryId:$category,title:$title,body:$body}){` +
 	`discussion{id number url}}}`
 
-// CreateDiscussion starts a discussion in a category that belongs to the bound repository.
-func (c *Client) CreateDiscussion(ctx context.Context, title, body, category string) (*DiscussionCreated, error) {
-	const op = "create discussion"
-	if c.target.kind != kindRepository {
-		return nil, providerError(op, "this connection is not bound to a repository")
-	}
-	if title = strings.TrimSpace(title); title == "" || utf8.RuneCountInString(title) > 256 {
-		return nil, invalidRequest("title must hold 1 to 256 characters")
-	}
-	if err := checkCommentBody(body); err != nil {
-		return nil, err
-	}
+// checkDiscussionCategory refuses a category that does not belong to the bound repository and returns the
+// repository's node id.
+func (c *Client) checkDiscussionCategory(ctx context.Context, op, category string) (string, error) {
 	var lookup struct {
 		Repository *struct {
 			ID string `json:"id"`
@@ -364,13 +377,32 @@ func (c *Client) CreateDiscussion(ctx context.Context, title, body, category str
 	}
 	if err := c.graphql(ctx, op, discussionCategoryNodeQuery,
 		map[string]any{"owner": c.target.owner, "name": c.target.repo, "id": category}, &lookup); err != nil {
-		return nil, actionsFailure(err, discussionWritePermission)
+		return "", actionsFailure(err, discussionWritePermission)
 	}
 	if lookup.Repository == nil || lookup.Repository.ID == "" {
-		return nil, notFound(op, subject{in: c.target})
+		return "", notFound(op, subject{in: c.target})
 	}
 	if lookup.Node == nil || lookup.Node.Typename != "DiscussionCategory" || !c.ownsRepository(lookup.Node.Repository) {
-		return nil, notFound(op, subject{in: c.target, what: "this discussion category"})
+		return "", notFound(op, subject{in: c.target, what: "this discussion category"})
+	}
+	return lookup.Repository.ID, nil
+}
+
+// CreateDiscussion starts a discussion in a category that belongs to the bound repository.
+func (c *Client) CreateDiscussion(ctx context.Context, title, body, category string) (*DiscussionCreated, error) {
+	const op = "create discussion"
+	if c.target.kind != kindRepository {
+		return nil, providerError(op, "this connection is not bound to a repository")
+	}
+	if title = strings.TrimSpace(title); title == "" || utf8.RuneCountInString(title) > 256 {
+		return nil, invalidRequest("title must hold 1 to 256 characters")
+	}
+	if err := checkCommentBody(body); err != nil {
+		return nil, err
+	}
+	repositoryID, err := c.checkDiscussionCategory(ctx, op, category)
+	if err != nil {
+		return nil, err
 	}
 	var answer struct {
 		Create struct {
@@ -381,7 +413,7 @@ func (c *Client) CreateDiscussion(ctx context.Context, title, body, category str
 			} `json:"discussion"`
 		} `json:"createDiscussion"`
 	}
-	if err := c.mutate(ctx, op, createDiscussionMutation, map[string]any{"repository": lookup.Repository.ID,
+	if err := c.mutate(ctx, op, createDiscussionMutation, map[string]any{"repository": repositoryID,
 		"category": category, "title": title, "body": body}, &answer); err != nil {
 		return nil, actionsFailure(err, discussionWritePermission)
 	}

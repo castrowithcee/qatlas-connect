@@ -6,11 +6,12 @@ const (
 	sesWriteRule = "Needs confirmation."
 
 	descSESIdentity = "Identity: a domain such as example.com, or an email address; letters, digits, dots, hyphens, and for an address also +_ in the local part"
-	descSESARN      = "ARN of an identity in the bound account and an allowed region, such as arn:aws:ses:REGION:ACCOUNT:identity/example.com"
-	descSESTags     = "Tags, up to 50, each with key (1 to 128 characters) and value (0 to 256 characters)"
-	descSESConfig   = "Name of a configuration set of the bound account"
-	descSESKeyLen   = "Easy DKIM key length of the next key: RSA_1024_BIT or RSA_2048_BIT"
-	descSESOrigin   = "Where the signing key comes from: AWS_SES, or an AWS_SES_<REGION> value to use the Easy DKIM keys of that region; " +
+	descSESARN      = "ARN of an identity or a configuration set in the bound account and an allowed region, such as " +
+		"arn:aws:ses:REGION:ACCOUNT:identity/example.com or arn:aws:ses:REGION:ACCOUNT:configuration-set/NAME"
+	descSESTags   = "Tags, up to 50, each with key (1 to 128 characters) and value (0 to 256 characters)"
+	descSESConfig = "Name of a configuration set of the bound account"
+	descSESKeyLen = "Easy DKIM key length of the next key: RSA_1024_BIT or RSA_2048_BIT"
+	descSESOrigin = "Where the signing key comes from: AWS_SES, or an AWS_SES_<REGION> value to use the Easy DKIM keys of that region; " +
 		"EXTERNAL (your own key) is not offered"
 	descSESDkimSign = "Easy DKIM settings; your own key (selector and private key) is not offered"
 	descSESDKIMAttr = "DKIM state: signing switch, status, the tokens for the CNAME records, key lengths, and where the key comes from"
@@ -198,8 +199,8 @@ var sesIdentityTools = []Operation{
 	}, "update", "idempotent"),
 	sesIdentityWrite(Operation{
 		Operation: "TagResource", Object: "email-identity", Action: "tag",
-		Title:       "Tag an SES sender identity",
-		Description: "Add or replace tags on a sender identity. Needs ses:TagResource. " + sesWriteRule,
+		Title:       "Tag an SES identity or configuration set",
+		Description: "Add or replace tags on a sender identity or a configuration set. Needs ses:TagResource. " + sesWriteRule,
 		Arguments: map[string]Argument{
 			"ResourceArn": {Description: descSESARN},
 			"Tags":        {Description: descSESTags},
@@ -209,8 +210,8 @@ var sesIdentityTools = []Operation{
 	}, "update", "idempotent"),
 	sesIdentityWrite(Operation{
 		Operation: "UntagResource", Object: "email-identity", Action: "untag",
-		Title:       "Remove tags from an SES sender identity",
-		Description: "Remove tags by key from a sender identity. Needs ses:UntagResource. " + sesWriteRule,
+		Title:       "Remove tags from an SES identity or configuration set",
+		Description: "Remove tags by key from a sender identity or a configuration set. Needs ses:UntagResource. " + sesWriteRule,
 		Arguments: map[string]Argument{
 			"ResourceArn": {Description: descSESARN},
 			"TagKeys":     {Description: "Keys of the tags to remove"},
@@ -220,10 +221,10 @@ var sesIdentityTools = []Operation{
 	}, "update", "idempotent"),
 	sesIdentityRead(Operation{
 		Operation: "ListTagsForResource", Object: "email-identity", Action: "list-tags",
-		Title:       "List the tags of an SES sender identity",
-		Description: "List the tags of a sender identity. Needs ses:ListTagsForResource.",
+		Title:       "List the tags of an SES identity or configuration set",
+		Description: "List the tags of a sender identity or a configuration set. Needs ses:ListTagsForResource.",
 		Arguments:   map[string]Argument{"ResourceArn": {Description: descSESARN}},
-		Fields:      map[string]Field{"Tags": {Description: "Tags of the identity", Required: true}},
+		Fields:      map[string]Field{"Tags": {Description: "Tags of the resource", Required: true}},
 		TargetCheck: "ses-identity-arn", TargetArgs: []string{"ResourceArn"},
 		Examples: []Example{{Description: "List the tags", Arguments: `{"resource_arn":"arn:aws:ses:eu-central-1:123456789012:identity/example.com"}`}},
 	}),

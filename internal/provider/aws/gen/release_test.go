@@ -145,7 +145,7 @@ func TestLimitsGuardsAndReadbacksAreChecked(t *testing.T) {
 			t.Errorf("%s: %v, want %q", c.name, err, c.want)
 		}
 	}
-	// The tables name the steps they use, and only for the S3 tools.
+	// The tables name the steps they use, and only for the tools that need one.
 	for _, table := range Tables {
 		for _, o := range table.Operations {
 			if (o.Readback != "") != (o.Operation == "PutPublicAccessBlock") {
@@ -153,7 +153,9 @@ func TestLimitsGuardsAndReadbacksAreChecked(t *testing.T) {
 			}
 			if len(o.Guards) > 0 && o.Operation != "CreateBucket" && o.Operation != "PutBucketEncryption" && o.Operation != "PutBucketOwnershipControls" &&
 				o.Operation != "CreateHostedZone" && o.Operation != "ChangeResourceRecordSets" && o.Operation != "TestDNSAnswer" &&
-				o.Operation != "CreateHealthCheck" && o.Operation != "UpdateHealthCheck" && o.Operation != "CreateKeySigningKey" && o.Operation != "ListHostedZonesByVPC" && o.Operation != "CopyObject" {
+				o.Operation != "CreateHealthCheck" && o.Operation != "UpdateHealthCheck" && o.Operation != "CreateKeySigningKey" && o.Operation != "ListHostedZonesByVPC" &&
+				o.Operation != "CreateConfigurationSet" && o.Operation != "PutConfigurationSetTrackingOptions" && o.Operation != "PutConfigurationSetArchivingOptions" &&
+				o.Operation != "CopyObject" {
 				t.Errorf("%s: guards %v", o.Operation, o.Guards)
 			}
 		}

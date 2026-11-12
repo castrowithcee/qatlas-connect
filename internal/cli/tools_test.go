@@ -501,7 +501,11 @@ func TestToolsFiltersByNamespaceAndQuery(t *testing.T) {
 		"aws.iam.role-template.get-version", "aws.iam.human-readable-summary.get",
 		"aws.iam.outbound-federation.get-info", "aws.iam.organizations-features.list",
 		"aws.iam.organizations-access-report.get", "aws.iam.delegation-request.get",
-		"aws.iam.delegation-request.list")
+		"aws.iam.delegation-request.list",
+		"aws.ses.configuration-set.list", "aws.ses.configuration-set.get", "aws.ses.configuration-set.create",
+		"aws.ses.configuration-set.delete", "aws.ses.configuration-set.put-delivery-options", "aws.ses.configuration-set.put-reputation-options", "aws.ses.configuration-set.put-sending-options",
+		"aws.ses.configuration-set.put-suppression-options", "aws.ses.configuration-set.put-tracking-options", "aws.ses.configuration-set.put-vdm-options", "aws.ses.configuration-set.put-archiving-options",
+		"aws.ses.configuration-set-event-destination.get", "aws.ses.suppressed-destination.list", "aws.ses.suppressed-destination.get", "aws.ses.suppressed-destination.put", "aws.ses.suppressed-destination.delete")
 	wikiOffered := registryToolIDs(t, "bookstack", offeredBy(capability.EffectRead))
 	alertsOffered := registryToolIDs(t, "telegram", offeredBy(capability.EffectCreate))
 

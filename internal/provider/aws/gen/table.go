@@ -264,10 +264,10 @@ var (
 	Effects      = []string{"read", "create", "update", "delete", "execute"}
 	Idempotency  = []string{"safe", "idempotent", "non-idempotent"}
 	TargetChecks = []string{"none", "account-argument", "arn-account", "arn-account-or-managed-policy", "arn-region", "bucket-owner",
-		"ses-identity", "ses-identity-arn"}
+		"ses-identity", "ses-identity-arn", "ses-configuration-set"}
 	PolicyChecks = []string{"none", "trust-policy", "resource-policy-own-account", "bucket-policy", "identity-policy"}
 	// Guards are the pure argument steps and Readbacks the steps with a read of their own; see Operation.
-	Guards    = []string{"location-constraint", "new-bucket-name", "kms-key-arn", "ownership-enforce", "route53-vpc", "route53-vpc-lookup", "route53-change", "route53-name", "route53-health", "route53-ksk", "copy-source", "object-kms-key"}
+	Guards    = []string{"location-constraint", "new-bucket-name", "kms-key-arn", "ownership-enforce", "route53-vpc", "route53-vpc-lookup", "route53-change", "route53-name", "route53-health", "route53-ksk", "ses-configuration-set-values", "copy-source", "object-kms-key"}
 	Readbacks = []string{"pab-tighten"}
 	// FailureHints are the hand-written failure steps a table may name.
 	FailureHints = []string{"bucket-policy-lockout"}
