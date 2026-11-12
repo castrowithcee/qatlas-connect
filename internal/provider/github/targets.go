@@ -90,7 +90,7 @@ func withTargetArgument(d capability.Descriptor) capability.Descriptor {
 		name, schema, argument = "owner", ownerSchema, ownerArgument
 		fields = []capability.Field{ownerField}
 	case d.ID == organizationTeamsList.ID || d.ID == teamMembersList.ID || d.ID == organizationAdvisoriesList.ID ||
-		slices.Contains(teamToolIDs, d.ID):
+		slices.Contains(teamToolIDs, d.ID) || slices.Contains(organizationReadToolIDs, d.ID):
 		name, schema, argument = "owner", ownerSchema, organizationArgument
 		fields = []capability.Field{organizationField}
 	case d.ID == issueTypesList.ID:

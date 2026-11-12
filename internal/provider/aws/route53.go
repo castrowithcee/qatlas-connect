@@ -254,6 +254,34 @@ func checkRoute53KSK(b binding, _ string, args map[string]any) error {
 	return &provider.InvalidRequestError{Message: "key_management_service_arn must be the ARN of a KMS key (key/...) in us-east-1 in the account this connection is bound to"}
 }
 
+// Limits of a ChangeCidrCollection call: the model allows 1000 changes and 1000 blocks per list; the tool also caps
+// the blocks of the whole call.
+const maxCIDRBlocks = 1000
+
+// checkRoute53CIDR judges the blocks of a CIDR collection change before any request: each must be an IPv4 or IPv6
+// address with a prefix length (CIDR notation, no zone), and the whole call holds at most maxCIDRBlocks blocks.
+// Location names and the action are bound by the schema; block sizes and quotas are left to Route 53.
+func checkRoute53CIDR(_ binding, _ string, args map[string]any) error {
+	changes, _ := args["changes"].([]any)
+	total := 0
+	for i, c := range changes {
+		change, _ := c.(map[string]any)
+		blocks, _ := change["cidr_list"].([]any)
+		for j, b := range blocks {
+			total++
+			text, _ := b.(string)
+			if p, err := netip.ParsePrefix(text); err != nil || p.Addr().Zone() != "" {
+				return &provider.InvalidRequestError{Message: "changes[" + strconv.Itoa(i) + "].cidr_list[" + strconv.Itoa(j) +
+					"] must be an IPv4 or IPv6 block in CIDR notation such as 192.0.2.0/24 or 2001:db8::/48"}
+			}
+		}
+	}
+	if total > maxCIDRBlocks {
+		return &provider.InvalidRequestError{Message: "changes hold too many CIDR blocks: at most " + strconv.Itoa(maxCIDRBlocks) + " in one call; split it into several calls"}
+	}
+	return nil
+}
+
 // logGroupResource is the resource of a log group ARN: the type and a log group name, nothing else. Wildcards,
 // further colons, and the ":*" suffix of a console ARN do not match.
 var logGroupResource = regexp.MustCompile(`^log-group:[A-Za-z0-9_./#-]{1,512}$`)

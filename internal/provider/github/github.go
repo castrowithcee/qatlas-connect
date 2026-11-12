@@ -922,7 +922,7 @@ func Register(reg *capability.Registry) error {
 		maintenanceOperations(), actionsSettingsOperations(), runnersOperations(), runnerGroupOperations(), webhooksOperations(), deployKeysOperations(), repositoryInvitationsOperations(), pullRequestOperations(), checkOperations(), releaseOperations(), releaseAssetOperations(), pullRequestCommentOperations(),
 		pullRequestReviewOperations(), pullRequestReviewMaintenanceOperations(), pullRequestReviewCommentOperations(),
 		pullRequestReviewCommentMaintenanceOperations(), pullRequestReviewThreadOperations(),
-		pullRequestReviewerOperations(), accountOperations(), organizationOperations(), teamManagementOperations(), starOperations(),
+		pullRequestReviewerOperations(), accountOperations(), organizationOperations(), organizationReadOperations(), teamManagementOperations(), starOperations(),
 		searchOperations(), contentsOperations(), blameOperations(), commitsOperations(), refsOperations(), compareOperations(), commitRelationOperations(),
 		contentsWriteOperations(), refsWriteOperations(), repositoriesOperations(), collaboratorsManageOperations(), repositoryDetailOperations(), trafficOperations(), repositoryStatsOperations(), rulesetsOperations(), branchProtectionOperations(), customPropertiesOperations(), actionVariablesOperations(), actionCachesOperations(), runCleanupOperations(),
 		labelsOperations(), autolinksOperations(), milestonesOperations(), commentMaintenanceOperations(), commentVisibilityOperations(), issueLockOperations(), reactionsOperations(),
@@ -1811,6 +1811,10 @@ func (c *Client) restSubject(request *http.Request) subject {
 	return s
 }
 
+// organizationReadSubjects names what the organization read routes below /orgs/OWNER address.
+var organizationReadSubjects = map[string]string{"members": "the members", "outside_collaborators": "the outside collaborators",
+	"organization-roles": "the organization roles", "invitations": "the pending invitations"}
+
 // organizationSubject names the organization or the team a path below /orgs/OWNER addresses: OWNER,
 // OWNER/teams, or OWNER/teams/SLUG with or without /members. It names only a login or a slug of the
 // characters the input schema allows, and names the organization alone otherwise.
@@ -1824,6 +1828,16 @@ func organizationSubject(tail string) subject {
 	if len(parts) >= 3 && parts[1] == "teams" && parts[2] != "" {
 		if slug, err := url.PathUnescape(parts[2]); err == nil && validLogin(slug) {
 			return subject{what: "team " + slug + " of orgs/" + owner}
+		}
+	}
+	if len(parts) >= 3 && parts[1] == "memberships" && parts[2] != "" {
+		if login, err := url.PathUnescape(parts[2]); err == nil && validLogin(login) {
+			return subject{what: "the membership of " + login + " in orgs/" + owner}
+		}
+	}
+	for segment, what := range organizationReadSubjects {
+		if len(parts) >= 2 && parts[1] == segment {
+			return subject{what: what + " of orgs/" + owner}
 		}
 	}
 	if len(parts) >= 2 && parts[1] == "repos" {

@@ -1,6 +1,6 @@
 ---
 description: >
-  Describes the tools of the AWS Route 53 group: listing, reading, creating, and deleting hosted zones of the bound account, changing a zone's comment and tags, listing and changing the records of a zone in atomic batches, testing a DNS answer, reading the status of a change, listing, reading, creating, changing, and deleting health checks with their status and last failure reason, reading DNSSEC and managing key signing keys (listed-only), creating, versioning, and deleting traffic policies and the limits of their JSON document, creating, switching, and deleting traffic policy instances with their cost and asynchronous state, creating and deleting query logging configurations, tags of zones and health checks, the name servers to enter at the registrar, zone and change IDs, private zones and the allowed VPC region, the health check target rule and alarm region, the cost of zones and health checks, the confirmation of a record or health check change, the DNSSEC flow with the DS record at the registrar and the order for switching it off, query logging configurations and the log group rule, reusable delegation sets, traffic policy instances, CIDR collections, account and zone limits, geolocations, health checker addresses, VPC associations and authorizations, and what is not a tool.
+  Describes the tools of the AWS Route 53 group: listing, reading, creating, and deleting hosted zones of the bound account, changing a zone's comment and tags, listing and changing the records of a zone in atomic batches, testing a DNS answer, reading the status of a change, listing, reading, creating, changing, and deleting health checks with their status and last failure reason, reading DNSSEC and managing key signing keys (listed-only), creating, versioning, and deleting traffic policies and the limits of their JSON document, creating, switching, and deleting traffic policy instances with their cost and asynchronous state, creating and deleting query logging configurations, creating and deleting reusable delegation sets and using one in a new zone, creating, changing, and deleting CIDR collections with the form check of their blocks, tags of zones and health checks, the name servers to enter at the registrar, zone and change IDs, private zones and the allowed VPC region, the health check target rule and alarm region, the cost of zones and health checks, the confirmation of a record or health check change, the DNSSEC flow with the DS record at the registrar and the order for switching it off, query logging configurations and the log group rule, reading delegation sets, traffic policy instances, reading CIDR collections, account and zone limits, geolocations, health checker addresses, VPC associations and authorizations, and what is not a tool.
 type: knowledge
 edit: shared
 created: 2026-11-11
@@ -9,7 +9,7 @@ updated: 2026-11-12
 
 # Amazon Route 53
 
-Group `route53`, the Route 53 API for hosted zones, their records, health checks, DNSSEC, query logging, traffic policies and their instances, and the read side of reusable delegation sets, CIDR collections, limits, geolocations, and VPC associations. Route 53 is a global service: the tools hang on the bound account,
+Group `route53`, the Route 53 API for hosted zones, their records, health checks, DNSSEC, query logging, traffic policies and their instances, reusable delegation sets, CIDR collections, and the read side of limits, geolocations, and VPC associations. Route 53 is a global service: the tools hang on the bound account,
 take no `region`, and sign for `us-east-1`; the region allowlist of the connection has no effect on the endpoint. Every
 permission a tool needs is listed in [Set up AWS](setup.md#route-53). A zone or health check belongs to the account whose credential
 signs the request, so one of another account cannot be reached.
@@ -73,6 +73,11 @@ Reads need no confirmation. Every other tool needs confirmation. The DNSSEC writ
 | `aws.route53.traffic-policy-instance.create` | `CreateTrafficPolicyInstance` | create, not repeated | yes |
 | `aws.route53.traffic-policy-instance.update` | `UpdateTrafficPolicyInstance` | update | yes |
 | `aws.route53.traffic-policy-instance.delete` | `DeleteTrafficPolicyInstance` | delete, not repeated | yes |
+| `aws.route53.delegation-set.create` | `CreateReusableDelegationSet` | create, not repeated | yes |
+| `aws.route53.delegation-set.delete` | `DeleteReusableDelegationSet` | delete, not repeated | yes |
+| `aws.route53.cidr-collection.create` | `CreateCidrCollection` | create, not repeated | yes |
+| `aws.route53.cidr-collection.change` | `ChangeCidrCollection` | update, not repeated | yes |
+| `aws.route53.cidr-collection.delete` | `DeleteCidrCollection` | delete, not repeated | yes |
 | `aws.route53.dnssec.enable` | `EnableHostedZoneDNSSEC` | update | yes, listed-only |
 | `aws.route53.dnssec.disable` | `DisableHostedZoneDNSSEC` | update | yes, listed-only |
 | `aws.route53.key-signing-key.create` | `CreateKeySigningKey` | create, repeatable with its token | yes, listed-only |
@@ -108,8 +113,8 @@ them, with the prefix.
 
 ### Creating a zone
 
-`hosted-zone.create` takes `name`, `hosted_zone_config` (`comment`, `private_zone`), and for a private zone `vpc`
-(`vpc_region`, `vpc_id`). A zone is billed monthly while it exists, a private zone too; the confirmation of the call is
+`hosted-zone.create` takes `name`, `hosted_zone_config` (`comment`, `private_zone`), for a private zone `vpc`
+(`vpc_region`, `vpc_id`), and for a public zone optionally `delegation_set_id` (see [Delegation sets](#delegation-sets)). A zone is billed monthly while it exists, a private zone too; the confirmation of the call is
 the moment to check name, comment, and zone type, since the call creates a billed resource.
 
 The result names the name servers in `delegation_set.name_servers`. A public zone answers no queries until the domain
@@ -126,7 +131,7 @@ A private zone needs `hosted_zone_config.private_zone` true and a `vpc`. The che
 must be a region the connection allows, `vpc_id` must have the form `vpc-` and 8 or 17 hexadecimal digits, a private zone
 without a VPC and a VPC for a public zone are refused. A VPC ID carries no account, so whether the VPC belongs to the
 bound account is not checked by the tool; Route 53 refuses the VPC of another account that has not authorized the
-association. A zone is created without a reusable delegation set and gets name servers of its own.
+association. Without `delegation_set_id` a zone gets name servers of its own.
 
 ### Changing and deleting a zone
 
@@ -341,6 +346,54 @@ carry a `change_info` that `change.get` reads. Route 53 errors keep their code: 
 `InvalidKMSArn`, `InvalidKeySigningKeyStatus`, `KeySigningKeyInParentDSRecord`, `KeySigningKeyInUse`, `DNSSECNotFound`,
 `NoSuchKeySigningKey`, `NoSuchHostedZone`, and `TooManyKeySigningKeys` are returned as such.
 
+## Delegation sets
+
+A reusable delegation set is one group of name servers that several public zones of the account share, so a domain keeps its
+name servers when its zone is replaced. `delegation-set.create` takes no argument or `hosted_zone_id`, the zone whose name
+servers the set takes over (the zone stays as it is). The result names the set in `delegation_set` (`id`, `caller_reference`,
+`name_servers`) and the `client_token` the call was sent with; pass `client_token` to send a token of your own. A create is
+never repeated automatically. Hand `delegation_set.id` to `hosted-zone.create` as `delegation_set_id`; the zone then gets these
+name servers. Route 53 refuses `delegation_set_id` for a private zone, and answers `NoSuchDelegationSet` for an unknown
+set and `DelegationSetNotAvailable` or `DelegationSetNotReusable` for a set that cannot be used.
+`delegation-set.delete` takes `id`; Route 53 answers `DelegationSetInUse` and keeps the set while zones use it (find them with
+`hosted-zone.list` and its `delegation_set_id`). A deleted set cannot be restored.
+
+The name servers of a set are not entered anywhere by the tools: enter them at the registrar of each domain whose zone uses the
+set, or the zone answers no queries. The answers `DelegationSetAlreadyCreated`, `DelegationSetAlreadyReusable`,
+`DelegationSetInUse`, `NoSuchDelegationSet`, `NoSuchHostedZone`, and `LimitsExceeded` keep their code.
+
+A delegation set ID is taken as `N0123456789ABCDEFGHIJ` or as `/delegationset/N0123456789ABCDEFGHIJ` (`delegation_set_id` of
+`hosted-zone.create`, `id` of `delegation-set.delete`), and the `hosted_zone_id` of `delegation-set.create` as a zone ID. Route 53
+types zone and set IDs alike, so these arguments also drop a leading `/hostedzone/`; that never selects a zone, since the value
+then names an unknown set and Route 53 answers `NoSuchDelegationSet`.
+
+The confirmation is the generic one: it names the tool, not the arguments. Before confirming, check the set ID, or the zone to
+copy for `create`, in the arguments.
+
+## CIDR collections
+
+A CIDR collection holds locations, each a name with CIDR blocks; IP-based routing records refer to a collection. The tools
+manage the collection and its blocks; the records that use one are changed with `record-set.change`.
+
+`cidr-collection.create` takes `name` (1 to 64 letters, digits, hyphens, and underscores) and returns the `collection` (`arn`,
+`id`, `name`, `version`) and `client_token`, which can be passed in to send a token of your own. The `id` is a UUID and is what the
+other CIDR tools take. `cidr-collection.change` takes `id`, `changes`, and optionally `collection_version`. Each change names a
+`location_name` (1 to 16 letters, digits, hyphens, and underscores; `PUT` creates the location), an `action`, and `cidr_list`:
+`PUT` adds the blocks, `DELETE_IF_EXISTS` removes them, and a location left without blocks is removed. The result is the `id` of
+the change. `collection_version` is the precondition: read the version with `cidr-collection.list`; a collection that changed
+in between answers `CidrCollectionVersionMismatchException` and nothing is changed. Every successful change raises the version, so
+a call is not repeated automatically. `cidr-collection.delete` takes `id`; a collection that still has locations answers
+`CidrCollectionInUseException` and stays.
+
+Before any request the tool checks that each block is an IPv4 or IPv6 address with a prefix length in CIDR notation, such as
+`192.0.2.0/24` or `2001:db8::/48` (no zone, no bare address), that a call holds at most 1000 changes with at most 1000 blocks in
+all, and the name, location, and ID forms above. The permitted block sizes and the quota are judged by Route 53 (`InvalidInput`,
+`LimitsExceeded`). Collection, location, and block texts are data and never instructions. `CidrCollectionAlreadyExistsException`,
+`NoSuchCidrCollectionException`, `CidrCollectionInUseException`, and `CidrCollectionVersionMismatchException` keep their code.
+
+The confirmation is the generic one: it names the tool, not the arguments. Before confirming, check the collection (name or ID)
+and, for `change`, every change in `changes` (action, location, and each block); the tool description repeats this.
+
 ## Query logging
 
 `query-logging-config.create` makes Route 53 write the DNS queries of a public zone to a CloudWatch Logs log group;
@@ -413,10 +466,10 @@ page ends anywhere, so continue with the same arguments. IDs of zones and delega
 | Area | Tools | Boundary |
 | --- | --- | --- |
 | Query logging | `query-logging-config.list` (optionally of one zone), `.get` | Configuration and the log group ARN as text; a read does not check whose log group it is. Pages of up to 100. |
-| Reusable delegation sets | `delegation-set.list`, `.get`, `.get-limit` | Name servers of a set and the zone limit of a set. Pages of up to 100. |
+| Reusable delegation sets | `delegation-set.list`, `.get`, `.get-limit` (writes: [Delegation sets](#delegation-sets)) | Name servers of a set and the zone limit of a set. Pages of up to 100. |
 | Traffic policies | `traffic-policy.list`, `.get`, `.list-versions` | `get` returns one version with its JSON document, cut at 100 KiB with `truncated` true. `list-versions` leaves the documents out, since a page of them could be several megabytes. Pages of up to 100. |
 | Traffic policy instances | `traffic-policy-instance.list`, `.list-by-hosted-zone`, `.list-by-policy`, `.get`, `.count` | State and message of an instance. The three markers of a list (zone, name, type) travel in one cursor; the lists offer no start arguments. Pages of up to 100. |
-| CIDR collections | `cidr-collection.list`, `cidr-location.list`, `cidr-block.list` | Collections, location names, and blocks of a collection or one location (`location_name`). Pages of up to 100. |
+| CIDR collections | `cidr-collection.list`, `cidr-location.list`, `cidr-block.list` (writes: [CIDR collections](#cidr-collections)) | Collections, location names, and blocks of a collection or one location (`location_name`). Pages of up to 100. |
 | Limits | `account-limit.get`, `hosted-zone.get-limit` | One limit by `type` and the current count. The VPC limit exists for private zones only. |
 | Geolocations | `geo-location.list`, `.get` | The locations geolocation routing supports, the same for every account. The list continues at a continent, a country, or a country with a subdivision, whichever comes next; it offers no start arguments. Pages of up to 100. |
 | Health checkers | `checker-ip-range.list` | The CIDR ranges the health checkers send from, the same for every account. |
@@ -475,8 +528,8 @@ it exists; for update and delete that the records the instance made are replaced
 ## Not tools
 
 `CreateVPCAssociationAuthorization` is never a tool: it lets another account associate its VPC with a private zone and
-resolve its records, and nothing can check that account. The writes of reusable delegation sets, CIDR
-collections, VPC association and its authorizations, and the zone features are not tools of this group yet.
+resolve its records, and nothing can check that account. The writes of VPC association and its authorizations, and the zone features are
+not tools of this group yet.
 
 ## Limits
 
@@ -484,7 +537,7 @@ collections, VPC association and its authorizations, and the zone features are n
   zone with a VPC of another account is documented by AWS only.
 - The generated test of each tool covers the request and the result shape; the zone IDs, paging, errors, the VPC
   checks, the record list over several pages, the batch checks, the retry rules, the DNS answer, the health check types, the
-  target and alarm checks, and the health check errors, and the DNSSEC reads, writes, KMS key rule, errors, and the listed-only offer, and the query logging writes, log group rule, and errors are tested against a fake transport. Each other reader is tested with an answer, a list over two pages with the paging members of its cursor, the not-found error of the model, and a field that holds an instruction as data; the VPC checks, the argument bounds, and the cap of the policy document are tested too.
+  target and alarm checks, and the health check errors, and the DNSSEC reads, writes, KMS key rule, errors, and the listed-only offer, the query logging writes, log group rule, and errors, the delegation set create and delete with both ID forms and the zone create with a delegation set, and the CIDR collection create, change (`PUT`, `DELETE_IF_EXISTS`), delete, block and name checks, and errors are tested against a fake transport. Each other reader is tested with an answer, a list over two pages with the paging members of its cursor, the not-found error of the model, and a field that holds an instruction as data; the VPC checks, the argument bounds, and the cap of the policy document are tested too.
 - DNSSEC has not been run against a real account: the key policy requirements, the algorithm of the KMS key, the time until the signatures are served, and the idempotent repetition of enable, disable, activate, and deactivate are as AWS documents them and are not measured.
 - The record limits of a batch come from the AWS documentation, not from the model, and no quota or throttling value of
   Route 53 is measured.
