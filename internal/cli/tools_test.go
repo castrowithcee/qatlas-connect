@@ -786,7 +786,9 @@ func TestCompactContractIsSmallerAsTOON(t *testing.T) {
 			t.Errorf("%s: TOON %d bytes, JSON %d bytes; want TOON smaller:\n%s", descriptor.ID, len(toon),
 				len(jsonOut), toon)
 		}
-		if strings.Contains(toon, "input_schema") || strings.Contains(jsonOut, "output_schema") {
+		// A key is meant: a model member such as output_schema_version is legitimate in a description or example.
+		if strings.Contains(toon, "input_schema:") || strings.Contains(toon, "output_schema:") ||
+			strings.Contains(jsonOut, `"input_schema"`) || strings.Contains(jsonOut, `"output_schema"`) {
 			t.Errorf("%s: the compact contract repeats a schema", descriptor.ID)
 		}
 	}
