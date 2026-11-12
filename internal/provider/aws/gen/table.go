@@ -165,12 +165,22 @@ type Operation struct {
 	// Guards name hand-written steps of the provider package that judge the arguments before any I/O, each
 	// with the binding of the connection and the region of the call.
 	Guards []string
+	// Delivery names a hand-written step of a tool that delivers to third parties, such as a mail: it spaces
+	// the calls of one connection and region, and says when a failed call may still have delivered. Only a
+	// non-idempotent tool that is not a read may name one.
+	Delivery string
 	// Readback names a hand-written step that reads the current state with a call of its own after the
 	// account check and before the change, and refuses the change on what it finds. Only a tool that is not a
 	// read may name one.
 	Readback string
 	// ReadbackAnswer is the XML answer of the generated test to that read; required with Readback.
 	ReadbackAnswer string
+	// LocalFile makes the payload of a restXml operation travel through a local file the connection releases:
+	// "read" streams the input payload from a file (an upload), "write" streams the output payload into one (a
+	// download). The payload member is no argument and no field; the tool takes local_path instead and its
+	// result names size and sha256 of the file. Such a tool has no generated test, the runtime test of its
+	// package covers it.
+	LocalFile string
 	// SampleArgs replaces top-level arguments of the generated test, a JSON object by argument name, where
 	// the derived sample cannot pass a guard.
 	SampleArgs string
@@ -267,8 +277,9 @@ var (
 		"ses-identity", "ses-identity-arn", "ses-configuration-set"}
 	PolicyChecks = []string{"none", "trust-policy", "resource-policy-own-account", "bucket-policy", "identity-policy"}
 	// Guards are the pure argument steps and Readbacks the steps with a read of their own; see Operation.
-	Guards    = []string{"location-constraint", "new-bucket-name", "kms-key-arn", "ownership-enforce", "route53-vpc", "route53-vpc-lookup", "route53-change", "route53-name", "route53-health", "route53-ksk", "route53-cidr", "route53-log-group", "route53-policy", "ses-configuration-set-values", "copy-source", "object-kms-key"}
-	Readbacks = []string{"pab-tighten"}
+	Guards     = []string{"location-constraint", "new-bucket-name", "kms-key-arn", "ownership-enforce", "route53-vpc", "route53-vpc-lookup", "route53-change", "route53-name", "route53-health", "route53-ksk", "route53-cidr", "route53-log-group", "route53-policy", "ses-configuration-set-values", "copy-source", "object-kms-key", "upload-kms-key", "ses-send"}
+	Readbacks  = []string{"pab-tighten"}
+	Deliveries = []string{"ses-mail"}
 	// FailureHints are the hand-written failure steps a table may name.
 	FailureHints = []string{"bucket-policy-lockout"}
 	Forms        = []string{"account-id"}
@@ -395,6 +406,10 @@ func (op Operation) validate() error {
 		return fmt.Errorf("token_member %q must name a member of a tool that creates something", op.TokenMember)
 	case op.PageSizeMax < 0:
 		return fmt.Errorf("negative page size maximum")
+	case op.LocalFile != "" && op.LocalFile != "read" && op.LocalFile != "write":
+		return fmt.Errorf("local_file %q must be read or write", op.LocalFile)
+	case op.LocalFile == "read" && op.Effect == "read", op.LocalFile == "write" && op.Effect != "read":
+		return fmt.Errorf("local_file %s does not fit effect %s: an upload changes something, a download reads", op.LocalFile, op.Effect)
 	case strings.TrimSpace(op.Title) == "" || strings.TrimSpace(op.Description) == "" || op.DataSensitivity == "":
 		return fmt.Errorf("title, description and data sensitivity are required")
 	}
@@ -418,6 +433,10 @@ func (op Operation) validate() error {
 		return fmt.Errorf("readback %s belongs to a tool that is not a read and needs the answer of its generated test", op.Readback)
 	case op.Readback == "" && op.ReadbackAnswer != "":
 		return fmt.Errorf("a readback answer without a readback")
+	case op.Delivery != "" && !slices.Contains(Deliveries, op.Delivery):
+		return fmt.Errorf("unknown delivery %q", op.Delivery)
+	case op.Delivery != "" && op.Idempotency != "non-idempotent":
+		return fmt.Errorf("delivery %s belongs to a non-idempotent tool", op.Delivery)
 	}
 	for _, k := range op.KeepDeprecated {
 		if strings.TrimSpace(k.Member) == "" || !strings.Contains(k.Member, ".") || strings.TrimSpace(k.Reason) == "" {

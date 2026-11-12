@@ -93,10 +93,12 @@ func TestReleasesOfTheTables(t *testing.T) {
 		"GetAccount Details.AdditionalContactEmailAddresses",
 		"GetAccount Details.WebsiteURL",
 		"GetBucketEncryption ServerSideEncryptionConfiguration.Rules.ApplyServerSideEncryptionByDefault.KMSMasterKeyID",
+		"GetObject SSEKMSKeyId",
 		"HeadObject SSEKMSKeyId",
 		"PutAccountDetails AdditionalContactEmailAddresses",
 		"PutAccountDetails WebsiteURL",
 		"PutBucketEncryption ServerSideEncryptionConfiguration.Rules.ApplyServerSideEncryptionByDefault.KMSMasterKeyID",
+		"PutObject SSEKMSKeyId",
 	}
 	if !slices.Equal(released, want) {
 		t.Errorf("releases = %v, want %v", released, want)
@@ -138,6 +140,13 @@ func TestLimitsGuardsAndReadbacksAreChecked(t *testing.T) {
 			o.Effect, o.Idempotency, o.Confirm, o.Readback = "update", "idempotent", true, "pab-tighten"
 		}, "needs the answer"},
 		{"answer without a readback", func(o *Operation) { o.ReadbackAnswer = "<x/>" }, "without a readback"},
+		{"unknown delivery", func(o *Operation) {
+			o.Effect, o.Idempotency, o.Confirm, o.Delivery = "execute", "non-idempotent", true, "nothing"
+		}, "unknown delivery"},
+		{"delivery on a repeatable tool", func(o *Operation) {
+			o.Effect, o.Idempotency, o.Confirm, o.Delivery = "update", "idempotent", true, "ses-mail"
+		}, "non-idempotent"},
+		{"delivery on a read", func(o *Operation) { o.Delivery = "ses-mail" }, "non-idempotent"},
 	} {
 		o := readOp("ListThings")
 		c.edit(&o)
@@ -155,7 +164,7 @@ func TestLimitsGuardsAndReadbacksAreChecked(t *testing.T) {
 				o.Operation != "CreateHostedZone" && o.Operation != "ChangeResourceRecordSets" && o.Operation != "TestDNSAnswer" &&
 				o.Operation != "CreateHealthCheck" && o.Operation != "UpdateHealthCheck" && o.Operation != "CreateKeySigningKey" && o.Operation != "ChangeCidrCollection" && o.Operation != "CreateQueryLoggingConfig" && o.Operation != "CreateTrafficPolicy" && o.Operation != "CreateTrafficPolicyVersion" && o.Operation != "ListHostedZonesByVPC" &&
 				o.Operation != "CreateConfigurationSet" && o.Operation != "PutConfigurationSetTrackingOptions" && o.Operation != "PutConfigurationSetArchivingOptions" &&
-				o.Operation != "CopyObject" {
+				o.Operation != "CopyObject" && o.Operation != "PutObject" && o.Operation != "SendEmail" && o.Operation != "SendBulkEmail" {
 				t.Errorf("%s: guards %v", o.Operation, o.Guards)
 			}
 		}

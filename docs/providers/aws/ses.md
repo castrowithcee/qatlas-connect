@@ -1,6 +1,6 @@
 ---
 description: >
-  Describes the tools of the AWS SES v2 group: reading, creating, configuring, tagging, and deleting sender identities with DKIM and MAIL FROM, the account status, the sandbox, the production access request and the account attributes, creating and configuring configuration sets, reading their event destinations, managing the suppression list, email templates, contact lists with topics, contacts and their privacy, the identity, ARN, archive, and domain checks, the DNS help derived from checked values, and what is never a tool.
+  Describes the tools of the AWS SES v2 group: reading, creating, configuring, tagging, and deleting sender identities with DKIM and MAIL FROM, the account status, the sandbox, the production access request and the account attributes, creating and configuring configuration sets, reading their event destinations, managing the suppression list, email templates, contact lists with topics, contacts and their privacy, sending mail with confirmation, costs, and no automatic repetition, the identity, address, ARN, archive, and domain checks, the DNS help derived from checked values, and what is never a tool.
 type: knowledge
 edit: shared
 created: 2026-11-11
@@ -12,13 +12,14 @@ updated: 2026-11-12
 Group `ses`, the SES v2 API. SES is regional: every tool takes an optional `region`, which may be left out when the
 connection lists exactly one region and otherwise must name an allowed one. Every permission a tool needs is listed in
 [Set up AWS](setup.md#ses). The tools manage the sender identities (domains and email addresses), the configuration sets, the suppression list,
-the email templates, the contact lists with their topics, and the contacts of the bound account and read and change the account
-status of one region.
+the email templates, the contact lists with their topics, and the contacts of the bound account, read and change the account
+status of one region, and send mail.
 
 ## Tools
 
 Reads need no confirmation. Every other tool needs confirmation. The three identity policy tools that write are
-listed-only: a connection offers them only when its tools list names each one exactly, not by effect or prefix.
+listed-only: a connection offers them only when its tools list names each one exactly, not by effect or prefix. The
+send tools have the effect `execute`, which no connection offers by default.
 
 | Tool | AWS operation | Effect | Confirmation |
 | --- | --- | --- | --- |
@@ -38,6 +39,8 @@ listed-only: a connection offers them only when its tools list names each one ex
 | `aws.ses.email-identity.put-configuration-set-attributes` | `PutEmailIdentityConfigurationSetAttributes` | update | yes |
 | `aws.ses.email-identity.tag` | `TagResource` | update | yes |
 | `aws.ses.email-identity.untag` | `UntagResource` | update | yes |
+| `aws.ses.email.send` | `SendEmail` | execute, not repeated | yes |
+| `aws.ses.email.send-bulk` | `SendBulkEmail` | execute, not repeated | yes |
 | `aws.ses.account.get` | `GetAccount` | read | no |
 | `aws.ses.account.put-details` | `PutAccountDetails` | update | yes |
 | `aws.ses.account.put-sending-attributes` | `PutAccountSendingAttributes` | update | yes |
@@ -148,6 +151,42 @@ Each tool needs confirmation and acts on the account of the region it names:
   account, another region, or another resource type is refused.
 - **Tracking domain.** `custom_redirect_domain` of `put-tracking-options`, and `tracking_options.custom_redirect_domain`
   of `configuration-set.create`, is checked only for the form of a domain name. SES checks that you own it.
+- **Send ARNs.** The identity ARNs of the send tools (`from_email_address_identity_arn`,
+  `feedback_forwarding_email_address_identity_arn`) must name an SES identity, and a `template_arn` a template, in the
+  bound account and an allowed region. Sending with an identity of another account (sending authorization) is
+  therefore not possible.
+- **Recipients.** A call sends to at most 50 recipients, To, Cc, and Bcc together and across every destination of a
+  bulk call, the per-message limit of the
+  [SES quotas](https://docs.aws.amazon.com/ses/latest/dg/quotas.html). More recipients take more calls, each
+  confirmed on its own.
+- **Addresses.** Every sender, reply-to, and recipient address must be `local@domain` or `Display Name
+  <local@domain>`, 7-bit ASCII as SES requires: an RFC 5322 dot-atom local part of at most 64 characters, a domain
+  name (Punycode for a Unicode domain), at most 254 characters. A display name is printable ASCII without `"(),:;<>@[\]`
+  or is quoted; other characters need MIME encoded-word. The feedback address takes no display name.
+- **Size.** A message above 40 MB, the SES v2 limit, is refused.
+
+## Sending mail
+
+`send` sends one mail with simple content (subject, text, HTML, headers, attachments) or a template: a stored one by
+name or ARN, or one given inline, with template data. `send-bulk` sends one template to several destinations, each its
+own mail with its own recipients, template data, headers, and tags, and returns status and message ID per destination;
+one destination can fail while others succeed.
+
+- **What leaves the account.** Region, sender, recipients (To, Cc, Bcc), subject or template, configuration set, and
+  content go to AWS and from there to the recipients and their mail providers. A sent mail cannot be taken back. The
+  tool fetches no URL from the content and runs nothing in it.
+- **Confirmation.** Each call needs confirmation of exactly its request. The tool description is what the confirmation
+  covers: what is sent, the costs, the sandbox, and that nothing is repeated.
+- **Costs.** According to the [AWS price list](https://aws.amazon.com/ses/pricing/), 0.10 USD per 1,000 mails, each
+  recipient counted, plus 0.12 USD per GB of attachments.
+- **Sandbox.** An account without production access sends only to verified recipients, at most 200 mails a day and one
+  per second.
+- **No automatic repetition.** A send is never repeated, not after a rate limit, a timeout, or a server error. A
+  timeout, a server-side failure, or an answer that cannot be read says that the mail may have gone out: check, for
+  example with the recipient, before sending again. The SES refusals (message rejected, MAIL FROM domain not
+  verified, sending paused, account suspended) mean the mail was not sent.
+- **Pace.** Sends of one connection and region start at least one second apart, the sandbox rate, so no account
+  exceeds its rate through the tool. A faster account that still hits its limit gets a rate limit that is not repeated.
 
 ## Identity policies
 
@@ -252,11 +291,16 @@ and descriptions are untrusted data.
   verification email templates (`Create`, `Update`, `Delete`, `Get`, and `ListCustomVerificationEmailTemplates`) are not
   tools either, since they only serve that mail.
 - No import of contacts from a file (`CreateImportJob`).
+- No raw MIME content (`Content.Raw` of `SendEmail`): it carries headers and parts of its own that no check of the tool
+  sees. Simple and template content are the structured way to send, attachments included.
+- No multi-region endpoint (`EndpointId`): it has a host of its own outside the endpoint table and needs another
+  signature. A send goes to the regional endpoint of the call.
 
 ## Limits
 
 - An account without production access is in the SES sandbox and sends only to verified recipients and from verified
   identities. `aws.ses.account.get` shows it; only AWS lifts it, after it reviews the request.
+- Delivery, bounces, and the sandbox behaviour of the send tools have not been proven against a live account.
 - DKIM and domain verification take time after the records exist. How long, and the sandbox behaviour, have not been
   proven against a live account.
 - How the options of a configuration set affect deliverability has not been proven against a live account.

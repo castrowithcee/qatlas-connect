@@ -90,13 +90,14 @@ Each [SES tool](ses.md) needs the permission `ses:<Operation>` of its AWS operat
 `ses:DeleteSuppressedDestination`, `ses:ListEmailTemplates`, `ses:GetEmailTemplate`, `ses:CreateEmailTemplate`,
 `ses:UpdateEmailTemplate`, `ses:DeleteEmailTemplate`, `ses:TestRenderEmailTemplate`, `ses:ListContactLists`,
 `ses:GetContactList`, `ses:CreateContactList`, `ses:UpdateContactList`, `ses:DeleteContactList`, `ses:ListContacts`,
-`ses:GetContact`, `ses:CreateContact`, `ses:UpdateContact`, and `ses:DeleteContact`, each for its own tool. `ses:TagResource`, `ses:UntagResource`, and
+`ses:GetContact`, `ses:CreateContact`, `ses:UpdateContact`, `ses:DeleteContact`, `ses:SendEmail`, and
+`ses:SendBulkEmail`, each for its own tool. `ses:TagResource`, `ses:UntagResource`, and
 `ses:ListTagsForResource` also serve the tags of configuration sets. Creating an identity, a configuration set, a template,
 or a contact list with tags also needs `ses:TagResource`. No permission for creating, changing, or deleting event destinations is needed: those
 actions are not tools. The account tools need `ses:GetAccount`, `ses:PutAccountDetails`,
 `ses:PutAccountSendingAttributes`, `ses:PutAccountSuppressionAttributes`, `ses:PutAccountDedicatedIpWarmupAttributes`,
 and `ses:PutAccountVdmAttributes`. The identity policy write tools are offered only when the tools list
-of the connection names them. Grant only the actions of the tools the connection offers. An account without production
+of the connection names them, the send tools by the effect `execute`. Grant only the actions of the tools the connection offers. An account without production
 access is in the SES sandbox and sends only to verified recipients.
 
 **Troubleshooting: the sandbox.** SES rejects mail to an address that is not verified while `aws.ses.account.get`
@@ -118,10 +119,12 @@ which needs `s3:ListAllMyBuckets` on all resources. The reads need `s3:ListAllMy
 `s3:GetObjectLegalHold` (`object-retention.get` and `object-legal-hold.get`, for the object `arn:aws:s3:::<bucket>/<key>`), `s3:GetBucketPolicy` (`bucket-policy.get`), and `s3:GetBucketPolicyStatus` (`bucket-policy.get-status`), each for its own tool. The object reads need `s3:ListBucket` (`object.list`), `s3:ListBucketVersions` (`object.list-versions`),
 `s3:GetObject` (`object.head`, and `s3:GetObjectVersion` for a version; `object.get-attributes` also needs
 `s3:GetObjectAttributes`), `s3:GetObjectTagging` (`object-tagging.get`), and `s3:GetObjectAcl` (`object-acl.get`), for
-the object `arn:aws:s3:::<bucket>/<key>` except the two lists. The writes need:
+the object `arn:aws:s3:::<bucket>/<key>` except the two lists. The writes and the object download need:
 
 | Tool | Permission |
 | --- | --- |
+| `aws.s3.object.upload` | `s3:PutObject` on `arn:aws:s3:::<bucket>/<key>`; with `tagging` also `s3:PutObjectTagging`; with `server_side_encryption` `aws:kms` also `kms:GenerateDataKey` and `kms:Decrypt` on the key |
+| `aws.s3.object.download` | `s3:GetObject` on `arn:aws:s3:::<bucket>/<key>` (`s3:GetObjectVersion` with `version_id`); for an object with SSE-KMS also `kms:Decrypt` on the key. It is a read, but also needs a directory in `files.write` |
 | `aws.s3.bucket.create` | `s3:CreateBucket` |
 | `aws.s3.bucket.delete` | `s3:DeleteBucket` |
 | `aws.s3.versioning.put` | `s3:PutBucketVersioning` |

@@ -25,6 +25,7 @@ var guards = map[string]guard{
 	"kms-key-arn":         checkKMSKeys,
 	"object-kms-key":      checkObjectKMSKey,
 	"copy-source":         checkCopySource,
+	"upload-kms-key":      checkUploadKMSKey,
 	"ownership-enforce":   checkOwnershipEnforce,
 	"route53-vpc":         checkRoute53VPC,
 	"route53-vpc-lookup":  checkRoute53VPCLookup,
@@ -34,6 +35,7 @@ var guards = map[string]guard{
 	"route53-ksk":         checkRoute53KSK,
 	"route53-log-group":   checkRoute53LogGroup,
 	"route53-policy":      checkRoute53Policy,
+	"ses-send":            checkSESSend,
 	"route53-cidr":        checkRoute53CIDR,
 
 	"ses-configuration-set-values": checkSESConfigurationSetValues,

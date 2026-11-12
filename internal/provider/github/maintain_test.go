@@ -224,7 +224,7 @@ func TestGuardedToolsStayOutOfEveryStandardProfile(t *testing.T) {
 	deletes := map[string]bool{projectsDelete.ID: true, fieldsDelete.ID: true, fieldOptionsDelete.ID: true,
 		iterationsReplace.ID: true, viewsDelete.ID: true, itemsDelete.ID: true, statusDelete.ID: true,
 		projectWorkflowsDelete.ID: true, releasesDelete.ID: true, releaseAssetsDelete.ID: true, contentsDelete.ID: true,
-		repositoriesDelete.ID: true, collaboratorsUpdate.ID: true, teamsLink.ID: true, teamsUnlink.ID: true,
+		repositoriesDelete.ID: true, collaboratorsUpdate.ID: true, repositoryCollaboratorsRemove.ID: true, teamsLink.ID: true, teamsUnlink.ID: true,
 		filesPush.ID: true, branchesDelete.ID: true, branchesRename.ID: true, issuesLock.ID: true, branchesSyncFork.ID: true, mergesCreate.ID: true, tagsDelete.ID: true, rulesetsDelete.ID: true, branchProtectionDelete.ID: true, labelsDelete.ID: true, autolinksDelete.ID: true, milestonesDelete.ID: true, actionVariablesDelete.ID: true, actionCachesDelete.ID: true, runsDelete.ID: true, artifactsDelete.ID: true, commentsDelete.ID: true, pullRequestReviewCommentsDelete.ID: true,
 		discussionCommentsDelete.ID: true, discussionsDelete.ID: true, runLogsDelete.ID: true, environmentsDelete.ID: true,
 		branchPoliciesDelete.ID: true, protectionRulesDelete.ID: true, webhooksDelete.ID: true, deployKeysDelete.ID: true,
@@ -249,8 +249,9 @@ func TestGuardedToolsStayOutOfEveryStandardProfile(t *testing.T) {
 			descriptor.ID == rulesetsUpdate.ID || descriptor.ID == branchProtectionSet.ID ||
 			descriptor.ID == customPropertiesSet.ID ||
 			descriptor.ID == notificationsMarkAll.ID || descriptor.ID == gistsDelete.ID ||
-			descriptor.ID == repositoriesRename.ID || descriptor.ID == environmentsSet.ID ||
-			descriptor.ID == runsForceCancel.ID || slices.Contains(actionsSettingsReads, descriptor.ID) ||
+			descriptor.ID == repositoriesRename.ID || descriptor.ID == repositoryCollaboratorsUpdate.ID || descriptor.ID == environmentsSet.ID ||
+			descriptor.ID == runsForceCancel.ID || slices.Contains(teamChangeTools, descriptor.ID) ||
+			slices.Contains(actionsSettingsReads, descriptor.ID) ||
 			slices.Contains(actionsSettingsChanges, descriptor.ID) ||
 			slices.Contains(runnersReads, descriptor.ID) || slices.Contains(runnersChanges, descriptor.ID) ||
 			slices.Contains(runnerGroupReads, descriptor.ID) || slices.Contains(runnerGroupWrites, descriptor.ID) ||
@@ -266,11 +267,11 @@ func TestGuardedToolsStayOutOfEveryStandardProfile(t *testing.T) {
 			marked++
 		}
 	}
-	if marked != len(guardedTools)+len(deletes)+41 || len(guardedTools) != 13 {
+	if marked != len(guardedTools)+len(deletes)+42+len(teamChangeTools) || len(guardedTools) != 13 {
 		t.Errorf("marked tools = %d, want the thirteen maintainer and administrator tools, the fifteen deletes and "+
 			"the three access tools, files.push, and github.labels.delete, the merge, the auto-merge enable, the security switch and code scanning setup changes, the approve, the review dismissal, the ruleset "+
-			"create and update, the branch protection set, the custom properties set, the notifications mark-all, the gist delete, the repository rename, "+
-			"the environment set, the run force-cancel, the three security alert updates, the ten tools of the finer Actions settings, the seven runner tools, the four runner group and hosted runner tools, and the pause and resume of a webhook", marked)
+			"create and update, the branch protection set, the custom properties set, the notifications mark-all, the gist delete, the repository rename, the collaborator role change, "+
+			"the environment set, the run force-cancel, the three security alert updates, the ten tools of the finer Actions settings, the seven runner tools, the four runner group and hosted runner tools, the pause and resume of a webhook, and the seven team change tools", marked)
 	}
 	profiles := map[string]config.ToolProfile{}
 	for _, profile := range metadata.Profiles {
@@ -955,3 +956,8 @@ func TestContentsSubjectNamesOnlyCheckedPathsAndRefs(t *testing.T) {
 		}
 	}
 }
+
+// teamChangeTools are the team tools that change something; every one is offered only where a connection's
+// tools list names it.
+var teamChangeTools = []string{teamsCreate.ID, teamsUpdate.ID, teamsDelete.ID, teamMembersAdd.ID,
+	teamMembersRemove.ID, teamRepositoriesSet.ID, teamRepositoriesRemove.ID}
