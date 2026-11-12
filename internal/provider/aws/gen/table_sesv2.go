@@ -2,9 +2,14 @@ package gen
 
 import "slices"
 
-// deferSESv2 is the reason for every sesv2 operation not curated yet: the service package that curates the
-// tools moves each operation it takes into operations or exclude.
-const deferSESv2 = "not curated yet; the SES service package decides effect, confirmation and target first"
+// Reasons of the sesv2 operations that stay deferred for a package of their own.
+const (
+	reasonSESDedicated       = "dedicated IPs and pools follow in their own package"
+	reasonSESTenants         = "tenants, reputation entities, and multi-region endpoints follow in their own package"
+	reasonSESJobStart        = "starting and cancelling import and export jobs waits for a decision on where the data may go"
+	reasonSESMessageSecurity = "sets the message security options of a configuration set, the signing of sent mail, which is not curated yet and needs its own decision on the effect on sent mail"
+	reasonSESPricing         = "changing the pricing attributes of the account waits for a decision on its cost effect"
+)
 
 const reasonSESCustomVerification = "custom verification templates only serve SendCustomVerificationEmail, which is excluded, so they have no purpose"
 
@@ -18,7 +23,7 @@ const reasonSESEvent = "an event destination sends the events of a configuration
 // tools that follow.
 var sesv2Table = Table{
 	Service: "sesv2", Segment: "ses", Geltung: Regional,
-	Operations: slices.Concat(sesIdentityTools, sesAccountTools, sesConfigurationTools, sesContactTools, sesSendTools),
+	Operations: slices.Concat(sesIdentityTools, sesAccountTools, sesConfigurationTools, sesContactTools, sesSendTools, sesDeliverabilityTools),
 	Exclude: []Omission{
 		{Operation: "CreateConfigurationSetEventDestination", Reason: reasonSESEvent},
 		{Operation: "DeleteConfigurationSetEventDestination", Reason: reasonSESEvent},
@@ -32,56 +37,36 @@ var sesv2Table = Table{
 		{Operation: "UpdateCustomVerificationEmailTemplate", Reason: reasonSESCustomVerification},
 	},
 	Defer: []Omission{
-		{Operation: "AssociateEmailIdentityCertificate", Reason: deferSESv2},
-		{Operation: "BatchGetMetricData", Reason: deferSESv2},
-		{Operation: "CancelExportJob", Reason: deferSESv2},
-		{Operation: "CreateDedicatedIpPool", Reason: deferSESv2},
-		{Operation: "CreateDeliverabilityTestReport", Reason: deferSESv2},
-		{Operation: "CreateExportJob", Reason: deferSESv2},
-		{Operation: "CreateImportJob", Reason: deferSESv2},
-		{Operation: "CreateMultiRegionEndpoint", Reason: deferSESv2},
-		{Operation: "CreateTenant", Reason: deferSESv2},
-		{Operation: "CreateTenantResourceAssociation", Reason: deferSESv2},
-		{Operation: "DeleteDedicatedIpPool", Reason: deferSESv2},
-		{Operation: "DeleteMultiRegionEndpoint", Reason: deferSESv2},
-		{Operation: "DeleteTenant", Reason: deferSESv2},
-		{Operation: "DeleteTenantResourceAssociation", Reason: deferSESv2},
-		{Operation: "DisassociateEmailIdentityCertificate", Reason: deferSESv2},
-		{Operation: "GetBlacklistReports", Reason: deferSESv2},
-		{Operation: "GetDedicatedIp", Reason: deferSESv2},
-		{Operation: "GetDedicatedIpPool", Reason: deferSESv2},
-		{Operation: "GetDedicatedIps", Reason: deferSESv2},
-		{Operation: "GetDeliverabilityDashboardOptions", Reason: deferSESv2},
-		{Operation: "GetDeliverabilityTestReport", Reason: deferSESv2},
-		{Operation: "GetDomainDeliverabilityCampaign", Reason: deferSESv2},
-		{Operation: "GetDomainStatisticsReport", Reason: deferSESv2},
-		{Operation: "GetEmailAddressInsights", Reason: deferSESv2},
-		{Operation: "GetExportJob", Reason: deferSESv2},
-		{Operation: "GetImportJob", Reason: deferSESv2},
-		{Operation: "GetMessageInsights", Reason: deferSESv2},
-		{Operation: "GetMultiRegionEndpoint", Reason: deferSESv2},
-		{Operation: "GetReputationEntity", Reason: deferSESv2},
-		{Operation: "GetTenant", Reason: deferSESv2},
-		{Operation: "ListDedicatedIpPools", Reason: deferSESv2},
-		{Operation: "ListDeliverabilityTestReports", Reason: deferSESv2},
-		{Operation: "ListDomainDeliverabilityCampaigns", Reason: deferSESv2},
-		{Operation: "ListEmailIdentityCertificates", Reason: deferSESv2},
-		{Operation: "ListExportJobs", Reason: deferSESv2},
-		{Operation: "ListImportJobs", Reason: deferSESv2},
-		{Operation: "ListMultiRegionEndpoints", Reason: deferSESv2},
-		{Operation: "ListRecommendations", Reason: deferSESv2},
-		{Operation: "ListReputationEntities", Reason: deferSESv2},
-		{Operation: "ListResourceTenants", Reason: deferSESv2},
-		{Operation: "ListTenantResources", Reason: deferSESv2},
-		{Operation: "ListTenants", Reason: deferSESv2},
-		{Operation: "PutAccountPricingAttributes", Reason: deferSESv2},
-		{Operation: "PutDedicatedIpInPool", Reason: deferSESv2},
-		{Operation: "PutDedicatedIpPoolScalingAttributes", Reason: deferSESv2},
-		{Operation: "PutDedicatedIpWarmupAttributes", Reason: deferSESv2},
-		{Operation: "PutDeliverabilityDashboardOption", Reason: deferSESv2},
-		{Operation: "PutTenantSuppressionAttributes", Reason: deferSESv2},
-		{Operation: "UpdateConfigurationSet", Reason: deferSESv2},
-		{Operation: "UpdateReputationEntityCustomerManagedStatus", Reason: deferSESv2},
-		{Operation: "UpdateReputationEntityPolicy", Reason: deferSESv2},
+		{Operation: "CancelExportJob", Reason: reasonSESJobStart},
+		{Operation: "CreateDedicatedIpPool", Reason: reasonSESDedicated},
+		{Operation: "CreateExportJob", Reason: reasonSESJobStart},
+		{Operation: "CreateImportJob", Reason: reasonSESJobStart},
+		{Operation: "CreateMultiRegionEndpoint", Reason: reasonSESTenants},
+		{Operation: "CreateTenant", Reason: reasonSESTenants},
+		{Operation: "CreateTenantResourceAssociation", Reason: reasonSESTenants},
+		{Operation: "DeleteDedicatedIpPool", Reason: reasonSESDedicated},
+		{Operation: "DeleteMultiRegionEndpoint", Reason: reasonSESTenants},
+		{Operation: "DeleteTenant", Reason: reasonSESTenants},
+		{Operation: "DeleteTenantResourceAssociation", Reason: reasonSESTenants},
+		{Operation: "GetDedicatedIp", Reason: reasonSESDedicated},
+		{Operation: "GetDedicatedIpPool", Reason: reasonSESDedicated},
+		{Operation: "GetDedicatedIps", Reason: reasonSESDedicated},
+		{Operation: "GetMultiRegionEndpoint", Reason: reasonSESTenants},
+		{Operation: "GetReputationEntity", Reason: reasonSESTenants},
+		{Operation: "GetTenant", Reason: reasonSESTenants},
+		{Operation: "ListDedicatedIpPools", Reason: reasonSESDedicated},
+		{Operation: "ListMultiRegionEndpoints", Reason: reasonSESTenants},
+		{Operation: "ListReputationEntities", Reason: reasonSESTenants},
+		{Operation: "ListResourceTenants", Reason: reasonSESTenants},
+		{Operation: "ListTenantResources", Reason: reasonSESTenants},
+		{Operation: "ListTenants", Reason: reasonSESTenants},
+		{Operation: "PutAccountPricingAttributes", Reason: reasonSESPricing},
+		{Operation: "PutDedicatedIpInPool", Reason: reasonSESDedicated},
+		{Operation: "PutDedicatedIpPoolScalingAttributes", Reason: reasonSESDedicated},
+		{Operation: "PutDedicatedIpWarmupAttributes", Reason: reasonSESDedicated},
+		{Operation: "PutTenantSuppressionAttributes", Reason: reasonSESTenants},
+		{Operation: "UpdateConfigurationSet", Reason: reasonSESMessageSecurity},
+		{Operation: "UpdateReputationEntityCustomerManagedStatus", Reason: reasonSESTenants},
+		{Operation: "UpdateReputationEntityPolicy", Reason: reasonSESTenants},
 	},
 }

@@ -230,13 +230,13 @@ func TestS3ObjectLockDescriptions(t *testing.T) {
 	}
 }
 
-// No tool writes the payment model yet, and none removes ownership controls.
-func TestS3PaymentWriteAndOwnershipDeleteAreNotTools(t *testing.T) {
+// No tool removes ownership controls.
+func TestS3OwnershipDeleteIsNotATool(t *testing.T) {
 	registeredIDs := map[string]bool{}
 	for _, d := range registered(t).Provider(Provider) {
 		registeredIDs[d.ID] = true
 	}
-	for _, id := range []string{"aws.s3.request-payment.put", "aws.s3.ownership.delete"} {
+	for _, id := range []string{"aws.s3.ownership.delete"} {
 		if registeredIDs[id] {
 			t.Errorf("%s is registered", id)
 		}
@@ -244,11 +244,6 @@ func TestS3PaymentWriteAndOwnershipDeleteAreNotTools(t *testing.T) {
 	for _, s := range generatedSpecs {
 		if s.service != "s3" || s.rest.Method == "GET" || s.rest.Method == "HEAD" {
 			continue
-		}
-		for _, banned := range []string{"?requestPayment"} {
-			if strings.Contains(s.rest.URI, banned) {
-				t.Errorf("%s sends %s %s", s.descriptor.ID, s.rest.Method, s.rest.URI)
-			}
 		}
 		if s.rest.Method == "DELETE" && strings.Contains(s.rest.URI, "?ownershipControls") {
 			t.Errorf("%s deletes the ownership controls", s.descriptor.ID)
