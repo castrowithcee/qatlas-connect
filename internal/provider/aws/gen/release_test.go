@@ -93,6 +93,7 @@ func TestReleasesOfTheTables(t *testing.T) {
 		"GetAccount Details.AdditionalContactEmailAddresses",
 		"GetAccount Details.WebsiteURL",
 		"GetBucketEncryption ServerSideEncryptionConfiguration.Rules.ApplyServerSideEncryptionByDefault.KMSMasterKeyID",
+		"GetBucketInventoryConfiguration InventoryConfiguration.Destination.S3BucketDestination.Encryption.SSEKMS.KeyId",
 		"GetExportJob ExportDataSource.MessageInsightsDataSource.Exclude.Destination",
 		"GetExportJob ExportDataSource.MessageInsightsDataSource.Exclude.FromEmailAddress",
 		"GetExportJob ExportDataSource.MessageInsightsDataSource.Exclude.Subject",
@@ -104,9 +105,11 @@ func TestReleasesOfTheTables(t *testing.T) {
 		"GetMessageInsights Subject",
 		"GetObject SSEKMSKeyId",
 		"HeadObject SSEKMSKeyId",
+		"ListBucketInventoryConfigurations InventoryConfigurationList.Destination.S3BucketDestination.Encryption.SSEKMS.KeyId",
 		"PutAccountDetails AdditionalContactEmailAddresses",
 		"PutAccountDetails WebsiteURL",
 		"PutBucketEncryption ServerSideEncryptionConfiguration.Rules.ApplyServerSideEncryptionByDefault.KMSMasterKeyID",
+		"PutBucketInventoryConfiguration InventoryConfiguration.Destination.S3BucketDestination.Encryption.SSEKMS.KeyId",
 		"PutObject SSEKMSKeyId",
 	}
 	if !slices.Equal(released, want) {
@@ -166,7 +169,7 @@ func TestLimitsGuardsAndReadbacksAreChecked(t *testing.T) {
 	// The tables name the steps they use, and only for the tools that need one.
 	for _, table := range Tables {
 		for _, o := range table.Operations {
-			if (o.Readback != "") != (o.Operation == "PutPublicAccessBlock") {
+			if (o.Readback != "") != (o.Operation == "PutPublicAccessBlock" || o.Operation == "PutBucketInventoryConfiguration" || o.Operation == "PutBucketAnalyticsConfiguration") {
 				t.Errorf("%s: readback %q", o.Operation, o.Readback)
 			}
 			if len(o.Guards) > 0 && o.Operation != "CreateBucket" && o.Operation != "PutBucketEncryption" && o.Operation != "PutBucketOwnershipControls" &&
@@ -175,7 +178,8 @@ func TestLimitsGuardsAndReadbacksAreChecked(t *testing.T) {
 				o.Operation != "CreateHealthCheck" && o.Operation != "UpdateHealthCheck" && o.Operation != "CreateKeySigningKey" && o.Operation != "ChangeCidrCollection" && o.Operation != "CreateQueryLoggingConfig" && o.Operation != "CreateTrafficPolicy" && o.Operation != "CreateTrafficPolicyVersion" && o.Operation != "ListHostedZonesByVPC" &&
 				o.Operation != "CreateConfigurationSet" && o.Operation != "PutConfigurationSetTrackingOptions" && o.Operation != "PutConfigurationSetArchivingOptions" &&
 				o.Operation != "CopyObject" && o.Operation != "PutObject" && o.Operation != "SendEmail" && o.Operation != "SendBulkEmail" &&
-				o.Operation != "AssociateEmailIdentityCertificate" {
+				o.Operation != "AssociateEmailIdentityCertificate" &&
+				o.Operation != "PutBucketInventoryConfiguration" && o.Operation != "PutBucketAnalyticsConfiguration" {
 				t.Errorf("%s: guards %v", o.Operation, o.Guards)
 			}
 		}
