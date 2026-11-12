@@ -228,6 +228,8 @@ Files below `.github/workflows/` are changed only with the workflow file tools; 
 | Read the statistics or the activity feed of a repository | none for public, `repo` for private | read access to the repository; GitHub names no specific permission |
 | Read rulesets of a repository | `repo` | Administration: read |
 | Change rulesets of a repository | `repo` | Administration: read and write |
+| Read the deploy keys or the open invitations of a repository | `repo`, as a repository administrator | Administration: read |
+| Revoke a deploy key or withdraw an invitation | `repo`, as a repository administrator | Administration: read and write |
 | Read the protection of a branch | `repo`, with the Admin role on the repository | Administration: read |
 | Change or remove the protection of a branch | `repo`, with the Admin role on the repository | Administration: read and write |
 | Read the rules that apply to a branch | none for public, `repo` for private | Metadata: read; as far as GitHub documents it |
