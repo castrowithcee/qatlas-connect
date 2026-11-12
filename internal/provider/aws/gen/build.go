@@ -471,6 +471,9 @@ func (t *tool) bindInput(m *Model, in []member, pag *pagingPlan) error {
 		if deprecated(mm) || hidden[mm.name] {
 			continue
 		}
+		if t.isStream(mm.name, true) {
+			continue
+		}
 		if t.layerOwned(mm.name) {
 			continue
 		}
@@ -521,6 +524,17 @@ func (t *tool) bindInput(m *Model, in []member, pag *pagingPlan) error {
 		if !offered[name] {
 			return t.failf("argument entry %s is not an offered input member", name)
 		}
+	}
+	if t.op.LocalFile != "" {
+		if err := t.checkLocalFile(); err != nil {
+			return err
+		}
+		if used[localPathName] {
+			return t.failf("argument name %s is reserved or used twice", localPathName)
+		}
+		props.set(localPathName, rawJSON(localPathSchema))
+		required = append(required, localPathName)
+		t.args = append(t.args, descArg{name: localPathName, required: true, description: localPathHelp[t.op.LocalFile]})
 	}
 	for name, hit := range t.nestedIn {
 		if !hit {
@@ -662,6 +676,9 @@ func (t *tool) bindOutput(m *Model, out []member, pag *pagingPlan) error {
 		if deprecated(mm) || hidden[mm.name] {
 			continue
 		}
+		if t.isStream(mm.name, false) {
+			continue
+		}
 		if t.op.AccountCheck && !slices.Contains(accountCheckMembers, mm.name) {
 			return t.failf("the account check answers only %v, not %s", accountCheckMembers, mm.name)
 		}
@@ -780,6 +797,16 @@ func (t *tool) bindOutput(m *Model, out []member, pag *pagingPlan) error {
 			descField{name: fieldTotal, description: "Number of rows in the whole report"},
 			descField{name: fieldNext, description: "Cursor of the next page; absent at the end of the rows"},
 			descField{name: fieldHasMore, description: "True when more rows follow"})
+	}
+	if t.op.LocalFile != "" {
+		for _, f := range localResult {
+			if used[f.name] {
+				return t.failf("field name %s is reserved or used twice", f.name)
+			}
+			props.set(f.name, f.schema)
+			required = append(required, f.name)
+			t.fields = append(t.fields, descField{name: f.name, description: f.description[t.op.LocalFile]})
+		}
 	}
 	if t.hasToken {
 		props.set(argClientToken, newObject("type", "string", "maxLength", 128))

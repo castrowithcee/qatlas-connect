@@ -201,6 +201,19 @@ func (s toolSpec) check() error {
 			return fmt.Errorf("guard %q has no implementation", name)
 		}
 	}
+	switch s.descriptor.LocalFiles {
+	case "":
+	case config.LocalFilesRead:
+		if s.rest == nil || !s.rest.StreamsInput() || s.rest.StreamsOutput() || s.descriptor.Risk.Effect == capability.EffectRead {
+			return errors.New("an upload streams its input payload and changes something")
+		}
+	case config.LocalFilesWrite:
+		if s.rest == nil || !s.rest.StreamsOutput() || s.rest.StreamsInput() || s.descriptor.Risk.Effect != capability.EffectRead {
+			return errors.New("a download streams its output payload and is a read")
+		}
+	default:
+		return errors.New("the local file direction is unknown")
+	}
 	if s.readback != "" && (readbacks[s.readback] == nil || s.rest == nil || s.descriptor.Risk.Effect == capability.EffectRead) {
 		return fmt.Errorf("readback %q has no implementation or does not belong to a REST tool that changes something", s.readback)
 	}
@@ -257,6 +270,15 @@ func (s toolSpec) handler() capability.Handler {
 				return nil, err
 			}
 		}
+		var file *transfer
+		if s.descriptor.LocalFiles != "" {
+			// The file is opened before the credential is resolved, so a path outside the released directories, a
+			// file over the limit, or a local file that would be replaced without confirmation sends nothing.
+			if file, err = s.openTransfer(ctx, resolved, args); err != nil {
+				return nil, err
+			}
+			defer file.close()
+		}
 		page, err := s.startPage(region, args)
 		if err != nil {
 			return nil, err
@@ -267,7 +289,13 @@ func (s toolSpec) handler() capability.Handler {
 				return nil, err
 			}
 		}
-		token, send, err := s.encode(args, page, b.account)
+		var token string
+		var send sender
+		if file != nil {
+			send, err = s.encodeTransfer(args, b.account, file)
+		} else {
+			token, send, err = s.encode(args, page, b.account)
+		}
 		if err != nil {
 			return nil, err
 		}
@@ -324,6 +352,9 @@ func (s toolSpec) handler() capability.Handler {
 			}
 		}
 		res, err := s.result(op, out, page, region, global, truncated, token)
+		if file != nil && err == nil {
+			file.addTransfer(res.(map[string]any))
+		}
 		if hook := resultHooks[s.resultHook]; err == nil && hook != nil {
 			hook(ctx, client, s, changeCreds, res.(map[string]any), region, args)
 		}
