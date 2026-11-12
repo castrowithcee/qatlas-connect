@@ -54,6 +54,13 @@ var currentToolIDs = []string{
 	"github.runner-groups.get",
 	"github.runner-groups.list",
 	"github.runner-groups.update",
+	"github.webhooks.list",
+	"github.webhooks.get",
+	"github.webhooks.pause",
+	"github.webhooks.resume",
+	"github.webhooks.delete",
+	"github.webhook-deliveries.list",
+	"github.webhook-deliveries.get",
 	"github.blame.get",
 	"github.branch-protection.delete",
 	"github.branch-protection.get",
@@ -351,7 +358,7 @@ func TestRegistryHoldsExactlyTheCurrentToolIDs(t *testing.T) {
 	sort.Strings(got)
 	want := append([]string(nil), currentToolIDs...)
 	sort.Strings(want)
-	if strings.Join(got, "\n") != strings.Join(want, "\n") || len(got) != 326 {
+	if strings.Join(got, "\n") != strings.Join(want, "\n") || len(got) != 333 {
 		t.Errorf("registry holds %d tools, differing from the expected %d IDs", len(got), len(want))
 	}
 	if err := reg.ValidateRenames(); err != nil {
@@ -395,6 +402,7 @@ func TestRenamedToolsCoverEveryChangedID(t *testing.T) {
 		"github.code-scanning-setup.get": true, "github.code-scanning-setup.update": true,
 		"github.release-assets.update": true, "github.release-assets.delete": true, "github.release-notes.generate": true,
 		"github.runner-groups.list": true, "github.runner-groups.get": true, "github.runner-groups.update": true, "github.hosted-runners.list": true,
+		"github.webhooks.list": true, "github.webhooks.get": true, "github.webhooks.pause": true, "github.webhooks.resume": true, "github.webhooks.delete": true, "github.webhook-deliveries.list": true, "github.webhook-deliveries.get": true,
 		"github.commit-comments.get": true, "github.commit-comments.list": true, "github.commit-pulls.list": true,
 		"github.community-profile.get": true,
 		"github.traffic-views.get":     true, "github.traffic-clones.get": true, "github.traffic-paths.list": true,
