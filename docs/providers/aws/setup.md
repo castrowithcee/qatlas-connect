@@ -90,13 +90,14 @@ Each [SES tool](ses.md) needs the permission `ses:<Operation>` of its AWS operat
 `ses:DeleteSuppressedDestination`, `ses:ListEmailTemplates`, `ses:GetEmailTemplate`, `ses:CreateEmailTemplate`,
 `ses:UpdateEmailTemplate`, `ses:DeleteEmailTemplate`, `ses:TestRenderEmailTemplate`, `ses:ListContactLists`,
 `ses:GetContactList`, `ses:CreateContactList`, `ses:UpdateContactList`, `ses:DeleteContactList`, `ses:ListContacts`,
-`ses:GetContact`, `ses:CreateContact`, `ses:UpdateContact`, and `ses:DeleteContact`, each for its own tool. `ses:TagResource`, `ses:UntagResource`, and
+`ses:GetContact`, `ses:CreateContact`, `ses:UpdateContact`, `ses:DeleteContact`, `ses:SendEmail`, and
+`ses:SendBulkEmail`, each for its own tool. `ses:TagResource`, `ses:UntagResource`, and
 `ses:ListTagsForResource` also serve the tags of configuration sets. Creating an identity, a configuration set, a template,
 or a contact list with tags also needs `ses:TagResource`. No permission for creating, changing, or deleting event destinations is needed: those
 actions are not tools. The account tools need `ses:GetAccount`, `ses:PutAccountDetails`,
 `ses:PutAccountSendingAttributes`, `ses:PutAccountSuppressionAttributes`, `ses:PutAccountDedicatedIpWarmupAttributes`,
 and `ses:PutAccountVdmAttributes`. The identity policy write tools are offered only when the tools list
-of the connection names them. Grant only the actions of the tools the connection offers. An account without production
+of the connection names them, the send tools by the effect `execute`. Grant only the actions of the tools the connection offers. An account without production
 access is in the SES sandbox and sends only to verified recipients.
 
 **Troubleshooting: the sandbox.** SES rejects mail to an address that is not verified while `aws.ses.account.get`
