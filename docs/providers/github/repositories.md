@@ -1,6 +1,6 @@
 ---
 description: >
-  Describes the GitHub repository tools: the repository list of an owner, the details, languages, contributors, and community profile of one repository, its statistics and activity feed, repository create, fork, rename, and delete, collaborators, repository traffic, rulesets, existing webhooks and their deliveries, branch protection and branch rules, custom properties, repository settings, starred repositories, and the repository search.
+  Describes the GitHub repository tools: the repository list of an owner, the details, languages, contributors, and community profile of one repository, its statistics and activity feed, repository create, fork, rename, and delete, collaborators, deploy keys, repository invitations, repository traffic, rulesets, existing webhooks and their deliveries, branch protection and branch rules, custom properties, repository settings, starred repositories, and the repository search.
 type: knowledge
 edit: shared
 created: 2026-10-22
@@ -192,6 +192,43 @@ The token rights are listed under [Repositories, rulesets, and properties](setup
 The terminal editor's setup profile `repository-admin-reader` (not recommended) selects
 `github.collaborators.list`, `github.rulesets.list`, `github.rulesets.get`, `github.custom-properties.get`, and the
 four webhook reads below; it is not the recommended profile, which stays `read`, unchanged.
+
+## Deploy keys and repository invitations
+
+| Tool | Does |
+| --- | --- |
+| `github.deploy-keys.list` | lists the deploy keys of a repository, paged |
+| `github.deploy-keys.get` | reads one deploy key by its `id` |
+| `github.deploy-keys.delete` | revokes one deploy key; offered only where a connection's `tools` list names it |
+| `github.repository-invitations.list` | lists the open invitations to a repository, paged |
+| `github.repository-invitations.cancel` | withdraws one open invitation; offered only where a connection's `tools` list names it |
+
+Every tool takes `repository` like the other repository tools, checked against the connection's targets and
+exclusions before any credential is resolved. Creating a deploy key and creating or accepting an invitation are
+not offered. The two read tools are not listed-only; they belong to no profile.
+
+A deploy key's text (`key`) is an access value and no tool shows it. A reader gets `id`, `title`, `read_only`,
+`verified`, `created_at`, `added_by`, `last_used`, `enabled`, `links` (the REST `url`, never fetched), and a
+`fingerprint`, the `SHA256:` form GitHub and `ssh-keygen` show. GitHub's API sends no fingerprint, so Qatlas
+computes it locally from the public key; it is absent when the key text cannot be read. `read_only` tells
+whether the key can also push; an answer without `id`, `title`, or `read_only` is refused instead of guessed.
+
+An invitation shows `id`, `node_id`, `repository`, `invitee`, `inviter`, `permissions`, `created_at`, and
+`expired`. `invitee` and `inviter` carry the account members of `github.collaborators.list`, so a person's name
+and email address appear as GitHub reports them, untrusted data. `repository` follows the repository view of
+the other tools and keeps only its identifiers when the repository lies outside the connection's targets.
+GitHub's `url` and `html_url` of an invitation are left out on purpose: they are the addresses through which the
+invitee accepts the invitation.
+
+Both change tools read first, then send one request that is never repeated. `deploy-keys.delete` reads the key
+below the repository and sends the delete only when the answer names the requested id and this repository.
+GitHub offers no read of one invitation, so `repository-invitations.cancel` looks for the id in the repository's
+own invitation list, at most the newest 1000 entries, and sends the delete only when it finds the invitation
+there; an id of another repository or beyond that window answers `not-found` or `invalid-response` and
+nothing is sent. After a timeout or a server error, a change reports that it may have been applied; read the
+list before trying again.
+
+The token rights are listed under [Repositories, rulesets, and properties](setup.md#repositories-rulesets-and-properties).
 
 ## Rulesets: repository and organization governance
 

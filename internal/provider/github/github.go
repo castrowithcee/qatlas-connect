@@ -917,7 +917,7 @@ func Register(reg *capability.Registry) error {
 		capability.Operation{Descriptor: projectIssuesCreate, Handler: capability.Handler(invokeProjectIssuesCreate)},
 	}, slices.Concat(itemOperations(), lifecycleOperations(), fieldOperations(), viewOperations(),
 		statusOperations(), accessOperations(), automationOperations(), actionsOperations(),
-		maintenanceOperations(), actionsSettingsOperations(), runnersOperations(), runnerGroupOperations(), webhooksOperations(), pullRequestOperations(), checkOperations(), releaseOperations(), releaseAssetOperations(), pullRequestCommentOperations(),
+		maintenanceOperations(), actionsSettingsOperations(), runnersOperations(), runnerGroupOperations(), webhooksOperations(), deployKeysOperations(), repositoryInvitationsOperations(), pullRequestOperations(), checkOperations(), releaseOperations(), releaseAssetOperations(), pullRequestCommentOperations(),
 		pullRequestReviewOperations(), pullRequestReviewMaintenanceOperations(), pullRequestReviewCommentOperations(),
 		pullRequestReviewCommentMaintenanceOperations(), pullRequestReviewThreadOperations(),
 		pullRequestReviewerOperations(), accountOperations(), organizationOperations(), starOperations(),
@@ -1757,6 +1757,9 @@ func (c *Client) restSubject(request *http.Request) subject {
 			s.what = what
 		}
 		if what := webhooksSubject(parts[2]); what != "" {
+			s.what = what
+		}
+		if what := grantsSubject(parts[2]); what != "" {
 			s.what = what
 		}
 		if what := customPropertiesSubject(parts[2]); what != "" {
