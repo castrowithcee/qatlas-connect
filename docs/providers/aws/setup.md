@@ -162,6 +162,10 @@ Each [Route 53 tool](route53.md) needs the permission `route53:<Action>` of its 
 | `aws.route53.health-check.create` | `route53:CreateHealthCheck` |
 | `aws.route53.health-check.update` | `route53:UpdateHealthCheck` |
 | `aws.route53.health-check.delete` | `route53:DeleteHealthCheck` |
+| `aws.route53.traffic-policy.create` | `route53:CreateTrafficPolicy` |
+| `aws.route53.traffic-policy.create-version` | `route53:CreateTrafficPolicyVersion` |
+| `aws.route53.traffic-policy.update-comment` | `route53:UpdateTrafficPolicyComment` |
+| `aws.route53.traffic-policy.delete` | `route53:DeleteTrafficPolicy` |
 | `aws.route53.dnssec.enable` | `route53:EnableHostedZoneDNSSEC` |
 | `aws.route53.dnssec.disable` | `route53:DisableHostedZoneDNSSEC` |
 | `aws.route53.key-signing-key.create` | `route53:CreateKeySigningKey`; also `kms:DescribeKey`, `kms:GetPublicKey`, `kms:Sign`, and `kms:CreateGrant` on the KMS key |
@@ -170,8 +174,8 @@ Each [Route 53 tool](route53.md) needs the permission `route53:<Action>` of its 
 | `aws.route53.key-signing-key.delete` | `route53:DeleteKeySigningKey`; also the `kms` permissions above on the KMS key |
 
 Route 53 permissions name hosted zones as `arn:aws:route53:::hostedzone/<id>`, health checks as
-`arn:aws:route53:::healthcheck/<id>`, and changes as `arn:aws:route53:::change/<id>`; `route53:CreateHostedZone`,
-`route53:ListHostedZones`, `route53:GetHostedZoneCount`, `route53:CreateHealthCheck`, `route53:ListHealthChecks`, and
+`arn:aws:route53:::healthcheck/<id>`, traffic policies as `arn:aws:route53:::trafficpolicy/<id>` (the other traffic policy writes take that resource), and changes as `arn:aws:route53:::change/<id>`; `route53:CreateHostedZone`,
+`route53:CreateTrafficPolicy`, `route53:ListHostedZones`, `route53:GetHostedZoneCount`, `route53:CreateHealthCheck`, `route53:ListHealthChecks`, and
 `route53:GetHealthCheckCount`, `route53:ListQueryLoggingConfigs`, `route53:ListReusableDelegationSets`, `route53:ListTrafficPolicies`, `route53:ListTrafficPolicyInstances`, `route53:GetTrafficPolicyInstanceCount`, `route53:ListCidrCollections`, `route53:GetAccountLimit`, `route53:ListGeoLocations`, `route53:GetGeoLocation`, `route53:GetCheckerIpRanges`, and `route53:ListHostedZonesByVPC` apply to all resources. The tag tools need `route53:ListTagsForResource` (`route53:ListTagsForResources` for `tag.list-many`) and
 `route53:ChangeTagsForResource` for health checks as for zones. `route53:ListHostedZonesByVPC` also needs `ec2:DescribeVpcs` for the VPC. Grant only the actions of the tools the connection offers; a policy such as `route53:*` also
 grants every change of the records of a zone. The `kms` permissions are the minimum the policy of the identity needs on the
