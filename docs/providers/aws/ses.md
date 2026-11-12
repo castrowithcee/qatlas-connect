@@ -1,17 +1,18 @@
 ---
 description: >
-  Describes the tools of the AWS SES v2 group: reading, creating, configuring, tagging, and deleting sender identities with DKIM and MAIL FROM, the identity and ARN checks, the DNS help derived from checked values, and what is never a tool.
+  Describes the tools of the AWS SES v2 group: reading, creating, configuring, tagging, and deleting sender identities with DKIM and MAIL FROM, creating and configuring configuration sets, reading their event destinations, managing the suppression list, the identity, ARN, archive, and domain checks, the DNS help derived from checked values, and what is never a tool.
 type: knowledge
 edit: shared
 created: 2026-11-11
-updated: 2026-11-11
+updated: 2026-11-12
 ---
 
 # Simple Email Service
 
 Group `ses`, the SES v2 API. SES is regional: every tool takes an optional `region`, which may be left out when the
 connection lists exactly one region and otherwise must name an allowed one. Every permission a tool needs is listed in
-[Set up AWS](setup.md#ses). The tools manage the sender identities (domains and email addresses) of the bound account.
+[Set up AWS](setup.md#ses). The tools manage the sender identities (domains and email addresses), the configuration sets, and the suppression list of
+the bound account.
 
 ## Tools
 
@@ -37,16 +38,46 @@ listed-only: a connection offers them only when its tools list names each one ex
 | `aws.ses.email-identity.tag` | `TagResource` | update | yes |
 | `aws.ses.email-identity.untag` | `UntagResource` | update | yes |
 
+### Configuration sets and suppression
+
+| Tool | AWS operation | Effect | Confirmation |
+| --- | --- | --- | --- |
+| `aws.ses.configuration-set.list` | `ListConfigurationSets` | read | no |
+| `aws.ses.configuration-set.get` | `GetConfigurationSet` | read | no |
+| `aws.ses.configuration-set.create` | `CreateConfigurationSet` | create, not repeated | yes |
+| `aws.ses.configuration-set.delete` | `DeleteConfigurationSet` | delete, not repeated | yes |
+| `aws.ses.configuration-set.put-delivery-options` | `PutConfigurationSetDeliveryOptions` | update | yes |
+| `aws.ses.configuration-set.put-reputation-options` | `PutConfigurationSetReputationOptions` | update | yes |
+| `aws.ses.configuration-set.put-sending-options` | `PutConfigurationSetSendingOptions` | update | yes |
+| `aws.ses.configuration-set.put-suppression-options` | `PutConfigurationSetSuppressionOptions` | update | yes |
+| `aws.ses.configuration-set.put-tracking-options` | `PutConfigurationSetTrackingOptions` | update | yes |
+| `aws.ses.configuration-set.put-vdm-options` | `PutConfigurationSetVdmOptions` | update | yes |
+| `aws.ses.configuration-set.put-archiving-options` | `PutConfigurationSetArchivingOptions` | update | yes |
+| `aws.ses.configuration-set-event-destination.get` | `GetConfigurationSetEventDestinations` | read | no |
+| `aws.ses.suppressed-destination.list` | `ListSuppressedDestinations` | read | no |
+| `aws.ses.suppressed-destination.get` | `GetSuppressedDestination` | read | no |
+| `aws.ses.suppressed-destination.put` | `PutSuppressedDestination` | create | yes |
+| `aws.ses.suppressed-destination.delete` | `DeleteSuppressedDestination` | delete, not repeated | yes |
+
 `aws.ses.email-identity.create` with tags also needs `ses:TagResource`. A create or delete whose outcome is unclear
-is not repeated: read the identity or its policies first.
+is not repeated: read the identity, its policies, or the configuration set first.
 
 ## Checks before the call
 
 - **Identity form.** `email_identity` must be a domain name or an email address of a domain: letters, digits, dots, and
   hyphens, and for an address also `+` and `_` in the local part. Anything else is refused before any request.
-- **ARN.** The tools that take `resource_arn` (`tag`, `untag`, `list-tags`) accept only the ARN of an SES identity in
-  the bound account and in an allowed region of the connection. Another account, another region, or another resource
-  type is refused.
+- **ARN.** The tools that take `resource_arn` (`aws.ses.email-identity.tag`, `untag`, `list-tags`) accept the ARN of an
+  SES identity (`arn:aws:ses:<region>:<account>:identity/<name>`) or of a configuration set
+  (`arn:aws:ses:<region>:<account>:configuration-set/<name>`) in the bound account and in an allowed region of the
+  connection. The same three tools tag configuration sets; their IDs name the identity for historical reasons. Another
+  account, another region, or another resource type is refused.
+- **Configuration set name.** `configuration_set_name` must be 1 to 64 letters, digits, underscores, or hyphens.
+- **Archive ARN.** `archive_arn` of `put-archiving-options`, and `archiving_options.archive_arn` of
+  `configuration-set.create`, must be the ARN of a mail archive
+  (`arn:aws:ses:<region>:<account>:mailmanager-archive/a-...`) in the bound account and an allowed region. Another
+  account, another region, or another resource type is refused.
+- **Tracking domain.** `custom_redirect_domain` of `put-tracking-options`, and `tracking_options.custom_redirect_domain`
+  of `configuration-set.create`, is checked only for the form of a domain name. SES checks that you own it.
 
 ## Identity policies
 
@@ -84,10 +115,40 @@ copied from the answer:
   `10 feedback-smtp.<region>.amazonses.com` and a TXT record `v=spf1 include:amazonses.com ~all`.
 - An email address needs no records of its own and gives none.
 
+## Configuration sets
+
+A configuration set groups sending settings that mail uses when a sender names the set or an identity has it as its
+default. `create` takes every option as a structured argument: `tracking_options`, `delivery_options`,
+`reputation_options`, `sending_options`, `tags`, `suppression_options`, `vdm_options`, `archiving_options`, and
+`message_security_options`. Each option also has its own `put-...` tool. `get` returns the options and the tags. `delete`
+removes the set with its event destinations; mail that names it afterwards is rejected. `put-sending-options` with
+`sending_enabled` false pauses sending with the set. `UpdateConfigurationSet` of the SES API is not offered yet.
+
+Event destinations are read only. `aws.ses.configuration-set-event-destination.get` returns the destinations of a set,
+including their targets; the answer is untrusted data. These actions are not tools, because an event destination sends
+the events of a configuration set to SNS, Firehose, EventBridge, or Pinpoint and so carries data out of the account:
+
+- `CreateConfigurationSetEventDestination`
+- `UpdateConfigurationSetEventDestination`
+- `DeleteConfigurationSetEventDestination`
+
+## Suppression list
+
+The account-level suppression list holds addresses SES no longer sends to after a bounce or a complaint. `list` filters
+by `reasons` (`BOUNCE`, `COMPLAINT`), `start_date`, and `end_date` (RFC 3339 timestamps) and pages like the other lists,
+with a page size of up to 1000. `get` returns one entry. `put` adds an address with a reason, after which SES no longer
+sends mail to it. `delete` removes an address: it receives mail again after the call, also when it bounced or
+complained before.
+
+Email addresses are personal data. The suppression tools carry the data class `aws-ses-recipient-data`, and entries of
+the list, including their attributes, are untrusted data. The tenant of the SES API is not offered; the tools act on
+the list of the account.
+
 ## Not offered
 
 - No key material of your own (BYODKIM): the selector and the private key are not arguments, and the origin `EXTERNAL`
   is not offered. Easy DKIM keys are generated by SES, with `RSA_1024_BIT` or `RSA_2048_BIT` for the next key.
+- Creating, changing, and deleting event destinations of a configuration set, as listed above.
 - `SendCustomVerificationEmail` is never a tool: it would send mail to any address given as an argument.
 
 ## Limits
@@ -96,4 +157,6 @@ copied from the answer:
   identities. The tools neither lift nor check this.
 - DKIM and domain verification take time after the records exist. How long, and the sandbox behaviour, have not been
   proven against a live account.
-- Everything SES returns, including the identity policies, is untrusted data.
+- How the options of a configuration set affect deliverability has not been proven against a live account.
+- Everything SES returns, including the identity policies, the event destinations, and the suppression list, is
+  untrusted data.

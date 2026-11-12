@@ -1,24 +1,30 @@
 package gen
 
+import "slices"
+
 // deferSESv2 is the reason for every sesv2 operation not curated yet: the service package that curates the
 // tools moves each operation it takes into operations or exclude.
 const deferSESv2 = "not curated yet; the SES service package decides effect, confirmation and target first"
 
+const reasonSESEvent = "an event destination sends the events of a configuration set to SNS, Firehose, EventBridge, or Pinpoint and so carries data out of the account; a check for targets of the bound account is not designed"
+
 // sesv2Table curates the sesv2 model. The identity tools read, create, and configure the sender identities of
 // the bound account: DKIM, MAIL FROM, feedback forwarding, the default configuration set, and tags. The
-// remaining operations wait for the SES tools that follow.
+// configuration set tools create and configure configuration sets and manage the suppression list; event
+// destinations are read only. The remaining operations wait for the SES tools that follow.
 var sesv2Table = Table{
 	Service: "sesv2", Segment: "ses", Geltung: Regional,
-	Operations: sesIdentityTools,
+	Operations: slices.Concat(sesIdentityTools, sesConfigurationTools),
 	Exclude: []Omission{
+		{Operation: "CreateConfigurationSetEventDestination", Reason: reasonSESEvent},
+		{Operation: "DeleteConfigurationSetEventDestination", Reason: reasonSESEvent},
+		{Operation: "UpdateConfigurationSetEventDestination", Reason: reasonSESEvent},
 		{Operation: "SendCustomVerificationEmail", Reason: "sends a verification mail to an address given as an argument, so the tool would send mail to any recipient; a tool never sends mail on its own initiative"},
 	},
 	Defer: []Omission{
 		{Operation: "AssociateEmailIdentityCertificate", Reason: deferSESv2},
 		{Operation: "BatchGetMetricData", Reason: deferSESv2},
 		{Operation: "CancelExportJob", Reason: deferSESv2},
-		{Operation: "CreateConfigurationSet", Reason: deferSESv2},
-		{Operation: "CreateConfigurationSetEventDestination", Reason: deferSESv2},
 		{Operation: "CreateContact", Reason: deferSESv2},
 		{Operation: "CreateContactList", Reason: deferSESv2},
 		{Operation: "CreateCustomVerificationEmailTemplate", Reason: deferSESv2},
@@ -30,22 +36,17 @@ var sesv2Table = Table{
 		{Operation: "CreateMultiRegionEndpoint", Reason: deferSESv2},
 		{Operation: "CreateTenant", Reason: deferSESv2},
 		{Operation: "CreateTenantResourceAssociation", Reason: deferSESv2},
-		{Operation: "DeleteConfigurationSet", Reason: deferSESv2},
-		{Operation: "DeleteConfigurationSetEventDestination", Reason: deferSESv2},
 		{Operation: "DeleteContact", Reason: deferSESv2},
 		{Operation: "DeleteContactList", Reason: deferSESv2},
 		{Operation: "DeleteCustomVerificationEmailTemplate", Reason: deferSESv2},
 		{Operation: "DeleteDedicatedIpPool", Reason: deferSESv2},
 		{Operation: "DeleteEmailTemplate", Reason: deferSESv2},
 		{Operation: "DeleteMultiRegionEndpoint", Reason: deferSESv2},
-		{Operation: "DeleteSuppressedDestination", Reason: deferSESv2},
 		{Operation: "DeleteTenant", Reason: deferSESv2},
 		{Operation: "DeleteTenantResourceAssociation", Reason: deferSESv2},
 		{Operation: "DisassociateEmailIdentityCertificate", Reason: deferSESv2},
 		{Operation: "GetAccount", Reason: deferSESv2},
 		{Operation: "GetBlacklistReports", Reason: deferSESv2},
-		{Operation: "GetConfigurationSet", Reason: deferSESv2},
-		{Operation: "GetConfigurationSetEventDestinations", Reason: deferSESv2},
 		{Operation: "GetContact", Reason: deferSESv2},
 		{Operation: "GetContactList", Reason: deferSESv2},
 		{Operation: "GetCustomVerificationEmailTemplate", Reason: deferSESv2},
@@ -63,9 +64,7 @@ var sesv2Table = Table{
 		{Operation: "GetMessageInsights", Reason: deferSESv2},
 		{Operation: "GetMultiRegionEndpoint", Reason: deferSESv2},
 		{Operation: "GetReputationEntity", Reason: deferSESv2},
-		{Operation: "GetSuppressedDestination", Reason: deferSESv2},
 		{Operation: "GetTenant", Reason: deferSESv2},
-		{Operation: "ListConfigurationSets", Reason: deferSESv2},
 		{Operation: "ListContactLists", Reason: deferSESv2},
 		{Operation: "ListContacts", Reason: deferSESv2},
 		{Operation: "ListCustomVerificationEmailTemplates", Reason: deferSESv2},
@@ -80,7 +79,6 @@ var sesv2Table = Table{
 		{Operation: "ListRecommendations", Reason: deferSESv2},
 		{Operation: "ListReputationEntities", Reason: deferSESv2},
 		{Operation: "ListResourceTenants", Reason: deferSESv2},
-		{Operation: "ListSuppressedDestinations", Reason: deferSESv2},
 		{Operation: "ListTenantResources", Reason: deferSESv2},
 		{Operation: "ListTenants", Reason: deferSESv2},
 		{Operation: "PutAccountDedicatedIpWarmupAttributes", Reason: deferSESv2},
@@ -89,24 +87,15 @@ var sesv2Table = Table{
 		{Operation: "PutAccountSendingAttributes", Reason: deferSESv2},
 		{Operation: "PutAccountSuppressionAttributes", Reason: deferSESv2},
 		{Operation: "PutAccountVdmAttributes", Reason: deferSESv2},
-		{Operation: "PutConfigurationSetArchivingOptions", Reason: deferSESv2},
-		{Operation: "PutConfigurationSetDeliveryOptions", Reason: deferSESv2},
-		{Operation: "PutConfigurationSetReputationOptions", Reason: deferSESv2},
-		{Operation: "PutConfigurationSetSendingOptions", Reason: deferSESv2},
-		{Operation: "PutConfigurationSetSuppressionOptions", Reason: deferSESv2},
-		{Operation: "PutConfigurationSetTrackingOptions", Reason: deferSESv2},
-		{Operation: "PutConfigurationSetVdmOptions", Reason: deferSESv2},
 		{Operation: "PutDedicatedIpInPool", Reason: deferSESv2},
 		{Operation: "PutDedicatedIpPoolScalingAttributes", Reason: deferSESv2},
 		{Operation: "PutDedicatedIpWarmupAttributes", Reason: deferSESv2},
 		{Operation: "PutDeliverabilityDashboardOption", Reason: deferSESv2},
-		{Operation: "PutSuppressedDestination", Reason: deferSESv2},
 		{Operation: "PutTenantSuppressionAttributes", Reason: deferSESv2},
 		{Operation: "SendBulkEmail", Reason: deferSESv2},
 		{Operation: "SendEmail", Reason: deferSESv2},
 		{Operation: "TestRenderEmailTemplate", Reason: deferSESv2},
 		{Operation: "UpdateConfigurationSet", Reason: deferSESv2},
-		{Operation: "UpdateConfigurationSetEventDestination", Reason: deferSESv2},
 		{Operation: "UpdateContact", Reason: deferSESv2},
 		{Operation: "UpdateContactList", Reason: deferSESv2},
 		{Operation: "UpdateCustomVerificationEmailTemplate", Reason: deferSESv2},

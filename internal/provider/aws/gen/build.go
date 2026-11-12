@@ -1255,9 +1255,10 @@ const sampleARN = "arn:aws:iam::123456789012:role/a"
 // targetSamples are values that pass a target check in the account and region the generated tests bind, by
 // the name of the check.
 var targetSamples = map[string]string{
-	"bucket-owner":     "my-bucket",
-	"ses-identity":     "example.com",
-	"ses-identity-arn": "arn:aws:ses:eu-central-1:123456789012:identity/example.com",
+	"bucket-owner":          "my-bucket",
+	"ses-identity":          "example.com",
+	"ses-identity-arn":      "arn:aws:ses:eu-central-1:123456789012:identity/example.com",
+	"ses-configuration-set": "my-set",
 }
 
 // sampleTrustPolicy is a trust policy that passes the trust-policy check: one AWS service principal.
@@ -1267,8 +1268,9 @@ const sampleTrustPolicy = `{"Version":"2012-10-17","Statement":[{"Effect":"Allow
 const sampleResourcePolicy = `{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Principal":{"AWS":"123456789012"},"Action":"ses:SendEmail","Resource":"*"}]}`
 
 // sampleWords are whole values tried after the repeated characters, for patterns with a fixed prefix such as
-// the version IDs of IAM policies the UUID of a Route 53 CIDR collection, or an IPv4 address.
-var sampleWords = []string{"v1", "00000000-0000-0000-0000-000000000000", "192.0.2.1"}
+// the version IDs of IAM policies the UUID of a Route 53 CIDR collection, an IPv4 address, or the ARN of an SES mail archive.
+var sampleWords = []string{"v1", "00000000-0000-0000-0000-000000000000", "192.0.2.1",
+	"arn:aws:ses:eu-central-1:123456789012:mailmanager-archive/a-0123456789abcdefghijklmn"}
 
 func (t *tool) sample(path string, s *awsquery.Shape, rawSchema any) (any, error) {
 	schema, _ := rawSchema.(map[string]any)
