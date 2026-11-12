@@ -118,10 +118,12 @@ which needs `s3:ListAllMyBuckets` on all resources. The reads need `s3:ListAllMy
 `s3:GetObjectLegalHold` (`object-retention.get` and `object-legal-hold.get`, for the object `arn:aws:s3:::<bucket>/<key>`), `s3:GetBucketPolicy` (`bucket-policy.get`), and `s3:GetBucketPolicyStatus` (`bucket-policy.get-status`), each for its own tool. The object reads need `s3:ListBucket` (`object.list`), `s3:ListBucketVersions` (`object.list-versions`),
 `s3:GetObject` (`object.head`, and `s3:GetObjectVersion` for a version; `object.get-attributes` also needs
 `s3:GetObjectAttributes`), `s3:GetObjectTagging` (`object-tagging.get`), and `s3:GetObjectAcl` (`object-acl.get`), for
-the object `arn:aws:s3:::<bucket>/<key>` except the two lists. The writes need:
+the object `arn:aws:s3:::<bucket>/<key>` except the two lists. The writes and the object download need:
 
 | Tool | Permission |
 | --- | --- |
+| `aws.s3.object.upload` | `s3:PutObject` on `arn:aws:s3:::<bucket>/<key>`; with `tagging` also `s3:PutObjectTagging`; with `server_side_encryption` `aws:kms` also `kms:GenerateDataKey` and `kms:Decrypt` on the key |
+| `aws.s3.object.download` | `s3:GetObject` on `arn:aws:s3:::<bucket>/<key>` (`s3:GetObjectVersion` with `version_id`); for an object with SSE-KMS also `kms:Decrypt` on the key. It is a read, but also needs a directory in `files.write` |
 | `aws.s3.bucket.create` | `s3:CreateBucket` |
 | `aws.s3.bucket.delete` | `s3:DeleteBucket` |
 | `aws.s3.versioning.put` | `s3:PutBucketVersioning` |

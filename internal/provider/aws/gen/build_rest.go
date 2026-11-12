@@ -34,7 +34,7 @@ func (t *tool) assembleRest() error {
 			}
 		}
 	}
-	if len(t.input.Fields) > 0 || t.pager != nil || t.multi != nil || len(owners) > 0 {
+	if len(t.input.Fields) > 0 || t.op.LocalFile == "read" || t.pager != nil || t.multi != nil || len(owners) > 0 {
 		op.Input = &httpbind.Shape{Kind: httpbind.KindStruct}
 		t.rootOf(op.Input, bound.Input)
 	}
@@ -61,6 +61,10 @@ func (t *tool) assembleRest() error {
 	if len(owners) > 0 {
 		op.Input.Fields = append(op.Input.Fields, owners...)
 	}
+	if t.op.LocalFile == "read" {
+		// The payload is no argument: the runtime attaches the file as a stream (Request.SetStream).
+		op.Input.Fields = append(op.Input.Fields, t.streamField(bound.Input))
+	}
 	if t.pager != nil || t.multi != nil {
 		// The paging members are bound under "~"+name; the table's page size maximum may apply to a member
 		// the model leaves unbounded, which the binding then carries without a size parameter.
@@ -83,7 +87,7 @@ func (t *tool) assembleRest() error {
 			}
 		}
 	}
-	if len(t.output.Fields) > 0 {
+	if len(t.output.Fields) > 0 || t.op.LocalFile == "write" {
 		op.Output = &httpbind.Shape{Kind: httpbind.KindStruct}
 		t.rootOf(op.Output, bound.Output)
 	}
@@ -101,6 +105,9 @@ func (t *tool) assembleRest() error {
 		}
 		op.Output.Fields = append(op.Output.Fields, field)
 	}
+	if t.op.LocalFile == "write" {
+		op.Output.Fields = append(op.Output.Fields, t.streamField(bound.Output))
+	}
 	if t.op.TargetCheck == "bucket-owner" {
 		for _, name := range t.targetArgs {
 			if f := fieldByKey(op.Input, name); f == nil || !f.Bucket {
@@ -113,6 +120,16 @@ func (t *tool) assembleRest() error {
 	}
 	t.restOp = op
 	return nil
+}
+
+// streamField is the streamed payload member of the binding of a local file tool.
+func (t *tool) streamField(shape *httpbind.Shape) httpbind.Field {
+	for _, f := range shape.Fields {
+		if f.Stream {
+			return f
+		}
+	}
+	return httpbind.Field{}
 }
 
 // layerOwned reports an input member of a restXml tool that never becomes an argument: the expected-owner
@@ -264,7 +281,7 @@ func ownerHeaderOf(o *httpbind.Operation) string {
 // sampleHeaders fills the answer headers of the members bound to a header.
 func (t *tool) sampleHeaders() error {
 	for _, f := range t.restOp.Output.Fields {
-		if f.Loc != httpbind.LocHeader {
+		if f.Loc != httpbind.LocHeader || f.Stream {
 			continue
 		}
 		if f.Shape.Kind == httpbind.KindList || !textScalar(f.Shape) {
@@ -315,6 +332,9 @@ func (t *tool) xmlAnswer() error {
 	for _, f := range out.Fields {
 		qf := byKey[f.Key]
 		if t.pagedOut(f.Key) {
+			continue
+		}
+		if f.Stream {
 			continue
 		}
 		switch f.Loc {
