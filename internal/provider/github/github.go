@@ -100,6 +100,8 @@
 // runner groups and the GitHub-hosted runners of an organization, and github.runner-groups.update changes the
 // name and the visibility of one group with one request; all four are offered only on a connection whose tools
 // list names them, and none creates or deletes a group or a runner.
+// github.autolinks.list and github.autolinks.get read the autolinks of a repository; github.autolinks.create
+// adds one; only on a connection whose tools list names it, github.autolinks.delete removes one.
 // github.labels.list and github.labels.get read the labels of a repository; github.labels.create and
 // github.labels.update change them; only on a connection whose tools list names it, github.labels.delete
 // removes one permanently, which also strips it from every issue and pull request that carries it.
@@ -578,7 +580,7 @@ func Register(reg *capability.Registry) error {
 				"token; listing collaborators needs repo on a classic token, or Metadata: read on a fine-grained " +
 				"token; reading a repository, its languages, its contributors, its statistics, its activity feed, or its community profile needs no scope for " +
 				"a public repository, or repo on a classic token, or Metadata: read on a fine-grained token, for a " +
-				"private one; reading the rulesets of a repository needs repo on a classic token, or Administration: " +
+				"private one; reading the autolinks of a repository needs repo on a classic token, or Administration: read on a fine-grained token, and creating or deleting one, delete being listed-only, needs Administration: read and write instead; reading the rulesets of a repository needs repo on a classic token, or Administration: " +
 				"read on a fine-grained token; changing them, listed-only, needs Administration: read and write " +
 				"on a fine-grained token instead; reading or changing the rulesets of an organization needs " +
 				"admin:org on a classic token, or, as far as GitHub documents it, Administration read, or read " +
@@ -917,7 +919,7 @@ func Register(reg *capability.Registry) error {
 		pullRequestReviewerOperations(), accountOperations(), organizationOperations(), starOperations(),
 		searchOperations(), contentsOperations(), blameOperations(), commitsOperations(), refsOperations(), compareOperations(), commitRelationOperations(),
 		contentsWriteOperations(), refsWriteOperations(), repositoriesOperations(), repositoryDetailOperations(), trafficOperations(), repositoryStatsOperations(), rulesetsOperations(), branchProtectionOperations(), customPropertiesOperations(), actionVariablesOperations(), actionCachesOperations(), runCleanupOperations(),
-		labelsOperations(), milestonesOperations(), commentMaintenanceOperations(), commentVisibilityOperations(), issueLockOperations(), reactionsOperations(),
+		labelsOperations(), autolinksOperations(), milestonesOperations(), commentMaintenanceOperations(), commentVisibilityOperations(), issueLockOperations(), reactionsOperations(),
 		subIssuesOperations(), issueDependenciesOperations(), issueHistoryOperations(), issueTypesOperations(), issueFieldsOperations(),
 		discussionOperations(), notificationOperations(), gistOperations(), securityAlertOperations(), securityAlertUpdateOperations(), securityAlertDetailOperations(), advisoryOperations(), securitySettingsOperations(),
 		copilotOperations(), environmentsOperations(), deploymentsOperations(), referenceOperations())...)
@@ -1760,6 +1762,9 @@ func (c *Client) restSubject(request *http.Request) subject {
 			s.what = what
 		}
 		if what := labelsSubject(parts[2]); what != "" {
+			s.what = what
+		}
+		if what := autolinksSubject(parts[2]); what != "" {
 			s.what = what
 		}
 		if what := milestonesSubject(parts[2]); what != "" {

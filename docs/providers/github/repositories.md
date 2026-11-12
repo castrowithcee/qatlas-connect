@@ -1,6 +1,6 @@
 ---
 description: >
-  Describes the GitHub repository tools: the repository list of an owner, the details, languages, contributors, and community profile of one repository, its statistics and activity feed, repository create, fork, rename, and delete, collaborators, repository traffic, rulesets, branch protection and branch rules, custom properties, repository settings, starred repositories, and the repository search.
+  Describes the GitHub repository tools: the repository list of an owner, the details, languages, contributors, and community profile of one repository, its statistics and activity feed, repository create, fork, rename, and delete, collaborators, repository traffic, autolinks, rulesets, branch protection and branch rules, custom properties, repository settings, starred repositories, and the repository search.
 type: knowledge
 edit: shared
 created: 2026-10-22
@@ -192,6 +192,27 @@ The token rights are listed under [Repositories, rulesets, and properties](setup
 The terminal editor's setup profile `repository-admin-reader` (not recommended) selects
 `github.collaborators.list`, `github.rulesets.list`, `github.rulesets.get`, and `github.custom-properties.get`;
 it is not the recommended profile, which stays `read`, unchanged.
+
+## Autolinks: reference links of a repository
+
+| Tool | Does |
+| --- | --- |
+| `github.autolinks.list` | lists the autolinks of a repository; GitHub does not page this list |
+| `github.autolinks.get` | reads one autolink by its `id` |
+| `github.autolinks.create` | creates one autolink from `key_prefix` and `url_template`, optionally `is_alphanumeric` (GitHub's default is true); not idempotent |
+| `github.autolinks.delete` | deletes one autolink; offered only where a connection's `tools` list names it |
+
+An autolink turns text such as `TICKET-123` into a link for every reader of the repository, so it can lead
+readers to an address outside the repository. `key_prefix` and `url_template` are untrusted data and are
+never fetched. `github.autolinks.create` checks `url_template` before a credential is resolved: it must be an
+`https` address without user information, contain the placeholder `<num>` exactly once, and be at most 2048
+characters. Reachability of the address is not checked.
+
+`github.autolinks.delete` first reads the `id` under the repository, so an `id` the repository does not hold
+answers `not-found` without a `DELETE`, then sends exactly one `DELETE`. Every change needs its own
+confirmation, is sent once without a retry, and reports an unclear outcome as uncertain. Reads return every
+documented member: `id`, `key_prefix`, `url_template`, `is_alphanumeric`, and `updated_at` where GitHub sends it.
+The token rights are listed under [Repositories, rulesets, and properties](setup.md#repositories-rulesets-and-properties).
 
 ## Rulesets: repository and organization governance
 

@@ -43,7 +43,7 @@ var groupBySegment = map[string]string{
 	"contents":            "code", "files": "code", "branches": "code", "commits": "code", "trees": "code",
 	"blame": "code", "code": "code", "tags": "code", "merges": "code", "compare": "code", "commit-branches": "code",
 	"commit-pulls": "code", "commit-comments": "code",
-	"repositories": "repositories", "custom-properties": "repositories", "rulesets": "repositories",
+	"repositories": "repositories", "custom-properties": "repositories", "rulesets": "repositories", "autolinks": "repositories",
 	"branch-protection": "repositories", "branch-rules": "repositories",
 	"collaborators": "repositories", "languages": "repositories", "contributors": "repositories",
 	"community-profile": "repositories", "stats-contributors": "repositories", "stats-commit-activity": "repositories",
