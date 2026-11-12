@@ -23,6 +23,8 @@ var guards = map[string]guard{
 	"location-constraint": checkLocationConstraint,
 	"new-bucket-name":     checkNewBucketName,
 	"kms-key-arn":         checkKMSKeys,
+	"object-kms-key":      checkObjectKMSKey,
+	"copy-source":         checkCopySource,
 	"ownership-enforce":   checkOwnershipEnforce,
 	"route53-vpc":         checkRoute53VPC,
 	"route53-vpc-lookup":  checkRoute53VPCLookup,
@@ -30,6 +32,7 @@ var guards = map[string]guard{
 	"route53-name":        checkRoute53Name,
 	"route53-health":      checkRoute53Health,
 	"route53-ksk":         checkRoute53KSK,
+	"route53-policy":      checkRoute53Policy,
 
 	"ses-configuration-set-values": checkSESConfigurationSetValues,
 }
@@ -109,6 +112,35 @@ func checkKMSKeys(b binding, _ string, args map[string]any) error {
 		if !kmsARN(b, text) {
 			return &provider.InvalidRequestError{Message: "kms_master_key_id must be the ARN of a KMS key or alias in the account this connection is bound to and a region it allows"}
 		}
+	}
+	return nil
+}
+
+// checkObjectKMSKey requires the KMS key of a written object to be named like the key of a bucket encryption rule.
+func checkObjectKMSKey(b binding, _ string, args map[string]any) error {
+	value, set := args["ssekms_key_id"]
+	if !set {
+		return nil
+	}
+	if text, _ := value.(string); !kmsARN(b, text) {
+		return &provider.InvalidRequestError{Message: "ssekms_key_id must be the ARN of a KMS key or alias in the account this connection is bound to and a region it allows"}
+	}
+	return nil
+}
+
+// checkCopySource requires the source of a copy to be bucket/key with an optional versionId, naming a general
+// purpose bucket. Access point and other ARNs are refused because their account would not be the one the
+// expected-owner header checks; a plain bucket of another account is refused by S3 on that header.
+func checkCopySource(_ binding, _ string, args map[string]any) error {
+	const message = "copy_source must be bucket/key, percent-encoded, with an optional ?versionId=ID, naming a bucket of the bound account"
+	source, _ := args["copy_source"].(string)
+	path, query, hasQuery := strings.Cut(strings.TrimPrefix(source, "/"), "?")
+	bucket, key, ok := strings.Cut(path, "/")
+	if !ok || key == "" || !httpbind.ValidBucketName(bucket) {
+		return &provider.InvalidRequestError{Message: message}
+	}
+	if id, isVersion := strings.CutPrefix(query, "versionId="); hasQuery && (!isVersion || id == "" || strings.ContainsAny(id, "&?")) {
+		return &provider.InvalidRequestError{Message: message}
 	}
 	return nil
 }
