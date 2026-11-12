@@ -144,6 +144,7 @@ the object `arn:aws:s3:::<bucket>/<key>` except the two lists. The writes and th
 | `aws.s3.object.restore` | `s3:RestoreObject` |
 | `aws.s3.object-tagging.put` | `s3:PutObjectTagging` (`s3:PutObjectVersionTagging` for a version) |
 | `aws.s3.object-tagging.delete` | `s3:DeleteObjectTagging` (`s3:DeleteObjectVersionTagging` for a version) |
+| `aws.s3.request-payment.put` | `s3:PutBucketRequestPayment` |
 
 The bucket policy write tools are offered only when the tools list of the connection names them. Creating with tags also needs `s3:PutBucketTagging`. Setting a KMS key also needs the permissions the key's policy
 requires for the identity. Grant only the actions of the tools the connection offers; a policy such as `s3:*` also

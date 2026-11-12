@@ -71,7 +71,6 @@ var s3Table = Table{
 		{Operation: "PutBucketIntelligentTieringConfiguration", Reason: deferS3},
 		{Operation: "PutBucketInventoryConfiguration", Reason: deferS3},
 		{Operation: "PutBucketMetricsConfiguration", Reason: deferS3},
-		{Operation: "PutBucketRequestPayment", Reason: "waits for its own write tool; not offered yet"},
 		{Operation: "PutObjectAnnotation", Reason: deferS3},
 		{Operation: "RenameObject", Reason: deferS3},
 		{Operation: "SelectObjectContent", Reason: deferS3},

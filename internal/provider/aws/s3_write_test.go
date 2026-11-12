@@ -14,7 +14,7 @@ import (
 
 var s3WriteToolIDs = []string{"aws.s3.bucket.create", "aws.s3.bucket.delete", "aws.s3.versioning.put", "aws.s3.encryption.put",
 	"aws.s3.encryption.delete", "aws.s3.tagging.put", "aws.s3.tagging.delete", "aws.s3.public-access-block.put", "aws.s3.lifecycle.delete",
-	"aws.s3.cors.delete", "aws.s3.ownership.put", "aws.s3.object-lock.put", "aws.s3.object-retention.put", "aws.s3.object-legal-hold.put"}
+	"aws.s3.cors.delete", "aws.s3.ownership.put", "aws.s3.object-lock.put", "aws.s3.object-retention.put", "aws.s3.object-legal-hold.put", "aws.s3.request-payment.put"}
 
 // s3WriteEnv offers the S3 write tools by name on a connection bound to the account and the given regions.
 func s3WriteEnv(t *testing.T, f *fakeAWS, regions ...string) *env {
@@ -485,8 +485,8 @@ func TestS3ExcludedOperationsCannotBeSent(t *testing.T) {
 			}
 		}
 	}
-	if tools != 52 {
-		t.Errorf("s3 tools = %d, want 52", tools)
+	if tools != 53 {
+		t.Errorf("s3 tools = %d, want 53", tools)
 	}
 	for _, s := range generatedSpecs {
 		if s.service != "s3" {
