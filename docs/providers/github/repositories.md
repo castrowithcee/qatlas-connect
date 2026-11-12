@@ -1,10 +1,10 @@
 ---
 description: >
-  Describes the GitHub repository tools: the repository list of an owner, the details, languages, contributors, and community profile of one repository, its statistics and activity feed, repository create, fork, rename, and delete, collaborators, repository traffic, rulesets, branch protection and branch rules, custom properties, repository settings, starred repositories, and the repository search.
+  Describes the GitHub repository tools: the repository list of an owner, the details, languages, contributors, and community profile of one repository, its statistics and activity feed, repository create, fork, rename, and delete, collaborators, repository traffic, rulesets, existing webhooks and their deliveries, branch protection and branch rules, custom properties, repository settings, starred repositories, and the repository search.
 type: knowledge
 edit: shared
 created: 2026-10-22
-updated: 2026-11-07
+updated: 2026-11-12
 ---
 
 # GitHub repositories
@@ -190,8 +190,8 @@ and its filters.
 The token rights are listed under [Repositories, rulesets, and properties](setup.md#repositories-rulesets-and-properties).
 
 The terminal editor's setup profile `repository-admin-reader` (not recommended) selects
-`github.collaborators.list`, `github.rulesets.list`, `github.rulesets.get`, and `github.custom-properties.get`;
-it is not the recommended profile, which stays `read`, unchanged.
+`github.collaborators.list`, `github.rulesets.list`, `github.rulesets.get`, `github.custom-properties.get`, and the
+four webhook reads below; it is not the recommended profile, which stays `read`, unchanged.
 
 ## Rulesets: repository and organization governance
 
@@ -231,6 +231,54 @@ and the array and byte-size bounds are checked before a credential is resolved. 
 sends the whole definition in one `PUT` that replaces the ruleset as a whole and is idempotent as long as
 nothing else changes the ruleset between two identical calls; `github.rulesets.create` is not, since a
 repeated call creates a second ruleset.
+
+## Webhooks: reading, pausing, and deleting existing ones
+
+| Tool | Does |
+| --- | --- |
+| `github.webhooks.list` | lists the webhooks of a repository or an organization |
+| `github.webhooks.get` | reads one webhook |
+| `github.webhooks.pause` | pauses one webhook (sends only `active: false`) |
+| `github.webhooks.resume` | resumes one paused webhook (sends only `active: true`) |
+| `github.webhooks.delete` | deletes one webhook permanently, with its delivery log |
+| `github.webhook-deliveries.list` | lists the recent deliveries of one webhook, without headers and payloads |
+| `github.webhook-deliveries.get` | reads one delivery with its masked address and its cut headers and payloads |
+
+The four reads are offered like every read; the three changes are offered only where a connection's `tools`
+list names them. The tools never create a webhook, change its address,
+configuration, or secret, send a ping or a test, or redeliver a delivery: each of those sends a request to an
+address. Pausing and resuming therefore send nothing but `active`.
+
+Every call takes exactly one of `repository` or `organization`, checked and refused like
+[the ruleset tools](#rulesets-repository-and-organization-governance), before a credential is resolved,
+and the target must not be excluded. A `hook_id` or `delivery_id` from one target is unknown under another and
+answers `not-found`. Pause, resume, and delete first read the webhook below the chosen target and refuse an
+answer that names another webhook; the delivery tools read the webhook first as well, and the delivery log
+refuses a delivery GitHub answers with another identifier. Each change is one request, confirmed, never
+repeated; an unclear outcome says the change may have been applied.
+
+The target address, headers, and payloads are untrusted data and often hold credentials, so they are shown
+masked and cut, and never fetched:
+
+- `config.url` and the delivery's `url` keep scheme, host, and port. Userinfo and the fragment are dropped;
+  every path segment other than a common route word (`hooks`, `webhook`, `services`, `github-webhook`, and a few
+  more) and every query value become `***`, and the address is cut at 200 characters. `url_masked` is true
+  when anything was replaced or the address was not a readable http or https address, and `url_truncated`
+  when it was cut.
+- `config.secret` is never read into the output. Other configuration members of non-`web` hooks are left out.
+- A delivery's `request` and `response` show at most 50 headers with values cut at 200 characters. Any header
+  whose name contains `authorization`, `cookie`, `token`, `secret`, `signature`, `api-key`, `apikey`,
+  `password`, `credential`, or `session` (so also `X-Hub-Signature-256`) is left out and counted in
+  `headers_omitted`. The payload is compact JSON text (for the response, the text GitHub reports) cut at 2000
+  characters; `payload_truncated` says so.
+
+The output carries every member of GitHub's webhook and delivery objects (REST OpenAPI 1.1.4, rest-api-description
+commit 99b1432 of 2026-11-04) except these, left out for the reasons given: `config.secret` and any configuration
+member besides `url`, `content_type`, and `insecure_ssl` (credentials, or free-form), and the headers named
+above (credentials). The `url`, `test_url`, `ping_url`, and `deliveries_url` of a webhook are GitHub's REST
+addresses and appear under `links`; they are never fetched. `config.insecure_ssl` is reported as text, since
+GitHub sends a string or a number. The delivery list does not take GitHub's `redelivery` filter. The webhook
+list is paged by page number, the delivery log by GitHub's own cursor, both through Qatlas' bound `cursor`.
 
 ## Branch protection and branch rules
 
