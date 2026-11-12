@@ -155,7 +155,7 @@ func TestLimitsGuardsAndReadbacksAreChecked(t *testing.T) {
 			}
 			if len(o.Guards) > 0 && o.Operation != "CreateBucket" && o.Operation != "PutBucketEncryption" && o.Operation != "PutBucketOwnershipControls" &&
 				o.Operation != "CreateHostedZone" && o.Operation != "ChangeResourceRecordSets" && o.Operation != "TestDNSAnswer" &&
-				o.Operation != "CreateHealthCheck" && o.Operation != "UpdateHealthCheck" && o.Operation != "CreateKeySigningKey" && o.Operation != "CreateTrafficPolicy" && o.Operation != "CreateTrafficPolicyVersion" && o.Operation != "ListHostedZonesByVPC" &&
+				o.Operation != "CreateHealthCheck" && o.Operation != "UpdateHealthCheck" && o.Operation != "CreateKeySigningKey" && o.Operation != "CreateQueryLoggingConfig" && o.Operation != "CreateTrafficPolicy" && o.Operation != "CreateTrafficPolicyVersion" && o.Operation != "ListHostedZonesByVPC" &&
 				o.Operation != "CreateConfigurationSet" && o.Operation != "PutConfigurationSetTrackingOptions" && o.Operation != "PutConfigurationSetArchivingOptions" &&
 				o.Operation != "CopyObject" && o.Operation != "PutObject" {
 				t.Errorf("%s: guards %v", o.Operation, o.Guards)

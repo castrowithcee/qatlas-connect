@@ -5,6 +5,8 @@ package aws
 import (
 	"strings"
 	"testing"
+
+	"github.com/castrowithcee/qatlas-connect/internal/config"
 )
 
 // excludedSTSActions are the operations the sts table excludes; no tool may send one.
@@ -1425,6 +1427,19 @@ var generatedCases = []struct {
 		form:      map[string]string{},
 		token:     false, confirm: false, listed: false, result: nil,
 		method: "POST", path: "/2013-04-01/tags/healthcheck", rawQuery: "", body: `<ListTagsForResourcesRequest xmlns="https://route53.amazonaws.com/doc/2013-04-01/"><ResourceIds><ResourceId>a</ResourceId></ResourceIds></ListTagsForResourcesRequest>`},
+	{tool: "aws.route53.query-logging-config.create", action: "",
+		arguments: `{"hosted_zone_id":"a","cloud_watch_logs_log_group_arn":"arn:aws:logs:us-east-1:123456789012:log-group:/aws/route53/example.com"}`,
+		answer:    `<CreateQueryLoggingConfigResponse xmlns="https://route53.amazonaws.com/doc/2013-04-01/"><QueryLoggingConfig><Id>x</Id><HostedZoneId>x</HostedZoneId><CloudWatchLogsLogGroupArn>x</CloudWatchLogsLogGroupArn></QueryLoggingConfig></CreateQueryLoggingConfigResponse>`,
+		form:      map[string]string{},
+		token:     false, confirm: true, listed: false, result: nil,
+		method: "POST", path: "/2013-04-01/queryloggingconfig", rawQuery: "", body: `<CreateQueryLoggingConfigRequest xmlns="https://route53.amazonaws.com/doc/2013-04-01/"><HostedZoneId>a</HostedZoneId><CloudWatchLogsLogGroupArn>arn:aws:logs:us-east-1:123456789012:log-group:/aws/route53/example.com</CloudWatchLogsLogGroupArn></CreateQueryLoggingConfigRequest>`,
+		answerHeader: map[string]string{"Location": "x"}},
+	{tool: "aws.route53.query-logging-config.delete", action: "",
+		arguments: `{"id":"a"}`,
+		answer:    "",
+		form:      map[string]string{},
+		token:     false, confirm: true, listed: false, result: nil,
+		method: "DELETE", path: "/2013-04-01/queryloggingconfig/a", rawQuery: "", body: ""},
 }
 
 // Every generated tool sends its one action with exactly the encoded parameters and returns a result its
@@ -1449,7 +1464,12 @@ func TestGeneratedTools(t *testing.T) {
 			if c.listed || c.confirm {
 				tools = []string{c.tool}
 			}
-			e := newToolsEnv(t, f, baseValues(), tools)
+			// The log group of a query logging configuration must lie in us-east-1, which the connection then has to allow.
+			conn := config.Connection{Tools: tools}
+			if strings.HasPrefix(c.tool, "aws.route53.query-logging-config.") {
+				conn.Targets = []string{"account/" + testAccount, "region/" + testRegion, "region/us-east-1"}
+			}
+			e := newConnEnv(t, f, baseValues(), conn)
 			text, err := e.invokeConfirmed(c.tool, c.arguments, c.confirm)
 			if err != nil {
 				t.Fatalf("invoke: %v", err)
