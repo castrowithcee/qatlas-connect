@@ -126,7 +126,10 @@
 // by the not-recommended setup profile discussions and change nothing. github.discussions.create starts a
 // discussion, github.discussion-comments.create adds a comment or a reply, and github.discussion-comments.update
 // and github.discussion-comments.delete change and remove one; the delete is offered only where a connection's
-// tools list names it.
+// tools list names it. github.discussions.update, close, reopen, lock, and unlock change one discussion,
+// github.discussion-comments.mark-answer and unmark-answer choose and withdraw its answer, and
+// github.discussions.delete removes a discussion; the delete is offered only where a connection's tools list
+// names it.
 // github.notifications.list, github.notifications.get, github.notifications.dismiss,
 // github.thread-subscriptions.set, and github.repository-subscriptions.set read and manage the notification
 // threads of the account behind the token and its subscriptions to a thread or a repository; they are
@@ -850,13 +853,16 @@ func Register(reg *capability.Registry) error {
 			ID: "discussions", Title: "Discussions",
 			Description: "not recommended: reads the discussion categories of a repository, its discussions " +
 				"filtered by category, state, and answered status, one discussion, and the comments of a " +
-				"discussion with their replies, starts discussions, and comments, replies, and edits comments; " +
-				"every change needs its own confirmation, and deleting a discussion comment stays unticked, " +
-				"since it is offered only where a connection's tools list names " +
+				"discussion with their replies, starts, edits, closes, reopens, locks, and unlocks discussions, " +
+				"comments, replies, edits comments, and marks or unmarks answers; every change needs its own " +
+				"confirmation, and deleting a discussion or a discussion comment stays unticked, since each is " +
+				"offered only where a connection's tools list names github.discussions.delete or " +
 				"github.discussion-comments.delete",
 			Tools: []string{discussionCategoriesList.ID, discussionsList.ID, discussionsGet.ID,
 				discussionCommentsList.ID, discussionsCreate.ID, discussionCommentsCreate.ID,
-				discussionCommentsUpdate.ID},
+				discussionCommentsUpdate.ID, discussionsUpdate.ID, discussionsClose.ID, discussionsReopen.ID,
+				discussionsLock.ID, discussionsUnlock.ID, discussionCommentsMarkAnswer.ID,
+				discussionCommentsUnmarkAnswer.ID},
 		}, {
 			ID: "notifications", Title: "Notifications",
 			Description: "not recommended: lists the notification threads of the account behind a classic " +

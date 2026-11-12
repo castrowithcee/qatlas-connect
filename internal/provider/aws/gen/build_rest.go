@@ -50,6 +50,11 @@ func (t *tool) assembleRest() error {
 		if err != nil {
 			return err
 		}
+		if field.Shape.Kind == httpbind.KindString && bf.Shape != nil && bf.Loc != httpbind.LocHeader {
+			// What an identifier argument may carry in front of the value, such as /hostedzone/; Route 53 takes
+			// the bare value in a body as well as in a path or query.
+			field.Shape.Prefixes = bf.Shape.Prefixes
+		}
 		field.Required = bf.Required
 		op.Input.Fields = append(op.Input.Fields, field)
 	}
@@ -132,10 +137,6 @@ func (t *tool) rootOf(dst, src *httpbind.Shape) {
 // the wire name and, for restXml, the XML form and the roles of the layer.
 func (t *tool) restField(f awsquery.Field, bf *httpbind.Field) (httpbind.Field, error) {
 	field := httpbind.Field{Key: f.Key, Name: bf.Name, Shape: restShape(f.Shape), Loc: bf.Loc, IdempotencyToken: f.IdempotencyToken}
-	if field.Shape.Kind == httpbind.KindString && bf.Shape != nil && (bf.Loc == httpbind.LocLabel || bf.Loc == httpbind.LocQuery) {
-		// What an identifier argument may carry in front of the value, such as /hostedzone/.
-		field.Shape.Prefixes = bf.Shape.Prefixes
-	}
 	if !t.xml {
 		return field, nil
 	}
@@ -323,6 +324,11 @@ func (t *tool) xmlAnswer() error {
 				return err
 			}
 		case httpbind.LocPayload:
+			if f.Shape.Kind == httpbind.KindString {
+				// A string payload is the whole body, with no element around it.
+				t.sampleAnswer = t.scalarSample(qf)
+				return nil
+			}
 			if f.Shape.Kind != httpbind.KindStruct {
 				return t.failf("payload %s has no sample", f.Key)
 			}

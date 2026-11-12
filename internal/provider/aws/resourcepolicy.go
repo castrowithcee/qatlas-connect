@@ -26,6 +26,13 @@ const (
 // account. It runs without I/O, and a refusal names the rule and the statement by position, never a value of
 // the document. name is the argument that holds the document.
 func checkResourcePolicyOwnAccount(b binding, name, value string) error {
+	return checkOwnAccountDocument(b, name, value, false)
+}
+
+// checkOwnAccountDocument is the check of checkResourcePolicyOwnAccount, with a parameter for whether a source
+// condition may use the operator StringLike. That is no wildcard match here: the values must still be the
+// bound account or an ARN of it, spelled out, and a wildcard in them is refused as any other value.
+func checkOwnAccountDocument(b binding, name, value string, stringLike bool) error {
 	refuse := func(format string, args ...any) error {
 		return &provider.InvalidRequestError{Message: name + ": " + fmt.Sprintf(format, args...)}
 	}
@@ -79,7 +86,7 @@ func checkResourcePolicyOwnAccount(b binding, name, value string) error {
 		if msg != "" {
 			return refuse("statement %d: %s", at, msg)
 		}
-		tied, msg := checkSourceConditions(b.account, statement["Condition"])
+		tied, msg := checkSourceConditions(b.account, statement["Condition"], stringLike)
 		if msg != "" {
 			return refuse("statement %d: %s", at, msg)
 		}
@@ -130,7 +137,7 @@ func checkOwnAccountPrincipal(account string, principal any) (bool, string) {
 // checkSourceConditions judges the aws:SourceAccount and aws:SourceArn conditions of a statement. It returns
 // whether at least one of them is present, and the rule one breaks, or "". Other condition keys only narrow a
 // statement and are not judged.
-func checkSourceConditions(account string, condition any) (bool, string) {
+func checkSourceConditions(account string, condition any, stringLike bool) (bool, string) {
 	if condition == nil {
 		return false, ""
 	}
@@ -166,8 +173,8 @@ func checkSourceConditions(account string, condition any) (bool, string) {
 			}
 			switch kind {
 			case condSourceAccount:
-				if operator != "StringEquals" {
-					return false, kind + " is allowed only with the operator StringEquals"
+				if operator != "StringEquals" && !(stringLike && operator == "StringLike") {
+					return false, kind + " is allowed only with the operator StringEquals" + likeNote(stringLike, "")
 				}
 				for _, v := range values {
 					if v != account {
@@ -175,8 +182,8 @@ func checkSourceConditions(account string, condition any) (bool, string) {
 					}
 				}
 			case condSourceArn:
-				if operator != "ArnEquals" && operator != "ArnLike" && operator != "StringEquals" {
-					return false, kind + " is allowed only with the operators ArnEquals, ArnLike, and StringEquals"
+				if operator != "ArnEquals" && operator != "ArnLike" && operator != "StringEquals" && !(stringLike && operator == "StringLike") {
+					return false, kind + " is allowed only with the operators ArnEquals, ArnLike, and StringEquals" + likeNote(stringLike, ",")
 				}
 				for _, v := range values {
 					// The account field is the fifth of arn:partition:service:region:account:resource.
@@ -190,4 +197,15 @@ func checkSourceConditions(account string, condition any) (bool, string) {
 		}
 	}
 	return tied, ""
+}
+
+// likeNote names StringLike in the refusal of a check that allows it.
+func likeNote(stringLike bool, sep string) string {
+	if !stringLike {
+		return ""
+	}
+	if sep == "," {
+		return ", and StringLike"
+	}
+	return " or StringLike"
 }
