@@ -96,7 +96,7 @@ var s3TransferTools = []Operation{{
 	HiddenInputs: slices.Concat(
 		hiddenAll(s3ACLWhy, "ACL", "GrantFullControl", "GrantRead", "GrantReadACP", "GrantWriteACP"),
 		hiddenAll(s3SSECWhy, "SSECustomerAlgorithm", "SSECustomerKey", "SSECustomerKeyMD5"),
-		hiddenAll("Object Lock writes are not a tool yet; a lock on an object that cannot be removed is not set through an upload",
+		hiddenAll("Object Lock retention and holds are set with the object-lock tools, which accept only governance retention; an upload would set them past that check",
 			"ObjectLockMode", "ObjectLockRetainUntilDate", "ObjectLockLegalHoldStatus", "ObjectLockEventHold",
 			"ObjectLockEventHoldDurationDays", "ObjectLockEventHoldDurationYears"),
 		[]Hidden{

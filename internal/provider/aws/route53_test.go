@@ -21,6 +21,8 @@ var route53ToolIDs = []string{"aws.route53.hosted-zone.list", "aws.route53.hoste
 	"aws.route53.health-check.create", "aws.route53.health-check.update", "aws.route53.health-check.delete",
 	"aws.route53.dnssec.get", "aws.route53.dnssec.enable", "aws.route53.dnssec.disable", "aws.route53.key-signing-key.create",
 	"aws.route53.key-signing-key.activate", "aws.route53.key-signing-key.deactivate", "aws.route53.key-signing-key.delete",
+	"aws.route53.delegation-set.create", "aws.route53.delegation-set.delete", "aws.route53.cidr-collection.create",
+	"aws.route53.cidr-collection.change", "aws.route53.cidr-collection.delete",
 	"aws.route53.query-logging-config.create", "aws.route53.query-logging-config.delete",
 	"aws.route53.account-limit.get", "aws.route53.checker-ip-range.list", "aws.route53.cidr-block.list",
 	"aws.route53.cidr-collection.list", "aws.route53.cidr-location.list", "aws.route53.delegation-set.get",
@@ -270,7 +272,6 @@ func TestRoute53CreateChecksTheVPCBeforeAnyRequest(t *testing.T) {
 		`{"name":"a.example.com",` + private + `,"vpc":{"vpc_region":"` + testRegion + `"}}`,
 		`{"name":"a.example.com",` + private + `}`,
 		`{"name":"a.example.com","vpc":{"vpc_region":"` + testRegion + `","vpc_id":"vpc-0123456789abcdef0"}}`,
-		`{"name":"a.example.com","delegation_set_id":"N1"}`,
 	} {
 		if _, err := e.invokeConfirmed("aws.route53.hosted-zone.create", args, true); err == nil {
 			t.Errorf("%s was accepted", args)
@@ -358,7 +359,7 @@ func TestRoute53ExcludesTheVPCAuthorization(t *testing.T) {
 			continue
 		}
 		tools++
-		if (strings.Contains(d.ID, "authorization") && d.ID != "aws.route53.vpc-association-authorization.list") || (d.ID == "aws.route53.hosted-zone.create" && strings.Contains(string(d.InputSchema), "delegation_set_id")) {
+		if strings.Contains(d.ID, "authorization") && d.ID != "aws.route53.vpc-association-authorization.list" {
 			t.Errorf("%s offers what is not offered: %s", d.ID, d.InputSchema)
 		}
 	}

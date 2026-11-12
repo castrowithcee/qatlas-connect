@@ -1,6 +1,6 @@
 ---
 description: >
-  Describes the GitHub account tools: the account behind a connection's token, the account-wide rule for tools that read it as a whole, the rate limit, GitHub's reference data and Markdown rendering, organization teams, their members, repositories, and, listed only, their management, and the user and organization search.
+  Describes the GitHub account tools: the account behind a connection's token, the account-wide rule for tools that read it as a whole, the rate limit, GitHub's reference data and Markdown rendering, organization teams, their members, repositories, and, listed only, their management, reading an organization with its members, memberships, organization roles, outside collaborators, and pending invitations, and the user and organization search.
 type: knowledge
 edit: shared
 created: 2026-10-22
@@ -9,7 +9,7 @@ updated: 2026-11-12
 
 # GitHub accounts
 
-The account tools of the [GitHub provider](README.md). The team reads take `owner` as described under
+The account tools of the [GitHub provider](README.md). The team and organization reads take `owner` as described under
 [the target of a call](README.md#the-target-of-a-call).
 
 ## Account-wide tools
@@ -138,6 +138,48 @@ tools change who reaches which repository in the organization.
 `html_url` appears as `url` and the REST addresses as `links`. Text GitHub supplies, including the
 organization object inside a team with its billing contact, is untrusted data; people follow the account view
 used by the member list.
+
+## Organization, members, roles, outside collaborators, and invitations
+
+| Tool | Does |
+| --- | --- |
+| `github.organizations.get` | reads one organization with its profile, plan, and settings |
+| `github.organization-members.list` | lists the members of an organization by login, in batches; optional `role` (`all`, `admin`, `member`) |
+| `github.organization-members.get` | reads the role and state of one account (`username`) in the organization |
+| `github.organization-roles.list` | lists the organization roles of an organization, predefined and custom |
+| `github.outside-collaborators.list` | lists the outside collaborators of an organization, in batches |
+| `github.organization-invitations.list` | lists the pending invitations, in batches; optional `role` (`all`, `admin`, `direct_member`, `billing_manager`, `hiring_manager`) and `invitation_source` (`all`, `member`, `scim`) |
+
+These tools only read, are offered by effect, and take `owner` as `orgs/LOGIN` under the rules of
+[Organization teams](#organization-teams): an owner target of its own, checked with `exclude` before a secret is
+read, and named in every result. `username` is checked as a fixed path segment before anything is sent. The lists
+follow the [cursor contract](README.md#cursor-contract), a cursor bound to the organization, the tool, and its
+filters. `github.organization-roles.list` has no cursor: GitHub answers that route in one piece.
+
+GitHub decides what a token sees. The full organization object, with its settings and plan, is shown by GitHub
+to an organization owner; for a token below that, GitHub leaves members out and so does the result.
+`github.organization-members.get` is answered by GitHub only to a member of the organization.
+
+**No two-factor state of other accounts.** GitHub's `filter` of the member and outside collaborator lists
+(`2fa_disabled`, `2fa_insecure`) is not offered and never sent, and no output carries a two-factor member of
+another account. `two_factor_requirement_enabled` of `github.organizations.get` is output: it is a setting of the
+organization, not the state of any account.
+
+**No invitation tokens or accept links.** An invitation is output from the members GitHub documents for it
+(`id`, `login`, `email`, `role`, `created_at`, `failed_at`, `failed_reason`, `inviter`, `team_count`, `node_id`,
+`invitation_teams_url`, `invitation_source`). Anything else GitHub might send with it, such as a token or a link
+that accepts the invitation, is never output. `invitation_teams_url` is a REST address of the invitation's teams,
+untrusted data and never fetched.
+
+**Omitted fields.** The reads output every member GitHub documents for `organization-full`, `org-membership`,
+`organization-role`, `organization-invitation`, and `simple-user` (REST OpenAPI 1.1.4), without exception.
+`html_url` appears as `url` and the REST addresses as `links`; `organization-full`'s own REST `url` is
+`links.url`. `billing_email` of `github.organizations.get` is the billing contact GitHub reports and is output
+as untrusted data. People, including the account of a membership, the creator of a role, and the inviter, follow
+the account view of the member lists, with the name and email address GitHub reports. Text GitHub supplies is
+untrusted data, and addresses are never fetched.
+
+The token rights are listed under [Accounts and search](setup.md#accounts-and-search).
 
 ## Search
 

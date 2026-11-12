@@ -128,11 +128,15 @@ var route53ZoneTools = []Operation{
 			"A domain that already has a zone from this call's token answers a conflict (HostedZoneAlreadyExists); a name " +
 			"Route 53 cannot use answers InvalidDomainName; the account's zone quota answers TooManyHostedZones. " +
 			"The call token is generated and returned as client_token. A VPC of another account is refused by Route 53 " +
-			"unless that account authorized it, and the tools do not create that authorization. Reusable delegation sets are not offered." +
+			"unless that account authorized it, and the tools do not create that authorization. With delegation_set_id the public zone " +
+			"takes the name servers of a reusable delegation set (create one with aws.route53.delegation-set.create); a private zone " +
+			"with it, an unknown set (NoSuchDelegationSet), and a set that cannot be used (DelegationSetNotAvailable, " +
+			"DelegationSetNotReusable) are refused by Route 53." +
 			r53Cost + r53Change,
 		Arguments: map[string]Argument{
 			"Name":             {Description: "Domain name of the zone, such as example.com; with a trailing dot or without"},
 			"VPC":              {Description: "First VPC of a private zone: vpc_region (a region the connection allows) and vpc_id (vpc-...); both are required together"},
+			"DelegationSetId":  {Description: "ID of a reusable delegation set of the bound account, with or without the /delegationset/ prefix, such as N0123456789ABCDEFGHIJ; public zones only"},
 			"HostedZoneConfig": {Description: "comment (up to 256 characters) and private_zone (true for a private zone, which needs vpc)"},
 		},
 		Fields: map[string]Field{
@@ -142,12 +146,12 @@ var route53ZoneTools = []Operation{
 			"VPC":           {Description: "The VPC of a private zone: vpc_region and vpc_id"},
 			"Location":      {Description: "Path of the new zone, as Route 53 reports it"},
 		},
-		HiddenInputs: []Hidden{{Member: "DelegationSetId", Reason: "reusable delegation sets are not offered; the zone gets name servers of its own"}},
-		Guards:       []string{"route53-vpc"},
-		TokenMember:  "CallerReference",
-		SampleArgs:   `{"name":"example.com","vpc":{"vpc_region":"eu-central-1","vpc_id":"vpc-0123456789abcdef0"},"hosted_zone_config":{"private_zone":true}}`,
+		Guards:      []string{"route53-vpc"},
+		TokenMember: "CallerReference",
+		SampleArgs:  `{"name":"example.com","vpc":{"vpc_region":"eu-central-1","vpc_id":"vpc-0123456789abcdef0"},"hosted_zone_config":{"private_zone":true}}`,
 		Examples: []Example{
 			{Description: "Create a public zone", Arguments: `{"name":"example.com","hosted_zone_config":{"comment":"main site"}}`},
+			{Description: "Create a public zone with the name servers of a reusable delegation set", Arguments: `{"name":"example.com","delegation_set_id":"N0123456789ABCDEFGHIJ"}`},
 			{Description: "Create a private zone", Arguments: `{"name":"internal.example.com","vpc":{"vpc_region":"eu-central-1","vpc_id":"vpc-0123456789abcdef0"},"hosted_zone_config":{"private_zone":true}}`},
 		},
 	}, "hosted-zone"),
