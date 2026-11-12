@@ -80,8 +80,12 @@ Each [SES tool](ses.md) needs the permission `ses:<Operation>` of its AWS operat
 `ses:UpdateEmailIdentityPolicy`, `ses:DeleteEmailIdentityPolicy`, `ses:CreateEmailIdentity`,
 `ses:DeleteEmailIdentity`, `ses:PutEmailIdentityDkimAttributes`, `ses:PutEmailIdentityDkimSigningAttributes`,
 `ses:PutEmailIdentityMailFromAttributes`, `ses:PutEmailIdentityFeedbackAttributes`,
-`ses:PutEmailIdentityConfigurationSetAttributes`, `ses:TagResource`, and `ses:UntagResource`, each for its own tool.
-Creating with tags also needs `ses:TagResource`. The identity policy write tools are offered only when the tools list
+`ses:PutEmailIdentityConfigurationSetAttributes`, `ses:TagResource`, `ses:UntagResource`, `ses:ListEmailTemplates`,
+`ses:GetEmailTemplate`, `ses:CreateEmailTemplate`, `ses:UpdateEmailTemplate`, `ses:DeleteEmailTemplate`,
+`ses:TestRenderEmailTemplate`, `ses:ListContactLists`, `ses:GetContactList`, `ses:CreateContactList`,
+`ses:UpdateContactList`, `ses:DeleteContactList`, `ses:ListContacts`, `ses:GetContact`, `ses:CreateContact`,
+`ses:UpdateContact`, and `ses:DeleteContact`, each for its own tool.
+Creating an identity, a template, or a contact list with tags also needs `ses:TagResource`. The identity policy write tools are offered only when the tools list
 of the connection names them. Grant only the actions of the tools the connection offers. An account without production
 access is in the SES sandbox and sends only to verified recipients.
 

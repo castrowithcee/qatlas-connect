@@ -65,7 +65,7 @@ func TestSESIdentityToolsRisk(t *testing.T) {
 	}
 	seen := 0
 	for _, s := range generatedSpecs {
-		if s.service != "ses" {
+		if s.service != "ses" || sesContactTool(s.descriptor.ID) {
 			continue
 		}
 		seen++
