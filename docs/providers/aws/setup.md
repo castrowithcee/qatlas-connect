@@ -86,10 +86,13 @@ Each [SES tool](ses.md) needs the permission `ses:<Operation>` of its AWS operat
 `ses:PutConfigurationSetSendingOptions`, `ses:PutConfigurationSetSuppressionOptions`,
 `ses:PutConfigurationSetTrackingOptions`, `ses:PutConfigurationSetVdmOptions`,
 `ses:PutConfigurationSetArchivingOptions`, `ses:GetConfigurationSetEventDestinations`,
-`ses:ListSuppressedDestinations`, `ses:GetSuppressedDestination`, `ses:PutSuppressedDestination`, and
-`ses:DeleteSuppressedDestination`, each for its own tool. `ses:TagResource`, `ses:UntagResource`, and
-`ses:ListTagsForResource` also serve the tags of configuration sets. Creating with tags, an identity or a configuration
-set, also needs `ses:TagResource`. No permission for creating, changing, or deleting event destinations is needed: those
+`ses:ListSuppressedDestinations`, `ses:GetSuppressedDestination`, `ses:PutSuppressedDestination`,
+`ses:DeleteSuppressedDestination`, `ses:ListEmailTemplates`, `ses:GetEmailTemplate`, `ses:CreateEmailTemplate`,
+`ses:UpdateEmailTemplate`, `ses:DeleteEmailTemplate`, `ses:TestRenderEmailTemplate`, `ses:ListContactLists`,
+`ses:GetContactList`, `ses:CreateContactList`, `ses:UpdateContactList`, `ses:DeleteContactList`, `ses:ListContacts`,
+`ses:GetContact`, `ses:CreateContact`, `ses:UpdateContact`, and `ses:DeleteContact`, each for its own tool. `ses:TagResource`, `ses:UntagResource`, and
+`ses:ListTagsForResource` also serve the tags of configuration sets. Creating an identity, a configuration set, a template,
+or a contact list with tags also needs `ses:TagResource`. No permission for creating, changing, or deleting event destinations is needed: those
 actions are not tools. The account tools need `ses:GetAccount`, `ses:PutAccountDetails`,
 `ses:PutAccountSendingAttributes`, `ses:PutAccountSuppressionAttributes`, `ses:PutAccountDedicatedIpWarmupAttributes`,
 and `ses:PutAccountVdmAttributes`. The identity policy write tools are offered only when the tools list
@@ -112,7 +115,10 @@ which needs `s3:ListAllMyBuckets` on all resources. The reads need `s3:ListAllMy
 `s3:GetBucketCORS` (`cors.get`), `s3:GetBucketAcl` (`acl.get`), `s3:GetBucketWebsite`, `s3:GetBucketLogging` (`logging.get`), `s3:GetBucketNotification` (`notification.get`),
 `s3:GetReplicationConfiguration` (`replication.get`), `s3:GetBucketOwnershipControls`, `s3:GetAccelerateConfiguration`,
 `s3:GetBucketRequestPayment`, `s3:GetBucketObjectLockConfiguration` (`object-lock.get`), `s3:GetObjectRetention` and
-`s3:GetObjectLegalHold` (`object-retention.get` and `object-legal-hold.get`, for the object `arn:aws:s3:::<bucket>/<key>`), `s3:GetBucketPolicy` (`bucket-policy.get`), and `s3:GetBucketPolicyStatus` (`bucket-policy.get-status`), each for its own tool. The writes need:
+`s3:GetObjectLegalHold` (`object-retention.get` and `object-legal-hold.get`, for the object `arn:aws:s3:::<bucket>/<key>`), `s3:GetBucketPolicy` (`bucket-policy.get`), and `s3:GetBucketPolicyStatus` (`bucket-policy.get-status`), each for its own tool. The object reads need `s3:ListBucket` (`object.list`), `s3:ListBucketVersions` (`object.list-versions`),
+`s3:GetObject` (`object.head`, and `s3:GetObjectVersion` for a version; `object.get-attributes` also needs
+`s3:GetObjectAttributes`), `s3:GetObjectTagging` (`object-tagging.get`), and `s3:GetObjectAcl` (`object-acl.get`), for
+the object `arn:aws:s3:::<bucket>/<key>` except the two lists. The writes need:
 
 | Tool | Permission |
 | --- | --- |
@@ -127,6 +133,11 @@ which needs `s3:ListAllMyBuckets` on all resources. The reads need `s3:ListAllMy
 | `aws.s3.cors.delete` | `s3:PutBucketCORS` |
 | `aws.s3.bucket-policy.put` | `s3:PutBucketPolicy` and `s3:GetBucketPolicyStatus` (the read after the change) |
 | `aws.s3.bucket-policy.delete` | `s3:DeleteBucketPolicy` |
+| `aws.s3.object.copy` | `s3:GetObject` (`s3:GetObjectVersion` for a version) on the source and `s3:PutObject` on the destination; with tags also `s3:GetObjectTagging` and `s3:PutObjectTagging` |
+| `aws.s3.object.delete`, `aws.s3.object.delete-many` | `s3:DeleteObject` (`s3:DeleteObjectVersion` for a version) |
+| `aws.s3.object.restore` | `s3:RestoreObject` |
+| `aws.s3.object-tagging.put` | `s3:PutObjectTagging` (`s3:PutObjectVersionTagging` for a version) |
+| `aws.s3.object-tagging.delete` | `s3:DeleteObjectTagging` (`s3:DeleteObjectVersionTagging` for a version) |
 
 The bucket policy write tools are offered only when the tools list of the connection names them. Creating with tags also needs `s3:PutBucketTagging`. Setting a KMS key also needs the permissions the key's policy
 requires for the identity. Grant only the actions of the tools the connection offers; a policy such as `s3:*` also
@@ -150,6 +161,10 @@ Each [Route 53 tool](route53.md) needs the permission `route53:<Action>` of its 
 | `aws.route53.health-check.create` | `route53:CreateHealthCheck` |
 | `aws.route53.health-check.update` | `route53:UpdateHealthCheck` |
 | `aws.route53.health-check.delete` | `route53:DeleteHealthCheck` |
+| `aws.route53.traffic-policy.create` | `route53:CreateTrafficPolicy` |
+| `aws.route53.traffic-policy.create-version` | `route53:CreateTrafficPolicyVersion` |
+| `aws.route53.traffic-policy.update-comment` | `route53:UpdateTrafficPolicyComment` |
+| `aws.route53.traffic-policy.delete` | `route53:DeleteTrafficPolicy` |
 | `aws.route53.delegation-set.create` | `route53:CreateReusableDelegationSet` |
 | `aws.route53.delegation-set.delete` | `route53:DeleteReusableDelegationSet` |
 | `aws.route53.cidr-collection.create` | `route53:CreateCidrCollection` |
@@ -161,14 +176,21 @@ Each [Route 53 tool](route53.md) needs the permission `route53:<Action>` of its 
 | `aws.route53.key-signing-key.activate` | `route53:ActivateKeySigningKey`; also the `kms` permissions above on the KMS key |
 | `aws.route53.key-signing-key.deactivate` | `route53:DeactivateKeySigningKey` |
 | `aws.route53.key-signing-key.delete` | `route53:DeleteKeySigningKey`; also the `kms` permissions above on the KMS key |
+| `aws.route53.query-logging-config.create` | `route53:CreateQueryLoggingConfig`; AWS also requires `logs:CreateLogDelivery` |
+| `aws.route53.query-logging-config.delete` | `route53:DeleteQueryLoggingConfig` |
 
 Route 53 permissions name hosted zones as `arn:aws:route53:::hostedzone/<id>`, health checks as
-`arn:aws:route53:::healthcheck/<id>`, and changes as `arn:aws:route53:::change/<id>`; `route53:CreateHostedZone`,
-`route53:ListHostedZones`, `route53:GetHostedZoneCount`, `route53:CreateHealthCheck`, `route53:ListHealthChecks`, and
+`arn:aws:route53:::healthcheck/<id>`, traffic policies as `arn:aws:route53:::trafficpolicy/<id>` (the other traffic policy writes take that resource), and changes as `arn:aws:route53:::change/<id>`; `route53:CreateHostedZone`,
+`route53:CreateTrafficPolicy`, `route53:ListHostedZones`, `route53:GetHostedZoneCount`, `route53:CreateHealthCheck`, `route53:ListHealthChecks`, and
 `route53:GetHealthCheckCount`, `route53:ListQueryLoggingConfigs`, `route53:ListReusableDelegationSets`, `route53:ListTrafficPolicies`, `route53:ListTrafficPolicyInstances`, `route53:GetTrafficPolicyInstanceCount`, `route53:ListCidrCollections`, `route53:GetAccountLimit`, `route53:ListGeoLocations`, `route53:GetGeoLocation`, `route53:GetCheckerIpRanges`, and `route53:ListHostedZonesByVPC` apply to all resources. The tag tools need `route53:ListTagsForResource` (`route53:ListTagsForResources` for `tag.list-many`) and
 `route53:ChangeTagsForResource` for health checks as for zones. `route53:ListHostedZonesByVPC` also needs `ec2:DescribeVpcs` for the VPC. Grant only the actions of the tools the connection offers; a policy such as `route53:*` also
 grants every change of the records of a zone. The `kms` permissions are the minimum the policy of the identity needs on the
 one KMS key in `us-east-1`; the DNSSEC writes are listed-only and need the tools to be named in the connection's tools list.
+
+**The log group policy.** A query logging configuration needs a CloudWatch Logs log group in `us-east-1` of the bound
+account, which the connection must allow, and a resource policy of CloudWatch Logs that allows the service principal
+`route53.amazonaws.com` to `logs:CreateLogStream` and `logs:PutLogEvents` on the group. The tools create neither; without
+the policy Route 53 refuses with `InsufficientCloudWatchLogsResourcePolicy`.
 
 **The KMS key policy.** Route 53 uses the key through the service principal, so the key policy of the KMS key, not
 the identity policy, must allow `dnssec-route53.amazonaws.com` to `kms:DescribeKey`, `kms:GetPublicKey`, `kms:Sign`,

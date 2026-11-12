@@ -362,6 +362,8 @@ var (
 		httpbind.KindFloat: "KindFloat", httpbind.KindBoolean: "KindBoolean", httpbind.KindTimestamp: "KindTimestamp",
 		httpbind.KindBlob: "KindBlob", httpbind.KindStruct: "KindStruct", httpbind.KindList: "KindList",
 		httpbind.KindMap: "KindMap", httpbind.KindDocument: "KindDocument"}
+	httpFormatNames = map[httpbind.Format]string{httpbind.FormatEpochSeconds: "FormatEpochSeconds",
+		httpbind.FormatDateTime: "FormatDateTime", httpbind.FormatHTTPDate: "FormatHTTPDate"}
 	httpLocNames = map[httpbind.Loc]string{httpbind.LocLabel: "LocLabel", httpbind.LocQuery: "LocQuery",
 		httpbind.LocQueryParams: "LocQueryParams", httpbind.LocHeader: "LocHeader", httpbind.LocPrefixHeaders: "LocPrefixHeaders",
 		httpbind.LocPayload: "LocPayload", httpbind.LocResponseCode: "LocResponseCode"}
@@ -407,6 +409,9 @@ func restShapeLit(s *httpbind.Shape) string {
 	}
 	if s.MaxItems > 0 {
 		parts = append(parts, "MaxItems: "+strconv.Itoa(s.MaxItems))
+	}
+	if s.Format != httpbind.FormatDefault {
+		parts = append(parts, "Format: httpbind."+httpFormatNames[s.Format])
 	}
 	if len(s.Prefixes) > 0 {
 		quoted := make([]string, len(s.Prefixes))
@@ -470,7 +475,7 @@ func shapeLit(s *awsquery.Shape) string {
 }
 
 func renderTests(b *bytes.Buffer, tools []*tool, exclusions []exclusion) {
-	b.WriteString(Header + "\npackage aws\n\nimport (\n\t\"strings\"\n\t\"testing\"\n)\n\n")
+	b.WriteString(Header + "\npackage aws\n\nimport (\n\t\"strings\"\n\t\"testing\"\n\n\t\"github.com/castrowithcee/qatlas-connect/internal/config\"\n)\n\n")
 	for _, e := range exclusions {
 		v := exclusionVar(e.segment)
 		list := stringSlice(e.actions)
@@ -546,7 +551,12 @@ func TestGeneratedTools(t *testing.T) {
 			if c.listed || c.confirm {
 				tools = []string{c.tool}
 			}
-			e := newToolsEnv(t, f, baseValues(), tools)
+			// The log group of a query logging configuration must lie in us-east-1, which the connection then has to allow.
+			conn := config.Connection{Tools: tools}
+			if strings.HasPrefix(c.tool, "aws.route53.query-logging-config.") {
+				conn.Targets = []string{"account/" + testAccount, "region/" + testRegion, "region/us-east-1"}
+			}
+			e := newConnEnv(t, f, baseValues(), conn)
 			text, err := e.invokeConfirmed(c.tool, c.arguments, c.confirm)
 			if err != nil {
 				t.Fatalf("invoke: %v", err)

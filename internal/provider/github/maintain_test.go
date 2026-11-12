@@ -225,9 +225,10 @@ func TestGuardedToolsStayOutOfEveryStandardProfile(t *testing.T) {
 		iterationsReplace.ID: true, viewsDelete.ID: true, itemsDelete.ID: true, statusDelete.ID: true,
 		projectWorkflowsDelete.ID: true, releasesDelete.ID: true, releaseAssetsDelete.ID: true, contentsDelete.ID: true,
 		repositoriesDelete.ID: true, collaboratorsUpdate.ID: true, teamsLink.ID: true, teamsUnlink.ID: true,
-		filesPush.ID: true, branchesDelete.ID: true, branchesRename.ID: true, issuesLock.ID: true, branchesSyncFork.ID: true, mergesCreate.ID: true, tagsDelete.ID: true, rulesetsDelete.ID: true, branchProtectionDelete.ID: true, labelsDelete.ID: true, milestonesDelete.ID: true, actionVariablesDelete.ID: true, actionCachesDelete.ID: true, runsDelete.ID: true, artifactsDelete.ID: true, commentsDelete.ID: true, pullRequestReviewCommentsDelete.ID: true,
+		filesPush.ID: true, branchesDelete.ID: true, branchesRename.ID: true, issuesLock.ID: true, branchesSyncFork.ID: true, mergesCreate.ID: true, tagsDelete.ID: true, rulesetsDelete.ID: true, branchProtectionDelete.ID: true, labelsDelete.ID: true, autolinksDelete.ID: true, milestonesDelete.ID: true, actionVariablesDelete.ID: true, actionCachesDelete.ID: true, runsDelete.ID: true, artifactsDelete.ID: true, commentsDelete.ID: true, pullRequestReviewCommentsDelete.ID: true,
 		discussionCommentsDelete.ID: true, discussionsDelete.ID: true, runLogsDelete.ID: true, environmentsDelete.ID: true,
-		branchPoliciesDelete.ID: true, protectionRulesDelete.ID: true}
+		branchPoliciesDelete.ID: true, protectionRulesDelete.ID: true, webhooksDelete.ID: true, deployKeysDelete.ID: true,
+		repositoryInvitationsCancel.ID: true}
 	// github.pull-requests.merge and github.pull-request-reviews.approve are each guarded on their own: neither is
 	// a maintainer or administrator tool nor a delete, but each is offered only where a connection's tools list
 	// names it, because merging into the wrong repository's default branch, and approving on the connection's
@@ -252,7 +253,8 @@ func TestGuardedToolsStayOutOfEveryStandardProfile(t *testing.T) {
 			descriptor.ID == runsForceCancel.ID || slices.Contains(actionsSettingsReads, descriptor.ID) ||
 			slices.Contains(actionsSettingsChanges, descriptor.ID) ||
 			slices.Contains(runnersReads, descriptor.ID) || slices.Contains(runnersChanges, descriptor.ID) ||
-			slices.Contains(runnerGroupReads, descriptor.ID) || slices.Contains(runnerGroupWrites, descriptor.ID)
+			slices.Contains(runnerGroupReads, descriptor.ID) || slices.Contains(runnerGroupWrites, descriptor.ID) ||
+			slices.Contains(webhooksChanges, descriptor.ID)
 		if descriptor.RequiresToolAllowList != want {
 			t.Errorf("%s requires an allow-list = %t", descriptor.ID, descriptor.RequiresToolAllowList)
 		}
@@ -264,11 +266,11 @@ func TestGuardedToolsStayOutOfEveryStandardProfile(t *testing.T) {
 			marked++
 		}
 	}
-	if marked != len(guardedTools)+len(deletes)+39 || len(guardedTools) != 13 {
+	if marked != len(guardedTools)+len(deletes)+41 || len(guardedTools) != 13 {
 		t.Errorf("marked tools = %d, want the thirteen maintainer and administrator tools, the fifteen deletes and "+
 			"the three access tools, files.push, and github.labels.delete, the merge, the auto-merge enable, the security switch and code scanning setup changes, the approve, the review dismissal, the ruleset "+
 			"create and update, the branch protection set, the custom properties set, the notifications mark-all, the gist delete, the repository rename, "+
-			"the environment set, the run force-cancel, the three security alert updates, the ten tools of the finer Actions settings, the seven runner tools, and the four runner group and hosted runner tools", marked)
+			"the environment set, the run force-cancel, the three security alert updates, the ten tools of the finer Actions settings, the seven runner tools, the four runner group and hosted runner tools, and the pause and resume of a webhook", marked)
 	}
 	profiles := map[string]config.ToolProfile{}
 	for _, profile := range metadata.Profiles {

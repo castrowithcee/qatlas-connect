@@ -1,6 +1,6 @@
 ---
 description: >
-  Describes the tools of the AWS SES v2 group: reading, creating, configuring, tagging, and deleting sender identities with DKIM and MAIL FROM, the account status, the sandbox, the production access request and the account attributes, creating and configuring configuration sets, reading their event destinations, managing the suppression list, the identity, ARN, archive, and domain checks, the DNS help derived from checked values, and what is never a tool.
+  Describes the tools of the AWS SES v2 group: reading, creating, configuring, tagging, and deleting sender identities with DKIM and MAIL FROM, the account status, the sandbox, the production access request and the account attributes, creating and configuring configuration sets, reading their event destinations, managing the suppression list, email templates, contact lists with topics, contacts and their privacy, the identity, ARN, archive, and domain checks, the DNS help derived from checked values, and what is never a tool.
 type: knowledge
 edit: shared
 created: 2026-11-11
@@ -11,8 +11,9 @@ updated: 2026-11-12
 
 Group `ses`, the SES v2 API. SES is regional: every tool takes an optional `region`, which may be left out when the
 connection lists exactly one region and otherwise must name an allowed one. Every permission a tool needs is listed in
-[Set up AWS](setup.md#ses). The tools manage the sender identities (domains and email addresses), the configuration sets, and the suppression list of
-the bound account and read and change the account status of one region.
+[Set up AWS](setup.md#ses). The tools manage the sender identities (domains and email addresses), the configuration sets, the suppression list,
+the email templates, the contact lists with their topics, and the contacts of the bound account and read and change the account
+status of one region.
 
 ## Tools
 
@@ -67,6 +68,31 @@ listed-only: a connection offers them only when its tools list names each one ex
 
 `aws.ses.email-identity.create` with tags also needs `ses:TagResource`. A create or delete whose outcome is unclear
 is not repeated: read the identity, its policies, or the configuration set first.
+
+### Templates, contact lists, and contacts
+
+| Tool | AWS operation | Effect | Confirmation |
+| --- | --- | --- | --- |
+| `aws.ses.email-template.list` | `ListEmailTemplates` | read | no |
+| `aws.ses.email-template.get` | `GetEmailTemplate` | read | no |
+| `aws.ses.email-template.test-render` | `TestRenderEmailTemplate` | read, sends nothing | no |
+| `aws.ses.email-template.create` | `CreateEmailTemplate` | create, not repeated | yes |
+| `aws.ses.email-template.update` | `UpdateEmailTemplate` | update | yes |
+| `aws.ses.email-template.delete` | `DeleteEmailTemplate` | delete, not repeated | yes |
+| `aws.ses.contact-list.list` | `ListContactLists` | read | no |
+| `aws.ses.contact-list.get` | `GetContactList` | read | no |
+| `aws.ses.contact-list.create` | `CreateContactList` | create, not repeated | yes |
+| `aws.ses.contact-list.update` | `UpdateContactList` | update | yes |
+| `aws.ses.contact-list.delete` | `DeleteContactList` | delete, not repeated | yes |
+| `aws.ses.contact.list` | `ListContacts` | read | no |
+| `aws.ses.contact.get` | `GetContact` | read | no |
+| `aws.ses.contact.create` | `CreateContact` | create, not repeated | yes |
+| `aws.ses.contact.update` | `UpdateContact` | update | yes |
+| `aws.ses.contact.delete` | `DeleteContact` | delete, not repeated | yes |
+
+`create` of a template or a contact list with tags also needs `ses:TagResource`. A create or delete whose outcome is
+unclear is not repeated: read the template, list, or contact first. The list tools of templates, contact lists, and
+contacts page with `page_size` (at most 100) and `cursor`.
 
 ## Account status and the sandbox
 
@@ -188,12 +214,44 @@ Email addresses are personal data. The suppression tools carry the data class `a
 the list, including their attributes, are untrusted data. The tenant of the SES API is not offered; the tools act on
 the list of the account.
 
+## Email templates
+
+A template has a `subject`, a `text`, and an `html` part with `{{placeholders}}`. `create` and `update` check the content
+for size only, never for meaning: markup, scripts, and links pass, and no URL in a template is ever fetched. Each of
+`html` and `text` is limited to 512000 characters (the 500 KB template limit of SES, which the API model does not
+state); more is refused before any request.
+`update` replaces the whole content, so give every part to keep. `get` and `test-render` return template content as
+untrusted data, and a part longer than 131072 characters is cut, which `truncated` reports. `test-render` takes
+`template_data` as JSON text, renders the template, and sends no mail.
+
+## Contact lists and topics
+
+A contact list holds contacts and topics. A topic has a `topic_name`, a `display_name`, a `description`, and a
+`default_subscription_status` (`OPT_IN` or `OPT_OUT`) that applies to contacts who state no preference for it.
+`contact-list.update` replaces the topics and the description: the topics given replace all existing ones. Deleting a
+list with `contact-list.delete` deletes all its contacts too.
+
+## Contacts and privacy
+
+A contact is an email address in one list, with `topic_preferences` (`OPT_IN` or `OPT_OUT` per topic), `unsubscribe_all`,
+and `attributes_data`, JSON text. The email address is limited to 254 characters. `contact.update` replaces preferences, state, and
+attributes, so what is left out is reset. `contact.list` filters by `filtered_status` and `topic_filter`. Contacts are
+added one by one; importing from a file is not offered.
+
+Email addresses and attributes are personal data. They are classified as recipient data (`aws-ses-recipient-data`) in the
+tool risk, are returned to the caller by `list` and `get`, and reach the agent's context. Read contacts
+only when the task needs them, and keep the list and attribute names free of personal data. Contact attributes, names,
+and descriptions are untrusted data.
+
 ## Not offered
 
 - No key material of your own (BYODKIM): the selector and the private key are not arguments, and the origin `EXTERNAL`
   is not offered. Easy DKIM keys are generated by SES, with `RSA_1024_BIT` or `RSA_2048_BIT` for the next key.
 - Creating, changing, and deleting event destinations of a configuration set, as listed above.
-- `SendCustomVerificationEmail` is never a tool: it would send mail to any address given as an argument.
+- `SendCustomVerificationEmail` is never a tool: it would send mail to any address given as an argument. The custom
+  verification email templates (`Create`, `Update`, `Delete`, `Get`, and `ListCustomVerificationEmailTemplates`) are not
+  tools either, since they only serve that mail.
+- No import of contacts from a file (`CreateImportJob`).
 
 ## Limits
 

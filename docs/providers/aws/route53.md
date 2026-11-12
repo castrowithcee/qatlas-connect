@@ -1,15 +1,15 @@
 ---
 description: >
-  Describes the tools of the AWS Route 53 group: listing, reading, creating, and deleting hosted zones of the bound account, changing a zone's comment and tags, listing and changing the records of a zone in atomic batches, testing a DNS answer, reading the status of a change, listing, reading, creating, changing, and deleting health checks with their status and last failure reason, reading DNSSEC and managing key signing keys (listed-only), creating and deleting reusable delegation sets and using one in a new zone, creating, changing, and deleting CIDR collections with the form check of their blocks, tags of zones and health checks, the name servers to enter at the registrar, zone and change IDs, private zones and the allowed VPC region, the health check target rule and alarm region, the cost of zones and health checks, the confirmation of a record or health check change, the DNSSEC flow with the DS record at the registrar and the order for switching it off, query logging configurations, reading delegation sets, traffic policies and their instances, reading CIDR collections, account and zone limits, geolocations, health checker addresses, VPC associations and authorizations, and what is not a tool.
+  Describes the tools of the AWS Route 53 group: listing, reading, creating, and deleting hosted zones of the bound account, changing a zone's comment and tags, listing and changing the records of a zone in atomic batches, testing a DNS answer, reading the status of a change, listing, reading, creating, changing, and deleting health checks with their status and last failure reason, reading DNSSEC and managing key signing keys (listed-only), creating, versioning, and deleting traffic policies and the limits of their JSON document, creating and deleting query logging configurations, creating and deleting reusable delegation sets and using one in a new zone, creating, changing, and deleting CIDR collections with the form check of their blocks, tags of zones and health checks, the name servers to enter at the registrar, zone and change IDs, private zones and the allowed VPC region, the health check target rule and alarm region, the cost of zones and health checks, the confirmation of a record or health check change, the DNSSEC flow with the DS record at the registrar and the order for switching it off, query logging configurations and the log group rule, reading delegation sets, traffic policy instances, reading CIDR collections, account and zone limits, geolocations, health checker addresses, VPC associations and authorizations, and what is not a tool.
 type: knowledge
 edit: shared
 created: 2026-11-11
-updated: 2026-11-11
+updated: 2026-11-12
 ---
 
 # Amazon Route 53
 
-Group `route53`, the Route 53 API for hosted zones, their records, health checks, DNSSEC, and reusable delegation sets, CIDR collections, and the read side of query logging, traffic policies, limits, geolocations, and VPC associations. Route 53 is a global service: the tools hang on the bound account,
+Group `route53`, the Route 53 API for hosted zones, their records, health checks, DNSSEC, query logging, traffic policies, reusable delegation sets, CIDR collections, and the read side of traffic policy instances, limits, geolocations, and VPC associations. Route 53 is a global service: the tools hang on the bound account,
 take no `region`, and sign for `us-east-1`; the region allowlist of the connection has no effect on the endpoint. Every
 permission a tool needs is listed in [Set up AWS](setup.md#route-53). A zone or health check belongs to the account whose credential
 signs the request, so one of another account cannot be reached.
@@ -66,6 +66,10 @@ Reads need no confirmation. Every other tool needs confirmation. The DNSSEC writ
 | `aws.route53.health-check.create` | `CreateHealthCheck` | create, not repeated | yes |
 | `aws.route53.health-check.update` | `UpdateHealthCheck` | update, not repeated | yes |
 | `aws.route53.health-check.delete` | `DeleteHealthCheck` | delete, not repeated | yes |
+| `aws.route53.traffic-policy.create` | `CreateTrafficPolicy` | create, not repeated | yes |
+| `aws.route53.traffic-policy.create-version` | `CreateTrafficPolicyVersion` | create, not repeated | yes |
+| `aws.route53.traffic-policy.update-comment` | `UpdateTrafficPolicyComment` | update | yes |
+| `aws.route53.traffic-policy.delete` | `DeleteTrafficPolicy` | delete, not repeated | yes |
 | `aws.route53.delegation-set.create` | `CreateReusableDelegationSet` | create, not repeated | yes |
 | `aws.route53.delegation-set.delete` | `DeleteReusableDelegationSet` | delete, not repeated | yes |
 | `aws.route53.cidr-collection.create` | `CreateCidrCollection` | create, not repeated | yes |
@@ -77,6 +81,8 @@ Reads need no confirmation. Every other tool needs confirmation. The DNSSEC writ
 | `aws.route53.key-signing-key.activate` | `ActivateKeySigningKey` | update | yes, listed-only |
 | `aws.route53.key-signing-key.deactivate` | `DeactivateKeySigningKey` | update | yes, listed-only |
 | `aws.route53.key-signing-key.delete` | `DeleteKeySigningKey` | delete, not repeated | yes, listed-only |
+| `aws.route53.query-logging-config.create` | `CreateQueryLoggingConfig` | create, not repeated | yes |
+| `aws.route53.query-logging-config.delete` | `DeleteQueryLoggingConfig` | delete, not repeated | yes |
 
 ## Zones
 
@@ -385,6 +391,69 @@ all, and the name, location, and ID forms above. The permitted block sizes and t
 The confirmation is the generic one: it names the tool, not the arguments. Before confirming, check the collection (name or ID)
 and, for `change`, every change in `changes` (action, location, and each block); the tool description repeats this.
 
+## Query logging
+
+`query-logging-config.create` makes Route 53 write the DNS queries of a public zone to a CloudWatch Logs log group;
+`query-logging-config.delete` stops that. A zone has at most one configuration (`QueryLoggingConfigAlreadyExists`). Read
+them with `query-logging-config.list` and `.get`. The call has no token, so a repeated create is not assumed harmless.
+
+### Log group rule
+
+`cloud_watch_logs_log_group_arn` must be the ARN of a log group of the bound account, `arn:aws:logs:us-east-1:<account>:log-group:<name>`.
+Route 53 requires `us-east-1`, and the connection must allow `us-east-1` too. A log group of another account, another
+region, another service or resource type (a log stream, a destination), a name with a wildcard, the `:*` suffix of a
+console ARN, and a missing or malformed ARN are refused before any request. No query log leaves the account.
+
+### Before creating
+
+The log group and its resource policy are not created by these tools and must exist beforehand. The resource policy has
+to allow the service principal `route53.amazonaws.com` to write to the group (`logs:CreateLogStream` and
+`logs:PutLogEvents`); otherwise Route 53 answers `InsufficientCloudWatchLogsResourcePolicy`. A missing log group answers
+`NoSuchCloudWatchLogsLogGroup`.
+
+### Confirmation, cost, and errors
+
+The confirmation does not show the arguments: the caller shows `hosted_zone_id`, the log group ARN, and the running cost before confirming. The log group bills for the ingested
+and stored logs for as long as the configuration exists. Deleting a configuration keeps the log group and the logs
+already written; delete those in CloudWatch Logs. `NoSuchHostedZone`, `ConcurrentModification`,
+`QueryLoggingConfigAlreadyExists`, `InsufficientCloudWatchLogsResourcePolicy`, `NoSuchCloudWatchLogsLogGroup`, and
+`NoSuchQueryLoggingConfig` are returned as such.
+
+## Traffic policies
+
+A traffic policy is a routing rule set kept as a JSON document in the bound account. Each change makes a new version;
+`traffic-policy.get` and `.list-versions` read them. A policy answers no query by itself: it takes effect only when a
+traffic policy instance applies it to a name, and the instances are not tools of this group yet.
+
+- `traffic-policy.create` takes `name` (up to 512 characters), `document`, and optionally `comment` (up to 1024
+  characters), and makes version 1. The result carries `traffic_policy` (`id`, `version`, `name`, `type`, `document`,
+  `comment`) and `location`.
+- `traffic-policy.create-version` takes `id`, `document`, and optionally `comment`, and adds a version to the policy;
+  the earlier versions stay. A repetition makes a second version, so the call is never repeated automatically.
+- `traffic-policy.update-comment` takes `id`, `version`, and `comment` and replaces the comment of that version; an empty
+  comment removes it. The document stays.
+- `traffic-policy.delete` takes `id` and `version` and deletes that version. It cannot be undone. Route 53 refuses with
+  `TrafficPolicyInUse` while a traffic policy instance uses the version. When the last version goes, the policy is gone.
+  Read the document with `traffic-policy.get` first if it is not kept elsewhere.
+
+### The document
+
+`document` is JSON text of at most 102400 characters, the limit of the Route 53 model. The tool refuses text that is
+longer or not valid JSON before any request; it reads nothing else of the document and passes it on unchanged, and Route
+53 judges its content (`InvalidTrafficPolicyDocument`). Answers carry the document cut at the same limit, with
+`truncated` true when it was cut.
+
+A document can name alias targets and DNS names of resources of other accounts. A DNS name carries no account, so the
+tool cannot check whose they are. The confirmation is the generic one: it names the tool, not the arguments. Before
+confirming, the caller shows the name or ID, the version, the comment, the size of the document, and its endpoints to the
+person who confirms.
+
+### Errors
+
+Route 53 errors keep their code: `TrafficPolicyAlreadyExists`, `InvalidTrafficPolicyDocument`,
+`TooManyTrafficPolicies`, `TooManyTrafficPolicyVersionsForCurrentPolicy`, `TrafficPolicyInUse`,
+`NoSuchTrafficPolicy`, and `ConcurrentModification`. `NoSuchTrafficPolicy` is reported as not found.
+
 ## Other readers
 
 The tools of these areas only read. A list takes `page_size` and `cursor` (`next_cursor` and `has_more` in the result); a
@@ -393,7 +462,7 @@ page ends anywhere, so continue with the same arguments. IDs of zones and delega
 
 | Area | Tools | Boundary |
 | --- | --- | --- |
-| Query logging | `query-logging-config.list` (optionally of one zone), `.get` | Configuration and the log group ARN as text; the ARN is not checked for whose log group it is. Pages of up to 100. |
+| Query logging | `query-logging-config.list` (optionally of one zone), `.get` | Configuration and the log group ARN as text; a read does not check whose log group it is. Pages of up to 100. |
 | Reusable delegation sets | `delegation-set.list`, `.get`, `.get-limit` (writes: [Delegation sets](#delegation-sets)) | Name servers of a set and the zone limit of a set. Pages of up to 100. |
 | Traffic policies | `traffic-policy.list`, `.get`, `.list-versions` | `get` returns one version with its JSON document, cut at 100 KiB with `truncated` true. `list-versions` leaves the documents out, since a page of them could be several megabytes. Pages of up to 100. |
 | Traffic policy instances | `traffic-policy-instance.list`, `.list-by-hosted-zone`, `.list-by-policy`, `.get`, `.count` | State and message of an instance. The three markers of a list (zone, name, type) travel in one cursor; the lists offer no start arguments. Pages of up to 100. |
@@ -424,7 +493,7 @@ from them is requested. Provider error texts are not shown; the code and the cla
 ## Not tools
 
 `CreateVPCAssociationAuthorization` is never a tool: it lets another account associate its VPC with a private zone and
-resolve its records, and nothing can check that account. The writes of query logging, traffic policies and their instances, VPC association and its authorizations, and the zone
+resolve its records, and nothing can check that account. The writes of traffic policy instances, VPC association and its authorizations, and the zone
 features are not tools of this group yet.
 
 ## Limits
@@ -433,7 +502,7 @@ features are not tools of this group yet.
   zone with a VPC of another account is documented by AWS only.
 - The generated test of each tool covers the request and the result shape; the zone IDs, paging, errors, the VPC
   checks, the record list over several pages, the batch checks, the retry rules, the DNS answer, the health check types, the
-  target and alarm checks, and the health check errors, and the DNSSEC reads, writes, KMS key rule, errors, and the listed-only offer, the delegation set create and delete with both ID forms and the zone create with a delegation set, and the CIDR collection create, change (`PUT`, `DELETE_IF_EXISTS`), delete, block and name checks, and errors are tested against a fake transport. Each other reader is tested with an answer, a list over two pages with the paging members of its cursor, the not-found error of the model, and a field that holds an instruction as data; the VPC checks, the argument bounds, and the cap of the policy document are tested too.
+  target and alarm checks, and the health check errors, and the DNSSEC reads, writes, KMS key rule, errors, and the listed-only offer, the query logging writes, log group rule, and errors, the delegation set create and delete with both ID forms and the zone create with a delegation set, and the CIDR collection create, change (`PUT`, `DELETE_IF_EXISTS`), delete, block and name checks, and errors are tested against a fake transport. Each other reader is tested with an answer, a list over two pages with the paging members of its cursor, the not-found error of the model, and a field that holds an instruction as data; the VPC checks, the argument bounds, and the cap of the policy document are tested too.
 - DNSSEC has not been run against a real account: the key policy requirements, the algorithm of the KMS key, the time until the signatures are served, and the idempotent repetition of enable, disable, activate, and deactivate are as AWS documents them and are not measured.
 - The record limits of a batch come from the AWS documentation, not from the model, and no quota or throttling value of
   Route 53 is measured.
