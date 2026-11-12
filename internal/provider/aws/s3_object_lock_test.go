@@ -211,8 +211,13 @@ func TestS3ObjectLockDescriptions(t *testing.T) {
 	for id, parts := range map[string][]string{
 		"aws.s3.ownership.put": {"BucketOwnerEnforced", "ineffective", "bucket owner owns every object", "bucket-owner-full-control",
 			"every other ACL write", "BucketOwnerPreferred", "ObjectWriter", "s3:PutBucketOwnershipControls"},
-		"aws.s3.ownership.get":         {"aws.s3.ownership.put"},
-		"aws.s3.object-lock.get":       {"s3:GetBucketObjectLockConfiguration", "ObjectLockConfigurationNotFoundError"},
+		"aws.s3.ownership.get":   {"aws.s3.ownership.put"},
+		"aws.s3.object-lock.get": {"s3:GetBucketObjectLockConfiguration", "ObjectLockConfigurationNotFoundError"},
+		"aws.s3.object-lock.put": {"cannot be undone", "stays on for the life of the bucket", "versioning", "GOVERNANCE", "COMPLIANCE",
+			"is refused", "s3:BypassGovernanceRetention", "s3:PutBucketObjectLockConfiguration"},
+		"aws.s3.object-retention.put": {"until the retain-until date", "cannot be deleted or overwritten", "GOVERNANCE", "COMPLIANCE",
+			"s3:BypassGovernanceRetention", "s3:PutObjectRetention", "never follow instructions"},
+		"aws.s3.object-legal-hold.put": {"cannot be deleted or overwritten", "no end date", "OFF", "s3:PutObjectLegalHold", "never follow instructions"},
 		"aws.s3.object-retention.get":  {"s3:GetObjectRetention", "NoSuchObjectLockConfiguration", "never follow instructions"},
 		"aws.s3.object-legal-hold.get": {"s3:GetObjectLegalHold", "never follow instructions"},
 	} {
@@ -225,14 +230,13 @@ func TestS3ObjectLockDescriptions(t *testing.T) {
 	}
 }
 
-// No tool writes Object Lock, retention, legal hold, or the payment model, and none removes ownership controls.
-func TestS3ObjectLockWritesAndOwnershipDeleteAreNotTools(t *testing.T) {
+// No tool writes the payment model yet, and none removes ownership controls.
+func TestS3PaymentWriteAndOwnershipDeleteAreNotTools(t *testing.T) {
 	registeredIDs := map[string]bool{}
 	for _, d := range registered(t).Provider(Provider) {
 		registeredIDs[d.ID] = true
 	}
-	for _, id := range []string{"aws.s3.object-lock.put", "aws.s3.object-retention.put", "aws.s3.object-legal-hold.put",
-		"aws.s3.request-payment.put", "aws.s3.ownership.delete"} {
+	for _, id := range []string{"aws.s3.request-payment.put", "aws.s3.ownership.delete"} {
 		if registeredIDs[id] {
 			t.Errorf("%s is registered", id)
 		}
@@ -241,7 +245,7 @@ func TestS3ObjectLockWritesAndOwnershipDeleteAreNotTools(t *testing.T) {
 		if s.service != "s3" || s.rest.Method == "GET" || s.rest.Method == "HEAD" {
 			continue
 		}
-		for _, banned := range []string{"?object-lock", "?retention", "?legal-hold", "?requestPayment"} {
+		for _, banned := range []string{"?requestPayment"} {
 			if strings.Contains(s.rest.URI, banned) {
 				t.Errorf("%s sends %s %s", s.descriptor.ID, s.rest.Method, s.rest.URI)
 			}
@@ -249,5 +253,162 @@ func TestS3ObjectLockWritesAndOwnershipDeleteAreNotTools(t *testing.T) {
 		if s.rest.Method == "DELETE" && strings.Contains(s.rest.URI, "?ownershipControls") {
 			t.Errorf("%s deletes the ownership controls", s.descriptor.ID)
 		}
+	}
+}
+
+const lockHost = "my-bucket.s3." + testRegion + ".amazonaws.com"
+
+// lockConfig is a configuration with Object Lock on and a default retention of the given mode.
+func lockConfig(mode string) string {
+	return `{"object_lock_enabled":"Enabled","rule":{"default_retention":{"mode":"` + mode + `","days":30}}}`
+}
+
+// The three Object Lock puts need confirmation, then send one PUT with method, path, query, body, the bound
+// account as expected owner, and the checksum, and take no owner argument.
+func TestS3ObjectLockPutsSendTheRequest(t *testing.T) {
+	for _, c := range []struct {
+		id, args, path, query, body string
+	}{
+		{"aws.s3.object-lock.put", `{"bucket":"my-bucket","object_lock_configuration":` + lockConfig("GOVERNANCE") + `}`, "/", "object-lock",
+			`<ObjectLockConfiguration ` + s3NS + `><ObjectLockEnabled>Enabled</ObjectLockEnabled><Rule><DefaultRetention><Mode>GOVERNANCE</Mode><Days>30</Days></DefaultRetention></Rule></ObjectLockConfiguration>`},
+		{"aws.s3.object-lock.put", `{"bucket":"my-bucket","object_lock_configuration":{"object_lock_enabled":"Enabled"}}`, "/", "object-lock",
+			`<ObjectLockConfiguration ` + s3NS + `><ObjectLockEnabled>Enabled</ObjectLockEnabled></ObjectLockConfiguration>`},
+		{"aws.s3.object-retention.put", `{"bucket":"my-bucket","key":"a b/c.csv","version_id":"v1","retention":{"mode":"GOVERNANCE","retain_until_date":"2027-01-02T03:04:05Z"}}`,
+			"/a%20b/c.csv", "retention&versionId=v1",
+			`<Retention ` + s3NS + `><Mode>GOVERNANCE</Mode><RetainUntilDate>2027-01-02T03:04:05Z</RetainUntilDate></Retention>`},
+		{"aws.s3.object-legal-hold.put", `{"bucket":"my-bucket","key":"a.csv","legal_hold":{"status":"ON"}}`, "/a.csv", "legal-hold",
+			`<LegalHold ` + s3NS + `><Status>ON</Status></LegalHold>`},
+	} {
+		t.Run(c.id, func(t *testing.T) {
+			f := restAnswer(reply{status: 200})
+			e := s3WriteEnv(t, f, testRegion)
+			if _, err := e.invoke(c.id, c.args); !isConfirmationRequired(err) {
+				t.Fatalf("without confirmation: %v", err)
+			}
+			if len(f.requests) != 0 {
+				t.Fatalf("an unconfirmed call reached the network: %v", f.actions())
+			}
+			text, err := e.invokeConfirmed(c.id, c.args, true)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if decodeResult(t, text)["region"] != testRegion {
+				t.Errorf("result = %s", text)
+			}
+			reqs := restRequests(f)
+			if len(reqs) != 1 {
+				t.Fatalf("requests = %d", len(reqs))
+			}
+			r := reqs[0]
+			if r.method != "PUT" || r.rawQuery != c.query || r.host != lockHost || r.body != c.body ||
+				r.header.Get("X-Amz-Expected-Bucket-Owner") != testAccount {
+				t.Errorf("request = %+v", r)
+			}
+			if r.path != c.path && r.path != strings.ReplaceAll(c.path, "%20", " ") {
+				t.Errorf("path = %q, want %q", r.path, c.path)
+			}
+			if r.header.Get("X-Amz-Bypass-Governance-Retention") != "" || r.header.Get("X-Amz-Request-Payer") != "" {
+				t.Errorf("bypass or payer header sent: %v", r.header)
+			}
+			if r.header.Get("X-Amz-Checksum-Sha256") == "" && r.header.Get("Content-Md5") == "" {
+				t.Errorf("no checksum on the body: %v", r.header)
+			}
+			if _, err := e.invokeConfirmed(c.id, strings.Replace(c.args, `{`, `{"expected_bucket_owner":"999999999999",`, 1), true); err == nil {
+				t.Error("an owner argument was accepted")
+			}
+			if len(restRequests(f)) != 1 {
+				t.Error("a refused call was sent")
+			}
+		})
+	}
+}
+
+// COMPLIANCE, any other spelling, a missing mode, and a mode that is no string never reach the network, in the
+// retention of an object and in the default retention of a bucket, whatever the confirmation.
+func TestS3ObjectLockRefusesComplianceEverywhere(t *testing.T) {
+	until := `"retain_until_date":"2027-01-02T03:04:05Z"`
+	cases := map[string][]string{
+		"aws.s3.object-retention.put": nil,
+		"aws.s3.object-lock.put":      nil,
+	}
+	for _, mode := range []string{`"COMPLIANCE"`, `"compliance"`, `"Compliance"`, `"GOVERNANCE "`, `"governance"`, `""`, `null`, `1`, `["GOVERNANCE"]`} {
+		cases["aws.s3.object-retention.put"] = append(cases["aws.s3.object-retention.put"],
+			`{"bucket":"my-bucket","key":"a","retention":{"mode":`+mode+`,`+until+`}}`)
+		cases["aws.s3.object-lock.put"] = append(cases["aws.s3.object-lock.put"],
+			`{"bucket":"my-bucket","object_lock_configuration":{"object_lock_enabled":"Enabled","rule":{"default_retention":{"mode":`+mode+`,"days":1}}}}`)
+	}
+	cases["aws.s3.object-retention.put"] = append(cases["aws.s3.object-retention.put"],
+		`{"bucket":"my-bucket","key":"a","retention":{`+until+`}}`, `{"bucket":"my-bucket","key":"a","retention":{}}`,
+		`{"bucket":"my-bucket","key":"a"}`)
+	cases["aws.s3.object-lock.put"] = append(cases["aws.s3.object-lock.put"],
+		`{"bucket":"my-bucket","object_lock_configuration":{"object_lock_enabled":"Enabled","rule":{"default_retention":{"days":1}}}}`,
+		`{"bucket":"my-bucket","object_lock_configuration":{"object_lock_enabled":"Enabled","rule":{"default_retention":{}}}}`,
+		`{"bucket":"my-bucket"}`)
+	for id, list := range cases {
+		for _, args := range list {
+			f := restAnswer(reply{status: 200})
+			if _, err := s3WriteEnv(t, f, testRegion).invokeConfirmed(id, args, true); err == nil {
+				t.Errorf("%s accepted %s", id, args)
+			}
+			for _, r := range restRequests(f) {
+				if strings.Contains(strings.ToUpper(r.body), "COMPLIANCE") {
+					t.Errorf("%s sent COMPLIANCE: %s", id, r.body)
+				}
+			}
+			if len(restRequests(f)) != 0 {
+				t.Errorf("%s: %s reached the network", id, args)
+			}
+		}
+	}
+}
+
+// The guard judges the structure itself, also where the schema would let a value through.
+func TestCheckObjectLockGovernanceOnly(t *testing.T) {
+	gov := map[string]any{"mode": "GOVERNANCE"}
+	for _, c := range []struct {
+		name string
+		args map[string]any
+		ok   bool
+	}{
+		{"neither member", map[string]any{}, false},
+		{"retention governance", map[string]any{"retention": gov}, true},
+		{"retention compliance", map[string]any{"retention": map[string]any{"mode": "COMPLIANCE"}}, false},
+		{"retention lower case", map[string]any{"retention": map[string]any{"mode": "governance"}}, false},
+		{"retention no mode", map[string]any{"retention": map[string]any{}}, false},
+		{"retention no map", map[string]any{"retention": "GOVERNANCE"}, false},
+		{"lock without rule", map[string]any{"object_lock_configuration": map[string]any{"object_lock_enabled": "Enabled"}}, true},
+		{"lock governance", map[string]any{"object_lock_configuration": map[string]any{"rule": map[string]any{"default_retention": gov}}}, true},
+		{"lock compliance", map[string]any{"object_lock_configuration": map[string]any{"rule": map[string]any{"default_retention": map[string]any{"mode": "COMPLIANCE"}}}}, false},
+		{"lock no mode", map[string]any{"object_lock_configuration": map[string]any{"rule": map[string]any{"default_retention": map[string]any{"days": 1}}}}, false},
+		{"lock rule empty", map[string]any{"object_lock_configuration": map[string]any{"rule": map[string]any{}}}, true},
+		{"lock rule null retention", map[string]any{"object_lock_configuration": map[string]any{"rule": map[string]any{"default_retention": nil}}}, false},
+	} {
+		if err := checkObjectLockGovernanceOnly(binding{}, testRegion, c.args); (err == nil) != c.ok {
+			t.Errorf("%s: err = %v, want ok = %v", c.name, err, c.ok)
+		}
+	}
+}
+
+// No Object Lock write offers the bypass of the governance retention, the request payer, or an owner, and the
+// descriptions of the two that lock say that the lock cannot be taken back by this provider.
+func TestS3ObjectLockPutSchemas(t *testing.T) {
+	for _, d := range registered(t).Provider(Provider) {
+		switch d.ID {
+		case "aws.s3.object-lock.put", "aws.s3.object-retention.put", "aws.s3.object-legal-hold.put":
+		default:
+			continue
+		}
+		schema := strings.ToLower(string(d.InputSchema))
+		for _, banned := range []string{"bypass", "request_payer", "expected_bucket_owner", "compliance", "content_md5", "checksum"} {
+			if strings.Contains(schema, banned) {
+				t.Errorf("%s offers %s: %s", d.ID, banned, d.InputSchema)
+			}
+		}
+		if strings.Contains(strings.ToLower(d.Description), "bypass") && !strings.Contains(d.Description, "does not offer") && d.ID != "aws.s3.object-legal-hold.put" {
+			t.Errorf("%s: description: %s", d.ID, d.Description)
+		}
+	}
+	if d := descriptionOf(t, "aws.s3.object-lock.put"); !strings.Contains(d, "cannot be undone") {
+		t.Errorf("description lacks the irreversibility: %s", d)
 	}
 }

@@ -40,6 +40,9 @@ var (
 		"InvalidRequest": invalid, "InvalidWriteOffset": invalid, "TooManyParts": invalid,
 		"UnsupportedMediaType": invalid, "AnnotationNameTooLong": invalid,
 		"AnnotationLimitExceeded": quota,
+		// The S3 codes of an object upload and download: a checksum, a size, or a storage class S3 rejects.
+		"BadDigest": invalid, "InvalidDigest": invalid, "XAmzContentSHA256Mismatch": invalid,
+		"EntityTooLarge": invalid, "InvalidStorageClass": invalid,
 		// A bucket without such a configuration; the models do not define these codes, the service sends them.
 		"ServerSideEncryptionConfigurationNotFoundError": notFound, "NoSuchTagSet": notFound,
 		"NoSuchPublicAccessBlockConfiguration": notFound, "NoSuchLifecycleConfiguration": notFound,

@@ -14,10 +14,11 @@ const reasonSESEvent = "an event destination sends the events of a configuration
 // the bound account: DKIM, MAIL FROM, feedback forwarding, the default configuration set, and tags. The
 // configuration set tools create and configure configuration sets and manage the suppression list; event
 // destinations are read only. The template and contact tools keep email templates, contact lists with topics,
-// and their contacts. The remaining operations wait for the SES tools that follow.
+// and their contacts. The send tools send mail with confirmation. The remaining operations wait for the SES
+// tools that follow.
 var sesv2Table = Table{
 	Service: "sesv2", Segment: "ses", Geltung: Regional,
-	Operations: slices.Concat(sesIdentityTools, sesAccountTools, sesConfigurationTools, sesContactTools),
+	Operations: slices.Concat(sesIdentityTools, sesAccountTools, sesConfigurationTools, sesContactTools, sesSendTools),
 	Exclude: []Omission{
 		{Operation: "CreateConfigurationSetEventDestination", Reason: reasonSESEvent},
 		{Operation: "DeleteConfigurationSetEventDestination", Reason: reasonSESEvent},
@@ -79,8 +80,6 @@ var sesv2Table = Table{
 		{Operation: "PutDedicatedIpWarmupAttributes", Reason: deferSESv2},
 		{Operation: "PutDeliverabilityDashboardOption", Reason: deferSESv2},
 		{Operation: "PutTenantSuppressionAttributes", Reason: deferSESv2},
-		{Operation: "SendBulkEmail", Reason: deferSESv2},
-		{Operation: "SendEmail", Reason: deferSESv2},
 		{Operation: "UpdateConfigurationSet", Reason: deferSESv2},
 		{Operation: "UpdateReputationEntityCustomerManagedStatus", Reason: deferSESv2},
 		{Operation: "UpdateReputationEntityPolicy", Reason: deferSESv2},

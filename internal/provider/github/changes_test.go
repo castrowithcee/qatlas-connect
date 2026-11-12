@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -382,6 +383,16 @@ func TestRegisterPublishesTheChangeContracts(t *testing.T) {
 		"github.accounts.me":                    readRisk,
 		"github.teams.list":                     readRisk,
 		"github.team-members.list":              readRisk,
+		"github.teams.get":                      readRisk,
+		"github.teams.create":                   changeRisk(capability.EffectCreate, capability.IdempotencyNonIdempotent),
+		"github.teams.update":                   changeRisk(capability.EffectUpdate, capability.IdempotencyIdempotent),
+		"github.teams.delete":                   changeRisk(capability.EffectDelete, capability.IdempotencyUnknown),
+		"github.team-members.add":               changeRisk(capability.EffectUpdate, capability.IdempotencyIdempotent),
+		"github.team-members.remove":            changeRisk(capability.EffectDelete, capability.IdempotencyUnknown),
+		"github.team-memberships.get":           readRisk,
+		"github.team-repositories.list":         readRisk,
+		"github.team-repositories.set":          changeRisk(capability.EffectUpdate, capability.IdempotencyIdempotent),
+		"github.team-repositories.remove":       changeRisk(capability.EffectDelete, capability.IdempotencyUnknown),
 		"github.stars.list":                     readRisk,
 		"github.stars.add":                      changeRisk(capability.EffectCreate, capability.IdempotencyIdempotent),
 		"github.stars.remove":                   changeRisk(capability.EffectDelete, capability.IdempotencyIdempotent),
@@ -428,8 +439,11 @@ func TestRegisterPublishesTheChangeContracts(t *testing.T) {
 		"github.repositories.fork":   changeRisk(capability.EffectCreate, capability.IdempotencyIdempotent),
 		"github.repositories.delete": guardedRisk(capability.EffectDelete, capability.IdempotencyUnknown,
 			dataSensitivity),
-		"github.repositories.rename":       changeRisk(capability.EffectUpdate, capability.IdempotencyUnknown),
-		"github.collaborators.list":        readRisk,
+		"github.repositories.rename":  changeRisk(capability.EffectUpdate, capability.IdempotencyUnknown),
+		"github.collaborators.list":   readRisk,
+		"github.collaborators.update": changeRisk(capability.EffectUpdate, capability.IdempotencyIdempotent),
+		"github.collaborators.remove": guardedRisk(capability.EffectDelete, capability.IdempotencyUnknown,
+			dataSensitivity),
 		"github.repositories.get":          readRisk,
 		"github.languages.get":             readRisk,
 		"github.contributors.list":         readRisk,
@@ -610,7 +624,7 @@ func TestRegisterPublishesTheChangeContracts(t *testing.T) {
 			descriptor.ID == projectsCreate.ID || descriptor.ID == projectsCopy.ID ||
 			descriptor.ID == organizationTeamsList.ID || descriptor.ID == teamMembersList.ID ||
 			descriptor.ID == repositoriesCreate.ID || descriptor.ID == issueTypesList.ID ||
-			descriptor.ID == organizationAdvisoriesList.ID
+			descriptor.ID == organizationAdvisoriesList.ID || slices.Contains(teamToolIDs, descriptor.ID)
 		for _, forbidden := range []string{"owner", "base_url", "query\"", "project_id", "document"} {
 			if strings.Contains(ownerFiltersStripped(descriptor), forbidden) && !(owners && forbidden == "owner") {
 				t.Errorf("%s input offers %q: %s", descriptor.ID, forbidden, descriptor.InputSchema)

@@ -59,7 +59,7 @@ var toolGroups = []config.ToolGroup{{
 }, {
 	ID: "s3", Title: "Simple Storage Service",
 	Description: "Buckets of the bound account and their configuration: region, versioning, default encryption, " +
-		"tags, and the public access block; never the content of an object",
+		"tags, the public access block, and the bucket policy; objects, whose content moves only through local files",
 }, {
 	ID: "route53", Title: "Route 53",
 	Description: "Hosted zones, records, health checks, and DNSSEC of the bound account, their tags, and the status of a change; " +

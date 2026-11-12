@@ -255,6 +255,10 @@ var generatedSpecs = []toolSpec{
 		if t.op.ListedOnly {
 			b.WriteString("RequiresToolAllowList: true,\n")
 		}
+		if t.op.LocalFile != "" {
+			// The directions are the values of config.LocalFiles, written as the untyped constants they are.
+			fmt.Fprintf(b, "LocalFiles: %s,\n", lit(t.op.LocalFile))
+		}
 		fmt.Fprintf(b, "InputSchema: %s,\nOutputSchema: %s,\n", schemaLit(t.inputSchema), schemaLit(t.outputSchema))
 		b.WriteString("Arguments: []capability.Argument{")
 		for _, a := range t.args {
@@ -346,6 +350,9 @@ var generatedSpecs = []toolSpec{
 		if t.op.Readback != "" {
 			fmt.Fprintf(b, "readback: %s,\n", lit(t.op.Readback))
 		}
+		if t.op.Delivery != "" {
+			fmt.Fprintf(b, "delivery: %s,\n", lit(t.op.Delivery))
+		}
 		if t.op.AccountCheck {
 			b.WriteString("accountCheck: true,\n")
 		}
@@ -389,7 +396,7 @@ func restShapeLit(s *httpbind.Shape) string {
 				set  bool
 				name string
 			}{{f.IdempotencyToken, "IdempotencyToken"}, {f.Flattened, "Flattened"}, {f.Attribute, "Attribute"}, {f.Unwrapped, "Unwrapped"}, {f.Bucket, "Bucket"},
-				{f.Owner, "Owner"}, {f.ContentType, "ContentType"}} {
+				{f.Owner, "Owner"}, {f.ContentType, "ContentType"}, {f.Stream, "Stream"}} {
 				if flag.set {
 					field += ", " + flag.name + ": true"
 				}
@@ -501,6 +508,9 @@ var generatedCases = []struct {
 }{
 `)
 	for _, t := range tools {
+		if t.op.LocalFile != "" {
+			continue // a local file needs a released directory; the tests of the package cover these tools
+		}
 		fmt.Fprintf(b, "{tool: %s, action: %s,\narguments: %s,\nanswer: %s,\nform: map[string]string{", lit(t.id), lit(t.action), lit(t.sampleArgs), lit(t.sampleAnswer))
 		for _, k := range sortedKeys(t.sampleForm) {
 			fmt.Fprintf(b, "%s: %s, ", lit(k), lit(t.sampleForm[k]))
