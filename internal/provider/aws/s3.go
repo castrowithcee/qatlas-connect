@@ -33,6 +33,7 @@ var guards = map[string]guard{
 	"object-lock-governance-only": checkObjectLockGovernanceOnly,
 	"route53-vpc":                 checkRoute53VPC,
 	"route53-vpc-lookup":          checkRoute53VPCLookup,
+	"route53-vpc-member":          checkRoute53VPCMember,
 	"route53-change":              checkRoute53Change,
 	"route53-name":                checkRoute53Name,
 	"route53-health":              checkRoute53Health,

@@ -180,6 +180,7 @@ func TestLimitsGuardsAndReadbacksAreChecked(t *testing.T) {
 				o.Operation != "PutObjectLockConfiguration" && o.Operation != "PutObjectRetention" &&
 				o.Operation != "CreateHostedZone" && o.Operation != "ChangeResourceRecordSets" && o.Operation != "TestDNSAnswer" &&
 				o.Operation != "CreateHealthCheck" && o.Operation != "UpdateHealthCheck" && o.Operation != "CreateKeySigningKey" && o.Operation != "CreateTrafficPolicyInstance" && o.Operation != "ChangeCidrCollection" && o.Operation != "CreateQueryLoggingConfig" && o.Operation != "CreateTrafficPolicy" && o.Operation != "CreateTrafficPolicyVersion" && o.Operation != "ListHostedZonesByVPC" &&
+				o.Operation != "AssociateVPCWithHostedZone" && o.Operation != "DisassociateVPCFromHostedZone" && o.Operation != "DeleteVPCAssociationAuthorization" &&
 				o.Operation != "CreateConfigurationSet" && o.Operation != "PutConfigurationSetTrackingOptions" && o.Operation != "PutConfigurationSetArchivingOptions" &&
 				o.Operation != "CopyObject" && o.Operation != "PutObject" && o.Operation != "SendEmail" && o.Operation != "SendBulkEmail" &&
 				o.Operation != "AssociateEmailIdentityCertificate" &&

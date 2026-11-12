@@ -55,6 +55,20 @@ func checkRoute53VPCLookup(b binding, _ string, args map[string]any) error {
 	return nil
 }
 
+// checkRoute53VPCMember judges the VPC that a zone is associated with, released from, or no longer authorized for,
+// before any request: a region the connection allows and a well formed ID. A VPC ID carries no account, so the
+// account of the VPC is not checked.
+func checkRoute53VPCMember(b binding, _ string, args map[string]any) error {
+	vpc, _ := args["vpc"].(map[string]any)
+	if region, _ := vpc["vpc_region"].(string); !slices.Contains(b.regions, region) {
+		return &provider.InvalidRequestError{Message: "vpc.vpc_region must be a region the connection allows"}
+	}
+	if id, _ := vpc["vpc_id"].(string); !vpcID.MatchString(id) {
+		return &provider.InvalidRequestError{Message: "vpc.vpc_id must be a VPC ID such as vpc-0123456789abcdef0"}
+	}
+	return nil
+}
+
 // Limits of one ChangeResourceRecordSets call that Route 53 documents and the model does not state: at most 1000
 // record values and 32000 characters of values in a batch, an UPSERT counting twice.
 const (
