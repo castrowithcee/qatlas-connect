@@ -403,6 +403,12 @@ func TestRegisterPublishesTheChangeContracts(t *testing.T) {
 		"github.commits.search":                 readRisk,
 		"github.users.search":                   readRisk,
 		"github.organizations.search":           readRisk,
+		"github.organizations.get":              readRisk,
+		"github.organization-members.list":      readRisk,
+		"github.organization-members.get":       readRisk,
+		"github.organization-roles.list":        readRisk,
+		"github.outside-collaborators.list":     readRisk,
+		"github.organization-invitations.list":  readRisk,
 		"github.contents.get":                   readRisk,
 		"github.trees.get":                      readRisk,
 		"github.blame.get":                      readRisk,
@@ -439,8 +445,11 @@ func TestRegisterPublishesTheChangeContracts(t *testing.T) {
 		"github.repositories.fork":   changeRisk(capability.EffectCreate, capability.IdempotencyIdempotent),
 		"github.repositories.delete": guardedRisk(capability.EffectDelete, capability.IdempotencyUnknown,
 			dataSensitivity),
-		"github.repositories.rename":       changeRisk(capability.EffectUpdate, capability.IdempotencyUnknown),
-		"github.collaborators.list":        readRisk,
+		"github.repositories.rename":  changeRisk(capability.EffectUpdate, capability.IdempotencyUnknown),
+		"github.collaborators.list":   readRisk,
+		"github.collaborators.update": changeRisk(capability.EffectUpdate, capability.IdempotencyIdempotent),
+		"github.collaborators.remove": guardedRisk(capability.EffectDelete, capability.IdempotencyUnknown,
+			dataSensitivity),
 		"github.repositories.get":          readRisk,
 		"github.languages.get":             readRisk,
 		"github.contributors.list":         readRisk,
@@ -621,7 +630,8 @@ func TestRegisterPublishesTheChangeContracts(t *testing.T) {
 			descriptor.ID == projectsCreate.ID || descriptor.ID == projectsCopy.ID ||
 			descriptor.ID == organizationTeamsList.ID || descriptor.ID == teamMembersList.ID ||
 			descriptor.ID == repositoriesCreate.ID || descriptor.ID == issueTypesList.ID ||
-			descriptor.ID == organizationAdvisoriesList.ID || slices.Contains(teamToolIDs, descriptor.ID)
+			descriptor.ID == organizationAdvisoriesList.ID || slices.Contains(teamToolIDs, descriptor.ID) ||
+			slices.Contains(organizationReadToolIDs, descriptor.ID)
 		for _, forbidden := range []string{"owner", "base_url", "query\"", "project_id", "document"} {
 			if strings.Contains(ownerFiltersStripped(descriptor), forbidden) && !(owners && forbidden == "owner") {
 				t.Errorf("%s input offers %q: %s", descriptor.ID, forbidden, descriptor.InputSchema)

@@ -186,6 +186,7 @@ your token holds. A repository or organization policy can forbid a run although 
 | Remove a runner or change its labels in a repository | `repo`, as a repository administrator | Administration: read and write |
 | Read the self-hosted runners and their labels of an organization | `admin:org` | Self-hosted runners: read (organization) |
 | Remove a runner or change its labels in an organization | `admin:org` | Self-hosted runners: read and write (organization) |
+| Change the permission of a collaborator of a repository or remove one (`github.collaborators.update`, `.remove`) | `repo`, as a repository administrator | Administration: read and write |
 | Read repository settings | `repo` for private repositories | Metadata: read |
 | Change repository settings and topics, including archiving and unarchiving | `repo`, as a repository administrator | Administration: write |
 | Read Actions variables of a repository; create, change, or delete them | `repo` | Variables: read; read and write to change |
@@ -312,6 +313,9 @@ refuses it otherwise, and Qatlas checks it before the request.
 | --- | --- | --- |
 | Read your own account | none beyond your identity | none beyond your identity |
 | List teams of an organization and their members; read a team, a team membership, and the repositories of a team | `read:org` | Members: read (organization) |
+| Read the members, one membership, the outside collaborators, and the pending invitations of an organization | `read:org` | Members: read (organization) |
+| Read an organization with its settings and plan | `admin:org` for the full details, as GitHub documents it; `read:org` shows less | Administration: read (organization); as far as GitHub documents it |
+| Read the organization roles of an organization | `admin:org` | Members: read (organization); GitHub names only `admin:org` and the role permission to view organization roles |
 | Create, change, or delete a team; add an organization member to a team or remove one | `admin:org` | Members: read and write (organization) |
 | Set a team's permission on a repository or withdraw it | `admin:org` | Members: read and write (organization), plus Administration: read and write on the repository |
 | Search repositories, code, issues, pull requests, commits | none for public results; `repo` for private ones | Contents: read for private code and repositories; also Issues or Pull requests: read for issue and pull request search |

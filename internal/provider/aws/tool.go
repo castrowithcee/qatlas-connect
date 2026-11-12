@@ -77,6 +77,8 @@ type toolSpec struct {
 	guards []string
 	// readback names the step in readbacks that reads the current state and may refuse the change.
 	readback string
+	// delivery names the entry in deliveries of a tool that delivers to third parties.
+	delivery string
 	// failureHint names the step in failureHints that adds what a person needs to know to a failure of the call.
 	failureHint string
 	// accountCheck marks GetCallerIdentity, whose answer is the account check itself.
@@ -217,6 +219,9 @@ func (s toolSpec) check() error {
 	if s.readback != "" && (readbacks[s.readback] == nil || s.rest == nil || s.descriptor.Risk.Effect == capability.EffectRead) {
 		return fmt.Errorf("readback %q has no implementation or does not belong to a REST tool that changes something", s.readback)
 	}
+	if _, ok := deliveries[s.delivery]; s.delivery != "" && (!ok || s.rest == nil || s.descriptor.Risk.Idempotency != capability.IdempotencyNonIdempotent) {
+		return fmt.Errorf("delivery %q has no implementation or does not belong to a non-idempotent REST tool", s.delivery)
+	}
 	if s.selfRole != "" && (s.accountCheck || s.descriptor.Risk.Effect == capability.EffectRead) {
 		return errors.New("the own-role check belongs to a tool that changes or deletes a role")
 	}
@@ -337,12 +342,18 @@ func (s toolSpec) handler() capability.Handler {
 					return nil, err
 				}
 			}
+			if s.delivery != "" {
+				// The delivery pace applies to the send alone, after every refusal that comes first.
+				if err := deliveryLimiters.For(deliveryKey(s.delivery, resolved.Name, region)).Wait(ctx); err != nil {
+					return nil, provider.Waited(op, "AWS", err)
+				}
+			}
 			var failure *provider.Error
 			if truncated, failure = send(ctx, client, creds, region, &out); failure != nil {
 				if hint := failureHints[s.failureHint]; hint != nil {
 					failure = hint(failure)
 				}
-				return nil, failure
+				return nil, s.unclear(failure)
 			}
 			changeCreds = creds
 		}
@@ -352,6 +363,10 @@ func (s toolSpec) handler() capability.Handler {
 			}
 		}
 		res, err := s.result(op, out, page, region, global, truncated, token)
+		if failure, isProvider := err.(*provider.Error); isProvider {
+			// A delivery whose answer fails its check has been sent all the same.
+			err = s.unclear(failure)
+		}
 		if file != nil && err == nil {
 			file.addTransfer(res.(map[string]any))
 		}

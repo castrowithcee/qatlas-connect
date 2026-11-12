@@ -90,13 +90,14 @@ Each [SES tool](ses.md) needs the permission `ses:<Operation>` of its AWS operat
 `ses:DeleteSuppressedDestination`, `ses:ListEmailTemplates`, `ses:GetEmailTemplate`, `ses:CreateEmailTemplate`,
 `ses:UpdateEmailTemplate`, `ses:DeleteEmailTemplate`, `ses:TestRenderEmailTemplate`, `ses:ListContactLists`,
 `ses:GetContactList`, `ses:CreateContactList`, `ses:UpdateContactList`, `ses:DeleteContactList`, `ses:ListContacts`,
-`ses:GetContact`, `ses:CreateContact`, `ses:UpdateContact`, and `ses:DeleteContact`, each for its own tool. `ses:TagResource`, `ses:UntagResource`, and
+`ses:GetContact`, `ses:CreateContact`, `ses:UpdateContact`, `ses:DeleteContact`, `ses:SendEmail`, and
+`ses:SendBulkEmail`, each for its own tool. `ses:TagResource`, `ses:UntagResource`, and
 `ses:ListTagsForResource` also serve the tags of configuration sets. Creating an identity, a configuration set, a template,
 or a contact list with tags also needs `ses:TagResource`. No permission for creating, changing, or deleting event destinations is needed: those
 actions are not tools. The account tools need `ses:GetAccount`, `ses:PutAccountDetails`,
 `ses:PutAccountSendingAttributes`, `ses:PutAccountSuppressionAttributes`, `ses:PutAccountDedicatedIpWarmupAttributes`,
 and `ses:PutAccountVdmAttributes`. The identity policy write tools are offered only when the tools list
-of the connection names them. Grant only the actions of the tools the connection offers. An account without production
+of the connection names them, the send tools by the effect `execute`. Grant only the actions of the tools the connection offers. An account without production
 access is in the SES sandbox and sends only to verified recipients.
 
 **Troubleshooting: the sandbox.** SES rejects mail to an address that is not verified while `aws.ses.account.get`
@@ -131,6 +132,9 @@ the object `arn:aws:s3:::<bucket>/<key>` except the two lists. The writes and th
 | `aws.s3.tagging.put`, `aws.s3.tagging.delete` | `s3:PutBucketTagging` |
 | `aws.s3.public-access-block.put` | `s3:PutBucketPublicAccessBlock` and `s3:GetBucketPublicAccessBlock` (the read before the change) |
 | `aws.s3.ownership.put` | `s3:PutBucketOwnershipControls` |
+| `aws.s3.object-lock.put` | `s3:PutBucketObjectLockConfiguration` |
+| `aws.s3.object-retention.put` | `s3:PutObjectRetention` |
+| `aws.s3.object-legal-hold.put` | `s3:PutObjectLegalHold` |
 | `aws.s3.lifecycle.delete` | `s3:PutLifecycleConfiguration` |
 | `aws.s3.cors.delete` | `s3:PutBucketCORS` |
 | `aws.s3.bucket-policy.put` | `s3:PutBucketPolicy` and `s3:GetBucketPolicyStatus` (the read after the change) |
@@ -170,6 +174,11 @@ Each [Route 53 tool](route53.md) needs the permission `route53:<Action>` of its 
 | `aws.route53.traffic-policy.create-version` | `route53:CreateTrafficPolicyVersion` |
 | `aws.route53.traffic-policy.update-comment` | `route53:UpdateTrafficPolicyComment` |
 | `aws.route53.traffic-policy.delete` | `route53:DeleteTrafficPolicy` |
+| `aws.route53.delegation-set.create` | `route53:CreateReusableDelegationSet` |
+| `aws.route53.delegation-set.delete` | `route53:DeleteReusableDelegationSet` |
+| `aws.route53.cidr-collection.create` | `route53:CreateCidrCollection` |
+| `aws.route53.cidr-collection.change` | `route53:ChangeCidrCollection` |
+| `aws.route53.cidr-collection.delete` | `route53:DeleteCidrCollection` |
 | `aws.route53.dnssec.enable` | `route53:EnableHostedZoneDNSSEC` |
 | `aws.route53.dnssec.disable` | `route53:DisableHostedZoneDNSSEC` |
 | `aws.route53.key-signing-key.create` | `route53:CreateKeySigningKey`; also `kms:DescribeKey`, `kms:GetPublicKey`, `kms:Sign`, and `kms:CreateGrant` on the KMS key |

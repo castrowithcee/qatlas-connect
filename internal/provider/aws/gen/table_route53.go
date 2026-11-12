@@ -3,8 +3,6 @@ package gen
 import "slices"
 
 const (
-	deferR53CIDR     = "CIDR collection writes wait for their own tool group: routing records refer to collections, so a change needs the records that use it checked first"
-	deferR53Delegate = "reusable delegation set writes wait for their own tool group: zones share a set, so removing or reusing one needs the zones that use it checked first"
 	deferR53Instance = "traffic policy instance writes wait for their own tool group: an instance creates and replaces record sets of a zone"
 	deferR53Features = "hosted zone feature changes wait for their own tool group"
 )
@@ -43,20 +41,16 @@ var route53Table = Table{
 		{Operation: "ListHostedZonesByVPC", PageSize: "MaxItems", TokenEnds: true, Positions: []PositionSpec{{In: "NextToken", Out: "NextToken"}}},
 		{Operation: "ListVPCAssociationAuthorizations", PageSize: "MaxResults", TokenEnds: true, Positions: []PositionSpec{{In: "NextToken", Out: "NextToken"}}},
 	},
-	// Route 53 answers zone IDs as /hostedzone/Z..., and accepts both forms only in some places. The tools take both.
-	IDPrefixes: []IDPrefix{{Shape: "ResourceId", Prefix: "/hostedzone/"}, {Shape: "ResourceId", Prefix: "/delegationset/", Operations: []string{"GetReusableDelegationSet", "GetReusableDelegationSetLimit"}}, {Shape: "TagResourceId", Prefix: "/hostedzone/"},
+	// Route 53 answers zone IDs as /hostedzone/Z..., and accepts both forms only in some places. The tools take both. The binding is per shape, and ResourceId also types the
+	// delegation set arguments, so those take /hostedzone/ as well (stripped, then refused by Route 53 as an unknown set).
+	IDPrefixes: []IDPrefix{{Shape: "ResourceId", Prefix: "/hostedzone/"}, {Shape: "ResourceId", Prefix: "/delegationset/", Operations: []string{"GetReusableDelegationSet", "GetReusableDelegationSetLimit", "DeleteReusableDelegationSet", "CreateHostedZone"}}, {Shape: "TagResourceId", Prefix: "/hostedzone/"},
 		{Shape: "ChangeId", Prefix: "/change/"}},
-	Operations: slices.Concat(route53ZoneTools, route53RecordTools, route53HealthTools, route53DNSSECTools, route53PolicyTools, route53ReadTools, route53LoggingTools, route53VPCTools),
+	Operations: slices.Concat(route53ZoneTools, route53RecordTools, route53HealthTools, route53DNSSECTools, route53DelegationTools, route53CIDRTools, route53PolicyTools, route53ReadTools, route53LoggingTools, route53VPCTools),
 	Exclude: []Omission{
 		{Operation: "CreateVPCAssociationAuthorization", Reason: "authorizing a VPC of another account to join a private zone lets that account resolve the zone's records; nothing checks the account, so it is not offered"},
 	},
 	Defer: []Omission{
-		{Operation: "ChangeCidrCollection", Reason: deferR53CIDR},
-		{Operation: "CreateCidrCollection", Reason: deferR53CIDR},
-		{Operation: "CreateReusableDelegationSet", Reason: deferR53Delegate},
 		{Operation: "CreateTrafficPolicyInstance", Reason: deferR53Instance},
-		{Operation: "DeleteCidrCollection", Reason: deferR53CIDR},
-		{Operation: "DeleteReusableDelegationSet", Reason: deferR53Delegate},
 		{Operation: "DeleteTrafficPolicyInstance", Reason: deferR53Instance},
 		{Operation: "UpdateHostedZoneFeatures", Reason: deferR53Features},
 		{Operation: "UpdateTrafficPolicyInstance", Reason: deferR53Instance},

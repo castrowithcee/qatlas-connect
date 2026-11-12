@@ -88,6 +88,12 @@ var (
 		"BadRequestException":             invalid,
 		"InvalidNextTokenException":       invalid,
 
+		// SES v2: the codes of the send operations. Each one means the mail was not sent.
+		"MessageRejected":                    {provider.ClassProviderError, Subject + " rejected the message and did not send it; check the content and the recipients"},
+		"MailFromDomainNotVerifiedException": {provider.ClassProviderError, Subject + " did not send the message because the MAIL FROM domain of the sender is not verified"},
+		"SendingPausedException":             {provider.ClassProviderError, Subject + " did not send the message because sending is paused for the account or the configuration set"},
+		"AccountSuspendedException":          {provider.ClassPermission, Subject + " did not send the message because the account may no longer send email"},
+
 		"EntityAlreadyExists":           conflict,
 		"DeleteConflict":                conflict,
 		"EntityTemporarilyUnmodifiable": conflict,
