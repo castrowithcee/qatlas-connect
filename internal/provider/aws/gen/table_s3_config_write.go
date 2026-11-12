@@ -32,7 +32,7 @@ var s3ConfigTools = slices.Concat([]Operation{
 	}, "cors"),
 }, s3ConfigReads)
 
-// s3ConfigWriteTools are the lifecycle and CORS writes: removing the rules of a bucket.
+// s3ConfigWriteTools are the lifecycle and CORS removals and the payer write.
 var s3ConfigWriteTools = []Operation{
 	s3BucketWrite(Operation{
 		Operation: "DeleteBucketLifecycle", Object: "lifecycle", Action: "delete", Effect: "delete", Idempotency: "non-idempotent",
@@ -47,4 +47,15 @@ var s3ConfigWriteTools = []Operation{
 		Description: "Remove all CORS rules of a bucket: browsers on other websites can no longer read its responses. Needs s3:PutBucketCORS.",
 		Examples:    []Example{{Description: "Remove all CORS rules", Arguments: `{"bucket":"my-bucket"}`}},
 	}, "cors"),
+	s3BucketWrite(Operation{
+		Operation: "PutBucketRequestPayment", Object: "request-payment", Action: "put", Effect: "update", Idempotency: "idempotent",
+		Title: "Set who pays for the requests to an S3 bucket",
+		Description: "Set the payer of a bucket to Requester or BucketOwner. With Requester the costs of transfer and requests " +
+			"move to whoever asks: anonymous access is no longer possible, and requests of other accounts fail unless they " +
+			"send x-amz-request-payer. The change can be reverted at any time. Needs s3:PutBucketRequestPayment.",
+		Arguments: map[string]Argument{
+			"RequestPaymentConfiguration": {Description: "payer: Requester or BucketOwner"},
+		},
+		Examples: []Example{{Description: "Let requesters pay", Arguments: `{"bucket":"my-bucket","request_payment_configuration":{"payer":"Requester"}}`}},
+	}, "request-payment"),
 }

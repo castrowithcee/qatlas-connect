@@ -205,6 +205,7 @@ var wantTools = []string{
 	"aws.s3.public-access-block.put",
 	"aws.s3.replication.get",
 	"aws.s3.request-payment.get",
+	"aws.s3.request-payment.put",
 	"aws.s3.tagging.delete",
 	"aws.s3.tagging.get",
 	"aws.s3.tagging.put",
