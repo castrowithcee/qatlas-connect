@@ -280,7 +280,10 @@ is off or the token may not read it.
 | Tools | Classic | Fine-grained |
 | --- | --- | --- |
 | Read categories, discussions, comments | `public_repo` (public) or `repo` | Discussions: read |
-| Create, change, delete discussions and comments | `public_repo` or `repo` | Discussions: read and write |
+| Create, change, close, reopen, lock, unlock, delete discussions and comments, mark or unmark an answer | `public_repo` or `repo` | Discussions: read and write |
+
+Marking an answer works only for a top-level comment of a discussion in a category that accepts answers; GitHub
+refuses it otherwise, and Qatlas checks it before the request.
 
 ### Gists
 
