@@ -43,6 +43,9 @@ var (
 		// The S3 codes of an object upload and download: a checksum, a size, or a storage class S3 rejects.
 		"BadDigest": invalid, "InvalidDigest": invalid, "XAmzContentSHA256Mismatch": invalid,
 		"EntityTooLarge": invalid, "InvalidStorageClass": invalid,
+		// The S3 codes of a multipart upload: a part under the minimum size, a part S3 does not hold or that was sent
+		// in the wrong order. The upload itself is untouched; the parts stay until it is completed or aborted.
+		"EntityTooSmall": invalid, "InvalidPart": invalid, "InvalidPartOrder": invalid,
 		// A bucket without such a configuration; the models do not define these codes, the service sends them.
 		"ServerSideEncryptionConfigurationNotFoundError": notFound, "NoSuchTagSet": notFound,
 		"NoSuchPublicAccessBlockConfiguration": notFound, "NoSuchLifecycleConfiguration": notFound,
