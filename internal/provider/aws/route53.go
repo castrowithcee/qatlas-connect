@@ -269,3 +269,12 @@ func checkRoute53Policy(_ binding, _ string, args map[string]any) error {
 	}
 	return nil
 }
+
+// checkRoute53Instance judges the name of a new traffic policy instance before any request: the form of a record name.
+// The ttl, the policy ID, and the version are bound by the schema; Route 53 judges whether the name lies in the zone.
+func checkRoute53Instance(_ binding, _ string, args map[string]any) error {
+	if name, _ := args["name"].(string); !validDNSName(name) {
+		return &provider.InvalidRequestError{Message: "name must be a domain name: dot separated labels of letters, digits, hyphens, and underscores, with \\052 style escapes for other bytes"}
+	}
+	return nil
+}

@@ -1,6 +1,6 @@
 ---
 description: >
-  Describes the tools of the AWS Route 53 group: listing, reading, creating, and deleting hosted zones of the bound account, changing a zone's comment and tags, listing and changing the records of a zone in atomic batches, testing a DNS answer, reading the status of a change, listing, reading, creating, changing, and deleting health checks with their status and last failure reason, reading DNSSEC and managing key signing keys (listed-only), creating, versioning, and deleting traffic policies and the limits of their JSON document, tags of zones and health checks, the name servers to enter at the registrar, zone and change IDs, private zones and the allowed VPC region, the health check target rule and alarm region, the cost of zones and health checks, the confirmation of a record or health check change, the DNSSEC flow with the DS record at the registrar and the order for switching it off, query logging configurations, reusable delegation sets, traffic policy instances, CIDR collections, account and zone limits, geolocations, health checker addresses, VPC associations and authorizations, and what is not a tool.
+  Describes the tools of the AWS Route 53 group: listing, reading, creating, and deleting hosted zones of the bound account, changing a zone's comment and tags, listing and changing the records of a zone in atomic batches, testing a DNS answer, reading the status of a change, listing, reading, creating, changing, and deleting health checks with their status and last failure reason, reading DNSSEC and managing key signing keys (listed-only), creating, versioning, and deleting traffic policies and the limits of their JSON document, creating, switching, and deleting traffic policy instances with their cost and asynchronous state, tags of zones and health checks, the name servers to enter at the registrar, zone and change IDs, private zones and the allowed VPC region, the health check target rule and alarm region, the cost of zones and health checks, the confirmation of a record or health check change, the DNSSEC flow with the DS record at the registrar and the order for switching it off, query logging configurations, reusable delegation sets, traffic policy instances, CIDR collections, account and zone limits, geolocations, health checker addresses, VPC associations and authorizations, and what is not a tool.
 type: knowledge
 edit: shared
 created: 2026-11-11
@@ -9,7 +9,7 @@ updated: 2026-11-12
 
 # Amazon Route 53
 
-Group `route53`, the Route 53 API for hosted zones, their records, health checks, DNSSEC, and the read side of query logging, reusable delegation sets, traffic policies, CIDR collections, limits, geolocations, and VPC associations. Route 53 is a global service: the tools hang on the bound account,
+Group `route53`, the Route 53 API for hosted zones, their records, health checks, DNSSEC, traffic policies and their instances, and the read side of query logging, reusable delegation sets, CIDR collections, limits, geolocations, and VPC associations. Route 53 is a global service: the tools hang on the bound account,
 take no `region`, and sign for `us-east-1`; the region allowlist of the connection has no effect on the endpoint. Every
 permission a tool needs is listed in [Set up AWS](setup.md#route-53). A zone or health check belongs to the account whose credential
 signs the request, so one of another account cannot be reached.
@@ -70,6 +70,9 @@ Reads need no confirmation. Every other tool needs confirmation. The DNSSEC writ
 | `aws.route53.traffic-policy.create-version` | `CreateTrafficPolicyVersion` | create, not repeated | yes |
 | `aws.route53.traffic-policy.update-comment` | `UpdateTrafficPolicyComment` | update | yes |
 | `aws.route53.traffic-policy.delete` | `DeleteTrafficPolicy` | delete, not repeated | yes |
+| `aws.route53.traffic-policy-instance.create` | `CreateTrafficPolicyInstance` | create, not repeated | yes |
+| `aws.route53.traffic-policy-instance.update` | `UpdateTrafficPolicyInstance` | update | yes |
+| `aws.route53.traffic-policy-instance.delete` | `DeleteTrafficPolicyInstance` | delete, not repeated | yes |
 | `aws.route53.dnssec.enable` | `EnableHostedZoneDNSSEC` | update | yes, listed-only |
 | `aws.route53.dnssec.disable` | `DisableHostedZoneDNSSEC` | update | yes, listed-only |
 | `aws.route53.key-signing-key.create` | `CreateKeySigningKey` | create, repeatable with its token | yes, listed-only |
@@ -340,7 +343,7 @@ carry a `change_info` that `change.get` reads. Route 53 errors keep their code: 
 
 A traffic policy is a routing rule set kept as a JSON document in the bound account. Each change makes a new version;
 `traffic-policy.get` and `.list-versions` read them. A policy answers no query by itself: it takes effect only when a
-traffic policy instance applies it to a name, and the instances are not tools of this group yet.
+traffic policy instance applies it to a name; [Traffic policy instances](#traffic-policy-instances) below.
 
 - `traffic-policy.create` takes `name` (up to 512 characters), `document`, and optionally `comment` (up to 1024
   characters), and makes version 1. The result carries `traffic_policy` (`id`, `version`, `name`, `type`, `document`,
@@ -407,15 +410,47 @@ account's users, of the zone's domain, and of the checked endpoint. They are sho
 from them is requested. Provider error texts are not shown; the code and the class are, except the single messages of an
 `InvalidChangeBatch`, which are shown capped as provider text.
 
+## Traffic policy instances
+
+An instance binds one version of a traffic policy to a DNS name of a hosted zone of the bound account. Route 53 creates
+the records of the policy under that name, so an instance changes the records of the zone, and each instance is billed
+per month while it exists. The price is not read by any tool; see the Route 53 pricing page.
+
+- `traffic-policy-instance.create` takes `hosted_zone_id` (with or without the `/hostedzone/` prefix), `name`, `ttl`,
+  `traffic_policy_id`, and `traffic_policy_version`. It creates the instance and the records under `name`. Route 53
+  answers `TrafficPolicyInstanceAlreadyExists` when the name has one, `TooManyTrafficPolicyInstances` at the account
+  limit, `ConflictingTypes` when records of another type exist under the name, and `PriorRequestNotComplete` while it is
+  busy with the zone. The call is never repeated automatically.
+- `traffic-policy-instance.update` takes `id`, `ttl`, `traffic_policy_id`, and `traffic_policy_version` and applies
+  another version or policy and ttl; the records the instance made are replaced. Zone and name stay.
+- `traffic-policy-instance.delete` takes `id` and deletes the instance and the records it made. The policy and its
+  versions stay.
+
+`name` is a domain name as for record sets: dot separated labels of letters, digits, hyphens, and underscores, `\052`
+style escapes for other bytes, an optional trailing dot, up to 1024 characters; the tool refuses another form before any
+request, and Route 53 judges whether the name lies in the zone. `ttl` is 0 to 2147483647, `traffic_policy_version` 1 to
+1000; the schema refuses values outside these before any request.
+
+An instance is applied asynchronously. The result of create and update carries `traffic_policy_instance` (`id`,
+`hosted_zone_id`, `name`, `ttl`, `state`, `message`, `traffic_policy_id`, `traffic_policy_version`,
+`traffic_policy_type`); `state` is `Creating`, `Applying`, `Deleting`, `Applied`, or `Failed`, with the reason in
+`message`. Read it again with `traffic-policy-instance.get` until it is `Applied` or `Failed`. Delete answers no
+instance; the records go while the state is `Deleting`.
+
+The confirmation names the tool, not the arguments: before confirming, show the user the zone, the name, the policy and
+its version, and the ttl, and for create that records of the zone will be created and that the instance is billed while
+it exists; for update and delete that the records the instance made are replaced or removed. Read the zone with
+`record-set.list` and the instance with `traffic-policy-instance.get` first.
+
 ## Not tools
 
 `CreateVPCAssociationAuthorization` is never a tool: it lets another account associate its VPC with a private zone and
-resolve its records, and nothing can check that account. The writes of query logging, reusable delegation sets, traffic policy instances, CIDR
+resolve its records, and nothing can check that account. The writes of query logging, reusable delegation sets, CIDR
 collections, VPC association and its authorizations, and the zone features are not tools of this group yet.
 
 ## Limits
 
-- No live test has been run against Route 53. The price of a zone or health check is not read by any tool, and the behavior of a private
+- No live test has been run against Route 53. The price of a zone, health check, or traffic policy instance is not read by any tool, and the behavior of a private
   zone with a VPC of another account is documented by AWS only.
 - The generated test of each tool covers the request and the result shape; the zone IDs, paging, errors, the VPC
   checks, the record list over several pages, the batch checks, the retry rules, the DNS answer, the health check types, the
