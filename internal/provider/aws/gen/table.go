@@ -175,6 +175,12 @@ type Operation struct {
 	Readback string
 	// ReadbackAnswer is the XML answer of the generated test to that read; required with Readback.
 	ReadbackAnswer string
+	// LocalFile makes the payload of a restXml operation travel through a local file the connection releases:
+	// "read" streams the input payload from a file (an upload), "write" streams the output payload into one (a
+	// download). The payload member is no argument and no field; the tool takes local_path instead and its
+	// result names size and sha256 of the file. Such a tool has no generated test, the runtime test of its
+	// package covers it.
+	LocalFile string
 	// SampleArgs replaces top-level arguments of the generated test, a JSON object by argument name, where
 	// the derived sample cannot pass a guard.
 	SampleArgs string
@@ -271,7 +277,7 @@ var (
 		"ses-identity", "ses-identity-arn", "ses-configuration-set"}
 	PolicyChecks = []string{"none", "trust-policy", "resource-policy-own-account", "bucket-policy", "identity-policy"}
 	// Guards are the pure argument steps and Readbacks the steps with a read of their own; see Operation.
-	Guards     = []string{"location-constraint", "new-bucket-name", "kms-key-arn", "ownership-enforce", "route53-vpc", "route53-vpc-lookup", "route53-change", "route53-name", "route53-health", "route53-ksk", "route53-log-group", "route53-policy", "ses-configuration-set-values", "copy-source", "object-kms-key", "ses-send"}
+	Guards     = []string{"location-constraint", "new-bucket-name", "kms-key-arn", "ownership-enforce", "route53-vpc", "route53-vpc-lookup", "route53-change", "route53-name", "route53-health", "route53-ksk", "route53-log-group", "route53-policy", "ses-configuration-set-values", "copy-source", "object-kms-key", "upload-kms-key", "ses-send"}
 	Readbacks  = []string{"pab-tighten"}
 	Deliveries = []string{"ses-mail"}
 	// FailureHints are the hand-written failure steps a table may name.
@@ -400,6 +406,10 @@ func (op Operation) validate() error {
 		return fmt.Errorf("token_member %q must name a member of a tool that creates something", op.TokenMember)
 	case op.PageSizeMax < 0:
 		return fmt.Errorf("negative page size maximum")
+	case op.LocalFile != "" && op.LocalFile != "read" && op.LocalFile != "write":
+		return fmt.Errorf("local_file %q must be read or write", op.LocalFile)
+	case op.LocalFile == "read" && op.Effect == "read", op.LocalFile == "write" && op.Effect != "read":
+		return fmt.Errorf("local_file %s does not fit effect %s: an upload changes something, a download reads", op.LocalFile, op.Effect)
 	case strings.TrimSpace(op.Title) == "" || strings.TrimSpace(op.Description) == "" || op.DataSensitivity == "":
 		return fmt.Errorf("title, description and data sensitivity are required")
 	}

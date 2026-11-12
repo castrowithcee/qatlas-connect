@@ -48,7 +48,7 @@
 // account's starred repositories, name no repository, project, or owner and are offered only by a connection
 // whose targets name neither a repository nor a project. The star tools also star and unstar one repository
 // a connection allows. The organization tools read the teams of an organization and the members of
-// one of its teams, an organization the connection's targets must allow as an owner. The repository tools
+// one of its teams, an organization the connection's targets must allow as an owner; the team tools also read a team, a membership, and the repositories of a team and, listed only, create, change, and delete teams, add or remove members that already belong to the organization, and set or withdraw a team's repository permission. The repository tools
 // read the contents of a file or a directory, the Git tree of a ref, through GraphQL the blame of a file
 // over a bounded line range, the commits of a repository or one commit with its stats and changed files, and
 // the branches and the tags of a repository or one tag resolved through the Git refs and Git tags APIs; none
@@ -922,7 +922,7 @@ func Register(reg *capability.Registry) error {
 		maintenanceOperations(), actionsSettingsOperations(), runnersOperations(), runnerGroupOperations(), webhooksOperations(), deployKeysOperations(), repositoryInvitationsOperations(), pullRequestOperations(), checkOperations(), releaseOperations(), releaseAssetOperations(), pullRequestCommentOperations(),
 		pullRequestReviewOperations(), pullRequestReviewMaintenanceOperations(), pullRequestReviewCommentOperations(),
 		pullRequestReviewCommentMaintenanceOperations(), pullRequestReviewThreadOperations(),
-		pullRequestReviewerOperations(), accountOperations(), organizationOperations(), starOperations(),
+		pullRequestReviewerOperations(), accountOperations(), organizationOperations(), teamManagementOperations(), starOperations(),
 		searchOperations(), contentsOperations(), blameOperations(), commitsOperations(), refsOperations(), compareOperations(), commitRelationOperations(),
 		contentsWriteOperations(), refsWriteOperations(), repositoriesOperations(), repositoryDetailOperations(), trafficOperations(), repositoryStatsOperations(), rulesetsOperations(), branchProtectionOperations(), customPropertiesOperations(), actionVariablesOperations(), actionCachesOperations(), runCleanupOperations(),
 		labelsOperations(), autolinksOperations(), milestonesOperations(), commentMaintenanceOperations(), commentVisibilityOperations(), issueLockOperations(), reactionsOperations(),

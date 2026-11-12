@@ -93,10 +93,12 @@ func TestReleasesOfTheTables(t *testing.T) {
 		"GetAccount Details.AdditionalContactEmailAddresses",
 		"GetAccount Details.WebsiteURL",
 		"GetBucketEncryption ServerSideEncryptionConfiguration.Rules.ApplyServerSideEncryptionByDefault.KMSMasterKeyID",
+		"GetObject SSEKMSKeyId",
 		"HeadObject SSEKMSKeyId",
 		"PutAccountDetails AdditionalContactEmailAddresses",
 		"PutAccountDetails WebsiteURL",
 		"PutBucketEncryption ServerSideEncryptionConfiguration.Rules.ApplyServerSideEncryptionByDefault.KMSMasterKeyID",
+		"PutObject SSEKMSKeyId",
 	}
 	if !slices.Equal(released, want) {
 		t.Errorf("releases = %v, want %v", released, want)
@@ -162,7 +164,7 @@ func TestLimitsGuardsAndReadbacksAreChecked(t *testing.T) {
 				o.Operation != "CreateHostedZone" && o.Operation != "ChangeResourceRecordSets" && o.Operation != "TestDNSAnswer" &&
 				o.Operation != "CreateHealthCheck" && o.Operation != "UpdateHealthCheck" && o.Operation != "CreateKeySigningKey" && o.Operation != "CreateQueryLoggingConfig" && o.Operation != "CreateTrafficPolicy" && o.Operation != "CreateTrafficPolicyVersion" && o.Operation != "ListHostedZonesByVPC" &&
 				o.Operation != "CreateConfigurationSet" && o.Operation != "PutConfigurationSetTrackingOptions" && o.Operation != "PutConfigurationSetArchivingOptions" &&
-				o.Operation != "CopyObject" && o.Operation != "SendEmail" && o.Operation != "SendBulkEmail" {
+				o.Operation != "CopyObject" && o.Operation != "PutObject" && o.Operation != "SendEmail" && o.Operation != "SendBulkEmail" {
 				t.Errorf("%s: guards %v", o.Operation, o.Guards)
 			}
 		}

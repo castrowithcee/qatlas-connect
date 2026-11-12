@@ -25,6 +25,7 @@ var guards = map[string]guard{
 	"kms-key-arn":         checkKMSKeys,
 	"object-kms-key":      checkObjectKMSKey,
 	"copy-source":         checkCopySource,
+	"upload-kms-key":      checkUploadKMSKey,
 	"ownership-enforce":   checkOwnershipEnforce,
 	"route53-vpc":         checkRoute53VPC,
 	"route53-vpc-lookup":  checkRoute53VPCLookup,
