@@ -6,10 +6,10 @@ import "slices"
 // operations or exclude.
 const deferS3 = "not curated yet; the S3 service package decides effect, confirmation and bucket target first"
 
-// s3Table curates the s3 model. The bucket reads and writes are tools; every other operation waits for the S3 tools that follow.
+// s3Table curates the s3 model. The bucket and object tools without a local file are tools; every other operation waits for the S3 tools that follow.
 var s3Table = Table{
 	Service: "s3", Segment: "s3", Geltung: Regional,
-	Operations: slices.Concat(s3BucketTools, s3BucketWriteTools, s3ConfigTools, s3ConfigWriteTools, s3ObjectLockTools),
+	Operations: slices.Concat(s3BucketTools, s3BucketWriteTools, s3ConfigTools, s3ConfigWriteTools, s3ObjectLockTools, s3ObjectTools),
 	// These S3 lists continue at a KeyMarker with a second marker, which the model leaves out of its paging.
 	Pagers: []PagerSpec{
 		{Operation: "ListObjectVersions", Truncated: "IsTruncated", PageSize: "MaxKeys", Positions: []PositionSpec{
@@ -35,7 +35,6 @@ var s3Table = Table{
 		{Operation: "PutBucketCors", Reason: "waits until the confirmation of a call can name the rules it sets; not offered yet"},
 		{Operation: "AbortMultipartUpload", Reason: deferS3},
 		{Operation: "CompleteMultipartUpload", Reason: deferS3},
-		{Operation: "CopyObject", Reason: deferS3},
 		{Operation: "CreateBucketMetadataConfiguration", Reason: deferS3},
 		{Operation: "CreateBucketMetadataTableConfiguration", Reason: deferS3},
 		{Operation: "CreateMultipartUpload", Reason: deferS3},
@@ -48,10 +47,7 @@ var s3Table = Table{
 		{Operation: "DeleteBucketMetricsConfiguration", Reason: deferS3},
 		{Operation: "DeleteBucketPolicy", Reason: deferS3},
 		{Operation: "DeleteBucketWebsite", Reason: deferS3},
-		{Operation: "DeleteObject", Reason: deferS3},
 		{Operation: "DeleteObjectAnnotation", Reason: deferS3},
-		{Operation: "DeleteObjectTagging", Reason: deferS3},
-		{Operation: "DeleteObjects", Reason: deferS3},
 		{Operation: "GetBucketAbac", Reason: deferS3},
 		{Operation: "GetBucketAnalyticsConfiguration", Reason: deferS3},
 		{Operation: "GetBucketIntelligentTieringConfiguration", Reason: deferS3},
@@ -62,12 +58,8 @@ var s3Table = Table{
 		{Operation: "GetBucketPolicy", Reason: deferS3},
 		{Operation: "GetBucketPolicyStatus", Reason: deferS3},
 		{Operation: "GetObject", Reason: deferS3},
-		{Operation: "GetObjectAcl", Reason: deferS3},
 		{Operation: "GetObjectAnnotation", Reason: deferS3},
-		{Operation: "GetObjectAttributes", Reason: deferS3},
-		{Operation: "GetObjectTagging", Reason: deferS3},
 		{Operation: "GetObjectTorrent", Reason: deferS3},
-		{Operation: "HeadObject", Reason: deferS3},
 		{Operation: "ListBucketAnalyticsConfigurations", Reason: deferS3},
 		{Operation: "ListBucketIntelligentTieringConfigurations", Reason: deferS3},
 		{Operation: "ListBucketInventoryConfigurations", Reason: deferS3},
@@ -75,9 +67,7 @@ var s3Table = Table{
 		{Operation: "ListDirectoryBuckets", Reason: deferS3},
 		{Operation: "ListMultipartUploads", Reason: deferS3},
 		{Operation: "ListObjectAnnotations", Reason: deferS3},
-		{Operation: "ListObjectVersions", Reason: deferS3},
 		{Operation: "ListObjects", Reason: deferS3},
-		{Operation: "ListObjectsV2", Reason: deferS3},
 		{Operation: "ListParts", Reason: deferS3},
 		{Operation: "PutBucketAbac", Reason: deferS3},
 		{Operation: "PutBucketAccelerateConfiguration", Reason: deferS3},
@@ -92,9 +82,7 @@ var s3Table = Table{
 		{Operation: "PutObjectLegalHold", Reason: "waits for its own write tool; not offered yet"},
 		{Operation: "PutObjectLockConfiguration", Reason: "waits for its own write tool; not offered yet"},
 		{Operation: "PutObjectRetention", Reason: "waits for its own write tool; not offered yet"},
-		{Operation: "PutObjectTagging", Reason: deferS3},
 		{Operation: "RenameObject", Reason: deferS3},
-		{Operation: "RestoreObject", Reason: deferS3},
 		{Operation: "SelectObjectContent", Reason: deferS3},
 		{Operation: "UpdateBucketMetadataAnnotationTableConfiguration", Reason: deferS3},
 		{Operation: "UpdateBucketMetadataInventoryTableConfiguration", Reason: deferS3},

@@ -88,7 +88,9 @@ func TestReleasesOfTheTables(t *testing.T) {
 	}
 	slices.Sort(released)
 	want := []string{
+		"CopyObject SSEKMSKeyId",
 		"GetBucketEncryption ServerSideEncryptionConfiguration.Rules.ApplyServerSideEncryptionByDefault.KMSMasterKeyID",
+		"HeadObject SSEKMSKeyId",
 		"PutBucketEncryption ServerSideEncryptionConfiguration.Rules.ApplyServerSideEncryptionByDefault.KMSMasterKeyID",
 	}
 	if !slices.Equal(released, want) {
@@ -146,7 +148,7 @@ func TestLimitsGuardsAndReadbacksAreChecked(t *testing.T) {
 			}
 			if len(o.Guards) > 0 && o.Operation != "CreateBucket" && o.Operation != "PutBucketEncryption" && o.Operation != "PutBucketOwnershipControls" &&
 				o.Operation != "CreateHostedZone" && o.Operation != "ChangeResourceRecordSets" && o.Operation != "TestDNSAnswer" &&
-				o.Operation != "CreateHealthCheck" && o.Operation != "UpdateHealthCheck" && o.Operation != "CreateKeySigningKey" && o.Operation != "ListHostedZonesByVPC" {
+				o.Operation != "CreateHealthCheck" && o.Operation != "UpdateHealthCheck" && o.Operation != "CreateKeySigningKey" && o.Operation != "ListHostedZonesByVPC" && o.Operation != "CopyObject" {
 				t.Errorf("%s: guards %v", o.Operation, o.Guards)
 			}
 		}

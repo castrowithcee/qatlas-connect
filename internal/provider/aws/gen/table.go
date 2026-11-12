@@ -264,7 +264,7 @@ var (
 		"ses-identity", "ses-identity-arn"}
 	PolicyChecks = []string{"none", "trust-policy", "resource-policy-own-account", "bucket-policy", "identity-policy"}
 	// Guards are the pure argument steps and Readbacks the steps with a read of their own; see Operation.
-	Guards    = []string{"location-constraint", "new-bucket-name", "kms-key-arn", "ownership-enforce", "route53-vpc", "route53-vpc-lookup", "route53-change", "route53-name", "route53-health", "route53-ksk"}
+	Guards    = []string{"location-constraint", "new-bucket-name", "kms-key-arn", "ownership-enforce", "route53-vpc", "route53-vpc-lookup", "route53-change", "route53-name", "route53-health", "route53-ksk", "copy-source", "object-kms-key"}
 	Readbacks = []string{"pab-tighten"}
 	Forms     = []string{"account-id"}
 	// ResultHooks are the hand-written result steps a table may name; see resultHookFields.

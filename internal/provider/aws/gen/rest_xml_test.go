@@ -774,3 +774,35 @@ func TestRestXMLNestedAttributeAndNamespaceAreCarried(t *testing.T) {
 		t.Error("the kept rule prefix is not in the lifecycle answer")
 	}
 }
+
+// A timestamp with an explicit format is bound and rendered by that format in a header, a query member, and the
+// body, and read by it in a header; the tools that take such members are built with them.
+func TestRestXMLExplicitTimestampFormats(t *testing.T) {
+	del := bindXML(t, s3Table, "DeleteObject")
+	req := encodeXML(t, del, map[string]any{"Bucket": "my-bucket", "Key": "k", "IfMatchLastModifiedTime": "2026-05-06T07:08:09Z"})
+	if got := req.Header.Get("X-Amz-If-Match-Last-Modified-Time"); got != "Wed, 06 May 2026 07:08:09 GMT" {
+		t.Errorf("header = %q, want http-date", got)
+	}
+	head := bindXML(t, s3Table, "HeadObject")
+	req = encodeXML(t, head, map[string]any{"Bucket": "my-bucket", "Key": "k", "ResponseExpires": "2026-05-06T07:08:09Z"})
+	if !strings.Contains(req.RawQuery, "response-expires=Wed%2C+06+May+2026+07%3A08%3A09+GMT") && !strings.Contains(req.RawQuery, "response-expires=Wed%2C%2006%20May%202026%2007%3A08%3A09%20GMT") {
+		t.Errorf("query = %q, want http-date", req.RawQuery)
+	}
+	header := http.Header{"X-Amz-Object-Lock-Retain-Until-Date": {"2026-05-06T07:08:09Z"}, "Content-Length": {"3"}}
+	out, _, err := head.Operation.Decode(restxml.Codec{}, 200, header, nil)
+	if err != nil || out["ObjectLockRetainUntilDate"] != "2026-05-06T07:08:09Z" {
+		t.Errorf("answer = %v, %v", out, err)
+	}
+	many := bindXML(t, s3Table, "DeleteObjects")
+	req = encodeXML(t, many, map[string]any{"Bucket": "my-bucket", "Delete": map[string]any{
+		"Objects": []any{map[string]any{"Key": "k", "LastModifiedTime": "2026-05-06T07:08:09Z"}}}})
+	if !strings.Contains(string(req.Body), "<LastModifiedTime>Wed, 06 May 2026 07:08:09 GMT</LastModifiedTime>") {
+		t.Errorf("body = %s", req.Body)
+	}
+	for _, op := range []string{"DeleteObject", "HeadObject", "DeleteObjects"} {
+		i := slices.IndexFunc(s3Table.Operations, func(o Operation) bool { return o.Operation == op })
+		if _, err := build(loadXML(t, s3Table), &s3Table, s3Table.Operations[i]); err != nil {
+			t.Errorf("%s: %v", op, err)
+		}
+	}
+}

@@ -359,6 +359,8 @@ var (
 		httpbind.KindFloat: "KindFloat", httpbind.KindBoolean: "KindBoolean", httpbind.KindTimestamp: "KindTimestamp",
 		httpbind.KindBlob: "KindBlob", httpbind.KindStruct: "KindStruct", httpbind.KindList: "KindList",
 		httpbind.KindMap: "KindMap", httpbind.KindDocument: "KindDocument"}
+	httpFormatNames = map[httpbind.Format]string{httpbind.FormatEpochSeconds: "FormatEpochSeconds",
+		httpbind.FormatDateTime: "FormatDateTime", httpbind.FormatHTTPDate: "FormatHTTPDate"}
 	httpLocNames = map[httpbind.Loc]string{httpbind.LocLabel: "LocLabel", httpbind.LocQuery: "LocQuery",
 		httpbind.LocQueryParams: "LocQueryParams", httpbind.LocHeader: "LocHeader", httpbind.LocPrefixHeaders: "LocPrefixHeaders",
 		httpbind.LocPayload: "LocPayload", httpbind.LocResponseCode: "LocResponseCode"}
@@ -404,6 +406,9 @@ func restShapeLit(s *httpbind.Shape) string {
 	}
 	if s.MaxItems > 0 {
 		parts = append(parts, "MaxItems: "+strconv.Itoa(s.MaxItems))
+	}
+	if s.Format != httpbind.FormatDefault {
+		parts = append(parts, "Format: httpbind."+httpFormatNames[s.Format])
 	}
 	if len(s.Prefixes) > 0 {
 		quoted := make([]string, len(s.Prefixes))

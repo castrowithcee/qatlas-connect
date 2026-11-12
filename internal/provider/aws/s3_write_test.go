@@ -413,7 +413,7 @@ func TestS3ReadbackBelongsToTheNamedToolOnly(t *testing.T) {
 		if s.readback != "" {
 			named = append(named, s.descriptor.ID)
 		}
-		if len(s.guards) > 0 && !slices.Contains([]string{"aws.s3.bucket.create", "aws.s3.encryption.put", "aws.s3.ownership.put", "aws.route53.hosted-zone.create", "aws.route53.hosted-zone.list-by-vpc", "aws.route53.record-set.change", "aws.route53.dns-answer.test", "aws.route53.health-check.create", "aws.route53.health-check.update", "aws.route53.key-signing-key.create"}, s.descriptor.ID) {
+		if len(s.guards) > 0 && !slices.Contains([]string{"aws.s3.bucket.create", "aws.s3.encryption.put", "aws.s3.ownership.put", "aws.s3.object.copy", "aws.route53.hosted-zone.create", "aws.route53.hosted-zone.list-by-vpc", "aws.route53.record-set.change", "aws.route53.dns-answer.test", "aws.route53.health-check.create", "aws.route53.health-check.update", "aws.route53.key-signing-key.create"}, s.descriptor.ID) {
 			t.Errorf("%s names guards %v", s.descriptor.ID, s.guards)
 		}
 	}
@@ -484,8 +484,8 @@ func TestS3ExcludedOperationsCannotBeSent(t *testing.T) {
 			}
 		}
 	}
-	if tools != 31 {
-		t.Errorf("s3 tools = %d, want 31", tools)
+	if tools != 43 {
+		t.Errorf("s3 tools = %d, want 43", tools)
 	}
 	for _, s := range generatedSpecs {
 		if s.service != "s3" {
@@ -496,7 +496,9 @@ func TestS3ExcludedOperationsCannotBeSent(t *testing.T) {
 		if write && (strings.Contains(uri, "acl") || strings.Contains(uri, "website") || strings.Contains(uri, "logging") ||
 			strings.Contains(uri, "notification") || strings.Contains(uri, "replication")) ||
 			(s.rest.Method == "DELETE" && strings.Contains(uri, "publicaccessblock")) ||
-			(s.rest.Method != "GET" && s.rest.Method != "HEAD" && s.rest.Method != "PUT" && s.rest.Method != "DELETE") {
+			(s.rest.Method != "GET" && s.rest.Method != "HEAD" && s.rest.Method != "PUT" && s.rest.Method != "DELETE" &&
+				// The two POST tools are the batch delete and the restore of an archived object.
+				!(s.rest.Method == "POST" && (strings.HasSuffix(uri, "?delete") || strings.HasSuffix(uri, "?restore")))) {
 			t.Errorf("%s sends %s %s", s.descriptor.ID, s.rest.Method, s.rest.URI)
 		}
 	}
