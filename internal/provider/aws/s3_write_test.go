@@ -14,7 +14,7 @@ import (
 
 var s3WriteToolIDs = []string{"aws.s3.bucket.create", "aws.s3.bucket.delete", "aws.s3.versioning.put", "aws.s3.encryption.put",
 	"aws.s3.encryption.delete", "aws.s3.tagging.put", "aws.s3.tagging.delete", "aws.s3.public-access-block.put", "aws.s3.lifecycle.delete",
-	"aws.s3.cors.delete", "aws.s3.ownership.put"}
+	"aws.s3.cors.delete", "aws.s3.ownership.put", "aws.s3.object-lock.put", "aws.s3.object-retention.put", "aws.s3.object-legal-hold.put"}
 
 // s3WriteEnv offers the S3 write tools by name on a connection bound to the account and the given regions.
 func s3WriteEnv(t *testing.T, f *fakeAWS, regions ...string) *env {
@@ -413,7 +413,7 @@ func TestS3ReadbackBelongsToTheNamedToolOnly(t *testing.T) {
 		if s.readback != "" {
 			named = append(named, s.descriptor.ID)
 		}
-		if len(s.guards) > 0 && !slices.Contains([]string{"aws.s3.bucket.create", "aws.s3.encryption.put", "aws.s3.ownership.put", "aws.s3.object.copy", "aws.s3.object.upload", "aws.route53.hosted-zone.create", "aws.route53.hosted-zone.list-by-vpc", "aws.route53.record-set.change", "aws.route53.dns-answer.test", "aws.route53.health-check.create", "aws.route53.health-check.update", "aws.route53.key-signing-key.create", "aws.route53.query-logging-config.create", "aws.route53.traffic-policy.create", "aws.route53.traffic-policy.create-version", "aws.ses.configuration-set.create", "aws.ses.configuration-set.put-tracking-options", "aws.ses.configuration-set.put-archiving-options"}, s.descriptor.ID) {
+		if len(s.guards) > 0 && !slices.Contains([]string{"aws.s3.bucket.create", "aws.s3.encryption.put", "aws.s3.ownership.put", "aws.s3.object.copy", "aws.s3.object.upload", "aws.s3.object-lock.put", "aws.s3.object-retention.put", "aws.route53.hosted-zone.create", "aws.route53.hosted-zone.list-by-vpc", "aws.route53.record-set.change", "aws.route53.dns-answer.test", "aws.route53.health-check.create", "aws.route53.health-check.update", "aws.route53.key-signing-key.create", "aws.route53.query-logging-config.create", "aws.route53.traffic-policy.create", "aws.route53.traffic-policy.create-version", "aws.ses.configuration-set.create", "aws.ses.configuration-set.put-tracking-options", "aws.ses.configuration-set.put-archiving-options"}, s.descriptor.ID) {
 			t.Errorf("%s names guards %v", s.descriptor.ID, s.guards)
 		}
 	}
@@ -454,7 +454,7 @@ func TestS3ExcludedOperationsCannotBeSent(t *testing.T) {
 		tools++
 		schema := strings.ToLower(string(d.InputSchema) + string(d.OutputSchema))
 		for _, banned := range []string{"presign", "object_lock"} {
-			// Object Lock is only read: the answer of its reader names it, no input does.
+			// Object Lock is read, and written only by its configuration put; no other input names it.
 			text := schema
 			if banned == "object_lock" {
 				text = strings.ToLower(string(d.InputSchema))
@@ -462,7 +462,7 @@ func TestS3ExcludedOperationsCannotBeSent(t *testing.T) {
 					text += banned
 				}
 			}
-			if strings.Contains(text, banned) && !(banned == "object_lock" && d.ID == "aws.s3.object-lock.get") {
+			if strings.Contains(text, banned) && !(banned == "object_lock" && (d.ID == "aws.s3.object-lock.get" || d.ID == "aws.s3.object-lock.put")) {
 				t.Errorf("%s offers %s: %s", d.ID, banned, schema)
 			}
 		}
@@ -485,8 +485,8 @@ func TestS3ExcludedOperationsCannotBeSent(t *testing.T) {
 			}
 		}
 	}
-	if tools != 49 {
-		t.Errorf("s3 tools = %d, want 49", tools)
+	if tools != 52 {
+		t.Errorf("s3 tools = %d, want 52", tools)
 	}
 	for _, s := range generatedSpecs {
 		if s.service != "s3" {

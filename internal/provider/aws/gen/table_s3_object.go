@@ -25,7 +25,7 @@ var (
 		{Member: "SSECustomerKeyMD5", Reason: "customer-provided keys (SSE-C) are not offered"},
 	}
 	s3NoMFA    = Hidden{Member: "MFA", Reason: "MFA delete needs a code of a device, which no tool handles"}
-	s3NoBypass = Hidden{Member: "BypassGovernanceRetention", Reason: "bypassing governance retention deletes what a lock protects; the lock tools are not offered yet and the bypass is not either"}
+	s3NoBypass = Hidden{Member: "BypassGovernanceRetention", Reason: "bypassing governance retention deletes what a lock protects; no tool offers the bypass"}
 
 	s3ObjectLimits = []InputLimit{
 		{Member: "Key", MaxLen: 1024, Reason: s3KeyLimit},
@@ -256,7 +256,7 @@ var s3ObjectTools = []Operation{
 				for _, m := range []string{"ACL", "GrantFullControl", "GrantRead", "GrantReadACP", "GrantWriteACP"} {
 					out = append(out, Hidden{Member: m, Reason: why})
 				}
-				const lock = "Object Lock retention and holds are not offered; a compliance retention cannot be undone"
+				const lock = "Object Lock retention and holds are set with the object-lock tools, which accept only governance retention; a copy would set them past that check"
 				for _, m := range []string{"ObjectLockMode", "ObjectLockRetainUntilDate", "ObjectLockLegalHoldStatus", "ObjectLockEventHold",
 					"ObjectLockEventHoldDurationDays", "ObjectLockEventHoldDurationYears"} {
 					out = append(out, Hidden{Member: m, Reason: lock})
