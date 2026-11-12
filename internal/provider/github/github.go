@@ -96,6 +96,10 @@
 // the connection's repository targets; only on a connection whose tools list names it,
 // github.action-variables.delete removes one. A value is plain text, cut at fixed lengths in every answer and
 // never quoted in a message.
+// github.runner-groups.list, github.runner-groups.get, and github.hosted-runners.list read the self-hosted
+// runner groups and the GitHub-hosted runners of an organization, and github.runner-groups.update changes the
+// name and the visibility of one group with one request; all four are offered only on a connection whose tools
+// list names them, and none creates or deletes a group or a runner.
 // github.labels.list and github.labels.get read the labels of a repository; github.labels.create and
 // github.labels.update change them; only on a connection whose tools list names it, github.labels.delete
 // removes one permanently, which also strips it from every issue and pull request that carries it.
@@ -731,10 +735,11 @@ func Register(reg *capability.Registry) error {
 			Description: "high risk: reads and changes whether Actions run in a repository, which " +
 				"actions they may use, the default rights of its GITHUB_TOKEN, and its merge and branch settings, and " +
 				"reads its finer Actions settings (selected actions, fork pull request approval, retention, access, " +
-				"OIDC subject claim) and the self-hosted runners with their labels; a connection offers these tools only while its tools list names them, and " +
-				"every change needs its own confirmation; the changes of the finer settings and of the runners stay unticked, since " +
-				"each is offered only where a connection's tools list names it",
-			Tools: slices.Concat(adminTools, actionsSettingsReads, runnersReads),
+				"OIDC subject claim), the self-hosted runners with their labels, and the runner groups and the GitHub-hosted " +
+				"runners of an organization; a connection offers these tools only while its tools list names them, and " +
+				"every change needs its own confirmation; the changes of the finer settings, the runners, and the runner " +
+				"groups stay unticked, since each is offered only where a connection's tools list names it",
+			Tools: slices.Concat(adminTools, actionsSettingsReads, runnersReads, runnerGroupReads),
 		}, {
 			ID: "pull-requests", Title: "Pull requests",
 			Description: "reads the pull requests of a repository: their list, one pull request with its " +
@@ -900,7 +905,7 @@ func Register(reg *capability.Registry) error {
 		capability.Operation{Descriptor: projectIssuesCreate, Handler: capability.Handler(invokeProjectIssuesCreate)},
 	}, slices.Concat(itemOperations(), lifecycleOperations(), fieldOperations(), viewOperations(),
 		statusOperations(), accessOperations(), automationOperations(), actionsOperations(),
-		maintenanceOperations(), actionsSettingsOperations(), runnersOperations(), pullRequestOperations(), checkOperations(), releaseOperations(), releaseAssetOperations(), pullRequestCommentOperations(),
+		maintenanceOperations(), actionsSettingsOperations(), runnersOperations(), runnerGroupOperations(), pullRequestOperations(), checkOperations(), releaseOperations(), releaseAssetOperations(), pullRequestCommentOperations(),
 		pullRequestReviewOperations(), pullRequestReviewMaintenanceOperations(), pullRequestReviewCommentOperations(),
 		pullRequestReviewCommentMaintenanceOperations(), pullRequestReviewThreadOperations(),
 		pullRequestReviewerOperations(), accountOperations(), organizationOperations(), starOperations(),

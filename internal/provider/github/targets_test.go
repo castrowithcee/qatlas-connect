@@ -203,6 +203,7 @@ func TestDiscoveryDescribesTheTargetArguments(t *testing.T) {
 			descriptor.ID == actionsRetentionGet.ID || descriptor.ID == actionsRetentionSet.ID ||
 			descriptor.ID == actionsOIDCGet.ID || descriptor.ID == actionsOIDCSet.ID ||
 			slices.Contains(runnersReads, descriptor.ID) || slices.Contains(runnersChanges, descriptor.ID) ||
+			slices.Contains(runnerGroupReads, descriptor.ID) || slices.Contains(runnerGroupWrites, descriptor.ID) ||
 			descriptor.ID == notificationsList.ID || descriptor.ID == notificationsGet.ID ||
 			descriptor.ID == notificationsDismiss.ID || descriptor.ID == notificationsMarkAll.ID ||
 			descriptor.ID == threadSubscriptionsSet.ID ||
