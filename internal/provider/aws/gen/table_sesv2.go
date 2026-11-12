@@ -1,5 +1,7 @@
 package gen
 
+import "slices"
+
 // deferSESv2 is the reason for every sesv2 operation not curated yet: the service package that curates the
 // tools moves each operation it takes into operations or exclude.
 const deferSESv2 = "not curated yet; the SES service package decides effect, confirmation and target first"
@@ -9,7 +11,7 @@ const deferSESv2 = "not curated yet; the SES service package decides effect, con
 // remaining operations wait for the SES tools that follow.
 var sesv2Table = Table{
 	Service: "sesv2", Segment: "ses", Geltung: Regional,
-	Operations: sesIdentityTools,
+	Operations: slices.Concat(sesIdentityTools, sesAccountTools),
 	Exclude: []Omission{
 		{Operation: "SendCustomVerificationEmail", Reason: "sends a verification mail to an address given as an argument, so the tool would send mail to any recipient; a tool never sends mail on its own initiative"},
 	},
@@ -42,7 +44,6 @@ var sesv2Table = Table{
 		{Operation: "DeleteTenant", Reason: deferSESv2},
 		{Operation: "DeleteTenantResourceAssociation", Reason: deferSESv2},
 		{Operation: "DisassociateEmailIdentityCertificate", Reason: deferSESv2},
-		{Operation: "GetAccount", Reason: deferSESv2},
 		{Operation: "GetBlacklistReports", Reason: deferSESv2},
 		{Operation: "GetConfigurationSet", Reason: deferSESv2},
 		{Operation: "GetConfigurationSetEventDestinations", Reason: deferSESv2},
@@ -83,12 +84,7 @@ var sesv2Table = Table{
 		{Operation: "ListSuppressedDestinations", Reason: deferSESv2},
 		{Operation: "ListTenantResources", Reason: deferSESv2},
 		{Operation: "ListTenants", Reason: deferSESv2},
-		{Operation: "PutAccountDedicatedIpWarmupAttributes", Reason: deferSESv2},
-		{Operation: "PutAccountDetails", Reason: deferSESv2},
 		{Operation: "PutAccountPricingAttributes", Reason: deferSESv2},
-		{Operation: "PutAccountSendingAttributes", Reason: deferSESv2},
-		{Operation: "PutAccountSuppressionAttributes", Reason: deferSESv2},
-		{Operation: "PutAccountVdmAttributes", Reason: deferSESv2},
 		{Operation: "PutConfigurationSetArchivingOptions", Reason: deferSESv2},
 		{Operation: "PutConfigurationSetDeliveryOptions", Reason: deferSESv2},
 		{Operation: "PutConfigurationSetReputationOptions", Reason: deferSESv2},

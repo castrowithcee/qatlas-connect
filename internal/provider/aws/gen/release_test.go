@@ -72,8 +72,9 @@ func TestSensitiveMembersAreOpenOnlyByRelease(t *testing.T) {
 	}
 }
 
-// The real tables release the KMS key ID only for the two encryption tools, with a reason, and no other
-// tool of the tables shows a sensitive member.
+// The real tables release the KMS key ID only for the two encryption tools and the website and contact
+// addresses only for the two SES account tools that carry the production access request, each with a reason,
+// and no other tool of the tables shows a sensitive member.
 func TestReleasesOfTheTables(t *testing.T) {
 	var released []string
 	for _, table := range Tables {
@@ -89,8 +90,12 @@ func TestReleasesOfTheTables(t *testing.T) {
 	slices.Sort(released)
 	want := []string{
 		"CopyObject SSEKMSKeyId",
+		"GetAccount Details.AdditionalContactEmailAddresses",
+		"GetAccount Details.WebsiteURL",
 		"GetBucketEncryption ServerSideEncryptionConfiguration.Rules.ApplyServerSideEncryptionByDefault.KMSMasterKeyID",
 		"HeadObject SSEKMSKeyId",
+		"PutAccountDetails AdditionalContactEmailAddresses",
+		"PutAccountDetails WebsiteURL",
 		"PutBucketEncryption ServerSideEncryptionConfiguration.Rules.ApplyServerSideEncryptionByDefault.KMSMasterKeyID",
 	}
 	if !slices.Equal(released, want) {

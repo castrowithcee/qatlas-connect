@@ -4,7 +4,7 @@ description: >
 type: knowledge
 edit: shared
 created: 2026-11-06
-updated: 2026-11-11
+updated: 2026-11-12
 ---
 
 # Set up AWS
@@ -81,9 +81,18 @@ Each [SES tool](ses.md) needs the permission `ses:<Operation>` of its AWS operat
 `ses:DeleteEmailIdentity`, `ses:PutEmailIdentityDkimAttributes`, `ses:PutEmailIdentityDkimSigningAttributes`,
 `ses:PutEmailIdentityMailFromAttributes`, `ses:PutEmailIdentityFeedbackAttributes`,
 `ses:PutEmailIdentityConfigurationSetAttributes`, `ses:TagResource`, and `ses:UntagResource`, each for its own tool.
+The account tools need `ses:GetAccount`, `ses:PutAccountDetails`, `ses:PutAccountSendingAttributes`,
+`ses:PutAccountSuppressionAttributes`, `ses:PutAccountDedicatedIpWarmupAttributes`, and `ses:PutAccountVdmAttributes`.
 Creating with tags also needs `ses:TagResource`. The identity policy write tools are offered only when the tools list
 of the connection names them. Grant only the actions of the tools the connection offers. An account without production
 access is in the SES sandbox and sends only to verified recipients.
+
+**Troubleshooting: the sandbox.** SES rejects mail to an address that is not verified while `aws.ses.account.get`
+reports `production_access_enabled` false for the region. The status is separate for every region, so check the region
+you send from. Verify the recipient identity, or request production access with `aws.ses.account.put-details`, which
+needs `ses:PutAccountDetails` and confirmation. AWS reviews the request and the decision can take a while; read
+`aws.ses.account.get` again and look at `details.review_details`. `AccessDenied` on a call names the missing
+`ses:` permission.
 
 ### S3
 
