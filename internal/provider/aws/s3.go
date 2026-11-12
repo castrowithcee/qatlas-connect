@@ -20,23 +20,24 @@ type guard func(b binding, region string, args map[string]any) error
 
 // guards are the guards, by the name a curation table gives them.
 var guards = map[string]guard{
-	"location-constraint": checkLocationConstraint,
-	"new-bucket-name":     checkNewBucketName,
-	"kms-key-arn":         checkKMSKeys,
-	"object-kms-key":      checkObjectKMSKey,
-	"copy-source":         checkCopySource,
-	"upload-kms-key":      checkUploadKMSKey,
-	"ownership-enforce":   checkOwnershipEnforce,
-	"route53-vpc":         checkRoute53VPC,
-	"route53-vpc-lookup":  checkRoute53VPCLookup,
-	"route53-change":      checkRoute53Change,
-	"route53-name":        checkRoute53Name,
-	"route53-health":      checkRoute53Health,
-	"route53-ksk":         checkRoute53KSK,
-	"route53-log-group":   checkRoute53LogGroup,
-	"route53-policy":      checkRoute53Policy,
-	"ses-send":            checkSESSend,
-	"route53-cidr":        checkRoute53CIDR,
+	"location-constraint":         checkLocationConstraint,
+	"new-bucket-name":             checkNewBucketName,
+	"kms-key-arn":                 checkKMSKeys,
+	"object-kms-key":              checkObjectKMSKey,
+	"copy-source":                 checkCopySource,
+	"upload-kms-key":              checkUploadKMSKey,
+	"ownership-enforce":           checkOwnershipEnforce,
+	"object-lock-governance-only": checkObjectLockGovernanceOnly,
+	"route53-vpc":                 checkRoute53VPC,
+	"route53-vpc-lookup":          checkRoute53VPCLookup,
+	"route53-change":              checkRoute53Change,
+	"route53-name":                checkRoute53Name,
+	"route53-health":              checkRoute53Health,
+	"route53-ksk":                 checkRoute53KSK,
+	"route53-log-group":           checkRoute53LogGroup,
+	"route53-policy":              checkRoute53Policy,
+	"ses-send":                    checkSESSend,
+	"route53-cidr":                checkRoute53CIDR,
 
 	"ses-configuration-set-values": checkSESConfigurationSetValues,
 }
@@ -91,6 +92,40 @@ func checkOwnershipEnforce(_ binding, _ string, args map[string]any) error {
 	rule, _ := rules[0].(map[string]any)
 	if value, _ := rule["object_ownership"].(string); len(rule) != 1 || value != "BucketOwnerEnforced" {
 		return &provider.InvalidRequestError{Message: message}
+	}
+	return nil
+}
+
+// checkObjectLockGovernanceOnly requires every retention mode of the call to be exactly GOVERNANCE: the mode of an
+// object retention, and the mode of the default retention of a bucket configuration. Any other value, a value of
+// another type or case, and a retention without a mode are refused, so COMPLIANCE cannot get through in any
+// spelling. A configuration without a default retention only turns Object Lock on. A call with neither member is refused.
+func checkObjectLockGovernanceOnly(_ binding, _ string, args map[string]any) error {
+	const message = "the retention mode must be GOVERNANCE; COMPLIANCE is not offered"
+	check := func(retention any) error {
+		fields, _ := retention.(map[string]any)
+		if mode, _ := fields["mode"].(string); mode != "GOVERNANCE" {
+			return &provider.InvalidRequestError{Message: message}
+		}
+		return nil
+	}
+	retention, hasRetention := args["retention"]
+	config, hasConfig := args["object_lock_configuration"]
+	if !hasRetention && !hasConfig {
+		// Both members are optional in the model; a call without either carries no body to judge.
+		return &provider.InvalidRequestError{Message: "retention or object_lock_configuration is required"}
+	}
+	if hasRetention {
+		if err := check(retention); err != nil {
+			return err
+		}
+	}
+	if hasConfig {
+		config, _ := config.(map[string]any)
+		rule, _ := config["rule"].(map[string]any)
+		if retention, set := rule["default_retention"]; set {
+			return check(retention)
+		}
 	}
 	return nil
 }
