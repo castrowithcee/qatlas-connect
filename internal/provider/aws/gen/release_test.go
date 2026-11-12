@@ -73,7 +73,7 @@ func TestSensitiveMembersAreOpenOnlyByRelease(t *testing.T) {
 }
 
 // The real tables release the KMS key ID only for the two encryption tools and the website and contact
-// addresses only for the two SES account tools that carry the production access request, each with a reason,
+// addresses only for the two SES account tools that carry the production access request, the insights, and the export job filters of SES, each with a reason,
 // and no other tool of the tables shows a sensitive member.
 func TestReleasesOfTheTables(t *testing.T) {
 	var released []string
@@ -93,6 +93,15 @@ func TestReleasesOfTheTables(t *testing.T) {
 		"GetAccount Details.AdditionalContactEmailAddresses",
 		"GetAccount Details.WebsiteURL",
 		"GetBucketEncryption ServerSideEncryptionConfiguration.Rules.ApplyServerSideEncryptionByDefault.KMSMasterKeyID",
+		"GetExportJob ExportDataSource.MessageInsightsDataSource.Exclude.Destination",
+		"GetExportJob ExportDataSource.MessageInsightsDataSource.Exclude.FromEmailAddress",
+		"GetExportJob ExportDataSource.MessageInsightsDataSource.Exclude.Subject",
+		"GetExportJob ExportDataSource.MessageInsightsDataSource.Include.Destination",
+		"GetExportJob ExportDataSource.MessageInsightsDataSource.Include.FromEmailAddress",
+		"GetExportJob ExportDataSource.MessageInsightsDataSource.Include.Subject",
+		"GetMessageInsights FromEmailAddress",
+		"GetMessageInsights Insights.Destination",
+		"GetMessageInsights Subject",
 		"GetObject SSEKMSKeyId",
 		"HeadObject SSEKMSKeyId",
 		"PutAccountDetails AdditionalContactEmailAddresses",
@@ -165,7 +174,8 @@ func TestLimitsGuardsAndReadbacksAreChecked(t *testing.T) {
 				o.Operation != "CreateHostedZone" && o.Operation != "ChangeResourceRecordSets" && o.Operation != "TestDNSAnswer" &&
 				o.Operation != "CreateHealthCheck" && o.Operation != "UpdateHealthCheck" && o.Operation != "CreateKeySigningKey" && o.Operation != "ChangeCidrCollection" && o.Operation != "CreateQueryLoggingConfig" && o.Operation != "CreateTrafficPolicy" && o.Operation != "CreateTrafficPolicyVersion" && o.Operation != "ListHostedZonesByVPC" &&
 				o.Operation != "CreateConfigurationSet" && o.Operation != "PutConfigurationSetTrackingOptions" && o.Operation != "PutConfigurationSetArchivingOptions" &&
-				o.Operation != "CopyObject" && o.Operation != "PutObject" && o.Operation != "SendEmail" && o.Operation != "SendBulkEmail" {
+				o.Operation != "CopyObject" && o.Operation != "PutObject" && o.Operation != "SendEmail" && o.Operation != "SendBulkEmail" &&
+				o.Operation != "AssociateEmailIdentityCertificate" {
 				t.Errorf("%s: guards %v", o.Operation, o.Guards)
 			}
 		}
