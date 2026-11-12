@@ -96,7 +96,16 @@ Each [SES tool](ses.md) needs the permission `ses:<Operation>` of its AWS operat
 or a contact list with tags also needs `ses:TagResource`. No permission for creating, changing, or deleting event destinations is needed: those
 actions are not tools. The account tools need `ses:GetAccount`, `ses:PutAccountDetails`,
 `ses:PutAccountSendingAttributes`, `ses:PutAccountSuppressionAttributes`, `ses:PutAccountDedicatedIpWarmupAttributes`,
-and `ses:PutAccountVdmAttributes`. The identity policy write tools are offered only when the tools list
+and `ses:PutAccountVdmAttributes`. The [deliverability tools](ses-deliverability.md) need `ses:BatchGetMetricData`,
+`ses:GetMessageInsights`, `ses:GetEmailAddressInsights`, `ses:GetBlacklistReports`, `ses:GetDomainStatisticsReport`,
+`ses:GetDomainDeliverabilityCampaign`, `ses:ListDomainDeliverabilityCampaigns`, `ses:ListRecommendations`,
+`ses:GetDeliverabilityDashboardOptions`, `ses:PutDeliverabilityDashboardOption`, `ses:GetDeliverabilityTestReport`,
+`ses:ListDeliverabilityTestReports`, and `ses:CreateDeliverabilityTestReport`; the job tools `ses:GetImportJob`,
+`ses:ListImportJobs`, `ses:GetExportJob`, and `ses:ListExportJobs`; and the certificate tools
+`ses:ListEmailIdentityCertificates`, `ses:AssociateEmailIdentityCertificate`, and
+`ses:DisassociateEmailIdentityCertificate`, each for its own tool. The dashboard subscription, the inbox placement
+tests, and Virtual Deliverability Manager are charged by AWS; the tools need confirmation where they start a charge and
+retrieve no price. The identity policy write tools are offered only when the tools list
 of the connection names them, the send tools by the effect `execute`. Grant only the actions of the tools the connection offers. An account without production
 access is in the SES sandbox and sends only to verified recipients.
 
@@ -116,7 +125,7 @@ which needs `s3:ListAllMyBuckets` on all resources. The reads need `s3:ListAllMy
 `s3:GetBucketCORS` (`cors.get`), `s3:GetBucketAcl` (`acl.get`), `s3:GetBucketWebsite`, `s3:GetBucketLogging` (`logging.get`), `s3:GetBucketNotification` (`notification.get`),
 `s3:GetReplicationConfiguration` (`replication.get`), `s3:GetBucketOwnershipControls`, `s3:GetAccelerateConfiguration`,
 `s3:GetBucketRequestPayment`, `s3:GetBucketObjectLockConfiguration` (`object-lock.get`), `s3:GetObjectRetention` and
-`s3:GetObjectLegalHold` (`object-retention.get` and `object-legal-hold.get`, for the object `arn:aws:s3:::<bucket>/<key>`), `s3:GetBucketPolicy` (`bucket-policy.get`), and `s3:GetBucketPolicyStatus` (`bucket-policy.get-status`), each for its own tool. The object reads need `s3:ListBucket` (`object.list`), `s3:ListBucketVersions` (`object.list-versions`),
+`s3:GetObjectLegalHold` (`object-retention.get` and `object-legal-hold.get`, for the object `arn:aws:s3:::<bucket>/<key>`), `s3:GetBucketPolicy` (`bucket-policy.get`), and `s3:GetBucketPolicyStatus` (`bucket-policy.get-status`), `s3:GetInventoryConfiguration` (`inventory.list` and `inventory.get`), and `s3:GetAnalyticsConfiguration` (`analytics.list` and `analytics.get`), each for its own tool. The object reads need `s3:ListBucket` (`object.list`), `s3:ListBucketVersions` (`object.list-versions`),
 `s3:GetObject` (`object.head`, and `s3:GetObjectVersion` for a version; `object.get-attributes` also needs
 `s3:GetObjectAttributes`), `s3:GetObjectTagging` (`object-tagging.get`), and `s3:GetObjectAcl` (`object-acl.get`), for
 the object `arn:aws:s3:::<bucket>/<key>` except the two lists. The writes and the object download need:
@@ -144,6 +153,11 @@ the object `arn:aws:s3:::<bucket>/<key>` except the two lists. The writes and th
 | `aws.s3.object.restore` | `s3:RestoreObject` |
 | `aws.s3.object-tagging.put` | `s3:PutObjectTagging` (`s3:PutObjectVersionTagging` for a version) |
 | `aws.s3.object-tagging.delete` | `s3:DeleteObjectTagging` (`s3:DeleteObjectVersionTagging` for a version) |
+| `aws.s3.request-payment.put` | `s3:PutBucketRequestPayment` |
+| `aws.s3.inventory.put` | `s3:PutInventoryConfiguration`, and `s3:ListBucket` on the destination bucket (the `HeadBucket` before the change) |
+| `aws.s3.inventory.delete` | `s3:PutInventoryConfiguration` |
+| `aws.s3.analytics.put` | `s3:PutAnalyticsConfiguration`, and `s3:ListBucket` on the destination bucket (the `HeadBucket` before the change) |
+| `aws.s3.analytics.delete` | `s3:PutAnalyticsConfiguration` |
 
 The bucket policy write tools are offered only when the tools list of the connection names them. Creating with tags also needs `s3:PutBucketTagging`. Setting a KMS key also needs the permissions the key's policy
 requires for the identity. Grant only the actions of the tools the connection offers; a policy such as `s3:*` also
@@ -179,6 +193,9 @@ Each [Route 53 tool](route53.md) needs the permission `route53:<Action>` of its 
 | `aws.route53.cidr-collection.create` | `route53:CreateCidrCollection` |
 | `aws.route53.cidr-collection.change` | `route53:ChangeCidrCollection` |
 | `aws.route53.cidr-collection.delete` | `route53:DeleteCidrCollection` |
+| `aws.route53.traffic-policy-instance.create` | `route53:CreateTrafficPolicyInstance` |
+| `aws.route53.traffic-policy-instance.update` | `route53:UpdateTrafficPolicyInstance` |
+| `aws.route53.traffic-policy-instance.delete` | `route53:DeleteTrafficPolicyInstance` |
 | `aws.route53.dnssec.enable` | `route53:EnableHostedZoneDNSSEC` |
 | `aws.route53.dnssec.disable` | `route53:DisableHostedZoneDNSSEC` |
 | `aws.route53.key-signing-key.create` | `route53:CreateKeySigningKey`; also `kms:DescribeKey`, `kms:GetPublicKey`, `kms:Sign`, and `kms:CreateGrant` on the KMS key |

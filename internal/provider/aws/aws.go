@@ -62,9 +62,9 @@ var toolGroups = []config.ToolGroup{{
 		"tags, the public access block, and the bucket policy; objects, whose content moves only through local files",
 }, {
 	ID: "route53", Title: "Route 53",
-	Description: "Hosted zones, records, health checks, DNSSEC, reusable delegation sets, and CIDR collections of the bound account, " +
-		"their tags, and the status of a change; the name servers and the DS record to enter at the registrar; query logging, " +
-		"traffic policies, limits, geolocations, and VPC associations, read only; VPCs of private zones, associated and released",
+	Description: "Hosted zones, records, health checks, DNSSEC, query logging, traffic policies and their instances, reusable " +
+		"delegation sets, CIDR collections, and the VPCs of private zones of the bound account, their tags, and the status of a " +
+		"change; the name servers and the DS record to enter at the registrar; limits and geolocations, read only",
 }}
 
 var targetKinds = []config.TargetKind{{

@@ -3,11 +3,11 @@ package gen
 import "slices"
 
 const (
-	deferR53Instance = "traffic policy instance writes wait for their own tool group: an instance creates and replaces record sets of a zone"
 	deferR53Features = "hosted zone feature changes wait for their own tool group"
 )
 
-// route53Table curates the route-53 model. Every reader is curated; the writes of the areas that are only read so far wait for their tool groups.
+// route53Table curates the route-53 model: every operation is a tool except the authorization of a VPC of another
+// account, which is excluded, and the change of zone features, which waits for its own tool group.
 var route53Table = Table{
 	Service: "route-53", Segment: "route53", Geltung: Global,
 	// A record set list continues at a name and a type, and at an identifier when the records are weighted,
@@ -45,14 +45,11 @@ var route53Table = Table{
 	// delegation set arguments, so those take /hostedzone/ as well (stripped, then refused by Route 53 as an unknown set).
 	IDPrefixes: []IDPrefix{{Shape: "ResourceId", Prefix: "/hostedzone/"}, {Shape: "ResourceId", Prefix: "/delegationset/", Operations: []string{"GetReusableDelegationSet", "GetReusableDelegationSetLimit", "DeleteReusableDelegationSet", "CreateHostedZone"}}, {Shape: "TagResourceId", Prefix: "/hostedzone/"},
 		{Shape: "ChangeId", Prefix: "/change/"}},
-	Operations: slices.Concat(route53ZoneTools, route53RecordTools, route53HealthTools, route53DNSSECTools, route53DelegationTools, route53CIDRTools, route53PolicyTools, route53ReadTools, route53LoggingTools, route53VPCTools),
+	Operations: slices.Concat(route53ZoneTools, route53RecordTools, route53HealthTools, route53DNSSECTools, route53DelegationTools, route53CIDRTools, route53PolicyTools, route53InstanceTools, route53ReadTools, route53LoggingTools, route53VPCTools),
 	Exclude: []Omission{
 		{Operation: "CreateVPCAssociationAuthorization", Reason: "authorizing a VPC of another account to join a private zone lets that account resolve the zone's records; nothing checks the account, so it is not offered"},
 	},
 	Defer: []Omission{
-		{Operation: "CreateTrafficPolicyInstance", Reason: deferR53Instance},
-		{Operation: "DeleteTrafficPolicyInstance", Reason: deferR53Instance},
 		{Operation: "UpdateHostedZoneFeatures", Reason: deferR53Features},
-		{Operation: "UpdateTrafficPolicyInstance", Reason: deferR53Instance},
 	},
 }

@@ -3,6 +3,7 @@ package aws
 import (
 	"context"
 	"regexp"
+	"slices"
 	"strings"
 
 	"github.com/castrowithcee/qatlas-connect/internal/provider"
@@ -76,6 +77,21 @@ func checkSESIdentityARN(b binding, global bool, name, value string) error {
 func checkSESConfigurationSet(_ binding, _ bool, name, value string) error {
 	if !configSetName.MatchString(value) {
 		return &provider.InvalidRequestError{Message: name + " must be 1 to 64 letters, digits, underscores, or hyphens"}
+	}
+	return nil
+}
+
+// checkACMCertificateARN accepts only the ARN of an ACM certificate in the bound account and an allowed region.
+func checkACMCertificateARN(b binding, _ string, args map[string]any) error {
+	value, _ := args["certificate_arn"].(string)
+	parts := strings.SplitN(value, ":", 6)
+	resource, isCert := "", false
+	if len(parts) == 6 {
+		resource, isCert = strings.CutPrefix(parts[5], "certificate/")
+	}
+	if len(parts) != 6 || parts[0] != "arn" || parts[1] != "aws" || parts[2] != "acm" || !slices.Contains(b.regions, parts[3]) ||
+		parts[4] != b.account || !isCert || resource == "" {
+		return &provider.InvalidRequestError{Message: "certificate_arn must be the ARN of an ACM certificate in the account this connection is bound to and a region it allows"}
 	}
 	return nil
 }
