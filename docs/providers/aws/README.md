@@ -4,7 +4,7 @@ description: >
 type: knowledge
 edit: shared
 created: 2026-11-06
-updated: 2026-11-11
+updated: 2026-11-12
 ---
 
 # Amazon Web Services
@@ -20,7 +20,7 @@ last accessed), the IAM tools that write roles and instance profiles, the SES v2
 sender identities with DKIM and MAIL FROM, and the S3 tools that read buckets and create, delete, and configure them
 (versioning, default encryption, tags, public access block, object ownership), remove their lifecycle and CORS rules,
 and read the rest of their configuration and the Object Lock state of their objects, and the Route 53 tools that list, read, create,
-and delete hosted zones, change their comments and tags, list and change their records in atomic batches, test a DNS answer, read the status of a change, list, read, create, change, and delete health checks with their status and tags, read DNSSEC and manage key signing keys, and read query logging configurations, reusable delegation sets, traffic policies and their instances, CIDR collections, limits, geolocations, health checker addresses, and VPC associations. Further services build on it.
+and delete hosted zones, change their comments and tags, list and change their records in atomic batches, test a DNS answer, read the status of a change, list, read, create, change, and delete health checks with their status and tags, read DNSSEC and manage key signing keys, create, version, and delete traffic policies, and read query logging configurations, reusable delegation sets, traffic policies and their instances, CIDR collections, limits, geolocations, health checker addresses, and VPC associations. Further services build on it.
 
 [Set up AWS](setup.md) lists the secret roles, the permissions, and what the connection test proves. The tools are
 described per group: [Security Token Service](sts.md), [Identity and Access Management](iam.md), [Simple Email Service](ses.md), [Amazon S3](s3.md), and [Amazon Route 53](route53.md).
