@@ -80,10 +80,19 @@ Each [SES tool](ses.md) needs the permission `ses:<Operation>` of its AWS operat
 `ses:UpdateEmailIdentityPolicy`, `ses:DeleteEmailIdentityPolicy`, `ses:CreateEmailIdentity`,
 `ses:DeleteEmailIdentity`, `ses:PutEmailIdentityDkimAttributes`, `ses:PutEmailIdentityDkimSigningAttributes`,
 `ses:PutEmailIdentityMailFromAttributes`, `ses:PutEmailIdentityFeedbackAttributes`,
-`ses:PutEmailIdentityConfigurationSetAttributes`, `ses:TagResource`, and `ses:UntagResource`, each for its own tool.
-The account tools need `ses:GetAccount`, `ses:PutAccountDetails`, `ses:PutAccountSendingAttributes`,
-`ses:PutAccountSuppressionAttributes`, `ses:PutAccountDedicatedIpWarmupAttributes`, and `ses:PutAccountVdmAttributes`.
-Creating with tags also needs `ses:TagResource`. The identity policy write tools are offered only when the tools list
+`ses:PutEmailIdentityConfigurationSetAttributes`, `ses:TagResource`, `ses:UntagResource`, `ses:ListConfigurationSets`,
+`ses:GetConfigurationSet`, `ses:CreateConfigurationSet`, `ses:DeleteConfigurationSet`,
+`ses:PutConfigurationSetDeliveryOptions`, `ses:PutConfigurationSetReputationOptions`,
+`ses:PutConfigurationSetSendingOptions`, `ses:PutConfigurationSetSuppressionOptions`,
+`ses:PutConfigurationSetTrackingOptions`, `ses:PutConfigurationSetVdmOptions`,
+`ses:PutConfigurationSetArchivingOptions`, `ses:GetConfigurationSetEventDestinations`,
+`ses:ListSuppressedDestinations`, `ses:GetSuppressedDestination`, `ses:PutSuppressedDestination`, and
+`ses:DeleteSuppressedDestination`, each for its own tool. `ses:TagResource`, `ses:UntagResource`, and
+`ses:ListTagsForResource` also serve the tags of configuration sets. Creating with tags, an identity or a configuration
+set, also needs `ses:TagResource`. No permission for creating, changing, or deleting event destinations is needed: those
+actions are not tools. The account tools need `ses:GetAccount`, `ses:PutAccountDetails`,
+`ses:PutAccountSendingAttributes`, `ses:PutAccountSuppressionAttributes`, `ses:PutAccountDedicatedIpWarmupAttributes`,
+and `ses:PutAccountVdmAttributes`. The identity policy write tools are offered only when the tools list
 of the connection names them. Grant only the actions of the tools the connection offers. An account without production
 access is in the SES sandbox and sends only to verified recipients.
 
