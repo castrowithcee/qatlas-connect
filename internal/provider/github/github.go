@@ -922,7 +922,7 @@ func Register(reg *capability.Registry) error {
 		maintenanceOperations(), actionsSettingsOperations(), runnersOperations(), runnerGroupOperations(), webhooksOperations(), deployKeysOperations(), repositoryInvitationsOperations(), pullRequestOperations(), checkOperations(), releaseOperations(), releaseAssetOperations(), pullRequestCommentOperations(),
 		pullRequestReviewOperations(), pullRequestReviewMaintenanceOperations(), pullRequestReviewCommentOperations(),
 		pullRequestReviewCommentMaintenanceOperations(), pullRequestReviewThreadOperations(),
-		pullRequestReviewerOperations(), accountOperations(), organizationOperations(), organizationReadOperations(), teamManagementOperations(), starOperations(),
+		pullRequestReviewerOperations(), accountOperations(), organizationOperations(), organizationReadOperations(), packagesOperations(), teamManagementOperations(), starOperations(),
 		searchOperations(), contentsOperations(), blameOperations(), commitsOperations(), refsOperations(), compareOperations(), commitRelationOperations(),
 		contentsWriteOperations(), refsWriteOperations(), repositoriesOperations(), collaboratorsManageOperations(), repositoryDetailOperations(), trafficOperations(), repositoryStatsOperations(), rulesetsOperations(), branchProtectionOperations(), customPropertiesOperations(), actionVariablesOperations(), actionCachesOperations(), runCleanupOperations(),
 		labelsOperations(), autolinksOperations(), milestonesOperations(), commentMaintenanceOperations(), commentVisibilityOperations(), issueLockOperations(), reactionsOperations(),
@@ -1697,6 +1697,9 @@ func (c *Client) restSubject(request *http.Request) subject {
 	if tail, ok := strings.CutPrefix(full, c.endpoints.rest+"/users/"); ok {
 		if login, rest, _ := strings.Cut(tail, "/"); strings.HasPrefix(rest, "gists") && validLogin(login) {
 			return subject{what: "the gists of users/" + login}
+		} else if (rest == "packages" || strings.HasPrefix(rest, "packages/") || strings.HasPrefix(rest, "packages?")) &&
+			validLogin(login) {
+			return packagesSubject("users", login)
 		}
 	}
 	tail, ok := strings.CutPrefix(full, c.endpoints.rest+"/repos/")
@@ -1871,6 +1874,9 @@ func organizationSubject(tail string) subject {
 	}
 	if len(parts) >= 2 && parts[1] == "security-advisories" {
 		return subject{what: "the repository security advisories of orgs/" + owner}
+	}
+	if len(parts) >= 2 && strings.HasPrefix(parts[1], "packages") {
+		return packagesSubject("orgs", owner)
 	}
 	if len(parts) >= 2 && parts[1] == "issue-types" {
 		return subject{what: "the issue types of orgs/" + owner}

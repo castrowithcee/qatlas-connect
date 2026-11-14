@@ -407,6 +407,10 @@ func TestRegisterPublishesTheChangeContracts(t *testing.T) {
 		"github.organization-members.list":      readRisk,
 		"github.organization-members.get":       readRisk,
 		"github.organization-roles.list":        readRisk,
+		"github.packages.list":                  readRisk,
+		"github.packages.get":                   readRisk,
+		"github.package-versions.list":          readRisk,
+		"github.package-versions.get":           readRisk,
 		"github.outside-collaborators.list":     readRisk,
 		"github.organization-invitations.list":  readRisk,
 		"github.contents.get":                   readRisk,
@@ -631,7 +635,7 @@ func TestRegisterPublishesTheChangeContracts(t *testing.T) {
 			descriptor.ID == organizationTeamsList.ID || descriptor.ID == teamMembersList.ID ||
 			descriptor.ID == repositoriesCreate.ID || descriptor.ID == issueTypesList.ID ||
 			descriptor.ID == organizationAdvisoriesList.ID || slices.Contains(teamToolIDs, descriptor.ID) ||
-			slices.Contains(organizationReadToolIDs, descriptor.ID)
+			slices.Contains(organizationReadToolIDs, descriptor.ID) || slices.Contains(packageToolIDs, descriptor.ID)
 		for _, forbidden := range []string{"owner", "base_url", "query\"", "project_id", "document"} {
 			if strings.Contains(ownerFiltersStripped(descriptor), forbidden) && !(owners && forbidden == "owner") {
 				t.Errorf("%s input offers %q: %s", descriptor.ID, forbidden, descriptor.InputSchema)

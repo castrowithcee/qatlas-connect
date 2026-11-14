@@ -20,6 +20,7 @@ var toolGroups = []config.ToolGroup{
 	{ID: "discussions", Title: "Discussions", Description: "Discussions, their categories, and their comments"},
 	{ID: "gists", Title: "Gists", Description: "Gists and their files"},
 	{ID: "notifications", Title: "Notifications", Description: "Notification threads and thread subscriptions"},
+	{ID: "packages", Title: "Packages", Description: "GitHub Packages of a user or an organization and their versions"},
 	{ID: "accounts", Title: "Accounts", Description: "Users, organizations, teams with their members, memberships, and repositories, the authenticated account and its rate limit, GitHub's meta information, license, .gitignore, and code of conduct templates, emojis, and Markdown rendering"},
 }
 
@@ -60,6 +61,7 @@ var groupBySegment = map[string]string{
 	"organization-members": "accounts", "organization-roles": "accounts", "outside-collaborators": "accounts",
 	"organization-invitations": "accounts", "team-members": "accounts", "team-memberships": "accounts", "team-repositories": "accounts", "rate-limit": "accounts", "meta": "accounts", "licenses": "accounts",
 	"gitignore-templates": "accounts", "codes-of-conduct": "accounts", "emojis": "accounts", "markdown": "accounts",
+	"packages": "packages", "package-versions": "packages",
 	"traffic-views": "repositories", "traffic-clones": "repositories",
 	"traffic-paths": "repositories", "traffic-referrers": "repositories",
 }

@@ -893,7 +893,7 @@ func TestRegisterPublishesMetadataAndTheReadOperations(t *testing.T) {
 			owners := descriptor.ID == projectsList.ID || descriptor.ID == repositoriesList.ID ||
 				descriptor.ID == organizationTeamsList.ID || descriptor.ID == teamMembersList.ID ||
 				descriptor.ID == issueTypesList.ID || descriptor.ID == organizationAdvisoriesList.ID ||
-				slices.Contains(teamToolIDs, descriptor.ID) || slices.Contains(organizationReadToolIDs, descriptor.ID)
+				slices.Contains(teamToolIDs, descriptor.ID) || slices.Contains(organizationReadToolIDs, descriptor.ID) || slices.Contains(packageToolIDs, descriptor.ID)
 			// The searches over the issue index sort by the comment count, which reads no comment.
 			sortsByComments := (descriptor.ID == issuesSearch.ID || descriptor.ID == pullRequestsSearch.ID) &&
 				forbidden == "comments"
@@ -921,7 +921,7 @@ func TestRegisterPublishesMetadataAndTheReadOperations(t *testing.T) {
 		"github.issues.list", "github.issues.search", "github.issue-types.list", "github.labels.get", "github.labels.list",
 		"github.milestones.get", "github.milestones.list", "github.notifications.get", "github.notifications.list",
 		"github.organization-advisories.list", "github.organizations.search", "github.organizations.get",
-		"github.organization-members.list", "github.organization-members.get", "github.organization-roles.list",
+		"github.organization-members.list", "github.organization-members.get", "github.organization-roles.list", "github.packages.list", "github.packages.get", "github.package-versions.list", "github.package-versions.get",
 		"github.outside-collaborators.list", "github.organization-invitations.list", "github.project-fields.list",
 		"github.project-items.get", "github.project-items.list", "github.projects.list",
 		"github.project-status.list", "github.project-teams.list", "github.project-views.list", "github.project-workflows.list",
@@ -945,7 +945,7 @@ func TestRegisterPublishesMetadataAndTheReadOperations(t *testing.T) {
 	if jobsLog.Risk.DataSensitivity != logSensitivity {
 		t.Errorf("the job log is classified as %q, want %q", jobsLog.Risk.DataSensitivity, logSensitivity)
 	}
-	if len(metadata.Tools) != 368 {
+	if len(metadata.Tools) != 372 {
 		t.Errorf("tools = %+v, want every operation offered to connection allow-lists", metadata.Tools)
 	}
 }

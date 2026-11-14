@@ -19,7 +19,7 @@ The tools are sorted into groups; each group has a page: [issues](issues.md), [p
 [pull request reviews](pull-request-reviews.md),
 [projects](projects.md), [Actions](actions.md), [Actions caches and cleanup](actions-maintenance.md),
 [environments and deployments](environments.md), [code](code.md), [repositories](repositories.md),
-[releases](releases.md), [security](security.md), [discussions](discussions.md), [gists](gists.md),
+[releases](releases.md), [packages](packages.md), [security](security.md), [discussions](discussions.md), [gists](gists.md),
 [notifications](notifications.md), and [accounts](accounts.md). The rules every search tool shares are
 described under [search](search.md). The [setup profiles](profiles.md) have their own
 page. [Set up GitHub](setup.md) leads through creating a token and lists the rights it needs.

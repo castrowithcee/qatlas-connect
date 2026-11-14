@@ -263,6 +263,12 @@ so treat them as likely, not certain.
 | Read releases and assets | `repo` for private repositories, `public_repo` for public | Contents: read |
 | Generate release notes, create, update, delete releases, update and delete assets | `repo` | Contents: read and write |
 
+### Packages
+
+| Tools | Classic | Fine-grained |
+| --- | --- | --- |
+| Read the packages of a user or an organization and their versions | `read:packages` | not documented by GitHub for these routes |
+
 ### Security
 
 | Tools | Classic | Fine-grained |
