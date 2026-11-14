@@ -4,14 +4,14 @@ description: >
 type: knowledge
 edit: shared
 created: 2026-11-06
-updated: 2026-11-12
+updated: 2026-11-14
 ---
 
 # Amazon Web Services
 
 The `aws` provider gives agents controlled access to one AWS account, read-only except for the IAM role tools and the two
 IAM report generators a connection names in its tools list, the SES identity tools, the S3 bucket tools, and the Route 53
-hosted zone, record, health check, delegation set, and CIDR collection tools, which change state with confirmation, the Route 53 query logging writes, and the Route 53 DNSSEC writes a connection names in its tools list. Qatlas signs requests with
+hosted zone, record, health check, delegation set, and CIDR collection tools, and the Account region tools, which change state with confirmation, the Route 53 query logging writes, and the Route 53 DNSSEC writes a connection names in its tools list. Qatlas signs requests with
 Signature Version 4 using the Go standard library; it uses no AWS SDK. It ships the foundation (credential, role
 assumption, account and region binding, connection test, endpoint table, error mapping), the Security Token Service
 (STS) tools, the IAM tools that read identities, the metadata of their credentials, policies with their simulation,
@@ -20,10 +20,10 @@ last accessed), the IAM tools that write roles and instance profiles, the SES v2
 sender identities with DKIM and MAIL FROM, read the account status and change its attributes and production access request, create, configure, and delete configuration sets, manage the suppression list, keep email templates, contact lists, and contacts, send mail, read deliverability metrics, insights, reputation, and import and export jobs, run the Deliverability Dashboard and inbox placement tests, handle identity certificates, and keep tenants and the sending status and policy of reputation entities, and the S3 tools that read buckets and create, delete, and configure them
 (versioning, default encryption, tags, public access block, object ownership), remove their lifecycle and CORS rules,
 and read the rest of their configuration and the Object Lock state of their objects, and the Route 53 tools that list, read, create,
-and delete hosted zones, change their comments and tags, list and change their records in atomic batches, test a DNS answer, read the status of a change, list, read, create, change, and delete health checks with their status and tags, read DNSSEC and manage key signing keys, create, version, and delete traffic policies, create, switch, and delete traffic policy instances, create and delete reusable delegation sets, create, change, and delete CIDR collections, and read query logging configurations, reusable delegation sets, traffic policies and their instances, CIDR collections, limits, geolocations, health checker addresses, and VPC associations, and associate and release VPCs of private zones. Further services build on it.
+and delete hosted zones, change their comments and tags, list and change their records in atomic batches, test a DNS answer, read the status of a change, list, read, create, change, and delete health checks with their status and tags, read DNSSEC and manage key signing keys, create, version, and delete traffic policies, create, switch, and delete traffic policy instances, create and delete reusable delegation sets, create, change, and delete CIDR collections, and read query logging configurations, reusable delegation sets, traffic policies and their instances, CIDR collections, limits, geolocations, health checker addresses, and VPC associations, and associate and release VPCs of private zones, and the Account tools that read the regions of the account with their opt-in status and enable and disable opt-in regions. Further services build on it.
 
 [Set up AWS](setup.md) lists the secret roles, the permissions, and what the connection test proves. The tools are
-described per group: [Security Token Service](sts.md), [Identity and Access Management](iam.md), [Simple Email Service](ses.md) with its [deliverability, metrics, and jobs](ses-deliverability.md), [Amazon S3](s3.md), and [Amazon Route 53](route53.md).
+described per group: [Security Token Service](sts.md), [Identity and Access Management](iam.md), [Account](account.md), [Simple Email Service](ses.md) with its [deliverability, metrics, and jobs](ses-deliverability.md), [Amazon S3](s3.md), and [Amazon Route 53](route53.md).
 
 ## Role assumption
 
@@ -78,7 +78,7 @@ sends only over HTTPS without following redirects.
 | Account (global) | `account.us-east-1.amazonaws.com` | `us-east-1` |
 
 Global services hang on the account and ignore the region allowlist; a connection reaches them with its account
-target alone. Of the services in the table, STS, IAM, SES v2, S3, and Route 53 have tools.
+target alone. Of the services in the table, STS, IAM, SES v2, S3, Route 53, and Account have tools.
 
 ## CloudTrail
 

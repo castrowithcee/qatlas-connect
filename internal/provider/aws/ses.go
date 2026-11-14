@@ -208,6 +208,7 @@ var resultHooks = map[string]resultHook{
 		addDNSRecords(result, region, args)
 	},
 	"bucket-policy-status": addBucketPolicyStatus,
+	"region-allowlist":     addRegionAllowlist,
 }
 
 // dkimZone matches the narrow form of an SES DKIM hosted zone: dkim.amazonses.com or

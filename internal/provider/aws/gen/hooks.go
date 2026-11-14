@@ -35,4 +35,10 @@ var resultHookFields = map[string]hookField{
 			), "additionalProperties", false)
 		},
 	},
+	"region-allowlist": {
+		name: fieldAllowlistNote,
+		description: "Says that the region list of the connection is unchanged, and for a disabled region whether it is " +
+			"in that list; derived by this tool from the connection and not copied from the answer",
+		schema: func() *object { return newObject("type", "string", "maxLength", 400) },
+	},
 }

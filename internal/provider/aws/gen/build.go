@@ -30,12 +30,14 @@ const (
 	fieldDNSRecords = "dns_records"
 	// fieldPublicStatus is the result member of the bucket-policy-status hook.
 	fieldPublicStatus = "public_status"
-	csvMemberKey      = "~csv"
-	csvMaxDropped     = 32
+	// fieldAllowlistNote is the result member of the region-allowlist hook.
+	fieldAllowlistNote = "allowlist_note"
+	csvMemberKey       = "~csv"
+	csvMaxDropped      = 32
 )
 
 var reservedNames = []string{argRegion, awsquery.ArgPageSize, awsquery.ArgCursor, argClientToken, fieldNext, fieldHasMore, fieldTruncated,
-	fieldRows, fieldDropped, fieldTotal, fieldDNSRecords, fieldPublicStatus}
+	fieldRows, fieldDropped, fieldTotal, fieldDNSRecords, fieldPublicStatus, fieldAllowlistNote}
 
 // regionMarker stands for the region schema in a rendered schema; the renderer replaces it with the
 // provider's regionSchema constant, so the schema has one source.
@@ -1326,6 +1328,7 @@ var targetSamples = map[string]string{
 	"ses-configuration-set":     "my-set",
 	"ses-resource-arn":          "arn:aws:ses:eu-central-1:123456789012:identity/example.com",
 	"ses-reputation-entity-arn": "arn:aws:ses:eu-central-1:123456789012:tenant/a/b",
+	"account-argument":          "123456789012",
 }
 
 // sampleTrustPolicy is a trust policy that passes the trust-policy check: one AWS service principal.
