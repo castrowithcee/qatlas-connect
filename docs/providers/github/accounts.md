@@ -149,8 +149,14 @@ used by the member list.
 | `github.organization-roles.list` | lists the organization roles of an organization, predefined and custom |
 | `github.outside-collaborators.list` | lists the outside collaborators of an organization, in batches |
 | `github.organization-invitations.list` | lists the pending invitations, in batches; optional `role` (`all`, `admin`, `direct_member`, `billing_manager`, `hiring_manager`) and `invitation_source` (`all`, `member`, `scim`) |
+| `github.organizations.update` | changes settings of the organization, only those named (see below); tools list only |
+| `github.organization-members.set-role` | sets the role of an existing active member, `username` and `role` (`admin` or `member`); tools list only |
+| `github.organization-members.remove` | removes an account from the organization, which also removes it from every team; tools list only |
+| `github.organization-roles.assign` | assigns an organization role (`role_id` from `github.organization-roles.list`) to an existing active member; tools list only |
+| `github.outside-collaborators.remove` | removes an outside collaborator from the organization's repositories; tools list only |
+| `github.organization-invitations.cancel` | cancels one pending invitation (`invitation_id` from `github.organization-invitations.list`); tools list only |
 
-These tools only read, are offered by effect, and take `owner` as `orgs/LOGIN` under the rules of
+The first six tools only read, are offered by effect, and take `owner` as `orgs/LOGIN` under the rules of
 [Organization teams](#organization-teams): an owner target of its own, checked with `exclude` before a secret is
 read, and named in every result. `username` is checked as a fixed path segment before anything is sent. The lists
 follow the [cursor contract](README.md#cursor-contract), a cursor bound to the organization, the tool, and its
@@ -178,6 +184,51 @@ untrusted data and never fetched.
 as untrusted data. People, including the account of a membership, the creator of a role, and the inviter, follow
 the account view of the member lists, with the name and email address GitHub reports. Text GitHub supplies is
 untrusted data, and addresses are never fetched.
+
+### Changing an organization
+
+The six tools that change something are offered only where a connection's `tools` list names them, take `owner`
+as `orgs/LOGIN` like the reads, and are checked against the connection's targets and `exclude` before a secret is
+read. Each needs its own confirmation and sends exactly one request that is never repeated; after a timeout or a
+server error the message says the change may have been applied, so read the state before repeating it.
+GitHub's own text of a refusal never reaches a message. `username` is checked as a fixed path segment, and
+`role_id` and `invitation_id` as positive integers, before anything is sent.
+
+**No invitations.** GitHub invites an account that is not yet a member of the organization when it gets a
+membership. `github.organization-members.set-role` and `github.organization-roles.assign` therefore read the
+membership first (`GET /orgs/{org}/memberships/{username}`) and refuse with `invalid-request`, without any
+change, unless its state is `active`: a missing account and a pending invitation are both refused. Inviting
+people stays outside Qatlas. `github.organization-members.remove` also withdraws an invitation that is still
+pending for the account, as GitHub does for this route.
+
+**`github.organizations.update`** changes only the settings it is given: the profile texts `name`, `description`,
+`company`, `email` (the public contact), `twitter_username`, `location`, and `blog`, each a line of at most 255
+characters (an empty string clears it); `default_repository_permission` (`read`, `write`, `admin`, `none`); the
+switches `has_organization_projects`, `has_repository_projects`, `members_can_create_repositories`,
+`members_can_create_public_repositories`, `members_can_create_private_repositories`,
+`members_can_create_internal_repositories`, `members_can_create_pages`, `members_can_fork_private_repositories`,
+and `web_commit_signoff_required`. It cannot change the billing contact (`billing_email`), the security switches
+for new repositories, deploy keys, or the deprecated creation type. The result is the organization view of
+`github.organizations.get`. Which settings an organization accepts depends on its plan; GitHub refuses the others
+with `provider-error`.
+
+**Security.** These changes raise rights and deserve review before a connection lists them:
+
+- `github.organization-members.set-role` with `role` `admin` makes the account an organization owner, with
+  control over members, teams, settings, and every repository. This is the most far-reaching rights elevation of
+  the organization tools.
+- `github.organizations.update` with `default_repository_permission` `write` or `admin` gives every member that
+  permission on every repository of the organization; the creation and fork switches widen what every member
+  may do.
+- `github.organization-roles.assign` can give a member the permissions of a custom organization role, which may
+  include administrative ones; read the role with `github.organization-roles.list` first.
+- `github.organization-members.remove`, `github.outside-collaborators.remove`, and
+  `github.organization-invitations.cancel` withdraw access and cannot be undone by Qatlas; a removed account has to
+  be invited again outside Qatlas.
+
+No output carries the two-factor state of another account or an invitation token or link; the results of the
+change tools report only what was addressed, apart from `github.organizations.update` and
+`github.organization-members.set-role`, which return the views of the reads.
 
 The token rights are listed under [Accounts and search](setup.md#accounts-and-search).
 
