@@ -1,10 +1,10 @@
 ---
 description: >
-  Describes the GitHub security tools: the code scanning, Dependabot, and secret scanning alerts of a repository, the global, repository, and organization security advisories, code quality findings, the security switches of a repository, and its code scanning default setup, with their targets and cuts.
+  Describes the GitHub security tools: the code scanning, Dependabot, and secret scanning alerts of a repository, the global, repository, and organization security advisories, code quality findings, the security switches of a repository, its code scanning default setup, and the dependency changes between two refs with dependency snapshots, with their targets and cuts.
 type: knowledge
 edit: shared
 created: 2026-10-22
-updated: 2026-11-11
+updated: 2026-11-14
 ---
 
 # GitHub security
@@ -12,10 +12,11 @@ updated: 2026-11-11
 The security tools of the [GitHub provider](README.md). The advisory and finding tools only read, and so do the
 alert reads. Three tools change an alert's state, and [the security switches](#security-switches) and
 [the code scanning default setup](#code-scanning-default-setup) read and, listed-only, change; each change is
-offered only where a connection's `tools` list names it. The not-recommended setup profile `security` selects the
-six alert tools, the four reads of instances, analyses, and locations, the five advisory and finding tools, and the
-two reads of the switches and the default setup, seventeen in all and all reading; it holds none of the five
-changes. The recommended profile `read` is unchanged.
+offered only where a connection's `tools` list names it, as is [the dependency snapshot](#dependency-graph). The
+not-recommended setup profile `security` selects the six alert tools, the four reads of instances, analyses, and
+locations, the five advisory and finding tools, the two reads of the switches and the default setup, and the
+dependency review, eighteen in all and all reading; it holds none of the six changes. The recommended profile
+`read` is unchanged.
 
 ## Security alerts
 
@@ -161,6 +162,55 @@ The token rights are listed under [Security](setup.md#security). Sources:
 https://docs.github.com/en/rest/security-advisories/global-advisories,
 https://docs.github.com/en/rest/security-advisories/repository-advisories, and
 https://docs.github.com/en/rest/code-quality/code-quality.
+
+## Dependency graph
+
+Two tools read and write the dependency graph of one repository.
+
+| Tool | Does | Offered |
+| --- | --- | --- |
+| `github.dependency-review.compare` | lists the dependencies added or removed between two refs | with the `read` permission |
+| `github.dependency-snapshots.create` | submits the dependencies of one build as a snapshot | only where the connection's `tools` list names it |
+
+The software bill of materials of a repository is not offered: GitHub closed down its synchronous export route
+after 2026-11-13 in favour of an asynchronous flow that no tool covers.
+
+`github.dependency-review.compare` takes the required `base` and `head`, each a branch, a tag, or a commit SHA, and
+the optional `name`, the path of one dependency manifest to filter by. A fork's `OWNER:ref` is not accepted. It
+answers `changes`, each with `change_type` (`added` or `removed`), `manifest`, `ecosystem`, `name`, `version`,
+`package_url`, `license`, `source_repository_url`, `vulnerabilities` (`severity`, `advisory_ghsa_id`,
+`advisory_summary`, `advisory_url`), and `scope` (`unknown`, `runtime`, or `development`); a member GitHub reports
+as `null` is left out. GitHub answers the whole list at once, so the tool keeps at most 500 changes and 20
+vulnerabilities per change; `total` counts what GitHub answered, `truncated` says that changes were left out, and
+`vulnerabilities_truncated` that vulnerabilities were. Package names, versions, licenses, summaries, and every
+address come from other accounts and are untrusted data: texts are cut at 500 characters and addresses at 2048, a
+cut sets `truncated` on the change, and no address is fetched. A private repository without GitHub Advanced
+Security and a fork are refused by GitHub with a permission error, which the message names without quoting GitHub.
+Every documented member of the answer is passed on.
+
+`github.dependency-snapshots.create` takes a structured snapshot: `version` (0 through 1000000), `sha`, `ref`
+(`refs/...`), `job` (`id`, `correlator`, optional `html_url`), `detector` (`name`, `version`, `url`), `scanned` (an
+RFC 3339 time), optional `metadata` (at most 8 keys with scalar values), and optional `manifests` by name, each
+with `name`, optional `file.source_location` and `metadata`, and `resolved` packages by name with `package_url`
+(starting with `pkg`), `relationship` (`direct` or `indirect`), `scope` (`runtime` or `development`),
+`dependencies` (package URLs), and `metadata`. The limits are 50 manifests, 2000 resolved packages in all, 200
+dependencies per package, and 2 MiB of request body; the addresses of the job and the detector must be `http` or
+`https` without credentials and are only stored by GitHub. Only the latest snapshot per `job.correlator` and detector
+name counts for the repository's current dependencies. Everything is checked before a credential is resolved, so a
+refused snapshot never reaches GitHub.
+
+The `sha` must be a commit of the chosen repository: the tool first reads it through the Git commits route and
+refuses with `invalid-request`, sending nothing, when GitHub does not find it; the window between that read and the
+snapshot is a limit, not a guarantee, and GitHub may resolve a commit that reached the repository through a fork of
+the same network. Then exactly one `POST` follows, never repeated, and the call needs the confirmation described
+under [confirmed changes](README.md#confirmed-changes). A repeated call submits a second snapshot. After a timeout,
+an abort, a server error, or an unreadable answer the tool says the snapshot may have been submitted. The answer is
+`id`, `created_at`, `result` (`SUCCESS`, `ACCEPTED`, or `INVALID`), and `message`, GitHub's untrusted detail text cut
+at 500 characters with `message_truncated`; an `INVALID` result is an answer, not an error.
+
+The token rights are listed under [Security](setup.md#security). Sources:
+https://docs.github.com/en/rest/dependency-graph/dependency-review and
+https://docs.github.com/en/rest/dependency-graph/dependency-submission.
 
 ## Security switches
 

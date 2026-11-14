@@ -1,6 +1,6 @@
 ---
 description: >
-  Describes the tools of the AWS SES v2 group: reading, creating, configuring, tagging, and deleting sender identities with DKIM and MAIL FROM, the account status, the sandbox, the production access request and the account attributes, creating and configuring configuration sets, reading their event destinations, managing the suppression list, dedicated IP addresses and pools with their costs and warm-up, email templates, contact lists with topics, contacts and their privacy, sending mail with confirmation, costs, and no automatic repetition, the identity, address, ARN, archive, and domain checks, the DNS help derived from checked values, and what is never a tool.
+  Describes the tools of the AWS SES v2 group: reading, creating, configuring, tagging, and deleting sender identities with DKIM and MAIL FROM, the account status, the sandbox, the production access request and the account attributes, creating and configuring configuration sets, reading their event destinations, managing the suppression list, dedicated IP addresses and pools with their costs and warm-up, email templates, contact lists with topics, contacts and their privacy, tenants with their resources and suppression attributes, reputation entities with their sending status and policy, multi-region (global) endpoints with the region check and their cost, sending mail with confirmation, costs, and no automatic repetition, the identity, address, ARN, archive, and domain checks, the DNS help derived from checked values, and what is never a tool.
 type: knowledge
 edit: shared
 created: 2026-11-11
@@ -12,9 +12,9 @@ updated: 2026-11-14
 Group `ses`, the SES v2 API. SES is regional: every tool takes an optional `region`, which may be left out when the
 connection lists exactly one region and otherwise must name an allowed one. Every permission a tool needs is listed in
 [Set up AWS](setup.md#ses). The tools manage the sender identities (domains and email addresses), the configuration sets, the suppression list,
-the email templates, the contact lists with their topics, and the contacts of the bound account, read and change the account
-status of one region, and send mail. The tools for deliverability, metrics, insights, import and export job reads, and
-identity certificates are described in [SES deliverability, metrics, and jobs](ses-deliverability.md).
+the email templates, the contact lists with their topics, the contacts, and the multi-region endpoints of the bound account, read and change the account
+status of one region, keep tenants, and set the sending status and policy of reputation entities, and send mail. The tools
+for deliverability, metrics, insights, import and export job reads, and identity certificates are described in [SES deliverability, metrics, and jobs](ses-deliverability.md).
 
 ## Tools
 
@@ -107,6 +107,49 @@ is not repeated: read the identity, its policies, or the configuration set first
 unclear is not repeated: read the template, list, or contact first. The list tools of templates, contact lists, and
 contacts page with `page_size` (at most 100) and `cursor`.
 
+## Tenants and reputation
+
+A tenant groups identities, configuration sets, and email templates of the bound account and has a sending status of its
+own. A reputation entity holds the reputation of one such resource. Reads need no confirmation; every other tool of this
+section needs it.
+
+| Tool | AWS operation | Effect | Confirmation |
+| --- | --- | --- | --- |
+| `aws.ses.tenant.get` | `GetTenant` | read | no |
+| `aws.ses.tenant.list` | `ListTenants` | read | no |
+| `aws.ses.tenant-resource.list` | `ListTenantResources` | read | no |
+| `aws.ses.resource-tenant.list` | `ListResourceTenants` | read | no |
+| `aws.ses.tenant.create` | `CreateTenant` | create, not repeated | yes |
+| `aws.ses.tenant.delete` | `DeleteTenant` | delete, not repeated | yes |
+| `aws.ses.tenant-resource.associate` | `CreateTenantResourceAssociation` | create, not repeated | yes |
+| `aws.ses.tenant-resource.disassociate` | `DeleteTenantResourceAssociation` | delete, not repeated | yes |
+| `aws.ses.tenant-suppression-attributes.put` | `PutTenantSuppressionAttributes` | update | yes |
+| `aws.ses.reputation-entity.get` | `GetReputationEntity` | read | no |
+| `aws.ses.reputation-entity.list` | `ListReputationEntities` | read | no |
+| `aws.ses.reputation-entity.update-customer-managed-status` | `UpdateReputationEntityCustomerManagedStatus` | update | yes |
+| `aws.ses.reputation-entity.update-policy` | `UpdateReputationEntityPolicy` | update | yes |
+
+The list tools page by cursor with a page size of up to 100. A tenant name has at most 64 characters. A tenant
+resource is an identity, a configuration set, or an email template; `resource_arn` of the association tools and of
+`aws.ses.resource-tenant.list` must be the ARN of one of them (`arn:aws:ses:<region>:<account>:identity/<name>`,
+`configuration-set/<name>`, or `template/<name>`) in the bound account and in an allowed region of the connection; a
+tenant ARN is refused there. `reputation_entity_reference` takes the same ARNs and also a tenant ARN
+(`arn:aws:ses:<region>:<account>:tenant/<name>/<id>`), the usual case. Another account, region, service, or partition is
+refused before any request.
+
+`reputation_entity_policy` of `update-policy` must be one of the three policies SES manages, in an allowed region:
+`arn:aws:ses:<region>:aws:reputation-policy/none`, `standard`, or `strict`. `none` never pauses sending automatically,
+`standard` pauses it on severe findings, `strict` on any finding. Any other ARN, an ARN of the bound account included, is
+refused before any request.
+
+**Costs.** AWS charges each tenant per month on top of the sending price, depending on the volume of mail; see the SES
+pricing page. The tool needs confirmation and retrieves no price.
+
+`aws.ses.reputation-entity.update-customer-managed-status` with `DISABLED` stops sending for the entity, `ENABLED` or
+`REINSTATED` allows it again; `update-policy` sets the policy that decides when SES pauses sending. Either can pause or
+release the sending of a tenant. Causes and names in the answers are untrusted data. How tenant pausing and the
+reputation policies behave has not been proven against a live account.
+
 ## Account status and the sandbox
 
 SES accounts are separate per region. `aws.ses.account.get` returns for one region:
@@ -168,6 +211,27 @@ characters. Both are checked for length before the call.
   are not repeated after an unclear outcome: read the pool first.
 - The lists page through `cursor` and `page_size` (up to 100).
 
+## Multi-region endpoints
+
+| Tool | AWS operation | Effect | Confirmation |
+| --- | --- | --- | --- |
+| `aws.ses.multi-region-endpoint.list` | `ListMultiRegionEndpoints` | read | no |
+| `aws.ses.multi-region-endpoint.get` | `GetMultiRegionEndpoint` | read | no |
+| `aws.ses.multi-region-endpoint.create` | `CreateMultiRegionEndpoint` | create, not repeated | yes |
+| `aws.ses.multi-region-endpoint.delete` | `DeleteMultiRegionEndpoint` | delete, not repeated | yes |
+
+A multi-region endpoint (global endpoint) splits the sending of the account between its primary region, the `region` of
+the call, and one secondary region, and moves traffic away from an impaired region. The tools read and manage it from
+the primary region; `list` pages with `page_size` and `cursor`. `create` takes `endpoint_name` (1 to 64 letters, digits,
+hyphens, and underscores), `details.routes_details` with exactly one entry `{"region": ...}` for the secondary region,
+and optional `tags`. Both regions, the one of the call and the one in `routes_details`, must be allowed by the
+connection, else the call is refused before any request. The tool does not copy identities, configuration sets, or
+sending limits to the secondary region; they must match in both regions. SES also needs the permission to create a
+service-linked role. Sending through an endpoint is not offered (see below). Global endpoints are expected to cost more
+than single-region sending for the same volume; see the [SES pricing page](https://aws.amazon.com/ses/pricing/), the
+price is not retrieved by the tools. The confirmation names the tool, not the arguments: show `endpoint_name` and the
+regions to the user before confirming.
+
 ## Checks before the call
 
 - **Identity form.** `email_identity` must be a domain name or an email address of a domain: letters, digits, dots, and
@@ -177,6 +241,8 @@ characters. Both are checked for length before the call.
   (`arn:aws:ses:<region>:<account>:configuration-set/<name>`) in the bound account and in an allowed region of the
   connection. The same three tools tag configuration sets; their IDs name the identity for historical reasons. Another
   account, another region, or another resource type is refused.
+- **Multi-region regions.** `aws.ses.multi-region-endpoint.create` accepts only regions the connection allows, for the
+  call and for `details.routes_details[].region`.
 - **Configuration set name.** `configuration_set_name` must be 1 to 64 letters, digits, underscores, or hyphens.
 - **Archive ARN.** `archive_arn` of `put-archiving-options`, and `archiving_options.archive_arn` of
   `configuration-set.create`, must be the ARN of a mail archive
@@ -283,8 +349,8 @@ sends mail to it. `delete` removes an address: it receives mail again after the 
 complained before.
 
 Email addresses are personal data. The suppression tools carry the data class `aws-ses-recipient-data`, and entries of
-the list, including their attributes, are untrusted data. The tenant of the SES API is not offered; the tools act on
-the list of the account.
+the list, including their attributes, are untrusted data. The suppression tools act on the list of the account; the list of a
+tenant is set with `aws.ses.tenant-suppression-attributes.put`.
 
 ## Email templates
 
@@ -320,7 +386,7 @@ and descriptions are untrusted data.
 - No key material of your own (BYODKIM): the selector and the private key are not arguments, and the origin `EXTERNAL`
   is not offered. Easy DKIM keys are generated by SES, with `RSA_1024_BIT` or `RSA_2048_BIT` for the next key.
 - Creating, changing, and deleting event destinations of a configuration set, as listed above.
-- Tenants, reputation entities, multi-region endpoints, starting and cancelling export jobs, and changing the account
+- Starting and cancelling export jobs, and changing the account
   pricing attributes are not tools of this group yet.
 - Setting the message security options of a configuration set (`UpdateConfigurationSet`) is not a tool yet.
 - `SendCustomVerificationEmail` is never a tool: it would send mail to any address given as an argument. The custom

@@ -196,6 +196,8 @@ your token holds. A repository or organization policy can forbid a run although 
 | Read the GitHub-hosted runners of an organization | `manage_runner:org` | Hosted runners: read (organization); as far as GitHub documents it |
 | Read Actions variables of an organization; create, change, or delete them | `admin:org`, plus `repo` where a private repository is involved | Variables: read, read and write to change (organization); selecting repositories also needs Metadata: read on them |
 | Read the names and times of Actions secrets of an organization and the repositories of one; delete one | `admin:org`, plus `repo` where a private repository is involved | Secrets: read, read and write to delete (organization); as far as GitHub documents it |
+| Read the names and times of Dependabot secrets of a repository; delete one | `repo` | Dependabot secrets: read; read and write to delete |
+| Read the names and times of Dependabot secrets of an organization and the repositories of one; delete one | `admin:org` | Dependabot secrets: read, read and write to delete (organization); as far as GitHub documents it |
 | Read environments, deployment branch policies, and deployment protection rules | `repo` for private repositories, none for public | Actions: read |
 | Create, change, or delete environments and deployment branch policies; disable deployment protection rules | `repo`, as a repository administrator for protection rules | Administration: read and write |
 | Read deployments and deployment statuses | `repo` for private repositories, none for public | Deployments: read |
@@ -275,6 +277,8 @@ so treat them as likely, not certain.
 | Dismiss or reopen a code scanning alert | `security_events` or `repo`; `public_repo` for a public repository | Code scanning alerts: read and write |
 | Dismiss or reopen a Dependabot alert | `security_events` or `repo`; `public_repo` for a public repository | Dependabot alerts: read and write |
 | Resolve or reopen a secret scanning alert | `repo` or `security_events` | Secret scanning alerts: read and write |
+| Compare the dependencies of two refs (`github.dependency-review.compare`) | `repo` for a private repository | Contents: read |
+| Submit a dependency snapshot (`github.dependency-snapshots.create`) | `repo` | Dependency graph: write, and Contents: read for the commit check |
 | Global security advisories | none | none |
 | Repository security advisories | `repo` or `repository_advisories:read`, for a private repository or an unpublished advisory | Repository security advisories: read |
 | Organization security advisories | `repo` or `repository_advisories:write`, and an organization owner or security manager | Repository security advisories: write (GitHub requires write although the tool only reads) |
