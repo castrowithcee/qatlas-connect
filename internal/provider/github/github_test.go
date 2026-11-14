@@ -885,6 +885,7 @@ func TestRegisterPublishesMetadataAndTheReadOperations(t *testing.T) {
 			(descriptor.Risk.DataSensitivity != dataSensitivity && descriptor.ID != jobsLog.ID &&
 				descriptor.ID != actionVariablesList.ID && descriptor.ID != actionVariablesGet.ID &&
 				!slices.Contains(billingToolIDs, descriptor.ID) &&
+				!slices.Contains(secretReadIDs, descriptor.ID) &&
 				!slices.Contains(webhooksReads, descriptor.ID) &&
 				!descriptor.RequiresToolAllowList) {
 			t.Errorf("descriptor %s = %+v, want a safe read", descriptor.ID, descriptor.Risk)
@@ -894,7 +895,7 @@ func TestRegisterPublishesMetadataAndTheReadOperations(t *testing.T) {
 			owners := descriptor.ID == projectsList.ID || descriptor.ID == repositoriesList.ID ||
 				descriptor.ID == organizationTeamsList.ID || descriptor.ID == teamMembersList.ID ||
 				descriptor.ID == issueTypesList.ID || descriptor.ID == organizationAdvisoriesList.ID ||
-				slices.Contains(teamToolIDs, descriptor.ID) || slices.Contains(organizationReadToolIDs, descriptor.ID) ||
+				slices.Contains(teamToolIDs, descriptor.ID) || slices.Contains(organizationToolIDs, descriptor.ID) ||
 				slices.Contains(billingToolIDs, descriptor.ID)
 			// The searches over the issue index sort by the comment count, which reads no comment.
 			sortsByComments := (descriptor.ID == issuesSearch.ID || descriptor.ID == pullRequestsSearch.ID) &&
@@ -905,14 +906,14 @@ func TestRegisterPublishesMetadataAndTheReadOperations(t *testing.T) {
 			}
 		}
 	}
-	equalSortedIDs(t, ids, []string{"github.accounts.me", "github.action-cache-usage.get", "github.action-caches.list", "github.action-variables.get", "github.action-variables.list", "github.actions-access.get", "github.actions-fork-approval.get", "github.actions-oidc.get", "github.actions-permissions.get", "github.actions-retention.get", "github.actions-selected.get", "github.blame.get", "github.hosted-runners.list", "github.runner-groups.get", "github.runner-groups.list",
+	equalSortedIDs(t, ids, []string{"github.accounts.me", "github.action-cache-usage.get", "github.action-caches.list", "github.action-secrets.get", "github.action-secrets.list", "github.action-secret-repositories.list", "github.dependabot-secrets.get", "github.dependabot-secrets.list", "github.dependabot-secret-repositories.list", "github.action-variables.get", "github.action-variables.list", "github.actions-access.get", "github.actions-fork-approval.get", "github.actions-oidc.get", "github.actions-permissions.get", "github.actions-retention.get", "github.actions-selected.get", "github.blame.get", "github.hosted-runners.list", "github.runner-groups.get", "github.runner-groups.list",
 		"github.branch-protection.get", "github.branch-rules.get", "github.branches.get", "github.branches.list", "github.check-annotations.list", "github.check-runs.get", "github.check-runs.list",
 		"github.check-suite-runs.list", "github.check-suites.list", "github.code.search", "github.code-quality-findings.get", "github.code-scanning-alerts.get", "github.code-scanning-alerts.list", "github.code-scanning-setup.get", "github.security-settings.get",
 		"github.collaborators.list", "github.commit-branches.list", "github.commit-comments.get", "github.commit-comments.list", "github.commit-pulls.list", "github.compare.get", "github.community-profile.get", "github.contributors.list", "github.stats-contributors.get", "github.stats-commit-activity.get", "github.stats-code-frequency.get", "github.stats-participation.get", "github.stats-punch-card.get", "github.activity.list", "github.languages.get", "github.repositories.get",
 
 		"github.comments.list", "github.commits.get", "github.commits.list", "github.commits.search",
 		"github.contents.get", "github.custom-properties.get", "github.dependabot-alerts.get",
-		"github.dependabot-alerts.list", "github.deploy-keys.get", "github.deploy-keys.list", "github.deployment-branch-policies.list",
+		"github.dependabot-alerts.list", "github.dependency-review.compare", "github.deploy-keys.get", "github.deploy-keys.list", "github.deployment-branch-policies.list",
 		"github.deployment-protection-rules.get", "github.deployment-protection-rules.list",
 		"github.deployment-statuses.get", "github.deployment-statuses.list", "github.deployments.get",
 		"github.deployments.list", "github.discussion-categories.list",
@@ -949,7 +950,7 @@ func TestRegisterPublishesMetadataAndTheReadOperations(t *testing.T) {
 	if jobsLog.Risk.DataSensitivity != logSensitivity {
 		t.Errorf("the job log is classified as %q, want %q", jobsLog.Risk.DataSensitivity, logSensitivity)
 	}
-	if len(metadata.Tools) != 374 {
+	if len(metadata.Tools) != 390 {
 		t.Errorf("tools = %+v, want every operation offered to connection allow-lists", metadata.Tools)
 	}
 }

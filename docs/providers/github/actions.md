@@ -1,17 +1,17 @@
 ---
 description: >
-  Describes the GitHub Actions tools: the observer and operator tools, diagnosing a run, log and artifact limits, billable time, the listed-only deletion of run logs, executions, the Actions variables of a repository, an environment, or an organization, and the listed-only workflow maintainer and Actions administrator tools with their paths and settings, including the finer Actions settings of a repository or an organization: selected actions, fork pull request approval, artifact and log retention, access of outside workflows, and the OIDC subject claim, and the self-hosted runners of a repository or an organization with their labels and the listed-only removal of a runner, and the listed-only runner group and hosted runner tools of an organization.
+  Describes the GitHub Actions tools: the observer and operator tools, diagnosing a run, log and artifact limits, billable time, the listed-only deletion of run logs, executions, the Actions variables and the Actions secrets (names and metadata, never values) of a repository, an environment, or an organization, the Dependabot secrets of a repository or an organization, and the listed-only workflow maintainer and Actions administrator tools with their paths and settings, including the finer Actions settings of a repository or an organization: selected actions, fork pull request approval, artifact and log retention, access of outside workflows, and the OIDC subject claim, and the self-hosted runners of a repository or an organization with their labels and the listed-only removal of a runner, and the listed-only runner group and hosted runner tools of an organization.
 type: knowledge
 edit: shared
 created: 2026-10-22
-updated: 2026-11-11
+updated: 2026-11-14
 ---
 
 # GitHub Actions
 
 The Actions tools of the [GitHub provider](README.md). Every tool takes `repository` as described under
 [the target of a call](README.md#the-target-of-a-call), except the [Actions variable](#actions-variables) tools,
-which take exactly one of `repository` or `organization`, and the [finer Actions settings](#finer-actions-settings), which do the same except the access tools, which take `repository` only, as do the [self-hosted runner](#self-hosted-runners) tools, and the [runner group and hosted runner tools](#runner-groups-and-hosted-runners), which take `organization` only.
+which take exactly one of `repository` or `organization`, as do the [Actions secret](#actions-secrets) tools except the list of the repositories of a secret, which takes `organization` only, and the [finer Actions settings](#finer-actions-settings), which do the same except the access tools, which take `repository` only, as do the [self-hosted runner](#self-hosted-runners) tools, and the [runner group and hosted runner tools](#runner-groups-and-hosted-runners), which take `organization` only.
 
 A connection can observe the GitHub Actions of a repository it allows and, separately, operate them. The two
 groups are distinct tools with distinct effects: the observer tools are reads, and the operator tools are
@@ -39,8 +39,9 @@ No observer or operator tool changes a workflow file or a setting; that is the l
 [workflow maintenance and Actions administration](#workflow-maintenance-and-actions-administration).
 Environments with their deployment branch policies and protection rules, and deployments, have [their own
 page](environments.md), as do [Actions caches and the cleanup of runs and artifacts](actions-maintenance.md);
-Actions variables have tools under [Actions variables](#actions-variables). No tool approves or creates a
-deployment, administers secrets or an organization, or registers runners; the [self-hosted
+Actions variables, Actions secrets, and Dependabot secrets have tools under [Actions variables](#actions-variables),
+[Actions secrets](#actions-secrets), and [Dependabot secrets](#dependabot-secrets). No tool approves or creates a deployment, sets a secret, administers an
+organization, or registers runners; the [self-hosted
 runners](#self-hosted-runners) and the [runner groups and hosted runners](#runner-groups-and-hosted-runners)
 have their own listed-only tools.
 
@@ -170,8 +171,8 @@ Every call takes exactly one of `repository` or `organization`, like the
 target of the connection. `environment` together with `repository` addresses the variables of one environment of
 that repository and never comes with `organization`. Both, neither, or an environment without a repository is an
 invalid request before a credential is resolved. The environment name travels as one path segment, so a slash
-stays part of the name; `.`, `..`, and control characters are refused. No tool covers secrets, Dependabot or
-Codespaces variables, or the environments themselves.
+stays part of the name; `.`, `..`, and control characters are refused. No tool covers Dependabot or Codespaces
+variables, or the environments themselves; secrets have [their own tools](#actions-secrets).
 
 GitHub stores a value as plain text that the workflows of the repository can read, and a value may still carry
 data its owner did not mean to publish. Qatlas treats it as sensitive, untrusted data: an answer cuts it at 1000
@@ -193,6 +194,56 @@ only. Each needs confirmation, is sent exactly once, and an unclear outcome says
 applied. GitHub answers a create and an update without the variable, so the answer names what was sent: the name
 and, for an organization, the visibility and the selected repositories. The token rights are listed under
 [GitHub Actions](setup.md#github-actions).
+
+## Actions secrets
+
+| Tool | Does |
+| --- | --- |
+| `github.action-secrets.list` | lists the names and times of the secrets of a repository, an environment, or an organization |
+| `github.action-secrets.get` | reads the name and times of one secret by name |
+| `github.action-secret-repositories.list` | lists the repositories that may use an organization secret whose visibility is `selected` |
+| `github.action-secrets.delete` | deletes one secret permanently; listed-only |
+
+The tools read and delete; they never read, send, or return a value. GitHub does not answer one, and no output has
+a member for one, so a value that appears in a provider answer is dropped. No tool sets a secret or reads the public
+key, changes the selected repositories of an organization secret, or covers Codespaces secrets or the enterprise
+level; [Dependabot secrets](#dependabot-secrets) have their own tools.
+
+`github.action-secrets.list`, `.get`, and `.delete` take exactly one of `repository` or `organization`, like the
+[Actions variables](#actions-variables), and `environment` together with `repository` for the secrets of one
+environment of that repository; it never comes with `organization`. An organization must be an owner target of the
+connection, given as `orgs/LOGIN`. Both, neither, an environment without a repository, a target outside the
+connection's targets, and a target it excludes are invalid requests before a credential is resolved. The
+environment and the secret name each travel as one escaped path segment. A name holds letters, digits, and `_`,
+does not start with a digit or `GITHUB_`, and is compared by GitHub without case; names are untrusted data. An
+answer holds `name`, `created_at`, `updated_at`, and, for an organization secret, `visibility` and
+`selected_repositories_url`, which is never fetched, and names the repository, environment, or organization it
+addressed.
+
+`github.action-secret-repositories.list` takes `organization` and the secret `name`. GitHub lists repositories only
+for a secret whose visibility is `selected`. A repository outside the connection's targets, or one it excludes, is
+not listed; `withheld` counts those in the batch, and `total_count` is the number GitHub reports for the secret.
+Each listed repository carries the members of a repository answer; `fields` narrows an entry.
+
+A connection that selects by `effects` offers the three reads; the delete is listed only and needs its name in a
+connection's `tools` list. It needs confirmation, is sent exactly once without a retry, and an unclear outcome says
+that the secret may have been deleted. The token rights are listed under [GitHub Actions](setup.md#github-actions).
+
+## Dependabot secrets
+
+| Tool | Does |
+| --- | --- |
+| `github.dependabot-secrets.list` | lists the names and times of the Dependabot secrets of a repository or an organization |
+| `github.dependabot-secrets.get` | reads the name and times of one secret by name |
+| `github.dependabot-secret-repositories.list` | lists the repositories that may use an organization secret whose visibility is `selected` |
+| `github.dependabot-secrets.delete` | deletes one secret permanently; listed-only |
+
+These tools behave as the [Actions secret](#actions-secrets) tools: they never read, send, or return a value, take
+exactly one of `repository` or `organization` (the repositories list takes `organization` only), check the
+target and the connection's exclusions before a credential is resolved, withhold and count repositories outside the
+targets, and delete listed-only, with confirmation, in exactly one request without a retry. Dependabot has no
+environment: the tools have no `environment` argument, and one that is sent is an invalid request. The token rights
+are listed under [GitHub Actions](setup.md#github-actions).
 
 ## Workflow maintenance and Actions administration
 

@@ -280,17 +280,17 @@ var (
 	Effects      = []string{"read", "create", "update", "delete", "execute"}
 	Idempotency  = []string{"safe", "idempotent", "non-idempotent"}
 	TargetChecks = []string{"none", "account-argument", "arn-account", "arn-account-or-managed-policy", "arn-region", "bucket-owner",
-		"ses-identity", "ses-identity-arn", "ses-configuration-set"}
+		"ses-identity", "ses-identity-arn", "ses-configuration-set", "ses-resource-arn", "ses-reputation-entity-arn"}
 	PolicyChecks = []string{"none", "trust-policy", "resource-policy-own-account", "bucket-policy", "identity-policy"}
 	// Guards are the pure argument steps and Readbacks the steps with a read of their own; see Operation.
-	Guards     = []string{"location-constraint", "new-bucket-name", "kms-key-arn", "ownership-enforce", "object-lock-governance-only", "route53-vpc", "route53-vpc-lookup", "route53-vpc-member", "route53-change", "route53-name", "route53-health", "route53-ksk", "route53-instance", "route53-cidr", "route53-log-group", "route53-policy", "ses-configuration-set-values", "copy-source", "object-kms-key", "upload-kms-key", "ses-send", "acm-certificate-arn", "s3-report-destination", "multipart-copy-range", "multipart-checksum"}
+	Guards     = []string{"location-constraint", "new-bucket-name", "kms-key-arn", "ownership-enforce", "object-lock-governance-only", "route53-vpc", "route53-vpc-lookup", "route53-vpc-member", "route53-change", "route53-name", "route53-health", "route53-ksk", "route53-instance", "route53-cidr", "route53-log-group", "route53-policy", "ses-configuration-set-values", "copy-source", "object-kms-key", "upload-kms-key", "ses-send", "acm-certificate-arn", "s3-report-destination", "multipart-copy-range", "multipart-checksum", "ses-multi-region", "region-name", "ses-reputation-policy-arn"}
 	Readbacks  = []string{"pab-tighten", "s3-report-destination"}
 	Deliveries = []string{"ses-mail"}
 	// FailureHints are the hand-written failure steps a table may name.
 	FailureHints = []string{"bucket-policy-lockout", "multipart-too-small"}
 	Forms        = []string{"account-id"}
 	// ResultHooks are the hand-written result steps a table may name; see resultHookFields.
-	ResultHooks = []string{"dns-records", "bucket-policy-status"}
+	ResultHooks = []string{"dns-records", "bucket-policy-status", "region-allowlist"}
 )
 
 var (

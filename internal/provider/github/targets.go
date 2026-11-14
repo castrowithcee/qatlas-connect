@@ -54,7 +54,7 @@ func withTargetArgument(d capability.Descriptor) capability.Descriptor {
 	// or, for the star list and the search tools, narrow by the connection's targets as a whole, not by a
 	// target argument of their own. github.repositories.create names no existing repository either, since it
 	// makes one; its own optional owner argument is defined on its descriptor directly. The ruleset tools, the
-	// custom properties tools, the Actions variable tools, the finer Actions settings tools except the access ones, the runner tools, the webhook tools, and github.issue-fields.list take an exclusive
+	// custom properties tools, the Actions variable, secret, and Dependabot secret tools, the finer Actions settings tools except the access ones, the runner tools, the webhook tools, and github.issue-fields.list take an exclusive
 	// repository or organization argument of their own, since exactly one of the two, never a default,
 	// addresses a call. The notification
 	// tools take an optional repository of their own, or a thread id whose repository is read and checked. The
@@ -70,7 +70,9 @@ func withTargetArgument(d capability.Descriptor) capability.Descriptor {
 		rulesetsList.ID, rulesetsGet.ID, rulesetsCreate.ID, rulesetsUpdate.ID, rulesetsDelete.ID,
 		customPropertiesGet.ID, customPropertiesSet.ID, issueFieldsList.ID,
 		actionVariablesList.ID, actionVariablesGet.ID, actionVariablesCreate.ID, actionVariablesUpdate.ID,
-		actionVariablesDelete.ID, actionsSelectedGet.ID, actionsSelectedSet.ID, actionsForkApprovalGet.ID,
+		actionVariablesDelete.ID, actionSecretsList.ID, actionSecretsGet.ID, actionSecretRepositoriesList.ID,
+		actionSecretsDelete.ID, dependabotSecretsList.ID, dependabotSecretsGet.ID,
+		dependabotSecretRepositoriesList.ID, dependabotSecretsDelete.ID, actionsSelectedGet.ID, actionsSelectedSet.ID, actionsForkApprovalGet.ID,
 		actionsForkApprovalSet.ID, actionsRetentionGet.ID, actionsRetentionSet.ID, actionsOIDCGet.ID,
 		actionsOIDCSet.ID, runnersList.ID, runnersGet.ID, runnersDelete.ID, runnerLabelsList.ID, runnerLabelsAdd.ID,
 		runnerLabelsSet.ID, runnerLabelsRemove.ID, runnerGroupsList.ID, runnerGroupsGet.ID,
@@ -90,7 +92,7 @@ func withTargetArgument(d capability.Descriptor) capability.Descriptor {
 		name, schema, argument = "owner", ownerSchema, ownerArgument
 		fields = []capability.Field{ownerField}
 	case d.ID == organizationTeamsList.ID || d.ID == teamMembersList.ID || d.ID == organizationAdvisoriesList.ID ||
-		slices.Contains(teamToolIDs, d.ID) || slices.Contains(organizationReadToolIDs, d.ID):
+		slices.Contains(teamToolIDs, d.ID) || slices.Contains(organizationToolIDs, d.ID):
 		name, schema, argument = "owner", ownerSchema, organizationArgument
 		fields = []capability.Field{organizationField}
 	case slices.Contains(billingToolIDs, d.ID):

@@ -4,7 +4,7 @@ description: >
 type: knowledge
 edit: shared
 created: 2026-11-06
-updated: 2026-11-12
+updated: 2026-11-14
 ---
 
 # Set up AWS
@@ -73,6 +73,18 @@ also needs `iam:TagRole` or `iam:TagInstanceProfile`, and adding a role to an in
 `iam:PassRole` for that role. The own-role check calls `sts:GetCallerIdentity`, which needs no permission. Grant
 only the actions of the tools the connection lists.
 
+### Account
+
+The [region tools](account.md) need `account:ListRegions`, `account:GetRegionOptStatus`, `account:EnableRegion`, and
+`account:DisableRegion`, each for its own tool. `account:EnableRegion` and `account:DisableRegion` change the account;
+grant them only when the connection should opt regions in or out. The [contact tools](account.md#contacts-and-account-information)
+need `account:GetAccountInformation` and `account:PutAccountName` (`information.get`, `name.put`),
+`account:GetContactInformation` and `account:PutContactInformation` (`contact-information`),
+`account:GetAlternateContact`, `account:PutAlternateContact`, and `account:DeleteAlternateContact` (`alternate-contact`),
+and `account:GetPrimaryEmail` (`primary-email.get`). The `Put` and `Delete` actions change who receives billing,
+operations, and security notices of AWS; grant them only when the connection should manage contacts. The tools act on
+the bound account only.
+
 ### SES
 
 Each [SES tool](ses.md) needs the permission `ses:<Operation>` of its AWS operation: `ses:ListEmailIdentities`,
@@ -96,14 +108,24 @@ Each [SES tool](ses.md) needs the permission `ses:<Operation>` of its AWS operat
 or a contact list with tags also needs `ses:TagResource`. No permission for creating, changing, or deleting event destinations is needed: those
 actions are not tools. The account tools need `ses:GetAccount`, `ses:PutAccountDetails`,
 `ses:PutAccountSendingAttributes`, `ses:PutAccountSuppressionAttributes`, `ses:PutAccountDedicatedIpWarmupAttributes`,
-and `ses:PutAccountVdmAttributes`. The [deliverability tools](ses-deliverability.md) need `ses:BatchGetMetricData`,
+and `ses:PutAccountVdmAttributes`. The dedicated IP tools need `ses:GetDedicatedIps`, `ses:GetDedicatedIp`,
+`ses:ListDedicatedIpPools`, `ses:GetDedicatedIpPool`, `ses:CreateDedicatedIpPool`, `ses:DeleteDedicatedIpPool`,
+`ses:PutDedicatedIpInPool`, `ses:PutDedicatedIpWarmupAttributes`, and `ses:PutDedicatedIpPoolScalingAttributes`, each for
+its own tool; dedicated IP addresses are charged by AWS and the tools retrieve no price. The [deliverability tools](ses-deliverability.md) need `ses:BatchGetMetricData`,
 `ses:GetMessageInsights`, `ses:GetEmailAddressInsights`, `ses:GetBlacklistReports`, `ses:GetDomainStatisticsReport`,
 `ses:GetDomainDeliverabilityCampaign`, `ses:ListDomainDeliverabilityCampaigns`, `ses:ListRecommendations`,
 `ses:GetDeliverabilityDashboardOptions`, `ses:PutDeliverabilityDashboardOption`, `ses:GetDeliverabilityTestReport`,
 `ses:ListDeliverabilityTestReports`, and `ses:CreateDeliverabilityTestReport`; the job tools `ses:GetImportJob`,
 `ses:ListImportJobs`, `ses:GetExportJob`, and `ses:ListExportJobs`; and the certificate tools
 `ses:ListEmailIdentityCertificates`, `ses:AssociateEmailIdentityCertificate`, and
-`ses:DisassociateEmailIdentityCertificate`, each for its own tool. The dashboard subscription, the inbox placement
+`ses:DisassociateEmailIdentityCertificate`; the tenant tools `ses:GetTenant`, `ses:ListTenants`,
+`ses:ListTenantResources`, `ses:ListResourceTenants`, `ses:CreateTenant`, `ses:DeleteTenant`,
+`ses:CreateTenantResourceAssociation`, `ses:DeleteTenantResourceAssociation`, and `ses:PutTenantSuppressionAttributes`; and
+the reputation tools `ses:GetReputationEntity`, `ses:ListReputationEntities`,
+`ses:UpdateReputationEntityCustomerManagedStatus`, and `ses:UpdateReputationEntityPolicy`, each for its own tool. The multi-region endpoint tools need
+`ses:ListMultiRegionEndpoints`, `ses:GetMultiRegionEndpoint`, `ses:CreateMultiRegionEndpoint`, and
+`ses:DeleteMultiRegionEndpoint`; creating an endpoint also needs `iam:CreateServiceLinkedRole` for `ses.amazonaws.com`
+and `ses:TagResource` with tags, and AWS charges for global endpoints. The dashboard subscription, the inbox placement
 tests, and Virtual Deliverability Manager are charged by AWS; the tools need confirmation where they start a charge and
 retrieve no price. The identity policy write tools are offered only when the tools list
 of the connection names them, the send tools by the effect `execute`. Grant only the actions of the tools the connection offers. An account without production

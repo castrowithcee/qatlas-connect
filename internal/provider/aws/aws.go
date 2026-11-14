@@ -53,6 +53,10 @@ var toolGroups = []config.ToolGroup{{
 	Description: "Users, groups, roles, instance profiles, and the metadata of their credentials: access keys, MFA " +
 		"devices, SSH public keys, signing certificates, and service-specific credentials; never a secret",
 }, {
+	ID: "account", Title: "Account",
+	Description: "Regions of the bound account with their opt-in status, and enabling and disabling opt-in regions; the " +
+		"region list of the connection is never changed",
+}, {
 	ID: "ses", Title: "Simple Email Service",
 	Description: "Sender identities of SES v2: domains and email addresses, their DKIM, MAIL FROM, and feedback " +
 		"settings, tags, and the DNS records to create; never a DKIM private key",

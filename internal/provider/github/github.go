@@ -48,7 +48,7 @@
 // account's starred repositories, name no repository, project, or owner and are offered only by a connection
 // whose targets name neither a repository nor a project. The star tools also star and unstar one repository
 // a connection allows. The organization tools read the teams of an organization and the members of
-// one of its teams, an organization the connection's targets must allow as an owner; the team tools also read a team, a membership, and the repositories of a team and, listed only, create, change, and delete teams, add or remove members that already belong to the organization, and set or withdraw a team's repository permission. The repository tools
+// one of its teams, an organization the connection's targets must allow as an owner; the team tools also read a team, a membership, and the repositories of a team and, listed only, create, change, and delete teams, add or remove members that already belong to the organization, and set or withdraw a team's repository permission. The organization read tools read an organization, its members, one membership, its organization roles, outside collaborators, and pending invitations; listed only, the organization management tools change its settings, set the role of an existing member, remove a member or an outside collaborator, assign an organization role to a member, and cancel an invitation, and never invite anyone. The repository tools
 // read the contents of a file or a directory, the Git tree of a ref, through GraphQL the blame of a file
 // over a bounded line range, the commits of a repository or one commit with its stats and changed files, and
 // the branches and the tags of a repository or one tag resolved through the Git refs and Git tags APIs; none
@@ -885,9 +885,10 @@ func Register(reg *capability.Registry) error {
 			Description: "not recommended: lists and reads the code scanning, Dependabot, and secret scanning " +
 				"alerts of a repository, the global and repository security advisories, and code quality " +
 				"findings, the instances, analyses, and locations behind the alerts, and the security switches and the " +
-				"code scanning default setup of a repository; the found secret of a secret scanning alert is never " +
-				"shown; changes nothing, since the alert updates and the changes of the switches and the default setup " +
-				"are offered only where a connection's tools list names them",
+				"code scanning default setup of a repository and the dependency changes between two refs; the found " +
+				"secret of a secret scanning alert is never " +
+				"shown; changes nothing, since the alert updates, the changes of the switches and the default setup, " +
+				"and the dependency snapshots are offered only where a connection's tools list names them",
 			Tools: securityAlertTools,
 		}, {
 			ID: "copilot", Title: "Copilot",
@@ -922,12 +923,12 @@ func Register(reg *capability.Registry) error {
 		maintenanceOperations(), actionsSettingsOperations(), runnersOperations(), runnerGroupOperations(), webhooksOperations(), deployKeysOperations(), repositoryInvitationsOperations(), pullRequestOperations(), checkOperations(), releaseOperations(), releaseAssetOperations(), pullRequestCommentOperations(),
 		pullRequestReviewOperations(), pullRequestReviewMaintenanceOperations(), pullRequestReviewCommentOperations(),
 		pullRequestReviewCommentMaintenanceOperations(), pullRequestReviewThreadOperations(),
-		pullRequestReviewerOperations(), accountOperations(), organizationOperations(), organizationReadOperations(), teamManagementOperations(), starOperations(),
+		pullRequestReviewerOperations(), accountOperations(), organizationOperations(), organizationReadOperations(), organizationManagementOperations(), teamManagementOperations(), starOperations(),
 		searchOperations(), contentsOperations(), blameOperations(), commitsOperations(), refsOperations(), compareOperations(), commitRelationOperations(),
-		contentsWriteOperations(), refsWriteOperations(), repositoriesOperations(), collaboratorsManageOperations(), repositoryDetailOperations(), trafficOperations(), repositoryStatsOperations(), rulesetsOperations(), branchProtectionOperations(), customPropertiesOperations(), actionVariablesOperations(), actionCachesOperations(), runCleanupOperations(),
+		contentsWriteOperations(), refsWriteOperations(), repositoriesOperations(), collaboratorsManageOperations(), repositoryDetailOperations(), trafficOperations(), repositoryStatsOperations(), rulesetsOperations(), branchProtectionOperations(), customPropertiesOperations(), actionVariablesOperations(), actionSecretsOperations(), dependabotSecretsOperations(), actionCachesOperations(), runCleanupOperations(),
 		labelsOperations(), autolinksOperations(), milestonesOperations(), commentMaintenanceOperations(), commentVisibilityOperations(), issueLockOperations(), reactionsOperations(),
 		subIssuesOperations(), issueDependenciesOperations(), issueHistoryOperations(), issueTypesOperations(), issueFieldsOperations(),
-		discussionOperations(), notificationOperations(), gistOperations(), securityAlertOperations(), securityAlertUpdateOperations(), securityAlertDetailOperations(), advisoryOperations(), securitySettingsOperations(),
+		discussionOperations(), notificationOperations(), gistOperations(), securityAlertOperations(), securityAlertUpdateOperations(), securityAlertDetailOperations(), advisoryOperations(), securitySettingsOperations(), dependencyGraphOperations(),
 		copilotOperations(), environmentsOperations(), deploymentsOperations(), referenceOperations(), billingOperations())...)
 	for i := range operations {
 		operations[i].Descriptor = withGroup(withTargetArgument(operations[i].Descriptor))
@@ -1807,6 +1808,12 @@ func (c *Client) restSubject(request *http.Request) subject {
 		if what := variableSubject(parts[2]); what != "" {
 			s.what = what
 		}
+		if what := actionSecretFamily.subject(parts[2]); what != "" {
+			s.what = what
+		}
+		if what := dependabotSecretFamily.subject(parts[2]); what != "" {
+			s.what = what
+		}
 	}
 	return s
 }
@@ -1863,6 +1870,14 @@ func organizationSubject(tail string) subject {
 			return subject{what: what + " of orgs/" + owner}
 		}
 		if what := variableSubject(rest); what != "" {
+			return subject{what: what + " of orgs/" + owner}
+		}
+		if what := actionSecretFamily.subject(rest); what != "" {
+			return subject{what: what + " of orgs/" + owner}
+		}
+	}
+	if len(parts) >= 3 && parts[1] == "dependabot" {
+		if what := dependabotSecretFamily.subject(strings.Join(parts[1:], "/")); what != "" {
 			return subject{what: what + " of orgs/" + owner}
 		}
 	}
