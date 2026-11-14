@@ -80,8 +80,8 @@ func TestProtocolIsReadFromTheService(t *testing.T) {
 	}
 	// A restJson1 model is not rendered as awsQuery tools.
 	table := accountTable
-	table.Operations = []Operation{{Operation: "GetPrimaryEmail", Object: "primary-email", Action: "get", Effect: "read",
-		Idempotency: "safe", Title: "t", Description: "d", DataSensitivity: "s", TargetCheck: "none", PolicyCheck: "none"}}
+	table.Operations = append(slices.Clone(accountRegionTools), Operation{Operation: "GetPrimaryEmail", Object: "primary-email", Action: "get", Effect: "read",
+		Idempotency: "safe", Title: "t", Description: "d", DataSensitivity: "s", TargetCheck: "none", PolicyCheck: "none"})
 	table.Defer = slices.DeleteFunc(slices.Clone(table.Defer), func(o Omission) bool { return o.Operation == "GetPrimaryEmail" })
 	if _, err := Render(ModelDir, []Table{table}); err == nil || !strings.Contains(err.Error(), "GetPrimaryEmail") {
 		t.Errorf("a restJson1 tool was rendered: %v", err)

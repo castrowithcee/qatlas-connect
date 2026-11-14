@@ -893,7 +893,7 @@ func TestRegisterPublishesMetadataAndTheReadOperations(t *testing.T) {
 			owners := descriptor.ID == projectsList.ID || descriptor.ID == repositoriesList.ID ||
 				descriptor.ID == organizationTeamsList.ID || descriptor.ID == teamMembersList.ID ||
 				descriptor.ID == issueTypesList.ID || descriptor.ID == organizationAdvisoriesList.ID ||
-				slices.Contains(teamToolIDs, descriptor.ID) || slices.Contains(organizationReadToolIDs, descriptor.ID)
+				slices.Contains(teamToolIDs, descriptor.ID) || slices.Contains(organizationToolIDs, descriptor.ID)
 			// The searches over the issue index sort by the comment count, which reads no comment.
 			sortsByComments := (descriptor.ID == issuesSearch.ID || descriptor.ID == pullRequestsSearch.ID) &&
 				forbidden == "comments"
@@ -945,7 +945,7 @@ func TestRegisterPublishesMetadataAndTheReadOperations(t *testing.T) {
 	if jobsLog.Risk.DataSensitivity != logSensitivity {
 		t.Errorf("the job log is classified as %q, want %q", jobsLog.Risk.DataSensitivity, logSensitivity)
 	}
-	if len(metadata.Tools) != 370 {
+	if len(metadata.Tools) != 376 {
 		t.Errorf("tools = %+v, want every operation offered to connection allow-lists", metadata.Tools)
 	}
 }
