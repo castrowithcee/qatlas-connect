@@ -1,6 +1,6 @@
 ---
 description: >
-  Describes the GitHub Actions tools: the observer and operator tools, diagnosing a run, log and artifact limits, billable time, the listed-only deletion of run logs, executions, the Actions variables and the Actions secrets (names and metadata, never values) of a repository, an environment, or an organization, and the listed-only workflow maintainer and Actions administrator tools with their paths and settings, including the finer Actions settings of a repository or an organization: selected actions, fork pull request approval, artifact and log retention, access of outside workflows, and the OIDC subject claim, and the self-hosted runners of a repository or an organization with their labels and the listed-only removal of a runner, and the listed-only runner group and hosted runner tools of an organization.
+  Describes the GitHub Actions tools: the observer and operator tools, diagnosing a run, log and artifact limits, billable time, the listed-only deletion of run logs, executions, the Actions variables and the Actions secrets (names and metadata, never values) of a repository, an environment, or an organization, the Dependabot secrets of a repository or an organization, and the listed-only workflow maintainer and Actions administrator tools with their paths and settings, including the finer Actions settings of a repository or an organization: selected actions, fork pull request approval, artifact and log retention, access of outside workflows, and the OIDC subject claim, and the self-hosted runners of a repository or an organization with their labels and the listed-only removal of a runner, and the listed-only runner group and hosted runner tools of an organization.
 type: knowledge
 edit: shared
 created: 2026-10-22
@@ -39,8 +39,8 @@ No observer or operator tool changes a workflow file or a setting; that is the l
 [workflow maintenance and Actions administration](#workflow-maintenance-and-actions-administration).
 Environments with their deployment branch policies and protection rules, and deployments, have [their own
 page](environments.md), as do [Actions caches and the cleanup of runs and artifacts](actions-maintenance.md);
-Actions variables and Actions secrets have tools under [Actions variables](#actions-variables) and [Actions
-secrets](#actions-secrets). No tool approves or creates a deployment, sets a secret, administers an
+Actions variables, Actions secrets, and Dependabot secrets have tools under [Actions variables](#actions-variables),
+[Actions secrets](#actions-secrets), and [Dependabot secrets](#dependabot-secrets). No tool approves or creates a deployment, sets a secret, administers an
 organization, or registers runners; the [self-hosted
 runners](#self-hosted-runners) and the [runner groups and hosted runners](#runner-groups-and-hosted-runners)
 have their own listed-only tools.
@@ -206,8 +206,8 @@ and, for an organization, the visibility and the selected repositories. The toke
 
 The tools read and delete; they never read, send, or return a value. GitHub does not answer one, and no output has
 a member for one, so a value that appears in a provider answer is dropped. No tool sets a secret or reads the public
-key, changes the selected repositories of an organization secret, or covers Dependabot or Codespaces secrets or
-the enterprise level.
+key, changes the selected repositories of an organization secret, or covers Codespaces secrets or the enterprise
+level; [Dependabot secrets](#dependabot-secrets) have their own tools.
 
 `github.action-secrets.list`, `.get`, and `.delete` take exactly one of `repository` or `organization`, like the
 [Actions variables](#actions-variables), and `environment` together with `repository` for the secrets of one
@@ -228,6 +228,22 @@ Each listed repository carries the members of a repository answer; `fields` narr
 A connection that selects by `effects` offers the three reads; the delete is listed only and needs its name in a
 connection's `tools` list. It needs confirmation, is sent exactly once without a retry, and an unclear outcome says
 that the secret may have been deleted. The token rights are listed under [GitHub Actions](setup.md#github-actions).
+
+## Dependabot secrets
+
+| Tool | Does |
+| --- | --- |
+| `github.dependabot-secrets.list` | lists the names and times of the Dependabot secrets of a repository or an organization |
+| `github.dependabot-secrets.get` | reads the name and times of one secret by name |
+| `github.dependabot-secret-repositories.list` | lists the repositories that may use an organization secret whose visibility is `selected` |
+| `github.dependabot-secrets.delete` | deletes one secret permanently; listed-only |
+
+These tools behave as the [Actions secret](#actions-secrets) tools: they never read, send, or return a value, take
+exactly one of `repository` or `organization` (the repositories list takes `organization` only), check the
+target and the connection's exclusions before a credential is resolved, withhold and count repositories outside the
+targets, and delete listed-only, with confirmation, in exactly one request without a retry. Dependabot has no
+environment: the tools have no `environment` argument, and one that is sent is an invalid request. The token rights
+are listed under [GitHub Actions](setup.md#github-actions).
 
 ## Workflow maintenance and Actions administration
 
