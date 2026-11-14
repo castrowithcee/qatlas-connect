@@ -277,6 +277,8 @@ so treat them as likely, not certain.
 | Dismiss or reopen a code scanning alert | `security_events` or `repo`; `public_repo` for a public repository | Code scanning alerts: read and write |
 | Dismiss or reopen a Dependabot alert | `security_events` or `repo`; `public_repo` for a public repository | Dependabot alerts: read and write |
 | Resolve or reopen a secret scanning alert | `repo` or `security_events` | Secret scanning alerts: read and write |
+| Compare the dependencies of two refs (`github.dependency-review.compare`) | `repo` for a private repository | Contents: read |
+| Submit a dependency snapshot (`github.dependency-snapshots.create`) | `repo` | Dependency graph: write, and Contents: read for the commit check |
 | Global security advisories | none | none |
 | Repository security advisories | `repo` or `repository_advisories:read`, for a private repository or an unpublished advisory | Repository security advisories: read |
 | Organization security advisories | `repo` or `repository_advisories:write`, and an organization owner or security manager | Repository security advisories: write (GitHub requires write although the tool only reads) |
