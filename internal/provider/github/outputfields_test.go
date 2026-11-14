@@ -161,6 +161,8 @@ var outputSamples = map[string]any{
 	"github.deployment-protection-rules.list":      DeploymentProtectionRuleList{},
 	"github.deployment-statuses.get":               DeploymentStatus{},
 	"github.deployment-statuses.list":              DeploymentStatusList{},
+	"github.deployments.create":                    DeploymentCreated{},
+	"github.deployments.delete":                    DeploymentDeleted{},
 	"github.deployments.get":                       Deployment{},
 	"github.deployments.list":                      DeploymentList{},
 	"github.discussion-categories.list":            DiscussionCategoryList{},
