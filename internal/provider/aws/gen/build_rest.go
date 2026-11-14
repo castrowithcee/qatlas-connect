@@ -242,12 +242,12 @@ func (t *tool) restSamples(plain map[string]any) error {
 	if err != nil {
 		return t.failf("sample arguments do not encode: %v", err)
 	}
-	t.sampleMethod, t.samplePath, t.sampleQuery, t.sampleBody = req.Method, req.Path, req.RawQuery, string(req.Body)
+	t.sampleMethod, t.samplePath, t.sampleQuery, t.sampleBody = req.Method, req.RawPath, req.RawQuery, string(req.Body)
 	t.sampleOwner = req.Header.Get(ownerHeaderOf(t.restOp))
 	if httpbind.VirtualHostable(req.Bucket) {
 		// The client sends the bucket as the first label of the host and leaves it out of the path.
 		t.sampleBucket = req.Bucket
-		t.samplePath = "/" + strings.TrimPrefix(strings.TrimPrefix(req.Path, "/"+req.Bucket), "/")
+		t.samplePath = "/" + strings.TrimPrefix(strings.TrimPrefix(req.RawPath, "/"+req.Bucket), "/")
 	}
 	t.sampleForm = map[string]string{}
 	t.sampleHeader = map[string]string{}

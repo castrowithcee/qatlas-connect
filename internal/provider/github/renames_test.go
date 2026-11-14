@@ -19,6 +19,10 @@ var currentToolIDs = []string{
 	"github.action-secrets.get",
 	"github.action-secrets.list",
 	"github.action-secret-repositories.list",
+	"github.dependabot-secret-repositories.list",
+	"github.dependabot-secrets.delete",
+	"github.dependabot-secrets.get",
+	"github.dependabot-secrets.list",
 	"github.action-variables.create",
 	"github.action-variables.delete",
 	"github.action-variables.get",
@@ -407,7 +411,7 @@ func TestRegistryHoldsExactlyTheCurrentToolIDs(t *testing.T) {
 	sort.Strings(got)
 	want := append([]string(nil), currentToolIDs...)
 	sort.Strings(want)
-	if strings.Join(got, "\n") != strings.Join(want, "\n") || len(got) != 382 {
+	if strings.Join(got, "\n") != strings.Join(want, "\n") || len(got) != 386 {
 		t.Errorf("registry holds %d tools, differing from the expected %d IDs", len(got), len(want))
 	}
 	if err := reg.ValidateRenames(); err != nil {
@@ -471,8 +475,9 @@ func TestRenamedToolsCoverEveryChangedID(t *testing.T) {
 		"github.action-variables.update": true, "github.action-variables.delete": true,
 		"github.action-caches.list": true, "github.action-caches.delete": true, "github.action-cache-usage.get": true,
 		"github.action-secrets.list": true, "github.action-secrets.get": true, "github.action-secret-repositories.list": true,
-		"github.action-secrets.delete": true,
-		"github.workflow-runs.delete":  true, "github.workflow-runs.force-cancel": true,
+		"github.action-secrets.delete": true, "github.dependabot-secrets.list": true, "github.dependabot-secrets.get": true,
+		"github.dependabot-secret-repositories.list": true, "github.dependabot-secrets.delete": true,
+		"github.workflow-runs.delete": true, "github.workflow-runs.force-cancel": true,
 		"github.workflow-artifacts.delete": true, "github.workflow-run-attempts.get": true,
 		"github.workflow-run-approvals.list":     true,
 		"github.deployment-branch-policies.list": true, "github.deployment-branch-policies.create": true,

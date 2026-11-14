@@ -113,6 +113,8 @@ var targetChecks = map[string]targetCheck{
 	"arn-region":                    checkARNRegion,
 	"ses-identity":                  checkSESIdentity,
 	"ses-identity-arn":              checkSESIdentityARN,
+	"ses-resource-arn":              checkSESResourceARN,
+	"ses-reputation-entity-arn":     checkSESReputationEntityARN,
 	"ses-configuration-set":         checkSESConfigurationSet,
 }
 
