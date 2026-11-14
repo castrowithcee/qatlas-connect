@@ -4,7 +4,7 @@ description: >
 type: knowledge
 edit: shared
 created: 2026-10-25
-updated: 2026-11-12
+updated: 2026-11-14
 ---
 
 # Set up GitHub
@@ -191,9 +191,11 @@ your token holds. A repository or organization policy can forbid a run although 
 | Change repository settings and topics, including archiving and unarchiving | `repo`, as a repository administrator | Administration: write |
 | Read Actions variables of a repository; create, change, or delete them | `repo` | Variables: read; read and write to change |
 | Read Actions variables of an environment; create, change, or delete them | `repo` | Environments: read; read and write to change |
+| Read the names and times of Actions secrets of a repository or an environment; delete one | `repo` | Secrets: read; read and write to delete |
 | Read the runner groups of an organization; change a runner group name or visibility | `admin:org` | Self-hosted runners: read, or read and write (organization); as far as GitHub documents it |
 | Read the GitHub-hosted runners of an organization | `manage_runner:org` | Hosted runners: read (organization); as far as GitHub documents it |
 | Read Actions variables of an organization; create, change, or delete them | `admin:org`, plus `repo` where a private repository is involved | Variables: read, read and write to change (organization); selecting repositories also needs Metadata: read on them |
+| Read the names and times of Actions secrets of an organization and the repositories of one; delete one | `admin:org`, plus `repo` where a private repository is involved | Secrets: read, read and write to delete (organization); as far as GitHub documents it |
 | Read environments, deployment branch policies, and deployment protection rules | `repo` for private repositories, none for public | Actions: read |
 | Create, change, or delete environments and deployment branch policies; disable deployment protection rules | `repo`, as a repository administrator for protection rules | Administration: read and write |
 | Read deployments and deployment statuses | `repo` for private repositories, none for public | Deployments: read |

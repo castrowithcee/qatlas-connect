@@ -924,7 +924,7 @@ func Register(reg *capability.Registry) error {
 		pullRequestReviewCommentMaintenanceOperations(), pullRequestReviewThreadOperations(),
 		pullRequestReviewerOperations(), accountOperations(), accountSocialOperations(), organizationOperations(), organizationReadOperations(), organizationManagementOperations(), teamManagementOperations(), starOperations(),
 		searchOperations(), contentsOperations(), blameOperations(), commitsOperations(), refsOperations(), compareOperations(), commitRelationOperations(),
-		contentsWriteOperations(), refsWriteOperations(), repositoriesOperations(), collaboratorsManageOperations(), repositoryDetailOperations(), trafficOperations(), repositoryStatsOperations(), rulesetsOperations(), branchProtectionOperations(), customPropertiesOperations(), actionVariablesOperations(), actionCachesOperations(), runCleanupOperations(),
+		contentsWriteOperations(), refsWriteOperations(), repositoriesOperations(), collaboratorsManageOperations(), repositoryDetailOperations(), trafficOperations(), repositoryStatsOperations(), rulesetsOperations(), branchProtectionOperations(), customPropertiesOperations(), actionVariablesOperations(), actionSecretsOperations(), actionCachesOperations(), runCleanupOperations(),
 		labelsOperations(), autolinksOperations(), milestonesOperations(), commentMaintenanceOperations(), commentVisibilityOperations(), issueLockOperations(), reactionsOperations(),
 		subIssuesOperations(), issueDependenciesOperations(), issueHistoryOperations(), issueTypesOperations(), issueFieldsOperations(),
 		discussionOperations(), notificationOperations(), gistOperations(), securityAlertOperations(), securityAlertUpdateOperations(), securityAlertDetailOperations(), advisoryOperations(), securitySettingsOperations(),
@@ -1812,6 +1812,9 @@ func (c *Client) restSubject(request *http.Request) subject {
 		if what := variableSubject(parts[2]); what != "" {
 			s.what = what
 		}
+		if what := actionSecretFamily.subject(parts[2]); what != "" {
+			s.what = what
+		}
 	}
 	return s
 }
@@ -1868,6 +1871,9 @@ func organizationSubject(tail string) subject {
 			return subject{what: what + " of orgs/" + owner}
 		}
 		if what := variableSubject(rest); what != "" {
+			return subject{what: what + " of orgs/" + owner}
+		}
+		if what := actionSecretFamily.subject(rest); what != "" {
 			return subject{what: what + " of orgs/" + owner}
 		}
 	}
