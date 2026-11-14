@@ -85,7 +85,7 @@ func TestSESIdentityToolsRisk(t *testing.T) {
 	}
 	seen := 0
 	for _, s := range generatedSpecs {
-		if s.service != "ses" || sesContactTool(s.descriptor.ID) || strings.HasPrefix(s.descriptor.ID, "aws.ses.account.") || sesDeliverabilityTools[s.descriptor.ID].sensitivity != "" || sesJobWriteTools[s.descriptor.ID] {
+		if s.service != "ses" || sesContactTool(s.descriptor.ID) || strings.HasPrefix(s.descriptor.ID, "aws.ses.account.") || sesDeliverabilityTools[s.descriptor.ID].sensitivity != "" || sesDedicatedTools[s.descriptor.ID].idem != "" || sesTenantTools[s.descriptor.ID].sensitivity != "" || strings.HasPrefix(s.descriptor.ID, "aws.ses.multi-region-endpoint.") || sesJobWriteTools[s.descriptor.ID] {
 			continue
 		}
 		seen++

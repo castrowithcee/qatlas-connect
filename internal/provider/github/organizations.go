@@ -676,7 +676,11 @@ func (c *Client) getOrganizationMembership(ctx context.Context, a *organizationA
 	if err := c.rest(ctx, op, c.orgPath("memberships/"+url.PathEscape(a.Username)), &raw); err != nil {
 		return nil, actionsFailure(err, organizationMembersReadPermission)
 	}
-	result := &OrganizationMembership{Username: a.Username, URL: address(raw.URL), State: shortText(raw.State),
+	return raw.project(a.Username), nil
+}
+
+func (raw *organizationMembershipRaw) project(username string) *OrganizationMembership {
+	result := &OrganizationMembership{Username: username, URL: address(raw.URL), State: shortText(raw.State),
 		Role: shortText(raw.Role), DirectMembership: raw.DirectMembership, OrganizationURL: address(raw.OrganizationURL),
 		Organization: raw.Organization.project(), User: optionalAccount(raw.User)}
 	for _, slug := range raw.EnterpriseTeamsProvidingIndirectMembership {
@@ -688,7 +692,7 @@ func (c *Client) getOrganizationMembership(ctx context.Context, a *organizationA
 	if p := raw.Permissions; p != nil && p.CanCreateRepository != nil {
 		result.Permissions = p
 	}
-	return result, nil
+	return result
 }
 
 func (c *Client) listOrganizationRoles(ctx context.Context) (*OrganizationRoleList, error) {

@@ -72,8 +72,9 @@ func TestSensitiveMembersAreOpenOnlyByRelease(t *testing.T) {
 	}
 }
 
-// The real tables release the KMS key ID only for the two encryption tools and the website and contact
-// addresses only for the two SES account tools that carry the production access request, the insights, and the export job filters of SES (read and set), each with a reason,
+// The real tables release the KMS key ID only for the two encryption tools, the website and contact
+// addresses only for the two SES account tools that carry the production access request, the insights, and the export job filters of SES (read and set),
+// and the personal data of the account tools for contacts, name, and primary email, each with a reason,
 // and no other tool of the tables shows a sensitive member.
 func TestReleasesOfTheTables(t *testing.T) {
 	var released []string
@@ -100,8 +101,25 @@ func TestReleasesOfTheTables(t *testing.T) {
 		"CreateMultipartUpload SSEKMSKeyId",
 		"GetAccount Details.AdditionalContactEmailAddresses",
 		"GetAccount Details.WebsiteURL",
+		"GetAccountInformation AccountName",
+		"GetAlternateContact AlternateContact.EmailAddress",
+		"GetAlternateContact AlternateContact.Name",
+		"GetAlternateContact AlternateContact.PhoneNumber",
+		"GetAlternateContact AlternateContact.Title",
 		"GetBucketEncryption ServerSideEncryptionConfiguration.Rules.ApplyServerSideEncryptionByDefault.KMSMasterKeyID",
 		"GetBucketInventoryConfiguration InventoryConfiguration.Destination.S3BucketDestination.Encryption.SSEKMS.KeyId",
+		"GetContactInformation ContactInformation.AddressLine1",
+		"GetContactInformation ContactInformation.AddressLine2",
+		"GetContactInformation ContactInformation.AddressLine3",
+		"GetContactInformation ContactInformation.City",
+		"GetContactInformation ContactInformation.CompanyName",
+		"GetContactInformation ContactInformation.CountryCode",
+		"GetContactInformation ContactInformation.DistrictOrCounty",
+		"GetContactInformation ContactInformation.FullName",
+		"GetContactInformation ContactInformation.PhoneNumber",
+		"GetContactInformation ContactInformation.PostalCode",
+		"GetContactInformation ContactInformation.StateOrRegion",
+		"GetContactInformation ContactInformation.WebsiteUrl",
 		"GetExportJob ExportDataSource.MessageInsightsDataSource.Exclude.Destination",
 		"GetExportJob ExportDataSource.MessageInsightsDataSource.Exclude.FromEmailAddress",
 		"GetExportJob ExportDataSource.MessageInsightsDataSource.Exclude.Subject",
@@ -112,12 +130,30 @@ func TestReleasesOfTheTables(t *testing.T) {
 		"GetMessageInsights Insights.Destination",
 		"GetMessageInsights Subject",
 		"GetObject SSEKMSKeyId",
+		"GetPrimaryEmail PrimaryEmail",
 		"HeadObject SSEKMSKeyId",
 		"ListBucketInventoryConfigurations InventoryConfigurationList.Destination.S3BucketDestination.Encryption.SSEKMS.KeyId",
 		"PutAccountDetails AdditionalContactEmailAddresses",
 		"PutAccountDetails WebsiteURL",
+		"PutAccountName AccountName",
+		"PutAlternateContact EmailAddress",
+		"PutAlternateContact Name",
+		"PutAlternateContact PhoneNumber",
+		"PutAlternateContact Title",
 		"PutBucketEncryption ServerSideEncryptionConfiguration.Rules.ApplyServerSideEncryptionByDefault.KMSMasterKeyID",
 		"PutBucketInventoryConfiguration InventoryConfiguration.Destination.S3BucketDestination.Encryption.SSEKMS.KeyId",
+		"PutContactInformation ContactInformation.AddressLine1",
+		"PutContactInformation ContactInformation.AddressLine2",
+		"PutContactInformation ContactInformation.AddressLine3",
+		"PutContactInformation ContactInformation.City",
+		"PutContactInformation ContactInformation.CompanyName",
+		"PutContactInformation ContactInformation.CountryCode",
+		"PutContactInformation ContactInformation.DistrictOrCounty",
+		"PutContactInformation ContactInformation.FullName",
+		"PutContactInformation ContactInformation.PhoneNumber",
+		"PutContactInformation ContactInformation.PostalCode",
+		"PutContactInformation ContactInformation.StateOrRegion",
+		"PutContactInformation ContactInformation.WebsiteUrl",
 		"PutObject SSEKMSKeyId",
 		"UploadPart SSEKMSKeyId",
 		"UploadPartCopy SSEKMSKeyId",
@@ -189,7 +225,8 @@ func TestLimitsGuardsAndReadbacksAreChecked(t *testing.T) {
 				o.Operation != "AssociateVPCWithHostedZone" && o.Operation != "DisassociateVPCFromHostedZone" && o.Operation != "DeleteVPCAssociationAuthorization" &&
 				o.Operation != "CreateConfigurationSet" && o.Operation != "PutConfigurationSetTrackingOptions" && o.Operation != "PutConfigurationSetArchivingOptions" &&
 				o.Operation != "CopyObject" && o.Operation != "PutObject" && o.Operation != "SendEmail" && o.Operation != "SendBulkEmail" &&
-				o.Operation != "AssociateEmailIdentityCertificate" && o.Operation != "CreateImportJob" && o.Operation != "CreateExportJob" &&
+				o.Operation != "AssociateEmailIdentityCertificate" && o.Operation != "UpdateReputationEntityPolicy" && o.Operation != "CreateMultiRegionEndpoint" &&
+				o.Operation != "CreateImportJob" && o.Operation != "CreateExportJob" &&
 				o.Operation != "PutBucketInventoryConfiguration" && o.Operation != "PutBucketAnalyticsConfiguration" &&
 				o.Operation != "CreateMultipartUpload" && o.Operation != "UploadPartCopy" &&
 				o.Operation != "GetRegionOptStatus" && o.Operation != "EnableRegion" && o.Operation != "DisableRegion" {

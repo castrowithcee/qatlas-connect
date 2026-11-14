@@ -997,9 +997,9 @@ func (c *converter) convert(target string, traits *object, output bool, depth in
 		return &awsquery.Shape{Kind: awsquery.KindBoolean}, newObject("type", "boolean"), nil
 	case "timestamp":
 		// The binding layer renders and reads the three formats of the trait for a restXml tool, in a header, a query
-		// member, and the body; the schema is a date-time text either way. restJson1 and the query protocol do not
-		// carry an explicit format here.
-		if f := traits.str("smithy.api#timestampFormat"); c.t.rest && !c.t.xml && f != "" {
+		// member, and the body; the schema is a date-time text either way. A restJson1 body renders date-time too; its
+		// other formats and the query protocol's are not carried here.
+		if f := traits.str("smithy.api#timestampFormat"); c.t.rest && !c.t.xml && f != "" && f != "date-time" {
 			return nil, nil, c.failf("timestamp format %s is not rendered for restJson1 tools yet", f)
 		} else if !c.t.rest && f != "" && f != "date-time" {
 			return nil, nil, c.failf("timestamp format %s is not the query protocol's date-time", f)
@@ -1322,11 +1322,13 @@ const sampleARN = "arn:aws:iam::123456789012:role/a"
 // targetSamples are values that pass a target check in the account and region the generated tests bind, by
 // the name of the check.
 var targetSamples = map[string]string{
-	"account-argument":      "123456789012",
-	"bucket-owner":          "my-bucket",
-	"ses-identity":          "example.com",
-	"ses-identity-arn":      "arn:aws:ses:eu-central-1:123456789012:identity/example.com",
-	"ses-configuration-set": "my-set",
+	"bucket-owner":              "my-bucket",
+	"ses-identity":              "example.com",
+	"ses-identity-arn":          "arn:aws:ses:eu-central-1:123456789012:identity/example.com",
+	"ses-configuration-set":     "my-set",
+	"ses-resource-arn":          "arn:aws:ses:eu-central-1:123456789012:identity/example.com",
+	"ses-reputation-entity-arn": "arn:aws:ses:eu-central-1:123456789012:tenant/a/b",
+	"account-argument":          "123456789012",
 }
 
 // sampleTrustPolicy is a trust policy that passes the trust-policy check: one AWS service principal.
@@ -1337,11 +1339,11 @@ const sampleResourcePolicy = `{"Version":"2012-10-17","Statement":[{"Effect":"Al
 
 // sampleWords are whole values tried after the repeated characters, for patterns with a fixed prefix such as
 // the version IDs of IAM policies, the UUID of a Route 53 CIDR collection, an IPv4 address, a bucket/key pair, the ARN
-// of an SES mail archive, an ACM certificate ARN of the account the tests bind, an S3 URL, or an address of the form a@b, which
-// stays outside the mail form that generated code must not hold.
+// of an SES mail archive, an ACM certificate ARN of the account the tests bind, an S3 URL, or an address of the form a@b or
+// a!@b.c, which stay outside the mail form that generated code must not hold.
 var sampleWords = []string{"v1", "00000000-0000-0000-0000-000000000000", "192.0.2.1", "a/b",
 	"arn:aws:ses:eu-central-1:123456789012:mailmanager-archive/a-0123456789abcdefghijklmn",
-	"arn:aws:acm:eu-central-1:123456789012:certificate/a", "s3://aaa/a", "aaa@bbb"}
+	"arn:aws:acm:eu-central-1:123456789012:certificate/a", "s3://aaa/a", "aaa@bbb", "+0", "aaa!@bbb.ccc"}
 
 func (t *tool) sample(path string, s *awsquery.Shape, rawSchema any) (any, error) {
 	schema, _ := rawSchema.(map[string]any)

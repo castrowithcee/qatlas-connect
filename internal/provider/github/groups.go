@@ -12,7 +12,7 @@ var toolGroups = []config.ToolGroup{
 	{ID: "issues", Title: "Issues", Description: "Issues, comments, reactions, labels, milestones, types, fields, dependencies, sub-issues, events and timelines, assignees, and Copilot assignments"},
 	{ID: "pull-requests", Title: "Pull requests", Description: "Pull requests with their files, commits, checks, check runs and suites, reviews, review threads, reviewers, auto-merge, and Copilot reviews"},
 	{ID: "projects", Title: "Projects", Description: "Projects with their items, drafts, fields, views, status updates, iterations, templates, and access"},
-	{ID: "actions", Title: "Actions", Description: "Workflows, runs, jobs, logs, artifacts, caches, Actions variables, workflow and Actions permissions, selected actions, fork approval, retention, access, and OIDC subject claim, self-hosted runners and their labels, environments with their deployment branch policies and protection rules, and deployments with their statuses"},
+	{ID: "actions", Title: "Actions", Description: "Workflows, runs, jobs, logs, artifacts, caches, Actions variables, Actions secrets, Dependabot secrets, workflow and Actions permissions, selected actions, fork approval, retention, access, and OIDC subject claim, self-hosted runners and their labels, environments with their deployment branch policies and protection rules, and deployments with their statuses"},
 	{ID: "code", Title: "Code", Description: "Repository contents, files, trees, branches, merges, tags, commits, comparisons, commit comments, and blame"},
 	{ID: "repositories", Title: "Repositories", Description: "Repositories, their languages, contributors, statistics, activity feed, community profiles, custom properties, merge settings, rulesets, autolinks, webhooks and their deliveries, branch protection and rules, collaborators, deploy keys, repository invitations, subscriptions, and stars"},
 	{ID: "releases", Title: "Releases", Description: "Releases and their assets"},
@@ -20,7 +20,7 @@ var toolGroups = []config.ToolGroup{
 	{ID: "discussions", Title: "Discussions", Description: "Discussions, their categories, and their comments"},
 	{ID: "gists", Title: "Gists", Description: "Gists and their files"},
 	{ID: "notifications", Title: "Notifications", Description: "Notification threads and thread subscriptions"},
-	{ID: "accounts", Title: "Accounts", Description: "Users, organizations, teams with their members, memberships, and repositories, the authenticated account and its rate limit, GitHub's meta information, license, .gitignore, and code of conduct templates, emojis, and Markdown rendering"},
+	{ID: "accounts", Title: "Accounts", Description: "Users, organizations with their settings, members, roles, outside collaborators, and invitations, teams with their members, memberships, and repositories, the authenticated account and its rate limit, GitHub's meta information, license, .gitignore, and code of conduct templates, emojis, and Markdown rendering"},
 }
 
 // groupBySegment maps the resource segment of a tool ID (github.<segment>.<action>) to its group. Segments
@@ -36,7 +36,7 @@ var groupBySegment = map[string]string{
 	"workflow-run-attempts": "actions", "workflow-run-approvals": "actions",
 	"workflow-artifacts": "actions", "workflow-files": "actions", "workflow-permissions": "actions",
 	"actions-permissions": "actions", "actions-selected": "actions", "actions-fork-approval": "actions",
-	"actions-retention": "actions", "actions-access": "actions", "actions-oidc": "actions", "runners": "actions", "runner-labels": "actions", "runner-groups": "actions", "hosted-runners": "actions", "action-variables": "actions", "action-caches": "actions",
+	"actions-retention": "actions", "actions-access": "actions", "actions-oidc": "actions", "runners": "actions", "runner-labels": "actions", "runner-groups": "actions", "hosted-runners": "actions", "action-variables": "actions", "action-secrets": "actions", "action-secret-repositories": "actions", "dependabot-secrets": "actions", "dependabot-secret-repositories": "actions", "action-caches": "actions",
 	"action-cache-usage": "actions", "environments": "actions",
 	"deployment-branch-policies": "actions", "deployment-protection-rules": "actions", "deployments": "actions",
 	"deployment-statuses": "actions",

@@ -15,6 +15,14 @@ var currentToolIDs = []string{
 	"github.action-cache-usage.get",
 	"github.action-caches.delete",
 	"github.action-caches.list",
+	"github.action-secrets.delete",
+	"github.action-secrets.get",
+	"github.action-secrets.list",
+	"github.action-secret-repositories.list",
+	"github.dependabot-secret-repositories.list",
+	"github.dependabot-secrets.delete",
+	"github.dependabot-secrets.get",
+	"github.dependabot-secrets.list",
 	"github.action-variables.create",
 	"github.action-variables.delete",
 	"github.action-variables.get",
@@ -208,6 +216,12 @@ var currentToolIDs = []string{
 	"github.organization-roles.list",
 	"github.outside-collaborators.list",
 	"github.organization-invitations.list",
+	"github.organization-invitations.cancel",
+	"github.organization-members.remove",
+	"github.organization-members.set-role",
+	"github.organization-roles.assign",
+	"github.organizations.update",
+	"github.outside-collaborators.remove",
 	"github.project-collaborators.update",
 	"github.project-drafts.convert",
 	"github.project-drafts.create",
@@ -393,7 +407,7 @@ func TestRegistryHoldsExactlyTheCurrentToolIDs(t *testing.T) {
 	sort.Strings(got)
 	want := append([]string(nil), currentToolIDs...)
 	sort.Strings(want)
-	if strings.Join(got, "\n") != strings.Join(want, "\n") || len(got) != 368 {
+	if strings.Join(got, "\n") != strings.Join(want, "\n") || len(got) != 382 {
 		t.Errorf("registry holds %d tools, differing from the expected %d IDs", len(got), len(want))
 	}
 	if err := reg.ValidateRenames(); err != nil {
@@ -425,7 +439,10 @@ func TestRenamedToolsCoverEveryChangedID(t *testing.T) {
 	// A tool registered with a hyphen from the start has no former ID.
 	bornHyphenated := map[string]bool{"github.organization-members.list": true,
 		"github.organization-members.get": true, "github.organization-roles.list": true,
-		"github.outside-collaborators.list": true, "github.organization-invitations.list": true, "github.team-members.add": true, "github.team-members.remove": true,
+		"github.outside-collaborators.list": true, "github.organization-invitations.list": true,
+		"github.organization-invitations.cancel": true, "github.organization-members.remove": true,
+		"github.organization-members.set-role": true, "github.organization-roles.assign": true,
+		"github.outside-collaborators.remove": true, "github.team-members.add": true, "github.team-members.remove": true,
 		"github.team-memberships.get": true, "github.team-repositories.list": true, "github.team-repositories.set": true,
 		"github.team-repositories.remove": true,
 		"github.repository-topics.set":    true, "github.check-annotations.list": true,
@@ -452,6 +469,9 @@ func TestRenamedToolsCoverEveryChangedID(t *testing.T) {
 		"github.branch-rules.get": true, "github.action-variables.list": true, "github.action-variables.get": true, "github.action-variables.create": true,
 		"github.action-variables.update": true, "github.action-variables.delete": true,
 		"github.action-caches.list": true, "github.action-caches.delete": true, "github.action-cache-usage.get": true,
+		"github.action-secrets.list": true, "github.action-secrets.get": true, "github.action-secret-repositories.list": true,
+		"github.action-secrets.delete": true, "github.dependabot-secrets.list": true, "github.dependabot-secrets.get": true,
+		"github.dependabot-secret-repositories.list": true, "github.dependabot-secrets.delete": true,
 		"github.workflow-runs.delete": true, "github.workflow-runs.force-cancel": true,
 		"github.workflow-artifacts.delete": true, "github.workflow-run-attempts.get": true,
 		"github.workflow-run-approvals.list":     true,
