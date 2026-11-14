@@ -1,10 +1,10 @@
 ---
 description: >
-  Describes the tools of the AWS SES v2 group: reading, creating, configuring, tagging, and deleting sender identities with DKIM and MAIL FROM, the account status, the sandbox, the production access request and the account attributes, creating and configuring configuration sets, reading their event destinations, managing the suppression list, email templates, contact lists with topics, contacts and their privacy, sending mail with confirmation, costs, and no automatic repetition, the identity, address, ARN, archive, and domain checks, the DNS help derived from checked values, and what is never a tool.
+  Describes the tools of the AWS SES v2 group: reading, creating, configuring, tagging, and deleting sender identities with DKIM and MAIL FROM, the account status, the sandbox, the production access request and the account attributes, creating and configuring configuration sets, reading their event destinations, managing the suppression list, dedicated IP addresses and pools with their costs and warm-up, email templates, contact lists with topics, contacts and their privacy, sending mail with confirmation, costs, and no automatic repetition, the identity, address, ARN, archive, and domain checks, the DNS help derived from checked values, and what is never a tool.
 type: knowledge
 edit: shared
 created: 2026-11-11
-updated: 2026-11-12
+updated: 2026-11-14
 ---
 
 # Simple Email Service
@@ -48,6 +48,15 @@ send tools have the effect `execute`, which no connection offers by default.
 | `aws.ses.account.put-suppression-attributes` | `PutAccountSuppressionAttributes` | update | yes |
 | `aws.ses.account.put-dedicated-ip-warmup-attributes` | `PutAccountDedicatedIpWarmupAttributes` | update | yes |
 | `aws.ses.account.put-vdm-attributes` | `PutAccountVdmAttributes` | update | yes |
+| `aws.ses.dedicated-ip.list` | `GetDedicatedIps` | read | no |
+| `aws.ses.dedicated-ip.get` | `GetDedicatedIp` | read | no |
+| `aws.ses.dedicated-ip-pool.list` | `ListDedicatedIpPools` | read | no |
+| `aws.ses.dedicated-ip-pool.get` | `GetDedicatedIpPool` | read | no |
+| `aws.ses.dedicated-ip-pool.create` | `CreateDedicatedIpPool` | create, not repeated | yes |
+| `aws.ses.dedicated-ip-pool.delete` | `DeleteDedicatedIpPool` | delete, not repeated | yes |
+| `aws.ses.dedicated-ip.put-in-pool` | `PutDedicatedIpInPool` | update | yes |
+| `aws.ses.dedicated-ip.put-warmup-attributes` | `PutDedicatedIpWarmupAttributes` | update | yes |
+| `aws.ses.dedicated-ip-pool.put-scaling-attributes` | `PutDedicatedIpPoolScalingAttributes` | update | yes |
 
 ### Configuration sets and suppression
 
@@ -135,6 +144,29 @@ Each tool needs confirmation and acts on the account of the region it names:
   Deliverability Manager costs extra on top of the sending price; the price is not retrieved by the tool.
 
 `PutAccountPricingAttributes` is not offered.
+
+## Dedicated IP addresses and pools
+
+A dedicated IP address sends the mail of one account only, so its sending reputation is the account's own. Pools group
+the addresses of one region; the tools read the addresses and pools, create and delete pools, move an address to a pool,
+set the warm-up percentage of an address, and set the scaling mode of a pool. They act on the account of the region they
+name. Pool names are 1 to 64 letters, digits, underscores, and hyphens; an address is given as text of up to 45
+characters. Both are checked for length before the call.
+
+- **Cost.** AWS charges dedicated IP addresses on top of the sending price; the price is on the SES pricing page and is
+  not retrieved by the tools. Creating a pool and switching a pool to `MANAGED` are the actions that can bring addresses
+  into the account, and their confirmation text says so.
+- **Scaling mode.** `STANDARD` leaves the addresses of a pool to you. In `MANAGED` mode SES adds and removes addresses
+  as the sending volume changes.
+- **Warm-up.** A new address has no reputation. `put-warmup-attributes` sets the share of mail (`warmup_percentage`, 0
+  to 100) that goes over the address while it warms up; `dedicated-ip.get` shows `warmup_status` (`IN_PROGRESS`,
+  `DONE`, or `NOT_APPLICABLE`) and the percentage. Automatic warm-up of new addresses is an account attribute, set with
+  `aws.ses.account.put-dedicated-ip-warmup-attributes`.
+- **Reputation.** `put-in-pool` moves the address with its history, so mail of the destination pool is sent from an
+  address with the reputation of its earlier use.
+- Every write needs confirmation, and the confirmation names the region and the pool or address. `create` and `delete`
+  are not repeated after an unclear outcome: read the pool first.
+- The lists page through `cursor` and `page_size` (up to 100).
 
 ## Checks before the call
 
@@ -288,8 +320,8 @@ and descriptions are untrusted data.
 - No key material of your own (BYODKIM): the selector and the private key are not arguments, and the origin `EXTERNAL`
   is not offered. Easy DKIM keys are generated by SES, with `RSA_1024_BIT` or `RSA_2048_BIT` for the next key.
 - Creating, changing, and deleting event destinations of a configuration set, as listed above.
-- Dedicated IPs and pools, tenants, reputation entities, multi-region endpoints, starting and cancelling export jobs, and
-  changing the account pricing attributes are not tools of this group yet.
+- Tenants, reputation entities, multi-region endpoints, starting and cancelling export jobs, and changing the account
+  pricing attributes are not tools of this group yet.
 - Setting the message security options of a configuration set (`UpdateConfigurationSet`) is not a tool yet.
 - `SendCustomVerificationEmail` is never a tool: it would send mail to any address given as an argument. The custom
   verification email templates (`Create`, `Update`, `Delete`, `Get`, and `ListCustomVerificationEmailTemplates`) are not
@@ -308,5 +340,6 @@ and descriptions are untrusted data.
 - DKIM and domain verification take time after the records exist. How long, and the sandbox behaviour, have not been
   proven against a live account.
 - How the options of a configuration set affect deliverability has not been proven against a live account.
+- Dedicated IP addresses, their cost, and their warm-up have not been proven against a live account.
 - Everything SES returns, including the identity policies, the event destinations, and the suppression list, is
   untrusted data.
