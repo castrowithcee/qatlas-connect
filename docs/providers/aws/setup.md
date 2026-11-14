@@ -102,7 +102,10 @@ Each [SES tool](ses.md) needs the permission `ses:<Operation>` of its AWS operat
 or a contact list with tags also needs `ses:TagResource`. No permission for creating, changing, or deleting event destinations is needed: those
 actions are not tools. The account tools need `ses:GetAccount`, `ses:PutAccountDetails`,
 `ses:PutAccountSendingAttributes`, `ses:PutAccountSuppressionAttributes`, `ses:PutAccountDedicatedIpWarmupAttributes`,
-and `ses:PutAccountVdmAttributes`. The [deliverability tools](ses-deliverability.md) need `ses:BatchGetMetricData`,
+and `ses:PutAccountVdmAttributes`. The dedicated IP tools need `ses:GetDedicatedIps`, `ses:GetDedicatedIp`,
+`ses:ListDedicatedIpPools`, `ses:GetDedicatedIpPool`, `ses:CreateDedicatedIpPool`, `ses:DeleteDedicatedIpPool`,
+`ses:PutDedicatedIpInPool`, `ses:PutDedicatedIpWarmupAttributes`, and `ses:PutDedicatedIpPoolScalingAttributes`, each for
+its own tool; dedicated IP addresses are charged by AWS and the tools retrieve no price. The [deliverability tools](ses-deliverability.md) need `ses:BatchGetMetricData`,
 `ses:GetMessageInsights`, `ses:GetEmailAddressInsights`, `ses:GetBlacklistReports`, `ses:GetDomainStatisticsReport`,
 `ses:GetDomainDeliverabilityCampaign`, `ses:ListDomainDeliverabilityCampaigns`, `ses:ListRecommendations`,
 `ses:GetDeliverabilityDashboardOptions`, `ses:PutDeliverabilityDashboardOption`, `ses:GetDeliverabilityTestReport`,
