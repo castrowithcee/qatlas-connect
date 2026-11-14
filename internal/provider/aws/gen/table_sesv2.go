@@ -6,7 +6,6 @@ import "slices"
 const (
 	reasonSESDedicated       = "dedicated IPs and pools follow in their own package"
 	reasonSESTenants         = "tenants, reputation entities, and multi-region endpoints follow in their own package"
-	reasonSESJobStart        = "starting and cancelling import and export jobs waits for a decision on where the data may go"
 	reasonSESMessageSecurity = "sets the message security options of a configuration set, the signing of sent mail, which is not curated yet and needs its own decision on the effect on sent mail"
 	reasonSESPricing         = "changing the pricing attributes of the account waits for a decision on its cost effect"
 )
@@ -23,7 +22,7 @@ const reasonSESEvent = "an event destination sends the events of a configuration
 // tools that follow.
 var sesv2Table = Table{
 	Service: "sesv2", Segment: "ses", Geltung: Regional,
-	Operations: slices.Concat(sesIdentityTools, sesAccountTools, sesConfigurationTools, sesContactTools, sesSendTools, sesDeliverabilityTools),
+	Operations: slices.Concat(sesIdentityTools, sesAccountTools, sesConfigurationTools, sesContactTools, sesSendTools, sesDeliverabilityTools, sesJobWriteTools),
 	Exclude: []Omission{
 		{Operation: "CreateConfigurationSetEventDestination", Reason: reasonSESEvent},
 		{Operation: "DeleteConfigurationSetEventDestination", Reason: reasonSESEvent},
@@ -37,10 +36,7 @@ var sesv2Table = Table{
 		{Operation: "UpdateCustomVerificationEmailTemplate", Reason: reasonSESCustomVerification},
 	},
 	Defer: []Omission{
-		{Operation: "CancelExportJob", Reason: reasonSESJobStart},
 		{Operation: "CreateDedicatedIpPool", Reason: reasonSESDedicated},
-		{Operation: "CreateExportJob", Reason: reasonSESJobStart},
-		{Operation: "CreateImportJob", Reason: reasonSESJobStart},
 		{Operation: "CreateMultiRegionEndpoint", Reason: reasonSESTenants},
 		{Operation: "CreateTenant", Reason: reasonSESTenants},
 		{Operation: "CreateTenantResourceAssociation", Reason: reasonSESTenants},

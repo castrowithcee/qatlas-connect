@@ -101,7 +101,8 @@ and `ses:PutAccountVdmAttributes`. The [deliverability tools](ses-deliverability
 `ses:GetDomainDeliverabilityCampaign`, `ses:ListDomainDeliverabilityCampaigns`, `ses:ListRecommendations`,
 `ses:GetDeliverabilityDashboardOptions`, `ses:PutDeliverabilityDashboardOption`, `ses:GetDeliverabilityTestReport`,
 `ses:ListDeliverabilityTestReports`, and `ses:CreateDeliverabilityTestReport`; the job tools `ses:GetImportJob`,
-`ses:ListImportJobs`, `ses:GetExportJob`, and `ses:ListExportJobs`; and the certificate tools
+`ses:ListImportJobs`, `ses:GetExportJob`, `ses:ListExportJobs`, `ses:CreateImportJob`, `ses:CreateExportJob`, and
+`ses:CancelExportJob`, which also need `s3:ListBucket` on the bucket of the job for its owner check; and the certificate tools
 `ses:ListEmailIdentityCertificates`, `ses:AssociateEmailIdentityCertificate`, and
 `ses:DisassociateEmailIdentityCertificate`, each for its own tool. The dashboard subscription, the inbox placement
 tests, and Virtual Deliverability Manager are charged by AWS; the tools need confirmation where they start a charge and

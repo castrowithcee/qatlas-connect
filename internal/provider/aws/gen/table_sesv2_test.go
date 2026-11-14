@@ -1,6 +1,7 @@
 package gen
 
 import (
+	"slices"
 	"strings"
 	"testing"
 )
@@ -25,7 +26,6 @@ func TestSESv2DeferredOperationsHaveTheirOwnReason(t *testing.T) {
 			"DeleteTenantResourceAssociation", "ListTenantResources", "ListResourceTenants", "PutTenantSuppressionAttributes",
 			"GetReputationEntity", "ListReputationEntities", "UpdateReputationEntityCustomerManagedStatus", "UpdateReputationEntityPolicy",
 			"CreateMultiRegionEndpoint", "DeleteMultiRegionEndpoint", "GetMultiRegionEndpoint", "ListMultiRegionEndpoints"}},
-		{reasonSESJobStart, []string{"CreateImportJob", "CreateExportJob", "CancelExportJob"}},
 		{reasonSESPricing, []string{"PutAccountPricingAttributes"}},
 	} {
 		for _, op := range group.ops {
@@ -34,7 +34,7 @@ func TestSESv2DeferredOperationsHaveTheirOwnReason(t *testing.T) {
 			}
 		}
 	}
-	for _, tool := range sesDeliverabilityTools {
+	for _, tool := range slices.Concat(sesDeliverabilityTools, sesJobWriteTools) {
 		if _, deferred := reasons[tool.Operation]; deferred {
 			t.Errorf("%s is a tool and still deferred", tool.Operation)
 		}
