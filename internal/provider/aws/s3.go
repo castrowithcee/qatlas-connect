@@ -44,6 +44,7 @@ var guards = map[string]guard{
 	"ses-send":                    checkSESSend,
 	"route53-cidr":                checkRoute53CIDR,
 	"acm-certificate-arn":         checkACMCertificateARN,
+	"ses-reputation-policy-arn":   checkSESReputationPolicyARN,
 	"s3-report-destination":       checkReportDestination,
 
 	"ses-configuration-set-values": checkSESConfigurationSetValues,

@@ -1320,10 +1320,12 @@ const sampleARN = "arn:aws:iam::123456789012:role/a"
 // targetSamples are values that pass a target check in the account and region the generated tests bind, by
 // the name of the check.
 var targetSamples = map[string]string{
-	"bucket-owner":          "my-bucket",
-	"ses-identity":          "example.com",
-	"ses-identity-arn":      "arn:aws:ses:eu-central-1:123456789012:identity/example.com",
-	"ses-configuration-set": "my-set",
+	"bucket-owner":              "my-bucket",
+	"ses-identity":              "example.com",
+	"ses-identity-arn":          "arn:aws:ses:eu-central-1:123456789012:identity/example.com",
+	"ses-configuration-set":     "my-set",
+	"ses-resource-arn":          "arn:aws:ses:eu-central-1:123456789012:identity/example.com",
+	"ses-reputation-entity-arn": "arn:aws:ses:eu-central-1:123456789012:tenant/a/b",
 }
 
 // sampleTrustPolicy is a trust policy that passes the trust-policy check: one AWS service principal.

@@ -103,7 +103,11 @@ and `ses:PutAccountVdmAttributes`. The [deliverability tools](ses-deliverability
 `ses:ListDeliverabilityTestReports`, and `ses:CreateDeliverabilityTestReport`; the job tools `ses:GetImportJob`,
 `ses:ListImportJobs`, `ses:GetExportJob`, and `ses:ListExportJobs`; and the certificate tools
 `ses:ListEmailIdentityCertificates`, `ses:AssociateEmailIdentityCertificate`, and
-`ses:DisassociateEmailIdentityCertificate`, each for its own tool. The dashboard subscription, the inbox placement
+`ses:DisassociateEmailIdentityCertificate`; the tenant tools `ses:GetTenant`, `ses:ListTenants`,
+`ses:ListTenantResources`, `ses:ListResourceTenants`, `ses:CreateTenant`, `ses:DeleteTenant`,
+`ses:CreateTenantResourceAssociation`, `ses:DeleteTenantResourceAssociation`, and `ses:PutTenantSuppressionAttributes`; and
+the reputation tools `ses:GetReputationEntity`, `ses:ListReputationEntities`,
+`ses:UpdateReputationEntityCustomerManagedStatus`, and `ses:UpdateReputationEntityPolicy`, each for its own tool. The dashboard subscription, the inbox placement
 tests, and Virtual Deliverability Manager are charged by AWS; the tools need confirmation where they start a charge and
 retrieve no price. The identity policy write tools are offered only when the tools list
 of the connection names them, the send tools by the effect `execute`. Grant only the actions of the tools the connection offers. An account without production
