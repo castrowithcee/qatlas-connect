@@ -71,7 +71,7 @@ func TestActionSecretsSetSealsTheFileAndWritesOnce(t *testing.T) {
 	f, s, base := serveSecrets(t)
 	dir, path := writeSecretFile(t, secretFileCanary)
 	core := secretsSetCore(t, base, dir, nil)
-	file := `"local_path":"` + path + `"`
+	file := `"local_path":` + strconvQuote(path)
 	for _, tt := range []struct {
 		name, connection, target, secret, state, route string
 		extra                                          []string
@@ -208,7 +208,7 @@ func TestActionSecretsSetRefusesBeforeFileAndCredential(t *testing.T) {
 	}
 	// An organization whose targets are only the owner or all its repositories admits all and private.
 	if _, err := invoke(t, core, actionSecretsSet.ID, "org-only", `{`+org+`,"name":"A","visibility":"private",`+
-		`"local_path":"`+path+`"}`, true); err != nil {
+		`"local_path":`+strconvQuote(path)+`}`, true); err != nil {
 		t.Errorf("private for an unrestricted organization = %v", err)
 	}
 }
