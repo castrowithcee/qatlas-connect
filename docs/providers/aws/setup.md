@@ -4,7 +4,7 @@ description: >
 type: knowledge
 edit: shared
 created: 2026-11-06
-updated: 2026-11-12
+updated: 2026-11-14
 ---
 
 # Set up AWS
@@ -72,6 +72,12 @@ The [role tools](iam.md#roles-and-instance-profiles) need `iam:CreateRole`, `iam
 also needs `iam:TagRole` or `iam:TagInstanceProfile`, and adding a role to an instance profile also needs
 `iam:PassRole` for that role. The own-role check calls `sts:GetCallerIdentity`, which needs no permission. Grant
 only the actions of the tools the connection lists.
+
+### Account
+
+The [region tools](account.md) need `account:ListRegions`, `account:GetRegionOptStatus`, `account:EnableRegion`, and
+`account:DisableRegion`, each for its own tool. `account:EnableRegion` and `account:DisableRegion` change the account;
+grant them only when the connection should opt regions in or out. The tools act on the bound account only.
 
 ### SES
 
