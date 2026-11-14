@@ -56,6 +56,8 @@ var outputSamples = map[string]any{
 	"github.actions-oidc.set":                      SettingChange[ActionsOIDC]{},
 	"github.deploy-keys.list":                      DeployKeyList{},
 	"github.deploy-keys.get":                       DeployKey{},
+	"github.dependency-review.compare":             DependencyReview{},
+	"github.dependency-snapshots.create":           DependencySnapshotCreated{},
 	"github.deploy-keys.delete":                    DeployKeyDeleted{},
 	"github.repository-invitations.list":           RepositoryInvitationList{},
 	"github.repository-invitations.cancel":         InvitationCancelled{},
