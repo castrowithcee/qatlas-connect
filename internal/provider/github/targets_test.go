@@ -197,7 +197,7 @@ func TestDiscoveryDescribesTheTargetArguments(t *testing.T) {
 			descriptor.ID == customPropertiesSet.ID || descriptor.ID == issueFieldsList.ID ||
 			descriptor.ID == actionVariablesList.ID || descriptor.ID == actionVariablesGet.ID ||
 			descriptor.ID == actionVariablesCreate.ID || descriptor.ID == actionVariablesUpdate.ID ||
-			descriptor.ID == actionVariablesDelete.ID ||
+			descriptor.ID == actionVariablesDelete.ID || slices.Contains(secretTools, descriptor.ID) ||
 			descriptor.ID == actionsSelectedGet.ID || descriptor.ID == actionsSelectedSet.ID ||
 			descriptor.ID == actionsForkApprovalGet.ID || descriptor.ID == actionsForkApprovalSet.ID ||
 			descriptor.ID == actionsRetentionGet.ID || descriptor.ID == actionsRetentionSet.ID ||

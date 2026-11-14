@@ -77,7 +77,13 @@ only the actions of the tools the connection lists.
 
 The [region tools](account.md) need `account:ListRegions`, `account:GetRegionOptStatus`, `account:EnableRegion`, and
 `account:DisableRegion`, each for its own tool. `account:EnableRegion` and `account:DisableRegion` change the account;
-grant them only when the connection should opt regions in or out. The tools act on the bound account only.
+grant them only when the connection should opt regions in or out. The [contact tools](account.md#contacts-and-account-information)
+need `account:GetAccountInformation` and `account:PutAccountName` (`information.get`, `name.put`),
+`account:GetContactInformation` and `account:PutContactInformation` (`contact-information`),
+`account:GetAlternateContact`, `account:PutAlternateContact`, and `account:DeleteAlternateContact` (`alternate-contact`),
+and `account:GetPrimaryEmail` (`primary-email.get`). The `Put` and `Delete` actions change who receives billing,
+operations, and security notices of AWS; grant them only when the connection should manage contacts. The tools act on
+the bound account only.
 
 ### SES
 
@@ -102,7 +108,10 @@ Each [SES tool](ses.md) needs the permission `ses:<Operation>` of its AWS operat
 or a contact list with tags also needs `ses:TagResource`. No permission for creating, changing, or deleting event destinations is needed: those
 actions are not tools. The account tools need `ses:GetAccount`, `ses:PutAccountDetails`,
 `ses:PutAccountSendingAttributes`, `ses:PutAccountSuppressionAttributes`, `ses:PutAccountDedicatedIpWarmupAttributes`,
-and `ses:PutAccountVdmAttributes`. The [deliverability tools](ses-deliverability.md) need `ses:BatchGetMetricData`,
+and `ses:PutAccountVdmAttributes`. The dedicated IP tools need `ses:GetDedicatedIps`, `ses:GetDedicatedIp`,
+`ses:ListDedicatedIpPools`, `ses:GetDedicatedIpPool`, `ses:CreateDedicatedIpPool`, `ses:DeleteDedicatedIpPool`,
+`ses:PutDedicatedIpInPool`, `ses:PutDedicatedIpWarmupAttributes`, and `ses:PutDedicatedIpPoolScalingAttributes`, each for
+its own tool; dedicated IP addresses are charged by AWS and the tools retrieve no price. The [deliverability tools](ses-deliverability.md) need `ses:BatchGetMetricData`,
 `ses:GetMessageInsights`, `ses:GetEmailAddressInsights`, `ses:GetBlacklistReports`, `ses:GetDomainStatisticsReport`,
 `ses:GetDomainDeliverabilityCampaign`, `ses:ListDomainDeliverabilityCampaigns`, `ses:ListRecommendations`,
 `ses:GetDeliverabilityDashboardOptions`, `ses:PutDeliverabilityDashboardOption`, `ses:GetDeliverabilityTestReport`,
