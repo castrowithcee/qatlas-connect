@@ -7,7 +7,7 @@ import (
 )
 
 // Every deferred sesv2 operation has a reason of its own: no two groups of operations share the generic text of
-// an unfinished table, and the operations of the deliverability, dedicated IP, tenant, and reputation tools are no longer deferred.
+// an unfinished table, and the operations of the deliverability, dedicated IP, tenant, reputation, and multi-region endpoint tools are no longer deferred.
 func TestSESv2DeferredOperationsHaveTheirOwnReason(t *testing.T) {
 	reasons := map[string]string{}
 	for _, o := range sesv2Table.Defer {
@@ -20,7 +20,6 @@ func TestSESv2DeferredOperationsHaveTheirOwnReason(t *testing.T) {
 		reason string
 		ops    []string
 	}{
-		{reasonSESMultiRegion, []string{"CreateMultiRegionEndpoint", "DeleteMultiRegionEndpoint", "GetMultiRegionEndpoint", "ListMultiRegionEndpoints"}},
 		{reasonSESJobStart, []string{"CreateImportJob", "CreateExportJob", "CancelExportJob"}},
 		{reasonSESPricing, []string{"PutAccountPricingAttributes"}},
 	} {
@@ -30,7 +29,7 @@ func TestSESv2DeferredOperationsHaveTheirOwnReason(t *testing.T) {
 			}
 		}
 	}
-	for _, tool := range slices.Concat(sesDeliverabilityTools, sesDedicatedTools, sesTenantTools) {
+	for _, tool := range slices.Concat(sesDeliverabilityTools, sesDedicatedTools, sesTenantTools, sesMultiRegionTools) {
 		if _, deferred := reasons[tool.Operation]; deferred {
 			t.Errorf("%s is a tool and still deferred", tool.Operation)
 		}
