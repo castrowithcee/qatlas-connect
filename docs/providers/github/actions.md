@@ -40,10 +40,10 @@ No observer or operator tool changes a workflow file or a setting; that is the l
 Environments with their deployment branch policies and protection rules, and deployments, have [their own
 page](environments.md), as do [Actions caches and the cleanup of runs and artifacts](actions-maintenance.md);
 Actions variables, Actions secrets, and Dependabot secrets have tools under [Actions variables](#actions-variables),
-[Actions secrets](#actions-secrets), and [Dependabot secrets](#dependabot-secrets). No tool approves or creates a deployment, sets a secret, administers an
-organization, or registers runners; the [self-hosted
-runners](#self-hosted-runners) and the [runner groups and hosted runners](#runner-groups-and-hosted-runners)
-have their own listed-only tools.
+[Actions secrets](#actions-secrets), and [Dependabot secrets](#dependabot-secrets). No tool sets a secret, administers
+an organization, or registers runners; the [self-hosted runners](#self-hosted-runners) and the [runner groups and
+hosted runners](#runner-groups-and-hosted-runners) have their own listed-only tools. The approval of a fork run
+and the review of pending deployments are described under [approval gates](actions-maintenance.md#approval-gates).
 
 ## Observer and operator
 

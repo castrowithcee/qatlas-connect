@@ -202,6 +202,8 @@ your token holds. A repository or organization policy can forbid a run although 
 | Create, change, or delete environments and deployment branch policies; disable deployment protection rules | `repo`, as a repository administrator for protection rules | Administration: read and write |
 | Read deployments and deployment statuses | `repo` for private repositories, none for public | Deployments: read |
 | Create or delete deployments | `repo`, or `repo_deployment` for deployments alone | Deployments: read and write |
+| Approve a workflow run of a fork | `repo` | Actions: read and write |
+| Approve or reject the pending deployments of a run, as a required reviewer of the environment | `repo` | Deployments: read and write, Actions: read |
 | Name a team as reviewer of an environment | `read:org` | Members: read (organization) |
 
 Workflow files, Actions permissions and settings, self-hosted runners, and repository settings are high risk. Give those connections a token of their
