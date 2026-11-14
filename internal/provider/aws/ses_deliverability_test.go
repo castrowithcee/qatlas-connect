@@ -411,15 +411,20 @@ func TestSESDeliverabilityRefusalsBeforeAnyIO(t *testing.T) {
 	}
 }
 
-// No sesv2 tool starts or cancels an import or export job: only their reads exist.
-func TestSESJobToolsOnlyRead(t *testing.T) {
+// The job tools of sesv2 that change something are the three that start and cancel jobs, and each of them needs
+// confirmation.
+func TestSESJobToolsThatChangeAreTheThreeWrites(t *testing.T) {
 	for _, s := range generatedSpecs {
 		if s.service != "ses" {
 			continue
 		}
 		for _, job := range []string{"/import-jobs", "/export-jobs", "/list-export-jobs"} {
-			if strings.Contains(s.rest.URI, job) && s.descriptor.Risk.Effect != capability.EffectRead {
-				t.Errorf("%s changes jobs: %s", s.descriptor.ID, s.rest.URI)
+			if !strings.Contains(s.rest.URI, job) {
+				continue
+			}
+			changes := s.descriptor.Risk.Effect != capability.EffectRead
+			if changes != sesJobWriteTools[s.descriptor.ID] || (changes && s.descriptor.Risk.Confirmation != capability.ConfirmationRequired) {
+				t.Errorf("%s: effect %s, confirmation %s: %s", s.descriptor.ID, s.descriptor.Risk.Effect, s.descriptor.Risk.Confirmation, s.rest.URI)
 			}
 		}
 	}

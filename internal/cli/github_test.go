@@ -136,7 +136,7 @@ func TestGitHubToolsAreDiscoverable(t *testing.T) {
 		t.Fatalf("exit=%d stderr=%q", code, stderr)
 	}
 	for _, want := range []string{
-		"tools[388]{id,title,effect,requires,target,confirm,connections,reason}:", "github.issues.get,Get a GitHub issue,read,", "github.issues.list,List GitHub issues,read,",
+		"tools[390]{id,title,effect,requires,target,confirm,connections,reason}:", "github.issues.get,Get a GitHub issue,read,", "github.issues.list,List GitHub issues,read,",
 		"github.contents.get,Get GitHub repository contents,read,", "github.trees.get,Get a GitHub repository tree,read,",
 		"github.branches.create,Create a GitHub branch,create,", "github.branches.delete,Delete a GitHub branch,delete,", "github.contents.put,Create or update a GitHub repository file,update,",
 		"github.contents.delete,Delete a GitHub repository file,delete,",
@@ -202,6 +202,7 @@ func TestGitHubToolsAreDiscoverable(t *testing.T) {
 		"github.deployment-branch-policies.create,Create a GitHub deployment branch policy,create,",
 		"github.deployment-branch-policies.update,Update a GitHub deployment branch policy,update,",
 		"github.deployment-branch-policies.delete,Delete a GitHub deployment branch policy,delete,",
+		"github.deployments.create,Create a GitHub deployment,create,", "github.deployments.delete,Delete a GitHub deployment,delete,",
 		"github.deployments.list,List GitHub deployments,read,", "github.deployments.get,Get a GitHub deployment,read,",
 		"github.deployment-statuses.list,List GitHub deployment statuses,read,",
 		"github.deployment-statuses.get,Get a GitHub deployment status,read,",
