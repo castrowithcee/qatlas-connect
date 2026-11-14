@@ -27,10 +27,14 @@ import (
 const secretSensitivity = "github-actions-secret"
 
 // secretFamily names one family of secrets: the REST segment below a repository or an organization and the
-// label of messages.
-type secretFamily struct{ route, label string }
+// label of messages, the fine-grained permission that grants them, and whether the family has secrets of an
+// environment: Dependabot has none, so its path never takes the environment route.
+type secretFamily struct {
+	route, label, grant string
+	environments        bool
+}
 
-var actionSecretFamily = secretFamily{route: "actions", label: "Actions"}
+var actionSecretFamily = secretFamily{route: "actions", label: "Actions", grant: "Secrets", environments: true}
 
 const secretNameSchema = variableNameSchema
 
@@ -41,28 +45,46 @@ const secretProperties = `"name":{"type":"string"},"created_at":{"type":"string"
 
 const secretRequired = `"required":["name"],"additionalProperties":false`
 
-var secretListOutput = `{"type":"object","properties":{"secrets":{"type":"array","items":{"type":"object",` +
-	`"properties":{` + secretProperties + `},` + secretRequired + `}},"total_count":{"type":"integer"},` +
-	`"next_cursor":{"type":"string"},"has_more":{"type":"boolean"},` + variableTargetProperties + `},` +
-	`"required":["secrets","total_count","has_more"],"additionalProperties":false}`
+// secretListOutputFor, secretOutputFor, and secretDeletedOutputFor give the output schemas for the target
+// members a family names: Dependabot answers no environment.
+func secretListOutputFor(targets string) string {
+	return `{"type":"object","properties":{"secrets":{"type":"array","items":{"type":"object",` +
+		`"properties":{` + secretProperties + `},` + secretRequired + `}},"total_count":{"type":"integer"},` +
+		`"next_cursor":{"type":"string"},"has_more":{"type":"boolean"},` + targets + `},` +
+		`"required":["secrets","total_count","has_more"],"additionalProperties":false}`
+}
 
-var secretOutput = `{"type":"object","properties":{` + secretProperties + `,` + variableTargetProperties + `},` +
-	secretRequired + `}`
+func secretOutputFor(targets string) string {
+	return `{"type":"object","properties":{` + secretProperties + `,` + targets + `},` + secretRequired + `}`
+}
+
+func secretDeletedOutputFor(targets string) string {
+	return `{"type":"object","properties":{"deleted":{"type":"boolean"},"name":{"type":"string"},` + targets +
+		`},"required":["deleted","name"],"additionalProperties":false}`
+}
+
+var secretListOutput = secretListOutputFor(variableTargetProperties)
+
+var secretOutput = secretOutputFor(variableTargetProperties)
 
 var secretRepositoriesOutput = `{"type":"object","properties":{"repositories":{"type":"array","items":` +
 	restRepositorySchema + `},"total_count":{"type":"integer"},"withheld":{"type":"integer"},` +
 	`"next_cursor":{"type":"string"},"has_more":{"type":"boolean"},"organization":{"type":"string"}},` +
 	`"required":["repositories","total_count","has_more"],"additionalProperties":false}`
 
-var secretDeletedOutput = variableDeletedOutput
+var secretDeletedOutput = secretDeletedOutputFor(variableTargetProperties)
 
-var secretMemberFields = []capability.Field{
-	{Name: "name", Description: "Name of the secret as GitHub stores it, untrusted data; the value is never read"},
-	{Name: "created_at", Description: "Creation time"},
-	{Name: "updated_at", Description: "Time of the last change"},
-	{Name: "visibility", Description: "For an organization secret: all, private, or selected repositories"},
-	{Name: "selected_repositories_url", Description: "For an organization secret: REST address of its selected " +
-		"repositories, untrusted data, never fetched; github.action-secret-repositories.list reads them"},
+var secretMemberFields = secretMembersOf("github.action-secret-repositories.list")
+
+func secretMembersOf(repositoriesTool string) []capability.Field {
+	return []capability.Field{
+		{Name: "name", Description: "Name of the secret as GitHub stores it, untrusted data; the value is never read"},
+		{Name: "created_at", Description: "Creation time"},
+		{Name: "updated_at", Description: "Time of the last change"},
+		{Name: "visibility", Description: "For an organization secret: all, private, or selected repositories"},
+		{Name: "selected_repositories_url", Description: "For an organization secret: REST address of its selected " +
+			"repositories, untrusted data, never fetched; " + repositoriesTool + " reads them"},
+	}
 }
 
 var secretNameArgument = capability.Argument{Name: "name", Description: "Name of the secret: letters, digits, " +
@@ -175,23 +197,26 @@ var actionSecretsDelete = capability.Descriptor{
 
 // actionSecretsOperations binds every Actions secret tool to its handler.
 func actionSecretsOperations() []capability.Operation {
-	family := actionSecretFamily
+	return secretOperations(actionSecretFamily, actionSecretsList, actionSecretsGet, actionSecretRepositoriesList,
+		actionSecretsDelete)
+}
+
+// secretOperations binds the four tools of one secret family to their handlers.
+func secretOperations(family secretFamily, list, get, repositories, remove capability.Descriptor) []capability.Operation {
 	return []capability.Operation{
-		{Descriptor: actionSecretsList, Handler: secretsHandler(family, actionSecretsList.ID, false,
-			checkSecretsList,
+		{Descriptor: list, Handler: secretsHandler(family, list.ID, false, checkSecretsList,
 			func(ctx context.Context, c *Client, a *secretArguments) (any, error) {
 				return c.listSecrets(ctx, family, a)
 			})},
-		{Descriptor: actionSecretsGet, Handler: secretsHandler(family, actionSecretsGet.ID, false, checkSecretName,
+		{Descriptor: get, Handler: secretsHandler(family, get.ID, false, checkSecretName,
 			func(ctx context.Context, c *Client, a *secretArguments) (any, error) {
 				return c.getSecret(ctx, family, a)
 			})},
-		{Descriptor: actionSecretRepositoriesList, Handler: secretsHandler(family, actionSecretRepositoriesList.ID,
-			true, checkSecretRepositories,
+		{Descriptor: repositories, Handler: secretsHandler(family, repositories.ID, true, checkSecretRepositories,
 			func(ctx context.Context, c *Client, a *secretArguments) (any, error) {
 				return c.listSecretRepositories(ctx, family, a)
 			})},
-		{Descriptor: actionSecretsDelete, Handler: secretsHandler(family, actionSecretsDelete.ID, false, checkSecretName,
+		{Descriptor: remove, Handler: secretsHandler(family, remove.ID, false, checkSecretName,
 			func(ctx context.Context, c *Client, a *secretArguments) (any, error) {
 				return c.deleteSecret(ctx, family, a)
 			})},
@@ -229,6 +254,9 @@ func secretsHandler(family secretFamily, id string, organizationOnly bool,
 		}
 		if organizationOnly && bound.kind != kindOwner {
 			return nil, invalidRequest("organization is required as orgs/LOGIN")
+		}
+		if environment != "" && !family.environments {
+			return nil, invalidRequest("environment is not available for " + family.label + " secrets")
 		}
 		arguments.environment = environment
 		allowed, err := allowlistOf(resolved)
@@ -286,7 +314,7 @@ func (f secretFamily) path(c *Client, environment, name string) string {
 	switch {
 	case c.target.kind == kindOwner:
 		path = c.orgPath(f.route + "/secrets")
-	case environment != "":
+	case environment != "" && f.environments:
 		path = c.repoPath("environments/" + url.PathEscape(environment) + "/secrets")
 	default:
 		path = c.repoPath(f.route + "/secrets")
@@ -307,10 +335,10 @@ func (f secretFamily) permission(t target, change bool) string {
 	if t.kind == kindOwner {
 		return "GitHub refused this token the " + f.label + " secrets of this organization; " + verb + " admin:org " +
 			"on a classic token, and repo as well where a private repository is involved, or the organization " +
-			"permission Secrets: " + access + " on a fine-grained token"
+			"permission " + f.grant + ": " + access + " on a fine-grained token"
 	}
 	return "GitHub refused this token the " + f.label + " secrets of this repository or environment; " + verb +
-		" repo on a classic token, or Secrets: " + access + " on a fine-grained token"
+		" repo on a classic token, or " + f.grant + ": " + access + " on a fine-grained token"
 }
 
 // secretRaw is a secret as GitHub answers it. It has no member for a value, so none can be decoded.
@@ -452,6 +480,9 @@ func (f secretFamily) subject(path string) string {
 	collection, member, of := "the "+f.label+" secrets", f.label+" secret", ""
 	rest, ok := strings.CutPrefix(path, f.route+"/secrets")
 	if !ok {
+		if !f.environments {
+			return ""
+		}
 		tail, found := strings.CutPrefix(path, "environments/")
 		segment, after, cut := strings.Cut(tail, "/")
 		if !found || !cut {

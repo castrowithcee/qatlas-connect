@@ -18,7 +18,8 @@ import (
 	"github.com/castrowithcee/qatlas-kit/redact"
 )
 
-var secretReadIDs = []string{actionSecretsList.ID, actionSecretsGet.ID, actionSecretRepositoriesList.ID}
+var secretReadIDs = []string{actionSecretsList.ID, actionSecretsGet.ID, actionSecretRepositoriesList.ID,
+	dependabotSecretsList.ID, dependabotSecretsGet.ID, dependabotSecretRepositoriesList.ID}
 
 // secretValueCanary stands for a value or an encrypted value a server adds to an answer; it must never reach an
 // output. secretProviderCanary stands for GitHub's own text of a refusal.
@@ -50,6 +51,11 @@ func serveSecrets(t *testing.T) (*fakeGitHub, *fakeSecrets, string) {
 	s.put("orgs/octo-org", map[string]any{"name": "SHARED_TOKEN", "created_at": "2026-01-02T03:04:05Z",
 		"updated_at": "2026-01-03T03:04:05Z", "visibility": "selected",
 		"selected_repositories_url": "https://api.github.com/orgs/octo-org/actions/secrets/SHARED_TOKEN/repositories"})
+	s.put("dependabot:repos/octo-org/example", map[string]any{"name": "REGISTRY_TOKEN",
+		"created_at": "2026-02-02T03:04:05Z", "updated_at": "2026-02-03T03:04:05Z"})
+	s.put("dependabot:orgs/octo-org", map[string]any{"name": "SHARED_REGISTRY", "created_at": "2026-02-02T03:04:05Z",
+		"updated_at": "2026-02-03T03:04:05Z", "visibility": "selected",
+		"selected_repositories_url": "https://api.github.com/orgs/octo-org/dependabot/secrets/SHARED_REGISTRY/repositories"})
 	f := &fakeGitHub{}
 	s.f = f
 	f.failure = s.route
@@ -70,6 +76,12 @@ func (s *fakeSecrets) put(level string, secret map[string]any) {
 }
 
 func secretLevel(escaped string) (level, rest string, ok bool) {
+	if tail, found := strings.CutPrefix(escaped, "/api/v3/orgs/octo-org/dependabot/secrets"); found {
+		return "dependabot:orgs/octo-org", tail, true
+	}
+	if tail, found := strings.CutPrefix(escaped, "/api/v3/repos/octo-org/example/dependabot/secrets"); found {
+		return "dependabot:repos/octo-org/example", tail, true
+	}
 	if tail, found := strings.CutPrefix(escaped, "/api/v3/orgs/octo-org/actions/secrets"); found {
 		return "orgs/octo-org", tail, true
 	}
@@ -130,7 +142,7 @@ func (s *fakeSecrets) route(w http.ResponseWriter, req *http.Request) bool {
 			entries = append(entries, string(data))
 		}
 		fmt.Fprintf(w, `{"total_count":%d,"secrets":[%s]}`, len(keys), strings.Join(entries, ","))
-	case req.Method == http.MethodGet && tail == "repositories" && level == "orgs/octo-org":
+	case req.Method == http.MethodGet && tail == "repositories" && strings.HasSuffix(level, "orgs/octo-org"):
 		if _, exists := s.store[level][key]; !exists {
 			return notFound()
 		}
@@ -162,7 +174,8 @@ func (s *fakeSecrets) route(w http.ResponseWriter, req *http.Request) bool {
 }
 
 var secretTools = []string{actionSecretsList.ID, actionSecretsGet.ID, actionSecretRepositoriesList.ID,
-	actionSecretsDelete.ID}
+	actionSecretsDelete.ID, dependabotSecretsList.ID, dependabotSecretsGet.ID, dependabotSecretRepositoriesList.ID,
+	dependabotSecretsDelete.ID}
 
 // secretsConfig binds the connection shapes the secret tools distinguish, like variablesConfig.
 func secretsConfig(base string) *config.Config {
