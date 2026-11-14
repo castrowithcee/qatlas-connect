@@ -77,7 +77,13 @@ only the actions of the tools the connection lists.
 
 The [region tools](account.md) need `account:ListRegions`, `account:GetRegionOptStatus`, `account:EnableRegion`, and
 `account:DisableRegion`, each for its own tool. `account:EnableRegion` and `account:DisableRegion` change the account;
-grant them only when the connection should opt regions in or out. The tools act on the bound account only.
+grant them only when the connection should opt regions in or out. The [contact tools](account.md#contacts-and-account-information)
+need `account:GetAccountInformation` and `account:PutAccountName` (`information.get`, `name.put`),
+`account:GetContactInformation` and `account:PutContactInformation` (`contact-information`),
+`account:GetAlternateContact`, `account:PutAlternateContact`, and `account:DeleteAlternateContact` (`alternate-contact`),
+and `account:GetPrimaryEmail` (`primary-email.get`). The `Put` and `Delete` actions change who receives billing,
+operations, and security notices of AWS; grant them only when the connection should manage contacts. The tools act on
+the bound account only.
 
 ### SES
 
