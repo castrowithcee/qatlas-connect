@@ -46,6 +46,7 @@ var guards = map[string]guard{
 	"acm-certificate-arn":         checkACMCertificateARN,
 	"s3-report-destination":       checkReportDestination,
 	"ses-job-url":                 checkSESJobURL,
+	"region-name":                 checkAccountRegionName,
 
 	"ses-configuration-set-values": checkSESConfigurationSetValues,
 }
