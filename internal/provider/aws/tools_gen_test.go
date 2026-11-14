@@ -15,6 +15,9 @@ var excludedSTSActions = []string{"AssumeRole", "AssumeRoleWithSAML", "AssumeRol
 // excludedIAMActions are the operations the iam table excludes; no tool may send one.
 var excludedIAMActions = []string{"AcceptDelegationRequest", "AddClientIDToOpenIDConnectProvider", "ChangePassword", "CreateAccessKey", "CreateDelegationRequest", "CreateLoginProfile", "CreateOpenIDConnectProvider", "CreateSAMLProvider", "CreateServiceSpecificCredential", "CreateUser", "CreateVirtualMFADevice", "EnableMFADevice", "EnableOutboundWebIdentityFederation", "ResetServiceSpecificCredential", "ResyncMFADevice", "SendDelegationToken", "UpdateLoginProfile", "UpdateOpenIDConnectProviderThumbprint", "UpdateSAMLProvider", "UploadSSHPublicKey", "UploadServerCertificate", "UploadSigningCertificate"}
 
+// excludedACCOUNTActions are the operations the account table excludes; no tool may send one.
+var excludedACCOUNTActions = []string{"StartPrimaryEmailUpdate", "AcceptPrimaryEmailUpdate"}
+
 // excludedSESActions are the operations the ses table excludes; no tool may send one.
 var excludedSESActions = []string{"CreateConfigurationSetEventDestination", "DeleteConfigurationSetEventDestination", "UpdateConfigurationSetEventDestination", "SendCustomVerificationEmail", "CreateCustomVerificationEmailTemplate", "DeleteCustomVerificationEmailTemplate", "GetCustomVerificationEmailTemplate", "ListCustomVerificationEmailTemplates", "UpdateCustomVerificationEmailTemplate"}
 
@@ -469,6 +472,30 @@ var generatedCases = []struct {
 		answer:    `<ListPoliciesGrantingServiceAccessResponse xmlns="https://iam.amazonaws.com/doc/2010-05-08/"><ListPoliciesGrantingServiceAccessResult><PoliciesGrantingServiceAccess><member><ServiceNamespace>x</ServiceNamespace><Policies><member><PolicyName>x</PolicyName><PolicyType>x</PolicyType><PolicyArn>x</PolicyArn><EntityType>x</EntityType><EntityName>x</EntityName></member></Policies></member></PoliciesGrantingServiceAccess><IsTruncated>false</IsTruncated></ListPoliciesGrantingServiceAccessResult></ListPoliciesGrantingServiceAccessResponse>`,
 		form:      map[string]string{"Arn": "arn:aws:iam::123456789012:role/a", "ServiceNamespaces.member.1": "a"},
 		token:     false, confirm: false, listed: false, result: []string{"policies_granting_service_access", "has_more"}},
+	{tool: "aws.account.region.list", action: "",
+		arguments: `{"account_id":"123456789012","region_opt_status_contains":["ENABLED"]}`,
+		answer:    `{"Regions":[{"RegionName":"x","RegionOptStatus":"x"}]}`,
+		form:      map[string]string{},
+		token:     false, confirm: false, listed: false, result: []string{"has_more"},
+		method: "POST", path: "/listRegions", rawQuery: "", body: `{"AccountId":"123456789012","RegionOptStatusContains":["ENABLED"]}`},
+	{tool: "aws.account.region.get-opt-status", action: "",
+		arguments: `{"account_id":"123456789012","region_name":"af-south-1"}`,
+		answer:    `{"RegionName":"x","RegionOptStatus":"x"}`,
+		form:      map[string]string{},
+		token:     false, confirm: false, listed: false, result: nil,
+		method: "POST", path: "/getRegionOptStatus", rawQuery: "", body: `{"AccountId":"123456789012","RegionName":"af-south-1"}`},
+	{tool: "aws.account.region.enable", action: "",
+		arguments: `{"account_id":"123456789012","region_name":"af-south-1"}`,
+		answer:    "{}",
+		form:      map[string]string{},
+		token:     false, confirm: true, listed: false, result: nil,
+		method: "POST", path: "/enableRegion", rawQuery: "", body: `{"AccountId":"123456789012","RegionName":"af-south-1"}`},
+	{tool: "aws.account.region.disable", action: "",
+		arguments: `{"account_id":"123456789012","region_name":"af-south-1"}`,
+		answer:    "{}",
+		form:      map[string]string{},
+		token:     false, confirm: true, listed: false, result: nil,
+		method: "POST", path: "/disableRegion", rawQuery: "", body: `{"AccountId":"123456789012","RegionName":"af-south-1"}`},
 	{tool: "aws.ses.email-identity.list", action: "",
 		arguments: `{"filter":{"k":"a"}}`,
 		answer:    `{"EmailIdentities":[{"IdentityType":"x","IdentityName":"x","SendingEnabled":true,"VerificationStatus":"x"}]}`,
@@ -1876,6 +1903,7 @@ func TestGeneratedExclusionsAreNoTools(t *testing.T) {
 	excluded := map[string][]string{
 		"sts":     excludedSTSActions,
 		"iam":     excludedIAMActions,
+		"account": excludedACCOUNTActions,
 		"ses":     excludedSESActions,
 		"s3":      excludedS3Actions,
 		"route53": excludedROUTE53Actions,

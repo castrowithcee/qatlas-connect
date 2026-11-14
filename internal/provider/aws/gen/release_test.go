@@ -185,7 +185,8 @@ func TestLimitsGuardsAndReadbacksAreChecked(t *testing.T) {
 				o.Operation != "CopyObject" && o.Operation != "PutObject" && o.Operation != "SendEmail" && o.Operation != "SendBulkEmail" &&
 				o.Operation != "AssociateEmailIdentityCertificate" && o.Operation != "CreateMultiRegionEndpoint" &&
 				o.Operation != "PutBucketInventoryConfiguration" && o.Operation != "PutBucketAnalyticsConfiguration" &&
-				o.Operation != "CreateMultipartUpload" && o.Operation != "UploadPartCopy" {
+				o.Operation != "CreateMultipartUpload" && o.Operation != "UploadPartCopy" &&
+				o.Operation != "GetRegionOptStatus" && o.Operation != "EnableRegion" && o.Operation != "DisableRegion" {
 				t.Errorf("%s: guards %v", o.Operation, o.Guards)
 			}
 		}
