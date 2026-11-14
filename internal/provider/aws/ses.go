@@ -81,6 +81,61 @@ func checkSESConfigurationSet(_ binding, _ bool, name, value string) error {
 	return nil
 }
 
+// checkSESResourceARN accepts the ARN of an identity, a configuration set, or an email template in the bound
+// account and an allowed region: the resources a tenant can hold and a reputation entity refers to.
+func checkSESResourceARN(b binding, global bool, name, value string) error {
+	if err := checkARNRegion(b, global, name, value); err != nil {
+		return err
+	}
+	parts := strings.SplitN(value, ":", 6)
+	if parts[2] == "ses" {
+		if resource, ok := strings.CutPrefix(parts[5], "identity/"); ok && validIdentity(resource) {
+			return nil
+		}
+		if resource, ok := strings.CutPrefix(parts[5], "configuration-set/"); ok && configSetName.MatchString(resource) {
+			return nil
+		}
+		if checkSESTemplateARN(b, name, value) == nil {
+			return nil
+		}
+	}
+	return &provider.InvalidRequestError{Message: name + " must be the ARN of an SES identity, configuration set, or email template"}
+}
+
+// tenantARNResource is the resource part of a tenant ARN: the name and, as SES returns it, the ID.
+var tenantARNResource = regexp.MustCompile(`^tenant/[A-Za-z0-9_-]{1,64}(/[A-Za-z0-9_-]{1,128})?$`)
+
+// checkSESReputationEntityARN accepts what a reputation entity refers to: a tenant, or an identity, a
+// configuration set, or a template, in the bound account and an allowed region.
+func checkSESReputationEntityARN(b binding, global bool, name, value string) error {
+	if err := checkARNRegion(b, global, name, value); err != nil {
+		return err
+	}
+	if parts := strings.SplitN(value, ":", 6); parts[2] == "ses" && tenantARNResource.MatchString(parts[5]) {
+		return nil
+	}
+	if checkSESResourceARN(b, global, name, value) != nil {
+		return &provider.InvalidRequestError{Message: name + " must be the ARN of an SES tenant, identity, configuration set, or email template"}
+	}
+	return nil
+}
+
+// reputationPolicies are the policies SES manages; a customer has none of their own.
+var reputationPolicies = []string{"none", "standard", "strict"}
+
+// checkSESReputationPolicyARN accepts exactly an SES-managed reputation policy of an allowed region: the
+// account segment is "aws", so no ARN of any account, the bound one included, passes.
+func checkSESReputationPolicyARN(b binding, _ string, args map[string]any) error {
+	value, _ := args["reputation_entity_policy"].(string)
+	parts := strings.SplitN(value, ":", 6)
+	if len(parts) == 6 && parts[0] == "arn" && parts[1] == "aws" && parts[2] == "ses" && slices.Contains(b.regions, parts[3]) &&
+		parts[4] == "aws" && strings.HasPrefix(parts[5], "reputation-policy/") &&
+		slices.Contains(reputationPolicies, strings.TrimPrefix(parts[5], "reputation-policy/")) {
+		return nil
+	}
+	return &provider.InvalidRequestError{Message: "reputation_entity_policy must be arn:aws:ses:REGION:aws:reputation-policy/none, standard, or strict with a region this connection allows"}
+}
+
 // checkACMCertificateARN accepts only the ARN of an ACM certificate in the bound account and an allowed region.
 func checkACMCertificateARN(b binding, _ string, args map[string]any) error {
 	value, _ := args["certificate_arn"].(string)

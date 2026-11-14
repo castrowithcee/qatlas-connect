@@ -219,7 +219,7 @@ func TestLimitsGuardsAndReadbacksAreChecked(t *testing.T) {
 				o.Operation != "AssociateVPCWithHostedZone" && o.Operation != "DisassociateVPCFromHostedZone" && o.Operation != "DeleteVPCAssociationAuthorization" &&
 				o.Operation != "CreateConfigurationSet" && o.Operation != "PutConfigurationSetTrackingOptions" && o.Operation != "PutConfigurationSetArchivingOptions" &&
 				o.Operation != "CopyObject" && o.Operation != "PutObject" && o.Operation != "SendEmail" && o.Operation != "SendBulkEmail" &&
-				o.Operation != "AssociateEmailIdentityCertificate" &&
+				o.Operation != "AssociateEmailIdentityCertificate" && o.Operation != "UpdateReputationEntityPolicy" &&
 				o.Operation != "PutBucketInventoryConfiguration" && o.Operation != "PutBucketAnalyticsConfiguration" &&
 				o.Operation != "CreateMultipartUpload" && o.Operation != "UploadPartCopy" &&
 				o.Operation != "GetRegionOptStatus" && o.Operation != "EnableRegion" && o.Operation != "DisableRegion" {
