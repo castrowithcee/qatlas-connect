@@ -329,7 +329,7 @@ func variablesHandler(id string, check func(*variableArguments, allowlist, targe
 		if err := json.Unmarshal(raw, &arguments); err != nil {
 			return nil, unreadable(id)
 		}
-		bound, environment, err := selectVariableTarget(resolved, raw)
+		bound, environment, err := selectVariableTarget(resolved, raw, "variable")
 		if err != nil {
 			return nil, err
 		}
@@ -352,8 +352,9 @@ func variablesHandler(id string, check func(*variableArguments, allowlist, targe
 
 // selectVariableTarget reads the exclusive repository or organization argument and the optional environment
 // of a repository, the way selectRulesetTarget reads its own two: never both, never neither, and never an
-// environment without a repository, so a call never falls back to a level the caller did not name.
-func selectVariableTarget(resolved *config.Resolved, raw json.RawMessage) (target, string, error) {
+// environment without a repository, so a call never falls back to a level the caller did not name. noun
+// names what the tool addresses in a refusal; the secret tools share this selection.
+func selectVariableTarget(resolved *config.Resolved, raw json.RawMessage, noun string) (target, string, error) {
 	if resolved == nil {
 		return target{}, "", providerError("open", "no connection was selected")
 	}
@@ -369,7 +370,7 @@ func selectVariableTarget(resolved *config.Resolved, raw json.RawMessage) (targe
 	hasOrganization := strings.TrimSpace(arguments.Organization) != ""
 	if arguments.Environment != nil && !hasRepository {
 		return target{}, "", invalidRequest("environment needs repository and never comes with organization; " +
-			"an organization variable has no environment")
+			"an organization " + noun + " has no environment")
 	}
 	if hasRepository == hasOrganization {
 		return target{}, "", invalidRequest("give exactly one of repository or organization, never both or neither")

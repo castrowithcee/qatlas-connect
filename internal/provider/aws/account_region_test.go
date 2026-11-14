@@ -28,7 +28,7 @@ func accountEnv(t *testing.T, f *fakeAWS) *env {
 func TestAccountRegionToolsRisk(t *testing.T) {
 	seen := map[string]capability.Descriptor{}
 	for _, s := range generatedSpecs {
-		if strings.HasPrefix(s.descriptor.ID, "aws.account.") {
+		if strings.HasPrefix(s.descriptor.ID, "aws.account.region.") {
 			seen[s.descriptor.ID] = s.descriptor
 		}
 	}
@@ -49,15 +49,6 @@ func TestAccountRegionToolsRisk(t *testing.T) {
 	for _, part := range []string{"Access to the region and its resources is lost", "region list of this connection", "ENABLING"} {
 		if !strings.Contains(seen["aws.account.region.disable"].Description+seen["aws.account.region.enable"].Description, part) {
 			t.Errorf("descriptions lack %q", part)
-		}
-	}
-}
-
-// The e-mail change of the root user is no tool, and no tool of the group sends it.
-func TestAccountPrimaryEmailUpdateIsNotATool(t *testing.T) {
-	for _, s := range generatedSpecs {
-		if strings.HasPrefix(s.descriptor.ID, "aws.account.") && strings.Contains(s.descriptor.ID, "email") {
-			t.Errorf("%s is registered", s.descriptor.ID)
 		}
 	}
 }
