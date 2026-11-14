@@ -928,7 +928,7 @@ func Register(reg *capability.Registry) error {
 		labelsOperations(), autolinksOperations(), milestonesOperations(), commentMaintenanceOperations(), commentVisibilityOperations(), issueLockOperations(), reactionsOperations(),
 		subIssuesOperations(), issueDependenciesOperations(), issueHistoryOperations(), issueTypesOperations(), issueFieldsOperations(),
 		discussionOperations(), notificationOperations(), gistOperations(), securityAlertOperations(), securityAlertUpdateOperations(), securityAlertDetailOperations(), advisoryOperations(), securitySettingsOperations(),
-		copilotOperations(), environmentsOperations(), deploymentsOperations(), referenceOperations())...)
+		copilotOperations(), environmentsOperations(), deploymentsOperations(), referenceOperations(), billingOperations())...)
 	for i := range operations {
 		operations[i].Descriptor = withGroup(withTargetArgument(operations[i].Descriptor))
 	}
