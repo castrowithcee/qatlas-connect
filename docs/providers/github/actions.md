@@ -40,7 +40,7 @@ No observer or operator tool changes a workflow file or a setting; that is the l
 Environments with their deployment branch policies and protection rules, and deployments, have [their own
 page](environments.md), as do [Actions caches and the cleanup of runs and artifacts](actions-maintenance.md);
 Actions variables, Actions secrets, and Dependabot secrets have tools under [Actions variables](#actions-variables),
-[Actions secrets](#actions-secrets), and [Dependabot secrets](#dependabot-secrets). No tool approves or creates a deployment, sets a secret, administers an
+[Actions secrets](#actions-secrets), and [Dependabot secrets](#dependabot-secrets). No tool approves or creates a deployment, sets a Dependabot secret, administers an
 organization, or registers runners; the [self-hosted
 runners](#self-hosted-runners) and the [runner groups and hosted runners](#runner-groups-and-hosted-runners)
 have their own listed-only tools.
@@ -202,14 +202,15 @@ and, for an organization, the visibility and the selected repositories. The toke
 | `github.action-secrets.list` | lists the names and times of the secrets of a repository, an environment, or an organization |
 | `github.action-secrets.get` | reads the name and times of one secret by name |
 | `github.action-secret-repositories.list` | lists the repositories that may use an organization secret whose visibility is `selected` |
+| `github.action-secrets.set` | creates a secret or replaces its value from a local file; listed-only |
 | `github.action-secrets.delete` | deletes one secret permanently; listed-only |
 
-The tools read and delete; they never read, send, or return a value. GitHub does not answer one, and no output has
-a member for one, so a value that appears in a provider answer is dropped. No tool sets a secret or reads the public
-key, changes the selected repositories of an organization secret, or covers Codespaces secrets or the enterprise
-level; [Dependabot secrets](#dependabot-secrets) have their own tools.
+The tools read, set, and delete; none returns a value. GitHub does not answer one, and no output has a member for
+one, so a value that appears in a provider answer is dropped. No tool reads the public key on its own, changes the
+selected repositories of an existing organization secret without setting its value, or covers Codespaces secrets or
+the enterprise level; [Dependabot secrets](#dependabot-secrets) have their own tools.
 
-`github.action-secrets.list`, `.get`, and `.delete` take exactly one of `repository` or `organization`, like the
+`github.action-secrets.list`, `.get`, `.set`, and `.delete` take exactly one of `repository` or `organization`, like the
 [Actions variables](#actions-variables), and `environment` together with `repository` for the secrets of one
 environment of that repository; it never comes with `organization`. An organization must be an owner target of the
 connection, given as `orgs/LOGIN`. Both, neither, an environment without a repository, a target outside the
@@ -225,9 +226,33 @@ for a secret whose visibility is `selected`. A repository outside the connection
 not listed; `withheld` counts those in the batch, and `total_count` is the number GitHub reports for the secret.
 Each listed repository carries the members of a repository answer; `fields` narrows an entry.
 
-A connection that selects by `effects` offers the three reads; the delete is listed only and needs its name in a
-connection's `tools` list. It needs confirmation, is sent exactly once without a retry, and an unclear outcome says
-that the secret may have been deleted. The token rights are listed under [GitHub Actions](setup.md#github-actions).
+`github.action-secrets.set` takes `name`, `local_path`, the same target selection, and, for an organization secret,
+`visibility` and `selected_repositories`. The value is never an argument: `local_path` names a file, absolute or
+starting with `~/`, inside a directory the connection releases for reading in `files.read`, and the whole content
+of that file is the value, unchanged and untrimmed, so a line break at the end of the file is part of the secret.
+The file must be a regular file of 1 byte to 48 KB; a path outside the released directories, a symbolic link that
+leaves them, a missing, an empty, and a larger file are refused. No message names the path or the content. Qatlas
+seals the value locally as a libsodium sealed box with the public key GitHub serves for the same level, read right
+before the write, and sends only the sealed text with the key identifier; a key that is not Base64 of exactly 32
+bytes ends the call without a write.
+
+An organization secret needs `visibility`: `all`, `private`, or `selected`. With `selected`, `selected_repositories`
+lists up to 50 repositories as `OWNER/REPO`, each of the organization and inside the connection's repository
+targets and not excluded; Qatlas resolves their numeric identifiers, and the list replaces the current selection.
+`all` and `private` are refused when the connection's targets name single repositories of the organization or its
+exclusions cover repositories of it, since the secret would reach repositories outside them. `visibility` and
+`selected_repositories` are invalid for a repository or an environment. The call checks the arguments and the
+targets first, then the file, and only then resolves a credential; every refusal before that sends no request.
+
+The answer holds `state`, `created` when GitHub made a new secret and `updated` when it replaced the value of an
+existing one, the `name`, the `visibility` and `selected_repositories` that were sent, and the target. The write is
+idempotent for the same file content, needs confirmation, and is sent exactly once without a retry; an unclear
+outcome says that the secret may have been written.
+
+A connection that selects by `effects` offers the three reads; the set and the delete are listed only and need their
+names in a connection's `tools` list, and the set also needs `files.read`. The delete needs confirmation, is sent
+exactly once without a retry, and an unclear outcome says that the secret may have been deleted. The token rights
+are listed under [GitHub Actions](setup.md#github-actions).
 
 ## Dependabot secrets
 
