@@ -1,12 +1,13 @@
 package gen
 
 import (
+	"slices"
 	"strings"
 	"testing"
 )
 
 // Every deferred sesv2 operation has a reason of its own: no two groups of operations share the generic text of
-// an unfinished table, and the operations of the deliverability tools are no longer deferred.
+// an unfinished table, and the operations of the deliverability and dedicated IP tools are no longer deferred.
 func TestSESv2DeferredOperationsHaveTheirOwnReason(t *testing.T) {
 	reasons := map[string]string{}
 	for _, o := range sesv2Table.Defer {
@@ -19,8 +20,6 @@ func TestSESv2DeferredOperationsHaveTheirOwnReason(t *testing.T) {
 		reason string
 		ops    []string
 	}{
-		{reasonSESDedicated, []string{"CreateDedicatedIpPool", "DeleteDedicatedIpPool", "GetDedicatedIp", "GetDedicatedIpPool", "GetDedicatedIps",
-			"ListDedicatedIpPools", "PutDedicatedIpInPool", "PutDedicatedIpPoolScalingAttributes", "PutDedicatedIpWarmupAttributes"}},
 		{reasonSESTenants, []string{"CreateTenant", "DeleteTenant", "GetTenant", "ListTenants", "CreateTenantResourceAssociation",
 			"DeleteTenantResourceAssociation", "ListTenantResources", "ListResourceTenants", "PutTenantSuppressionAttributes",
 			"GetReputationEntity", "ListReputationEntities", "UpdateReputationEntityCustomerManagedStatus", "UpdateReputationEntityPolicy",
@@ -34,7 +33,7 @@ func TestSESv2DeferredOperationsHaveTheirOwnReason(t *testing.T) {
 			}
 		}
 	}
-	for _, tool := range sesDeliverabilityTools {
+	for _, tool := range slices.Concat(sesDeliverabilityTools, sesDedicatedTools) {
 		if _, deferred := reasons[tool.Operation]; deferred {
 			t.Errorf("%s is a tool and still deferred", tool.Operation)
 		}

@@ -4,7 +4,6 @@ import "slices"
 
 // Reasons of the sesv2 operations that stay deferred for a package of their own.
 const (
-	reasonSESDedicated       = "dedicated IPs and pools follow in their own package"
 	reasonSESTenants         = "tenants, reputation entities, and multi-region endpoints follow in their own package"
 	reasonSESJobStart        = "starting and cancelling import and export jobs waits for a decision on where the data may go"
 	reasonSESMessageSecurity = "sets the message security options of a configuration set, the signing of sent mail, which is not curated yet and needs its own decision on the effect on sent mail"
@@ -19,11 +18,11 @@ const reasonSESEvent = "an event destination sends the events of a configuration
 // the bound account: DKIM, MAIL FROM, feedback forwarding, the default configuration set, and tags. The
 // configuration set tools create and configure configuration sets and manage the suppression list; event
 // destinations are read only. The template and contact tools keep email templates, contact lists with topics,
-// and their contacts. The send tools send mail with confirmation. The remaining operations wait for the SES
-// tools that follow.
+// and their contacts. The send tools send mail with confirmation. The dedicated IP tools read and manage dedicated IP addresses and their pools. The remaining operations wait for
+// the SES tools that follow.
 var sesv2Table = Table{
 	Service: "sesv2", Segment: "ses", Geltung: Regional,
-	Operations: slices.Concat(sesIdentityTools, sesAccountTools, sesConfigurationTools, sesContactTools, sesSendTools, sesDeliverabilityTools),
+	Operations: slices.Concat(sesIdentityTools, sesAccountTools, sesConfigurationTools, sesContactTools, sesSendTools, sesDeliverabilityTools, sesDedicatedTools),
 	Exclude: []Omission{
 		{Operation: "CreateConfigurationSetEventDestination", Reason: reasonSESEvent},
 		{Operation: "DeleteConfigurationSetEventDestination", Reason: reasonSESEvent},
@@ -38,32 +37,23 @@ var sesv2Table = Table{
 	},
 	Defer: []Omission{
 		{Operation: "CancelExportJob", Reason: reasonSESJobStart},
-		{Operation: "CreateDedicatedIpPool", Reason: reasonSESDedicated},
 		{Operation: "CreateExportJob", Reason: reasonSESJobStart},
 		{Operation: "CreateImportJob", Reason: reasonSESJobStart},
 		{Operation: "CreateMultiRegionEndpoint", Reason: reasonSESTenants},
 		{Operation: "CreateTenant", Reason: reasonSESTenants},
 		{Operation: "CreateTenantResourceAssociation", Reason: reasonSESTenants},
-		{Operation: "DeleteDedicatedIpPool", Reason: reasonSESDedicated},
 		{Operation: "DeleteMultiRegionEndpoint", Reason: reasonSESTenants},
 		{Operation: "DeleteTenant", Reason: reasonSESTenants},
 		{Operation: "DeleteTenantResourceAssociation", Reason: reasonSESTenants},
-		{Operation: "GetDedicatedIp", Reason: reasonSESDedicated},
-		{Operation: "GetDedicatedIpPool", Reason: reasonSESDedicated},
-		{Operation: "GetDedicatedIps", Reason: reasonSESDedicated},
 		{Operation: "GetMultiRegionEndpoint", Reason: reasonSESTenants},
 		{Operation: "GetReputationEntity", Reason: reasonSESTenants},
 		{Operation: "GetTenant", Reason: reasonSESTenants},
-		{Operation: "ListDedicatedIpPools", Reason: reasonSESDedicated},
 		{Operation: "ListMultiRegionEndpoints", Reason: reasonSESTenants},
 		{Operation: "ListReputationEntities", Reason: reasonSESTenants},
 		{Operation: "ListResourceTenants", Reason: reasonSESTenants},
 		{Operation: "ListTenantResources", Reason: reasonSESTenants},
 		{Operation: "ListTenants", Reason: reasonSESTenants},
 		{Operation: "PutAccountPricingAttributes", Reason: reasonSESPricing},
-		{Operation: "PutDedicatedIpInPool", Reason: reasonSESDedicated},
-		{Operation: "PutDedicatedIpPoolScalingAttributes", Reason: reasonSESDedicated},
-		{Operation: "PutDedicatedIpWarmupAttributes", Reason: reasonSESDedicated},
 		{Operation: "PutTenantSuppressionAttributes", Reason: reasonSESTenants},
 		{Operation: "UpdateConfigurationSet", Reason: reasonSESMessageSecurity},
 		{Operation: "UpdateReputationEntityCustomerManagedStatus", Reason: reasonSESTenants},

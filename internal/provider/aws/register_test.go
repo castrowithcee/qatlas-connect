@@ -13,6 +13,14 @@ import (
 )
 
 var wantTools = []string{
+	"aws.account.alternate-contact.delete",
+	"aws.account.alternate-contact.get",
+	"aws.account.alternate-contact.put",
+	"aws.account.contact-information.get",
+	"aws.account.contact-information.put",
+	"aws.account.information.get",
+	"aws.account.name.put",
+	"aws.account.primary-email.get",
 	"aws.account.region.disable",
 	"aws.account.region.enable",
 	"aws.account.region.get-opt-status",
@@ -266,6 +274,15 @@ var wantTools = []string{
 	"aws.ses.contact.get",
 	"aws.ses.contact.list",
 	"aws.ses.contact.update",
+	"aws.ses.dedicated-ip-pool.create",
+	"aws.ses.dedicated-ip-pool.delete",
+	"aws.ses.dedicated-ip-pool.get",
+	"aws.ses.dedicated-ip-pool.list",
+	"aws.ses.dedicated-ip-pool.put-scaling-attributes",
+	"aws.ses.dedicated-ip.get",
+	"aws.ses.dedicated-ip.list",
+	"aws.ses.dedicated-ip.put-in-pool",
+	"aws.ses.dedicated-ip.put-warmup-attributes",
 	"aws.ses.deliverability-campaign.get",
 	"aws.ses.deliverability-campaign.list",
 	"aws.ses.deliverability-dashboard.get",
@@ -340,8 +357,8 @@ func TestRegisterPublishesMetadataAndTools(t *testing.T) {
 		// DNSSEC writes can make a domain unreachable, so they are listed-only; every other Route 53 write is not.
 		route53Write := tool.Effect != config.EffectRead && strings.HasPrefix(tool.ID, "aws.route53.") &&
 			tool.RequiresToolAllowList == route53DNSSECWrite(tool.ID)
-		// The region tools change the opt-in state of the account, not the sending or storing of data.
-		accountWrite := tool.Effect != config.EffectRead && strings.HasPrefix(tool.ID, "aws.account.region.") && !tool.RequiresToolAllowList
+		// The account tools change regions, contacts, and the name of the account, not the sending or storing of data.
+		accountWrite := tool.Effect != config.EffectRead && strings.HasPrefix(tool.ID, "aws.account.") && !tool.RequiresToolAllowList
 		if !(open || write || sesWrite || s3Write || route53Write || accountWrite) || tool.Group != strings.Split(tool.ID, ".")[1] {
 			t.Errorf("tool %+v, want an open read, a listed-only IAM write, an SES write (listed-only for identity policies), an S3 or a Route 53 write of the group named by its service segment", tool)
 		}
@@ -429,7 +446,7 @@ func TestSTSToolsAreTheCredentialFreeActions(t *testing.T) {
 			s3Write := strings.HasPrefix(d.ID, "aws.s3.") && d.RequiresToolAllowList == s3PolicyWrite(d.ID) ||
 				!d.RequiresToolAllowList && strings.HasPrefix(d.ID, "aws.route53.") && !route53DNSSECWrite(d.ID)
 			route53Listed := d.RequiresToolAllowList && route53DNSSECWrite(d.ID)
-			accountWrite := !d.RequiresToolAllowList && strings.HasPrefix(d.ID, "aws.account.region.")
+			accountWrite := !d.RequiresToolAllowList && strings.HasPrefix(d.ID, "aws.account.")
 			if !(listedIAM || sesWrite || s3Write || route53Listed || accountWrite) || d.Risk.Idempotency == capability.IdempotencySafe {
 				t.Errorf("%s is a write that is neither a listed-only IAM tool nor an SES or S3 tool: %+v", d.ID, d)
 			}
