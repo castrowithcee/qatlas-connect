@@ -322,6 +322,9 @@ refuses it otherwise, and Qatlas checks it before the request.
 | Read the members, one membership, the outside collaborators, and the pending invitations of an organization | `read:org` | Members: read (organization) |
 | Read an organization with its settings and plan | `admin:org` for the full details, as GitHub documents it; `read:org` shows less | Administration: read (organization); as far as GitHub documents it |
 | Read the organization roles of an organization | `admin:org` | Members: read (organization); GitHub names only `admin:org` and the role permission to view organization roles |
+| Change the settings of an organization | `admin:org` | Administration: read and write (organization) |
+| Set the role of an organization member, remove a member or an outside collaborator, cancel an invitation | `admin:org`, and owner rights in the organization | Members: read and write (organization), and owner rights in the organization |
+| Assign an organization role to a member | `admin:org`, and administrator rights or the role permission to assign organization roles | Members: read and write (organization), as far as GitHub documents it; plus administrator rights or that role permission |
 | Create, change, or delete a team; add an organization member to a team or remove one | `admin:org` | Members: read and write (organization) |
 | Set a team's permission on a repository or withdraw it | `admin:org` | Members: read and write (organization), plus Administration: read and write on the repository |
 | Search repositories, code, issues, pull requests, commits | none for public results; `repo` for private ones | Contents: read for private code and repositories; also Issues or Pull requests: read for issue and pull request search |

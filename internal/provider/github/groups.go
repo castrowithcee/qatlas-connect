@@ -21,7 +21,7 @@ var toolGroups = []config.ToolGroup{
 	{ID: "gists", Title: "Gists", Description: "Gists and their files"},
 	{ID: "notifications", Title: "Notifications", Description: "Notification threads and thread subscriptions"},
 	{ID: "packages", Title: "Packages", Description: "GitHub Packages of a user or an organization and their versions"},
-	{ID: "accounts", Title: "Accounts", Description: "Users, organizations, teams with their members, memberships, and repositories, the authenticated account and its rate limit, GitHub's meta information, license, .gitignore, and code of conduct templates, emojis, and Markdown rendering"},
+	{ID: "accounts", Title: "Accounts", Description: "Users, organizations with their settings, members, roles, outside collaborators, and invitations, teams with their members, memberships, and repositories, the authenticated account and its rate limit, GitHub's meta information, license, .gitignore, and code of conduct templates, emojis, and Markdown rendering"},
 }
 
 // groupBySegment maps the resource segment of a tool ID (github.<segment>.<action>) to its group. Segments
