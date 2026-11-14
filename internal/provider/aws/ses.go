@@ -96,6 +96,27 @@ func checkACMCertificateARN(b binding, _ string, args map[string]any) error {
 	return nil
 }
 
+// checkSESMultiRegion accepts a multi-region endpoint only when every region it spans is one the connection
+// allows: the region of the call and each region named in the routes. A route is not judged by a string form,
+// since an unknown name is refused by SES and a known one must be in the allowlist all the same.
+func checkSESMultiRegion(b binding, region string, args map[string]any) error {
+	if !slices.Contains(b.regions, region) {
+		return &provider.InvalidRequestError{Message: "the region of the call must be a region the connection allows"}
+	}
+	details, _ := args["details"].(map[string]any)
+	routes, _ := details["routes_details"].([]any)
+	if len(routes) == 0 {
+		return &provider.InvalidRequestError{Message: "details.routes_details must name the secondary region"}
+	}
+	for _, r := range routes {
+		route, _ := r.(map[string]any)
+		if name, _ := route["region"].(string); !slices.Contains(b.regions, name) {
+			return &provider.InvalidRequestError{Message: "every region in details.routes_details must be a region the connection allows"}
+		}
+	}
+	return nil
+}
+
 // checkSESArchiveARN accepts only the ARN of a mail archive in the bound account and an allowed region.
 func checkSESArchiveARN(b binding, name, value string) error {
 	if err := checkARNRegion(b, false, name, value); err != nil {

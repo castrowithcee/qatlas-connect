@@ -23,8 +23,7 @@ func TestSESv2DeferredOperationsHaveTheirOwnReason(t *testing.T) {
 			"ListDedicatedIpPools", "PutDedicatedIpInPool", "PutDedicatedIpPoolScalingAttributes", "PutDedicatedIpWarmupAttributes"}},
 		{reasonSESTenants, []string{"CreateTenant", "DeleteTenant", "GetTenant", "ListTenants", "CreateTenantResourceAssociation",
 			"DeleteTenantResourceAssociation", "ListTenantResources", "ListResourceTenants", "PutTenantSuppressionAttributes",
-			"GetReputationEntity", "ListReputationEntities", "UpdateReputationEntityCustomerManagedStatus", "UpdateReputationEntityPolicy",
-			"CreateMultiRegionEndpoint", "DeleteMultiRegionEndpoint", "GetMultiRegionEndpoint", "ListMultiRegionEndpoints"}},
+			"GetReputationEntity", "ListReputationEntities", "UpdateReputationEntityCustomerManagedStatus", "UpdateReputationEntityPolicy"}},
 		{reasonSESJobStart, []string{"CreateImportJob", "CreateExportJob", "CancelExportJob"}},
 		{reasonSESPricing, []string{"PutAccountPricingAttributes"}},
 	} {
