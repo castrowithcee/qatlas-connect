@@ -540,6 +540,8 @@ func TestRegisterPublishesTheChangeContracts(t *testing.T) {
 		"github.code-scanning-alerts.get":           readRisk,
 		"github.dependabot-alerts.list":             readRisk,
 		"github.dependabot-alerts.get":              readRisk,
+		"github.dependency-review.compare":          readRisk,
+		"github.dependency-snapshots.create":        changeRisk(capability.EffectCreate, capability.IdempotencyNonIdempotent),
 		"github.secret-scanning-alerts.list":        readRisk,
 		"github.secret-scanning-alerts.get":         readRisk,
 		"github.code-scanning-alert-instances.list": readRisk,
