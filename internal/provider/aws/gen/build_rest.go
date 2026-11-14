@@ -155,6 +155,9 @@ func (t *tool) rootOf(dst, src *httpbind.Shape) {
 func (t *tool) restField(f awsquery.Field, bf *httpbind.Field) (httpbind.Field, error) {
 	field := httpbind.Field{Key: f.Key, Name: bf.Name, Shape: restShape(f.Shape), Loc: bf.Loc, IdempotencyToken: f.IdempotencyToken}
 	if !t.xml {
+		if err := carryXMLForm(field.Shape, bf.Shape, bf.Key); err != nil {
+			return field, t.failf("%v", err)
+		}
 		return field, nil
 	}
 	if err := carryXMLForm(field.Shape, bf.Shape, bf.Key); err != nil {
@@ -239,12 +242,12 @@ func (t *tool) restSamples(plain map[string]any) error {
 	if err != nil {
 		return t.failf("sample arguments do not encode: %v", err)
 	}
-	t.sampleMethod, t.samplePath, t.sampleQuery, t.sampleBody = req.Method, req.Path, req.RawQuery, string(req.Body)
+	t.sampleMethod, t.samplePath, t.sampleQuery, t.sampleBody = req.Method, req.RawPath, req.RawQuery, string(req.Body)
 	t.sampleOwner = req.Header.Get(ownerHeaderOf(t.restOp))
 	if httpbind.VirtualHostable(req.Bucket) {
 		// The client sends the bucket as the first label of the host and leaves it out of the path.
 		t.sampleBucket = req.Bucket
-		t.samplePath = "/" + strings.TrimPrefix(strings.TrimPrefix(req.Path, "/"+req.Bucket), "/")
+		t.samplePath = "/" + strings.TrimPrefix(strings.TrimPrefix(req.RawPath, "/"+req.Bucket), "/")
 	}
 	t.sampleForm = map[string]string{}
 	t.sampleHeader = map[string]string{}
@@ -435,8 +438,13 @@ func (t *tool) jsonValue(b *strings.Builder, key string, s *httpbind.Shape) erro
 	case httpbind.KindBoolean:
 		b.WriteString("true")
 	case httpbind.KindTimestamp:
-		// Epoch seconds, the body format of restJson1; the tool returns it as 2026-01-02T03:04:05Z.
-		b.WriteString("1767323045")
+		// Epoch seconds unless the model names date-time, the body formats of restJson1; the tool returns it as
+		// 2026-01-02T03:04:05Z.
+		if s.Format == httpbind.FormatDateTime {
+			b.WriteString(`"2026-01-02T03:04:05Z"`)
+		} else {
+			b.WriteString("1767323045")
+		}
 	case httpbind.KindBlob:
 		b.WriteString(`"AA=="`)
 	case httpbind.KindString:
