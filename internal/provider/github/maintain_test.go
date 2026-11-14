@@ -250,7 +250,8 @@ func TestGuardedToolsStayOutOfEveryStandardProfile(t *testing.T) {
 			descriptor.ID == customPropertiesSet.ID ||
 			descriptor.ID == notificationsMarkAll.ID || descriptor.ID == gistsDelete.ID ||
 			descriptor.ID == repositoriesRename.ID || descriptor.ID == repositoryCollaboratorsUpdate.ID || descriptor.ID == environmentsSet.ID || descriptor.ID == actionSecretsSet.ID ||
-			descriptor.ID == runsForceCancel.ID || slices.Contains(teamChangeTools, descriptor.ID) || slices.Contains(organizationChangeToolIDs, descriptor.ID) ||
+			descriptor.ID == runsForceCancel.ID || descriptor.ID == deploymentsCreate.ID ||
+			descriptor.ID == deploymentsDelete.ID || slices.Contains(teamChangeTools, descriptor.ID) || slices.Contains(organizationChangeToolIDs, descriptor.ID) ||
 			slices.Contains(actionsSettingsReads, descriptor.ID) ||
 			slices.Contains(actionsSettingsChanges, descriptor.ID) ||
 			slices.Contains(runnersReads, descriptor.ID) || slices.Contains(runnersChanges, descriptor.ID) ||
@@ -267,11 +268,11 @@ func TestGuardedToolsStayOutOfEveryStandardProfile(t *testing.T) {
 			marked++
 		}
 	}
-	if marked != len(guardedTools)+len(deletes)+44+len(teamChangeTools)+len(organizationChangeToolIDs) || len(guardedTools) != 13 {
+	if marked != len(guardedTools)+len(deletes)+46+len(teamChangeTools)+len(organizationChangeToolIDs) || len(guardedTools) != 13 {
 		t.Errorf("marked tools = %d, want the thirteen maintainer and administrator tools, the fifteen deletes and "+
 			"the three access tools, files.push, and github.labels.delete, the merge, the auto-merge enable, the security switch and code scanning setup changes, the approve, the review dismissal, the ruleset "+
 			"create and update, the branch protection set, the custom properties set, the notifications mark-all, the gist delete, the repository rename, the collaborator role change, "+
-			"the environment set, the Actions secret set, the run force-cancel, the three security alert updates, the dependency snapshot create, the ten tools of the finer Actions settings, the seven runner tools, the four runner group and hosted runner tools, the pause and resume of a webhook, the seven team change tools, and the six organization change tools", marked)
+			"the environment set, the Actions secret set, the run force-cancel, the deployment create and delete, the three security alert updates, the dependency snapshot create, the ten tools of the finer Actions settings, the seven runner tools, the four runner group and hosted runner tools, the pause and resume of a webhook, the seven team change tools, and the six organization change tools", marked)
 	}
 	profiles := map[string]config.ToolProfile{}
 	for _, profile := range metadata.Profiles {

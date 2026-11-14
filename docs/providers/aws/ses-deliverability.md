@@ -1,10 +1,10 @@
 ---
 description: >
-  Describes the SES v2 tools for deliverability: metrics of the Virtual Deliverability Manager with their limits, message and email address insights, blacklist reports, recommendations, the Deliverability Dashboard and its statistics and campaigns, inbox placement tests with the test message they send, reading import and export jobs, identity certificates with the ACM certificate ARN check, third-party data in insights, and the costs.
+  Describes the SES v2 tools for deliverability: metrics of the Virtual Deliverability Manager with their limits, message and email address insights, blacklist reports, recommendations, the Deliverability Dashboard and its statistics and campaigns, inbox placement tests with the test message they send, reading, starting, and cancelling import and export jobs with the bucket owner check, identity certificates with the ACM certificate ARN check, third-party data in insights, and the costs.
 type: knowledge
 edit: shared
 created: 2026-11-12
-updated: 2026-11-12
+updated: 2026-11-14
 ---
 
 # SES deliverability, metrics, and jobs
@@ -34,6 +34,9 @@ permissions are listed in [Set up AWS](setup.md#ses). Reads need no confirmation
 | `aws.ses.import-job.list` | `ListImportJobs` | read | no |
 | `aws.ses.export-job.get` | `GetExportJob` | read | no |
 | `aws.ses.export-job.list` | `ListExportJobs` | read | no |
+| `aws.ses.import-job.create` | `CreateImportJob` | create | yes |
+| `aws.ses.export-job.create` | `CreateExportJob` | create | yes |
+| `aws.ses.export-job.cancel` | `CancelExportJob` | update | yes |
 | `aws.ses.email-identity-certificate.list` | `ListEmailIdentityCertificates` | read | no |
 | `aws.ses.email-identity-certificate.associate` | `AssociateEmailIdentityCertificate` | update | yes |
 | `aws.ses.email-identity-certificate.disassociate` | `DisassociateEmailIdentityCertificate` | update | yes |
@@ -87,9 +90,23 @@ need confirmation where they start a charge; they do not retrieve any price.
 ## Import and export jobs
 
 `aws.ses.import-job.list` and `.get`, and `aws.ses.export-job.list` and `.get`, read the jobs of a region: status,
-timestamps, counts, destination or source, and failure information, including the S3 locations of the job. Starting or
-cancelling a job is not offered. Filter values of an export job (addresses and subjects) are shown as the job holds them
-and are untrusted.
+timestamps, counts, destination or source, and failure information, including the S3 locations of the job. Filter
+values of an export job (addresses and subjects) are shown as the job holds them and are untrusted.
+
+`aws.ses.import-job.create` reads a CSV or JSON file from S3 into the suppression list or a contact list;
+`aws.ses.export-job.create` writes metrics data or message insights to a file; `aws.ses.export-job.cancel` cancels an
+export that has not finished. Each needs confirmation and is not repeated after an unclear outcome: list the jobs
+before trying again. The content of the import file is never returned.
+
+SES does not check that the bucket of a job belongs to your account, so a bucket of a third party could take the
+exported data. Before the call the bucket named by `s3_url` (`s3://<bucket>/<key>`) is checked with S3 `HeadBucket` and
+the bound account as expected owner, with the credential of the connection. Only a 200 answer lets the call through,
+and the bucket must lie in a region the connection allows. Another account, a missing bucket, a missing
+`s3:ListBucket` permission, a redirect that no allowed region answers with success, and any other failure refuse the
+call, and nothing is sent to SES. A malformed URL is refused before any request. The import always names a bucket. In
+the model the export destination takes `s3_url` as an optional member next to the data format; when it is left out SES
+chooses the location, which `aws.ses.export-job.get` then shows, and when it is set the same check applies.
+Cancelling names no bucket and is not checked.
 
 ## Identity certificates
 

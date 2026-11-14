@@ -73,7 +73,7 @@ func TestSensitiveMembersAreOpenOnlyByRelease(t *testing.T) {
 }
 
 // The real tables release the KMS key ID only for the two encryption tools, the website and contact
-// addresses only for the two SES account tools that carry the production access request, the insights, and the export job filters of SES,
+// addresses only for the two SES account tools that carry the production access request, the insights, and the export job filters of SES (read and set),
 // and the personal data of the account tools for contacts, name, and primary email, each with a reason,
 // and no other tool of the tables shows a sensitive member.
 func TestReleasesOfTheTables(t *testing.T) {
@@ -92,6 +92,12 @@ func TestReleasesOfTheTables(t *testing.T) {
 	want := []string{
 		"CompleteMultipartUpload SSEKMSKeyId",
 		"CopyObject SSEKMSKeyId",
+		"CreateExportJob ExportDataSource.MessageInsightsDataSource.Exclude.Destination",
+		"CreateExportJob ExportDataSource.MessageInsightsDataSource.Exclude.FromEmailAddress",
+		"CreateExportJob ExportDataSource.MessageInsightsDataSource.Exclude.Subject",
+		"CreateExportJob ExportDataSource.MessageInsightsDataSource.Include.Destination",
+		"CreateExportJob ExportDataSource.MessageInsightsDataSource.Include.FromEmailAddress",
+		"CreateExportJob ExportDataSource.MessageInsightsDataSource.Include.Subject",
 		"CreateMultipartUpload SSEKMSKeyId",
 		"GetAccount Details.AdditionalContactEmailAddresses",
 		"GetAccount Details.WebsiteURL",
@@ -209,7 +215,7 @@ func TestLimitsGuardsAndReadbacksAreChecked(t *testing.T) {
 	// The tables name the steps they use, and only for the tools that need one.
 	for _, table := range Tables {
 		for _, o := range table.Operations {
-			if (o.Readback != "") != (o.Operation == "PutPublicAccessBlock" || o.Operation == "PutBucketInventoryConfiguration" || o.Operation == "PutBucketAnalyticsConfiguration") {
+			if (o.Readback != "") != (o.Operation == "PutPublicAccessBlock" || o.Operation == "PutBucketInventoryConfiguration" || o.Operation == "PutBucketAnalyticsConfiguration" || o.Operation == "CreateImportJob" || o.Operation == "CreateExportJob") {
 				t.Errorf("%s: readback %q", o.Operation, o.Readback)
 			}
 			if len(o.Guards) > 0 && o.Operation != "CreateBucket" && o.Operation != "PutBucketEncryption" && o.Operation != "PutBucketOwnershipControls" &&
@@ -220,6 +226,7 @@ func TestLimitsGuardsAndReadbacksAreChecked(t *testing.T) {
 				o.Operation != "CreateConfigurationSet" && o.Operation != "PutConfigurationSetTrackingOptions" && o.Operation != "PutConfigurationSetArchivingOptions" &&
 				o.Operation != "CopyObject" && o.Operation != "PutObject" && o.Operation != "SendEmail" && o.Operation != "SendBulkEmail" &&
 				o.Operation != "AssociateEmailIdentityCertificate" && o.Operation != "UpdateReputationEntityPolicy" && o.Operation != "CreateMultiRegionEndpoint" &&
+				o.Operation != "CreateImportJob" && o.Operation != "CreateExportJob" &&
 				o.Operation != "PutBucketInventoryConfiguration" && o.Operation != "PutBucketAnalyticsConfiguration" &&
 				o.Operation != "CreateMultipartUpload" && o.Operation != "UploadPartCopy" &&
 				o.Operation != "GetRegionOptStatus" && o.Operation != "EnableRegion" && o.Operation != "DisableRegion" {

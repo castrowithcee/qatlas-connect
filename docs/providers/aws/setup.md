@@ -116,7 +116,8 @@ its own tool; dedicated IP addresses are charged by AWS and the tools retrieve n
 `ses:GetDomainDeliverabilityCampaign`, `ses:ListDomainDeliverabilityCampaigns`, `ses:ListRecommendations`,
 `ses:GetDeliverabilityDashboardOptions`, `ses:PutDeliverabilityDashboardOption`, `ses:GetDeliverabilityTestReport`,
 `ses:ListDeliverabilityTestReports`, and `ses:CreateDeliverabilityTestReport`; the job tools `ses:GetImportJob`,
-`ses:ListImportJobs`, `ses:GetExportJob`, and `ses:ListExportJobs`; and the certificate tools
+`ses:ListImportJobs`, `ses:GetExportJob`, `ses:ListExportJobs`, `ses:CreateImportJob`, `ses:CreateExportJob`, and
+`ses:CancelExportJob`, which also need `s3:ListBucket` on the bucket of the job for its owner check; and the certificate tools
 `ses:ListEmailIdentityCertificates`, `ses:AssociateEmailIdentityCertificate`, and
 `ses:DisassociateEmailIdentityCertificate`; the tenant tools `ses:GetTenant`, `ses:ListTenants`,
 `ses:ListTenantResources`, `ses:ListResourceTenants`, `ses:CreateTenant`, `ses:DeleteTenant`,

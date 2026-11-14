@@ -76,9 +76,7 @@ func checkReportDestination(b binding, _ string, args map[string]any) error {
 
 // reportOwner asks S3 with HeadBucket whether the destination bucket belongs to the bound account: the expected
 // owner header makes S3 answer 403 for a bucket of another account. A failure or a different owner refuses the
-// change. A bucket in another region than the one called is not refused for that: the other regions the
-// connection allows are tried, since S3 does not follow the redirect, and the first answer that confirms the
-// owner is enough.
+// change.
 func reportOwner(ctx context.Context, c *Client, s toolSpec, creds sigv4.Credentials, region string, args map[string]any) error {
 	dest, _, found := reportDestination(args)
 	if !found {
@@ -86,11 +84,23 @@ func reportOwner(ctx context.Context, c *Client, s toolSpec, creds sigv4.Credent
 	}
 	arn, _ := dest["bucket"].(string)
 	name, ok := reportBucket(arn)
-	read := slices.IndexFunc(generatedSpecs, func(g toolSpec) bool { return g.descriptor.ID == reportHeadTool })
-	if !ok || read < 0 || s.service != endpoints.S3 {
+	if !ok || s.service != endpoints.S3 {
 		return provider.Fail(s.op, "the tool description is invalid")
 	}
-	_, send, err := generatedSpecs[read].encode(map[string]any{"bucket": name}, nil, c.binding.account)
+	return bucketOwned(ctx, c, s.op, creds, region, name, "destination bucket")
+}
+
+// bucketOwned confirms with HeadBucket and the bound account as expected owner that a bucket belongs to the bound
+// account, and that it lies in a region the connection allows. Only a 200 answer confirms it. A bucket in another
+// region than the one called is not refused for that: the other regions the connection allows are tried, since S3
+// does not follow the redirect, and the first answer that confirms the owner is enough. The failure names what
+// the bucket is for and the permission the check needs, and quotes nothing but the answer of S3.
+func bucketOwned(ctx context.Context, c *Client, op string, creds sigv4.Credentials, region, bucket, what string) error {
+	read := slices.IndexFunc(generatedSpecs, func(g toolSpec) bool { return g.descriptor.ID == reportHeadTool })
+	if read < 0 {
+		return provider.Fail(op, "the tool description is invalid")
+	}
+	_, send, err := generatedSpecs[read].encode(map[string]any{"bucket": bucket}, nil, c.binding.account)
 	if err != nil {
 		return err
 	}
@@ -98,13 +108,18 @@ func reportOwner(ctx context.Context, c *Client, s toolSpec, creds sigv4.Credent
 	for _, try := range slices.Concat([]string{region}, slices.DeleteFunc(slices.Clone(c.binding.regions), func(r string) bool { return r == region })) {
 		var out map[string]any
 		if _, failure = send(ctx, c, creds, try, &out); failure == nil {
+			// The region of the bucket as it says itself must be allowed too; an answer without one is the answer
+			// of the region that was called.
+			if reported, _ := out["bucket_region"].(string); reported != "" && !slices.Contains(c.binding.regions, reported) {
+				return provider.Fail(op, "the "+what+" is in a region this connection does not allow, so the change was not sent")
+			}
 			return nil
 		}
 		if !otherRegion(failure) {
 			break
 		}
 	}
-	return &provider.Error{Class: failure.Class, Op: s.op, Message: "the destination bucket could not be confirmed as a bucket of the bound " +
+	return &provider.Error{Class: failure.Class, Op: op, Message: "the " + what + " could not be confirmed as a bucket of the bound " +
 		"account (this needs s3:ListBucket on it), so the change was not sent: " + failure.Message}
 }
 

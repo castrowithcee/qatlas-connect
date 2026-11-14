@@ -201,6 +201,7 @@ your token holds. A repository or organization policy can forbid a run although 
 | Read environments, deployment branch policies, and deployment protection rules | `repo` for private repositories, none for public | Actions: read |
 | Create, change, or delete environments and deployment branch policies; disable deployment protection rules | `repo`, as a repository administrator for protection rules | Administration: read and write |
 | Read deployments and deployment statuses | `repo` for private repositories, none for public | Deployments: read |
+| Create or delete deployments | `repo`, or `repo_deployment` for deployments alone | Deployments: read and write |
 | Name a team as reviewer of an environment | `read:org` | Members: read (organization) |
 
 Setting an Actions secret reads the value from a local file, so the connection also needs the directory of that file in

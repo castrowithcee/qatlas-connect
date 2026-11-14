@@ -1,10 +1,10 @@
 ---
 description: >
-  Describes the GitHub environment and deployment tools: reading environments, the listed-only set and delete with their plan limits and reviewers, the deployment branch policies and protection rules of an environment, and reading deployments with their statuses.
+  Describes the GitHub environment and deployment tools: reading environments, the listed-only set and delete with their plan limits and reviewers, the deployment branch policies and protection rules of an environment, creating and deleting deployments, and reading deployments with their statuses.
 type: knowledge
 edit: shared
 created: 2026-11-10
-updated: 2026-11-10
+updated: 2026-11-14
 ---
 
 # GitHub environments and deployments
@@ -27,6 +27,8 @@ takes `repository` as described under [the target of a call](README.md#the-targe
 | `github.deployment-protection-rules.delete` | disables one custom protection rule; listed-only |
 | `github.deployments.list` | lists the deployments of a repository, by `sha`, `ref`, `task`, or `environment` |
 | `github.deployments.get` | reads one deployment |
+| `github.deployments.create` | creates one deployment of a ref; listed-only |
+| `github.deployments.delete` | deletes one inactive deployment; listed-only |
 | `github.deployment-statuses.list` | lists the statuses of one deployment |
 | `github.deployment-statuses.get` | reads one status of a deployment |
 
@@ -34,6 +36,8 @@ takes `repository` as described under [the target of a call](README.md#the-targe
 the name. No profile selects these tools. A connection that selects by `effects` offers the reads and the pattern
 create and update; `github.environments.set` and the three deletes need their name in the connection's `tools`
 list, because an environment and its rules decide who must approve a deployment and which branches may deploy.
+`github.deployments.create` and `github.deployments.delete` need theirs too, because a deployment starts a
+release in other systems.
 
 **Plan.** Environments of a private or internal repository need GitHub Pro, Team, or Enterprise, and on Free,
 Pro, or Team a wait timer and reviewers apply only to a public repository. GitHub answers a repository whose plan
@@ -66,7 +70,24 @@ environment. Their answer names no repository, so the route below the environmen
 it first; between that read and the delete, the rule may still change. Enabling a rule and listing the apps that
 could provide one are not offered.
 
-**Deployments and their statuses** are read only; creating or deleting them is not offered.
+**Deployments and their statuses.** The statuses are read only: no tool writes a deployment status or a commit
+status, so a status of another system cannot vouch for a check that never ran.
+
+**Creating a deployment.** `github.deployments.create` needs `ref` (a branch, a tag, or a SHA) and takes
+`environment` (GitHub's default is `production`), `task` (`deploy`), `description` (at most 140 characters),
+`payload`, `transient_environment`, and `production_environment`. It offers neither `required_contexts` nor
+`auto_merge`: GitHub checks that every required status of the ref passes, and the default branch is never merged
+into the ref. `payload` is text, sent to GitHub as it is and never interpreted; an answer shows it as compact JSON
+text cut at 1000 characters. The answer's `state` is one of three. `created` carries the deployment. `accepted`
+means GitHub accepted the request and shows no deployment. `conflict` means GitHub refused it in the current
+state, for example a failing required status or a merge conflict, and created nothing; it is a result, not an
+error. The default answer holds `state`, `id`, `sha`, `ref`, `task`, `environment`, and `repository`; `full`
+or `fields` adds the rest. A ref GitHub does not find, or another invalid argument, ends as a rejected request.
+A repeated call creates a second deployment.
+
+**Deleting a deployment.** `github.deployments.delete` reads the deployment of the bound repository first and
+sends nothing when it is missing or belongs to another repository. GitHub deletes only inactive deployments and
+refuses the active deployment of an environment, which the message says.
 
 Every change needs confirmation, is sent once, and reports an unclear outcome instead of repeating it. The
 token rights are listed under [GitHub Actions](setup.md#github-actions).
