@@ -255,7 +255,8 @@ func TestGuardedToolsStayOutOfEveryStandardProfile(t *testing.T) {
 			slices.Contains(actionsSettingsChanges, descriptor.ID) ||
 			slices.Contains(runnersReads, descriptor.ID) || slices.Contains(runnersChanges, descriptor.ID) ||
 			slices.Contains(runnerGroupReads, descriptor.ID) || slices.Contains(runnerGroupWrites, descriptor.ID) ||
-			slices.Contains(webhooksChanges, descriptor.ID)
+			slices.Contains(webhooksChanges, descriptor.ID) || descriptor.ID == blocksAdd.ID ||
+			descriptor.ID == blocksRemove.ID || descriptor.ID == profileUpdate.ID
 		if descriptor.RequiresToolAllowList != want {
 			t.Errorf("%s requires an allow-list = %t", descriptor.ID, descriptor.RequiresToolAllowList)
 		}
@@ -267,11 +268,11 @@ func TestGuardedToolsStayOutOfEveryStandardProfile(t *testing.T) {
 			marked++
 		}
 	}
-	if marked != len(guardedTools)+len(deletes)+42+len(teamChangeTools) || len(guardedTools) != 13 {
+	if marked != len(guardedTools)+len(deletes)+45+len(teamChangeTools) || len(guardedTools) != 13 {
 		t.Errorf("marked tools = %d, want the thirteen maintainer and administrator tools, the fifteen deletes and "+
 			"the three access tools, files.push, and github.labels.delete, the merge, the auto-merge enable, the security switch and code scanning setup changes, the approve, the review dismissal, the ruleset "+
 			"create and update, the branch protection set, the custom properties set, the notifications mark-all, the gist delete, the repository rename, the collaborator role change, "+
-			"the environment set, the run force-cancel, the three security alert updates, the ten tools of the finer Actions settings, the seven runner tools, the four runner group and hosted runner tools, the pause and resume of a webhook, and the seven team change tools", marked)
+			"the environment set, the run force-cancel, the three security alert updates, the ten tools of the finer Actions settings, the seven runner tools, the four runner group and hosted runner tools, the pause and resume of a webhook, and the seven team change tools, and the block, unblock, and profile update tools of the account", marked)
 	}
 	profiles := map[string]config.ToolProfile{}
 	for _, profile := range metadata.Profiles {

@@ -922,7 +922,7 @@ func Register(reg *capability.Registry) error {
 		maintenanceOperations(), actionsSettingsOperations(), runnersOperations(), runnerGroupOperations(), webhooksOperations(), deployKeysOperations(), repositoryInvitationsOperations(), pullRequestOperations(), checkOperations(), releaseOperations(), releaseAssetOperations(), pullRequestCommentOperations(),
 		pullRequestReviewOperations(), pullRequestReviewMaintenanceOperations(), pullRequestReviewCommentOperations(),
 		pullRequestReviewCommentMaintenanceOperations(), pullRequestReviewThreadOperations(),
-		pullRequestReviewerOperations(), accountOperations(), organizationOperations(), organizationReadOperations(), teamManagementOperations(), starOperations(),
+		pullRequestReviewerOperations(), accountOperations(), accountSocialOperations(), organizationOperations(), organizationReadOperations(), teamManagementOperations(), starOperations(),
 		searchOperations(), contentsOperations(), blameOperations(), commitsOperations(), refsOperations(), compareOperations(), commitRelationOperations(),
 		contentsWriteOperations(), refsWriteOperations(), repositoriesOperations(), collaboratorsManageOperations(), repositoryDetailOperations(), trafficOperations(), repositoryStatsOperations(), rulesetsOperations(), branchProtectionOperations(), customPropertiesOperations(), actionVariablesOperations(), actionCachesOperations(), runCleanupOperations(),
 		labelsOperations(), autolinksOperations(), milestonesOperations(), commentMaintenanceOperations(), commentVisibilityOperations(), issueLockOperations(), reactionsOperations(),
@@ -1695,8 +1695,13 @@ func (c *Client) restSubject(request *http.Request) subject {
 		return gistsSubject(tail)
 	}
 	if tail, ok := strings.CutPrefix(full, c.endpoints.rest+"/users/"); ok {
-		if login, rest, _ := strings.Cut(tail, "/"); strings.HasPrefix(rest, "gists") && validLogin(login) {
+		login, rest, _ := strings.Cut(tail, "/")
+		rest, _, _ = strings.Cut(rest, "?")
+		switch {
+		case strings.HasPrefix(rest, "gists") && validLogin(login):
 			return subject{what: "the gists of users/" + login}
+		case (rest == "followers" || rest == "following") && validLogin(login):
+			return subject{what: "the " + rest + " of users/" + login}
 		}
 	}
 	tail, ok := strings.CutPrefix(full, c.endpoints.rest+"/repos/")
@@ -1901,6 +1906,16 @@ func accountSubject(tail string) subject {
 		return subject{what: "the account's starred repositories"}
 	case tail == "/repos":
 		return subject{what: "the account's own repositories"}
+	case tail == "/followers":
+		return subject{what: "the followers of the account behind this token"}
+	case tail == "/following":
+		return subject{what: "the accounts the account behind this token follows"}
+	case strings.HasPrefix(tail, "/following/"):
+		return subject{what: "this follow"}
+	case tail == "/blocks":
+		return subject{what: "the users the account behind this token blocks"}
+	case strings.HasPrefix(tail, "/blocks/"):
+		return subject{what: "this block"}
 	}
 	rest, ok := strings.CutPrefix(tail, "/starred/")
 	if !ok {
