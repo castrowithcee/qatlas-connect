@@ -234,6 +234,7 @@ var currentToolIDs = []string{
 	"github.outside-collaborators.list",
 	"github.organization-invitations.list",
 	"github.organization-invitations.cancel",
+	"github.organization-invitations.create",
 	"github.organization-members.remove",
 	"github.organization-members.set-role",
 	"github.organization-roles.assign",
@@ -375,6 +376,7 @@ var currentToolIDs = []string{
 	"github.tags.get",
 	"github.tags.list",
 	"github.team-members.add",
+	"github.team-members.invite",
 	"github.team-members.list",
 	"github.team-members.remove",
 	"github.team-memberships.get",
@@ -435,7 +437,7 @@ func TestRegistryHoldsExactlyTheCurrentToolIDs(t *testing.T) {
 	sort.Strings(got)
 	want := append([]string(nil), currentToolIDs...)
 	sort.Strings(want)
-	if strings.Join(got, "\n") != strings.Join(want, "\n") || len(got) != 410 {
+	if strings.Join(got, "\n") != strings.Join(want, "\n") || len(got) != 412 {
 		t.Errorf("registry holds %d tools, differing from the expected %d IDs", len(got), len(want))
 	}
 	if err := reg.ValidateRenames(); err != nil {
@@ -473,6 +475,7 @@ func TestRenamedToolsCoverEveryChangedID(t *testing.T) {
 		"github.organization-invitations.cancel": true, "github.organization-members.remove": true,
 		"github.organization-members.set-role": true, "github.organization-roles.assign": true,
 		"github.outside-collaborators.remove": true, "github.team-members.add": true, "github.team-members.remove": true,
+		"github.organization-invitations.create": true, "github.team-members.invite": true,
 		"github.billing-usage.get": true, "github.billing-usage-summary.get": true,
 		"github.billing-premium-requests.get": true, "github.billing-ai-credits.get": true,
 		"github.billing-budgets.list": true, "github.billing-budgets.get": true,

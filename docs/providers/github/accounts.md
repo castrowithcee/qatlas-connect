@@ -4,7 +4,7 @@ description: >
 type: knowledge
 edit: shared
 created: 2026-10-22
-updated: 2026-11-14
+updated: 2026-11-15
 ---
 
 # GitHub accounts
@@ -140,6 +140,7 @@ The token rights are listed under [Accounts and search](setup.md#accounts-and-se
 | `github.teams.update` | changes the name, description, privacy, notification setting, or parent of a team; `parent_team_id` null makes it top-level | tools list only |
 | `github.teams.delete` | deletes a team permanently | tools list only |
 | `github.team-members.add` | adds an active member of the organization to a team, or changes the role of a team member (`member` or `maintainer`) | tools list only |
+| `github.team-members.invite` | invites an existing account that is not a member of the organization yet through a team, only a login the connection's targets name as `users/LOGIN` (see [Inviting existing accounts](#inviting-existing-accounts)) | tools list only |
 | `github.team-members.remove` | removes an account from a team; the account stays in the organization | tools list only |
 | `github.team-repositories.set` | sets the permission of a team on one repository (`pull`, `triage`, `push`, `maintain`, `admin`) | tools list only |
 | `github.team-repositories.remove` | withdraws a team's access from one repository | tools list only |
@@ -151,11 +152,11 @@ message says the change may have been applied, so read the state before repeatin
 refusal never reaches a message. `team` is a team slug and `username` a login; both are checked as fixed path
 segments before anything is sent.
 
-**No invitations.** GitHub invites an account that is not yet a member of the organization when it is added to
-a team. `github.team-members.add` therefore reads the organization membership first
+**No invitations from the maintenance tools.** GitHub invites an account that is not yet a member of the organization
+when it is added to a team. `github.team-members.add` therefore reads the organization membership first
 (`GET /orgs/{org}/memberships/{username}`) and refuses with `invalid-request`, without any change, unless the
-membership is `active`: a missing account and a pending invitation are both refused. Inviting people is not
-offered. `github.teams.create` offers no `maintainers` or `repo_names` for the same reason, and neither
+membership is `active`: a missing account and a pending invitation are both refused. Invitations come only from
+`github.team-members.invite`, see [Inviting existing accounts](#inviting-existing-accounts). `github.teams.create` offers no `maintainers` or `repo_names` for the same reason, and neither
 `ldap_dn` nor the deprecated `permission` of a team.
 
 **Repositories.** `github.team-repositories.set` and `.remove` take `repository` as `OWNER/REPO`. It must
@@ -195,6 +196,7 @@ used by the member list.
 | `github.organization-members.remove` | removes an account from the organization, which also removes it from every team; tools list only |
 | `github.organization-roles.assign` | assigns an organization role (`role_id` from `github.organization-roles.list`) to an existing active member; tools list only |
 | `github.outside-collaborators.remove` | removes an outside collaborator from the organization's repositories; tools list only |
+| `github.organization-invitations.create` | invites an existing account to the organization as `direct_member` or `admin`, optionally into teams (`team_ids`), only a login the connection's targets name as `users/LOGIN` (see [Inviting existing accounts](#inviting-existing-accounts)); tools list only |
 | `github.organization-invitations.cancel` | cancels one pending invitation (`invitation_id` from `github.organization-invitations.list`); tools list only |
 
 The first six tools only read, are offered by effect, and take `owner` as `orgs/LOGIN` under the rules of
@@ -238,9 +240,44 @@ GitHub's own text of a refusal never reaches a message. `username` is checked as
 **No invitations.** GitHub invites an account that is not yet a member of the organization when it gets a
 membership. `github.organization-members.set-role` and `github.organization-roles.assign` therefore read the
 membership first (`GET /orgs/{org}/memberships/{username}`) and refuse with `invalid-request`, without any
-change, unless its state is `active`: a missing account and a pending invitation are both refused. Inviting
-people stays outside Qatlas. `github.organization-members.remove` also withdraws an invitation that is still
+change, unless its state is `active`: a missing account and a pending invitation are both refused. Invitations
+come only from `github.organization-invitations.create` and `github.team-members.invite`, see
+[Inviting existing accounts](#inviting-existing-accounts). `github.organization-members.remove` also withdraws an invitation that is still
 pending for the account, as GitHub does for this route.
+
+### Inviting existing accounts
+
+`github.organization-invitations.create` and `github.team-members.invite` invite one existing GitHub account.
+They are offered only where a connection's `tools` list names them, no profile selects them, and each needs its
+own confirmation. Both take `owner` as `orgs/LOGIN`, and every result names it.
+
+The account is addressed by `username`, a login, never an e-mail address, an invitation link, or a numeric ID: a
+`username` containing `@` or consisting only of digits is refused. A confirmation shows no account details, so the
+connection's targets decide who can be invited: the login must be named as an owner target `users/LOGIN` (compared
+without case), otherwise the call is refused with `invalid-request` before a secret is read and without a request.
+A connection without any `users/LOGIN` target cannot invite anybody. Note that a target `users/LOGIN` also makes
+the repositories of that account reachable for the tools that take a repository inside the targets.
+
+After these checks the tool reads `GET /users/{login}`, which must be an account of type `User` with the same
+login (the canonical spelling is used from then on), and the organization membership of that account. An active
+member is refused with `invalid-request` pointing to `github.organization-members.set-role` or
+`github.team-members.add`, and an account with a pending invitation is refused as having an open invitation. In
+both cases nothing is written.
+
+- `github.organization-invitations.create` takes `role` (`direct_member` by default, or `admin`) and optional
+  `team_ids`, at most 20 distinct team ids. Every id must belong to a team of the organization: the tool reads the
+  organization's teams (up to ten pages of 100) first and refuses without a write when one is missing, also when
+  it is not found within those pages. `billing_manager` and `reinstate` are not offered. The role `admin` makes
+  the account an organization owner and is security-relevant, so confirm it deliberately.
+- `github.team-members.invite` takes `team`, a slug, and `role` (`member` by default, or `maintainer`). The tool
+  first reads the team in the organization and refuses without a write when it is not a team of it. GitHub then
+  invites the account to the organization together with the team.
+
+The single `POST` or `PUT` answers `result: invited` with the login, the role, and the target. The result never
+carries an invitation ID or link, even where GitHub returns them. The change is one request, never repeated; a
+timeout or an unclear answer reports that the change may have been applied, so read
+`github.organization-invitations.list` before trying again. Messages carry no text from GitHub. The token rights
+are listed under [Accounts and search](setup.md#accounts-and-search).
 
 **`github.organizations.update`** changes only the settings it is given: the profile texts `name`, `description`,
 `company`, `email` (the public contact), `twitter_username`, `location`, and `blog`, each a line of at most 255
