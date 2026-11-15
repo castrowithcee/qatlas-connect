@@ -669,6 +669,12 @@ func TestRegisterPublishesTheChangeContracts(t *testing.T) {
 		"github.code-security-configurations.get":              readRisk,
 		"github.code-security-defaults.get":                    readRisk,
 		"github.code-security-configuration-repositories.list": readRisk,
+		"github.code-security-configurations.create": guardedRisk(capability.EffectCreate,
+			capability.IdempotencyNonIdempotent, codeSecurityConfigurationSensitivity),
+		"github.code-security-configurations.update": guardedRisk(capability.EffectUpdate,
+			capability.IdempotencyIdempotent, codeSecurityConfigurationSensitivity),
+		"github.code-security-configurations.delete": guardedRisk(capability.EffectDelete,
+			capability.IdempotencyUnknown, codeSecurityConfigurationSensitivity),
 	}
 	operations := reg.Provider(Provider)
 	if len(operations) != len(want) {
