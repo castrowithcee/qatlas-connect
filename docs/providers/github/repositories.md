@@ -1,6 +1,6 @@
 ---
 description: >
-  Describes the GitHub repository tools: the repository list of an owner, the details, languages, contributors, and community profile of one repository, its statistics and activity feed, repository create, fork, rename, and delete, collaborators, deploy keys, repository invitations, repository traffic, GitHub Pages sites with their builds and health check, autolinks, rulesets, existing webhooks and their deliveries, branch protection and branch rules, custom properties, repository settings, starred repositories, and the repository search.
+  Describes the GitHub repository tools: the repository list of an owner, the details, languages, contributors, and community profile of one repository, its statistics and activity feed, repository create, fork, rename, delete, visibility narrowing, and transfer, collaborators, deploy keys, repository invitations, repository traffic, GitHub Pages sites with their builds and health check and turning a site off, autolinks, rulesets, existing webhooks and their deliveries, branch protection and branch rules, custom properties, repository settings, starred repositories, and the repository search.
 type: knowledge
 edit: shared
 created: 2026-10-22
@@ -272,6 +272,38 @@ list before trying again.
 
 The token rights are listed under [Repositories, rulesets, and properties](setup.md#repositories-rulesets-and-properties).
 
+## Visibility and transfer
+
+| Tool | Does |
+| --- | --- |
+| `github.repositories.set-visibility` | narrows the visibility of one repository to `private` or `internal` |
+| `github.repositories.transfer` | transfers one repository to an owner the connection names |
+
+Both are listed-only, in no profile, and need the confirmation of a change. Each acts on one repository inside the
+connection's targets, checked before a credential is resolved. Each sends exactly one request that is never
+retried; after a timeout, a server error, or an unreadable answer the tool says the change may have been
+applied, and no GitHub text reaches a message. `403` names the needed rights, `404` is `not-found`, and `422` is
+an invalid request.
+
+`set-visibility` takes `visibility` as `private` or `internal`. The input schema offers no other value, and
+`public` is refused as an invalid request before any request, so a repository is never made public here. Only
+`visibility` is sent. `internal` needs an organization on GitHub Enterprise. The answer gives `visibility` and
+`private` as GitHub reports them; an answer for another repository or without a visibility is an
+`invalid-response` that says the state is unclear.
+
+`transfer` takes `confirm_name`, which repeats the repository as `owner/name` exactly, as for
+`github.repositories.delete`, and `new_owner` as `users/LOGIN` or `orgs/LOGIN`. The connection must itself name
+that owner as an owner target: a repository or project target of the owner does not imply it, a pattern does
+not match it, an excluded owner is refused, and the current owner is refused. The new owner and `confirm_name`
+are checked before a secret is read or GitHub is contacted, and a refusal quotes neither. `new_name` is optional
+and must be a usable name; the destination `new_owner/new_name` must not be excluded. `team_ids` adds up to 50
+teams and only with an organization as `new_owner`. The answer says only that GitHub accepted the request
+(`accepted`); the transfer continues asynchronously, and to a user account it takes effect once that user accepts
+it. Qatlas does not follow the repository to its new owner; the connection covers it afterwards only if its
+targets name the new place.
+
+The token rights are listed under [Repositories, rulesets, and properties](setup.md#repositories-rulesets-and-properties).
+
 ## GitHub Pages
 
 | Tool | Does |
@@ -280,10 +312,16 @@ The token rights are listed under [Repositories, rulesets, and properties](setup
 | `github.pages-builds.list` | lists the Pages builds of a repository, paged |
 | `github.pages-builds.get` | reads one build by its numeric `build_id`, or the most recent one with `build_id: "latest"` |
 | `github.pages-health.get` | reads the DNS health check of the custom domain of the site |
+| `github.pages.delete` | turns the Pages site of a repository off |
 
-All four only read and take `repository` like the other repository tools, checked against the connection's
-targets and exclusions before any credential is resolved. They belong to no profile and are not listed-only.
-Creating or changing a Pages site and triggering a build are not offered.
+The four reads only read and take `repository` like the other repository tools, checked against the
+connection's targets and exclusions before any credential is resolved. They belong to no profile and are not
+listed-only. `github.pages.delete` is listed-only, in no profile, and needs the confirmation of a change: it
+sends one `DELETE` that is never retried, and after a timeout, a server error, or an unreadable answer it says the
+change may have been applied. GitHub answering `404` (no site, or none the token may see) is `not-found`, `422`
+is an invalid request, and `409` is reported as a refusal in the current state, none with GitHub's text. The
+published site goes offline; the repository stays. Creating or changing a Pages site, which would publish content
+to anyone, and triggering a build are not offered.
 
 The site shows `status`, `cname`, `protected_domain_state`, `pending_domain_unverified_at`, `custom_404`,
 `build_type`, `source` (`branch`, `path`), `public`, `https_certificate` (`state`, `description`, `domains`,
@@ -522,8 +560,9 @@ text of the repository owner; the homepage address is never fetched.
 `update` accepts only the arguments of its input schema. At least one value is required, and
 only the values given are sent in one `PATCH` request that is never retried; after a timeout, a server error,
 or an unreadable answer the refusal says the change may have been applied. The name changes only through
-`github.repositories.rename`; visibility, security settings, transfer, deletion, rulesets, and the Actions
-settings are not reachable. Archiving makes the repository read-only, and unarchiving (`archived: false`) needs
+`github.repositories.rename`; visibility only narrows through `github.repositories.set-visibility` and
+a transfer is a tool of its own, see [Visibility and transfer](#visibility-and-transfer). Security settings, deletion,
+rulesets, and the Actions settings are not reachable. Archiving makes the repository read-only, and unarchiving (`archived: false`) needs
 the same administrator role. GitHub refusing a value, such as a `default_branch` that is no existing branch, is an
 invalid request that names no text from GitHub. Giving `allow_merge_commit`, `allow_squash_merge`, and
 `allow_rebase_merge` all as `false` is refused locally, before any request; the current state is not read for that check. The answer names

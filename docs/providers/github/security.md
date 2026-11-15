@@ -1,6 +1,6 @@
 ---
 description: >
-  Describes the GitHub security tools: the code scanning, Dependabot, and secret scanning alerts of a repository, the global, repository, and organization security advisories, code quality findings, the security switches of a repository, its code scanning default setup, and the dependency changes between two refs with dependency snapshots, the code security configurations of an organization, and the private registries Dependabot uses in an organization, with their targets and cuts.
+  Describes the GitHub security tools: the code scanning, Dependabot, and secret scanning alerts of a repository, the global, repository, and organization security advisories with the change of a draft repository advisory, code quality findings, the security switches of a repository, its code scanning default setup, and the dependency changes between two refs with dependency snapshots, the code security configurations of an organization, and the private registries Dependabot uses in an organization, with their targets and cuts.
 type: knowledge
 edit: shared
 created: 2026-10-22
@@ -9,17 +9,17 @@ updated: 2026-11-15
 
 # GitHub security
 
-The security tools of the [GitHub provider](README.md). The advisory and finding tools only read, and so do the
+The security tools of the [GitHub provider](README.md). The advisory and finding tools only read, except the one change named below, and so do the
 alert reads. Three tools change an alert's state, and [the security switches](#security-switches) and
 [the code scanning default setup](#code-scanning-default-setup) read and, listed-only, change; each change is
 offered only where a connection's `tools` list names it, as are [the dependency snapshot](#dependency-graph) and the
-six changes of [code security configurations](#code-security-configurations) and the creation, change, and
-deletion of a [private registry](#private-registries). The
+six changes of [code security configurations](#code-security-configurations), the creation, change, and deletion
+of a [private registry](#private-registries), and the [change of a draft advisory](#changing-a-draft-advisory). The
 not-recommended setup profile `security` selects the six alert tools, the four reads of instances, analyses, and
 locations, the six advisory and finding tools, the two reads of the switches and the default setup, the
 dependency review, the four reads of [code security configurations](#code-security-configurations), and the two
 reads of [private registries](#private-registries), twenty-five in all and all reading; it holds none of the
-fifteen changes. The recommended profile `read` is unchanged.
+sixteen changes. The recommended profile `read` is unchanged.
 
 ## Security alerts
 
@@ -121,8 +121,9 @@ Changing alerts needs write rights, listed under [Security](setup.md#security).
 
 ### Advisories and code quality findings
 
-Six more tools read advisories and code quality findings; they change nothing, so an advisory is neither
-created, edited, published, nor closed.
+Six more tools read advisories and code quality findings and change nothing. One more tool changes the content
+of a draft advisory, described under [Changing a draft advisory](#changing-a-draft-advisory); an advisory is
+never created, published, or closed.
 
 | Tool | Does |
 | --- | --- |
@@ -164,6 +165,29 @@ An account inside an advisory carries the fields GitHub's own REST answers give 
 with the account tools. The temporary private fork of a repository advisory is a repository: one outside the
 connection's targets keeps only its identifiers (`id`, `node_id`, `full_name`), and the clone token GitHub
 sends with it is never shown.
+
+### Changing a draft advisory
+
+| Tool | Does |
+| --- | --- |
+| `github.repository-advisories.update` | changes the content of one repository advisory that is still a draft |
+
+The tool is listed-only, in no profile, and needs the confirmation of a change. It reads the advisory first and
+refuses one in any other state (triage, published, closed, withdrawn) as an invalid request without a write
+request. It changes only `summary` (up to 1024 characters), `description` (up to 65535), `severity` (`critical`,
+`high`, `medium`, `low`) or `cvss_vector_string`, never both, `cwe_ids` (such as `CWE-79`, up to 20, replacing
+the list), and `vulnerabilities` (up to 20 packages, each with `package` holding `ecosystem` and `name`,
+`vulnerable_version_range`, `patched_versions`, and `vulnerable_functions`, replacing the list). At least one of
+them is required, and only the ones given are sent. The tool offers no `state`, so it cannot publish or close
+an advisory, and no `credits`, `collaborating_users`, `collaborating_teams`, or `cve_id`, which would notify
+people or open the draft to others; requesting a CVE is not offered either. An argument outside the input schema is
+refused before any request.
+
+All values are checked before a secret is read. The change is one `PATCH` that is never retried; after a
+timeout, a server error, or an unreadable answer the tool says it may have been applied. `403` names the needed
+rights, `404` is `not-found`, and `422` is an invalid request, none with GitHub's text. The answer has the
+members of `github.repository-advisories.get`; the texts are untrusted data, and the description is cut at 4000
+characters in the answer.
 
 The token rights are listed under [Security](setup.md#security). Sources:
 https://docs.github.com/en/rest/security-advisories/global-advisories,

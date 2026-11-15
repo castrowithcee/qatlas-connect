@@ -39,6 +39,7 @@ func init() {
 		{id: "github.private-registries.update", born: true, allow: true, output: PrivateRegistryChange{}, risk: guardedRisk(capability.EffectUpdate, capability.IdempotencyIdempotent, privateRegistryValueSensitivity)},
 		{id: "github.repository-advisories.get", born: true, output: RepositoryAdvisory{}, risk: readRisk},
 		{id: "github.repository-advisories.list", output: RepositoryAdvisoryList{}, risk: readRisk},
+		{id: "github.repository-advisories.update", born: true, allow: true, output: RepositoryAdvisory{}, risk: changeRisk(capability.EffectUpdate, capability.IdempotencyIdempotent)},
 		{id: "github.secret-scanning-alerts.get", output: SecretScanningAlert{}, risk: readRisk},
 		{id: "github.secret-scanning-alerts.list", output: SecretScanningAlertList{}, risk: readRisk},
 		{id: "github.secret-scanning-alerts.update", born: true, allow: true, output: SecretScanningAlert{}, risk: changeRisk(capability.EffectUpdate, capability.IdempotencyIdempotent)},

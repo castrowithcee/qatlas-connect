@@ -191,6 +191,8 @@ your token holds. A repository or organization policy can forbid a run although 
 | Invite an existing account to a repository, change the permission of a collaborator, or remove one (`github.collaborators.add`, `.update`, `.remove`) | `repo`, as a repository administrator | Administration: read and write |
 | Read repository settings | `repo` for private repositories | Metadata: read |
 | Change repository settings and topics, including archiving and unarchiving | `repo`, as a repository administrator | Administration: write |
+| Narrow the visibility of a repository (`github.repositories.set-visibility`) | `repo`, as a repository administrator | Administration: read and write |
+| Transfer a repository (`github.repositories.transfer`) | `repo`, as a repository administrator; `admin:org` as well to transfer into an organization | Administration: read and write; as far as GitHub documents it |
 | Read Actions variables of a repository; create, change, or delete them | `repo` | Variables: read; read and write to change |
 | Read Actions variables of an environment; create, change, or delete them | `repo` | Environments: read; read and write to change |
 | Read the names and times of Actions secrets of a repository or an environment; set or delete one | `repo` | Secrets: read; read and write to set or delete |
@@ -246,6 +248,7 @@ Files below `.github/workflows/` are changed only with the workflow file tools; 
 | Read the deploy keys or the open invitations of a repository | `repo`, as a repository administrator | Administration: read |
 | Revoke a deploy key or withdraw an invitation | `repo`, as a repository administrator | Administration: read and write |
 | Read the Pages site, its builds, or its health check | `repo`; the health check also as a repository administrator, maintainer, or with the right to manage Pages settings | Pages: read |
+| Turn off the Pages site (`github.pages.delete`) | `repo`, as a repository administrator | Pages: read and write; as far as GitHub documents it |
 | Read webhooks and their deliveries of a repository | `admin:repo_hook` or `repo` | Webhooks: read |
 | Pause, resume, or delete a webhook of a repository | `admin:repo_hook` or `repo` | Webhooks: read and write |
 | Read webhooks and their deliveries of an organization | `admin:org_hook` | Webhooks: read (organization); as far as GitHub documents it |
@@ -260,7 +263,7 @@ Files below `.github/workflows/` are changed only with the workflow file tools; 
 | Watch, ignore, or unsubscribe a repository | GitHub decides per request | GitHub decides per request |
 
 Qatlas cannot check the fine-grained mappings for organization rulesets, organization webhooks, custom properties, and branch rules against GitHub live,
-so treat them as likely, not certain. The same holds for Pages: GitHub's reference names only the classic scope.
+so treat them as likely, not certain. The same holds for Pages and for the transfer of a repository: GitHub's reference names only the classic scope. A transfer also needs the new owner to allow the account to create repositories, and to a user account the new owner has to accept it.
 
 ### Stars
 
@@ -298,6 +301,7 @@ so treat them as likely, not certain. The same holds for Pages: GitHub's referen
 | Global security advisories | none | none |
 | Repository security advisories | `repo` or `repository_advisories:read`, for a private repository or an unpublished advisory | Repository security advisories: read |
 | Organization security advisories | `repo` or `repository_advisories:write`, and an organization owner or security manager | Repository security advisories: write (GitHub requires write although the tool only reads) |
+| Change a draft repository security advisory (`github.repository-advisories.update`) | `repo` or `repository_advisories:write`, and a security manager or administrator of the repository or a collaborator with write access on the advisory | Repository security advisories: write |
 | Code quality findings | `repo`; `public_repo` for a public repository | Code quality: read |
 | Read the code security configurations of an organization, its defaults, and the repositories of a configuration | `read:org`, as an organization owner or security manager | Administration: read (organization); as far as GitHub documents it |
 | Create, update, delete, attach, detach, or set as default a code security configuration of an organization | `write:org`, as an organization owner or security manager | Administration: write (organization); as far as GitHub documents it |
