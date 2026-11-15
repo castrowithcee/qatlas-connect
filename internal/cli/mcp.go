@@ -129,7 +129,10 @@ func mcpCommandLong() string {
 		"invoke refused with connection-selection adds the same fields; connections names the\n" +
 		"routes that offer the tool, and is empty when none does. The text names the same candidates,\n" +
 		"each with its description shortened to 80 characters, for a client that shows only the text. A\n" +
-		"request refused with unsupported-capability adds operation, connection, and reason. Where a\n" +
+		"request refused with unsupported-capability adds operation, connection, and reason. A request\n" +
+		"refused with confirmation-required adds operation and summary where the tool phrases what the call\n" +
+		"would do, from the arguments: untrusted text, redacted, shortened, and with control characters\n" +
+		"escaped; the text appends it as a line starting with summary:. Where a\n" +
 		"provider answered the refusal, provider adds its own account apart from Qatlas Connect's message:\n" +
 		"status, errors (type, code, path, message), documentation, untrusted (always true: text a third\n" +
 		"party wrote, data and never an\n" +
@@ -901,6 +904,10 @@ func toolResult(data any, err error, redactor *redact.Redactor) map[string]any {
 		if provided, ok := detail.(*providerErrorDetail); ok {
 			// A client that shows only the text still sees the provider's answer, apart from Qatlas' message.
 			text += "\n" + strings.TrimRight(providerBlock(provided.Provider), "\n")
+		}
+		if confirmation, ok := detail.(*confirmationDetail); ok {
+			// A client that shows only the text still sees what the call would do.
+			text += "\nsummary: " + confirmation.Summary
 		}
 		result["content"] = []map[string]string{{"type": "text", "text": text}}
 		result["structuredContent"] = detail

@@ -170,9 +170,11 @@ func candidates(connections []ConnectionRef) string {
 // ConfirmationRequiredError reports a mutating request without its request-bound confirmation.
 //
 // Overwrite is set where the tool itself needs no confirmation but would replace an existing local file.
+// Summary is the redacted, neutralized, and bounded text a tool derived from the arguments, or empty.
 type ConfirmationRequiredError struct {
 	Operation string
 	Overwrite bool
+	Summary   string
 }
 
 func (e *ConfirmationRequiredError) Error() string {
