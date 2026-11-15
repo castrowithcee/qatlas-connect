@@ -319,6 +319,10 @@ refuses it otherwise, and Qatlas checks it before the request.
 | Tools | Classic | Fine-grained |
 | --- | --- | --- |
 | Read your own account | none beyond your identity | none beyond your identity |
+| Read the followers and the followed accounts of your account or of a user | none for public data | Followers: read (for your own lists) |
+| Follow or unfollow a user | `user:follow` | Followers: read and write |
+| Read your blocked users; block or unblock a user | `user` | Block another user: read, and read and write for the change |
+| Change your profile | `user` | Profile: write |
 | List teams of an organization and their members; read a team, a team membership, and the repositories of a team | `read:org` | Members: read (organization) |
 | Read the members, one membership, the outside collaborators, and the pending invitations of an organization | `read:org` | Members: read (organization) |
 | Read an organization with its settings and plan | `admin:org` for the full details, as GitHub documents it; `read:org` shows less | Administration: read (organization); as far as GitHub documents it |

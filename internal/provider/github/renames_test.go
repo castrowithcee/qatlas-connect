@@ -12,6 +12,13 @@ import (
 // currentToolIDs is the complete set of GitHub tool IDs.
 var currentToolIDs = []string{
 	"github.accounts.me",
+	"github.followers.list",
+	"github.following.list",
+	"github.following.set",
+	"github.blocks.list",
+	"github.blocks.add",
+	"github.blocks.remove",
+	"github.profile.update",
 	"github.action-cache-usage.get",
 	"github.action-caches.delete",
 	"github.action-caches.list",
@@ -411,7 +418,7 @@ func TestRegistryHoldsExactlyTheCurrentToolIDs(t *testing.T) {
 	sort.Strings(got)
 	want := append([]string(nil), currentToolIDs...)
 	sort.Strings(want)
-	if strings.Join(got, "\n") != strings.Join(want, "\n") || len(got) != 386 {
+	if strings.Join(got, "\n") != strings.Join(want, "\n") || len(got) != 393 {
 		t.Errorf("registry holds %d tools, differing from the expected %d IDs", len(got), len(want))
 	}
 	if err := reg.ValidateRenames(); err != nil {
@@ -441,7 +448,9 @@ func TestRenamedToolsCoverEveryChangedID(t *testing.T) {
 		targets[next] = true
 	}
 	// A tool registered with a hyphen from the start has no former ID.
-	bornHyphenated := map[string]bool{"github.organization-members.list": true,
+	bornHyphenated := map[string]bool{"github.followers.list": true, "github.following.list": true,
+		"github.following.set": true, "github.blocks.list": true, "github.blocks.add": true, "github.blocks.remove": true,
+		"github.profile.update": true, "github.organization-members.list": true,
 		"github.organization-members.get": true, "github.organization-roles.list": true,
 		"github.outside-collaborators.list": true, "github.organization-invitations.list": true,
 		"github.organization-invitations.cancel": true, "github.organization-members.remove": true,
