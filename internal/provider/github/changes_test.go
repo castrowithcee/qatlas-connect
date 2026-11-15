@@ -186,7 +186,7 @@ func TestRegisterPublishesTheChangeContracts(t *testing.T) {
 			descriptor.ID == projectsCreate.ID || descriptor.ID == projectsCopy.ID ||
 			descriptor.ID == organizationTeamsList.ID || descriptor.ID == teamMembersList.ID ||
 			descriptor.ID == repositoriesCreate.ID || descriptor.ID == issueTypesList.ID ||
-			descriptor.ID == organizationAdvisoriesList.ID || slices.Contains(teamToolIDs, descriptor.ID) ||
+			descriptor.ID == organizationAdvisoriesList.ID || descriptor.ID == repositoriesTransfer.ID || slices.Contains(teamToolIDs, descriptor.ID) ||
 			slices.Contains(organizationToolIDs, descriptor.ID) || slices.Contains(billingToolIDs, descriptor.ID) ||
 			slices.Contains(invitationToolIDs, descriptor.ID) || descriptor.ID == appInstallationsList.ID || descriptor.ID == auditLogList.ID ||
 			slices.Contains(packageToolIDs, descriptor.ID)
