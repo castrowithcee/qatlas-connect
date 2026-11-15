@@ -311,6 +311,32 @@ func TestLabelsArgumentsAreValidatedBeforeIO(t *testing.T) {
 	}
 }
 
+// PathEscape keeps . and .., so a label tool refuses them as a name before the credential and before any
+// request, and update refuses them as the new name as well.
+func TestLabelsRefuseDotSegmentNamesBeforeIO(t *testing.T) {
+	f, _, base := serveLabels(t)
+	reads := 0
+	red := &redact.Redactor{}
+	core := application.New(registry(t), labelsConfig(base), resolver(red, &reads), red)
+	for _, name := range []string{".", ".."} {
+		for _, tt := range []struct{ id, connection, arguments string }{
+			{labelsGet.ID, "repo", `{"name":"` + name + `"}`},
+			{labelsUpdate.ID, "repo", `{"name":"` + name + `","color":"ffffff"}`},
+			{labelsUpdate.ID, "repo", `{"name":"bug","new_name":"` + name + `"}`},
+			{labelsDelete.ID, "repo-listed", `{"name":"` + name + `"}`},
+		} {
+			reads = 0
+			before := len(f.recorded())
+			if _, err := invoke(t, core, tt.id, tt.connection, tt.arguments, true); !isInvalidRequest(err) {
+				t.Errorf("%s(%s) = %v, want an invalid request", tt.id, tt.arguments, err)
+			}
+			if reads != 0 || len(f.recorded()) != before {
+				t.Errorf("%s(%s) reached the credential or GitHub", tt.id, tt.arguments)
+			}
+		}
+	}
+}
+
 // A connection whose targets name a project, not a repository, never resolves a credential for a label
 // tool: the target is checked before a secret is read.
 func TestLabelsRefuseANonRepositoryTargetBeforeIO(t *testing.T) {

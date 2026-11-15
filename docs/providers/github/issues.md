@@ -132,7 +132,8 @@ is also checked against the connection's targets, and an answer outside them is 
 `github.labels.update` change them; `github.labels.delete` removes one permanently and is offered only where a
 connection's `tools` list names it, since it also strips the label from every issue and pull request that
 carries it. A label is addressed by its `name`, matched exactly and URL-encoded as one opaque path segment, so
-a name with a space or another special character still reaches the right label.
+a name with a space or another special character still reaches the right label. The names `.` and `..`, which
+GitHub cannot address as a label, are refused as `name` and as `new_name` before any request.
 
 | Tool | Does |
 | --- | --- |
