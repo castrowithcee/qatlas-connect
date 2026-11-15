@@ -23,6 +23,7 @@ func TestClassifyXML(t *testing.T) {
 		{"no cors configuration", 404, "NoSuchCORSConfiguration", provider.ClassNotFound},
 		{"no website configuration", 404, "NoSuchWebsiteConfiguration", provider.ClassNotFound},
 		{"no replication configuration", 404, "ReplicationConfigurationNotFoundError", provider.ClassNotFound},
+		{"no configuration with that ID", 404, "NoSuchConfiguration", provider.ClassNotFound},
 		{"no ownership controls", 404, "OwnershipControlsNotFoundError", provider.ClassNotFound},
 		{"bucket not empty", 409, "BucketNotEmpty", provider.ClassProviderError},
 		{"bucket operation aborted", 409, "OperationAborted", provider.ClassProviderError},

@@ -1,6 +1,6 @@
 ---
 description: >
-  Describes the GitHub security tools: the code scanning, Dependabot, and secret scanning alerts of a repository, the global, repository, and organization security advisories, code quality findings, the security switches of a repository, its code scanning default setup, and the dependency changes between two refs with dependency snapshots, and the code security configurations of an organization, with their targets and cuts.
+  Describes the GitHub security tools: the code scanning, Dependabot, and secret scanning alerts of a repository, the global, repository, and organization security advisories, code quality findings, the security switches of a repository, its code scanning default setup, and the dependency changes between two refs with dependency snapshots, the code security configurations of an organization, and the private registries Dependabot uses in an organization, with their targets and cuts.
 type: knowledge
 edit: shared
 created: 2026-10-22
@@ -13,11 +13,13 @@ The security tools of the [GitHub provider](README.md). The advisory and finding
 alert reads. Three tools change an alert's state, and [the security switches](#security-switches) and
 [the code scanning default setup](#code-scanning-default-setup) read and, listed-only, change; each change is
 offered only where a connection's `tools` list names it, as are [the dependency snapshot](#dependency-graph) and the
-six changes of [code security configurations](#code-security-configurations). The
+six changes of [code security configurations](#code-security-configurations) and the deletion of a
+[private registry](#private-registries). The
 not-recommended setup profile `security` selects the six alert tools, the four reads of instances, analyses, and
-locations, the five advisory and finding tools, the two reads of the switches and the default setup, the
-dependency review, and the four reads of [code security configurations](#code-security-configurations),
-twenty-two in all and all reading; it holds none of the twelve changes. The recommended profile `read` is unchanged.
+locations, the six advisory and finding tools, the two reads of the switches and the default setup, the
+dependency review, the four reads of [code security configurations](#code-security-configurations), and the two
+reads of [private registries](#private-registries), twenty-five in all and all reading; it holds none of the
+thirteen changes. The recommended profile `read` is unchanged.
 
 ## Security alerts
 
@@ -447,3 +449,52 @@ without GitHub's own text.
 
 The token rights are listed under [Security](setup.md#security). Sources:
 https://docs.github.com/en/rest/code-security/configurations.
+
+## Private registries
+
+Three tools read and delete the private registries an organization hands to Dependabot, so it can resolve packages
+from a private feed. The two reads only read; deleting is a listed-only change, offered only where a connection's
+`tools` list names it. Creating and changing a registry is not offered, and neither is its public key.
+
+| Tool | Does |
+| --- | --- |
+| `github.private-registries.list` | lists the private registries of an organization |
+| `github.private-registries.get` | reads one private registry by `secret_name` |
+| `github.private-registries.delete` | deletes a private registry (listed-only) |
+
+The tools take the `owner` argument as `orgs/LOGIN`. The organization must be one the connection's targets name as an
+owner (any organization on a connection without targets), and an exclusion of the owner refuses it; a user owner and a
+connection whose targets name only repositories or projects are refused as `invalid-request`, before a credential is
+resolved.
+
+`.get` and `.delete` take `secret_name`, the `name` that `.list` reports: letters, digits, and `_`, at most 255
+characters, sent as one URL-encoded path segment. Any other name is refused as `invalid-request` without a request.
+`.list` pages by number: `next_cursor` carries the page and the batch size of the first batch and belongs to the tool
+and the organization.
+
+A registry carries every member GitHub documents: `name`, `registry_type`, `auth_type` (`token`, `username_password`,
+`anonymous`, or an `oidc_` kind), `url`, `username`, `replaces_base`, `visibility` (`all`, `private`, or `selected`),
+`selected_repository_ids`, the settings of the OIDC kinds (`tenant_id`, `client_id`, `aws_region`, `account_id`,
+`role_name`, `domain`, `domain_owner`, `jfrog_oidc_provider_name`, `audience`, `identity_mapping_name`, `namespace`,
+`service_slug`, `api_host`, `workload_identity_provider`, and `service_account`), `created_at`, and `updated_at`; the
+list adds `total_count`. GitHub documents `selected_repository_ids` for the detail read only; the list shows it when
+GitHub sends it. A member GitHub leaves out or sends as `null` is absent. No tool answers a value or a key: the answer
+has no member for the encrypted value or the key id, so one a server adds is dropped. Every text is untrusted data and
+is cleaned and shortened. The `url` is answered as text and is never fetched or used as an address by Qatlas.
+
+`selected_repository_ids` names the repositories that may use a registry whose visibility is `selected`. When an
+exclusion of the connection names a repository of the organization, Qatlas reads each id with one repository read,
+at most 100 per call, and lists only the repositories inside the targets. A repository that is excluded, that cannot be
+read, or that lies beyond that bound is not listed but counted in `withheld`, which is absent when none was withheld.
+Without such an exclusion nothing is read beyond the registries.
+
+`.delete` takes `secret_name`, needs a confirmation, sends exactly one `DELETE`, never repeated, and answers `deleted`
+and the `name`; an unclear outcome is reported as uncertain and is not retried. A registry belongs to the organization,
+so a delete is allowed even when the registry is selected for repositories outside the connection's targets, and those
+repositories lose it too.
+
+GitHub answers 403 for a token without the right or an account that is not an organization owner, and 404 for a
+missing registry; both are results with a reason and never carry GitHub's own text. A gateway timeout is a timeout.
+
+The token rights are listed under [Security](setup.md#security). Sources:
+https://docs.github.com/en/rest/private-registries/organization-configurations.
