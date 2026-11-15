@@ -53,6 +53,8 @@ var (
 		"NoSuchCORSConfiguration": notFound, "NoSuchWebsiteConfiguration": notFound,
 		"ReplicationConfigurationNotFoundError": notFound, "OwnershipControlsNotFoundError": notFound,
 		"ObjectLockConfigurationNotFoundError": notFound, "NoSuchObjectLockConfiguration": notFound,
+		// The inventory, analytics, metrics, and Intelligent-Tiering readers name an unknown ID this way.
+		"NoSuchConfiguration": notFound,
 
 		// Route 53.
 		"NoSuchChange": notFound, "NoSuchCidrCollectionException": notFound, "NoSuchCidrLocationException": notFound,
