@@ -8,7 +8,8 @@ package cli
 //
 // Rules:
 //  1. Surfaces (internal/tui, internal/web) reach secrets, the vault, approvals and the connection log only
-//     through the core, never through provider packages, the capability layer or the CLI.
+//     through the core, never through provider packages, the capability layer, the CLI or the kit packages
+//     that hold the same mechanics.
 //  2. Code outside internal/provider names no provider in a string literal.
 //  3. Provider packages depend on the provider contract and a few shared leaf packages, never on another
 //     provider.
@@ -73,6 +74,22 @@ var surfaceForbidden = map[string]bool{
 	"internal/connlog":      true,
 	"internal/capability":   true,
 	"internal/cli":          true,
+}
+
+// Kit packages with storage, vault, approval, audit and local IPC mechanics that surfaces must not import,
+// including their subpackages.
+var surfaceForbiddenExternal = []string{
+	"github.com/castrowithcee/qatlas-kit/vault",
+	"github.com/castrowithcee/qatlas-kit/vaultproc",
+	"github.com/castrowithcee/qatlas-kit/approval",
+	"github.com/castrowithcee/qatlas-kit/auditlog",
+	"github.com/castrowithcee/qatlas-kit/localipc",
+}
+
+func surfaceForbidsExternal(target string) bool {
+	return slices.ContainsFunc(surfaceForbiddenExternal, func(p string) bool {
+		return target == p || strings.HasPrefix(target, p+"/")
+	})
 }
 
 // Qualified identifiers that surfaces must not use beyond their exceptions, by module-relative package path.
@@ -333,6 +350,9 @@ func architectureFindings(fsys fs.FS, providers []config.ProviderMetadata) ([]ar
 			}
 			rel, inModule := strings.CutPrefix(target, module+"/")
 			if !inModule {
+				if surface && surfaceForbidsExternal(target) {
+					findings = append(findings, archFinding{ruleSurfaceAccess, p, target})
+				}
 				if providerDir != "" && providerForbiddenExternal[target] {
 					findings = append(findings, archFinding{ruleProviderDeps, p, target})
 				}
@@ -596,6 +616,12 @@ func TestArchitectureChecksDetectViolations(t *testing.T) {
 		{"a surface that imports the vault", map[string]string{
 			"internal/web/web.go": "package web\n\nimport _ \"example.com/m/internal/vault\"\n",
 		}, archFinding{ruleSurfaceAccess, "internal/web/web.go", "internal/vault"}},
+		{"a surface that imports the kit vault", map[string]string{
+			"internal/web/web.go": "package web\n\nimport _ \"github.com/castrowithcee/qatlas-kit/vault\"\n",
+		}, archFinding{ruleSurfaceAccess, "internal/web/web.go", "github.com/castrowithcee/qatlas-kit/vault"}},
+		{"a surface that imports a package below a kit storage package", map[string]string{
+			"internal/tui/x.go": "package tui\n\nimport _ \"github.com/castrowithcee/qatlas-kit/auditlog/store\"\n",
+		}, archFinding{ruleSurfaceAccess, "internal/tui/x.go", "github.com/castrowithcee/qatlas-kit/auditlog/store"}},
 		{"a surface that imports a provider package", map[string]string{
 			"internal/tui/x.go": "package tui\n\nimport _ \"example.com/m/internal/provider/alpha\"\n",
 		}, archFinding{ruleSurfaceAccess, "internal/tui/x.go", "internal/provider/alpha"}},
@@ -668,6 +694,8 @@ func TestArchitectureChecksDetectViolations(t *testing.T) {
 		"internal/provider/alpha/use.go":     "package alpha\n\nimport _ \"example.com/m/internal/provider/alpha/leaf\"\n",
 		"internal/web/free.go":               "package web\n\nimport \"example.com/m/internal/config\"\n\nvar _ config.Config\n",
 		"internal/web/ok_test.go":            "package web\n\nimport _ \"example.com/m/internal/vault\"\n",
+		"internal/tui/kit.go":                "package tui\n\nimport _ \"github.com/castrowithcee/qatlas-kit/tui\"\n",
+		"internal/web/kit.go":                "package web\n\nimport _ \"github.com/castrowithcee/qatlas-kit/vaultkey\"\n",
 	}
 	if findings, err := architectureFindings(archFS(allowed), archTestProviders()); err != nil || len(findings) != 0 {
 		t.Errorf("allowed code: findings = %v, err = %v, want none", findings, err)
