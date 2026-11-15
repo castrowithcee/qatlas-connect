@@ -45,6 +45,35 @@ jobs:
           done
       - name: Build
         run: go build ./...
+      # Updaters of supported installations refuse a program file of 64 MiB or more. The limit leaves room for
+      # growth until a release with a higher updater limit is old enough; raise it only together with an upgrade
+      # note that tells older installations to update to that release first.
+      - name: Release binary size
+        if: runner.os == 'Linux'
+        env:
+          LIMIT_MIB: 60
+          WARN_MIB: 56
+        run: |
+          limit=$((LIMIT_MIB * 1024 * 1024))
+          warn=$((WARN_MIB * 1024 * 1024))
+          binary="$RUNNER_TEMP/size-check"
+          status=0
+          # Same targets and flags as scripts/release.sh.
+          for target in linux/amd64 linux/arm64 darwin/amd64 darwin/arm64 windows/amd64; do
+            CGO_ENABLED=0 GOOS=${target%/*} GOARCH=${target#*/} go build -trimpath \
+              -ldflags "-s -w -X github.com/castrowithcee/qatlas-connect/internal/cli.version=v0.0.0-size" \
+              -o "$binary" .
+            size=$(wc -c < "$binary")
+            echo "$target: $size bytes, limit $limit"
+            if [ "$size" -ge "$limit" ]; then
+              echo "::error::$target binary is $size bytes, at or above the limit of $LIMIT_MIB MiB"
+              status=1
+            elif [ "$size" -ge "$warn" ]; then
+              echo "::warning::$target binary is $size bytes, at or above the warning mark of $WARN_MIB MiB"
+            fi
+          done
+          rm -f "$binary"
+          exit "$status"
       - name: Vet
         run: go vet ./...
       - name: Test
