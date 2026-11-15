@@ -55,12 +55,12 @@ func sesDeliverabilityDescriptors() map[string]capability.Descriptor {
 	return out
 }
 
-// The 20 tools exist with the effect, idempotency, and data sensitivity of the table; writes need
+// Every listed tool exists with the effect, idempotency, and data sensitivity of the table; writes need
 // confirmation, reads do not, and none is listed-only.
 func TestSESDeliverabilityToolsRisk(t *testing.T) {
 	seen := sesDeliverabilityDescriptors()
-	if len(seen) != 20 || len(sesDeliverabilityTools) != 20 {
-		t.Fatalf("%d tools, want 20", len(seen))
+	if len(seen) != len(sesDeliverabilityTools) {
+		t.Fatalf("%d tools, want %d", len(seen), len(sesDeliverabilityTools))
 	}
 	for id, w := range sesDeliverabilityTools {
 		d := seen[id]

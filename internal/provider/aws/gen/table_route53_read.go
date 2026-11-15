@@ -347,3 +347,9 @@ var route53ReadTools = []Operation{
 		Examples: []Example{{Description: "Read the tags of two zones", Arguments: `{"resource_type":"hostedzone","resource_ids":["Z0123456789ABCDEFGHIJ","Z1123456789ABCDEFGHIJ"]}`}},
 	}, "tag"),
 }
+
+func init() {
+	declareGuards(
+		"route53-vpc-lookup",
+	)
+}

@@ -12,6 +12,20 @@ import (
 	"github.com/castrowithcee/qatlas-connect/internal/provider"
 )
 
+func init() {
+	registerGuard("route53-vpc", checkRoute53VPC)
+	registerGuard("route53-vpc-lookup", checkRoute53VPCLookup)
+	registerGuard("route53-vpc-member", checkRoute53VPCMember)
+	registerGuard("route53-change", checkRoute53Change)
+	registerGuard("route53-name", checkRoute53Name)
+	registerGuard("route53-health", checkRoute53Health)
+	registerGuard("route53-ksk", checkRoute53KSK)
+	registerGuard("route53-log-group", checkRoute53LogGroup)
+	registerGuard("route53-policy", checkRoute53Policy)
+	registerGuard("route53-instance", checkRoute53Instance)
+	registerGuard("route53-cidr", checkRoute53CIDR)
+}
+
 // vpcID is the form of an EC2 VPC ID: vpc- and 8 or 17 hexadecimal digits.
 var vpcID = regexp.MustCompile(`^vpc-([0-9a-f]{8}|[0-9a-f]{17})$`)
 

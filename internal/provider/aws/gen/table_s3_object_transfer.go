@@ -204,3 +204,9 @@ var s3TransferTools = []Operation{{
 	}),
 	Examples: []Example{{Description: "Download a report", Arguments: `{"bucket":"my-bucket","key":"reports/2026.csv","local_path":"~/downloads/2026.csv"}`}},
 }}
+
+func init() {
+	declareGuards(
+		"upload-kms-key",
+	)
+}

@@ -91,3 +91,12 @@ func sesJobWrite(op Operation, effect, idempotency string, tags ...string) Opera
 	}
 	return op
 }
+
+func init() {
+	declareGuards(
+		"ses-job-url",
+	)
+	declareReadbacks(
+		"ses-job-bucket",
+	)
+}

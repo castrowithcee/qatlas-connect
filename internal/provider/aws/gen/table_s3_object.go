@@ -406,3 +406,10 @@ var s3ObjectTools = []Operation{
 		Examples:      []Example{{Description: "Read the ACL of an object", Arguments: `{"bucket":"my-bucket","key":"reports/2026.csv"}`}},
 	}, "acl"),
 }
+
+func init() {
+	declareGuards(
+		"copy-source",
+		"object-kms-key",
+	)
+}
