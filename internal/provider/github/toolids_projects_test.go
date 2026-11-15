@@ -1,0 +1,50 @@
+package github
+
+import "github.com/castrowithcee/qatlas-connect/internal/capability"
+
+// Expected tools of the "projects" group: ID, output sample and risk contract, one tool per line in sorted order.
+func init() {
+	addExpectedTools("projects", []expectedTool{
+		{id: "github.project-collaborators.update", allow: true, output: ChangedCollaborators{}, risk: changeRisk(capability.EffectUpdate, capability.IdempotencyIdempotent)},
+		{id: "github.project-drafts.convert", output: ConvertedDraft{}, risk: changeRisk(capability.EffectCreate, capability.IdempotencyIdempotent)},
+		{id: "github.project-drafts.create", output: Planning{}, risk: changeRisk(capability.EffectCreate, capability.IdempotencyNonIdempotent)},
+		{id: "github.project-drafts.update", output: Draft{}, risk: changeRisk(capability.EffectUpdate, capability.IdempotencyIdempotent)},
+		{id: "github.project-field-options.delete", allow: true, output: RemovedEntries{}, risk: changeRisk(capability.EffectDelete, capability.IdempotencyUnknown)},
+		{id: "github.project-fields.create", output: ChangedField{}, risk: changeRisk(capability.EffectCreate, capability.IdempotencyNonIdempotent)},
+		{id: "github.project-fields.delete", allow: true, output: DeletedField{}, risk: changeRisk(capability.EffectDelete, capability.IdempotencyUnknown)},
+		{id: "github.project-fields.list", output: FieldSchema{}, risk: readRisk},
+		{id: "github.project-fields.update", output: ChangedField{}, risk: changeRisk(capability.EffectUpdate, capability.IdempotencyIdempotent)},
+		{id: "github.project-issues.create", output: Planning{}, risk: changeRisk(capability.EffectCreate, capability.IdempotencyNonIdempotent)},
+		{id: "github.project-items.add", output: Planning{}, risk: changeRisk(capability.EffectCreate, capability.IdempotencyIdempotent)},
+		{id: "github.project-items.archive", output: Archived{}, risk: changeRisk(capability.EffectUpdate, capability.IdempotencyIdempotent)},
+		{id: "github.project-items.delete", allow: true, output: DeletedItem{}, risk: changeRisk(capability.EffectDelete, capability.IdempotencyIdempotent)},
+		{id: "github.project-items.get", output: Item{}, risk: readRisk},
+		{id: "github.project-items.list", output: ItemList{}, risk: readRisk},
+		{id: "github.project-items.move", output: MovedItem{}, risk: changeRisk(capability.EffectUpdate, capability.IdempotencyIdempotent)},
+		{id: "github.project-items.unarchive", output: Archived{}, risk: changeRisk(capability.EffectUpdate, capability.IdempotencyIdempotent)},
+		{id: "github.project-items.update", output: Planning{}, risk: changeRisk(capability.EffectUpdate, capability.IdempotencyIdempotent)},
+		{id: "github.project-iterations.replace", allow: true, output: RemovedEntries{}, risk: changeRisk(capability.EffectDelete, capability.IdempotencyNonIdempotent)},
+		{id: "github.project-status.create", output: ChangedStatusUpdate{}, risk: changeRisk(capability.EffectCreate, capability.IdempotencyNonIdempotent)},
+		{id: "github.project-status.delete", allow: true, output: DeletedStatusUpdate{}, risk: changeRisk(capability.EffectDelete, capability.IdempotencyIdempotent)},
+		{id: "github.project-status.list", output: StatusUpdateList{}, risk: readRisk},
+		{id: "github.project-status.update", output: ChangedStatusUpdate{}, risk: changeRisk(capability.EffectUpdate, capability.IdempotencyIdempotent)},
+		{id: "github.project-teams.list", output: TeamList{}, risk: readRisk},
+		{id: "github.project-templates.mark", output: Templated{}, risk: changeRisk(capability.EffectUpdate, capability.IdempotencyIdempotent)},
+		{id: "github.project-templates.unmark", output: Templated{}, risk: changeRisk(capability.EffectUpdate, capability.IdempotencyIdempotent)},
+		{id: "github.project-views.create", output: CreatedView{}, risk: changeRisk(capability.EffectCreate, capability.IdempotencyNonIdempotent)},
+		{id: "github.project-views.delete", allow: true, output: DeletedView{}, risk: changeRisk(capability.EffectDelete, capability.IdempotencyUnknown)},
+		{id: "github.project-views.list", output: ViewList{}, risk: readRisk},
+		{id: "github.project-views.update", output: ChangedView{}, risk: changeRisk(capability.EffectUpdate, capability.IdempotencyIdempotent)},
+		{id: "github.project-workflows.delete", allow: true, output: DeletedProjectWorkflow{}, risk: changeRisk(capability.EffectDelete, capability.IdempotencyUnknown)},
+		{id: "github.project-workflows.list", output: ProjectWorkflowList{}, risk: readRisk},
+		{id: "github.projects.copy", output: Created{}, risk: changeRisk(capability.EffectCreate, capability.IdempotencyNonIdempotent)},
+		{id: "github.projects.create", output: Created{}, risk: changeRisk(capability.EffectCreate, capability.IdempotencyNonIdempotent)},
+		{id: "github.projects.delete", allow: true, output: Deleted{}, risk: changeRisk(capability.EffectDelete, capability.IdempotencyUnknown)},
+		{id: "github.projects.link", output: Linked{}, risk: changeRisk(capability.EffectUpdate, capability.IdempotencyIdempotent)},
+		{id: "github.projects.link-team", allow: true, output: TeamLink{}, risk: changeRisk(capability.EffectUpdate, capability.IdempotencyIdempotent)},
+		{id: "github.projects.list", output: ProjectList{}, risk: readRisk},
+		{id: "github.projects.unlink", output: Linked{}, risk: changeRisk(capability.EffectUpdate, capability.IdempotencyIdempotent)},
+		{id: "github.projects.unlink-team", allow: true, output: TeamLink{}, risk: changeRisk(capability.EffectUpdate, capability.IdempotencyIdempotent)},
+		{id: "github.projects.update", output: ProjectState{}, risk: changeRisk(capability.EffectUpdate, capability.IdempotencyIdempotent)},
+	})
+}
