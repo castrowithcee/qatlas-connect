@@ -2,6 +2,7 @@ package cli
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -52,6 +53,17 @@ defaults: {}
 `)
 }
 
+// toolRows returns the number of tool rows of a listing and requires the header to announce exactly that
+// many, so the count follows the registry instead of a literal.
+func toolRows(t *testing.T, stdout, columns string) int {
+	t.Helper()
+	rows := strings.Count(stdout, "\n  github.")
+	if want := fmt.Sprintf("tools[%d]%s", rows, columns); !strings.Contains(stdout, want) {
+		t.Errorf("tools listing does not announce %d rows as %q:\n%s", rows, want, stdout)
+	}
+	return rows
+}
+
 // The GitHub namespace publishes the read tools and the changes; a project connection limited by its tools
 // list offers only the project tools, and only a connection whose effects allow a change offers it.
 func TestGitHubToolsAreDiscoverable(t *testing.T) {
@@ -63,8 +75,8 @@ func TestGitHubToolsAreDiscoverable(t *testing.T) {
 	if code != exitOK || stderr != "" {
 		t.Fatalf("exit=%d stderr=%q", code, stderr)
 	}
+	offered := toolRows(t, stdout, "{id,title,effect,requires,target,confirm,connections}:\n")
 	for _, want := range []string{
-		"tools[202]{id,title,effect,requires,target,confirm,connections}:\n",
 		"  github.issues.get,Get a GitHub issue,read,number,\"\",false,code\n",
 		"  github.labels.list,List GitHub labels,read,\"\",\"\",false,code\n",
 		"  github.labels.get,Get a GitHub label,read,name,\"\",false,code\n",
@@ -135,8 +147,15 @@ func TestGitHubToolsAreDiscoverable(t *testing.T) {
 	if code != exitOK || stderr != "" {
 		t.Fatalf("exit=%d stderr=%q", code, stderr)
 	}
+	listed := toolRows(t, stdout, "{id,title,effect,requires,target,confirm,connections,reason}:")
+	if want := len(sharedRegistry().Provider("github")); listed != want {
+		t.Errorf("tools --all lists %d GitHub tools, the registry holds %d", listed, want)
+	}
+	if got := strings.Count(stdout, ",\"\"\n"); got != offered {
+		t.Errorf("tools --all lists %d tools without a reason, the default listing offers %d", got, offered)
+	}
 	for _, want := range []string{
-		"tools[443]{id,title,effect,requires,target,confirm,connections,reason}:", "github.issues.get,Get a GitHub issue,read,", "github.issues.list,List GitHub issues,read,",
+		"github.issues.get,Get a GitHub issue,read,", "github.issues.list,List GitHub issues,read,",
 		"github.contents.get,Get GitHub repository contents,read,", "github.trees.get,Get a GitHub repository tree,read,",
 		"github.branches.create,Create a GitHub branch,create,", "github.branches.delete,Delete a GitHub branch,delete,", "github.contents.put,Create or update a GitHub repository file,update,",
 		"github.contents.delete,Delete a GitHub repository file,delete,",
