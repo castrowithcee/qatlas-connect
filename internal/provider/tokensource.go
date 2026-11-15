@@ -320,6 +320,7 @@ func (s *TokenSource) token(ctx context.Context, stale string) (Token, error) {
 // rotated refresh token is stored before the access token that came with it is handed out.
 func (s *TokenSource) fetch(ctx context.Context) (Token, error) {
 	request := s.current()
+	request.Register = s.register
 	token, err := s.grant(ctx, request)
 	s.register(token.Access, token.Refresh)
 	if err != nil {
