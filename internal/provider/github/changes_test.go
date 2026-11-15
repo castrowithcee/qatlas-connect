@@ -426,6 +426,7 @@ func TestRegisterPublishesTheChangeContracts(t *testing.T) {
 		"github.billing-budgets.list":                 billingRisk,
 		"github.billing-budgets.get":                  billingRisk,
 		"github.app-installations.list":               readRisk,
+		"github.audit-log.list":                       auditLogRisk,
 		"github.apps.get":                             readRisk,
 		"github.app-installation-repositories.remove": guardedRisk(capability.EffectDelete, capability.IdempotencyUnknown, accessGrantSensitivity),
 		"github.contents.get":                         readRisk,
@@ -694,7 +695,7 @@ func TestRegisterPublishesTheChangeContracts(t *testing.T) {
 			descriptor.ID == repositoriesCreate.ID || descriptor.ID == issueTypesList.ID ||
 			descriptor.ID == organizationAdvisoriesList.ID || slices.Contains(teamToolIDs, descriptor.ID) ||
 			slices.Contains(organizationToolIDs, descriptor.ID) || slices.Contains(billingToolIDs, descriptor.ID) ||
-			slices.Contains(invitationToolIDs, descriptor.ID) || descriptor.ID == appInstallationsList.ID
+			slices.Contains(invitationToolIDs, descriptor.ID) || descriptor.ID == appInstallationsList.ID || descriptor.ID == auditLogList.ID
 		for _, forbidden := range []string{"owner", "base_url", "query\"", "project_id", "document"} {
 			if strings.Contains(ownerFiltersStripped(descriptor), forbidden) && !(owners && forbidden == "owner") {
 				t.Errorf("%s input offers %q: %s", descriptor.ID, forbidden, descriptor.InputSchema)

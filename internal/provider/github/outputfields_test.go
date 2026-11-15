@@ -376,6 +376,7 @@ var outputSamples = map[string]any{
 	"github.billing-budgets.get":                   BillingBudget{},
 	"github.app-installations.list":                AppInstallationList{},
 	"github.apps.get":                              AppDetails{},
+	"github.audit-log.list":                        AuditLogList{},
 	"github.app-installation-repositories.remove":  AppInstallationRepositoryRemoved{},
 	"github.teams.list":                            OrganizationTeamList{},
 	"github.teams.get":                             TeamDetails{},

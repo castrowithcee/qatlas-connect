@@ -1,6 +1,6 @@
 ---
 description: >
-  Describes the GitHub organization administration tools: the billing usage, usage summary, premium request, and AI credit reports of a user or an organization and the budgets of an organization, all read only, and the GitHub Apps installed in an organization with the removal of a repository from an installation, with their targets, filters, bounds, the unavailable state, the proof of an installation id, and how excluded repositories are treated.
+  Describes the GitHub organization administration tools: the billing usage, usage summary, premium request, and AI credit reports of a user or an organization and the budgets of an organization, all read only, the GitHub Apps installed in an organization with the removal of a repository from an installation, and the audit log of an organization, with their targets, filters, bounds, the unavailable state, the proof of an installation id, and how excluded repositories are treated.
 type: knowledge
 edit: shared
 created: 2026-11-14
@@ -11,7 +11,7 @@ updated: 2026-11-15
 
 The tools of the group `organization-admin` of the [GitHub provider](README.md). The group holds administrative
 reads of an account or an organization that belong to no repository. It holds the billing reads and the GitHub
-Apps below; further areas of organization administration join it on this page.
+Apps and the audit log below; further areas of organization administration join it on this page.
 
 ## Billing
 
@@ -117,3 +117,48 @@ address, and any secret or webhook configuration. The accounts of an installatio
 fetched. `permissions`, `events`, and `single_file_paths` are capped at 100 entries and say so through
 `permissions_truncated`, `events_truncated`, and `single_file_paths_truncated`. Qatlas adds `owner` to the list
 and `repository` to the removal, and `app_slug` to the removal result from the proof read.
+
+## Audit log
+
+| Tool | Does |
+| --- | --- |
+| `github.audit-log.list` | lists one batch of the audit log of an organization; optional `phrase`, `include` (`web`, `git`, `all`), `order` (`desc`, `asc`), `limit`, and `cursor` |
+
+The tool only reads and is offered by the read effect. It is not part of any setup profile. The enterprise audit
+log and the audit log streams are out of reach: a stream sends data outward permanently, so no tool configures or
+reads one.
+
+**Target.** `owner` is `orgs/LOGIN` under the rules of [the target of a call](README.md#the-target-of-a-call): an
+owner target of its own, checked against `exclude` and the targets before a secret is read. A user owner is refused
+with `invalid-request` before any request. The route `GET /orgs/LOGIN/audit-log` is fixed.
+
+**Filters.** `phrase` is a search phrase as GitHub documents it, for example `action:repo.create`. It is passed on as
+one text value and never interpreted or split; it has at most 500 characters and no control characters. `include`
+defaults to `web` at GitHub. `order` defaults to `desc`. The tool offers no `after` or `before`: it follows the
+cursor GitHub names in its `Link` header and carries it in `next_cursor`, which follows the
+[cursor contract](README.md#cursor-contract), is bound to the organization and the three filters, and keeps the
+batch size of its first batch. The address of the `Link` header is only read for that cursor and never requested.
+
+**The state `unavailable`.** GitHub documents the route in its Enterprise Cloud description only. A plan without an
+audit log, a token without the audit log right, a user who is no owner, and an unknown organization answer 403 or
+404 alike, so the tool ends such an answer as `state: unavailable` with a fixed `reason` that names the causes and
+never quotes GitHub. A rate limit, a timeout, a 5xx, and an unusable answer stay errors named by their class. The
+read is never repeated.
+
+**Bounds and fields.** A batch has at most `limit` events (1 through 100, 30 when omitted); `truncated` says that
+GitHub answered more than that and the rest was cut. An event outputs only the members GitHub documents for it
+(OpenAPI 1.1.4 of GitHub Enterprise Cloud, rest-api-description commit 99b1432); every other key, among them an
+actor address or a user agent that GitHub may send, is dropped. The free-form members `data`, `config`,
+`config_was`, `events`, and `events_were` keep flat texts, numbers, and booleans, at most 100 keys and 100 entries;
+nested values are left out and a cut is shown by `data_truncated`, `config_truncated`, `config_was_truncated`,
+`events_truncated`, and `events_were_truncated`. Names, actions, messages, and every other text of an event are
+untrusted data with control characters replaced and a length bound, and no address is ever fetched. Qatlas adds
+`owner`, `truncated`, `withheld`, `state`, and `reason`.
+
+**Excluded repositories.** An event whose `repo` or `repository` names a repository the connection excludes, as a bare
+name of the organization or as `OWNER/REPO`, is not output; it is counted in `withheld`, so its name and texts never
+reach the result. An event without a repository stays unchanged, even when its other members mention a repository, for
+example in `data` or `message`: the exclusion cannot see such a mention, so connect the audit log only with an
+organization whose events may all be seen when that matters.
+
+The token rights are listed under [Organization administration](setup.md#organization-administration).
