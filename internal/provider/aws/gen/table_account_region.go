@@ -92,3 +92,9 @@ var accountRegionTools = []Operation{
 		Examples: []Example{{Description: "Opt out of a region", Arguments: `{"region_name":"af-south-1"}`}},
 	}, "disable"),
 }
+
+func init() {
+	declareGuards(
+		"region-name",
+	)
+}

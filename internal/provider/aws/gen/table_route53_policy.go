@@ -82,3 +82,9 @@ var route53PolicyTools = []Operation{
 		Examples: []Example{{Description: "Delete version 2", Arguments: `{"id":"01234567-89ab-cdef-0123-456789abcdef","version":2}`}},
 	}, "traffic-policy"),
 }
+
+func init() {
+	declareGuards(
+		"route53-policy",
+	)
+}

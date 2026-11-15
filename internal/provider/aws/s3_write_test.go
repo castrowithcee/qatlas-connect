@@ -2,6 +2,7 @@ package aws
 
 import (
 	"errors"
+	"maps"
 	"slices"
 	"strings"
 	"testing"
@@ -414,12 +415,14 @@ func TestS3ReadbackBelongsToTheNamedToolOnly(t *testing.T) {
 		if s.readback != "" {
 			named = append(named, s.descriptor.ID)
 		}
-		if len(s.guards) > 0 && !slices.Contains([]string{"aws.s3.bucket.create", "aws.s3.encryption.put", "aws.s3.ownership.put", "aws.s3.object.copy", "aws.s3.object.upload", "aws.s3.object-lock.put", "aws.s3.object-retention.put", "aws.s3.inventory.put", "aws.s3.analytics.put", "aws.s3.multipart-upload.create", "aws.s3.multipart-upload.upload-part-copy", "aws.route53.hosted-zone.create", "aws.route53.hosted-zone.list-by-vpc", "aws.route53.hosted-zone.associate-vpc", "aws.route53.hosted-zone.disassociate-vpc", "aws.route53.vpc-association-authorization.delete", "aws.route53.record-set.change", "aws.route53.dns-answer.test", "aws.route53.health-check.create", "aws.route53.health-check.update", "aws.route53.key-signing-key.create", "aws.route53.traffic-policy-instance.create", "aws.route53.cidr-collection.change", "aws.route53.query-logging-config.create", "aws.route53.traffic-policy.create", "aws.route53.traffic-policy.create-version", "aws.ses.configuration-set.create", "aws.ses.configuration-set.put-tracking-options", "aws.ses.configuration-set.put-archiving-options", "aws.ses.email.send", "aws.ses.email.send-bulk", "aws.ses.email-identity-certificate.associate", "aws.ses.import-job.create", "aws.ses.export-job.create", "aws.account.region.get-opt-status", "aws.account.region.enable", "aws.account.region.disable", "aws.ses.multi-region-endpoint.create", "aws.ses.reputation-entity.update-policy"}, s.descriptor.ID) {
+		if len(s.guards) > 0 && !expectedGuarded[s.descriptor.ID] {
 			t.Errorf("%s names guards %v", s.descriptor.ID, s.guards)
 		}
 	}
-	if !slices.Equal(named, []string{"aws.ses.import-job.create", "aws.ses.export-job.create", "aws.s3.public-access-block.put", "aws.s3.inventory.put", "aws.s3.analytics.put"}) {
-		t.Errorf("tools with a readback = %v", named)
+	// The readback is checked as a set: a listed tool without one, or one without a listing, is reported.
+	slices.Sort(named)
+	if want := slices.Sorted(maps.Keys(expectedReadback)); !slices.Equal(named, want) {
+		t.Errorf("tools with a readback = %v, want %v", named, want)
 	}
 	bad := generatedSpecs[slices.IndexFunc(generatedSpecs, func(s toolSpec) bool { return s.descriptor.ID == "aws.s3.versioning.put" })]
 	bad.readback = "nothing"
@@ -447,12 +450,12 @@ func TestS3ExcludedOperationsCannotBeSent(t *testing.T) {
 		}
 	}
 	reg := registered(t)
-	tools := 0
+	var tools []string
 	for _, d := range reg.Provider(Provider) {
 		if d.Group != "s3" {
 			continue
 		}
-		tools++
+		tools = append(tools, d.ID)
 		schema := strings.ToLower(string(d.InputSchema) + string(d.OutputSchema))
 		for _, banned := range []string{"presign", "object_lock"} {
 			// Object Lock is read, and written only by its configuration put; no other input names it.
@@ -490,8 +493,8 @@ func TestS3ExcludedOperationsCannotBeSent(t *testing.T) {
 			}
 		}
 	}
-	if tools != 68 {
-		t.Errorf("s3 tools = %d, want 68", tools)
+	if slices.Sort(tools); !slices.Equal(tools, s3ToolIDs) {
+		t.Errorf("s3 tools = %v, want %v", tools, s3ToolIDs)
 	}
 	for _, s := range generatedSpecs {
 		if s.service != "s3" {

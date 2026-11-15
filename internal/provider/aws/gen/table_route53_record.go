@@ -94,3 +94,10 @@ var route53RecordTools = []Operation{
 		Examples:   []Example{{Description: "Test an A record", Arguments: `{"hosted_zone_id":"Z0123456789ABCDEFGHIJ","record_name":"www.example.com","record_type":"A"}`}},
 	}, "dns-answer"),
 }
+
+func init() {
+	declareGuards(
+		"route53-change",
+		"route53-name",
+	)
+}
