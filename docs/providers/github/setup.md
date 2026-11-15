@@ -182,6 +182,8 @@ your token holds. A repository or organization policy can forbid a run although 
 | Read the selected actions, fork pull request approval, retention, access, or OIDC subject claim of a repository | `repo`, as a repository administrator | Administration: read |
 | Change them | `repo`, as a repository administrator | Administration: read and write |
 | Read or change the selected actions, fork pull request approval, retention, or OIDC subject claim of an organization | `admin:org` | Administration or Actions policies, read, or read and write (organization); as far as GitHub documents it |
+| Read the custom properties included in the OIDC token of an organization (`github.actions-oidc-properties.list`) | `read:org` | GitHub documents no fine-grained permission |
+| Include or remove one (`github.actions-oidc-properties.add`, `.remove`) | `admin:org` | GitHub documents no fine-grained permission |
 | Read the self-hosted runners and their labels of a repository | `repo`, as a repository administrator | Administration: read |
 | Remove a runner or change its labels in a repository | `repo`, as a repository administrator | Administration: read and write |
 | Read the self-hosted runners and their labels of an organization | `admin:org` | Self-hosted runners: read (organization) |

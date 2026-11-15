@@ -9,6 +9,10 @@ import (
 	"github.com/castrowithcee/qatlas-connect/internal/provider/aws/sigv4"
 )
 
+func init() {
+	registerGuard("region-name", checkAccountRegionName)
+}
+
 // checkAccountRegionName requires region_name to be a region of the aws partition by form. The model alone
 // accepts any text up to 50 characters.
 func checkAccountRegionName(_ binding, _ string, args map[string]any) error {

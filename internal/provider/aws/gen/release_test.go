@@ -215,21 +215,10 @@ func TestLimitsGuardsAndReadbacksAreChecked(t *testing.T) {
 	// The tables name the steps they use, and only for the tools that need one.
 	for _, table := range Tables {
 		for _, o := range table.Operations {
-			if (o.Readback != "") != (o.Operation == "PutPublicAccessBlock" || o.Operation == "PutBucketInventoryConfiguration" || o.Operation == "PutBucketAnalyticsConfiguration" || o.Operation == "CreateImportJob" || o.Operation == "CreateExportJob") {
+			if (o.Readback != "") != expectedReadback[o.Operation] {
 				t.Errorf("%s: readback %q", o.Operation, o.Readback)
 			}
-			if len(o.Guards) > 0 && o.Operation != "CreateBucket" && o.Operation != "PutBucketEncryption" && o.Operation != "PutBucketOwnershipControls" &&
-				o.Operation != "PutObjectLockConfiguration" && o.Operation != "PutObjectRetention" &&
-				o.Operation != "CreateHostedZone" && o.Operation != "ChangeResourceRecordSets" && o.Operation != "TestDNSAnswer" &&
-				o.Operation != "CreateHealthCheck" && o.Operation != "UpdateHealthCheck" && o.Operation != "CreateKeySigningKey" && o.Operation != "CreateTrafficPolicyInstance" && o.Operation != "ChangeCidrCollection" && o.Operation != "CreateQueryLoggingConfig" && o.Operation != "CreateTrafficPolicy" && o.Operation != "CreateTrafficPolicyVersion" && o.Operation != "ListHostedZonesByVPC" &&
-				o.Operation != "AssociateVPCWithHostedZone" && o.Operation != "DisassociateVPCFromHostedZone" && o.Operation != "DeleteVPCAssociationAuthorization" &&
-				o.Operation != "CreateConfigurationSet" && o.Operation != "PutConfigurationSetTrackingOptions" && o.Operation != "PutConfigurationSetArchivingOptions" &&
-				o.Operation != "CopyObject" && o.Operation != "PutObject" && o.Operation != "SendEmail" && o.Operation != "SendBulkEmail" &&
-				o.Operation != "AssociateEmailIdentityCertificate" && o.Operation != "UpdateReputationEntityPolicy" && o.Operation != "CreateMultiRegionEndpoint" &&
-				o.Operation != "CreateImportJob" && o.Operation != "CreateExportJob" &&
-				o.Operation != "PutBucketInventoryConfiguration" && o.Operation != "PutBucketAnalyticsConfiguration" &&
-				o.Operation != "CreateMultipartUpload" && o.Operation != "UploadPartCopy" &&
-				o.Operation != "GetRegionOptStatus" && o.Operation != "EnableRegion" && o.Operation != "DisableRegion" {
+			if len(o.Guards) > 0 && !expectedGuarded[o.Operation] {
 				t.Errorf("%s: guards %v", o.Operation, o.Guards)
 			}
 		}

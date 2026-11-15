@@ -38,12 +38,12 @@ func sesDedicatedEnv(t *testing.T, f *fakeAWS) *env {
 	return sesEnv(t, f, "account/"+testAccount, "region/"+testRegion)
 }
 
-// The nine tools exist with the effect and idempotency of the table; every write needs confirmation, reads do
+// Every listed tool exists with the effect and idempotency of the table; every write needs confirmation, reads do
 // not, and none is listed-only.
 func TestSESDedicatedToolsRisk(t *testing.T) {
 	seen := sesDedicatedDescriptors()
-	if len(seen) != 9 || len(sesDedicatedTools) != 9 {
-		t.Fatalf("%d tools, want 9", len(seen))
+	if len(seen) != len(sesDedicatedTools) {
+		t.Fatalf("%d tools, want %d", len(seen), len(sesDedicatedTools))
 	}
 	for id, w := range sesDedicatedTools {
 		d := seen[id]

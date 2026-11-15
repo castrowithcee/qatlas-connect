@@ -16,6 +16,10 @@ import (
 	"github.com/castrowithcee/qatlas-connect/internal/provider/aws/sigv4"
 )
 
+func init() {
+	registerGuard("upload-kms-key", checkUploadKMSKey)
+}
+
 // The S3 upload and download move the content of one object through a local file the connection releases,
 // at most httpbind.MaxStreamBytes. The tool is generated like any other (table LocalFile); this file holds
 // what is hand-written: opening the file before any secret is read, the checksum pass of an upload, and the

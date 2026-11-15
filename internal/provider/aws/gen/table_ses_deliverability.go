@@ -375,3 +375,9 @@ var sesDeliverabilityTools = []Operation{
 		TargetCheck: "ses-identity", TargetArgs: []string{"EmailIdentity", "FromAddress"},
 	}, "update", "idempotent", "identity", "certificate"),
 }
+
+func init() {
+	declareGuards(
+		"acm-certificate-arn",
+	)
+}

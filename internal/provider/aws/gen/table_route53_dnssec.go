@@ -129,3 +129,9 @@ var route53DNSSECTools = []Operation{
 		Examples:  []Example{{Description: "Delete a key", Arguments: `{"hosted_zone_id":"Z0123456789ABCDEFGHIJ","name":"example_ksk"}`}},
 	}, "key-signing-key"),
 }
+
+func init() {
+	declareGuards(
+		"route53-ksk",
+	)
+}

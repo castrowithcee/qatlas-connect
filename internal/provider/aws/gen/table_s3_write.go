@@ -164,3 +164,14 @@ var s3BucketWriteTools = []Operation{
 			Arguments: `{"bucket":"my-bucket","public_access_block_configuration":{"block_public_acls":true,"ignore_public_acls":true,"block_public_policy":true,"restrict_public_buckets":true}}`}},
 	}, "public-access"),
 }
+
+func init() {
+	declareGuards(
+		"new-bucket-name",
+		"location-constraint",
+		"kms-key-arn",
+	)
+	declareReadbacks(
+		"pab-tighten",
+	)
+}

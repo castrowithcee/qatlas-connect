@@ -170,3 +170,10 @@ var s3ObjectLegalHoldWrite = s3ObjectKeyWrite(Operation{
 	Examples: []Example{{Description: "Put a legal hold on an object",
 		Arguments: `{"bucket":"my-bucket","key":"reports/2026.csv","legal_hold":{"status":"ON"}}`}},
 }, "object-lock")
+
+func init() {
+	declareGuards(
+		"ownership-enforce",
+		"object-lock-governance-only",
+	)
+}

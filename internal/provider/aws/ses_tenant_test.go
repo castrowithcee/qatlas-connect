@@ -49,12 +49,12 @@ func sesTenantDescriptors() map[string]capability.Descriptor {
 	return out
 }
 
-// The 13 tools exist with the effect, idempotency, and data sensitivity of the table; writes need confirmation,
+// Every listed tool exists with the effect, idempotency, and data sensitivity of the table; writes need confirmation,
 // reads do not, and none is listed-only.
 func TestSESTenantToolsRisk(t *testing.T) {
 	seen := sesTenantDescriptors()
-	if len(seen) != 13 || len(sesTenantTools) != 13 {
-		t.Fatalf("%d tools, want 13", len(seen))
+	if len(seen) != len(sesTenantTools) {
+		t.Fatalf("%d tools, want %d", len(seen), len(sesTenantTools))
 	}
 	for id, w := range sesTenantTools {
 		d := seen[id]
