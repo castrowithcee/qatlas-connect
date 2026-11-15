@@ -13,11 +13,11 @@ The security tools of the [GitHub provider](README.md). The advisory and finding
 alert reads. Three tools change an alert's state, and [the security switches](#security-switches) and
 [the code scanning default setup](#code-scanning-default-setup) read and, listed-only, change; each change is
 offered only where a connection's `tools` list names it, as are [the dependency snapshot](#dependency-graph) and the
-three changes of [code security configurations](#code-security-configurations). The
+six changes of [code security configurations](#code-security-configurations). The
 not-recommended setup profile `security` selects the six alert tools, the four reads of instances, analyses, and
 locations, the five advisory and finding tools, the two reads of the switches and the default setup, the
 dependency review, and the four reads of [code security configurations](#code-security-configurations),
-twenty-two in all and all reading; it holds none of the nine changes. The recommended profile `read` is unchanged.
+twenty-two in all and all reading; it holds none of the twelve changes. The recommended profile `read` is unchanged.
 
 ## Security alerts
 
@@ -323,11 +323,10 @@ https://docs.github.com/en/rest/code-scanning/code-scanning#update-a-code-scanni
 
 ## Code security configurations
 
-Seven tools read and maintain the code security configurations of one organization: a named set of settings for code
-scanning, Dependabot, secret protection, and the dependency graph that GitHub applies to repositories. Four only read.
-Creating, updating, and deleting a configuration are listed-only changes, offered only where a connection's `tools`
-list names them. Attaching a configuration to repositories, detaching one, and setting a default are not offered, and
-neither are the enterprise configurations.
+Ten tools read, maintain, and assign the code security configurations of one organization: a named set of settings for
+code scanning, Dependabot, secret protection, and the dependency graph that GitHub applies to repositories. Four only
+read. Creating, updating, and deleting a configuration and assigning one are listed-only changes, offered only where a
+connection's `tools` list names them. The enterprise configurations are not offered.
 
 | Tool | Does |
 | --- | --- |
@@ -338,6 +337,9 @@ neither are the enterprise configurations.
 | `github.code-security-configurations.create` | creates a configuration (listed-only) |
 | `github.code-security-configurations.update` | changes the given settings of a configuration (listed-only) |
 | `github.code-security-configurations.delete` | deletes a configuration (listed-only) |
+| `github.code-security-configurations.attach` | attaches a configuration to repositories (listed-only) |
+| `github.code-security-configurations.detach` | detaches repositories from their configuration (listed-only) |
+| `github.code-security-configurations.set-default` | sets a configuration as the default for new repositories (listed-only) |
 
 The tools take the `owner` argument as `orgs/LOGIN`. The organization must be one the connection's targets name as an
 owner (any organization on a connection without targets), and an exclusion of the owner refuses it; a user owner and a
@@ -409,6 +411,35 @@ addressed only below the organization in the path, so an id of another organizat
 owned by GitHub or by an enterprise cannot be changed, and an enterprise-enforced setting cannot be overridden: GitHub
 answers 400, 403, or 409 (security configuration work already in progress) and 422 for an invalid or unavailable
 setting, each a result with a reason and without GitHub's own text.
+
+### Assigning configurations
+
+`.attach`, `.detach`, and `.set-default` take the same `owner` as the reads and need a confirmation. Each sends exactly
+one request, never repeated; an unclear outcome is reported as uncertain and is not retried.
+
+`.attach` takes the `configuration_id` and a `scope`. With `selected`, `selected_repositories` is required: the
+repositories to attach it to as `OWNER/REPO`, at most 50, of the organization and inside the connection's repository
+targets. `.detach` takes only `selected_repositories` (at least one, at most 50) and detaches those repositories from
+the configuration each is attached to. Qatlas never takes identifiers from an argument: it reads each repository,
+sends the identifier GitHub reports, and refuses a repository GitHub reports under another name, all before the
+write. A repository of another organization, outside the targets, or excluded is refused as `invalid-request` before a
+credential is resolved.
+
+Every `scope` but `selected` (`all`, `all_without_configurations`, `public`, `private_or_internal`) reaches repositories
+the call does not name. It is therefore refused as `invalid-request`, without a request, whenever the connection's
+targets name a single repository of the organization or exclude one; a connection that names the whole organization
+or has no targets allows it, and `selected_repositories` must not be given with it.
+
+`.set-default` takes the `configuration_id` and `default_for_new_repos` (`all`, `none`, `private_and_internal`, or
+`public`) and answers the value GitHub reports and the `configuration`. A default applies only to repositories created
+afterwards and attaches nothing to existing ones, so narrowed targets do not stop it.
+
+GitHub processes an attachment or a detachment asynchronously: `accepted` says only that GitHub took the request, and
+the status of each repository is read with `github.code-security-configuration-repositories.list`. Without GitHub
+Advanced Security licenses an attachment enables only the free features. GitHub answers 409 while security
+configuration work is already in progress for the organization or changes are blocked, 422 for a body it does not
+accept, 403 for a token without the right, and 404 for a missing configuration; each is a result with a reason and
+without GitHub's own text.
 
 The token rights are listed under [Security](setup.md#security). Sources:
 https://docs.github.com/en/rest/code-security/configurations.

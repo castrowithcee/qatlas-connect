@@ -533,12 +533,18 @@ func checkVisibility(noun string, visibility *string, selectedRepositories *[]st
 	if !selected {
 		return nil, nil
 	}
-	if len(*selectedRepositories) > maxSelectedRepositories {
+	return checkSelectedRepositories(*selectedRepositories, allowed, bound)
+}
+
+// checkSelectedRepositories binds a list of OWNER/REPO arguments to the organization and to the connection's
+// repository targets, without repeats and within the batch limit, before any credential or request.
+func checkSelectedRepositories(selectedRepositories []string, allowed allowlist, bound target) ([]target, error) {
+	if len(selectedRepositories) > maxSelectedRepositories {
 		return nil, invalidRequest(fmt.Sprintf("selected_repositories accepts at most %d entries", maxSelectedRepositories))
 	}
 	seen := map[string]bool{}
-	result := make([]target, 0, len(*selectedRepositories))
-	for _, value := range *selectedRepositories {
+	result := make([]target, 0, len(selectedRepositories))
+	for _, value := range selectedRepositories {
 		repository, err := parseArgument(kindRepository, value)
 		if err != nil {
 			return nil, invalidRequest("selected_repositories entries must be OWNER/REPO")
