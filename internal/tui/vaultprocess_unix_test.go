@@ -10,26 +10,22 @@ package tui
 import (
 	"context"
 	"errors"
-	"fmt"
-	"net"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
-	"filippo.io/age"
-
 	"github.com/castrowithcee/qatlas-connect/internal/config"
 	"github.com/castrowithcee/qatlas-connect/internal/manage"
 	"github.com/castrowithcee/qatlas-connect/internal/vault"
 	"github.com/castrowithcee/qatlas-connect/internal/vaultproc"
+	"github.com/castrowithcee/qatlas-connect/internal/vaultproc/vaultproctest"
 	"github.com/castrowithcee/qatlas-kit/redact"
 )
 
 // serveVaultProcess starts a vault process serving the already-encrypted vault at dir, unlocked with
 // passphrase, exactly the way a detached 'qconnect vault unlock' would; it mirrors the CLI's own
-// serveVaultInProcess (internal/cli/vaultsync_unix_test.go). The server checks its clients by their
-// program, which is this very test binary on both ends.
+// serveVaultInProcess (internal/cli/vaultsync_unix_test.go).
 func serveVaultProcess(t *testing.T, dir, passphrase string) (*vaultproc.Server, *vaultproc.Client) {
 	t.Helper()
 	// t.TempDir() nests the full (sub)test name, long enough with these names to overflow a socket path;
@@ -49,23 +45,29 @@ func serveVaultProcess(t *testing.T, dir, passphrase string) (*vaultproc.Server,
 	if err != nil {
 		t.Fatalf("Snapshot() = %v", err)
 	}
-	key, err := age.ParseX25519Identity(snap.Identity)
-	if err != nil {
-		t.Fatalf("ParseX25519Identity() = %v", err)
-	}
 	client, err := vaultproc.ProcessClientOf(v)
 	if err != nil {
 		t.Fatalf("ProcessClientOf() = %v", err)
 	}
-	l, err := vaultproc.Listen(client.Path)
+	server, err := vaultproc.NewServer(v.Dir(), snap, vaultproc.ServerOptions{})
 	if err != nil {
-		t.Fatalf("Listen() = %v", err)
+		t.Fatalf("NewServer() = %v", err)
 	}
-	server := vaultproc.NewServer(key, snap.Secrets, snap.Bindings)
-	done := make(chan struct{})
-	go func() { _ = server.Serve(l); close(done) }()
-	t.Cleanup(func() { _ = server.Close(); <-done })
+	t.Cleanup(func() { _ = server.Close() })
 	return server, client
+}
+
+// serveRefusingVaultProcess serves the vault at dir as serveVaultProcess does, but as a vault process whose
+// program an update replaced, which refuses every client.
+func serveRefusingVaultProcess(t *testing.T, dir string) {
+	t.Helper()
+	runtimeDir, err := os.MkdirTemp("", "qv")
+	if err != nil {
+		t.Fatalf("MkdirTemp() = %v", err)
+	}
+	t.Cleanup(func() { _ = os.RemoveAll(runtimeDir) })
+	t.Setenv("XDG_RUNTIME_DIR", runtimeDir)
+	vaultproctest.Refuse(t, vault.New(dir).Dir())
 }
 
 // probeScope approves a probe connection for credential in the running vault process, with the entry id the
@@ -91,12 +93,6 @@ func probeScope(t *testing.T, client *vaultproc.Client, dir, passphrase, credent
 		t.Fatalf("Bind() = %v", err)
 	}
 	return scope
-}
-
-// refuseEveryClient makes a server refuse every client, as a vault process does once an update replaced its
-// program; it mirrors the CLI's own helper of the same name.
-func refuseEveryClient(net.Conn) error {
-	return fmt.Errorf("%w: its program was removed or replaced since it started", vaultproc.ErrRefused)
 }
 
 // s on a vault credential's role hands what it just stored on to a running vault process, and x hands over
@@ -195,8 +191,7 @@ func TestVaultRoleWriteWarnsWhenTheVaultProcessRefuses(t *testing.T) {
 	store := newTestStore(t, path)
 	secrets, _ := newVaultResolver(t, dir)
 	mustNoError(t, secrets.SetVault("other", "role", "canary-seed", func(string) (string, error) { return passphrase, nil }))
-	server, _ := serveVaultProcess(t, dir, passphrase)
-	server.Verify = refuseEveryClient
+	serveRefusingVaultProcess(t, dir)
 
 	cfg := newTestConfig(t)
 	mustNoError(t, cfg.SetCredential("reader", config.Credential{Type: config.CredentialTypeVault}))
@@ -237,8 +232,7 @@ func TestVaultProcessWarningIsRedactedInTheStatusLine(t *testing.T) {
 	store := newTestStore(t, filepath.Join(dir, "config.yaml"))
 	secrets, _ := newVaultResolver(t, dir)
 	mustNoError(t, secrets.SetVault("other", "role", "canary-seed", func(string) (string, error) { return passphrase, nil }))
-	server, _ := serveVaultProcess(t, dir, passphrase)
-	server.Verify = refuseEveryClient
+	serveRefusingVaultProcess(t, dir)
 
 	cfg := newTestConfig(t)
 	mustNoError(t, cfg.SetCredential("reader", config.Credential{Type: config.CredentialTypeVault}))
@@ -394,7 +388,7 @@ func TestVaultRekeyIsSilentWithoutARunningVaultProcess(t *testing.T) {
 }
 
 // withStartableVaultProcess lets 'ctrl+l' unlocking a vault actually hand it to a vault process for the
-// duration of a test: startVaultProcessFn starts a real vaultproc.Server, bound to the socket a real 'qconnect
+// duration of a test: startVaultProcessFn starts a real vaultproc.Server, bound to the channel a real 'qconnect
 // vault serve' would use, from the very snapshot the unlock itself hands it, instead of a second copy of
 // this test binary (see TestMain in vaultheader_test.go, and package cli's own withVaultProcess for the same
 // reason over 'qconnect vault unlock' itself). Every server started this way is closed on cleanup.
@@ -402,20 +396,13 @@ func withStartableVaultProcess(t *testing.T) {
 	t.Helper()
 	original := startVaultProcessFn
 	t.Cleanup(func() { startVaultProcessFn = original })
-	startVaultProcessFn = func(ctx context.Context, _ string, snap vault.Snapshot,
+	startVaultProcessFn = func(ctx context.Context, configPath string, snap vault.Snapshot,
 		client *vaultproc.Client) (vaultproc.Status, error) {
-		key, err := age.ParseX25519Identity(snap.Identity)
+		server, err := vaultproc.NewServer(vault.New(filepath.Dir(configPath)).Dir(), snap, vaultproc.ServerOptions{})
 		if err != nil {
 			return vaultproc.Status{}, err
 		}
-		l, err := vaultproc.Listen(client.Path)
-		if err != nil {
-			return vaultproc.Status{}, err
-		}
-		server := vaultproc.NewServer(key, snap.Secrets, snap.Bindings)
-		done := make(chan struct{})
-		go func() { _ = server.Serve(l); close(done) }()
-		t.Cleanup(func() { _ = server.Close(); <-done })
+		t.Cleanup(func() { _ = server.Close() })
 		return client.Status(ctx)
 	}
 }

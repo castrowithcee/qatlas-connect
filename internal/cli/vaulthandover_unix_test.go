@@ -27,7 +27,10 @@ import (
 	"github.com/castrowithcee/qatlas-connect/internal/release"
 	"github.com/castrowithcee/qatlas-connect/internal/vault"
 	"github.com/castrowithcee/qatlas-connect/internal/vaultproc"
+	"github.com/castrowithcee/qatlas-kit/background"
+	"github.com/castrowithcee/qatlas-kit/localipc"
 	"github.com/castrowithcee/qatlas-kit/release/releasetest"
+	kitvaultproc "github.com/castrowithcee/qatlas-kit/vaultproc"
 )
 
 // copiedProgram copies this test binary to bin/qconnect in a directory of the test's own, which plays the
@@ -111,16 +114,38 @@ func startVaultServe(t *testing.T, program, configPath string, snap vault.Snapsh
 		_ = cmd.Process.Kill()
 		<-ended
 	})
-	data, _ := json.Marshal(snap)
-	_, _ = handoverWrite.Write(data)
+	_, _ = handoverWrite.Write(startState(t, snap))
 	_ = handoverWrite.Close()
 	_ = reportRead.SetReadDeadline(time.Now().Add(vaultproc.StartTimeout))
 	report, _ := bufio.NewReader(reportRead).ReadString('\n')
 	_ = reportRead.Close()
-	if strings.TrimSpace(report) != vaultproc.ReportReady {
+	if strings.TrimSpace(report) != background.ReportReady {
 		t.Fatalf("the vault process reported %q", report)
 	}
 	return cmd, ended
+}
+
+// startState is what 'vault unlock' hands a vault process it starts, in the kit's start format: the vault's
+// key and Connect's document of the secrets and the bindings.
+func startState(t *testing.T, snap vault.Snapshot) []byte {
+	t.Helper()
+	secrets := map[string]map[string][]byte{}
+	for credential, roles := range snap.Secrets {
+		secrets[credential] = map[string][]byte{}
+		for role, value := range roles {
+			secrets[credential][role] = []byte(value)
+		}
+	}
+	doc, err := json.Marshal(map[string]any{"secrets": secrets, "bindings": snap.Bindings})
+	if err != nil {
+		t.Fatal(err)
+	}
+	state, err := json.Marshal(map[string]any{"v": kitvaultproc.ProtocolVersion, "identity": []byte(snap.Identity),
+		"document": doc, "unlocked_at": time.Now()})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return state
 }
 
 // readLine reads one line a helper process printed.
@@ -262,12 +287,16 @@ func TestVaultProcessHandsOverToTheUpdatedProgram(t *testing.T) {
 			t.Fatalf("%s is missing after the handover: %v", filepath.Base(path), err)
 		}
 	}
-	for _, path := range []string{vaultproc.NextPath(socket), vaultproc.NextPath(socket) + ".lock"} {
+	for _, path := range []string{socket + ".next", socket + ".next.lock"} {
 		if _, err := os.Lstat(path); !errors.Is(err, fs.ErrNotExist) {
 			t.Fatalf("%s is left after the handover: %v", filepath.Base(path), err)
 		}
 	}
-	if _, err := vaultproc.Listen(socket); !errors.Is(err, vaultproc.ErrRunning) {
+	endpoint, err := vaultproc.Endpoint(v.Dir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := endpoint.Listen(); !errors.Is(err, localipc.ErrRunning) {
 		t.Fatalf("Listen() at the handed over socket = %v, want ErrRunning", err)
 	}
 

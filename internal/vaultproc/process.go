@@ -8,10 +8,6 @@ import (
 	"github.com/castrowithcee/qatlas-connect/internal/vault"
 )
 
-// SuccessorFlag is the hidden flag of 'qconnect vault serve' that starts it as the successor of a running
-// vault process, part of the successor contract; see StartSuccessorProcess and HandoverFD.
-const SuccessorFlag = "--successor"
-
 // SyncChange hands a change already written to the vault on to the vault process client of v, once one is
 // reached: change runs against it, get, set, or delete, whatever the caller just did to the vault itself.
 // It is the shared core the CLI's own syncVaultProcess and the TUI's equivalent both run, so 'qatlas
@@ -84,16 +80,13 @@ func LockProcess(ctx context.Context, v *vault.Vault) (locked bool, err error) {
 }
 
 // EndReplaced ends the vault process that answered replaced (replaced is that error, from Status or any
-// other call) for longer than a handover takes, one whose program was replaced and that has no successor,
-// and waits until it is gone. It returns the id of the process the error names, 0 where it names none. The
-// caller has asked no secret of it; the next unlock asks for the passphrase again.
+// other call) for longer than a handover takes, one whose handover did not finish, and waits until it is
+// gone. It returns the id of the process ended, 0 where it ended none. The caller has asked no secret of
+// it; the next unlock asks for the passphrase again.
 func EndReplaced(ctx context.Context, client *Client, replaced error) (pid int, err error) {
-	var peer *PeerError
-	if errors.As(replaced, &peer) {
-		pid = peer.PID
-	}
-	if err := client.Lock(ctx); err != nil && !errors.Is(err, ErrNotRunning) {
-		return pid, err
+	pid, err = client.lock(ctx)
+	if err != nil && !errors.Is(err, ErrNotRunning) {
+		return 0, err
 	}
 	awaitProcessLocked(ctx, client)
 	return pid, nil
@@ -122,9 +115,5 @@ func ProcessClientOf(v *vault.Vault) (*Client, error) {
 	if err != nil {
 		return nil, err
 	}
-	path, err := SocketPath(v.Dir())
-	if err != nil {
-		return nil, err
-	}
-	return NewClient(path, recipient), nil
+	return ClientFor(v.Dir(), recipient)
 }

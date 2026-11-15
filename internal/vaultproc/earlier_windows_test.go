@@ -18,9 +18,10 @@ func TestEarlierPipePath(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	const namespace = `\\.\pipe\`
 	path := earlierPipe(t, vaultDir)
-	if path == current || !strings.HasPrefix(path, pipePrefix+legacyPipeName) ||
-		strings.TrimPrefix(path, pipePrefix+legacyPipeName) != strings.TrimPrefix(current, pipePrefix+pipeName) {
+	if path == current || !strings.HasPrefix(path, namespace+legacyPipeName) ||
+		strings.TrimPrefix(path, namespace+legacyPipeName) != strings.TrimPrefix(current, namespace+pipeName) {
 		t.Fatalf("the earlier pipe is %q, want the earlier name of %q", path, current)
 	}
 }
@@ -32,7 +33,8 @@ func TestEarlierPipeServedByThisProcessIsNotEnded(t *testing.T) {
 	if pid, err := FindEarlier(vaultDir); pid != 0 || err != nil {
 		t.Fatalf("FindEarlier() without a pipe = %d, %v, want none", pid, err)
 	}
-	l, err := Listen(earlierPipe(t, vaultDir))
+	e, _ := earlierEndpoint(vaultDir)
+	l, err := e.Listen()
 	if err != nil {
 		t.Fatalf("Listen() error = %v", err)
 	}

@@ -4,17 +4,11 @@ package cli
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
-	"fmt"
-	"io"
-	"net"
-	"os"
-	"os/signal"
 	"path/filepath"
-	"time"
 
 	"filippo.io/age"
+	"golang.org/x/crypto/ssh"
 
 	"github.com/castrowithcee/qatlas-connect/internal/capability"
 	"github.com/castrowithcee/qatlas-connect/internal/config"
@@ -25,154 +19,36 @@ import (
 // vaultProcessPlatform reports whether this platform runs a vault process.
 const vaultProcessPlatform = true
 
-// runVaultServe is 'qconnect vault serve', the vault process itself. It is started by 'qconnect vault unlock',
-// or by the TUI's own 'ctrl+l' (see vaultproc.StartProcess, which both run to start it), with the
-// handover and the report it inherits (see serveStreams); run any other way, it refuses before it reads
-// anything.
-//
-// As a successor, started by a running vault process from the program an update installed (see
-// vaultproc.StartSuccessorProcess), it listens beside the vault socket (see vaultproc.ListenSuccessor), reports
-// ready, and waits until that process moved its socket onto the vault socket; it keeps the time that process
-// would have locked at. Only a platform that hands the vault over on an update starts one (see vaultHandoverPlatform);
-// elsewhere a successor refuses to start.
+// runVaultServe is 'qconnect vault serve', the vault process itself (see vaultproc.Serve). It is started by
+// 'qconnect vault unlock', or by the TUI's own 'ctrl+l' (see vaultproc.StartProcess); run any other way, it
+// refuses before it reads anything. As a successor it is started by a running vault process from the program
+// an update installed; only a platform that hands the vault over starts one (see vaultHandoverPlatform).
 func runVaultServe(opts *Options, _ *capability.Registry, successor bool) error {
-	handover, report, ok := serveStreams()
-	if !ok {
-		return &UsageError{errors.New("'qconnect vault serve' is started by 'qconnect vault unlock'; run that instead")}
-	}
-	reported := false
-	answer := func(word string) {
-		if !reported {
-			reported = true
-			fmt.Fprintln(report, word)
-			_ = report.Close()
-		}
-	}
-	defer answer("the vault process stopped before it was ready")
-	if successor && !vaultHandoverPlatform {
-		_ = handover.Close()
-		err := errors.New("a vault process is never handed over on this platform, so no successor starts")
-		answer(err.Error())
-		return err
-	}
-
-	// Nothing secret is in this process yet; from here on nobody else reads its memory.
-	if err := vaultproc.Harden(); err != nil {
-		_ = handover.Close()
-		answer(err.Error())
-		return err
-	}
-	snap, err := readHandover(handover)
-	if err != nil {
-		answer(err.Error())
-		return err
-	}
-	key, err := age.ParseX25519Identity(snap.Identity)
-	snap.Identity = ""
-	if err != nil {
-		err = errors.New("the vault key handed over cannot be read")
-		answer(err.Error())
-		return err
-	}
-	if successor && snap.LocksAt == nil {
-		// A successor without the time to lock at would extend the unlock; it does not start at all.
-		err = errors.New("the vault handed over does not say when it locks")
-		answer(err.Error())
-		return err
-	}
-
 	path, err := absConfigPath(opts)
 	if err != nil {
-		answer(err.Error())
 		return err
 	}
-	vaultDir := vault.New(filepath.Dir(path)).Dir()
-	fromDir := vaultDir
-	if successor {
-		if path, err = successorConfigPath(path, vaultDir, key); err != nil {
-			answer(err.Error())
-			return err
-		}
-		vaultDir = vault.New(filepath.Dir(path)).Dir()
+	var keys []ssh.PublicKey
+	if vaultHandoverPlatform {
+		keys = releaseKeys()
 	}
-	socket, err := vaultproc.SocketPath(vaultDir)
-	if err != nil {
-		answer(err.Error())
-		return err
+	err = vaultproc.Serve(context.Background(), vaultproc.ServeOptions{ConfigPath: path, Successor: successor,
+		SuccessorConfig: successorConfigPath, TrustedKeys: keys})
+	if errors.Is(err, vaultproc.ErrNotStarted) {
+		return &UsageError{errors.New("'qconnect vault serve' is started by 'qconnect vault unlock'; run that instead")}
 	}
-	var listener net.Listener
-	if successor {
-		listener, err = vaultproc.ListenSuccessor(vaultDir, fromDir)
-	} else {
-		listener, err = vaultproc.Listen(socket)
-	}
-	if errors.Is(err, vaultproc.ErrRunning) && !successor {
-		answer(vaultproc.ReportRunning)
-		return err
-	}
-	if err != nil {
-		answer(err.Error())
-		return err
-	}
-
-	server := vaultproc.NewServer(key, snap.Secrets, snap.Bindings)
-	// The idle time is the one authenticated in settings.age, read with the key this process holds, as
-	// the retention below is. The configuration file is not asked: an agent may have written it. An
-	// untrusted settings.age gives the default.
-	server.IdleTimeout = vaultProcessIdleTimeout(vaultDir, key)
-	if snap.LocksAt != nil {
-		server.LocksAt = *snap.LocksAt
-	}
-	// The maximum counts from the unlock: the predecessor's time on a handover, else this start. A
-	// predecessor without the field had no maximum, so counting from this start never shortens or extends
-	// what it promised. The shorter of the inherited and the own maximum holds, so a handover never
-	// removes or extends a limit.
-	if snap.UnlockedAt != nil && !snap.UnlockedAt.After(time.Now()) {
-		server.UnlockedAt = *snap.UnlockedAt
-	}
-	server.MaxUnlock = shorterLimit(snap.MaxUnlock, vaultProcessMaxUnlock(vaultDir, key))
-	// While it runs, this process is the one writer that signs the invocation log of this vault, with the
-	// retention settings.age had when it started. Untrusted settings.age truncates nothing.
-	server.KeepLog(vaultDir, vaultProcessLogRetention(vaultDir, key))
-	// It also approves open connection changes an agent token covers, in this same vault.
-	server.ApproveWithTokens(vaultDir)
-	// And, where this platform does so, it hands the vault over to a successor from a verified release,
-	// should an update ask it to.
-	allowHandover(server, vaultDir, path)
-	snap.Secrets = nil
-
-	signals := make(chan os.Signal, 1)
-	signal.Notify(signals, stopSignals...)
-	defer signal.Stop(signals)
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	go func() {
-		select {
-		case <-signals:
-			_ = server.Close()
-			cancel()
-		case <-ctx.Done():
-		}
-	}()
-
-	answer(vaultproc.ReportReady)
-	// A successor serves only once its socket is the vault socket; one that never gets there locks at once.
-	if successor && vaultproc.AwaitHandover(ctx, listener, socket, vaultproc.HandoverTimeout) != nil {
-		_ = server.Close()
-	} else {
-		go watchSocket(ctx, socket, func() { _ = server.Close() })
-	}
-	return server.Serve(listener)
+	return err
 }
 
-// successorConfigPath is the configuration file a successor serves, started with path, by a vault process
-// that serves the vault in vaultDir. A vault process of the release before qatlas-connect that serves the
-// default location of that release starts its successor with that location's file, which this release
-// reaches only once migrated. Where path is exactly that file, nothing in the environment names an explicit
-// place, and such a process serves the vault, the successor migrates as a run from the default location does
-// and serves the current default file. It does not start when the migration fails or the migrated vault is
-// not the one key opens, rather than serve a place no new client reaches. Any other path stays as it is.
-func successorConfigPath(path, vaultDir string, key *age.X25519Identity) (string, error) {
+// successorConfigPath is the configuration file a successor serves, started with path. A vault process of
+// the release before qatlas-connect that serves the default location of that release starts its successor
+// with that location's file, which this release reaches only once migrated. Where path is exactly that file,
+// nothing in the environment names an explicit place, and such a process serves the vault, the successor
+// migrates as a run from the default location does and serves the current default file. It does not start
+// when the migration fails or the migrated vault is not the one key opens, rather than serve a place no new
+// client reaches. Any other path stays as it is.
+func successorConfigPath(path string, key *age.X25519Identity) (string, error) {
+	vaultDir := vault.New(filepath.Dir(path)).Dir()
 	if !config.LegacyDefault(path) || !vaultproc.EarlierServes(vaultDir) {
 		return path, nil
 	}
@@ -185,56 +61,4 @@ func successorConfigPath(path, vaultDir string, key *age.X25519Identity) (string
 		return "", errors.New("the vault in the current configuration directory is not the vault handed over")
 	}
 	return current, nil
-}
-
-// readHandover reads the vault's key and secrets from the pipe 'qconnect vault unlock' writes them to, and
-// closes it. The bytes read are overwritten once decoded; an error never quotes them.
-func readHandover(f *os.File) (vault.Snapshot, error) {
-	data, err := io.ReadAll(io.LimitReader(f, vaultproc.MaxHandover+1))
-	_ = f.Close()
-	defer clear(data)
-	if err != nil {
-		return vault.Snapshot{}, errors.New("cannot read the vault handed over")
-	}
-	if len(data) > vaultproc.MaxHandover {
-		return vault.Snapshot{}, errors.New("the vault handed over is too large")
-	}
-	var snap vault.Snapshot
-	if err := json.Unmarshal(data, &snap); err != nil || snap.Identity == "" {
-		return vault.Snapshot{}, errors.New("the vault handed over cannot be read")
-	}
-	return snap, nil
-}
-
-// vaultProcessLogRetention is the retention the vault process truncates the log with: the one authenticated
-// in settings.age, read with the key the process holds. An untrusted settings.age gives zero, which never
-// truncates.
-func vaultProcessLogRetention(vaultDir string, key *age.X25519Identity) int {
-	settings, _ := vault.ReadSettings(vaultDir, key)
-	return settings.RetentionDays
-}
-
-// vaultProcessMaxUnlock is the maximum unlock duration authenticated in settings.age, read with the key the
-// process holds. An untrusted settings.age gives zero, which is no limit.
-func vaultProcessMaxUnlock(vaultDir string, key *age.X25519Identity) time.Duration {
-	settings, _ := vault.ReadSettings(vaultDir, key)
-	return settings.MaxUnlock
-}
-
-// shorterLimit is the smaller positive one of two maximum durations; zero means none.
-func shorterLimit(a, b time.Duration) time.Duration {
-	if a <= 0 {
-		return max(b, 0)
-	}
-	if b <= 0 || a < b {
-		return a
-	}
-	return b
-}
-
-// vaultProcessIdleTimeout is the idle time the vault process locks itself after: the one authenticated in
-// settings.age, read with the key the process holds. An untrusted settings.age gives the default.
-func vaultProcessIdleTimeout(vaultDir string, key *age.X25519Identity) time.Duration {
-	settings, _ := vault.ReadSettings(vaultDir, key)
-	return settings.IdleTimeout
 }

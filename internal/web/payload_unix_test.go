@@ -9,15 +9,12 @@ import (
 	"os"
 	"testing"
 
-	"filippo.io/age"
-
 	"github.com/castrowithcee/qatlas-connect/internal/vault"
 	"github.com/castrowithcee/qatlas-connect/internal/vaultproc"
 )
 
 // serveVaultProcess starts a vault process serving the encrypted vault at dir, unlocked with passphrase, the
-// way a detached 'qconnect vault unlock' would. The server checks its clients by their program, which is this
-// test binary on both ends.
+// way a detached 'qconnect vault unlock' would.
 func serveVaultProcess(t *testing.T, dir, passphrase string) (*vaultproc.Server, *vaultproc.Client) {
 	t.Helper()
 	// t.TempDir() nests the full test name, long enough to overflow a socket path.
@@ -36,22 +33,15 @@ func serveVaultProcess(t *testing.T, dir, passphrase string) (*vaultproc.Server,
 	if err != nil {
 		t.Fatalf("Snapshot() = %v", err)
 	}
-	key, err := age.ParseX25519Identity(snap.Identity)
-	if err != nil {
-		t.Fatalf("ParseX25519Identity() = %v", err)
-	}
 	client, err := vaultproc.ProcessClientOf(v)
 	if err != nil {
 		t.Fatalf("ProcessClientOf() = %v", err)
 	}
-	l, err := vaultproc.Listen(client.Path)
+	server, err := vaultproc.NewServer(v.Dir(), snap, vaultproc.ServerOptions{})
 	if err != nil {
-		t.Fatalf("Listen() = %v", err)
+		t.Fatalf("NewServer() = %v", err)
 	}
-	server := vaultproc.NewServer(key, snap.Secrets, snap.Bindings)
-	done := make(chan struct{})
-	go func() { _ = server.Serve(l); close(done) }()
-	t.Cleanup(func() { _ = server.Close(); <-done })
+	t.Cleanup(func() { _ = server.Close() })
 	return server, client
 }
 

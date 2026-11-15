@@ -6,12 +6,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"path/filepath"
-	"runtime"
 	"time"
 
 	"github.com/castrowithcee/qatlas-kit/localipc"
-	kitvaultproc "github.com/castrowithcee/qatlas-kit/vaultproc"
 )
 
 // ErrEarlierUnknown reports that something serves the socket, or the pipe, of the release before
@@ -79,27 +76,14 @@ func EndEarlier(ctx context.Context, vaultDir string) (int, error) {
 	}
 }
 
-// earlierEndpoint returns the channel the earlier release serves the vault in vaultDir on, false where it
-// cannot be told or is this release's own, as it is in a build that stands in for the earlier release.
+// earlierEndpoint returns the channel the release before qatlas-connect serves the vault in vaultDir on,
+// false where it cannot be told or is this release's own, as it is in a build that stands in for that release
+// or where both fall back to the same socket beside the vault.
 func earlierEndpoint(vaultDir string) (localipc.Endpoint, bool) {
-	abs, err := filepath.Abs(vaultDir)
+	e, err := endpointNamed(vaultDir, legacyRuntimeDirName, legacyPipeName,
+		"the vault process channel of the release before qatlas-connect")
 	if err != nil {
 		return localipc.Endpoint{}, false
-	}
-	prefix := "vault-"
-	if runtime.GOOS == "windows" {
-		prefix = ""
-	}
-	base, err := kitvaultproc.SocketBase(prefix, abs)
-	if err != nil {
-		return localipc.Endpoint{}, false
-	}
-	e := localipc.Endpoint{
-		RuntimeDirName: legacyRuntimeDirName,
-		SocketBase:     base,
-		FallbackDir:    filepath.Join(filepath.Dir(abs), "run"),
-		PipePrefix:     legacyPipeName,
-		ErrorName:      "the vault process channel of the release before qatlas-connect",
 	}
 	path, err := e.Path()
 	if err != nil {
@@ -109,6 +93,24 @@ func earlierEndpoint(vaultDir string) (localipc.Endpoint, bool) {
 		return localipc.Endpoint{}, false
 	}
 	return e, true
+}
+
+// EarlierServes reports whether a vault process of the release before qatlas-connect serves the vault in
+// vaultDir and none of this release does, which is when a successor takes the vault over from that process.
+func EarlierServes(vaultDir string) bool {
+	e, ok := earlierEndpoint(vaultDir)
+	if !ok {
+		return false
+	}
+	if pid, err := probeEarlier(context.Background(), e); err != nil || pid <= 1 {
+		return false
+	}
+	current, err := Endpoint(vaultDir)
+	if err != nil {
+		return false
+	}
+	_, err = probeEarlier(context.Background(), current)
+	return errors.Is(err, localipc.ErrNotServed)
 }
 
 // probeEarlier asks localipc who serves e, within earlierProbeTimeout.

@@ -907,7 +907,7 @@ func runVaultUnlock(c *cobra.Command, opts *Options, reg *capability.Registry) e
 	}
 	fmt.Fprintf(c.OutOrStdout(), "the vault is unlocked in a vault process (pid %d) until %s, later when it is "+
 		"read before; 'qconnect vault lock' locks it at once; %s\n", status.PID, formatLocksAt(status.LocksAt), mergedText)
-	for _, warning := range sessionWarnings(client.Path) {
+	for _, warning := range sessionWarnings(client.Path()) {
 		fmt.Fprintf(c.ErrOrStderr(), "qconnect: warning: %s\n", warning)
 	}
 	printNote(c, notice)

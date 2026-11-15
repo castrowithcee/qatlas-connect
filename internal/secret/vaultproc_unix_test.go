@@ -61,7 +61,7 @@ func shortRuntimeDir(t *testing.T) string {
 
 // startProcess serves the vault in dir from this test process, the way 'qconnect vault unlock' hands it to a
 // vault process. key replaces the vault's own key when it is not nil.
-func startProcess(t *testing.T, dir string, key age.Identity) *vaultproc.Server {
+func startProcess(t *testing.T, dir string, key *age.X25519Identity) *vaultproc.Server {
 	t.Helper()
 	v := vault.New(dir)
 	if _, err := v.Unlock(processPassphrase); err != nil {
@@ -71,23 +71,14 @@ func startProcess(t *testing.T, dir string, key age.Identity) *vaultproc.Server 
 	if err != nil {
 		t.Fatalf("Snapshot() = %v", err)
 	}
-	if key == nil {
-		if key, err = age.ParseX25519Identity(snap.Identity); err != nil {
-			t.Fatalf("ParseX25519Identity() = %v", err)
-		}
+	if key != nil {
+		snap.Identity = key.String()
 	}
-	path, err := vaultproc.SocketPath(v.Dir())
+	s, err := vaultproc.NewServer(v.Dir(), snap, vaultproc.ServerOptions{})
 	if err != nil {
-		t.Fatalf("SocketPath() = %v", err)
+		t.Fatalf("NewServer() = %v", err)
 	}
-	l, err := vaultproc.Listen(path)
-	if err != nil {
-		t.Fatalf("Listen() = %v", err)
-	}
-	s := vaultproc.NewServer(key, snap.Secrets, snap.Bindings)
-	done := make(chan struct{})
-	go func() { _ = s.Serve(l); close(done) }()
-	t.Cleanup(func() { _ = s.Close(); <-done })
+	t.Cleanup(func() { _ = s.Close() })
 	return s
 }
 

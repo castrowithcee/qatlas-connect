@@ -4,54 +4,19 @@ package tui
 
 import (
 	"os"
-	"os/signal"
 	"path/filepath"
 	"strconv"
 	"strings"
-	"syscall"
 	"testing"
 	"time"
 
 	"github.com/castrowithcee/qatlas-connect/internal/vaultproc"
+	"github.com/castrowithcee/qatlas-connect/internal/vaultproc/vaultproctest"
 )
 
-// servingAsReplacedPeer listens at path as a vault process whose program was replaced does, answering every
-// connection replaced. It stands in the test's own process, so the id the kernel names for it is this one;
-// the SIGTERM that ends it is caught here, and ends the fake instead, the way it ends the real process.
-// The returned channel receives once for every SIGTERM.
-func servingAsReplacedPeer(t *testing.T, path string) <-chan os.Signal {
-	t.Helper()
-	l, err := vaultproc.Listen(path)
-	if err != nil {
-		t.Fatalf("Listen() = %v", err)
-	}
-	go func() {
-		for {
-			conn, err := l.Accept()
-			if err != nil {
-				return
-			}
-			buf := make([]byte, 4096)
-			_, _ = conn.Read(buf)
-			_, _ = conn.Write([]byte(`{"v":` + strconv.Itoa(vaultproc.Version) + `,"error":"replaced"}` + "\n"))
-			_ = conn.Close()
-		}
-	}()
-	sig := make(chan os.Signal, 4)
-	signal.Notify(sig, syscall.SIGTERM)
-	ended := make(chan os.Signal, 4)
-	go func() {
-		for s := range sig {
-			_ = l.Close()
-			ended <- s
-		}
-	}()
-	t.Cleanup(func() { signal.Stop(sig); close(sig); _ = l.Close() })
-	return ended
-}
-
 // 'ctrl+l' unlocking while a vault process with a replaced program answers ends that process, tells so with
-// its id, and starts a new one, without asking anything but the passphrase.
+// its id, and starts a new one, without asking anything but the passphrase. The process stands in a process
+// of its own, as another process of this user behind the vault's channel.
 func TestCtrlLEndsAReplacedVaultProcessBeforeStartingOne(t *testing.T) {
 	const passphrase = "hunter2"
 	dir := filepath.Join(t.TempDir(), "qconnect")
@@ -72,11 +37,7 @@ func TestCtrlLEndsAReplacedVaultProcessBeforeStartingOne(t *testing.T) {
 	if err != nil {
 		t.Fatalf("New() = %v", err)
 	}
-	socket, err := vaultproc.SocketPath(m.secrets.Vault().Dir())
-	if err != nil {
-		t.Fatalf("SocketPath() = %v", err)
-	}
-	ended := servingAsReplacedPeer(t, socket)
+	replaced := vaultproctest.Start(t, m.secrets.Vault().Dir(), "", vaultproctest.Answer("replaced"))
 
 	openSectionByName(t, m, sectionServices)
 	pump(t, m, "ctrl+l")
@@ -85,12 +46,10 @@ func TestCtrlLEndsAReplacedVaultProcessBeforeStartingOne(t *testing.T) {
 	if m.fail != "" {
 		t.Fatalf("unlocking reported %q", m.fail)
 	}
-	select {
-	case <-ended:
-	case <-time.After(5 * time.Second):
+	if !replaced.Ended(5 * time.Second) {
 		t.Fatal("the replaced vault process was not ended")
 	}
-	if want := "Ended the vault process (pid " + strconv.Itoa(os.Getpid()) + ")"; !strings.Contains(m.status, want) {
+	if want := "Ended the vault process (pid " + strconv.Itoa(replaced.PID) + ")"; !strings.Contains(m.status, want) {
 		t.Errorf("status = %q, want %q", m.status, want)
 	}
 	client, err := vaultproc.ProcessClientOf(m.secrets.Vault())
