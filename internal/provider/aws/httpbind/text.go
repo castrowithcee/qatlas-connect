@@ -43,8 +43,12 @@ func Text(s *Shape, v any, def Format) (string, bool) {
 				break
 			}
 		}
-		// With prefixes the value is an identifier: a separator left over is not one.
-		return text, len(s.Prefixes) == 0 || !strings.Contains(text, "/")
+		if len(s.Prefixes) == 0 {
+			return text, true
+		}
+		// With prefixes the value is an identifier: a separator left over is not one, and the remainder keeps the
+		// model length, which the schema only checks with the prefix on.
+		return text, !strings.Contains(text, "/") && (s.MaxLen <= 0 || utf8.RuneCountInString(text) <= s.MaxLen)
 	case KindBoolean:
 		b, ok := v.(bool)
 		return strconv.FormatBool(b), ok
