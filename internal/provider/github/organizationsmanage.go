@@ -221,7 +221,7 @@ var organizationChangeToolIDs = []string{organizationsUpdate.ID, organizationMem
 
 // organizationToolIDs are all organization tools that name an organization as their owner target.
 var organizationToolIDs = slices.Concat(organizationReadToolIDs, organizationChangeToolIDs, codeSecurityChangeToolIDs,
-	codeSecurityAssignToolIDs, actionsOIDCPropertyToolIDs, privateRegistryToolIDs, networkConfigurationToolIDs)
+	codeSecurityAssignToolIDs, actionsOIDCPropertyToolIDs, privateRegistryToolIDs, privateRegistryWriteToolIDs, networkConfigurationToolIDs)
 
 // ---- Arguments and checks
 

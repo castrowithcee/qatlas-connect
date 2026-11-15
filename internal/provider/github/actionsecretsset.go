@@ -162,21 +162,32 @@ func (a allowlist) restrictsRepositories(login string) bool {
 // loadSecretFile reads the file of a set whole and unchanged into the arguments, within GitHub's limit and
 // before any request. No message names the path or the content.
 func loadSecretFile(ctx context.Context, resolved *config.Resolved, a *secretArguments) error {
-	upload, err := localfile.OpenForUpload(ctx, resolved, *a.LocalPath)
+	value, err := readSecretValue(ctx, resolved, *a.LocalPath)
 	if err != nil {
 		return err
+	}
+	a.value = value
+	return nil
+}
+
+// readSecretValue reads the whole file at path, which the connection must release for reading, within GitHub's
+// limit for a secret value. The caller clears the returned bytes after use.
+func readSecretValue(ctx context.Context, resolved *config.Resolved, path string) ([]byte, error) {
+	upload, err := localfile.OpenForUpload(ctx, resolved, path)
+	if err != nil {
+		return nil, err
 	}
 	defer upload.Close()
 	switch {
 	case upload.Size > maxSecretValueBytes:
-		return invalidRequest(fmt.Sprintf("the file must be at most 48 KB (%d bytes)", maxSecretValueBytes))
+		return nil, invalidRequest(fmt.Sprintf("the file must be at most 48 KB (%d bytes)", maxSecretValueBytes))
 	case upload.Size == 0:
-		return invalidRequest("the file is empty; a secret needs a value")
+		return nil, invalidRequest("the file is empty; a secret needs a value")
 	}
 	buffer := make([]byte, upload.Size)
 	if _, err := io.ReadFull(upload, buffer); err != nil {
 		clear(buffer)
-		return err
+		return nil, err
 	}
 	// The probe makes the upload check that the file ended where it began.
 	var probe [1]byte
@@ -185,10 +196,9 @@ func loadSecretFile(ctx context.Context, resolved *config.Resolved, a *secretArg
 		if err == nil {
 			err = errors.New("the local file changed while it was read")
 		}
-		return err
+		return nil, err
 	}
-	a.value = buffer
-	return nil
+	return buffer, nil
 }
 
 // ActionSecretSet is the answer to a set secret: what GitHub did and what was sent besides the sealed value,
@@ -213,6 +223,11 @@ func (c *Client) secretPublicKey(ctx context.Context, op string, f secretFamily,
 	if err := c.rest(ctx, op, f.path(c, environment, "")+"/public-key", &raw); err != nil {
 		return "", nil, actionsFailure(err, f.changePermission(c.target, "setting them needs"))
 	}
+	return raw.sealingKey(op)
+}
+
+// sealingKey checks that the answer is a key id with a Curve25519 key of exactly 32 bytes.
+func (raw publicKeyRaw) sealingKey(op string) (string, *[secretPublicKeyBytes]byte, error) {
 	if raw.KeyID == nil || raw.Key == nil || *raw.KeyID == "" || len(*raw.KeyID) > 256 {
 		return "", nil, invalidResponse(op, false)
 	}
@@ -223,6 +238,15 @@ func (c *Client) secretPublicKey(ctx context.Context, op string, f secretFamily,
 	var key [secretPublicKeyBytes]byte
 	copy(key[:], decoded)
 	return *raw.KeyID, &key, nil
+}
+
+// sealValue seals the value anonymously for the key and returns it as Base64.
+func sealValue(op string, value []byte, key *[secretPublicKeyBytes]byte) (string, error) {
+	sealed, err := box.SealAnonymous(nil, value, key, rand.Reader)
+	if err != nil {
+		return "", providerError(op, "the value could not be sealed")
+	}
+	return base64.StdEncoding.EncodeToString(sealed), nil
 }
 
 // setSecret resolves the selected repositories, reads the public key of the level, seals the value, and sends
@@ -250,11 +274,11 @@ func (c *Client) setSecret(ctx context.Context, f secretFamily, a *secretArgumen
 	if err != nil {
 		return nil, err
 	}
-	sealed, err := box.SealAnonymous(nil, a.value, key, rand.Reader)
+	sealed, err := sealValue(op, a.value, key)
 	if err != nil {
-		return nil, providerError(op, "the value could not be sealed")
+		return nil, err
 	}
-	body["encrypted_value"] = base64.StdEncoding.EncodeToString(sealed)
+	body["encrypted_value"] = sealed
 	body["key_id"] = keyID
 	status, err := c.restChangeStatus(ctx, op, http.MethodPut, f.path(c, a.environment, a.Name), body, nil)
 	if err != nil {
