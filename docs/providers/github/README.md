@@ -114,9 +114,11 @@ the project, not a target. The owner lists `github.projects.list` and `github.re
 `github.projects.create` take `owner` as `users/LOGIN` for a user or `orgs/LOGIN` for an organization;
 `github.projects.copy` takes the source as `project` and the destination as `owner`, and checks both.
 
-`github.app-installations.list` takes `owner` as `orgs/LOGIN`, `github.app-installation-repositories.remove` takes
-`repository`, and `github.apps.get` is GitHub-wide and takes no target, like the global security advisories; see
-[organization administration](organization-admin.md#github-apps).
+`github.app-installations.list` and `github.audit-log.list` take `owner` as `orgs/LOGIN`,
+`github.app-installation-repositories.remove` takes `repository`, and `github.apps.get` is GitHub-wide and
+takes no target, like the global security advisories; see
+[organization administration](organization-admin.md#github-apps) and
+[the audit log](organization-admin.md#audit-log).
 
 An argument may be left out only when the targets allow exactly one repository, exactly one project, or
 exactly one owner as an owner entry, and not as a pattern: that one is the default of its kind. Nothing else
