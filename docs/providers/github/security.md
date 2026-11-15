@@ -13,13 +13,13 @@ The security tools of the [GitHub provider](README.md). The advisory and finding
 alert reads. Three tools change an alert's state, and [the security switches](#security-switches) and
 [the code scanning default setup](#code-scanning-default-setup) read and, listed-only, change; each change is
 offered only where a connection's `tools` list names it, as are [the dependency snapshot](#dependency-graph) and the
-six changes of [code security configurations](#code-security-configurations) and the deletion of a
-[private registry](#private-registries). The
+six changes of [code security configurations](#code-security-configurations) and the creation, change, and
+deletion of a [private registry](#private-registries). The
 not-recommended setup profile `security` selects the six alert tools, the four reads of instances, analyses, and
 locations, the six advisory and finding tools, the two reads of the switches and the default setup, the
 dependency review, the four reads of [code security configurations](#code-security-configurations), and the two
 reads of [private registries](#private-registries), twenty-five in all and all reading; it holds none of the
-thirteen changes. The recommended profile `read` is unchanged.
+fifteen changes. The recommended profile `read` is unchanged.
 
 ## Security alerts
 
@@ -452,14 +452,17 @@ https://docs.github.com/en/rest/code-security/configurations.
 
 ## Private registries
 
-Three tools read and delete the private registries an organization hands to Dependabot, so it can resolve packages
-from a private feed. The two reads only read; deleting is a listed-only change, offered only where a connection's
-`tools` list names it. Creating and changing a registry is not offered, and neither is its public key.
+Five tools read, create, change, and delete the private registries an organization hands to Dependabot, so it can
+resolve packages from a private feed. The two reads only read; creating, changing, and deleting are listed-only
+changes, offered only where a connection's `tools` list names them. The public key of the organization is not a tool
+of its own: the two writes read it themselves.
 
 | Tool | Does |
 | --- | --- |
 | `github.private-registries.list` | lists the private registries of an organization |
 | `github.private-registries.get` | reads one private registry by `secret_name` |
+| `github.private-registries.create` | creates a private registry from a local credential file (listed-only) |
+| `github.private-registries.update` | changes a private registry by `secret_name` (listed-only) |
 | `github.private-registries.delete` | deletes a private registry (listed-only) |
 
 The tools take the `owner` argument as `orgs/LOGIN`. The organization must be one the connection's targets name as an
@@ -495,6 +498,44 @@ repositories lose it too.
 
 GitHub answers 403 for a token without the right or an account that is not an organization owner, and 404 for a
 missing registry; both are results with a reason and never carry GitHub's own text. A gateway timeout is a timeout.
+
+### Creating and changing a registry
+
+`.create` takes `registry_type` (one of the fifteen types GitHub documents, such as `npm_registry` or
+`maven_repository`), `url`, `visibility`, and `local_path`, and optionally `auth_type` (`token`, the default, or
+`username_password`), `username`, `replaces_base`, and, with `visibility` `selected`, `selected_repositories`.
+`.update` takes `secret_name` and at least one of `registry_type`, `url`, `username`, `replaces_base`, `visibility`
+with `selected_repositories`, and `local_path`; the authentication type cannot be changed. The other
+authentication types (`anonymous` and the `oidc_` kinds) are not offered: they carry no local value and name further
+addresses.
+
+The credential is never an argument. `local_path` names a file the connection releases for reading under
+`files.read`, absolute or starting with `~/`, of at most 48 KB. Qatlas reads its whole content unchanged, so a line
+break at the end of the file is part of the value, seals it locally with the public key GitHub serves for the
+organization (a sealed box), and sends only the sealed text with the key id. The value is never part of an answer, a
+log, or a message, however a server answers; a tool without `files.read` on its connection is not offered. A
+`.update` without `local_path` keeps the current credential and sends no key request.
+
+The address is approved by the connection, not by the caller. A `url` is accepted only as an `https` address without
+userinfo whose host, with its port when one is given, equals a `registry-hosts/HOST` entry of the connection's targets
+without regard to case; there is no pattern, no subdomain, and no default port (see
+[targets](README.md#targets)). Any other address is refused as `invalid-request`. A `.update` without `url` keeps
+the existing address and needs no host approval.
+
+Before a credential is resolved and before the file is opened, Qatlas checks in this order that `owner` is an
+organization the targets name as an owner and no exclusion covers, the address, the names and the limits of the
+other arguments, and `selected_repositories`: each is `OWNER/REPO` of that organization, inside the connection's
+repository targets and not excluded, at most 50. `all` and `private` are refused when the targets or exclusions
+narrow the repositories of the organization, since the registry would reach repositories outside them; `selected`
+with repositories inside the targets is the way. Qatlas resolves the repositories to ids with one read each, then reads
+the key. A refusal in this stage sends no request and reads no file.
+
+A create sends one `POST` and an update one `PATCH`, each exactly once and never repeated. GitHub names a created
+registry itself; the answer carries `state` (`created` or `updated`), the `name`, and what was sent besides the value
+(`registry_type`, `visibility`, `selected_repositories`), never the address or the value. A success status other than
+201 for a create and 204 for an update, and a created name that is not a secret name, are reported as uncertain. GitHub
+answers 403 for a token without the right, 404 for a missing organization or registry, and 422 for a request it does
+not accept, for example a key replaced since it was read; each is a result with a reason, without GitHub's own text.
 
 The token rights are listed under [Security](setup.md#security). Sources:
 https://docs.github.com/en/rest/private-registries/organization-configurations.
