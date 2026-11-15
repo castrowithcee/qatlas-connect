@@ -620,6 +620,8 @@ func TestRegisterPublishesTheChangeContracts(t *testing.T) {
 			secretSensitivity),
 		"github.action-secrets.set": guardedRisk(capability.EffectUpdate, capability.IdempotencyIdempotent,
 			secretSetSensitivity),
+		"github.dependabot-secrets.set": guardedRisk(capability.EffectUpdate, capability.IdempotencyIdempotent,
+			secretSetSensitivity),
 		"github.dependabot-secrets.list": guardedRisk(capability.EffectRead, capability.IdempotencySafe,
 			secretSensitivity),
 		"github.dependabot-secrets.get": guardedRisk(capability.EffectRead, capability.IdempotencySafe,

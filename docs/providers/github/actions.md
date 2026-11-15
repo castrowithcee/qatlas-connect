@@ -40,8 +40,8 @@ No observer or operator tool changes a workflow file or a setting; that is the l
 Environments with their deployment branch policies and protection rules, and deployments, have [their own
 page](environments.md), as do [Actions caches and the cleanup of runs and artifacts](actions-maintenance.md);
 Actions variables, Actions secrets, and Dependabot secrets have tools under [Actions variables](#actions-variables),
-[Actions secrets](#actions-secrets), and [Dependabot secrets](#dependabot-secrets). No tool sets a Dependabot secret,
-administers an organization, or registers runners; the [self-hosted runners](#self-hosted-runners) and the [runner groups and
+[Actions secrets](#actions-secrets), and [Dependabot secrets](#dependabot-secrets). No tool administers an organization,
+or registers runners; the [self-hosted runners](#self-hosted-runners) and the [runner groups and
 hosted runners](#runner-groups-and-hosted-runners) have their own listed-only tools. The approval of a fork run
 and the review of pending deployments are described under [approval gates](actions-maintenance.md#approval-gates).
 
@@ -261,13 +261,17 @@ are listed under [GitHub Actions](setup.md#github-actions).
 | `github.dependabot-secrets.list` | lists the names and times of the Dependabot secrets of a repository or an organization |
 | `github.dependabot-secrets.get` | reads the name and times of one secret by name |
 | `github.dependabot-secret-repositories.list` | lists the repositories that may use an organization secret whose visibility is `selected` |
+| `github.dependabot-secrets.set` | creates or replaces one secret from a local file; listed-only |
 | `github.dependabot-secrets.delete` | deletes one secret permanently; listed-only |
 
-These tools behave as the [Actions secret](#actions-secrets) tools: they never read, send, or return a value, take
+These tools behave as the [Actions secret](#actions-secrets) tools: none returns a value, they take
 exactly one of `repository` or `organization` (the repositories list takes `organization` only), check the
 target and the connection's exclusions before a credential is resolved, withhold and count repositories outside the
 targets, and delete listed-only, with confirmation, in exactly one request without a retry. Dependabot has no
-environment: the tools have no `environment` argument, and one that is sent is an invalid request. The token rights
+environment: the tools have no `environment` argument, and one that is sent is an invalid request.
+`github.dependabot-secrets.set` works like `github.action-secrets.set` (see [Actions secrets](#actions-secrets)): the
+value comes from a file the connection releases in `files.read`, is sealed locally with the public key of the
+Dependabot level, and is written in one request without a retry. The token rights
 are listed under [GitHub Actions](setup.md#github-actions).
 
 ## Workflow maintenance and Actions administration

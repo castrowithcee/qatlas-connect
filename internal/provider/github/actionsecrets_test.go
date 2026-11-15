@@ -217,7 +217,7 @@ func (s *fakeSecrets) route(w http.ResponseWriter, req *http.Request) bool {
 }
 
 var secretTools = []string{actionSecretsList.ID, actionSecretsGet.ID, actionSecretRepositoriesList.ID,
-	actionSecretsDelete.ID, actionSecretsSet.ID, dependabotSecretsList.ID, dependabotSecretsGet.ID, dependabotSecretRepositoriesList.ID,
+	actionSecretsDelete.ID, actionSecretsSet.ID, dependabotSecretsSet.ID, dependabotSecretsList.ID, dependabotSecretsGet.ID, dependabotSecretRepositoriesList.ID,
 	dependabotSecretsDelete.ID}
 
 // secretsConfig binds the connection shapes the secret tools distinguish, like variablesConfig.

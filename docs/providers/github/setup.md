@@ -196,8 +196,8 @@ your token holds. A repository or organization policy can forbid a run although 
 | Read the GitHub-hosted runners of an organization | `manage_runner:org` | Hosted runners: read (organization); as far as GitHub documents it |
 | Read Actions variables of an organization; create, change, or delete them | `admin:org`, plus `repo` where a private repository is involved | Variables: read, read and write to change (organization); selecting repositories also needs Metadata: read on them |
 | Read the names and times of Actions secrets of an organization and the repositories of one; set or delete one | `admin:org`, plus `repo` where a private repository is involved | Secrets: read, read and write to set or delete (organization); selecting repositories also needs Metadata: read on them; as far as GitHub documents it |
-| Read the names and times of Dependabot secrets of a repository; delete one | `repo` | Dependabot secrets: read; read and write to delete |
-| Read the names and times of Dependabot secrets of an organization and the repositories of one; delete one | `admin:org` | Dependabot secrets: read, read and write to delete (organization); as far as GitHub documents it |
+| Read the names and times of Dependabot secrets of a repository; set or delete one | `repo` | Dependabot secrets: read; read and write to set or delete |
+| Read the names and times of Dependabot secrets of an organization and the repositories of one; set or delete one | `admin:org` | Dependabot secrets: read, read and write to set or delete (organization); selecting repositories also needs Metadata: read on them; as far as GitHub documents it |
 | Read environments, deployment branch policies, and deployment protection rules | `repo` for private repositories, none for public | Actions: read |
 | Create, change, or delete environments and deployment branch policies; disable deployment protection rules | `repo`, as a repository administrator for protection rules | Administration: read and write |
 | Read deployments and deployment statuses | `repo` for private repositories, none for public | Deployments: read |
@@ -206,7 +206,7 @@ your token holds. A repository or organization policy can forbid a run although 
 | Approve or reject the pending deployments of a run, as a required reviewer of the environment | `repo` | Deployments: read and write, Actions: read |
 | Name a team as reviewer of an environment | `read:org` | Members: read (organization) |
 
-Setting an Actions secret reads the value from a local file, so the connection also needs the directory of that file in
+Setting an Actions or Dependabot secret reads the value from a local file, so the connection also needs the directory of that file in
 `files.read`; the token rights above are all it needs from GitHub.
 
 Workflow files, Actions permissions and settings, self-hosted runners, and repository settings are high risk. Give those connections a token of their
