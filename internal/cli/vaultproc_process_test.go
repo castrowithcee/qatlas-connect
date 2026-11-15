@@ -66,12 +66,17 @@ func shortRuntimeDir(t *testing.T) string {
 
 // endVaultProcess locks the vault process a test left running, if it still answers, and then ends every
 // process in the registry that is still alive, whether or not the socket answered. A process that had to
-// be killed is an error.
+// be killed is an error, which tells what the socket answered.
 func endVaultProcess(t errorReporter, client *vaultproc.Client, registry string) {
-	if _, err := client.Status(context.Background()); err == nil {
-		_ = client.Lock(context.Background())
+	var why string
+	if _, err := client.Status(context.Background()); err != nil {
+		why = fmt.Sprintf("no lock was sent, Status() = %v", err)
+	} else if err := client.Lock(context.Background()); err != nil {
+		why = fmt.Sprintf("Lock() = %v", err)
+	} else {
+		why = "the lock was answered"
 	}
-	endRegistered(t, registry)
+	endRegisteredWhy(t, registry, why)
 }
 
 // recordedErrors catches what endVaultProcess reports, so a test can expect it without failing.

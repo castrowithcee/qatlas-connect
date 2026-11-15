@@ -131,6 +131,39 @@ func TestListenReplacesADeadSocket(t *testing.T) {
 	_ = l.Close()
 }
 
+// A repeated Close removes nothing: its lock is released, so the socket at the path may be the next
+// listener's, even one with the inode number of the first one's own, which a file system such as ext4 reuses
+// at once.
+func TestRepeatedCloseLeavesTheNextSocket(t *testing.T) {
+	path := socketIn(t)
+	first, err := Listen(path)
+	if err != nil {
+		t.Fatalf("Listen() error = %v", err)
+	}
+	if err := first.Close(); err != nil {
+		t.Fatalf("Close() error = %v", err)
+	}
+	next, err := Listen(path)
+	if err != nil {
+		t.Fatalf("Listen() after Close() error = %v", err)
+	}
+	t.Cleanup(func() { _ = next.Close() })
+	info, err := os.Lstat(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// The next socket got the inode number of the first one's own.
+	first.(*lockedListener).own = info
+
+	_ = first.Close()
+	if _, err := os.Lstat(path); err != nil {
+		t.Fatalf("a repeated Close() removed the next listener's socket: %v", err)
+	}
+	if !serves(path) {
+		t.Fatal("the next listener no longer holds its lock after a repeated Close() of the first")
+	}
+}
+
 func TestListenLeavesAForeignFileAlone(t *testing.T) {
 	path := socketIn(t)
 	if err := privateDir(filepath.Dir(path)); err != nil {

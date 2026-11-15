@@ -174,6 +174,9 @@ type lockedListener struct {
 	lock *os.File
 	own  fs.FileInfo
 
+	closeOnce sync.Once
+	closeErr  error
+
 	mu         sync.Mutex
 	path       string
 	handedOver bool
@@ -182,7 +185,15 @@ type lockedListener struct {
 	legacyLock *os.File
 }
 
+// Close closes the listener once; a repeated Close only reports what the first did. Once the lock is
+// released, the socket at path may be another process's, one the file system may even have given the inode
+// number of this listener's own, so nothing there is removed any more.
 func (l *lockedListener) Close() error {
+	l.closeOnce.Do(func() { l.closeErr = l.close() })
+	return l.closeErr
+}
+
+func (l *lockedListener) close() error {
 	l.mu.Lock()
 	path, handedOver := l.path, l.handedOver
 	l.leaveLegacy()
