@@ -2183,6 +2183,9 @@ func (c *Client) restChangeStatus(ctx context.Context, op, method, path string, 
 // 201 for a new one.
 func (c *Client) do(ctx context.Context, op, method, endpoint string, payload []byte, out any, change bool,
 	header *http.Header, status *int) error {
+	if hasDotSegment(endpoint) {
+		return invalidRequest("the request path must not hold a . or .. segment")
+	}
 	if err := c.limiter.Wait(ctx); err != nil {
 		return provider.Waited(op, "GitHub", err)
 	}
@@ -2244,6 +2247,21 @@ func (c *Client) do(ctx context.Context, op, method, endpoint string, payload []
 		return invalidResponse(op, change)
 	}
 	return nil
+}
+
+// hasDotSegment reports whether the path of endpoint holds a . or .. segment, also percent-encoded, which a
+// server may resolve to another route than the one a tool built.
+func hasDotSegment(endpoint string) bool {
+	parsed, err := url.Parse(endpoint)
+	if err != nil {
+		return false
+	}
+	for _, segment := range strings.Split(parsed.EscapedPath(), "/") {
+		if decoded, err := url.PathUnescape(segment); err == nil && (decoded == "." || decoded == "..") {
+			return true
+		}
+	}
+	return false
 }
 
 // emptyBodyAnswer marks a decode target of a route that may answer 200 without any body.

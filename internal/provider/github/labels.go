@@ -262,7 +262,16 @@ func stringOr(value *string) string {
 }
 
 func checkLabelName(a *labelsArguments, _ target) error {
-	return checkText("name", a.Name)
+	return checkLabelSegment("name", a.Name)
+}
+
+// checkLabelSegment checks a label name that becomes a path segment or may later have to. PathEscape keeps a
+// dot segment, which a server may resolve to the repository itself; GitHub cannot address such a label anyway.
+func checkLabelSegment(name, value string) error {
+	if value == "." || value == ".." {
+		return invalidRequest(name + " must not be . or ..")
+	}
+	return checkText(name, value)
 }
 
 func checkLabelCreate(a *labelsArguments, _ target) error {
@@ -273,14 +282,14 @@ func checkLabelCreate(a *labelsArguments, _ target) error {
 }
 
 func checkLabelUpdate(a *labelsArguments, _ target) error {
-	if err := checkText("name", a.Name); err != nil {
+	if err := checkLabelSegment("name", a.Name); err != nil {
 		return err
 	}
 	if a.NewName == nil && a.Color == nil && a.Description == nil {
 		return invalidRequest("give at least one of new_name, color, or description to change")
 	}
 	if a.NewName != nil {
-		if err := checkText("new_name", *a.NewName); err != nil {
+		if err := checkLabelSegment("new_name", *a.NewName); err != nil {
 			return err
 		}
 	}
@@ -305,8 +314,8 @@ const (
 )
 
 // labelPath is the REST route of one label of the bound repository, or of the label collection without a
-// name. The name is escaped as one opaque path segment, the way tagRefPath escapes a tag name, so it can
-// never address another route.
+// name. The name is escaped as one path segment; PathEscape keeps . and .., which checkLabelSegment refuses
+// beforehand.
 func (c *Client) labelPath(name string) string {
 	if name == "" {
 		return c.repoPath("labels")

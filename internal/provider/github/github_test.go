@@ -1912,3 +1912,35 @@ func ownerFiltersStripped(descriptor capability.Descriptor) string {
 	}
 	return schema
 }
+
+// do never sends a path with a . or .. segment, plain or percent-encoded, whichever tool built it; an
+// escaped slash beside dots stays one ordinary segment.
+func TestDoNeverSendsADotSegmentPath(t *testing.T) {
+	f := &fakeGitHub{}
+	base := serve(t, f)
+	red := &redact.Redactor{}
+	c, err := open(context.Background(), resolvedConnection("gh", base, repoTarget), resolver(red, nil), red,
+		freeLimiter())
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, path := range []string{"/repos/octo-org/example/labels/..", "/repos/octo-org/example/labels/.",
+		"/repos/octo-org/example/../example/labels", "/repos/octo-org/./example/labels",
+		"/repos/octo-org/example/labels/%2E%2e"} {
+		for _, change := range []bool{false, true} {
+			before := len(f.recorded())
+			var out any
+			err := c.do(context.Background(), "probe", http.MethodDelete, c.endpoints.rest+path, nil, &out, change,
+				nil, nil)
+			if !isInvalidRequest(err) {
+				t.Errorf("do %s = %v, want an invalid request", path, err)
+			}
+			if len(f.recorded()) != before {
+				t.Errorf("do %s reached GitHub", path)
+			}
+		}
+	}
+	if hasDotSegment(base + "/repos/octo-org/example/labels/a%2F..") {
+		t.Error("an escaped slash before .. counts as a dot segment")
+	}
+}
