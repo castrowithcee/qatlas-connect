@@ -300,6 +300,8 @@ so treat them as likely, not certain.
 | Code quality findings | `repo`; `public_repo` for a public repository | Code quality: read |
 | Read the code security configurations of an organization, its defaults, and the repositories of a configuration | `read:org`, as an organization owner or security manager | Administration: read (organization); as far as GitHub documents it |
 | Create, update, delete, attach, detach, or set as default a code security configuration of an organization | `write:org`, as an organization owner or security manager | Administration: write (organization); as far as GitHub documents it |
+| Read the private registries of an organization | `admin:org` | Organization private registries: read |
+| Delete a private registry of an organization | `admin:org` | Organization private registries: write |
 | Read the security switches and the code scanning default setup | `repo`, as a repository administrator | Administration: read |
 | Change the security switches and the code scanning default setup | `repo`, as a repository administrator; `security_events` is not enough | Administration: write |
 
