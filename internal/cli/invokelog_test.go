@@ -13,11 +13,17 @@ import (
 	"github.com/castrowithcee/qatlas-connect/internal/vault"
 )
 
+// loggedEntry is a log line decoded with its check value.
+type loggedEntry struct {
+	invokelog.Entry
+	MAC string `json:"mac"`
+}
+
 // logEntries returns every line of the invocation log below dir, the configuration directory, decoded.
-func logEntries(t *testing.T, dir string) ([]invokelog.Entry, [][]byte) {
+func logEntries(t *testing.T, dir string) ([]loggedEntry, [][]byte) {
 	t.Helper()
 	files, _ := filepath.Glob(filepath.Join(dir, vault.DirName, "logs", "*.jsonl"))
-	var entries []invokelog.Entry
+	var entries []loggedEntry
 	var lines [][]byte
 	for _, file := range files {
 		data, err := os.ReadFile(file)
@@ -28,7 +34,7 @@ func logEntries(t *testing.T, dir string) ([]invokelog.Entry, [][]byte) {
 			if line == "" {
 				continue
 			}
-			var entry invokelog.Entry
+			var entry loggedEntry
 			if err := json.Unmarshal([]byte(line), &entry); err != nil {
 				t.Fatalf("log line %q: %v", line, err)
 			}
@@ -132,5 +138,35 @@ func TestInvokeLogStaysUnsignedWithoutAnEncryptedVault(t *testing.T) {
 	code, doc, _ := verifyJSON(t, dir)
 	if code != exitOK || doc.MACCheck != macNoVaultKey || doc.Days[0].Unverified != 1 {
 		t.Fatalf("verify: exit %d, report %+v", code, doc)
+	}
+}
+
+// A retention cut is a line of the log but no invocation: verify counts it as neither unverified nor
+// unchecked, in the text output and in JSON.
+func TestLogsVerifyCountsOnlyInvocationsAsUnverified(t *testing.T) {
+	dir := t.TempDir()
+	logs := filepath.Join(dir, vault.DirName)
+	march := time.Date(2026, 3, 1, 8, 0, 0, 0, time.UTC)
+	at := march
+	logger := invokelog.New(logs, 90).WithClock(func() time.Time { return at })
+	if err := logger.Append(logFields("op.one")); err != nil {
+		t.Fatal(err)
+	}
+	at = time.Date(2026, 9, 1, 8, 0, 0, 0, time.UTC)
+	if err := logger.Append(logFields("op.two")); err != nil {
+		t.Fatal(err)
+	}
+	_, lines := logEntries(t, dir)
+	if len(lines) != 2 || !strings.Contains(string(lines[0]), `"kind":"retention-cut"`) {
+		t.Fatalf("lines = %s, want a retention cut and an entry", lines)
+	}
+	code, doc, stderr := verifyJSON(t, dir)
+	if code != exitOK || doc.Broken || len(doc.Days) != 1 || doc.Days[0].Entries != 1 ||
+		doc.Days[0].Unverified != 1 || doc.Days[0].Unchecked != 0 || stderr != "" {
+		t.Fatalf("verify JSON: exit %d, report %+v, stderr %q", code, doc, stderr)
+	}
+	code, stdout, stderr := runWithInput(t, &Options{}, "", "vault", "logs", "verify", "--config", configIn(dir))
+	if code != exitOK || stderr != "" || !strings.Contains(stdout, "2026-09-01,1,1,0,0,0") {
+		t.Fatalf("verify text: exit %d, stdout %q, stderr %q", code, stdout, stderr)
 	}
 }

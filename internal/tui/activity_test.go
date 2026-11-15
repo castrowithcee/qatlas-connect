@@ -33,8 +33,9 @@ func writeActivityLog(t *testing.T, f *logFixture, calls []activityCall) {
 	for i, c := range calls {
 		day := now.AddDate(0, 0, -c.daysAgo)
 		when := time.Date(day.Year(), day.Month(), day.Day(), 12, i%50, 0, 0, time.Local)
-		e := invokelog.Entry{Seq: uint64(i + 1), Time: when, Path: "cli", Operation: c.op, Connection: "wiki-main",
-			Effect: "read", Result: c.result, DurationMS: 25, PrevHash: hex.EncodeToString(previous[:])}
+		e := chainedLine{Entry: invokelog.Entry{Seq: uint64(i + 1), Time: when, Path: "cli", Operation: c.op,
+			Connection: "wiki-main", Effect: "read", Result: c.result, DurationMS: 25},
+			PrevHash: hex.EncodeToString(previous[:])}
 		raw, err := json.Marshal(e)
 		mustNoError(t, err)
 		name := filepath.Join(f.logsDir(), when.UTC().Format(logDateLayout)+".jsonl")

@@ -33,7 +33,7 @@ func testKey(t *testing.T) (*Key, *age.X25519Identity) {
 func signedLogger(t *testing.T, dir string, key *Key, at time.Time) (*Logger, func(time.Time)) {
 	t.Helper()
 	logger, moveTo := clockAt(at)
-	logger.vaultDir, logger.retentionDays = dir, 90
+	logger.opts.Dir, logger.opts.RetentionDays = logsDir(dir), 90
 	return logger.WithKey(key), moveTo
 }
 
@@ -56,13 +56,13 @@ func TestSignedEntriesFollowTheDefinition(t *testing.T) {
 	mustAppend(t, logger, "op.one")
 	mustAppend(t, logger, "op.two")
 
-	lines := readLines(t, filepath.Join(logger.logsDir(), "2026-03-01.jsonl"))
+	lines := readLines(t, filepath.Join(logger.opts.Dir, "2026-03-01.jsonl"))
 	if len(lines) != 2 {
 		t.Fatalf("got %d lines, want 2", len(lines))
 	}
-	derived := hkdfKey(t, id)
+	derived := labelKey(t, id, keyLabel)
 	for i, line := range lines {
-		var entry Entry
+		var entry storedLine
 		if err := json.Unmarshal(line, &entry); err != nil {
 			t.Fatal(err)
 		}
@@ -78,7 +78,7 @@ func TestSignedEntriesFollowTheDefinition(t *testing.T) {
 			t.Fatalf("line %d holds the log key", i)
 		}
 	}
-	var second Entry
+	var second storedLine
 	_ = json.Unmarshal(lines[1], &second)
 	if second.PrevHash != hashHex(lines[0]) {
 		t.Fatalf("prev_hash = %s, want the SHA-256 of the whole signed line", second.PrevHash)
@@ -91,15 +91,6 @@ func TestSignedEntriesFollowTheDefinition(t *testing.T) {
 	}
 }
 
-func hkdfKey(t *testing.T, id *age.X25519Identity) []byte {
-	t.Helper()
-	key, err := DeriveKey(id)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return append([]byte(nil), key.key...)
-}
-
 func TestDeriveKeyIsStablePerVaultKey(t *testing.T) {
 	key, id := testKey(t)
 	parsed, err := age.ParseX25519Identity(id.String())
@@ -107,21 +98,14 @@ func TestDeriveKeyIsStablePerVaultKey(t *testing.T) {
 		t.Fatal(err)
 	}
 	again, _ := DeriveKey(parsed)
-	if !bytes.Equal(key.key, again.key) {
-		t.Fatal("the same vault key derived two log keys")
-	}
 	other, _ := testKey(t)
-	if bytes.Equal(key.key, other.key) {
-		t.Fatal("two vault keys derived the same log key")
-	}
-	if bytes.Contains([]byte(id.String()), []byte(hex.EncodeToString(key.key))) ||
-		strings.Contains(hex.EncodeToString(key.key), strings.ToLower(id.String())) {
-		t.Fatal("the log key is the vault key")
-	}
 
 	dir := t.TempDir()
 	logger, _ := signedLogger(t, dir, key, time.Date(2026, 3, 1, 8, 0, 0, 0, time.UTC))
 	mustAppend(t, logger, "op.one")
+	if report := verifyWith(t, dir, again); report.Broken || report.Days[0].Changed != 0 {
+		t.Fatalf("report under the same vault key parsed again = %+v, want the entry valid", report)
+	}
 	if report := verifyWith(t, dir, other); !report.Broken || report.Days[0].Changed != 1 {
 		t.Fatalf("report under another vault's key = %+v, want the entry changed", report)
 	}
@@ -142,7 +126,7 @@ func TestVerifyDetectsATamperedCheckValue(t *testing.T) {
 	for _, op := range []string{"op.one", "op.two", "op.three"} {
 		mustAppend(t, logger, op)
 	}
-	path := filepath.Join(logger.logsDir(), "2026-03-01.jsonl")
+	path := filepath.Join(logger.opts.Dir, "2026-03-01.jsonl")
 	lines := readLines(t, path)
 
 	// A check value changed to another well-formed one: the chain after it breaks as well.
@@ -180,7 +164,7 @@ func TestVerifyDetectsAChangedLastLine(t *testing.T) {
 	logger, _ := signedLogger(t, dir, key, time.Date(2026, 3, 1, 8, 0, 0, 0, time.UTC))
 	mustAppend(t, logger, "op.one")
 	mustAppend(t, logger, "op.two")
-	path := filepath.Join(logger.logsDir(), "2026-03-01.jsonl")
+	path := filepath.Join(logger.opts.Dir, "2026-03-01.jsonl")
 	lines := readLines(t, path)
 	lines[1] = bytes.Replace(lines[1], []byte(`"result":"success"`), []byte(`"result":"permission"`), 1)
 	writeLines(t, path, lines)
@@ -203,7 +187,7 @@ func TestMixedChainStaysIntact(t *testing.T) {
 	start := time.Date(2026, 1, 1, 8, 0, 0, 0, time.UTC)
 	signed, moveSigned := signedLogger(t, dir, key, start)
 	unsigned, moveUnsigned := clockAt(start)
-	unsigned.vaultDir, unsigned.retentionDays = dir, 90
+	unsigned.opts.Dir, unsigned.opts.RetentionDays = logsDir(dir), 90
 
 	mustAppend(t, unsigned, "op.unsigned.one")
 	mustAppend(t, signed, "op.signed.one")
@@ -216,8 +200,8 @@ func TestMixedChainStaysIntact(t *testing.T) {
 	mustAppend(t, signed, "op.after.cut")
 	mustAppend(t, unsigned, "op.unsigned.after.cut")
 
-	lines := readLines(t, filepath.Join(signed.logsDir(), later.Format("2006-01-02")+".jsonl"))
-	var cut Entry
+	lines := readLines(t, filepath.Join(signed.opts.Dir, later.Format("2006-01-02")+".jsonl"))
+	var cut storedLine
 	if err := json.Unmarshal(lines[0], &cut); err != nil || cut.Kind != KindCut || cut.MAC == "" {
 		t.Fatalf("first line after retention = %s, want a signed retention-cut marker", lines[0])
 	}
@@ -238,7 +222,7 @@ func TestMixedChainInOneDay(t *testing.T) {
 	at := time.Date(2026, 1, 1, 8, 0, 0, 0, time.UTC)
 	signed, _ := signedLogger(t, dir, key, at)
 	unsigned, _ := clockAt(at)
-	unsigned.vaultDir, unsigned.retentionDays = dir, 90
+	unsigned.opts.Dir, unsigned.opts.RetentionDays = logsDir(dir), 90
 	mustAppend(t, unsigned, "op.one")
 	mustAppend(t, signed, "op.two")
 	mustAppend(t, unsigned, "op.three")
@@ -277,11 +261,11 @@ func TestVerifyFailsClosed(t *testing.T) {
 func TestMissingEntriesAreCounted(t *testing.T) {
 	dir := t.TempDir()
 	logger, _ := clockAt(time.Date(2026, 3, 1, 8, 0, 0, 0, time.UTC))
-	logger.vaultDir, logger.retentionDays = dir, 90
+	logger.opts.Dir, logger.opts.RetentionDays = logsDir(dir), 90
 	for _, op := range []string{"a", "b", "c", "d", "e"} {
 		mustAppend(t, logger, op)
 	}
-	path := filepath.Join(logger.logsDir(), "2026-03-01.jsonl")
+	path := filepath.Join(logger.opts.Dir, "2026-03-01.jsonl")
 	lines := readLines(t, path)
 	writeLines(t, path, [][]byte{lines[0], lines[3], lines[4]})
 	if report := verifyWith(t, dir, nil); !report.Broken || report.Days[0].Missing != 2 {
@@ -352,11 +336,11 @@ func TestSignedLogHoldsNoKeyMaterial(t *testing.T) {
 	key, id := testKey(t)
 	logger, _ := signedLogger(t, dir, key, time.Date(2026, 3, 1, 8, 0, 0, 0, time.UTC))
 	mustAppend(t, logger, "op.one")
-	data, err := os.ReadFile(filepath.Join(logger.logsDir(), "2026-03-01.jsonl"))
+	data, err := os.ReadFile(filepath.Join(logger.opts.Dir, "2026-03-01.jsonl"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, secret := range []string{id.String(), strings.ToLower(id.String()), hex.EncodeToString(key.key)} {
+	for _, secret := range []string{id.String(), strings.ToLower(id.String()), hex.EncodeToString(labelKey(t, id, keyLabel))} {
 		if strings.Contains(string(data), secret) {
 			t.Fatalf("the log holds key material")
 		}
@@ -372,7 +356,7 @@ func TestConnectionIDEntriesMixWithOldOnes(t *testing.T) {
 	at := time.Date(2026, 3, 1, 8, 0, 0, 0, time.UTC)
 	signed, _ := signedLogger(t, dir, key, at)
 	unsigned, _ := clockAt(at)
-	unsigned.vaultDir, unsigned.retentionDays = dir, 90
+	unsigned.opts.Dir, unsigned.opts.RetentionDays = logsDir(dir), 90
 	withID := func(l *Logger, op string) {
 		t.Helper()
 		f := Fields{Path: "cli", Operation: op, Connection: "wiki", ConnectionID: id, Effect: "read", Result: "success"}
@@ -395,7 +379,7 @@ func TestConnectionIDEntriesMixWithOldOnes(t *testing.T) {
 		t.Fatalf("report = %+v, want 6 entries, 2 unverified, intact", report)
 	}
 
-	path := filepath.Join(signed.logsDir(), "2026-03-01.jsonl")
+	path := filepath.Join(signed.opts.Dir, "2026-03-01.jsonl")
 	lines := readLines(t, path)
 	if !bytes.Contains(lines[1], []byte(`"connection":"wiki","connection_id":"`+id+`"`)) || bytes.Contains(lines[0], []byte("connection_id")) {
 		t.Fatalf("lines = %s, want connection_id on the new entries only", lines)

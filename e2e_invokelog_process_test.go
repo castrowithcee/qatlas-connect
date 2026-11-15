@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -259,18 +260,19 @@ defaults:
 	// A line under the former label after the current one, chained and signed the way the former release
 	// would have, is a change too.
 	lines := bytes.Split(bytes.TrimRight(original, "\n"), []byte("\n"))
-	var last invokelog.Entry
+	var last formerEntry
 	if err := json.Unmarshal(lines[len(lines)-1], &last); err != nil {
 		t.Fatal(err)
 	}
-	downgraded := append(append([]byte(nil), original...), formerLine(t, vaultKey, invokelog.Entry{Seq: last.Seq + 1,
-		Time: last.Time, Path: "cli", Operation: "bookstack.pages.list", Effect: "read", Result: "success",
-		PrevHash: hashOf(lines[len(lines)-1])})...)
+	downgraded := append(append([]byte(nil), original...), formerLine(t, vaultKey, formerEntry{Entry: invokelog.Entry{
+		Seq: last.Seq + 1, Time: last.Time, Path: "cli", Operation: "bookstack.pages.list", Effect: "read",
+		Result: "success"}, PrevHash: hashOf(lines[len(lines)-1])})...)
 	if err := os.WriteFile(file, append(downgraded, '\n'), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	code, _, days, stderr = verify(t)
-	if code == 0 || len(days) != 3 || days[2].Changed != 1 || !strings.Contains(days[2].Problem, "former log key") ||
+	if code == 0 || len(days) != 3 || days[2].Changed != 1 ||
+		!strings.Contains(days[2].Problem, "sequence "+strconv.FormatUint(last.Seq+1, 10)+" is signed under the former log key after the current one") ||
 		!strings.Contains(stderr, "broken") {
 		t.Fatalf("verify of a line under the former label: exit %d, days %+v, stderr %q", code, days, stderr)
 	}
@@ -325,8 +327,8 @@ func seedFormerLog(t *testing.T, logsDir, identity string, days ...time.Time) ma
 		path := filepath.Join(logsDir, day.Format("2006-01-02")+".jsonl")
 		var data []byte
 		for _, op := range []string{"bookstack.pages.list", "bookstack.pages.get"} {
-			line := formerLine(t, identity, invokelog.Entry{Seq: seq, Time: day.Truncate(time.Second), Path: "cli",
-				Operation: op, Connection: "wiki", Effect: "read", Result: "success", PrevHash: prev})
+			line := formerLine(t, identity, formerEntry{Entry: invokelog.Entry{Seq: seq, Time: day.Truncate(time.Second),
+				Path: "cli", Operation: op, Connection: "wiki", Effect: "read", Result: "success"}, PrevHash: prev})
 			data = append(append(data, line...), '\n')
 			prev, seq = hashOf(line), seq+1
 		}
@@ -338,9 +340,16 @@ func seedFormerLog(t *testing.T, logsDir, identity string, days ...time.Time) ma
 	return files
 }
 
+// formerEntry is a line of the former release: the entry, its link and its check value, in that order.
+type formerEntry struct {
+	invokelog.Entry
+	PrevHash string `json:"prev_hash"`
+	MAC      string `json:"mac"`
+}
+
 // formerLine is entry as the former release stored it: without mac_key, with the HMAC-SHA256 under the log
 // key HKDF derives from identity with formerLabel as its check value.
-func formerLine(t *testing.T, identity string, entry invokelog.Entry) []byte {
+func formerLine(t *testing.T, identity string, entry formerEntry) []byte {
 	t.Helper()
 	unsigned, err := json.Marshal(entry)
 	if err != nil {

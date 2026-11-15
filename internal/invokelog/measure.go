@@ -12,7 +12,7 @@ import (
 // lands on. A nil now means the system clock.
 func (l *Logger) WithClock(now func() time.Time) *Logger {
 	out := *l
-	out.now = now
+	out.opts.Now = now
 	return &out
 }
 
@@ -21,7 +21,7 @@ func (l *Logger) WithClock(now func() time.Time) *Logger {
 // predecessor lookup of Append has to walk back one file. It exists to build synthetic fixtures for storage
 // measurements and must only be pointed at a scratch directory.
 func SeedDayFiles(vaultDir string, days int, emptyNewest bool, newest time.Time) error {
-	dir := (&Logger{vaultDir: vaultDir}).logsDir()
+	dir := logsDir(vaultDir)
 	if err := os.MkdirAll(dir, dirMode); err != nil {
 		return fmt.Errorf("create %s: %w", dir, err)
 	}

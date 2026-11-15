@@ -66,9 +66,9 @@ func writeVisualLog(t *testing.T, fixtures, dir string) {
 		mustNoError(t, err)
 		day := visualNow.AddDate(0, 0, -c.DaysAgo)
 		when := time.Date(day.Year(), day.Month(), day.Day(), clock.Hour(), clock.Minute(), 0, 0, time.UTC)
-		entry := invokelog.Entry{Seq: uint64(i + 1), Time: when, Path: c.Path, Operation: c.Operation,
-			Connection: c.Connection, Effect: c.Effect, Result: c.Result, DurationMS: c.DurationMS,
-			PrevHash: hex.EncodeToString(previous[:])}
+		entry := chainedLine{Entry: invokelog.Entry{Seq: uint64(i + 1), Time: when, Path: c.Path,
+			Operation: c.Operation, Connection: c.Connection, Effect: c.Effect, Result: c.Result,
+			DurationMS: c.DurationMS}, PrevHash: hex.EncodeToString(previous[:])}
 		line, err := json.Marshal(entry)
 		mustNoError(t, err)
 		name := filepath.Join(logs, when.Format(logDateLayout)+".jsonl")

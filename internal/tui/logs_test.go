@@ -612,6 +612,13 @@ func TestLogTableTimeKeepsFractionalUTCOffsets(t *testing.T) {
 	}
 }
 
+// chainedLine is an unsigned log line with its link, as the log stores it.
+type chainedLine struct {
+	invokelog.Entry
+	PrevHash string `json:"prev_hash"`
+	MAC      string `json:"mac"`
+}
+
 // Write synthetic unsigned entries with an intact hash chain and fixed UTC timestamps.
 func writeLogTimes(t *testing.T, f *logFixture, entries []struct {
 	when time.Time
@@ -621,8 +628,8 @@ func writeLogTimes(t *testing.T, f *logFixture, entries []struct {
 	mustNoError(t, os.MkdirAll(f.logsDir(), 0o700))
 	previous := sha256.Sum256(nil)
 	for i, item := range entries {
-		e := invokelog.Entry{Seq: uint64(i + 1), Time: item.when, Path: "cli", Operation: item.op,
-			Effect: "read", Result: "success", PrevHash: hex.EncodeToString(previous[:])}
+		e := chainedLine{Entry: invokelog.Entry{Seq: uint64(i + 1), Time: item.when, Path: "cli", Operation: item.op,
+			Effect: "read", Result: "success"}, PrevHash: hex.EncodeToString(previous[:])}
 		raw, err := json.Marshal(e)
 		mustNoError(t, err)
 		name := filepath.Join(f.logsDir(), item.when.UTC().Format(logDateLayout)+".jsonl")

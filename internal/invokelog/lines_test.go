@@ -31,7 +31,7 @@ func threeSignedDays(t *testing.T, dir string, key *Key) string {
 	mustAppend(t, logger, "op.e")
 	moveTo(time.Date(2026, 3, 3, 8, 0, 0, 0, time.UTC))
 	mustAppend(t, logger, "op.f")
-	return logger.logsDir()
+	return logger.opts.Dir
 }
 
 func verifyLines(t *testing.T, dir string, checker Checker, from, to string) []DayLines {

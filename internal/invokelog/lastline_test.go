@@ -11,86 +11,14 @@ import (
 	"time"
 )
 
-type countingReaderAt struct {
-	data []byte
-	read int64
-}
-
-func (c *countingReaderAt) ReadAt(p []byte, off int64) (int, error) {
-	n := copy(p, c.data[off:])
-	c.read += int64(n)
-	return n, nil
-}
-
-func TestLastLineFromMatchesSplitLines(t *testing.T) {
-	long := strings.Repeat("x", 50)
-	cases := map[string]string{
-		"empty":            "",
-		"only newlines":    "\n\n\n",
-		"single no nl":     "abc",
-		"single nl":        "abc\n",
-		"two no final nl":  "abc\ndef",
-		"trailing blanks":  "abc\ndef\n\n\n",
-		"whitespace line":  "abc\n  \n",
-		"carriage return":  "abc\r\ndef\r\n",
-		"long last line":   "abc\n" + long + "\n",
-		"long only line":   long + long,
-		"blank then long":  "a\n\n" + long + "\n\n",
-		"newlines at edge": strings.Repeat("\n", 20) + "abc",
-	}
-	for name, content := range cases {
-		for _, bs := range []int64{1, 3, 7, 16, 4096} {
-			var want []byte
-			if lines := splitLines([]byte(content)); len(lines) > 0 {
-				want = lines[len(lines)-1]
-			}
-			got, err := lastLineFrom(&countingReaderAt{data: []byte(content)}, int64(len(content)), bs)
-			if err != nil {
-				t.Fatalf("%s/bs=%d: error = %v", name, bs, err)
-			}
-			if !bytes.Equal(got, want) || (got == nil) != (want == nil) {
-				t.Fatalf("%s/bs=%d: got %q, want %q", name, bs, got, want)
-			}
-		}
-	}
-}
-
-func TestLastLineOfFiles(t *testing.T) {
-	dir := t.TempDir()
-	write := func(name, content string) string {
-		p := filepath.Join(dir, name)
-		if err := os.WriteFile(p, []byte(content), fileMode); err != nil {
-			t.Fatal(err)
-		}
-		return p
-	}
-	if _, raw, err := lastLineOf(filepath.Join(dir, "missing")); err != nil || raw != nil {
-		t.Fatalf("missing: raw=%q err=%v", raw, err)
-	}
-	if _, raw, err := lastLineOf(write("empty", "")); err != nil || raw != nil {
-		t.Fatalf("empty: raw=%q err=%v", raw, err)
-	}
-	if e, raw, err := lastLineOf(write("nofinal", "{\"seq\":1}\n{\"seq\":2}")); err != nil || raw == nil || e.Seq != 2 {
-		t.Fatalf("no final newline: e=%+v raw=%q err=%v", e, raw, err)
-	}
-	if _, _, err := lastLineOf(write("bad", "{\"seq\":1}\n{\"seq\":2")); err == nil ||
-		!strings.Contains(err.Error(), "not a valid log entry") {
-		t.Fatalf("damaged last line: err = %v", err)
-	}
-	big := "{\"seq\":3,\"operation\":\"" + strings.Repeat("y", 3*lastLineBlockSize) + "\"}"
-	if e, raw, err := lastLineOf(write("big", "{\"seq\":1}\n"+big+"\n")); err != nil || e.Seq != 3 || string(raw) != big {
-		t.Fatalf("line larger than a block: seq=%d err=%v", e.Seq, err)
-	}
-}
-
 func TestAppendAcrossDayWithEmptyCurrentFile(t *testing.T) {
 	dir := t.TempDir()
 	logger, moveTo := clockAt(time.Date(2026, 3, 1, 10, 0, 0, 0, time.UTC))
-	logger.vaultDir = dir
-	logger.retentionDays = 90
+	logger.opts.Dir = logsDir(dir)
+	logger.opts.RetentionDays = 90
 	mustAppend(t, logger, "op.one")
 	moveTo(time.Date(2026, 3, 2, 10, 0, 0, 0, time.UTC))
-	if err := os.WriteFile(filepath.Join(logger.logsDir(), "2026-03-02.jsonl"), nil, fileMode); err != nil {
+	if err := os.WriteFile(filepath.Join(logger.opts.Dir, "2026-03-02.jsonl"), nil, fileMode); err != nil {
 		t.Fatal(err)
 	}
 	mustAppend(t, logger, "op.two")
@@ -100,28 +28,11 @@ func TestAppendAcrossDayWithEmptyCurrentFile(t *testing.T) {
 	}
 }
 
-// TestLastLineReadBytesIndependentOfSize shows the bytes read for the predecessor stay flat as the file grows.
-func TestLastLineReadBytesIndependentOfSize(t *testing.T) {
-	line := strings.Repeat("z", 200) + "\n"
-	var reads []int64
-	for _, n := range []int{100, 10000} {
-		data := []byte(strings.Repeat(line, n))
-		c := &countingReaderAt{data: data}
-		if _, err := lastLineFrom(c, int64(len(data)), lastLineBlockSize); err != nil {
-			t.Fatal(err)
-		}
-		reads = append(reads, c.read)
-	}
-	if reads[0] != reads[1] || reads[1] > 2*lastLineBlockSize {
-		t.Fatalf("bytes read = %v, want equal and bounded", reads)
-	}
-}
-
 func seedDay(b *testing.B, n int) *Logger {
 	logger, _ := clockAt(time.Date(2026, 4, 1, 10, 0, 0, 0, time.UTC))
-	logger.vaultDir = b.TempDir()
-	logger.retentionDays = 90
-	if err := os.MkdirAll(logger.logsDir(), dirMode); err != nil {
+	logger.opts.Dir = logsDir(b.TempDir())
+	logger.opts.RetentionDays = 90
+	if err := os.MkdirAll(logger.opts.Dir, dirMode); err != nil {
 		b.Fatal(err)
 	}
 	var buf bytes.Buffer
@@ -129,7 +40,7 @@ func seedDay(b *testing.B, n int) *Logger {
 	for i := 0; i < n-1; i++ {
 		buf.Write(line)
 	}
-	if err := os.WriteFile(filepath.Join(logger.logsDir(), "2026-04-01.jsonl"), buf.Bytes(), fileMode); err != nil {
+	if err := os.WriteFile(filepath.Join(logger.opts.Dir, "2026-04-01.jsonl"), buf.Bytes(), fileMode); err != nil {
 		b.Fatal(err)
 	}
 	return logger
@@ -143,7 +54,7 @@ func BenchmarkAppendGrowingDay(b *testing.B) {
 	for _, n := range []int{1000, 10000, 100000} {
 		b.Run(strconv.Itoa(n), func(b *testing.B) {
 			logger := seedDay(b, n)
-			path := filepath.Join(logger.logsDir(), "2026-04-01.jsonl")
+			path := filepath.Join(logger.opts.Dir, "2026-04-01.jsonl")
 			info, _ := os.Stat(path)
 			b.ResetTimer()
 			for i := 0; i < b.N; i++ {
@@ -152,23 +63,6 @@ func BenchmarkAppendGrowingDay(b *testing.B) {
 				}
 			}
 			b.ReportMetric(float64(info.Size()), "dayfile-bytes")
-		})
-	}
-}
-
-func BenchmarkLastLineBytesRead(b *testing.B) {
-	for _, n := range []int{1000, 10000, 100000} {
-		b.Run(strconv.Itoa(n), func(b *testing.B) {
-			data := []byte(strings.Repeat(strings.Repeat("z", 200)+"\n", n))
-			c := &countingReaderAt{data: data}
-			for i := 0; i < b.N; i++ {
-				c.read = 0
-				if _, err := lastLineFrom(c, int64(len(data)), lastLineBlockSize); err != nil {
-					b.Fatal(err)
-				}
-			}
-			b.ReportMetric(float64(c.read), "bytes-read/op")
-			b.ReportMetric(float64(len(data)), "dayfile-bytes")
 		})
 	}
 }
@@ -190,25 +84,51 @@ func BenchmarkAppendParallel(b *testing.B) {
 	})
 }
 
+// TestAppendRefusesATornLastLine keeps a line that does not parse at the end of the log, torn by a crash or
+// changed, from being chained over: Append fails and writes nothing, and Verify reports the line.
+func TestAppendRefusesATornLastLine(t *testing.T) {
+	dir := t.TempDir()
+	logger, _ := clockAt(time.Date(2026, 3, 1, 10, 0, 0, 0, time.UTC))
+	logger.opts.Dir = logsDir(dir)
+	mustAppend(t, logger, "op.one")
+	path := filepath.Join(logger.opts.Dir, "2026-03-01.jsonl")
+	lines := readLines(t, path)
+	torn := append(append([]byte(nil), lines[0]...), "\n"...)
+	torn = append(torn, lines[0][:len(lines[0])/2]...)
+	if err := os.WriteFile(path, torn, fileMode); err != nil {
+		t.Fatal(err)
+	}
+	if err := logger.Append(benchFields()); err == nil {
+		t.Fatal("Append() chained over a torn last line")
+	}
+	if data, _ := os.ReadFile(path); !bytes.Equal(data, torn) {
+		t.Fatalf("Append() wrote after a torn last line: %q", data)
+	}
+	if report := verifyWith(t, dir, nil); !report.Broken || report.Days[0].Problem != "a line does not parse as a log entry" {
+		t.Fatalf("report = %+v, want the torn line reported", report)
+	}
+}
+
 // TestSeedDaysSmall checks SeedDayFiles at a size that costs next to nothing, including that
 // retention removes nothing and the empty newest file is skipped.
 func TestSeedDaysSmall(t *testing.T) {
 	for _, emptyNewest := range []bool{false, true} {
 		now := time.Date(2026, 4, 1, 10, 0, 0, 0, time.UTC)
+		vault := t.TempDir()
 		logger, _ := clockAt(now)
-		logger.vaultDir = t.TempDir()
-		logger.retentionDays = 100000
-		if err := SeedDayFiles(logger.vaultDir, 5, emptyNewest, now); err != nil {
+		logger.opts.Dir = logsDir(vault)
+		logger.opts.RetentionDays = 100000
+		if err := SeedDayFiles(vault, 5, emptyNewest, now); err != nil {
 			t.Fatal(err)
 		}
 		mustAppend(t, logger, "op.next")
-		files, err := dayFiles(logger.logsDir())
+		files, err := dayFiles(logger.opts.Dir)
 		if err != nil || len(files) != 5 {
 			t.Fatalf("emptyNewest=%v: files = %v, err = %v; want 5 and nothing removed", emptyNewest, files, err)
 		}
-		_, raw, err := lastLine(logger.logsDir())
-		if err != nil || !bytes.Contains(raw, []byte("op.next")) {
-			t.Fatalf("emptyNewest=%v: last line = %q, err = %v", emptyNewest, raw, err)
+		lines := readLines(t, filepath.Join(logger.opts.Dir, files[len(files)-1]))
+		if raw := lines[len(lines)-1]; !bytes.Contains(raw, []byte("op.next")) {
+			t.Fatalf("emptyNewest=%v: last line = %q", emptyNewest, raw)
 		}
 	}
 }
