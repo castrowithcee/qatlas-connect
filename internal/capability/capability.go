@@ -133,10 +133,17 @@ type Descriptor struct {
 // exactly the selected connection and return a JSON-shaped value described by OutputSchema.
 type Handler func(context.Context, *config.Resolved, *secret.Resolver, *redact.Redactor, json.RawMessage) (any, error)
 
-// Operation binds a descriptor to its provider-independent application handler.
+// SummaryFunc phrases what a confirmed call would do, from its validated arguments alone. It gets neither a
+// resolver, a secret, a redactor, a handler, nor any provider I/O, and must not read anything but its input.
+// The arguments are untrusted data: the core redacts, neutralizes, and bounds the text it returns.
+type SummaryFunc func(arguments json.RawMessage) string
+
+// Operation binds a descriptor to its provider-independent application handler. ConfirmationSummary is
+// optional and only used for a tool that needs confirmation; it is no part of the published descriptor.
 type Operation struct {
-	Descriptor Descriptor
-	Handler    Handler
+	Descriptor          Descriptor
+	Handler             Handler
+	ConfirmationSummary SummaryFunc
 }
 
 // ConnectionTester performs a provider's smallest safe authenticated read. It is separate from the
@@ -707,6 +714,11 @@ func (r *Registry) Lookup(id string) (Descriptor, Handler, bool) {
 		return Descriptor{}, nil, false
 	}
 	return operation.Descriptor.clone(), operation.Handler, true
+}
+
+// ConfirmationSummary returns the summary function of one registered operation, or nil without one.
+func (r *Registry) ConfirmationSummary(id string) SummaryFunc {
+	return r.byID[id].ConfirmationSummary
 }
 
 // clone deep-copies a descriptor, including its JSON schema bytes, and normalises empty slices to nil.

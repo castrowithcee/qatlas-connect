@@ -1123,7 +1123,9 @@ func (c *Core) Invoke(ctx context.Context, request InvokeRequest) (response Invo
 		return InvokeResponse{}, err
 	}
 	if descriptor.Risk.Confirmation == capability.ConfirmationRequired && !request.Confirmed {
-		return InvokeResponse{}, &ConfirmationRequiredError{Operation: descriptor.ID}
+		return InvokeResponse{}, &ConfirmationRequiredError{
+			Operation: descriptor.ID, Summary: c.confirmationSummary(descriptor.ID, request.Arguments),
+		}
 	}
 
 	handler := rawHandler

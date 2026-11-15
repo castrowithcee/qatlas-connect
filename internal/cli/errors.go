@@ -212,6 +212,15 @@ type unsupportedDetail struct {
 	Reason     config.Refusal `json:"reason"`
 }
 
+// confirmationDetail is the machine-readable form of confirmation-required for a tool that phrases what the
+// call would do. The summary is derived from the arguments, redacted, neutralized, and bounded by the core.
+type confirmationDetail struct {
+	Code      output.Code `json:"code"`
+	Message   string      `json:"message"`
+	Operation string      `json:"operation"`
+	Summary   string      `json:"summary"`
+}
+
 // providerErrorDetail is the machine-readable form of a failure that carries the provider's own account:
 // Qatlas' code and message first, then the provider's answer as its own untrusted section.
 type providerErrorDetail struct {
@@ -236,6 +245,13 @@ func errorDetailFor(err error, redactor *redact.Redactor) any {
 			Code: application.CodeUnsupportedCapability, Message: redactor.Error(err),
 			Operation: redactor.Apply(unsupported.Capability), Connection: redactor.Apply(unsupported.Connection),
 			Reason: unsupported.Reason,
+		}
+	}
+	var confirmation *application.ConfirmationRequiredError
+	if errors.As(err, &confirmation) && confirmation.Summary != "" {
+		return &confirmationDetail{
+			Code: output.CodeConfirmationRequired, Message: redactor.Error(err),
+			Operation: redactor.Apply(confirmation.Operation), Summary: confirmation.Summary,
 		}
 	}
 	var (
