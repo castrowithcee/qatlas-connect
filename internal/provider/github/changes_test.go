@@ -468,6 +468,7 @@ func TestRegisterPublishesTheChangeContracts(t *testing.T) {
 			dataSensitivity),
 		"github.repositories.rename":  changeRisk(capability.EffectUpdate, capability.IdempotencyUnknown),
 		"github.collaborators.list":   readRisk,
+		"github.collaborators.add":    changeRisk(capability.EffectCreate, capability.IdempotencyNonIdempotent),
 		"github.collaborators.update": changeRisk(capability.EffectUpdate, capability.IdempotencyIdempotent),
 		"github.collaborators.remove": guardedRisk(capability.EffectDelete, capability.IdempotencyUnknown,
 			dataSensitivity),
