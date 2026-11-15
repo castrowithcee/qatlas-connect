@@ -249,7 +249,7 @@ func TestGuardedToolsStayOutOfEveryStandardProfile(t *testing.T) {
 			descriptor.ID == rulesetsUpdate.ID || descriptor.ID == branchProtectionSet.ID ||
 			descriptor.ID == customPropertiesSet.ID ||
 			descriptor.ID == notificationsMarkAll.ID || descriptor.ID == gistsDelete.ID ||
-			descriptor.ID == repositoriesRename.ID || descriptor.ID == repositoryCollaboratorsUpdate.ID || descriptor.ID == environmentsSet.ID || descriptor.ID == actionSecretsSet.ID ||
+			descriptor.ID == repositoriesRename.ID || descriptor.ID == repositoryCollaboratorsUpdate.ID || descriptor.ID == repositoryCollaboratorsAdd.ID || descriptor.ID == environmentsSet.ID || descriptor.ID == actionSecretsSet.ID ||
 			descriptor.ID == runsForceCancel.ID || descriptor.ID == deploymentsCreate.ID ||
 			descriptor.ID == deploymentsDelete.ID || descriptor.ID == runsApprove.ID ||
 			descriptor.ID == pendingDeploymentsReview.ID || slices.Contains(teamChangeTools, descriptor.ID) || slices.Contains(organizationChangeToolIDs, descriptor.ID) ||
@@ -270,10 +270,10 @@ func TestGuardedToolsStayOutOfEveryStandardProfile(t *testing.T) {
 			marked++
 		}
 	}
-	if marked != len(guardedTools)+len(deletes)+51+len(teamChangeTools)+len(organizationChangeToolIDs) || len(guardedTools) != 13 {
+	if marked != len(guardedTools)+len(deletes)+52+len(teamChangeTools)+len(organizationChangeToolIDs) || len(guardedTools) != 13 {
 		t.Errorf("marked tools = %d, want the thirteen maintainer and administrator tools, the fifteen deletes and "+
 			"the three access tools, files.push, and github.labels.delete, the merge, the auto-merge enable, the security switch and code scanning setup changes, the approve, the review dismissal, the ruleset "+
-			"create and update, the branch protection set, the custom properties set, the notifications mark-all, the gist delete, the repository rename, the collaborator role change, "+
+			"create and update, the branch protection set, the custom properties set, the notifications mark-all, the gist delete, the repository rename, the collaborator invitation, the collaborator role change, "+
 			"the environment set, the Actions secret set, the run force-cancel, the deployment create and delete, the fork run approval and the pending deployment review, the three security alert updates, the dependency snapshot create, the ten tools of the finer Actions settings, the seven runner tools, the four runner group and hosted runner tools, the pause and resume of a webhook, the seven team change tools, the six organization change tools, and the block, unblock, and profile update tools of the account", marked)
 	}
 	profiles := map[string]config.ToolProfile{}

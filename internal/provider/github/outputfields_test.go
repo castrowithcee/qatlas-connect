@@ -113,6 +113,7 @@ var outputSamples = map[string]any{
 	"github.code-scanning-setup.get":               CodeScanningSetup{},
 	"github.code-scanning-setup.update":            CodeScanningSetupChange{},
 	"github.code.search":                           CodeSearchList{},
+	"github.collaborators.add":                     CollaboratorAdded{},
 	"github.collaborators.list":                    CollaboratorList{},
 	"github.collaborators.remove":                  CollaboratorRemoved{},
 	"github.collaborators.update":                  CollaboratorUpdated{},
