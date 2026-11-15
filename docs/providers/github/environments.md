@@ -89,5 +89,8 @@ A repeated call creates a second deployment.
 sends nothing when it is missing or belongs to another repository. GitHub deletes only inactive deployments and
 refuses the active deployment of an environment, which the message says.
 
+Approving or rejecting the pending deployments of a run is a separate listed-only tool, described under
+[approval gates](actions-maintenance.md#approval-gates).
+
 Every change needs confirmation, is sent once, and reports an unclear outcome instead of repeating it. The
 token rights are listed under [GitHub Actions](setup.md#github-actions).

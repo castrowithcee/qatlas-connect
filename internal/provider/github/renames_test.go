@@ -239,6 +239,7 @@ var currentToolIDs = []string{
 	"github.billing-ai-credits.get",
 	"github.billing-budgets.list",
 	"github.billing-budgets.get",
+	"github.pending-deployments.review",
 	"github.project-collaborators.update",
 	"github.project-drafts.convert",
 	"github.project-drafts.create",
@@ -397,6 +398,7 @@ var currentToolIDs = []string{
 	"github.workflow-run-approvals.list",
 	"github.workflow-run-attempts.get",
 	"github.workflow-run-logs.delete",
+	"github.workflow-runs.approve",
 	"github.workflow-runs.cancel",
 	"github.workflow-runs.delete",
 	"github.workflow-runs.force-cancel",
@@ -424,7 +426,7 @@ func TestRegistryHoldsExactlyTheCurrentToolIDs(t *testing.T) {
 	sort.Strings(got)
 	want := append([]string(nil), currentToolIDs...)
 	sort.Strings(want)
-	if strings.Join(got, "\n") != strings.Join(want, "\n") || len(got) != 399 {
+	if strings.Join(got, "\n") != strings.Join(want, "\n") || len(got) != 401 {
 		t.Errorf("registry holds %d tools, differing from the expected %d IDs", len(got), len(want))
 	}
 	if err := reg.ValidateRenames(); err != nil {
@@ -494,8 +496,9 @@ func TestRenamedToolsCoverEveryChangedID(t *testing.T) {
 		"github.action-secrets.list": true, "github.action-secrets.get": true, "github.action-secret-repositories.list": true,
 		"github.action-secrets.delete": true, "github.dependabot-secrets.list": true, "github.dependabot-secrets.get": true,
 		"github.dependabot-secret-repositories.list": true, "github.dependabot-secrets.delete": true,
-		"github.workflow-runs.delete": true, "github.workflow-runs.force-cancel": true,
-		"github.workflow-artifacts.delete": true, "github.workflow-run-attempts.get": true,
+		"github.workflow-runs.delete": true, "github.workflow-runs.force-cancel": true, "github.workflow-runs.approve": true,
+		"github.pending-deployments.review": true,
+		"github.workflow-artifacts.delete":  true, "github.workflow-run-attempts.get": true,
 		"github.workflow-run-approvals.list":     true,
 		"github.deployment-branch-policies.list": true, "github.deployment-branch-policies.create": true,
 		"github.deployment-branch-policies.update": true, "github.deployment-branch-policies.delete": true,

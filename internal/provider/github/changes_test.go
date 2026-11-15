@@ -248,6 +248,8 @@ func TestRegisterPublishesTheChangeContracts(t *testing.T) {
 		"github.action-caches.delete":        guardedRisk(capability.EffectDelete, capability.IdempotencyIdempotent, dataSensitivity),
 		"github.workflow-runs.delete":        guardedRisk(capability.EffectDelete, capability.IdempotencyIdempotent, dataSensitivity),
 		"github.workflow-runs.force-cancel":  guardedRisk(capability.EffectUpdate, capability.IdempotencyIdempotent, dataSensitivity),
+		"github.workflow-runs.approve":       guardedRisk(capability.EffectUpdate, capability.IdempotencyUnknown, gateSensitivity),
+		"github.pending-deployments.review":  guardedRisk(capability.EffectUpdate, capability.IdempotencyUnknown, gateSensitivity),
 		"github.workflow-artifacts.delete":   guardedRisk(capability.EffectDelete, capability.IdempotencyIdempotent, dataSensitivity),
 		"github.workflow-run-attempts.get":   readRisk,
 		"github.workflow-run-approvals.list": readRisk,
