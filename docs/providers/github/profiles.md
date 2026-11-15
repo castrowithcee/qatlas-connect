@@ -53,8 +53,10 @@ discussion comment stays unticked, since it is offered only where a connection's
 not-recommended profile `notifications` lists and reads notifications, marks a thread read or done, and sets
 thread and repository subscriptions under [Notifications](notifications.md#notifications); marking everything read stays
 unticked, since it is offered only where a connection's `tools` list names it. The not-recommended
-profile `gists` lists and reads gists and creates and updates them under [Gists](gists.md#gists); deleting a gist stays
-unticked, since it is offered only where a connection's `tools` list names it. The not-recommended profile
+profile `gists` lists and reads gists and creates and updates them under [Gists](gists.md#gists), and lists, reads,
+adds, and changes their comments, lists their revisions and forks, forks a gist, and stars or unstars one under
+[Comments, revisions, forks, and stars](gists.md#comments-revisions-forks-and-stars); deleting a gist or a comment
+stays unticked, since it is offered only where a connection's `tools` list names it. The not-recommended profile
 `security` lists and reads the code scanning, Dependabot, and secret scanning alerts of a repository, the instances
 and analyses of code scanning, the locations of a secret scanning alert, the global and repository security
 advisories, and code quality findings under [Security alerts](security.md#security-alerts), and reads the

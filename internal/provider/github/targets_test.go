@@ -210,6 +210,7 @@ func TestDiscoveryDescribesTheTargetArguments(t *testing.T) {
 			descriptor.ID == threadSubscriptionsSet.ID ||
 			descriptor.ID == gistsList.ID || descriptor.ID == gistsGet.ID || descriptor.ID == gistsCreate.ID ||
 			descriptor.ID == gistsUpdate.ID || descriptor.ID == gistsDelete.ID ||
+			slices.Contains(gistSocialToolIDs, descriptor.ID) ||
 			slices.Contains(accountSocialToolIDs, descriptor.ID) ||
 			descriptor.ID == globalAdvisoriesList.ID || descriptor.ID == globalAdvisoriesGet.ID ||
 			descriptor.ID == rateLimitGet.ID || descriptor.ID == metaGet.ID || descriptor.ID == licensesList.ID ||

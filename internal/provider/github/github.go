@@ -144,6 +144,10 @@
 // github.gists.list, github.gists.get, github.gists.create, and github.gists.update list, read, create, and
 // change the gists of the account behind the token or of a user, and, only on a connection whose tools list
 // names it, github.gists.delete removes one; they are offered only by the not-recommended setup profile gists.
+// github.gist-comments.list, .get, .create, and .update, github.gist-commits.list, github.gist-forks.list and
+// .create, and github.gist-stars.set join them in that profile, and github.gist-comments.delete is offered only
+// where a connection's tools list names it; they follow the same targets, and a fork needs the account of the
+// token among the user targets like a new gist.
 // A gist belongs to a user, so the tools take no target argument: a connection without targets reaches what
 // its token reaches, and one with targets needs users/LOGIN targets and no repository or project target. A gist
 // id is read first and refused as not found unless its owner is a user target, a create needs the account of
@@ -881,6 +885,15 @@ func Register(reg *capability.Registry) error {
 			Tools: []string{notificationsList.ID, notificationsGet.ID, notificationsDismiss.ID,
 				threadSubscriptionsSet.ID, repositorySubscriptionsSet.ID},
 		}, {
+			ID: "gists", Title: "Gists",
+			Description: "not recommended: lists, reads, creates, and changes gists, lists and reads their comments, " +
+				"adds and changes comments, lists their revisions and forks, forks a gist, and stars or unstars " +
+				"one; every change needs its own confirmation, and deleting a gist or a comment stays unticked, " +
+				"since it is offered only where a connection's tools list names it",
+			Tools: []string{gistsList.ID, gistsGet.ID, gistsCreate.ID, gistsUpdate.ID, gistCommentsList.ID,
+				gistCommentsGet.ID, gistCommentsCreate.ID, gistCommentsUpdate.ID, gistCommitsList.ID,
+				gistForksList.ID, gistForksCreate.ID, gistStarsSet.ID},
+		}, {
 			ID: "security", Title: "Security alerts",
 			Description: "not recommended: lists and reads the code scanning, Dependabot, and secret scanning " +
 				"alerts of a repository, the global and repository security advisories, and code quality " +
@@ -929,7 +942,7 @@ func Register(reg *capability.Registry) error {
 		contentsWriteOperations(), refsWriteOperations(), repositoriesOperations(), collaboratorsManageOperations(), collaboratorsAddOperations(), invitationOperations(), repositoryDetailOperations(), trafficOperations(), repositoryStatsOperations(), rulesetsOperations(), branchProtectionOperations(), customPropertiesOperations(), actionVariablesOperations(), actionSecretsOperations(), dependabotSecretsOperations(), actionCachesOperations(), runCleanupOperations(), deploymentGateOperations(),
 		labelsOperations(), autolinksOperations(), milestonesOperations(), commentMaintenanceOperations(), commentVisibilityOperations(), issueLockOperations(), reactionsOperations(),
 		subIssuesOperations(), issueDependenciesOperations(), issueHistoryOperations(), issueTypesOperations(), issueFieldsOperations(),
-		discussionOperations(), notificationOperations(), gistOperations(), securityAlertOperations(), securityAlertUpdateOperations(), securityAlertDetailOperations(), advisoryOperations(), securitySettingsOperations(), dependencyGraphOperations(),
+		discussionOperations(), notificationOperations(), gistOperations(), gistSocialOperations(), securityAlertOperations(), securityAlertUpdateOperations(), securityAlertDetailOperations(), advisoryOperations(), securitySettingsOperations(), dependencyGraphOperations(),
 		codeSecurityConfigurationOperations(), codeSecurityChangeOperations(), codeSecurityAssignOperations(),
 		copilotOperations(), environmentsOperations(), deploymentsOperations(), referenceOperations(), billingOperations(), appOperations(), auditLogOperations())...)
 	for i := range operations {

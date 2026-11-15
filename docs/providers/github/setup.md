@@ -322,8 +322,8 @@ refuses it otherwise, and Qatlas checks it before the request.
 
 | Tools | Classic | Fine-grained |
 | --- | --- | --- |
-| List or read gists | `gist` for secret gists, none for public | GitHub lists no permission for the reads |
-| Create, update, delete | `gist` | User permission Gists: read and write |
+| List or read gists, their comments, revisions, and forks | `gist` for secret gists, none for public | GitHub lists no permission for the reads |
+| Create, update, delete a gist; create, update, delete a comment; fork; star or unstar | `gist` | User permission Gists: read and write |
 
 ### Notifications
 

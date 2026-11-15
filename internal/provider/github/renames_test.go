@@ -193,6 +193,15 @@ var currentToolIDs = []string{
 	"github.environments.get",
 	"github.environments.list",
 	"github.environments.set",
+	"github.gist-comments.create",
+	"github.gist-comments.delete",
+	"github.gist-comments.get",
+	"github.gist-comments.list",
+	"github.gist-comments.update",
+	"github.gist-commits.list",
+	"github.gist-forks.create",
+	"github.gist-forks.list",
+	"github.gist-stars.set",
 	"github.gists.create",
 	"github.gists.delete",
 	"github.gists.get",
@@ -456,7 +465,7 @@ func TestRegistryHoldsExactlyTheCurrentToolIDs(t *testing.T) {
 	sort.Strings(got)
 	want := append([]string(nil), currentToolIDs...)
 	sort.Strings(want)
-	if strings.Join(got, "\n") != strings.Join(want, "\n") || len(got) != 431 {
+	if strings.Join(got, "\n") != strings.Join(want, "\n") || len(got) != 440 {
 		t.Errorf("registry holds %d tools, differing from the expected %d IDs", len(got), len(want))
 	}
 	if err := reg.ValidateRenames(); err != nil {
@@ -551,7 +560,10 @@ func TestRenamedToolsCoverEveryChangedID(t *testing.T) {
 		"github.pull-request-reviews.update": true, "github.pull-request-reviews.dismiss": true,
 		"github.pull-request-reviews.delete-pending": true, "github.pull-request-review-comments.update": true,
 		"github.pull-request-review-comments.delete": true,
-		"github.discussion-comments.mark-answer":     true, "github.discussion-comments.unmark-answer": true}
+		"github.discussion-comments.mark-answer":     true, "github.discussion-comments.unmark-answer": true,
+		"github.gist-comments.list": true, "github.gist-comments.get": true, "github.gist-comments.create": true,
+		"github.gist-comments.update": true, "github.gist-comments.delete": true, "github.gist-commits.list": true,
+		"github.gist-forks.list": true, "github.gist-forks.create": true, "github.gist-stars.set": true}
 	for id := range current {
 		if strings.Contains(id, "-") && !targets[id] && !bornHyphenated[id] {
 			t.Errorf("hyphenated tool %s has no former ID", id)

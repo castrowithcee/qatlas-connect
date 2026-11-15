@@ -84,6 +84,8 @@ func withTargetArgument(d capability.Descriptor) capability.Descriptor {
 		webhooksResume.ID, webhooksDelete.ID, webhookDeliveriesList.ID, webhookDeliveriesGet.ID,
 		notificationsList.ID, notificationsGet.ID, notificationsDismiss.ID, notificationsMarkAll.ID,
 		threadSubscriptionsSet.ID, gistsList.ID, gistsGet.ID, gistsCreate.ID, gistsUpdate.ID, gistsDelete.ID,
+		gistCommentsList.ID, gistCommentsGet.ID, gistCommentsCreate.ID, gistCommentsUpdate.ID, gistCommentsDelete.ID,
+		gistCommitsList.ID, gistForksList.ID, gistForksCreate.ID, gistStarsSet.ID,
 		globalAdvisoriesList.ID, globalAdvisoriesGet.ID, repositoriesRename.ID, rateLimitGet.ID, metaGet.ID,
 		licensesList.ID, licensesGet.ID, gitignoreTemplatesList.ID, gitignoreTemplatesGet.ID, codesOfConductList.ID,
 		codesOfConductGet.ID, emojisList.ID, markdownRender.ID, appsGet.ID, interactionLimitsGet.ID,
