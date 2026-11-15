@@ -180,8 +180,9 @@ const (
 	repositoriesCompact = repositoriesArguments + `name visibility isArchived}}}}}`
 )
 
-func repositoriesSelection(adminCounts bool) string {
-	return repositoriesArguments + `name visibility isArchived ` + repositorySelection(adminCounts) + `}}}}}`
+func repositoriesSelection(adminCounts, organization bool) string {
+	return repositoriesArguments + `name visibility isArchived ` + repositorySelection(adminCounts, organization) +
+		`}}}}}`
 }
 
 type pageInfoJSON struct {
@@ -510,7 +511,7 @@ func (c *Client) listRepositories(ctx context.Context, options repositoryListOpt
 	shown := func(node repositoryNodeJSON) target {
 		return target{kind: kindRepository, owner: owner.owner, repo: node.Name}
 	}
-	selection := repositoriesSelection(options.AdminCounts)
+	selection := repositoriesSelection(options.AdminCounts, owner.scope == "orgs")
 	if options.compact {
 		selection = repositoriesCompact
 	}

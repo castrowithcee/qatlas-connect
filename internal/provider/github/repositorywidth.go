@@ -100,12 +100,17 @@ const repositoryAdminSelection = `viewerDefaultCommitEmail viewerPossibleCommitE
 	`closedAt createdAt updatedAt public template viewerCanClose viewerCanReopen viewerCanUpdate url ` +
 	`resourcePath creator{` + gqlAccountSelection + `}}} ` + repositoryAdminTotalsSelection
 
-// repositorySelection is the repository node of the list.
-func repositorySelection(adminCounts bool) string {
-	if adminCounts {
-		return repositoryWidthSelection + " " + repositoryAdminSelection
+// repositorySelection is the repository node of the list; organization tells whether the listed owner is an
+// organization rather than a user.
+func repositorySelection(adminCounts, organization bool) string {
+	selection := repositoryWidthSelection
+	if organization {
+		selection += " " + repositoryCustomPropertySelection
 	}
-	return repositoryWidthSelection
+	if adminCounts {
+		selection += " " + repositoryAdminSelection
+	}
+	return selection
 }
 
 const repositoryWidthSelection = `id databaseId fullDatabaseId repositoryName:name nameWithOwner description url createdAt ` +
