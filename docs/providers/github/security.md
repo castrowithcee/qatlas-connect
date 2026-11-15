@@ -16,9 +16,9 @@ offered only where a connection's `tools` list names it, as are [the dependency 
 six changes of [code security configurations](#code-security-configurations) and the deletion of a
 [private registry](#private-registries). The
 not-recommended setup profile `security` selects the six alert tools, the four reads of instances, analyses, and
-locations, the five advisory and finding tools, the two reads of the switches and the default setup, the
+locations, the six advisory and finding tools, the two reads of the switches and the default setup, the
 dependency review, the four reads of [code security configurations](#code-security-configurations), and the two
-reads of [private registries](#private-registries), twenty-four in all and all reading; it holds none of the
+reads of [private registries](#private-registries), twenty-five in all and all reading; it holds none of the
 thirteen changes. The recommended profile `read` is unchanged.
 
 ## Security alerts
@@ -121,7 +121,7 @@ Changing alerts needs write rights, listed under [Security](setup.md#security).
 
 ### Advisories and code quality findings
 
-Five more tools read advisories and code quality findings; they change nothing, so an advisory is neither
+Six more tools read advisories and code quality findings; they change nothing, so an advisory is neither
 created, edited, published, nor closed.
 
 | Tool | Does |
@@ -129,20 +129,24 @@ created, edited, published, nor closed.
 | `github.global-advisories.list` | lists global security advisories |
 | `github.global-advisories.get` | reads one global security advisory |
 | `github.repository-advisories.list` | lists the security advisories of a repository |
+| `github.repository-advisories.get` | reads one security advisory of a repository by its `ghsa_id` |
 | `github.organization-advisories.list` | lists the security advisories of an organization's repositories |
 | `github.code-quality-findings.get` | reads one code quality finding |
 
 `github.global-advisories.list` reads the GitHub Advisory Database, GitHub-wide, and gives each entry every
 member `.get` does; GitHub answers the type `reviewed` when `type` is omitted, and `is_withdrawn` false
 adds no filter. `github.code-quality-findings.get` reads one finding by `finding_number`; GitHub also lists
-findings, and that list is not offered.
+findings, and that list is not offered. `github.repository-advisories.get` takes a `ghsa_id` of the form
+`GHSA-xxxx-xxxx-xxxx`, reads a draft or triage advisory too if the token's account may see it, and shows the
+same members as the list; an answer for another `ghsa_id` is refused as `invalid-response`. Its description is
+cut at 4000 characters, not 2000.
 
 The global tools name no repository: a connection without targets, or one whose targets name only owners, may
 use them, and a connection whose targets name a repository or a project is refused as `invalid-request`
 before a credential is resolved. The organization list takes the optional `owner` argument as `orgs/LOGIN`,
 which must be an organization the connection's targets name as an owner (or any organization on a connection
 without targets); a user owner and a repository or project target alone are refused the same way. The
-repository list and the finding read take the optional `repository` argument like the alert tools.
+repository list and read and the finding read take the optional `repository` argument like the alert tools.
 
 The lists page by the `after` cursor GitHub announces in its `Link` header; `next_cursor` carries it together
 with the batch size of the first batch and belongs to the tool, the target, and the filters of that batch.
