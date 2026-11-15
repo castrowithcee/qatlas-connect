@@ -12,7 +12,7 @@ var toolGroups = []config.ToolGroup{
 	{ID: "issues", Title: "Issues", Description: "Issues, comments, reactions, labels, milestones, types, fields, dependencies, sub-issues, events and timelines, assignees, and Copilot assignments"},
 	{ID: "pull-requests", Title: "Pull requests", Description: "Pull requests with their files, commits, checks, check runs and suites, reviews, review threads, reviewers, auto-merge, and Copilot reviews"},
 	{ID: "projects", Title: "Projects", Description: "Projects with their items, drafts, fields, views, status updates, iterations, templates, and access"},
-	{ID: "actions", Title: "Actions", Description: "Workflows, runs, jobs, logs, artifacts, caches, Actions variables, Actions secrets, Dependabot secrets, workflow and Actions permissions, selected actions, fork approval, retention, access, and OIDC subject claim, self-hosted runners and their labels, environments with their deployment branch policies and protection rules, and deployments with their statuses"},
+	{ID: "actions", Title: "Actions", Description: "Workflows, runs, jobs, logs, artifacts, caches, Actions variables, Actions secrets, Dependabot secrets, workflow and Actions permissions, selected actions, fork approval, retention, access, and OIDC subject claim, self-hosted runners and their labels, environments with their deployment branch policies and protection rules, deployments with their statuses, and the approval gates of fork runs and pending deployments"},
 	{ID: "code", Title: "Code", Description: "Repository contents, files, trees, branches, merges, tags, commits, comparisons, commit comments, and blame"},
 	{ID: "repositories", Title: "Repositories", Description: "Repositories, their languages, contributors, statistics, activity feed, community profiles, custom properties, merge settings, rulesets, autolinks, webhooks and their deliveries, branch protection and rules, collaborators, deploy keys, repository invitations, subscriptions, and stars"},
 	{ID: "releases", Title: "Releases", Description: "Releases and their assets"},
@@ -20,7 +20,8 @@ var toolGroups = []config.ToolGroup{
 	{ID: "discussions", Title: "Discussions", Description: "Discussions, their categories, and their comments"},
 	{ID: "gists", Title: "Gists", Description: "Gists and their files"},
 	{ID: "notifications", Title: "Notifications", Description: "Notification threads and thread subscriptions"},
-	{ID: "accounts", Title: "Accounts", Description: "Users, organizations with their settings, members, roles, outside collaborators, and invitations, teams with their members, memberships, and repositories, the authenticated account and its rate limit, GitHub's meta information, license, .gitignore, and code of conduct templates, emojis, and Markdown rendering"},
+	{ID: "accounts", Title: "Accounts", Description: "Users, organizations with their settings, members, roles, outside collaborators, and invitations, teams with their members, memberships, and repositories, the authenticated account with its followers, followed accounts, blocked users, and profile, and its rate limit, GitHub's meta information, license, .gitignore, and code of conduct templates, emojis, and Markdown rendering"},
+	{ID: "organization-admin", Title: "Organization administration", Description: "Administration of an account or organization: billing usage, cost, and budget reports"},
 }
 
 // groupBySegment maps the resource segment of a tool ID (github.<segment>.<action>) to its group. Segments
@@ -39,8 +40,8 @@ var groupBySegment = map[string]string{
 	"actions-retention": "actions", "actions-access": "actions", "actions-oidc": "actions", "runners": "actions", "runner-labels": "actions", "runner-groups": "actions", "hosted-runners": "actions", "action-variables": "actions", "action-secrets": "actions", "action-secret-repositories": "actions", "dependabot-secrets": "actions", "dependabot-secret-repositories": "actions", "action-caches": "actions",
 	"action-cache-usage": "actions", "environments": "actions",
 	"deployment-branch-policies": "actions", "deployment-protection-rules": "actions", "deployments": "actions",
-	"deployment-statuses": "actions",
-	"contents":            "code", "files": "code", "branches": "code", "commits": "code", "trees": "code",
+	"deployment-statuses": "actions", "pending-deployments": "actions",
+	"contents": "code", "files": "code", "branches": "code", "commits": "code", "trees": "code",
 	"blame": "code", "code": "code", "tags": "code", "merges": "code", "compare": "code", "commit-branches": "code",
 	"commit-pulls": "code", "commit-comments": "code",
 	"repositories": "repositories", "custom-properties": "repositories", "rulesets": "repositories", "webhooks": "repositories", "webhook-deliveries": "repositories", "autolinks": "repositories",
@@ -57,12 +58,15 @@ var groupBySegment = map[string]string{
 	"discussions": "discussions", "discussion-categories": "discussions", "discussion-comments": "discussions",
 	"gists":         "gists",
 	"notifications": "notifications", "thread-subscriptions": "notifications",
-	"accounts": "accounts", "users": "accounts", "organizations": "accounts", "teams": "accounts",
+	"accounts": "accounts", "followers": "accounts", "following": "accounts", "blocks": "accounts", "profile": "accounts", "users": "accounts", "organizations": "accounts", "teams": "accounts",
 	"organization-members": "accounts", "organization-roles": "accounts", "outside-collaborators": "accounts",
 	"organization-invitations": "accounts", "team-members": "accounts", "team-memberships": "accounts", "team-repositories": "accounts", "rate-limit": "accounts", "meta": "accounts", "licenses": "accounts",
 	"gitignore-templates": "accounts", "codes-of-conduct": "accounts", "emojis": "accounts", "markdown": "accounts",
 	"traffic-views": "repositories", "traffic-clones": "repositories",
 	"traffic-paths": "repositories", "traffic-referrers": "repositories",
+	"billing-usage": "organization-admin", "billing-usage-summary": "organization-admin",
+	"billing-premium-requests": "organization-admin", "billing-ai-credits": "organization-admin",
+	"billing-budgets": "organization-admin",
 }
 
 // groupOf returns the group of a GitHub tool ID, or "" for an ID outside every group.

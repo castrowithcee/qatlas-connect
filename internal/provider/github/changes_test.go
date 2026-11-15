@@ -248,6 +248,8 @@ func TestRegisterPublishesTheChangeContracts(t *testing.T) {
 		"github.action-caches.delete":        guardedRisk(capability.EffectDelete, capability.IdempotencyIdempotent, dataSensitivity),
 		"github.workflow-runs.delete":        guardedRisk(capability.EffectDelete, capability.IdempotencyIdempotent, dataSensitivity),
 		"github.workflow-runs.force-cancel":  guardedRisk(capability.EffectUpdate, capability.IdempotencyIdempotent, dataSensitivity),
+		"github.workflow-runs.approve":       guardedRisk(capability.EffectUpdate, capability.IdempotencyUnknown, gateSensitivity),
+		"github.pending-deployments.review":  guardedRisk(capability.EffectUpdate, capability.IdempotencyUnknown, gateSensitivity),
 		"github.workflow-artifacts.delete":   guardedRisk(capability.EffectDelete, capability.IdempotencyIdempotent, dataSensitivity),
 		"github.workflow-run-attempts.get":   readRisk,
 		"github.workflow-run-approvals.list": readRisk,
@@ -415,6 +417,12 @@ func TestRegisterPublishesTheChangeContracts(t *testing.T) {
 		"github.organization-roles.assign":       changeRisk(capability.EffectUpdate, capability.IdempotencyIdempotent),
 		"github.outside-collaborators.remove":    changeRisk(capability.EffectDelete, capability.IdempotencyUnknown),
 		"github.organization-invitations.cancel": changeRisk(capability.EffectDelete, capability.IdempotencyUnknown),
+		"github.billing-usage.get":               billingRisk,
+		"github.billing-usage-summary.get":       billingRisk,
+		"github.billing-premium-requests.get":    billingRisk,
+		"github.billing-ai-credits.get":          billingRisk,
+		"github.billing-budgets.list":            billingRisk,
+		"github.billing-budgets.get":             billingRisk,
 		"github.contents.get":                    readRisk,
 		"github.trees.get":                       readRisk,
 		"github.blame.get":                       readRisk,
@@ -437,6 +445,13 @@ func TestRegisterPublishesTheChangeContracts(t *testing.T) {
 		"github.branches.sync-fork":              changeRisk(capability.EffectUpdate, capability.IdempotencyIdempotent),
 		"github.merges.create":                   changeRisk(capability.EffectCreate, capability.IdempotencyNonIdempotent),
 		"github.tags.create":                     changeRisk(capability.EffectCreate, capability.IdempotencyNonIdempotent),
+		"github.followers.list":                  readRisk,
+		"github.following.list":                  readRisk,
+		"github.following.set":                   changeRisk(capability.EffectUpdate, capability.IdempotencyIdempotent),
+		"github.blocks.list":                     readRisk,
+		"github.blocks.add":                      guardedRisk(capability.EffectUpdate, capability.IdempotencyIdempotent, blockSensitivity),
+		"github.blocks.remove":                   guardedRisk(capability.EffectDelete, capability.IdempotencyIdempotent, blockSensitivity),
+		"github.profile.update":                  guardedRisk(capability.EffectUpdate, capability.IdempotencyIdempotent, profileSensitivity),
 		"github.tags.delete": guardedRisk(capability.EffectDelete, capability.IdempotencyUnknown,
 			dataSensitivity),
 		"github.tags.get": readRisk,
@@ -661,7 +676,7 @@ func TestRegisterPublishesTheChangeContracts(t *testing.T) {
 			descriptor.ID == organizationTeamsList.ID || descriptor.ID == teamMembersList.ID ||
 			descriptor.ID == repositoriesCreate.ID || descriptor.ID == issueTypesList.ID ||
 			descriptor.ID == organizationAdvisoriesList.ID || slices.Contains(teamToolIDs, descriptor.ID) ||
-			slices.Contains(organizationToolIDs, descriptor.ID)
+			slices.Contains(organizationToolIDs, descriptor.ID) || slices.Contains(billingToolIDs, descriptor.ID)
 		for _, forbidden := range []string{"owner", "base_url", "query\"", "project_id", "document"} {
 			if strings.Contains(ownerFiltersStripped(descriptor), forbidden) && !(owners && forbidden == "owner") {
 				t.Errorf("%s input offers %q: %s", descriptor.ID, forbidden, descriptor.InputSchema)

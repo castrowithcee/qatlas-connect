@@ -1,10 +1,10 @@
 ---
 description: >
-  Describes the GitHub account tools: the account behind a connection's token, the account-wide rule for tools that read it as a whole, the rate limit, GitHub's reference data and Markdown rendering, organization teams, their members, repositories, and, listed only, their management, reading an organization with its members, memberships, organization roles, outside collaborators, and pending invitations, and the user and organization search.
+  Describes the GitHub account tools: the account behind a connection's token with its followers, followed accounts, blocked users, and profile, the account-wide rule for tools that read it as a whole, the rate limit, GitHub's reference data and Markdown rendering, organization teams, their members, repositories, and, listed only, their management, reading an organization with its members, memberships, organization roles, outside collaborators, and pending invitations, and the user and organization search.
 type: knowledge
 edit: shared
 created: 2026-10-22
-updated: 2026-11-12
+updated: 2026-11-14
 ---
 
 # GitHub accounts
@@ -30,6 +30,47 @@ The terminal editor's setup profile `discovery` selects `github.accounts.me`, `g
 `github.team-members.list`, `github.stars.list`, and the seven [search tools](search.md); it changes
 nothing. It is not the recommended profile, which stays `read`, unchanged. The profile `stars` is described
 under [stars](repositories.md#stars).
+
+## Followers, blocks, and profile
+
+| Tool | Does | Offered |
+| --- | --- | --- |
+| `github.followers.list` | lists the followers of the account behind the token, or of one user (`username`), in batches | by effect |
+| `github.following.list` | lists the accounts the account behind the token follows, or one user follows (`username`), in batches | by effect |
+| `github.following.set` | follows (`following` true) or unfollows (false) one user (`username`) | by effect |
+| `github.blocks.list` | lists the users the account behind the token blocks, in batches | by effect |
+| `github.blocks.add` | blocks one user (`username`) | tools list only |
+| `github.blocks.remove` | unblocks one user (`username`) | tools list only |
+| `github.profile.update` | changes the public profile: `name`, `email` (public email), `blog`, `twitter_username`, `company`, `location`, `hireable`, `bio` | tools list only |
+
+These tools take no `repository`, `project`, or `owner` argument. They act for the account behind the token and
+follow the [account-wide rule](#account-wide-tools) with one addition, as the [gist tools](gists.md) have it: a
+connection whose targets name a repository or a project is refused before a secret is read, and a connection
+with targets must name the account behind the token as `users/LOGIN`, so a connection with only `orgs/LOGIN`
+targets is refused too. Before a call the account behind the token is read once (`GET /user`) and refused
+with `invalid-request` unless a user target names it and no exclusion covers it. `username` of the two lists
+reads that user's public lists (`/users/LOGIN/followers`, `/users/LOGIN/following`) and must be a user target
+itself. The `username` of a follow or a block is checked as a login and refused when an exclusion covers it,
+before a secret is read; it need not be a target, since the point is to reach other people.
+
+- The lists answer GitHub's simple user object: login, ids, view type, avatar address, the REST addresses in
+  `links`, the web address `url`, `type`, `site_admin`, a person's `name` and `email` as GitHub reports them, and
+  `starred_at`. Account security of other accounts, such as two-factor state, is never shown. The
+  [cursor contract](README.md#cursor-contract) binds a cursor to the list and the user.
+- Names, emails, and profile texts are untrusted data. Addresses, `blog` and avatars among them, are never
+  fetched.
+- `github.following.set`, `github.blocks.add`, and `github.blocks.remove` read the current state once
+  (204 or 404), so a state that already holds is reported with `changed: false` and no change request;
+  otherwise they send exactly one request that is never repeated. After a timeout or a server error the message
+  says the change may have been applied, so read the state before repeating it. GitHub's own text of a refusal
+  never reaches a message. Every change needs its own confirmation.
+- `github.profile.update` sends one `PATCH /user` with exactly the members named; an empty text clears a
+  member and an omitted member stays. Texts are cut at 255 characters (`bio` at 500) and refuse control
+  characters. It answers the profile members that GitHub reports after the change, not the billing or
+  security members of `github.accounts.me`. Managing the account's email addresses, keys, and social accounts
+  is not offered.
+
+The token rights are listed under [Accounts and search](setup.md#accounts-and-search).
 
 ## Reference data and Markdown
 

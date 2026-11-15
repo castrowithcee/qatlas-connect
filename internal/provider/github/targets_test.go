@@ -210,6 +210,7 @@ func TestDiscoveryDescribesTheTargetArguments(t *testing.T) {
 			descriptor.ID == threadSubscriptionsSet.ID ||
 			descriptor.ID == gistsList.ID || descriptor.ID == gistsGet.ID || descriptor.ID == gistsCreate.ID ||
 			descriptor.ID == gistsUpdate.ID || descriptor.ID == gistsDelete.ID ||
+			slices.Contains(accountSocialToolIDs, descriptor.ID) ||
 			descriptor.ID == globalAdvisoriesList.ID || descriptor.ID == globalAdvisoriesGet.ID ||
 			descriptor.ID == rateLimitGet.ID || descriptor.ID == metaGet.ID || descriptor.ID == licensesList.ID ||
 			descriptor.ID == licensesGet.ID || descriptor.ID == gitignoreTemplatesList.ID ||
@@ -223,7 +224,8 @@ func TestDiscoveryDescribesTheTargetArguments(t *testing.T) {
 			descriptor.ID == projectsCreate.ID || descriptor.ID == issueTypesList.ID ||
 			descriptor.ID == organizationTeamsList.ID ||
 			descriptor.ID == teamMembersList.ID || descriptor.ID == organizationAdvisoriesList.ID ||
-			slices.Contains(teamToolIDs, descriptor.ID) || slices.Contains(organizationToolIDs, descriptor.ID):
+			slices.Contains(teamToolIDs, descriptor.ID) || slices.Contains(organizationToolIDs, descriptor.ID) ||
+			slices.Contains(billingToolIDs, descriptor.ID):
 			names = []string{"owner"}
 		case descriptor.ID == projectsCopy.ID:
 			names = []string{"project", "owner"}

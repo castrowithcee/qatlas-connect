@@ -12,6 +12,13 @@ import (
 // currentToolIDs is the complete set of GitHub tool IDs.
 var currentToolIDs = []string{
 	"github.accounts.me",
+	"github.followers.list",
+	"github.following.list",
+	"github.following.set",
+	"github.blocks.list",
+	"github.blocks.add",
+	"github.blocks.remove",
+	"github.profile.update",
 	"github.action-cache-usage.get",
 	"github.action-caches.delete",
 	"github.action-caches.list",
@@ -227,6 +234,13 @@ var currentToolIDs = []string{
 	"github.organization-roles.assign",
 	"github.organizations.update",
 	"github.outside-collaborators.remove",
+	"github.billing-usage.get",
+	"github.billing-usage-summary.get",
+	"github.billing-premium-requests.get",
+	"github.billing-ai-credits.get",
+	"github.billing-budgets.list",
+	"github.billing-budgets.get",
+	"github.pending-deployments.review",
 	"github.project-collaborators.update",
 	"github.project-drafts.convert",
 	"github.project-drafts.create",
@@ -385,6 +399,7 @@ var currentToolIDs = []string{
 	"github.workflow-run-approvals.list",
 	"github.workflow-run-attempts.get",
 	"github.workflow-run-logs.delete",
+	"github.workflow-runs.approve",
 	"github.workflow-runs.cancel",
 	"github.workflow-runs.delete",
 	"github.workflow-runs.force-cancel",
@@ -412,7 +427,7 @@ func TestRegistryHoldsExactlyTheCurrentToolIDs(t *testing.T) {
 	sort.Strings(got)
 	want := append([]string(nil), currentToolIDs...)
 	sort.Strings(want)
-	if strings.Join(got, "\n") != strings.Join(want, "\n") || len(got) != 387 {
+	if strings.Join(got, "\n") != strings.Join(want, "\n") || len(got) != 402 {
 		t.Errorf("registry holds %d tools, differing from the expected %d IDs", len(got), len(want))
 	}
 	if err := reg.ValidateRenames(); err != nil {
@@ -442,12 +457,17 @@ func TestRenamedToolsCoverEveryChangedID(t *testing.T) {
 		targets[next] = true
 	}
 	// A tool registered with a hyphen from the start has no former ID.
-	bornHyphenated := map[string]bool{"github.organization-members.list": true,
+	bornHyphenated := map[string]bool{"github.followers.list": true, "github.following.list": true,
+		"github.following.set": true, "github.blocks.list": true, "github.blocks.add": true, "github.blocks.remove": true,
+		"github.profile.update": true, "github.organization-members.list": true,
 		"github.organization-members.get": true, "github.organization-roles.list": true,
 		"github.outside-collaborators.list": true, "github.organization-invitations.list": true,
 		"github.organization-invitations.cancel": true, "github.organization-members.remove": true,
 		"github.organization-members.set-role": true, "github.organization-roles.assign": true,
 		"github.outside-collaborators.remove": true, "github.team-members.add": true, "github.team-members.remove": true,
+		"github.billing-usage.get": true, "github.billing-usage-summary.get": true,
+		"github.billing-premium-requests.get": true, "github.billing-ai-credits.get": true,
+		"github.billing-budgets.list": true, "github.billing-budgets.get": true,
 		"github.team-memberships.get": true, "github.team-repositories.list": true, "github.team-repositories.set": true,
 		"github.team-repositories.remove": true,
 		"github.repository-topics.set":    true, "github.check-annotations.list": true,
@@ -477,8 +497,9 @@ func TestRenamedToolsCoverEveryChangedID(t *testing.T) {
 		"github.action-secrets.list": true, "github.action-secrets.get": true, "github.action-secret-repositories.list": true,
 		"github.action-secrets.delete": true, "github.action-secrets.set": true, "github.dependabot-secrets.list": true, "github.dependabot-secrets.get": true,
 		"github.dependabot-secret-repositories.list": true, "github.dependabot-secrets.delete": true,
-		"github.workflow-runs.delete": true, "github.workflow-runs.force-cancel": true,
-		"github.workflow-artifacts.delete": true, "github.workflow-run-attempts.get": true,
+		"github.workflow-runs.delete": true, "github.workflow-runs.force-cancel": true, "github.workflow-runs.approve": true,
+		"github.pending-deployments.review": true,
+		"github.workflow-artifacts.delete":  true, "github.workflow-run-attempts.get": true,
 		"github.workflow-run-approvals.list":     true,
 		"github.deployment-branch-policies.list": true, "github.deployment-branch-policies.create": true,
 		"github.deployment-branch-policies.update": true, "github.deployment-branch-policies.delete": true,

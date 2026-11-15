@@ -16,6 +16,13 @@ import (
 // generic map carries a literal with the members the handler sets; the three delete tools are the only ones.
 var outputSamples = map[string]any{
 	"github.accounts.me":                           Account{},
+	"github.followers.list":                        FollowerList{},
+	"github.following.list":                        FollowingList{},
+	"github.following.set":                         FollowChange{},
+	"github.blocks.list":                           BlockedList{},
+	"github.blocks.add":                            BlockChange{},
+	"github.blocks.remove":                         BlockChange{},
+	"github.profile.update":                        ProfileUpdated{},
 	"github.action-cache-usage.get":                ActionCacheUsage{},
 	"github.action-caches.delete":                  ActionCachesDeleted{},
 	"github.action-caches.list":                    ActionCacheList{},
@@ -221,6 +228,7 @@ var outputSamples = map[string]any{
 	"github.notifications.mark-all":                NotificationsMarked{},
 	"github.organization-advisories.list":          RepositoryAdvisoryList{},
 	"github.organizations.search":                  OrganizationSearchList{},
+	"github.pending-deployments.review":            DeploymentReviewed{},
 	"github.project-collaborators.update":          ChangedCollaborators{},
 	"github.project-drafts.convert":                ConvertedDraft{},
 	"github.project-drafts.create":                 Planning{},
@@ -357,6 +365,12 @@ var outputSamples = map[string]any{
 	"github.organization-roles.assign":             OrganizationRoleAssigned{},
 	"github.outside-collaborators.remove":          OutsideCollaboratorRemoved{},
 	"github.organization-invitations.cancel":       OrganizationInvitationCancelled{},
+	"github.billing-usage.get":                     BillingUsage{},
+	"github.billing-usage-summary.get":             BillingSummary{},
+	"github.billing-premium-requests.get":          BillingModelReport{},
+	"github.billing-ai-credits.get":                BillingModelReport{},
+	"github.billing-budgets.list":                  BillingBudgetList{},
+	"github.billing-budgets.get":                   BillingBudget{},
 	"github.teams.list":                            OrganizationTeamList{},
 	"github.teams.get":                             TeamDetails{},
 	"github.teams.create":                          TeamDetails{},
@@ -389,6 +403,7 @@ var outputSamples = map[string]any{
 	"github.workflow-run-approvals.list":           RunApprovals{},
 	"github.workflow-run-attempts.get":             WorkflowRun{},
 	"github.workflow-run-logs.delete":              RunLogsDeleted{},
+	"github.workflow-runs.approve":                 RunApproved{},
 	"github.workflow-runs.cancel":                  RunCancel{},
 	"github.workflow-runs.delete":                  RunDeleted{},
 	"github.workflow-runs.force-cancel":            RunCancel{},
@@ -408,6 +423,8 @@ var outputSamples = map[string]any{
 // sets, so its schema rightly omits them: a list leaves out what only the detail read adds, and a change
 // sets what only its counterpart sets.
 var unemittedMembers = map[string][]string{
+	// GitHub documents no expiry for the single budget read.
+	"github.billing-budgets.get":       {"expires_at"},
 	"github.code-scanning-alerts.list": {"alerts[].linked_pull_requests", "alerts[].linked_pull_requests_truncated"},
 	"github.gists.create":              {"files[].binary", "files[].content", "files[].content_truncated"},
 	"github.gists.update":              {"files[].binary", "files[].content", "files[].content_truncated"},
