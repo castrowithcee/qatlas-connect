@@ -446,6 +446,32 @@ func hiddenSet(list []Hidden) map[string]bool {
 	return out
 }
 
+// widenForPrefixes lifts the schema length limit of an argument that may carry a prefix by the longest prefix,
+// because the schema is checked before the prefix is removed. The runtime shape keeps the model limit and checks
+// the remainder after the prefix is gone.
+func (t *tool) widenForPrefixes(member string, s *awsquery.Shape, schema *object) {
+	if t.restBind == nil || s.Kind != awsquery.KindString {
+		return
+	}
+	bf := fieldByKey(t.restBind.Operation.Input, member)
+	if bf == nil || bf.Shape == nil || bf.Loc == httpbind.LocHeader {
+		return
+	}
+	longest := 0
+	for _, p := range bf.Shape.Prefixes {
+		longest = max(longest, len(p))
+	}
+	// The limit is a number read from the model or an integer set by the converter.
+	limit, ok := schema.get("maxLength").(int64)
+	if !ok {
+		return
+	}
+	if longest > 0 {
+		s.MaxLen = int(limit)
+		schema.set("maxLength", limit+int64(longest))
+	}
+}
+
 // bindInput builds the input shape, the input schema, and the arguments.
 func (t *tool) bindInput(m *Model, in []member, pag *pagingPlan) error {
 	hidden := hiddenSet(t.op.HiddenInputs)
@@ -515,6 +541,7 @@ func (t *tool) bindInput(m *Model, in []member, pag *pagingPlan) error {
 			shape.Fields = append(shape.Fields, awsquery.Field{Key: name, Name: t.wire(mm), Shape: s, Flattened: mm.traits.has("smithy.api#xmlFlattened")})
 			t.inModel[name] = mm.name
 		}
+		t.widenForPrefixes(mm.name, s, schema)
 		props.set(name, schema)
 		isRequired := mm.traits.has("smithy.api#required")
 		if isRequired {
