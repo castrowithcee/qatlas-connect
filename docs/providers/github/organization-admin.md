@@ -1,6 +1,6 @@
 ---
 description: >
-  Describes the GitHub organization administration tools: the billing usage, usage summary, premium request, and AI credit reports of a user or an organization and the budgets of an organization, all read only, the GitHub Apps installed in an organization with the removal of a repository from an installation, and the audit log of an organization, with their targets, filters, bounds, the unavailable state, the proof of an installation id, and how excluded repositories are treated.
+  Describes the GitHub organization administration tools: the billing usage, usage summary, premium request, and AI credit reports of a user or an organization and the budgets of an organization, all read only, the GitHub Apps installed in an organization with the removal of a repository from an installation, the audit log of an organization, and the hosted compute network configurations of an organization with the network settings they use, with their targets, filters, bounds, the unavailable state, the proof of an installation id, and how excluded repositories are treated.
 type: knowledge
 edit: shared
 created: 2026-11-14
@@ -11,7 +11,7 @@ updated: 2026-11-15
 
 The tools of the group `organization-admin` of the [GitHub provider](README.md). The group holds administrative
 reads of an account or an organization that belong to no repository. It holds the billing reads and the GitHub
-Apps and the audit log below; further areas of organization administration join it on this page.
+Apps, the audit log, and the hosted compute network configurations below; further areas of organization administration join it on this page.
 
 ## Billing
 
@@ -160,5 +160,61 @@ name of the organization or as `OWNER/REPO`, is not output; it is counted in `wi
 reach the result. An event without a repository stays unchanged, even when its other members mention a repository, for
 example in `data` or `message`: the exclusion cannot see such a mention, so connect the audit log only with an
 organization whose events may all be seen when that matters.
+
+The token rights are listed under [Organization administration](setup.md#organization-administration).
+
+## Hosted compute network configurations
+
+| Tool | Does |
+| --- | --- |
+| `github.network-configurations.list` | lists the hosted compute network configurations of an organization in batches; optional `limit` and `cursor` |
+| `github.network-configurations.get` | reads one configuration by `network_configuration_id` |
+| `github.network-settings.get` | reads one network settings resource by `network_settings_id`: name, subnet, and region |
+| `github.network-configurations.create` | creates a configuration from `name` and one existing `network_settings_ids` entry; optional `compute_service` (`none`, `actions`), `failover_network_settings_ids`, and `failover_network_enabled`; listed only |
+| `github.network-configurations.update` | changes the given settings of one configuration; the same members as create, all optional, at least one required; listed only |
+| `github.network-configurations.delete` | deletes one configuration; listed only |
+
+The three reads are offered by the read effect and are not part of any setup profile. Create, update, and delete are
+offered only where a connection's `tools` list names them and need a confirmation. Every change is exactly one
+request that is never repeated; after a timeout, a 5xx, or an unusable answer the result says that the outcome is
+unclear and does not claim either way.
+
+**What the tools do not do.** A configuration only refers to a network settings resource that already exists in
+Azure. No tool creates, changes, or deletes a network resource or reads anything from Azure, and the network settings
+resource itself is not deleted with a configuration. Runner groups and runners belong to
+[runner groups and hosted runners](actions.md#runner-groups-and-hosted-runners), the enterprise level is out of reach.
+Updating or deleting a configuration may affect the runner groups that use it; the result of a successful update or
+delete carries the fixed `note` saying so.
+
+**Target.** `owner` is `orgs/LOGIN` under the rules of [the target of a call](README.md#the-target-of-a-call): an
+owner target of its own, checked against `exclude` and the targets before a secret is read. A user owner is refused
+with `invalid-request` before any request. The routes below `/orgs/LOGIN/settings/` are fixed.
+
+**Identifiers and values.** `network_configuration_id`, `network_settings_id`, and the entries of
+`network_settings_ids` and `failover_network_settings_ids` are identifiers of 1 to 128 letters, digits, hyphens, and
+underscores, so one can never leave its path segment; GitHub documents them only as strings, and this is the narrower
+reading. `name` has 1 to 100 characters of letters, digits, `.`, `-`, and `_`, as GitHub documents. GitHub documents
+`network_settings_ids` as a list of exactly one identifier; Qatlas requires exactly one whenever the list is given,
+also on update. `failover_network_settings_ids` takes at most one, and an empty list clears it. A value that breaks a
+rule ends with `invalid-request` before any request.
+
+**The state `unavailable`.** GitHub's description lists no error response for these routes and gives no answer of
+its own for an organization whose plan does not offer hosted compute networking. A plan without the feature, a token
+without the network configurations right, a user who is no owner, and an unknown organization or identifier answer
+403 or 404 alike, so every tool ends such an answer as `state: unavailable` with a fixed `reason` that names the
+causes and never quotes GitHub; for a change the reason adds that nothing was changed. A rate limit, a timeout, a
+5xx, and an unusable answer stay errors named by their class. A 409 and a 422 on a change stay errors with a fixed
+message that says nothing was changed.
+
+**Bounds and fields.** A batch has at most `limit` configurations (1 through 100, 30 when omitted) and follows the
+[cursor contract](README.md#cursor-contract). Every member GitHub documents for the configuration and the network
+settings resource is output (OpenAPI 1.1.4, rest-api-description commit 99b1432), in snake case: `id`, `name`,
+`compute_service` (`none`, `actions`, or `codespaces`), `network_settings_ids`, `failover_network_settings_ids`,
+`failover_network_enabled`, and `created_on` for the configuration, and `id`, `network_configuration_id`, `name`,
+`subnet_id`, and `region` for the resource; the list adds `total_count`. A member GitHub leaves out or sends as null is
+absent. `subnet_id` is output as GitHub reports it; no other identifier of a subnet or a subscription is output.
+Identifier lists are cut at 100 entries and say so through `network_settings_ids_truncated` and
+`failover_network_settings_ids_truncated`. Every text is untrusted data with control characters replaced and a length
+bound, and no address is ever fetched. Qatlas adds `owner`, `state`, `reason`, and `note`.
 
 The token rights are listed under [Organization administration](setup.md#organization-administration).

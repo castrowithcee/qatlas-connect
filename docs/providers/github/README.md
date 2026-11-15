@@ -118,7 +118,8 @@ the project, not a target. The owner lists `github.projects.list` and `github.re
 `github.app-installation-repositories.remove` takes `repository`, and `github.apps.get` is GitHub-wide and
 takes no target, like the global security advisories; see
 [organization administration](organization-admin.md#github-apps) and
-[the audit log](organization-admin.md#audit-log).
+[the audit log](organization-admin.md#audit-log). The six tools of the hosted compute network configurations take
+`owner` as `orgs/LOGIN`; see [their section](organization-admin.md#hosted-compute-network-configurations).
 
 An argument may be left out only when the targets allow exactly one repository, exactly one project, or
 exactly one owner as an owner entry, and not as a pattern: that one is the default of its kind. Nothing else

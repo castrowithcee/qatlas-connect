@@ -22,7 +22,7 @@ var toolGroups = []config.ToolGroup{
 	{ID: "notifications", Title: "Notifications", Description: "Notification threads and thread subscriptions"},
 	{ID: "packages", Title: "Packages", Description: "GitHub Packages of a user or an organization and their versions"},
 	{ID: "accounts", Title: "Accounts", Description: "Users, organizations with their settings, members, roles, outside collaborators, and invitations, teams with their members, memberships, and repositories, interaction limits of a repository, an organization, or the account, the authenticated account with its followers, followed accounts, blocked users, and profile, and its rate limit, GitHub's meta information, license, .gitignore, and code of conduct templates, emojis, and Markdown rendering"},
-	{ID: "organization-admin", Title: "Organization administration", Description: "Administration of an account or organization: billing usage, cost, and budget reports, and the GitHub Apps installed in an organization with the removal of a repository from an installation, and the audit log of an organization"},
+	{ID: "organization-admin", Title: "Organization administration", Description: "Administration of an account or organization: billing usage, cost, and budget reports, and the GitHub Apps installed in an organization with the removal of a repository from an installation, the audit log of an organization, and the hosted compute network configurations with their network settings"},
 }
 
 // groupBySegment maps the resource segment of a tool ID (github.<segment>.<action>) to its group. Segments
@@ -73,6 +73,7 @@ var groupBySegment = map[string]string{
 	"billing-premium-requests": "organization-admin", "billing-ai-credits": "organization-admin",
 	"billing-budgets": "organization-admin", "app-installations": "organization-admin", "apps": "organization-admin",
 	"audit-log": "organization-admin", "app-installation-repositories": "organization-admin",
+	"network-configurations": "organization-admin", "network-settings": "organization-admin",
 }
 
 // groupOf returns the group of a GitHub tool ID, or "" for an ID outside every group.

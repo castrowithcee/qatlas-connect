@@ -884,7 +884,7 @@ func TestRegisterPublishesMetadataAndTheReadOperations(t *testing.T) {
 			descriptor.Risk.Confirmation != capability.ConfirmationNone ||
 			(descriptor.Risk.DataSensitivity != dataSensitivity && descriptor.ID != jobsLog.ID &&
 				descriptor.ID != actionVariablesList.ID && descriptor.ID != actionVariablesGet.ID &&
-				descriptor.ID != auditLogList.ID &&
+				descriptor.ID != auditLogList.ID && !slices.Contains(networkConfigurationToolIDs, descriptor.ID) &&
 				!slices.Contains(billingToolIDs, descriptor.ID) &&
 				!slices.Contains(secretReadIDs, descriptor.ID) &&
 				!slices.Contains(webhooksReads, descriptor.ID) &&
@@ -933,6 +933,7 @@ func TestRegisterPublishesMetadataAndTheReadOperations(t *testing.T) {
 		"github.billing-usage.get", "github.billing-usage-summary.get", "github.billing-premium-requests.get",
 		"github.billing-ai-credits.get", "github.billing-budgets.list", "github.billing-budgets.get",
 		"github.app-installations.list", "github.apps.get", "github.audit-log.list",
+		"github.network-configurations.get", "github.network-configurations.list", "github.network-settings.get",
 		"github.project-items.get", "github.project-items.list", "github.projects.list",
 		"github.project-status.list", "github.project-teams.list", "github.project-views.list", "github.project-workflows.list",
 		"github.pull-request-checks.list", "github.pull-request-checks.wait", "github.pull-request-comments.list", "github.pull-request-commits.list",
@@ -955,7 +956,7 @@ func TestRegisterPublishesMetadataAndTheReadOperations(t *testing.T) {
 	if jobsLog.Risk.DataSensitivity != logSensitivity {
 		t.Errorf("the job log is classified as %q, want %q", jobsLog.Risk.DataSensitivity, logSensitivity)
 	}
-	if len(metadata.Tools) != 440 {
+	if len(metadata.Tools) != 446 {
 		t.Errorf("tools = %+v, want every operation offered to connection allow-lists", metadata.Tools)
 	}
 }
