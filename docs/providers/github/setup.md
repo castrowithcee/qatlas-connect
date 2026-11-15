@@ -374,6 +374,8 @@ refuses it otherwise, and Qatlas checks it before the request.
 | GitHub Apps installed in an organization (`github.app-installations.list`) | `admin:read`, as an owner of the organization | Organization administration: read |
 | Read an app by its slug (`github.apps.get`) | none | none |
 | Audit log of an organization (`github.audit-log.list`) | `read:audit_log`, as an owner of the organization, on a plan that offers the audit log | GitHub names no fine-grained permission in its description, and may answer `403` to a fine-grained token |
+| Read the hosted compute network configurations and network settings of an organization (`github.network-configurations.list`, `.get`, `github.network-settings.get`) | `read:network_configurations`, as an owner of the organization, on a plan that offers hosted compute networking | GitHub names no fine-grained permission in its description, and may answer `403` to a fine-grained token |
+| Create, update, or delete a hosted compute network configuration (`github.network-configurations.create`, `.update`, `.delete`, listed only) | `write:network_configurations`, as an owner of the organization | GitHub names no fine-grained permission in its description, and may answer `403` to a fine-grained token |
 | Remove a repository from an installation (`github.app-installation-repositories.remove`, listed only) | `repo`, as an administrator of the repository and of the installation | GitHub may not serve a fine-grained token on this route and answers `403` |
 
 GitHub serves the billing reports to accounts on the enhanced billing platform only. When it refuses a read with 403 or
@@ -381,6 +383,9 @@ GitHub serves the billing reports to accounts on the enhanced billing platform o
 missing right, an account without the platform, and an unknown owner or budget; see
 [organization administration](organization-admin.md#billing). The audit log answers the same way for a plan without
 an audit log, a missing right, or a user who is no owner; see [organization administration](organization-admin.md#audit-log).
+The network configuration tools answer the same way for a plan without hosted compute networking, a missing right, a
+user who is no owner, or an unknown identifier, for a change with the note that nothing was changed; see
+[organization administration](organization-admin.md#hosted-compute-network-configurations).
 
 ## What happens without a right
 

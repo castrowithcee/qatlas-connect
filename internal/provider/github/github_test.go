@@ -884,7 +884,7 @@ func TestRegisterPublishesMetadataAndTheReadOperations(t *testing.T) {
 			descriptor.Risk.Confirmation != capability.ConfirmationNone ||
 			(descriptor.Risk.DataSensitivity != dataSensitivity && descriptor.ID != jobsLog.ID &&
 				descriptor.ID != actionVariablesList.ID && descriptor.ID != actionVariablesGet.ID &&
-				descriptor.ID != auditLogList.ID &&
+				descriptor.ID != auditLogList.ID && !slices.Contains(networkConfigurationToolIDs, descriptor.ID) &&
 				!slices.Contains(billingToolIDs, descriptor.ID) &&
 				!slices.Contains(secretReadIDs, descriptor.ID) &&
 				!slices.Contains(webhooksReads, descriptor.ID) &&

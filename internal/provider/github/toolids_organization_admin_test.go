@@ -15,5 +15,11 @@ func init() {
 		{id: "github.billing-premium-requests.get", born: true, output: BillingModelReport{}, risk: billingRisk},
 		{id: "github.billing-usage-summary.get", born: true, output: BillingSummary{}, risk: billingRisk},
 		{id: "github.billing-usage.get", born: true, output: BillingUsage{}, risk: billingRisk},
+		{id: "github.network-configurations.create", born: true, allow: true, output: NetworkConfiguration{}, risk: guardedRisk(capability.EffectCreate, capability.IdempotencyNonIdempotent, networkConfigurationSensitivity)},
+		{id: "github.network-configurations.delete", born: true, allow: true, output: NetworkConfigurationDeleted{}, risk: guardedRisk(capability.EffectDelete, capability.IdempotencyUnknown, networkConfigurationSensitivity)},
+		{id: "github.network-configurations.get", born: true, output: NetworkConfiguration{}, risk: networkReadRisk},
+		{id: "github.network-configurations.list", born: true, output: NetworkConfigurationList{}, risk: networkReadRisk},
+		{id: "github.network-configurations.update", born: true, allow: true, output: NetworkConfigurationUpdated{}, risk: guardedRisk(capability.EffectUpdate, capability.IdempotencyIdempotent, networkConfigurationSensitivity)},
+		{id: "github.network-settings.get", born: true, output: NetworkSettings{}, risk: networkReadRisk},
 	})
 }

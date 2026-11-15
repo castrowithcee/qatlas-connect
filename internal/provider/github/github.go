@@ -954,7 +954,7 @@ func Register(reg *capability.Registry) error {
 		subIssuesOperations(), issueDependenciesOperations(), issueHistoryOperations(), issueTypesOperations(), issueFieldsOperations(),
 		discussionOperations(), notificationOperations(), gistOperations(), gistSocialOperations(), securityAlertOperations(), securityAlertUpdateOperations(), securityAlertDetailOperations(), advisoryOperations(), securitySettingsOperations(), dependencyGraphOperations(),
 		codeSecurityConfigurationOperations(), codeSecurityChangeOperations(), codeSecurityAssignOperations(), privateRegistryOperations(), privateRegistryWriteOperations(),
-		copilotOperations(), environmentsOperations(), deploymentsOperations(), referenceOperations(), billingOperations(), appOperations(), auditLogOperations())...)
+		copilotOperations(), environmentsOperations(), deploymentsOperations(), referenceOperations(), billingOperations(), appOperations(), auditLogOperations(), networkConfigurationOperations())...)
 	for i := range operations {
 		operations[i].Descriptor = withGroup(withTargetArgument(operations[i].Descriptor))
 	}
@@ -1926,6 +1926,11 @@ func organizationSubject(tail string) subject {
 	}
 	if len(parts) >= 3 && parts[1] == "dependabot" {
 		if what := dependabotSecretFamily.subject(strings.Join(parts[1:], "/")); what != "" {
+			return subject{what: what + " of orgs/" + owner}
+		}
+	}
+	if len(parts) >= 3 && parts[1] == "settings" {
+		if what := networkSubject(parts[2:]); what != "" {
 			return subject{what: what + " of orgs/" + owner}
 		}
 	}
