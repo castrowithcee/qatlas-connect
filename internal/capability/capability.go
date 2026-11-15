@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"slices"
 	"sort"
 	"strings"
 
@@ -133,10 +134,17 @@ type Descriptor struct {
 // exactly the selected connection and return a JSON-shaped value described by OutputSchema.
 type Handler func(context.Context, *config.Resolved, *secret.Resolver, *redact.Redactor, json.RawMessage) (any, error)
 
-// Operation binds a descriptor to its provider-independent application handler.
+// SummaryFunc phrases what a confirmed call would do, from its validated arguments alone. It gets neither a
+// resolver, a secret, a redactor, a handler, nor any provider I/O, and must not read anything but its input.
+// The arguments are untrusted data: the core redacts, neutralizes, and bounds the text it returns.
+type SummaryFunc func(arguments json.RawMessage) string
+
+// Operation binds a descriptor to its provider-independent application handler. ConfirmationSummary is
+// optional and only used for a tool that needs confirmation; it is no part of the published descriptor.
 type Operation struct {
-	Descriptor Descriptor
-	Handler    Handler
+	Descriptor          Descriptor
+	Handler             Handler
+	ConfirmationSummary SummaryFunc
 }
 
 // ConnectionTester performs a provider's smallest safe authenticated read. It is separate from the
@@ -246,6 +254,9 @@ func (r *Registry) RegisterProvider(metadata config.ProviderMetadata, tester Con
 			return fmt.Errorf("provider %q secret role %q is declared twice", metadata.ID, role.Name)
 		}
 		seen[role.Name] = true
+	}
+	if err := validTokenRoles(metadata); err != nil {
+		return err
 	}
 	if metadata.Target.Required && strings.TrimSpace(metadata.Target.Label) == "" {
 		return fmt.Errorf("provider %q requires a target label", metadata.ID)
@@ -366,11 +377,39 @@ func cloneMetadata(metadata config.ProviderMetadata) config.ProviderMetadata {
 	for i := range metadata.Profiles {
 		metadata.Profiles[i].Tools = append([]string(nil), metadata.Profiles[i].Tools...)
 	}
+	if metadata.Token != nil {
+		scopes := make(map[string][]string, len(metadata.Token.Scopes))
+		for tool, needed := range metadata.Token.Scopes {
+			scopes[tool] = append([]string(nil), needed...)
+		}
+		metadata.Token = &config.TokenMetadata{Scopes: scopes}
+	}
 	metadata.Target.Kinds = append([]config.TargetKind(nil), metadata.Target.Kinds...)
 	for i := range metadata.Target.Kinds {
 		metadata.Target.Kinds[i].Forms = append([]string(nil), metadata.Target.Kinds[i].Forms...)
 	}
 	return metadata
+}
+
+// validTokenRoles checks that a provider whose credential issues access tokens declares exactly the token
+// roles, all optional, since the stored roles alone decide its procedure.
+func validTokenRoles(metadata config.ProviderMetadata) error {
+	if metadata.Token == nil {
+		return nil
+	}
+	want := config.TokenSecretRoles()
+	if len(metadata.SecretRoles) != len(want) {
+		return fmt.Errorf("provider %q issues access tokens and must declare exactly the token secret roles", metadata.ID)
+	}
+	for _, role := range want {
+		if !slices.ContainsFunc(metadata.SecretRoles, func(r config.SecretRole) bool {
+			return r.Name == role.Name && r.Optional
+		}) {
+			return fmt.Errorf("provider %q issues access tokens and must declare the optional secret role %q",
+				metadata.ID, role.Name)
+		}
+	}
+	return nil
 }
 
 // ValidateProfiles checks the tool profiles of every registered provider against the registered tools. It
@@ -707,6 +746,11 @@ func (r *Registry) Lookup(id string) (Descriptor, Handler, bool) {
 		return Descriptor{}, nil, false
 	}
 	return operation.Descriptor.clone(), operation.Handler, true
+}
+
+// ConfirmationSummary returns the summary function of one registered operation, or nil without one.
+func (r *Registry) ConfirmationSummary(id string) SummaryFunc {
+	return r.byID[id].ConfirmationSummary
 }
 
 // clone deep-copies a descriptor, including its JSON schema bytes, and normalises empty slices to nil.

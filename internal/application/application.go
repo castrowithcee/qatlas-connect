@@ -1123,7 +1123,9 @@ func (c *Core) Invoke(ctx context.Context, request InvokeRequest) (response Invo
 		return InvokeResponse{}, err
 	}
 	if descriptor.Risk.Confirmation == capability.ConfirmationRequired && !request.Confirmed {
-		return InvokeResponse{}, &ConfirmationRequiredError{Operation: descriptor.ID}
+		return InvokeResponse{}, &ConfirmationRequiredError{
+			Operation: descriptor.ID, Summary: c.confirmationSummary(descriptor.ID, request.Arguments),
+		}
 	}
 
 	handler := rawHandler
@@ -1493,6 +1495,7 @@ func (c *Core) connection(name string) (*config.Resolved, error) {
 		Files:          connection.Files.Clone(),
 		ForwardSecrets: append([]string(nil), connection.ForwardSecrets...),
 		Forward:        c.config.ForwardCredentials(connection),
+		TokenScopes:    c.config.TokenScopes(name),
 		Disabled:       connection.Disabled,
 		ActiveUntil:    connection.ActiveUntilCanonical(),
 	}

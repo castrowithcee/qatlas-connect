@@ -363,6 +363,18 @@ func TestProviderConformanceChecksDetectViolations(t *testing.T) {
 		{"a default permission it does not support", func(m *config.ProviderMetadata) {
 			m.DefaultEffects = []config.Effect{config.EffectDelete}
 		}, nil, "default permission"},
+		{"a tool without an access token scope", func(m *config.ProviderMetadata) {
+			m.SecretRoles, m.Token = config.TokenSecretRoles(),
+				&config.TokenMetadata{Scopes: map[string][]string{"sample.items.get": {"items.read"}}}
+		}, nil, "maps to no access token scope"},
+		{"an access token scope with a blank", func(m *config.ProviderMetadata) {
+			m.SecretRoles, m.Token = config.TokenSecretRoles(), conformantToken()
+			m.Token.Scopes["sample.items.get"] = []string{"items read"}
+		}, nil, "not one token"},
+		{"access token scopes of an unknown tool", func(m *config.ProviderMetadata) {
+			m.SecretRoles, m.Token = config.TokenSecretRoles(), conformantToken()
+			m.Token.Scopes["sample.items.gone"] = []string{"items.read"}
+		}, nil, "no registered tool"},
 	}
 	for _, tt := range providerCases {
 		t.Run("provider with "+tt.name, func(t *testing.T) {
@@ -374,6 +386,12 @@ func TestProviderConformanceChecksDetectViolations(t *testing.T) {
 			}
 			assertViolation(t, providerViolations(metadata, operations), tt.want)
 		})
+	}
+
+	tokenMetadata := conformantMetadata()
+	tokenMetadata.SecretRoles, tokenMetadata.Token = config.TokenSecretRoles(), conformantToken()
+	if violations := providerViolations(tokenMetadata, conformantOperations()); len(violations) > 0 {
+		t.Errorf("a conformant provider that issues access tokens has violations: %v", violations)
 	}
 
 	// A connection that holds every supported permission must be offered every operation. Declaring fewer
@@ -574,7 +592,37 @@ func providerViolations(metadata config.ProviderMetadata, descriptors []capabili
 			}
 		}
 	}
+	violations = append(violations, tokenViolations(metadata, tools)...)
 	return append(violations, permissionViolations(metadata, descriptors)...)
+}
+
+// tokenViolations checks the scopes of a provider whose credential issues access tokens: every registered
+// tool needs at least one scope, a scope is one token without blanks, and the map names registered tools only.
+func tokenViolations(metadata config.ProviderMetadata, tools []config.ToolMetadata) []string {
+	if metadata.Token == nil {
+		return nil
+	}
+	var violations []string
+	registered := map[string]bool{}
+	for _, tool := range tools {
+		registered[tool.ID] = true
+		scopes := metadata.Token.Scopes[tool.ID]
+		if len(scopes) == 0 {
+			violations = append(violations, fmt.Sprintf("tool %q maps to no access token scope", tool.ID))
+		}
+		for _, scope := range scopes {
+			if scope == "" || strings.ContainsAny(scope, " \t\r\n") {
+				violations = append(violations, fmt.Sprintf("tool %q maps to an access token scope that is not one token", tool.ID))
+			}
+		}
+	}
+	for id := range metadata.Token.Scopes {
+		if !registered[id] {
+			violations = append(violations, fmt.Sprintf("access token scopes name %q, which is no registered tool", id))
+		}
+	}
+	sort.Strings(violations)
+	return violations
 }
 
 // permissionViolations asks the application core which operations three connections are offered: one that
@@ -1024,6 +1072,15 @@ func conformantMetadata() config.ProviderMetadata {
 		metadata.Tools = append(metadata.Tools, descriptor.Tool())
 	}
 	return metadata
+}
+
+// conformantToken maps every conformant operation to a scope.
+func conformantToken() *config.TokenMetadata {
+	scopes := map[string][]string{}
+	for _, descriptor := range conformantOperations() {
+		scopes[descriptor.ID] = []string{"items." + string(descriptor.Risk.Effect)}
+	}
+	return &config.TokenMetadata{Scopes: scopes}
 }
 
 // conformantOperations are sorted by ID, the order the registry answers in.

@@ -86,7 +86,8 @@ type Shape struct {
 	Format Format
 	// MaxLen caps a decoded string in bytes, DefaultMaxString when zero. A longer string is cut at a rune
 	// boundary and reported as truncated. A blob, a timestamp and a map key above the cap are refused, as a
-	// cut value would no longer mean what it said.
+	// cut value would no longer mean what it said. On an argument with Prefixes it is the model length in
+	// characters of what is left after the prefix; Text refuses a longer rest.
 	MaxLen int
 	// MaxItems caps a decoded list or map, DefaultMaxItems when zero. A longer one is refused: cutting it
 	// would present a partial list as complete.

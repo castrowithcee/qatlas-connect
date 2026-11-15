@@ -7,7 +7,11 @@ import "github.com/castrowithcee/qatlas-connect/internal/capability"
 // suggestedActors a capability to be asked at all; refs counts every branch and tag, suggestedActors the
 // actors that can be assigned.
 
-const repositoryTotalsSelection = `issues{totalCount} pullRequests{totalCount} discussions{totalCount} releases{totalCount} labels{totalCount} milestones{totalCount} refs(refPrefix:"refs/"){totalCount} stargazers{totalCount} watchers{totalCount} forks{totalCount} languages{totalCount} commitComments{totalCount} discussionCategories{totalCount} issueTypes{totalCount} issueFields{totalCount} repositoryCustomPropertyValues{totalCount}`
+const repositoryTotalsSelection = `issues{totalCount} pullRequests{totalCount} discussions{totalCount} releases{totalCount} labels{totalCount} milestones{totalCount} refs(refPrefix:"refs/"){totalCount} stargazers{totalCount} watchers{totalCount} forks{totalCount} languages{totalCount} commitComments{totalCount} discussionCategories{totalCount} issueTypes{totalCount} issueFields{totalCount}`
+
+// repositoryCustomPropertySelection is asked only for the repositories of an organization: GitHub answers it
+// for a user's repository with NOT_ORG_OWNED_REPO, which fails the whole page.
+const repositoryCustomPropertySelection = `repositoryCustomPropertyValues{totalCount}`
 
 // repositoryAdminTotalsSelection are the counts that need rights beyond reading the repository.
 const repositoryAdminTotalsSelection = `collaborators{totalCount} assignableUsers{totalCount} mentionableUsers{totalCount} environments{totalCount} deployments{totalCount} deployKeys{totalCount} branchProtectionRules{totalCount} rulesets{totalCount} packages{totalCount} projectsV2{totalCount} vulnerabilityAlerts{totalCount} dependencyGraphManifests{totalCount} suggestedActors(capabilities:[CAN_BE_ASSIGNED]){totalCount}`
@@ -141,7 +145,7 @@ var repositoryTotalsFields = []capability.Field{
 	{Name: "discussion_categories_total_count", Description: "Number of discussion categories"},
 	{Name: "issue_types_total_count", Description: "Number of issue types"},
 	{Name: "issue_fields_total_count", Description: "Number of issue fields"},
-	{Name: "repository_custom_property_values_total_count", Description: "Number of custom property values"},
+	{Name: "repository_custom_property_values_total_count", Description: "Number of custom property values; only for a repository of an organization"},
 	{Name: "suggested_actors_total_count", Description: "Number of actors that can be assigned to issues and pull requests; only with admin_counts"},
 }
 

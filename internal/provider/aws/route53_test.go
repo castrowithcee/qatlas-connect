@@ -2,6 +2,7 @@ package aws
 
 import (
 	"encoding/xml"
+	"errors"
 	"slices"
 	"strings"
 	"testing"
@@ -222,6 +223,8 @@ func TestRoute53IDsAreTakenWithAndWithoutPrefix(t *testing.T) {
 		switch {
 		case strings.Contains(r.path, "/change/"):
 			return xmlReply(`<GetChangeResponse ` + route53NS + `>` + changeXML + `</GetChangeResponse>`)
+		case strings.Contains(r.path, "/delegationset/"):
+			return xmlReply(`<GetReusableDelegationSetResponse ` + route53NS + `><DelegationSet><NameServers><NameServer>ns-1.example.net</NameServer></NameServers></DelegationSet></GetReusableDelegationSetResponse>`)
 		case strings.Contains(r.path, "/tags/"):
 			return xmlReply(`<ListTagsForResourceResponse ` + route53NS + `><ResourceTagSet><ResourceType>hostedzone</ResourceType>` +
 				`<ResourceId>Z1</ResourceId><Tags><Tag><Key>team</Key><Value>a &amp; b</Value></Tag></Tags></ResourceTagSet></ListTagsForResourceResponse>`)
@@ -229,7 +232,13 @@ func TestRoute53IDsAreTakenWithAndWithoutPrefix(t *testing.T) {
 		return xmlReply(`<GetHostedZoneResponse ` + route53NS + `>` + zoneXML("Z1", "example.com.") + `</GetHostedZoneResponse>`)
 	})
 	e := route53Env(t, f, testRegion)
+	// Synthetic IDs of the real length: 21 characters, so the prefixed form is longer than the model length of 32.
+	const zone, set = "ZTESTZONE0123456789AB", "NTESTSET0123456789012"
 	for _, c := range []struct{ id, args, path string }{
+		{"aws.route53.hosted-zone.get", `{"id":"` + zone + `"}`, "/2013-04-01/hostedzone/" + zone},
+		{"aws.route53.hosted-zone.get", `{"id":"/hostedzone/` + zone + `"}`, "/2013-04-01/hostedzone/" + zone},
+		{"aws.route53.delegation-set.get", `{"id":"` + set + `"}`, "/2013-04-01/delegationset/" + set},
+		{"aws.route53.delegation-set.get", `{"id":"/delegationset/` + set + `"}`, "/2013-04-01/delegationset/" + set},
 		{"aws.route53.hosted-zone.get", `{"id":"Z1"}`, "/2013-04-01/hostedzone/Z1"},
 		{"aws.route53.hosted-zone.get", `{"id":"/hostedzone/Z1"}`, "/2013-04-01/hostedzone/Z1"},
 		{"aws.route53.change.get", `{"id":"C1"}`, "/2013-04-01/change/C1"},
@@ -259,6 +268,36 @@ func TestRoute53IDsAreTakenWithAndWithoutPrefix(t *testing.T) {
 	}
 	if len(f.requests) != before {
 		t.Error("a refused call was sent")
+	}
+}
+
+// The schema allows the longest prefix on top of the model length; what is left after the prefix is taken off must
+// still fit the model length, and a longer rest is refused as an invalid request before any request, even when the
+// transport would answer an error for every request.
+func TestRoute53IDLengthIsCheckedAfterThePrefix(t *testing.T) {
+	f := restAnswer(reply{status: 500})
+	e := route53Env(t, f, testRegion)
+	rest33 := strings.Repeat("A", 33)
+	for _, c := range []struct{ id, args string }{
+		{"aws.route53.hosted-zone.get", `{"id":"/hostedzone/` + rest33 + `"}`},
+		{"aws.route53.hosted-zone.get", `{"id":"` + rest33 + `"}`},
+		// The prefix comes off once: a second one is part of the rest.
+		{"aws.route53.hosted-zone.get", `{"id":"/hostedzone//hostedzone/ZTESTZONE0123456789AB"}`},
+		{"aws.route53.delegation-set.get", `{"id":"/delegationset/` + rest33 + `"}`},
+	} {
+		before := len(f.requests)
+		_, err := e.invoke(c.id, c.args)
+		var invalid *provider.InvalidRequestError
+		if !errors.As(err, &invalid) {
+			t.Errorf("%s %s: error %v, want an invalid request", c.id, c.args, err)
+		}
+		if len(f.requests) != before {
+			t.Errorf("%s %s sent a request", c.id, c.args)
+		}
+	}
+	// Above the widened schema limit the schema itself refuses.
+	if _, err := e.invoke("aws.route53.hosted-zone.get", `{"id":"/hostedzone/`+strings.Repeat("A", 33)+`B"}`); err == nil {
+		t.Error("an ID above the widened schema limit was accepted")
 	}
 }
 

@@ -572,7 +572,10 @@ type ProviderMetadata struct {
 	// It needs Groups and is invalid for a <vendor>.<product> provider.
 	ServiceLevel bool
 	SecretRoles  []SecretRole
-	Target       TargetMetadata
+	// Token, when set, makes the credential of the provider one that issues access tokens; SecretRoles are
+	// then exactly TokenSecretRoles.
+	Token  *TokenMetadata
+	Target TargetMetadata
 	// DocPage is the user page of the provider below docs/providers; empty means <ID>/setup.md.
 	DocPage string
 	// LocalFiles states which directions of local file access at least one tool of the provider has. It is

@@ -29,7 +29,8 @@ the flat members with the full body, without the account, detail, and address me
 `github.issues.update`, `github.issues.close`, and `github.issues.reopen` answer only `id`, `number`, `state`,
 `state_reason`, `url`, and `repository`, and `github.comments.create` and `github.comments.update` only `id`,
 `database_id`, `url`, and `repository`. `full` answers the whole issue or comment, and `fields` picks members. `github.issues.list` reads a page in
-one query: its lists take at most 10 entries per issue (20 labels) below GitHub's node limit, and it cuts the
+several smaller queries, since one query for a page of 100 issues exceeds GitHub's resource limits; a
+failed query fails the whole call. Its lists take at most 10 entries per issue (20 labels), and it cuts the
 body. It reads projects only with `project_details`; the token rights are listed under [Issues and comments](setup.md#issues-and-comments). `projectV2(number:)` and `hovercard` are queries, not answer fields.
 
 ## Changes

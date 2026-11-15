@@ -1342,7 +1342,7 @@ func TestIssuesArePagedWithoutPullRequests(t *testing.T) {
 	vars := request.variables
 	filter, _ := vars["filter"].(map[string]any)
 	if fmt.Sprint(filter["states"]) != "[OPEN]" || fmt.Sprint(filter["labels"]) != "[bug]" || filter["assignee"] != "octocat" ||
-		vars["owner"] != "octo-org" || vars["name"] != "example" || vars["first"] != float64(30) ||
+		vars["owner"] != "octo-org" || vars["name"] != "example" || vars["first"] != float64(issueListChunk) ||
 		strings.Contains(request.document, "bodyHTML") || strings.Contains(request.document, "comments(") {
 		t.Errorf("request = %+v", request)
 	}

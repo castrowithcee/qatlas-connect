@@ -508,18 +508,17 @@ func selectOwner(resolved *config.Resolved, kind targetKind, raw json.RawMessage
 }
 
 // selectOrganization reads the owner argument of an organization-wide tool, such as the organization team
-// lists, and resolves it against the connection's targets exactly as selectOwner does for a tool that
-// creates a project: the organization must be a target the connection names as an owner itself, not merely
-// implied by a project or a repository target of it. A user owner is then refused, because teams belong to
-// an organization. It runs before a credential is resolved.
+// lists or the audit log, and resolves it against the connection's targets exactly as selectOwner does for a
+// tool that creates a project: the organization must be a target the connection names as an owner itself,
+// not merely implied by a project or a repository target of it. A user owner is then refused, because these
+// routes exist only for an organization. It runs before a credential is resolved.
 func selectOrganization(resolved *config.Resolved, raw json.RawMessage) (target, error) {
 	owner, err := selectOwner(resolved, kindOwner, raw)
 	if err != nil {
 		return target{}, err
 	}
 	if owner.scope != "orgs" {
-		return target{}, invalidRequest("owner must be an organization, as orgs/LOGIN; teams belong to an " +
-			"organization, not a user")
+		return target{}, invalidRequest("owner must be an organization, as orgs/LOGIN, not a user")
 	}
 	return owner, nil
 }

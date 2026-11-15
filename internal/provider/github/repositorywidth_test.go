@@ -401,7 +401,7 @@ func TestRepositoryListRefusesPrivacyWithVisibility(t *testing.T) {
 // The list asks for no member that is deprecated, rendered, a lookup, or a secret, and a page of 100 repositories
 // stays far below GitHub's node limit of 500000.
 func TestRepositoryListQueryStaysWithinTheNodeLimit(t *testing.T) {
-	selection := repositorySelection(true)
+	selection := repositorySelection(true, true)
 	for _, forbidden := range []string{"tempCloneToken", "deployKeys{totalCount nodes", "descriptionHTML",
 		"shortDescriptionHTML", "squashPrTitleUsedAsDefault", "viewerCanCreateProjects", " projects(", " project(",
 		"codeowners(", "mergeQueue", "issue(", "pullRequest(", "discussion(", "release(", "ruleset(", "object(",
@@ -581,11 +581,41 @@ func TestRepositoryListWithoutAdminCountsAsksForNoPrivilegedMember(t *testing.T)
 	if !strings.Contains(document, "issues{totalCount}") {
 		t.Error("the ordinary counts are missing")
 	}
-	if pages := strings.Count(repositorySelection(false), "first:10"); pages != 4 {
+	if pages := strings.Count(repositorySelection(false, true), "first:10"); pages != 4 {
 		t.Errorf("pages without admin_counts = %d, want 4 (100 + 100 * 40 = 4100 nodes)", pages)
 	}
-	if pages := strings.Count(repositorySelection(true), "first:10"); pages != 6 {
+	if pages := strings.Count(repositorySelection(true, true), "first:10"); pages != 6 {
 		t.Errorf("pages with admin_counts = %d, want 6 (6100 nodes)", pages)
+	}
+}
+
+// GitHub refuses custom property values for a user's repository and fails the whole page, so the list asks for
+// them only for an organization, with or without admin_counts.
+func TestRepositoryListAsksForCustomPropertiesOnlyForAnOrganization(t *testing.T) {
+	f := &fakeGitHub{ownerRepos: []string{"a"}}
+	base := serve(t, f)
+	red := &redact.Redactor{}
+	core := application.New(registry(t), ownersConfig(base), resolver(red, nil), red)
+	for _, tt := range []struct {
+		arguments string
+		want      bool
+	}{
+		{`{"owner":"orgs/octo-org"}`, true},
+		{`{"owner":"orgs/octo-org","admin_counts":true}`, true},
+		{`{"owner":"users/octocat"}`, false},
+		{`{"owner":"users/octocat","admin_counts":true}`, false},
+	} {
+		if _, err := invoke(t, core, repositoriesList.ID, "open", tt.arguments, false); err != nil {
+			t.Fatalf("%s: %v", tt.arguments, err)
+		}
+		requests := f.recorded()
+		document := requests[len(requests)-1].document
+		if got := strings.Contains(document, "repositoryCustomPropertyValues"); got != tt.want {
+			t.Errorf("%s asks for custom property values = %t, want %t", tt.arguments, got, tt.want)
+		}
+		if !strings.Contains(document, "issues{totalCount}") {
+			t.Errorf("%s lacks the ordinary counts", tt.arguments)
+		}
 	}
 }
 

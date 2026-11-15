@@ -16,11 +16,19 @@ import (
 	"github.com/castrowithcee/qatlas-kit/redact"
 )
 
-// ownerPage answers the owner lists of the organization octo-org page by page; any other owner, or octo-org
-// asked for as a user, is one GitHub cannot resolve.
+// ownerPage answers the owner lists of the organization octo-org page by page, and the repositories of the user
+// octocat from the same names; any other owner, or octo-org asked for as a user, is one GitHub cannot resolve.
+// Like GitHub, it fails a user's repository page that asks for custom property values.
 func (f *fakeGitHub) ownerPage(w http.ResponseWriter, document string, variables map[string]any) {
 	login, _ := variables["owner"].(string)
-	if !strings.EqualFold(login, "octo-org") || !strings.Contains(document, "owner:organization(") {
+	user := strings.EqualFold(login, "octocat") && strings.Contains(document, "owner:user(") &&
+		strings.Contains(document, "repositories(first")
+	if user && strings.Contains(document, "repositoryCustomPropertyValues") {
+		fmt.Fprint(w, `{"data":null,"errors":[{"type":"NOT_ORG_OWNED_REPO","path":["owner","repositories",`+
+			`"edges",0,"node","repositoryCustomPropertyValues"],"message":"Repository is not owned by an organization"}]}`)
+		return
+	}
+	if !user && (!strings.EqualFold(login, "octo-org") || !strings.Contains(document, "owner:organization(")) {
 		fmt.Fprint(w, `{"data":{"owner":null},"errors":[{"type":"NOT_FOUND","path":["owner"],`+
 			`"message":"Could not resolve to an Organization"}]}`)
 		return

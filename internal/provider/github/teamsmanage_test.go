@@ -287,7 +287,7 @@ func TestTeamToolRefusalsBeforeIO(t *testing.T) {
 		{"owner outside the targets", teamsGet.ID, "team-listed", `{"owner":"orgs/other","team":"design"}`,
 			"outside the targets"},
 		{"excluded organization", teamsDelete.ID, "team-excluded", `{"owner":"orgs/octo-org","team":"design"}`, ""},
-		{"user owner", teamsCreate.ID, "team-user", `{"name":"x"}`, "teams belong to an organization"},
+		{"user owner", teamsCreate.ID, "team-user", `{"name":"x"}`, "owner must be an organization"},
 		{"no owner target", teamsGet.ID, "team-repo-only", `{"team":"design"}`, ""},
 		{"set outside the targets", teamRepositoriesSet.ID, "team-org-only",
 			`{"owner":"orgs/octo-org","team":"design","repository":"octo-org/example","permission":"push"}`, ""},

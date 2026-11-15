@@ -128,6 +128,19 @@ func nextStep(err error, r route) string {
 		// claim which of the two happened.
 		return "check or renew the credential of this connection with " +
 			"'qconnect credential set <credential> <role>' or in 'qconnect tui'"
+	case application.CodeConsentRequired, application.CodeConsentExpired, application.CodeScopeMissing:
+		// Giving consent manages the credential, so it is a person's step, never an agent's.
+		if r == routeMCP || r == routeAgent {
+			return "an agent cannot give the consent of a credential; ask the user"
+		}
+		return "a person gives the consent of this connection's credential, covering the scopes of its tools, " +
+			"then try again"
+	case application.CodeCredentialUnusable:
+		if r == routeMCP || r == routeAgent {
+			return "agents do not manage credentials; ask the user"
+		}
+		return "store either a client ID or a service account key for the credential, and remove the other with " +
+			"'qconnect credential delete <credential> <role>' or in 'qconnect tui'"
 	case application.CodeUnsupportedCapability:
 		// The step is the same whatever the reason: pick a route that offers the tool, or change this one.
 		// Without a refused connection no route offers the tool at all, and nothing is left to pick.
@@ -212,6 +225,15 @@ type unsupportedDetail struct {
 	Reason     config.Refusal `json:"reason"`
 }
 
+// confirmationDetail is the machine-readable form of confirmation-required for a tool that phrases what the
+// call would do. The summary is derived from the arguments, redacted, neutralized, and bounded by the core.
+type confirmationDetail struct {
+	Code      output.Code `json:"code"`
+	Message   string      `json:"message"`
+	Operation string      `json:"operation"`
+	Summary   string      `json:"summary"`
+}
+
 // providerErrorDetail is the machine-readable form of a failure that carries the provider's own account:
 // Qatlas' code and message first, then the provider's answer as its own untrusted section.
 type providerErrorDetail struct {
@@ -236,6 +258,13 @@ func errorDetailFor(err error, redactor *redact.Redactor) any {
 			Code: application.CodeUnsupportedCapability, Message: redactor.Error(err),
 			Operation: redactor.Apply(unsupported.Capability), Connection: redactor.Apply(unsupported.Connection),
 			Reason: unsupported.Reason,
+		}
+	}
+	var confirmation *application.ConfirmationRequiredError
+	if errors.As(err, &confirmation) && confirmation.Summary != "" {
+		return &confirmationDetail{
+			Code: output.CodeConfirmationRequired, Message: redactor.Error(err),
+			Operation: redactor.Apply(confirmation.Operation), Summary: confirmation.Summary,
 		}
 	}
 	var (
