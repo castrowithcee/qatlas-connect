@@ -432,6 +432,9 @@ var outputSamples = map[string]any{
 	"github.code-security-configurations.create":           CodeSecurityConfiguration{},
 	"github.code-security-configurations.update":           CodeSecurityConfigurationUpdated{},
 	"github.code-security-configurations.delete":           CodeSecurityConfigurationDeleted{},
+	"github.code-security-configurations.attach":           CodeSecurityAttachAccepted{},
+	"github.code-security-configurations.detach":           CodeSecurityDetachAccepted{},
+	"github.code-security-configurations.set-default":      CodeSecurityDefaultSet{},
 }
 
 // unemittedMembers lists, per tool, the members of a Go type shared with another tool that this tool never

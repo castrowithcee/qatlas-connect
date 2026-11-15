@@ -676,6 +676,12 @@ func TestRegisterPublishesTheChangeContracts(t *testing.T) {
 			capability.IdempotencyIdempotent, codeSecurityConfigurationSensitivity),
 		"github.code-security-configurations.delete": guardedRisk(capability.EffectDelete,
 			capability.IdempotencyUnknown, codeSecurityConfigurationSensitivity),
+		"github.code-security-configurations.attach": guardedRisk(capability.EffectUpdate,
+			capability.IdempotencyIdempotent, codeSecurityConfigurationSensitivity),
+		"github.code-security-configurations.detach": guardedRisk(capability.EffectUpdate,
+			capability.IdempotencyIdempotent, codeSecurityConfigurationSensitivity),
+		"github.code-security-configurations.set-default": guardedRisk(capability.EffectUpdate,
+			capability.IdempotencyIdempotent, codeSecurityConfigurationSensitivity),
 	}
 	operations := reg.Provider(Provider)
 	if len(operations) != len(want) {
