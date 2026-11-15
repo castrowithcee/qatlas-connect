@@ -341,6 +341,7 @@ func (s *TokenSource) fetch(ctx context.Context) (Token, error) {
 		return Token{}, &Error{Class: ClassConsentRequired, Op: tokenOp, Message: fmt.Sprintf(
 			"credential %q has no consent any more; nothing was sent", s.credential)}
 	}
+	request.Register = s.register
 	token, err := s.grant(ctx, request)
 	s.register(token.Access, token.Refresh)
 	if err != nil {
