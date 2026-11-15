@@ -99,10 +99,10 @@ func Register(reg *capability.Registry) error {
 		},
 		Profiles: []config.ToolProfile{{
 			ID: "read", Title: "Read", Recommended: true,
-			Description: "reads place details, searches places by text or around a point, predicts places from typed input, and resolves place photos to short-lived addresses from Google Places, " +
+			Description: "reads place details, searches places by text or around a point, and predicts places from typed input from Google Places, " +
 				"geocodes addresses and coordinates, validates postal addresses, reads current weather, forecasts, history, and public alerts for a coordinate, reads the current air quality, its forecast, and its history at a coordinate, reads the daily pollen forecast for a coordinate, reads the solar potential of the closest building and the addresses of the solar data layers around a coordinate, computes routes and route matrices, snaps coordinates to roads, finds the nearest roads, and reads posted speed limits, counts places or lists their place IDs in an area, reads elevations, the time zone of a coordinate, estimates a position from radio data, and reads the metadata of aerial view videos; the field mask of each Places " +
 				"request decides what Google bills, and nothing is changed",
-			Tools: []string{placesGet.ID, textSearch.ID, nearbySearch.ID, autocomplete.ID, photosGet.ID,
+			Tools: []string{placesGet.ID, textSearch.ID, nearbySearch.ID, autocomplete.ID,
 				geocodingGeocode.ID, geocodingReverse.ID, addressValidate.ID, weatherCurrent.ID, weatherMinutes.ID,
 				weatherHours.ID, weatherDays.ID, weatherHistory.ID, weatherAlerts.ID, airQualityCurrent.ID,
 				airQualityForecast.ID, airQualityHistory.ID, pollenForecast.ID, solarBuildingInsights.ID,
