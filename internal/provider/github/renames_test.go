@@ -246,6 +246,9 @@ var currentToolIDs = []string{
 	"github.billing-budgets.list",
 	"github.billing-budgets.get",
 	"github.pending-deployments.review",
+	"github.app-installations.list",
+	"github.apps.get",
+	"github.app-installation-repositories.remove",
 	"github.project-collaborators.update",
 	"github.project-drafts.convert",
 	"github.project-drafts.create",
@@ -432,7 +435,7 @@ func TestRegistryHoldsExactlyTheCurrentToolIDs(t *testing.T) {
 	sort.Strings(got)
 	want := append([]string(nil), currentToolIDs...)
 	sort.Strings(want)
-	if strings.Join(got, "\n") != strings.Join(want, "\n") || len(got) != 407 {
+	if strings.Join(got, "\n") != strings.Join(want, "\n") || len(got) != 410 {
 		t.Errorf("registry holds %d tools, differing from the expected %d IDs", len(got), len(want))
 	}
 	if err := reg.ValidateRenames(); err != nil {
@@ -473,7 +476,9 @@ func TestRenamedToolsCoverEveryChangedID(t *testing.T) {
 		"github.billing-usage.get": true, "github.billing-usage-summary.get": true,
 		"github.billing-premium-requests.get": true, "github.billing-ai-credits.get": true,
 		"github.billing-budgets.list": true, "github.billing-budgets.get": true,
-		"github.team-memberships.get": true, "github.team-repositories.list": true, "github.team-repositories.set": true,
+		"github.app-installations.list": true, "github.apps.get": true,
+		"github.app-installation-repositories.remove": true,
+		"github.team-memberships.get":                 true, "github.team-repositories.list": true, "github.team-repositories.set": true,
 		"github.team-repositories.remove": true,
 		"github.repository-topics.set":    true, "github.check-annotations.list": true,
 		"github.check-runs.get": true, "github.check-runs.list": true, "github.check-suite-runs.list": true,

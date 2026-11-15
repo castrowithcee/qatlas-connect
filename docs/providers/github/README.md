@@ -4,7 +4,7 @@ description: >
 type: knowledge
 edit: shared
 created: 2026-10-22
-updated: 2026-11-14
+updated: 2026-11-15
 ---
 
 # GitHub
@@ -113,6 +113,10 @@ automations) takes `project` as
 the project, not a target. The owner lists `github.projects.list` and `github.repositories.list` and
 `github.projects.create` take `owner` as `users/LOGIN` for a user or `orgs/LOGIN` for an organization;
 `github.projects.copy` takes the source as `project` and the destination as `owner`, and checks both.
+
+`github.app-installations.list` takes `owner` as `orgs/LOGIN`, `github.app-installation-repositories.remove` takes
+`repository`, and `github.apps.get` is GitHub-wide and takes no target, like the global security advisories; see
+[organization administration](organization-admin.md#github-apps).
 
 An argument may be left out only when the targets allow exactly one repository, exactly one project, or
 exactly one owner as an owner entry, and not as a pattern: that one is the default of its kind. Nothing else

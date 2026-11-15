@@ -1,17 +1,17 @@
 ---
 description: >
-  Describes the GitHub organization administration tools: the billing usage, usage summary, premium request, and AI credit reports of a user or an organization and the budgets of an organization, all read only, with their owner target, filters, bounds, the unavailable state, and how excluded repositories are treated.
+  Describes the GitHub organization administration tools: the billing usage, usage summary, premium request, and AI credit reports of a user or an organization and the budgets of an organization, all read only, and the GitHub Apps installed in an organization with the removal of a repository from an installation, with their targets, filters, bounds, the unavailable state, the proof of an installation id, and how excluded repositories are treated.
 type: knowledge
 edit: shared
 created: 2026-11-14
-updated: 2026-11-14
+updated: 2026-11-15
 ---
 
 # GitHub organization administration
 
 The tools of the group `organization-admin` of the [GitHub provider](README.md). The group holds administrative
-reads of an account or an organization that belong to no repository. It starts with the billing reads below;
-further areas of organization administration join it on this page.
+reads of an account or an organization that belong to no repository. It holds the billing reads and the GitHub
+Apps below; further areas of organization administration join it on this page.
 
 ## Billing
 
@@ -70,3 +70,50 @@ budget read gives no `expires_at`, because GitHub documents none for it. `has_ne
 and `reason`. Budget alert recipients and users are logins GitHub reports and are output as untrusted data.
 
 The token rights are listed under [Organization administration](setup.md#organization-administration).
+
+## GitHub Apps
+
+| Tool | Does |
+| --- | --- |
+| `github.app-installations.list` | lists the GitHub Apps installed in an organization in batches, each installation with its app slug, account, repository selection, permissions, events, and suspension |
+| `github.apps.get` | reads one GitHub App by its `app_slug`: name, description, owner, permissions, events, and installation count |
+| `github.app-installation-repositories.remove` | withdraws one repository from one installation, listed only |
+
+The two reads are offered by the read effect and are not part of any setup profile. The removal is offered only
+where a connection's `tools` list names it and needs a confirmation.
+
+No tool adds a repository to an installation, suspends or deletes an installation, or creates an installation
+token, because those routes grant access outward or need an app JWT, which a Qatlas credential does not hold. The
+webhook configuration and deliveries of an app are not read either.
+
+**Targets.** `github.app-installations.list` takes `owner` as `orgs/LOGIN` under the rules of
+[the target of a call](README.md#the-target-of-a-call): an owner target of its own, checked against `exclude` before a
+secret is read. A user owner is refused with `invalid-request` before any request. `github.apps.get` reads GitHub-wide
+data and names no target, so it is refused before a secret is read on a connection whose targets name a repository or
+a project, like the global security advisories. The removal takes `repository` as `OWNER/REPO` inside the targets and
+not excluded.
+
+**Removing a repository.** The numeric repository id never comes from an argument. The call reads the repository
+first and takes its id from that read, which must name the repository of the call and an owner of the type
+`Organization`. It then reads `GET /orgs/OWNER/installations` of that organization page by page, 100 entries at a
+time and at most 50 pages, until it finds `installation_id`. The id counts as foreign only after the whole list was
+read. These cases end the call without any write request: the repository of a user account, an `installation_id`
+that the list does not hold, an installation that does not name `selected` as its repository selection (GitHub
+removes a single repository only from an installation with selected repositories), and a list that cannot be read completely (a failed
+page, a total that the pages do not reach, or more pages than the bound). Only then is one `DELETE` sent, never
+repeated. An unclear outcome says so and is not retried.
+
+**Rights of the token.** Reading the installations needs an owner of the organization and `admin:read` on a classic
+token. GitHub documents the removal for a classic token with `repo` whose account administers the repository, and
+the reachability depends on the token: GitHub answers `403` to a token it does not serve. Qatlas names this in the
+`permission` message and never quotes GitHub's text. See [Organization administration](setup.md#organization-administration).
+
+**Omitted and added fields.** The installation list and the app read output every member GitHub documents
+(OpenAPI 1.1.4, rest-api-description commit 99b1432) in snake case, except `access_tokens_url`, which is a token
+address, and any secret or webhook configuration. The accounts of an installation or an app (`account`,
+`suspended_by`, `owner`) keep the members of a user and of an enterprise and give the REST address and the other
+`*_url` addresses as `links`. Every text and every address, among them `repositories_url`, `html_url`, and
+`external_url`, is untrusted data with control characters replaced and a length bound, and no address is ever
+fetched. `permissions`, `events`, and `single_file_paths` are capped at 100 entries and say so through
+`permissions_truncated`, `events_truncated`, and `single_file_paths_truncated`. Qatlas adds `owner` to the list
+and `repository` to the removal, and `app_slug` to the removal result from the proof read.
