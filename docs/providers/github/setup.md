@@ -278,6 +278,7 @@ so treat them as likely, not certain.
 | Tools | Classic | Fine-grained |
 | --- | --- | --- |
 | Read the packages of a user or an organization and their versions | `read:packages` | not documented by GitHub for these routes |
+| Delete or restore a package or a version | `read:packages` and `delete:packages`, and admin rights on the owner or the package | not documented by GitHub for these routes |
 
 ### Security
 

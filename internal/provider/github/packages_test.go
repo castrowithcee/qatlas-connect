@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"net/url"
 	"strings"
 	"sync"
 	"testing"
@@ -71,6 +72,10 @@ func (p *fakePackages) route(w http.ResponseWriter, req *http.Request) bool {
 		fmt.Fprintf(w, `{"message":%q}`, packageProviderCanary)
 		return true
 	}
+	if req.Method != http.MethodGet {
+		w.WriteHeader(http.StatusNoContent)
+		return true
+	}
 	switch {
 	case rest == "":
 		w.Header().Set("Link", `<https://api.github.com/x?page=2>; rel="next"`)
@@ -100,6 +105,15 @@ func packagesConfig(base string) *config.Config {
 		Exclude: []string{"orgs/octo-org"}, Effects: read}
 	cfg.Connections["pkg-write-only"] = config.Connection{Service: "gh", Credential: "gh-reader",
 		Targets: []string{"orgs/octo-org"}, Effects: []config.Effect{config.EffectUpdate}}
+	all := []config.Effect{config.EffectRead, config.EffectUpdate, config.EffectDelete}
+	cfg.Connections["pkg-listed"] = config.Connection{Service: "gh", Credential: "gh-reader",
+		Targets: []string{"orgs/octo-org", "users/octocat"}, Effects: all, Tools: packageToolIDs}
+	cfg.Connections["pkg-unlisted"] = config.Connection{Service: "gh", Credential: "gh-reader",
+		Targets: []string{"orgs/octo-org", "users/octocat"}, Effects: all}
+	cfg.Connections["pkg-listed-repo-only"] = config.Connection{Service: "gh", Credential: "gh-reader",
+		Targets: []string{"repos/octo-org/example"}, Effects: all, Tools: packageToolIDs}
+	cfg.Connections["pkg-listed-excluded"] = config.Connection{Service: "gh", Credential: "gh-reader",
+		Exclude: []string{"orgs/octo-org"}, Effects: all, Tools: packageToolIDs}
 	return cfg
 }
 
@@ -385,4 +399,176 @@ func TestPackageReadsTreatProviderTextAsData(t *testing.T) {
 			t.Errorf("an address was fetched: %s", request.path)
 		}
 	}
+}
+
+var packageChangeCalls = []struct {
+	id, arguments, suffix, method string
+	want                          []string
+}{
+	{packagesDelete.ID, `"package_type":"npm","package_name":"app"`, "/npm/app", http.MethodDelete,
+		[]string{`"deleted":true`, `"package_type":"npm"`, `"package_name":"app"`}},
+	{packagesRestore.ID, `"package_type":"npm","package_name":"app"`, "/npm/app/restore", http.MethodPost,
+		[]string{`"restored":true`, `"package_type":"npm"`, `"package_name":"app"`}},
+	{packageVersionsDelete.ID, `"package_type":"container","package_name":"app","package_version_id":786068`,
+		"/container/app/versions/786068", http.MethodDelete,
+		[]string{`"deleted":true`, `"package_version_id":786068`}},
+	{packageVersionsRestore.ID, `"package_type":"container","package_name":"app","package_version_id":786068`,
+		"/container/app/versions/786068/restore", http.MethodPost,
+		[]string{`"restored":true`, `"package_version_id":786068`}},
+}
+
+var packageOwners = []struct{ target, prefix string }{
+	{"orgs/octo-org", "/orgs/octo-org/packages"}, {"users/octocat", "/users/octocat/packages"}}
+
+// Every change goes to its own route for both kinds of owner as exactly one request.
+func TestPackageChangesSendOneRequestForUsersAndOrganizations(t *testing.T) {
+	f, _, core := servePackages(t, nil)
+	for _, owner := range packageOwners {
+		for _, call := range packageChangeCalls {
+			before := len(f.recorded())
+			result, err := invoke(t, core, call.id, "pkg-listed", `{"owner":"`+owner.target+`",`+call.arguments+`}`, true)
+			if err != nil {
+				t.Fatalf("%s on %s = %v", call.id, owner.target, err)
+			}
+			for _, want := range append(call.want, `"owner":"`+owner.target+`"`) {
+				if !strings.Contains(string(result), want) {
+					t.Errorf("%s on %s = %s, want %s", call.id, owner.target, result, want)
+				}
+			}
+			requests := f.recorded()[before:]
+			wantPath := "/api/v3" + owner.prefix + call.suffix
+			if len(requests) != 1 || requests[0].method != call.method || requests[0].path != wantPath ||
+				requests[0].query != "" {
+				t.Errorf("%s on %s sent %+v, want one %s %s", call.id, owner.target, requests, call.method, wantPath)
+			}
+		}
+	}
+}
+
+// GitHub's refusals and an unclear outcome are named without its text; a change is never repeated.
+func TestPackageChangeFailuresAreNamed(t *testing.T) {
+	f, p, core := servePackages(t, nil)
+	for _, owner := range packageOwners {
+		for _, call := range packageChangeCalls {
+			restore := strings.HasSuffix(call.id, ".restore")
+			for _, tt := range []struct {
+				status    int
+				class     provider.Class
+				uncertain bool
+				contains  string
+			}{
+				{http.StatusForbidden, provider.ClassPermission, false, "read:packages"},
+				{http.StatusNotFound, provider.ClassNotFound, false, ""},
+				{http.StatusUnprocessableEntity, provider.ClassProviderError, false, "nothing was"},
+				{http.StatusBadRequest, provider.ClassProviderError, false, "nothing was"},
+				{http.StatusInternalServerError, provider.ClassProviderError, true, ""},
+				{http.StatusGatewayTimeout, provider.ClassTimeout, true, ""},
+			} {
+				p.status = tt.status
+				before := len(f.recorded())
+				_, err := invoke(t, core, call.id, "pkg-listed", `{"owner":"`+owner.target+`",`+call.arguments+`}`, true)
+				if err == nil || classOf(err) != tt.class || strings.Contains(err.Error(), packageProviderCanary) ||
+					strings.Contains(err.Error(), uncertain) != tt.uncertain ||
+					!strings.Contains(err.Error(), tt.contains) {
+					t.Errorf("%s on %s answered %d = %v, want %s, uncertain = %t", call.id, owner.target,
+						tt.status, err, tt.class, tt.uncertain)
+				}
+				if got := len(f.recorded()[before:]); got != 1 {
+					t.Errorf("%s answered %d sent %d requests, want 1", call.id, tt.status, got)
+				}
+				if tt.status == http.StatusForbidden && restore != strings.Contains(err.Error(), "token query argument") {
+					t.Errorf("%s forbidden = %v, want the token argument named for a restore only", call.id, err)
+				}
+			}
+			p.status = 0
+		}
+	}
+}
+
+// A change is refused before a credential is read or GitHub is contacted when its owner, its arguments, or
+// its confirmation is wrong, and a name travels as one escaped segment.
+func TestPackageChangeRefusalsBeforeIO(t *testing.T) {
+	reads := 0
+	f, _, core := servePackages(t, &reads)
+	for _, call := range packageChangeCalls {
+		for _, tt := range []struct {
+			name, connection, arguments string
+			confirmed                   bool
+		}{
+			{"foreign owner", "pkg-listed", `{"owner":"orgs/other",` + call.arguments + `}`, true},
+			{"foreign user", "pkg-listed", `{"owner":"users/other",` + call.arguments + `}`, true},
+			{"owner through a repository target", "pkg-listed-repo-only", `{"owner":"orgs/octo-org",` + call.arguments + `}`, true},
+			{"excluded owner", "pkg-listed-excluded", `{"owner":"orgs/octo-org",` + call.arguments + `}`, true},
+			{"unlisted", "pkg-unlisted", `{"owner":"orgs/octo-org",` + call.arguments + `}`, true},
+			{"unconfirmed", "pkg-listed", `{"owner":"orgs/octo-org",` + call.arguments + `}`, false},
+			{"token argument", "pkg-listed", `{"owner":"orgs/octo-org","token":"x",` + call.arguments + `}`, true},
+			{"unknown package type", "pkg-listed", `{"owner":"orgs/octo-org","package_type":"pypi",` +
+				packageNameAndVersion(call.id, "app"), true},
+			{"dot name", "pkg-listed", `{"owner":"orgs/octo-org","package_type":"npm",` +
+				packageNameAndVersion(call.id, ".."), true},
+		} {
+			reads = 0
+			before := len(f.recorded())
+			_, err := invoke(t, core, call.id, tt.connection, tt.arguments, tt.confirmed)
+			if err == nil {
+				t.Errorf("%s: %s was not refused", call.id, tt.name)
+			}
+			if reads != 0 || len(f.recorded()) != before {
+				t.Errorf("%s: %s reached the credential (%d) or GitHub", call.id, tt.name, reads)
+			}
+		}
+	}
+	unconfirmed := &application.ConfirmationRequiredError{}
+	for _, call := range packageChangeCalls {
+		_, err := invoke(t, core, call.id, "pkg-listed", `{"owner":"orgs/octo-org",`+call.arguments+`}`, false)
+		if !errors.As(err, &unconfirmed) {
+			t.Errorf("%s without confirmation = %v, want confirmation-required", call.id, err)
+		}
+	}
+}
+
+// A change names a package as one escaped segment whatever characters it holds, and its descriptor offers
+// neither a token argument nor a use without the tools list.
+func TestPackageChangeNamesAreOneSegmentAndDescriptorsOfferNoToken(t *testing.T) {
+	f, p, core := servePackages(t, nil)
+	for _, name := range []string{"a/b", "@scope/pkg", "100%", "a?b=c", "a#b", "a b", "a%2Fb"} {
+		for _, call := range packageChangeCalls {
+			before := len(f.recorded())
+			arguments := `{"owner":"orgs/octo-org","package_type":"npm",` + packageNameAndVersion(call.id, name)
+			if _, err := invoke(t, core, call.id, "pkg-listed", arguments, true); err != nil {
+				t.Fatalf("%s with %q = %v", call.id, name, err)
+			}
+			requests := f.recorded()[before:]
+			escaped := p.escaped[len(p.escaped)-1]
+			segment := strings.Split(strings.TrimPrefix(escaped, "/orgs/octo-org/packages/npm/"), "/")[0]
+			if len(requests) != 1 || requests[0].query != "" || segment != url.PathEscape(name) {
+				t.Errorf("%s with %q sent %+v as %s, want one segment %s", call.id, name, requests, escaped, url.PathEscape(name))
+			}
+		}
+	}
+	reg := registry(t)
+	for _, call := range packageChangeCalls {
+		descriptor, _, _ := reg.Lookup(call.id)
+		if strings.Contains(string(descriptor.InputSchema), `"token"`) {
+			t.Errorf("%s offers a token argument", call.id)
+		}
+		for _, argument := range descriptor.Arguments {
+			if argument.Name == "token" {
+				t.Errorf("%s describes a token argument", call.id)
+			}
+		}
+		if descriptor.Group != "packages" || !descriptor.RequiresToolAllowList {
+			t.Errorf("%s group = %q, allow-list = %t", call.id, descriptor.Group, descriptor.RequiresToolAllowList)
+		}
+	}
+}
+
+// packageNameAndVersion is the rest of the arguments of a package change tool: its name and, for a version
+// tool, an id, closing the object.
+func packageNameAndVersion(id, name string) string {
+	rest := fmt.Sprintf(`"package_name":%q`, name)
+	if strings.Contains(id, ".package-versions.") {
+		rest += `,"package_version_id":5`
+	}
+	return rest + `}`
 }
