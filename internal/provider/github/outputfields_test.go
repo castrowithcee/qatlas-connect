@@ -456,6 +456,9 @@ var outputSamples = map[string]any{
 	"github.code-security-configurations.attach":           CodeSecurityAttachAccepted{},
 	"github.code-security-configurations.detach":           CodeSecurityDetachAccepted{},
 	"github.code-security-configurations.set-default":      CodeSecurityDefaultSet{},
+	"github.private-registries.list":                       PrivateRegistryList{},
+	"github.private-registries.get":                        PrivateRegistry{},
+	"github.private-registries.delete":                     PrivateRegistryDeleted{},
 }
 
 // unemittedMembers lists, per tool, the members of a Go type shared with another tool that this tool never

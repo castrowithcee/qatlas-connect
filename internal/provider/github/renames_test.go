@@ -70,6 +70,9 @@ var currentToolIDs = []string{
 	"github.code-security-configurations.attach",
 	"github.code-security-configurations.detach",
 	"github.code-security-configurations.set-default",
+	"github.private-registries.list",
+	"github.private-registries.get",
+	"github.private-registries.delete",
 	"github.deploy-keys.list",
 	"github.deploy-keys.get",
 	"github.dependency-review.compare",
@@ -465,7 +468,7 @@ func TestRegistryHoldsExactlyTheCurrentToolIDs(t *testing.T) {
 	sort.Strings(got)
 	want := append([]string(nil), currentToolIDs...)
 	sort.Strings(want)
-	if strings.Join(got, "\n") != strings.Join(want, "\n") || len(got) != 440 {
+	if strings.Join(got, "\n") != strings.Join(want, "\n") || len(got) != 443 {
 		t.Errorf("registry holds %d tools, differing from the expected %d IDs", len(got), len(want))
 	}
 	if err := reg.ValidateRenames(); err != nil {
@@ -527,6 +530,7 @@ func TestRenamedToolsCoverEveryChangedID(t *testing.T) {
 		"github.code-security-configurations.delete": true, "github.code-security-configurations.attach": true,
 		"github.code-security-configurations.detach": true, "github.code-security-configurations.set-default": true,
 		"github.code-security-defaults.get": true, "github.code-security-configuration-repositories.list": true,
+		"github.private-registries.list": true, "github.private-registries.get": true, "github.private-registries.delete": true,
 		"github.actions-selected.get": true, "github.actions-selected.set": true, "github.actions-fork-approval.get": true, "github.actions-fork-approval.set": true, "github.actions-retention.get": true, "github.actions-retention.set": true, "github.actions-access.get": true, "github.actions-access.set": true, "github.actions-oidc.get": true, "github.actions-oidc.set": true, "github.deploy-keys.list": true, "github.deploy-keys.get": true, "github.deploy-keys.delete": true, "github.repository-invitations.list": true, "github.repository-invitations.cancel": true, "github.runners.list": true, "github.runners.get": true, "github.runners.delete": true, "github.runner-labels.list": true, "github.runner-labels.add": true, "github.runner-labels.set": true, "github.runner-labels.remove": true, "github.commit-branches.list": true,
 		"github.security-settings.get": true, "github.security-settings.update": true,
 		"github.code-scanning-setup.get": true, "github.code-scanning-setup.update": true,
