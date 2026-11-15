@@ -931,7 +931,7 @@ func Register(reg *capability.Registry) error {
 		subIssuesOperations(), issueDependenciesOperations(), issueHistoryOperations(), issueTypesOperations(), issueFieldsOperations(),
 		discussionOperations(), notificationOperations(), gistOperations(), securityAlertOperations(), securityAlertUpdateOperations(), securityAlertDetailOperations(), advisoryOperations(), securitySettingsOperations(), dependencyGraphOperations(),
 		codeSecurityConfigurationOperations(),
-		copilotOperations(), environmentsOperations(), deploymentsOperations(), referenceOperations(), billingOperations())...)
+		copilotOperations(), environmentsOperations(), deploymentsOperations(), referenceOperations(), billingOperations(), appOperations())...)
 	for i := range operations {
 		operations[i].Descriptor = withGroup(withTargetArgument(operations[i].Descriptor))
 	}
@@ -1685,6 +1685,9 @@ func (c *Client) restSubject(request *http.Request) subject {
 	if tail, ok := strings.CutPrefix(full, c.endpoints.rest+"/advisories"); ok {
 		return globalAdvisoriesSubject(tail)
 	}
+	if _, ok := strings.CutPrefix(full, c.endpoints.rest+"/apps/"); ok {
+		return subject{what: "this app"}
+	}
 	if tail, ok := strings.CutPrefix(full, c.endpoints.rest+"/orgs/"); ok {
 		return organizationSubject(tail)
 	}
@@ -1827,7 +1830,8 @@ func (c *Client) restSubject(request *http.Request) subject {
 
 // organizationReadSubjects names what the organization read routes below /orgs/OWNER address.
 var organizationReadSubjects = map[string]string{"members": "the members", "outside_collaborators": "the outside collaborators",
-	"organization-roles": "the organization roles", "invitations": "the pending invitations"}
+	"organization-roles": "the organization roles", "invitations": "the pending invitations",
+	"installations": "the app installations"}
 
 // organizationSubject names the organization or the team a path below /orgs/OWNER addresses: OWNER,
 // OWNER/teams, or OWNER/teams/SLUG with or without /members. It names only a login or a slug of the
@@ -1936,6 +1940,8 @@ func accountSubject(tail string) subject {
 		return subject{what: "the users the account behind this token blocks"}
 	case strings.HasPrefix(tail, "/blocks/"):
 		return subject{what: "this block"}
+	case strings.HasPrefix(tail, "/installations/"):
+		return subject{what: "this installation"}
 	}
 	rest, ok := strings.CutPrefix(tail, "/starred/")
 	if !ok {

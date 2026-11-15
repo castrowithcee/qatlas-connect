@@ -896,7 +896,7 @@ func TestRegisterPublishesMetadataAndTheReadOperations(t *testing.T) {
 				descriptor.ID == organizationTeamsList.ID || descriptor.ID == teamMembersList.ID ||
 				descriptor.ID == issueTypesList.ID || descriptor.ID == organizationAdvisoriesList.ID ||
 				slices.Contains(teamToolIDs, descriptor.ID) || slices.Contains(organizationToolIDs, descriptor.ID) ||
-				slices.Contains(billingToolIDs, descriptor.ID)
+				slices.Contains(billingToolIDs, descriptor.ID) || descriptor.ID == appInstallationsList.ID
 			// The searches over the issue index sort by the comment count, which reads no comment.
 			sortsByComments := (descriptor.ID == issuesSearch.ID || descriptor.ID == pullRequestsSearch.ID) &&
 				forbidden == "comments"
@@ -930,6 +930,7 @@ func TestRegisterPublishesMetadataAndTheReadOperations(t *testing.T) {
 		"github.outside-collaborators.list", "github.organization-invitations.list", "github.project-fields.list",
 		"github.billing-usage.get", "github.billing-usage-summary.get", "github.billing-premium-requests.get",
 		"github.billing-ai-credits.get", "github.billing-budgets.list", "github.billing-budgets.get",
+		"github.app-installations.list", "github.apps.get",
 		"github.project-items.get", "github.project-items.list", "github.projects.list",
 		"github.project-status.list", "github.project-teams.list", "github.project-views.list", "github.project-workflows.list",
 		"github.pull-request-checks.list", "github.pull-request-checks.wait", "github.pull-request-comments.list", "github.pull-request-commits.list",
@@ -952,7 +953,7 @@ func TestRegisterPublishesMetadataAndTheReadOperations(t *testing.T) {
 	if jobsLog.Risk.DataSensitivity != logSensitivity {
 		t.Errorf("the job log is classified as %q, want %q", jobsLog.Risk.DataSensitivity, logSensitivity)
 	}
-	if len(metadata.Tools) != 407 {
+	if len(metadata.Tools) != 410 {
 		t.Errorf("tools = %+v, want every operation offered to connection allow-lists", metadata.Tools)
 	}
 }

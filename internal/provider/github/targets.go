@@ -63,7 +63,8 @@ func withTargetArgument(d capability.Descriptor) capability.Descriptor {
 	// of an organization like the team lists. github.repositories.rename declares its repository argument
 	// itself, since its result field of that name holds the new name, not the one it acted on. The reference
 	// tools read GitHub-wide data or the token's rate limit; github.markdown.render takes an optional context
-	// repository of its own that never defaults to a target.
+	// repository of its own that never defaults to a target. The app read is GitHub-wide and names no target; the
+	// installation list takes the owner of an organization like the team lists.
 	if slices.Contains(accountSocialToolIDs, d.ID) {
 		return d
 	}
@@ -85,7 +86,7 @@ func withTargetArgument(d capability.Descriptor) capability.Descriptor {
 		threadSubscriptionsSet.ID, gistsList.ID, gistsGet.ID, gistsCreate.ID, gistsUpdate.ID, gistsDelete.ID,
 		globalAdvisoriesList.ID, globalAdvisoriesGet.ID, repositoriesRename.ID, rateLimitGet.ID, metaGet.ID,
 		licensesList.ID, licensesGet.ID, gitignoreTemplatesList.ID, gitignoreTemplatesGet.ID, codesOfConductList.ID,
-		codesOfConductGet.ID, emojisList.ID, markdownRender.ID:
+		codesOfConductGet.ID, emojisList.ID, markdownRender.ID, appsGet.ID:
 		return d
 	}
 	name, schema, argument := "repository", repoSchema, repositoryArgument
@@ -94,7 +95,7 @@ func withTargetArgument(d capability.Descriptor) capability.Descriptor {
 	case d.ID == projectsList.ID || d.ID == repositoriesList.ID:
 		name, schema, argument = "owner", ownerSchema, ownerArgument
 		fields = []capability.Field{ownerField}
-	case d.ID == organizationTeamsList.ID || d.ID == teamMembersList.ID || d.ID == organizationAdvisoriesList.ID ||
+	case d.ID == organizationTeamsList.ID || d.ID == teamMembersList.ID || d.ID == organizationAdvisoriesList.ID || d.ID == appInstallationsList.ID ||
 		slices.Contains(teamToolIDs, d.ID) || slices.Contains(organizationToolIDs, d.ID):
 		name, schema, argument = "owner", ownerSchema, organizationArgument
 		fields = []capability.Field{organizationField}
