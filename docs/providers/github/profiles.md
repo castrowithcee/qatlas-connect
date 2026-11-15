@@ -60,7 +60,8 @@ and analyses of code scanning, the locations of a secret scanning alert, the glo
 advisories, and code quality findings under [Security alerts](security.md#security-alerts), and reads the
 [security switches](security.md#security-switches) and the
 [code scanning default setup](security.md#code-scanning-default-setup), and the dependency changes between two refs
-under [Dependency graph](security.md#dependency-graph); it changes nothing. Dismissing, resolving,
+under [Dependency graph](security.md#dependency-graph), and the
+[code security configurations](security.md#code-security-configurations) of an organization; it changes nothing. Dismissing, resolving,
 and reopening an alert, under [Changing alerts](security.md#changing-alerts), the two tools that change the
 switches and the default setup, and the dependency snapshot stay unticked, since each is offered only where a connection's `tools` list names it. The not-recommended profile `copilot` assigns Copilot to an issue and requests a Copilot review
 of a pull request under [Copilot assignments](issues.md#copilot-assignments) and [Copilot reviews](pull-requests.md#copilot-reviews); every change needs its own confirmation. A

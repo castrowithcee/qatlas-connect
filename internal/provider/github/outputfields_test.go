@@ -418,6 +418,11 @@ var outputSamples = map[string]any{
 	"github.workflows.enable":                      WorkflowState{},
 	"github.workflows.get":                         Workflow{},
 	"github.workflows.list":                        WorkflowList{},
+
+	"github.code-security-configurations.list":             CodeSecurityConfigurationList{},
+	"github.code-security-configurations.get":              CodeSecurityConfiguration{},
+	"github.code-security-defaults.get":                    CodeSecurityDefaultList{},
+	"github.code-security-configuration-repositories.list": CodeSecurityConfigurationRepositoryList{},
 }
 
 // unemittedMembers lists, per tool, the members of a Go type shared with another tool that this tool never
