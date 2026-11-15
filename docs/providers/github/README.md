@@ -4,7 +4,7 @@ description: >
 type: knowledge
 edit: shared
 created: 2026-10-22
-updated: 2026-11-11
+updated: 2026-11-14
 ---
 
 # GitHub
@@ -20,7 +20,8 @@ The tools are sorted into groups; each group has a page: [issues](issues.md), [p
 [projects](projects.md), [Actions](actions.md), [Actions caches and cleanup](actions-maintenance.md),
 [environments and deployments](environments.md), [code](code.md), [repositories](repositories.md),
 [releases](releases.md), [security](security.md), [discussions](discussions.md), [gists](gists.md),
-[notifications](notifications.md), and [accounts](accounts.md). The rules every search tool shares are
+[notifications](notifications.md), [accounts](accounts.md), and
+[organization administration](organization-admin.md). The rules every search tool shares are
 described under [search](search.md). The [setup profiles](profiles.md) have their own
 page. [Set up GitHub](setup.md) leads through creating a token and lists the rights it needs.
 

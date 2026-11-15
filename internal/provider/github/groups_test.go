@@ -21,8 +21,8 @@ func TestEveryGitHubToolIsGrouped(t *testing.T) {
 		counts[tool.Group]++
 	}
 	want := map[string]int{"issues": 44, "pull-requests": 39, "projects": 41, "actions": 85, "code": 26,
-		"repositories": 57, "releases": 9, "security": 24, "discussions": 16, "gists": 5, "notifications": 5, "accounts": 37}
-	if len(metadata.Groups) != 12 || !reflect.DeepEqual(counts, want) {
-		t.Errorf("groups = %d, counts = %v, want 12 groups and %v", len(metadata.Groups), counts, want)
+		"repositories": 57, "releases": 9, "security": 24, "discussions": 16, "gists": 5, "notifications": 5, "accounts": 44, "organization-admin": 6}
+	if len(metadata.Groups) != 13 || !reflect.DeepEqual(counts, want) {
+		t.Errorf("groups = %d, counts = %v, want 13 groups and %v", len(metadata.Groups), counts, want)
 	}
 }
