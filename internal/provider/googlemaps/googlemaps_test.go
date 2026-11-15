@@ -133,8 +133,9 @@ func coreConfig() *config.Config {
 		Credentials: map[string]config.Credential{"maps-key": {Type: config.CredentialTypeEnv,
 			Values: map[string]string{roleKey: keyEnv}}},
 		Connections: map[string]config.Connection{
-			"read":  {Service: "maps", Credential: "maps-key"},
-			"bound": {Service: "maps", Credential: "maps-key", Target: "somewhere"},
+			"read":   {Service: "maps", Credential: "maps-key"},
+			"bound":  {Service: "maps", Credential: "maps-key", Target: "somewhere"},
+			"photos": {Service: "maps", Credential: "maps-key", Tools: []string{photosGetID}},
 		},
 	}
 }
@@ -213,7 +214,7 @@ func TestRegisterPublishesMetadataAndTool(t *testing.T) {
 	if len(metadata.Profiles) != 1 || metadata.Profiles[0].ID != "read" || !metadata.Profiles[0].Recommended ||
 		!reflect.DeepEqual(metadata.Profiles[0].Tools, []string{"google.maps.places.get",
 			"google.maps.places.search-text", "google.maps.places.search-nearby", "google.maps.places.autocomplete",
-			"google.maps.photos.get", "google.maps.geocoding.geocode", "google.maps.geocoding.reverse",
+			"google.maps.geocoding.geocode", "google.maps.geocoding.reverse",
 			"google.maps.addressvalidation.validate", "google.maps.weather.current", "google.maps.weather.minutes",
 			"google.maps.weather.hours", "google.maps.weather.days", "google.maps.weather.history",
 			"google.maps.weather.alerts", "google.maps.airquality.current", "google.maps.airquality.forecast",

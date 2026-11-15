@@ -1,10 +1,10 @@
 ---
 description: >
-  Describes the Google Maps photo tool: photos.get resolves the photo name of a place result to a short-lived image address, with its argument forms, the size limits, the Place Photos cost, author attribution, and why no image is ever loaded or a redirect followed.
+  Describes the Google Maps photo tool: photos.get resolves the photo name of a place result to a short-lived image address, why a connection must name it in its tools list, its argument forms, the size limits, the Place Photos cost, author attribution, and why no image is ever loaded or a redirect followed.
 type: knowledge
 edit: shared
 created: 2026-11-07
-updated: 2026-11-07
+updated: 2026-11-15
 ---
 
 # Google Maps photos
@@ -15,7 +15,8 @@ are described there.
 ## google.maps.photos.get
 
 `GET /v1/{name}/media`. It resolves one photo of a place to a short-lived address of the image. Effect `read`;
-the call is safe to repeat, though every call can be billed.
+the call is safe to repeat, though every call can be billed. The tool is in no profile: `photoUri` may grant
+access to the image without a sign-in, so a connection offers it only when its `tools` list names it.
 
 - `name` is required: the photo resource name `places/{place_id}/photos/{photo}` exactly as a result of
   `places.get`, `places.search-text`, or `places.search-nearby` returns it in `photos[].name`. Take it from a

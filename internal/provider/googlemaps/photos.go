@@ -29,14 +29,16 @@ const (
 // photosGet resolves a photo resource name to a short-lived address of the image. It never loads the image.
 var photosGet = capability.Descriptor{
 	ID: photosGetID, Version: 1, Title: "Get Google place photo address",
+	RequiresToolAllowList: true,
 	Description: "Resolve the photo of a place to a short-lived image address with Google Places API (New) " +
 		"Place Photos. name is a photo resource name places/{place_id}/photos/{photo} exactly as a places.get, " +
 		"places.search-text, or places.search-nearby result returns it in photos[].name; the name can expire " +
 		"and must not be cached, so take it from a fresh result. At least one of max_width_px and " +
 		"max_height_px is required, each 1 to 4800; Google scales the image down to fit, keeping its aspect " +
 		"ratio. Qatlas always asks for the JSON answer and never loads the image: the result is the photoUri " +
-		"text, which expires quickly and is never fetched here. A redirect answer is an error and " +
-		"is never followed. Photos are billed as the Places Photo SKU (Enterprise group), which has 1000 free " +
+		"text, which expires quickly and is never fetched here. photoUri may grant access to the image without a " +
+		"sign-in, so a connection offers this tool only when its tools list names it. A redirect answer is an " +
+		"error and is never followed. Photos are billed as the Places Photo SKU (Enterprise group), which has 1000 free " +
 		"requests per month and billing account, and each call can incur charges " +
 		"above the free usage Google grants per SKU and billing account. Google Maps attribution is " +
 		"mandatory wherever Places content is shown, and a photo carries its own author attribution: the " +

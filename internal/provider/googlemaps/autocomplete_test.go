@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"slices"
 	"strings"
 	"testing"
 
@@ -198,7 +199,7 @@ func photoAnswer() *fakeGoogle {
 
 func TestPhotoWithWidthAsksForJSONAndReturnsTheAddress(t *testing.T) {
 	env := newEnvironment(t, photoAnswer())
-	result, err := env.invokeTool(photosGetID, "read", `{"name":"`+photoName+`","max_width_px":400}`)
+	result, err := env.invokeTool(photosGetID, "photos", `{"name":"`+photoName+`","max_width_px":400}`)
 	if err != nil {
 		t.Fatalf("invoke: %v", err)
 	}
@@ -224,11 +225,30 @@ func TestPhotoWithWidthAsksForJSONAndReturnsTheAddress(t *testing.T) {
 	}
 
 	env = newEnvironment(t, photoAnswer())
-	if _, err := env.invokeTool(photosGetID, "read", `{"name":"`+photoName+`","max_width_px":1,"max_height_px":4800}`); err != nil {
+	if _, err := env.invokeTool(photosGetID, "photos", `{"name":"`+photoName+`","max_width_px":1,"max_height_px":4800}`); err != nil {
 		t.Fatalf("invoke: %v", err)
 	}
 	if q := env.fake.recorded()[0].rawQuery; q != "maxHeightPx=4800&maxWidthPx=1&skipHttpRedirect=true" {
 		t.Errorf("query = %s", q)
+	}
+}
+
+func TestPhotoToolNeedsAnExplicitToolList(t *testing.T) {
+	if !photosGet.RequiresToolAllowList {
+		t.Error("photos.get returns an address without a sign-in but needs no tools list entry")
+	}
+	metadata, _ := registry(t).ProviderMetadata(Provider)
+	for _, profile := range metadata.Profiles {
+		if slices.Contains(profile.Tools, photosGetID) {
+			t.Errorf("profile %s lists photos.get", profile.ID)
+		}
+	}
+	env := newEnvironment(t, photoAnswer())
+	if _, err := env.invokeTool(photosGetID, "read", `{"name":"`+photoName+`","max_width_px":400}`); err == nil {
+		t.Error("a connection by effect offered photos.get")
+	}
+	if len(env.fake.recorded()) != 0 || *env.reads != 0 {
+		t.Errorf("%d requests, %d secret reads", len(env.fake.recorded()), *env.reads)
 	}
 }
 
@@ -262,7 +282,7 @@ func TestPhotoRefusalsNeverReachTheKeyOrTheNetwork(t *testing.T) {
 		"extra":           `{"name":"` + photoName + `","max_width_px":10,"key":"x"}`,
 	} {
 		env := newEnvironment(t, &fakeGoogle{})
-		if _, err := env.invokeTool(photosGetID, "read", arguments); err == nil {
+		if _, err := env.invokeTool(photosGetID, "photos", arguments); err == nil {
 			t.Errorf("%s: no error", name)
 		}
 		if len(env.fake.recorded()) != 0 || *env.reads != 0 {
@@ -277,7 +297,7 @@ func TestPhotoRedirectIsNeverFollowedAndIsAnInvalidResponse(t *testing.T) {
 		w.WriteHeader(http.StatusFound)
 	}}
 	env := newEnvironment(t, f)
-	_, err := env.invokeTool(photosGetID, "read", `{"name":"`+photoName+`","max_height_px":100}`)
+	_, err := env.invokeTool(photosGetID, "photos", `{"name":"`+photoName+`","max_height_px":100}`)
 	if classOf(err) != provider.ClassInvalidResponse {
 		t.Fatalf("err = %v, want invalid-provider-response", err)
 	}
@@ -299,7 +319,7 @@ func TestPhotoAnswerWithoutAUsableAddressIsAnInvalidResponse(t *testing.T) {
 		"overlong":     `{"photoUri":"https://example.com/` + strings.Repeat("a", 3000) + `"}`,
 	} {
 		env := newEnvironment(t, &fakeGoogle{answer: reply(200, "application/json", body)})
-		_, err := env.invokeTool(photosGetID, "read", `{"name":"`+photoName+`","max_width_px":10}`)
+		_, err := env.invokeTool(photosGetID, "photos", `{"name":"`+photoName+`","max_width_px":10}`)
 		if classOf(err) != provider.ClassInvalidResponse {
 			t.Errorf("%s: err = %v", name, err)
 		}
@@ -310,7 +330,7 @@ func TestPhotoNameOfTheAnswerIsCut(t *testing.T) {
 	long := photoName + strings.Repeat("a", 2000)
 	env := newEnvironment(t, &fakeGoogle{answer: reply(200, "application/json",
 		`{"name":"`+long+`","photoUri":"`+photoURI+`"}`)})
-	result, err := env.invokeTool(photosGetID, "read", `{"name":"`+photoName+`","max_width_px":10}`)
+	result, err := env.invokeTool(photosGetID, "photos", `{"name":"`+photoName+`","max_width_px":10}`)
 	if err != nil {
 		t.Fatalf("invoke: %v", err)
 	}
@@ -337,7 +357,11 @@ func TestAutocompleteAndPhotoErrorsMapLikePlaceDetails(t *testing.T) {
 			{404, "NOT_FOUND", "", provider.ClassNotFound},
 		} {
 			env := newEnvironment(t, &fakeGoogle{answer: reply(tc.status, "application/json", errorObject(tc.status, tc.state, tc.reason))})
-			_, err := env.invokeTool(tool, "read", arguments)
+			connection := "read"
+			if tool == photosGetID {
+				connection = "photos"
+			}
+			_, err := env.invokeTool(tool, connection, arguments)
 			var failed *provider.Error
 			if !errors.As(err, &failed) || failed.Class != tc.class || failed.Original == nil || failed.Original.Status != tc.status {
 				t.Fatalf("%s HTTP %d: err = %v, want class %q with Original", tool, tc.status, err, tc.class)
@@ -363,7 +387,7 @@ func TestAutocompleteAndPhotoDescriptionsStateCostAndAttribution(t *testing.T) {
 		{autocomplete.Description, []string{"10000", "Autocomplete Session Usage", "places.get that ends it",
 			"no field mask", "attribution", "untrusted"}},
 		{photosGet.Description, []string{"Places Photo SKU", "Enterprise", "1000", "authorAttributions",
-			"never loads the image", "never fetched", "redirect"}},
+			"never loads the image", "never fetched", "redirect", "without a sign-in", "tools list names it"}},
 	} {
 		for _, want := range tc.wants {
 			if !strings.Contains(tc.description, want) {
@@ -409,7 +433,7 @@ func TestLongPhotoNameSurvivesPlaceResultsAndFeedsPhotosGet(t *testing.T) {
 		t.Fatalf("search name = %q", name)
 	}
 	env = newEnvironment(t, photoAnswer())
-	if _, err := env.invokeTool(photosGetID, "read", `{"name":"`+name+`","max_width_px":10}`); err != nil {
+	if _, err := env.invokeTool(photosGetID, "photos", `{"name":"`+name+`","max_width_px":10}`); err != nil {
 		t.Errorf("photos.get refused the name of a result: %v", err)
 	}
 

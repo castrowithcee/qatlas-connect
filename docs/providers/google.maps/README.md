@@ -4,7 +4,7 @@ description: >
 type: knowledge
 edit: shared
 created: 2026-11-06
-updated: 2026-11-11
+updated: 2026-11-15
 ---
 
 # Google Maps
@@ -55,7 +55,7 @@ are the only requests that do so, see [geocoding](geocoding.md#endpoint-and-key)
 never a tool argument, never part of a message or result, and masked in every output.
 
 The profile `read` is the recommended one and holds `google.maps.places.get`, `google.maps.places.search-text`,
-`google.maps.places.search-nearby`, `google.maps.places.autocomplete`, `google.maps.photos.get`,
+`google.maps.places.search-nearby`, `google.maps.places.autocomplete`,
 `google.maps.geocoding.geocode`, `google.maps.geocoding.reverse`, `google.maps.addressvalidation.validate`,
 `google.maps.weather.current`, `google.maps.weather.minutes`, `google.maps.weather.hours`,
 `google.maps.weather.days`, `google.maps.weather.history`, `google.maps.weather.alerts`,
@@ -66,8 +66,9 @@ The profile `read` is the recommended one and holds `google.maps.places.get`, `g
 `google.maps.elevation.get`, `google.maps.timezone.get`, `google.maps.geolocation.locate`, and
 `google.maps.videos.metadata`. `google.maps.addressvalidation.feedback` and `google.maps.videos.render` are in
 no profile; see [addressvalidation](addressvalidation.md#profiles-and-effects) and
-[videos](videos.md#profiles-and-effects). `google.maps.videos.lookup` returns signed video addresses, so a
-connection offers it only when its `tools` list names it.
+[videos](videos.md#profiles-and-effects). `google.maps.videos.lookup` returns signed video addresses and
+`google.maps.photos.get` a photo address that may open the image without a sign-in, so a connection offers
+each only when its `tools` list names it.
 
 ## Field mask and billing group
 
