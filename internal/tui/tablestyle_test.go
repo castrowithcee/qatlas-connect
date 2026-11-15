@@ -5,6 +5,8 @@ import (
 	"testing"
 
 	tea "charm.land/bubbletea/v2"
+
+	kittui "github.com/castrowithcee/qatlas-kit/tui"
 )
 
 // A list screen draws its table in a panel under a title line with the section, its entry count and the position, the column names in
@@ -41,7 +43,7 @@ func TestMarkedRowAndStateAreClearWithAndWithoutColour(t *testing.T) {
 	m := newTableModel(t, 100)
 	openSectionByName(t, m, sectionConnections)
 
-	lookOf(profile16)
+	lookOf(kittui.ProfileANSI16)
 	coloured := screenOf(m)
 	if row := findRow(coloured, "wiki-docs"); !strings.Contains(row, "▌") || !hasBackground(row) {
 		t.Errorf("the marked row has no accent mark and bar: %q", row)
@@ -54,7 +56,7 @@ func TestMarkedRowAndStateAreClearWithAndWithoutColour(t *testing.T) {
 		t.Error("active, expired and disabled share one style")
 	}
 
-	lookOf(profileNone)
+	lookOf(kittui.ProfileNone)
 	plain := screenOf(m)
 	if strings.Contains(plain, "\x1b") || strings.Contains(plain, "▌") {
 		t.Errorf("without colour the table still emits styles or the accent mark:\n%s", plain)
@@ -72,17 +74,17 @@ func TestTableScreensFitTheSmallestTerminalWithAndWithoutColour(t *testing.T) {
 	for _, size := range [][2]int{{40, smallestListHeight}, {80, 24}} {
 		for _, s := range []section{sectionConnections, sectionServices, sectionCredentials, sectionDefaults,
 			sectionApprovals, sectionTokens} {
-			for _, profile := range []colorProfile{profile16, profileNone} {
+			for _, profile := range []kittui.ColorProfile{kittui.ProfileANSI16, kittui.ProfileNone} {
 				m := newTableModel(t, size[0])
 				m.Update(tea.WindowSizeMsg{Width: size[0], Height: size[1]})
 				setProfile(profile)
 				openSectionByName(t, m, s)
 				view := screenOf(m)
 				assertViewFits(t, view, size[0], size[1])
-				if profile == profileNone && strings.Contains(view, "\x1b") {
+				if profile == kittui.ProfileNone && strings.Contains(view, "\x1b") {
 					t.Errorf("%dx%d %s: NO_COLOR still emits styles:\n%s", size[0], size[1], s.title(), view)
 				}
-				if profile == profileNone && len(m.list.matches) > 0 && s != sectionTokens && s != sectionApprovals &&
+				if profile == kittui.ProfileNone && len(m.list.matches) > 0 && s != sectionTokens && s != sectionApprovals &&
 					!strings.Contains(view, "> ") {
 					t.Errorf("%dx%d %s: no '>' marks the selection:\n%s", size[0], size[1], s.title(), view)
 				}
@@ -96,7 +98,7 @@ func TestTableScreensFitTheSmallestTerminalWithAndWithoutColour(t *testing.T) {
 func TestPickerAndProviderTableFitTheSmallestTerminal(t *testing.T) {
 	before := currentProfile()
 	t.Cleanup(func() { setProfile(before) })
-	setProfile(profileNone)
+	setProfile(kittui.ProfileNone)
 
 	m, _, _ := newModel(t)
 	seedConnections(t, m, numberedConnections(30)...)

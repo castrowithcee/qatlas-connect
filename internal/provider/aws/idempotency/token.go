@@ -11,7 +11,7 @@ import (
 )
 
 // Members of a model that carry the idempotencyToken trait in the services this broker binds.
-var paramNames = map[string]bool{"ClientToken": true, "ClientRequestToken": true, "clientToken": true}
+var paramNames = map[string]bool{"ClientToken": true, "ClientRequestToken": true, "clientToken": true, "CallerReference": true}
 
 // IsParam reports whether a wire member name is one of the known idempotency token members.
 func IsParam(name string) bool { return paramNames[name] }

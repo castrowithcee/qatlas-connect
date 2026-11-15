@@ -13,8 +13,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"regexp"
-	"strconv"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -116,6 +114,7 @@ defaults:
 			}
 			time.Sleep(20 * time.Millisecond)
 		}
+		unregisterVaultProcess(processID)
 	})
 
 	broker := startBroker(t, c)
@@ -146,11 +145,11 @@ defaults:
 
 	t.Run("vault unlock at a terminal starts the vault process", func(t *testing.T) {
 		out, code := runAtTerminal(t, c, passphrase+"\n", "vault", "unlock")
-		match := regexp.MustCompile(`unlocked in a vault process \(pid (\d+)\)`).FindStringSubmatch(out)
-		if code != 0 || match == nil {
+		pid, ok := unlockedVaultPID(out, bin)
+		if code != 0 || !ok {
 			t.Fatalf("unlock: exit %d, output %q", code, out)
 		}
-		processID, _ = strconv.Atoi(match[1])
+		processID = pid
 		if strings.Contains(out, passphrase) {
 			t.Errorf("the passphrase was echoed: %q", out)
 		}

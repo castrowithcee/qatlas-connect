@@ -2,9 +2,9 @@ package provider
 
 import (
 	"net/http"
-	"strconv"
-	"strings"
 	"time"
+
+	"github.com/castrowithcee/qatlas-kit/httpx"
 )
 
 // NoRedirectClient returns an HTTP client that bounds every request by timeout and never follows a
@@ -12,11 +12,7 @@ import (
 // round tripper to use; nil is Go's default transport. Callers pass their test-replaceable transport at
 // the time they build the client.
 func NoRedirectClient(timeout time.Duration, rt http.RoundTripper) *http.Client {
-	return &http.Client{
-		Timeout:       timeout,
-		Transport:     rt,
-		CheckRedirect: func(_ *http.Request, _ []*http.Request) error { return http.ErrUseLastResponse },
-	}
+	return httpx.NoRedirectClient(timeout, rt)
 }
 
 // RedirectRefused reports a redirect a provider deliberately did not follow. Message is safe to publish:
@@ -30,10 +26,4 @@ func (e *RedirectRefused) Error() string { return e.Message }
 // RetryAfter reads how long a provider asks a client to wait from the Retry-After header in seconds. Zero
 // means the header is absent, not a positive whole number of seconds, or otherwise unusable. The wait is
 // not capped; callers that bound it do so themselves.
-func RetryAfter(h http.Header) time.Duration {
-	seconds, err := strconv.Atoi(strings.TrimSpace(h.Get("Retry-After")))
-	if err != nil || seconds <= 0 {
-		return 0
-	}
-	return time.Duration(seconds) * time.Second
-}
+func RetryAfter(h http.Header) time.Duration { return httpx.RetryAfter(h) }

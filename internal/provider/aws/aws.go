@@ -52,6 +52,23 @@ var toolGroups = []config.ToolGroup{{
 	ID: "iam", Title: "Identity and Access Management",
 	Description: "Users, groups, roles, instance profiles, and the metadata of their credentials: access keys, MFA " +
 		"devices, SSH public keys, signing certificates, and service-specific credentials; never a secret",
+}, {
+	ID: "account", Title: "Account",
+	Description: "Regions of the bound account with their opt-in status, and enabling and disabling opt-in regions; the " +
+		"region list of the connection is never changed",
+}, {
+	ID: "ses", Title: "Simple Email Service",
+	Description: "Sender identities of SES v2: domains and email addresses, their DKIM, MAIL FROM, and feedback " +
+		"settings, tags, and the DNS records to create; never a DKIM private key",
+}, {
+	ID: "s3", Title: "Simple Storage Service",
+	Description: "Buckets of the bound account and their configuration: region, versioning, default encryption, " +
+		"tags, the public access block, and the bucket policy; objects, whose content moves only through local files",
+}, {
+	ID: "route53", Title: "Route 53",
+	Description: "Hosted zones, records, health checks, DNSSEC, query logging, traffic policies and their instances, reusable " +
+		"delegation sets, CIDR collections, and the VPCs of private zones of the bound account, their tags, and the status of a " +
+		"change; the name servers and the DS record to enter at the registrar; limits and geolocations, read only",
 }}
 
 var targetKinds = []config.TargetKind{{
@@ -105,7 +122,7 @@ func Register(reg *capability.Registry, version string) error {
 	userAgent = agentFor(version)
 	if err := reg.RegisterProvider(config.ProviderMetadata{
 		ID: Provider, Name: "Amazon Web Services", DefaultBaseURL: consoleOrigin, ValidateBaseURL: validBaseURL,
-		Description:    "Amazon Web Services account: STS identity checks, IAM identity and credential metadata reads, and IAM role writes named in the tools list, bound to one account and its regions",
+		Description:    "Amazon Web Services account: STS, IAM identity and credential reads, SES sender identities, and IAM role writes named in the tools list, bound to one account and its regions",
 		DefaultEffects: []config.Effect{config.EffectRead},
 		Groups:         toolGroups, ServiceLevel: true,
 		SecretRoles: []config.SecretRole{{

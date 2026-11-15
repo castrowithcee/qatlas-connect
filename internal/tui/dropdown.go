@@ -18,15 +18,15 @@ const dropdownArrow = "▾"
 // fieldStyle is the surface of a field: the field colour behind the text, the accent colour and bold while
 // the field has the focus. Without colour it names nothing; the marker carries the focus then.
 func fieldStyle(focused bool) lipgloss.Style {
-	p := styles.palette
+	p := styles.Palette()
 	style := lipgloss.NewStyle()
-	if p.surface != "" {
-		style = style.Background(p.surface.lip()).Foreground(p.text.lip())
+	if p.Surface != "" {
+		style = style.Background(lip(p.Surface)).Foreground(lip(p.Text))
 	}
 	if focused {
 		style = style.Bold(true)
-		if p.accent != "" {
-			style = style.Foreground(p.accent.lip())
+		if p.Accent != "" {
+			style = style.Foreground(lip(p.Accent))
 		}
 	}
 	return style
@@ -71,8 +71,8 @@ const searchFieldMax = 30
 func searchField(content string, width int) string {
 	if content == "" {
 		hint := styles.hint
-		if styles.palette.surface != "" {
-			hint = hint.Background(styles.palette.surface.lip())
+		if styles.Palette().Surface != "" {
+			hint = hint.Background(lip(styles.Palette().Surface))
 		}
 		return hint.Render(padLine(clipCells(" "+tr(tSearchField), width), width))
 	}
@@ -183,7 +183,8 @@ func (m *Model) overlayDropdown(view string) string {
 
 // clickDropdown handles a click while a list is open: on an entry it takes that value, anywhere else it only
 // closes the list.
-func (m *Model) clickDropdown(x, y int) tea.Cmd {
+func (m *Model) clickDropdown(msg tea.MouseMsg) tea.Cmd {
+	x, y := msg.Mouse().X, msg.Mouse().Y
 	d := m.dd
 	b := d.box
 	if x > b.x0 && x < b.x1-1 && y > b.y0 && y < b.y1-1 {
@@ -191,7 +192,7 @@ func (m *Model) clickDropdown(x, y int) tea.Cmd {
 	}
 	// Any other click closes the list, as esc does; a click on a tab then goes on.
 	m.dd = nil
-	cmd, _ := m.clickBar(tea.Mouse{X: x, Y: y})
+	cmd, _ := m.clickBar(msg)
 	return cmd
 }
 

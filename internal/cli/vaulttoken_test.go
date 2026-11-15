@@ -87,11 +87,11 @@ func TestVaultTokenCommands(t *testing.T) {
 		t.Errorf("list after renaming the model = %q, want the warning", stdout)
 	}
 
-	code, stdout, _ = runWithInput(t, &Options{}, "", "vault", "token", "revoke", "kunde-a", "--yes", "--config", configIn(dir))
+	code, stdout, _ = runWithInput(t, &Options{}, "", "vault", "token", "revoke", "kunde-a", "--yes", "--confirm", "--config", configIn(dir))
 	if code != exitOK || stdout != "revoked agent token kunde-a\n" {
 		t.Fatalf("revoke: exit %d, stdout %q", code, stdout)
 	}
-	if code, _, _ := run("vault", "token", "revoke", "kunde-a", "--yes"); code != exitUsage {
+	if code, _, _ := run("vault", "token", "revoke", "kunde-a", "--yes", "--confirm"); code != exitUsage {
 		t.Errorf("revoke twice: exit %d, want usage", code)
 	}
 
@@ -250,26 +250,31 @@ func TestVaultTokenRevokeConfirmation(t *testing.T) {
 
 	var asked string
 	withVaultConfirm(t, func(q string) (bool, error) { asked = q; return false, nil })
-	code, stdout, _ := revoke()
+	code, stdout, _ := revoke("--confirm")
 	if code != exitOK || !strings.Contains(stdout, "kept") || !strings.Contains(asked, "kunde-a") || !listed() {
 		t.Errorf("n: exit %d, stdout %q, asked %q, listed %v, want kept", code, stdout, asked, listed())
 	}
 
 	withVaultConfirm(t, func(q string) (bool, error) { return true, nil })
-	if code, _, stderr := revoke(); code != exitOK || listed() {
+	if code, _, stderr := revoke("--confirm"); code != exitOK || listed() {
 		t.Fatalf("y: exit %d, stderr %q, want the token revoked", code, stderr)
 	}
 
+	// --yes alone answers the question but does not confirm the change: nothing is revoked.
 	createAgentToken(t, dir, "kunde-a", "wiki")
+	if code, _, stderr := revoke("--yes"); code != exitUsage || !strings.Contains(stderr, "confirmation-required") || !listed() {
+		t.Errorf("--yes without --confirm: exit %d, stderr %q", code, stderr)
+	}
+
 	asked = ""
 	withVaultConfirm(t, func(q string) (bool, error) { asked = q; return false, nil })
-	if code, _, _ := revoke("--yes"); code != exitOK || asked != "" || listed() {
+	if code, _, _ := revoke("--yes", "--confirm"); code != exitOK || asked != "" || listed() {
 		t.Errorf("--yes: exit %d, asked %q, want revoked without a question", code, asked)
 	}
 
 	createAgentToken(t, dir, "kunde-a", "wiki")
 	withInteractive(t, false)
-	for _, extra := range [][]string{nil, {"--yes"}} {
+	for _, extra := range [][]string{nil, {"--yes", "--confirm"}} {
 		code, _, stderr := revoke(extra...)
 		if code != exitUsage || !strings.Contains(stderr, "admin-required") {
 			t.Errorf("no terminal %v: exit %d, stderr %q, want admin-required", extra, code, stderr)
@@ -293,8 +298,8 @@ func TestVaultTokenModelFlagAndHiddenAlias(t *testing.T) {
 	for _, flag := range []string{"--model", "--vorbild"} {
 		name := map[string]string{"--model": "via-new", "--vorbild": "via-old"}[flag]
 		code, stdout, stderr := run("vault", "token", "create", name, flag, "wiki")
-		if code != exitOK || !strings.Contains(stdout, "models") || strings.Contains(stdout, "vorbild") {
-			t.Fatalf("create %s: exit %d, stdout %q, stderr %q, want models", flag, code, stdout, stderr)
+		if code != exitOK || !strings.Contains(stdout, "MODELS") || strings.Contains(strings.ToLower(stdout), "vorbild") {
+			t.Fatalf("create %s: exit %d, stdout %q, stderr %q, want MODELS", flag, code, stdout, stderr)
 		}
 	}
 	code, stdout, _ := run("vault", "token", "create", "mixed", "--model", "wiki", "--vorbild", "wiki")

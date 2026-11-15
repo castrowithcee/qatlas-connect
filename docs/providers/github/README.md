@@ -4,7 +4,7 @@ description: >
 type: knowledge
 edit: shared
 created: 2026-10-22
-updated: 2026-11-10
+updated: 2026-11-15
 ---
 
 # GitHub
@@ -19,8 +19,9 @@ The tools are sorted into groups; each group has a page: [issues](issues.md), [p
 [pull request reviews](pull-request-reviews.md),
 [projects](projects.md), [Actions](actions.md), [Actions caches and cleanup](actions-maintenance.md),
 [environments and deployments](environments.md), [code](code.md), [repositories](repositories.md),
-[releases](releases.md), [security](security.md), [discussions](discussions.md), [gists](gists.md),
-[notifications](notifications.md), and [accounts](accounts.md). The rules every search tool shares are
+[releases](releases.md), [packages](packages.md), [security](security.md), [discussions](discussions.md), [gists](gists.md),
+[notifications](notifications.md), [accounts](accounts.md), and
+[organization administration](organization-admin.md). The rules every search tool shares are
 described under [search](search.md). The [setup profiles](profiles.md) have their own
 page. [Set up GitHub](setup.md) leads through creating a token and lists the rights it needs.
 
@@ -113,6 +114,12 @@ the project, not a target. The owner lists `github.projects.list` and `github.re
 `github.projects.create` take `owner` as `users/LOGIN` for a user or `orgs/LOGIN` for an organization;
 `github.projects.copy` takes the source as `project` and the destination as `owner`, and checks both.
 
+`github.app-installations.list` and `github.audit-log.list` take `owner` as `orgs/LOGIN`,
+`github.app-installation-repositories.remove` takes `repository`, and `github.apps.get` is GitHub-wide and
+takes no target, like the global security advisories; see
+[organization administration](organization-admin.md#github-apps) and
+[the audit log](organization-admin.md#audit-log).
+
 An argument may be left out only when the targets allow exactly one repository, exactly one project, or
 exactly one owner as an owner entry, and not as a pattern: that one is the default of its kind. Nothing else
 chooses a target; in particular, the git remote of the working directory never does, for `qconnect invoke` and
@@ -150,7 +157,7 @@ a REST 404 or a GraphQL `NOT_FOUND`, or an answer that leaves the requested proj
 check. Inside a repository it names the issue, the workflow run, job, or workflow by its identifier, the
 workflow file or `.github/workflows` directory with the ref it was read at, `github.contents.get`'s path or
 the repository root with its ref, `github.trees.get`'s ref, `github.blame.get`'s ref or its path at that ref,
-`github.commits.get`'s ref, `github.compare.get`'s comparison as "comparison BASE...HEAD", `github.branches.get`'s branch, the traffic reads as "the traffic views of this repository", "the traffic clones of this repository", "the popular paths of this repository", or "the popular referrers of this repository", a commit comment as "commit comment N" and the comment lists as "the commit comments of the repository" or "the comments of commit SHA", the branches and pull requests of a commit as "the branches headed by commit SHA" and "the pull requests of commit SHA", `github.tags.get`'s tag, the discussion by its number, a code scanning, Dependabot, or secret scanning alert as "code scanning alert N", "Dependabot alert N", or "secret scanning alert N" and their lists as "the code scanning alerts of this repository" and so on, a code quality finding as "code quality finding N", the repository security advisories as "the repository security advisories" (of a repository or of "orgs/LOGIN"), and a global advisory as "global security advisory GHSA-..." (the list as "the global security advisories"), a gist as "this gist" (also for a gist of a user the connection's targets do not name) and a user's gists as "the gists of users/LOGIN", a notification thread as "this notification thread" (also for a thread of a repository the connection's targets do not admit), the subscription of a thread, a fork or the collaborators `github.repositories.fork` and
+`github.commits.get`'s ref, `github.compare.get`'s comparison as "comparison BASE...HEAD", `github.branches.get`'s branch, the traffic reads as "the traffic views of this repository", "the traffic clones of this repository", "the popular paths of this repository", or "the popular referrers of this repository", a commit comment as "commit comment N" and the comment lists as "the commit comments of the repository" or "the comments of commit SHA", the branches and pull requests of a commit as "the branches headed by commit SHA" and "the pull requests of commit SHA", `github.tags.get`'s tag, the discussion by its number, a code scanning, Dependabot, or secret scanning alert as "code scanning alert N", "Dependabot alert N", or "secret scanning alert N" and their lists as "the code scanning alerts of this repository" and so on, a code scanning analysis as "code scanning analysis N" and the list as "the code scanning analyses of this repository", a code quality finding as "code quality finding N", the repository security advisories as "the repository security advisories" (of a repository or of "orgs/LOGIN"), and a global advisory as "global security advisory GHSA-..." (the list as "the global security advisories"), a gist as "this gist" (also for a gist of a user the connection's targets do not name) and a user's gists as "the gists of users/LOGIN", a notification thread as "this notification thread" (also for a thread of a repository the connection's targets do not admit), the subscription of a thread, a fork or the collaborators `github.repositories.fork` and
 `github.collaborators.list` address, the languages, the contributors, the statistics, the activity feed, or the community profile of the repository, the pull request by its number (also for a Copilot review request), the issue a Copilot assignment addresses by its number, the sub-issues or the dependencies of an
 issue as "the sub-issues of issue #N", "a sub-issue of issue #N", "the sub-issue order of issue #N", "the
 issues blocking issue #N", "the issues issue #N blocks", or "a dependency of issue #N", or, for

@@ -157,12 +157,12 @@ func (f *fakeAWS) count(action string) int {
 func install(t *testing.T, f *fakeAWS) *testClock {
 	t.Helper()
 	c := &testClock{now: testNow}
-	oldTransport, oldClock, oldLimiters, oldAgent := transport, clock, limiters, userAgent
-	transport, clock, limiters = f, c, ratelimit.NewRegistry(0)
+	oldTransport, oldClock, oldLimiters, oldDelivery, oldAgent := transport, clock, limiters, deliveryLimiters, userAgent
+	transport, clock, limiters, deliveryLimiters = f, c, ratelimit.NewRegistry(0), ratelimit.NewRegistry(0)
 	userAgent = agentFor("1.2.3")
 	resetCaches()
 	t.Cleanup(func() {
-		transport, clock, limiters, userAgent = oldTransport, oldClock, oldLimiters, oldAgent
+		transport, clock, limiters, deliveryLimiters, userAgent = oldTransport, oldClock, oldLimiters, oldDelivery, oldAgent
 		resetCaches()
 	})
 	return c

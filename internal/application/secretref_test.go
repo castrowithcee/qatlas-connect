@@ -18,7 +18,6 @@ import (
 	"github.com/castrowithcee/qatlas-connect/internal/capability"
 	"github.com/castrowithcee/qatlas-connect/internal/config"
 	"github.com/castrowithcee/qatlas-connect/internal/invokelog"
-	"github.com/castrowithcee/qatlas-connect/internal/output"
 	"github.com/castrowithcee/qatlas-connect/internal/secret"
 	"github.com/castrowithcee/qatlas-kit/redact"
 )
@@ -250,7 +249,7 @@ func TestSecretRefRefusals(t *testing.T) {
 			for _, confirmed := range []bool{false, true} {
 				response, err := f.invoke(tt.ref, "acme", confirmed)
 				var refused *SecretRefNotAllowedError
-				if !errors.As(err, &refused) || ErrorCode(err) != output.CodeSecretRefNotAllowed {
+				if !errors.As(err, &refused) || ErrorCode(err) != CodeSecretRefNotAllowed {
 					t.Fatalf("Invoke(confirmed=%t) = %v, want secret-ref-not-allowed", confirmed, err)
 				}
 				_, known := f.cfg.Credentials[tt.ref]

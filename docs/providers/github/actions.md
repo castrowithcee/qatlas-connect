@@ -1,17 +1,17 @@
 ---
 description: >
-  Describes the GitHub Actions tools: the observer and operator tools, diagnosing a run, log and artifact limits, billable time, the listed-only deletion of run logs, executions, the Actions variables of a repository, an environment, or an organization, and the listed-only workflow maintainer and Actions administrator tools with their paths and settings.
+  Describes the GitHub Actions tools: the observer and operator tools, diagnosing a run, log and artifact limits, billable time, the listed-only deletion of run logs, executions, the Actions variables and the Actions secrets (names and metadata, never values) of a repository, an environment, or an organization, the Dependabot secrets of a repository or an organization, and the listed-only workflow maintainer and Actions administrator tools with their paths and settings, including the finer Actions settings of a repository or an organization: selected actions, fork pull request approval, artifact and log retention, access of outside workflows, and the OIDC subject claim, and the self-hosted runners of a repository or an organization with their labels and the listed-only removal of a runner, and the listed-only runner group and hosted runner tools of an organization.
 type: knowledge
 edit: shared
 created: 2026-10-22
-updated: 2026-11-10
+updated: 2026-11-14
 ---
 
 # GitHub Actions
 
 The Actions tools of the [GitHub provider](README.md). Every tool takes `repository` as described under
 [the target of a call](README.md#the-target-of-a-call), except the [Actions variable](#actions-variables) tools,
-which take exactly one of `repository` or `organization`.
+which take exactly one of `repository` or `organization`, as do the [Actions secret](#actions-secrets) tools except the list of the repositories of a secret, which takes `organization` only, and the [finer Actions settings](#finer-actions-settings), which do the same except the access tools, which take `repository` only, as do the [self-hosted runner](#self-hosted-runners) tools, and the [runner group and hosted runner tools](#runner-groups-and-hosted-runners), which take `organization` only.
 
 A connection can observe the GitHub Actions of a repository it allows and, separately, operate them. The two
 groups are distinct tools with distinct effects: the observer tools are reads, and the operator tools are
@@ -39,8 +39,11 @@ No observer or operator tool changes a workflow file or a setting; that is the l
 [workflow maintenance and Actions administration](#workflow-maintenance-and-actions-administration).
 Environments with their deployment branch policies and protection rules, and deployments, have [their own
 page](environments.md), as do [Actions caches and the cleanup of runs and artifacts](actions-maintenance.md);
-Actions variables have tools under [Actions variables](#actions-variables). No tool approves or creates a
-deployment, or administers secrets, runners, or an organization.
+Actions variables, Actions secrets, and Dependabot secrets have tools under [Actions variables](#actions-variables),
+[Actions secrets](#actions-secrets), and [Dependabot secrets](#dependabot-secrets). No tool administers an organization,
+or registers runners; the [self-hosted runners](#self-hosted-runners) and the [runner groups and
+hosted runners](#runner-groups-and-hosted-runners) have their own listed-only tools. The approval of a fork run
+and the review of pending deployments are described under [approval gates](actions-maintenance.md#approval-gates).
 
 ## Observer and operator
 
@@ -168,8 +171,8 @@ Every call takes exactly one of `repository` or `organization`, like the
 target of the connection. `environment` together with `repository` addresses the variables of one environment of
 that repository and never comes with `organization`. Both, neither, or an environment without a repository is an
 invalid request before a credential is resolved. The environment name travels as one path segment, so a slash
-stays part of the name; `.`, `..`, and control characters are refused. No tool covers secrets, Dependabot or
-Codespaces variables, or the environments themselves.
+stays part of the name; `.`, `..`, and control characters are refused. No tool covers Dependabot or Codespaces
+variables, or the environments themselves; secrets have [their own tools](#actions-secrets).
 
 GitHub stores a value as plain text that the workflows of the repository can read, and a value may still carry
 data its owner did not mean to publish. Qatlas treats it as sensitive, untrusted data: an answer cuts it at 1000
@@ -192,6 +195,85 @@ applied. GitHub answers a create and an update without the variable, so the answ
 and, for an organization, the visibility and the selected repositories. The token rights are listed under
 [GitHub Actions](setup.md#github-actions).
 
+## Actions secrets
+
+| Tool | Does |
+| --- | --- |
+| `github.action-secrets.list` | lists the names and times of the secrets of a repository, an environment, or an organization |
+| `github.action-secrets.get` | reads the name and times of one secret by name |
+| `github.action-secret-repositories.list` | lists the repositories that may use an organization secret whose visibility is `selected` |
+| `github.action-secrets.set` | creates a secret or replaces its value from a local file; listed-only |
+| `github.action-secrets.delete` | deletes one secret permanently; listed-only |
+
+The tools read, set, and delete; none returns a value. GitHub does not answer one, and no output has a member for
+one, so a value that appears in a provider answer is dropped. No tool reads the public key on its own, changes the
+selected repositories of an existing organization secret without setting its value, or covers Codespaces secrets or
+the enterprise level; [Dependabot secrets](#dependabot-secrets) have their own tools.
+
+`github.action-secrets.list`, `.get`, `.set`, and `.delete` take exactly one of `repository` or `organization`, like the
+[Actions variables](#actions-variables), and `environment` together with `repository` for the secrets of one
+environment of that repository; it never comes with `organization`. An organization must be an owner target of the
+connection, given as `orgs/LOGIN`. Both, neither, an environment without a repository, a target outside the
+connection's targets, and a target it excludes are invalid requests before a credential is resolved. The
+environment and the secret name each travel as one escaped path segment. A name holds letters, digits, and `_`,
+does not start with a digit or `GITHUB_`, and is compared by GitHub without case; names are untrusted data. An
+answer holds `name`, `created_at`, `updated_at`, and, for an organization secret, `visibility` and
+`selected_repositories_url`, which is never fetched, and names the repository, environment, or organization it
+addressed.
+
+`github.action-secret-repositories.list` takes `organization` and the secret `name`. GitHub lists repositories only
+for a secret whose visibility is `selected`. A repository outside the connection's targets, or one it excludes, is
+not listed; `withheld` counts those in the batch, and `total_count` is the number GitHub reports for the secret.
+Each listed repository carries the members of a repository answer; `fields` narrows an entry.
+
+`github.action-secrets.set` takes `name`, `local_path`, the same target selection, and, for an organization secret,
+`visibility` and `selected_repositories`. The value is never an argument: `local_path` names a file, absolute or
+starting with `~/`, inside a directory the connection releases for reading in `files.read`, and the whole content
+of that file is the value, unchanged and untrimmed, so a line break at the end of the file is part of the secret.
+The file must be a regular file of 1 byte to 48 KB; a path outside the released directories, a symbolic link that
+leaves them, a missing, an empty, and a larger file are refused. No message names the path or the content. Qatlas
+seals the value locally as a libsodium sealed box with the public key GitHub serves for the same level, read right
+before the write, and sends only the sealed text with the key identifier; a key that is not Base64 of exactly 32
+bytes ends the call without a write.
+
+An organization secret needs `visibility`: `all`, `private`, or `selected`. With `selected`, `selected_repositories`
+lists up to 50 repositories as `OWNER/REPO`, each of the organization and inside the connection's repository
+targets and not excluded; Qatlas resolves their numeric identifiers, and the list replaces the current selection.
+`all` and `private` are refused when the connection's targets name single repositories of the organization or its
+exclusions cover repositories of it, since the secret would reach repositories outside them. `visibility` and
+`selected_repositories` are invalid for a repository or an environment. The call checks the arguments and the
+targets first, then the file, and only then resolves a credential; every refusal before that sends no request.
+
+The answer holds `state`, `created` when GitHub made a new secret and `updated` when it replaced the value of an
+existing one, the `name`, the `visibility` and `selected_repositories` that were sent, and the target. The write is
+idempotent for the same file content, needs confirmation, and is sent exactly once without a retry; an unclear
+outcome says that the secret may have been written.
+
+A connection that selects by `effects` offers the three reads; the set and the delete are listed only and need their
+names in a connection's `tools` list, and the set also needs `files.read`. The delete needs confirmation, is sent
+exactly once without a retry, and an unclear outcome says that the secret may have been deleted. The token rights
+are listed under [GitHub Actions](setup.md#github-actions).
+
+## Dependabot secrets
+
+| Tool | Does |
+| --- | --- |
+| `github.dependabot-secrets.list` | lists the names and times of the Dependabot secrets of a repository or an organization |
+| `github.dependabot-secrets.get` | reads the name and times of one secret by name |
+| `github.dependabot-secret-repositories.list` | lists the repositories that may use an organization secret whose visibility is `selected` |
+| `github.dependabot-secrets.set` | creates or replaces one secret from a local file; listed-only |
+| `github.dependabot-secrets.delete` | deletes one secret permanently; listed-only |
+
+These tools behave as the [Actions secret](#actions-secrets) tools: none returns a value, they take
+exactly one of `repository` or `organization` (the repositories list takes `organization` only), check the
+target and the connection's exclusions before a credential is resolved, withhold and count repositories outside the
+targets, and delete listed-only, with confirmation, in exactly one request without a retry. Dependabot has no
+environment: the tools have no `environment` argument, and one that is sent is an invalid request.
+`github.dependabot-secrets.set` works like `github.action-secrets.set` (see [Actions secrets](#actions-secrets)): the
+value comes from a file the connection releases in `files.read`, is sealed locally with the public key of the
+Dependabot level, and is written in one request without a retry. The token rights
+are listed under [GitHub Actions](setup.md#github-actions).
+
 ## Workflow maintenance and Actions administration
 
 Two more groups of repository tools change what runs in a repository and with which rights: the workflow
@@ -210,7 +292,8 @@ and Qatlas keeps them behind a boundary of their own:
   of a provider may not. The profiles `workflow-maintainer` and `actions-admin` exist only to be chosen on
   purpose; they keep the two groups apart.
 - **One repository per call.** Each call acts on one repository inside the connection's targets, and every
-  route lies below that repository. Without targets, such a connection reaches every repository its token can
+  route lies below that repository; only the [finer Actions settings](#finer-actions-settings) may address one
+  organization instead. Without targets, such a connection reaches every repository its token can
   change, so give it targets that name exactly the repositories it may maintain.
 - **Confirmed and sent once.** Every change needs confirmation in its own invoke request, is sent exactly
   once, and is never retried; an unclear outcome says that the change may have been applied. A refused or
@@ -228,6 +311,11 @@ and Qatlas keeps them behind a boundary of their own:
 | `github.actions-permissions.update` | changes whether Actions run and which actions they may use |
 | `github.workflow-permissions.get` | reads the default `GITHUB_TOKEN` permissions and whether Actions may approve pull request reviews |
 | `github.workflow-permissions.update` | changes either of them |
+| `github.actions-selected.get` / `.set` | reads or changes which actions and reusable workflows may run while `allowed_actions` is `selected`; repository or organization |
+| `github.actions-fork-approval.get` / `.set` | reads or changes which contributors' fork pull requests need approval before workflows run; repository or organization |
+| `github.actions-retention.get` / `.set` | reads or changes how many days checks, runs, statuses, artifacts, and logs are kept; repository or organization |
+| `github.actions-access.get` / `.set` | reads or changes which workflows outside a private repository may use its actions; repository only |
+| `github.actions-oidc.get` / `.set` | reads or changes the customization of the OIDC subject claim; repository or organization |
 
 The reads are listed only as well: a workflow file and the Actions settings are part of what this group
 maintains, and the observer tools already read what diagnosing a run needs. A create and an update are
@@ -271,6 +359,154 @@ a value left out stays as it is: GitHub replaces a setting as a whole, so Qatlas
 the requested values in one change. `allowed_actions` applies only while Actions are enabled and is refused for
 disabled Actions unless `enabled: true` comes with it. An organization or enterprise policy may fix a value; GitHub's refusal is reported, and nothing is changed or
 retried.
+
+### Finer Actions settings
+
+Five more settings have one tool that reads and one that changes them, ten tools in all, and every one is
+listed only like the rest of this group. The reads join the profile `actions-admin`; the five changes are in no
+profile and need their name in a connection's `tools` list. Four settings exist for a repository and for an
+organization and take exactly one of `repository` or `organization`, like the
+[Actions variables](#actions-variables): both, neither, an organization outside the connection's owner targets,
+a user instead of an organization, and a target the connection excludes are refused before a credential is
+resolved. The access setting exists for a repository only and takes `repository` like the other repository
+tools. An answer names the repository or the organization it addressed.
+
+| Setting | Values | Notes |
+| --- | --- | --- |
+| Selected actions | `github_owned_allowed`, `verified_allowed`, `patterns_allowed` | applies only while `allowed_actions` is `selected` |
+| Fork pull request approval | `approval_policy`: `first_time_contributors_new_to_github`, `first_time_contributors`, `all_external_contributors` | |
+| Retention | `days` from 1 through 400, and the read's `maximum_allowed_days` | GitHub rejects what the plan or a policy does not allow |
+| Access | `access_level`: `none`, `user`, `organization` | only for private and internal repositories |
+| OIDC subject claim | `use_default` (repository only), `include_claim_keys`, `use_immutable_subject` | the read also answers `sub_claim_prefix` for a repository |
+
+Each read answers every documented member of its route. Patterns, claim keys, and prefixes are untrusted data.
+
+Every change reads the setting first, sends one request that is never repeated, and reads it again, so the answer
+holds `before` and `after` for the values the call gave, as GitHub reports them; a value left out stays as it is
+and is not named. A read that fails after an applied change does not turn it into an error: `after` is then left
+out and `after_unconfirmed` is `true`, which says that GitHub accepted the change but its state could not be read
+back. A value that was sent never stands in for GitHub's state. A refusal or an unclear outcome follows the rules above: GitHub's text never reaches a
+message, 409 and 422 become messages that say nothing was changed, and a timeout or a server error says that the
+change may have been applied. A refused first read ends the call before anything is changed.
+
+`patterns_allowed` takes patterns as text, such as `octo-org/*`, `octo-org/action@v1`, or `!octo-org/denied`, at
+most 1000, each of at most 255 letters, digits, and `_ . / @ * ! + -` without whitespace, and replaces the
+current patterns; an empty list removes them. The selection is a security boundary: changing from only
+GitHub-owned actions to all of them, allowing verified creators, or adding a pattern such as `*` lets workflows
+run code Qatlas does not review, so treat each loosening as security relevant and grant the change only to a
+connection that needs it. `include_claim_keys` takes only the claim keys GitHub documents for the subject claim
+(`actor`, `actor_id`, `base_ref`, `context`, `environment`, `event_name`, `head_ref`, `job_workflow_ref`,
+`job_workflow_sha`, `ref`, `ref_type`, `repo`, `repository`, `repository_id`, `repository_owner`,
+`repository_owner_id`, `repository_visibility`, `run_attempt`, `run_id`, `run_number`, `runner_environment`, `sha`,
+`workflow`, `workflow_ref`, `workflow_sha`, `check_run_id`) and the repository property claims, written `repo_property_` and the
+name of the property, with letters, digits, and `_` only, at least one and none twice. A cloud provider that trusts a subject
+claim trusts the new form at once, so a change can lock workflows out or widen who may assume a role. For a
+repository `use_default` is required: `true` selects the default claim and comes without keys, `false` needs the
+keys. An organization takes `include_claim_keys`, `use_immutable_subject`, or both and refuses `use_default`; with
+only `use_immutable_subject` it keeps the keys it has, and without customized keys they must be given.
+
+Plan and policy limits are a state, not an error, for the reads. When GitHub refuses a read with a conflict
+because the plan, an organization or enterprise policy, or another setting does not offer the setting, for example
+the selection while `allowed_actions` is not `selected` or the access of a public repository, the tool answers
+with `state: "unavailable"` and a fixed `reason` and gives no value of the setting and no text of GitHub. A
+refusal with 403 or 404 stays an error, because GitHub does not tell a missing right or target apart from it. A
+change on such a setting stays an error that says nothing was changed. No tool changes the enterprise level of
+these settings, runner groups, hosted runners, or secrets.
+
+### Self-hosted runners
+
+Seven tools read the self-hosted runners of a repository or an organization, change their custom labels, and remove
+a runner. Each takes exactly one of `repository` or `organization`, with the refusals of the
+[finer Actions settings](#finer-actions-settings): both, neither, an organization outside the connection's owner
+targets, a user instead of an organization, and a target the connection excludes end before a credential is resolved.
+Every tool is listed only like the rest of this group: the three reads join the profile `actions-admin`, the four
+changes are in no profile, and all need their name in a connection's `tools` list. An answer names the repository or
+the organization it addressed.
+
+| Tool | Effect | Does |
+| --- | --- | --- |
+| `github.runners.list` | read | lists one batch of runners, optionally by `name`, with `limit` up to 100 and `cursor` |
+| `github.runners.get` | read | reads one runner by `runner_id` |
+| `github.runners.delete` | delete | removes one runner for good |
+| `github.runner-labels.list` | read | lists the labels of one runner |
+| `github.runner-labels.add` | update | adds 1 to 100 custom labels, none twice |
+| `github.runner-labels.set` | update | replaces all custom labels with 0 to 100 labels; an empty list removes them all |
+| `github.runner-labels.remove` | update | removes one custom label by `label` |
+
+A runner answers every documented member: `id`, `runner_group_id`, `name`, `os`, `status`, `busy`, `labels` (each
+with `id`, `name`, and `type`, which is `read-only` or `custom`), `ephemeral`, and `version`. The list adds
+`total_count`, `next_cursor`, and `has_more`. Names, labels, operating system, status, and version are untrusted data and cut at
+200 characters. The `name` filter is applied by GitHub; Qatlas drops an entry whose name differs when compared
+without case, so a server that ignores the filter lets nothing else through. A repository lists the organization
+runners available to it as well; the organization list shows the runners of the organization.
+
+`runner_id` is bound to the chosen target by evidence: every removal and every label change first reads the runner
+below that repository or organization, and ends with GitHub's refusal, without a change, when the target does not
+hold it or when the answer names another runner. The runner is the one GitHub shows the target; whether GitHub
+lets that target change a runner that belongs to another level is GitHub's decision, and the call reports a
+refusal as nothing removed or changed. The time between the evidence read and the change is a known boundary. A
+removal and a label change are one request that is never repeated; a timeout or a server error says that the
+change may have been applied, and an answer without a readable label list after a change says so as well.
+
+Read-only labels, such as `self-hosted`, the operating system, and the architecture, are applied by GitHub and cannot
+be changed. `remove` refuses a label that the evidence read shows as read-only, and `add` and `set` refuse a name
+equal to a read-only label, compared without case; the refusal says so and nothing is sent. A label is 1 to 100
+characters of one line without control characters, is not padded with spaces, and is not `.` or `..`; it travels
+as one escaped path segment. The change answers `runner_id`, `total_count`, and the labels GitHub reports afterwards.
+
+Removing a runner takes its registration from GitHub; GitHub refuses a runner that is running a job, and the machine
+must be registered again to return, which no tool does. Labels decide which jobs a runner takes, so a label change
+can move jobs to another machine or leave them waiting. No tool registers a runner or issues a registration or
+removal token, a JIT configuration, or the download of the runner application; runner groups and GitHub-hosted
+runners have no tool.
+
+### Runner groups and hosted runners
+
+Four tools read and change the runner groups of an organization and read its GitHub-hosted runners. A runner
+group decides which repositories may send jobs to which machines, so every one is listed only like the rest of
+this group: a connection offers it only when its `tools` list names it. The three reads join the profile
+`actions-admin`; `github.runner-groups.update` is in no profile. All four take `organization` as `orgs/LOGIN`
+and no `repository`: a user, a repository, an organization outside the connection's owner targets, and an
+organization the connection excludes are refused before a credential is resolved. An answer names the
+organization it addressed. Runners and runner labels are not part of these tools.
+
+| Tool | Does |
+| --- | --- |
+| `github.runner-groups.list` | lists the self-hosted runner groups of the organization, including those inherited from an enterprise; `visible_to_repository` keeps only the groups one repository may use, `limit` and `cursor` page |
+| `github.runner-groups.get` | reads one group by `id` |
+| `github.runner-groups.update` | changes the `name` or the `visibility` (`selected`, `all`, `private`) of one group |
+| `github.hosted-runners.list` | lists the GitHub-hosted runners of the organization; `limit` and `cursor` page |
+
+Each read answers every member GitHub documents for its route. A group has `id`, `name`, `visibility`,
+`default`, `selected_repositories_url`, `runners_url`, `hosted_runners_url`, `network_configuration_id`,
+`inherited`, `inherited_allows_public_repositories`, `allows_public_repositories`,
+`workflow_restrictions_read_only`, `restricted_to_workflows`, and `selected_workflows`. A hosted runner has `id`,
+`name`, `runner_group_id`, `image_details`, `machine_size_details`, `status`, `platform`, `maximum_runners`,
+`public_ip_enabled`, `public_ips`, `last_active_on`, and `image_gen`. Names, labels, workflow names, and every
+address are untrusted data, cut at fixed lengths, and the addresses are never fetched. The IP and network details
+of a hosted runner are cut hard: at most ten `public_ips` entries, each prefix at 64 characters, and
+`public_ips_truncated` says when entries were left out. `visible_to_repository` takes `OWNER/REPO`, which must
+belong to the organization and lie inside the connection's repository targets; GitHub receives its name. GitHub
+documents the filter without saying whether it expects the name alone, so confirm it against a live organization
+before relying on it.
+
+`github.runner-groups.update` sends exactly one `PATCH` and offers only `name` and `visibility`, at least one of
+them. GitHub's route also takes `allows_public_repositories`, `restricted_to_workflows`, `selected_workflows`,
+and `network_configuration_id`, and the selected repositories of a group have a route of their own; none of them
+is offered, so `selected` leaves the repositories of the group as GitHub holds them. GitHub requires a name with
+every change, so a call that gives only `visibility` sends the group's current name, exactly as GitHub reported
+it. The group is first read below the organization, which binds its `id` to the connection's target: a group
+GitHub does not find there, or answers with another identifier, ends the call before anything is changed. The
+default group and an inherited group are not refused by Qatlas; GitHub decides what it allows. The answer holds
+the `id`, the `name` and `visibility` before the change, and the group as GitHub answered the change in `after`;
+there is no further read, since the answer to the change is the group. GitHub documents defaults for the settings the request leaves out, so the tool sends the values it just read for them: `allows_public_repositories` as read and, while the group is restricted, `restricted_to_workflows` with the whole `selected_workflows` list as GitHub reported it. It loosens nothing the call did not ask to change. A group restricted to more workflows than the tool can read whole (over 100 entries or an entry over 1000 characters) is refused before the request, with a message that says nothing was changed. For an unrestricted group neither the restriction nor the list is sent. A refusal or an unclear outcome follows the rules above: GitHub's text never reaches a message, 409 and
+422 say that nothing was changed, and a timeout, a server error, or an answer that cannot be read says that the
+change may have been applied; the change is never repeated. Changing `visibility` decides which repositories may
+run jobs on the group's machines, so treat it as security relevant and grant the change only to a connection that
+needs it.
+
+No tool creates or deletes a runner group or a hosted runner, registers a runner, or answers a registration token,
+a JIT configuration, or a download address of the runner application.
 
 ### Credential
 

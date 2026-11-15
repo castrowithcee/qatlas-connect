@@ -91,6 +91,25 @@ type Shape struct {
 	// MaxItems caps a decoded list or map, DefaultMaxItems when zero. A longer one is refused: cutting it
 	// would present a partial list as complete.
 	MaxItems int
+	// Prefixes are leading texts an argument of a string shape may carry and that are removed before the
+	// value is used, such as the /hostedzone/ of a Route 53 zone ID. What is left must hold no slash, so a
+	// value never adds a path separator. Answers are not changed.
+	Prefixes []string
+
+	// The members below describe the XML form of the shape and are read by the restXml codec only.
+	//
+	// XMLName is the name of the root element when the shape is a whole document: the payload structure or
+	// the structure of the body members. Namespace is declared on that element.
+	XMLName   string
+	Namespace Namespace
+	// ElemName is the element of a non-flattened list item, member when empty. KeyName and ValueName are the
+	// elements of a map entry, key and value when empty.
+	ElemName, KeyName, ValueName string
+}
+
+// Namespace is an xmlNamespace: the URI and an optional prefix that declares it.
+type Namespace struct {
+	URI, Prefix string
 }
 
 // Field is one member of a struct Shape.
@@ -109,6 +128,80 @@ type Field struct {
 	// caller gave none and reports the value it sent. Only a string member in the body, a query parameter or
 	// a header may carry it.
 	IdempotencyToken bool
+
+	// The members below describe the XML form of the member and are read by the restXml codec only.
+	//
+	// Flattened writes the items of a list or the entries of a map as repeated elements named Name, without
+	// a wrapper. Attribute writes a scalar as an attribute named Name. Unwrapped says that the root element
+	// of the answer is the member itself; it is allowed for a single scalar member of an output only.
+	Flattened, Attribute, Unwrapped bool
+	// Namespace is declared on the element of the member.
+	Namespace Namespace
+
+	// The members below are owned by the layer: a caller never supplies them as an argument.
+	//
+	// Bucket marks a label member as an S3 bucket name: it is checked against the bucket naming rules before
+	// anything is sent and decides the host of the request. Owner marks a header member that names the expected
+	// owner of a bucket: the layer sets it from EncodeOptions.Owner, the account of the connection, and no
+	// argument can. Stream marks a payload blob that is not text in an argument but a stream of at most
+	// MaxStreamBytes, attached to the request (Request.SetStream) or taken from the answer (Request.SetSink).
+	// ContentType marks the header member that names the media type of the payload; its value is checked.
+	Bucket, Owner, Stream, ContentType bool
+}
+
+// layerCheck validates the layer-owned members of a top-level field.
+func (f Field) layerCheck(input bool) error {
+	n := 0
+	for _, set := range []bool{f.Bucket, f.Owner, f.Stream, f.ContentType} {
+		if set {
+			n++
+		}
+	}
+	switch {
+	case n == 0:
+		return nil
+	case n > 1:
+		return shapeErr("member %q has more than one layer role", f.Key)
+	case f.Bucket && (!input || f.Loc != LocLabel || f.Shape.Kind != KindString):
+		return shapeErr("bucket member %q must be a string label of an input", f.Key)
+	case f.Owner && (!input || f.Loc != LocHeader || f.Shape.Kind != KindString || f.Required):
+		return shapeErr("owner member %q must be an optional string header of an input", f.Key)
+	case f.Stream && (f.Loc != LocPayload || f.Shape.Kind != KindBlob):
+		return shapeErr("stream member %q must be a payload blob", f.Key)
+	case f.ContentType && (!input || f.Loc != LocHeader || f.Shape.Kind != KindString || !strings.EqualFold(f.Name, "content-type")):
+		return shapeErr("content type member %q must be the Content-Type header of an input", f.Key)
+	}
+	return nil
+}
+
+var xmlNameForm = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_.-]{0,63}(:[A-Za-z_][A-Za-z0-9_.-]{0,63})?$`)
+var xmlPrefixForm = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_.-]{0,31}$`)
+
+func (n Namespace) valid() bool {
+	if n == (Namespace{}) {
+		return true
+	}
+	return n.URI != "" && len(n.URI) <= 256 && validName(n.URI) && (n.Prefix == "" || xmlPrefixForm.MatchString(n.Prefix))
+}
+
+// xmlCheck validates the XML members of a field of a structure; top says it is a member of the top level.
+func (f Field) xmlCheck(top bool) error {
+	if !f.Namespace.valid() {
+		return shapeErr("member %q has a malformed namespace", f.Key)
+	}
+	if f.Flattened && f.Shape.Kind != KindList && f.Shape.Kind != KindMap {
+		return shapeErr("member %q is flattened but not a list or map", f.Key)
+	}
+	if f.Attribute && (!textScalar(f.Shape) || f.Flattened) {
+		return shapeErr("member %q is an attribute but not a scalar", f.Key)
+	}
+	if f.Unwrapped && (!top || !textScalar(f.Shape) || f.Attribute || f.Flattened) {
+		return shapeErr("member %q cannot be the unwrapped member", f.Key)
+	}
+	if (f.Attribute || f.Flattened || f.Unwrapped) && f.Loc != LocBody {
+		return shapeErr("member %q has an XML form but is not a body member", f.Key)
+	}
+	return nil
 }
 
 // ErrShape reports a description that is not a valid operation. It is a defect of the description, and the
@@ -131,6 +224,9 @@ var reservedHeaders = map[string]bool{
 	"transfer-encoding": true, "connection": true, "expect": true, "user-agent": true,
 	"x-amz-date": true, "x-amz-security-token": true, "x-amz-content-sha256": true,
 }
+
+// ReservedHeader reports a request header the protocol or the signature owns, which no member may set.
+func ReservedHeader(name string) bool { return reservedHeaders[strings.ToLower(name)] }
 
 func isScalar(k Kind) bool {
 	switch k {
@@ -167,6 +263,9 @@ func (s *Shape) validate(depth int) error {
 	if s.Union && s.Kind != KindStruct {
 		return shapeErr("only a structure can be a union")
 	}
+	if err := s.xmlCheck(); err != nil {
+		return err
+	}
 	switch s.Kind {
 	case KindString, KindInteger, KindFloat, KindBoolean, KindTimestamp, KindBlob, KindDocument:
 	case KindStruct:
@@ -178,6 +277,15 @@ func (s *Shape) validate(depth int) error {
 			keys[f.Key], names[f.Name] = true, true
 			if f.Loc != LocBody || f.IdempotencyToken {
 				return shapeErr("member %q: only a top-level member has a place or a token", f.Key)
+			}
+			if f.Shape == nil {
+				return shapeErr("member %q has no shape", f.Key)
+			}
+			if err := f.xmlCheck(false); err != nil {
+				return err
+			}
+			if f.Bucket || f.Owner || f.Stream || f.ContentType {
+				return shapeErr("member %q: only a top-level member has a layer role", f.Key)
 			}
 			if err := f.Shape.validate(depth + 1); err != nil {
 				return err
@@ -196,6 +304,8 @@ func (s *Shape) validate(depth int) error {
 
 // topLevel is what the top-level members of an input or output bind to.
 type topLevel struct {
+	// src is the structure the members came from.
+	src     *Shape
 	body    []Field
 	payload *Field
 	labels  map[string]Field
@@ -205,7 +315,7 @@ type topLevel struct {
 
 // classify validates the top level of an input or output and sorts its members by place.
 func classify(s *Shape, input bool) (topLevel, error) {
-	t := topLevel{labels: map[string]Field{}, byLoc: map[Loc][]Field{}}
+	t := topLevel{src: s, labels: map[string]Field{}, byLoc: map[Loc][]Field{}}
 	if s == nil {
 		return t, nil
 	}
@@ -231,6 +341,12 @@ func classify(s *Shape, input bool) (topLevel, error) {
 			return t, shapeErr("member %q: the place does not apply to this direction", f.Key)
 		}
 		if err := f.Shape.validate(1); err != nil {
+			return t, err
+		}
+		if err := f.xmlCheck(true); err != nil {
+			return t, err
+		}
+		if err := f.layerCheck(input); err != nil {
 			return t, err
 		}
 		unique := func(place string) error {
@@ -283,7 +399,8 @@ func classify(s *Shape, input bool) (topLevel, error) {
 			if f.Shape.Kind == KindList {
 				elem = f.Shape.Elem
 			}
-			if !headerToken.MatchString(f.Name) || reservedHeaders[strings.ToLower(f.Name)] || !textScalar(elem) {
+			// An answer may be read from a header the request cannot set (Content-Type, Content-Length).
+			if !headerToken.MatchString(f.Name) || (input && ReservedHeader(f.Name) && !f.ContentType) || !textScalar(elem) {
 				return t, shapeErr("header member %q has a reserved or malformed name or an unsupported type", f.Key)
 			}
 			if err := unique("header"); err != nil {
@@ -320,11 +437,52 @@ func classify(s *Shape, input bool) (topLevel, error) {
 	if t.payload != nil && len(t.body) > 0 {
 		return t, shapeErr("a payload member excludes members bound to the body")
 	}
+	for _, f := range t.body {
+		if f.Unwrapped && (input || len(t.body) != 1) {
+			return t, shapeErr("the unwrapped member must be the only body member of an output")
+		}
+	}
 	if len(t.byLoc[LocResponseCode]) > 1 {
 		return t, shapeErr("more than one response code member")
 	}
 	return t, nil
 }
 
-// bodyShape is the synthetic structure of the members that live in the document body.
-func (t topLevel) bodyShape() *Shape { return &Shape{Kind: KindStruct, Fields: t.body} }
+// bodyShape is the synthetic structure of the members that live in the document body. It keeps the XML root
+// of the input or output structure, which a codec of an XML protocol needs.
+func (t topLevel) bodyShape() *Shape {
+	b := &Shape{Kind: KindStruct, Fields: t.body}
+	if t.src != nil {
+		b.XMLName, b.Namespace = t.src.XMLName, t.src.Namespace
+	}
+	return b
+}
+
+// xmlCheck validates the XML members of a shape.
+func (s *Shape) xmlCheck() error {
+	for _, n := range []string{s.XMLName, s.ElemName, s.KeyName, s.ValueName} {
+		if n != "" && !xmlNameForm.MatchString(n) {
+			return shapeErr("an XML element name is malformed")
+		}
+	}
+	if !s.Namespace.valid() || (s.Namespace != (Namespace{}) && s.Kind != KindStruct) {
+		return shapeErr("a namespace is malformed or not on a structure")
+	}
+	if (s.ElemName != "" && s.Kind != KindList) || ((s.KeyName != "" || s.ValueName != "") && s.Kind != KindMap) {
+		return shapeErr("an element name is on a shape of the wrong kind")
+	}
+	if len(s.Prefixes) > 0 {
+		if s.Kind != KindString || len(s.Prefixes) > 4 {
+			return shapeErr("prefixes are for a string shape, at most four")
+		}
+		for _, p := range s.Prefixes {
+			if p == "" || len(p) > 64 || !validName(p) {
+				return shapeErr("a prefix is empty or malformed")
+			}
+		}
+	}
+	return nil
+}
+
+// ValidXMLName reports whether n is a name the XML codec may write as an element or attribute name.
+func ValidXMLName(n string) bool { return xmlNameForm.MatchString(n) }

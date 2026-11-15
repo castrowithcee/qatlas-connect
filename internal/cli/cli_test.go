@@ -11,8 +11,9 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/castrowithcee/qatlas-connect/internal/application"
-	"github.com/castrowithcee/qatlas-connect/internal/output"
 	"github.com/castrowithcee/qatlas-connect/internal/secret"
+	kitcli "github.com/castrowithcee/qatlas-kit/cli"
+	"github.com/castrowithcee/qatlas-kit/output"
 	"github.com/castrowithcee/qatlas-kit/redact"
 )
 
@@ -157,6 +158,14 @@ func TestRemovedGlobalFlagsAreGone(t *testing.T) {
 	}
 }
 
+// exitCodeOf is the process exit code the command line gives err.
+func exitCodeOf(err error) int {
+	if err == nil {
+		return exitOK
+	}
+	return kitcli.ExitCode(failureFor(err, output.FormatTable, &redact.Redactor{}))
+}
+
 func TestExitCode(t *testing.T) {
 	tests := []struct {
 		name string
@@ -178,8 +187,8 @@ func TestExitCode(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := exitCode(tt.err); got != tt.want {
-				t.Errorf("exitCode(%v) = %d, want %d", tt.err, got, tt.want)
+			if got := exitCodeOf(tt.err); got != tt.want {
+				t.Errorf("exit code of %v = %d, want %d", tt.err, got, tt.want)
 			}
 		})
 	}
@@ -203,8 +212,8 @@ func TestRunRuntimeError(t *testing.T) {
 	if stdout.Len() != 0 {
 		t.Errorf("stdout = %q, want empty", stdout.String())
 	}
-	if got := stderr.String(); got != "qconnect: runtime: synthetic internal failure\n" {
-		t.Errorf("stderr = %q, want the diagnostic line only", got)
+	if got := stderr.String(); got != "qconnect: runtime: synthetic internal failure\n"+fallbackStep+"\n" {
+		t.Errorf("stderr = %q, want the diagnostic line and the fallback step", got)
 	}
 }
 
@@ -282,15 +291,14 @@ func TestInvalidRequestIsNamedOnce(t *testing.T) {
 func TestOptionsAreParsed(t *testing.T) {
 	opts := &Options{}
 	cmd := newRootCommand(opts, sharedRegistry())
-	cmd.SetArgs([]string{"--config", "/tmp/c.yaml", "--connection", "wiki", "--agent", "--output", "compact"})
-	cmd.SetOut(new(bytes.Buffer))
-	cmd.SetErr(new(bytes.Buffer))
-
-	if err := cmd.Execute(); err != nil {
-		t.Fatalf("Execute() = %v, want nil", err)
+	var stderr bytes.Buffer
+	code := run(cmd, opts, []string{"--config", "/tmp/c.yaml", "--connection", "wiki", "--agent", "--output", "compact"},
+		new(bytes.Buffer), &stderr)
+	if code != exitOK {
+		t.Fatalf("run = %d, stderr %q, want 0", code, stderr.String())
 	}
 
-	if opts.Config != "/tmp/c.yaml" || opts.Connection != "wiki" || !opts.Agent || opts.Output != "compact" {
+	if opts.Config != "/tmp/c.yaml" || opts.Connection != "wiki" || !opts.Agent || opts.Format != output.FormatCompact {
 		t.Errorf("options = %+v", *opts)
 	}
 }
@@ -382,5 +390,38 @@ func TestAgentFlagHelpNamesEffects(t *testing.T) {
 		if !strings.Contains(flag.Usage, word) {
 			t.Errorf("--agent help %q lacks %q", flag.Usage, word)
 		}
+	}
+}
+
+// A control character in a provider text never reaches the terminal as itself: the table and compact
+// formats show it as an escape, and an unrepresentable value is refused before anything is written.
+func TestEmitMasksControlCharacters(t *testing.T) {
+	hostile := "ok\x1b[2J\x07\nnext"
+	results := map[string]output.Result{
+		"collection": output.Collection{Columns: []string{"title"}, Rows: []output.Row{{"title": hostile}}},
+		"object":     output.Object{Fields: []output.Field{{Name: "title", Value: hostile}}},
+	}
+	for name, result := range results {
+		for _, format := range []output.Format{output.FormatTable, output.FormatCompact} {
+			cmd := &cobra.Command{}
+			var stdout bytes.Buffer
+			cmd.SetOut(&stdout)
+			if err := emit(cmd, &Options{Format: format}, result); err != nil {
+				t.Fatalf("%s %s: emit() = %v", name, format, err)
+			}
+			if strings.ContainsAny(stdout.String(), "\x1b\x07") || strings.Count(stdout.String(), "\n") > 2 {
+				t.Errorf("%s %s: control characters reach the output: %q", name, format, stdout.String())
+			}
+		}
+	}
+
+	var unsupported *output.UnsupportedValueError
+	cmd := &cobra.Command{}
+	var stdout bytes.Buffer
+	cmd.SetOut(&stdout)
+	err := emit(cmd, &Options{Format: output.FormatTable},
+		output.Object{Fields: []output.Field{{Name: "nested", Value: []any{"a"}}}})
+	if !errors.As(err, &unsupported) || stdout.Len() != 0 {
+		t.Errorf("a nested value: err %v, stdout %q, want an UnsupportedValueError and no output", err, stdout.String())
 	}
 }

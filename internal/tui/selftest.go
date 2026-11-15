@@ -193,7 +193,7 @@ func (m *Model) endSelftest() {
 func (m *Model) updateSelftest(key tea.KeyPressMsg) tea.Cmd {
 	st := m.st
 	if !st.done {
-		if key.String() == keyOf(actBack) {
+		if keyIs(key, actBack) {
 			m.endSelftest()
 		}
 		return nil

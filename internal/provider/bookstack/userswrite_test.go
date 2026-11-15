@@ -14,8 +14,8 @@ import (
 	"testing"
 
 	"github.com/castrowithcee/qatlas-connect/internal/capability"
-	"github.com/castrowithcee/qatlas-connect/internal/output"
 	"github.com/castrowithcee/qatlas-connect/internal/provider"
+	"github.com/castrowithcee/qatlas-kit/output"
 )
 
 // userServer serves users and the guest role; role 5 is the guest role and user 99 its only member.

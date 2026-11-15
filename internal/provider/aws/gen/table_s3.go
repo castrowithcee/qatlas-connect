@@ -1,0 +1,72 @@
+package gen
+
+import "slices"
+
+// deferS3 is the reason for every s3 operation not yet taken: the S3 tools move each operation they take into
+// operations or exclude.
+const deferS3 = "not curated yet; the S3 service package decides effect, confirmation and bucket target first"
+
+// s3Table curates the s3 model. The bucket and object tools without a local file are tools; every other operation waits for the S3 tools that follow.
+var s3Table = Table{
+	Service: "s3", Segment: "s3", Geltung: Regional,
+	Operations: slices.Concat(s3BucketTools, s3BucketWriteTools, s3ConfigTools, s3ConfigWriteTools, s3ObjectLockTools, s3PolicyTools, s3PolicyWriteTools, s3ObjectTools, s3TransferTools, s3ReportTools, s3MultipartTools),
+	// These S3 lists continue at a KeyMarker with a second marker, which the model leaves out of its paging.
+	Pagers: []PagerSpec{
+		{Operation: "ListBucketInventoryConfigurations", Truncated: "IsTruncated", Positions: []PositionSpec{{In: "ContinuationToken", Out: "NextContinuationToken", Required: true}}},
+		{Operation: "ListBucketAnalyticsConfigurations", Truncated: "IsTruncated", Positions: []PositionSpec{{In: "ContinuationToken", Out: "NextContinuationToken", Required: true}}},
+		{Operation: "ListObjectVersions", Truncated: "IsTruncated", PageSize: "MaxKeys", Positions: []PositionSpec{
+			{In: "KeyMarker", Out: "NextKeyMarker", Required: true},
+			{In: "VersionIdMarker", Out: "NextVersionIdMarker"}}},
+		{Operation: "ListMultipartUploads", Truncated: "IsTruncated", PageSize: "MaxUploads", Positions: []PositionSpec{
+			{In: "KeyMarker", Out: "NextKeyMarker", Required: true},
+			{In: "UploadIdMarker", Out: "NextUploadIdMarker"}}},
+	},
+	Exclude: []Omission{
+		{Operation: "DeleteBucketOwnershipControls", Reason: "removing the controls falls back to ObjectWriter, under which ACLs take effect; the ownership is only set to BucketOwnerEnforced, never loosened"},
+		{Operation: "DeletePublicAccessBlock", Reason: "removing the block is a loosening the public access block check cannot see; the block is only kept or tightened"},
+		{Operation: "PutBucketAcl", Reason: "ACLs can open a bucket to the public and bypass the public access block checks of the tools; buckets are created with ACLs off"},
+		{Operation: "PutObjectAcl", Reason: "ACLs can open an object to the public; ACLs are not offered"},
+		{Operation: "PutBucketWebsite", Reason: "a website endpoint publishes the bucket's objects over plain http; hosting is not offered"},
+		{Operation: "PutBucketLogging", Reason: "access logs can be delivered to a bucket of another account, and nothing checks the target; writing is not offered"},
+		{Operation: "PutBucketNotificationConfiguration", Reason: "events can be sent to topics, queues, and functions of other accounts, and nothing checks the target; writing is not offered"},
+		{Operation: "PutBucketReplication", Reason: "objects can be copied to a bucket of another account, and nothing checks the target; writing is not offered"},
+		{Operation: "DeleteBucketReplication", Reason: "replication is not offered as a write, and removing it is a change to the same configuration"},
+	},
+	Defer: []Omission{
+		{Operation: "PutBucketLifecycleConfiguration", Reason: "waits until the confirmation of a call can name the rules it sets; not offered yet"},
+		{Operation: "PutBucketCors", Reason: "waits until the confirmation of a call can name the rules it sets; not offered yet"},
+		{Operation: "CreateBucketMetadataConfiguration", Reason: deferS3},
+		{Operation: "CreateBucketMetadataTableConfiguration", Reason: deferS3},
+		{Operation: "CreateSession", Reason: deferS3},
+		{Operation: "DeleteBucketIntelligentTieringConfiguration", Reason: deferS3},
+		{Operation: "DeleteBucketMetadataConfiguration", Reason: deferS3},
+		{Operation: "DeleteBucketMetadataTableConfiguration", Reason: deferS3},
+		{Operation: "DeleteBucketMetricsConfiguration", Reason: deferS3},
+		{Operation: "DeleteBucketWebsite", Reason: deferS3},
+		{Operation: "DeleteObjectAnnotation", Reason: deferS3},
+		{Operation: "GetBucketAbac", Reason: deferS3},
+		{Operation: "GetBucketIntelligentTieringConfiguration", Reason: deferS3},
+		{Operation: "GetBucketMetadataConfiguration", Reason: deferS3},
+		{Operation: "GetBucketMetadataTableConfiguration", Reason: deferS3},
+		{Operation: "GetBucketMetricsConfiguration", Reason: deferS3},
+		{Operation: "GetObjectAnnotation", Reason: deferS3},
+		{Operation: "GetObjectTorrent", Reason: deferS3},
+		{Operation: "ListBucketIntelligentTieringConfigurations", Reason: deferS3},
+		{Operation: "ListBucketMetricsConfigurations", Reason: deferS3},
+		{Operation: "ListDirectoryBuckets", Reason: deferS3},
+		{Operation: "ListObjectAnnotations", Reason: deferS3},
+		{Operation: "ListObjects", Reason: deferS3},
+		{Operation: "PutBucketAbac", Reason: deferS3},
+		{Operation: "PutBucketAccelerateConfiguration", Reason: deferS3},
+		{Operation: "PutBucketIntelligentTieringConfiguration", Reason: deferS3},
+		{Operation: "PutBucketMetricsConfiguration", Reason: deferS3},
+		{Operation: "PutObjectAnnotation", Reason: deferS3},
+		{Operation: "RenameObject", Reason: deferS3},
+		{Operation: "SelectObjectContent", Reason: deferS3},
+		{Operation: "UpdateBucketMetadataAnnotationTableConfiguration", Reason: deferS3},
+		{Operation: "UpdateBucketMetadataInventoryTableConfiguration", Reason: deferS3},
+		{Operation: "UpdateBucketMetadataJournalTableConfiguration", Reason: deferS3},
+		{Operation: "UpdateObjectEncryption", Reason: deferS3},
+		{Operation: "WriteGetObjectResponse", Reason: deferS3},
+	},
+}

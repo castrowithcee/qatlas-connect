@@ -6,6 +6,7 @@ import (
 
 	"charm.land/lipgloss/v2"
 	"github.com/castrowithcee/qatlas-kit/i18n"
+	kittui "github.com/castrowithcee/qatlas-kit/tui"
 	"github.com/charmbracelet/x/ansi"
 )
 
@@ -48,7 +49,7 @@ func TestClickOnCancelCancelsTheQuestion(t *testing.T) {
 // Only a question that destroys something draws its answer as the danger button.
 func TestOnlyDestructiveQuestionsHaveADangerButton(t *testing.T) {
 	restoreRenderer(t)
-	setProfile(profileTrueColor)
+	setProfile(kittui.ProfileTrueColor)
 	t.Setenv("NO_COLOR", "")
 	useDarkColours()
 	danger := button(buttonDanger, "Delete", false)
@@ -67,7 +68,7 @@ func TestOnlyDestructiveQuestionsHaveADangerButton(t *testing.T) {
 
 func TestDialogsReadWithoutColour(t *testing.T) {
 	restoreRenderer(t)
-	setProfile(profileASCII)
+	setProfile(kittui.ProfileMono)
 	useDarkColours()
 
 	question := openDeleteQuestion(t)
@@ -95,7 +96,7 @@ func TestDialogsReadWithoutColour(t *testing.T) {
 // The secret field is a surface and shows the mask, never the typed value.
 func TestSecretFieldIsMaskedOnItsSurface(t *testing.T) {
 	restoreRenderer(t)
-	setProfile(profileTrueColor)
+	setProfile(kittui.ProfileTrueColor)
 	t.Setenv("NO_COLOR", "")
 	useDarkColours()
 	m, _ := startServiceForm(t)
@@ -103,7 +104,7 @@ func TestSecretFieldIsMaskedOnItsSurface(t *testing.T) {
 	m.screen, m.secretInput = screenSecret, maskedInput()
 	m.secretInput.SetValue("canary-secret")
 	view := m.render()
-	surface := lipgloss.NewStyle().Background(styles.palette.surface.lip()).Render("x")
+	surface := lipgloss.NewStyle().Background(lip(styles.Palette().Surface)).Render("x")
 	if !strings.Contains(view, surface[:strings.Index(surface, "x")]) {
 		t.Errorf("the field has no surface:\n%s", view)
 	}

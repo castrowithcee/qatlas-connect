@@ -7,7 +7,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"regexp"
 	"strconv"
 	"strings"
 	"testing"
@@ -76,19 +75,24 @@ func earlierVaultProcessCase(t *testing.T, current, earlier string, atDefault bo
 	before := &runner{bin: earlier, seen: &seen, env: env}
 	// Whatever the test did, both programs lock what they reach; removing the runtime directory afterwards
 	// makes any vault process left lock itself too.
+	var registered []int
 	t.Cleanup(func() {
 		_, _, _ = before.run(t, "vault", "lock")
 		_, _, _ = now.run(t, "vault", "lock")
+		for _, pid := range registered {
+			unregisterVaultProcess(pid)
+		}
 	})
 
 	unlockEarlier := func() string {
 		t.Helper()
 		out, code := runAtTerminal(t, before, passphrase+"\n", "vault", "unlock")
-		match := regexp.MustCompile(`unlocked in a vault process \(pid (\d+)\)`).FindStringSubmatch(out)
-		if code != 0 || match == nil {
+		pid, ok := unlockedVaultPID(out, before.bin)
+		if code != 0 || !ok {
 			t.Fatalf("unlock of the earlier program: exit %d, output %q", code, out)
 		}
-		return match[1]
+		registered = append(registered, pid)
+		return strconv.Itoa(pid)
 	}
 	type statusDoc struct {
 		Process string `json:"process"`
@@ -127,12 +131,13 @@ func earlierVaultProcessCase(t *testing.T, current, earlier string, atDefault bo
 	pid = unlockEarlier()
 	out, code := runAtTerminal(t, now, passphrase+"\n", "vault", "unlock")
 	ended := strings.Index(out, "ended the vault process of the "+earlierNote+" (pid "+pid+")")
-	match := regexp.MustCompile(`unlocked in a vault process \(pid (\d+)\)`).FindStringSubmatchIndex(out)
-	if code != 0 || ended < 0 || match == nil || match[0] < ended {
+	started, ok := unlockedVaultPID(out, now.bin)
+	match := unlockedPIDPattern.FindStringIndex(out)
+	if code != 0 || ended < 0 || !ok || match[0] < ended {
 		t.Fatalf("unlock: exit %d, output %q, want process %s ended before a process of this release starts", code,
 			out, pid)
 	}
-	started, _ := strconv.Atoi(out[match[2]:match[3]])
+	registered = append(registered, started)
 	if got := status(now); got.Process != "running" || int(got.PID) != started || strings.Contains(got.Warning, earlierNote) {
 		t.Fatalf("status after the unlock = %+v, want process %d of this release alone", got, started)
 	}

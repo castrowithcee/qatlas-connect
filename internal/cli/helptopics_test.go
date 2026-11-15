@@ -3,18 +3,19 @@ package cli
 import (
 	"bytes"
 	"encoding/json"
-	"reflect"
 	"regexp"
+	"slices"
 	"strings"
 	"testing"
 
 	"github.com/spf13/cobra"
 
+	"github.com/castrowithcee/qatlas-connect/internal/application"
 	"github.com/castrowithcee/qatlas-connect/internal/capability"
 	"github.com/castrowithcee/qatlas-connect/internal/helptopics"
-	"github.com/castrowithcee/qatlas-connect/internal/output"
 	"github.com/castrowithcee/qatlas-connect/internal/selfupdate"
 	kithelp "github.com/castrowithcee/qatlas-kit/helptopics"
+	"github.com/castrowithcee/qatlas-kit/output"
 )
 
 // Every topic is printed by 'qconnect help <topic>' as exactly its text, and the root help lists it.
@@ -98,14 +99,26 @@ func TestHelpTopicsNameWhatExists(t *testing.T) {
 	}
 
 	agents := topicText(t, "agents")
-	// Every code this build can emit is listed once, in the order the documentation shows them, each with
-	// what it means.
+	// Every code this build can emit is listed once, grouped by exit code, each with what it means. The kit
+	// also defines confirmation-declined, which no command of this build emits, so it is not documented.
 	var listed []output.Code
 	for _, match := range listedCode.FindAllStringSubmatch(agents, -1) {
 		listed = append(listed, output.Code(match[1]))
 	}
-	if !reflect.DeepEqual(listed, output.AllCodes()) {
-		t.Errorf("the agents topic lists the error codes\n%v\nwant\n%v", listed, output.AllCodes())
+	all, err := application.AllErrorCodes()
+	if err != nil {
+		t.Fatal(err)
+	}
+	var want []output.Code
+	for _, code := range all {
+		if code != output.CodeConfirmationDeclined {
+			want = append(want, code)
+		}
+	}
+	slices.Sort(listed)
+	slices.Sort(want)
+	if !slices.Equal(listed, want) {
+		t.Errorf("the agents topic lists the error codes\n%v\nwant\n%v", listed, want)
 	}
 	// Discovery starts with the providers and narrows step by step to one invocation.
 	last := -1

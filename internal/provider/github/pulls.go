@@ -495,6 +495,12 @@ func pullRequestOperations() []capability.Operation {
 		bind(pullBranchesUpdate, checkPullBranchUpdateArguments, func(ctx context.Context, c *Client, a *pullArguments) (any, error) {
 			return c.updatePullRequestBranch(ctx, a.Number, a.ExpectedHeadSHA)
 		}),
+		bind(pullAutoMergeEnable, checkPullAutoMergeEnableArguments, func(ctx context.Context, c *Client, a *pullArguments) (any, error) {
+			return c.enablePullRequestAutoMerge(ctx, a)
+		}),
+		bind(pullAutoMergeDisable, checkPullNumberArgument, func(ctx context.Context, c *Client, a *pullArguments) (any, error) {
+			return c.disablePullRequestAutoMerge(ctx, a.Number)
+		}),
 		bind(pullsMerge, checkPullMergeArguments, func(ctx context.Context, c *Client, a *pullArguments) (any, error) {
 			return c.mergePullRequest(ctx, a)
 		}),
@@ -533,6 +539,7 @@ type pullArguments struct {
 	MaintainerCanModify *bool   `json:"maintainer_can_modify"`
 	SHA                 string  `json:"sha"`
 	Method              string  `json:"method"`
+	MergeMethod         string  `json:"merge_method"`
 	CommitTitle         string  `json:"commit_title"`
 	CommitMessage       string  `json:"commit_message"`
 	ExpectedHeadSHA     string  `json:"expected_head_sha"`
@@ -908,6 +915,9 @@ type pullJSON struct {
 	RequestedReviewers []struct {
 		Login string `json:"login"`
 	} `json:"requested_reviewers"`
+	AutoMerge *struct {
+		MergeMethod string `json:"merge_method"`
+	} `json:"auto_merge"`
 	Merged         bool    `json:"merged"`
 	Mergeable      *bool   `json:"mergeable"`
 	MergeableState string  `json:"mergeable_state"`

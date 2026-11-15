@@ -23,6 +23,7 @@ import (
 	"github.com/castrowithcee/qatlas-connect/internal/selftest"
 	"github.com/castrowithcee/qatlas-connect/internal/uiprefs"
 	"github.com/castrowithcee/qatlas-connect/internal/vault"
+	kittui "github.com/castrowithcee/qatlas-kit/tui"
 )
 
 // The visual snapshots render the main screens of the editor from a fixed demo setup and compare the raw
@@ -95,11 +96,11 @@ func visualSetup(t *testing.T, noColor bool) {
 	t.Setenv("TERM", "xterm-256color")
 	// The no-colour snapshots run on the profile of NO_COLOR at a terminal, which keeps the attributes.
 	if noColor {
-		setProfile(profileASCII)
+		setProfile(kittui.ProfileMono)
 	} else {
-		setProfile(profileTrueColor)
+		setProfile(kittui.ProfileTrueColor)
 	}
-	termFg, termBg = nil, nil
+	termColors = kittui.TerminalColors{}
 	t.Setenv("NO_COLOR", "")
 	t.Chdir(t.TempDir())
 }
@@ -328,7 +329,7 @@ func visualShots() []visualShot {
 // visualProfileShot is a snapshot rendered under a forced colour profile of the terminal.
 type visualProfileShot struct {
 	visualShot
-	profile colorProfile
+	profile kittui.ColorProfile
 }
 
 // visualProfileShots are the colour-profile variants of the Overview and the Connections list, numbered 60 to 69.
@@ -337,13 +338,13 @@ func visualProfileShots() []visualProfileShot {
 	overview := func(*testing.T, *Model) {}
 	connections := func(t *testing.T, m *Model) { pump(t, m, "3") }
 	return []visualProfileShot{
-		{visualShot{"60-overview-256", 150, 42, dark, false, overview}, profile256},
-		{visualShot{"61-connections-256", 150, 42, dark, false, connections}, profile256},
-		{visualShot{"62-overview-16", 150, 42, dark, false, overview}, profile16},
-		{visualShot{"63-connections-16", 150, 42, dark, false, connections}, profile16},
-		{visualShot{"64-connections-light", 150, 42, light, false, connections}, profileTrueColor},
-		{visualShot{"65-connections-qatlas-background", 150, 42, dark, false, connections}, profileTrueColor},
-		{visualShot{"66-connections-no-color", 150, 42, dark, true, connections}, profileASCII},
+		{visualShot{"60-overview-256", 150, 42, dark, false, overview}, kittui.ProfileANSI256},
+		{visualShot{"61-connections-256", 150, 42, dark, false, connections}, kittui.ProfileANSI256},
+		{visualShot{"62-overview-16", 150, 42, dark, false, overview}, kittui.ProfileANSI16},
+		{visualShot{"63-connections-16", 150, 42, dark, false, connections}, kittui.ProfileANSI16},
+		{visualShot{"64-connections-light", 150, 42, light, false, connections}, kittui.ProfileTrueColor},
+		{visualShot{"65-connections-qatlas-background", 150, 42, dark, false, connections}, kittui.ProfileTrueColor},
+		{visualShot{"66-connections-no-color", 150, 42, dark, true, connections}, kittui.ProfileMono},
 	}
 }
 
@@ -365,20 +366,20 @@ func visualTerminalShots() []visualTerminalShot {
 		pump(t, m, "down", "down", "tab", "right")
 	}
 	settings := func(t *testing.T, m *Model) { openSectionByName(t, m, sectionGeneral) }
-	shot := func(name string, show func(*testing.T, *Model), profile colorProfile, fg, bg string) visualTerminalShot {
+	shot := func(name string, show func(*testing.T, *Model), profile kittui.ColorProfile, fg, bg string) visualTerminalShot {
 		return visualTerminalShot{visualProfileShot{visualShot{name, 150, 42, uiprefs.ThemeTerminal, false, show}, profile}, fg, bg}
 	}
 	return []visualTerminalShot{
-		shot("70-overview-terminal-dark", overview, profileTrueColor, darkFg, darkBg),
-		shot("71-connections-terminal-dark", connections, profileTrueColor, darkFg, darkBg),
-		shot("72-connection-details-terminal-dark", details, profileTrueColor, darkFg, darkBg),
-		shot("73-settings-terminal-dark", settings, profileTrueColor, darkFg, darkBg),
-		shot("74-activity-heatmap-terminal-dark", activityHeatmap, profileTrueColor, darkFg, darkBg),
-		shot("75-overview-terminal-light", overview, profileTrueColor, lightFg, lightBg),
-		shot("76-connections-terminal-light", connections, profileTrueColor, lightFg, lightBg),
-		shot("77-overview-terminal-no-answer", overview, profileTrueColor, "", ""),
-		shot("78-connections-terminal-no-answer", connections, profileTrueColor, "", ""),
-		shot("79-connections-terminal-256", connections, profile256, darkFg, darkBg),
+		shot("70-overview-terminal-dark", overview, kittui.ProfileTrueColor, darkFg, darkBg),
+		shot("71-connections-terminal-dark", connections, kittui.ProfileTrueColor, darkFg, darkBg),
+		shot("72-connection-details-terminal-dark", details, kittui.ProfileTrueColor, darkFg, darkBg),
+		shot("73-settings-terminal-dark", settings, kittui.ProfileTrueColor, darkFg, darkBg),
+		shot("74-activity-heatmap-terminal-dark", activityHeatmap, kittui.ProfileTrueColor, darkFg, darkBg),
+		shot("75-overview-terminal-light", overview, kittui.ProfileTrueColor, lightFg, lightBg),
+		shot("76-connections-terminal-light", connections, kittui.ProfileTrueColor, lightFg, lightBg),
+		shot("77-overview-terminal-no-answer", overview, kittui.ProfileTrueColor, "", ""),
+		shot("78-connections-terminal-no-answer", connections, kittui.ProfileTrueColor, "", ""),
+		shot("79-connections-terminal-256", connections, kittui.ProfileANSI256, darkFg, darkBg),
 	}
 }
 
@@ -387,7 +388,7 @@ func visualBuiltinShots() []visualProfileShot {
 	overview := func(*testing.T, *Model) {}
 	connections := func(t *testing.T, m *Model) { pump(t, m, "3") }
 	shot := func(name, theme string, show func(*testing.T, *Model)) visualProfileShot {
-		return visualProfileShot{visualShot{name, 150, 42, theme, false, show}, profileTrueColor}
+		return visualProfileShot{visualShot{name, 150, 42, theme, false, show}, kittui.ProfileTrueColor}
 	}
 	return []visualProfileShot{
 		shot("80-overview-catppuccin-mocha", "catppuccin mocha", overview),
@@ -408,9 +409,9 @@ func TestVisualSnapshots(t *testing.T) {
 	}
 	shots := make([]visualTerminalShot, 0, 90)
 	for _, shot := range visualShots() {
-		p := profileTrueColor
+		p := kittui.ProfileTrueColor
 		if shot.noColor {
-			p = profileASCII
+			p = kittui.ProfileMono
 		}
 		shots = append(shots, visualTerminalShot{visualProfileShot: visualProfileShot{shot, p}})
 	}
@@ -459,8 +460,8 @@ func TestVisualSnapshots(t *testing.T) {
 				case shot.theme == uiprefs.ThemeQatlasLight:
 					pal = htmlLight
 				default:
-					if d, ok := themeNamed(shot.theme); ok && d.paints && styles.palette.base != "" {
-						pal = htmlPalette{htmlDark.page, string(styles.palette.base), string(styles.palette.text)}
+					if styles.filled {
+						pal = htmlPalette{htmlDark.page, string(styles.Palette().Base), string(styles.Palette().Text)}
 					}
 				}
 				page := ansiToHTML(view, name, pal)

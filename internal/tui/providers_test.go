@@ -24,6 +24,7 @@ import (
 	"github.com/castrowithcee/qatlas-connect/internal/provider/todoist"
 	"github.com/castrowithcee/qatlas-connect/internal/provider/twentycrm"
 	"github.com/castrowithcee/qatlas-kit/redact"
+	kittui "github.com/castrowithcee/qatlas-kit/tui"
 )
 
 var shippedRegistry struct {
@@ -479,12 +480,12 @@ func TestProviderTableRowsAreHighlightedFullWidthReadWithoutColourAndSearchByTyp
 		}
 		marked, alt := "p000", "p001"
 
-		setProfile(profileNone)
+		setProfile(kittui.ProfileNone)
 		if view := screenOf(m); !strings.Contains(view, "Type to search") {
 			t.Errorf("width %d: the empty provider table shows no 'Type to search' placeholder:\n%s", width, view)
 		}
 
-		setProfile(profile16)
+		setProfile(kittui.ProfileANSI16)
 		coloured := screenOf(m)
 		assertViewFits(t, coloured, width, m.height+1)
 		if row := findRow(coloured, marked); !hasBackground(row) {
@@ -494,7 +495,7 @@ func TestProviderTableRowsAreHighlightedFullWidthReadWithoutColourAndSearchByTyp
 			t.Errorf("width %d: the unmarked provider row carries colour, so it is not shaded: %q\n%s", width, row, coloured)
 		}
 
-		setProfile(profileNone)
+		setProfile(kittui.ProfileNone)
 		plain := screenOf(m)
 		assertViewFits(t, plain, width, m.height+1)
 		if strings.Contains(plain, "\x1b") {

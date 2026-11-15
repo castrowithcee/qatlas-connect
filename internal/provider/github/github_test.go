@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"reflect"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -883,6 +884,10 @@ func TestRegisterPublishesMetadataAndTheReadOperations(t *testing.T) {
 			descriptor.Risk.Confirmation != capability.ConfirmationNone ||
 			(descriptor.Risk.DataSensitivity != dataSensitivity && descriptor.ID != jobsLog.ID &&
 				descriptor.ID != actionVariablesList.ID && descriptor.ID != actionVariablesGet.ID &&
+				descriptor.ID != auditLogList.ID &&
+				!slices.Contains(billingToolIDs, descriptor.ID) &&
+				!slices.Contains(secretReadIDs, descriptor.ID) &&
+				!slices.Contains(webhooksReads, descriptor.ID) &&
 				!descriptor.RequiresToolAllowList) {
 			t.Errorf("descriptor %s = %+v, want a safe read", descriptor.ID, descriptor.Risk)
 		}
@@ -890,7 +895,10 @@ func TestRegisterPublishesMetadataAndTheReadOperations(t *testing.T) {
 			// Only the owner lists and the organization tools take an owner, as their target.
 			owners := descriptor.ID == projectsList.ID || descriptor.ID == repositoriesList.ID ||
 				descriptor.ID == organizationTeamsList.ID || descriptor.ID == teamMembersList.ID ||
-				descriptor.ID == issueTypesList.ID || descriptor.ID == organizationAdvisoriesList.ID
+				descriptor.ID == issueTypesList.ID || descriptor.ID == organizationAdvisoriesList.ID ||
+				slices.Contains(teamToolIDs, descriptor.ID) || slices.Contains(organizationToolIDs, descriptor.ID) ||
+				slices.Contains(billingToolIDs, descriptor.ID) || descriptor.ID == appInstallationsList.ID ||
+				descriptor.ID == auditLogList.ID || slices.Contains(packageToolIDs, descriptor.ID)
 			// The searches over the issue index sort by the comment count, which reads no comment.
 			sortsByComments := (descriptor.ID == issuesSearch.ID || descriptor.ID == pullRequestsSearch.ID) &&
 				forbidden == "comments"
@@ -900,37 +908,44 @@ func TestRegisterPublishesMetadataAndTheReadOperations(t *testing.T) {
 			}
 		}
 	}
-	equalSortedIDs(t, ids, []string{"github.accounts.me", "github.action-cache-usage.get", "github.action-caches.list", "github.action-variables.get", "github.action-variables.list", "github.actions-permissions.get", "github.blame.get",
-		"github.branches.get", "github.branches.list", "github.check-annotations.list", "github.check-runs.get", "github.check-runs.list",
-		"github.check-suite-runs.list", "github.check-suites.list", "github.code.search", "github.code-quality-findings.get", "github.code-scanning-alerts.get", "github.code-scanning-alerts.list",
+	equalSortedIDs(t, ids, []string{"github.accounts.me", "github.action-cache-usage.get", "github.action-caches.list", "github.action-secrets.get", "github.action-secrets.list", "github.action-secret-repositories.list", "github.dependabot-secrets.get", "github.dependabot-secrets.list", "github.dependabot-secret-repositories.list", "github.action-variables.get", "github.action-variables.list", "github.actions-access.get", "github.actions-fork-approval.get", "github.actions-oidc.get", "github.actions-permissions.get", "github.actions-retention.get", "github.actions-selected.get", "github.blame.get", "github.hosted-runners.list", "github.runner-groups.get", "github.runner-groups.list",
+		"github.branch-protection.get", "github.branch-rules.get", "github.branches.get", "github.branches.list", "github.check-annotations.list", "github.check-runs.get", "github.check-runs.list",
+		"github.check-suite-runs.list", "github.check-suites.list", "github.code.search", "github.code-quality-findings.get", "github.code-scanning-alerts.get", "github.code-scanning-alerts.list", "github.code-scanning-setup.get", "github.security-settings.get",
 		"github.collaborators.list", "github.commit-branches.list", "github.commit-comments.get", "github.commit-comments.list", "github.commit-pulls.list", "github.compare.get", "github.community-profile.get", "github.contributors.list", "github.stats-contributors.get", "github.stats-commit-activity.get", "github.stats-code-frequency.get", "github.stats-participation.get", "github.stats-punch-card.get", "github.activity.list", "github.languages.get", "github.repositories.get",
 
+		"github.code-security-configuration-repositories.list", "github.code-security-configurations.get",
+		"github.code-security-configurations.list", "github.code-security-defaults.get",
 		"github.comments.list", "github.commits.get", "github.commits.list", "github.commits.search",
 		"github.contents.get", "github.custom-properties.get", "github.dependabot-alerts.get",
-		"github.dependabot-alerts.list", "github.deployment-branch-policies.list",
+		"github.dependabot-alerts.list", "github.dependency-review.compare", "github.deploy-keys.get", "github.deploy-keys.list", "github.deployment-branch-policies.list",
 		"github.deployment-protection-rules.get", "github.deployment-protection-rules.list",
 		"github.deployment-statuses.get", "github.deployment-statuses.list", "github.deployments.get",
 		"github.deployments.list", "github.discussion-categories.list",
-		"github.discussion-comments.list", "github.discussions.get", "github.discussions.list", "github.environments.get", "github.environments.list", "github.gists.get", "github.gists.list", "github.global-advisories.get", "github.global-advisories.list",
+		"github.discussion-comments.list", "github.discussions.get", "github.discussions.list", "github.environments.get", "github.environments.list", "github.gist-comments.get", "github.gist-comments.list", "github.gist-commits.list", "github.gist-forks.list", "github.gists.get", "github.gists.list", "github.followers.list", "github.following.list", "github.blocks.list", "github.global-advisories.get", "github.global-advisories.list",
 		"github.issue-dependencies.list",
 		"github.issue-fields.list",
 		"github.issues.get",
 		"github.issues.list", "github.issues.search", "github.issue-types.list", "github.labels.get", "github.labels.list",
-		"github.milestones.list", "github.notifications.get", "github.notifications.list",
-		"github.organization-advisories.list", "github.organizations.search", "github.project-fields.list",
+		"github.milestones.get", "github.milestones.list", "github.notifications.get", "github.notifications.list",
+		"github.organization-advisories.list", "github.organizations.search", "github.organizations.get", "github.interaction-limits.get",
+		"github.organization-members.list", "github.organization-members.get", "github.organization-roles.list", "github.packages.list", "github.packages.get", "github.package-versions.list", "github.package-versions.get",
+		"github.outside-collaborators.list", "github.organization-invitations.list", "github.project-fields.list",
+		"github.billing-usage.get", "github.billing-usage-summary.get", "github.billing-premium-requests.get",
+		"github.billing-ai-credits.get", "github.billing-budgets.list", "github.billing-budgets.get",
+		"github.app-installations.list", "github.apps.get", "github.audit-log.list",
 		"github.project-items.get", "github.project-items.list", "github.projects.list",
 		"github.project-status.list", "github.project-teams.list", "github.project-views.list", "github.project-workflows.list",
 		"github.pull-request-checks.list", "github.pull-request-checks.wait", "github.pull-request-comments.list", "github.pull-request-commits.list",
 		"github.pull-request-diffs.get", "github.pull-request-files.list", "github.pull-request-review-comments.list",
 		"github.pull-request-reviews.list", "github.pull-request-review-threads.list", "github.pull-requests.get",
 		"github.pull-requests.list", "github.pull-requests.search",
-		"github.release-assets.list", "github.releases.get", "github.releases.list",
-		"github.repositories.list", "github.repositories.search", "github.repository-advisories.list", "github.repository-settings.get", "github.rulesets.get", "github.rulesets.list",
-		"github.secret-scanning-alerts.get", "github.secret-scanning-alerts.list", "github.stars.list", "github.sub-issues.list", "github.tags.get",
-		"github.tags.list", "github.team-members.list",
-		"github.teams.list", "github.traffic-clones.get", "github.traffic-paths.list", "github.traffic-referrers.list",
+		"github.release-assets.list", "github.release-notes.generate", "github.releases.get", "github.releases.list",
+		"github.repositories.list", "github.repositories.search", "github.repository-advisories.list", "github.repository-invitations.list", "github.repository-settings.get", "github.autolinks.get", "github.autolinks.list", "github.rulesets.get", "github.rulesets.list", "github.runner-labels.list", "github.runners.get", "github.runners.list",
+		"github.secret-scanning-alerts.get", "github.secret-scanning-alerts.list", "github.code-scanning-alert-instances.list", "github.code-scanning-analyses.list", "github.code-scanning-analyses.get", "github.secret-scanning-locations.list", "github.stars.list", "github.sub-issues.list", "github.issue-events.list", "github.issue-timeline.list", "github.assignees.list", "github.assignees.check", "github.tags.get",
+		"github.tags.list", "github.team-members.list", "github.team-memberships.get", "github.team-repositories.list",
+		"github.teams.get", "github.teams.list", "github.traffic-clones.get", "github.traffic-paths.list", "github.traffic-referrers.list",
 		"github.traffic-views.get", "github.trees.get", "github.users.search",
-		"github.workflow-artifacts.list", "github.workflow-run-approvals.list", "github.workflow-run-attempts.get",
+		"github.webhook-deliveries.get", "github.webhook-deliveries.list", "github.webhooks.get", "github.webhooks.list", "github.workflow-artifacts.list", "github.workflow-run-approvals.list", "github.workflow-run-attempts.get",
 		"github.workflow-files.get", "github.workflow-files.list", "github.workflow-jobs.get", "github.workflow-jobs.list",
 		"github.workflow-jobs.log", "github.workflow-permissions.get", "github.workflow-runs.get",
 		"github.workflow-runs.list", "github.workflow-runs.usage", "github.workflows.get", "github.workflows.list",
@@ -940,7 +955,7 @@ func TestRegisterPublishesMetadataAndTheReadOperations(t *testing.T) {
 	if jobsLog.Risk.DataSensitivity != logSensitivity {
 		t.Errorf("the job log is classified as %q, want %q", jobsLog.Risk.DataSensitivity, logSensitivity)
 	}
-	if len(metadata.Tools) != 268 {
+	if len(metadata.Tools) != 440 {
 		t.Errorf("tools = %+v, want every operation offered to connection allow-lists", metadata.Tools)
 	}
 }
@@ -1925,6 +1940,14 @@ func ownerFiltersStripped(descriptor capability.Descriptor) string {
 	schema := string(descriptor.InputSchema)
 	if descriptor.ID == secretScanningAlertsList.ID {
 		schema = strings.NewReplacer("owner_email_hash", "", "owner-email", "", "owner-id", "", "owner-name", "").Replace(schema)
+	}
+	if descriptor.ID == branchProtectionSet.ID {
+		// GitHub names a protection setting require_code_owner_reviews; it is no owner argument.
+		schema = strings.ReplaceAll(schema, "require_code_owner_reviews", "")
+	}
+	if descriptor.ID == actionsOIDCSet.ID {
+		// GitHub names two claim keys repository_owner and repository_owner_id; they are no owner argument.
+		schema = strings.ReplaceAll(schema, "repository_owner", "")
 	}
 	if descriptor.ID == projectsList.ID {
 		// The project list takes a bounded search text, which travels as a GraphQL variable.

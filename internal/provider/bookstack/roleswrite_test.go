@@ -12,7 +12,7 @@ import (
 	"testing"
 
 	"github.com/castrowithcee/qatlas-connect/internal/capability"
-	"github.com/castrowithcee/qatlas-connect/internal/output"
+	"github.com/castrowithcee/qatlas-kit/output"
 )
 
 // roleServer serves roles; role 5 is the guest role, role 6 an ordinary role, role 1 the admin role.

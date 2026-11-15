@@ -20,8 +20,8 @@ func connectionForm(t *testing.T, width int) *Model {
 }
 
 func TestInfoKeyIsBoundToI(t *testing.T) {
-	if keyOf(actInfo) != "i" || keyLabel(actInfo) != "i" {
-		t.Errorf("the info action is bound to %q, want i", keyOf(actInfo))
+	if keyLabel(actInfo) != "i" {
+		t.Errorf("the info action is bound to %q, want i", keyLabel(actInfo))
 	}
 }
 
@@ -238,7 +238,7 @@ func TestInfoOverlayIsAFilledPanelWithAnAccentKey(t *testing.T) {
 				if !strings.Contains(view, colourOf(styles.footKey)+"esc") {
 					t.Errorf("%dx%d: the key is not in the accent colour:\n%q", size.width, size.height, view)
 				}
-				if !strings.Contains(view, colourOf(lipgloss.NewStyle().Background(styles.palette.panel.lip()))) {
+				if !strings.Contains(view, colourOf(lipgloss.NewStyle().Background(lip(styles.Palette().Panel)))) {
 					t.Errorf("%dx%d: the panel is not filled with the panel colour:\n%q", size.width, size.height, view)
 				}
 			}

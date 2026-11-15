@@ -9,11 +9,37 @@ import (
 
 	"github.com/castrowithcee/qatlas-connect/internal/capability"
 	"github.com/castrowithcee/qatlas-connect/internal/config"
-	"github.com/castrowithcee/qatlas-connect/internal/output"
 	"github.com/castrowithcee/qatlas-connect/internal/provider"
 	"github.com/castrowithcee/qatlas-connect/internal/secret"
 	"github.com/castrowithcee/qatlas-connect/internal/vault"
+	"github.com/castrowithcee/qatlas-kit/output"
 )
+
+// The error codes this build emits beyond the ones every application shares. The kit's output package owns
+// the shared codes; a transport failure that no typed error explains stays output.CodeUnreachable, and one
+// that a typed error does explain keeps that code and adds the stable cause to its message, so a caller
+// branching on the code alone is never surprised.
+const (
+	CodeConnectionSelection   output.Code = "connection-selection"
+	CodeUnknownConnection     output.Code = "unknown-connection"
+	CodeConnectionAmbiguous   output.Code = "connection-ambiguous"
+	CodeUnknownOperation      output.Code = "unknown-operation"
+	CodeUnsupportedCapability output.Code = "unsupported-capability"
+	CodeMissingSecret         output.Code = "missing-secret"
+	CodePolicyDenied          output.Code = "policy-denied"
+	CodeSecretRefNotAllowed   output.Code = "secret-ref-not-allowed"
+	CodeInvalidProviderResult output.Code = "invalid-provider-response"
+	CodeProviderError         output.Code = "provider-error"
+)
+
+// AllErrorCodes lists every error code this build can emit: the shared codes of the kit, then the ones above.
+func AllErrorCodes() ([]output.Code, error) {
+	return output.AllCodes(
+		CodeConnectionSelection, CodeUnknownConnection, CodeConnectionAmbiguous, CodeUnknownOperation,
+		CodeUnsupportedCapability, CodeMissingSecret, CodePolicyDenied, CodeSecretRefNotAllowed,
+		CodeInvalidProviderResult, CodeProviderError,
+	)
+}
 
 // InvalidRequestError reports malformed JSON or arguments that do not satisfy the input schema. The message
 // carries no prefix of its own: every diagnostic already leads with the invalid-request code.
@@ -250,29 +276,29 @@ func ErrorCode(err error) output.Code {
 	case errors.As(err, &selection):
 		// A name that does not exist is the same problem however the command reached it.
 		if selection.Name != "" {
-			return output.CodeUnknownConnection
+			return CodeUnknownConnection
 		}
-		return output.CodeConnectionSelection
+		return CodeConnectionSelection
 	case errors.As(err, &unknownConn):
-		return output.CodeUnknownConnection
+		return CodeUnknownConnection
 	case errors.As(err, &ambiguous):
-		return output.CodeConnectionAmbiguous
+		return CodeConnectionAmbiguous
 	case errors.As(err, &appSelection):
-		return output.CodeConnectionSelection
+		return CodeConnectionSelection
 	case errors.As(err, &unknownOp):
-		return output.CodeUnknownOperation
+		return CodeUnknownOperation
 	case errors.As(err, &unsupported):
-		return output.CodeUnsupportedCapability
+		return CodeUnsupportedCapability
 	case errors.As(err, &invalidReq):
 		return output.CodeInvalidRequest
 	case errors.As(err, &confirmation):
 		return output.CodeConfirmationRequired
 	case errors.As(err, &secretRef):
-		return output.CodeSecretRefNotAllowed
+		return CodeSecretRefNotAllowed
 	case errors.As(err, &denied):
-		return output.CodePolicyDenied
+		return CodePolicyDenied
 	case errors.As(err, &invalidResult):
-		return output.CodeInvalidProviderResult
+		return CodeInvalidProviderResult
 	case errors.As(err, &adminReq):
 		return output.CodeAdminRequired
 	case errors.As(err, &permission), errors.As(err, &vaultPermission):
@@ -282,7 +308,7 @@ func ErrorCode(err error) output.Code {
 		// rule.
 		return output.CodeConfigInvalid
 	case errors.As(err, &missingSecret):
-		return output.CodeMissingSecret
+		return CodeMissingSecret
 	case errors.As(err, &vaultLocked):
 		// A locked vault is a runtime state, not a configuration mistake: unlocking it and retrying needs
 		// no change to the file, unlike every code above.
@@ -313,8 +339,8 @@ func providerCode(class provider.Class) output.Code {
 	case provider.ClassRateLimited:
 		return output.CodeRateLimited
 	case provider.ClassInvalidResponse:
-		return output.CodeInvalidProviderResult
+		return CodeInvalidProviderResult
 	default:
-		return output.CodeProviderError
+		return CodeProviderError
 	}
 }

@@ -8,6 +8,7 @@ import (
 	"charm.land/lipgloss/v2"
 
 	"github.com/castrowithcee/qatlas-connect/internal/config"
+	kittui "github.com/castrowithcee/qatlas-kit/tui"
 )
 
 // hintsFit fails for every shown row of fields whose hint is longer than the line under the focused row,
@@ -138,7 +139,7 @@ func TestTheToolPickerDimsTheIDOfInactiveRows(t *testing.T) {
 		t.Fatalf("tool row at %d, cursor %d: want the tool row below the cursor", index, m.picker.cursor)
 	}
 
-	setProfile(profile16)
+	setProfile(kittui.ProfileANSI16)
 	faint := "\x1b[" + strings.TrimSuffix(strings.TrimPrefix(shown(styles.hint.Render("x")), "\x1b["), "mx\x1b[m") + "m"
 	row := shown(m.pickerRowText(index))
 	at := strings.Index(row, faint)
@@ -146,7 +147,7 @@ func TestTheToolPickerDimsTheIDOfInactiveRows(t *testing.T) {
 		strings.Index(row, "List BookStack pages") > at {
 		t.Errorf("the inactive row does not dim from the ID on: %q", row)
 	}
-	setProfile(profileNone)
+	setProfile(kittui.ProfileNone)
 	if row := shown(m.pickerRowText(index)); strings.Contains(row, "\x1b[") ||
 		!strings.Contains(row, "List BookStack pages  bookstack.pages.list  read") {
 		t.Errorf("without colour the row is not plain readable text: %q", row)
@@ -155,7 +156,7 @@ func TestTheToolPickerDimsTheIDOfInactiveRows(t *testing.T) {
 	for m.picker.cursor != index {
 		press(t, m, "down")
 	}
-	setProfile(profile16)
+	setProfile(kittui.ProfileANSI16)
 	if row := m.pickerRowText(index); !strings.Contains(row, "\x1b[") || strings.Contains(row, faint) {
 		t.Errorf("the active row is not highlighted as the other picker rows are: %q", row)
 	}

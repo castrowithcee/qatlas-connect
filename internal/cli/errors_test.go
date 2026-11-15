@@ -12,10 +12,10 @@ import (
 	"github.com/castrowithcee/qatlas-connect/internal/application"
 	"github.com/castrowithcee/qatlas-connect/internal/capability"
 	"github.com/castrowithcee/qatlas-connect/internal/config"
-	"github.com/castrowithcee/qatlas-connect/internal/output"
 	"github.com/castrowithcee/qatlas-connect/internal/provider"
 	"github.com/castrowithcee/qatlas-connect/internal/secret"
 	"github.com/castrowithcee/qatlas-connect/internal/vault"
+	"github.com/castrowithcee/qatlas-kit/output"
 	"github.com/castrowithcee/qatlas-kit/redact"
 )
 
@@ -27,23 +27,23 @@ func TestCodeFor(t *testing.T) {
 	}{
 		{"missing configuration", &config.NotFoundError{Path: "/absent.yaml"}, output.CodeConfigMissing},
 		{"invalid configuration", &config.InvalidError{Path: "/c.yaml", Err: errors.New("version")}, output.CodeConfigInvalid},
-		{"no connection selected", &config.SelectionError{Domain: "knowledge"}, output.CodeConnectionSelection},
-		{"named connection missing", &config.SelectionError{Domain: "knowledge", Name: "absent"}, output.CodeUnknownConnection},
-		{"unknown connection", &capability.UnknownConnectionError{Name: "absent"}, output.CodeUnknownConnection},
+		{"no connection selected", &config.SelectionError{Domain: "knowledge"}, application.CodeConnectionSelection},
+		{"named connection missing", &config.SelectionError{Domain: "knowledge", Name: "absent"}, application.CodeUnknownConnection},
+		{"unknown connection", &capability.UnknownConnectionError{Name: "absent"}, application.CodeUnknownConnection},
 		{"invalid agent request", &application.InvalidRequestError{Message: "schema"}, output.CodeInvalidRequest},
-		{"unknown operation", &application.UnknownOperationError{Operation: "x"}, output.CodeUnknownOperation},
-		{"ambiguous connection", &application.ConnectionAmbiguousError{Operation: "x"}, output.CodeConnectionAmbiguous},
-		{"no matching connection", &application.ConnectionSelectionError{Operation: "x"}, output.CodeConnectionSelection},
+		{"unknown operation", &application.UnknownOperationError{Operation: "x"}, application.CodeUnknownOperation},
+		{"ambiguous connection", &application.ConnectionAmbiguousError{Operation: "x"}, application.CodeConnectionAmbiguous},
+		{"no matching connection", &application.ConnectionSelectionError{Operation: "x"}, application.CodeConnectionSelection},
 		{"confirmation required", &application.ConfirmationRequiredError{Operation: "x"}, output.CodeConfirmationRequired},
-		{"policy denied", &application.PolicyDeniedError{Operation: "x"}, output.CodePolicyDenied},
-		{"invalid provider result", &application.InvalidProviderResponseError{Operation: "x"}, output.CodeInvalidProviderResult},
+		{"policy denied", &application.PolicyDeniedError{Operation: "x"}, application.CodePolicyDenied},
+		{"invalid provider result", &application.InvalidProviderResponseError{Operation: "x"}, application.CodeInvalidProviderResult},
 		{"admin required", &application.AdminRequiredError{}, output.CodeAdminRequired},
 		{"admin required wrapped in usage", &UsageError{&application.AdminRequiredError{}}, output.CodeAdminRequired},
 		{"provider permission", &provider.Error{Class: provider.ClassPermission}, output.CodePermission},
 		{"provider not found", &provider.Error{Class: provider.ClassNotFound}, output.CodeNotFound},
 		{"provider timeout", &provider.Error{Class: provider.ClassTimeout}, output.CodeTimeout},
-		{"provider invalid response", &provider.Error{Class: provider.ClassInvalidResponse}, output.CodeInvalidProviderResult},
-		{"unsupported capability", &capability.UnsupportedError{Capability: "x"}, output.CodeUnsupportedCapability},
+		{"provider invalid response", &provider.Error{Class: provider.ClassInvalidResponse}, application.CodeInvalidProviderResult},
+		{"unsupported capability", &capability.UnsupportedError{Capability: "x"}, application.CodeUnsupportedCapability},
 		{"vault locked", &secret.VaultLockedError{Credential: "c", Role: "token"}, output.CodeVaultLocked},
 		{"vault file too open", &vault.PermissionError{Path: "/x/vault/secrets.json"}, output.CodeConfigInvalid},
 		{"projection", &output.ProjectionError{Field: "x"}, output.CodeUsage},
@@ -51,7 +51,7 @@ func TestCodeFor(t *testing.T) {
 		{"anything else", errors.New("io failure"), output.CodeRuntime},
 		{"wrapped specific error", fmt.Errorf("load: %w", &config.NotFoundError{}), output.CodeConfigMissing},
 		// A specific error wrapped in a usage error keeps its own code.
-		{"usage wrapping a specific error", &UsageError{&capability.UnknownConnectionError{}}, output.CodeUnknownConnection},
+		{"usage wrapping a specific error", &UsageError{&capability.UnknownConnectionError{}}, application.CodeUnknownConnection},
 	}
 
 	for _, tt := range tests {
@@ -191,5 +191,59 @@ func TestNextStepByCodeAndRoute(t *testing.T) {
 	if !errors.As(got, &providerErr) || providerErr != auth || codeFor(got) != output.CodeAuth ||
 		!strings.HasPrefix(got.Error(), auth.Error()+"; ") {
 		t.Errorf("auth = %v, want the provider error kept and the step appended", got)
+	}
+}
+
+// stderrLines splits a diagnostic into its lines: the code and message first, then the next step.
+func stderrLines(stderr string) []string {
+	return strings.Split(strings.TrimSuffix(stderr, "\n"), "\n")
+}
+
+// messageWithStep is the diagnostic the way MCP shows it: code and message, then the next step after "; "
+// where the refusal names one. The command line writes the step as a line of its own.
+func messageWithStep(stderr string) string {
+	lines := stderrLines(stderr)
+	text := strings.TrimPrefix(lines[0], "qconnect: ")
+	if len(lines) > 1 && lines[1] != fallbackStep {
+		text += "; " + lines[1]
+	}
+	return text
+}
+
+// A value a text format cannot show is a usage problem: exit 2, code usage, and nothing on stdout.
+func TestUnrepresentableValueIsAUsageError(t *testing.T) {
+	var stdout, stderr bytes.Buffer
+	opts := &Options{Redactor: &redact.Redactor{}}
+	cmd := newRootCommand(opts, sharedRegistry())
+	cmd.RunE = func(c *cobra.Command, _ []string) error {
+		return emit(c, opts, output.Object{Fields: []output.Field{{Name: "nested", Value: []any{"a"}}}})
+	}
+	code := run(cmd, opts, []string{"--output", "table"}, &stdout, &stderr)
+	if code != exitUsage || stdout.Len() != 0 || !strings.HasPrefix(stderr.String(), "qconnect: usage: ") {
+		t.Errorf("exit=%d stdout=%q stderr=%q, want exit %d, code usage, no stdout", code, stdout.String(),
+			stderr.String(), exitUsage)
+	}
+}
+
+// Control characters of an error text and of a provider's answer reach stderr as escapes, never as
+// themselves, so neither can move the cursor or add a diagnostic line.
+func TestHostileErrorTextIsMasked(t *testing.T) {
+	const hostile = "ok\x1b[2J\x07\nqconnect: usage: forged"
+	for name, err := range map[string]error{
+		"plain error": errors.New(hostile),
+		"provider answer": &provider.Error{Class: provider.ClassPermission, Op: "list", Message: "refused",
+			Original: &provider.Original{Status: 403, Entries: []provider.OriginalEntry{{Message: hostile}}}},
+	} {
+		var stdout, stderr bytes.Buffer
+		opts := &Options{Redactor: &redact.Redactor{}}
+		cmd := newRootCommand(opts, sharedRegistry())
+		cmd.RunE = func(*cobra.Command, []string) error { return err }
+		run(cmd, opts, nil, &stdout, &stderr)
+		if strings.ContainsAny(stderr.String(), "\x1b\x07") || strings.Contains(stderr.String(), "\nqconnect: usage") {
+			t.Errorf("%s: control characters reach stderr: %q", name, stderr.String())
+		}
+		if !strings.Contains(stderr.String(), `\x1b[2J\a\nqconnect: usage: forged`) {
+			t.Errorf("%s: stderr = %q, want the escaped text", name, stderr.String())
+		}
 	}
 }

@@ -34,7 +34,17 @@ func Text(s *Shape, v any, def Format) (string, bool) {
 	switch s.Kind {
 	case KindString:
 		text, ok := v.(string)
-		return text, ok && utf8.ValidString(text)
+		if !ok || !utf8.ValidString(text) {
+			return "", false
+		}
+		for _, p := range s.Prefixes {
+			if rest, found := strings.CutPrefix(text, p); found {
+				text = rest
+				break
+			}
+		}
+		// With prefixes the value is an identifier: a separator left over is not one.
+		return text, len(s.Prefixes) == 0 || !strings.Contains(text, "/")
 	case KindBoolean:
 		b, ok := v.(bool)
 		return strconv.FormatBool(b), ok

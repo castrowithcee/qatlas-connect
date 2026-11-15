@@ -111,7 +111,7 @@ func TestConfigTransferRequiresATerminal(t *testing.T) {
 	for _, args := range [][]string{
 		{"config", "export", file, "--all"},
 		{"config", "import", file},
-		{"config", "import", file, "--yes", "--agent"},
+		{"config", "import", file, "--yes", "--confirm", "--agent"},
 	} {
 		code, stdout, stderr := runTransfer(t, dir, args...)
 		if code != exitUsage || stdout != "" || !strings.Contains(stderr, "admin-required") {
@@ -150,7 +150,7 @@ func TestConfigExportImportRoundTripAndModes(t *testing.T) {
 	target := transferTarget(t)
 	var question string
 	withVaultConfirm(t, func(prompt string) (bool, error) { question = prompt; return true, nil })
-	code, stdout, stderr = runTransfer(t, target, "config", "import", file)
+	code, stdout, stderr = runTransfer(t, target, "config", "import", file, "--confirm")
 	if code != exitOK || stderr != "" {
 		t.Fatalf("import: exit %d, stdout %q, stderr %q", code, stdout, stderr)
 	}
@@ -174,7 +174,7 @@ func TestConfigExportImportRoundTripAndModes(t *testing.T) {
 
 	// Create stops on a name that exists; nothing changes.
 	before := readFile(t, configIn(target))
-	code, stdout, stderr = runTransfer(t, target, "config", "import", file, "--yes")
+	code, stdout, stderr = runTransfer(t, target, "config", "import", file, "--yes", "--confirm")
 	if code != exitUsage || !strings.Contains(stderr, "already has") || stdout != "" {
 		t.Errorf("create over existing: exit %d, stdout %q, stderr %q", code, stdout, stderr)
 	}
@@ -183,14 +183,14 @@ func TestConfigExportImportRoundTripAndModes(t *testing.T) {
 	}
 
 	// Merge skips everything that is there.
-	code, stdout, _ = runTransfer(t, target, "config", "import", file, "--mode", "merge", "--yes")
+	code, stdout, _ = runTransfer(t, target, "config", "import", file, "--mode", "merge", "--yes", "--confirm")
 	if code != exitOK || !strings.Contains(stdout, "nothing to import") || readFile(t, configIn(target)) != before {
 		t.Errorf("merge: exit %d, stdout %q", code, stdout)
 	}
 
 	// Overwrite replaces and keeps the target's ids.
 	id := cfg.Connections["wiki"].ID
-	code, stdout, stderr = runTransfer(t, target, "config", "import", file, "--mode", "overwrite", "--yes")
+	code, stdout, stderr = runTransfer(t, target, "config", "import", file, "--mode", "overwrite", "--yes", "--confirm")
 	if code != exitOK || !strings.Contains(stdout, "replace  connections wiki") ||
 		!strings.Contains(stdout, "secret here stays as it is") || !strings.Contains(stdout, "replaced 3") {
 		t.Fatalf("overwrite: exit %d, stdout %q, stderr %q", code, stdout, stderr)
@@ -218,10 +218,15 @@ func TestConfigImportWritesNothingWithoutConfirmation(t *testing.T) {
 
 	asked := 0
 	withVaultConfirm(t, func(string) (bool, error) { asked++; return false, nil })
-	code, stdout, stderr := runTransfer(t, target, "config", "import", file)
+	code, stdout, stderr := runTransfer(t, target, "config", "import", file, "--confirm")
 	if code != exitOK || asked != 1 || !strings.Contains(stderr, "cancelled, nothing was changed") ||
 		!strings.Contains(stdout, "create   services wiki") {
 		t.Errorf("declined: exit %d, asked %d, stdout %q, stderr %q", code, asked, stdout, stderr)
+	}
+	// --yes alone answers the question but does not confirm the change.
+	code, _, stderr = runTransfer(t, target, "config", "import", file, "--yes")
+	if code != exitUsage || asked != 1 || !strings.Contains(stderr, "confirmation-required") {
+		t.Errorf("--yes without --confirm: exit %d, asked %d, stderr %q", code, asked, stderr)
 	}
 	code, stdout, _ = runTransfer(t, target, "config", "import", file, "--dry-run")
 	if code != exitOK || asked != 1 || !strings.Contains(stdout, "dry run: nothing was changed") {
@@ -243,7 +248,7 @@ func TestConfigImportRefusesAChangeSincePlan(t *testing.T) {
 	withVaultConfirm(t, func(string) (bool, error) {
 		return true, os.WriteFile(configIn(target), []byte(changed), 0o600)
 	})
-	code, _, stderr := runTransfer(t, target, "config", "import", file)
+	code, _, stderr := runTransfer(t, target, "config", "import", file, "--confirm")
 	if code != exitUsage || !strings.Contains(stderr, "nothing was written") {
 		t.Errorf("exit %d, stderr %q, want a conflict", code, stderr)
 	}
@@ -298,7 +303,7 @@ func TestConfigImportRefusesUnknownFormatVersion(t *testing.T) {
 		t.Fatal(err)
 	}
 	target := transferTarget(t)
-	code, stdout, stderr := runTransfer(t, target, "config", "import", file, "--yes")
+	code, stdout, stderr := runTransfer(t, target, "config", "import", file, "--yes", "--confirm")
 	if code != exitUsage || stdout != "" || !strings.Contains(stderr, "format version 2") {
 		t.Errorf("exit %d, stdout %q, stderr %q", code, stdout, stderr)
 	}
@@ -320,7 +325,7 @@ func TestConfigTransferJSONOutput(t *testing.T) {
 
 	target := transferTarget(t)
 	withVaultConfirm(t, func(string) (bool, error) { return true, nil })
-	code, stdout, stderr = runTransfer(t, target, "config", "import", file, "--output", "json")
+	code, stdout, stderr = runTransfer(t, target, "config", "import", file, "--confirm", "--output", "json")
 	var imported importDocument
 	if code != exitOK || json.Unmarshal([]byte(stdout), &imported) != nil || !imported.Imported ||
 		imported.Created != 3 || imported.CredentialsWithoutSecret[0] != "wiki-vault" ||
@@ -331,7 +336,7 @@ func TestConfigTransferJSONOutput(t *testing.T) {
 	if !strings.Contains(stderr, "create   connections wiki") || !strings.Contains(stderr, "3 to create") {
 		t.Errorf("import asked to confirm without showing the plan: stderr %q", stderr)
 	}
-	code, stdout, stderr = runTransfer(t, transferTarget(t), "config", "import", file, "--yes", "--output", "json")
+	code, stdout, stderr = runTransfer(t, transferTarget(t), "config", "import", file, "--yes", "--confirm", "--output", "json")
 	if code != exitOK || json.Unmarshal([]byte(stdout), &imported) != nil || !imported.Imported || stderr != "" {
 		t.Errorf("import --yes: exit %d, stdout %q, stderr %q", code, stdout, stderr)
 	}

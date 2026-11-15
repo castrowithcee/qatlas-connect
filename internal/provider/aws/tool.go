@@ -55,6 +55,12 @@ type toolSpec struct {
 	// same meaning; its members are the "~" fields of rest.Input and rest.Output.
 	rest  *httpbind.Operation
 	pager *awsquery.Pager
+	// multi is the pager of a REST list whose next page starts at several members (S3 versions, Route 53
+	// record sets). It excludes pager and belongs to a REST tool.
+	multi *httpbind.MultiPager
+	// codec is the body format of a REST tool: restxml.Codec for S3 and Route 53, with the service's
+	// noErrorWrapping. Nil means restjson.Codec.
+	codec httpbind.Codec
 	// csv, when set, turns the blob member of the answer into the rows of a CSV table with its own paging.
 	csv         *csvReport
 	rules       []outputRule
@@ -65,6 +71,18 @@ type toolSpec struct {
 	// selfRole is the argument that names a role the tool changes or deletes; the call is refused when it is
 	// the role whose session signs it (see Client.refuseOwnRole).
 	selfRole string
+	// resultHook names the step in resultHooks that adds a member to the result.
+	resultHook string
+	// guards name steps in guards that judge the arguments before any I/O.
+	guards []string
+	// readback names the step in readbacks that reads the current state and may refuse the change.
+	readback string
+	// delivery names the entry in deliveries of a tool that delivers to third parties.
+	delivery string
+	// failureHint names the step in failureHints that adds what a person needs to know to a failure of the call.
+	failureHint string
+	// localRange makes a tool with a local file to read take offset and length and send just that range.
+	localRange bool
 	// accountCheck marks GetCallerIdentity, whose answer is the account check itself.
 	accountCheck bool
 	// truncated adds the truncated field: true when a string of the answer was cut at its cap.
@@ -84,13 +102,20 @@ var forms = map[string]func(string) bool{"account-id": accountID.MatchString}
 type targetCheck func(b binding, global bool, name, value string) error
 
 // targetChecks are the hand-written target checks, by the name a curation table gives them. "none" checks
-// nothing; bucket-owner belongs to the S3 protocol package and the generator refuses it for awsQuery.
+// nothing. bucket-owner checks the bucket name of a REST tool, whose request then carries the account of the
+// connection as the expected owner of the bucket (httpbind.EncodeOptions.Owner).
 var targetChecks = map[string]targetCheck{
 	"none":                          nil,
+	"bucket-owner":                  checkBucketOwner,
 	"account-argument":              checkAccountArgument,
 	"arn-account":                   checkARNAccount,
 	"arn-account-or-managed-policy": checkARNAccountOrManagedPolicy,
 	"arn-region":                    checkARNRegion,
+	"ses-identity":                  checkSESIdentity,
+	"ses-identity-arn":              checkSESIdentityARN,
+	"ses-resource-arn":              checkSESResourceARN,
+	"ses-reputation-entity-arn":     checkSESReputationEntityARN,
+	"ses-configuration-set":         checkSESConfigurationSet,
 }
 
 // policyCheck judges one policy document against the binding before any secret is read or request is built.
@@ -99,8 +124,10 @@ type policyCheck func(b binding, name, value string) error
 // policyChecks are the client-side document checks, by the name a curation table gives them. A tool that
 // names one without an implementation here is a registration error.
 var policyChecks = map[string]policyCheck{
-	"none":         nil,
-	"trust-policy": checkTrustPolicy,
+	"none":                        nil,
+	"trust-policy":                checkTrustPolicy,
+	"resource-policy-own-account": checkResourcePolicyOwnAccount,
+	"bucket-policy":               checkBucketPolicy,
 }
 
 // generatedTools checks every generated tool against the runtime and binds it to its handler.
@@ -115,7 +142,32 @@ func generatedTools() ([]capability.Operation, error) {
 	return ops, nil
 }
 
+// restCodec is the body format of a REST tool.
+func (s toolSpec) restCodec() httpbind.Codec {
+	if s.codec != nil {
+		return s.codec
+	}
+	return restjson.Codec{}
+}
+
 func (s toolSpec) check() error {
+	if s.pager != nil && s.multi != nil {
+		return errors.New("a tool has one pager")
+	}
+	if s.multi != nil {
+		if s.rest == nil {
+			return errors.New("only a REST tool pages by several members")
+		}
+		if err := s.multi.Check(); err != nil {
+			return err
+		}
+	}
+	if s.codec != nil && s.rest == nil {
+		return errors.New("only a REST tool has a body format")
+	}
+	if s.targetCheck == "bucket-owner" && s.rest == nil {
+		return errors.New("the bucket-owner check belongs to a REST tool")
+	}
 	if s.rest != nil {
 		// A restJson1 tool has no awsQuery parts, and nothing but a described operation may be sent.
 		if s.input != nil || s.output != nil || s.action != "" || s.version != "" || s.accountCheck {
@@ -143,6 +195,36 @@ func (s toolSpec) check() error {
 	}
 	if _, ok := policyChecks[s.policyCheck]; !ok {
 		return fmt.Errorf("policy check %q has no implementation", s.policyCheck)
+	}
+	if _, ok := resultHooks[s.resultHook]; s.resultHook != "" && !ok {
+		return fmt.Errorf("result hook %q has no implementation", s.resultHook)
+	}
+	if _, ok := failureHints[s.failureHint]; s.failureHint != "" && !ok {
+		return fmt.Errorf("failure hint %q has no implementation", s.failureHint)
+	}
+	for _, name := range s.guards {
+		if guards[name] == nil {
+			return fmt.Errorf("guard %q has no implementation", name)
+		}
+	}
+	switch s.descriptor.LocalFiles {
+	case "":
+	case config.LocalFilesRead:
+		if s.rest == nil || !s.rest.StreamsInput() || s.rest.StreamsOutput() || s.descriptor.Risk.Effect == capability.EffectRead {
+			return errors.New("an upload streams its input payload and changes something")
+		}
+	case config.LocalFilesWrite:
+		if s.rest == nil || !s.rest.StreamsOutput() || s.rest.StreamsInput() || s.descriptor.Risk.Effect != capability.EffectRead {
+			return errors.New("a download streams its output payload and is a read")
+		}
+	default:
+		return errors.New("the local file direction is unknown")
+	}
+	if s.readback != "" && (readbacks[s.readback] == nil || s.rest == nil || s.descriptor.Risk.Effect == capability.EffectRead) {
+		return fmt.Errorf("readback %q has no implementation or does not belong to a REST tool that changes something", s.readback)
+	}
+	if _, ok := deliveries[s.delivery]; s.delivery != "" && (!ok || s.rest == nil || s.descriptor.Risk.Idempotency != capability.IdempotencyNonIdempotent) {
+		return fmt.Errorf("delivery %q has no implementation or does not belong to a non-idempotent REST tool", s.delivery)
 	}
 	if s.selfRole != "" && (s.accountCheck || s.descriptor.Risk.Effect == capability.EffectRead) {
 		return errors.New("the own-role check belongs to a tool that changes or deletes a role")
@@ -192,6 +274,20 @@ func (s toolSpec) handler() capability.Handler {
 		if err := s.checkArguments(b, global, args); err != nil {
 			return nil, err
 		}
+		for _, name := range s.guards {
+			if err := guards[name](b, region, args); err != nil {
+				return nil, err
+			}
+		}
+		var file *transfer
+		if s.descriptor.LocalFiles != "" {
+			// The file is opened before the credential is resolved, so a path outside the released directories, a
+			// file over the limit, or a local file that would be replaced without confirmation sends nothing.
+			if file, err = s.openTransfer(ctx, resolved, args); err != nil {
+				return nil, err
+			}
+			defer file.close()
+		}
 		page, err := s.startPage(region, args)
 		if err != nil {
 			return nil, err
@@ -202,7 +298,13 @@ func (s toolSpec) handler() capability.Handler {
 				return nil, err
 			}
 		}
-		token, send, err := s.encode(args, page)
+		var token string
+		var send sender
+		if file != nil {
+			send, err = s.encodeTransfer(args, b.account, file)
+		} else {
+			token, send, err = s.encode(args, page, b.account)
+		}
 		if err != nil {
 			return nil, err
 		}
@@ -214,6 +316,7 @@ func (s toolSpec) handler() capability.Handler {
 			return nil, err
 		}
 		var out map[string]any
+		var changeCreds sigv4.Credentials
 		truncated := false
 		if s.accountCheck {
 			creds, err := client.effective(ctx, region)
@@ -237,17 +340,44 @@ func (s toolSpec) handler() capability.Handler {
 					return nil, err
 				}
 			}
+			if check := readbacks[s.readback]; check != nil {
+				// The read is part of the change: a refusal here means nothing was sent that changes anything.
+				if err := check(ctx, client, s, creds, region, args); err != nil {
+					return nil, err
+				}
+			}
+			if s.delivery != "" {
+				// The delivery pace applies to the send alone, after every refusal that comes first.
+				if err := deliveryLimiters.For(deliveryKey(s.delivery, resolved.Name, region)).Wait(ctx); err != nil {
+					return nil, provider.Waited(op, "AWS", err)
+				}
+			}
 			var failure *provider.Error
 			if truncated, failure = send(ctx, client, creds, region, &out); failure != nil {
-				return nil, failure
+				if hint := failureHints[s.failureHint]; hint != nil {
+					failure = hint(failure)
+				}
+				return nil, s.unclear(failure)
 			}
+			changeCreds = creds
 		}
 		if s.csv != nil {
 			if err := s.csv.apply(op, out, rowPage); err != nil {
 				return nil, err
 			}
 		}
-		return s.result(op, out, page, region, global, truncated, token)
+		res, err := s.result(op, out, page, region, global, truncated, token)
+		if failure, isProvider := err.(*provider.Error); isProvider {
+			// A delivery whose answer fails its check has been sent all the same.
+			err = s.unclear(failure)
+		}
+		if file != nil && err == nil {
+			file.addTransfer(res.(map[string]any))
+		}
+		if hook := resultHooks[s.resultHook]; err == nil && hook != nil {
+			hook(ctx, client, s, changeCreds, res.(map[string]any), region, args)
+		}
+		return res, err
 	}
 }
 
@@ -257,21 +387,25 @@ type sender func(ctx context.Context, c *Client, creds sigv4.Credentials, region
 
 // encode binds the arguments (and the paging members) to the request of the tool's protocol, before any
 // secret is read. It returns the idempotency token the request carries and the call that sends it.
-func (s toolSpec) encode(args map[string]any, page awsquery.Page) (string, sender, error) {
+//
+// owner is the account the connection is bound to. A REST operation that has an expected-owner header sends
+// it with that account, and nothing an argument says can change it.
+func (s toolSpec) encode(args map[string]any, page listPage, owner string) (string, sender, error) {
 	if s.rest != nil {
-		if s.pager != nil {
+		if page != nil {
 			var err error
 			if args, err = httpbind.ApplyPage(s.rest.Input, args, page); err != nil {
 				return "", nil, encodeRefusal(s.op, err, "httpbind: ")
 			}
 		}
-		req, err := s.rest.Encode(restjson.Codec{}, args, nil)
+		codec := s.restCodec()
+		req, err := s.rest.EncodeWith(codec, args, httpbind.EncodeOptions{Owner: owner})
 		if err != nil {
 			return "", nil, encodeRefusal(s.op, err, "httpbind: ")
 		}
 		return req.Token, func(ctx context.Context, c *Client, creds sigv4.Credentials, region string, out *map[string]any) (bool, *provider.Error) {
 			meta, failure := c.sendRest(ctx, s.op, s.service, region, creds, s.descriptor.Risk.Idempotency,
-				restjson.Codec{}, s.rest, req, out)
+				codec, s.rest, req, out)
 			return meta.Truncated, failure
 		}, nil
 	}
@@ -279,7 +413,7 @@ func (s toolSpec) encode(args map[string]any, page awsquery.Page) (string, sende
 	if err != nil {
 		return "", nil, &provider.InvalidRequestError{Message: strings.TrimPrefix(err.Error(), "awsquery: ")}
 	}
-	if s.pager != nil {
+	if page != nil {
 		for k, v := range page.Params() {
 			if _, dup := req.Params[k]; dup {
 				return "", nil, provider.Fail(s.op, "the paging parameters collide with an argument")
@@ -351,11 +485,17 @@ func (s toolSpec) checkArguments(b binding, global bool, args map[string]any) er
 	return nil
 }
 
+// listPage is one request of a list: the paging members it sets and the cursor of the next page.
+type listPage interface {
+	Params() map[string]string
+	Next(op string, out map[string]any) (string, *provider.Error)
+}
+
 // startPage reads page_size and cursor. The cursor is bound to the tool, the region and every other
 // argument, so it cannot continue another list.
-func (s toolSpec) startPage(region string, args map[string]any) (awsquery.Page, error) {
-	if s.pager == nil {
-		return awsquery.Page{}, nil
+func (s toolSpec) startPage(region string, args map[string]any) (listPage, error) {
+	if s.pager == nil && s.multi == nil {
+		return nil, nil
 	}
 	size := 0
 	if v, set := args[awsquery.ArgPageSize]; set {
@@ -363,19 +503,42 @@ func (s toolSpec) startPage(region string, args map[string]any) (awsquery.Page, 
 		i, err := n.Int64()
 		// Zero would read as "no page size" below, so an explicit one is refused here.
 		if !ok || err != nil || i < 1 {
-			return awsquery.Page{}, &provider.InvalidRequestError{Message: "page_size must be a positive integer"}
+			return nil, &provider.InvalidRequestError{Message: "page_size must be a positive integer"}
 		}
 		size = int(i)
 	}
 	cursor, _ := args[awsquery.ArgCursor].(string)
 	delete(args, awsquery.ArgPageSize)
 	delete(args, awsquery.ArgCursor)
+	var start map[string]string
+	if s.multi != nil {
+		// The start arguments leave args here, so the cursor of a list that began at one is the cursor of the same list.
+		var err error
+		if start, err = s.multi.TakeStart(args); err != nil {
+			return nil, err
+		}
+	}
 	bound := make(map[string]any, len(args)+1)
 	for k, v := range args {
 		bound[k] = v
 	}
 	bound[argRegion] = region
-	return s.pager.Start(awsquery.Binding(s.descriptor.ID, bound), size, cursor)
+	if s.rest != nil && s.rest.Input != nil {
+		// The cursor belongs to the list, not to the spelling of its identifiers: a zone ID with and without
+		// its prefix continues the same list.
+		for _, f := range s.rest.Input.Fields {
+			if text, isString := bound[f.Key].(string); isString && len(f.Shape.Prefixes) > 0 {
+				if plain, ok := httpbind.Text(f.Shape, text, httpbind.FormatDefault); ok {
+					bound[f.Key] = plain
+				}
+			}
+		}
+	}
+	binding := awsquery.Binding(s.descriptor.ID, bound)
+	if s.multi != nil {
+		return s.multi.StartAt(binding, size, cursor, start)
+	}
+	return s.pager.Start(binding, size, cursor)
 }
 
 // identityAnswer is the answer of the account check, by the wire names of the output shape.
@@ -391,7 +554,7 @@ func (s toolSpec) identityAnswer(who callerIdentity) map[string]any {
 }
 
 // result checks the answer by the rules of the table and adds what the tool itself reports.
-func (s toolSpec) result(op string, out map[string]any, page awsquery.Page, region string, global bool,
+func (s toolSpec) result(op string, out map[string]any, page listPage, region string, global bool,
 	truncated bool, token string) (any, error) {
 	result := map[string]any{}
 	for k, v := range out {
@@ -406,7 +569,7 @@ func (s toolSpec) result(op string, out map[string]any, page awsquery.Page, regi
 			return nil, provider.InvalidResponse(op, "AWS returned an invalid response")
 		}
 	}
-	if s.pager != nil {
+	if page != nil {
 		next, failure := page.Next(op, out)
 		if failure != nil {
 			return nil, failure
@@ -426,6 +589,13 @@ func (s toolSpec) result(op string, out map[string]any, page awsquery.Page, regi
 		result[argClientToken] = token
 	}
 	return result, nil
+}
+
+func checkBucketOwner(_ binding, _ bool, name, value string) error {
+	if !httpbind.ValidBucketName(value) {
+		return &provider.InvalidRequestError{Message: name + " must be the name of a general purpose bucket"}
+	}
+	return nil
 }
 
 func checkAccountArgument(b binding, _ bool, name, value string) error {

@@ -15,8 +15,7 @@ func TestCalledByLegacyName(t *testing.T) {
 	}
 }
 
-func TestNoteLegacyNameSilentForHiddenAndCurrentName(t *testing.T) {
-	root := newRootCommand(&Options{}, defaultRegistry())
+func TestLegacyNoticeSilentForHiddenAndCurrentName(t *testing.T) {
 	for _, tt := range []struct {
 		program string
 		args    []string
@@ -27,10 +26,22 @@ func TestNoteLegacyNameSilentForHiddenAndCurrentName(t *testing.T) {
 		{"/bin/qatlas", []string{"vault", "serve"}, false},
 		{"/bin/qconnect", []string{"providers"}, false},
 	} {
-		var out strings.Builder
-		noteLegacyName(tt.program, root, tt.args, &out)
-		if got := strings.Contains(out.String(), "qconnect"); got != tt.want {
-			t.Errorf("noteLegacyName(%q, %v) wrote %q, want a note: %v", tt.program, tt.args, out.String(), tt.want)
+		got := legacyNotice(tt.program, tt.args, defaultRegistry())
+		if has := strings.Contains(got, "now called qconnect"); has != tt.want {
+			t.Errorf("legacyNotice(%q, %v) = %q, want a note: %v", tt.program, tt.args, got, tt.want)
 		}
+	}
+}
+
+// The notice reaches stderr once, before the command, as a line of the program.
+func TestLegacyNoticeIsWrittenBeforeTheCommand(t *testing.T) {
+	opts := &Options{notice: legacyNotice("/bin/qatlas", []string{"--version"}, defaultRegistry())}
+	var stdout, stderr strings.Builder
+	if code := run(newRootCommand(opts, sharedRegistry()), opts, []string{"--version"}, &stdout, &stderr); code != exitOK {
+		t.Fatalf("exit %d", code)
+	}
+	want := "qconnect: note: this program is now called qconnect; the name qatlas still works until the next major release\n"
+	if stderr.String() != want || strings.Contains(stdout.String(), "note") {
+		t.Errorf("stderr %q, stdout %q", stderr.String(), stdout.String())
 	}
 }

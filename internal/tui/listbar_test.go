@@ -7,6 +7,8 @@ import (
 	"testing"
 
 	"charm.land/lipgloss/v2"
+
+	kittui "github.com/castrowithcee/qatlas-kit/tui"
 )
 
 // The values of the filter bar change what the list shows and in which order, and leave the configuration
@@ -125,7 +127,7 @@ func TestDetailPaneAppearsAtItsMinimumWidth(t *testing.T) {
 // it without control characters.
 func TestDetailPaneIsSafe(t *testing.T) {
 	before := currentProfile()
-	setProfile(profileNone)
+	setProfile(kittui.ProfileNone)
 	t.Cleanup(func() { setProfile(before) })
 
 	m := newTableModel(t, 140)

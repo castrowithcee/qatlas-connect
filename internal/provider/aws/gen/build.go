@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/castrowithcee/qatlas-connect/internal/provider/aws/awsquery"
+	"github.com/castrowithcee/qatlas-connect/internal/provider/aws/httpbind"
 	"github.com/castrowithcee/qatlas-connect/internal/provider/aws/idempotency"
 )
 
@@ -22,15 +23,21 @@ const (
 	fieldHasMore   = "has_more"
 	fieldTruncated = "truncated"
 	// Names of the result members of a CSV tool.
-	fieldRows     = "rows"
-	fieldDropped  = "dropped_columns"
-	fieldTotal    = "total_rows"
-	csvMemberKey  = "~csv"
-	csvMaxDropped = 32
+	fieldRows    = "rows"
+	fieldDropped = "dropped_columns"
+	fieldTotal   = "total_rows"
+	// fieldDNSRecords is the result member of the dns-records hook.
+	fieldDNSRecords = "dns_records"
+	// fieldPublicStatus is the result member of the bucket-policy-status hook.
+	fieldPublicStatus = "public_status"
+	// fieldAllowlistNote is the result member of the region-allowlist hook.
+	fieldAllowlistNote = "allowlist_note"
+	csvMemberKey       = "~csv"
+	csvMaxDropped      = 32
 )
 
 var reservedNames = []string{argRegion, awsquery.ArgPageSize, awsquery.ArgCursor, argClientToken, fieldNext, fieldHasMore, fieldTruncated,
-	fieldRows, fieldDropped, fieldTotal}
+	fieldRows, fieldDropped, fieldTotal, fieldDNSRecords, fieldPublicStatus, fieldAllowlistNote}
 
 // regionMarker stands for the region schema in a rendered schema; the renderer replaces it with the
 // provider's regionSchema constant, so the schema has one source.
@@ -64,7 +71,28 @@ type tool struct {
 
 	input, output *awsquery.Shape
 	pager         *awsquery.Pager
+	multi         *httpbind.MultiPager
 	hasToken      bool
+
+	// rest is true for a restJson1 or restXml tool; xml says it is restXml, and noWrap is the service's
+	// noErrorWrapping. restBind is the binding of its operation; restOp is the description
+	// the runtime sends and decodes with, assembled from the converted shapes. inModel and outModel map the
+	// key of a top-level member of the converted input and output to its member key in the binding.
+	rest, xml, noWrap bool
+	restBind          *RestBinding
+	restOp            *httpbind.Operation
+	plan              *pagingPlan
+	inModel, outModel map[string]string
+	// nestedIn are the dotted HiddenInputs paths, true once the converter left the member out; enumHit the
+	// ExcludeEnum members the converter narrowed.
+	nestedIn map[string]bool
+	enumHit  map[string]bool
+	// released are the Release members of the table, true once a sensitive member of that path was kept.
+	released map[string]bool
+	// kept are the KeepDeprecated members of the table, true once the converter kept one.
+	kept map[string]bool
+	// limited are the Limits of the table, true once a member of that path took its cap.
+	limited map[string]bool
 
 	inputSchema, outputSchema string
 	args                      []descArg
@@ -75,6 +103,13 @@ type tool struct {
 	csv                       *CSVReport
 	// nested are the dotted HiddenOutputs paths, true once the converter left the member out.
 	nested map[string]bool
+
+	// Generated test of a restJson1 tool: the request the sample arguments encode to.
+	sampleMethod, samplePath, sampleQuery, sampleBody string
+	// sampleOwner is the expected-owner header the sample request carries, sampleBucket the bucket that is the
+	// first label of its host, sampleHeader the headers of the sample answer.
+	sampleOwner, sampleBucket string
+	sampleHeader              map[string]string
 
 	// Generated test: the arguments, the form parameters they encode to, the answer, and the result keys.
 	sampleArgs   string
@@ -119,8 +154,18 @@ func build(m *Model, table *Table, op Operation) (*tool, error) {
 	if op.AccountCheck && (table.Service != "sts" || op.Operation != "GetCallerIdentity") {
 		return nil, t.failf("only STS GetCallerIdentity is the account check")
 	}
-	if op.TargetCheck == "bucket-owner" {
-		return nil, t.failf("target_check bucket-owner needs the S3 protocol package, not awsQuery")
+	if op.TargetCheck == "bucket-owner" && m.Protocol != ProtocolRestXML {
+		return nil, t.failf("target_check bucket-owner needs the S3 protocol package (restXml), not %s", m.Protocol)
+	}
+	if m.Protocol == ProtocolRestJSON || m.Protocol == ProtocolRestXML {
+		if op.AccountCheck || op.CSV != nil {
+			return nil, t.failf("the account check and csv reports belong to awsQuery tools")
+		}
+		t.rest, t.action, t.version = true, "", ""
+		t.xml, t.noWrap = m.Protocol == ProtocolRestXML, m.NoErrorWrapping
+		if t.restBind, err = m.BindRestCurated(table, op.Operation); err != nil {
+			return nil, t.failf("%v", err)
+		}
 	}
 	in, err := t.structOf(m, shape.obj("input").str("target"))
 	if err != nil {
@@ -134,6 +179,7 @@ func build(m *Model, table *Table, op Operation) (*tool, error) {
 	if err != nil {
 		return nil, err
 	}
+	t.plan = pag
 	if op.CSV != nil {
 		if pag != nil {
 			return nil, t.failf("a csv tool pages over its rows, not over a service token")
@@ -143,18 +189,50 @@ func build(m *Model, table *Table, op Operation) (*tool, error) {
 		}
 		t.csv = op.CSV
 	}
+	t.released, t.limited, t.kept = map[string]bool{}, map[string]bool{}, map[string]bool{}
+	for _, k := range op.KeepDeprecated {
+		t.kept[k.Member] = false
+	}
+	for _, r := range op.Release {
+		t.released[r.Member] = false
+	}
+	for _, l := range op.Limits {
+		t.limited[l.Member] = false
+	}
 	if err := t.bindInput(m, in, pag); err != nil {
 		return nil, err
 	}
 	if err := t.bindOutput(m, out, pag); err != nil {
 		return nil, err
 	}
+	for name, hit := range t.released {
+		if !hit {
+			return nil, t.failf("release %s is not a sensitive member of the input or the output", name)
+		}
+	}
+	for name, hit := range t.kept {
+		if !hit {
+			return nil, t.failf("keep_deprecated %s is not a deprecated member of the output", name)
+		}
+	}
+	for name, hit := range t.limited {
+		if !hit {
+			return nil, t.failf("limit %s is not a string or list member of the input", name)
+		}
+	}
+	if t.rest {
+		if err := t.assembleRest(); err != nil {
+			return nil, err
+		}
+	}
 	if err := t.makeSamples(m); err != nil {
 		return nil, err
 	}
-	for _, s := range []*awsquery.Shape{t.input, t.output} {
-		if err := s.Validate(); err != nil {
-			return nil, t.failf("the bound shape is invalid: %v", err)
+	if !t.rest {
+		for _, s := range []*awsquery.Shape{t.input, t.output} {
+			if err := s.Validate(); err != nil {
+				return nil, t.failf("the bound shape is invalid: %v", err)
+			}
 		}
 	}
 	return t, nil
@@ -232,13 +310,30 @@ func deprecated(mm member) bool { return mm.traits.has("smithy.api#deprecated") 
 // pagingPlan is what paging takes out of the public arguments and fields.
 type pagingPlan struct {
 	tokenIn, tokenOut, sizeMember, truncated string
+	// ins and outs hold every member of the position, the first being tokenIn and tokenOut. More than one
+	// makes a cursor over several members (Route 53 record sets).
+	ins, outs []string
+	// starts says that the members of ins are also offered as arguments of the first page.
+	starts bool
 }
 
 // paging derives the pager from the paginated trait, or from Marker with IsTruncated without one.
 func (t *tool) paging(m *Model, shape *object, in, out []member) (*pagingPlan, error) {
 	var p pagingPlan
 	trait := shape.obj("traits").obj("smithy.api#paginated")
-	if trait != nil {
+	if spec := t.pagerSpec(); spec != nil {
+		// The table names the paging of a list the model leaves unpaged or pages by several members.
+		for _, pos := range spec.Positions {
+			p.ins, p.outs = append(p.ins, pos.In), append(p.outs, pos.Out)
+		}
+		p.tokenIn, p.tokenOut, p.sizeMember, p.truncated = p.ins[0], p.outs[0], spec.PageSize, orDefault(spec.Truncated, "IsTruncated")
+		if spec.TokenEnds {
+			p.truncated = ""
+		}
+		if p.starts = spec.StartArguments; p.starts && len(p.ins) < 2 {
+			return nil, t.failf("start arguments need a list of several positions")
+		}
+	} else if trait != nil {
 		base := m.service.obj("traits").obj("smithy.api#paginated")
 		pick := func(k string) string {
 			if trait.has(k) {
@@ -262,18 +357,29 @@ func (t *tool) paging(m *Model, shape *object, in, out []member) (*pagingPlan, e
 			p.sizeMember = "MaxItems"
 		}
 	}
-	for _, name := range []string{p.tokenIn, p.tokenOut, p.sizeMember} {
+	if p.ins == nil {
+		p.ins, p.outs = []string{p.tokenIn}, []string{p.tokenOut}
+	}
+	for _, name := range slices.Concat(p.ins, p.outs, []string{p.sizeMember}) {
 		if strings.Contains(name, ".") {
 			return nil, t.failf("paging member %s is nested", name)
 		}
 	}
-	if mm, ok := find(in, p.tokenIn); !ok || mm.kind != "string" {
-		return nil, t.failf("paging input token %s is not a string member", p.tokenIn)
+	for _, name := range p.ins {
+		if mm, ok := find(in, name); !ok || !stringKind(mm.kind) {
+			return nil, t.failf("paging input token %s is not a string member", name)
+		}
 	}
-	if mm, ok := find(out, p.tokenOut); !ok || mm.kind != "string" {
-		return nil, t.failf("paging output token %s is not a string member", p.tokenOut)
+	for _, name := range p.outs {
+		if mm, ok := find(out, name); !ok || !stringKind(mm.kind) {
+			return nil, t.failf("paging output token %s is not a string member", name)
+		}
 	}
-	if mm, ok := find(out, truncatedMember(out)); ok {
+	truncated := truncatedMember(out)
+	if t.pagerSpec() != nil {
+		truncated = p.truncated
+	}
+	if mm, ok := find(out, truncated); ok {
 		if mm.kind != "boolean" {
 			return nil, t.failf("%s is not a boolean", mm.name)
 		}
@@ -284,11 +390,29 @@ func (t *tool) paging(m *Model, shape *object, in, out []member) (*pagingPlan, e
 		if !ok || !isInteger(mm.kind) {
 			return nil, t.failf("page size %s is not an integer member", p.sizeMember)
 		}
-		if _, ok := number(mm.traits.obj("smithy.api#range"), "max"); !ok {
+		if _, ok := t.pageMax(mm); !ok {
 			return nil, t.failf("page size %s has no range maximum", p.sizeMember)
 		}
 	}
 	return &p, nil
+}
+
+// pageMax is the largest page the tool offers: the range maximum of the model, which the table may only
+// lower, or the table's own maximum when the model has none. Only a restJson1 tool takes the table's.
+func (t *tool) pageMax(mm member) (int64, bool) {
+	max, ok := number(mm.traits.obj("smithy.api#range"), "max")
+	switch {
+	case ok && (t.op.PageSizeMax == 0 || int64(t.op.PageSizeMax) <= max):
+		if t.op.PageSizeMax > 0 {
+			return int64(t.op.PageSizeMax), true
+		}
+		return max, true
+	case ok:
+		return 0, false
+	case t.rest && t.op.PageSizeMax > 0:
+		return int64(t.op.PageSizeMax), true
+	}
+	return 0, false
 }
 
 // truncatedMember names the output member that says more entries follow: IsTruncated, which one operation
@@ -325,10 +449,20 @@ func hiddenSet(list []Hidden) map[string]bool {
 // bindInput builds the input shape, the input schema, and the arguments.
 func (t *tool) bindInput(m *Model, in []member, pag *pagingPlan) error {
 	hidden := hiddenSet(t.op.HiddenInputs)
+	t.nestedIn, t.enumHit, t.inModel = map[string]bool{}, map[string]bool{}, map[string]string{}
 	for name := range hidden {
+		if top, _, nested := strings.Cut(name, "."); nested {
+			// A dotted name hides a member below a top-level one, such as Attributes.PrivateKey.
+			t.nestedIn[name] = false
+			delete(hidden, name)
+			name = top
+		}
 		if _, ok := find(in, name); !ok {
 			return t.failf("hidden input %s is not an input member", name)
 		}
+	}
+	for _, e := range t.op.ExcludeEnum {
+		t.enumHit[e.Member] = false
 	}
 	shape := &awsquery.Shape{Kind: awsquery.KindStruct}
 	props := newObject()
@@ -339,15 +473,26 @@ func (t *tool) bindInput(m *Model, in []member, pag *pagingPlan) error {
 		if deprecated(mm) || hidden[mm.name] {
 			continue
 		}
-		if pag != nil && (mm.name == pag.tokenIn || mm.name == pag.sizeMember) {
+		if t.isStream(mm.name, true) {
 			continue
 		}
-		if mm.traits.has("smithy.api#idempotencyToken") {
+		if t.layerOwned(mm.name) {
+			continue
+		}
+		startArg := pag != nil && pag.starts && slices.Contains(pag.ins, mm.name)
+		if pag != nil && !startArg && (slices.Contains(pag.ins, mm.name) || mm.name == pag.sizeMember) {
+			continue
+		}
+		if mm.traits.has("smithy.api#idempotencyToken") || (t.op.TokenMember != "" && mm.name == t.op.TokenMember) {
+			if t.rest && !t.xml {
+				return t.failf("the idempotency token %s of a restJson1 tool is not rendered yet", mm.name)
+			}
 			if t.hasToken || mm.kind != "string" || !idempotency.IsParam(mm.name) {
 				return t.failf("idempotency token %s is not one known string member", mm.name)
 			}
 			t.hasToken = true
-			shape.Fields = append(shape.Fields, awsquery.Field{Key: argClientToken, Name: wire(mm), Shape: &awsquery.Shape{Kind: awsquery.KindString}, IdempotencyToken: true})
+			t.inModel[argClientToken] = mm.name
+			shape.Fields = append(shape.Fields, awsquery.Field{Key: argClientToken, Name: t.wire(mm), Shape: &awsquery.Shape{Kind: awsquery.KindString}, IdempotencyToken: true})
 			continue
 		}
 		a, ok := t.op.Arguments[mm.name]
@@ -365,7 +510,11 @@ func (t *tool) bindInput(m *Model, in []member, pag *pagingPlan) error {
 		if err != nil {
 			return err
 		}
-		shape.Fields = append(shape.Fields, awsquery.Field{Key: name, Name: wire(mm), Shape: s, Flattened: mm.traits.has("smithy.api#xmlFlattened")})
+		if !startArg {
+			// A start argument is only in the schema: the page carries it to the request, like the cursor.
+			shape.Fields = append(shape.Fields, awsquery.Field{Key: name, Name: t.wire(mm), Shape: s, Flattened: mm.traits.has("smithy.api#xmlFlattened")})
+			t.inModel[name] = mm.name
+		}
 		props.set(name, schema)
 		isRequired := mm.traits.has("smithy.api#required")
 		if isRequired {
@@ -376,6 +525,40 @@ func (t *tool) bindInput(m *Model, in []member, pag *pagingPlan) error {
 	for name := range t.op.Arguments {
 		if !offered[name] {
 			return t.failf("argument entry %s is not an offered input member", name)
+		}
+	}
+	if t.op.LocalFile != "" {
+		if err := t.checkLocalFile(); err != nil {
+			return err
+		}
+		if used[localPathName] {
+			return t.failf("argument name %s is reserved or used twice", localPathName)
+		}
+		props.set(localPathName, rawJSON(localPathSchema))
+		required = append(required, localPathName)
+		help := localPathHelp[t.op.LocalFile]
+		if t.op.LocalRange {
+			help = localPathHelp["read-range"]
+		}
+		t.args = append(t.args, descArg{name: localPathName, required: true, description: help})
+		if t.op.LocalRange {
+			if used[localOffsetName] || used[localLengthName] {
+				return t.failf("argument names %s and %s are reserved or used twice", localOffsetName, localLengthName)
+			}
+			props.set(localOffsetName, newObject("type", "integer", "minimum", 0))
+			props.set(localLengthName, newObject("type", "integer", "minimum", 1, "maximum", localRangeMax))
+			t.args = append(t.args, descArg{name: localOffsetName, description: localOffsetHelp},
+				descArg{name: localLengthName, description: localLengthHelp})
+		}
+	}
+	for name, hit := range t.nestedIn {
+		if !hit {
+			return t.failf("hidden input %s is not a member below an offered input member", name)
+		}
+	}
+	for name, hit := range t.enumHit {
+		if !hit {
+			return t.failf("enum exclusion %s is not an enum member of an offered input", name)
 		}
 	}
 	for _, list := range []struct {
@@ -401,16 +584,30 @@ func (t *tool) bindInput(m *Model, in []member, pag *pagingPlan) error {
 	if pag != nil {
 		if pag.sizeMember != "" {
 			mm, _ := find(in, pag.sizeMember)
-			max, _ := number(mm.traits.obj("smithy.api#range"), "max")
+			max, _ := t.pageMax(mm)
 			props.set(awsquery.ArgPageSize, newObject("type", "integer", "minimum", 1, "maximum", max))
 			t.args = append(t.args, descArg{name: awsquery.ArgPageSize, description: fmt.Sprintf(
 				"Entries per page, 1 to %d; the service's default when left out", max)})
-			t.pager = &awsquery.Pager{SizeParam: wire(mm), MaxSize: int(max)}
+			t.pager = &awsquery.Pager{SizeParam: t.wire(mm), MaxSize: int(max)}
 		} else {
 			t.pager = &awsquery.Pager{}
 		}
 		tokenIn, _ := find(in, pag.tokenIn)
-		t.pager.TokenIn = wire(tokenIn)
+		t.pager.TokenIn = t.wire(tokenIn)
+		if len(pag.ins) > 1 {
+			// The positions come from the binding of the model; assembleRest sets the page size name.
+			if t.restBind == nil || t.restBind.Multi == nil {
+				return t.failf("paging by several members needs a REST binding")
+			}
+			t.multi = &httpbind.MultiPager{Positions: slices.Clone(t.restBind.Multi.Positions), Truncated: t.restBind.Multi.Truncated,
+				SizeParam: t.pager.SizeParam, MaxSize: t.pager.MaxSize}
+			if pag.starts {
+				for i, name := range pag.ins {
+					t.multi.Positions[i].Start = orDefault(t.op.Arguments[name].Name, snake(name))
+				}
+			}
+			t.pager = nil
+		}
 		props.set(awsquery.ArgCursor, newObject("type", "string", "maxLength", awsquery.MaxCursorLength))
 		t.args = append(t.args, descArg{name: awsquery.ArgCursor, description: "next_cursor of the previous page, to " +
 			"continue the list; valid only with the same arguments"})
@@ -443,7 +640,15 @@ func (t *tool) bindInput(m *Model, in []member, pag *pagingPlan) error {
 	return nil
 }
 
-func wire(mm member) string {
+// wire is the name of a member on the wire: the jsonName of a restJson1 member, the xmlName of an awsQuery or
+// restXml member, else its name. mm.traits holds the merged traits of the member.
+func (t *tool) wire(mm member) string {
+	if t.rest && !t.xml {
+		if name := mm.traits.str("smithy.api#jsonName"); name != "" {
+			return name
+		}
+		return mm.name
+	}
 	if name := mm.obj.obj("traits").str("smithy.api#xmlName"); name != "" {
 		return name
 	}
@@ -460,7 +665,7 @@ func orDefault(value, fallback string) string {
 // bindOutput builds the output shape, the output schema, the fields, and the runtime rules.
 func (t *tool) bindOutput(m *Model, out []member, pag *pagingPlan) error {
 	hidden := hiddenSet(t.op.HiddenOutputs)
-	t.nested = map[string]bool{}
+	t.nested, t.outModel = map[string]bool{}, map[string]string{}
 	for name := range hidden {
 		if top, _, nested := strings.Cut(name, "."); nested {
 			// A dotted name hides a member below a top-level one, such as Devices.Seed; lists add no segment.
@@ -486,17 +691,21 @@ func (t *tool) bindOutput(m *Model, out []member, pag *pagingPlan) error {
 		if deprecated(mm) || hidden[mm.name] {
 			continue
 		}
+		if t.isStream(mm.name, false) {
+			continue
+		}
 		if t.op.AccountCheck && !slices.Contains(accountCheckMembers, mm.name) {
 			return t.failf("the account check answers only %v, not %s", accountCheckMembers, mm.name)
 		}
-		if pag != nil && (mm.name == pag.tokenOut || mm.name == pag.truncated) {
+		if pag != nil && (slices.Contains(pag.outs, mm.name) || mm.name == pag.truncated) {
 			// Kept in the shape for the pager, never returned.
 			c := converter{m: m, t: t, path: mm.name, output: true}
 			s, _, err := c.convert(mm.target, mm.traits, true, 0)
 			if err != nil {
 				return err
 			}
-			shape.Fields = append(shape.Fields, awsquery.Field{Key: "~" + mm.name, Name: wire(mm), Shape: s})
+			shape.Fields = append(shape.Fields, awsquery.Field{Key: "~" + mm.name, Name: t.wire(mm), Shape: s})
+			t.outModel["~"+mm.name] = "~" + mm.name
 			continue
 		}
 		if t.csv != nil && mm.name == t.csv.Member {
@@ -506,7 +715,7 @@ func (t *tool) bindOutput(m *Model, out []member, pag *pagingPlan) error {
 			if err != nil {
 				return err
 			}
-			shape.Fields = append(shape.Fields, awsquery.Field{Key: csvMemberKey, Name: wire(mm), Shape: s})
+			shape.Fields = append(shape.Fields, awsquery.Field{Key: csvMemberKey, Name: t.wire(mm), Shape: s})
 			continue
 		}
 		f, ok := t.op.Fields[mm.name]
@@ -525,7 +734,10 @@ func (t *tool) bindOutput(m *Model, out []member, pag *pagingPlan) error {
 		if f.MaxLen > 0 && mm.kind != "string" {
 			return t.failf("field %s has a cap but is not a string", mm.name)
 		}
-		c := converter{m: m, t: t, path: mm.name, output: true, maxLen: f.MaxLen}
+		if f.MaxItems > 0 && mm.kind != "list" && mm.kind != "set" {
+			return t.failf("field %s has an item cap but is not a list", mm.name)
+		}
+		c := converter{m: m, t: t, path: mm.name, output: true, maxLen: f.MaxLen, maxItems: f.MaxItems}
 		s, schema, err := c.convert(mm.target, mm.traits, true, 0)
 		if err != nil {
 			return err
@@ -534,7 +746,8 @@ func (t *tool) bindOutput(m *Model, out []member, pag *pagingPlan) error {
 			// A checked value is decoded whole: cut to its cap first, a longer value could pass the check.
 			s.MaxLen = defaultMaxString
 		}
-		shape.Fields = append(shape.Fields, awsquery.Field{Key: name, Name: wire(mm), Shape: s, Flattened: mm.traits.has("smithy.api#xmlFlattened")})
+		shape.Fields = append(shape.Fields, awsquery.Field{Key: name, Name: t.wire(mm), Shape: s, Flattened: mm.traits.has("smithy.api#xmlFlattened")})
+		t.outModel[name] = mm.name
 		props.set(name, schema)
 		if f.Required {
 			required = append(required, name)
@@ -556,10 +769,13 @@ func (t *tool) bindOutput(m *Model, out []member, pag *pagingPlan) error {
 	}
 	if pag != nil {
 		for _, f := range shape.Fields {
+			if t.pager == nil {
+				break
+			}
 			switch f.Name {
-			case pagingWire(out, pag.tokenOut):
+			case t.pagingWire(out, pag.tokenOut):
 				t.pager.TokenOut = f.Key
-			case pagingWire(out, pag.truncated):
+			case t.pagingWire(out, pag.truncated):
 				t.pager.Truncated = f.Key
 			}
 		}
@@ -597,11 +813,27 @@ func (t *tool) bindOutput(m *Model, out []member, pag *pagingPlan) error {
 			descField{name: fieldNext, description: "Cursor of the next page; absent at the end of the rows"},
 			descField{name: fieldHasMore, description: "True when more rows follow"})
 	}
+	if t.op.LocalFile != "" {
+		for _, f := range localResult {
+			if used[f.name] {
+				return t.failf("field name %s is reserved or used twice", f.name)
+			}
+			props.set(f.name, f.schema)
+			required = append(required, f.name)
+			t.fields = append(t.fields, descField{name: f.name, description: f.description[t.op.LocalFile]})
+		}
+	}
 	if t.hasToken {
 		props.set(argClientToken, newObject("type", "string", "maxLength", 128))
 		required = append(required, argClientToken)
 		t.fields = append(t.fields, descField{name: argClientToken, description: "Idempotency token the request " +
 			"was sent with; pass it as client_token to repeat this request after a timeout"})
+	}
+	if hook := t.op.ResultHook; hook != "" {
+		def := resultHookFields[hook]
+		props.set(def.name, def.schema())
+		required = append(required, def.name)
+		t.fields = append(t.fields, descField{name: def.name, description: def.description})
 	}
 	if t.op.Truncated != "" {
 		props.set(fieldTruncated, newObject("type", "boolean"))
@@ -609,18 +841,20 @@ func (t *tool) bindOutput(m *Model, out []member, pag *pagingPlan) error {
 		t.fields = append(t.fields, descField{name: fieldTruncated, description: t.op.Truncated})
 	}
 	schema := newObject("type", "object", "properties", props, "required", required, "additionalProperties", false)
-	t.resultKeys = required
+	// A result member that is empty is left out of the answer, so the generated test cannot expect a hook's
+	// member, whose sample is empty.
+	t.resultKeys = slices.DeleteFunc(slices.Clone(required), func(k string) bool { return t.op.ResultHook != "" && k == resultHookFields[t.op.ResultHook].name })
 	t.output = shape
 	t.outputSchema = encodeCompact(schema)
 	return nil
 }
 
-func pagingWire(out []member, name string) string {
+func (t *tool) pagingWire(out []member, name string) string {
 	if name == "" {
 		return "\x00"
 	}
 	mm, _ := find(out, name)
-	return wire(mm)
+	return t.wire(mm)
 }
 
 // converter turns one model shape into a runtime shape and a JSON schema.
@@ -629,9 +863,9 @@ type converter struct {
 	t      *tool
 	path   string
 	output bool
-	// maxLen is the table cap of a top-level output string.
-	maxLen int
-	stack  []string
+	// maxLen is the table cap of a top-level output string, maxItems that of a top-level output list.
+	maxLen, maxItems int
+	stack            []string
 }
 
 func (c *converter) failf(format string, args ...any) error {
@@ -679,7 +913,10 @@ func (c *converter) convert(target string, traits *object, output bool, depth in
 		return nil, nil, c.failf("%v", err)
 	}
 	if traits.has("smithy.api#sensitive") {
-		return nil, nil, c.failf("the member is sensitive; hide it with a reason, or exclude the operation")
+		if _, released := c.t.released[c.path]; !released {
+			return nil, nil, c.failf("the member is sensitive; hide it with a reason, or exclude the operation")
+		}
+		c.t.released[c.path] = true
 	}
 	if output && (kind == "string" || kind == "blob") && credentialName.MatchString(lastSegment(c.path)) {
 		return nil, nil, c.failf("the member looks like a credential; hide it with a reason, or exclude the operation")
@@ -715,6 +952,11 @@ func (c *converter) convert(target string, traits *object, output bool, depth in
 		if max, ok := number(length, "max"); ok {
 			schema.set("maxLength", max)
 		}
+		if l, ok := c.limit(false); ok {
+			if max, bounded := number(length, "max"); !bounded || int64(l.MaxLen) < max {
+				schema.set("maxLength", l.MaxLen)
+			}
+		}
 		if p := traits.str("smithy.api#pattern"); p != "" {
 			p, err := c.pattern(p)
 			if err != nil {
@@ -723,6 +965,9 @@ func (c *converter) convert(target string, traits *object, output bool, depth in
 			schema.set("pattern", p)
 		}
 		if values := enumValues(kind, s, traits); len(values) > 0 {
+			if values, err = c.narrow(values); err != nil {
+				return nil, nil, err
+			}
 			schema.set("enum", values)
 		}
 		return shape, schema, nil
@@ -736,6 +981,14 @@ func (c *converter) convert(target string, traits *object, output bool, depth in
 			if max, ok := number(r, "max"); ok {
 				schema.set("maximum", max)
 			}
+			if l, ok := c.intLimit(); ok {
+				if min, set := number(r, "min"); l.MinValue > 0 && (!set || min < l.MinValue) {
+					schema.set("minimum", l.MinValue)
+				}
+				if max, set := number(r, "max"); !set || max > l.MaxValue {
+					schema.set("maximum", l.MaxValue)
+				}
+			}
 		}
 		return &awsquery.Shape{Kind: awsquery.KindInteger}, schema, nil
 	case "float", "double":
@@ -743,7 +996,12 @@ func (c *converter) convert(target string, traits *object, output bool, depth in
 	case "boolean":
 		return &awsquery.Shape{Kind: awsquery.KindBoolean}, newObject("type", "boolean"), nil
 	case "timestamp":
-		if f := traits.str("smithy.api#timestampFormat"); f != "" && f != "date-time" {
+		// The binding layer renders and reads the three formats of the trait for a restXml tool, in a header, a query
+		// member, and the body; the schema is a date-time text either way. A restJson1 body renders date-time too; its
+		// other formats and the query protocol's are not carried here.
+		if f := traits.str("smithy.api#timestampFormat"); c.t.rest && !c.t.xml && f != "" && f != "date-time" {
+			return nil, nil, c.failf("timestamp format %s is not rendered for restJson1 tools yet", f)
+		} else if !c.t.rest && f != "" && f != "date-time" {
 			return nil, nil, c.failf("timestamp format %s is not the query protocol's date-time", f)
 		}
 		return &awsquery.Shape{Kind: awsquery.KindTimestamp}, newObject("type", "string", "maxLength", 64), nil
@@ -781,7 +1039,12 @@ func (c *converter) convert(target string, traits *object, output bool, depth in
 		}
 		shape := &awsquery.Shape{Kind: awsquery.KindList, Elem: elem, ElemName: mo.obj("traits").str("smithy.api#xmlName")}
 		schema := newObject("type", "array", "items", items)
-		c.items(shape, schema, length, output)
+		c.items(shape, schema, length, output, depth)
+		if l, ok := c.limit(true); ok {
+			if max, bounded := number(length, "max"); !bounded || int64(l.MaxItems) < max {
+				schema.set("maxItems", l.MaxItems)
+			}
+		}
 		return shape, schema, nil
 	case "map":
 		ko, vo := s.obj("key"), s.obj("value")
@@ -809,6 +1072,52 @@ func (c *converter) convert(target string, traits *object, output bool, depth in
 	return nil, nil, c.failf("shape type %s has no query-protocol binding here", kind)
 }
 
+// limit returns the table cap of the input member at c.path and marks it used.
+func (c *converter) limit(items bool) (InputLimit, bool) {
+	if c.output {
+		return InputLimit{}, false
+	}
+	for _, l := range c.t.op.Limits {
+		if l.Member == c.path && (l.MaxItems > 0) == items {
+			c.t.limited[l.Member] = true
+			return l, true
+		}
+	}
+	return InputLimit{}, false
+}
+
+// intLimit returns the table bound of the integer member at c.path and marks it used.
+func (c *converter) intLimit() (InputLimit, bool) {
+	if c.output {
+		return InputLimit{}, false
+	}
+	for _, l := range c.t.op.Limits {
+		if l.Member == c.path && l.MaxValue > 0 {
+			c.t.limited[l.Member] = true
+			return l, true
+		}
+	}
+	return InputLimit{}, false
+}
+
+// narrow removes the values the table excludes from the enum of the member at c.path.
+func (c *converter) narrow(values []any) ([]any, error) {
+	for _, e := range c.t.op.ExcludeEnum {
+		if e.Member != c.path {
+			continue
+		}
+		c.t.enumHit[e.Member] = true
+		values = slices.DeleteFunc(slices.Clone(values), func(v any) bool {
+			text, _ := v.(string)
+			return slices.Contains(e.Values, text)
+		})
+		if len(values) == 0 {
+			return nil, c.failf("the enum exclusion leaves no value")
+		}
+	}
+	return values, nil
+}
+
 func lastSegment(path string) string {
 	if i := strings.LastIndex(path, "."); i >= 0 {
 		return path[i+1:]
@@ -816,11 +1125,14 @@ func lastSegment(path string) string {
 	return path
 }
 
-func (c *converter) items(shape *awsquery.Shape, schema, length *object, output bool) {
+func (c *converter) items(shape *awsquery.Shape, schema, length *object, output bool, depth int) {
 	if output {
 		limit := defaultMaxItems
 		if max, ok := number(length, "max"); ok {
 			limit = int(max)
+		}
+		if _, bounded := number(length, "max"); c.maxItems > 0 && depth == 0 && (!bounded || c.maxItems < limit) {
+			limit = c.maxItems
 		}
 		shape.MaxItems = limit
 		schema.set("maxItems", limit)
@@ -848,12 +1160,22 @@ func (c *converter) structure(s *object, output bool, depth int) (*awsquery.Shap
 			return nil, nil, c.failf("%v", err)
 		}
 		traits := mergedTraits(mo, ts)
-		if traits.has("smithy.api#deprecated") {
-			continue
-		}
 		c.path = parent + "." + name
+		if traits.has("smithy.api#deprecated") {
+			if _, keep := c.t.kept[c.path]; !output || !keep {
+				continue
+			}
+			c.t.kept[c.path] = true
+		}
 		if _, hide := c.t.nested[c.path]; output && hide {
 			c.t.nested[c.path] = true
+			continue
+		}
+		if _, hide := c.t.nestedIn[c.path]; !output && hide {
+			if traits.has("smithy.api#required") {
+				return nil, nil, c.failf("a required member cannot be hidden")
+			}
+			c.t.nestedIn[c.path] = true
 			continue
 		}
 		if traits.has("smithy.api#idempotencyToken") {
@@ -864,7 +1186,7 @@ func (c *converter) structure(s *object, output bool, depth int) (*awsquery.Shap
 		if err != nil {
 			return nil, nil, err
 		}
-		shape.Fields = append(shape.Fields, awsquery.Field{Key: key, Name: wire(member{obj: mo, name: name}), Shape: elem,
+		shape.Fields = append(shape.Fields, awsquery.Field{Key: key, Name: c.t.wire(member{obj: mo, name: name, traits: traits}), Shape: elem,
 			Flattened: traits.has("smithy.api#xmlFlattened")})
 		props.set(key, schema)
 		if !output && traits.has("smithy.api#required") {
@@ -917,13 +1239,21 @@ func (t *tool) makeSamples(m *Model) error {
 		if f.IdempotencyToken {
 			continue
 		}
-		if strings.HasPrefix(t.op.TargetCheck, "arn-") && slices.Contains(t.targetArgs, f.Key) {
+		if sample, ok := targetSamples[t.op.TargetCheck]; ok && slices.Contains(t.targetArgs, f.Key) {
 			// The generated test binds this account; a repeated character would fail the target check.
+			args.set(f.Key, sample)
+			continue
+		}
+		if strings.HasPrefix(t.op.TargetCheck, "arn-") && slices.Contains(t.targetArgs, f.Key) {
 			args.set(f.Key, sampleARN)
 			continue
 		}
 		if t.op.PolicyCheck == "trust-policy" && slices.Contains(t.policyArgs, f.Key) {
 			args.set(f.Key, sampleTrustPolicy)
+			continue
+		}
+		if t.op.PolicyCheck == "resource-policy-own-account" && slices.Contains(t.policyArgs, f.Key) {
+			args.set(f.Key, sampleResourcePolicy)
 			continue
 		}
 		v, err := t.sample(f.Key, f.Shape, props[f.Key])
@@ -932,12 +1262,30 @@ func (t *tool) makeSamples(m *Model) error {
 		}
 		args.set(f.Key, v)
 	}
+	if t.op.SampleArgs != "" {
+		var over map[string]json.RawMessage
+		if err := json.Unmarshal([]byte(t.op.SampleArgs), &over); err != nil {
+			return t.failf("sample arguments of the table do not parse: %v", err)
+		}
+		for _, name := range sortedRawKeys(over) {
+			if !args.has(name) {
+				return t.failf("sample argument %s is not an argument of the generated test", name)
+			}
+			args.set(name, rawJSON(over[name]))
+		}
+	}
 	t.sampleArgs = encodeCompact(args)
 	var plain map[string]any
 	pd := json.NewDecoder(strings.NewReader(t.sampleArgs))
 	pd.UseNumber()
 	if err := pd.Decode(&plain); err != nil {
 		return t.failf("sample arguments do not parse: %v", err)
+	}
+	if t.rest {
+		if err := t.restSamples(plain); err != nil {
+			return err
+		}
+		return nil
 	}
 	req, err := awsquery.Encode(t.input, plain, bytes.NewReader(make([]byte, 16)))
 	if err != nil {
@@ -971,12 +1319,31 @@ var sampleChars = []string{"a", "A", "0", "x", "-", "_", "/", " "}
 // sampleARN is an ARN that passes the ARN target checks in the account the generated tests bind.
 const sampleARN = "arn:aws:iam::123456789012:role/a"
 
+// targetSamples are values that pass a target check in the account and region the generated tests bind, by
+// the name of the check.
+var targetSamples = map[string]string{
+	"bucket-owner":              "my-bucket",
+	"ses-identity":              "example.com",
+	"ses-identity-arn":          "arn:aws:ses:eu-central-1:123456789012:identity/example.com",
+	"ses-configuration-set":     "my-set",
+	"ses-resource-arn":          "arn:aws:ses:eu-central-1:123456789012:identity/example.com",
+	"ses-reputation-entity-arn": "arn:aws:ses:eu-central-1:123456789012:tenant/a/b",
+	"account-argument":          "123456789012",
+}
+
 // sampleTrustPolicy is a trust policy that passes the trust-policy check: one AWS service principal.
 const sampleTrustPolicy = `{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Principal":{"Service":"ec2.amazonaws.com"},"Action":"sts:AssumeRole"}]}`
 
+// sampleResourcePolicy passes the resource-policy-own-account check in the account the generated tests bind.
+const sampleResourcePolicy = `{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Principal":{"AWS":"123456789012"},"Action":"ses:SendEmail","Resource":"*"}]}`
+
 // sampleWords are whole values tried after the repeated characters, for patterns with a fixed prefix such as
-// the version IDs of IAM policies.
-var sampleWords = []string{"v1"}
+// the version IDs of IAM policies, the UUID of a Route 53 CIDR collection, an IPv4 address, a bucket/key pair, the ARN
+// of an SES mail archive, an ACM certificate ARN of the account the tests bind, an S3 URL, or an address of the form a@b or
+// a!@b.c, which stay outside the mail form that generated code must not hold.
+var sampleWords = []string{"v1", "00000000-0000-0000-0000-000000000000", "192.0.2.1", "a/b",
+	"arn:aws:ses:eu-central-1:123456789012:mailmanager-archive/a-0123456789abcdefghijklmn",
+	"arn:aws:acm:eu-central-1:123456789012:certificate/a", "s3://aaa/a", "aaa@bbb", "+0", "aaa!@bbb.ccc"}
 
 func (t *tool) sample(path string, s *awsquery.Shape, rawSchema any) (any, error) {
 	schema, _ := rawSchema.(map[string]any)
@@ -1055,7 +1422,7 @@ func intOf(v any, fallback int) int {
 // answer writes the members of a struct shape as the XML of an answer. Paging ends on the first page.
 func (t *tool) answer(b *strings.Builder, s *awsquery.Shape) error {
 	for _, f := range s.Fields {
-		if t.pager != nil && f.Key == t.pager.TokenOut {
+		if t.pagedOut(f.Key) {
 			continue
 		}
 		var inner strings.Builder
@@ -1117,7 +1484,7 @@ func (t *tool) scalarSample(f awsquery.Field) string {
 	case awsquery.KindFloat:
 		return "1.5"
 	case awsquery.KindBoolean:
-		if t.pager != nil && f.Key == t.pager.Truncated {
+		if t.pagedTruncated(f.Key) {
 			return "false"
 		}
 		return "true"
@@ -1135,6 +1502,15 @@ func (t *tool) scalarSample(f awsquery.Field) string {
 		}
 	}
 	return "x"
+}
+
+func sortedRawKeys(m map[string]json.RawMessage) []string {
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	slices.Sort(keys)
+	return keys
 }
 
 // sortedKeys returns the keys of a form parameter map in order, for a deterministic rendering.
@@ -1159,3 +1535,39 @@ func (t *tool) urlEncoded(m *Model, target string) (URLEncoded, bool) {
 	}
 	return URLEncoded{}, false
 }
+
+// pagerSpec is the table's paging of the operation, nil for none.
+func (t *tool) pagerSpec() *PagerSpec {
+	if t.table == nil || !t.rest {
+		return nil
+	}
+	for i := range t.table.Pagers {
+		if t.table.Pagers[i].Operation == t.op.Operation {
+			return &t.table.Pagers[i]
+		}
+	}
+	return nil
+}
+
+// pagedOut reports an output key that carries a position of the list: it never reaches a result, and a
+// generated answer leaves it out so that the list ends on the first page.
+func (t *tool) pagedOut(key string) bool {
+	if t.pager != nil {
+		return key == t.pager.TokenOut
+	}
+	if t.multi != nil {
+		return slices.ContainsFunc(t.multi.Positions, func(p httpbind.Position) bool { return p.Out == key })
+	}
+	return false
+}
+
+// pagedTruncated reports the output key that says whether the list continues.
+func (t *tool) pagedTruncated(key string) bool {
+	if t.pager != nil {
+		return key == t.pager.Truncated
+	}
+	return t.multi != nil && key == t.multi.Truncated
+}
+
+// stringKind reports a member that is text on the wire: a string, or an enum, which a position of a list may be.
+func stringKind(kind string) bool { return kind == "string" || kind == "enum" }

@@ -3,7 +3,7 @@
   "commit": "1b9ff13fe6c28ea9774a527e53cda6a3b91369dc",
   "retrieved_on": "2026-11-07",
   "license": "Apache-2.0; LICENSE and NOTICE of the upstream repository at the pinned commit lie beside this file",
-  "modification": "sts.json, iam.json, account.json and sesv2.json are derived from the upstream files named here, not copies: the traits smithy.api#documentation and smithy.api#examples were removed wherever they occur, and the JSON was re-encoded with the member order kept and two-space indentation. Nothing else was changed.",
+  "modification": "sts.json, iam.json, account.json, sesv2.json, s3.json and route-53.json are derived from the upstream files named here, not copies: the traits smithy.api#documentation and smithy.api#examples were removed wherever they occur, and the JSON was re-encoded with the member order kept and two-space indentation. Nothing else was changed.",
   "files": [
     {
       "service": "sts",
@@ -32,6 +32,20 @@
       "upstream_sha256": "8866fe8e17fe960ab5b7fb3615326fff0a8af73bbebeb5ba87ba6ee1f694e467",
       "extract": "sesv2.json",
       "extract_sha256": "2b00b64d666ec800d16d190bb365c1448ccf4a21a20fe5ead2962cf326bc22c4"
+    },
+    {
+      "service": "s3",
+      "upstream_path": "models/s3/service/2006-03-01/s3-2006-03-01.json",
+      "upstream_sha256": "73e4f75747396176053a0fcc910261cf670c7e133c1cebcfffefa703fad3ce68",
+      "extract": "s3.json",
+      "extract_sha256": "7e1eba27274489e5b55fbc19bda2f268a86c3290a2f759519856167d938fe5f0"
+    },
+    {
+      "service": "route-53",
+      "upstream_path": "models/route-53/service/2013-04-01/route-53-2013-04-01.json",
+      "upstream_sha256": "ecd97d60ded217f7e7e7b5eb7835027b7b426204bfae30c1340f4f55062afcf6",
+      "extract": "route-53.json",
+      "extract_sha256": "a6afb6143c0ee67d9b4b09fb0b8863f8653bc74f0788441ef788eca502f6b9f2"
     }
   ]
 }

@@ -207,7 +207,7 @@ func accessGermanScreens() []germanScreen {
 		}},
 		{"token revoke question", func(t *testing.T) *Model {
 			m, _ := tokens(t)
-			pump(t, m, keyOf(actDelete))
+			pump(t, m, keyLabel(actDelete))
 			return m
 		}},
 		{"approvals locked", func(t *testing.T) *Model {

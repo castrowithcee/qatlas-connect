@@ -4,6 +4,7 @@ import (
 	"strings"
 
 	tea "charm.land/bubbletea/v2"
+	kit "github.com/castrowithcee/qatlas-kit/tui"
 
 	"github.com/castrowithcee/qatlas-connect/internal/uiprefs"
 )
@@ -49,13 +50,32 @@ func keyRowValue(f field) string {
 	standard := uiprefs.DefaultKeys().Get(f.action)
 	switch {
 	case f.action == uiprefs.ActionInfo && f.bound == "":
-		return tr(tKeyInfoOnly, keyName(keyOf(actInfo)))
+		return tr(tKeyInfoOnly, tableKey(actInfo))
 	case f.action == uiprefs.ActionInfo:
-		return tr(tKeyInfoAnd, keyName(keyOf(actInfo)), keyName(f.bound))
+		return tr(tKeyInfoAnd, tableKey(actInfo), shownKey(f))
 	case f.bound == standard:
-		return tr(tKeyStandard, keyName(f.bound))
+		return tr(tKeyStandard, shownKey(f))
 	}
-	return keyName(f.bound)
+	return shownKey(f)
+}
+
+// shownKey is the key of a key row as a footer would name it. The row holds a key that is not bound yet, which
+// the keymap can only label once it holds it, so it is bound in a copy of the table; a key the table refuses
+// stays as typed.
+func shownKey(f field) string {
+	a, ok := userActions[f.action]
+	if f.action == uiprefs.ActionInfo {
+		a, ok = actInfo, true
+	}
+	km, err := newKeymap(keyTable)
+	if !ok || err != nil || km.Bind(map[action]string{a: f.bound}) != nil {
+		return f.bound
+	}
+	if a == actInfo {
+		label, _ := km.Labels(kit.InputText).KeyLabel(a)
+		return label
+	}
+	return km.Label(a)
 }
 
 // keyRowKey handles the keys of a focused key row: enter waits for the new key, d removes the own binding so the standard applies again.
@@ -95,7 +115,7 @@ func (m *Model) captureKey(key tea.KeyPressMsg) tea.Cmd {
 	// The other rows of the form are what the key must not collide with, so a rebinding in several steps
 	// checks against what is shown, not against what was saved.
 	name := key.String()
-	if name == keyOf(actSpace) {
+	if name == keyLabel(actSpace) {
 		// Check trims a blank key to "", which Info accepts as "no second key", so a space would silently
 		// clear it; refuse it here with the rule's wording for every action.
 		m.fail = tr(tKeySpaceRefused)

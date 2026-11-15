@@ -105,7 +105,7 @@ func TestInvokeRefusesAnOutputFormatItDoesNotWrite(t *testing.T) {
 	for _, format := range []string{"table", "compact", "toon"} {
 		code, stdout, stderr := invoke("--output", format)
 		want := "qconnect: usage: 'qconnect invoke' writes its result as json, not " + format +
-			"; omit --output or pass --output json\n"
+			"; omit --output or pass --output json\n" + fallbackStep + "\n"
 		if code != exitUsage || stdout != "" || stderr != want {
 			t.Errorf("--output %s: exit=%d stdout=%q stderr=%q, want %q", format, code, stdout, stderr, want)
 		}
@@ -297,12 +297,12 @@ defaults: {}
 		t.Fatalf("exit=%d stdout=%q stderr=%q", code, stdout.String(), stderr.String())
 	}
 	lines := strings.Split(strings.TrimSpace(stderr.String()), "\n")
-	if len(lines) != 2 || !strings.HasPrefix(lines[0], "qconnect: permission: send message: private [redacted]") {
+	if len(lines) != 3 || !strings.HasPrefix(lines[0], "qconnect: permission: send message: private [redacted]") {
 		t.Fatalf("stderr lines = %#v", lines)
 	}
 	var event map[string]any
-	if err := json.Unmarshal([]byte(lines[1]), &event); err != nil {
-		t.Fatalf("audit line = %q: %v", lines[1], err)
+	if err := json.Unmarshal([]byte(lines[2]), &event); err != nil {
+		t.Fatalf("audit line = %q: %v", lines[2], err)
 	}
 	if event["result"] != string(provider.ClassPermission) || event["operation"] != descriptor.ID ||
 		event["connection"] != "alerts" || event["confirmed"] != true {
@@ -375,7 +375,7 @@ defaults:
 	if code != exitUsage || stdout.Len() != 0 {
 		t.Fatalf("exit=%d stdout=%q stderr=%q", code, stdout.String(), stderr.String())
 	}
-	first, _, _ := strings.Cut(stderr.String(), "\n")
+	first := "qconnect: " + messageWithStep(stderr.String())
 	want := `qconnect: unsupported-capability: connection "alerts" does not offer tool "fake.messages.send" (effect-not-permitted); ` +
 		`'qconnect describe fake.messages.send' names the connections that offer it, or change the connection in 'qconnect tui'`
 	if first != want {
@@ -493,7 +493,7 @@ func TestStdinThatNeverEndsTimesOut(t *testing.T) {
 				[]string{"invoke", "bookstack.pages.list", "--config", cfg}, &stdout, &stderr)
 
 			want := "qconnect: timeout: stdin did not end within 50ms; close it after the JSON arguments object, " +
-				"or pass the arguments with --arg\n"
+				"or pass the arguments with --arg\n" + fallbackStep + "\n"
 			if code != exitRuntime || stdout.Len() != 0 || stderr.String() != want {
 				t.Errorf("exit=%d stdout=%q stderr=%q", code, stdout.String(), stderr.String())
 			}
@@ -520,12 +520,12 @@ func TestInvokeEndsAtItsLimitWithTheNextStep(t *testing.T) {
 		"a provider that did not answer": {
 			fail: func(ctx context.Context) error { return provider.Transport("get page", "Fake", ctx.Err()) },
 			want: "qconnect: timeout: get page: Fake did not answer in time; check that the service answers, " +
-				"then try again\n",
+				"then try again\n" + fallbackStep + "\n",
 		},
 		"a bare context error": {
 			fail: func(ctx context.Context) error { return ctx.Err() },
 			want: "qconnect: timeout: the request did not finish within 50ms; check that the service answers, " +
-				"then try again\n",
+				"then try again\n" + fallbackStep + "\n",
 		},
 	} {
 		t.Run(name, func(t *testing.T) {

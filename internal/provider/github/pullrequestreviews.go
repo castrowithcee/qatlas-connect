@@ -185,6 +185,9 @@ type reviewArguments struct {
 	Limit  int    `json:"limit"`
 	Cursor string `json:"cursor"`
 
+	ReviewID int64  `json:"review_id"`
+	Message  string `json:"message"`
+
 	SHA       string     `json:"sha"`
 	Event     string     `json:"event"`
 	Body      string     `json:"body"`
@@ -441,12 +444,18 @@ func (c *Client) createReview(ctx context.Context, a *reviewArguments, event str
 }
 
 // reviewsSubject names the review or the review comment a pull request review path below a repository
-// addresses: pulls/N/reviews/ID or pulls/N/comments/ID/replies. It names only an identifier of the
-// characters the input schema allows, and is empty otherwise, so pullsSubject still names the pull request
-// itself for every other reviews or comments path below it.
+// addresses: pulls/N/reviews/ID (also below dismissals), pulls/comments/ID, or pulls/N/comments/ID/replies.
+// It names only an identifier of the characters the input schema allows, and is empty otherwise, so
+// pullsSubject still names the pull request itself for every other reviews or comments path below it.
 func reviewsSubject(path string) string {
 	rest, ok := strings.CutPrefix(path, "pulls/")
 	if !ok {
+		return ""
+	}
+	if digits, ok := strings.CutPrefix(rest, "comments/"); ok {
+		if id, ok := positiveID(digits); ok {
+			return "review comment " + id
+		}
 		return ""
 	}
 	_, tail, ok := strings.Cut(rest, "/")
@@ -455,7 +464,8 @@ func reviewsSubject(path string) string {
 	}
 	switch {
 	case strings.HasPrefix(tail, "reviews/"):
-		if id, ok := positiveID(strings.TrimPrefix(tail, "reviews/")); ok {
+		digits, _, _ := strings.Cut(strings.TrimPrefix(tail, "reviews/"), "/")
+		if id, ok := positiveID(digits); ok {
 			return "review " + id
 		}
 	case strings.HasPrefix(tail, "comments/") && strings.HasSuffix(tail, "/replies"):

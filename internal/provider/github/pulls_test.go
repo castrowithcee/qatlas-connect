@@ -26,6 +26,8 @@ type fakePull struct {
 	labels                          []string
 	body                            string
 	mergeCommitSHA                  string
+	// autoMerge is the merge method of the pull request's auto-merge, empty while it is off.
+	autoMerge string
 }
 
 type fakeFile struct {
@@ -300,7 +302,11 @@ func pullJSONOf(pull fakePull) string {
 	if mergeCommitSHA == "" {
 		mergeCommitSHA = "mergecommitsha"
 	}
-	return fmt.Sprintf(`{"number":%d,"node_id":%q,"title":%q,"body":%q,"state":%q,"draft":%v,`+
+	autoMerge := ""
+	if pull.autoMerge != "" {
+		autoMerge = fmt.Sprintf(`"auto_merge":{"merge_method":%q},`, pull.autoMerge)
+	}
+	return fmt.Sprintf(`{`+autoMerge+`"number":%d,"node_id":%q,"title":%q,"body":%q,"state":%q,"draft":%v,`+
 		`"user":{"login":"octocat"},"head":{"ref":%q,"sha":%q},"base":{"ref":%q,"sha":"basesha"},`+
 		`"labels":[%s],"requested_reviewers":[{"login":"hubot"}],"merged":%v,`+
 		`"mergeable":true,"mergeable_state":"clean","merge_commit_sha":%q,"commits":3,`+

@@ -11,8 +11,11 @@ type Model struct {
 	shapes    *object
 	serviceID string
 	service   *object
-	// Protocol is ProtocolQuery or ProtocolRestJSON, read from the service's protocol trait.
+	// Protocol is ProtocolQuery, ProtocolRestJSON or ProtocolRestXML, read from the service's protocol trait.
 	Protocol string
+	// NoErrorWrapping is the noErrorWrapping property of the restXml trait: errors are a bare Error element
+	// (S3) instead of an ErrorResponse element that holds it (Route 53).
+	NoErrorWrapping bool
 	// Version is the API version of the model; the query protocol sends it as Version.
 	Version string
 	// Namespace is the xmlNamespace of the service, used for the answers of generated tests.
@@ -23,14 +26,16 @@ type Model struct {
 const (
 	ProtocolQuery    = "awsQuery"
 	ProtocolRestJSON = "restJson1"
+	ProtocolRestXML  = "restXml"
 )
 
 var protocolTraits = map[string]string{
 	"aws.protocols#awsQuery": ProtocolQuery, "aws.protocols#restJson1": ProtocolRestJSON,
+	"aws.protocols#restXml": ProtocolRestXML,
 }
 
-// LoadModel reads an extract. It must hold exactly one service that speaks exactly one of awsQuery and
-// restJson1. Operations bound through resources count as operations of the service: the REST bindings
+// LoadModel reads an extract. It must hold exactly one service that speaks exactly one of awsQuery,
+// restJson1 and restXml. Operations bound through resources count as operations of the service: the REST bindings
 // carry the identifiers as ordinary members of the input, so a resource adds no binding of its own.
 func LoadModel(data []byte) (*Model, error) {
 	root, err := decodeOrdered(data)
@@ -64,7 +69,10 @@ func LoadModel(data []byte) (*Model, error) {
 		}
 	}
 	if m.Protocol == "" {
-		return nil, fmt.Errorf("service %s speaks neither awsQuery nor restJson1", m.serviceID)
+		return nil, fmt.Errorf("service %s speaks none of awsQuery, restJson1 and restXml", m.serviceID)
+	}
+	if m.Protocol == ProtocolRestXML {
+		m.NoErrorWrapping = traits.obj("aws.protocols#restXml").get("noErrorWrapping") == true
 	}
 	m.Version = m.service.str("version")
 	m.Namespace = traits.obj("smithy.api#xmlNamespace").str("uri")

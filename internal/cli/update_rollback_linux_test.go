@@ -136,7 +136,7 @@ func TestRollbackLeavesAReadableConfigurationAlone(t *testing.T) {
 	withInteractive(t, false)
 	f := newRollbackFixture(t, readableConfig, rollbackBackups())
 	before := f.snapshot(t)
-	code, stderr, program := f.run(t, nil, "--yes")
+	code, stderr, program := f.run(t, nil, "--yes", "--confirm")
 	if code != exitOK || program != rollbackProgram || f.replaced != 1 {
 		t.Fatalf("exit code = %d, stderr = %q, replaced %d", code, stderr, f.replaced)
 	}
@@ -151,7 +151,7 @@ func TestRollbackWithoutAConfigurationFileInstalls(t *testing.T) {
 	if must != nil {
 		t.Fatal(must)
 	}
-	code, stderr, program := f.run(t, nil, "--yes")
+	code, stderr, program := f.run(t, nil, "--yes", "--confirm")
 	if code != exitOK || program != rollbackProgram || f.replaced != 1 {
 		t.Fatalf("exit code = %d, stderr = %q, replaced %d", code, stderr, f.replaced)
 	}
@@ -161,7 +161,7 @@ func TestRollbackRestoresTheNewestReadableBackupWithTheFlag(t *testing.T) {
 	withChosenProgram(t, rollbackProgram)
 	withInteractive(t, false)
 	f := newRollbackFixture(t, unreadableConfig, rollbackBackups())
-	code, stderr, program := f.run(t, nil, "--yes", "--restore-backup")
+	code, stderr, program := f.run(t, nil, "--yes", "--confirm", "--restore-backup")
 	if code != exitOK || program != rollbackProgram || f.replaced != 1 {
 		t.Fatalf("exit code = %d, stderr = %q, replaced %d", code, stderr, f.replaced)
 	}
@@ -187,7 +187,7 @@ func TestRollbackWithoutTheFlagNamesTheBackupAndChangesNothing(t *testing.T) {
 	withInteractive(t, false)
 	f := newRollbackFixture(t, unreadableConfig, rollbackBackups())
 	before := f.snapshot(t)
-	code, stderr, program := f.run(t, nil, "--yes")
+	code, stderr, program := f.run(t, nil, "--yes", "--confirm")
 	if code != exitUsage || program != "old-program" || f.replaced != 0 {
 		t.Fatalf("exit code = %d, stderr = %q, program %q, replaced %d", code, stderr, program, f.replaced)
 	}
@@ -208,7 +208,7 @@ func TestRollbackWithoutAReadableBackupChangesNothing(t *testing.T) {
 	withInteractive(t, false)
 	f := newRollbackFixture(t, unreadableConfig, map[string]string{unreadableOne: "version: 99\n"})
 	before := f.snapshot(t)
-	code, stderr, program := f.run(t, nil, "--yes", "--restore-backup")
+	code, stderr, program := f.run(t, nil, "--yes", "--confirm", "--restore-backup")
 	if code == exitOK || program != "old-program" || f.replaced != 0 || !strings.Contains(stderr, "none of its backups") {
 		t.Fatalf("exit code = %d, stderr = %q, program %q, replaced %d", code, stderr, program, f.replaced)
 	}
@@ -230,7 +230,7 @@ func TestRollbackAsksForTheProgramAndSeparatelyForTheRestore(t *testing.T) {
 			})
 			f := newRollbackFixture(t, unreadableConfig, rollbackBackups())
 			before := f.snapshot(t)
-			code, stderr, program := f.run(t, nil)
+			code, stderr, program := f.run(t, nil, "--confirm")
 			if len(asked) != len(tt.answers) {
 				t.Fatalf("%d questions, want %d: %q", len(asked), len(tt.answers), asked)
 			}
@@ -272,7 +272,7 @@ func TestRollbackChecksCopiesOnly(t *testing.T) {
 	record := filepath.Join(t.TempDir(), "paths")
 	withChosenProgram(t, "#!/bin/sh\necho \"$2\" >> "+record+"\nif grep -q '^version: 99' \"$2\"; then exit 1; fi\nexit 0\n")
 	before := f.snapshot(t)
-	code, stderr, _ := f.run(t, nil, "--yes")
+	code, stderr, _ := f.run(t, nil, "--yes", "--confirm")
 	if code != exitUsage {
 		t.Fatalf("exit code = %d, stderr = %q", code, stderr)
 	}
@@ -295,7 +295,7 @@ func TestRollbackEndsAnUnfinishedCheckWithoutChanges(t *testing.T) {
 	f := newRollbackFixture(t, unreadableConfig, rollbackBackups())
 	before := f.snapshot(t)
 	start := time.Now()
-	code, stderr, program := f.run(t, func(c *selfupdate.Client) { c.CheckTimeout = 200 * time.Millisecond }, "--yes", "--restore-backup")
+	code, stderr, program := f.run(t, func(c *selfupdate.Client) { c.CheckTimeout = 200 * time.Millisecond }, "--yes", "--confirm", "--restore-backup")
 	if code == exitOK || program != "old-program" || f.replaced != 0 || !strings.Contains(stderr, "did not finish") {
 		t.Fatalf("exit code = %d, stderr = %q, program %q", code, stderr, program)
 	}
@@ -311,7 +311,7 @@ func TestRollbackPutsThePreviousConfigurationBackWhenTheReplacementFails(t *test
 	f := newRollbackFixture(t, unreadableConfig, rollbackBackups())
 	code, stderr, program := f.run(t, func(c *selfupdate.Client) {
 		c.BeforeReplace = func(context.Context, selfupdate.Release) error { return errors.New("replacement refused") }
-	}, "--yes", "--restore-backup")
+	}, "--yes", "--confirm", "--restore-backup")
 	if code == exitOK || program != "old-program" || !strings.Contains(stderr, "replacement refused") {
 		t.Fatalf("exit code = %d, stderr = %q, program %q", code, stderr, program)
 	}
@@ -353,7 +353,7 @@ func TestRollbackLocksTheVaultProcessWhateverTheSettingSays(t *testing.T) {
 			runningBefore = running(signerKeyClient)
 			return nil
 		}
-	}, "--yes")
+	}, "--yes", "--confirm")
 	if code != exitOK || program != rollbackProgram {
 		t.Fatalf("exit code = %d, stderr = %q, program %q", code, stderr, program)
 	}
