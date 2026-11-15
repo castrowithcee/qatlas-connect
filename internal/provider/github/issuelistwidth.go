@@ -21,11 +21,11 @@ import (
 // edit history, reactions, and project items are counted only, since GitHub serves them as lists of their
 // own; the other connections are read with their first page.
 //
-// The query bounds one page: at the largest limit of 100 the issue connection holds 100 nodes, and each
-// issue asks for at most issueLabelsFirst labels, issueAssigneesFirst assignees, and issueConnectionFirst
-// entries in each of nine further connections (ten with project_details), 120 nodes per issue (130) and 12100
-// (13100) nodes with the issues themselves. The pending suggestions have no first value; counted generously
-// as 100 per issue they add 10000 nodes. All of it is far below the 500000 nodes GitHub allows. A body arrives complete, since GraphQL cannot cut it, and is cut here.
+// One query asks for at most issueListChunk issues, each with at most issueLabelsFirst labels,
+// issueAssigneesFirst assignees, and issueConnectionFirst entries in each of nine further connections (ten with
+// project_details). Even a single query of 100 issues would stay far below the 500000 nodes GitHub allows, but
+// GitHub also bounds the resources one query may cost and refuses such a query, so listIssues reads a page in
+// chunks. A body arrives complete, since GraphQL cannot cut it, and is cut here.
 
 const (
 	issueListBodyLimit   = 1000

@@ -115,6 +115,11 @@ type issuesPageJSON struct {
 	} `json:"repository"`
 }
 
+// issueListChunk is the most issues one query of the list asks for. A query of the full width for 100 issues
+// stays below GitHub's node limit but exceeds its resource limits (RESOURCE_LIMITS_EXCEEDED); 30 were seen to
+// pass.
+const issueListChunk = 25
+
 // ListIssues reads one bounded batch of issues. See listIssues.
 func (c *Client) ListIssues(ctx context.Context, options IssueListOptions) (*IssueList, error) {
 	if c.target.kind != kindRepository {
@@ -148,15 +153,37 @@ func (c *Client) listIssues(ctx context.Context, options IssueListOptions, after
 		filter["assignee"] = options.Assignee
 	}
 	options.applyIssueFilters(filter)
-	var page issuesPageJSON
-	if err := c.graphql(ctx, op, issuesQuery(options.ProjectDetails), variables, &page); err != nil {
-		return nil, err
+	// A page is read in chunks chained by GitHub's cursor; a failed chunk fails the whole call, so no partial
+	// page is ever returned.
+	var nodes []issueNodeRaw
+	var pageInfo struct {
+		HasNextPage bool   `json:"hasNextPage"`
+		EndCursor   string `json:"endCursor"`
 	}
-	if page.Repository == nil || page.Repository.Issues == nil {
-		return nil, notFound(op, subject{in: c.target})
+	for remaining := options.Limit; remaining > 0; {
+		first := min(remaining, issueListChunk)
+		variables["first"] = first
+		var page issuesPageJSON
+		if err := c.graphql(ctx, op, issuesQuery(options.ProjectDetails), variables, &page); err != nil {
+			return nil, err
+		}
+		if page.Repository == nil || page.Repository.Issues == nil {
+			return nil, notFound(op, subject{in: c.target})
+		}
+		nodes = append(nodes, page.Repository.Issues.Nodes...)
+		pageInfo = page.Repository.Issues.PageInfo
+		remaining -= first
+		if !pageInfo.HasNextPage || remaining <= 0 {
+			break
+		}
+		if pageInfo.EndCursor == "" {
+			return nil, &provider.Error{Class: provider.ClassInvalidResponse, Op: op,
+				Message: "GitHub announced further issues without a cursor"}
+		}
+		variables["after"] = pageInfo.EndCursor
 	}
-	result := &IssueList{Issues: make([]IssueSummary, 0, len(page.Repository.Issues.Nodes))}
-	for _, node := range page.Repository.Issues.Nodes {
+	result := &IssueList{Issues: make([]IssueSummary, 0, len(nodes))}
+	for _, node := range nodes {
 		if node.Number < 1 {
 			return nil, &provider.Error{Class: provider.ClassInvalidResponse, Op: op,
 				Message: "GitHub returned an issue without a usable number"}
@@ -188,7 +215,6 @@ func (c *Client) listIssues(ctx context.Context, options IssueListOptions, after
 		}
 		result.Issues = append(result.Issues, issue)
 	}
-	pageInfo := page.Repository.Issues.PageInfo
 	if pageInfo.HasNextPage {
 		if pageInfo.EndCursor == "" {
 			return nil, &provider.Error{Class: provider.ClassInvalidResponse, Op: op,

@@ -3,6 +3,7 @@ package github
 import (
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"regexp"
 	"strconv"
 	"strings"
@@ -343,6 +344,95 @@ func TestIssueListRefusesInvalidFiltersBeforeTheCredential(t *testing.T) {
 	}
 	if reads != 0 || len(f.recorded()) != 0 {
 		t.Error("an invalid filter reached the credential or GitHub")
+	}
+}
+
+// chunkedIssues answers the issue list from total numbered issues, one chunk per request by first and after;
+// failAt, when positive, fails the request with that index.
+func chunkedIssues(t *testing.T, total, failAt int) (*fakeGitHub, *application.Core) {
+	t.Helper()
+	f := &fakeGitHub{}
+	f.failure = func(w http.ResponseWriter, _ *http.Request) bool {
+		requests := f.recorded()
+		variables := requests[len(requests)-1].variables
+		w.Header().Set("Content-Type", "application/json")
+		if failAt > 0 && len(requests) == failAt {
+			fmt.Fprint(w, `{"data":null,"errors":[{"type":"RESOURCE_LIMITS_EXCEEDED","message":"limits"}]}`)
+			return true
+		}
+		start := 0
+		if after, ok := variables["after"].(string); ok {
+			start, _ = strconv.Atoi(strings.TrimPrefix(after, "c"))
+			start++
+		}
+		end := min(start+int(variables["first"].(float64)), total)
+		nodes := []string{}
+		for i := start; i < end; i++ {
+			nodes = append(nodes, fmt.Sprintf(`{"number":%d,"title":"Issue %d","state":"OPEN"}`, i+1, i+1))
+		}
+		fmt.Fprintf(w, `{"data":{"repository":{"issues":{"pageInfo":{"hasNextPage":%t,"endCursor":"c%d"},`+
+			`"nodes":[%s]}}}}`, end < total, end-1, strings.Join(nodes, ","))
+		return true
+	}
+	red := &redact.Redactor{}
+	return f, application.New(registry(t), coreConfig(serve(t, f)), resolver(red, nil), red)
+}
+
+// A page of up to 100 issues is read in chunks of at most issueListChunk, each continuing at the cursor of the
+// one before; the answer's cursor continues after the last chunk, a short repository ends the chain early, and
+// a failed later chunk fails the whole call instead of returning part of the page.
+func TestIssueListSplitsLargePagesIntoBoundedRequests(t *testing.T) {
+	f, core := chunkedIssues(t, 130, 0)
+	got, err := invoke(t, core, issuesList.ID, "repo", `{"limit":100,"project_details":true}`, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var page struct {
+		Issues     []struct{ Number int } `json:"issues"`
+		HasMore    bool                   `json:"has_more"`
+		NextCursor string                 `json:"next_cursor"`
+	}
+	if err := json.Unmarshal(got, &page); err != nil {
+		t.Fatal(err)
+	}
+	if len(page.Issues) != 100 || page.Issues[0].Number != 1 || page.Issues[99].Number != 100 || !page.HasMore ||
+		page.NextCursor == "" {
+		t.Fatalf("page = %d issues, has_more %t, cursor %q; want 1 to 100 with a cursor", len(page.Issues),
+			page.HasMore, page.NextCursor)
+	}
+	requests := f.recorded()
+	if len(requests) != 4 {
+		t.Fatalf("requests = %d, want 4", len(requests))
+	}
+	for i, request := range requests {
+		first := int(request.variables["first"].(float64))
+		if first > issueListChunk || issueListChunk > 25 {
+			t.Errorf("request %d asks for %d issues, more than the chunk of %d", i, first, issueListChunk)
+		}
+		after, _ := request.variables["after"].(string)
+		if want := fmt.Sprintf("c%d", i*issueListChunk-1); i > 0 && after != want || i == 0 && after != "" {
+			t.Errorf("request %d continues after %q, want the cursor of the chunk before", i, after)
+		}
+	}
+	if _, err := invoke(t, core, issuesList.ID, "repo",
+		`{"limit":10,"project_details":true,"cursor":"`+page.NextCursor+`"}`, false); err != nil {
+		t.Fatal(err)
+	}
+	if after, _ := lastRequest(t, f).variables["after"].(string); after != "c99" {
+		t.Errorf("the next page continues after %q, want c99", after)
+	}
+
+	f, core = chunkedIssues(t, 40, 0)
+	got, err = invoke(t, core, issuesList.ID, "repo", `{"limit":100}`, false)
+	if err := json.Unmarshal(got, &page); err != nil || len(page.Issues) != 40 || page.HasMore ||
+		len(f.recorded()) != 2 {
+		t.Errorf("short repository = %d issues, has_more %t, %d requests, %v; want 40, false, 2", len(page.Issues),
+			page.HasMore, len(f.recorded()), err)
+	}
+
+	_, core = chunkedIssues(t, 130, 3)
+	if got, err := invoke(t, core, issuesList.ID, "repo", `{"limit":100}`, false); err == nil {
+		t.Errorf("a failed third chunk answered %s, want the call to fail", got)
 	}
 }
 
