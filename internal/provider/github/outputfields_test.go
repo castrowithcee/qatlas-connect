@@ -366,6 +366,8 @@ var outputSamples = map[string]any{
 	"github.organization-roles.assign":             OrganizationRoleAssigned{},
 	"github.outside-collaborators.remove":          OutsideCollaboratorRemoved{},
 	"github.organization-invitations.cancel":       OrganizationInvitationCancelled{},
+	"github.organization-invitations.create":       OrganizationInvited{},
+	"github.team-members.invite":                   TeamMemberInvited{},
 	"github.billing-usage.get":                     BillingUsage{},
 	"github.billing-usage-summary.get":             BillingSummary{},
 	"github.billing-premium-requests.get":          BillingModelReport{},
