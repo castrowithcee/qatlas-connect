@@ -145,6 +145,7 @@ than a feed that looks complete. GitHub does not document which fine-grained per
 | `github.repositories.rename` | renames one repository under its owner; offered only where a connection's `tools` list names it |
 | `github.repositories.delete` | deletes one repository permanently; offered only where a connection's `tools` list names it |
 | `github.collaborators.list` | lists the collaborators of a repository |
+| `github.collaborators.add` | invites an existing GitHub account as a collaborator, only a login the connection's targets name as `users/LOGIN`; offered only where a connection's `tools` list names it |
 | `github.collaborators.update` | changes the permission of an existing collaborator; offered only where a connection's `tools` list names it |
 | `github.collaborators.remove` | removes an existing collaborator; offered only where a connection's `tools` list names it |
 
@@ -205,6 +206,28 @@ as a deviation and says to check the pending invitations, never as success. For 
 collaborator answers `not-found` without a `DELETE`. Each change is one request, never repeated; a timeout or
 an unclear answer reports that the change may have been applied, so read the collaborators before trying again.
 Messages carry no text from GitHub.
+
+`github.collaborators.add` invites one existing GitHub account (`username`) to a repository with a `permission`
+(the same values and custom role names as `update`). It is offered only where a connection's `tools` list names
+it, and no profile selects it. It never takes an e-mail address, an invitation link, or a numeric ID: a
+`username` containing `@` or consisting only of digits is refused. A confirmation shows no account details, so
+the connection's targets decide who can be invited: the login must be named as an owner target `users/LOGIN`
+(compared without case), otherwise the call is refused with `invalid-request` before a secret is read and
+without a request. A connection without any `users/LOGIN` target cannot
+invite anybody. Note that a target `users/LOGIN` also makes the repositories of that account reachable for the
+tools that take a repository inside the targets.
+
+After the checks the tool reads `GET /users/{login}`, which must be an account of type `User` with the same
+login (the canonical spelling is used from then on), then the collaborator relationship: an account that is a
+collaborator already is refused with `invalid-request` pointing to `github.collaborators.update`, and nothing
+is written. A pending invitation of the same account is not a collaborator yet: the call sends it again, and
+GitHub updates its permission. The single `PUT` answers `result: invited` (GitHub sent an invitation, which the invitee must
+accept) or `result: added` (GitHub added the account directly, for example a member of the owning
+organization), together with the login, the repository, and the permission. The result never carries an
+invitation ID or link, even where GitHub returns them. Inviting with `admin` is security-relevant: that user can
+change settings, invite others, and delete the repository, so confirm it deliberately. The change is one
+request, never repeated; a timeout or an unclear answer reports that the change may have been applied, so read
+the collaborators and the repository invitations before trying again. Messages carry no text from GitHub.
 
 The token rights are listed under [Repositories, rulesets, and properties](setup.md#repositories-rulesets-and-properties).
 

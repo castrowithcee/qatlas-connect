@@ -885,7 +885,8 @@ func Register(reg *capability.Registry) error {
 			Description: "not recommended: lists and reads the code scanning, Dependabot, and secret scanning " +
 				"alerts of a repository, the global and repository security advisories, and code quality " +
 				"findings, the instances, analyses, and locations behind the alerts, and the security switches and the " +
-				"code scanning default setup of a repository and the dependency changes between two refs; the found " +
+				"code scanning default setup of a repository, the dependency changes between two refs, and the code " +
+				"security configurations of an organization with its defaults and attached repositories; the found " +
 				"secret of a secret scanning alert is never " +
 				"shown; changes nothing, since the alert updates, the changes of the switches and the default setup, " +
 				"and the dependency snapshots are offered only where a connection's tools list names them",
@@ -923,13 +924,14 @@ func Register(reg *capability.Registry) error {
 		maintenanceOperations(), actionsSettingsOperations(), runnersOperations(), runnerGroupOperations(), webhooksOperations(), deployKeysOperations(), repositoryInvitationsOperations(), pullRequestOperations(), checkOperations(), releaseOperations(), releaseAssetOperations(), pullRequestCommentOperations(),
 		pullRequestReviewOperations(), pullRequestReviewMaintenanceOperations(), pullRequestReviewCommentOperations(),
 		pullRequestReviewCommentMaintenanceOperations(), pullRequestReviewThreadOperations(),
-		pullRequestReviewerOperations(), accountOperations(), organizationOperations(), organizationReadOperations(), organizationManagementOperations(), packagesOperations(), teamManagementOperations(), starOperations(),
+		pullRequestReviewerOperations(), accountOperations(), accountSocialOperations(), organizationOperations(), organizationReadOperations(), organizationManagementOperations(), packagesOperations(), teamManagementOperations(), starOperations(),
 		searchOperations(), contentsOperations(), blameOperations(), commitsOperations(), refsOperations(), compareOperations(), commitRelationOperations(),
-		contentsWriteOperations(), refsWriteOperations(), repositoriesOperations(), collaboratorsManageOperations(), repositoryDetailOperations(), trafficOperations(), repositoryStatsOperations(), rulesetsOperations(), branchProtectionOperations(), customPropertiesOperations(), actionVariablesOperations(), actionSecretsOperations(), dependabotSecretsOperations(), actionCachesOperations(), runCleanupOperations(),
+		contentsWriteOperations(), refsWriteOperations(), repositoriesOperations(), collaboratorsManageOperations(), collaboratorsAddOperations(), invitationOperations(), repositoryDetailOperations(), trafficOperations(), repositoryStatsOperations(), rulesetsOperations(), branchProtectionOperations(), customPropertiesOperations(), actionVariablesOperations(), actionSecretsOperations(), dependabotSecretsOperations(), actionCachesOperations(), runCleanupOperations(), deploymentGateOperations(),
 		labelsOperations(), autolinksOperations(), milestonesOperations(), commentMaintenanceOperations(), commentVisibilityOperations(), issueLockOperations(), reactionsOperations(),
 		subIssuesOperations(), issueDependenciesOperations(), issueHistoryOperations(), issueTypesOperations(), issueFieldsOperations(),
 		discussionOperations(), notificationOperations(), gistOperations(), securityAlertOperations(), securityAlertUpdateOperations(), securityAlertDetailOperations(), advisoryOperations(), securitySettingsOperations(), dependencyGraphOperations(),
-		copilotOperations(), environmentsOperations(), deploymentsOperations(), referenceOperations())...)
+		codeSecurityConfigurationOperations(), codeSecurityChangeOperations(), codeSecurityAssignOperations(),
+		copilotOperations(), environmentsOperations(), deploymentsOperations(), referenceOperations(), billingOperations(), appOperations(), auditLogOperations())...)
 	for i := range operations {
 		operations[i].Descriptor = withGroup(withTargetArgument(operations[i].Descriptor))
 	}
@@ -1683,6 +1685,9 @@ func (c *Client) restSubject(request *http.Request) subject {
 	if tail, ok := strings.CutPrefix(full, c.endpoints.rest+"/advisories"); ok {
 		return globalAdvisoriesSubject(tail)
 	}
+	if _, ok := strings.CutPrefix(full, c.endpoints.rest+"/apps/"); ok {
+		return subject{what: "this app"}
+	}
 	if tail, ok := strings.CutPrefix(full, c.endpoints.rest+"/orgs/"); ok {
 		return organizationSubject(tail)
 	}
@@ -1696,10 +1701,14 @@ func (c *Client) restSubject(request *http.Request) subject {
 		return gistsSubject(tail)
 	}
 	if tail, ok := strings.CutPrefix(full, c.endpoints.rest+"/users/"); ok {
-		if login, rest, _ := strings.Cut(tail, "/"); strings.HasPrefix(rest, "gists") && validLogin(login) {
+		login, rest, _ := strings.Cut(tail, "/")
+		rest, _, _ = strings.Cut(rest, "?")
+		switch {
+		case strings.HasPrefix(rest, "gists") && validLogin(login):
 			return subject{what: "the gists of users/" + login}
-		} else if (rest == "packages" || strings.HasPrefix(rest, "packages/") || strings.HasPrefix(rest, "packages?")) &&
-			validLogin(login) {
+		case (rest == "followers" || rest == "following") && validLogin(login):
+			return subject{what: "the " + rest + " of users/" + login}
+		case (rest == "packages" || strings.HasPrefix(rest, "packages/")) && validLogin(login):
 			return packagesSubject("users", login)
 		}
 	}
@@ -1823,7 +1832,8 @@ func (c *Client) restSubject(request *http.Request) subject {
 
 // organizationReadSubjects names what the organization read routes below /orgs/OWNER address.
 var organizationReadSubjects = map[string]string{"members": "the members", "outside_collaborators": "the outside collaborators",
-	"organization-roles": "the organization roles", "invitations": "the pending invitations"}
+	"organization-roles": "the organization roles", "invitations": "the pending invitations",
+	"installations": "the app installations"}
 
 // organizationSubject names the organization or the team a path below /orgs/OWNER addresses: OWNER,
 // OWNER/teams, or OWNER/teams/SLUG with or without /members. It names only a login or a slug of the
@@ -1890,6 +1900,9 @@ func organizationSubject(tail string) subject {
 	if len(parts) >= 2 && parts[1] == "security-advisories" {
 		return subject{what: "the repository security advisories of orgs/" + owner}
 	}
+	if len(parts) >= 3 && parts[1] == "code-security" && parts[2] == "configurations" {
+		return subject{what: codeSecuritySubject(parts[3:]) + " of orgs/" + owner}
+	}
 	if len(parts) >= 2 && strings.HasPrefix(parts[1], "packages") {
 		return packagesSubject("orgs", owner)
 	}
@@ -1922,6 +1935,18 @@ func accountSubject(tail string) subject {
 		return subject{what: "the account's starred repositories"}
 	case tail == "/repos":
 		return subject{what: "the account's own repositories"}
+	case tail == "/followers":
+		return subject{what: "the followers of the account behind this token"}
+	case tail == "/following":
+		return subject{what: "the accounts the account behind this token follows"}
+	case strings.HasPrefix(tail, "/following/"):
+		return subject{what: "this follow"}
+	case tail == "/blocks":
+		return subject{what: "the users the account behind this token blocks"}
+	case strings.HasPrefix(tail, "/blocks/"):
+		return subject{what: "this block"}
+	case strings.HasPrefix(tail, "/installations/"):
+		return subject{what: "this installation"}
 	}
 	rest, ok := strings.CutPrefix(tail, "/starred/")
 	if !ok {

@@ -15,12 +15,13 @@ import (
 )
 
 // GitHub Actions secrets of a repository, of one environment of a repository, or of an organization. The
-// tools read names and metadata and delete; they never read, send, or return a secret value, and no output
-// schema has a member for one: the answers are decoded into structs without a value member, so a value a
-// server adds is dropped. The target follows the Actions variable tools: exactly one of repository or
-// organization, environment only with repository, checked before a credential is resolved. github.action-secrets
-// .delete is offered only where a connection's tools list names it. The helpers below take a secretFamily so
-// a second secret family with the same routes can share them.
+// read tools return names and metadata only; no output schema has a member for a value, and the answers are
+// decoded into structs without one, so a value a server adds is dropped. github.action-secrets.set takes the
+// value from a local file (see actionsecretsset.go) and never returns it. The target follows the Actions
+// variable tools: exactly one of repository or organization, environment only with repository, checked before
+// a credential is resolved. github.action-secrets.delete and .set are offered only where a connection's tools
+// list names them. The helpers below take a secretFamily so a second secret family with the same routes can
+// share them.
 
 // secretSensitivity classifies a secret tool: the answer holds only names and times, but the name and the
 // reach of a secret still describe what a repository or an organization can do.
@@ -197,8 +198,8 @@ var actionSecretsDelete = capability.Descriptor{
 
 // actionSecretsOperations binds every Actions secret tool to its handler.
 func actionSecretsOperations() []capability.Operation {
-	return secretOperations(actionSecretFamily, actionSecretsList, actionSecretsGet, actionSecretRepositoriesList,
-		actionSecretsDelete)
+	return append(secretOperations(actionSecretFamily, actionSecretsList, actionSecretsGet,
+		actionSecretRepositoriesList, actionSecretsDelete), secretSetOperation(actionSecretFamily, actionSecretsSet))
 }
 
 // secretOperations binds the four tools of one secret family to their handlers.
@@ -226,14 +227,20 @@ func secretOperations(family secretFamily, list, get, repositories, remove capab
 // secretArguments holds the arguments of every secret tool; the input schema of each admits only its own.
 // environment, allowed, page, perPage, and binding are derived by the checks. Nothing here can hold a value.
 type secretArguments struct {
-	Name   string `json:"name"`
-	Limit  int    `json:"limit"`
-	Cursor string `json:"cursor"`
+	Name                 string    `json:"name"`
+	Limit                int       `json:"limit"`
+	Cursor               string    `json:"cursor"`
+	LocalPath            *string   `json:"local_path"`
+	Visibility           *string   `json:"visibility"`
+	SelectedRepositories *[]string `json:"selected_repositories"`
 
 	environment   string
 	allowed       allowlist
+	selected      []target
 	page, perPage int
 	binding       []byte
+	// value is the content of the local file a set reads, held only for the call and cleared after it.
+	value []byte
 }
 
 // secretsHandler decodes the arguments, selects the repository, environment, or organization, and applies
@@ -242,12 +249,23 @@ type secretArguments struct {
 func secretsHandler(family secretFamily, id string, organizationOnly bool,
 	check func(secretFamily, *secretArguments, target) error,
 	call func(context.Context, *Client, *secretArguments) (any, error)) capability.Handler {
+	return secretsHandlerReading(family, id, organizationOnly, check, nil, call)
+}
+
+// secretsHandlerReading is secretsHandler with a step between the checks and the credential: load, when not
+// nil, reads what the call needs from the local disk, so a refused file ends the call before any secret or
+// request, and whatever it left in the arguments is cleared when the call ends.
+func secretsHandlerReading(family secretFamily, id string, organizationOnly bool,
+	check func(secretFamily, *secretArguments, target) error,
+	load func(context.Context, *config.Resolved, *secretArguments) error,
+	call func(context.Context, *Client, *secretArguments) (any, error)) capability.Handler {
 	return func(ctx context.Context, resolved *config.Resolved, secrets *secret.Resolver, red *redact.Redactor,
 		raw json.RawMessage) (any, error) {
 		var arguments secretArguments
 		if err := json.Unmarshal(raw, &arguments); err != nil {
 			return nil, unreadable(id)
 		}
+		defer func() { clear(arguments.value) }()
 		bound, environment, err := selectVariableTarget(resolved, raw, "secret")
 		if err != nil {
 			return nil, err
@@ -266,6 +284,11 @@ func secretsHandler(family secretFamily, id string, organizationOnly bool,
 		arguments.allowed = allowed
 		if err := check(family, &arguments, bound); err != nil {
 			return nil, err
+		}
+		if load != nil {
+			if err := load(ctx, resolved, &arguments); err != nil {
+				return nil, err
+			}
 		}
 		client, err := openAt(ctx, resolved, secrets, red, bound)
 		if err != nil {
@@ -328,9 +351,18 @@ func (f secretFamily) path(c *Client, environment, name string) string {
 // permission names what a refused secret request needs, by level, without claiming what the configured token
 // holds; the fine-grained permissions follow GitHub's own permission tables.
 func (f secretFamily) permission(t target, change bool) string {
-	access, verb := "read", "reading them needs"
 	if change {
-		access, verb = "read and write", "deleting them needs"
+		return f.changePermission(t, "deleting them needs")
+	}
+	return f.changePermission(t, "")
+}
+
+// changePermission is permission for a request that changes secrets; verb says which change needs the right.
+// An empty verb names a read.
+func (f secretFamily) changePermission(t target, verb string) string {
+	access := "read and write"
+	if verb == "" {
+		access, verb = "read", "reading them needs"
 	}
 	if t.kind == kindOwner {
 		return "GitHub refused this token the " + f.label + " secrets of this organization; " + verb + " admin:org " +
@@ -475,7 +507,7 @@ func (c *Client) deleteSecret(ctx context.Context, f secretFamily, a *secretArgu
 // secretSubject names the secrets a path below a repository or an organization addresses: actions/secrets
 // or environments/ENV/secrets, with or without a secret name, and below an organization the repositories of
 // one secret. It names only a secret name of the allowed form and an environment name of plain text, and is
-// empty for any other path.
+// empty for any other path. The public key route of a level is named as such.
 func (f secretFamily) subject(path string) string {
 	collection, member, of := "the "+f.label+" secrets", f.label+" secret", ""
 	rest, ok := strings.CutPrefix(path, f.route+"/secrets")
@@ -506,6 +538,9 @@ func (f secretFamily) subject(path string) string {
 	}
 	name, repositories := strings.CutSuffix(name, "/repositories")
 	what := "a secret" + of
+	if name == "public-key" && !repositories {
+		return "the public key of the secrets" + of
+	}
 	if unescaped, err := url.PathUnescape(name); err == nil && validVariableName(unescaped) {
 		what = member + " " + unescaped + of
 	}

@@ -507,52 +507,67 @@ func checkVariableUpdate(a *variableArguments, allowed allowlist, bound target) 
 // binds every selected repository to the organization and the connection's repository targets. visibility
 // selected always comes with the full list, so a call states exactly which repositories may read the value.
 func checkVariableVisibility(a *variableArguments, allowed allowlist, bound target) error {
+	selected, err := checkVisibility("variable", a.Visibility, a.SelectedRepositories, allowed, bound)
+	a.selected = selected
+	return err
+}
+
+// checkVisibility is the rule of checkVariableVisibility for the thing noun names, and returns the selected
+// repositories, nil unless visibility is selected.
+func checkVisibility(noun string, visibility *string, selectedRepositories *[]string, allowed allowlist,
+	bound target) ([]target, error) {
 	if bound.kind != kindOwner {
-		if a.Visibility != nil || a.SelectedRepositories != nil {
-			return invalidRequest("visibility and selected_repositories apply only to an organization variable")
+		if visibility != nil || selectedRepositories != nil {
+			return nil, invalidRequest("visibility and selected_repositories apply only to an organization " + noun)
 		}
-		return nil
+		return nil, nil
 	}
-	selected := a.Visibility != nil && *a.Visibility == "selected"
-	if a.SelectedRepositories != nil && !selected {
-		return invalidRequest("selected_repositories needs visibility selected in the same call")
+	selected := visibility != nil && *visibility == "selected"
+	if selectedRepositories != nil && !selected {
+		return nil, invalidRequest("selected_repositories needs visibility selected in the same call")
 	}
-	if selected && a.SelectedRepositories == nil {
-		return invalidRequest("visibility selected needs selected_repositories, the repositories that may use " +
-			"the variable")
+	if selected && selectedRepositories == nil {
+		return nil, invalidRequest("visibility selected needs selected_repositories, the repositories that may use " +
+			"the " + noun)
 	}
 	if !selected {
-		return nil
+		return nil, nil
 	}
-	if len(*a.SelectedRepositories) > maxSelectedRepositories {
-		return invalidRequest(fmt.Sprintf("selected_repositories accepts at most %d entries", maxSelectedRepositories))
+	return checkSelectedRepositories(*selectedRepositories, allowed, bound)
+}
+
+// checkSelectedRepositories binds a list of OWNER/REPO arguments to the organization and to the connection's
+// repository targets, without repeats and within the batch limit, before any credential or request.
+func checkSelectedRepositories(selectedRepositories []string, allowed allowlist, bound target) ([]target, error) {
+	if len(selectedRepositories) > maxSelectedRepositories {
+		return nil, invalidRequest(fmt.Sprintf("selected_repositories accepts at most %d entries", maxSelectedRepositories))
 	}
 	seen := map[string]bool{}
-	a.selected = make([]target, 0, len(*a.SelectedRepositories))
-	for _, value := range *a.SelectedRepositories {
+	result := make([]target, 0, len(selectedRepositories))
+	for _, value := range selectedRepositories {
 		repository, err := parseArgument(kindRepository, value)
 		if err != nil {
-			return invalidRequest("selected_repositories entries must be OWNER/REPO")
+			return nil, invalidRequest("selected_repositories entries must be OWNER/REPO")
 		}
 		if !strings.EqualFold(repository.owner, bound.owner) {
-			return invalidRequest("selected_repositories must name repositories of the organization only")
+			return nil, invalidRequest("selected_repositories must name repositories of the organization only")
 		}
 		if allowed.excluded(repository) {
-			return invalidRequest("selected_repositories names a repository that is not available on this " +
+			return nil, invalidRequest("selected_repositories names a repository that is not available on this " +
 				"connection; leave it out")
 		}
 		if !allowed.allows(repository) {
-			return invalidRequest("selected_repositories names a repository outside the targets of this " +
+			return nil, invalidRequest("selected_repositories names a repository outside the targets of this " +
 				"connection; add it, or repos/LOGIN/* for every repository of the organization, to the targets")
 		}
 		key := strings.ToLower(repository.argument())
 		if seen[key] {
-			return invalidRequest("selected_repositories must not repeat a repository")
+			return nil, invalidRequest("selected_repositories must not repeat a repository")
 		}
 		seen[key] = true
-		a.selected = append(a.selected, repository)
+		result = append(result, repository)
 	}
-	return nil
+	return result, nil
 }
 
 // variableLocate adds the repository, the environment, or the organization a call addressed to its result,

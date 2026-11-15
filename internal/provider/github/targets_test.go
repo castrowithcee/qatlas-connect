@@ -210,11 +210,13 @@ func TestDiscoveryDescribesTheTargetArguments(t *testing.T) {
 			descriptor.ID == threadSubscriptionsSet.ID ||
 			descriptor.ID == gistsList.ID || descriptor.ID == gistsGet.ID || descriptor.ID == gistsCreate.ID ||
 			descriptor.ID == gistsUpdate.ID || descriptor.ID == gistsDelete.ID ||
+			slices.Contains(accountSocialToolIDs, descriptor.ID) ||
 			descriptor.ID == globalAdvisoriesList.ID || descriptor.ID == globalAdvisoriesGet.ID ||
 			descriptor.ID == rateLimitGet.ID || descriptor.ID == metaGet.ID || descriptor.ID == licensesList.ID ||
 			descriptor.ID == licensesGet.ID || descriptor.ID == gitignoreTemplatesList.ID ||
 			descriptor.ID == gitignoreTemplatesGet.ID || descriptor.ID == codesOfConductList.ID ||
-			descriptor.ID == codesOfConductGet.ID || descriptor.ID == emojisList.ID || descriptor.ID == markdownRender.ID:
+			descriptor.ID == codesOfConductGet.ID || descriptor.ID == emojisList.ID || descriptor.ID == markdownRender.ID ||
+			descriptor.ID == appsGet.ID:
 			// The notification tools take an optional repository of their own or a thread id; the gist tools take a
 			// gist id or none; the global advisory and the reference tools name no target, and the Markdown
 			// rendering takes an optional context repository of its own.
@@ -223,7 +225,9 @@ func TestDiscoveryDescribesTheTargetArguments(t *testing.T) {
 			descriptor.ID == projectsCreate.ID || descriptor.ID == issueTypesList.ID ||
 			descriptor.ID == organizationTeamsList.ID ||
 			descriptor.ID == teamMembersList.ID || descriptor.ID == organizationAdvisoriesList.ID ||
-			slices.Contains(teamToolIDs, descriptor.ID) || slices.Contains(organizationToolIDs, descriptor.ID) || slices.Contains(packageToolIDs, descriptor.ID):
+			slices.Contains(teamToolIDs, descriptor.ID) || slices.Contains(organizationToolIDs, descriptor.ID) ||
+			slices.Contains(invitationToolIDs, descriptor.ID) || slices.Contains(billingToolIDs, descriptor.ID) || descriptor.ID == appInstallationsList.ID ||
+			descriptor.ID == auditLogList.ID || slices.Contains(packageToolIDs, descriptor.ID):
 			names = []string{"owner"}
 		case descriptor.ID == projectsCopy.ID:
 			names = []string{"project", "owner"}

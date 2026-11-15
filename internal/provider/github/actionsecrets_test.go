@@ -1,6 +1,8 @@
 package github
 
 import (
+	"crypto/rand"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -16,6 +18,7 @@ import (
 	"github.com/castrowithcee/qatlas-connect/internal/config"
 	"github.com/castrowithcee/qatlas-connect/internal/provider"
 	"github.com/castrowithcee/qatlas-kit/redact"
+	"golang.org/x/crypto/nacl/box"
 )
 
 var secretReadIDs = []string{actionSecretsList.ID, actionSecretsGet.ID, actionSecretRepositoriesList.ID,
@@ -39,11 +42,20 @@ type fakeSecrets struct {
 	status int
 	// paths are the escaped request paths of the secret routes.
 	paths []string
+	// The public key every level serves and its private half, for tests that open what a set sends.
+	publicKey, privateKey *[32]byte
+	// keyAnswer replaces the answer of the public key route when it is set.
+	keyAnswer string
+	// putStatus, when set, answers every write of a secret with this status and GitHub's own text; puts holds
+	// the bodies of the writes that were accepted.
+	putStatus int
+	puts      []map[string]any
 }
 
 func serveSecrets(t *testing.T) (*fakeGitHub, *fakeSecrets, string) {
 	t.Helper()
 	s := &fakeSecrets{store: map[string]map[string]map[string]any{}, order: map[string][]string{}}
+	s.publicKey, s.privateKey, _ = box.GenerateKey(rand.Reader)
 	s.put("repos/octo-org/example", map[string]any{"name": "DEPLOY_TOKEN", "created_at": "2026-01-02T03:04:05Z",
 		"updated_at": "2026-01-03T03:04:05Z"})
 	s.put("env:production", map[string]any{"name": "PROD_KEY", "created_at": "2026-01-02T03:04:05Z",
@@ -110,6 +122,13 @@ func (s *fakeSecrets) route(w http.ResponseWriter, req *http.Request) bool {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	escaped := req.URL.EscapedPath()
+	if repository, found := strings.CutPrefix(escaped, "/api/v3/repos/"); found && req.Method == http.MethodGet {
+		if id, known := map[string]int{"octo-org/example": 1296269, "octo-org/tools": 1296270}[strings.ToLower(repository)]; known {
+			w.Header().Set("Content-Type", "application/json")
+			fmt.Fprintf(w, `{"id":%d,"full_name":%q}`, id, strings.ToLower(repository))
+			return true
+		}
+	}
 	level, rest, ok := secretLevel(escaped)
 	if !ok {
 		return false
@@ -130,6 +149,30 @@ func (s *fakeSecrets) route(w http.ResponseWriter, req *http.Request) bool {
 		return true
 	}
 	switch {
+	case req.Method == http.MethodGet && rest == "/public-key":
+		if s.keyAnswer != "" {
+			fmt.Fprint(w, s.keyAnswer)
+			return true
+		}
+		fmt.Fprintf(w, `{"key_id":"012345678","key":%q}`, base64.StdEncoding.EncodeToString(s.publicKey[:]))
+	case req.Method == http.MethodPut && tail == "":
+		// The fake has read the request body already and recorded it.
+		requests := s.f.recorded()
+		body := requests[len(requests)-1].body
+		if s.putStatus != 0 {
+			w.WriteHeader(s.putStatus)
+			fmt.Fprintf(w, `{"message":%q,"echo":%q}`, secretProviderCanary, body["encrypted_value"])
+			return true
+		}
+		s.puts = append(s.puts, body)
+		_, exists := s.store[level][key]
+		s.put(level, map[string]any{"name": name})
+		if exists {
+			w.WriteHeader(http.StatusNoContent)
+			return true
+		}
+		w.WriteHeader(http.StatusCreated)
+		fmt.Fprint(w, `{}`)
 	case req.Method == http.MethodGet && rest == "":
 		perPage, _ := strconv.Atoi(req.URL.Query().Get("per_page"))
 		page, _ := strconv.Atoi(req.URL.Query().Get("page"))
@@ -174,7 +217,7 @@ func (s *fakeSecrets) route(w http.ResponseWriter, req *http.Request) bool {
 }
 
 var secretTools = []string{actionSecretsList.ID, actionSecretsGet.ID, actionSecretRepositoriesList.ID,
-	actionSecretsDelete.ID, dependabotSecretsList.ID, dependabotSecretsGet.ID, dependabotSecretRepositoriesList.ID,
+	actionSecretsDelete.ID, actionSecretsSet.ID, dependabotSecretsList.ID, dependabotSecretsGet.ID, dependabotSecretRepositoriesList.ID,
 	dependabotSecretsDelete.ID}
 
 // secretsConfig binds the connection shapes the secret tools distinguish, like variablesConfig.
