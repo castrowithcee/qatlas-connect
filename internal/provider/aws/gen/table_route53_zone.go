@@ -222,3 +222,9 @@ var route53ZoneTools = []Operation{
 		Examples:   []Example{{Description: "Tag a zone", Arguments: `{"resource_type":"hostedzone","resource_id":"Z0123456789ABCDEFGHIJ","add_tags":[{"key":"team","value":"web"}]}`}},
 	}, "tag"),
 }
+
+func init() {
+	declareGuards(
+		"route53-vpc",
+	)
+}

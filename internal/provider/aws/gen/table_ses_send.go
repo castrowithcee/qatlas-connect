@@ -156,3 +156,9 @@ var sesSendTools = []Operation{
 				`{"destination":{"to_addresses":["SECOND"]}}]}`}},
 	}),
 }
+
+func init() {
+	declareGuards(
+		"ses-send",
+	)
+}

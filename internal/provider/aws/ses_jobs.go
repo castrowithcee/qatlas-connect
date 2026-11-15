@@ -9,6 +9,11 @@ import (
 	"github.com/castrowithcee/qatlas-connect/internal/provider/aws/sigv4"
 )
 
+func init() {
+	registerGuard("ses-job-url", checkSESJobURL)
+	registerReadback("ses-job-bucket", sesJobOwner)
+}
+
 // The S3 location of an SES import or export job. SES does not check that the bucket belongs to the caller, so
 // a bucket of a third party would take the exported data or feed the import. The guard judges the form of the
 // URL; the readback asks S3 who owns the bucket.

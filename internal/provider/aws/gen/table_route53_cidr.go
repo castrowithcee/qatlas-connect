@@ -63,3 +63,9 @@ var route53CIDRTools = []Operation{
 		Examples:  []Example{{Description: "Delete an empty collection", Arguments: `{"id":"01234567-89ab-cdef-0123-456789abcdef"}`}},
 	}, "cidr-collection"),
 }
+
+func init() {
+	declareGuards(
+		"route53-cidr",
+	)
+}

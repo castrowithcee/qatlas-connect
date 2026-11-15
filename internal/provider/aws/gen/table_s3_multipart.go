@@ -325,3 +325,12 @@ func s3PartChecksumOutputs() map[string]Field {
 	}
 	return out
 }
+
+func init() {
+	declareGuards(
+		"upload-kms-key",
+		"multipart-checksum",
+		"copy-source",
+		"multipart-copy-range",
+	)
+}

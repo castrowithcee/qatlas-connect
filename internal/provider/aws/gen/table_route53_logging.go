@@ -54,3 +54,9 @@ var route53LoggingTools = []Operation{
 		Examples:  []Example{{Description: "Delete a configuration", Arguments: `{"id":"01234567-89ab-cdef-0123-456789abcdef"}`}},
 	}, "query-logging-config"),
 }
+
+func init() {
+	declareGuards(
+		"route53-log-group",
+	)
+}

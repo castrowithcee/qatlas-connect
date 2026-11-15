@@ -71,3 +71,9 @@ var sesMultiRegionTools = []Operation{
 		Examples:  []Example{{Description: "Delete an endpoint", Arguments: `{"region":"eu-central-1","endpoint_name":"my-endpoint"}`}},
 	}, "delete", "non-idempotent", "multi-region"),
 }
+
+func init() {
+	declareGuards(
+		"ses-multi-region",
+	)
+}

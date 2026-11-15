@@ -19,45 +19,42 @@ import (
 // guard judges the arguments of a tool with the binding and the region of the call before any I/O.
 type guard func(b binding, region string, args map[string]any) error
 
-// guards are the guards, by the name a curation table gives them.
-var guards = map[string]guard{
-	"location-constraint":         checkLocationConstraint,
-	"new-bucket-name":             checkNewBucketName,
-	"kms-key-arn":                 checkKMSKeys,
-	"object-kms-key":              checkObjectKMSKey,
-	"copy-source":                 checkCopySource,
-	"upload-kms-key":              checkUploadKMSKey,
-	"multipart-checksum":          setMultipartChecksum,
-	"multipart-copy-range":        checkCopyRange,
-	"ownership-enforce":           checkOwnershipEnforce,
-	"object-lock-governance-only": checkObjectLockGovernanceOnly,
-	"route53-vpc":                 checkRoute53VPC,
-	"route53-vpc-lookup":          checkRoute53VPCLookup,
-	"route53-vpc-member":          checkRoute53VPCMember,
-	"route53-change":              checkRoute53Change,
-	"route53-name":                checkRoute53Name,
-	"route53-health":              checkRoute53Health,
-	"route53-ksk":                 checkRoute53KSK,
-	"route53-log-group":           checkRoute53LogGroup,
-	"route53-policy":              checkRoute53Policy,
-	"route53-instance":            checkRoute53Instance,
-	"ses-send":                    checkSESSend,
-	"route53-cidr":                checkRoute53CIDR,
-	"acm-certificate-arn":         checkACMCertificateARN,
-	"ses-multi-region":            checkSESMultiRegion,
-	"ses-reputation-policy-arn":   checkSESReputationPolicyARN,
-	"s3-report-destination":       checkReportDestination,
-	"ses-job-url":                 checkSESJobURL,
-	"region-name":                 checkAccountRegionName,
+// guards are the guards, by the name a curation table gives them. Each file registers the guards it
+// implements, one call per guard, so that no line is shared between services.
+var guards = map[string]guard{}
 
-	"ses-configuration-set-values": checkSESConfigurationSetValues,
+func registerGuard(name string, g guard) {
+	if guards[name] != nil {
+		panic("guard registered twice: " + name)
+	}
+	guards[name] = g
+}
+
+func init() {
+	registerGuard("location-constraint", checkLocationConstraint)
+	registerGuard("new-bucket-name", checkNewBucketName)
+	registerGuard("kms-key-arn", checkKMSKeys)
+	registerGuard("object-kms-key", checkObjectKMSKey)
+	registerGuard("copy-source", checkCopySource)
+	registerGuard("multipart-checksum", setMultipartChecksum)
+	registerGuard("multipart-copy-range", checkCopyRange)
+	registerGuard("ownership-enforce", checkOwnershipEnforce)
+	registerGuard("object-lock-governance-only", checkObjectLockGovernanceOnly)
+	registerReadback("pab-tighten", pabTighten)
 }
 
 // readback runs after the account check and before the change, with the credentials that passed it.
 type readback func(ctx context.Context, c *Client, s toolSpec, creds sigv4.Credentials, region string, args map[string]any) error
 
 // readbacks are the readbacks, by the name a curation table gives them.
-var readbacks = map[string]readback{"pab-tighten": pabTighten, "s3-report-destination": reportOwner, "ses-job-bucket": sesJobOwner}
+var readbacks = map[string]readback{}
+
+func registerReadback(name string, r readback) {
+	if readbacks[name] != nil {
+		panic("readback registered twice: " + name)
+	}
+	readbacks[name] = r
+}
 
 // usEast1 is the region S3 creates a bucket in without a location constraint.
 const usEast1 = "us-east-1"

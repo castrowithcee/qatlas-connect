@@ -12,6 +12,11 @@ import (
 	"github.com/castrowithcee/qatlas-connect/internal/provider/aws/sigv4"
 )
 
+func init() {
+	registerGuard("s3-report-destination", checkReportDestination)
+	registerReadback("s3-report-destination", reportOwner)
+}
+
 // The destination rule of the S3 inventory and analytics writes. A report that lands in a bucket of another
 // account is a standing data path out of the bound account, so the destination must be a bucket of the bound
 // account. The guard judges what the arguments say; the readback asks S3 who owns the bucket.
