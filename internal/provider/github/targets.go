@@ -64,6 +64,9 @@ func withTargetArgument(d capability.Descriptor) capability.Descriptor {
 	// itself, since its result field of that name holds the new name, not the one it acted on. The reference
 	// tools read GitHub-wide data or the token's rate limit; github.markdown.render takes an optional context
 	// repository of its own that never defaults to a target.
+	if slices.Contains(accountSocialToolIDs, d.ID) {
+		return d
+	}
 	switch d.ID {
 	case accountsMe.ID, starsList.ID, repositoriesSearch.ID, codeSearch.ID, issuesSearch.ID,
 		pullRequestsSearch.ID, commitsSearch.ID, usersSearch.ID, organizationsSearch.ID, repositoriesCreate.ID,

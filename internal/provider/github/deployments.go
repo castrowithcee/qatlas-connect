@@ -12,10 +12,11 @@ import (
 	"github.com/castrowithcee/qatlas-connect/internal/provider"
 )
 
-// Deployments of a repository and their statuses, read only: github.deployments.list and .get, and
-// github.deployment-statuses.list and .get. Every route lies below the bound repository; an answer is shown
-// only when its repository_url, and for a status its deployment_url, name that repository and the deployment
-// the call asked for. The custom deployment protection rules of an environment live in
+// Deployments of a repository and their statuses: github.deployments.list and .get, and
+// github.deployment-statuses.list and .get read them; github.deployments.create and .delete, in
+// deploymentswrite.go, change them. Statuses are never written. Every route lies below the bound repository;
+// an answer is shown only when its repository_url, and for a status its deployment_url, name that repository
+// and the deployment the call asked for. The custom deployment protection rules of an environment live in
 // deploymentprotectionrules.go.
 
 const maxDeploymentTaskLength = 255
@@ -186,6 +187,14 @@ func deploymentsOperations() []capability.Operation {
 		{Descriptor: deploymentsGet, Handler: environmentsHandler(deploymentsGet.ID, checkDeploymentID,
 			func(ctx context.Context, c *Client, a *environmentsArguments) (any, error) {
 				return c.getDeployment(ctx, a.DeploymentID)
+			})},
+		{Descriptor: deploymentsCreate, Handler: environmentsHandler(deploymentsCreate.ID, checkDeploymentCreate,
+			func(ctx context.Context, c *Client, a *environmentsArguments) (any, error) {
+				return c.createDeployment(ctx, a)
+			})},
+		{Descriptor: deploymentsDelete, Handler: environmentsHandler(deploymentsDelete.ID, checkDeploymentID,
+			func(ctx context.Context, c *Client, a *environmentsArguments) (any, error) {
+				return c.deleteDeployment(ctx, a.DeploymentID)
 			})},
 		{Descriptor: deploymentStatusesList, Handler: environmentsHandler(deploymentStatusesList.ID,
 			checkDeploymentStatusesList, func(ctx context.Context, c *Client, a *environmentsArguments) (any, error) {
