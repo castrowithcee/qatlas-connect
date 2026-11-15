@@ -1,0 +1,53 @@
+package github
+
+import "github.com/castrowithcee/qatlas-connect/internal/capability"
+
+// Expected tools of the "issues" group: ID, output sample and risk contract, one tool per line in sorted order.
+func init() {
+	addExpectedTools("issues", []expectedTool{
+		{id: "github.assignees.check", output: AssigneeCheck{}, risk: readRisk},
+		{id: "github.assignees.list", output: AssigneeList{}, risk: readRisk},
+		{id: "github.comments.create", output: Comment{}, risk: changeRisk(capability.EffectCreate, capability.IdempotencyNonIdempotent)},
+		{id: "github.comments.delete", allow: true, output: map[string]any{"deleted": true, "comment_id": int64(0)}, risk: guardedRisk(capability.EffectDelete, capability.IdempotencyUnknown, commentSensitivity)},
+		{id: "github.comments.hide", output: CommentVisibility{}, risk: changeRisk(capability.EffectUpdate, capability.IdempotencyIdempotent)},
+		{id: "github.comments.list", output: CommentList{}, risk: readRisk},
+		{id: "github.comments.unhide", output: CommentVisibility{}, risk: changeRisk(capability.EffectUpdate, capability.IdempotencyIdempotent)},
+		{id: "github.comments.update", output: Comment{}, risk: changeRisk(capability.EffectUpdate, capability.IdempotencyIdempotent)},
+		{id: "github.copilot-assignments.create", output: CopilotAssignment{}, risk: changeRisk(capability.EffectUpdate, capability.IdempotencyNonIdempotent)},
+		{id: "github.issue-dependencies.add", output: IssueDependencyChange{}, risk: changeRisk(capability.EffectCreate, capability.IdempotencyNonIdempotent)},
+		{id: "github.issue-dependencies.list", output: IssueDependencies{}, risk: readRisk},
+		{id: "github.issue-dependencies.remove", output: IssueDependencyChange{}, risk: changeRisk(capability.EffectDelete, capability.IdempotencyUnknown)},
+		{id: "github.issue-events.list", born: true, output: IssueEventList{}, risk: readRisk},
+		{id: "github.issue-fields.list", output: IssueFieldList{}, risk: readRisk},
+		{id: "github.issue-fields.set", output: IssueFieldsChange{}, risk: changeRisk(capability.EffectUpdate, capability.IdempotencyIdempotent)},
+		{id: "github.issue-timeline.list", born: true, output: IssueTimelineList{}, risk: readRisk},
+		{id: "github.issue-types.list", output: IssueTypeList{}, risk: readRisk},
+		{id: "github.issues.close", output: Issue{}, risk: changeRisk(capability.EffectUpdate, capability.IdempotencyIdempotent)},
+		{id: "github.issues.create", output: Issue{}, risk: changeRisk(capability.EffectCreate, capability.IdempotencyNonIdempotent)},
+		{id: "github.issues.get", output: Issue{}, risk: readRisk},
+		{id: "github.issues.list", output: IssueList{}, risk: readRisk},
+		{id: "github.issues.lock", allow: true, output: IssueLock{}, risk: changeRisk(capability.EffectUpdate, capability.IdempotencyIdempotent)},
+		{id: "github.issues.pin", output: IssuePin{}, risk: changeRisk(capability.EffectUpdate, capability.IdempotencyUnknown)},
+		{id: "github.issues.reopen", output: Issue{}, risk: changeRisk(capability.EffectUpdate, capability.IdempotencyIdempotent)},
+		{id: "github.issues.search", output: IssueSearchList{}, risk: readRisk},
+		{id: "github.issues.unlock", output: IssueLock{}, risk: changeRisk(capability.EffectUpdate, capability.IdempotencyIdempotent)},
+		{id: "github.issues.unpin", output: IssuePin{}, risk: changeRisk(capability.EffectUpdate, capability.IdempotencyUnknown)},
+		{id: "github.issues.update", output: Issue{}, risk: changeRisk(capability.EffectUpdate, capability.IdempotencyIdempotent)},
+		{id: "github.labels.create", output: Label{}, risk: changeRisk(capability.EffectCreate, capability.IdempotencyNonIdempotent)},
+		{id: "github.labels.delete", allow: true, output: map[string]any{"deleted": true, "name": ""}, risk: guardedRisk(capability.EffectDelete, capability.IdempotencyUnknown, labelSensitivity)},
+		{id: "github.labels.get", output: Label{}, risk: readRisk},
+		{id: "github.labels.list", output: LabelList{}, risk: readRisk},
+		{id: "github.labels.update", output: Label{}, risk: changeRisk(capability.EffectUpdate, capability.IdempotencyIdempotent)},
+		{id: "github.milestones.create", output: Milestone{}, risk: changeRisk(capability.EffectCreate, capability.IdempotencyNonIdempotent)},
+		{id: "github.milestones.delete", allow: true, output: map[string]any{"deleted": true, "number": 0}, risk: guardedRisk(capability.EffectDelete, capability.IdempotencyUnknown, milestoneSensitivity)},
+		{id: "github.milestones.get", output: Milestone{}, risk: readRisk},
+		{id: "github.milestones.list", output: MilestoneList{}, risk: readRisk},
+		{id: "github.milestones.update", output: Milestone{}, risk: changeRisk(capability.EffectUpdate, capability.IdempotencyIdempotent)},
+		{id: "github.reactions.add", output: ReactionAdd{}, risk: changeRisk(capability.EffectCreate, capability.IdempotencyIdempotent)},
+		{id: "github.reactions.remove", output: ReactionRemove{}, risk: changeRisk(capability.EffectDelete, capability.IdempotencyIdempotent)},
+		{id: "github.sub-issues.add", output: SubIssueChange{}, risk: changeRisk(capability.EffectCreate, capability.IdempotencyNonIdempotent)},
+		{id: "github.sub-issues.list", output: SubIssueList{}, risk: readRisk},
+		{id: "github.sub-issues.remove", output: SubIssueChange{}, risk: changeRisk(capability.EffectDelete, capability.IdempotencyUnknown)},
+		{id: "github.sub-issues.reprioritize", output: SubIssueChange{}, risk: changeRisk(capability.EffectUpdate, capability.IdempotencyIdempotent)},
+	})
+}
