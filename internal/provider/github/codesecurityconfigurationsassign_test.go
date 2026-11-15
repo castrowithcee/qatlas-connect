@@ -1,7 +1,6 @@
 package github
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -9,7 +8,6 @@ import (
 	"reflect"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/castrowithcee/qatlas-connect/internal/application"
 	"github.com/castrowithcee/qatlas-connect/internal/capability"
@@ -308,18 +306,15 @@ func TestCodeSecurityAssignmentsAreResultsWithoutProviderTextAndNeverRepeated(t 
 		}
 	}
 	// A client-side deadline is a timeout after exactly one write.
+	stall := newChangeStall(t)
 	f.failure = func(w http.ResponseWriter, r *http.Request) bool {
 		if r.Method == http.MethodGet && strings.HasPrefix(strings.ToLower(r.URL.Path), assignRepositoryPrefix) {
 			return assignAnswer(noStatus)(w, r)
 		}
-		select {
-		case <-r.Context().Done():
-		case <-time.After(5 * time.Second):
-		}
-		return true
+		return stall.route(w, r)
 	}
 	for _, id := range codeSecurityAssignToolIDs {
-		ctx, cancel := context.WithTimeout(context.Background(), 2500*time.Millisecond)
+		ctx, cancel := stall.context()
 		before := len(f.recorded())
 		_, err := core.Invoke(ctx, application.InvokeRequest{Operation: id, Connection: "w-all", Confirmed: true,
 			Arguments: json.RawMessage(arguments[id])})

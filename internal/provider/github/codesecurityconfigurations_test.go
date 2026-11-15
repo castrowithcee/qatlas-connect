@@ -1,13 +1,11 @@
 package github
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/castrowithcee/qatlas-connect/internal/application"
 	"github.com/castrowithcee/qatlas-connect/internal/config"
@@ -401,14 +399,9 @@ func TestCodeSecurityRefusalsAndTimeoutsAreResultsWithoutProviderText(t *testing
 		}
 	}
 	// A client-side deadline is a timeout after exactly one request.
-	f.failure = func(w http.ResponseWriter, r *http.Request) bool {
-		select {
-		case <-r.Context().Done():
-		case <-time.After(5 * time.Second):
-		}
-		return true
-	}
-	ctx, cancel := context.WithTimeout(context.Background(), 300*time.Millisecond)
+	stall := newChangeStall(t)
+	f.failure = stall.route
+	ctx, cancel := stall.context()
 	defer cancel()
 	before := len(f.recorded())
 	_, err := core.Invoke(ctx, application.InvokeRequest{Operation: codeSecurityConfigurationsGet.ID, Connection: "org",

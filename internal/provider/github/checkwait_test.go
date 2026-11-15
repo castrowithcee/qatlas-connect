@@ -30,19 +30,48 @@ type waitFixture struct {
 	base string
 	mu   sync.Mutex
 	poll int
+	// clock is the virtual time of the wait loop; stall is a real pause taken once at the next wait step.
+	clock time.Time
+	stall time.Duration
+}
+
+// now and pause are the wait loop's clock: pausing advances virtual time at once, so a stalled scheduler (the
+// stall) cannot move a limit, and the loop still ends exactly as it would on a real clock.
+func (w *waitFixture) now() time.Time {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	return w.clock
+}
+
+func (w *waitFixture) pause(ctx context.Context, d time.Duration) bool {
+	w.mu.Lock()
+	stall := w.stall
+	w.stall = 0
+	w.mu.Unlock()
+	if stall > 0 {
+		time.Sleep(stall)
+	}
+	w.mu.Lock()
+	w.clock = w.clock.Add(d)
+	w.mu.Unlock()
+	return ctx.Err() == nil
 }
 
 func newWaitFixture(t *testing.T, onPoll func(poll int, p *fakePulls) int) *waitFixture {
 	t.Helper()
 	previousInterval, previousSlice, previousMargin := checksWaitInterval, checksWaitSlice, checksWaitMargin
+	previousNow, previousPause := checksWaitNow, checksWaitPause
 	t.Cleanup(func() {
 		checksWaitInterval, checksWaitSlice, checksWaitMargin = previousInterval, previousSlice, previousMargin
+		checksWaitNow, checksWaitPause = previousNow, previousPause
 	})
 	checksWaitInterval, checksWaitSlice, checksWaitMargin = 5*time.Millisecond, 2*time.Second, 20*time.Millisecond
 
 	f, p, base := servePulls(t)
 	p.pulls = append(p.pulls, fakePull{number: 7, title: "x", state: "open", headSHA: waitOldHead})
-	w := &waitFixture{t: t, f: f, p: p, base: base}
+	// The virtual clock starts at the real time so that it compares with the deadline of a real context.
+	w := &waitFixture{t: t, f: f, p: p, base: base, clock: time.Now()}
+	checksWaitNow, checksWaitPause = w.now, w.pause
 	route := f.failure
 	f.failure = func(rw http.ResponseWriter, r *http.Request) bool {
 		w.mu.Lock()
@@ -158,35 +187,49 @@ func TestWaitAnswersNoneOnlyAfterSeveralEmptyPolls(t *testing.T) {
 	}
 }
 
+// A scheduler that stands still for 200 ms in the middle of the wait must not change how the wait ends.
+var waitStalls = map[string]time.Duration{"steady": 0, "stalled": 200 * time.Millisecond}
+
 func TestWaitEndsWithTimeoutOrPendingAtItsLimit(t *testing.T) {
-	w := newWaitFixture(t, func(_ int, p *fakePulls) int {
-		p.runs = map[string][]fakeCheckRun{waitOldHead: {checkRun("build", "in_progress", "")}}
-		return 0
-	})
-	got, err := w.wait(cliWait(60*time.Millisecond), `{"number":7}`)
-	if err != nil || got.Result != "timeout" || got.HeadSHA != waitOldHead || len(got.Checks) != 1 || got.Polls < 2 {
-		t.Errorf("command: got %+v, %v, want timeout with the checks of the last poll", got, err)
-	}
-	checksWaitSlice = 60 * time.Millisecond
-	got, err = w.wait(context.Background(), `{"number":7}`)
-	if err != nil || got.Result != "pending" || got.HeadSHA != waitOldHead || len(got.Checks) != 1 {
-		t.Errorf("broker: got %+v, %v, want pending with the awaited head commit", got, err)
+	for name, stall := range waitStalls {
+		t.Run(name, func(t *testing.T) {
+			w := newWaitFixture(t, func(_ int, p *fakePulls) int {
+				p.runs = map[string][]fakeCheckRun{waitOldHead: {checkRun("build", "in_progress", "")}}
+				return 0
+			})
+			w.stall = stall
+			got, err := w.wait(cliWait(60*time.Millisecond), `{"number":7}`)
+			if err != nil || got.Result != "timeout" || got.HeadSHA != waitOldHead || len(got.Checks) != 1 || got.Polls < 2 {
+				t.Errorf("command: got %+v, %v, want timeout with the checks of the last poll", got, err)
+			}
+			checksWaitSlice = 60 * time.Millisecond
+			got, err = w.wait(context.Background(), `{"number":7}`)
+			if err != nil || got.Result != "pending" || got.HeadSHA != waitOldHead || len(got.Checks) != 1 {
+				t.Errorf("broker: got %+v, %v, want pending with the awaited head commit", got, err)
+			}
+		})
 	}
 }
 
 // The broker's call ends before the invoke limit it runs under, whatever its slice is.
 func TestWaitReturnsPendingBeforeTheInvokeLimit(t *testing.T) {
-	w := newWaitFixture(t, func(_ int, p *fakePulls) int {
-		p.runs = map[string][]fakeCheckRun{waitOldHead: {checkRun("build", "in_progress", "")}}
-		return 0
-	})
-	checksWaitSlice = time.Minute
-	ctx, cancel := context.WithTimeout(context.Background(), 400*time.Millisecond)
-	defer cancel()
-	start := time.Now()
-	got, err := w.wait(ctx, `{"number":7}`)
-	if err != nil || got.Result != "pending" || time.Since(start) >= 400*time.Millisecond {
-		t.Errorf("got %+v, %v after %s, want pending before the limit", got, err, time.Since(start))
+	for name, stall := range waitStalls {
+		t.Run(name, func(t *testing.T) {
+			w := newWaitFixture(t, func(_ int, p *fakePulls) int {
+				p.runs = map[string][]fakeCheckRun{waitOldHead: {checkRun("build", "in_progress", "")}}
+				return 0
+			})
+			w.stall = stall
+			checksWaitSlice, checksWaitMargin, checksWaitInterval = time.Minute, time.Second, time.Second
+			// The context deadline is real time, far beyond what the test takes; the virtual clock decides.
+			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
+			due, _ := ctx.Deadline()
+			got, err := w.wait(ctx, `{"number":7}`)
+			if err != nil || got.Result != "pending" || !w.now().Before(due) || got.Polls < 2 {
+				t.Errorf("got %+v, %v, virtual end %s before the limit %s, want pending before the limit", got, err, w.now(), due)
+			}
+		})
 	}
 }
 

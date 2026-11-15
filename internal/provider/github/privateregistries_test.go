@@ -1,7 +1,6 @@
 package github
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -9,7 +8,6 @@ import (
 	"strconv"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/castrowithcee/qatlas-connect/internal/application"
 	"github.com/castrowithcee/qatlas-connect/internal/capability"
@@ -425,19 +423,14 @@ func TestPrivateRegistryFailuresAreResultsWithoutProviderTextAndChangesAreNeverR
 	}
 	fake.status = 0
 	// A client-side deadline is a timeout after exactly one request.
-	f.failure = func(w http.ResponseWriter, r *http.Request) bool {
-		select {
-		case <-r.Context().Done():
-		case <-time.After(5 * time.Second):
-		}
-		return true
-	}
+	stall := newChangeStall(t)
+	f.failure = stall.route
 	for _, id := range privateRegistryToolIDs {
 		connection := "org"
 		if id == privateRegistriesDelete.ID {
 			connection = "w-org"
 		}
-		ctx, cancel := context.WithTimeout(context.Background(), 2500*time.Millisecond)
+		ctx, cancel := stall.context()
 		before := len(f.recorded())
 		_, err := core.Invoke(ctx, application.InvokeRequest{Operation: id, Connection: connection, Confirmed: true,
 			Arguments: json.RawMessage(arguments[id])})

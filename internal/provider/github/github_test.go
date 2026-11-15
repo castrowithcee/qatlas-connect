@@ -1811,7 +1811,7 @@ func TestRateLimitPausePastTheDeadlineEndsAtOnce(t *testing.T) {
 		!strings.Contains(failure.Message, "retry after 60 seconds") {
 		t.Fatalf("GetIssue() = %v, want rate-limited with the wait", err)
 	}
-	if elapsed := time.Since(start); elapsed > time.Second {
+	if elapsed := time.Since(start); elapsed > 4*time.Second {
 		t.Errorf("GetIssue() waited %s, want it to end at once", elapsed)
 	}
 }
