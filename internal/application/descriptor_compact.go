@@ -5,22 +5,8 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/castrowithcee/qatlas-kit/jsonschema"
-
 	"github.com/castrowithcee/qatlas-connect/internal/capability"
 )
-
-// ValidateJSON checks raw against an input schema with the kit's strict mode; the kit names the first
-// violation by its path, such as "$.foo is not allowed".
-func ValidateJSON(schema, raw json.RawMessage) error {
-	return jsonschema.ValidateJSON(schema, raw)
-}
-
-// validateOutput checks a decoded provider response against an output schema. The kit's lenient mode does
-// not refuse a response for member counts, uniqueness, anyOf or schemas under additionalProperties.
-func validateOutput(schema json.RawMessage, value any) error {
-	return jsonschema.Validate(schema, value, jsonschema.Lenient)
-}
 
 // CompactDescriptor is the contract describe publishes unless the complete descriptor is asked for:
 // everything invoking a tool needs, with both schemas condensed into tables instead of being repeated
