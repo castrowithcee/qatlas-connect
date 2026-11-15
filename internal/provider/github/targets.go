@@ -86,7 +86,8 @@ func withTargetArgument(d capability.Descriptor) capability.Descriptor {
 		threadSubscriptionsSet.ID, gistsList.ID, gistsGet.ID, gistsCreate.ID, gistsUpdate.ID, gistsDelete.ID,
 		globalAdvisoriesList.ID, globalAdvisoriesGet.ID, repositoriesRename.ID, rateLimitGet.ID, metaGet.ID,
 		licensesList.ID, licensesGet.ID, gitignoreTemplatesList.ID, gitignoreTemplatesGet.ID, codesOfConductList.ID,
-		codesOfConductGet.ID, emojisList.ID, markdownRender.ID, appsGet.ID:
+		codesOfConductGet.ID, emojisList.ID, markdownRender.ID, appsGet.ID, interactionLimitsGet.ID,
+		interactionLimitsSet.ID, interactionLimitsRemove.ID:
 		return d
 	}
 	name, schema, argument := "repository", repoSchema, repositoryArgument

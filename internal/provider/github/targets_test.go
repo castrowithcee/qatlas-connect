@@ -216,7 +216,8 @@ func TestDiscoveryDescribesTheTargetArguments(t *testing.T) {
 			descriptor.ID == licensesGet.ID || descriptor.ID == gitignoreTemplatesList.ID ||
 			descriptor.ID == gitignoreTemplatesGet.ID || descriptor.ID == codesOfConductList.ID ||
 			descriptor.ID == codesOfConductGet.ID || descriptor.ID == emojisList.ID || descriptor.ID == markdownRender.ID ||
-			descriptor.ID == appsGet.ID:
+			descriptor.ID == appsGet.ID || descriptor.ID == interactionLimitsGet.ID ||
+			descriptor.ID == interactionLimitsSet.ID || descriptor.ID == interactionLimitsRemove.ID:
 			// The notification tools take an optional repository of their own or a thread id; the gist tools take a
 			// gist id or none; the global advisory and the reference tools name no target, and the Markdown
 			// rendering takes an optional context repository of its own.
