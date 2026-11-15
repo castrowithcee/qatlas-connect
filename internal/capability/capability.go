@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"slices"
 	"sort"
 	"strings"
 
@@ -247,6 +248,9 @@ func (r *Registry) RegisterProvider(metadata config.ProviderMetadata, tester Con
 		}
 		seen[role.Name] = true
 	}
+	if err := validTokenRoles(metadata); err != nil {
+		return err
+	}
 	if metadata.Target.Required && strings.TrimSpace(metadata.Target.Label) == "" {
 		return fmt.Errorf("provider %q requires a target label", metadata.ID)
 	}
@@ -366,11 +370,39 @@ func cloneMetadata(metadata config.ProviderMetadata) config.ProviderMetadata {
 	for i := range metadata.Profiles {
 		metadata.Profiles[i].Tools = append([]string(nil), metadata.Profiles[i].Tools...)
 	}
+	if metadata.Token != nil {
+		scopes := make(map[string][]string, len(metadata.Token.Scopes))
+		for tool, needed := range metadata.Token.Scopes {
+			scopes[tool] = append([]string(nil), needed...)
+		}
+		metadata.Token = &config.TokenMetadata{Scopes: scopes}
+	}
 	metadata.Target.Kinds = append([]config.TargetKind(nil), metadata.Target.Kinds...)
 	for i := range metadata.Target.Kinds {
 		metadata.Target.Kinds[i].Forms = append([]string(nil), metadata.Target.Kinds[i].Forms...)
 	}
 	return metadata
+}
+
+// validTokenRoles checks that a provider whose credential issues access tokens declares exactly the token
+// roles, all optional, since the stored roles alone decide its procedure.
+func validTokenRoles(metadata config.ProviderMetadata) error {
+	if metadata.Token == nil {
+		return nil
+	}
+	want := config.TokenSecretRoles()
+	if len(metadata.SecretRoles) != len(want) {
+		return fmt.Errorf("provider %q issues access tokens and must declare exactly the token secret roles", metadata.ID)
+	}
+	for _, role := range want {
+		if !slices.ContainsFunc(metadata.SecretRoles, func(r config.SecretRole) bool {
+			return r.Name == role.Name && r.Optional
+		}) {
+			return fmt.Errorf("provider %q issues access tokens and must declare the optional secret role %q",
+				metadata.ID, role.Name)
+		}
+	}
+	return nil
 }
 
 // ValidateProfiles checks the tool profiles of every registered provider against the registered tools. It

@@ -128,6 +128,19 @@ func nextStep(err error, r route) string {
 		// claim which of the two happened.
 		return "check or renew the credential of this connection with " +
 			"'qconnect credential set <credential> <role>' or in 'qconnect tui'"
+	case application.CodeConsentRequired, application.CodeConsentExpired, application.CodeScopeMissing:
+		// Giving consent manages the credential, so it is a person's step, never an agent's.
+		if r == routeMCP || r == routeAgent {
+			return "an agent cannot give the consent of a credential; ask the user"
+		}
+		return "a person gives the consent of this connection's credential, covering the scopes of its tools, " +
+			"then try again"
+	case application.CodeCredentialUnusable:
+		if r == routeMCP || r == routeAgent {
+			return "agents do not manage credentials; ask the user"
+		}
+		return "store either a client ID or a service account key for the credential, and remove the other with " +
+			"'qconnect credential delete <credential> <role>' or in 'qconnect tui'"
 	case application.CodeUnsupportedCapability:
 		// The step is the same whatever the reason: pick a route that offers the tool, or change this one.
 		// Without a refused connection no route offers the tool at all, and nothing is left to pick.

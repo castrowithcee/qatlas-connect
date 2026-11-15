@@ -1493,6 +1493,7 @@ func (c *Core) connection(name string) (*config.Resolved, error) {
 		Files:          connection.Files.Clone(),
 		ForwardSecrets: append([]string(nil), connection.ForwardSecrets...),
 		Forward:        c.config.ForwardCredentials(connection),
+		TokenScopes:    c.config.TokenScopes(name),
 		Disabled:       connection.Disabled,
 		ActiveUntil:    connection.ActiveUntilCanonical(),
 	}

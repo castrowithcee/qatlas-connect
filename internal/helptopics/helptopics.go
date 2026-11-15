@@ -134,6 +134,10 @@ Exit code 1 is a runtime or provider failure:
 - unreachable: the provider host did not answer.
 - tls: the TLS connection to the provider failed.
 - auth: the provider rejected the credential; stop and report the code.
+- consent-required: the credential issues access tokens and has no consent yet; nothing was sent. An agent cannot give consent, so stop and ask the user.
+- consent-expired: the consent of the credential expired or was revoked; nothing was deleted. Stop and ask the user to give it again.
+- scope-missing: the access token lacks a scope this tool needs; nothing was sent to the provider's API, and the other tools of the connection keep working. Only a new consent by the user adds the scope.
+- credential-unusable: the credential holds both a client ID and a service account key, or neither; only a person fixes it, so ask the user.
 - permission: the credential may not do this; stop and report the code.
 - not-found: the provider does not hold the resource or does not show it to this credential; the message names the target it addressed, so check that target and what the credential may see.
 - timeout: the provider did not answer in time; a non-idempotent call is not retried.

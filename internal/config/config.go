@@ -793,6 +793,9 @@ func (c *Config) Validate() error {
 			if known && conn.Tools != nil {
 				c.validateTools(name, service.Provider, metadata, report)
 			}
+			if known && credOK && metadata.Token != nil {
+				validateTokenCredential(name, conn.Credential, service.Provider, cred, report)
+			}
 		}
 		validateFiles(name, conn.Files, c.localFilesOf(conn, providers), report)
 	}
@@ -1520,18 +1523,27 @@ func (c *Config) reachRefusal(conn Connection, tool ToolMetadata) Refusal {
 
 // listRefusal is the refusal by effects, tools list, allow-list and local files, before the targets.
 func (c *Config) listRefusal(conn Connection, name string, tool ToolMetadata) Refusal {
-	if conn.Tools != nil {
-		if !ToolListCovers(c.Services[conn.Service].Provider, conn.Tools, tool) {
+	var effects []Effect
+	if conn.Tools == nil {
+		effects = c.ConnectionEffects(name)
+	}
+	return listRefusalOf(c.Services[conn.Service].Provider, conn.Tools, effects, conn.Files, tool)
+}
+
+// listRefusalOf is listRefusal for the parts of a connection it reads: effects count only without a tools list.
+func listRefusalOf(provider string, tools []string, effects []Effect, files Files, tool ToolMetadata) Refusal {
+	if tools != nil {
+		if !ToolListCovers(provider, tools, tool) {
 			return RefusalToolsList
 		}
-	} else if !slices.Contains(c.ConnectionEffects(name), tool.Effect) {
+	} else if !slices.Contains(effects, tool.Effect) {
 		return RefusalEffect
 	} else if tool.RequiresToolAllowList {
 		return RefusalToolAllowList
 	}
 	switch {
-	case tool.LocalFiles == LocalFilesRead && len(conn.Files.Read) == 0,
-		tool.LocalFiles == LocalFilesWrite && len(conn.Files.Write) == 0:
+	case tool.LocalFiles == LocalFilesRead && len(files.Read) == 0,
+		tool.LocalFiles == LocalFilesWrite && len(files.Write) == 0:
 		return RefusalNoLocalFiles
 	}
 	return ""

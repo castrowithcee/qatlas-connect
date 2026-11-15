@@ -36,6 +36,16 @@ const (
 	ClassProviderError   Class = "provider-error"
 )
 
+// Classes of a credential that issues access tokens. They name the state of the credential without a token
+// value: no consent yet, a consent the token endpoint no longer accepts, a token that lacks a scope the
+// connection needs, and stored roles that fit no procedure.
+const (
+	ClassConsentRequired    Class = "consent-required"
+	ClassConsentExpired     Class = "consent-expired"
+	ClassScopeMissing       Class = "scope-missing"
+	ClassCredentialUnusable Class = "credential-unusable"
+)
+
 // Explain says what a person checks next for a failed connection test of the given class. subject names
 // what answered or refused, such as the provider's display name, and leads the sentence where the class is
 // about the provider rather than the network. Every surface shows this one text.
@@ -59,6 +69,14 @@ func Explain(class Class, subject string) string {
 		return subject + " returned an unusable response; check the root URL and API access"
 	case ClassNotFound:
 		return subject + " did not find the target; check the target and whether the credential may see it"
+	case ClassConsentRequired:
+		return "the credential has no consent yet; a person gives it before the connection can be used"
+	case ClassConsentExpired:
+		return subject + " no longer accepts the consent of the credential; it expired or was revoked, and a person gives it again"
+	case ClassScopeMissing:
+		return "the token of the credential lacks a scope this connection needs; a person gives the consent again with it"
+	case ClassCredentialUnusable:
+		return "the credential must hold either a client ID or a service account key, not both and not neither"
 	}
 	return "see the class for what to check"
 }
