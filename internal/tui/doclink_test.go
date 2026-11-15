@@ -3,6 +3,7 @@ package tui
 import (
 	"context"
 	"errors"
+	"os"
 	"strings"
 	"testing"
 
@@ -10,12 +11,13 @@ import (
 
 	"github.com/castrowithcee/qatlas-connect/internal/config"
 	"github.com/castrowithcee/qatlas-connect/internal/provider"
+	kittui "github.com/castrowithcee/qatlas-kit/tui"
 )
 
 const evilURL = "https://evil.example/pwn"
 
 // withProfile draws with a colour profile until the test ends.
-func withProfile(t *testing.T, p colorProfile) {
+func withProfile(t *testing.T, p kittui.ColorProfile) {
 	t.Helper()
 	before := currentProfile()
 	setProfile(p)
@@ -52,7 +54,7 @@ func TestProviderDocURL(t *testing.T) {
 func TestDocLinesKeepTheAddressVisible(t *testing.T) {
 	url := providerDocURL("v1.0.0", config.ProviderMetadata{ID: "bookstack"})
 	t.Run("hyperlink", func(t *testing.T) {
-		withProfile(t, profileTrueColor)
+		withProfile(t, kittui.ProfileTrueColor)
 		joined := strings.Join(docLines(url, 30), "\n")
 		if !strings.Contains(joined, ansi.SetHyperlink(url)) {
 			t.Errorf("lines = %q, want an OSC 8 link to the whole address", joined)
@@ -62,7 +64,7 @@ func TestDocLinesKeepTheAddressVisible(t *testing.T) {
 		}
 	})
 	t.Run("no hyperlink support", func(t *testing.T) {
-		withProfile(t, profileNone)
+		withProfile(t, kittui.ProfileNone)
 		got := shown(strings.Join(docLines(url, 30), "\n"))
 		if strings.Contains(got, "\x1b") {
 			t.Errorf("view = %q, want plain text", got)
@@ -75,7 +77,7 @@ func TestDocLinesKeepTheAddressVisible(t *testing.T) {
 		t.Setenv("NO_COLOR", "1")
 		before := styles
 		t.Cleanup(func() { setTheme(before) })
-		withProfile(t, detectProfile(&strings.Builder{}))
+		withProfile(t, kittui.DetectColorProfile(&strings.Builder{}, os.Environ()))
 		applyTheme("")
 		got := shown(strings.Join(docLines(url, 200), "\n"))
 		if !strings.Contains(got, url) || strings.Contains(got, "\x1b") {
@@ -103,7 +105,7 @@ func TestFailedTestLinksOnlyWhereTheGuideHelps(t *testing.T) {
 }
 
 func TestFailedTestLinksAreOSC8InColour(t *testing.T) {
-	withProfile(t, profileTrueColor)
+	withProfile(t, kittui.ProfileTrueColor)
 	m := newTestableModel(t, func(context.Context, string) (provider.Class, error) { return provider.ClassAuth, nil }, nil)
 	m.version = "v1.2.3"
 	runTest(t, m)
@@ -113,7 +115,7 @@ func TestFailedTestLinksAreOSC8InColour(t *testing.T) {
 }
 
 func TestNoAddressFromAProviderAnswerIsLinked(t *testing.T) {
-	withProfile(t, profileTrueColor)
+	withProfile(t, kittui.ProfileTrueColor)
 	m := newTestableModel(t, func(context.Context, string) (provider.Class, error) {
 		return provider.ClassAuth, errors.New("denied, see " + evilURL)
 	}, nil)

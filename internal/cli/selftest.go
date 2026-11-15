@@ -31,11 +31,6 @@ func selfContained(c *cobra.Command) bool {
 	return false
 }
 
-// quietExit ends the process with a code whose message the command has already written itself.
-type quietExit struct{ code int }
-
-func (e *quietExit) Error() string { return fmt.Sprintf("exit status %d", e.code) }
-
 // newSelftestCommand is 'qconnect selftest': one subcommand per scenario of the selftest register, plus the
 // hidden worker process the scenarios start. It reads no --config, QCONNECT_CONFIG, or QCONNECT_HOME.
 func newSelftestCommand(opts *Options) *cobra.Command {
@@ -63,10 +58,19 @@ func newSelftestCommand(opts *Options) *cobra.Command {
 		Hidden: true,
 		Args:   noArgs,
 		RunE: func(*cobra.Command, []string) error {
-			if code := selftest.RunWorker(os.Stdin, os.Stdout, os.Stderr); code != 0 {
-				return &quietExit{code}
+			// The worker reports its failure as one line and a code of 1 or 2, which the kit does not allow
+			// as a silent code; its diagnostic carries the line and the code the same way.
+			var message strings.Builder
+			code := selftest.RunWorker(os.Stdin, os.Stdout, &message)
+			text := strings.TrimSpace(message.String())
+			switch code {
+			case 0:
+				return nil
+			case exitUsage:
+				return &UsageError{errors.New(text)}
+			default:
+				return errors.New(text)
 			}
-			return nil
 		},
 	})
 	return cmd

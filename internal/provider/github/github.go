@@ -31,19 +31,24 @@
 // pull request, its changed files, its commits, its diff, and the checks at its head commit; the project
 // items still see a pull request only as an item, and the issue and comment tools still refuse a pull request
 // number. The not-recommended setup profile pull-requests-operator adds the changes: it creates, updates,
-// closes, and reopens a pull request, and updates its head branch with its base while the head is still a
-// given commit; only merging is not in it, because a merge into the wrong repository's default branch is the
-// costliest mistake there, so only a connection whose tools list names github.pull-requests.merge offers it,
-// and it always needs the pull request's current head commit and its own confirmation. The not-recommended
-// setup profile releases lists releases, reads one by identifier, tag, or as the latest published one, lists
-// the metadata of a release's assets, and creates and updates releases; only a connection whose tools list
-// names it deletes a release, because the tag it was cut from stays behind and the notes and attachments do
-// not. A tool that touches a project and a repository checks both. The account tool reads the login, name,
+// closes, and reopens a pull request, updates its head branch with its base while the head is still a
+// given commit, and turns off its auto-merge; only merging is not in it, because a merge into the wrong
+// repository's default branch is the costliest mistake there, so only a connection whose tools list names
+// github.pull-requests.merge offers it, and it always needs the pull request's current head commit and its
+// own confirmation. Enabling auto-merge schedules such a merge, so github.pull-request-auto-merge.enable is
+// listed-only the same way. The not-recommended setup profile releases lists releases, reads one by
+// identifier, tag, or as the latest published one, lists the metadata of a release's assets, generates
+// release notes, creates and updates releases, and renames or relabels an asset; only a connection whose tools
+// list names them deletes a release or one of its assets, because the tag it was cut from stays behind and the
+// notes and attachments do not. The security tools read the security switches of a repository and its code
+// scanning default setup; only a connection whose tools list names github.security-settings.update or
+// github.code-scanning-setup.update changes them, and a switch GitHub does not offer is reported as
+// unavailable, never as off. A tool that touches a project and a repository checks both. The account tool reads the login, name,
 // type, and plan of the account behind the connection's token; it and the star list, which reads the
 // account's starred repositories, name no repository, project, or owner and are offered only by a connection
 // whose targets name neither a repository nor a project. The star tools also star and unstar one repository
 // a connection allows. The organization tools read the teams of an organization and the members of
-// one of its teams, an organization the connection's targets must allow as an owner. The repository tools
+// one of its teams, an organization the connection's targets must allow as an owner; the team tools also read a team, a membership, and the repositories of a team and, listed only, create, change, and delete teams, add or remove members that already belong to the organization, and set or withdraw a team's repository permission. The organization read tools read an organization, its members, one membership, its organization roles, outside collaborators, and pending invitations; listed only, the organization management tools change its settings, set the role of an existing member, remove a member or an outside collaborator, assign an organization role to a member, and cancel an invitation, and never invite anyone. The repository tools
 // read the contents of a file or a directory, the Git tree of a ref, through GraphQL the blame of a file
 // over a bounded line range, the commits of a repository or one commit with its stats and changed files, and
 // the branches and the tags of a repository or one tag resolved through the Git refs and Git tags APIs; none
@@ -91,6 +96,12 @@
 // the connection's repository targets; only on a connection whose tools list names it,
 // github.action-variables.delete removes one. A value is plain text, cut at fixed lengths in every answer and
 // never quoted in a message.
+// github.runner-groups.list, github.runner-groups.get, and github.hosted-runners.list read the self-hosted
+// runner groups and the GitHub-hosted runners of an organization, and github.runner-groups.update changes the
+// name and the visibility of one group with one request; all four are offered only on a connection whose tools
+// list names them, and none creates or deletes a group or a runner.
+// github.autolinks.list and github.autolinks.get read the autolinks of a repository; github.autolinks.create
+// adds one; only on a connection whose tools list names it, github.autolinks.delete removes one.
 // github.labels.list and github.labels.get read the labels of a repository; github.labels.create and
 // github.labels.update change them; only on a connection whose tools list names it, github.labels.delete
 // removes one permanently, which also strips it from every issue and pull request that carries it.
@@ -101,6 +112,11 @@
 // github.issue-dependencies.add records a blocked-by relationship and github.issue-dependencies.remove detaches
 // one, the same way a sub-issue may cross repositories; neither the sub-issue nor the dependency removal is
 // listed-only, because each detaches only the one relationship between the two named issues.
+// github.issue-events.list reads the events of one issue or, without a number, of every issue of a repository,
+// github.issue-timeline.list the timeline of one issue with its comments, reviews, commits, and references, and
+// github.assignees.list and github.assignees.check the users that may be assigned and whether one login may be;
+// they change nothing. A timeline names issues and commits of other repositories only by identifiers unless the
+// connection's targets allow them, and its texts are cut and untrusted.
 // github.issue-types.list reads the issue types an organization declares; github.issues.update also takes an
 // optional type name, "" removing the issue's current one. github.issue-fields.list reads the organization
 // issue fields of a repository, inherited from its organization, or, with organization instead, directly of
@@ -112,7 +128,10 @@
 // by the not-recommended setup profile discussions and change nothing. github.discussions.create starts a
 // discussion, github.discussion-comments.create adds a comment or a reply, and github.discussion-comments.update
 // and github.discussion-comments.delete change and remove one; the delete is offered only where a connection's
-// tools list names it.
+// tools list names it. github.discussions.update, close, reopen, lock, and unlock change one discussion,
+// github.discussion-comments.mark-answer and unmark-answer choose and withdraw its answer, and
+// github.discussions.delete removes a discussion; the delete is offered only where a connection's tools list
+// names it.
 // github.notifications.list, github.notifications.get, github.notifications.dismiss,
 // github.thread-subscriptions.set, and github.repository-subscriptions.set read and manage the notification
 // threads of the account behind the token and its subscriptions to a thread or a repository; they are
@@ -125,6 +144,10 @@
 // github.gists.list, github.gists.get, github.gists.create, and github.gists.update list, read, create, and
 // change the gists of the account behind the token or of a user, and, only on a connection whose tools list
 // names it, github.gists.delete removes one; they are offered only by the not-recommended setup profile gists.
+// github.gist-comments.list, .get, .create, and .update, github.gist-commits.list, github.gist-forks.list and
+// .create, and github.gist-stars.set join them in that profile, and github.gist-comments.delete is offered only
+// where a connection's tools list names it; they follow the same targets, and a fork needs the account of the
+// token among the user targets like a new gist.
 // A gist belongs to a user, so the tools take no target argument: a connection without targets reaches what
 // its token reaches, and one with targets needs users/LOGIN targets and no repository or project target. A gist
 // id is read first and refused as not found unless its owner is a user target, a create needs the account of
@@ -132,7 +155,11 @@
 // untrusted data, cut at fixed lengths, and a binary file shows only its metadata.
 // github.code-scanning-alerts.list and .get, github.dependabot-alerts.list and .get, and
 // github.secret-scanning-alerts.list and .get read the code scanning, Dependabot, and secret scanning alerts of a
-// repository; they are offered only by the not-recommended setup profile security and change nothing. Alert
+// repository, and github.code-scanning-alert-instances.list, github.code-scanning-analyses.list and .get, and
+// github.secret-scanning-locations.list read what lies behind them; they are offered only by the not-recommended
+// setup profile security and change nothing. Only on a connection whose tools list names it, the three tools
+// github.code-scanning-alerts.update, github.dependabot-alerts.update, and github.secret-scanning-alerts.update
+// dismiss, resolve, or reopen one alert after reading it below the chosen repository. Alert
 // texts are untrusted data, cut at fixed lengths. A secret scanning alert never shows the found secret: the
 // request asks GitHub to hide it and the answer has no field for it.
 // github.global-advisories.list and .get read the global security advisories of the GitHub Advisory Database,
@@ -154,10 +181,20 @@
 // the body of one issue comment by its comment_id, and, only on a connection whose tools list names it,
 // github.comments.delete removes one permanently; both refuse a comment of another repository and a pull
 // request conversation comment the same way the issue tools refuse a pull request number.
+// github.pull-request-reviews.update replaces the text of one review and github.pull-request-review-comments.update
+// the body of one line comment; github.pull-request-reviews.delete-pending deletes one pending review. Each
+// reads its review or line comment below the chosen repository first, and a review of another pull request or
+// a line comment of another repository is refused before anything changes. Only on a connection whose tools
+// list names it, github.pull-request-reviews.dismiss dismisses an approval or a request for changes and
+// github.pull-request-review-comments.delete removes a line comment permanently.
 // github.comments.hide hides one issue comment, pull request review, or pull request line comment with a
 // reason, and github.comments.unhide shows it again; both read the object below the chosen repository first
 // and only then send one GraphQL mutation with the node identifier of that answer, and a review is
-// addressed together with its pull_number. The search
+// addressed together with its pull_number. github.issues.pin and github.issues.unpin pin an issue to the
+// repository's issue list, three at most, and release it, and github.issues.unlock unlocks its conversation;
+// only on a connection whose tools list names it, github.issues.lock locks the conversation, optionally with a
+// reason; lock and unlock also take a pull request number. All four read the issue below the chosen repository first, and pinning sends the node identifier of
+// that answer, never one from the caller. The search
 // tools read GitHub's own search index for repositories, code, issues, pull requests, commits, users, and
 // organizations with search terms and GitHub qualifiers; they take no repository, project, or owner
 // argument of their own, and a connection whose targets name any is instead narrowed by qualifiers Qatlas
@@ -518,7 +555,8 @@ func Register(reg *capability.Registry) error {
 				"Contents: read and write on a fine-grained token; pull request review and line comment " +
 				"reads need repo or public_repo on a classic token, or Pull requests: read on a " +
 				"fine-grained token; submitting a review, replying to a line comment, resolving or " +
-				"unresolving a thread, and requesting or removing reviewers need repo on a classic token, " +
+				"unresolving a thread, requesting or removing reviewers, and changing, dismissing, or deleting a " +
+				"review or a line comment need repo on a classic token, " +
 				"or Pull requests: read and write on a fine-grained token; pull request conversation " +
 				"comments need the same scopes as github.comments.*: repo or public_repo on a classic " +
 				"token, or Pull requests or Issues: read, and read and write for a comment, on a " +
@@ -546,11 +584,14 @@ func Register(reg *capability.Registry) error {
 				"token; listing collaborators needs repo on a classic token, or Metadata: read on a fine-grained " +
 				"token; reading a repository, its languages, its contributors, its statistics, its activity feed, or its community profile needs no scope for " +
 				"a public repository, or repo on a classic token, or Metadata: read on a fine-grained token, for a " +
-				"private one; reading the rulesets of a repository needs repo on a classic token, or Administration: " +
+				"private one; reading the autolinks of a repository needs repo on a classic token, or Administration: read on a fine-grained token, and creating or deleting one, delete being listed-only, needs Administration: read and write instead; reading the rulesets of a repository needs repo on a classic token, or Administration: " +
 				"read on a fine-grained token; changing them, listed-only, needs Administration: read and write " +
 				"on a fine-grained token instead; reading or changing the rulesets of an organization needs " +
 				"admin:org on a classic token, or, as far as GitHub documents it, Administration read, or read " +
-				"and write, access of the organization on a fine-grained token; reading the protection of a branch needs " +
+				"and write, access of the organization on a fine-grained token; reading, pausing, resuming, or deleting the " +
+				"webhooks of a repository, the three changes listed-only, needs admin:repo_hook or repo on a classic token, or Webhooks: read, or " +
+				"read and write, on a fine-grained token, and of an organization admin:org_hook, or, as far as GitHub documents " +
+				"it, Webhooks of the organization; reading the protection of a branch needs " +
 				"repo on a classic token with the Admin role, or Administration: read on a fine-grained token, and " +
 				"replacing or removing it, listed-only, needs Administration: read and write instead; reading the " +
 				"rules that apply to a branch needs no scope for a public repository, or repo on a classic token, " +
@@ -574,12 +615,15 @@ func Register(reg *capability.Registry) error {
 				"as reading its labels, and changing them, including delete which is listed-only, needs the same " +
 				"scope as changing its labels; setting an issue's milestone through github.issues.update, and " +
 				"updating or deleting an issue comment, need the same scope as writing an issue or a comment: " +
-				"repo on a classic token, or Issues: read and write on a fine-grained token; reacting to an " +
+				"repo on a classic token, or Issues: read and write on a fine-grained token; locking, " +
+				"unlocking, pinning, or unpinning an issue, locking being listed-only, needs the same scope as " +
+				"writing an issue, and the push access of the repository, as far as GitHub documents it; reacting to an " +
 				"issue or an issue or pull request conversation comment needs the same scope as writing one, " +
 				"Issues: read and write on a fine-grained token; reacting to a pull request line comment needs " +
 				"repo on a classic token, or Pull requests: read and write on a fine-grained token; removing a " +
 				"reaction additionally reads the account behind the token, which needs no scope beyond its own " +
-				"identity; reading the sub-issues or the dependencies of an issue needs the same scope as reading " +
+				"identity; reading the sub-issues or the dependencies of an issue, its events, its timeline, and the " +
+				"assignable users of a repository needs the same scope as reading " +
 				"its labels, and changing them, including remove, needs the same scope as writing an issue: repo " +
 				"on a classic token, or Issues: read and write on a fine-grained token, of every repository a " +
 				"sub-issue or a dependency names; reading the issue types of an organization, and the issue " +
@@ -600,7 +644,7 @@ func Register(reg *capability.Registry) error {
 				"on a fine-grained token, while GitHub lists no permission for the gist reads; the security alert " +
 				"tools need security_events or repo on a classic token (public_repo for a public repository), " +
 				"or Code scanning alerts: read, Dependabot alerts: read, and Secret scanning alerts: read on a " +
-				"fine-grained token; the global advisory tools need no scope; the repository advisory list needs repo or " +
+				"fine-grained token, and the listed-only alert updates need the same with write access; the global advisory tools need no scope; the repository advisory list needs repo or " +
 				"repository_advisories:read on a classic token, or Repository security advisories: read on a " +
 				"fine-grained token, and the organization advisory list, although it only reads, needs repo or " +
 				"repository_advisories:write on a classic token, or Repository security advisories: write on a " +
@@ -701,10 +745,13 @@ func Register(reg *capability.Registry) error {
 		}, {
 			ID: "actions-admin", Title: "Actions administrator",
 			Description: "high risk: reads and changes whether Actions run in a repository, which " +
-				"actions they may use, the default rights of its GITHUB_TOKEN, and its merge and branch settings; a " +
-				"connection offers these tools only while its tools list names them, and every change needs its own " +
-				"confirmation",
-			Tools: append([]string{}, adminTools...),
+				"actions they may use, the default rights of its GITHUB_TOKEN, and its merge and branch settings, and " +
+				"reads its finer Actions settings (selected actions, fork pull request approval, retention, access, " +
+				"OIDC subject claim), the self-hosted runners with their labels, and the runner groups and the GitHub-hosted " +
+				"runners of an organization; a connection offers these tools only while its tools list names them, and " +
+				"every change needs its own confirmation; the changes of the finer settings, the runners, and the runner " +
+				"groups stay unticked, since each is offered only where a connection's tools list names it",
+			Tools: slices.Concat(adminTools, actionsSettingsReads, runnersReads, runnerGroupReads),
 		}, {
 			ID: "pull-requests", Title: "Pull requests",
 			Description: "reads the pull requests of a repository: their list, one pull request with its " +
@@ -722,29 +769,35 @@ func Register(reg *capability.Registry) error {
 			ID: "pull-requests-operator", Title: "Pull requests operator",
 			Description: "reads the pull requests of a repository and creates, updates, closes, and reopens " +
 				"them, and updates a pull request's head branch with its base while the head is still a given " +
-				"commit; every change needs its own confirmation, and merging stays unticked, since it is " +
-				"offered only where a connection's tools list names github.pull-requests.merge",
+				"commit, and turns off a pull request's auto-merge; every change needs its own confirmation, and " +
+				"merging and enabling auto-merge stay unticked, since each is offered only where a " +
+				"connection's tools list names github.pull-requests.merge or " +
+				"github.pull-request-auto-merge.enable",
 			Tools: []string{pullsList.ID, pullsGet.ID, pullFilesList.ID, pullCommitsList.ID, pullDiffsGet.ID,
 				pullChecksList.ID, pullChecksWait.ID, pullsCreate.ID, pullsUpdate.ID, pullsClose.ID, pullsReopen.ID,
-				pullBranchesUpdate.ID},
+				pullBranchesUpdate.ID, pullAutoMergeDisable.ID},
 		}, {
 			ID: "releases", Title: "Releases",
 			Description: "lists releases and their asset metadata, reads one release by identifier, tag, or " +
-				"as the latest published one, and creates and updates releases; every change needs its own " +
-				"confirmation, and deleting stays unticked, since it is offered only where a connection's " +
-				"tools list names github.releases.delete",
-			Tools: []string{releasesList.ID, releasesGet.ID, releaseAssetsList.ID, releasesCreate.ID,
-				releasesUpdate.ID},
+				"as the latest published one, generates release notes, creates and updates releases, and renames " +
+				"or relabels an asset; every change needs its own confirmation, and deleting stays unticked, " +
+				"since it is offered only where a connection's tools list names github.releases.delete or " +
+				"github.release-assets.delete",
+			Tools: []string{releasesList.ID, releasesGet.ID, releaseAssetsList.ID, releaseNotesGenerate.ID,
+				releasesCreate.ID, releasesUpdate.ID, releaseAssetsUpdate.ID},
 		}, {
 			ID: "pull-request-reviews", Title: "Pull request reviews",
 			Description: "reads and writes the conversation comments, reviews with line comments, replies, " +
-				"and requested reviewers of a pull request, and reads, resolves, and unresolves its review " +
-				"threads; every change needs its own confirmation, and approving stays unticked, since it is " +
-				"offered only where a connection's tools list names github.pull-request-reviews.approve",
-			MutationReason: "reviewing a pull request needs to write comments and reviews; approving is kept " +
-				"out of every profile so it always needs its own tools list entry",
+				"and requested reviewers of a pull request, changes the text of a review and of a line comment, " +
+				"and reads, resolves, and unresolves its review threads; every change needs its own " +
+				"confirmation, and approving, dismissing a review, deleting a line comment, and deleting a " +
+				"pending review stay unticked: the first three are offered only where a connection's tools " +
+				"list names them, the last one needs the effect delete",
+			MutationReason: "reviewing a pull request needs to write comments and reviews and to correct their " +
+				"text; approving is kept out of every profile so it always needs its own tools list entry",
 			Tools: []string{pullRequestCommentsList.ID, pullRequestCommentsCreate.ID, pullRequestReviewsList.ID,
-				pullRequestReviewsCreate.ID, pullRequestReviewCommentsList.ID, pullRequestReviewCommentsReply.ID,
+				pullRequestReviewsCreate.ID, pullRequestReviewsUpdate.ID, pullRequestReviewCommentsList.ID,
+				pullRequestReviewCommentsReply.ID, pullRequestReviewCommentsUpdate.ID,
 				pullRequestReviewThreadsList.ID, pullRequestReviewThreadsResolve.ID,
 				pullRequestReviewThreadsUnresolve.ID, pullRequestReviewersRequest.ID, pullRequestReviewersRemove.ID},
 		}, {
@@ -787,32 +840,41 @@ func Register(reg *capability.Registry) error {
 		}, {
 			ID: "repository-admin-reader", Title: "Repository administration reader",
 			Description: "not recommended: reads the collaborators of a repository, the rulesets of a " +
-				"repository or an organization, and the custom property values of a repository or the custom " +
-				"property schema of an organization; changes nothing",
-			Tools: []string{collaboratorsList.ID, rulesetsList.ID, rulesetsGet.ID, customPropertiesGet.ID},
+				"repository or an organization, the existing webhooks of either with their delivery logs, masked and " +
+				"cut and without secrets, and the custom property values of a repository or the custom " +
+				"property schema of an organization; changes nothing, since pausing, resuming, and deleting a " +
+				"webhook are offered only where a connection's tools list names them",
+			Tools: slices.Concat([]string{collaboratorsList.ID, rulesetsList.ID, rulesetsGet.ID, customPropertiesGet.ID},
+				webhooksReads),
 		}, {
 			ID: "issue-maintainer", Title: "Issue maintainer",
 			Description: "not recommended: lists and reads the labels of a repository, lists and reads its " +
-				"milestones, creates and updates labels and milestones and issue comments, hides and shows comments and reviews, and reacts to issues, comments, " +
-				"and pull request line comments; every change needs its own confirmation, and deleting a " +
-				"label, a milestone, or a comment stays unticked, since each is offered only where a connection's tools " +
+				"milestones, reads the events and the timeline of an issue and the users that may be assigned, " +
+				"creates and updates labels and milestones and issue comments, hides and shows comments and reviews, " +
+				"pins and unpins issues, unlocks conversations, and reacts " +
+				"to issues, comments, and pull request line comments; every change needs its own confirmation, and deleting a " +
+				"label, a milestone, or a comment and locking a conversation stay unticked, since each is offered only where a connection's tools " +
 				"list names it",
 			Tools: []string{labelsList.ID, labelsGet.ID, labelsCreate.ID, labelsUpdate.ID, milestonesList.ID, milestonesGet.ID,
 				milestonesCreate.ID, milestonesUpdate.ID,
-				commentsUpdate.ID, commentsHide.ID, commentsUnhide.ID, reactionsAdd.ID, reactionsRemove.ID, subIssuesList.ID, subIssuesAdd.ID,
+				commentsUpdate.ID, commentsHide.ID, commentsUnhide.ID, issuesPin.ID, issuesUnpin.ID, issuesUnlock.ID, reactionsAdd.ID, reactionsRemove.ID, subIssuesList.ID, subIssuesAdd.ID,
 				subIssuesRemove.ID, subIssuesReprioritize.ID, issueDependenciesList.ID, issueDependenciesAdd.ID,
-				issueDependenciesRemove.ID, issueTypesList.ID, issueFieldsList.ID, issueFieldsSet.ID},
+				issueDependenciesRemove.ID, issueEventsList.ID, issueTimelineList.ID, assigneesList.ID,
+				assigneesCheck.ID, issueTypesList.ID, issueFieldsList.ID, issueFieldsSet.ID},
 		}, {
 			ID: "discussions", Title: "Discussions",
 			Description: "not recommended: reads the discussion categories of a repository, its discussions " +
 				"filtered by category, state, and answered status, one discussion, and the comments of a " +
-				"discussion with their replies, starts discussions, and comments, replies, and edits comments; " +
-				"every change needs its own confirmation, and deleting a discussion comment stays unticked, " +
-				"since it is offered only where a connection's tools list names " +
+				"discussion with their replies, starts, edits, closes, reopens, locks, and unlocks discussions, " +
+				"comments, replies, edits comments, and marks or unmarks answers; every change needs its own " +
+				"confirmation, and deleting a discussion or a discussion comment stays unticked, since each is " +
+				"offered only where a connection's tools list names github.discussions.delete or " +
 				"github.discussion-comments.delete",
 			Tools: []string{discussionCategoriesList.ID, discussionsList.ID, discussionsGet.ID,
 				discussionCommentsList.ID, discussionsCreate.ID, discussionCommentsCreate.ID,
-				discussionCommentsUpdate.ID},
+				discussionCommentsUpdate.ID, discussionsUpdate.ID, discussionsClose.ID, discussionsReopen.ID,
+				discussionsLock.ID, discussionsUnlock.ID, discussionCommentsMarkAnswer.ID,
+				discussionCommentsUnmarkAnswer.ID},
 		}, {
 			ID: "notifications", Title: "Notifications",
 			Description: "not recommended: lists the notification threads of the account behind a classic " +
@@ -823,10 +885,24 @@ func Register(reg *capability.Registry) error {
 			Tools: []string{notificationsList.ID, notificationsGet.ID, notificationsDismiss.ID,
 				threadSubscriptionsSet.ID, repositorySubscriptionsSet.ID},
 		}, {
+			ID: "gists", Title: "Gists",
+			Description: "not recommended: lists, reads, creates, and changes gists, lists and reads their comments, " +
+				"adds and changes comments, lists their revisions and forks, forks a gist, and stars or unstars " +
+				"one; every change needs its own confirmation, and deleting a gist or a comment stays unticked, " +
+				"since it is offered only where a connection's tools list names it",
+			Tools: []string{gistsList.ID, gistsGet.ID, gistsCreate.ID, gistsUpdate.ID, gistCommentsList.ID,
+				gistCommentsGet.ID, gistCommentsCreate.ID, gistCommentsUpdate.ID, gistCommitsList.ID,
+				gistForksList.ID, gistForksCreate.ID, gistStarsSet.ID},
+		}, {
 			ID: "security", Title: "Security alerts",
 			Description: "not recommended: lists and reads the code scanning, Dependabot, and secret scanning " +
 				"alerts of a repository, the global and repository security advisories, and code quality " +
-				"findings; the found secret of a secret scanning alert is never shown; changes nothing",
+				"findings, the instances, analyses, and locations behind the alerts, and the security switches and the " +
+				"code scanning default setup of a repository, the dependency changes between two refs, and the code " +
+				"security configurations of an organization with its defaults and attached repositories; the found " +
+				"secret of a secret scanning alert is never " +
+				"shown; changes nothing, since the alert updates, the changes of the switches and the default setup, " +
+				"and the dependency snapshots are offered only where a connection's tools list names them",
 			Tools: securityAlertTools,
 		}, {
 			ID: "copilot", Title: "Copilot",
@@ -858,15 +934,17 @@ func Register(reg *capability.Registry) error {
 		capability.Operation{Descriptor: projectIssuesCreate, Handler: capability.Handler(invokeProjectIssuesCreate)},
 	}, slices.Concat(itemOperations(), lifecycleOperations(), fieldOperations(), viewOperations(),
 		statusOperations(), accessOperations(), automationOperations(), actionsOperations(),
-		maintenanceOperations(), pullRequestOperations(), checkOperations(), releaseOperations(), pullRequestCommentOperations(),
-		pullRequestReviewOperations(), pullRequestReviewCommentOperations(), pullRequestReviewThreadOperations(),
-		pullRequestReviewerOperations(), accountOperations(), organizationOperations(), starOperations(),
+		maintenanceOperations(), actionsSettingsOperations(), runnersOperations(), runnerGroupOperations(), webhooksOperations(), deployKeysOperations(), repositoryInvitationsOperations(), pullRequestOperations(), checkOperations(), releaseOperations(), releaseAssetOperations(), pullRequestCommentOperations(),
+		pullRequestReviewOperations(), pullRequestReviewMaintenanceOperations(), pullRequestReviewCommentOperations(),
+		pullRequestReviewCommentMaintenanceOperations(), pullRequestReviewThreadOperations(),
+		pullRequestReviewerOperations(), accountOperations(), accountSocialOperations(), organizationOperations(), organizationReadOperations(), organizationManagementOperations(), packagesOperations(), teamManagementOperations(), starOperations(), interactionLimitOperations(),
 		searchOperations(), contentsOperations(), blameOperations(), commitsOperations(), refsOperations(), compareOperations(), commitRelationOperations(),
-		contentsWriteOperations(), refsWriteOperations(), repositoriesOperations(), repositoryDetailOperations(), trafficOperations(), repositoryStatsOperations(), rulesetsOperations(), branchProtectionOperations(), customPropertiesOperations(), actionVariablesOperations(), actionCachesOperations(), runCleanupOperations(),
-		labelsOperations(), milestonesOperations(), commentMaintenanceOperations(), commentVisibilityOperations(), reactionsOperations(),
-		subIssuesOperations(), issueDependenciesOperations(), issueTypesOperations(), issueFieldsOperations(),
-		discussionOperations(), notificationOperations(), gistOperations(), securityAlertOperations(), advisoryOperations(),
-		copilotOperations(), environmentsOperations(), deploymentsOperations(), referenceOperations())...)
+		contentsWriteOperations(), refsWriteOperations(), repositoriesOperations(), collaboratorsManageOperations(), collaboratorsAddOperations(), invitationOperations(), repositoryDetailOperations(), trafficOperations(), repositoryStatsOperations(), rulesetsOperations(), branchProtectionOperations(), customPropertiesOperations(), actionVariablesOperations(), actionSecretsOperations(), dependabotSecretsOperations(), actionCachesOperations(), runCleanupOperations(), deploymentGateOperations(),
+		labelsOperations(), autolinksOperations(), milestonesOperations(), commentMaintenanceOperations(), commentVisibilityOperations(), issueLockOperations(), reactionsOperations(),
+		subIssuesOperations(), issueDependenciesOperations(), issueHistoryOperations(), issueTypesOperations(), issueFieldsOperations(),
+		discussionOperations(), notificationOperations(), gistOperations(), gistSocialOperations(), securityAlertOperations(), securityAlertUpdateOperations(), securityAlertDetailOperations(), advisoryOperations(), securitySettingsOperations(), dependencyGraphOperations(),
+		codeSecurityConfigurationOperations(), codeSecurityChangeOperations(), codeSecurityAssignOperations(),
+		copilotOperations(), environmentsOperations(), deploymentsOperations(), referenceOperations(), billingOperations(), appOperations(), auditLogOperations())...)
 	for i := range operations {
 		operations[i].Descriptor = withGroup(withTargetArgument(operations[i].Descriptor))
 	}
@@ -1620,6 +1698,9 @@ func (c *Client) restSubject(request *http.Request) subject {
 	if tail, ok := strings.CutPrefix(full, c.endpoints.rest+"/advisories"); ok {
 		return globalAdvisoriesSubject(tail)
 	}
+	if _, ok := strings.CutPrefix(full, c.endpoints.rest+"/apps/"); ok {
+		return subject{what: "this app"}
+	}
 	if tail, ok := strings.CutPrefix(full, c.endpoints.rest+"/orgs/"); ok {
 		return organizationSubject(tail)
 	}
@@ -1633,8 +1714,15 @@ func (c *Client) restSubject(request *http.Request) subject {
 		return gistsSubject(tail)
 	}
 	if tail, ok := strings.CutPrefix(full, c.endpoints.rest+"/users/"); ok {
-		if login, rest, _ := strings.Cut(tail, "/"); strings.HasPrefix(rest, "gists") && validLogin(login) {
+		login, rest, _ := strings.Cut(tail, "/")
+		rest, _, _ = strings.Cut(rest, "?")
+		switch {
+		case strings.HasPrefix(rest, "gists") && validLogin(login):
 			return subject{what: "the gists of users/" + login}
+		case (rest == "followers" || rest == "following") && validLogin(login):
+			return subject{what: "the " + rest + " of users/" + login}
+		case (rest == "packages" || strings.HasPrefix(rest, "packages/")) && validLogin(login):
+			return packagesSubject("users", login)
 		}
 	}
 	tail, ok := strings.CutPrefix(full, c.endpoints.rest+"/repos/")
@@ -1696,6 +1784,12 @@ func (c *Client) restSubject(request *http.Request) subject {
 		if what := rulesetsSubject(parts[2]); what != "" {
 			s.what = what
 		}
+		if what := webhooksSubject(parts[2]); what != "" {
+			s.what = what
+		}
+		if what := grantsSubject(parts[2]); what != "" {
+			s.what = what
+		}
 		if what := customPropertiesSubject(parts[2]); what != "" {
 			s.what = what
 		}
@@ -1706,6 +1800,9 @@ func (c *Client) restSubject(request *http.Request) subject {
 			s.what = what
 		}
 		if what := labelsSubject(parts[2]); what != "" {
+			s.what = what
+		}
+		if what := autolinksSubject(parts[2]); what != "" {
 			s.what = what
 		}
 		if what := milestonesSubject(parts[2]); what != "" {
@@ -1736,9 +1833,20 @@ func (c *Client) restSubject(request *http.Request) subject {
 		if what := variableSubject(parts[2]); what != "" {
 			s.what = what
 		}
+		if what := actionSecretFamily.subject(parts[2]); what != "" {
+			s.what = what
+		}
+		if what := dependabotSecretFamily.subject(parts[2]); what != "" {
+			s.what = what
+		}
 	}
 	return s
 }
+
+// organizationReadSubjects names what the organization read routes below /orgs/OWNER address.
+var organizationReadSubjects = map[string]string{"members": "the members", "outside_collaborators": "the outside collaborators",
+	"organization-roles": "the organization roles", "invitations": "the pending invitations",
+	"installations": "the app installations"}
 
 // organizationSubject names the organization or the team a path below /orgs/OWNER addresses: OWNER,
 // OWNER/teams, or OWNER/teams/SLUG with or without /members. It names only a login or a slug of the
@@ -1755,6 +1863,16 @@ func organizationSubject(tail string) subject {
 			return subject{what: "team " + slug + " of orgs/" + owner}
 		}
 	}
+	if len(parts) >= 3 && parts[1] == "memberships" && parts[2] != "" {
+		if login, err := url.PathUnescape(parts[2]); err == nil && validLogin(login) {
+			return subject{what: "the membership of " + login + " in orgs/" + owner}
+		}
+	}
+	for segment, what := range organizationReadSubjects {
+		if len(parts) >= 2 && parts[1] == segment {
+			return subject{what: what + " of orgs/" + owner}
+		}
+	}
 	if len(parts) >= 2 && parts[1] == "repos" {
 		return subject{what: "the repositories of orgs/" + owner}
 	}
@@ -1767,8 +1885,25 @@ func organizationSubject(tail string) subject {
 		}
 		return subject{what: what}
 	}
+	if len(parts) >= 2 && parts[1] == "hooks" {
+		if what := webhooksSubject(strings.Join(parts[1:], "/")); what != "" {
+			return subject{what: what + " of orgs/" + owner}
+		}
+	}
 	if len(parts) >= 3 && parts[1] == "actions" {
-		if what := variableSubject(strings.Join(parts[1:], "/")); what != "" {
+		rest := strings.Join(parts[1:], "/")
+		if what := runnerSubject(rest); what != "" {
+			return subject{what: what + " of orgs/" + owner}
+		}
+		if what := variableSubject(rest); what != "" {
+			return subject{what: what + " of orgs/" + owner}
+		}
+		if what := actionSecretFamily.subject(rest); what != "" {
+			return subject{what: what + " of orgs/" + owner}
+		}
+	}
+	if len(parts) >= 3 && parts[1] == "dependabot" {
+		if what := dependabotSecretFamily.subject(strings.Join(parts[1:], "/")); what != "" {
 			return subject{what: what + " of orgs/" + owner}
 		}
 	}
@@ -1777,6 +1912,12 @@ func organizationSubject(tail string) subject {
 	}
 	if len(parts) >= 2 && parts[1] == "security-advisories" {
 		return subject{what: "the repository security advisories of orgs/" + owner}
+	}
+	if len(parts) >= 3 && parts[1] == "code-security" && parts[2] == "configurations" {
+		return subject{what: codeSecuritySubject(parts[3:]) + " of orgs/" + owner}
+	}
+	if len(parts) >= 2 && strings.HasPrefix(parts[1], "packages") {
+		return packagesSubject("orgs", owner)
 	}
 	if len(parts) >= 2 && parts[1] == "issue-types" {
 		return subject{what: "the issue types of orgs/" + owner}
@@ -1807,6 +1948,18 @@ func accountSubject(tail string) subject {
 		return subject{what: "the account's starred repositories"}
 	case tail == "/repos":
 		return subject{what: "the account's own repositories"}
+	case tail == "/followers":
+		return subject{what: "the followers of the account behind this token"}
+	case tail == "/following":
+		return subject{what: "the accounts the account behind this token follows"}
+	case strings.HasPrefix(tail, "/following/"):
+		return subject{what: "this follow"}
+	case tail == "/blocks":
+		return subject{what: "the users the account behind this token blocks"}
+	case strings.HasPrefix(tail, "/blocks/"):
+		return subject{what: "this block"}
+	case strings.HasPrefix(tail, "/installations/"):
+		return subject{what: "this installation"}
 	}
 	rest, ok := strings.CutPrefix(tail, "/starred/")
 	if !ok {
@@ -1897,6 +2050,9 @@ func treesSubject(path string) string {
 // actions/runs/ID, actions/jobs/ID, or actions/workflows/ID-or-file, with or without a further segment. It
 // names only an identifier or a file name of the characters the input schema allows, and is empty otherwise.
 func actionsSubject(path string) string {
+	if what := runnerSubject(path); what != "" {
+		return what
+	}
 	rest, ok := strings.CutPrefix(path, "actions/")
 	if !ok {
 		return ""
@@ -2051,13 +2207,21 @@ func (c *Client) do(ctx context.Context, op, method, endpoint string, payload []
 	}
 	// A read GitHub answers 202 or 204 sends no body; the caller tells the two apart by status.
 	if status != nil && len(bytes.TrimSpace(data)) == 0 &&
-		(*status == http.StatusAccepted || *status == http.StatusNoContent) {
+		(*status == http.StatusAccepted || *status == http.StatusNoContent || acceptsEmptyBody(out)) {
 		return nil
 	}
 	if err := json.Unmarshal(data, out); err != nil {
 		return invalidResponse(op, change)
 	}
 	return nil
+}
+
+// emptyBodyAnswer marks a decode target of a route that may answer 200 without any body.
+type emptyBodyAnswer interface{ allowsEmptyBody() }
+
+func acceptsEmptyBody(out any) bool {
+	_, ok := out.(emptyBodyAnswer)
+	return ok
 }
 
 // authorize sets the shared authentication, version, and client headers of a GitHub API request.

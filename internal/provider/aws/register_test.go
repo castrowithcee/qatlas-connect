@@ -13,6 +13,18 @@ import (
 )
 
 var wantTools = []string{
+	"aws.account.alternate-contact.delete",
+	"aws.account.alternate-contact.get",
+	"aws.account.alternate-contact.put",
+	"aws.account.contact-information.get",
+	"aws.account.contact-information.put",
+	"aws.account.information.get",
+	"aws.account.name.put",
+	"aws.account.primary-email.get",
+	"aws.account.region.disable",
+	"aws.account.region.enable",
+	"aws.account.region.get-opt-status",
+	"aws.account.region.list",
 	"aws.iam.access-key.get-last-used",
 	"aws.iam.access-key.list",
 	"aws.iam.account.get-authorization-details",
@@ -96,7 +108,197 @@ var wantTools = []string{
 	"aws.iam.user.list",
 	"aws.iam.user.list-tags",
 	"aws.iam.virtual-mfa-device.list",
+	"aws.route53.account-limit.get",
+	"aws.route53.change.get",
+	"aws.route53.checker-ip-range.list",
+	"aws.route53.cidr-block.list",
+	"aws.route53.cidr-collection.change",
+	"aws.route53.cidr-collection.create",
+	"aws.route53.cidr-collection.delete",
+	"aws.route53.cidr-collection.list",
+	"aws.route53.cidr-location.list",
+	"aws.route53.delegation-set.create",
+	"aws.route53.delegation-set.delete",
+	"aws.route53.delegation-set.get",
+	"aws.route53.delegation-set.get-limit",
+	"aws.route53.delegation-set.list",
+	"aws.route53.dns-answer.test",
+	"aws.route53.dnssec.disable",
+	"aws.route53.dnssec.enable",
+	"aws.route53.dnssec.get",
+	"aws.route53.geo-location.get",
+	"aws.route53.geo-location.list",
+	"aws.route53.health-check.count",
+	"aws.route53.health-check.create",
+	"aws.route53.health-check.delete",
+	"aws.route53.health-check.get",
+	"aws.route53.health-check.get-last-failure-reason",
+	"aws.route53.health-check.get-status",
+	"aws.route53.health-check.list",
+	"aws.route53.health-check.update",
+	"aws.route53.hosted-zone.associate-vpc",
+	"aws.route53.hosted-zone.count",
+	"aws.route53.hosted-zone.create",
+	"aws.route53.hosted-zone.delete",
+	"aws.route53.hosted-zone.disassociate-vpc",
+	"aws.route53.hosted-zone.get",
+	"aws.route53.hosted-zone.get-limit",
+	"aws.route53.hosted-zone.list",
+	"aws.route53.hosted-zone.list-by-name",
+	"aws.route53.hosted-zone.list-by-vpc",
+	"aws.route53.hosted-zone.update-comment",
+	"aws.route53.key-signing-key.activate",
+	"aws.route53.key-signing-key.create",
+	"aws.route53.key-signing-key.deactivate",
+	"aws.route53.key-signing-key.delete",
+	"aws.route53.query-logging-config.create",
+	"aws.route53.query-logging-config.delete",
+	"aws.route53.query-logging-config.get",
+	"aws.route53.query-logging-config.list",
+	"aws.route53.record-set.change",
+	"aws.route53.record-set.list",
+	"aws.route53.tag.change",
+	"aws.route53.tag.list",
+	"aws.route53.tag.list-many",
+	"aws.route53.traffic-policy-instance.count",
+	"aws.route53.traffic-policy-instance.create",
+	"aws.route53.traffic-policy-instance.delete",
+	"aws.route53.traffic-policy-instance.get",
+	"aws.route53.traffic-policy-instance.list",
+	"aws.route53.traffic-policy-instance.list-by-hosted-zone",
+	"aws.route53.traffic-policy-instance.list-by-policy",
+	"aws.route53.traffic-policy-instance.update",
+	"aws.route53.traffic-policy.create",
+	"aws.route53.traffic-policy.create-version",
+	"aws.route53.traffic-policy.delete",
+	"aws.route53.traffic-policy.get",
+	"aws.route53.traffic-policy.list",
+	"aws.route53.traffic-policy.list-versions",
+	"aws.route53.traffic-policy.update-comment",
+	"aws.route53.vpc-association-authorization.delete",
+	"aws.route53.vpc-association-authorization.list",
+	"aws.s3.accelerate.get",
+	"aws.s3.acl.get",
+	"aws.s3.analytics.delete",
+	"aws.s3.analytics.get",
+	"aws.s3.analytics.list",
+	"aws.s3.analytics.put",
+	"aws.s3.bucket-policy.delete",
+	"aws.s3.bucket-policy.get",
+	"aws.s3.bucket-policy.get-status",
+	"aws.s3.bucket-policy.put",
+	"aws.s3.bucket.create",
+	"aws.s3.bucket.delete",
+	"aws.s3.bucket.get-location",
+	"aws.s3.bucket.head",
+	"aws.s3.bucket.list",
+	"aws.s3.cors.delete",
+	"aws.s3.cors.get",
+	"aws.s3.encryption.delete",
+	"aws.s3.encryption.get",
+	"aws.s3.encryption.put",
+	"aws.s3.inventory.delete",
+	"aws.s3.inventory.get",
+	"aws.s3.inventory.list",
+	"aws.s3.inventory.put",
+	"aws.s3.lifecycle.delete",
+	"aws.s3.lifecycle.get",
+	"aws.s3.logging.get",
+	"aws.s3.multipart-upload.abort",
+	"aws.s3.multipart-upload.complete",
+	"aws.s3.multipart-upload.create",
+	"aws.s3.multipart-upload.list",
+	"aws.s3.multipart-upload.list-parts",
+	"aws.s3.multipart-upload.upload-part",
+	"aws.s3.multipart-upload.upload-part-copy",
+	"aws.s3.notification.get",
+	"aws.s3.object-acl.get",
+	"aws.s3.object-legal-hold.get",
+	"aws.s3.object-legal-hold.put",
+	"aws.s3.object-lock.get",
+	"aws.s3.object-lock.put",
+	"aws.s3.object-retention.get",
+	"aws.s3.object-retention.put",
+	"aws.s3.object-tagging.delete",
+	"aws.s3.object-tagging.get",
+	"aws.s3.object-tagging.put",
+	"aws.s3.object.copy",
+	"aws.s3.object.delete",
+	"aws.s3.object.delete-many",
+	"aws.s3.object.download",
+	"aws.s3.object.get-attributes",
+	"aws.s3.object.head",
+	"aws.s3.object.list",
+	"aws.s3.object.list-versions",
+	"aws.s3.object.restore",
+	"aws.s3.object.upload",
+	"aws.s3.ownership.get",
+	"aws.s3.ownership.put",
+	"aws.s3.public-access-block.get",
+	"aws.s3.public-access-block.put",
+	"aws.s3.replication.get",
+	"aws.s3.request-payment.get",
+	"aws.s3.request-payment.put",
+	"aws.s3.tagging.delete",
+	"aws.s3.tagging.get",
+	"aws.s3.tagging.put",
+	"aws.s3.versioning.get",
+	"aws.s3.versioning.put",
+	"aws.s3.website.get",
+	"aws.ses.account.get",
+	"aws.ses.account.put-dedicated-ip-warmup-attributes",
+	"aws.ses.account.put-details",
+	"aws.ses.account.put-sending-attributes",
+	"aws.ses.account.put-suppression-attributes",
+	"aws.ses.account.put-vdm-attributes",
+	"aws.ses.blacklist-report.get",
+	"aws.ses.configuration-set-event-destination.get",
+	"aws.ses.configuration-set.create",
+	"aws.ses.configuration-set.delete",
+	"aws.ses.configuration-set.get",
+	"aws.ses.configuration-set.list",
+	"aws.ses.configuration-set.put-archiving-options",
+	"aws.ses.configuration-set.put-delivery-options",
+	"aws.ses.configuration-set.put-reputation-options",
+	"aws.ses.configuration-set.put-sending-options",
+	"aws.ses.configuration-set.put-suppression-options",
+	"aws.ses.configuration-set.put-tracking-options",
+	"aws.ses.configuration-set.put-vdm-options",
+	"aws.ses.contact-list.create",
+	"aws.ses.contact-list.delete",
+	"aws.ses.contact-list.get",
+	"aws.ses.contact-list.list",
+	"aws.ses.contact-list.update",
+	"aws.ses.contact.create",
+	"aws.ses.contact.delete",
+	"aws.ses.contact.get",
+	"aws.ses.contact.list",
+	"aws.ses.contact.update",
+	"aws.ses.dedicated-ip-pool.create",
+	"aws.ses.dedicated-ip-pool.delete",
+	"aws.ses.dedicated-ip-pool.get",
+	"aws.ses.dedicated-ip-pool.list",
+	"aws.ses.dedicated-ip-pool.put-scaling-attributes",
+	"aws.ses.dedicated-ip.get",
+	"aws.ses.dedicated-ip.list",
+	"aws.ses.dedicated-ip.put-in-pool",
+	"aws.ses.dedicated-ip.put-warmup-attributes",
+	"aws.ses.deliverability-campaign.get",
+	"aws.ses.deliverability-campaign.list",
+	"aws.ses.deliverability-dashboard.get",
+	"aws.ses.deliverability-dashboard.put-option",
+	"aws.ses.deliverability-test-report.create",
+	"aws.ses.deliverability-test-report.get",
+	"aws.ses.deliverability-test-report.list",
+	"aws.ses.domain-statistics-report.get",
+	"aws.ses.email-address-insights.get",
+	"aws.ses.email-identity-certificate.associate",
+	"aws.ses.email-identity-certificate.disassociate",
+	"aws.ses.email-identity-certificate.list",
+	"aws.ses.email-identity-policy.create",
+	"aws.ses.email-identity-policy.delete",
 	"aws.ses.email-identity-policy.list",
+	"aws.ses.email-identity-policy.update",
 	"aws.ses.email-identity.create",
 	"aws.ses.email-identity.delete",
 	"aws.ses.email-identity.get",
@@ -109,6 +311,45 @@ var wantTools = []string{
 	"aws.ses.email-identity.put-mail-from-attributes",
 	"aws.ses.email-identity.tag",
 	"aws.ses.email-identity.untag",
+	"aws.ses.email-template.create",
+	"aws.ses.email-template.delete",
+	"aws.ses.email-template.get",
+	"aws.ses.email-template.list",
+	"aws.ses.email-template.test-render",
+	"aws.ses.email-template.update",
+	"aws.ses.email.send",
+	"aws.ses.email.send-bulk",
+	"aws.ses.export-job.cancel",
+	"aws.ses.export-job.create",
+	"aws.ses.export-job.get",
+	"aws.ses.export-job.list",
+	"aws.ses.import-job.create",
+	"aws.ses.import-job.get",
+	"aws.ses.import-job.list",
+	"aws.ses.message-insights.get",
+	"aws.ses.metrics.batch-get",
+	"aws.ses.multi-region-endpoint.create",
+	"aws.ses.multi-region-endpoint.delete",
+	"aws.ses.multi-region-endpoint.get",
+	"aws.ses.multi-region-endpoint.list",
+	"aws.ses.recommendation.list",
+	"aws.ses.reputation-entity.get",
+	"aws.ses.reputation-entity.list",
+	"aws.ses.reputation-entity.update-customer-managed-status",
+	"aws.ses.reputation-entity.update-policy",
+	"aws.ses.resource-tenant.list",
+	"aws.ses.suppressed-destination.delete",
+	"aws.ses.suppressed-destination.get",
+	"aws.ses.suppressed-destination.list",
+	"aws.ses.suppressed-destination.put",
+	"aws.ses.tenant-resource.associate",
+	"aws.ses.tenant-resource.disassociate",
+	"aws.ses.tenant-resource.list",
+	"aws.ses.tenant-suppression-attributes.put",
+	"aws.ses.tenant.create",
+	"aws.ses.tenant.delete",
+	"aws.ses.tenant.get",
+	"aws.ses.tenant.list",
 	"aws.sts.access-key.get-info",
 	"aws.sts.authorization-message.decode",
 	"aws.sts.caller-identity.get",
@@ -127,9 +368,19 @@ func TestRegisterPublishesMetadataAndTools(t *testing.T) {
 		// the connection with confirmation.
 		open := tool.Effect == config.EffectRead && !tool.RequiresToolAllowList
 		write := tool.Effect != config.EffectRead && tool.RequiresToolAllowList && strings.HasPrefix(tool.ID, "aws.iam.")
-		sesWrite := tool.Effect != config.EffectRead && !tool.RequiresToolAllowList && strings.HasPrefix(tool.ID, "aws.ses.")
-		if !(open || write || sesWrite) || tool.Group != strings.Split(tool.ID, ".")[1] {
-			t.Errorf("tool %+v, want an open read, a listed-only IAM write, or an SES write of the group named by its service segment", tool)
+		// Identity policy writes change who may send, so they are listed-only like the IAM writes.
+		sesWrite := tool.Effect != config.EffectRead && strings.HasPrefix(tool.ID, "aws.ses.") &&
+			tool.RequiresToolAllowList == strings.HasPrefix(tool.ID, "aws.ses.email-identity-policy.")
+		// A bucket policy decides who may use the objects, so its writes are listed-only; every other S3 write is not.
+		s3Write := tool.Effect != config.EffectRead && strings.HasPrefix(tool.ID, "aws.s3.") &&
+			tool.RequiresToolAllowList == s3PolicyWrite(tool.ID)
+		// DNSSEC writes can make a domain unreachable, so they are listed-only; every other Route 53 write is not.
+		route53Write := tool.Effect != config.EffectRead && strings.HasPrefix(tool.ID, "aws.route53.") &&
+			tool.RequiresToolAllowList == route53DNSSECWrite(tool.ID)
+		// The account tools change regions, contacts, and the name of the account, not the sending or storing of data.
+		accountWrite := tool.Effect != config.EffectRead && strings.HasPrefix(tool.ID, "aws.account.") && !tool.RequiresToolAllowList
+		if !(open || write || sesWrite || s3Write || route53Write || accountWrite) || tool.Group != strings.Split(tool.ID, ".")[1] {
+			t.Errorf("tool %+v, want an open read, a listed-only IAM write, an SES write (listed-only for identity policies), an S3 or a Route 53 write of the group named by its service segment", tool)
 		}
 	}
 	if !reflect.DeepEqual(ids, wantTools) {
@@ -143,8 +394,8 @@ func TestRegisterPublishesMetadataAndTools(t *testing.T) {
 	for _, g := range metadata.Groups {
 		groups[g.ID] = true
 	}
-	if len(groups) != 3 || !groups["sts"] || !groups["iam"] || !groups["ses"] {
-		t.Errorf("groups = %+v, want sts, iam and ses", metadata.Groups)
+	if len(groups) != 6 || !groups["account"] || !groups["sts"] || !groups["iam"] || !groups["ses"] || !groups["s3"] || !groups["route53"] {
+		t.Errorf("groups = %+v, want sts, iam, account, ses, s3 and route53", metadata.Groups)
 	}
 	profile, ok := metadata.RecommendedProfile()
 	if !ok || profile.ID != "read" || !reflect.DeepEqual(append([]string{}, profile.Tools...), []string{
@@ -199,7 +450,7 @@ var readOnlyIdentityProviderTools = map[string]bool{
 	"aws.iam.outbound-federation.get-info": true,
 }
 
-// Every read is credential-free with the full risk, every other tool is a listed-only IAM write or an SES
+// Every read is credential-free with the full risk, every other tool is a listed-only IAM write, a listed-only SES identity policy write, or an SES
 // write with confirmation, and every tool has the strict schema. The AWS actions that return a credential or token are no
 // tools, and the actions the STS tools send are exactly the three STS reads.
 func TestSTSToolsAreTheCredentialFreeActions(t *testing.T) {
@@ -210,9 +461,14 @@ func TestSTSToolsAreTheCredentialFreeActions(t *testing.T) {
 		if d.Risk.Effect != capability.EffectRead {
 			want.Effect, want.Idempotency, want.Confirmation = d.Risk.Effect, d.Risk.Idempotency, capability.ConfirmationRequired
 			listedIAM := d.RequiresToolAllowList && strings.HasPrefix(d.ID, "aws.iam.")
-			sesWrite := !d.RequiresToolAllowList && strings.HasPrefix(d.ID, "aws.ses.")
-			if !(listedIAM || sesWrite) || d.Risk.Idempotency == capability.IdempotencySafe {
-				t.Errorf("%s is a write that is neither a listed-only IAM tool nor an SES tool: %+v", d.ID, d)
+			sesWrite := strings.HasPrefix(d.ID, "aws.ses.") &&
+				d.RequiresToolAllowList == strings.HasPrefix(d.ID, "aws.ses.email-identity-policy.")
+			s3Write := strings.HasPrefix(d.ID, "aws.s3.") && d.RequiresToolAllowList == s3PolicyWrite(d.ID) ||
+				!d.RequiresToolAllowList && strings.HasPrefix(d.ID, "aws.route53.") && !route53DNSSECWrite(d.ID)
+			route53Listed := d.RequiresToolAllowList && route53DNSSECWrite(d.ID)
+			accountWrite := !d.RequiresToolAllowList && strings.HasPrefix(d.ID, "aws.account.")
+			if !(listedIAM || sesWrite || s3Write || route53Listed || accountWrite) || d.Risk.Idempotency == capability.IdempotencySafe {
+				t.Errorf("%s is a write that is neither a listed-only IAM tool nor an SES or S3 tool: %+v", d.ID, d)
 			}
 		}
 		if d.Risk != want || d.Risk.DataSensitivity == "" {

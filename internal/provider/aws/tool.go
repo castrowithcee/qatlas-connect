@@ -73,6 +73,16 @@ type toolSpec struct {
 	selfRole string
 	// resultHook names the step in resultHooks that adds a member to the result.
 	resultHook string
+	// guards name steps in guards that judge the arguments before any I/O.
+	guards []string
+	// readback names the step in readbacks that reads the current state and may refuse the change.
+	readback string
+	// delivery names the entry in deliveries of a tool that delivers to third parties.
+	delivery string
+	// failureHint names the step in failureHints that adds what a person needs to know to a failure of the call.
+	failureHint string
+	// localRange makes a tool with a local file to read take offset and length and send just that range.
+	localRange bool
 	// accountCheck marks GetCallerIdentity, whose answer is the account check itself.
 	accountCheck bool
 	// truncated adds the truncated field: true when a string of the answer was cut at its cap.
@@ -103,6 +113,9 @@ var targetChecks = map[string]targetCheck{
 	"arn-region":                    checkARNRegion,
 	"ses-identity":                  checkSESIdentity,
 	"ses-identity-arn":              checkSESIdentityARN,
+	"ses-resource-arn":              checkSESResourceARN,
+	"ses-reputation-entity-arn":     checkSESReputationEntityARN,
+	"ses-configuration-set":         checkSESConfigurationSet,
 }
 
 // policyCheck judges one policy document against the binding before any secret is read or request is built.
@@ -111,8 +124,10 @@ type policyCheck func(b binding, name, value string) error
 // policyChecks are the client-side document checks, by the name a curation table gives them. A tool that
 // names one without an implementation here is a registration error.
 var policyChecks = map[string]policyCheck{
-	"none":         nil,
-	"trust-policy": checkTrustPolicy,
+	"none":                        nil,
+	"trust-policy":                checkTrustPolicy,
+	"resource-policy-own-account": checkResourcePolicyOwnAccount,
+	"bucket-policy":               checkBucketPolicy,
 }
 
 // generatedTools checks every generated tool against the runtime and binds it to its handler.
@@ -184,6 +199,33 @@ func (s toolSpec) check() error {
 	if _, ok := resultHooks[s.resultHook]; s.resultHook != "" && !ok {
 		return fmt.Errorf("result hook %q has no implementation", s.resultHook)
 	}
+	if _, ok := failureHints[s.failureHint]; s.failureHint != "" && !ok {
+		return fmt.Errorf("failure hint %q has no implementation", s.failureHint)
+	}
+	for _, name := range s.guards {
+		if guards[name] == nil {
+			return fmt.Errorf("guard %q has no implementation", name)
+		}
+	}
+	switch s.descriptor.LocalFiles {
+	case "":
+	case config.LocalFilesRead:
+		if s.rest == nil || !s.rest.StreamsInput() || s.rest.StreamsOutput() || s.descriptor.Risk.Effect == capability.EffectRead {
+			return errors.New("an upload streams its input payload and changes something")
+		}
+	case config.LocalFilesWrite:
+		if s.rest == nil || !s.rest.StreamsOutput() || s.rest.StreamsInput() || s.descriptor.Risk.Effect != capability.EffectRead {
+			return errors.New("a download streams its output payload and is a read")
+		}
+	default:
+		return errors.New("the local file direction is unknown")
+	}
+	if s.readback != "" && (readbacks[s.readback] == nil || s.rest == nil || s.descriptor.Risk.Effect == capability.EffectRead) {
+		return fmt.Errorf("readback %q has no implementation or does not belong to a REST tool that changes something", s.readback)
+	}
+	if _, ok := deliveries[s.delivery]; s.delivery != "" && (!ok || s.rest == nil || s.descriptor.Risk.Idempotency != capability.IdempotencyNonIdempotent) {
+		return fmt.Errorf("delivery %q has no implementation or does not belong to a non-idempotent REST tool", s.delivery)
+	}
 	if s.selfRole != "" && (s.accountCheck || s.descriptor.Risk.Effect == capability.EffectRead) {
 		return errors.New("the own-role check belongs to a tool that changes or deletes a role")
 	}
@@ -232,6 +274,20 @@ func (s toolSpec) handler() capability.Handler {
 		if err := s.checkArguments(b, global, args); err != nil {
 			return nil, err
 		}
+		for _, name := range s.guards {
+			if err := guards[name](b, region, args); err != nil {
+				return nil, err
+			}
+		}
+		var file *transfer
+		if s.descriptor.LocalFiles != "" {
+			// The file is opened before the credential is resolved, so a path outside the released directories, a
+			// file over the limit, or a local file that would be replaced without confirmation sends nothing.
+			if file, err = s.openTransfer(ctx, resolved, args); err != nil {
+				return nil, err
+			}
+			defer file.close()
+		}
 		page, err := s.startPage(region, args)
 		if err != nil {
 			return nil, err
@@ -242,7 +298,13 @@ func (s toolSpec) handler() capability.Handler {
 				return nil, err
 			}
 		}
-		token, send, err := s.encode(args, page, b.account)
+		var token string
+		var send sender
+		if file != nil {
+			send, err = s.encodeTransfer(args, b.account, file)
+		} else {
+			token, send, err = s.encode(args, page, b.account)
+		}
 		if err != nil {
 			return nil, err
 		}
@@ -254,6 +316,7 @@ func (s toolSpec) handler() capability.Handler {
 			return nil, err
 		}
 		var out map[string]any
+		var changeCreds sigv4.Credentials
 		truncated := false
 		if s.accountCheck {
 			creds, err := client.effective(ctx, region)
@@ -277,10 +340,26 @@ func (s toolSpec) handler() capability.Handler {
 					return nil, err
 				}
 			}
+			if check := readbacks[s.readback]; check != nil {
+				// The read is part of the change: a refusal here means nothing was sent that changes anything.
+				if err := check(ctx, client, s, creds, region, args); err != nil {
+					return nil, err
+				}
+			}
+			if s.delivery != "" {
+				// The delivery pace applies to the send alone, after every refusal that comes first.
+				if err := deliveryLimiters.For(deliveryKey(s.delivery, resolved.Name, region)).Wait(ctx); err != nil {
+					return nil, provider.Waited(op, "AWS", err)
+				}
+			}
 			var failure *provider.Error
 			if truncated, failure = send(ctx, client, creds, region, &out); failure != nil {
-				return nil, failure
+				if hint := failureHints[s.failureHint]; hint != nil {
+					failure = hint(failure)
+				}
+				return nil, s.unclear(failure)
 			}
+			changeCreds = creds
 		}
 		if s.csv != nil {
 			if err := s.csv.apply(op, out, rowPage); err != nil {
@@ -288,8 +367,15 @@ func (s toolSpec) handler() capability.Handler {
 			}
 		}
 		res, err := s.result(op, out, page, region, global, truncated, token)
+		if failure, isProvider := err.(*provider.Error); isProvider {
+			// A delivery whose answer fails its check has been sent all the same.
+			err = s.unclear(failure)
+		}
+		if file != nil && err == nil {
+			file.addTransfer(res.(map[string]any))
+		}
 		if hook := resultHooks[s.resultHook]; err == nil && hook != nil {
-			hook(res.(map[string]any), region, args)
+			hook(ctx, client, s, changeCreds, res.(map[string]any), region, args)
 		}
 		return res, err
 	}
@@ -424,6 +510,14 @@ func (s toolSpec) startPage(region string, args map[string]any) (listPage, error
 	cursor, _ := args[awsquery.ArgCursor].(string)
 	delete(args, awsquery.ArgPageSize)
 	delete(args, awsquery.ArgCursor)
+	var start map[string]string
+	if s.multi != nil {
+		// The start arguments leave args here, so the cursor of a list that began at one is the cursor of the same list.
+		var err error
+		if start, err = s.multi.TakeStart(args); err != nil {
+			return nil, err
+		}
+	}
 	bound := make(map[string]any, len(args)+1)
 	for k, v := range args {
 		bound[k] = v
@@ -442,7 +536,7 @@ func (s toolSpec) startPage(region string, args map[string]any) (listPage, error
 	}
 	binding := awsquery.Binding(s.descriptor.ID, bound)
 	if s.multi != nil {
-		return s.multi.Start(binding, size, cursor)
+		return s.multi.StartAt(binding, size, cursor, start)
 	}
 	return s.pager.Start(binding, size, cursor)
 }

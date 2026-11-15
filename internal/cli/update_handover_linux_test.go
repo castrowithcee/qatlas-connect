@@ -32,7 +32,7 @@ type handoverRun struct {
 // updateSurfaces are the two ways to update: 'qconnect update --yes' and the editor's updater.
 var updateSurfaces = map[string]func(t *testing.T, dir string, updater *selfupdate.Client) (updated bool, note string, err error){
 	"command": func(t *testing.T, dir string, updater *selfupdate.Client) (bool, string, error) {
-		code, stdout, stderr := runWithInput(t, &Options{Updater: updater}, "", "update", "--yes", "--config", configIn(dir),
+		code, stdout, stderr := runWithInput(t, &Options{Updater: updater}, "", "update", "--yes", "--confirm", "--config", configIn(dir),
 			"--output", "json")
 		if code != exitOK {
 			return false, "", errors.New(stderr)

@@ -39,8 +39,9 @@ func TestUpdateToAnOlderVersionRestoresABackupItReads(t *testing.T) {
 
 	build := func(path, version string) {
 		t.Helper()
-		cmd := exec.Command("go", "build", "-tags", "e2e", "-buildvcs=false", "-ldflags",
-			"-X github.com/castrowithcee/qatlas-connect/internal/cli.version="+version+
+		// Stripped like a release build: the updater refuses a program over its size limit.
+		cmd := exec.Command("go", "build", "-tags", "e2e", "-buildvcs=false", "-trimpath", "-ldflags",
+			"-s -w -X github.com/castrowithcee/qatlas-connect/internal/cli.version="+version+
 				" -X 'github.com/castrowithcee/qatlas-connect/internal/release.extraKeyLines="+keyLine+"'"+
 				" -X github.com/castrowithcee/qatlas-connect/internal/selfupdate.testBaseURL="+releases.RepositoryAPI(),
 			"-o", path, ".")
@@ -103,7 +104,7 @@ defaults:
 	original := installed()
 
 	// Without the flag the rollback offers the backup and changes nothing.
-	code, _, stderr := c.run(t, "update", "--to", "v3.0.0", "--yes")
+	code, _, stderr := c.run(t, "update", "--to", "v3.0.0", "--yes", "--confirm")
 	if code == 0 || !strings.Contains(stderr, "config-20260201T100000Z-000.yaml") ||
 		!strings.Contains(stderr, "--restore-backup") || !strings.Contains(stderr, "nothing was changed") {
 		t.Fatalf("update without the flag: exit %d, stderr %q", code, stderr)
@@ -118,7 +119,7 @@ defaults:
 		t.Fatalf("the backups changed: %d files", len(entries))
 	}
 
-	code, stdout, stderr := c.run(t, "update", "--to", "v3.0.0", "--yes", "--restore-backup", "--output", "json")
+	code, stdout, stderr := c.run(t, "update", "--to", "v3.0.0", "--yes", "--confirm", "--restore-backup", "--output", "json")
 	if code != 0 || !strings.Contains(stdout, `"updated":true`) || !strings.Contains(stdout, `"latest":"v3.0.0"`) {
 		t.Fatalf("update with the flag: exit %d, stdout %q, stderr %q", code, stdout, stderr)
 	}

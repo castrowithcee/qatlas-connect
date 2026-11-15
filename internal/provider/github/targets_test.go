@@ -197,17 +197,28 @@ func TestDiscoveryDescribesTheTargetArguments(t *testing.T) {
 			descriptor.ID == customPropertiesSet.ID || descriptor.ID == issueFieldsList.ID ||
 			descriptor.ID == actionVariablesList.ID || descriptor.ID == actionVariablesGet.ID ||
 			descriptor.ID == actionVariablesCreate.ID || descriptor.ID == actionVariablesUpdate.ID ||
-			descriptor.ID == actionVariablesDelete.ID ||
+			descriptor.ID == actionVariablesDelete.ID || slices.Contains(secretTools, descriptor.ID) ||
+			descriptor.ID == actionsSelectedGet.ID || descriptor.ID == actionsSelectedSet.ID ||
+			descriptor.ID == actionsForkApprovalGet.ID || descriptor.ID == actionsForkApprovalSet.ID ||
+			descriptor.ID == actionsRetentionGet.ID || descriptor.ID == actionsRetentionSet.ID ||
+			descriptor.ID == actionsOIDCGet.ID || descriptor.ID == actionsOIDCSet.ID ||
+			slices.Contains(runnersReads, descriptor.ID) || slices.Contains(runnersChanges, descriptor.ID) ||
+			slices.Contains(webhooksReads, descriptor.ID) || slices.Contains(webhooksChanges, descriptor.ID) ||
+			slices.Contains(runnerGroupReads, descriptor.ID) || slices.Contains(runnerGroupWrites, descriptor.ID) ||
 			descriptor.ID == notificationsList.ID || descriptor.ID == notificationsGet.ID ||
 			descriptor.ID == notificationsDismiss.ID || descriptor.ID == notificationsMarkAll.ID ||
 			descriptor.ID == threadSubscriptionsSet.ID ||
 			descriptor.ID == gistsList.ID || descriptor.ID == gistsGet.ID || descriptor.ID == gistsCreate.ID ||
 			descriptor.ID == gistsUpdate.ID || descriptor.ID == gistsDelete.ID ||
+			slices.Contains(gistSocialToolIDs, descriptor.ID) ||
+			slices.Contains(accountSocialToolIDs, descriptor.ID) ||
 			descriptor.ID == globalAdvisoriesList.ID || descriptor.ID == globalAdvisoriesGet.ID ||
 			descriptor.ID == rateLimitGet.ID || descriptor.ID == metaGet.ID || descriptor.ID == licensesList.ID ||
 			descriptor.ID == licensesGet.ID || descriptor.ID == gitignoreTemplatesList.ID ||
 			descriptor.ID == gitignoreTemplatesGet.ID || descriptor.ID == codesOfConductList.ID ||
-			descriptor.ID == codesOfConductGet.ID || descriptor.ID == emojisList.ID || descriptor.ID == markdownRender.ID:
+			descriptor.ID == codesOfConductGet.ID || descriptor.ID == emojisList.ID || descriptor.ID == markdownRender.ID ||
+			descriptor.ID == appsGet.ID || descriptor.ID == interactionLimitsGet.ID ||
+			descriptor.ID == interactionLimitsSet.ID || descriptor.ID == interactionLimitsRemove.ID:
 			// The notification tools take an optional repository of their own or a thread id; the gist tools take a
 			// gist id or none; the global advisory and the reference tools name no target, and the Markdown
 			// rendering takes an optional context repository of its own.
@@ -215,7 +226,10 @@ func TestDiscoveryDescribesTheTargetArguments(t *testing.T) {
 		case descriptor.ID == projectsList.ID || descriptor.ID == repositoriesList.ID ||
 			descriptor.ID == projectsCreate.ID || descriptor.ID == issueTypesList.ID ||
 			descriptor.ID == organizationTeamsList.ID ||
-			descriptor.ID == teamMembersList.ID || descriptor.ID == organizationAdvisoriesList.ID:
+			descriptor.ID == teamMembersList.ID || descriptor.ID == organizationAdvisoriesList.ID ||
+			slices.Contains(teamToolIDs, descriptor.ID) || slices.Contains(organizationToolIDs, descriptor.ID) ||
+			slices.Contains(invitationToolIDs, descriptor.ID) || slices.Contains(billingToolIDs, descriptor.ID) || descriptor.ID == appInstallationsList.ID ||
+			descriptor.ID == auditLogList.ID || slices.Contains(packageToolIDs, descriptor.ID):
 			names = []string{"owner"}
 		case descriptor.ID == projectsCopy.ID:
 			names = []string{"project", "owner"}

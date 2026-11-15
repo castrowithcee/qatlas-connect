@@ -48,6 +48,13 @@ type ErrorTyper interface {
 	ErrorType(header http.Header, body []byte) string
 }
 
+// ErrorMessenger is implemented by a Codec whose error answer for some codes lists messages the caller needs, such
+// as the single problems of a Route 53 InvalidChangeBatch. They are provider text: bounded, cleaned of control
+// characters, and kept in Original, never in the message of Qatlas.
+type ErrorMessenger interface {
+	ErrorMessages(code string, body []byte) []string
+}
+
 // SuccessErrorDetector is implemented by a Codec of a protocol that can answer an error with a success status
 // (S3 CopyObject, CompleteMultipartUpload: 200 with an Error element in the body). SuccessError reports the
 // error code of such a body, found being false for a normal answer. The client asks it only when the output
@@ -182,6 +189,15 @@ func (c *Client) Do(ctx context.Context, op string, o *Operation, req Request, o
 			errType = t.ErrorType(resp.Header, body)
 		}
 		failure, hold := c.classify(op, resp.StatusCode, resp.Header, code, errType)
+		if m, ok := c.Codec.(ErrorMessenger); ok && failure.Original != nil && code != "" {
+			var entries []provider.OriginalEntry
+			for _, text := range m.ErrorMessages(code, body) {
+				entries = append(entries, provider.OriginalEntry{Type: errType, Code: code, Message: text})
+			}
+			if len(entries) > 0 {
+				failure.Original.Entries = entries
+			}
+		}
 		meta.RetryAfter = hold
 		return meta, failure
 	}
@@ -290,8 +306,12 @@ func (c *Client) download(op string, o *Operation, resp *http.Response, sink Sin
 
 // statedSHA256 is the SHA-256 of the whole object as hex when the answer states one in x-amz-checksum-sha256:
 // exactly 32 bytes of base64. The checksum of a multipart object is a checksum of checksums and carries a
-// suffix; it states nothing about the content and is ignored.
+// suffix; it states nothing about the content and is ignored, and so is the checksum of an answer to a range request.
 func statedSHA256(h http.Header) string {
+	if h.Get("Content-Range") != "" {
+		// A range or a part is not the object the checksum covers.
+		return ""
+	}
 	raw, err := base64.StdEncoding.DecodeString(h.Get("X-Amz-Checksum-Sha256"))
 	if err != nil || len(raw) != sha256.Size {
 		return ""

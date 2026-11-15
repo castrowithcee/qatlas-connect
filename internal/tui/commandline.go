@@ -42,7 +42,7 @@ type commandLine struct {
 // commands is the register, in the order an empty line lists it.
 func (m *Model) commands() []command {
 	var list []command
-	keys := keymap[actArea].Keys()
+	keys := areaKeys()
 	for a := area(0); a < areaCount; a++ {
 		title := strings.ToLower(a.key())
 		first := areaSections[a][0]
@@ -50,7 +50,7 @@ func (m *Model) commands() []command {
 			name:        "go " + title,
 			desc:        tr(tCmdGoArea, a.title()),
 			icon:        areaIcons[a],
-			shortcut:    func() string { return keyName(keys[a]) },
+			shortcut:    func() string { return keys[a] },
 			aliases:     []string{title},
 			unavailable: onScreens("switch areas", screenNav, screenList, screenLogs),
 			run:         func(m *Model) tea.Cmd { return m.openSection(first) },

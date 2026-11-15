@@ -129,6 +129,7 @@ func newUpdateRigArgs(t *testing.T, program, prefs string, args ...string) *upda
 		"QCONNECT_CONFIG=" + configPath, "XDG_RUNTIME_DIR=" + runtimeDir, secret.StoreSelector + "=none",
 		runAsTUIEnv + "=1", tuiVersionEnv + "=v3.0.0", tuiReleasesEnv + "=" + server.RepositoryAPI(),
 		tuiKeyEnv + "=" + string(ssh.MarshalAuthorizedKey(signer.PublicKey()))}
+	cmd.Env = append(cmd.Env, guardEnv()...)
 	cmd.Stdin, cmd.Stdout, cmd.Stderr = slave, slave, slave
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true, Setctty: true, Ctty: 0}
 	if err := cmd.Start(); err != nil {

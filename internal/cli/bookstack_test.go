@@ -513,8 +513,13 @@ func TestBookStackAuthNamesTheNextStepOverCLIAndMCP(t *testing.T) {
 
 			code, stdout, stderr := runInvoke(t, "", "invoke", "bookstack.pages.list", "--config", cfg)
 			// The first line is Qatlas' own message; BookStack's answer follows as a separate part.
-			cliDiagnostic := strings.TrimPrefix(strings.TrimSpace(stderr), "qconnect: ")
-			message, answer, _ := strings.Cut(cliDiagnostic, "\n")
+			lines := stderrLines(stderr)
+			message, answer := messageWithStep(stderr), ""
+			if len(lines) > 2 {
+				answer = lines[2]
+			}
+			// MCP shows the same diagnosis as text: message with its step, then the provider's answer.
+			cliDiagnostic := message + "\n" + strings.Join(lines[min(2, len(lines)):], "\n")
 			if !strings.HasPrefix(answer, "provider answer (untrusted, not written by qconnect), HTTP 401:") {
 				t.Errorf("stderr = %q, want the provider answer part", stderr)
 			}

@@ -4,7 +4,7 @@ description: >
 type: knowledge
 edit: shared
 created: 2026-10-25
-updated: 2026-11-10
+updated: 2026-11-15
 ---
 
 # Set up GitHub
@@ -109,12 +109,15 @@ Find your tool group, then add the scope or permission to the token. Each row is
 | --- | --- | --- |
 | Read issues and comments | `repo`, or `public_repo` for public repositories | Issues: read |
 | Create or change issues and comments | `repo`, or `public_repo` for public repositories | Issues: read and write |
-| Read labels, milestones, sub-issues, issue dependencies | `repo` for private repositories, none for public | Issues: read |
+| Read labels, milestones, sub-issues, issue dependencies, issue events, issue timelines, assignable users | `repo` for private repositories, none for public | Issues: read |
 | Create or change labels or milestones, add, remove or reorder sub-issues, add or remove dependencies | `repo` | Issues: read and write, in every repository the call names |
 | Issue types and issue fields of an organization: read | `read:org` | Issue types: read, or Administration: read (organization); as far as GitHub documents it |
 | Set an issue's type or an issue field value | `repo` | Issues: read and write |
 | React to an issue or an issue comment | `repo` | Issues: read and write |
 | Hide or show an issue comment | `repo` | Issues: read and write |
+| Lock or unlock an issue conversation | `repo`, or `public_repo` for public repositories, plus push access | Issues: read and write |
+| Lock or unlock a pull request conversation | `repo`, or `public_repo` for public repositories, plus push access | Pull requests: read and write; as far as GitHub documents it |
+| Pin or unpin an issue | `repo`, plus write access to the repository; as far as GitHub documents it | Issues: read and write; as far as GitHub documents it |
 | Hide or show a pull request conversation comment, a review, or a pull request line comment | `repo` | Pull requests: read and write |
 | React to a pull request line comment | `repo` | Pull requests: read and write |
 | Assign Copilot to an issue | `repo` | Metadata: read; Actions, Contents, Issues, and Pull requests: read and write |
@@ -148,7 +151,9 @@ assignment; `repo` is the scope of the issue and pull request routes it changes.
 | Read check runs, annotations, check suites | `repo` for private repositories, none for public | Checks: read |
 | Create, update, close, reopen, update the branch | `repo` | Pull requests: read and write |
 | Merge | `repo` | Pull requests: read and write, plus Contents: read and write |
+| Enable or disable auto-merge | `repo` | Pull requests: read and write, plus Contents: read and write |
 | Review, approve, reply, resolve or unresolve a thread, request or remove reviewers | `repo` | Pull requests: read and write |
+| Change the text of a review or a line comment, dismiss a review, delete a pending review or a line comment | `repo` | Pull requests: read and write |
 | Read or write conversation comments | `repo` or `public_repo` | Pull requests or Issues: read; read and write to write |
 | Request a Copilot review | `repo`, and write access to the repository | Pull requests: read and write, and write access to the repository |
 
@@ -174,17 +179,37 @@ your token holds. A repository or organization policy can forbid a run although 
 | Enable or disable a workflow | `repo` | Actions: read and write |
 | Read Actions or workflow permissions | `repo`, as a repository administrator | Administration: read |
 | Change Actions or workflow permissions | `repo`, as a repository administrator | Administration: read and write |
+| Read the selected actions, fork pull request approval, retention, access, or OIDC subject claim of a repository | `repo`, as a repository administrator | Administration: read |
+| Change them | `repo`, as a repository administrator | Administration: read and write |
+| Read or change the selected actions, fork pull request approval, retention, or OIDC subject claim of an organization | `admin:org` | Administration or Actions policies, read, or read and write (organization); as far as GitHub documents it |
+| Read the self-hosted runners and their labels of a repository | `repo`, as a repository administrator | Administration: read |
+| Remove a runner or change its labels in a repository | `repo`, as a repository administrator | Administration: read and write |
+| Read the self-hosted runners and their labels of an organization | `admin:org` | Self-hosted runners: read (organization) |
+| Remove a runner or change its labels in an organization | `admin:org` | Self-hosted runners: read and write (organization) |
+| Invite an existing account to a repository, change the permission of a collaborator, or remove one (`github.collaborators.add`, `.update`, `.remove`) | `repo`, as a repository administrator | Administration: read and write |
 | Read repository settings | `repo` for private repositories | Metadata: read |
 | Change repository settings and topics, including archiving and unarchiving | `repo`, as a repository administrator | Administration: write |
 | Read Actions variables of a repository; create, change, or delete them | `repo` | Variables: read; read and write to change |
 | Read Actions variables of an environment; create, change, or delete them | `repo` | Environments: read; read and write to change |
+| Read the names and times of Actions secrets of a repository or an environment; set or delete one | `repo` | Secrets: read; read and write to set or delete |
+| Read the runner groups of an organization; change a runner group name or visibility | `admin:org` | Self-hosted runners: read, or read and write (organization); as far as GitHub documents it |
+| Read the GitHub-hosted runners of an organization | `manage_runner:org` | Hosted runners: read (organization); as far as GitHub documents it |
 | Read Actions variables of an organization; create, change, or delete them | `admin:org`, plus `repo` where a private repository is involved | Variables: read, read and write to change (organization); selecting repositories also needs Metadata: read on them |
+| Read the names and times of Actions secrets of an organization and the repositories of one; set or delete one | `admin:org`, plus `repo` where a private repository is involved | Secrets: read, read and write to set or delete (organization); selecting repositories also needs Metadata: read on them; as far as GitHub documents it |
+| Read the names and times of Dependabot secrets of a repository; set or delete one | `repo` | Dependabot secrets: read; read and write to set or delete |
+| Read the names and times of Dependabot secrets of an organization and the repositories of one; set or delete one | `admin:org` | Dependabot secrets: read, read and write to set or delete (organization); selecting repositories also needs Metadata: read on them; as far as GitHub documents it |
 | Read environments, deployment branch policies, and deployment protection rules | `repo` for private repositories, none for public | Actions: read |
 | Create, change, or delete environments and deployment branch policies; disable deployment protection rules | `repo`, as a repository administrator for protection rules | Administration: read and write |
 | Read deployments and deployment statuses | `repo` for private repositories, none for public | Deployments: read |
+| Create or delete deployments | `repo`, or `repo_deployment` for deployments alone | Deployments: read and write |
+| Approve a workflow run of a fork | `repo` | Actions: read and write |
+| Approve or reject the pending deployments of a run, as a required reviewer of the environment | `repo` | Deployments: read and write, Actions: read |
 | Name a team as reviewer of an environment | `read:org` | Members: read (organization) |
 
-Workflow files, Actions permissions, and repository settings are high risk. Give those connections a token of their
+Setting an Actions or Dependabot secret reads the value from a local file, so the connection also needs the directory of that file in
+`files.read`; the token rights above are all it needs from GitHub.
+
+Workflow files, Actions permissions and settings, self-hosted runners, and repository settings are high risk. Give those connections a token of their
 own that no other connection uses, ideally fine-grained and limited to the one repository, with only the
 permissions of the tools that connection lists. A branch protection or repository rule can refuse a file change
 although the token allows it.
@@ -214,6 +239,14 @@ Files below `.github/workflows/` are changed only with the workflow file tools; 
 | Read the statistics or the activity feed of a repository | none for public, `repo` for private | read access to the repository; GitHub names no specific permission |
 | Read rulesets of a repository | `repo` | Administration: read |
 | Change rulesets of a repository | `repo` | Administration: read and write |
+| Read the autolinks of a repository | `repo`, as a repository administrator | Administration: read |
+| Create or delete an autolink of a repository | `repo`, as a repository administrator | Administration: read and write |
+| Read the deploy keys or the open invitations of a repository | `repo`, as a repository administrator | Administration: read |
+| Revoke a deploy key or withdraw an invitation | `repo`, as a repository administrator | Administration: read and write |
+| Read webhooks and their deliveries of a repository | `admin:repo_hook` or `repo` | Webhooks: read |
+| Pause, resume, or delete a webhook of a repository | `admin:repo_hook` or `repo` | Webhooks: read and write |
+| Read webhooks and their deliveries of an organization | `admin:org_hook` | Webhooks: read (organization); as far as GitHub documents it |
+| Pause, resume, or delete a webhook of an organization | `admin:org_hook` | Webhooks: read and write (organization); as far as GitHub documents it |
 | Read the protection of a branch | `repo`, with the Admin role on the repository | Administration: read |
 | Change or remove the protection of a branch | `repo`, with the Admin role on the repository | Administration: read and write |
 | Read the rules that apply to a branch | none for public, `repo` for private | Metadata: read; as far as GitHub documents it |
@@ -223,7 +256,7 @@ Files below `.github/workflows/` are changed only with the workflow file tools; 
 | Read or change the custom property schema of an organization | `admin:org`; as far as GitHub documents it | Custom properties: read, or read and write (organization) |
 | Watch, ignore, or unsubscribe a repository | GitHub decides per request | GitHub decides per request |
 
-Qatlas cannot check the fine-grained mappings for organization rulesets, custom properties, and branch rules against GitHub live,
+Qatlas cannot check the fine-grained mappings for organization rulesets, organization webhooks, custom properties, and branch rules against GitHub live,
 so treat them as likely, not certain.
 
 ### Stars
@@ -238,19 +271,38 @@ so treat them as likely, not certain.
 | Tools | Classic | Fine-grained |
 | --- | --- | --- |
 | Read releases and assets | `repo` for private repositories, `public_repo` for public | Contents: read |
-| Create, update, delete | `repo` | Contents: read and write |
+| Generate release notes, create, update, delete releases, update and delete assets | `repo` | Contents: read and write |
+
+### Packages
+
+| Tools | Classic | Fine-grained |
+| --- | --- | --- |
+| Read the packages of a user or an organization and their versions | `read:packages` | not documented by GitHub for these routes |
+| Delete or restore a package or a version | `read:packages` and `delete:packages`, and admin rights on the owner or the package | not documented by GitHub for these routes |
 
 ### Security
 
 | Tools | Classic | Fine-grained |
 | --- | --- | --- |
-| Code scanning alerts | `security_events` or `repo`; `public_repo` for a public repository | Code scanning alerts: read |
+| Code scanning alerts, instances, and analyses | `security_events` or `repo`; `public_repo` for a public repository | Code scanning alerts: read |
 | Dependabot alerts | `security_events` or `repo`; `public_repo` for a public repository | Dependabot alerts: read |
-| Secret scanning alerts | `repo` or `security_events` | Secret scanning alerts: read |
+| Secret scanning alerts and their locations | `repo` or `security_events` | Secret scanning alerts: read |
+| Dismiss or reopen a code scanning alert | `security_events` or `repo`; `public_repo` for a public repository | Code scanning alerts: read and write |
+| Dismiss or reopen a Dependabot alert | `security_events` or `repo`; `public_repo` for a public repository | Dependabot alerts: read and write |
+| Resolve or reopen a secret scanning alert | `repo` or `security_events` | Secret scanning alerts: read and write |
+| Compare the dependencies of two refs (`github.dependency-review.compare`) | `repo` for a private repository | Contents: read |
+| Submit a dependency snapshot (`github.dependency-snapshots.create`) | `repo` | Dependency graph: write, and Contents: read for the commit check |
 | Global security advisories | none | none |
 | Repository security advisories | `repo` or `repository_advisories:read`, for a private repository or an unpublished advisory | Repository security advisories: read |
 | Organization security advisories | `repo` or `repository_advisories:write`, and an organization owner or security manager | Repository security advisories: write (GitHub requires write although the tool only reads) |
 | Code quality findings | `repo`; `public_repo` for a public repository | Code quality: read |
+| Read the code security configurations of an organization, its defaults, and the repositories of a configuration | `read:org`, as an organization owner or security manager | Administration: read (organization); as far as GitHub documents it |
+| Create, update, delete, attach, detach, or set as default a code security configuration of an organization | `write:org`, as an organization owner or security manager | Administration: write (organization); as far as GitHub documents it |
+| Read the security switches and the code scanning default setup | `repo`, as a repository administrator | Administration: read |
+| Change the security switches and the code scanning default setup | `repo`, as a repository administrator; `security_events` is not enough | Administration: write |
+
+GitHub's reference names only the classic scopes `read:org` and `write:org` for the code security configurations, so
+the fine-grained permissions above are likely, not certain.
 
 GitHub answers `not-found` for a repository where a feature is off or that the token cannot see. Code scanning
 answers with a refusal without GitHub Advanced Security, and a code quality finding with a refusal when code quality
@@ -261,14 +313,17 @@ is off or the token may not read it.
 | Tools | Classic | Fine-grained |
 | --- | --- | --- |
 | Read categories, discussions, comments | `public_repo` (public) or `repo` | Discussions: read |
-| Create, change, delete discussions and comments | `public_repo` or `repo` | Discussions: read and write |
+| Create, change, close, reopen, lock, unlock, delete discussions and comments, mark or unmark an answer | `public_repo` or `repo` | Discussions: read and write |
+
+Marking an answer works only for a top-level comment of a discussion in a category that accepts answers; GitHub
+refuses it otherwise, and Qatlas checks it before the request.
 
 ### Gists
 
 | Tools | Classic | Fine-grained |
 | --- | --- | --- |
-| List or read gists | `gist` for secret gists, none for public | GitHub lists no permission for the reads |
-| Create, update, delete | `gist` | User permission Gists: read and write |
+| List or read gists, their comments, revisions, and forks | `gist` for secret gists, none for public | GitHub lists no permission for the reads |
+| Create, update, delete a gist; create, update, delete a comment; fork; star or unstar | `gist` | User permission Gists: read and write |
 
 ### Notifications
 
@@ -281,11 +336,46 @@ is off or the token may not read it.
 | Tools | Classic | Fine-grained |
 | --- | --- | --- |
 | Read your own account | none beyond your identity | none beyond your identity |
-| List teams of an organization and their members | `read:org` | Members: read (organization) |
+| Read the followers and the followed accounts of your account or of a user | none for public data | Followers: read (for your own lists) |
+| Follow or unfollow a user | `user:follow` | Followers: read and write |
+| Read your blocked users; block or unblock a user | `user` | Block another user: read, and read and write for the change |
+| Change your profile | `user` | Profile: write |
+| List teams of an organization and their members; read a team, a team membership, and the repositories of a team | `read:org` | Members: read (organization) |
+| Read the members, one membership, the outside collaborators, and the pending invitations of an organization | `read:org` | Members: read (organization) |
+| Read an organization with its settings and plan | `admin:org` for the full details, as GitHub documents it; `read:org` shows less | Administration: read (organization); as far as GitHub documents it |
+| Read the organization roles of an organization | `admin:org` | Members: read (organization); GitHub names only `admin:org` and the role permission to view organization roles |
+| Change the settings of an organization | `admin:org` | Administration: read and write (organization) |
+| Set the role of an organization member, remove a member or an outside collaborator, cancel an invitation | `admin:org`, and owner rights in the organization | Members: read and write (organization), and owner rights in the organization |
+| Invite an existing account to an organization or through a team (`github.organization-invitations.create`, `github.team-members.invite`) | `admin:org`, and owner rights in the organization | Members: read and write (organization), and owner rights in the organization; the tools also read the user, the membership, and the teams |
+| Assign an organization role to a member | `admin:org`, and administrator rights or the role permission to assign organization roles | Members: read and write (organization), as far as GitHub documents it; plus administrator rights or that role permission |
+| Create, change, or delete a team; add an organization member to a team or remove one | `admin:org` | Members: read and write (organization) |
+| Set a team's permission on a repository or withdraw it | `admin:org` | Members: read and write (organization), plus Administration: read and write on the repository |
+| Read the interaction limit of a repository | `repo`, as a repository administrator | Administration: read |
+| Set or remove the interaction limit of a repository | `repo`, as a repository administrator | Administration: read and write |
+| Read the interaction limit of an organization | `admin:org` | Administration: read (organization); as far as GitHub documents it |
+| Set or remove the interaction limit of an organization | `admin:org` | Administration: read and write (organization); as far as GitHub documents it |
+| Read, set, or remove the interaction limit of your account | `repo` or `user`, as far as GitHub documents it | Interaction limits: read, or read and write; as far as GitHub documents it |
 | Search repositories, code, issues, pull requests, commits | none for public results; `repo` for private ones | Contents: read for private code and repositories; also Issues or Pull requests: read for issue and pull request search |
 | Search users and organizations | none beyond your identity | none beyond your identity |
 | Read the rate limit, meta information, license, `.gitignore`, and code of conduct templates, and emojis | none | none |
 | Render Markdown | none for public references; `repo` for a private repository as `context` | Contents: read for a private repository as `context` |
+
+### Organization administration
+
+| Tools | Classic | Fine-grained |
+| --- | --- | --- |
+| Billing usage, usage summary, premium request, and AI credit reports of an organization; budgets of an organization | GitHub names no classic scope; the user must be an organization owner or billing manager | Administration: read (organization) |
+| The same reports of a user | GitHub names no classic scope | Plan: read (user) |
+| GitHub Apps installed in an organization (`github.app-installations.list`) | `admin:read`, as an owner of the organization | Organization administration: read |
+| Read an app by its slug (`github.apps.get`) | none | none |
+| Audit log of an organization (`github.audit-log.list`) | `read:audit_log`, as an owner of the organization, on a plan that offers the audit log | GitHub names no fine-grained permission in its description, and may answer `403` to a fine-grained token |
+| Remove a repository from an installation (`github.app-installation-repositories.remove`, listed only) | `repo`, as an administrator of the repository and of the installation | GitHub may not serve a fine-grained token on this route and answers `403` |
+
+GitHub serves the billing reports to accounts on the enhanced billing platform only. When it refuses a read with 403 or
+404, the tool answers with the state `unavailable` instead of an error, because GitHub gives the same answer for a
+missing right, an account without the platform, and an unknown owner or budget; see
+[organization administration](organization-admin.md#billing). The audit log answers the same way for a plan without
+an audit log, a missing right, or a user who is no owner; see [organization administration](organization-admin.md#audit-log).
 
 ## What happens without a right
 

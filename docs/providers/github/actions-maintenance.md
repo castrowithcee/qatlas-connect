@@ -1,10 +1,10 @@
 ---
 description: >
-  Describes the GitHub Actions cache and cleanup tools: the caches of a repository with their usage and the listed-only delete by cache identifier or by key, the listed-only delete of a run or an artifact and force-cancel of a run with their proof reads, and the reads of one run attempt and of the deployment reviews of a run.
+  Describes the GitHub Actions cache and cleanup tools: the caches of a repository with their usage and the listed-only delete by cache identifier or by key, the listed-only delete of a run or an artifact and force-cancel of a run with their proof reads, the reads of one run attempt and of the deployment reviews of a run, and the listed-only approval of a fork run and review of pending deployments.
 type: knowledge
 edit: shared
 created: 2026-11-10
-updated: 2026-11-10
+updated: 2026-11-14
 ---
 
 # GitHub Actions caches and cleanup
@@ -22,13 +22,15 @@ takes `repository` as described under [the target of a call](README.md#the-targe
 | `github.workflow-runs.delete` | deletes one completed run; listed-only |
 | `github.workflow-artifacts.delete` | deletes one artifact; listed-only |
 | `github.workflow-runs.force-cancel` | force-cancels a run that does not respond to a cancel; listed-only |
+| `github.workflow-runs.approve` | approves a run of a fork's pull request that waits for approval; listed-only |
+| `github.pending-deployments.review` | approves or rejects the deployments of a run that wait for a required reviewer; listed-only |
 
-No profile selects these tools. A connection that selects by `effects` offers the reads; each delete and the
-force-cancel need their name in the connection's `tools` list and confirmation (`--confirm`). Cache contents,
-artifact contents, logs, and download addresses are never read. Keys, refs, run titles, names, and comments are
-untrusted data, and no address is fetched. A key is answered whole, up to the 512 characters actions/cache
-accepts, so it can be handed to a delete. GitHub refreshes the usage about every five minutes, so it may lag
-behind a delete.
+No profile selects these tools. A connection that selects by `effects` offers the reads; each delete, the
+force-cancel, the approval, and the review need their name in the connection's `tools` list and confirmation
+(`--confirm`). Cache contents, artifact contents, logs, and download addresses are never read. Keys, refs, run
+titles, names, and comments are untrusted data, and no address is fetched. A key is answered whole, up to the 512
+characters actions/cache accepts, so it can be handed to a delete. GitHub refreshes the usage about every five
+minutes, so it may lag behind a delete.
 
 ## Deleting caches
 
@@ -65,9 +67,27 @@ an answer that names another repository is refused. Either way nothing is change
 A run or artifact that the read found and GitHub reports missing to the delete is answered
 `already_deleted: true`.
 
+## Approval gates
+
+`github.workflow-runs.approve` and `github.pending-deployments.review` release work that GitHub holds back. Both
+are decisions made with the identity of the token's account. GitHub enforces who may decide, among them the
+required reviewers of an environment and `prevent_self_review`; Qatlas does not check either, and GitHub's
+refusal is answered without its text.
+
+- **Approving a fork run.** `github.workflow-runs.approve` takes `run_id`. The run is read first, and nothing is
+  sent when it belongs to another repository or GitHub does not hold it as `action_required` (in its status or
+  its conclusion), which is how a run of a fork's pull request waits for approval. The approved run starts
+  asynchronously, and its code runs with the repository's workflow permissions.
+- **Reviewing pending deployments.** `github.pending-deployments.review` takes `run_id`, `state` (`approved` or
+  `rejected`), `environment_ids` (1 to 20 distinct ids), and `comment` (1 to 1000 characters, sent as it is;
+  GitHub documents no limit, and 1000 characters is what `github.workflow-run-approvals.list` shows of a
+  comment). Qatlas reads the run and its pending deployments first and sends nothing when the run belongs to
+  another repository or an environment id is not pending for this run. The answer holds `run_id`, `state`,
+  `environment_ids`, and the ids of the deployments GitHub answered with.
+
 ## Sending a change
 
-Every delete and the force-cancel are sent once and never repeated. An unclear outcome (a timeout, a dropped
-connection, a server error, an unreadable answer) says that the change may have been applied. An object that
-changes between the read and the change is changed as GitHub finds it. The token rights are listed under
-[GitHub Actions](setup.md#github-actions).
+Every delete, the force-cancel, the approval, and the review are sent once and never repeated. An unclear outcome
+(a timeout, a dropped connection, a server error, an unreadable answer) says that the change may have been applied.
+An object that changes between the read and the change is changed as GitHub finds it. The token rights are listed
+under [GitHub Actions](setup.md#github-actions).

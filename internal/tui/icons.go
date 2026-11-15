@@ -1,10 +1,8 @@
 package tui
 
 import (
-	"os"
-	"strings"
-
 	"github.com/castrowithcee/qatlas-connect/internal/uiprefs"
+	kittui "github.com/castrowithcee/qatlas-kit/tui"
 )
 
 // iconID names the meaning of an icon. Every meaning has an entry of its own in iconTable, so no two things
@@ -29,9 +27,8 @@ const (
 	iconCount
 )
 
-// iconEntry is one meaning with its glyph for each icons value. The unicode glyphs are emoji that draw two
-// cells without U+FE0F, joiners, skin tones or regional indicators, so every terminal that draws emoji agrees
-// on their width; the nerdfont glyphs are in the Font Awesome range and draw one.
+// iconEntry is one meaning with its glyph for each icons value. Every glyph passes kittui.CheckIcon: the
+// unicode glyphs are emoji that draw two cells, the nerdfont glyphs are in the Font Awesome range and draw one.
 type iconEntry struct {
 	meaning string
 	unicode string
@@ -64,19 +61,8 @@ var areaIcons = [areaCount]iconID{
 	areaSettings:    iconSettings,
 }
 
-// utf8Terminal reports whether the terminal is known to draw more than ASCII: not a dumb terminal, and a
-// locale that names UTF-8 or none at all. Tests replace it.
-var utf8Terminal = func() bool {
-	if os.Getenv("TERM") == "dumb" {
-		return false
-	}
-	for _, name := range []string{"LC_ALL", "LC_CTYPE", "LANG"} {
-		if v := strings.ToLower(os.Getenv(name)); v != "" {
-			return strings.Contains(v, "utf-8") || strings.Contains(v, "utf8")
-		}
-	}
-	return true
-}
+// utf8Terminal reports whether the terminal is known to draw more than ASCII.
+func utf8Terminal() bool { return terminalCharset() == kittui.CharsetUnicode }
 
 // icon is the glyph of id under the icons preference, or "" where there is none: the preference is none or
 // empty, or the terminal does not draw UTF-8. Callers put it beside the name, never in its place.

@@ -143,11 +143,18 @@ func vaultClientOutput(t *testing.T, program string, env []string, mode string) 
 	return strings.TrimSpace(string(out))
 }
 
-// An update hands the vault over: the vault process, started from the installed program, verifies the
-// release itself, starts 'vault serve --successor' from the program the update put at the same path, and
-// hands it the vault and the socket. The successor serves every client of the new program without a
-// passphrase, until the same time; the old process ends; the handover is in the signed log.
-func TestVaultProcessHandsOverToTheUpdatedProgram(t *testing.T) {
+// handoverRig is a vault process after a regular handover to the program an update put in its place.
+type handoverRig struct {
+	dir, program         string
+	qatlasEnv, clientEnv []string
+	before               string
+	successor            int
+}
+
+// handedOver starts a vault process from a copied program and hands it over to the updated program, the way
+// an update does, and returns once the old process ended.
+func handedOver(t *testing.T) handoverRig {
+	t.Helper()
 	dir := encryptedVaultFixture(t, "")
 	runtimeDir := shortRuntimeDir(t)
 	t.Setenv("XDG_RUNTIME_DIR", runtimeDir)
@@ -157,8 +164,9 @@ func TestVaultProcessHandsOverToTheUpdatedProgram(t *testing.T) {
 
 	scope, _ := json.Marshal(connectionScope(t, dir, "wiki"))
 	filesJSON, _ := json.Marshal(files)
-	base := []string{"XDG_RUNTIME_DIR=" + runtimeDir, "HOME=" + t.TempDir(), "PATH=" + os.Getenv("PATH")}
-	qatlasEnv := append(append([]string{}, base...), runAsQatlasEnv+"=1",
+	base := append([]string{"XDG_RUNTIME_DIR=" + runtimeDir, "HOME=" + t.TempDir(), "PATH=" + os.Getenv("PATH")},
+		guardEnv()...)
+	qatlasEnv := append(append([]string{}, base...), runAsQatlasEnv+"=1", pidRegistry(t),
 		testReleaseKeyEnv+"="+strings.TrimSpace(string(ssh.MarshalAuthorizedKey(signer.PublicKey()))))
 	clientEnv := append(append([]string{}, base...), vaultClientEnv+"_DIR="+dir,
 		vaultClientEnv+"_SCOPE="+string(scope), vaultClientEnv+`_GET=["wiki-vault","token-id"]`,
@@ -223,6 +231,20 @@ func TestVaultProcessHandsOverToTheUpdatedProgram(t *testing.T) {
 		t.Fatalf("the old vault process still runs after the handover")
 	}
 
+	return handoverRig{dir: dir, program: program, qatlasEnv: qatlasEnv, clientEnv: clientEnv, before: before,
+		successor: successor}
+}
+
+// An update hands the vault over: the vault process, started from the installed program, verifies the
+// release itself, starts 'vault serve --successor' from the program the update put at the same path, and
+// hands it the vault and the socket. The successor serves every client of the new program without a
+// passphrase, until the same time; the old process ends; the handover is in the signed log.
+func TestVaultProcessHandsOverToTheUpdatedProgram(t *testing.T) {
+	rig := handedOver(t)
+	dir, program, qatlasEnv, clientEnv, before, successor := rig.dir, rig.program, rig.qatlasEnv, rig.clientEnv,
+		rig.before, rig.successor
+	v := vault.New(dir)
+
 	// Clients of the new program reach the successor, without a passphrase, until the old time.
 	after := vaultClientOutput(t, program, clientEnv, "status")
 	if want := "pid " + strconv.Itoa(successor) + " " + strings.SplitN(before, " ", 3)[2]; after != want {
@@ -286,5 +308,18 @@ func TestVaultProcessHandsOverToTheUpdatedProgram(t *testing.T) {
 	}
 	if _, err := os.Lstat(socket); !errors.Is(err, fs.ErrNotExist) {
 		t.Fatalf("the socket is still there after the successor locked: %v", err)
+	}
+}
+
+// The successor of a regular handover has no parent of the test binary's any more, yet its guard, which
+// watches the test binary, leaves it running for as long as that binary runs.
+func TestVaultSuccessorOutlivesItsGuardChecks(t *testing.T) {
+	rig := handedOver(t)
+	time.Sleep(6 * guardInterval)
+	if !processAlive(rig.successor) {
+		t.Fatalf("the successor %d ended although the test binary runs", rig.successor)
+	}
+	if got := vaultClientOutput(t, rig.program, rig.clientEnv, "status"); !strings.HasPrefix(got, "pid "+strconv.Itoa(rig.successor)+" ") {
+		t.Fatalf("status after the guard checks = %q, want the successor %d", got, rig.successor)
 	}
 }

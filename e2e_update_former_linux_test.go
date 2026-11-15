@@ -14,7 +14,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"regexp"
 	"runtime"
 	"strings"
 	"sync"
@@ -112,8 +111,9 @@ func formerRelease(t *testing.T, signer ssh.Signer, tag string, program []byte) 
 // repository API at repositoryAPI.
 func buildRenamed(t *testing.T, path, keyLine, repositoryAPI string) []byte {
 	t.Helper()
-	cmd := exec.Command("go", "build", "-tags", "e2e", "-buildvcs=false", "-ldflags",
-		"-X github.com/castrowithcee/qatlas-connect/internal/cli.version="+renamedTag+
+	// Stripped like a release build: the updater refuses a program over its size limit.
+	cmd := exec.Command("go", "build", "-tags", "e2e", "-buildvcs=false", "-trimpath", "-ldflags",
+		"-s -w -X github.com/castrowithcee/qatlas-connect/internal/cli.version="+renamedTag+
 			" -X 'github.com/castrowithcee/qatlas-connect/internal/release.extraKeyLines="+keyLine+"'"+
 			" -X github.com/castrowithcee/qatlas-connect/internal/selfupdate.testBaseURL="+repositoryAPI,
 		"-o", path, ".")
@@ -485,8 +485,9 @@ func buildFormer(t *testing.T, src, path, keyLine, releasesURL string) []byte {
 		t.Fatalf("downloading the modules of %s: %v: %s", formerTag, err, out)
 	}
 	const module = "github.com/castrowithcee/qatlas-cli"
-	cmd := exec.Command("go", "build", "-tags", "e2e", "-buildvcs=false", "-ldflags",
-		"-X "+module+"/internal/cli.version="+formerTag+
+	// Stripped like a release build: the updater refuses a program over its size limit.
+	cmd := exec.Command("go", "build", "-tags", "e2e", "-buildvcs=false", "-trimpath", "-ldflags",
+		"-s -w -X "+module+"/internal/cli.version="+formerTag+
 			" -X '"+module+"/internal/release.extraKeyLines="+keyLine+"'"+
 			" -X "+module+"/internal/selfupdate.testBaseURL="+releasesURL,
 		"-o", path, ".")
@@ -587,18 +588,16 @@ defaults:
 		}
 		for _, pid := range vaultPIDs {
 			_ = syscall.Kill(pid, syscall.SIGKILL)
+			unregisterVaultProcess(pid)
 		}
 	})
-	unlockedPID := regexp.MustCompile(`unlocked in a vault process \(pid (\d+)\)`)
 	unlock := func(r *runner) {
 		t.Helper()
 		out, code := runDialog(t, r, "", []dialogStep{{"passphrase: ", passphrase, true}}, "vault", "unlock")
-		match := unlockedPID.FindStringSubmatch(out)
-		if code != 0 || match == nil {
+		pid, ok := unlockedVaultPID(out, r.bin)
+		if code != 0 || !ok {
 			t.Fatalf("%s vault unlock: exit %d, output %q", filepath.Base(r.bin), code, out)
 		}
-		var pid int
-		_, _ = fmt.Sscan(match[1], &pid)
 		vaultPIDs = append(vaultPIDs, pid)
 	}
 	invoke := func(r *runner) string {
@@ -672,7 +671,7 @@ defaults:
 
 	// The rollback names the state the former release works on before it installs anything.
 	formerCalls := logCalls(t, legacyHome)
-	out, code := runDialog(t, current, "", []dialogStep{{"[y/N] ", "y", false}}, "update", "--to", formerTag)
+	out, code := runDialog(t, current, "", []dialogStep{{"[y/N] ", "y", false}}, "update", "--to", formerTag, "--confirm")
 	question := out
 	if i := strings.Index(out, "[y/N]"); i >= 0 {
 		question = out[:i]

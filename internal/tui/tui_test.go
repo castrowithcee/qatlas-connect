@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -21,6 +22,7 @@ import (
 	"github.com/castrowithcee/qatlas-connect/internal/secret"
 	"github.com/castrowithcee/qatlas-connect/internal/vault"
 	"github.com/castrowithcee/qatlas-kit/redact"
+	kittui "github.com/castrowithcee/qatlas-kit/tui"
 )
 
 // Canary values prove that a secret in the environment never reaches the editor or the file.
@@ -164,6 +166,13 @@ func keyMsg(k string) tea.KeyPressMsg {
 	case "right":
 		return tea.KeyPressMsg{Code: tea.KeyRight}
 	default:
+		// A function key or a control key carries no text, as a terminal reports it.
+		if n, err := strconv.Atoi(strings.TrimPrefix(k, "f")); err == nil && strings.HasPrefix(k, "f") && n >= 1 && n <= 20 {
+			return tea.KeyPressMsg{Code: tea.KeyF1 + rune(n-1)}
+		}
+		if letter, ok := strings.CutPrefix(k, "ctrl+"); ok && len(letter) == 1 {
+			return tea.KeyPressMsg{Code: rune(letter[0]), Mod: tea.ModCtrl}
+		}
 		return textKey(k)
 	}
 }
@@ -650,7 +659,7 @@ func TestTabLineKeepsTheActiveTabWhole(t *testing.T) {
 	before := currentProfile()
 	t.Cleanup(func() { setProfile(before) })
 	ascii := before
-	ascii = profileNone
+	ascii = kittui.ProfileNone
 	setProfile(ascii)
 
 	m, _, _ := newModel(t)
@@ -966,12 +975,12 @@ func TestTheScreenReadsWithoutColour(t *testing.T) {
 	openSectionByName(t, m, sectionConnections)
 
 	colour := before
-	colour = profile16
+	colour = kittui.ProfileANSI16
 	setProfile(colour)
 	if view := m.render(); !strings.Contains(view, "\x1b[") {
 		t.Fatalf("a colour terminal got no colour:\n%s", view)
 	}
-	colour = profileNone
+	colour = kittui.ProfileNone
 	setProfile(colour)
 
 	view := m.render()

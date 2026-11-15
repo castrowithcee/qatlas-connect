@@ -10,6 +10,7 @@ import (
 	"github.com/charmbracelet/x/ansi"
 
 	"github.com/castrowithcee/qatlas-connect/internal/uiprefs"
+	kittui "github.com/castrowithcee/qatlas-kit/tui"
 )
 
 // withoutUTF8 makes the terminal one that draws no UTF-8, through the real detection: the environment says so
@@ -74,14 +75,14 @@ func TestASCIIGlyphsKeepWidth(t *testing.T) {
 func TestFrameCharsWithoutUTF8(t *testing.T) {
 	withoutUTF8(t, "c")
 	restoreRenderer(t)
-	for _, p := range []colorProfile{profileTrueColor, profileASCII} {
+	for _, p := range []kittui.ColorProfile{kittui.ProfileTrueColor, kittui.ProfileMono} {
 		setProfile(p)
 		h, v, c := frameChars(false)
 		if h != "-" || v != "|" || c[0] != "+" {
 			t.Errorf("plain frame = %q %q %q", h, v, c)
 		}
 		h, v, c = frameChars(true)
-		wantFocus := p == profileASCII
+		wantFocus := p == kittui.ProfileMono
 		if gotFocus := h == "=" && v == "#" && c[0] == "#"; gotFocus != wantFocus {
 			t.Errorf("profile %v: focused frame = %q %q %q", p, h, v, c)
 		}

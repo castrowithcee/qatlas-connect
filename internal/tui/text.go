@@ -58,7 +58,6 @@ func languageOf(pref string) i18n.Lang {
 // setLanguage makes the preference the language of every text drawn from now on.
 func setLanguage(pref string) {
 	uiLang = languageOf(pref)
-	refreshKeyHelp()
 }
 
 // tr is the text of id in the current language; args are formatted into it. A text names a key by the

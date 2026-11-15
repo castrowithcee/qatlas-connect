@@ -17,6 +17,7 @@ import (
 	"github.com/castrowithcee/qatlas-connect/internal/connlog"
 	"github.com/castrowithcee/qatlas-connect/internal/manage"
 	"github.com/castrowithcee/qatlas-connect/internal/vault"
+	"github.com/castrowithcee/qatlas-kit/cobracli"
 	"github.com/castrowithcee/qatlas-kit/output"
 )
 
@@ -93,7 +94,7 @@ func newConfigImportCommand(opts *Options, reg *capability.Registry) *cobra.Comm
 		modeText    string
 		storeText   string
 		dryRun      bool
-		yes         bool
+		gate        *cobracli.Gate
 		storeChoice = func() error {
 			switch storeText {
 			case "", config.CredentialTypeKeyring, config.CredentialTypeVault:
@@ -117,7 +118,9 @@ func newConfigImportCommand(opts *Options, reg *capability.Registry) *cobra.Comm
 			"credentials that hold no secret here until one is set, and the replaced credentials whose secret\n" +
 			"here stays as it is. Connections that bring paths, file directories, or forward credentials are\n" +
 			"marked, because the file comes from elsewhere. Nothing is written until you confirm; --dry-run\n" +
-			"lists and stops, --yes confirms in advance. With --output json, compact, or toon the list goes to\n" +
+			"lists and stops, --yes confirms in advance. An import changes data, so --confirm is required in\n" +
+			"addition; without it nothing is written and the command fails as confirmation-required.\n" +
+			"With --output json, compact, or toon the list goes to\n" +
 			"stderr before the question, and stdout keeps the document. The file must be complete in itself,\n" +
 			"and the configuration that results must be valid, or nothing is written. If the configuration\n" +
 			"changed since the list was made, nothing is written either.\n\n" +
@@ -151,6 +154,7 @@ func newConfigImportCommand(opts *Options, reg *capability.Registry) *cobra.Comm
 			return nil
 		},
 		RunE: func(c *cobra.Command, args []string) error {
+			yes, _ := c.Flags().GetBool("yes")
 			mode, err := manage.ParseImportMode(modeText)
 			if err != nil {
 				return newSyntaxError(err)
@@ -199,55 +203,29 @@ func newConfigImportCommand(opts *Options, reg *capability.Registry) *cobra.Comm
 				fmt.Fprintln(out, "nothing to import: the configuration already has everything")
 				return finishTransfer(c, opts, structured, doc)
 			}
-			if !yes {
-				question := fmt.Sprintf("import %s into the configuration (%d to create, %d to replace",
-					opts.Redactor.Apply(args[0]), created, replaced)
-				if hasSecrets {
-					question += fmt.Sprintf("; secrets of %d credentials go to the %s", len(plan.SecretRoles), store)
-				}
-				confirmed, err := readVaultConfirm(question + ")? [y/N] ")
-				if err != nil {
-					if errors.Is(err, vault.ErrNoTerminal) {
-						return &UsageError{&application.AdminRequiredError{}}
+			// --confirm is the kit's gate for a request that changes data; the question is answered by --yes or by
+			// the person, as before. Nothing is written before both have passed.
+			return gate.Run(cobracli.Request{Changes: true}, func() error {
+				if !yes {
+					question := fmt.Sprintf("import %s into the configuration (%d to create, %d to replace",
+						opts.Redactor.Apply(args[0]), created, replaced)
+					if hasSecrets {
+						question += fmt.Sprintf("; secrets of %d credentials go to the %s", len(plan.SecretRoles), store)
 					}
-					return err
+					confirmed, err := readVaultConfirm(question + ")? [y/N] ")
+					if err != nil {
+						if errors.Is(err, vault.ErrNoTerminal) {
+							return &UsageError{&application.AdminRequiredError{}}
+						}
+						return err
+					}
+					if !confirmed {
+						fmt.Fprintln(c.ErrOrStderr(), "qconnect: import cancelled, nothing was changed")
+						return finishTransfer(c, opts, structured, doc)
+					}
 				}
-				if !confirmed {
-					fmt.Fprintln(c.ErrOrStderr(), "qconnect: import cancelled, nothing was changed")
-					return finishTransfer(c, opts, structured, doc)
-				}
-			}
-			res, err := svc.ApplyImportWith(plan, manage.ImportOptions{SecretStore: storeText, Offer: offerVaultPassphrase})
-			if err != nil {
-				if errors.Is(err, config.ErrConflict) {
-					return &UsageError{fmt.Errorf("nothing was written: %s; list the import again and repeat it",
-						opts.Redactor.Apply(err.Error()))}
-				}
-				return classifyUserError(err)
-			}
-			for _, warning := range res.Warnings {
-				fmt.Fprintln(c.ErrOrStderr(), withQatlasPrefix(warning))
-			}
-			doc.Imported = true
-			fmt.Fprintf(out, "created %d, replaced %d, skipped %d\n", res.Created, res.Replaced, res.Skipped)
-			if res.SecretStore != "" {
-				fmt.Fprintf(out, "secrets written to the %s for: %s\n", res.SecretStore,
-					redactAll(opts.Redactor, secretCredentials(plan.SecretRoles)))
-			}
-			if len(res.Withdrawn) > 0 {
-				doc.Withdrawn = redactEach(opts.Redactor, res.Withdrawn)
-				fmt.Fprintf(out, "approvals withdrawn, they covered replaced secrets: %s\n",
-					redactAll(opts.Redactor, res.Withdrawn))
-			}
-			if len(plan.CredentialsWithoutSecret) > 0 {
-				fmt.Fprintf(out, "set a secret with 'qconnect credential set' before use: %s\n",
-					redactAll(opts.Redactor, plan.CredentialsWithoutSecret))
-			}
-			approveImported(c, opts, svc, res, yes, out, planOut, &doc)
-			if hasSecrets && !plan.SourceEncrypted {
-				offerSourceDeletion(c, opts, args[0], yes, out, &doc)
-			}
-			return finishTransfer(c, opts, structured, doc)
+				return applyImport(c, opts, svc, plan, doc, storeText, yes, planOut, out, structured, args[0], hasSecrets)
+			})
 		},
 	}
 	f := cmd.Flags()
@@ -256,8 +234,46 @@ func newConfigImportCommand(opts *Options, reg *capability.Registry) *cobra.Comm
 	f.StringVar(&storeText, "secret-store", "",
 		"where secrets from the file go for this import: keyring or vault (default: defaults.secret_store)")
 	f.BoolVar(&dryRun, "dry-run", false, "list what the import would do and change nothing")
-	f.BoolVar(&yes, "yes", false, "apply without asking to confirm; it neither approves nor deletes the file")
+	gate = opts.program.AddGate(cmd, cobracli.Gates{Question: true, Change: true})
 	return cmd
+}
+
+// applyImport writes the planned import and reports it, once the gate has passed. --yes answered the
+// question of the import only: it neither approves the connections nor deletes the file.
+func applyImport(c *cobra.Command, opts *Options, svc *manage.Service, plan *manage.ImportPlan, doc importDocument,
+	storeText string, yes bool, planOut, out io.Writer, structured bool, source string,
+	hasSecrets bool) error {
+	res, err := svc.ApplyImportWith(plan, manage.ImportOptions{SecretStore: storeText, Offer: offerVaultPassphrase})
+	if err != nil {
+		if errors.Is(err, config.ErrConflict) {
+			return &UsageError{fmt.Errorf("nothing was written: %s; list the import again and repeat it",
+				opts.Redactor.Apply(err.Error()))}
+		}
+		return classifyUserError(err)
+	}
+	for _, warning := range res.Warnings {
+		fmt.Fprintln(c.ErrOrStderr(), withQatlasPrefix(warning))
+	}
+	doc.Imported = true
+	fmt.Fprintf(out, "created %d, replaced %d, skipped %d\n", res.Created, res.Replaced, res.Skipped)
+	if res.SecretStore != "" {
+		fmt.Fprintf(out, "secrets written to the %s for: %s\n", res.SecretStore,
+			redactAll(opts.Redactor, secretCredentials(plan.SecretRoles)))
+	}
+	if len(res.Withdrawn) > 0 {
+		doc.Withdrawn = redactEach(opts.Redactor, res.Withdrawn)
+		fmt.Fprintf(out, "approvals withdrawn, they covered replaced secrets: %s\n",
+			redactAll(opts.Redactor, res.Withdrawn))
+	}
+	if len(plan.CredentialsWithoutSecret) > 0 {
+		fmt.Fprintf(out, "set a secret with 'qconnect credential set' before use: %s\n",
+			redactAll(opts.Redactor, plan.CredentialsWithoutSecret))
+	}
+	approveImported(c, opts, svc, res, yes, out, planOut, &doc)
+	if hasSecrets && !plan.SourceEncrypted {
+		offerSourceDeletion(c, opts, source, yes, out, &doc)
+	}
+	return finishTransfer(c, opts, structured, doc)
 }
 
 // askExportPassphrase asks for the passphrase of an encrypted export file, masked. It is not the vault's.

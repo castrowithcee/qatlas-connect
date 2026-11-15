@@ -114,13 +114,16 @@ type organizationArguments struct {
 	Limit  int    `json:"limit"`
 	Cursor string `json:"cursor"`
 
-	// Role is the team members' filter and TeamType the team list's; each tool admits only its own.
-	Role     string `json:"role"`
-	TeamType string `json:"team_type"`
+	// Role is the team members' filter and TeamType the team list's; each tool admits only its own. Username
+	// and InvitationSource belong to the organization membership read and the invitation list.
+	Role             string `json:"role"`
+	TeamType         string `json:"team_type"`
+	Username         string `json:"username"`
+	InvitationSource string `json:"invitation_source"`
 
-	role, teamType string
-	page, perPage  int
-	binding        []byte
+	role, teamType, source string
+	page, perPage          int
+	binding                []byte
 }
 
 func (a *organizationArguments) query() url.Values {
@@ -130,6 +133,9 @@ func (a *organizationArguments) query() url.Values {
 	}
 	if a.teamType != "" {
 		values.Set("team_type", a.teamType)
+	}
+	if a.source != "" {
+		values.Set("invitation_source", a.source)
 	}
 	return values
 }

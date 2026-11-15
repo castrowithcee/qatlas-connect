@@ -45,8 +45,8 @@ var s3Unsupported = map[string][]string{
 	"WriteGetObjectResponse": {"member RequestRoute uses smithy.api#hostLabel", "the operation uses smithy.api#endpoint"},
 }
 
-// Every operation of both real models binds to the runtime, every table lists exactly these operations in
-// defer, and what the runtime does not carry yet is named, never sent wrongly.
+// Every operation of both real models binds to the runtime, every table lists exactly these operations as tools,
+// in exclude or in defer, and what the runtime does not carry yet is named, never sent wrongly.
 func TestEveryOperationOfTheXMLModelsBinds(t *testing.T) {
 	for _, c := range []struct {
 		table       Table
@@ -62,8 +62,9 @@ func TestEveryOperationOfTheXMLModelsBinds(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if len(ops) != c.count || len(c.table.Defer) != c.count || len(c.table.Operations) != 0 || len(c.table.Exclude) != 0 {
-			t.Errorf("%s: %d operations in the model, %d deferred, %d tools", c.table.Service, len(ops), len(c.table.Defer), len(c.table.Operations))
+		if listed := len(c.table.Defer) + len(c.table.Operations) + len(c.table.Exclude); len(ops) != c.count || listed != c.count {
+			t.Errorf("%s: %d operations in the model, %d deferred, %d tools, %d excluded", c.table.Service, len(ops),
+				len(c.table.Defer), len(c.table.Operations), len(c.table.Exclude))
 		}
 		seen := map[string][]string{}
 		for _, op := range ops {
@@ -110,6 +111,35 @@ func TestXMLTablesAreChecked(t *testing.T) {
 	both.Pagers = []PagerSpec{{Operation: "ListHostedZones", Positions: []PositionSpec{{In: "Marker", Out: "NextMarker"}}}}
 	if _, err := m.BindRestCurated(&both, "ListHostedZones"); err == nil || !strings.Contains(err.Error(), "both page") {
 		t.Errorf("an operation paged by the model and the table: %v", err)
+	}
+}
+
+// A pager that ends at a missing token has one position and no truncation member, and start arguments need a required
+// first position; a list without any required position is fine without them.
+func TestPagerSpecRules(t *testing.T) {
+	check := func(p PagerSpec) error {
+		tab := route53Table
+		tab.Pagers = []PagerSpec{p}
+		return tab.Validate()
+	}
+	one := []PositionSpec{{In: "NextToken", Out: "NextToken"}}
+	two := []PositionSpec{{In: "A", Out: "B"}, {In: "C", Out: "D"}}
+	for name, p := range map[string]PagerSpec{
+		"token ends with a truncation member": {Operation: "ListX", TokenEnds: true, Truncated: "IsTruncated", Positions: one},
+		"token ends with two positions":       {Operation: "ListX", TokenEnds: true, Positions: two},
+		"start arguments, first optional":     {Operation: "ListX", StartArguments: true, Positions: two},
+	} {
+		if err := check(p); err == nil {
+			t.Errorf("%s was accepted", name)
+		}
+	}
+	for name, p := range map[string]PagerSpec{
+		"token ends":              {Operation: "ListX", TokenEnds: true, Positions: one},
+		"all optional, no starts": {Operation: "ListX", Positions: two},
+	} {
+		if err := check(p); err != nil {
+			t.Errorf("%s: %v", name, err)
+		}
 	}
 }
 
@@ -651,6 +681,128 @@ func TestS3LayerOwnedMembers(t *testing.T) {
 			if f.Loc == httpbind.LocLabel && f.Name == "Bucket" && !f.Bucket {
 				t.Errorf("%s: the Bucket label is not checked", op)
 			}
+		}
+	}
+}
+
+// A restXml tool is assembled from the binding: a header of the answer is a header member, the expected-owner
+// header is the layer's and never an argument, the bucket label is checked, and the KMS key ID is released by the
+// table.
+func TestRestXMLToolsAreAssembled(t *testing.T) {
+	m := loadXML(t, s3Table)
+	built := map[string]*tool{}
+	for _, op := range s3Table.Operations {
+		tl, err := build(m, &s3Table, op)
+		if err != nil {
+			t.Fatal(err)
+		}
+		built[op.Operation] = tl
+	}
+	head := built["HeadBucket"].restOp
+	region := fieldByKey(head.Output, "bucket_region")
+	owner := fieldByKey(head.Input, "ExpectedBucketOwner")
+	bucket := fieldByKey(head.Input, "bucket")
+	if region == nil || region.Loc != httpbind.LocHeader || region.Name != "x-amz-bucket-region" ||
+		owner == nil || !owner.Owner || owner.Loc != httpbind.LocHeader || bucket == nil || !bucket.Bucket || !bucket.Required {
+		t.Errorf("HeadBucket = %+v", head)
+	}
+	for _, name := range []string{"expected_bucket_owner", "ExpectedBucketOwner"} {
+		if strings.Contains(built["HeadBucket"].inputSchema, `"`+name+`"`) {
+			t.Errorf("the owner is an argument: %s", built["HeadBucket"].inputSchema)
+		}
+	}
+	if list := built["ListBuckets"]; list.op.TargetCheck != "none" || ownerHeaderOf(list.restOp) != "" || list.pager == nil || list.pager.MaxSize != 10000 {
+		t.Errorf("ListBuckets = %+v", list.pager)
+	}
+	if loc := fieldByKey(built["GetBucketLocation"].restOp.Output, "location_constraint"); loc == nil || !loc.Unwrapped {
+		t.Errorf("GetBucketLocation output = %+v", loc)
+	}
+	enc := built["GetBucketEncryption"]
+	if !strings.Contains(enc.outputSchema, "kms_master_key_id") || !strings.Contains(enc.outputSchema, "sse_algorithm") {
+		t.Errorf("encryption schema = %s", enc.outputSchema)
+	}
+	// bucket-owner on a member that is not the bucket label is refused, and so is a restJson1 tool with it.
+	var list Operation
+	for _, op := range s3Table.Operations {
+		if op.Operation == "ListBuckets" {
+			list = op
+		}
+	}
+	list.TargetCheck, list.TargetArgs = "bucket-owner", []string{"Prefix"}
+	list.Arguments = map[string]Argument{"Prefix": {Description: "d"}, "BucketRegion": {Description: "d"}}
+	if _, err := build(m, &s3Table, list); err == nil || !strings.Contains(err.Error(), "bucket label") {
+		t.Errorf("bucket-owner on a prefix: %v", err)
+	}
+	rj := loadRest(t, sesv2Table)
+	sesOp := sesv2Table.Operations[0]
+	sesOp.TargetCheck, sesOp.TargetArgs = "bucket-owner", []string{"Filter"}
+	if _, err := build(rj, &sesv2Table, sesOp); err == nil || !strings.Contains(err.Error(), "bucket-owner needs the S3 protocol package") {
+		t.Errorf("bucket-owner on restJson1: %v", err)
+	}
+}
+
+// An attribute and a namespace below the top level are carried from the binding to the tool: the xsi:type of a
+// grantee, and the deprecated rule prefix that a table keeps in an answer.
+func TestRestXMLNestedAttributeAndNamespaceAreCarried(t *testing.T) {
+	m := loadXML(t, s3Table)
+	built := map[string]*tool{}
+	for _, op := range s3Table.Operations {
+		if op.Operation == "GetBucketAcl" || op.Operation == "GetBucketLifecycleConfiguration" {
+			tl, err := build(m, &s3Table, op)
+			if err != nil {
+				t.Fatal(err)
+			}
+			built[op.Operation] = tl
+		}
+	}
+	grants := fieldByKey(built["GetBucketAcl"].restOp.Output, "grants")
+	if grants == nil || grants.Shape.Elem == nil {
+		t.Fatalf("grants = %+v", grants)
+	}
+	grantee := fieldByKey(grants.Shape.Elem, "grantee")
+	if grantee == nil || grantee.Namespace != (httpbind.Namespace{URI: "http://www.w3.org/2001/XMLSchema-instance", Prefix: "xsi"}) {
+		t.Fatalf("grantee = %+v", grantee)
+	}
+	typ := fieldByKey(grantee.Shape, "type")
+	if typ == nil || !typ.Attribute || typ.Name != "xsi:type" {
+		t.Errorf("type = %+v", typ)
+	}
+	if id := fieldByKey(grantee.Shape, "id"); id == nil || id.Attribute {
+		t.Errorf("id = %+v", id)
+	}
+	if !strings.Contains(built["GetBucketLifecycleConfiguration"].outputSchema, `"id":{"type":"string","maxLength":131072},"prefix":`) {
+		t.Error("the kept rule prefix is not in the lifecycle answer")
+	}
+}
+
+// A timestamp with an explicit format is bound and rendered by that format in a header, a query member, and the
+// body, and read by it in a header; the tools that take such members are built with them.
+func TestRestXMLExplicitTimestampFormats(t *testing.T) {
+	del := bindXML(t, s3Table, "DeleteObject")
+	req := encodeXML(t, del, map[string]any{"Bucket": "my-bucket", "Key": "k", "IfMatchLastModifiedTime": "2026-05-06T07:08:09Z"})
+	if got := req.Header.Get("X-Amz-If-Match-Last-Modified-Time"); got != "Wed, 06 May 2026 07:08:09 GMT" {
+		t.Errorf("header = %q, want http-date", got)
+	}
+	head := bindXML(t, s3Table, "HeadObject")
+	req = encodeXML(t, head, map[string]any{"Bucket": "my-bucket", "Key": "k", "ResponseExpires": "2026-05-06T07:08:09Z"})
+	if !strings.Contains(req.RawQuery, "response-expires=Wed%2C+06+May+2026+07%3A08%3A09+GMT") && !strings.Contains(req.RawQuery, "response-expires=Wed%2C%2006%20May%202026%2007%3A08%3A09%20GMT") {
+		t.Errorf("query = %q, want http-date", req.RawQuery)
+	}
+	header := http.Header{"X-Amz-Object-Lock-Retain-Until-Date": {"2026-05-06T07:08:09Z"}, "Content-Length": {"3"}}
+	out, _, err := head.Operation.Decode(restxml.Codec{}, 200, header, nil)
+	if err != nil || out["ObjectLockRetainUntilDate"] != "2026-05-06T07:08:09Z" {
+		t.Errorf("answer = %v, %v", out, err)
+	}
+	many := bindXML(t, s3Table, "DeleteObjects")
+	req = encodeXML(t, many, map[string]any{"Bucket": "my-bucket", "Delete": map[string]any{
+		"Objects": []any{map[string]any{"Key": "k", "LastModifiedTime": "2026-05-06T07:08:09Z"}}}})
+	if !strings.Contains(string(req.Body), "<LastModifiedTime>Wed, 06 May 2026 07:08:09 GMT</LastModifiedTime>") {
+		t.Errorf("body = %s", req.Body)
+	}
+	for _, op := range []string{"DeleteObject", "HeadObject", "DeleteObjects"} {
+		i := slices.IndexFunc(s3Table.Operations, func(o Operation) bool { return o.Operation == op })
+		if _, err := build(loadXML(t, s3Table), &s3Table, s3Table.Operations[i]); err != nil {
+			t.Errorf("%s: %v", op, err)
 		}
 	}
 }

@@ -27,11 +27,32 @@ var (
 		"NotFound":                notFound,
 		"BucketAlreadyExists":     conflict,
 		"BucketAlreadyOwnedByYou": conflict, "IdempotencyParameterMismatch": conflict,
+		// The S3 codes of the bucket writes: the model defines none of them, the service sends them.
+		"BucketNotEmpty": conflict, "OperationAborted": conflict, "TooManyBuckets": quota,
+		"InvalidBucketName": invalid, "InvalidLocationConstraint": invalid, "MalformedXML": invalid,
+		"InvalidBucketState": badState,
+		// The codes of the object tools: a failed condition, a restore that is already running, a version or a range
+		// that does not exist, and a method the object does not allow (a delete marker).
+		"PreconditionFailed": badState, "ConditionalRequestConflict": conflict, "RestoreAlreadyInProgress": conflict,
+		"NoSuchVersion": notFound, "InvalidRange": invalid, "MethodNotAllowed": invalid,
 		"InvalidObjectState": badState, "ObjectAlreadyInActiveTierError": badState, "ObjectNotInActiveTierError": badState,
 		"EncryptionTypeMismatch": invalid, "InvalidAnnotationName": invalid, "InvalidPrefix": invalid,
 		"InvalidRequest": invalid, "InvalidWriteOffset": invalid, "TooManyParts": invalid,
 		"UnsupportedMediaType": invalid, "AnnotationNameTooLong": invalid,
 		"AnnotationLimitExceeded": quota,
+		// The S3 codes of an object upload and download: a checksum, a size, or a storage class S3 rejects.
+		"BadDigest": invalid, "InvalidDigest": invalid, "XAmzContentSHA256Mismatch": invalid,
+		"EntityTooLarge": invalid, "InvalidStorageClass": invalid,
+		// The S3 codes of a multipart upload: a part under the minimum size, a part S3 does not hold or that was sent
+		// in the wrong order. The upload itself is untouched; the parts stay until it is completed or aborted.
+		"EntityTooSmall": invalid, "InvalidPart": invalid, "InvalidPartOrder": invalid,
+		// A bucket without such a configuration; the models do not define these codes, the service sends them.
+		"ServerSideEncryptionConfigurationNotFoundError": notFound, "NoSuchTagSet": notFound,
+		"NoSuchPublicAccessBlockConfiguration": notFound, "NoSuchLifecycleConfiguration": notFound,
+		"NoSuchBucketPolicy": notFound, "MalformedPolicy": invalid,
+		"NoSuchCORSConfiguration": notFound, "NoSuchWebsiteConfiguration": notFound,
+		"ReplicationConfigurationNotFoundError": notFound, "OwnershipControlsNotFoundError": notFound,
+		"ObjectLockConfigurationNotFoundError": notFound, "NoSuchObjectLockConfiguration": notFound,
 
 		// Route 53.
 		"NoSuchChange": notFound, "NoSuchCidrCollectionException": notFound, "NoSuchCidrLocationException": notFound,

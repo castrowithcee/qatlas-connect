@@ -181,10 +181,10 @@ func (m *Model) updateImport(key tea.KeyPressMsg) tea.Cmd {
 	if e.working != "" {
 		return nil
 	}
-	if key.String() == keyOf(actBack) {
+	if keyIs(key, actBack) {
 		return m.importBack()
 	}
-	if key.String() == keyOf(actSave) {
+	if keyIs(key, actSave) {
 		switch e.step {
 		case importFile, importPassphrase, importMode, importResult:
 			// F2 goes on like enter, which also confirms the one-line dialogs.

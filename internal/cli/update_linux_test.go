@@ -37,7 +37,7 @@ func TestUpdateAsksBeforeItReplaces(t *testing.T) {
 				asked = append(asked, prompt)
 				return tt.answer, tt.err
 			})
-			code, stderr, program, replaced := updateRun(t, &Options{})
+			code, stderr, program, replaced := updateRun(t, &Options{}, "--confirm")
 			if code != exitOK || len(asked) != 1 {
 				t.Fatalf("exit code = %d, questions = %d, stderr = %q", code, len(asked), stderr)
 			}
@@ -57,13 +57,22 @@ func TestUpdateAsksBeforeItReplaces(t *testing.T) {
 	}
 }
 
+// --yes alone answers the question but changes nothing: replacing the program needs --confirm too.
+func TestUpdateYesWithoutConfirmChangesNothing(t *testing.T) {
+	withInteractive(t, false)
+	code, stderr, program, replaced := updateRun(t, &Options{}, "--yes")
+	if code != exitUsage || !strings.Contains(stderr, "confirmation-required") || program != "old-program" || replaced != 0 {
+		t.Errorf("exit code = %d, program = %q, replaced %d", code, program, replaced)
+	}
+}
+
 func TestUpdateYesSkipsTheQuestion(t *testing.T) {
 	withVaultConfirm(t, func(string) (bool, error) {
 		t.Error("--yes asked")
 		return false, nil
 	})
 	withInteractive(t, false)
-	code, _, program, replaced := updateRun(t, &Options{}, "--yes")
+	code, _, program, replaced := updateRun(t, &Options{}, "--yes", "--confirm")
 	if code != exitOK || program != "new-program" || replaced != 1 {
 		t.Errorf("exit code = %d, program = %q, replaced %d", code, program, replaced)
 	}
@@ -113,7 +122,7 @@ func TestUpdateLocksOnlyAfterYes(t *testing.T) {
 		})
 		executable := installedProgram(t)
 		updater := releaseUpdater(t, executable, func() {})
-		code, _, stderr := runWithInput(t, &Options{Updater: updater}, "", "update", "--config", configIn(dir))
+		code, _, stderr := runWithInput(t, &Options{Updater: updater}, "", "update", "--confirm", "--config", configIn(dir))
 		if code != exitOK {
 			t.Fatalf("answer %v: exit code = %d, stderr = %q", answer, code, stderr)
 		}

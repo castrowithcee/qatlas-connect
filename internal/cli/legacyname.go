@@ -2,12 +2,12 @@ package cli
 
 import (
 	"fmt"
-	"io"
 	"path/filepath"
 	"strings"
 
 	"github.com/spf13/cobra"
 
+	"github.com/castrowithcee/qatlas-connect/internal/capability"
 	"github.com/castrowithcee/qatlas-connect/internal/selfupdate"
 )
 
@@ -19,18 +19,19 @@ func calledByLegacyName(program string) bool {
 	return strings.TrimSuffix(base, ".exe") == "qatlas"
 }
 
-// noteLegacyName tells on stderr that the program was started under its former name. It runs after the
-// command, so a failure's diagnostic stays the first line on stderr, and never on stdout, which carries
-// the answer and, for 'qconnect mcp', the JSON-RPC stream. Hidden commands are processes the program
-// starts itself, such as the vault process; they stay silent.
-func noteLegacyName(program string, root *cobra.Command, args []string, stderr io.Writer) {
+// legacyNotice is the note the kit writes on stderr before the command when the program was started under
+// its former name, or "" for the current name. It never goes to stdout, which carries the answer and, for
+// 'qconnect mcp', the JSON-RPC stream. Hidden commands are processes the program starts itself, such as the
+// vault process; they stay silent.
+func legacyNotice(program string, args []string, reg *capability.Registry) string {
 	if !calledByLegacyName(program) {
-		return
+		return ""
 	}
-	if c, _, err := root.Find(args); err == nil && c.Hidden {
-		return
+	// The notice is fixed when the tree is built, so a tree of its own tells whether args name a hidden command.
+	if c, _, err := newRootCommand(&Options{}, reg).Find(args); err == nil && c.Hidden {
+		return ""
 	}
-	fmt.Fprintln(stderr, "qconnect: note: this program is now called qconnect; the name qatlas still works until the next major release")
+	return "note: this program is now called qconnect; the name qatlas still works until the next major release"
 }
 
 // adoptProgramName gives an installation that an updater of a release before the rename left as

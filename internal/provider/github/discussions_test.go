@@ -49,8 +49,11 @@ func (d *fakeDiscussions) route(w http.ResponseWriter, req *http.Request) bool {
 	case strings.Contains(last.document, "on DiscussionComment"):
 		id, _ := last.variables["id"].(string)
 		repo, number, reply := `{"name":"example","owner":{"login":"octo-org"}}`, 12, "null"
+		answerable := "true"
 		switch id {
 		case "DC_top":
+		case "DC_plain":
+			answerable = "false"
 		case "DC_reply":
 			reply = `{"id":"DC_top"}`
 		case "DC_other":
@@ -62,7 +65,8 @@ func (d *fakeDiscussions) route(w http.ResponseWriter, req *http.Request) bool {
 			return true
 		}
 		fmt.Fprintf(w, `{"data":{"node":{"__typename":"DiscussionComment","id":%q,"replyTo":%s,`+
-			`"discussion":{"number":%d,"repository":%s}}}}`, id, reply, number, repo)
+			`"discussion":{"number":%d,"category":{"isAnswerable":%s},"repository":%s}}}}`, id, reply, number,
+			answerable, repo)
 	case strings.Contains(last.document, "on DiscussionCategory"):
 		repo := `{"name":"example","owner":{"login":"octo-org"}}`
 		switch last.variables["id"] {
@@ -248,6 +252,21 @@ func (d *fakeDiscussions) mutation(w http.ResponseWriter, last recorded) bool {
 	switch {
 	case strings.Contains(last.document, "createDiscussion("):
 		fmt.Fprint(w, `{"data":{"createDiscussion":{"discussion":{"id":"D_new","number":40,"url":"https://x/d/40"}}}}`)
+	case strings.Contains(last.document, "updateDiscussion("), strings.Contains(last.document, "closeDiscussion("),
+		strings.Contains(last.document, "reopenDiscussion("):
+		fmt.Fprint(w, `{"data":{"updateDiscussion":{"discussion":{"id":"D_12","number":12,"url":"https://x/d/12",`+
+			`"closed":false,"locked":false}},"closeDiscussion":{"discussion":{"id":"D_12","number":12,`+
+			`"url":"https://x/d/12","closed":true,"locked":false}},"reopenDiscussion":{"discussion":{"id":"D_12",`+
+			`"number":12,"url":"https://x/d/12","closed":false,"locked":false}}}}`)
+	case strings.Contains(last.document, "lockLockable("), strings.Contains(last.document, "unlockLockable("):
+		fmt.Fprint(w, `{"data":{"lockLockable":{"lockedRecord":{"id":"D_12","number":12,"closed":false,"locked":true}},`+
+			`"unlockLockable":{"unlockedRecord":{"id":"D_12","number":12,"closed":false,"locked":false}}}}`)
+	case strings.Contains(last.document, "unmarkDiscussionCommentAsAnswer("):
+		fmt.Fprint(w, `{"data":{"unmarkDiscussionCommentAsAnswer":{"discussion":{"number":12,"isAnswered":false}}}}`)
+	case strings.Contains(last.document, "markDiscussionCommentAsAnswer("):
+		fmt.Fprint(w, `{"data":{"markDiscussionCommentAsAnswer":{"discussion":{"number":12,"isAnswered":true}}}}`)
+	case strings.Contains(last.document, "deleteDiscussion("):
+		fmt.Fprint(w, `{"data":{"deleteDiscussion":{"discussion":{"id":"D_12","number":12}}}}`)
 	case strings.Contains(last.document, "deleteDiscussionComment("):
 		fmt.Fprint(w, `{"data":{"deleteDiscussionComment":{"comment":{"id":"DC_top"}}}}`)
 	default:
@@ -285,7 +304,8 @@ func discussionWriteConfig(base string) *config.Config {
 		config.EffectDelete}
 	cfg.Connections["repo"] = config.Connection{Service: "gh", Credential: "gh-reader", Target: repoTarget, Effects: all}
 	cfg.Connections["repo-listed"] = config.Connection{Service: "gh", Credential: "gh-reader", Target: repoTarget,
-		Effects: all, Tools: []string{discussionCommentsDelete.ID}}
+		Effects: all, Tools: []string{discussionCommentsDelete.ID, discussionsDelete.ID, discussionsUpdate.ID, discussionsClose.ID,
+			discussionsLock.ID, discussionCommentsMarkAnswer.ID}}
 	return cfg
 }
 

@@ -288,8 +288,8 @@ func TestGitHubToolsListGroupsBeforeTools(t *testing.T) {
 	path := githubConfig(t)
 	var reads atomic.Int32
 	code, stdout, stderr := runTwentyCLI(t, &reads, "", "tools", "github", "--config", path)
-	if code != exitOK || !strings.Contains(stdout, "groups[12]{group,title,description,tools}:\n") ||
-		strings.Contains(stdout, "tools[") || !strings.Contains(stderr, "tools in 12 groups; 'qconnect tools github <group>'") {
+	if code != exitOK || !strings.Contains(stdout, "groups[14]{group,title,description,tools}:\n") ||
+		strings.Contains(stdout, "tools[") || !strings.Contains(stderr, "tools in 14 groups; 'qconnect tools github <group>'") {
 		t.Fatalf("exit=%d stderr=%q stdout:\n%s", code, stderr, stdout)
 	}
 	code, stdout, stderr = runTwentyCLI(t, &reads, "", "tools", "github", "gists", "--config", path)

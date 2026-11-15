@@ -44,8 +44,15 @@ type PagerSpec struct {
 	Positions []PositionSpec
 	// Truncated is the boolean output member that says whether the list continues; IsTruncated when empty.
 	Truncated string
+	// TokenEnds says that the output has no truncation member and the list ends where the token is absent.
+	// It excludes Truncated and takes one position.
+	TokenEnds bool
 	// PageSize is the integer request member that sets the page size, empty for none.
 	PageSize string
+	// StartArguments also offers the position members as optional arguments of the first page, each with the
+	// entry of its model member in the operation's Arguments. A later member needs the ones before it, and a
+	// start argument cannot be combined with a cursor. Only a list of several positions takes it.
+	StartArguments bool
 }
 
 // PositionSpec is one member of the position of a list.
@@ -59,6 +66,8 @@ type PositionSpec struct {
 type IDPrefix struct {
 	Shape  string
 	Prefix string
+	// Operations limit the prefix to the arguments of these operations; empty for every operation.
+	Operations []string
 }
 
 // URLEncoded is a model string shape whose output values arrive percent-encoded.
@@ -134,10 +143,69 @@ type Operation struct {
 	// ResultHook names a hand-written step of the provider package that adds the result field the hook
 	// declares to the result, computed from the arguments and the answer. Empty for none.
 	ResultHook string
+	// FailureHint names a hand-written step of the provider package that adds to the message of a failed call
+	// what a person needs to know. Empty for none.
+	FailureHint string
 	// ExcludeEnum narrows the enum of an input member, so a value that would bring something the tool must
 	// not take (such as key material) cannot be sent.
 	ExcludeEnum []EnumExclusion
-	Examples    []Example
+	// Release keeps a member open that the model marks sensitive, because it is an identifier and not a
+	// secret, such as the ID of a KMS key. It applies to input and output, also below the top level.
+	Release []Release
+	// KeepDeprecated keeps a deprecated output member below the top level that the generator would leave out, because
+	// leaving it out would change what the answer means, such as the old rule-level prefix of an S3 lifecycle rule.
+	// Member is dotted like Release.Member. Input members that are deprecated stay out.
+	KeepDeprecated []Release
+	// TokenMember names a required top-level string member of a restXml input that serves as the idempotency token
+	// although the model gives it no idempotencyToken trait, such as the CallerReference of Route 53. The tool
+	// generates it and returns it as client_token, like a member with the trait.
+	TokenMember string
+	// Limits cap a string or a list of the input that the model leaves unbounded.
+	Limits []InputLimit
+	// Guards name hand-written steps of the provider package that judge the arguments before any I/O, each
+	// with the binding of the connection and the region of the call.
+	Guards []string
+	// Delivery names a hand-written step of a tool that delivers to third parties, such as a mail: it spaces
+	// the calls of one connection and region, and says when a failed call may still have delivered. Only a
+	// non-idempotent tool that is not a read may name one.
+	Delivery string
+	// Readback names a hand-written step that reads the current state with a call of its own after the
+	// account check and before the change, and refuses the change on what it finds. Only a tool that is not a
+	// read may name one.
+	Readback string
+	// ReadbackAnswer is the XML answer of the generated test to that read; required with Readback.
+	ReadbackAnswer string
+	// LocalFile makes the payload of a restXml operation travel through a local file the connection releases:
+	// "read" streams the input payload from a file (an upload), "write" streams the output payload into one (a
+	// download). The payload member is no argument and no field; the tool takes local_path instead and its
+	// result names size and sha256 of the file. Such a tool has no generated test, the runtime test of its
+	// package covers it.
+	LocalFile string
+	// LocalRange adds the optional arguments offset and length to a LocalFile "read" tool, which then streams
+	// that range of the file and not the whole file; the tool's result describes the range.
+	LocalRange bool
+	// SampleArgs replaces top-level arguments of the generated test, a JSON object by argument name, where
+	// the derived sample cannot pass a guard.
+	SampleArgs string
+	Examples   []Example
+}
+
+// InputLimit caps one input member: MaxLen a string, MaxItems a list. Member is dotted like Release.Member; a
+// list adds no segment, so the members of its elements follow the list's own name.
+type InputLimit struct {
+	Member           string
+	MaxLen, MaxItems int
+	// MaxValue (and MinValue, at least 1 when set) bound an integer. They narrow the range of the model and
+	// never widen it.
+	MaxValue, MinValue int64
+	Reason             string
+}
+
+// Release is a sensitive model member that stays open, with the reason.
+type Release struct {
+	// Member is the model member, dotted below the top level, as for HiddenOutputs.
+	Member string
+	Reason string
 }
 
 // EnumExclusion removes values from the enum of an input member.
@@ -185,6 +253,9 @@ type Field struct {
 	Description string
 	// MaxLen caps a string; the model's length maximum or the default cap applies when zero.
 	MaxLen int
+	// MaxItems caps a top-level list; the default cap applies when zero. It is raised for a list whose page can
+	// be larger than the default, and it never overrides a smaller maximum of the model.
+	MaxItems int
 	// Form names a hand-written check of the value, such as account-id.
 	Form string
 	// Required makes the tool refuse an answer without the member, and the schema require it.
@@ -209,11 +280,17 @@ var (
 	Effects      = []string{"read", "create", "update", "delete", "execute"}
 	Idempotency  = []string{"safe", "idempotent", "non-idempotent"}
 	TargetChecks = []string{"none", "account-argument", "arn-account", "arn-account-or-managed-policy", "arn-region", "bucket-owner",
-		"ses-identity", "ses-identity-arn"}
-	PolicyChecks = []string{"none", "trust-policy", "bucket-policy", "identity-policy", "pab-tighten"}
+		"ses-identity", "ses-identity-arn", "ses-configuration-set", "ses-resource-arn", "ses-reputation-entity-arn"}
+	PolicyChecks = []string{"none", "trust-policy", "resource-policy-own-account", "bucket-policy", "identity-policy"}
+	// Guards are the pure argument steps and Readbacks the steps with a read of their own; see Operation.
+	Guards     = []string{"location-constraint", "new-bucket-name", "kms-key-arn", "ownership-enforce", "object-lock-governance-only", "route53-vpc", "route53-vpc-lookup", "route53-vpc-member", "route53-change", "route53-name", "route53-health", "route53-ksk", "route53-instance", "route53-cidr", "route53-log-group", "route53-policy", "ses-configuration-set-values", "copy-source", "object-kms-key", "upload-kms-key", "ses-send", "acm-certificate-arn", "s3-report-destination", "ses-job-url", "multipart-copy-range", "multipart-checksum", "region-name", "ses-multi-region", "ses-reputation-policy-arn"}
+	Readbacks  = []string{"pab-tighten", "s3-report-destination", "ses-job-bucket"}
+	Deliveries = []string{"ses-mail"}
+	// FailureHints are the hand-written failure steps a table may name.
+	FailureHints = []string{"bucket-policy-lockout", "multipart-too-small"}
 	Forms        = []string{"account-id"}
 	// ResultHooks are the hand-written result steps a table may name; see resultHookFields.
-	ResultHooks = []string{"dns-records"}
+	ResultHooks = []string{"dns-records", "bucket-policy-status", "region-allowlist"}
 )
 
 var (
@@ -278,8 +355,11 @@ func (t Table) Validate() error {
 				return fmt.Errorf("table %s: pager of %s names a malformed member", t.Service, p.Operation)
 			}
 		}
-		if len(p.Positions) > 1 && !p.Positions[0].Required {
-			return fmt.Errorf("table %s: pager of %s: the first position must be required", t.Service, p.Operation)
+		if p.StartArguments && !p.Positions[0].Required {
+			return fmt.Errorf("table %s: pager of %s: the first position must be required to offer start arguments", t.Service, p.Operation)
+		}
+		if p.TokenEnds && (p.Truncated != "" || len(p.Positions) != 1) {
+			return fmt.Errorf("table %s: pager of %s: a list that ends at a missing token has one position and no truncation member", t.Service, p.Operation)
 		}
 	}
 	for _, p := range t.IDPrefixes {
@@ -328,8 +408,16 @@ func (op Operation) validate() error {
 		return fmt.Errorf("self_role %q must name an input member of a tool that is not a read", op.SelfRole)
 	case op.ResultHook != "" && !slices.Contains(ResultHooks, op.ResultHook):
 		return fmt.Errorf("unknown result_hook %q", op.ResultHook)
+	case op.TokenMember != "" && (!opName.MatchString(op.TokenMember) || op.Effect != "create"):
+		return fmt.Errorf("token_member %q must name a member of a tool that creates something", op.TokenMember)
 	case op.PageSizeMax < 0:
 		return fmt.Errorf("negative page size maximum")
+	case op.LocalFile != "" && op.LocalFile != "read" && op.LocalFile != "write":
+		return fmt.Errorf("local_file %q must be read or write", op.LocalFile)
+	case op.LocalRange && op.LocalFile != "read":
+		return fmt.Errorf("local_range belongs to a local_file read tool")
+	case op.LocalFile == "read" && op.Effect == "read", op.LocalFile == "write" && op.Effect != "read":
+		return fmt.Errorf("local_file %s does not fit effect %s: an upload changes something, a download reads", op.LocalFile, op.Effect)
 	case strings.TrimSpace(op.Title) == "" || strings.TrimSpace(op.Description) == "" || op.DataSensitivity == "":
 		return fmt.Errorf("title, description and data sensitivity are required")
 	}
@@ -337,6 +425,57 @@ func (op Operation) validate() error {
 		if !tagValue.MatchString(tag) {
 			return fmt.Errorf("tag %q is not a lower case word", tag)
 		}
+	}
+	for _, g := range op.Guards {
+		if !slices.Contains(Guards, g) {
+			return fmt.Errorf("unknown guard %q", g)
+		}
+	}
+	if op.FailureHint != "" && !slices.Contains(FailureHints, op.FailureHint) {
+		return fmt.Errorf("unknown failure_hint %q", op.FailureHint)
+	}
+	switch {
+	case op.Readback != "" && !slices.Contains(Readbacks, op.Readback):
+		return fmt.Errorf("unknown readback %q", op.Readback)
+	case op.Readback != "" && (op.Effect == "read" || strings.TrimSpace(op.ReadbackAnswer) == ""):
+		return fmt.Errorf("readback %s belongs to a tool that is not a read and needs the answer of its generated test", op.Readback)
+	case op.Readback == "" && op.ReadbackAnswer != "":
+		return fmt.Errorf("a readback answer without a readback")
+	case op.Delivery != "" && !slices.Contains(Deliveries, op.Delivery):
+		return fmt.Errorf("unknown delivery %q", op.Delivery)
+	case op.Delivery != "" && op.Idempotency != "non-idempotent":
+		return fmt.Errorf("delivery %s belongs to a non-idempotent tool", op.Delivery)
+	}
+	for _, k := range op.KeepDeprecated {
+		if strings.TrimSpace(k.Member) == "" || !strings.Contains(k.Member, ".") || strings.TrimSpace(k.Reason) == "" {
+			return fmt.Errorf("keep_deprecated needs a dotted member below the top level and a reason")
+		}
+	}
+	limits := map[string]bool{}
+	for _, l := range op.Limits {
+		caps := 0
+		for _, set := range []bool{l.MaxLen > 0, l.MaxItems > 0, l.MaxValue > 0} {
+			if set {
+				caps++
+			}
+		}
+		if strings.TrimSpace(l.Member) == "" || strings.TrimSpace(l.Reason) == "" || caps != 1 || l.MinValue < 0 ||
+			(l.MinValue > 0 && l.MaxValue < l.MinValue) || l.MaxLen < 0 || l.MaxItems < 0 || l.MaxValue < 0 || limits[l.Member] {
+			return fmt.Errorf("limit %q needs a reason, exactly one positive cap, and no repetition", l.Member)
+		}
+		limits[l.Member] = true
+	}
+	releases := map[string]bool{}
+	for _, r := range op.Release {
+		switch {
+		case strings.TrimSpace(r.Member) == "" || strings.TrimSpace(r.Reason) == "":
+			return fmt.Errorf("release needs a member and a reason")
+		case releases[r.Member]:
+			return fmt.Errorf("release %s is listed twice", r.Member)
+		case credentialName.MatchString(lastSegment(r.Member)):
+			return fmt.Errorf("release %s: the member looks like a credential and is never released", r.Member)
+		}
+		releases[r.Member] = true
 	}
 	for _, e := range op.ExcludeEnum {
 		if strings.TrimSpace(e.Member) == "" || len(e.Values) == 0 || strings.TrimSpace(e.Reason) == "" {
@@ -376,7 +515,7 @@ func (op Operation) validate() error {
 		if f.Form != "" && !slices.Contains(Forms, f.Form) {
 			return fmt.Errorf("field %s: unknown form %q", member, f.Form)
 		}
-		if f.MaxLen < 0 {
+		if f.MaxLen < 0 || f.MaxItems < 0 {
 			return fmt.Errorf("field %s: negative cap", member)
 		}
 	}

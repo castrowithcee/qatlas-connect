@@ -113,13 +113,7 @@ func checkTrustPrincipal(account string, principal any) string {
 		var valid func(string) bool
 		switch key {
 		case "AWS":
-			valid = func(v string) bool {
-				if v == account {
-					return true
-				}
-				m := trustAWSArn.FindStringSubmatch(v)
-				return m != nil && m[1] == account
-			}
+			valid = func(v string) bool { return ownAccountPrincipal(account, v) }
 		case "Service":
 			valid = trustService.MatchString
 		default:
@@ -143,6 +137,15 @@ func checkTrustPrincipal(account string, principal any) string {
 		}
 	}
 	return ""
+}
+
+// ownAccountPrincipal reports whether v is the account ID or an ARN of its root, a user, or a role.
+func ownAccountPrincipal(account, v string) bool {
+	if v == account {
+		return true
+	}
+	m := trustAWSArn.FindStringSubmatch(v)
+	return m != nil && m[1] == account
 }
 
 // principalValues reads a principal value: one string or a non-empty list of strings.

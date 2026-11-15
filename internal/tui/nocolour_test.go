@@ -2,34 +2,37 @@ package tui
 
 import (
 	"io"
+	"os"
 	"strings"
 	"testing"
 
+	"github.com/castrowithcee/qatlas-connect/internal/uiprefs"
+	kittui "github.com/castrowithcee/qatlas-kit/tui"
 	"github.com/charmbracelet/colorprofile"
 )
 
 // noColourProfiles are the profiles that show no colour, with whether they keep bold, faint and reverse.
 var noColourProfiles = []struct {
 	name       string
-	profile    colorProfile
+	profile    kittui.ColorProfile
 	attributes bool
 }{
-	{"ascii", profileASCII, true},
-	{"none", profileNone, false},
+	{"ascii", kittui.ProfileMono, true},
+	{"none", kittui.ProfileNone, false},
 }
 
 func TestNoColourProfilesAreColourless(t *testing.T) {
-	for _, p := range []colorProfile{profileTrueColor, profile256, profile16} {
-		if p.colourless() {
+	for _, p := range []kittui.ColorProfile{kittui.ProfileTrueColor, kittui.ProfileANSI256, kittui.ProfileANSI16} {
+		if p.Colorless() {
 			t.Errorf("profile %v is colourless", p)
 		}
 	}
 	for _, p := range noColourProfiles {
-		if !p.profile.colourless() {
+		if !p.profile.Colorless() {
 			t.Errorf("%s is not colourless", p.name)
 		}
 	}
-	if toColorprofile(profileASCII) != colorprofile.ASCII || toColorprofile(profileNone) != colorprofile.NoTTY {
+	if toColorprofile(kittui.ProfileMono) != colorprofile.ASCII || toColorprofile(kittui.ProfileNone) != colorprofile.NoTTY {
 		t.Error("the no-colour profiles do not map to ASCII and NoTTY")
 	}
 }
@@ -43,22 +46,22 @@ func TestDetectProfileKeepsAttributesUnderNoColourOnlyAtATerminal(t *testing.T) 
 	t.Setenv("NO_COLOR", "")
 	for _, value := range []string{"1", "yes"} {
 		t.Setenv("NO_COLOR", value)
-		if got := detectProfile(io.Discard); got != profileASCII {
+		if got := kittui.DetectColorProfile(io.Discard, os.Environ()); got != kittui.ProfileMono {
 			t.Errorf("NO_COLOR=%s at a terminal: profile %v, want ascii", value, got)
 		}
 	}
 	t.Setenv("NO_COLOR", "")
 	t.Setenv("CLICOLOR_FORCE", "")
 	t.Setenv("COLORTERM", "")
-	if got := detectProfile(io.Discard); got != profileNone {
+	if got := kittui.DetectColorProfile(io.Discard, os.Environ()); got != kittui.ProfileNone {
 		t.Errorf("without a terminal: profile %v, want none", got)
 	}
 	t.Setenv("NO_COLOR", "1")
-	if got := detectProfile(io.Discard); got != profileNone {
+	if got := kittui.DetectColorProfile(io.Discard, os.Environ()); got != kittui.ProfileNone {
 		t.Errorf("NO_COLOR without a terminal: profile %v, want none", got)
 	}
 	t.Setenv("TERM", "dumb")
-	if got := detectProfile(io.Discard); got != profileNone {
+	if got := kittui.DetectColorProfile(io.Discard, os.Environ()); got != kittui.ProfileNone {
 		t.Errorf("TERM=dumb: profile %v, want none", got)
 	}
 }
@@ -71,13 +74,13 @@ func TestNoColourProfilesKeepTheFocusReadable(t *testing.T) {
 			setProfile(pc.profile)
 			setTheme(darkTheme())
 			applyTheme("")
-			if styles.palette != (palette{}) || defaultTheme().palette != (palette{}) {
+			if styles.Palette() != (kittui.Palette{}) || paletteOfTheme(uiprefs.ThemeQatlasDark, pc.profile, nil) != (kittui.Palette{}) {
 				t.Fatal("a profile without colour names a palette")
 			}
 			setTheme(darkTheme())
-			for _, name := range themeNames() {
+			for _, name := range themeSet.Names() {
 				applyTheme(name)
-				if styles.palette != (palette{}) || styles.filled {
+				if styles.Palette() != (kittui.Palette{}) || styles.filled {
 					t.Errorf("theme %s keeps colour without colour", name)
 				}
 			}

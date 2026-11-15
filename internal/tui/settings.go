@@ -106,13 +106,12 @@ func (m *Model) generalFields() []field {
 	if language == "" {
 		language = uiprefs.LanguageEnglish
 	}
-	current, _ := themeNamed(prefs.Theme)
 	mouse := uiprefs.ChoiceMouseOn
 	if !prefs.MouseEnabled() {
 		mouse = uiprefs.ChoiceMouseOff
 	}
 	fields := []field{
-		choiceField(themeLabel, themeNames(), current.name).
+		choiceField(themeLabel, themeSet.Names(), themeOrDefault(prefs.Theme)).
 			withHint(tr(tThemeHint)).
 			withDetail(tr(tThemeDetail)),
 		choiceField(startLabel, areas, start).
@@ -150,13 +149,13 @@ func (m *Model) saveGeneral(leave bool) tea.Cmd {
 		m.status, m.fail = "", tr(tSettingsSaveFailed, m.redactor.Apply(err.Error()))
 		return nil
 	}
-	before, _ := themeNamed(m.prefs.Theme)
+	before := themeOrDefault(m.prefs.Theme)
 	m.prefs = next
 	applyTheme(next.Theme)
 	// Switching to the terminal theme asks the terminal for its colours again; until it answers the theme
 	// draws without fills.
 	var query tea.Cmd
-	if before.name != next.Theme {
+	if before != next.Theme {
 		query = terminalColourQuery(next.Theme)
 	}
 	applyKeys(next.Keys)

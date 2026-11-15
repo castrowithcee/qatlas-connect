@@ -13,8 +13,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"regexp"
-	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -111,6 +109,7 @@ defaults:
 		_, _, _ = c.run(t, "vault", "lock")
 		if processID != 0 {
 			killProcess(processID)
+			unregisterVaultProcess(processID)
 		}
 	})
 
@@ -169,11 +168,11 @@ defaults:
 	}
 
 	out, code := runAtTerminal(t, c, passphrase+"\n", "vault", "unlock")
-	match := regexp.MustCompile(`unlocked in a vault process \(pid (\d+)\)`).FindStringSubmatch(out)
-	if code != 0 || match == nil {
+	pid, ok := unlockedVaultPID(out, bin)
+	if code != 0 || !ok {
 		t.Fatalf("unlock: exit %d, output %q", code, out)
 	}
-	processID, _ = strconv.Atoi(match[1])
+	processID = pid
 
 	if code, stdout, stderr := c.run(t, "invoke", "bookstack.pages.list"); code != 0 || !strings.Contains(stdout, "Signed Runbook") ||
 		stderr != "" {
@@ -288,6 +287,7 @@ defaults:
 		}
 		time.Sleep(20 * time.Millisecond)
 	}
+	unregisterVaultProcess(processID)
 	processID = 0
 
 	code, macCheck, days, stderr = verify(t)

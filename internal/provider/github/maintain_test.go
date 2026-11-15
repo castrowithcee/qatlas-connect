@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"net/http"
 	"reflect"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -222,11 +223,12 @@ func TestGuardedToolsStayOutOfEveryStandardProfile(t *testing.T) {
 	// contents.delete, since several files land in one commit that cannot be undone by halves.
 	deletes := map[string]bool{projectsDelete.ID: true, fieldsDelete.ID: true, fieldOptionsDelete.ID: true,
 		iterationsReplace.ID: true, viewsDelete.ID: true, itemsDelete.ID: true, statusDelete.ID: true,
-		projectWorkflowsDelete.ID: true, releasesDelete.ID: true, contentsDelete.ID: true,
-		repositoriesDelete.ID: true, collaboratorsUpdate.ID: true, teamsLink.ID: true, teamsUnlink.ID: true,
-		filesPush.ID: true, branchesDelete.ID: true, branchesRename.ID: true, branchesSyncFork.ID: true, mergesCreate.ID: true, tagsDelete.ID: true, rulesetsDelete.ID: true, branchProtectionDelete.ID: true, labelsDelete.ID: true, milestonesDelete.ID: true, actionVariablesDelete.ID: true, actionCachesDelete.ID: true, runsDelete.ID: true, artifactsDelete.ID: true, commentsDelete.ID: true,
-		discussionCommentsDelete.ID: true, runLogsDelete.ID: true, environmentsDelete.ID: true,
-		branchPoliciesDelete.ID: true, protectionRulesDelete.ID: true}
+		projectWorkflowsDelete.ID: true, releasesDelete.ID: true, releaseAssetsDelete.ID: true, contentsDelete.ID: true,
+		repositoriesDelete.ID: true, collaboratorsUpdate.ID: true, repositoryCollaboratorsRemove.ID: true, teamsLink.ID: true, teamsUnlink.ID: true,
+		filesPush.ID: true, branchesDelete.ID: true, branchesRename.ID: true, issuesLock.ID: true, branchesSyncFork.ID: true, mergesCreate.ID: true, tagsDelete.ID: true, rulesetsDelete.ID: true, branchProtectionDelete.ID: true, labelsDelete.ID: true, autolinksDelete.ID: true, milestonesDelete.ID: true, actionVariablesDelete.ID: true, actionCachesDelete.ID: true, runsDelete.ID: true, artifactsDelete.ID: true, commentsDelete.ID: true, pullRequestReviewCommentsDelete.ID: true,
+		discussionCommentsDelete.ID: true, discussionsDelete.ID: true, runLogsDelete.ID: true, environmentsDelete.ID: true, actionSecretsDelete.ID: true, dependabotSecretsDelete.ID: true,
+		branchPoliciesDelete.ID: true, protectionRulesDelete.ID: true, webhooksDelete.ID: true, deployKeysDelete.ID: true,
+		repositoryInvitationsCancel.ID: true, appInstallationRepositoriesRemove.ID: true}
 	// github.pull-requests.merge and github.pull-request-reviews.approve are each guarded on their own: neither is
 	// a maintainer or administrator tool nor a delete, but each is offered only where a connection's tools list
 	// names it, because merging into the wrong repository's default branch, and approving on the connection's
@@ -238,13 +240,26 @@ func TestGuardedToolsStayOutOfEveryStandardProfile(t *testing.T) {
 	// may deploy at all. github.workflow-runs.force-cancel is guarded because it bypasses always() and lets no
 	// cleanup step of the run finish.
 	for _, descriptor := range reg.Provider(Provider) {
-		want := guarded[descriptor.ID] || deletes[descriptor.ID] || descriptor.ID == pullsMerge.ID ||
-			descriptor.ID == pullRequestReviewsApprove.ID || descriptor.ID == rulesetsCreate.ID ||
+		want := guarded[descriptor.ID] || deletes[descriptor.ID] || descriptor.ID == pullsMerge.ID || descriptor.ID == pullAutoMergeEnable.ID ||
+			descriptor.ID == securitySettingsUpdate.ID || descriptor.ID == codeScanningSetupUpdate.ID ||
+			descriptor.ID == codeScanningAlertsUpdate.ID || descriptor.ID == dependabotAlertsUpdate.ID ||
+			descriptor.ID == secretScanningAlertsUpdate.ID || descriptor.ID == dependencySnapshotsCreate.ID ||
+			descriptor.ID == pullRequestReviewsApprove.ID || descriptor.ID == pullRequestReviewsDismiss.ID ||
+			descriptor.ID == rulesetsCreate.ID ||
 			descriptor.ID == rulesetsUpdate.ID || descriptor.ID == branchProtectionSet.ID ||
 			descriptor.ID == customPropertiesSet.ID ||
-			descriptor.ID == notificationsMarkAll.ID || descriptor.ID == gistsDelete.ID ||
-			descriptor.ID == repositoriesRename.ID || descriptor.ID == environmentsSet.ID ||
-			descriptor.ID == runsForceCancel.ID
+			descriptor.ID == notificationsMarkAll.ID || descriptor.ID == gistsDelete.ID || descriptor.ID == gistCommentsDelete.ID ||
+			descriptor.ID == repositoriesRename.ID || descriptor.ID == repositoryCollaboratorsUpdate.ID || descriptor.ID == repositoryCollaboratorsAdd.ID || slices.Contains(invitationToolIDs, descriptor.ID) || descriptor.ID == environmentsSet.ID || descriptor.ID == actionSecretsSet.ID || descriptor.ID == dependabotSecretsSet.ID ||
+			descriptor.ID == runsForceCancel.ID || descriptor.ID == deploymentsCreate.ID ||
+			descriptor.ID == deploymentsDelete.ID || descriptor.ID == runsApprove.ID ||
+			descriptor.ID == pendingDeploymentsReview.ID || slices.Contains(teamChangeTools, descriptor.ID) || slices.Contains(organizationChangeToolIDs, descriptor.ID) ||
+			slices.Contains(codeSecurityChangeToolIDs, descriptor.ID) || slices.Contains(codeSecurityAssignToolIDs, descriptor.ID) || slices.Contains(packageChangeToolIDs, descriptor.ID) ||
+			slices.Contains(actionsSettingsReads, descriptor.ID) ||
+			slices.Contains(actionsSettingsChanges, descriptor.ID) ||
+			slices.Contains(runnersReads, descriptor.ID) || slices.Contains(runnersChanges, descriptor.ID) ||
+			slices.Contains(runnerGroupReads, descriptor.ID) || slices.Contains(runnerGroupWrites, descriptor.ID) ||
+			slices.Contains(webhooksChanges, descriptor.ID) || descriptor.ID == blocksAdd.ID ||
+			descriptor.ID == blocksRemove.ID || descriptor.ID == profileUpdate.ID
 		if descriptor.RequiresToolAllowList != want {
 			t.Errorf("%s requires an allow-list = %t", descriptor.ID, descriptor.RequiresToolAllowList)
 		}
@@ -256,11 +271,11 @@ func TestGuardedToolsStayOutOfEveryStandardProfile(t *testing.T) {
 			marked++
 		}
 	}
-	if marked != len(guardedTools)+len(deletes)+11 || len(guardedTools) != 13 {
+	if marked != len(guardedTools)+len(deletes)+54+len(invitationToolIDs)+len(teamChangeTools)+len(organizationChangeToolIDs)+len(codeSecurityChangeToolIDs)+len(codeSecurityAssignToolIDs)+len(packageChangeToolIDs) || len(guardedTools) != 13 {
 		t.Errorf("marked tools = %d, want the thirteen maintainer and administrator tools, the fifteen deletes and "+
-			"the three access tools, files.push, and github.labels.delete, the merge, the approve, the ruleset "+
-			"create and update, the branch protection set, the custom properties set, the notifications mark-all, the gist delete, the repository rename, "+
-			"the environment set, and the run force-cancel", marked)
+			"the three access tools, files.push, and github.labels.delete, the merge, the auto-merge enable, the security switch and code scanning setup changes, the approve, the review dismissal, the ruleset "+
+			"create and update, the branch protection set, the custom properties set, the notifications mark-all, the gist delete, the gist comment delete, the repository rename, the collaborator invitation, the organization and team invitations, the collaborator role change, "+
+			"the environment set, the Actions and Dependabot secret sets, the run force-cancel, the deployment create and delete, the fork run approval and the pending deployment review, the three security alert updates, the dependency snapshot create, the ten tools of the finer Actions settings, the seven runner tools, the four runner group and hosted runner tools, the pause and resume of a webhook, the seven team change tools, the six organization change tools, the three code security configuration changes and the three assignments, the four package delete and restore tools, and the block, unblock, and profile update tools of the account", marked)
 	}
 	profiles := map[string]config.ToolProfile{}
 	for _, profile := range metadata.Profiles {
@@ -283,8 +298,8 @@ func TestGuardedToolsStayOutOfEveryStandardProfile(t *testing.T) {
 	if want := append([]string{workflowsList.ID, workflowsGet.ID}, maintainerTools...); !reflect.DeepEqual(maintainer.Tools, want) {
 		t.Errorf("maintainer profile = %v, want %v", maintainer.Tools, want)
 	}
-	if !reflect.DeepEqual(admin.Tools, adminTools) {
-		t.Errorf("admin profile = %v, want %v", admin.Tools, adminTools)
+	if want := slices.Concat(adminTools, actionsSettingsReads, runnersReads, runnerGroupReads); !reflect.DeepEqual(admin.Tools, want) {
+		t.Errorf("admin profile = %v, want %v", admin.Tools, want)
 	}
 	if got := metadata.ProfileEffects(maintainer); !reflect.DeepEqual(got, []config.Effect{
 		config.EffectRead, config.EffectCreate, config.EffectUpdate}) {
@@ -945,3 +960,8 @@ func TestContentsSubjectNamesOnlyCheckedPathsAndRefs(t *testing.T) {
 		}
 	}
 }
+
+// teamChangeTools are the team tools that change something; every one is offered only where a connection's
+// tools list names it.
+var teamChangeTools = []string{teamsCreate.ID, teamsUpdate.ID, teamsDelete.ID, teamMembersAdd.ID,
+	teamMembersRemove.ID, teamRepositoriesSet.ID, teamRepositoriesRemove.ID}

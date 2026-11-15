@@ -4,23 +4,26 @@ description: >
 type: knowledge
 edit: shared
 created: 2026-11-06
-updated: 2026-11-11
+updated: 2026-11-14
 ---
 
 # Amazon Web Services
 
 The `aws` provider gives agents controlled access to one AWS account, read-only except for the IAM role tools and the two
-IAM report generators a connection names in its tools list, and the SES identity tools that change state with
-confirmation. Qatlas signs requests with
+IAM report generators a connection names in its tools list, the SES identity tools, the S3 bucket tools, and the Route 53
+hosted zone, record, health check, delegation set, and CIDR collection tools, and the Account region and contact tools, which change state with confirmation, the Route 53 query logging writes, and the Route 53 DNSSEC writes a connection names in its tools list. Qatlas signs requests with
 Signature Version 4 using the Go standard library; it uses no AWS SDK. It ships the foundation (credential, role
 assumption, account and region binding, connection test, endpoint table, error mapping), the Security Token Service
 (STS) tools, the IAM tools that read identities, the metadata of their credentials, policies with their simulation,
 the account state, identity providers, and server certificates, the IAM report tools (credential report and service
-last accessed), the IAM tools that write roles and instance profiles, and the SES v2 tools that read, create, configure, tag, and delete
-sender identities with DKIM and MAIL FROM. Further services build on it.
+last accessed), the IAM tools that write roles and instance profiles, the SES v2 tools that read, create, configure, tag, and delete
+sender identities with DKIM and MAIL FROM, read the account status and change its attributes and production access request, create, configure, and delete configuration sets, manage the suppression list, manage dedicated IP addresses and pools, keep email templates, contact lists, and contacts, send mail, read deliverability metrics, insights, and reputation, read and start import and export jobs and cancel export jobs, run the Deliverability Dashboard and inbox placement tests, handle identity certificates, keep tenants and the sending status and policy of reputation entities, and manage multi-region endpoints, and the S3 tools that read buckets and create, delete, and configure them
+(versioning, default encryption, tags, public access block, object ownership), remove their lifecycle and CORS rules,
+and read the rest of their configuration and the Object Lock state of their objects, and the Route 53 tools that list, read, create,
+and delete hosted zones, change their comments and tags, list and change their records in atomic batches, test a DNS answer, read the status of a change, list, read, create, change, and delete health checks with their status and tags, read DNSSEC and manage key signing keys, create, version, and delete traffic policies, create, switch, and delete traffic policy instances, create and delete reusable delegation sets, create, change, and delete CIDR collections, and read query logging configurations, reusable delegation sets, traffic policies and their instances, CIDR collections, limits, geolocations, health checker addresses, and VPC associations, and associate and release VPCs of private zones, and the Account tools that read the regions of the account with their opt-in status and enable and disable opt-in regions, and read and change the name, the primary contact, and the alternate contacts of the account. Further services build on it.
 
 [Set up AWS](setup.md) lists the secret roles, the permissions, and what the connection test proves. The tools are
-described per group: [Security Token Service](sts.md), [Identity and Access Management](iam.md), and [Simple Email Service](ses.md).
+described per group: [Security Token Service](sts.md), [Identity and Access Management](iam.md), [Account](account.md), [Simple Email Service](ses.md) with its [deliverability, metrics, and jobs](ses-deliverability.md), [Amazon S3](s3.md), and [Amazon Route 53](route53.md).
 
 ## Role assumption
 
@@ -75,7 +78,7 @@ sends only over HTTPS without following redirects.
 | Account (global) | `account.us-east-1.amazonaws.com` | `us-east-1` |
 
 Global services hang on the account and ignore the region allowlist; a connection reaches them with its account
-target alone. Of the services in the table, STS, IAM, and SES v2 have tools.
+target alone. Of the services in the table, STS, IAM, SES v2, S3, Route 53, and Account have tools.
 
 ## CloudTrail
 
@@ -139,9 +142,13 @@ fixed model operation; there is no general call.
   hides it; a table can hide a top-level or a nested input member, and can exclude single values of an enum
   argument, so a value such as a key origin is never accepted. A table may name string shapes the service returns
   percent-encoded, such as the IAM policy documents; their values are decoded before the cap applies, and a
-  malformed value is an invalid answer. A paged operation takes `page_size` (where the service has a page size) and `cursor` and returns
+  malformed value is an invalid answer. A table can also keep open a member the model marks sensitive when it is an identifier and not a secret, such
+  as the ID of a KMS key; the release names the member and gives a reason, covers input and output, and never applies to a
+  member whose name looks like a credential. A paged operation takes `page_size` (where the service has a page size) and `cursor` and returns
   `next_cursor` and `has_more`. An operation with an idempotency token generates the token, accepts `client_token`
-  to repeat a request after a timeout, and returns the token it sent.
+  to repeat a request after a timeout, and returns the token it sent. A table can name a required string member of a
+  `restXml` create operation as the token when the model gives it no `idempotencyToken` trait, as it does for the
+  `CallerReference` of a Route 53 zone.
 
 - **Protocol layers.** The generator reads the protocol of each model from its service trait and refuses a model
   that names none or two. `awsQuery` (STS, IAM) sends a form body and reads XML. `restJson1` (Account, SES v2) binds
@@ -154,17 +161,23 @@ fixed model operation; there is no general call.
   A model gives `PageSize` no maximum, so the tool offers no `page_size` unless the table states the maximum of the
   service. A table can name a hand-written result step, which adds a member computed from the checked answer and
   the arguments, such as the SES `dns_records`; the generator declares the member in the result schema, and the
-  step reads only values the answer validated. Tools are rendered for `awsQuery` and `restJson1`; the tables of
-  `account`, `s3` and `route-53` are raw scaffolds with every operation in `defer`, and a `restXml` table with tools
-  is refused until the first service package.
+  step reads only values the answer validated. A table can also name guards, hand-written steps that judge the
+  arguments, also below the top level, before any I/O (such as the KMS key ARN of a bucket encryption rule, or the
+  location constraint of a new bucket), and one readback, a step that reads the current state with a call of its own
+  after the account check and before a change and refuses the change on what it finds (the public access block of
+  S3); only a tool whose table names a step runs it, and no argument can skip it. A table can cap an input list or
+  string that the model leaves unbounded, and keep a deprecated output member whose absence would change the meaning of
+  an answer (the old rule-level prefix of an S3 lifecycle rule); other deprecated members are never rendered. Tools are rendered for `awsQuery`, `restJson1`, and `restXml`; the table of
+  `account` is a raw scaffold with every operation in `defer`, the `s3` table has the bucket tools, and the `route-53` table has the hosted zone, record, health check, DNSSEC, and reader tools.
 - **`restXml` (S3, Route 53).** The body is XML in the form the model's traits describe: `xmlName`,
   `xmlAttribute`, `xmlNamespace`, `xmlFlattened`, wrapped lists and maps, and a structure payload. A character
   XML 1.0 cannot carry is refused in a request and read as U+FFFD in an answer. The error shape follows the
   model: `<Error>` for S3, `<ErrorResponse><Error><Type><Code>` for Route 53. S3 can answer `CopyObject` or
   `CompleteMultipartUpload` with status 200 and an `<Error>` body, which is an error that says the operation may
-  not have completed. A list that continues at several members, such as S3 versions by key and version marker
-  or Route 53 record sets by name, type and identifier, keeps them in one cursor. A Route 53 zone ID is accepted
-  with or without `/hostedzone/` and never adds a path segment. An operation the runtime cannot yet send, such as
+  not have completed. Of a Route 53 `InvalidChangeBatch` the single messages are kept, capped, as provider text. A list that continues at several members, such as S3 versions by key and version marker
+  or Route 53 record sets by name, type and identifier, keeps them in one cursor. A table can name string shapes whose
+  arguments may carry a leading text that is removed before the request, such as the `/hostedzone/` of a Route 53 zone
+  ID and the `/change/` of a change ID; what is left must hold no slash, so an ID never adds a path segment. An operation the runtime cannot yet send, such as
   an event stream, is bound with the reason noted and never becomes a tool until the reason is gone.
 - **S3 addressing.** The bucket name is checked against the naming rules of general purpose buckets before any
   I/O. A name that is one lower case DNS label goes in the host (`<bucket>.s3.<region>.amazonaws.com`), every

@@ -142,7 +142,7 @@ func (m *Model) flatRow(active bool, f field, value string) string {
 // the row has the focus.
 func flatField(text string, width int, active bool) string {
 	text = padLine(clipCells(text, width), width)
-	return fieldStyle(active).Render(keepBackground(text, styles.palette.surface))
+	return fieldStyle(active).Render(keepBackground(text, styles.Palette().Surface))
 }
 
 // formBody draws the rows of the open form. With two or more sections it puts the list of the sections at

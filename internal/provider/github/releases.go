@@ -300,6 +300,13 @@ type releaseArguments struct {
 	GenerateNotes bool    `json:"generate_notes"`
 	MakeLatest    string  `json:"make_latest"`
 
+	// The arguments of the notes and release asset tools.
+	PreviousTag           string  `json:"previous_tag"`
+	ConfigurationFilePath *string `json:"configuration_file_path"`
+	AssetID               int64   `json:"asset_id"`
+	Label                 *string `json:"label"`
+	State                 string  `json:"state"`
+
 	page, perPage int
 	binding       []byte
 }
@@ -899,6 +906,12 @@ func releasesSubject(path string) string {
 	}
 	rest, ok := strings.CutPrefix(path, "releases/")
 	if !ok || rest == "" {
+		return ""
+	}
+	if tail, ok := strings.CutPrefix(rest, "assets/"); ok {
+		if id, err := strconv.ParseInt(tail, 10, 64); err == nil && id > 0 {
+			return "release asset " + tail
+		}
 		return ""
 	}
 	if rest == "latest" {

@@ -16,6 +16,7 @@ import (
 	"github.com/castrowithcee/qatlas-connect/internal/secret"
 	"github.com/castrowithcee/qatlas-connect/internal/vault"
 	"github.com/castrowithcee/qatlas-connect/internal/vaultproc"
+	"github.com/castrowithcee/qatlas-kit/cobracli"
 	"github.com/castrowithcee/qatlas-kit/output"
 )
 
@@ -110,19 +111,20 @@ func newVaultTokenCommand(opts *Options, reg *capability.Registry) *cobra.Comman
 		RunE: func(c *cobra.Command, args []string) error { return runVaultTokenShow(c, opts, reg, args[0]) },
 	}
 
-	var assumeYes bool
+	var gate *cobracli.Gate
 	revoke := &cobra.Command{
 		Use:   "revoke <name>",
 		Short: "Revoke one agent token",
 		Long: "Removes the agent token <name> from the vault. It stops working at once, in a running vault\n" +
 			"process too, which reads the tokens from the vault for every approval. Approvals it gave stay.\n" +
 			"The command first asks \"revoke agent token <name>? [y/N]\" at the terminal and revokes nothing\n" +
-			"unless the answer is y or yes. --yes answers it in advance; without a terminal the command still\n" +
-			"fails as admin-required.",
+			"unless the answer is y or yes. --yes answers it in advance. Revoking changes data, so --confirm is\n" +
+			"required in addition; without it nothing is revoked and the command fails as confirmation-required.\n" +
+			"Without a terminal the command still fails as admin-required.",
 		Args: exactlyOneArg("token name"),
-		RunE: func(c *cobra.Command, args []string) error { return runVaultTokenRevoke(c, opts, args[0], assumeYes) },
+		RunE: func(c *cobra.Command, args []string) error { return runVaultTokenRevoke(c, opts, args[0], gate) },
 	}
-	revoke.Flags().BoolVar(&assumeYes, "yes", false, "answer the confirmation question with yes")
+	gate = opts.program.AddGate(revoke, cobracli.Gates{Question: true, Change: true})
 
 	cmd.AddCommand(list, create, show, revoke)
 	return cmd
@@ -307,29 +309,34 @@ func runVaultTokenShow(c *cobra.Command, opts *Options, reg *capability.Registry
 	return &UsageError{fmt.Errorf("agent token %s: %w", name, vault.ErrTokenNotFound)}
 }
 
-func runVaultTokenRevoke(c *cobra.Command, opts *Options, name string, yes bool) error {
+func runVaultTokenRevoke(c *cobra.Command, opts *Options, name string, gate *cobracli.Gate) error {
 	v, err := tokenVault(opts)
 	if err != nil {
 		return err
 	}
-	if !yes {
-		confirmed, err := confirmDelete(fmt.Sprintf("revoke agent token %s? [y/N] ", name))
-		if err != nil {
-			return err
+	// The admin check comes first. --confirm is the kit's gate for a request that changes data; the question is
+	// answered by --yes or by the person, as before. Nothing is revoked before both have passed.
+	yes, _ := c.Flags().GetBool("yes")
+	return gate.Run(cobracli.Request{Changes: true}, func() error {
+		if !yes {
+			confirmed, err := confirmDelete(fmt.Sprintf("revoke agent token %s? [y/N] ", name))
+			if err != nil {
+				return err
+			}
+			if !confirmed {
+				fmt.Fprintf(c.OutOrStdout(), "kept agent token %s\n", name)
+				return nil
+			}
 		}
-		if !confirmed {
-			fmt.Fprintf(c.OutOrStdout(), "kept agent token %s\n", name)
-			return nil
+		if err := v.RevokeToken(name); err != nil {
+			if errors.Is(err, vault.ErrTokenNotFound) {
+				return &UsageError{fmt.Errorf("agent token %s: %w", name, err)}
+			}
+			return classifyUserError(err)
 		}
-	}
-	if err := v.RevokeToken(name); err != nil {
-		if errors.Is(err, vault.ErrTokenNotFound) {
-			return &UsageError{fmt.Errorf("agent token %s: %w", name, err)}
-		}
-		return classifyUserError(err)
-	}
-	fmt.Fprintf(c.OutOrStdout(), "revoked agent token %s\n", name)
-	return nil
+		fmt.Fprintf(c.OutOrStdout(), "revoked agent token %s\n", name)
+		return nil
+	})
 }
 
 // runVaultApproveWithToken is 'vault approve' without a terminal: the agent token lookupAgentToken finds is

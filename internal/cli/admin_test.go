@@ -6,6 +6,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -27,19 +28,30 @@ import (
 func TestMain(m *testing.M) {
 	trustTestServers()
 	if os.Getenv(runAsQatlasEnv) == "1" {
+		guardTestBinary()
+		registerPID()
 		trustTestReleaseKey()
-		os.Exit(Run(os.Args[1:], os.Stdout, os.Stderr))
+		code := Run(os.Args[1:], os.Stdout, os.Stderr)
+		unregisterPID()
+		os.Exit(code)
 	}
 	if mode := os.Getenv(vaultClientEnv); mode != "" {
+		guardTestBinary()
 		os.Exit(runVaultClient(mode))
 	}
 	if os.Getenv(runAsTUIEnv) == "1" {
+		guardTestBinary()
 		os.Exit(runAsTUI())
 	}
 	checkInteractive = func() bool { return true }
 	// No test runs at a terminal; a test of the bare call sets its own.
 	checkTerminal = func() bool { return false }
 	vaultProcessSupported = false
+	// Helper processes end themselves once this binary is gone (see guardTestBinary).
+	_ = os.Setenv(testBinaryEnv, strconv.Itoa(os.Getpid()))
+	if os.Getenv(orphanEnv) == "1" {
+		os.Exit(runOrphan())
+	}
 	// No test finds an agent token of the machine it runs on; a test that needs one sets its own.
 	lookupAgentToken = func() (string, string, error) { return "", "", nil }
 	// Every start may migrate the configuration it finds and an MCP server logs to the vault directory of

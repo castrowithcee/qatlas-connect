@@ -23,6 +23,7 @@ import (
 	"github.com/castrowithcee/qatlas-connect/internal/vault"
 	"github.com/castrowithcee/qatlas-connect/internal/vaultmigrate"
 	"github.com/castrowithcee/qatlas-connect/internal/vaultproc"
+	"github.com/castrowithcee/qatlas-kit/cobracli"
 	"github.com/castrowithcee/qatlas-kit/output"
 	"github.com/castrowithcee/qatlas-kit/redact"
 )
@@ -209,13 +210,14 @@ func newVaultCommand(opts *Options, reg *capability.Registry) *cobra.Command {
 		},
 	}
 
-	var decryptConfirm bool
+	var decryptGate *cobracli.Gate
 	decrypt := &cobra.Command{
 		Use:   "decrypt",
 		Short: "Switch the vault's encryption off",
 		Long: "Asks for the current passphrase on the terminal, merges every entry queued in pending first so\n" +
 			"nothing is lost, and then writes the document as plain secrets.json and removes key.age,\n" +
-			"recipient, and secrets.age. --confirm is required, and a wrong passphrase aborts without\n" +
+			"recipient, and secrets.age. --confirm is required (without it the command fails as\n" +
+			"confirmation-required), and a wrong passphrase aborts without\n" +
 			"touching any file. Afterwards 'qconnect vault status' warns that the vault is unencrypted, the same\n" +
 			"way it does for a vault that was never encrypted at all. Run against a vault that is not\n" +
 			"encrypted, it refuses and says there is nothing to decrypt. A vault process that holds the vault\n" +
@@ -224,11 +226,10 @@ func newVaultCommand(opts *Options, reg *capability.Registry) *cobra.Command {
 			"removed with it.",
 		Args: noArgs,
 		RunE: func(c *cobra.Command, _ []string) error {
-			return runVaultDecrypt(c, opts, decryptConfirm)
+			return runVaultDecrypt(c, opts, decryptGate)
 		},
 	}
-	decrypt.Flags().BoolVar(&decryptConfirm, "confirm", false,
-		"confirm switching the vault's encryption off; required")
+	decryptGate = opts.program.AddGate(decrypt, cobracli.Gates{Change: true})
 
 	migrate := &cobra.Command{
 		Use:   "migrate",
@@ -1668,7 +1669,7 @@ func printNote(c *cobra.Command, note string) {
 	}
 }
 
-func runVaultDecrypt(c *cobra.Command, opts *Options, confirmed bool) error {
+func runVaultDecrypt(c *cobra.Command, opts *Options, gate *cobracli.Gate) error {
 	// requireAdminTerminal alone: this command's own passphrase prompt below is already the check
 	// requireAdmin would otherwise repeat.
 	if err := requireAdminTerminal(); err != nil {
@@ -1685,10 +1686,10 @@ func runVaultDecrypt(c *cobra.Command, opts *Options, confirmed bool) error {
 	if state != vault.StateLocked && state != vault.StateUnlocked {
 		return &UsageError{errors.New("the vault is not encrypted; there is nothing to decrypt")}
 	}
-	if !confirmed {
-		return &UsageError{errors.New("switching the vault's encryption off needs --confirm")}
-	}
+	return gate.Run(cobracli.Request{Changes: true}, func() error { return decryptVault(c, opts, v) })
+}
 
+func decryptVault(c *cobra.Command, opts *Options, v *vault.Vault) error {
 	passphrase, err := readVaultPassphrase("vault passphrase: ")
 	if err != nil {
 		if errors.Is(err, vault.ErrNoTerminal) {

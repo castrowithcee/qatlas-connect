@@ -12,6 +12,7 @@ import (
 	"github.com/charmbracelet/x/ansi"
 
 	"github.com/castrowithcee/qatlas-connect/internal/uiprefs"
+	kittui "github.com/castrowithcee/qatlas-kit/tui"
 )
 
 // vaultCases are the vault states the header shows, each with the word it must name.
@@ -179,9 +180,9 @@ func TestHeaderNamesTheBoundKeys(t *testing.T) {
 		t.Fatalf("header %q lacks the default keys", got)
 	}
 	rebind(t, actHelp, "ctrl+x")
-	rebind(t, actCommand, "ctrl+k")
+	rebind(t, actCommand, "f3")
 	got := m.headerLines()[0]
-	if !strings.Contains(got, "[ctrl+x] help") || !strings.Contains(got, "[ctrl+k] cmd") || strings.Contains(got, "[?]") {
+	if !strings.Contains(got, "[ctrl+x] help") || !strings.Contains(got, "[F3] cmd") || strings.Contains(got, "[?]") {
 		t.Errorf("header %q does not follow the keymap", got)
 	}
 	m.Update(tea.WindowSizeMsg{Width: 30, Height: 30})
@@ -258,7 +259,7 @@ func TestFrameReadsWithoutColour(t *testing.T) {
 	before := currentProfile()
 	prior := styles
 	t.Cleanup(func() { setProfile(before); setTheme(prior) })
-	setProfile(profileASCII)
+	setProfile(kittui.ProfileMono)
 	applyTheme(uiprefs.ThemeTerminal)
 
 	m, _ := newEncryptedVaultModel(t, filepath.Join(t.TempDir(), "qconnect"), "hunter2", true)

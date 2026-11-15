@@ -8,6 +8,7 @@ import (
 	"github.com/charmbracelet/x/ansi"
 
 	"github.com/castrowithcee/qatlas-connect/internal/config"
+	kittui "github.com/castrowithcee/qatlas-kit/tui"
 )
 
 // The canaries stand where secrets would; none of them may reach the raw tab.
@@ -80,7 +81,7 @@ func TestServicesTableAndFilterTextHoldNoURLCredential(t *testing.T) {
 // The raw tab shows the entry as written, but never a secret value and never a control character.
 func TestDetailRawHoldsNoSecretAndNoControlCharacter(t *testing.T) {
 	before := currentProfile()
-	setProfile(profileNone)
+	setProfile(kittui.ProfileNone)
 	t.Cleanup(func() { setProfile(before) })
 
 	m := rawModel(t)
@@ -202,7 +203,7 @@ func TestDetailTabsAreClickable(t *testing.T) {
 // at the smallest size that has one, in each of the three lists.
 func TestDetailPaneReadsWithoutColourAtItsSmallestSize(t *testing.T) {
 	before := currentProfile()
-	setProfile(profileNone)
+	setProfile(kittui.ProfileNone)
 	saved := styles
 	setTheme(noColorTheme())
 	t.Cleanup(func() { setProfile(before); setTheme(saved) })

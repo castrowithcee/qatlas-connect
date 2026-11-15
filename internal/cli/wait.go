@@ -12,6 +12,7 @@ import (
 
 	"github.com/castrowithcee/qatlas-connect/internal/application"
 	"github.com/castrowithcee/qatlas-connect/internal/capability"
+	"github.com/castrowithcee/qatlas-kit/cobracli"
 )
 
 // Exit codes of 'qconnect wait' beyond the three of every command. They tell the ends of a wait apart from
@@ -118,7 +119,12 @@ func newWaitCommand(opts *Options, registry *capability.Registry) *cobra.Command
 					args[0], outcome.Result)
 			}
 			if code != exitOK {
-				return &quietExit{code}
+				// The tool's own answer is the result already written; the code alone tells the outcome.
+				exit, err := cobracli.NewExit(code, nil)
+				if err != nil {
+					return err
+				}
+				return exit
 			}
 			return nil
 		},

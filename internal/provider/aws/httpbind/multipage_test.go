@@ -25,9 +25,11 @@ func TestMultiPagerCheck(t *testing.T) {
 			p.Positions = append(p.Positions, Position{In: "A", Out: "a"}, Position{In: "B", Out: "b"}, Position{In: "C", Out: "c"})
 		},
 		"no truncation member": func(p *MultiPager) { p.Truncated = "" },
-		"first optional":       func(p *MultiPager) { p.Positions[0].Required = false },
-		"repeated name":        func(p *MultiPager) { p.Positions[1].In = "KeyMarker" },
-		"size without max":     func(p *MultiPager) { p.MaxSize = 0 },
+		"first optional with start": func(p *MultiPager) {
+			p.Positions[0].Required, p.Positions[0].Start, p.Positions[1].Start = false, "a", "b"
+		},
+		"repeated name":    func(p *MultiPager) { p.Positions[1].In = "KeyMarker" },
+		"size without max": func(p *MultiPager) { p.MaxSize = 0 },
 	} {
 		p := testMulti()
 		p.Positions = append([]Position(nil), p.Positions...)
@@ -35,6 +37,22 @@ func TestMultiPagerCheck(t *testing.T) {
 		if err := p.Check(); !errors.Is(err, ErrShape) {
 			t.Errorf("%s: err = %v", name, err)
 		}
+	}
+}
+
+func TestMultiPagerAllOptionalWithoutStart(t *testing.T) {
+	p := testMulti()
+	p.Positions = []Position{{In: "Continent", Out: "~NextContinent"}, {In: "Country", Out: "~NextCountry"}}
+	if err := p.Check(); err != nil {
+		t.Fatal(err)
+	}
+	page, _ := p.Start([]byte("b"), 0, "")
+	cursor, perr := page.Next("op", map[string]any{"~More": true, "~NextCountry": "US"})
+	if perr != nil || cursor == "" {
+		t.Fatalf("next = %q, %v", cursor, perr)
+	}
+	if _, perr := page.Next("op", map[string]any{"~More": true}); perr == nil {
+		t.Fatal("truncated answer without any position must be invalid")
 	}
 }
 

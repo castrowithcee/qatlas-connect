@@ -297,7 +297,7 @@ func (r *fakeReleases) delete(w http.ResponseWriter, rest string) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-func TestReleasesProfileOffersFiveToolsWithoutDeleteAndIsNotRecommended(t *testing.T) {
+func TestReleasesProfileOffersSevenToolsWithoutDeleteAndIsNotRecommended(t *testing.T) {
 	reg := registry(t)
 	metadata, _ := reg.ProviderMetadata(Provider)
 	var profile config.ToolProfile
@@ -310,12 +310,13 @@ func TestReleasesProfileOffersFiveToolsWithoutDeleteAndIsNotRecommended(t *testi
 	if !found || profile.Recommended {
 		t.Fatalf("profile = %+v, found=%v, want an existing, not-recommended profile", profile, found)
 	}
-	want := []string{releasesList.ID, releasesGet.ID, releaseAssetsList.ID, releasesCreate.ID, releasesUpdate.ID}
+	want := []string{releasesList.ID, releasesGet.ID, releaseAssetsList.ID, releaseNotesGenerate.ID, releasesCreate.ID,
+		releasesUpdate.ID, releaseAssetsUpdate.ID}
 	if strings.Join(profile.Tools, ",") != strings.Join(want, ",") {
 		t.Errorf("tools = %v, want %v", profile.Tools, want)
 	}
 	for _, id := range profile.Tools {
-		if id == releasesDelete.ID {
+		if id == releasesDelete.ID || id == releaseAssetsDelete.ID {
 			t.Error("the not-recommended profile selects delete, which every profile must leave out")
 		}
 	}

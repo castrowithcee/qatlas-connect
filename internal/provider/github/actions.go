@@ -570,6 +570,11 @@ type actionsArguments struct {
 	ArtifactID    int64 `json:"artifact_id"`
 	AttemptNumber int   `json:"attempt_number"`
 
+	// The arguments of github.pending-deployments.review; run_id is shared with the run tools above.
+	EnvironmentIDs []int64 `json:"environment_ids"`
+	ReviewState    string  `json:"state"`
+	Comment        string  `json:"comment"`
+
 	// The arguments of github.repository-settings.update.
 	AllowMergeCommit         *bool  `json:"allow_merge_commit"`
 	AllowSquashMerge         *bool  `json:"allow_squash_merge"`

@@ -19,6 +19,7 @@ import (
 	"github.com/castrowithcee/qatlas-connect/internal/secret"
 	"github.com/castrowithcee/qatlas-connect/internal/vault"
 	"github.com/castrowithcee/qatlas-kit/i18n"
+	kittui "github.com/castrowithcee/qatlas-kit/tui"
 )
 
 // newApprovalFixture builds, under dir, a configuration with one service ("wiki"), one vault credential
@@ -853,7 +854,7 @@ func TestApprovalDetailMarksRightsWithAndWithoutColour(t *testing.T) {
 	m := openApprovalModel(t, store, dir)
 	m.Update(tea.WindowSizeMsg{Width: 80, Height: 24})
 
-	setProfile(profileTrueColor)
+	setProfile(kittui.ProfileTrueColor)
 	t.Setenv("NO_COLOR", "")
 	useDarkColours()
 	view := m.approvalChangeView("Approve gh?", toolsChange())

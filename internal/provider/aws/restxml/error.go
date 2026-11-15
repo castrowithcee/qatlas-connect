@@ -5,6 +5,8 @@ import (
 	"regexp"
 	"strings"
 	"time"
+	"unicode"
+	"unicode/utf8"
 
 	"github.com/castrowithcee/qatlas-connect/internal/provider"
 	"github.com/castrowithcee/qatlas-connect/internal/provider/aws/awserr"
@@ -87,4 +89,66 @@ func looksLikeError(body []byte) bool {
 // ClassifyError implements httpbind.ErrorClassifier.
 func (Codec) ClassifyError(op string, status int, header http.Header, code, errType string) (*provider.Error, time.Duration) {
 	return awserr.ClassifyXML(op, status, header, code, errType)
+}
+
+const (
+	// maxErrorMessages and maxErrorMessage bound the single messages of an InvalidChangeBatch.
+	maxErrorMessages = 8
+	maxErrorMessage  = 400
+)
+
+// ErrorMessages implements httpbind.ErrorMessenger: the single messages of a Route 53 InvalidChangeBatch, which says
+// which change of the batch is wrong. They are provider text, so at most eight are kept, each cut to 400 bytes
+// at a character boundary, with control characters replaced by a space. No other code yields messages.
+func (c Codec) ErrorMessages(code string, body []byte) []string {
+	if code != "InvalidChangeBatch" || c.NoErrorWrapping {
+		return nil
+	}
+	root, err := parse(body)
+	if err != nil {
+		return nil
+	}
+	if root.name == "ErrorResponse" {
+		for _, k := range root.kids {
+			if k.name == "Error" {
+				root = k
+				break
+			}
+		}
+	}
+	var out []string
+	for _, group := range root.kids {
+		if group.name != "Messages" {
+			continue
+		}
+		for _, k := range group.kids {
+			if k.name != "Message" || len(k.kids) > 0 {
+				continue
+			}
+			if text := cleanMessage(k.text.String()); text != "" {
+				if out = append(out, text); len(out) == maxErrorMessages {
+					return out
+				}
+			}
+		}
+	}
+	return out
+}
+
+func cleanMessage(s string) string {
+	s = strings.Map(func(r rune) rune {
+		if unicode.IsControl(r) || r == utf8.RuneError {
+			return ' '
+		}
+		return r
+	}, s)
+	s = strings.TrimSpace(s)
+	if len(s) > maxErrorMessage {
+		cut := maxErrorMessage
+		for cut > 0 && !utf8.RuneStart(s[cut]) {
+			cut--
+		}
+		s = s[:cut]
+	}
+	return strings.TrimSpace(s)
 }

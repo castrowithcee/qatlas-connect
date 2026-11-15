@@ -23,5 +23,22 @@ var resultHookFields = map[string]hookField{
 			), "required", []string{"purpose", "type", "name", "value"}, "additionalProperties", false)
 			return newObject("type", "array", "maxItems", 64, "items", item)
 		},
+	}, "bucket-policy-status": {
+		name: fieldPublicStatus,
+		description: "Whether S3 evaluates the bucket policy just written as public, read with a call of its own after the write: " +
+			"is_public true or false, or unavailable with a reason when the status could not be read. A hint to review, not a check " +
+			"and not a guarantee",
+		schema: func() *object {
+			return newObject("type", "object", "properties", newObject(
+				"is_public", newObject("type", "boolean"),
+				"unavailable", newObject("type", "string", "maxLength", 300),
+			), "additionalProperties", false)
+		},
+	},
+	"region-allowlist": {
+		name: fieldAllowlistNote,
+		description: "Says that the region list of the connection is unchanged, and for a disabled region whether it is " +
+			"in that list; derived by this tool from the connection and not copied from the answer",
+		schema: func() *object { return newObject("type", "string", "maxLength", 400) },
 	},
 }

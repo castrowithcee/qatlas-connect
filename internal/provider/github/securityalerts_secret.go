@@ -147,26 +147,33 @@ func (x secretExtrasRaw) addTo(v *SecretScanningAlert) {
 	v.ClosureRequestReviewer = x.closureReviewer.project()
 	v.Links = x.links
 	if l := x.location; l != nil {
-		loc := SecretScanningLocation{StartLine: wholeNumber(l.StartLine), EndLine: wholeNumber(l.EndLine),
-			StartColumn: wholeNumber(l.StartColumn), EndColumn: wholeNumber(l.EndColumn),
-			BlobSHA: shortString(l.BlobSHA), CommitSHA: shortString(l.CommitSHA), Links: l.links}
-		loc.Path, loc.PathTruncated = textOf(l.Path, secretPathLimit)
-		if u := address(l.HTMLURL); u != nil {
-			loc.URL = *u
-		}
-		if loc.Path != "" || loc.StartLine != nil || loc.EndLine != nil || loc.StartColumn != nil ||
-			loc.EndColumn != nil || loc.BlobSHA != "" || loc.CommitSHA != "" || loc.URL != "" || loc.Links != nil {
+		if loc, ok := l.view(); ok {
 			v.FirstLocationDetected = &loc
 		}
 	}
 }
 
+// view projects a location; ok is false when it holds nothing to report.
+func (l *secretLocationRaw) view() (SecretScanningLocation, bool) {
+	loc := SecretScanningLocation{StartLine: wholeNumber(l.StartLine), EndLine: wholeNumber(l.EndLine),
+		StartColumn: wholeNumber(l.StartColumn), EndColumn: wholeNumber(l.EndColumn),
+		BlobSHA: shortString(l.BlobSHA), CommitSHA: shortString(l.CommitSHA), Links: l.links}
+	loc.Path, loc.PathTruncated = textOf(l.Path, secretPathLimit)
+	if u := address(l.HTMLURL); u != nil {
+		loc.URL = *u
+	}
+	return loc, loc.Path != "" || loc.StartLine != nil || loc.EndLine != nil || loc.StartColumn != nil ||
+		loc.EndColumn != nil || loc.BlobSHA != "" || loc.CommitSHA != "" || loc.URL != "" || loc.Links != nil
+}
+
 // ---- Schema
 
-var secretLocationSchema = objectSchema(`"path":{"type":"string"},"path_truncated":{"type":"boolean"},` +
+const secretLocationMembers = `"path":{"type":"string"},"path_truncated":{"type":"boolean"},` +
 	`"start_line":{"type":"integer"},"end_line":{"type":"integer"},"start_column":{"type":"integer"},` +
 	`"end_column":{"type":"integer"},"blob_sha":{"type":"string"},"commit_sha":{"type":"string"},` +
-	`"url":{"type":"string"},"links":` + linksSchema(secretLocationLinkKeys))
+	`"url":{"type":"string"}`
+
+var secretLocationSchema = objectSchema(secretLocationMembers + `,"links":` + linksSchema(secretLocationLinkKeys))
 
 var secretDetailProperties = `,"provider":{"type":"string"},"provider_slug":{"type":"string"},` +
 	`"is_base64_encoded":{"type":"boolean"},"has_more_locations":{"type":"boolean"},` +

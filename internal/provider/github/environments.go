@@ -245,6 +245,10 @@ type environmentsArguments struct {
 	SHA                    string                `json:"sha"`
 	Ref                    string                `json:"ref"`
 	Task                   string                `json:"task"`
+	Description            string                `json:"description"`
+	Payload                string                `json:"payload"`
+	TransientEnvironment   *bool                 `json:"transient_environment"`
+	ProductionEnvironment  *bool                 `json:"production_environment"`
 	WaitTimer              *int64                `json:"wait_timer"`
 	PreventSelfReview      *bool                 `json:"prevent_self_review"`
 	Reviewers              []environmentReviewer `json:"reviewers"`

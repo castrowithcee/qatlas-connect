@@ -77,6 +77,12 @@ const geolocationRoot = "https://www.googleapis.com"
 
 const geolocationHost = "www.googleapis.com"
 
+// aerialViewRoot is the eleventh fixed origin: Aerial View API is a separate Google service that accepts the same
+// key. Only the video tools use it, through getFrom and postTo.
+const aerialViewRoot = "https://aerialview.googleapis.com"
+
+const aerialViewHost = "aerialview.googleapis.com"
+
 // Bounds of one request. The timeout stays below the 60 seconds an invoke may take, so a slow answer ends
 // as a timeout of this provider and not as a cancelled call.
 const (
@@ -379,6 +385,9 @@ func (c *Client) exchangeAs(ctx context.Context, op string, req *http.Request, m
 		}
 		if req.URL.Host == geolocationHost {
 			failed = geolocationError(failed, response.StatusCode, body)
+		}
+		if req.URL.Host == aerialViewHost {
+			failed = aerialViewError(failed, response.StatusCode)
 		}
 		if response.StatusCode >= 300 && (response.StatusCode < 400 || response.StatusCode >= 500) {
 			failed = c.unsure(failed)

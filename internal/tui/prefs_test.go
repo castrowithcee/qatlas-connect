@@ -2,6 +2,7 @@ package tui
 
 import (
 	"io"
+	"os"
 	"strings"
 	"testing"
 
@@ -9,14 +10,15 @@ import (
 	"github.com/charmbracelet/colorprofile"
 
 	"github.com/castrowithcee/qatlas-connect/internal/uiprefs"
+	kittui "github.com/castrowithcee/qatlas-kit/tui"
 )
 
 // restoreRenderer puts the process-wide colour state back after a test that changes it.
 func restoreRenderer(t *testing.T) {
 	t.Helper()
-	fg, bg, profile, saved := termFg, termBg, currentProfile(), styles
+	colors, profile, saved := termColors, currentProfile(), styles
 	t.Cleanup(func() {
-		termFg, termBg = fg, bg
+		termColors = colors
 		setProfile(profile)
 		setTheme(saved)
 	})
@@ -24,9 +26,9 @@ func restoreRenderer(t *testing.T) {
 
 func TestColorSchemeNoColorWins(t *testing.T) {
 	restoreRenderer(t)
-	setProfile(profileASCII)
-	termFg, termBg = &rgb{255, 255, 255}, &rgb{0, 0, 0}
-	for _, mode := range themeNames() {
+	setProfile(kittui.ProfileMono)
+	termColors = kittui.TerminalColors{Foreground: "#ffffff", Background: "#000000"}
+	for _, mode := range themeSet.Names() {
 		applyTheme(mode)
 		for name, st := range map[string]lipgloss.Style{
 			"title": styles.title, "active": styles.active, "ok": styles.ok, "fail": styles.fail,
@@ -82,12 +84,12 @@ func TestNoColorWithAnyValueDrawsWithoutColour(t *testing.T) {
 	t.Setenv("COLORTERM", "truecolor")
 	t.Setenv("TERM", "xterm-256color")
 	t.Setenv("NO_COLOR", "")
-	if got := detectProfile(io.Discard); got != profileTrueColor {
+	if got := kittui.DetectColorProfile(io.Discard, os.Environ()); got != kittui.ProfileTrueColor {
 		t.Fatalf("without NO_COLOR the profile is %v, want true colour", got)
 	}
 	for _, value := range []string{"1", "yes"} {
 		t.Setenv("NO_COLOR", value)
-		setProfile(detectProfile(io.Discard))
+		setProfile(kittui.DetectColorProfile(io.Discard, os.Environ()))
 		applyTheme(uiprefs.ThemeQatlasDark)
 		if toColorprofile(currentProfile()) != colorprofile.ASCII {
 			t.Errorf("NO_COLOR=%s: profile %v, want ASCII", value, currentProfile())
