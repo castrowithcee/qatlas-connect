@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -133,10 +134,16 @@ func resolver(red *redact.Redactor, reads *int) *secret.Resolver {
 	}, nil, nil, red)
 }
 
+// sharedRegistry builds the registry once per test process; no test mutates it after the build.
+var sharedRegistry = sync.OnceValues(func() (*capability.Registry, error) {
+	reg := capability.NewRegistry()
+	return reg, Register(reg)
+})
+
 func registry(t *testing.T) *capability.Registry {
 	t.Helper()
-	reg := capability.NewRegistry()
-	if err := Register(reg); err != nil {
+	reg, err := sharedRegistry()
+	if err != nil {
 		t.Fatalf("Register() = %v", err)
 	}
 	return reg
