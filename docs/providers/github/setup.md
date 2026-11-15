@@ -245,6 +245,7 @@ Files below `.github/workflows/` are changed only with the workflow file tools; 
 | Create or delete an autolink of a repository | `repo`, as a repository administrator | Administration: read and write |
 | Read the deploy keys or the open invitations of a repository | `repo`, as a repository administrator | Administration: read |
 | Revoke a deploy key or withdraw an invitation | `repo`, as a repository administrator | Administration: read and write |
+| Read the Pages site, its builds, or its health check | `repo`; the health check also as a repository administrator, maintainer, or with the right to manage Pages settings | Pages: read |
 | Read webhooks and their deliveries of a repository | `admin:repo_hook` or `repo` | Webhooks: read |
 | Pause, resume, or delete a webhook of a repository | `admin:repo_hook` or `repo` | Webhooks: read and write |
 | Read webhooks and their deliveries of an organization | `admin:org_hook` | Webhooks: read (organization); as far as GitHub documents it |
@@ -259,7 +260,7 @@ Files below `.github/workflows/` are changed only with the workflow file tools; 
 | Watch, ignore, or unsubscribe a repository | GitHub decides per request | GitHub decides per request |
 
 Qatlas cannot check the fine-grained mappings for organization rulesets, organization webhooks, custom properties, and branch rules against GitHub live,
-so treat them as likely, not certain.
+so treat them as likely, not certain. The same holds for Pages: GitHub's reference names only the classic scope.
 
 ### Stars
 

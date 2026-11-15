@@ -9,6 +9,7 @@ import (
 
 	"github.com/castrowithcee/qatlas-connect/internal/application"
 	"github.com/castrowithcee/qatlas-connect/internal/config"
+	"github.com/castrowithcee/qatlas-connect/internal/provider"
 	"github.com/castrowithcee/qatlas-kit/redact"
 )
 
@@ -18,6 +19,8 @@ const testGHSA = "GHSA-c2f3-g4h5-jmpq"
 // route, and records the raw query of every request.
 type advisoryFake struct {
 	queries []string
+	// answerGHSA replaces the GHSA ID a repository advisory read answers with.
+	answerGHSA string
 }
 
 func (a *advisoryFake) vulnerabilities(count int) string {
@@ -45,6 +48,16 @@ func (a *advisoryFake) route(w http.ResponseWriter, req *http.Request) bool {
 			`"created_at":"2026-09-01T00:00:00Z","cwe_ids":["CWE-79"],"cvss":{"vector_string":null,"score":null},` +
 			`"vulnerabilities":[{"package":{"ecosystem":"go","name":"example.test/m"},` +
 			`"vulnerable_version_range":"<1.2","patched_versions":"1.2","vulnerable_functions":null}]}`
+	case strings.Contains(path, "/security-advisories/"):
+		ghsa := path[strings.LastIndex(path, "/")+1:]
+		if a.answerGHSA != "" {
+			ghsa = a.answerGHSA
+		}
+		single = `{"ghsa_id":"` + ghsa + `","cve_id":null,"html_url":"https://x/r","state":"draft","severity":"low",` +
+			`"summary":"Draft","description":"` + strings.Repeat("p", 4100) + `","author":{"login":"octocat"},` +
+			`"publisher":null,"created_at":"2026-09-01T00:00:00Z","cwe_ids":["CWE-79"],"credits":[{"login":"hubot","type":"finder"}],` +
+			`"cvss":{"vector_string":null,"score":null},"vulnerabilities":[{"package":{"ecosystem":"go","name":"example.test/m"},` +
+			`"vulnerable_version_range":"<1.2","patched_versions":"1.2","vulnerable_functions":null}]}`
 	case strings.Contains(path, "/code-quality/findings/"):
 		single = `{"number":12,"state":"open","url":"https://api.github.com/x/12","created_at":"2026-09-01T00:00:00Z",` +
 			`"rule":{"id":"go/useless-null-check","title":"Useless check","description":"desc","help":"help text",` +
@@ -56,7 +69,8 @@ func (a *advisoryFake) route(w http.ResponseWriter, req *http.Request) bool {
 	}
 	a.queries = append(a.queries, path+"?"+req.URL.RawQuery)
 	w.Header().Set("Content-Type", "application/json")
-	if strings.HasSuffix(path, "/404") || strings.HasSuffix(path, "/advisories/GHSA-2222-2222-2222") {
+	if strings.HasSuffix(path, "/404") || strings.HasSuffix(path, "/advisories/GHSA-2222-2222-2222") ||
+		strings.HasSuffix(path, "/security-advisories/GHSA-2222-2222-2222") {
 		w.WriteHeader(http.StatusNotFound)
 		fmt.Fprint(w, `{"message":"Not Found"}`)
 		return true
@@ -287,5 +301,91 @@ func TestOrganizationAdvisoriesDropExcludedAndUnmappedRows(t *testing.T) {
 	if _, err := invoke(t, core, organizationAdvisoriesList.ID, "ex-owner", `{"owner":"orgs/octo-org"}`, false); !isInvalidRequest(err) ||
 		reads != 0 || len(f.recorded()) != before {
 		t.Errorf("list of an excluded organization = %v (reads %d), want an invalid request before any I/O", err, reads)
+	}
+}
+
+func TestRepositoryAdvisoryGetReadsOneDraftWithAnExtendedDescription(t *testing.T) {
+	f, a, core, _ := serveAdvisories(t)
+	got, err := invoke(t, core, repositoryAdvisoriesGet.ID, "repo", `{"ghsa_id":"`+testGHSA+`"}`, false)
+	var advisory RepositoryAdvisory
+	if err != nil || json.Unmarshal(got, &advisory) != nil || advisory.GHSAID != testGHSA || advisory.State != "draft" ||
+		len([]rune(advisory.Description)) != advisoryDescriptionLimit || !advisory.Truncated ||
+		len(advisory.Credits) != 1 || !strings.Contains(string(got), `"repository":"octo-org/example"`) {
+		t.Fatalf("get = %s, %v", got, err)
+	}
+	if joined := strings.Join(a.queries, "\n"); !strings.Contains(joined, "/repos/octo-org/example/security-advisories/"+testGHSA) {
+		t.Errorf("queries = %s, want the fixed advisory route", joined)
+	}
+	for _, r := range f.recorded() {
+		if r.method != http.MethodGet {
+			t.Errorf("request %s %s, want only reads", r.method, r.path)
+		}
+	}
+}
+
+func TestRepositoryAdvisoryGetMapsRefusalsAndForeignAnswers(t *testing.T) {
+	_, a, core, _ := serveAdvisories(t)
+	if _, err := invoke(t, core, repositoryAdvisoriesGet.ID, "repo", `{"ghsa_id":"GHSA-2222-2222-2222"}`, false); classOf(err) != provider.ClassNotFound {
+		t.Errorf("missing advisory = %v, want not-found", err)
+	}
+	a.answerGHSA = "GHSA-cccc-cccc-cccc"
+	if _, err := invoke(t, core, repositoryAdvisoriesGet.ID, "repo", `{"ghsa_id":"`+testGHSA+`"}`, false); classOf(err) != provider.ClassInvalidResponse {
+		t.Errorf("answer for another advisory = %v, want an invalid response", err)
+	}
+	for _, status := range []int{http.StatusForbidden, http.StatusGatewayTimeout} {
+		f := &fakeGitHub{failure: func(w http.ResponseWriter, r *http.Request) bool {
+			w.WriteHeader(status)
+			fmt.Fprint(w, `{"message":"SECRETTEXT"}`)
+			return true
+		}}
+		red := &redact.Redactor{}
+		reads := 0
+		refused := application.New(registry(t), discoveryConfig(serve(t, f)), resolver(red, &reads), red)
+		before := len(f.recorded())
+		_, err := invoke(t, refused, repositoryAdvisoriesGet.ID, "repo", `{"ghsa_id":"`+testGHSA+`"}`, false)
+		want := provider.ClassPermission
+		if status == http.StatusGatewayTimeout {
+			want = provider.ClassTimeout
+		}
+		if classOf(err) != want || strings.Contains(err.Error(), "SECRETTEXT") || len(f.recorded())-before != 1 {
+			t.Errorf("status %d = %v after %d requests, want class %s once without provider text", status, err,
+				len(f.recorded())-before, want)
+		}
+	}
+}
+
+func TestRepositoryAdvisoryGetRefusesTargetsAndMalformedIDsBeforeIO(t *testing.T) {
+	f, _, core, reads := serveAdvisories(t)
+	for _, tt := range []struct{ connection, arguments string }{
+		{"planning", `{"ghsa_id":"` + testGHSA + `"}`},
+		{"open", `{"ghsa_id":"` + testGHSA + `"}`},
+		{"repo", `{"repository":"octo-org/other","ghsa_id":"` + testGHSA + `"}`},
+		{"repo", `{}`}, {"repo", `{"ghsa_id":"nope"}`}, {"repo", `{"ghsa_id":"GHSA-aaaa-aaaa-aaaa"}`},
+		{"repo", `{"ghsa_id":"../x"}`}, {"repo", `{"ghsa_id":"` + testGHSA + `","state":"published"}`},
+	} {
+		*reads = 0
+		before := len(f.recorded())
+		if _, err := invoke(t, core, repositoryAdvisoriesGet.ID, tt.connection, tt.arguments, false); err == nil {
+			t.Errorf("get(%s) on %s succeeded, want a refusal", tt.arguments, tt.connection)
+		}
+		if *reads != 0 || len(f.recorded()) != before {
+			t.Errorf("get(%s) on %s reached the credential or GitHub", tt.arguments, tt.connection)
+		}
+	}
+}
+
+func TestRepositoryAdvisoryGetRefusesAnExcludedRepositoryBeforeIO(t *testing.T) {
+	a := &advisoryFake{}
+	f := &fakeGitHub{failure: a.route}
+	cfg := discoveryConfig(serve(t, f))
+	cfg.Connections["ex"] = config.Connection{Service: "gh", Credential: "gh-reader", Effects: config.Effects(),
+		Exclude: []string{repoTarget}}
+	red := &redact.Redactor{}
+	reads := 0
+	core := application.New(registry(t), cfg, resolver(red, &reads), red)
+	if _, err := invoke(t, core, repositoryAdvisoriesGet.ID, "ex",
+		`{"repository":"octo-org/example","ghsa_id":"`+testGHSA+`"}`, false); err == nil || reads != 0 || len(f.recorded()) != 0 {
+		t.Errorf("get on an excluded repository = %v (reads %d, requests %d), want a refusal before any I/O", err, reads,
+			len(f.recorded()))
 	}
 }
