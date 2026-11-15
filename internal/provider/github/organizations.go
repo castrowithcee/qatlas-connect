@@ -524,7 +524,9 @@ var organizationInvitationsList = organizationReadTool("organization-invitations
 
 // organizationReadToolIDs are the organization read tools that name an organization as their owner target.
 var organizationReadToolIDs = []string{organizationsGet.ID, organizationMembersList.ID, organizationMembersGet.ID,
-	organizationRolesList.ID, outsideCollaboratorsList.ID, organizationInvitationsList.ID}
+	organizationRolesList.ID, outsideCollaboratorsList.ID, organizationInvitationsList.ID,
+	codeSecurityConfigurationsList.ID, codeSecurityConfigurationsGet.ID, codeSecurityDefaultsGet.ID,
+	codeSecurityConfigurationRepositoriesList.ID}
 
 // ---- Checks
 

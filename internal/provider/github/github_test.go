@@ -911,6 +911,8 @@ func TestRegisterPublishesMetadataAndTheReadOperations(t *testing.T) {
 		"github.check-suite-runs.list", "github.check-suites.list", "github.code.search", "github.code-quality-findings.get", "github.code-scanning-alerts.get", "github.code-scanning-alerts.list", "github.code-scanning-setup.get", "github.security-settings.get",
 		"github.collaborators.list", "github.commit-branches.list", "github.commit-comments.get", "github.commit-comments.list", "github.commit-pulls.list", "github.compare.get", "github.community-profile.get", "github.contributors.list", "github.stats-contributors.get", "github.stats-commit-activity.get", "github.stats-code-frequency.get", "github.stats-participation.get", "github.stats-punch-card.get", "github.activity.list", "github.languages.get", "github.repositories.get",
 
+		"github.code-security-configuration-repositories.list", "github.code-security-configurations.get",
+		"github.code-security-configurations.list", "github.code-security-defaults.get",
 		"github.comments.list", "github.commits.get", "github.commits.list", "github.commits.search",
 		"github.contents.get", "github.custom-properties.get", "github.dependabot-alerts.get",
 		"github.dependabot-alerts.list", "github.dependency-review.compare", "github.deploy-keys.get", "github.deploy-keys.list", "github.deployment-branch-policies.list",
@@ -950,7 +952,7 @@ func TestRegisterPublishesMetadataAndTheReadOperations(t *testing.T) {
 	if jobsLog.Risk.DataSensitivity != logSensitivity {
 		t.Errorf("the job log is classified as %q, want %q", jobsLog.Risk.DataSensitivity, logSensitivity)
 	}
-	if len(metadata.Tools) != 403 {
+	if len(metadata.Tools) != 407 {
 		t.Errorf("tools = %+v, want every operation offered to connection allow-lists", metadata.Tools)
 	}
 }

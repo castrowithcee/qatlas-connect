@@ -385,12 +385,14 @@ var secretScanningAlertsGet = capability.Descriptor{
 
 // securityAlertTools are the tools of the not-recommended setup profile security: the alert reads, the reads
 // of instances, analyses, and locations, then the advisory tools and the code quality finding read, then the
-// reads of the security switches and the code scanning default setup, then the dependency review. No tool that changes anything is in it:
+// reads of the security switches and the code scanning default setup, then the dependency review, then the code
+// security configuration reads of an organization. No tool that changes anything is in it:
 // each is offered only where a connection's tools list names it.
 var securityAlertTools = slices.Concat([]string{codeScanningAlertsList.ID, codeScanningAlertsGet.ID,
 	dependabotAlertsList.ID, dependabotAlertsGet.ID, secretScanningAlertsList.ID, secretScanningAlertsGet.ID,
 	codeScanningAlertInstancesList.ID, codeScanningAnalysesList.ID, codeScanningAnalysesGet.ID,
-	secretScanningLocationsList.ID}, advisoryTools, []string{securitySettingsGet.ID, codeScanningSetupGet.ID, dependencyReviewCompare.ID})
+	secretScanningLocationsList.ID}, advisoryTools, []string{securitySettingsGet.ID, codeScanningSetupGet.ID, dependencyReviewCompare.ID},
+	codeSecurityConfigurationTools)
 
 // alertArguments holds the arguments of every alert tool; the input schema of each admits only its own.
 type alertArguments struct {
