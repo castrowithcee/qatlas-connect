@@ -419,6 +419,10 @@ func TestRegisterPublishesTheChangeContracts(t *testing.T) {
 		"github.organization-invitations.cancel":      changeRisk(capability.EffectDelete, capability.IdempotencyUnknown),
 		"github.organization-invitations.create":      changeRisk(capability.EffectCreate, capability.IdempotencyNonIdempotent),
 		"github.team-members.invite":                  changeRisk(capability.EffectCreate, capability.IdempotencyNonIdempotent),
+		"github.packages.list":                        readRisk,
+		"github.packages.get":                         readRisk,
+		"github.package-versions.list":                readRisk,
+		"github.package-versions.get":                 readRisk,
 		"github.billing-usage.get":                    billingRisk,
 		"github.billing-usage-summary.get":            billingRisk,
 		"github.billing-premium-requests.get":         billingRisk,
@@ -701,7 +705,8 @@ func TestRegisterPublishesTheChangeContracts(t *testing.T) {
 			descriptor.ID == repositoriesCreate.ID || descriptor.ID == issueTypesList.ID ||
 			descriptor.ID == organizationAdvisoriesList.ID || slices.Contains(teamToolIDs, descriptor.ID) ||
 			slices.Contains(organizationToolIDs, descriptor.ID) || slices.Contains(billingToolIDs, descriptor.ID) ||
-			slices.Contains(invitationToolIDs, descriptor.ID) || descriptor.ID == appInstallationsList.ID || descriptor.ID == auditLogList.ID
+			slices.Contains(invitationToolIDs, descriptor.ID) || descriptor.ID == appInstallationsList.ID || descriptor.ID == auditLogList.ID ||
+			slices.Contains(packageToolIDs, descriptor.ID)
 		for _, forbidden := range []string{"owner", "base_url", "query\"", "project_id", "document"} {
 			if strings.Contains(ownerFiltersStripped(descriptor), forbidden) && !(owners && forbidden == "owner") {
 				t.Errorf("%s input offers %q: %s", descriptor.ID, forbidden, descriptor.InputSchema)

@@ -20,6 +20,7 @@ var toolGroups = []config.ToolGroup{
 	{ID: "discussions", Title: "Discussions", Description: "Discussions, their categories, and their comments"},
 	{ID: "gists", Title: "Gists", Description: "Gists and their files"},
 	{ID: "notifications", Title: "Notifications", Description: "Notification threads and thread subscriptions"},
+	{ID: "packages", Title: "Packages", Description: "GitHub Packages of a user or an organization and their versions"},
 	{ID: "accounts", Title: "Accounts", Description: "Users, organizations with their settings, members, roles, outside collaborators, and invitations, teams with their members, memberships, and repositories, the authenticated account with its followers, followed accounts, blocked users, and profile, and its rate limit, GitHub's meta information, license, .gitignore, and code of conduct templates, emojis, and Markdown rendering"},
 	{ID: "organization-admin", Title: "Organization administration", Description: "Administration of an account or organization: billing usage, cost, and budget reports, and the GitHub Apps installed in an organization with the removal of a repository from an installation, and the audit log of an organization"},
 }
@@ -64,6 +65,7 @@ var groupBySegment = map[string]string{
 	"organization-members": "accounts", "organization-roles": "accounts", "outside-collaborators": "accounts",
 	"organization-invitations": "accounts", "team-members": "accounts", "team-memberships": "accounts", "team-repositories": "accounts", "rate-limit": "accounts", "meta": "accounts", "licenses": "accounts",
 	"gitignore-templates": "accounts", "codes-of-conduct": "accounts", "emojis": "accounts", "markdown": "accounts",
+	"packages": "packages", "package-versions": "packages",
 	"traffic-views": "repositories", "traffic-clones": "repositories",
 	"traffic-paths": "repositories", "traffic-referrers": "repositories",
 	"billing-usage": "organization-admin", "billing-usage-summary": "organization-admin",

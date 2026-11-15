@@ -924,7 +924,7 @@ func Register(reg *capability.Registry) error {
 		maintenanceOperations(), actionsSettingsOperations(), runnersOperations(), runnerGroupOperations(), webhooksOperations(), deployKeysOperations(), repositoryInvitationsOperations(), pullRequestOperations(), checkOperations(), releaseOperations(), releaseAssetOperations(), pullRequestCommentOperations(),
 		pullRequestReviewOperations(), pullRequestReviewMaintenanceOperations(), pullRequestReviewCommentOperations(),
 		pullRequestReviewCommentMaintenanceOperations(), pullRequestReviewThreadOperations(),
-		pullRequestReviewerOperations(), accountOperations(), accountSocialOperations(), organizationOperations(), organizationReadOperations(), organizationManagementOperations(), teamManagementOperations(), starOperations(),
+		pullRequestReviewerOperations(), accountOperations(), accountSocialOperations(), organizationOperations(), organizationReadOperations(), organizationManagementOperations(), packagesOperations(), teamManagementOperations(), starOperations(),
 		searchOperations(), contentsOperations(), blameOperations(), commitsOperations(), refsOperations(), compareOperations(), commitRelationOperations(),
 		contentsWriteOperations(), refsWriteOperations(), repositoriesOperations(), collaboratorsManageOperations(), collaboratorsAddOperations(), invitationOperations(), repositoryDetailOperations(), trafficOperations(), repositoryStatsOperations(), rulesetsOperations(), branchProtectionOperations(), customPropertiesOperations(), actionVariablesOperations(), actionSecretsOperations(), dependabotSecretsOperations(), actionCachesOperations(), runCleanupOperations(), deploymentGateOperations(),
 		labelsOperations(), autolinksOperations(), milestonesOperations(), commentMaintenanceOperations(), commentVisibilityOperations(), issueLockOperations(), reactionsOperations(),
@@ -1708,6 +1708,8 @@ func (c *Client) restSubject(request *http.Request) subject {
 			return subject{what: "the gists of users/" + login}
 		case (rest == "followers" || rest == "following") && validLogin(login):
 			return subject{what: "the " + rest + " of users/" + login}
+		case (rest == "packages" || strings.HasPrefix(rest, "packages/")) && validLogin(login):
+			return packagesSubject("users", login)
 		}
 	}
 	tail, ok := strings.CutPrefix(full, c.endpoints.rest+"/repos/")
@@ -1900,6 +1902,9 @@ func organizationSubject(tail string) subject {
 	}
 	if len(parts) >= 3 && parts[1] == "code-security" && parts[2] == "configurations" {
 		return subject{what: codeSecuritySubject(parts[3:]) + " of orgs/" + owner}
+	}
+	if len(parts) >= 2 && strings.HasPrefix(parts[1], "packages") {
+		return packagesSubject("orgs", owner)
 	}
 	if len(parts) >= 2 && parts[1] == "issue-types" {
 		return subject{what: "the issue types of orgs/" + owner}
