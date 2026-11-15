@@ -134,3 +134,12 @@ var s3ReportTools = []Operation{
 const s3KeyReason = "the model marks the KMS key ID sensitive, but it is an identifier and not a secret; it is checked to be a key ARN of the bound account"
 
 const s3KeyRead = "the model marks the KMS key ID sensitive, but it is an identifier and not a secret; it shows which key encrypts the report"
+
+func init() {
+	declareGuards(
+		"s3-report-destination",
+	)
+	declareReadbacks(
+		"s3-report-destination",
+	)
+}

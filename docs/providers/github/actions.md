@@ -316,6 +316,19 @@ and Qatlas keeps them behind a boundary of their own:
 | `github.actions-retention.get` / `.set` | reads or changes how many days checks, runs, statuses, artifacts, and logs are kept; repository or organization |
 | `github.actions-access.get` / `.set` | reads or changes which workflows outside a private repository may use its actions; repository only |
 | `github.actions-oidc.get` / `.set` | reads or changes the customization of the OIDC subject claim; repository or organization |
+| `github.actions-oidc-properties.list` | lists the repository custom properties an organization includes as claims in the OIDC token of its Actions; organization only |
+| `github.actions-oidc-properties.add` | includes one custom property of the organization's schema as a claim; organization only |
+| `github.actions-oidc-properties.remove` | stops including one custom property; organization only |
+
+The OIDC property tools address an organization as `owner`, written `orgs/LOGIN`, which the connection must name
+as an owner target; a user is refused, and so is the enterprise level. The list is offered like any read, while
+`add` and `remove` are listed only and sent once without a retry. A property is named by its
+`custom_property_name`, 1 to 100 letters, digits, `_`, or `-`, as the custom property schema of the organization
+spells it; any other name is refused before a request is sent. GitHub's refusal of an unknown or already included
+property is the result of the call. Every property you include becomes visible to the cloud providers that
+trust the token: they see its value for each repository whose workflow requests a token, so include only
+properties that may be shared with them. The subject claim has its own tools above. GitHub documents classic
+token scopes only for these routes: `read:org` reads, `admin:org` changes.
 
 The reads are listed only as well: a workflow file and the Actions settings are part of what this group
 maintains, and the observer tools already read what diagnosing a run needs. A create and an update are

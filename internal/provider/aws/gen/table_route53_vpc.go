@@ -68,3 +68,9 @@ var route53VPCTools = []Operation{
 		Examples:   []Example{{Description: "Withdraw an authorization", Arguments: `{"hosted_zone_id":"Z0123456789ABCDEFGHIJ","vpc":{"vpc_region":"eu-central-1","vpc_id":"vpc-0123456789abcdef0"}}`}},
 	}, "hosted-zone"),
 }
+
+func init() {
+	declareGuards(
+		"route53-vpc-member",
+	)
+}

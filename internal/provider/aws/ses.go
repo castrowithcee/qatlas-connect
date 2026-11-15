@@ -10,6 +10,13 @@ import (
 	"github.com/castrowithcee/qatlas-connect/internal/provider/aws/sigv4"
 )
 
+func init() {
+	registerGuard("acm-certificate-arn", checkACMCertificateARN)
+	registerGuard("ses-multi-region", checkSESMultiRegion)
+	registerGuard("ses-reputation-policy-arn", checkSESReputationPolicyARN)
+	registerGuard("ses-configuration-set-values", checkSESConfigurationSetValues)
+}
+
 // The SES tools work on sender identities of the bound account. The checks here run before any I/O, and the
 // DNS help is derived by the tool from checked values, never copied from an answer.
 

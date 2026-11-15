@@ -10,6 +10,10 @@ import (
 	"github.com/castrowithcee/qatlas-kit/ratelimit"
 )
 
+func init() {
+	registerGuard("ses-send", checkSESSend)
+}
+
 // The SES send tools. Everything here runs before any I/O except the pace and the wording of an unclear
 // outcome: a send is never repeated, so a failure that may have delivered says so.
 

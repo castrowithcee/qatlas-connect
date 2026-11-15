@@ -157,3 +157,9 @@ var route53HealthTools = []Operation{
 		Examples:  []Example{{Description: "Delete a check", Arguments: `{"health_check_id":"11111111-2222-3333-4444-555555555555"}`}},
 	}, "health-check"),
 }
+
+func init() {
+	declareGuards(
+		"route53-health",
+	)
+}

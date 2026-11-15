@@ -75,3 +75,9 @@ var route53InstanceTools = []Operation{
 		Examples:  []Example{{Description: "Delete an instance", Arguments: `{"id":"11111111-89ab-cdef-0123-456789abcdef"}`}},
 	}, "traffic-policy-instance"),
 }
+
+func init() {
+	declareGuards(
+		"route53-instance",
+	)
+}

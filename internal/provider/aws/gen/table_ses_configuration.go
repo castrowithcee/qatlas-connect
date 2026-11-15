@@ -291,3 +291,9 @@ func mergeFields(a, b map[string]Field) map[string]Field {
 	}
 	return out
 }
+
+func init() {
+	declareGuards(
+		"ses-configuration-set-values",
+	)
+}

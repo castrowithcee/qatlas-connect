@@ -227,3 +227,9 @@ var sesTenantTools = []Operation{
 		Examples:   []Example{{Description: "Set the policy of an identity", Arguments: `{"region":"eu-central-1","reputation_entity_type":"RESOURCE","reputation_entity_reference":"arn:aws:ses:eu-central-1:123456789012:identity/example.com","reputation_entity_policy":"arn:aws:ses:eu-central-1:aws:reputation-policy/standard"}`}},
 	}, "policy"),
 }
+
+func init() {
+	declareGuards(
+		"ses-reputation-policy-arn",
+	)
+}
