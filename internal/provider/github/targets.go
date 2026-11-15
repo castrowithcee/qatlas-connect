@@ -191,7 +191,7 @@ func parseAllowlistExcluding(targets, excludes []string) (allowlist, error) {
 	seen := map[string]bool{}
 	for _, value := range excludes {
 		parsed, err := parseTarget(value)
-		if err != nil {
+		if err != nil || parsed.kind == kindRegistryHost {
 			return allowlist{}, errors.New("the GitHub exclusion list holds an unusable entry")
 		}
 		key := excludeKey(parsed)
@@ -339,6 +339,17 @@ func (a allowlist) names(kind targetKind) bool {
 	return false
 }
 
+// onlyRegistryHosts reports whether every target is a registry host. Such a list names no repository,
+// project, or owner, so it must not stand for the account behind the token either.
+func (a allowlist) onlyRegistryHosts() bool {
+	for _, entry := range a.targets {
+		if entry.kind != kindRegistryHost {
+			return false
+		}
+	}
+	return a.bound()
+}
+
 // ownerNames reports whether the list names one owner by login, ignoring its scope and whatever repository
 // or project it may also name: used to filter an account-wide result, such as the starred repositories, down
 // to what an owner target of the list allows, rather than down to a repository or a project of it.
@@ -363,6 +374,10 @@ func (a allowlist) ownerNames(login string) bool {
 // customer than the one its targets name. Targets that name only owners, or no targets at all, still allow
 // it; an owner target then narrows what an account-wide list shows, as ownerNames applies.
 func accountWideAllowed(allowed allowlist) error {
+	if allowed.onlyRegistryHosts() {
+		return invalidRequest("this connection's targets name only registry hosts, which reach no GitHub " +
+			"object, so it may not read data of the account behind its token as a whole")
+	}
 	if allowed.names(kindRepository) || allowed.names(kindProject) {
 		return invalidRequest("this connection's targets name a repository or a project, so it may not read " +
 			"data of the account behind its token as a whole; use a connection without such targets, or one " +

@@ -674,7 +674,7 @@ func Register(reg *capability.Registry) error {
 			Description: "optional allow-list of repos/OWNER/REPO, users/LOGIN/projects/NUMBER, and " +
 				"orgs/LOGIN/projects/NUMBER, or repos/OWNER/*, users/LOGIN/projects/*, and orgs/LOGIN/projects/* " +
 				"for all of one owner, and users/LOGIN or orgs/LOGIN to list what an owner holds and to create or " +
-				"copy projects there; without targets " +
+				"copy projects there, and registry-hosts/HOST for a host a private registry may use; without targets " +
 				"a connection reaches whatever its token reaches",
 			Kinds: []config.TargetKind{{
 				Name: "repository", Description: "one repository, or with * every repository of one owner",
@@ -695,6 +695,12 @@ func Register(reg *capability.Registry) error {
 					"by itself",
 				Forms:        []string{"users/LOGIN", "orgs/LOGIN"},
 				ExcludeForms: []string{"users/LOGIN", "orgs/LOGIN"},
+			}, {
+				Name: "registry-host", Description: "a host, with its port when it has one, that a private " +
+					"registry of an organization may use as its address; it reaches no GitHub object and allows " +
+					"no repository, project, or owner",
+				Forms:    []string{"registry-hosts/HOST"},
+				Unlisted: true,
 			}},
 			Validate: func(raw string) error {
 				_, err := parseTarget(raw)
@@ -1047,6 +1053,7 @@ const (
 	kindProject targetKind = iota + 1
 	kindRepository
 	kindOwner
+	kindRegistryHost
 )
 
 // target is one GitHub project, repository, or owner, or, as a pattern in a connection's targets, every
@@ -1058,6 +1065,7 @@ type target struct {
 	owner  string
 	number int
 	repo   string
+	host   string // a registry host, with its port when one is part of the approval
 }
 
 // pattern reports whether the target stands for every repository or every project of its owner.
@@ -1071,6 +1079,8 @@ func (t target) String() string {
 		return "repos/" + t.owner + "/" + t.repo
 	case kindOwner:
 		return t.scope + "/" + t.owner
+	case kindRegistryHost:
+		return registryHostPrefix + t.host
 	}
 	number := "*"
 	if t.number != 0 {
@@ -1129,6 +1139,11 @@ func parseTarget(raw string) (target, error) {
 	}
 	parts := strings.Split(trimmed, "/")
 	switch {
+	case len(parts) == 2 && parts[0] == "registry-hosts":
+		if !validRegistryHost(parts[1]) {
+			return target{}, errors.New("the GitHub target does not name a usable registry host")
+		}
+		return target{kind: kindRegistryHost, host: parts[1]}, nil
 	case len(parts) == 2 && (parts[0] == "users" || parts[0] == "orgs"):
 		if !validLogin(parts[1]) {
 			return target{}, errors.New("the GitHub target does not name a usable owner login")
@@ -1154,7 +1169,7 @@ func parseTarget(raw string) (target, error) {
 	}
 	return target{}, errors.New("a GitHub target must be users/LOGIN/projects/NUMBER, " +
 		"orgs/LOGIN/projects/NUMBER, or repos/OWNER/REPO, or one of them with * as its last segment, or " +
-		"users/LOGIN or orgs/LOGIN")
+		"users/LOGIN or orgs/LOGIN, or registry-hosts/HOST")
 }
 
 func projectNumber(value string) (int, bool) {
@@ -1365,7 +1380,7 @@ func open(ctx context.Context, resolved *config.Resolved, secrets *secret.Resolv
 	client := &Client{endpoints: api, allowed: allowed, auth: "Bearer " + value.Secret, http: provider.NoRedirectClient(defaultTimeout, transport),
 		limiter: lim}
 	for _, entry := range allowed.targets {
-		if !entry.pattern() && entry.kind != kindOwner {
+		if !entry.pattern() && entry.kind != kindOwner && entry.kind != kindRegistryHost {
 			client.target = entry
 			break
 		}
