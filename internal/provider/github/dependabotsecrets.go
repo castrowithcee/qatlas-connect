@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 
 	"github.com/castrowithcee/qatlas-connect/internal/capability"
+	"github.com/castrowithcee/qatlas-connect/internal/config"
 )
 
 // Dependabot secrets of a repository or of an organization. They share the helpers of the Actions secret tools
@@ -121,8 +122,39 @@ var dependabotSecretsDelete = capability.Descriptor{
 	}},
 }
 
+var dependabotSecretsSet = capability.Descriptor{
+	ID:      Provider + ".dependabot-secrets.set",
+	Version: 1,
+	Title:   "Set a GitHub Dependabot secret",
+	Description: "Create or replace one Dependabot secret of a repository or, with organization instead, of an " +
+		"organization a connection allows; the value is read from a local file the connection releases for " +
+		"reading, sealed locally with the public key of the same level, and only the sealed text is sent; the " +
+		"value is never an argument and never part of an answer; an organization secret needs visibility; " +
+		"exactly one of repository or organization is required; idempotent for the same file content; offered " +
+		"only where a connection's tools list names it",
+	Tags:                  []string{"github", "dependabot", "secrets", "set", "update"},
+	Risk:                  guardedRisk(capability.EffectUpdate, capability.IdempotencyIdempotent, secretSetSensitivity),
+	Provider:              Provider,
+	RequiresToolAllowList: true,
+	LocalFiles:            config.LocalFilesRead,
+	InputSchema:           secretSetInput(dependabotTargetKeys),
+	OutputSchema:          json.RawMessage(secretSetOutputFor(dependabotTargetProperties)),
+	Arguments: append(append([]capability.Argument{secretNameArgument, secretLocalPathArgument},
+		secretVisibilityArguments...), dependabotTargetArguments...),
+	Fields: dependabotFieldsWith(secretSetFields...),
+	Examples: []capability.Example{{
+		Description: "Set a repository Dependabot secret from a file",
+		Arguments:   json.RawMessage(`{"repository":"octo-org/example","name":"REGISTRY_TOKEN","local_path":"~/secrets/registry-token"}`),
+	}, {
+		Description: "Set an organization Dependabot secret for selected repositories",
+		Arguments: json.RawMessage(`{"organization":"orgs/octo-org","name":"REGISTRY_TOKEN",` +
+			`"local_path":"~/secrets/registry-token","visibility":"selected","selected_repositories":["octo-org/example"]}`),
+	}},
+}
+
 // dependabotSecretsOperations binds every Dependabot secret tool to its handler.
 func dependabotSecretsOperations() []capability.Operation {
-	return secretOperations(dependabotSecretFamily, dependabotSecretsList, dependabotSecretsGet,
-		dependabotSecretRepositoriesList, dependabotSecretsDelete)
+	return append(secretOperations(dependabotSecretFamily, dependabotSecretsList, dependabotSecretsGet,
+		dependabotSecretRepositoriesList, dependabotSecretsDelete),
+		secretSetOperation(dependabotSecretFamily, dependabotSecretsSet))
 }

@@ -28,6 +28,7 @@ var outputSamples = map[string]any{
 	"github.action-caches.list":                    ActionCacheList{},
 	"github.action-secrets.delete":                 ActionSecretDeleted{},
 	"github.action-secrets.set":                    ActionSecretSet{},
+	"github.dependabot-secrets.set":                ActionSecretSet{},
 	"github.action-secrets.get":                    ActionSecret{},
 	"github.action-secrets.list":                   ActionSecretList{},
 	"github.action-secret-repositories.list":       ActionSecretRepositoryList{},
