@@ -74,7 +74,7 @@ func withTargetArgument(d capability.Descriptor) capability.Descriptor {
 		customPropertiesGet.ID, customPropertiesSet.ID, issueFieldsList.ID,
 		actionVariablesList.ID, actionVariablesGet.ID, actionVariablesCreate.ID, actionVariablesUpdate.ID,
 		actionVariablesDelete.ID, actionSecretsList.ID, actionSecretsGet.ID, actionSecretRepositoriesList.ID,
-		actionSecretsDelete.ID, dependabotSecretsList.ID, dependabotSecretsGet.ID,
+		actionSecretsDelete.ID, actionSecretsSet.ID, dependabotSecretsList.ID, dependabotSecretsGet.ID,
 		dependabotSecretRepositoriesList.ID, dependabotSecretsDelete.ID, actionsSelectedGet.ID, actionsSelectedSet.ID, actionsForkApprovalGet.ID,
 		actionsForkApprovalSet.ID, actionsRetentionGet.ID, actionsRetentionSet.ID, actionsOIDCGet.ID,
 		actionsOIDCSet.ID, runnersList.ID, runnersGet.ID, runnersDelete.ID, runnerLabelsList.ID, runnerLabelsAdd.ID,

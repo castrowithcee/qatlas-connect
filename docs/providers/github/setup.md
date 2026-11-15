@@ -191,11 +191,11 @@ your token holds. A repository or organization policy can forbid a run although 
 | Change repository settings and topics, including archiving and unarchiving | `repo`, as a repository administrator | Administration: write |
 | Read Actions variables of a repository; create, change, or delete them | `repo` | Variables: read; read and write to change |
 | Read Actions variables of an environment; create, change, or delete them | `repo` | Environments: read; read and write to change |
-| Read the names and times of Actions secrets of a repository or an environment; delete one | `repo` | Secrets: read; read and write to delete |
+| Read the names and times of Actions secrets of a repository or an environment; set or delete one | `repo` | Secrets: read; read and write to set or delete |
 | Read the runner groups of an organization; change a runner group name or visibility | `admin:org` | Self-hosted runners: read, or read and write (organization); as far as GitHub documents it |
 | Read the GitHub-hosted runners of an organization | `manage_runner:org` | Hosted runners: read (organization); as far as GitHub documents it |
 | Read Actions variables of an organization; create, change, or delete them | `admin:org`, plus `repo` where a private repository is involved | Variables: read, read and write to change (organization); selecting repositories also needs Metadata: read on them |
-| Read the names and times of Actions secrets of an organization and the repositories of one; delete one | `admin:org`, plus `repo` where a private repository is involved | Secrets: read, read and write to delete (organization); as far as GitHub documents it |
+| Read the names and times of Actions secrets of an organization and the repositories of one; set or delete one | `admin:org`, plus `repo` where a private repository is involved | Secrets: read, read and write to set or delete (organization); selecting repositories also needs Metadata: read on them; as far as GitHub documents it |
 | Read the names and times of Dependabot secrets of a repository; delete one | `repo` | Dependabot secrets: read; read and write to delete |
 | Read the names and times of Dependabot secrets of an organization and the repositories of one; delete one | `admin:org` | Dependabot secrets: read, read and write to delete (organization); as far as GitHub documents it |
 | Read environments, deployment branch policies, and deployment protection rules | `repo` for private repositories, none for public | Actions: read |
@@ -205,6 +205,9 @@ your token holds. A repository or organization policy can forbid a run although 
 | Approve a workflow run of a fork | `repo` | Actions: read and write |
 | Approve or reject the pending deployments of a run, as a required reviewer of the environment | `repo` | Deployments: read and write, Actions: read |
 | Name a team as reviewer of an environment | `read:org` | Members: read (organization) |
+
+Setting an Actions secret reads the value from a local file, so the connection also needs the directory of that file in
+`files.read`; the token rights above are all it needs from GitHub.
 
 Workflow files, Actions permissions and settings, self-hosted runners, and repository settings are high risk. Give those connections a token of their
 own that no other connection uses, ideally fine-grained and limited to the one repository, with only the
