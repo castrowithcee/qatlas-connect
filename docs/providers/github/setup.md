@@ -337,6 +337,18 @@ refuses it otherwise, and Qatlas checks it before the request.
 | Read the rate limit, meta information, license, `.gitignore`, and code of conduct templates, and emojis | none | none |
 | Render Markdown | none for public references; `repo` for a private repository as `context` | Contents: read for a private repository as `context` |
 
+### Organization administration
+
+| Tools | Classic | Fine-grained |
+| --- | --- | --- |
+| Billing usage, usage summary, premium request, and AI credit reports of an organization; budgets of an organization | GitHub names no classic scope; the user must be an organization owner or billing manager | Administration: read (organization) |
+| The same reports of a user | GitHub names no classic scope | Plan: read (user) |
+
+GitHub serves these reports to accounts on the enhanced billing platform only. When it refuses a read with 403 or
+404, the tool answers with the state `unavailable` instead of an error, because GitHub gives the same answer for a
+missing right, an account without the platform, and an unknown owner or budget; see
+[organization administration](organization-admin.md#billing).
+
 ## What happens without a right
 
 When the token lacks a right, one of two things happens.

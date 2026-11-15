@@ -21,6 +21,7 @@ var toolGroups = []config.ToolGroup{
 	{ID: "gists", Title: "Gists", Description: "Gists and their files"},
 	{ID: "notifications", Title: "Notifications", Description: "Notification threads and thread subscriptions"},
 	{ID: "accounts", Title: "Accounts", Description: "Users, organizations with their settings, members, roles, outside collaborators, and invitations, teams with their members, memberships, and repositories, the authenticated account with its followers, followed accounts, blocked users, and profile, and its rate limit, GitHub's meta information, license, .gitignore, and code of conduct templates, emojis, and Markdown rendering"},
+	{ID: "organization-admin", Title: "Organization administration", Description: "Administration of an account or organization: billing usage, cost, and budget reports"},
 }
 
 // groupBySegment maps the resource segment of a tool ID (github.<segment>.<action>) to its group. Segments
@@ -63,6 +64,9 @@ var groupBySegment = map[string]string{
 	"gitignore-templates": "accounts", "codes-of-conduct": "accounts", "emojis": "accounts", "markdown": "accounts",
 	"traffic-views": "repositories", "traffic-clones": "repositories",
 	"traffic-paths": "repositories", "traffic-referrers": "repositories",
+	"billing-usage": "organization-admin", "billing-usage-summary": "organization-admin",
+	"billing-premium-requests": "organization-admin", "billing-ai-credits": "organization-admin",
+	"billing-budgets": "organization-admin",
 }
 
 // groupOf returns the group of a GitHub tool ID, or "" for an ID outside every group.
