@@ -42,8 +42,8 @@ func TestOrganizationToolsSatisfyTheirContractThroughTheApplicationCore(t *testi
 }
 
 // Every refusal the owner, the team slug, or the scope settles before a secret is read and before GitHub is
-// contacted; teams belong to an organization, so a user owner is refused even where the connection's targets
-// allow it.
+// contacted; an organization tool refuses a user owner even where the connection's targets allow it, and the
+// shared refusal gives no team reason to a tool without teams.
 func TestOrganizationToolRefusalsBeforeIO(t *testing.T) {
 	f := &fakeGitHub{}
 	reads := 0
@@ -55,9 +55,12 @@ func TestOrganizationToolRefusalsBeforeIO(t *testing.T) {
 	}{
 		{"no owner and none the targets name exactly", organizationTeamsList.ID, "open", `{}`,
 			"owner is required"},
-		{"a user owner", organizationTeamsList.ID, "user", `{}`, "teams belong to an organization"},
+		{"a user owner", organizationTeamsList.ID, "user", `{}`, "owner must be an organization"},
 		{"a user owner argument on an open connection", organizationTeamsList.ID, "open",
-			`{"owner":"users/octocat"}`, "teams belong to an organization"},
+			`{"owner":"users/octocat"}`, "owner must be an organization"},
+		{"a user owner of a tool without teams", auditLogList.ID, "user", `{}`, "owner must be an organization"},
+		{"a user owner argument of a tool without teams", auditLogList.ID, "open", `{"owner":"users/octocat"}`,
+			"owner must be an organization"},
 		{"an owner outside the targets", organizationTeamsList.ID, "org", `{"owner":"orgs/other"}`,
 			"outside the targets"},
 		{"an invalid team slug", teamMembersList.ID, "org", `{"team":"not a slug"}`, ""},
@@ -67,6 +70,9 @@ func TestOrganizationToolRefusalsBeforeIO(t *testing.T) {
 		_, err := invoke(t, core, tt.operation, tt.connection, tt.arguments, false)
 		if !isInvalidRequest(err) || (tt.message != "" && !strings.Contains(err.Error(), tt.message)) {
 			t.Errorf("%s: err = %v, want an invalid request naming %q", tt.name, err, tt.message)
+		}
+		if tt.operation == auditLogList.ID && err != nil && strings.Contains(err.Error(), "team") {
+			t.Errorf("%s: err = %v names teams", tt.name, err)
 		}
 		if reads != 0 || len(f.recorded()) != before {
 			t.Errorf("%s reached the credential or GitHub", tt.name)
