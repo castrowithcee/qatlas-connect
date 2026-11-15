@@ -1,10 +1,10 @@
 ---
 description: >
-  Describes the GitHub repository tools: the repository list of an owner, the details, languages, contributors, and community profile of one repository, its statistics and activity feed, repository create, fork, rename, and delete, collaborators, deploy keys, repository invitations, repository traffic, autolinks, rulesets, existing webhooks and their deliveries, branch protection and branch rules, custom properties, repository settings, starred repositories, and the repository search.
+  Describes the GitHub repository tools: the repository list of an owner, the details, languages, contributors, and community profile of one repository, its statistics and activity feed, repository create, fork, rename, and delete, collaborators, deploy keys, repository invitations, repository traffic, GitHub Pages sites with their builds and health check, autolinks, rulesets, existing webhooks and their deliveries, branch protection and branch rules, custom properties, repository settings, starred repositories, and the repository search.
 type: knowledge
 edit: shared
 created: 2026-10-22
-updated: 2026-11-12
+updated: 2026-11-15
 ---
 
 # GitHub repositories
@@ -269,6 +269,39 @@ own invitation list, at most the newest 1000 entries, and sends the delete only 
 there; an id of another repository or beyond that window answers `not-found` or `invalid-response` and
 nothing is sent. After a timeout or a server error, a change reports that it may have been applied; read the
 list before trying again.
+
+The token rights are listed under [Repositories, rulesets, and properties](setup.md#repositories-rulesets-and-properties).
+
+## GitHub Pages
+
+| Tool | Does |
+| --- | --- |
+| `github.pages.get` | reads the Pages site of a repository |
+| `github.pages-builds.list` | lists the Pages builds of a repository, paged |
+| `github.pages-builds.get` | reads one build by its numeric `build_id`, or the most recent one with `build_id: "latest"` |
+| `github.pages-health.get` | reads the DNS health check of the custom domain of the site |
+
+All four only read and take `repository` like the other repository tools, checked against the connection's
+targets and exclusions before any credential is resolved. They belong to no profile and are not listed-only.
+Creating or changing a Pages site and triggering a build are not offered.
+
+The site shows `status`, `cname`, `protected_domain_state`, `pending_domain_unverified_at`, `custom_404`,
+`build_type`, `source` (`branch`, `path`), `public`, `https_certificate` (`state`, `description`, `domains`,
+`expires_at`; at most 100 domains, `domains_truncated` says so), `https_enforced`, and `links` (the REST `url` and
+the site's `html_url`). A build shows `status`, `error` (`message`), `pusher` (the account members of
+`github.collaborators.list`), `commit`, `duration` in milliseconds, `created_at`, `updated_at`, and `links`.
+GitHub names no build id in its build object, so none is shown; it is the last part of the build `url`. A member
+GitHub leaves out or sets to `null` is absent, never replaced by a default. An answer that does not prove it
+belongs to the requested repository, or a build of another id, is refused as `invalid-response`.
+
+The first request of `github.pages-health.get` makes GitHub start the check in the background and answers
+`ready: false` without a result; a later request answers `ready: true` with `domain` and, where GitHub reports
+one, `alt_domain`, each with every finding GitHub documents. A site without a custom domain answers `400` or
+`422` from GitHub; the tool says so without GitHub's text.
+
+The custom domain, source branch and path, certificate domains, DNS findings, build errors, and every address
+come from the repository owner or from DNS and are untrusted data. No address is ever fetched. The reads are
+sent once; a timeout is reported and not repeated.
 
 The token rights are listed under [Repositories, rulesets, and properties](setup.md#repositories-rulesets-and-properties).
 

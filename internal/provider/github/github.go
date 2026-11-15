@@ -169,6 +169,9 @@
 // profile security and change nothing. The global tools are GitHub-wide and refused on a connection whose
 // targets name a repository or a project; the organization tool needs an organization owner. Advisory and
 // finding texts are untrusted data, cut at fixed lengths, and every cut says so.
+// github.pages.get reads the GitHub Pages site of a repository, github.pages-builds.list and .get its builds, and
+// github.pages-health.get the DNS health check of its custom domain; they change nothing and fetch no address
+// GitHub names.
 // github.copilot-assignments.create assigns the Copilot coding agent to an issue of a repository, optionally with
 // a base branch, extra instructions, and the intent behind the choice, and github.copilot-reviews.request
 // requests a Copilot review of a pull request; they are offered only by the not-recommended setup profile
@@ -935,7 +938,7 @@ func Register(reg *capability.Registry) error {
 		capability.Operation{Descriptor: projectIssuesCreate, Handler: capability.Handler(invokeProjectIssuesCreate)},
 	}, slices.Concat(itemOperations(), lifecycleOperations(), fieldOperations(), viewOperations(),
 		statusOperations(), accessOperations(), automationOperations(), actionsOperations(),
-		maintenanceOperations(), actionsSettingsOperations(), actionsOIDCPropertiesOperations(), runnersOperations(), runnerGroupOperations(), webhooksOperations(), deployKeysOperations(), repositoryInvitationsOperations(), pullRequestOperations(), checkOperations(), releaseOperations(), releaseAssetOperations(), pullRequestCommentOperations(),
+		maintenanceOperations(), actionsSettingsOperations(), actionsOIDCPropertiesOperations(), runnersOperations(), runnerGroupOperations(), webhooksOperations(), deployKeysOperations(), pagesOperations(), repositoryInvitationsOperations(), pullRequestOperations(), checkOperations(), releaseOperations(), releaseAssetOperations(), pullRequestCommentOperations(),
 		pullRequestReviewOperations(), pullRequestReviewMaintenanceOperations(), pullRequestReviewCommentOperations(),
 		pullRequestReviewCommentMaintenanceOperations(), pullRequestReviewThreadOperations(),
 		pullRequestReviewerOperations(), accountOperations(), accountSocialOperations(), organizationOperations(), organizationReadOperations(), organizationManagementOperations(), packagesOperations(), teamManagementOperations(), starOperations(), interactionLimitOperations(),
@@ -1789,6 +1792,9 @@ func (c *Client) restSubject(request *http.Request) subject {
 			s.what = what
 		}
 		if what := grantsSubject(parts[2]); what != "" {
+			s.what = what
+		}
+		if what := pagesSubject(parts[2]); what != "" {
 			s.what = what
 		}
 		if what := customPropertiesSubject(parts[2]); what != "" {
