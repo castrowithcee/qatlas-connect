@@ -29,11 +29,11 @@ func TestCredentialIDSurvivesPendingMergeAndUnlock(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	entry, ok := locked.doc.byName("reader")
+	entry, ok := heldDocument(t, locked).byName("reader")
 	if !ok || entry.CredentialID != credID {
 		t.Fatalf("entry = %+v, want credential id %s", entry, credID)
 	}
-	if other, _ := locked.doc.byName("other"); other.CredentialID != "" {
+	if other, _ := heldDocument(t, locked).byName("other"); other.CredentialID != "" {
 		t.Errorf("an entry written without an id has %q", other.CredentialID)
 	}
 }
@@ -103,7 +103,7 @@ func TestRecordCredentialIDsInEveryState(t *testing.T) {
 		if _, err := reopened.Unlock("phrase"); err != nil {
 			t.Fatal(err)
 		}
-		if e, _ := reopened.doc.byName("reader"); e.CredentialID != idReader {
+		if e, _ := heldDocument(t, reopened).byName("reader"); e.CredentialID != idReader {
 			t.Errorf("entry = %+v", e)
 		}
 		if err := undo(); err != nil {
@@ -113,7 +113,7 @@ func TestRecordCredentialIDsInEveryState(t *testing.T) {
 		if _, err := again.Unlock("phrase"); err != nil {
 			t.Fatal(err)
 		}
-		if e, _ := again.doc.byName("reader"); e.CredentialID != "" {
+		if e, _ := heldDocument(t, again).byName("reader"); e.CredentialID != "" {
 			t.Errorf("undo kept %q", e.CredentialID)
 		}
 	})
@@ -128,7 +128,7 @@ func TestRecordCredentialIDsInEveryState(t *testing.T) {
 		if _, err := seen.Unlock("phrase"); err != nil {
 			t.Fatal(err)
 		}
-		modified, _ := seen.doc.byName("reader")
+		modified, _ := heldDocument(t, seen).byName("reader")
 		locked := New(dir)
 		n, undo, err := locked.RecordCredentialIDs(ids)
 		if err != nil || n != 2 {
@@ -151,10 +151,10 @@ func TestRecordCredentialIDsInEveryState(t *testing.T) {
 		if _, err := probe.Unlock("phrase"); err != nil {
 			t.Fatal(err)
 		}
-		if e, _ := probe.doc.byName("reader"); e.CredentialID != idReader || e.Roles["token"] != "x" || !e.Modified.Equal(modified.Modified) {
+		if e, _ := heldDocument(t, probe).byName("reader"); e.CredentialID != idReader || e.Roles["token"] != "x" || !e.Modified.Equal(modified.Modified) {
 			t.Errorf("entry after unlock = %+v", e)
 		}
-		if _, ok := probe.doc.byName("missing"); ok {
+		if _, ok := heldDocument(t, probe).byName("missing"); ok {
 			t.Error("an id-only pending write created an entry")
 		}
 	})
@@ -180,7 +180,7 @@ func TestIDOnlyPendingFindsAPendingSecretOfTheSameName(t *testing.T) {
 	if _, err := locked.Unlock("phrase"); err != nil {
 		t.Fatal(err)
 	}
-	if e, ok := locked.doc.byName("fresh"); !ok || e.CredentialID != credID || e.Roles["token"] != "s3cret" {
+	if e, ok := heldDocument(t, locked).byName("fresh"); !ok || e.CredentialID != credID || e.Roles["token"] != "s3cret" {
 		t.Fatalf("entry = %+v, %v", e, ok)
 	}
 }

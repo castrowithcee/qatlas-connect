@@ -2,6 +2,7 @@ package vault
 
 import (
 	"errors"
+	"filippo.io/age"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -370,7 +371,7 @@ func TestOpenWithKeyApprovesForTheVaultOnDisk(t *testing.T) {
 	change := vorbild
 	change.Connection = "change"
 
-	opened, err := OpenWithKey(v.Dir(), v.identity.key)
+	opened, err := OpenWithKey(v.Dir(), testKey(t, v))
 	if err != nil {
 		t.Fatalf("OpenWithKey() = %v", err)
 	}
@@ -385,8 +386,8 @@ func TestOpenWithKeyApprovesForTheVaultOnDisk(t *testing.T) {
 	if err := again.CheckApproval(change); err != nil {
 		t.Errorf("CheckApproval() after a token approval = %v, want it approved", err)
 	}
-	other, _ := generateIdentity()
-	if _, err := OpenWithKey(v.Dir(), other.key); err == nil {
+	other, _ := age.GenerateX25519Identity()
+	if _, err := OpenWithKey(v.Dir(), other); err == nil {
 		t.Errorf("OpenWithKey() with another key succeeded")
 	}
 }

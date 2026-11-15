@@ -21,6 +21,7 @@ import (
 	"github.com/castrowithcee/qatlas-connect/internal/vaultproc"
 	"github.com/castrowithcee/qatlas-kit/output"
 	"github.com/castrowithcee/qatlas-kit/redact"
+	kitvault "github.com/castrowithcee/qatlas-kit/vault"
 )
 
 // Tests here never open the real controlling terminal: doing that from 'go test' would hang whenever the
@@ -565,7 +566,7 @@ func migrateOptions(t *testing.T, dir string, store *secret.MemoryStore) *Option
 	t.Helper()
 	red := &redact.Redactor{}
 	resolver := secret.NewWith(os.Getenv, store, secret.NewFile(filepath.Join(dir, secret.FileName)), red).
-		WithVault(vault.New(dir), vault.ReadPassphrase)
+		WithVault(vault.New(dir), kitvault.ReadPassphrase)
 	return &Options{Redactor: red, Secrets: resolver}
 }
 

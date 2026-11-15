@@ -272,17 +272,10 @@ func (d *document) bindings() Bindings {
 // unlockedDocument returns the document of an encrypted vault unlocked in this process. Approvals exist only
 // there: an unencrypted vault binds no connection, and a locked one cannot be read.
 func (v *Vault) unlockedDocument() (*document, error) {
-	if v.unlocked && v.doc != nil && v.identity != nil {
-		return v.doc, nil
-	}
-	state, err := v.State()
-	if err != nil {
+	if _, err := v.identity(); err != nil {
 		return nil, err
 	}
-	if state == StateLocked {
-		return nil, ErrNotUnlocked
-	}
-	return nil, ErrNotEncrypted
+	return v.load()
 }
 
 // Bindings returns the bindings of the vault unlocked in this process, for a vault process to check accesses
@@ -431,41 +424,27 @@ func (v *Vault) CarryApproval(from, to, connectionID string) (carried bool, undo
 	if !ok {
 		return false, func() error { return nil }, nil
 	}
-	// An approval exists only in a document that was read from secrets.age, so the file exists. Undo writes
-	// back its very bytes, not a new encryption of the same document.
-	original, err := readFile(v.secretsPath())
-	if err != nil {
-		return false, nil, fmt.Errorf("cannot read %s: %w", v.secretsPath(), err)
-	}
-	previous := doc.Approvals
-	next := make(map[string]Approval, len(previous)+1)
-	for name, a := range previous {
+	next := make(map[string]Approval, len(doc.Approvals)+1)
+	for name, a := range doc.Approvals {
 		next[name] = a
 	}
 	approval.ConnectionID = connectionID
 	next[from] = approval
 	approval.Scope.Connection = to
 	next[to] = approval
-	if err := v.writeApprovals(doc, next); err != nil {
+	doc.Approvals = next
+	// Undo writes back the very bytes of secrets.age, not a new encryption of the same document.
+	undo, err = v.writeWithUndo(doc)
+	if err != nil {
 		return false, nil, err
 	}
-	return true, func() error {
-		if err := writeFile(v.secretsPath(), original); err != nil {
-			return err
-		}
-		doc.Approvals = previous
-		return nil
-	}, nil
+	return true, undo, nil
 }
 
-// writeApprovals writes doc with approvals in place of its own and adopts them only once the write
-// succeeded, so a failed write leaves this process with what the vault on disk still holds.
+// writeApprovals writes doc with approvals in place of its own. A failed write leaves this process with
+// what the vault on disk still holds.
 func (v *Vault) writeApprovals(doc *document, approvals map[string]Approval) error {
 	next := *doc
 	next.Approvals = approvals
-	if err := v.writeEncrypted(&next); err != nil {
-		return err
-	}
-	doc.Approvals = approvals
-	return nil
+	return v.write(&next)
 }

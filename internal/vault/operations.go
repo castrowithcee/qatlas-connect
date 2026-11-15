@@ -1,9 +1,6 @@
 package vault
 
 import (
-	"errors"
-	"fmt"
-	"os"
 	"sort"
 	"time"
 )
@@ -28,24 +25,18 @@ func (v *Vault) Get(name, role string, ask PassphraseFunc) (value string, found 
 	switch state {
 	case StateAbsent:
 		return "", false, state, nil
-	case StateUnencrypted:
-		doc, err := loadPlainDocument(v.plainPath())
-		if err != nil {
-			return "", false, state, err
-		}
-		value, found = roleOf(doc, name, role)
-		return value, found, state, nil
 	case StateLocked:
 		if err := v.ensureUnlocked(ask); err != nil {
 			return "", false, StateLocked, err
 		}
 		state = StateUnlocked
-		fallthrough
-	case StateUnlocked:
-		value, found = roleOf(v.doc, name, role)
-		return value, found, state, nil
 	}
-	return "", false, state, fmt.Errorf("vault: unreachable state %q", state)
+	doc, err := v.load()
+	if err != nil {
+		return "", false, state, err
+	}
+	value, found = roleOf(doc, name, role)
+	return value, found, state, nil
 }
 
 func roleOf(doc *document, name, role string) (string, bool) {
@@ -69,7 +60,7 @@ func (v *Vault) Set(name, role, value string, offer PassphraseFunc) error {
 // SetUndoable is Set that also returns undo, which puts the vault back as this call found it: the role gets
 // its previous value again, or is removed when it had none, and a pending entry this call queued is removed
 // again. Undoing needs no passphrase: an encrypted, locked vault is only ever touched by removing the
-// pending file this call wrote, and a vault this call created is unlocked in this process. undo is nil when
+// pending entry this call wrote, and a vault this call created is unlocked in this process. undo is nil when
 // err is not.
 func (v *Vault) SetUndoable(name, role, value string, offer PassphraseFunc) (undo func() error, err error) {
 	return v.SetUndoableWithID(name, "", role, value, offer)
@@ -99,54 +90,38 @@ func (v *Vault) SetUndoableWithID(name, credentialID, role, value string, offer 
 			_, err := v.Delete(name, role, nil)
 			return err
 		}, nil
-	case StateUnencrypted:
-		doc, err := loadPlainDocument(v.plainPath())
-		if err != nil {
-			return nil, err
-		}
-		old, had := roleOf(doc, name, role)
-		doc.setRole(name, credentialID, role, value, time.Now().UTC())
-		if err := v.writePlain(doc); err != nil {
-			return nil, err
-		}
-		return func() error {
-			doc, err := loadPlainDocument(v.plainPath())
-			if err != nil {
-				return err
-			}
-			restoreRole(doc, name, role, old, had)
-			return v.writePlain(doc)
-		}, nil
 	case StateLocked:
-		path, err := v.addPending(name, credentialID, map[string]string{role: value})
+		pending, err := v.addPending(name, credentialID, map[string]string{role: value})
 		if err != nil {
 			return nil, err
 		}
-		return func() error {
-			if err := os.Remove(path); err != nil && !isNotExist(err) {
-				return err
-			}
-			return nil
-		}, nil
-	case StateUnlocked:
-		old, had := roleOf(v.doc, name, role)
-		v.doc.setRole(name, credentialID, role, value, time.Now().UTC())
-		if err := v.writeEncrypted(v.doc); err != nil {
-			return nil, err
-		}
-		return func() error {
-			restoreRole(v.doc, name, role, old, had)
-			return v.writeEncrypted(v.doc)
-		}, nil
+		return func() error { return v.kv.RemovePending(pending) }, nil
 	}
-	return nil, fmt.Errorf("vault: unreachable state %q", state)
+	doc, err := v.load()
+	if err != nil {
+		return nil, err
+	}
+	old, had := roleOf(doc, name, role)
+	doc.setRole(name, credentialID, role, value, time.Now().UTC())
+	if err := v.write(doc); err != nil {
+		return nil, err
+	}
+	return func() error {
+		doc, err := v.load()
+		if err != nil {
+			return err
+		}
+		restoreRole(doc, name, role, old, had)
+		return v.write(doc)
+	}, nil
 }
 
 // RecordCredentialIDs records ids, the config id of each credential by name, in the vault entry of that name
 // where the entry has none yet. It creates no entry and changes no secret. An encrypted, locked vault takes
 // each id as a pending write instead, which needs no passphrase and is merged on the next unlock; an absent
 // vault is left alone. It reports how many ids it recorded or queued, and undo, which puts the vault back as
-// this call found it without a passphrase. undo is nil when err is not.
+// this call found it without a passphrase: the document file byte for byte, or the pending entries it queued
+// removed. undo is nil when err is not.
 func (v *Vault) RecordCredentialIDs(ids map[string]string) (recorded int, undo func() error, err error) {
 	unchanged := func() error { return nil }
 	state, err := v.State()
@@ -156,29 +131,12 @@ func (v *Vault) RecordCredentialIDs(ids map[string]string) (recorded int, undo f
 	switch state {
 	case StateAbsent:
 		return 0, unchanged, nil
-	case StateUnencrypted:
-		original, err := readFile(v.plainPath())
-		if err != nil {
-			return 0, nil, fmt.Errorf("cannot read %s: %w", v.plainPath(), err)
-		}
-		doc, err := loadPlainDocument(v.plainPath())
-		if err != nil {
-			return 0, nil, err
-		}
-		changed := doc.recordCredentialIDs(ids)
-		if len(changed) == 0 {
-			return 0, unchanged, nil
-		}
-		if err := v.writePlain(doc); err != nil {
-			return 0, nil, err
-		}
-		return len(changed), func() error { return writeFile(v.plainPath(), original) }, nil
 	case StateLocked:
 		var written []string
 		remove := func() error {
 			var failed error
-			for _, path := range written {
-				if err := os.Remove(path); err != nil && !isNotExist(err) {
+			for _, name := range written {
+				if err := v.kv.RemovePending(name); err != nil {
 					failed = err
 				}
 			}
@@ -192,42 +150,28 @@ func (v *Vault) RecordCredentialIDs(ids map[string]string) (recorded int, undo f
 		}
 		sort.Strings(names)
 		for _, name := range names {
-			path, err := v.addPending(name, ids[name], nil)
+			pending, err := v.addPending(name, ids[name], nil)
 			if err != nil {
 				_ = remove()
 				return 0, nil, err
 			}
-			written = append(written, path)
+			written = append(written, pending)
 		}
 		return len(written), remove, nil
-	case StateUnlocked:
-		changed := v.doc.recordCredentialIDs(ids)
-		if len(changed) == 0 {
-			return 0, unchanged, nil
-		}
-		forget := func() {
-			for _, id := range changed {
-				entry := v.doc.Entries[id]
-				entry.CredentialID = ""
-				v.doc.Entries[id] = entry
-			}
-		}
-		// A document with an entry was read from, or written to, secrets.age, so the file exists.
-		original, err := readFile(v.secretsPath())
-		if err != nil {
-			forget()
-			return 0, nil, fmt.Errorf("cannot read %s: %w", v.secretsPath(), err)
-		}
-		if err := v.writeEncrypted(v.doc); err != nil {
-			forget()
-			return 0, nil, err
-		}
-		return len(changed), func() error {
-			forget()
-			return writeFile(v.secretsPath(), original)
-		}, nil
 	}
-	return 0, nil, fmt.Errorf("vault: unreachable state %q", state)
+	doc, err := v.load()
+	if err != nil {
+		return 0, nil, err
+	}
+	changed := doc.recordCredentialIDs(ids)
+	if len(changed) == 0 {
+		return 0, unchanged, nil
+	}
+	undo, err = v.writeWithUndo(doc)
+	if err != nil {
+		return 0, nil, err
+	}
+	return len(changed), undo, nil
 }
 
 // restoreRole sets a role back to the value it had, or removes it when it had none.
@@ -250,34 +194,26 @@ func (v *Vault) Delete(name, role string, ask PassphraseFunc) (bool, error) {
 	switch state {
 	case StateAbsent:
 		return false, nil
-	case StateUnencrypted:
-		doc, err := loadPlainDocument(v.plainPath())
-		if err != nil {
-			return false, err
-		}
-		if !doc.deleteRole(name, role) {
-			return false, nil
-		}
-		return true, v.writePlain(doc)
 	case StateLocked:
 		if err := v.ensureUnlocked(ask); err != nil {
 			return false, err
 		}
-		fallthrough
-	case StateUnlocked:
-		if !v.doc.deleteRole(name, role) {
-			return false, nil
-		}
-		return true, v.writeEncrypted(v.doc)
 	}
-	return false, fmt.Errorf("vault: unreachable state %q", state)
+	doc, err := v.load()
+	if err != nil {
+		return false, err
+	}
+	if !doc.deleteRole(name, role) {
+		return false, nil
+	}
+	return true, v.write(doc)
 }
 
 // ensureUnlocked opens a locked vault with the passphrase ask supplies, and caches the result. It is a
 // no-op once the vault is already unlocked in this process.
 func (v *Vault) ensureUnlocked(ask PassphraseFunc) error {
-	if v.unlocked {
-		return nil
+	if state, err := v.State(); err != nil || state == StateUnlocked {
+		return err
 	}
 	if ask == nil {
 		return ErrNoTerminal
@@ -286,8 +222,8 @@ func (v *Vault) ensureUnlocked(ask PassphraseFunc) error {
 	if err != nil {
 		return err
 	}
-	_, err = v.unlock(passphrase)
-	return err
+	_, err = v.kv.Unlock(passphrase)
+	return mapDocumentErr(err)
 }
 
 // Unlock opens an encrypted, locked vault with passphrase, merges every pending entry into it, and caches
@@ -301,67 +237,8 @@ func (v *Vault) Unlock(passphrase string) (merged int, err error) {
 	if state != StateLocked {
 		return 0, nil
 	}
-	return v.unlock(passphrase)
-}
-
-// Forget drops the identity and document this process holds in memory for an encrypted vault it unlocked,
-// so a later read in this process asks for the passphrase again; it does nothing to a vault that is not
-// unlocked here. It touches no file: a vault process outside this one, if it still holds the key, is
-// unaffected and is locked separately (see vaultproc.LockProcess). This is as close as the vault API
-// comes to undoing Unlock, since neither the key nor the decrypted document was ever written to disk to
-// begin with.
-func (v *Vault) Forget() {
-	v.unlocked = false
-	v.identity = nil
-	v.doc = nil
-}
-
-func (v *Vault) unlock(passphrase string) (int, error) {
-	keyData, err := readFile(v.keyPath())
-	if err != nil {
-		return 0, fmt.Errorf("cannot read %s: %w", v.keyPath(), err)
-	}
-	recipientPEM, err := readFile(v.recipientPath())
-	if err != nil {
-		return 0, fmt.Errorf("cannot read %s: %w", v.recipientPath(), err)
-	}
-	id, err := decryptKey(keyData, passphrase, recipientPEM)
-	if err != nil {
-		return 0, err
-	}
-
-	doc := newDocument()
-	if secretsData, err := readFile(v.secretsPath()); err == nil {
-		plain, err := decryptFrom(secretsData, id.key)
-		if err != nil {
-			return 0, fmt.Errorf("cannot decrypt %s: %w", v.secretsPath(), err)
-		}
-		decoded, err := decodeDocument(v.secretsPath(), plain)
-		if err != nil {
-			return 0, err
-		}
-		doc = decoded
-	} else if !isNotExist(err) {
-		return 0, fmt.Errorf("cannot read %s: %w", v.secretsPath(), err)
-	}
-
-	names, err := v.pendingFiles()
-	if err != nil {
-		return 0, err
-	}
-	merged, err := v.mergePending(id, doc)
-	if err != nil {
-		return 0, err
-	}
-	if merged > 0 {
-		if err := v.writeSecrets(id, doc); err != nil {
-			return 0, err
-		}
-		v.removePending(names)
-	}
-
-	v.identity, v.doc, v.unlocked = id, doc, true
-	return merged, nil
+	merged, err = v.kv.Unlock(passphrase)
+	return merged, mapDocumentErr(err)
 }
 
 // create makes the vault's first entry, and with it the vault itself: unencrypted when passphrase is
@@ -369,62 +246,13 @@ func (v *Vault) unlock(passphrase string) (int, error) {
 func (v *Vault) create(passphrase, name, credentialID, role, value string) error {
 	doc := newDocument()
 	doc.setRole(name, credentialID, role, value, time.Now().UTC())
-
+	data, err := encodeDocument(v.secretsPath(), doc)
+	if err != nil {
+		return err
+	}
+	defer clear(data)
 	if passphrase == "" {
-		return v.writePlain(doc)
+		return v.kv.CreateUnencrypted(data)
 	}
-
-	id, err := generateIdentity()
-	if err != nil {
-		return err
-	}
-	keyData, err := encryptKey(id, passphrase)
-	if err != nil {
-		return err
-	}
-	if err := writeFile(v.recipientPath(), []byte(id.recipient.String()+"\n")); err != nil {
-		return err
-	}
-	if err := writeFile(v.keyPath(), keyData); err != nil {
-		return err
-	}
-	if err := v.writeSecrets(id, doc); err != nil {
-		return err
-	}
-	v.identity, v.doc, v.unlocked = id, doc, true
-	return nil
-}
-
-func (v *Vault) writePlain(doc *document) error {
-	data, err := encodeDocument(doc)
-	if err != nil {
-		return fmt.Errorf("cannot encode %s: %w", v.plainPath(), err)
-	}
-	return writeFile(v.plainPath(), data)
-}
-
-// writeEncrypted re-encrypts doc for the vault this process already unlocked.
-func (v *Vault) writeEncrypted(doc *document) error {
-	if v.identity == nil {
-		return fmt.Errorf("vault: cannot write %s: the vault was never unlocked in this process", v.secretsPath())
-	}
-	return v.writeSecrets(v.identity, doc)
-}
-
-func (v *Vault) writeSecrets(id *identity, doc *document) error {
-	// Every regular write re-labels approvals granted under the legacy fingerprint.
-	doc.upgradeFingerprints()
-	plain, err := encodeDocument(doc)
-	if err != nil {
-		return fmt.Errorf("cannot encode %s: %w", v.secretsPath(), err)
-	}
-	data, err := encryptTo(string(plain), id.recipient)
-	if err != nil {
-		return err
-	}
-	return writeFile(v.secretsPath(), data)
-}
-
-func isNotExist(err error) bool {
-	return errors.Is(err, os.ErrNotExist)
+	return v.kv.Create(passphrase, data)
 }

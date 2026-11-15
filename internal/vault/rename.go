@@ -2,10 +2,9 @@ package vault
 
 import (
 	"errors"
-	"fmt"
-	"os"
-	"path/filepath"
 	"sort"
+
+	kitvault "github.com/castrowithcee/qatlas-kit/vault"
 )
 
 // ErrEntryTaken reports a credential rename onto a name the vault already holds an entry, or a pending write,
@@ -37,25 +36,12 @@ type CredentialRename struct {
 // HasEntry reports whether the vault holds an entry for the credential name. It reads an unencrypted vault and
 // one unlocked in this process; a locked one fails with ErrNotUnlocked.
 func (v *Vault) HasEntry(name string) (bool, error) {
-	state, err := v.State()
+	doc, err := v.readDocument()
 	if err != nil {
 		return false, err
 	}
-	switch state {
-	case StateUnencrypted:
-		doc, err := loadPlainDocument(v.plainPath())
-		if err != nil {
-			return false, err
-		}
-		_, ok := doc.byName(name)
-		return ok, nil
-	case StateLocked:
-		return false, ErrNotUnlocked
-	case StateUnlocked:
-		_, ok := v.doc.byName(name)
-		return ok, nil
-	}
-	return false, nil
+	_, ok := doc.byName(name)
+	return ok, nil
 }
 
 // EntryCredentialIDs returns the config id each entry of the vault records, by entry name; "" for an entry
@@ -81,14 +67,12 @@ func (v *Vault) readDocument() (*document, error) {
 		return nil, err
 	}
 	switch state {
-	case StateUnencrypted:
-		return loadPlainDocument(v.plainPath())
+	case StateAbsent:
+		return newDocument(), nil
 	case StateLocked:
 		return nil, ErrNotUnlocked
-	case StateUnlocked:
-		return v.doc, nil
 	}
-	return newDocument(), nil
+	return v.load()
 }
 
 // Names is what a vault knows by name and config id, without any secret: the config id each entry records,
@@ -160,17 +144,19 @@ func (v *Vault) PendingWrites() (map[string]int, error) {
 	default:
 		return map[string]int{}, nil
 	}
-	names, err := v.pendingFiles()
+	counts := map[string]int{}
+	err = v.kv.ReadPending(func(pending []kitvault.Pending) error {
+		for _, p := range pending {
+			payload, err := decodePending(v.dir, p)
+			if err != nil {
+				return err
+			}
+			counts[payload.Name]++
+		}
+		return nil
+	})
 	if err != nil {
 		return nil, err
-	}
-	counts := map[string]int{}
-	for _, name := range names {
-		payload, _, err := v.readPending(v.identity, name)
-		if err != nil {
-			return nil, err
-		}
-		counts[payload.Name]++
 	}
 	return counts, nil
 }
@@ -194,11 +180,7 @@ func (v *Vault) RenameCredential(r CredentialRename) (carried []string, undo fun
 	case StateLocked:
 		return nil, nil, ErrNotUnlocked
 	case StateUnencrypted:
-		original, err := readFile(v.plainPath())
-		if err != nil {
-			return nil, nil, fmt.Errorf("cannot read %s: %w", v.plainPath(), err)
-		}
-		doc, err := loadPlainDocument(v.plainPath())
+		doc, err := v.load()
 		if err != nil {
 			return nil, nil, err
 		}
@@ -212,121 +194,104 @@ func (v *Vault) RenameCredential(r CredentialRename) (carried []string, undo fun
 		if r.Resume || !r.Entry || !doc.renameEntry(r.From, r.To, r.CredentialID, r.mark()) {
 			return nil, unchanged, nil
 		}
-		if err := v.writePlain(doc); err != nil {
+		undo, err := v.writeWithUndo(doc)
+		if err != nil {
 			return nil, nil, err
 		}
-		return nil, func() error { return writeFile(v.plainPath(), original) }, nil
+		return nil, undo, nil
 	case StateUnlocked:
 		return v.renameUnlocked(r)
 	}
 	return nil, unchanged, nil
 }
 
-// heldPending is one pending file a rename merged: its path and its very bytes, for an undo.
-type heldPending struct {
-	path string
-	data []byte
-}
+// errUnchanged ends an update that has nothing to write.
+var errUnchanged = errors.New("vault: nothing to change")
 
+// renameUnlocked renames in the vault unlocked in this process through the kit's Update: the document and the
+// removal of the merged pending entries are one change, and its undo puts back the document file and exactly
+// those entries, byte for byte, leaving every other pending entry, also one another process added, alone.
 func (v *Vault) renameUnlocked(r CredentialRename) ([]string, func() error, error) {
-	doc := v.doc
-	if r.Resume && !doc.resumable(r) {
-		return nil, nil, ErrEntryTaken
-	}
-	if _, taken := doc.byName(r.To); taken && !r.Resume {
-		return nil, nil, ErrEntryTaken
-	}
-	names, err := v.pendingFiles()
-	if err != nil {
-		return nil, nil, err
-	}
-	next := doc.clone()
-	var merged []heldPending
-	var idsOnly []pendingPayload
-	for _, name := range names {
-		payload, data, err := v.readPending(v.identity, name)
+	var carried []string
+	undo, err := v.kv.Update(func(data []byte, pending []kitvault.Pending) ([]byte, []string, error) {
+		doc, err := decodeDocument(v.secretsPath(), data)
 		if err != nil {
 			return nil, nil, err
 		}
-		if payload.Name == r.To {
+		if r.Resume && !doc.resumable(r) {
 			return nil, nil, ErrEntryTaken
 		}
-		if !r.Entry || payload.Name != r.From {
-			continue
+		if _, taken := doc.byName(r.To); taken && !r.Resume {
+			return nil, nil, ErrEntryTaken
 		}
-		merged = append(merged, heldPending{path: filepath.Join(v.pendingPath(), name), data: data})
-		if r.Resume {
-			payload.Name = r.To
+		next := doc.clone()
+		var merged []string
+		var idsOnly []pendingPayload
+		for _, p := range pending {
+			payload, err := decodePending(v.dir, p)
+			if err != nil {
+				return nil, nil, err
+			}
+			if payload.Name == r.To {
+				return nil, nil, ErrEntryTaken
+			}
+			if !r.Entry || payload.Name != r.From {
+				continue
+			}
+			merged = append(merged, p.Name)
+			if r.Resume {
+				payload.Name = r.To
+			}
+			// The order an unlock merges in: a payload with only a credential id last.
+			if len(payload.Roles) == 0 {
+				idsOnly = append(idsOnly, payload)
+				continue
+			}
+			next.mergePending(payload)
 		}
-		// The order an unlock merges in: a payload with only a credential id last.
-		if len(payload.Roles) == 0 {
-			idsOnly = append(idsOnly, payload)
-			continue
+		for _, payload := range idsOnly {
+			next.mergePending(payload)
 		}
-		next.mergePending(payload)
-	}
-	for _, payload := range idsOnly {
-		next.mergePending(payload)
-	}
 
-	before := next.bindings().IDs
-	renamed := r.Entry && next.renameEntry(r.From, r.To, r.CredentialID, r.mark())
-	after := next.bindings().IDs
-	var carried []string
-	for _, c := range r.Carry {
-		approval, ok := next.Approvals[c.Before.Connection]
-		own := before[c.Before.Credential]
-		if r.Resume && c.Before.Credential == r.From {
-			own = before[r.To]
+		before := next.bindings().IDs
+		renamed := r.Entry && next.renameEntry(r.From, r.To, r.CredentialID, r.mark())
+		after := next.bindings().IDs
+		carried = nil
+		for _, c := range r.Carry {
+			approval, ok := next.Approvals[c.Before.Connection]
+			own := before[c.Before.Credential]
+			if r.Resume && c.Before.Credential == r.From {
+				own = before[r.To]
+			}
+			if !ok || own == "" || !FingerprintMatches(approval.Fingerprint, c.Before, own) ||
+				after[c.After.Credential] == "" {
+				continue
+			}
+			id := after[c.After.Credential]
+			next.Approvals[c.After.Connection] = Approval{
+				Fingerprint: Fingerprint(c.After, id), Scope: c.After.Normalized(), CredentialID: id,
+				Approved: approval.Approved, ConnectionID: c.ConnectionID,
+			}
+			carried = append(carried, c.After.Connection)
 		}
-		if !ok || own == "" || !FingerprintMatches(approval.Fingerprint, c.Before, own) || after[c.After.Credential] == "" {
-			continue
+		sort.Strings(carried)
+		if !renamed && len(merged) == 0 && len(carried) == 0 {
+			return nil, nil, errUnchanged
 		}
-		id := after[c.After.Credential]
-		next.Approvals[c.After.Connection] = Approval{
-			Fingerprint: Fingerprint(c.After, id), Scope: c.After.Normalized(), CredentialID: id,
-			Approved: approval.Approved, ConnectionID: c.ConnectionID,
+		// A pending write left for the old name would bring its secrets back under that name on the next
+		// unlock, so the kit removes the merged ones once the document is written.
+		next.upgradeFingerprints()
+		out, err := encodeDocument(v.secretsPath(), next)
+		if err != nil {
+			return nil, nil, err
 		}
-		carried = append(carried, c.After.Connection)
-	}
-	sort.Strings(carried)
-	if !renamed && len(merged) == 0 && len(carried) == 0 {
+		return out, merged, nil
+	})
+	if errors.Is(err, errUnchanged) {
 		return nil, func() error { return nil }, nil
 	}
-
-	original, err := readFile(v.secretsPath())
-	existed := err == nil
-	if err != nil && !isNotExist(err) {
-		return nil, nil, fmt.Errorf("cannot read %s: %w", v.secretsPath(), err)
-	}
-	undo := func() error {
-		var failed error
-		if existed {
-			failed = writeFile(v.secretsPath(), original)
-		} else if err := os.Remove(v.secretsPath()); err != nil && !isNotExist(err) {
-			failed = err
-		}
-		for _, p := range merged {
-			if err := writeFile(p.path, p.data); err != nil && failed == nil {
-				failed = err
-			}
-		}
-		v.doc = doc
-		return failed
-	}
-	if err := v.writeEncrypted(next); err != nil {
-		return nil, nil, err
-	}
-	v.doc = next
-	// A pending write left for the old name would bring its secrets back under that name on the next unlock.
-	for _, p := range merged {
-		if err := os.Remove(p.path); err != nil && !isNotExist(err) {
-			if undoErr := undo(); undoErr != nil {
-				return nil, nil, fmt.Errorf("cannot remove %s: %w; the vault could not be put back as it was: %v",
-					p.path, err, undoErr)
-			}
-			return nil, nil, fmt.Errorf("cannot remove %s: %w", p.path, err)
-		}
+	if err != nil {
+		return nil, nil, mapDocumentErr(err)
 	}
 	return carried, undo, nil
 }
@@ -387,26 +352,17 @@ func (v *Vault) ClearRenameMarker(name string) error {
 	switch state {
 	case StateLocked:
 		return ErrNotUnlocked
-	case StateUnencrypted:
-		doc, err := loadPlainDocument(v.plainPath())
-		if err != nil {
-			return err
-		}
-		if !doc.clearMark(name) {
-			return nil
-		}
-		return v.writePlain(doc)
-	case StateUnlocked:
-		next := v.doc.clone()
-		if !next.clearMark(name) {
-			return nil
-		}
-		if err := v.writeEncrypted(next); err != nil {
-			return err
-		}
-		v.doc = next
+	case StateAbsent:
+		return nil
 	}
-	return nil
+	doc, err := v.load()
+	if err != nil {
+		return err
+	}
+	if !doc.clearMark(name) {
+		return nil
+	}
+	return v.write(doc)
 }
 
 // clearMark removes the RenamedFrom of the entry named name and reports whether it had one.

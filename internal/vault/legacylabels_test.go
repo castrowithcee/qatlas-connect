@@ -61,14 +61,7 @@ func unlockLegacy(t *testing.T) (*Vault, legacyFixture) {
 
 func rawSettings(t *testing.T, v *Vault) settingsDocument {
 	t.Helper()
-	data, err := readFile(v.settingsPath())
-	if err != nil {
-		t.Fatal(err)
-	}
-	plain, err := decryptFrom(data, v.identity.key)
-	if err != nil {
-		t.Fatal(err)
-	}
+	plain := readSealed(t, v, settingsFile)
 	var doc settingsDocument
 	if err := json.Unmarshal(plain, &doc); err != nil {
 		t.Fatal(err)
@@ -78,14 +71,7 @@ func rawSettings(t *testing.T, v *Vault) settingsDocument {
 
 func rawTokens(t *testing.T, v *Vault) tokenDocument {
 	t.Helper()
-	data, err := readFile(v.tokensPath())
-	if err != nil {
-		t.Fatal(err)
-	}
-	plain, err := decryptFrom(data, v.identity.key)
-	if err != nil {
-		t.Fatal(err)
-	}
+	plain := readSealed(t, v, tokensFile)
 	var doc tokenDocument
 	if err := json.Unmarshal(plain, &doc); err != nil {
 		t.Fatal(err)
@@ -95,7 +81,7 @@ func rawTokens(t *testing.T, v *Vault) tokenDocument {
 
 func settingsMACIs(t *testing.T, v *Vault, doc settingsDocument, label string) bool {
 	t.Helper()
-	mac, err := settingsMACWith(v.identity.key, doc, label)
+	mac, err := settingsMACWith(testKey(t, v), doc, label)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -104,7 +90,7 @@ func settingsMACIs(t *testing.T, v *Vault, doc settingsDocument, label string) b
 
 func tokensMACIs(t *testing.T, v *Vault, doc tokenDocument, label string) bool {
 	t.Helper()
-	mac, err := tokenMACWith(v.identity, doc.Tokens, label)
+	mac, err := tokenMACWith(testKey(t, v), doc.Tokens, label)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -117,13 +103,7 @@ func writeSettingsDoc(t *testing.T, v *Vault, doc settingsDocument) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	data, err := encryptTo(string(plain), v.identity.recipient)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := writeFile(v.settingsPath(), data); err != nil {
-		t.Fatal(err)
-	}
+	writeSealed(t, v, settingsFile, plain)
 }
 
 func writeTokenDoc(t *testing.T, v *Vault, doc tokenDocument) {
@@ -132,13 +112,7 @@ func writeTokenDoc(t *testing.T, v *Vault, doc tokenDocument) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	data, err := encryptTo(string(plain), v.identity.recipient)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := writeFile(v.tokensPath(), data); err != nil {
-		t.Fatal(err)
-	}
+	writeSealed(t, v, tokensFile, plain)
 }
 
 // A vault written under the legacy labels keeps working without any action: the secret is released without
@@ -273,24 +247,24 @@ func TestSettingsRejectForeignAndTamperedMAC(t *testing.T) {
 		"unknown label": "qatlas-connect vault settings v0",
 	} {
 		doc := base
-		mac, err := settingsMACWith(v.identity.key, doc, label)
+		mac, err := settingsMACWith(testKey(t, v), doc, label)
 		if err != nil {
 			t.Fatal(err)
 		}
 		doc.MAC = mac
 		writeSettingsDoc(t, v, doc)
-		if _, err := ReadSettings(v.Dir(), v.identity.key); !errors.Is(err, ErrSettingsUntrusted) {
+		if _, err := ReadSettings(v.Dir(), testKey(t, v)); !errors.Is(err, ErrSettingsUntrusted) {
 			t.Errorf("%s: ReadSettings() = %v, want ErrSettingsUntrusted", name, err)
 		}
 	}
 
 	for _, label := range []string{settingsMACLabel, legacySettingsMACLabel} {
 		doc := base
-		mac, _ := settingsMACWith(v.identity.key, doc, label)
+		mac, _ := settingsMACWith(testKey(t, v), doc, label)
 		doc.MAC = mac
 		doc.RetentionDays++ // changed after the MAC was computed
 		writeSettingsDoc(t, v, doc)
-		if _, err := ReadSettings(v.Dir(), v.identity.key); !errors.Is(err, ErrSettingsUntrusted) {
+		if _, err := ReadSettings(v.Dir(), testKey(t, v)); !errors.Is(err, ErrSettingsUntrusted) {
 			t.Errorf("tampered under %q: ReadSettings() = %v, want ErrSettingsUntrusted", label, err)
 		}
 	}
@@ -298,10 +272,10 @@ func TestSettingsRejectForeignAndTamperedMAC(t *testing.T) {
 	// Both labels, when correct, are accepted.
 	for _, label := range []string{settingsMACLabel, legacySettingsMACLabel} {
 		doc := base
-		mac, _ := settingsMACWith(v.identity.key, doc, label)
+		mac, _ := settingsMACWith(testKey(t, v), doc, label)
 		doc.MAC = mac
 		writeSettingsDoc(t, v, doc)
-		if _, err := ReadSettings(v.Dir(), v.identity.key); err != nil {
+		if _, err := ReadSettings(v.Dir(), testKey(t, v)); err != nil {
 			t.Errorf("label %q: ReadSettings() = %v", label, err)
 		}
 	}
@@ -318,7 +292,7 @@ func TestTokensRejectForeignAndTamperedMAC(t *testing.T) {
 		"unknown label":   "qatlas-connect agent tokens v0",
 	} {
 		doc := base
-		mac, err := tokenMACWith(v.identity, doc.Tokens, label)
+		mac, err := tokenMACWith(testKey(t, v), doc.Tokens, label)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -331,7 +305,7 @@ func TestTokensRejectForeignAndTamperedMAC(t *testing.T) {
 
 	for _, label := range []string{tokenMACLabel, legacyTokenMACLabel} {
 		doc := base
-		mac, _ := tokenMACWith(v.identity, doc.Tokens, label)
+		mac, _ := tokenMACWith(testKey(t, v), doc.Tokens, label)
 		doc.MAC = mac
 		doc.Tokens = append([]Token(nil), doc.Tokens...)
 		doc.Tokens[0].Models = []string{"other"} // changed after the MAC was computed

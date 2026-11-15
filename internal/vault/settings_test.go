@@ -17,7 +17,7 @@ func wantBehaviour(t *testing.T, v *Vault, want UpdateBehaviour, wantErr error) 
 	if got != want || !errors.Is(err, wantErr) {
 		t.Fatalf("UpdateBehaviour() = %q, %v, want %q, %v", got, err, want, wantErr)
 	}
-	read, err := ReadUpdateBehaviour(v.Dir(), v.identity.key)
+	read, err := ReadUpdateBehaviour(v.Dir(), testKey(t, v))
 	if read != want || !errors.Is(err, wantErr) {
 		t.Fatalf("ReadUpdateBehaviour() = %q, %v, want %q, %v", read, err, want, wantErr)
 	}
@@ -82,7 +82,7 @@ func TestTamperedUpdateBehaviourLocks(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	mac, err := settingsMAC(v.identity.key, settingsDocument{Schema: 1, UpdateHandover: "handover"})
+	mac, err := settingsMAC(testKey(t, v), settingsDocument{Schema: 1, UpdateHandover: "handover"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -107,7 +107,7 @@ func TestTamperedUpdateBehaviourLocks(t *testing.T) {
 			writeSettings(t, v, recipient, `{"schema":1,"update_handover":"lock","mac":"`+mac+`"}`)
 		},
 		"unknown schema": func() {
-			m, _ := settingsMAC(v.identity.key, settingsDocument{Schema: 2, UpdateHandover: "handover"})
+			m, _ := settingsMAC(testKey(t, v), settingsDocument{Schema: 2, UpdateHandover: "handover"})
 			writeSettings(t, v, recipient, `{"schema":3,"update_handover":"handover","mac":"`+m+`"}`)
 		},
 		"not json": func() { writeSettings(t, v, recipient, `handover`) },
@@ -127,7 +127,7 @@ func TestTamperedUpdateBehaviourLocks(t *testing.T) {
 func TestUnknownUpdateBehaviourWithValidCheckValueLocks(t *testing.T) {
 	v := tokenVault(t)
 	recipient, _ := v.Recipient()
-	mac, err := settingsMAC(v.identity.key, settingsDocument{Schema: 1, UpdateHandover: "never"})
+	mac, err := settingsMAC(testKey(t, v), settingsDocument{Schema: 1, UpdateHandover: "never"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -175,7 +175,7 @@ func wantSettings(t *testing.T, v *Vault, want Settings, wantErr error) {
 	if got != want || !errors.Is(err, wantErr) {
 		t.Fatalf("Settings() = %+v, %v, want %+v, %v", got, err, want, wantErr)
 	}
-	read, err := ReadSettings(v.Dir(), v.identity.key)
+	read, err := ReadSettings(v.Dir(), testKey(t, v))
 	if read != want || !errors.Is(err, wantErr) {
 		t.Fatalf("ReadSettings() = %+v, %v, want %+v, %v", read, err, want, wantErr)
 	}
@@ -263,7 +263,7 @@ func TestTamperedSettingsAreUntrustedAsAWhole(t *testing.T) {
 		d := settingsDocument{Schema: 2, UpdateHandover: "handover",
 			IdleTimeoutNS: int64(3 * time.Hour), AdminTimeoutNS: int64(5 * time.Minute), RetentionDays: 30,
 			MaxUnlockNS: int64(2 * time.Hour)}
-		d.MAC, _ = settingsMAC(v.identity.key, d)
+		d.MAC, _ = settingsMAC(testKey(t, v), d)
 		mutate(&d)
 		b, _ := json.Marshal(d)
 		return string(b)
@@ -279,11 +279,11 @@ func TestTamperedSettingsAreUntrustedAsAWhole(t *testing.T) {
 		"unknown":    doc(func(d *settingsDocument) { d.Schema = 3 }),
 		"garbage":    `handover`,
 		"no mac":     doc(func(d *settingsDocument) { d.MAC = "" }),
-		"neg idle":   signed(v, settingsDocument{Schema: 2, UpdateHandover: "lock", IdleTimeoutNS: -1, RetentionDays: 1}),
-		"neg admin":  signed(v, settingsDocument{Schema: 2, UpdateHandover: "lock", IdleTimeoutNS: 1, AdminTimeoutNS: -1, RetentionDays: 1}),
-		"neg max":    signed(v, settingsDocument{Schema: 2, UpdateHandover: "lock", IdleTimeoutNS: 1, RetentionDays: 1, MaxUnlockNS: -1}),
-		"zero days":  signed(v, settingsDocument{Schema: 2, UpdateHandover: "lock", IdleTimeoutNS: 1}),
-		"bad update": signed(v, settingsDocument{Schema: 2, UpdateHandover: "never", IdleTimeoutNS: 1, RetentionDays: 1}),
+		"neg idle":   signed(t, v, settingsDocument{Schema: 2, UpdateHandover: "lock", IdleTimeoutNS: -1, RetentionDays: 1}),
+		"neg admin":  signed(t, v, settingsDocument{Schema: 2, UpdateHandover: "lock", IdleTimeoutNS: 1, AdminTimeoutNS: -1, RetentionDays: 1}),
+		"neg max":    signed(t, v, settingsDocument{Schema: 2, UpdateHandover: "lock", IdleTimeoutNS: 1, RetentionDays: 1, MaxUnlockNS: -1}),
+		"zero days":  signed(t, v, settingsDocument{Schema: 2, UpdateHandover: "lock", IdleTimeoutNS: 1}),
+		"bad update": signed(t, v, settingsDocument{Schema: 2, UpdateHandover: "never", IdleTimeoutNS: 1, RetentionDays: 1}),
 	}
 	for name, plain := range cases {
 		t.Run(name, func(t *testing.T) {
@@ -309,8 +309,8 @@ func TestTamperedSettingsAreUntrustedAsAWhole(t *testing.T) {
 	wantSettings(t, v, want, nil)
 }
 
-func signed(v *Vault, d settingsDocument) string {
-	d.MAC, _ = settingsMAC(v.identity.key, d)
+func signed(t *testing.T, v *Vault, d settingsDocument) string {
+	d.MAC, _ = settingsMAC(testKey(t, v), d)
 	b, _ := json.Marshal(d)
 	return string(b)
 }
@@ -319,7 +319,7 @@ func TestSchemaOneFileReadsTrustedWithDefaults(t *testing.T) {
 	v := tokenVault(t)
 	recipient, _ := v.Recipient()
 	for _, behaviour := range []UpdateBehaviour{UpdateLock, UpdateHandover} {
-		mac, err := settingsMAC(v.identity.key, settingsDocument{Schema: 1, UpdateHandover: string(behaviour)})
+		mac, err := settingsMAC(testKey(t, v), settingsDocument{Schema: 1, UpdateHandover: string(behaviour)})
 		if err != nil {
 			t.Fatal(err)
 		}

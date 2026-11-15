@@ -14,36 +14,28 @@ type Status struct {
 }
 
 // Status reports the vault's state without asking for a passphrase. A locked vault does not unlock to
-// answer it: Entries is -1 and Pending still counts the files that are waiting, since counting them needs
+// answer it: Entries is -1 and Pending still counts the entries that are waiting, since counting them needs
 // no decryption.
 func (v *Vault) Status() (Status, error) {
-	state, err := v.State()
+	kst, err := v.kv.Status()
 	if err != nil {
 		return Status{}, err
 	}
-	st := Status{State: state, Dir: v.dir}
-
-	switch state {
+	st := Status{State: kst.State, Dir: v.dir, Pending: kst.Pending}
+	switch kst.State {
 	case StateAbsent:
+		st.Pending = 0
 		return st, nil
 	case StateLocked:
-		// Entries becomes -1: it cannot be counted without the passphrase.
 		st.Entries = -1
+		return st, nil
 	case StateUnencrypted:
-		doc, err := loadPlainDocument(v.plainPath())
-		if err != nil {
-			return Status{}, err
-		}
-		st.Entries = len(doc.Entries)
 		st.Warning = "the vault is unencrypted: no passphrase was set when its first secret was stored"
-	case StateUnlocked:
-		st.Entries = len(v.doc.Entries)
 	}
-
-	names, err := v.pendingFiles()
+	doc, err := v.load()
 	if err != nil {
 		return Status{}, err
 	}
-	st.Pending = len(names)
+	st.Entries = len(doc.Entries)
 	return st, nil
 }

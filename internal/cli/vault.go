@@ -26,19 +26,20 @@ import (
 	"github.com/castrowithcee/qatlas-kit/cobracli"
 	"github.com/castrowithcee/qatlas-kit/output"
 	"github.com/castrowithcee/qatlas-kit/redact"
+	kitvault "github.com/castrowithcee/qatlas-kit/vault"
 )
 
 // readVaultPassphrase is the terminal prompt every vault passphrase is asked with: the offer of the
 // vault's very first secret, 'vault unlock', 'vault encrypt', 'vault passphrase', and 'vault decrypt' all
 // go through it. It is a variable only so a test can simulate a terminal's answer, or its absence, without
-// opening a real one; a real run always leaves it at vault.ReadPassphrase.
-var readVaultPassphrase vault.PassphraseFunc = vault.ReadPassphrase
+// opening a real one; a real run always leaves it at kitvault.ReadPassphrase.
+var readVaultPassphrase vault.PassphraseFunc = kitvault.ReadPassphrase
 
 // readVaultConfirm is the terminal prompt a yes-or-no question is asked with, mainly before something is
 // removed: 'vault migrate', 'credential delete', 'vault token revoke', and the update, rename and config
 // transfer commands go through it. 'vault decrypt' does not: it takes --confirm instead. Like
 // readVaultPassphrase it is a seam for a test.
-var readVaultConfirm = vault.ReadConfirm
+var readVaultConfirm = kitvault.ReadConfirm
 
 // vaultProcessSupported reports whether 'vault unlock' hands the unlocked vault to a vault process on this
 // platform, and whether 'vault status' and 'vault lock' ask one. It is a variable only so a test can keep
