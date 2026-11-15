@@ -47,6 +47,8 @@ const (
 	CodeDuplicateForwardSecret       = "duplicate-forward-secret"
 	CodeProviderMismatch             = "provider-mismatch"
 	CodeSecretRoleMissing            = "secret-role-missing"
+	CodeTokenProviderMissing         = "token-provider-missing"
+	CodeTokenProcedure               = "token-procedure"
 	CodePathsEmpty                   = "paths-empty"
 	CodeInvalidPath                  = "invalid-path"
 	CodeDuplicatePath                = "duplicate-path"
@@ -123,6 +125,8 @@ var hints = map[string]string{
 	CodeDuplicateForwardSecret:       "Remove the repeated entry.",
 	CodeProviderMismatch:             "Choose a credential of the same provider as the service, or one without a provider.",
 	CodeSecretRoleMissing:            "Add the secret role to the credential.",
+	CodeTokenProviderMissing:         "Set the provider of the credential; a credential that issues access tokens serves one provider only.",
+	CodeTokenProcedure:               "Name either the service account key, or the client ID with the refresh token, and not both.",
 	CodePathsEmpty:                   "List at least one directory, or leave the list out to use the connection everywhere.",
 	CodeInvalidPath:                  "Use an absolute directory or one starting with '~/', without glob patterns.",
 	CodeDuplicatePath:                "Remove the repeated directory.",

@@ -141,6 +141,12 @@ func TestProblemsAreStructured(t *testing.T) {
 		{"role missing", func(c *Config) {
 			cred(c, "ghkey", func(v *Credential) { v.Values = map[string]string{"token": ""} })
 		}, "connections.gh", CodeSecretRoleMissing, "connections.gh: provider \"github\" requires the secret role \"token\"", "", -1},
+		{"token credential without provider", func(c *Config) { withTokenConnection(c, Credential{Type: CredentialTypeVault}) },
+			"connections.tok.credential", CodeTokenProviderMissing, "connections.tok.credential: credential \"tokkey\" issues access tokens", "credential", -1},
+		{"token procedure", func(c *Config) {
+			withTokenConnection(c, Credential{Provider: "sample", Type: CredentialTypeEnv,
+				Values: map[string]string{RoleClientID: "TOK_CLIENT_ID"}})
+		}, "connections.tok", CodeTokenProcedure, "connections.tok: credential \"tokkey\" must name exactly one complete procedure", "", -1},
 		{"connection description", func(c *Config) { conn(c, "gh", func(v *Connection) { v.Description = long }) },
 			"connections.gh.description", CodeInvalidDescription, "connections.gh.description: is 201 characters", "description", -1},
 		{"active until", func(c *Config) { conn(c, "gh", func(v *Connection) { v.ActiveUntil = "tomorrow" }) },
