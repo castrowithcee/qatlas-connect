@@ -899,7 +899,8 @@ func Register(reg *capability.Registry) error {
 				"alerts of a repository, the global and repository security advisories, and code quality " +
 				"findings, the instances, analyses, and locations behind the alerts, and the security switches and the " +
 				"code scanning default setup of a repository, the dependency changes between two refs, and the code " +
-				"security configurations of an organization with its defaults and attached repositories; the found " +
+				"security configurations of an organization with its defaults and attached repositories, and its " +
+				"private registries; the found " +
 				"secret of a secret scanning alert is never " +
 				"shown; changes nothing, since the alert updates, the changes of the switches and the default setup, " +
 				"and the dependency snapshots are offered only where a connection's tools list names them",
@@ -943,7 +944,7 @@ func Register(reg *capability.Registry) error {
 		labelsOperations(), autolinksOperations(), milestonesOperations(), commentMaintenanceOperations(), commentVisibilityOperations(), issueLockOperations(), reactionsOperations(),
 		subIssuesOperations(), issueDependenciesOperations(), issueHistoryOperations(), issueTypesOperations(), issueFieldsOperations(),
 		discussionOperations(), notificationOperations(), gistOperations(), gistSocialOperations(), securityAlertOperations(), securityAlertUpdateOperations(), securityAlertDetailOperations(), advisoryOperations(), securitySettingsOperations(), dependencyGraphOperations(),
-		codeSecurityConfigurationOperations(), codeSecurityChangeOperations(), codeSecurityAssignOperations(),
+		codeSecurityConfigurationOperations(), codeSecurityChangeOperations(), codeSecurityAssignOperations(), privateRegistryOperations(),
 		copilotOperations(), environmentsOperations(), deploymentsOperations(), referenceOperations(), billingOperations(), appOperations(), auditLogOperations(), networkConfigurationOperations())...)
 	for i := range operations {
 		operations[i].Descriptor = withGroup(withTargetArgument(operations[i].Descriptor))
@@ -1920,6 +1921,9 @@ func organizationSubject(tail string) subject {
 	}
 	if len(parts) >= 3 && parts[1] == "code-security" && parts[2] == "configurations" {
 		return subject{what: codeSecuritySubject(parts[3:]) + " of orgs/" + owner}
+	}
+	if len(parts) >= 2 && parts[1] == "private-registries" {
+		return subject{what: privateRegistrySubject(parts[2:]) + " of orgs/" + owner}
 	}
 	if len(parts) >= 2 && strings.HasPrefix(parts[1], "packages") {
 		return packagesSubject("orgs", owner)

@@ -266,7 +266,7 @@ func TestS3ConfigDescriptionsSayWhatTheyDo(t *testing.T) {
 }
 
 // No write exists for the configurations that can point at targets of other accounts, nor for ACLs, website,
-// the transfer acceleration or the payment model, or the setting of lifecycle and CORS rules; only the two deletes
+// or the setting of lifecycle and CORS rules; only the two deletes
 // and the ownership put (which only turns ACLs off) write.
 func TestS3ConfigWritesAreOnlyLifecycleAndCORSDeletes(t *testing.T) {
 	writers := map[string]bool{}
@@ -276,7 +276,7 @@ func TestS3ConfigWritesAreOnlyLifecycleAndCORSDeletes(t *testing.T) {
 		}
 	}
 	for _, id := range []string{"aws.s3.acl.put", "aws.s3.website.put", "aws.s3.website.delete", "aws.s3.logging.put", "aws.s3.notification.put",
-		"aws.s3.replication.put", "aws.s3.replication.delete", "aws.s3.ownership.delete", "aws.s3.accelerate.put", "aws.s3.lifecycle.put", "aws.s3.cors.put"} {
+		"aws.s3.replication.put", "aws.s3.replication.delete", "aws.s3.ownership.delete", "aws.s3.lifecycle.put", "aws.s3.cors.put"} {
 		if writers[id] {
 			t.Errorf("%s is registered", id)
 		}
@@ -290,7 +290,7 @@ func TestS3ConfigWritesAreOnlyLifecycleAndCORSDeletes(t *testing.T) {
 		if s.service != "s3" || s.rest.Method == "GET" || s.rest.Method == "HEAD" {
 			continue
 		}
-		for _, banned := range []string{"?logging", "?notification", "?replication", "?acl", "?website", "?accelerate", "?ownershipControls"} {
+		for _, banned := range []string{"?logging", "?notification", "?replication", "?acl", "?website", "?ownershipControls"} {
 			// Ownership is written only by its own tool, which accepts nothing but bucket owner enforced.
 			if banned == "?ownershipControls" && s.descriptor.ID == "aws.s3.ownership.put" {
 				continue

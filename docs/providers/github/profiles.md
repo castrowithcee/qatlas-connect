@@ -63,9 +63,10 @@ advisories, and code quality findings under [Security alerts](security.md#securi
 [security switches](security.md#security-switches) and the
 [code scanning default setup](security.md#code-scanning-default-setup), and the dependency changes between two refs
 under [Dependency graph](security.md#dependency-graph), and the
-[code security configurations](security.md#code-security-configurations) of an organization; it changes nothing. Dismissing, resolving,
+[code security configurations](security.md#code-security-configurations) and the
+[private registries](security.md#private-registries) of an organization; it changes nothing. Dismissing, resolving,
 and reopening an alert, under [Changing alerts](security.md#changing-alerts), the two tools that change the
-switches and the default setup, the dependency snapshot, and the six changes of code security configurations stay
+switches and the default setup, the dependency snapshot, the six changes of code security configurations, and the deletion of a private registry stay
 unticked, since each is offered only where a connection's `tools` list names it. The not-recommended profile `copilot` assigns Copilot to an issue and requests a Copilot review
 of a pull request under [Copilot assignments](issues.md#copilot-assignments) and [Copilot reviews](pull-requests.md#copilot-reviews); every change needs its own confirmation. A
 profile is a
