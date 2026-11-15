@@ -938,7 +938,7 @@ func Register(reg *capability.Registry) error {
 		capability.Operation{Descriptor: projectIssuesCreate, Handler: capability.Handler(invokeProjectIssuesCreate)},
 	}, slices.Concat(itemOperations(), lifecycleOperations(), fieldOperations(), viewOperations(),
 		statusOperations(), accessOperations(), automationOperations(), actionsOperations(),
-		maintenanceOperations(), actionsSettingsOperations(), actionsOIDCPropertiesOperations(), runnersOperations(), runnerGroupOperations(), webhooksOperations(), deployKeysOperations(), pagesOperations(), repositoryInvitationsOperations(), pullRequestOperations(), checkOperations(), releaseOperations(), releaseAssetOperations(), pullRequestCommentOperations(),
+		maintenanceOperations(), actionsSettingsOperations(), actionsOIDCPropertiesOperations(), runnersOperations(), runnerGroupOperations(), webhooksOperations(), deployKeysOperations(), pagesOperations(), pagesDeleteOperations(), repositoryHandoverOperations(), repositoryInvitationsOperations(), pullRequestOperations(), checkOperations(), releaseOperations(), releaseAssetOperations(), pullRequestCommentOperations(),
 		pullRequestReviewOperations(), pullRequestReviewMaintenanceOperations(), pullRequestReviewCommentOperations(),
 		pullRequestReviewCommentMaintenanceOperations(), pullRequestReviewThreadOperations(),
 		pullRequestReviewerOperations(), accountOperations(), accountSocialOperations(), organizationOperations(), organizationReadOperations(), organizationManagementOperations(), packagesOperations(), teamManagementOperations(), starOperations(), interactionLimitOperations(),
@@ -946,7 +946,7 @@ func Register(reg *capability.Registry) error {
 		contentsWriteOperations(), refsWriteOperations(), repositoriesOperations(), collaboratorsManageOperations(), collaboratorsAddOperations(), invitationOperations(), repositoryDetailOperations(), trafficOperations(), repositoryStatsOperations(), rulesetsOperations(), branchProtectionOperations(), customPropertiesOperations(), actionVariablesOperations(), actionSecretsOperations(), dependabotSecretsOperations(), actionCachesOperations(), runCleanupOperations(), deploymentGateOperations(),
 		labelsOperations(), autolinksOperations(), milestonesOperations(), commentMaintenanceOperations(), commentVisibilityOperations(), issueLockOperations(), reactionsOperations(),
 		subIssuesOperations(), issueDependenciesOperations(), issueHistoryOperations(), issueTypesOperations(), issueFieldsOperations(),
-		discussionOperations(), notificationOperations(), gistOperations(), gistSocialOperations(), securityAlertOperations(), securityAlertUpdateOperations(), securityAlertDetailOperations(), advisoryOperations(), securitySettingsOperations(), dependencyGraphOperations(),
+		discussionOperations(), notificationOperations(), gistOperations(), gistSocialOperations(), securityAlertOperations(), securityAlertUpdateOperations(), securityAlertDetailOperations(), advisoryOperations(), advisoryUpdateOperations(), securitySettingsOperations(), dependencyGraphOperations(),
 		codeSecurityConfigurationOperations(), codeSecurityChangeOperations(), codeSecurityAssignOperations(), privateRegistryOperations(),
 		copilotOperations(), environmentsOperations(), deploymentsOperations(), referenceOperations(), billingOperations(), appOperations(), auditLogOperations())...)
 	for i := range operations {
