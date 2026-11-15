@@ -1,6 +1,6 @@
 ---
 description: >
-  Describes the GitHub account tools: the account behind a connection's token with its followers, followed accounts, blocked users, and profile, the account-wide rule for tools that read it as a whole, the rate limit, GitHub's reference data and Markdown rendering, organization teams, their members, repositories, and, listed only, their management, reading an organization with its members, memberships, organization roles, outside collaborators, and pending invitations, and the user and organization search.
+  Describes the GitHub account tools: the account behind a connection's token with its followers, followed accounts, blocked users, and profile, the account-wide rule for tools that read it as a whole, the rate limit, GitHub's reference data and Markdown rendering, organization teams, their members, repositories, and, listed only, their management, reading an organization with its members, memberships, organization roles, outside collaborators, and pending invitations, the interaction limits of a repository, an organization, and the account, and the user and organization search.
 type: knowledge
 edit: shared
 created: 2026-10-22
@@ -307,6 +307,46 @@ with `provider-error`.
 No output carries the two-factor state of another account or an invitation token or link; the results of the
 change tools report only what was addressed, apart from `github.organizations.update` and
 `github.organization-members.set-role`, which return the views of the reads.
+
+The token rights are listed under [Accounts and search](setup.md#accounts-and-search).
+
+## Interaction limits
+
+| Tool | Does | Offered |
+| --- | --- | --- |
+| `github.interaction-limits.get` | reads the limit of one level: `limit`, `origin`, `expires_at` | by effect |
+| `github.interaction-limits.set` | sets the limit of one level: `limit` and optional `expiry` | by effect |
+| `github.interaction-limits.remove` | removes the limit of one level | by effect |
+
+An interaction limit restricts, for a time, who may comment on, open issues or pull requests in, and react to a
+repository, to every repository of an organization, or to the public repositories of an account. A call
+addresses exactly one level:
+
+- **Repository:** `repository` as `OWNER/REPO` (`/repos/{owner}/{repo}/interaction-limits`), checked against the
+  targets and `exclude` like any repository argument.
+- **Organization:** `organization` as `orgs/LOGIN` (`/orgs/{org}/interaction-limits`), an owner target of its own
+  exactly as for the [rulesets](repositories.md); a user login is refused.
+- **Account:** neither argument (`/user/interaction-limits`), the account behind the token. It follows the
+  [account-wide rule](#account-wide-tools) like the account tools: a connection whose targets name a repository
+  or a project is refused with `invalid-request` before a secret is read, and so is a connection with targets
+  but no `users/LOGIN` target. After the secret and before the request, a connection with targets or
+  exclusions reads the account behind the token once and refuses the call unless a `users/LOGIN` target names it
+  and no exclusion covers it, as for the [gist tools](gists.md); no change has been sent by then. A connection
+  without targets and exclusions reads nothing first.
+
+Giving both `repository` and `organization` is refused. `limit` takes only GitHub's values `existing_users`,
+`contributors_only`, and `collaborators_only`; `expiry` only `one_day`, `three_days`, `one_week`, `one_month`, and
+`six_months`, and GitHub applies `one_day` when it is left out. Any other value is refused before a secret is read
+or a request is sent. The result names `repository` or `organization`; an account result names neither.
+
+The limits only narrow what others may do and open no way out of the connection, so all three tools are offered by
+effect, not only where a `tools` list names them. `set` and `remove` need their own confirmation and send exactly
+one request that is never repeated, without reading the limit first; after a timeout or a server error the message says the
+change may have been applied, so read the limit before repeating it. GitHub refuses a change of a narrower level
+while a limit of a wider level (the organization or the account) is set: that is `provider-error` naming the
+conflict, without GitHub's text, and so is a value GitHub rejects. `github.interaction-limits.get` outputs every
+member GitHub documents for `interaction-limit-response` (REST OpenAPI 1.1.4); a level without a limit answers
+with an empty result, since GitHub then sends no member.
 
 The token rights are listed under [Accounts and search](setup.md#accounts-and-search).
 
