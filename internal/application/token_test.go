@@ -34,6 +34,10 @@ const (
 type tokenSampleTransport struct {
 	mu   sync.Mutex
 	seen []string
+	// refresh, when set, is the rotated refresh token every token answer carries, and onGrant runs before
+	// the endpoint answers.
+	refresh string
+	onGrant func()
 }
 
 func (s *tokenSampleTransport) RoundTrip(req *http.Request) (*http.Response, error) {
@@ -41,6 +45,12 @@ func (s *tokenSampleTransport) RoundTrip(req *http.Request) (*http.Response, err
 	switch req.URL.String() {
 	case tokenSampleEndpoint:
 		body = `{"access_token":"` + tokenSampleAccess + `","token_type":"Bearer","expires_in":3600}`
+		if s.refresh != "" {
+			body = strings.TrimSuffix(body, "}") + `,"refresh_token":"` + s.refresh + `"}`
+		}
+		if s.onGrant != nil {
+			s.onGrant()
+		}
 	case tokenSampleAPI:
 		s.mu.Lock()
 		s.seen = append(s.seen, req.URL.Path)

@@ -9,6 +9,7 @@ import (
 
 	"filippo.io/age"
 
+	"github.com/castrowithcee/qatlas-connect/internal/config"
 	"github.com/castrowithcee/qatlas-connect/internal/invokelog"
 	"github.com/castrowithcee/qatlas-connect/internal/vault"
 )
@@ -48,9 +49,10 @@ type Server struct {
 	hardAt   time.Time // UnlockedAt plus MaxUnlock; zero without a maximum
 	unlocked time.Time // when the vault was unlocked, as handed to a successor
 	timer    *time.Timer
-	// vaultDir is the vault directory an approve-token request opens with key; see ApproveWithTokens.
+	// vaultDir is the vault directory an approve-token, names or store-refresh request opens with key; see
+	// ApproveWithTokens.
 	vaultDir string
-	// tokenMu keeps approve-token requests apart, each of which reads and writes the vault.
+	// tokenMu keeps approve-token and store-refresh requests apart, each of which reads and writes the vault.
 	tokenMu sync.Mutex
 	// handover is what a handover needs; see AllowHandover. ownProgram reports the program this process
 	// was started from and whether it was replaced since: ReplacedProgram, which a test replaces.
@@ -316,6 +318,8 @@ func (s *Server) serveConn(conn net.Conn) {
 		resp = s.answerToken(req)
 	case opNames:
 		resp = s.answerNames()
+	case opStoreRefresh:
+		resp = s.answerStoreRefresh(req)
 	default:
 		resp = s.answer(req)
 	}
@@ -640,6 +644,70 @@ func (s *Server) answerNames() response {
 		return response{V: Version, Error: codeNamesFailed}
 	}
 	return response{V: Version, Names: &names}
+}
+
+// storeRefreshOperation is the operation a write of a refresh token is logged under.
+const storeRefreshOperation = invokelog.OperationStoreRefreshToken
+
+// answerStoreRefresh carries out one checked store-refresh request: the refresh token of the credential the
+// request's connection reads is replaced in the vault on disk, opened with the server's key under the
+// vault's write lock, only while it still holds the request's old value. The connection must be one the
+// vault approved as it is now, the same check a get makes, and no role but the refresh token is written.
+// The answer carries the value stored afterwards, which the connection may read anyway; each decision is
+// logged with the connection and the outcome, never a value.
+func (s *Server) answerStoreRefresh(req request) response {
+	fields := invokelog.Fields{Path: "cli", Operation: storeRefreshOperation, Effect: "update"}
+	if req.Scope != nil {
+		fields.Connection = req.Scope.Connection
+	}
+	s.mu.Lock()
+	locked := s.locked || s.stopping()
+	key, dir, logger := s.key, s.vaultDir, s.log
+	approved := req.Scope != nil && req.Credential != "" && req.Credential == req.Scope.Credential &&
+		s.bindings.AllowsRole(*req.Scope, req.Credential, req.Role)
+	s.mu.Unlock()
+	refuse := func(code string) response {
+		fields.Result = code
+		logDecision(logger, fields)
+		return response{V: Version, Error: code}
+	}
+	switch {
+	case locked:
+		return response{V: Version, Error: codeLocked}
+	case req.Role != config.RoleRefreshToken:
+		return refuse(codeRoleRefused)
+	case !approved:
+		return refuse(codeApproval)
+	case req.Old == "" || req.Value == "":
+		return refuse(codeBadRequest)
+	}
+	id, ok := key.(*age.X25519Identity)
+	if dir == "" || !ok {
+		return refuse(codeStoreFailed)
+	}
+
+	s.tokenMu.Lock()
+	defer s.tokenMu.Unlock()
+	v, err := vault.OpenWithKey(dir, id)
+	if err != nil {
+		return refuse(codeStoreFailed)
+	}
+	current, replaced, err := v.ReplaceRole(req.Credential, req.Role, req.Old, req.Value)
+	if err != nil {
+		return refuse(codeStoreFailed)
+	}
+	s.mu.Lock()
+	if roles := s.secrets[req.Credential]; roles != nil && current != "" && !s.locked && !s.stopping() {
+		clear(roles[req.Role])
+		roles[req.Role] = []byte(current)
+	}
+	s.mu.Unlock()
+	fields.Result = "success"
+	if !replaced {
+		fields.Result = "conflict"
+	}
+	logDecision(logger, fields)
+	return response{V: Version, Found: current != "", Value: current}
 }
 
 // resultAdminRequired is the result a refused token approval is logged with, the code the command fails with.
