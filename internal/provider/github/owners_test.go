@@ -385,12 +385,14 @@ func TestTargetMetadataDescribesEveryKind(t *testing.T) {
 		}
 		for _, form := range kind.Forms {
 			parsed, err := parseTarget(fill.Replace(form))
-			if err != nil || parsed.argumentName() != kind.Name || metadata.Target.Validate(fill.Replace(form)) != nil {
+			// A registry host is no argument of any tool, so it has no argument name to compare.
+			named := parsed.argumentName() == kind.Name || (kind.Name == "registry-host" && parsed.kind == kindRegistryHost)
+			if err != nil || !named || metadata.Target.Validate(fill.Replace(form)) != nil {
 				t.Errorf("form %s of %s = %+v, %v", form, kind.Name, parsed, err)
 			}
 		}
 	}
-	equalIDs(t, kinds, []string{"repository", "project", "owner"})
+	equalIDs(t, kinds, []string{"repository", "project", "owner", "registry-host"})
 
 	metadata.Target.Kinds[0].Forms[0] = "changed"
 	again, _ := reg.ProviderMetadata(Provider)

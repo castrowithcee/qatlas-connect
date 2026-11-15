@@ -688,6 +688,13 @@ func TestExclusionsAreDeclaredAndValidated(t *testing.T) {
 		t.Fatal("github declares no exclusions")
 	}
 	for _, kind := range metadata.Target.Kinds {
+		if kind.Name == "registry-host" {
+			// An approval of an address host reaches nothing, so there is nothing to exclude.
+			if len(kind.ExcludeForms) > 0 {
+				t.Errorf("kind %s is excludable", kind.Name)
+			}
+			continue
+		}
 		if !(len(kind.ExcludeForms) > 0) {
 			t.Errorf("kind %s is not excludable", kind.Name)
 		}

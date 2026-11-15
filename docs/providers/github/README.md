@@ -56,6 +56,7 @@ and order:
 | `repos/OWNER/*` | every repository of one owner |
 | `users/LOGIN/projects/*`, `orgs/LOGIN/projects/*` | every project of one user or organization |
 | `users/LOGIN`, `orgs/LOGIN` | listing every project and repository of one user or organization, and creating or copying projects there |
+| `registry-hosts/HOST` | one address host, optionally with `:PORT`, that a private registry of an organization may use |
 
 An owner entry allows the [owner lists](#owner-lists), `github.projects.create`, and the
 destination of `github.projects.copy` only: it names what the lists may show and where a new project may be
@@ -67,6 +68,18 @@ are compared without case, like GitHub compares them, and an entry listed twice 
 token stays an independent upper bound: the targets never grant what the token lacks, and the token never
 widens the targets, so a call reaches only what both allow. The single `target: ...` form and existing lists,
 such as a project followed by the repositories it plans in, stay valid and are read as the same allow-list.
+
+A registry host entry names one host and reaches no GitHub object: no tool takes it as a repository, owner, or
+project, it adds nothing to the repositories, projects, or owners a connection reaches, and it cannot be excluded.
+It only approves the host of an address that a tool may send to GitHub for a private registry. A connection
+whose only targets are registry hosts serves no tool that needs a repository, project, or owner, nor an
+account-wide read or search. `HOST` is a DNS name of letters, digits, `-`, and `.`, compared without case and
+exactly: no scheme, path, wildcard, or userinfo, and no subdomain of an approved host. A port is part of the
+approval; an address without a port matches only an entry without one, and `:443` is not implied. IP addresses
+(IPv4 and IPv6 forms) are refused, so a registry must be named by its DNS name. An address is approved only when
+it is an `https` URL without userinfo whose host equals an entry; `http` and every other scheme are refused, and
+a connection without a registry host entry approves none. The choosing dialogs do not list registry hosts; they
+are typed.
 
 `exclude` is an optional deny-list in the same spelling, taking `repos/OWNER/REPO`, `repos/OWNER/*`, `users/LOGIN`,
 `orgs/LOGIN`, `users/LOGIN/projects/NUMBER`, `orgs/LOGIN/projects/NUMBER`, and `users/LOGIN/projects/*` or
