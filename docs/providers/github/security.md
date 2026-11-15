@@ -12,11 +12,12 @@ updated: 2026-11-14
 The security tools of the [GitHub provider](README.md). The advisory and finding tools only read, and so do the
 alert reads. Three tools change an alert's state, and [the security switches](#security-switches) and
 [the code scanning default setup](#code-scanning-default-setup) read and, listed-only, change; each change is
-offered only where a connection's `tools` list names it, as is [the dependency snapshot](#dependency-graph). The
+offered only where a connection's `tools` list names it, as are [the dependency snapshot](#dependency-graph) and the
+three changes of [code security configurations](#code-security-configurations). The
 not-recommended setup profile `security` selects the six alert tools, the four reads of instances, analyses, and
 locations, the five advisory and finding tools, the two reads of the switches and the default setup, the
 dependency review, and the four reads of [code security configurations](#code-security-configurations),
-twenty-two in all and all reading; it holds none of the six changes. The recommended profile `read` is unchanged.
+twenty-two in all and all reading; it holds none of the nine changes. The recommended profile `read` is unchanged.
 
 ## Security alerts
 
@@ -322,9 +323,10 @@ https://docs.github.com/en/rest/code-scanning/code-scanning#update-a-code-scanni
 
 ## Code security configurations
 
-Four tools read the code security configurations of one organization: a named set of settings for code scanning,
-Dependabot, secret protection, and the dependency graph that GitHub applies to repositories. They only read; creating,
-changing, and deleting a configuration, attaching one to repositories, and setting a default are not offered, and
+Seven tools read and maintain the code security configurations of one organization: a named set of settings for code
+scanning, Dependabot, secret protection, and the dependency graph that GitHub applies to repositories. Four only read.
+Creating, updating, and deleting a configuration are listed-only changes, offered only where a connection's `tools`
+list names them. Attaching a configuration to repositories, detaching one, and setting a default are not offered, and
 neither are the enterprise configurations.
 
 | Tool | Does |
@@ -333,6 +335,9 @@ neither are the enterprise configurations.
 | `github.code-security-configurations.get` | reads one configuration by `configuration_id` |
 | `github.code-security-defaults.get` | reads the configurations applied to new repositories |
 | `github.code-security-configuration-repositories.list` | lists the repositories a configuration is attached to |
+| `github.code-security-configurations.create` | creates a configuration (listed-only) |
+| `github.code-security-configurations.update` | changes the given settings of a configuration (listed-only) |
+| `github.code-security-configurations.delete` | deletes a configuration (listed-only) |
 
 The tools take the `owner` argument as `orgs/LOGIN`. The organization must be one the connection's targets name as an
 owner (any organization on a connection without targets), and an exclusion of the owner refuses it; a user owner and a
@@ -366,6 +371,44 @@ only to repositories outside the targets.
 GitHub answers 403 for a token without the right or for an account that is neither an organization owner nor a
 security manager, and 404 for a missing configuration or one the token may not see; both are results with a reason
 and never carry GitHub's own text. A gateway timeout is a timeout. Nothing is retried.
+
+### Changing configurations
+
+`.create`, `.update`, and `.delete` take the same `owner` as the reads and need a confirmation. Each sends exactly one
+request, never repeated; an unclear outcome is reported as uncertain and is not retried. A name and a description are
+untrusted data.
+
+`.create` needs `name` and takes every setting GitHub documents for a new configuration: `description` (at most 255
+characters), `advanced_security` (`enabled`, `disabled`, `code_security`, or `secret_protection`), `enforcement`
+(`enforced` or `unenforced`), the state of each setting (`enabled`, `disabled`, or `not_set`: `code_security`,
+`dependency_graph`, `dependency_graph_autosubmit_action`, `dependabot_alerts`, `dependabot_reachability`,
+`dependabot_security_updates`, `dependabot_delegated_alert_dismissal`, `code_scanning_default_setup`,
+`code_scanning_delegated_alert_dismissal`, `secret_protection`, `secret_scanning`, `secret_scanning_push_protection`,
+`secret_scanning_delegated_bypass`, `secret_scanning_validity_checks`, `secret_scanning_non_provider_patterns`,
+`secret_scanning_generic_secrets`, `secret_scanning_generic_secrets_push_protection`,
+`secret_scanning_delegated_alert_dismissal`, `secret_scanning_extended_metadata`, and
+`private_vulnerability_reporting`), and the four option objects: `dependency_graph_autosubmit_action_options`
+(`labeled_runners`), `code_scanning_options` (`allow_advanced`), `code_scanning_default_setup_options`
+(`runner_type` as `standard`, `labeled`, or `not_set`, and `runner_label`), and
+`secret_scanning_delegated_bypass_options` (`reviewers`, at most 100, each with `reviewer_id`, `reviewer_type` as
+`TEAM` or `ROLE`, and `mode` as `ALWAYS` or `EXEMPT`). A setting left out takes GitHub's default. Every enumeration is
+checked against these values before a request is made, and a refused value never reaches GitHub. The new
+configuration is attached to no repository and is no default. It answers like `.get`.
+
+`.update` takes the `configuration_id` and the same settings, all optional but at least one required; only the given
+settings change, and an empty `description` clears it. It answers `updated` and the `configuration` after the change;
+when GitHub reports that nothing new was applied (204), `updated` is false and no configuration is returned.
+
+`.delete` takes the `configuration_id` and answers `deleted`.
+
+An update and a delete act on the configuration of the organization, not on a repository, and so on every repository
+the configuration is attached to: an update changes the settings of all of them, a delete detaches it from all of them
+(they keep their settings). They are allowed even when the configuration is attached to repositories outside the
+connection's targets, because they change the organization's object, not a repository. The `configuration_id` is
+addressed only below the organization in the path, so an id of another organization is not found. A configuration
+owned by GitHub or by an enterprise cannot be changed, and an enterprise-enforced setting cannot be overridden: GitHub
+answers 400, 403, or 409 (security configuration work already in progress) and 422 for an invalid or unavailable
+setting, each a result with a reason and without GitHub's own text.
 
 The token rights are listed under [Security](setup.md#security). Sources:
 https://docs.github.com/en/rest/code-security/configurations.

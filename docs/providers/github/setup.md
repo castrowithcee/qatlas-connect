@@ -290,11 +290,12 @@ so treat them as likely, not certain.
 | Organization security advisories | `repo` or `repository_advisories:write`, and an organization owner or security manager | Repository security advisories: write (GitHub requires write although the tool only reads) |
 | Code quality findings | `repo`; `public_repo` for a public repository | Code quality: read |
 | Read the code security configurations of an organization, its defaults, and the repositories of a configuration | `read:org`, as an organization owner or security manager | Administration: read (organization); as far as GitHub documents it |
+| Create, update, or delete a code security configuration of an organization | `write:org`, as an organization owner or security manager | Administration: write (organization); as far as GitHub documents it |
 | Read the security switches and the code scanning default setup | `repo`, as a repository administrator | Administration: read |
 | Change the security switches and the code scanning default setup | `repo`, as a repository administrator; `security_events` is not enough | Administration: write |
 
-GitHub's reference names only the classic scope `read:org` for the code security configurations, so the fine-grained
-permission above is likely, not certain.
+GitHub's reference names only the classic scopes `read:org` and `write:org` for the code security configurations, so
+the fine-grained permissions above are likely, not certain.
 
 GitHub answers `not-found` for a repository where a feature is off or that the token cannot see. Code scanning
 answers with a refusal without GitHub Advanced Security, and a code quality finding with a refusal when code quality
