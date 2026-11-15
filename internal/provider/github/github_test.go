@@ -940,7 +940,7 @@ func TestRegisterPublishesMetadataAndTheReadOperations(t *testing.T) {
 		"github.pull-request-reviews.list", "github.pull-request-review-threads.list", "github.pull-requests.get",
 		"github.pull-requests.list", "github.pull-requests.search",
 		"github.release-assets.list", "github.release-notes.generate", "github.releases.get", "github.releases.list",
-		"github.repositories.list", "github.repositories.search", "github.repository-advisories.list", "github.repository-invitations.list", "github.repository-settings.get", "github.autolinks.get", "github.autolinks.list", "github.rulesets.get", "github.rulesets.list", "github.runner-labels.list", "github.runners.get", "github.runners.list",
+		"github.repositories.list", "github.repositories.search", "github.repository-advisories.list", "github.repository-advisories.get", "github.pages.get", "github.pages-builds.list", "github.pages-builds.get", "github.pages-health.get", "github.repository-invitations.list", "github.repository-settings.get", "github.autolinks.get", "github.autolinks.list", "github.rulesets.get", "github.rulesets.list", "github.runner-labels.list", "github.runners.get", "github.runners.list",
 		"github.secret-scanning-alerts.get", "github.secret-scanning-alerts.list", "github.code-scanning-alert-instances.list", "github.code-scanning-analyses.list", "github.code-scanning-analyses.get", "github.secret-scanning-locations.list", "github.stars.list", "github.sub-issues.list", "github.issue-events.list", "github.issue-timeline.list", "github.assignees.list", "github.assignees.check", "github.tags.get",
 		"github.tags.list", "github.team-members.list", "github.team-memberships.get", "github.team-repositories.list",
 		"github.teams.get", "github.teams.list", "github.traffic-clones.get", "github.traffic-paths.list", "github.traffic-referrers.list",
@@ -955,7 +955,7 @@ func TestRegisterPublishesMetadataAndTheReadOperations(t *testing.T) {
 	if jobsLog.Risk.DataSensitivity != logSensitivity {
 		t.Errorf("the job log is classified as %q, want %q", jobsLog.Risk.DataSensitivity, logSensitivity)
 	}
-	if len(metadata.Tools) != 440 {
+	if len(metadata.Tools) != 445 {
 		t.Errorf("tools = %+v, want every operation offered to connection allow-lists", metadata.Tools)
 	}
 }
