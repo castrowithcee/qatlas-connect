@@ -3,11 +3,15 @@ package github
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"net/http"
 	"net/url"
+	"slices"
 	"strconv"
 
 	"github.com/castrowithcee/qatlas-connect/internal/capability"
 	"github.com/castrowithcee/qatlas-connect/internal/config"
+	"github.com/castrowithcee/qatlas-connect/internal/provider"
 	"github.com/castrowithcee/qatlas-connect/internal/secret"
 	"github.com/castrowithcee/qatlas-kit/redact"
 )
@@ -201,8 +205,16 @@ var packageVersionsGet = capability.Descriptor{
 	}},
 }
 
+// packageReadToolIDs are the package tools that only read.
+var packageReadToolIDs = []string{packagesList.ID, packagesGet.ID, packageVersionsList.ID, packageVersionsGet.ID}
+
+// packageChangeToolIDs are the package tools that delete or restore; each is offered only where a connection's
+// tools list names it.
+var packageChangeToolIDs = []string{packagesDelete.ID, packagesRestore.ID, packageVersionsDelete.ID,
+	packageVersionsRestore.ID}
+
 // packageToolIDs are the package tools; they take an owner as their target.
-var packageToolIDs = []string{packagesList.ID, packagesGet.ID, packageVersionsList.ID, packageVersionsGet.ID}
+var packageToolIDs = append(slices.Clone(packageReadToolIDs), packageChangeToolIDs...)
 
 func packagesOperations() []capability.Operation {
 	return []capability.Operation{
@@ -217,6 +229,22 @@ func packagesOperations() []capability.Operation {
 		{Descriptor: packageVersionsGet, Handler: packagesHandler(packageVersionsGet.ID, checkPackageVersionID,
 			func(ctx context.Context, c *Client, a *packagesArguments) (any, error) {
 				return c.getPackageVersion(ctx, a)
+			})},
+		{Descriptor: packagesDelete, Handler: packagesHandler(packagesDelete.ID, checkPackageName,
+			func(ctx context.Context, c *Client, a *packagesArguments) (any, error) {
+				return c.deletePackage(ctx, a)
+			})},
+		{Descriptor: packagesRestore, Handler: packagesHandler(packagesRestore.ID, checkPackageName,
+			func(ctx context.Context, c *Client, a *packagesArguments) (any, error) {
+				return c.restorePackage(ctx, a)
+			})},
+		{Descriptor: packageVersionsDelete, Handler: packagesHandler(packageVersionsDelete.ID, checkPackageVersionID,
+			func(ctx context.Context, c *Client, a *packagesArguments) (any, error) {
+				return c.deletePackageVersion(ctx, a)
+			})},
+		{Descriptor: packageVersionsRestore, Handler: packagesHandler(packageVersionsRestore.ID, checkPackageVersionID,
+			func(ctx context.Context, c *Client, a *packagesArguments) (any, error) {
+				return c.restorePackageVersion(ctx, a)
 			})},
 	}
 }
@@ -610,4 +638,228 @@ type PackageVersionList struct {
 // the packages of the owner only, never a package name or a version, since those are untrusted data.
 func packagesSubject(scope, owner string) subject {
 	return subject{what: "the packages of " + scope + "/" + owner}
+}
+
+const (
+	packageChangedProperties = `"package_type":{"type":"string"},"package_name":{"type":"string"}`
+	packageDeletedOutput     = `{"type":"object","properties":{"deleted":{"type":"boolean"},` +
+		packageChangedProperties + `},"required":["deleted","package_type","package_name"],"additionalProperties":false}`
+	packageRestoredOutput = `{"type":"object","properties":{"restored":{"type":"boolean"},` +
+		packageChangedProperties + `},"required":["restored","package_type","package_name"],"additionalProperties":false}`
+	packageVersionDeletedOutput = `{"type":"object","properties":{"deleted":{"type":"boolean"},` +
+		packageChangedProperties + `,"package_version_id":{"type":"integer"}},` +
+		`"required":["deleted","package_type","package_name","package_version_id"],"additionalProperties":false}`
+	packageVersionRestoredOutput = `{"type":"object","properties":{"restored":{"type":"boolean"},` +
+		packageChangedProperties + `,"package_version_id":{"type":"integer"}},` +
+		`"required":["restored","package_type","package_name","package_version_id"],"additionalProperties":false}`
+)
+
+var packageChangedFields = []capability.Field{
+	{Name: "package_type", Description: "Package type of the request"},
+	{Name: "package_name", Description: "Package name of the request, as given"},
+}
+
+var packageVersionIDArgument = capability.Argument{Name: "package_version_id", Required: true,
+	Description: "Numeric id of the version as github.package-versions.list reports it"}
+
+var packagesDelete = capability.Descriptor{
+	ID:      Provider + ".packages.delete",
+	Version: 1,
+	Title:   "Delete a GitHub package",
+	Description: "Delete one package of a user or an organization a connection allows with all of its versions. " +
+		"GitHub keeps a deleted package restorable for 30 days, if its namespace is not taken by a new package " +
+		"meanwhile; GitHub refuses a public package with a version of more than 5,000 downloads. Offered only " +
+		"by a connection whose tools list names it",
+	Tags:                  []string{"github", "packages", "delete"},
+	Risk:                  guardedRisk(capability.EffectDelete, capability.IdempotencyUnknown, dataSensitivity),
+	Provider:              Provider,
+	RequiresToolAllowList: true,
+	InputSchema:           inputSchema(`"package_type":`+packageTypeSchema+`,"package_name":`+packageNameSchema, "package_type", "package_name"),
+	OutputSchema:          json.RawMessage(packageDeletedOutput),
+	Arguments:             []capability.Argument{packageTypeArgument, packageNameArgument},
+	Fields: append([]capability.Field{{Name: "deleted", Description: "True once GitHub deleted the package"}},
+		packageChangedFields...),
+	Examples: []capability.Example{{
+		Description: "Delete a package",
+		Arguments:   json.RawMessage(`{"owner":"orgs/octo-org","package_type":"npm","package_name":"left-pad"}`),
+	}},
+}
+
+var packagesRestore = capability.Descriptor{
+	ID:      Provider + ".packages.restore",
+	Version: 1,
+	Title:   "Restore a GitHub package",
+	Description: "Restore one deleted package of a user or an organization a connection allows with its versions. " +
+		"GitHub restores a package deleted within the last 30 days, if its namespace is not taken by a new " +
+		"package. The tool offers no token argument. Offered only by a connection whose tools list names it",
+	Tags:                  []string{"github", "packages", "restore", "update"},
+	Risk:                  guardedRisk(capability.EffectUpdate, capability.IdempotencyUnknown, dataSensitivity),
+	Provider:              Provider,
+	RequiresToolAllowList: true,
+	InputSchema:           inputSchema(`"package_type":`+packageTypeSchema+`,"package_name":`+packageNameSchema, "package_type", "package_name"),
+	OutputSchema:          json.RawMessage(packageRestoredOutput),
+	Arguments:             []capability.Argument{packageTypeArgument, packageNameArgument},
+	Fields: append([]capability.Field{{Name: "restored", Description: "True once GitHub restored the package"}},
+		packageChangedFields...),
+	Examples: []capability.Example{{
+		Description: "Restore a deleted package",
+		Arguments:   json.RawMessage(`{"owner":"orgs/octo-org","package_type":"npm","package_name":"left-pad"}`),
+	}},
+}
+
+var packageVersionsDelete = capability.Descriptor{
+	ID:      Provider + ".package-versions.delete",
+	Version: 1,
+	Title:   "Delete a GitHub package version",
+	Description: "Delete one version of a package of a user or an organization a connection allows. GitHub keeps " +
+		"a deleted version restorable for 30 days, if its namespace is not taken by a new package meanwhile; " +
+		"GitHub refuses the last version of a package and a public version of more than 5,000 downloads. " +
+		"Offered only by a connection whose tools list names it",
+	Tags:                  []string{"github", "packages", "versions", "delete"},
+	Risk:                  guardedRisk(capability.EffectDelete, capability.IdempotencyUnknown, dataSensitivity),
+	Provider:              Provider,
+	RequiresToolAllowList: true,
+	InputSchema: inputSchema(`"package_type":`+packageTypeSchema+`,"package_name":`+packageNameSchema+
+		`,"package_version_id":`+actionsIDSchema, "package_type", "package_name", "package_version_id"),
+	OutputSchema: json.RawMessage(packageVersionDeletedOutput),
+	Arguments:    []capability.Argument{packageTypeArgument, packageNameArgument, packageVersionIDArgument},
+	Fields: append([]capability.Field{{Name: "deleted", Description: "True once GitHub deleted the version"},
+		{Name: "package_version_id", Description: "Version id of the request"}}, packageChangedFields...),
+	Examples: []capability.Example{{
+		Description: "Delete one version",
+		Arguments: json.RawMessage(`{"owner":"orgs/octo-org","package_type":"container","package_name":"app",` +
+			`"package_version_id":786068}`),
+	}},
+}
+
+var packageVersionsRestore = capability.Descriptor{
+	ID:      Provider + ".package-versions.restore",
+	Version: 1,
+	Title:   "Restore a GitHub package version",
+	Description: "Restore one deleted version of a package of a user or an organization a connection allows. " +
+		"GitHub restores a version deleted within the last 30 days, if its namespace is not taken by a new " +
+		"package. Offered only by a connection whose tools list names it",
+	Tags:                  []string{"github", "packages", "versions", "restore", "update"},
+	Risk:                  guardedRisk(capability.EffectUpdate, capability.IdempotencyUnknown, dataSensitivity),
+	Provider:              Provider,
+	RequiresToolAllowList: true,
+	InputSchema: inputSchema(`"package_type":`+packageTypeSchema+`,"package_name":`+packageNameSchema+
+		`,"package_version_id":`+actionsIDSchema, "package_type", "package_name", "package_version_id"),
+	OutputSchema: json.RawMessage(packageVersionRestoredOutput),
+	Arguments:    []capability.Argument{packageTypeArgument, packageNameArgument, packageVersionIDArgument},
+	Fields: append([]capability.Field{{Name: "restored", Description: "True once GitHub restored the version"},
+		{Name: "package_version_id", Description: "Version id of the request"}}, packageChangedFields...),
+	Examples: []capability.Example{{
+		Description: "Restore one deleted version",
+		Arguments: json.RawMessage(`{"owner":"orgs/octo-org","package_type":"container","package_name":"app",` +
+			`"package_version_id":786068}`),
+	}},
+}
+
+// Fixed messages of the package changes. GitHub's text is never quoted; GitHub documents no fine-grained token
+// permission for these routes.
+const (
+	packagesDeletePermission = "GitHub refused this token to delete here; deleting needs read:packages and " +
+		"delete:packages on a classic token and admin rights on the owner or the package, GitHub documents no " +
+		"fine-grained token permission for these routes, and GitHub also refuses the last version of a package " +
+		"and a public package with a version of more than 5,000 downloads; nothing was deleted"
+	packagesRestorePermission = "GitHub refused this token to restore here; restoring needs read:packages and " +
+		"delete:packages on a classic token and admin rights on the owner or the package, GitHub documents no " +
+		"fine-grained token permission for these routes, and the token query argument GitHub may ask for is " +
+		"never offered by this tool; nothing was restored"
+	packagesDeleteRejected = "GitHub refused to delete it in its current state, for example because it is the " +
+		"last version of the package or a public package has a version of more than 5,000 downloads; nothing " +
+		"was deleted"
+	packagesRestoreRejected = "GitHub refused to restore it, for example because it was deleted more than 30 " +
+		"days ago or a new package took its namespace; nothing was restored"
+)
+
+// packageChangeFailure names a refused package change in Qatlas' own words. GitHub's 403 is the refusal of a
+// missing right, of the last version, and of a package with many downloads alike; a 400 or 422 is a refusal of
+// the state. Every other failure, an unclear outcome included, stays as it is.
+func packageChangeFailure(err error, permission, rejected string) error {
+	var failure *provider.Error
+	if errors.As(err, &failure) && failure.Class == provider.ClassProviderError && failure.Message == rejectedMessage {
+		refused := *failure
+		refused.Message = rejected
+		return &refused
+	}
+	return actionsFailure(err, permission)
+}
+
+// changePackage sends one change of a package route, once; the answer is 204 without a body.
+func (c *Client) changePackage(ctx context.Context, op, method, path, permission, rejected string) error {
+	err := c.restChange(ctx, op, method, path, struct{}{}, nil)
+	if err == nil {
+		return nil
+	}
+	return packageChangeFailure(err, permission, rejected)
+}
+
+// PackageDeleted reports a deleted package.
+type PackageDeleted struct {
+	Deleted     bool   `json:"deleted"`
+	PackageType string `json:"package_type"`
+	PackageName string `json:"package_name"`
+}
+
+// PackageRestored reports a restored package.
+type PackageRestored struct {
+	Restored    bool   `json:"restored"`
+	PackageType string `json:"package_type"`
+	PackageName string `json:"package_name"`
+}
+
+// PackageVersionDeleted reports a deleted package version.
+type PackageVersionDeleted struct {
+	Deleted          bool   `json:"deleted"`
+	PackageType      string `json:"package_type"`
+	PackageName      string `json:"package_name"`
+	PackageVersionID int64  `json:"package_version_id"`
+}
+
+// PackageVersionRestored reports a restored package version.
+type PackageVersionRestored struct {
+	Restored         bool   `json:"restored"`
+	PackageType      string `json:"package_type"`
+	PackageName      string `json:"package_name"`
+	PackageVersionID int64  `json:"package_version_id"`
+}
+
+func (c *Client) deletePackage(ctx context.Context, a *packagesArguments) (*PackageDeleted, error) {
+	path := c.packagePath(a.PackageType, a.PackageName)
+	if err := c.changePackage(ctx, "delete package", http.MethodDelete, path, packagesDeletePermission,
+		packagesDeleteRejected); err != nil {
+		return nil, err
+	}
+	return &PackageDeleted{Deleted: true, PackageType: a.PackageType, PackageName: a.PackageName}, nil
+}
+
+func (c *Client) restorePackage(ctx context.Context, a *packagesArguments) (*PackageRestored, error) {
+	path := c.packagePath(a.PackageType, a.PackageName) + "/restore"
+	if err := c.changePackage(ctx, "restore package", http.MethodPost, path, packagesRestorePermission,
+		packagesRestoreRejected); err != nil {
+		return nil, err
+	}
+	return &PackageRestored{Restored: true, PackageType: a.PackageType, PackageName: a.PackageName}, nil
+}
+
+func (c *Client) deletePackageVersion(ctx context.Context, a *packagesArguments) (*PackageVersionDeleted, error) {
+	path := c.packageVersionPath(a.PackageType, a.PackageName, a.PackageVersionID)
+	if err := c.changePackage(ctx, "delete package version", http.MethodDelete, path, packagesDeletePermission,
+		packagesDeleteRejected); err != nil {
+		return nil, err
+	}
+	return &PackageVersionDeleted{Deleted: true, PackageType: a.PackageType, PackageName: a.PackageName,
+		PackageVersionID: a.PackageVersionID}, nil
+}
+
+func (c *Client) restorePackageVersion(ctx context.Context, a *packagesArguments) (*PackageVersionRestored, error) {
+	path := c.packageVersionPath(a.PackageType, a.PackageName, a.PackageVersionID) + "/restore"
+	if err := c.changePackage(ctx, "restore package version", http.MethodPost, path, packagesRestorePermission,
+		packagesRestoreRejected); err != nil {
+		return nil, err
+	}
+	return &PackageVersionRestored{Restored: true, PackageType: a.PackageType, PackageName: a.PackageName,
+		PackageVersionID: a.PackageVersionID}, nil
 }
