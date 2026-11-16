@@ -37,18 +37,23 @@ var tagPath = regexp.MustCompile(tagPattern)
 
 // tagOf settles a tag path against the target of the connection through the workspace it lies in.
 func (s scope) tagOf(given string) (string, error) {
-	workspace, _, found := strings.Cut(given, "/tags/")
-	if len(given) > maxTagPath || !tagPath.MatchString(given) || !found {
-		return "", invalidArgument("tag must be " + formTag + " with decimal IDs")
+	return s.childOf(given, "tag", "/tags/", tagPath, formTag, maxTagPath)
+}
+
+// childOf settles the path of a workspace object (noun, separated by segment) against the target.
+func (s scope) childOf(given, noun, segment string, pattern *regexp.Regexp, form string, maxLen int) (string, error) {
+	workspace, _, found := strings.Cut(given, segment)
+	if len(given) > maxLen || !pattern.MatchString(given) || !found {
+		return "", invalidArgument(noun + " must be " + form + " with decimal IDs")
 	}
 	if _, err := s.workspaceOf(workspace); err != nil {
-		return "", invalidArgument("tag " + outsideTarget)
+		return "", invalidArgument(noun + " " + outsideTarget)
 	}
 	return given, nil
 }
 
-// tagToolRisk is the risk of every tag change: confirmed, open to the account, and about its configuration.
-func tagToolRisk(effect capability.Effect, idempotency capability.Idempotency) capability.Risk {
+// changeRisk is the risk of every tag or trigger change: confirmed, open to the account, and about its configuration.
+func changeRisk(effect capability.Effect, idempotency capability.Idempotency) capability.Risk {
 	return capability.Risk{Effect: effect, Idempotency: idempotency, Confirmation: capability.ConfirmationRequired,
 		OpenWorld: true, DataSensitivity: "tag-manager-configuration"}
 }
@@ -207,7 +212,7 @@ var tagsCreate = capability.Descriptor{
 	Description: "Create a tag in a workspace. " + tagEffect + tagValuesNote + "Not idempotent: a repeated call " +
 		"creates a second tag.",
 	Tags: []string{"google", "tag-manager", "tags", "create"}, Provider: Provider,
-	Risk:        tagToolRisk(capability.EffectCreate, capability.IdempotencyNonIdempotent),
+	Risk:        changeRisk(capability.EffectCreate, capability.IdempotencyNonIdempotent),
 	InputSchema: tagCreateInput(), OutputSchema: json.RawMessage(tagSchema),
 	Arguments: append([]capability.Argument{workspaceArgument}, tagSettingArguments()...), Fields: tagFields,
 	Examples: []capability.Example{{Description: "A paused Custom HTML tag",
@@ -221,7 +226,7 @@ var tagsUpdate = capability.Descriptor{
 	Description: "Replace a tag of a workspace. " + tagReplaceNote + tagEffect + tagValuesNote + "The fingerprint " +
 		"is required, so a tag changed in the meantime is not overwritten.",
 	Tags: []string{"google", "tag-manager", "tags", "update"}, Provider: Provider,
-	Risk:        tagToolRisk(capability.EffectUpdate, capability.IdempotencyIdempotent),
+	Risk:        changeRisk(capability.EffectUpdate, capability.IdempotencyIdempotent),
 	InputSchema: tagUpdateInput(), OutputSchema: json.RawMessage(tagSchema),
 	Arguments: append([]capability.Argument{tagArgument, fingerprintArgument}, tagSettingArguments()...),
 	Fields:    tagFields,
@@ -235,7 +240,7 @@ var tagsDelete = capability.Descriptor{
 	Description: "Delete a tag of a workspace. " + tagEffect + "The tag stays in the versions that hold it; " +
 		"tags.revert can bring a tag back from the base version of the workspace.",
 	Tags: []string{"google", "tag-manager", "tags", "delete"}, Provider: Provider,
-	Risk:         tagToolRisk(capability.EffectDelete, capability.IdempotencyIdempotent),
+	Risk:         changeRisk(capability.EffectDelete, capability.IdempotencyIdempotent),
 	InputSchema:  inputSchema([]string{"tag"}, member("tag", tagArgSchema)),
 	OutputSchema: json.RawMessage(objectSchema(member("tag", stringSchema), member("deleted", boolSchema))),
 	Arguments:    []capability.Argument{tagArgument},
@@ -252,7 +257,7 @@ var tagsRevert = capability.Descriptor{
 		"holds none. " + tagEffect + "The fingerprint is required." + listedOnly,
 	RequiresToolAllowList: true,
 	Tags:                  []string{"google", "tag-manager", "tags", "update"}, Provider: Provider,
-	Risk: tagToolRisk(capability.EffectUpdate, capability.IdempotencyIdempotent),
+	Risk: changeRisk(capability.EffectUpdate, capability.IdempotencyIdempotent),
 	InputSchema: inputSchema([]string{"tag", "fingerprint"}, member("tag", tagArgSchema),
 		member("fingerprint", fingerprintSchema)),
 	OutputSchema: json.RawMessage(objectSchema(member("tag", tagSchema))),
