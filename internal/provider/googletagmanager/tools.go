@@ -119,7 +119,7 @@ var workspaceFields = []capability.Field{
 
 func descriptors() []capability.Descriptor {
 	return append([]capability.Descriptor{accountsList, accountsGet, containersList, containersGet, workspacesList,
-		workspacesGet}, append(tagDescriptors(), triggerDescriptors()...)...)
+		workspacesGet}, append(tagDescriptors(), append(triggerDescriptors(), builtInVariableDescriptors()...)...)...)
 }
 
 var accountsList = capability.Descriptor{
