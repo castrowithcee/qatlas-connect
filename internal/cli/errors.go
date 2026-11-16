@@ -135,6 +135,17 @@ func nextStep(err error, r route) string {
 		}
 		return "give the consent of this connection's credential with 'qconnect credential consent <credential>', " +
 			"which covers the scopes of its tools, then try again"
+	case application.CodeImpersonationDenied, application.CodeServiceAccountUnknown:
+		// Who may impersonate a service account, and which one a connection names, is a person's setup.
+		if r == routeMCP || r == routeAgent {
+			return "an agent cannot change the service account of a connection or who may impersonate it; ask the user"
+		}
+		if codeFor(err) == application.CodeServiceAccountUnknown {
+			return "correct service_account of this connection to an existing service account in config.yaml, " +
+				"then approve the connection"
+		}
+		return "grant the account that gave the consent the role on the service account that lets it create " +
+			"access tokens, as the provider's setup page says, then try again"
 	case application.CodeCredentialUnusable:
 		if r == routeMCP || r == routeAgent {
 			return "agents do not manage credentials; ask the user"

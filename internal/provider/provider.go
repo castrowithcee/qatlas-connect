@@ -38,12 +38,15 @@ const (
 
 // Classes of a credential that issues access tokens. They name the state of the credential without a token
 // value: no consent yet, a consent the token endpoint no longer accepts, a token that lacks a scope the
-// connection needs, and stored roles that fit no procedure.
+// connection needs, stored roles that fit no procedure, and for an impersonation an account of the consent
+// that may not create tokens of the service account, and a service account the provider does not know.
 const (
-	ClassConsentRequired    Class = "consent-required"
-	ClassConsentExpired     Class = "consent-expired"
-	ClassScopeMissing       Class = "scope-missing"
-	ClassCredentialUnusable Class = "credential-unusable"
+	ClassConsentRequired       Class = "consent-required"
+	ClassConsentExpired        Class = "consent-expired"
+	ClassScopeMissing          Class = "scope-missing"
+	ClassCredentialUnusable    Class = "credential-unusable"
+	ClassImpersonationDenied   Class = "impersonation-denied"
+	ClassServiceAccountUnknown Class = "service-account-unknown"
 )
 
 // Explain says what a person checks next for a failed connection test of the given class. subject names
@@ -77,6 +80,10 @@ func Explain(class Class, subject string) string {
 		return "the token of the credential lacks a scope this connection needs; a person gives the consent again with it"
 	case ClassCredentialUnusable:
 		return "the credential must hold either a client ID or a service account key, not both and not neither"
+	case ClassImpersonationDenied:
+		return subject + " refused to create tokens of the service account for the account that gave the consent; a person grants that account the role for it"
+	case ClassServiceAccountUnknown:
+		return subject + " does not know the service account the connection names; a person corrects the connection"
 	}
 	return "see the class for what to check"
 }

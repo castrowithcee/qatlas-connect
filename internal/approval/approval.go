@@ -38,6 +38,9 @@ const (
 	FieldForward     = "forward"
 	FieldState       = "state"
 	FieldActiveUntil = "active until"
+	// FieldServiceAccount is the service account a token credential impersonates. No form shows it, so a
+	// direct save never approves a change of it (see DirectApprovable).
+	FieldServiceAccount = "service account"
 )
 
 // The two states a FieldState change reads between.
@@ -57,6 +60,14 @@ func ActiveUntilText(limit string) string {
 		return limit
 	}
 	return at.Local().Format("2006-01-02 15:04:05 MST")
+}
+
+// ServiceAccountText is how a person reads the service account a connection impersonates, none without one.
+func ServiceAccountText(account string) string {
+	if account == "" {
+		return "none"
+	}
+	return account
 }
 
 // StateText is how a person reads whether a connection is switched off.
@@ -431,6 +442,7 @@ func diff(approved vault.Approval, now vault.Scope, id string, catalog config.Pr
 		ForwardText(before.Forward), ForwardText(after.Forward))
 	add(FieldState, StateText(before.Disabled), StateText(after.Disabled))
 	add(FieldActiveUntil, ActiveUntilText(before.ActiveUntil), ActiveUntilText(after.ActiveUntil))
+	add(FieldServiceAccount, ServiceAccountText(before.ServiceAccount), ServiceAccountText(after.ServiceAccount))
 	return fields
 }
 

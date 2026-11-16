@@ -174,6 +174,16 @@ func TestNextStepByCodeAndRoute(t *testing.T) {
 			"the change to this connection is not approved; an agent cannot approve it, ask the user"},
 		{"MCP approval required", &secret.ApprovalRequiredError{Connection: "wiki", Credential: "c"}, routeMCP,
 			"the change to this connection is not approved; an agent cannot approve it, ask the user"},
+		{"CLI impersonation denied", &provider.Error{Class: provider.ClassImpersonationDenied}, routeCLI,
+			"grant the account that gave the consent the role on the service account that lets it create access " +
+				"tokens, as the provider's setup page says, then try again"},
+		{"CLI service account unknown", &provider.Error{Class: provider.ClassServiceAccountUnknown}, routeCLI,
+			"correct service_account of this connection to an existing service account in config.yaml, then " +
+				"approve the connection"},
+		{"agent impersonation denied", &provider.Error{Class: provider.ClassImpersonationDenied}, routeAgent,
+			"an agent cannot change the service account of a connection or who may impersonate it; ask the user"},
+		{"MCP service account unknown", &provider.Error{Class: provider.ClassServiceAccountUnknown}, routeMCP,
+			"an agent cannot change the service account of a connection or who may impersonate it; ask the user"},
 	} {
 		if got := nextStep(tt.err, tt.r); got != tt.want {
 			t.Errorf("%s: step = %q, want %q", tt.name, got, tt.want)

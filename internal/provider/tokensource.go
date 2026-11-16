@@ -191,10 +191,14 @@ func OpenTokenSource(ctx context.Context, resolved *config.Resolved, secrets *se
 		return &Error{Class: ClassCredentialUnusable, Op: tokenOp, Message: fmt.Sprintf(format, resolved.Credential)}
 	}
 	clientID, key := values.ClientID != "", values.ServiceAccountKey != ""
-	procedure, ok := config.TokenProcedureOf(clientID, key, "")
+	procedure, ok := config.TokenProcedureOf(clientID, key, resolved.ServiceAccount)
 	switch {
-	case !ok && clientID:
+	case !ok && clientID && key:
 		return nil, unusable("credential %q holds both a client ID and a service account key; remove one of them")
+	case !ok && key:
+		return nil, &Error{Class: ClassCredentialUnusable, Op: tokenOp, Message: fmt.Sprintf("credential %q holds "+
+			"a service account key, while connection %q impersonates a service account, which needs a client ID",
+			resolved.Credential, resolved.Name)}
 	case !ok:
 		return nil, unusable("credential %q holds neither a client ID nor a service account key")
 	case opts.Grants[procedure] == nil:
@@ -220,9 +224,10 @@ func OpenTokenSource(ctx context.Context, resolved *config.Resolved, secrets *se
 		key: tokenKey{
 			provider: resolved.Provider, credential: resolved.Credential, credentialID: resolved.Secrets.ID,
 			clientID: values.ClientID, serviceAccountKey: values.ServiceAccountKey,
-			procedure: procedure, scopes: strings.Join(scopes, " "),
+			procedure: procedure, scopes: strings.Join(scopes, " "), serviceAccount: resolved.ServiceAccount,
 		},
-		request:    TokenRequest{Procedure: procedure, Secrets: values, Scopes: scopes},
+		request: TokenRequest{Procedure: procedure, Secrets: values, Scopes: scopes,
+			ServiceAccount: resolved.ServiceAccount},
 		grant:      opts.Grants[procedure],
 		scopes:     opts.Token.Scopes,
 		save:       save,
@@ -331,9 +336,10 @@ func (s *TokenSource) token(ctx context.Context, stale string) (Token, error) {
 }
 
 // fetch runs the grant. Every value it returns is registered before anything else could print it, and a
-// rotated refresh token is stored before the access token that came with it is handed out. Where another run
-// stored its own rotation first, the access token still serves, and the refresh token that run stored is
-// the one every later renewal redeems.
+// rotated refresh token is stored before the access token that came with it is handed out, also when the
+// grant failed after the rotation, since the rotated token may be the only one the provider still accepts.
+// Where another run stored its own rotation first, the access token still serves, and the refresh token that
+// run stored is the one every later renewal redeems.
 func (s *TokenSource) fetch(ctx context.Context) (Token, error) {
 	request := s.current()
 	if request.Procedure != config.TokenServiceAccount && request.Secrets.RefreshToken == "" {
@@ -342,28 +348,44 @@ func (s *TokenSource) fetch(ctx context.Context) (Token, error) {
 			"credential %q has no consent any more; nothing was sent", s.credential)}
 	}
 	request.Register = s.register
+	request.Rotate = s.rotate
 	token, err := s.grant(ctx, request)
 	s.register(token.Access, token.Refresh)
+	if request.Procedure != config.TokenServiceAccount && token.Refresh != "" &&
+		token.Refresh != request.Secrets.RefreshToken {
+		stored, saveErr := s.rotate(ctx, token.Refresh)
+		if saveErr != nil {
+			return Token{}, saveErr
+		}
+		// The cache judges a later source by the refresh token it resolves, which is now the stored one.
+		token.Refresh = stored
+	}
 	if err != nil {
 		return Token{}, s.grantError(err)
 	}
 	if !validTokenValue(token.Access) {
 		return Token{}, InvalidResponse(tokenOp, tokenSubject+" returned no usable bearer token")
 	}
-	old := request.Secrets.RefreshToken
-	if request.Procedure != config.TokenServiceAccount && token.Refresh != "" && token.Refresh != old {
-		stored, err := s.save(ctx, old, token.Refresh)
-		if err != nil {
-			return Token{}, err
-		}
-		s.register(stored)
-		s.mu.Lock()
-		s.request.Secrets.RefreshToken = stored
-		s.mu.Unlock()
-		// The cache judges a later source by the refresh token it resolves, which is now the stored one.
-		token.Refresh = stored
-	}
 	return token, nil
+}
+
+// rotate stores rotated in place of the refresh token the source redeems, unless it is that one already, and
+// returns the refresh token stored afterwards: rotated, or what another run stored first.
+func (s *TokenSource) rotate(ctx context.Context, rotated string) (string, error) {
+	s.register(rotated)
+	current := s.current().Secrets.RefreshToken
+	if rotated == "" || rotated == current {
+		return current, nil
+	}
+	stored, err := s.save(ctx, current, rotated)
+	if err != nil {
+		return "", err
+	}
+	s.register(stored)
+	s.mu.Lock()
+	s.request.Secrets.RefreshToken = stored
+	s.mu.Unlock()
+	return stored, nil
 }
 
 func (s *TokenSource) current() TokenRequest {

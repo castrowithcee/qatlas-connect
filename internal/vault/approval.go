@@ -66,6 +66,10 @@ type Scope struct {
 	// limit. Lengthening or lifting the limit widens what the credential reaches over time, so a change needs
 	// approval. A connection without a limit keeps the fingerprint it had before the limit existed.
 	ActiveUntil string `json:"active_until,omitempty"`
+	// ServiceAccount is the service account the connection's token credential impersonates, empty for none.
+	// It decides what the credential's tokens may do, so a change needs approval. A connection that names none
+	// keeps the fingerprint it had before the field existed.
+	ServiceAccount string `json:"service_account,omitempty"`
 }
 
 // ForwardSecret is one forward credential a connection releases: its name and the names of the fields whose
@@ -194,11 +198,12 @@ func fingerprintWith(label string, scope Scope, credentialID string) string {
 		FilesRead    []string `json:"files_read,omitempty"`
 		FilesWrite   []string `json:"files_write,omitempty"`
 		// Forward holds the forward credentials with their fields: a change of either changes the fingerprint.
-		Forward     []ForwardSecret `json:"forward,omitempty"`
-		Disabled    bool            `json:"disabled,omitempty"`
-		ActiveUntil string          `json:"active_until,omitempty"`
+		Forward        []ForwardSecret `json:"forward,omitempty"`
+		Disabled       bool            `json:"disabled,omitempty"`
+		ActiveUntil    string          `json:"active_until,omitempty"`
+		ServiceAccount string          `json:"service_account,omitempty"`
 	}{credentialID, n.Credential, n.Provider, n.Origin, n.Effects, n.Targets, n.Tools, n.Exclude, n.Paths,
-		n.FilesRead, n.FilesWrite, n.Forward, n.Disabled, n.ActiveUntil}
+		n.FilesRead, n.FilesWrite, n.Forward, n.Disabled, n.ActiveUntil, n.ServiceAccount}
 	data, err := json.Marshal(canonical)
 	if err != nil {
 		// Marshalling strings and string slices cannot fail.

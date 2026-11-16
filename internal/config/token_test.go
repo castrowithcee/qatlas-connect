@@ -2,7 +2,10 @@ package config
 
 import (
 	"slices"
+	"strings"
 	"testing"
+
+	yaml "go.yaml.in/yaml/v3"
 )
 
 // tokenProviders has one provider, "sample", whose credential issues access tokens.
@@ -173,4 +176,80 @@ func withTokenConnection(c *Config, cred Credential) {
 	c.Services["tok"] = Service{Provider: "sample", BaseURL: "https://sample.example.invalid"}
 	c.Credentials["tokkey"] = cred
 	c.Connections["tok"] = Connection{Service: "tok", Credential: "tokkey"}
+}
+
+// sampleServiceAccount is a synthetic service account address, split so no line holds a whole address.
+var sampleServiceAccount = "robot" + "@" + "sample.invalid"
+
+// A connection names the service account it impersonates in the file: it is written, read back, resolved,
+// and checked without its value ever appearing in a problem.
+func TestServiceAccountOfAConnection(t *testing.T) {
+	cfg := tokenConfig(Credential{Provider: "sample", Type: CredentialTypeVault}, Connection{ServiceAccount: sampleServiceAccount})
+	if err := cfg.Validate(); err != nil {
+		t.Fatalf("Validate() = %v, want valid", err)
+	}
+	resolved, err := cfg.Resolve("work", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resolved.ServiceAccount != sampleServiceAccount {
+		t.Errorf("Resolved.ServiceAccount = %q, want %q", resolved.ServiceAccount, sampleServiceAccount)
+	}
+	data, err := yaml.Marshal(cfg.Connections["work"])
+	if err != nil {
+		t.Fatal(err)
+	}
+	var back Connection
+	if err := yaml.Unmarshal(data, &back); err != nil || back.ServiceAccount != sampleServiceAccount ||
+		!strings.Contains(string(data), "service_account: ") {
+		t.Errorf("round trip = %q, %+v, %v", data, back, err)
+	}
+	none, _ := yaml.Marshal(Connection{Service: "sample", Credential: "login"})
+	if strings.Contains(string(none), "service_account") {
+		t.Errorf("a connection without a service account writes %q", none)
+	}
+
+	for _, bad := range []string{"robot/../x", "..", "-robot", "robot?x=1", "robot#x", "robot x", "robot%2F",
+		strings.Repeat("a", maxServiceAccount+1)} {
+		cfg := tokenConfig(Credential{Provider: "sample", Type: CredentialTypeVault}, Connection{ServiceAccount: bad})
+		err := cfg.Validate()
+		if codes := codesOf(err); !slices.Equal(codes, []string{CodeInvalidServiceAccount}) {
+			t.Errorf("%q: codes = %v, want only %s", bad, codes, CodeInvalidServiceAccount)
+			continue
+		}
+		if strings.Contains(err.Error(), bad) {
+			t.Errorf("%q: the problem repeats the value: %v", bad, err)
+		}
+	}
+	for _, good := range []string{sampleServiceAccount, "123456789012345678901", "robot_1.sample-x+y"} {
+		if !ValidServiceAccount(good) {
+			t.Errorf("ValidServiceAccount(%q) = false", good)
+		}
+	}
+}
+
+// An environment credential of a connection that impersonates must name a consent and no key.
+func TestServiceAccountNeedsAConsent(t *testing.T) {
+	env := func(values map[string]string) Credential {
+		return Credential{Provider: "sample", Type: CredentialTypeEnv, Values: values}
+	}
+	tests := []struct {
+		name string
+		cred Credential
+		want []string
+	}{
+		{"consent", env(map[string]string{RoleClientID: "SAMPLE_CLIENT_ID", RoleRefreshToken: "SAMPLE_REFRESH"}), nil},
+		{"key", env(map[string]string{RoleServiceAccountKey: "SAMPLE_KEY"}), []string{CodeTokenProcedure}},
+		{"client ID without refresh token", env(map[string]string{RoleClientID: "SAMPLE_CLIENT_ID"}),
+			[]string{CodeTokenProcedure}},
+		{"vault", Credential{Provider: "sample", Type: CredentialTypeVault}, nil},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := tokenConfig(tt.cred, Connection{ServiceAccount: "robot"}).Validate()
+			if codes := codesOf(err); !slices.Equal(codes, tt.want) {
+				t.Fatalf("codes = %v, want %v", codes, tt.want)
+			}
+		})
+	}
 }

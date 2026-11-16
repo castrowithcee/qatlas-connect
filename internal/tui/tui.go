@@ -3415,6 +3415,8 @@ func (m *Model) apply(cfg *config.Config, name string) error {
 			Disabled:       m.fieldValue(stateLabel) == stateDisabled,
 			ActiveUntil:    m.activeUntilValue(),
 			TargetLabels:   labels,
+			// No row edits the service account, so the form keeps the one of the entry it was started from.
+			ServiceAccount: cfg.Connections[m.sourceEntry(name)].ServiceAccount,
 		})
 	case sectionDefaults:
 		return cfg.SetDefault(name, m.fieldValue("connection"))

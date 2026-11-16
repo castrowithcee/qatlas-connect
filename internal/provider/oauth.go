@@ -28,7 +28,15 @@ type OAuth struct {
 	// NarrowRefresh asks for only the scopes of the connection when a refresh token is redeemed. Only a
 	// provider that allows asking for fewer scopes than the consent granted sets it.
 	NarrowRefresh bool
-	// Transport carries the requests to the token and revocation endpoints; nil is Go's default transport.
+	// ImpersonateURL is the fixed https address where the token of a person's consent obtains an access token
+	// of a service account. It holds ServiceAccountSegment exactly once in its path, which the core replaces
+	// by the checked and escaped service account the connection names. Empty offers no impersonation.
+	ImpersonateURL string
+	// ImpersonateScope is the one scope the request to ImpersonateURL needs. The consent of a connection that
+	// impersonates asks for it alone, since the scopes of the connection go to the impersonation request.
+	ImpersonateScope string
+	// Transport carries the requests to the token, revocation and impersonation endpoints; nil is Go's
+	// default transport.
 	Transport http.RoundTripper
 }
 
@@ -57,6 +65,9 @@ func (o OAuth) Validate() error {
 			u.Fragment != "" || u.Opaque != "" {
 			return fmt.Errorf("the %s endpoint must be a fixed https address without query or fragment", endpoint.name)
 		}
+	}
+	if err := o.validateImpersonation(); err != nil {
+		return err
 	}
 	for name, value := range o.Params {
 		for _, reserved := range reservedAuthorizeParams {

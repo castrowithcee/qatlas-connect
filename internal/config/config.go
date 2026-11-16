@@ -166,6 +166,11 @@ type Connection struct {
 	// scope, and no surface for agents ever shows it, since it is free text a person typed. Missing means no
 	// labels.
 	TargetLabels map[string]string `yaml:"target_labels,omitempty"`
+	// ServiceAccount names the service account whose access tokens a token credential with a client ID
+	// obtains for this connection by impersonation (see TokenProcedureOf). It is no secret, belongs to the
+	// connection rather than the service so one credential can serve several service accounts, and is part
+	// of the approval scope, since it decides what the tokens may do. Missing means no impersonation.
+	ServiceAccount string `yaml:"service_account,omitempty"`
 
 	// legacyEffects is the former permissions list of a connection that also lists tools, kept from reading
 	// the file so a migration can name the connections whose approval it narrows. It is no configuration.
@@ -293,6 +298,7 @@ func (c Connection) MarshalYAML() (any, error) {
 		Disabled       bool              `yaml:"disabled,omitempty"`
 		ActiveUntil    string            `yaml:"active_until,omitempty"`
 		TargetLabels   map[string]string `yaml:"target_labels,omitempty"`
+		ServiceAccount string            `yaml:"service_account,omitempty"`
 	}
 	activeUntil := c.ActiveUntilCanonical()
 	var effects *[]Effect
@@ -308,7 +314,7 @@ func (c Connection) MarshalYAML() (any, error) {
 	return wire{ID: c.ID, Service: c.Service, Credential: c.Credential, Target: c.Target, Targets: c.Targets,
 		Exclude: c.Exclude, Outdated: c.TargetsOutdated, Description: c.Description, Effects: effects, Tools: tools, Paths: c.Paths, Files: c.Files,
 		ForwardSecrets: c.ForwardSecrets, Disabled: c.Disabled, ActiveUntil: activeUntil,
-		TargetLabels: c.TargetLabels}, nil
+		TargetLabels: c.TargetLabels, ServiceAccount: c.ServiceAccount}, nil
 }
 
 // Defaults holds the connection chosen for a domain when no connection is given explicitly, and the
@@ -794,7 +800,10 @@ func (c *Config) Validate() error {
 				c.validateTools(name, service.Provider, metadata, report)
 			}
 			if known && credOK && metadata.Token != nil {
-				validateTokenCredential(name, conn.Credential, service.Provider, cred, report)
+				validateTokenCredential(name, conn.Credential, service.Provider, conn.ServiceAccount, cred, report)
+			}
+			if known && conn.ServiceAccount != "" {
+				validateServiceAccount(name, conn.ServiceAccount, metadata.Token != nil, report)
 			}
 		}
 		validateFiles(name, conn.Files, c.localFilesOf(conn, providers), report)
