@@ -134,8 +134,11 @@ type TokenOptions struct {
 	// is unusable.
 	Grants map[config.TokenProcedure]TokenGrant
 	// SaveRefresh stores a rotated refresh token in place of old before the access token it came with is
-	// used. Without it a rotation ends the call, since a rotated refresh token is never dropped silently.
-	SaveRefresh func(ctx context.Context, old, rotated string) error
+	// used, and returns the refresh token stored afterwards, which later renewals use: rotated, or what
+	// another run stored first. An error ends the call, since a rotated refresh token is never dropped
+	// silently. Nil stores it where the credential keeps it (see secret.Resolver.StoreRefreshToken), which
+	// is what every provider wants; a test replaces it.
+	SaveRefresh func(ctx context.Context, old, rotated string) (string, error)
 	// Cache holds the tokens; nil is the cache of the process.
 	Cache *TokenCache
 }
@@ -149,7 +152,7 @@ type TokenSource struct {
 	request    TokenRequest
 	grant      TokenGrant
 	scopes     map[string][]string
-	save       func(ctx context.Context, old, rotated string) error
+	save       func(ctx context.Context, old, rotated string) (string, error)
 	credential string
 	red        *redact.Redactor
 
@@ -163,6 +166,7 @@ type TokenSource struct {
 func OpenTokenSource(ctx context.Context, resolved *config.Resolved, secrets *secret.Resolver,
 	red *redact.Redactor, opts TokenOptions) (*TokenSource, error) {
 	var values TokenSecrets
+	var refreshSource secret.Source
 	for _, role := range []struct {
 		name  string
 		value *string
@@ -178,6 +182,9 @@ func OpenTokenSource(ctx context.Context, resolved *config.Resolved, secrets *se
 		}
 		if found {
 			*role.value = value.Secret
+			if role.name == config.RoleRefreshToken {
+				refreshSource = value.Source
+			}
 		}
 	}
 	unusable := func(format string) error {
@@ -201,6 +208,13 @@ func OpenTokenSource(ctx context.Context, resolved *config.Resolved, secrets *se
 		cache = processTokens
 	}
 	scopes := append([]string(nil), resolved.TokenScopes...)
+	save := opts.SaveRefresh
+	if save == nil {
+		credential, entry := resolved.Credential, resolved.Secrets
+		save = func(ctx context.Context, old, rotated string) (string, error) {
+			return secrets.StoreRefreshToken(ctx, credential, entry, refreshSource, old, rotated)
+		}
+	}
 	return &TokenSource{
 		cache: cache,
 		key: tokenKey{
@@ -211,7 +225,7 @@ func OpenTokenSource(ctx context.Context, resolved *config.Resolved, secrets *se
 		request:    TokenRequest{Procedure: procedure, Secrets: values, Scopes: scopes},
 		grant:      opts.Grants[procedure],
 		scopes:     opts.Token.Scopes,
-		save:       opts.SaveRefresh,
+		save:       save,
 		credential: resolved.Credential,
 		red:        red,
 	}, nil
@@ -317,9 +331,17 @@ func (s *TokenSource) token(ctx context.Context, stale string) (Token, error) {
 }
 
 // fetch runs the grant. Every value it returns is registered before anything else could print it, and a
-// rotated refresh token is stored before the access token that came with it is handed out.
+// rotated refresh token is stored before the access token that came with it is handed out. Where another run
+// stored its own rotation first, the access token still serves, and the refresh token that run stored is
+// the one every later renewal redeems.
 func (s *TokenSource) fetch(ctx context.Context) (Token, error) {
 	request := s.current()
+	if request.Procedure != config.TokenServiceAccount && request.Secrets.RefreshToken == "" {
+		// The stored refresh token was removed since this source opened; a run never redeems none.
+		return Token{}, &Error{Class: ClassConsentRequired, Op: tokenOp, Message: fmt.Sprintf(
+			"credential %q has no consent any more; nothing was sent", s.credential)}
+	}
+	request.Register = s.register
 	token, err := s.grant(ctx, request)
 	s.register(token.Access, token.Refresh)
 	if err != nil {
@@ -330,16 +352,16 @@ func (s *TokenSource) fetch(ctx context.Context) (Token, error) {
 	}
 	old := request.Secrets.RefreshToken
 	if request.Procedure != config.TokenServiceAccount && token.Refresh != "" && token.Refresh != old {
-		if s.save == nil {
-			return Token{}, Fail(tokenOp, fmt.Sprintf("%s rotated the refresh token of credential %q, which "+
-				"cannot be stored here, so the new access token was not used", tokenSubject, s.credential))
-		}
-		if err := s.save(ctx, old, token.Refresh); err != nil {
+		stored, err := s.save(ctx, old, token.Refresh)
+		if err != nil {
 			return Token{}, err
 		}
+		s.register(stored)
 		s.mu.Lock()
-		s.request.Secrets.RefreshToken = token.Refresh
+		s.request.Secrets.RefreshToken = stored
 		s.mu.Unlock()
+		// The cache judges a later source by the refresh token it resolves, which is now the stored one.
+		token.Refresh = stored
 	}
 	return token, nil
 }

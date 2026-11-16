@@ -195,6 +195,7 @@ type Registry struct {
 	metadata   map[string]config.ProviderMetadata
 	testers    map[string]ConnectionTester
 	browsers   map[string]TargetBrowser
+	oauth      map[string]provider.OAuth
 }
 
 // NewRegistry returns an empty registry.
@@ -205,6 +206,7 @@ func NewRegistry() *Registry {
 		metadata:   map[string]config.ProviderMetadata{},
 		testers:    map[string]ConnectionTester{},
 		browsers:   map[string]TargetBrowser{},
+		oauth:      map[string]provider.OAuth{},
 	}
 }
 
@@ -329,6 +331,38 @@ func (r *Registry) ResolveTargetURL(ctx context.Context, resolved *config.Resolv
 		return nil, config.ErrTargetBrowseUnsupported
 	}
 	return browser.ResolveURL(secret.ForConnection(ctx, resolved), resolved, secrets, red, origin, rawURL)
+}
+
+// RegisterOAuth adds the fixed endpoints through which a person gives and revokes the consent of a credential
+// of an already registered provider whose credential issues access tokens. It is no operation: no catalog
+// lists it and no agent reaches it.
+func (r *Registry) RegisterOAuth(providerID string, oauth provider.OAuth) error {
+	metadata, ok := r.metadata[providerID]
+	if !ok {
+		return fmt.Errorf("provider %q must be registered before its consent endpoints", providerID)
+	}
+	if metadata.Token == nil {
+		return fmt.Errorf("provider %q issues no access tokens, so it takes no consent", providerID)
+	}
+	if err := oauth.Validate(); err != nil {
+		return fmt.Errorf("provider %q: %w", providerID, err)
+	}
+	if _, exists := r.oauth[providerID]; exists {
+		return fmt.Errorf("provider %q consent endpoints are already registered", providerID)
+	}
+	params := make(map[string]string, len(oauth.Params))
+	for name, value := range oauth.Params {
+		params[name] = value
+	}
+	oauth.Params = params
+	r.oauth[providerID] = oauth
+	return nil
+}
+
+// OAuth returns the consent endpoints of a provider, false for one that registered none.
+func (r *Registry) OAuth(providerID string) (provider.OAuth, bool) {
+	oauth, ok := r.oauth[providerID]
+	return oauth, ok
 }
 
 // ProviderMetadata returns one provider's configuration contract.

@@ -34,6 +34,9 @@ type TokenRequest struct {
 	Secrets        TokenSecrets
 	Scopes         []string
 	ServiceAccount string
+	// Register hands secrets a grant derives, such as a signed assertion, to the redactor of the call before
+	// they are sent. The token source sets it; it may be nil.
+	Register func(values ...string)
 }
 
 // TokenGrant obtains an access token for one procedure from a fixed endpoint of its provider. A failed

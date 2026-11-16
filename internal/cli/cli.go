@@ -14,6 +14,7 @@ import (
 	"github.com/castrowithcee/qatlas-connect/internal/config"
 	"github.com/castrowithcee/qatlas-connect/internal/envvar"
 	"github.com/castrowithcee/qatlas-connect/internal/helptopics"
+	"github.com/castrowithcee/qatlas-connect/internal/invokelog"
 	"github.com/castrowithcee/qatlas-connect/internal/secret"
 	"github.com/castrowithcee/qatlas-connect/internal/selfupdate"
 	"github.com/castrowithcee/qatlas-kit/cobracli"
@@ -86,6 +87,8 @@ func (o *Options) resolver() (*secret.Resolver, error) {
 	if o.unattended {
 		resolver.Unattended()
 	}
+	// The refresh tokens a run writes itself are logged in the vault's invocation log, signed where it can be.
+	resolver.LogWrites(invokeLogWriter{logger: invokelog.New(resolver.Vault().Dir(), 0), vault: resolver.Vault()})
 	o.Secrets = resolver
 	return o.Secrets, nil
 }

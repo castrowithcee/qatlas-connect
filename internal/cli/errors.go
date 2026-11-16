@@ -133,8 +133,8 @@ func nextStep(err error, r route) string {
 		if r == routeMCP || r == routeAgent {
 			return "an agent cannot give the consent of a credential; ask the user"
 		}
-		return "a person gives the consent of this connection's credential, covering the scopes of its tools, " +
-			"then try again"
+		return "give the consent of this connection's credential with 'qconnect credential consent <credential>', " +
+			"which covers the scopes of its tools, then try again"
 	case application.CodeCredentialUnusable:
 		if r == routeMCP || r == routeAgent {
 			return "agents do not manage credentials; ask the user"

@@ -41,6 +41,8 @@ func newCredentialCommand(opts *Options, reg *capability.Registry) *cobra.Comman
 			"The other sources stay separate. A set variable QCONNECT_<CREDENTIAL>_<ROLE> overrides a stored\n" +
 			"secret, which suits CI and containers. QCONNECT_CREDENTIAL_STORE=none switches the system keyring\n" +
 			"off for a run.\n\n" +
+			"A credential whose provider issues access tokens gets its refresh token from a consent:\n" +
+			"'qconnect credential consent' gives it and 'qconnect credential revoke' revokes it.\n\n" +
 			"These commands write and remove the entries. No command ever shows a stored secret back, not\n" +
 			"even masked; 'qconnect config validate --secrets' shows which source delivers each role.\n\n" +
 			"Both commands manage a credential's secret and run only from an interactive terminal, keyring\n" +
@@ -92,6 +94,8 @@ func newCredentialCommand(opts *Options, reg *capability.Registry) *cobra.Comman
 			"credentials.yaml left over from an earlier version, if any. For a vault credential, it is removed\n" +
 			"from the vault, unlocked first by this command's own admin check if it was encrypted and locked,\n" +
 			"and from a vault process that holds the vault unlocked.\n" +
+			"The refresh token of a credential whose provider issues access tokens is first revoked at the\n" +
+			"provider, as 'qconnect credential revoke' does, and removed here in any case.\n" +
 			"An environment variable is not touched: it belongs to the shell, not to qconnect. When the keyring\n" +
 			"is locked or cannot be reached, the command says so and what to do, and never reports a secret\n" +
 			"as removed that may still be stored.\n" +
@@ -108,6 +112,7 @@ func newCredentialCommand(opts *Options, reg *capability.Registry) *cobra.Comman
 	gate = opts.program.AddGate(remove, cobracli.Gates{Question: true, Change: true})
 
 	cmd.AddCommand(set, remove)
+	cmd.AddCommand(newConsentCommands(opts, reg)...)
 	return cmd
 }
 
@@ -163,9 +168,8 @@ func setCredential(c *cobra.Command, opts *Options, reg *capability.Registry, na
 	return nil
 }
 
-// credentialService is the management service that stores and removes the secrets of 'credential set' and
-// 'credential delete' in secrets. It needs no configuration store: the command loaded the configuration
-// itself. The vault process switch is read when the service is built, so a test lever set before the
+// credentialService is the management service that stores the secrets of 'credential set' in secrets. It
+// needs no configuration store: the command loaded the configuration itself. The vault process switch is read when the service is built, so a test lever set before the
 // command runs is honoured.
 func credentialService(opts *Options, secrets *secret.Resolver) *manage.Service {
 	return manage.New(nil, secrets, connlog.SurfaceCLI, opts.Redactor).WithVaultProcessSupport(vaultProcessSupported)
@@ -218,17 +222,20 @@ func deleteCredential(c *cobra.Command, opts *Options, reg *capability.Registry,
 				return nil
 			}
 		}
-		return removeSecret(c, opts, name, role, cfg, cred)
+		return removeSecret(c, opts, reg, name, role, cfg, cred)
 	})
 }
 
-func removeSecret(c *cobra.Command, opts *Options, name, role string, cfg *config.Config, cred config.Credential) error {
-	secrets, err := opts.resolver()
+// removeSecret removes one secret through the core, which revokes the refresh token of a credential that
+// holds a consent before it removes it.
+func removeSecret(c *cobra.Command, opts *Options, reg *capability.Registry, name, role string, cfg *config.Config,
+	cred config.Credential) error {
+	svc, secrets, err := consentService(opts, reg)
 	if err != nil {
 		return err
 	}
 
-	out, err := credentialService(opts, secrets).DeleteSecret(contextOrBackground(c.Context()), cfg, manage.SecretWrite{
+	out, err := svc.DeleteSecret(contextOrBackground(c.Context()), cfg, manage.SecretWrite{
 		Name: name, Entry: cred, Role: role, Approval: manage.ApprovalNone,
 	})
 	if err != nil {
@@ -245,6 +252,9 @@ func removeSecret(c *cobra.Command, opts *Options, name, role string, cfg *confi
 	}
 	if warning := withQatlasPrefix(out.ProcessWarning); warning != "" {
 		fmt.Fprintln(c.ErrOrStderr(), warning)
+	}
+	if out.Revocation != nil {
+		reportRevocation(c, out.Revocation.Confirmed, out.Revocation.Note(), out.Revocation.LogWarning)
 	}
 	// A switched-off store was never consulted, so the delete says nothing about what may sit in it. Left
 	// unsaid, a silent success reads as "the secret is gone everywhere", which is the one thing it does

@@ -881,6 +881,8 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, m.handlePlaced(msg)
 	case writtenMsg:
 		return m, m.handleWritten(msg)
+	case credentialDeletedMsg:
+		return m, m.handleCredentialDeleted(msg)
 	case vaultActionMsg:
 		return m, m.handleVaultAction(msg)
 	case vaultPassphraseVerifiedMsg:
@@ -3462,6 +3464,9 @@ func (m *Model) delete() tea.Cmd {
 	// a service, credential, or default still in use), but computing it the same way as save keeps the two
 	// paths in step. See approvals.go.
 	before := manage.SnapshotApprovals(m.secrets.Vault(), m.cfg)
+	if section == sectionCredentials && manage.HoldsConsent(m.cfg, name) {
+		return m.deleteConsentCredential(name, before)
+	}
 
 	previous := m.cfg
 	candidate := m.cfg.Clone()
