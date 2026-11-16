@@ -1,7 +1,6 @@
 package github
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -9,7 +8,6 @@ import (
 	"reflect"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/castrowithcee/qatlas-connect/internal/application"
 	"github.com/castrowithcee/qatlas-connect/internal/capability"
@@ -320,8 +318,9 @@ func TestGateChangesAreNeverRepeatedAfterATimeout(t *testing.T) {
 	for _, call := range []string{"approve", "review"} {
 		t.Run(call, func(t *testing.T) {
 			f, g, _, base := serveGates(t, nil)
-			g.changeAnswer = func(_ http.ResponseWriter, r *http.Request) { <-r.Context().Done() }
-			ctx, cancel := context.WithTimeout(context.Background(), 300*time.Millisecond)
+			stall := newChangeStall(t)
+			g.changeAnswer = stall.answer
+			ctx, cancel := stall.context()
 			defer cancel()
 			c := client(t, base, repoTarget)
 			var err error

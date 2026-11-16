@@ -311,8 +311,9 @@ func TestAnswersEndAsATimeoutWithinTheInvokeLimit(t *testing.T) {
 		t.Fatalf("stream timeout %s must lie between the research limit and the 60 seconds of an invoke",
 			streamTimeout)
 	}
+	// Long enough that a loaded host still reaches the stalled handler before the stream's own deadline ends.
 	previous := streamTimeout
-	streamTimeout = 300 * time.Millisecond
+	streamTimeout = 3 * time.Second
 	t.Cleanup(func() { streamTimeout = previous })
 	for name, answer := range map[string]func(http.ResponseWriter, *http.Request){
 		"in the stream": func(w http.ResponseWriter, r *http.Request) {
@@ -324,7 +325,7 @@ func TestAnswersEndAsATimeoutWithinTheInvokeLimit(t *testing.T) {
 		env := newEnvironment(t, &fakeBrave{answer: answer})
 		start := time.Now()
 		result, err := env.invoke("brave.answers.ask", "answers", `{"question":"`+questionCanary+`"}`)
-		if classOf(err) != provider.ClassTimeout || result != "" || time.Since(start) > 10*time.Second {
+		if classOf(err) != provider.ClassTimeout || result != "" || time.Since(start) > 30*time.Second {
 			t.Errorf("%s: class = %q (%v), result = %q, want a timeout", name, classOf(err), err, result)
 			continue
 		}

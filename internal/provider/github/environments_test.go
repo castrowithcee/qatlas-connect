@@ -636,10 +636,14 @@ func TestEnvironmentChangesAreNeverRepeatedAfterAnUnclearOutcome(t *testing.T) {
 				connection.Close()
 			}
 		},
-		"client timeout": func(_ http.ResponseWriter, r *http.Request) { <-r.Context().Done() },
+		"client timeout": nil, // held on a channel of the test, see changeStall
 	} {
 		t.Run(name, func(t *testing.T) {
 			_, e, base := serveEnvironments(t)
+			stall := newChangeStall(t)
+			if answer == nil {
+				answer = stall.answer
+			}
 			e.fail = func(w http.ResponseWriter, r *http.Request) bool {
 				if r.Method == http.MethodGet {
 					return false
@@ -679,7 +683,7 @@ func TestEnvironmentChangesAreNeverRepeatedAfterAnUnclearOutcome(t *testing.T) {
 				before := e.mutations()
 				ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 				if name == "client timeout" {
-					ctx, cancel = context.WithTimeout(context.Background(), 100*time.Millisecond)
+					ctx, cancel = stall.context()
 				}
 				err := run(ctx, client(t, base, repoTarget))
 				cancel()

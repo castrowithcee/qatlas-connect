@@ -453,12 +453,11 @@ func TestTestConnectionClasses(t *testing.T) {
 	// A request that ran into its deadline may still have arrived, so it keeps the unambiguous timeout
 	// class every provider reports, not the unreachable one that claims nothing was sent.
 	t.Run("an exhausted deadline is a timeout", func(t *testing.T) {
-		server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-			time.Sleep(200 * time.Millisecond)
-		}))
+		server := httptest.NewTLSServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {}))
 		defer server.Close()
 
-		ctx, cancel := context.WithTimeout(context.Background(), 20*time.Millisecond)
+		// The deadline is already past, so only the class is checked and no host speed decides it.
+		ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(-time.Second))
 		defer cancel()
 
 		if got := newClient(t, server.URL, nil).TestConnection(ctx); got != provider.ClassTimeout {

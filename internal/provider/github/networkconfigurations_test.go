@@ -1,7 +1,6 @@
 package github
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -12,7 +11,6 @@ import (
 	"strconv"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/castrowithcee/qatlas-connect/internal/application"
 	"github.com/castrowithcee/qatlas-connect/internal/capability"
@@ -474,15 +472,10 @@ func TestNetworkRefusalsAreResultsWithoutProviderTextAndNeverRepeated(t *testing
 
 func TestNetworkDeadlineIsATimeoutAfterExactlyOneRequest(t *testing.T) {
 	f, _, core, _ := networkCore(t)
-	f.failure = func(w http.ResponseWriter, r *http.Request) bool {
-		select {
-		case <-r.Context().Done():
-		case <-time.After(5 * time.Second):
-		}
-		return true
-	}
+	stall := newChangeStall(t)
+	f.failure = stall.route
 	for _, id := range []string{networkConfigurationsGet.ID, networkConfigurationsCreate.ID} {
-		ctx, cancel := context.WithTimeout(context.Background(), 2500*time.Millisecond)
+		ctx, cancel := stall.context()
 		before := len(f.recorded())
 		_, err := core.Invoke(ctx, application.InvokeRequest{Operation: id, Connection: networkConnection(id) + "-org",
 			Confirmed: true, Arguments: json.RawMessage(networkArgumentsOf[id])})

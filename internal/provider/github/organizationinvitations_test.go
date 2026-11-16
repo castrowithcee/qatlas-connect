@@ -1,14 +1,12 @@
 package github
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/castrowithcee/qatlas-connect/internal/application"
 	"github.com/castrowithcee/qatlas-connect/internal/capability"
@@ -399,15 +397,10 @@ func TestInvitationToolsNeverRepeatAnUnclearChange(t *testing.T) {
 }
 
 func TestInvitationToolsReportATimeoutOnceAndUncertain(t *testing.T) {
-	stall := func(w http.ResponseWriter, r *http.Request) {
-		select {
-		case <-r.Context().Done():
-		case <-time.After(5 * time.Second):
-		}
-	}
+	stall := newChangeStall(t)
 	for id, arguments := range inviteTools {
-		f, _, core := inviteCore(t, inviteServer{post: stall, put: stall})
-		ctx, cancel := context.WithTimeout(context.Background(), 300*time.Millisecond)
+		f, _, core := inviteCore(t, inviteServer{post: stall.answer, put: stall.answer})
+		ctx, cancel := stall.context()
 		_, err := core.Invoke(ctx, application.InvokeRequest{Operation: id, Connection: "listed",
 			Arguments: json.RawMessage(arguments), Confirmed: true})
 		cancel()

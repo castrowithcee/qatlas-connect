@@ -1,14 +1,12 @@
 package github
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/castrowithcee/qatlas-connect/internal/application"
 	"github.com/castrowithcee/qatlas-connect/internal/capability"
@@ -201,12 +199,8 @@ func TestSetVisibilityNeverRepeatsAnUnclearChange(t *testing.T) {
 }
 
 func TestWriteToolsReportATimeoutOnceAndUncertain(t *testing.T) {
-	slow := func(w http.ResponseWriter, r *http.Request) {
-		select {
-		case <-r.Context().Done():
-		case <-time.After(5 * time.Second):
-		}
-	}
+	stall := newChangeStall(t)
+	slow := stall.answer
 	for _, tt := range []struct {
 		tool, method, path, arguments string
 	}{
@@ -218,7 +212,7 @@ func TestWriteToolsReportATimeoutOnceAndUncertain(t *testing.T) {
 	} {
 		t.Run(tt.tool, func(t *testing.T) {
 			f, _, core := handoverCore(t, handoverRoute{tt.method, tt.path, slow})
-			ctx, cancel := context.WithTimeout(context.Background(), 300*time.Millisecond)
+			ctx, cancel := stall.context()
 			defer cancel()
 			_, err := core.Invoke(ctx, application.InvokeRequest{Operation: tt.tool, Connection: "owner",
 				Arguments: json.RawMessage(tt.arguments), Confirmed: true})
@@ -541,13 +535,9 @@ func TestAdvisoryUpdateNeverRepeatsAnUnclearChange(t *testing.T) {
 		})
 	}
 	t.Run("timeout", func(t *testing.T) {
-		f, _, core := handoverCore(t, advisoryRoutes("draft", func(w http.ResponseWriter, r *http.Request) {
-			select {
-			case <-r.Context().Done():
-			case <-time.After(5 * time.Second):
-			}
-		})...)
-		ctx, cancel := context.WithTimeout(context.Background(), 300*time.Millisecond)
+		stall := newChangeStall(t)
+		f, _, core := handoverCore(t, advisoryRoutes("draft", stall.answer)...)
+		ctx, cancel := stall.context()
 		defer cancel()
 		_, err := core.Invoke(ctx, application.InvokeRequest{Operation: repositoryAdvisoriesUpdate.ID,
 			Connection: "listed", Arguments: json.RawMessage(`{"ghsa_id":"` + testGHSA + `","summary":"x"}`), Confirmed: true})

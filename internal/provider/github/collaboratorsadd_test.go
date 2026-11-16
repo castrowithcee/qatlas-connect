@@ -1,14 +1,12 @@
 package github
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/castrowithcee/qatlas-connect/internal/application"
 	"github.com/castrowithcee/qatlas-connect/internal/capability"
@@ -262,13 +260,9 @@ func TestCollaboratorsAddNeverRepeatsAnUnclearChange(t *testing.T) {
 }
 
 func TestCollaboratorsAddReportsATimeoutOnceAndUncertain(t *testing.T) {
-	f, _, core := addCore(t, addServer{put: func(w http.ResponseWriter, r *http.Request) {
-		select {
-		case <-r.Context().Done():
-		case <-time.After(5 * time.Second):
-		}
-	}})
-	ctx, cancel := context.WithTimeout(context.Background(), 300*time.Millisecond)
+	stall := newChangeStall(t)
+	f, _, core := addCore(t, addServer{put: stall.answer})
+	ctx, cancel := stall.context()
 	defer cancel()
 	_, err := core.Invoke(ctx, application.InvokeRequest{Operation: repositoryCollaboratorsAdd.ID,
 		Connection: "listed", Arguments: json.RawMessage(addArguments), Confirmed: true})

@@ -204,11 +204,16 @@ func TestDeploymentWritesAreNeverRepeatedAfterAnUnclearOutcome(t *testing.T) {
 				connection.Close()
 			}
 		},
-		"client timeout": func(_ http.ResponseWriter, r *http.Request) { <-r.Context().Done() },
+		"client timeout": nil, // held on a channel of the test, see changeStall
 	} {
 		for _, method := range []string{http.MethodPost, http.MethodDelete} {
 			t.Run(name+" "+method, func(t *testing.T) {
 				_, d, base := serveDeployments(t)
+				stall := newChangeStall(t)
+				answer := answer
+				if answer == nil {
+					answer = stall.answer
+				}
 				d.fail = func(w http.ResponseWriter, r *http.Request) bool {
 					if r.Method != method {
 						return false
@@ -218,11 +223,10 @@ func TestDeploymentWritesAreNeverRepeatedAfterAnUnclearOutcome(t *testing.T) {
 					answer(w, r)
 					return true
 				}
-				timeout := 2 * time.Second
+				ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 				if name == "client timeout" {
-					timeout = 200 * time.Millisecond
+					ctx, cancel = stall.context()
 				}
-				ctx, cancel := context.WithTimeout(context.Background(), timeout)
 				defer cancel()
 				c := client(t, base, repoTarget)
 				var err error

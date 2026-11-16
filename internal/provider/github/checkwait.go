@@ -24,6 +24,20 @@ var (
 	checksWaitSlice = 50 * time.Second
 	// checksWaitMargin is kept free below a deadline the call already has, for the answer and the secret.
 	checksWaitMargin = 8 * time.Second
+	// checksWaitNow and checksWaitPause are the loop's clock; tests replace them so the wait limits do not
+	// depend on how fast the host schedules the test.
+	checksWaitNow = time.Now
+	// checksWaitPause waits for d and reports false when ctx ended first.
+	checksWaitPause = func(ctx context.Context, d time.Duration) bool {
+		timer := time.NewTimer(d)
+		defer timer.Stop()
+		select {
+		case <-ctx.Done():
+			return false
+		case <-timer.C:
+			return true
+		}
+	}
 )
 
 const (
@@ -141,7 +155,7 @@ func finishedWait(overall string) string {
 // answers pending; a command that carries wait options waits their limit and answers timeout.
 func (c *Client) waitForChecks(ctx context.Context, a *pullArguments) (*PullRequestChecksWait, error) {
 	interval, limit, atLimit := checksWaitInterval, checksWaitSlice, waitPending
-	deadline := time.Now()
+	deadline := checksWaitNow()
 	if options, ok := capability.WaitFrom(ctx); ok && options.Limit > 0 {
 		limit, atLimit = options.Limit, waitTimeout
 		if options.Interval > 0 {
@@ -193,18 +207,14 @@ func (c *Client) waitForChecks(ctx context.Context, a *pullArguments) (*PullRequ
 				return waitAnswer(a.Number, result, got, polls), nil
 			}
 		}
-		if time.Now().Add(interval).After(deadline) {
+		if checksWaitNow().Add(interval).After(deadline) {
 			if last == nil {
 				return nil, failure
 			}
 			return waitAnswer(a.Number, atLimit, last, polls), nil
 		}
-		timer := time.NewTimer(interval)
-		select {
-		case <-ctx.Done():
-			timer.Stop()
+		if !checksWaitPause(ctx, interval) {
 			return nil, provider.Waited("wait for pull request checks", "GitHub", ctx.Err())
-		case <-timer.C:
 		}
 	}
 }

@@ -1,7 +1,6 @@
 package github
 
 import (
-	"context"
 	"crypto/rand"
 	"encoding/base64"
 	"encoding/json"
@@ -12,7 +11,6 @@ import (
 	"strings"
 	"sync"
 	"testing"
-	"time"
 
 	"github.com/castrowithcee/qatlas-connect/internal/application"
 	"github.com/castrowithcee/qatlas-connect/internal/capability"
@@ -33,7 +31,7 @@ type registryWriteFake struct {
 	createStatus, updateStatus int
 	createName                 string
 	changes                    []map[string]any
-	blockChange                bool
+	blockChange                *changeStall
 	f                          *fakeGitHub
 }
 
@@ -75,12 +73,8 @@ func (p *registryWriteFake) route(w http.ResponseWriter, r *http.Request) bool {
 		fmt.Fprintf(w, `{"key_id":"012345678","key":%q}`, base64.StdEncoding.EncodeToString(p.publicKey[:]))
 	case r.Method == http.MethodPost && r.URL.Path == privateRegistryRoute,
 		r.Method == http.MethodPatch && strings.HasPrefix(r.URL.Path, privateRegistryRoute+"/"):
-		if p.blockChange {
-			select {
-			case <-r.Context().Done():
-			case <-time.After(5 * time.Second):
-			}
-			return true
+		if p.blockChange != nil {
+			return p.blockChange.route(w, r)
 		}
 		if p.changeCode != 0 {
 			return refuse(p.changeCode)
@@ -558,14 +552,15 @@ func TestPrivateRegistryWriteUnknownSuccessIsUncertain(t *testing.T) {
 // A client-side deadline during the change is a timeout after exactly the key read and one change.
 func TestPrivateRegistryWriteTimeoutIsNotRepeated(t *testing.T) {
 	fake := newRegistryWriteFake()
-	fake.blockChange = true
+	stall := newChangeStall(t)
+	fake.blockChange = stall
 	dir, path := registryFile(t)
 	f, core := registryWriteCore(t, fake, dir, nil)
 	for _, tool := range []struct{ id, arguments string }{
 		{privateRegistriesCreate.ID, createArguments(path, "")},
 		{privateRegistriesUpdate.ID, `{"owner":"orgs/octo-org","secret_name":"A","local_path":` + strconvQuote(path) + `}`},
 	} {
-		ctx, cancel := context.WithTimeout(context.Background(), 2500*time.Millisecond)
+		ctx, cancel := stall.context()
 		before := len(f.recorded())
 		_, err := core.Invoke(ctx, application.InvokeRequest{Operation: tool.id, Connection: "w-host", Confirmed: true,
 			Arguments: json.RawMessage(tool.arguments)})
