@@ -88,13 +88,15 @@ func Register(reg *capability.Registry) error {
 		},
 		Profiles: []config.ToolProfile{{
 			ID: "read", Title: "Read", Recommended: true,
-			Description: "reads accounts, containers, workspaces, tags, triggers, and built-in variables; changes nothing",
-			Tools:       readIDs,
+			Description: "reads accounts, containers, workspaces, tags, triggers, variables, and built-in variables; " +
+				"changes nothing",
+			Tools: readIDs,
 		}, {
-			ID: "write", Title: "Read and change tags, triggers, and built-in variables",
-			Description: "reads what the read profile reads and creates, updates, and deletes the tags and " +
-				"triggers of a workspace and enables and disables its built-in variables; every change needs its own confirmation and stays in the workspace until a " +
-				"version is published, which no tool of this provider does. Reverting a tag, trigger, or built-in variable stays unticked",
+			ID: "write", Title: "Read and change tags, triggers, variables, and built-in variables",
+			Description: "reads what the read profile reads, creates, updates, and deletes the tags, triggers, and " +
+				"variables of a workspace, and enables and disables its built-in variables; every change needs its own " +
+				"confirmation and stays in the workspace until a version is published, which no tool of this provider " +
+				"does. Reverting a tag, trigger, variable, or built-in variable stays unticked",
 			Tools: writeIDs,
 		}},
 	}, TestConnection); err != nil {
@@ -111,7 +113,10 @@ func Register(reg *capability.Registry) error {
 		tagsUpdateID: handleTagsUpdate, tagsDeleteID: handleTagsDelete, tagsRevertID: handleTagsRevert,
 		triggersListID: handleTriggersList, triggersGetID: handleTriggersGet, triggersCreateID: handleTriggersCreate,
 		triggersUpdateID: handleTriggersUpdate, triggersDeleteID: handleTriggersDelete,
-		triggersRevertID:       handleTriggersRevert,
+		triggersRevertID: handleTriggersRevert,
+		variablesListID:  handleVariablesList, variablesGetID: handleVariablesGet,
+		variablesCreateID: handleVariablesCreate, variablesUpdateID: handleVariablesUpdate,
+		variablesDeleteID: handleVariablesDelete, variablesRevertID: handleVariablesRevert,
 		builtInVariablesListID: handleBuiltInVariablesList, builtInVariablesCreateID: handleBuiltInVariablesCreate,
 		builtInVariablesDeleteID: handleBuiltInVariablesDelete, builtInVariablesRevertID: handleBuiltInVariablesRevert,
 	}
@@ -120,6 +125,8 @@ func Register(reg *capability.Registry) error {
 		tagsDeleteID: tagSummary("Delete"), tagsRevertID: tagSummary("Revert"),
 		triggersCreateID: triggerSummary("Create"), triggersUpdateID: triggerSummary("Replace"),
 		triggersDeleteID: triggerSummary("Delete"), triggersRevertID: triggerSummary("Revert"),
+		variablesCreateID: variableSummary("Create"), variablesUpdateID: variableSummary("Replace"),
+		variablesDeleteID: variableSummary("Delete"), variablesRevertID: variableSummary("Revert"),
 		builtInVariablesCreateID: builtInSummary("Enable"), builtInVariablesDeleteID: builtInSummary("Disable"),
 		builtInVariablesRevertID: builtInSummary("Revert"),
 	}

@@ -349,7 +349,7 @@ func (c call) body() ([]byte, error) {
 
 func (c call) needFingerprint() (url.Values, error) {
 	if c.args.Fingerprint == "" || len([]rune(c.args.Fingerprint)) > maxTagIDRunes {
-		return nil, invalidArgument("fingerprint is required: the fingerprint of the tag as last read")
+		return nil, invalidArgument("fingerprint is required: the fingerprint of the object as last read")
 	}
 	return url.Values{"fingerprint": {c.args.Fingerprint}}, nil
 }
