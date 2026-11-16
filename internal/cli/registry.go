@@ -10,6 +10,7 @@ import (
 	"github.com/castrowithcee/qatlas-connect/internal/provider/forge"
 	"github.com/castrowithcee/qatlas-connect/internal/provider/github"
 	"github.com/castrowithcee/qatlas-connect/internal/provider/googleanalytics"
+	"github.com/castrowithcee/qatlas-connect/internal/provider/googlecloud"
 	"github.com/castrowithcee/qatlas-connect/internal/provider/googlemaps"
 	"github.com/castrowithcee/qatlas-connect/internal/provider/googlepagespeed"
 	"github.com/castrowithcee/qatlas-connect/internal/provider/googlesearchconsole"
@@ -100,6 +101,9 @@ func defaultRegistry() *capability.Registry {
 		panic("provider registration is static and must not fail: " + err.Error())
 	}
 	if err := aws.Register(reg, version); err != nil {
+		panic("provider registration is static and must not fail: " + err.Error())
+	}
+	if err := googlecloud.Register(reg); err != nil {
 		panic("provider registration is static and must not fail: " + err.Error())
 	}
 	if err := googlemaps.Register(reg); err != nil {
