@@ -43,7 +43,9 @@ import (
 // a successor started from an updated program, and the answer replaced, which sends a client on to it.
 // Version 8 adds the session ID to a log entry; an older process would drop it and sign an entry without it.
 // Version 9 lets an invoke entry carry the connection ID; an older process would drop it likewise.
-const Version = 9
+// Version 10 lets a connection's scope name the service account its token credential impersonates; an
+// older process would drop it and match an approval given before the connection named one.
+const Version = 10
 
 // MaxMessage bounds one request or answer, newline included. It leaves room for any token or key a
 // credential holds, and keeps a peer from making the other side buffer without end.

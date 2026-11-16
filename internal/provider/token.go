@@ -37,6 +37,10 @@ type TokenRequest struct {
 	// Register hands secrets a grant derives, such as a signed assertion, to the redactor of the call before
 	// they are sent. The token source sets it; it may be nil.
 	Register func(values ...string)
+	// Rotate stores a refresh token that an answer rotated in the middle of a grant, before the grant sends
+	// on the token that came with it, and returns the refresh token stored afterwards. The token source sets
+	// it; it may be nil, and a grant still returns the rotated token in Token.Refresh, also with an error.
+	Rotate func(ctx context.Context, rotated string) (string, error)
 }
 
 // TokenGrant obtains an access token for one procedure from a fixed endpoint of its provider. A failed

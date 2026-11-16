@@ -34,6 +34,8 @@ const (
 	CodeConsentExpired        output.Code = "consent-expired"
 	CodeScopeMissing          output.Code = "scope-missing"
 	CodeCredentialUnusable    output.Code = "credential-unusable"
+	CodeImpersonationDenied   output.Code = "impersonation-denied"
+	CodeServiceAccountUnknown output.Code = "service-account-unknown"
 )
 
 // AllErrorCodes lists every error code this build can emit: the shared codes of the kit, then the ones above.
@@ -42,7 +44,7 @@ func AllErrorCodes() ([]output.Code, error) {
 		CodeConnectionSelection, CodeUnknownConnection, CodeConnectionAmbiguous, CodeUnknownOperation,
 		CodeUnsupportedCapability, CodeMissingSecret, CodePolicyDenied, CodeSecretRefNotAllowed,
 		CodeInvalidProviderResult, CodeProviderError, CodeConsentRequired, CodeConsentExpired, CodeScopeMissing,
-		CodeCredentialUnusable,
+		CodeCredentialUnusable, CodeImpersonationDenied, CodeServiceAccountUnknown,
 	)
 }
 
@@ -355,6 +357,10 @@ func providerCode(class provider.Class) output.Code {
 		return CodeScopeMissing
 	case provider.ClassCredentialUnusable:
 		return CodeCredentialUnusable
+	case provider.ClassImpersonationDenied:
+		return CodeImpersonationDenied
+	case provider.ClassServiceAccountUnknown:
+		return CodeServiceAccountUnknown
 	default:
 		return CodeProviderError
 	}

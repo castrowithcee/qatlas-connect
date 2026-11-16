@@ -49,6 +49,8 @@ const (
 	CodeSecretRoleMissing            = "secret-role-missing"
 	CodeTokenProviderMissing         = "token-provider-missing"
 	CodeTokenProcedure               = "token-procedure"
+	CodeInvalidServiceAccount        = "invalid-service-account"
+	CodeServiceAccountUnsupported    = "service-account-unsupported"
 	CodePathsEmpty                   = "paths-empty"
 	CodeInvalidPath                  = "invalid-path"
 	CodeDuplicatePath                = "duplicate-path"
@@ -126,7 +128,9 @@ var hints = map[string]string{
 	CodeProviderMismatch:             "Choose a credential of the same provider as the service, or one without a provider.",
 	CodeSecretRoleMissing:            "Add the secret role to the credential.",
 	CodeTokenProviderMissing:         "Set the provider of the credential; a credential that issues access tokens serves one provider only.",
-	CodeTokenProcedure:               "Name either the service account key, or the client ID with the refresh token, and not both.",
+	CodeTokenProcedure:               "Name either the service account key, or the client ID with the refresh token, and not both; a connection that names a service account needs the client ID.",
+	CodeInvalidServiceAccount:        "Write the service account as its address or ID: letters, digits and . _ - + @, starting with a letter or digit.",
+	CodeServiceAccountUnsupported:    "Remove the service account; only a provider whose credential issues access tokens can impersonate one.",
 	CodePathsEmpty:                   "List at least one directory, or leave the list out to use the connection everywhere.",
 	CodeInvalidPath:                  "Use an absolute directory or one starting with '~/', without glob patterns.",
 	CodeDuplicatePath:                "Remove the repeated directory.",

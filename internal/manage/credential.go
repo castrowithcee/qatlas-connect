@@ -201,7 +201,7 @@ func (s *Service) DeleteSecret(ctx context.Context, cfg *config.Config, w Secret
 		if !out.Revocation.Confirmed {
 			result = invokelog.RevokeUnconfirmed
 		}
-		connections, _ := consentScopes(cfg, w.Name)
+		connections, _, _ := consentScopes(cfg, w.Name, "")
 		out.Revocation.LogWarning = s.recordConsent(cfg, connections, invokelog.OperationConsentRevoke, result)
 	}
 	return out, nil

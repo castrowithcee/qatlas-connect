@@ -28,6 +28,9 @@ const (
 	GapPaths      = "paths"
 	GapFiles      = "files"
 	GapForward    = "forward"
+	// GapServiceAccount marks a change whose impersonated service account differs from the model's: like the
+	// credential, it decides whose rights the tokens carry, so only the very same one is covered.
+	GapServiceAccount = "service account"
 	// GapState marks a switch of a connection from disabled to active, which no token covers.
 	GapState = "state"
 	// GapActiveUntil marks a change that sets, lengthens or lifts a connection's active_until limit, which
@@ -265,6 +268,9 @@ func coverGaps(vorbild Approval, scope Scope, id string) []string {
 	}
 	if change.Credential != ceiling.Credential || id != vorbild.CredentialID {
 		gaps = append(gaps, GapCredential)
+	}
+	if change.ServiceAccount != ceiling.ServiceAccount {
+		gaps = append(gaps, GapServiceAccount)
 	}
 	if !subset(change.Effects, ceiling.Effects) {
 		gaps = append(gaps, GapEffects)

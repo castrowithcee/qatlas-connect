@@ -39,6 +39,8 @@ type Resolved struct {
 	Disabled bool
 	// ActiveUntil is the limit as Connection.ActiveUntilCanonical gives it, empty when there is none.
 	ActiveUntil string
+	// ServiceAccount is the service account the connection's token credential impersonates, empty for none.
+	ServiceAccount string
 	// TargetsOutdated is set for a connection marked TargetsOutdated (see HoldOutdatedTargets).
 	TargetsOutdated bool
 	// FormerTarget, FormerTargets and FormerExclude hold the stored values of such a connection. They serve the
@@ -138,6 +140,7 @@ func (c *Config) Resolve(name, domain string) (*Resolved, error) {
 		TokenScopes:    c.TokenScopes(name),
 		Disabled:       conn.Disabled,
 		ActiveUntil:    conn.ActiveUntilCanonical(),
+		ServiceAccount: conn.ServiceAccount,
 	}
 	resolved.HoldOutdatedTargets(conn)
 	return resolved, nil

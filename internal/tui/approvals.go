@@ -79,6 +79,7 @@ var approvalFields = []string{
 	approval.FieldCredential, approval.FieldProvider, approval.FieldOrigin,
 	approval.FieldEffects, approval.FieldTargets, approval.FieldExclude, approval.FieldTools, approval.FieldPaths,
 	approval.FieldFiles, approval.FieldForward, approval.FieldState, approval.FieldActiveUntil,
+	approval.FieldServiceAccount,
 }
 
 // approvalRow is one line of the Approvals detail screen: text as plain words, and, split for drawing, the
@@ -128,24 +129,29 @@ func approvalBody(c approval.Change, expanded bool, tools func(string) string) [
 		changed[f.Field] = f
 	}
 	current := map[string]string{
-		approval.FieldCredential:  choiceText(c.After.Credential),
-		approval.FieldProvider:    choiceText(c.After.Provider),
-		approval.FieldOrigin:      choiceText(approval.OriginText(c.After.Origin)),
-		approval.FieldEffects:     approvalList(c.After.Effects),
-		approval.FieldTargets:     approvalList(c.After.Targets),
-		approval.FieldExclude:     approvalList(c.After.Exclude),
-		approval.FieldTools:       labelEntries(approvalTools(c.After.Tools), tools),
-		approval.FieldPaths:       approval.PathsText(c.After.Paths),
-		approval.FieldFiles:       approval.FilesText(c.After.FilesRead, c.After.FilesWrite),
-		approval.FieldForward:     approval.ForwardText(c.After.Forward),
-		approval.FieldState:       approval.StateText(c.After.Disabled),
-		approval.FieldActiveUntil: approval.ActiveUntilText(c.After.ActiveUntil),
+		approval.FieldCredential:     choiceText(c.After.Credential),
+		approval.FieldProvider:       choiceText(c.After.Provider),
+		approval.FieldOrigin:         choiceText(approval.OriginText(c.After.Origin)),
+		approval.FieldEffects:        approvalList(c.After.Effects),
+		approval.FieldTargets:        approvalList(c.After.Targets),
+		approval.FieldExclude:        approvalList(c.After.Exclude),
+		approval.FieldTools:          labelEntries(approvalTools(c.After.Tools), tools),
+		approval.FieldPaths:          approval.PathsText(c.After.Paths),
+		approval.FieldFiles:          approval.FilesText(c.After.FilesRead, c.After.FilesWrite),
+		approval.FieldForward:        approval.ForwardText(c.After.Forward),
+		approval.FieldState:          approval.StateText(c.After.Disabled),
+		approval.FieldActiveUntil:    approval.ActiveUntilText(c.After.ActiveUntil),
+		approval.FieldServiceAccount: approval.ServiceAccountText(c.After.ServiceAccount),
 	}
 	rows := make([]approvalRow, 0, len(approvalFields))
 	for _, field := range approvalFields {
 		f, ok := changed[field]
 		// Most connections exclude nothing, so the row appears only once there is something to say.
 		if field == approval.FieldExclude && !ok && len(c.After.Exclude) == 0 {
+			continue
+		}
+		// Only a connection that impersonates has a service account to show.
+		if field == approval.FieldServiceAccount && !ok && c.After.ServiceAccount == "" {
 			continue
 		}
 		switch {

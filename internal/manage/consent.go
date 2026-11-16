@@ -53,13 +53,14 @@ type ConsentReason string
 // The reasons of a ConsentError. The first ones rule a consent out before anything is sent (see
 // ConsentError.Precondition); the others end a consent that was started.
 const (
-	ConsentAdminRequired  ConsentReason = "admin-required"
-	ConsentNotStored      ConsentReason = "not-stored"
-	ConsentNoProvider     ConsentReason = "no-provider"
-	ConsentNoClientID     ConsentReason = "no-client-id"
-	ConsentServiceAccount ConsentReason = "service-account"
-	ConsentNoConnection   ConsentReason = "no-connection"
-	ConsentMissing        ConsentReason = "no-consent"
+	ConsentAdminRequired   ConsentReason = "admin-required"
+	ConsentNotStored       ConsentReason = "not-stored"
+	ConsentNoProvider      ConsentReason = "no-provider"
+	ConsentNoClientID      ConsentReason = "no-client-id"
+	ConsentServiceAccount  ConsentReason = "service-account"
+	ConsentNoConnection    ConsentReason = "no-connection"
+	ConsentNoImpersonation ConsentReason = "no-impersonation"
+	ConsentMissing         ConsentReason = "no-consent"
 
 	ConsentExpired        ConsentReason = "expired"
 	ConsentCancelled      ConsentReason = "cancelled"
@@ -93,6 +94,9 @@ func (e *ConsentError) Error() string {
 	case ConsentNoConnection:
 		return "no connection uses credential " + name + ", so there is no scope to ask for; create its " +
 			"connections first; nothing was sent"
+	case ConsentNoImpersonation:
+		return "a connection of credential " + name + " impersonates a service account, which its provider does " +
+			"not offer; remove service_account from it; nothing was sent"
 	case ConsentMissing:
 		return "credential " + name + " holds no refresh token, so there is no consent to revoke"
 	case ConsentExpired:
@@ -115,7 +119,7 @@ func (e *ConsentError) Error() string {
 func (e *ConsentError) Precondition() bool {
 	switch e.Reason {
 	case ConsentAdminRequired, ConsentNotStored, ConsentNoProvider, ConsentNoClientID, ConsentServiceAccount,
-		ConsentNoConnection, ConsentMissing:
+		ConsentNoConnection, ConsentNoImpersonation, ConsentMissing:
 		return true
 	}
 	return false
@@ -177,6 +181,8 @@ type ConsentOutcome struct {
 // StartConsent starts the consent of credential and returns it with the link to open: it checks that the
 // credential is stored in a keyring or the vault, names a provider that takes a consent and holds a client
 // ID, asks for the scopes all its connections need, and listens on 127.0.0.1 with a port the system picks.
+// A connection that impersonates a service account needs only the scope of the impersonation request, since
+// its own scopes go to that request.
 // Nothing is sent and nothing is stored before Wait. proof is the admin proof of this run; it covers the
 // whole consent. The errors are a *ConsentError, a *config.NotThereError, or what reading the store gave.
 func (s *Service) StartConsent(ctx context.Context, proof AdminProof, credential string) (*Consent, error) {
@@ -215,7 +221,10 @@ func (s *Service) StartConsent(ctx context.Context, proof AdminProof, credential
 	case secrets.ClientID == "":
 		return nil, &ConsentError{Reason: ConsentNoClientID, Credential: credential}
 	}
-	connections, scopes := consentScopes(cfg, credential)
+	connections, scopes, impersonates := consentScopes(cfg, credential, oauth.ImpersonateScope)
+	if impersonates && oauth.ImpersonateScope == "" {
+		return nil, &ConsentError{Reason: ConsentNoImpersonation, Credential: credential}
+	}
 	if len(connections) == 0 || len(scopes) == 0 {
 		return nil, &ConsentError{Reason: ConsentNoConnection, Credential: credential}
 	}
@@ -623,23 +632,32 @@ func (s *Service) storedRole(ctx context.Context, name string, entry config.Cred
 	return value, found && value != "", nil
 }
 
-// consentScopes returns the connections that use credential and the union of the scopes they need, each
-// sorted and once.
-func consentScopes(cfg *config.Config, credential string) (connections, scopes []string) {
+// consentScopes returns the connections that use credential and the union of the scopes their consent needs,
+// each sorted and once, and whether one of them impersonates a service account: such a connection needs
+// impersonateScope alone.
+func consentScopes(cfg *config.Config, credential, impersonateScope string) (connections, scopes []string, impersonates bool) {
+	add := func(scope string) {
+		if scope != "" && !slices.Contains(scopes, scope) {
+			scopes = append(scopes, scope)
+		}
+	}
 	for name, conn := range cfg.Connections {
 		if conn.Credential != credential {
 			continue
 		}
 		connections = append(connections, name)
+		if conn.ServiceAccount != "" {
+			impersonates = true
+			add(impersonateScope)
+			continue
+		}
 		for _, scope := range cfg.TokenScopes(name) {
-			if !slices.Contains(scopes, scope) {
-				scopes = append(scopes, scope)
-			}
+			add(scope)
 		}
 	}
 	slices.Sort(connections)
 	slices.Sort(scopes)
-	return connections, scopes
+	return connections, scopes, impersonates
 }
 
 // recordConsent logs operation for every connection and returns the redacted warning of the first failure.

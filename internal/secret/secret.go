@@ -227,7 +227,7 @@ func ScopeOf(resolved *config.Resolved) vault.Scope {
 		Exclude: append([]string(nil), exclude...),
 		Paths:   append([]string(nil), resolved.Paths...), FilesRead: append([]string(nil), resolved.Files.Read...),
 		FilesWrite: append([]string(nil), resolved.Files.Write...), Forward: forwardOf(resolved),
-		Disabled: resolved.Disabled, ActiveUntil: resolved.ActiveUntil,
+		Disabled: resolved.Disabled, ActiveUntil: resolved.ActiveUntil, ServiceAccount: resolved.ServiceAccount,
 	}
 }
 

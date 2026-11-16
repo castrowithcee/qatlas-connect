@@ -1501,6 +1501,7 @@ func (c *Core) connection(name string) (*config.Resolved, error) {
 		TokenScopes:    c.config.TokenScopes(name),
 		Disabled:       connection.Disabled,
 		ActiveUntil:    connection.ActiveUntilCanonical(),
+		ServiceAccount: connection.ServiceAccount,
 	}
 	resolved.HoldOutdatedTargets(connection)
 	return resolved, nil

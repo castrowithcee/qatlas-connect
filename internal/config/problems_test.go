@@ -147,6 +147,12 @@ func TestProblemsAreStructured(t *testing.T) {
 			withTokenConnection(c, Credential{Provider: "sample", Type: CredentialTypeEnv,
 				Values: map[string]string{RoleClientID: "TOK_CLIENT_ID"}})
 		}, "connections.tok", CodeTokenProcedure, "connections.tok: credential \"tokkey\" must name exactly one complete procedure", "", -1},
+		{"service account", func(c *Config) {
+			withTokenConnection(c, Credential{Provider: "sample", Type: CredentialTypeVault})
+			conn(c, "tok", func(v *Connection) { v.ServiceAccount = "robot/../x" })
+		}, "connections.tok.service_account", CodeInvalidServiceAccount, "connections.tok.service_account: the service account must be", "service_account", -1},
+		{"service account without tokens", func(c *Config) { conn(c, "gh", func(v *Connection) { v.ServiceAccount = "robot" }) },
+			"connections.gh.service_account", CodeServiceAccountUnsupported, "connections.gh.service_account: the provider of the connection issues no access tokens", "service_account", -1},
 		{"connection description", func(c *Config) { conn(c, "gh", func(v *Connection) { v.Description = long }) },
 			"connections.gh.description", CodeInvalidDescription, "connections.gh.description: is 201 characters", "description", -1},
 		{"active until", func(c *Config) { conn(c, "gh", func(v *Connection) { v.ActiveUntil = "tomorrow" }) },

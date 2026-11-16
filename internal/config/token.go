@@ -91,11 +91,47 @@ func (c *Config) TokenScopes(name string) []string {
 	return scopes
 }
 
+// maxServiceAccount bounds the service account a connection names.
+const maxServiceAccount = 254
+
+// ValidServiceAccount reports whether account can stand as the service account a connection names: letters,
+// digits and the characters . _ - + @, starting with a letter or digit, of a bounded length. A provider puts
+// it into a fixed address as one escaped path segment, so it can neither leave that segment nor be a dot
+// segment.
+func ValidServiceAccount(account string) bool {
+	if account == "" || len(account) > maxServiceAccount {
+		return false
+	}
+	for i := 0; i < len(account); i++ {
+		c := account[i]
+		alnum := c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' || c >= '0' && c <= '9'
+		if !alnum && (i == 0 || !strings.ContainsRune("._-+@", rune(c))) {
+			return false
+		}
+	}
+	return true
+}
+
+// validateServiceAccount checks the service account a connection names. The message never repeats the
+// value: a value that fails the rule may be anything pasted into the file.
+func validateServiceAccount(name, account string, issuesTokens bool, report func(Problem)) {
+	switch {
+	case !issuesTokens:
+		report(problem(SectionConnections, name, "service_account", CodeServiceAccountUnsupported,
+			"the provider of the connection issues no access tokens, so it cannot impersonate a service account"))
+	case !ValidServiceAccount(account):
+		report(problem(SectionConnections, name, "service_account", CodeInvalidServiceAccount,
+			"the service account must be its address or ID: letters, digits and . _ - + @, starting with a "+
+				"letter or digit, at most %d characters", maxServiceAccount))
+	}
+}
+
 // validateTokenCredential checks the credential of a connection whose provider issues access tokens. Its
 // refresh token and scopes serve exactly one provider, so it must name it. Only an environment credential
 // shows in the file which roles it supplies; it must supply exactly one complete procedure, because no
-// consent can ever store a refresh token into a variable.
-func validateTokenCredential(name, credential, provider string, cred Credential, report func(Problem)) {
+// consent can ever store a refresh token into a variable. A connection that names a service account
+// impersonates it with a consent, which a service account key cannot do.
+func validateTokenCredential(name, credential, provider, serviceAccount string, cred Credential, report func(Problem)) {
 	if cred.Provider == "" {
 		report(problem(SectionConnections, name, "credential", CodeTokenProviderMissing,
 			"credential %q issues access tokens and must name its provider %q", credential, provider).
@@ -106,7 +142,12 @@ func validateTokenCredential(name, credential, provider string, cred Credential,
 	}
 	named := func(role string) bool { return strings.TrimSpace(cred.Values[role]) != "" }
 	key, clientID := named(RoleServiceAccountKey), named(RoleClientID)
-	if key == clientID || clientID && !named(RoleRefreshToken) {
+	switch {
+	case serviceAccount != "" && (key || !clientID || !named(RoleRefreshToken)):
+		report(problem(SectionConnections, name, "", CodeTokenProcedure,
+			"credential %q must name the roles %s and %s and no %s, since the connection impersonates a service account",
+			credential, RoleClientID, RoleRefreshToken, RoleServiceAccountKey).with("credential", credential))
+	case key == clientID || clientID && !named(RoleRefreshToken):
 		report(problem(SectionConnections, name, "", CodeTokenProcedure,
 			"credential %q must name exactly one complete procedure: the role %s, or the roles %s and %s",
 			credential, RoleServiceAccountKey, RoleClientID, RoleRefreshToken).with("credential", credential))
