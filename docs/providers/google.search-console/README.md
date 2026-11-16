@@ -1,6 +1,6 @@
 ---
 description: >
-  Describes the Google Search Console provider: the token credential and its procedures, the scope of each tool, the fixed API origin, the optional property target and how it is proven, the read profile, quotas and rate spacing, result bounds, the connection test, error classes, and the limits of what is verified.
+  Describes the Google Search Console provider: the token credential and its procedures, the scope of each tool, the fixed API origin, the optional property target and how it is proven, the read profile, quotas and rate spacing including the search-analytics query, result bounds, the connection test, error classes, and the limits of what is verified.
 type: knowledge
 edit: shared
 created: 2026-11-16
@@ -10,9 +10,9 @@ updated: 2026-11-16
 # Google Search Console
 
 Google Search Console is a provider for the Search Console API: the properties an account can see and the
-sitemaps of a property. Every tool is a read. [Set up Google Search Console](setup.md) leads through the
-Google side and the consent. The tools are described per group in [sites](sites.md) and
-[sitemaps](sitemaps.md).
+sitemaps of a property, and its search traffic. Every tool is a read. [Set up Google Search Console](setup.md) leads through the
+Google side and the consent. The tools are described per group in [sites](sites.md),
+[sitemaps](sitemaps.md), and [search analytics](search-analytics.md).
 
 ## Configuration
 
@@ -59,17 +59,23 @@ uses, `siteOwner` and `SITE_OWNER`.
 
 ## Quotas and rate spacing
 
+The search-analytics query is counted apart: 1,200 queries per minute per site and per user, plus a load quota
+that grows with the date range and with grouping or filtering by page or query. Qatlas spaces its queries by
+50 ms per credential and property.
+
 Google allows the site and sitemap methods 20 queries per second and 200 per minute per user, and
 100,000,000 per day per Cloud project. The calls cost nothing.
 
 Requests of one credential, and for an impersonation of one service account, are spaced by at least 300 ms
-within a process, which is the per-user limit. On a `429` the next request of the credential waits one
+within a process, which is the per-user limit. The search-analytics query has its own limits and spacing, see
+[search analytics](search-analytics.md#quota-and-spacing). On a `429` the next request of the credential waits one
 second, or the seconds of `Retry-After` up to one minute. The failed request is not repeated, and a missing
 `Retry-After` never leads to a retry.
 
 ## Results
 
-Everything Google returns is untrusted third-party content. Property addresses and sitemap paths are text and
+Everything Google returns is untrusted third-party content. Search queries are personal data as well, see
+[search analytics](search-analytics.md#search-queries-are-personal-data). Property addresses and sitemap paths are text and
 are never fetched; they are cut at 2048 characters, every other text at 100, and a cut text ends with `…`. A
 member that is not documented is dropped, and so is a flag that is not a boolean. A list of properties is cut
 at 1000 entries and a list of sitemaps at 500; a cut list sets `truncated`. The answer read from Google is
