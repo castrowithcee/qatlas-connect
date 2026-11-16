@@ -63,7 +63,7 @@ func TestVaultLockAndUnlockEndAReplacedVaultProcess(t *testing.T) {
 	}
 	select {
 	case <-ended:
-	case <-time.After(5 * time.Second):
+	case <-time.After(endGrace):
 		t.Fatal("lock did not end the replaced vault process")
 	}
 
@@ -74,7 +74,7 @@ func TestVaultLockAndUnlockEndAReplacedVaultProcess(t *testing.T) {
 	}
 	select {
 	case <-ended:
-	case <-time.After(time.Second):
+	case <-time.After(endGrace):
 		t.Fatal("unlock did not end the replaced vault process")
 	}
 	if want := "ended the vault process (pid " + strconv.Itoa(os.Getpid()) + ")"; !strings.Contains(stderr, want) {

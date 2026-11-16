@@ -91,6 +91,11 @@ type errorReporter interface {
 // endRegistered kills every process in the registry dir that still runs after endGrace and reports each as
 // an error. It only ever touches the process ids this test's own processes registered.
 func endRegistered(t errorReporter, dir string) {
+	endRegisteredWhy(t, dir, "no lock was sent")
+}
+
+// endRegisteredWhy is endRegistered with why, what the caller did to end the processes, in each report.
+func endRegisteredWhy(t errorReporter, dir, why string) {
 	entries, _ := os.ReadDir(dir)
 	var pids []int
 	for _, e := range entries {
@@ -111,7 +116,7 @@ func endRegistered(t errorReporter, dir string) {
 	for _, pid := range pids {
 		if processAlive(pid) {
 			killProcess(pid)
-			t.Errorf("the vault process %d did not end by itself and was killed", pid)
+			t.Errorf("the vault process %d did not end by itself within %v and was killed (%s)", pid, endGrace, why)
 		}
 	}
 }

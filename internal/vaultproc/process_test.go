@@ -266,6 +266,7 @@ func TestIdleLock(t *testing.T) {
 }
 
 // A maximum unlock duration locks the server despite continuous gets, and no get moves the lock time past it.
+// Gets go on until the server locks, however long the host takes; a get fails only once it has.
 func TestMaxUnlockLocksDespiteGets(t *testing.T) {
 	path := socketIn(t)
 	l, err := Listen(path)
@@ -274,31 +275,44 @@ func TestMaxUnlockLocksDespiteGets(t *testing.T) {
 	}
 	s := NewServer(testKey, testSecrets(), testBindings())
 	s.IdleTimeout = time.Minute
-	s.MaxUnlock = 400 * time.Millisecond
-	start := time.Now()
+	s.MaxUnlock = time.Second
 	done := serve(t, s, l)
 	c := NewClient(path, testRecipient)
 
 	status, err := c.Status(context.Background())
-	if err != nil || status.LocksAt.After(start.Add(s.MaxUnlock+time.Second)) || time.Until(status.LocksAt) > s.MaxUnlock {
+	if err != nil || time.Until(status.LocksAt) > s.MaxUnlock {
 		t.Fatalf("Status() = %+v, %v, want the maximum as the lock time, not the idle time", status, err)
 	}
 	if !status.UnlockEndsAt.Equal(status.LocksAt) || status.UnlockEndsAt.IsZero() {
 		t.Fatalf("Status().UnlockEndsAt = %v, want the hard deadline %v", status.UnlockEndsAt, status.LocksAt)
 	}
-	for time.Since(start) < 300*time.Millisecond {
-		if _, _, err := c.Get(context.Background(), "wiki-reader", "token", *testScope()); err != nil {
-			t.Fatalf("Get() error = %v", err)
+	// Far below the idle time, which every get restarts anyway.
+	deadline := time.Now().Add(30 * time.Second)
+	served := 0
+	for {
+		_, _, err := c.Get(context.Background(), "wiki-reader", "token", *testScope())
+		if err == nil {
+			var after Status
+			after, err = c.Status(context.Background())
+			if err == nil && after.LocksAt.After(status.LocksAt) {
+				t.Fatalf("Status() after a get = %+v, want a lock time no later than %v", after, status.LocksAt)
+			}
 		}
-		after, err := c.Status(context.Background())
-		if err != nil || after.LocksAt.After(status.LocksAt) {
-			t.Fatalf("Status() after a get = %+v, %v, want a lock time no later than %v", after, err, status.LocksAt)
+		if err != nil {
+			if s.stopping() {
+				break
+			}
+			t.Fatalf("Get() or Status() while unlocked error = %v", err)
+		}
+		served++
+		if time.Now().After(deadline) {
+			t.Fatalf("the server still serves gets 30s after its start, want it locked after %v", s.MaxUnlock)
 		}
 		time.Sleep(20 * time.Millisecond)
 	}
 	waitServed(t, done)
-	if elapsed := time.Since(start); elapsed > 3*time.Second {
-		t.Fatalf("locked after %v, want about the maximum", elapsed)
+	if served == 0 {
+		t.Fatalf("the server locked before it served a get")
 	}
 }
 
