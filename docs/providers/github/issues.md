@@ -292,12 +292,16 @@ Source: the official REST documentation (<https://docs.github.com/en/rest/issues
 
 ## Issue types
 
-`github.issue-types.list` reads every issue type an organization declares. GitHub scopes issue types to an
-organization as a whole, never to one repository or one user, so the tool takes an `owner` argument (as
-`orgs/LOGIN`) checked the same broad way `github.repositories.list` checks its own owner argument: an explicit
-owner target, a repository target of that organization, or a connection without targets allow the call; a
-connection whose targets name only a project, or only a different organization, refuses it as an invalid
-request before any credential is resolved.
+`github.issue-types.list` reads every issue type an organization declares, or, with `repository`, the issue types
+one repository offers, which is the only route for a repository of a user account. Give `owner` or `repository`,
+never both. `owner` (as `orgs/LOGIN`) is checked the same broad way `github.repositories.list` checks its own
+owner argument: an explicit owner target, a repository target of that organization, or a connection without
+targets allow the call; a connection whose targets name only a project, or only a different organization,
+refuses it as an invalid request before any credential is resolved, and a user owner is refused. `repository`
+(as `OWNER/REPO`) is checked like every other repository tool, before any credential is resolved. A repository
+read goes through GraphQL and reports `node_id`, `name`, `description`, `color` in lower case, and `is_enabled`
+only: GraphQL names no numeric `id` and no timestamps for an issue type, so they are left out, and
+`IssueType.pinnedFields` is not read.
 
 `github.issues.list`, `github.issues.get`, `github.issues.search`, the issue changes, `github.sub-issues.list`,
 and `github.issue-dependencies.list` name an issue's type as `issue_type`, by the name `github.issue-types.list`
@@ -317,7 +321,10 @@ Source: the official REST documentation and the OpenAPI description that backs i
 a stable, generally available REST endpoint, not a preview feature, returning every issue type as a plain
 array with no pagination parameters of its own; "Update an issue" (`PATCH /repos/{owner}/{repo}/issues/{issue_number}`)
 documents its `type` request body property as `null`, a plain type-name string, or an object with metadata Qatlas
-does not send (see [Issue fields](#issue-fields)), and returns the resulting `type` as a full object.
+does not send (see [Issue fields](#issue-fields)), and returns the resulting `type` as a full object. The
+repository read uses `Repository.issueTypes` of the GraphQL reference
+(<https://docs.github.com/en/graphql/reference/repos>, <https://docs.github.com/en/graphql/reference/issues>),
+which the REST reference has no counterpart for.
 
 ## Issue fields
 

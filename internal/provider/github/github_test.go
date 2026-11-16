@@ -362,6 +362,7 @@ func (f *fakeGitHub) graphql(w http.ResponseWriter, document string, variables m
 	case f.blame(w, document, variables):
 	case f.issueFieldsChange(w, document, variables):
 	case f.issueFieldsPage(w, document, variables):
+	case f.repositoryIssueTypesPage(w, document, variables):
 	case strings.Contains(document, "issues(first:$first,after:$after,orderBy:$orderBy"):
 		f.issuesPage(w, variables)
 	case strings.Contains(document, "projectsV2(first") || strings.Contains(document, "repositories(first"):
