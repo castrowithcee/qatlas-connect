@@ -12,57 +12,80 @@ import (
 	"github.com/castrowithcee/qatlas-kit/redact"
 )
 
-// github.issue-types.list reads the issue types an organization declares. GitHub scopes issue types to an
-// organization as a whole, never to one repository or one user, so this tool takes an organization argument
-// checked against the connection's targets the broad way github.repositories.list checks the owner of an
-// owner list: allowed when the connection names no targets at all, when it names the organization as an
-// owner target itself, or when it names a repository target of that organization, since a connection scoped
-// to a repository already trusts the organization that owns it; a connection whose targets name only
-// projects, or only a different organization, refuses the call as invalid-request before any credential is
-// resolved. A user owner is refused as well, because issue types belong to an organization, not a user.
+// github.issue-types.list reads the issue types of an organization, or, with repository instead, the issue
+// types one repository offers, which is the only route for a repository of a user account. An organization
+// is read through GET /orgs/{org}/issue-types and checked against the connection's targets the broad way
+// github.repositories.list checks the owner of an owner list: allowed when the connection names no targets
+// at all, when it names the organization as an owner target itself, or when it names a repository target of
+// that organization, since a connection scoped to a repository already trusts the organization that owns
+// it; a connection whose targets name only projects, or only a different organization, refuses the call as
+// invalid-request before any credential is resolved. A user owner is refused, because the organization
+// route does not exist for a user. A repository is checked like every other repository tool and read
+// through GraphQL Repository.issueTypes, which answers for organization and user repositories alike.
 //
-// Verified 2026-09-29 against https://docs.github.com/en/rest/orgs/issue-types (REST API, X-GitHub-Api-Version
+// Verified 2026-11-16 against https://docs.github.com/en/rest/orgs/issue-types (REST API, X-GitHub-Api-Version
 // 2022-11-28): "List issue types for an organization" (GET /orgs/{org}/issue-types) is a stable, generally
 // available REST endpoint, not a preview feature; it returns every issue type as a plain array, with no
-// pagination parameters of its own. OAuth and classic personal access tokens need the read:org scope.
+// pagination parameters of its own. OAuth and classic personal access tokens need the read:org scope. The
+// REST reference has no repository or user route for issue types. Against
+// https://docs.github.com/en/graphql/reference/repos (Repository.issueTypes, an IssueTypeConnection with
+// first, after, and orderBy) and https://docs.github.com/en/graphql/reference/issues (IssueType: id as the
+// node ID, name, description, color as the IssueTypeColor enum, isEnabled): GraphQL names no database ID and
+// no timestamps for an issue type, so a repository read leaves id, created_at, and updated_at out rather
+// than invent them. IssueType.isPrivate is deprecated and IssueType.issues and pinnedFields are not issue
+// type properties REST reports; none is read.
 
 const issueTypeProperties = `"id":{"type":"integer"},"name":{"type":"string"},"description":{"type":"string"},` +
 	`"color":{"type":"string"},"is_enabled":{"type":"boolean"},"node_id":{"type":"string"},` +
 	`"created_at":{"type":"string"},"updated_at":{"type":"string"}`
-const issueTypeRequired = `"required":["id","name","is_enabled"],"additionalProperties":false`
 
-// issueTypesOwnerArgument and issueTypesOwnerField describe github.issue-types.list's own owner argument,
-// broader than organizationArgument/organizationField: a repository target of the organization allows the
-// call as well, the way a repository target allows github.repositories.list to list its owner's repositories.
+// issueTypeRequired leaves id optional: only the organization route reports a numeric ID.
+const issueTypeRequired = `"required":["name","is_enabled"],"additionalProperties":false`
+
+// issueTypesOwnerArgument describes github.issue-types.list's own owner argument, broader than
+// organizationArgument/organizationField: a repository target of the organization allows the call as well,
+// the way a repository target allows github.repositories.list to list its owner's repositories.
 var issueTypesOwnerArgument = capability.Argument{Name: "owner", Description: "Organization as orgs/LOGIN " +
-	"whose issue types this call reads; optional when the connection's targets name exactly one owner; must " +
-	"lie inside the targets when the connection lists any, as an owner target itself or as the owner of a " +
-	"repository target"}
+	"whose issue types this call reads, a user is not accepted; give owner or repository, never both; " +
+	"optional when the connection's targets name exactly one owner; must lie inside the targets when the " +
+	"connection lists any, as an owner target itself or as the owner of a repository target"}
 
-var issueTypesOwnerField = capability.Field{Name: "owner", Description: "Organization the tool listed, as " +
-	"orgs/LOGIN; the one a default chose when the argument was left out"}
+var issueTypesRepositoryArgument = capability.Argument{Name: "repository", Description: "Repository as " +
+	"OWNER/REPO, of an organization or a user, whose issue types this call reads; give owner or repository, " +
+	"never both; must lie inside the targets when the connection lists any"}
 
 var issueTypesList = capability.Descriptor{
 	ID:      Provider + ".issue-types.list",
 	Version: 1,
 	Title:   "List GitHub issue types",
-	Description: "List the issue types an organization declares, that a connection allows: name, " +
-		"description, color, and whether each is enabled; github.issues.update's own type argument names one " +
-		"of these by name",
+	Description: "List the issue types an organization declares, or, with repository, the issue types one " +
+		"repository of an organization or a user offers, that a connection allows: name, description, color, " +
+		"and whether each is enabled; github.issues.update's own type argument names one of these by name",
 	Tags:        []string{"github", "issues", "issuetypes", "list"},
 	Risk:        readRisk,
 	Provider:    Provider,
-	InputSchema: json.RawMessage(`{"type":"object","properties":{},"additionalProperties":false}`),
+	InputSchema: inputSchema(`"owner":` + ownerSchema + `,"repository":` + repoSchema),
 	OutputSchema: json.RawMessage(`{"type":"object","properties":{"issue_types":{"type":"array","items":` +
-		`{"type":"object","properties":{` + issueTypeProperties + `},` + issueTypeRequired + `}}},` +
+		`{"type":"object","properties":{` + issueTypeProperties + `},` + issueTypeRequired + `}}` +
+		`,"owner":{"type":"string"},"repository":{"type":"string"}},` +
 		`"required":["issue_types"],"additionalProperties":false}`),
+	Arguments: []capability.Argument{issueTypesOwnerArgument, issueTypesRepositoryArgument},
 	Fields: []capability.Field{
-		{Name: "issue_types", Description: "Issue types of the organization, in the order GitHub returns " +
-			"them: id, node_id, name and description (untrusted data), color, is_enabled, created_at, and updated_at"},
+		{Name: "issue_types", Description: "Issue types, in the order GitHub returns them: id, node_id, name " +
+			"and description (untrusted data), color, is_enabled, created_at, and updated_at; a repository " +
+			"read, which GraphQL answers, carries node_id, name, description, color in lower case, and " +
+			"is_enabled only"},
+		{Name: "owner", Description: "Organization the tool listed, as orgs/LOGIN; the one a default chose " +
+			"when the argument was left out; present only for an organization read"},
+		{Name: "repository", Description: "Repository the tool listed, as OWNER/REPO; present only when " +
+			"repository addressed the call"},
 	},
 	Examples: []capability.Example{{
 		Description: "List the issue types of an organization",
 		Arguments:   json.RawMessage(`{"owner":"orgs/octo-org"}`),
+	}, {
+		Description: "List the issue types of a repository",
+		Arguments:   json.RawMessage(`{"repository":"octocat/example"}`),
 	}},
 }
 
@@ -72,6 +95,31 @@ var issueTypesList = capability.Descriptor{
 const issueTypesReadPermission = "GitHub refused this token the issue types of this organization; reading " +
 	"them needs read:org on a classic token, or, as far as GitHub documents it, the organization permission " +
 	"Issue types: read, or Administration: read, on a fine-grained token"
+
+// issueTypesRepositoryPermission is issueTypesReadPermission for a repository read. GitHub documents no
+// scope for Repository.issueTypes, so it names read access to the repository only.
+const issueTypesRepositoryPermission = "GitHub refused this token the issue types of this repository; " +
+	"reading them needs read access to the repository"
+
+// selectIssueTypesTarget reads the exclusive owner or repository argument: a repository is checked like every
+// other repository tool, anything else as selectIssueTypesOwner checks an owner. It runs before a credential
+// is resolved.
+func selectIssueTypesTarget(resolved *config.Resolved, raw json.RawMessage) (target, error) {
+	var arguments struct {
+		Owner      string `json:"owner"`
+		Repository string `json:"repository"`
+	}
+	if json.Unmarshal(raw, &arguments) != nil {
+		return target{}, unreadable("select issue types target")
+	}
+	if arguments.Repository == "" {
+		return selectIssueTypesOwner(resolved, raw)
+	}
+	if arguments.Owner != "" {
+		return target{}, invalidRequest("give owner or repository, never both")
+	}
+	return selectTarget(resolved, kindRepository, raw)
+}
 
 // selectIssueTypesOwner resolves github.issue-types.list's own owner argument against the connection's
 // targets: allowed when the connection names no targets, when it lists the organization as an owner target
@@ -84,8 +132,8 @@ func selectIssueTypesOwner(resolved *config.Resolved, raw json.RawMessage) (targ
 		return target{}, err
 	}
 	if owner.scope != "orgs" {
-		return target{}, invalidRequest("owner must be an organization, as orgs/LOGIN; issue types belong to " +
-			"an organization, not a user")
+		return target{}, invalidRequest("owner must be an organization, as orgs/LOGIN; for a repository of a " +
+			"user, pass repository")
 	}
 	return owner, nil
 }
@@ -106,9 +154,9 @@ type issueTypeJSON struct {
 	UpdatedAt   *string `json:"updated_at"`
 }
 
-// IssueType is one issue type of an organization.
+// IssueType is one issue type of an organization or a repository.
 type IssueType struct {
-	ID          int64  `json:"id"`
+	ID          int64  `json:"id,omitempty"`
 	Name        string `json:"name"`
 	Description string `json:"description,omitempty"`
 	Color       string `json:"color,omitempty"`
@@ -141,10 +189,72 @@ func (r *issueTypeJSON) detail() *RESTIssueType {
 		CreatedAt: shortText(r.CreatedAt), UpdatedAt: shortText(r.UpdatedAt)}
 }
 
-// IssueTypeList is every issue type of an organization; GitHub's own route returns them all at once, with
-// no pagination of its own.
+// IssueTypeList is every issue type of an organization or a repository; the organization route returns them
+// all at once, with no pagination of its own.
 type IssueTypeList struct {
 	IssueTypes []IssueType `json:"issue_types"`
+}
+
+const issueTypesRepoQuery = `query($owner:String!,$name:String!,$after:String){repository(owner:$owner,name:$name){` +
+	`issueTypes(first:100,after:$after){pageInfo{hasNextPage endCursor} nodes{id name description color isEnabled}}}}`
+
+// maxIssueTypePages bounds the pages one repository read follows; GitHub caps the issue types of an
+// organization far below it.
+const maxIssueTypePages = 10
+
+type issueTypesRepoPageJSON struct {
+	Repository *struct {
+		IssueTypes *struct {
+			PageInfo pageInfoJSON `json:"pageInfo"`
+			Nodes    []*struct {
+				ID          string  `json:"id"`
+				Name        string  `json:"name"`
+				Description *string `json:"description"`
+				Color       string  `json:"color"`
+				IsEnabled   bool    `json:"isEnabled"`
+			} `json:"nodes"`
+		} `json:"issueTypes"`
+	} `json:"repository"`
+}
+
+// listRepositoryIssueTypes reads the issue types of the bound repository through GraphQL.
+func (c *Client) listRepositoryIssueTypes(ctx context.Context) (*IssueTypeList, error) {
+	const op = "list issue types"
+	result := &IssueTypeList{IssueTypes: []IssueType{}}
+	after := any(nil)
+	for range maxIssueTypePages {
+		var page issueTypesRepoPageJSON
+		variables := map[string]any{"owner": c.target.owner, "name": c.target.repo, "after": after}
+		if err := c.graphql(ctx, op, issueTypesRepoQuery, variables, &page); err != nil {
+			return nil, actionsFailure(err, issueTypesRepositoryPermission)
+		}
+		if page.Repository == nil {
+			return nil, notFound(op, subject{in: c.target})
+		}
+		connection := page.Repository.IssueTypes
+		if connection == nil {
+			return nil, invalidResponse(op, false)
+		}
+		for _, node := range connection.Nodes {
+			if node == nil || strings.TrimSpace(node.Name) == "" {
+				return nil, invalidEntry(op, "an issue type")
+			}
+			entry := IssueType{Name: node.Name, IsEnabled: node.IsEnabled, NodeID: nameText(&node.ID),
+				Color: strings.ToLower(node.Color)}
+			if node.Description != nil {
+				entry.Description = *node.Description
+			}
+			result.IssueTypes = append(result.IssueTypes, entry)
+		}
+		if !connection.PageInfo.HasNextPage {
+			return result, nil
+		}
+		if connection.PageInfo.EndCursor == "" {
+			return nil, invalidResponse(op, false)
+		}
+		after = connection.PageInfo.EndCursor
+	}
+	return nil, invalidResponse(op, false)
 }
 
 func (c *Client) listIssueTypes(ctx context.Context) (*IssueTypeList, error) {
@@ -173,15 +283,18 @@ func (c *Client) listIssueTypes(ctx context.Context) (*IssueTypeList, error) {
 
 func invokeIssueTypesList(ctx context.Context, resolved *config.Resolved, secrets *secret.Resolver,
 	red *redact.Redactor, raw json.RawMessage) (any, error) {
-	owner, err := selectIssueTypesOwner(resolved, raw)
+	bound, err := selectIssueTypesTarget(resolved, raw)
 	if err != nil {
 		return nil, err
 	}
-	client, err := openAt(ctx, resolved, secrets, red, owner)
+	client, err := openAt(ctx, resolved, secrets, red, bound)
 	if err != nil {
 		return nil, err
 	}
-	return owner.locate(client.listIssueTypes(ctx))
+	if bound.kind == kindRepository {
+		return bound.locate(client.listRepositoryIssueTypes(ctx))
+	}
+	return bound.locate(client.listIssueTypes(ctx))
 }
 
 func issueTypesOperations() []capability.Operation {
