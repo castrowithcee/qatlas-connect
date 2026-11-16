@@ -10,7 +10,7 @@ updated: 2026-11-16
 # Google Tag Manager: triggers
 
 The trigger tools of the [Google Tag Manager provider](README.md). The update, revert, parameter, and
-never-cut rules shared with tags are described there.
+never-cut rules shared with tags and variables are described there.
 
 A trigger decides when the tags of a container fire. A change is made in the workspace only and takes effect on
 the pages of the container with a published version, which no tool of this provider makes. Every change is

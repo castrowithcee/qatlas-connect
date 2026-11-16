@@ -88,13 +88,14 @@ func Register(reg *capability.Registry) error {
 		},
 		Profiles: []config.ToolProfile{{
 			ID: "read", Title: "Read", Recommended: true,
-			Description: "reads accounts, containers, workspaces, tags, and triggers; changes nothing",
+			Description: "reads accounts, containers, workspaces, tags, triggers, and variables; changes nothing",
 			Tools:       readIDs,
 		}, {
-			ID: "write", Title: "Read and change tags and triggers",
-			Description: "reads what the read profile reads and creates, updates, and deletes the tags and " +
-				"triggers of a workspace; every change needs its own confirmation and stays in the workspace until a " +
-				"version is published, which no tool of this provider does. Reverting a tag or trigger stays unticked",
+			ID: "write", Title: "Read and change tags, triggers, and variables",
+			Description: "reads what the read profile reads and creates, updates, and deletes the tags, " +
+				"triggers, and variables of a workspace; every change needs its own confirmation and stays in the " +
+				"workspace until a version is published, which no tool of this provider does. Reverting a tag, " +
+				"trigger, or variable stays unticked",
 			Tools: writeIDs,
 		}},
 	}, TestConnection); err != nil {
@@ -112,12 +113,17 @@ func Register(reg *capability.Registry) error {
 		triggersListID: handleTriggersList, triggersGetID: handleTriggersGet, triggersCreateID: handleTriggersCreate,
 		triggersUpdateID: handleTriggersUpdate, triggersDeleteID: handleTriggersDelete,
 		triggersRevertID: handleTriggersRevert,
+		variablesListID:  handleVariablesList, variablesGetID: handleVariablesGet,
+		variablesCreateID: handleVariablesCreate, variablesUpdateID: handleVariablesUpdate,
+		variablesDeleteID: handleVariablesDelete, variablesRevertID: handleVariablesRevert,
 	}
 	summaries := map[string]capability.SummaryFunc{
 		tagsCreateID: tagSummary("Create"), tagsUpdateID: tagSummary("Replace"),
 		tagsDeleteID: tagSummary("Delete"), tagsRevertID: tagSummary("Revert"),
 		triggersCreateID: triggerSummary("Create"), triggersUpdateID: triggerSummary("Replace"),
 		triggersDeleteID: triggerSummary("Delete"), triggersRevertID: triggerSummary("Revert"),
+		variablesCreateID: variableSummary("Create"), variablesUpdateID: variableSummary("Replace"),
+		variablesDeleteID: variableSummary("Delete"), variablesRevertID: variableSummary("Revert"),
 	}
 	for _, d := range descriptors() {
 		if err := reg.Register(Provider, capability.Operation{Descriptor: d, Handler: handlers[d.ID],

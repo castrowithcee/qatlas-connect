@@ -1,6 +1,6 @@
 ---
 description: >
-  Describes the Google Tag Manager provider: the token credential and its procedures, the fixed origin, the account and container targets, the profiles, the scope per tool group, the shared quota and request spacing, lists and cursors, the fingerprint convention, the shared content rules of tags and triggers, the result bounds, the connection test, error forms and their classes, and the limits of what is verified.
+  Describes the Google Tag Manager provider: the token credential and its procedures, the fixed origin, the account and container targets, the profiles, the scope per tool group, the shared quota and request spacing, lists and cursors, the fingerprint convention, the shared content rules of tags, triggers, and variables, the result bounds, the connection test, error forms and their classes, and the limits of what is verified.
 type: knowledge
 edit: shared
 created: 2026-11-16
@@ -11,8 +11,8 @@ updated: 2026-11-16
 
 Google Tag Manager is a provider for the Tag Manager API v2. Its credential issues access tokens instead of
 holding a static key. [Set up Google Tag Manager](setup.md) leads through the Google side and the consent. The
-tools are described per group in [accounts, containers, and workspaces](structure.md), [tags](tags.md), and
-[triggers](triggers.md); the descriptors list their arguments and result fields.
+tools are described per group in [accounts, containers, and workspaces](structure.md), [tags](tags.md),
+[triggers](triggers.md), and [variables](variables.md); the descriptors list their arguments and result fields.
 
 ## Credential
 
@@ -42,13 +42,13 @@ origin; any other value is refused before a secret is read. The access token tra
 
 Two profiles are offered:
 
-- `read` (recommended) holds the tools that read: accounts, containers, workspaces, tags, and triggers.
-- `write` holds the tools of `read` and the tools that create, update, and delete tags and triggers. A deleted
-  tag or trigger stays in the workspace changes until a version is published and can be brought back with its
-  `revert` tool.
+- `read` (recommended) holds the tools that read: accounts, containers, workspaces, tags, triggers, and variables.
+- `write` holds the tools of `read` and the tools that create, update, and delete tags, triggers, and variables.
+  A deleted tag, trigger, or variable stays in the workspace changes until a version is published and can be
+  brought back with its `revert` tool.
 
-`tags.revert` and `triggers.revert` are in no profile. They overwrite the workspace state of an object, so a
-connection offers them only when its `tools` list names them. Every tool that changes something needs its own
+`tags.revert`, `triggers.revert`, and `variables.revert` are in no profile. They overwrite the workspace state
+of an object, so a connection offers them only when its `tools` list names them. Every tool that changes something needs its own
 confirmation, which shows the name, the type, and the workspace or object path.
 
 ## Targets
@@ -74,7 +74,7 @@ of the tools it offers; offering a tool with another scope needs a new consent.
 | Tools | Scope |
 | --- | --- |
 | every tool that reads | `https://www.googleapis.com/auth/tagmanager.readonly` |
-| every tool that creates, updates, deletes, or reverts a tag or trigger | `https://www.googleapis.com/auth/tagmanager.edit.containers` |
+| every tool that creates, updates, deletes, or reverts a tag, trigger, or variable | `https://www.googleapis.com/auth/tagmanager.edit.containers` |
 
 A consent given for the `read` profile lacks the edit scope, so a changing tool answers `scope-missing`
 before any request. Google also offers `tagmanager.edit.containerversions`, `tagmanager.publish`,
@@ -102,13 +102,13 @@ an empty list.
 
 Every result that carries a `fingerprint` returns it. Tools that change an existing object follow one
 convention: they take the fingerprint last read as a required argument, so a change made in the meantime is
-not overwritten silently. The update and revert tools of tags and triggers refuse a call without it before any
-request. What Google answers to a stale fingerprint is not verified, so it is not given a class of its own: it
+not overwritten silently. The update and revert tools of tags, triggers, and variables refuse a call without
+it before any request. What Google answers to a stale fingerprint is not verified, so it is not given a class of its own: it
 is `invalid-provider-response` with Google's answer as the original.
 
-## Tags and triggers
+## Tags, triggers, and variables
 
-Tags and triggers live in a workspace. Their tools change the workspace only. An object goes live with a
+Tags, triggers, and variables live in a workspace. Their tools change the workspace only. An object goes live with a
 published container version, and no tool of this provider publishes one.
 
 Update replaces the whole object: a member that is left out is removed, so send every member as the get tool
@@ -122,9 +122,9 @@ A parameter is an object with `type` (needed: `template`, `integer`, `boolean`, 
 levels deep where an object takes a list of them; members that hold one parameter are shallower and named
 with their tool group.
 
-Parameter and filter values (the `html` of a Custom HTML tag, constants, API keys, regular expressions, CSS
-selectors) are data. They are returned and sent unchanged and are never run or fetched, and they may hold
-secrets. The texts and lists of a tag or trigger are never cut, unlike the texts of the other tools: a cut
+Parameter and filter values (the `html` of a Custom HTML tag, the code of a Custom JavaScript variable,
+constants, API keys, regular expressions, CSS selectors) are data. They are returned and sent unchanged and are never run or fetched, and they may hold
+secrets. The texts and lists of a tag, trigger, or variable are never cut, unlike the texts of the other tools: a cut
 value that is sent back by an update would destroy data. An answer that exceeds 4 MiB, holds more than 5000
 parameter entries in one object, or holds a text where a list belongs is `invalid-provider-response` instead of
 a shorter value. A request is bounded by 4 MiB and 5000 parameter entries.
@@ -132,7 +132,7 @@ a shorter value. A request is bounded by 4 MiB and 5000 parameter entries.
 ## Results
 
 Everything Google returns is untrusted content of whoever edits the account. The bounds of the results of
-accounts, containers, and workspaces are in [structure](structure.md); tags and triggers are not cut. An answer
+accounts, containers, and workspaces are in [structure](structure.md); tags, triggers, and variables are not cut. An answer
 with more than 1000 entries or above 4 MiB is `invalid-provider-response`. URLs are text and are never fetched.
 
 ## Connection test
@@ -177,5 +177,5 @@ Not verified:
   for `accounts.list` and `accounts.get`.
 - The form of a quota failure (`QuotaFailure`, `Retry-After`) and of the answer to a stale fingerprint.
 - The status Google answers to a successful delete; 200 and 204 are accepted.
-- How deep Google lets parameters nest, and which parameters a tag or trigger type needs.
+- How deep Google lets parameters nest, and which parameters a tag, trigger, or variable type needs.
 - Whether Google accepts fewer scopes when a refresh token is redeemed.
