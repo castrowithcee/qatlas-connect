@@ -1,0 +1,157 @@
+// Package googleanalytics implements the Google Analytics provider on the Analytics Admin API with a
+// credential that issues access tokens: a person's consent, a service account key, or the impersonation of a
+// service account. The token roles, the procedure and the renewal come from the shared token source; this
+// package adds the scope every tool needs, the fixed origin, the targets and the error mapping.
+//
+// A connection may bind Analytics accounts (accounts/ID) and properties (properties/ID). Without a target it
+// reaches what the credential reaches. A bound account reaches its properties, a bound property only itself;
+// a property that is not bound itself is read once as proof of its account before anything else is done with
+// it. Everything Google returns is untrusted third-party content: strings and lists are bounded and resource
+// names are kept only in their documented form.
+package googleanalytics
+
+import (
+	"context"
+	"errors"
+	"net/url"
+	"strings"
+
+	"github.com/castrowithcee/qatlas-connect/internal/capability"
+	"github.com/castrowithcee/qatlas-connect/internal/config"
+	"github.com/castrowithcee/qatlas-connect/internal/provider"
+	"github.com/castrowithcee/qatlas-connect/internal/provider/googleapi"
+	"github.com/castrowithcee/qatlas-connect/internal/secret"
+	"github.com/castrowithcee/qatlas-kit/redact"
+)
+
+// Provider is the provider name used in the configuration and as the operation namespace.
+const Provider = "google.analytics"
+
+// subject names the provider in messages.
+const subject = "Google Analytics"
+
+// scopeReadOnly is the smallest scope that reads Analytics configuration (analyticsadmin v1beta).
+const scopeReadOnly = "https://www.googleapis.com/auth/analytics.readonly"
+
+// dataSensitivity classifies the results: the configuration of the Analytics accounts the credential reaches.
+const dataSensitivity = "analytics-configuration"
+
+// readRisk is the risk of every reading tool.
+var readRisk = capability.Risk{Effect: capability.EffectRead, Idempotency: capability.IdempotencySafe,
+	Confirmation: capability.ConfirmationNone, OpenWorld: true, DataSensitivity: dataSensitivity}
+
+// scopes maps every tool to the smallest scopes it needs. It is the one source of the token metadata.
+var scopes = map[string][]string{
+	summariesID:      {scopeReadOnly},
+	accountsID:       {scopeReadOnly},
+	propertiesListID: {scopeReadOnly},
+	propertiesGetID:  {scopeReadOnly},
+}
+
+func tokenMetadata() config.TokenMetadata { return config.TokenMetadata{Scopes: scopes} }
+
+// tokenOptions are the options of the token source of every call: Google's grants through the package
+// transport and the token cache of the package.
+func tokenOptions() provider.TokenOptions {
+	return provider.TokenOptions{Token: tokenMetadata(), Grants: googleapi.TokenGrants(transport), Cache: tokens}
+}
+
+// TestConnection obtains an access token and lists one account summary, which reads no report data and so
+// uses no reporting quota. A summary proves the token, an enabled Analytics Admin API in the Cloud project of
+// the credential and at least one visible account; none is not-found. A bound property is read as well. The
+// Analytics Data API is not proven.
+func TestConnection(ctx context.Context, resolved *config.Resolved, secrets *secret.Resolver,
+	red *redact.Redactor) (provider.Class, error) {
+	bind, err := bindingOf(resolved)
+	if err != nil {
+		return testClass(err)
+	}
+	return provider.TestTokenConnection(ctx, resolved, secrets, red, tokenOptions(),
+		func(ctx context.Context, source *provider.TokenSource) (provider.Class, error) {
+			c := newClient(resolved, source, bind)
+			const op = "test connection"
+			var page summariesPage
+			if err := c.get(ctx, apiCall{op: op, tool: summariesID, path: summariesPath,
+				query: url.Values{"pageSize": {"1"}}, limit: maxSummariesBytes, notFound: notFoundGeneric}, &page); err != nil {
+				return "", err
+			}
+			if len(page.AccountSummaries) == 0 {
+				return provider.ClassNotFound, nil
+			}
+			for _, name := range bind.properties {
+				if _, err := c.getProperty(ctx, op, summariesID, name); err != nil {
+					return "", err
+				}
+			}
+			return provider.ClassOK, nil
+		})
+}
+
+// testClass turns a provider failure into the class of a connection test; any other error is returned.
+func testClass(err error) (provider.Class, error) {
+	var failed *provider.Error
+	if errors.As(err, &failed) {
+		return failed.Class, nil
+	}
+	return "", err
+}
+
+// isDefaultRoot reports whether a configured base URL is the Admin API origin or empty. The origin is fixed,
+// so any other value could only suggest that it is not.
+func isDefaultRoot(raw string) bool {
+	trimmed := strings.TrimRight(strings.TrimSpace(raw), "/")
+	return trimmed == "" || trimmed == adminRoot
+}
+
+// Register adds the provider metadata, its consent endpoints, its connection test and its tools.
+func Register(reg *capability.Registry) error {
+	token := tokenMetadata()
+	if err := reg.RegisterProvider(config.ProviderMetadata{
+		ID: Provider, Name: subject, DefaultBaseURL: adminRoot,
+		Description:    "Google Analytics 4 accounts and properties through the Analytics Admin API with an OAuth or service account token",
+		DefaultEffects: []config.Effect{config.EffectRead},
+		ValidateBaseURL: func(raw string) error {
+			if !isDefaultRoot(raw) {
+				return errors.New("a Google Analytics service has a fixed origin; leave the base URL as " + adminRoot)
+			}
+			return nil
+		},
+		SecretRoles: config.TokenSecretRoles(),
+		Token:       &token,
+		Target: config.TargetMetadata{
+			Label: "account or property",
+			Description: "optional: accounts/ID binds an Analytics account with its properties, properties/ID one " +
+				"property; without a target the connection reaches what the credential reaches",
+			Multiple: true,
+			Kinds:    targetKinds,
+			Validate: validateTarget,
+			ValidateSet: func(targets []string) error {
+				if len(targets) > maxTargets {
+					return errors.New("a Google Analytics connection binds at most 100 targets")
+				}
+				return nil
+			},
+		},
+		Profiles: []config.ToolProfile{{
+			ID: "read", Title: "Read", Recommended: true,
+			Description: "reads the Analytics accounts and properties the connection reaches; nothing is changed",
+			Tools:       []string{summariesID, accountsID, propertiesListID, propertiesGetID},
+		}},
+	}, TestConnection); err != nil {
+		return err
+	}
+	if err := reg.RegisterOAuth(Provider, googleapi.OAuth); err != nil {
+		return err
+	}
+	for _, operation := range []capability.Operation{
+		{Descriptor: accountSummariesList, Handler: handleAccountSummaries},
+		{Descriptor: accountsList, Handler: handleAccountsList},
+		{Descriptor: propertiesList, Handler: handlePropertiesList},
+		{Descriptor: propertiesGet, Handler: handlePropertiesGet},
+	} {
+		if err := reg.Register(Provider, operation); err != nil {
+			return err
+		}
+	}
+	return nil
+}

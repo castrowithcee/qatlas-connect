@@ -9,6 +9,7 @@ import (
 	"github.com/castrowithcee/qatlas-connect/internal/provider/excalidrawplus"
 	"github.com/castrowithcee/qatlas-connect/internal/provider/forge"
 	"github.com/castrowithcee/qatlas-connect/internal/provider/github"
+	"github.com/castrowithcee/qatlas-connect/internal/provider/googleanalytics"
 	"github.com/castrowithcee/qatlas-connect/internal/provider/googlemaps"
 	"github.com/castrowithcee/qatlas-connect/internal/provider/googlepagespeed"
 	"github.com/castrowithcee/qatlas-connect/internal/provider/googlesearchconsole"
@@ -108,6 +109,9 @@ func defaultRegistry() *capability.Registry {
 		panic("provider registration is static and must not fail: " + err.Error())
 	}
 	if err := googlesearchconsole.Register(reg); err != nil {
+		panic("provider registration is static and must not fail: " + err.Error())
+	}
+	if err := googleanalytics.Register(reg); err != nil {
 		panic("provider registration is static and must not fail: " + err.Error())
 	}
 	if err := googletagmanager.Register(reg); err != nil {
