@@ -128,7 +128,14 @@ func (c *client) get(ctx context.Context, op, tool, path string, query url.Value
 	if len(query) > 0 {
 		address += "?" + query.Encode()
 	}
-	return c.send(ctx, op, tool, http.MethodGet, address, nil, c.limiter, notFound, maxBytes, out)
+	return c.send(ctx, op, tool, http.MethodGet, address, nil, c.limiter, notFound, maxBytes, false, out)
+}
+
+// change sends the one request of a changing tool through the mutation path of the token source: it is never
+// repeated, not even after a 401. Google answers these methods with an empty body, so success carries no
+// result; the request has no body, as every argument lives in the path.
+func (c *client) change(ctx context.Context, op, tool, method, path, notFound string) error {
+	return c.send(ctx, op, tool, method, apiRoot+path, nil, c.limiter, notFound, maxBytes, true, nil)
 }
 
 // queryLimiter is the spacing of the Search Analytics queries of this credential on one property.
@@ -144,16 +151,22 @@ func (c *client) post(ctx context.Context, op, tool, path string, body any, limi
 	if err != nil {
 		return failure(op, "the request body could not be built")
 	}
-	return c.send(ctx, op, tool, http.MethodPost, apiRoot+path, encoded, limiter, notFound, maxQueryBytes, out)
+	return c.send(ctx, op, tool, http.MethodPost, apiRoot+path, encoded, limiter, notFound, maxQueryBytes, false, out)
 }
 
 // send waits for the slot of limiter, sends the request and decodes a JSON answer of at most limit bytes.
+// A nil out means the method has no answer to read: an empty 2xx answer is success whatever its status or
+// content type, and only a JSON object may stand in for it.
 func (c *client) send(ctx context.Context, op, tool, method, address string, body []byte, limiter *ratelimit.Limiter,
-	notFound string, limit int64, out any) error {
+	notFound string, limit int64, mutate bool, out any) error {
 	if err := limiter.Wait(ctx); err != nil {
 		return provider.Waited(op, "Google", err)
 	}
-	response, err := c.source.Read(ctx, c.http, tool, func(access string) (*http.Request, error) {
+	send := c.source.Read
+	if mutate {
+		send = c.source.Mutate
+	}
+	response, err := send(ctx, c.http, tool, func(access string) (*http.Request, error) {
 		var reader io.Reader
 		if body != nil {
 			reader = bytes.NewReader(body)
@@ -186,12 +199,36 @@ func (c *client) send(ctx context.Context, op, tool, method, address string, bod
 		}
 		return googleError(op, response.StatusCode, raw, notFound)
 	}
+	if out == nil {
+		return emptyAnswer(op, response)
+	}
 	if mediaType, _, err := mime.ParseMediaType(response.Header.Get("Content-Type")); err != nil ||
 		mediaType != "application/json" {
 		_, _ = io.Copy(io.Discard, io.LimitReader(response.Body, 1<<10))
 		return provider.InvalidResponse(op, "Google returned an answer that is not JSON")
 	}
 	if failed := provider.ReadJSON(op, "Google", response.Body, limit, out); failed != nil {
+		return failed
+	}
+	return nil
+}
+
+// emptyAnswer accepts the answer of a method that has none: no body at all, or an empty JSON object.
+func emptyAnswer(op string, response *http.Response) error {
+	const limit = 1 << 10
+	raw, err := io.ReadAll(io.LimitReader(response.Body, limit+1))
+	if err != nil {
+		return provider.InvalidResponse(op, "Google returned an unreadable answer")
+	}
+	if len(bytes.TrimSpace(raw)) == 0 {
+		return nil
+	}
+	if mediaType, _, err := mime.ParseMediaType(response.Header.Get("Content-Type")); err != nil ||
+		mediaType != "application/json" || len(raw) > limit {
+		return provider.InvalidResponse(op, "Google returned an answer that is not JSON")
+	}
+	// ReadJSON returns a *provider.Error; a nil one must not become a non-nil error.
+	if failed := provider.ReadJSON(op, "Google", bytes.NewReader(raw), limit, &struct{}{}); failed != nil {
 		return failed
 	}
 	return nil

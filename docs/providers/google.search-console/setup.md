@@ -25,11 +25,16 @@ described in the [Google Search Console provider](README.md); the tools in [site
 
 | Tool group | Scope | Right in Search Console |
 | --- | --- | --- |
-| [sites](sites.md) | `webmasters.readonly` | none to list; owner, full, or restricted user to read a property's data |
-| [sitemaps](sitemaps.md) | `webmasters.readonly` | owner, full, or restricted user of the property |
+| [sites](sites.md), reading | `webmasters.readonly` | none to list; owner, full, or restricted user to read a property's data |
+| [sites](sites.md), `add` and `delete` | `webmasters` | Google's reference names no level; a refusal shows as `permission` |
+| [sitemaps](sitemaps.md), reading | `webmasters.readonly` | owner, full, or restricted user of the property |
+| [sitemaps](sitemaps.md), `submit` and `delete` | `webmasters` | Google's reference names no level; use owner or full user, since a restricted user may be refused |
 | [search analytics](search-analytics.md) | `webmasters.readonly` | owner, full, or restricted user of the property |
 
-Qatlas asks for no broader scope than the tools of your connections need.
+Qatlas asks for no broader scope than the tools of your connections need: the `webmasters` scope only joins
+the consent when a connection offers one of the four changing tools, which needs the `edit` profile or the
+effects `create` and `delete`. Adding a property does not verify it, so a property you add stays without
+access until you verify it in Search Console.
 
 ## Way 1: your Google account with a consent
 
@@ -118,7 +123,8 @@ connection has a target.
 | --- | --- |
 | `consent-required` | Run `qconnect consent <credential>` |
 | `consent-expired` | The consent ended or was revoked, or the consent screen is still in Testing; set it to In production and give the consent again |
-| `scope-missing` | Give the consent again; it then asks for the scopes your connections need |
+| `scope-missing` | Give the consent again; it then asks for the scopes your connections need, also the `webmasters` scope of a changing tool |
+| `permission` on `sites.delete` or a sitemap change | Give the account a higher level on the property in Search Console; Google's reference does not name the level a change needs |
 | `credential-unusable` | The credential holds both a client ID and a key, or neither; keep one |
 | `auth` | Google refused the client ID and secret, or the service account key; check that they belong to the project and were not deleted |
 | `permission` in the test | Enable the Google Search Console API in the project of the OAuth client or service account, or give the account rights on the bound property |
