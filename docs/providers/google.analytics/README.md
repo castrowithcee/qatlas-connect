@@ -1,6 +1,6 @@
 ---
 description: >
-  Describes the Google Analytics provider: the fixed Admin API origin, the token credential, the optional account and property targets and what each tool does with them, the read profile, paging, bounds on provider content, rate spacing, quotas, the connection test, and the limits of what is verified; the account and property tools have their own pages.
+  Describes the Google Analytics provider: the fixed Admin API origin, the token credential, the optional account and property targets and what each tool does with them, the profiles, paging, bounds on provider content, rate spacing, quotas, the connection test, and the limits of what is verified; the account and property tools have their own pages.
 type: knowledge
 edit: shared
 created: 2026-11-16
@@ -10,8 +10,8 @@ updated: 2026-11-16
 # Google Analytics
 
 Google Analytics is a provider for Google Analytics 4 on the Analytics Admin API. It lists the accounts and
-properties a credential can see, with their configuration, and reads one property. Every tool is a read: it
-changes nothing and reads no report data, so it uses no reporting quota.
+properties a credential can see, with their configuration, reads one property, and creates, changes, and trashes
+properties. The reading tools change nothing and read no report data, so they use no reporting quota.
 
 [Set up Google Analytics](setup.md) leads through the credential. The tools are described in
 [accounts](accounts.md) and [properties](properties.md).
@@ -48,6 +48,8 @@ not name the resource.
 | `accounts.list` | Shows the bound accounts only; a connection bound to properties only is refused |
 | `properties.list` | Lists the properties of a bound account; see [properties](properties.md#googleanalyticspropertieslist) |
 | `properties.get` | Reads a bound property, or a property of a bound account after one proof read of its parent |
+| `properties.create` | Creates a property only in a bound account; a connection bound to properties only is refused |
+| `properties.update`, `properties.delete` | Change or trash a bound property, or a property of a bound account after one proof read of its parent |
 
 A property of another account is refused, also when it is named correctly.
 
@@ -55,7 +57,10 @@ A property of another account is refused, also when it is named correctly.
 
 The profile `read` is the recommended one and holds `google.analytics.accounts.list-summaries`,
 `google.analytics.accounts.list`, `google.analytics.properties.list`, and `google.analytics.properties.get`.
-Which scope each tool needs is listed in [setup](setup.md#rights-and-scopes).
+The profile `write` reads like `read` and changes accounts and properties, each change with its own
+confirmation: it adds `google.analytics.properties.create` and `google.analytics.properties.update`. Trashing a
+property, `google.analytics.properties.delete`, is in no profile: a connection offers it only when its `tools`
+list names it, and it needs the confirmation of a person. Which scope each tool needs is listed in [setup](setup.md#rights-and-scopes).
 
 ## Paging
 
@@ -111,5 +116,7 @@ Not verified:
   status decides.
 - The Analytics Data API is not covered by the connection test.
 
-Left out on purpose: the deprecated members of the Admin API and any way to create, change, or delete an
-account or property.
+Left out on purpose: the deprecated members of the Admin API, any way to create or delete an account, and the
+methods named in [properties](properties.md#left-out-on-purpose). A change is confirmed only by the answer
+of Google, and between the proof read of a property and its change the property may be moved; Qatlas does not
+close that window.

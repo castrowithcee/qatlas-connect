@@ -33,6 +33,9 @@ const subject = "Google Analytics"
 // scopeReadOnly is the smallest scope that reads Analytics configuration (analyticsadmin v1beta).
 const scopeReadOnly = "https://www.googleapis.com/auth/analytics.readonly"
 
+// scopeEdit is the scope of the tools that create, change and trash properties (analyticsadmin v1beta).
+const scopeEdit = "https://www.googleapis.com/auth/analytics.edit"
+
 // dataSensitivity classifies the results: the configuration of the Analytics accounts the credential reaches.
 const dataSensitivity = "analytics-configuration"
 
@@ -46,6 +49,10 @@ var scopes = map[string][]string{
 	accountsID:       {scopeReadOnly},
 	propertiesListID: {scopeReadOnly},
 	propertiesGetID:  {scopeReadOnly},
+
+	propertiesCreateID: {scopeEdit},
+	propertiesUpdateID: {scopeEdit},
+	propertiesDeleteID: {scopeEdit},
 }
 
 func tokenMetadata() config.TokenMetadata { return config.TokenMetadata{Scopes: scopes} }
@@ -136,6 +143,12 @@ func Register(reg *capability.Registry) error {
 			ID: "read", Title: "Read", Recommended: true,
 			Description: "reads the Analytics accounts and properties the connection reaches; nothing is changed",
 			Tools:       []string{summariesID, accountsID, propertiesListID, propertiesGetID},
+		}, {
+			ID: "write", Title: "Read and change",
+			Description: "reads what the read profile reads and changes Analytics accounts and properties; every " +
+				"change needs its own confirmation, and deleting stays unlisted",
+			Tools: []string{summariesID, accountsID, propertiesListID, propertiesGetID, propertiesCreateID,
+				propertiesUpdateID},
 		}},
 	}, TestConnection); err != nil {
 		return err
@@ -148,6 +161,12 @@ func Register(reg *capability.Registry) error {
 		{Descriptor: accountsList, Handler: handleAccountsList},
 		{Descriptor: propertiesList, Handler: handlePropertiesList},
 		{Descriptor: propertiesGet, Handler: handlePropertiesGet},
+		{Descriptor: propertiesCreate, Handler: handlePropertiesCreate,
+			ConfirmationSummary: propertyWriteSummary(propertiesCreateID)},
+		{Descriptor: propertiesUpdate, Handler: handlePropertiesUpdate,
+			ConfirmationSummary: propertyWriteSummary(propertiesUpdateID)},
+		{Descriptor: propertiesDelete, Handler: handlePropertiesDelete,
+			ConfirmationSummary: propertyWriteSummary(propertiesDeleteID)},
 	} {
 		if err := reg.Register(Provider, operation); err != nil {
 			return err
