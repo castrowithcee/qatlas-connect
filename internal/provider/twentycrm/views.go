@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"net/url"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"unicode"
@@ -739,15 +740,15 @@ func (c *Client) ListViews(ctx context.Context, connection, object, objectID str
 	if after != "" {
 		values.Set("starting_after", after)
 	}
-	var page metaPage
-	if err := c.getWith(ctx, op, viewsPath, values, viewResponseBytes, &page, viewStatusTexts); err != nil {
+	var body json.RawMessage
+	if err := c.getWith(ctx, op, viewsPath, values, viewResponseBytes, &body, viewStatusTexts); err != nil {
 		return nil, err
 	}
-	var items []json.RawMessage
-	if json.Unmarshal(page.Data, &items) != nil || items == nil || len(items) > limit {
-		return nil, provider.InvalidResponse(op, "Twenty returned an unusable page of views")
+	items, hasMore, next, err := viewPageItems(op, body, limit, after, binding)
+	if err != nil {
+		return nil, err
 	}
-	result := &ViewList{Views: make([]ViewSummary, 0, len(items)), HasMore: page.PageInfo.HasNextPage}
+	result := &ViewList{Views: make([]ViewSummary, 0, len(items)), HasMore: hasMore, NextCursor: next}
 	for _, item := range items {
 		var record viewRecord
 		if json.Unmarshal(item, &record) != nil {
@@ -762,10 +763,63 @@ func (c *Client) ListViews(ctx context.Context, connection, object, objectID str
 		}
 		result.Views = append(result.Views, summary)
 	}
-	if result.NextCursor, err = page.nextCursor(op, binding); err != nil {
-		return nil, err
-	}
 	return result, nil
+}
+
+// viewPageItems reads a list answer in either format. Newer Twenty versions answer a page object with data and
+// pageInfo. Older versions answer the complete list as a bare array without paging, which is ordered by
+// identifier here and paged locally, so cursor and has_more stay truthful.
+func viewPageItems(op string, body json.RawMessage, limit int, after string, binding []byte) ([]json.RawMessage, bool, string, error) {
+	bad := provider.InvalidResponse(op, "Twenty returned an unusable page of views")
+	raw := bytes.TrimSpace(body)
+	if len(raw) == 0 || (raw[0] != '[' && raw[0] != '{') {
+		return nil, false, "", provider.InvalidResponse(op, "Twenty answered in an unknown format")
+	}
+	if raw[0] == '{' {
+		var page metaPage
+		var items []json.RawMessage
+		if json.Unmarshal(raw, &page) != nil || json.Unmarshal(page.Data, &items) != nil || items == nil || len(items) > limit {
+			return nil, false, "", bad
+		}
+		next, err := page.nextCursor(op, binding)
+		return items, page.PageInfo.HasNextPage, next, err
+	}
+	var all []json.RawMessage
+	if json.Unmarshal(raw, &all) != nil || all == nil {
+		return nil, false, "", bad
+	}
+	type entry struct {
+		id   string
+		item json.RawMessage
+	}
+	entries := make([]entry, 0, len(all))
+	for _, item := range all {
+		var head struct {
+			ID string `json:"id"`
+		}
+		if json.Unmarshal(item, &head) != nil || !validUUID(head.ID) {
+			return nil, false, "", bad
+		}
+		entries = append(entries, entry{strings.ToLower(head.ID), item})
+	}
+	sort.Slice(entries, func(i, j int) bool { return entries[i].id < entries[j].id })
+	rest := entries
+	if after != "" {
+		after = strings.ToLower(after)
+		rest = rest[sort.Search(len(rest), func(i int) bool { return rest[i].id > after }):]
+	}
+	hasMore := len(rest) > limit
+	if hasMore {
+		rest = rest[:limit]
+	}
+	items := make([]json.RawMessage, 0, len(rest))
+	for _, e := range rest {
+		items = append(items, e.item)
+	}
+	if !hasMore {
+		return items, false, "", nil
+	}
+	return items, true, provider.EncodeCursor(binding, rest[len(rest)-1].id), nil
 }
 
 // readView reads one workspace-wide view. A view of another visibility or type reads exactly like an unknown one.

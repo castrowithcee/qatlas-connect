@@ -4,7 +4,7 @@ description: >
 type: knowledge
 edit: shared
 created: 2026-10-22
-updated: 2026-10-26
+updated: 2026-11-16
 ---
 
 # Twenty CRM: views
@@ -14,6 +14,10 @@ updated: 2026-10-26
 `views.list` and `views.get` (`read`) are workspace-wide. Personal and widget views stay invisible and `get`
 answers them like an unknown view, so the local filtering of a page rules out a `total_count`. Filter and group
 values are untrusted workspace data of their own data class.
+
+Older Twenty versions such as v2.27.0 answer the list of views all at once, newer ones such as v2.50.1 page it.
+On an older version `views.list` orders the views by identifier and pages them itself, so `next_cursor` and
+`has_more` hold on both.
 
 `createdByUserWorkspaceId` of a view names the instance-wide user account behind a member, which no tool
 addresses, so it is not output. Deprecated fields (`openRecordIn` of the view, `isOverridden`) are not output
