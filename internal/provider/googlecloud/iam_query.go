@@ -98,7 +98,7 @@ func queryRun[T any](ctx context.Context, resolved *config.Resolved, secrets *se
 		body["pageToken"] = token
 	}
 	var members map[string]json.RawMessage
-	if err := c.post(ctx, op, tool, serviceIAM, path, body, &members); err != nil {
+	if err := c.post(ctx, op, tool, serviceIAM, path, nil, body, &members); err != nil {
 		return nil, err
 	}
 	rows, next, err := decodePage[T](op, members, list, 2*pageSize)

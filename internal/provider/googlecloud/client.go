@@ -100,19 +100,24 @@ func (c *client) get(ctx context.Context, op, tool string, svc service, path str
 	return c.send(ctx, op, tool, svc, http.MethodGet, path, query, nil, out)
 }
 
-// post sends one POST request with a JSON body that the tool built from checked arguments. It is for the few
-// Google methods that read with POST, such as the queries of IAM; it follows the rules of get, and the body is
-// built again for the one repeat after a 401.
-func (c *client) post(ctx context.Context, op, tool string, svc service, path string, body, out any) error {
-	data, err := json.Marshal(body)
-	if err != nil {
-		return failure(op, "the request body could not be built")
+// post sends one POST request of a reading tool, for the Google methods that read through POST, such as
+// getIamPolicy and testIamPermissions. The body is a fixed JSON value built by the tool from checked
+// arguments, or nil for a method without one. Like get, it renews the token once on a 401 and never repeats
+// the request otherwise, which is safe because these methods only read.
+func (c *client) post(ctx context.Context, op, tool string, svc service, path string, query url.Values, body any,
+	out any) error {
+	var payload []byte
+	if body != nil {
+		var err error
+		if payload, err = json.Marshal(body); err != nil {
+			return failure(op, "the request could not be built")
+		}
 	}
-	return c.send(ctx, op, tool, svc, http.MethodPost, path, nil, data, out)
+	return c.send(ctx, op, tool, svc, http.MethodPost, path, query, payload, out)
 }
 
 func (c *client) send(ctx context.Context, op, tool string, svc service, method, path string, query url.Values,
-	body []byte, out any) error {
+	payload []byte, out any) error {
 	origin, ok := serviceOrigins[svc]
 	if !ok {
 		return failure(op, "the service is not one of this provider")
@@ -122,13 +127,16 @@ func (c *client) send(ctx context.Context, op, tool string, svc service, method,
 		endpoint += "?" + query.Encode()
 	}
 	build := func(access string) (*http.Request, error) {
-		var reader io.Reader
-		if body != nil {
-			reader = bytes.NewReader(body)
+		var body io.Reader
+		if payload != nil {
+			body = bytes.NewReader(payload)
 		}
-		req, err := http.NewRequestWithContext(ctx, method, endpoint, reader)
+		req, err := http.NewRequestWithContext(ctx, method, endpoint, body)
 		if err != nil {
 			return nil, err
+		}
+		if payload != nil {
+			req.Header.Set("Content-Type", "application/json")
 		}
 		req.Header.Set("Authorization", "Bearer "+access)
 		req.Header.Set("Accept", "application/json")

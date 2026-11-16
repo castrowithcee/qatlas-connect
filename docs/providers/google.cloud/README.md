@@ -32,8 +32,8 @@ a person's consent (`client_id`, optionally `client_secret`, and the `refresh_to
 service account that the connection names with `service_account` (the consent of a person who may create
 tokens for it). The connection holds no scope. Qatlas derives them from the tools it offers and asks for the
 smallest scope the discovery document of each method lists: `cloud-platform.read-only` for Resource Manager,
-and `cloud-platform` for the IAM tools, because the discovery document of IAM lists no narrower scope (Google
-offers no read-only variant for these methods). No tool of this provider changes anything, whatever the scope
+and `cloud-platform` for the IAM tools, because their discovery documents list no narrower scope (Google
+offers no read-only variant for these methods, see [IAM](iam.md)). No tool of this provider changes anything, whatever the scope
 allows. The access token travels in the
 `Authorization` header only, is never an argument or part of a result, and is masked in every output. A 401
 renews the token once, and nothing else repeats a request.
@@ -80,12 +80,17 @@ The profile `read` is the recommended one. It holds every tool that needs no mor
 `google.cloud.projects.list`.
 
 The profile `read-iam` adds the IAM tools (`google.cloud.iam-roles.list`, `google.cloud.iam-roles.get`,
-`google.cloud.iam-roles.query-grantable`, `google.cloud.iam-permissions.query-testable`). They accept only the
+`google.cloud.iam-roles.query-grantable`, `google.cloud.iam-permissions.query-testable`,
+`google.cloud.iam-policies.get`, `google.cloud.iam-permissions.test`, `google.cloud.iam-deny-policies.list`,
+`google.cloud.iam-deny-policies.get`). They accept only the
 scope `cloud-platform`, so a connection with this profile asks for a token that may change whatever its account
 may change, although no tool of this provider changes anything. It is not recommended: give it only to a
 connection that needs IAM, preferably with a credential whose account has viewer roles only.
 
 ## Tools
+
+- [IAM](iam.md): IAM policies, permission tests, and deny policies of projects, folders, organizations, and
+  service accounts.
 
 ### Search
 

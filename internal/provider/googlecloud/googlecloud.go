@@ -107,11 +107,12 @@ func Register(reg *capability.Registry) error {
 			Tools: readTools,
 		}, {
 			ID: "read-iam", Title: "Read with IAM",
-			Description: "everything of read plus IAM roles and the roles and permissions of a resource; the IAM " +
+			Description: "everything of read plus IAM roles, policies, deny policies, and the roles and permissions of a resource; the IAM " +
 				"methods accept only the broad cloud-platform scope, so the token may change what its account may, " +
 				"although no tool of this provider changes anything",
 			Tools: append(append([]string{}, readTools...), iamRolesList.ID, iamRolesGet.ID, iamRolesQuery.ID,
-				iamPermissionsQuery.ID),
+				iamPermissionsQuery.ID, iamPoliciesGet.ID, iamPermissionsTest.ID, denyPoliciesList.ID,
+				denyPoliciesGet.ID),
 		}},
 	}, TestConnection); err != nil {
 		return err
@@ -134,5 +135,9 @@ func Register(reg *capability.Registry) error {
 		capability.Operation{Descriptor: iamRolesList, Handler: handleIAMRolesList},
 		capability.Operation{Descriptor: iamRolesGet, Handler: handleIAMRolesGet},
 		capability.Operation{Descriptor: iamRolesQuery, Handler: handleIAMRolesQuery},
-		capability.Operation{Descriptor: iamPermissionsQuery, Handler: handleIAMPermissionsQuery})
+		capability.Operation{Descriptor: iamPermissionsQuery, Handler: handleIAMPermissionsQuery},
+		capability.Operation{Descriptor: iamPoliciesGet, Handler: handleIAMPoliciesGet},
+		capability.Operation{Descriptor: iamPermissionsTest, Handler: handleIAMPermissionsTest},
+		capability.Operation{Descriptor: denyPoliciesList, Handler: handleDenyPoliciesList},
+		capability.Operation{Descriptor: denyPoliciesGet, Handler: handleDenyPoliciesGet})
 }

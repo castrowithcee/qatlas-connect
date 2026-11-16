@@ -42,6 +42,15 @@ Viewer, or Project Viewer role, or any role with these permissions:
 | `operations.get` | Google states none for reading an operation |
 | `iam-roles.list`, `iam-roles.get` | custom roles of a project or organization: `iam.roles.list` and `iam.roles.get` (the Role Viewer role has them); Google states none for predefined roles |
 | `iam-roles.query-grantable`, `iam-permissions.query-testable` | Google states none; Qatlas first reads the project or folder (`resourcemanager.projects.get`, `resourcemanager.folders.get`) |
+| `iam-policies.get` | `resourcemanager.projects.getIamPolicy`, `resourcemanager.folders.getIamPolicy`, `resourcemanager.organizations.getIamPolicy`, or `iam.serviceAccounts.getIamPolicy` on the resource, and `iam.serviceAccounts.get` for a service account when the connection has targets |
+| `iam-permissions.test` | Google states none; it checks the permissions you list. For a service account on a connection with targets, `iam.serviceAccounts.get` |
+| `iam-deny-policies.list`, `iam-deny-policies.get` | `iam.denypolicies.list` or `iam.denypolicies.get` on the resource |
+
+The IAM tools ask for the scope `cloud-platform`, because Google lists no smaller one for service accounts, folders'
+permission tests, and deny policies, and belong to the profile `read-iam`. Qatlas still only reads, and the rights
+of the account stay the limit. They also need the **IAM API** enabled in the Cloud project of the credential. Qatlas reads a project or folder
+before its IAM state, so the account needs `resourcemanager.projects.get` or `resourcemanager.folders.get` too
+when the connection has targets. See [IAM](iam.md).
 
 A search lists only what the account may see. Qatlas also reads the folders above a project to prove where it
 sits, so an account that sees a project but not its folder cannot bind that project to an organization or
@@ -71,6 +80,8 @@ Which targets a tool needs:
   refused.
 - Reading an operation works without targets or with an organization among them, because Qatlas cannot tie an
   operation to a folder or a project.
+- IAM policies, permission tests, and deny policies work on a project, a folder, or a service account that lies
+  in the targets, and on an organization only on a connection that names that organization.
 
 ## What the connection test proves
 

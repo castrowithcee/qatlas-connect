@@ -41,7 +41,7 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 		}
 		wantScope := "https://www.googleapis.com/auth/cloud-platform.read-only"
 		if strings.Contains(tool.ID, ".iam-") {
-			// The discovery document of iam v1 lists cloud-platform alone for these methods.
+			// The discovery documents list cloud-platform alone for the IAM methods.
 			wantScope = "https://www.googleapis.com/auth/cloud-platform"
 		}
 		if scopes := metadata.Token.Scopes[tool.ID]; !slices.Equal(scopes, []string{wantScope}) {
@@ -49,7 +49,9 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 		}
 	}
 	if want := []string{"google.cloud.folders.get", "google.cloud.folders.list", "google.cloud.folders.search",
-		"google.cloud.iam-permissions.query-testable", "google.cloud.iam-roles.get", "google.cloud.iam-roles.list",
+		"google.cloud.iam-deny-policies.get", "google.cloud.iam-deny-policies.list",
+		"google.cloud.iam-permissions.query-testable", "google.cloud.iam-permissions.test",
+		"google.cloud.iam-policies.get", "google.cloud.iam-roles.get", "google.cloud.iam-roles.list",
 		"google.cloud.iam-roles.query-grantable", "google.cloud.operations.get", "google.cloud.organizations.get",
 		"google.cloud.organizations.search", "google.cloud.projects.get", "google.cloud.projects.list",
 		"google.cloud.projects.search"}; !slices.Equal(ids, want) {
