@@ -54,9 +54,17 @@ func TestConnection(ctx context.Context, resolved *config.Resolved, secrets *sec
 
 // Register adds the provider metadata, its consent endpoints, its connection test, and its tools.
 func Register(reg *capability.Registry) error {
-	ids := make([]string, 0, len(descriptors()))
+	var readIDs, writeIDs []string
 	for _, d := range descriptors() {
-		ids = append(ids, d.ID)
+		if d.Risk.Effect == capability.EffectRead {
+			readIDs = append(readIDs, d.ID)
+		}
+		// Reverting overwrites the workspace state of an object, so it is in no profile: a connection offers it
+		// only when its tools list names it. Deleting one workspace object is not: it stays revertible until a
+		// version is published.
+		if !d.RequiresToolAllowList {
+			writeIDs = append(writeIDs, d.ID)
+		}
 	}
 	if err := reg.RegisterProvider(config.ProviderMetadata{
 		ID: Provider, Name: "Google Tag Manager", DefaultBaseURL: apiRoot,
@@ -81,8 +89,14 @@ func Register(reg *capability.Registry) error {
 		},
 		Profiles: []config.ToolProfile{{
 			ID: "read", Title: "Read", Recommended: true,
-			Description: "reads accounts, containers, and workspaces; changes nothing",
-			Tools:       ids,
+			Description: "reads accounts, containers, workspaces, and tags; changes nothing",
+			Tools:       readIDs,
+		}, {
+			ID: "write", Title: "Read and change tags",
+			Description: "reads what the read profile reads and creates, updates, and deletes the tags of a " +
+				"workspace; every change needs its own confirmation and stays in the workspace until a version " +
+				"is published, which no tool of this provider does. Reverting a tag stays unticked",
+			Tools: writeIDs,
 		}},
 	}, TestConnection); err != nil {
 		return err
@@ -94,9 +108,16 @@ func Register(reg *capability.Registry) error {
 		accountsListID: handleAccountsList, accountsGetID: handleAccountsGet,
 		containersListID: handleContainersList, containersGetID: handleContainersGet,
 		workspacesListID: handleWorkspacesList, workspacesGetID: handleWorkspacesGet,
+		tagsListID: handleTagsList, tagsGetID: handleTagsGet, tagsCreateID: handleTagsCreate,
+		tagsUpdateID: handleTagsUpdate, tagsDeleteID: handleTagsDelete, tagsRevertID: handleTagsRevert,
+	}
+	summaries := map[string]capability.SummaryFunc{
+		tagsCreateID: tagSummary("Create"), tagsUpdateID: tagSummary("Replace"),
+		tagsDeleteID: tagSummary("Delete"), tagsRevertID: tagSummary("Revert"),
 	}
 	for _, d := range descriptors() {
-		if err := reg.Register(Provider, capability.Operation{Descriptor: d, Handler: handlers[d.ID]}); err != nil {
+		if err := reg.Register(Provider, capability.Operation{Descriptor: d, Handler: handlers[d.ID],
+			ConfirmationSummary: summaries[d.ID]}); err != nil {
 			return err
 		}
 	}

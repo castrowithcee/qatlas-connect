@@ -31,6 +31,10 @@ const Provider = "google.search-console"
 // discovery document accepts.
 const scopeRead = "https://www.googleapis.com/auth/webmasters.readonly"
 
+// scopeEdit is the scope the changing methods of the discovery document need; the read scope does not
+// suffice for them.
+const scopeEdit = "https://www.googleapis.com/auth/webmasters"
+
 // toolScopes maps every tool to the smallest scopes it needs.
 var toolScopes = map[string][]string{
 	sitesListID:       {scopeRead},
@@ -38,6 +42,10 @@ var toolScopes = map[string][]string{
 	sitemapsListID:    {scopeRead},
 	sitemapsGetID:     {scopeRead},
 	searchAnalyticsID: {scopeRead},
+	sitesAddID:        {scopeEdit},
+	sitesDeleteID:     {scopeEdit},
+	sitemapsSubmitID:  {scopeEdit},
+	sitemapsDeleteID:  {scopeEdit},
 }
 
 const testOp = "test connection"
@@ -97,6 +105,10 @@ func Register(reg *capability.Registry) error {
 		{Descriptor: sitemapsList, Handler: handleSitemapsList},
 		{Descriptor: sitemapsGet, Handler: handleSitemapsGet},
 		{Descriptor: searchAnalyticsQuery, Handler: handleSearchAnalytics},
+		{Descriptor: sitesAdd, Handler: handleSitesAdd},
+		{Descriptor: sitesDelete, Handler: handleSitesDelete},
+		{Descriptor: sitemapsSubmit, Handler: handleSitemapsSubmit},
+		{Descriptor: sitemapsDelete, Handler: handleSitemapsDelete},
 	}
 	if err := reg.RegisterProvider(config.ProviderMetadata{
 		ID: Provider, Name: "Google Search Console", DefaultBaseURL: apiRoot,
@@ -121,6 +133,12 @@ func Register(reg *capability.Registry) error {
 			ID: "read", Title: "Read", Recommended: true,
 			Description: "lists the properties of the account, reads their sitemaps and queries their search traffic; nothing is changed",
 			Tools:       []string{sitesListID, sitesGetID, sitemapsListID, sitemapsGetID, searchAnalyticsID},
+		}, {
+			ID: "edit", Title: "Edit properties and sitemaps",
+			Description: "reads what the read profile reads and adds and removes properties and submits and removes sitemaps " +
+				"in Search Console; every change needs its own confirmation",
+			Tools: []string{sitesListID, sitesGetID, sitemapsListID, sitemapsGetID, searchAnalyticsID,
+				sitesAddID, sitesDeleteID, sitemapsSubmitID, sitemapsDeleteID},
 		}},
 	}, TestConnection); err != nil {
 		return err

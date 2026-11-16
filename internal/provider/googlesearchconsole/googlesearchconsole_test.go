@@ -167,10 +167,15 @@ func newEnvironment(t *testing.T, values map[string]string) *environment {
 	cfg.Services = map[string]config.Service{"console": {Provider: Provider}}
 	cfg.Credentials = map[string]config.Credential{"google": {Provider: Provider, Type: config.CredentialTypeEnv, Values: roles}}
 	read := []config.Effect{config.EffectRead}
+	edit := []config.Effect{config.EffectRead, config.EffectCreate, config.EffectDelete}
 	cfg.Connections = map[string]config.Connection{
 		"all":    {Service: "console", Credential: "google", Effects: read},
 		"domain": {Service: "console", Credential: "google", Effects: read, Target: domainSite},
 		"prefix": {Service: "console", Credential: "google", Effects: read, Target: prefixSite},
+		// The connections that may change entries; read-only ones above never offer a changing tool.
+		"edit":       {Service: "console", Credential: "google", Effects: edit},
+		"editdomain": {Service: "console", Credential: "google", Effects: edit, Target: domainSite},
+		"editprefix": {Service: "console", Credential: "google", Effects: edit, Target: prefixSite},
 	}
 	if values[clientIDEnv] != "" && values[refreshEnv] != "" {
 		cfg.Connections["robot"] = config.Connection{Service: "console", Credential: "google", Effects: read,
@@ -236,22 +241,30 @@ func TestRegisterPublishesMetadataScopesAndConsent(t *testing.T) {
 		!reflect.DeepEqual(metadata.SecretRoles, config.TokenSecretRoles()) || metadata.Token == nil {
 		t.Fatalf("metadata = %+v", metadata)
 	}
-	want := []string{searchAnalyticsID, sitemapsGetID, sitemapsListID, sitesGetID, sitesListID}
+	want := []string{searchAnalyticsID, sitemapsDeleteID, sitemapsGetID, sitemapsListID, sitemapsSubmitID,
+		sitesAddID, sitesDeleteID, sitesGetID, sitesListID}
+	changing := map[string]config.Effect{sitesAddID: config.EffectCreate, sitemapsSubmitID: config.EffectCreate,
+		sitesDeleteID: config.EffectDelete, sitemapsDeleteID: config.EffectDelete}
 	var tools []string
 	for _, tool := range metadata.Tools {
 		tools = append(tools, tool.ID)
-		if tool.Effect != config.EffectRead {
-			t.Errorf("%s effect = %s", tool.ID, tool.Effect)
+		wantEffect, wantScope := config.EffectRead, scopeRead
+		if effect, ok := changing[tool.ID]; ok {
+			wantEffect, wantScope = effect, scopeEdit
 		}
-		if scopes := metadata.Token.Scopes[tool.ID]; !reflect.DeepEqual(scopes, []string{scopeRead}) {
-			t.Errorf("%s scopes = %v, want the read-only scope", tool.ID, scopes)
+		if tool.Effect != wantEffect {
+			t.Errorf("%s effect = %s, want %s", tool.ID, tool.Effect, wantEffect)
+		}
+		if scopes := metadata.Token.Scopes[tool.ID]; !reflect.DeepEqual(scopes, []string{wantScope}) {
+			t.Errorf("%s scopes = %v, want %s", tool.ID, scopes, wantScope)
 		}
 	}
 	if !reflect.DeepEqual(tools, want) {
 		t.Errorf("tools = %v, want %v", tools, want)
 	}
-	if len(metadata.Profiles) != 1 || metadata.Profiles[0].ID != "read" || !metadata.Profiles[0].Recommended ||
-		len(metadata.Profiles[0].Tools) != 5 {
+	if len(metadata.Profiles) != 2 || metadata.Profiles[0].ID != "read" || !metadata.Profiles[0].Recommended ||
+		len(metadata.Profiles[0].Tools) != 5 || metadata.Profiles[1].ID != "edit" || metadata.Profiles[1].Recommended ||
+		len(metadata.Profiles[1].Tools) != 9 {
 		t.Errorf("profiles = %+v", metadata.Profiles)
 	}
 	oauth, ok := reg.OAuth(Provider)
