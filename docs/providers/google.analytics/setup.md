@@ -1,0 +1,150 @@
+---
+description: >
+  Guides a user through setting up the Google Analytics provider: the Cloud project and the enabled Admin API, the three ways to get a credential (consent of a person, a service account key, impersonation), the access the account needs in Analytics, the scope each tool needs, adding the credential and connection to Qatlas, the connection test, and fixing errors by symptom.
+type: knowledge
+edit: shared
+created: 2026-11-16
+updated: 2026-11-16
+---
+
+# Set up Google Analytics
+
+This page shows how to connect Qatlas to Google Analytics 4. Targets, paging, and errors are described in the
+[Google Analytics provider](README.md); the tools are described in [accounts](accounts.md) and
+[properties](properties.md).
+
+## What you need
+
+- A Google Cloud project, which Google uses to count the requests. It does not need a billing account for the
+  reading tools.
+- The **Google Analytics Admin API** enabled in that project.
+- A way to prove who you are to Google. You choose one of three, see [Credential](#credential).
+- Access to the Analytics account or property in Analytics itself. A credential only sees what the Google
+  account or the service account behind it may see.
+- The service is always `https://analyticsadmin.googleapis.com`; there is nothing to change for it.
+
+## Enable the API
+
+In the Google Cloud console, choose or create the project. Under APIs and services, open the library and enable
+**Google Analytics Admin API**. Google changes its pages from time to time; look for this name. The
+Analytics Data API is not needed for the tools of this provider.
+
+## Credential
+
+Qatlas does not store an access token. It stores what is needed to get one when a tool runs, and renews it by
+itself. Tokens, keys, and codes are never shown to an agent and never appear in a message, a result, or the log.
+The credential is only for Google Analytics; it cannot also serve another Google provider.
+
+### Consent of a person
+
+Use this when you work with your own Google account.
+
+1. In the Cloud console, under APIs and services, set up the consent screen of the project, then create an
+   **OAuth client ID** of the type that suits a program on your computer (a desktop app). Note the client ID
+   and, if Google shows one, the client secret.
+2. Store them as the credential (see [Add it to Qatlas](#add-it-to-qatlas)): `client_id`, and `client_secret`
+   if there is one.
+3. Run `qconnect credential consent <credential>` in a terminal. It prints a link; open it in a browser and
+   allow access. When the browser runs on another device, copy the address of the page that fails to load
+   and paste it at the prompt of the command.
+
+The consent asks for every scope the connections of the credential need together. A new consent replaces the
+stored refresh token and is also how a scope that a new tool needs is added. An agent can never give the
+consent; it needs a person at a terminal.
+
+### Service account key
+
+Use this for an unattended setup. In the Cloud console, create a service account in the project and a key for
+it, and store the whole key file as the secret `service_account_key`. Then add the service account's address to
+Analytics, see [Access in Analytics](#access-in-analytics). Do not use it together with a `client_id` in the
+same credential.
+
+### Impersonation
+
+A person's consent can act as a service account instead of as themselves. Store `client_id` as for the
+consent, name the service account in the `service_account` field of the connection, and give your Google
+account the permission to create tokens for that service account (the role *Service Account Token Creator*).
+Add the service account to Analytics as above.
+
+### Access in Analytics
+
+In Analytics, open Admin, then **Account access management** or **Property access management**, and add the
+Google account or the service account address with at least the **Viewer** role. A property is visible with a
+role on the property or on its account. The Analytics roles are not changed by the scopes below.
+
+## Rights and scopes
+
+Every tool needs the scope `https://www.googleapis.com/auth/analytics.readonly`, the smallest scope that reads
+Analytics configuration. Qatlas asks for the scope of the tools of the connections that use the credential and
+no more. Each connection of a credential has to be for Google Analytics, so the credential never carries the
+scope of another product.
+
+| Tool group | Tools | Scope |
+| --- | --- | --- |
+| [Accounts](accounts.md) | `accounts.list-summaries`, `accounts.list` | `analytics.readonly` |
+| [Properties](properties.md) | `properties.list`, `properties.get` | `analytics.readonly` |
+
+## Add it to Qatlas
+
+The guided setup does most of this for you:
+
+1. Run `qconnect tui`.
+2. In the Connections area, press `n` and follow the steps: provider `google.analytics`, the service, a
+   credential, and the access. Choose targets if the connection should reach only some accounts or properties.
+3. When the setup asks for the credential, choose where to keep it and give it the roles of your way above.
+
+Without the guided setup, store the values on the command line. A value is read from standard input, so it does
+not appear in the shell history:
+
+```sh
+printf %s "$GA_CLIENT_ID" | qconnect credential set analytics-login client_id
+```
+
+`analytics-login` is the name of the credential and `client_id` the role. For a service account key use the
+role `service_account_key` and the content of the key file. Run `qconnect config validate` to check the
+configuration file. It contacts no provider.
+
+```yaml
+services:
+  analytics:
+    provider: google.analytics
+
+credentials:
+  analytics-login:
+    provider: google.analytics
+    type: keyring
+
+connections:
+  analytics-read:
+    service: analytics
+    credential: analytics-login
+    targets:
+      - accounts/123456
+```
+
+Leave `targets` out to reach everything the credential sees.
+
+## Check the connection
+
+In `qconnect tui`, open Connections, select the connection, and press `t`. `[ok]` means Google accepted the
+token, the Admin API is enabled in the project, and at least one account is visible. The test reads no report
+data and uses no quota for reports. It does not test the Analytics Data API.
+
+## Fixing errors
+
+| Symptom | Likely cause and fix |
+| --- | --- |
+| `consent-required` | The credential has a client ID but no consent yet. Run `qconnect credential consent <credential>` |
+| `consent-expired` | Google no longer accepts the stored consent, for example after a revocation or a long pause. Give the consent again |
+| `scope-missing` | The consent lacks the scope a tool needs. Give the consent again and allow all requested access |
+| `credential-unusable` | The credential holds both or neither of a client ID and a service account key. Keep exactly one way |
+| `auth` | Google rejected the token, also after a renewal. Check that the consent or key is still valid and belongs to the project you mean |
+| `permission` with a hint that the Admin API is not enabled | Enable **Google Analytics Admin API** in the Cloud project of the credential and wait a few minutes |
+| `permission` otherwise | The Google account or service account has no access in Analytics. Add it under access management, see [Access in Analytics](#access-in-analytics) |
+| `not-found` in the connection test | The credential sees no account. Add it to an account in Analytics |
+| `not-found` for a property | The property does not exist, or the credential cannot see it; Google gives the same answer |
+| `impersonation-denied` | Your Google account may not create tokens for the service account. Grant *Service Account Token Creator* |
+| `service-account-unknown` | The service account named in the connection does not exist. Check its address |
+| `rate-limited` | The project or user used up its quota. Wait; Qatlas does not repeat the request |
+| A refusal that the resource is not available to this connection | The account or property is outside the targets of the connection. Change the targets or use another connection |
+| A tool refuses without `filter` | `properties.list` needs a filter unless the connection binds exactly one account, see [properties](properties.md) |

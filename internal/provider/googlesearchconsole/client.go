@@ -1,7 +1,9 @@
 package googlesearchconsole
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"io"
 	"mime"
@@ -36,6 +38,14 @@ const (
 // per minute per user, which is 300 ms.
 const minInterval = 300 * time.Millisecond
 
+// queryInterval spaces two Search Analytics queries of one property and user. Google allows that method
+// 1,200 queries per minute per site and per user, which is 50 ms. The load quota behind it has no number
+// Google publishes, so a heavy query is made rare by the tool description, not by this spacing.
+const queryInterval = 50 * time.Millisecond
+
+// maxQueryBytes caps the answer of a Search Analytics query, which holds up to 25,000 rows.
+const maxQueryBytes = 16 << 20
+
 // maxHold bounds how long a rate-limit answer may delay the next request of this process.
 const maxHold = time.Minute
 
@@ -50,6 +60,9 @@ var (
 	tokenCache *provider.TokenCache
 	// limiters holds the spacing of every credential this process has used.
 	limiters = ratelimit.NewRegistry(minInterval)
+	// queryLimiters holds the spacing per credential and property of the Search Analytics query, whose
+	// quota Google counts per site and user and apart from the site methods.
+	queryLimiters = ratelimit.NewRegistry(queryInterval)
 )
 
 // client sends the requests of one call with the access tokens of the connection's credential.
@@ -57,6 +70,7 @@ type client struct {
 	source  *provider.TokenSource
 	http    *http.Client
 	limiter *ratelimit.Limiter
+	key     string
 }
 
 func tokenOptions() provider.TokenOptions {
@@ -104,7 +118,7 @@ func open(ctx context.Context, resolved *config.Resolved, secrets *secret.Resolv
 // impersonates, never a token value.
 func newClient(source *provider.TokenSource, resolved *config.Resolved) *client {
 	key := strings.Join([]string{resolved.Credential, resolved.Secrets.ID, resolved.ServiceAccount}, "\x00")
-	return &client{source: source, http: provider.NoRedirectClient(timeout, transport), limiter: limiters.For(key)}
+	return &client{source: source, http: provider.NoRedirectClient(timeout, transport), limiter: limiters.For(key), key: key}
 }
 
 // get sends one GET of tool, once (the token source renews a rejected token once), and decodes the JSON
@@ -114,15 +128,44 @@ func (c *client) get(ctx context.Context, op, tool, path string, query url.Value
 	if len(query) > 0 {
 		address += "?" + query.Encode()
 	}
-	if err := c.limiter.Wait(ctx); err != nil {
+	return c.send(ctx, op, tool, http.MethodGet, address, nil, c.limiter, notFound, maxBytes, out)
+}
+
+// queryLimiter is the spacing of the Search Analytics queries of this credential on one property.
+func (c *client) queryLimiter(site string) *ratelimit.Limiter {
+	return queryLimiters.For(c.key + "\x00" + site)
+}
+
+// post sends one POST of a reading tool with a JSON body Qatlas built from checked arguments, once like get.
+// The method stays a read for the token source: the tool only queries.
+func (c *client) post(ctx context.Context, op, tool, path string, body any, limiter *ratelimit.Limiter,
+	notFound string, out any) error {
+	encoded, err := json.Marshal(body)
+	if err != nil {
+		return failure(op, "the request body could not be built")
+	}
+	return c.send(ctx, op, tool, http.MethodPost, apiRoot+path, encoded, limiter, notFound, maxQueryBytes, out)
+}
+
+// send waits for the slot of limiter, sends the request and decodes a JSON answer of at most limit bytes.
+func (c *client) send(ctx context.Context, op, tool, method, address string, body []byte, limiter *ratelimit.Limiter,
+	notFound string, limit int64, out any) error {
+	if err := limiter.Wait(ctx); err != nil {
 		return provider.Waited(op, "Google", err)
 	}
 	response, err := c.source.Read(ctx, c.http, tool, func(access string) (*http.Request, error) {
-		req, err := http.NewRequestWithContext(ctx, http.MethodGet, address, nil)
+		var reader io.Reader
+		if body != nil {
+			reader = bytes.NewReader(body)
+		}
+		req, err := http.NewRequestWithContext(ctx, method, address, reader)
 		if err != nil {
 			return nil, failure(op, "the request could not be built")
 		}
 		req.Header.Set("Authorization", "Bearer "+access)
+		if body != nil {
+			req.Header.Set("Content-Type", "application/json")
+		}
 		req.Header.Set("Accept", "application/json")
 		req.Header.Set("User-Agent", userAgent)
 		return req, nil
@@ -139,7 +182,7 @@ func (c *client) get(ctx context.Context, op, tool, path string, query url.Value
 		raw := provider.ReadErrorBody(response.Body)
 		if response.StatusCode == http.StatusTooManyRequests {
 			// A missing retry time still means too many requests: the next call waits, nothing repeats this one.
-			c.limiter.HoldFor(min(max(provider.RetryAfter(response.Header), time.Second), maxHold))
+			limiter.HoldFor(min(max(provider.RetryAfter(response.Header), time.Second), maxHold))
 		}
 		return googleError(op, response.StatusCode, raw, notFound)
 	}
@@ -148,7 +191,7 @@ func (c *client) get(ctx context.Context, op, tool, path string, query url.Value
 		_, _ = io.Copy(io.Discard, io.LimitReader(response.Body, 1<<10))
 		return provider.InvalidResponse(op, "Google returned an answer that is not JSON")
 	}
-	if failed := provider.ReadJSON(op, "Google", response.Body, maxBytes, out); failed != nil {
+	if failed := provider.ReadJSON(op, "Google", response.Body, limit, out); failed != nil {
 		return failed
 	}
 	return nil
