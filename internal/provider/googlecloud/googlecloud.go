@@ -98,9 +98,10 @@ func Register(reg *capability.Registry) error {
 		Target:      targetMetadata,
 		Profiles: []config.ToolProfile{{
 			ID: "read", Title: "Read", Recommended: true,
-			Description: "searches organizations, folders, and projects, reads projects, the state of long-running " +
+			Description: "searches and reads organizations, folders, and projects, reads the state of long-running " +
 				"operations, IAM roles, and the roles and permissions of a resource from Google Cloud and changes nothing",
 			Tools: []string{organizationsSearch.ID, foldersSearch.ID, projectsSearch.ID, projectsGet.ID, operationsGet.ID,
+				organizationsGet.ID, foldersGet.ID, foldersList.ID, projectsList.ID,
 				iamRolesList.ID, iamRolesGet.ID, iamRolesQuery.ID, iamPermissionsQuery.ID},
 		}},
 	}, TestConnection); err != nil {
@@ -117,6 +118,10 @@ func Register(reg *capability.Registry) error {
 		capability.Operation{Descriptor: projectsSearch, Handler: handleProjectsSearch},
 		capability.Operation{Descriptor: projectsGet, Handler: handleProjectsGet},
 		capability.Operation{Descriptor: operationsGet, Handler: handleOperationsGet},
+		capability.Operation{Descriptor: organizationsGet, Handler: handleOrganizationsGet},
+		capability.Operation{Descriptor: foldersGet, Handler: handleFoldersGet},
+		capability.Operation{Descriptor: foldersList, Handler: handleFoldersList},
+		capability.Operation{Descriptor: projectsList, Handler: handleProjectsList},
 		capability.Operation{Descriptor: iamRolesList, Handler: handleIAMRolesList},
 		capability.Operation{Descriptor: iamRolesGet, Handler: handleIAMRolesGet},
 		capability.Operation{Descriptor: iamRolesQuery, Handler: handleIAMRolesQuery},

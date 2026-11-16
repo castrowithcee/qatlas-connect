@@ -73,7 +73,6 @@ func Register(reg *capability.Registry) error {
 		ValidateBaseURL: validateBaseURL,
 		SecretRoles:     config.TokenSecretRoles(),
 		Token:           &config.TokenMetadata{Scopes: toolScopes()},
-		DocPage:         "google.tag-manager.md",
 		Target: config.TargetMetadata{
 			Label: "target",
 			Description: "one account or one container; without a target a connection reaches what the credential " +
@@ -89,13 +88,13 @@ func Register(reg *capability.Registry) error {
 		},
 		Profiles: []config.ToolProfile{{
 			ID: "read", Title: "Read", Recommended: true,
-			Description: "reads accounts, containers, workspaces, and tags; changes nothing",
+			Description: "reads accounts, containers, workspaces, tags, and triggers; changes nothing",
 			Tools:       readIDs,
 		}, {
-			ID: "write", Title: "Read and change tags",
-			Description: "reads what the read profile reads and creates, updates, and deletes the tags of a " +
-				"workspace; every change needs its own confirmation and stays in the workspace until a version " +
-				"is published, which no tool of this provider does. Reverting a tag stays unticked",
+			ID: "write", Title: "Read and change tags and triggers",
+			Description: "reads what the read profile reads and creates, updates, and deletes the tags and " +
+				"triggers of a workspace; every change needs its own confirmation and stays in the workspace until a " +
+				"version is published, which no tool of this provider does. Reverting a tag or trigger stays unticked",
 			Tools: writeIDs,
 		}},
 	}, TestConnection); err != nil {
@@ -110,10 +109,15 @@ func Register(reg *capability.Registry) error {
 		workspacesListID: handleWorkspacesList, workspacesGetID: handleWorkspacesGet,
 		tagsListID: handleTagsList, tagsGetID: handleTagsGet, tagsCreateID: handleTagsCreate,
 		tagsUpdateID: handleTagsUpdate, tagsDeleteID: handleTagsDelete, tagsRevertID: handleTagsRevert,
+		triggersListID: handleTriggersList, triggersGetID: handleTriggersGet, triggersCreateID: handleTriggersCreate,
+		triggersUpdateID: handleTriggersUpdate, triggersDeleteID: handleTriggersDelete,
+		triggersRevertID: handleTriggersRevert,
 	}
 	summaries := map[string]capability.SummaryFunc{
 		tagsCreateID: tagSummary("Create"), tagsUpdateID: tagSummary("Replace"),
 		tagsDeleteID: tagSummary("Delete"), tagsRevertID: tagSummary("Revert"),
+		triggersCreateID: triggerSummary("Create"), triggersUpdateID: triggerSummary("Replace"),
+		triggersDeleteID: triggerSummary("Delete"), triggersRevertID: triggerSummary("Revert"),
 	}
 	for _, d := range descriptors() {
 		if err := reg.Register(Provider, capability.Operation{Descriptor: d, Handler: handlers[d.ID],

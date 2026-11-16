@@ -34,9 +34,11 @@ Viewer, or Project Viewer role, or any role with these permissions:
 
 | Tool | Permission Google checks |
 | --- | --- |
-| `organizations.search` | `resourcemanager.organizations.get` on each organization |
-| `folders.search` | `resourcemanager.folders.get` on each folder |
+| `organizations.search`, `organizations.get` | `resourcemanager.organizations.get` on each organization |
+| `folders.search`, `folders.get` | `resourcemanager.folders.get` on each folder |
+| `folders.list` | `resourcemanager.folders.list` on the parent |
 | `projects.search`, `projects.get` | `resourcemanager.projects.get` on each project |
+| `projects.list` | `resourcemanager.projects.list` on the parent |
 | `operations.get` | Google states none for reading an operation |
 | `iam-roles.list`, `iam-roles.get` | custom roles of a project or organization: `iam.roles.list` and `iam.roles.get` (the Role Viewer role has them); Google states none for predefined roles |
 | `iam-roles.query-grantable`, `iam-permissions.query-testable` | Google states none; Qatlas first reads the project or folder (`resourcemanager.projects.get`, `resourcemanager.folders.get`) |
@@ -59,6 +61,10 @@ Which targets a tool needs:
   Searching folders needs no targets or an organization or folder.
 - Searching organizations works only on a connection that names an organization. A connection without
   targets cannot search organizations, and the search returns only the organizations the targets name.
+  Reading one organization needs that exact organization among the targets.
+- Reading a folder and listing folders or projects below a parent need no targets or an organization or folder.
+  The parent of a list must lie in the targets; an organization is not listed by a connection bound only to a
+  folder inside it.
 - The IAM tools work without targets or with an organization, a folder, or a project. A connection bound to
   billing accounts alone does not offer them, not even for predefined roles. Organization roles and the
   organization as a resource need a target that names exactly that organization; without targets they are
