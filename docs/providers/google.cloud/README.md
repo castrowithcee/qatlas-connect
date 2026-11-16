@@ -73,12 +73,17 @@ secret is read and before any request.
 
 ## Profiles
 
-The profile `read` is the recommended one and holds every tool of this package: `google.cloud.organizations.search`,
-`google.cloud.folders.search`, `google.cloud.projects.search`, `google.cloud.projects.get`,
-`google.cloud.operations.get`, `google.cloud.organizations.get`, `google.cloud.folders.get`,
-`google.cloud.folders.list`, `google.cloud.projects.list`, `google.cloud.iam-roles.list`, `google.cloud.iam-roles.get`,
-`google.cloud.iam-roles.query-grantable`, and `google.cloud.iam-permissions.query-testable`. Later packages add
-profiles per tool group.
+The profile `read` is the recommended one. It holds every tool that needs no more than the scope
+`cloud-platform.read-only`: `google.cloud.organizations.search`, `google.cloud.folders.search`,
+`google.cloud.projects.search`, `google.cloud.projects.get`, `google.cloud.operations.get`,
+`google.cloud.organizations.get`, `google.cloud.folders.get`, `google.cloud.folders.list`, and
+`google.cloud.projects.list`.
+
+The profile `read-iam` adds the IAM tools (`google.cloud.iam-roles.list`, `google.cloud.iam-roles.get`,
+`google.cloud.iam-roles.query-grantable`, `google.cloud.iam-permissions.query-testable`). They accept only the
+scope `cloud-platform`, so a connection with this profile asks for a token that may change whatever its account
+may change, although no tool of this provider changes anything. It is not recommended: give it only to a
+connection that needs IAM, preferably with a credential whose account has viewer roles only.
 
 ## Tools
 

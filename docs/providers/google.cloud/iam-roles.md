@@ -81,7 +81,7 @@ is altered, cut short, or from another request is refused before a secret is rea
 ## Boundary
 
 - Scope: the discovery document lists `cloud-platform` alone for all four methods, so that is the scope
-  requested. Google's reference page also names `https://www.googleapis.com/auth/iam`, which the discovery
+  requested, and the tools belong to the profile `read-iam`, not to the recommended `read`. Google's reference page also names `https://www.googleapis.com/auth/iam`, which the discovery
   document does not list.
 - The deprecated `onlyInPredefinedRoles` field of a permission is left out. Role titles and descriptions are
   untrusted text and are cut.

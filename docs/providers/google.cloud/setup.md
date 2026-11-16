@@ -25,9 +25,9 @@ roles and the roles and permissions of a resource from IAM, and changes nothing.
 
 ## Rights of the token
 
-The token needs the rights of its person or service account in Google Cloud. Qatlas asks for the read
-scope `cloud-platform.read-only` for the Resource Manager tools and for `cloud-platform` for the IAM tools,
-because Google lists no narrower scope for them. This provider has no tool that changes anything, so even a
+The token needs the rights of its person or service account in Google Cloud. With the recommended profile
+`read` Qatlas asks only for the scope `cloud-platform.read-only`. The profile `read-iam` adds the IAM tools and
+with them the broad scope `cloud-platform`, because Google lists no narrower scope for them. This provider has no tool that changes anything, so even a
 broad role cannot change anything through it. Grant
 the account a viewer role at the highest level you want it to see, for example the Organization Viewer, Folder
 Viewer, or Project Viewer role, or any role with these permissions:
