@@ -3,6 +3,9 @@
 // service account. The token roles, the procedure and the renewal come from the shared token source; this
 // package adds the scope every tool needs, the fixed origin, the targets and the error mapping.
 //
+// Reading tools send one request, a changing tool exactly one and never again, whatever comes back.
+// Deleting an account runs only on a connection that binds exactly that account and no property.
+//
 // A connection may bind Analytics accounts (accounts/ID) and properties (properties/ID). Without a target it
 // reaches what the credential reaches. A bound account reaches its properties, a bound property only itself;
 // a property that is not bound itself is read once as proof of its account before anything else is done with
@@ -14,6 +17,7 @@ import (
 	"context"
 	"errors"
 	"net/url"
+	"slices"
 	"strings"
 
 	"github.com/castrowithcee/qatlas-connect/internal/capability"
@@ -33,7 +37,7 @@ const subject = "Google Analytics"
 // scopeReadOnly is the smallest scope that reads Analytics configuration (analyticsadmin v1beta).
 const scopeReadOnly = "https://www.googleapis.com/auth/analytics.readonly"
 
-// scopeEdit is the scope of the tools that create, change and trash properties (analyticsadmin v1beta).
+// scopeEdit is the scope that changes Analytics accounts and properties (analyticsadmin v1beta).
 const scopeEdit = "https://www.googleapis.com/auth/analytics.edit"
 
 // dataSensitivity classifies the results: the configuration of the Analytics accounts the credential reaches.
@@ -45,11 +49,15 @@ var readRisk = capability.Risk{Effect: capability.EffectRead, Idempotency: capab
 
 // scopes maps every tool to the smallest scopes it needs. It is the one source of the token metadata.
 var scopes = map[string][]string{
-	summariesID:      {scopeReadOnly},
-	accountsID:       {scopeReadOnly},
-	propertiesListID: {scopeReadOnly},
-	propertiesGetID:  {scopeReadOnly},
+	summariesID:       {scopeReadOnly},
+	accountsID:        {scopeReadOnly},
+	accountsGetID:     {scopeReadOnly},
+	accountsSharingID: {scopeReadOnly},
+	propertiesListID:  {scopeReadOnly},
+	propertiesGetID:   {scopeReadOnly},
 
+	accountsUpdateID:   {scopeEdit},
+	accountsDeleteID:   {scopeEdit},
 	propertiesCreateID: {scopeEdit},
 	propertiesUpdateID: {scopeEdit},
 	propertiesDeleteID: {scopeEdit},
@@ -110,6 +118,9 @@ func isDefaultRoot(raw string) bool {
 	return trimmed == "" || trimmed == adminRoot
 }
 
+// readTools are the tools of the profile read, and the start of every wider profile.
+var readTools = []string{summariesID, accountsID, accountsGetID, accountsSharingID, propertiesListID, propertiesGetID}
+
 // Register adds the provider metadata, its consent endpoints, its connection test and its tools.
 func Register(reg *capability.Registry) error {
 	token := tokenMetadata()
@@ -142,13 +153,12 @@ func Register(reg *capability.Registry) error {
 		Profiles: []config.ToolProfile{{
 			ID: "read", Title: "Read", Recommended: true,
 			Description: "reads the Analytics accounts and properties the connection reaches; nothing is changed",
-			Tools:       []string{summariesID, accountsID, propertiesListID, propertiesGetID},
+			Tools:       readTools,
 		}, {
 			ID: "write", Title: "Read and change",
 			Description: "reads what the read profile reads and changes Analytics accounts and properties; every " +
 				"change needs its own confirmation, and deleting stays unlisted",
-			Tools: []string{summariesID, accountsID, propertiesListID, propertiesGetID, propertiesCreateID,
-				propertiesUpdateID},
+			Tools: append(slices.Clone(readTools), accountsUpdateID, propertiesCreateID, propertiesUpdateID),
 		}},
 	}, TestConnection); err != nil {
 		return err
@@ -161,6 +171,10 @@ func Register(reg *capability.Registry) error {
 		{Descriptor: accountsList, Handler: handleAccountsList},
 		{Descriptor: propertiesList, Handler: handlePropertiesList},
 		{Descriptor: propertiesGet, Handler: handlePropertiesGet},
+		{Descriptor: accountsGet, Handler: handleAccountsGet},
+		{Descriptor: accountsSharing, Handler: handleAccountsSharing},
+		{Descriptor: accountsUpdate, Handler: handleAccountsUpdate, ConfirmationSummary: updateSummary},
+		{Descriptor: accountsDelete, Handler: handleAccountsDelete, ConfirmationSummary: deleteSummary},
 		{Descriptor: propertiesCreate, Handler: handlePropertiesCreate,
 			ConfirmationSummary: propertyWriteSummary(propertiesCreateID)},
 		{Descriptor: propertiesUpdate, Handler: handlePropertiesUpdate,

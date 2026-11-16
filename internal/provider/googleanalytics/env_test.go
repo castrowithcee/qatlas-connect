@@ -207,6 +207,20 @@ func newEnv(t *testing.T, fake *fakeGoogle) *testEnv {
 		cfg.Connections[name] = config.Connection{Service: "ga", Credential: "login", Targets: targets,
 			Tools: []string{propertiesGetID, propertiesCreateID, propertiesUpdateID, propertiesDeleteID}}
 	}
+	listed := []string{accountsDeleteID}
+	cfg.Connections["write-account"] = config.Connection{Service: "ga", Credential: "login", Effects: changing,
+		Targets: []string{"accounts/100"}}
+	cfg.Connections["delete-unlisted"] = config.Connection{Service: "ga", Credential: "login", Effects: changing,
+		Targets: []string{"accounts/100"}}
+	cfg.Connections["delete-account"] = config.Connection{Service: "ga", Credential: "login",
+		Targets: []string{"accounts/100"}, Tools: listed}
+	cfg.Connections["delete-two"] = config.Connection{Service: "ga", Credential: "login",
+		Targets: []string{"accounts/100", "accounts/101"}, Tools: listed}
+	cfg.Connections["delete-open"] = config.Connection{Service: "ga", Credential: "login", Tools: listed}
+	cfg.Connections["delete-mixed"] = config.Connection{Service: "ga", Credential: "login",
+		Targets: []string{"accounts/100", "properties/200"}, Tools: listed}
+	cfg.Connections["delete-property"] = config.Connection{Service: "ga", Credential: "login",
+		Targets: []string{"properties/200"}, Tools: listed}
 	cfg.Connections["robot"] = config.Connection{Service: "ga", Credential: "robot", Effects: read}
 	cfg.Connections["impersonate"] = config.Connection{Service: "ga", Credential: "login", Effects: read,
 		ServiceAccount: serviceAccount}
