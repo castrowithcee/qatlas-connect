@@ -84,7 +84,7 @@ func (f *fakeGoogle) RoundTrip(req *http.Request) (*http.Response, error) {
 		}
 		f.tokens++
 		return answer(reply{status: 200, body: fmt.Sprintf(`{"access_token":"synthetic-access-%d","token_type":"Bearer",`+
-			`"expires_in":3600,"scope":"%s"}`, f.tokens, scopeReadOnly)})
+			`"expires_in":3600,"scope":"%s %s"}`, f.tokens, scopeReadOnly, scopeCloudPlatform)})
 	}
 	f.requests = append(f.requests, seen{method: req.Method, url: req.URL.String(),
 		auth: req.Header.Get("Authorization"), body: payload, header: req.Header.Clone()})

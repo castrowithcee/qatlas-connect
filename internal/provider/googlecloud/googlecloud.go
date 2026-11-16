@@ -4,7 +4,8 @@
 // from the tools it offers (see scopes.go).
 //
 // The package starts with Cloud Resource Manager: the search of organizations, folders, and projects, one
-// project, and the state of a long-running operation. Every
+// project, and the state of a long-running operation. It then reads IAM: roles, and the roles and permissions
+// of a resource. Every
 // request goes to a fixed origin of the service table, with the access token in the Authorization header only,
 // once, within a bounded size and time, and spaced per credential.
 //
@@ -79,12 +80,16 @@ func testClass(err error) (provider.Class, error) {
 	return "", err
 }
 
+// readTools are the tools of the profile read: every tool that needs no more than the read-only scope.
+var readTools = []string{organizationsSearch.ID, foldersSearch.ID, projectsSearch.ID, projectsGet.ID, operationsGet.ID,
+	organizationsGet.ID, foldersGet.ID, foldersList.ID, projectsList.ID}
+
 // Register adds the provider metadata, its connection test, its consent endpoints, and its tools.
 func Register(reg *capability.Registry) error {
 	token := tokenMetadata
 	if err := reg.RegisterProvider(config.ProviderMetadata{
 		ID: Provider, Name: "Google Cloud", DefaultBaseURL: apiRoot,
-		Description:    "Projects, folders, organizations, and long-running operations of Google Cloud, searched and read with a consent, a service account key, or an impersonated service account",
+		Description:    "Projects, folders, organizations, long-running operations, and IAM roles of Google Cloud, searched and read with a consent, a service account key, or an impersonated service account",
 		DefaultEffects: []config.Effect{config.EffectRead},
 		ValidateBaseURL: func(raw string) error {
 			if !isAPIRoot(raw) {
@@ -97,10 +102,16 @@ func Register(reg *capability.Registry) error {
 		Target:      targetMetadata,
 		Profiles: []config.ToolProfile{{
 			ID: "read", Title: "Read", Recommended: true,
-			Description: "searches organizations, folders, and projects and reads projects and the state of " +
-				"long-running operations from Google Cloud Resource Manager and changes nothing",
-			Tools: []string{organizationsSearch.ID, foldersSearch.ID, projectsSearch.ID, projectsGet.ID, operationsGet.ID,
-				organizationsGet.ID, foldersGet.ID, foldersList.ID, projectsList.ID},
+			Description: "searches and reads organizations, folders, and projects and reads the state of long-running " +
+				"operations from Google Cloud Resource Manager with the read-only scope and changes nothing",
+			Tools: readTools,
+		}, {
+			ID: "read-iam", Title: "Read with IAM",
+			Description: "everything of read plus IAM roles and the roles and permissions of a resource; the IAM " +
+				"methods accept only the broad cloud-platform scope, so the token may change what its account may, " +
+				"although no tool of this provider changes anything",
+			Tools: append(append([]string{}, readTools...), iamRolesList.ID, iamRolesGet.ID, iamRolesQuery.ID,
+				iamPermissionsQuery.ID),
 		}},
 	}, TestConnection); err != nil {
 		return err
@@ -119,5 +130,9 @@ func Register(reg *capability.Registry) error {
 		capability.Operation{Descriptor: organizationsGet, Handler: handleOrganizationsGet},
 		capability.Operation{Descriptor: foldersGet, Handler: handleFoldersGet},
 		capability.Operation{Descriptor: foldersList, Handler: handleFoldersList},
-		capability.Operation{Descriptor: projectsList, Handler: handleProjectsList})
+		capability.Operation{Descriptor: projectsList, Handler: handleProjectsList},
+		capability.Operation{Descriptor: iamRolesList, Handler: handleIAMRolesList},
+		capability.Operation{Descriptor: iamRolesGet, Handler: handleIAMRolesGet},
+		capability.Operation{Descriptor: iamRolesQuery, Handler: handleIAMRolesQuery},
+		capability.Operation{Descriptor: iamPermissionsQuery, Handler: handleIAMPermissionsQuery})
 }

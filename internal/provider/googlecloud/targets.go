@@ -279,6 +279,10 @@ func targetReaches(tool string, targets []string) (bool, []string) {
 		if !list.reachesWithoutResource() {
 			return false, []string{"organizations/ORGANIZATION"}
 		}
+	case iamRolesListID, iamRolesGetID, iamRolesQueryID, iamPermissionsQueryID:
+		if !list.reachesResources() {
+			return false, []string{"organizations/ORGANIZATION", "folders/FOLDER", "projects/PROJECT"}
+		}
 	}
 	return true, nil
 }

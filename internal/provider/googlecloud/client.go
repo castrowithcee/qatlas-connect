@@ -1,7 +1,9 @@
 package googlecloud
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"io"
 	"mime"
@@ -95,6 +97,22 @@ func withSource(resolved *config.Resolved, source *provider.TokenSource) *client
 // segments. The token travels in the Authorization header alone. A 401 renews the token once, and nothing
 // else repeats the request.
 func (c *client) get(ctx context.Context, op, tool string, svc service, path string, query url.Values, out any) error {
+	return c.send(ctx, op, tool, svc, http.MethodGet, path, query, nil, out)
+}
+
+// post sends one POST request with a JSON body that the tool built from checked arguments. It is for the few
+// Google methods that read with POST, such as the queries of IAM; it follows the rules of get, and the body is
+// built again for the one repeat after a 401.
+func (c *client) post(ctx context.Context, op, tool string, svc service, path string, body, out any) error {
+	data, err := json.Marshal(body)
+	if err != nil {
+		return failure(op, "the request body could not be built")
+	}
+	return c.send(ctx, op, tool, svc, http.MethodPost, path, nil, data, out)
+}
+
+func (c *client) send(ctx context.Context, op, tool string, svc service, method, path string, query url.Values,
+	body []byte, out any) error {
 	origin, ok := serviceOrigins[svc]
 	if !ok {
 		return failure(op, "the service is not one of this provider")
@@ -104,13 +122,20 @@ func (c *client) get(ctx context.Context, op, tool string, svc service, path str
 		endpoint += "?" + query.Encode()
 	}
 	build := func(access string) (*http.Request, error) {
-		req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
+		var reader io.Reader
+		if body != nil {
+			reader = bytes.NewReader(body)
+		}
+		req, err := http.NewRequestWithContext(ctx, method, endpoint, reader)
 		if err != nil {
 			return nil, err
 		}
 		req.Header.Set("Authorization", "Bearer "+access)
 		req.Header.Set("Accept", "application/json")
 		req.Header.Set("User-Agent", userAgent)
+		if body != nil {
+			req.Header.Set("Content-Type", "application/json")
+		}
 		return req, nil
 	}
 	if err := c.limiter.Wait(ctx); err != nil {
