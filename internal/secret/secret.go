@@ -38,6 +38,7 @@ import (
 
 	"github.com/castrowithcee/qatlas-connect/internal/config"
 	"github.com/castrowithcee/qatlas-connect/internal/envvar"
+	"github.com/castrowithcee/qatlas-connect/internal/invokelog"
 	"github.com/castrowithcee/qatlas-connect/internal/vault"
 	"github.com/castrowithcee/qatlas-connect/internal/vaultproc"
 	"github.com/castrowithcee/qatlas-kit/redact"
@@ -466,9 +467,13 @@ type Resolver struct {
 	// where the platform runs one.
 	process  bool
 	redactor *redact.Redactor
+	// lockDir holds the lock a refresh token written to the store is replaced under; see StoreRefreshToken.
+	lockDir string
 
 	mu         sync.Mutex
 	unattended bool
+	// writeLog is where the refresh tokens this resolver writes itself are logged; see LogWrites.
+	writeLog invokelog.Writer
 	// failed is what the store said when it last failed, and failedAt when; see storeRetry.
 	failed   StoreState
 	failedAt time.Time
@@ -490,6 +495,7 @@ func New(dir string, red *redact.Redactor) (*Resolver, error) {
 	}
 	r := NewWith(os.Getenv, store, NewFile(filepath.Join(dir, FileName)), red)
 	r.process = vaultproc.Supported
+	r.lockDir = dir
 	return r.WithVault(vault.New(dir), vault.ReadPassphrase), nil
 }
 

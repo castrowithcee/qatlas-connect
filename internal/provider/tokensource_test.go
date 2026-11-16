@@ -67,9 +67,11 @@ func (c *fakeClock) Advance(d time.Duration) {
 // sampleServer is the fake transport: it issues synthetic-access-1, -2, ... at the token endpoint and
 // answers the API with the status apiStatus gives for the n-th call, counting from 1.
 type sampleServer struct {
-	mu        sync.Mutex
-	grants    int
-	seen      []string
+	mu     sync.Mutex
+	grants int
+	seen   []string
+	// redeemed holds the refresh token of every token request, in order.
+	redeemed  []string
 	apiStatus func(n int) int
 	// tokenAnswer, when set, replaces the body of a successful token answer.
 	tokenAnswer func(n int) (int, string)
@@ -83,16 +85,19 @@ func (s *sampleServer) RoundTrip(req *http.Request) (*http.Response, error) {
 		if s.release != nil {
 			<-s.release
 		}
+		body, _ := io.ReadAll(req.Body)
+		form, _ := url.ParseQuery(string(body))
 		s.mu.Lock()
 		s.grants++
 		n := s.grants
+		s.redeemed = append(s.redeemed, form.Get("refresh_token"))
 		s.mu.Unlock()
-		status, body := http.StatusOK, fmt.Sprintf(
+		status, answerBody := http.StatusOK, fmt.Sprintf(
 			`{"access_token":"synthetic-access-%d","token_type":"Bearer","expires_in":600,"scope":"items.read items.write"}`, n)
 		if s.tokenAnswer != nil {
-			status, body = s.tokenAnswer(n)
+			status, answerBody = s.tokenAnswer(n)
 		}
-		return answer(req, status, body), nil
+		return answer(req, status, answerBody), nil
 	case sampleAPI:
 		s.mu.Lock()
 		s.seen = append(s.seen, strings.TrimPrefix(req.Header.Get("Authorization"), "Bearer "))
@@ -125,7 +130,9 @@ type sampleHarness struct {
 	cache   *provider.TokenCache
 	values  map[string]string
 	effects []config.Effect
-	save    func(ctx context.Context, old, rotated string) error
+	save    func(ctx context.Context, old, rotated string) (string, error)
+	// warnings collects the warnings of every call.
+	warnings []string
 }
 
 func newSampleHarness() *sampleHarness {
@@ -198,8 +205,11 @@ func (h *sampleHarness) options() provider.TokenOptions {
 // call runs one tool the way a handler of the sample provider does and classifies a failed answer.
 func (h *sampleHarness) call(t *testing.T, red *redact.Redactor, tool string) error {
 	t.Helper()
-	ctx := context.Background()
-	source, err := provider.OpenTokenSource(ctx, h.resolved(t), h.secrets(red), red, h.options())
+	resolved := h.resolved(t)
+	ctx := secret.WithWarnings(secret.ForConnection(context.Background(), resolved), func(line string) {
+		h.warnings = append(h.warnings, line)
+	})
+	source, err := provider.OpenTokenSource(ctx, resolved, h.secrets(red), red, h.options())
 	if err != nil {
 		return err
 	}
@@ -363,10 +373,10 @@ func TestTokenRedactorKnowsEveryNewToken(t *testing.T) {
 			`"expires_in":600,"refresh_token":"synthetic-refresh-%d"}`, n, n+1)
 	}
 	var saved []string
-	h.save = func(_ context.Context, old, rotated string) error {
+	h.save = func(_ context.Context, old, rotated string) (string, error) {
 		saved = append(saved, old+">"+rotated)
 		h.values[config.RoleRefreshToken] = rotated
-		return nil
+		return rotated, nil
 	}
 	h.server.apiStatus = func(n int) int {
 		if n == 1 {
@@ -411,31 +421,88 @@ func TestTokenRotatedRefreshTokenIsStoredBeforeUse(t *testing.T) {
 	t.Run("stored first", func(t *testing.T) {
 		h := newSampleHarness()
 		rotating(h)
-		h.save = func(context.Context, string, string) error {
+		h.save = func(_ context.Context, _, rotated string) (string, error) {
 			if _, seen := h.server.counts(); len(seen) != 0 {
 				t.Error("the new access token was used before the rotated refresh token was stored")
 			}
-			return nil
+			return rotated, nil
 		}
 		if err := h.call(t, &redact.Redactor{}, "sample.items.get"); err != nil {
 			t.Fatal(err)
 		}
 	})
-	for name, save := range map[string]func(context.Context, string, string) error{
-		"no way to store": nil,
-		"storing fails":   func(context.Context, string, string) error { return errors.New("vault locked") },
-	} {
-		t.Run(name, func(t *testing.T) {
-			h := newSampleHarness()
-			rotating(h)
-			h.save = save
-			if err := h.call(t, &redact.Redactor{}, "sample.items.get"); err == nil {
-				t.Fatal("call succeeded, want the rotation to end it")
-			}
-			if _, seen := h.server.counts(); len(seen) != 0 {
-				t.Fatalf("API calls = %v, want none with an unstored rotation", seen)
-			}
-		})
+	t.Run("storing fails", func(t *testing.T) {
+		h := newSampleHarness()
+		rotating(h)
+		h.save = func(context.Context, string, string) (string, error) { return "", errors.New("vault locked") }
+		if err := h.call(t, &redact.Redactor{}, "sample.items.get"); err == nil {
+			t.Fatal("call succeeded, want the rotation to end it")
+		}
+		if _, seen := h.server.counts(); len(seen) != 0 {
+			t.Fatalf("API calls = %v, want none with an unstored rotation", seen)
+		}
+	})
+}
+
+// A run that lost the race to store its rotation keeps its access token for the call, and every later renewal
+// redeems the refresh token the other run stored.
+func TestTokenLostRotationRedeemsTheStoredRefreshToken(t *testing.T) {
+	h := newSampleHarness()
+	h.server.tokenAnswer = func(n int) (int, string) {
+		return http.StatusOK, fmt.Sprintf(`{"access_token":"synthetic-access-%d","token_type":"Bearer",`+
+			`"expires_in":600,"refresh_token":"synthetic-refresh-mine-%d"}`, n, n)
+	}
+	h.save = func(_ context.Context, old, rotated string) (string, error) {
+		if old == "synthetic-refresh-1" {
+			return "synthetic-refresh-theirs", nil
+		}
+		return rotated, nil
+	}
+	h.server.apiStatus = func(n int) int {
+		if n == 1 {
+			return http.StatusUnauthorized
+		}
+		return http.StatusOK
+	}
+	red := &redact.Redactor{}
+	if err := h.call(t, red, "sample.items.get"); err != nil {
+		t.Fatal(err)
+	}
+	h.server.mu.Lock()
+	redeemed, seen := append([]string(nil), h.server.redeemed...), append([]string(nil), h.server.seen...)
+	h.server.mu.Unlock()
+	if len(seen) != 2 || seen[0] != "synthetic-access-1" {
+		t.Fatalf("API calls = %v, want the first access token used despite the lost rotation", seen)
+	}
+	if len(redeemed) != 2 || redeemed[0] != "synthetic-refresh-1" || redeemed[1] != "synthetic-refresh-theirs" {
+		t.Fatalf("redeemed refresh tokens = %v, want the one the other run stored for the renewal", redeemed)
+	}
+	if got := red.Apply("synthetic-refresh-theirs"); got != redact.Marker {
+		t.Errorf("the redactor does not know the stored refresh token: %q", got)
+	}
+}
+
+// A refresh token from an environment variable cannot be written: the rotation is a warning naming the
+// credential and the role, without a value, and the call goes on with the new access token.
+func TestTokenRotationFromAnEnvironmentVariableWarns(t *testing.T) {
+	h := newSampleHarness()
+	h.server.tokenAnswer = func(n int) (int, string) {
+		return http.StatusOK, `{"access_token":"synthetic-access-1","token_type":"Bearer","expires_in":600,` +
+			`"refresh_token":"synthetic-refresh-2"}`
+	}
+	if err := h.call(t, &redact.Redactor{}, "sample.items.get"); err != nil {
+		t.Fatalf("call = %v, want it to go on", err)
+	}
+	if _, seen := h.server.counts(); len(seen) != 1 || seen[0] != "synthetic-access-1" {
+		t.Fatalf("API calls = %v, want the new access token used", seen)
+	}
+	if len(h.warnings) != 1 || !strings.Contains(h.warnings[0], `credential login, role refresh_token`) {
+		t.Fatalf("warnings = %q, want one naming the credential and the role", h.warnings)
+	}
+	for _, value := range []string{"synthetic-refresh-1", "synthetic-refresh-2", "synthetic-access-1"} {
+		if strings.Contains(h.warnings[0], value) {
+			t.Errorf("the warning holds %s", value)
+		}
 	}
 }
 

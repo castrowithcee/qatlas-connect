@@ -1151,6 +1151,9 @@ func (c *Core) Invoke(ctx context.Context, request InvokeRequest) (response Invo
 	// The secrets of the handler are resolved for the selected connection alone: an encrypted vault hands
 	// them out only when it approved that connection as it is configured now.
 	handlerCtx := secret.ForConnection(ctx, resolved)
+	handlerCtx = secret.WithWarnings(handlerCtx, func(line string) {
+		c.writeAuditText("qconnect: warning: " + line)
+	})
 	// The confirmation reaches the handler only from the request itself, also where the tool needs none of
 	// its own: a tool with local file access asks for it before it replaces a file.
 	if request.Confirmed {

@@ -42,6 +42,11 @@ const (
 	// credential name of each approval, and nothing else. A process of an earlier version does not know it
 	// and answers bad-request.
 	opNames = "names"
+	// opStoreRefresh replaces the rotated refresh token of the credential a connection reads, in the vault on
+	// disk and in the process, only while it still holds the old value the request names, and only for a
+	// connection the vault approved as it is now. It writes no other role. A process of an earlier version
+	// does not know it and answers bad-request.
+	opStoreRefresh = "store-refresh"
 )
 
 // The phases of a handover request.
@@ -79,6 +84,9 @@ const (
 	codeProgramUnchanged  = "program-unchanged"
 	codeProgramMismatch   = "program-mismatch"
 	codeHandoverFailed    = "handover-failed"
+	// The codes of a store-refresh request.
+	codeRoleRefused = "role-refused"
+	codeStoreFailed = "store-failed"
 )
 
 // nonceSize is the number of random bytes a challenge holds.
@@ -98,13 +106,14 @@ type hello struct {
 // presented, the scope of every connection reading a vault credential as configured now, and the
 // connections to limit the approval to, none for all. ConnectionIDs are the config ids of those connections
 // by name, which the approvals record; a process of an earlier version ignores them. Phase and Release
-// belong to handover.
+// belong to handover. Old is the value a store-refresh replaces, and Value its replacement.
 type request struct {
 	V             int               `json:"v"`
 	Op            string            `json:"op"`
 	Credential    string            `json:"credential,omitempty"`
 	Role          string            `json:"role,omitempty"`
 	Value         string            `json:"value,omitempty"`
+	Old           string            `json:"old,omitempty"`
 	Scope         *vault.Scope      `json:"scope,omitempty"`
 	Bindings      *vault.Bindings   `json:"bindings,omitempty"`
 	Entry         *logEntry         `json:"entry,omitempty"`
@@ -169,7 +178,7 @@ func logEntryOf(f invokelog.Fields) *logEntry {
 }
 
 // response is a line a server answers with. Error is empty on success; Proof answers the hello, Found and
-// Value belong to get, PID and LocksAt to status, Valid, one per line asked, to logcheck, Approval and
+// Value belong to get and to store-refresh, which answers with the value stored afterwards, PID and LocksAt to status, Valid, one per line asked, to logcheck, Approval and
 // Unlogged to approve-token, Names to names, Handover to the prepare of a handover, and PID to its commit as
 // well. A status carries Handover too, the vault's update setting as the process reads it, with
 // SettingsUntrusted where settings.age could not be trusted and reads as lock.
@@ -251,6 +260,10 @@ var ErrReplaced = fmt.Errorf("%w; its own program was replaced since it started"
 // wraps the reason, which never carries a secret or a path.
 var ErrHandover = errors.New("the vault process did not hand the vault over and locked itself")
 
+// ErrRoleRefused reports a write of a role the vault process does not let a run write: it writes the refresh
+// token alone.
+var ErrRoleRefused = errors.New("the vault process writes no role but the refresh token")
+
 // badRequestError is the error of a bad-request answer. A client of names tells a process of an earlier
 // version, which answers every op it does not know that way, from one that has the op.
 type badRequestError struct{}
@@ -300,6 +313,10 @@ func answerError(code string) error {
 		return fmt.Errorf("%w: the program installed is not the one the release holds", ErrHandover)
 	case codeHandoverFailed:
 		return fmt.Errorf("%w: no successor took the vault over", ErrHandover)
+	case codeRoleRefused:
+		return ErrRoleRefused
+	case codeStoreFailed:
+		return errors.New("the vault process could not store the refresh token")
 	default:
 		return errors.New("the vault process could not read the request")
 	}

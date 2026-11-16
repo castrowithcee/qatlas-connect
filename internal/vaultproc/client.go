@@ -14,6 +14,7 @@ import (
 
 	"filippo.io/age"
 
+	"github.com/castrowithcee/qatlas-connect/internal/config"
 	"github.com/castrowithcee/qatlas-connect/internal/invokelog"
 	"github.com/castrowithcee/qatlas-connect/internal/vault"
 )
@@ -139,6 +140,30 @@ func (c *Client) Set(ctx context.Context, credential, role, value string) error 
 	_, err := c.call(ctx, request{Op: opSet, Credential: credential, Role: role, Value: value})
 	return err
 }
+
+// StoreRefreshToken replaces the refresh token of credential, the one the connection scope describes reads,
+// with rotated, in the vault on disk and in the process, as long as it still holds old. It returns the
+// refresh token stored afterwards: rotated, or the value an earlier writer stored instead, "" for none.
+// vault.ErrApprovalRequired means the vault has not approved the connection as scope describes it;
+// ErrNotRunning means the vault is not unlocked in a process; ErrNoRefreshStore means a process of an
+// earlier version, which cannot store it.
+func (c *Client) StoreRefreshToken(ctx context.Context, credential string, scope vault.Scope, old,
+	rotated string) (string, error) {
+	resp, err := c.call(ctx, request{Op: opStoreRefresh, Credential: credential, Role: config.RoleRefreshToken,
+		Old: old, Value: rotated, Scope: &scope})
+	if errors.As(err, new(badRequestError)) {
+		return "", ErrNoRefreshStore
+	}
+	if err != nil {
+		return "", err
+	}
+	return resp.Value, nil
+}
+
+// ErrNoRefreshStore reports a running vault process of an earlier version, which cannot store a rotated
+// refresh token. Locking the vault and unlocking it again starts one that can.
+var ErrNoRefreshStore = errors.New("the running vault process is of an earlier version and cannot store a " +
+	"rotated refresh token")
 
 // Delete removes the secret of one credential role from the running process. Removing a pair it does not
 // hold is not an error.
