@@ -51,6 +51,17 @@ func decodeSummaries(t *testing.T, result string) summariesOut {
 	return out
 }
 
+// toolEffects is the effect of each tool of the provider; a tool that is not listed reads.
+var toolEffects = map[string]config.Effect{propertiesCreateID: config.EffectCreate, propertiesUpdateID: config.EffectUpdate,
+	propertiesDeleteID: config.EffectDelete}
+
+func effectOf(id string) config.Effect {
+	if effect, ok := toolEffects[id]; ok {
+		return effect
+	}
+	return config.EffectRead
+}
+
 func TestRegisterPublishesMetadataScopesAndConsent(t *testing.T) {
 	reg := registry(t)
 	metadata, ok := reg.ProviderMetadata(Provider)
@@ -60,23 +71,28 @@ func TestRegisterPublishesMetadataScopesAndConsent(t *testing.T) {
 		t.Fatalf("metadata = %+v", metadata)
 	}
 	if !reflect.DeepEqual(metadata.Token.Scopes, map[string][]string{summariesID: {scopeReadOnly},
-		accountsID: {scopeReadOnly}, propertiesListID: {scopeReadOnly}, propertiesGetID: {scopeReadOnly}}) {
+		accountsID: {scopeReadOnly}, propertiesListID: {scopeReadOnly}, propertiesGetID: {scopeReadOnly},
+		propertiesCreateID: {scopeEdit}, propertiesUpdateID: {scopeEdit}, propertiesDeleteID: {scopeEdit}}) {
 		t.Errorf("scopes = %v", metadata.Token.Scopes)
 	}
 	ids := []string{}
 	for _, tool := range metadata.Tools {
-		if tool.Effect != config.EffectRead {
-			t.Errorf("tool %s effect = %s", tool.ID, tool.Effect)
+		if want := effectOf(tool.ID); tool.Effect != want {
+			t.Errorf("tool %s effect = %s, want %s", tool.ID, tool.Effect, want)
 		}
 		ids = append(ids, tool.ID)
 	}
 	slices.Sort(ids)
 	if !slices.Equal(ids, []string{"google.analytics.accounts.list", "google.analytics.accounts.list-summaries",
-		"google.analytics.properties.get", "google.analytics.properties.list"}) {
+		"google.analytics.properties.create", "google.analytics.properties.delete", "google.analytics.properties.get",
+		"google.analytics.properties.list", "google.analytics.properties.update"}) {
 		t.Errorf("tools = %v", ids)
 	}
-	if len(metadata.Profiles) != 1 || metadata.Profiles[0].ID != "read" || !metadata.Profiles[0].Recommended ||
-		!reflect.DeepEqual(metadata.Profiles[0].Tools, []string{summariesID, accountsID, propertiesListID, propertiesGetID}) {
+	reads := []string{summariesID, accountsID, propertiesListID, propertiesGetID}
+	if len(metadata.Profiles) != 2 || metadata.Profiles[0].ID != "read" || !metadata.Profiles[0].Recommended ||
+		!reflect.DeepEqual(metadata.Profiles[0].Tools, reads) || metadata.Profiles[1].ID != "write" ||
+		metadata.Profiles[1].Recommended ||
+		!reflect.DeepEqual(metadata.Profiles[1].Tools, append(slices.Clone(reads), propertiesCreateID, propertiesUpdateID)) {
 		t.Errorf("profiles = %+v", metadata.Profiles)
 	}
 	oauth, ok := reg.OAuth(Provider)
@@ -85,7 +101,8 @@ func TestRegisterPublishesMetadataScopesAndConsent(t *testing.T) {
 		t.Errorf("consent endpoints = %+v, %v", oauth, ok)
 	}
 	for _, descriptor := range reg.Provider(Provider) {
-		if descriptor.Risk != (capability.Risk{Effect: capability.EffectRead, Idempotency: capability.IdempotencySafe,
+		if effectOf(descriptor.ID) == config.EffectRead && descriptor.Risk != (capability.Risk{
+			Effect: capability.EffectRead, Idempotency: capability.IdempotencySafe,
 			Confirmation: capability.ConfirmationNone, OpenWorld: true, DataSensitivity: dataSensitivity}) {
 			t.Errorf("%s risk = %+v", descriptor.ID, descriptor.Risk)
 		}
