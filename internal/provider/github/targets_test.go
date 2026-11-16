@@ -195,6 +195,7 @@ func TestDiscoveryDescribesTheTargetArguments(t *testing.T) {
 			descriptor.ID == rulesetsCreate.ID || descriptor.ID == rulesetsUpdate.ID ||
 			descriptor.ID == rulesetsDelete.ID || descriptor.ID == customPropertiesGet.ID ||
 			descriptor.ID == customPropertiesSet.ID || descriptor.ID == issueFieldsList.ID ||
+			descriptor.ID == issueTypesList.ID ||
 			descriptor.ID == actionVariablesList.ID || descriptor.ID == actionVariablesGet.ID ||
 			descriptor.ID == actionVariablesCreate.ID || descriptor.ID == actionVariablesUpdate.ID ||
 			descriptor.ID == actionVariablesDelete.ID || slices.Contains(secretTools, descriptor.ID) ||
@@ -224,7 +225,7 @@ func TestDiscoveryDescribesTheTargetArguments(t *testing.T) {
 			// rendering takes an optional context repository of its own.
 			names = []string{}
 		case descriptor.ID == projectsList.ID || descriptor.ID == repositoriesList.ID ||
-			descriptor.ID == projectsCreate.ID || descriptor.ID == issueTypesList.ID ||
+			descriptor.ID == projectsCreate.ID ||
 			descriptor.ID == organizationTeamsList.ID ||
 			descriptor.ID == teamMembersList.ID || descriptor.ID == organizationAdvisoriesList.ID ||
 			slices.Contains(teamToolIDs, descriptor.ID) || slices.Contains(organizationToolIDs, descriptor.ID) ||
