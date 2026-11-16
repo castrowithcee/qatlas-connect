@@ -1,5 +1,5 @@
-// Package googleapi holds the error object form that Google APIs share, so that provider packages read it
-// the same way without importing each other.
+// Package googleapi holds what Google APIs share, so that provider packages use it without importing each
+// other: the error object form and the fixed parameters of Google's token endpoints.
 package googleapi
 
 import (
