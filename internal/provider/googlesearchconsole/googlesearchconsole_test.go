@@ -48,7 +48,7 @@ const (
 var robot = "robot" + "@" + "sample.invalid"
 
 type request struct {
-	method, host, escapedPath, rawQuery, authorization, accept, full string
+	method, host, escapedPath, rawQuery, authorization, accept, full, contentType, body string
 }
 
 // fakeGoogle is the transport of every request. The token endpoint issues accessPrefix1, 2, ... unless
@@ -89,7 +89,7 @@ func (f *fakeGoogle) RoundTrip(r *http.Request) (*http.Response, error) {
 	case r.URL.Host == "searchconsole.googleapis.com":
 		f.api = append(f.api, request{method: r.Method, host: r.URL.Host, escapedPath: r.URL.EscapedPath(),
 			rawQuery: r.URL.RawQuery, authorization: r.Header.Get("Authorization"), accept: r.Header.Get("Accept"),
-			full: r.URL.String()})
+			full: r.URL.String(), contentType: r.Header.Get("Content-Type"), body: body})
 		if f.answer != nil {
 			return f.answer(r, len(f.api))
 		}
@@ -138,9 +138,12 @@ type environment struct {
 func newEnvironment(t *testing.T, values map[string]string) *environment {
 	t.Helper()
 	fake := &fakeGoogle{}
-	previousTransport, previousCache, previousLimiters := transport, tokenCache, limiters
+	previousTransport, previousCache, previousLimiters, previousQuery := transport, tokenCache, limiters, queryLimiters
 	transport, tokenCache, limiters = fake, provider.NewTokenCache(time.Now), ratelimit.NewRegistry(0)
-	t.Cleanup(func() { transport, tokenCache, limiters = previousTransport, previousCache, previousLimiters })
+	queryLimiters = ratelimit.NewRegistry(0)
+	t.Cleanup(func() {
+		transport, tokenCache, limiters, queryLimiters = previousTransport, previousCache, previousLimiters, previousQuery
+	})
 
 	reg := capability.NewRegistry()
 	if err := Register(reg); err != nil {
@@ -233,7 +236,7 @@ func TestRegisterPublishesMetadataScopesAndConsent(t *testing.T) {
 		!reflect.DeepEqual(metadata.SecretRoles, config.TokenSecretRoles()) || metadata.Token == nil {
 		t.Fatalf("metadata = %+v", metadata)
 	}
-	want := []string{sitemapsGetID, sitemapsListID, sitesGetID, sitesListID}
+	want := []string{searchAnalyticsID, sitemapsGetID, sitemapsListID, sitesGetID, sitesListID}
 	var tools []string
 	for _, tool := range metadata.Tools {
 		tools = append(tools, tool.ID)
@@ -248,7 +251,7 @@ func TestRegisterPublishesMetadataScopesAndConsent(t *testing.T) {
 		t.Errorf("tools = %v, want %v", tools, want)
 	}
 	if len(metadata.Profiles) != 1 || metadata.Profiles[0].ID != "read" || !metadata.Profiles[0].Recommended ||
-		len(metadata.Profiles[0].Tools) != 4 {
+		len(metadata.Profiles[0].Tools) != 5 {
 		t.Errorf("profiles = %+v", metadata.Profiles)
 	}
 	oauth, ok := reg.OAuth(Provider)

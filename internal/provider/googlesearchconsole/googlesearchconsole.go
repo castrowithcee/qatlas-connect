@@ -1,5 +1,5 @@
 // Package googlesearchconsole implements read access to the Google Search Console API: the properties an
-// account can see and the sitemaps of a property.
+// account can see, the sitemaps of a property, and its search traffic.
 //
 // The credential issues access tokens: a person's consent, a service account key, or the impersonation of a
 // service account. The core token source obtains them from Google's fixed endpoints; this package only names
@@ -33,10 +33,11 @@ const scopeRead = "https://www.googleapis.com/auth/webmasters.readonly"
 
 // toolScopes maps every tool to the smallest scopes it needs.
 var toolScopes = map[string][]string{
-	sitesListID:    {scopeRead},
-	sitesGetID:     {scopeRead},
-	sitemapsListID: {scopeRead},
-	sitemapsGetID:  {scopeRead},
+	sitesListID:       {scopeRead},
+	sitesGetID:        {scopeRead},
+	sitemapsListID:    {scopeRead},
+	sitemapsGetID:     {scopeRead},
+	searchAnalyticsID: {scopeRead},
 }
 
 const testOp = "test connection"
@@ -95,10 +96,11 @@ func Register(reg *capability.Registry) error {
 		{Descriptor: sitesGet, Handler: handleSitesGet},
 		{Descriptor: sitemapsList, Handler: handleSitemapsList},
 		{Descriptor: sitemapsGet, Handler: handleSitemapsGet},
+		{Descriptor: searchAnalyticsQuery, Handler: handleSearchAnalytics},
 	}
 	if err := reg.RegisterProvider(config.ProviderMetadata{
 		ID: Provider, Name: "Google Search Console", DefaultBaseURL: apiRoot,
-		Description:    "Properties and sitemaps of Google Search Console, read with an OAuth consent or a service account",
+		Description:    "Properties, sitemaps and search traffic of Google Search Console, read with an OAuth consent or a service account",
 		DefaultEffects: []config.Effect{config.EffectRead},
 		ValidateBaseURL: func(raw string) error {
 			if !isDefaultRoot(raw) {
@@ -117,8 +119,8 @@ func Register(reg *capability.Registry) error {
 		},
 		Profiles: []config.ToolProfile{{
 			ID: "read", Title: "Read", Recommended: true,
-			Description: "lists the properties of the account and reads their sitemaps; nothing is changed",
-			Tools:       []string{sitesListID, sitesGetID, sitemapsListID, sitemapsGetID},
+			Description: "lists the properties of the account, reads their sitemaps and queries their search traffic; nothing is changed",
+			Tools:       []string{sitesListID, sitesGetID, sitemapsListID, sitemapsGetID, searchAnalyticsID},
 		}},
 	}, TestConnection); err != nil {
 		return err
