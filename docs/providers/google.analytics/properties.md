@@ -72,9 +72,11 @@ The values are checked before any request or secret access, and a refusal names 
 never the value:
 
 - `display_name` is non-blank text without control characters, at most 100 UTF-16 code units (Google's limit).
-- `time_zone` is an IANA time zone name such as `Europe/Zurich`. Qatlas checks the form and looks the name up in
-  the IANA zone database that is built into Qatlas, so the check is the same on every platform. Google's own
-  list may be shorter; it answers a zone it does not accept.
+- `time_zone` is an IANA time zone name such as `Europe/Zurich`. Qatlas checks the form (every part of the name
+  starts with a capital letter) and looks the name up in the zone database of the system, or in the built-in one
+  where the system has none. On a system whose file names ignore case, another capitalization inside a part can
+  pass this check, and Google answers it with an error. Google's own list may be shorter; it answers a zone it
+  does not accept.
 - `currency_code` is an ISO 4217 code of three capital letters such as `CHF`. Qatlas checks only the form and
   holds no list of currencies; Google answers a code it does not accept.
 - `industry_category` is one of the categories of Google's enumeration (`AUTOMOTIVE`, `FINANCE`, `SHOPPING`, and

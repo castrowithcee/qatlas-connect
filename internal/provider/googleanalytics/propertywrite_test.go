@@ -117,8 +117,8 @@ func TestFieldChecks(t *testing.T) {
 			t.Errorf("checkTimeZone(%q) = %v", zone, err)
 		}
 	}
-	for _, zone := range []string{"", "Local", "Mars/Olympus", "europe/zurich", "Europe/Zurich/../x", "Europe Zurich",
-		"../etc/passwd", "Pacific/", strings.Repeat("A", 65), "CET\n"} {
+	for _, zone := range []string{"", "Local", "Mars/Olympus", "europe/zurich", "europe/Zurich", "Europe/zurich",
+		"Europe/Zurich/../x", "Europe Zurich", "../etc/passwd", "Pacific/", strings.Repeat("A", 65), "CET\n"} {
 		if err := checkTimeZone(zone); !refusedInvalid(err) || (zone != "" && strings.Contains(err.Error(), zone)) {
 			t.Errorf("checkTimeZone(%q) = %v", zone, err)
 		}

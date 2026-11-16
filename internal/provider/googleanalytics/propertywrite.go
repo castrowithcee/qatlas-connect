@@ -14,7 +14,7 @@ import (
 	"unicode/utf16"
 	"unicode/utf8"
 
-	// The IANA zone names are embedded so that checking a time zone works on every platform.
+	// Fallback zone data for systems without a zoneinfo directory (Windows). Go reads the system database first.
 	_ "time/tzdata"
 
 	"github.com/castrowithcee/qatlas-connect/internal/capability"
@@ -53,7 +53,7 @@ var industryCategories = []string{"AUTOMOTIVE", "BUSINESS_AND_INDUSTRIAL_MARKETS
 
 var (
 	currencyPattern = regexp.MustCompile(`^[A-Z]{3}$`)
-	zonePattern     = regexp.MustCompile(`^[A-Za-z][A-Za-z0-9_+-]*(/[A-Za-z0-9_+-]+){0,2}$`)
+	zonePattern     = regexp.MustCompile(`^[A-Z][A-Za-z0-9_+-]*(/[A-Z][A-Za-z0-9_+-]*){0,2}$`)
 )
 
 // checkDisplayName refuses an empty or blank name, one that is not valid text or holds a control character,
@@ -82,8 +82,10 @@ func checkCurrency(value string) error {
 	return nil
 }
 
-// checkTimeZone accepts an IANA time zone name that the embedded zone database knows. "Local" and the empty
-// name are no IANA zones. Which of the zones Analytics supports is Google's to decide.
+// checkTimeZone accepts an IANA time zone name whose every segment starts with a capital letter and that the
+// zone database knows. The form check makes a wrong first letter fail on every platform. time.LoadLocation reads
+// the system database first, and on a case-insensitive file system another case inside a segment can pass.
+// "Local" and the empty name are no IANA zones. Which of the zones Analytics supports is Google's to decide.
 func checkTimeZone(value string) error {
 	if len(value) > maxTimeZoneBytes || value == "Local" || !zonePattern.MatchString(value) {
 		return badRequest("time_zone must be an IANA time zone name, such as Europe/Zurich")
