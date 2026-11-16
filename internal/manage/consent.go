@@ -28,7 +28,7 @@ import (
 const ConsentTimeout = 5 * time.Minute
 
 const (
-	// consentPath is the fixed path of the redirect address.
+	// consentPath is the fixed path of the redirect address of the own receiver.
 	consentPath = "/consent"
 	// maxAnswerBytes bounds a pasted address and the authorization code it carries.
 	maxAnswerBytes = 8 << 10
@@ -66,6 +66,7 @@ const (
 	ConsentRefused        ConsentReason = "refused"
 	ConsentNoCode         ConsentReason = "no-code"
 	ConsentNoRefreshToken ConsentReason = "no-refresh-token"
+	ConsentAdminEnded     ConsentReason = "admin-ended"
 )
 
 // ConsentError is a consent or revocation that ended without its effect. Its text is fixed per reason and
@@ -106,6 +107,9 @@ func (e *ConsentError) Error() string {
 	case ConsentNoRefreshToken:
 		return "the token endpoint returned no refresh token for credential " + name + ", so nothing was " +
 			"stored; check the setup of the provider and give the consent again"
+	case ConsentAdminEnded:
+		return "the admin approval that started the consent of credential " + name + " ended before the answer " +
+			"arrived; nothing was stored"
 	}
 	return "the consent of credential " + name + " ended without effect"
 }
@@ -129,10 +133,10 @@ var (
 	ErrConsentEnded = errors.New("this consent no longer waits for an answer")
 )
 
-// Consent is one started consent of a credential: the link a person opens, a receiver on the loopback
-// address that the provider sends the browser back to, and the state and PKCE verifier that bind the answer
-// to this start. State and verifier live only in this value. Exactly one answer whose state matches is
-// taken; an answer that does not match takes nothing.
+// Consent is one started consent of a credential: the link a person opens, the loopback redirect address
+// that the provider sends the browser back to, and the state and PKCE verifier that bind the answer to this
+// start. State and verifier live only in this value. Exactly one answer whose state matches is taken; an
+// answer that does not match takes nothing.
 type Consent struct {
 	svc         *Service
 	cfg         *config.Config
@@ -143,11 +147,15 @@ type Consent struct {
 	scopes      []string
 	connections []string
 
-	state, verifier string
-	host, redirect  string
-	link            string
-	deadline        time.Time
+	state, verifier      string
+	host, path, redirect string
+	link                 string
+	deadline             time.Time
+	// holds reports at completion whether the admin proof of the start still holds; nil for a start whose
+	// proof covers the whole consent.
+	holds func() bool
 
+	// server is the own receiver of StartConsent, nil where the caller serves the redirect address.
 	server    *http.Server
 	closeOnce sync.Once
 
@@ -180,6 +188,30 @@ type ConsentOutcome struct {
 // Nothing is sent and nothing is stored before Wait. proof is the admin proof of this run; it covers the
 // whole consent. The errors are a *ConsentError, a *config.NotThereError, or what reading the store gave.
 func (s *Service) StartConsent(ctx context.Context, proof AdminProof, credential string) (*Consent, error) {
+	return s.startConsent(ctx, proof, credential, nil)
+}
+
+// ConsentReturn is the redirect address a caller serves itself, so a consent opens no receiver of its own.
+type ConsentReturn struct {
+	// Redirect is http://127.0.0.1:<port><path> of the caller's own loopback server.
+	Redirect string
+	// Holds reports whether the admin proof of the start still holds. Wait asks it before the code is
+	// redeemed and again before the refresh token is stored; false ends the consent without effect.
+	Holds func() bool
+}
+
+// StartConsentAt is StartConsent for a caller that serves the redirect address itself and hands each request
+// to it to Answer. Its proof covers the consent only while ret.Holds reports true.
+func (s *Service) StartConsentAt(ctx context.Context, proof AdminProof, credential string, ret ConsentReturn) (*Consent, error) {
+	u, err := url.Parse(ret.Redirect)
+	if err != nil || u.Scheme != "http" || u.Hostname() != "127.0.0.1" || u.Port() == "" || u.User != nil ||
+		u.Opaque != "" || u.RawQuery != "" || u.Fragment != "" || !strings.HasPrefix(u.Path, "/") || ret.Holds == nil {
+		return nil, errors.New("a consent needs a redirect address on 127.0.0.1 with a port and a path, and a check of the admin proof")
+	}
+	return s.startConsent(ctx, proof, credential, &ret)
+}
+
+func (s *Service) startConsent(ctx context.Context, proof AdminProof, credential string, ret *ConsentReturn) (*Consent, error) {
 	if !proof.granted {
 		return nil, &ConsentError{Reason: ConsentAdminRequired, Credential: credential}
 	}
@@ -230,13 +262,6 @@ func (s *Service) StartConsent(ctx context.Context, proof AdminProof, credential
 	// The state travels in the link and is no secret; the verifier never leaves this process.
 	s.register(verifier)
 
-	// Only 127.0.0.1 is ever bound: localhost may resolve elsewhere, and any other interface would take an
-	// answer from another machine.
-	listener, err := net.Listen("tcp", "127.0.0.1:0")
-	if err != nil {
-		return nil, fmt.Errorf("the receiver of the consent could not listen on 127.0.0.1: %w", err)
-	}
-	host := "127.0.0.1:" + strconv.Itoa(listener.Addr().(*net.TCPAddr).Port)
 	timeout := s.consentTimeout
 	if timeout <= 0 {
 		timeout = ConsentTimeout
@@ -244,16 +269,30 @@ func (s *Service) StartConsent(ctx context.Context, proof AdminProof, credential
 	c := &Consent{
 		svc: s, cfg: cfg, credential: credential, entry: entry, oauth: oauth, secrets: secrets,
 		scopes: scopes, connections: connections, state: state, verifier: verifier,
-		host: host, redirect: "http://" + host + consentPath, deadline: time.Now().Add(timeout),
-		answers: make(chan consentAnswer, 1),
+		deadline: time.Now().Add(timeout), answers: make(chan consentAnswer, 1),
 	}
+	var listener net.Listener
+	if ret != nil {
+		u, _ := url.Parse(ret.Redirect)
+		c.host, c.path, c.holds = u.Host, u.Path, ret.Holds
+	} else {
+		// Only 127.0.0.1 is ever bound: localhost may resolve elsewhere, and any other interface would take an
+		// answer from another machine.
+		if listener, err = net.Listen("tcp", "127.0.0.1:0"); err != nil {
+			return nil, fmt.Errorf("the receiver of the consent could not listen on 127.0.0.1: %w", err)
+		}
+		c.host, c.path = "127.0.0.1:"+strconv.Itoa(listener.Addr().(*net.TCPAddr).Port), consentPath
+	}
+	c.redirect = "http://" + c.host + c.path
 	c.link = oauth.AuthorizationURL(secrets.ClientID, c.redirect, scopes, state, challenge)
-	c.server = &http.Server{
-		Handler: http.HandlerFunc(c.receive), ReadHeaderTimeout: 10 * time.Second, MaxHeaderBytes: maxAnswerBytes,
-		// The server's own log could carry a request line, and with it an authorization code.
-		ErrorLog: log.New(io.Discard, "", 0),
+	if listener != nil {
+		c.server = &http.Server{
+			Handler: http.HandlerFunc(c.receive), ReadHeaderTimeout: 10 * time.Second, MaxHeaderBytes: maxAnswerBytes,
+			// The server's own log could carry a request line, and with it an authorization code.
+			ErrorLog: log.New(io.Discard, "", 0),
+		}
+		go func() { _ = c.server.Serve(listener) }()
 	}
-	go func() { _ = c.server.Serve(listener) }()
 	return c, nil
 }
 
@@ -272,16 +311,26 @@ func (c *Consent) Paste(raw string) error {
 		return ErrNotRedirect
 	}
 	u, err := url.Parse(raw)
-	if err != nil || u.Scheme != "http" || u.Host != c.host || u.Path != consentPath || u.User != nil ||
+	if err != nil || u.Scheme != "http" || u.Host != c.host || u.Path != c.path || u.User != nil ||
 		u.Opaque != "" {
 		return ErrNotRedirect
 	}
 	return c.take(u.Query())
 }
 
-// receive is the receiver on the loopback address. Against DNS rebinding it takes only a GET of the fixed
-// path whose Host is exactly the redirect address; anything else is refused without using up the consent.
-// No answer page holds a code, a token or a script.
+// Answer takes the request the provider sent the browser back with. Against DNS rebinding only a GET of the
+// path of the redirect address whose Host is exactly that of the redirect address is taken; anything else
+// returns ErrNotRedirect. Otherwise it is take: ErrOtherConsent or ErrConsentEnded, or nil when the answer
+// was taken. Nothing but a taken answer uses up the consent.
+func (c *Consent) Answer(r *http.Request) error {
+	if r.Method != http.MethodGet || r.Host != c.host || r.URL.Path != c.path {
+		return ErrNotRedirect
+	}
+	return c.take(r.URL.Query())
+}
+
+// receive is the own receiver of StartConsent. It answers what Answer refuses with its own status. No answer
+// page holds a code, a token or a script.
 func (c *Consent) receive(w http.ResponseWriter, r *http.Request) {
 	h := w.Header()
 	h.Set("Content-Type", "text/plain; charset=utf-8")
@@ -289,7 +338,7 @@ func (c *Consent) receive(w http.ResponseWriter, r *http.Request) {
 	h.Set("Referrer-Policy", "no-referrer")
 	h.Set("X-Content-Type-Options", "nosniff")
 	h.Set("Content-Security-Policy", "default-src 'none'")
-	if r.Host != c.host || r.URL.Path != consentPath {
+	if r.Host != c.host || r.URL.Path != c.path {
 		http.Error(w, "not found", http.StatusNotFound)
 		return
 	}
@@ -298,7 +347,7 @@ func (c *Consent) receive(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "only GET is accepted", http.StatusMethodNotAllowed)
 		return
 	}
-	switch err := c.take(r.URL.Query()); {
+	switch err := c.Answer(r); {
 	case err == nil:
 		_, _ = io.WriteString(w, "qconnect received the answer. Return to the terminal; you can close this page.\n")
 	case errors.Is(err, ErrConsentEnded):
@@ -344,6 +393,9 @@ func (c *Consent) end() {
 // Close stops the receiver and discards the consent; nothing is stored. It may be called more than once.
 func (c *Consent) Close() {
 	c.end()
+	if c.server == nil {
+		return
+	}
 	c.closeOnce.Do(func() {
 		ctx, cancel := context.WithTimeout(context.Background(), receiverShutdown)
 		defer cancel()
@@ -355,9 +407,10 @@ func (c *Consent) Close() {
 
 // Wait waits for the first answer the receiver or Paste takes, until the deadline or until ctx ends, and
 // then redeems the code with the verifier and the redirect address and stores the refresh token through the
-// write completion of SetSecret. A deadline, a cancellation, a refusal by the provider and an answer without
-// a refresh token store nothing and return a *ConsentError; a refused exchange returns the *provider.Error
-// of the token endpoint. The consent is spent afterwards.
+// write completion of SetSecret. A deadline, a cancellation, a refusal by the provider, an admin proof that
+// no longer holds (see ConsentReturn.Holds) and an answer without a refresh token store nothing and return a
+// *ConsentError; a refused exchange returns the *provider.Error of the token endpoint. The consent is spent
+// afterwards.
 func (c *Consent) Wait(ctx context.Context) (ConsentOutcome, error) {
 	defer c.Close()
 	timer := time.NewTimer(time.Until(c.deadline))
@@ -381,6 +434,9 @@ func (c *Consent) Wait(ctx context.Context) (ConsentOutcome, error) {
 	if got.reason != "" {
 		return ConsentOutcome{}, c.fail(got.reason)
 	}
+	if c.holds != nil && !c.holds() {
+		return ConsentOutcome{}, c.fail(ConsentAdminEnded)
+	}
 
 	token, err := c.oauth.Exchange(ctx, c.secrets, got.code, c.verifier, c.redirect)
 	c.svc.register(token.Access, token.Refresh)
@@ -395,6 +451,10 @@ func (c *Consent) Wait(ctx context.Context) (ConsentOutcome, error) {
 	}
 	if ctx.Err() != nil {
 		return ConsentOutcome{}, c.fail(ConsentCancelled)
+	}
+	// The exchange can take long enough for the approval to end in between.
+	if c.holds != nil && !c.holds() {
+		return ConsentOutcome{}, c.fail(ConsentAdminEnded)
 	}
 	out := ConsentOutcome{Connections: c.connections}
 	if token.Scopes != nil {

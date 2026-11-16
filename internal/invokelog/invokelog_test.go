@@ -577,6 +577,31 @@ func TestValidateConnectionChangeEntries(t *testing.T) {
 	}
 }
 
+func TestValidateConsentEntries(t *testing.T) {
+	const id = "0123456789abcdef0123456789abcdef"
+	entry := func(path, operation, effect string) Fields {
+		return Fields{Path: path, Operation: operation, Connection: "wiki", ConnectionID: id, Effect: effect, Result: "success"}
+	}
+	for _, path := range []string{"cli", "web"} {
+		for operation, effect := range consentOperations {
+			if err := entry(path, operation, effect).Validate(); err != nil {
+				t.Errorf("%s %s: Validate() = %v", path, operation, err)
+			}
+		}
+	}
+	bad := map[string]Fields{
+		"tui grant":           entry("tui", OperationConsentGrant, "update"),
+		"web grant as delete": entry("web", OperationConsentGrant, "delete"),
+		"web without connection": {Path: "web", Operation: OperationConsentRevoke, Effect: "delete",
+			Result: RevokeUnconfirmed},
+	}
+	for name, f := range bad {
+		if err := f.Validate(); err == nil {
+			t.Errorf("%s: Validate() = nil, want an error", name)
+		}
+	}
+}
+
 func TestSignedConnectionEntriesVerify(t *testing.T) {
 	dir := t.TempDir()
 	key, _ := testKey(t)
