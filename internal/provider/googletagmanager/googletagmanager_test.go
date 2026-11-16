@@ -138,7 +138,8 @@ func resolve(t *testing.T, target, clientVariable string) *config.Resolved {
 	cfg.Services = map[string]config.Service{"gtm": {Provider: Provider}}
 	cfg.Credentials = map[string]config.Credential{"cred": {Provider: Provider, Type: config.CredentialTypeEnv,
 		Values: map[string]string{config.RoleClientID: clientVariable, config.RoleRefreshToken: "GTM_TEST_REFRESH"}}}
-	cfg.Connections = map[string]config.Connection{"conn": {Service: "gtm", Credential: "cred", Target: target}}
+	cfg.Connections = map[string]config.Connection{"conn": {Service: "gtm", Credential: "cred", Target: target,
+		Tools: allToolIDs()}}
 	resolved, err := cfg.Resolve("conn", "")
 	if err != nil {
 		t.Fatal(err)
@@ -204,14 +205,17 @@ func TestRegisterDeclaresTokenScopesAndTargets(t *testing.T) {
 		t.Fatal(err)
 	}
 	metadata, ok := reg.ProviderMetadata(Provider)
-	if !ok || metadata.Token == nil || len(reg.Provider(Provider)) != 6 || metadata.DocPath() != "google.tag-manager.md" {
+	if !ok || metadata.Token == nil || len(reg.Provider(Provider)) != 12 || metadata.DocPath() != "google.tag-manager.md" {
 		t.Fatalf("metadata = %+v, %v", metadata, ok)
 	}
 	for _, d := range reg.Provider(Provider) {
+		if d.Risk.Effect != capability.EffectRead {
+			continue
+		}
 		if scopes := metadata.Token.Scopes[d.ID]; len(scopes) != 1 || scopes[0] != readonlyScope {
 			t.Errorf("%s scopes = %v, want only %s", d.ID, scopes, readonlyScope)
 		}
-		if d.Risk.Effect != capability.EffectRead || d.Risk.Idempotency != capability.IdempotencySafe ||
+		if d.Risk.Idempotency != capability.IdempotencySafe ||
 			d.Risk.Confirmation != capability.ConfirmationNone || !d.Risk.OpenWorld || d.Risk.DataSensitivity == "" {
 			t.Errorf("%s risk = %+v", d.ID, d.Risk)
 		}
@@ -636,4 +640,13 @@ func TestTokenNeverReachesURLOrMessage(t *testing.T) {
 	if got := h.red.Apply(testAccess + " " + testRefresh); strings.Contains(got, testAccess) || strings.Contains(got, testRefresh) {
 		t.Errorf("redactor leaves a token: %s", got)
 	}
+}
+
+// allToolIDs is the tools list of the test connection: it offers every tool, the listed-only ones included.
+func allToolIDs() []string {
+	var ids []string
+	for _, d := range descriptors() {
+		ids = append(ids, d.ID)
+	}
+	return ids
 }

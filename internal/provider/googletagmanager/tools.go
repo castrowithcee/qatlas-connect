@@ -14,15 +14,22 @@ import (
 	"github.com/castrowithcee/qatlas-kit/redact"
 )
 
-// readonlyScope is the scope of every tool of this provider so far. Google also offers edit.containers,
-// edit.containerversions, publish, delete.containers, manage.accounts, and manage.users; a connection asks
-// only for those its tools need.
-const readonlyScope = "https://www.googleapis.com/auth/tagmanager.readonly"
+// The scopes of the tools. The discovery document names for each method the scopes that allow it: a read
+// takes readonly or edit.containers, and the smaller one is asked for; a change takes edit.containers.
+// Google also offers edit.containerversions, publish, delete.containers, manage.accounts, and manage.users;
+// a connection asks only for those its tools need.
+const (
+	readonlyScope = "https://www.googleapis.com/auth/tagmanager.readonly"
+	editScope     = "https://www.googleapis.com/auth/tagmanager.edit.containers"
+)
 
 func toolScopes() map[string][]string {
 	scopes := map[string][]string{}
 	for _, d := range descriptors() {
 		scopes[d.ID] = []string{readonlyScope}
+		if d.Risk.Effect != capability.EffectRead {
+			scopes[d.ID] = []string{editScope}
+		}
 	}
 	return scopes
 }
@@ -111,7 +118,8 @@ var workspaceFields = []capability.Field{
 }
 
 func descriptors() []capability.Descriptor {
-	return []capability.Descriptor{accountsList, accountsGet, containersList, containersGet, workspacesList, workspacesGet}
+	return append([]capability.Descriptor{accountsList, accountsGet, containersList, containersGet, workspacesList,
+		workspacesGet}, tagDescriptors()...)
 }
 
 var accountsList = capability.Descriptor{
@@ -203,8 +211,11 @@ type toolArguments struct {
 	Account           string `json:"account"`
 	Container         string `json:"container"`
 	Workspace         string `json:"workspace"`
+	Tag               string `json:"tag"`
+	Fingerprint       string `json:"fingerprint"`
 	Cursor            string `json:"cursor"`
 	IncludeGoogleTags bool   `json:"include_google_tags"`
+	tagBody
 }
 
 // call is one handler run: the checked target and arguments, and later the client. Every path is settled
