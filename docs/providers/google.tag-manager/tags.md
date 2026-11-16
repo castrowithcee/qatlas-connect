@@ -10,7 +10,7 @@ updated: 2026-11-16
 # Google Tag Manager: tags
 
 The tag tools of the [Google Tag Manager provider](README.md). The update, revert, parameter, and never-cut
-rules shared with triggers are described there.
+rules shared with triggers and variables are described there.
 
 A tag of type `html` (Custom HTML) or `img` (Custom Image) runs code or calls the network on the pages of the
 container once a published version holds it, which is why every change is confirmed.
