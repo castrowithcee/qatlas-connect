@@ -306,3 +306,42 @@ func TestViewsForbiddenNamesNoProviderText(t *testing.T) {
 		t.Errorf("err = %v", err)
 	}
 }
+
+// Older Twenty versions answer the complete list as a bare array without paging.
+func TestViewsListReadsTheBareArrayOfOlderTwenty(t *testing.T) {
+	const idA, idB, idC = viewID, viewUnlisted, "11111111-0000-4000-8000-0000000000a9"
+	legacy := `[` + viewJSON(idC, "WORKSPACE", "TABLE") + `,` + viewJSON(idB, "UNLISTED", "TABLE") + `,` +
+		viewJSON(idA, "WORKSPACE", "TABLE") + `]`
+	calls := serveViews(t, legacy)
+
+	out, err := invoke(t, "list", `{"limit":2}`)
+	var page ViewList
+	if err != nil || json.Unmarshal([]byte(out), &page) != nil || len(page.Views) != 1 || page.Views[0].ID != idA ||
+		!page.HasMore || page.NextCursor == "" || strings.Contains(out, idB) {
+		t.Fatalf("first page = %s, %v", out, err)
+	}
+	// The request keeps the filter and sends no cursor of its own: the old endpoint does not page.
+	if last := (*calls)[len(*calls)-1]; last.Query != "limit=2" {
+		t.Errorf("request = %+v", last)
+	}
+
+	out, err = invoke(t, "list", `{"limit":2,"cursor":"`+page.NextCursor+`"}`)
+	page = ViewList{}
+	if err != nil || json.Unmarshal([]byte(out), &page) != nil || len(page.Views) != 1 || page.Views[0].ID != idC ||
+		page.HasMore || page.NextCursor != "" {
+		t.Fatalf("last page = %s, %v", out, err)
+	}
+
+	serveViews(t, `[]`)
+	out, err = invoke(t, "list", `{}`)
+	if err != nil || !strings.Contains(out, `"views":[]`) || strings.Contains(out, "next_cursor") || !strings.Contains(out, `"has_more":false`) {
+		t.Errorf("empty = %s, %v", out, err)
+	}
+
+	for _, body := range []string{`"text"`, `[{"name":"no id"}]`, `[1]`} {
+		serveViews(t, body)
+		if _, err := invoke(t, "list", `{}`); classOf(err) != provider.ClassInvalidResponse {
+			t.Errorf("%s err = %v", body, err)
+		}
+	}
+}
