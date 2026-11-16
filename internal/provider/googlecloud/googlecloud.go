@@ -4,7 +4,8 @@
 // from the tools it offers (see scopes.go).
 //
 // The package starts with Cloud Resource Manager: the search of organizations, folders, and projects, one
-// project, and the state of a long-running operation. Every
+// project, and the state of a long-running operation. It then reads IAM: roles, and the roles and permissions
+// of a resource. Every
 // request goes to a fixed origin of the service table, with the access token in the Authorization header only,
 // once, within a bounded size and time, and spaced per credential.
 //
@@ -84,7 +85,7 @@ func Register(reg *capability.Registry) error {
 	token := tokenMetadata
 	if err := reg.RegisterProvider(config.ProviderMetadata{
 		ID: Provider, Name: "Google Cloud", DefaultBaseURL: apiRoot,
-		Description:    "Projects, folders, organizations, and long-running operations of Google Cloud, searched and read with a consent, a service account key, or an impersonated service account",
+		Description:    "Projects, folders, organizations, long-running operations, and IAM roles of Google Cloud, searched and read with a consent, a service account key, or an impersonated service account",
 		DefaultEffects: []config.Effect{config.EffectRead},
 		ValidateBaseURL: func(raw string) error {
 			if !isAPIRoot(raw) {
@@ -97,9 +98,10 @@ func Register(reg *capability.Registry) error {
 		Target:      targetMetadata,
 		Profiles: []config.ToolProfile{{
 			ID: "read", Title: "Read", Recommended: true,
-			Description: "searches organizations, folders, and projects and reads projects and the state of " +
-				"long-running operations from Google Cloud Resource Manager and changes nothing",
-			Tools: []string{organizationsSearch.ID, foldersSearch.ID, projectsSearch.ID, projectsGet.ID, operationsGet.ID},
+			Description: "searches organizations, folders, and projects, reads projects, the state of long-running " +
+				"operations, IAM roles, and the roles and permissions of a resource from Google Cloud and changes nothing",
+			Tools: []string{organizationsSearch.ID, foldersSearch.ID, projectsSearch.ID, projectsGet.ID, operationsGet.ID,
+				iamRolesList.ID, iamRolesGet.ID, iamRolesQuery.ID, iamPermissionsQuery.ID},
 		}},
 	}, TestConnection); err != nil {
 		return err
@@ -114,5 +116,9 @@ func Register(reg *capability.Registry) error {
 		capability.Operation{Descriptor: foldersSearch, Handler: handleFoldersSearch},
 		capability.Operation{Descriptor: projectsSearch, Handler: handleProjectsSearch},
 		capability.Operation{Descriptor: projectsGet, Handler: handleProjectsGet},
-		capability.Operation{Descriptor: operationsGet, Handler: handleOperationsGet})
+		capability.Operation{Descriptor: operationsGet, Handler: handleOperationsGet},
+		capability.Operation{Descriptor: iamRolesList, Handler: handleIAMRolesList},
+		capability.Operation{Descriptor: iamRolesGet, Handler: handleIAMRolesGet},
+		capability.Operation{Descriptor: iamRolesQuery, Handler: handleIAMRolesQuery},
+		capability.Operation{Descriptor: iamPermissionsQuery, Handler: handleIAMPermissionsQuery})
 }
