@@ -78,6 +78,46 @@ func checkSitemap(name, value string) error {
 	return checkAddress(name, value)
 }
 
+// checkFeedpath checks the sitemap address of a changing tool and that it lies under the property, so a
+// connection cannot be used to register a sitemap of another site. The address is never fetched. A URL
+// prefix is compared by scheme and host without regard to case and by path character by character; a domain
+// property covers its domain and every subdomain, with either scheme.
+func checkFeedpath(property, feedpath string) error {
+	if err := checkSitemap("feedpath", feedpath); err != nil {
+		return err
+	}
+	if underProperty(property, feedpath) {
+		return nil
+	}
+	return badRequest("feedpath lies outside the property")
+}
+
+// underProperty reports whether a checked absolute address lies under a checked property.
+func underProperty(property, address string) bool {
+	if domain, ok := strings.CutPrefix(property, domainPrefix); ok {
+		parsed, err := url.Parse(address)
+		if err != nil {
+			return false
+		}
+		host, domain := strings.ToLower(parsed.Hostname()), strings.ToLower(domain)
+		return host == domain || strings.HasSuffix(host, "."+domain)
+	}
+	propertyScheme, propertyRest, _ := strings.Cut(property, "://")
+	scheme, rest, _ := strings.Cut(address, "://")
+	propertyHost, propertyPath := splitHost(propertyRest)
+	host, path := splitHost(rest)
+	return strings.EqualFold(scheme, propertyScheme) && strings.EqualFold(host, propertyHost) &&
+		strings.HasPrefix(path, propertyPath)
+}
+
+// splitHost splits the text after "://" into the host (with a port) and the rest from the first slash.
+func splitHost(rest string) (host, path string) {
+	if i := strings.IndexByte(rest, '/'); i >= 0 {
+		return rest[:i], rest[i:]
+	}
+	return rest, ""
+}
+
 // validDomain reports whether domain is a DNS name of at least two labels of letters, digits, and inner
 // hyphens. A punycode name (xn--) passes; a name in another script must be given as punycode.
 func validDomain(domain string) bool {

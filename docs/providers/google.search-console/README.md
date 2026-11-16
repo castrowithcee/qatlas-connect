@@ -1,6 +1,6 @@
 ---
 description: >
-  Describes the Google Search Console provider: the token credential and its procedures, the scope of each tool, the fixed API origin, the optional property target and how it is proven, the read profile, quotas and rate spacing including the search-analytics query, result bounds, the connection test, error classes, and the limits of what is verified.
+  Describes the Google Search Console provider: the token credential and its procedures, the scope of each tool, the fixed API origin, the optional property target and how it is proven, the profiles, quotas and rate spacing including the search-analytics query, result bounds, the connection test, error classes, and the limits of what is verified.
 type: knowledge
 edit: shared
 created: 2026-11-16
@@ -10,7 +10,8 @@ updated: 2026-11-16
 # Google Search Console
 
 Google Search Console is a provider for the Search Console API: the properties an account can see and the
-sitemaps of a property, and its search traffic. Every tool is a read. [Set up Google Search Console](setup.md) leads through the
+sitemaps of a property, its search traffic, and the adding and removing of properties and sitemaps. Only the
+four tools that add or remove something change data; every other tool is a read. [Set up Google Search Console](setup.md) leads through the
 Google side and the consent. The tools are described per group in [sites](sites.md),
 [sitemaps](sitemaps.md), and [search analytics](search-analytics.md).
 
@@ -32,12 +33,15 @@ procedure:
 A credential with both a client ID and a key, or neither, is unusable. Access tokens stay in memory, travel
 only in the `Authorization` header, and are masked in every output; no tool returns a token.
 
-Each tool needs the scope `https://www.googleapis.com/auth/webmasters.readonly`. A connection asks only for the
+The reading tools need the scope `https://www.googleapis.com/auth/webmasters.readonly`. The four changing
+tools need `https://www.googleapis.com/auth/webmasters`, because the read scope does not suffice for them. A connection asks only for the
 scopes of the tools it offers, and a consent asks for those of every connection of the credential. A token
 without the scope ends the tool as `scope-missing` before Google is contacted; a new consent adds it. A
 credential serves this provider only, so its token never carries scopes of another Google product.
 
-The profile `read` is the recommended one and holds every tool.
+The profile `read` is the recommended one and holds every reading tool. The profile `edit` holds those and
+the four changing tools. A connection offers a changing tool only when its effects include `create` or
+`delete`, and every call of one needs its own confirmation.
 
 ## Target
 
@@ -108,7 +112,7 @@ reason of each detail. The answers of the token endpoints keep only their status
 | Answer | Class |
 | --- | --- |
 | 400 | `invalid-provider-response`: Qatlas checked the request, so the API may have changed |
-| 401 | `auth`, after the token was renewed once and the read was sent once more |
+| 401 | `auth`, after the token was renewed once and the read was sent once more; a changing tool is never sent twice, so it ends at the first 401 and the next call renews the token |
 | 403 | `permission` |
 | 404 | `not-found` |
 | 429 | `rate-limited` |
@@ -117,6 +121,8 @@ reason of each detail. The answers of the token endpoints keep only their status
 | Any other status | `provider-error` |
 
 A redirect is never followed. An unreadable, oversized, or non-JSON answer is `invalid-provider-response`.
+The changing tools get an empty answer from Google, with any 2xx status and with or without a content type;
+that is success, and so is an empty JSON object. Any other body is `invalid-provider-response`.
 Beyond the status, only `CREDENTIALS_MISSING` or `UNAUTHENTICATED` with 401, `PERMISSION_DENIED` with 403, and
 `RATE_LIMIT_EXCEEDED` or `RESOURCE_EXHAUSTED` with 429 are read; no other reason chooses a class.
 
@@ -126,6 +132,11 @@ The provider reaches only the fixed origin and the fixed method of each tool. It
 method, path, header, query, or body, and none of Google's global request parameters such as `fields`.
 
 Not verified:
+
+- Whether Google answers a repeated delete with success or `404`. A `404` of a delete is mapped to
+  `not-found`; that mapping was not observed live.
+- Which permission level the changing methods need: Google's reference names only the scope. A refusal
+  answers `403`, mapped to `permission`; that was not observed live.
 
 - No live call was made. Methods, parameters, and answers are taken from the discovery document of the
   Search Console API v1, revision 20261115.
@@ -139,4 +150,3 @@ Not verified:
 Left out on purpose:
 
 - The deprecated `indexed` count of a sitemap's contents.
-- The changing methods of sites and sitemaps.
