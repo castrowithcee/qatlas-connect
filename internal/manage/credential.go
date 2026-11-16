@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/castrowithcee/qatlas-connect/internal/config"
+	"github.com/castrowithcee/qatlas-connect/internal/invokelog"
 	"github.com/castrowithcee/qatlas-connect/internal/secret"
 	"github.com/castrowithcee/qatlas-connect/internal/vault"
 	"github.com/castrowithcee/qatlas-connect/internal/vaultproc"
@@ -127,6 +128,9 @@ type SecretOutcome struct {
 	Approval ApprovalResult
 	// Cleared lists the stores a keyring removal cleared.
 	Cleared []secret.Source
+	// Revocation is what revoking the consent did before its refresh token was removed (see DeleteSecret),
+	// nil for any other removal.
+	Revocation *Revocation
 }
 
 // SetSecret stores one secret of an existing credential, in the vault when w.Entry is a vault credential
@@ -165,6 +169,11 @@ func (s *Service) SetSecret(ctx context.Context, cfg *config.Config, w SecretWri
 // credential and otherwise from every place the system keyring keeps one, with the checks, the hand-over
 // to a vault process and the approvals of SetSecret. w.Value and w.Offer are not used. Errors are the
 // typed ones above or the store's own, secret.ErrNoEntry among them.
+//
+// The refresh token of a credential that holds a consent (see HoldsConsent) is first revoked at the
+// provider and then removed, whether the provider confirmed the revocation or not; Revocation says which,
+// and each connection of the credential gets an entry in the connection log. A refresh token that cannot be
+// read is not removed.
 func (s *Service) DeleteSecret(ctx context.Context, cfg *config.Config, w SecretWrite) (SecretOutcome, error) {
 	var out SecretOutcome
 	if err := checkEntry(cfg, w.Name, w.Entry, w.Role); err != nil {
@@ -173,20 +182,47 @@ func (s *Service) DeleteSecret(ctx context.Context, cfg *config.Config, w Secret
 	if s.secrets == nil {
 		return out, errNoSecretStore
 	}
+	if w.Role == config.RoleRefreshToken && entryHoldsConsent(cfg, w.Entry) {
+		revocation, err := s.revokeStored(ctx, w.Name, w.Entry)
+		if err != nil {
+			return out, err
+		}
+		out.Revocation = revocation
+	}
+	err := s.deleteSecret(ctx, cfg, w, &out)
+	switch {
+	case err != nil && out.Revocation != nil && out.Revocation.Confirmed:
+		return out, fmt.Errorf("the provider confirmed the revocation of the consent, but the refresh token "+
+			"could not be removed here: %w", err)
+	case err != nil:
+		return out, err
+	case out.Revocation != nil:
+		result := "success"
+		if !out.Revocation.Confirmed {
+			result = invokelog.RevokeUnconfirmed
+		}
+		connections, _ := consentScopes(cfg, w.Name)
+		out.Revocation.LogWarning = s.recordConsent(cfg, connections, invokelog.OperationConsentRevoke, result)
+	}
+	return out, nil
+}
+
+// deleteSecret is the removal of DeleteSecret once its checks passed.
+func (s *Service) deleteSecret(ctx context.Context, cfg *config.Config, w SecretWrite, out *SecretOutcome) error {
 	if w.Entry.Type != config.CredentialTypeVault {
 		cleared, err := s.secrets.Delete(w.Name, w.Role)
 		out.Cleared = cleared
-		return out, err
+		return err
 	}
 	before := s.snapshotFor(cfg, w.Approval)
 	if err := s.secrets.DeleteVault(w.Name, w.Role); err != nil {
-		return out, err
+		return err
 	}
 	out.ProcessWarning = s.SyncVaultProcess(ctx, func(ctx context.Context, client *vaultproc.Client) error {
 		return client.Delete(ctx, w.Name, w.Role)
 	})
 	out.Approval = ApproveAfterChange(ctx, s.vault(), before, cfg, "", w.Approval)
-	return out, nil
+	return nil
 }
 
 // snapshotFor captures the approvals before a vault change, for the one policy that compares with them.

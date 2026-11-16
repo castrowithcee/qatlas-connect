@@ -216,6 +216,9 @@ type writtenMsg struct {
 	err         error
 	vault       bool
 	procWarning string
+	// revocation is the core's note on revoking the consent before its refresh token was removed, "" for
+	// any other write.
+	revocation string
 	// approval is what approving after a vault write or removal did (see manage.SecretWrite.Approval); its
 	// zero value for a keyring write, which changes no vault credential entry and so opens nothing.
 	approval manage.ApprovalResult
@@ -315,13 +318,20 @@ func (m *Model) handleWritten(msg writtenMsg) tea.Cmd {
 		if msg.procWarning != "" {
 			m.status += "; " + msg.procWarning
 		}
+		m.addWarning(msg.revocation)
 		// Storing or removing a vault secret can change the credential entry a connection's fingerprint
 		// is checked against (see vault.Fingerprint), which can open it; the write approved whatever it
 		// newly opened, the same way a form save does (see autoApprove).
 		m.status += approvalNote(msg.approval, m.redactor)
-	} else if note := approvalNote(msg.approval, m.redactor); note != "" {
-		// An approval is never silent: with a failure already on screen the note joins it.
-		m.fail += note
+	} else {
+		if msg.revocation != "" {
+			// A revocation the provider may not have taken is never hidden behind another failure.
+			m.fail += "; " + msg.revocation
+		}
+		if note := approvalNote(msg.approval, m.redactor); note != "" {
+			// An approval is never silent: with a failure already on screen the note joins it.
+			m.fail += note
+		}
 	}
 	if msg.vault {
 		// A vault role is never asked about here: its state comes from vaultRoleState, a synchronous local
@@ -432,7 +442,7 @@ func (m *Model) removeSecret(credential, role string) tea.Cmd {
 		out, err := svc.DeleteSecret(context.Background(), cfg, manage.SecretWrite{
 			Name: credential, Entry: entry, Role: role,
 		})
-		msg.err = err
+		msg.err, msg.revocation = err, revocationNote(out.Revocation, err)
 		if err == nil {
 			msg.done = tr(tSecretRemovedFromThe, credential, role, joinSources(out.Cleared))
 		}
@@ -615,7 +625,8 @@ func (m *Model) removeVaultSecret(credential, role string) tea.Cmd {
 		out, err := svc.DeleteSecret(context.Background(), cfg, manage.SecretWrite{
 			Name: credential, Entry: entry, Role: role, Approval: policy,
 		})
-		msg := writtenMsg{credential: credential, role: role, vault: true, err: err}
+		msg := writtenMsg{credential: credential, role: role, vault: true, err: err,
+			revocation: revocationNote(out.Revocation, err)}
 		if err == nil {
 			msg.done = tr(tSecretRemovedFromTheVault, credential, role)
 			msg.procWarning, msg.approval = out.ProcessWarning, out.Approval
@@ -959,4 +970,17 @@ func (m *Model) secretRowKey(role string, key tea.KeyPressMsg) tea.Cmd {
 		m.clearMessages()
 	}
 	return nil
+}
+
+// revocationNote is the core's note on the revocation that preceded the removal of a refresh token. A failed
+// removal carries the confirmation in its error already, so only a warning is added then.
+func revocationNote(r *manage.Revocation, err error) string {
+	if r == nil || err != nil && r.Confirmed {
+		return ""
+	}
+	note := r.Note()
+	if r.LogWarning != "" {
+		note += "; " + r.LogWarning
+	}
+	return note
 }

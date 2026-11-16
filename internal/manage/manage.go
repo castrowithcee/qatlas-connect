@@ -13,6 +13,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/castrowithcee/qatlas-connect/internal/config"
 	"github.com/castrowithcee/qatlas-connect/internal/connlog"
@@ -48,6 +49,9 @@ type Service struct {
 	redactor  *redact.Redactor
 	processOK bool
 	targets   TargetSource
+	consent   ConsentSource
+	// consentTimeout is how long a consent start waits; zero is ConsentTimeout.
+	consentTimeout time.Duration
 	// explicitConfig is the --config value, empty where the configuration is resolved from the default
 	// location; it decides which vault directories EndEarlierProcesses covers.
 	explicitConfig string

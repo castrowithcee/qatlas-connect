@@ -2,6 +2,7 @@ package vault
 
 import (
 	"bufio"
+	"context"
 	"fmt"
 	"os"
 	"runtime"
@@ -34,6 +35,51 @@ func ReadPassphrase(prompt string) (string, error) {
 		return "", ErrNoTerminal
 	}
 	return string(passphrase), nil
+}
+
+// ReadHidden prompts on the controlling terminal and reads one line back without echoing it, like
+// ReadPassphrase, but gives up when ctx ends: the terminal gets its echo back at once and ReadHidden returns
+// ctx.Err(), while the read it leaves behind ends with the process. It is for a secret typed while something
+// else may answer first. It reports ErrNoTerminal like ReadPassphrase.
+func ReadHidden(ctx context.Context, prompt string) (string, error) {
+	in, out, closeTTY, err := openTTY()
+	if err != nil {
+		return "", ErrNoTerminal
+	}
+	fd := int(in.Fd())
+	state, err := term.GetState(fd)
+	if err != nil {
+		closeTTY()
+		return "", ErrNoTerminal
+	}
+	if _, err := fmt.Fprint(out, prompt); err != nil {
+		closeTTY()
+		return "", ErrNoTerminal
+	}
+	type line struct {
+		text []byte
+		err  error
+	}
+	read := make(chan line, 1)
+	go func() {
+		text, err := term.ReadPassword(fd)
+		read <- line{text, err}
+	}()
+	select {
+	case got := <-read:
+		fmt.Fprintln(out)
+		closeTTY()
+		if got.err != nil {
+			return "", ErrNoTerminal
+		}
+		return string(got.text), nil
+	case <-ctx.Done():
+		// The terminal stays open for the read still waiting on it; closing it under that read could hand its
+		// descriptor to another file.
+		_ = term.Restore(fd, state)
+		fmt.Fprintln(out)
+		return "", ctx.Err()
+	}
 }
 
 // ReadConfirm asks a yes-or-no question on the controlling terminal and reads a plain, visible line back. It
