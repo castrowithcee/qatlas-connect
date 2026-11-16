@@ -33,10 +33,11 @@ func unsure(failed *provider.Error) *provider.Error {
 	return failed
 }
 
-// change sends the one request of a mutation and decodes the JSON object answer into out. The access token
-// travels only in the Authorization header. A change is never sent twice: a 401 only drops the cached token
-// (provider.TokenSource.Mutate), a 429 holds the next request of this credential. A transport failure, a 5xx
-// answer and an answer that cannot be read leave the outcome unknown and are reported as such.
+// change sends the one request of a mutation and decodes the JSON object answer into out; with a nil out only
+// the status counts. The access token travels only in the Authorization header. A change is never sent twice:
+// a 401 only drops the cached token (provider.TokenSource.Mutate), a 429 holds the next request of this
+// credential. A transport failure, a 5xx answer and an answer that cannot be read leave the outcome unknown
+// and are reported as such.
 func (c *client) change(ctx context.Context, call changeCall, out any) error {
 	target := adminRoot + call.path
 	if len(call.query) > 0 {
@@ -81,6 +82,10 @@ func (c *client) change(ctx context.Context, call changeCall, out any) error {
 			unsure(mapped)
 		}
 		return mapped
+	}
+	if out == nil {
+		_, _ = io.Copy(io.Discard, io.LimitReader(response.Body, 1<<10))
+		return nil
 	}
 	if mediaType, _, err := mime.ParseMediaType(response.Header.Get("Content-Type")); err != nil ||
 		mediaType != "application/json" {

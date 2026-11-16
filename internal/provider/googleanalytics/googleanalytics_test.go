@@ -52,8 +52,8 @@ func decodeSummaries(t *testing.T, result string) summariesOut {
 }
 
 // toolEffects is the effect of each tool of the provider; a tool that is not listed reads.
-var toolEffects = map[string]config.Effect{propertiesCreateID: config.EffectCreate, propertiesUpdateID: config.EffectUpdate,
-	propertiesDeleteID: config.EffectDelete}
+var toolEffects = map[string]config.Effect{accountsUpdateID: config.EffectUpdate, accountsDeleteID: config.EffectDelete,
+	propertiesCreateID: config.EffectCreate, propertiesUpdateID: config.EffectUpdate, propertiesDeleteID: config.EffectDelete}
 
 func effectOf(id string) config.Effect {
 	if effect, ok := toolEffects[id]; ok {
@@ -72,7 +72,9 @@ func TestRegisterPublishesMetadataScopesAndConsent(t *testing.T) {
 	}
 	if !reflect.DeepEqual(metadata.Token.Scopes, map[string][]string{summariesID: {scopeReadOnly},
 		accountsID: {scopeReadOnly}, propertiesListID: {scopeReadOnly}, propertiesGetID: {scopeReadOnly},
-		propertiesCreateID: {scopeEdit}, propertiesUpdateID: {scopeEdit}, propertiesDeleteID: {scopeEdit}}) {
+		accountsGetID: {scopeReadOnly}, accountsSharingID: {scopeReadOnly}, accountsUpdateID: {scopeEdit},
+		accountsDeleteID: {scopeEdit}, propertiesCreateID: {scopeEdit}, propertiesUpdateID: {scopeEdit},
+		propertiesDeleteID: {scopeEdit}}) {
 		t.Errorf("scopes = %v", metadata.Token.Scopes)
 	}
 	ids := []string{}
@@ -83,16 +85,19 @@ func TestRegisterPublishesMetadataScopesAndConsent(t *testing.T) {
 		ids = append(ids, tool.ID)
 	}
 	slices.Sort(ids)
-	if !slices.Equal(ids, []string{"google.analytics.accounts.list", "google.analytics.accounts.list-summaries",
+	if !slices.Equal(ids, []string{"google.analytics.accounts.delete", "google.analytics.accounts.get",
+		"google.analytics.accounts.get-data-sharing-settings", "google.analytics.accounts.list",
+		"google.analytics.accounts.list-summaries", "google.analytics.accounts.update",
 		"google.analytics.properties.create", "google.analytics.properties.delete", "google.analytics.properties.get",
 		"google.analytics.properties.list", "google.analytics.properties.update"}) {
 		t.Errorf("tools = %v", ids)
 	}
-	reads := []string{summariesID, accountsID, propertiesListID, propertiesGetID}
+	reads := []string{summariesID, accountsID, accountsGetID, accountsSharingID, propertiesListID, propertiesGetID}
 	if len(metadata.Profiles) != 2 || metadata.Profiles[0].ID != "read" || !metadata.Profiles[0].Recommended ||
 		!reflect.DeepEqual(metadata.Profiles[0].Tools, reads) || metadata.Profiles[1].ID != "write" ||
 		metadata.Profiles[1].Recommended ||
-		!reflect.DeepEqual(metadata.Profiles[1].Tools, append(slices.Clone(reads), propertiesCreateID, propertiesUpdateID)) {
+		!reflect.DeepEqual(metadata.Profiles[1].Tools,
+			append(slices.Clone(reads), accountsUpdateID, propertiesCreateID, propertiesUpdateID)) {
 		t.Errorf("profiles = %+v", metadata.Profiles)
 	}
 	oauth, ok := reg.OAuth(Provider)
