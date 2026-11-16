@@ -1,7 +1,9 @@
 package googlecloud
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"io"
 	"mime"
@@ -95,6 +97,27 @@ func withSource(resolved *config.Resolved, source *provider.TokenSource) *client
 // segments. The token travels in the Authorization header alone. A 401 renews the token once, and nothing
 // else repeats the request.
 func (c *client) get(ctx context.Context, op, tool string, svc service, path string, query url.Values, out any) error {
+	return c.send(ctx, op, tool, svc, http.MethodGet, path, query, nil, out)
+}
+
+// post sends one POST request of a reading tool, for the Google methods that read through POST, such as
+// getIamPolicy and testIamPermissions. The body is a fixed JSON value built by the tool from checked
+// arguments, or nil for a method without one. Like get, it renews the token once on a 401 and never repeats
+// the request otherwise, which is safe because these methods only read.
+func (c *client) post(ctx context.Context, op, tool string, svc service, path string, query url.Values, body any,
+	out any) error {
+	var payload []byte
+	if body != nil {
+		var err error
+		if payload, err = json.Marshal(body); err != nil {
+			return failure(op, "the request could not be built")
+		}
+	}
+	return c.send(ctx, op, tool, svc, http.MethodPost, path, query, payload, out)
+}
+
+func (c *client) send(ctx context.Context, op, tool string, svc service, method, path string, query url.Values,
+	payload []byte, out any) error {
 	origin, ok := serviceOrigins[svc]
 	if !ok {
 		return failure(op, "the service is not one of this provider")
@@ -104,9 +127,16 @@ func (c *client) get(ctx context.Context, op, tool string, svc service, path str
 		endpoint += "?" + query.Encode()
 	}
 	build := func(access string) (*http.Request, error) {
-		req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
+		var body io.Reader
+		if payload != nil {
+			body = bytes.NewReader(payload)
+		}
+		req, err := http.NewRequestWithContext(ctx, method, endpoint, body)
 		if err != nil {
 			return nil, err
+		}
+		if payload != nil {
+			req.Header.Set("Content-Type", "application/json")
 		}
 		req.Header.Set("Authorization", "Bearer "+access)
 		req.Header.Set("Accept", "application/json")

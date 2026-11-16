@@ -30,7 +30,7 @@ a person's consent (`client_id`, optionally `client_secret`, and the `refresh_to
 `qconnect credential consent` stores), a service account (`service_account_key`), or the impersonation of a
 service account that the connection names with `service_account` (the consent of a person who may create
 tokens for it). The connection holds no scope. Qatlas derives them from the tools it offers and asks for the
-smallest scope of each tool, here `cloud-platform.read-only`. The access token travels in the
+smallest scope of each tool, `cloud-platform.read-only` for the Resource Manager reads and `cloud-platform` for the IAM tools (see [IAM](iam.md)). The access token travels in the
 `Authorization` header only, is never an argument or part of a result, and is masked in every output. A 401
 renews the token once, and nothing else repeats a request.
 
@@ -65,10 +65,15 @@ secret is read and before any request.
 ## Profiles
 
 The profile `read` is the recommended one and holds every tool of this package: `google.cloud.organizations.search`,
-`google.cloud.folders.search`, `google.cloud.projects.search`, `google.cloud.projects.get`, and
-`google.cloud.operations.get`. Later packages add profiles per tool group.
+`google.cloud.folders.search`, `google.cloud.projects.search`, `google.cloud.projects.get`,
+`google.cloud.operations.get`, `google.cloud.iam-policies.get`, `google.cloud.iam-permissions.test`,
+`google.cloud.iam-deny-policies.list`, and `google.cloud.iam-deny-policies.get`. Later packages add profiles per
+tool group.
 
 ## Tools
+
+- [IAM](iam.md): IAM policies, permission tests, and deny policies of projects, folders, organizations, and
+  service accounts.
 
 ### Search
 

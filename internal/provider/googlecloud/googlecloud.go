@@ -97,9 +97,10 @@ func Register(reg *capability.Registry) error {
 		Target:      targetMetadata,
 		Profiles: []config.ToolProfile{{
 			ID: "read", Title: "Read", Recommended: true,
-			Description: "searches organizations, folders, and projects and reads projects and the state of " +
-				"long-running operations from Google Cloud Resource Manager and changes nothing",
-			Tools: []string{organizationsSearch.ID, foldersSearch.ID, projectsSearch.ID, projectsGet.ID, operationsGet.ID},
+			Description: "searches organizations, folders, and projects and reads projects, the state of " +
+				"long-running operations, IAM policies, deny policies, and permissions from Google Cloud and changes nothing",
+			Tools: []string{organizationsSearch.ID, foldersSearch.ID, projectsSearch.ID, projectsGet.ID, operationsGet.ID,
+				iamPoliciesGet.ID, iamPermissionsTest.ID, denyPoliciesList.ID, denyPoliciesGet.ID},
 		}},
 	}, TestConnection); err != nil {
 		return err
@@ -114,5 +115,9 @@ func Register(reg *capability.Registry) error {
 		capability.Operation{Descriptor: foldersSearch, Handler: handleFoldersSearch},
 		capability.Operation{Descriptor: projectsSearch, Handler: handleProjectsSearch},
 		capability.Operation{Descriptor: projectsGet, Handler: handleProjectsGet},
-		capability.Operation{Descriptor: operationsGet, Handler: handleOperationsGet})
+		capability.Operation{Descriptor: operationsGet, Handler: handleOperationsGet},
+		capability.Operation{Descriptor: iamPoliciesGet, Handler: handleIAMPoliciesGet},
+		capability.Operation{Descriptor: iamPermissionsTest, Handler: handleIAMPermissionsTest},
+		capability.Operation{Descriptor: denyPoliciesList, Handler: handleDenyPoliciesList},
+		capability.Operation{Descriptor: denyPoliciesGet, Handler: handleDenyPoliciesGet})
 }

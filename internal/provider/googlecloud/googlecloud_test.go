@@ -39,15 +39,21 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 		if tool.Effect != config.EffectRead {
 			t.Errorf("%s effect = %v", tool.ID, tool.Effect)
 		}
-		if scopes := metadata.Token.Scopes[tool.ID]; !slices.Equal(scopes, []string{"https://www.googleapis.com/auth/cloud-platform.read-only"}) {
+		want := []string{scopeReadOnly}
+		if strings.Contains(tool.ID, ".iam-") {
+			want = []string{scopeCloudPlatform}
+		}
+		if scopes := metadata.Token.Scopes[tool.ID]; !slices.Equal(scopes, want) {
 			t.Errorf("%s scopes = %v", tool.ID, scopes)
 		}
 	}
-	if want := []string{"google.cloud.folders.search", "google.cloud.operations.get", "google.cloud.organizations.search",
+	if want := []string{"google.cloud.folders.search", "google.cloud.iam-deny-policies.get",
+		"google.cloud.iam-deny-policies.list", "google.cloud.iam-permissions.test", "google.cloud.iam-policies.get",
+		"google.cloud.operations.get", "google.cloud.organizations.search",
 		"google.cloud.projects.get", "google.cloud.projects.search"}; !slices.Equal(ids, want) {
 		t.Errorf("tools = %v, want %v", ids, want)
 	}
-	if profile, found := metadata.RecommendedProfile(); !found || profile.ID != "read" || len(profile.Tools) != 5 {
+	if profile, found := metadata.RecommendedProfile(); !found || profile.ID != "read" || len(profile.Tools) != 9 {
 		t.Errorf("profile = %+v", profile)
 	}
 	if err := metadata.ValidateBaseURL("https://cloudresourcemanager.googleapis.com/"); err != nil {
