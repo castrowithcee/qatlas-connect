@@ -256,6 +256,12 @@ const (
 	OperationHandover = "vault.handover"
 )
 
+// OperationStoreRefreshToken logs one write of a rotated refresh token, the only role a run writes itself: by
+// the vault process for an encrypted vault, by the run otherwise. Its Effect is update, its Connection the
+// connection the write was made for, and its Result success, conflict where another writer stored first, or
+// the code of the refusal or failure. It never holds a value or a hash of one.
+const OperationStoreRefreshToken = "credential.store-refresh-token"
+
 // OperationConfigMigrate logs that qconnect moved the configuration file to the schema named by Version. Its
 // Path is "cli", whichever command migrated.
 const OperationConfigMigrate = "config.migrate"
@@ -291,7 +297,7 @@ var mcpOperations = map[string]Area{
 var managementOperations = map[string]bool{
 	OperationApprove: true, OperationLock: true, OperationHandover: true,
 	OperationConnectionCreate: true, OperationConnectionChange: true, OperationConnectionDelete: true,
-	OperationConnectionRename: true, OperationConfigMigrate: true,
+	OperationConnectionRename: true, OperationConfigMigrate: true, OperationStoreRefreshToken: true,
 	OperationConsentGrant: true, OperationConsentRevoke: true,
 }
 

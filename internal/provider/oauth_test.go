@@ -207,7 +207,7 @@ func TestRefreshGrantRenewsAndEndsOnInvalidGrant(t *testing.T) {
 		return provider.TokenOptions{
 			Token: *sampleMetadata.Token, Cache: provider.NewTokenCache(time.Now),
 			Grants:      map[config.TokenProcedure]provider.TokenGrant{config.TokenConsent: oauth.RefreshGrant()},
-			SaveRefresh: func(context.Context, string, string) error { saved++; return nil },
+			SaveRefresh: func(_ context.Context, _, rotated string) (string, error) { saved++; return rotated, nil },
 		}
 	}
 	source, err := provider.OpenTokenSource(context.Background(), resolved, secrets, red, options())
