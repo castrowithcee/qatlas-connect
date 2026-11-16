@@ -51,8 +51,9 @@ tools of a later package read the target.
 Three rules decide which tool a binding reaches. They are separate on purpose:
 
 - **Resource tools** (`projects.get`, `projects.search`): the connection is unbound or names an organization,
-  a folder, or a project. `folders.search` needs an organization or a folder, because a project holds no folder.
-- **Organization tools** (`organizations.search`): the binding must name an organization expressly. A
+  a folder, or a project. `folders.search`, `folders.get`, `folders.list`, and `projects.list` need an organization or a
+  folder, because a project holds no folder and no child.
+- **Organization tools** (`organizations.search`, `organizations.get`): the binding must name an organization expressly. A
   connection without targets does not run them, because its credential may see organizations the person never
   handed over. The rows are limited to the organizations the targets name.
 - **Tools without a resource** (`operations.get`): an operation belongs to no folder or project that Qatlas
@@ -65,8 +66,9 @@ secret is read and before any request.
 ## Profiles
 
 The profile `read` is the recommended one and holds every tool of this package: `google.cloud.organizations.search`,
-`google.cloud.folders.search`, `google.cloud.projects.search`, `google.cloud.projects.get`, and
-`google.cloud.operations.get`. Later packages add profiles per tool group.
+`google.cloud.folders.search`, `google.cloud.projects.search`, `google.cloud.projects.get`,
+`google.cloud.operations.get`, `google.cloud.organizations.get`, `google.cloud.folders.get`,
+`google.cloud.folders.list`, and `google.cloud.projects.list`. Later packages add profiles per tool group.
 
 ## Tools
 
@@ -104,6 +106,12 @@ folders above it with `folders.get` and stops at the first target, at the organi
 chain. Folders it has placed once are remembered during the call, so rows below the same folder cost one walk.
 A call spends at most 30 such reads; a search that needs more is refused and asks for a narrower filter, for
 example a `parent`. A row without a usable name is an invalid response.
+
+### Organizations, folders, and projects
+
+Reading one organization or folder and listing the folders and projects below a parent are described on their
+own pages: [organizations](organizations.md) (`organizations.get`), [folders](folders.md) (`folders.get`,
+`folders.list`), and [projects](projects.md) (`projects.list`).
 
 ### Single reads
 
@@ -174,7 +182,8 @@ Not verified:
 - The maximum length of a filter value (64 characters) and the characters of a label key and value (lowercase
   ASCII letters, digits, `-`, `_`) are narrower than what Google accepts.
 - The per-method rights are as the discovery document states them: `resourcemanager.organizations.get`,
-  `resourcemanager.folders.get`, and `resourcemanager.projects.get`; the right behind `operations.get` is not
+  `resourcemanager.folders.get`, `resourcemanager.projects.get`, and, for the lists,
+  `resourcemanager.folders.list` and `resourcemanager.projects.list` on the parent; the right behind `operations.get` is not
   stated.
 
 Left out on purpose:

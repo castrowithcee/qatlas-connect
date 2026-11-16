@@ -14,4 +14,8 @@ var tokenMetadata = config.TokenMetadata{Scopes: map[string][]string{
 	projectsSearchID:      {scopeReadOnly},
 	projectsGetID:         {scopeReadOnly},
 	operationsGetID:       {scopeReadOnly},
+	organizationsGetID:    {scopeReadOnly},
+	foldersGetID:          {scopeReadOnly},
+	foldersListID:         {scopeReadOnly},
+	projectsListID:        {scopeReadOnly},
 }}

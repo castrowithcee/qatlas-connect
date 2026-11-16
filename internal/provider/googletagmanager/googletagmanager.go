@@ -59,7 +59,7 @@ func Register(reg *capability.Registry) error {
 		if d.Risk.Effect == capability.EffectRead {
 			readIDs = append(readIDs, d.ID)
 		}
-		// Reverting overwrites the workspace state of an object, so it is in no profile: a connection offers it
+		// Reverting overwrites the workspace state of an object or built-in variable, so it is in no profile: a connection offers it
 		// only when its tools list names it. Deleting one workspace object is not: it stays revertible until a
 		// version is published.
 		if !d.RequiresToolAllowList {
@@ -88,14 +88,15 @@ func Register(reg *capability.Registry) error {
 		},
 		Profiles: []config.ToolProfile{{
 			ID: "read", Title: "Read", Recommended: true,
-			Description: "reads accounts, containers, workspaces, tags, triggers, and variables; changes nothing",
-			Tools:       readIDs,
+			Description: "reads accounts, containers, workspaces, tags, triggers, variables, and built-in variables; " +
+				"changes nothing",
+			Tools: readIDs,
 		}, {
-			ID: "write", Title: "Read and change tags, triggers, and variables",
-			Description: "reads what the read profile reads and creates, updates, and deletes the tags, " +
-				"triggers, and variables of a workspace; every change needs its own confirmation and stays in the " +
-				"workspace until a version is published, which no tool of this provider does. Reverting a tag, " +
-				"trigger, or variable stays unticked",
+			ID: "write", Title: "Read and change tags, triggers, variables, and built-in variables",
+			Description: "reads what the read profile reads, creates, updates, and deletes the tags, triggers, and " +
+				"variables of a workspace, and enables and disables its built-in variables; every change needs its own " +
+				"confirmation and stays in the workspace until a version is published, which no tool of this provider " +
+				"does. Reverting a tag, trigger, variable, or built-in variable stays unticked",
 			Tools: writeIDs,
 		}},
 	}, TestConnection); err != nil {
@@ -116,6 +117,8 @@ func Register(reg *capability.Registry) error {
 		variablesListID:  handleVariablesList, variablesGetID: handleVariablesGet,
 		variablesCreateID: handleVariablesCreate, variablesUpdateID: handleVariablesUpdate,
 		variablesDeleteID: handleVariablesDelete, variablesRevertID: handleVariablesRevert,
+		builtInVariablesListID: handleBuiltInVariablesList, builtInVariablesCreateID: handleBuiltInVariablesCreate,
+		builtInVariablesDeleteID: handleBuiltInVariablesDelete, builtInVariablesRevertID: handleBuiltInVariablesRevert,
 	}
 	summaries := map[string]capability.SummaryFunc{
 		tagsCreateID: tagSummary("Create"), tagsUpdateID: tagSummary("Replace"),
@@ -124,6 +127,8 @@ func Register(reg *capability.Registry) error {
 		triggersDeleteID: triggerSummary("Delete"), triggersRevertID: triggerSummary("Revert"),
 		variablesCreateID: variableSummary("Create"), variablesUpdateID: variableSummary("Replace"),
 		variablesDeleteID: variableSummary("Delete"), variablesRevertID: variableSummary("Revert"),
+		builtInVariablesCreateID: builtInSummary("Enable"), builtInVariablesDeleteID: builtInSummary("Disable"),
+		builtInVariablesRevertID: builtInSummary("Revert"),
 	}
 	for _, d := range descriptors() {
 		if err := reg.Register(Provider, capability.Operation{Descriptor: d, Handler: handlers[d.ID],
