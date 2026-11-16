@@ -130,14 +130,20 @@ func (c *client) folder(ctx context.Context, op, tool, id string) (folderWire, e
 
 // organization reads one organization to prove that a target of that kind exists.
 func (c *client) organization(ctx context.Context, op, tool, id string) error {
+	_, err := c.organizationRead(ctx, op, tool, id)
+	return err
+}
+
+// organizationRead reads one organization. The answer must name the organization that was asked for.
+func (c *client) organizationRead(ctx context.Context, op, tool, id string) (organizationWire, error) {
 	var organization organizationWire
 	if err := c.get(ctx, op, tool, serviceResourceManager, "/v3/organizations/"+url.PathEscape(id), nil, &organization); err != nil {
-		return err
+		return organizationWire{}, err
 	}
 	if organization.Name != prefixOrganization+id {
-		return provider.InvalidResponse(op, subject+" returned an invalid response")
+		return organizationWire{}, provider.InvalidResponse(op, subject+" returned an invalid response")
 	}
-	return nil
+	return organization, nil
 }
 
 const projectOutputSchema = `{"type":"object","properties":{` +

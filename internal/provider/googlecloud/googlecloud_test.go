@@ -43,11 +43,12 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 			t.Errorf("%s scopes = %v", tool.ID, scopes)
 		}
 	}
-	if want := []string{"google.cloud.folders.search", "google.cloud.operations.get", "google.cloud.organizations.search",
-		"google.cloud.projects.get", "google.cloud.projects.search"}; !slices.Equal(ids, want) {
+	if want := []string{"google.cloud.folders.get", "google.cloud.folders.list", "google.cloud.folders.search",
+		"google.cloud.operations.get", "google.cloud.organizations.get", "google.cloud.organizations.search",
+		"google.cloud.projects.get", "google.cloud.projects.list", "google.cloud.projects.search"}; !slices.Equal(ids, want) {
 		t.Errorf("tools = %v, want %v", ids, want)
 	}
-	if profile, found := metadata.RecommendedProfile(); !found || profile.ID != "read" || len(profile.Tools) != 5 {
+	if profile, found := metadata.RecommendedProfile(); !found || profile.ID != "read" || len(profile.Tools) != 9 {
 		t.Errorf("profile = %+v", profile)
 	}
 	if err := metadata.ValidateBaseURL("https://cloudresourcemanager.googleapis.com/"); err != nil {
