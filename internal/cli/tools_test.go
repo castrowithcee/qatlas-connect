@@ -933,7 +933,7 @@ func TestPublicSurfaceIsTheToolTaxonomy(t *testing.T) {
 	root := DocumentationCommand("test")
 	want := []string{
 		"config", "config export", "config import", "config rename", "config validate", "connections", "credential",
-		"credential delete", "credential set",
+		"credential consent", "credential delete", "credential revoke", "credential set",
 		"describe", "invoke", "mcp", "providers", "selftest", "selftest storage", "tools", "tui", "update", "vault",
 		"vault approve",
 		"vault decrypt", "vault encrypt", "vault handover", "vault lock", "vault logs", "vault migrate", "vault passphrase", "vault settings",

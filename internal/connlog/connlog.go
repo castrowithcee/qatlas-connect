@@ -266,3 +266,33 @@ func (r *Recorder) RecordTargetChoice(operation, connection, connectionID, resul
 	}
 	return nil
 }
+
+// RecordConsent appends the entry of a consent given (invokelog.OperationConsentGrant) or revoked
+// (invokelog.OperationConsentRevoke) for the credential of a connection: result is "success", or for a
+// revocation invokelog.RevokeUnconfirmed. It carries the surface and the connection only, never a value of
+// the credential. A failure is returned the way Record returns one; it never undoes the consent.
+func (r *Recorder) RecordConsent(operation, connection, connectionID, result string) error {
+	if r == nil || r.Writer == nil {
+		return nil
+	}
+	effect := "update"
+	if operation == invokelog.OperationConsentRevoke {
+		effect = "delete"
+	}
+	fields := invokelog.Fields{
+		Path: r.Surface, Operation: operation, Connection: connection, ConnectionID: connectionID,
+		Effect: effect, Result: result,
+	}
+	if err := fields.Validate(); err != nil {
+		return errors.New("the consent was changed, but it could not be logged: " + err.Error())
+	}
+	err := r.Writer.Append(fields)
+	var unsigned *invokelog.UnsignedError
+	switch {
+	case errors.As(err, &unsigned):
+		return fmt.Errorf("the consent change was logged, but unsigned: %w", err)
+	case err != nil:
+		return fmt.Errorf("the consent was changed, but the log entry could not be written: %w", err)
+	}
+	return nil
+}

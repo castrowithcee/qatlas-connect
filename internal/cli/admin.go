@@ -73,3 +73,12 @@ func requireAdmin(opts *Options) error {
 	}
 	return nil
 }
+
+// adminProof is the proof a core function demands once requireAdmin passed in this run: a single use, since
+// every management command proves itself anew.
+func adminProof() manage.AdminProof {
+	session := manage.NewAdminSession(true, nil)
+	session.Grant(0)
+	proof, _ := session.Authorize(0)
+	return proof
+}

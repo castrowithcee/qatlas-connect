@@ -200,6 +200,15 @@ const (
 	OperationConnectionRename = "config.connection.rename"
 )
 
+// The operations that log a consent a person gave or revoked for the credential of a connection, one entry
+// per connection that uses the credential, with no value of it. A grant is an update, a revocation a delete;
+// the result of a revocation the provider did not confirm is RevokeUnconfirmed.
+const (
+	OperationConsentGrant  = "config.consent.grant"
+	OperationConsentRevoke = "config.consent.revoke"
+	RevokeUnconfirmed      = "unconfirmed"
+)
+
 // The operations that log a person's reading of a connection's provider to choose targets, on the surface
 // ("tui" or "web") that did it; neither the CLI nor MCP chooses targets. Their Effect is read. A listing names the kind of the listed entries
 // after a colon (TargetListOperation); neither entry holds a target, a name, or a search text.
@@ -283,6 +292,13 @@ var managementOperations = map[string]bool{
 	OperationApprove: true, OperationLock: true, OperationHandover: true,
 	OperationConnectionCreate: true, OperationConnectionChange: true, OperationConnectionDelete: true,
 	OperationConnectionRename: true, OperationConfigMigrate: true,
+	OperationConsentGrant: true, OperationConsentRevoke: true,
+}
+
+// consentOperations maps each consent operation to the effect it must carry.
+var consentOperations = map[string]string{
+	OperationConsentGrant:  "update",
+	OperationConsentRevoke: "delete",
 }
 
 // connectionOperations maps each connection operation to the effect it must carry.
@@ -329,6 +345,9 @@ func (f Fields) Validate() error {
 	if effect, ok := connectionOperations[f.Operation]; ok && (f.Effect != effect || f.Connection == "") {
 		return errors.New("a connection change needs its effect and a connection")
 	}
+	if effect, ok := consentOperations[f.Operation]; ok && (f.Effect != effect || f.Connection == "") {
+		return errors.New("a consent needs its effect and a connection")
+	}
 	if IsTargetOperation(f.Operation) && (f.Effect != "read" || f.Connection == "" || f.Path != "tui" && f.Path != "web") {
 		return errors.New("a target choice needs the read effect, a connection, and the tui or web path")
 	}
@@ -356,7 +375,7 @@ func (f Fields) Validate() error {
 		return errors.New("duration is out of range")
 	}
 	if f.ReqBytes != nil || f.RespBytes != nil {
-		if connectionOperations[f.Operation] != "" || IsTargetOperation(f.Operation) {
+		if connectionOperations[f.Operation] != "" || consentOperations[f.Operation] != "" || IsTargetOperation(f.Operation) {
 			return errors.New("a connection change has no size counters")
 		}
 		if f.RespBytes != nil && f.Result != "success" && f.Path != "mcp" {
