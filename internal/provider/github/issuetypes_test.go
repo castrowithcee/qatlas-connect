@@ -1,6 +1,8 @@
 package github
 
 import (
+	"fmt"
+	"net/http"
 	"strings"
 	"testing"
 
@@ -61,9 +63,9 @@ func TestIssueTypesListRefusalsBeforeIO(t *testing.T) {
 
 	for _, tt := range []struct{ name, connection, arguments, message string }{
 		{"no owner and none the targets name exactly", "open", `{}`, "owner is required"},
-		{"a user owner", "user", `{}`, "an organization, not a user"},
+		{"a user owner", "user", `{}`, "for a repository of a user"},
 		{"a user owner argument on an open connection", "open", `{"owner":"users/octocat"}`,
-			"an organization, not a user"},
+			"for a repository of a user"},
 		{"an owner outside the targets", "org", `{"owner":"orgs/other"}`, "outside the targets"},
 		{"a project-only connection", "planning", `{"owner":"orgs/octo-org"}`, "outside the targets"},
 	} {
@@ -110,6 +112,99 @@ func TestIssueTypesListReportsEveryDocumentedMember(t *testing.T) {
 		got, err := invoke(t, core, issueTypesList.ID, "org", `{}`, false)
 		if err != nil || string(got) != c.want {
 			t.Errorf("issue-types.list = %s, %v, want %s", got, err, c.want)
+		}
+	}
+}
+
+// repositoryIssueTypesPage answers github.issue-types.list's GraphQL query of a repository: the types octo-org
+// declares, as GraphQL names them, for any repository except the one a test names missing.
+func (f *fakeGitHub) repositoryIssueTypesPage(w http.ResponseWriter, document string, variables map[string]any) bool {
+	if !strings.Contains(document, "issueTypes(first") {
+		return false
+	}
+	if variables["name"] == "missing" {
+		fmt.Fprint(w, `{"data":{"repository":null}}`)
+		return true
+	}
+	nodes := []string{}
+	for _, it := range f.issueTypes {
+		description := "null"
+		if it.description != "" {
+			description = fmt.Sprintf("%q", it.description)
+		}
+		nodes = append(nodes, fmt.Sprintf(`{"id":"IT_%d","name":%q,"description":%s,"color":%q,"isEnabled":%t}`,
+			it.id, it.name, description, strings.ToUpper(it.color), it.enabled))
+	}
+	fmt.Fprintf(w, `{"data":{"repository":{"issueTypes":{"pageInfo":{"hasNextPage":false,"endCursor":""},`+
+		`"nodes":[%s]}}}}`, strings.Join(nodes, ","))
+	return true
+}
+
+// A repository of a user account lists its issue types through GraphQL, with the members GraphQL documents:
+// no numeric id and no timestamps, the color in lower case, and the repository the call read.
+func TestIssueTypesListReadsTheRepositoryOfAUser(t *testing.T) {
+	f := &fakeGitHub{issueTypes: []fakeIssueType{
+		{id: 1, name: "Bug", description: "Something broken", color: "red", enabled: true},
+		{id: 2, name: "Task", enabled: false},
+	}}
+	red := &redact.Redactor{}
+	core := application.New(registry(t), discoveryConfig(serve(t, f)), resolver(red, nil), red)
+
+	const want = `{"issue_types":[{"color":"red","description":"Something broken","is_enabled":true,` +
+		`"name":"Bug","node_id":"IT_1"},{"is_enabled":false,"name":"Task","node_id":"IT_2"}],` +
+		`"repository":"octocat/example"}`
+	got, err := invoke(t, core, issueTypesList.ID, "open", `{"repository":"octocat/example"}`, false)
+	if err != nil || string(got) != want {
+		t.Errorf("repository read = %s, %v, want %s", got, err, want)
+	}
+	// A repository target of the connection allows the call.
+	got, err = invoke(t, core, issueTypesList.ID, "starrepo", `{"repository":"octo-org/example"}`, false)
+	if err != nil || !strings.Contains(string(got), `"repository":"octo-org/example"`) {
+		t.Errorf("starrepo repository read = %s, %v", got, err)
+	}
+	for _, request := range f.recorded() {
+		if request.path != "/api/graphql" {
+			t.Errorf("a repository read called %s, want only GraphQL", request.path)
+		}
+	}
+
+	if _, err := invoke(t, core, issueTypesList.ID, "open", `{"repository":"octocat/missing"}`, false); classOf(err) != provider.ClassNotFound {
+		t.Errorf("a missing repository = %v, want not-found", err)
+	}
+}
+
+// The owner call of an organization keeps its REST route and its result, and owner and repository exclude
+// each other; a repository outside the targets settles before a secret is read or GitHub is contacted.
+func TestIssueTypesListKeepsOrganizationsAndRefusesRepositoriesBeforeIO(t *testing.T) {
+	f := &fakeGitHub{issueTypes: []fakeIssueType{{id: 1, name: "Bug", enabled: true}}}
+	reads := 0
+	red := &redact.Redactor{}
+	core := application.New(registry(t), discoveryConfig(serve(t, f)), resolver(red, &reads), red)
+
+	got, err := invoke(t, core, issueTypesList.ID, "open", `{"owner":"orgs/octo-org"}`, false)
+	if err != nil || !strings.Contains(string(got), `"id":1`) || !strings.Contains(string(got), `"owner":"orgs/octo-org"`) ||
+		strings.Contains(string(got), `"repository"`) {
+		t.Fatalf("organization read = %s, %v", got, err)
+	}
+	for _, request := range f.recorded() {
+		if request.path != "/api/v3/orgs/octo-org/issue-types" {
+			t.Errorf("an organization read called %s, want only the REST route", request.path)
+		}
+	}
+
+	for _, tt := range []struct{ name, connection, arguments, message string }{
+		{"owner and repository", "open", `{"owner":"orgs/octo-org","repository":"octocat/example"}`, "never both"},
+		{"a repository outside the targets", "starrepo", `{"repository":"octocat/example"}`, "outside the targets"},
+		{"a malformed repository", "open", `{"repository":"example"}`, "OWNER/REPO"},
+	} {
+		reads = 0
+		before := len(f.recorded())
+		_, err := invoke(t, core, issueTypesList.ID, tt.connection, tt.arguments, false)
+		if !isInvalidRequest(err) || !strings.Contains(err.Error(), tt.message) {
+			t.Errorf("%s: err = %v, want an invalid request naming %q", tt.name, err, tt.message)
+		}
+		if reads != 0 || len(f.recorded()) != before {
+			t.Errorf("%s reached the credential or GitHub", tt.name)
 		}
 	}
 }

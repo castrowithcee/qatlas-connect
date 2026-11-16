@@ -72,7 +72,7 @@ func withTargetArgument(d capability.Descriptor) capability.Descriptor {
 	case accountsMe.ID, starsList.ID, repositoriesSearch.ID, codeSearch.ID, issuesSearch.ID,
 		pullRequestsSearch.ID, commitsSearch.ID, usersSearch.ID, organizationsSearch.ID, repositoriesCreate.ID,
 		rulesetsList.ID, rulesetsGet.ID, rulesetsCreate.ID, rulesetsUpdate.ID, rulesetsDelete.ID,
-		customPropertiesGet.ID, customPropertiesSet.ID, issueFieldsList.ID,
+		customPropertiesGet.ID, customPropertiesSet.ID, issueFieldsList.ID, issueTypesList.ID,
 		actionVariablesList.ID, actionVariablesGet.ID, actionVariablesCreate.ID, actionVariablesUpdate.ID,
 		actionVariablesDelete.ID, actionSecretsList.ID, actionSecretsGet.ID, actionSecretRepositoriesList.ID,
 		actionSecretsDelete.ID, actionSecretsSet.ID, dependabotSecretsList.ID, dependabotSecretsGet.ID,
@@ -109,9 +109,6 @@ func withTargetArgument(d capability.Descriptor) capability.Descriptor {
 	case slices.Contains(billingToolIDs, d.ID):
 		name, schema, argument = "owner", ownerSchema, billingOwnerArgument
 		fields = []capability.Field{billingOwnerField}
-	case d.ID == issueTypesList.ID:
-		name, schema, argument = "owner", ownerSchema, issueTypesOwnerArgument
-		fields = []capability.Field{issueTypesOwnerField}
 	case d.ID == projectsCreate.ID:
 		name, schema, argument = "owner", ownerSchema, newOwnerArgument
 		fields = []capability.Field{newOwnerField}
