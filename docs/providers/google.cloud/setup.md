@@ -31,9 +31,11 @@ Viewer, or Project Viewer role, or any role with these permissions:
 
 | Tool | Permission Google checks |
 | --- | --- |
-| `organizations.search` | `resourcemanager.organizations.get` on each organization |
-| `folders.search` | `resourcemanager.folders.get` on each folder |
+| `organizations.search`, `organizations.get` | `resourcemanager.organizations.get` on each organization |
+| `folders.search`, `folders.get` | `resourcemanager.folders.get` on each folder |
+| `folders.list` | `resourcemanager.folders.list` on the parent |
 | `projects.search`, `projects.get` | `resourcemanager.projects.get` on each project |
+| `projects.list` | `resourcemanager.projects.list` on the parent |
 | `operations.get` | Google states none for reading an operation |
 
 A search lists only what the account may see. Qatlas also reads the folders above a project to prove where it
@@ -54,6 +56,10 @@ Which targets a tool needs:
   Searching folders needs no targets or an organization or folder.
 - Searching organizations works only on a connection that names an organization. A connection without
   targets cannot search organizations, and the search returns only the organizations the targets name.
+  Reading one organization needs that exact organization among the targets.
+- Reading a folder and listing folders or projects below a parent need no targets or an organization or folder.
+  The parent of a list must lie in the targets; an organization is not listed by a connection bound only to a
+  folder inside it.
 - Reading an operation works without targets or with an organization among them, because Qatlas cannot tie an
   operation to a folder or a project.
 

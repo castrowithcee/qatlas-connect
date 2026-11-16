@@ -99,7 +99,8 @@ func Register(reg *capability.Registry) error {
 			ID: "read", Title: "Read", Recommended: true,
 			Description: "searches organizations, folders, and projects and reads projects and the state of " +
 				"long-running operations from Google Cloud Resource Manager and changes nothing",
-			Tools: []string{organizationsSearch.ID, foldersSearch.ID, projectsSearch.ID, projectsGet.ID, operationsGet.ID},
+			Tools: []string{organizationsSearch.ID, foldersSearch.ID, projectsSearch.ID, projectsGet.ID, operationsGet.ID,
+				organizationsGet.ID, foldersGet.ID, foldersList.ID, projectsList.ID},
 		}},
 	}, TestConnection); err != nil {
 		return err
@@ -114,5 +115,9 @@ func Register(reg *capability.Registry) error {
 		capability.Operation{Descriptor: foldersSearch, Handler: handleFoldersSearch},
 		capability.Operation{Descriptor: projectsSearch, Handler: handleProjectsSearch},
 		capability.Operation{Descriptor: projectsGet, Handler: handleProjectsGet},
-		capability.Operation{Descriptor: operationsGet, Handler: handleOperationsGet})
+		capability.Operation{Descriptor: operationsGet, Handler: handleOperationsGet},
+		capability.Operation{Descriptor: organizationsGet, Handler: handleOrganizationsGet},
+		capability.Operation{Descriptor: foldersGet, Handler: handleFoldersGet},
+		capability.Operation{Descriptor: foldersList, Handler: handleFoldersList},
+		capability.Operation{Descriptor: projectsList, Handler: handleProjectsList})
 }
