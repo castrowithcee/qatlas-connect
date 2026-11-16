@@ -54,6 +54,10 @@ func newWebCommand(opts *Options, registry *capability.Registry) *cobra.Command 
 			"configuration fresh, so a change made in this run is visible right away, and a save carries proof\n" +
 			"of the exact file it was shown, so a change from elsewhere in the meantime is refused as a\n" +
 			"conflict instead of being overwritten.\n\n" +
+			"The page of a credential whose provider issues access tokens also gives and revokes its consent,\n" +
+			"the way 'qconnect credential consent' and 'qconnect credential revoke' do. The provider sends the\n" +
+			"browser back to this run's own address; the consent is stored only while the admin approval that\n" +
+			"started it is still active, and the page shows no code or token.\n\n" +
 			"The same pages manage payload credentials (forward: true): freely named fields, each value typed\n" +
 			"masked, at least 4 characters, never shown or filled in again. The credential's page edits its\n" +
 			"description, replaces or removes fields and adds new ones; a connection's page and the guided\n" +
@@ -89,7 +93,8 @@ func newWebCommand(opts *Options, registry *capability.Registry) *cobra.Command 
 			}
 
 			svc := manage.New(store, secrets, connlog.SurfaceWeb, opts.Redactor).
-				WithTargetSource(targetSource(opts, registry))
+				WithTargetSource(targetSource(opts, registry)).
+				WithConsentSource(registry.OAuth)
 			server, err := web.New(buildOverview(registry, cfg), secrets.Vault(),
 				svc, secrets, opts.Redactor, web.Tester(connectionTester(store, opts, registry)))
 			if err != nil {

@@ -114,6 +114,8 @@ type Server struct {
 	// own URL, and the next page that shows it consumes it, so it never sits in the address bar, browser
 	// history, or a referrer. It never outlives the session it was set for (see close and redeem).
 	pendingNotice string
+	// consent is the one consent this run waits for, started by the coupled session (see consent.go).
+	consent *pendingConsent
 
 	// vault is this run's vault, or nil when none is configured. The admin approval checks its live state
 	// through it and never resolves or caches a secret of its own.
@@ -176,7 +178,7 @@ func New(overview Overview, v *vault.Vault, svc *manage.Service,
 		_ = listener.Close()
 		return nil, err
 	}
-	credTmpl, err := template.New("credentials").Funcs(layoutFuncs).Parse(layoutTemplates + credentialTemplates + payloadTemplates + renameTemplates + findingTemplates)
+	credTmpl, err := template.New("credentials").Funcs(layoutFuncs).Parse(layoutTemplates + credentialTemplates + payloadTemplates + renameTemplates + findingTemplates + consentTemplates)
 	if err != nil {
 		_ = listener.Close()
 		return nil, err
@@ -266,7 +268,12 @@ func (s *Server) close() {
 	s.csrf = ""
 	s.admin.End()
 	s.pendingNotice = ""
+	consent := s.consent
+	s.consent = nil
 	s.mu.Unlock()
+	if consent != nil {
+		consent.consent.Close()
+	}
 }
 
 // setNotice stores text as the coupled session's own one-time hint, replacing whatever it held before.
@@ -303,6 +310,10 @@ func (s *Server) mux() http.Handler {
 	mux.HandleFunc("GET /credentials/{name}", s.withSession(s.handleCredentialForm))
 	mux.HandleFunc("POST /credentials/{name}/payload", s.withAdminGuard(s.handleSavePayload))
 	mux.HandleFunc("POST /credentials/{name}/role", s.withAdminGuard(s.handleReplaceRole))
+	mux.HandleFunc("POST /credentials/{name}/consent", s.withAdminProof(s.handleStartConsent))
+	mux.HandleFunc("POST /credentials/{name}/revoke", s.withAdminProof(s.handleRevokeConsent))
+	// The provider sends the browser back here without the session cookie; see handleConsentReturn.
+	mux.HandleFunc("GET "+consentReturnPath, s.handleConsentReturn)
 	mux.HandleFunc("GET /credentials/{name}/rename", s.withSession(s.handleRenameCredentialPlan))
 	mux.HandleFunc("POST /credentials/{name}/rename", s.withAdminGuard(s.handleRenameCredentialConfirm))
 	mux.HandleFunc("GET /connections/new", s.withSession(s.handleConnectionsNew))

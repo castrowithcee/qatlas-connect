@@ -56,6 +56,8 @@ type roleRow struct {
 	State       string
 	Replaceable bool
 	Optional    bool
+	// Consent marks the refresh token of a credential that holds a consent, which offers giving and revoking it.
+	Consent bool
 }
 
 // credentialData is what the existing-credential template renders.
@@ -310,8 +312,11 @@ func (s *Server) renderCredential(w http.ResponseWriter, cfg *config.Config, nam
 		Name: name, Provider: cred.Provider, Type: cred.Type, CSRF: s.csrfValue(), Notice: notice, Error: errText,
 		Findings: s.findingViews(cfg, manage.RenameCredential, name),
 	}
+	consent := manage.HoldsConsent(cfg, name)
 	for _, role := range manage.OfferedRoles(cfg, name, cred) {
-		data.Roles = append(data.Roles, s.roleRow(cfg, name, cred, role))
+		row := s.roleRow(cfg, name, cred, role)
+		row.Consent = consent && role == config.RoleRefreshToken
+		data.Roles = append(data.Roles, row)
 	}
 	if fp, err := s.configFingerprint(); err == nil {
 		data.CfgVer = fp
@@ -568,6 +573,18 @@ Type a passphrase, twice, to encrypt it instead.</p>
 <input id="vault-passphrase-confirm-{{.Role}}" type="password" name="vault_passphrase_confirm" autocomplete="new-password">
 </div>
 <div class="actions"><button type="submit">Replace</button></div>
+</form>
+{{end}}
+{{if .Consent}}
+<form method="post" action="/credentials/{{$root.Name}}/consent">
+<input type="hidden" name="csrf" value="{{$root.CSRF}}">
+<p class="hint">Or let the provider issue it: give the consent in this browser.</p>
+<div class="actions"><button type="submit">Give the consent</button></div>
+</form>
+<form method="post" action="/credentials/{{$root.Name}}/revoke">
+<input type="hidden" name="csrf" value="{{$root.CSRF}}">
+<div class="choice"><input id="revoke-confirm" type="checkbox" name="confirm" value="1" required> <label for="revoke-confirm">revoke the consent at the provider and remove the refresh token</label></div>
+<div class="actions"><button type="submit">Revoke the consent</button></div>
 </form>
 {{end}}
 </td>
