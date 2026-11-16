@@ -60,7 +60,7 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 		}
 	}
 	oauth, found := reg.OAuth(Provider)
-	if !found || oauth.TokenURL != googleapi.TokenURL {
+	if !found || oauth.TokenURL != googleapi.OAuth.TokenURL {
 		t.Errorf("OAuth = %+v, %v", oauth, found)
 	}
 }
@@ -710,8 +710,5 @@ func TestTokenEndpointsAreTheFixedGoogleOnes(t *testing.T) {
 	// The fake answers only the fixed token URL; an invocation that reached another one would have failed.
 	if e.fake.tokenRequests() != 1 {
 		t.Errorf("token requests = %d", e.fake.tokenRequests())
-	}
-	if googleapi.OAuth(nil).TokenURL != googleapi.TokenURL {
-		t.Error("token URL")
 	}
 }

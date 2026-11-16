@@ -78,7 +78,7 @@ func (f *fakeGoogle) RoundTrip(req *http.Request) (*http.Response, error) {
 		return &http.Response{StatusCode: r.status, Header: header, Body: io.NopCloser(strings.NewReader(r.body)),
 			Request: req}, nil
 	}
-	if req.URL.String() == googleapi.TokenURL {
+	if req.URL.String() == googleapi.OAuth.TokenURL {
 		if f.tokenReply != nil {
 			return answer(*f.tokenReply)
 		}
@@ -234,7 +234,7 @@ func serviceAccountKey(t *testing.T) string {
 	file, err := json.Marshal(map[string]string{
 		"type": "service_account", "client_email": "synthetic@example-project.iam.gserviceaccount.com",
 		"private_key":    string(pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: der})),
-		"private_key_id": "synthetic-key-id", "token_uri": googleapi.TokenURL,
+		"private_key_id": "synthetic-key-id", "token_uri": googleapi.OAuth.TokenURL,
 	})
 	if err != nil {
 		t.Fatal(err)

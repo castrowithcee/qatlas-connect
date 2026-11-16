@@ -104,7 +104,9 @@ func Register(reg *capability.Registry) error {
 	}, TestConnection); err != nil {
 		return err
 	}
-	if err := reg.RegisterOAuth(Provider, googleapi.OAuth(transport)); err != nil {
+	oauth := googleapi.OAuth
+	oauth.Transport = transport
+	if err := reg.RegisterOAuth(Provider, oauth); err != nil {
 		return err
 	}
 	return reg.Register(Provider,

@@ -26,13 +26,13 @@ func TestStatusOf(t *testing.T) {
 }
 
 func TestOAuthIsValidAndFixed(t *testing.T) {
-	oauth := OAuth(nil)
+	oauth := OAuth
 	if err := oauth.Validate(); err != nil {
 		t.Fatalf("Validate() = %v", err)
 	}
 	if oauth.TokenURL != "https://oauth2.googleapis.com/token" || oauth.RevokeURL != "https://oauth2.googleapis.com/revoke" ||
 		oauth.AuthorizeURL != "https://accounts.google.com/o/oauth2/v2/auth" || oauth.NarrowRefresh {
-		t.Errorf("OAuth() = %+v", oauth)
+		t.Errorf("OAuth = %+v", oauth)
 	}
 }
 
