@@ -141,6 +141,9 @@ func (c *client) send(ctx context.Context, op, tool string, svc service, method,
 		req.Header.Set("Authorization", "Bearer "+access)
 		req.Header.Set("Accept", "application/json")
 		req.Header.Set("User-Agent", userAgent)
+		if body != nil {
+			req.Header.Set("Content-Type", "application/json")
+		}
 		return req, nil
 	}
 	if err := c.limiter.Wait(ctx); err != nil {

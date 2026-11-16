@@ -263,17 +263,25 @@ func targetReaches(tool string, targets []string) (bool, []string) {
 		if !list.reachesResources() {
 			return false, []string{"organizations/ORGANIZATION", "folders/FOLDER", "projects/PROJECT"}
 		}
-	case foldersSearchID:
+	case foldersSearchID, foldersGetID, foldersListID:
 		if !list.reachesFolders() {
 			return false, []string{"organizations/ORGANIZATION", "folders/FOLDER"}
 		}
-	case organizationsSearchID:
+	case projectsListID:
+		if !list.reachesFolders() {
+			return false, []string{"organizations/ORGANIZATION", "folders/FOLDER"}
+		}
+	case organizationsSearchID, organizationsGetID:
 		if !list.reachesOrganizations() {
 			return false, []string{"organizations/ORGANIZATION"}
 		}
 	case operationsGetID:
 		if !list.reachesWithoutResource() {
 			return false, []string{"organizations/ORGANIZATION"}
+		}
+	case iamRolesListID, iamRolesGetID, iamRolesQueryID, iamPermissionsQueryID:
+		if !list.reachesResources() {
+			return false, []string{"organizations/ORGANIZATION", "folders/FOLDER", "projects/PROJECT"}
 		}
 	}
 	return true, nil

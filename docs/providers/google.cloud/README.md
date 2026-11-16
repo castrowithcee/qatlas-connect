@@ -1,6 +1,6 @@
 ---
 description: >
-  Describes the Google Cloud provider: the token credential and its fixed origins, the targets (organization, folder, project, billing account) and what they reach, the read profile, the search tools with their structured filters, cursors, and per-row target check, the Google error form and its classes, long-running operations, rate spacing, the connection test, and the limits of what is verified.
+  Describes the Google Cloud provider: the token credential and its fixed origins, the targets (organization, folder, project, billing account) and what they reach, the read profile, the search tools with their structured filters, cursors, and per-row target check, the IAM role and permission reads, the Google error form and its classes, long-running operations, rate spacing, the connection test, and the limits of what is verified.
 type: knowledge
 edit: shared
 created: 2026-11-16
@@ -11,7 +11,8 @@ updated: 2026-11-16
 
 Google Cloud is a provider for Google Cloud APIs with one credential that issues access tokens. This
 package covers Cloud Resource Manager: it searches organizations, folders, and projects, reads one project, and
-reads the state of a long-running operation. Every tool is a read. The package also lays down what the later
+reads the state of a long-running operation. It also reads IAM roles and the roles and permissions of a
+resource. Every tool is a read. The package also lays down what the later
 Google Cloud packages build on: the service table, the token handling, the error mapping, the operation
 helper, and the targets.
 
@@ -30,7 +31,10 @@ a person's consent (`client_id`, optionally `client_secret`, and the `refresh_to
 `qconnect credential consent` stores), a service account (`service_account_key`), or the impersonation of a
 service account that the connection names with `service_account` (the consent of a person who may create
 tokens for it). The connection holds no scope. Qatlas derives them from the tools it offers and asks for the
-smallest scope of each tool, `cloud-platform.read-only` for the Resource Manager reads and `cloud-platform` for the IAM tools (see [IAM](iam.md)). The access token travels in the
+smallest scope the discovery document of each method lists: `cloud-platform.read-only` for Resource Manager,
+and `cloud-platform` for the IAM tools, because their discovery documents list no narrower scope (Google
+offers no read-only variant for these methods, see [IAM](iam.md)). No tool of this provider changes anything, whatever the scope
+allows. The access token travels in the
 `Authorization` header only, is never an argument or part of a result, and is masked in every output. A 401
 renews the token once, and nothing else repeats a request.
 
@@ -51,10 +55,15 @@ tools of a later package read the target.
 Three rules decide which tool a binding reaches. They are separate on purpose:
 
 - **Resource tools** (`projects.get`, `projects.search`): the connection is unbound or names an organization,
-  a folder, or a project. `folders.search` needs an organization or a folder, because a project holds no folder.
-- **Organization tools** (`organizations.search`): the binding must name an organization expressly. A
+  a folder, or a project. `folders.search`, `folders.get`, `folders.list`, and `projects.list` need an organization or a
+  folder, because a project holds no folder and no child.
+- **Organization tools** (`organizations.search`, `organizations.get`): the binding must name an organization expressly. A
   connection without targets does not run them, because its credential may see organizations the person never
   handed over. The rows are limited to the organizations the targets name.
+- **IAM tools** (`iam-roles.*`, `iam-permissions.query-testable`): the connection is unbound or names an
+  organization, a folder, or a project, so a connection bound to billing accounts alone neither runs nor is
+  offered them, not even for predefined roles. Organization roles and an organization resource are reached
+  only if a target names exactly that organization; a connection without targets is refused.
 - **Tools without a resource** (`operations.get`): an operation belongs to no folder or project that Qatlas
   could prove, so the tool runs on a connection without targets or with an organization among them. It is not an
   organization tool: it reads no organization.
@@ -64,11 +73,19 @@ secret is read and before any request.
 
 ## Profiles
 
-The profile `read` is the recommended one and holds every tool of this package: `google.cloud.organizations.search`,
-`google.cloud.folders.search`, `google.cloud.projects.search`, `google.cloud.projects.get`,
-`google.cloud.operations.get`, `google.cloud.iam-policies.get`, `google.cloud.iam-permissions.test`,
-`google.cloud.iam-deny-policies.list`, and `google.cloud.iam-deny-policies.get`. Later packages add profiles per
-tool group.
+The profile `read` is the recommended one. It holds every tool that needs no more than the scope
+`cloud-platform.read-only`: `google.cloud.organizations.search`, `google.cloud.folders.search`,
+`google.cloud.projects.search`, `google.cloud.projects.get`, `google.cloud.operations.get`,
+`google.cloud.organizations.get`, `google.cloud.folders.get`, `google.cloud.folders.list`, and
+`google.cloud.projects.list`.
+
+The profile `read-iam` adds the IAM tools (`google.cloud.iam-roles.list`, `google.cloud.iam-roles.get`,
+`google.cloud.iam-roles.query-grantable`, `google.cloud.iam-permissions.query-testable`,
+`google.cloud.iam-policies.get`, `google.cloud.iam-permissions.test`, `google.cloud.iam-deny-policies.list`,
+`google.cloud.iam-deny-policies.get`). They accept only the
+scope `cloud-platform`, so a connection with this profile asks for a token that may change whatever its account
+may change, although no tool of this provider changes anything. It is not recommended: give it only to a
+connection that needs IAM, preferably with a credential whose account has viewer roles only.
 
 ## Tools
 
@@ -110,12 +127,23 @@ chain. Folders it has placed once are remembered during the call, so rows below 
 A call spends at most 30 such reads; a search that needs more is refused and asks for a narrower filter, for
 example a `parent`. A row without a usable name is an invalid response.
 
+### Organizations, folders, and projects
+
+Reading one organization or folder and listing the folders and projects below a parent are described on their
+own pages: [organizations](organizations.md) (`organizations.get`), [folders](folders.md) (`folders.get`,
+`folders.list`), and [projects](projects.md) (`projects.list`).
+
 ### Single reads
 
 `projects.get` takes a project ID or number and applies the same check: it reads the project and, where its
 parent does not decide, the folders above it. A project outside the targets is refused without a name.
 `operations.get` takes the `service` (here only `resource-manager`; later packages extend the list) and the
 operation `name`.
+
+### IAM
+
+[IAM roles and permissions](iam-roles.md) covers `iam-roles.list`, `iam-roles.get`,
+`iam-roles.query-grantable`, and `iam-permissions.query-testable`.
 
 ## Long-running operations
 
@@ -138,7 +166,7 @@ decide beyond the HTTP status.
 | Answer | Class |
 | --- | --- |
 | 401 with `CREDENTIALS_MISSING`, `ACCESS_TOKEN_EXPIRED`, or status `UNAUTHENTICATED` | `auth` |
-| 403 with reason `SERVICE_DISABLED` | `permission`, the message names the disabled Cloud Resource Manager API |
+| 403 with reason `SERVICE_DISABLED` | `permission`, the message names Cloud Resource Manager and IAM as the APIs to enable |
 | 403 with reason `ACCESS_TOKEN_SCOPE_INSUFFICIENT` | `scope-missing` |
 | 403 with status `PERMISSION_DENIED` | `permission` |
 | 404 with status `NOT_FOUND` | `not-found` |
@@ -179,7 +207,8 @@ Not verified:
 - The maximum length of a filter value (64 characters) and the characters of a label key and value (lowercase
   ASCII letters, digits, `-`, `_`) are narrower than what Google accepts.
 - The per-method rights are as the discovery document states them: `resourcemanager.organizations.get`,
-  `resourcemanager.folders.get`, and `resourcemanager.projects.get`; the right behind `operations.get` is not
+  `resourcemanager.folders.get`, `resourcemanager.projects.get`, and, for the lists,
+  `resourcemanager.folders.list` and `resourcemanager.projects.list` on the parent; the right behind `operations.get` is not
   stated.
 
 Left out on purpose:

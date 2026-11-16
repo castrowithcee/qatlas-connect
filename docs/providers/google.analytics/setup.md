@@ -70,12 +70,15 @@ Add the service account to Analytics as above.
 
 In Analytics, open Admin, then **Account access management** or **Property access management**, and add the
 Google account or the service account address with at least the **Viewer** role. A property is visible with a
-role on the property or on its account. The Analytics roles are not changed by the scopes below.
+role on the property or on its account. The Analytics roles are not changed by the scopes below. The tools that change properties also need the
+**Editor** role on the account (to create a property) or on the property (to change it), and trashing a property
+needs the **Editor** role on the property or its account.
 
 ## Rights and scopes
 
-Every tool needs the scope `https://www.googleapis.com/auth/analytics.readonly`, the smallest scope that reads
-Analytics configuration. Qatlas asks for the scope of the tools of the connections that use the credential and
+The reading tools need the scope `https://www.googleapis.com/auth/analytics.readonly`, the smallest scope that
+reads Analytics configuration. The tools that create, change, or trash a property need
+`https://www.googleapis.com/auth/analytics.edit`. Qatlas asks for the scope of the tools of the connections that use the credential and
 no more. Each connection of a credential has to be for Google Analytics, so the credential never carries the
 scope of another product.
 
@@ -83,6 +86,7 @@ scope of another product.
 | --- | --- | --- |
 | [Accounts](accounts.md) | `accounts.list-summaries`, `accounts.list` | `analytics.readonly` |
 | [Properties](properties.md) | `properties.list`, `properties.get` | `analytics.readonly` |
+| [Properties](properties.md#changing-properties) | `properties.create`, `properties.update`, `properties.delete` | `analytics.edit` |
 
 ## Add it to Qatlas
 

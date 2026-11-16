@@ -116,7 +116,8 @@ methods list:
 | `iam-deny-policies.list`, `.get` | `cloud-platform` | IAM v2 lists only this |
 
 `cloud-platform` is the broad scope of Google Cloud. It is the only one the methods accept, and the rights of
-the account stay the limit. A connection that offers none of these tools asks for none of it.
+the account stay the limit. The tools therefore belong to the profile `read-iam`, not to the recommended `read`,
+and a connection that offers none of them asks for none of it.
 
 Discovery revisions the methods were checked against: `cloudresourcemanager` v3 20261107, `iam` v1 20261106, and
 `iam` v2 20261106.
@@ -129,8 +130,6 @@ Not verified:
 - The form of a deny policy ID and of the name Google returns (whether it echoes the attachment point as sent,
   or with the project number) are not documented. Qatlas checks only that the name is a `policies/` name and ends
   in the policy asked for.
-- A 403 for a disabled API names Cloud Resource Manager in its message, also when the IAM API is the one that
-  is disabled.
 
 Left out on purpose:
 

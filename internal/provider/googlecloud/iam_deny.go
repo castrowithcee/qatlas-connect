@@ -145,7 +145,7 @@ var denyPoliciesList = capability.Descriptor{
 		`"required":["resource_type","resource_id"],"additionalProperties":false}`),
 	OutputSchema: listOutputSchema("policies", denyPolicyOutputSchema),
 	Arguments: []capability.Argument{
-		hierarchyTypeArgument, resourceIDArgument,
+		hierarchyTypeArgument, policyResourceIDArgument,
 		{Name: "page_size", Description: "Policies per page, 1 to 1000; the documentation of Google says IAM " +
 			"ignores it and uses 1000"},
 		cursorArgument,
@@ -170,7 +170,7 @@ var denyPoliciesGet = capability.Descriptor{
 		`"required":["resource_type","resource_id","policy_id"],"additionalProperties":false}`),
 	OutputSchema: json.RawMessage(denyPolicyOutputSchema),
 	Arguments: []capability.Argument{
-		hierarchyTypeArgument, resourceIDArgument,
+		hierarchyTypeArgument, policyResourceIDArgument,
 		{Name: "policy_id", Required: true, Description: "ID of the deny policy, the last part of its name; " +
 			"never a path"},
 	},
@@ -185,7 +185,7 @@ func handleDenyPoliciesList(ctx context.Context, resolved *config.Resolved, secr
 	red *redact.Redactor, raw json.RawMessage) (any, error) {
 	const op = "list deny policies"
 	var arguments struct {
-		iamArguments
+		policyArguments
 		PageSize *int   `json:"page_size"`
 		Cursor   string `json:"cursor"`
 	}
@@ -206,7 +206,7 @@ func handleDenyPoliciesList(ctx context.Context, resolved *config.Resolved, secr
 			return nil, badRequest("cursor is not a next_cursor of this list; start again without cursor")
 		}
 	}
-	c, r, err := openResource(ctx, op, denyPoliciesListID, resolved, secrets, red, arguments.iamArguments,
+	c, r, err := openResource(ctx, op, denyPoliciesListID, resolved, secrets, red, arguments.policyArguments,
 		kindProject, kindFolder, kindOrganization)
 	if err != nil {
 		return nil, err
@@ -247,7 +247,7 @@ func handleDenyPoliciesGet(ctx context.Context, resolved *config.Resolved, secre
 	red *redact.Redactor, raw json.RawMessage) (any, error) {
 	const op = "get deny policy"
 	var arguments struct {
-		iamArguments
+		policyArguments
 		PolicyID string `json:"policy_id"`
 	}
 	if err := json.Unmarshal(raw, &arguments); err != nil {
@@ -256,7 +256,7 @@ func handleDenyPoliciesGet(ctx context.Context, resolved *config.Resolved, secre
 	if !policyIDPattern.MatchString(arguments.PolicyID) {
 		return nil, badRequest("policy_id must be the ID of a deny policy, never a path")
 	}
-	c, r, err := openResource(ctx, op, denyPoliciesGetID, resolved, secrets, red, arguments.iamArguments,
+	c, r, err := openResource(ctx, op, denyPoliciesGetID, resolved, secrets, red, arguments.policyArguments,
 		kindProject, kindFolder, kindOrganization)
 	if err != nil {
 		return nil, err

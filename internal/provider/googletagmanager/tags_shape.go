@@ -109,6 +109,32 @@ func (p parameter) bounds() (depth, nodes int) {
 	return depth, nodes
 }
 
+// checkTrees refuses parameters nested deeper or more numerous than a request may carry.
+func checkTrees(trees []parameter) error {
+	total := 0
+	for _, p := range trees {
+		depth, nodes := p.bounds()
+		if depth > maxParamDepth {
+			return invalidArgument("a parameter nests deeper than " + strconv.Itoa(maxParamDepth) + " levels")
+		}
+		total += nodes
+	}
+	if total > maxParamNodes {
+		return invalidArgument("the parameters hold more than " + strconv.Itoa(maxParamNodes) + " entries")
+	}
+	return nil
+}
+
+// countNodes counts the parameter entries of the trees.
+func countNodes(trees []parameter) int {
+	total := 0
+	for _, p := range trees {
+		_, nodes := p.bounds()
+		total += nodes
+	}
+	return total
+}
+
 // checkInput refuses a tag the schema would refuse as well, for a handler reached without the schema.
 func (b tagBody) checkInput() error {
 	trees := append([]parameter(nil), b.Parameter...)
@@ -120,17 +146,10 @@ func (b tagBody) checkInput() error {
 	if b.ConsentSettings != nil && b.ConsentSettings.ConsentType != nil {
 		trees = append(trees, *b.ConsentSettings.ConsentType)
 	}
-	total := 0
-	for _, p := range trees {
-		depth, nodes := p.bounds()
-		if depth > maxParamDepth {
-			return invalidArgument("a parameter nests deeper than " + strconv.Itoa(maxParamDepth) + " levels")
-		}
-		total += nodes
+	if err := checkTrees(trees); err != nil {
+		return err
 	}
 	switch {
-	case total > maxParamNodes:
-		return invalidArgument("the parameters hold more than " + strconv.Itoa(maxParamNodes) + " entries")
 	case strings.TrimSpace(b.Name) == "":
 		return invalidArgument("name is required")
 	case b.Type == "":
@@ -141,12 +160,7 @@ func (b tagBody) checkInput() error {
 
 // checkAnswer refuses an answer that holds more parameter entries than a request may carry back.
 func (t tag) checkAnswer(op string) error {
-	total := 0
-	for _, p := range t.Parameter {
-		_, nodes := p.bounds()
-		total += nodes
-	}
-	if total > maxParamNodes {
+	if countNodes(t.Parameter) > maxParamNodes {
 		return provider.InvalidResponse(op, subject+" returned a tag with more than "+strconv.Itoa(maxParamNodes)+
 			" parameter entries")
 	}

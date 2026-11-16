@@ -4,572 +4,586 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"slices"
 	"strings"
 	"testing"
 
+	"github.com/castrowithcee/qatlas-connect/internal/capability"
 	"github.com/castrowithcee/qatlas-connect/internal/provider"
 )
 
-const conditionalPolicy = `{"version":3,"etag":"BwXyz=","bindings":[` +
-	`{"role":"roles/viewer","members":["user:ada@example.com","group:ops@example.com","allUsers"]},` +
-	`{"role":"roles/storage.objectViewer","members":["serviceAccount:ci@example-project.iam.gserviceaccount.com"],` +
-	`"condition":{"expression":"request.time < timestamp(\"2027-01-01T00:00:00Z\")","title":"temporary","description":"until 2027"}}],` +
-	`"auditConfigs":[{"service":"allServices","auditLogConfigs":[{"logType":"DATA_READ","exemptedMembers":["user:bot@example.com"]}]}]}`
-
-func decode(t *testing.T, out string) map[string]any {
-	t.Helper()
-	var got map[string]any
-	if err := json.Unmarshal([]byte(out), &got); err != nil {
-		t.Fatal(err)
-	}
-	return got
+func roleRow(name string) string {
+	return fmt.Sprintf(`{"name":"%s","title":"Title of %s","description":"About it","stage":"GA","etag":"BwX="}`, name, name)
 }
 
-func noIO(t *testing.T, e *environment, what string) {
+func roleRowFull(name string, permissions ...string) string {
+	quoted := make([]string, len(permissions))
+	for i, p := range permissions {
+		quoted[i] = `"` + p + `"`
+	}
+	return fmt.Sprintf(`{"name":"%s","title":"T","stage":"GA","includedPermissions":[%s]}`, name, strings.Join(quoted, ","))
+}
+
+func requireNoIO(t *testing.T, e *environment) {
 	t.Helper()
 	if len(e.fake.api()) != 0 || e.fake.tokenRequests() != 0 || e.lookups != 0 {
-		t.Errorf("%s: api=%d tokens=%d lookups=%d, want a refusal before I/O and secret", what,
-			len(e.fake.api()), e.fake.tokenRequests(), e.lookups)
+		t.Errorf("api=%d tokens=%d lookups=%d, want no I/O and no secret read", len(e.fake.api()), e.fake.tokenRequests(), e.lookups)
 	}
 }
 
-func TestIAMPolicyIsAReadPostWithVersionThreeAndPassesMembersThrough(t *testing.T) {
-	e := newEnvironment(t, nil)
-	e.fake.routes["/v3/projects/my-project-123:getIamPolicy"] = okReply(conditionalPolicy)
-	out, err := e.invoke(iamPoliciesGetID, `{"resource_type":"project","resource_id":"my-project-123"}`)
-	if err != nil {
-		t.Fatal(err)
-	}
-	api := e.fake.api()
-	if len(api) != 1 || api[0].method != http.MethodPost || api[0].body != `{"options":{"requestedPolicyVersion":3}}` ||
-		api[0].header.Get("Content-Type") != "application/json" || !strings.HasPrefix(api[0].auth, "Bearer ") {
-		t.Fatalf("requests = %+v", api)
-	}
-	got := decode(t, out)
-	bindings := got["bindings"].([]any)
-	if got["resource"] != "projects/my-project-123" || got["version"] != float64(3) || got["etag"] != "BwXyz=" || len(bindings) != 2 {
-		t.Fatalf("result = %s", out)
-	}
-	first := bindings[0].(map[string]any)["members"].([]any)
-	if len(first) != 3 || first[0] != "user:ada@example.com" || first[2] != "allUsers" {
-		t.Errorf("members = %v, want them unchanged", first)
-	}
-	condition := bindings[1].(map[string]any)["condition"].(map[string]any)
-	if condition["title"] != "temporary" || !strings.Contains(condition["expression"].(string), "timestamp") {
-		t.Errorf("condition = %v", condition)
-	}
-	if audit := got["auditConfigs"].([]any); len(audit) != 1 || !strings.Contains(out, "bot@example.com") {
-		t.Errorf("auditConfigs = %v", audit)
-	}
-	if _, cut := got["truncated"]; cut {
-		t.Errorf("truncated set for a small policy")
-	}
-}
-
-func TestIAMPolicyWithoutBindingsAndOtherVersions(t *testing.T) {
-	e := newEnvironment(t, nil)
-	e.fake.routes["/v3/folders/2001:getIamPolicy"] = okReply(`{"version":1,"etag":"ACAB"}`)
-	out, err := e.invoke(iamPoliciesGetID, `{"resource_type":"folder","resource_id":"2001","requested_policy_version":1}`)
-	if err != nil {
-		t.Fatal(err)
-	}
-	got := decode(t, out)
-	if got["bindings"] != nil || got["etag"] != "ACAB" {
-		t.Errorf("result = %s, want a policy without bindings", out)
-	}
-	if body := e.fake.api()[0].body; body != `{"options":{"requestedPolicyVersion":1}}` {
-		t.Errorf("body = %s", body)
-	}
-	for _, version := range []string{"2", "4", "-1"} {
-		e := newEnvironment(t, nil)
-		if _, err := e.invoke(iamPoliciesGetID, `{"resource_type":"folder","resource_id":"2001","requested_policy_version":`+version+`}`); err == nil {
-			t.Errorf("version %s was accepted", version)
-		}
-		noIO(t, e, "version "+version)
-	}
-}
-
-func TestIAMPolicyRenewsTheTokenOnceAndResendsTheBody(t *testing.T) {
-	e := newEnvironment(t, nil)
-	e.fake.hook = func(n int, _ *http.Request) *reply {
-		if n == 1 {
-			return &reply{status: 401, body: errorObject(401, "UNAUTHENTICATED", "ACCESS_TOKEN_EXPIRED")}
-		}
-		r := okReply(`{"version":1}`)
-		return &r
-	}
-	if _, err := e.invoke(iamPoliciesGetID, `{"resource_type":"organization","resource_id":"9001"}`); err == nil {
-		// An unbound connection never reaches an organization.
-		t.Fatal("an unbound connection read an organization")
-	}
-	e = newEnvironment(t, []string{"organizations/9001"})
-	e.fake.hook = func(n int, _ *http.Request) *reply {
-		if n == 1 {
-			return &reply{status: 401, body: errorObject(401, "UNAUTHENTICATED", "ACCESS_TOKEN_EXPIRED")}
-		}
-		r := okReply(`{"version":1}`)
-		return &r
-	}
-	if _, err := e.invoke(iamPoliciesGetID, `{"resource_type":"organization","resource_id":"9001"}`); err != nil {
-		t.Fatal(err)
-	}
-	api := e.fake.api()
-	if len(api) != 2 || e.fake.tokenRequests() != 2 || api[0].body == "" || api[0].body != api[1].body ||
-		api[0].auth == api[1].auth || api[1].url != "https://cloudresourcemanager.googleapis.com/v3/organizations/9001:getIamPolicy" {
-		t.Errorf("requests = %+v, tokens = %d", api, e.fake.tokenRequests())
-	}
-}
-
-const saEmail = "deploy@example-project.iam.gserviceaccount.com"
-
-func saBody(project, email, uid string) string {
-	return fmt.Sprintf(`{"name":"projects/%s/serviceAccounts/%s","projectId":"%s","email":"%s","uniqueId":"%s"}`,
-		project, email, project, email, uid)
-}
-
-func TestIAMServiceAccountIsBoundByReadingItAcrossProjects(t *testing.T) {
-	e := newEnvironment(t, []string{"projects/my-project-123"})
-	e.fake.routes["/v1/projects/-/serviceAccounts/"+saEmail] = okReply(saBody("my-project-123", saEmail, "108123456789012345678"))
-	e.fake.routes["/v1/projects/my-project-123/serviceAccounts/"+saEmail+":getIamPolicy"] = okReply(`{"version":1,"etag":"ACAB"}`)
-	out, err := e.invoke(iamPoliciesGetID, `{"resource_type":"service-account","resource_id":"`+saEmail+`"}`)
-	if err != nil {
-		t.Fatal(err)
-	}
-	api := e.fake.api()
-	if len(api) != 2 || api[0].method != http.MethodGet || api[0].url != "https://iam.googleapis.com/v1/projects/-/serviceAccounts/"+saEmail ||
-		api[1].method != http.MethodPost || api[1].body != "" ||
-		api[1].url != "https://iam.googleapis.com/v1/projects/my-project-123/serviceAccounts/"+saEmail+":getIamPolicy?options.requestedPolicyVersion=3" {
-		t.Fatalf("requests = %+v", api)
-	}
-	if got := decode(t, out); got["resource"] != "projects/my-project-123/serviceAccounts/"+saEmail {
-		t.Errorf("result = %s", out)
-	}
-
-	// The unique ID names the account as well, and a project known only by number is read once more.
-	e = newEnvironment(t, []string{"folders/2001"})
-	e.fake.routes["/v1/projects/-/serviceAccounts/108123456789012345678"] = okReply(saBody("my-project-123", saEmail, "108123456789012345678"))
-	e.fake.routes["/v3/projects/my-project-123"] = okReply(projectBody)
-	e.fake.routes["/v1/projects/my-project-123/serviceAccounts/108123456789012345678:testIamPermissions"] =
-		okReply(`{"permissions":["iam.serviceAccounts.get"]}`)
-	if _, err := e.invoke(iamPermissionsTestID, `{"resource_type":"service-account",`+
-		`"resource_id":"108123456789012345678","permissions":["iam.serviceAccounts.get"]}`); err != nil {
-		t.Fatal(err)
-	}
-}
-
-func TestIAMServiceAccountOfAnotherProjectIsRefusedBeforeThePolicy(t *testing.T) {
-	e := newEnvironment(t, []string{"projects/my-project-123"})
-	e.fake.routes["/v1/projects/-/serviceAccounts/"+saEmail] = okReply(saBody("other-project-9", saEmail, "1"))
-	for tool, args := range map[string]string{
-		iamPoliciesGetID:     `{"resource_type":"service-account","resource_id":"` + saEmail + `"}`,
-		iamPermissionsTestID: `{"resource_type":"service-account","resource_id":"` + saEmail + `","permissions":["iam.serviceAccounts.get"]}`,
-	} {
-		if _, err := e.invoke(tool, args); !isInvalidRequest(err) {
-			t.Errorf("%s: err = %v, want a refusal", tool, err)
-		}
-	}
-	for _, r := range e.fake.api() {
-		if r.method == http.MethodPost {
-			t.Errorf("a policy request left for a foreign account: %s", r.url)
-		}
-	}
-}
-
-func TestIAMServiceAccountAnswerForAnotherAccountIsRefused(t *testing.T) {
-	for name, body := range map[string]string{
-		"other email":     saBody("my-project-123", "other@example-project.iam.gserviceaccount.com", "1"),
-		"no project":      `{"name":"projects//serviceAccounts/` + saEmail + `","email":"` + saEmail + `"}`,
-		"placeholder":     saBody("-", saEmail, "1"),
-		"name of another": `{"name":"projects/other-project-9/serviceAccounts/x","projectId":"my-project-123","email":"` + saEmail + `"}`,
-	} {
-		e := newEnvironment(t, []string{"projects/my-project-123"})
-		e.fake.routes["/v1/projects/-/serviceAccounts/"+saEmail] = okReply(body)
-		_, err := e.invoke(iamPoliciesGetID, `{"resource_type":"service-account","resource_id":"`+saEmail+`"}`)
-		if classOf(err) != provider.ClassInvalidResponse {
-			t.Errorf("%s: err = %v", name, err)
-		}
-		for _, r := range e.fake.api() {
-			if r.method == http.MethodPost {
-				t.Errorf("%s: policy requested", name)
-			}
-		}
-	}
-}
-
-func TestIAMServiceAccountWithoutTargetsNeedsNoProofReading(t *testing.T) {
-	e := newEnvironment(t, nil)
-	e.fake.routes["/v1/projects/-/serviceAccounts/"+saEmail+":getIamPolicy"] = okReply(`{"version":1}`)
-	out, err := e.invoke(iamPoliciesGetID, `{"resource_type":"service-account","resource_id":"`+saEmail+`"}`)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if api := e.fake.api(); len(api) != 1 || api[0].method != http.MethodPost {
-		t.Errorf("requests = %+v, want the policy alone", api)
-	}
-	if got := decode(t, out); got["resource"] != "projects/-/serviceAccounts/"+saEmail {
-		t.Errorf("result = %s", out)
-	}
-}
-
-func TestIAMServiceAccountArgumentsAreChecked(t *testing.T) {
-	for name, c := range map[string]struct{ targets, args string }{
-		"project argument":               {"", `{"resource_type":"service-account","project_id":"my-project-123","resource_id":"` + saEmail + `"}`},
-		"path as account":                {"", `{"resource_type":"service-account","resource_id":"a/b"}`},
-		"billing only":                   {"billingAccounts/012345-ABCDEF-678901", `{"resource_type":"service-account","resource_id":"` + saEmail + `"}`},
-		"project argument for a project": {"", `{"resource_type":"project","project_id":"my-project-123","resource_id":"my-project-123"}`},
-	} {
-		var targets []string
-		if c.targets != "" {
-			targets = []string{c.targets}
-		}
-		e := newEnvironment(t, targets)
-		if _, err := e.invoke(iamPoliciesGetID, c.args); err == nil {
-			t.Errorf("%s was accepted", name)
-		}
-		noIO(t, e, name)
-	}
-}
-
-func TestIAMToolsRefuseResourcesOutsideTheTargetsBeforeIO(t *testing.T) {
-	tools := map[string]string{
-		iamPoliciesGetID:     `{"resource_type":"%s","resource_id":"%s"}`,
-		iamPermissionsTestID: `{"resource_type":"%s","resource_id":"%s","permissions":["resourcemanager.projects.get"]}`,
-		denyPoliciesListID:   `{"resource_type":"%s","resource_id":"%s"}`,
-		denyPoliciesGetID:    `{"resource_type":"%s","resource_id":"%s","policy_id":"block"}`,
-	}
-	for tool, shape := range tools {
-		for name, c := range map[string]struct {
-			targets  []string
-			kind, id string
-		}{
-			"other project":          {[]string{"projects/other-project-9"}, "project", "my-project-123"},
-			"project for the folder": {[]string{"projects/other-project-9"}, "folder", "2001"},
-			"project for the org":    {[]string{"projects/other-project-9"}, "organization", "9001"},
-			"unbound for the org":    {nil, "organization", "9001"},
-			"folder for the org":     {[]string{"folders/2001"}, "organization", "9001"},
-			"other org for the org":  {[]string{"organizations/9002"}, "organization", "9001"},
-			"billing account only":   {[]string{"billingAccounts/012345-ABCDEF-678901"}, "project", "my-project-123"},
-			"project ID as folder":   {nil, "folder", "my-project-123"},
-			"name instead of an ID":  {nil, "project", "projects/my-project-123"},
-			"path instead of an ID":  {nil, "project", "my-project-123/../x"},
-		} {
-			e := newEnvironment(t, c.targets)
-			if _, err := e.invoke(tool, fmt.Sprintf(shape, c.kind, c.id)); err == nil {
-				t.Errorf("%s: %s ran", tool, name)
-			}
-			noIO(t, e, tool+" "+name)
-		}
-	}
-}
-
-func TestIAMFolderIsBoundThroughItsParentChain(t *testing.T) {
-	e := newEnvironment(t, []string{"organizations/9001"})
-	e.fake.routes["/v3/folders/2002"] = okReply(`{"name":"folders/2002","parent":"folders/2001"}`)
-	e.fake.routes["/v3/folders/2001"] = okReply(`{"name":"folders/2001","parent":"organizations/9001"}`)
-	e.fake.routes["/v3/folders/2002:getIamPolicy"] = okReply(`{"version":1}`)
-	if _, err := e.invoke(iamPoliciesGetID, `{"resource_type":"folder","resource_id":"2002"}`); err != nil {
-		t.Fatal(err)
-	}
-	var paths []string
-	for _, r := range e.fake.api() {
-		paths = append(paths, r.method+" "+strings.TrimPrefix(r.url, "https://cloudresourcemanager.googleapis.com"))
-	}
-	if got := strings.Join(paths, ","); !strings.HasPrefix(got, "GET /v3/folders/2002,GET /v3/folders/2001,POST /v3/folders/2002:getIamPolicy") {
-		t.Errorf("requests = %s, want the chain read before the policy", got)
-	}
-
-	e = newEnvironment(t, []string{"organizations/9002"})
-	e.fake.routes["/v3/folders/2002"] = okReply(`{"name":"folders/2002","parent":"organizations/9001"}`)
-	e.fake.routes["/v3/folders/2002:getIamPolicy"] = okReply(`{"version":1}`)
-	if _, err := e.invoke(iamPoliciesGetID, `{"resource_type":"folder","resource_id":"2002"}`); !isInvalidRequest(err) {
-		t.Fatalf("err = %v, want a refusal", err)
-	}
-	for _, r := range e.fake.api() {
-		if r.method == http.MethodPost {
-			t.Errorf("the policy was read although the folder lies outside: %s", r.url)
-		}
-	}
-}
-
-func TestIAMProjectBelowAFolderTargetIsBoundByReadingIt(t *testing.T) {
-	e := newEnvironment(t, []string{"folders/2001"})
-	e.fake.routes["/v3/projects/my-project-123"] = okReply(projectBody)
-	e.fake.routes["/v3/projects/my-project-123:getIamPolicy"] = okReply(`{"version":1}`)
-	if _, err := e.invoke(iamPoliciesGetID, `{"resource_type":"project","resource_id":"my-project-123"}`); err != nil {
-		t.Fatal(err)
-	}
-	if api := e.fake.api(); len(api) != 2 || api[0].method != http.MethodGet || api[1].method != http.MethodPost {
-		t.Errorf("requests = %+v, want the project read before the policy", api)
-	}
-}
-
-func TestIAMOrganizationRunsOnlyWithTheOrganizationTarget(t *testing.T) {
-	e := newEnvironment(t, []string{"organizations/9001"})
-	e.fake.routes["/v3/organizations/9001:getIamPolicy"] = okReply(`{"version":1}`)
-	e.fake.routes["/v3/organizations/9001:testIamPermissions"] = okReply(`{"permissions":["resourcemanager.organizations.get"]}`)
-	e.fake.routes["/v2/policies/cloudresourcemanager.googleapis.com/organizations/9001/denypolicies"] = okReply(`{}`)
-	for tool, args := range map[string]string{
-		iamPoliciesGetID:     `{"resource_type":"organization","resource_id":"9001"}`,
-		iamPermissionsTestID: `{"resource_type":"organization","resource_id":"9001","permissions":["resourcemanager.organizations.get"]}`,
-		denyPoliciesListID:   `{"resource_type":"organization","resource_id":"9001"}`,
-	} {
-		if _, err := e.invoke(tool, args); err != nil {
-			t.Errorf("%s: %v", tool, err)
-		}
-	}
-}
-
-func TestIAMPermissionsTest(t *testing.T) {
-	e := newEnvironment(t, nil)
-	e.fake.routes["/v3/projects/my-project-123:testIamPermissions"] = okReply(`{"permissions":["resourcemanager.projects.get"]}`)
-	out, err := e.invoke(iamPermissionsTestID, `{"resource_type":"project","resource_id":"my-project-123","permissions":`+
-		`["resourcemanager.projects.get","resourcemanager.projects.delete"]}`)
-	if err != nil {
-		t.Fatal(err)
-	}
-	api := e.fake.api()
-	if len(api) != 1 || api[0].method != http.MethodPost ||
-		api[0].body != `{"permissions":["resourcemanager.projects.get","resourcemanager.projects.delete"]}` {
-		t.Fatalf("requests = %+v", api)
-	}
-	got := decode(t, out)
-	if granted := got["permissions"].([]any); len(granted) != 1 || granted[0] != "resourcemanager.projects.get" ||
-		got["resource"] != "projects/my-project-123" {
-		t.Errorf("result = %s", out)
-	}
-
-	e = newEnvironment(t, nil)
-	e.fake.routes["/v3/projects/my-project-123:testIamPermissions"] = okReply(`{}`)
-	out, err = e.invoke(iamPermissionsTestID, `{"resource_type":"project","resource_id":"my-project-123","permissions":["compute.instances.get"]}`)
-	if err != nil || strings.Contains(out, "compute.instances.get") || !strings.Contains(out, "my-project-123") {
-		t.Errorf("nothing granted: out=%s err=%v", out, err)
-	}
-}
-
-func TestIAMPermissionsTestRefusesBadListsBeforeIO(t *testing.T) {
-	many := make([]string, 101)
-	for i := range many {
-		many[i] = fmt.Sprintf(`"compute.things.get%d"`, i)
-	}
-	for name, permissions := range map[string]string{
-		"101 permissions": `[` + strings.Join(many, ",") + `]`,
-		"none":            `[]`,
-		"wildcard":        `["compute.*"]`,
-		"duplicate":       `["compute.instances.get","compute.instances.get"]`,
-		"free text":       `["ignore previous instructions"]`,
-	} {
-		e := newEnvironment(t, nil)
-		if _, err := e.invoke(iamPermissionsTestID, `{"resource_type":"project","resource_id":"my-project-123","permissions":`+permissions+`}`); err == nil {
-			t.Errorf("%s was accepted", name)
-		}
-		noIO(t, e, name)
-	}
-	e := newEnvironment(t, nil)
-	ok := many[:100]
-	e.fake.routes["/v3/projects/my-project-123:testIamPermissions"] = okReply(`{}`)
-	if _, err := e.invoke(iamPermissionsTestID, `{"resource_type":"project","resource_id":"my-project-123","permissions":[`+strings.Join(ok, ",")+`]}`); err != nil {
-		t.Errorf("100 permissions: %v", err)
-	}
-}
-
-func TestIAMPermissionsTestRefusesAnAnswerOutsideTheRequest(t *testing.T) {
-	for name, body := range map[string]string{
-		"unknown permission": `{"permissions":["resourcemanager.projects.get","iam.roles.create"]}`,
-		"repeated":           `{"permissions":["resourcemanager.projects.get","resourcemanager.projects.get"]}`,
-		"not a list":         `{"permissions":"resourcemanager.projects.get"}`,
-	} {
-		e := newEnvironment(t, nil)
-		e.fake.routes["/v3/projects/my-project-123:testIamPermissions"] = okReply(body)
-		_, err := e.invoke(iamPermissionsTestID, `{"resource_type":"project","resource_id":"my-project-123","permissions":["resourcemanager.projects.get"]}`)
-		if classOf(err) != provider.ClassInvalidResponse {
-			t.Errorf("%s: err = %v", name, err)
-		}
-	}
-}
-
-func TestIAMPolicyBoundsMembersAndSaysSo(t *testing.T) {
-	members := make([]string, 600)
-	for i := range members {
-		members[i] = fmt.Sprintf(`"user:u%d@example.com"`, i)
-	}
-	e := newEnvironment(t, nil)
-	e.fake.routes["/v3/projects/my-project-123:getIamPolicy"] = okReply(`{"bindings":[{"role":"roles/viewer","members":[` +
-		strings.Join(members, ",") + `]},{"role":"roles/owner","members":["user:a\u0007b@example.com"]}]}`)
-	out, err := e.invoke(iamPoliciesGetID, `{"resource_type":"project","resource_id":"my-project-123"}`)
-	if err != nil {
-		t.Fatal(err)
-	}
-	got := decode(t, out)
-	bindings := got["bindings"].([]any)
-	if n := len(bindings[0].(map[string]any)["members"].([]any)); n != maxIAMList || got["truncated"] != true {
-		t.Errorf("members = %d, truncated = %v", n, got["truncated"])
-	}
-	if m := bindings[1].(map[string]any)["members"].([]any)[0]; m != "user:a b@example.com" {
-		t.Errorf("control character kept: %q", m)
-	}
-}
-
-func TestIAMFailuresAreClassified(t *testing.T) {
-	for name, c := range map[string]struct {
-		reply reply
-		want  provider.Class
-	}{
-		"403":       {reply{status: 403, body: errorObject(403, "PERMISSION_DENIED", "")}, provider.ClassPermission},
-		"404":       {reply{status: 404, body: errorObject(404, "NOT_FOUND", "")}, provider.ClassNotFound},
-		"not json":  {reply{status: 200, body: `<html>`, header: http.Header{"Content-Type": {"text/html"}}}, provider.ClassInvalidResponse},
-		"too large": {reply{status: 200, body: `{"etag":"` + strings.Repeat("x", 3<<20) + `"}`}, provider.ClassInvalidResponse},
-	} {
-		for _, path := range []string{"/v3/projects/my-project-123:getIamPolicy", "/v3/projects/my-project-123:testIamPermissions"} {
-			e := newEnvironment(t, nil)
-			e.fake.routes[path] = c.reply
-			tool, args := iamPoliciesGetID, `{"resource_type":"project","resource_id":"my-project-123"}`
-			if strings.HasSuffix(path, "testIamPermissions") {
-				tool, args = iamPermissionsTestID, `{"resource_type":"project","resource_id":"my-project-123","permissions":["compute.instances.get"]}`
-			}
-			_, err := e.invoke(tool, args)
-			if classOf(err) != c.want {
-				t.Errorf("%s %s: err = %v (%s), want %s", name, path, err, classOf(err), c.want)
-			} else if err != nil && strings.Contains(err.Error(), detailCanary) {
-				t.Errorf("%s: error carries provider text", name)
-			}
-		}
-	}
-}
-
-const denyRow = `{"name":"policies/cloudresourcemanager.googleapis.com%%2Fprojects%%2F415104041262/denypolicies/%s","uid":"u-%s",` +
-	`"kind":"DenyPolicy","displayName":"Block %s","etag":"MTY4","createTime":"2026-01-02T03:04:05Z","updateTime":"2026-02-03T04:05:06Z"}`
-
-func TestDenyPoliciesListFollowsTwoPagesAndEncodesTheAttachmentPoint(t *testing.T) {
+func TestIAMRolesListPredefinedViewsAndThreePages(t *testing.T) {
 	e := newEnvironment(t, nil)
 	e.fake.hook = func(_ int, req *http.Request) *reply {
-		if !strings.HasSuffix(req.URL.Path, "/denypolicies") {
+		if req.URL.Path != "/v1/roles" {
 			return nil
 		}
-		if req.URL.Query().Get("pageToken") == "" {
-			return &reply{status: 200, body: `{"policies":[` + fmt.Sprintf(denyRow, "one", "1", "one") + `],"nextPageToken":"page-two"}`}
+		switch req.URL.Query().Get("pageToken") {
+		case "":
+			return &reply{status: 200, body: `{"roles":[` + roleRow("roles/a.viewer") + `],"nextPageToken":"page-two"}`}
+		case "page-two":
+			return &reply{status: 200, body: `{"roles":[` + roleRow("roles/b.viewer") + `],"nextPageToken":"page-three"}`}
 		}
-		return &reply{status: 200, body: `{"policies":[` + fmt.Sprintf(denyRow, "two", "2", "two") + `]}`}
+		return &reply{status: 200, body: `{"roles":[` + roleRow("roles/c.viewer") + `]}`}
 	}
-	args := `{"resource_type":"project","resource_id":"my-project-123","page_size":1`
-	out, err := e.invoke(denyPoliciesListID, args+`}`)
-	if err != nil {
-		t.Fatal(err)
+	var names []string
+	cursor := ""
+	for page := 1; page <= 3; page++ {
+		arguments := `{"parent_type":"predefined","show_deleted":true,"page_size":1`
+		if cursor != "" {
+			arguments += `,"cursor":"` + cursor + `"`
+		}
+		out, err := e.invoke(iamRolesListID, arguments+`}`)
+		if err != nil {
+			t.Fatalf("page %d: %v", page, err)
+		}
+		rows, got := listOf(t, out, "roles")
+		for _, row := range rows {
+			names = append(names, row["name"].(string))
+			if row["title"] == nil || row["description"] != "About it" || row["stage"] != "GA" || row["etag"] != "BwX=" {
+				t.Errorf("row = %v, want every documented field", row)
+			}
+		}
+		next, _ := got["next_cursor"].(string)
+		if more := got["has_more"].(bool); more != (page < 3) || strings.Contains(next, "page-") {
+			t.Fatalf("page %d: has_more=%v next_cursor=%q", page, more, next)
+		}
+		cursor = next
 	}
-	first := decode(t, out)
-	cursor, _ := first["next_cursor"].(string)
-	if first["has_more"] != true || cursor == "" || len(first["policies"].([]any)) != 1 {
-		t.Fatalf("page one = %s", out)
+	if want := []string{"roles/a.viewer", "roles/b.viewer", "roles/c.viewer"}; !slices.Equal(names, want) {
+		t.Errorf("names = %v, want %v", names, want)
 	}
-	out, err = e.invoke(denyPoliciesListID, args+`,"cursor":"`+cursor+`"}`)
-	if err != nil {
-		t.Fatal(err)
+	queries := queriesOf(e)
+	if len(queries) != 3 || queries[0].Get("showDeleted") != "true" || queries[0].Get("pageSize") != "1" ||
+		queries[0].Get("view") != "" || queries[1].Get("pageToken") != "page-two" || queries[2].Get("pageToken") != "page-three" {
+		t.Errorf("queries = %v", queries)
 	}
-	second := decode(t, out)
-	if second["has_more"] != false || second["next_cursor"] != nil || second["policies"].([]any)[0].(map[string]any)["displayName"] != "Block two" {
-		t.Fatalf("page two = %s", out)
+	for _, r := range e.fake.api() {
+		if r.method != http.MethodGet || !strings.HasPrefix(r.url, "https://iam.googleapis.com/v1/roles?") {
+			t.Errorf("request = %s %s", r.method, r.url)
+		}
 	}
-	api := e.fake.api()
-	if len(api) != 2 || api[0].method != http.MethodGet ||
-		api[0].url != "https://iam.googleapis.com/v2/policies/cloudresourcemanager.googleapis.com%2Fprojects%2Fmy-project-123/denypolicies?pageSize=1" ||
-		api[1].url != "https://iam.googleapis.com/v2/policies/cloudresourcemanager.googleapis.com%2Fprojects%2Fmy-project-123/denypolicies?pageSize=1&pageToken=page-two" {
-		t.Errorf("requests = %+v", api)
-	}
+}
 
-	// The cursor continues only the list that issued it.
-	for name, other := range map[string]string{
-		"other resource": `{"resource_type":"project","resource_id":"other-project-9","cursor":"` + cursor + `"}`,
-		"other type":     `{"resource_type":"folder","resource_id":"2001","cursor":"` + cursor + `"}`,
-		"altered":        `{"resource_type":"project","resource_id":"my-project-123","cursor":"` + cursor + `x"}`,
+func TestIAMRolesListViewFullAndBasicAndInvalidView(t *testing.T) {
+	e := newEnvironment(t, nil)
+	e.fake.routes["/v1/roles"] = okReply(`{"roles":[` + roleRowFull("roles/x.viewer", "x.things.get", "x.things.list") + `]}`)
+	out, err := e.invoke(iamRolesListID, `{"parent_type":"predefined","view":"FULL"}`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rows, _ := listOf(t, out, "roles")
+	if perms, _ := rows[0]["includedPermissions"].([]any); len(perms) != 2 {
+		t.Errorf("row = %v, want the permissions of view FULL", rows[0])
+	}
+	if q := queriesOf(e)[0]; q.Get("view") != "FULL" || q.Get("pageSize") != "10" {
+		t.Errorf("query = %v, want view FULL and the page of 10 Qatlas picks for FULL", q)
+	}
+	if _, err := e.invoke(iamRolesListID, `{"parent_type":"predefined","view":"FULL","page_size":11}`); !isInvalidRequest(err) {
+		t.Errorf("page_size 11 with FULL: err = %v, want a refusal", err)
+	}
+	before := len(e.fake.api())
+	for _, bad := range []string{`"view":"MEDIUM"`, `"view":"full"`} {
+		if _, err := e.invoke(iamRolesListID, `{"parent_type":"predefined",`+bad+`}`); err == nil {
+			t.Errorf("%s accepted", bad)
+		}
+	}
+	if len(e.fake.api()) != before {
+		t.Errorf("an invalid view reached the API")
+	}
+	e.fake.routes["/v1/roles"] = okReply(`{"roles":[` + roleRow("roles/x.viewer") + `]}`)
+	if _, err := e.invoke(iamRolesListID, `{"parent_type":"predefined","view":"BASIC"}`); err != nil {
+		t.Fatal(err)
+	}
+	api := queriesOf(e)
+	if got := api[len(api)-1].Get("view"); got != "BASIC" {
+		t.Errorf("view = %q, want BASIC", got)
+	}
+}
+
+func TestIAMRolesListCutsLongPermissionLists(t *testing.T) {
+	e := newEnvironment(t, nil)
+	perms := make([]string, 1200)
+	for i := range perms {
+		perms[i] = fmt.Sprintf("svc.thing%d.get", i)
+	}
+	e.fake.routes["/v1/roles"] = okReply(`{"roles":[` + roleRowFull("roles/big.admin", perms...) + `]}`)
+	out, err := e.invoke(iamRolesListID, `{"parent_type":"predefined","view":"FULL"}`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rows, _ := listOf(t, out, "roles")
+	if got := len(rows[0]["includedPermissions"].([]any)); got != maxRolePermissions || rows[0]["includedPermissionsTotal"] != float64(1200) {
+		t.Errorf("permissions = %d, total = %v, want the cut and the real count", got, rows[0]["includedPermissionsTotal"])
+	}
+}
+
+func TestIAMRolesListTamperedCursorIsRefusedBeforeIO(t *testing.T) {
+	e := newEnvironment(t, nil)
+	e.fake.routes["/v1/roles"] = okReply(`{"roles":[],"nextPageToken":"page-two"}`)
+	e.fake.routes["/v1/projects/my-project-123/roles"] = okReply(`{"roles":[],"nextPageToken":"x"}`)
+	e.fake.routes["/v3/projects/my-project-123"] = okReply(projectBody)
+	out, err := e.invoke(iamRolesListID, `{"parent_type":"predefined"}`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, got := listOf(t, out, "roles")
+	cursor := got["next_cursor"].(string)
+	n := len(e.fake.api())
+	for name, arguments := range map[string]string{
+		"altered":    `{"parent_type":"predefined","cursor":"` + cursor[:len(cursor)-2] + `ab"}`,
+		"cut":        `{"parent_type":"predefined","cursor":"` + cursor[:len(cursor)/2] + `"}`,
+		"other view": `{"parent_type":"predefined","view":"FULL","cursor":"` + cursor + `"}`,
+		"other type": `{"parent_type":"project","parent_id":"my-project-123","cursor":"` + cursor + `"}`,
+		"deleted":    `{"parent_type":"predefined","show_deleted":true,"cursor":"` + cursor + `"}`,
 	} {
-		e2 := newEnvironment(t, nil)
-		if _, err := e2.invoke(denyPoliciesListID, other); !isInvalidRequest(err) {
-			t.Errorf("%s: err = %v", name, err)
+		if _, err := e.invoke(iamRolesListID, arguments); !isInvalidRequest(err) {
+			t.Errorf("%s: err = %v, want a refused cursor", name, err)
 		}
-		noIO(t, e2, name)
+	}
+	if len(e.fake.api()) != n {
+		t.Errorf("a refused cursor reached the API")
+	}
+	// A cursor of another tool or another connection binding is not accepted either.
+	if _, err := e.invoke(iamRolesQueryID, `{"resource_type":"organization","resource_id":"9001","cursor":"`+cursor+`"}`); err == nil {
+		t.Error("a cursor of another tool was accepted")
 	}
 }
 
-func TestDenyPolicyGetReturnsRulesWithPrincipalsUnchanged(t *testing.T) {
-	const body = `{"name":"policies/cloudresourcemanager.googleapis.com%2Ffolders%2F2001/denypolicies/block-delete","uid":"u1",` +
-		`"kind":"DenyPolicy","displayName":"Block delete","annotations":{"team":"sec"},"etag":"MTY4",` +
-		`"rules":[{"description":"no deletes","denyRule":{"deniedPrincipals":["principalSet://goog/public:all","user:ada@example.com"],` +
-		`"exceptionPrincipals":["group:admins@example.com"],"deniedPermissions":["cloudresourcemanager.googleapis.com/projects.delete"],` +
-		`"exceptionPermissions":["iam.googleapis.com/roles.list"],"denialCondition":{"expression":"true","title":"always"}}}]}`
-	e := newEnvironment(t, nil)
-	e.fake.routes["/v2/policies/cloudresourcemanager.googleapis.com/folders/2001/denypolicies/block-delete"] = okReply(body)
-	out, err := e.invoke(denyPoliciesGetID, `{"resource_type":"folder","resource_id":"2001","policy_id":"block-delete"}`)
-	if err != nil {
+func TestIAMRolesListProjectRolesAreBoundToTargets(t *testing.T) {
+	t.Run("outside the targets refused before I/O", func(t *testing.T) {
+		e := newEnvironment(t, []string{"projects/allowed-project"})
+		_, err := e.invoke(iamRolesListID, `{"parent_type":"project","parent_id":"other-project"}`)
+		if err == nil || strings.Contains(err.Error(), "other-project") || strings.Contains(err.Error(), "allowed-project") {
+			t.Fatalf("err = %v, want a refusal without names", err)
+		}
+		requireNoIO(t, e)
+	})
+	t.Run("proved along the parent chain", func(t *testing.T) {
+		e := newEnvironment(t, []string{"organizations/9001"})
+		e.fake.routes["/v3/projects/415104041262"] = okReply(projectBody)
+		e.fake.routes["/v3/folders/2001"] = okReply(`{"name":"folders/2001","parent":"organizations/9001"}`)
+		e.fake.routes["/v1/projects/my-project-123/roles"] = okReply(`{"roles":[` + roleRow("projects/my-project-123/roles/custom") + `]}`)
+		out, err := e.invoke(iamRolesListID, `{"parent_type":"project","parent_id":"415104041262"}`)
+		if err != nil {
+			t.Fatal(err)
+		}
+		rows, _ := listOf(t, out, "roles")
+		if len(rows) != 1 || rows[0]["name"] != "projects/my-project-123/roles/custom" {
+			t.Errorf("rows = %v", rows)
+		}
+		var paths []string
+		for _, r := range e.fake.api() {
+			paths = append(paths, strings.SplitN(strings.TrimPrefix(r.url, "https://"), "?", 2)[0])
+		}
+		want := []string{"cloudresourcemanager.googleapis.com/v3/projects/415104041262",
+			"cloudresourcemanager.googleapis.com/v3/folders/2001", "iam.googleapis.com/v1/projects/my-project-123/roles"}
+		if !slices.Equal(paths, want) {
+			t.Errorf("requests = %v, want the proof reads before the roles", paths)
+		}
+	})
+	t.Run("a project outside by the proof is refused before the roles", func(t *testing.T) {
+		e := newEnvironment(t, []string{"organizations/9999"})
+		e.fake.routes["/v3/projects/my-project-123"] = okReply(projectBody)
+		e.fake.routes["/v3/folders/2001"] = okReply(`{"name":"folders/2001","parent":"organizations/9001"}`)
+		if _, err := e.invoke(iamRolesListID, `{"parent_type":"project","parent_id":"my-project-123"}`); !isInvalidRequest(err) {
+			t.Fatalf("err = %v, want a refusal", err)
+		}
+		for _, r := range e.fake.api() {
+			if strings.Contains(r.url, "iam.googleapis.com") {
+				t.Errorf("the roles were read: %s", r.url)
+			}
+		}
+	})
+	t.Run("a row of another project is an invalid response", func(t *testing.T) {
+		e := newEnvironment(t, nil)
+		e.fake.routes["/v3/projects/my-project-123"] = okReply(projectBody)
+		e.fake.routes["/v1/projects/my-project-123/roles"] = okReply(`{"roles":[` + roleRow("projects/other-project-9/roles/custom") + `]}`)
+		_, err := e.invoke(iamRolesListID, `{"parent_type":"project","parent_id":"my-project-123"}`)
+		if classOf(err) != provider.ClassInvalidResponse {
+			t.Errorf("err = %v, want an invalid response", err)
+		}
+	})
+}
+
+func TestIAMOrganizationRolesNeedTheExactOrganizationTarget(t *testing.T) {
+	calls := []struct{ tool, arguments string }{
+		{iamRolesListID, `{"parent_type":"organization","parent_id":"9001"}`},
+		{iamRolesGetID, `{"role":"organizations/9001/roles/custom"}`},
+		{iamRolesQueryID, `{"resource_type":"organization","resource_id":"9001"}`},
+		{iamPermissionsQueryID, `{"resource_type":"organization","resource_id":"9001"}`},
+	}
+	for _, targets := range [][]string{nil, {"organizations/9999"}, {"folders/2001"}, {"projects/my-project-123"}} {
+		for _, call := range calls {
+			t.Run(fmt.Sprint(call.tool, targets), func(t *testing.T) {
+				e := newEnvironment(t, targets)
+				_, err := e.invoke(call.tool, call.arguments)
+				if !isInvalidRequest(err) || strings.Contains(err.Error(), "9999") || strings.Contains(err.Error(), "2001") {
+					t.Fatalf("err = %v, want a refusal that names no target", err)
+				}
+				requireNoIO(t, e)
+			})
+		}
+	}
+	e := newEnvironment(t, []string{"organizations/9001"})
+	e.fake.routes["/v1/organizations/9001/roles"] = okReply(`{"roles":[` + roleRow("organizations/9001/roles/custom") + `]}`)
+	e.fake.routes["/v1/organizations/9001/roles/custom"] = okReply(roleRowFull("organizations/9001/roles/custom", "a.b.c"))
+	if _, err := e.invoke(iamRolesListID, calls[0].arguments); err != nil {
 		t.Fatal(err)
 	}
-	if got := e.fake.api()[0].url; got != "https://iam.googleapis.com/v2/policies/cloudresourcemanager.googleapis.com%2Ffolders%2F2001/denypolicies/block-delete" {
-		t.Errorf("url = %s", got)
+	out, err := e.invoke(iamRolesGetID, calls[1].arguments)
+	if err != nil || !strings.Contains(out, "a.b.c") {
+		t.Fatalf("out=%s err=%v", out, err)
 	}
-	rule := decode(t, out)["rules"].([]any)[0].(map[string]any)["denyRule"].(map[string]any)
-	if principals := rule["deniedPrincipals"].([]any); len(principals) != 2 || principals[0] != "principalSet://goog/public:all" ||
-		rule["denialCondition"].(map[string]any)["title"] != "always" || rule["exceptionPermissions"].([]any)[0] != "iam.googleapis.com/roles.list" {
-		t.Errorf("rule = %v", rule)
+	for _, r := range e.fake.api() {
+		if strings.Contains(r.url, "cloudresourcemanager") {
+			t.Errorf("an organization needs no proof read, got %s", r.url)
+		}
 	}
 }
 
-func TestDenyPolicyRefusesAPathAndAWrongAnswer(t *testing.T) {
-	for _, id := range []string{"../x", "a/b", "a b", "%2F", ""} {
-		e := newEnvironment(t, nil)
-		if _, err := e.invoke(denyPoliciesGetID, `{"resource_type":"project","resource_id":"my-project-123","policy_id":"`+id+`"}`); err == nil {
-			t.Errorf("policy_id %q was accepted", id)
-		}
-		noIO(t, e, "policy_id "+id)
-	}
+func TestIAMRolesGet(t *testing.T) {
 	e := newEnvironment(t, nil)
-	e.fake.routes["/v2/policies/cloudresourcemanager.googleapis.com/projects/my-project-123/denypolicies/block"] =
-		okReply(`{"name":"policies/x/denypolicies/other"}`)
-	if _, err := e.invoke(denyPoliciesGetID, `{"resource_type":"project","resource_id":"my-project-123","policy_id":"block"}`); classOf(err) != provider.ClassInvalidResponse {
+	e.fake.routes["/v1/roles/compute.viewer"] = okReply(roleRowFull("roles/compute.viewer", "compute.disks.get") +
+		"")
+	out, err := e.invoke(iamRolesGetID, `{"role":"roles/compute.viewer"}`)
+	if err != nil || !strings.Contains(out, "compute.disks.get") {
+		t.Fatalf("out=%s err=%v", out, err)
+	}
+	// The answer must name the role that was asked.
+	e.fake.routes["/v1/roles/compute.admin"] = okReply(roleRow("roles/other.admin"))
+	if _, err := e.invoke(iamRolesGetID, `{"role":"roles/compute.admin"}`); classOf(err) != provider.ClassInvalidResponse {
 		t.Errorf("err = %v, want an invalid response", err)
 	}
+	for _, bad := range []string{`"roles/*"`, `"roles/../x"`, `"projects/my-project-123/roles/"`, `"folders/1/roles/x"`,
+		`"roles/a b"`, `"https://iam.googleapis.com/v1/roles/x"`} {
+		if _, err := e.invoke(iamRolesGetID, `{"role":`+bad+`}`); err == nil {
+			t.Errorf("role %s accepted", bad)
+		}
+	}
+	t.Run("project role uses the project ID", func(t *testing.T) {
+		e := newEnvironment(t, []string{"projects/my-project-123"})
+		e.fake.routes["/v3/projects/415104041262"] = okReply(projectBody)
+		e.fake.routes["/v1/projects/my-project-123/roles/custom"] = okReply(roleRowFull("projects/my-project-123/roles/custom", "a.b.c"))
+		if _, err := e.invoke(iamRolesGetID, `{"role":"projects/415104041262/roles/custom"}`); err != nil {
+			t.Fatal(err)
+		}
+	})
+	t.Run("project role outside the targets", func(t *testing.T) {
+		e := newEnvironment(t, []string{"projects/allowed-project"})
+		if _, err := e.invoke(iamRolesGetID, `{"role":"projects/other-project/roles/custom"}`); !isInvalidRequest(err) {
+			t.Fatalf("err = %v", err)
+		}
+		requireNoIO(t, e)
+	})
 }
 
-func TestDenyPoliciesFailures(t *testing.T) {
-	for name, c := range map[string]struct {
+func TestIAMPredefinedRolesAreNotBoundToTargets(t *testing.T) {
+	e := newEnvironment(t, []string{"projects/my-project-123"})
+	e.fake.routes["/v1/roles"] = okReply(`{"roles":[` + roleRow("roles/viewer") + `]}`)
+	if _, err := e.invoke(iamRolesListID, `{"parent_type":"predefined"}`); err != nil {
+		t.Fatal(err)
+	}
+	if got := len(e.fake.api()); got != 1 {
+		t.Errorf("requests = %d, want the one list and no proof read", got)
+	}
+	if _, err := e.invoke(iamRolesListID, `{"parent_type":"predefined","parent_id":"my-project-123"}`); !isInvalidRequest(err) {
+		t.Errorf("a predefined list with a parent_id: err = %v", err)
+	}
+}
+
+func TestIAMToolsReachNothingOnBillingOnlyConnections(t *testing.T) {
+	e := newEnvironment(t, []string{"billingAccounts/012345-ABCDEF-678901"})
+	for _, call := range []struct{ tool, arguments string }{
+		{iamRolesListID, `{"parent_type":"predefined"}`},
+		{iamRolesGetID, `{"role":"roles/viewer"}`},
+		{iamRolesQueryID, `{"resource_type":"project","resource_id":"my-project-123"}`},
+		{iamPermissionsQueryID, `{"resource_type":"project","resource_id":"my-project-123"}`},
+	} {
+		if _, err := e.invoke(call.tool, call.arguments); err == nil {
+			t.Errorf("%s ran on a billing-only connection", call.tool)
+		}
+		for _, targets := range [][]string{{"billingAccounts/012345-ABCDEF-678901"}} {
+			if reaches, _ := targetReaches(call.tool, targets); reaches {
+				t.Errorf("%s is offered to a billing-only binding", call.tool)
+			}
+		}
+		for _, targets := range [][]string{nil, {"projects/my-project-123"}, {"folders/1"}, {"organizations/1"}} {
+			if reaches, _ := targetReaches(call.tool, targets); !reaches {
+				t.Errorf("%s is hidden from %v", call.tool, targets)
+			}
+		}
+	}
+	requireNoIO(t, e)
+}
+
+func TestIAMQueryGrantableSendsAFixedPostBodyAndFollowsTwoPages(t *testing.T) {
+	e := newEnvironment(t, []string{"organizations/9001"})
+	e.fake.routes["/v3/projects/my-project-123"] = okReply(`{"name":"projects/1","projectId":"my-project-123","parent":"organizations/9001"}`)
+	e.fake.hook = func(_ int, req *http.Request) *reply {
+		if req.URL.Path != "/v1/roles:queryGrantableRoles" {
+			return nil
+		}
+		return &reply{status: 200, body: `{"roles":[` + roleRow("roles/viewer") + `,` +
+			roleRow("organizations/9001/roles/named") + `,` + roleRow("organizations/7777/roles/foreign") + `,` +
+			roleRow("projects/my-project-123/roles/mine") + `],"nextPageToken":"more"}`}
+	}
+	out, err := e.invoke(iamRolesQueryID, `{"resource_type":"project","resource_id":"my-project-123","page_size":4}`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rows, got := listOf(t, out, "roles")
+	if len(rows) != 4 || rows[1]["title"] == nil {
+		t.Fatalf("rows = %v", rows)
+	}
+	if foreign := rows[2]; len(foreign) != 1 || foreign["name"] != "organizations/7777/roles/foreign" {
+		t.Errorf("foreign organization role = %v, want its name only", foreign)
+	}
+	e.fake.hook = func(_ int, req *http.Request) *reply {
+		if req.URL.Path != "/v1/roles:queryGrantableRoles" {
+			return nil
+		}
+		return &reply{status: 200, body: `{"roles":[` + roleRow("roles/editor") + `]}`}
+	}
+	cursor := got["next_cursor"].(string)
+	out, err = e.invoke(iamRolesQueryID, `{"resource_type":"project","resource_id":"my-project-123","cursor":"`+cursor+`"}`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, got := listOf(t, out, "roles"); got["has_more"] != false || got["next_cursor"] != nil {
+		t.Errorf("second page = %v", got)
+	}
+	var posts []seen
+	for _, r := range e.fake.api() {
+		if strings.HasPrefix(r.url, "https://iam.googleapis.com/") {
+			posts = append(posts, r)
+		}
+	}
+	if len(posts) != 2 {
+		t.Fatalf("IAM requests = %d", len(posts))
+	}
+	for i, r := range posts {
+		var body map[string]any
+		if err := json.Unmarshal([]byte(r.body), &body); err != nil {
+			t.Fatal(err)
+		}
+		if r.method != http.MethodPost || r.url != "https://iam.googleapis.com/v1/roles:queryGrantableRoles" ||
+			r.header.Get("Content-Type") != "application/json" || body["fullResourceName"] !=
+			"//cloudresourcemanager.googleapis.com/projects/my-project-123" {
+			t.Errorf("request %d = %s %s %v", i, r.method, r.url, body)
+		}
+		if _, hasView := body["view"]; hasView || len(body) != 2+i {
+			t.Errorf("body %d = %v, want only the checked members", i, body)
+		}
+	}
+	var second map[string]any
+	_ = json.Unmarshal([]byte(posts[1].body), &second)
+	if second["pageToken"] != "more" {
+		t.Errorf("second body = %v, want Google's token, not the cursor", second)
+	}
+}
+
+func TestIAMQueryRejectsRowsOfOtherScopes(t *testing.T) {
+	e := newEnvironment(t, nil)
+	e.fake.routes["/v3/folders/2001"] = okReply(`{"name":"folders/2001","parent":"organizations/9001"}`)
+	e.fake.routes["/v1/roles:queryGrantableRoles"] = okReply(`{"roles":[` + roleRow("projects/my-project-123/roles/x") + `]}`)
+	_, err := e.invoke(iamRolesQueryID, `{"resource_type":"folder","resource_id":"2001"}`)
+	if classOf(err) != provider.ClassInvalidResponse {
+		t.Errorf("err = %v, want an invalid response for a project role on a folder", err)
+	}
+	e.fake.routes["/v1/roles:queryGrantableRoles"] = okReply(`{"roles":[{"title":"no name"}]}`)
+	if _, err := e.invoke(iamRolesQueryID, `{"resource_type":"folder","resource_id":"2001"}`); classOf(err) != provider.ClassInvalidResponse {
+		t.Errorf("err = %v, want an invalid response for a row without a name", err)
+	}
+}
+
+func TestIAMQueryResourceIsStructured(t *testing.T) {
+	e := newEnvironment(t, nil)
+	for _, arguments := range []string{
+		`{"resource_type":"bucket","resource_id":"x"}`,
+		`{"resource_type":"project","resource_id":"//cloudresourcemanager.googleapis.com/projects/p"}`,
+		`{"resource_type":"folder","resource_id":"my-folder"}`,
+		`{"resource_type":"organization","resource_id":"9001/../x"}`,
+		`{"resource_type":"project"}`,
+		`{"resource_id":"my-project-123"}`,
+		`{"full_resource_name":"//cloudresourcemanager.googleapis.com/projects/p","resource_type":"project","resource_id":"my-project-123"}`,
+	} {
+		for _, tool := range []string{iamRolesQueryID, iamPermissionsQueryID} {
+			if _, err := e.invoke(tool, arguments); err == nil {
+				t.Errorf("%s accepted %s", tool, arguments)
+			}
+		}
+	}
+	requireNoIO(t, e)
+}
+
+func TestIAMQueryTestablePermissions(t *testing.T) {
+	e := newEnvironment(t, []string{"folders/2001"})
+	e.fake.routes["/v3/folders/2001"] = okReply(`{"name":"folders/2001","parent":"organizations/9001"}`)
+	e.fake.routes["/v1/permissions:queryTestablePermissions"] = okReply(`{"permissions":[` +
+		`{"name":"a.b.get","title":"T","description":"D","stage":"GA","customRolesSupportLevel":"SUPPORTED","apiDisabled":true,"primaryPermission":"a.b.read"},` +
+		`{"name":"a.b.list"}],"nextPageToken":"more"}`)
+	out, err := e.invoke(iamPermissionsQueryID, `{"resource_type":"folder","resource_id":"2001","page_size":2}`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rows, got := listOf(t, out, "permissions")
+	if len(rows) != 2 || rows[0]["customRolesSupportLevel"] != "SUPPORTED" || rows[0]["apiDisabled"] != true ||
+		rows[0]["primaryPermission"] != "a.b.read" || rows[0]["stage"] != "GA" || rows[0]["title"] != "T" ||
+		rows[0]["description"] != "D" || got["has_more"] != true {
+		t.Errorf("rows = %v", rows)
+	}
+	api := e.fake.api()
+	var body map[string]any
+	_ = json.Unmarshal([]byte(api[len(api)-1].body), &body)
+	if body["fullResourceName"] != "//cloudresourcemanager.googleapis.com/folders/2001" || body["pageSize"] != float64(2) {
+		t.Errorf("body = %v", body)
+	}
+	if _, err := e.invoke(iamPermissionsQueryID, `{"resource_type":"folder","resource_id":"2001","page_size":501}`); err == nil {
+		t.Error("page_size 501 accepted")
+	}
+	// A project target cannot hold a folder.
+	e2 := newEnvironment(t, []string{"projects/my-project-123"})
+	if _, err := e2.invoke(iamPermissionsQueryID, `{"resource_type":"folder","resource_id":"2001"}`); !isInvalidRequest(err) {
+		t.Errorf("err = %v, want a refusal", err)
+	}
+	requireNoIO(t, e2)
+}
+
+func TestIAMQueryUnauthorizedRenewsOnceWithTheBodyIntact(t *testing.T) {
+	e := newEnvironment(t, []string{"organizations/9001"})
+	e.fake.hook = func(n int, req *http.Request) *reply {
+		if n == 1 {
+			return &reply{status: 401, body: errorObject(401, "UNAUTHENTICATED", "ACCESS_TOKEN_EXPIRED")}
+		}
+		return &reply{status: 200, body: `{"permissions":[{"name":"a.b.get"}]}`}
+	}
+	if _, err := e.invoke(iamPermissionsQueryID, `{"resource_type":"organization","resource_id":"9001"}`); err != nil {
+		t.Fatal(err)
+	}
+	api := e.fake.api()
+	if len(api) != 2 || api[0].body == "" || api[0].body != api[1].body || e.fake.tokenRequests() != 2 {
+		t.Errorf("requests = %+v, tokens = %d, want one repeat with the same body and a new token", api, e.fake.tokenRequests())
+	}
+}
+
+func TestIAMFailures(t *testing.T) {
+	cases := []struct {
+		name  string
 		reply reply
 		want  provider.Class
 	}{
-		"403": {reply{status: 403, body: errorObject(403, "PERMISSION_DENIED", "")}, provider.ClassPermission},
-		"404": {reply{status: 404, body: errorObject(404, "NOT_FOUND", "")}, provider.ClassNotFound},
-	} {
-		for tool, args := range map[string]string{
-			denyPoliciesListID: `{"resource_type":"project","resource_id":"my-project-123"}`,
-			denyPoliciesGetID:  `{"resource_type":"project","resource_id":"my-project-123","policy_id":"block"}`,
+		{"forbidden", reply{status: 403, body: errorObject(403, "PERMISSION_DENIED", "")}, provider.ClassPermission},
+		{"api disabled", reply{status: 403, body: errorObject(403, "PERMISSION_DENIED", "SERVICE_DISABLED")}, provider.ClassPermission},
+		{"not found", reply{status: 404, body: errorObject(404, "NOT_FOUND", "")}, provider.ClassNotFound},
+	}
+	for _, c := range cases {
+		for _, call := range []struct{ tool, arguments string }{
+			{iamRolesListID, `{"parent_type":"predefined"}`},
+			{iamRolesGetID, `{"role":"roles/viewer"}`},
+			{iamRolesQueryID, `{"resource_type":"organization","resource_id":"9001"}`},
+			{iamPermissionsQueryID, `{"resource_type":"organization","resource_id":"9001"}`},
 		} {
-			e := newEnvironment(t, nil)
-			e.fake.hook = func(_ int, req *http.Request) *reply {
-				if strings.Contains(req.URL.Path, "denypolicies") {
-					return &c.reply
+			t.Run(c.name+" "+call.tool, func(t *testing.T) {
+				e := newEnvironment(t, []string{"organizations/9001"})
+				answer := c.reply
+				e.fake.hook = func(int, *http.Request) *reply { return &answer }
+				_, err := e.invoke(call.tool, call.arguments)
+				if classOf(err) != c.want {
+					t.Fatalf("err = %v, want %s", err, c.want)
 				}
-				return nil
-			}
-			if _, err := e.invoke(tool, args); classOf(err) != c.want {
-				t.Errorf("%s %s: err = %v", tool, name, err)
-			}
+				if strings.Contains(err.Error(), detailCanary) {
+					t.Errorf("error %q carries provider text", err)
+				}
+			})
 		}
 	}
 }
 
-func TestIAMToolsAreOfferedOnlyToBindingsThatReachThem(t *testing.T) {
-	for _, tool := range []string{iamPoliciesGetID, iamPermissionsTestID, denyPoliciesListID, denyPoliciesGetID} {
-		if reaches, _ := targetReaches(tool, []string{"billingAccounts/012345-ABCDEF-678901"}); reaches {
-			t.Errorf("%s is offered to a billing-only binding", tool)
-		}
-		for _, targets := range [][]string{nil, {"projects/my-project-123"}, {"folders/2001"}, {"organizations/9001"}} {
-			if reaches, _ := targetReaches(tool, targets); !reaches {
-				t.Errorf("%s is hidden from %v", tool, targets)
-			}
-		}
+func TestIAMRolesBoundProviderText(t *testing.T) {
+	e := newEnvironment(t, nil)
+	long := strings.Repeat("x", 5000)
+	e.fake.routes["/v1/roles"] = okReply(`{"roles":[{"name":"roles/viewer","title":"` + long + `","description":"` + long + `\u0007"}]}`)
+	out, err := e.invoke(iamRolesListID, `{"parent_type":"predefined"}`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rows, _ := listOf(t, out, "roles")
+	if len(rows[0]["title"].(string)) > maxNameText || len(rows[0]["description"].(string)) > maxText ||
+		strings.ContainsRune(rows[0]["description"].(string), 7) {
+		t.Errorf("row = %v, want bounded text", rows[0])
 	}
 }
 
-func TestIAMToolsAskForTheScopeOfTheirMethods(t *testing.T) {
-	for _, tool := range []string{iamPoliciesGetID, iamPermissionsTestID, denyPoliciesListID, denyPoliciesGetID} {
-		if got := tokenMetadata.Scopes[tool]; len(got) != 1 || got[0] != scopeCloudPlatform {
-			t.Errorf("%s scopes = %v", tool, got)
+func TestIAMDescriptorsCoverTheDiscoveryFields(t *testing.T) {
+	// Members of Role and Permission in the discovery document of iam v1 (revision 20261106); the
+	// onlyInPredefinedRoles member of Permission is marked deprecated and left out.
+	check := func(d capability.Descriptor, list string, item []string) {
+		var schema struct {
+			Properties map[string]struct {
+				Items struct {
+					Properties map[string]json.RawMessage `json:"properties"`
+				} `json:"items"`
+			} `json:"properties"`
+		}
+		if err := json.Unmarshal(d.OutputSchema, &schema); err != nil {
+			t.Fatal(err)
+		}
+		for _, field := range item {
+			if _, found := schema.Properties[list].Items.Properties[field]; !found {
+				t.Errorf("%s output schema lacks %s", d.ID, field)
+			}
+		}
+		for _, f := range []string{list, "next_cursor", "has_more"} {
+			if !slices.ContainsFunc(d.Fields, func(x capability.Field) bool { return x.Name == f }) {
+				t.Errorf("%s fields lack %s", d.ID, f)
+			}
+		}
+	}
+	role := []string{"name", "title", "description", "includedPermissions", "stage", "etag", "deleted"}
+	check(iamRolesList, "roles", role)
+	check(iamRolesQuery, "roles", role)
+	check(iamPermissionsQuery, "permissions", []string{"name", "title", "description", "stage",
+		"customRolesSupportLevel", "apiDisabled", "primaryPermission"})
+	var schema struct {
+		Properties map[string]json.RawMessage `json:"properties"`
+	}
+	if err := json.Unmarshal(iamRolesGet.OutputSchema, &schema); err != nil {
+		t.Fatal(err)
+	}
+	for _, field := range role {
+		if _, found := schema.Properties[field]; !found {
+			t.Errorf("iam-roles.get output schema lacks %s", field)
+		}
+	}
+	// Every documented parameter is an argument: showDeleted, view, pageSize, pageToken (as cursor), parent.
+	for _, want := range []string{"parent_type", "parent_id", "view", "show_deleted", "page_size", "cursor"} {
+		if !slices.ContainsFunc(iamRolesList.Arguments, func(a capability.Argument) bool { return a.Name == want }) {
+			t.Errorf("iam-roles.list lacks the argument %s", want)
+		}
+	}
+	for _, d := range []capability.Descriptor{iamRolesList, iamRolesGet, iamRolesQuery, iamPermissionsQuery} {
+		if d.Risk != readRisk {
+			t.Errorf("%s risk = %+v", d.ID, d.Risk)
 		}
 	}
 }

@@ -168,6 +168,22 @@ func invalidRow(op string) error {
 	return provider.InvalidResponse(op, subject+" returned an invalid response")
 }
 
+// admitFolderRow and admitProjectRow check one row of a folder or project list: it must name its resource,
+// and it must lie in the targets.
+func admitFolderRow(ctx context.Context, a *admitter, f folderWire, op string) (bool, error) {
+	if !strings.HasPrefix(f.Name, prefixFolder) || !numberPattern.MatchString(strings.TrimPrefix(f.Name, prefixFolder)) {
+		return false, invalidRow(op)
+	}
+	return a.folder(ctx, f)
+}
+
+func admitProjectRow(ctx context.Context, a *admitter, p projectWire, op string) (bool, error) {
+	if !strings.HasPrefix(p.Name, prefixProject) {
+		return false, invalidRow(op)
+	}
+	return a.project(ctx, p)
+}
+
 // --- shared descriptor parts ---
 
 const (
@@ -368,10 +384,7 @@ func handleFoldersSearch(ctx context.Context, resolved *config.Resolved, secrets
 	red *redact.Redactor, raw json.RawMessage) (any, error) {
 	return runSearch(ctx, foldersSearchSpec, resolved, secrets, red, raw,
 		func(ctx context.Context, a *admitter, f folderWire) (bool, error) {
-			if !strings.HasPrefix(f.Name, prefixFolder) || !numberPattern.MatchString(strings.TrimPrefix(f.Name, prefixFolder)) {
-				return false, invalidRow(foldersSearchSpec.op)
-			}
-			return a.folder(ctx, f)
+			return admitFolderRow(ctx, a, f, foldersSearchSpec.op)
 		}, func(f folderWire) any { return f.result() })
 }
 
@@ -454,9 +467,6 @@ func handleProjectsSearch(ctx context.Context, resolved *config.Resolved, secret
 	red *redact.Redactor, raw json.RawMessage) (any, error) {
 	return runSearch(ctx, projectsSearchSpec, resolved, secrets, red, raw,
 		func(ctx context.Context, a *admitter, p projectWire) (bool, error) {
-			if !strings.HasPrefix(p.Name, prefixProject) {
-				return false, invalidRow(projectsSearchSpec.op)
-			}
-			return a.project(ctx, p)
+			return admitProjectRow(ctx, a, p, projectsSearchSpec.op)
 		}, func(p projectWire) any { return p.result() })
 }

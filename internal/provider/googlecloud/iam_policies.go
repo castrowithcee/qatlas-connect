@@ -120,7 +120,7 @@ var iamPoliciesGet = capability.Descriptor{
 		`"required":["resource_type","resource_id"],"additionalProperties":false}`),
 	OutputSchema: json.RawMessage(policyOutputSchema),
 	Arguments: []capability.Argument{
-		resourceTypeArgument, resourceIDArgument,
+		policyResourceTypeArgument, policyResourceIDArgument,
 		{Name: "requested_policy_version", Description: "Highest policy version Google may format the policy " +
 			"in: 0, 1, or 3. The default is 3, which shows the conditions of bindings; a policy with conditions " +
 			"cannot be read faithfully with a lower version"},
@@ -150,7 +150,7 @@ func handleIAMPoliciesGet(ctx context.Context, resolved *config.Resolved, secret
 	red *redact.Redactor, raw json.RawMessage) (any, error) {
 	const op = "get iam policy"
 	var arguments struct {
-		iamArguments
+		policyArguments
 		Version *int `json:"requested_policy_version"`
 	}
 	if err := json.Unmarshal(raw, &arguments); err != nil {
@@ -163,7 +163,7 @@ func handleIAMPoliciesGet(ctx context.Context, resolved *config.Resolved, secret
 	if version != 0 && version != 1 && version != 3 {
 		return nil, badRequest("requested_policy_version must be 0, 1, or 3")
 	}
-	c, r, err := openResource(ctx, op, iamPoliciesGetID, resolved, secrets, red, arguments.iamArguments,
+	c, r, err := openResource(ctx, op, iamPoliciesGetID, resolved, secrets, red, arguments.policyArguments,
 		kindProject, kindFolder, kindOrganization, kindServiceAccount)
 	if err != nil {
 		return nil, err

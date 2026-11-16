@@ -6,8 +6,9 @@ import "github.com/castrowithcee/qatlas-connect/internal/config"
 // cloudresourcemanager v3 lists next to cloud-platform for every method of this package.
 const scopeReadOnly = "https://www.googleapis.com/auth/cloud-platform.read-only"
 
-// scopeCloudPlatform is the one scope that IAM v2 deny policies, IAM v1 service account policies, and folders'
-// testIamPermissions list in their discovery documents; none of them lists a smaller one.
+// scopeCloudPlatform is the one scope the discovery documents of iam v1 and v2 list for the role, policy,
+// deny policy, and permission reads, and of cloudresourcemanager v3 for folders' testIamPermissions; none of
+// them lists a read-only variant.
 const scopeCloudPlatform = "https://www.googleapis.com/auth/cloud-platform"
 
 // tokenMetadata maps every tool to the smallest scopes it needs. The core derives the scopes of a connection
@@ -18,6 +19,14 @@ var tokenMetadata = config.TokenMetadata{Scopes: map[string][]string{
 	projectsSearchID:      {scopeReadOnly},
 	projectsGetID:         {scopeReadOnly},
 	operationsGetID:       {scopeReadOnly},
+	organizationsGetID:    {scopeReadOnly},
+	foldersGetID:          {scopeReadOnly},
+	foldersListID:         {scopeReadOnly},
+	projectsListID:        {scopeReadOnly},
+	iamRolesListID:        {scopeCloudPlatform},
+	iamRolesGetID:         {scopeCloudPlatform},
+	iamRolesQueryID:       {scopeCloudPlatform},
+	iamPermissionsQueryID: {scopeCloudPlatform},
 	iamPoliciesGetID:      {scopeCloudPlatform},
 	iamPermissionsTestID:  {scopeCloudPlatform},
 	denyPoliciesListID:    {scopeCloudPlatform},

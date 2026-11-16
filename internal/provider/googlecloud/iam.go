@@ -88,15 +88,15 @@ func (r iamResource) attachmentPoint() string {
 	return url.PathEscape("cloudresourcemanager.googleapis.com/" + r.name())
 }
 
-// iamArguments are the arguments that name a resource, for every IAM tool.
-type iamArguments struct {
+// policyArguments are the arguments that name a resource, for every IAM tool.
+type policyArguments struct {
 	ResourceType string `json:"resource_type"`
 	ResourceID   string `json:"resource_id"`
 }
 
 // resourceOf builds the resource from the arguments and refuses what the targets already decide, before any
 // secret is read. kinds are the resource types the tool offers.
-func resourceOf(a iamArguments, list allowlist, kinds ...string) (iamResource, error) {
+func resourceOf(a policyArguments, list allowlist, kinds ...string) (iamResource, error) {
 	r := iamResource{kind: a.ResourceType, id: a.ResourceID}
 	known := false
 	for _, kind := range kinds {
@@ -223,7 +223,7 @@ func (r *iamResource) admit(ctx context.Context, c *client, list allowlist, op, 
 // openResource is the course every IAM tool shares: the connection and the targets, the resource, and only then
 // the secret, the client, and the binding reads.
 func openResource(ctx context.Context, op, tool string, resolved *config.Resolved, secrets *secret.Resolver,
-	red *redact.Redactor, a iamArguments, kinds ...string) (*client, iamResource, error) {
+	red *redact.Redactor, a policyArguments, kinds ...string) (*client, iamResource, error) {
 	if err := checkConnection(resolved); err != nil {
 		return nil, iamResource{}, err
 	}
@@ -257,13 +257,13 @@ const (
 )
 
 var (
-	resourceTypeArgument = capability.Argument{Name: "resource_type", Required: true, Description: "Kind of " +
+	policyResourceTypeArgument = capability.Argument{Name: "resource_type", Required: true, Description: "Kind of " +
 		"resource: project, folder, organization, or service-account. An organization is read only by a " +
 		"connection that names it among its targets"}
 	hierarchyTypeArgument = capability.Argument{Name: "resource_type", Required: true, Description: "Kind of " +
 		"resource the policies are attached to: project, folder, or organization. An organization is read only " +
 		"by a connection that names it among its targets"}
-	resourceIDArgument = capability.Argument{Name: "resource_id", Required: true, Description: "ID of the " +
+	policyResourceIDArgument = capability.Argument{Name: "resource_id", Required: true, Description: "ID of the " +
 		"resource: a project ID or number, the numeric ID of a folder or an organization, or for a " +
 		"service-account its email or numeric unique ID; never a resource name or a path"}
 	resourceField = capability.Field{Name: "resource", Description: "Resource name Qatlas built from the " +

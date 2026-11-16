@@ -40,7 +40,7 @@ var iamPermissionsTest = capability.Descriptor{
 		`"required":["resource_type","resource_id","permissions"],"additionalProperties":false}`),
 	OutputSchema: json.RawMessage(permissionsOutputSchema),
 	Arguments: []capability.Argument{
-		resourceTypeArgument, resourceIDArgument,
+		policyResourceTypeArgument, policyResourceIDArgument,
 		{Name: "permissions", Required: true, Description: "Permissions to check, 1 to 100 distinct names " +
 			"such as resourcemanager.projects.get; no wildcards"},
 	},
@@ -60,7 +60,7 @@ func handleIAMPermissionsTest(ctx context.Context, resolved *config.Resolved, se
 	red *redact.Redactor, raw json.RawMessage) (any, error) {
 	const op = "test iam permissions"
 	var arguments struct {
-		iamArguments
+		policyArguments
 		Permissions []string `json:"permissions"`
 	}
 	if err := json.Unmarshal(raw, &arguments); err != nil {
@@ -77,7 +77,7 @@ func handleIAMPermissionsTest(ctx context.Context, resolved *config.Resolved, se
 			return nil, badRequest("permissions must not repeat a permission")
 		}
 	}
-	c, r, err := openResource(ctx, op, iamPermissionsTestID, resolved, secrets, red, arguments.iamArguments,
+	c, r, err := openResource(ctx, op, iamPermissionsTestID, resolved, secrets, red, arguments.policyArguments,
 		kindProject, kindFolder, kindOrganization, kindServiceAccount)
 	if err != nil {
 		return nil, err

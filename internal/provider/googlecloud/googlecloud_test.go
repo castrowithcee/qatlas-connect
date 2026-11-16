@@ -39,22 +39,44 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 		if tool.Effect != config.EffectRead {
 			t.Errorf("%s effect = %v", tool.ID, tool.Effect)
 		}
-		want := []string{scopeReadOnly}
+		wantScope := "https://www.googleapis.com/auth/cloud-platform.read-only"
 		if strings.Contains(tool.ID, ".iam-") {
-			want = []string{scopeCloudPlatform}
+			// The discovery documents list cloud-platform alone for the IAM methods.
+			wantScope = "https://www.googleapis.com/auth/cloud-platform"
 		}
-		if scopes := metadata.Token.Scopes[tool.ID]; !slices.Equal(scopes, want) {
+		if scopes := metadata.Token.Scopes[tool.ID]; !slices.Equal(scopes, []string{wantScope}) {
 			t.Errorf("%s scopes = %v", tool.ID, scopes)
 		}
 	}
-	if want := []string{"google.cloud.folders.search", "google.cloud.iam-deny-policies.get",
-		"google.cloud.iam-deny-policies.list", "google.cloud.iam-permissions.test", "google.cloud.iam-policies.get",
-		"google.cloud.operations.get", "google.cloud.organizations.search",
-		"google.cloud.projects.get", "google.cloud.projects.search"}; !slices.Equal(ids, want) {
+	if want := []string{"google.cloud.folders.get", "google.cloud.folders.list", "google.cloud.folders.search",
+		"google.cloud.iam-deny-policies.get", "google.cloud.iam-deny-policies.list",
+		"google.cloud.iam-permissions.query-testable", "google.cloud.iam-permissions.test",
+		"google.cloud.iam-policies.get", "google.cloud.iam-roles.get", "google.cloud.iam-roles.list",
+		"google.cloud.iam-roles.query-grantable", "google.cloud.operations.get", "google.cloud.organizations.get",
+		"google.cloud.organizations.search", "google.cloud.projects.get", "google.cloud.projects.list",
+		"google.cloud.projects.search"}; !slices.Equal(ids, want) {
 		t.Errorf("tools = %v, want %v", ids, want)
 	}
 	if profile, found := metadata.RecommendedProfile(); !found || profile.ID != "read" || len(profile.Tools) != 9 {
 		t.Errorf("profile = %+v", profile)
+	}
+	// The recommended profile never asks for more than the read-only scope; a tool that needs the broad
+	// cloud-platform scope belongs to read-iam only, which holds every tool.
+	for _, profile := range metadata.Profiles {
+		switch profile.ID {
+		case "read":
+			for _, tool := range profile.Tools {
+				if scopes := metadata.Token.Scopes[tool]; !slices.Equal(scopes, []string{"https://www.googleapis.com/auth/cloud-platform.read-only"}) {
+					t.Errorf("profile read holds %s with scopes %v", tool, scopes)
+				}
+			}
+		case "read-iam":
+			if profile.Recommended || len(profile.Tools) != len(ids) {
+				t.Errorf("profile read-iam = %+v", profile)
+			}
+		default:
+			t.Errorf("unexpected profile %s", profile.ID)
+		}
 	}
 	if err := metadata.ValidateBaseURL("https://cloudresourcemanager.googleapis.com/"); err != nil {
 		t.Errorf("official origin refused: %v", err)
