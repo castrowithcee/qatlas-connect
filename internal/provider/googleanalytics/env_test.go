@@ -40,7 +40,7 @@ const (
 
 // recorded is one request to the Admin API.
 type recorded struct {
-	method, path, rawQuery, url, auth, accept string
+	method, path, rawQuery, url, auth, accept, contentType, body string
 }
 
 // fakeGoogle is the transport of every test. api answers the n-th Admin API request, counting from 1;
@@ -80,9 +80,14 @@ func (f *fakeGoogle) RoundTrip(r *http.Request) (*http.Response, error) {
 		return respond(r, http.StatusOK, "application/json",
 			`{"accessToken":"`+impersonated+`","expireTime":"`+time.Now().Add(time.Hour).UTC().Format(time.RFC3339)+`"}`), nil
 	case "analyticsadmin.googleapis.com":
+		var sent []byte
+		if r.Body != nil {
+			sent, _ = io.ReadAll(r.Body)
+		}
 		f.mu.Lock()
 		f.requests = append(f.requests, recorded{method: r.Method, path: r.URL.EscapedPath(), rawQuery: r.URL.RawQuery,
-			url: r.URL.String(), auth: r.Header.Get("Authorization"), accept: r.Header.Get("Accept")})
+			url: r.URL.String(), auth: r.Header.Get("Authorization"), accept: r.Header.Get("Accept"),
+			contentType: r.Header.Get("Content-Type"), body: string(sent)})
 		n := len(f.requests)
 		f.mu.Unlock()
 		if f.api == nil {
@@ -194,6 +199,14 @@ func newEnv(t *testing.T, fake *fakeGoogle) *testEnv {
 		Targets: []string{"properties/200"}}
 	cfg.Connections["mixed"] = config.Connection{Service: "ga", Credential: "login", Effects: read,
 		Targets: []string{"accounts/100", "properties/901"}}
+	// The write connections hold the changing effects. delete is reachable only where tools names it, which replaces effects.
+	changing := []config.Effect{config.EffectRead, config.EffectCreate, config.EffectUpdate, config.EffectDelete}
+	cfg.Connections["write"] = config.Connection{Service: "ga", Credential: "login", Effects: changing}
+	for name, targets := range map[string][]string{"wfree": nil, "waccount": {"accounts/100"},
+		"wproperty": {"properties/200"}, "wmixed": {"accounts/100", "properties/901"}} {
+		cfg.Connections[name] = config.Connection{Service: "ga", Credential: "login", Targets: targets,
+			Tools: []string{propertiesGetID, propertiesCreateID, propertiesUpdateID, propertiesDeleteID}}
+	}
 	cfg.Connections["robot"] = config.Connection{Service: "ga", Credential: "robot", Effects: read}
 	cfg.Connections["impersonate"] = config.Connection{Service: "ga", Credential: "login", Effects: read,
 		ServiceAccount: serviceAccount}
