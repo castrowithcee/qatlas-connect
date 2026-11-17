@@ -12,7 +12,8 @@ updated: 2026-11-17
 This page shows how to connect Qatlas to Google Analytics 4. Targets, paging, and errors are described in the
 [Google Analytics provider](README.md); the tools are described in [accounts](accounts.md),
 [properties](properties.md), [data streams](data-streams.md), [custom dimensions](custom-dimensions.md),
-[custom metrics](custom-metrics.md), [event create rules](event-create-rules.md), [reports](reports.md),
+[custom metrics](custom-metrics.md), [event create rules](event-create-rules.md),
+[calculated metrics](calculated-metrics.md), [reports](reports.md),
 [audience exports](audience-exports.md), [report tasks](report-tasks.md),
 [measurement protocol secrets](measurement-protocol-secrets.md), and [access reports](access-reports.md).
 
@@ -77,7 +78,7 @@ In Analytics, open Admin, then **Account access management** or **Property acces
 Google account or the service account address with at least the **Viewer** role. A property is visible with a
 role on the property or on its account. The Analytics roles are not changed by the scopes below. The tools that
 change something also need the **Editor** role: on the account to change or trash an account or to create a
-property, and on the property or its account to change or trash a property.
+property, and on the property or its account to change or trash a property or to change its calculated metrics.
 
 ## Rights and scopes
 
@@ -111,6 +112,8 @@ credential never carries the scope of another product.
 | [Key events](key-events.md#changing-key-events) | `key-events.create`, `key-events.update`, `key-events.delete` | `analytics.edit` |
 | [Event create rules](event-create-rules.md) | `event-create-rules.list`, `event-create-rules.get` | `analytics.readonly` |
 | [Event create rules](event-create-rules.md) | `event-create-rules.create`, `event-create-rules.update`, `event-create-rules.delete` | `analytics.edit` |
+| [Calculated metrics](calculated-metrics.md) | `calculated-metrics.list`, `calculated-metrics.get` | `analytics.readonly` |
+| [Calculated metrics](calculated-metrics.md#changing-calculated-metrics) | `calculated-metrics.create`, `calculated-metrics.update`, `calculated-metrics.delete` | `analytics.edit` |
 
 ## Add it to Qatlas
 
