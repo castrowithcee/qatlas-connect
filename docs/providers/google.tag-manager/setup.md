@@ -13,8 +13,7 @@ This page shows how to connect Qatlas to Google Tag Manager. Configuration, targ
 are described in the [Google Tag Manager provider](README.md); the tools in
 [accounts, containers, and workspaces](structure.md), [workspace management](workspaces.md), [tags](tags.md),
 [triggers](triggers.md), [variables](variables.md), [built-in variables](built-in-variables.md),
-[templates](templates.md), [clients](clients.md), [transformations](transformations.md), [zones](zones.md), and
-[Google tag configurations](gtag-configs.md).
+[templates](templates.md), [clients](clients.md), [transformations](transformations.md), [zones](zones.md), [Google tag configurations](gtag-configs.md), and [user permissions](user-permissions.md).
 
 ## What you need
 
@@ -31,13 +30,14 @@ are described in the [Google Tag Manager provider](README.md); the tools in
 | Tool group | Scope | Access in Tag Manager |
 | --- | --- | --- |
 | [accounts, containers, and workspaces](structure.md) | `tagmanager.readonly` | read access to the account or container |
-| [tags](tags.md), [triggers](triggers.md), [variables](variables.md), [built-in variables](built-in-variables.md), [templates](templates.md), [folders](folders.md), [clients](clients.md), [transformations](transformations.md), [zones](zones.md), and [Google tag configurations](gtag-configs.md), reading | `tagmanager.readonly` | read access to the container |
+| [tags](tags.md), [triggers](triggers.md), [variables](variables.md), [built-in variables](built-in-variables.md), [templates](templates.md), [folders](folders.md), [clients](clients.md), [transformations](transformations.md), [zones](zones.md), [Google tag configurations](gtag-configs.md), and [environments](environments.md), reading | `tagmanager.readonly` | read access to the container |
 | [workspace management](workspaces.md), reading the status | `tagmanager.readonly` | read access to the container |
 | [workspace management](workspaces.md), creating and updating | `tagmanager.edit.containers` | edit access to the container |
 | [workspace management](workspaces.md), synchronizing and resolving merge conflicts | `tagmanager.edit.containers` | edit access to the container |
 | [workspace management](workspaces.md), quick preview | `tagmanager.edit.containerversions` | edit access to the container |
 | [workspace management](workspaces.md), deleting | `tagmanager.delete.containers` | edit access to the container |
-| [tags](tags.md), [triggers](triggers.md), [variables](variables.md), [built-in variables](built-in-variables.md), [templates](templates.md), [folders](folders.md), [clients](clients.md), [transformations](transformations.md), [zones](zones.md), and [Google tag configurations](gtag-configs.md), changing | `tagmanager.edit.containers` | edit access to the container |
+| [tags](tags.md), [triggers](triggers.md), [variables](variables.md), [built-in variables](built-in-variables.md), [templates](templates.md), [folders](folders.md), [clients](clients.md), [transformations](transformations.md), [zones](zones.md), [Google tag configurations](gtag-configs.md), and [environments](environments.md), changing | `tagmanager.edit.containers` | edit access to the container |
+| [user permissions](user-permissions.md), reading and changing | `tagmanager.manage.users` | the right to manage users of the account |
 
 Qatlas asks for no broader scope than the tools of your connections need. No tool publishes a version, so no
 publish right is needed.
@@ -105,7 +105,7 @@ connections:
 ```
 
 Leave `target` out to reach everything the credential reaches. Choose the profile `write` in the guided setup to
-change workspaces, tags, triggers, variables, templates, built-in variables, folders, clients, transformations, zones, and Google tag configurations. Run `qconnect config validate` to check the file; it contacts no provider. Adding a tool later may
+change workspaces, tags, triggers, variables, templates, built-in variables, folders, clients, transformations, zones, Google tag configurations, and environments. Choose the profile `user-permissions` to read users and change the rights of existing ones; it is not part of `read` or `write`. Run `qconnect config validate` to check the file; it contacts no provider. Adding a tool later may
 need a new consent, if the tool needs a scope the stored consent lacks.
 
 ## Check the connection

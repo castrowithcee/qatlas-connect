@@ -15,6 +15,8 @@
 // Reading tools send one request, a changing tool exactly one and never again, whatever comes back.
 // Deleting an account runs only on a connection that binds exactly that account and no property.
 //
+// The settings of a web data stream run on the Admin API v1alpha, see alpha.go.
+//
 // A connection may bind Analytics accounts (accounts/ID) and properties (properties/ID). Without a target it
 // reaches what the credential reaches. A bound account reaches its properties, a bound property only itself;
 // a property that is not bound itself is read once as proof of its account before anything else is done with
@@ -94,6 +96,12 @@ var scopes = map[string][]string{
 	dataStreamsCreateID: {scopeEdit},
 	dataStreamsUpdateID: {scopeEdit},
 
+	enhancedGetID:     {scopeReadOnly},
+	redactionGetID:    {scopeReadOnly},
+	siteTagGetID:      {scopeReadOnly},
+	enhancedUpdateID:  {scopeEdit},
+	redactionUpdateID: {scopeEdit},
+
 	customDimensionsListID:    {scopeReadOnly},
 	customDimensionsGetID:     {scopeReadOnly},
 	customDimensionsCreateID:  {scopeEdit},
@@ -160,8 +168,8 @@ func isDefaultRoot(raw string) bool {
 var readTools = []string{summariesID, accountsID, accountsGetID, accountsSharingID, propertiesListID, propertiesGetID,
 	reportsRunID, metadataGetID, compatibilityID, dataStreamsListID, dataStreamsGetID, funnelRunID, audienceGetID,
 	audienceListID, reportsRunPivotID, reportsBatchRunID, reportsBatchRunPivotID, reportsRunRealtimeID,
-	reportTasksGetID, reportTasksListID, reportTasksQueryID, audienceQueryID, customDimensionsListID,
-	customDimensionsGetID}
+	reportTasksGetID, reportTasksListID, reportTasksQueryID, audienceQueryID, enhancedGetID, redactionGetID, siteTagGetID,
+	customDimensionsListID, customDimensionsGetID}
 
 // Register adds the provider metadata, its consent endpoints, its connection test and its tools.
 func Register(reg *capability.Registry) error {
@@ -203,8 +211,8 @@ func Register(reg *capability.Registry) error {
 				"and report tasks; every " +
 				"change needs its own confirmation, and deleting stays unlisted",
 			Tools: append(slices.Clone(readTools), accountsUpdateID, propertiesCreateID, propertiesUpdateID,
-				dataStreamsCreateID, dataStreamsUpdateID, audienceCreateID, reportTasksCreateID,
-				customDimensionsCreateID, customDimensionsUpdateID, customDimensionsArchiveID),
+				dataStreamsCreateID, dataStreamsUpdateID, audienceCreateID, reportTasksCreateID, enhancedUpdateID,
+				redactionUpdateID, customDimensionsCreateID, customDimensionsUpdateID, customDimensionsArchiveID),
 		}},
 	}, TestConnection); err != nil {
 		return err
@@ -240,6 +248,12 @@ func Register(reg *capability.Registry) error {
 			ConfirmationSummary: streamWriteSummary(dataStreamsCreateID)},
 		{Descriptor: dataStreamsUpdate, Handler: handleDataStreamsUpdate,
 			ConfirmationSummary: streamWriteSummary(dataStreamsUpdateID)},
+		{Descriptor: enhancedGet, Handler: handleEnhancedGet},
+		{Descriptor: enhancedUpdate, Handler: handleEnhancedUpdate, ConfirmationSummary: settingsSummary(enhancedUpdateID)},
+		{Descriptor: redactionGet, Handler: handleRedactionGet},
+		{Descriptor: redactionUpdateDescriptor, Handler: handleRedactionUpdate,
+			ConfirmationSummary: settingsSummary(redactionUpdateID)},
+		{Descriptor: siteTagGet, Handler: handleSiteTagGet},
 		{Descriptor: customDimensionsList, Handler: handleCustomDimensionsList},
 		{Descriptor: customDimensionsGet, Handler: handleCustomDimensionsGet},
 		{Descriptor: customDimensionsCreate, Handler: handleCustomDimensionsCreate,
