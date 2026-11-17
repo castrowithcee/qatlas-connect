@@ -121,6 +121,14 @@ func Register(reg *capability.Registry) error {
 				denyPoliciesGet.ID, serviceAccountsList.ID, serviceAccountsGet.ID, serviceAccountKeysList.ID,
 				serviceAccountKeysGet.ID),
 		}, {
+			ID: "read-quotas", Title: "Read with quotas",
+			Description: "everything of read plus the quotas of a service and the quota preferences of a project from " +
+				"Cloud Quotas; these methods accept only the broad cloud-platform scope, so the token may change what " +
+				"its account may, although no tool of this profile changes anything; quota preferences may hold " +
+				"personal data (contactEmail, justification)",
+			Tools: append(append([]string{}, readTools...), quotaInfosList.ID, quotaInfosGet.ID,
+				quotaPreferencesList.ID, quotaPreferencesGet.ID),
+		}, {
 			ID: "service-accounts", Title: "Service accounts",
 			Description: "creates service accounts, changes their display name and description, and disables and " +
 				"enables them; the token holds the broad cloud-platform scope and may change what its account may, " +
@@ -218,6 +226,10 @@ func Register(reg *capability.Registry) error {
 			ConfirmationSummary: apiKeySummary(apiKeysDeleteID)},
 		capability.Operation{Descriptor: apiKeysUndelete, Handler: handleAPIKeysUndelete,
 			ConfirmationSummary: apiKeySummary(apiKeysUndeleteID)},
+		capability.Operation{Descriptor: quotaInfosList, Handler: handleQuotaInfosList},
+		capability.Operation{Descriptor: quotaInfosGet, Handler: handleQuotaInfosGet},
+		capability.Operation{Descriptor: quotaPreferencesList, Handler: handleQuotaPreferencesList},
+		capability.Operation{Descriptor: quotaPreferencesGet, Handler: handleQuotaPreferencesGet},
 		capability.Operation{Descriptor: servicesEnable, Handler: handleServicesEnable,
 			ConfirmationSummary: serviceChangeSummary(servicesEnableID)},
 		capability.Operation{Descriptor: servicesBatchEnable, Handler: handleServicesBatchEnable,
