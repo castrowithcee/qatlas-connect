@@ -109,6 +109,10 @@ var tokenMetadata = config.TokenMetadata{Scopes: map[string][]string{
 	vpnGatewaysGetID:          {scopeComputeReadOnly},
 	vpnTunnelsListID:          {scopeComputeReadOnly},
 	vpnTunnelsGetID:           {scopeComputeReadOnly},
+	snapshotsListID:           {scopeComputeReadOnly},
+	snapshotsGetID:            {scopeComputeReadOnly},
+	imagesListID:              {scopeComputeReadOnly},
+	imagesGetID:               {scopeComputeReadOnly},
 	// storage v1 lists devstorage.read_only for buckets.list and get, and only devstorage.full_control and
 	// cloud-platform for buckets.getIamPolicy and bucketAccessControls.list.
 	bucketsListID:              {scopeStorageReadOnly},
