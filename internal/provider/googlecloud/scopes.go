@@ -93,4 +93,8 @@ var tokenMetadata = config.TokenMetadata{Scopes: map[string][]string{
 	firewallsGetID:            {scopeComputeReadOnly},
 	addressesListID:           {scopeComputeReadOnly},
 	addressesGetID:            {scopeComputeReadOnly},
+	vpnGatewaysListID:         {scopeComputeReadOnly},
+	vpnGatewaysGetID:          {scopeComputeReadOnly},
+	vpnTunnelsListID:          {scopeComputeReadOnly},
+	vpnTunnelsGetID:           {scopeComputeReadOnly},
 }}
