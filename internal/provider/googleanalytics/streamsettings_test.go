@@ -16,8 +16,8 @@ const settingsStream = "properties/200/dataStreams/2001"
 var settingTools = []string{enhancedGetID, enhancedUpdateID, redactionGetID, redactionUpdateID, siteTagGetID}
 
 // alphaTools are the tools on the Admin API v1alpha; a tool added there joins this list.
-var alphaTools = append(slices.Clone(settingTools), calculatedListID, calculatedGetID, calculatedCreateID,
-	calculatedUpdateID, calculatedDeleteID)
+var alphaTools = append(append(slices.Clone(settingTools), ruleTools...), calculatedListID, calculatedGetID,
+	calculatedCreateID, calculatedUpdateID, calculatedDeleteID)
 
 // settingsEnv adds connections that offer the settings tools, with the bindings of the stream tests.
 func settingsEnv(t *testing.T, fake *fakeGoogle) *testEnv {
@@ -322,8 +322,7 @@ func TestSettingsToolsAreRegisteredAsAlphaWithScopesProfilesAndSummaries(t *test
 		if !ok || !strings.HasSuffix(descriptor.Description, alphaNote) {
 			t.Errorf("%s lacks the alpha note", id)
 		}
-		write := slices.Contains([]string{enhancedUpdateID, redactionUpdateID, calculatedCreateID, calculatedUpdateID,
-			calculatedDeleteID}, id)
+		write := effectOf(id) != config.EffectRead
 		if slices.Contains(profiles["read"], id) == write || !slices.Contains(profiles["write"], id) {
 			t.Errorf("%s profiles are wrong", id)
 		}

@@ -14,7 +14,7 @@ rules shared with tags, triggers, and variables are described there.
 
 A client receives the requests that reach a server container and decides which of them the container
 processes. A change is made in the workspace only and takes effect only with a published container version,
-which no tool of this provider makes, and no tool activates a client without publishing. Every change is
+which only the listed-only versions.publish publishes, and no tool activates a client without publishing. Every change is
 confirmed, and the confirmation shows the name, the type, and the workspace or client path, never a parameter
 value.
 

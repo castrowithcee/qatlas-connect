@@ -51,11 +51,17 @@ func TestExcludedMethodsHaveNoTool(t *testing.T) {
 	if want := []string{accountsID, accountsGetID, accountsSharingID, accountsUpdateID, accountsDeleteID, summariesID,
 		propertiesCreateID, propertiesDeleteID, propertiesGetID, propertiesListID,
 		propertiesUpdateID, reportsRunID, metadataGetID, compatibilityID, dataStreamsListID, dataStreamsGetID,
-		dataStreamsCreateID, dataStreamsUpdateID, funnelRunID, audienceCreateID, audienceGetID,
+		dataStreamsCreateID, dataStreamsUpdateID, dataStreamsDeleteID, mpSecretsListID, mpSecretsGetID,
+		mpSecretsDeleteID, funnelRunID, audienceCreateID, audienceGetID,
 		audienceListID, reportsRunPivotID, reportsBatchRunID, reportsBatchRunPivotID,
 		reportsRunRealtimeID, audienceQueryID, reportTasksCreateID, reportTasksGetID, reportTasksListID,
 		reportTasksQueryID, enhancedGetID, enhancedUpdateID, redactionGetID, redactionUpdateID, siteTagGetID,
-		calculatedListID, calculatedGetID, calculatedCreateID, calculatedUpdateID, calculatedDeleteID}; !slices.Equal(ids, sortedCopy(want)) {
+		customDimensionsListID, customDimensionsGetID, customDimensionsCreateID, customDimensionsUpdateID,
+		customDimensionsArchiveID, customMetricsListID, customMetricsGetID, customMetricsCreateID,
+		customMetricsUpdateID, customMetricsArchiveID, keyEventsListID, keyEventsGetID, keyEventsCreateID,
+		keyEventsUpdateID, keyEventsDeleteID, eventRulesListID, eventRulesGetID, eventRulesCreateID, eventRulesUpdateID,
+		eventRulesDeleteID, calculatedListID, calculatedGetID, calculatedCreateID, calculatedUpdateID,
+		calculatedDeleteID}; !slices.Equal(ids, sortedCopy(want)) {
 		t.Errorf("tools = %v", ids)
 	}
 	// Only an ordinary property is created, so no tool can make a subproperty or a rollup.

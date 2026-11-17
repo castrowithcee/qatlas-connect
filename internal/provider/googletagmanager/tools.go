@@ -16,9 +16,11 @@ import (
 
 // The scopes of the tools. The discovery document names for each method the scopes that allow it: a read
 // takes readonly or edit.containers, and the smaller one is asked for; a change takes edit.containers.
-// Deleting a workspace takes delete.containers alone, and a quick preview takes edit.containerversions alone.
-// The user permission methods take manage.users alone. Google also offers publish and manage.accounts; a
-// connection asks only for those its tools need.
+// Deleting a workspace or a container takes delete.containers alone, and a quick preview and every tool that
+// makes or changes a container version take edit.containerversions alone.
+// Renaming an account takes manage.accounts alone, and the user permission methods take manage.users alone.
+// Google also offers publish, which only versions.publish takes; a connection asks only for the scopes its
+// tools need.
 const (
 	readonlyScope = "https://www.googleapis.com/auth/tagmanager.readonly"
 	editScope     = "https://www.googleapis.com/auth/tagmanager.edit.containers"
@@ -34,11 +36,18 @@ func toolScopes() map[string][]string {
 		if d.Risk.Effect != capability.EffectRead {
 			scopes[d.ID] = []string{editScope}
 		}
-		if d.ID == workspacesDeleteID {
+		if d.ID == workspacesDeleteID || d.ID == containersDeleteID {
 			scopes[d.ID] = []string{deleteScope}
 		}
-		if d.ID == workspacesQuickPreviewID {
+		if d.ID == workspacesQuickPreviewID || isVersionWriteTool(d.ID) {
 			scopes[d.ID] = []string{previewScope}
+		}
+		if d.ID == accountsUpdateID {
+			scopes[d.ID] = []string{manageAccountsScope}
+		}
+		// Publishing takes its own scope; the reads before it need readonly, which the publish scope does not cover.
+		if d.ID == versionsPublishID {
+			scopes[d.ID] = []string{readonlyScope, publishScope}
 		}
 		// Every method of the user permissions, reads included, lists manage.users alone.
 		if isUserPermissionTool(d.ID) {
@@ -137,7 +146,10 @@ func descriptors() []capability.Descriptor {
 		append(variableDescriptors(), append(builtInVariableDescriptors(), append(folderDescriptors(),
 			append(clientDescriptors(), append(transformationDescriptors(),
 				append(zoneDescriptors(), append(gtagConfigDescriptors(), append(templateDescriptors(),
-					append(environmentDescriptors(), userPermissionDescriptors()...)...)...)...)...)...)...)...)...)...)...)...)...)
+					append(structureManageDescriptors(), append(destinationDescriptors(),
+						append(environmentDescriptors(), append(userPermissionDescriptors(),
+							append(versionDescriptors(), append(containerDescriptors(), append(versionWriteDescriptors(),
+								versionPublishDescriptors()...)...)...)...)...)...)...)...)...)...)...)...)...)...)...)...)...)...)...)
 }
 
 var accountsList = capability.Descriptor{

@@ -13,10 +13,12 @@
 // an export, which are personal data.
 //
 // Reading tools send one request, a changing tool exactly one and never again, whatever comes back.
-// Deleting an account runs only on a connection that binds exactly that account and no property.
+// Deleting an account runs only on a connection that binds exactly that account and no property. The value
+// of a measurement protocol secret is never returned: it is read from Google's answer only to register it with
+// the redactor.
 //
-// The settings of a web data stream and the calculated metrics of a property run on the Admin API v1alpha,
-// see alpha.go.
+// The settings and the event create rules of a web data stream and the calculated metrics of a property run on
+// the Admin API v1alpha, see alpha.go.
 //
 // A connection may bind Analytics accounts (accounts/ID) and properties (properties/ID). Without a target it
 // reaches what the credential reaches. A bound account reaches its properties, a bound property only itself;
@@ -96,12 +98,41 @@ var scopes = map[string][]string{
 	dataStreamsGetID:    {scopeReadOnly},
 	dataStreamsCreateID: {scopeEdit},
 	dataStreamsUpdateID: {scopeEdit},
+	dataStreamsDeleteID: {scopeEdit},
+
+	mpSecretsListID:   {scopeReadOnly},
+	mpSecretsGetID:    {scopeReadOnly},
+	mpSecretsDeleteID: {scopeEdit},
 
 	enhancedGetID:     {scopeReadOnly},
 	redactionGetID:    {scopeReadOnly},
 	siteTagGetID:      {scopeReadOnly},
 	enhancedUpdateID:  {scopeEdit},
 	redactionUpdateID: {scopeEdit},
+
+	customDimensionsListID:    {scopeReadOnly},
+	customDimensionsGetID:     {scopeReadOnly},
+	customDimensionsCreateID:  {scopeEdit},
+	customDimensionsUpdateID:  {scopeEdit},
+	customDimensionsArchiveID: {scopeEdit},
+
+	customMetricsListID:    {scopeReadOnly},
+	customMetricsGetID:     {scopeReadOnly},
+	customMetricsCreateID:  {scopeEdit},
+	customMetricsUpdateID:  {scopeEdit},
+	customMetricsArchiveID: {scopeEdit},
+
+	keyEventsListID:   {scopeReadOnly},
+	keyEventsGetID:    {scopeReadOnly},
+	keyEventsCreateID: {scopeEdit},
+	keyEventsUpdateID: {scopeEdit},
+	keyEventsDeleteID: {scopeEdit},
+
+	eventRulesListID:   {scopeReadOnly},
+	eventRulesGetID:    {scopeReadOnly},
+	eventRulesCreateID: {scopeEdit},
+	eventRulesUpdateID: {scopeEdit},
+	eventRulesDeleteID: {scopeEdit},
 
 	calculatedListID:   {scopeReadOnly},
 	calculatedGetID:    {scopeReadOnly},
@@ -169,7 +200,10 @@ func isDefaultRoot(raw string) bool {
 var readTools = []string{summariesID, accountsID, accountsGetID, accountsSharingID, propertiesListID, propertiesGetID,
 	reportsRunID, metadataGetID, compatibilityID, dataStreamsListID, dataStreamsGetID, funnelRunID, audienceGetID,
 	audienceListID, reportsRunPivotID, reportsBatchRunID, reportsBatchRunPivotID, reportsRunRealtimeID,
-	reportTasksGetID, reportTasksListID, reportTasksQueryID, audienceQueryID, enhancedGetID, redactionGetID, siteTagGetID,
+	reportTasksGetID, reportTasksListID, reportTasksQueryID, audienceQueryID, mpSecretsListID, mpSecretsGetID,
+	enhancedGetID, redactionGetID, siteTagGetID,
+	customDimensionsListID, customDimensionsGetID, customMetricsListID,
+	customMetricsGetID, keyEventsListID, keyEventsGetID, eventRulesListID, eventRulesGetID,
 	calculatedListID, calculatedGetID}
 
 // Register adds the provider metadata, its consent endpoints, its connection test and its tools.
@@ -203,17 +237,22 @@ func Register(reg *capability.Registry) error {
 		},
 		Profiles: []config.ToolProfile{{
 			ID: "read", Title: "Read", Recommended: true,
-			Description: "reads the Analytics accounts, properties, calculated metrics, reports and report tasks the connection reaches; " +
+			Description: "reads the Analytics accounts, properties, custom dimensions and metrics, key events, calculated metrics, reports and report tasks the connection reaches; " +
 				"nothing is changed. It includes reading the users of an audience export, which are personal data",
 			Tools: readTools,
 		}, {
 			ID: "write", Title: "Read and change",
-			Description: "reads what the read profile reads and changes Analytics accounts, properties and calculated metrics, starts audience exports " +
-				"and report tasks; every " +
-				"change needs its own confirmation, and deleting an account or a property stays unlisted",
+			Description: "reads what the read profile reads and changes Analytics accounts, properties, data streams, custom " +
+				"dimensions, custom metrics, key events, event create rules and calculated metrics, starts audience exports and report tasks, " +
+				"and deletes data streams, measurement protocol secrets and key events; every change needs its own " +
+				"confirmation, and deleting an account or a property stays unlisted",
 			Tools: append(slices.Clone(readTools), accountsUpdateID, propertiesCreateID, propertiesUpdateID,
-				dataStreamsCreateID, dataStreamsUpdateID, audienceCreateID, reportTasksCreateID, enhancedUpdateID,
-				redactionUpdateID, calculatedCreateID, calculatedUpdateID, calculatedDeleteID),
+				dataStreamsCreateID, dataStreamsUpdateID, dataStreamsDeleteID, mpSecretsDeleteID, audienceCreateID,
+				reportTasksCreateID, enhancedUpdateID, redactionUpdateID, customDimensionsCreateID,
+				customDimensionsUpdateID, customDimensionsArchiveID,
+				customMetricsCreateID, customMetricsUpdateID, customMetricsArchiveID,
+				keyEventsCreateID, keyEventsUpdateID, keyEventsDeleteID, eventRulesCreateID, eventRulesUpdateID, eventRulesDeleteID,
+				calculatedCreateID, calculatedUpdateID, calculatedDeleteID),
 		}},
 	}, TestConnection); err != nil {
 		return err
@@ -249,12 +288,45 @@ func Register(reg *capability.Registry) error {
 			ConfirmationSummary: streamWriteSummary(dataStreamsCreateID)},
 		{Descriptor: dataStreamsUpdate, Handler: handleDataStreamsUpdate,
 			ConfirmationSummary: streamWriteSummary(dataStreamsUpdateID)},
+		{Descriptor: dataStreamsDelete, Handler: handleDataStreamsDelete, ConfirmationSummary: streamDeleteSummary},
+		{Descriptor: mpSecretsList, Handler: handleSecretsList},
+		{Descriptor: mpSecretsGet, Handler: handleSecretsGet},
+		{Descriptor: mpSecretsDelete, Handler: handleSecretsDelete, ConfirmationSummary: secretDeleteSummary},
 		{Descriptor: enhancedGet, Handler: handleEnhancedGet},
 		{Descriptor: enhancedUpdate, Handler: handleEnhancedUpdate, ConfirmationSummary: settingsSummary(enhancedUpdateID)},
 		{Descriptor: redactionGet, Handler: handleRedactionGet},
 		{Descriptor: redactionUpdateDescriptor, Handler: handleRedactionUpdate,
 			ConfirmationSummary: settingsSummary(redactionUpdateID)},
 		{Descriptor: siteTagGet, Handler: handleSiteTagGet},
+		{Descriptor: customDimensionsList, Handler: handleCustomDimensionsList},
+		{Descriptor: customDimensionsGet, Handler: handleCustomDimensionsGet},
+		{Descriptor: customDimensionsCreate, Handler: handleCustomDimensionsCreate,
+			ConfirmationSummary: dimensionWriteSummary(customDimensionsCreateID)},
+		{Descriptor: customDimensionsUpdate, Handler: handleCustomDimensionsUpdate,
+			ConfirmationSummary: dimensionWriteSummary(customDimensionsUpdateID)},
+		{Descriptor: customDimensionsArchive, Handler: handleCustomDimensionsArchive,
+			ConfirmationSummary: dimensionWriteSummary(customDimensionsArchiveID)},
+		{Descriptor: customMetricsList, Handler: handleCustomMetricsList},
+		{Descriptor: customMetricsGet, Handler: handleCustomMetricsGet},
+		{Descriptor: customMetricsCreate, Handler: handleCustomMetricsCreate,
+			ConfirmationSummary: metricWriteSummary(customMetricsCreateID)},
+		{Descriptor: customMetricsUpdate, Handler: handleCustomMetricsUpdate,
+			ConfirmationSummary: metricWriteSummary(customMetricsUpdateID)},
+		{Descriptor: customMetricsArchive, Handler: handleCustomMetricsArchive,
+			ConfirmationSummary: metricWriteSummary(customMetricsArchiveID)},
+		{Descriptor: keyEventsList, Handler: handleKeyEventsList},
+		{Descriptor: keyEventsGet, Handler: handleKeyEventsGet},
+		{Descriptor: keyEventsCreate, Handler: handleKeyEventsCreate, ConfirmationSummary: keyEventSummary(keyEventsCreateID)},
+		{Descriptor: keyEventsUpdate, Handler: handleKeyEventsUpdate, ConfirmationSummary: keyEventSummary(keyEventsUpdateID)},
+		{Descriptor: keyEventsDelete, Handler: handleKeyEventsDelete, ConfirmationSummary: keyEventSummary(keyEventsDeleteID)},
+		{Descriptor: eventRulesList, Handler: handleEventRulesList},
+		{Descriptor: eventRulesGet, Handler: handleEventRulesGet},
+		{Descriptor: eventRulesCreate, Handler: handleEventRulesCreate,
+			ConfirmationSummary: ruleWriteSummary(eventRulesCreateID)},
+		{Descriptor: eventRulesUpdate, Handler: handleEventRulesUpdate,
+			ConfirmationSummary: ruleWriteSummary(eventRulesUpdateID)},
+		{Descriptor: eventRulesDelete, Handler: handleEventRulesDelete,
+			ConfirmationSummary: ruleWriteSummary(eventRulesDeleteID)},
 		{Descriptor: calculatedList, Handler: handleCalculatedList},
 		{Descriptor: calculatedGet, Handler: handleCalculatedGet},
 		{Descriptor: calculatedCreate, Handler: handleCalculatedCreate,

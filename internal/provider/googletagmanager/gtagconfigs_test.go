@@ -84,7 +84,7 @@ func TestNoToolLinksDestinationsAndNoGtagConfigRevertExists(t *testing.T) {
 	wantIDs := []string{gtagConfigsListID, gtagConfigsGetID, gtagConfigsCreateID, gtagConfigsUpdateID, gtagConfigsDeleteID}
 	var got []string
 	for _, d := range reg.Provider(Provider) {
-		if strings.Contains(d.ID, "destinations") || strings.Contains(d.ID, "destination") {
+		if strings.Contains(d.ID, "destination") && d.ID != destinationsListID && d.ID != destinationsGetID {
 			t.Errorf("%s links a destination", d.ID)
 		}
 		if strings.Contains(d.ID, ".gtag-configs.") {
@@ -102,7 +102,7 @@ func TestGtagConfigDescriptionsNameTheEffectAndTheUpdateCheck(t *testing.T) {
 	for _, id := range []string{gtagConfigsCreateID, gtagConfigsUpdateID, gtagConfigsDeleteID} {
 		d := toolOf(t, id)
 		for _, want := range []string{"measurement IDs", "destination of the measurement data", "workspace only",
-			"published container version", "no tool of this provider"} {
+			"published container version", "versions.publish"} {
 			if !strings.Contains(d.Description, want) {
 				t.Errorf("%s description lacks %q", id, want)
 			}

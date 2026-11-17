@@ -12,7 +12,7 @@ updated: 2026-11-16
 The built-in variable tools of the [Google Tag Manager provider](README.md). Built-in variables are the
 ready-made variables of a container, such as the page URL or the clicked element. A container enables the ones
 its tags and triggers use. A change is made in the workspace only and goes live with a published container
-version, which no tool of this provider makes. Every change is confirmed, and the confirmation shows the types
+version, which only the listed-only versions.publish publishes. Every change is confirmed, and the confirmation shows the types
 and the workspace path.
 
 | Tool | Does |

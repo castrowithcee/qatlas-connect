@@ -22,7 +22,7 @@ const (
 )
 
 const workspaceEffect = "The change is made in the workspace only and publishes nothing: a container version is " +
-	"made from a workspace, and no tool of this provider makes one. "
+	"made from a workspace, and versions.create makes one, which only the listed-only versions.publish publishes. "
 
 const workspaceTextNote = "Name and description are untrusted content of whoever edits the account and are never cut, " +
 	"so what a read returns is what an update takes. "

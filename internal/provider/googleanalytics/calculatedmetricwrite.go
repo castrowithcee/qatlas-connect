@@ -29,14 +29,14 @@ const (
 	maxFormulaBytes    = 4096
 )
 
-var metricUnits = []string{"STANDARD", "CURRENCY", "FEET", "MILES", "METERS", "KILOMETERS", "MILLISECONDS", "SECONDS",
+var calculatedUnits = []string{"STANDARD", "CURRENCY", "FEET", "MILES", "METERS", "KILOMETERS", "MILLISECONDS", "SECONDS",
 	"MINUTES", "HOURS"}
 
 var formulaPattern = regexp.MustCompile(`^[A-Za-z0-9_:. +*/()-]+$`)
 
-// checkMetricDisplayName refuses an empty or blank name, one that is not valid text or holds a control
+// checkCalculatedDisplayName refuses an empty or blank name, one that is not valid text or holds a control
 // character, and one longer than Google accepts. The refusal never quotes the name.
-func checkMetricDisplayName(value string) error {
+func checkCalculatedDisplayName(value string) error {
 	if strings.TrimSpace(value) == "" || !utf8.ValidString(value) {
 		return badRequest("display_name must be non-blank text")
 	}
@@ -79,8 +79,8 @@ func checkFormula(value string) error {
 }
 
 func checkMetricUnit(value string) error {
-	if !slices.Contains(metricUnits, value) {
-		return badRequest("metric_unit must be one of " + strings.Join(metricUnits, ", "))
+	if !slices.Contains(calculatedUnits, value) {
+		return badRequest("metric_unit must be one of " + strings.Join(calculatedUnits, ", "))
 	}
 	return nil
 }
@@ -103,7 +103,7 @@ const (
 	metricFormulaSchema = `{"type":"string","minLength":1,"maxLength":4096}`
 )
 
-var metricUnitSchema = `{"type":"string","enum":` + quoted(metricUnits) + `}`
+var calculatedUnitSchema = `{"type":"string","enum":` + quoted(calculatedUnits) + `}`
 
 var calculatedCreate = capability.Descriptor{
 	ID: calculatedCreateID, Version: 1, Title: "Create an Analytics calculated metric",
@@ -117,7 +117,7 @@ var calculatedCreate = capability.Descriptor{
 	Risk: writeRisk(capability.EffectCreate, capability.IdempotencyNonIdempotent),
 	InputSchema: json.RawMessage(`{"type":"object","properties":{"property":` + propertyArgSchema +
 		`,"calculated_metric_id":{"type":"string","pattern":"^[A-Za-z0-9_]{1,80}$"},"display_name":` +
-		metricNameArgSchema + `,"description":` + metricDescSchema + `,"metric_unit":` + metricUnitSchema +
+		metricNameArgSchema + `,"description":` + metricDescSchema + `,"metric_unit":` + calculatedUnitSchema +
 		`,"formula":` + metricFormulaSchema + `},"required":["property","calculated_metric_id","display_name",` +
 		`"metric_unit","formula"],"additionalProperties":false}`),
 	OutputSchema: json.RawMessage(calculatedSchema),
@@ -128,7 +128,7 @@ var calculatedCreate = capability.Descriptor{
 		{Name: "display_name", Required: true, Description: "Display name in the Analytics interface, at most 82 " +
 			"characters, no control characters"},
 		{Name: "description", Description: "Description, at most 4096 characters"},
-		{Name: "metric_unit", Required: true, Description: "One of " + strings.Join(metricUnits, ", ")},
+		{Name: "metric_unit", Required: true, Description: "One of " + strings.Join(calculatedUnits, ", ")},
 		{Name: "formula", Required: true, Description: "Formula in Google's syntax: + - * / (negation too) and " +
 			"parentheses over numbers and metric names, at most 5 distinct custom metrics, for example " +
 			"(customEvent:parameter_name + cartPurchaseQuantity) / 2.0. Qatlas checks length (at most 4096) and " +
@@ -151,7 +151,7 @@ var calculatedUpdate = capability.Descriptor{
 	Tags: []string{"google", "analytics", "calculated-metrics", "update", "alpha"}, Provider: Provider,
 	Risk: writeRisk(capability.EffectUpdate, capability.IdempotencyIdempotent),
 	InputSchema: json.RawMessage(`{"type":"object","properties":{"name":` + calculatedNameSchema + `,"display_name":` +
-		metricNameArgSchema + `,"description":` + metricDescSchema + `,"metric_unit":` + metricUnitSchema +
+		metricNameArgSchema + `,"description":` + metricDescSchema + `,"metric_unit":` + calculatedUnitSchema +
 		`,"formula":` + metricFormulaSchema + `},"required":["name"],"additionalProperties":false}`),
 	OutputSchema: json.RawMessage(calculatedSchema),
 	Arguments: []capability.Argument{
@@ -159,7 +159,7 @@ var calculatedUpdate = capability.Descriptor{
 			"properties/ID/calculatedMetrics/ID, from calculated-metrics.list"},
 		{Name: "display_name", Description: "New display name, at most 82 characters, no control characters"},
 		{Name: "description", Description: "New description, at most 4096 characters; empty clears it"},
-		{Name: "metric_unit", Description: "New unit, one of " + strings.Join(metricUnits, ", ")},
+		{Name: "metric_unit", Description: "New unit, one of " + strings.Join(calculatedUnits, ", ")},
 		{Name: "formula", Description: "New formula in Google's syntax; Qatlas checks length (at most 4096) and " +
 			"characters only"},
 	},
@@ -227,7 +227,7 @@ func (a calculatedWriteArguments) body() (body calculatedBody, mask string) {
 // checkSet checks the members that are set.
 func (a calculatedWriteArguments) checkSet() error {
 	if a.DisplayName != nil {
-		if err := checkMetricDisplayName(*a.DisplayName); err != nil {
+		if err := checkCalculatedDisplayName(*a.DisplayName); err != nil {
 			return err
 		}
 	}

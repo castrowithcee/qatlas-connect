@@ -11,9 +11,11 @@ updated: 2026-11-17
 
 This page shows how to connect Qatlas to Google Analytics 4. Targets, paging, and errors are described in the
 [Google Analytics provider](README.md); the tools are described in [accounts](accounts.md),
-[properties](properties.md), [data streams](data-streams.md), [reports](reports.md), and
+[properties](properties.md), [data streams](data-streams.md), [custom dimensions](custom-dimensions.md),
+[custom metrics](custom-metrics.md), [event create rules](event-create-rules.md),
+[calculated metrics](calculated-metrics.md), [reports](reports.md),
 [audience exports](audience-exports.md), [report tasks](report-tasks.md), and
-[calculated metrics](calculated-metrics.md).
+[measurement protocol secrets](measurement-protocol-secrets.md).
 
 ## What you need
 
@@ -81,7 +83,7 @@ property, and on the property or its account to change or trash a property or to
 ## Rights and scopes
 
 The reading tools need the scope `https://www.googleapis.com/auth/analytics.readonly`, the smallest scope that
-reads Analytics configuration and report data. The tools that change an account or a property need
+reads Analytics configuration and report data. The tools that change an account, a property, a data stream, or an event create rule need
 `https://www.googleapis.com/auth/analytics.edit`. Qatlas asks for the scope of the tools of the connections that
 use the credential and no more. Each connection of a credential has to be for Google Analytics, so the
 credential never carries the scope of another product.
@@ -96,9 +98,19 @@ credential never carries the scope of another product.
 | [Report tasks](report-tasks.md) | `report-tasks.create`, `report-tasks.get`, `report-tasks.list`, `report-tasks.query` | `analytics.readonly` |
 | [Properties](properties.md#changing-properties) | `properties.create`, `properties.update`, `properties.delete` | `analytics.edit` |
 | [Data streams](data-streams.md) | `data-streams.list`, `data-streams.get` | `analytics.readonly` |
-| [Data streams](data-streams.md#changing-data-streams) | `data-streams.create`, `data-streams.update` | `analytics.edit` |
+| [Data streams](data-streams.md#changing-data-streams) | `data-streams.create`, `data-streams.update`, `data-streams.delete` | `analytics.edit` |
+| [Measurement protocol secrets](measurement-protocol-secrets.md) | `measurement-protocol-secrets.list`, `measurement-protocol-secrets.get` | `analytics.readonly` |
+| [Measurement protocol secrets](measurement-protocol-secrets.md#googleanalyticsmeasurement-protocol-secretsdelete) | `measurement-protocol-secrets.delete` | `analytics.edit` |
 | [Stream settings](data-streams.md#stream-settings-alpha) | `data-streams.get-enhanced-measurement`, `data-streams.get-data-redaction`, `data-streams.get-site-tag` | `analytics.readonly` |
 | [Stream settings](data-streams.md#stream-settings-alpha) | `data-streams.update-enhanced-measurement`, `data-streams.update-data-redaction` | `analytics.edit` |
+| [Custom dimensions](custom-dimensions.md) | `custom-dimensions.list`, `custom-dimensions.get` | `analytics.readonly` |
+| [Custom dimensions](custom-dimensions.md#changing-custom-dimensions) | `custom-dimensions.create`, `custom-dimensions.update`, `custom-dimensions.archive` | `analytics.edit` |
+| [Custom metrics](custom-metrics.md) | `custom-metrics.list`, `custom-metrics.get` | `analytics.readonly` |
+| [Custom metrics](custom-metrics.md#changing-custom-metrics) | `custom-metrics.create`, `custom-metrics.update`, `custom-metrics.archive` | `analytics.edit` |
+| [Key events](key-events.md) | `key-events.list`, `key-events.get` | `analytics.readonly` |
+| [Key events](key-events.md#changing-key-events) | `key-events.create`, `key-events.update`, `key-events.delete` | `analytics.edit` |
+| [Event create rules](event-create-rules.md) | `event-create-rules.list`, `event-create-rules.get` | `analytics.readonly` |
+| [Event create rules](event-create-rules.md) | `event-create-rules.create`, `event-create-rules.update`, `event-create-rules.delete` | `analytics.edit` |
 | [Calculated metrics](calculated-metrics.md) | `calculated-metrics.list`, `calculated-metrics.get` | `analytics.readonly` |
 | [Calculated metrics](calculated-metrics.md#changing-calculated-metrics) | `calculated-metrics.create`, `calculated-metrics.update`, `calculated-metrics.delete` | `analytics.edit` |
 

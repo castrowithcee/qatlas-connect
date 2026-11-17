@@ -12,6 +12,8 @@ const (
 	serviceStorage         service = "storage"
 	serviceDNS             service = "dns"
 	serviceBilling         service = "billing"
+	serviceAPIKeys         service = "api-keys"
+	serviceQuotas          service = "quotas"
 )
 
 // serviceOrigins holds the https origin of every service, as the rootUrl of its discovery document names it.
@@ -25,6 +27,8 @@ var serviceOrigins = map[service]string{
 	serviceStorage:         "https://storage.googleapis.com",
 	serviceDNS:             "https://dns.googleapis.com",
 	serviceBilling:         "https://cloudbilling.googleapis.com",
+	serviceAPIKeys:         "https://apikeys.googleapis.com",
+	serviceQuotas:          "https://cloudquotas.googleapis.com",
 }
 
 // apiRoot is the origin a service configuration may name: the default of the provider.
