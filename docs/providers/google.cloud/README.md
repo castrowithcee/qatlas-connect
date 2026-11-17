@@ -35,7 +35,7 @@ tokens for it). The connection holds no scope. Qatlas derives them from the tool
 smallest scope the discovery document of each method lists: `cloud-platform.read-only` for Resource Manager,
 and `cloud-platform` for the IAM and quota tools, because their discovery documents list no narrower scope
 (Google offers no read-only variant for these methods, see [IAM](iam.md) and [Quotas](quotas.md)). Only the tools of the profiles
-`service-accounts`, `service-accounts-revoke`, `api-keys-revoke`, `iam-bindings`, and `services` and the tools
+`service-accounts`, `service-accounts-revoke`, `api-keys-revoke`, `iam-bindings`, `compute-network-delete`, and `services` and the tools
 `service-accounts.delete` and `services.disable`, which a `tools` list must name, change anything, each with a confirmation, whatever the scope allows. The access token travels in the
 `Authorization` header only, is never an argument or part of a result, and is masked in every output. A 401
 renews the token once, and nothing else repeats a request.
@@ -122,6 +122,14 @@ The profile `api-keys-revoke` holds only `google.cloud.api-keys.delete` and `goo
 asks for the scope `apikeys`, needs the effects `update` and `delete`, and is not recommended. Google uses the
 same scope to create keys and read their values, so the token may do that although no tool does.
 
+The profile `compute-network-delete` holds `google.cloud.firewalls.delete`, `google.cloud.addresses.delete`,
+`google.cloud.vpn-tunnels.delete`, `google.cloud.vpn-gateways.delete`, and `google.cloud.projects.get`, which proves
+a project against targets of an organization or a folder. The four deletions ask for the scope `compute`, which
+Google also uses to change Compute resources, so the token may do that although no tool does. The profile needs the
+effect `delete` for the deletions and `read` for `projects.get`, is not recommended, and holds no listed-only tool;
+every call needs the confirmation of a person. See [Firewall rules](firewalls.md), [IP addresses](addresses.md),
+[HA VPN gateways](vpn-gateways.md), and [VPN tunnels](vpn-tunnels.md).
+
 The profile `services` holds only `google.cloud.services.enable` and `google.cloud.services.batch-enable`. It asks
 for `cloud-platform`, needs the effect `update`, and is not recommended. It does not hold
 `google.cloud.services.disable`: that tool is listed-only and only a `tools` list that names it exactly releases
@@ -151,10 +159,14 @@ on [IAM bindings](iam-bindings.md).
   globally, with the email address of whoever started each.
 - [VPC networks](networks.md): the VPC networks of a project from Compute Engine, one and all.
 - [Subnetworks](subnetworks.md): the subnetworks of a region from Compute Engine, one and all.
-- [Firewall rules](firewalls.md): the VPC firewall rules of a project from Compute Engine, one and all.
-- [IP addresses](addresses.md): the reserved internal and external IP addresses of a region, one and all.
-- [HA VPN gateways](vpn-gateways.md): the HA VPN gateways of a region from Compute Engine, one and all.
-- [VPN tunnels](vpn-tunnels.md): the VPN tunnels of a region from Compute Engine, never with their shared secret.
+- [Firewall rules](firewalls.md): the VPC firewall rules of a project from Compute Engine, one and all, and the
+  confirmed deletion of a rule.
+- [IP addresses](addresses.md): the reserved internal and external IP addresses of a region, one and all, and the
+  confirmed deletion of an address.
+- [HA VPN gateways](vpn-gateways.md): the HA VPN gateways of a region from Compute Engine, one and all, and the
+  confirmed deletion of a gateway.
+- [VPN tunnels](vpn-tunnels.md): the VPN tunnels of a region from Compute Engine, never with their shared secret, and the
+  confirmed deletion of a tunnel.
 - [Quotas](quotas.md): the quotas of a service and the quota preferences of a project from Cloud Quotas.
 
 ### Search

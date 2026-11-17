@@ -46,7 +46,9 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 			tool.ID == servicesEnableID, tool.ID == servicesBatchEnableID, tool.ID == servicesDisableID,
 			strings.Contains(tool.ID, ".iam-bindings."):
 			wantEffect = config.EffectUpdate
-		case tool.ID == serviceAccountKeysDeleteID, tool.ID == serviceAccountsDeleteID, tool.ID == apiKeysDeleteID:
+		case tool.ID == serviceAccountKeysDeleteID, tool.ID == serviceAccountsDeleteID, tool.ID == apiKeysDeleteID,
+			tool.ID == firewallsDeleteID, tool.ID == addressesDeleteID, tool.ID == vpnTunnelsDeleteID,
+			tool.ID == vpnGatewaysDeleteID:
 			wantEffect = config.EffectDelete
 		}
 		// The quota tools belong to read-quotas, not to read-iam.
@@ -76,12 +78,16 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 			// The discovery document of compute v1 lists compute.readonly as the smallest scope.
 			wantScope = "https://www.googleapis.com/auth/compute.readonly"
 		}
+		if slices.Contains([]string{firewallsDeleteID, addressesDeleteID, vpnTunnelsDeleteID, vpnGatewaysDeleteID}, tool.ID) {
+			// compute v1 lists compute and cloud-platform for the four deletions.
+			wantScope = scopeCompute
+		}
 		if scopes := metadata.Token.Scopes[tool.ID]; !slices.Equal(scopes, []string{wantScope}) {
 			t.Errorf("%s scopes = %v", tool.ID, scopes)
 		}
 	}
-	if want := []string{"google.cloud.addresses.get", "google.cloud.addresses.list", "google.cloud.api-keys.delete", "google.cloud.api-keys.get", "google.cloud.api-keys.list",
-		"google.cloud.api-keys.undelete", "google.cloud.compute-operations.get", "google.cloud.compute-operations.list", "google.cloud.firewalls.get", "google.cloud.firewalls.list",
+	if want := []string{"google.cloud.addresses.delete", "google.cloud.addresses.get", "google.cloud.addresses.list", "google.cloud.api-keys.delete", "google.cloud.api-keys.get", "google.cloud.api-keys.list",
+		"google.cloud.api-keys.undelete", "google.cloud.compute-operations.get", "google.cloud.compute-operations.list", "google.cloud.firewalls.delete", "google.cloud.firewalls.get", "google.cloud.firewalls.list",
 		"google.cloud.folders.get", "google.cloud.folders.list", "google.cloud.folders.search",
 		"google.cloud.iam-bindings.add-member", "google.cloud.iam-bindings.change-role",
 		"google.cloud.iam-bindings.remove-member", "google.cloud.iam-deny-policies.get", "google.cloud.iam-deny-policies.list",
@@ -100,8 +106,8 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 		"google.cloud.service-accounts.get", "google.cloud.service-accounts.list",
 		"google.cloud.service-accounts.patch", "google.cloud.services.batch-enable", "google.cloud.services.batch-get",
 		"google.cloud.services.disable", "google.cloud.services.enable", "google.cloud.services.get",
-		"google.cloud.services.list", "google.cloud.subnetworks.get", "google.cloud.subnetworks.list", "google.cloud.vpn-gateways.get", "google.cloud.vpn-gateways.list",
-		"google.cloud.vpn-tunnels.get", "google.cloud.vpn-tunnels.list", "google.cloud.zones.list"}; !slices.Equal(ids, want) {
+		"google.cloud.services.list", "google.cloud.subnetworks.get", "google.cloud.subnetworks.list", "google.cloud.vpn-gateways.delete", "google.cloud.vpn-gateways.get", "google.cloud.vpn-gateways.list",
+		"google.cloud.vpn-tunnels.delete", "google.cloud.vpn-tunnels.get", "google.cloud.vpn-tunnels.list", "google.cloud.zones.list"}; !slices.Equal(ids, want) {
 		t.Errorf("tools = %v, want %v", ids, want)
 	}
 	if profile, found := metadata.RecommendedProfile(); !found || profile.ID != "read" || len(profile.Tools) != 34 {
@@ -144,6 +150,10 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 		case "services":
 			if profile.Recommended || !slices.Equal(profile.Tools, []string{servicesEnableID, servicesBatchEnableID}) {
 				t.Errorf("profile services = %+v", profile)
+			}
+		case "compute-network-delete":
+			if profile.Recommended || !slices.Equal(profile.Tools, []string{projectsGetID, firewallsDeleteID, addressesDeleteID, vpnTunnelsDeleteID, vpnGatewaysDeleteID}) {
+				t.Errorf("profile compute-network-delete = %+v", profile)
 			}
 		case "iam-bindings":
 			if profile.Recommended || !slices.Contains(profile.Tools, iamBindingsAddID) ||
