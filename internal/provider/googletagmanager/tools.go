@@ -130,7 +130,8 @@ func descriptors() []capability.Descriptor {
 		workspacesGet}, append(workspaceManageDescriptors(), append(tagDescriptors(), append(triggerDescriptors(),
 		append(variableDescriptors(), append(builtInVariableDescriptors(), append(folderDescriptors(),
 			append(clientDescriptors(), append(transformationDescriptors(),
-				append(zoneDescriptors(), gtagConfigDescriptors()...)...)...)...)...)...)...)...)...)...)
+				append(zoneDescriptors(), append(gtagConfigDescriptors(),
+					templateDescriptors()...)...)...)...)...)...)...)...)...)...)...)
 }
 
 var accountsList = capability.Descriptor{
@@ -225,6 +226,7 @@ type toolArguments struct {
 	Tag               string `json:"tag"`
 	Trigger           string `json:"trigger"`
 	Variable          string `json:"variable"`
+	Template          string `json:"template"`
 	Folder            string `json:"folder"`
 	Client            string `json:"client"`
 	Transformation    string `json:"transformation"`

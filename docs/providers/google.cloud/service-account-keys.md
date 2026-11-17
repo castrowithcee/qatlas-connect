@@ -1,6 +1,6 @@
 ---
 description: >
-  Describes the Google Cloud service account key reads service-account-keys.list and service-account-keys.get: metadata only, the key types filter, the checks of project and key names, the disable reason, the scope, and why public and private key material is never returned.
+  Describes the Google Cloud service account key tools: the reads service-account-keys.list and service-account-keys.get (metadata only, the key types filter, the checks of project and key names, the disable reason) and the revocations disable, enable, and delete (profile service-accounts-revoke), the scope, and why public and private key material is never returned.
 type: knowledge
 edit: shared
 created: 2026-11-17
@@ -10,7 +10,8 @@ updated: 2026-11-17
 # Google Cloud service account keys
 
 Two read tools of the IAM API (`https://iam.googleapis.com`, discovery `iam` v1, revision 20261106): the metadata
-of the keys of a service account and of one key. The account and project rules of
+of the keys of a service account and of one key. Three more tools revoke a key (see
+[Revoking keys](#revoking-keys)). The account and project rules of
 [service accounts](service-accounts.md) apply unchanged. [The provider page](README.md) holds targets, errors,
 and rate spacing.
 
@@ -45,10 +46,37 @@ returned. The account segment is not compared with `account`, because Google may
 
 ## Scope and profile
 
-Discovery `iam` v1 lists only `cloud-platform` for both methods, so the tools belong to the profile `read-iam`.
-The rights are listed in [setup](setup.md).
+Discovery `iam` v1 lists only `cloud-platform` for both read methods, so the read tools belong to the profile
+`read-iam`. The revoking tools belong to `service-accounts-revoke`. The rights are listed in [setup](setup.md).
 
 ## Left out on purpose
 
-Creating, uploading, disabling, enabling, and deleting a key, and the data fields `publicKeyData`,
+Creating and uploading a key, and the data fields `publicKeyData`,
 `privateKeyData`, and `privateKeyType`.
+
+## Revoking keys
+
+| Tool | Effect | Google method | Arguments |
+| --- | --- | --- | --- |
+| `service-account-keys.disable` | update | `projects.serviceAccounts.keys.disable` | `project_id`, `account`, `key_id` |
+| `service-account-keys.enable` | update | `projects.serviceAccounts.keys.enable` | `project_id`, `account`, `key_id` |
+| `service-account-keys.delete` | delete | `projects.serviceAccounts.keys.delete` | `project_id`, `account`, `key_id` |
+
+They belong to the profile `service-accounts-revoke`, which holds only these three tools, is not recommended,
+and is not part of `read-iam`. The connection needs the effects `update` and `delete`. They ask for
+`cloud-platform`, the only scope discovery `iam` v1 lists for these methods. The account needs the permissions
+`iam.serviceAccountKeys.disable`, `enable`, or `delete` on the project, which Google decides. Discovery lists no
+member in the disable and enable requests, so the tools take no reason and send an empty body.
+
+Every call needs the confirmation of a person. It names the project, the account, and the key. Deleting a key is
+not reversible, and the confirmation says so. The project check and the key ID check are those of the reads and
+happen before any secret is read.
+
+- `disable` and `enable` are idempotent. Google answers with an empty body, so the result is `projectId`,
+  `account` and `keyId` as given, and `disabled` (true after `disable`). A disabled key can be enabled again.
+- `delete` removes the key for good. The result is `projectId`, `account`, `keyId`, and `deleted`. Google refuses
+  system-managed keys, which shows as a provider error. A key that does not exist ends as `not_found`. Deleting a
+  key does not revoke short-lived credentials already issued from it.
+- A change is sent once and never repeated. After a transport failure, a 5xx answer, or an unreadable answer the
+  message says that the outcome is unknown: read the key before changing it again.
+- No answer carries key material, and no tool creates or uploads a key.

@@ -90,20 +90,21 @@ func Register(reg *capability.Registry) error {
 		Profiles: []config.ToolProfile{{
 			ID: "read", Title: "Read", Recommended: true,
 			Description: "reads accounts, containers, workspaces and their changes, tags, triggers, variables, " +
-				"built-in variables, folders, clients, transformations, zones, and Google tag configurations; changes " +
-				"nothing",
+				"built-in variables, templates, folders, clients, transformations, zones, and Google tag " +
+				"configurations; changes nothing",
 			Tools: readIDs,
 		}, {
-			ID: "write", Title: "Read and change workspaces, tags, triggers, variables, built-in variables, folders, " +
-				"clients, transformations, zones, and Google tag configurations",
+			ID: "write", Title: "Read and change workspaces, tags, triggers, variables, templates, built-in variables, " +
+				"folders, clients, transformations, zones, and Google tag configurations",
 			Description: "reads what the read profile reads, creates and updates workspaces, synchronizes a " +
 				"workspace with the latest container version, resolves its merge conflicts, quick previews it, " +
-				"creates, updates, and deletes the tags, triggers, and variables of a workspace, creates, updates, and " +
-				"deletes its folders, moves tags, triggers, and variables into a folder, creates, updates, and deletes " +
-				"its clients, transformations, zones, and Google tag configurations, and enables and disables its " +
-				"built-in variables; every change needs its own confirmation and stays in the workspace until a " +
-				"version is published, which no tool of this provider does. Deleting a workspace and reverting a tag, " +
-				"trigger, variable, built-in variable, folder, client, transformation, or zone stay unticked",
+				"creates, updates, and deletes the tags, triggers, variables, and templates of a workspace, creates, " +
+				"updates, and deletes its folders, moves tags, triggers, and variables into a folder, creates, updates, " +
+				"and deletes its clients, transformations, zones, and Google tag configurations, and enables and " +
+				"disables its built-in variables; every change needs its own confirmation and stays in the workspace " +
+				"until a version is published, which no tool of this provider does. Deleting a workspace and " +
+				"reverting a tag, trigger, variable, template, built-in variable, folder, client, transformation, or " +
+				"zone stay unticked",
 			Tools: writeIDs,
 		}},
 	}, TestConnection); err != nil {
@@ -128,6 +129,9 @@ func Register(reg *capability.Registry) error {
 		variablesListID:  handleVariablesList, variablesGetID: handleVariablesGet,
 		variablesCreateID: handleVariablesCreate, variablesUpdateID: handleVariablesUpdate,
 		variablesDeleteID: handleVariablesDelete, variablesRevertID: handleVariablesRevert,
+		templatesListID: handleTemplatesList, templatesGetID: handleTemplatesGet,
+		templatesCreateID: handleTemplatesCreate, templatesUpdateID: handleTemplatesUpdate,
+		templatesDeleteID: handleTemplatesDelete, templatesRevertID: handleTemplatesRevert,
 		builtInVariablesListID: handleBuiltInVariablesList, builtInVariablesCreateID: handleBuiltInVariablesCreate,
 		builtInVariablesDeleteID: handleBuiltInVariablesDelete, builtInVariablesRevertID: handleBuiltInVariablesRevert,
 		foldersListID: handleFoldersList, foldersGetID: handleFoldersGet, foldersEntitiesID: handleFoldersEntities,
@@ -158,6 +162,8 @@ func Register(reg *capability.Registry) error {
 		triggersDeleteID: triggerSummary("Delete"), triggersRevertID: triggerSummary("Revert"),
 		variablesCreateID: variableSummary("Create"), variablesUpdateID: variableSummary("Replace"),
 		variablesDeleteID: variableSummary("Delete"), variablesRevertID: variableSummary("Revert"),
+		templatesCreateID: templateSummary("Create"), templatesUpdateID: templateSummary("Replace"),
+		templatesDeleteID: templateSummary("Delete"), templatesRevertID: templateSummary("Revert"),
 		builtInVariablesCreateID: builtInSummary("Enable"), builtInVariablesDeleteID: builtInSummary("Disable"),
 		builtInVariablesRevertID: builtInSummary("Revert"),
 		foldersCreateID:          folderSummary("Create"), foldersUpdateID: folderSummary("Replace"),

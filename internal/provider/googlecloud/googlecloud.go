@@ -5,7 +5,8 @@
 //
 // The package starts with Cloud Resource Manager: the search of organizations, folders, and projects, one
 // project, and the state of a long-running operation. It then reads IAM: roles, and the roles and permissions
-// of a resource. It changes only through the profiles service-accounts (service_accounts_write.go) and
+// of a resource. It changes only through the profiles service-accounts (service_accounts_write.go),
+// service-accounts-revoke and the listed-only service-accounts.delete (service_accounts_revoke.go), and
 // iam-bindings (a single binding of the IAM policy of a project, folder, or organization, iam_bindings.go),
 // each change with the confirmation of a person. Every request goes to a fixed origin of the service table,
 // with the access token in the Authorization header only, once, within a bounded size and time, and spaced per
@@ -133,6 +134,13 @@ func Register(reg *capability.Registry) error {
 				"project, are granted; these methods accept only the broad cloud-platform scope",
 			Tools: append(append([]string{}, readTools...), iamPoliciesGet.ID, iamBindingsAdd.ID, iamBindingsRemove.ID,
 				iamBindingsChange.ID),
+		}, {
+			ID: "service-accounts-revoke", Title: "Service account revocation",
+			Description: "disables, enables, and deletes the keys of service accounts; deleting a service account itself " +
+				"is not part of this profile and needs a tools list that names it; the token holds the broad " +
+				"cloud-platform scope and may change what its account may, every change needs its own confirmation, " +
+				"and no tool creates a key, a token, or a signature",
+			Tools: []string{serviceAccountKeysDisable.ID, serviceAccountKeysEnable.ID, serviceAccountKeysDelete.ID},
 		}},
 	}, TestConnection); err != nil {
 		return err
@@ -180,5 +188,13 @@ func Register(reg *capability.Registry) error {
 		capability.Operation{Descriptor: iamBindingsRemove, Handler: handleIAMBindingsRemove,
 			ConfirmationSummary: bindingSummary(changeRemove)},
 		capability.Operation{Descriptor: iamBindingsChange, Handler: handleIAMBindingsChange,
-			ConfirmationSummary: bindingSummary(changeMove)})
+			ConfirmationSummary: bindingSummary(changeMove)},
+		capability.Operation{Descriptor: serviceAccountKeysDisable, Handler: handleServiceAccountKeysDisable,
+			ConfirmationSummary: revokeSummary(serviceAccountKeysDisableID)},
+		capability.Operation{Descriptor: serviceAccountKeysEnable, Handler: handleServiceAccountKeysEnable,
+			ConfirmationSummary: revokeSummary(serviceAccountKeysEnableID)},
+		capability.Operation{Descriptor: serviceAccountKeysDelete, Handler: handleServiceAccountKeysDelete,
+			ConfirmationSummary: revokeSummary(serviceAccountKeysDeleteID)},
+		capability.Operation{Descriptor: serviceAccountsDelete, Handler: handleServiceAccountsDelete,
+			ConfirmationSummary: revokeSummary(serviceAccountsDeleteID)})
 }

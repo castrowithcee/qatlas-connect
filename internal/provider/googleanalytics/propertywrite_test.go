@@ -50,7 +50,8 @@ func TestExcludedMethodsHaveNoTool(t *testing.T) {
 	slices.Sort(ids)
 	if want := []string{accountsID, accountsGetID, accountsSharingID, accountsUpdateID, accountsDeleteID, summariesID,
 		propertiesCreateID, propertiesDeleteID, propertiesGetID, propertiesListID,
-		propertiesUpdateID, reportsRunID, metadataGetID, compatibilityID, funnelRunID, audienceCreateID, audienceGetID,
+		propertiesUpdateID, reportsRunID, metadataGetID, compatibilityID, dataStreamsListID, dataStreamsGetID,
+		dataStreamsCreateID, dataStreamsUpdateID, funnelRunID, audienceCreateID, audienceGetID,
 		audienceListID}; !slices.Equal(ids, sortedCopy(want)) {
 		t.Errorf("tools = %v", ids)
 	}
