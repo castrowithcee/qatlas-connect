@@ -221,7 +221,7 @@ func TestStaleTransformationFingerprintIsNotGuessedAndNotRepeated(t *testing.T) 
 
 // The answer of Google for a transformation call on a web container is not verified; it arrives in the established
 // form of an unmapped status.
-func TestAWebContainerErrorArrivesAsAnUnmappedAnswerWithTheOriginal(t *testing.T) {
+func TestAWebContainerErrorOfATransformationArrivesAsAnUnmappedAnswer(t *testing.T) {
 	h := newHarness(t, "", testClientID)
 	h.google.api = func(*http.Request) (int, string, http.Header) {
 		return 400, googleBody(400, "INVALID_ARGUMENT", "WEB_CONTAINER"), nil

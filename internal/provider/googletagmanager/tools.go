@@ -120,7 +120,8 @@ var workspaceFields = []capability.Field{
 func descriptors() []capability.Descriptor {
 	return append([]capability.Descriptor{accountsList, accountsGet, containersList, containersGet, workspacesList,
 		workspacesGet}, append(tagDescriptors(), append(triggerDescriptors(), append(variableDescriptors(),
-		append(builtInVariableDescriptors(), transformationDescriptors()...)...)...)...)...)
+		append(builtInVariableDescriptors(), append(clientDescriptors(),
+			transformationDescriptors()...)...)...)...)...)...)
 }
 
 var accountsList = capability.Descriptor{
@@ -215,6 +216,7 @@ type toolArguments struct {
 	Tag               string `json:"tag"`
 	Trigger           string `json:"trigger"`
 	Variable          string `json:"variable"`
+	Client            string `json:"client"`
 	Transformation    string `json:"transformation"`
 	Fingerprint       string `json:"fingerprint"`
 	Cursor            string `json:"cursor"`

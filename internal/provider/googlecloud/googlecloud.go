@@ -82,7 +82,8 @@ func testClass(err error) (provider.Class, error) {
 
 // readTools are the tools of the profile read: every tool that needs no more than the read-only scope.
 var readTools = []string{organizationsSearch.ID, foldersSearch.ID, projectsSearch.ID, projectsGet.ID, operationsGet.ID,
-	organizationsGet.ID, foldersGet.ID, foldersList.ID, projectsList.ID}
+	organizationsGet.ID, foldersGet.ID, foldersList.ID, projectsList.ID, servicesList.ID, servicesGet.ID,
+	servicesBatchGet.ID}
 
 // Register adds the provider metadata, its connection test, its consent endpoints, and its tools.
 func Register(reg *capability.Registry) error {
@@ -103,7 +104,8 @@ func Register(reg *capability.Registry) error {
 		Profiles: []config.ToolProfile{{
 			ID: "read", Title: "Read", Recommended: true,
 			Description: "searches and reads organizations, folders, and projects and reads the state of long-running " +
-				"operations from Google Cloud Resource Manager with the read-only scope and changes nothing",
+				"operations from Google Cloud Resource Manager and the enabled and available APIs of a project from Service " +
+				"Usage with the read-only scope and changes nothing",
 			Tools: readTools,
 		}, {
 			ID: "read-iam", Title: "Read with IAM",
@@ -132,6 +134,9 @@ func Register(reg *capability.Registry) error {
 		capability.Operation{Descriptor: foldersGet, Handler: handleFoldersGet},
 		capability.Operation{Descriptor: foldersList, Handler: handleFoldersList},
 		capability.Operation{Descriptor: projectsList, Handler: handleProjectsList},
+		capability.Operation{Descriptor: servicesList, Handler: handleServicesList},
+		capability.Operation{Descriptor: servicesGet, Handler: handleServicesGet},
+		capability.Operation{Descriptor: servicesBatchGet, Handler: handleServicesBatchGet},
 		capability.Operation{Descriptor: iamRolesList, Handler: handleIAMRolesList},
 		capability.Operation{Descriptor: iamRolesGet, Handler: handleIAMRolesGet},
 		capability.Operation{Descriptor: iamRolesQuery, Handler: handleIAMRolesQuery},
