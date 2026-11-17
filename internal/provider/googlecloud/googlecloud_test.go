@@ -42,10 +42,10 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 		case tool.ID == serviceAccountsCreateID:
 			wantEffect = config.EffectCreate
 		case tool.ID == serviceAccountsPatchID, tool.ID == serviceAccountsDisableID, tool.ID == serviceAccountsEnableID,
-			tool.ID == serviceAccountKeysDisableID, tool.ID == serviceAccountKeysEnableID,
+			tool.ID == serviceAccountKeysDisableID, tool.ID == serviceAccountKeysEnableID, tool.ID == apiKeysUndeleteID,
 			strings.Contains(tool.ID, ".iam-bindings."):
 			wantEffect = config.EffectUpdate
-		case tool.ID == serviceAccountKeysDeleteID, tool.ID == serviceAccountsDeleteID:
+		case tool.ID == serviceAccountKeysDeleteID, tool.ID == serviceAccountsDeleteID, tool.ID == apiKeysDeleteID:
 			wantEffect = config.EffectDelete
 		}
 		if tool.Effect == config.EffectRead {
@@ -59,11 +59,16 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 			// The discovery documents list cloud-platform alone for the IAM methods.
 			wantScope = "https://www.googleapis.com/auth/cloud-platform"
 		}
+		if tool.ID == apiKeysDeleteID || tool.ID == apiKeysUndeleteID {
+			// apikeys v2 lists apikeys and cloud-platform for the two changes.
+			wantScope = scopeAPIKeys
+		}
 		if scopes := metadata.Token.Scopes[tool.ID]; !slices.Equal(scopes, []string{wantScope}) {
 			t.Errorf("%s scopes = %v", tool.ID, scopes)
 		}
 	}
-	if want := []string{"google.cloud.folders.get", "google.cloud.folders.list", "google.cloud.folders.search",
+	if want := []string{"google.cloud.api-keys.delete", "google.cloud.api-keys.get", "google.cloud.api-keys.list",
+		"google.cloud.api-keys.undelete", "google.cloud.folders.get", "google.cloud.folders.list", "google.cloud.folders.search",
 		"google.cloud.iam-bindings.add-member", "google.cloud.iam-bindings.change-role",
 		"google.cloud.iam-bindings.remove-member", "google.cloud.iam-deny-policies.get", "google.cloud.iam-deny-policies.list",
 		"google.cloud.iam-permissions.query-testable", "google.cloud.iam-permissions.test",
@@ -80,7 +85,7 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 		"google.cloud.services.list"}; !slices.Equal(ids, want) {
 		t.Errorf("tools = %v, want %v", ids, want)
 	}
-	if profile, found := metadata.RecommendedProfile(); !found || profile.ID != "read" || len(profile.Tools) != 12 {
+	if profile, found := metadata.RecommendedProfile(); !found || profile.ID != "read" || len(profile.Tools) != 14 {
 		t.Errorf("profile = %+v", profile)
 	}
 	// The recommended profile never asks for more than the read-only scope; a tool that needs the broad
@@ -104,6 +109,10 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 		case "service-accounts-revoke":
 			if profile.Recommended || len(profile.Tools) != 3 {
 				t.Errorf("profile service-accounts-revoke = %+v", profile)
+			}
+		case "api-keys-revoke":
+			if profile.Recommended || len(profile.Tools) != 2 {
+				t.Errorf("profile api-keys-revoke = %+v", profile)
 			}
 		case "iam-bindings":
 			if profile.Recommended || !slices.Contains(profile.Tools, iamBindingsAddID) ||
@@ -130,7 +139,7 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 }
 
 func TestServiceOriginsAreFixedHTTPSGoogleOrigins(t *testing.T) {
-	want := []service{serviceResourceManager, serviceIAM, serviceUsage, serviceCompute, serviceStorage, serviceDNS, serviceBilling}
+	want := []service{serviceResourceManager, serviceIAM, serviceUsage, serviceCompute, serviceStorage, serviceDNS, serviceBilling, serviceAPIKeys}
 	if len(serviceOrigins) != len(want) {
 		t.Errorf("services = %d, want %d", len(serviceOrigins), len(want))
 	}

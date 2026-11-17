@@ -14,13 +14,15 @@ and projects, reads projects and the state of long-running operations from Cloud
 roles and the roles and permissions of a resource from IAM, and changes nothing unless it offers the profile
 `service-accounts`, which creates, changes, disables, and enables service accounts, the profile
 `service-accounts-revoke`, which disables, enables, and deletes their keys, a `tools` list that names
-`service-accounts.delete`, which deletes a service account, or the profile `iam-bindings`, which changes single
+`service-accounts.delete`, which deletes a service account, the profile `api-keys-revoke`, which deletes API
+keys and restores deleted ones, or the profile `iam-bindings`, which changes single
 IAM bindings, each with the confirmation of a person. Tools, targets, errors, and limits are described in the [Google Cloud provider](README.md).
 
 ## What you need
 
 - A Google Cloud project in which the **Cloud Resource Manager API** is enabled, and for the IAM tools the
-  **Identity and Access Management (IAM) API** as well. Google reports a disabled API
+  **Identity and Access Management (IAM) API** as well, and for the API key tools the **API Keys API**
+  (`apikeys.googleapis.com`). Google reports a disabled API
   as a refused request, and the connection test then fails with the class permission.
 - Either an OAuth client of that project for a person's consent, or the key file of a service account. A
   connection that names a service account to impersonate needs the OAuth client and the consent of a person
@@ -55,11 +57,16 @@ Viewer, or Project Viewer role, or any role with these permissions:
 | `service-accounts.create`, `service-accounts.patch`, `service-accounts.disable`, `service-accounts.enable` | `iam.serviceAccounts.create`, `iam.serviceAccounts.update`, `iam.serviceAccounts.disable`, or `iam.serviceAccounts.enable` on the project (the Service Account Admin role has them) |
 | `service-account-keys.disable`, `service-account-keys.enable`, `service-account-keys.delete` | `iam.serviceAccountKeys.disable`, `iam.serviceAccountKeys.enable`, or `iam.serviceAccountKeys.delete` on the project |
 | `service-accounts.delete` | `iam.serviceAccounts.delete` on the project |
+| `api-keys.list`, `api-keys.get`, `api-keys.delete`, `api-keys.undelete` | `apikeys.keys.list`, `apikeys.keys.get`, `apikeys.keys.delete`, or `apikeys.keys.undelete` on the project (the API Keys Admin role has them); where the targets do not decide, the project is read first (`resourcemanager.projects.get`) |
 
 The IAM tools ask for the scope `cloud-platform`, because Google lists no smaller one for service accounts, folders'
 permission tests, and deny policies, and belong to the profile `read-iam`, which only reads. The rights of the account stay the limit. They also need the **IAM API** enabled in the Cloud project of the credential. Qatlas reads a project or folder
 before its IAM state, so the account needs `resourcemanager.projects.get` or `resourcemanager.folders.get` too
 when the connection has targets. See [IAM](iam.md).
+
+The API key reads ask for `cloud-platform.read-only` and belong to the profile `read`. Deleting and restoring a
+key ask for the scope `apikeys`, the narrowest one Google lists for them, and belong to the profile
+`api-keys-revoke`. See [API keys](api-keys.md).
 
 A search lists only what the account may see. Qatlas also reads the folders above a project to prove where it
 sits, so an account that sees a project but not its folder cannot bind that project to an organization or

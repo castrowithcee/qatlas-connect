@@ -12,6 +12,10 @@ const scopeReadOnly = "https://www.googleapis.com/auth/cloud-platform.read-only"
 // them lists a read-only variant.
 const scopeCloudPlatform = "https://www.googleapis.com/auth/cloud-platform"
 
+// scopeAPIKeys is the narrowest scope that apikeys v2 lists for keys.delete and keys.undelete, next to
+// cloud-platform; both reads list cloud-platform.read-only as well, which the profile read uses.
+const scopeAPIKeys = "https://www.googleapis.com/auth/apikeys"
+
 // tokenMetadata maps every tool to the smallest scopes it needs. The core derives the scopes of a connection
 // from it, so a tool that is not offered adds none.
 var tokenMetadata = config.TokenMetadata{Scopes: map[string][]string{
@@ -54,4 +58,9 @@ var tokenMetadata = config.TokenMetadata{Scopes: map[string][]string{
 	serviceAccountKeysEnableID:  {scopeCloudPlatform},
 	serviceAccountKeysDeleteID:  {scopeCloudPlatform},
 	serviceAccountsDeleteID:     {scopeCloudPlatform},
+	// apikeys v2 lists cloud-platform.read-only for keys.list and get, and apikeys for keys.delete and undelete.
+	apiKeysListID:     {scopeReadOnly},
+	apiKeysGetID:      {scopeReadOnly},
+	apiKeysDeleteID:   {scopeAPIKeys},
+	apiKeysUndeleteID: {scopeAPIKeys},
 }}
