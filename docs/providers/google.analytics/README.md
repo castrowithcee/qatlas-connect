@@ -4,19 +4,19 @@ description: >
 type: knowledge
 edit: shared
 created: 2026-11-16
-updated: 2026-11-16
+updated: 2026-11-17
 ---
 
 # Google Analytics
 
 Google Analytics is a provider for Google Analytics 4 on the Analytics Admin API. It lists the accounts and
 properties a credential can see, with their configuration, reads one account or property, renames an account,
-moves an account to the trash, and creates, changes, and trashes properties. The reading tools change nothing
-and read no report data, so they use no reporting quota. Every tool that changes something needs
-confirmation.
+moves an account to the trash, creates, changes, and trashes properties, and reads, creates, and changes the data
+streams of a property. The reading tools change nothing and read no report data, so they use no reporting quota.
+Every tool that changes something needs confirmation.
 
 [Set up Google Analytics](setup.md) leads through the credential. The tools are described in
-[accounts](accounts.md) and [properties](properties.md).
+[accounts](accounts.md), [properties](properties.md), and [data streams](data-streams.md).
 
 ## Configuration
 
@@ -55,6 +55,7 @@ not name the resource.
 | `properties.get` | Reads a bound property, or a property of a bound account after one proof read of its parent |
 | `properties.create` | Creates a property only in a bound account; a connection bound to properties only is refused |
 | `properties.update`, `properties.delete` | Change or trash a bound property, or a property of a bound account after one proof read of its parent |
+| `data-streams.list`, `data-streams.get`, `data-streams.create`, `data-streams.update` | Use the streams of a bound property, or of a property of a bound account after one proof read of its parent; see [data streams](data-streams.md#targets-and-proof) |
 
 A property of another account is refused, also when it is named correctly.
 
@@ -63,9 +64,11 @@ A property of another account is refused, also when it is named correctly.
 The profile `read` is the recommended one and holds `google.analytics.accounts.list-summaries`,
 `google.analytics.accounts.list`, `google.analytics.accounts.get`,
 `google.analytics.accounts.get-data-sharing-settings`, `google.analytics.properties.list`, and
-`google.analytics.properties.get`. The profile `write` reads like `read` and changes accounts and properties,
-each change with its own confirmation: it adds `google.analytics.accounts.update`,
-`google.analytics.properties.create`, and `google.analytics.properties.update`. Deleting is in no profile: a
+`google.analytics.properties.get`, `google.analytics.data-streams.list`, and `google.analytics.data-streams.get`.
+The profile `write` reads like `read` and changes accounts, properties, and data streams, each change with its
+own confirmation: it adds `google.analytics.accounts.update`, `google.analytics.properties.create`,
+`google.analytics.properties.update`, `google.analytics.data-streams.create`, and
+`google.analytics.data-streams.update`. Deleting is in no profile: a
 connection offers `google.analytics.accounts.delete` and `google.analytics.properties.delete` only when its
 `tools` list names them, and each needs the confirmation of a person. `accounts.delete` also runs only on a
 connection that binds exactly that account and no property. Which scope each tool needs is listed in
@@ -83,7 +86,7 @@ pages. Google may return fewer entries than asked for and a page can be empty wh
 Everything Google returns is untrusted third-party content, including display names. Names are cut at 300
 characters and a cut text ends with `…`. Enumeration values and timestamps are kept exactly as Google sends
 them, and a value that is not printable ASCII or too long is left out. A resource name that is not
-`accounts/ID`, `properties/ID`, or `accountSummaries/ID` is left out. Lists are cut at 200 entries per page and
+`accounts/ID`, `properties/ID`, `accountSummaries/ID`, or `properties/ID/dataStreams/ID` is left out. Lists are cut at 200 entries per page and
 2,000 properties per account summary. Qatlas never fetches an address from a result.
 
 ## Rate spacing and quotas

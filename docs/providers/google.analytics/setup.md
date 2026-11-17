@@ -4,14 +4,14 @@ description: >
 type: knowledge
 edit: shared
 created: 2026-11-16
-updated: 2026-11-16
+updated: 2026-11-17
 ---
 
 # Set up Google Analytics
 
 This page shows how to connect Qatlas to Google Analytics 4. Targets, paging, and errors are described in the
-[Google Analytics provider](README.md); the tools are described in [accounts](accounts.md) and
-[properties](properties.md).
+[Google Analytics provider](README.md); the tools are described in [accounts](accounts.md),
+[properties](properties.md), and [data streams](data-streams.md).
 
 ## What you need
 
@@ -88,6 +88,8 @@ credential never carries the scope of another product.
 | [Accounts](accounts.md) | `accounts.update`, `accounts.delete` | `analytics.edit` |
 | [Properties](properties.md) | `properties.list`, `properties.get` | `analytics.readonly` |
 | [Properties](properties.md#changing-properties) | `properties.create`, `properties.update`, `properties.delete` | `analytics.edit` |
+| [Data streams](data-streams.md) | `data-streams.list`, `data-streams.get` | `analytics.readonly` |
+| [Data streams](data-streams.md#changing-data-streams) | `data-streams.create`, `data-streams.update` | `analytics.edit` |
 
 ## Add it to Qatlas
 

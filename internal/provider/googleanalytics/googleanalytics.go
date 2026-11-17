@@ -61,6 +61,11 @@ var scopes = map[string][]string{
 	propertiesCreateID: {scopeEdit},
 	propertiesUpdateID: {scopeEdit},
 	propertiesDeleteID: {scopeEdit},
+
+	dataStreamsListID:   {scopeReadOnly},
+	dataStreamsGetID:    {scopeReadOnly},
+	dataStreamsCreateID: {scopeEdit},
+	dataStreamsUpdateID: {scopeEdit},
 }
 
 func tokenMetadata() config.TokenMetadata { return config.TokenMetadata{Scopes: scopes} }
@@ -119,7 +124,8 @@ func isDefaultRoot(raw string) bool {
 }
 
 // readTools are the tools of the profile read, and the start of every wider profile.
-var readTools = []string{summariesID, accountsID, accountsGetID, accountsSharingID, propertiesListID, propertiesGetID}
+var readTools = []string{summariesID, accountsID, accountsGetID, accountsSharingID, propertiesListID, propertiesGetID,
+	dataStreamsListID, dataStreamsGetID}
 
 // Register adds the provider metadata, its consent endpoints, its connection test and its tools.
 func Register(reg *capability.Registry) error {
@@ -158,7 +164,8 @@ func Register(reg *capability.Registry) error {
 			ID: "write", Title: "Read and change",
 			Description: "reads what the read profile reads and changes Analytics accounts and properties; every " +
 				"change needs its own confirmation, and deleting stays unlisted",
-			Tools: append(slices.Clone(readTools), accountsUpdateID, propertiesCreateID, propertiesUpdateID),
+			Tools: append(slices.Clone(readTools), accountsUpdateID, propertiesCreateID, propertiesUpdateID,
+				dataStreamsCreateID, dataStreamsUpdateID),
 		}},
 	}, TestConnection); err != nil {
 		return err
@@ -181,6 +188,12 @@ func Register(reg *capability.Registry) error {
 			ConfirmationSummary: propertyWriteSummary(propertiesUpdateID)},
 		{Descriptor: propertiesDelete, Handler: handlePropertiesDelete,
 			ConfirmationSummary: propertyWriteSummary(propertiesDeleteID)},
+		{Descriptor: dataStreamsList, Handler: handleDataStreamsList},
+		{Descriptor: dataStreamsGet, Handler: handleDataStreamsGet},
+		{Descriptor: dataStreamsCreate, Handler: handleDataStreamsCreate,
+			ConfirmationSummary: streamWriteSummary(dataStreamsCreateID)},
+		{Descriptor: dataStreamsUpdate, Handler: handleDataStreamsUpdate,
+			ConfirmationSummary: streamWriteSummary(dataStreamsUpdateID)},
 	} {
 		if err := reg.Register(Provider, operation); err != nil {
 			return err
