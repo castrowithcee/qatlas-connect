@@ -18,12 +18,14 @@ import (
 // takes readonly or edit.containers, and the smaller one is asked for; a change takes edit.containers.
 // Deleting a workspace or a container takes delete.containers alone, and a quick preview takes
 // edit.containerversions alone.
-// Google also offers publish, manage.accounts, and manage.users; a connection asks only for those its tools need.
+// Renaming an account takes manage.accounts alone, and the user permission methods take manage.users alone.
+// Google also offers publish; a connection asks only for the scopes its tools need.
 const (
 	readonlyScope = "https://www.googleapis.com/auth/tagmanager.readonly"
 	editScope     = "https://www.googleapis.com/auth/tagmanager.edit.containers"
 	deleteScope   = "https://www.googleapis.com/auth/tagmanager.delete.containers"
 	previewScope  = "https://www.googleapis.com/auth/tagmanager.edit.containerversions"
+	usersScope    = "https://www.googleapis.com/auth/tagmanager.manage.users"
 )
 
 func toolScopes() map[string][]string {
@@ -38,6 +40,13 @@ func toolScopes() map[string][]string {
 		}
 		if d.ID == workspacesQuickPreviewID {
 			scopes[d.ID] = []string{previewScope}
+		}
+		if d.ID == accountsUpdateID {
+			scopes[d.ID] = []string{manageAccountsScope}
+		}
+		// Every method of the user permissions, reads included, lists manage.users alone.
+		if isUserPermissionTool(d.ID) {
+			scopes[d.ID] = []string{usersScope}
 		}
 	}
 	return scopes
@@ -131,8 +140,10 @@ func descriptors() []capability.Descriptor {
 		workspacesGet}, append(workspaceManageDescriptors(), append(tagDescriptors(), append(triggerDescriptors(),
 		append(variableDescriptors(), append(builtInVariableDescriptors(), append(folderDescriptors(),
 			append(clientDescriptors(), append(transformationDescriptors(),
-				append(zoneDescriptors(), append(gtagConfigDescriptors(),
-					append(templateDescriptors(), containerDescriptors()...)...)...)...)...)...)...)...)...)...)...)...)
+				append(zoneDescriptors(), append(gtagConfigDescriptors(), append(templateDescriptors(),
+					append(structureManageDescriptors(), append(destinationDescriptors(),
+						append(environmentDescriptors(), append(userPermissionDescriptors(),
+							containerDescriptors()...)...)...)...)...)...)...)...)...)...)...)...)...)...)...)...)
 }
 
 var accountsList = capability.Descriptor{
@@ -233,6 +244,7 @@ type toolArguments struct {
 	Transformation    string `json:"transformation"`
 	Zone              string `json:"zone"`
 	GtagConfig        string `json:"gtag_config"`
+	UserPermission    string `json:"user_permission"`
 	Fingerprint       string `json:"fingerprint"`
 	Cursor            string `json:"cursor"`
 	IncludeGoogleTags bool   `json:"include_google_tags"`
