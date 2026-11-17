@@ -46,12 +46,12 @@ Two profiles are offered:
 - `read` (recommended) holds the tools that read: accounts, containers, workspaces, tags, triggers, variables,
   built-in variables, folders, and clients.
 - `write` holds the tools of `read` and the tools that create, update, and delete tags, triggers, variables, and
-  clients, that enable and disable built-in variables, and that create and update folders. A deleted tag,
-  trigger, variable, or client and a disabled built-in variable stay in the workspace changes until a version is
-  published and can be brought back with their `revert` tool.
+  clients, that enable and disable built-in variables, and that create, update, delete, and fill folders. A
+  deleted tag, trigger, variable, folder, or client and a disabled built-in variable stay in the workspace
+  changes until a version is published and can be brought back with their `revert` tool.
 
-`tags.revert`, `triggers.revert`, `variables.revert`, `clients.revert`, and `built-in-variables.revert` are in
-no profile. They overwrite the workspace state of an object, so a connection offers them only when its `tools`
+`tags.revert`, `triggers.revert`, `variables.revert`, `folders.revert`, `clients.revert`, and
+`built-in-variables.revert` are in no profile. They overwrite the workspace state of an object, so a connection offers them only when its `tools`
 list names them.
 Every tool that changes something needs its own confirmation, which shows the name, the type or types, and the
 workspace or object path.
@@ -79,7 +79,7 @@ of the tools it offers; offering a tool with another scope needs a new consent.
 | Tools | Scope |
 | --- | --- |
 | every tool that reads | `https://www.googleapis.com/auth/tagmanager.readonly` |
-| every tool that creates, updates, deletes, or reverts a tag, a trigger, a variable, a client, or a built-in variable, and every tool that creates or updates a folder | `https://www.googleapis.com/auth/tagmanager.edit.containers` |
+| every tool that creates, updates, deletes, or reverts a tag, a trigger, a variable, a client, a folder, or a built-in variable, and every tool that moves entries into a folder | `https://www.googleapis.com/auth/tagmanager.edit.containers` |
 
 A consent given for the `read` profile lacks the edit scope, so a changing tool answers `scope-missing`
 before any request. Google also offers `tagmanager.edit.containerversions`, `tagmanager.publish`,
@@ -109,7 +109,7 @@ Every result that carries a `fingerprint` returns it. Tools that change an exist
 client, or folder follow one convention: they take the fingerprint last read as a required argument, so a change
 made in the meantime is not overwritten silently. [Built-in variables](built-in-variables.md) have none, because
 Google's methods for them carry no fingerprint. The update and revert tools of tags, triggers, variables, and
-clients and the update tool of folders refuse a
+clients and the update and revert tools of folders refuse a
 call without it before any request. What Google answers to a stale fingerprint is not verified, so it is not given a class of its own: it
 is `invalid-provider-response` with Google's answer as the original.
 
