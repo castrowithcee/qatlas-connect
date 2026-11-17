@@ -15,11 +15,12 @@ import (
 // freshQuotas gives a test its own quota memory and clock.
 func freshQuotas(t *testing.T) *time.Time {
 	t.Helper()
-	previousQuotas, previousNow := quotas, now
+	previousQuotas, previousFunnel, previousNow := quotas, funnelQuotas, now
 	clock := time.Date(2026, 1, 2, 3, 4, 5, 0, time.UTC)
 	quotas = &quotaBook{entries: map[string]quotaEntry{}, running: map[string]int{}}
+	funnelQuotas = &quotaBook{entries: map[string]quotaEntry{}, running: map[string]int{}}
 	now = func() time.Time { return clock }
-	t.Cleanup(func() { quotas, now = previousQuotas, previousNow })
+	t.Cleanup(func() { quotas, funnelQuotas, now = previousQuotas, previousFunnel, previousNow })
 	return &clock
 }
 
