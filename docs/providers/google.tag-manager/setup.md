@@ -12,7 +12,8 @@ updated: 2026-11-17
 This page shows how to connect Qatlas to Google Tag Manager. Configuration, targets, scopes, quota, and errors
 are described in the [Google Tag Manager provider](README.md); the tools in
 [accounts, containers, and workspaces](structure.md), [tags](tags.md), [triggers](triggers.md),
-[variables](variables.md), [built-in variables](built-in-variables.md), and [clients](clients.md).
+[variables](variables.md), [built-in variables](built-in-variables.md), [clients](clients.md), and
+[transformations](transformations.md).
 
 ## What you need
 
@@ -29,8 +30,8 @@ are described in the [Google Tag Manager provider](README.md); the tools in
 | Tool group | Scope | Access in Tag Manager |
 | --- | --- | --- |
 | [accounts, containers, and workspaces](structure.md) | `tagmanager.readonly` | read access to the account or container |
-| [tags](tags.md), [triggers](triggers.md), [variables](variables.md), [built-in variables](built-in-variables.md), and [clients](clients.md), reading | `tagmanager.readonly` | read access to the container |
-| [tags](tags.md), [triggers](triggers.md), [variables](variables.md), [built-in variables](built-in-variables.md), and [clients](clients.md), changing | `tagmanager.edit.containers` | edit access to the container |
+| [tags](tags.md), [triggers](triggers.md), [variables](variables.md), [built-in variables](built-in-variables.md), [clients](clients.md), and [transformations](transformations.md), reading | `tagmanager.readonly` | read access to the container |
+| [tags](tags.md), [triggers](triggers.md), [variables](variables.md), [built-in variables](built-in-variables.md), [clients](clients.md), and [transformations](transformations.md), changing | `tagmanager.edit.containers` | edit access to the container |
 
 Qatlas asks for no broader scope than the tools of your connections need. No tool publishes a version, so no
 publish right is needed.
@@ -98,7 +99,7 @@ connections:
 ```
 
 Leave `target` out to reach everything the credential reaches. Choose the profile `write` in the guided setup to
-change tags, triggers, variables, built-in variables, and clients. Run `qconnect config validate` to check the file; it contacts no provider. Adding a tool later may
+change tags, triggers, variables, built-in variables, clients, and transformations. Run `qconnect config validate` to check the file; it contacts no provider. Adding a tool later may
 need a new consent, if the tool needs a scope the stored consent lacks.
 
 ## Check the connection
