@@ -165,3 +165,17 @@ func (s scope) workspaceOf(given string) (gtmPath, error) {
 	}
 	return p, nil
 }
+
+// targetReaches withholds the user permission tools from a connection bound to a container: rights belong to
+// the account as a whole. A binding to nothing or to an account reaches them.
+func targetReaches(tool string, targets []string) (bool, []string) {
+	if !isUserPermissionTool(tool) {
+		return true, nil
+	}
+	for _, raw := range targets {
+		if bound, err := parseTarget(raw); err == nil && bound.container != "" {
+			return false, []string{formAccount}
+		}
+	}
+	return true, nil
+}
