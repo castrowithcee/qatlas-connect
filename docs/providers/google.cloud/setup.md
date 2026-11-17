@@ -11,7 +11,8 @@ updated: 2026-11-16
 
 This page shows how to connect Qatlas to Google Cloud. A Qatlas connection searches organizations, folders,
 and projects, reads projects and the state of long-running operations from Cloud Resource Manager, reads IAM
-roles and the roles and permissions of a resource from IAM, and changes nothing. Tools, targets, errors, and limits are described in the [Google Cloud provider](README.md).
+roles and the roles and permissions of a resource from IAM, and changes nothing unless it offers the profile
+`service-accounts`, which creates, changes, disables, and enables service accounts. Tools, targets, errors, and limits are described in the [Google Cloud provider](README.md).
 
 ## What you need
 
@@ -27,8 +28,8 @@ roles and the roles and permissions of a resource from IAM, and changes nothing.
 
 The token needs the rights of its person or service account in Google Cloud. With the recommended profile
 `read` Qatlas asks only for the scope `cloud-platform.read-only`. The profile `read-iam` adds the IAM tools and
-with them the broad scope `cloud-platform`, because Google lists no narrower scope for them. This provider has no tool that changes anything, so even a
-broad role cannot change anything through it. Grant
+with them the broad scope `cloud-platform`, because Google lists no narrower scope for them. Only the tools of the profile `service-accounts` change
+anything, so without that profile even a broad role cannot change anything through Qatlas. Grant
 the account a viewer role at the highest level you want it to see, for example the Organization Viewer, Folder
 Viewer, or Project Viewer role, or any role with these permissions:
 
@@ -45,10 +46,11 @@ Viewer, or Project Viewer role, or any role with these permissions:
 | `iam-policies.get` | `resourcemanager.projects.getIamPolicy`, `resourcemanager.folders.getIamPolicy`, `resourcemanager.organizations.getIamPolicy`, or `iam.serviceAccounts.getIamPolicy` on the resource, and `iam.serviceAccounts.get` for a service account when the connection has targets |
 | `iam-permissions.test` | Google states none; it checks the permissions you list. For a service account on a connection with targets, `iam.serviceAccounts.get` |
 | `iam-deny-policies.list`, `iam-deny-policies.get` | `iam.denypolicies.list` or `iam.denypolicies.get` on the resource |
+| `service-accounts.list`, `service-accounts.get`, `service-account-keys.list`, `service-account-keys.get` | `iam.serviceAccounts.list`, `iam.serviceAccounts.get`, `iam.serviceAccountKeys.list`, or `iam.serviceAccountKeys.get` on the project; where the targets do not decide, the project is read first (`resourcemanager.projects.get`) |
+| `service-accounts.create`, `service-accounts.patch`, `service-accounts.disable`, `service-accounts.enable` | `iam.serviceAccounts.create`, `iam.serviceAccounts.update`, `iam.serviceAccounts.disable`, or `iam.serviceAccounts.enable` on the project (the Service Account Admin role has them) |
 
 The IAM tools ask for the scope `cloud-platform`, because Google lists no smaller one for service accounts, folders'
-permission tests, and deny policies, and belong to the profile `read-iam`. Qatlas still only reads, and the rights
-of the account stay the limit. They also need the **IAM API** enabled in the Cloud project of the credential. Qatlas reads a project or folder
+permission tests, and deny policies, and belong to the profile `read-iam`, which only reads. The rights of the account stay the limit. They also need the **IAM API** enabled in the Cloud project of the credential. Qatlas reads a project or folder
 before its IAM state, so the account needs `resourcemanager.projects.get` or `resourcemanager.folders.get` too
 when the connection has targets. See [IAM](iam.md).
 

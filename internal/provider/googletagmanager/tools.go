@@ -16,11 +16,12 @@ import (
 
 // The scopes of the tools. The discovery document names for each method the scopes that allow it: a read
 // takes readonly or edit.containers, and the smaller one is asked for; a change takes edit.containers.
-// Google also offers edit.containerversions, publish, delete.containers, manage.accounts, and manage.users;
-// a connection asks only for those its tools need.
+// Deleting a workspace takes delete.containers alone. Google also offers edit.containerversions, publish,
+// manage.accounts, and manage.users; a connection asks only for those its tools need.
 const (
 	readonlyScope = "https://www.googleapis.com/auth/tagmanager.readonly"
 	editScope     = "https://www.googleapis.com/auth/tagmanager.edit.containers"
+	deleteScope   = "https://www.googleapis.com/auth/tagmanager.delete.containers"
 )
 
 func toolScopes() map[string][]string {
@@ -29,6 +30,9 @@ func toolScopes() map[string][]string {
 		scopes[d.ID] = []string{readonlyScope}
 		if d.Risk.Effect != capability.EffectRead {
 			scopes[d.ID] = []string{editScope}
+		}
+		if d.ID == workspacesDeleteID {
+			scopes[d.ID] = []string{deleteScope}
 		}
 	}
 	return scopes
@@ -112,15 +116,17 @@ var workspaceFields = []capability.Field{
 	{Name: "path", Description: "accounts/ACCOUNT/containers/CONTAINER/workspaces/WORKSPACE"},
 	{Name: "accountId", Description: "Account ID"}, {Name: "containerId", Description: "Container ID"},
 	{Name: "workspaceId", Description: "Workspace ID"}, {Name: "name", Description: "Display name"},
-	{Name: "description", Description: "Description, cut at 2000 characters"},
+	{Name: "description", Description: "Description, never cut"},
 	{Name: "fingerprint", Description: "Fingerprint of the stored workspace"},
 	{Name: "tagManagerUrl", Description: "Link to the workspace in the Tag Manager interface"},
 }
 
 func descriptors() []capability.Descriptor {
 	return append([]capability.Descriptor{accountsList, accountsGet, containersList, containersGet, workspacesList,
-		workspacesGet}, append(tagDescriptors(), append(triggerDescriptors(), append(variableDescriptors(),
-		append(builtInVariableDescriptors(), gtagConfigDescriptors()...)...)...)...)...)
+		workspacesGet}, append(workspaceManageDescriptors(), append(tagDescriptors(), append(triggerDescriptors(),
+		append(variableDescriptors(), append(builtInVariableDescriptors(), append(folderDescriptors(),
+			append(clientDescriptors(), append(transformationDescriptors(),
+				append(zoneDescriptors(), gtagConfigDescriptors()...)...)...)...)...)...)...)...)...)...)
 }
 
 var accountsList = capability.Descriptor{
@@ -215,6 +221,10 @@ type toolArguments struct {
 	Tag               string `json:"tag"`
 	Trigger           string `json:"trigger"`
 	Variable          string `json:"variable"`
+	Folder            string `json:"folder"`
+	Client            string `json:"client"`
+	Transformation    string `json:"transformation"`
+	Zone              string `json:"zone"`
 	GtagConfig        string `json:"gtag_config"`
 	Fingerprint       string `json:"fingerprint"`
 	Cursor            string `json:"cursor"`

@@ -133,15 +133,17 @@ type container struct {
 	TagManagerURL     urlText            `json:"tagManagerUrl,omitempty"`
 }
 
+// workspace is writable, so its name and description are kept as read: a cut value sent back by an update
+// would destroy data.
 type workspace struct {
-	Path          idText   `json:"path,omitempty"`
-	AccountID     idText   `json:"accountId,omitempty"`
-	ContainerID   idText   `json:"containerId,omitempty"`
-	WorkspaceID   idText   `json:"workspaceId,omitempty"`
-	Name          nameText `json:"name,omitempty"`
-	Description   noteText `json:"description,omitempty"`
-	Fingerprint   idText   `json:"fingerprint,omitempty"`
-	TagManagerURL urlText  `json:"tagManagerUrl,omitempty"`
+	Path          idText  `json:"path,omitempty"`
+	AccountID     idText  `json:"accountId,omitempty"`
+	ContainerID   idText  `json:"containerId,omitempty"`
+	WorkspaceID   idText  `json:"workspaceId,omitempty"`
+	Name          string  `json:"name,omitempty"`
+	Description   string  `json:"description,omitempty"`
+	Fingerprint   idText  `json:"fingerprint,omitempty"`
+	TagManagerURL urlText `json:"tagManagerUrl,omitempty"`
 }
 
 // The list answers of the API. nextPageToken is kept raw: it goes into a cursor and is bounded there.
