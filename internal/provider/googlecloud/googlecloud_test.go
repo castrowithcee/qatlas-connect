@@ -63,7 +63,9 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 			// The discovery documents list cloud-platform alone for the IAM methods.
 			wantScope = "https://www.googleapis.com/auth/cloud-platform"
 		}
-		if strings.Contains(tool.ID, ".instances.") || strings.Contains(tool.ID, ".machine-types.") {
+		if strings.Contains(tool.ID, ".instances.") || strings.Contains(tool.ID, ".machine-types.") ||
+			strings.Contains(tool.ID, ".zones.") || strings.Contains(tool.ID, ".regions.") ||
+			strings.Contains(tool.ID, ".compute-operations.") {
 			// The discovery document of compute v1 lists compute.readonly as the smallest scope.
 			wantScope = "https://www.googleapis.com/auth/compute.readonly"
 		}
@@ -71,7 +73,8 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 			t.Errorf("%s scopes = %v", tool.ID, scopes)
 		}
 	}
-	if want := []string{"google.cloud.folders.get", "google.cloud.folders.list", "google.cloud.folders.search",
+	if want := []string{"google.cloud.compute-operations.get", "google.cloud.compute-operations.list",
+		"google.cloud.folders.get", "google.cloud.folders.list", "google.cloud.folders.search",
 		"google.cloud.iam-bindings.add-member", "google.cloud.iam-bindings.change-role",
 		"google.cloud.iam-bindings.remove-member", "google.cloud.iam-deny-policies.get", "google.cloud.iam-deny-policies.list",
 		"google.cloud.iam-permissions.query-testable", "google.cloud.iam-permissions.test",
@@ -81,7 +84,7 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 		"google.cloud.operations.get", "google.cloud.organizations.get",
 		"google.cloud.organizations.search", "google.cloud.projects.get", "google.cloud.projects.list",
 		"google.cloud.projects.search", "google.cloud.quota-infos.get", "google.cloud.quota-infos.list",
-		"google.cloud.quota-preferences.get", "google.cloud.quota-preferences.list", "google.cloud.service-account-keys.delete",
+		"google.cloud.quota-preferences.get", "google.cloud.quota-preferences.list", "google.cloud.regions.list", "google.cloud.service-account-keys.delete",
 		"google.cloud.service-account-keys.disable", "google.cloud.service-account-keys.enable",
 		"google.cloud.service-account-keys.get",
 		"google.cloud.service-account-keys.list", "google.cloud.service-accounts.create",
@@ -89,10 +92,10 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 		"google.cloud.service-accounts.get", "google.cloud.service-accounts.list",
 		"google.cloud.service-accounts.patch", "google.cloud.services.batch-enable", "google.cloud.services.batch-get",
 		"google.cloud.services.disable", "google.cloud.services.enable", "google.cloud.services.get",
-		"google.cloud.services.list"}; !slices.Equal(ids, want) {
+		"google.cloud.services.list", "google.cloud.zones.list"}; !slices.Equal(ids, want) {
 		t.Errorf("tools = %v, want %v", ids, want)
 	}
-	if profile, found := metadata.RecommendedProfile(); !found || profile.ID != "read" || len(profile.Tools) != 16 {
+	if profile, found := metadata.RecommendedProfile(); !found || profile.ID != "read" || len(profile.Tools) != 20 {
 		t.Errorf("profile = %+v", profile)
 	}
 	// The recommended profile asks only for read scopes, an explicit allow-list; a tool that needs the broad
@@ -114,7 +117,7 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 				t.Errorf("profile read-iam = %+v", profile)
 			}
 		case "read-quotas":
-			if profile.Recommended || len(profile.Tools) != 20 {
+			if profile.Recommended || len(profile.Tools) != 24 {
 				t.Errorf("profile read-quotas = %+v", profile)
 			}
 		case "service-accounts":
