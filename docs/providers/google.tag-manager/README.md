@@ -15,8 +15,9 @@ tools are described per group in [accounts, containers, and workspaces](structur
 [workspace management](workspaces.md), [tags](tags.md), [triggers](triggers.md), [variables](variables.md),
 [built-in variables](built-in-variables.md), [templates](templates.md), [folders](folders.md),
 [clients](clients.md), [transformations](transformations.md), [zones](zones.md),
-[Google tag configurations](gtag-configs.md), [destinations](destinations.md), [environments](environments.md), and
-[user permissions](user-permissions.md); the descriptors list their arguments and result fields.
+[Google tag configurations](gtag-configs.md), [destinations](destinations.md), [environments](environments.md),
+[user permissions](user-permissions.md), and [versions and version headers](versions.md); the descriptors list their
+arguments and result fields.
 
 ## Credential
 
@@ -48,7 +49,8 @@ Three profiles are offered:
 
 - `read` (recommended) holds the tools that read: accounts, containers, the embed snippet of a container,
   workspaces and their change status, tags, triggers, variables, built-in variables, templates, folders, clients,
-  transformations, zones, Google tag configurations, destinations, and the environments of a container.
+  transformations, zones, Google tag configurations, destinations, the environments of a container, container
+  versions, and version headers.
 - `write` holds the tools of `read` and the tools that create and update workspaces, that synchronize a
   workspace, resolve its merge conflicts, and quick preview it, that create, update, and delete tags, triggers,
   variables, templates, clients, transformations, zones, and Google tag configurations, that enable and disable
@@ -168,7 +170,8 @@ ID before and after the change.
 
 Everything Google returns is untrusted content of whoever edits the account. The bounds of the results of
 accounts, containers, and workspaces are in [structure](structure.md); tags, triggers, variables, and templates are not cut. An answer
-with more than 1000 entries or above 4 MiB is `invalid-provider-response`. URLs are text and are never fetched.
+with more than 1000 entries or above 4 MiB is `invalid-provider-response`; the version tools are the exception
+and cut an oversized version with a report, see [versions](versions.md). URLs are text and are never fetched.
 
 ## Connection test
 

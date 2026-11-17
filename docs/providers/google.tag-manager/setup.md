@@ -13,7 +13,9 @@ This page shows how to connect Qatlas to Google Tag Manager. Configuration, targ
 are described in the [Google Tag Manager provider](README.md); the tools in
 [accounts, containers, and workspaces](structure.md), [destinations](destinations.md), [workspace management](workspaces.md), [tags](tags.md),
 [triggers](triggers.md), [variables](variables.md), [built-in variables](built-in-variables.md),
-[templates](templates.md), [clients](clients.md), [transformations](transformations.md), [zones](zones.md), [Google tag configurations](gtag-configs.md), and [user permissions](user-permissions.md).
+[templates](templates.md), [clients](clients.md), [transformations](transformations.md), [zones](zones.md),
+[Google tag configurations](gtag-configs.md), [user permissions](user-permissions.md), and
+[versions and version headers](versions.md).
 
 ## What you need
 
@@ -33,6 +35,7 @@ are described in the [Google Tag Manager provider](README.md); the tools in
 | [accounts](structure.md), renaming | `tagmanager.manage.accounts` | administrator access to the account |
 | [containers](structure.md), combining | `tagmanager.edit.containers` | edit access to both containers |
 | [tags](tags.md), [triggers](triggers.md), [variables](variables.md), [built-in variables](built-in-variables.md), [templates](templates.md), [folders](folders.md), [clients](clients.md), [transformations](transformations.md), [zones](zones.md), [Google tag configurations](gtag-configs.md), and [environments](environments.md), reading | `tagmanager.readonly` | read access to the container |
+| [versions and version headers](versions.md) | `tagmanager.readonly` | read access to the container |
 | [workspace management](workspaces.md), reading the status | `tagmanager.readonly` | read access to the container |
 | [workspace management](workspaces.md), creating and updating | `tagmanager.edit.containers` | edit access to the container |
 | [workspace management](workspaces.md), synchronizing and resolving merge conflicts | `tagmanager.edit.containers` | edit access to the container |
