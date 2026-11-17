@@ -45,6 +45,10 @@ var tokenMetadata = config.TokenMetadata{Scopes: map[string][]string{
 	serviceAccountsPatchID:   {scopeCloudPlatform},
 	serviceAccountsDisableID: {scopeCloudPlatform},
 	serviceAccountsEnableID:  {scopeCloudPlatform},
+	// cloudresourcemanager v3 lists only cloud-platform for setIamPolicy of projects, folders, and organizations.
+	iamBindingsAddID:    {scopeCloudPlatform},
+	iamBindingsRemoveID: {scopeCloudPlatform},
+	iamBindingsChangeID: {scopeCloudPlatform},
 	// iam v1 lists only cloud-platform for projects.serviceAccounts delete and keys disable, enable, and delete.
 	serviceAccountKeysDisableID: {scopeCloudPlatform},
 	serviceAccountKeysEnableID:  {scopeCloudPlatform},

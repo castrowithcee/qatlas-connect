@@ -10,6 +10,10 @@ import (
 
 const subject = "Google Cloud"
 
+// etagConflict is the message of a write Google refused because the resource changed since it was read.
+const etagConflict = "conflict: " + subject + " refused the change because the policy changed since it was " +
+	"read (etag); nothing was written, read the policy again and repeat the change if it still applies"
+
 // failure is a provider error of the generic class.
 func failure(op, message string) *provider.Error {
 	return &provider.Error{Class: provider.ClassProviderError, Op: op, Message: message}
@@ -22,7 +26,7 @@ func badRequest(message string) error {
 
 // googleError maps a failed Google answer to a provider error. Only values Google documents decide beyond the
 // HTTP status. The status string of the error object is a google.rpc.Code: UNAUTHENTICATED (401),
-// PERMISSION_DENIED (403), NOT_FOUND (404) and RESOURCE_EXHAUSTED (429). The reason of its ErrorInfo comes
+// PERMISSION_DENIED (403), NOT_FOUND (404), ABORTED (409) and RESOURCE_EXHAUSTED (429). The reason of its ErrorInfo comes
 // from google.api.ErrorReason: SERVICE_DISABLED, ACCESS_TOKEN_EXPIRED, ACCESS_TOKEN_SCOPE_INSUFFICIENT,
 // RATE_LIMIT_EXCEEDED and RESOURCE_QUOTA_EXCEEDED; CREDENTIALS_MISSING is the reason an anonymous request
 // gets. A 401, 403 or 404 that carries none of these is an invalid response rather than a guess. The message
@@ -63,6 +67,13 @@ func googleError(op string, status int, body []byte) *provider.Error {
 	case http.StatusBadRequest:
 		return failed(provider.ClassInvalidResponse, subject+" rejected the request as invalid (HTTP 400) although "+
 			"Qatlas Connect checked it; the API may have changed")
+	case http.StatusConflict:
+		// setIamPolicy answers a stale etag with 409 ABORTED. The provider classes hold no conflict, so the
+		// message carries it; nothing repeats the request, the caller reads again.
+		if state == "ABORTED" {
+			return failed(provider.ClassProviderError, etagConflict)
+		}
+		return invalid()
 	case http.StatusTooManyRequests:
 		return failed(provider.ClassRateLimited, subject+" is rate-limiting requests or the quota is used up; wait and try again")
 	}
