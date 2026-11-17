@@ -60,7 +60,7 @@ func TestVersionWriteToolsFollowScopesProfilesAndRisks(t *testing.T) {
 		t.Error("versions.create must be non-idempotent")
 	}
 	for _, d := range descriptors() {
-		if strings.Contains(d.ID, "publish") {
+		if strings.Contains(d.ID, "publish") && d.ID != versionsPublishID {
 			t.Errorf("tool %s exists in this group", d.ID)
 		}
 	}

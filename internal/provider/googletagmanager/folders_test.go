@@ -395,7 +395,7 @@ func TestFolderMoveNamesCountsNotIDs(t *testing.T) {
 		}
 	}
 	d := foldersMove.Description
-	for _, want := range []string{"Only the folder assignment", "published container version", "no tool of this provider"} {
+	for _, want := range []string{"Only the folder assignment", "published container version", "versions.publish"} {
 		if !strings.Contains(d, want) {
 			t.Errorf("move description lacks %q", want)
 		}
