@@ -90,7 +90,7 @@ func Register(reg *capability.Registry) error {
 	token := tokenMetadata
 	if err := reg.RegisterProvider(config.ProviderMetadata{
 		ID: Provider, Name: "Google Cloud", DefaultBaseURL: apiRoot,
-		Description:    "Projects, folders, organizations, long-running operations, and IAM roles of Google Cloud, searched and read with a consent, a service account key, or an impersonated service account",
+		Description:    "Projects, folders, organizations, long-running operations, IAM roles, and service accounts of Google Cloud, searched and read with a consent, a service account key, or an impersonated service account",
 		DefaultEffects: []config.Effect{config.EffectRead},
 		ValidateBaseURL: func(raw string) error {
 			if !isAPIRoot(raw) {
@@ -109,12 +109,13 @@ func Register(reg *capability.Registry) error {
 			Tools: readTools,
 		}, {
 			ID: "read-iam", Title: "Read with IAM",
-			Description: "everything of read plus IAM roles, policies, deny policies, and the roles and permissions of a resource; the IAM " +
-				"methods accept only the broad cloud-platform scope, so the token may change what its account may, " +
-				"although no tool of this provider changes anything",
+			Description: "everything of read plus IAM roles, policies, deny policies, the roles and permissions of a resource, " +
+				"and service accounts with the metadata of their keys; these IAM methods accept only the broad cloud-platform " +
+				"scope, so the token may change what its account may, although no tool of this provider changes anything",
 			Tools: append(append([]string{}, readTools...), iamRolesList.ID, iamRolesGet.ID, iamRolesQuery.ID,
 				iamPermissionsQuery.ID, iamPoliciesGet.ID, iamPermissionsTest.ID, denyPoliciesList.ID,
-				denyPoliciesGet.ID),
+				denyPoliciesGet.ID, serviceAccountsList.ID, serviceAccountsGet.ID, serviceAccountKeysList.ID,
+				serviceAccountKeysGet.ID),
 		}},
 	}, TestConnection); err != nil {
 		return err
@@ -144,5 +145,9 @@ func Register(reg *capability.Registry) error {
 		capability.Operation{Descriptor: iamPoliciesGet, Handler: handleIAMPoliciesGet},
 		capability.Operation{Descriptor: iamPermissionsTest, Handler: handleIAMPermissionsTest},
 		capability.Operation{Descriptor: denyPoliciesList, Handler: handleDenyPoliciesList},
-		capability.Operation{Descriptor: denyPoliciesGet, Handler: handleDenyPoliciesGet})
+		capability.Operation{Descriptor: denyPoliciesGet, Handler: handleDenyPoliciesGet},
+		capability.Operation{Descriptor: serviceAccountsList, Handler: handleServiceAccountsList},
+		capability.Operation{Descriptor: serviceAccountsGet, Handler: handleServiceAccountsGet},
+		capability.Operation{Descriptor: serviceAccountKeysList, Handler: handleServiceAccountKeysList},
+		capability.Operation{Descriptor: serviceAccountKeysGet, Handler: handleServiceAccountKeysGet})
 }

@@ -88,16 +88,17 @@ func Register(reg *capability.Registry) error {
 		},
 		Profiles: []config.ToolProfile{{
 			ID: "read", Title: "Read", Recommended: true,
-			Description: "reads accounts, containers, workspaces, tags, triggers, variables, built-in variables, and " +
-				"zones; changes nothing",
+			Description: "reads accounts, containers, workspaces, tags, triggers, variables, built-in variables, " +
+				"folders, clients, transformations, and zones; changes nothing",
 			Tools: readIDs,
 		}, {
-			ID: "write", Title: "Read and change tags, triggers, variables, built-in variables, and zones",
+			ID: "write", Title: "Read and change tags, triggers, variables, built-in variables, folders, clients, transformations, " +
+				"and zones",
 			Description: "reads what the read profile reads, creates, updates, and deletes the tags, triggers, and " +
-				"variables of a workspace, creates, updates, and deletes its zones, and enables and disables its " +
-				"built-in variables; every change needs its own " +
+				"variables of a workspace, creates and updates its folders, creates, updates, and deletes its clients, " +
+				"transformations, and zones, and enables and disables its built-in variables; every change needs its own " +
 				"confirmation and stays in the workspace until a version is published, which no tool of this provider " +
-				"does. Reverting a tag, trigger, variable, zone, or built-in variable stays unticked",
+				"does. Reverting a tag, trigger, variable, built-in variable, client, transformation, or zone stays unticked",
 			Tools: writeIDs,
 		}},
 	}, TestConnection); err != nil {
@@ -120,6 +121,15 @@ func Register(reg *capability.Registry) error {
 		variablesDeleteID: handleVariablesDelete, variablesRevertID: handleVariablesRevert,
 		builtInVariablesListID: handleBuiltInVariablesList, builtInVariablesCreateID: handleBuiltInVariablesCreate,
 		builtInVariablesDeleteID: handleBuiltInVariablesDelete, builtInVariablesRevertID: handleBuiltInVariablesRevert,
+		foldersListID: handleFoldersList, foldersGetID: handleFoldersGet, foldersEntitiesID: handleFoldersEntities,
+		foldersCreateID: handleFoldersCreate, foldersUpdateID: handleFoldersUpdate,
+
+		clientsListID: handleClientsList, clientsGetID: handleClientsGet, clientsCreateID: handleClientsCreate,
+		clientsUpdateID: handleClientsUpdate, clientsDeleteID: handleClientsDelete, clientsRevertID: handleClientsRevert,
+
+		transformationsListID: handleTransformationsList, transformationsGetID: handleTransformationsGet,
+		transformationsCreateID: handleTransformationsCreate, transformationsUpdateID: handleTransformationsUpdate,
+		transformationsDeleteID: handleTransformationsDelete, transformationsRevertID: handleTransformationsRevert,
 
 		zonesListID: handleZonesList, zonesGetID: handleZonesGet, zonesCreateID: handleZonesCreate,
 		zonesUpdateID: handleZonesUpdate, zonesDeleteID: handleZonesDelete, zonesRevertID: handleZonesRevert,
@@ -133,6 +143,13 @@ func Register(reg *capability.Registry) error {
 		variablesDeleteID: variableSummary("Delete"), variablesRevertID: variableSummary("Revert"),
 		builtInVariablesCreateID: builtInSummary("Enable"), builtInVariablesDeleteID: builtInSummary("Disable"),
 		builtInVariablesRevertID: builtInSummary("Revert"),
+		foldersCreateID:          folderSummary("Create"), foldersUpdateID: folderSummary("Replace"),
+
+		clientsCreateID: clientSummary("Create"), clientsUpdateID: clientSummary("Replace"),
+		clientsDeleteID: clientSummary("Delete"), clientsRevertID: clientSummary("Revert"),
+
+		transformationsCreateID: transformationSummary("Create"), transformationsUpdateID: transformationSummary("Replace"),
+		transformationsDeleteID: transformationSummary("Delete"), transformationsRevertID: transformationSummary("Revert"),
 
 		zonesCreateID: zoneSummary("Create"), zonesUpdateID: zoneSummary("Replace"),
 		zonesDeleteID: zoneSummary("Delete"), zonesRevertID: zoneSummary("Revert"),
