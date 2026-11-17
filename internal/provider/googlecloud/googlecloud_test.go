@@ -54,10 +54,11 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 		"google.cloud.iam-policies.get", "google.cloud.iam-roles.get", "google.cloud.iam-roles.list",
 		"google.cloud.iam-roles.query-grantable", "google.cloud.operations.get", "google.cloud.organizations.get",
 		"google.cloud.organizations.search", "google.cloud.projects.get", "google.cloud.projects.list",
-		"google.cloud.projects.search"}; !slices.Equal(ids, want) {
+		"google.cloud.projects.search", "google.cloud.services.batch-get", "google.cloud.services.get",
+		"google.cloud.services.list"}; !slices.Equal(ids, want) {
 		t.Errorf("tools = %v, want %v", ids, want)
 	}
-	if profile, found := metadata.RecommendedProfile(); !found || profile.ID != "read" || len(profile.Tools) != 9 {
+	if profile, found := metadata.RecommendedProfile(); !found || profile.ID != "read" || len(profile.Tools) != 12 {
 		t.Errorf("profile = %+v", profile)
 	}
 	// The recommended profile never asks for more than the read-only scope; a tool that needs the broad
