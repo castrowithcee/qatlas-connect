@@ -17,7 +17,8 @@ var settingTools = []string{enhancedGetID, enhancedUpdateID, redactionGetID, red
 
 // alphaTools are the tools on the Admin API v1alpha; a tool added there joins this list.
 var alphaTools = append(append(append(slices.Clone(settingTools), ruleTools...), calculatedListID, calculatedGetID,
-	calculatedCreateID, calculatedUpdateID, calculatedDeleteID, googleSignalsGetID, googleSignalsUpdateID), annotationTools...)
+	calculatedCreateID, calculatedUpdateID, calculatedDeleteID, googleSignalsGetID, googleSignalsUpdateID, dv360LinksListID, dv360LinksGetID, dv360ProposalsListID, dv360ProposalsGetID),
+	annotationTools...)
 
 // settingsEnv adds connections that offer the settings tools, with the bindings of the stream tests.
 func settingsEnv(t *testing.T, fake *fakeGoogle) *testEnv {

@@ -109,7 +109,9 @@ func TestRegisterPublishesMetadataScopesAndConsent(t *testing.T) {
 		accessAccountID: {scopeReadOnly}, accessPropertyID: {scopeReadOnly},
 		dataRetentionGetID: {scopeReadOnly}, dataRetentionUpdateID: {scopeEdit}, googleSignalsGetID: {scopeReadOnly},
 		googleSignalsUpdateID: {scopeEdit}, annotationsListID: {scopeReadOnly}, annotationsGetID: {scopeReadOnly},
-		annotationsCreateID: {scopeEdit}, annotationsUpdateID: {scopeEdit}, annotationsDeleteID: {scopeEdit}}) {
+		annotationsCreateID: {scopeEdit}, annotationsUpdateID: {scopeEdit}, annotationsDeleteID: {scopeEdit},
+		dv360LinksListID: {scopeReadOnly}, dv360LinksGetID: {scopeReadOnly}, dv360ProposalsListID: {scopeReadOnly},
+		dv360ProposalsGetID: {scopeReadOnly}}) {
 		t.Errorf("scopes = %v", metadata.Token.Scopes)
 	}
 	ids := []string{}
@@ -157,7 +159,9 @@ func TestRegisterPublishesMetadataScopesAndConsent(t *testing.T) {
 		"google.analytics.reports.run-realtime", "google.analytics.accounts.run-access-report",
 		"google.analytics.properties.run-access-report", "google.analytics.data-retention.get",
 		"google.analytics.data-retention.update", "google.analytics.google-signals.get",
-		"google.analytics.google-signals.update"})) {
+		"google.analytics.google-signals.update", "google.analytics.display-video360-links.list",
+		"google.analytics.display-video360-links.get", "google.analytics.display-video360-link-proposals.list",
+		"google.analytics.display-video360-link-proposals.get"})) {
 		t.Errorf("tools = %v", ids)
 	}
 	reads := []string{summariesID, accountsID, accountsGetID, accountsSharingID, propertiesListID, propertiesGetID,
@@ -168,7 +172,7 @@ func TestRegisterPublishesMetadataScopesAndConsent(t *testing.T) {
 		customDimensionsListID, customDimensionsGetID, customMetricsListID,
 		customMetricsGetID, keyEventsListID, keyEventsGetID, eventRulesListID, eventRulesGetID,
 		calculatedListID, calculatedGetID, accessAccountID, accessPropertyID, dataRetentionGetID, googleSignalsGetID,
-		annotationsListID, annotationsGetID}
+		annotationsListID, annotationsGetID, dv360LinksListID, dv360LinksGetID, dv360ProposalsListID, dv360ProposalsGetID}
 	if len(metadata.Profiles) != 2 || metadata.Profiles[0].ID != "read" || !metadata.Profiles[0].Recommended ||
 		!reflect.DeepEqual(metadata.Profiles[0].Tools, reads) || metadata.Profiles[1].ID != "write" ||
 		metadata.Profiles[1].Recommended ||
@@ -200,6 +204,9 @@ func TestRegisterPublishesMetadataScopesAndConsent(t *testing.T) {
 		}
 		if descriptor.ID == accessAccountID || descriptor.ID == accessPropertyID {
 			sensitivity = dataSensitivityAccess
+		}
+		if descriptor.ID == dv360ProposalsListID || descriptor.ID == dv360ProposalsGetID {
+			sensitivity = dataSensitivityProposals
 		}
 		if effectOf(descriptor.ID) == config.EffectRead && descriptor.Risk != (capability.Risk{
 			Effect: capability.EffectRead, Idempotency: capability.IdempotencySafe,
