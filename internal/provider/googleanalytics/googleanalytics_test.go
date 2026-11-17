@@ -53,7 +53,8 @@ func decodeSummaries(t *testing.T, result string) summariesOut {
 
 // toolEffects is the effect of each tool of the provider; a tool that is not listed reads.
 var toolEffects = map[string]config.Effect{accountsUpdateID: config.EffectUpdate, accountsDeleteID: config.EffectDelete,
-	propertiesCreateID: config.EffectCreate, propertiesUpdateID: config.EffectUpdate, propertiesDeleteID: config.EffectDelete}
+	propertiesCreateID: config.EffectCreate, propertiesUpdateID: config.EffectUpdate, propertiesDeleteID: config.EffectDelete,
+	dataStreamsCreateID: config.EffectCreate, dataStreamsUpdateID: config.EffectUpdate}
 
 func effectOf(id string) config.Effect {
 	if effect, ok := toolEffects[id]; ok {
@@ -74,7 +75,8 @@ func TestRegisterPublishesMetadataScopesAndConsent(t *testing.T) {
 		accountsID: {scopeReadOnly}, propertiesListID: {scopeReadOnly}, propertiesGetID: {scopeReadOnly},
 		reportsRunID: {scopeReadOnly}, metadataGetID: {scopeReadOnly}, compatibilityID: {scopeReadOnly}, accountsGetID: {scopeReadOnly}, accountsSharingID: {scopeReadOnly}, accountsUpdateID: {scopeEdit},
 		accountsDeleteID: {scopeEdit}, propertiesCreateID: {scopeEdit}, propertiesUpdateID: {scopeEdit},
-		propertiesDeleteID: {scopeEdit}}) {
+		propertiesDeleteID: {scopeEdit}, dataStreamsListID: {scopeReadOnly}, dataStreamsGetID: {scopeReadOnly},
+		dataStreamsCreateID: {scopeEdit}, dataStreamsUpdateID: {scopeEdit}}) {
 		t.Errorf("scopes = %v", metadata.Token.Scopes)
 	}
 	ids := []string{}
@@ -88,18 +90,21 @@ func TestRegisterPublishesMetadataScopesAndConsent(t *testing.T) {
 	if !slices.Equal(ids, []string{"google.analytics.accounts.delete", "google.analytics.accounts.get",
 		"google.analytics.accounts.get-data-sharing-settings", "google.analytics.accounts.list",
 		"google.analytics.accounts.list-summaries", "google.analytics.accounts.update",
+		"google.analytics.data-streams.create", "google.analytics.data-streams.get",
+		"google.analytics.data-streams.list", "google.analytics.data-streams.update",
 		"google.analytics.properties.create", "google.analytics.properties.delete", "google.analytics.properties.get",
 		"google.analytics.properties.list", "google.analytics.properties.update", "google.analytics.reports.check-compatibility", "google.analytics.reports.get-metadata",
 		"google.analytics.reports.run"}) {
 		t.Errorf("tools = %v", ids)
 	}
 	reads := []string{summariesID, accountsID, accountsGetID, accountsSharingID, propertiesListID, propertiesGetID,
-		reportsRunID, metadataGetID, compatibilityID}
+		reportsRunID, metadataGetID, compatibilityID, dataStreamsListID, dataStreamsGetID}
 	if len(metadata.Profiles) != 2 || metadata.Profiles[0].ID != "read" || !metadata.Profiles[0].Recommended ||
 		!reflect.DeepEqual(metadata.Profiles[0].Tools, reads) || metadata.Profiles[1].ID != "write" ||
 		metadata.Profiles[1].Recommended ||
 		!reflect.DeepEqual(metadata.Profiles[1].Tools,
-			append(slices.Clone(reads), accountsUpdateID, propertiesCreateID, propertiesUpdateID)) {
+			append(slices.Clone(reads), accountsUpdateID, propertiesCreateID, propertiesUpdateID,
+				dataStreamsCreateID, dataStreamsUpdateID)) {
 		t.Errorf("profiles = %+v", metadata.Profiles)
 	}
 	oauth, ok := reg.OAuth(Provider)
