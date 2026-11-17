@@ -167,8 +167,8 @@ var foldersMove = capability.Descriptor{
 	Description: "Move tags, triggers, and variables of a workspace into a folder, named by their IDs in tagId, " +
 		"triggerId, and variableId; at least one ID is needed and each list takes up to " +
 		strconv.Itoa(maxMoveIDs) + ". Only the folder assignment of these entries changes, nothing else of them. " +
-		folderEffect + "The live tracking is affected only with a published container version, which no tool of " +
-		"this provider publishes. Google offers no fingerprint for this method. An entry that is in another folder " +
+		folderEffect + "The live tracking is affected only with a published container version, which only the " +
+		"listed-only versions.publish publishes. Google offers no fingerprint for this method. An entry that is in another folder " +
 		"moves out of it.",
 	Tags: []string{"google", "tag-manager", "folders", "update"}, Provider: Provider,
 	Risk: changeRisk(capability.EffectUpdate, capability.IdempotencyIdempotent),

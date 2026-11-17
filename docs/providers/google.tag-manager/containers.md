@@ -20,7 +20,7 @@ under [accounts, containers, and workspaces](structure.md).
 | `containers.delete` | deletes a container; only by `tools` list |
 
 A change is made to the container itself, not in a workspace, and every change needs its own confirmation.
-Settings take effect only with a published container version, which no tool of this provider publishes.
+Settings take effect only with a published container version, which only the listed-only versions.publish publishes.
 
 ## Create and update
 

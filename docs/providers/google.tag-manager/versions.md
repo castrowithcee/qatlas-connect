@@ -9,8 +9,8 @@ updated: 2026-11-17
 
 # Google Tag Manager: versions and version headers
 
-The version tools of the [Google Tag Manager provider](README.md). Four read, five make and change versions.
-None publishes a version.
+The version tools of the [Google Tag Manager provider](README.md). Four read, five make and change versions,
+and `versions.publish` makes a version live; it is offered only where a connection's `tools` list names it.
 
 A container version holds the whole configuration of a container as it was when the version was made. Reading
 it is the basis for checking what a version would change before it goes live.
@@ -26,6 +26,7 @@ it is the basis for checking what a version would change before it goes live.
 | `versions.set-latest` | marks a version as the latest one |
 | `versions.delete` | deletes a version |
 | `versions.undelete` | restores a deleted version |
+| `versions.publish` | makes a version the live version of its container (listed-only, needs confirmation) |
 
 `version` is a path such as `accounts/1/containers/2/versions/7`; the version ID may be `0`, the empty version a
 new container starts from. `container` is checked like a version path against the target of the connection
@@ -92,6 +93,46 @@ the workspace tools or reduce the version.
 
 Google's answer is read up to 32 MiB. A larger answer is `invalid-provider-response`; it is not cut.
 
+## Publishing a version
+
+`versions.publish` takes `version`, `fingerprint`, `previous_live_version_id`, and `container_public_id`, all
+required. It changes the live tracking of every site or
+app that loads the container, and the Custom HTML, Custom JavaScript, and template code of the version then run
+for visitors. The only way back is to publish an earlier version with the same tool. It is not idempotent.
+
+- **Listed-only.** The tool is in no profile. It is offered only where the `tools` list of a connection names
+  `google.tag-manager.versions.publish`, and it runs only with the scope `tagmanager.publish`, see
+  [setup](setup.md). Without the scope the call fails as `scope-missing` before any request.
+- **Confirmation.** Every call needs its own confirmation. The core allows no read of the provider while it
+  phrases a confirmation, so the text is built from the arguments alone. It names the container (public ID and
+  path), the version to publish (ID, path, and fingerprint), and the live version it replaces (ID), together with
+  the effect. Names are not in the confirmation; they come back in the result.
+- **Comparison arguments.** `previous_live_version_id` is the ID of the version that is live now, as
+  `versions.live` shows it, or `none` when it shows no version. `container_public_id` is the `publicId` of the
+  container, such as `GTM-XXXX`, from `versions.get` (`container`). Both are compared with what the tool reads
+  and are never sent to Google, like `fingerprint`. Read `versions.live` and `versions.get` first and pass what
+  they show, so that the confirmation names the real change.
+- **Reads before publishing.** After the confirmation and before the publish request, the tool reads the version
+  and the live version. If either read fails, nothing is published. Nothing is published either when
+  `fingerprint`, `previous_live_version_id`, or `container_public_id` differs from what the reads show; the call
+  then fails as `invalid-request` and names the argument that differs. The message shows the value read only when
+  it has the plain form of the argument, never other text of Google. The previous live version comes back as
+  `previousLiveVersion` with `path`, `containerVersionId`, `name`, and `fingerprint`; it is missing when none was
+  live.
+- **Target.** The version must lie inside the target of the connection, checked before any request.
+- **Result.** `containerVersion` is the version as Google returns it after publishing, bounded like
+  `versions.get`, and `compilerError` is `true` when Google reports one. With `compilerError` the version is not
+  assumed to be live: the live version is read again and returned as `liveVersion`, or `liveVersionUnread` is
+  `true` when that read failed.
+- **Unclear outcome.** The publish request is sent once and never repeated. After a failure that may have reached
+  Google, the error says that the outcome is unknown; read the live version with `versions.live` before
+  publishing again.
+
+```json
+{"version": "accounts/1/containers/2/versions/7", "fingerprint": "1700000000000",
+ "previous_live_version_id": "3", "container_public_id": "GTM-EXAMPLE"}
+```
+
 ## Headers
 
 A header names a version and counts what it holds: `path`, `accountId`, `containerId`, `containerVersionId`,
@@ -103,7 +144,10 @@ Google sends them. `version-headers.list` answers with `versionHeaders` and `nex
 {"container": "accounts/1/containers/2", "includeDeleted": true}
 ```
 
-Not verified: what Google answers to `versions.live` for a container without a published version (an HTTP error
-other than 401, 403, and 429 is `invalid-provider-response`; an empty object is shown as an empty result), whether
+Not verified: what Google answers to a publish with a stale `fingerprint` (the tool compares it with the stored
+one itself first), what Google answers to `versions.live` for a container without a published version (an HTTP
+error other than 401, 403, and 429 is `invalid-provider-response`; an empty object is shown as an empty result,
+and an error ends `versions.publish` before it publishes), whether Google ever answers `versions.live`
+with an empty object for a container without a live version, which is the only case `none` stands for, whether
 `numMacros` and `numRules` still carry values for a v2 container, and whether `containerVersionId` takes values
 besides a decimal ID and `published`.

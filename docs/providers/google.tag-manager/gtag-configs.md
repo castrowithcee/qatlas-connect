@@ -15,7 +15,7 @@ never-cut rules shared with tags, triggers, and variables are described there.
 A Google tag configuration carries measurement IDs and destination parameters, such as the ID of a Google
 Analytics data stream or of an Ads account. It is a destination of the measurement data that the container
 sends. A change is made in the workspace only and takes effect only with a published container version,
-which no tool of this provider publishes.
+which only the listed-only versions.publish publishes.
 
 | Tool | Does |
 | --- | --- |

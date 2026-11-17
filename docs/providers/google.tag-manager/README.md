@@ -66,14 +66,14 @@ Three profiles are offered:
   account with their email addresses, changing the rights of an existing user, and removing a user. It is not
   recommended and is in neither of the other profiles. No tool adds a user.
 
-`containers.delete`, `workspaces.delete`, `versions.delete`, `tags.revert`, `triggers.revert`, `variables.revert`,
-`templates.revert`, `folders.revert`, `clients.revert`, `transformations.revert`, `zones.revert`,
-`built-in-variables.revert`, and `containers.combine` are in no profile. Deleting a container removes it
-with everything in it, deleting a workspace loses its unpublished changes, a revert overwrites the workspace
-state of an object, a combine merges one container into another, and `versions.delete` deletes a whole
-container version, so a connection offers them only when its `tools` list names them. `accounts.update`
-needs a consent that holds `tagmanager.manage.accounts` and is not available on a connection bound to a
-container.
+`containers.delete`, `workspaces.delete`, `versions.delete`, `versions.publish`, `tags.revert`, `triggers.revert`,
+`variables.revert`, `templates.revert`, `folders.revert`, `clients.revert`, `transformations.revert`,
+`zones.revert`, `built-in-variables.revert`, and `containers.combine` are in no profile. Deleting a container
+removes it with everything in it, deleting a workspace loses its unpublished changes, a revert overwrites the
+workspace state of an object, a combine merges one container into another, `versions.delete` deletes a whole
+container version, and publishing a version changes what runs on the live site or app, so a connection offers
+them only when its `tools` list names them. `accounts.update` needs a consent that holds
+`tagmanager.manage.accounts` and is not available on a connection bound to a container.
 Every tool that changes something needs its own confirmation, which shows the name, the type or types, and the
 workspace or object path. The confirmation of a Google tag configuration shows the type, the path, and only
 its destination IDs, see [Google tag configurations](gtag-configs.md).
@@ -106,11 +106,12 @@ of the tools it offers; offering a tool with another scope needs a new consent.
 | `containers.combine` | `https://www.googleapis.com/auth/tagmanager.edit.containers` |
 | `accounts.update` | `https://www.googleapis.com/auth/tagmanager.manage.accounts` |
 | `workspaces.quick-preview`, `versions.create`, `versions.update`, `versions.set-latest`, `versions.delete`, and `versions.undelete` | `https://www.googleapis.com/auth/tagmanager.edit.containerversions` |
+| `versions.publish` | `https://www.googleapis.com/auth/tagmanager.readonly` and `https://www.googleapis.com/auth/tagmanager.publish` |
 | `containers.delete` and `workspaces.delete` | `https://www.googleapis.com/auth/tagmanager.delete.containers` |
 | every tool of [user permissions](user-permissions.md), the reading ones included | `https://www.googleapis.com/auth/tagmanager.manage.users` |
 
 A consent given for the `read` profile lacks the edit scope, so a changing tool answers `scope-missing`
-before any request. Google also offers `tagmanager.publish`; no tool uses it.
+before any request. Only `versions.publish` uses `tagmanager.publish`.
 
 ## Quota and spacing
 
@@ -146,7 +147,7 @@ class of its own: it is `invalid-provider-response` with Google's answer as the 
 ## Tags, triggers, variables, and templates
 
 Tags, triggers, variables, and templates live in a workspace. Their tools change the workspace only. An object goes live with a
-published container version, and no tool of this provider publishes one.
+published container version, and only the listed-only versions.publish publishes one.
 
 Update replaces the whole object: a member that is left out is removed, so send every member as the get tool
 returned it, with the changes made. Revert discards the workspace changes of one object and answers with the

@@ -75,7 +75,7 @@ func TestZoneDescriptionsNameTheEffect(t *testing.T) {
 	for _, id := range []string{zonesCreateID, zonesUpdateID, zonesDeleteID, zonesRevertID} {
 		d := toolOf(t, id)
 		for _, want := range []string{"childContainer", "configuration of that container", "workspace only",
-			"published container version", "no tool of this provider"} {
+			"published container version", "versions.publish"} {
 			if !strings.Contains(d.Description, want) {
 				t.Errorf("%s description lacks %q", id, want)
 			}

@@ -19,7 +19,8 @@ import (
 // Deleting a workspace or a container takes delete.containers alone, and a quick preview and every tool that
 // makes or changes a container version take edit.containerversions alone.
 // Renaming an account takes manage.accounts alone, and the user permission methods take manage.users alone.
-// Google also offers publish; a connection asks only for the scopes its tools need.
+// Google also offers publish, which only versions.publish takes; a connection asks only for the scopes its
+// tools need.
 const (
 	readonlyScope = "https://www.googleapis.com/auth/tagmanager.readonly"
 	editScope     = "https://www.googleapis.com/auth/tagmanager.edit.containers"
@@ -43,6 +44,10 @@ func toolScopes() map[string][]string {
 		}
 		if d.ID == accountsUpdateID {
 			scopes[d.ID] = []string{manageAccountsScope}
+		}
+		// Publishing takes its own scope; the reads before it need readonly, which the publish scope does not cover.
+		if d.ID == versionsPublishID {
+			scopes[d.ID] = []string{readonlyScope, publishScope}
 		}
 		// Every method of the user permissions, reads included, lists manage.users alone.
 		if isUserPermissionTool(d.ID) {
@@ -143,7 +148,8 @@ func descriptors() []capability.Descriptor {
 				append(zoneDescriptors(), append(gtagConfigDescriptors(), append(templateDescriptors(),
 					append(structureManageDescriptors(), append(destinationDescriptors(),
 						append(environmentDescriptors(), append(userPermissionDescriptors(),
-							append(versionDescriptors(), append(containerDescriptors(), versionWriteDescriptors()...)...)...)...)...)...)...)...)...)...)...)...)...)...)...)...)...)...)
+							append(versionDescriptors(), append(containerDescriptors(), append(versionWriteDescriptors(),
+								versionPublishDescriptors()...)...)...)...)...)...)...)...)...)...)...)...)...)...)...)...)...)...)...)
 }
 
 var accountsList = capability.Descriptor{

@@ -36,7 +36,7 @@ const resolveNote = "The entity is the resolved state the workspace takes: an en
 	"unchanged, never run or fetched, and may hold secrets. "
 
 const previewNote = "Compiling the workspace makes a preview container version in the container, which is not " +
-	"published and which no tool of this provider publishes. The preview itself runs in the Tag Assistant of the " +
+	"published and which only the listed-only versions.publish publishes. The preview itself runs in the Tag Assistant of the " +
 	"user. No preview link or authorization code is returned, and of the preview version only identifiers, name, " +
 	"description, and the number of its entities are: read the entities with their own tools. "
 

@@ -74,7 +74,7 @@ func TestClientToolsFollowScopesProfilesAndRisks(t *testing.T) {
 func TestClientDescriptionsNameTheEffect(t *testing.T) {
 	for _, id := range []string{clientsCreateID, clientsUpdateID, clientsDeleteID, clientsRevertID} {
 		d := toolOf(t, id)
-		for _, want := range []string{"server container", "published container version", "no tool of this provider"} {
+		for _, want := range []string{"server container", "published container version", "versions.publish"} {
 			if !strings.Contains(d.Description, want) {
 				t.Errorf("%s description lacks %q", id, want)
 			}
