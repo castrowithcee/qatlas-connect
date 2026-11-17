@@ -1,7 +1,11 @@
-// Package googleanalytics implements the Google Analytics provider on the Analytics Admin API with a
-// credential that issues access tokens: a person's consent, a service account key, or the impersonation of a
-// service account. The token roles, the procedure and the renewal come from the shared token source; this
-// package adds the scope every tool needs, the fixed origin, the targets and the error mapping.
+// Package googleanalytics implements the Google Analytics provider on the Analytics Admin API and the
+// Analytics Data API with a credential that issues access tokens: a person's consent, a service account key,
+// or the impersonation of a service account. The token roles, the procedure and the renewal come from the shared token source; this
+// package adds the scope every tool needs, the two fixed origins, the targets and the error mapping.
+//
+// A report runs on the Data API origin and costs tokens of the property quota. The package keeps the
+// remainder Google reports for each property, runs at most the documented number of reports of a property at
+// once, and refuses a report before any I/O when a bucket is nearly used up.
 //
 // Reading tools send one request, a changing tool exactly one and never again, whatever comes back.
 // Deleting an account runs only on a connection that binds exactly that account and no property.
@@ -34,7 +38,8 @@ const Provider = "google.analytics"
 // subject names the provider in messages.
 const subject = "Google Analytics"
 
-// scopeReadOnly is the smallest scope that reads Analytics configuration (analyticsadmin v1beta).
+// scopeReadOnly is the smallest scope that reads Analytics configuration and report data (analyticsadmin and
+// analyticsdata v1beta).
 const scopeReadOnly = "https://www.googleapis.com/auth/analytics.readonly"
 
 // scopeEdit is the scope that changes Analytics accounts and properties (analyticsadmin v1beta).
@@ -55,6 +60,9 @@ var scopes = map[string][]string{
 	accountsSharingID: {scopeReadOnly},
 	propertiesListID:  {scopeReadOnly},
 	propertiesGetID:   {scopeReadOnly},
+	reportsRunID:      {scopeReadOnly},
+	metadataGetID:     {scopeReadOnly},
+	compatibilityID:   {scopeReadOnly},
 
 	accountsUpdateID:   {scopeEdit},
 	accountsDeleteID:   {scopeEdit},
@@ -119,14 +127,15 @@ func isDefaultRoot(raw string) bool {
 }
 
 // readTools are the tools of the profile read, and the start of every wider profile.
-var readTools = []string{summariesID, accountsID, accountsGetID, accountsSharingID, propertiesListID, propertiesGetID}
+var readTools = []string{summariesID, accountsID, accountsGetID, accountsSharingID, propertiesListID, propertiesGetID,
+	reportsRunID, metadataGetID, compatibilityID}
 
 // Register adds the provider metadata, its consent endpoints, its connection test and its tools.
 func Register(reg *capability.Registry) error {
 	token := tokenMetadata()
 	if err := reg.RegisterProvider(config.ProviderMetadata{
 		ID: Provider, Name: subject, DefaultBaseURL: adminRoot,
-		Description:    "Google Analytics 4 accounts and properties through the Analytics Admin API with an OAuth or service account token",
+		Description:    "Google Analytics 4 accounts, properties and reports through the Analytics Admin and Data APIs with an OAuth or service account token",
 		DefaultEffects: []config.Effect{config.EffectRead},
 		ValidateBaseURL: func(raw string) error {
 			if !isDefaultRoot(raw) {
@@ -172,6 +181,9 @@ func Register(reg *capability.Registry) error {
 		{Descriptor: propertiesList, Handler: handlePropertiesList},
 		{Descriptor: propertiesGet, Handler: handlePropertiesGet},
 		{Descriptor: accountsGet, Handler: handleAccountsGet},
+		{Descriptor: reportsRun, Handler: handleReportsRun},
+		{Descriptor: metadataGet, Handler: handleMetadataGet},
+		{Descriptor: compatibilityCheck, Handler: handleCompatibilityCheck},
 		{Descriptor: accountsSharing, Handler: handleAccountsSharing},
 		{Descriptor: accountsUpdate, Handler: handleAccountsUpdate, ConfirmationSummary: updateSummary},
 		{Descriptor: accountsDelete, Handler: handleAccountsDelete, ConfirmationSummary: deleteSummary},

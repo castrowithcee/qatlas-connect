@@ -1,28 +1,30 @@
 ---
 description: >
-  Describes the Google Analytics provider: the fixed Admin API origin, the token credential, the optional account and property targets and what each tool does with them, the read and write profiles, paging, bounds on provider content, rate spacing, quotas, the connection test, and the limits of what is verified; the account and property tools have their own pages.
+  Describes the Google Analytics provider: the fixed Admin and Data API origins, the token credential, the optional account and property targets and what each tool does with them, the read and write profiles, paging, bounds on provider content, rate spacing, quotas, the connection test, and the limits of what is verified; the account, property, and report tools have their own pages.
 type: knowledge
 edit: shared
 created: 2026-11-16
-updated: 2026-11-16
+updated: 2026-11-17
 ---
 
 # Google Analytics
 
-Google Analytics is a provider for Google Analytics 4 on the Analytics Admin API. It lists the accounts and
-properties a credential can see, with their configuration, reads one account or property, renames an account,
-moves an account to the trash, and creates, changes, and trashes properties. The reading tools change nothing
-and read no report data, so they use no reporting quota. Every tool that changes something needs
-confirmation.
+Google Analytics is a provider for Google Analytics 4 on the Analytics Admin API and the Analytics Data API. It
+lists the accounts and properties a credential can see, with their configuration, reads one account or
+property, renames an account, moves an account to the trash, and creates, changes, and trashes properties. It
+also runs reports and reads the metadata of the dimensions and metrics a property accepts. The reading tools
+change nothing. The account and property tools read no report data and use no reporting quota; the report tools
+do, see [reports](reports.md#quota). Every tool that changes something needs confirmation.
 
 [Set up Google Analytics](setup.md) leads through the credential. The tools are described in
-[accounts](accounts.md) and [properties](properties.md).
+[accounts](accounts.md), [properties](properties.md), and [reports](reports.md).
 
 ## Configuration
 
 A service is always the official origin `https://analyticsadmin.googleapis.com`, which applies when `base_url`
-is left out. Qatlas refuses any other URL before a secret is read, because the access token belongs to that one
-service.
+is left out. The report tools use the second fixed origin `https://analyticsdata.googleapis.com` of the same
+service; it has no setting. Qatlas refuses any other `base_url` before a secret is read, because the access
+token belongs to these services.
 
 The credential is a token credential: it does not hold a static key but issues short-lived access tokens, from
 a person's consent, a service account key, or the impersonation of a service account. Its secret roles, the
@@ -55,6 +57,8 @@ not name the resource.
 | `properties.get` | Reads a bound property, or a property of a bound account after one proof read of its parent |
 | `properties.create` | Creates a property only in a bound account; a connection bound to properties only is refused |
 | `properties.update`, `properties.delete` | Change or trash a bound property, or a property of a bound account after one proof read of its parent |
+| `reports.run`, `reports.check-compatibility` | Use a bound property, or a property of a bound account after one proof read of its parent |
+| `reports.get-metadata` | Like `reports.run`; `properties/0` needs no target, see [reports](reports.md#property-and-targets) |
 
 A property of another account is refused, also when it is named correctly.
 
@@ -63,7 +67,8 @@ A property of another account is refused, also when it is named correctly.
 The profile `read` is the recommended one and holds `google.analytics.accounts.list-summaries`,
 `google.analytics.accounts.list`, `google.analytics.accounts.get`,
 `google.analytics.accounts.get-data-sharing-settings`, `google.analytics.properties.list`, and
-`google.analytics.properties.get`. The profile `write` reads like `read` and changes accounts and properties,
+`google.analytics.properties.get`, `google.analytics.reports.run`, `google.analytics.reports.get-metadata`, and
+`google.analytics.reports.check-compatibility`. The profile `write` reads like `read` and changes accounts and properties,
 each change with its own confirmation: it adds `google.analytics.accounts.update`,
 `google.analytics.properties.create`, and `google.analytics.properties.update`. Deleting is in no profile: a
 connection offers `google.analytics.accounts.delete` and `google.analytics.properties.delete` only when its
@@ -73,7 +78,7 @@ connection that binds exactly that account and no property. Which scope each too
 
 ## Paging
 
-A list returns `next_cursor` and `has_more` when Google reports a further page. The cursor wraps Google's page
+A list returns `next_cursor` and `has_more` when Google reports a further page; reports continue by row offset, see [reports](reports.md#rows-and-cursor). The cursor wraps Google's page
 token and fits only the tool, the connection, and the arguments that Google requires to stay the same, such as
 the `filter`; a changed or invented cursor is refused before any request. `page_size` may change between
 pages. Google may return fewer entries than asked for and a page can be empty while `has_more` is true.
@@ -84,23 +89,25 @@ Everything Google returns is untrusted third-party content, including display na
 characters and a cut text ends with `…`. Enumeration values and timestamps are kept exactly as Google sends
 them, and a value that is not printable ASCII or too long is left out. A resource name that is not
 `accounts/ID`, `properties/ID`, or `accountSummaries/ID` is left out. Lists are cut at 200 entries per page and
-2,000 properties per account summary. Qatlas never fetches an address from a result.
+2,000 properties per account summary. The bounds of report values and lists are in
+[reports](reports.md#untrusted-values). Qatlas never fetches an address from a result.
 
 ## Rate spacing and quotas
 
 Requests of one credential are spaced by at least 100 ms within a process. This is a cautious start, not a
 Google limit. Google's Admin API quotas are set per Cloud project and per user, and the Cloud console shows
 them. On a `429` the next request of the credential waits one second, or the seconds of `Retry-After` up to one
-minute. The failed request is never repeated, and a missing `Retry-After` causes no retry loop. The reading
-tools use no Data API quota; the Analytics Data API is not used by this provider yet.
+minute. The failed request is never repeated, and a missing `Retry-After` causes no retry loop. The account and
+property tools use no Data API quota. The report tools spend the token quota of the property and follow a
+reserve and a parallel limit of their own, see [reports](reports.md#quota).
 
 ## Connection test
 
 `qconnect connection test` obtains an access token and lists one account summary. This reads no report data, so
 it uses no reporting quota. Success proves the token, an enabled Analytics Admin API in the Cloud project of
 the credential, and at least one visible account. A connection bound to properties is also tested by reading
-each of them. No visible account is `not-found`. The test does not prove the Analytics Data API, which needs its
-own activation.
+each of them. No visible account is `not-found`. The test does not prove the Analytics Data API, which the report
+tools need and which has its own activation.
 
 ## Errors
 
@@ -109,21 +116,22 @@ answer goes along as the untrusted, redacted, and bounded original in the `provi
 The class follows the HTTP status: 401 is `auth`, 403 `permission`, 404 `not-found`, 429 `rate-limited`, and
 other failures `provider-error` or a transport class. A 401 renews the access token once and the request is
 sent once more; a second 401 is an error, never a loop. A 403 with the reason `SERVICE_DISABLED` says that the
-Admin API is not enabled in the Cloud project. Google answers a property or account the credential cannot see
-like one that does not exist, so `not-found` and `permission` can both mean missing access. Symptoms and their
-fixes are in [setup](setup.md#fixing-errors).
+Admin API, or for a report tool the Data API, is not enabled in the Cloud project. Google answers a property
+or account the credential cannot see like one that does not exist, so `not-found` and `permission` can both mean
+missing access. Symptoms and their fixes are in [setup](setup.md#fixing-errors).
 
 ## Boundary
 
-The provider reaches only the endpoints of the tool pages, each with a fixed path. It offers no passthrough of
+The provider reaches only the endpoints of the tool pages, each with a fixed path on one of its two origins. It offers no passthrough of
 method, path, header, query, or body.
 
 Not verified:
 
-- The quota figures of the Admin API are not checked by Qatlas and may change.
+- The quota figures of the Admin and Data APIs are not checked by Qatlas and may change.
 - The error form for a property the credential cannot see is not documented in the sources used; the HTTP
   status decides.
-- The Analytics Data API is not covered by the connection test.
+- The Analytics Data API is not covered by the connection test; a report tool is the first call that shows a
+  missing activation.
 
 Changes are sent once and never repeated; after a timeout, a `5xx` answer, or an unreadable answer the error
 says that the outcome is unknown. A change is confirmed only by the answer of Google, and between the proof
