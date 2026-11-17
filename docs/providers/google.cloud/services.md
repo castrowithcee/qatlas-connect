@@ -1,6 +1,6 @@
 ---
 description: >
-  Describes the Google Cloud service tools: reading the enabled and available APIs of a project from Service Usage with services.list, services.get, and services.batch-get, their arguments, the target check, the required API, and the scope.
+  Describes the Google Cloud service tools: reading the enabled and available APIs of a project from Service Usage with services.list, services.get, and services.batch-get, enabling them with services.enable and services.batch-enable, disabling them with the listed-only services.disable, their arguments, the operation they return, the target check, the required API, and the scopes.
 type: knowledge
 edit: shared
 created: 2026-11-17
@@ -53,4 +53,39 @@ The discovery document lists `cloud-platform.read-only` next to `cloud-platform`
 tools belong to the profile `read` and ask for the read-only scope. The discovery document names no
 IAM permission for these methods, so none is claimed here.
 
-Changing the state of a service (enable, disable) is not part of these tools.
+## Enable and disable
+
+| Tool | Arguments | Google method |
+| --- | --- | --- |
+| `services.enable` | `project_id`, `service` | `services.enable` |
+| `services.batch-enable` | `project_id`, `service_ids` (1 to 20) | `services.batchEnable` |
+| `services.disable` | `project_id`, `service`, `disable_dependent_services`, `check_if_service_has_usage` (`SKIP`, `CHECK`) | `services.disable` |
+
+- Each call needs the confirmation of a person and has the effect `update`. The summary names the project and
+  the service or services. For `services.disable` it also says when `disable_dependent_services` makes Google
+  disable the enabled services that depend on the service. Enabling an enabled service and disabling a disabled
+  one succeed, so the tools are idempotent. Qatlas sends the request once and never repeats it; after a timeout
+  or a 5xx the message says that the outcome is unknown.
+- `service` and `service_ids` follow the rules of the reads above. The project and the names are checked before
+  any request. `service_ids` takes 1 to 20 names without duplicates; Google enables all of them or none.
+- `disable_dependent_services` defaults to false: Google then refuses to disable a service that other enabled
+  services depend on. `check_if_service_has_usage` is sent only when given: `CHECK` makes Google refuse when the
+  service was used recently, `SKIP` disables without that check. Google's refusal is a provider error.
+- Enabling costs nothing itself, but the resources and calls of an enabled service may be billed.
+- `services.disable` is listed-only: a connection reaches it only if its `tools` list names
+  `google.cloud.services.disable`. It is in no profile.
+
+### Operation
+
+Google answers each change with a long-running operation, and the tools never wait. The result holds
+`service` (always `service-usage`), `name`, `done`, and `metadata`, and `response` when the operation is already
+done. Pass `service` and `name` to `operations.get` to read its state. An operation that is done with an `error`
+is returned as a provider error mapped from its code. Metadata and response are untrusted and are cut.
+
+### Scope
+
+The discovery document lists only `cloud-platform` for the three methods, so a connection that offers them asks
+for that broad scope, and the token may change whatever its account may. The profile `services` holds
+`services.enable` and `services.batch-enable`, is not recommended, and needs the effect `update`. The account
+needs the Service Usage rights of the project, such as `serviceusage.services.enable` and
+`serviceusage.services.disable`.

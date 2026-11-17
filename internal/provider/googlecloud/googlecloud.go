@@ -149,6 +149,13 @@ func Register(reg *capability.Registry) error {
 				"cloud-platform scope and may change what its account may, every change needs its own confirmation, " +
 				"and no tool creates a key, a token, or a signature",
 			Tools: []string{serviceAccountKeysDisable.ID, serviceAccountKeysEnable.ID, serviceAccountKeysDelete.ID},
+		}, {
+			ID: "services", Title: "Enable APIs",
+			Description: "enables Google APIs in a project, one or up to 20 at a time, each with the confirmation of a " +
+				"person; these Service Usage methods accept only the broad cloud-platform scope, so the token may " +
+				"change what its account may; the resources and calls of an enabled API may be billed; disabling an " +
+				"API is not part of this profile and needs a tools list that names it",
+			Tools: []string{servicesEnable.ID, servicesBatchEnable.ID},
 		}},
 	}, TestConnection); err != nil {
 		return err
@@ -208,5 +215,11 @@ func Register(reg *capability.Registry) error {
 		capability.Operation{Descriptor: quotaInfosList, Handler: handleQuotaInfosList},
 		capability.Operation{Descriptor: quotaInfosGet, Handler: handleQuotaInfosGet},
 		capability.Operation{Descriptor: quotaPreferencesList, Handler: handleQuotaPreferencesList},
-		capability.Operation{Descriptor: quotaPreferencesGet, Handler: handleQuotaPreferencesGet})
+		capability.Operation{Descriptor: quotaPreferencesGet, Handler: handleQuotaPreferencesGet},
+		capability.Operation{Descriptor: servicesEnable, Handler: handleServicesEnable,
+			ConfirmationSummary: serviceChangeSummary(servicesEnableID)},
+		capability.Operation{Descriptor: servicesBatchEnable, Handler: handleServicesBatchEnable,
+			ConfirmationSummary: serviceChangeSummary(servicesBatchEnableID)},
+		capability.Operation{Descriptor: servicesDisable, Handler: handleServicesDisable,
+			ConfirmationSummary: serviceChangeSummary(servicesDisableID)})
 }

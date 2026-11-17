@@ -59,4 +59,8 @@ var tokenMetadata = config.TokenMetadata{Scopes: map[string][]string{
 	quotaInfosGetID:        {scopeCloudPlatform},
 	quotaPreferencesListID: {scopeCloudPlatform},
 	quotaPreferencesGetID:  {scopeCloudPlatform},
+	// serviceusage v1 lists only cloud-platform for services enable, batchEnable, and disable.
+	servicesEnableID:      {scopeCloudPlatform},
+	servicesBatchEnableID: {scopeCloudPlatform},
+	servicesDisableID:     {scopeCloudPlatform},
 }}

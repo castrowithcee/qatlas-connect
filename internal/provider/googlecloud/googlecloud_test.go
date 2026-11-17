@@ -43,6 +43,7 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 			wantEffect = config.EffectCreate
 		case tool.ID == serviceAccountsPatchID, tool.ID == serviceAccountsDisableID, tool.ID == serviceAccountsEnableID,
 			tool.ID == serviceAccountKeysDisableID, tool.ID == serviceAccountKeysEnableID,
+			tool.ID == servicesEnableID, tool.ID == servicesBatchEnableID, tool.ID == servicesDisableID,
 			strings.Contains(tool.ID, ".iam-bindings."):
 			wantEffect = config.EffectUpdate
 		case tool.ID == serviceAccountKeysDeleteID, tool.ID == serviceAccountsDeleteID:
@@ -57,7 +58,8 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 		}
 		wantScope := "https://www.googleapis.com/auth/cloud-platform.read-only"
 		if strings.Contains(tool.ID, ".iam-") || strings.Contains(tool.ID, ".service-account") ||
-			strings.Contains(tool.ID, ".quota-") {
+			strings.Contains(tool.ID, ".quota-") ||
+			tool.ID == servicesEnableID || tool.ID == servicesBatchEnableID || tool.ID == servicesDisableID {
 			// The discovery documents list cloud-platform alone for the IAM methods.
 			wantScope = "https://www.googleapis.com/auth/cloud-platform"
 		}
@@ -79,7 +81,8 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 		"google.cloud.service-account-keys.list", "google.cloud.service-accounts.create",
 		"google.cloud.service-accounts.delete", "google.cloud.service-accounts.disable", "google.cloud.service-accounts.enable",
 		"google.cloud.service-accounts.get", "google.cloud.service-accounts.list",
-		"google.cloud.service-accounts.patch", "google.cloud.services.batch-get", "google.cloud.services.get",
+		"google.cloud.service-accounts.patch", "google.cloud.services.batch-enable", "google.cloud.services.batch-get",
+		"google.cloud.services.disable", "google.cloud.services.enable", "google.cloud.services.get",
 		"google.cloud.services.list"}; !slices.Equal(ids, want) {
 		t.Errorf("tools = %v, want %v", ids, want)
 	}
@@ -111,6 +114,10 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 		case "service-accounts-revoke":
 			if profile.Recommended || len(profile.Tools) != 3 {
 				t.Errorf("profile service-accounts-revoke = %+v", profile)
+			}
+		case "services":
+			if profile.Recommended || !slices.Equal(profile.Tools, []string{servicesEnableID, servicesBatchEnableID}) {
+				t.Errorf("profile services = %+v", profile)
 			}
 		case "iam-bindings":
 			if profile.Recommended || !slices.Contains(profile.Tools, iamBindingsAddID) ||

@@ -35,8 +35,8 @@ tokens for it). The connection holds no scope. Qatlas derives them from the tool
 smallest scope the discovery document of each method lists: `cloud-platform.read-only` for Resource Manager,
 and `cloud-platform` for the IAM and quota tools, because their discovery documents list no narrower scope
 (Google offers no read-only variant for these methods, see [IAM](iam.md) and [Quotas](quotas.md)). Only the tools of the profiles
-`service-accounts`, `service-accounts-revoke`, and `iam-bindings` and the tool `service-accounts.delete`, which a
-`tools` list must name, change anything, each with a confirmation, whatever the scope allows. The access token travels in the
+`service-accounts`, `service-accounts-revoke`, `iam-bindings`, and `services` and the tools `service-accounts.delete`
+and `services.disable`, which a `tools` list must name, change anything, each with a confirmation, whatever the scope allows. The access token travels in the
 `Authorization` header only, is never an argument or part of a result, and is masked in every output. A 401
 renews the token once, and nothing else repeats a request.
 
@@ -108,6 +108,11 @@ The profile `service-accounts-revoke` holds only `google.cloud.service-account-k
 `google.cloud.service-accounts.delete`: that tool is listed-only and only a `tools` list that names it exactly
 releases it.
 
+The profile `services` holds only `google.cloud.services.enable` and `google.cloud.services.batch-enable`. It asks
+for `cloud-platform`, needs the effect `update`, and is not recommended. It does not hold
+`google.cloud.services.disable`: that tool is listed-only and only a `tools` list that names it exactly releases
+it.
+
 The profile `iam-bindings` holds the tools of `read`, `google.cloud.iam-policies.get`, and the three binding
 tools `google.cloud.iam-bindings.add-member`, `google.cloud.iam-bindings.remove-member`, and
 `google.cloud.iam-bindings.change-role`. They have the effect `update`, so the connection needs that effect, and
@@ -116,7 +121,8 @@ on [IAM bindings](iam-bindings.md).
 
 ## Tools
 
-- [Services](services.md): the enabled and available APIs of a project from Service Usage.
+- [Services](services.md): the enabled and available APIs of a project from Service Usage, and enabling and
+  disabling them.
 - [IAM](iam.md): IAM policies, permission tests, and deny policies of projects, folders, organizations, and
   service accounts.
 - [IAM bindings](iam-bindings.md): adding a member to, removing a member from, and moving a member between the
@@ -168,8 +174,8 @@ own pages: [organizations](organizations.md) (`organizations.get`), [folders](fo
 
 `projects.get` takes a project ID or number and applies the same check: it reads the project and, where its
 parent does not decide, the folders above it. A project outside the targets is refused without a name.
-`operations.get` takes the `service` (here only `resource-manager`; later packages extend the list) and the
-operation `name`.
+`operations.get` takes the `service` (`resource-manager`, or `service-usage` for the operation of a change of
+services) and the operation `name`.
 
 ### Service accounts
 
@@ -188,7 +194,7 @@ which return metadata only and never key material, and the revocations `service-
 ## Long-running operations
 
 Google answers a change with an `Operation`: `name`, `done`, `metadata`, and once done either an `error` or a
-`response`. A mutation of a later package returns it as it is and never waits. `operations.get` reads the
+`response`. A mutation returns it as it is and never waits. `operations.get` reads the
 state: `done=false` with its metadata while it runs, `done=true` with the response when it succeeded. A done
 operation that carries an `error` is a provider error, mapped from the `google.rpc.Code`: 5 `not-found`, 7
 `permission`, 8 `rate-limited`, 16 `auth`, any other `provider-error`. The message of that error and its
