@@ -53,7 +53,8 @@ func decodeSummaries(t *testing.T, result string) summariesOut {
 
 // toolEffects is the effect of each tool of the provider; a tool that is not listed reads.
 var toolEffects = map[string]config.Effect{accountsUpdateID: config.EffectUpdate, accountsDeleteID: config.EffectDelete,
-	propertiesCreateID: config.EffectCreate, propertiesUpdateID: config.EffectUpdate, propertiesDeleteID: config.EffectDelete}
+	propertiesCreateID: config.EffectCreate, propertiesUpdateID: config.EffectUpdate, propertiesDeleteID: config.EffectDelete,
+	dataStreamsCreateID: config.EffectCreate, dataStreamsUpdateID: config.EffectUpdate, audienceCreateID: config.EffectCreate}
 
 func effectOf(id string) config.Effect {
 	if effect, ok := toolEffects[id]; ok {
@@ -76,7 +77,9 @@ func TestRegisterPublishesMetadataScopesAndConsent(t *testing.T) {
 		reportsRunPivotID: {scopeReadOnly}, reportsBatchRunID: {scopeReadOnly}, reportsBatchRunPivotID: {scopeReadOnly},
 		reportsRunRealtimeID: {scopeReadOnly}, accountsGetID: {scopeReadOnly}, accountsSharingID: {scopeReadOnly}, accountsUpdateID: {scopeEdit},
 		accountsDeleteID: {scopeEdit}, propertiesCreateID: {scopeEdit}, propertiesUpdateID: {scopeEdit},
-		propertiesDeleteID: {scopeEdit}}) {
+		propertiesDeleteID: {scopeEdit}, dataStreamsListID: {scopeReadOnly}, dataStreamsGetID: {scopeReadOnly},
+		dataStreamsCreateID: {scopeEdit}, dataStreamsUpdateID: {scopeEdit}, funnelRunID: {scopeReadOnly},
+		audienceGetID: {scopeReadOnly}, audienceListID: {scopeReadOnly}, audienceCreateID: {scopeReadOnly}}) {
 		t.Errorf("scopes = %v", metadata.Token.Scopes)
 	}
 	ids := []string{}
@@ -90,20 +93,26 @@ func TestRegisterPublishesMetadataScopesAndConsent(t *testing.T) {
 	if !slices.Equal(ids, sortedCopy([]string{"google.analytics.accounts.delete", "google.analytics.accounts.get",
 		"google.analytics.accounts.get-data-sharing-settings", "google.analytics.accounts.list",
 		"google.analytics.accounts.list-summaries", "google.analytics.accounts.update",
+		"google.analytics.audience-exports.create", "google.analytics.audience-exports.get",
+		"google.analytics.audience-exports.list",
+		"google.analytics.data-streams.create", "google.analytics.data-streams.get",
+		"google.analytics.data-streams.list", "google.analytics.data-streams.update",
 		"google.analytics.properties.create", "google.analytics.properties.delete", "google.analytics.properties.get",
 		"google.analytics.properties.list", "google.analytics.properties.update", "google.analytics.reports.check-compatibility", "google.analytics.reports.get-metadata",
-		"google.analytics.reports.run", "google.analytics.reports.batch-run", "google.analytics.reports.batch-run-pivot",
-		"google.analytics.reports.run-pivot", "google.analytics.reports.run-realtime"})) {
+		"google.analytics.reports.run", "google.analytics.reports.run-funnel", "google.analytics.reports.batch-run",
+		"google.analytics.reports.batch-run-pivot", "google.analytics.reports.run-pivot",
+		"google.analytics.reports.run-realtime"})) {
 		t.Errorf("tools = %v", ids)
 	}
 	reads := []string{summariesID, accountsID, accountsGetID, accountsSharingID, propertiesListID, propertiesGetID,
-		reportsRunID, metadataGetID, compatibilityID, reportsRunPivotID, reportsBatchRunID, reportsBatchRunPivotID,
-		reportsRunRealtimeID}
+		reportsRunID, metadataGetID, compatibilityID, dataStreamsListID, dataStreamsGetID, funnelRunID, audienceGetID,
+		audienceListID, reportsRunPivotID, reportsBatchRunID, reportsBatchRunPivotID, reportsRunRealtimeID}
 	if len(metadata.Profiles) != 2 || metadata.Profiles[0].ID != "read" || !metadata.Profiles[0].Recommended ||
 		!reflect.DeepEqual(metadata.Profiles[0].Tools, reads) || metadata.Profiles[1].ID != "write" ||
 		metadata.Profiles[1].Recommended ||
 		!reflect.DeepEqual(metadata.Profiles[1].Tools,
-			append(slices.Clone(reads), accountsUpdateID, propertiesCreateID, propertiesUpdateID)) {
+			append(slices.Clone(reads), accountsUpdateID, propertiesCreateID, propertiesUpdateID,
+				dataStreamsCreateID, dataStreamsUpdateID, audienceCreateID)) {
 		t.Errorf("profiles = %+v", metadata.Profiles)
 	}
 	oauth, ok := reg.OAuth(Provider)
@@ -113,9 +122,8 @@ func TestRegisterPublishesMetadataScopesAndConsent(t *testing.T) {
 	}
 	for _, descriptor := range reg.Provider(Provider) {
 		sensitivity := dataSensitivity
-		if descriptor.ID == reportsRunID || descriptor.ID == metadataGetID || descriptor.ID == compatibilityID ||
-			descriptor.ID == reportsRunPivotID || descriptor.ID == reportsBatchRunID ||
-			descriptor.ID == reportsBatchRunPivotID || descriptor.ID == reportsRunRealtimeID {
+		if slices.Contains([]string{reportsRunID, metadataGetID, compatibilityID, funnelRunID, audienceGetID, audienceListID,
+			reportsRunPivotID, reportsBatchRunID, reportsBatchRunPivotID, reportsRunRealtimeID}, descriptor.ID) {
 			sensitivity = dataSensitivityReports
 		}
 		if effectOf(descriptor.ID) == config.EffectRead && descriptor.Risk != (capability.Risk{

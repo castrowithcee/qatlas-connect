@@ -1,6 +1,6 @@
 ---
 description: >
-  Describes the Google Analytics provider: the fixed Admin and Data API origins, the token credential, the optional account and property targets and what each tool does with them, the read and write profiles, paging, bounds on provider content, rate spacing, quotas, the connection test, and the limits of what is verified; the account, property, and report tools have their own pages.
+  Describes the Google Analytics provider: the fixed Admin and Data API origins, the token credential, the optional account and property targets and what each tool does with them, the read and write profiles, paging, bounds on provider content, rate spacing, quotas, the connection test, and the limits of what is verified; the account, property, report, and audience export tools have their own pages.
 type: knowledge
 edit: shared
 created: 2026-11-16
@@ -11,13 +11,18 @@ updated: 2026-11-17
 
 Google Analytics is a provider for Google Analytics 4 on the Analytics Admin API and the Analytics Data API. It
 lists the accounts and properties a credential can see, with their configuration, reads one account or
-property, renames an account, moves an account to the trash, and creates, changes, and trashes properties. It
-also runs reports, pivot reports, batches of up to five of them and realtime reports, and reads the metadata of the dimensions and metrics a property accepts. The reading tools
-change nothing. The account and property tools read no report data and use no reporting quota; the report tools
-do, see [reports](reports.md#quota). Every tool that changes something needs confirmation.
+property, renames an account, moves an account to the trash, creates, changes, and trashes properties, and
+reads, creates, and changes the data streams of a property. It also runs reports, pivot reports, batches of up
+to five of them, realtime reports, and an alpha funnel report, reads the metadata of the dimensions and metrics a
+property accepts, and creates and reads audience exports. The reading tools change nothing. The account,
+property, and data stream tools read no report data and use no reporting quota; the report tools do, see
+[reports](reports.md#quota), and so does starting an audience export, see
+[audience exports](audience-exports.md#quota). Every tool that changes something needs confirmation.
 
 [Set up Google Analytics](setup.md) leads through the credential. The tools are described in
-[accounts](accounts.md), [properties](properties.md), and [reports](reports.md).
+[accounts](accounts.md), [properties](properties.md), [data streams](data-streams.md), [reports](reports.md),
+and [audience exports](audience-exports.md). The funnel report uses the alpha version of the Data API, which
+Google can change without notice; its description says so. The audience exports use the beta version.
 
 ## Configuration
 
@@ -57,8 +62,12 @@ not name the resource.
 | `properties.get` | Reads a bound property, or a property of a bound account after one proof read of its parent |
 | `properties.create` | Creates a property only in a bound account; a connection bound to properties only is refused |
 | `properties.update`, `properties.delete` | Change or trash a bound property, or a property of a bound account after one proof read of its parent |
+| `data-streams.list`, `data-streams.get`, `data-streams.create`, `data-streams.update` | Use the streams of a bound property, or of a property of a bound account after one proof read of its parent; see [data streams](data-streams.md#targets-and-proof) |
 | `reports.run`, `reports.run-pivot`, `reports.batch-run`, `reports.batch-run-pivot`, `reports.run-realtime`, `reports.check-compatibility` | Use a bound property, or a property of a bound account after one proof read of its parent |
 | `reports.get-metadata` | Like `reports.run`; `properties/0` needs no target, see [reports](reports.md#property-and-targets) |
+| `reports.run-funnel` | Like `reports.run` |
+| `audience-exports.create`, `audience-exports.list` | Like `reports.run`, on a bound property or a property of a bound account after one proof read |
+| `audience-exports.get` | The property in the export name follows the same rule; see [audience exports](audience-exports.md#property-and-targets) |
 
 A property of another account is refused, also when it is named correctly.
 
@@ -67,12 +76,16 @@ A property of another account is refused, also when it is named correctly.
 The profile `read` is the recommended one and holds `google.analytics.accounts.list-summaries`,
 `google.analytics.accounts.list`, `google.analytics.accounts.get`,
 `google.analytics.accounts.get-data-sharing-settings`, `google.analytics.properties.list`, and
-`google.analytics.properties.get`, `google.analytics.reports.run`, `google.analytics.reports.get-metadata`, and
-`google.analytics.reports.check-compatibility`, `google.analytics.reports.run-pivot`,
-`google.analytics.reports.batch-run`, `google.analytics.reports.batch-run-pivot`, and
-`google.analytics.reports.run-realtime`. The profile `write` reads like `read` and changes accounts and properties,
-each change with its own confirmation: it adds `google.analytics.accounts.update`,
-`google.analytics.properties.create`, and `google.analytics.properties.update`. Deleting is in no profile: a
+`google.analytics.properties.get`, `google.analytics.reports.run`, `google.analytics.reports.get-metadata`,
+`google.analytics.reports.check-compatibility`, `google.analytics.data-streams.list`,
+`google.analytics.data-streams.get`, `google.analytics.reports.run-funnel`,
+`google.analytics.audience-exports.get`, `google.analytics.audience-exports.list`,
+`google.analytics.reports.run-pivot`, `google.analytics.reports.batch-run`,
+`google.analytics.reports.batch-run-pivot`, and `google.analytics.reports.run-realtime`. The profile `write` reads
+like `read`, changes accounts, properties, and data streams, and starts audience exports, each change with its
+own confirmation: it adds `google.analytics.accounts.update`, `google.analytics.properties.create`,
+`google.analytics.properties.update`, `google.analytics.data-streams.create`,
+`google.analytics.data-streams.update`, and `google.analytics.audience-exports.create`. Deleting is in no profile: a
 connection offers `google.analytics.accounts.delete` and `google.analytics.properties.delete` only when its
 `tools` list names them, and each needs the confirmation of a person. `accounts.delete` also runs only on a
 connection that binds exactly that account and no property. Which scope each tool needs is listed in
@@ -80,7 +93,9 @@ connection that binds exactly that account and no property. Which scope each too
 
 ## Paging
 
-A list returns `next_cursor` and `has_more` when Google reports a further page; reports continue by row offset, see [reports](reports.md#rows-and-cursor); pivot, batch, and realtime reports have no cursor. The cursor wraps Google's page
+A list returns `next_cursor` and `has_more` when Google reports a further page; reports continue by row offset,
+see [reports](reports.md#rows-and-cursor), funnel, pivot, batch, and realtime reports have no cursor, and
+`audience-exports.list` pages by cursor, see [audience exports](audience-exports.md#googleanalyticsaudience-exportslist). The cursor wraps Google's page
 token and fits only the tool, the connection, and the arguments that Google requires to stay the same, such as
 the `filter`; a changed or invented cursor is refused before any request. `page_size` may change between
 pages. Google may return fewer entries than asked for and a page can be empty while `has_more` is true.
@@ -90,9 +105,9 @@ pages. Google may return fewer entries than asked for and a page can be empty wh
 Everything Google returns is untrusted third-party content, including display names. Names are cut at 300
 characters and a cut text ends with `…`. Enumeration values and timestamps are kept exactly as Google sends
 them, and a value that is not printable ASCII or too long is left out. A resource name that is not
-`accounts/ID`, `properties/ID`, or `accountSummaries/ID` is left out. Lists are cut at 200 entries per page and
-2,000 properties per account summary. The bounds of report values and lists are in
-[reports](reports.md#untrusted-values). Qatlas never fetches an address from a result.
+`accounts/ID`, `properties/ID`, `accountSummaries/ID`, or `properties/ID/dataStreams/ID` is left out. Lists are
+cut at 200 entries per page and 2,000 properties per account summary. The bounds of report values and lists are
+in [reports](reports.md#untrusted-values). Qatlas never fetches an address from a result.
 
 ## Rate spacing and quotas
 

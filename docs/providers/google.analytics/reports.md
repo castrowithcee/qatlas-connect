@@ -1,6 +1,6 @@
 ---
 description: >
-  Describes the Google Analytics report tools: reports.run runs one report, reports.run-pivot a pivot report, reports.batch-run and reports.batch-run-pivot up to five of them in one call, reports.run-realtime a realtime report, reports.get-metadata lists the dimensions and metrics a property accepts, and reports.check-compatibility tells which fields fit a report, with the Data API quota model (reserve, parallel limit, batch counting, the separate realtime quota, return_property_quota), pivot, batch, and realtime limits, sampling and thresholding, rows and the cursor, the filter forms, how targets apply, untrusted report values, the methods left out, and the limits of what is verified.
+  Describes the Google Analytics report tools: reports.run runs one report, reports.run-pivot a pivot report, reports.batch-run and reports.batch-run-pivot up to five of them in one call, reports.run-realtime a realtime report, reports.run-funnel a funnel report on the alpha Data API, reports.get-metadata lists the dimensions and metrics a property accepts, and reports.check-compatibility tells which fields fit a report, with the Data API quota model (Core, Funnel, and Realtime; reserve, parallel limit, batch counting, return_property_quota), pivot, batch, and realtime limits, sampling and thresholding, rows and the cursor, the filter forms, how targets apply, untrusted report values, the methods left out, and the limits of what is verified.
 type: knowledge
 edit: shared
 created: 2026-11-17
@@ -10,7 +10,7 @@ updated: 2026-11-17
 # Google Analytics reports
 
 The report tools of the [Google Analytics provider](README.md). They read and change nothing, a repeat is
-safe although Google takes `runReport` and `checkCompatibility` as a POST, the profile `read` holds them, and
+safe although Google takes `runReport`, `runFunnelReport`, and `checkCompatibility` as a POST, the profile `read` holds them, and
 they need the scope `analytics.readonly`. They use the Analytics Data API at the fixed origin
 `https://analyticsdata.googleapis.com`, which has to be enabled in the Cloud project of the credential, see
 [setup](setup.md#enable-the-apis). Credential, targets, error classes, and the general bounds are described in
@@ -57,6 +57,11 @@ core quota; realtime reports have their own, see [below](#googleanalyticsreports
 Google lists `getMetadata` and `checkCompatibility` as Core methods, which charge the Core quotas, but names
 no token cost for them and returns no `propertyQuota` for them. They therefore follow the parallel limit and the
 reserve like a report, and they update no remainder.
+
+`runFunnelReport` is in the separate Funnel category, with its own tokens, its own concurrent requests, and the
+same figures as Core. Qatlas keeps the reserve and the parallel limit of funnel reports apart from those of
+Core requests: a low Funnel remainder does not stop a Core report, and the other way round. Starting an
+audience export is a Core request, see [audience exports](audience-exports.md#quota).
 
 ## google.analytics.reports.run
 
@@ -198,11 +203,57 @@ Uses `properties.checkCompatibility`. It takes the `dimensions`, `metrics`, `dim
 `COMPATIBLE` or `INCOMPATIBLE`. It returns every dimension and metric of the property with its metadata and
 whether it can be added to the report. It runs no report.
 
+## google.analytics.reports.run-funnel
+
+**Alpha.** Uses `properties.runFunnelReport` of the Data API `v1alpha` at the path `/v1alpha/properties/ID:runFunnelReport`.
+Google can change or remove this method without notice, and so can the arguments and answer of this tool, which
+says so in its description. Required: `funnel`. It needs the scope `analytics.readonly` and reads only.
+
+A funnel is a sequence of steps that users pass through. Closed by default, users must enter at the first step;
+`is_open_funnel` lets them enter at any step. The arguments, with all their members, are listed by
+`qconnect describe`:
+
+- **`funnel`**: `steps`, 1 to 10, each with `name`, `filter_expression`, `is_directly_followed_by`, and
+  `within_duration_from_prior_step` (seconds, such as `300s`). A `filter_expression` sets exactly one of
+  `funnel_field_filter` (a field name and one value filter), `funnel_event_filter` (an `event_name` and an
+  optional parameter expression of `funnel_parameter_filter`, which names an event or item parameter and one
+  value filter), `and_group`, `or_group`, or `not_expression`. A value filter is `string_filter`,
+  `in_list_filter`, `numeric_filter`, or `between_filter`. Expressions nest one level of groups, and a
+  parameter expression likewise.
+- **`date_ranges`**: 1 to 4, as in `reports.run`.
+- **`funnel_breakdown`**: a dimension and `limit` (1 to 15) that break each step down by value.
+- **`funnel_next_action`**: a dimension (Google supports `eventName`) and `limit` (1 to 5).
+- **`funnel_visualization_type`**: `STANDARD_FUNNEL` or `TRENDED_FUNNEL`.
+- **`segments`**: up to 4, each with a `name` and exactly one of `session_segment`, `event_segment`, or
+  `user_segment`, with inclusion criteria, an exclusion, and for a user segment sequence groups. To keep the
+  argument small, an expression inside a segment is one `segment_filter` or one `segment_event_filter` with one
+  `segment_parameter_filter`; it has no `and_group`, `or_group`, or `not_expression`. Several conditions go in
+  several condition groups, which all must match.
+- **`dimension_filter`**: as in `reports.run`. Metrics cannot be used in it.
+- **`limit`** and **`return_property_quota`**: as in `reports.run`.
+
+Checks before any request: the schema of every argument, that each expression, filter, segment, and parameter
+filter sets exactly one alternative, that a numeric value is an integer or a double, and the property and its
+targets as in [Property and targets](#property-and-targets). A funnel without steps is refused. Whether a field
+or event name is valid is Google's to decide.
+
+The answer has two sub reports, `funnelTable` (step, segment, breakdown, active users, completion rate,
+abandonments, abandonment rate) and `funnelVisualization` (step, segment, date, next action, active users), each
+with `dimensionHeaders`, `metricHeaders`, `rows`, and `metadata.samplingMetadatas`, and further `propertyQuota`
+and `kind`. The method has no `offset`, so there is no cursor: a sub report holds at most 10000 rows and the two
+share 8 MiB of values, and `truncated` names every list that was cut, such as `funnelTable.rows`. Values are
+untrusted as described under [Untrusted values](#untrusted-values).
+
+The quota is the Funnel category, see [Quota](#quota). A report spends Funnel tokens, Qatlas asks Google for the
+quota state, remembers the Funnel remainders, and refuses with `rate-limited` before sending when a Funnel
+bucket is below the reserve or 10 funnel reports of the property already run.
+
 ## Left out on purpose
 
 `OrderBy.pivot` and `cohortReportSettings.accumulate` are not arguments of `reports.run`: Google documents them
-for pivot reports or as not supported in `runReport`; they are arguments of `reports.run-pivot`. Funnel and
-audience export methods have no tool in this group.
+for pivot reports or as not supported in `runReport`; they are arguments of `reports.run-pivot`. The other
+methods of the alpha Data API (report tasks, chat, quota snapshot) have no tool in this group; audience exports
+have [their own page](audience-exports.md).
 
 ## Not verified
 
@@ -218,4 +269,7 @@ audience export methods have no tool in this group.
   established.
 - The memory of the remainder lives in the process: another process, or another user of the same project, can
   use the quota unseen.
-- The field lists were read from the Discovery document `analyticsdata` v1beta, revision 20261114.
+- The field lists were read from the Discovery documents `analyticsdata` v1beta and, for the funnel, v1alpha,
+  both revision 20261114. An alpha method can change after that.
+- Which dimensions and metrics a funnel accepts, and the token cost of a funnel report, are Google's to decide
+  and are not checked by Qatlas.

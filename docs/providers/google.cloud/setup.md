@@ -12,8 +12,10 @@ updated: 2026-11-16
 This page shows how to connect Qatlas to Google Cloud. A Qatlas connection searches organizations, folders,
 and projects, reads projects and the state of long-running operations from Cloud Resource Manager, reads IAM
 roles and the roles and permissions of a resource from IAM, and changes nothing unless it offers the profile
-`service-accounts`, which creates, changes, disables, and enables service accounts, or the profile
-`iam-bindings`, which changes single IAM bindings, each with the confirmation of a person. Tools, targets, errors, and limits are described in the [Google Cloud provider](README.md).
+`service-accounts`, which creates, changes, disables, and enables service accounts, the profile
+`service-accounts-revoke`, which disables, enables, and deletes their keys, a `tools` list that names
+`service-accounts.delete`, which deletes a service account, or the profile `iam-bindings`, which changes single
+IAM bindings, each with the confirmation of a person. Tools, targets, errors, and limits are described in the [Google Cloud provider](README.md).
 
 ## What you need
 
@@ -29,8 +31,9 @@ roles and the roles and permissions of a resource from IAM, and changes nothing 
 
 The token needs the rights of its person or service account in Google Cloud. With the recommended profile
 `read` Qatlas asks only for the scope `cloud-platform.read-only`. The profile `read-iam` adds the IAM tools and
-with them the broad scope `cloud-platform`, because Google lists no narrower scope for them. Only the tools of the profiles `service-accounts`
-and `iam-bindings` change anything, so without them even a broad role cannot change anything through Qatlas. Grant
+with them the broad scope `cloud-platform`, because Google lists no narrower scope for them. Only the tools of the profiles `service-accounts`,
+`service-accounts-revoke`, and `iam-bindings` and the listed-only `service-accounts.delete` change anything, so
+without them even a broad role cannot change anything through Qatlas. Grant
 the account a viewer role at the highest level you want it to see, for example the Organization Viewer, Folder
 Viewer, or Project Viewer role, or any role with these permissions:
 
@@ -50,6 +53,8 @@ Viewer, or Project Viewer role, or any role with these permissions:
 | `iam-bindings.add-member`, `iam-bindings.remove-member`, `iam-bindings.change-role` | `getIamPolicy` and `setIamPolicy` of the resource, for example `resourcemanager.projects.getIamPolicy` and `resourcemanager.projects.setIamPolicy` (the Project IAM Admin role has both); granting a new service account of the project also needs `resourcemanager.projects.get` and `iam.serviceAccounts.get` |
 | `service-accounts.list`, `service-accounts.get`, `service-account-keys.list`, `service-account-keys.get` | `iam.serviceAccounts.list`, `iam.serviceAccounts.get`, `iam.serviceAccountKeys.list`, or `iam.serviceAccountKeys.get` on the project; where the targets do not decide, the project is read first (`resourcemanager.projects.get`) |
 | `service-accounts.create`, `service-accounts.patch`, `service-accounts.disable`, `service-accounts.enable` | `iam.serviceAccounts.create`, `iam.serviceAccounts.update`, `iam.serviceAccounts.disable`, or `iam.serviceAccounts.enable` on the project (the Service Account Admin role has them) |
+| `service-account-keys.disable`, `service-account-keys.enable`, `service-account-keys.delete` | `iam.serviceAccountKeys.disable`, `iam.serviceAccountKeys.enable`, or `iam.serviceAccountKeys.delete` on the project |
+| `service-accounts.delete` | `iam.serviceAccounts.delete` on the project |
 
 The IAM tools ask for the scope `cloud-platform`, because Google lists no smaller one for service accounts, folders'
 permission tests, and deny policies, and belong to the profile `read-iam`, which only reads. The rights of the account stay the limit. They also need the **IAM API** enabled in the Cloud project of the credential. Qatlas reads a project or folder

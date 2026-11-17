@@ -45,20 +45,21 @@ func arraySchema(items string, min, max int) string {
 	return fmt.Sprintf(`{"type":"array","minItems":%d,"maxItems":%d,"items":%s}`, min, max, items)
 }
 
+// valueFilters are the four value filters every filter of the Data API shares: string, in list, numeric and
+// between. Funnel and segment filters use them without the empty filter.
+var valueFilters = `"string_filter":` + objectSchema(`"value":{"type":"string","maxLength":1000},"match_type":`+
+	enumSchema("EXACT", "BEGINS_WITH", "ENDS_WITH", "CONTAINS", "FULL_REGEXP", "PARTIAL_REGEXP")+
+	`,"case_sensitive":{"type":"boolean"}`, "value") + `,` +
+	`"in_list_filter":` + objectSchema(`"values":`+arraySchema(`{"type":"string","maxLength":1000}`, 1, maxInListValues)+
+	`,"case_sensitive":{"type":"boolean"}`, "values") + `,` +
+	`"numeric_filter":` + objectSchema(`"operation":`+enumSchema("EQUAL", "LESS_THAN", "LESS_THAN_OR_EQUAL",
+	"GREATER_THAN", "GREATER_THAN_OR_EQUAL")+`,"value":`+numericValueSchema, "operation", "value") + `,` +
+	`"between_filter":` + objectSchema(`"from_value":`+numericValueSchema+`,"to_value":`+numericValueSchema,
+	"from_value", "to_value")
+
 // filterSchema is the Filter of analyticsdata v1beta: a field name and exactly one of five filters.
-var filterSchema = objectSchema(
-	`"field_name":`+fieldNameSchema+`,`+
-		`"string_filter":`+objectSchema(`"value":{"type":"string","maxLength":1000},"match_type":`+
-		enumSchema("EXACT", "BEGINS_WITH", "ENDS_WITH", "CONTAINS", "FULL_REGEXP", "PARTIAL_REGEXP")+
-		`,"case_sensitive":{"type":"boolean"}`, "value")+`,`+
-		`"in_list_filter":`+objectSchema(`"values":`+arraySchema(`{"type":"string","maxLength":1000}`, 1, maxInListValues)+
-		`,"case_sensitive":{"type":"boolean"}`, "values")+`,`+
-		`"numeric_filter":`+objectSchema(`"operation":`+enumSchema("EQUAL", "LESS_THAN", "LESS_THAN_OR_EQUAL",
-		"GREATER_THAN", "GREATER_THAN_OR_EQUAL")+`,"value":`+numericValueSchema, "operation", "value")+`,`+
-		`"between_filter":`+objectSchema(`"from_value":`+numericValueSchema+`,"to_value":`+numericValueSchema,
-		"from_value", "to_value")+`,`+
-		`"empty_filter":`+objectSchema(``),
-	"field_name")
+var filterSchema = objectSchema(`"field_name":`+fieldNameSchema+`,`+valueFilters+
+	`,"empty_filter":`+objectSchema(``), "field_name")
 
 // filterExpressionSchema is the FilterExpression to the given depth: a filter, and below the last level also
 // and_group, or_group and not_expression.
@@ -73,12 +74,13 @@ func filterExpressionSchema(depth int) string {
 }
 
 var (
-	dimensionsSchema = arraySchema(objectSchema(`"name":`+fieldNameSchema+`,"dimension_expression":`+
+	dimensionSchema = objectSchema(`"name":`+fieldNameSchema+`,"dimension_expression":`+
 		objectSchema(`"lower_case":`+objectSchema(`"dimension_name":`+fieldNameSchema, "dimension_name")+
 			`,"upper_case":`+objectSchema(`"dimension_name":`+fieldNameSchema, "dimension_name")+
 			`,"concatenate":`+objectSchema(`"dimension_names":`+arraySchema(fieldNameSchema, 1, 9)+
-			`,"delimiter":{"type":"string","maxLength":20}`, "dimension_names")), "name"), 1, 9)
-	metricsSchema = arraySchema(objectSchema(`"name":`+fieldNameSchema+`,"expression":{"type":"string",`+
+			`,"delimiter":{"type":"string","maxLength":20}`, "dimension_names")), "name")
+	dimensionsSchema = arraySchema(dimensionSchema, 1, 9)
+	metricsSchema    = arraySchema(objectSchema(`"name":`+fieldNameSchema+`,"expression":{"type":"string",`+
 		`"minLength":1,"maxLength":1000},"invisible":{"type":"boolean"}`, "name"), 1, 10)
 )
 
@@ -190,6 +192,9 @@ func camelKey(key string) string {
 	return strings.Join(parts, "")
 }
 
+// int64Members are the members whose 64-bit integer value goes as a string, as the API documents it.
+var int64Members = map[string]bool{"int64Value": true, "inAnyNDayPeriod": true, "limit": true}
+
 // camelize renames every member of a checked argument value to its documented name. A 64-bit integer goes
 // as a string, as the API documents it. Values are never changed otherwise.
 func camelize(v any) any {
@@ -198,7 +203,7 @@ func camelize(v any) any {
 		out := make(map[string]any, len(x))
 		for key, value := range x {
 			name := camelKey(key)
-			if number, ok := value.(json.Number); ok && name == "int64Value" {
+			if number, ok := value.(json.Number); ok && int64Members[name] {
 				out[name] = number.String()
 				continue
 			}
