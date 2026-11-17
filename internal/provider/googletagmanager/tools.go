@@ -16,8 +16,8 @@ import (
 
 // The scopes of the tools. The discovery document names for each method the scopes that allow it: a read
 // takes readonly or edit.containers, and the smaller one is asked for; a change takes edit.containers.
-// Deleting a workspace takes delete.containers alone, and a quick preview and every tool that makes or changes
-// a container version take edit.containerversions alone.
+// Deleting a workspace or a container takes delete.containers alone, and a quick preview and every tool that
+// makes or changes a container version take edit.containerversions alone.
 // Renaming an account takes manage.accounts alone, and the user permission methods take manage.users alone.
 // Google also offers publish; a connection asks only for the scopes its tools need.
 const (
@@ -35,7 +35,7 @@ func toolScopes() map[string][]string {
 		if d.Risk.Effect != capability.EffectRead {
 			scopes[d.ID] = []string{editScope}
 		}
-		if d.ID == workspacesDeleteID {
+		if d.ID == workspacesDeleteID || d.ID == containersDeleteID {
 			scopes[d.ID] = []string{deleteScope}
 		}
 		if d.ID == workspacesQuickPreviewID || isVersionWriteTool(d.ID) {
@@ -143,7 +143,7 @@ func descriptors() []capability.Descriptor {
 				append(zoneDescriptors(), append(gtagConfigDescriptors(), append(templateDescriptors(),
 					append(structureManageDescriptors(), append(destinationDescriptors(),
 						append(environmentDescriptors(), append(userPermissionDescriptors(),
-							append(versionDescriptors(), versionWriteDescriptors()...)...)...)...)...)...)...)...)...)...)...)...)...)...)...)...)...)
+							append(versionDescriptors(), append(containerDescriptors(), versionWriteDescriptors()...)...)...)...)...)...)...)...)...)...)...)...)...)...)...)...)...)...)
 }
 
 var accountsList = capability.Descriptor{

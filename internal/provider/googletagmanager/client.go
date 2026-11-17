@@ -141,6 +141,9 @@ type request struct {
 	query  url.Values
 	body   []byte
 	change bool
+	// missing answers HTTP 404 as not-found with nothing of Google's answer, for a lookup that must not tell
+	// a missing object from one outside the target.
+	missing bool
 	// limit replaces maxResponse for a read whose answer is bounded after it is decoded.
 	limit int64
 }
@@ -193,6 +196,9 @@ func (c *client) send(ctx context.Context, op, tool string, r request, out any) 
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK && (out != nil || resp.StatusCode != http.StatusNoContent) {
+		if r.missing && resp.StatusCode == http.StatusNotFound {
+			return notFound(op)
+		}
 		body := provider.ReadErrorBody(resp.Body)
 		if resp.StatusCode == http.StatusTooManyRequests {
 			// A missing or unusable Retry-After still holds the client; nothing repeats this request.

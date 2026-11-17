@@ -1,6 +1,6 @@
 ---
 description: >
-  Describes the Google Tag Manager provider: the token credential and its procedures, the fixed origin, the account and container targets, the profiles, the scope per tool group, the shared quota and request spacing, lists and cursors, the fingerprint convention, the shared content rules of tags, triggers, and variables, the built-in variables, the custom templates, the folders, the clients and transformations of server containers, the zones and their child containers, the Google tag configurations and their destination IDs, the account rename, container snippet and container merge, the destinations of a container, the environments of a container, the user permissions and their own profile, the result bounds, the connection test, error forms and their classes, and the limits of what is verified.
+  Describes the Google Tag Manager provider: the token credential and its procedures, the fixed origin, the account and container targets, the profiles, the scope per tool group, the shared quota and request spacing, lists and cursors, the fingerprint convention, the shared content rules of tags, triggers, and variables, the built-in variables, the custom templates, the container management, the folders, the clients and transformations of server containers, the zones and their child containers, the Google tag configurations and their destination IDs, the account rename, container snippet and container merge, the destinations of a container, the environments of a container, the user permissions and their own profile, the result bounds, the connection test, error forms and their classes, and the limits of what is verified.
 type: knowledge
 edit: shared
 created: 2026-11-16
@@ -12,7 +12,7 @@ updated: 2026-11-17
 Google Tag Manager is a provider for the Tag Manager API v2. Its credential issues access tokens instead of
 holding a static key. [Set up Google Tag Manager](setup.md) leads through the Google side and the consent. The
 tools are described per group in [accounts, containers, and workspaces](structure.md),
-[workspace management](workspaces.md), [tags](tags.md), [triggers](triggers.md), [variables](variables.md),
+[container management](containers.md), [workspace management](workspaces.md), [tags](tags.md), [triggers](triggers.md), [variables](variables.md),
 [built-in variables](built-in-variables.md), [templates](templates.md), [folders](folders.md),
 [clients](clients.md), [transformations](transformations.md), [zones](zones.md),
 [Google tag configurations](gtag-configs.md), [destinations](destinations.md), [environments](environments.md),
@@ -51,7 +51,8 @@ Three profiles are offered:
   workspaces and their change status, tags, triggers, variables, built-in variables, templates, folders, clients,
   transformations, zones, Google tag configurations, destinations, the environments of a container, container
   versions, and version headers.
-- `write` holds the tools of `read` and the tools that create and update workspaces, that synchronize a
+- `write` holds the tools of `read` and the tools that create and update containers, that create and update workspaces, that
+  synchronize a
   workspace, resolve its merge conflicts, and quick preview it, that create, update, and delete tags, triggers,
   variables, templates, clients, transformations, zones, and Google tag configurations, that enable and disable
   built-in variables, that create, update, delete, and fill folders, that create, update, and delete the
@@ -65,13 +66,14 @@ Three profiles are offered:
   account with their email addresses, changing the rights of an existing user, and removing a user. It is not
   recommended and is in neither of the other profiles. No tool adds a user.
 
-`workspaces.delete`, `versions.delete`, `tags.revert`, `triggers.revert`, `variables.revert`,
+`containers.delete`, `workspaces.delete`, `versions.delete`, `tags.revert`, `triggers.revert`, `variables.revert`,
 `templates.revert`, `folders.revert`, `clients.revert`, `transformations.revert`, `zones.revert`,
-`built-in-variables.revert`, and `containers.combine` are in no profile. Deleting a workspace loses its
-unpublished changes, a revert overwrites the workspace state of an object, a combine merges one container into
-another, and `versions.delete` deletes a whole container version, so a connection offers them only when its
-`tools` list names them. `accounts.update` needs a consent that holds
-`tagmanager.manage.accounts` and is not available on a connection bound to a container.
+`built-in-variables.revert`, and `containers.combine` are in no profile. Deleting a container removes it
+with everything in it, deleting a workspace loses its unpublished changes, a revert overwrites the workspace
+state of an object, a combine merges one container into another, and `versions.delete` deletes a whole
+container version, so a connection offers them only when its `tools` list names them. `accounts.update`
+needs a consent that holds `tagmanager.manage.accounts` and is not available on a connection bound to a
+container.
 Every tool that changes something needs its own confirmation, which shows the name, the type or types, and the
 workspace or object path. The confirmation of a Google tag configuration shows the type, the path, and only
 its destination IDs, see [Google tag configurations](gtag-configs.md).
@@ -100,11 +102,11 @@ of the tools it offers; offering a tool with another scope needs a new consent.
 | Tools | Scope |
 | --- | --- |
 | every tool that reads | `https://www.googleapis.com/auth/tagmanager.readonly` |
-| every tool that creates, updates, deletes, or reverts a tag, a trigger, a variable, a template, a client, a transformation, a zone, a folder, a Google tag configuration, a custom environment, or a built-in variable, every tool that moves entries into a folder, and `workspaces.create`, `workspaces.update`, `workspaces.sync`, and `workspaces.resolve-conflict` | `https://www.googleapis.com/auth/tagmanager.edit.containers` |
+| every tool that creates, updates, deletes, or reverts a tag, a trigger, a variable, a template, a client, a transformation, a zone, a folder, a Google tag configuration, a custom environment, or a built-in variable, every tool that moves entries into a folder, and `containers.create`, `containers.update`, `workspaces.create`, `workspaces.update`, `workspaces.sync`, and `workspaces.resolve-conflict` | `https://www.googleapis.com/auth/tagmanager.edit.containers` |
 | `containers.combine` | `https://www.googleapis.com/auth/tagmanager.edit.containers` |
 | `accounts.update` | `https://www.googleapis.com/auth/tagmanager.manage.accounts` |
 | `workspaces.quick-preview`, `versions.create`, `versions.update`, `versions.set-latest`, `versions.delete`, and `versions.undelete` | `https://www.googleapis.com/auth/tagmanager.edit.containerversions` |
-| `workspaces.delete` | `https://www.googleapis.com/auth/tagmanager.delete.containers` |
+| `containers.delete` and `workspaces.delete` | `https://www.googleapis.com/auth/tagmanager.delete.containers` |
 | every tool of [user permissions](user-permissions.md), the reading ones included | `https://www.googleapis.com/auth/tagmanager.manage.users` |
 
 A consent given for the `read` profile lacks the edit scope, so a changing tool answers `scope-missing`
