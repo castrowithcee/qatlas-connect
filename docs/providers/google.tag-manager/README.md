@@ -46,8 +46,8 @@ Two profiles are offered:
 
 - `read` (recommended) holds the tools that read: accounts, containers, workspaces and their change status,
   tags, triggers, variables, built-in variables, folders, clients, and transformations.
-- `write` holds the tools of `read` and the tools that create and update workspaces, that create, update, and
-  delete tags, triggers, variables, clients, and transformations, that enable and disable built-in variables,
+- `write` holds the tools of `read` and the tools that create and update workspaces, that synchronize a
+  workspace, resolve its merge conflicts, and quick preview it, that create, update, and delete tags, triggers, variables, clients, and transformations, that enable and disable built-in variables,
   and that create and update folders. A deleted tag, trigger, variable, client, or transformation and a disabled
   built-in variable stay in the workspace changes until a version is published and can be brought back with
   their `revert` tool.
@@ -82,12 +82,13 @@ of the tools it offers; offering a tool with another scope needs a new consent.
 | Tools | Scope |
 | --- | --- |
 | every tool that reads | `https://www.googleapis.com/auth/tagmanager.readonly` |
-| every tool that creates, updates, deletes, or reverts a tag, a trigger, a variable, a client, a transformation, or a built-in variable, every tool that creates or updates a folder, and `workspaces.create` and `workspaces.update` | `https://www.googleapis.com/auth/tagmanager.edit.containers` |
+| every tool that creates, updates, deletes, or reverts a tag, a trigger, a variable, a client, a transformation, or a built-in variable, every tool that creates or updates a folder, and `workspaces.create`, `workspaces.update`, `workspaces.sync`, and `workspaces.resolve-conflict` | `https://www.googleapis.com/auth/tagmanager.edit.containers` |
+| `workspaces.quick-preview` | `https://www.googleapis.com/auth/tagmanager.edit.containerversions` |
 | `workspaces.delete` | `https://www.googleapis.com/auth/tagmanager.delete.containers` |
 
 A consent given for the `read` profile lacks the edit scope, so a changing tool answers `scope-missing`
-before any request. Google also offers `tagmanager.edit.containerversions`, `tagmanager.publish`,
-`tagmanager.manage.accounts`, and `tagmanager.manage.users`; no tool uses them.
+before any request. Google also offers `tagmanager.publish`, `tagmanager.manage.accounts`, and
+`tagmanager.manage.users`; no tool uses them.
 
 ## Quota and spacing
 

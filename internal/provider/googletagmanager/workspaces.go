@@ -124,7 +124,8 @@ var workspacesStatus = capability.Descriptor{
 }
 
 func workspaceManageDescriptors() []capability.Descriptor {
-	return []capability.Descriptor{workspacesCreate, workspacesUpdate, workspacesDelete, workspacesStatus}
+	return []capability.Descriptor{workspacesCreate, workspacesUpdate, workspacesDelete, workspacesStatus,
+		workspacesSync, workspacesResolveConflict, workspacesQuickPreview}
 }
 
 // workspaceBody holds the members of a workspace a caller sets.

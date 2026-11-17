@@ -33,6 +33,8 @@ are described in the [Google Tag Manager provider](README.md); the tools in
 | [tags](tags.md), [triggers](triggers.md), [variables](variables.md), [built-in variables](built-in-variables.md), [clients](clients.md), and [transformations](transformations.md), reading | `tagmanager.readonly` | read access to the container |
 | [workspace management](workspaces.md), reading the status | `tagmanager.readonly` | read access to the container |
 | [workspace management](workspaces.md), creating and updating | `tagmanager.edit.containers` | edit access to the container |
+| [workspace management](workspaces.md), synchronizing and resolving merge conflicts | `tagmanager.edit.containers` | edit access to the container |
+| [workspace management](workspaces.md), quick preview | `tagmanager.edit.containerversions` | edit access to the container |
 | [workspace management](workspaces.md), deleting | `tagmanager.delete.containers` | edit access to the container |
 | [tags](tags.md), [triggers](triggers.md), [variables](variables.md), [built-in variables](built-in-variables.md), [clients](clients.md), and [transformations](transformations.md), changing | `tagmanager.edit.containers` | edit access to the container |
 
