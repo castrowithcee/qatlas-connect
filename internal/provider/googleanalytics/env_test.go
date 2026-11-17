@@ -40,7 +40,7 @@ const (
 
 // recorded is one request to the Admin API.
 type recorded struct {
-	method, path, rawQuery, url, auth, accept, contentType, body string
+	method, host, path, rawQuery, url, auth, accept, contentType, body string
 }
 
 // fakeGoogle is the transport of every test. api answers the n-th Admin API request, counting from 1;
@@ -79,13 +79,13 @@ func (f *fakeGoogle) RoundTrip(r *http.Request) (*http.Response, error) {
 		f.mu.Unlock()
 		return respond(r, http.StatusOK, "application/json",
 			`{"accessToken":"`+impersonated+`","expireTime":"`+time.Now().Add(time.Hour).UTC().Format(time.RFC3339)+`"}`), nil
-	case "analyticsadmin.googleapis.com":
+	case "analyticsadmin.googleapis.com", "analyticsdata.googleapis.com":
 		var sent []byte
 		if r.Body != nil {
 			sent, _ = io.ReadAll(r.Body)
 		}
 		f.mu.Lock()
-		f.requests = append(f.requests, recorded{method: r.Method, path: r.URL.EscapedPath(), rawQuery: r.URL.RawQuery,
+		f.requests = append(f.requests, recorded{method: r.Method, host: r.URL.Host, path: r.URL.EscapedPath(), rawQuery: r.URL.RawQuery,
 			url: r.URL.String(), auth: r.Header.Get("Authorization"), accept: r.Header.Get("Accept"),
 			contentType: r.Header.Get("Content-Type"), body: string(sent)})
 		n := len(f.requests)

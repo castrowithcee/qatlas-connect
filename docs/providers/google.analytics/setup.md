@@ -1,6 +1,6 @@
 ---
 description: >
-  Guides a user through setting up the Google Analytics provider: the Cloud project and the enabled Admin API, the three ways to get a credential (consent of a person, a service account key, impersonation), the access the account needs in Analytics, the scope each tool needs, adding the credential and connection to Qatlas, the connection test, and fixing errors by symptom.
+  Guides a user through setting up the Google Analytics provider: the Cloud project and the enabled Admin and Data APIs, the three ways to get a credential (consent of a person, a service account key, impersonation), the access the account needs in Analytics, the scope each tool needs, adding the credential and connection to Qatlas, the connection test, and fixing errors by symptom.
 type: knowledge
 edit: shared
 created: 2026-11-16
@@ -11,23 +11,25 @@ updated: 2026-11-17
 
 This page shows how to connect Qatlas to Google Analytics 4. Targets, paging, and errors are described in the
 [Google Analytics provider](README.md); the tools are described in [accounts](accounts.md),
-[properties](properties.md), and [data streams](data-streams.md).
+[properties](properties.md), [data streams](data-streams.md), and [reports](reports.md).
 
 ## What you need
 
 - A Google Cloud project, which Google uses to count the requests. It does not need a billing account for the
   reading tools.
-- The **Google Analytics Admin API** enabled in that project.
+- The **Google Analytics Admin API** enabled in that project, and for the report tools also the **Google
+  Analytics Data API**.
 - A way to prove who you are to Google. You choose one of three, see [Credential](#credential).
 - Access to the Analytics account or property in Analytics itself. A credential only sees what the Google
   account or the service account behind it may see.
-- The service is always `https://analyticsadmin.googleapis.com`; there is nothing to change for it.
+- The service is always `https://analyticsadmin.googleapis.com`, and the report tools use
+  `https://analyticsdata.googleapis.com`; there is nothing to change for either.
 
-## Enable the API
+## Enable the APIs
 
 In the Google Cloud console, choose or create the project. Under APIs and services, open the library and enable
-**Google Analytics Admin API**. Google changes its pages from time to time; look for this name. The
-Analytics Data API is not needed for the tools of this provider.
+**Google Analytics Admin API**, and for the report tools **Google Analytics Data API**. Google changes its
+pages from time to time; look for these names.
 
 ## Credential
 
@@ -77,7 +79,7 @@ property, and on the property or its account to change or trash a property.
 ## Rights and scopes
 
 The reading tools need the scope `https://www.googleapis.com/auth/analytics.readonly`, the smallest scope that
-reads Analytics configuration. The tools that change an account or a property need
+reads Analytics configuration and report data. The tools that change an account or a property need
 `https://www.googleapis.com/auth/analytics.edit`. Qatlas asks for the scope of the tools of the connections that
 use the credential and no more. Each connection of a credential has to be for Google Analytics, so the
 credential never carries the scope of another product.
@@ -87,6 +89,7 @@ credential never carries the scope of another product.
 | [Accounts](accounts.md) | `accounts.list-summaries`, `accounts.list`, `accounts.get`, `accounts.get-data-sharing-settings` | `analytics.readonly` |
 | [Accounts](accounts.md) | `accounts.update`, `accounts.delete` | `analytics.edit` |
 | [Properties](properties.md) | `properties.list`, `properties.get` | `analytics.readonly` |
+| [Reports](reports.md) | `reports.run`, `reports.get-metadata`, `reports.check-compatibility` | `analytics.readonly` |
 | [Properties](properties.md#changing-properties) | `properties.create`, `properties.update`, `properties.delete` | `analytics.edit` |
 | [Data streams](data-streams.md) | `data-streams.list`, `data-streams.get` | `analytics.readonly` |
 | [Data streams](data-streams.md#changing-data-streams) | `data-streams.create`, `data-streams.update` | `analytics.edit` |
@@ -135,7 +138,7 @@ Leave `targets` out to reach everything the credential sees.
 
 In `qconnect tui`, open Connections, select the connection, and press `t`. `[ok]` means Google accepted the
 token, the Admin API is enabled in the project, and at least one account is visible. The test reads no report
-data and uses no quota for reports. It does not test the Analytics Data API.
+data and uses no quota for reports. It does not test the Analytics Data API, which the report tools need.
 
 ## Fixing errors
 
@@ -147,11 +150,12 @@ data and uses no quota for reports. It does not test the Analytics Data API.
 | `credential-unusable` | The credential holds both or neither of a client ID and a service account key. Keep exactly one way |
 | `auth` | Google rejected the token, also after a renewal. Check that the consent or key is still valid and belongs to the project you mean |
 | `permission` with a hint that the Admin API is not enabled | Enable **Google Analytics Admin API** in the Cloud project of the credential and wait a few minutes |
+| `permission` with a hint that the Data API is not enabled | Enable **Google Analytics Data API** in the same project |
 | `permission` otherwise | The Google account or service account has no access in Analytics. Add it under access management, see [Access in Analytics](#access-in-analytics) |
 | `not-found` in the connection test | The credential sees no account. Add it to an account in Analytics |
 | `not-found` for a property | The property does not exist, or the credential cannot see it; Google gives the same answer |
 | `impersonation-denied` | Your Google account may not create tokens for the service account. Grant *Service Account Token Creator* |
 | `service-account-unknown` | The service account named in the connection does not exist. Check its address |
-| `rate-limited` | The project or user used up its quota. Wait; Qatlas does not repeat the request |
+| `rate-limited` | The project or user used up its quota, or a report tool kept its reserve or parallel limit, see [reports](reports.md#quota). Wait; Qatlas does not repeat the request |
 | A refusal that the resource is not available to this connection | The account or property is outside the targets of the connection. Change the targets or use another connection |
 | A tool refuses without `filter` | `properties.list` needs a filter unless the connection binds exactly one account, see [properties](properties.md) |

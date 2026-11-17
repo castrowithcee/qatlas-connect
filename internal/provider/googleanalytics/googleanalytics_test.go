@@ -73,7 +73,7 @@ func TestRegisterPublishesMetadataScopesAndConsent(t *testing.T) {
 	}
 	if !reflect.DeepEqual(metadata.Token.Scopes, map[string][]string{summariesID: {scopeReadOnly},
 		accountsID: {scopeReadOnly}, propertiesListID: {scopeReadOnly}, propertiesGetID: {scopeReadOnly},
-		accountsGetID: {scopeReadOnly}, accountsSharingID: {scopeReadOnly}, accountsUpdateID: {scopeEdit},
+		reportsRunID: {scopeReadOnly}, metadataGetID: {scopeReadOnly}, compatibilityID: {scopeReadOnly}, accountsGetID: {scopeReadOnly}, accountsSharingID: {scopeReadOnly}, accountsUpdateID: {scopeEdit},
 		accountsDeleteID: {scopeEdit}, propertiesCreateID: {scopeEdit}, propertiesUpdateID: {scopeEdit},
 		propertiesDeleteID: {scopeEdit}, dataStreamsListID: {scopeReadOnly}, dataStreamsGetID: {scopeReadOnly},
 		dataStreamsCreateID: {scopeEdit}, dataStreamsUpdateID: {scopeEdit}}) {
@@ -93,11 +93,12 @@ func TestRegisterPublishesMetadataScopesAndConsent(t *testing.T) {
 		"google.analytics.data-streams.create", "google.analytics.data-streams.get",
 		"google.analytics.data-streams.list", "google.analytics.data-streams.update",
 		"google.analytics.properties.create", "google.analytics.properties.delete", "google.analytics.properties.get",
-		"google.analytics.properties.list", "google.analytics.properties.update"}) {
+		"google.analytics.properties.list", "google.analytics.properties.update", "google.analytics.reports.check-compatibility", "google.analytics.reports.get-metadata",
+		"google.analytics.reports.run"}) {
 		t.Errorf("tools = %v", ids)
 	}
 	reads := []string{summariesID, accountsID, accountsGetID, accountsSharingID, propertiesListID, propertiesGetID,
-		dataStreamsListID, dataStreamsGetID}
+		reportsRunID, metadataGetID, compatibilityID, dataStreamsListID, dataStreamsGetID}
 	if len(metadata.Profiles) != 2 || metadata.Profiles[0].ID != "read" || !metadata.Profiles[0].Recommended ||
 		!reflect.DeepEqual(metadata.Profiles[0].Tools, reads) || metadata.Profiles[1].ID != "write" ||
 		metadata.Profiles[1].Recommended ||
@@ -112,9 +113,13 @@ func TestRegisterPublishesMetadataScopesAndConsent(t *testing.T) {
 		t.Errorf("consent endpoints = %+v, %v", oauth, ok)
 	}
 	for _, descriptor := range reg.Provider(Provider) {
+		sensitivity := dataSensitivity
+		if descriptor.ID == reportsRunID || descriptor.ID == metadataGetID || descriptor.ID == compatibilityID {
+			sensitivity = dataSensitivityReports
+		}
 		if effectOf(descriptor.ID) == config.EffectRead && descriptor.Risk != (capability.Risk{
 			Effect: capability.EffectRead, Idempotency: capability.IdempotencySafe,
-			Confirmation: capability.ConfirmationNone, OpenWorld: true, DataSensitivity: dataSensitivity}) {
+			Confirmation: capability.ConfirmationNone, OpenWorld: true, DataSensitivity: sensitivity}) {
 			t.Errorf("%s risk = %+v", descriptor.ID, descriptor.Risk)
 		}
 		if !strings.Contains(descriptor.Description, "untrusted") {

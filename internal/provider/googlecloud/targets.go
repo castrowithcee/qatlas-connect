@@ -259,7 +259,9 @@ func targetReaches(tool string, targets []string) (bool, []string) {
 		return true, nil
 	}
 	switch tool {
-	case projectsGetID, projectsSearchID, servicesListID, servicesGetID, servicesBatchGetID, iamPoliciesGetID, iamPermissionsTestID, denyPoliciesListID, denyPoliciesGetID:
+	case projectsGetID, projectsSearchID, servicesListID, servicesGetID, servicesBatchGetID, iamPoliciesGetID,
+		iamPermissionsTestID, denyPoliciesListID, denyPoliciesGetID, serviceAccountsListID, serviceAccountsGetID,
+		serviceAccountKeysListID, serviceAccountKeysGetID, iamBindingsAddID, iamBindingsRemoveID, iamBindingsChangeID:
 		if !list.reachesResources() {
 			return false, []string{"organizations/ORGANIZATION", "folders/FOLDER", "projects/PROJECT"}
 		}

@@ -59,9 +59,10 @@ func Register(reg *capability.Registry) error {
 		if d.Risk.Effect == capability.EffectRead {
 			readIDs = append(readIDs, d.ID)
 		}
-		// Reverting overwrites the workspace state of an object or built-in variable, so it is in no profile: a connection offers it
-		// only when its tools list names it. Deleting one workspace object is not: it stays revertible until a
-		// version is published.
+		// Reverting overwrites the workspace state of an object, folder, or built-in variable, and deleting a
+		// workspace loses its unpublished changes, so both are in no profile: a connection offers them only when
+		// its tools list names them. Deleting one workspace object is not: it stays revertible until a version is
+		// published.
 		if !d.RequiresToolAllowList {
 			writeIDs = append(writeIDs, d.ID)
 		}
@@ -88,15 +89,21 @@ func Register(reg *capability.Registry) error {
 		},
 		Profiles: []config.ToolProfile{{
 			ID: "read", Title: "Read", Recommended: true,
-			Description: "reads accounts, containers, workspaces, tags, triggers, variables, and built-in variables; " +
-				"changes nothing",
+			Description: "reads accounts, containers, workspaces and their changes, tags, triggers, variables, " +
+				"built-in variables, folders, clients, transformations, zones, and Google tag configurations; changes " +
+				"nothing",
 			Tools: readIDs,
 		}, {
-			ID: "write", Title: "Read and change tags, triggers, variables, and built-in variables",
-			Description: "reads what the read profile reads, creates, updates, and deletes the tags, triggers, and " +
-				"variables of a workspace, and enables and disables its built-in variables; every change needs its own " +
-				"confirmation and stays in the workspace until a version is published, which no tool of this provider " +
-				"does. Reverting a tag, trigger, variable, or built-in variable stays unticked",
+			ID: "write", Title: "Read and change workspaces, tags, triggers, variables, built-in variables, folders, " +
+				"clients, transformations, zones, and Google tag configurations",
+			Description: "reads what the read profile reads, creates and updates workspaces, synchronizes a " +
+				"workspace with the latest container version, resolves its merge conflicts, quick previews it, " +
+				"creates, updates, and deletes the tags, triggers, and variables of a workspace, creates, updates, and " +
+				"deletes its folders, moves tags, triggers, and variables into a folder, creates, updates, and deletes " +
+				"its clients, transformations, zones, and Google tag configurations, and enables and disables its " +
+				"built-in variables; every change needs its own confirmation and stays in the workspace until a " +
+				"version is published, which no tool of this provider does. Deleting a workspace and reverting a tag, " +
+				"trigger, variable, built-in variable, folder, client, transformation, or zone stay unticked",
 			Tools: writeIDs,
 		}},
 	}, TestConnection); err != nil {
@@ -109,7 +116,11 @@ func Register(reg *capability.Registry) error {
 		accountsListID: handleAccountsList, accountsGetID: handleAccountsGet,
 		containersListID: handleContainersList, containersGetID: handleContainersGet,
 		workspacesListID: handleWorkspacesList, workspacesGetID: handleWorkspacesGet,
-		tagsListID: handleTagsList, tagsGetID: handleTagsGet, tagsCreateID: handleTagsCreate,
+		workspacesCreateID: handleWorkspacesCreate, workspacesUpdateID: handleWorkspacesUpdate,
+		workspacesDeleteID: handleWorkspacesDelete, workspacesStatusID: handleWorkspacesStatus,
+		workspacesSyncID: handleWorkspacesSync, workspacesResolveConflictID: handleWorkspacesResolveConflict,
+		workspacesQuickPreviewID: handleWorkspacesQuickPreview,
+		tagsListID:               handleTagsList, tagsGetID: handleTagsGet, tagsCreateID: handleTagsCreate,
 		tagsUpdateID: handleTagsUpdate, tagsDeleteID: handleTagsDelete, tagsRevertID: handleTagsRevert,
 		triggersListID: handleTriggersList, triggersGetID: handleTriggersGet, triggersCreateID: handleTriggersCreate,
 		triggersUpdateID: handleTriggersUpdate, triggersDeleteID: handleTriggersDelete,
@@ -119,8 +130,28 @@ func Register(reg *capability.Registry) error {
 		variablesDeleteID: handleVariablesDelete, variablesRevertID: handleVariablesRevert,
 		builtInVariablesListID: handleBuiltInVariablesList, builtInVariablesCreateID: handleBuiltInVariablesCreate,
 		builtInVariablesDeleteID: handleBuiltInVariablesDelete, builtInVariablesRevertID: handleBuiltInVariablesRevert,
+		foldersListID: handleFoldersList, foldersGetID: handleFoldersGet, foldersEntitiesID: handleFoldersEntities,
+		foldersCreateID: handleFoldersCreate, foldersUpdateID: handleFoldersUpdate,
+		foldersMoveID: handleFoldersMove, foldersDeleteID: handleFoldersDelete, foldersRevertID: handleFoldersRevert,
+
+		clientsListID: handleClientsList, clientsGetID: handleClientsGet, clientsCreateID: handleClientsCreate,
+		clientsUpdateID: handleClientsUpdate, clientsDeleteID: handleClientsDelete, clientsRevertID: handleClientsRevert,
+
+		transformationsListID: handleTransformationsList, transformationsGetID: handleTransformationsGet,
+		transformationsCreateID: handleTransformationsCreate, transformationsUpdateID: handleTransformationsUpdate,
+		transformationsDeleteID: handleTransformationsDelete, transformationsRevertID: handleTransformationsRevert,
+
+		zonesListID: handleZonesList, zonesGetID: handleZonesGet, zonesCreateID: handleZonesCreate,
+		zonesUpdateID: handleZonesUpdate, zonesDeleteID: handleZonesDelete, zonesRevertID: handleZonesRevert,
+
+		gtagConfigsListID: handleGtagConfigsList, gtagConfigsGetID: handleGtagConfigsGet,
+		gtagConfigsCreateID: handleGtagConfigsCreate, gtagConfigsUpdateID: handleGtagConfigsUpdate,
+		gtagConfigsDeleteID: handleGtagConfigsDelete,
 	}
 	summaries := map[string]capability.SummaryFunc{
+		workspacesCreateID: workspaceSummary("Create"), workspacesUpdateID: workspaceSummary("Replace"),
+		workspacesDeleteID: deleteWorkspaceSummary, workspacesSyncID: syncSummary,
+		workspacesResolveConflictID: resolveConflictSummary, workspacesQuickPreviewID: quickPreviewSummary,
 		tagsCreateID: tagSummary("Create"), tagsUpdateID: tagSummary("Replace"),
 		tagsDeleteID: tagSummary("Delete"), tagsRevertID: tagSummary("Revert"),
 		triggersCreateID: triggerSummary("Create"), triggersUpdateID: triggerSummary("Replace"),
@@ -129,6 +160,20 @@ func Register(reg *capability.Registry) error {
 		variablesDeleteID: variableSummary("Delete"), variablesRevertID: variableSummary("Revert"),
 		builtInVariablesCreateID: builtInSummary("Enable"), builtInVariablesDeleteID: builtInSummary("Disable"),
 		builtInVariablesRevertID: builtInSummary("Revert"),
+		foldersCreateID:          folderSummary("Create"), foldersUpdateID: folderSummary("Replace"),
+		foldersMoveID: moveSummary, foldersDeleteID: folderSummary("Delete"), foldersRevertID: folderSummary("Revert"),
+
+		clientsCreateID: clientSummary("Create"), clientsUpdateID: clientSummary("Replace"),
+		clientsDeleteID: clientSummary("Delete"), clientsRevertID: clientSummary("Revert"),
+
+		transformationsCreateID: transformationSummary("Create"), transformationsUpdateID: transformationSummary("Replace"),
+		transformationsDeleteID: transformationSummary("Delete"), transformationsRevertID: transformationSummary("Revert"),
+
+		zonesCreateID: zoneSummary("Create"), zonesUpdateID: zoneSummary("Replace"),
+		zonesDeleteID: zoneSummary("Delete"), zonesRevertID: zoneSummary("Revert"),
+
+		gtagConfigsCreateID: gtagConfigSummary("Create"), gtagConfigsUpdateID: gtagConfigSummary("Replace"),
+		gtagConfigsDeleteID: gtagConfigSummary("Delete"),
 	}
 	for _, d := range descriptors() {
 		if err := reg.Register(Provider, capability.Operation{Descriptor: d, Handler: handlers[d.ID],
