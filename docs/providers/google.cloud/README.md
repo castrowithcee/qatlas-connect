@@ -33,8 +33,9 @@ service account that the connection names with `service_account` (the consent of
 tokens for it). The connection holds no scope. Qatlas derives them from the tools it offers and asks for the
 smallest scope the discovery document of each method lists: `cloud-platform.read-only` for Resource Manager,
 and `cloud-platform` for the IAM tools, because their discovery documents list no narrower scope (Google
-offers no read-only variant for these methods, see [IAM](iam.md)). Only the tools of the profile
-`service-accounts` change anything, each with a confirmation, whatever the scope allows. The access token travels in the
+offers no read-only variant for these methods, see [IAM](iam.md)). Only the tools of the profiles
+`service-accounts` and `service-accounts-revoke` and the tool `service-accounts.delete`, which a `tools` list
+must name, change anything, each with a confirmation, whatever the scope allows. The access token travels in the
 `Authorization` header only, is never an argument or part of a result, and is masked in every output. A 401
 renews the token once, and nothing else repeats a request.
 
@@ -95,6 +96,12 @@ The profile `service-accounts` holds only the changing tools `google.cloud.servi
 `google.cloud.service-accounts.enable`. It asks for `cloud-platform`, needs the effects `create` and `update`,
 and is not recommended.
 
+The profile `service-accounts-revoke` holds only `google.cloud.service-account-keys.disable`,
+`google.cloud.service-account-keys.enable`, and `google.cloud.service-account-keys.delete`. It asks for
+`cloud-platform`, needs the effects `update` and `delete`, and is not recommended. It does not hold
+`google.cloud.service-accounts.delete`: that tool is listed-only and only a `tools` list that names it exactly
+releases it.
+
 ## Tools
 
 - [Services](services.md): the enabled and available APIs of a project from Service Usage.
@@ -152,9 +159,11 @@ operation `name`.
 ### Service accounts
 
 [Service accounts](service-accounts.md) covers `service-accounts.list`, `service-accounts.get`, and the changes
-`service-accounts.create`, `service-accounts.patch`, `service-accounts.disable`, and `service-accounts.enable`;
+`service-accounts.create`, `service-accounts.patch`, `service-accounts.disable`, and `service-accounts.enable`, and
+the listed-only `service-accounts.delete`;
 [service account keys](service-account-keys.md) covers `service-account-keys.list` and `service-account-keys.get`,
-which return metadata only and never key material.
+which return metadata only and never key material, and the revocations `service-account-keys.disable`,
+`service-account-keys.enable`, and `service-account-keys.delete`.
 
 ### IAM
 

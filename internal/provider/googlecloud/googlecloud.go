@@ -1,7 +1,8 @@
-// Package googlecloud implements access to Google Cloud, read-only apart from the profile service-accounts,
-// with one credential that issues access tokens: a person's consent, a service account key, or the
-// impersonation of a service account, all through the token core of internal/provider. A connection takes no
-// secret of its own and no scope: the scopes follow from the tools it offers (see scopes.go).
+// Package googlecloud implements access to Google Cloud, read-only apart from the profiles service-accounts
+// and service-accounts-revoke and the listed-only service-accounts.delete, with one credential that issues
+// access tokens: a person's consent, a service account key, or the impersonation of a service account, all
+// through the token core of internal/provider. A connection takes no secret of its own and no scope: the
+// scopes follow from the tools it offers (see scopes.go).
 //
 // The package starts with Cloud Resource Manager: the search of organizations, folders, and projects, one
 // project, and the state of a long-running operation. It then reads IAM: roles, and the roles and permissions
@@ -123,6 +124,13 @@ func Register(reg *capability.Registry) error {
 				"every change needs its own confirmation, and no tool creates a key, a token, or a signature",
 			Tools: []string{serviceAccountsCreate.ID, serviceAccountsPatch.ID, serviceAccountsDisable.ID,
 				serviceAccountsEnable.ID},
+		}, {
+			ID: "service-accounts-revoke", Title: "Service account revocation",
+			Description: "disables, enables, and deletes the keys of service accounts; deleting a service account itself " +
+				"is not part of this profile and needs a tools list that names it; the token holds the broad " +
+				"cloud-platform scope and may change what its account may, every change needs its own confirmation, " +
+				"and no tool creates a key, a token, or a signature",
+			Tools: []string{serviceAccountKeysDisable.ID, serviceAccountKeysEnable.ID, serviceAccountKeysDelete.ID},
 		}},
 	}, TestConnection); err != nil {
 		return err
@@ -164,5 +172,13 @@ func Register(reg *capability.Registry) error {
 		capability.Operation{Descriptor: serviceAccountsDisable, Handler: handleServiceAccountsDisable,
 			ConfirmationSummary: accountSummary(serviceAccountsDisableID)},
 		capability.Operation{Descriptor: serviceAccountsEnable, Handler: handleServiceAccountsEnable,
-			ConfirmationSummary: accountSummary(serviceAccountsEnableID)})
+			ConfirmationSummary: accountSummary(serviceAccountsEnableID)},
+		capability.Operation{Descriptor: serviceAccountKeysDisable, Handler: handleServiceAccountKeysDisable,
+			ConfirmationSummary: revokeSummary(serviceAccountKeysDisableID)},
+		capability.Operation{Descriptor: serviceAccountKeysEnable, Handler: handleServiceAccountKeysEnable,
+			ConfirmationSummary: revokeSummary(serviceAccountKeysEnableID)},
+		capability.Operation{Descriptor: serviceAccountKeysDelete, Handler: handleServiceAccountKeysDelete,
+			ConfirmationSummary: revokeSummary(serviceAccountKeysDeleteID)},
+		capability.Operation{Descriptor: serviceAccountsDelete, Handler: handleServiceAccountsDelete,
+			ConfirmationSummary: revokeSummary(serviceAccountsDeleteID)})
 }
