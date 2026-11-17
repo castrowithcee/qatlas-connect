@@ -1,6 +1,7 @@
 package googleanalytics
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"io"
@@ -17,8 +18,12 @@ import (
 	"github.com/castrowithcee/qatlas-kit/redact"
 )
 
-// adminRoot is the only origin of the Analytics Admin API. Every path is a constant of this package.
-const adminRoot = "https://analyticsadmin.googleapis.com"
+// adminRoot is the origin of the Analytics Admin API and dataRoot the one of the Analytics Data API. Both are
+// fixed and every path is a constant of this package.
+const (
+	adminRoot = "https://analyticsadmin.googleapis.com"
+	dataRoot  = "https://analyticsdata.googleapis.com"
+)
 
 // Bounds of one request. The timeout stays well below the 60 seconds an invoke may take, also when a request
 // is sent a second time after its access token was renewed.
@@ -51,6 +56,8 @@ type client struct {
 	http    *http.Client
 	limiter *ratelimit.Limiter
 	bind    binding
+	// identity names the credential and service account whose quota the requests use.
+	identity string
 }
 
 // open checks the connection and its targets, then resolves the token roles of its credential. Anything
@@ -73,15 +80,21 @@ func open(ctx context.Context, resolved *config.Resolved, secrets *secret.Resolv
 // newClient binds a token source to the rate limit its identity shares: the credential and, for an
 // impersonation, the service account whose quota the requests use.
 func newClient(resolved *config.Resolved, source *provider.TokenSource, bind binding) *client {
+	identity := resolved.Credential + "\x00" + resolved.ServiceAccount
 	return &client{source: source, http: provider.NoRedirectClient(timeout, transport),
-		limiter: limiters.For(resolved.Credential + "\x00" + resolved.ServiceAccount), bind: bind}
+		limiter: limiters.For(identity), bind: bind, identity: identity}
 }
 
-// apiCall is one GET request. tool names the tool whose scopes the access token must carry, path is a
-// constant of this package with checked resource names, and query holds the checked arguments.
+// apiCall is one request without a side effect. It is a GET on the Admin API; with data set it is a POST of
+// body on the Data API, whose methods read only; method names another method for a Data API call. tool
+// names the tool whose scopes the access token must carry, path is a constant of this package with checked
+// resource names, and query holds the checked arguments.
 type apiCall struct {
 	op, tool, path string
 	query          url.Values
+	data           bool
+	method         string
+	body           []byte
 	limit          int64
 	notFound       string
 }
@@ -90,7 +103,14 @@ type apiCall struct {
 // Authorization header. A 401 renews the token once and sends once more (provider.TokenSource.Read); a second
 // 401 is an auth failure. A 429 holds the next request of this credential and is never repeated.
 func (c *client) get(ctx context.Context, call apiCall, out any) error {
-	target := adminRoot + call.path
+	root, api, method := adminRoot, "Admin", http.MethodGet
+	if call.data {
+		root, api, method = dataRoot, "Data", http.MethodPost
+		if call.method != "" {
+			method = call.method
+		}
+	}
+	target := root + call.path
 	if len(call.query) > 0 {
 		target += "?" + call.query.Encode()
 	}
@@ -98,13 +118,20 @@ func (c *client) get(ctx context.Context, call apiCall, out any) error {
 		if err := c.limiter.Wait(ctx); err != nil {
 			return nil, provider.Waited(call.op, subject, err)
 		}
-		req, err := http.NewRequestWithContext(ctx, http.MethodGet, target, nil)
+		var body io.Reader
+		if call.body != nil {
+			body = bytes.NewReader(call.body)
+		}
+		req, err := http.NewRequestWithContext(ctx, method, target, body)
 		if err != nil {
 			return nil, failure(call.op, "the request could not be built")
 		}
 		req.Header.Set("Authorization", "Bearer "+access)
 		req.Header.Set("Accept", "application/json")
 		req.Header.Set("User-Agent", userAgent)
+		if call.body != nil {
+			req.Header.Set("Content-Type", "application/json")
+		}
 		return req, nil
 	}
 	response, err := c.source.Read(ctx, c.http, call.tool, build)
@@ -119,7 +146,7 @@ func (c *client) get(ctx context.Context, call apiCall, out any) error {
 			// and nothing repeats this one.
 			c.limiter.HoldFor(min(max(provider.RetryAfter(response.Header), time.Second), maxHold))
 		}
-		return googleError(call.op, response.StatusCode, raw, call.notFound)
+		return googleErrorFor(api, call.op, response.StatusCode, raw, call.notFound)
 	}
 	if mediaType, _, err := mime.ParseMediaType(response.Header.Get("Content-Type")); err != nil ||
 		mediaType != "application/json" {
@@ -164,16 +191,21 @@ const (
 )
 
 // googleError maps a failed answer to a provider error by its HTTP status. On top, a 403 with the
-// documented reason SERVICE_DISABLED (google.api.ErrorReason) says that the Analytics Admin API is not enabled
+// documented reason SERVICE_DISABLED (google.api.ErrorReason) says that the Analytics API is not enabled
 // in the Cloud project of the credential. Nothing else of the body decides: the message and details of the
 // Google error object are provider text and travel only as the Original.
 func googleError(op string, status int, body []byte, notFound string) *provider.Error {
+	return googleErrorFor("Admin", op, status, body, notFound)
+}
+
+// googleErrorFor is googleError for the named API, Admin or Data.
+func googleErrorFor(api, op string, status int, body []byte, notFound string) *provider.Error {
 	_, reason := googleapi.StatusOf(body)
 	var mapped *provider.Error
 	switch {
 	case status == http.StatusForbidden && reason == "SERVICE_DISABLED":
-		mapped = &provider.Error{Class: provider.ClassPermission, Op: op, Message: "the Google Analytics Admin API " +
-			"is not enabled in the Cloud project of the credential; a person enables it there"}
+		mapped = &provider.Error{Class: provider.ClassPermission, Op: op, Message: "the Google Analytics " + api +
+			" API is not enabled in the Cloud project of the credential; a person enables it there"}
 	default:
 		mapped = provider.ClassifyStatus(op, status, provider.StatusTexts{
 			Subject:    subject,
