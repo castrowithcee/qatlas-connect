@@ -1,6 +1,6 @@
 ---
 description: >
-  Describes the Google Tag Manager provider: the token credential and its procedures, the fixed origin, the account and container targets, the profiles, the scope per tool group, the shared quota and request spacing, lists and cursors, the fingerprint convention, the shared content rules of tags, triggers, and variables, the built-in variables, the custom templates, the folders, the clients and transformations of server containers, the zones and their child containers, the Google tag configurations and their destination IDs, the account rename, container snippet and container merge, the destinations of a container, the user permissions and their own profile, the result bounds, the connection test, error forms and their classes, and the limits of what is verified.
+  Describes the Google Tag Manager provider: the token credential and its procedures, the fixed origin, the account and container targets, the profiles, the scope per tool group, the shared quota and request spacing, lists and cursors, the fingerprint convention, the shared content rules of tags, triggers, and variables, the built-in variables, the custom templates, the folders, the clients and transformations of server containers, the zones and their child containers, the Google tag configurations and their destination IDs, the account rename, container snippet and container merge, the destinations of a container, the environments of a container, the user permissions and their own profile, the result bounds, the connection test, error forms and their classes, and the limits of what is verified.
 type: knowledge
 edit: shared
 created: 2026-11-16
@@ -15,7 +15,7 @@ tools are described per group in [accounts, containers, and workspaces](structur
 [workspace management](workspaces.md), [tags](tags.md), [triggers](triggers.md), [variables](variables.md),
 [built-in variables](built-in-variables.md), [templates](templates.md), [folders](folders.md),
 [clients](clients.md), [transformations](transformations.md), [zones](zones.md),
-[Google tag configurations](gtag-configs.md), [destinations](destinations.md), and
+[Google tag configurations](gtag-configs.md), [destinations](destinations.md), [environments](environments.md), and
 [user permissions](user-permissions.md); the descriptors list their arguments and result fields.
 
 ## Credential
@@ -48,15 +48,15 @@ Three profiles are offered:
 
 - `read` (recommended) holds the tools that read: accounts, containers, the embed snippet of a container,
   workspaces and their change status, tags, triggers, variables, built-in variables, templates, folders, clients,
-  transformations, zones, Google tag configurations, and destinations.
+  transformations, zones, Google tag configurations, destinations, and the environments of a container.
 - `write` holds the tools of `read` and the tools that create and update workspaces, that synchronize a
   workspace, resolve its merge conflicts, and quick preview it, that create, update, and delete tags, triggers,
   variables, templates, clients, transformations, zones, and Google tag configurations, that enable and disable
-  built-in variables, that create, update, delete, and fill folders, and `accounts.update`, which renames an
-  account. A deleted tag, trigger, variable,
-  template, folder, client, transformation, or zone and a disabled built-in variable stay in the workspace changes
-  until a version is published and can be brought back with their `revert` tool. A deleted Google tag
-  configuration has no `revert` tool.
+  built-in variables, that create, update, delete, and fill folders, that create, update, and delete the
+  custom environments of a container, and `accounts.update`, which renames an account. A deleted tag, trigger, variable, template, folder, client, transformation,
+  or zone and a disabled built-in variable stay in the workspace changes until a version is published and can be
+  brought back with their `revert` tool. A deleted Google tag configuration has no `revert` tool, and a deleted
+  environment cannot be brought back.
 - `user-permissions` holds the four tools of [user permissions](user-permissions.md): reading the users of an
   account with their email addresses, changing the rights of an existing user, and removing a user. It is not
   recommended and is in neither of the other profiles. No tool adds a user.
@@ -95,7 +95,7 @@ of the tools it offers; offering a tool with another scope needs a new consent.
 | Tools | Scope |
 | --- | --- |
 | every tool that reads | `https://www.googleapis.com/auth/tagmanager.readonly` |
-| every tool that creates, updates, deletes, or reverts a tag, a trigger, a variable, a template, a client, a transformation, a zone, a folder, a Google tag configuration, or a built-in variable, every tool that moves entries into a folder, and `workspaces.create`, `workspaces.update`, `workspaces.sync`, and `workspaces.resolve-conflict` | `https://www.googleapis.com/auth/tagmanager.edit.containers` |
+| every tool that creates, updates, deletes, or reverts a tag, a trigger, a variable, a template, a client, a transformation, a zone, a folder, a Google tag configuration, a custom environment, or a built-in variable, every tool that moves entries into a folder, and `workspaces.create`, `workspaces.update`, `workspaces.sync`, and `workspaces.resolve-conflict` | `https://www.googleapis.com/auth/tagmanager.edit.containers` |
 | `containers.combine` | `https://www.googleapis.com/auth/tagmanager.edit.containers` |
 | `accounts.update` | `https://www.googleapis.com/auth/tagmanager.manage.accounts` |
 | `workspaces.quick-preview` | `https://www.googleapis.com/auth/tagmanager.edit.containerversions` |
@@ -125,13 +125,14 @@ an empty list.
 
 ## Fingerprint
 
-Every result that carries a `fingerprint` returns it. Tools that change an existing account, tag, trigger, variable,
-template, client, transformation, zone, Google tag configuration, or folder follow one convention: they take the
-fingerprint last read as a required argument, so a change made in the meantime is not overwritten silently.
+Every result that carries a `fingerprint` returns it. Tools that change an existing account, tag, trigger,
+variable, template, client, transformation, zone, Google tag configuration, folder, or environment follow one
+convention: they take the fingerprint last read as a required argument, so a change made in the meantime is not
+overwritten silently.
 [Built-in variables](built-in-variables.md) have none, because Google's methods for them carry no fingerprint.
 The update and revert tools of tags, triggers, variables, templates, clients, transformations, zones, and
-folders, the update tools of Google tag configurations and of accounts refuse a call without it before any request. What
-Google answers to a stale fingerprint is not verified, so it is not given a class of its own: it is
+folders and the update tools of Google tag configurations, environments, and accounts refuse a call without it
+before any request. What Google answers to a stale fingerprint is not verified, so it is not given a class of its own: it is
 `invalid-provider-response` with Google's answer as the original.
 
 ## Tags, triggers, variables, and templates

@@ -96,22 +96,24 @@ func Register(reg *capability.Registry) error {
 			ID: "read", Title: "Read", Recommended: true,
 			Description: "reads accounts, containers, workspaces and their changes, tags, triggers, variables, " +
 				"built-in variables, templates, folders, clients, transformations, zones, Google tag " +
-				"configurations, destinations, and the embed snippet of a container; changes nothing",
+				"configurations, destinations, the embed snippet of a container, and the environments of a container; " +
+				"changes nothing",
 			Tools: readIDs,
 		}, {
 			ID: "write", Title: "Read and change workspaces, tags, triggers, variables, templates, built-in variables, " +
-				"folders, clients, transformations, zones, and Google tag configurations, and rename accounts",
+				"folders, clients, transformations, zones, Google tag configurations, and environments, and rename accounts",
 			Description: "reads what the read profile reads, creates and updates workspaces, synchronizes a " +
 				"workspace with the latest container version, resolves its merge conflicts, quick previews it, " +
 				"creates, updates, and deletes the tags, triggers, variables, and templates of a workspace, creates, " +
 				"updates, and deletes its folders, moves tags, triggers, and variables into a folder, creates, updates, " +
-				"and deletes its clients, transformations, zones, and Google tag configurations, and enables and " +
-				"disables its built-in variables; every change needs its own confirmation. Changes of workspace " +
-				"content stay in the workspace until a version is published, which no tool of this provider does. The one " +
-				"change outside a workspace is renaming an account (scope tagmanager.manage.accounts), which " +
-				"takes effect at once for everyone who sees the account and is not available on a connection " +
-				"bound to a container. Deleting a workspace, reverting a tag, trigger, variable, template, " +
-				"built-in variable, folder, client, transformation, or zone, and combining containers stay unticked",
+				"and deletes its clients, transformations, zones, and Google tag configurations, enables and disables " +
+				"its built-in variables, and creates, updates, and deletes the custom environments of a container; " +
+				"every change needs its own confirmation. Changes of workspace content stay in the workspace until a " +
+				"version is published, which no tool of this provider does. Changes to an environment and renaming an " +
+				"account take effect at once; renaming an account (scope tagmanager.manage.accounts) applies for everyone " +
+				"who sees the account and is not available on a connection bound to a container. Deleting a workspace, " +
+				"reverting a tag, trigger, variable, template, built-in variable, folder, client, transformation, or " +
+				"zone, and combining containers stay unticked",
 			Tools: writeIDs,
 		}, {
 			ID: userPermissionsProfile, Title: "User permissions",
@@ -169,6 +171,11 @@ func Register(reg *capability.Registry) error {
 		accountsUpdateID: handleAccountsUpdate, containersSnippetID: handleContainersSnippet,
 		containersCombineID: handleContainersCombine,
 		destinationsListID:  handleDestinationsList, destinationsGetID: handleDestinationsGet,
+
+		environmentsListID: handleEnvironmentsList, environmentsGetID: handleEnvironmentsGet,
+		environmentsCreateID: handleEnvironmentsCreate, environmentsUpdateID: handleEnvironmentsUpdate,
+		environmentsDeleteID: handleEnvironmentsDelete,
+
 		userPermissionsListID: handleUserPermissionsList, userPermissionsGetID: handleUserPermissionsGet,
 		userPermissionsUpdateID: handleUserPermissionsUpdate, userPermissionsDeleteID: handleUserPermissionsDelete,
 	}
@@ -202,6 +209,10 @@ func Register(reg *capability.Registry) error {
 		gtagConfigsDeleteID: gtagConfigSummary("Delete"),
 
 		accountsUpdateID: accountUpdateSummary, containersCombineID: combineSummary,
+
+		environmentsCreateID: environmentSummary("Create"), environmentsUpdateID: environmentSummary("Replace"),
+		environmentsDeleteID: environmentSummary("Delete"),
+
 		userPermissionsUpdateID: userPermissionUpdateSummary, userPermissionsDeleteID: userPermissionDeleteSummary,
 	}
 	for _, d := range descriptors() {
