@@ -14,7 +14,7 @@ This page shows how to connect Qatlas to Google Analytics 4. Targets, paging, an
 [properties](properties.md), [data streams](data-streams.md), [custom dimensions](custom-dimensions.md),
 [custom metrics](custom-metrics.md), [event create rules](event-create-rules.md),
 [calculated metrics](calculated-metrics.md),
-[annotations](annotations.md), [reports](reports.md),
+[annotations](annotations.md), [expanded data sets](expanded-data-sets.md), [reports](reports.md),
 [audience exports](audience-exports.md), [report tasks](report-tasks.md),
 [measurement protocol secrets](measurement-protocol-secrets.md), [access reports](access-reports.md),
 [data retention](data-retention.md), and [Google Signals](google-signals.md).
@@ -80,12 +80,12 @@ In Analytics, open Admin, then **Account access management** or **Property acces
 Google account or the service account address with at least the **Viewer** role. A property is visible with a
 role on the property or on its account. The Analytics roles are not changed by the scopes below. The tools that
 change something also need the **Editor** role: on the account to change or trash an account or to create a
-property, and on the property or its account to change or trash a property or to change its calculated metrics.
+property, and on the property or its account to change or trash a property or to change its calculated metrics or expanded data sets.
 
 ## Rights and scopes
 
 The reading tools need the scope `https://www.googleapis.com/auth/analytics.readonly`, the smallest scope that
-reads Analytics configuration and report data. The tools that change an account, a property, a data stream, an event create rule, or an annotation need
+reads Analytics configuration and report data. The tools that change an account, a property, a data stream, an event create rule, an annotation, or an expanded data set need
 `https://www.googleapis.com/auth/analytics.edit`. Qatlas asks for the scope of the tools of the connections that
 use the credential and no more. Each connection of a credential has to be for Google Analytics, so the
 credential never carries the scope of another product.
@@ -118,6 +118,8 @@ credential never carries the scope of another product.
 | [Calculated metrics](calculated-metrics.md#changing-calculated-metrics) | `calculated-metrics.create`, `calculated-metrics.update`, `calculated-metrics.delete` | `analytics.edit` |
 | [Annotations](annotations.md) | `annotations.list`, `annotations.get` | `analytics.readonly` |
 | [Annotations](annotations.md#changing-annotations) | `annotations.create`, `annotations.update`, `annotations.delete` | `analytics.edit` |
+| [Expanded data sets](expanded-data-sets.md) | `expanded-data-sets.list`, `expanded-data-sets.get` | `analytics.readonly` |
+| [Expanded data sets](expanded-data-sets.md#changing-expanded-data-sets) | `expanded-data-sets.create`, `expanded-data-sets.update`, `expanded-data-sets.delete` | `analytics.edit` |
 | [Data retention](data-retention.md) | `data-retention.get` | `analytics.readonly` |
 | [Data retention](data-retention.md#googleanalyticsdata-retentionupdate) | `data-retention.update` | `analytics.edit` |
 | [Google Signals](google-signals.md) | `google-signals.get` | `analytics.readonly` |
