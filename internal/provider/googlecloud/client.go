@@ -97,7 +97,7 @@ func withSource(resolved *config.Resolved, source *provider.TokenSource) *client
 // segments. The token travels in the Authorization header alone. A 401 renews the token once, and nothing
 // else repeats the request.
 func (c *client) get(ctx context.Context, op, tool string, svc service, path string, query url.Values, out any) error {
-	return c.send(ctx, op, tool, svc, http.MethodGet, path, query, nil, out)
+	return c.send(ctx, op, tool, svc, http.MethodGet, path, query, nil, out, false)
 }
 
 // post sends one POST request of a reading tool, for the Google methods that read through POST, such as
@@ -113,11 +113,22 @@ func (c *client) post(ctx context.Context, op, tool string, svc service, path st
 			return failure(op, "the request could not be built")
 		}
 	}
-	return c.send(ctx, op, tool, svc, http.MethodPost, path, query, payload, out)
+	return c.send(ctx, op, tool, svc, http.MethodPost, path, query, payload, out, false)
+}
+
+// unsureNote tells that a change whose request may have reached Google has an unknown outcome.
+const unsureNote = "; the outcome of the change is unknown, so read the resource before changing it again"
+
+// mutate sends the one POST of a changing tool with payload, a JSON value the tool built from checked
+// arguments and the state it read. It is never repeated: a 401 only drops the cached token. A failure after
+// which the request may have reached Google (a transport failure that may have arrived, a 5xx, an answer that
+// cannot be read) says that the outcome is unknown.
+func (c *client) mutate(ctx context.Context, op, tool string, svc service, path string, payload []byte, out any) error {
+	return c.send(ctx, op, tool, svc, http.MethodPost, path, nil, payload, out, true)
 }
 
 func (c *client) send(ctx context.Context, op, tool string, svc service, method, path string, query url.Values,
-	payload []byte, out any) error {
+	payload []byte, out any, mutation bool) error {
 	origin, ok := serviceOrigins[svc]
 	if !ok {
 		return failure(op, "the service is not one of this provider")
@@ -149,13 +160,27 @@ func (c *client) send(ctx context.Context, op, tool string, svc service, method,
 	if err := c.limiter.Wait(ctx); err != nil {
 		return provider.Waited(op, subject, err)
 	}
-	response, err := c.source.Read(ctx, c.http, tool, build)
+	unsure := func(failed *provider.Error) *provider.Error {
+		if mutation {
+			failed.Message += unsureNote
+		}
+		return failed
+	}
+	exchange := c.source.Read
+	if mutation {
+		exchange = c.source.Mutate
+	}
+	response, err := exchange(ctx, c.http, tool, build)
 	if err != nil {
 		var failed *provider.Error
 		if errors.As(err, &failed) {
 			return err
 		}
-		return provider.Transport(op, subject, err)
+		failed = provider.Transport(op, subject, err)
+		if failed.MayHaveArrived() {
+			return unsure(failed)
+		}
+		return failed
 	}
 	defer response.Body.Close()
 	if response.StatusCode < 200 || response.StatusCode > 299 {
@@ -165,15 +190,19 @@ func (c *client) send(ctx context.Context, op, tool string, svc service, method,
 			// and nothing repeats this one.
 			c.limiter.HoldFor(min(max(provider.RetryAfter(response.Header), time.Second), maxHold))
 		}
-		return googleError(op, response.StatusCode, body)
+		mapped := googleError(op, response.StatusCode, body)
+		if response.StatusCode >= 500 {
+			return unsure(mapped)
+		}
+		return mapped
 	}
 	if mediaType, _, err := mime.ParseMediaType(response.Header.Get("Content-Type")); err != nil ||
 		mediaType != "application/json" {
 		_, _ = io.Copy(io.Discard, io.LimitReader(response.Body, 1<<10))
-		return provider.InvalidResponse(op, subject+" returned an answer that is not JSON")
+		return unsure(provider.InvalidResponse(op, subject+" returned an answer that is not JSON"))
 	}
 	if failed := provider.ReadJSON(op, subject, response.Body, maxResponseBytes, out); failed != nil {
-		return failed
+		return unsure(failed)
 	}
 	return nil
 }
