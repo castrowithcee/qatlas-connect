@@ -58,6 +58,10 @@ var tokenMetadata = config.TokenMetadata{Scopes: map[string][]string{
 	serviceAccountKeysEnableID:  {scopeCloudPlatform},
 	serviceAccountKeysDeleteID:  {scopeCloudPlatform},
 	serviceAccountsDeleteID:     {scopeCloudPlatform},
+	// serviceusage v1 lists only cloud-platform for services enable, batchEnable, and disable.
+	servicesEnableID:      {scopeCloudPlatform},
+	servicesBatchEnableID: {scopeCloudPlatform},
+	servicesDisableID:     {scopeCloudPlatform},
 	// compute v1 lists compute.readonly as the smallest scope for the reads of instances and machine types.
 	instancesListID:           {scopeComputeReadOnly},
 	instancesAggregatedListID: {scopeComputeReadOnly},
