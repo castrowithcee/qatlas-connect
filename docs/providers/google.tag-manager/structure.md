@@ -29,4 +29,5 @@ gives must lie inside the target.
 ## Result bounds
 
 IDs and paths are cut at 100 characters, names at 300, notes and descriptions at 2000, and URLs at 2048; a cut
-text ends with `…`. Lists inside an object keep at most 100 entries.
+text ends with `…`. The name and description of a workspace are the exception: they are never cut, because
+[workspaces.update](workspaces.md) writes them back. Lists inside an object keep at most 100 entries.
