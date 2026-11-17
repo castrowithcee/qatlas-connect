@@ -96,7 +96,8 @@ func Register(reg *capability.Registry) error {
 			ID: "read", Title: "Read", Recommended: true,
 			Description: "reads accounts, containers, workspaces and their changes, tags, triggers, variables, " +
 				"built-in variables, templates, folders, clients, transformations, zones, Google tag " +
-				"configurations, destinations, the embed snippet of a container, and the environments of a container; " +
+				"configurations, destinations, the embed snippet of a container, the environments of a container, " +
+				"container versions, and their headers; " +
 				"changes nothing",
 			Tools: readIDs,
 		}, {
@@ -182,6 +183,9 @@ func Register(reg *capability.Registry) error {
 
 		userPermissionsListID: handleUserPermissionsList, userPermissionsGetID: handleUserPermissionsGet,
 		userPermissionsUpdateID: handleUserPermissionsUpdate, userPermissionsDeleteID: handleUserPermissionsDelete,
+
+		versionsGetID: handleVersionsGet, versionsLiveID: handleVersionsLive,
+		versionHeadersListID: handleVersionHeadersList, versionHeadersLatestID: handleVersionHeadersLatest,
 	}
 	summaries := map[string]capability.SummaryFunc{
 		containersCreateID: containerSummary("Create"), containersUpdateID: containerSummary("Replace"),

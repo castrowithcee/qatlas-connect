@@ -1,6 +1,7 @@
 package googlecloud
 
 import (
+	"encoding/json"
 	"net/http"
 	"strconv"
 
@@ -33,6 +34,9 @@ func badRequest(message string) error {
 // and the details of the body never reach the message; they go along as the Original.
 func googleError(op string, status int, body []byte) *provider.Error {
 	state, reason := googleapi.StatusOf(body)
+	if state == "" {
+		state = legacyStatus(body)
+	}
 	failed := func(class provider.Class, message string) *provider.Error {
 		return &provider.Error{Class: class, Op: op, Message: message,
 			Original: provider.ErrorOriginal(status, body, googleapi.Fields)}
@@ -51,12 +55,12 @@ func googleError(op string, status int, body []byte) *provider.Error {
 		switch {
 		case reason == "SERVICE_DISABLED":
 			return failed(provider.ClassPermission, subject+" refused the request because a Google API it needs "+
-				"(Cloud Resource Manager, IAM, or Service Usage) is not enabled in the Cloud project of the credential; a person enables it there")
+				"(Cloud Resource Manager, IAM, Service Usage, or Compute Engine) is not enabled in the Cloud project of the credential; a person enables it there")
 		case reason == "ACCESS_TOKEN_SCOPE_INSUFFICIENT":
 			return failed(provider.ClassScopeMissing, "the access token of the credential lacks a scope this tool needs")
 		case state == "PERMISSION_DENIED":
 			return failed(provider.ClassPermission, subject+" refused the credential for this resource; check the "+
-				"roles of the account on it and that the Cloud Resource Manager and IAM APIs are enabled")
+				"roles of the account on it and that the Google API of the tool is enabled in the Cloud project of the credential")
 		}
 		return invalid()
 	case http.StatusNotFound:
@@ -83,4 +87,30 @@ func googleError(op string, status int, body []byte) *provider.Error {
 	mapped := provider.ClassifyStatus(op, status, provider.StatusTexts{Subject: subject})
 	mapped.Original = provider.ErrorOriginal(status, body, googleapi.Fields)
 	return mapped
+}
+
+// legacyStatus reads the older Google error form that Compute Engine answers with, in which the status string
+// is missing and the error carries a list of errors with a reason. Only the three reasons of Google's
+// documented error response format that name the same condition as a status string are mapped: notFound,
+// forbidden, and authError. Anything else yields an empty status.
+func legacyStatus(body []byte) string {
+	var answer struct {
+		Error struct {
+			Errors []struct {
+				Reason string `json:"reason"`
+			} `json:"errors"`
+		} `json:"error"`
+	}
+	if json.Unmarshal(body, &answer) != nil || len(answer.Error.Errors) == 0 {
+		return ""
+	}
+	switch answer.Error.Errors[0].Reason {
+	case "notFound":
+		return "NOT_FOUND"
+	case "forbidden":
+		return "PERMISSION_DENIED"
+	case "authError":
+		return "UNAUTHENTICATED"
+	}
+	return ""
 }

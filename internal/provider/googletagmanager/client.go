@@ -144,6 +144,8 @@ type request struct {
 	// missing answers HTTP 404 as not-found with nothing of Google's answer, for a lookup that must not tell
 	// a missing object from one outside the target.
 	missing bool
+	// limit replaces maxResponse for a read whose answer is bounded after it is decoded.
+	limit int64
 }
 
 // get reads path below the API prefix once and decodes the JSON object answer into out.
@@ -213,7 +215,11 @@ func (c *client) send(ctx context.Context, op, tool string, r request, out any) 
 		_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 1<<10))
 		return unsure(provider.InvalidResponse(op, subject+" returned an answer that is not JSON"), r.change)
 	}
-	if failed := provider.ReadJSON(op, subject, resp.Body, maxResponse, out); failed != nil {
+	limit := int64(maxResponse)
+	if r.limit > 0 {
+		limit = r.limit
+	}
+	if failed := provider.ReadJSON(op, subject, resp.Body, limit, out); failed != nil {
 		return unsure(failed, r.change)
 	}
 	return nil
