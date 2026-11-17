@@ -51,7 +51,8 @@ func TestExcludedMethodsHaveNoTool(t *testing.T) {
 	if want := []string{accountsID, accountsGetID, accountsSharingID, accountsUpdateID, accountsDeleteID, summariesID,
 		propertiesCreateID, propertiesDeleteID, propertiesGetID, propertiesListID,
 		propertiesUpdateID, reportsRunID, metadataGetID, compatibilityID, dataStreamsListID, dataStreamsGetID,
-		dataStreamsCreateID, dataStreamsUpdateID, funnelRunID, audienceCreateID, audienceGetID,
+		dataStreamsCreateID, dataStreamsUpdateID, dataStreamsDeleteID, mpSecretsListID, mpSecretsGetID,
+		mpSecretsDeleteID, funnelRunID, audienceCreateID, audienceGetID,
 		audienceListID, reportsRunPivotID, reportsBatchRunID, reportsBatchRunPivotID,
 		reportsRunRealtimeID, audienceQueryID, reportTasksCreateID, reportTasksGetID, reportTasksListID,
 		reportTasksQueryID}; !slices.Equal(ids, sortedCopy(want)) {

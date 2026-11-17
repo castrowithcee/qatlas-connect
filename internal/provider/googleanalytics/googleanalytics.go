@@ -13,7 +13,9 @@
 // an export, which are personal data.
 //
 // Reading tools send one request, a changing tool exactly one and never again, whatever comes back.
-// Deleting an account runs only on a connection that binds exactly that account and no property.
+// Deleting an account runs only on a connection that binds exactly that account and no property. The value
+// of a measurement protocol secret is never returned: it is read from Google's answer only to register it with
+// the redactor.
 //
 // A connection may bind Analytics accounts (accounts/ID) and properties (properties/ID). Without a target it
 // reaches what the credential reaches. A bound account reaches its properties, a bound property only itself;
@@ -93,6 +95,11 @@ var scopes = map[string][]string{
 	dataStreamsGetID:    {scopeReadOnly},
 	dataStreamsCreateID: {scopeEdit},
 	dataStreamsUpdateID: {scopeEdit},
+	dataStreamsDeleteID: {scopeEdit},
+
+	mpSecretsListID:   {scopeReadOnly},
+	mpSecretsGetID:    {scopeReadOnly},
+	mpSecretsDeleteID: {scopeEdit},
 }
 
 func tokenMetadata() config.TokenMetadata { return config.TokenMetadata{Scopes: scopes} }
@@ -154,7 +161,7 @@ func isDefaultRoot(raw string) bool {
 var readTools = []string{summariesID, accountsID, accountsGetID, accountsSharingID, propertiesListID, propertiesGetID,
 	reportsRunID, metadataGetID, compatibilityID, dataStreamsListID, dataStreamsGetID, funnelRunID, audienceGetID,
 	audienceListID, reportsRunPivotID, reportsBatchRunID, reportsBatchRunPivotID, reportsRunRealtimeID,
-	reportTasksGetID, reportTasksListID, reportTasksQueryID, audienceQueryID}
+	reportTasksGetID, reportTasksListID, reportTasksQueryID, audienceQueryID, mpSecretsListID, mpSecretsGetID}
 
 // Register adds the provider metadata, its consent endpoints, its connection test and its tools.
 func Register(reg *capability.Registry) error {
@@ -193,10 +200,11 @@ func Register(reg *capability.Registry) error {
 		}, {
 			ID: "write", Title: "Read and change",
 			Description: "reads what the read profile reads and changes Analytics accounts and properties, starts audience exports " +
-				"and report tasks; every " +
-				"change needs its own confirmation, and deleting stays unlisted",
+				"and report tasks, and deletes data streams and measurement protocol secrets; every " +
+				"change needs its own confirmation, and deleting an account or a property stays unlisted",
 			Tools: append(slices.Clone(readTools), accountsUpdateID, propertiesCreateID, propertiesUpdateID,
-				dataStreamsCreateID, dataStreamsUpdateID, audienceCreateID, reportTasksCreateID),
+				dataStreamsCreateID, dataStreamsUpdateID, dataStreamsDeleteID, mpSecretsDeleteID, audienceCreateID,
+				reportTasksCreateID),
 		}},
 	}, TestConnection); err != nil {
 		return err
@@ -232,6 +240,10 @@ func Register(reg *capability.Registry) error {
 			ConfirmationSummary: streamWriteSummary(dataStreamsCreateID)},
 		{Descriptor: dataStreamsUpdate, Handler: handleDataStreamsUpdate,
 			ConfirmationSummary: streamWriteSummary(dataStreamsUpdateID)},
+		{Descriptor: dataStreamsDelete, Handler: handleDataStreamsDelete, ConfirmationSummary: streamDeleteSummary},
+		{Descriptor: mpSecretsList, Handler: handleSecretsList},
+		{Descriptor: mpSecretsGet, Handler: handleSecretsGet},
+		{Descriptor: mpSecretsDelete, Handler: handleSecretsDelete, ConfirmationSummary: secretDeleteSummary},
 		{Descriptor: funnelRun, Handler: handleFunnelRun},
 		{Descriptor: audienceGet, Handler: handleAudienceGet},
 		{Descriptor: audienceList, Handler: handleAudienceList},

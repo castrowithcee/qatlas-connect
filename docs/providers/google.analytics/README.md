@@ -23,7 +23,8 @@ tools do, see [reports](reports.md#quota), and so does starting an audience expo
 
 [Set up Google Analytics](setup.md) leads through the credential. The tools are described in
 [accounts](accounts.md), [properties](properties.md), [data streams](data-streams.md), [reports](reports.md),
-[audience exports](audience-exports.md), and [report tasks](report-tasks.md). The funnel report and the report
+[audience exports](audience-exports.md), [report tasks](report-tasks.md), and
+[measurement protocol secrets](measurement-protocol-secrets.md). The funnel report and the report
 tasks use the alpha version of the Data API, which Google can change without notice; their descriptions say so.
 The audience exports use the beta version.
 
@@ -65,7 +66,8 @@ not name the resource.
 | `properties.get` | Reads a bound property, or a property of a bound account after one proof read of its parent |
 | `properties.create` | Creates a property only in a bound account; a connection bound to properties only is refused |
 | `properties.update`, `properties.delete` | Change or trash a bound property, or a property of a bound account after one proof read of its parent |
-| `data-streams.list`, `data-streams.get`, `data-streams.create`, `data-streams.update` | Use the streams of a bound property, or of a property of a bound account after one proof read of its parent; see [data streams](data-streams.md#targets-and-proof) |
+| `data-streams.list`, `data-streams.get`, `data-streams.create`, `data-streams.update`, `data-streams.delete` | Use the streams of a bound property, or of a property of a bound account after one proof read of its parent; see [data streams](data-streams.md#targets-and-proof) |
+| `measurement-protocol-secrets.list`, `measurement-protocol-secrets.get`, `measurement-protocol-secrets.delete` | The property in the stream or secret name follows the same rule; see [measurement protocol secrets](measurement-protocol-secrets.md#targets-and-proof) |
 | `reports.run`, `reports.run-pivot`, `reports.batch-run`, `reports.batch-run-pivot`, `reports.run-realtime`, `reports.check-compatibility` | Use a bound property, or a property of a bound account after one proof read of its parent |
 | `reports.get-metadata` | Like `reports.run`; `properties/0` needs no target, see [reports](reports.md#property-and-targets) |
 | `reports.run-funnel` | Like `reports.run` |
@@ -89,15 +91,17 @@ The profile `read` is the recommended one and holds `google.analytics.accounts.l
 `google.analytics.reports.run-pivot`, `google.analytics.reports.batch-run`,
 `google.analytics.reports.batch-run-pivot`, `google.analytics.reports.run-realtime`,
 `google.analytics.report-tasks.get`, `google.analytics.report-tasks.list`,
-`google.analytics.report-tasks.query`, and `google.analytics.audience-exports.query`. The profile `write` reads
-like `read`, changes accounts, properties, and data streams, and starts audience exports and report tasks, each
-change with its own confirmation: it adds `google.analytics.accounts.update`, `google.analytics.properties.create`,
-`google.analytics.properties.update`, `google.analytics.data-streams.create`,
-`google.analytics.data-streams.update`, `google.analytics.audience-exports.create`,
-and `google.analytics.report-tasks.create`. The users of an export are personal data; see
-[audience exports](audience-exports.md#personal-data). Deleting is in no profile: a
-connection offers `google.analytics.accounts.delete` and `google.analytics.properties.delete` only when its
-`tools` list names them, and each needs the confirmation of a person. `accounts.delete` also runs only on a
+`google.analytics.report-tasks.query`, `google.analytics.audience-exports.query`,
+`google.analytics.measurement-protocol-secrets.list`, and `google.analytics.measurement-protocol-secrets.get`. The profile `write` reads
+like `read`, changes accounts, properties, and data streams, deletes data streams and measurement protocol secrets,
+and starts audience exports and report tasks, each change with its own confirmation: it adds
+`google.analytics.accounts.update`, `google.analytics.properties.create`, `google.analytics.properties.update`,
+`google.analytics.data-streams.create`, `google.analytics.data-streams.update`,
+`google.analytics.data-streams.delete`, `google.analytics.measurement-protocol-secrets.delete`,
+`google.analytics.audience-exports.create`, and `google.analytics.report-tasks.create`. The users of an export are
+personal data; see [audience exports](audience-exports.md#personal-data). Deleting an account or a property is in
+no profile: a connection offers `google.analytics.accounts.delete` and `google.analytics.properties.delete` only
+when its `tools` list names them, and each needs the confirmation of a person. `accounts.delete` also runs only on a
 connection that binds exactly that account and no property. Which scope each tool needs is listed in
 [setup](setup.md#rights-and-scopes).
 
