@@ -137,7 +137,8 @@ func descriptors() []capability.Descriptor {
 		append(variableDescriptors(), append(builtInVariableDescriptors(), append(folderDescriptors(),
 			append(clientDescriptors(), append(transformationDescriptors(),
 				append(zoneDescriptors(), append(gtagConfigDescriptors(), append(templateDescriptors(),
-					append(userPermissionDescriptors(), versionDescriptors()...)...)...)...)...)...)...)...)...)...)...)...)...)
+					append(environmentDescriptors(), append(userPermissionDescriptors(),
+						versionDescriptors()...)...)...)...)...)...)...)...)...)...)...)...)...)...)
 }
 
 var accountsList = capability.Descriptor{
