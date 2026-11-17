@@ -90,7 +90,7 @@ credential never carries the scope of another product.
 | [Accounts](accounts.md) | `accounts.list-summaries`, `accounts.list`, `accounts.get`, `accounts.get-data-sharing-settings` | `analytics.readonly` |
 | [Accounts](accounts.md) | `accounts.update`, `accounts.delete` | `analytics.edit` |
 | [Properties](properties.md) | `properties.list`, `properties.get` | `analytics.readonly` |
-| [Reports](reports.md) | `reports.run`, `reports.get-metadata`, `reports.check-compatibility`, `reports.run-funnel` | `analytics.readonly` |
+| [Reports](reports.md) | `reports.run`, `reports.get-metadata`, `reports.check-compatibility`, `reports.run-pivot`, `reports.batch-run`, `reports.batch-run-pivot`, `reports.run-realtime`, `reports.run-funnel` | `analytics.readonly` |
 | [Audience exports](audience-exports.md) | `audience-exports.create`, `audience-exports.get`, `audience-exports.list` | `analytics.readonly` |
 | [Properties](properties.md#changing-properties) | `properties.create`, `properties.update`, `properties.delete` | `analytics.edit` |
 | [Data streams](data-streams.md) | `data-streams.list`, `data-streams.get` | `analytics.readonly` |

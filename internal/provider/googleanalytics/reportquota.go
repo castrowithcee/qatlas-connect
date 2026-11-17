@@ -43,8 +43,12 @@ type quotaBook struct {
 	running map[string]int
 }
 
-// quotas is the memory of the process. It is replaced by tests.
+// quotas is the memory of the process for the core reports. It is replaced by tests.
 var quotas = &quotaBook{entries: map[string]quotaEntry{}, running: map[string]int{}}
+
+// realtimeQuotas is the memory of the realtime reports. Google keeps a quota of its own for them, which its
+// answer reports as the realtime quota, so what one kind of report leaves says nothing about the other.
+var realtimeQuotas = &quotaBook{entries: map[string]quotaEntry{}, running: map[string]int{}}
 
 // now is the clock of the quota memory.
 var now = time.Now
@@ -57,6 +61,12 @@ func rateLimited(op, message string) *provider.Error {
 // enter takes one of the concurrent slots of a property, or refuses before any I/O when all are taken or the
 // remembered quota is below the reserve. The returned function releases the slot.
 func (q *quotaBook) enter(op, property, identity string) (func(), error) {
+	return q.enterN(op, property, identity, 1)
+}
+
+// enterN takes n slots at once for a batch, which Google counts as n reports. The reserve grows with n for the
+// same reason. A batch that does not fit is refused as a whole, so no part of it is sent.
+func (q *quotaBook) enterN(op, property, identity string, n int) (func(), error) {
 	q.mu.Lock()
 	defer q.mu.Unlock()
 	if e, ok := q.entries[property+"\x00"+identity]; ok && now().Sub(e.at) < quotaMemory {
@@ -65,22 +75,23 @@ func (q *quotaBook) enter(op, property, identity string) (func(), error) {
 			left int64
 		}{{"tokens per hour", e.left.hour}, {"tokens per day", e.left.day},
 			{"tokens per project and hour", e.left.projectHour}} {
-			if b.left >= 0 && b.left < minTokensLeft {
+			if reserve := int64(minTokensLeft * n); b.left >= 0 && b.left < reserve {
 				return nil, rateLimited(op, fmt.Sprintf("the reporting quota of the property is nearly used up "+
 					"(%s left: %d, reserve %d); no report was sent, wait for the quota to refill",
-					b.name, b.left, int64(minTokensLeft)))
+					b.name, b.left, reserve))
 			}
 		}
 	}
-	if q.running[property] >= maxConcurrentReports {
-		return nil, rateLimited(op, fmt.Sprintf("%d reports of this property are already running, the most "+
-			"Google allows at once; no report was sent, try again when one has finished", maxConcurrentReports))
+	if q.running[property]+n > maxConcurrentReports {
+		return nil, rateLimited(op, fmt.Sprintf("%d reports of this property are already running and %d more "+
+			"would exceed the %d Google allows at once; no report was sent, try again when one has finished",
+			q.running[property], n, maxConcurrentReports))
 	}
-	q.running[property]++
+	q.running[property] += n
 	return func() {
 		q.mu.Lock()
 		defer q.mu.Unlock()
-		if q.running[property]--; q.running[property] <= 0 {
+		if q.running[property] -= n; q.running[property] <= 0 {
 			delete(q.running, property)
 		}
 	}, nil

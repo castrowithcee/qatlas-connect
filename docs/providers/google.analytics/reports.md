@@ -1,6 +1,6 @@
 ---
 description: >
-  Describes the Google Analytics report tools: reports.run runs one report, reports.get-metadata lists the dimensions and metrics a property accepts, and reports.check-compatibility tells which fields fit a report, reports.run-funnel runs a funnel report on the alpha Data API, with the Data API quota model (Core and Funnel) (reserve, parallel limit, return_property_quota), sampling and thresholding, rows and the cursor, the filter forms, how targets apply, untrusted report values, the methods left out, and the limits of what is verified.
+  Describes the Google Analytics report tools: reports.run runs one report, reports.run-pivot a pivot report, reports.batch-run and reports.batch-run-pivot up to five of them in one call, reports.run-realtime a realtime report, reports.run-funnel a funnel report on the alpha Data API, reports.get-metadata lists the dimensions and metrics a property accepts, and reports.check-compatibility tells which fields fit a report, with the Data API quota model (Core, Funnel, and Realtime; reserve, parallel limit, batch counting, return_property_quota), pivot, batch, and realtime limits, sampling and thresholding, rows and the cursor, the filter forms, how targets apply, untrusted report values, the methods left out, and the limits of what is verified.
 type: knowledge
 edit: shared
 created: 2026-11-17
@@ -31,7 +31,8 @@ and `reports.check-compatibility` refuse it.
 
 Every report costs tokens of the property quota, counted per day, per hour, and per Cloud project and hour.
 Google also limits the requests of a property that run at the same time. The quotas page of the Data API lists
-the figures, which depend on the service level of the property and may change.
+the figures, which depend on the service level of the property and may change. Pivot and batch reports use the
+core quota; realtime reports have their own, see [below](#googleanalyticsreportsrun-realtime).
 
 - **`return_property_quota`** is true unless the caller sets it to false. `propertyQuota` then shows the
   remaining and consumed amount of every bucket after the report. Switching it off is possible only
@@ -45,6 +46,11 @@ the figures, which depend on the service level of the property and may change.
 - **Parallel limit.** At most 10 requests of one property run at once in a process, the figure of a standard
   property. A property of Analytics 360 allows more, but the level is not known before the request, so 10
   applies to all. The eleventh request is refused with `rate-limited` and is not queued.
+- **Batches count per report.** Google counts every report of a batch against the token quota and the
+  concurrent requests. A batch of N reports therefore takes N of the 10 slots at once and is refused with
+  `rate-limited`, before anything is sent, when fewer than N are free. A batch is never split, so no part of it
+  runs. The reserve grows the same way: a batch of N reports needs N times 100 tokens left in every remembered
+  bucket. The remainder of each report of the batch is remembered in order, so the last one stays.
 - **`429`** is `rate-limited` like every other provider answer: the next request of the credential waits one
   second, or the seconds of `Retry-After` up to one minute, and nothing repeats the failed one.
 
@@ -98,6 +104,89 @@ Dimension values such as page titles, search terms, and referrers are third-part
 instructions. Qatlas cuts them at 300 characters, marking the cut with `…`, bounds every list, and never
 fetches an address from a result. Metric values and enumerations are kept as Google sends them if they are
 printable ASCII of at most 64 bytes.
+
+## google.analytics.reports.run-pivot
+
+Uses `properties.runPivotReport`. Required: `dimensions`, `metrics`, and `pivots`; `date_ranges` unless
+`cohort_spec` is set, which excludes it. The arguments are those of `reports.run` without `order_bys`, `offset`,
+`limit`, `cursor`, and `metric_aggregations`, which belong to the single pivot, plus `pivots` and, in
+`cohort_spec`, `cohort_report_settings.accumulate`. A pivot is `field_names`, `order_bys`, `offset`, `limit`,
+and `metric_aggregations`. An ordering of a pivot may also use `pivot {metric_name, pivot_selections}` to sort by
+a pivot column group.
+
+Checks before any request:
+
+- 1 to 10 pivots. Google does not document a maximum. Every pivot needs a field name, no dimension is in two
+  pivots, a request has at most 9 dimensions, and `dateRange` is the one extra field name, so no valid request
+  has more than 10 pivots.
+- `limit` of every pivot is required, 1 to 250000, and **the product of the limits of all pivots must not
+  exceed 250000** (Discovery `Pivot.limit`). Two pivots with a limit of 1000 each fail.
+- Every `field_names` entry is a dimension of the request or `dateRange`; a dimension of a pivot ordering is in
+  the `field_names` of that pivot; `pivot_selections` name dimensions of the request.
+- The rules of `reports.run` for filters, `date_ranges`, and `cohort_spec`.
+
+There is no cursor. A pivot report has an `offset` and a `limit` in each pivot, not one row window, so the
+caller continues by raising the `offset` of the pivot. `pivotHeaders[].rowCount` is the number of combinations
+of the pivot whatever offset and limit are. The answer holds `dimensionHeaders`, `metricHeaders`, `pivotHeaders`
+with their column combinations, `rows`, `aggregates` (rows whose dimension values are `RESERVED_` with the kind),
+`metadata`, `propertyQuota`, and `kind`. A report shows at most 10000 rows, 10000 cells per row, 1000 column
+headers per pivot, and 8 MiB of values; `truncated` names every list that was cut, and the first pivot continues
+with a larger `offset`. An answer above 64 MiB is refused as too large.
+
+## google.analytics.reports.batch-run
+
+Uses `properties.batchRunReports`. `requests` holds 1 to 5 reports, the maximum of Discovery
+(`BatchRunReportsRequest.requests`). Each report has the arguments of `reports.run` except `cursor` and
+`property`; `property` is the one of the call. Qatlas refuses a sixth report and every invalid report before
+anything is sent, and names the report by its index.
+
+- **Order and errors.** `reports` holds one entry per request in the order of the request. Google runs the
+  batch as one call: it does not report an error per report, so one invalid report fails the call with one
+  error and no report is returned. An answer with another number of reports than requested is refused, because
+  the reports could no longer be tied to their requests.
+- **Quota.** One slot and one reserve step per report, see [Quota](#quota). Every report asks for
+  `propertyQuota` unless it sets `return_property_quota` to false.
+- **No cursor.** Each report has its own `offset` and `limit`; a batch has no single window to continue.
+  A report with more rows says `has_more` and `next_offset`, and the caller sends a new call that sets that
+  `offset` for that report. Every report shows at most its `limit` (never above 10000) rows and an equal share
+  of 8 MiB of values.
+
+## google.analytics.reports.batch-run-pivot
+
+Uses `properties.batchRunPivotReports`. `requests` holds 1 to 5 reports, each with the arguments of
+`reports.run-pivot` except `property`, and has the same checks, in each report, as that tool. The answer
+`pivotReports` holds one entry per request in the order of the request, with the members of a
+`reports.run-pivot` result and an equal share of the output bound. Order, whole-call failure, quota counting,
+and the missing cursor are as for `reports.batch-run`.
+
+## google.analytics.reports.run-realtime
+
+Uses `properties.runRealtimeReport`. Required: `metrics`. It reports events of the last 30 minutes of a standard
+property, or 60 of an Analytics 360 property. The arguments are `dimensions`, `metrics`, `minute_ranges`,
+`dimension_filter`, `metric_filter`, `metric_aggregations`, `order_bys`, `limit`, and `return_property_quota`;
+there are no date ranges, comparisons, cohorts, currency, or `keep_empty_rows`.
+
+- **Names.** A realtime report takes other dimensions and metrics than `reports.run`, and
+  `reports.get-metadata` does not list them. Without an expression, a dimension is one of `appVersion`,
+  `audienceId`, `audienceName`, `audienceResourceName`, `city`, `cityId`, `country`, `countryId`,
+  `deviceCategory`, `eventName`, `minutesAgo`, `platform`, `streamId`, `streamName`, `unifiedScreenName`, or
+  `customUser:NAME` for a user-scoped custom dimension registered at the property. A metric is one of
+  `activeUsers`, `eventCount`, `keyEvents`, `screenPageViews`. Event-scoped custom fields do not exist for
+  realtime. Qatlas refuses any other name before anything is sent, also inside a metric expression or a
+  dimension expression. The list is the one of the realtime schema of the Data API; a name Google adds later is
+  refused until the list is extended. Filter and ordering fields are left to Google.
+- **Minute ranges.** At most 2 ranges (Discovery `MinuteRange`). `start_minutes_ago` and `end_minutes_ago` are
+  0 to 59, defaults 29 and 0, and the start is not below the end. Standard properties accept 29 at most, and
+  Google refuses more. A name does not begin with `date_range_` or `RESERVED_`. Without a range, Google reads
+  the last 30 minutes.
+- **Rows.** Google has no offset for realtime reports, so there is no cursor and no paging. `limit` is 1 to
+  250000, default 10000; Qatlas asks for and shows at most 10000 rows and 8 MiB, caps a larger `limit` with
+  `limit_capped`, and names a cut list in `truncated`. `rowCount` is the number of all rows of the query. The
+  answer has no `metadata`.
+- **Realtime quota.** Google keeps a quota of its own for realtime reports and returns it as `propertyQuota`.
+  Qatlas keeps its remainder and the slots of realtime reports apart from the core reports of the property: a
+  low core remainder does not stop a realtime report, nor the other way round. The reserve (100 tokens) and the
+  parallel limit (10) are the same as for the core reports. `return_property_quota` works as above.
 
 ## google.analytics.reports.get-metadata
 
@@ -161,9 +250,9 @@ bucket is below the reserve or 10 funnel reports of the property already run.
 
 ## Left out on purpose
 
-`OrderBy.pivot` and `cohortReportSettings.accumulate` are not arguments: Google documents them for pivot
-reports or as not supported in `runReport`. Batch, pivot, and realtime methods have no tool in this group. The
-other methods of the alpha Data API (report tasks, chat, quota snapshot) have no tool either; audience exports
+`OrderBy.pivot` and `cohortReportSettings.accumulate` are not arguments of `reports.run`: Google documents them
+for pivot reports or as not supported in `runReport`; they are arguments of `reports.run-pivot`. The other
+methods of the alpha Data API (report tasks, chat, quota snapshot) have no tool in this group; audience exports
 have [their own page](audience-exports.md).
 
 ## Not verified
@@ -172,6 +261,12 @@ have [their own page](audience-exports.md).
   proven by the sources used; the HTTP status decides, and the class follows the provider page.
 - The quota figures and the token cost per method are Google's and may change; the reserve and the parallel
   limit are fixed values of Qatlas.
+- Google does not document a maximum number of pivots; the bound of 10 is derived from the dimension limit.
+  The cost of a pivot or batch report in tokens, the limit of a standard property to 29 minutes ago, and
+  whether the realtime concurrent requests are counted apart from the core ones are Google's to say. Qatlas
+  assumes the same figures and a separate pool, and Google still refuses what is really exhausted.
+- Google reports no error per report of a batch; whether a batch can return a partial result is not
+  established.
 - The memory of the remainder lives in the process: another process, or another user of the same project, can
   use the quota unseen.
 - The field lists were read from the Discovery documents `analyticsdata` v1beta and, for the funnel, v1alpha,
