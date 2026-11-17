@@ -1,6 +1,6 @@
 ---
 description: >
-  Describes the Google Cloud Compute instance tools instances.list, instances.aggregated-list, and instances.get: their arguments, the compute.readonly scope and the profile read, the target check, the structured filter, the cursor and page size, partial results with unreachables and warning, the rule that metadata values are never returned, and what is not verified.
+  Describes the Google Cloud Compute instance tools instances.list, instances.aggregated-list, instances.get, and the lifecycle tools instances.start, instances.stop, instances.reset, and instances.set-machine-type: their arguments, the compute.readonly scope and the profile read, the target check, the structured filter, the cursor and page size, partial results with unreachables and warning, the rule that metadata values are never returned, and the profile compute-lifecycle with its confirmations, the request ID and the returned operation, and what is not verified.
 type: knowledge
 edit: shared
 created: 2026-11-17
@@ -10,7 +10,7 @@ updated: 2026-11-17
 # Google Cloud Compute instances
 
 Three tools read the virtual machine instances of a project from Compute Engine (`compute` v1, discovery
-revision 20261106). They change nothing. Every request goes to the fixed origin `https://compute.googleapis.com`
+revision 20261106). They change nothing; the four tools of [Lifecycle](#lifecycle) change the state of an instance. Every request goes to the fixed origin `https://compute.googleapis.com`
 with the base path `/compute/v1`; no argument takes a path, URL, header, or body. [The provider page](README.md)
 holds errors and rate spacing, [machine types](machine-types.md) the other Compute tool.
 
@@ -76,10 +76,41 @@ scopes only. The account needs the permissions `compute.instances.list` or
 `compute.instances.get` (the Compute Viewer role has them), and the **Compute Engine API** must be enabled in
 the project; otherwise Google refuses the request and the error says so.
 
+## Lifecycle
+
+Four tools change an existing instance. They belong to the profile `compute-lifecycle`, which is not recommended,
+asks for the scope `compute` (the smallest the discovery document lists, which Google also uses to change
+Compute resources), needs the effect `update`, and holds `projects.get` as well. Every call needs the confirmation
+of a person. None creates or deletes an instance or changes its network access.
+
+| Tool | Google method | Arguments | Effect named in the confirmation |
+| --- | --- | --- | --- |
+| `instances.start` | `instances.start` | `project_id`, `zone`, `instance`, `request_id` | a running instance is billed |
+| `instances.stop` | `instances.stop` | as above plus `discard_local_ssd` | the workload ends; with `discard_local_ssd` the data on local SSDs is lost |
+| `instances.reset` | `instances.reset` | `project_id`, `zone`, `instance`, `request_id` | hard reset without clean shutdown, memory contents are lost |
+| `instances.set-machine-type` | `instances.setMachineType` | `project_id`, `zone`, `instance`, `machine_type`, `request_id` | the instance must be stopped, the price changes |
+
+- The confirmation names project, zone, instance, and the effect. `instance` is a name, never an ID or a path.
+- `machine_type` is the name of a machine type such as `e2-standard-4`. A path or URL, also one of another zone or
+  project, is refused; the tool builds the reference from the project and zone of the call. Google refuses the
+  change of a running instance, and the tool passes that error on.
+- Project, zone, instance, and machine type are checked against their form and the targets before any secret is
+  read or request is sent. A refusal does not name the target it refused.
+- Each call sends one POST and never repeats it. `request_id` is a UUID that is not all zero; without it the tool
+  creates one and returns it. Repeating a call with the same `request_id` is idempotent: Google ignores a request
+  whose ID it already received.
+- The tool never waits. The result is `{operation, scope: "zone", zone, request_id}` with the operation as Google
+  returned it; read its state with `compute-operations.get` (scope `zone`). An operation that is already `DONE`
+  with an error is reported as a provider error. An answer without an operation of the zone, or a failure after
+  which the request may have arrived, says that the outcome is unknown: read the instance with `instances.get`.
+- The account needs `compute.instances.start`, `.stop`, `.reset`, or `.setMachineType` (the Compute Instance Admin
+  role has them), and the **Compute Engine API** must be enabled.
+
 ## Not verified
 
 - The rights of the account and the exact answers of Compute Engine for a disabled API were not seen live.
   Compute answers errors in the older form with a list of `errors` and a `reason`; Qatlas reads `notFound`,
   `forbidden`, and `authError` of it like the status strings `NOT_FOUND`, `PERMISSION_DENIED`, and
   `UNAUTHENTICATED`, and every other 401, 403, or 404 without a known form is an invalid response.
+- The lifecycle tools were checked against a simulated Compute Engine only, not live.
 - Which fields of an instance Google fills depends on the instance; absent fields are absent in the result.

@@ -35,7 +35,7 @@ tokens for it). The connection holds no scope. Qatlas derives them from the tool
 smallest scope the discovery document of each method lists: `cloud-platform.read-only` for Resource Manager,
 and `cloud-platform` for the IAM and quota tools, because their discovery documents list no narrower scope
 (Google offers no read-only variant for these methods, see [IAM](iam.md) and [Quotas](quotas.md)). Only the tools of the profiles
-`service-accounts`, `service-accounts-revoke`, `api-keys-revoke`, `iam-bindings`, `compute-network-delete`, and `services` and the tools
+`service-accounts`, `service-accounts-revoke`, `api-keys-revoke`, `iam-bindings`, `compute-network-delete`, `compute-lifecycle`, and `services` and the tools
 `service-accounts.delete` and `services.disable`, which a `tools` list must name, change anything, each with a confirmation, whatever the scope allows. The access token travels in the
 `Authorization` header only, is never an argument or part of a result, and is masked in every output. A 401
 renews the token once, and nothing else repeats a request.
@@ -131,6 +131,12 @@ Google also uses to change Compute resources, so the token may do that although 
 effect `delete` for the deletions and `read` for `projects.get`, is not recommended, and holds no listed-only tool;
 every call needs the confirmation of a person. See [Firewall rules](firewalls.md), [IP addresses](addresses.md),
 [HA VPN gateways](vpn-gateways.md), and [VPN tunnels](vpn-tunnels.md).
+
+The profile `compute-lifecycle` holds `google.cloud.instances.start`, `google.cloud.instances.stop`,
+`google.cloud.instances.reset`, `google.cloud.instances.set-machine-type`, and `google.cloud.projects.get`. The four
+tools ask for the scope `compute`, which Google also uses to change Compute resources, so the token may do that
+although no tool does. The profile needs the effect `update` for the instance tools and `read` for `projects.get`, is
+not recommended, and every call needs the confirmation of a person. See [Compute instances](instances.md#lifecycle).
 
 The profile `services` holds only `google.cloud.services.enable` and `google.cloud.services.batch-enable`. It asks
 for `cloud-platform`, needs the effect `update`, and is not recommended. It does not hold
