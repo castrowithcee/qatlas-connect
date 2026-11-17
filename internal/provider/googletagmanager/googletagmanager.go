@@ -94,16 +94,17 @@ func Register(reg *capability.Registry) error {
 				"configurations; changes nothing",
 			Tools: readIDs,
 		}, {
-			ID: "write", Title: "Read and change workspaces, tags, triggers, variables, templates, built-in variables, " +
+			ID: "write", Title: "Read and change containers, workspaces, tags, triggers, variables, templates, built-in variables, " +
 				"folders, clients, transformations, zones, and Google tag configurations",
-			Description: "reads what the read profile reads, creates and updates workspaces, synchronizes a " +
+			Description: "reads what the read profile reads, creates and updates containers, creates and updates workspaces, synchronizes a " +
 				"workspace with the latest container version, resolves its merge conflicts, quick previews it, " +
 				"creates, updates, and deletes the tags, triggers, variables, and templates of a workspace, creates, " +
 				"updates, and deletes its folders, moves tags, triggers, and variables into a folder, creates, updates, " +
 				"and deletes its clients, transformations, zones, and Google tag configurations, and enables and " +
-				"disables its built-in variables; every change needs its own confirmation and stays in the workspace " +
-				"until a version is published, which no tool of this provider does. Deleting a workspace and " +
-				"reverting a tag, trigger, variable, template, built-in variable, folder, client, transformation, or " +
+				"disables its built-in variables; every change needs its own confirmation. A change to a workspace or " +
+				"its objects stays in the workspace until a version is published, which no tool of this provider " +
+				"does. Deleting a container or a workspace " +
+				"and reverting a tag, trigger, variable, template, built-in variable, folder, client, transformation, or " +
 				"zone stay unticked",
 			Tools: writeIDs,
 		}},
@@ -116,6 +117,8 @@ func Register(reg *capability.Registry) error {
 	handlers := map[string]capability.Handler{
 		accountsListID: handleAccountsList, accountsGetID: handleAccountsGet,
 		containersListID: handleContainersList, containersGetID: handleContainersGet,
+		containersCreateID: handleContainersCreate, containersUpdateID: handleContainersUpdate,
+		containersLookupID: handleContainersLookup, containersDeleteID: handleContainersDelete,
 		workspacesListID: handleWorkspacesList, workspacesGetID: handleWorkspacesGet,
 		workspacesCreateID: handleWorkspacesCreate, workspacesUpdateID: handleWorkspacesUpdate,
 		workspacesDeleteID: handleWorkspacesDelete, workspacesStatusID: handleWorkspacesStatus,
@@ -153,6 +156,8 @@ func Register(reg *capability.Registry) error {
 		gtagConfigsDeleteID: handleGtagConfigsDelete,
 	}
 	summaries := map[string]capability.SummaryFunc{
+		containersCreateID: containerSummary("Create"), containersUpdateID: containerSummary("Replace"),
+		containersDeleteID: deleteContainerSummary,
 		workspacesCreateID: workspaceSummary("Create"), workspacesUpdateID: workspaceSummary("Replace"),
 		workspacesDeleteID: deleteWorkspaceSummary, workspacesSyncID: syncSummary,
 		workspacesResolveConflictID: resolveConflictSummary, workspacesQuickPreviewID: quickPreviewSummary,

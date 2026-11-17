@@ -11,7 +11,8 @@ updated: 2026-11-17
 
 This page shows how to connect Qatlas to Google Tag Manager. Configuration, targets, scopes, quota, and errors
 are described in the [Google Tag Manager provider](README.md); the tools in
-[accounts, containers, and workspaces](structure.md), [workspace management](workspaces.md), [tags](tags.md),
+[accounts, containers, and workspaces](structure.md), [container management](containers.md),
+[workspace management](workspaces.md), [tags](tags.md),
 [triggers](triggers.md), [variables](variables.md), [built-in variables](built-in-variables.md),
 [templates](templates.md), [clients](clients.md), [transformations](transformations.md), [zones](zones.md), and
 [Google tag configurations](gtag-configs.md).
@@ -32,6 +33,9 @@ are described in the [Google Tag Manager provider](README.md); the tools in
 | --- | --- | --- |
 | [accounts, containers, and workspaces](structure.md) | `tagmanager.readonly` | read access to the account or container |
 | [tags](tags.md), [triggers](triggers.md), [variables](variables.md), [built-in variables](built-in-variables.md), [templates](templates.md), [folders](folders.md), [clients](clients.md), [transformations](transformations.md), [zones](zones.md), and [Google tag configurations](gtag-configs.md), reading | `tagmanager.readonly` | read access to the container |
+| [container management](containers.md), looking up | `tagmanager.readonly` | read access to the container |
+| [container management](containers.md), creating and updating | `tagmanager.edit.containers` | edit access to the account or container |
+| [container management](containers.md), deleting | `tagmanager.delete.containers` | edit access to the container |
 | [workspace management](workspaces.md), reading the status | `tagmanager.readonly` | read access to the container |
 | [workspace management](workspaces.md), creating and updating | `tagmanager.edit.containers` | edit access to the container |
 | [workspace management](workspaces.md), synchronizing and resolving merge conflicts | `tagmanager.edit.containers` | edit access to the container |

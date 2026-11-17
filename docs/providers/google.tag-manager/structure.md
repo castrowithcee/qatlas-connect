@@ -10,7 +10,8 @@ updated: 2026-11-16
 # Google Tag Manager: accounts, containers, and workspaces
 
 The structure tools of the [Google Tag Manager provider](README.md). Credential, target, quota, and errors are
-described there.
+described there. Creating, changing, looking up, and deleting containers is described under
+[container management](containers.md).
 
 | Tool | Does |
 | --- | --- |
