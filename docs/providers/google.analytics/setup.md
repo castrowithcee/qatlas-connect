@@ -14,7 +14,8 @@ This page shows how to connect Qatlas to Google Analytics 4. Targets, paging, an
 [properties](properties.md), [data streams](data-streams.md), [custom dimensions](custom-dimensions.md),
 [custom metrics](custom-metrics.md), [event create rules](event-create-rules.md), [reports](reports.md),
 [audience exports](audience-exports.md), [report tasks](report-tasks.md),
-[measurement protocol secrets](measurement-protocol-secrets.md), and [access reports](access-reports.md).
+[measurement protocol secrets](measurement-protocol-secrets.md), [access reports](access-reports.md),
+[data retention](data-retention.md), and [Google Signals](google-signals.md).
 
 ## What you need
 
@@ -111,6 +112,10 @@ credential never carries the scope of another product.
 | [Key events](key-events.md#changing-key-events) | `key-events.create`, `key-events.update`, `key-events.delete` | `analytics.edit` |
 | [Event create rules](event-create-rules.md) | `event-create-rules.list`, `event-create-rules.get` | `analytics.readonly` |
 | [Event create rules](event-create-rules.md) | `event-create-rules.create`, `event-create-rules.update`, `event-create-rules.delete` | `analytics.edit` |
+| [Data retention](data-retention.md) | `data-retention.get` | `analytics.readonly` |
+| [Data retention](data-retention.md#googleanalyticsdata-retentionupdate) | `data-retention.update` | `analytics.edit` |
+| [Google Signals](google-signals.md) | `google-signals.get` | `analytics.readonly` |
+| [Google Signals](google-signals.md#googleanalyticsgoogle-signalsupdate) | `google-signals.update` | `analytics.edit` |
 
 ## Add it to Qatlas
 
