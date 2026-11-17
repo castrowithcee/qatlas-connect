@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"sort"
 	"strings"
 	"sync"
 	"testing"
@@ -84,7 +85,7 @@ func (f *fakeGoogle) RoundTrip(req *http.Request) (*http.Response, error) {
 		}
 		f.tokens++
 		return answer(reply{status: 200, body: fmt.Sprintf(`{"access_token":"synthetic-access-%d","token_type":"Bearer",`+
-			`"expires_in":3600,"scope":"%s %s %s"}`, f.tokens, scopeReadOnly, scopeCloudPlatform, scopeAPIKeys)})
+			`"expires_in":3600,"scope":"%s"}`, f.tokens, strings.Join(allScopes(), " "))})
 	}
 	f.requests = append(f.requests, seen{method: req.Method, url: req.URL.String(),
 		auth: req.Header.Get("Authorization"), body: payload, header: req.Header.Clone()})
@@ -240,4 +241,20 @@ func serviceAccountKey(t *testing.T) string {
 		t.Fatal(err)
 	}
 	return string(file)
+}
+
+// allScopes are the scopes of every tool of the provider, which the fake token endpoint grants.
+func allScopes() []string {
+	set := map[string]bool{}
+	for _, scopes := range tokenMetadata.Scopes {
+		for _, scope := range scopes {
+			set[scope] = true
+		}
+	}
+	out := make([]string, 0, len(set))
+	for scope := range set {
+		out = append(out, scope)
+	}
+	sort.Strings(out)
+	return out
 }

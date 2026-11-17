@@ -67,6 +67,10 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 			// apikeys v2 lists apikeys and cloud-platform for the two changes.
 			wantScope = scopeAPIKeys
 		}
+		if strings.Contains(tool.ID, ".instances.") || strings.Contains(tool.ID, ".machine-types.") {
+			// The discovery document of compute v1 lists compute.readonly as the smallest scope.
+			wantScope = "https://www.googleapis.com/auth/compute.readonly"
+		}
 		if scopes := metadata.Token.Scopes[tool.ID]; !slices.Equal(scopes, []string{wantScope}) {
 			t.Errorf("%s scopes = %v", tool.ID, scopes)
 		}
@@ -77,7 +81,9 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 		"google.cloud.iam-bindings.remove-member", "google.cloud.iam-deny-policies.get", "google.cloud.iam-deny-policies.list",
 		"google.cloud.iam-permissions.query-testable", "google.cloud.iam-permissions.test",
 		"google.cloud.iam-policies.get", "google.cloud.iam-roles.get", "google.cloud.iam-roles.list",
-		"google.cloud.iam-roles.query-grantable", "google.cloud.operations.get", "google.cloud.organizations.get",
+		"google.cloud.iam-roles.query-grantable", "google.cloud.instances.aggregated-list",
+		"google.cloud.instances.get", "google.cloud.instances.list", "google.cloud.machine-types.list",
+		"google.cloud.operations.get", "google.cloud.organizations.get",
 		"google.cloud.organizations.search", "google.cloud.projects.get", "google.cloud.projects.list",
 		"google.cloud.projects.search", "google.cloud.quota-infos.get", "google.cloud.quota-infos.list",
 		"google.cloud.quota-preferences.get", "google.cloud.quota-preferences.list", "google.cloud.service-account-keys.delete",
@@ -91,16 +97,20 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 		"google.cloud.services.list"}; !slices.Equal(ids, want) {
 		t.Errorf("tools = %v, want %v", ids, want)
 	}
-	if profile, found := metadata.RecommendedProfile(); !found || profile.ID != "read" || len(profile.Tools) != 14 {
+	if profile, found := metadata.RecommendedProfile(); !found || profile.ID != "read" || len(profile.Tools) != 18 {
 		t.Errorf("profile = %+v", profile)
 	}
-	// The recommended profile never asks for more than the read-only scope; a tool that needs the broad
+	// The recommended profile asks only for read scopes, an explicit allow-list; a tool that needs the broad
 	// cloud-platform scope belongs to read-iam, which holds every read tool, or to a changing profile.
+	readScopes := [][]string{{"https://www.googleapis.com/auth/cloud-platform.read-only"},
+		{"https://www.googleapis.com/auth/compute.readonly"}}
 	for _, profile := range metadata.Profiles {
 		switch profile.ID {
 		case "read":
 			for _, tool := range profile.Tools {
-				if scopes := metadata.Token.Scopes[tool]; !slices.Equal(scopes, []string{"https://www.googleapis.com/auth/cloud-platform.read-only"}) {
+				if scopes := metadata.Token.Scopes[tool]; !slices.ContainsFunc(readScopes, func(want []string) bool {
+					return slices.Equal(scopes, want)
+				}) {
 					t.Errorf("profile read holds %s with scopes %v", tool, scopes)
 				}
 			}
