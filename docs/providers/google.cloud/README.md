@@ -1,10 +1,10 @@
 ---
 description: >
-  Describes the Google Cloud provider: the token credential and its fixed origins, the targets (organization, folder, project, billing account) and what they reach, the read and IAM profiles, the search tools with their structured filters, cursors, and per-row target check, the IAM role and permission reads, the service account and key metadata reads, the Google error form and its classes, long-running operations, rate spacing, the connection test, and the limits of what is verified.
+  Describes the Google Cloud provider: the token credential and its fixed origins, the targets (organization, folder, project, billing account) and what they reach, the read and IAM profiles, the search tools with their structured filters, cursors, and per-row target check, the Cloud Storage bucket reads, the IAM role and permission reads, the service account and key metadata reads, the Google error form and its classes, long-running operations, rate spacing, the connection test, and the limits of what is verified.
 type: knowledge
 edit: shared
 created: 2026-11-16
-updated: 2026-11-16
+updated: 2026-11-17
 ---
 
 # Google Cloud
@@ -66,6 +66,9 @@ Three rules decide which tool a binding reaches. They are separate on purpose:
   organization, a folder, or a project, so a connection bound to billing accounts alone neither runs nor is
   offered them, not even for predefined roles. Organization roles and an organization resource are reached
   only if a target names exactly that organization; a connection without targets is refused.
+- **Storage tools** (`buckets.*`, `bucket-access-controls.list`): the connection is unbound or names an
+  organization, a folder, or a project. A bucket is bound to the targets by the project number of one read of the
+  bucket, see [Buckets](buckets.md).
 - **Tools without a resource** (`operations.get`): an operation belongs to no folder or project that Qatlas
   could prove, so the tool runs on a connection without targets or with an organization among them. It is not an
   organization tool: it reads no organization.
@@ -87,7 +90,8 @@ The profile `read` is the recommended one. It holds every tool that needs no mor
 `google.cloud.subnetworks.list`, `google.cloud.subnetworks.get`, `google.cloud.firewalls.list`,
 `google.cloud.firewalls.get`, `google.cloud.addresses.list`, `google.cloud.addresses.get`,
 `google.cloud.vpn-gateways.list`, `google.cloud.vpn-gateways.get`, `google.cloud.vpn-tunnels.list`, and
-`google.cloud.vpn-tunnels.get`, which ask for `compute.readonly`. The two
+`google.cloud.vpn-tunnels.get`, which ask for `compute.readonly`, and the Storage tools `google.cloud.buckets.list` and
+`google.cloud.buckets.get`, which ask for `devstorage.read_only`. The two
 operation tools return the email address of whoever started an operation (personal data) and carry their own
 sensitivity. A connection bound to an organization or a folder needs `projects.get` next to the
 Compute tools to prove the project of a call; `read` holds both.
@@ -101,6 +105,11 @@ The profile `read-iam` adds the IAM tools (`google.cloud.iam-roles.list`, `googl
 scope `cloud-platform`, so a connection with this profile asks for a token that may change whatever its account
 may change, although no tool of this profile changes anything. It is not recommended: give it only to a
 connection that needs IAM, preferably with a credential whose account has viewer roles only.
+
+The profile `read-storage-access` adds the IAM policy and the access control list of a Cloud Storage bucket
+(`google.cloud.buckets.get-iam-policy`, `google.cloud.bucket-access-controls.list`) to the tools of `read`. Google
+lists only `devstorage.full_control` and `cloud-platform` for these two methods, so the token may change what its
+account may in Cloud Storage, although no tool does (see [Buckets](buckets.md)). It is not recommended.
 
 The profile `read-quotas` adds the quota tools (`google.cloud.quota-infos.list`, `google.cloud.quota-infos.get`,
 `google.cloud.quota-preferences.list`, `google.cloud.quota-preferences.get`) to the tools of `read`. They accept
@@ -167,6 +176,9 @@ on [IAM bindings](iam-bindings.md).
   confirmed deletion of a gateway.
 - [VPN tunnels](vpn-tunnels.md): the VPN tunnels of a region from Compute Engine, never with their shared secret, and the
   confirmed deletion of a tunnel.
+- [Buckets](buckets.md): the Cloud Storage buckets of a project, one and all, and the IAM policy of a bucket, bound to
+  the targets by the project number of the bucket.
+- [Bucket access controls](bucket-access-controls.md): the access control list of a Cloud Storage bucket.
 - [Quotas](quotas.md): the quotas of a service and the quota preferences of a project from Cloud Quotas.
 
 ### Search

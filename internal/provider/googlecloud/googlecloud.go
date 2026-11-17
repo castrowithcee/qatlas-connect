@@ -92,7 +92,8 @@ var readTools = []string{organizationsSearch.ID, foldersSearch.ID, projectsSearc
 	machineTypesList.ID, zonesList.ID, regionsList.ID, computeOperationsGet.ID, computeOperationsList.ID,
 	networksList.ID, networksGet.ID, subnetworksList.ID, subnetworksGet.ID,
 	firewallsList.ID, firewallsGet.ID, addressesList.ID, addressesGet.ID,
-	vpnGatewaysList.ID, vpnGatewaysGet.ID, vpnTunnelsList.ID, vpnTunnelsGet.ID}
+	vpnGatewaysList.ID, vpnGatewaysGet.ID, vpnTunnelsList.ID, vpnTunnelsGet.ID,
+	bucketsList.ID, bucketsGet.ID}
 
 // Register adds the provider metadata, its connection test, its consent endpoints, and its tools.
 func Register(reg *capability.Registry) error {
@@ -116,8 +117,8 @@ func Register(reg *capability.Registry) error {
 				"operations from Google Cloud Resource Manager, the enabled and available APIs of a project from Service " +
 				"Usage, and the metadata of API keys with the read-only scope and the Compute Engine instances, machine " +
 				"types, zones, regions, operations (with the person who started each), VPC networks, subnetworks, firewall rules, " +
-				"reserved IP addresses, HA VPN gateways, and VPN tunnels of a project with the scope compute.readonly, and " +
-				"changes nothing",
+				"reserved IP addresses, HA VPN gateways, and VPN tunnels of a project with the scope compute.readonly, " +
+				"and the Cloud Storage buckets of a project with the scope devstorage.read_only, and changes nothing",
 			Tools: readTools,
 		}, {
 			ID: "read-iam", Title: "Read with IAM",
@@ -136,6 +137,13 @@ func Register(reg *capability.Registry) error {
 				"personal data (contactEmail, justification)",
 			Tools: append(append([]string{}, readTools...), quotaInfosList.ID, quotaInfosGet.ID,
 				quotaPreferencesList.ID, quotaPreferencesGet.ID),
+		}, {
+			ID: "read-storage-access", Title: "Read with Storage access",
+			Description: "everything of read plus the IAM policy and the access control list of a Cloud Storage bucket; " +
+				"these methods accept only the scope devstorage.full_control (or cloud-platform), so the token may " +
+				"change what its account may in Cloud Storage, although no tool of this profile changes anything; " +
+				"policies and lists hold members that are personal data",
+			Tools: append(append([]string{}, readTools...), bucketsGetIAMPolicy.ID, bucketAccessControlsList.ID),
 		}, {
 			ID: "service-accounts", Title: "Service accounts",
 			Description: "creates service accounts, changes their display name and description, and disables and " +
@@ -223,6 +231,10 @@ func Register(reg *capability.Registry) error {
 		capability.Operation{Descriptor: vpnGatewaysGet, Handler: handleVpnGatewaysGet},
 		capability.Operation{Descriptor: vpnTunnelsList, Handler: handleVpnTunnelsList},
 		capability.Operation{Descriptor: vpnTunnelsGet, Handler: handleVpnTunnelsGet},
+		capability.Operation{Descriptor: bucketsList, Handler: handleBucketsList},
+		capability.Operation{Descriptor: bucketsGet, Handler: handleBucketsGet},
+		capability.Operation{Descriptor: bucketsGetIAMPolicy, Handler: handleBucketsGetIAMPolicy},
+		capability.Operation{Descriptor: bucketAccessControlsList, Handler: handleBucketAccessControlsList},
 		capability.Operation{Descriptor: firewallsDelete, Handler: handleFirewallsDelete,
 			ConfirmationSummary: firewallDeleteSummary},
 		capability.Operation{Descriptor: addressesDelete, Handler: handleAddressesDelete,
