@@ -4,15 +4,15 @@ description: >
 type: knowledge
 edit: shared
 created: 2026-11-16
-updated: 2026-11-16
+updated: 2026-11-17
 ---
 
 # Set up Google Tag Manager
 
 This page shows how to connect Qatlas to Google Tag Manager. Configuration, targets, scopes, quota, and errors
 are described in the [Google Tag Manager provider](README.md); the tools in
-[accounts, containers, and workspaces](structure.md), [tags](tags.md), [triggers](triggers.md),
-[variables](variables.md), and [built-in variables](built-in-variables.md).
+[accounts, containers, and workspaces](structure.md), [workspace management](workspaces.md), [tags](tags.md),
+[triggers](triggers.md), [variables](variables.md), and [built-in variables](built-in-variables.md).
 
 ## What you need
 
@@ -30,6 +30,9 @@ are described in the [Google Tag Manager provider](README.md); the tools in
 | --- | --- | --- |
 | [accounts, containers, and workspaces](structure.md) | `tagmanager.readonly` | read access to the account or container |
 | [tags](tags.md), [triggers](triggers.md), [variables](variables.md), and [built-in variables](built-in-variables.md), reading | `tagmanager.readonly` | read access to the container |
+| [workspace management](workspaces.md), reading the status | `tagmanager.readonly` | read access to the container |
+| [workspace management](workspaces.md), creating and updating | `tagmanager.edit.containers` | edit access to the container |
+| [workspace management](workspaces.md), deleting | `tagmanager.delete.containers` | edit access to the container |
 | [tags](tags.md), [triggers](triggers.md), [variables](variables.md), and [built-in variables](built-in-variables.md), changing | `tagmanager.edit.containers` | edit access to the container |
 
 Qatlas asks for no broader scope than the tools of your connections need. No tool publishes a version, so no
