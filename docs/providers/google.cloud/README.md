@@ -1,6 +1,6 @@
 ---
 description: >
-  Describes the Google Cloud provider: the token credential and its fixed origins, the targets (organization, folder, project, billing account) and what they reach, the read profile, the search tools with their structured filters, cursors, and per-row target check, the IAM role and permission reads, the Google error form and its classes, long-running operations, rate spacing, the connection test, and the limits of what is verified.
+  Describes the Google Cloud provider: the token credential and its fixed origins, the targets (organization, folder, project, billing account) and what they reach, the read and IAM profiles, the search tools with their structured filters, cursors, and per-row target check, the IAM role and permission reads, the service account and key metadata reads, the Google error form and its classes, long-running operations, rate spacing, the connection test, and the limits of what is verified.
 type: knowledge
 edit: shared
 created: 2026-11-16
@@ -12,7 +12,8 @@ updated: 2026-11-16
 Google Cloud is a provider for Google Cloud APIs with one credential that issues access tokens. This
 package covers Cloud Resource Manager: it searches organizations, folders, and projects, reads one project, and
 reads the state of a long-running operation. It also reads IAM roles and the roles and permissions of a
-resource. Every tool is a read. The package also lays down what the later
+resource. The only change is to a single IAM binding, through the tools of [IAM bindings](iam-bindings.md); every
+other tool is a read. The package also lays down what the later
 Google Cloud packages build on: the service table, the token handling, the error mapping, the operation
 helper, and the targets.
 
@@ -33,8 +34,8 @@ service account that the connection names with `service_account` (the consent of
 tokens for it). The connection holds no scope. Qatlas derives them from the tools it offers and asks for the
 smallest scope the discovery document of each method lists: `cloud-platform.read-only` for Resource Manager,
 and `cloud-platform` for the IAM tools, because their discovery documents list no narrower scope (Google
-offers no read-only variant for these methods, see [IAM](iam.md)). No tool of this provider changes anything, whatever the scope
-allows. The access token travels in the
+offers no read-only variant for these methods, see [IAM](iam.md)). Only the tools of the profiles
+`service-accounts` and `iam-bindings` change anything, each with a confirmation, whatever the scope allows. The access token travels in the
 `Authorization` header only, is never an argument or part of a result, and is masked in every output. A 401
 renews the token once, and nothing else repeats a request.
 
@@ -60,7 +61,7 @@ Three rules decide which tool a binding reaches. They are separate on purpose:
 - **Organization tools** (`organizations.search`, `organizations.get`): the binding must name an organization expressly. A
   connection without targets does not run them, because its credential may see organizations the person never
   handed over. The rows are limited to the organizations the targets name.
-- **IAM tools** (`iam-roles.*`, `iam-permissions.query-testable`): the connection is unbound or names an
+- **IAM tools** (`iam-roles.*`, `iam-permissions.query-testable`, `service-accounts.*`, `service-account-keys.*`): the connection is unbound or names an
   organization, a folder, or a project, so a connection bound to billing accounts alone neither runs nor is
   offered them, not even for predefined roles. Organization roles and an organization resource are reached
   only if a target names exactly that organization; a connection without targets is refused.
@@ -76,21 +77,38 @@ secret is read and before any request.
 The profile `read` is the recommended one. It holds every tool that needs no more than the scope
 `cloud-platform.read-only`: `google.cloud.organizations.search`, `google.cloud.folders.search`,
 `google.cloud.projects.search`, `google.cloud.projects.get`, `google.cloud.operations.get`,
-`google.cloud.organizations.get`, `google.cloud.folders.get`, `google.cloud.folders.list`, and
-`google.cloud.projects.list`.
+`google.cloud.organizations.get`, `google.cloud.folders.get`, `google.cloud.folders.list`,
+`google.cloud.projects.list`, `google.cloud.services.list`, `google.cloud.services.get`, and
+`google.cloud.services.batch-get`.
 
 The profile `read-iam` adds the IAM tools (`google.cloud.iam-roles.list`, `google.cloud.iam-roles.get`,
 `google.cloud.iam-roles.query-grantable`, `google.cloud.iam-permissions.query-testable`,
 `google.cloud.iam-policies.get`, `google.cloud.iam-permissions.test`, `google.cloud.iam-deny-policies.list`,
-`google.cloud.iam-deny-policies.get`). They accept only the
+`google.cloud.iam-deny-policies.get`) and the service account tools (`google.cloud.service-accounts.list`,
+`google.cloud.service-accounts.get`, `google.cloud.service-account-keys.list`,
+`google.cloud.service-account-keys.get`). They accept only the
 scope `cloud-platform`, so a connection with this profile asks for a token that may change whatever its account
-may change, although no tool of this provider changes anything. It is not recommended: give it only to a
+may change, although no tool of this profile changes anything. It is not recommended: give it only to a
 connection that needs IAM, preferably with a credential whose account has viewer roles only.
+
+The profile `service-accounts` holds only the changing tools `google.cloud.service-accounts.create`,
+`google.cloud.service-accounts.patch`, `google.cloud.service-accounts.disable`, and
+`google.cloud.service-accounts.enable`. It asks for `cloud-platform`, needs the effects `create` and `update`,
+and is not recommended.
+
+The profile `iam-bindings` holds the tools of `read`, `google.cloud.iam-policies.get`, and the three binding
+tools `google.cloud.iam-bindings.add-member`, `google.cloud.iam-bindings.remove-member`, and
+`google.cloud.iam-bindings.change-role`. They have the effect `update`, so the connection needs that effect, and
+every call needs the confirmation of a person. It is not recommended; the rule which members may be granted is
+on [IAM bindings](iam-bindings.md).
 
 ## Tools
 
+- [Services](services.md): the enabled and available APIs of a project from Service Usage.
 - [IAM](iam.md): IAM policies, permission tests, and deny policies of projects, folders, organizations, and
   service accounts.
+- [IAM bindings](iam-bindings.md): adding a member to, removing a member from, and moving a member between the
+  bindings of the IAM policy of a project, folder, or organization.
 
 ### Search
 
@@ -140,6 +158,13 @@ parent does not decide, the folders above it. A project outside the targets is r
 `operations.get` takes the `service` (here only `resource-manager`; later packages extend the list) and the
 operation `name`.
 
+### Service accounts
+
+[Service accounts](service-accounts.md) covers `service-accounts.list`, `service-accounts.get`, and the changes
+`service-accounts.create`, `service-accounts.patch`, `service-accounts.disable`, and `service-accounts.enable`;
+[service account keys](service-account-keys.md) covers `service-account-keys.list` and `service-account-keys.get`,
+which return metadata only and never key material.
+
 ### IAM
 
 [IAM roles and permissions](iam-roles.md) covers `iam-roles.list`, `iam-roles.get`,
@@ -170,6 +195,7 @@ decide beyond the HTTP status.
 | 403 with reason `ACCESS_TOKEN_SCOPE_INSUFFICIENT` | `scope-missing` |
 | 403 with status `PERMISSION_DENIED` | `permission` |
 | 404 with status `NOT_FOUND` | `not-found` |
+| 409 with status `ABORTED` (a stale `etag` of `setIamPolicy`) | `provider-error`, the message starts with `conflict` |
 | 400 | `invalid-provider-response` (Qatlas checked the arguments before sending) |
 | 429 | `rate-limited` |
 | any other 401, 403, 404, or 4xx | `invalid-provider-response` |
@@ -214,6 +240,6 @@ Not verified:
 Left out on purpose:
 
 - The `tags` of a project or folder appear only if Google sends them; Google documents them as input only.
-- Every change of a resource (create, update, move, delete, undelete, and the policies of the hierarchy), and
-  the reads of IAM policies and tag bindings of this service.
+- Every change of a resource (create, update, move, delete, undelete, and the policies of the hierarchy apart
+  from a single IAM binding), and the reads of tag bindings of this service.
 - A free `query` string, a `$fields` parameter, and any base URL other than the official origin.

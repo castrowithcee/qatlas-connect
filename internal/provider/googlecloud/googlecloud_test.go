@@ -34,13 +34,25 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 		t.Errorf("secret roles = %+v, want the token roles", metadata.SecretRoles)
 	}
 	var ids []string
+	reads := 0
 	for _, tool := range metadata.Tools {
 		ids = append(ids, tool.ID)
-		if tool.Effect != config.EffectRead {
+		wantEffect := config.EffectRead
+		switch {
+		case tool.ID == serviceAccountsCreateID:
+			wantEffect = config.EffectCreate
+		case tool.ID == serviceAccountsPatchID, tool.ID == serviceAccountsDisableID, tool.ID == serviceAccountsEnableID,
+			strings.Contains(tool.ID, ".iam-bindings."):
+			wantEffect = config.EffectUpdate
+		}
+		if tool.Effect == config.EffectRead {
+			reads++
+		}
+		if tool.Effect != wantEffect {
 			t.Errorf("%s effect = %v", tool.ID, tool.Effect)
 		}
 		wantScope := "https://www.googleapis.com/auth/cloud-platform.read-only"
-		if strings.Contains(tool.ID, ".iam-") {
+		if strings.Contains(tool.ID, ".iam-") || strings.Contains(tool.ID, ".service-account") {
 			// The discovery documents list cloud-platform alone for the IAM methods.
 			wantScope = "https://www.googleapis.com/auth/cloud-platform"
 		}
@@ -49,19 +61,25 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 		}
 	}
 	if want := []string{"google.cloud.folders.get", "google.cloud.folders.list", "google.cloud.folders.search",
-		"google.cloud.iam-deny-policies.get", "google.cloud.iam-deny-policies.list",
+		"google.cloud.iam-bindings.add-member", "google.cloud.iam-bindings.change-role",
+		"google.cloud.iam-bindings.remove-member", "google.cloud.iam-deny-policies.get", "google.cloud.iam-deny-policies.list",
 		"google.cloud.iam-permissions.query-testable", "google.cloud.iam-permissions.test",
 		"google.cloud.iam-policies.get", "google.cloud.iam-roles.get", "google.cloud.iam-roles.list",
 		"google.cloud.iam-roles.query-grantable", "google.cloud.operations.get", "google.cloud.organizations.get",
 		"google.cloud.organizations.search", "google.cloud.projects.get", "google.cloud.projects.list",
-		"google.cloud.projects.search"}; !slices.Equal(ids, want) {
+		"google.cloud.projects.search", "google.cloud.service-account-keys.get",
+		"google.cloud.service-account-keys.list", "google.cloud.service-accounts.create",
+		"google.cloud.service-accounts.disable", "google.cloud.service-accounts.enable",
+		"google.cloud.service-accounts.get", "google.cloud.service-accounts.list",
+		"google.cloud.service-accounts.patch", "google.cloud.services.batch-get", "google.cloud.services.get",
+		"google.cloud.services.list"}; !slices.Equal(ids, want) {
 		t.Errorf("tools = %v, want %v", ids, want)
 	}
-	if profile, found := metadata.RecommendedProfile(); !found || profile.ID != "read" || len(profile.Tools) != 9 {
+	if profile, found := metadata.RecommendedProfile(); !found || profile.ID != "read" || len(profile.Tools) != 12 {
 		t.Errorf("profile = %+v", profile)
 	}
 	// The recommended profile never asks for more than the read-only scope; a tool that needs the broad
-	// cloud-platform scope belongs to read-iam only, which holds every tool.
+	// cloud-platform scope belongs to read-iam, which holds every read tool, or to a changing profile.
 	for _, profile := range metadata.Profiles {
 		switch profile.ID {
 		case "read":
@@ -71,8 +89,17 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 				}
 			}
 		case "read-iam":
-			if profile.Recommended || len(profile.Tools) != len(ids) {
+			if profile.Recommended || len(profile.Tools) != reads {
 				t.Errorf("profile read-iam = %+v", profile)
+			}
+		case "service-accounts":
+			if profile.Recommended || len(profile.Tools) != 4 {
+				t.Errorf("profile service-accounts = %+v", profile)
+			}
+		case "iam-bindings":
+			if profile.Recommended || !slices.Contains(profile.Tools, iamBindingsAddID) ||
+				!slices.Contains(profile.Tools, iamBindingsRemoveID) || !slices.Contains(profile.Tools, iamBindingsChangeID) {
+				t.Errorf("profile iam-bindings = %+v", profile)
 			}
 		default:
 			t.Errorf("unexpected profile %s", profile.ID)
@@ -131,7 +158,8 @@ func TestGoogleErrorMapsOnlyDocumentedValues(t *testing.T) {
 		{"rate limited", 429, errorObject(429, "RESOURCE_EXHAUSTED", "RATE_LIMIT_EXCEEDED"), provider.ClassRateLimited},
 		{"rate limited without body", 429, ``, provider.ClassRateLimited},
 		{"bad request", 400, errorObject(400, "INVALID_ARGUMENT", ""), provider.ClassInvalidResponse},
-		{"unknown client error", 409, errorObject(409, "ABORTED", ""), provider.ClassInvalidResponse},
+		{"unknown client error", 409, errorObject(409, "ALREADY_EXISTS", ""), provider.ClassInvalidResponse},
+		{"etag conflict", 409, errorObject(409, "ABORTED", ""), provider.ClassProviderError},
 		{"unavailable", 503, errorObject(503, "UNAVAILABLE", ""), provider.ClassUnreachable},
 		{"gateway timeout", 504, ``, provider.ClassTimeout},
 	}
