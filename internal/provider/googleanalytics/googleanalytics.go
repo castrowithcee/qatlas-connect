@@ -15,7 +15,8 @@
 // Reading tools send one request, a changing tool exactly one and never again, whatever comes back.
 // Deleting an account runs only on a connection that binds exactly that account and no property.
 //
-// The settings of a web data stream run on the Admin API v1alpha, see alpha.go.
+// The settings of a web data stream and the calculated metrics of a property run on the Admin API v1alpha,
+// see alpha.go.
 //
 // A connection may bind Analytics accounts (accounts/ID) and properties (properties/ID). Without a target it
 // reaches what the credential reaches. A bound account reaches its properties, a bound property only itself;
@@ -101,6 +102,12 @@ var scopes = map[string][]string{
 	siteTagGetID:      {scopeReadOnly},
 	enhancedUpdateID:  {scopeEdit},
 	redactionUpdateID: {scopeEdit},
+
+	calculatedListID:   {scopeReadOnly},
+	calculatedGetID:    {scopeReadOnly},
+	calculatedCreateID: {scopeEdit},
+	calculatedUpdateID: {scopeEdit},
+	calculatedDeleteID: {scopeEdit},
 }
 
 func tokenMetadata() config.TokenMetadata { return config.TokenMetadata{Scopes: scopes} }
@@ -162,7 +169,8 @@ func isDefaultRoot(raw string) bool {
 var readTools = []string{summariesID, accountsID, accountsGetID, accountsSharingID, propertiesListID, propertiesGetID,
 	reportsRunID, metadataGetID, compatibilityID, dataStreamsListID, dataStreamsGetID, funnelRunID, audienceGetID,
 	audienceListID, reportsRunPivotID, reportsBatchRunID, reportsBatchRunPivotID, reportsRunRealtimeID,
-	reportTasksGetID, reportTasksListID, reportTasksQueryID, audienceQueryID, enhancedGetID, redactionGetID, siteTagGetID}
+	reportTasksGetID, reportTasksListID, reportTasksQueryID, audienceQueryID, enhancedGetID, redactionGetID, siteTagGetID,
+	calculatedListID, calculatedGetID}
 
 // Register adds the provider metadata, its consent endpoints, its connection test and its tools.
 func Register(reg *capability.Registry) error {
@@ -195,17 +203,17 @@ func Register(reg *capability.Registry) error {
 		},
 		Profiles: []config.ToolProfile{{
 			ID: "read", Title: "Read", Recommended: true,
-			Description: "reads the Analytics accounts, properties, reports and report tasks the connection reaches; " +
+			Description: "reads the Analytics accounts, properties, calculated metrics, reports and report tasks the connection reaches; " +
 				"nothing is changed. It includes reading the users of an audience export, which are personal data",
 			Tools: readTools,
 		}, {
 			ID: "write", Title: "Read and change",
-			Description: "reads what the read profile reads and changes Analytics accounts and properties, starts audience exports " +
+			Description: "reads what the read profile reads and changes Analytics accounts, properties and calculated metrics, starts audience exports " +
 				"and report tasks; every " +
-				"change needs its own confirmation, and deleting stays unlisted",
+				"change needs its own confirmation, and deleting an account or a property stays unlisted",
 			Tools: append(slices.Clone(readTools), accountsUpdateID, propertiesCreateID, propertiesUpdateID,
 				dataStreamsCreateID, dataStreamsUpdateID, audienceCreateID, reportTasksCreateID, enhancedUpdateID,
-				redactionUpdateID),
+				redactionUpdateID, calculatedCreateID, calculatedUpdateID, calculatedDeleteID),
 		}},
 	}, TestConnection); err != nil {
 		return err
@@ -247,6 +255,14 @@ func Register(reg *capability.Registry) error {
 		{Descriptor: redactionUpdateDescriptor, Handler: handleRedactionUpdate,
 			ConfirmationSummary: settingsSummary(redactionUpdateID)},
 		{Descriptor: siteTagGet, Handler: handleSiteTagGet},
+		{Descriptor: calculatedList, Handler: handleCalculatedList},
+		{Descriptor: calculatedGet, Handler: handleCalculatedGet},
+		{Descriptor: calculatedCreate, Handler: handleCalculatedCreate,
+			ConfirmationSummary: calculatedWriteSummary(calculatedCreateID)},
+		{Descriptor: calculatedUpdate, Handler: handleCalculatedUpdate,
+			ConfirmationSummary: calculatedWriteSummary(calculatedUpdateID)},
+		{Descriptor: calculatedDelete, Handler: handleCalculatedDelete,
+			ConfirmationSummary: calculatedWriteSummary(calculatedDeleteID)},
 		{Descriptor: funnelRun, Handler: handleFunnelRun},
 		{Descriptor: audienceGet, Handler: handleAudienceGet},
 		{Descriptor: audienceList, Handler: handleAudienceList},

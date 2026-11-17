@@ -56,7 +56,8 @@ var toolEffects = map[string]config.Effect{accountsUpdateID: config.EffectUpdate
 	propertiesCreateID: config.EffectCreate, propertiesUpdateID: config.EffectUpdate, propertiesDeleteID: config.EffectDelete,
 	dataStreamsCreateID: config.EffectCreate, dataStreamsUpdateID: config.EffectUpdate, audienceCreateID: config.EffectCreate,
 	reportTasksCreateID: config.EffectCreate,
-	enhancedUpdateID:    config.EffectUpdate, redactionUpdateID: config.EffectUpdate}
+	enhancedUpdateID:    config.EffectUpdate, redactionUpdateID: config.EffectUpdate,
+	calculatedCreateID: config.EffectCreate, calculatedUpdateID: config.EffectUpdate, calculatedDeleteID: config.EffectDelete}
 
 func effectOf(id string) config.Effect {
 	if effect, ok := toolEffects[id]; ok {
@@ -85,7 +86,8 @@ func TestRegisterPublishesMetadataScopesAndConsent(t *testing.T) {
 		audienceQueryID: {scopeReadOnly}, reportTasksCreateID: {scopeReadOnly}, reportTasksGetID: {scopeReadOnly},
 		reportTasksListID: {scopeReadOnly}, reportTasksQueryID: {scopeReadOnly}, enhancedGetID: {scopeReadOnly},
 		redactionGetID: {scopeReadOnly}, siteTagGetID: {scopeReadOnly}, enhancedUpdateID: {scopeEdit},
-		redactionUpdateID: {scopeEdit}}) {
+		redactionUpdateID: {scopeEdit}, calculatedListID: {scopeReadOnly}, calculatedGetID: {scopeReadOnly},
+		calculatedCreateID: {scopeEdit}, calculatedUpdateID: {scopeEdit}, calculatedDeleteID: {scopeEdit}}) {
 		t.Errorf("scopes = %v", metadata.Token.Scopes)
 	}
 	ids := []string{}
@@ -105,7 +107,9 @@ func TestRegisterPublishesMetadataScopesAndConsent(t *testing.T) {
 		"google.analytics.data-streams.list", "google.analytics.data-streams.update",
 		"google.analytics.data-streams.get-enhanced-measurement", "google.analytics.data-streams.update-enhanced-measurement",
 		"google.analytics.data-streams.get-data-redaction", "google.analytics.data-streams.update-data-redaction",
-		"google.analytics.data-streams.get-site-tag",
+		"google.analytics.data-streams.get-site-tag", "google.analytics.calculated-metrics.list",
+		"google.analytics.calculated-metrics.get", "google.analytics.calculated-metrics.create",
+		"google.analytics.calculated-metrics.update", "google.analytics.calculated-metrics.delete",
 		"google.analytics.properties.create", "google.analytics.properties.delete", "google.analytics.properties.get",
 		"google.analytics.properties.list", "google.analytics.properties.update", "google.analytics.report-tasks.create",
 		"google.analytics.report-tasks.get", "google.analytics.report-tasks.list", "google.analytics.report-tasks.query",
@@ -118,14 +122,15 @@ func TestRegisterPublishesMetadataScopesAndConsent(t *testing.T) {
 	reads := []string{summariesID, accountsID, accountsGetID, accountsSharingID, propertiesListID, propertiesGetID,
 		reportsRunID, metadataGetID, compatibilityID, dataStreamsListID, dataStreamsGetID, funnelRunID, audienceGetID,
 		audienceListID, reportsRunPivotID, reportsBatchRunID, reportsBatchRunPivotID, reportsRunRealtimeID,
-		reportTasksGetID, reportTasksListID, reportTasksQueryID, audienceQueryID, enhancedGetID, redactionGetID, siteTagGetID}
+		reportTasksGetID, reportTasksListID, reportTasksQueryID, audienceQueryID, enhancedGetID, redactionGetID, siteTagGetID,
+		calculatedListID, calculatedGetID}
 	if len(metadata.Profiles) != 2 || metadata.Profiles[0].ID != "read" || !metadata.Profiles[0].Recommended ||
 		!reflect.DeepEqual(metadata.Profiles[0].Tools, reads) || metadata.Profiles[1].ID != "write" ||
 		metadata.Profiles[1].Recommended ||
 		!reflect.DeepEqual(metadata.Profiles[1].Tools,
 			append(slices.Clone(reads), accountsUpdateID, propertiesCreateID, propertiesUpdateID,
 				dataStreamsCreateID, dataStreamsUpdateID, audienceCreateID, reportTasksCreateID, enhancedUpdateID,
-				redactionUpdateID)) {
+				redactionUpdateID, calculatedCreateID, calculatedUpdateID, calculatedDeleteID)) {
 		t.Errorf("profiles = %+v", metadata.Profiles)
 	}
 	oauth, ok := reg.OAuth(Provider)

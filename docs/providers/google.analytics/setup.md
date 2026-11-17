@@ -12,7 +12,8 @@ updated: 2026-11-17
 This page shows how to connect Qatlas to Google Analytics 4. Targets, paging, and errors are described in the
 [Google Analytics provider](README.md); the tools are described in [accounts](accounts.md),
 [properties](properties.md), [data streams](data-streams.md), [reports](reports.md), and
-[audience exports](audience-exports.md), and [report tasks](report-tasks.md).
+[audience exports](audience-exports.md), [report tasks](report-tasks.md), and
+[calculated metrics](calculated-metrics.md).
 
 ## What you need
 
@@ -75,7 +76,7 @@ In Analytics, open Admin, then **Account access management** or **Property acces
 Google account or the service account address with at least the **Viewer** role. A property is visible with a
 role on the property or on its account. The Analytics roles are not changed by the scopes below. The tools that
 change something also need the **Editor** role: on the account to change or trash an account or to create a
-property, and on the property or its account to change or trash a property.
+property, and on the property or its account to change or trash a property or to change its calculated metrics.
 
 ## Rights and scopes
 
@@ -98,6 +99,8 @@ credential never carries the scope of another product.
 | [Data streams](data-streams.md#changing-data-streams) | `data-streams.create`, `data-streams.update` | `analytics.edit` |
 | [Stream settings](data-streams.md#stream-settings-alpha) | `data-streams.get-enhanced-measurement`, `data-streams.get-data-redaction`, `data-streams.get-site-tag` | `analytics.readonly` |
 | [Stream settings](data-streams.md#stream-settings-alpha) | `data-streams.update-enhanced-measurement`, `data-streams.update-data-redaction` | `analytics.edit` |
+| [Calculated metrics](calculated-metrics.md) | `calculated-metrics.list`, `calculated-metrics.get` | `analytics.readonly` |
+| [Calculated metrics](calculated-metrics.md#changing-calculated-metrics) | `calculated-metrics.create`, `calculated-metrics.update`, `calculated-metrics.delete` | `analytics.edit` |
 
 ## Add it to Qatlas
 
