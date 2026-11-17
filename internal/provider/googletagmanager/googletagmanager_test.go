@@ -205,11 +205,11 @@ func TestRegisterDeclaresTokenScopesAndTargets(t *testing.T) {
 		t.Fatal(err)
 	}
 	metadata, ok := reg.ProviderMetadata(Provider)
-	if !ok || metadata.Token == nil || len(reg.Provider(Provider)) != 77 || metadata.DocPath() != "google.tag-manager/setup.md" {
+	if !ok || metadata.Token == nil || len(reg.Provider(Provider)) != 81 || metadata.DocPath() != "google.tag-manager/setup.md" {
 		t.Fatalf("metadata = %+v, %v", metadata, ok)
 	}
 	for _, d := range reg.Provider(Provider) {
-		if d.Risk.Effect != capability.EffectRead {
+		if d.Risk.Effect != capability.EffectRead || isUserPermissionTool(d.ID) {
 			continue
 		}
 		if scopes := metadata.Token.Scopes[d.ID]; len(scopes) != 1 || scopes[0] != readonlyScope {
