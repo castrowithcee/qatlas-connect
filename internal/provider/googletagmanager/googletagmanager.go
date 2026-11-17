@@ -56,6 +56,9 @@ func TestConnection(ctx context.Context, resolved *config.Resolved, secrets *sec
 func Register(reg *capability.Registry) error {
 	var readIDs, writeIDs []string
 	for _, d := range descriptors() {
+		if isUserPermissionTool(d.ID) {
+			continue
+		}
 		if d.Risk.Effect == capability.EffectRead {
 			readIDs = append(readIDs, d.ID)
 		}
@@ -86,11 +89,12 @@ func Register(reg *capability.Registry) error {
 				Forms: []string{formContainer}, Parents: []string{"account"},
 			}},
 			Validate: validateTarget,
+			Reaches:  targetReaches,
 		},
 		Profiles: []config.ToolProfile{{
 			ID: "read", Title: "Read", Recommended: true,
 			Description: "reads accounts, containers, workspaces and their changes, tags, triggers, variables, " +
-				"built-in variables, templates, folders, clients, transformations, zones, and Google tag " +
+				"built-in variables, templates, folders, clients, transformations, zones, Google tag " +
 				"configurations, container versions, and their headers; changes nothing",
 			Tools: readIDs,
 		}, {
@@ -106,6 +110,13 @@ func Register(reg *capability.Registry) error {
 				"reverting a tag, trigger, variable, template, built-in variable, folder, client, transformation, or " +
 				"zone stay unticked",
 			Tools: writeIDs,
+		}, {
+			ID: userPermissionsProfile, Title: "User permissions",
+			Description: "reads the users of an account with their email addresses and rights, changes the rights of " +
+				"existing users, and removes a user from the account; no tool adds a user; these methods accept only " +
+				"the scope that manages users, so the token may also change what its account may in Tag Manager, " +
+				"every change needs its own confirmation, and a connection bound to a container does not offer them",
+			Tools: userPermissionIDs(),
 		}},
 	}, TestConnection); err != nil {
 		return err
@@ -152,6 +163,9 @@ func Register(reg *capability.Registry) error {
 		gtagConfigsCreateID: handleGtagConfigsCreate, gtagConfigsUpdateID: handleGtagConfigsUpdate,
 		gtagConfigsDeleteID: handleGtagConfigsDelete,
 
+		userPermissionsListID: handleUserPermissionsList, userPermissionsGetID: handleUserPermissionsGet,
+		userPermissionsUpdateID: handleUserPermissionsUpdate, userPermissionsDeleteID: handleUserPermissionsDelete,
+
 		versionsGetID: handleVersionsGet, versionsLiveID: handleVersionsLive,
 		versionHeadersListID: handleVersionHeadersList, versionHeadersLatestID: handleVersionHeadersLatest,
 	}
@@ -183,6 +197,8 @@ func Register(reg *capability.Registry) error {
 
 		gtagConfigsCreateID: gtagConfigSummary("Create"), gtagConfigsUpdateID: gtagConfigSummary("Replace"),
 		gtagConfigsDeleteID: gtagConfigSummary("Delete"),
+
+		userPermissionsUpdateID: userPermissionUpdateSummary, userPermissionsDeleteID: userPermissionDeleteSummary,
 	}
 	for _, d := range descriptors() {
 		if err := reg.Register(Provider, capability.Operation{Descriptor: d, Handler: handlers[d.ID],
