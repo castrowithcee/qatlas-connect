@@ -1,6 +1,6 @@
 ---
 description: >
-  Describes the Google Cloud service account tools: the reads service-accounts.list and service-accounts.get and the changes create, patch, disable, and enable (profile service-accounts), with the structured project and account arguments, the project check before and after the request, paging, the returned fields, the scope, and what is left out.
+  Describes the Google Cloud service account tools: the reads service-accounts.list and service-accounts.get, the changes create, patch, disable, and enable (profile service-accounts), and the listed-only service-accounts.delete, with the structured project and account arguments, the project check before and after the request, paging, the returned fields, the scope, and what is left out.
 type: knowledge
 edit: shared
 created: 2026-11-17
@@ -11,7 +11,8 @@ updated: 2026-11-17
 
 Two read tools of the IAM API (`https://iam.googleapis.com`, discovery `iam` v1, revision 20261106): the
 service accounts of a project and one service account. Four more tools create, change, disable, and enable an
-account (see [Changing accounts](#changing-accounts)). Nothing here deletes an account. The keys
+account (see [Changing accounts](#changing-accounts)). One more tool deletes an account and is only offered
+where a connection names it (see [Deleting an account](#deleting-an-account)). The keys
 of an account are read by [service-account-keys](service-account-keys.md). [The provider page](README.md) holds
 targets, errors, and rate spacing.
 
@@ -60,7 +61,7 @@ rights are listed in [setup](setup.md).
 
 ## Left out on purpose
 
-Undeleting and deleting an account, the policy of an account (read with `iam-policies.get`), and signing, token,
+Undeleting an account, the policy of an account (read with `iam-policies.get`), and signing, token,
 and key creation methods. No tool creates a key, a token, or a signature.
 
 ## Changing accounts
@@ -96,3 +97,20 @@ For `create` there is no account yet, so only the project is checked.
   Answers are decoded into a type without key fields, so a `privateKeyData` in an answer is never returned.
 - A change is sent once and never repeated. After a transport failure, a 5xx answer, or an unreadable answer the
   message says that the outcome is unknown: read the account before changing it again.
+
+## Deleting an account
+
+| Tool | Effect | Google method | Arguments |
+| --- | --- | --- | --- |
+| `service-accounts.delete` | delete | `projects.serviceAccounts.delete` | `project_id`, `account` |
+
+`service-accounts.delete` is listed-only: no effect and no prefix such as `service-accounts.*` offers it, and no
+profile holds it. A connection has it only when its `tools` list names `google.cloud.service-accounts.delete`
+exactly. It asks for `cloud-platform` and needs the permission `iam.serviceAccounts.delete` on the project.
+
+Every call needs the confirmation of a person. It names the project and the account and says that services that
+use the account fail afterwards. Deleting removes the account with its keys and role bindings. Google may allow a
+recovery for a limited time only, and `undelete` is not a tool. Block an account with `service-accounts.disable`
+first. The project check is the one of the other tools and happens before any secret is read. The result is
+`projectId`, `account` as given, and `deleted`. The change is sent once; after a transport failure, a 5xx answer,
+or an unreadable answer the message says that the outcome is unknown.
