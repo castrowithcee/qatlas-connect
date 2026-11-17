@@ -17,7 +17,8 @@
 // of a measurement protocol secret is never returned: it is read from Google's answer only to register it with
 // the redactor.
 //
-// The settings and the event create rules of a web data stream run on the Admin API v1alpha, see alpha.go.
+// The settings and the event create rules of a web data stream and the calculated metrics of a property run on
+// the Admin API v1alpha, see alpha.go.
 //
 // A connection may bind Analytics accounts (accounts/ID) and properties (properties/ID). Without a target it
 // reaches what the credential reaches. A bound account reaches its properties, a bound property only itself;
@@ -133,6 +134,12 @@ var scopes = map[string][]string{
 	eventRulesUpdateID: {scopeEdit},
 	eventRulesDeleteID: {scopeEdit},
 
+	calculatedListID:   {scopeReadOnly},
+	calculatedGetID:    {scopeReadOnly},
+	calculatedCreateID: {scopeEdit},
+	calculatedUpdateID: {scopeEdit},
+	calculatedDeleteID: {scopeEdit},
+
 	accessAccountID:  {scopeReadOnly},
 	accessPropertyID: {scopeReadOnly},
 
@@ -205,7 +212,7 @@ var readTools = []string{summariesID, accountsID, accountsGetID, accountsSharing
 	enhancedGetID, redactionGetID, siteTagGetID,
 	customDimensionsListID, customDimensionsGetID, customMetricsListID,
 	customMetricsGetID, keyEventsListID, keyEventsGetID, eventRulesListID, eventRulesGetID,
-	accessAccountID, accessPropertyID, dataRetentionGetID, googleSignalsGetID}
+	calculatedListID, calculatedGetID, accessAccountID, accessPropertyID, dataRetentionGetID, googleSignalsGetID}
 
 // Register adds the provider metadata, its consent endpoints, its connection test and its tools.
 func Register(reg *capability.Registry) error {
@@ -238,14 +245,14 @@ func Register(reg *capability.Registry) error {
 		},
 		Profiles: []config.ToolProfile{{
 			ID: "read", Title: "Read", Recommended: true,
-			Description: "reads the Analytics accounts, properties, custom dimensions and metrics, key events, reports and report tasks the connection reaches; " +
+			Description: "reads the Analytics accounts, properties, custom dimensions and metrics, key events, calculated metrics, reports and report tasks the connection reaches; " +
 				"nothing is changed. It includes reading the users of an audience export and the Data Access Reports, " +
 				"which are personal data",
 			Tools: readTools,
 		}, {
 			ID: "write", Title: "Read and change",
 			Description: "reads what the read profile reads and changes Analytics accounts, properties, data streams, custom " +
-				"dimensions, custom metrics, key events, event create rules and Google Signals, starts audience exports and report tasks, " +
+				"dimensions, custom metrics, key events, event create rules, calculated metrics and Google Signals, starts audience exports and report tasks, " +
 				"and deletes data streams, measurement protocol secrets and key events; every change needs its own " +
 				"confirmation, and deleting an account or a property stays unlisted, and so does changing the data retention",
 			Tools: append(slices.Clone(readTools), accountsUpdateID, propertiesCreateID, propertiesUpdateID,
@@ -254,7 +261,7 @@ func Register(reg *capability.Registry) error {
 				customDimensionsUpdateID, customDimensionsArchiveID,
 				customMetricsCreateID, customMetricsUpdateID, customMetricsArchiveID,
 				keyEventsCreateID, keyEventsUpdateID, keyEventsDeleteID, eventRulesCreateID, eventRulesUpdateID, eventRulesDeleteID,
-				googleSignalsUpdateID),
+				calculatedCreateID, calculatedUpdateID, calculatedDeleteID, googleSignalsUpdateID),
 		}},
 	}, TestConnection); err != nil {
 		return err
@@ -329,6 +336,14 @@ func Register(reg *capability.Registry) error {
 			ConfirmationSummary: ruleWriteSummary(eventRulesUpdateID)},
 		{Descriptor: eventRulesDelete, Handler: handleEventRulesDelete,
 			ConfirmationSummary: ruleWriteSummary(eventRulesDeleteID)},
+		{Descriptor: calculatedList, Handler: handleCalculatedList},
+		{Descriptor: calculatedGet, Handler: handleCalculatedGet},
+		{Descriptor: calculatedCreate, Handler: handleCalculatedCreate,
+			ConfirmationSummary: calculatedWriteSummary(calculatedCreateID)},
+		{Descriptor: calculatedUpdate, Handler: handleCalculatedUpdate,
+			ConfirmationSummary: calculatedWriteSummary(calculatedUpdateID)},
+		{Descriptor: calculatedDelete, Handler: handleCalculatedDelete,
+			ConfirmationSummary: calculatedWriteSummary(calculatedDeleteID)},
 		{Descriptor: funnelRun, Handler: handleFunnelRun},
 		{Descriptor: audienceGet, Handler: handleAudienceGet},
 		{Descriptor: audienceList, Handler: handleAudienceList},
