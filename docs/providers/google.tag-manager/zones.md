@@ -14,7 +14,7 @@ with tags, triggers, and variables are described there.
 
 A zone fences tags, triggers, and variables to a part of a container. A zone can also bring another container in
 through `childContainer`, which pulls the configuration of that container into this one. A change is made in the
-workspace only and takes effect only with a published container version, which no tool of this provider makes.
+workspace only and takes effect only with a published container version, which no tool of this provider publishes.
 Every change is confirmed. The confirmation shows the name, the workspace or zone path, and the public ID of
 every child container, never a condition value.
 
