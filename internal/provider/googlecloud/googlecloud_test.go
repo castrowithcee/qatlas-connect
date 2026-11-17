@@ -37,9 +37,18 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 	reads := 0
 	for _, tool := range metadata.Tools {
 		ids = append(ids, tool.ID)
+		wantEffect := config.EffectRead
+		switch {
+		case tool.ID == serviceAccountsCreateID:
+			wantEffect = config.EffectCreate
+		case tool.ID == serviceAccountsPatchID, tool.ID == serviceAccountsDisableID, tool.ID == serviceAccountsEnableID,
+			strings.Contains(tool.ID, ".iam-bindings."):
+			wantEffect = config.EffectUpdate
+		}
 		if tool.Effect == config.EffectRead {
 			reads++
-		} else if tool.Effect != config.EffectUpdate || !strings.Contains(tool.ID, ".iam-bindings.") {
+		}
+		if tool.Effect != wantEffect {
 			t.Errorf("%s effect = %v", tool.ID, tool.Effect)
 		}
 		wantScope := "https://www.googleapis.com/auth/cloud-platform.read-only"
@@ -59,8 +68,10 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 		"google.cloud.iam-roles.query-grantable", "google.cloud.operations.get", "google.cloud.organizations.get",
 		"google.cloud.organizations.search", "google.cloud.projects.get", "google.cloud.projects.list",
 		"google.cloud.projects.search", "google.cloud.service-account-keys.get",
-		"google.cloud.service-account-keys.list", "google.cloud.service-accounts.get",
-		"google.cloud.service-accounts.list", "google.cloud.services.batch-get", "google.cloud.services.get",
+		"google.cloud.service-account-keys.list", "google.cloud.service-accounts.create",
+		"google.cloud.service-accounts.disable", "google.cloud.service-accounts.enable",
+		"google.cloud.service-accounts.get", "google.cloud.service-accounts.list",
+		"google.cloud.service-accounts.patch", "google.cloud.services.batch-get", "google.cloud.services.get",
 		"google.cloud.services.list"}; !slices.Equal(ids, want) {
 		t.Errorf("tools = %v, want %v", ids, want)
 	}
@@ -68,7 +79,7 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 		t.Errorf("profile = %+v", profile)
 	}
 	// The recommended profile never asks for more than the read-only scope; a tool that needs the broad
-	// cloud-platform scope belongs to read-iam, which holds every read tool, or to iam-bindings.
+	// cloud-platform scope belongs to read-iam, which holds every read tool, or to a changing profile.
 	for _, profile := range metadata.Profiles {
 		switch profile.ID {
 		case "read":
@@ -80,6 +91,10 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 		case "read-iam":
 			if profile.Recommended || len(profile.Tools) != reads {
 				t.Errorf("profile read-iam = %+v", profile)
+			}
+		case "service-accounts":
+			if profile.Recommended || len(profile.Tools) != 4 {
+				t.Errorf("profile service-accounts = %+v", profile)
 			}
 		case "iam-bindings":
 			if profile.Recommended || !slices.Contains(profile.Tools, iamBindingsAddID) ||

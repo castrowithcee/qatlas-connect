@@ -59,9 +59,9 @@ func Register(reg *capability.Registry) error {
 		if d.Risk.Effect == capability.EffectRead {
 			readIDs = append(readIDs, d.ID)
 		}
-		// Reverting overwrites the workspace state of an object or built-in variable, so it is in no profile: a connection offers it
-		// only when its tools list names it. Deleting one workspace object is not: it stays revertible until a
-		// version is published.
+		// Reverting overwrites the workspace state of an object or built-in variable, and deleting a workspace
+		// loses its unpublished changes, so both are in no profile: a connection offers them only when its tools
+		// list names them. Deleting one workspace object is not: it stays revertible until a version is published.
 		if !d.RequiresToolAllowList {
 			writeIDs = append(writeIDs, d.ID)
 		}
@@ -88,16 +88,18 @@ func Register(reg *capability.Registry) error {
 		},
 		Profiles: []config.ToolProfile{{
 			ID: "read", Title: "Read", Recommended: true,
-			Description: "reads accounts, containers, workspaces, tags, triggers, variables, built-in variables, " +
-				"folders, and clients; changes nothing",
+			Description: "reads accounts, containers, workspaces and their changes, tags, triggers, variables, " +
+				"built-in variables, folders, clients, and transformations; changes nothing",
 			Tools: readIDs,
 		}, {
-			ID: "write", Title: "Read and change tags, triggers, variables, built-in variables, folders, and clients",
-			Description: "reads what the read profile reads, creates, updates, and deletes the tags, triggers, and " +
-				"variables of a workspace, creates and updates its folders, creates, updates, and deletes its clients, " +
-				"and enables and disables its built-in variables; every change needs its own " +
-				"confirmation and stays in the workspace until a version is published, which no tool of this provider " +
-				"does. Reverting a tag, trigger, variable, built-in variable, or client stays unticked",
+			ID: "write", Title: "Read and change workspaces, tags, triggers, variables, built-in variables, folders, " +
+				"clients, and transformations",
+			Description: "reads what the read profile reads, creates and updates workspaces, creates, updates, and " +
+				"deletes the tags, triggers, and variables of a workspace, creates and updates its folders, creates, " +
+				"updates, and deletes its clients and transformations, and enables and disables its built-in " +
+				"variables; every change needs its own confirmation and stays in the workspace until a version is " +
+				"published, which no tool of this provider does. Deleting a workspace and reverting a tag, trigger, " +
+				"variable, built-in variable, client, or transformation stay unticked",
 			Tools: writeIDs,
 		}},
 	}, TestConnection); err != nil {
@@ -110,6 +112,8 @@ func Register(reg *capability.Registry) error {
 		accountsListID: handleAccountsList, accountsGetID: handleAccountsGet,
 		containersListID: handleContainersList, containersGetID: handleContainersGet,
 		workspacesListID: handleWorkspacesList, workspacesGetID: handleWorkspacesGet,
+		workspacesCreateID: handleWorkspacesCreate, workspacesUpdateID: handleWorkspacesUpdate,
+		workspacesDeleteID: handleWorkspacesDelete, workspacesStatusID: handleWorkspacesStatus,
 		tagsListID: handleTagsList, tagsGetID: handleTagsGet, tagsCreateID: handleTagsCreate,
 		tagsUpdateID: handleTagsUpdate, tagsDeleteID: handleTagsDelete, tagsRevertID: handleTagsRevert,
 		triggersListID: handleTriggersList, triggersGetID: handleTriggersGet, triggersCreateID: handleTriggersCreate,
@@ -125,9 +129,15 @@ func Register(reg *capability.Registry) error {
 
 		clientsListID: handleClientsList, clientsGetID: handleClientsGet, clientsCreateID: handleClientsCreate,
 		clientsUpdateID: handleClientsUpdate, clientsDeleteID: handleClientsDelete, clientsRevertID: handleClientsRevert,
+
+		transformationsListID: handleTransformationsList, transformationsGetID: handleTransformationsGet,
+		transformationsCreateID: handleTransformationsCreate, transformationsUpdateID: handleTransformationsUpdate,
+		transformationsDeleteID: handleTransformationsDelete, transformationsRevertID: handleTransformationsRevert,
 	}
 	summaries := map[string]capability.SummaryFunc{
-		tagsCreateID: tagSummary("Create"), tagsUpdateID: tagSummary("Replace"),
+		workspacesCreateID: workspaceSummary("Create"), workspacesUpdateID: workspaceSummary("Replace"),
+		workspacesDeleteID: deleteWorkspaceSummary,
+		tagsCreateID:       tagSummary("Create"), tagsUpdateID: tagSummary("Replace"),
 		tagsDeleteID: tagSummary("Delete"), tagsRevertID: tagSummary("Revert"),
 		triggersCreateID: triggerSummary("Create"), triggersUpdateID: triggerSummary("Replace"),
 		triggersDeleteID: triggerSummary("Delete"), triggersRevertID: triggerSummary("Revert"),
@@ -139,6 +149,9 @@ func Register(reg *capability.Registry) error {
 
 		clientsCreateID: clientSummary("Create"), clientsUpdateID: clientSummary("Replace"),
 		clientsDeleteID: clientSummary("Delete"), clientsRevertID: clientSummary("Revert"),
+
+		transformationsCreateID: transformationSummary("Create"), transformationsUpdateID: transformationSummary("Replace"),
+		transformationsDeleteID: transformationSummary("Delete"), transformationsRevertID: transformationSummary("Revert"),
 	}
 	for _, d := range descriptors() {
 		if err := reg.Register(Provider, capability.Operation{Descriptor: d, Handler: handlers[d.ID],

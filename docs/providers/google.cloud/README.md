@@ -34,8 +34,8 @@ service account that the connection names with `service_account` (the consent of
 tokens for it). The connection holds no scope. Qatlas derives them from the tools it offers and asks for the
 smallest scope the discovery document of each method lists: `cloud-platform.read-only` for Resource Manager,
 and `cloud-platform` for the IAM tools, because their discovery documents list no narrower scope (Google
-offers no read-only variant for these methods, see [IAM](iam.md)). Only the `iam-bindings` tools change
-anything, whatever the scope allows. The access token travels in the
+offers no read-only variant for these methods, see [IAM](iam.md)). Only the tools of the profiles
+`service-accounts` and `iam-bindings` change anything, each with a confirmation, whatever the scope allows. The access token travels in the
 `Authorization` header only, is never an argument or part of a result, and is masked in every output. A 401
 renews the token once, and nothing else repeats a request.
 
@@ -90,6 +90,11 @@ The profile `read-iam` adds the IAM tools (`google.cloud.iam-roles.list`, `googl
 scope `cloud-platform`, so a connection with this profile asks for a token that may change whatever its account
 may change, although no tool of this profile changes anything. It is not recommended: give it only to a
 connection that needs IAM, preferably with a credential whose account has viewer roles only.
+
+The profile `service-accounts` holds only the changing tools `google.cloud.service-accounts.create`,
+`google.cloud.service-accounts.patch`, `google.cloud.service-accounts.disable`, and
+`google.cloud.service-accounts.enable`. It asks for `cloud-platform`, needs the effects `create` and `update`,
+and is not recommended.
 
 The profile `iam-bindings` holds the tools of `read`, `google.cloud.iam-policies.get`, and the three binding
 tools `google.cloud.iam-bindings.add-member`, `google.cloud.iam-bindings.remove-member`, and
@@ -155,7 +160,8 @@ operation `name`.
 
 ### Service accounts
 
-[Service accounts](service-accounts.md) covers `service-accounts.list` and `service-accounts.get`;
+[Service accounts](service-accounts.md) covers `service-accounts.list`, `service-accounts.get`, and the changes
+`service-accounts.create`, `service-accounts.patch`, `service-accounts.disable`, and `service-accounts.enable`;
 [service account keys](service-account-keys.md) covers `service-account-keys.list` and `service-account-keys.get`,
 which return metadata only and never key material.
 
