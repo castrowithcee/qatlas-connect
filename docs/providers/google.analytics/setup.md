@@ -14,7 +14,7 @@ This page shows how to connect Qatlas to Google Analytics 4. Targets, paging, an
 [properties](properties.md), [data streams](data-streams.md), [custom dimensions](custom-dimensions.md),
 [custom metrics](custom-metrics.md), [event create rules](event-create-rules.md),
 [calculated metrics](calculated-metrics.md),
-[annotations](annotations.md), [reports](reports.md),
+[annotations](annotations.md), [channel groups](channel-groups.md), [reports](reports.md),
 [audience exports](audience-exports.md), [report tasks](report-tasks.md),
 [measurement protocol secrets](measurement-protocol-secrets.md), [access reports](access-reports.md),
 [data retention](data-retention.md), and [Google Signals](google-signals.md).
@@ -85,7 +85,7 @@ property, and on the property or its account to change or trash a property or to
 ## Rights and scopes
 
 The reading tools need the scope `https://www.googleapis.com/auth/analytics.readonly`, the smallest scope that
-reads Analytics configuration and report data. The tools that change an account, a property, a data stream, an event create rule, or an annotation need
+reads Analytics configuration and report data. The tools that change an account, a property, a data stream, an event create rule, an annotation, or a channel group need
 `https://www.googleapis.com/auth/analytics.edit`. Qatlas asks for the scope of the tools of the connections that
 use the credential and no more. Each connection of a credential has to be for Google Analytics, so the
 credential never carries the scope of another product.
@@ -118,6 +118,8 @@ credential never carries the scope of another product.
 | [Calculated metrics](calculated-metrics.md#changing-calculated-metrics) | `calculated-metrics.create`, `calculated-metrics.update`, `calculated-metrics.delete` | `analytics.edit` |
 | [Annotations](annotations.md) | `annotations.list`, `annotations.get` | `analytics.readonly` |
 | [Annotations](annotations.md#changing-annotations) | `annotations.create`, `annotations.update`, `annotations.delete` | `analytics.edit` |
+| [Channel groups](channel-groups.md) | `channel-groups.list`, `channel-groups.get` | `analytics.readonly` |
+| [Channel groups](channel-groups.md#changing-channel-groups) | `channel-groups.create`, `channel-groups.update`, `channel-groups.delete` | `analytics.edit` |
 | [Data retention](data-retention.md) | `data-retention.get` | `analytics.readonly` |
 | [Data retention](data-retention.md#googleanalyticsdata-retentionupdate) | `data-retention.update` | `analytics.edit` |
 | [Google Signals](google-signals.md) | `google-signals.get` | `analytics.readonly` |
