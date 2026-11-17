@@ -149,6 +149,11 @@ var scopes = map[string][]string{
 	annotationsCreateID: {scopeEdit},
 	annotationsUpdateID: {scopeEdit},
 	annotationsDeleteID: {scopeEdit},
+
+	dataRetentionGetID:    {scopeReadOnly},
+	dataRetentionUpdateID: {scopeEdit},
+	googleSignalsGetID:    {scopeReadOnly},
+	googleSignalsUpdateID: {scopeEdit},
 }
 
 func tokenMetadata() config.TokenMetadata { return config.TokenMetadata{Scopes: scopes} }
@@ -214,7 +219,7 @@ var readTools = []string{summariesID, accountsID, accountsGetID, accountsSharing
 	enhancedGetID, redactionGetID, siteTagGetID,
 	customDimensionsListID, customDimensionsGetID, customMetricsListID,
 	customMetricsGetID, keyEventsListID, keyEventsGetID, eventRulesListID, eventRulesGetID,
-	calculatedListID, calculatedGetID, accessAccountID, accessPropertyID,
+	calculatedListID, calculatedGetID, accessAccountID, accessPropertyID, dataRetentionGetID, googleSignalsGetID,
 	annotationsListID, annotationsGetID}
 
 // Register adds the provider metadata, its consent endpoints, its connection test and its tools.
@@ -255,16 +260,16 @@ func Register(reg *capability.Registry) error {
 		}, {
 			ID: "write", Title: "Read and change",
 			Description: "reads what the read profile reads and changes Analytics accounts, properties, data streams, custom " +
-				"dimensions, custom metrics, key events, event create rules, calculated metrics and annotations, starts audience exports and report tasks, " +
+				"dimensions, custom metrics, key events, event create rules, calculated metrics, annotations and Google Signals, starts audience exports and report tasks, " +
 				"and deletes data streams, measurement protocol secrets and key events; every change needs its own " +
-				"confirmation, and deleting an account or a property stays unlisted",
+				"confirmation, and deleting an account or a property stays unlisted, and so does changing the data retention",
 			Tools: append(slices.Clone(readTools), accountsUpdateID, propertiesCreateID, propertiesUpdateID,
 				dataStreamsCreateID, dataStreamsUpdateID, dataStreamsDeleteID, mpSecretsDeleteID, audienceCreateID,
 				reportTasksCreateID, enhancedUpdateID, redactionUpdateID, customDimensionsCreateID,
 				customDimensionsUpdateID, customDimensionsArchiveID,
 				customMetricsCreateID, customMetricsUpdateID, customMetricsArchiveID,
 				keyEventsCreateID, keyEventsUpdateID, keyEventsDeleteID, eventRulesCreateID, eventRulesUpdateID, eventRulesDeleteID,
-				calculatedCreateID, calculatedUpdateID, calculatedDeleteID,
+				calculatedCreateID, calculatedUpdateID, calculatedDeleteID, googleSignalsUpdateID,
 				annotationsCreateID, annotationsUpdateID, annotationsDeleteID),
 		}},
 	}, TestConnection); err != nil {
@@ -367,6 +372,10 @@ func Register(reg *capability.Registry) error {
 		{Descriptor: reportTasksQuery, Handler: handleReportTasksQuery},
 		{Descriptor: accessAccountReport, Handler: handleAccessAccount},
 		{Descriptor: accessPropertyReport, Handler: handleAccessProperty},
+		{Descriptor: dataRetentionGet, Handler: handleDataRetentionGet},
+		{Descriptor: dataRetentionUpdate, Handler: handleDataRetentionUpdate, ConfirmationSummary: retentionSummary},
+		{Descriptor: googleSignalsGet, Handler: handleGoogleSignalsGet},
+		{Descriptor: googleSignalsUpdate, Handler: handleGoogleSignalsUpdate, ConfirmationSummary: signalsSummary},
 	} {
 		if err := reg.Register(Provider, operation); err != nil {
 			return err

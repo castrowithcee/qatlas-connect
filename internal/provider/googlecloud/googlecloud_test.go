@@ -71,7 +71,8 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 			strings.Contains(tool.ID, ".zones.") || strings.Contains(tool.ID, ".regions.") ||
 			strings.Contains(tool.ID, ".compute-operations.") ||
 			strings.Contains(tool.ID, ".networks.") || strings.Contains(tool.ID, ".subnetworks.") ||
-			strings.Contains(tool.ID, ".firewalls.") || strings.Contains(tool.ID, ".addresses.") {
+			strings.Contains(tool.ID, ".firewalls.") || strings.Contains(tool.ID, ".addresses.") ||
+			strings.Contains(tool.ID, ".vpn-gateways.") || strings.Contains(tool.ID, ".vpn-tunnels.") {
 			// The discovery document of compute v1 lists compute.readonly as the smallest scope.
 			wantScope = "https://www.googleapis.com/auth/compute.readonly"
 		}
@@ -99,10 +100,11 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 		"google.cloud.service-accounts.get", "google.cloud.service-accounts.list",
 		"google.cloud.service-accounts.patch", "google.cloud.services.batch-enable", "google.cloud.services.batch-get",
 		"google.cloud.services.disable", "google.cloud.services.enable", "google.cloud.services.get",
-		"google.cloud.services.list", "google.cloud.subnetworks.get", "google.cloud.subnetworks.list", "google.cloud.zones.list"}; !slices.Equal(ids, want) {
+		"google.cloud.services.list", "google.cloud.subnetworks.get", "google.cloud.subnetworks.list", "google.cloud.vpn-gateways.get", "google.cloud.vpn-gateways.list",
+		"google.cloud.vpn-tunnels.get", "google.cloud.vpn-tunnels.list", "google.cloud.zones.list"}; !slices.Equal(ids, want) {
 		t.Errorf("tools = %v, want %v", ids, want)
 	}
-	if profile, found := metadata.RecommendedProfile(); !found || profile.ID != "read" || len(profile.Tools) != 30 {
+	if profile, found := metadata.RecommendedProfile(); !found || profile.ID != "read" || len(profile.Tools) != 34 {
 		t.Errorf("profile = %+v", profile)
 	}
 	// The recommended profile asks only for read scopes, an explicit allow-list; a tool that needs the broad

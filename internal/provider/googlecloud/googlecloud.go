@@ -90,7 +90,8 @@ var readTools = []string{organizationsSearch.ID, foldersSearch.ID, projectsSearc
 	servicesBatchGet.ID, apiKeysList.ID, apiKeysGet.ID, instancesList.ID, instancesAggregatedList.ID, instancesGet.ID,
 	machineTypesList.ID, zonesList.ID, regionsList.ID, computeOperationsGet.ID, computeOperationsList.ID,
 	networksList.ID, networksGet.ID, subnetworksList.ID, subnetworksGet.ID,
-	firewallsList.ID, firewallsGet.ID, addressesList.ID, addressesGet.ID}
+	firewallsList.ID, firewallsGet.ID, addressesList.ID, addressesGet.ID,
+	vpnGatewaysList.ID, vpnGatewaysGet.ID, vpnTunnelsList.ID, vpnTunnelsGet.ID}
 
 // Register adds the provider metadata, its connection test, its consent endpoints, and its tools.
 func Register(reg *capability.Registry) error {
@@ -113,8 +114,9 @@ func Register(reg *capability.Registry) error {
 			Description: "searches and reads organizations, folders, and projects and reads the state of long-running " +
 				"operations from Google Cloud Resource Manager, the enabled and available APIs of a project from Service " +
 				"Usage, and the metadata of API keys with the read-only scope and the Compute Engine instances, machine " +
-				"types, zones, regions, operations (with the person who started each), VPC networks, subnetworks, firewall rules, and reserved IP addresses of a " +
-				"project with the scope compute.readonly, and changes nothing",
+				"types, zones, regions, operations (with the person who started each), VPC networks, subnetworks, firewall rules, " +
+				"reserved IP addresses, HA VPN gateways, and VPN tunnels of a project with the scope compute.readonly, and " +
+				"changes nothing",
 			Tools: readTools,
 		}, {
 			ID: "read-iam", Title: "Read with IAM",
@@ -207,6 +209,10 @@ func Register(reg *capability.Registry) error {
 		capability.Operation{Descriptor: firewallsGet, Handler: handleFirewallsGet},
 		capability.Operation{Descriptor: addressesList, Handler: handleAddressesList},
 		capability.Operation{Descriptor: addressesGet, Handler: handleAddressesGet},
+		capability.Operation{Descriptor: vpnGatewaysList, Handler: handleVpnGatewaysList},
+		capability.Operation{Descriptor: vpnGatewaysGet, Handler: handleVpnGatewaysGet},
+		capability.Operation{Descriptor: vpnTunnelsList, Handler: handleVpnTunnelsList},
+		capability.Operation{Descriptor: vpnTunnelsGet, Handler: handleVpnTunnelsGet},
 		capability.Operation{Descriptor: iamRolesList, Handler: handleIAMRolesList},
 		capability.Operation{Descriptor: iamRolesGet, Handler: handleIAMRolesGet},
 		capability.Operation{Descriptor: iamRolesQuery, Handler: handleIAMRolesQuery},

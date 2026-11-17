@@ -16,7 +16,8 @@ This page shows how to connect Qatlas to Google Analytics 4. Targets, paging, an
 [calculated metrics](calculated-metrics.md),
 [annotations](annotations.md), [reports](reports.md),
 [audience exports](audience-exports.md), [report tasks](report-tasks.md),
-[measurement protocol secrets](measurement-protocol-secrets.md), and [access reports](access-reports.md).
+[measurement protocol secrets](measurement-protocol-secrets.md), [access reports](access-reports.md),
+[data retention](data-retention.md), and [Google Signals](google-signals.md).
 
 ## What you need
 
@@ -117,6 +118,10 @@ credential never carries the scope of another product.
 | [Calculated metrics](calculated-metrics.md#changing-calculated-metrics) | `calculated-metrics.create`, `calculated-metrics.update`, `calculated-metrics.delete` | `analytics.edit` |
 | [Annotations](annotations.md) | `annotations.list`, `annotations.get` | `analytics.readonly` |
 | [Annotations](annotations.md#changing-annotations) | `annotations.create`, `annotations.update`, `annotations.delete` | `analytics.edit` |
+| [Data retention](data-retention.md) | `data-retention.get` | `analytics.readonly` |
+| [Data retention](data-retention.md#googleanalyticsdata-retentionupdate) | `data-retention.update` | `analytics.edit` |
+| [Google Signals](google-signals.md) | `google-signals.get` | `analytics.readonly` |
+| [Google Signals](google-signals.md#googleanalyticsgoogle-signalsupdate) | `google-signals.update` | `analytics.edit` |
 
 ## Add it to Qatlas
 
