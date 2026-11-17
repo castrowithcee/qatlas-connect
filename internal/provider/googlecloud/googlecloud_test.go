@@ -70,7 +70,8 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 		if strings.Contains(tool.ID, ".instances.") || strings.Contains(tool.ID, ".machine-types.") ||
 			strings.Contains(tool.ID, ".zones.") || strings.Contains(tool.ID, ".regions.") ||
 			strings.Contains(tool.ID, ".compute-operations.") ||
-			strings.Contains(tool.ID, ".networks.") || strings.Contains(tool.ID, ".subnetworks.") {
+			strings.Contains(tool.ID, ".networks.") || strings.Contains(tool.ID, ".subnetworks.") ||
+			strings.Contains(tool.ID, ".firewalls.") || strings.Contains(tool.ID, ".addresses.") {
 			// The discovery document of compute v1 lists compute.readonly as the smallest scope.
 			wantScope = "https://www.googleapis.com/auth/compute.readonly"
 		}
@@ -78,8 +79,8 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 			t.Errorf("%s scopes = %v", tool.ID, scopes)
 		}
 	}
-	if want := []string{"google.cloud.api-keys.delete", "google.cloud.api-keys.get", "google.cloud.api-keys.list",
-		"google.cloud.api-keys.undelete", "google.cloud.compute-operations.get", "google.cloud.compute-operations.list",
+	if want := []string{"google.cloud.addresses.get", "google.cloud.addresses.list", "google.cloud.api-keys.delete", "google.cloud.api-keys.get", "google.cloud.api-keys.list",
+		"google.cloud.api-keys.undelete", "google.cloud.compute-operations.get", "google.cloud.compute-operations.list", "google.cloud.firewalls.get", "google.cloud.firewalls.list",
 		"google.cloud.folders.get", "google.cloud.folders.list", "google.cloud.folders.search",
 		"google.cloud.iam-bindings.add-member", "google.cloud.iam-bindings.change-role",
 		"google.cloud.iam-bindings.remove-member", "google.cloud.iam-deny-policies.get", "google.cloud.iam-deny-policies.list",
@@ -101,7 +102,7 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 		"google.cloud.services.list", "google.cloud.subnetworks.get", "google.cloud.subnetworks.list", "google.cloud.zones.list"}; !slices.Equal(ids, want) {
 		t.Errorf("tools = %v, want %v", ids, want)
 	}
-	if profile, found := metadata.RecommendedProfile(); !found || profile.ID != "read" || len(profile.Tools) != 26 {
+	if profile, found := metadata.RecommendedProfile(); !found || profile.ID != "read" || len(profile.Tools) != 30 {
 		t.Errorf("profile = %+v", profile)
 	}
 	// The recommended profile asks only for read scopes, an explicit allow-list; a tool that needs the broad

@@ -84,7 +84,8 @@ The profile `read` is the recommended one. It holds every tool that needs no mor
 `google.cloud.instances.aggregated-list`, `google.cloud.instances.get`, `google.cloud.machine-types.list`,
 `google.cloud.zones.list`, `google.cloud.regions.list`, `google.cloud.compute-operations.get`,
 `google.cloud.compute-operations.list`, `google.cloud.networks.list`, `google.cloud.networks.get`,
-`google.cloud.subnetworks.list`, and `google.cloud.subnetworks.get`, which ask for `compute.readonly`. The two
+`google.cloud.subnetworks.list`, `google.cloud.subnetworks.get`, `google.cloud.firewalls.list`,
+`google.cloud.firewalls.get`, `google.cloud.addresses.list`, and `google.cloud.addresses.get`, which ask for `compute.readonly`. The two
 operation tools return the email address of whoever started an operation (personal data) and carry their own
 sensitivity. A connection bound to an organization or a folder needs `projects.get` next to the
 Compute tools to prove the project of a call; `read` holds both.
@@ -148,6 +149,8 @@ on [IAM bindings](iam-bindings.md).
   globally, with the email address of whoever started each.
 - [VPC networks](networks.md): the VPC networks of a project from Compute Engine, one and all.
 - [Subnetworks](subnetworks.md): the subnetworks of a region from Compute Engine, one and all.
+- [Firewall rules](firewalls.md): the VPC firewall rules of a project from Compute Engine, one and all.
+- [IP addresses](addresses.md): the reserved internal and external IP addresses of a region, one and all.
 - [Quotas](quotas.md): the quotas of a service and the quota preferences of a project from Cloud Quotas.
 
 ### Search

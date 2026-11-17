@@ -63,6 +63,7 @@ var toolEffects = map[string]config.Effect{accountsUpdateID: config.EffectUpdate
 	customMetricsUpdateID: config.EffectUpdate, customMetricsArchiveID: config.EffectDelete, keyEventsCreateID: config.EffectCreate,
 	keyEventsUpdateID: config.EffectUpdate, keyEventsDeleteID: config.EffectDelete,
 	eventRulesCreateID: config.EffectCreate, eventRulesUpdateID: config.EffectUpdate, eventRulesDeleteID: config.EffectDelete,
+	calculatedCreateID: config.EffectCreate, calculatedUpdateID: config.EffectUpdate, calculatedDeleteID: config.EffectDelete,
 	annotationsCreateID: config.EffectCreate, annotationsUpdateID: config.EffectUpdate, annotationsDeleteID: config.EffectDelete}
 
 func effectOf(id string) config.Effect {
@@ -102,6 +103,9 @@ func TestRegisterPublishesMetadataScopesAndConsent(t *testing.T) {
 		keyEventsUpdateID: {scopeEdit}, keyEventsDeleteID: {scopeEdit},
 		eventRulesListID: {scopeReadOnly}, eventRulesGetID: {scopeReadOnly},
 		eventRulesCreateID: {scopeEdit}, eventRulesUpdateID: {scopeEdit}, eventRulesDeleteID: {scopeEdit},
+		calculatedListID: {scopeReadOnly}, calculatedGetID: {scopeReadOnly},
+		calculatedCreateID: {scopeEdit}, calculatedUpdateID: {scopeEdit}, calculatedDeleteID: {scopeEdit},
+		accessAccountID: {scopeReadOnly}, accessPropertyID: {scopeReadOnly},
 		annotationsListID: {scopeReadOnly}, annotationsGetID: {scopeReadOnly},
 		annotationsCreateID: {scopeEdit}, annotationsUpdateID: {scopeEdit}, annotationsDeleteID: {scopeEdit}}) {
 		t.Errorf("scopes = %v", metadata.Token.Scopes)
@@ -137,6 +141,9 @@ func TestRegisterPublishesMetadataScopesAndConsent(t *testing.T) {
 		"google.analytics.measurement-protocol-secrets.list",
 		"google.analytics.key-events.create", "google.analytics.key-events.delete", "google.analytics.key-events.get",
 		"google.analytics.key-events.list", "google.analytics.key-events.update",
+		"google.analytics.calculated-metrics.list",
+		"google.analytics.calculated-metrics.get", "google.analytics.calculated-metrics.create",
+		"google.analytics.calculated-metrics.update", "google.analytics.calculated-metrics.delete",
 		"google.analytics.annotations.list", "google.analytics.annotations.get", "google.analytics.annotations.create",
 		"google.analytics.annotations.update", "google.analytics.annotations.delete",
 		"google.analytics.properties.create", "google.analytics.properties.delete", "google.analytics.properties.get",
@@ -145,7 +152,8 @@ func TestRegisterPublishesMetadataScopesAndConsent(t *testing.T) {
 		"google.analytics.reports.check-compatibility", "google.analytics.reports.get-metadata",
 		"google.analytics.reports.run", "google.analytics.reports.run-funnel", "google.analytics.reports.batch-run",
 		"google.analytics.reports.batch-run-pivot", "google.analytics.reports.run-pivot",
-		"google.analytics.reports.run-realtime"})) {
+		"google.analytics.reports.run-realtime", "google.analytics.accounts.run-access-report",
+		"google.analytics.properties.run-access-report"})) {
 		t.Errorf("tools = %v", ids)
 	}
 	reads := []string{summariesID, accountsID, accountsGetID, accountsSharingID, propertiesListID, propertiesGetID,
@@ -155,6 +163,7 @@ func TestRegisterPublishesMetadataScopesAndConsent(t *testing.T) {
 		enhancedGetID, redactionGetID, siteTagGetID,
 		customDimensionsListID, customDimensionsGetID, customMetricsListID,
 		customMetricsGetID, keyEventsListID, keyEventsGetID, eventRulesListID, eventRulesGetID,
+		calculatedListID, calculatedGetID, accessAccountID, accessPropertyID,
 		annotationsListID, annotationsGetID}
 	if len(metadata.Profiles) != 2 || metadata.Profiles[0].ID != "read" || !metadata.Profiles[0].Recommended ||
 		!reflect.DeepEqual(metadata.Profiles[0].Tools, reads) || metadata.Profiles[1].ID != "write" ||
@@ -166,6 +175,7 @@ func TestRegisterPublishesMetadataScopesAndConsent(t *testing.T) {
 				customDimensionsUpdateID, customDimensionsArchiveID,
 				customMetricsCreateID, customMetricsUpdateID, customMetricsArchiveID,
 				keyEventsCreateID, keyEventsUpdateID, keyEventsDeleteID, eventRulesCreateID, eventRulesUpdateID, eventRulesDeleteID,
+				calculatedCreateID, calculatedUpdateID, calculatedDeleteID,
 				annotationsCreateID, annotationsUpdateID, annotationsDeleteID)) {
 		t.Errorf("profiles = %+v", metadata.Profiles)
 	}
@@ -183,6 +193,9 @@ func TestRegisterPublishesMetadataScopesAndConsent(t *testing.T) {
 		}
 		if descriptor.ID == audienceQueryID {
 			sensitivity = dataSensitivityAudienceUsers
+		}
+		if descriptor.ID == accessAccountID || descriptor.ID == accessPropertyID {
+			sensitivity = dataSensitivityAccess
 		}
 		if effectOf(descriptor.ID) == config.EffectRead && descriptor.Risk != (capability.Risk{
 			Effect: capability.EffectRead, Idempotency: capability.IdempotencySafe,
