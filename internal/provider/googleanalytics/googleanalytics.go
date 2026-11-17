@@ -93,6 +93,12 @@ var scopes = map[string][]string{
 	dataStreamsGetID:    {scopeReadOnly},
 	dataStreamsCreateID: {scopeEdit},
 	dataStreamsUpdateID: {scopeEdit},
+
+	customMetricsListID:    {scopeReadOnly},
+	customMetricsGetID:     {scopeReadOnly},
+	customMetricsCreateID:  {scopeEdit},
+	customMetricsUpdateID:  {scopeEdit},
+	customMetricsArchiveID: {scopeEdit},
 }
 
 func tokenMetadata() config.TokenMetadata { return config.TokenMetadata{Scopes: scopes} }
@@ -154,7 +160,8 @@ func isDefaultRoot(raw string) bool {
 var readTools = []string{summariesID, accountsID, accountsGetID, accountsSharingID, propertiesListID, propertiesGetID,
 	reportsRunID, metadataGetID, compatibilityID, dataStreamsListID, dataStreamsGetID, funnelRunID, audienceGetID,
 	audienceListID, reportsRunPivotID, reportsBatchRunID, reportsBatchRunPivotID, reportsRunRealtimeID,
-	reportTasksGetID, reportTasksListID, reportTasksQueryID, audienceQueryID}
+	reportTasksGetID, reportTasksListID, reportTasksQueryID, audienceQueryID, customMetricsListID,
+	customMetricsGetID}
 
 // Register adds the provider metadata, its consent endpoints, its connection test and its tools.
 func Register(reg *capability.Registry) error {
@@ -192,11 +199,12 @@ func Register(reg *capability.Registry) error {
 			Tools: readTools,
 		}, {
 			ID: "write", Title: "Read and change",
-			Description: "reads what the read profile reads and changes Analytics accounts and properties, starts audience exports " +
+			Description: "reads what the read profile reads and changes Analytics accounts, properties and custom metrics, starts audience exports " +
 				"and report tasks; every " +
 				"change needs its own confirmation, and deleting stays unlisted",
 			Tools: append(slices.Clone(readTools), accountsUpdateID, propertiesCreateID, propertiesUpdateID,
-				dataStreamsCreateID, dataStreamsUpdateID, audienceCreateID, reportTasksCreateID),
+				dataStreamsCreateID, dataStreamsUpdateID, audienceCreateID, reportTasksCreateID, customMetricsCreateID,
+				customMetricsUpdateID, customMetricsArchiveID),
 		}},
 	}, TestConnection); err != nil {
 		return err
@@ -232,6 +240,14 @@ func Register(reg *capability.Registry) error {
 			ConfirmationSummary: streamWriteSummary(dataStreamsCreateID)},
 		{Descriptor: dataStreamsUpdate, Handler: handleDataStreamsUpdate,
 			ConfirmationSummary: streamWriteSummary(dataStreamsUpdateID)},
+		{Descriptor: customMetricsList, Handler: handleCustomMetricsList},
+		{Descriptor: customMetricsGet, Handler: handleCustomMetricsGet},
+		{Descriptor: customMetricsCreate, Handler: handleCustomMetricsCreate,
+			ConfirmationSummary: metricWriteSummary(customMetricsCreateID)},
+		{Descriptor: customMetricsUpdate, Handler: handleCustomMetricsUpdate,
+			ConfirmationSummary: metricWriteSummary(customMetricsUpdateID)},
+		{Descriptor: customMetricsArchive, Handler: handleCustomMetricsArchive,
+			ConfirmationSummary: metricWriteSummary(customMetricsArchiveID)},
 		{Descriptor: funnelRun, Handler: handleFunnelRun},
 		{Descriptor: audienceGet, Handler: handleAudienceGet},
 		{Descriptor: audienceList, Handler: handleAudienceList},

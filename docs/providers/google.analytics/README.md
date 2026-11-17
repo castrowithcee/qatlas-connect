@@ -22,8 +22,8 @@ tools do, see [reports](reports.md#quota), and so does starting an audience expo
 [report tasks](report-tasks.md#quota). Every tool that changes something needs confirmation.
 
 [Set up Google Analytics](setup.md) leads through the credential. The tools are described in
-[accounts](accounts.md), [properties](properties.md), [data streams](data-streams.md), [reports](reports.md),
-[audience exports](audience-exports.md), and [report tasks](report-tasks.md). The funnel report and the report
+[accounts](accounts.md), [properties](properties.md), [data streams](data-streams.md), [custom metrics](custom-metrics.md),
+[reports](reports.md), [audience exports](audience-exports.md), and [report tasks](report-tasks.md). The funnel report and the report
 tasks use the alpha version of the Data API, which Google can change without notice; their descriptions say so.
 The audience exports use the beta version.
 
@@ -66,6 +66,7 @@ not name the resource.
 | `properties.create` | Creates a property only in a bound account; a connection bound to properties only is refused |
 | `properties.update`, `properties.delete` | Change or trash a bound property, or a property of a bound account after one proof read of its parent |
 | `data-streams.list`, `data-streams.get`, `data-streams.create`, `data-streams.update` | Use the streams of a bound property, or of a property of a bound account after one proof read of its parent; see [data streams](data-streams.md#targets-and-proof) |
+| `custom-metrics.list`, `custom-metrics.get`, `custom-metrics.create`, `custom-metrics.update`, `custom-metrics.archive` | Use the metrics of a bound property, or of a property of a bound account after one proof read of its parent; see [custom metrics](custom-metrics.md#targets-and-proof) |
 | `reports.run`, `reports.run-pivot`, `reports.batch-run`, `reports.batch-run-pivot`, `reports.run-realtime`, `reports.check-compatibility` | Use a bound property, or a property of a bound account after one proof read of its parent |
 | `reports.get-metadata` | Like `reports.run`; `properties/0` needs no target, see [reports](reports.md#property-and-targets) |
 | `reports.run-funnel` | Like `reports.run` |
@@ -89,12 +90,14 @@ The profile `read` is the recommended one and holds `google.analytics.accounts.l
 `google.analytics.reports.run-pivot`, `google.analytics.reports.batch-run`,
 `google.analytics.reports.batch-run-pivot`, `google.analytics.reports.run-realtime`,
 `google.analytics.report-tasks.get`, `google.analytics.report-tasks.list`,
-`google.analytics.report-tasks.query`, and `google.analytics.audience-exports.query`. The profile `write` reads
-like `read`, changes accounts, properties, and data streams, and starts audience exports and report tasks, each
+`google.analytics.report-tasks.query`, `google.analytics.audience-exports.query`, `google.analytics.custom-metrics.list`,
+and `google.analytics.custom-metrics.get`. The profile `write` reads
+like `read`, changes accounts, properties, data streams, and custom metrics, and starts audience exports and report tasks, each
 change with its own confirmation: it adds `google.analytics.accounts.update`, `google.analytics.properties.create`,
 `google.analytics.properties.update`, `google.analytics.data-streams.create`,
 `google.analytics.data-streams.update`, `google.analytics.audience-exports.create`,
-and `google.analytics.report-tasks.create`. The users of an export are personal data; see
+`google.analytics.report-tasks.create`, `google.analytics.custom-metrics.create`,
+`google.analytics.custom-metrics.update`, and `google.analytics.custom-metrics.archive`. The users of an export are personal data; see
 [audience exports](audience-exports.md#personal-data). Deleting is in no profile: a
 connection offers `google.analytics.accounts.delete` and `google.analytics.properties.delete` only when its
 `tools` list names them, and each needs the confirmation of a person. `accounts.delete` also runs only on a
