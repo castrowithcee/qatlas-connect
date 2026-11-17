@@ -6,6 +6,9 @@
 // A report runs on the Data API origin and costs tokens of the property quota. The package keeps the
 // remainder Google reports for each property, runs at most the documented number of reports of a property at
 // once, and refuses a report before any I/O when a bucket is nearly used up.
+// The funnel report runs on the alpha version of the Data API and has its own Funnel quota memory. Starting
+// an audience export is a Core request of the same origin and follows the Core rules; reading or listing
+// exports uses no gate.
 //
 // Reading tools send one request, a changing tool exactly one and never again, whatever comes back.
 // Deleting an account runs only on a connection that binds exactly that account and no property.
@@ -39,7 +42,7 @@ const Provider = "google.analytics"
 const subject = "Google Analytics"
 
 // scopeReadOnly is the smallest scope that reads Analytics configuration and report data (analyticsadmin and
-// analyticsdata v1beta).
+// analyticsdata v1beta and v1alpha). Google also lists it for audienceLists.create.
 const scopeReadOnly = "https://www.googleapis.com/auth/analytics.readonly"
 
 // scopeEdit is the scope that changes Analytics accounts and properties (analyticsadmin v1beta).
@@ -63,6 +66,10 @@ var scopes = map[string][]string{
 	reportsRunID:      {scopeReadOnly},
 	metadataGetID:     {scopeReadOnly},
 	compatibilityID:   {scopeReadOnly},
+	funnelRunID:       {scopeReadOnly},
+	audienceGetID:     {scopeReadOnly},
+	audienceListID:    {scopeReadOnly},
+	audienceCreateID:  {scopeReadOnly},
 
 	accountsUpdateID:   {scopeEdit},
 	accountsDeleteID:   {scopeEdit},
@@ -133,7 +140,8 @@ func isDefaultRoot(raw string) bool {
 
 // readTools are the tools of the profile read, and the start of every wider profile.
 var readTools = []string{summariesID, accountsID, accountsGetID, accountsSharingID, propertiesListID, propertiesGetID,
-	reportsRunID, metadataGetID, compatibilityID, dataStreamsListID, dataStreamsGetID}
+	reportsRunID, metadataGetID, compatibilityID, dataStreamsListID, dataStreamsGetID, funnelRunID, audienceGetID,
+	audienceListID}
 
 // Register adds the provider metadata, its consent endpoints, its connection test and its tools.
 func Register(reg *capability.Registry) error {
@@ -170,10 +178,10 @@ func Register(reg *capability.Registry) error {
 			Tools:       readTools,
 		}, {
 			ID: "write", Title: "Read and change",
-			Description: "reads what the read profile reads and changes Analytics accounts and properties; every " +
+			Description: "reads what the read profile reads and changes Analytics accounts and properties and starts audience exports; every " +
 				"change needs its own confirmation, and deleting stays unlisted",
 			Tools: append(slices.Clone(readTools), accountsUpdateID, propertiesCreateID, propertiesUpdateID,
-				dataStreamsCreateID, dataStreamsUpdateID),
+				dataStreamsCreateID, dataStreamsUpdateID, audienceCreateID),
 		}},
 	}, TestConnection); err != nil {
 		return err
@@ -205,6 +213,10 @@ func Register(reg *capability.Registry) error {
 			ConfirmationSummary: streamWriteSummary(dataStreamsCreateID)},
 		{Descriptor: dataStreamsUpdate, Handler: handleDataStreamsUpdate,
 			ConfirmationSummary: streamWriteSummary(dataStreamsUpdateID)},
+		{Descriptor: funnelRun, Handler: handleFunnelRun},
+		{Descriptor: audienceGet, Handler: handleAudienceGet},
+		{Descriptor: audienceList, Handler: handleAudienceList},
+		{Descriptor: audienceCreate, Handler: handleAudienceCreate, ConfirmationSummary: audienceCreateSummary},
 	} {
 		if err := reg.Register(Provider, operation); err != nil {
 			return err

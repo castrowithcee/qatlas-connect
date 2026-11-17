@@ -15,9 +15,10 @@ import (
 
 // changeCall is one request of a changing tool: a fixed method, a path that is a constant of this package
 // with checked resource names, and for create and update the JSON body. tool names the tool whose scopes the
-// access token must carry.
+// access token must carry. With data set the request goes to the Data API origin instead of the Admin API.
 type changeCall struct {
 	op, tool, method, path string
+	data                   bool
 	query                  url.Values
 	body                   []byte
 	limit                  int64
@@ -39,7 +40,11 @@ func unsure(failed *provider.Error) *provider.Error {
 // credential. A transport failure, a 5xx answer and an answer that cannot be read leave the outcome unknown
 // and are reported as such.
 func (c *client) change(ctx context.Context, call changeCall, out any) error {
-	target := adminRoot + call.path
+	root, api := adminRoot, "Admin"
+	if call.data {
+		root, api = dataRoot, "Data"
+	}
+	target := root + call.path
 	if len(call.query) > 0 {
 		target += "?" + call.query.Encode()
 	}
@@ -77,7 +82,7 @@ func (c *client) change(ctx context.Context, call changeCall, out any) error {
 		if response.StatusCode == http.StatusTooManyRequests {
 			c.limiter.HoldFor(min(max(provider.RetryAfter(response.Header), time.Second), maxHold))
 		}
-		mapped := googleError(call.op, response.StatusCode, raw, call.notFound)
+		mapped := googleErrorFor(api, call.op, response.StatusCode, raw, call.notFound)
 		if response.StatusCode >= 500 {
 			unsure(mapped)
 		}
