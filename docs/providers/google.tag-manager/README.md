@@ -14,8 +14,9 @@ holding a static key. [Set up Google Tag Manager](setup.md) leads through the Go
 tools are described per group in [accounts, containers, and workspaces](structure.md),
 [workspace management](workspaces.md), [tags](tags.md), [triggers](triggers.md), [variables](variables.md),
 [built-in variables](built-in-variables.md), [templates](templates.md), [folders](folders.md),
-[clients](clients.md), [transformations](transformations.md), [zones](zones.md), and
-[Google tag configurations](gtag-configs.md); the descriptors list their arguments and result fields.
+[clients](clients.md), [transformations](transformations.md), [zones](zones.md),
+[Google tag configurations](gtag-configs.md), and [versions and version headers](versions.md); the descriptors
+list their arguments and result fields.
 
 ## Credential
 
@@ -47,7 +48,7 @@ Two profiles are offered:
 
 - `read` (recommended) holds the tools that read: accounts, containers, workspaces and their change status,
   tags, triggers, variables, built-in variables, templates, folders, clients, transformations, zones, and Google
-  tag configurations.
+  tag configurations, container versions, and version headers.
 - `write` holds the tools of `read` and the tools that create and update workspaces, that synchronize a
   workspace, resolve its merge conflicts, and quick preview it, that create, update, and delete tags, triggers,
   variables, templates, clients, transformations, zones, and Google tag configurations, that enable and disable
@@ -157,7 +158,8 @@ ID before and after the change.
 
 Everything Google returns is untrusted content of whoever edits the account. The bounds of the results of
 accounts, containers, and workspaces are in [structure](structure.md); tags, triggers, variables, and templates are not cut. An answer
-with more than 1000 entries or above 4 MiB is `invalid-provider-response`. URLs are text and are never fetched.
+with more than 1000 entries or above 4 MiB is `invalid-provider-response`; the version tools are the exception
+and cut an oversized version with a report, see [versions](versions.md). URLs are text and are never fetched.
 
 ## Connection test
 

@@ -91,7 +91,7 @@ func Register(reg *capability.Registry) error {
 			ID: "read", Title: "Read", Recommended: true,
 			Description: "reads accounts, containers, workspaces and their changes, tags, triggers, variables, " +
 				"built-in variables, templates, folders, clients, transformations, zones, and Google tag " +
-				"configurations; changes nothing",
+				"configurations, container versions, and their headers; changes nothing",
 			Tools: readIDs,
 		}, {
 			ID: "write", Title: "Read and change workspaces, tags, triggers, variables, templates, built-in variables, " +
@@ -151,6 +151,9 @@ func Register(reg *capability.Registry) error {
 		gtagConfigsListID: handleGtagConfigsList, gtagConfigsGetID: handleGtagConfigsGet,
 		gtagConfigsCreateID: handleGtagConfigsCreate, gtagConfigsUpdateID: handleGtagConfigsUpdate,
 		gtagConfigsDeleteID: handleGtagConfigsDelete,
+
+		versionsGetID: handleVersionsGet, versionsLiveID: handleVersionsLive,
+		versionHeadersListID: handleVersionHeadersList, versionHeadersLatestID: handleVersionHeadersLatest,
 	}
 	summaries := map[string]capability.SummaryFunc{
 		workspacesCreateID: workspaceSummary("Create"), workspacesUpdateID: workspaceSummary("Replace"),

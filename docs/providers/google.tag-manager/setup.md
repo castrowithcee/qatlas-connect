@@ -13,8 +13,8 @@ This page shows how to connect Qatlas to Google Tag Manager. Configuration, targ
 are described in the [Google Tag Manager provider](README.md); the tools in
 [accounts, containers, and workspaces](structure.md), [workspace management](workspaces.md), [tags](tags.md),
 [triggers](triggers.md), [variables](variables.md), [built-in variables](built-in-variables.md),
-[templates](templates.md), [clients](clients.md), [transformations](transformations.md), [zones](zones.md), and
-[Google tag configurations](gtag-configs.md).
+[templates](templates.md), [clients](clients.md), [transformations](transformations.md), [zones](zones.md),
+[Google tag configurations](gtag-configs.md), and [versions and version headers](versions.md).
 
 ## What you need
 
@@ -32,6 +32,7 @@ are described in the [Google Tag Manager provider](README.md); the tools in
 | --- | --- | --- |
 | [accounts, containers, and workspaces](structure.md) | `tagmanager.readonly` | read access to the account or container |
 | [tags](tags.md), [triggers](triggers.md), [variables](variables.md), [built-in variables](built-in-variables.md), [templates](templates.md), [folders](folders.md), [clients](clients.md), [transformations](transformations.md), [zones](zones.md), and [Google tag configurations](gtag-configs.md), reading | `tagmanager.readonly` | read access to the container |
+| [versions and version headers](versions.md) | `tagmanager.readonly` | read access to the container |
 | [workspace management](workspaces.md), reading the status | `tagmanager.readonly` | read access to the container |
 | [workspace management](workspaces.md), creating and updating | `tagmanager.edit.containers` | edit access to the container |
 | [workspace management](workspaces.md), synchronizing and resolving merge conflicts | `tagmanager.edit.containers` | edit access to the container |
