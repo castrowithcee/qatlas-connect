@@ -88,15 +88,16 @@ func Register(reg *capability.Registry) error {
 		},
 		Profiles: []config.ToolProfile{{
 			ID: "read", Title: "Read", Recommended: true,
-			Description: "reads accounts, containers, workspaces, tags, triggers, variables, built-in variables, and folders; " +
-				"changes nothing",
+			Description: "reads accounts, containers, workspaces, tags, triggers, variables, built-in variables, " +
+				"folders, and clients; changes nothing",
 			Tools: readIDs,
 		}, {
-			ID: "write", Title: "Read and change tags, triggers, variables, built-in variables, and folders",
+			ID: "write", Title: "Read and change tags, triggers, variables, built-in variables, folders, and clients",
 			Description: "reads what the read profile reads, creates, updates, and deletes the tags, triggers, and " +
-				"variables of a workspace, creates and updates its folders, and enables and disables its built-in variables; every change needs its own " +
+				"variables of a workspace, creates and updates its folders, creates, updates, and deletes its clients, " +
+				"and enables and disables its built-in variables; every change needs its own " +
 				"confirmation and stays in the workspace until a version is published, which no tool of this provider " +
-				"does. Reverting a tag, trigger, variable, or built-in variable stays unticked",
+				"does. Reverting a tag, trigger, variable, built-in variable, or client stays unticked",
 			Tools: writeIDs,
 		}},
 	}, TestConnection); err != nil {
@@ -121,6 +122,9 @@ func Register(reg *capability.Registry) error {
 		builtInVariablesDeleteID: handleBuiltInVariablesDelete, builtInVariablesRevertID: handleBuiltInVariablesRevert,
 		foldersListID: handleFoldersList, foldersGetID: handleFoldersGet, foldersEntitiesID: handleFoldersEntities,
 		foldersCreateID: handleFoldersCreate, foldersUpdateID: handleFoldersUpdate,
+
+		clientsListID: handleClientsList, clientsGetID: handleClientsGet, clientsCreateID: handleClientsCreate,
+		clientsUpdateID: handleClientsUpdate, clientsDeleteID: handleClientsDelete, clientsRevertID: handleClientsRevert,
 	}
 	summaries := map[string]capability.SummaryFunc{
 		tagsCreateID: tagSummary("Create"), tagsUpdateID: tagSummary("Replace"),
@@ -132,6 +136,9 @@ func Register(reg *capability.Registry) error {
 		builtInVariablesCreateID: builtInSummary("Enable"), builtInVariablesDeleteID: builtInSummary("Disable"),
 		builtInVariablesRevertID: builtInSummary("Revert"),
 		foldersCreateID:          folderSummary("Create"), foldersUpdateID: folderSummary("Replace"),
+
+		clientsCreateID: clientSummary("Create"), clientsUpdateID: clientSummary("Replace"),
+		clientsDeleteID: clientSummary("Delete"), clientsRevertID: clientSummary("Revert"),
 	}
 	for _, d := range descriptors() {
 		if err := reg.Register(Provider, capability.Operation{Descriptor: d, Handler: handlers[d.ID],
