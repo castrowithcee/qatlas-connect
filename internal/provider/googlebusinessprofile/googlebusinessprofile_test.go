@@ -255,12 +255,15 @@ func TestRegisterPublishesMetadataScopesAndProfile(t *testing.T) {
 		}
 	}
 	want := []string{"google.business-profile.accounts.get", "google.business-profile.accounts.list",
+		"google.business-profile.categories.batch-get", "google.business-profile.categories.list",
+		"google.business-profile.chains.get", "google.business-profile.chains.search",
+		"google.business-profile.google-locations.search",
 		"google.business-profile.locations.get", "google.business-profile.locations.list"}
 	if !reflect.DeepEqual(ids, want) {
 		t.Errorf("tools = %v, want %v", ids, want)
 	}
 	profile, ok := metadata.RecommendedProfile()
-	if !ok || profile.ID != "read" || len(metadata.Profiles) != 1 || len(profile.Tools) != 4 ||
+	if !ok || profile.ID != "read" || len(metadata.Profiles) != 1 || len(profile.Tools) != 9 ||
 		!strings.Contains(profile.Description, "business.manage") {
 		t.Errorf("profiles = %+v", metadata.Profiles)
 	}

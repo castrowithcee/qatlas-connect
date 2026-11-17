@@ -40,6 +40,12 @@ var toolScopes = map[string][]string{
 	accountsGetID:   {scopeManage},
 	locationsListID: {scopeManage},
 	locationsGetID:  {scopeManage},
+
+	categoriesListID:        {scopeManage},
+	categoriesBatchGetID:    {scopeManage},
+	chainsGetID:             {scopeManage},
+	chainsSearchID:          {scopeManage},
+	googleLocationsSearchID: {scopeManage},
 }
 
 // ClassAccessNotApproved is the outcome of a Cloud project that Google has not approved for the Business
@@ -98,7 +104,8 @@ func testClass(err error) (provider.Class, error) {
 }
 
 // readTools are the tools of the profile read.
-var readTools = []string{accountsListID, accountsGetID, locationsListID, locationsGetID}
+var readTools = []string{accountsListID, accountsGetID, locationsListID, locationsGetID,
+	categoriesListID, categoriesBatchGetID, chainsGetID, chainsSearchID, googleLocationsSearchID}
 
 // Register adds the provider metadata, its consent endpoints, its connection test, and its tools.
 func Register(reg *capability.Registry) error {
@@ -113,8 +120,9 @@ func Register(reg *capability.Registry) error {
 		Target:          targetMetadata,
 		Profiles: []config.ToolProfile{{
 			ID: "read", Title: "Read", Recommended: true,
-			Description: "lists and reads the accounts and the business locations the consenting account manages " +
-				"and changes nothing; Google offers only the scope business.manage, which also allows changes, so " +
+			Description: "lists and reads the accounts and the business locations the consenting account manages, " +
+				"and the categories, chains, and Google locations of Google's reference data, and changes nothing; " +
+				"Google offers only the scope business.manage, which also allows changes, so " +
 				"the token may change what its account may, although no tool of this profile changes anything",
 			Tools: readTools,
 		}},
@@ -132,5 +140,10 @@ func Register(reg *capability.Registry) error {
 		capability.Operation{Descriptor: accountsGet, Handler: handleAccountsGet},
 		capability.Operation{Descriptor: locationsList, Handler: handleLocationsList},
 		capability.Operation{Descriptor: locationsGet, Handler: handleLocationsGet},
+		capability.Operation{Descriptor: categoriesList, Handler: handleCategoriesList},
+		capability.Operation{Descriptor: categoriesBatchGet, Handler: handleCategoriesBatchGet},
+		capability.Operation{Descriptor: chainsGet, Handler: handleChainsGet},
+		capability.Operation{Descriptor: chainsSearch, Handler: handleChainsSearch},
+		capability.Operation{Descriptor: googleLocationsSearch, Handler: handleGoogleLocationsSearch},
 	)
 }
