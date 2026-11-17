@@ -31,11 +31,11 @@ are described in the [Google Tag Manager provider](README.md); the tools in
 | Tool group | Scope | Access in Tag Manager |
 | --- | --- | --- |
 | [accounts, containers, and workspaces](structure.md) | `tagmanager.readonly` | read access to the account or container |
-| [tags](tags.md), [triggers](triggers.md), [variables](variables.md), [built-in variables](built-in-variables.md), [clients](clients.md), [transformations](transformations.md), [zones](zones.md), and [Google tag configurations](gtag-configs.md), reading | `tagmanager.readonly` | read access to the container |
+| [tags](tags.md), [triggers](triggers.md), [variables](variables.md), [built-in variables](built-in-variables.md), [folders](folders.md), [clients](clients.md), [transformations](transformations.md), [zones](zones.md), and [Google tag configurations](gtag-configs.md), reading | `tagmanager.readonly` | read access to the container |
 | [workspace management](workspaces.md), reading the status | `tagmanager.readonly` | read access to the container |
 | [workspace management](workspaces.md), creating and updating | `tagmanager.edit.containers` | edit access to the container |
 | [workspace management](workspaces.md), deleting | `tagmanager.delete.containers` | edit access to the container |
-| [tags](tags.md), [triggers](triggers.md), [variables](variables.md), [built-in variables](built-in-variables.md), [clients](clients.md), [transformations](transformations.md), [zones](zones.md), and [Google tag configurations](gtag-configs.md), changing | `tagmanager.edit.containers` | edit access to the container |
+| [tags](tags.md), [triggers](triggers.md), [variables](variables.md), [built-in variables](built-in-variables.md), [folders](folders.md), [clients](clients.md), [transformations](transformations.md), [zones](zones.md), and [Google tag configurations](gtag-configs.md), changing | `tagmanager.edit.containers` | edit access to the container |
 
 Qatlas asks for no broader scope than the tools of your connections need. No tool publishes a version, so no
 publish right is needed.
@@ -103,7 +103,7 @@ connections:
 ```
 
 Leave `target` out to reach everything the credential reaches. Choose the profile `write` in the guided setup to
-change tags, triggers, variables, built-in variables, clients, transformations, zones, and Google tag configurations. Run `qconnect config validate` to check the file; it contacts no provider. Adding a tool later may
+change workspaces, tags, triggers, variables, built-in variables, folders, clients, transformations, zones, and Google tag configurations. Run `qconnect config validate` to check the file; it contacts no provider. Adding a tool later may
 need a new consent, if the tool needs a scope the stored consent lacks.
 
 ## Check the connection

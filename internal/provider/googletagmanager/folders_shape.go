@@ -37,6 +37,20 @@ type (
 		Variable      []variable `json:"variable"`
 		NextPageToken string     `json:"nextPageToken"`
 	}
+	revertFolderAnswer struct {
+		Folder *folder `json:"folder"`
+	}
+	revertFolderResult struct {
+		Folder *folder `json:"folder,omitempty"`
+	}
+	moveFolderResult struct {
+		Folder string `json:"folder"`
+		Moved  bool   `json:"moved"`
+	}
+	deleteFolderResult struct {
+		Folder  string `json:"folder"`
+		Deleted bool   `json:"deleted"`
+	}
 	folderEntitiesResult struct {
 		Tags       []tag      `json:"tags"`
 		Triggers   []trigger  `json:"triggers"`

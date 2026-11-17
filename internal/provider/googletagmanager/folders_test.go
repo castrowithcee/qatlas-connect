@@ -37,7 +37,9 @@ func TestFolderToolsFollowScopesProfilesAndRisks(t *testing.T) {
 			t.Errorf("%s is missing from read or write", id)
 		}
 	}
-	changes := map[string]capability.Effect{foldersCreateID: capability.EffectCreate, foldersUpdateID: capability.EffectUpdate}
+	changes := map[string]capability.Effect{foldersCreateID: capability.EffectCreate,
+		foldersUpdateID: capability.EffectUpdate, foldersMoveID: capability.EffectUpdate,
+		foldersDeleteID: capability.EffectDelete, foldersRevertID: capability.EffectUpdate}
 	for id, effect := range changes {
 		d := toolOf(t, id)
 		if got := metadata.Token.Scopes[id]; !slices.Equal(got, []string{editScope}) {
@@ -49,18 +51,18 @@ func TestFolderToolsFollowScopesProfilesAndRisks(t *testing.T) {
 		if reg.ConfirmationSummary(id) == nil {
 			t.Errorf("%s has no confirmation summary", id)
 		}
-		if d.RequiresToolAllowList {
-			t.Errorf("%s is listed-only", id)
+		if d.RequiresToolAllowList != (id == foldersRevertID) {
+			t.Errorf("%s listed-only = %v", id, d.RequiresToolAllowList)
 		}
-		if slices.Contains(profiles["read"], id) || !slices.Contains(profiles["write"], id) {
+		if slices.Contains(profiles["read"], id) || slices.Contains(profiles["write"], id) != (id != foldersRevertID) {
 			t.Errorf("%s profiles are wrong", id)
 		}
 	}
 	if toolOf(t, foldersCreateID).Risk.Idempotency != capability.IdempotencyNonIdempotent {
 		t.Error("folders.create must be non-idempotent")
 	}
-	if len(folderDescriptors()) != 5 {
-		t.Errorf("folder tools = %d, want 5", len(folderDescriptors()))
+	if len(folderDescriptors()) != 8 {
+		t.Errorf("folder tools = %d, want 8", len(folderDescriptors()))
 	}
 }
 
@@ -372,5 +374,145 @@ func TestAReadOnlyConsentCannotChangeAFolder(t *testing.T) {
 	}
 	if _, err := h.call(t, handleFoldersEntities, `{"folder":"`+testFolder+`"}`); err != nil {
 		t.Errorf("an entities read with the readonly scope failed: %v", err)
+	}
+}
+
+func TestFolderMoveNamesCountsNotIDs(t *testing.T) {
+	reg := capability.NewRegistry()
+	if err := Register(reg); err != nil {
+		t.Fatal(err)
+	}
+	got := reg.ConfirmationSummary(foldersMoveID)(json.RawMessage(
+		`{"folder":"` + testFolder + `","tagId":["11","12"],"variableId":["5"]}`))
+	for _, want := range []string{testFolder, "2 tags", "0 triggers", "1 variables"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("summary %q lacks %q", got, want)
+		}
+	}
+	for _, id := range []string{foldersDeleteID, foldersRevertID} {
+		if got := reg.ConfirmationSummary(id)(json.RawMessage(`{"folder":"` + testFolder + `"}`)); !strings.Contains(got, testFolder) {
+			t.Errorf("%s summary %q lacks the folder", id, got)
+		}
+	}
+	d := foldersMove.Description
+	for _, want := range []string{"Only the folder assignment", "published container version", "no tool of this provider"} {
+		if !strings.Contains(d, want) {
+			t.Errorf("move description lacks %q", want)
+		}
+	}
+}
+
+func TestFoldersMoveSendsTheIDListsAsQuery(t *testing.T) {
+	h := newHarness(t, "", testClientID)
+	h.google.api = func(*http.Request) (int, string, http.Header) { return 200, `{}`, nil }
+	args := `{"folder":"` + testFolder + `","tagId":["11","12"],"triggerId":[],"variableId":["5"]}`
+	if err := application.ValidateJSON(foldersMove.InputSchema, json.RawMessage(args)); err != nil {
+		t.Fatalf("schema refuses a valid move: %v", err)
+	}
+	out, err := h.call(t, handleFoldersMove, args)
+	if err != nil || out["moved"] != true || out["folder"] != testFolder {
+		t.Fatalf("move = %v, %v", out, err)
+	}
+	sent := h.sent(t)
+	if len(sent) != 1 || sent[0].method != "POST" ||
+		sent[0].path != "/tagmanager/v2/"+testFolder+":move_entities_to_folder" ||
+		sent[0].query != "tagId=11&tagId=12&variableId=5" || sent[0].body != `{}` {
+		t.Fatalf("sent = %+v", sent)
+	}
+	encoded, _ := json.Marshal(out)
+	if err := application.ValidateJSON(foldersMove.OutputSchema, encoded); err != nil {
+		t.Errorf("result violates the output schema: %v", err)
+	}
+}
+
+func TestFoldersMoveRefusesEmptyAndForeignIDsBeforeIO(t *testing.T) {
+	for _, ids := range []string{``, `,"tagId":[]`, `,"tagId":[],"triggerId":[],"variableId":[]`,
+		`,"tagId":["1/../x"]`, `,"triggerId":["1?a=b"]`, `,"variableId":["07"]`, `,"tagId":["1","a"]`,
+		`,"tagId":["accounts/1/containers/2/workspaces/3/tags/4"]`, `,"variableId":["1&tagId=2"]`,
+		`,"tagId":["` + strings.Repeat("1", 21) + `"]`,
+		`,"tagId":[` + strings.TrimSuffix(strings.Repeat(`"1",`, maxMoveIDs+1), ",") + `]`} {
+		args := `{"folder":"` + testFolder + `"` + ids + `}`
+		reachNothing(t, newHarness(t, "", testClientID), handleFoldersMove, args)
+		if ids != "" && !strings.Contains(ids, `"tagId":[],"triggerId":[]`) && ids != `,"tagId":[]` {
+			if err := application.ValidateJSON(foldersMove.InputSchema, json.RawMessage(args)); err == nil {
+				t.Errorf("the schema accepts %s", args)
+			}
+		}
+	}
+	reachNothing(t, newHarness(t, "", testClientID), handleFoldersMove, `{"tagId":["1"]}`)
+}
+
+func TestFoldersDeleteAndRevert(t *testing.T) {
+	h := newHarness(t, "", testClientID)
+	h.google.api = func(req *http.Request) (int, string, http.Header) {
+		if req.Method == "DELETE" {
+			return 204, "", nil
+		}
+		return 200, `{"folder":{"path":"` + testFolder + `","name":"base","fingerprint":"9"}}`, nil
+	}
+	out, err := h.call(t, handleFoldersDelete, `{"folder":"`+testFolder+`"}`)
+	if err != nil || out["deleted"] != true || out["folder"] != testFolder {
+		t.Fatalf("delete = %v, %v", out, err)
+	}
+	out, err = h.call(t, handleFoldersRevert, `{"folder":"`+testFolder+`","fingerprint":"5"}`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if base, _ := out["folder"].(map[string]any); base["name"] != "base" {
+		t.Errorf("revert = %v", out)
+	}
+	encoded, _ := json.Marshal(out)
+	if err := application.ValidateJSON(foldersRevert.OutputSchema, encoded); err != nil {
+		t.Errorf("result violates the output schema: %v", err)
+	}
+	h.google.api = func(*http.Request) (int, string, http.Header) { return 200, `{}`, nil }
+	if out, err = h.call(t, handleFoldersRevert, `{"folder":"`+testFolder+`","fingerprint":"5"}`); err != nil || len(out) != 0 {
+		t.Errorf("revert of a folder the base version lacks = %v, %v", out, err)
+	}
+	sent := h.sent(t)
+	if len(sent) != 3 || sent[0].method != "DELETE" || sent[0].path != "/tagmanager/v2/"+testFolder || sent[0].body != "" ||
+		sent[1].method != "POST" || sent[1].path != "/tagmanager/v2/"+testFolder+":revert" ||
+		sent[1].query != "fingerprint=5" || sent[1].body != "" {
+		t.Errorf("sent = %+v", sent)
+	}
+}
+
+func TestFoldersRevertWithoutFingerprintIsRefusedBeforeIO(t *testing.T) {
+	reachNothing(t, newHarness(t, "", testClientID), handleFoldersRevert, `{"folder":"`+testFolder+`"}`)
+	reachNothing(t, newHarness(t, "", testClientID), handleFoldersRevert, `{"folder":"`+testFolder+`","fingerprint":""}`)
+	if err := application.ValidateJSON(foldersRevert.InputSchema, json.RawMessage(`{"folder":"`+testFolder+`"}`)); err == nil {
+		t.Error("the schema accepts a revert without fingerprint")
+	}
+}
+
+func TestFolderMutationsOutsideTheBindingAreRefusedBeforeAnyRequest(t *testing.T) {
+	h := newHarness(t, "accounts/1000001/containers/2000002", testClientID)
+	other := "accounts/1000001/containers/2000009/workspaces/3/folders/7"
+	reachNothing(t, h, handleFoldersMove, `{"folder":"`+other+`","tagId":["1"]}`)
+	reachNothing(t, h, handleFoldersDelete, `{"folder":"`+other+`"}`)
+	reachNothing(t, h, handleFoldersRevert, `{"folder":"`+other+`","fingerprint":"1"}`)
+}
+
+func TestFolderMutationsAreSentOnceAndSayWhenUnsure(t *testing.T) {
+	for name, call := range map[string]func(*harness) error{
+		"move": func(h *harness) error {
+			_, err := h.call(t, handleFoldersMove, `{"folder":"`+testFolder+`","tagId":["1"]}`)
+			return err
+		},
+		"delete": func(h *harness) error {
+			_, err := h.call(t, handleFoldersDelete, `{"folder":"`+testFolder+`"}`)
+			return err
+		},
+		"revert": func(h *harness) error {
+			_, err := h.call(t, handleFoldersRevert, `{"folder":"`+testFolder+`","fingerprint":"1"}`)
+			return err
+		},
+	} {
+		h := newHarness(t, "", testClientID)
+		h.google.api = status(500, `oops`)
+		err := call(h)
+		if err == nil || !strings.Contains(err.Error(), "outcome of the change is unknown") || len(h.google.seen()) != 1 {
+			t.Errorf("%s: err = %v, requests = %d", name, err, len(h.google.seen()))
+		}
 	}
 }

@@ -59,9 +59,10 @@ func Register(reg *capability.Registry) error {
 		if d.Risk.Effect == capability.EffectRead {
 			readIDs = append(readIDs, d.ID)
 		}
-		// Reverting overwrites the workspace state of an object or built-in variable, and deleting a workspace
-		// loses its unpublished changes, so both are in no profile: a connection offers them only when its tools
-		// list names them. Deleting one workspace object is not: it stays revertible until a version is published.
+		// Reverting overwrites the workspace state of an object, folder, or built-in variable, and deleting a
+		// workspace loses its unpublished changes, so both are in no profile: a connection offers them only when
+		// its tools list names them. Deleting one workspace object is not: it stays revertible until a version is
+		// published.
 		if !d.RequiresToolAllowList {
 			writeIDs = append(writeIDs, d.ID)
 		}
@@ -96,12 +97,12 @@ func Register(reg *capability.Registry) error {
 			ID: "write", Title: "Read and change workspaces, tags, triggers, variables, built-in variables, folders, " +
 				"clients, transformations, zones, and Google tag configurations",
 			Description: "reads what the read profile reads, creates and updates workspaces, creates, updates, and " +
-				"deletes the tags, triggers, and variables of a workspace, creates and updates its folders, creates, " +
-				"updates, and deletes its clients, transformations, zones, and Google tag configurations, and enables and " +
-				"disables its built-in " +
+				"deletes the tags, triggers, and variables of a workspace, creates, updates, and deletes its folders, " +
+				"moves tags, triggers, and variables into a folder, creates, updates, and deletes its clients, " +
+				"transformations, zones, and Google tag configurations, and enables and disables its built-in " +
 				"variables; every change needs its own confirmation and stays in the workspace until a version is " +
 				"published, which no tool of this provider does. Deleting a workspace and reverting a tag, trigger, " +
-				"variable, built-in variable, client, transformation, or zone stay unticked",
+				"variable, built-in variable, folder, client, transformation, or zone stay unticked",
 			Tools: writeIDs,
 		}},
 	}, TestConnection); err != nil {
@@ -128,6 +129,7 @@ func Register(reg *capability.Registry) error {
 		builtInVariablesDeleteID: handleBuiltInVariablesDelete, builtInVariablesRevertID: handleBuiltInVariablesRevert,
 		foldersListID: handleFoldersList, foldersGetID: handleFoldersGet, foldersEntitiesID: handleFoldersEntities,
 		foldersCreateID: handleFoldersCreate, foldersUpdateID: handleFoldersUpdate,
+		foldersMoveID: handleFoldersMove, foldersDeleteID: handleFoldersDelete, foldersRevertID: handleFoldersRevert,
 
 		clientsListID: handleClientsList, clientsGetID: handleClientsGet, clientsCreateID: handleClientsCreate,
 		clientsUpdateID: handleClientsUpdate, clientsDeleteID: handleClientsDelete, clientsRevertID: handleClientsRevert,
@@ -155,6 +157,7 @@ func Register(reg *capability.Registry) error {
 		builtInVariablesCreateID: builtInSummary("Enable"), builtInVariablesDeleteID: builtInSummary("Disable"),
 		builtInVariablesRevertID: builtInSummary("Revert"),
 		foldersCreateID:          folderSummary("Create"), foldersUpdateID: folderSummary("Replace"),
+		foldersMoveID: moveSummary, foldersDeleteID: folderSummary("Delete"), foldersRevertID: folderSummary("Revert"),
 
 		clientsCreateID: clientSummary("Create"), clientsUpdateID: clientSummary("Replace"),
 		clientsDeleteID: clientSummary("Delete"), clientsRevertID: clientSummary("Revert"),
