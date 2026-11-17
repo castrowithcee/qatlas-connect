@@ -109,7 +109,9 @@ func TestRegisterPublishesMetadataScopesAndConsent(t *testing.T) {
 		accessAccountID: {scopeReadOnly}, accessPropertyID: {scopeReadOnly},
 		dataRetentionGetID: {scopeReadOnly}, dataRetentionUpdateID: {scopeEdit}, googleSignalsGetID: {scopeReadOnly},
 		googleSignalsUpdateID: {scopeEdit}, annotationsListID: {scopeReadOnly}, annotationsGetID: {scopeReadOnly},
-		annotationsCreateID: {scopeEdit}, annotationsUpdateID: {scopeEdit}, annotationsDeleteID: {scopeEdit}}) {
+		annotationsCreateID: {scopeEdit}, annotationsUpdateID: {scopeEdit}, annotationsDeleteID: {scopeEdit},
+		adsLinksListID: {scopeReadOnly}, firebaseLinksListID: {scopeReadOnly}, bigQueryLinksListID: {scopeReadOnly},
+		bigQueryLinksGetID: {scopeReadOnly}}) {
 		t.Errorf("scopes = %v", metadata.Token.Scopes)
 	}
 	ids := []string{}
@@ -157,7 +159,9 @@ func TestRegisterPublishesMetadataScopesAndConsent(t *testing.T) {
 		"google.analytics.reports.run-realtime", "google.analytics.accounts.run-access-report",
 		"google.analytics.properties.run-access-report", "google.analytics.data-retention.get",
 		"google.analytics.data-retention.update", "google.analytics.google-signals.get",
-		"google.analytics.google-signals.update"})) {
+		"google.analytics.google-signals.update", "google.analytics.google-ads-links.list",
+		"google.analytics.firebase-links.list", "google.analytics.bigquery-links.list",
+		"google.analytics.bigquery-links.get"})) {
 		t.Errorf("tools = %v", ids)
 	}
 	reads := []string{summariesID, accountsID, accountsGetID, accountsSharingID, propertiesListID, propertiesGetID,
@@ -168,7 +172,7 @@ func TestRegisterPublishesMetadataScopesAndConsent(t *testing.T) {
 		customDimensionsListID, customDimensionsGetID, customMetricsListID,
 		customMetricsGetID, keyEventsListID, keyEventsGetID, eventRulesListID, eventRulesGetID,
 		calculatedListID, calculatedGetID, accessAccountID, accessPropertyID, dataRetentionGetID, googleSignalsGetID,
-		annotationsListID, annotationsGetID}
+		annotationsListID, annotationsGetID, adsLinksListID, firebaseLinksListID, bigQueryLinksListID, bigQueryLinksGetID}
 	if len(metadata.Profiles) != 2 || metadata.Profiles[0].ID != "read" || !metadata.Profiles[0].Recommended ||
 		!reflect.DeepEqual(metadata.Profiles[0].Tools, reads) || metadata.Profiles[1].ID != "write" ||
 		metadata.Profiles[1].Recommended ||
@@ -200,6 +204,9 @@ func TestRegisterPublishesMetadataScopesAndConsent(t *testing.T) {
 		}
 		if descriptor.ID == accessAccountID || descriptor.ID == accessPropertyID {
 			sensitivity = dataSensitivityAccess
+		}
+		if descriptor.ID == adsLinksListID {
+			sensitivity = dataSensitivityLinkCreators
 		}
 		if effectOf(descriptor.ID) == config.EffectRead && descriptor.Risk != (capability.Risk{
 			Effect: capability.EffectRead, Idempotency: capability.IdempotencySafe,

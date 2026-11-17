@@ -154,6 +154,11 @@ var scopes = map[string][]string{
 	dataRetentionUpdateID: {scopeEdit},
 	googleSignalsGetID:    {scopeReadOnly},
 	googleSignalsUpdateID: {scopeEdit},
+
+	adsLinksListID:      {scopeReadOnly},
+	firebaseLinksListID: {scopeReadOnly},
+	bigQueryLinksListID: {scopeReadOnly},
+	bigQueryLinksGetID:  {scopeReadOnly},
 }
 
 func tokenMetadata() config.TokenMetadata { return config.TokenMetadata{Scopes: scopes} }
@@ -220,7 +225,7 @@ var readTools = []string{summariesID, accountsID, accountsGetID, accountsSharing
 	customDimensionsListID, customDimensionsGetID, customMetricsListID,
 	customMetricsGetID, keyEventsListID, keyEventsGetID, eventRulesListID, eventRulesGetID,
 	calculatedListID, calculatedGetID, accessAccountID, accessPropertyID, dataRetentionGetID, googleSignalsGetID,
-	annotationsListID, annotationsGetID}
+	annotationsListID, annotationsGetID, adsLinksListID, firebaseLinksListID, bigQueryLinksListID, bigQueryLinksGetID}
 
 // Register adds the provider metadata, its consent endpoints, its connection test and its tools.
 func Register(reg *capability.Registry) error {
@@ -254,8 +259,8 @@ func Register(reg *capability.Registry) error {
 		Profiles: []config.ToolProfile{{
 			ID: "read", Title: "Read", Recommended: true,
 			Description: "reads the Analytics accounts, properties, custom dimensions and metrics, key events, calculated metrics, reports and report tasks the connection reaches; " +
-				"nothing is changed. It includes reading the users of an audience export and the Data Access Reports, " +
-				"which are personal data",
+				"nothing is changed. It includes reading the users of an audience export, the Data Access Reports and the creators of " +
+				"Google Ads links, which are personal data",
 			Tools: readTools,
 		}, {
 			ID: "write", Title: "Read and change",
@@ -376,6 +381,10 @@ func Register(reg *capability.Registry) error {
 		{Descriptor: dataRetentionUpdate, Handler: handleDataRetentionUpdate, ConfirmationSummary: retentionSummary},
 		{Descriptor: googleSignalsGet, Handler: handleGoogleSignalsGet},
 		{Descriptor: googleSignalsUpdate, Handler: handleGoogleSignalsUpdate, ConfirmationSummary: signalsSummary},
+		{Descriptor: adsLinksList, Handler: handleAdsLinksList},
+		{Descriptor: firebaseLinksList, Handler: handleFirebaseLinksList},
+		{Descriptor: bigQueryLinksList, Handler: handleBigQueryLinksList},
+		{Descriptor: bigQueryLinksGet, Handler: handleBigQueryLinksGet},
 	} {
 		if err := reg.Register(Provider, operation); err != nil {
 			return err
