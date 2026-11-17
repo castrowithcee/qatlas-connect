@@ -88,15 +88,15 @@ func Register(reg *capability.Registry) error {
 		},
 		Profiles: []config.ToolProfile{{
 			ID: "read", Title: "Read", Recommended: true,
-			Description: "reads accounts, containers, workspaces, tags, triggers, variables, and built-in variables; " +
-				"changes nothing",
+			Description: "reads accounts, containers, workspaces, tags, triggers, variables, built-in variables, " +
+				"and templates; changes nothing",
 			Tools: readIDs,
 		}, {
-			ID: "write", Title: "Read and change tags, triggers, variables, and built-in variables",
-			Description: "reads what the read profile reads, creates, updates, and deletes the tags, triggers, and " +
-				"variables of a workspace, and enables and disables its built-in variables; every change needs its own " +
+			ID: "write", Title: "Read and change tags, triggers, variables, templates, and built-in variables",
+			Description: "reads what the read profile reads, creates, updates, and deletes the tags, triggers, " +
+				"variables, and templates of a workspace, and enables and disables its built-in variables; every change needs its own " +
 				"confirmation and stays in the workspace until a version is published, which no tool of this provider " +
-				"does. Reverting a tag, trigger, variable, or built-in variable stays unticked",
+				"does. Reverting a tag, trigger, variable, template, or built-in variable stays unticked",
 			Tools: writeIDs,
 		}},
 	}, TestConnection); err != nil {
@@ -117,6 +117,9 @@ func Register(reg *capability.Registry) error {
 		variablesListID:  handleVariablesList, variablesGetID: handleVariablesGet,
 		variablesCreateID: handleVariablesCreate, variablesUpdateID: handleVariablesUpdate,
 		variablesDeleteID: handleVariablesDelete, variablesRevertID: handleVariablesRevert,
+		templatesListID: handleTemplatesList, templatesGetID: handleTemplatesGet,
+		templatesCreateID: handleTemplatesCreate, templatesUpdateID: handleTemplatesUpdate,
+		templatesDeleteID: handleTemplatesDelete, templatesRevertID: handleTemplatesRevert,
 		builtInVariablesListID: handleBuiltInVariablesList, builtInVariablesCreateID: handleBuiltInVariablesCreate,
 		builtInVariablesDeleteID: handleBuiltInVariablesDelete, builtInVariablesRevertID: handleBuiltInVariablesRevert,
 	}
@@ -127,6 +130,8 @@ func Register(reg *capability.Registry) error {
 		triggersDeleteID: triggerSummary("Delete"), triggersRevertID: triggerSummary("Revert"),
 		variablesCreateID: variableSummary("Create"), variablesUpdateID: variableSummary("Replace"),
 		variablesDeleteID: variableSummary("Delete"), variablesRevertID: variableSummary("Revert"),
+		templatesCreateID: templateSummary("Create"), templatesUpdateID: templateSummary("Replace"),
+		templatesDeleteID: templateSummary("Delete"), templatesRevertID: templateSummary("Revert"),
 		builtInVariablesCreateID: builtInSummary("Enable"), builtInVariablesDeleteID: builtInSummary("Disable"),
 		builtInVariablesRevertID: builtInSummary("Revert"),
 	}
