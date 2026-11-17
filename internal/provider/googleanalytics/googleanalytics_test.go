@@ -66,6 +66,7 @@ var toolEffects = map[string]config.Effect{accountsUpdateID: config.EffectUpdate
 	calculatedCreateID: config.EffectCreate, calculatedUpdateID: config.EffectUpdate, calculatedDeleteID: config.EffectDelete,
 	dataRetentionUpdateID: config.EffectUpdate, googleSignalsUpdateID: config.EffectUpdate,
 	annotationsCreateID: config.EffectCreate, annotationsUpdateID: config.EffectUpdate, annotationsDeleteID: config.EffectDelete,
+	audiencesCreateID: config.EffectCreate, audiencesUpdateID: config.EffectUpdate, audiencesArchiveID: config.EffectDelete,
 	channelGroupsCreateID: config.EffectCreate, channelGroupsUpdateID: config.EffectUpdate, channelGroupsDeleteID: config.EffectDelete}
 
 func effectOf(id string) config.Effect {
@@ -111,6 +112,8 @@ func TestRegisterPublishesMetadataScopesAndConsent(t *testing.T) {
 		dataRetentionGetID: {scopeReadOnly}, dataRetentionUpdateID: {scopeEdit}, googleSignalsGetID: {scopeReadOnly},
 		googleSignalsUpdateID: {scopeEdit}, annotationsListID: {scopeReadOnly}, annotationsGetID: {scopeReadOnly},
 		annotationsCreateID: {scopeEdit}, annotationsUpdateID: {scopeEdit}, annotationsDeleteID: {scopeEdit},
+		audiencesListID: {scopeReadOnly}, audiencesGetID: {scopeReadOnly}, audiencesCreateID: {scopeEdit},
+		audiencesUpdateID: {scopeEdit}, audiencesArchiveID: {scopeEdit},
 		channelGroupsListID: {scopeReadOnly}, channelGroupsGetID: {scopeReadOnly}, channelGroupsCreateID: {scopeEdit},
 		channelGroupsUpdateID: {scopeEdit}, channelGroupsDeleteID: {scopeEdit}}) {
 		t.Errorf("scopes = %v", metadata.Token.Scopes)
@@ -151,6 +154,8 @@ func TestRegisterPublishesMetadataScopesAndConsent(t *testing.T) {
 		"google.analytics.calculated-metrics.update", "google.analytics.calculated-metrics.delete",
 		"google.analytics.annotations.list", "google.analytics.annotations.get", "google.analytics.annotations.create",
 		"google.analytics.annotations.update", "google.analytics.annotations.delete",
+		"google.analytics.audiences.list", "google.analytics.audiences.get", "google.analytics.audiences.create",
+		"google.analytics.audiences.update", "google.analytics.audiences.archive",
 		"google.analytics.channel-groups.list", "google.analytics.channel-groups.get",
 		"google.analytics.channel-groups.create", "google.analytics.channel-groups.update",
 		"google.analytics.channel-groups.delete",
@@ -174,7 +179,8 @@ func TestRegisterPublishesMetadataScopesAndConsent(t *testing.T) {
 		customDimensionsListID, customDimensionsGetID, customMetricsListID,
 		customMetricsGetID, keyEventsListID, keyEventsGetID, eventRulesListID, eventRulesGetID,
 		calculatedListID, calculatedGetID, accessAccountID, accessPropertyID, dataRetentionGetID, googleSignalsGetID,
-		annotationsListID, annotationsGetID, channelGroupsListID, channelGroupsGetID}
+		annotationsListID, annotationsGetID,
+		audiencesListID, audiencesGetID, channelGroupsListID, channelGroupsGetID}
 	if len(metadata.Profiles) != 2 || metadata.Profiles[0].ID != "read" || !metadata.Profiles[0].Recommended ||
 		!reflect.DeepEqual(metadata.Profiles[0].Tools, reads) || metadata.Profiles[1].ID != "write" ||
 		metadata.Profiles[1].Recommended ||
@@ -187,6 +193,7 @@ func TestRegisterPublishesMetadataScopesAndConsent(t *testing.T) {
 				keyEventsCreateID, keyEventsUpdateID, keyEventsDeleteID, eventRulesCreateID, eventRulesUpdateID, eventRulesDeleteID,
 				calculatedCreateID, calculatedUpdateID, calculatedDeleteID, googleSignalsUpdateID,
 				annotationsCreateID, annotationsUpdateID, annotationsDeleteID,
+				audiencesCreateID, audiencesUpdateID, audiencesArchiveID,
 				channelGroupsCreateID, channelGroupsUpdateID, channelGroupsDeleteID)) {
 		t.Errorf("profiles = %+v", metadata.Profiles)
 	}
