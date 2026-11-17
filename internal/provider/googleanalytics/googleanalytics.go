@@ -15,7 +15,8 @@
 // Reading tools send one request, a changing tool exactly one and never again, whatever comes back.
 // Deleting an account runs only on a connection that binds exactly that account and no property.
 //
-// The settings of a web data stream run on the Admin API v1alpha, see alpha.go.
+// The settings of a web data stream and the annotations of a property run on the Admin API v1alpha, see
+// alpha.go.
 //
 // A connection may bind Analytics accounts (accounts/ID) and properties (properties/ID). Without a target it
 // reaches what the credential reaches. A bound account reaches its properties, a bound property only itself;
@@ -49,7 +50,8 @@ const subject = "Google Analytics"
 // analyticsdata v1beta and v1alpha). Google also lists it for audienceLists.create.
 const scopeReadOnly = "https://www.googleapis.com/auth/analytics.readonly"
 
-// scopeEdit is the scope that changes Analytics accounts and properties (analyticsadmin v1beta).
+// scopeEdit is the scope that changes Analytics accounts, properties and annotations (analyticsadmin v1beta and
+// v1alpha).
 const scopeEdit = "https://www.googleapis.com/auth/analytics.edit"
 
 // dataSensitivity classifies the results: the configuration of the Analytics accounts the credential reaches.
@@ -101,6 +103,12 @@ var scopes = map[string][]string{
 	siteTagGetID:      {scopeReadOnly},
 	enhancedUpdateID:  {scopeEdit},
 	redactionUpdateID: {scopeEdit},
+
+	annotationsListID:   {scopeReadOnly},
+	annotationsGetID:    {scopeReadOnly},
+	annotationsCreateID: {scopeEdit},
+	annotationsUpdateID: {scopeEdit},
+	annotationsDeleteID: {scopeEdit},
 }
 
 func tokenMetadata() config.TokenMetadata { return config.TokenMetadata{Scopes: scopes} }
@@ -162,14 +170,15 @@ func isDefaultRoot(raw string) bool {
 var readTools = []string{summariesID, accountsID, accountsGetID, accountsSharingID, propertiesListID, propertiesGetID,
 	reportsRunID, metadataGetID, compatibilityID, dataStreamsListID, dataStreamsGetID, funnelRunID, audienceGetID,
 	audienceListID, reportsRunPivotID, reportsBatchRunID, reportsBatchRunPivotID, reportsRunRealtimeID,
-	reportTasksGetID, reportTasksListID, reportTasksQueryID, audienceQueryID, enhancedGetID, redactionGetID, siteTagGetID}
+	reportTasksGetID, reportTasksListID, reportTasksQueryID, audienceQueryID, enhancedGetID, redactionGetID, siteTagGetID,
+	annotationsListID, annotationsGetID}
 
 // Register adds the provider metadata, its consent endpoints, its connection test and its tools.
 func Register(reg *capability.Registry) error {
 	token := tokenMetadata()
 	if err := reg.RegisterProvider(config.ProviderMetadata{
 		ID: Provider, Name: subject, DefaultBaseURL: adminRoot,
-		Description:    "Google Analytics 4 accounts, properties and reports through the Analytics Admin and Data APIs with an OAuth or service account token",
+		Description:    "Google Analytics 4 accounts, properties, annotations and reports through the Analytics Admin and Data APIs with an OAuth or service account token",
 		DefaultEffects: []config.Effect{config.EffectRead},
 		ValidateBaseURL: func(raw string) error {
 			if !isDefaultRoot(raw) {
@@ -201,11 +210,11 @@ func Register(reg *capability.Registry) error {
 		}, {
 			ID: "write", Title: "Read and change",
 			Description: "reads what the read profile reads and changes Analytics accounts and properties, starts audience exports " +
-				"and report tasks; every " +
-				"change needs its own confirmation, and deleting stays unlisted",
+				"and report tasks, and creates, changes, and deletes annotations; every " +
+				"change needs its own confirmation, and deleting an account or a property stays unlisted",
 			Tools: append(slices.Clone(readTools), accountsUpdateID, propertiesCreateID, propertiesUpdateID,
 				dataStreamsCreateID, dataStreamsUpdateID, audienceCreateID, reportTasksCreateID, enhancedUpdateID,
-				redactionUpdateID),
+				redactionUpdateID, annotationsCreateID, annotationsUpdateID, annotationsDeleteID),
 		}},
 	}, TestConnection); err != nil {
 		return err
@@ -247,6 +256,14 @@ func Register(reg *capability.Registry) error {
 		{Descriptor: redactionUpdateDescriptor, Handler: handleRedactionUpdate,
 			ConfirmationSummary: settingsSummary(redactionUpdateID)},
 		{Descriptor: siteTagGet, Handler: handleSiteTagGet},
+		{Descriptor: annotationsList, Handler: handleAnnotationsList},
+		{Descriptor: annotationsGet, Handler: handleAnnotationsGet},
+		{Descriptor: annotationsCreate, Handler: handleAnnotationsCreate,
+			ConfirmationSummary: annotationSummary(annotationsCreateID)},
+		{Descriptor: annotationsUpdate, Handler: handleAnnotationsUpdate,
+			ConfirmationSummary: annotationSummary(annotationsUpdateID)},
+		{Descriptor: annotationsDelete, Handler: handleAnnotationsDelete,
+			ConfirmationSummary: annotationSummary(annotationsDeleteID)},
 		{Descriptor: funnelRun, Handler: handleFunnelRun},
 		{Descriptor: audienceGet, Handler: handleAudienceGet},
 		{Descriptor: audienceList, Handler: handleAudienceList},
