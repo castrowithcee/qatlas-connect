@@ -16,7 +16,7 @@ roles and the roles and permissions of a resource from IAM, and changes nothing 
 `service-accounts-revoke`, which disables, enables, and deletes their keys, a `tools` list that names
 `service-accounts.delete`, which deletes a service account, the profile `api-keys-revoke`, which deletes API
 keys and restores deleted ones, the profile `iam-bindings`, which changes single
-IAM bindings, the profile `compute-network-delete`, which deletes firewall rules, reserved IP addresses, VPN tunnels, and HA VPN gateways, the profile `compute-instances-create`, which creates Compute instances, a `tools` list that names `instances.delete`, which deletes one, the profile `services`, which enables Google APIs, or a `tools` list that names `services.disable`,
+IAM bindings, the profile `compute-network-delete`, which deletes firewall rules, reserved IP addresses, VPN tunnels, and HA VPN gateways, the profile `compute-lifecycle`, which starts, stops, resets, and changes the machine type of Compute instances, the profile `compute-instances-create`, which creates Compute instances, a `tools` list that names `instances.delete`, which deletes one, the profile `services`, which enables Google APIs, or a `tools` list that names `services.disable`,
 which disables one, each with the confirmation of a person. Tools, targets, errors, and limits are described in the [Google Cloud provider](README.md).
 
 ## What you need
@@ -36,7 +36,7 @@ The token needs the rights of its person or service account in Google Cloud. Wit
 `read` Qatlas asks only for the read scopes `cloud-platform.read-only` and, for the Compute tools,
 `compute.readonly`. The profile `read-iam` adds the IAM tools and
 with them the broad scope `cloud-platform`, because Google lists no narrower scope for them. Only the tools of the profiles `service-accounts`,
-`service-accounts-revoke`, `api-keys-revoke`, `iam-bindings`, `compute-network-delete`, `compute-instances-create`, and `services` and the listed-only `service-accounts.delete`, `instances.delete`, and
+`service-accounts-revoke`, `api-keys-revoke`, `iam-bindings`, `compute-network-delete`, `compute-lifecycle`, `compute-instances-create`, and `services` and the listed-only `service-accounts.delete`, `instances.delete`, and
 `services.disable` change anything, so
 without them even a broad role cannot change anything through Qatlas. Grant
 the account a viewer role at the highest level you want it to see, for example the Organization Viewer, Folder
@@ -58,6 +58,7 @@ Viewer, or Project Viewer role, or any role with these permissions:
 | `vpn-gateways.list`, `vpn-gateways.get`, `vpn-tunnels.list`, `vpn-tunnels.get` | `compute.vpnGateways.list` or `.get`, or `compute.vpnTunnels.list` or `.get` on the project (the Compute Viewer role has them); the **Compute Engine API** must be enabled in the project, and the tools ask for the read scope `compute.readonly` |
 | `snapshots.list`, `snapshots.get`, `images.list`, `images.get` | `compute.snapshots.list` or `.get`, or `compute.images.list` or `.get` on the project (the Compute Viewer role has them); the **Compute Engine API** must be enabled in the project, and the tools ask for the read scope `compute.readonly` |
 | `firewalls.delete`, `addresses.delete`, `vpn-tunnels.delete`, `vpn-gateways.delete` | `compute.firewalls.delete` and `compute.firewalls.get` (for the comparison before the deletion), `compute.addresses.delete`, `compute.vpnTunnels.delete`, or `compute.vpnGateways.delete`, on the project (the Compute Network Admin role has them); the **Compute Engine API** must be enabled in the project, and the tools ask for the scope `compute` and belong to the profile `compute-network-delete` |
+| `instances.start`, `instances.stop`, `instances.reset`, `instances.set-machine-type` | `compute.instances.start`, `compute.instances.stop`, `compute.instances.reset`, or `compute.instances.setMachineType` on the project (the Compute Instance Admin role has them); the **Compute Engine API** must be enabled, and the tools ask for the scope `compute` and belong to the profile `compute-lifecycle` |
 | `instances.insert` | `compute.instances.create` on the project, and what the new instance uses: `compute.disks.create`, `compute.subnetworks.use`, `iam.serviceAccounts.actAs` on a service account, `compute.images.useReadOnly` for a source image (the Compute Instance Admin role has most of them); for a service account email `resourcemanager.projects.get` on the project; the **Compute Engine API** must be enabled, and the tool asks for the scope `compute` and belongs to the profile `compute-instances-create` |
 | `instances.delete` | `compute.instances.delete` on the project (the Compute Instance Admin role has it); the **Compute Engine API** must be enabled, the tool asks for the scope `compute`, and it is listed-only: only a `tools` list that names it releases it |
 | `iam-roles.list`, `iam-roles.get` | custom roles of a project or organization: `iam.roles.list` and `iam.roles.get` (the Role Viewer role has them); Google states none for predefined roles |

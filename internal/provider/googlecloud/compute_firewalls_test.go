@@ -406,7 +406,9 @@ func TestNoToolInsertsFirewallsOrAddressesOrAddsAccessConfigs(t *testing.T) {
 	// instances.insert is the one allowed insert; it has no argument for an access config (see below).
 	forbidden := regexp.MustCompile(`\.(firewalls|addresses|global-addresses)\.(insert|patch|update|add-access-config|delete-access-config|set-)|\.instances\.(insert|patch|update|add-access-config|delete-access-config|set-)|access-config|add-access`)
 	for _, tool := range metadata.Tools {
-		if tool.ID != instancesInsertID && forbidden.MatchString(tool.ID) {
+		// instances.insert takes no access config (see below) and instances.set-machine-type changes the machine
+		// type, not network access; both are in scope.
+		if tool.ID != instancesInsertID && tool.ID != instancesSetMachineTypeID && forbidden.MatchString(tool.ID) {
 			t.Errorf("tool %s names a method that creates or changes a firewall rule or an address", tool.ID)
 		}
 		if strings.Contains(tool.ID, ".firewalls.") || strings.Contains(tool.ID, ".addresses.") {
