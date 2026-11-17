@@ -12,9 +12,9 @@ updated: 2026-11-17
 This page shows how to connect Qatlas to Google Analytics 4. Targets, paging, and errors are described in the
 [Google Analytics provider](README.md); the tools are described in [accounts](accounts.md),
 [properties](properties.md), [data streams](data-streams.md), [custom dimensions](custom-dimensions.md),
-[custom metrics](custom-metrics.md), [reports](reports.md),
-[audience exports](audience-exports.md), [report tasks](report-tasks.md), and
-[measurement protocol secrets](measurement-protocol-secrets.md).
+[custom metrics](custom-metrics.md), [event create rules](event-create-rules.md), [reports](reports.md),
+[audience exports](audience-exports.md), [report tasks](report-tasks.md),
+[measurement protocol secrets](measurement-protocol-secrets.md), and [access reports](access-reports.md).
 
 ## What you need
 
@@ -82,7 +82,7 @@ property, and on the property or its account to change or trash a property.
 ## Rights and scopes
 
 The reading tools need the scope `https://www.googleapis.com/auth/analytics.readonly`, the smallest scope that
-reads Analytics configuration and report data. The tools that change an account or a property need
+reads Analytics configuration and report data. The tools that change an account, a property, a data stream, or an event create rule need
 `https://www.googleapis.com/auth/analytics.edit`. Qatlas asks for the scope of the tools of the connections that
 use the credential and no more. Each connection of a credential has to be for Google Analytics, so the
 credential never carries the scope of another product.
@@ -95,6 +95,7 @@ credential never carries the scope of another product.
 | [Reports](reports.md) | `reports.run`, `reports.get-metadata`, `reports.check-compatibility`, `reports.run-pivot`, `reports.batch-run`, `reports.batch-run-pivot`, `reports.run-realtime`, `reports.run-funnel` | `analytics.readonly` |
 | [Audience exports](audience-exports.md) | `audience-exports.create`, `audience-exports.get`, `audience-exports.list`, `audience-exports.query` | `analytics.readonly` |
 | [Report tasks](report-tasks.md) | `report-tasks.create`, `report-tasks.get`, `report-tasks.list`, `report-tasks.query` | `analytics.readonly` |
+| [Access reports](access-reports.md) | `accounts.run-access-report`, `properties.run-access-report` | `analytics.readonly` |
 | [Properties](properties.md#changing-properties) | `properties.create`, `properties.update`, `properties.delete` | `analytics.edit` |
 | [Data streams](data-streams.md) | `data-streams.list`, `data-streams.get` | `analytics.readonly` |
 | [Data streams](data-streams.md#changing-data-streams) | `data-streams.create`, `data-streams.update`, `data-streams.delete` | `analytics.edit` |
@@ -108,6 +109,8 @@ credential never carries the scope of another product.
 | [Custom metrics](custom-metrics.md#changing-custom-metrics) | `custom-metrics.create`, `custom-metrics.update`, `custom-metrics.archive` | `analytics.edit` |
 | [Key events](key-events.md) | `key-events.list`, `key-events.get` | `analytics.readonly` |
 | [Key events](key-events.md#changing-key-events) | `key-events.create`, `key-events.update`, `key-events.delete` | `analytics.edit` |
+| [Event create rules](event-create-rules.md) | `event-create-rules.list`, `event-create-rules.get` | `analytics.readonly` |
+| [Event create rules](event-create-rules.md) | `event-create-rules.create`, `event-create-rules.update`, `event-create-rules.delete` | `analytics.edit` |
 
 ## Add it to Qatlas
 

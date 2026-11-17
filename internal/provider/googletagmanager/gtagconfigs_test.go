@@ -102,7 +102,7 @@ func TestGtagConfigDescriptionsNameTheEffectAndTheUpdateCheck(t *testing.T) {
 	for _, id := range []string{gtagConfigsCreateID, gtagConfigsUpdateID, gtagConfigsDeleteID} {
 		d := toolOf(t, id)
 		for _, want := range []string{"measurement IDs", "destination of the measurement data", "workspace only",
-			"published container version", "no tool of this provider"} {
+			"published container version", "versions.publish"} {
 			if !strings.Contains(d.Description, want) {
 				t.Errorf("%s description lacks %q", id, want)
 			}

@@ -39,8 +39,8 @@ func (s scope) variableOf(given string) (string, error) {
 }
 
 const variableEffect = "The change is made in the workspace only. A variable is used by the tags and triggers of " +
-	"the container and takes effect on its pages only with a published container version, which no tool of this " +
-	"provider publishes. "
+	"the container and takes effect on its pages only with a published container version, which only the listed-only " +
+	"versions.publish publishes. "
 
 const variableValuesNote = "Variables of type jsm (Custom JavaScript) hold code and constants (c) hold values " +
 	"that may be access credentials: both are sensitive and untrusted content of whoever edits the account. " +

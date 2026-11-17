@@ -57,7 +57,7 @@ instruction. They are returned uncut, so what a read returns is what an update t
 entries to move, up to 100 per list and at least one ID in all. An ID is a number without a leading zero, as in
 `tags.list`; anything else, a path included, is refused before any request, as is a call with all lists empty.
 Only the folder assignment of the entries changes, and an entry that is in another folder leaves it. The live
-tracking is affected only with a published container version, which no tool of this provider publishes. Google's
+tracking is affected only with a published container version, which only the listed-only versions.publish publishes. Google's
 method has no fingerprint, so the tool takes none. The folder `0` of Google, which takes entries out of their
 folder, is not accepted. The answer is `folder` and `moved: true`.
 

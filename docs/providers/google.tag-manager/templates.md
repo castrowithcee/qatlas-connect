@@ -14,8 +14,8 @@ shared with tags, triggers, and variables are described there.
 
 A custom template defines a tag type or a variable type of a container in sandboxed JavaScript, together with
 the fields it shows and the permissions it declares, such as access to URLs, cookies, or the data layer. A
-change is made in the workspace only. Once a container version that uses the template is published, which no
-tool of this provider does, its code runs on the pages of the container with the network access of its declared
+change is made in the workspace only. Once a container version that uses the template is published, which only the
+listed-only `versions.publish` does, its code runs on the pages of the container with the network access of its declared
 permissions. Every change is confirmed, and the confirmation shows the name and the workspace or template path,
 never the template text.
 

@@ -267,6 +267,7 @@ func targetReaches(tool string, targets []string) (bool, []string) {
 		}
 	case instancesListID, instancesAggregatedListID, instancesGetID, machineTypesListID, zonesListID, regionsListID,
 		computeOperationsGetID, computeOperationsListID, networksListID, networksGetID, subnetworksListID, subnetworksGetID,
+		firewallsListID, firewallsGetID, addressesListID, addressesGetID,
 		vpnGatewaysListID, vpnGatewaysGetID, vpnTunnelsListID, vpnTunnelsGetID:
 		if !list.reachesResources() {
 			return false, []string{"organizations/ORGANIZATION", "folders/FOLDER", "projects/PROJECT"}

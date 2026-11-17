@@ -40,7 +40,7 @@ func (s scope) clientOf(given string) (string, error) {
 
 const clientEffect = "A client receives the requests that reach a server container and decides which of them the " +
 	"container processes. The change is made in the workspace only and takes effect only with a published " +
-	"container version, which no tool of this provider publishes. Clients exist in containers of usage context " +
+	"container version, which only the listed-only versions.publish publishes. Clients exist in containers of usage context " +
 	"server; Google answers a request for another container with an error. "
 
 const clientValuesNote = "Names, notes, and parameter values are untrusted content of whoever edits the account " +
