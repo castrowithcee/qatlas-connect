@@ -1,6 +1,6 @@
 ---
 description: >
-  Describes the Google Tag Manager provider: the token credential and its procedures, the fixed origin, the account and container targets, the profiles, the scope per tool group, the shared quota and request spacing, lists and cursors, the fingerprint convention, the shared content rules of tags, triggers, and variables, the built-in variables, the folders, the clients and transformations of server containers, the result bounds, the connection test, error forms and their classes, and the limits of what is verified.
+  Describes the Google Tag Manager provider: the token credential and its procedures, the fixed origin, the account and container targets, the profiles, the scope per tool group, the shared quota and request spacing, lists and cursors, the fingerprint convention, the shared content rules of tags, triggers, and variables, the built-in variables, the folders, the clients and transformations of server containers, the zones and their child containers, the result bounds, the connection test, error forms and their classes, and the limits of what is verified.
 type: knowledge
 edit: shared
 created: 2026-11-16
@@ -13,8 +13,9 @@ Google Tag Manager is a provider for the Tag Manager API v2. Its credential issu
 holding a static key. [Set up Google Tag Manager](setup.md) leads through the Google side and the consent. The
 tools are described per group in [accounts, containers, and workspaces](structure.md),
 [workspace management](workspaces.md), [tags](tags.md), [triggers](triggers.md), [variables](variables.md),
-[built-in variables](built-in-variables.md), [folders](folders.md), [clients](clients.md), and
-[transformations](transformations.md); the descriptors list their arguments and result fields.
+[built-in variables](built-in-variables.md), [folders](folders.md), [clients](clients.md),
+[transformations](transformations.md), and [zones](zones.md); the descriptors list their arguments and result
+fields.
 
 ## Credential
 
@@ -45,17 +46,17 @@ origin; any other value is refused before a secret is read. The access token tra
 Two profiles are offered:
 
 - `read` (recommended) holds the tools that read: accounts, containers, workspaces and their change status,
-  tags, triggers, variables, built-in variables, folders, clients, and transformations.
+  tags, triggers, variables, built-in variables, folders, clients, transformations, and zones.
 - `write` holds the tools of `read` and the tools that create and update workspaces, that create, update, and
-  delete tags, triggers, variables, clients, and transformations, that enable and disable built-in variables,
-  and that create, update, delete, and fill folders. A deleted tag, trigger, variable, folder, client, or
-  transformation and a disabled built-in variable stay in the workspace changes until a version is published and
-  can be brought back with their `revert` tool.
+  delete tags, triggers, variables, clients, transformations, and zones, that enable and disable built-in
+  variables, and that create, update, delete, and fill folders. A deleted tag, trigger, variable, folder, client,
+  transformation, or zone and a disabled built-in variable stay in the workspace changes until a version is
+  published and can be brought back with their `revert` tool.
 
 `workspaces.delete`, `tags.revert`, `triggers.revert`, `variables.revert`, `folders.revert`, `clients.revert`,
-`transformations.revert`, and `built-in-variables.revert` are in no profile. Deleting a workspace loses its
-unpublished changes and a revert overwrites the workspace state of an object, so a connection offers them only
-when its `tools` list names them.
+`transformations.revert`, `zones.revert`, and `built-in-variables.revert` are in no profile. Deleting a
+workspace loses its unpublished changes and a revert overwrites the workspace state of an object, so a
+connection offers them only when its `tools` list names them.
 Every tool that changes something needs its own confirmation, which shows the name, the type or types, and the
 workspace or object path.
 
@@ -82,7 +83,7 @@ of the tools it offers; offering a tool with another scope needs a new consent.
 | Tools | Scope |
 | --- | --- |
 | every tool that reads | `https://www.googleapis.com/auth/tagmanager.readonly` |
-| every tool that creates, updates, deletes, or reverts a tag, a trigger, a variable, a client, a transformation, a folder, or a built-in variable, every tool that moves entries into a folder, and `workspaces.create` and `workspaces.update` | `https://www.googleapis.com/auth/tagmanager.edit.containers` |
+| every tool that creates, updates, deletes, or reverts a tag, a trigger, a variable, a client, a transformation, a zone, a folder, or a built-in variable, every tool that moves entries into a folder, and `workspaces.create` and `workspaces.update` | `https://www.googleapis.com/auth/tagmanager.edit.containers` |
 | `workspaces.delete` | `https://www.googleapis.com/auth/tagmanager.delete.containers` |
 
 A consent given for the `read` profile lacks the edit scope, so a changing tool answers `scope-missing`
@@ -110,11 +111,11 @@ an empty list.
 ## Fingerprint
 
 Every result that carries a `fingerprint` returns it. Tools that change an existing tag, trigger, variable,
-client, transformation, or folder follow one convention: they take the fingerprint last read as a required
+client, transformation, zone, or folder follow one convention: they take the fingerprint last read as a required
 argument, so a change made in the meantime is not overwritten silently. [Built-in variables](built-in-variables.md)
 have none, because Google's methods for them carry no fingerprint. The update and revert tools of tags,
-triggers, variables, clients, transformations, and folders refuse a call without it before any request. What
-Google answers to a stale fingerprint is not verified, so it is not given a class of its own: it is
+triggers, variables, clients, transformations, zones, and folders refuse a call without it before any request.
+What Google answers to a stale fingerprint is not verified, so it is not given a class of its own: it is
 `invalid-provider-response` with Google's answer as the original.
 
 ## Tags, triggers, and variables
@@ -141,7 +142,7 @@ parameter entries in one object, or holds a text where a list belongs is `invali
 a shorter value. A request is bounded by 4 MiB and 5000 parameter entries.
 
 [Clients](clients.md) and [transformations](transformations.md) follow the same update, revert, parameter, and
-never-cut rules.
+never-cut rules, [zones](zones.md) the same update, revert, and never-cut rules.
 
 ## Results
 
