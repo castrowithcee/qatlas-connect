@@ -1,6 +1,6 @@
 ---
 description: >
-  Describes the Google Tag Manager provider: the token credential and its procedures, the fixed origin, the account and container targets, the profiles, the scope per tool group, the shared quota and request spacing, lists and cursors, the fingerprint convention, the shared content rules of tags, triggers, and variables, the built-in variables, the clients of server containers, the result bounds, the connection test, error forms and their classes, and the limits of what is verified.
+  Describes the Google Tag Manager provider: the token credential and its procedures, the fixed origin, the account and container targets, the profiles, the scope per tool group, the shared quota and request spacing, lists and cursors, the fingerprint convention, the shared content rules of tags, triggers, and variables, the built-in variables, the folders, the clients of server containers, the result bounds, the connection test, error forms and their classes, and the limits of what is verified.
 type: knowledge
 edit: shared
 created: 2026-11-16
@@ -12,8 +12,8 @@ updated: 2026-11-17
 Google Tag Manager is a provider for the Tag Manager API v2. Its credential issues access tokens instead of
 holding a static key. [Set up Google Tag Manager](setup.md) leads through the Google side and the consent. The
 tools are described per group in [accounts, containers, and workspaces](structure.md), [tags](tags.md),
-[triggers](triggers.md), [variables](variables.md), [built-in variables](built-in-variables.md), and
-[clients](clients.md); the descriptors list their arguments and result fields.
+[triggers](triggers.md), [variables](variables.md), [built-in variables](built-in-variables.md),
+[folders](folders.md), and [clients](clients.md); the descriptors list their arguments and result fields.
 
 ## Credential
 
@@ -44,11 +44,11 @@ origin; any other value is refused before a secret is read. The access token tra
 Two profiles are offered:
 
 - `read` (recommended) holds the tools that read: accounts, containers, workspaces, tags, triggers, variables,
-  built-in variables, and clients.
+  built-in variables, folders, and clients.
 - `write` holds the tools of `read` and the tools that create, update, and delete tags, triggers, variables, and
-  clients and that enable and disable built-in variables. A deleted tag, trigger, variable, or client and a
-  disabled built-in variable stay in the workspace changes until a version is published and can be brought back
-  with their `revert` tool.
+  clients, that enable and disable built-in variables, and that create and update folders. A deleted tag,
+  trigger, variable, or client and a disabled built-in variable stay in the workspace changes until a version is
+  published and can be brought back with their `revert` tool.
 
 `tags.revert`, `triggers.revert`, `variables.revert`, `clients.revert`, and `built-in-variables.revert` are in
 no profile. They overwrite the workspace state of an object, so a connection offers them only when its `tools`
@@ -79,7 +79,7 @@ of the tools it offers; offering a tool with another scope needs a new consent.
 | Tools | Scope |
 | --- | --- |
 | every tool that reads | `https://www.googleapis.com/auth/tagmanager.readonly` |
-| every tool that creates, updates, deletes, or reverts a tag, a trigger, a variable, a client, or a built-in variable | `https://www.googleapis.com/auth/tagmanager.edit.containers` |
+| every tool that creates, updates, deletes, or reverts a tag, a trigger, a variable, a client, or a built-in variable, and every tool that creates or updates a folder | `https://www.googleapis.com/auth/tagmanager.edit.containers` |
 
 A consent given for the `read` profile lacks the edit scope, so a changing tool answers `scope-missing`
 before any request. Google also offers `tagmanager.edit.containerversions`, `tagmanager.publish`,
@@ -105,10 +105,11 @@ an empty list.
 
 ## Fingerprint
 
-Every result that carries a `fingerprint` returns it. Tools that change an existing tag, trigger, variable, or client
-follow one convention: they take the fingerprint last read as a required argument, so a change made in the
-meantime is not overwritten silently. [Built-in variables](built-in-variables.md) have none, because Google's
-methods for them carry no fingerprint. The update and revert tools of tags, triggers, variables, and clients refuse a
+Every result that carries a `fingerprint` returns it. Tools that change an existing tag, trigger, variable,
+client, or folder follow one convention: they take the fingerprint last read as a required argument, so a change
+made in the meantime is not overwritten silently. [Built-in variables](built-in-variables.md) have none, because
+Google's methods for them carry no fingerprint. The update and revert tools of tags, triggers, variables, and
+clients and the update tool of folders refuse a
 call without it before any request. What Google answers to a stale fingerprint is not verified, so it is not given a class of its own: it
 is `invalid-provider-response` with Google's answer as the original.
 
