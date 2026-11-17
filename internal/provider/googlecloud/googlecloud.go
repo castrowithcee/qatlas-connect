@@ -88,7 +88,7 @@ func testClass(err error) (provider.Class, error) {
 var readTools = []string{organizationsSearch.ID, foldersSearch.ID, projectsSearch.ID, projectsGet.ID, operationsGet.ID,
 	organizationsGet.ID, foldersGet.ID, foldersList.ID, projectsList.ID, servicesList.ID, servicesGet.ID,
 	servicesBatchGet.ID, apiKeysList.ID, apiKeysGet.ID, instancesList.ID, instancesAggregatedList.ID, instancesGet.ID,
-	machineTypesList.ID}
+	machineTypesList.ID, zonesList.ID, regionsList.ID, computeOperationsGet.ID, computeOperationsList.ID}
 
 // Register adds the provider metadata, its connection test, its consent endpoints, and its tools.
 func Register(reg *capability.Registry) error {
@@ -110,8 +110,9 @@ func Register(reg *capability.Registry) error {
 			ID: "read", Title: "Read", Recommended: true,
 			Description: "searches and reads organizations, folders, and projects and reads the state of long-running " +
 				"operations from Google Cloud Resource Manager, the enabled and available APIs of a project from Service " +
-				"Usage, and the metadata of API keys with the read-only scope and the Compute Engine instances and machine " +
-				"types of a project with the scope compute.readonly, and changes nothing",
+				"Usage, and the metadata of API keys with the read-only scope and the Compute Engine instances, machine " +
+				"types, zones, regions, and operations (with the person who started each) of a project with the scope " +
+				"compute.readonly, and changes nothing",
 			Tools: readTools,
 		}, {
 			ID: "read-iam", Title: "Read with IAM",
@@ -192,6 +193,10 @@ func Register(reg *capability.Registry) error {
 		capability.Operation{Descriptor: instancesAggregatedList, Handler: handleInstancesAggregatedList},
 		capability.Operation{Descriptor: instancesGet, Handler: handleInstancesGet},
 		capability.Operation{Descriptor: machineTypesList, Handler: handleMachineTypesList},
+		capability.Operation{Descriptor: zonesList, Handler: handleZonesList},
+		capability.Operation{Descriptor: regionsList, Handler: handleRegionsList},
+		capability.Operation{Descriptor: computeOperationsGet, Handler: handleComputeOperationsGet},
+		capability.Operation{Descriptor: computeOperationsList, Handler: handleComputeOperationsList},
 		capability.Operation{Descriptor: iamRolesList, Handler: handleIAMRolesList},
 		capability.Operation{Descriptor: iamRolesGet, Handler: handleIAMRolesGet},
 		capability.Operation{Descriptor: iamRolesQuery, Handler: handleIAMRolesQuery},
