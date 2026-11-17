@@ -11,8 +11,9 @@ updated: 2026-11-17
 
 This page shows how to connect Qatlas to Google Analytics 4. Targets, paging, and errors are described in the
 [Google Analytics provider](README.md); the tools are described in [accounts](accounts.md),
-[properties](properties.md), [data streams](data-streams.md), [custom dimensions](custom-dimensions.md), [reports](reports.md), and
-[audience exports](audience-exports.md), and [report tasks](report-tasks.md).
+[properties](properties.md), [data streams](data-streams.md), [custom dimensions](custom-dimensions.md), [reports](reports.md),
+[audience exports](audience-exports.md), [report tasks](report-tasks.md), and
+[measurement protocol secrets](measurement-protocol-secrets.md).
 
 ## What you need
 
@@ -95,7 +96,9 @@ credential never carries the scope of another product.
 | [Report tasks](report-tasks.md) | `report-tasks.create`, `report-tasks.get`, `report-tasks.list`, `report-tasks.query` | `analytics.readonly` |
 | [Properties](properties.md#changing-properties) | `properties.create`, `properties.update`, `properties.delete` | `analytics.edit` |
 | [Data streams](data-streams.md) | `data-streams.list`, `data-streams.get` | `analytics.readonly` |
-| [Data streams](data-streams.md#changing-data-streams) | `data-streams.create`, `data-streams.update` | `analytics.edit` |
+| [Data streams](data-streams.md#changing-data-streams) | `data-streams.create`, `data-streams.update`, `data-streams.delete` | `analytics.edit` |
+| [Measurement protocol secrets](measurement-protocol-secrets.md) | `measurement-protocol-secrets.list`, `measurement-protocol-secrets.get` | `analytics.readonly` |
+| [Measurement protocol secrets](measurement-protocol-secrets.md#googleanalyticsmeasurement-protocol-secretsdelete) | `measurement-protocol-secrets.delete` | `analytics.edit` |
 | [Stream settings](data-streams.md#stream-settings-alpha) | `data-streams.get-enhanced-measurement`, `data-streams.get-data-redaction`, `data-streams.get-site-tag` | `analytics.readonly` |
 | [Stream settings](data-streams.md#stream-settings-alpha) | `data-streams.update-enhanced-measurement`, `data-streams.update-data-redaction` | `analytics.edit` |
 | [Custom dimensions](custom-dimensions.md) | `custom-dimensions.list`, `custom-dimensions.get` | `analytics.readonly` |
