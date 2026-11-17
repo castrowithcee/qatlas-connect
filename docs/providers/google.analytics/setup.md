@@ -106,6 +106,8 @@ credential never carries the scope of another product.
 | [Custom dimensions](custom-dimensions.md#changing-custom-dimensions) | `custom-dimensions.create`, `custom-dimensions.update`, `custom-dimensions.archive` | `analytics.edit` |
 | [Custom metrics](custom-metrics.md) | `custom-metrics.list`, `custom-metrics.get` | `analytics.readonly` |
 | [Custom metrics](custom-metrics.md#changing-custom-metrics) | `custom-metrics.create`, `custom-metrics.update`, `custom-metrics.archive` | `analytics.edit` |
+| [Key events](key-events.md) | `key-events.list`, `key-events.get` | `analytics.readonly` |
+| [Key events](key-events.md#changing-key-events) | `key-events.create`, `key-events.update`, `key-events.delete` | `analytics.edit` |
 
 ## Add it to Qatlas
 
