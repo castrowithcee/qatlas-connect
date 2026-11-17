@@ -12,6 +12,10 @@ const scopeReadOnly = "https://www.googleapis.com/auth/cloud-platform.read-only"
 // them lists a read-only variant.
 const scopeCloudPlatform = "https://www.googleapis.com/auth/cloud-platform"
 
+// scopeComputeReadOnly is the smallest scope the discovery document of compute v1 lists for the read methods
+// of instances and machineTypes (next to compute and cloud-platform).
+const scopeComputeReadOnly = "https://www.googleapis.com/auth/compute.readonly"
+
 // tokenMetadata maps every tool to the smallest scopes it needs. The core derives the scopes of a connection
 // from it, so a tool that is not offered adds none.
 var tokenMetadata = config.TokenMetadata{Scopes: map[string][]string{
@@ -63,4 +67,9 @@ var tokenMetadata = config.TokenMetadata{Scopes: map[string][]string{
 	servicesEnableID:      {scopeCloudPlatform},
 	servicesBatchEnableID: {scopeCloudPlatform},
 	servicesDisableID:     {scopeCloudPlatform},
+	// compute v1 lists compute.readonly as the smallest scope for the reads of instances and machine types.
+	instancesListID:           {scopeComputeReadOnly},
+	instancesAggregatedListID: {scopeComputeReadOnly},
+	instancesGetID:            {scopeComputeReadOnly},
+	machineTypesListID:        {scopeComputeReadOnly},
 }}

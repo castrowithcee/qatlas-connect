@@ -13,7 +13,9 @@
 // an export, which are personal data.
 //
 // Reading tools send one request, a changing tool exactly one and never again, whatever comes back.
-// Deleting an account runs only on a connection that binds exactly that account and no property.
+// Deleting an account runs only on a connection that binds exactly that account and no property. The value
+// of a measurement protocol secret is never returned: it is read from Google's answer only to register it with
+// the redactor.
 //
 // The settings of a web data stream run on the Admin API v1alpha, see alpha.go.
 //
@@ -95,6 +97,11 @@ var scopes = map[string][]string{
 	dataStreamsGetID:    {scopeReadOnly},
 	dataStreamsCreateID: {scopeEdit},
 	dataStreamsUpdateID: {scopeEdit},
+	dataStreamsDeleteID: {scopeEdit},
+
+	mpSecretsListID:   {scopeReadOnly},
+	mpSecretsGetID:    {scopeReadOnly},
+	mpSecretsDeleteID: {scopeEdit},
 
 	enhancedGetID:     {scopeReadOnly},
 	redactionGetID:    {scopeReadOnly},
@@ -174,7 +181,8 @@ func isDefaultRoot(raw string) bool {
 var readTools = []string{summariesID, accountsID, accountsGetID, accountsSharingID, propertiesListID, propertiesGetID,
 	reportsRunID, metadataGetID, compatibilityID, dataStreamsListID, dataStreamsGetID, funnelRunID, audienceGetID,
 	audienceListID, reportsRunPivotID, reportsBatchRunID, reportsBatchRunPivotID, reportsRunRealtimeID,
-	reportTasksGetID, reportTasksListID, reportTasksQueryID, audienceQueryID, enhancedGetID, redactionGetID, siteTagGetID,
+	reportTasksGetID, reportTasksListID, reportTasksQueryID, audienceQueryID, mpSecretsListID, mpSecretsGetID,
+	enhancedGetID, redactionGetID, siteTagGetID,
 	customDimensionsListID, customDimensionsGetID, customMetricsListID,
 	customMetricsGetID}
 
@@ -214,12 +222,14 @@ func Register(reg *capability.Registry) error {
 			Tools: readTools,
 		}, {
 			ID: "write", Title: "Read and change",
-			Description: "reads what the read profile reads and changes Analytics accounts, properties, data streams, custom dimensions and custom metrics, starts audience exports " +
-				"and report tasks; every " +
-				"change needs its own confirmation, and deleting stays unlisted",
+			Description: "reads what the read profile reads and changes Analytics accounts, properties, data streams, custom " +
+				"dimensions and custom metrics, starts audience exports and report tasks, and deletes data streams and " +
+				"measurement protocol secrets; every change needs its own confirmation, and deleting an account or a " +
+				"property stays unlisted",
 			Tools: append(slices.Clone(readTools), accountsUpdateID, propertiesCreateID, propertiesUpdateID,
-				dataStreamsCreateID, dataStreamsUpdateID, audienceCreateID, reportTasksCreateID, enhancedUpdateID,
-				redactionUpdateID, customDimensionsCreateID, customDimensionsUpdateID, customDimensionsArchiveID,
+				dataStreamsCreateID, dataStreamsUpdateID, dataStreamsDeleteID, mpSecretsDeleteID, audienceCreateID,
+				reportTasksCreateID, enhancedUpdateID, redactionUpdateID, customDimensionsCreateID,
+				customDimensionsUpdateID, customDimensionsArchiveID,
 				customMetricsCreateID, customMetricsUpdateID, customMetricsArchiveID),
 		}},
 	}, TestConnection); err != nil {
@@ -256,6 +266,10 @@ func Register(reg *capability.Registry) error {
 			ConfirmationSummary: streamWriteSummary(dataStreamsCreateID)},
 		{Descriptor: dataStreamsUpdate, Handler: handleDataStreamsUpdate,
 			ConfirmationSummary: streamWriteSummary(dataStreamsUpdateID)},
+		{Descriptor: dataStreamsDelete, Handler: handleDataStreamsDelete, ConfirmationSummary: streamDeleteSummary},
+		{Descriptor: mpSecretsList, Handler: handleSecretsList},
+		{Descriptor: mpSecretsGet, Handler: handleSecretsGet},
+		{Descriptor: mpSecretsDelete, Handler: handleSecretsDelete, ConfirmationSummary: secretDeleteSummary},
 		{Descriptor: enhancedGet, Handler: handleEnhancedGet},
 		{Descriptor: enhancedUpdate, Handler: handleEnhancedUpdate, ConfirmationSummary: settingsSummary(enhancedUpdateID)},
 		{Descriptor: redactionGet, Handler: handleRedactionGet},

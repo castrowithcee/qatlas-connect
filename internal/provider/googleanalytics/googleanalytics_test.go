@@ -54,7 +54,8 @@ func decodeSummaries(t *testing.T, result string) summariesOut {
 // toolEffects is the effect of each tool of the provider; a tool that is not listed reads.
 var toolEffects = map[string]config.Effect{accountsUpdateID: config.EffectUpdate, accountsDeleteID: config.EffectDelete,
 	propertiesCreateID: config.EffectCreate, propertiesUpdateID: config.EffectUpdate, propertiesDeleteID: config.EffectDelete,
-	dataStreamsCreateID: config.EffectCreate, dataStreamsUpdateID: config.EffectUpdate, audienceCreateID: config.EffectCreate,
+	dataStreamsCreateID: config.EffectCreate, dataStreamsUpdateID: config.EffectUpdate,
+	dataStreamsDeleteID: config.EffectDelete, mpSecretsDeleteID: config.EffectDelete, audienceCreateID: config.EffectCreate,
 	reportTasksCreateID: config.EffectCreate,
 	enhancedUpdateID:    config.EffectUpdate, redactionUpdateID: config.EffectUpdate,
 	customDimensionsCreateID: config.EffectCreate, customDimensionsUpdateID: config.EffectUpdate,
@@ -83,7 +84,8 @@ func TestRegisterPublishesMetadataScopesAndConsent(t *testing.T) {
 		reportsRunRealtimeID: {scopeReadOnly}, accountsGetID: {scopeReadOnly}, accountsSharingID: {scopeReadOnly}, accountsUpdateID: {scopeEdit},
 		accountsDeleteID: {scopeEdit}, propertiesCreateID: {scopeEdit}, propertiesUpdateID: {scopeEdit},
 		propertiesDeleteID: {scopeEdit}, dataStreamsListID: {scopeReadOnly}, dataStreamsGetID: {scopeReadOnly},
-		dataStreamsCreateID: {scopeEdit}, dataStreamsUpdateID: {scopeEdit}, funnelRunID: {scopeReadOnly},
+		dataStreamsCreateID: {scopeEdit}, dataStreamsUpdateID: {scopeEdit}, dataStreamsDeleteID: {scopeEdit},
+		mpSecretsListID: {scopeReadOnly}, mpSecretsGetID: {scopeReadOnly}, mpSecretsDeleteID: {scopeEdit}, funnelRunID: {scopeReadOnly},
 		audienceGetID: {scopeReadOnly}, audienceListID: {scopeReadOnly}, audienceCreateID: {scopeReadOnly},
 		audienceQueryID: {scopeReadOnly}, reportTasksCreateID: {scopeReadOnly}, reportTasksGetID: {scopeReadOnly},
 		reportTasksListID: {scopeReadOnly}, reportTasksQueryID: {scopeReadOnly}, enhancedGetID: {scopeReadOnly},
@@ -114,11 +116,13 @@ func TestRegisterPublishesMetadataScopesAndConsent(t *testing.T) {
 		"google.analytics.custom-metrics.archive", "google.analytics.custom-metrics.create",
 		"google.analytics.custom-metrics.get", "google.analytics.custom-metrics.list",
 		"google.analytics.custom-metrics.update",
-		"google.analytics.data-streams.create", "google.analytics.data-streams.get",
+		"google.analytics.data-streams.create", "google.analytics.data-streams.delete", "google.analytics.data-streams.get",
 		"google.analytics.data-streams.list", "google.analytics.data-streams.update",
 		"google.analytics.data-streams.get-enhanced-measurement", "google.analytics.data-streams.update-enhanced-measurement",
 		"google.analytics.data-streams.get-data-redaction", "google.analytics.data-streams.update-data-redaction",
 		"google.analytics.data-streams.get-site-tag",
+		"google.analytics.measurement-protocol-secrets.delete", "google.analytics.measurement-protocol-secrets.get",
+		"google.analytics.measurement-protocol-secrets.list",
 		"google.analytics.properties.create", "google.analytics.properties.delete", "google.analytics.properties.get",
 		"google.analytics.properties.list", "google.analytics.properties.update", "google.analytics.report-tasks.create",
 		"google.analytics.report-tasks.get", "google.analytics.report-tasks.list", "google.analytics.report-tasks.query",
@@ -131,7 +135,8 @@ func TestRegisterPublishesMetadataScopesAndConsent(t *testing.T) {
 	reads := []string{summariesID, accountsID, accountsGetID, accountsSharingID, propertiesListID, propertiesGetID,
 		reportsRunID, metadataGetID, compatibilityID, dataStreamsListID, dataStreamsGetID, funnelRunID, audienceGetID,
 		audienceListID, reportsRunPivotID, reportsBatchRunID, reportsBatchRunPivotID, reportsRunRealtimeID,
-		reportTasksGetID, reportTasksListID, reportTasksQueryID, audienceQueryID, enhancedGetID, redactionGetID, siteTagGetID,
+		reportTasksGetID, reportTasksListID, reportTasksQueryID, audienceQueryID, mpSecretsListID, mpSecretsGetID,
+		enhancedGetID, redactionGetID, siteTagGetID,
 		customDimensionsListID, customDimensionsGetID, customMetricsListID,
 		customMetricsGetID}
 	if len(metadata.Profiles) != 2 || metadata.Profiles[0].ID != "read" || !metadata.Profiles[0].Recommended ||
@@ -139,8 +144,9 @@ func TestRegisterPublishesMetadataScopesAndConsent(t *testing.T) {
 		metadata.Profiles[1].Recommended ||
 		!reflect.DeepEqual(metadata.Profiles[1].Tools,
 			append(slices.Clone(reads), accountsUpdateID, propertiesCreateID, propertiesUpdateID,
-				dataStreamsCreateID, dataStreamsUpdateID, audienceCreateID, reportTasksCreateID, enhancedUpdateID,
-				redactionUpdateID, customDimensionsCreateID, customDimensionsUpdateID, customDimensionsArchiveID,
+				dataStreamsCreateID, dataStreamsUpdateID, dataStreamsDeleteID, mpSecretsDeleteID, audienceCreateID,
+				reportTasksCreateID, enhancedUpdateID, redactionUpdateID, customDimensionsCreateID,
+				customDimensionsUpdateID, customDimensionsArchiveID,
 				customMetricsCreateID, customMetricsUpdateID, customMetricsArchiveID)) {
 		t.Errorf("profiles = %+v", metadata.Profiles)
 	}
