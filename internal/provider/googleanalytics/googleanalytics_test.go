@@ -55,7 +55,8 @@ func decodeSummaries(t *testing.T, result string) summariesOut {
 var toolEffects = map[string]config.Effect{accountsUpdateID: config.EffectUpdate, accountsDeleteID: config.EffectDelete,
 	propertiesCreateID: config.EffectCreate, propertiesUpdateID: config.EffectUpdate, propertiesDeleteID: config.EffectDelete,
 	dataStreamsCreateID: config.EffectCreate, dataStreamsUpdateID: config.EffectUpdate, audienceCreateID: config.EffectCreate,
-	reportTasksCreateID: config.EffectCreate}
+	reportTasksCreateID: config.EffectCreate, customDimensionsCreateID: config.EffectCreate,
+	customDimensionsUpdateID: config.EffectUpdate, customDimensionsArchiveID: config.EffectDelete}
 
 func effectOf(id string) config.Effect {
 	if effect, ok := toolEffects[id]; ok {
@@ -82,7 +83,10 @@ func TestRegisterPublishesMetadataScopesAndConsent(t *testing.T) {
 		dataStreamsCreateID: {scopeEdit}, dataStreamsUpdateID: {scopeEdit}, funnelRunID: {scopeReadOnly},
 		audienceGetID: {scopeReadOnly}, audienceListID: {scopeReadOnly}, audienceCreateID: {scopeReadOnly},
 		audienceQueryID: {scopeReadOnly}, reportTasksCreateID: {scopeReadOnly}, reportTasksGetID: {scopeReadOnly},
-		reportTasksListID: {scopeReadOnly}, reportTasksQueryID: {scopeReadOnly}}) {
+		reportTasksListID: {scopeReadOnly}, reportTasksQueryID: {scopeReadOnly},
+		customDimensionsListID: {scopeReadOnly}, customDimensionsGetID: {scopeReadOnly},
+		customDimensionsCreateID: {scopeEdit}, customDimensionsUpdateID: {scopeEdit},
+		customDimensionsArchiveID: {scopeEdit}}) {
 		t.Errorf("scopes = %v", metadata.Token.Scopes)
 	}
 	ids := []string{}
@@ -98,6 +102,9 @@ func TestRegisterPublishesMetadataScopesAndConsent(t *testing.T) {
 		"google.analytics.accounts.list-summaries", "google.analytics.accounts.update",
 		"google.analytics.audience-exports.create", "google.analytics.audience-exports.get",
 		"google.analytics.audience-exports.list", "google.analytics.audience-exports.query",
+		"google.analytics.custom-dimensions.archive", "google.analytics.custom-dimensions.create",
+		"google.analytics.custom-dimensions.get", "google.analytics.custom-dimensions.list",
+		"google.analytics.custom-dimensions.update",
 		"google.analytics.data-streams.create", "google.analytics.data-streams.get",
 		"google.analytics.data-streams.list", "google.analytics.data-streams.update",
 		"google.analytics.properties.create", "google.analytics.properties.delete", "google.analytics.properties.get",
@@ -112,13 +119,15 @@ func TestRegisterPublishesMetadataScopesAndConsent(t *testing.T) {
 	reads := []string{summariesID, accountsID, accountsGetID, accountsSharingID, propertiesListID, propertiesGetID,
 		reportsRunID, metadataGetID, compatibilityID, dataStreamsListID, dataStreamsGetID, funnelRunID, audienceGetID,
 		audienceListID, reportsRunPivotID, reportsBatchRunID, reportsBatchRunPivotID, reportsRunRealtimeID,
-		reportTasksGetID, reportTasksListID, reportTasksQueryID, audienceQueryID}
+		reportTasksGetID, reportTasksListID, reportTasksQueryID, audienceQueryID, customDimensionsListID,
+		customDimensionsGetID}
 	if len(metadata.Profiles) != 2 || metadata.Profiles[0].ID != "read" || !metadata.Profiles[0].Recommended ||
 		!reflect.DeepEqual(metadata.Profiles[0].Tools, reads) || metadata.Profiles[1].ID != "write" ||
 		metadata.Profiles[1].Recommended ||
 		!reflect.DeepEqual(metadata.Profiles[1].Tools,
 			append(slices.Clone(reads), accountsUpdateID, propertiesCreateID, propertiesUpdateID,
-				dataStreamsCreateID, dataStreamsUpdateID, audienceCreateID, reportTasksCreateID)) {
+				dataStreamsCreateID, dataStreamsUpdateID, audienceCreateID, reportTasksCreateID,
+				customDimensionsCreateID, customDimensionsUpdateID, customDimensionsArchiveID)) {
 		t.Errorf("profiles = %+v", metadata.Profiles)
 	}
 	oauth, ok := reg.OAuth(Provider)
