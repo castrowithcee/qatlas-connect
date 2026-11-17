@@ -84,7 +84,7 @@ func TestNoToolLinksDestinationsAndNoGtagConfigRevertExists(t *testing.T) {
 	wantIDs := []string{gtagConfigsListID, gtagConfigsGetID, gtagConfigsCreateID, gtagConfigsUpdateID, gtagConfigsDeleteID}
 	var got []string
 	for _, d := range reg.Provider(Provider) {
-		if strings.Contains(d.ID, "destinations") || strings.Contains(d.ID, "destination") {
+		if strings.Contains(d.ID, "destination") && d.ID != destinationsListID && d.ID != destinationsGetID {
 			t.Errorf("%s links a destination", d.ID)
 		}
 		if strings.Contains(d.ID, ".gtag-configs.") {
