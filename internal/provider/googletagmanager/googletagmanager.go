@@ -59,9 +59,9 @@ func Register(reg *capability.Registry) error {
 		if d.Risk.Effect == capability.EffectRead {
 			readIDs = append(readIDs, d.ID)
 		}
-		// Reverting overwrites the workspace state of an object or built-in variable, so it is in no profile: a connection offers it
-		// only when its tools list names it. Deleting one workspace object is not: it stays revertible until a
-		// version is published.
+		// Reverting overwrites the workspace state of an object or built-in variable, and deleting a workspace
+		// loses its unpublished changes, so both are in no profile: a connection offers them only when its tools
+		// list names them. Deleting one workspace object is not: it stays revertible until a version is published.
 		if !d.RequiresToolAllowList {
 			writeIDs = append(writeIDs, d.ID)
 		}
@@ -88,17 +88,18 @@ func Register(reg *capability.Registry) error {
 		},
 		Profiles: []config.ToolProfile{{
 			ID: "read", Title: "Read", Recommended: true,
-			Description: "reads accounts, containers, workspaces, tags, triggers, variables, built-in variables, " +
-				"folders, clients, transformations, and zones; changes nothing",
+			Description: "reads accounts, containers, workspaces and their changes, tags, triggers, variables, " +
+				"built-in variables, folders, clients, transformations, and zones; changes nothing",
 			Tools: readIDs,
 		}, {
-			ID: "write", Title: "Read and change tags, triggers, variables, built-in variables, folders, clients, transformations, " +
-				"and zones",
-			Description: "reads what the read profile reads, creates, updates, and deletes the tags, triggers, and " +
-				"variables of a workspace, creates and updates its folders, creates, updates, and deletes its clients, " +
-				"transformations, and zones, and enables and disables its built-in variables; every change needs its own " +
-				"confirmation and stays in the workspace until a version is published, which no tool of this provider " +
-				"does. Reverting a tag, trigger, variable, built-in variable, client, transformation, or zone stays unticked",
+			ID: "write", Title: "Read and change workspaces, tags, triggers, variables, built-in variables, folders, " +
+				"clients, transformations, and zones",
+			Description: "reads what the read profile reads, creates and updates workspaces, creates, updates, and " +
+				"deletes the tags, triggers, and variables of a workspace, creates and updates its folders, creates, " +
+				"updates, and deletes its clients, transformations, and zones, and enables and disables its built-in " +
+				"variables; every change needs its own confirmation and stays in the workspace until a version is " +
+				"published, which no tool of this provider does. Deleting a workspace and reverting a tag, trigger, " +
+				"variable, built-in variable, client, transformation, or zone stay unticked",
 			Tools: writeIDs,
 		}},
 	}, TestConnection); err != nil {
@@ -111,6 +112,8 @@ func Register(reg *capability.Registry) error {
 		accountsListID: handleAccountsList, accountsGetID: handleAccountsGet,
 		containersListID: handleContainersList, containersGetID: handleContainersGet,
 		workspacesListID: handleWorkspacesList, workspacesGetID: handleWorkspacesGet,
+		workspacesCreateID: handleWorkspacesCreate, workspacesUpdateID: handleWorkspacesUpdate,
+		workspacesDeleteID: handleWorkspacesDelete, workspacesStatusID: handleWorkspacesStatus,
 		tagsListID: handleTagsList, tagsGetID: handleTagsGet, tagsCreateID: handleTagsCreate,
 		tagsUpdateID: handleTagsUpdate, tagsDeleteID: handleTagsDelete, tagsRevertID: handleTagsRevert,
 		triggersListID: handleTriggersList, triggersGetID: handleTriggersGet, triggersCreateID: handleTriggersCreate,
@@ -135,7 +138,9 @@ func Register(reg *capability.Registry) error {
 		zonesUpdateID: handleZonesUpdate, zonesDeleteID: handleZonesDelete, zonesRevertID: handleZonesRevert,
 	}
 	summaries := map[string]capability.SummaryFunc{
-		tagsCreateID: tagSummary("Create"), tagsUpdateID: tagSummary("Replace"),
+		workspacesCreateID: workspaceSummary("Create"), workspacesUpdateID: workspaceSummary("Replace"),
+		workspacesDeleteID: deleteWorkspaceSummary,
+		tagsCreateID:       tagSummary("Create"), tagsUpdateID: tagSummary("Replace"),
 		tagsDeleteID: tagSummary("Delete"), tagsRevertID: tagSummary("Revert"),
 		triggersCreateID: triggerSummary("Create"), triggersUpdateID: triggerSummary("Replace"),
 		triggersDeleteID: triggerSummary("Delete"), triggersRevertID: triggerSummary("Revert"),

@@ -11,10 +11,11 @@ updated: 2026-11-17
 
 Google Tag Manager is a provider for the Tag Manager API v2. Its credential issues access tokens instead of
 holding a static key. [Set up Google Tag Manager](setup.md) leads through the Google side and the consent. The
-tools are described per group in [accounts, containers, and workspaces](structure.md), [tags](tags.md),
-[triggers](triggers.md), [variables](variables.md), [built-in variables](built-in-variables.md),
-[folders](folders.md), [clients](clients.md), [transformations](transformations.md), and [zones](zones.md);
-the descriptors list their arguments and result fields.
+tools are described per group in [accounts, containers, and workspaces](structure.md),
+[workspace management](workspaces.md), [tags](tags.md), [triggers](triggers.md), [variables](variables.md),
+[built-in variables](built-in-variables.md), [folders](folders.md), [clients](clients.md),
+[transformations](transformations.md), and [zones](zones.md); the descriptors list their arguments and result
+fields.
 
 ## Credential
 
@@ -44,16 +45,18 @@ origin; any other value is refused before a secret is read. The access token tra
 
 Two profiles are offered:
 
-- `read` (recommended) holds the tools that read: accounts, containers, workspaces, tags, triggers, variables,
-  built-in variables, folders, clients, transformations, and zones.
-- `write` holds the tools of `read` and the tools that create, update, and delete tags, triggers, variables,
-  clients, transformations, and zones, that enable and disable built-in variables, and that create and update
-  folders. A deleted tag, trigger, variable, client, transformation, or zone and a disabled built-in variable
-  stay in the workspace changes until a version is published and can be brought back with their `revert` tool.
+- `read` (recommended) holds the tools that read: accounts, containers, workspaces and their change status,
+  tags, triggers, variables, built-in variables, folders, clients, transformations, and zones.
+- `write` holds the tools of `read` and the tools that create and update workspaces, that create, update, and
+  delete tags, triggers, variables, clients, transformations, and zones, that enable and disable built-in
+  variables, and that create and update folders. A deleted tag, trigger, variable, client, transformation, or
+  zone and a disabled built-in variable stay in the workspace changes until a version is published and can be
+  brought back with their `revert` tool.
 
-`tags.revert`, `triggers.revert`, `variables.revert`, `clients.revert`, `transformations.revert`,
-`zones.revert`, and `built-in-variables.revert` are in no profile. They overwrite the workspace state of an object, so a connection
-offers them only when its `tools` list names them.
+`workspaces.delete`, `tags.revert`, `triggers.revert`, `variables.revert`, `clients.revert`,
+`transformations.revert`, `zones.revert`, and `built-in-variables.revert` are in no profile. Deleting a
+workspace loses its unpublished changes and a revert overwrites the workspace state of an object, so a
+connection offers them only when its `tools` list names them.
 Every tool that changes something needs its own confirmation, which shows the name, the type or types, and the
 workspace or object path.
 
@@ -80,11 +83,12 @@ of the tools it offers; offering a tool with another scope needs a new consent.
 | Tools | Scope |
 | --- | --- |
 | every tool that reads | `https://www.googleapis.com/auth/tagmanager.readonly` |
-| every tool that creates, updates, deletes, or reverts a tag, a trigger, a variable, a client, a transformation, a zone, or a built-in variable, and every tool that creates or updates a folder | `https://www.googleapis.com/auth/tagmanager.edit.containers` |
+| every tool that creates, updates, deletes, or reverts a tag, a trigger, a variable, a client, a transformation, a zone, or a built-in variable, every tool that creates or updates a folder, and `workspaces.create` and `workspaces.update` | `https://www.googleapis.com/auth/tagmanager.edit.containers` |
+| `workspaces.delete` | `https://www.googleapis.com/auth/tagmanager.delete.containers` |
 
 A consent given for the `read` profile lacks the edit scope, so a changing tool answers `scope-missing`
 before any request. Google also offers `tagmanager.edit.containerversions`, `tagmanager.publish`,
-`tagmanager.delete.containers`, `tagmanager.manage.accounts`, and `tagmanager.manage.users`; no tool uses them.
+`tagmanager.manage.accounts`, and `tagmanager.manage.users`; no tool uses them.
 
 ## Quota and spacing
 
@@ -132,7 +136,7 @@ with their tool group.
 
 Parameter and filter values (the `html` of a Custom HTML tag, the code of a Custom JavaScript variable,
 constants, API keys, regular expressions, CSS selectors) are data. They are returned and sent unchanged and are never run or fetched, and they may hold
-secrets. The texts and lists of a tag, trigger, or variable are never cut, unlike the texts of the other tools: a cut
+secrets. The texts and lists of a tag, trigger, or variable, the name and notes of a folder, and the name and description of a workspace are never cut, unlike the texts of the other tools: a cut
 value that is sent back by an update would destroy data. An answer that exceeds 4 MiB, holds more than 5000
 parameter entries in one object, or holds a text where a list belongs is `invalid-provider-response` instead of
 a shorter value. A request is bounded by 4 MiB and 5000 parameter entries.
