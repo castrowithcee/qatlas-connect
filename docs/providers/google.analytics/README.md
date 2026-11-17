@@ -1,6 +1,6 @@
 ---
 description: >
-  Describes the Google Analytics provider: the fixed Admin and Data API origins, the token credential, the optional account and property targets and what each tool does with them, the read and write profiles, the alpha tools rule, paging, bounds on provider content, rate spacing, quotas, the connection test, and the limits of what is verified; the account, property, data stream, custom dimension, custom metric, key event, event create rule, report, audience export, and report task tools have their own pages.
+  Describes the Google Analytics provider: the fixed Admin and Data API origins, the token credential, the optional account and property targets and what each tool does with them, the read and write profiles, the alpha tools rule, paging, bounds on provider content, rate spacing, quotas, the connection test, and the limits of what is verified; the account, property, data stream, custom dimension, custom metric, key event, event create rule, report, audience export, report task, and access report tools have their own pages.
 type: knowledge
 edit: shared
 created: 2026-11-16
@@ -18,7 +18,8 @@ dimensions and custom metrics of a property, and lists, reads, creates, changes,
 stream (alpha). It also runs reports, pivot reports, batches of up
 to five of them, realtime reports, and an alpha funnel report, reads the metadata of the dimensions and metrics a
 property accepts, creates and reads audience exports, and reads the users of an export, which are personal data.
-It also starts asynchronous report tasks (alpha) and reads their state and rows. The reading tools change
+It also starts asynchronous report tasks (alpha) and reads their state and rows, and runs Data Access Reports on an
+account or property, which name the users who read the data and are personal data. The reading tools change
 nothing. The account, property, data stream, custom dimension, custom metric, key event, and event create rule tools read no report data and use no reporting quota; the report
 tools do, see [reports](reports.md#quota), and so does starting an audience export, see
 [audience exports](audience-exports.md#quota), and starting a report task, see
@@ -26,8 +27,8 @@ tools do, see [reports](reports.md#quota), and so does starting an audience expo
 
 [Set up Google Analytics](setup.md) leads through the credential. The tools are described in
 [accounts](accounts.md), [properties](properties.md), [data streams](data-streams.md), [custom dimensions](custom-dimensions.md),
-[custom metrics](custom-metrics.md), [key events](key-events.md), [event create rules](event-create-rules.md), [reports](reports.md), [audience exports](audience-exports.md), [report tasks](report-tasks.md), and
-[measurement protocol secrets](measurement-protocol-secrets.md). The funnel report and the report
+[custom metrics](custom-metrics.md), [key events](key-events.md), [event create rules](event-create-rules.md), [reports](reports.md), [audience exports](audience-exports.md), [report tasks](report-tasks.md),
+[measurement protocol secrets](measurement-protocol-secrets.md), and [access reports](access-reports.md). The funnel report and the report
 tasks use the alpha version of the Data API, which Google can change without notice; their descriptions say so.
 The audience exports use the beta version. Tools on the alpha version of the Admin API follow the
 [alpha tools](#alpha-tools) rule.
@@ -93,6 +94,8 @@ not name the resource.
 | `audience-exports.query` | Like `audience-exports.get`: the property in the export name follows the same rule |
 | `report-tasks.create`, `report-tasks.list` | Like `reports.run`, on a bound property or a property of a bound account after one proof read |
 | `report-tasks.get`, `report-tasks.query` | The property in the task name follows the same rule; see [report tasks](report-tasks.md#property-and-targets) |
+| `accounts.run-access-report` | Like `accounts.get`: a bound account, or no target; see [access reports](access-reports.md#entity-and-targets) |
+| `properties.run-access-report` | Like `reports.run`, on `entity`: a bound property or a property of a bound account after one proof read |
 
 A property of another account is refused, also when it is named correctly.
 
@@ -114,7 +117,8 @@ The profile `read` is the recommended one and holds `google.analytics.accounts.l
 `google.analytics.data-streams.get-site-tag`, `google.analytics.custom-dimensions.list`,
 `google.analytics.custom-dimensions.get`, `google.analytics.custom-metrics.list`,
 `google.analytics.custom-metrics.get`, `google.analytics.key-events.list`, `google.analytics.key-events.get`,
-`google.analytics.event-create-rules.list`, and `google.analytics.event-create-rules.get`. The profile `write` reads like `read`, changes accounts, properties,
+`google.analytics.event-create-rules.list`, `google.analytics.event-create-rules.get`,
+`google.analytics.accounts.run-access-report`, and `google.analytics.properties.run-access-report`. The profile `write` reads like `read`, changes accounts, properties,
 data streams and their settings, custom dimensions, custom metrics, key events, and event create rules, deletes data streams, measurement protocol secrets, and key events,
 and starts audience exports and report tasks, each change with its own confirmation: it adds
 `google.analytics.accounts.update`, `google.analytics.properties.create`, `google.analytics.properties.update`,
@@ -128,7 +132,8 @@ and starts audience exports and report tasks, each change with its own confirmat
 `google.analytics.key-events.delete`, `google.analytics.event-create-rules.create`,
 `google.analytics.event-create-rules.update`, and `google.analytics.event-create-rules.delete`. The users of an
 export are personal data; see
-[audience exports](audience-exports.md#personal-data). Deleting an account or a property is in no profile: a
+[audience exports](audience-exports.md#personal-data); so are the access reports, see
+[access reports](access-reports.md#personal-data). Deleting an account or a property is in no profile: a
 connection offers `google.analytics.accounts.delete` and `google.analytics.properties.delete` only when its
 `tools` list names them, and each needs the confirmation of a person. `accounts.delete` also runs only on a
 connection that binds exactly that account and no property. Deleting one event create rule is in the profile
@@ -141,7 +146,7 @@ A list returns `next_cursor` and `has_more` when Google reports a further page; 
 see [reports](reports.md#rows-and-cursor), funnel, pivot, batch, and realtime reports have no cursor,
 `audience-exports.list` and `report-tasks.list` page by cursor, see
 [audience exports](audience-exports.md#googleanalyticsaudience-exportslist), and the rows of
-`audience-exports.query` and `report-tasks.query` continue by row offset like reports. The cursor wraps Google's page
+`audience-exports.query`, `report-tasks.query`, and the access reports continue by row offset like reports. The cursor wraps Google's page
 token and fits only the tool, the connection, and the arguments that Google requires to stay the same, such as
 the `filter`; a changed or invented cursor is refused before any request. `page_size` may change between
 pages. Google may return fewer entries than asked for and a page can be empty while `has_more` is true.

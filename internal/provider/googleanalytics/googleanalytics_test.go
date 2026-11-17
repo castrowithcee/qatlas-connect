@@ -100,7 +100,8 @@ func TestRegisterPublishesMetadataScopesAndConsent(t *testing.T) {
 		keyEventsListID: {scopeReadOnly}, keyEventsGetID: {scopeReadOnly}, keyEventsCreateID: {scopeEdit},
 		keyEventsUpdateID: {scopeEdit}, keyEventsDeleteID: {scopeEdit},
 		eventRulesListID: {scopeReadOnly}, eventRulesGetID: {scopeReadOnly},
-		eventRulesCreateID: {scopeEdit}, eventRulesUpdateID: {scopeEdit}, eventRulesDeleteID: {scopeEdit}}) {
+		eventRulesCreateID: {scopeEdit}, eventRulesUpdateID: {scopeEdit}, eventRulesDeleteID: {scopeEdit},
+		accessAccountID: {scopeReadOnly}, accessPropertyID: {scopeReadOnly}}) {
 		t.Errorf("scopes = %v", metadata.Token.Scopes)
 	}
 	ids := []string{}
@@ -140,7 +141,8 @@ func TestRegisterPublishesMetadataScopesAndConsent(t *testing.T) {
 		"google.analytics.reports.check-compatibility", "google.analytics.reports.get-metadata",
 		"google.analytics.reports.run", "google.analytics.reports.run-funnel", "google.analytics.reports.batch-run",
 		"google.analytics.reports.batch-run-pivot", "google.analytics.reports.run-pivot",
-		"google.analytics.reports.run-realtime"})) {
+		"google.analytics.reports.run-realtime", "google.analytics.accounts.run-access-report",
+		"google.analytics.properties.run-access-report"})) {
 		t.Errorf("tools = %v", ids)
 	}
 	reads := []string{summariesID, accountsID, accountsGetID, accountsSharingID, propertiesListID, propertiesGetID,
@@ -149,7 +151,8 @@ func TestRegisterPublishesMetadataScopesAndConsent(t *testing.T) {
 		reportTasksGetID, reportTasksListID, reportTasksQueryID, audienceQueryID, mpSecretsListID, mpSecretsGetID,
 		enhancedGetID, redactionGetID, siteTagGetID,
 		customDimensionsListID, customDimensionsGetID, customMetricsListID,
-		customMetricsGetID, keyEventsListID, keyEventsGetID, eventRulesListID, eventRulesGetID}
+		customMetricsGetID, keyEventsListID, keyEventsGetID, eventRulesListID, eventRulesGetID,
+		accessAccountID, accessPropertyID}
 	if len(metadata.Profiles) != 2 || metadata.Profiles[0].ID != "read" || !metadata.Profiles[0].Recommended ||
 		!reflect.DeepEqual(metadata.Profiles[0].Tools, reads) || metadata.Profiles[1].ID != "write" ||
 		metadata.Profiles[1].Recommended ||
@@ -176,6 +179,9 @@ func TestRegisterPublishesMetadataScopesAndConsent(t *testing.T) {
 		}
 		if descriptor.ID == audienceQueryID {
 			sensitivity = dataSensitivityAudienceUsers
+		}
+		if descriptor.ID == accessAccountID || descriptor.ID == accessPropertyID {
+			sensitivity = dataSensitivityAccess
 		}
 		if effectOf(descriptor.ID) == config.EffectRead && descriptor.Risk != (capability.Risk{
 			Effect: capability.EffectRead, Idempotency: capability.IdempotencySafe,
