@@ -265,6 +265,10 @@ func targetReaches(tool string, targets []string) (bool, []string) {
 		if !list.reachesResources() {
 			return false, []string{"organizations/ORGANIZATION", "folders/FOLDER", "projects/PROJECT"}
 		}
+	case instancesListID, instancesAggregatedListID, instancesGetID, machineTypesListID:
+		if !list.reachesResources() {
+			return false, []string{"organizations/ORGANIZATION", "folders/FOLDER", "projects/PROJECT"}
+		}
 	case foldersSearchID, foldersGetID, foldersListID:
 		if !list.reachesFolders() {
 			return false, []string{"organizations/ORGANIZATION", "folders/FOLDER"}

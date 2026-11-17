@@ -75,12 +75,15 @@ secret is read and before any request.
 
 ## Profiles
 
-The profile `read` is the recommended one. It holds every tool that needs no more than the scope
-`cloud-platform.read-only`: `google.cloud.organizations.search`, `google.cloud.folders.search`,
+The profile `read` is the recommended one. It holds every tool that needs no more than a read scope,
+`cloud-platform.read-only` or `compute.readonly`: `google.cloud.organizations.search`, `google.cloud.folders.search`,
 `google.cloud.projects.search`, `google.cloud.projects.get`, `google.cloud.operations.get`,
 `google.cloud.organizations.get`, `google.cloud.folders.get`, `google.cloud.folders.list`,
-`google.cloud.projects.list`, `google.cloud.services.list`, `google.cloud.services.get`, and
-`google.cloud.services.batch-get`.
+`google.cloud.projects.list`, `google.cloud.services.list`, `google.cloud.services.get`,
+`google.cloud.services.batch-get`, and the Compute tools `google.cloud.instances.list`,
+`google.cloud.instances.aggregated-list`, `google.cloud.instances.get`, and `google.cloud.machine-types.list`, which
+ask for `compute.readonly`. A connection bound to an organization or a folder needs `projects.get` next to the
+Compute tools to prove the project of a call; `read` holds both.
 
 The profile `read-iam` adds the IAM tools (`google.cloud.iam-roles.list`, `google.cloud.iam-roles.get`,
 `google.cloud.iam-roles.query-grantable`, `google.cloud.iam-permissions.query-testable`,
@@ -127,6 +130,9 @@ on [IAM bindings](iam-bindings.md).
   service accounts.
 - [IAM bindings](iam-bindings.md): adding a member to, removing a member from, and moving a member between the
   bindings of the IAM policy of a project, folder, or organization.
+- [Compute instances](instances.md): the virtual machine instances of a project from Compute Engine, one, per
+  zone, and across all zones, without metadata values.
+- [Machine types](machine-types.md): the machine types of a zone from Compute Engine.
 - [Quotas](quotas.md): the quotas of a service and the quota preferences of a project from Cloud Quotas.
 
 ### Search
@@ -221,6 +227,10 @@ decide beyond the HTTP status.
 | 429 | `rate-limited` |
 | any other 401, 403, 404, or 4xx | `invalid-provider-response` |
 | 5xx | by HTTP status |
+
+Compute Engine may answer in the older error form, without a status string and with a list of `errors` that carry a
+`reason`. Qatlas reads the reasons `notFound`, `forbidden`, and `authError` of it like `NOT_FOUND`,
+`PERMISSION_DENIED`, and `UNAUTHENTICATED`; the 403 reason `SERVICE_DISABLED` names Compute Engine among the APIs.
 
 A failed token request ends as `auth`, `consent-required`, or `consent-expired`, as the core decides. An
 unreadable, oversized (over 2 MiB), or non-JSON answer is `invalid-provider-response`. The timeout is 30
