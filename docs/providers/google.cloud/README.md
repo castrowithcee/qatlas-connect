@@ -35,7 +35,7 @@ tokens for it). The connection holds no scope. Qatlas derives them from the tool
 smallest scope the discovery document of each method lists: `cloud-platform.read-only` for Resource Manager,
 and `cloud-platform` for the IAM and quota tools, because their discovery documents list no narrower scope
 (Google offers no read-only variant for these methods, see [IAM](iam.md) and [Quotas](quotas.md)). Only the tools of the profiles
-`service-accounts`, `service-accounts-revoke`, `api-keys-revoke`, `iam-bindings`, `compute-network-delete`, and `services` and the tools
+`service-accounts`, `service-accounts-revoke`, `api-keys-revoke`, `iam-bindings`, `compute-network-delete`, `compute-instances-create`, and `services` and the tools
 `service-accounts.delete` and `services.disable`, which a `tools` list must name, change anything, each with a confirmation, whatever the scope allows. The access token travels in the
 `Authorization` header only, is never an argument or part of a result, and is masked in every output. A 401
 renews the token once, and nothing else repeats a request.
@@ -130,6 +130,15 @@ effect `delete` for the deletions and `read` for `projects.get`, is not recommen
 every call needs the confirmation of a person. See [Firewall rules](firewalls.md), [IP addresses](addresses.md),
 [HA VPN gateways](vpn-gateways.md), and [VPN tunnels](vpn-tunnels.md).
 
+The profile `compute-instances-create` holds `google.cloud.instances.insert` and `google.cloud.projects.get`, which
+proves a project against targets of an organization or a folder and names the default service account by its
+project number. `instances.insert` asks for the scope `compute`, which Google also uses to change Compute resources,
+so the token may do that although no tool does. The profile needs the effect `create` for the tool and `read` for
+`projects.get` and is not recommended. It does not hold `google.cloud.instances.delete`: that tool is listed-only and
+only a `tools` list that names it exactly releases it. An instance is created without an external address, without
+`ssh-keys`, `sshKeys`, or `windows-keys` metadata, and without a service account of another project, and costs money
+while it exists. See [Compute instances](instances.md#creating-an-instance).
+
 The profile `services` holds only `google.cloud.services.enable` and `google.cloud.services.batch-enable`. It asks
 for `cloud-platform`, needs the effect `update`, and is not recommended. It does not hold
 `google.cloud.services.disable`: that tool is listed-only and only a `tools` list that names it exactly releases
@@ -151,7 +160,7 @@ on [IAM bindings](iam-bindings.md).
 - [IAM bindings](iam-bindings.md): adding a member to, removing a member from, and moving a member between the
   bindings of the IAM policy of a project, folder, or organization.
 - [Compute instances](instances.md): the virtual machine instances of a project from Compute Engine, one, per
-  zone, and across all zones, without metadata values.
+  zone, and across all zones, without metadata values, and creating an instance and deleting one (listed-only).
 - [Machine types](machine-types.md): the machine types of a zone from Compute Engine.
 - [Zones](zones.md): the zones of a project from Compute Engine.
 - [Regions](regions.md): the regions of a project from Compute Engine, with their quotas.

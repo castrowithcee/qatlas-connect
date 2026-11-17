@@ -48,8 +48,10 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 			wantEffect = config.EffectUpdate
 		case tool.ID == serviceAccountKeysDeleteID, tool.ID == serviceAccountsDeleteID, tool.ID == apiKeysDeleteID,
 			tool.ID == firewallsDeleteID, tool.ID == addressesDeleteID, tool.ID == vpnTunnelsDeleteID,
-			tool.ID == vpnGatewaysDeleteID:
+			tool.ID == vpnGatewaysDeleteID, tool.ID == instancesDeleteID:
 			wantEffect = config.EffectDelete
+		case tool.ID == instancesInsertID:
+			wantEffect = config.EffectCreate
 		}
 		// The quota tools belong to read-quotas, not to read-iam.
 		if tool.Effect == config.EffectRead && !strings.Contains(tool.ID, ".quota-") {
@@ -78,8 +80,9 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 			// The discovery document of compute v1 lists compute.readonly as the smallest scope.
 			wantScope = "https://www.googleapis.com/auth/compute.readonly"
 		}
-		if slices.Contains([]string{firewallsDeleteID, addressesDeleteID, vpnTunnelsDeleteID, vpnGatewaysDeleteID}, tool.ID) {
-			// compute v1 lists compute and cloud-platform for the four deletions.
+		if slices.Contains([]string{firewallsDeleteID, addressesDeleteID, vpnTunnelsDeleteID, vpnGatewaysDeleteID,
+			instancesInsertID, instancesDeleteID}, tool.ID) {
+			// compute v1 lists compute and cloud-platform for the four deletions and the instance create and delete.
 			wantScope = scopeCompute
 		}
 		if scopes := metadata.Token.Scopes[tool.ID]; !slices.Equal(scopes, []string{wantScope}) {
@@ -94,7 +97,8 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 		"google.cloud.iam-permissions.query-testable", "google.cloud.iam-permissions.test",
 		"google.cloud.iam-policies.get", "google.cloud.iam-roles.get", "google.cloud.iam-roles.list",
 		"google.cloud.iam-roles.query-grantable", "google.cloud.instances.aggregated-list",
-		"google.cloud.instances.get", "google.cloud.instances.list", "google.cloud.machine-types.list",
+		"google.cloud.instances.delete", "google.cloud.instances.get", "google.cloud.instances.insert",
+		"google.cloud.instances.list", "google.cloud.machine-types.list",
 		"google.cloud.networks.get", "google.cloud.networks.list", "google.cloud.operations.get", "google.cloud.organizations.get",
 		"google.cloud.organizations.search", "google.cloud.projects.get", "google.cloud.projects.list",
 		"google.cloud.projects.search", "google.cloud.quota-infos.get", "google.cloud.quota-infos.list",
@@ -154,6 +158,10 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 		case "compute-network-delete":
 			if profile.Recommended || !slices.Equal(profile.Tools, []string{projectsGetID, firewallsDeleteID, addressesDeleteID, vpnTunnelsDeleteID, vpnGatewaysDeleteID}) {
 				t.Errorf("profile compute-network-delete = %+v", profile)
+			}
+		case "compute-instances-create":
+			if profile.Recommended || !slices.Equal(profile.Tools, []string{projectsGetID, instancesInsertID}) {
+				t.Errorf("profile compute-instances-create = %+v", profile)
 			}
 		case "iam-bindings":
 			if profile.Recommended || !slices.Contains(profile.Tools, iamBindingsAddID) ||

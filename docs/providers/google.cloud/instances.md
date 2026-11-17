@@ -1,6 +1,6 @@
 ---
 description: >
-  Describes the Google Cloud Compute instance tools instances.list, instances.aggregated-list, and instances.get: their arguments, the compute.readonly scope and the profile read, the target check, the structured filter, the cursor and page size, partial results with unreachables and warning, the rule that metadata values are never returned, and what is not verified.
+  Describes the Google Cloud Compute instance tools instances.list, instances.aggregated-list, instances.get, instances.insert, and the listed-only instances.delete: their arguments, the compute.readonly and compute scopes and the profiles read and compute-instances-create, the target check, the structured filter, the cursor and page size, partial results with unreachables and warning, the rule that metadata values are never returned, the limits on creating an instance (no external address, no ssh-keys, no foreign service account, no key material), and what is not verified.
 type: knowledge
 edit: shared
 created: 2026-11-17
@@ -10,7 +10,8 @@ updated: 2026-11-17
 # Google Cloud Compute instances
 
 Three tools read the virtual machine instances of a project from Compute Engine (`compute` v1, discovery
-revision 20261106). They change nothing. Every request goes to the fixed origin `https://compute.googleapis.com`
+revision 20261106) and change nothing. `instances.insert` creates an instance and `instances.delete` deletes one
+(see [Creating an instance](#creating-an-instance) and [Deleting an instance](#deleting-an-instance)). Every request goes to the fixed origin `https://compute.googleapis.com`
 with the base path `/compute/v1`; no argument takes a path, URL, header, or body. [The provider page](README.md)
 holds errors and rate spacing, [machine types](machine-types.md) the other Compute tool.
 
@@ -19,6 +20,8 @@ holds errors and rate spacing, [machine types](machine-types.md) the other Compu
 | `instances.list` | `instances.list` | `project_id`, `zone`, `filter`, `max_results`, `order_by`, `return_partial_success`, `cursor` |
 | `instances.aggregated-list` | `instances.aggregatedList` | as above without `zone`, plus `include_all_scopes` |
 | `instances.get` | `instances.get` | `project_id`, `zone`, `instance` |
+| `instances.insert` | `instances.insert` | `project_id`, `zone`, `name`, `machine_type`, `source_instance_template`, `source_machine_image`, `disks`, `network_interfaces`, `service_accounts`, `metadata`, `labels`, `tags`, `scheduling`, `guest_accelerators`, `min_cpu_platform`, `shielded_instance_config`, `confidential_instance_config`, `can_ip_forward`, `deletion_protection`, `reservation_affinity`, `display_device`, `advanced_machine_features`, `description`, `request_id` |
+| `instances.delete` | `instances.delete` | `project_id`, `zone`, `instance`, `request_id` |
 
 ## Arguments
 
@@ -75,6 +78,73 @@ recommended profile `read` and to `read-iam`; `compute.readonly` is a read scope
 scopes only. The account needs the permissions `compute.instances.list` or
 `compute.instances.get` (the Compute Viewer role has them), and the **Compute Engine API** must be enabled in
 the project; otherwise Google refuses the request and the error says so.
+
+## Creating an instance
+
+`instances.insert` sends one POST to `/compute/v1/projects/PROJECT/zones/ZONE/instances` with the query
+`requestId`. The tool builds the body itself from structured arguments; no object is passed through, and every
+argument has a closed schema. It has the effect `create`, needs the confirmation of a person, and costs money:
+the confirmation names the project, zone, name, machine type, the disk sizes, the accelerators, and the
+scheduling model (`STANDARD`, or `SPOT` when `scheduling.provisioning_model` says so). The tool never waits. The
+result is the zonal Compute operation as Google returned it, with `scope` `zone`, the `zone`, and the
+`request_id`; `compute-operations.get` with that scope and zone reads its state. An operation that is already
+done with an error, a quota for example, is reported as a provider error. Without a `request_id` the tool
+creates one and returns it, and repeating the call with the same one is safe because Google ignores a request
+whose ID it already received. The request is never repeated by the tool, and an unclear outcome is reported as
+such: read the instance with `instances.get` before creating it again.
+
+**Names and paths.** `machine_type`, `disk_type`, `source_image`, disk `source`, `network`, `subnetwork`,
+`source_instance_template`, `source_machine_image`, and the accelerator `type` are names or relative paths of
+the project and the zone or region of the call, such as `e2-medium`, `zones/ZONE/machineTypes/NAME`, or
+`projects/PROJECT/global/networks/NAME`. The tool turns each into a fixed path; a URL, a path into another
+zone or region, or a resource of another project is refused. The one resource of another project is an image
+family given as a project and family pair, `projects/PROJECT/global/images/family/FAMILY` such as
+`projects/debian-cloud/global/images/family/debian-12`; an image of another project by name is refused.
+
+**What an instance cannot get.**
+
+- No external address. `network_interfaces` has no `accessConfigs` and no `ipv6AccessConfigs`, and the handler
+  refuses either name, in any spelling, at any depth of the arguments.
+- No key of a person. The metadata keys `ssh-keys`, `sshKeys`, and `windows-keys` are refused whatever their case,
+  because a guest accepts the public key of a person through them. `block-project-ssh-keys` is allowed, as it only
+  closes access. Other metadata, including `enable-oslogin`, is allowed.
+- No service account of another project. `service_accounts[].email` is `NAME@PROJECT_ID.iam.gserviceaccount.com`
+  of the project of the call, or the Compute Engine default account (`PROJECT_NUMBER-compute` in the domain `developer.gserviceaccount.com`); the
+  project ID and number come from reading the project (`projects.get`), never from an argument. Without an email
+  Google uses the default account; without `service_accounts` the instance has none. At most one account is
+  accepted, and each scope is a URL `https://www.googleapis.com/auth/NAME`.
+- No key material. The `rawKey` and `rsaEncryptedKey` of a customer-supplied encryption key are no argument;
+  `kms_key_name` is allowed.
+- With `source_instance_template` or `source_machine_image` the tool cannot read what the template or image holds,
+  so `network_interfaces` and `service_accounts` (which may be empty) must be given in the same call, and
+  `source_instance_template` and `source_machine_image` exclude each other.
+
+**What the tool does not check.** A start-up script or other metadata value is not examined. A start-up script
+can create accounts and reach whatever the instance can reach, and that limit lies with the person who confirms the
+call. The same holds for the metadata that a template or machine image brings. Nor does the tool check that a
+service account exists, or the quota of the project.
+
+Not every field of the Instance resource has an argument. The ones offered are those of the table above, with the
+members of each nested object named in the tool description; alias IP ranges, node affinities, resource policies,
+and the other members are not offered.
+
+## Deleting an instance
+
+`instances.delete` sends one DELETE to the instance and returns the zonal operation like the creation. It has
+the effect `delete`, needs confirmation, and is **listed-only**: it belongs to no profile and a connection offers it
+only when its `tools` list names `google.cloud.instances.delete` exactly. The instance is removed with the disks
+that are set to `autoDelete`, which is the default of a boot disk, and this cannot be undone. An instance with
+`deletion_protection` is refused by Google, and the tool reports that error. `instance` is a name or numeric ID.
+
+## Scope and rights of creating and deleting
+
+Both tools ask for the scope `compute`, the smallest the discovery document lists, which Google also uses to change
+other Compute resources, so the token may do that although no tool does. `instances.insert` belongs to the profile
+`compute-instances-create`, which also holds `projects.get`; the profile is not recommended and needs the effects
+`create` and `read`. The account needs `compute.instances.create` and the permissions the new instance uses, for
+example `compute.disks.create`, `compute.subnetworks.use`, and `iam.serviceAccounts.actAs` on the service account (the
+Compute Instance Admin role has the first ones), and for the default account `resourcemanager.projects.get`.
+`instances.delete` needs `compute.instances.delete`. The **Compute Engine API** must be enabled in the project.
 
 ## Not verified
 

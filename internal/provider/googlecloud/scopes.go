@@ -106,4 +106,7 @@ var tokenMetadata = config.TokenMetadata{Scopes: map[string][]string{
 	addressesDeleteID:   {scopeCompute},
 	vpnTunnelsDeleteID:  {scopeCompute},
 	vpnGatewaysDeleteID: {scopeCompute},
+	// compute v1 lists compute as the smallest scope for instances.insert and instances.delete.
+	instancesInsertID: {scopeCompute},
+	instancesDeleteID: {scopeCompute},
 }}
