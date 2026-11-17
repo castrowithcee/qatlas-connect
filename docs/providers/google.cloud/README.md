@@ -76,8 +76,9 @@ secret is read and before any request.
 The profile `read` is the recommended one. It holds every tool that needs no more than the scope
 `cloud-platform.read-only`: `google.cloud.organizations.search`, `google.cloud.folders.search`,
 `google.cloud.projects.search`, `google.cloud.projects.get`, `google.cloud.operations.get`,
-`google.cloud.organizations.get`, `google.cloud.folders.get`, `google.cloud.folders.list`, and
-`google.cloud.projects.list`.
+`google.cloud.organizations.get`, `google.cloud.folders.get`, `google.cloud.folders.list`,
+`google.cloud.projects.list`, `google.cloud.services.list`, `google.cloud.services.get`, and
+`google.cloud.services.batch-get`.
 
 The profile `read-iam` adds the IAM tools (`google.cloud.iam-roles.list`, `google.cloud.iam-roles.get`,
 `google.cloud.iam-roles.query-grantable`, `google.cloud.iam-permissions.query-testable`,
@@ -91,6 +92,7 @@ connection that needs IAM, preferably with a credential whose account has viewer
 
 ## Tools
 
+- [Services](services.md): the enabled and available APIs of a project from Service Usage.
 - [IAM](iam.md): IAM policies, permission tests, and deny policies of projects, folders, organizations, and
   service accounts.
 

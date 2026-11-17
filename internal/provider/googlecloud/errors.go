@@ -47,7 +47,7 @@ func googleError(op string, status int, body []byte) *provider.Error {
 		switch {
 		case reason == "SERVICE_DISABLED":
 			return failed(provider.ClassPermission, subject+" refused the request because a Google API it needs "+
-				"(Cloud Resource Manager or IAM) is not enabled in the Cloud project of the credential; a person enables it there")
+				"(Cloud Resource Manager, IAM, or Service Usage) is not enabled in the Cloud project of the credential; a person enables it there")
 		case reason == "ACCESS_TOKEN_SCOPE_INSUFFICIENT":
 			return failed(provider.ClassScopeMissing, "the access token of the credential lacks a scope this tool needs")
 		case state == "PERMISSION_DENIED":
