@@ -90,19 +90,20 @@ func Register(reg *capability.Registry) error {
 		Profiles: []config.ToolProfile{{
 			ID: "read", Title: "Read", Recommended: true,
 			Description: "reads accounts, containers, workspaces and their changes, tags, triggers, variables, " +
-				"built-in variables, folders, clients, transformations, and zones; changes nothing",
+				"built-in variables, folders, clients, transformations, zones, and Google tag configurations; changes " +
+				"nothing",
 			Tools: readIDs,
 		}, {
 			ID: "write", Title: "Read and change workspaces, tags, triggers, variables, built-in variables, folders, " +
-				"clients, transformations, and zones",
+				"clients, transformations, zones, and Google tag configurations",
 			Description: "reads what the read profile reads, creates and updates workspaces, synchronizes a " +
 				"workspace with the latest container version, resolves its merge conflicts, quick previews it, " +
 				"creates, updates, and deletes the tags, triggers, and variables of a workspace, creates, updates, and " +
 				"deletes its folders, moves tags, triggers, and variables into a folder, creates, updates, and deletes " +
-				"its clients, transformations, and zones, and enables and disables its built-in variables; every change " +
-				"needs its own confirmation and stays in the workspace until a version is published, which no tool of " +
-				"this provider does. Deleting a workspace and reverting a tag, trigger, variable, built-in variable, " +
-				"folder, client, transformation, or zone stay unticked",
+				"its clients, transformations, zones, and Google tag configurations, and enables and disables its " +
+				"built-in variables; every change needs its own confirmation and stays in the workspace until a " +
+				"version is published, which no tool of this provider does. Deleting a workspace and reverting a tag, " +
+				"trigger, variable, built-in variable, folder, client, transformation, or zone stay unticked",
 			Tools: writeIDs,
 		}},
 	}, TestConnection); err != nil {
@@ -142,6 +143,10 @@ func Register(reg *capability.Registry) error {
 
 		zonesListID: handleZonesList, zonesGetID: handleZonesGet, zonesCreateID: handleZonesCreate,
 		zonesUpdateID: handleZonesUpdate, zonesDeleteID: handleZonesDelete, zonesRevertID: handleZonesRevert,
+
+		gtagConfigsListID: handleGtagConfigsList, gtagConfigsGetID: handleGtagConfigsGet,
+		gtagConfigsCreateID: handleGtagConfigsCreate, gtagConfigsUpdateID: handleGtagConfigsUpdate,
+		gtagConfigsDeleteID: handleGtagConfigsDelete,
 	}
 	summaries := map[string]capability.SummaryFunc{
 		workspacesCreateID: workspaceSummary("Create"), workspacesUpdateID: workspaceSummary("Replace"),
@@ -166,6 +171,9 @@ func Register(reg *capability.Registry) error {
 
 		zonesCreateID: zoneSummary("Create"), zonesUpdateID: zoneSummary("Replace"),
 		zonesDeleteID: zoneSummary("Delete"), zonesRevertID: zoneSummary("Revert"),
+
+		gtagConfigsCreateID: gtagConfigSummary("Create"), gtagConfigsUpdateID: gtagConfigSummary("Replace"),
+		gtagConfigsDeleteID: gtagConfigSummary("Delete"),
 	}
 	for _, d := range descriptors() {
 		if err := reg.Register(Provider, capability.Operation{Descriptor: d, Handler: handlers[d.ID],
