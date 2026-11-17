@@ -35,4 +35,18 @@ var tokenMetadata = config.TokenMetadata{Scopes: map[string][]string{
 	iamPermissionsTestID:  {scopeCloudPlatform},
 	denyPoliciesListID:    {scopeCloudPlatform},
 	denyPoliciesGetID:     {scopeCloudPlatform},
+	// iam v1 lists only cloud-platform for projects.serviceAccounts list and get and for keys list and get.
+	serviceAccountsListID:    {scopeCloudPlatform},
+	serviceAccountsGetID:     {scopeCloudPlatform},
+	serviceAccountKeysListID: {scopeCloudPlatform},
+	serviceAccountKeysGetID:  {scopeCloudPlatform},
+	// iam v1 lists only cloud-platform for projects.serviceAccounts create, patch, enable, and disable.
+	serviceAccountsCreateID:  {scopeCloudPlatform},
+	serviceAccountsPatchID:   {scopeCloudPlatform},
+	serviceAccountsDisableID: {scopeCloudPlatform},
+	serviceAccountsEnableID:  {scopeCloudPlatform},
+	// cloudresourcemanager v3 lists only cloud-platform for setIamPolicy of projects, folders, and organizations.
+	iamBindingsAddID:    {scopeCloudPlatform},
+	iamBindingsRemoveID: {scopeCloudPlatform},
+	iamBindingsChangeID: {scopeCloudPlatform},
 }}
