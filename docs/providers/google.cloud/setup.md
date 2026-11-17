@@ -30,7 +30,8 @@ IAM bindings, each with the confirmation of a person. Tools, targets, errors, an
 ## Rights of the token
 
 The token needs the rights of its person or service account in Google Cloud. With the recommended profile
-`read` Qatlas asks only for the scope `cloud-platform.read-only`. The profile `read-iam` adds the IAM tools and
+`read` Qatlas asks only for the read scopes `cloud-platform.read-only` and, for the Compute tools,
+`compute.readonly`. The profile `read-iam` adds the IAM tools and
 with them the broad scope `cloud-platform`, because Google lists no narrower scope for them. Only the tools of the profiles `service-accounts`,
 `service-accounts-revoke`, and `iam-bindings` and the listed-only `service-accounts.delete` change anything, so
 without them even a broad role cannot change anything through Qatlas. Grant
@@ -45,6 +46,7 @@ Viewer, or Project Viewer role, or any role with these permissions:
 | `projects.search`, `projects.get` | `resourcemanager.projects.get` on each project |
 | `projects.list` | `resourcemanager.projects.list` on the parent |
 | `operations.get` | Google states none for reading an operation |
+| `instances.list`, `instances.aggregated-list`, `instances.get`, `machine-types.list` | `compute.instances.list`, `compute.instances.get`, or `compute.machineTypes.list` on the project (the Compute Viewer role has them); the **Compute Engine API** must be enabled in the project, and the tools ask for the read scope `compute.readonly` |
 | `iam-roles.list`, `iam-roles.get` | custom roles of a project or organization: `iam.roles.list` and `iam.roles.get` (the Role Viewer role has them); Google states none for predefined roles |
 | `iam-roles.query-grantable`, `iam-permissions.query-testable` | Google states none; Qatlas first reads the project or folder (`resourcemanager.projects.get`, `resourcemanager.folders.get`) |
 | `iam-policies.get` | `resourcemanager.projects.getIamPolicy`, `resourcemanager.folders.getIamPolicy`, `resourcemanager.organizations.getIamPolicy`, or `iam.serviceAccounts.getIamPolicy` on the resource, and `iam.serviceAccounts.get` for a service account when the connection has targets |
