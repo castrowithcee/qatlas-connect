@@ -35,7 +35,7 @@ tokens for it). The connection holds no scope. Qatlas derives them from the tool
 smallest scope the discovery document of each method lists: `cloud-platform.read-only` for Resource Manager,
 and `cloud-platform` for the IAM and quota tools, because their discovery documents list no narrower scope
 (Google offers no read-only variant for these methods, see [IAM](iam.md) and [Quotas](quotas.md)). Only the tools of the profiles
-`service-accounts`, `service-accounts-revoke`, `api-keys-revoke`, `iam-bindings`, `compute-network-delete`, and `services` and the tools
+`service-accounts`, `service-accounts-revoke`, `api-keys-revoke`, `iam-bindings`, `compute-network-delete`, `compute-lifecycle`, and `services` and the tools
 `service-accounts.delete` and `services.disable`, which a `tools` list must name, change anything, each with a confirmation, whatever the scope allows. The access token travels in the
 `Authorization` header only, is never an argument or part of a result, and is masked in every output. A 401
 renews the token once, and nothing else repeats a request.
@@ -86,8 +86,9 @@ The profile `read` is the recommended one. It holds every tool that needs no mor
 `google.cloud.compute-operations.list`, `google.cloud.networks.list`, `google.cloud.networks.get`,
 `google.cloud.subnetworks.list`, `google.cloud.subnetworks.get`, `google.cloud.firewalls.list`,
 `google.cloud.firewalls.get`, `google.cloud.addresses.list`, `google.cloud.addresses.get`,
-`google.cloud.vpn-gateways.list`, `google.cloud.vpn-gateways.get`, `google.cloud.vpn-tunnels.list`, and
-`google.cloud.vpn-tunnels.get`, which ask for `compute.readonly`. The two
+`google.cloud.vpn-gateways.list`, `google.cloud.vpn-gateways.get`, `google.cloud.vpn-tunnels.list`,
+`google.cloud.vpn-tunnels.get`, `google.cloud.snapshots.list`, `google.cloud.snapshots.get`,
+`google.cloud.images.list`, and `google.cloud.images.get`, which ask for `compute.readonly`. The two
 operation tools return the email address of whoever started an operation (personal data) and carry their own
 sensitivity. A connection bound to an organization or a folder needs `projects.get` next to the
 Compute tools to prove the project of a call; `read` holds both.
@@ -130,6 +131,12 @@ effect `delete` for the deletions and `read` for `projects.get`, is not recommen
 every call needs the confirmation of a person. See [Firewall rules](firewalls.md), [IP addresses](addresses.md),
 [HA VPN gateways](vpn-gateways.md), and [VPN tunnels](vpn-tunnels.md).
 
+The profile `compute-lifecycle` holds `google.cloud.instances.start`, `google.cloud.instances.stop`,
+`google.cloud.instances.reset`, `google.cloud.instances.set-machine-type`, and `google.cloud.projects.get`. The four
+tools ask for the scope `compute`, which Google also uses to change Compute resources, so the token may do that
+although no tool does. The profile needs the effect `update` for the instance tools and `read` for `projects.get`, is
+not recommended, and every call needs the confirmation of a person. See [Compute instances](instances.md#lifecycle).
+
 The profile `services` holds only `google.cloud.services.enable` and `google.cloud.services.batch-enable`. It asks
 for `cloud-platform`, needs the effect `update`, and is not recommended. It does not hold
 `google.cloud.services.disable`: that tool is listed-only and only a `tools` list that names it exactly releases
@@ -167,6 +174,9 @@ on [IAM bindings](iam-bindings.md).
   confirmed deletion of a gateway.
 - [VPN tunnels](vpn-tunnels.md): the VPN tunnels of a region from Compute Engine, never with their shared secret, and the
   confirmed deletion of a tunnel.
+- [Disk snapshots](snapshots.md): the global disk snapshots of a project from Compute Engine, never with customer-supplied
+  key material.
+- [Images](images.md): the images of a project from Compute Engine, never with customer-supplied key material.
 - [Quotas](quotas.md): the quotas of a service and the quota preferences of a project from Cloud Quotas.
 
 ### Search
