@@ -56,12 +56,16 @@ func TestConnection(ctx context.Context, resolved *config.Resolved, secrets *sec
 func Register(reg *capability.Registry) error {
 	var readIDs, writeIDs []string
 	for _, d := range descriptors() {
+		if isUserPermissionTool(d.ID) {
+			continue
+		}
 		if d.Risk.Effect == capability.EffectRead {
 			readIDs = append(readIDs, d.ID)
 		}
 		// Reverting overwrites the workspace state of an object, folder, or built-in variable, and deleting a
-		// workspace loses its unpublished changes, so both are in no profile: a connection offers them only when
-		// its tools list names them. Deleting one workspace object is not: it stays revertible until a version is
+		// workspace loses its unpublished changes, and combining containers merges one into another with an
+		// effect on the source that is not documented, so all three are in no profile: a connection offers them
+		// only when its tools list names them. Deleting one workspace object is not: it stays revertible until a version is
 		// published.
 		if !d.RequiresToolAllowList {
 			writeIDs = append(writeIDs, d.ID)
@@ -86,26 +90,41 @@ func Register(reg *capability.Registry) error {
 				Forms: []string{formContainer}, Parents: []string{"account"},
 			}},
 			Validate: validateTarget,
+			Reaches:  targetReaches,
 		},
 		Profiles: []config.ToolProfile{{
 			ID: "read", Title: "Read", Recommended: true,
 			Description: "reads accounts, containers, workspaces and their changes, tags, triggers, variables, " +
-				"built-in variables, templates, folders, clients, transformations, zones, and Google tag " +
-				"configurations; changes nothing",
+				"built-in variables, templates, folders, clients, transformations, zones, Google tag " +
+				"configurations, destinations, the embed snippet of a container, the environments of a container, " +
+				"container versions, and their headers; " +
+				"changes nothing",
 			Tools: readIDs,
 		}, {
-			ID: "write", Title: "Read and change workspaces, tags, triggers, variables, templates, built-in variables, " +
-				"folders, clients, transformations, zones, and Google tag configurations",
-			Description: "reads what the read profile reads, creates and updates workspaces, synchronizes a " +
-				"workspace with the latest container version, resolves its merge conflicts, quick previews it, " +
-				"creates, updates, and deletes the tags, triggers, variables, and templates of a workspace, creates, " +
-				"updates, and deletes its folders, moves tags, triggers, and variables into a folder, creates, updates, " +
-				"and deletes its clients, transformations, zones, and Google tag configurations, and enables and " +
-				"disables its built-in variables; every change needs its own confirmation and stays in the workspace " +
-				"until a version is published, which no tool of this provider does. Deleting a workspace and " +
-				"reverting a tag, trigger, variable, template, built-in variable, folder, client, transformation, or " +
-				"zone stay unticked",
+			ID: "write", Title: "Read and change containers, workspaces, tags, triggers, variables, templates, built-in " +
+				"variables, folders, clients, transformations, zones, Google tag configurations, and environments, and " +
+				"rename accounts",
+			Description: "reads what the read profile reads, creates and updates containers, creates and updates " +
+				"workspaces, synchronizes a workspace with the latest container version, resolves its merge conflicts, " +
+				"quick previews it, creates, updates, and deletes the tags, triggers, variables, and templates of a " +
+				"workspace, creates, updates, and deletes its folders, moves tags, triggers, and variables into a " +
+				"folder, creates, updates, and deletes its clients, transformations, zones, and Google tag " +
+				"configurations, enables and disables its built-in variables, and creates, updates, and deletes the " +
+				"custom environments of a container; every change needs its own confirmation. Changes of workspace " +
+				"content stay in the workspace until a version is published, which no tool of this provider does. " +
+				"Changes to a container apply to the container itself, outside any workspace. Changes to an environment " +
+				"and renaming an account take effect at once; renaming an account (scope tagmanager.manage.accounts) " +
+				"applies for everyone who sees the account and is not available on a connection bound to a container. " +
+				"Deleting a container or a workspace, reverting a tag, trigger, variable, template, built-in variable, " +
+				"folder, client, transformation, or zone, and combining containers stay unticked",
 			Tools: writeIDs,
+		}, {
+			ID: userPermissionsProfile, Title: "User permissions",
+			Description: "reads the users of an account with their email addresses and rights, changes the rights of " +
+				"existing users, and removes a user from the account; no tool adds a user; these methods accept only " +
+				"the scope that manages users, so the token may also change what its account may in Tag Manager, " +
+				"every change needs its own confirmation, and a connection bound to a container does not offer them",
+			Tools: userPermissionIDs(),
 		}},
 	}, TestConnection); err != nil {
 		return err
@@ -116,6 +135,8 @@ func Register(reg *capability.Registry) error {
 	handlers := map[string]capability.Handler{
 		accountsListID: handleAccountsList, accountsGetID: handleAccountsGet,
 		containersListID: handleContainersList, containersGetID: handleContainersGet,
+		containersCreateID: handleContainersCreate, containersUpdateID: handleContainersUpdate,
+		containersLookupID: handleContainersLookup, containersDeleteID: handleContainersDelete,
 		workspacesListID: handleWorkspacesList, workspacesGetID: handleWorkspacesGet,
 		workspacesCreateID: handleWorkspacesCreate, workspacesUpdateID: handleWorkspacesUpdate,
 		workspacesDeleteID: handleWorkspacesDelete, workspacesStatusID: handleWorkspacesStatus,
@@ -151,8 +172,24 @@ func Register(reg *capability.Registry) error {
 		gtagConfigsListID: handleGtagConfigsList, gtagConfigsGetID: handleGtagConfigsGet,
 		gtagConfigsCreateID: handleGtagConfigsCreate, gtagConfigsUpdateID: handleGtagConfigsUpdate,
 		gtagConfigsDeleteID: handleGtagConfigsDelete,
+
+		accountsUpdateID: handleAccountsUpdate, containersSnippetID: handleContainersSnippet,
+		containersCombineID: handleContainersCombine,
+		destinationsListID:  handleDestinationsList, destinationsGetID: handleDestinationsGet,
+
+		environmentsListID: handleEnvironmentsList, environmentsGetID: handleEnvironmentsGet,
+		environmentsCreateID: handleEnvironmentsCreate, environmentsUpdateID: handleEnvironmentsUpdate,
+		environmentsDeleteID: handleEnvironmentsDelete,
+
+		userPermissionsListID: handleUserPermissionsList, userPermissionsGetID: handleUserPermissionsGet,
+		userPermissionsUpdateID: handleUserPermissionsUpdate, userPermissionsDeleteID: handleUserPermissionsDelete,
+
+		versionsGetID: handleVersionsGet, versionsLiveID: handleVersionsLive,
+		versionHeadersListID: handleVersionHeadersList, versionHeadersLatestID: handleVersionHeadersLatest,
 	}
 	summaries := map[string]capability.SummaryFunc{
+		containersCreateID: containerSummary("Create"), containersUpdateID: containerSummary("Replace"),
+		containersDeleteID: deleteContainerSummary,
 		workspacesCreateID: workspaceSummary("Create"), workspacesUpdateID: workspaceSummary("Replace"),
 		workspacesDeleteID: deleteWorkspaceSummary, workspacesSyncID: syncSummary,
 		workspacesResolveConflictID: resolveConflictSummary, workspacesQuickPreviewID: quickPreviewSummary,
@@ -180,6 +217,13 @@ func Register(reg *capability.Registry) error {
 
 		gtagConfigsCreateID: gtagConfigSummary("Create"), gtagConfigsUpdateID: gtagConfigSummary("Replace"),
 		gtagConfigsDeleteID: gtagConfigSummary("Delete"),
+
+		accountsUpdateID: accountUpdateSummary, containersCombineID: combineSummary,
+
+		environmentsCreateID: environmentSummary("Create"), environmentsUpdateID: environmentSummary("Replace"),
+		environmentsDeleteID: environmentSummary("Delete"),
+
+		userPermissionsUpdateID: userPermissionUpdateSummary, userPermissionsDeleteID: userPermissionDeleteSummary,
 	}
 	for _, d := range descriptors() {
 		if err := reg.Register(Provider, capability.Operation{Descriptor: d, Handler: handlers[d.ID],
