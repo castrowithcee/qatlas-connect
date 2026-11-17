@@ -85,4 +85,8 @@ var tokenMetadata = config.TokenMetadata{Scopes: map[string][]string{
 	regionsListID:             {scopeComputeReadOnly},
 	computeOperationsGetID:    {scopeComputeReadOnly},
 	computeOperationsListID:   {scopeComputeReadOnly},
+	networksListID:            {scopeComputeReadOnly},
+	networksGetID:             {scopeComputeReadOnly},
+	subnetworksListID:         {scopeComputeReadOnly},
+	subnetworksGetID:          {scopeComputeReadOnly},
 }}
