@@ -176,6 +176,16 @@ func Register(reg *capability.Registry) error {
 				"firewall rule, an address, a VPN tunnel, or a VPN gateway",
 			Tools: []string{projectsGet.ID, firewallsDelete.ID, addressesDelete.ID, vpnTunnelsDelete.ID, vpnGatewaysDelete.ID},
 		}, {
+			ID: "compute-lifecycle", Title: "Instance lifecycle",
+			Description: "starts, stops, hard-resets, and changes the machine type of existing Compute Engine instances, " +
+				"each with the confirmation of a person; projects.get is part of the profile so that targets of an " +
+				"organization or a folder can be proved; the token holds the compute scope, which Google also uses to " +
+				"change Compute resources, so the token may do what its account may; a running instance is billed, " +
+				"stopping with discard_local_ssd loses the data of local SSDs, and a reset loses the contents of memory; " +
+				"no tool creates or deletes an instance or changes its network access",
+			Tools: []string{projectsGet.ID, instancesStart.ID, instancesStop.ID, instancesReset.ID,
+				instancesSetMachineType.ID},
+		}, {
 			ID: "services", Title: "Enable APIs",
 			Description: "enables Google APIs in a project, one or up to 20 at a time, each with the confirmation of a " +
 				"person; these Service Usage methods accept only the broad cloud-platform scope, so the token may " +
@@ -236,6 +246,15 @@ func Register(reg *capability.Registry) error {
 			ConfirmationSummary: vpnTunnelDelete.summary},
 		capability.Operation{Descriptor: vpnGatewaysDelete, Handler: vpnGatewayDelete.handler("delete VPN gateway"),
 			ConfirmationSummary: vpnGatewayDelete.summary},
+		capability.Operation{Descriptor: instancesStart, Handler: instanceLifecycleHandler("start instance",
+			instancesStartID, "start"), ConfirmationSummary: instanceLifecycleSummary(instancesStartID)},
+		capability.Operation{Descriptor: instancesStop, Handler: instanceLifecycleHandler("stop instance",
+			instancesStopID, "stop"), ConfirmationSummary: instanceLifecycleSummary(instancesStopID)},
+		capability.Operation{Descriptor: instancesReset, Handler: instanceLifecycleHandler("reset instance",
+			instancesResetID, "reset"), ConfirmationSummary: instanceLifecycleSummary(instancesResetID)},
+		capability.Operation{Descriptor: instancesSetMachineType, Handler: instanceLifecycleHandler(
+			"change machine type", instancesSetMachineTypeID, "setMachineType"),
+			ConfirmationSummary: instanceLifecycleSummary(instancesSetMachineTypeID)},
 		capability.Operation{Descriptor: iamRolesList, Handler: handleIAMRolesList},
 		capability.Operation{Descriptor: iamRolesGet, Handler: handleIAMRolesGet},
 		capability.Operation{Descriptor: iamRolesQuery, Handler: handleIAMRolesQuery},

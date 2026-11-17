@@ -64,6 +64,7 @@ func TestExcludedMethodsHaveNoTool(t *testing.T) {
 		calculatedDeleteID, accessAccountID, accessPropertyID, dataRetentionGetID, dataRetentionUpdateID,
 		googleSignalsGetID, googleSignalsUpdateID, annotationsListID, annotationsGetID,
 		annotationsCreateID, annotationsUpdateID, annotationsDeleteID,
+		dv360LinksListID, dv360LinksGetID, dv360ProposalsListID, dv360ProposalsGetID,
 		audiencesListID, audiencesGetID, audiencesCreateID, audiencesUpdateID, audiencesArchiveID,
 		channelGroupsListID, channelGroupsGetID, channelGroupsCreateID, channelGroupsUpdateID,
 		channelGroupsDeleteID}; !slices.Equal(ids, sortedCopy(want)) {

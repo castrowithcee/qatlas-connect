@@ -14,7 +14,7 @@ This page shows how to connect Qatlas to Google Analytics 4. Targets, paging, an
 [properties](properties.md), [data streams](data-streams.md), [custom dimensions](custom-dimensions.md),
 [custom metrics](custom-metrics.md), [event create rules](event-create-rules.md),
 [calculated metrics](calculated-metrics.md),
-[annotations](annotations.md), [audiences](audiences.md), [channel groups](channel-groups.md), [reports](reports.md),
+[annotations](annotations.md), [audiences](audiences.md), [channel groups](channel-groups.md), [Display & Video 360 links](display-video360-links.md), [reports](reports.md),
 [audience exports](audience-exports.md), [report tasks](report-tasks.md),
 [measurement protocol secrets](measurement-protocol-secrets.md), [access reports](access-reports.md),
 [data retention](data-retention.md), and [Google Signals](google-signals.md).
@@ -122,6 +122,7 @@ credential never carries the scope of another product.
 | [Audiences](audiences.md#changing-audiences) | `audiences.create`, `audiences.update`, `audiences.archive` | `analytics.edit` |
 | [Channel groups](channel-groups.md) | `channel-groups.list`, `channel-groups.get` | `analytics.readonly` |
 | [Channel groups](channel-groups.md#changing-channel-groups) | `channel-groups.create`, `channel-groups.update`, `channel-groups.delete` | `analytics.edit` |
+| [Display & Video 360 links](display-video360-links.md) | `display-video360-links.list`, `display-video360-links.get`, `display-video360-link-proposals.list`, `display-video360-link-proposals.get` | `analytics.readonly` |
 | [Data retention](data-retention.md) | `data-retention.get` | `analytics.readonly` |
 | [Data retention](data-retention.md#googleanalyticsdata-retentionupdate) | `data-retention.update` | `analytics.edit` |
 | [Google Signals](google-signals.md) | `google-signals.get` | `analytics.readonly` |
