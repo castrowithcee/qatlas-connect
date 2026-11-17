@@ -49,11 +49,11 @@ Two profiles are offered:
   tags, triggers, variables, built-in variables, folders, clients, transformations, and zones.
 - `write` holds the tools of `read` and the tools that create and update workspaces, that create, update, and
   delete tags, triggers, variables, clients, transformations, and zones, that enable and disable built-in
-  variables, and that create and update folders. A deleted tag, trigger, variable, client, transformation, or
-  zone and a disabled built-in variable stay in the workspace changes until a version is published and can be
-  brought back with their `revert` tool.
+  variables, and that create, update, delete, and fill folders. A deleted tag, trigger, variable, folder, client,
+  transformation, or zone and a disabled built-in variable stay in the workspace changes until a version is
+  published and can be brought back with their `revert` tool.
 
-`workspaces.delete`, `tags.revert`, `triggers.revert`, `variables.revert`, `clients.revert`,
+`workspaces.delete`, `tags.revert`, `triggers.revert`, `variables.revert`, `folders.revert`, `clients.revert`,
 `transformations.revert`, `zones.revert`, and `built-in-variables.revert` are in no profile. Deleting a
 workspace loses its unpublished changes and a revert overwrites the workspace state of an object, so a
 connection offers them only when its `tools` list names them.
@@ -83,7 +83,7 @@ of the tools it offers; offering a tool with another scope needs a new consent.
 | Tools | Scope |
 | --- | --- |
 | every tool that reads | `https://www.googleapis.com/auth/tagmanager.readonly` |
-| every tool that creates, updates, deletes, or reverts a tag, a trigger, a variable, a client, a transformation, a zone, or a built-in variable, every tool that creates or updates a folder, and `workspaces.create` and `workspaces.update` | `https://www.googleapis.com/auth/tagmanager.edit.containers` |
+| every tool that creates, updates, deletes, or reverts a tag, a trigger, a variable, a client, a transformation, a zone, a folder, or a built-in variable, every tool that moves entries into a folder, and `workspaces.create` and `workspaces.update` | `https://www.googleapis.com/auth/tagmanager.edit.containers` |
 | `workspaces.delete` | `https://www.googleapis.com/auth/tagmanager.delete.containers` |
 
 A consent given for the `read` profile lacks the edit scope, so a changing tool answers `scope-missing`
@@ -114,9 +114,9 @@ Every result that carries a `fingerprint` returns it. Tools that change an exist
 client, transformation, zone, or folder follow one convention: they take the fingerprint last read as a required
 argument, so a change made in the meantime is not overwritten silently. [Built-in variables](built-in-variables.md)
 have none, because Google's methods for them carry no fingerprint. The update and revert tools of tags,
-triggers, variables, clients, transformations, and zones and the update tool of folders refuse a call without it
-before any request. What Google answers to a stale fingerprint is not verified, so it is not given a class of
-its own: it is `invalid-provider-response` with Google's answer as the original.
+triggers, variables, clients, transformations, zones, and folders refuse a call without it before any request.
+What Google answers to a stale fingerprint is not verified, so it is not given a class of its own: it is
+`invalid-provider-response` with Google's answer as the original.
 
 ## Tags, triggers, and variables
 
