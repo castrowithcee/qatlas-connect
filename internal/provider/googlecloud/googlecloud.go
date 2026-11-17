@@ -88,7 +88,7 @@ func testClass(err error) (provider.Class, error) {
 var readTools = []string{organizationsSearch.ID, foldersSearch.ID, projectsSearch.ID, projectsGet.ID, operationsGet.ID,
 	organizationsGet.ID, foldersGet.ID, foldersList.ID, projectsList.ID, servicesList.ID, servicesGet.ID,
 	servicesBatchGet.ID, apiKeysList.ID, apiKeysGet.ID, instancesList.ID, instancesAggregatedList.ID, instancesGet.ID,
-	machineTypesList.ID}
+	machineTypesList.ID, networksList.ID, networksGet.ID, subnetworksList.ID, subnetworksGet.ID}
 
 // Register adds the provider metadata, its connection test, its consent endpoints, and its tools.
 func Register(reg *capability.Registry) error {
@@ -192,6 +192,10 @@ func Register(reg *capability.Registry) error {
 		capability.Operation{Descriptor: instancesAggregatedList, Handler: handleInstancesAggregatedList},
 		capability.Operation{Descriptor: instancesGet, Handler: handleInstancesGet},
 		capability.Operation{Descriptor: machineTypesList, Handler: handleMachineTypesList},
+		capability.Operation{Descriptor: networksList, Handler: handleNetworksList},
+		capability.Operation{Descriptor: networksGet, Handler: handleNetworksGet},
+		capability.Operation{Descriptor: subnetworksList, Handler: handleSubnetworksList},
+		capability.Operation{Descriptor: subnetworksGet, Handler: handleSubnetworksGet},
 		capability.Operation{Descriptor: iamRolesList, Handler: handleIAMRolesList},
 		capability.Operation{Descriptor: iamRolesGet, Handler: handleIAMRolesGet},
 		capability.Operation{Descriptor: iamRolesQuery, Handler: handleIAMRolesQuery},

@@ -81,8 +81,9 @@ The profile `read` is the recommended one. It holds every tool that needs no mor
 `google.cloud.organizations.get`, `google.cloud.folders.get`, `google.cloud.folders.list`,
 `google.cloud.projects.list`, `google.cloud.services.list`, `google.cloud.services.get`,
 `google.cloud.services.batch-get`, `google.cloud.api-keys.list`, `google.cloud.api-keys.get`, and the Compute tools `google.cloud.instances.list`,
-`google.cloud.instances.aggregated-list`, `google.cloud.instances.get`, and `google.cloud.machine-types.list`, which
-ask for `compute.readonly`. A connection bound to an organization or a folder needs `projects.get` next to the
+`google.cloud.instances.aggregated-list`, `google.cloud.instances.get`, `google.cloud.machine-types.list`,
+`google.cloud.networks.list`, `google.cloud.networks.get`, `google.cloud.subnetworks.list`, and
+`google.cloud.subnetworks.get`, which ask for `compute.readonly`. A connection bound to an organization or a folder needs `projects.get` next to the
 Compute tools to prove the project of a call; `read` holds both.
 
 The profile `read-iam` adds the IAM tools (`google.cloud.iam-roles.list`, `google.cloud.iam-roles.get`,
@@ -138,6 +139,8 @@ on [IAM bindings](iam-bindings.md).
 - [Compute instances](instances.md): the virtual machine instances of a project from Compute Engine, one, per
   zone, and across all zones, without metadata values.
 - [Machine types](machine-types.md): the machine types of a zone from Compute Engine.
+- [VPC networks](networks.md): the VPC networks of a project from Compute Engine, one and all.
+- [Subnetworks](subnetworks.md): the subnetworks of a region from Compute Engine, one and all.
 - [Quotas](quotas.md): the quotas of a service and the quota preferences of a project from Cloud Quotas.
 
 ### Search

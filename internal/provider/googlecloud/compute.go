@@ -61,6 +61,11 @@ func computeZonePath(projectID, zone string) string {
 	return computeProjectPath(projectID) + "/zones/" + url.PathEscape(zone)
 }
 
+// computeRegionPath is the path of a region of a project; both were checked.
+func computeRegionPath(projectID, region string) string {
+	return computeProjectPath(projectID) + "/regions/" + url.PathEscape(region)
+}
+
 // computeClient is the client of a Compute tool for one project. Everything wrong with the connection or the
 // project ends before the first request that names it, and the project is bound to the targets like those of
 // the other project tools: decided by the targets alone where they allow, otherwise proved by reading the
@@ -238,6 +243,7 @@ func inZone(row map[string]any, zone string) bool {
 
 const (
 	computeZoneProp   = `"zone":{"type":"string","minLength":1,"maxLength":63,"pattern":"^[a-z]([-a-z0-9]{0,61}[a-z0-9])?$"}`
+	computeRegionProp = `"region":{"type":"string","minLength":1,"maxLength":63,"pattern":"^[a-z]([-a-z0-9]{0,61}[a-z0-9])?$"}`
 	computeFilterProp = `"filter":{"type":"string","minLength":1,"maxLength":1024}`
 	computeMaxProp    = `"max_results":{"type":"integer","minimum":1,"maximum":500}`
 	computeOrderProp  = `"order_by":{"type":"string","maxLength":32,"pattern":"^(name|creationTimestamp)( desc)?$"}`
@@ -252,6 +258,8 @@ const computeListProps = serviceProjectProp + `,` + computeFilterProp + `,` + co
 var (
 	computeZoneArgument = capability.Argument{Name: "zone", Required: true, Description: "Zone name such as " +
 		"us-central1-a; never a path or URL"}
+	computeRegionArgument = capability.Argument{Name: "region", Description: "Region name such as us-central1; " +
+		"never a path or URL"}
 	computeFilterArgument = capability.Argument{Name: "filter", Description: "Google's filter expression, passed " +
 		"as the filter parameter only: either AIP-160 terms such as name != example-instance, scheduling." +
 		"automaticRestart = false, or labels.owner:*, or a regular expression with eq or ne such as name ne " +
