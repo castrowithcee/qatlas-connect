@@ -93,7 +93,8 @@ var readTools = []string{organizationsSearch.ID, foldersSearch.ID, projectsSearc
 	machineTypesList.ID, zonesList.ID, regionsList.ID, computeOperationsGet.ID, computeOperationsList.ID,
 	networksList.ID, networksGet.ID, subnetworksList.ID, subnetworksGet.ID,
 	firewallsList.ID, firewallsGet.ID, addressesList.ID, addressesGet.ID,
-	vpnGatewaysList.ID, vpnGatewaysGet.ID, vpnTunnelsList.ID, vpnTunnelsGet.ID}
+	vpnGatewaysList.ID, vpnGatewaysGet.ID, vpnTunnelsList.ID, vpnTunnelsGet.ID,
+	snapshotsList.ID, snapshotsGet.ID, imagesList.ID, imagesGet.ID}
 
 // Register adds the provider metadata, its connection test, its consent endpoints, and its tools.
 func Register(reg *capability.Registry) error {
@@ -117,7 +118,7 @@ func Register(reg *capability.Registry) error {
 				"operations from Google Cloud Resource Manager, the enabled and available APIs of a project from Service " +
 				"Usage, and the metadata of API keys with the read-only scope and the Compute Engine instances, machine " +
 				"types, zones, regions, operations (with the person who started each), VPC networks, subnetworks, firewall rules, " +
-				"reserved IP addresses, HA VPN gateways, and VPN tunnels of a project with the scope compute.readonly, and " +
+				"reserved IP addresses, HA VPN gateways, VPN tunnels, disk snapshots, and images of a project with the scope compute.readonly, and " +
 				"changes nothing",
 			Tools: readTools,
 		}, {
@@ -234,6 +235,10 @@ func Register(reg *capability.Registry) error {
 		capability.Operation{Descriptor: vpnGatewaysGet, Handler: handleVpnGatewaysGet},
 		capability.Operation{Descriptor: vpnTunnelsList, Handler: handleVpnTunnelsList},
 		capability.Operation{Descriptor: vpnTunnelsGet, Handler: handleVpnTunnelsGet},
+		capability.Operation{Descriptor: snapshotsList, Handler: handleSnapshotsList},
+		capability.Operation{Descriptor: snapshotsGet, Handler: handleSnapshotsGet},
+		capability.Operation{Descriptor: imagesList, Handler: handleImagesList},
+		capability.Operation{Descriptor: imagesGet, Handler: handleImagesGet},
 		capability.Operation{Descriptor: firewallsDelete, Handler: handleFirewallsDelete,
 			ConfirmationSummary: firewallDeleteSummary},
 		capability.Operation{Descriptor: addressesDelete, Handler: handleAddressesDelete,
