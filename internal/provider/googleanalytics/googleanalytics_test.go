@@ -59,8 +59,10 @@ var toolEffects = map[string]config.Effect{accountsUpdateID: config.EffectUpdate
 	reportTasksCreateID: config.EffectCreate,
 	enhancedUpdateID:    config.EffectUpdate, redactionUpdateID: config.EffectUpdate,
 	customDimensionsCreateID: config.EffectCreate, customDimensionsUpdateID: config.EffectUpdate,
-	customDimensionsArchiveID: config.EffectDelete,
-	eventRulesCreateID:        config.EffectCreate, eventRulesUpdateID: config.EffectUpdate, eventRulesDeleteID: config.EffectDelete}
+	customDimensionsArchiveID: config.EffectDelete, customMetricsCreateID: config.EffectCreate,
+	customMetricsUpdateID: config.EffectUpdate, customMetricsArchiveID: config.EffectDelete, keyEventsCreateID: config.EffectCreate,
+	keyEventsUpdateID: config.EffectUpdate, keyEventsDeleteID: config.EffectDelete,
+	eventRulesCreateID: config.EffectCreate, eventRulesUpdateID: config.EffectUpdate, eventRulesDeleteID: config.EffectDelete}
 
 func effectOf(id string) config.Effect {
 	if effect, ok := toolEffects[id]; ok {
@@ -92,7 +94,12 @@ func TestRegisterPublishesMetadataScopesAndConsent(t *testing.T) {
 		redactionGetID: {scopeReadOnly}, siteTagGetID: {scopeReadOnly}, enhancedUpdateID: {scopeEdit},
 		redactionUpdateID: {scopeEdit}, customDimensionsListID: {scopeReadOnly}, customDimensionsGetID: {scopeReadOnly},
 		customDimensionsCreateID: {scopeEdit}, customDimensionsUpdateID: {scopeEdit},
-		customDimensionsArchiveID: {scopeEdit}, eventRulesListID: {scopeReadOnly}, eventRulesGetID: {scopeReadOnly},
+		customDimensionsArchiveID: {scopeEdit},
+		customMetricsListID:       {scopeReadOnly}, customMetricsGetID: {scopeReadOnly}, customMetricsCreateID: {scopeEdit},
+		customMetricsUpdateID: {scopeEdit}, customMetricsArchiveID: {scopeEdit},
+		keyEventsListID: {scopeReadOnly}, keyEventsGetID: {scopeReadOnly}, keyEventsCreateID: {scopeEdit},
+		keyEventsUpdateID: {scopeEdit}, keyEventsDeleteID: {scopeEdit},
+		eventRulesListID: {scopeReadOnly}, eventRulesGetID: {scopeReadOnly},
 		eventRulesCreateID: {scopeEdit}, eventRulesUpdateID: {scopeEdit}, eventRulesDeleteID: {scopeEdit}}) {
 		t.Errorf("scopes = %v", metadata.Token.Scopes)
 	}
@@ -112,6 +119,9 @@ func TestRegisterPublishesMetadataScopesAndConsent(t *testing.T) {
 		"google.analytics.custom-dimensions.archive", "google.analytics.custom-dimensions.create",
 		"google.analytics.custom-dimensions.get", "google.analytics.custom-dimensions.list",
 		"google.analytics.custom-dimensions.update",
+		"google.analytics.custom-metrics.archive", "google.analytics.custom-metrics.create",
+		"google.analytics.custom-metrics.get", "google.analytics.custom-metrics.list",
+		"google.analytics.custom-metrics.update",
 		"google.analytics.data-streams.create", "google.analytics.data-streams.delete", "google.analytics.data-streams.get",
 		"google.analytics.data-streams.list", "google.analytics.data-streams.update",
 		"google.analytics.data-streams.get-enhanced-measurement", "google.analytics.data-streams.update-enhanced-measurement",
@@ -122,6 +132,8 @@ func TestRegisterPublishesMetadataScopesAndConsent(t *testing.T) {
 		"google.analytics.event-create-rules.delete",
 		"google.analytics.measurement-protocol-secrets.delete", "google.analytics.measurement-protocol-secrets.get",
 		"google.analytics.measurement-protocol-secrets.list",
+		"google.analytics.key-events.create", "google.analytics.key-events.delete", "google.analytics.key-events.get",
+		"google.analytics.key-events.list", "google.analytics.key-events.update",
 		"google.analytics.properties.create", "google.analytics.properties.delete", "google.analytics.properties.get",
 		"google.analytics.properties.list", "google.analytics.properties.update", "google.analytics.report-tasks.create",
 		"google.analytics.report-tasks.get", "google.analytics.report-tasks.list", "google.analytics.report-tasks.query",
@@ -136,7 +148,8 @@ func TestRegisterPublishesMetadataScopesAndConsent(t *testing.T) {
 		audienceListID, reportsRunPivotID, reportsBatchRunID, reportsBatchRunPivotID, reportsRunRealtimeID,
 		reportTasksGetID, reportTasksListID, reportTasksQueryID, audienceQueryID, mpSecretsListID, mpSecretsGetID,
 		enhancedGetID, redactionGetID, siteTagGetID,
-		customDimensionsListID, customDimensionsGetID, eventRulesListID, eventRulesGetID}
+		customDimensionsListID, customDimensionsGetID, customMetricsListID,
+		customMetricsGetID, keyEventsListID, keyEventsGetID, eventRulesListID, eventRulesGetID}
 	if len(metadata.Profiles) != 2 || metadata.Profiles[0].ID != "read" || !metadata.Profiles[0].Recommended ||
 		!reflect.DeepEqual(metadata.Profiles[0].Tools, reads) || metadata.Profiles[1].ID != "write" ||
 		metadata.Profiles[1].Recommended ||
@@ -144,7 +157,9 @@ func TestRegisterPublishesMetadataScopesAndConsent(t *testing.T) {
 			append(slices.Clone(reads), accountsUpdateID, propertiesCreateID, propertiesUpdateID,
 				dataStreamsCreateID, dataStreamsUpdateID, dataStreamsDeleteID, mpSecretsDeleteID, audienceCreateID,
 				reportTasksCreateID, enhancedUpdateID, redactionUpdateID, customDimensionsCreateID,
-				customDimensionsUpdateID, customDimensionsArchiveID, eventRulesCreateID, eventRulesUpdateID, eventRulesDeleteID)) {
+				customDimensionsUpdateID, customDimensionsArchiveID,
+				customMetricsCreateID, customMetricsUpdateID, customMetricsArchiveID,
+				keyEventsCreateID, keyEventsUpdateID, keyEventsDeleteID, eventRulesCreateID, eventRulesUpdateID, eventRulesDeleteID)) {
 		t.Errorf("profiles = %+v", metadata.Profiles)
 	}
 	oauth, ok := reg.OAuth(Provider)

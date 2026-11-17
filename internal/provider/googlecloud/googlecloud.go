@@ -6,7 +6,8 @@
 // The package starts with Cloud Resource Manager: the search of organizations, folders, and projects, one
 // project, and the state of a long-running operation. It then reads IAM: roles, and the roles and permissions
 // of a resource. It changes only through the profiles service-accounts (service_accounts_write.go),
-// service-accounts-revoke and the listed-only service-accounts.delete (service_accounts_revoke.go), and
+// service-accounts-revoke and the listed-only service-accounts.delete (service_accounts_revoke.go),
+// api-keys-revoke (the deletion and restoration of API keys, api_keys.go), and
 // iam-bindings (a single binding of the IAM policy of a project, folder, or organization, iam_bindings.go),
 // each change with the confirmation of a person. Every request goes to a fixed origin of the service table,
 // with the access token in the Authorization header only, once, within a bounded size and time, and spaced per
@@ -86,7 +87,9 @@ func testClass(err error) (provider.Class, error) {
 // readTools are the tools of the profile read: every tool that needs no more than the read-only scope.
 var readTools = []string{organizationsSearch.ID, foldersSearch.ID, projectsSearch.ID, projectsGet.ID, operationsGet.ID,
 	organizationsGet.ID, foldersGet.ID, foldersList.ID, projectsList.ID, servicesList.ID, servicesGet.ID,
-	servicesBatchGet.ID, instancesList.ID, instancesAggregatedList.ID, instancesGet.ID, machineTypesList.ID}
+	servicesBatchGet.ID, apiKeysList.ID, apiKeysGet.ID, instancesList.ID, instancesAggregatedList.ID, instancesGet.ID,
+	machineTypesList.ID, zonesList.ID, regionsList.ID, computeOperationsGet.ID, computeOperationsList.ID,
+	networksList.ID, networksGet.ID, subnetworksList.ID, subnetworksGet.ID}
 
 // Register adds the provider metadata, its connection test, its consent endpoints, and its tools.
 func Register(reg *capability.Registry) error {
@@ -107,9 +110,10 @@ func Register(reg *capability.Registry) error {
 		Profiles: []config.ToolProfile{{
 			ID: "read", Title: "Read", Recommended: true,
 			Description: "searches and reads organizations, folders, and projects and reads the state of long-running " +
-				"operations from Google Cloud Resource Manager and the enabled and available APIs of a project from Service " +
-				"Usage with the read-only scope and the Compute Engine instances and machine types of a project with the scope " +
-				"compute.readonly, and changes nothing",
+				"operations from Google Cloud Resource Manager, the enabled and available APIs of a project from Service " +
+				"Usage, and the metadata of API keys with the read-only scope and the Compute Engine instances, machine " +
+				"types, zones, regions, operations (with the person who started each), VPC networks, and subnetworks of a " +
+				"project with the scope compute.readonly, and changes nothing",
 			Tools: readTools,
 		}, {
 			ID: "read-iam", Title: "Read with IAM",
@@ -151,6 +155,13 @@ func Register(reg *capability.Registry) error {
 				"and no tool creates a key, a token, or a signature",
 			Tools: []string{serviceAccountKeysDisable.ID, serviceAccountKeysEnable.ID, serviceAccountKeysDelete.ID},
 		}, {
+			ID: "api-keys-revoke", Title: "API key revocation",
+			Description: "deletes API keys of a project and restores deleted ones within the 30 days Google keeps them; " +
+				"the token holds the apikeys scope, which Google also uses to create keys and read their values, so " +
+				"the token may do what its account may, every change needs its own confirmation, and no tool creates " +
+				"a key or returns a key value",
+			Tools: []string{apiKeysDelete.ID, apiKeysUndelete.ID},
+		}, {
 			ID: "services", Title: "Enable APIs",
 			Description: "enables Google APIs in a project, one or up to 20 at a time, each with the confirmation of a " +
 				"person; these Service Usage methods accept only the broad cloud-platform scope, so the token may " +
@@ -183,6 +194,14 @@ func Register(reg *capability.Registry) error {
 		capability.Operation{Descriptor: instancesAggregatedList, Handler: handleInstancesAggregatedList},
 		capability.Operation{Descriptor: instancesGet, Handler: handleInstancesGet},
 		capability.Operation{Descriptor: machineTypesList, Handler: handleMachineTypesList},
+		capability.Operation{Descriptor: zonesList, Handler: handleZonesList},
+		capability.Operation{Descriptor: regionsList, Handler: handleRegionsList},
+		capability.Operation{Descriptor: computeOperationsGet, Handler: handleComputeOperationsGet},
+		capability.Operation{Descriptor: computeOperationsList, Handler: handleComputeOperationsList},
+		capability.Operation{Descriptor: networksList, Handler: handleNetworksList},
+		capability.Operation{Descriptor: networksGet, Handler: handleNetworksGet},
+		capability.Operation{Descriptor: subnetworksList, Handler: handleSubnetworksList},
+		capability.Operation{Descriptor: subnetworksGet, Handler: handleSubnetworksGet},
 		capability.Operation{Descriptor: iamRolesList, Handler: handleIAMRolesList},
 		capability.Operation{Descriptor: iamRolesGet, Handler: handleIAMRolesGet},
 		capability.Operation{Descriptor: iamRolesQuery, Handler: handleIAMRolesQuery},
@@ -217,6 +236,12 @@ func Register(reg *capability.Registry) error {
 			ConfirmationSummary: revokeSummary(serviceAccountKeysDeleteID)},
 		capability.Operation{Descriptor: serviceAccountsDelete, Handler: handleServiceAccountsDelete,
 			ConfirmationSummary: revokeSummary(serviceAccountsDeleteID)},
+		capability.Operation{Descriptor: apiKeysList, Handler: handleAPIKeysList},
+		capability.Operation{Descriptor: apiKeysGet, Handler: handleAPIKeysGet},
+		capability.Operation{Descriptor: apiKeysDelete, Handler: handleAPIKeysDelete,
+			ConfirmationSummary: apiKeySummary(apiKeysDeleteID)},
+		capability.Operation{Descriptor: apiKeysUndelete, Handler: handleAPIKeysUndelete,
+			ConfirmationSummary: apiKeySummary(apiKeysUndeleteID)},
 		capability.Operation{Descriptor: quotaInfosList, Handler: handleQuotaInfosList},
 		capability.Operation{Descriptor: quotaInfosGet, Handler: handleQuotaInfosGet},
 		capability.Operation{Descriptor: quotaPreferencesList, Handler: handleQuotaPreferencesList},

@@ -13,7 +13,7 @@ The transformation tools of the [Google Tag Manager provider](README.md). The up
 never-cut rules shared with tags, triggers, and variables are described there.
 
 A transformation changes, filters, or removes event data before tags receive it. A change is made in the
-workspace only and takes effect only with a published container version, which no tool of this provider makes,
+workspace only and takes effect only with a published container version, which no tool of this provider publishes,
 and no tool activates a transformation without publishing. Every change is confirmed, and the confirmation
 shows the name, the type, and the workspace or transformation path, never a parameter value.
 

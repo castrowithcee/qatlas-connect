@@ -57,7 +57,9 @@ func TestExcludedMethodsHaveNoTool(t *testing.T) {
 		reportsRunRealtimeID, audienceQueryID, reportTasksCreateID, reportTasksGetID, reportTasksListID,
 		reportTasksQueryID, enhancedGetID, enhancedUpdateID, redactionGetID, redactionUpdateID, siteTagGetID,
 		customDimensionsListID, customDimensionsGetID, customDimensionsCreateID, customDimensionsUpdateID,
-		customDimensionsArchiveID, eventRulesListID, eventRulesGetID, eventRulesCreateID, eventRulesUpdateID,
+		customDimensionsArchiveID, customMetricsListID, customMetricsGetID, customMetricsCreateID,
+		customMetricsUpdateID, customMetricsArchiveID, keyEventsListID, keyEventsGetID, keyEventsCreateID,
+		keyEventsUpdateID, keyEventsDeleteID, eventRulesListID, eventRulesGetID, eventRulesCreateID, eventRulesUpdateID,
 		eventRulesDeleteID}; !slices.Equal(ids, sortedCopy(want)) {
 		t.Errorf("tools = %v", ids)
 	}

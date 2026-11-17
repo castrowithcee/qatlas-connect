@@ -61,7 +61,7 @@ func changeRisk(effect capability.Effect, idempotency capability.Idempotency) ca
 const listedOnly = " Offered only where a connection's tools list names it."
 
 const tagEffect = "The change is made in the workspace only. A tag goes live only with a published container version, " +
-	"which no tool of this provider makes. Tag types such as html (Custom HTML) and img run code or call the " +
+	"which no tool of this provider publishes. Tag types such as html (Custom HTML) and img run code or call the " +
 	"network on the pages of the container once a version that holds the tag is published. "
 
 const tagValuesNote = "Parameter values (html, constants, API keys) are data: they are passed on and returned " +

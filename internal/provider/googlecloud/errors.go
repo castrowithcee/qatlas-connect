@@ -69,6 +69,12 @@ func googleError(op string, status int, body []byte) *provider.Error {
 		}
 		return invalid()
 	case http.StatusBadRequest:
+		// FAILED_PRECONDITION is the google.rpc.Code of a request that is valid but refused by the state of the
+		// resource, such as a delete with a stale etag or a restore after the retention period.
+		if state == "FAILED_PRECONDITION" {
+			return failed(provider.ClassProviderError, subject+" refused the request because the state of the "+
+				"resource does not allow it, for example the etag no longer matches or the retention period ended")
+		}
 		return failed(provider.ClassInvalidResponse, subject+" rejected the request as invalid (HTTP 400) although "+
 			"Qatlas Connect checked it; the API may have changed")
 	case http.StatusConflict:

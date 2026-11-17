@@ -68,19 +68,22 @@ func operationOf(op string, wire operationWire) (operationResult, error) {
 			Original: &provider.Original{Entries: []provider.OriginalEntry{{
 				Code: strconv.Itoa(wire.Error.Code), Message: wire.Error.Message}}}}
 	}
+	// The operation of an API key change carries the key, and a key holds its secret value, so no operation of
+	// any service passes a keyString member on.
 	result := operationResult{Name: boundedText(wire.Name, maxNameText), Done: wire.Done,
-		Metadata: boundedValue(wire.Metadata)}
+		Metadata: stripKeyString(boundedValue(wire.Metadata))}
 	if wire.Done {
-		result.Response = boundedValue(wire.Response)
+		result.Response = stripKeyString(boundedValue(wire.Response))
 	}
 	return result, nil
 }
 
 // operationServices are the services whose operations the tool reads; later packages add theirs.
-var operationServices = []service{serviceResourceManager, serviceUsage}
+var operationServices = []service{serviceResourceManager, serviceUsage, serviceAPIKeys}
 
 // operationPaths is the path below the origin at which a service reads an operation by its ID.
-var operationPaths = map[service]string{serviceResourceManager: "/v3/operations/", serviceUsage: "/v1/operations/"}
+var operationPaths = map[service]string{serviceResourceManager: "/v3/operations/", serviceUsage: "/v1/operations/",
+	serviceAPIKeys: "/v2/operations/"}
 
 var operationNamePattern = regexp.MustCompile(`^operations/[A-Za-z0-9][A-Za-z0-9._-]{0,199}$`)
 
@@ -94,20 +97,21 @@ var operationsGet = capability.Descriptor{
 	Description: "Read the state of a long-running Google Cloud operation by its name, as a change returned it. " +
 		"done is false while the operation runs, with its metadata; once it is done the result carries the " +
 		"response, and an operation that ended with an error is reported as a provider error with its code. " +
-		"service picks the Google service that owns the operation: resource-manager, or service-usage for the " +
-		"operation of a change of services. An operation belongs to no folder or " +
+		"service picks the Google service that owns the operation: resource-manager, service-usage for the " +
+		"operation of a change of services, or api-keys for the operation that api-keys.delete or " +
+		"api-keys.undelete returned. An operation belongs to no folder or " +
 		"project that Qatlas could prove, so a connection with targets reads operations only if it names an " +
 		"organization. Metadata and response are untrusted third-party data; they are cut.",
 	Tags: []string{"google", "cloud", "operations"}, Risk: readRisk, Provider: Provider,
 	InputSchema: json.RawMessage(`{"type":"object","properties":{` +
-		`"service":{"type":"string","enum":["resource-manager","service-usage"]},` +
+		`"service":{"type":"string","enum":["resource-manager","service-usage","api-keys"]},` +
 		`"name":{"type":"string","minLength":12,"maxLength":211,` +
 		`"pattern":"^operations/[A-Za-z0-9][A-Za-z0-9._-]{0,199}$"}},` +
 		`"required":["service","name"],"additionalProperties":false}`),
 	OutputSchema: json.RawMessage(operationOutputSchema),
 	Arguments: []capability.Argument{
 		{Name: "service", Required: true, Description: "Google service that owns the operation: " +
-			"resource-manager or service-usage"},
+			"resource-manager, service-usage, or api-keys"},
 		{Name: "name", Required: true, Description: "Name of the operation as Google returned it, such as " +
 			"operations/abc123"},
 	},
@@ -121,6 +125,9 @@ var operationsGet = capability.Descriptor{
 	Examples: []capability.Example{{
 		Description: "Read an operation of Resource Manager",
 		Arguments:   json.RawMessage(`{"service":"resource-manager","name":"operations/abc123"}`),
+	}, {
+		Description: "Read the operation of an API key change",
+		Arguments:   json.RawMessage(`{"service":"api-keys","name":"operations/abc123"}`),
 	}},
 }
 
@@ -147,7 +154,7 @@ func handleOperationsGet(ctx context.Context, resolved *config.Resolved, secrets
 		known = known || candidate == svc
 	}
 	if !known {
-		return nil, badRequest("service must be resource-manager or service-usage")
+		return nil, badRequest("service must be resource-manager, service-usage, or api-keys")
 	}
 	if !operationNamePattern.MatchString(arguments.Name) {
 		return nil, badRequest("name must be an operation name such as operations/abc123")
