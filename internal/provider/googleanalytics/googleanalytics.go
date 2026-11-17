@@ -17,8 +17,11 @@
 // of a measurement protocol secret is never returned: it is read from Google's answer only to register it with
 // the redactor.
 //
-// The settings and the event create rules of a web data stream and the calculated metrics and annotations of a
-// property run on the Admin API v1alpha, see alpha.go.
+// The settings and the event create rules of a web data stream and the calculated metrics, annotations and
+// attribution settings of a property run on the Admin API v1alpha, see alpha.go.
+//
+// The change history search accepts only the scope analytics.edit, so it is outside the profile read. Its
+// events hold email addresses of users and snapshots of resources: personal data, shown bounded.
 //
 // A connection may bind Analytics accounts (accounts/ID) and properties (properties/ID). Without a target it
 // reaches what the credential reaches. A bound account reaches its properties, a bound property only itself;
@@ -154,6 +157,11 @@ var scopes = map[string][]string{
 	dataRetentionUpdateID: {scopeEdit},
 	googleSignalsGetID:    {scopeReadOnly},
 	googleSignalsUpdateID: {scopeEdit},
+
+	attributionGetID:    {scopeReadOnly},
+	attributionUpdateID: {scopeEdit},
+	// searchChangeHistoryEvents lists analytics.edit alone, so the search needs a token that could also change.
+	changeHistoryID: {scopeEdit},
 }
 
 func tokenMetadata() config.TokenMetadata { return config.TokenMetadata{Scopes: scopes} }
@@ -220,7 +228,7 @@ var readTools = []string{summariesID, accountsID, accountsGetID, accountsSharing
 	customDimensionsListID, customDimensionsGetID, customMetricsListID,
 	customMetricsGetID, keyEventsListID, keyEventsGetID, eventRulesListID, eventRulesGetID,
 	calculatedListID, calculatedGetID, accessAccountID, accessPropertyID, dataRetentionGetID, googleSignalsGetID,
-	annotationsListID, annotationsGetID}
+	annotationsListID, annotationsGetID, attributionGetID}
 
 // Register adds the provider metadata, its consent endpoints, its connection test and its tools.
 func Register(reg *capability.Registry) error {
@@ -260,9 +268,11 @@ func Register(reg *capability.Registry) error {
 		}, {
 			ID: "write", Title: "Read and change",
 			Description: "reads what the read profile reads and changes Analytics accounts, properties, data streams, custom " +
-				"dimensions, custom metrics, key events, event create rules, calculated metrics, annotations and Google Signals, starts audience exports and report tasks, " +
+				"dimensions, custom metrics, key events, event create rules, calculated metrics, annotations, attribution settings and Google Signals, starts audience exports and report tasks, " +
 				"and deletes data streams, measurement protocol secrets and key events; every change needs its own " +
-				"confirmation, and deleting an account or a property stays unlisted, and so does changing the data retention",
+				"confirmation, and deleting an account or a property stays unlisted, and so does changing the data retention. " +
+				"It also searches the change history, which holds the email addresses of users and accepts only the " +
+				"scope analytics.edit",
 			Tools: append(slices.Clone(readTools), accountsUpdateID, propertiesCreateID, propertiesUpdateID,
 				dataStreamsCreateID, dataStreamsUpdateID, dataStreamsDeleteID, mpSecretsDeleteID, audienceCreateID,
 				reportTasksCreateID, enhancedUpdateID, redactionUpdateID, customDimensionsCreateID,
@@ -270,7 +280,14 @@ func Register(reg *capability.Registry) error {
 				customMetricsCreateID, customMetricsUpdateID, customMetricsArchiveID,
 				keyEventsCreateID, keyEventsUpdateID, keyEventsDeleteID, eventRulesCreateID, eventRulesUpdateID, eventRulesDeleteID,
 				calculatedCreateID, calculatedUpdateID, calculatedDeleteID, googleSignalsUpdateID,
-				annotationsCreateID, annotationsUpdateID, annotationsDeleteID),
+				annotationsCreateID, annotationsUpdateID, annotationsDeleteID, attributionUpdateID, changeHistoryID),
+		}, {
+			ID: "read-change-history", Title: "Read with change history",
+			Description: "everything of read plus the search in the change history of an account or property; " +
+				"the method accepts only the scope analytics.edit, so the token may change what its account may, " +
+				"although no tool of this profile changes anything. The events hold the email addresses of users, " +
+				"which are personal data",
+			Tools: append(slices.Clone(readTools), changeHistoryID),
 		}},
 	}, TestConnection); err != nil {
 		return err
@@ -376,6 +393,9 @@ func Register(reg *capability.Registry) error {
 		{Descriptor: dataRetentionUpdate, Handler: handleDataRetentionUpdate, ConfirmationSummary: retentionSummary},
 		{Descriptor: googleSignalsGet, Handler: handleGoogleSignalsGet},
 		{Descriptor: googleSignalsUpdate, Handler: handleGoogleSignalsUpdate, ConfirmationSummary: signalsSummary},
+		{Descriptor: attributionGet, Handler: handleAttributionGet},
+		{Descriptor: attributionUpdate, Handler: handleAttributionUpdate, ConfirmationSummary: attributionSummary},
+		{Descriptor: changeHistorySearch, Handler: handleChangeHistorySearch},
 	} {
 		if err := reg.Register(Provider, operation); err != nil {
 			return err

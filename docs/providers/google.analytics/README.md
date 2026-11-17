@@ -1,6 +1,6 @@
 ---
 description: >
-  Describes the Google Analytics provider: the fixed Admin and Data API origins, the token credential, the optional account and property targets and what each tool does with them, the read and write profiles, the alpha tools rule, paging, bounds on provider content, rate spacing, quotas, the connection test, and the limits of what is verified; the account, property, data stream, custom dimension, custom metric, key event, event create rule, calculated metric, annotation, report, audience export, report task, access report, data retention, and Google Signals tools have their own pages.
+  Describes the Google Analytics provider: the fixed Admin and Data API origins, the token credential, the optional account and property targets and what each tool does with them, the read and write profiles, the alpha tools rule, paging, bounds on provider content, rate spacing, quotas, the connection test, and the limits of what is verified; the account, property, data stream, custom dimension, custom metric, key event, event create rule, calculated metric, annotation, report, audience export, report task, access report, data retention, Google Signals, attribution settings, and change history tools have their own pages.
 type: knowledge
 edit: shared
 created: 2026-11-16
@@ -21,8 +21,9 @@ property accepts, creates and reads audience exports, and reads the users of an 
 It also starts asynchronous report tasks (alpha) and reads their state and rows, lists, reads, creates, changes,
 and deletes the calculated metrics and the annotations of a property (alpha), and runs Data Access Reports on an
 account or property, which name the users who read the data and are personal data. It reads and changes the data
-retention settings of a property and, through the alpha Admin API, its Google Signals setting. The reading tools change
-nothing. The account, property, data stream, custom dimension, custom metric, key event, event create rule, calculated metric, and annotation tools read no report data and use no reporting quota; the report
+retention settings of a property and, through the alpha Admin API, its Google Signals setting and its attribution
+settings. It searches the change history of an account or property, which names the users who made changes and
+is personal data. The reading tools change nothing. The account, property, data stream, custom dimension, custom metric, key event, event create rule, calculated metric, and annotation tools read no report data and use no reporting quota; the report
 tools do, see [reports](reports.md#quota), and so does starting an audience export, see
 [audience exports](audience-exports.md#quota), and starting a report task, see
 [report tasks](report-tasks.md#quota). Every tool that changes something needs confirmation.
@@ -33,7 +34,8 @@ tools do, see [reports](reports.md#quota), and so does starting an audience expo
 [calculated metrics](calculated-metrics.md),
 [annotations](annotations.md), [reports](reports.md), [audience exports](audience-exports.md), [report tasks](report-tasks.md),
 [measurement protocol secrets](measurement-protocol-secrets.md), [access reports](access-reports.md),
-[data retention](data-retention.md), and [Google Signals](google-signals.md). The funnel report and the report
+[data retention](data-retention.md), [Google Signals](google-signals.md),
+[attribution settings](attribution-settings.md), and [change history](change-history.md). The funnel report and the report
 tasks use the alpha version of the Data API, which Google can change without notice; their descriptions say so.
 The audience exports use the beta version. Tools on the alpha version of the Admin API follow the
 [alpha tools](#alpha-tools) rule.
@@ -61,7 +63,8 @@ with an `ALPHA:` note. Google can change or remove such a method without notice,
 the answer of the tool change with it. Every other Admin tool uses `v1beta`. The tool groups that use `v1alpha`
 say so on their page: the [data streams](data-streams.md#stream-settings-alpha) settings tools, the
 [event create rule](event-create-rules.md) tools, the [calculated metrics](calculated-metrics.md) tools, and the
-[annotations](annotations.md), and the [Google Signals](google-signals.md) tools.
+[annotations](annotations.md), the [Google Signals](google-signals.md) tools, and the
+[attribution settings](attribution-settings.md) tools.
 
 ## Targets
 
@@ -96,6 +99,8 @@ not name the resource.
 | `calculated-metrics.get`, `calculated-metrics.update`, `calculated-metrics.delete` | The property in the metric name follows the same rule |
 | `annotations.list`, `annotations.get`, `annotations.create`, `annotations.update`, `annotations.delete` | Use the annotations of a bound property, or of a property of a bound account after one proof read of its parent; see [annotations](annotations.md#targets-and-proof) |
 | `data-retention.get`, `data-retention.update`, `google-signals.get`, `google-signals.update` | Use a bound property, or a property of a bound account after one proof read of its parent; see [data retention](data-retention.md#targets-and-proof) |
+| `attribution-settings.get`, `attribution-settings.update` | Use a bound property, or a property of a bound account after one proof read of its parent; see [attribution settings](attribution-settings.md#targets-and-proof) |
+| `change-history.search` | `account` must be a bound account or the account of a bound property, and a connection that binds properties needs `property`; see [change history](change-history.md#targets-and-proof) |
 | `reports.run`, `reports.run-pivot`, `reports.batch-run`, `reports.batch-run-pivot`, `reports.run-realtime`, `reports.check-compatibility` | Use a bound property, or a property of a bound account after one proof read of its parent |
 | `reports.get-metadata` | Like `reports.run`; `properties/0` needs no target, see [reports](reports.md#property-and-targets) |
 | `reports.run-funnel` | Like `reports.run` |
@@ -131,8 +136,9 @@ The profile `read` is the recommended one and holds `google.analytics.accounts.l
 `google.analytics.calculated-metrics.list`, `google.analytics.calculated-metrics.get`,
 `google.analytics.annotations.list`, `google.analytics.annotations.get`,
 `google.analytics.accounts.run-access-report`, `google.analytics.properties.run-access-report`,
-`google.analytics.data-retention.get`, and `google.analytics.google-signals.get`. The profile `write` reads like `read`, changes accounts, properties,
-data streams and their settings, custom dimensions, custom metrics, key events, event create rules, calculated metrics, annotations, and Google Signals, deletes data streams, measurement protocol secrets, and key events,
+`google.analytics.data-retention.get`, `google.analytics.google-signals.get`, and
+`google.analytics.attribution-settings.get`. The profile `write` reads like `read`, changes accounts, properties,
+data streams and their settings, custom dimensions, custom metrics, key events, event create rules, calculated metrics, annotations, Google Signals, and attribution settings, deletes data streams, measurement protocol secrets, and key events,
 and starts audience exports and report tasks, each change with its own confirmation: it adds
 `google.analytics.accounts.update`, `google.analytics.properties.create`, `google.analytics.properties.update`,
 `google.analytics.data-streams.create`, `google.analytics.data-streams.update`, `google.analytics.data-streams.delete`,
@@ -147,10 +153,15 @@ and starts audience exports and report tasks, each change with its own confirmat
 `google.analytics.calculated-metrics.create`, `google.analytics.calculated-metrics.update`,
 `google.analytics.calculated-metrics.delete`, `google.analytics.annotations.create`,
 `google.analytics.annotations.update`, `google.analytics.annotations.delete`, and
-`google.analytics.google-signals.update`. The users of an
+`google.analytics.google-signals.update`, `google.analytics.attribution-settings.update`, and
+`google.analytics.change-history.search`. The users of an
 export are personal data; see
 [audience exports](audience-exports.md#personal-data); so are the access reports, see
-[access reports](access-reports.md#personal-data). Deleting an account or a property is in no profile: a
+[access reports](access-reports.md#personal-data). `change-history.search` is not in the recommended profile
+`read`: Google accepts only the scope `analytics.edit` for it, so its token could change what the account may
+although the tool changes nothing, and its events hold the email addresses of users, see
+[change history](change-history.md#scope-and-profiles). The profile `read-change-history` is `read` plus this tool,
+and a connection offers it only when its `tools` list names it. Deleting an account or a property is in no profile: a
 connection offers `google.analytics.accounts.delete` and `google.analytics.properties.delete` only when its
 `tools` list names them. So does changing the data retention: `google.analytics.data-retention.update` is in no
 profile either, because shortening a period deletes data permanently, see [data retention](data-retention.md).
@@ -163,7 +174,7 @@ the profile `write`, with its own confirmation. Which scope each tool needs is l
 
 A list returns `next_cursor` and `has_more` when Google reports a further page; reports continue by row offset,
 see [reports](reports.md#rows-and-cursor), funnel, pivot, batch, and realtime reports have no cursor,
-`audience-exports.list`, `report-tasks.list`, and `annotations.list` page by cursor, see
+`audience-exports.list`, `report-tasks.list`, `annotations.list`, and `change-history.search` page by cursor, see
 [audience exports](audience-exports.md#googleanalyticsaudience-exportslist), and the rows of
 `audience-exports.query`, `report-tasks.query`, and the access reports continue by row offset like reports. The cursor wraps Google's page
 token and fits only the tool, the connection, and the arguments that Google requires to stay the same, such as
