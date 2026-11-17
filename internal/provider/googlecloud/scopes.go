@@ -3,7 +3,8 @@ package googlecloud
 import "github.com/castrowithcee/qatlas-connect/internal/config"
 
 // scopeReadOnly is the smallest scope of the Resource Manager reads, which the discovery document of
-// cloudresourcemanager v3 lists next to cloud-platform for every method of this package.
+// cloudresourcemanager v3 lists next to cloud-platform for every method of this package, and of the Service
+// Usage reads, for which serviceusage v1 lists it for services.list, get, and batchGet.
 const scopeReadOnly = "https://www.googleapis.com/auth/cloud-platform.read-only"
 
 // scopeCloudPlatform is the one scope the discovery documents of iam v1 and v2 list for the role, policy,
@@ -23,6 +24,9 @@ var tokenMetadata = config.TokenMetadata{Scopes: map[string][]string{
 	foldersGetID:          {scopeReadOnly},
 	foldersListID:         {scopeReadOnly},
 	projectsListID:        {scopeReadOnly},
+	servicesListID:        {scopeReadOnly},
+	servicesGetID:         {scopeReadOnly},
+	servicesBatchGetID:    {scopeReadOnly},
 	iamRolesListID:        {scopeCloudPlatform},
 	iamRolesGetID:         {scopeCloudPlatform},
 	iamRolesQueryID:       {scopeCloudPlatform},
