@@ -43,6 +43,7 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 			wantEffect = config.EffectCreate
 		case tool.ID == serviceAccountsPatchID, tool.ID == serviceAccountsDisableID, tool.ID == serviceAccountsEnableID,
 			tool.ID == serviceAccountKeysDisableID, tool.ID == serviceAccountKeysEnableID, tool.ID == apiKeysUndeleteID,
+			tool.ID == servicesEnableID, tool.ID == servicesBatchEnableID, tool.ID == servicesDisableID,
 			strings.Contains(tool.ID, ".iam-bindings."):
 			wantEffect = config.EffectUpdate
 		case tool.ID == serviceAccountKeysDeleteID, tool.ID == serviceAccountsDeleteID, tool.ID == apiKeysDeleteID:
@@ -55,7 +56,8 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 			t.Errorf("%s effect = %v", tool.ID, tool.Effect)
 		}
 		wantScope := "https://www.googleapis.com/auth/cloud-platform.read-only"
-		if strings.Contains(tool.ID, ".iam-") || strings.Contains(tool.ID, ".service-account") {
+		if strings.Contains(tool.ID, ".iam-") || strings.Contains(tool.ID, ".service-account") ||
+			tool.ID == servicesEnableID || tool.ID == servicesBatchEnableID || tool.ID == servicesDisableID {
 			// The discovery documents list cloud-platform alone for the IAM methods.
 			wantScope = "https://www.googleapis.com/auth/cloud-platform"
 		}
@@ -81,7 +83,8 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 		"google.cloud.service-account-keys.list", "google.cloud.service-accounts.create",
 		"google.cloud.service-accounts.delete", "google.cloud.service-accounts.disable", "google.cloud.service-accounts.enable",
 		"google.cloud.service-accounts.get", "google.cloud.service-accounts.list",
-		"google.cloud.service-accounts.patch", "google.cloud.services.batch-get", "google.cloud.services.get",
+		"google.cloud.service-accounts.patch", "google.cloud.services.batch-enable", "google.cloud.services.batch-get",
+		"google.cloud.services.disable", "google.cloud.services.enable", "google.cloud.services.get",
 		"google.cloud.services.list"}; !slices.Equal(ids, want) {
 		t.Errorf("tools = %v, want %v", ids, want)
 	}
@@ -113,6 +116,10 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 		case "api-keys-revoke":
 			if profile.Recommended || len(profile.Tools) != 2 {
 				t.Errorf("profile api-keys-revoke = %+v", profile)
+			}
+		case "services":
+			if profile.Recommended || !slices.Equal(profile.Tools, []string{servicesEnableID, servicesBatchEnableID}) {
+				t.Errorf("profile services = %+v", profile)
 			}
 		case "iam-bindings":
 			if profile.Recommended || !slices.Contains(profile.Tools, iamBindingsAddID) ||

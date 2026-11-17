@@ -79,7 +79,11 @@ func operationOf(op string, wire operationWire) (operationResult, error) {
 }
 
 // operationServices are the services whose operations the tool reads; later packages add theirs.
-var operationServices = []service{serviceResourceManager, serviceAPIKeys}
+var operationServices = []service{serviceResourceManager, serviceUsage, serviceAPIKeys}
+
+// operationPaths is the path below the origin at which a service reads an operation by its ID.
+var operationPaths = map[service]string{serviceResourceManager: "/v3/operations/", serviceUsage: "/v1/operations/",
+	serviceAPIKeys: "/v2/operations/"}
 
 var operationNamePattern = regexp.MustCompile(`^operations/[A-Za-z0-9][A-Za-z0-9._-]{0,199}$`)
 
@@ -93,20 +97,21 @@ var operationsGet = capability.Descriptor{
 	Description: "Read the state of a long-running Google Cloud operation by its name, as a change returned it. " +
 		"done is false while the operation runs, with its metadata; once it is done the result carries the " +
 		"response, and an operation that ended with an error is reported as a provider error with its code. " +
-		"service picks the Google service that owns the operation: resource-manager, or api-keys for the operation " +
-		"that api-keys.delete or api-keys.undelete returned. An operation belongs to no folder or " +
+		"service picks the Google service that owns the operation: resource-manager, service-usage for the " +
+		"operation of a change of services, or api-keys for the operation that api-keys.delete or " +
+		"api-keys.undelete returned. An operation belongs to no folder or " +
 		"project that Qatlas could prove, so a connection with targets reads operations only if it names an " +
 		"organization. Metadata and response are untrusted third-party data; they are cut.",
 	Tags: []string{"google", "cloud", "operations"}, Risk: readRisk, Provider: Provider,
 	InputSchema: json.RawMessage(`{"type":"object","properties":{` +
-		`"service":{"type":"string","enum":["resource-manager","api-keys"]},` +
+		`"service":{"type":"string","enum":["resource-manager","service-usage","api-keys"]},` +
 		`"name":{"type":"string","minLength":12,"maxLength":211,` +
 		`"pattern":"^operations/[A-Za-z0-9][A-Za-z0-9._-]{0,199}$"}},` +
 		`"required":["service","name"],"additionalProperties":false}`),
 	OutputSchema: json.RawMessage(operationOutputSchema),
 	Arguments: []capability.Argument{
 		{Name: "service", Required: true, Description: "Google service that owns the operation: " +
-			"resource-manager or api-keys"},
+			"resource-manager, service-usage, or api-keys"},
 		{Name: "name", Required: true, Description: "Name of the operation as Google returned it, such as " +
 			"operations/abc123"},
 	},
@@ -149,7 +154,7 @@ func handleOperationsGet(ctx context.Context, resolved *config.Resolved, secrets
 		known = known || candidate == svc
 	}
 	if !known {
-		return nil, badRequest("service must be resource-manager or api-keys")
+		return nil, badRequest("service must be resource-manager, service-usage, or api-keys")
 	}
 	if !operationNamePattern.MatchString(arguments.Name) {
 		return nil, badRequest("name must be an operation name such as operations/abc123")
@@ -163,10 +168,7 @@ func handleOperationsGet(ctx context.Context, resolved *config.Resolved, secrets
 		return nil, err
 	}
 	var wire operationWire
-	path := "/v3/operations/" + url.PathEscape(arguments.Name[len("operations/"):])
-	if svc == serviceAPIKeys {
-		path = "/v2/operations/" + url.PathEscape(arguments.Name[len("operations/"):])
-	}
+	path := operationPaths[svc] + url.PathEscape(arguments.Name[len("operations/"):])
 	if err := c.get(ctx, op, operationsGetID, svc, path, nil, &wire); err != nil {
 		return nil, err
 	}

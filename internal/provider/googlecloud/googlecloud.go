@@ -149,6 +149,13 @@ func Register(reg *capability.Registry) error {
 				"the token may do what its account may, every change needs its own confirmation, and no tool creates " +
 				"a key or returns a key value",
 			Tools: []string{apiKeysDelete.ID, apiKeysUndelete.ID},
+		}, {
+			ID: "services", Title: "Enable APIs",
+			Description: "enables Google APIs in a project, one or up to 20 at a time, each with the confirmation of a " +
+				"person; these Service Usage methods accept only the broad cloud-platform scope, so the token may " +
+				"change what its account may; the resources and calls of an enabled API may be billed; disabling an " +
+				"API is not part of this profile and needs a tools list that names it",
+			Tools: []string{servicesEnable.ID, servicesBatchEnable.ID},
 		}},
 	}, TestConnection); err != nil {
 		return err
@@ -210,5 +217,11 @@ func Register(reg *capability.Registry) error {
 		capability.Operation{Descriptor: apiKeysDelete, Handler: handleAPIKeysDelete,
 			ConfirmationSummary: apiKeySummary(apiKeysDeleteID)},
 		capability.Operation{Descriptor: apiKeysUndelete, Handler: handleAPIKeysUndelete,
-			ConfirmationSummary: apiKeySummary(apiKeysUndeleteID)})
+			ConfirmationSummary: apiKeySummary(apiKeysUndeleteID)},
+		capability.Operation{Descriptor: servicesEnable, Handler: handleServicesEnable,
+			ConfirmationSummary: serviceChangeSummary(servicesEnableID)},
+		capability.Operation{Descriptor: servicesBatchEnable, Handler: handleServicesBatchEnable,
+			ConfirmationSummary: serviceChangeSummary(servicesBatchEnableID)},
+		capability.Operation{Descriptor: servicesDisable, Handler: handleServicesDisable,
+			ConfirmationSummary: serviceChangeSummary(servicesDisableID)})
 }

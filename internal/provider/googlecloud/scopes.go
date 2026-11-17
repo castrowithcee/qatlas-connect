@@ -63,4 +63,8 @@ var tokenMetadata = config.TokenMetadata{Scopes: map[string][]string{
 	apiKeysGetID:      {scopeReadOnly},
 	apiKeysDeleteID:   {scopeAPIKeys},
 	apiKeysUndeleteID: {scopeAPIKeys},
+	// serviceusage v1 lists only cloud-platform for services enable, batchEnable, and disable.
+	servicesEnableID:      {scopeCloudPlatform},
+	servicesBatchEnableID: {scopeCloudPlatform},
+	servicesDisableID:     {scopeCloudPlatform},
 }}
