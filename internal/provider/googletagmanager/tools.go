@@ -17,7 +17,8 @@ import (
 // The scopes of the tools. The discovery document names for each method the scopes that allow it: a read
 // takes readonly or edit.containers, and the smaller one is asked for; a change takes edit.containers.
 // Deleting a workspace takes delete.containers alone, and a quick preview takes edit.containerversions alone.
-// Google also offers publish, manage.accounts, and manage.users; a connection asks only for those its tools need.
+// Renaming an account takes manage.accounts alone. Google also offers publish and manage.users; a connection
+// asks only for those its tools need.
 const (
 	readonlyScope = "https://www.googleapis.com/auth/tagmanager.readonly"
 	editScope     = "https://www.googleapis.com/auth/tagmanager.edit.containers"
@@ -37,6 +38,9 @@ func toolScopes() map[string][]string {
 		}
 		if d.ID == workspacesQuickPreviewID {
 			scopes[d.ID] = []string{previewScope}
+		}
+		if d.ID == accountsUpdateID {
+			scopes[d.ID] = []string{manageAccountsScope}
 		}
 	}
 	return scopes
@@ -130,8 +134,9 @@ func descriptors() []capability.Descriptor {
 		workspacesGet}, append(workspaceManageDescriptors(), append(tagDescriptors(), append(triggerDescriptors(),
 		append(variableDescriptors(), append(builtInVariableDescriptors(), append(folderDescriptors(),
 			append(clientDescriptors(), append(transformationDescriptors(),
-				append(zoneDescriptors(), append(gtagConfigDescriptors(),
-					templateDescriptors()...)...)...)...)...)...)...)...)...)...)...)
+				append(zoneDescriptors(), append(gtagConfigDescriptors(), append(templateDescriptors(),
+					append(structureManageDescriptors(),
+						destinationDescriptors()...)...)...)...)...)...)...)...)...)...)...)...)...)
 }
 
 var accountsList = capability.Descriptor{
