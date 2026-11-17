@@ -40,4 +40,8 @@ var tokenMetadata = config.TokenMetadata{Scopes: map[string][]string{
 	serviceAccountsGetID:     {scopeCloudPlatform},
 	serviceAccountKeysListID: {scopeCloudPlatform},
 	serviceAccountKeysGetID:  {scopeCloudPlatform},
+	// cloudresourcemanager v3 lists only cloud-platform for setIamPolicy of projects, folders, and organizations.
+	iamBindingsAddID:    {scopeCloudPlatform},
+	iamBindingsRemoveID: {scopeCloudPlatform},
+	iamBindingsChangeID: {scopeCloudPlatform},
 }}

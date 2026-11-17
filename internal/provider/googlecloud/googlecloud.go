@@ -1,11 +1,12 @@
-// Package googlecloud implements read-only access to Google Cloud with one credential that issues access
+// Package googlecloud implements access to Google Cloud with one credential that issues access
 // tokens: a person's consent, a service account key, or the impersonation of a service account, all through
 // the token core of internal/provider. A connection takes no secret of its own and no scope: the scopes follow
 // from the tools it offers (see scopes.go).
 //
 // The package starts with Cloud Resource Manager: the search of organizations, folders, and projects, one
 // project, and the state of a long-running operation. It then reads IAM: roles, and the roles and permissions
-// of a resource. Every
+// of a resource. The one change it makes is to a single binding of the IAM policy of a project, folder, or
+// organization, each with the confirmation of a person (iam_bindings.go). Every
 // request goes to a fixed origin of the service table, with the access token in the Authorization header only,
 // once, within a bounded size and time, and spaced per credential.
 //
@@ -90,7 +91,7 @@ func Register(reg *capability.Registry) error {
 	token := tokenMetadata
 	if err := reg.RegisterProvider(config.ProviderMetadata{
 		ID: Provider, Name: "Google Cloud", DefaultBaseURL: apiRoot,
-		Description:    "Projects, folders, organizations, long-running operations, IAM roles, and service accounts of Google Cloud, searched and read with a consent, a service account key, or an impersonated service account",
+		Description:    "Reads projects, folders, organizations, operations, IAM, and service accounts of Google Cloud and changes single IAM bindings, through a consent, a service account key, or impersonation",
 		DefaultEffects: []config.Effect{config.EffectRead},
 		ValidateBaseURL: func(raw string) error {
 			if !isAPIRoot(raw) {
@@ -111,11 +112,19 @@ func Register(reg *capability.Registry) error {
 			ID: "read-iam", Title: "Read with IAM",
 			Description: "everything of read plus IAM roles, policies, deny policies, the roles and permissions of a resource, " +
 				"and service accounts with the metadata of their keys; these IAM methods accept only the broad cloud-platform " +
-				"scope, so the token may change what its account may, although no tool of this provider changes anything",
+				"scope, so the token may change what its account may, although no tool of this profile changes anything",
 			Tools: append(append([]string{}, readTools...), iamRolesList.ID, iamRolesGet.ID, iamRolesQuery.ID,
 				iamPermissionsQuery.ID, iamPoliciesGet.ID, iamPermissionsTest.ID, denyPoliciesList.ID,
 				denyPoliciesGet.ID, serviceAccountsList.ID, serviceAccountsGet.ID, serviceAccountKeysList.ID,
 				serviceAccountKeysGet.ID),
+		}, {
+			ID: "iam-bindings", Title: "Change IAM bindings",
+			Description: "everything of read plus reading IAM policies and adding a member to, removing a member from, " +
+				"or moving a member between the bindings of a project, folder, or organization, each with the " +
+				"confirmation of a person; only principals already in the policy, or service accounts of the same " +
+				"project, are granted; these methods accept only the broad cloud-platform scope",
+			Tools: append(append([]string{}, readTools...), iamPoliciesGet.ID, iamBindingsAdd.ID, iamBindingsRemove.ID,
+				iamBindingsChange.ID),
 		}},
 	}, TestConnection); err != nil {
 		return err
@@ -149,5 +158,11 @@ func Register(reg *capability.Registry) error {
 		capability.Operation{Descriptor: serviceAccountsList, Handler: handleServiceAccountsList},
 		capability.Operation{Descriptor: serviceAccountsGet, Handler: handleServiceAccountsGet},
 		capability.Operation{Descriptor: serviceAccountKeysList, Handler: handleServiceAccountKeysList},
-		capability.Operation{Descriptor: serviceAccountKeysGet, Handler: handleServiceAccountKeysGet})
+		capability.Operation{Descriptor: serviceAccountKeysGet, Handler: handleServiceAccountKeysGet},
+		capability.Operation{Descriptor: iamBindingsAdd, Handler: handleIAMBindingsAdd,
+			ConfirmationSummary: bindingSummary(changeAdd)},
+		capability.Operation{Descriptor: iamBindingsRemove, Handler: handleIAMBindingsRemove,
+			ConfirmationSummary: bindingSummary(changeRemove)},
+		capability.Operation{Descriptor: iamBindingsChange, Handler: handleIAMBindingsChange,
+			ConfirmationSummary: bindingSummary(changeMove)})
 }
