@@ -92,7 +92,8 @@ var readTools = []string{organizationsSearch.ID, foldersSearch.ID, projectsSearc
 	machineTypesList.ID, zonesList.ID, regionsList.ID, computeOperationsGet.ID, computeOperationsList.ID,
 	networksList.ID, networksGet.ID, subnetworksList.ID, subnetworksGet.ID,
 	firewallsList.ID, firewallsGet.ID, addressesList.ID, addressesGet.ID,
-	vpnGatewaysList.ID, vpnGatewaysGet.ID, vpnTunnelsList.ID, vpnTunnelsGet.ID}
+	vpnGatewaysList.ID, vpnGatewaysGet.ID, vpnTunnelsList.ID, vpnTunnelsGet.ID,
+	snapshotsList.ID, snapshotsGet.ID, imagesList.ID, imagesGet.ID}
 
 // Register adds the provider metadata, its connection test, its consent endpoints, and its tools.
 func Register(reg *capability.Registry) error {
@@ -116,7 +117,7 @@ func Register(reg *capability.Registry) error {
 				"operations from Google Cloud Resource Manager, the enabled and available APIs of a project from Service " +
 				"Usage, and the metadata of API keys with the read-only scope and the Compute Engine instances, machine " +
 				"types, zones, regions, operations (with the person who started each), VPC networks, subnetworks, firewall rules, " +
-				"reserved IP addresses, HA VPN gateways, and VPN tunnels of a project with the scope compute.readonly, and " +
+				"reserved IP addresses, HA VPN gateways, VPN tunnels, disk snapshots, and images of a project with the scope compute.readonly, and " +
 				"changes nothing",
 			Tools: readTools,
 		}, {
@@ -175,6 +176,16 @@ func Register(reg *capability.Registry) error {
 				"firewall rule, an address, a VPN tunnel, or a VPN gateway",
 			Tools: []string{projectsGet.ID, firewallsDelete.ID, addressesDelete.ID, vpnTunnelsDelete.ID, vpnGatewaysDelete.ID},
 		}, {
+			ID: "compute-lifecycle", Title: "Instance lifecycle",
+			Description: "starts, stops, hard-resets, and changes the machine type of existing Compute Engine instances, " +
+				"each with the confirmation of a person; projects.get is part of the profile so that targets of an " +
+				"organization or a folder can be proved; the token holds the compute scope, which Google also uses to " +
+				"change Compute resources, so the token may do what its account may; a running instance is billed, " +
+				"stopping with discard_local_ssd loses the data of local SSDs, and a reset loses the contents of memory; " +
+				"no tool creates or deletes an instance or changes its network access",
+			Tools: []string{projectsGet.ID, instancesStart.ID, instancesStop.ID, instancesReset.ID,
+				instancesSetMachineType.ID},
+		}, {
 			ID: "services", Title: "Enable APIs",
 			Description: "enables Google APIs in a project, one or up to 20 at a time, each with the confirmation of a " +
 				"person; these Service Usage methods accept only the broad cloud-platform scope, so the token may " +
@@ -223,6 +234,10 @@ func Register(reg *capability.Registry) error {
 		capability.Operation{Descriptor: vpnGatewaysGet, Handler: handleVpnGatewaysGet},
 		capability.Operation{Descriptor: vpnTunnelsList, Handler: handleVpnTunnelsList},
 		capability.Operation{Descriptor: vpnTunnelsGet, Handler: handleVpnTunnelsGet},
+		capability.Operation{Descriptor: snapshotsList, Handler: handleSnapshotsList},
+		capability.Operation{Descriptor: snapshotsGet, Handler: handleSnapshotsGet},
+		capability.Operation{Descriptor: imagesList, Handler: handleImagesList},
+		capability.Operation{Descriptor: imagesGet, Handler: handleImagesGet},
 		capability.Operation{Descriptor: firewallsDelete, Handler: handleFirewallsDelete,
 			ConfirmationSummary: firewallDeleteSummary},
 		capability.Operation{Descriptor: addressesDelete, Handler: handleAddressesDelete,
@@ -231,6 +246,15 @@ func Register(reg *capability.Registry) error {
 			ConfirmationSummary: vpnTunnelDelete.summary},
 		capability.Operation{Descriptor: vpnGatewaysDelete, Handler: vpnGatewayDelete.handler("delete VPN gateway"),
 			ConfirmationSummary: vpnGatewayDelete.summary},
+		capability.Operation{Descriptor: instancesStart, Handler: instanceLifecycleHandler("start instance",
+			instancesStartID, "start"), ConfirmationSummary: instanceLifecycleSummary(instancesStartID)},
+		capability.Operation{Descriptor: instancesStop, Handler: instanceLifecycleHandler("stop instance",
+			instancesStopID, "stop"), ConfirmationSummary: instanceLifecycleSummary(instancesStopID)},
+		capability.Operation{Descriptor: instancesReset, Handler: instanceLifecycleHandler("reset instance",
+			instancesResetID, "reset"), ConfirmationSummary: instanceLifecycleSummary(instancesResetID)},
+		capability.Operation{Descriptor: instancesSetMachineType, Handler: instanceLifecycleHandler(
+			"change machine type", instancesSetMachineTypeID, "setMachineType"),
+			ConfirmationSummary: instanceLifecycleSummary(instancesSetMachineTypeID)},
 		capability.Operation{Descriptor: iamRolesList, Handler: handleIAMRolesList},
 		capability.Operation{Descriptor: iamRolesGet, Handler: handleIAMRolesGet},
 		capability.Operation{Descriptor: iamRolesQuery, Handler: handleIAMRolesQuery},

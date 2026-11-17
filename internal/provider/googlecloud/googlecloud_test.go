@@ -44,7 +44,8 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 		case tool.ID == serviceAccountsPatchID, tool.ID == serviceAccountsDisableID, tool.ID == serviceAccountsEnableID,
 			tool.ID == serviceAccountKeysDisableID, tool.ID == serviceAccountKeysEnableID, tool.ID == apiKeysUndeleteID,
 			tool.ID == servicesEnableID, tool.ID == servicesBatchEnableID, tool.ID == servicesDisableID,
-			strings.Contains(tool.ID, ".iam-bindings."):
+			strings.Contains(tool.ID, ".iam-bindings."), tool.ID == instancesStartID, tool.ID == instancesStopID,
+			tool.ID == instancesResetID, tool.ID == instancesSetMachineTypeID:
 			wantEffect = config.EffectUpdate
 		case tool.ID == serviceAccountKeysDeleteID, tool.ID == serviceAccountsDeleteID, tool.ID == apiKeysDeleteID,
 			tool.ID == firewallsDeleteID, tool.ID == addressesDeleteID, tool.ID == vpnTunnelsDeleteID,
@@ -74,11 +75,13 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 			strings.Contains(tool.ID, ".compute-operations.") ||
 			strings.Contains(tool.ID, ".networks.") || strings.Contains(tool.ID, ".subnetworks.") ||
 			strings.Contains(tool.ID, ".firewalls.") || strings.Contains(tool.ID, ".addresses.") ||
-			strings.Contains(tool.ID, ".vpn-gateways.") || strings.Contains(tool.ID, ".vpn-tunnels.") {
+			strings.Contains(tool.ID, ".vpn-gateways.") || strings.Contains(tool.ID, ".vpn-tunnels.") ||
+			strings.Contains(tool.ID, ".snapshots.") || strings.Contains(tool.ID, ".images.") {
 			// The discovery document of compute v1 lists compute.readonly as the smallest scope.
 			wantScope = "https://www.googleapis.com/auth/compute.readonly"
 		}
-		if slices.Contains([]string{firewallsDeleteID, addressesDeleteID, vpnTunnelsDeleteID, vpnGatewaysDeleteID}, tool.ID) {
+		if slices.Contains([]string{firewallsDeleteID, addressesDeleteID, vpnTunnelsDeleteID, vpnGatewaysDeleteID,
+			instancesStartID, instancesStopID, instancesResetID, instancesSetMachineTypeID}, tool.ID) {
 			// compute v1 lists compute and cloud-platform for the four deletions.
 			wantScope = scopeCompute
 		}
@@ -93,8 +96,10 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 		"google.cloud.iam-bindings.remove-member", "google.cloud.iam-deny-policies.get", "google.cloud.iam-deny-policies.list",
 		"google.cloud.iam-permissions.query-testable", "google.cloud.iam-permissions.test",
 		"google.cloud.iam-policies.get", "google.cloud.iam-roles.get", "google.cloud.iam-roles.list",
-		"google.cloud.iam-roles.query-grantable", "google.cloud.instances.aggregated-list",
-		"google.cloud.instances.get", "google.cloud.instances.list", "google.cloud.machine-types.list",
+		"google.cloud.iam-roles.query-grantable", "google.cloud.images.get", "google.cloud.images.list", "google.cloud.instances.aggregated-list",
+		"google.cloud.instances.get", "google.cloud.instances.list", "google.cloud.instances.reset",
+		"google.cloud.instances.set-machine-type", "google.cloud.instances.start", "google.cloud.instances.stop",
+		"google.cloud.machine-types.list",
 		"google.cloud.networks.get", "google.cloud.networks.list", "google.cloud.operations.get", "google.cloud.organizations.get",
 		"google.cloud.organizations.search", "google.cloud.projects.get", "google.cloud.projects.list",
 		"google.cloud.projects.search", "google.cloud.quota-infos.get", "google.cloud.quota-infos.list",
@@ -106,11 +111,11 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 		"google.cloud.service-accounts.get", "google.cloud.service-accounts.list",
 		"google.cloud.service-accounts.patch", "google.cloud.services.batch-enable", "google.cloud.services.batch-get",
 		"google.cloud.services.disable", "google.cloud.services.enable", "google.cloud.services.get",
-		"google.cloud.services.list", "google.cloud.subnetworks.get", "google.cloud.subnetworks.list", "google.cloud.vpn-gateways.delete", "google.cloud.vpn-gateways.get", "google.cloud.vpn-gateways.list",
+		"google.cloud.services.list", "google.cloud.snapshots.get", "google.cloud.snapshots.list", "google.cloud.subnetworks.get", "google.cloud.subnetworks.list", "google.cloud.vpn-gateways.delete", "google.cloud.vpn-gateways.get", "google.cloud.vpn-gateways.list",
 		"google.cloud.vpn-tunnels.delete", "google.cloud.vpn-tunnels.get", "google.cloud.vpn-tunnels.list", "google.cloud.zones.list"}; !slices.Equal(ids, want) {
 		t.Errorf("tools = %v, want %v", ids, want)
 	}
-	if profile, found := metadata.RecommendedProfile(); !found || profile.ID != "read" || len(profile.Tools) != 34 {
+	if profile, found := metadata.RecommendedProfile(); !found || profile.ID != "read" || len(profile.Tools) != 38 {
 		t.Errorf("profile = %+v", profile)
 	}
 	// The recommended profile asks only for read scopes, an explicit allow-list; a tool that needs the broad
@@ -154,6 +159,10 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 		case "compute-network-delete":
 			if profile.Recommended || !slices.Equal(profile.Tools, []string{projectsGetID, firewallsDeleteID, addressesDeleteID, vpnTunnelsDeleteID, vpnGatewaysDeleteID}) {
 				t.Errorf("profile compute-network-delete = %+v", profile)
+			}
+		case "compute-lifecycle":
+			if profile.Recommended || !slices.Equal(profile.Tools, []string{projectsGetID, instancesStartID, instancesStopID, instancesResetID, instancesSetMachineTypeID}) {
+				t.Errorf("profile compute-lifecycle = %+v", profile)
 			}
 		case "iam-bindings":
 			if profile.Recommended || !slices.Contains(profile.Tools, iamBindingsAddID) ||
