@@ -17,8 +17,8 @@
 // of a measurement protocol secret is never returned: it is read from Google's answer only to register it with
 // the redactor.
 //
-// The settings and the event create rules of a web data stream and the calculated metrics of a property run on
-// the Admin API v1alpha, see alpha.go.
+// The settings and the event create rules of a web data stream and the calculated metrics and annotations of a
+// property run on the Admin API v1alpha, see alpha.go.
 //
 // A connection may bind Analytics accounts (accounts/ID) and properties (properties/ID). Without a target it
 // reaches what the credential reaches. A bound account reaches its properties, a bound property only itself;
@@ -52,7 +52,8 @@ const subject = "Google Analytics"
 // analyticsdata v1beta and v1alpha). Google also lists it for audienceLists.create.
 const scopeReadOnly = "https://www.googleapis.com/auth/analytics.readonly"
 
-// scopeEdit is the scope that changes Analytics accounts and properties (analyticsadmin v1beta).
+// scopeEdit is the scope that changes Analytics accounts, properties and annotations (analyticsadmin v1beta and
+// v1alpha).
 const scopeEdit = "https://www.googleapis.com/auth/analytics.edit"
 
 // dataSensitivity classifies the results: the configuration of the Analytics accounts the credential reaches.
@@ -143,6 +144,12 @@ var scopes = map[string][]string{
 	accessAccountID:  {scopeReadOnly},
 	accessPropertyID: {scopeReadOnly},
 
+	annotationsListID:   {scopeReadOnly},
+	annotationsGetID:    {scopeReadOnly},
+	annotationsCreateID: {scopeEdit},
+	annotationsUpdateID: {scopeEdit},
+	annotationsDeleteID: {scopeEdit},
+
 	dataRetentionGetID:    {scopeReadOnly},
 	dataRetentionUpdateID: {scopeEdit},
 	googleSignalsGetID:    {scopeReadOnly},
@@ -212,14 +219,15 @@ var readTools = []string{summariesID, accountsID, accountsGetID, accountsSharing
 	enhancedGetID, redactionGetID, siteTagGetID,
 	customDimensionsListID, customDimensionsGetID, customMetricsListID,
 	customMetricsGetID, keyEventsListID, keyEventsGetID, eventRulesListID, eventRulesGetID,
-	calculatedListID, calculatedGetID, accessAccountID, accessPropertyID, dataRetentionGetID, googleSignalsGetID}
+	calculatedListID, calculatedGetID, accessAccountID, accessPropertyID, dataRetentionGetID, googleSignalsGetID,
+	annotationsListID, annotationsGetID}
 
 // Register adds the provider metadata, its consent endpoints, its connection test and its tools.
 func Register(reg *capability.Registry) error {
 	token := tokenMetadata()
 	if err := reg.RegisterProvider(config.ProviderMetadata{
 		ID: Provider, Name: subject, DefaultBaseURL: adminRoot,
-		Description:    "Google Analytics 4 accounts, properties and reports through the Analytics Admin and Data APIs with an OAuth or service account token",
+		Description:    "Google Analytics 4 accounts, properties, annotations and reports through the Analytics Admin and Data APIs with an OAuth or service account token",
 		DefaultEffects: []config.Effect{config.EffectRead},
 		ValidateBaseURL: func(raw string) error {
 			if !isDefaultRoot(raw) {
@@ -252,7 +260,7 @@ func Register(reg *capability.Registry) error {
 		}, {
 			ID: "write", Title: "Read and change",
 			Description: "reads what the read profile reads and changes Analytics accounts, properties, data streams, custom " +
-				"dimensions, custom metrics, key events, event create rules, calculated metrics and Google Signals, starts audience exports and report tasks, " +
+				"dimensions, custom metrics, key events, event create rules, calculated metrics, annotations and Google Signals, starts audience exports and report tasks, " +
 				"and deletes data streams, measurement protocol secrets and key events; every change needs its own " +
 				"confirmation, and deleting an account or a property stays unlisted, and so does changing the data retention",
 			Tools: append(slices.Clone(readTools), accountsUpdateID, propertiesCreateID, propertiesUpdateID,
@@ -261,7 +269,8 @@ func Register(reg *capability.Registry) error {
 				customDimensionsUpdateID, customDimensionsArchiveID,
 				customMetricsCreateID, customMetricsUpdateID, customMetricsArchiveID,
 				keyEventsCreateID, keyEventsUpdateID, keyEventsDeleteID, eventRulesCreateID, eventRulesUpdateID, eventRulesDeleteID,
-				calculatedCreateID, calculatedUpdateID, calculatedDeleteID, googleSignalsUpdateID),
+				calculatedCreateID, calculatedUpdateID, calculatedDeleteID, googleSignalsUpdateID,
+				annotationsCreateID, annotationsUpdateID, annotationsDeleteID),
 		}},
 	}, TestConnection); err != nil {
 		return err
@@ -344,6 +353,14 @@ func Register(reg *capability.Registry) error {
 			ConfirmationSummary: calculatedWriteSummary(calculatedUpdateID)},
 		{Descriptor: calculatedDelete, Handler: handleCalculatedDelete,
 			ConfirmationSummary: calculatedWriteSummary(calculatedDeleteID)},
+		{Descriptor: annotationsList, Handler: handleAnnotationsList},
+		{Descriptor: annotationsGet, Handler: handleAnnotationsGet},
+		{Descriptor: annotationsCreate, Handler: handleAnnotationsCreate,
+			ConfirmationSummary: annotationSummary(annotationsCreateID)},
+		{Descriptor: annotationsUpdate, Handler: handleAnnotationsUpdate,
+			ConfirmationSummary: annotationSummary(annotationsUpdateID)},
+		{Descriptor: annotationsDelete, Handler: handleAnnotationsDelete,
+			ConfirmationSummary: annotationSummary(annotationsDeleteID)},
 		{Descriptor: funnelRun, Handler: handleFunnelRun},
 		{Descriptor: audienceGet, Handler: handleAudienceGet},
 		{Descriptor: audienceList, Handler: handleAudienceList},
