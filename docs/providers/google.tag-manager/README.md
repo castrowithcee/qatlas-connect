@@ -56,21 +56,24 @@ Three profiles are offered:
   workspace, resolve its merge conflicts, and quick preview it, that create, update, and delete tags, triggers,
   variables, templates, clients, transformations, zones, and Google tag configurations, that enable and disable
   built-in variables, that create, update, delete, and fill folders, that create, update, and delete the
-  custom environments of a container, and `accounts.update`, which renames an account. A deleted tag, trigger, variable, template, folder, client, transformation,
-  or zone and a disabled built-in variable stay in the workspace changes until a version is published and can be
-  brought back with their `revert` tool. A deleted Google tag configuration has no `revert` tool, and a deleted
+  custom environments of a container, that make a container version from a workspace, change its name and
+  notes, mark it as the latest, and restore a deleted one, and `accounts.update`, which renames an account. A
+  deleted tag, trigger, variable, template, folder, client, transformation, or zone and a disabled built-in
+  variable stay in the workspace changes until a version is published and can be brought back with their
+  `revert` tool. A deleted Google tag configuration has no `revert` tool, and a deleted
   environment cannot be brought back.
 - `user-permissions` holds the four tools of [user permissions](user-permissions.md): reading the users of an
   account with their email addresses, changing the rights of an existing user, and removing a user. It is not
   recommended and is in neither of the other profiles. No tool adds a user.
 
-`containers.delete`, `workspaces.delete`, `tags.revert`, `triggers.revert`, `variables.revert`,
+`containers.delete`, `workspaces.delete`, `versions.delete`, `tags.revert`, `triggers.revert`, `variables.revert`,
 `templates.revert`, `folders.revert`, `clients.revert`, `transformations.revert`, `zones.revert`,
 `built-in-variables.revert`, and `containers.combine` are in no profile. Deleting a container removes it
 with everything in it, deleting a workspace loses its unpublished changes, a revert overwrites the workspace
-state of an object, and a combine merges one container into another, so a connection offers them only when
-its `tools` list names them. `accounts.update` needs a consent that holds `tagmanager.manage.accounts` and
-is not available on a connection bound to a container.
+state of an object, a combine merges one container into another, and `versions.delete` deletes a whole
+container version, so a connection offers them only when its `tools` list names them. `accounts.update`
+needs a consent that holds `tagmanager.manage.accounts` and is not available on a connection bound to a
+container.
 Every tool that changes something needs its own confirmation, which shows the name, the type or types, and the
 workspace or object path. The confirmation of a Google tag configuration shows the type, the path, and only
 its destination IDs, see [Google tag configurations](gtag-configs.md).
@@ -102,7 +105,7 @@ of the tools it offers; offering a tool with another scope needs a new consent.
 | every tool that creates, updates, deletes, or reverts a tag, a trigger, a variable, a template, a client, a transformation, a zone, a folder, a Google tag configuration, a custom environment, or a built-in variable, every tool that moves entries into a folder, and `containers.create`, `containers.update`, `workspaces.create`, `workspaces.update`, `workspaces.sync`, and `workspaces.resolve-conflict` | `https://www.googleapis.com/auth/tagmanager.edit.containers` |
 | `containers.combine` | `https://www.googleapis.com/auth/tagmanager.edit.containers` |
 | `accounts.update` | `https://www.googleapis.com/auth/tagmanager.manage.accounts` |
-| `workspaces.quick-preview` | `https://www.googleapis.com/auth/tagmanager.edit.containerversions` |
+| `workspaces.quick-preview`, `versions.create`, `versions.update`, `versions.set-latest`, `versions.delete`, and `versions.undelete` | `https://www.googleapis.com/auth/tagmanager.edit.containerversions` |
 | `containers.delete` and `workspaces.delete` | `https://www.googleapis.com/auth/tagmanager.delete.containers` |
 | every tool of [user permissions](user-permissions.md), the reading ones included | `https://www.googleapis.com/auth/tagmanager.manage.users` |
 
@@ -135,9 +138,10 @@ convention: they take the fingerprint last read as a required argument, so a cha
 overwritten silently.
 [Built-in variables](built-in-variables.md) have none, because Google's methods for them carry no fingerprint.
 The update and revert tools of tags, triggers, variables, templates, clients, transformations, zones, and
-folders and the update tools of Google tag configurations, environments, and accounts refuse a call without it
-before any request. What Google answers to a stale fingerprint is not verified, so it is not given a class of its own: it is
-`invalid-provider-response` with Google's answer as the original.
+folders and the update tools of Google tag configurations, environments, container versions, and accounts refuse a
+call without it before any request. The other version tools (`versions.set-latest`, `versions.delete`, and
+`versions.undelete`) take none. What Google answers to a stale fingerprint is not verified, so it is not given a
+class of its own: it is `invalid-provider-response` with Google's answer as the original.
 
 ## Tags, triggers, variables, and templates
 
