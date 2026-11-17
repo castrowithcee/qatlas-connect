@@ -11,8 +11,9 @@ updated: 2026-11-17
 
 This page shows how to connect Qatlas to Google Analytics 4. Targets, paging, and errors are described in the
 [Google Analytics provider](README.md); the tools are described in [accounts](accounts.md),
-[properties](properties.md), [data streams](data-streams.md), [custom metrics](custom-metrics.md),
-[reports](reports.md), and [audience exports](audience-exports.md), and [report tasks](report-tasks.md).
+[properties](properties.md), [data streams](data-streams.md), [custom dimensions](custom-dimensions.md),
+[custom metrics](custom-metrics.md), [reports](reports.md), and
+[audience exports](audience-exports.md), and [report tasks](report-tasks.md).
 
 ## What you need
 
@@ -96,6 +97,10 @@ credential never carries the scope of another product.
 | [Properties](properties.md#changing-properties) | `properties.create`, `properties.update`, `properties.delete` | `analytics.edit` |
 | [Data streams](data-streams.md) | `data-streams.list`, `data-streams.get` | `analytics.readonly` |
 | [Data streams](data-streams.md#changing-data-streams) | `data-streams.create`, `data-streams.update` | `analytics.edit` |
+| [Stream settings](data-streams.md#stream-settings-alpha) | `data-streams.get-enhanced-measurement`, `data-streams.get-data-redaction`, `data-streams.get-site-tag` | `analytics.readonly` |
+| [Stream settings](data-streams.md#stream-settings-alpha) | `data-streams.update-enhanced-measurement`, `data-streams.update-data-redaction` | `analytics.edit` |
+| [Custom dimensions](custom-dimensions.md) | `custom-dimensions.list`, `custom-dimensions.get` | `analytics.readonly` |
+| [Custom dimensions](custom-dimensions.md#changing-custom-dimensions) | `custom-dimensions.create`, `custom-dimensions.update`, `custom-dimensions.archive` | `analytics.edit` |
 | [Custom metrics](custom-metrics.md) | `custom-metrics.list`, `custom-metrics.get` | `analytics.readonly` |
 | [Custom metrics](custom-metrics.md#changing-custom-metrics) | `custom-metrics.create`, `custom-metrics.update`, `custom-metrics.archive` | `analytics.edit` |
 

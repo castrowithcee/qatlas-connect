@@ -15,6 +15,8 @@
 // Reading tools send one request, a changing tool exactly one and never again, whatever comes back.
 // Deleting an account runs only on a connection that binds exactly that account and no property.
 //
+// The settings of a web data stream run on the Admin API v1alpha, see alpha.go.
+//
 // A connection may bind Analytics accounts (accounts/ID) and properties (properties/ID). Without a target it
 // reaches what the credential reaches. A bound account reaches its properties, a bound property only itself;
 // a property that is not bound itself is read once as proof of its account before anything else is done with
@@ -94,6 +96,18 @@ var scopes = map[string][]string{
 	dataStreamsCreateID: {scopeEdit},
 	dataStreamsUpdateID: {scopeEdit},
 
+	enhancedGetID:     {scopeReadOnly},
+	redactionGetID:    {scopeReadOnly},
+	siteTagGetID:      {scopeReadOnly},
+	enhancedUpdateID:  {scopeEdit},
+	redactionUpdateID: {scopeEdit},
+
+	customDimensionsListID:    {scopeReadOnly},
+	customDimensionsGetID:     {scopeReadOnly},
+	customDimensionsCreateID:  {scopeEdit},
+	customDimensionsUpdateID:  {scopeEdit},
+	customDimensionsArchiveID: {scopeEdit},
+
 	customMetricsListID:    {scopeReadOnly},
 	customMetricsGetID:     {scopeReadOnly},
 	customMetricsCreateID:  {scopeEdit},
@@ -160,7 +174,8 @@ func isDefaultRoot(raw string) bool {
 var readTools = []string{summariesID, accountsID, accountsGetID, accountsSharingID, propertiesListID, propertiesGetID,
 	reportsRunID, metadataGetID, compatibilityID, dataStreamsListID, dataStreamsGetID, funnelRunID, audienceGetID,
 	audienceListID, reportsRunPivotID, reportsBatchRunID, reportsBatchRunPivotID, reportsRunRealtimeID,
-	reportTasksGetID, reportTasksListID, reportTasksQueryID, audienceQueryID, customMetricsListID,
+	reportTasksGetID, reportTasksListID, reportTasksQueryID, audienceQueryID, enhancedGetID, redactionGetID, siteTagGetID,
+	customDimensionsListID, customDimensionsGetID, customMetricsListID,
 	customMetricsGetID}
 
 // Register adds the provider metadata, its consent endpoints, its connection test and its tools.
@@ -194,17 +209,18 @@ func Register(reg *capability.Registry) error {
 		},
 		Profiles: []config.ToolProfile{{
 			ID: "read", Title: "Read", Recommended: true,
-			Description: "reads the Analytics accounts, properties, reports and report tasks the connection reaches; " +
+			Description: "reads the Analytics accounts, properties, custom dimensions and metrics, reports and report tasks the connection reaches; " +
 				"nothing is changed. It includes reading the users of an audience export, which are personal data",
 			Tools: readTools,
 		}, {
 			ID: "write", Title: "Read and change",
-			Description: "reads what the read profile reads and changes Analytics accounts, properties and custom metrics, starts audience exports " +
+			Description: "reads what the read profile reads and changes Analytics accounts, properties, data streams, custom dimensions and custom metrics, starts audience exports " +
 				"and report tasks; every " +
 				"change needs its own confirmation, and deleting stays unlisted",
 			Tools: append(slices.Clone(readTools), accountsUpdateID, propertiesCreateID, propertiesUpdateID,
-				dataStreamsCreateID, dataStreamsUpdateID, audienceCreateID, reportTasksCreateID, customMetricsCreateID,
-				customMetricsUpdateID, customMetricsArchiveID),
+				dataStreamsCreateID, dataStreamsUpdateID, audienceCreateID, reportTasksCreateID, enhancedUpdateID,
+				redactionUpdateID, customDimensionsCreateID, customDimensionsUpdateID, customDimensionsArchiveID,
+				customMetricsCreateID, customMetricsUpdateID, customMetricsArchiveID),
 		}},
 	}, TestConnection); err != nil {
 		return err
@@ -240,6 +256,20 @@ func Register(reg *capability.Registry) error {
 			ConfirmationSummary: streamWriteSummary(dataStreamsCreateID)},
 		{Descriptor: dataStreamsUpdate, Handler: handleDataStreamsUpdate,
 			ConfirmationSummary: streamWriteSummary(dataStreamsUpdateID)},
+		{Descriptor: enhancedGet, Handler: handleEnhancedGet},
+		{Descriptor: enhancedUpdate, Handler: handleEnhancedUpdate, ConfirmationSummary: settingsSummary(enhancedUpdateID)},
+		{Descriptor: redactionGet, Handler: handleRedactionGet},
+		{Descriptor: redactionUpdateDescriptor, Handler: handleRedactionUpdate,
+			ConfirmationSummary: settingsSummary(redactionUpdateID)},
+		{Descriptor: siteTagGet, Handler: handleSiteTagGet},
+		{Descriptor: customDimensionsList, Handler: handleCustomDimensionsList},
+		{Descriptor: customDimensionsGet, Handler: handleCustomDimensionsGet},
+		{Descriptor: customDimensionsCreate, Handler: handleCustomDimensionsCreate,
+			ConfirmationSummary: dimensionWriteSummary(customDimensionsCreateID)},
+		{Descriptor: customDimensionsUpdate, Handler: handleCustomDimensionsUpdate,
+			ConfirmationSummary: dimensionWriteSummary(customDimensionsUpdateID)},
+		{Descriptor: customDimensionsArchive, Handler: handleCustomDimensionsArchive,
+			ConfirmationSummary: dimensionWriteSummary(customDimensionsArchiveID)},
 		{Descriptor: customMetricsList, Handler: handleCustomMetricsList},
 		{Descriptor: customMetricsGet, Handler: handleCustomMetricsGet},
 		{Descriptor: customMetricsCreate, Handler: handleCustomMetricsCreate,

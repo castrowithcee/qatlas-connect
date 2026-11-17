@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/url"
-	"regexp"
 	"slices"
 	"strconv"
 	"strings"
@@ -52,7 +51,6 @@ var (
 		"SECONDS", "MINUTES", "HOURS"}
 	restrictedMetricTypes = []string{"COST_DATA", "REVENUE_DATA"}
 	metricScopes          = []string{metricScopeEvent}
-	parameterPattern      = regexp.MustCompile(`^[A-Za-z][A-Za-z0-9_]*$`)
 )
 
 type metricName string
@@ -131,10 +129,6 @@ type (
 		CustomMetrics []customMetric `json:"customMetrics"`
 		NextCursor    string         `json:"next_cursor,omitempty"`
 		HasMore       bool           `json:"has_more"`
-	}
-	archiveResult struct {
-		Name     string `json:"name"`
-		Archived bool   `json:"archived"`
 	}
 )
 
@@ -411,7 +405,7 @@ func checkMetricDisplayName(value string) error {
 	return nil
 }
 
-func checkParameterName(value string) error {
+func checkMetricParameterName(value string) error {
 	if len(value) > maxParameterName || !parameterPattern.MatchString(value) {
 		return badRequest("parameter_name must be letters, digits and underscores, start with a letter and have at most 40 characters")
 	}
@@ -462,7 +456,7 @@ func (a metricWriteArguments) createBody() (createMetricBody, error) {
 	if a.ParameterName == nil || a.DisplayName == nil || a.MeasurementUnit == nil || a.Scope == nil {
 		return createMetricBody{}, badRequest("property, parameter_name, display_name, measurement_unit and scope are required")
 	}
-	if err := checkParameterName(*a.ParameterName); err != nil {
+	if err := checkMetricParameterName(*a.ParameterName); err != nil {
 		return createMetricBody{}, err
 	}
 	if err := checkMetricDisplayName(*a.DisplayName); err != nil {
