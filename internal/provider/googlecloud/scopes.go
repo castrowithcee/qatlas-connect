@@ -31,4 +31,9 @@ var tokenMetadata = config.TokenMetadata{Scopes: map[string][]string{
 	iamPermissionsTestID:  {scopeCloudPlatform},
 	denyPoliciesListID:    {scopeCloudPlatform},
 	denyPoliciesGetID:     {scopeCloudPlatform},
+	// iam v1 lists only cloud-platform for projects.serviceAccounts list and get and for keys list and get.
+	serviceAccountsListID:    {scopeCloudPlatform},
+	serviceAccountsGetID:     {scopeCloudPlatform},
+	serviceAccountKeysListID: {scopeCloudPlatform},
+	serviceAccountKeysGetID:  {scopeCloudPlatform},
 }}

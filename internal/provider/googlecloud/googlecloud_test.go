@@ -40,7 +40,7 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 			t.Errorf("%s effect = %v", tool.ID, tool.Effect)
 		}
 		wantScope := "https://www.googleapis.com/auth/cloud-platform.read-only"
-		if strings.Contains(tool.ID, ".iam-") {
+		if strings.Contains(tool.ID, ".iam-") || strings.Contains(tool.ID, ".service-account") {
 			// The discovery documents list cloud-platform alone for the IAM methods.
 			wantScope = "https://www.googleapis.com/auth/cloud-platform"
 		}
@@ -54,7 +54,9 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 		"google.cloud.iam-policies.get", "google.cloud.iam-roles.get", "google.cloud.iam-roles.list",
 		"google.cloud.iam-roles.query-grantable", "google.cloud.operations.get", "google.cloud.organizations.get",
 		"google.cloud.organizations.search", "google.cloud.projects.get", "google.cloud.projects.list",
-		"google.cloud.projects.search"}; !slices.Equal(ids, want) {
+		"google.cloud.projects.search", "google.cloud.service-account-keys.get",
+		"google.cloud.service-account-keys.list", "google.cloud.service-accounts.get",
+		"google.cloud.service-accounts.list"}; !slices.Equal(ids, want) {
 		t.Errorf("tools = %v, want %v", ids, want)
 	}
 	if profile, found := metadata.RecommendedProfile(); !found || profile.ID != "read" || len(profile.Tools) != 9 {

@@ -1,6 +1,6 @@
 ---
 description: >
-  Describes the Google Cloud provider: the token credential and its fixed origins, the targets (organization, folder, project, billing account) and what they reach, the read profile, the search tools with their structured filters, cursors, and per-row target check, the IAM role and permission reads, the Google error form and its classes, long-running operations, rate spacing, the connection test, and the limits of what is verified.
+  Describes the Google Cloud provider: the token credential and its fixed origins, the targets (organization, folder, project, billing account) and what they reach, the read profile, the search tools with their structured filters, cursors, and per-row target check, the IAM role and permission reads, the service account and key metadata reads, the Google error form and its classes, long-running operations, rate spacing, the connection test, and the limits of what is verified.
 type: knowledge
 edit: shared
 created: 2026-11-16
@@ -60,7 +60,7 @@ Three rules decide which tool a binding reaches. They are separate on purpose:
 - **Organization tools** (`organizations.search`, `organizations.get`): the binding must name an organization expressly. A
   connection without targets does not run them, because its credential may see organizations the person never
   handed over. The rows are limited to the organizations the targets name.
-- **IAM tools** (`iam-roles.*`, `iam-permissions.query-testable`): the connection is unbound or names an
+- **IAM tools** (`iam-roles.*`, `iam-permissions.query-testable`, `service-accounts.*`, `service-account-keys.*`): the connection is unbound or names an
   organization, a folder, or a project, so a connection bound to billing accounts alone neither runs nor is
   offered them, not even for predefined roles. Organization roles and an organization resource are reached
   only if a target names exactly that organization; a connection without targets is refused.
@@ -82,7 +82,9 @@ The profile `read` is the recommended one. It holds every tool that needs no mor
 The profile `read-iam` adds the IAM tools (`google.cloud.iam-roles.list`, `google.cloud.iam-roles.get`,
 `google.cloud.iam-roles.query-grantable`, `google.cloud.iam-permissions.query-testable`,
 `google.cloud.iam-policies.get`, `google.cloud.iam-permissions.test`, `google.cloud.iam-deny-policies.list`,
-`google.cloud.iam-deny-policies.get`). They accept only the
+`google.cloud.iam-deny-policies.get`) and the service account tools (`google.cloud.service-accounts.list`,
+`google.cloud.service-accounts.get`, `google.cloud.service-account-keys.list`,
+`google.cloud.service-account-keys.get`). They accept only the
 scope `cloud-platform`, so a connection with this profile asks for a token that may change whatever its account
 may change, although no tool of this provider changes anything. It is not recommended: give it only to a
 connection that needs IAM, preferably with a credential whose account has viewer roles only.
@@ -139,6 +141,12 @@ own pages: [organizations](organizations.md) (`organizations.get`), [folders](fo
 parent does not decide, the folders above it. A project outside the targets is refused without a name.
 `operations.get` takes the `service` (here only `resource-manager`; later packages extend the list) and the
 operation `name`.
+
+### Service accounts
+
+[Service accounts](service-accounts.md) covers `service-accounts.list` and `service-accounts.get`;
+[service account keys](service-account-keys.md) covers `service-account-keys.list` and `service-account-keys.get`,
+which return metadata only and never key material.
 
 ### IAM
 
