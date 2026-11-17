@@ -1,5 +1,6 @@
 // Package googlebusinessprofile implements access to the Google Business Profile APIs v1: the accounts a
-// person manages and the business locations in them.
+// person manages, the business locations in them, and the performance of a location: daily metrics and
+// search keywords.
 //
 // The credential is a person's consent through the user's own OAuth client; a service account key and the
 // impersonation of a service account are not offered, since Google documents no service account as a
@@ -40,6 +41,10 @@ var toolScopes = map[string][]string{
 	accountsGetID:   {scopeManage},
 	locationsListID: {scopeManage},
 	locationsGetID:  {scopeManage},
+
+	performanceGetDailyID:   {scopeManage},
+	performanceFetchDailyID: {scopeManage},
+	performanceKeywordsID:   {scopeManage},
 }
 
 // ClassAccessNotApproved is the outcome of a Cloud project that Google has not approved for the Business
@@ -98,7 +103,8 @@ func testClass(err error) (provider.Class, error) {
 }
 
 // readTools are the tools of the profile read.
-var readTools = []string{accountsListID, accountsGetID, locationsListID, locationsGetID}
+var readTools = []string{accountsListID, accountsGetID, locationsListID, locationsGetID,
+	performanceGetDailyID, performanceFetchDailyID, performanceKeywordsID}
 
 // Register adds the provider metadata, its consent endpoints, its connection test, and its tools.
 func Register(reg *capability.Registry) error {
@@ -132,5 +138,8 @@ func Register(reg *capability.Registry) error {
 		capability.Operation{Descriptor: accountsGet, Handler: handleAccountsGet},
 		capability.Operation{Descriptor: locationsList, Handler: handleLocationsList},
 		capability.Operation{Descriptor: locationsGet, Handler: handleLocationsGet},
+		capability.Operation{Descriptor: performanceGetDaily, Handler: handleGetDailyMetric},
+		capability.Operation{Descriptor: performanceFetchDaily, Handler: handleFetchDailyMetrics},
+		capability.Operation{Descriptor: performanceKeywords, Handler: handleListSearchKeywords},
 	)
 }

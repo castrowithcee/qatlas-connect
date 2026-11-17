@@ -1,18 +1,19 @@
 ---
 description: >
-  Describes the Google Business Profile provider: the consent-only token credential, the one scope business.manage, the fixed API origins, the approval of the Cloud project and its error class, the optional account and location targets and how they are proven, the profile, quota and request spacing, result bounds, the connection test, error classes, and the limits of what is verified.
+  Describes the Google Business Profile provider: the consent-only token credential, the one scope business.manage, the fixed API origins, the approval of the Cloud project and its error class, the performance tools, the optional account and location targets and how they are proven, the profile, quota and request spacing, result bounds, the connection test, error classes, and the limits of what is verified.
 type: knowledge
 edit: shared
 created: 2026-11-17
-updated: 2026-11-17
+updated: 2026-11-18
 ---
 
 # Google Business Profile
 
 Google Business Profile is a provider for the Business Profile APIs v1: the accounts a person owns or manages
-and the business locations in them. Every tool reads. [Set up Google Business Profile](setup.md) leads through
-the Google side, the approval, and the consent. The tools are described per group in [accounts](accounts.md)
-and [locations](locations.md).
+and the business locations in them, and the performance of a location. Every tool reads.
+[Set up Google Business Profile](setup.md) leads through the Google side, the approval, and the consent. The
+tools are described per group in [accounts](accounts.md), [locations](locations.md), and
+[performance](performance.md).
 
 ## Credential
 
@@ -43,13 +44,14 @@ The profile `read` is the recommended one and holds every tool.
 ## Configuration
 
 The origins are fixed. Leave `base_url` out or set it to `https://mybusinessaccountmanagement.googleapis.com`;
-Qatlas refuses any other value before a secret is read. The tools use two APIs, which are enabled in the Cloud
+Qatlas refuses any other value before a secret is read. The tools use three APIs, which are enabled in the Cloud
 project one by one:
 
 | API | Origin | Tools |
 | --- | --- | --- |
 | My Business Account Management API | `https://mybusinessaccountmanagement.googleapis.com` | [accounts](accounts.md) |
 | My Business Business Information API | `https://mybusinessbusinessinformation.googleapis.com` | [locations](locations.md) |
+| Business Profile Performance API | `https://businessprofileperformance.googleapis.com` | [performance](performance.md) |
 
 ## Approval of the Cloud project
 
@@ -78,9 +80,10 @@ request is sent; a refusal never names the other object.
 | `accounts.get` | the bound account only | not offered |
 | `locations.list` | the locations of the bound account; another account and `accounts/-` are refused | answers with the bound location only, read directly; `account` and `filter` are refused |
 | `locations.get` | first proves that the location is in the bound account's location list | the bound location only |
+| `performance.*` | first prove, on every call, that the location is in the bound account's location list | the bound location only |
 
-The proof of `locations.get` reads the location list of the bound account, names only, 100 at a time, until it
-finds the location. It reads at most 2000 locations; a location not found by then is refused like one outside
+The proof of `locations.get` and of the performance tools reads the location list of the bound account, names
+only, 100 at a time, until it finds the location. It reads at most 2000 locations; a location not found by then is refused like one outside
 the target. The time between the proof and the read is a limit of the proof.
 
 A location names no account in Google's answer, so a location target offers no account tool and cannot tell
@@ -153,16 +156,20 @@ not used.
 Not verified:
 
 - No live call was made. Methods, parameters, and answers are taken from the discovery documents of the My
-  Business Account Management API v1 and the My Business Business Information API v1, revision 20261116.
+  Business Account Management API v1, the My Business Business Information API v1, and the Business Profile
+  Performance API v1, each of revision 20261116.
 - How Google answers a project without approval. Qatlas assumes a `429` with the quota limit `0`; a pending
   approval may answer differently.
 - Whether each Business Profile API needs to be enabled in the project on its own.
 - Whether a read mask accepts nested field paths. Qatlas accepts only the top-level fields of a location.
 - The exact form Google expects for several sort fields; Qatlas joins them with a comma.
 - Which classification Google gives `business.manage` when it verifies an OAuth app.
+- The date ranges the Performance API serves. Its discovery document, revision 20261116, names no limit, so
+  Qatlas checks only that dates are real and ordered; see [performance](performance.md#date-ranges).
 
 Left out on purpose:
 
 - The deprecated metadata flags `canOperateLocalPost` and `canHaveBusinessCalls` of a location.
 - `primaryOwner` of an account, which is input only.
 - Service accounts and their impersonation, see [Credential](#credential).
+- The deprecated metrics `BUSINESS_CONVERSATIONS` and `BUSINESS_FOOD_ORDERS` of the performance tools.
