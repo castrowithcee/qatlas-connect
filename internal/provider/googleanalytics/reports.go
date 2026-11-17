@@ -64,26 +64,31 @@ const reportsOutputSchema = `{"type":"object","properties":{"dimensionHeaders":{
 	`"next_cursor":{"type":"string"},"has_more":{"type":"boolean"},"truncated":{"type":"array","items":{"type":"string"}}},` +
 	`"additionalProperties":false}`
 
+// orderBysSchema and cohortSpecSchema are shared with the report definition of a report task.
+var orderBysSchema = arraySchema(objectSchema(`"desc":{"type":"boolean"},"metric":`+
+	objectSchema(`"metric_name":`+fieldNameSchema, "metric_name")+`,"dimension":`+
+	objectSchema(`"dimension_name":`+fieldNameSchema+`,"order_type":`+
+		enumSchema("ALPHANUMERIC", "CASE_INSENSITIVE_ALPHANUMERIC", "NUMERIC"), "dimension_name")), 1, 20)
+
+var cohortSpecSchema = objectSchema(`"cohorts":`+arraySchema(objectSchema(`"name":{"type":"string","minLength":1,`+
+	`"maxLength":100},"dimension":`+enumSchema("firstSessionDate")+`,"date_range":`+dateRangeSchema,
+	"dimension", "date_range"), 1, 20)+`,"cohorts_range":`+objectSchema(`"start_offset":{"type":"integer",`+
+	`"minimum":0,"maximum":1000},"end_offset":{"type":"integer","minimum":0,"maximum":1000},"granularity":`+
+	enumSchema("DAILY", "WEEKLY", "MONTHLY"), "end_offset", "granularity"), "cohorts", "cohorts_range")
+
 var reportsRunInput = `{"type":"object","properties":{` +
 	`"property":{"type":"string","minLength":1,"maxLength":40},` +
 	`"dimensions":` + dimensionsSchema + `,"metrics":` + metricsSchema + `,` +
 	`"date_ranges":` + arraySchema(dateRangeSchema, 1, 4) + `,` +
 	`"dimension_filter":` + filterExpressionSchema(maxFilterDepth) + `,` +
 	`"metric_filter":` + filterExpressionSchema(maxFilterDepth) + `,` +
-	`"order_bys":` + arraySchema(objectSchema(`"desc":{"type":"boolean"},"metric":`+
-	objectSchema(`"metric_name":`+fieldNameSchema, "metric_name")+`,"dimension":`+
-	objectSchema(`"dimension_name":`+fieldNameSchema+`,"order_type":`+
-		enumSchema("ALPHANUMERIC", "CASE_INSENSITIVE_ALPHANUMERIC", "NUMERIC"), "dimension_name")), 1, 20) + `,` +
+	`"order_bys":` + orderBysSchema + `,` +
 	`"offset":{"type":"integer","minimum":0,"maximum":2147483647},` +
 	`"limit":{"type":"integer","minimum":1,"maximum":` + strconv.Itoa(maxLimitArgument) + `},` +
 	`"cursor":{"type":"string","minLength":1,"maxLength":4096},` +
 	`"metric_aggregations":` + arraySchema(enumSchema("TOTAL", "MINIMUM", "MAXIMUM", "COUNT"), 1, 4) + `,` +
 	`"currency_code":{"type":"string","pattern":"^[A-Z]{3}$"},` +
-	`"cohort_spec":` + objectSchema(`"cohorts":`+arraySchema(objectSchema(`"name":{"type":"string","minLength":1,`+
-	`"maxLength":100},"dimension":`+enumSchema("firstSessionDate")+`,"date_range":`+dateRangeSchema,
-	"dimension", "date_range"), 1, 20)+`,"cohorts_range":`+objectSchema(`"start_offset":{"type":"integer",`+
-	`"minimum":0,"maximum":1000},"end_offset":{"type":"integer","minimum":0,"maximum":1000},"granularity":`+
-	enumSchema("DAILY", "WEEKLY", "MONTHLY"), "end_offset", "granularity"), "cohorts", "cohorts_range") + `,` +
+	`"cohort_spec":` + cohortSpecSchema + `,` +
 	`"keep_empty_rows":{"type":"boolean"},` +
 	`"comparisons":` + arraySchema(objectSchema(`"name":{"type":"string","minLength":1,"maxLength":100},`+
 	`"comparison":{"type":"string","pattern":"^comparisons/[0-9]{1,19}$"},"dimension_filter":`+

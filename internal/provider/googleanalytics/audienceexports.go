@@ -15,8 +15,8 @@ import (
 )
 
 // Audience exports run on the Data API v1beta (analyticsdata, revision 20261114) as properties.audienceExports.
-// Qatlas creates, reads and lists exports and never queries their users. The v1beta resource has no webhook
-// notification, so nothing here sends or returns an address or a channel token.
+// Qatlas creates, reads and lists exports here; their users are read in audienceexportquery.go. The v1beta
+// resource has no webhook notification, so nothing here sends or returns an address or a channel token.
 const (
 	audienceCreateID = Provider + ".audience-exports.create"
 	audienceGetID    = Provider + ".audience-exports.get"

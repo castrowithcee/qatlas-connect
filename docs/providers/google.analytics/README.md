@@ -1,6 +1,6 @@
 ---
 description: >
-  Describes the Google Analytics provider: the fixed Admin and Data API origins, the token credential, the optional account and property targets and what each tool does with them, the read and write profiles, paging, bounds on provider content, rate spacing, quotas, the connection test, and the limits of what is verified; the account, property, report, and audience export tools have their own pages.
+  Describes the Google Analytics provider: the fixed Admin and Data API origins, the token credential, the optional account and property targets and what each tool does with them, the read and write profiles, paging, bounds on provider content, rate spacing, quotas, the connection test, and the limits of what is verified; the account, property, report, audience export, and report task tools have their own pages.
 type: knowledge
 edit: shared
 created: 2026-11-16
@@ -14,14 +14,17 @@ lists the accounts and properties a credential can see, with their configuration
 property, renames an account, moves an account to the trash, creates, changes, and trashes properties, and
 reads, creates, and changes the data streams of a property. It also runs reports, including an alpha funnel
 report, reads the metadata of the dimensions and metrics a property accepts, and creates and reads audience
-exports. The reading tools change nothing. The account, property, and data stream tools read no report data and
+exports and reads the users of an export, which are personal data. It also starts asynchronous report tasks
+(alpha) and reads their state and rows. The reading tools change nothing. The account, property, and data stream tools read no report data and
 use no reporting quota; the report tools do, see [reports](reports.md#quota), and so does starting an audience
-export, see [audience exports](audience-exports.md#quota). Every tool that changes something needs confirmation.
+export, see [audience exports](audience-exports.md#quota), and starting a report task, see
+[report tasks](report-tasks.md#quota). Every tool that changes something needs confirmation.
 
 [Set up Google Analytics](setup.md) leads through the credential. The tools are described in
 [accounts](accounts.md), [properties](properties.md), [data streams](data-streams.md), [reports](reports.md),
-and [audience exports](audience-exports.md). The funnel report uses the alpha version of the Data API, which
-Google can change without notice; its description says so. The audience exports use the beta version.
+[audience exports](audience-exports.md), and [report tasks](report-tasks.md). The funnel report and the report
+tasks use the alpha version of the Data API, which Google can change without notice; their descriptions say so.
+The audience exports use the beta version.
 
 ## Configuration
 
@@ -67,6 +70,9 @@ not name the resource.
 | `reports.run-funnel` | Like `reports.run` |
 | `audience-exports.create`, `audience-exports.list` | Like `reports.run`, on a bound property or a property of a bound account after one proof read |
 | `audience-exports.get` | The property in the export name follows the same rule; see [audience exports](audience-exports.md#property-and-targets) |
+| `audience-exports.query` | Like `audience-exports.get`: the property in the export name follows the same rule |
+| `report-tasks.create`, `report-tasks.list` | Like `reports.run`, on a bound property or a property of a bound account after one proof read |
+| `report-tasks.get`, `report-tasks.query` | The property in the task name follows the same rule; see [report tasks](report-tasks.md#property-and-targets) |
 
 A property of another account is refused, also when it is named correctly.
 
@@ -78,11 +84,15 @@ The profile `read` is the recommended one and holds `google.analytics.accounts.l
 `google.analytics.properties.get`, `google.analytics.reports.run`, `google.analytics.reports.get-metadata`,
 `google.analytics.reports.check-compatibility`, `google.analytics.data-streams.list`,
 `google.analytics.data-streams.get`, `google.analytics.reports.run-funnel`,
-`google.analytics.audience-exports.get`, and `google.analytics.audience-exports.list`. The profile `write` reads
-like `read`, changes accounts, properties, and data streams, and starts audience exports, each change with its
-own confirmation: it adds `google.analytics.accounts.update`, `google.analytics.properties.create`,
+`google.analytics.audience-exports.get`, `google.analytics.audience-exports.list`,
+`google.analytics.report-tasks.get`, `google.analytics.report-tasks.list`,
+`google.analytics.report-tasks.query`, and `google.analytics.audience-exports.query`. The profile `write` reads
+like `read`, changes accounts, properties, and data streams, and starts audience exports and report tasks, each
+change with its own confirmation: it adds `google.analytics.accounts.update`, `google.analytics.properties.create`,
 `google.analytics.properties.update`, `google.analytics.data-streams.create`,
-`google.analytics.data-streams.update`, and `google.analytics.audience-exports.create`. Deleting is in no profile: a
+`google.analytics.data-streams.update`, `google.analytics.audience-exports.create`,
+and `google.analytics.report-tasks.create`. The users of an export are personal data; see
+[audience exports](audience-exports.md#personal-data). Deleting is in no profile: a
 connection offers `google.analytics.accounts.delete` and `google.analytics.properties.delete` only when its
 `tools` list names them, and each needs the confirmation of a person. `accounts.delete` also runs only on a
 connection that binds exactly that account and no property. Which scope each tool needs is listed in
@@ -91,7 +101,7 @@ connection that binds exactly that account and no property. Which scope each too
 ## Paging
 
 A list returns `next_cursor` and `has_more` when Google reports a further page; reports continue by row offset, see [reports](reports.md#rows-and-cursor), a funnel report has no paging, and
-`audience-exports.list` pages by cursor, see [audience exports](audience-exports.md#googleanalyticsaudience-exportslist). The cursor wraps Google's page
+`audience-exports.list` and `report-tasks.list` page by cursor, see [audience exports](audience-exports.md#googleanalyticsaudience-exportslist), and the rows of `audience-exports.query` and `report-tasks.query` continue by row offset like reports. The cursor wraps Google's page
 token and fits only the tool, the connection, and the arguments that Google requires to stay the same, such as
 the `filter`; a changed or invented cursor is refused before any request. `page_size` may change between
 pages. Google may return fewer entries than asked for and a page can be empty while `has_more` is true.

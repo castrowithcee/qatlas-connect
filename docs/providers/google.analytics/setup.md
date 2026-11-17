@@ -12,7 +12,7 @@ updated: 2026-11-17
 This page shows how to connect Qatlas to Google Analytics 4. Targets, paging, and errors are described in the
 [Google Analytics provider](README.md); the tools are described in [accounts](accounts.md),
 [properties](properties.md), [data streams](data-streams.md), [reports](reports.md), and
-[audience exports](audience-exports.md).
+[audience exports](audience-exports.md), and [report tasks](report-tasks.md).
 
 ## What you need
 
@@ -91,7 +91,8 @@ credential never carries the scope of another product.
 | [Accounts](accounts.md) | `accounts.update`, `accounts.delete` | `analytics.edit` |
 | [Properties](properties.md) | `properties.list`, `properties.get` | `analytics.readonly` |
 | [Reports](reports.md) | `reports.run`, `reports.get-metadata`, `reports.check-compatibility`, `reports.run-funnel` | `analytics.readonly` |
-| [Audience exports](audience-exports.md) | `audience-exports.create`, `audience-exports.get`, `audience-exports.list` | `analytics.readonly` |
+| [Audience exports](audience-exports.md) | `audience-exports.create`, `audience-exports.get`, `audience-exports.list`, `audience-exports.query` | `analytics.readonly` |
+| [Report tasks](report-tasks.md) | `report-tasks.create`, `report-tasks.get`, `report-tasks.list`, `report-tasks.query` | `analytics.readonly` |
 | [Properties](properties.md#changing-properties) | `properties.create`, `properties.update`, `properties.delete` | `analytics.edit` |
 | [Data streams](data-streams.md) | `data-streams.list`, `data-streams.get` | `analytics.readonly` |
 | [Data streams](data-streams.md#changing-data-streams) | `data-streams.create`, `data-streams.update` | `analytics.edit` |

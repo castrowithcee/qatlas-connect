@@ -163,8 +163,8 @@ bucket is below the reserve or 10 funnel reports of the property already run.
 
 `OrderBy.pivot` and `cohortReportSettings.accumulate` are not arguments: Google documents them for pivot
 reports or as not supported in `runReport`. Batch, pivot, and realtime methods have no tool in this group. The
-other methods of the alpha Data API (report tasks, chat, quota snapshot) have no tool either; audience exports
-have [their own page](audience-exports.md).
+other methods of the alpha Data API (chat, quota snapshot) have no tool either; audience exports and report
+tasks have their own pages, [audience exports](audience-exports.md) and [report tasks](report-tasks.md).
 
 ## Not verified
 

@@ -8,7 +8,9 @@
 // once, and refuses a report before any I/O when a bucket is nearly used up.
 // The funnel report runs on the alpha version of the Data API and has its own Funnel quota memory. Starting
 // an audience export is a Core request of the same origin and follows the Core rules; reading or listing
-// exports uses no gate.
+// exports uses no gate. Report tasks run on the alpha version too: starting one is counted with the Core
+// category like an export, reading, listing and querying one uses no gate, and so does querying the users of
+// an export, which are personal data.
 //
 // Reading tools send one request, a changing tool exactly one and never again, whatever comes back.
 // Deleting an account runs only on a connection that binds exactly that account and no property.
@@ -70,6 +72,12 @@ var scopes = map[string][]string{
 	audienceGetID:     {scopeReadOnly},
 	audienceListID:    {scopeReadOnly},
 	audienceCreateID:  {scopeReadOnly},
+
+	audienceQueryID:     {scopeReadOnly},
+	reportTasksCreateID: {scopeReadOnly},
+	reportTasksGetID:    {scopeReadOnly},
+	reportTasksListID:   {scopeReadOnly},
+	reportTasksQueryID:  {scopeReadOnly},
 
 	accountsUpdateID:   {scopeEdit},
 	accountsDeleteID:   {scopeEdit},
@@ -141,7 +149,7 @@ func isDefaultRoot(raw string) bool {
 // readTools are the tools of the profile read, and the start of every wider profile.
 var readTools = []string{summariesID, accountsID, accountsGetID, accountsSharingID, propertiesListID, propertiesGetID,
 	reportsRunID, metadataGetID, compatibilityID, dataStreamsListID, dataStreamsGetID, funnelRunID, audienceGetID,
-	audienceListID}
+	audienceListID, reportTasksGetID, reportTasksListID, reportTasksQueryID, audienceQueryID}
 
 // Register adds the provider metadata, its consent endpoints, its connection test and its tools.
 func Register(reg *capability.Registry) error {
@@ -174,14 +182,16 @@ func Register(reg *capability.Registry) error {
 		},
 		Profiles: []config.ToolProfile{{
 			ID: "read", Title: "Read", Recommended: true,
-			Description: "reads the Analytics accounts and properties the connection reaches; nothing is changed",
-			Tools:       readTools,
+			Description: "reads the Analytics accounts, properties, reports and report tasks the connection reaches; " +
+				"nothing is changed. It includes reading the users of an audience export, which are personal data",
+			Tools: readTools,
 		}, {
 			ID: "write", Title: "Read and change",
-			Description: "reads what the read profile reads and changes Analytics accounts and properties and starts audience exports; every " +
+			Description: "reads what the read profile reads and changes Analytics accounts and properties, starts audience exports " +
+				"and report tasks; every " +
 				"change needs its own confirmation, and deleting stays unlisted",
 			Tools: append(slices.Clone(readTools), accountsUpdateID, propertiesCreateID, propertiesUpdateID,
-				dataStreamsCreateID, dataStreamsUpdateID, audienceCreateID),
+				dataStreamsCreateID, dataStreamsUpdateID, audienceCreateID, reportTasksCreateID),
 		}},
 	}, TestConnection); err != nil {
 		return err
@@ -217,6 +227,11 @@ func Register(reg *capability.Registry) error {
 		{Descriptor: audienceGet, Handler: handleAudienceGet},
 		{Descriptor: audienceList, Handler: handleAudienceList},
 		{Descriptor: audienceCreate, Handler: handleAudienceCreate, ConfirmationSummary: audienceCreateSummary},
+		{Descriptor: audienceQuery, Handler: handleAudienceQuery},
+		{Descriptor: reportTasksCreate, Handler: handleReportTasksCreate, ConfirmationSummary: reportTaskCreateSummary},
+		{Descriptor: reportTasksGet, Handler: handleReportTasksGet},
+		{Descriptor: reportTasksList, Handler: handleReportTasksList},
+		{Descriptor: reportTasksQuery, Handler: handleReportTasksQuery},
 	} {
 		if err := reg.Register(Provider, operation); err != nil {
 			return err
