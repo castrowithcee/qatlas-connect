@@ -1,6 +1,6 @@
 ---
 description: >
-  Describes the version tools of the Google Tag Manager provider: reading one container version or the live version, listing the version headers of a container and reading the latest one, the members of a version and of a header, why version content is untrusted and sensitive, the output bounds and the partial-output report, and what is not verified.
+  Describes the version tools of the Google Tag Manager provider: reading one container version or the live version, listing the version headers of a container and reading the latest one, making a version from a workspace, changing its name and notes, marking it as the latest, deleting and restoring it, the members of a version and of a header, why version content is untrusted and sensitive, the output bounds and the partial-output report, and what is not verified.
 type: knowledge
 edit: shared
 created: 2026-11-17
@@ -9,7 +9,8 @@ updated: 2026-11-17
 
 # Google Tag Manager: versions and version headers
 
-The version tools of the [Google Tag Manager provider](README.md). All four only read.
+The version tools of the [Google Tag Manager provider](README.md). Four read, five make and change versions.
+None publishes a version.
 
 A container version holds the whole configuration of a container as it was when the version was made. Reading
 it is the basis for checking what a version would change before it goes live.
@@ -20,12 +21,44 @@ it is the basis for checking what a version would change before it goes live.
 | `versions.live` | reads the version that is live |
 | `version-headers.list` | lists the headers of a container's versions, a batch per call with `cursor` |
 | `version-headers.latest` | reads the header of the latest version, which is not necessarily the live one |
+| `versions.create` | makes a version from a workspace |
+| `versions.update` | changes the name and notes of a version |
+| `versions.set-latest` | marks a version as the latest one |
+| `versions.delete` | deletes a version |
+| `versions.undelete` | restores a deleted version |
 
 `version` is a path such as `accounts/1/containers/2/versions/7`; the version ID may be `0`, the empty version a
 new container starts from. `container` is checked like a version path against the target of the connection
 before any request. `versions.get` also takes `containerVersionId`, a decimal ID or `published`, which Google's
 method accepts besides the path. `version-headers.list` takes `includeDeleted`, which lists deleted versions as
 well. Its `cursor` is bound to the container, to `includeDeleted`, and to the target.
+
+## Making and changing versions
+
+`versions.create` freezes the current state of a workspace as a version and leaves the workspace as it is. It
+takes `workspace`, which is checked against the target before any request, and optionally `name` and `notes`.
+The result has `containerVersion`, shown as `versions.get` shows a version, `compilerError`, `syncStatus`, and
+`newWorkspacePath`. A compilation that failed is `compilerError: true`, and Google may then return no
+`containerVersion`. A workspace with an open merge conflict cannot make a version. The call is not idempotent:
+it is sent once, and after an unclear outcome, which the error names, read `version-headers.latest` before
+calling again, because a repeated call can make a second version.
+
+`versions.update` changes `name` and `notes`, which Google calls `description`, and needs the `fingerprint` of
+the version as last read. At least one of `name` and `notes` is needed, and a call without a fingerprint is
+refused before any request. Google replaces the version here; that a member left out is kept is not
+documented, so send both as `versions.get` returned them. `versions.set-latest` marks a version as the latest.
+The latest version is what a new workspace starts from, so this changes the base of workspaces made later and
+no live configuration. `versions.undelete` restores a deleted version. Each of the three answers with the
+version.
+
+`versions.delete` deletes a whole version and answers with `version` and `deleted: true`. Google refuses to
+delete the live version; that refusal is an error of the class `invalid-provider-response`, with Google's answer
+as the original. It is in no profile: a connection offers it only when its `tools` list names it.
+`versions.undelete` brings a deleted version back.
+
+All five need `tagmanager.edit.containerversions` and their own confirmation, which shows the workspace or
+version path and the name, never the notes. The tools `versions.create`, `versions.update`,
+`versions.set-latest`, and `versions.undelete` are in the profile `write`.
 
 ## Version content
 

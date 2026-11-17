@@ -41,6 +41,7 @@ are described in the [Google Tag Manager provider](README.md); the tools in
 | [workspace management](workspaces.md), synchronizing and resolving merge conflicts | `tagmanager.edit.containers` | edit access to the container |
 | [workspace management](workspaces.md), quick preview | `tagmanager.edit.containerversions` | edit access to the container |
 | [workspace management](workspaces.md), deleting | `tagmanager.delete.containers` | edit access to the container |
+| [versions and version headers](versions.md), making, changing, deleting, and restoring | `tagmanager.edit.containerversions` | edit access to the container |
 | [tags](tags.md), [triggers](triggers.md), [variables](variables.md), [built-in variables](built-in-variables.md), [templates](templates.md), [folders](folders.md), [clients](clients.md), [transformations](transformations.md), [zones](zones.md), [Google tag configurations](gtag-configs.md), and [environments](environments.md), changing | `tagmanager.edit.containers` | edit access to the container |
 | [user permissions](user-permissions.md), reading and changing | `tagmanager.manage.users` | the right to manage users of the account |
 

@@ -15,7 +15,7 @@ shared with the other groups are described there.
 An environment of a container decides where a preview and the debug panel run. Its `url` is the page a preview
 opens, and `enableDebug` turns the debug panel on there. An environment belongs to the container, not to a
 workspace. Nothing here publishes: a version goes live only through a container version, which no tool of this
-provider makes.
+provider publishes.
 
 | Tool | Does |
 | --- | --- |
