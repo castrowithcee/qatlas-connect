@@ -11,7 +11,7 @@ updated: 2026-11-17
 
 This page shows how to connect Qatlas to Google Tag Manager. Configuration, targets, scopes, quota, and errors
 are described in the [Google Tag Manager provider](README.md); the tools in
-[accounts, containers, and workspaces](structure.md), [workspace management](workspaces.md), [tags](tags.md),
+[accounts, containers, and workspaces](structure.md), [destinations](destinations.md), [workspace management](workspaces.md), [tags](tags.md),
 [triggers](triggers.md), [variables](variables.md), [built-in variables](built-in-variables.md),
 [templates](templates.md), [clients](clients.md), [transformations](transformations.md), [zones](zones.md), [Google tag configurations](gtag-configs.md), and [user permissions](user-permissions.md).
 
@@ -29,7 +29,9 @@ are described in the [Google Tag Manager provider](README.md); the tools in
 
 | Tool group | Scope | Access in Tag Manager |
 | --- | --- | --- |
-| [accounts, containers, and workspaces](structure.md) | `tagmanager.readonly` | read access to the account or container |
+| [accounts, containers, and workspaces](structure.md), reading, and [destinations](destinations.md) | `tagmanager.readonly` | read access to the account or container |
+| [accounts](structure.md), renaming | `tagmanager.manage.accounts` | administrator access to the account |
+| [containers](structure.md), combining | `tagmanager.edit.containers` | edit access to both containers |
 | [tags](tags.md), [triggers](triggers.md), [variables](variables.md), [built-in variables](built-in-variables.md), [templates](templates.md), [folders](folders.md), [clients](clients.md), [transformations](transformations.md), [zones](zones.md), [Google tag configurations](gtag-configs.md), and [environments](environments.md), reading | `tagmanager.readonly` | read access to the container |
 | [workspace management](workspaces.md), reading the status | `tagmanager.readonly` | read access to the container |
 | [workspace management](workspaces.md), creating and updating | `tagmanager.edit.containers` | edit access to the container |
@@ -39,8 +41,9 @@ are described in the [Google Tag Manager provider](README.md); the tools in
 | [tags](tags.md), [triggers](triggers.md), [variables](variables.md), [built-in variables](built-in-variables.md), [templates](templates.md), [folders](folders.md), [clients](clients.md), [transformations](transformations.md), [zones](zones.md), [Google tag configurations](gtag-configs.md), and [environments](environments.md), changing | `tagmanager.edit.containers` | edit access to the container |
 | [user permissions](user-permissions.md), reading and changing | `tagmanager.manage.users` | the right to manage users of the account |
 
-Qatlas asks for no broader scope than the tools of your connections need. No tool publishes a version, so no
-publish right is needed.
+Qatlas asks for no broader scope than the tools of your connections need. The scope `tagmanager.manage.accounts`
+is asked for only by the profile `write` or a `tools` list that names `accounts.update`. No tool publishes a
+version, so no publish right is needed.
 
 ## Way 1: your Google account with a consent
 
