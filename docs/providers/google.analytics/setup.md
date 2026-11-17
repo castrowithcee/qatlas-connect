@@ -99,6 +99,8 @@ credential never carries the scope of another product.
 | [Data streams](data-streams.md#changing-data-streams) | `data-streams.create`, `data-streams.update`, `data-streams.delete` | `analytics.edit` |
 | [Measurement protocol secrets](measurement-protocol-secrets.md) | `measurement-protocol-secrets.list`, `measurement-protocol-secrets.get` | `analytics.readonly` |
 | [Measurement protocol secrets](measurement-protocol-secrets.md#googleanalyticsmeasurement-protocol-secretsdelete) | `measurement-protocol-secrets.delete` | `analytics.edit` |
+| [Stream settings](data-streams.md#stream-settings-alpha) | `data-streams.get-enhanced-measurement`, `data-streams.get-data-redaction`, `data-streams.get-site-tag` | `analytics.readonly` |
+| [Stream settings](data-streams.md#stream-settings-alpha) | `data-streams.update-enhanced-measurement`, `data-streams.update-data-redaction` | `analytics.edit` |
 
 ## Add it to Qatlas
 

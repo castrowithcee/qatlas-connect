@@ -17,6 +17,8 @@
 // of a measurement protocol secret is never returned: it is read from Google's answer only to register it with
 // the redactor.
 //
+// The settings of a web data stream run on the Admin API v1alpha, see alpha.go.
+//
 // A connection may bind Analytics accounts (accounts/ID) and properties (properties/ID). Without a target it
 // reaches what the credential reaches. A bound account reaches its properties, a bound property only itself;
 // a property that is not bound itself is read once as proof of its account before anything else is done with
@@ -100,6 +102,12 @@ var scopes = map[string][]string{
 	mpSecretsListID:   {scopeReadOnly},
 	mpSecretsGetID:    {scopeReadOnly},
 	mpSecretsDeleteID: {scopeEdit},
+
+	enhancedGetID:     {scopeReadOnly},
+	redactionGetID:    {scopeReadOnly},
+	siteTagGetID:      {scopeReadOnly},
+	enhancedUpdateID:  {scopeEdit},
+	redactionUpdateID: {scopeEdit},
 }
 
 func tokenMetadata() config.TokenMetadata { return config.TokenMetadata{Scopes: scopes} }
@@ -161,7 +169,8 @@ func isDefaultRoot(raw string) bool {
 var readTools = []string{summariesID, accountsID, accountsGetID, accountsSharingID, propertiesListID, propertiesGetID,
 	reportsRunID, metadataGetID, compatibilityID, dataStreamsListID, dataStreamsGetID, funnelRunID, audienceGetID,
 	audienceListID, reportsRunPivotID, reportsBatchRunID, reportsBatchRunPivotID, reportsRunRealtimeID,
-	reportTasksGetID, reportTasksListID, reportTasksQueryID, audienceQueryID, mpSecretsListID, mpSecretsGetID}
+	reportTasksGetID, reportTasksListID, reportTasksQueryID, audienceQueryID, mpSecretsListID, mpSecretsGetID,
+	enhancedGetID, redactionGetID, siteTagGetID}
 
 // Register adds the provider metadata, its consent endpoints, its connection test and its tools.
 func Register(reg *capability.Registry) error {
@@ -204,7 +213,7 @@ func Register(reg *capability.Registry) error {
 				"change needs its own confirmation, and deleting an account or a property stays unlisted",
 			Tools: append(slices.Clone(readTools), accountsUpdateID, propertiesCreateID, propertiesUpdateID,
 				dataStreamsCreateID, dataStreamsUpdateID, dataStreamsDeleteID, mpSecretsDeleteID, audienceCreateID,
-				reportTasksCreateID),
+				reportTasksCreateID, enhancedUpdateID, redactionUpdateID),
 		}},
 	}, TestConnection); err != nil {
 		return err
@@ -244,6 +253,12 @@ func Register(reg *capability.Registry) error {
 		{Descriptor: mpSecretsList, Handler: handleSecretsList},
 		{Descriptor: mpSecretsGet, Handler: handleSecretsGet},
 		{Descriptor: mpSecretsDelete, Handler: handleSecretsDelete, ConfirmationSummary: secretDeleteSummary},
+		{Descriptor: enhancedGet, Handler: handleEnhancedGet},
+		{Descriptor: enhancedUpdate, Handler: handleEnhancedUpdate, ConfirmationSummary: settingsSummary(enhancedUpdateID)},
+		{Descriptor: redactionGet, Handler: handleRedactionGet},
+		{Descriptor: redactionUpdateDescriptor, Handler: handleRedactionUpdate,
+			ConfirmationSummary: settingsSummary(redactionUpdateID)},
+		{Descriptor: siteTagGet, Handler: handleSiteTagGet},
 		{Descriptor: funnelRun, Handler: handleFunnelRun},
 		{Descriptor: audienceGet, Handler: handleAudienceGet},
 		{Descriptor: audienceList, Handler: handleAudienceList},
