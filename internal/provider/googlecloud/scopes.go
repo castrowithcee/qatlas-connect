@@ -12,6 +12,10 @@ const scopeReadOnly = "https://www.googleapis.com/auth/cloud-platform.read-only"
 // them lists a read-only variant.
 const scopeCloudPlatform = "https://www.googleapis.com/auth/cloud-platform"
 
+// scopeAPIKeys is the narrowest scope that apikeys v2 lists for keys.delete and keys.undelete, next to
+// cloud-platform; both reads list cloud-platform.read-only as well, which the profile read uses.
+const scopeAPIKeys = "https://www.googleapis.com/auth/apikeys"
+
 // scopeComputeReadOnly is the smallest scope the discovery document of compute v1 lists for the read methods
 // of instances, machineTypes, zones, regions, and the Compute operations (next to compute and cloud-platform).
 const scopeComputeReadOnly = "https://www.googleapis.com/auth/compute.readonly"
@@ -58,6 +62,11 @@ var tokenMetadata = config.TokenMetadata{Scopes: map[string][]string{
 	serviceAccountKeysEnableID:  {scopeCloudPlatform},
 	serviceAccountKeysDeleteID:  {scopeCloudPlatform},
 	serviceAccountsDeleteID:     {scopeCloudPlatform},
+	// apikeys v2 lists cloud-platform.read-only for keys.list and get, and apikeys for keys.delete and undelete.
+	apiKeysListID:     {scopeReadOnly},
+	apiKeysGetID:      {scopeReadOnly},
+	apiKeysDeleteID:   {scopeAPIKeys},
+	apiKeysUndeleteID: {scopeAPIKeys},
 	// cloudquotas v1 lists only cloud-platform for quotaInfos and quotaPreferences list and get.
 	quotaInfosListID:       {scopeCloudPlatform},
 	quotaInfosGetID:        {scopeCloudPlatform},

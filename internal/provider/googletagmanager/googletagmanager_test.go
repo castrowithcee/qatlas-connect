@@ -205,7 +205,7 @@ func TestRegisterDeclaresTokenScopesAndTargets(t *testing.T) {
 		t.Fatal(err)
 	}
 	metadata, ok := reg.ProviderMetadata(Provider)
-	if !ok || metadata.Token == nil || len(reg.Provider(Provider)) != 86 || metadata.DocPath() != "google.tag-manager/setup.md" {
+	if !ok || metadata.Token == nil || len(reg.Provider(Provider)) != 90 || metadata.DocPath() != "google.tag-manager/setup.md" {
 		t.Fatalf("metadata = %+v, %v", metadata, ok)
 	}
 	for _, d := range reg.Provider(Provider) {
