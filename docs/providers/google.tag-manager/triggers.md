@@ -13,7 +13,7 @@ The trigger tools of the [Google Tag Manager provider](README.md). The update, r
 never-cut rules shared with tags and variables are described there.
 
 A trigger decides when the tags of a container fire. A change is made in the workspace only and takes effect on
-the pages of the container with a published version, which no tool of this provider makes. Every change is
+the pages of the container with a published version, which only the listed-only versions.publish publishes. Every change is
 confirmed, and the confirmation shows the name, the type, and the workspace or trigger path.
 
 | Tool | Does |

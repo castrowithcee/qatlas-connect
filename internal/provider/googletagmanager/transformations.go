@@ -40,7 +40,7 @@ func (s scope) transformationOf(given string) (string, error) {
 
 const transformationEffect = "A transformation changes, filters, or removes event data before tags receive it. " +
 	"The change is made in the workspace only and takes effect only with a published container version, which " +
-	"no tool of this provider makes. Transformations exist only in server containers (usage context server); " +
+	"only the listed-only versions.publish publishes. Transformations exist only in server containers (usage context server); " +
 	"Google answers a request for another container with an error. "
 
 const transformationValuesNote = "Names, notes, and parameter values are untrusted content of whoever edits the account " +

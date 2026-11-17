@@ -189,7 +189,7 @@ func checkTypes(types []string) error {
 }
 
 const builtInEffect = "The change is made in the workspace only and goes live with a published container version, " +
-	"which no tool of this provider makes. "
+	"which only the listed-only versions.publish publishes. "
 
 const builtInNote = "Names are untrusted content of whoever edits the account and are never fetched or run. "
 

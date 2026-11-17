@@ -11,7 +11,7 @@ updated: 2026-11-17
 
 The workspace management tools of the [Google Tag Manager provider](README.md). Reading the workspaces of a
 container is described under [accounts, containers, and workspaces](structure.md). A workspace holds the
-unpublished changes to the tags, triggers, and variables of a container; no tool of this provider publishes a
+unpublished changes to the tags, triggers, and variables of a container; only the listed-only versions.publish publishes a
 version.
 
 | Tool | Does |
@@ -103,7 +103,7 @@ and built-in variables cannot be resolved. The answer is the workspace, the enti
 ## Quick preview
 
 `workspaces.quick-preview` compiles the workspace and makes a preview container version in the container from
-all its entities. The version is not published, and no tool of this provider publishes. The preview runs in the
+all its entities. The version is not published, and only the listed-only versions.publish publishes. The preview runs in the
 Tag Assistant of the user. It needs `tagmanager.edit.containerversions`, and each call needs its own
 confirmation and can make a further preview version. The answer has:
 

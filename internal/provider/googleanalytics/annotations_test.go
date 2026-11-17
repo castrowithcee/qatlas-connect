@@ -406,6 +406,9 @@ func TestAnnotationWritesDistrustAnAnswerOfAnotherAnnotation(t *testing.T) {
 	}
 }
 
+var annotationTools = []string{annotationsListID, annotationsGetID, annotationsCreateID, annotationsUpdateID,
+	annotationsDeleteID}
+
 func TestAnnotationToolsAreInTheProfilesAndNotListedOnly(t *testing.T) {
 	reg := registry(t)
 	metadata, _ := reg.ProviderMetadata(Provider)
@@ -413,7 +416,7 @@ func TestAnnotationToolsAreInTheProfilesAndNotListedOnly(t *testing.T) {
 	for _, p := range metadata.Profiles {
 		profiles[p.ID] = p.Tools
 	}
-	for _, id := range alphaTools[5:] {
+	for _, id := range annotationTools {
 		descriptor, _, ok := reg.Lookup(id)
 		if !ok || descriptor.RequiresToolAllowList {
 			t.Errorf("%s: registered %t, listed-only %t", id, ok, descriptor.RequiresToolAllowList)

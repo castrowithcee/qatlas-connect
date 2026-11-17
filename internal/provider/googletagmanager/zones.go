@@ -42,8 +42,8 @@ func (s scope) zoneOf(given string) (string, error) {
 
 const zoneEffect = "A zone fences tags, triggers, and variables to a part of a container and can bring another " +
 	"container in through childContainer, which pulls the configuration of that container into this one. The " +
-	"change is made in the workspace only and takes effect only with a published container version, which no " +
-	"tool of this provider makes. "
+	"change is made in the workspace only and takes effect only with a published container version, which only the " +
+	"listed-only versions.publish publishes. "
 
 const zoneBindingNote = "With a connection bound to an account, every childContainer publicId must be the public " +
 	"ID of a container of that account, which the tool checks by reading the containers of the account before " +
