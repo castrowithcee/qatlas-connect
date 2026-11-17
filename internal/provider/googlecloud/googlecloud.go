@@ -1,7 +1,7 @@
-// Package googlecloud implements read-only access to Google Cloud with one credential that issues access
-// tokens: a person's consent, a service account key, or the impersonation of a service account, all through
-// the token core of internal/provider. A connection takes no secret of its own and no scope: the scopes follow
-// from the tools it offers (see scopes.go).
+// Package googlecloud implements access to Google Cloud, read-only apart from the profile service-accounts,
+// with one credential that issues access tokens: a person's consent, a service account key, or the
+// impersonation of a service account, all through the token core of internal/provider. A connection takes no
+// secret of its own and no scope: the scopes follow from the tools it offers (see scopes.go).
 //
 // The package starts with Cloud Resource Manager: the search of organizations, folders, and projects, one
 // project, and the state of a long-running operation. It then reads IAM: roles, and the roles and permissions
@@ -90,7 +90,7 @@ func Register(reg *capability.Registry) error {
 	token := tokenMetadata
 	if err := reg.RegisterProvider(config.ProviderMetadata{
 		ID: Provider, Name: "Google Cloud", DefaultBaseURL: apiRoot,
-		Description:    "Projects, folders, organizations, long-running operations, IAM roles, and service accounts of Google Cloud, searched and read with a consent, a service account key, or an impersonated service account",
+		Description:    "Projects, folders, organizations, IAM roles, and service accounts of Google Cloud: read, and service accounts changed with an opt-in profile",
 		DefaultEffects: []config.Effect{config.EffectRead},
 		ValidateBaseURL: func(raw string) error {
 			if !isAPIRoot(raw) {
@@ -111,11 +111,18 @@ func Register(reg *capability.Registry) error {
 			ID: "read-iam", Title: "Read with IAM",
 			Description: "everything of read plus IAM roles, policies, deny policies, the roles and permissions of a resource, " +
 				"and service accounts with the metadata of their keys; these IAM methods accept only the broad cloud-platform " +
-				"scope, so the token may change what its account may, although no tool of this provider changes anything",
+				"scope, so the token may change what its account may, although no tool of this profile changes anything",
 			Tools: append(append([]string{}, readTools...), iamRolesList.ID, iamRolesGet.ID, iamRolesQuery.ID,
 				iamPermissionsQuery.ID, iamPoliciesGet.ID, iamPermissionsTest.ID, denyPoliciesList.ID,
 				denyPoliciesGet.ID, serviceAccountsList.ID, serviceAccountsGet.ID, serviceAccountKeysList.ID,
 				serviceAccountKeysGet.ID),
+		}, {
+			ID: "service-accounts", Title: "Service accounts",
+			Description: "creates service accounts, changes their display name and description, and disables and " +
+				"enables them; the token holds the broad cloud-platform scope and may change what its account may, " +
+				"every change needs its own confirmation, and no tool creates a key, a token, or a signature",
+			Tools: []string{serviceAccountsCreate.ID, serviceAccountsPatch.ID, serviceAccountsDisable.ID,
+				serviceAccountsEnable.ID},
 		}},
 	}, TestConnection); err != nil {
 		return err
@@ -149,5 +156,13 @@ func Register(reg *capability.Registry) error {
 		capability.Operation{Descriptor: serviceAccountsList, Handler: handleServiceAccountsList},
 		capability.Operation{Descriptor: serviceAccountsGet, Handler: handleServiceAccountsGet},
 		capability.Operation{Descriptor: serviceAccountKeysList, Handler: handleServiceAccountKeysList},
-		capability.Operation{Descriptor: serviceAccountKeysGet, Handler: handleServiceAccountKeysGet})
+		capability.Operation{Descriptor: serviceAccountKeysGet, Handler: handleServiceAccountKeysGet},
+		capability.Operation{Descriptor: serviceAccountsCreate, Handler: handleServiceAccountsCreate,
+			ConfirmationSummary: accountSummary(serviceAccountsCreateID)},
+		capability.Operation{Descriptor: serviceAccountsPatch, Handler: handleServiceAccountsPatch,
+			ConfirmationSummary: accountSummary(serviceAccountsPatchID)},
+		capability.Operation{Descriptor: serviceAccountsDisable, Handler: handleServiceAccountsDisable,
+			ConfirmationSummary: accountSummary(serviceAccountsDisableID)},
+		capability.Operation{Descriptor: serviceAccountsEnable, Handler: handleServiceAccountsEnable,
+			ConfirmationSummary: accountSummary(serviceAccountsEnableID)})
 }

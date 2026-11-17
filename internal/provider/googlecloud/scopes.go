@@ -40,4 +40,9 @@ var tokenMetadata = config.TokenMetadata{Scopes: map[string][]string{
 	serviceAccountsGetID:     {scopeCloudPlatform},
 	serviceAccountKeysListID: {scopeCloudPlatform},
 	serviceAccountKeysGetID:  {scopeCloudPlatform},
+	// iam v1 lists only cloud-platform for projects.serviceAccounts create, patch, enable, and disable.
+	serviceAccountsCreateID:  {scopeCloudPlatform},
+	serviceAccountsPatchID:   {scopeCloudPlatform},
+	serviceAccountsDisableID: {scopeCloudPlatform},
+	serviceAccountsEnableID:  {scopeCloudPlatform},
 }}
