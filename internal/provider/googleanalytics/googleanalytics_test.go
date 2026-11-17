@@ -107,6 +107,8 @@ func TestRegisterPublishesMetadataScopesAndConsent(t *testing.T) {
 		calculatedListID: {scopeReadOnly}, calculatedGetID: {scopeReadOnly},
 		calculatedCreateID: {scopeEdit}, calculatedUpdateID: {scopeEdit}, calculatedDeleteID: {scopeEdit},
 		accessAccountID: {scopeReadOnly}, accessPropertyID: {scopeReadOnly},
+		rollupLinksListID: {scopeReadOnly}, rollupLinksGetID: {scopeReadOnly},
+		accessBindingsListID: {scopeUsersReadOnly}, accessBindingsGetID: {scopeUsersReadOnly},
 		dataRetentionGetID: {scopeReadOnly}, dataRetentionUpdateID: {scopeEdit}, googleSignalsGetID: {scopeReadOnly},
 		googleSignalsUpdateID: {scopeEdit}, annotationsListID: {scopeReadOnly}, annotationsGetID: {scopeReadOnly},
 		annotationsCreateID: {scopeEdit}, annotationsUpdateID: {scopeEdit}, annotationsDeleteID: {scopeEdit}}) {
@@ -157,7 +159,9 @@ func TestRegisterPublishesMetadataScopesAndConsent(t *testing.T) {
 		"google.analytics.reports.run-realtime", "google.analytics.accounts.run-access-report",
 		"google.analytics.properties.run-access-report", "google.analytics.data-retention.get",
 		"google.analytics.data-retention.update", "google.analytics.google-signals.get",
-		"google.analytics.google-signals.update"})) {
+		"google.analytics.google-signals.update", "google.analytics.rollup-links.list",
+		"google.analytics.rollup-links.get", "google.analytics.access-bindings.list",
+		"google.analytics.access-bindings.get"})) {
 		t.Errorf("tools = %v", ids)
 	}
 	reads := []string{summariesID, accountsID, accountsGetID, accountsSharingID, propertiesListID, propertiesGetID,
@@ -168,7 +172,8 @@ func TestRegisterPublishesMetadataScopesAndConsent(t *testing.T) {
 		customDimensionsListID, customDimensionsGetID, customMetricsListID,
 		customMetricsGetID, keyEventsListID, keyEventsGetID, eventRulesListID, eventRulesGetID,
 		calculatedListID, calculatedGetID, accessAccountID, accessPropertyID, dataRetentionGetID, googleSignalsGetID,
-		annotationsListID, annotationsGetID}
+		annotationsListID, annotationsGetID, rollupLinksListID, rollupLinksGetID, accessBindingsListID,
+		accessBindingsGetID}
 	if len(metadata.Profiles) != 2 || metadata.Profiles[0].ID != "read" || !metadata.Profiles[0].Recommended ||
 		!reflect.DeepEqual(metadata.Profiles[0].Tools, reads) || metadata.Profiles[1].ID != "write" ||
 		metadata.Profiles[1].Recommended ||
@@ -200,6 +205,9 @@ func TestRegisterPublishesMetadataScopesAndConsent(t *testing.T) {
 		}
 		if descriptor.ID == accessAccountID || descriptor.ID == accessPropertyID {
 			sensitivity = dataSensitivityAccess
+		}
+		if descriptor.ID == accessBindingsListID || descriptor.ID == accessBindingsGetID {
+			sensitivity = dataSensitivityBindings
 		}
 		if effectOf(descriptor.ID) == config.EffectRead && descriptor.Risk != (capability.Risk{
 			Effect: capability.EffectRead, Idempotency: capability.IdempotencySafe,
@@ -534,7 +542,7 @@ func TestServiceAccountAndImpersonationObtainTheirTokens(t *testing.T) {
 	claims, _ := base64.RawURLEncoding.DecodeString(parts[1])
 	var assertion struct{ Iss, Scope, Aud string }
 	if len(parts) != 3 || json.Unmarshal(claims, &assertion) != nil || assertion.Iss != serviceAccount ||
-		assertion.Scope != scopeReadOnly || assertion.Aud != "https://oauth2.googleapis.com/token" {
+		assertion.Scope != scopeUsersReadOnly+" "+scopeReadOnly || assertion.Aud != "https://oauth2.googleapis.com/token" {
 		t.Errorf("assertion claims = %s", claims)
 	}
 	if masked := env.red.Apply(form.Get("assertion")); strings.Contains(masked, parts[2]) {

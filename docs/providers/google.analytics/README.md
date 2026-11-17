@@ -1,6 +1,6 @@
 ---
 description: >
-  Describes the Google Analytics provider: the fixed Admin and Data API origins, the token credential, the optional account and property targets and what each tool does with them, the read and write profiles, the alpha tools rule, paging, bounds on provider content, rate spacing, quotas, the connection test, and the limits of what is verified; the account, property, data stream, custom dimension, custom metric, key event, event create rule, calculated metric, annotation, report, audience export, report task, access report, data retention, and Google Signals tools have their own pages.
+  Describes the Google Analytics provider: the fixed Admin and Data API origins, the token credential, the optional account and property targets and what each tool does with them, the read and write profiles, the alpha tools rule, paging, bounds on provider content, rate spacing, quotas, the connection test, and the limits of what is verified; the account, property, data stream, custom dimension, custom metric, key event, event create rule, calculated metric, annotation, rollup link, access binding, report, audience export, report task, access report, data retention, and Google Signals tools have their own pages.
 type: knowledge
 edit: shared
 created: 2026-11-16
@@ -21,8 +21,9 @@ property accepts, creates and reads audience exports, and reads the users of an 
 It also starts asynchronous report tasks (alpha) and reads their state and rows, lists, reads, creates, changes,
 and deletes the calculated metrics and the annotations of a property (alpha), and runs Data Access Reports on an
 account or property, which name the users who read the data and are personal data. It reads and changes the data
-retention settings of a property and, through the alpha Admin API, its Google Signals setting. The reading tools change
-nothing. The account, property, data stream, custom dimension, custom metric, key event, event create rule, calculated metric, and annotation tools read no report data and use no reporting quota; the report
+retention settings of a property and, through the alpha Admin API, its Google Signals setting. It lists and reads the
+source links of a rollup property and the access bindings of an account or property (both alpha), which name users
+by email address and are personal data. The reading tools change nothing. The account, property, data stream, custom dimension, custom metric, key event, event create rule, calculated metric, and annotation tools read no report data and use no reporting quota; the report
 tools do, see [reports](reports.md#quota), and so does starting an audience export, see
 [audience exports](audience-exports.md#quota), and starting a report task, see
 [report tasks](report-tasks.md#quota). Every tool that changes something needs confirmation.
@@ -33,6 +34,7 @@ tools do, see [reports](reports.md#quota), and so does starting an audience expo
 [calculated metrics](calculated-metrics.md),
 [annotations](annotations.md), [reports](reports.md), [audience exports](audience-exports.md), [report tasks](report-tasks.md),
 [measurement protocol secrets](measurement-protocol-secrets.md), [access reports](access-reports.md),
+[rollup links](rollup-links.md), [access bindings](access-bindings.md),
 [data retention](data-retention.md), and [Google Signals](google-signals.md). The funnel report and the report
 tasks use the alpha version of the Data API, which Google can change without notice; their descriptions say so.
 The audience exports use the beta version. Tools on the alpha version of the Admin API follow the
@@ -61,7 +63,8 @@ with an `ALPHA:` note. Google can change or remove such a method without notice,
 the answer of the tool change with it. Every other Admin tool uses `v1beta`. The tool groups that use `v1alpha`
 say so on their page: the [data streams](data-streams.md#stream-settings-alpha) settings tools, the
 [event create rule](event-create-rules.md) tools, the [calculated metrics](calculated-metrics.md) tools, and the
-[annotations](annotations.md), and the [Google Signals](google-signals.md) tools.
+[annotations](annotations.md), the [rollup link](rollup-links.md) and [access binding](access-bindings.md) tools,
+and the [Google Signals](google-signals.md) tools.
 
 ## Targets
 
@@ -95,6 +98,9 @@ not name the resource.
 | `calculated-metrics.list`, `calculated-metrics.create` | Use a bound property, or a property of a bound account after one proof read of its parent; see [calculated metrics](calculated-metrics.md#targets-and-proof) |
 | `calculated-metrics.get`, `calculated-metrics.update`, `calculated-metrics.delete` | The property in the metric name follows the same rule |
 | `annotations.list`, `annotations.get`, `annotations.create`, `annotations.update`, `annotations.delete` | Use the annotations of a bound property, or of a property of a bound account after one proof read of its parent; see [annotations](annotations.md#targets-and-proof) |
+| `rollup-links.list`, `rollup-links.get` | Use the links of a bound property, or of a property of a bound account after one proof read of its parent; see [rollup links](rollup-links.md#targets-and-proof) |
+| `access-bindings.list`, `access-bindings.get` with a property parent | Like `reports.run`, on the property of `parent` or of the name: a bound property or a property of a bound account after one proof read |
+| `access-bindings.list`, `access-bindings.get` with an account parent | Like `accounts.get`, but a connection bound to properties only is refused: a bound account, or no target; see [access bindings](access-bindings.md#targets-and-proof) |
 | `data-retention.get`, `data-retention.update`, `google-signals.get`, `google-signals.update` | Use a bound property, or a property of a bound account after one proof read of its parent; see [data retention](data-retention.md#targets-and-proof) |
 | `reports.run`, `reports.run-pivot`, `reports.batch-run`, `reports.batch-run-pivot`, `reports.run-realtime`, `reports.check-compatibility` | Use a bound property, or a property of a bound account after one proof read of its parent |
 | `reports.get-metadata` | Like `reports.run`; `properties/0` needs no target, see [reports](reports.md#property-and-targets) |
@@ -131,7 +137,9 @@ The profile `read` is the recommended one and holds `google.analytics.accounts.l
 `google.analytics.calculated-metrics.list`, `google.analytics.calculated-metrics.get`,
 `google.analytics.annotations.list`, `google.analytics.annotations.get`,
 `google.analytics.accounts.run-access-report`, `google.analytics.properties.run-access-report`,
-`google.analytics.data-retention.get`, and `google.analytics.google-signals.get`. The profile `write` reads like `read`, changes accounts, properties,
+`google.analytics.data-retention.get`, `google.analytics.google-signals.get`,
+`google.analytics.rollup-links.list`, `google.analytics.rollup-links.get`, `google.analytics.access-bindings.list`,
+and `google.analytics.access-bindings.get`. The profile `write` reads like `read`, changes accounts, properties,
 data streams and their settings, custom dimensions, custom metrics, key events, event create rules, calculated metrics, annotations, and Google Signals, deletes data streams, measurement protocol secrets, and key events,
 and starts audience exports and report tasks, each change with its own confirmation: it adds
 `google.analytics.accounts.update`, `google.analytics.properties.create`, `google.analytics.properties.update`,
@@ -150,7 +158,8 @@ and starts audience exports and report tasks, each change with its own confirmat
 `google.analytics.google-signals.update`. The users of an
 export are personal data; see
 [audience exports](audience-exports.md#personal-data); so are the access reports, see
-[access reports](access-reports.md#personal-data). Deleting an account or a property is in no profile: a
+[access reports](access-reports.md#personal-data), and the access bindings, see
+[access bindings](access-bindings.md#personal-data). Deleting an account or a property is in no profile: a
 connection offers `google.analytics.accounts.delete` and `google.analytics.properties.delete` only when its
 `tools` list names them. So does changing the data retention: `google.analytics.data-retention.update` is in no
 profile either, because shortening a period deletes data permanently, see [data retention](data-retention.md).
@@ -163,7 +172,8 @@ the profile `write`, with its own confirmation. Which scope each tool needs is l
 
 A list returns `next_cursor` and `has_more` when Google reports a further page; reports continue by row offset,
 see [reports](reports.md#rows-and-cursor), funnel, pivot, batch, and realtime reports have no cursor,
-`audience-exports.list`, `report-tasks.list`, and `annotations.list` page by cursor, see
+`audience-exports.list`, `report-tasks.list`, `annotations.list`, `rollup-links.list`, and
+`access-bindings.list` page by cursor, see
 [audience exports](audience-exports.md#googleanalyticsaudience-exportslist), and the rows of
 `audience-exports.query`, `report-tasks.query`, and the access reports continue by row offset like reports. The cursor wraps Google's page
 token and fits only the tool, the connection, and the arguments that Google requires to stay the same, such as
@@ -177,7 +187,8 @@ descriptions of annotations. Names are cut at 300
 characters and a cut text ends with `…`. Enumeration values and timestamps are kept exactly as Google sends
 them, and a value that is not printable ASCII or too long is left out. A resource name that is not
 `accounts/ID`, `properties/ID`, `accountSummaries/ID`, or `properties/ID/dataStreams/ID`, or `properties/ID/dataStreams/ID/eventCreateRules/ID`, or
-`properties/ID/calculatedMetrics/ID`, or `properties/ID/reportingDataAnnotations/ID` is left out. Lists are
+`properties/ID/calculatedMetrics/ID`, or `properties/ID/reportingDataAnnotations/ID`, or `properties/ID/rollupPropertySourceLinks/ID`, or
+`accounts/ID/accessBindings/ID` or `properties/ID/accessBindings/ID` is left out. Lists are
 cut at 200 entries per page and 2,000 properties per account summary. The bounds of report values and lists are
 in [reports](reports.md#untrusted-values). Qatlas never fetches an address from a result.
 

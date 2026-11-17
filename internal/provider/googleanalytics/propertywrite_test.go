@@ -42,6 +42,10 @@ func TestExcludedMethodsHaveNoTool(t *testing.T) {
 		ids = append(ids, d.ID)
 		id := strings.ToLower(d.ID)
 		for _, excluded := range []string{"acknowledge", "rollup", "subproperty", "subproperties", "source-link"} {
+			// The two read tools of rollup source links are allowed; creating a rollup or a link is not.
+			if d.ID == rollupLinksListID || d.ID == rollupLinksGetID {
+				continue
+			}
 			if strings.Contains(id, excluded) {
 				t.Errorf("%s is a tool of an excluded method", d.ID)
 			}
@@ -63,7 +67,8 @@ func TestExcludedMethodsHaveNoTool(t *testing.T) {
 		eventRulesDeleteID, calculatedListID, calculatedGetID, calculatedCreateID, calculatedUpdateID,
 		calculatedDeleteID, accessAccountID, accessPropertyID, dataRetentionGetID, dataRetentionUpdateID,
 		googleSignalsGetID, googleSignalsUpdateID, annotationsListID, annotationsGetID,
-		annotationsCreateID, annotationsUpdateID, annotationsDeleteID}; !slices.Equal(ids, sortedCopy(want)) {
+		annotationsCreateID, annotationsUpdateID, annotationsDeleteID, rollupLinksListID, rollupLinksGetID,
+		accessBindingsListID, accessBindingsGetID}; !slices.Equal(ids, sortedCopy(want)) {
 		t.Errorf("tools = %v", ids)
 	}
 	// Only an ordinary property is created, so no tool can make a subproperty or a rollup.

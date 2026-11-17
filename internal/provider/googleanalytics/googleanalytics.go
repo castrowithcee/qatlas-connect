@@ -17,8 +17,9 @@
 // of a measurement protocol secret is never returned: it is read from Google's answer only to register it with
 // the redactor.
 //
-// The settings and the event create rules of a web data stream and the calculated metrics and annotations of a
-// property run on the Admin API v1alpha, see alpha.go.
+// The settings and the event create rules of a web data stream and the calculated metrics, annotations, rollup
+// source links and access bindings of a property run on the Admin API v1alpha, see alpha.go. The access bindings
+// name users by email address and are personal data.
 //
 // A connection may bind Analytics accounts (accounts/ID) and properties (properties/ID). Without a target it
 // reaches what the credential reaches. A bound account reaches its properties, a bound property only itself;
@@ -55,6 +56,10 @@ const scopeReadOnly = "https://www.googleapis.com/auth/analytics.readonly"
 // scopeEdit is the scope that changes Analytics accounts, properties and annotations (analyticsadmin v1beta and
 // v1alpha).
 const scopeEdit = "https://www.googleapis.com/auth/analytics.edit"
+
+// scopeUsersReadOnly is the smallest scope that reads the access bindings of an account or property, the users
+// with their roles (analyticsadmin v1alpha). Google also accepts analytics.manage.users for these methods.
+const scopeUsersReadOnly = "https://www.googleapis.com/auth/analytics.manage.users.readonly"
 
 // dataSensitivity classifies the results: the configuration of the Analytics accounts the credential reaches.
 const dataSensitivity = "analytics-configuration"
@@ -144,6 +149,11 @@ var scopes = map[string][]string{
 	accessAccountID:  {scopeReadOnly},
 	accessPropertyID: {scopeReadOnly},
 
+	rollupLinksListID:    {scopeReadOnly},
+	rollupLinksGetID:     {scopeReadOnly},
+	accessBindingsListID: {scopeUsersReadOnly},
+	accessBindingsGetID:  {scopeUsersReadOnly},
+
 	annotationsListID:   {scopeReadOnly},
 	annotationsGetID:    {scopeReadOnly},
 	annotationsCreateID: {scopeEdit},
@@ -220,7 +230,7 @@ var readTools = []string{summariesID, accountsID, accountsGetID, accountsSharing
 	customDimensionsListID, customDimensionsGetID, customMetricsListID,
 	customMetricsGetID, keyEventsListID, keyEventsGetID, eventRulesListID, eventRulesGetID,
 	calculatedListID, calculatedGetID, accessAccountID, accessPropertyID, dataRetentionGetID, googleSignalsGetID,
-	annotationsListID, annotationsGetID}
+	annotationsListID, annotationsGetID, rollupLinksListID, rollupLinksGetID, accessBindingsListID, accessBindingsGetID}
 
 // Register adds the provider metadata, its consent endpoints, its connection test and its tools.
 func Register(reg *capability.Registry) error {
@@ -253,8 +263,8 @@ func Register(reg *capability.Registry) error {
 		},
 		Profiles: []config.ToolProfile{{
 			ID: "read", Title: "Read", Recommended: true,
-			Description: "reads the Analytics accounts, properties, custom dimensions and metrics, key events, calculated metrics, reports and report tasks the connection reaches; " +
-				"nothing is changed. It includes reading the users of an audience export and the Data Access Reports, " +
+			Description: "reads the Analytics accounts, properties, custom dimensions and metrics, key events, calculated metrics, rollup source links, reports and report tasks the connection reaches; " +
+				"nothing is changed. It includes reading the users of an audience export, the Data Access Reports and the access bindings, " +
 				"which are personal data",
 			Tools: readTools,
 		}, {
@@ -372,6 +382,10 @@ func Register(reg *capability.Registry) error {
 		{Descriptor: reportTasksQuery, Handler: handleReportTasksQuery},
 		{Descriptor: accessAccountReport, Handler: handleAccessAccount},
 		{Descriptor: accessPropertyReport, Handler: handleAccessProperty},
+		{Descriptor: rollupLinksList, Handler: handleRollupLinksList},
+		{Descriptor: rollupLinksGet, Handler: handleRollupLinksGet},
+		{Descriptor: accessBindingsList, Handler: handleAccessBindingsList},
+		{Descriptor: accessBindingsGet, Handler: handleAccessBindingsGet},
 		{Descriptor: dataRetentionGet, Handler: handleDataRetentionGet},
 		{Descriptor: dataRetentionUpdate, Handler: handleDataRetentionUpdate, ConfirmationSummary: retentionSummary},
 		{Descriptor: googleSignalsGet, Handler: handleGoogleSignalsGet},
