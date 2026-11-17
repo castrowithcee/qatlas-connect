@@ -88,15 +88,16 @@ func Register(reg *capability.Registry) error {
 		},
 		Profiles: []config.ToolProfile{{
 			ID: "read", Title: "Read", Recommended: true,
-			Description: "reads accounts, containers, workspaces, tags, triggers, variables, and built-in variables; " +
-				"changes nothing",
+			Description: "reads accounts, containers, workspaces, tags, triggers, variables, built-in variables, and " +
+				"zones; changes nothing",
 			Tools: readIDs,
 		}, {
-			ID: "write", Title: "Read and change tags, triggers, variables, and built-in variables",
+			ID: "write", Title: "Read and change tags, triggers, variables, built-in variables, and zones",
 			Description: "reads what the read profile reads, creates, updates, and deletes the tags, triggers, and " +
-				"variables of a workspace, and enables and disables its built-in variables; every change needs its own " +
+				"variables of a workspace, creates, updates, and deletes its zones, and enables and disables its " +
+				"built-in variables; every change needs its own " +
 				"confirmation and stays in the workspace until a version is published, which no tool of this provider " +
-				"does. Reverting a tag, trigger, variable, or built-in variable stays unticked",
+				"does. Reverting a tag, trigger, variable, zone, or built-in variable stays unticked",
 			Tools: writeIDs,
 		}},
 	}, TestConnection); err != nil {
@@ -119,6 +120,9 @@ func Register(reg *capability.Registry) error {
 		variablesDeleteID: handleVariablesDelete, variablesRevertID: handleVariablesRevert,
 		builtInVariablesListID: handleBuiltInVariablesList, builtInVariablesCreateID: handleBuiltInVariablesCreate,
 		builtInVariablesDeleteID: handleBuiltInVariablesDelete, builtInVariablesRevertID: handleBuiltInVariablesRevert,
+
+		zonesListID: handleZonesList, zonesGetID: handleZonesGet, zonesCreateID: handleZonesCreate,
+		zonesUpdateID: handleZonesUpdate, zonesDeleteID: handleZonesDelete, zonesRevertID: handleZonesRevert,
 	}
 	summaries := map[string]capability.SummaryFunc{
 		tagsCreateID: tagSummary("Create"), tagsUpdateID: tagSummary("Replace"),
@@ -129,6 +133,9 @@ func Register(reg *capability.Registry) error {
 		variablesDeleteID: variableSummary("Delete"), variablesRevertID: variableSummary("Revert"),
 		builtInVariablesCreateID: builtInSummary("Enable"), builtInVariablesDeleteID: builtInSummary("Disable"),
 		builtInVariablesRevertID: builtInSummary("Revert"),
+
+		zonesCreateID: zoneSummary("Create"), zonesUpdateID: zoneSummary("Replace"),
+		zonesDeleteID: zoneSummary("Delete"), zonesRevertID: zoneSummary("Revert"),
 	}
 	for _, d := range descriptors() {
 		if err := reg.Register(Provider, capability.Operation{Descriptor: d, Handler: handlers[d.ID],
