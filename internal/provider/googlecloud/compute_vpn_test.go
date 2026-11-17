@@ -463,7 +463,9 @@ func TestVpnToolsAreCompleteReadToolsWithoutAWriter(t *testing.T) {
 		}
 	}
 	for _, d := range e.reg.All() {
-		if strings.Contains(d.ID, ".vpn-") && !slices.Contains(vpnTools, d.ID) {
+		if strings.Contains(d.ID, ".vpn-") && !slices.Contains(vpnTools, d.ID) &&
+			d.ID != vpnTunnelsDeleteID && d.ID != vpnGatewaysDeleteID {
+			// The two deletions are covered by compute_vpn_delete_test.go.
 			t.Errorf("unexpected VPN tool %s", d.ID)
 		}
 	}

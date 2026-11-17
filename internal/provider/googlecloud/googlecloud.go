@@ -9,6 +9,7 @@
 // service-accounts-revoke and the listed-only service-accounts.delete (service_accounts_revoke.go),
 // api-keys-revoke (the deletion and restoration of API keys, api_keys.go), and
 // iam-bindings (a single binding of the IAM policy of a project, folder, or organization, iam_bindings.go),
+// and compute-network-delete (firewall rules, reserved IP addresses, VPN tunnels and gateways, compute_delete.go),
 // each change with the confirmation of a person. Every request goes to a fixed origin of the service table,
 // with the access token in the Authorization header only, once, within a bounded size and time, and spaced per
 // credential.
@@ -165,6 +166,15 @@ func Register(reg *capability.Registry) error {
 				"a key or returns a key value",
 			Tools: []string{apiKeysDelete.ID, apiKeysUndelete.ID},
 		}, {
+			ID: "compute-network-delete", Title: "Delete network resources",
+			Description: "deletes firewall rules, reserved IP addresses, VPN tunnels, and HA VPN gateways of a Compute Engine project, each with the " +
+				"confirmation of a person; a firewall rule is deleted only if its direction, action, and priority " +
+				"still match what was confirmed; projects.get is part of the profile so that targets of an " +
+				"organization or a folder can be proved; the token holds the compute scope, which Google also uses to " +
+				"change Compute resources, so the token may do what its account may; no tool creates or changes a " +
+				"firewall rule, an address, a VPN tunnel, or a VPN gateway",
+			Tools: []string{projectsGet.ID, firewallsDelete.ID, addressesDelete.ID, vpnTunnelsDelete.ID, vpnGatewaysDelete.ID},
+		}, {
 			ID: "services", Title: "Enable APIs",
 			Description: "enables Google APIs in a project, one or up to 20 at a time, each with the confirmation of a " +
 				"person; these Service Usage methods accept only the broad cloud-platform scope, so the token may " +
@@ -213,6 +223,14 @@ func Register(reg *capability.Registry) error {
 		capability.Operation{Descriptor: vpnGatewaysGet, Handler: handleVpnGatewaysGet},
 		capability.Operation{Descriptor: vpnTunnelsList, Handler: handleVpnTunnelsList},
 		capability.Operation{Descriptor: vpnTunnelsGet, Handler: handleVpnTunnelsGet},
+		capability.Operation{Descriptor: firewallsDelete, Handler: handleFirewallsDelete,
+			ConfirmationSummary: firewallDeleteSummary},
+		capability.Operation{Descriptor: addressesDelete, Handler: handleAddressesDelete,
+			ConfirmationSummary: addressDeleteSummary},
+		capability.Operation{Descriptor: vpnTunnelsDelete, Handler: vpnTunnelDelete.handler("delete VPN tunnel"),
+			ConfirmationSummary: vpnTunnelDelete.summary},
+		capability.Operation{Descriptor: vpnGatewaysDelete, Handler: vpnGatewayDelete.handler("delete VPN gateway"),
+			ConfirmationSummary: vpnGatewayDelete.summary},
 		capability.Operation{Descriptor: iamRolesList, Handler: handleIAMRolesList},
 		capability.Operation{Descriptor: iamRolesGet, Handler: handleIAMRolesGet},
 		capability.Operation{Descriptor: iamRolesQuery, Handler: handleIAMRolesQuery},

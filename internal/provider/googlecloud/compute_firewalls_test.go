@@ -409,6 +409,10 @@ func TestNoToolInsertsFirewallsOrAddressesOrAddsAccessConfigs(t *testing.T) {
 			t.Errorf("tool %s names a method that creates or changes a firewall rule or an address", tool.ID)
 		}
 		if strings.Contains(tool.ID, ".firewalls.") || strings.Contains(tool.ID, ".addresses.") {
+			if tool.ID == firewallsDeleteID || tool.ID == addressesDeleteID {
+				// The two deletions are covered by compute_delete_test.go.
+				continue
+			}
 			if tool.Effect != config.EffectRead || !slices.Contains(firewallAddressTools, tool.ID) {
 				t.Errorf("tool %s is not one of the four read tools (effect %v)", tool.ID, tool.Effect)
 			}

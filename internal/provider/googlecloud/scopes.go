@@ -20,6 +20,10 @@ const scopeAPIKeys = "https://www.googleapis.com/auth/apikeys"
 // of instances, machineTypes, zones, regions, and the Compute operations (next to compute and cloud-platform).
 const scopeComputeReadOnly = "https://www.googleapis.com/auth/compute.readonly"
 
+// scopeCompute is the smallest scope the discovery document of compute v1 lists for firewalls.delete and
+// addresses.delete, next to cloud-platform.
+const scopeCompute = "https://www.googleapis.com/auth/compute"
+
 // tokenMetadata maps every tool to the smallest scopes it needs. The core derives the scopes of a connection
 // from it, so a tool that is not offered adds none.
 var tokenMetadata = config.TokenMetadata{Scopes: map[string][]string{
@@ -97,4 +101,9 @@ var tokenMetadata = config.TokenMetadata{Scopes: map[string][]string{
 	vpnGatewaysGetID:          {scopeComputeReadOnly},
 	vpnTunnelsListID:          {scopeComputeReadOnly},
 	vpnTunnelsGetID:           {scopeComputeReadOnly},
+	// compute v1 lists compute as the smallest scope for the deletions of firewalls, addresses, VPN tunnels, and VPN gateways.
+	firewallsDeleteID:   {scopeCompute},
+	addressesDeleteID:   {scopeCompute},
+	vpnTunnelsDeleteID:  {scopeCompute},
+	vpnGatewaysDeleteID: {scopeCompute},
 }}
