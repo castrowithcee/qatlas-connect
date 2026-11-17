@@ -16,12 +16,13 @@ import (
 
 // The scopes of the tools. The discovery document names for each method the scopes that allow it: a read
 // takes readonly or edit.containers, and the smaller one is asked for; a change takes edit.containers.
-// Deleting a workspace takes delete.containers alone. Google also offers edit.containerversions, publish,
-// manage.accounts, and manage.users; a connection asks only for those its tools need.
+// Deleting a workspace takes delete.containers alone, and a quick preview takes edit.containerversions alone.
+// Google also offers publish, manage.accounts, and manage.users; a connection asks only for those its tools need.
 const (
 	readonlyScope = "https://www.googleapis.com/auth/tagmanager.readonly"
 	editScope     = "https://www.googleapis.com/auth/tagmanager.edit.containers"
 	deleteScope   = "https://www.googleapis.com/auth/tagmanager.delete.containers"
+	previewScope  = "https://www.googleapis.com/auth/tagmanager.edit.containerversions"
 )
 
 func toolScopes() map[string][]string {
@@ -33,6 +34,9 @@ func toolScopes() map[string][]string {
 		}
 		if d.ID == workspacesDeleteID {
 			scopes[d.ID] = []string{deleteScope}
+		}
+		if d.ID == workspacesQuickPreviewID {
+			scopes[d.ID] = []string{previewScope}
 		}
 	}
 	return scopes
