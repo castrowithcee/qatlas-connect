@@ -96,6 +96,8 @@ credential never carries the scope of another product.
 | [Properties](properties.md#changing-properties) | `properties.create`, `properties.update`, `properties.delete` | `analytics.edit` |
 | [Data streams](data-streams.md) | `data-streams.list`, `data-streams.get` | `analytics.readonly` |
 | [Data streams](data-streams.md#changing-data-streams) | `data-streams.create`, `data-streams.update` | `analytics.edit` |
+| [Stream settings](data-streams.md#stream-settings-alpha) | `data-streams.get-enhanced-measurement`, `data-streams.get-data-redaction`, `data-streams.get-site-tag` | `analytics.readonly` |
+| [Stream settings](data-streams.md#stream-settings-alpha) | `data-streams.update-enhanced-measurement`, `data-streams.update-data-redaction` | `analytics.edit` |
 
 ## Add it to Qatlas
 
