@@ -93,6 +93,12 @@ var scopes = map[string][]string{
 	dataStreamsGetID:    {scopeReadOnly},
 	dataStreamsCreateID: {scopeEdit},
 	dataStreamsUpdateID: {scopeEdit},
+
+	keyEventsListID:   {scopeReadOnly},
+	keyEventsGetID:    {scopeReadOnly},
+	keyEventsCreateID: {scopeEdit},
+	keyEventsUpdateID: {scopeEdit},
+	keyEventsDeleteID: {scopeEdit},
 }
 
 func tokenMetadata() config.TokenMetadata { return config.TokenMetadata{Scopes: scopes} }
@@ -154,7 +160,7 @@ func isDefaultRoot(raw string) bool {
 var readTools = []string{summariesID, accountsID, accountsGetID, accountsSharingID, propertiesListID, propertiesGetID,
 	reportsRunID, metadataGetID, compatibilityID, dataStreamsListID, dataStreamsGetID, funnelRunID, audienceGetID,
 	audienceListID, reportsRunPivotID, reportsBatchRunID, reportsBatchRunPivotID, reportsRunRealtimeID,
-	reportTasksGetID, reportTasksListID, reportTasksQueryID, audienceQueryID}
+	reportTasksGetID, reportTasksListID, reportTasksQueryID, audienceQueryID, keyEventsListID, keyEventsGetID}
 
 // Register adds the provider metadata, its consent endpoints, its connection test and its tools.
 func Register(reg *capability.Registry) error {
@@ -192,11 +198,12 @@ func Register(reg *capability.Registry) error {
 			Tools: readTools,
 		}, {
 			ID: "write", Title: "Read and change",
-			Description: "reads what the read profile reads and changes Analytics accounts and properties, starts audience exports " +
+			Description: "reads what the read profile reads and changes Analytics accounts, properties and key events, starts audience exports " +
 				"and report tasks; every " +
-				"change needs its own confirmation, and deleting stays unlisted",
+				"change needs its own confirmation, and deleting an account or property stays unlisted",
 			Tools: append(slices.Clone(readTools), accountsUpdateID, propertiesCreateID, propertiesUpdateID,
-				dataStreamsCreateID, dataStreamsUpdateID, audienceCreateID, reportTasksCreateID),
+				dataStreamsCreateID, dataStreamsUpdateID, audienceCreateID, reportTasksCreateID, keyEventsCreateID,
+				keyEventsUpdateID, keyEventsDeleteID),
 		}},
 	}, TestConnection); err != nil {
 		return err
@@ -232,6 +239,11 @@ func Register(reg *capability.Registry) error {
 			ConfirmationSummary: streamWriteSummary(dataStreamsCreateID)},
 		{Descriptor: dataStreamsUpdate, Handler: handleDataStreamsUpdate,
 			ConfirmationSummary: streamWriteSummary(dataStreamsUpdateID)},
+		{Descriptor: keyEventsList, Handler: handleKeyEventsList},
+		{Descriptor: keyEventsGet, Handler: handleKeyEventsGet},
+		{Descriptor: keyEventsCreate, Handler: handleKeyEventsCreate, ConfirmationSummary: keyEventSummary(keyEventsCreateID)},
+		{Descriptor: keyEventsUpdate, Handler: handleKeyEventsUpdate, ConfirmationSummary: keyEventSummary(keyEventsUpdateID)},
+		{Descriptor: keyEventsDelete, Handler: handleKeyEventsDelete, ConfirmationSummary: keyEventSummary(keyEventsDeleteID)},
 		{Descriptor: funnelRun, Handler: handleFunnelRun},
 		{Descriptor: audienceGet, Handler: handleAudienceGet},
 		{Descriptor: audienceList, Handler: handleAudienceList},
