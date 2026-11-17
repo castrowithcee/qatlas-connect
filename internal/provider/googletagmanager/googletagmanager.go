@@ -101,20 +101,22 @@ func Register(reg *capability.Registry) error {
 				"changes nothing",
 			Tools: readIDs,
 		}, {
-			ID: "write", Title: "Read and change workspaces, tags, triggers, variables, templates, built-in variables, " +
-				"folders, clients, transformations, zones, Google tag configurations, and environments, and rename accounts",
-			Description: "reads what the read profile reads, creates and updates workspaces, synchronizes a " +
-				"workspace with the latest container version, resolves its merge conflicts, quick previews it, " +
-				"creates, updates, and deletes the tags, triggers, variables, and templates of a workspace, creates, " +
-				"updates, and deletes its folders, moves tags, triggers, and variables into a folder, creates, updates, " +
-				"and deletes its clients, transformations, zones, and Google tag configurations, enables and disables " +
-				"its built-in variables, and creates, updates, and deletes the custom environments of a container; " +
-				"every change needs its own confirmation. Changes of workspace content stay in the workspace until a " +
-				"version is published, which no tool of this provider does. Changes to an environment and renaming an " +
-				"account take effect at once; renaming an account (scope tagmanager.manage.accounts) applies for everyone " +
-				"who sees the account and is not available on a connection bound to a container. Deleting a workspace, " +
-				"reverting a tag, trigger, variable, template, built-in variable, folder, client, transformation, or " +
-				"zone, and combining containers stay unticked",
+			ID: "write", Title: "Read and change containers, workspaces, tags, triggers, variables, templates, built-in " +
+				"variables, folders, clients, transformations, zones, Google tag configurations, and environments, and " +
+				"rename accounts",
+			Description: "reads what the read profile reads, creates and updates containers, creates and updates " +
+				"workspaces, synchronizes a workspace with the latest container version, resolves its merge conflicts, " +
+				"quick previews it, creates, updates, and deletes the tags, triggers, variables, and templates of a " +
+				"workspace, creates, updates, and deletes its folders, moves tags, triggers, and variables into a " +
+				"folder, creates, updates, and deletes its clients, transformations, zones, and Google tag " +
+				"configurations, enables and disables its built-in variables, and creates, updates, and deletes the " +
+				"custom environments of a container; every change needs its own confirmation. Changes of workspace " +
+				"content stay in the workspace until a version is published, which no tool of this provider does. " +
+				"Changes to a container apply to the container itself, outside any workspace. Changes to an environment " +
+				"and renaming an account take effect at once; renaming an account (scope tagmanager.manage.accounts) " +
+				"applies for everyone who sees the account and is not available on a connection bound to a container. " +
+				"Deleting a container or a workspace, reverting a tag, trigger, variable, template, built-in variable, " +
+				"folder, client, transformation, or zone, and combining containers stay unticked",
 			Tools: writeIDs,
 		}, {
 			ID: userPermissionsProfile, Title: "User permissions",
@@ -133,6 +135,8 @@ func Register(reg *capability.Registry) error {
 	handlers := map[string]capability.Handler{
 		accountsListID: handleAccountsList, accountsGetID: handleAccountsGet,
 		containersListID: handleContainersList, containersGetID: handleContainersGet,
+		containersCreateID: handleContainersCreate, containersUpdateID: handleContainersUpdate,
+		containersLookupID: handleContainersLookup, containersDeleteID: handleContainersDelete,
 		workspacesListID: handleWorkspacesList, workspacesGetID: handleWorkspacesGet,
 		workspacesCreateID: handleWorkspacesCreate, workspacesUpdateID: handleWorkspacesUpdate,
 		workspacesDeleteID: handleWorkspacesDelete, workspacesStatusID: handleWorkspacesStatus,
@@ -184,6 +188,8 @@ func Register(reg *capability.Registry) error {
 		versionHeadersListID: handleVersionHeadersList, versionHeadersLatestID: handleVersionHeadersLatest,
 	}
 	summaries := map[string]capability.SummaryFunc{
+		containersCreateID: containerSummary("Create"), containersUpdateID: containerSummary("Replace"),
+		containersDeleteID: deleteContainerSummary,
 		workspacesCreateID: workspaceSummary("Create"), workspacesUpdateID: workspaceSummary("Replace"),
 		workspacesDeleteID: deleteWorkspaceSummary, workspacesSyncID: syncSummary,
 		workspacesResolveConflictID: resolveConflictSummary, workspacesQuickPreviewID: quickPreviewSummary,
