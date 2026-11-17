@@ -269,6 +269,7 @@ func targetReaches(tool string, targets []string) (bool, []string) {
 		computeOperationsGetID, computeOperationsListID, networksListID, networksGetID, subnetworksListID, subnetworksGetID,
 		firewallsListID, firewallsGetID, addressesListID, addressesGetID,
 		vpnGatewaysListID, vpnGatewaysGetID, vpnTunnelsListID, vpnTunnelsGetID,
+		disksListID, disksAggregatedListID, disksGetID,
 		snapshotsListID, snapshotsGetID, imagesListID, imagesGetID,
 		firewallsDeleteID, addressesDeleteID, vpnTunnelsDeleteID, vpnGatewaysDeleteID,
 		instancesStartID, instancesStopID, instancesResetID, instancesSetMachineTypeID,
