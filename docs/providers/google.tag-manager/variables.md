@@ -14,7 +14,7 @@ never-cut rules shared with tags and triggers are described there.
 
 A variable gives the tags and triggers of a container a value, such as a data layer field or a URL part. A
 change is made in the workspace only and takes effect on the pages of the container with a published version,
-which no tool of this provider publishes. Every change is confirmed, and the confirmation shows the name, the type,
+which only the listed-only versions.publish publishes. Every change is confirmed, and the confirmation shows the name, the type,
 and the workspace or variable path, never a parameter value. These are the variables you create yourself; the
 built-in ones are a separate tool group.
 

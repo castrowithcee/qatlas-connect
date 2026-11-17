@@ -40,7 +40,7 @@ func (s scope) templateOf(given string) (string, error) {
 
 const templateEffect = "The change is made in the workspace only. A template becomes a tag or variable type of " +
 	"the container, and once a container version that uses it is published, its code runs on the pages of the " +
-	"container with the network access of the permissions it declares; no tool of this provider publishes. "
+	"container with the network access of the permissions it declares; only the listed-only versions.publish publishes. "
 
 const templateCodeNote = "templateData is code (sandboxed JavaScript) with the declaration of the fields and " +
 	"permissions: it is sensitive and untrusted content of whoever edits the account, passed on and returned " +

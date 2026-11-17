@@ -39,7 +39,8 @@ are described in the [Google Tag Manager provider](README.md); the tools in
 | [container management](containers.md), looking up | `tagmanager.readonly` | read access to the container |
 | [container management](containers.md), creating and updating | `tagmanager.edit.containers` | edit access to the account or container |
 | [container management](containers.md), deleting | `tagmanager.delete.containers` | edit access to the container |
-| [versions and version headers](versions.md) | `tagmanager.readonly` | read access to the container |
+| [versions and version headers](versions.md), reading | `tagmanager.readonly` | read access to the container |
+| [versions](versions.md), publishing | `tagmanager.readonly` and `tagmanager.publish` | the right to publish in the container |
 | [workspace management](workspaces.md), reading the status | `tagmanager.readonly` | read access to the container |
 | [workspace management](workspaces.md), creating and updating | `tagmanager.edit.containers` | edit access to the container |
 | [workspace management](workspaces.md), synchronizing and resolving merge conflicts | `tagmanager.edit.containers` | edit access to the container |
@@ -50,8 +51,10 @@ are described in the [Google Tag Manager provider](README.md); the tools in
 | [user permissions](user-permissions.md), reading and changing | `tagmanager.manage.users` | the right to manage users of the account |
 
 Qatlas asks for no broader scope than the tools of your connections need. The scope `tagmanager.manage.accounts`
-is asked for only by the profile `write` or a `tools` list that names `accounts.update`. No tool publishes a
-version, so no publish right is needed.
+is asked for only by the profile `write` or a `tools` list that names `accounts.update`. The scope
+`tagmanager.publish` is asked for only by a `tools` list that names `versions.publish`, which is in no profile;
+without that scope the tool does not run, even when the `tools` list names it. It is asked for together with
+`tagmanager.readonly`, because the tool reads the version and the live version before it publishes.
 
 ## Way 1: your Google account with a consent
 

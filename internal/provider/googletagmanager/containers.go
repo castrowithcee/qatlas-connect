@@ -38,7 +38,7 @@ const (
 const containerEffect = "The change is made to the container itself, not in a workspace. "
 
 const servingNote = "taggingServerUrls decides where a web container sends its measurement data; the change " +
-	"takes effect only with a published container version, which no tool of this provider publishes. "
+	"takes effect only with a published container version, which only the listed-only versions.publish publishes. "
 
 const containerReplaceNote = "A container is replaced as a whole: send name, domainName, notes, and " +
 	"taggingServerUrls as read with containers.get, with the changes made, because a member that is left out is " +
