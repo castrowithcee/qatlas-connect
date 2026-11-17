@@ -64,31 +64,25 @@ const reportsOutputSchema = `{"type":"object","properties":{"dimensionHeaders":{
 	`"next_cursor":{"type":"string"},"has_more":{"type":"boolean"},"truncated":{"type":"array","items":{"type":"string"}}},` +
 	`"additionalProperties":false}`
 
-var reportsRunInput = `{"type":"object","properties":{` +
-	`"property":{"type":"string","minLength":1,"maxLength":40},` +
-	`"dimensions":` + dimensionsSchema + `,"metrics":` + metricsSchema + `,` +
+// reportMembers are the members of a report request that every tool of the core reports takes, as the
+// properties of a JSON schema. The batch tool embeds them once per report.
+var reportMembers = `"dimensions":` + dimensionsSchema + `,"metrics":` + metricsSchema + `,` +
 	`"date_ranges":` + arraySchema(dateRangeSchema, 1, 4) + `,` +
 	`"dimension_filter":` + filterExpressionSchema(maxFilterDepth) + `,` +
 	`"metric_filter":` + filterExpressionSchema(maxFilterDepth) + `,` +
-	`"order_bys":` + arraySchema(objectSchema(`"desc":{"type":"boolean"},"metric":`+
-	objectSchema(`"metric_name":`+fieldNameSchema, "metric_name")+`,"dimension":`+
-	objectSchema(`"dimension_name":`+fieldNameSchema+`,"order_type":`+
-		enumSchema("ALPHANUMERIC", "CASE_INSENSITIVE_ALPHANUMERIC", "NUMERIC"), "dimension_name")), 1, 20) + `,` +
+	`"order_bys":` + arraySchema(orderBySchema(false), 1, 20) + `,` +
 	`"offset":{"type":"integer","minimum":0,"maximum":2147483647},` +
 	`"limit":{"type":"integer","minimum":1,"maximum":` + strconv.Itoa(maxLimitArgument) + `},` +
-	`"cursor":{"type":"string","minLength":1,"maxLength":4096},` +
 	`"metric_aggregations":` + arraySchema(enumSchema("TOTAL", "MINIMUM", "MAXIMUM", "COUNT"), 1, 4) + `,` +
 	`"currency_code":{"type":"string","pattern":"^[A-Z]{3}$"},` +
-	`"cohort_spec":` + objectSchema(`"cohorts":`+arraySchema(objectSchema(`"name":{"type":"string","minLength":1,`+
-	`"maxLength":100},"dimension":`+enumSchema("firstSessionDate")+`,"date_range":`+dateRangeSchema,
-	"dimension", "date_range"), 1, 20)+`,"cohorts_range":`+objectSchema(`"start_offset":{"type":"integer",`+
-	`"minimum":0,"maximum":1000},"end_offset":{"type":"integer","minimum":0,"maximum":1000},"granularity":`+
-	enumSchema("DAILY", "WEEKLY", "MONTHLY"), "end_offset", "granularity"), "cohorts", "cohorts_range") + `,` +
+	`"cohort_spec":` + cohortSpecSchema(false) + `,` +
 	`"keep_empty_rows":{"type":"boolean"},` +
-	`"comparisons":` + arraySchema(objectSchema(`"name":{"type":"string","minLength":1,"maxLength":100},`+
-	`"comparison":{"type":"string","pattern":"^comparisons/[0-9]{1,19}$"},"dimension_filter":`+
-	filterExpressionSchema(1)), 1, 10) + `,` +
-	`"return_property_quota":{"type":"boolean"}},"required":["metrics"],"additionalProperties":false}`
+	`"comparisons":` + comparisonsSchema + `,` +
+	`"return_property_quota":{"type":"boolean"}`
+
+var reportsRunInput = `{"type":"object","properties":{` +
+	`"property":{"type":"string","minLength":1,"maxLength":40},` + reportMembers + `,` +
+	`"cursor":{"type":"string","minLength":1,"maxLength":4096}},"required":["metrics"],"additionalProperties":false}`
 
 var reportsRun = capability.Descriptor{
 	ID: reportsRunID, Version: 1, Title: "Run an Analytics report",
@@ -172,26 +166,35 @@ var reportsRun = capability.Descriptor{
 var requestMembers = []string{"dimensions", "metrics", "date_ranges", "dimension_filter", "metric_filter",
 	"order_bys", "metric_aggregations", "currency_code", "cohort_spec", "keep_empty_rows", "comparisons"}
 
-// reportRequest checks the report members of the arguments and returns them with the documented names.
-func reportRequest(args objectOf) (map[string]any, error) {
-	if presentOf(args, "date_ranges", "cohort_spec") != 1 {
-		return nil, badRequest("set exactly one of date_ranges and cohort_spec")
-	}
+// checkSharedMembers checks what the schema cannot say about the members every report request has:
+// dimension expressions, filter expressions and orderings.
+func checkSharedMembers(args objectOf) error {
 	if err := checkDimensions("dimensions", args["dimensions"]); err != nil {
-		return nil, err
+		return err
 	}
 	for _, key := range []string{"dimension_filter", "metric_filter"} {
 		if args[key] != nil {
 			if err := checkFilterExpression(key, args[key]); err != nil {
-				return nil, err
+				return err
 			}
 		}
 	}
 	orders, _ := args["order_bys"].([]any)
 	for _, item := range orders {
 		if err := exactlyOne("order_bys entry", asObject(item), "metric", "dimension"); err != nil {
-			return nil, err
+			return err
 		}
+	}
+	return nil
+}
+
+// reportRequest checks the report members of the arguments and returns them with the documented names.
+func reportRequest(args objectOf) (map[string]any, error) {
+	if presentOf(args, "date_ranges", "cohort_spec") != 1 {
+		return nil, badRequest("set exactly one of date_ranges and cohort_spec")
+	}
+	if err := checkSharedMembers(args); err != nil {
+		return nil, err
 	}
 	comparisons, _ := args["comparisons"].([]any)
 	for _, item := range comparisons {
@@ -296,6 +299,19 @@ func handleReportsRun(ctx context.Context, resolved *config.Resolved, secrets *s
 
 // boundReport applies the bounds to the answer and computes the continuation.
 func boundReport(op string, binding []byte, answer reportAnswer, offset, limit int64, capped bool) (any, error) {
+	out := boundAnswer(answer, offset, limit, capped, maxReportOutput)
+	if out.HasMore {
+		var err error
+		if out.NextCursor, _, err = nextCursor(op, binding, strconv.FormatInt(offset+int64(len(out.Rows)), 10)); err != nil {
+			return nil, err
+		}
+	}
+	return out, nil
+}
+
+// boundAnswer applies the bounds to the answer: at most limit rows and budget bytes of values, bounded lists
+// and bounded metadata. HasMore says that rows follow after the rows shown; the caller adds the continuation.
+func boundAnswer(answer reportAnswer, offset, limit int64, capped bool, budget int) reportResult {
 	out := reportResult{reportAnswer: answer, Offset: offset, Limit: limit, LimitCapped: capped}
 	mark := func(name string) {
 		if !slices.Contains(out.Truncated, name) {
@@ -319,7 +335,7 @@ func boundReport(op string, binding []byte, answer reportAnswer, offset, limit i
 
 	size, kept := 0, 0
 	for _, row := range answer.Rows {
-		if int64(kept) >= limit || size > maxReportOutput {
+		if int64(kept) >= limit || size > budget {
 			break
 		}
 		size += rowSize(row)
@@ -341,47 +357,48 @@ func boundReport(op string, binding []byte, answer reportAnswer, offset, limit i
 			(*list.rows)[i] = cutRow((*list.rows)[i], mark)
 		}
 	}
-	if m := out.Metadata; m != nil {
-		meta := *m
-		before := len(meta.SamplingMetadatas)
-		meta.SamplingMetadatas = head(meta.SamplingMetadatas, maxMetaEntries)
-		cut("metadata.samplingMetadatas", len(meta.SamplingMetadatas), before)
-		before = len(meta.DataTruncationReasons)
-		meta.DataTruncationReasons = head(meta.DataTruncationReasons, maxMetaEntries)
-		cut("metadata.dataTruncationReasons", len(meta.DataTruncationReasons), before)
-		for i := range meta.DataTruncationReasons {
-			r := &meta.DataTruncationReasons[i]
-			before = len(r.DataTruncationDateRanges)
-			r.DataTruncationDateRanges = head(r.DataTruncationDateRanges, maxMetaEntries)
-			cut("metadata.dataTruncationReasons.dataTruncationDateRanges", len(r.DataTruncationDateRanges), before)
-		}
-		if s := meta.SchemaRestrictionResponse; s != nil {
-			restriction := *s
-			before = len(restriction.ActiveMetricRestrictions)
-			restriction.ActiveMetricRestrictions = head(restriction.ActiveMetricRestrictions, maxMetaEntries)
-			cut("metadata.schemaRestrictionResponse.activeMetricRestrictions",
-				len(restriction.ActiveMetricRestrictions), before)
-			for i := range restriction.ActiveMetricRestrictions {
-				r := &restriction.ActiveMetricRestrictions[i]
-				before = len(r.RestrictedMetricTypes)
-				r.RestrictedMetricTypes = head(r.RestrictedMetricTypes, maxRestrictions)
-				cut("metadata.schemaRestrictionResponse.activeMetricRestrictions.restrictedMetricTypes",
-					len(r.RestrictedMetricTypes), before)
-			}
-			meta.SchemaRestrictionResponse = &restriction
-		}
-		out.Metadata = &meta
-	}
+	out.Metadata = boundResponseMeta(out.Metadata, mark, cut)
 
-	next := offset + int64(kept)
-	if kept > 0 && next < answer.RowCount {
+	if next := offset + int64(kept); kept > 0 && next < answer.RowCount {
 		out.HasMore = true
-		var err error
-		if out.NextCursor, _, err = nextCursor(op, binding, strconv.FormatInt(next, 10)); err != nil {
-			return nil, err
-		}
 	}
-	return out, nil
+	return out
+}
+
+// boundResponseMeta bounds the lists of the metadata of a report.
+func boundResponseMeta(m *reportMetadata, mark func(string), cut func(string, int, int)) *reportMetadata {
+	if m == nil {
+		return nil
+	}
+	meta := *m
+	before := len(meta.SamplingMetadatas)
+	meta.SamplingMetadatas = head(meta.SamplingMetadatas, maxMetaEntries)
+	cut("metadata.samplingMetadatas", len(meta.SamplingMetadatas), before)
+	before = len(meta.DataTruncationReasons)
+	meta.DataTruncationReasons = head(meta.DataTruncationReasons, maxMetaEntries)
+	cut("metadata.dataTruncationReasons", len(meta.DataTruncationReasons), before)
+	for i := range meta.DataTruncationReasons {
+		r := &meta.DataTruncationReasons[i]
+		before = len(r.DataTruncationDateRanges)
+		r.DataTruncationDateRanges = head(r.DataTruncationDateRanges, maxMetaEntries)
+		cut("metadata.dataTruncationReasons.dataTruncationDateRanges", len(r.DataTruncationDateRanges), before)
+	}
+	if s := meta.SchemaRestrictionResponse; s != nil {
+		restriction := *s
+		before = len(restriction.ActiveMetricRestrictions)
+		restriction.ActiveMetricRestrictions = head(restriction.ActiveMetricRestrictions, maxMetaEntries)
+		cut("metadata.schemaRestrictionResponse.activeMetricRestrictions",
+			len(restriction.ActiveMetricRestrictions), before)
+		for i := range restriction.ActiveMetricRestrictions {
+			r := &restriction.ActiveMetricRestrictions[i]
+			before = len(r.RestrictedMetricTypes)
+			r.RestrictedMetricTypes = head(r.RestrictedMetricTypes, maxRestrictions)
+			cut("metadata.schemaRestrictionResponse.activeMetricRestrictions.restrictedMetricTypes",
+				len(r.RestrictedMetricTypes), before)
+		}
+		meta.SchemaRestrictionResponse = &restriction
+	}
+	return &meta
 }
 
 func rowSize(row reportRow) int {

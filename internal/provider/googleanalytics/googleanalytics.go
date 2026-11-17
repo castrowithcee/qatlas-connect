@@ -64,6 +64,11 @@ var scopes = map[string][]string{
 	metadataGetID:     {scopeReadOnly},
 	compatibilityID:   {scopeReadOnly},
 
+	reportsRunPivotID:      {scopeReadOnly},
+	reportsBatchRunID:      {scopeReadOnly},
+	reportsBatchRunPivotID: {scopeReadOnly},
+	reportsRunRealtimeID:   {scopeReadOnly},
+
 	accountsUpdateID:   {scopeEdit},
 	accountsDeleteID:   {scopeEdit},
 	propertiesCreateID: {scopeEdit},
@@ -128,7 +133,8 @@ func isDefaultRoot(raw string) bool {
 
 // readTools are the tools of the profile read, and the start of every wider profile.
 var readTools = []string{summariesID, accountsID, accountsGetID, accountsSharingID, propertiesListID, propertiesGetID,
-	reportsRunID, metadataGetID, compatibilityID}
+	reportsRunID, metadataGetID, compatibilityID,
+	reportsRunPivotID, reportsBatchRunID, reportsBatchRunPivotID, reportsRunRealtimeID}
 
 // Register adds the provider metadata, its consent endpoints, its connection test and its tools.
 func Register(reg *capability.Registry) error {
@@ -184,6 +190,10 @@ func Register(reg *capability.Registry) error {
 		{Descriptor: reportsRun, Handler: handleReportsRun},
 		{Descriptor: metadataGet, Handler: handleMetadataGet},
 		{Descriptor: compatibilityCheck, Handler: handleCompatibilityCheck},
+		{Descriptor: reportsRunPivot, Handler: handleReportsRunPivot},
+		{Descriptor: reportsBatchRun, Handler: handleReportsBatchRun},
+		{Descriptor: reportsBatchRunPivot, Handler: handleReportsBatchRunPivot},
+		{Descriptor: reportsRunRealtime, Handler: handleReportsRunRealtime},
 		{Descriptor: accountsSharing, Handler: handleAccountsSharing},
 		{Descriptor: accountsUpdate, Handler: handleAccountsUpdate, ConfirmationSummary: updateSummary},
 		{Descriptor: accountsDelete, Handler: handleAccountsDelete, ConfirmationSummary: deleteSummary},

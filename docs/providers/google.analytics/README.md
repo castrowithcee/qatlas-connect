@@ -12,7 +12,7 @@ updated: 2026-11-17
 Google Analytics is a provider for Google Analytics 4 on the Analytics Admin API and the Analytics Data API. It
 lists the accounts and properties a credential can see, with their configuration, reads one account or
 property, renames an account, moves an account to the trash, and creates, changes, and trashes properties. It
-also runs reports and reads the metadata of the dimensions and metrics a property accepts. The reading tools
+also runs reports, pivot reports, batches of up to five of them and realtime reports, and reads the metadata of the dimensions and metrics a property accepts. The reading tools
 change nothing. The account and property tools read no report data and use no reporting quota; the report tools
 do, see [reports](reports.md#quota). Every tool that changes something needs confirmation.
 
@@ -57,7 +57,7 @@ not name the resource.
 | `properties.get` | Reads a bound property, or a property of a bound account after one proof read of its parent |
 | `properties.create` | Creates a property only in a bound account; a connection bound to properties only is refused |
 | `properties.update`, `properties.delete` | Change or trash a bound property, or a property of a bound account after one proof read of its parent |
-| `reports.run`, `reports.check-compatibility` | Use a bound property, or a property of a bound account after one proof read of its parent |
+| `reports.run`, `reports.run-pivot`, `reports.batch-run`, `reports.batch-run-pivot`, `reports.run-realtime`, `reports.check-compatibility` | Use a bound property, or a property of a bound account after one proof read of its parent |
 | `reports.get-metadata` | Like `reports.run`; `properties/0` needs no target, see [reports](reports.md#property-and-targets) |
 
 A property of another account is refused, also when it is named correctly.
@@ -68,7 +68,9 @@ The profile `read` is the recommended one and holds `google.analytics.accounts.l
 `google.analytics.accounts.list`, `google.analytics.accounts.get`,
 `google.analytics.accounts.get-data-sharing-settings`, `google.analytics.properties.list`, and
 `google.analytics.properties.get`, `google.analytics.reports.run`, `google.analytics.reports.get-metadata`, and
-`google.analytics.reports.check-compatibility`. The profile `write` reads like `read` and changes accounts and properties,
+`google.analytics.reports.check-compatibility`, `google.analytics.reports.run-pivot`,
+`google.analytics.reports.batch-run`, `google.analytics.reports.batch-run-pivot`, and
+`google.analytics.reports.run-realtime`. The profile `write` reads like `read` and changes accounts and properties,
 each change with its own confirmation: it adds `google.analytics.accounts.update`,
 `google.analytics.properties.create`, and `google.analytics.properties.update`. Deleting is in no profile: a
 connection offers `google.analytics.accounts.delete` and `google.analytics.properties.delete` only when its
@@ -78,7 +80,7 @@ connection that binds exactly that account and no property. Which scope each too
 
 ## Paging
 
-A list returns `next_cursor` and `has_more` when Google reports a further page; reports continue by row offset, see [reports](reports.md#rows-and-cursor). The cursor wraps Google's page
+A list returns `next_cursor` and `has_more` when Google reports a further page; reports continue by row offset, see [reports](reports.md#rows-and-cursor); pivot, batch, and realtime reports have no cursor. The cursor wraps Google's page
 token and fits only the tool, the connection, and the arguments that Google requires to stay the same, such as
 the `filter`; a changed or invented cursor is refused before any request. `page_size` may change between
 pages. Google may return fewer entries than asked for and a page can be empty while `has_more` is true.

@@ -214,3 +214,34 @@ func camelize(v any) any {
 	}
 	return v
 }
+
+// orderBySchema is the OrderBy of a report; a pivot may also order by a pivot column group.
+func orderBySchema(withPivot bool) string {
+	properties := `"desc":{"type":"boolean"},"metric":` + objectSchema(`"metric_name":`+fieldNameSchema, "metric_name") +
+		`,"dimension":` + objectSchema(`"dimension_name":`+fieldNameSchema+`,"order_type":`+
+		enumSchema("ALPHANUMERIC", "CASE_INSENSITIVE_ALPHANUMERIC", "NUMERIC"), "dimension_name")
+	if withPivot {
+		properties += `,"pivot":` + objectSchema(`"metric_name":`+fieldNameSchema+`,"pivot_selections":`+
+			arraySchema(objectSchema(`"dimension_name":`+fieldNameSchema+`,"dimension_value":{"type":"string",`+
+				`"maxLength":300}`, "dimension_name", "dimension_value"), 1, 9), "metric_name")
+	}
+	return objectSchema(properties)
+}
+
+// cohortSpecSchema is the CohortSpec; the settings member exists only in a pivot report.
+func cohortSpecSchema(withSettings bool) string {
+	properties := `"cohorts":` + arraySchema(objectSchema(`"name":{"type":"string","minLength":1,`+
+		`"maxLength":100},"dimension":`+enumSchema("firstSessionDate")+`,"date_range":`+dateRangeSchema,
+		"dimension", "date_range"), 1, 20) + `,"cohorts_range":` + objectSchema(`"start_offset":{"type":"integer",`+
+		`"minimum":0,"maximum":1000},"end_offset":{"type":"integer","minimum":0,"maximum":1000},"granularity":`+
+		enumSchema("DAILY", "WEEKLY", "MONTHLY"), "end_offset", "granularity")
+	if withSettings {
+		properties += `,"cohort_report_settings":` + objectSchema(`"accumulate":{"type":"boolean"}`)
+	}
+	return objectSchema(properties, "cohorts", "cohorts_range")
+}
+
+// comparisonsSchema is the list of comparisons of a report.
+var comparisonsSchema = arraySchema(objectSchema(`"name":{"type":"string","minLength":1,"maxLength":100},`+
+	`"comparison":{"type":"string","pattern":"^comparisons/[0-9]{1,19}$"},"dimension_filter":`+
+	filterExpressionSchema(1)), 1, 10)
