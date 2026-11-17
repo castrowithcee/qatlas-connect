@@ -95,18 +95,19 @@ func Register(reg *capability.Registry) error {
 			ID: "read", Title: "Read", Recommended: true,
 			Description: "reads accounts, containers, workspaces and their changes, tags, triggers, variables, " +
 				"built-in variables, templates, folders, clients, transformations, zones, and Google tag " +
-				"configurations; changes nothing",
+				"configurations, and the environments of a container; changes nothing",
 			Tools: readIDs,
 		}, {
 			ID: "write", Title: "Read and change workspaces, tags, triggers, variables, templates, built-in variables, " +
-				"folders, clients, transformations, zones, and Google tag configurations",
+				"folders, clients, transformations, zones, Google tag configurations, and environments",
 			Description: "reads what the read profile reads, creates and updates workspaces, synchronizes a " +
 				"workspace with the latest container version, resolves its merge conflicts, quick previews it, " +
 				"creates, updates, and deletes the tags, triggers, variables, and templates of a workspace, creates, " +
 				"updates, and deletes its folders, moves tags, triggers, and variables into a folder, creates, updates, " +
-				"and deletes its clients, transformations, zones, and Google tag configurations, and enables and " +
-				"disables its built-in variables; every change needs its own confirmation and stays in the workspace " +
-				"until a version is published, which no tool of this provider does. Deleting a workspace and " +
+				"and deletes its clients, transformations, zones, and Google tag configurations, enables and disables " +
+				"its built-in variables, and creates, updates, and deletes the custom environments of a container; " +
+				"every change needs its own confirmation, and every change but one to an environment stays in the " +
+				"workspace until a version is published, which no tool of this provider does. Deleting a workspace and " +
 				"reverting a tag, trigger, variable, template, built-in variable, folder, client, transformation, or " +
 				"zone stay unticked",
 			Tools: writeIDs,
@@ -163,6 +164,10 @@ func Register(reg *capability.Registry) error {
 		gtagConfigsCreateID: handleGtagConfigsCreate, gtagConfigsUpdateID: handleGtagConfigsUpdate,
 		gtagConfigsDeleteID: handleGtagConfigsDelete,
 
+		environmentsListID: handleEnvironmentsList, environmentsGetID: handleEnvironmentsGet,
+		environmentsCreateID: handleEnvironmentsCreate, environmentsUpdateID: handleEnvironmentsUpdate,
+		environmentsDeleteID: handleEnvironmentsDelete,
+
 		userPermissionsListID: handleUserPermissionsList, userPermissionsGetID: handleUserPermissionsGet,
 		userPermissionsUpdateID: handleUserPermissionsUpdate, userPermissionsDeleteID: handleUserPermissionsDelete,
 	}
@@ -194,6 +199,9 @@ func Register(reg *capability.Registry) error {
 
 		gtagConfigsCreateID: gtagConfigSummary("Create"), gtagConfigsUpdateID: gtagConfigSummary("Replace"),
 		gtagConfigsDeleteID: gtagConfigSummary("Delete"),
+
+		environmentsCreateID: environmentSummary("Create"), environmentsUpdateID: environmentSummary("Replace"),
+		environmentsDeleteID: environmentSummary("Delete"),
 
 		userPermissionsUpdateID: userPermissionUpdateSummary, userPermissionsDeleteID: userPermissionDeleteSummary,
 	}

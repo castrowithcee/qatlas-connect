@@ -24,7 +24,7 @@ are in its descriptor; this page holds what the descriptor does not say.
 
 The service is always the official origin `https://cloudresourcemanager.googleapis.com`, which applies when
 `base_url` is left out. Qatlas refuses any other URL before a secret is read. Later packages reach other fixed
-origins of Google (IAM, Service Usage, Compute, Storage, DNS, Billing); none of them can be configured, a
+origins of Google (IAM, Service Usage, Compute, Storage, DNS, Billing, Cloud Quotas); none of them can be configured, a
 redirect is never followed, and a tool never takes an origin, a path, a header, or a body.
 
 The credential takes the roles of any token credential and picks its procedure from the roles that hold a value:
@@ -33,8 +33,8 @@ a person's consent (`client_id`, optionally `client_secret`, and the `refresh_to
 service account that the connection names with `service_account` (the consent of a person who may create
 tokens for it). The connection holds no scope. Qatlas derives them from the tools it offers and asks for the
 smallest scope the discovery document of each method lists: `cloud-platform.read-only` for Resource Manager,
-and `cloud-platform` for the IAM tools, because their discovery documents list no narrower scope (Google
-offers no read-only variant for these methods, see [IAM](iam.md)). Only the tools of the profiles
+and `cloud-platform` for the IAM and quota tools, because their discovery documents list no narrower scope
+(Google offers no read-only variant for these methods, see [IAM](iam.md) and [Quotas](quotas.md)). Only the tools of the profiles
 `service-accounts`, `service-accounts-revoke`, `iam-bindings`, and `services` and the tools `service-accounts.delete`
 and `services.disable`, which a `tools` list must name, change anything, each with a confirmation, whatever the scope allows. The access token travels in the
 `Authorization` header only, is never an argument or part of a result, and is masked in every output. A 401
@@ -95,6 +95,11 @@ scope `cloud-platform`, so a connection with this profile asks for a token that 
 may change, although no tool of this profile changes anything. It is not recommended: give it only to a
 connection that needs IAM, preferably with a credential whose account has viewer roles only.
 
+The profile `read-quotas` adds the quota tools (`google.cloud.quota-infos.list`, `google.cloud.quota-infos.get`,
+`google.cloud.quota-preferences.list`, `google.cloud.quota-preferences.get`) to the tools of `read`. They accept
+only the scope `cloud-platform`, and preferences may hold personal data (see [Quotas](quotas.md)). It is not
+recommended.
+
 The profile `service-accounts` holds only the changing tools `google.cloud.service-accounts.create`,
 `google.cloud.service-accounts.patch`, `google.cloud.service-accounts.disable`, and
 `google.cloud.service-accounts.enable`. It asks for `cloud-platform`, needs the effects `create` and `update`,
@@ -128,6 +133,7 @@ on [IAM bindings](iam-bindings.md).
 - [Compute instances](instances.md): the virtual machine instances of a project from Compute Engine, one, per
   zone, and across all zones, without metadata values.
 - [Machine types](machine-types.md): the machine types of a zone from Compute Engine.
+- [Quotas](quotas.md): the quotas of a service and the quota preferences of a project from Cloud Quotas.
 
 ### Search
 
