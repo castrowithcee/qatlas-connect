@@ -1,6 +1,6 @@
 ---
 description: >
-  Describes the Google Analytics provider: the fixed Admin and Data API origins, the token credential, the optional account and property targets and what each tool does with them, the read and write profiles, the alpha tools rule, paging, bounds on provider content, rate spacing, quotas, the connection test, and the limits of what is verified; the account, property, data stream, custom dimension, custom metric, key event, event create rule, calculated metric, annotation, report, audience export, report task, access report, data retention, and Google Signals tools have their own pages.
+  Describes the Google Analytics provider: the fixed Admin and Data API origins, the token credential, the optional account and property targets and what each tool does with them, the read and write profiles, the alpha tools rule, paging, bounds on provider content, rate spacing, quotas, the connection test, and the limits of what is verified; the account, property, data stream, custom dimension, custom metric, key event, event create rule, calculated metric, annotation, AdSense link, Search Ads 360 link, report, audience export, report task, access report, data retention, and Google Signals tools have their own pages.
 type: knowledge
 edit: shared
 created: 2026-11-16
@@ -21,7 +21,8 @@ property accepts, creates and reads audience exports, and reads the users of an 
 It also starts asynchronous report tasks (alpha) and reads their state and rows, lists, reads, creates, changes,
 and deletes the calculated metrics and the annotations of a property (alpha), and runs Data Access Reports on an
 account or property, which name the users who read the data and are personal data. It reads and changes the data
-retention settings of a property and, through the alpha Admin API, its Google Signals setting. The reading tools change
+retention settings of a property and, through the alpha Admin API, its Google Signals setting, and reads its AdSense
+and Search Ads 360 links (alpha). The reading tools change
 nothing. The account, property, data stream, custom dimension, custom metric, key event, event create rule, calculated metric, and annotation tools read no report data and use no reporting quota; the report
 tools do, see [reports](reports.md#quota), and so does starting an audience export, see
 [audience exports](audience-exports.md#quota), and starting a report task, see
@@ -31,7 +32,7 @@ tools do, see [reports](reports.md#quota), and so does starting an audience expo
 [accounts](accounts.md), [properties](properties.md), [data streams](data-streams.md), [custom dimensions](custom-dimensions.md),
 [custom metrics](custom-metrics.md), [key events](key-events.md), [event create rules](event-create-rules.md),
 [calculated metrics](calculated-metrics.md),
-[annotations](annotations.md), [reports](reports.md), [audience exports](audience-exports.md), [report tasks](report-tasks.md),
+[annotations](annotations.md), [AdSense links](adsense-links.md), [Search Ads 360 links](search-ads360-links.md), [reports](reports.md), [audience exports](audience-exports.md), [report tasks](report-tasks.md),
 [measurement protocol secrets](measurement-protocol-secrets.md), [access reports](access-reports.md),
 [data retention](data-retention.md), and [Google Signals](google-signals.md). The funnel report and the report
 tasks use the alpha version of the Data API, which Google can change without notice; their descriptions say so.
@@ -61,7 +62,7 @@ with an `ALPHA:` note. Google can change or remove such a method without notice,
 the answer of the tool change with it. Every other Admin tool uses `v1beta`. The tool groups that use `v1alpha`
 say so on their page: the [data streams](data-streams.md#stream-settings-alpha) settings tools, the
 [event create rule](event-create-rules.md) tools, the [calculated metrics](calculated-metrics.md) tools, and the
-[annotations](annotations.md), and the [Google Signals](google-signals.md) tools.
+[annotations](annotations.md), the [AdSense link](adsense-links.md) and [Search Ads 360 link](search-ads360-links.md) tools, and the [Google Signals](google-signals.md) tools.
 
 ## Targets
 
@@ -95,6 +96,8 @@ not name the resource.
 | `calculated-metrics.list`, `calculated-metrics.create` | Use a bound property, or a property of a bound account after one proof read of its parent; see [calculated metrics](calculated-metrics.md#targets-and-proof) |
 | `calculated-metrics.get`, `calculated-metrics.update`, `calculated-metrics.delete` | The property in the metric name follows the same rule |
 | `annotations.list`, `annotations.get`, `annotations.create`, `annotations.update`, `annotations.delete` | Use the annotations of a bound property, or of a property of a bound account after one proof read of its parent; see [annotations](annotations.md#targets-and-proof) |
+| `adsense-links.list`, `adsense-links.get` | Use the links of a bound property, or of a property of a bound account after one proof read of its parent; see [AdSense links](adsense-links.md#targets-and-proof) |
+| `search-ads360-links.list`, `search-ads360-links.get` | Like the AdSense link tools; see [Search Ads 360 links](search-ads360-links.md#targets-and-proof) |
 | `data-retention.get`, `data-retention.update`, `google-signals.get`, `google-signals.update` | Use a bound property, or a property of a bound account after one proof read of its parent; see [data retention](data-retention.md#targets-and-proof) |
 | `reports.run`, `reports.run-pivot`, `reports.batch-run`, `reports.batch-run-pivot`, `reports.run-realtime`, `reports.check-compatibility` | Use a bound property, or a property of a bound account after one proof read of its parent |
 | `reports.get-metadata` | Like `reports.run`; `properties/0` needs no target, see [reports](reports.md#property-and-targets) |
@@ -130,6 +133,8 @@ The profile `read` is the recommended one and holds `google.analytics.accounts.l
 `google.analytics.event-create-rules.list`, `google.analytics.event-create-rules.get`,
 `google.analytics.calculated-metrics.list`, `google.analytics.calculated-metrics.get`,
 `google.analytics.annotations.list`, `google.analytics.annotations.get`,
+`google.analytics.adsense-links.list`, `google.analytics.adsense-links.get`,
+`google.analytics.search-ads360-links.list`, `google.analytics.search-ads360-links.get`,
 `google.analytics.accounts.run-access-report`, `google.analytics.properties.run-access-report`,
 `google.analytics.data-retention.get`, and `google.analytics.google-signals.get`. The profile `write` reads like `read`, changes accounts, properties,
 data streams and their settings, custom dimensions, custom metrics, key events, event create rules, calculated metrics, annotations, and Google Signals, deletes data streams, measurement protocol secrets, and key events,

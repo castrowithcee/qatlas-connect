@@ -17,8 +17,8 @@
 // of a measurement protocol secret is never returned: it is read from Google's answer only to register it with
 // the redactor.
 //
-// The settings and the event create rules of a web data stream and the calculated metrics and annotations of a
-// property run on the Admin API v1alpha, see alpha.go.
+// The settings and the event create rules of a web data stream and the calculated metrics, annotations and
+// the read-only AdSense and Search Ads 360 links of a property run on the Admin API v1alpha, see alpha.go.
 //
 // A connection may bind Analytics accounts (accounts/ID) and properties (properties/ID). Without a target it
 // reaches what the credential reaches. A bound account reaches its properties, a bound property only itself;
@@ -154,6 +154,11 @@ var scopes = map[string][]string{
 	dataRetentionUpdateID: {scopeEdit},
 	googleSignalsGetID:    {scopeReadOnly},
 	googleSignalsUpdateID: {scopeEdit},
+
+	adsenseLinksListID:   {scopeReadOnly},
+	adsenseLinksGetID:    {scopeReadOnly},
+	searchAdsLinksListID: {scopeReadOnly},
+	searchAdsLinksGetID:  {scopeReadOnly},
 }
 
 func tokenMetadata() config.TokenMetadata { return config.TokenMetadata{Scopes: scopes} }
@@ -220,7 +225,8 @@ var readTools = []string{summariesID, accountsID, accountsGetID, accountsSharing
 	customDimensionsListID, customDimensionsGetID, customMetricsListID,
 	customMetricsGetID, keyEventsListID, keyEventsGetID, eventRulesListID, eventRulesGetID,
 	calculatedListID, calculatedGetID, accessAccountID, accessPropertyID, dataRetentionGetID, googleSignalsGetID,
-	annotationsListID, annotationsGetID}
+	annotationsListID, annotationsGetID, adsenseLinksListID, adsenseLinksGetID, searchAdsLinksListID,
+	searchAdsLinksGetID}
 
 // Register adds the provider metadata, its consent endpoints, its connection test and its tools.
 func Register(reg *capability.Registry) error {
@@ -376,6 +382,10 @@ func Register(reg *capability.Registry) error {
 		{Descriptor: dataRetentionUpdate, Handler: handleDataRetentionUpdate, ConfirmationSummary: retentionSummary},
 		{Descriptor: googleSignalsGet, Handler: handleGoogleSignalsGet},
 		{Descriptor: googleSignalsUpdate, Handler: handleGoogleSignalsUpdate, ConfirmationSummary: signalsSummary},
+		{Descriptor: adsenseLinksList, Handler: handleAdsenseLinksList},
+		{Descriptor: adsenseLinksGet, Handler: handleAdsenseLinksGet},
+		{Descriptor: searchAdsLinksList, Handler: handleSearchAdsLinksList},
+		{Descriptor: searchAdsLinksGet, Handler: handleSearchAdsLinksGet},
 	} {
 		if err := reg.Register(Provider, operation); err != nil {
 			return err
