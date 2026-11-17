@@ -93,6 +93,9 @@ var scopes = map[string][]string{
 	dataStreamsGetID:    {scopeReadOnly},
 	dataStreamsCreateID: {scopeEdit},
 	dataStreamsUpdateID: {scopeEdit},
+
+	accessAccountID:  {scopeReadOnly},
+	accessPropertyID: {scopeReadOnly},
 }
 
 func tokenMetadata() config.TokenMetadata { return config.TokenMetadata{Scopes: scopes} }
@@ -154,7 +157,7 @@ func isDefaultRoot(raw string) bool {
 var readTools = []string{summariesID, accountsID, accountsGetID, accountsSharingID, propertiesListID, propertiesGetID,
 	reportsRunID, metadataGetID, compatibilityID, dataStreamsListID, dataStreamsGetID, funnelRunID, audienceGetID,
 	audienceListID, reportsRunPivotID, reportsBatchRunID, reportsBatchRunPivotID, reportsRunRealtimeID,
-	reportTasksGetID, reportTasksListID, reportTasksQueryID, audienceQueryID}
+	reportTasksGetID, reportTasksListID, reportTasksQueryID, audienceQueryID, accessAccountID, accessPropertyID}
 
 // Register adds the provider metadata, its consent endpoints, its connection test and its tools.
 func Register(reg *capability.Registry) error {
@@ -188,7 +191,8 @@ func Register(reg *capability.Registry) error {
 		Profiles: []config.ToolProfile{{
 			ID: "read", Title: "Read", Recommended: true,
 			Description: "reads the Analytics accounts, properties, reports and report tasks the connection reaches; " +
-				"nothing is changed. It includes reading the users of an audience export, which are personal data",
+				"nothing is changed. It includes reading the users of an audience export and the Data Access Reports, " +
+				"which are personal data",
 			Tools: readTools,
 		}, {
 			ID: "write", Title: "Read and change",
@@ -241,6 +245,8 @@ func Register(reg *capability.Registry) error {
 		{Descriptor: reportTasksGet, Handler: handleReportTasksGet},
 		{Descriptor: reportTasksList, Handler: handleReportTasksList},
 		{Descriptor: reportTasksQuery, Handler: handleReportTasksQuery},
+		{Descriptor: accessAccountReport, Handler: handleAccessAccount},
+		{Descriptor: accessPropertyReport, Handler: handleAccessProperty},
 	} {
 		if err := reg.Register(Provider, operation); err != nil {
 			return err

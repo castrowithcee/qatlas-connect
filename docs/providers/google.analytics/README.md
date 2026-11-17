@@ -1,6 +1,6 @@
 ---
 description: >
-  Describes the Google Analytics provider: the fixed Admin and Data API origins, the token credential, the optional account and property targets and what each tool does with them, the read and write profiles, paging, bounds on provider content, rate spacing, quotas, the connection test, and the limits of what is verified; the account, property, report, audience export, and report task tools have their own pages.
+  Describes the Google Analytics provider: the fixed Admin and Data API origins, the token credential, the optional account and property targets and what each tool does with them, the read and write profiles, paging, bounds on provider content, rate spacing, quotas, the connection test, and the limits of what is verified; the account, property, report, audience export, report task, and access report tools have their own pages.
 type: knowledge
 edit: shared
 created: 2026-11-16
@@ -15,7 +15,8 @@ property, renames an account, moves an account to the trash, creates, changes, a
 reads, creates, and changes the data streams of a property. It also runs reports, pivot reports, batches of up
 to five of them, realtime reports, and an alpha funnel report, reads the metadata of the dimensions and metrics a
 property accepts, creates and reads audience exports, and reads the users of an export, which are personal data.
-It also starts asynchronous report tasks (alpha) and reads their state and rows. The reading tools change
+It also starts asynchronous report tasks (alpha) and reads their state and rows, and runs Data Access Reports on an
+account or property, which name the users who read the data and are personal data. The reading tools change
 nothing. The account, property, and data stream tools read no report data and use no reporting quota; the report
 tools do, see [reports](reports.md#quota), and so does starting an audience export, see
 [audience exports](audience-exports.md#quota), and starting a report task, see
@@ -23,7 +24,8 @@ tools do, see [reports](reports.md#quota), and so does starting an audience expo
 
 [Set up Google Analytics](setup.md) leads through the credential. The tools are described in
 [accounts](accounts.md), [properties](properties.md), [data streams](data-streams.md), [reports](reports.md),
-[audience exports](audience-exports.md), and [report tasks](report-tasks.md). The funnel report and the report
+[audience exports](audience-exports.md), [report tasks](report-tasks.md), and [access reports](access-reports.md).
+The funnel report and the report
 tasks use the alpha version of the Data API, which Google can change without notice; their descriptions say so.
 The audience exports use the beta version.
 
@@ -74,6 +76,8 @@ not name the resource.
 | `audience-exports.query` | Like `audience-exports.get`: the property in the export name follows the same rule |
 | `report-tasks.create`, `report-tasks.list` | Like `reports.run`, on a bound property or a property of a bound account after one proof read |
 | `report-tasks.get`, `report-tasks.query` | The property in the task name follows the same rule; see [report tasks](report-tasks.md#property-and-targets) |
+| `accounts.run-access-report` | Like `accounts.get`: a bound account, or no target; see [access reports](access-reports.md#entity-and-targets) |
+| `properties.run-access-report` | Like `reports.run`, on `entity`: a bound property or a property of a bound account after one proof read |
 
 A property of another account is refused, also when it is named correctly.
 
@@ -89,13 +93,15 @@ The profile `read` is the recommended one and holds `google.analytics.accounts.l
 `google.analytics.reports.run-pivot`, `google.analytics.reports.batch-run`,
 `google.analytics.reports.batch-run-pivot`, `google.analytics.reports.run-realtime`,
 `google.analytics.report-tasks.get`, `google.analytics.report-tasks.list`,
-`google.analytics.report-tasks.query`, and `google.analytics.audience-exports.query`. The profile `write` reads
+`google.analytics.report-tasks.query`, `google.analytics.audience-exports.query`,
+`google.analytics.accounts.run-access-report`, and `google.analytics.properties.run-access-report`. The profile `write` reads
 like `read`, changes accounts, properties, and data streams, and starts audience exports and report tasks, each
 change with its own confirmation: it adds `google.analytics.accounts.update`, `google.analytics.properties.create`,
 `google.analytics.properties.update`, `google.analytics.data-streams.create`,
 `google.analytics.data-streams.update`, `google.analytics.audience-exports.create`,
 and `google.analytics.report-tasks.create`. The users of an export are personal data; see
-[audience exports](audience-exports.md#personal-data). Deleting is in no profile: a
+[audience exports](audience-exports.md#personal-data); so are the access reports, see
+[access reports](access-reports.md#personal-data). Deleting is in no profile: a
 connection offers `google.analytics.accounts.delete` and `google.analytics.properties.delete` only when its
 `tools` list names them, and each needs the confirmation of a person. `accounts.delete` also runs only on a
 connection that binds exactly that account and no property. Which scope each tool needs is listed in
@@ -107,7 +113,7 @@ A list returns `next_cursor` and `has_more` when Google reports a further page; 
 see [reports](reports.md#rows-and-cursor), funnel, pivot, batch, and realtime reports have no cursor,
 `audience-exports.list` and `report-tasks.list` page by cursor, see
 [audience exports](audience-exports.md#googleanalyticsaudience-exportslist), and the rows of
-`audience-exports.query` and `report-tasks.query` continue by row offset like reports. The cursor wraps Google's page
+`audience-exports.query`, `report-tasks.query`, and the access reports continue by row offset like reports. The cursor wraps Google's page
 token and fits only the tool, the connection, and the arguments that Google requires to stay the same, such as
 the `filter`; a changed or invented cursor is refused before any request. `page_size` may change between
 pages. Google may return fewer entries than asked for and a page can be empty while `has_more` is true.

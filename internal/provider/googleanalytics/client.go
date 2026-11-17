@@ -86,7 +86,8 @@ func newClient(resolved *config.Resolved, source *provider.TokenSource, bind bin
 }
 
 // apiCall is one request without a side effect. It is a GET on the Admin API; with data set it is a POST of
-// body on the Data API, whose methods read only; method names another method for a Data API call. tool
+// body on the Data API, whose methods read only; method names another method than that default, which also
+// lets a reading Admin API method be a POST. tool
 // names the tool whose scopes the access token must carry, path is a constant of this package with checked
 // resource names, and query holds the checked arguments.
 type apiCall struct {
@@ -106,9 +107,9 @@ func (c *client) get(ctx context.Context, call apiCall, out any) error {
 	root, api, method := adminRoot, "Admin", http.MethodGet
 	if call.data {
 		root, api, method = dataRoot, "Data", http.MethodPost
-		if call.method != "" {
-			method = call.method
-		}
+	}
+	if call.method != "" {
+		method = call.method
 	}
 	target := root + call.path
 	if len(call.query) > 0 {
