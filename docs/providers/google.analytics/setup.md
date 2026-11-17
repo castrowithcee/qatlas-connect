@@ -11,7 +11,8 @@ updated: 2026-11-17
 
 This page shows how to connect Qatlas to Google Analytics 4. Targets, paging, and errors are described in the
 [Google Analytics provider](README.md); the tools are described in [accounts](accounts.md),
-[properties](properties.md), [data streams](data-streams.md), [reports](reports.md), and
+[properties](properties.md), [data streams](data-streams.md),
+[event create rules](event-create-rules.md), [reports](reports.md), and
 [audience exports](audience-exports.md), and [report tasks](report-tasks.md).
 
 ## What you need
@@ -80,7 +81,7 @@ property, and on the property or its account to change or trash a property.
 ## Rights and scopes
 
 The reading tools need the scope `https://www.googleapis.com/auth/analytics.readonly`, the smallest scope that
-reads Analytics configuration and report data. The tools that change an account or a property need
+reads Analytics configuration and report data. The tools that change an account, a property, a data stream, or an event create rule need
 `https://www.googleapis.com/auth/analytics.edit`. Qatlas asks for the scope of the tools of the connections that
 use the credential and no more. Each connection of a credential has to be for Google Analytics, so the
 credential never carries the scope of another product.
@@ -98,6 +99,8 @@ credential never carries the scope of another product.
 | [Data streams](data-streams.md#changing-data-streams) | `data-streams.create`, `data-streams.update` | `analytics.edit` |
 | [Stream settings](data-streams.md#stream-settings-alpha) | `data-streams.get-enhanced-measurement`, `data-streams.get-data-redaction`, `data-streams.get-site-tag` | `analytics.readonly` |
 | [Stream settings](data-streams.md#stream-settings-alpha) | `data-streams.update-enhanced-measurement`, `data-streams.update-data-redaction` | `analytics.edit` |
+| [Event create rules](event-create-rules.md) | `event-create-rules.list`, `event-create-rules.get` | `analytics.readonly` |
+| [Event create rules](event-create-rules.md) | `event-create-rules.create`, `event-create-rules.update`, `event-create-rules.delete` | `analytics.edit` |
 
 ## Add it to Qatlas
 

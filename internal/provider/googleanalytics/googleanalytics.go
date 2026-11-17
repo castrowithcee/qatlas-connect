@@ -15,7 +15,7 @@
 // Reading tools send one request, a changing tool exactly one and never again, whatever comes back.
 // Deleting an account runs only on a connection that binds exactly that account and no property.
 //
-// The settings of a web data stream run on the Admin API v1alpha, see alpha.go.
+// The settings and the event create rules of a web data stream run on the Admin API v1alpha, see alpha.go.
 //
 // A connection may bind Analytics accounts (accounts/ID) and properties (properties/ID). Without a target it
 // reaches what the credential reaches. A bound account reaches its properties, a bound property only itself;
@@ -101,6 +101,12 @@ var scopes = map[string][]string{
 	siteTagGetID:      {scopeReadOnly},
 	enhancedUpdateID:  {scopeEdit},
 	redactionUpdateID: {scopeEdit},
+
+	eventRulesListID:   {scopeReadOnly},
+	eventRulesGetID:    {scopeReadOnly},
+	eventRulesCreateID: {scopeEdit},
+	eventRulesUpdateID: {scopeEdit},
+	eventRulesDeleteID: {scopeEdit},
 }
 
 func tokenMetadata() config.TokenMetadata { return config.TokenMetadata{Scopes: scopes} }
@@ -162,7 +168,8 @@ func isDefaultRoot(raw string) bool {
 var readTools = []string{summariesID, accountsID, accountsGetID, accountsSharingID, propertiesListID, propertiesGetID,
 	reportsRunID, metadataGetID, compatibilityID, dataStreamsListID, dataStreamsGetID, funnelRunID, audienceGetID,
 	audienceListID, reportsRunPivotID, reportsBatchRunID, reportsBatchRunPivotID, reportsRunRealtimeID,
-	reportTasksGetID, reportTasksListID, reportTasksQueryID, audienceQueryID, enhancedGetID, redactionGetID, siteTagGetID}
+	reportTasksGetID, reportTasksListID, reportTasksQueryID, audienceQueryID, enhancedGetID, redactionGetID, siteTagGetID,
+	eventRulesListID, eventRulesGetID}
 
 // Register adds the provider metadata, its consent endpoints, its connection test and its tools.
 func Register(reg *capability.Registry) error {
@@ -200,12 +207,12 @@ func Register(reg *capability.Registry) error {
 			Tools: readTools,
 		}, {
 			ID: "write", Title: "Read and change",
-			Description: "reads what the read profile reads and changes Analytics accounts and properties, starts audience exports " +
-				"and report tasks; every " +
-				"change needs its own confirmation, and deleting stays unlisted",
+			Description: "reads what the read profile reads and changes Analytics accounts, properties, data streams and " +
+				"event create rules, starts audience exports and report tasks; every change needs its own " +
+				"confirmation, and deleting an account or a property stays unlisted",
 			Tools: append(slices.Clone(readTools), accountsUpdateID, propertiesCreateID, propertiesUpdateID,
 				dataStreamsCreateID, dataStreamsUpdateID, audienceCreateID, reportTasksCreateID, enhancedUpdateID,
-				redactionUpdateID),
+				redactionUpdateID, eventRulesCreateID, eventRulesUpdateID, eventRulesDeleteID),
 		}},
 	}, TestConnection); err != nil {
 		return err
@@ -247,6 +254,14 @@ func Register(reg *capability.Registry) error {
 		{Descriptor: redactionUpdateDescriptor, Handler: handleRedactionUpdate,
 			ConfirmationSummary: settingsSummary(redactionUpdateID)},
 		{Descriptor: siteTagGet, Handler: handleSiteTagGet},
+		{Descriptor: eventRulesList, Handler: handleEventRulesList},
+		{Descriptor: eventRulesGet, Handler: handleEventRulesGet},
+		{Descriptor: eventRulesCreate, Handler: handleEventRulesCreate,
+			ConfirmationSummary: ruleWriteSummary(eventRulesCreateID)},
+		{Descriptor: eventRulesUpdate, Handler: handleEventRulesUpdate,
+			ConfirmationSummary: ruleWriteSummary(eventRulesUpdateID)},
+		{Descriptor: eventRulesDelete, Handler: handleEventRulesDelete,
+			ConfirmationSummary: ruleWriteSummary(eventRulesDeleteID)},
 		{Descriptor: funnelRun, Handler: handleFunnelRun},
 		{Descriptor: audienceGet, Handler: handleAudienceGet},
 		{Descriptor: audienceList, Handler: handleAudienceList},
