@@ -114,7 +114,7 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 				t.Errorf("profile read-iam = %+v", profile)
 			}
 		case "read-quotas":
-			if profile.Recommended || len(profile.Tools) != 16 {
+			if profile.Recommended || len(profile.Tools) != 20 {
 				t.Errorf("profile read-quotas = %+v", profile)
 			}
 		case "service-accounts":
