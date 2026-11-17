@@ -24,7 +24,7 @@ are in its descriptor; this page holds what the descriptor does not say.
 
 The service is always the official origin `https://cloudresourcemanager.googleapis.com`, which applies when
 `base_url` is left out. Qatlas refuses any other URL before a secret is read. Later packages reach other fixed
-origins of Google (IAM, Service Usage, Compute, Storage, DNS, Billing); none of them can be configured, a
+origins of Google (IAM, Service Usage, Compute, Storage, DNS, Billing, Cloud Quotas); none of them can be configured, a
 redirect is never followed, and a tool never takes an origin, a path, a header, or a body.
 
 The credential takes the roles of any token credential and picks its procedure from the roles that hold a value:
@@ -33,8 +33,8 @@ a person's consent (`client_id`, optionally `client_secret`, and the `refresh_to
 service account that the connection names with `service_account` (the consent of a person who may create
 tokens for it). The connection holds no scope. Qatlas derives them from the tools it offers and asks for the
 smallest scope the discovery document of each method lists: `cloud-platform.read-only` for Resource Manager,
-and `cloud-platform` for the IAM tools, because their discovery documents list no narrower scope (Google
-offers no read-only variant for these methods, see [IAM](iam.md)). Only the tools of the profiles
+and `cloud-platform` for the IAM and quota tools, because their discovery documents list no narrower scope
+(Google offers no read-only variant for these methods, see [IAM](iam.md) and [Quotas](quotas.md)). Only the tools of the profiles
 `service-accounts`, `service-accounts-revoke`, `iam-bindings`, and `services` and the tools `service-accounts.delete`
 and `services.disable`, which a `tools` list must name, change anything, each with a confirmation, whatever the scope allows. The access token travels in the
 `Authorization` header only, is never an argument or part of a result, and is masked in every output. A 401
@@ -75,12 +75,15 @@ secret is read and before any request.
 
 ## Profiles
 
-The profile `read` is the recommended one. It holds every tool that needs no more than the scope
-`cloud-platform.read-only`: `google.cloud.organizations.search`, `google.cloud.folders.search`,
+The profile `read` is the recommended one. It holds every tool that needs no more than a read scope,
+`cloud-platform.read-only` or `compute.readonly`: `google.cloud.organizations.search`, `google.cloud.folders.search`,
 `google.cloud.projects.search`, `google.cloud.projects.get`, `google.cloud.operations.get`,
 `google.cloud.organizations.get`, `google.cloud.folders.get`, `google.cloud.folders.list`,
-`google.cloud.projects.list`, `google.cloud.services.list`, `google.cloud.services.get`, and
-`google.cloud.services.batch-get`.
+`google.cloud.projects.list`, `google.cloud.services.list`, `google.cloud.services.get`,
+`google.cloud.services.batch-get`, and the Compute tools `google.cloud.instances.list`,
+`google.cloud.instances.aggregated-list`, `google.cloud.instances.get`, and `google.cloud.machine-types.list`, which
+ask for `compute.readonly`. A connection bound to an organization or a folder needs `projects.get` next to the
+Compute tools to prove the project of a call; `read` holds both.
 
 The profile `read-iam` adds the IAM tools (`google.cloud.iam-roles.list`, `google.cloud.iam-roles.get`,
 `google.cloud.iam-roles.query-grantable`, `google.cloud.iam-permissions.query-testable`,
@@ -91,6 +94,11 @@ The profile `read-iam` adds the IAM tools (`google.cloud.iam-roles.list`, `googl
 scope `cloud-platform`, so a connection with this profile asks for a token that may change whatever its account
 may change, although no tool of this profile changes anything. It is not recommended: give it only to a
 connection that needs IAM, preferably with a credential whose account has viewer roles only.
+
+The profile `read-quotas` adds the quota tools (`google.cloud.quota-infos.list`, `google.cloud.quota-infos.get`,
+`google.cloud.quota-preferences.list`, `google.cloud.quota-preferences.get`) to the tools of `read`. They accept
+only the scope `cloud-platform`, and preferences may hold personal data (see [Quotas](quotas.md)). It is not
+recommended.
 
 The profile `service-accounts` holds only the changing tools `google.cloud.service-accounts.create`,
 `google.cloud.service-accounts.patch`, `google.cloud.service-accounts.disable`, and
@@ -122,6 +130,10 @@ on [IAM bindings](iam-bindings.md).
   service accounts.
 - [IAM bindings](iam-bindings.md): adding a member to, removing a member from, and moving a member between the
   bindings of the IAM policy of a project, folder, or organization.
+- [Compute instances](instances.md): the virtual machine instances of a project from Compute Engine, one, per
+  zone, and across all zones, without metadata values.
+- [Machine types](machine-types.md): the machine types of a zone from Compute Engine.
+- [Quotas](quotas.md): the quotas of a service and the quota preferences of a project from Cloud Quotas.
 
 ### Search
 
@@ -215,6 +227,10 @@ decide beyond the HTTP status.
 | 429 | `rate-limited` |
 | any other 401, 403, 404, or 4xx | `invalid-provider-response` |
 | 5xx | by HTTP status |
+
+Compute Engine may answer in the older error form, without a status string and with a list of `errors` that carry a
+`reason`. Qatlas reads the reasons `notFound`, `forbidden`, and `authError` of it like `NOT_FOUND`,
+`PERMISSION_DENIED`, and `UNAUTHENTICATED`; the 403 reason `SERVICE_DISABLED` names Compute Engine among the APIs.
 
 A failed token request ends as `auth`, `consent-required`, or `consent-expired`, as the core decides. An
 unreadable, oversized (over 2 MiB), or non-JSON answer is `invalid-provider-response`. The timeout is 30

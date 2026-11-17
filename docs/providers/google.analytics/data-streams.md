@@ -1,6 +1,6 @@
 ---
 description: >
-  Describes the Google Analytics data stream tools: data-streams.list and data-streams.get read the web, Android, and iOS streams of a property, data-streams.create and data-streams.update create and change one, and the alpha tools read and change the enhanced measurement and data redaction settings of a web stream and read its site tag, with the type data of each stream type, which members can change, how targets restrict each tool and prove the account of a property, the checked values, the result members, the measurement ID rule, and the limits of what is verified.
+  Describes the Google Analytics data stream tools: data-streams.list and data-streams.get read the web, Android, and iOS streams of a property, data-streams.create and data-streams.update create and change one, data-streams.delete deletes one, and the alpha tools read and change the enhanced measurement and data redaction settings of a web stream and read its site tag, with the type data of each stream type, which members can change, how targets restrict each tool and prove the account of a property, the checked values, the result members, the measurement ID rule, and the limits of what is verified.
 type: knowledge
 edit: shared
 created: 2026-11-17
@@ -15,8 +15,11 @@ nothing, a repeat is safe, and the profile `read` holds both. They need the scop
 tools under [Changing data streams](#changing-data-streams) need `analytics.edit`; see
 [setup](setup.md#rights-and-scopes). Configuration, targets, paging, and the boundary are described in the
 provider page. Find property names with [accounts.list-summaries](accounts.md) and stream names with
-`data-streams.list`. The enhanced measurement, data redaction, and site tag tools of a web stream are described under
-[Stream settings](#stream-settings-alpha). Deleting a stream and the Measurement Protocol secrets have no tool yet.
+`data-streams.list`. `data-streams.delete` also needs `analytics.edit`; see
+[google.analytics.data-streams.delete](#googleanalyticsdata-streamsdelete). The Measurement Protocol secrets of a
+stream have their own page, [measurement protocol secrets](measurement-protocol-secrets.md).
+The enhanced measurement, data redaction, and site tag tools of a web stream are described under
+[Stream settings](#stream-settings-alpha).
 
 ## Result members
 
@@ -46,7 +49,7 @@ like one the credential cannot see; both are `not-found`.
 
 ## Changing data streams
 
-Both tools change Analytics, need the confirmation of a person for each call, and are one request without a
+The tools of this section change Analytics, need the confirmation of a person for each call, and are one request without a
 retry. After a timeout, an aborted request, a `5xx` answer, or an answer that cannot be read, the outcome is
 unknown: the error says so, and the stream is read before it is changed again. A refusal, a `403`, a `404`, and a
 `429` mean the change was not made. A `429` holds the next request of the credential for one second, or the
@@ -79,6 +82,17 @@ must be set. Qatlas sends the update mask from exactly the arguments that are se
 another type. The type, the package name, and the bundle ID are immutable at Google, so there are no arguments
 for them, and a member cannot be cleared this way. The answer is the stream after the change, without its
 `measurementId`.
+
+### google.analytics.data-streams.delete
+
+Uses `properties.dataStreams.delete`. `name` is required. The call deletes the stream: the website or app no
+longer sends data to it, and the Measurement Protocol secrets of the stream go with it. Data the property already
+collected stays. Qatlas has no tool that restores a stream. The call needs the confirmation of a person, which
+names the stream, is one request without a retry, and is idempotent in effect. The answer is `name` and
+`deleted: true`; Google sends an empty body. After a timeout, an aborted request, a `5xx` answer, or an answer that
+cannot be read, the outcome is unknown and the stream is read before anything else is done. A `404` means the
+stream does not exist or the credential cannot see it. The profile `write` holds the tool, and a connection with the effect `delete` offers it. It is not limited to a
+`tools` entry.
 
 ### Targets and proof
 
