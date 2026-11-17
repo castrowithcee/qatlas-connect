@@ -89,17 +89,17 @@ func Register(reg *capability.Registry) error {
 		Profiles: []config.ToolProfile{{
 			ID: "read", Title: "Read", Recommended: true,
 			Description: "reads accounts, containers, workspaces and their changes, tags, triggers, variables, " +
-				"built-in variables, folders, clients, and transformations; changes nothing",
+				"built-in variables, folders, clients, transformations, and zones; changes nothing",
 			Tools: readIDs,
 		}, {
 			ID: "write", Title: "Read and change workspaces, tags, triggers, variables, built-in variables, folders, " +
-				"clients, and transformations",
+				"clients, transformations, and zones",
 			Description: "reads what the read profile reads, creates and updates workspaces, creates, updates, and " +
 				"deletes the tags, triggers, and variables of a workspace, creates and updates its folders, creates, " +
-				"updates, and deletes its clients and transformations, and enables and disables its built-in " +
+				"updates, and deletes its clients, transformations, and zones, and enables and disables its built-in " +
 				"variables; every change needs its own confirmation and stays in the workspace until a version is " +
 				"published, which no tool of this provider does. Deleting a workspace and reverting a tag, trigger, " +
-				"variable, built-in variable, client, or transformation stay unticked",
+				"variable, built-in variable, client, transformation, or zone stay unticked",
 			Tools: writeIDs,
 		}},
 	}, TestConnection); err != nil {
@@ -133,6 +133,9 @@ func Register(reg *capability.Registry) error {
 		transformationsListID: handleTransformationsList, transformationsGetID: handleTransformationsGet,
 		transformationsCreateID: handleTransformationsCreate, transformationsUpdateID: handleTransformationsUpdate,
 		transformationsDeleteID: handleTransformationsDelete, transformationsRevertID: handleTransformationsRevert,
+
+		zonesListID: handleZonesList, zonesGetID: handleZonesGet, zonesCreateID: handleZonesCreate,
+		zonesUpdateID: handleZonesUpdate, zonesDeleteID: handleZonesDelete, zonesRevertID: handleZonesRevert,
 	}
 	summaries := map[string]capability.SummaryFunc{
 		workspacesCreateID: workspaceSummary("Create"), workspacesUpdateID: workspaceSummary("Replace"),
@@ -152,6 +155,9 @@ func Register(reg *capability.Registry) error {
 
 		transformationsCreateID: transformationSummary("Create"), transformationsUpdateID: transformationSummary("Replace"),
 		transformationsDeleteID: transformationSummary("Delete"), transformationsRevertID: transformationSummary("Revert"),
+
+		zonesCreateID: zoneSummary("Create"), zonesUpdateID: zoneSummary("Replace"),
+		zonesDeleteID: zoneSummary("Delete"), zonesRevertID: zoneSummary("Revert"),
 	}
 	for _, d := range descriptors() {
 		if err := reg.Register(Provider, capability.Operation{Descriptor: d, Handler: handlers[d.ID],

@@ -125,7 +125,8 @@ func descriptors() []capability.Descriptor {
 	return append([]capability.Descriptor{accountsList, accountsGet, containersList, containersGet, workspacesList,
 		workspacesGet}, append(workspaceManageDescriptors(), append(tagDescriptors(), append(triggerDescriptors(),
 		append(variableDescriptors(), append(builtInVariableDescriptors(), append(folderDescriptors(),
-			append(clientDescriptors(), transformationDescriptors()...)...)...)...)...)...)...)...)
+			append(clientDescriptors(), append(transformationDescriptors(),
+				zoneDescriptors()...)...)...)...)...)...)...)...)...)
 }
 
 var accountsList = capability.Descriptor{
@@ -223,6 +224,7 @@ type toolArguments struct {
 	Folder            string `json:"folder"`
 	Client            string `json:"client"`
 	Transformation    string `json:"transformation"`
+	Zone              string `json:"zone"`
 	Fingerprint       string `json:"fingerprint"`
 	Cursor            string `json:"cursor"`
 	IncludeGoogleTags bool   `json:"include_google_tags"`
