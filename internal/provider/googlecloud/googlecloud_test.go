@@ -48,14 +48,16 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 		case tool.ID == serviceAccountKeysDeleteID, tool.ID == serviceAccountsDeleteID:
 			wantEffect = config.EffectDelete
 		}
-		if tool.Effect == config.EffectRead {
+		// The quota tools belong to read-quotas, not to read-iam.
+		if tool.Effect == config.EffectRead && !strings.Contains(tool.ID, ".quota-") {
 			reads++
 		}
 		if tool.Effect != wantEffect {
 			t.Errorf("%s effect = %v", tool.ID, tool.Effect)
 		}
 		wantScope := "https://www.googleapis.com/auth/cloud-platform.read-only"
-		if strings.Contains(tool.ID, ".iam-") || strings.Contains(tool.ID, ".service-account") {
+		if strings.Contains(tool.ID, ".iam-") || strings.Contains(tool.ID, ".service-account") ||
+			strings.Contains(tool.ID, ".quota-") {
 			// The discovery documents list cloud-platform alone for the IAM methods.
 			wantScope = "https://www.googleapis.com/auth/cloud-platform"
 		}
@@ -70,7 +72,8 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 		"google.cloud.iam-policies.get", "google.cloud.iam-roles.get", "google.cloud.iam-roles.list",
 		"google.cloud.iam-roles.query-grantable", "google.cloud.operations.get", "google.cloud.organizations.get",
 		"google.cloud.organizations.search", "google.cloud.projects.get", "google.cloud.projects.list",
-		"google.cloud.projects.search", "google.cloud.service-account-keys.delete",
+		"google.cloud.projects.search", "google.cloud.quota-infos.get", "google.cloud.quota-infos.list",
+		"google.cloud.quota-preferences.get", "google.cloud.quota-preferences.list", "google.cloud.service-account-keys.delete",
 		"google.cloud.service-account-keys.disable", "google.cloud.service-account-keys.enable",
 		"google.cloud.service-account-keys.get",
 		"google.cloud.service-account-keys.list", "google.cloud.service-accounts.create",
@@ -96,6 +99,10 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 		case "read-iam":
 			if profile.Recommended || len(profile.Tools) != reads {
 				t.Errorf("profile read-iam = %+v", profile)
+			}
+		case "read-quotas":
+			if profile.Recommended || len(profile.Tools) != 16 {
+				t.Errorf("profile read-quotas = %+v", profile)
 			}
 		case "service-accounts":
 			if profile.Recommended || len(profile.Tools) != 4 {
@@ -130,7 +137,7 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 }
 
 func TestServiceOriginsAreFixedHTTPSGoogleOrigins(t *testing.T) {
-	want := []service{serviceResourceManager, serviceIAM, serviceUsage, serviceCompute, serviceStorage, serviceDNS, serviceBilling}
+	want := []service{serviceResourceManager, serviceIAM, serviceUsage, serviceCompute, serviceStorage, serviceDNS, serviceBilling, serviceQuotas}
 	if len(serviceOrigins) != len(want) {
 		t.Errorf("services = %d, want %d", len(serviceOrigins), len(want))
 	}
