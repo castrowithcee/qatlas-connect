@@ -12,12 +12,13 @@ updated: 2026-11-17
 Google Analytics is a provider for Google Analytics 4 on the Analytics Admin API and the Analytics Data API. It
 lists the accounts and properties a credential can see, with their configuration, reads one account or
 property, renames an account, moves an account to the trash, creates, changes, and trashes properties, and
-reads, creates, and changes the data streams of a property. It also runs reports, including an alpha funnel
-report, reads the metadata of the dimensions and metrics a property accepts, and creates and reads audience
-exports and reads the users of an export, which are personal data. It also starts asynchronous report tasks
-(alpha) and reads their state and rows. The reading tools change nothing. The account, property, and data stream tools read no report data and
-use no reporting quota; the report tools do, see [reports](reports.md#quota), and so does starting an audience
-export, see [audience exports](audience-exports.md#quota), and starting a report task, see
+reads, creates, and changes the data streams of a property. It also runs reports, pivot reports, batches of up
+to five of them, realtime reports, and an alpha funnel report, reads the metadata of the dimensions and metrics a
+property accepts, creates and reads audience exports, and reads the users of an export, which are personal data.
+It also starts asynchronous report tasks (alpha) and reads their state and rows. The reading tools change
+nothing. The account, property, and data stream tools read no report data and use no reporting quota; the report
+tools do, see [reports](reports.md#quota), and so does starting an audience export, see
+[audience exports](audience-exports.md#quota), and starting a report task, see
 [report tasks](report-tasks.md#quota). Every tool that changes something needs confirmation.
 
 [Set up Google Analytics](setup.md) leads through the credential. The tools are described in
@@ -65,7 +66,7 @@ not name the resource.
 | `properties.create` | Creates a property only in a bound account; a connection bound to properties only is refused |
 | `properties.update`, `properties.delete` | Change or trash a bound property, or a property of a bound account after one proof read of its parent |
 | `data-streams.list`, `data-streams.get`, `data-streams.create`, `data-streams.update` | Use the streams of a bound property, or of a property of a bound account after one proof read of its parent; see [data streams](data-streams.md#targets-and-proof) |
-| `reports.run`, `reports.check-compatibility` | Use a bound property, or a property of a bound account after one proof read of its parent |
+| `reports.run`, `reports.run-pivot`, `reports.batch-run`, `reports.batch-run-pivot`, `reports.run-realtime`, `reports.check-compatibility` | Use a bound property, or a property of a bound account after one proof read of its parent |
 | `reports.get-metadata` | Like `reports.run`; `properties/0` needs no target, see [reports](reports.md#property-and-targets) |
 | `reports.run-funnel` | Like `reports.run` |
 | `audience-exports.create`, `audience-exports.list` | Like `reports.run`, on a bound property or a property of a bound account after one proof read |
@@ -85,6 +86,8 @@ The profile `read` is the recommended one and holds `google.analytics.accounts.l
 `google.analytics.reports.check-compatibility`, `google.analytics.data-streams.list`,
 `google.analytics.data-streams.get`, `google.analytics.reports.run-funnel`,
 `google.analytics.audience-exports.get`, `google.analytics.audience-exports.list`,
+`google.analytics.reports.run-pivot`, `google.analytics.reports.batch-run`,
+`google.analytics.reports.batch-run-pivot`, `google.analytics.reports.run-realtime`,
 `google.analytics.report-tasks.get`, `google.analytics.report-tasks.list`,
 `google.analytics.report-tasks.query`, and `google.analytics.audience-exports.query`. The profile `write` reads
 like `read`, changes accounts, properties, and data streams, and starts audience exports and report tasks, each
@@ -100,8 +103,11 @@ connection that binds exactly that account and no property. Which scope each too
 
 ## Paging
 
-A list returns `next_cursor` and `has_more` when Google reports a further page; reports continue by row offset, see [reports](reports.md#rows-and-cursor), a funnel report has no paging, and
-`audience-exports.list` and `report-tasks.list` page by cursor, see [audience exports](audience-exports.md#googleanalyticsaudience-exportslist), and the rows of `audience-exports.query` and `report-tasks.query` continue by row offset like reports. The cursor wraps Google's page
+A list returns `next_cursor` and `has_more` when Google reports a further page; reports continue by row offset,
+see [reports](reports.md#rows-and-cursor), funnel, pivot, batch, and realtime reports have no cursor,
+`audience-exports.list` and `report-tasks.list` page by cursor, see
+[audience exports](audience-exports.md#googleanalyticsaudience-exportslist), and the rows of
+`audience-exports.query` and `report-tasks.query` continue by row offset like reports. The cursor wraps Google's page
 token and fits only the tool, the connection, and the arguments that Google requires to stay the same, such as
 the `filter`; a changed or invented cursor is refused before any request. `page_size` may change between
 pages. Google may return fewer entries than asked for and a page can be empty while `has_more` is true.

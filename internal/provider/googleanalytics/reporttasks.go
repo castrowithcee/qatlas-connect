@@ -188,12 +188,12 @@ var reportDefinitionSchema = objectSchema(`"dimensions":` + dimensionsSchema + `
 	`"date_ranges":` + arraySchema(dateRangeSchema, 1, 4) + `,` +
 	`"dimension_filter":` + filterExpressionSchema(maxFilterDepth) + `,` +
 	`"metric_filter":` + filterExpressionSchema(maxFilterDepth) + `,` +
-	`"order_bys":` + orderBysSchema + `,` +
+	`"order_bys":` + arraySchema(orderBySchema(false), 1, 20) + `,` +
 	`"offset":{"type":"integer","minimum":0,"maximum":2147483647},` +
 	`"limit":{"type":"integer","minimum":1,"maximum":` + strconv.Itoa(maxLimitArgument) + `},` +
 	`"metric_aggregations":` + arraySchema(enumSchema("TOTAL", "MINIMUM", "MAXIMUM", "COUNT"), 1, 4) + `,` +
 	`"currency_code":{"type":"string","pattern":"^[A-Z]{3}$"},` +
-	`"cohort_spec":` + cohortSpecSchema + `,` +
+	`"cohort_spec":` + cohortSpecSchema(false) + `,` +
 	`"keep_empty_rows":{"type":"boolean"},` +
 	`"sampling_level":` + enumSchema("LOW", "MEDIUM", "UNSAMPLED"))
 
