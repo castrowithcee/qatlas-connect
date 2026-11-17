@@ -72,7 +72,7 @@ func TestNoToolForDestinationLinkOrOtherUnlistedMethods(t *testing.T) {
 			got = append(got, d.ID)
 		}
 	}
-	want := []string{destinationsListID, destinationsGetID}
+	want := []string{destinationsListID, destinationsGetID, containersLookupID}
 	slices.Sort(got)
 	slices.Sort(want)
 	if !slices.Equal(got, want) {

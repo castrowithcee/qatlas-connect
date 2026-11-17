@@ -114,6 +114,12 @@ var scopes = map[string][]string{
 	customDimensionsCreateID:  {scopeEdit},
 	customDimensionsUpdateID:  {scopeEdit},
 	customDimensionsArchiveID: {scopeEdit},
+
+	customMetricsListID:    {scopeReadOnly},
+	customMetricsGetID:     {scopeReadOnly},
+	customMetricsCreateID:  {scopeEdit},
+	customMetricsUpdateID:  {scopeEdit},
+	customMetricsArchiveID: {scopeEdit},
 }
 
 func tokenMetadata() config.TokenMetadata { return config.TokenMetadata{Scopes: scopes} }
@@ -177,7 +183,8 @@ var readTools = []string{summariesID, accountsID, accountsGetID, accountsSharing
 	audienceListID, reportsRunPivotID, reportsBatchRunID, reportsBatchRunPivotID, reportsRunRealtimeID,
 	reportTasksGetID, reportTasksListID, reportTasksQueryID, audienceQueryID, mpSecretsListID, mpSecretsGetID,
 	enhancedGetID, redactionGetID, siteTagGetID,
-	customDimensionsListID, customDimensionsGetID}
+	customDimensionsListID, customDimensionsGetID, customMetricsListID,
+	customMetricsGetID}
 
 // Register adds the provider metadata, its consent endpoints, its connection test and its tools.
 func Register(reg *capability.Registry) error {
@@ -210,18 +217,20 @@ func Register(reg *capability.Registry) error {
 		},
 		Profiles: []config.ToolProfile{{
 			ID: "read", Title: "Read", Recommended: true,
-			Description: "reads the Analytics accounts, properties, custom dimensions, reports and report tasks the connection reaches; " +
+			Description: "reads the Analytics accounts, properties, custom dimensions and metrics, reports and report tasks the connection reaches; " +
 				"nothing is changed. It includes reading the users of an audience export, which are personal data",
 			Tools: readTools,
 		}, {
 			ID: "write", Title: "Read and change",
-			Description: "reads what the read profile reads and changes Analytics accounts, properties, data streams and custom " +
-				"dimensions, starts audience exports and report tasks, and deletes data streams and measurement protocol " +
-				"secrets; every change needs its own confirmation, and deleting an account or a property stays unlisted",
+			Description: "reads what the read profile reads and changes Analytics accounts, properties, data streams, custom " +
+				"dimensions and custom metrics, starts audience exports and report tasks, and deletes data streams and " +
+				"measurement protocol secrets; every change needs its own confirmation, and deleting an account or a " +
+				"property stays unlisted",
 			Tools: append(slices.Clone(readTools), accountsUpdateID, propertiesCreateID, propertiesUpdateID,
 				dataStreamsCreateID, dataStreamsUpdateID, dataStreamsDeleteID, mpSecretsDeleteID, audienceCreateID,
 				reportTasksCreateID, enhancedUpdateID, redactionUpdateID, customDimensionsCreateID,
-				customDimensionsUpdateID, customDimensionsArchiveID),
+				customDimensionsUpdateID, customDimensionsArchiveID,
+				customMetricsCreateID, customMetricsUpdateID, customMetricsArchiveID),
 		}},
 	}, TestConnection); err != nil {
 		return err
@@ -275,6 +284,14 @@ func Register(reg *capability.Registry) error {
 			ConfirmationSummary: dimensionWriteSummary(customDimensionsUpdateID)},
 		{Descriptor: customDimensionsArchive, Handler: handleCustomDimensionsArchive,
 			ConfirmationSummary: dimensionWriteSummary(customDimensionsArchiveID)},
+		{Descriptor: customMetricsList, Handler: handleCustomMetricsList},
+		{Descriptor: customMetricsGet, Handler: handleCustomMetricsGet},
+		{Descriptor: customMetricsCreate, Handler: handleCustomMetricsCreate,
+			ConfirmationSummary: metricWriteSummary(customMetricsCreateID)},
+		{Descriptor: customMetricsUpdate, Handler: handleCustomMetricsUpdate,
+			ConfirmationSummary: metricWriteSummary(customMetricsUpdateID)},
+		{Descriptor: customMetricsArchive, Handler: handleCustomMetricsArchive,
+			ConfirmationSummary: metricWriteSummary(customMetricsArchiveID)},
 		{Descriptor: funnelRun, Handler: handleFunnelRun},
 		{Descriptor: audienceGet, Handler: handleAudienceGet},
 		{Descriptor: audienceList, Handler: handleAudienceList},
