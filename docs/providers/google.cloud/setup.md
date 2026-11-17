@@ -45,6 +45,7 @@ Viewer, or Project Viewer role, or any role with these permissions:
 | `iam-policies.get` | `resourcemanager.projects.getIamPolicy`, `resourcemanager.folders.getIamPolicy`, `resourcemanager.organizations.getIamPolicy`, or `iam.serviceAccounts.getIamPolicy` on the resource, and `iam.serviceAccounts.get` for a service account when the connection has targets |
 | `iam-permissions.test` | Google states none; it checks the permissions you list. For a service account on a connection with targets, `iam.serviceAccounts.get` |
 | `iam-deny-policies.list`, `iam-deny-policies.get` | `iam.denypolicies.list` or `iam.denypolicies.get` on the resource |
+| `service-accounts.list`, `service-accounts.get`, `service-account-keys.list`, `service-account-keys.get` | `iam.serviceAccounts.list`, `iam.serviceAccounts.get`, `iam.serviceAccountKeys.list`, or `iam.serviceAccountKeys.get` on the project; where the targets do not decide, the project is read first (`resourcemanager.projects.get`) |
 
 The IAM tools ask for the scope `cloud-platform`, because Google lists no smaller one for service accounts, folders'
 permission tests, and deny policies, and belong to the profile `read-iam`. Qatlas still only reads, and the rights
