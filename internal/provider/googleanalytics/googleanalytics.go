@@ -17,7 +17,7 @@
 // of a measurement protocol secret is never returned: it is read from Google's answer only to register it with
 // the redactor.
 //
-// The settings of a web data stream run on the Admin API v1alpha, see alpha.go.
+// The settings and the event create rules of a web data stream run on the Admin API v1alpha, see alpha.go.
 //
 // A connection may bind Analytics accounts (accounts/ID) and properties (properties/ID). Without a target it
 // reaches what the credential reaches. A bound account reaches its properties, a bound property only itself;
@@ -126,6 +126,12 @@ var scopes = map[string][]string{
 	keyEventsCreateID: {scopeEdit},
 	keyEventsUpdateID: {scopeEdit},
 	keyEventsDeleteID: {scopeEdit},
+
+	eventRulesListID:   {scopeReadOnly},
+	eventRulesGetID:    {scopeReadOnly},
+	eventRulesCreateID: {scopeEdit},
+	eventRulesUpdateID: {scopeEdit},
+	eventRulesDeleteID: {scopeEdit},
 }
 
 func tokenMetadata() config.TokenMetadata { return config.TokenMetadata{Scopes: scopes} }
@@ -190,7 +196,7 @@ var readTools = []string{summariesID, accountsID, accountsGetID, accountsSharing
 	reportTasksGetID, reportTasksListID, reportTasksQueryID, audienceQueryID, mpSecretsListID, mpSecretsGetID,
 	enhancedGetID, redactionGetID, siteTagGetID,
 	customDimensionsListID, customDimensionsGetID, customMetricsListID,
-	customMetricsGetID, keyEventsListID, keyEventsGetID}
+	customMetricsGetID, keyEventsListID, keyEventsGetID, eventRulesListID, eventRulesGetID}
 
 // Register adds the provider metadata, its consent endpoints, its connection test and its tools.
 func Register(reg *capability.Registry) error {
@@ -229,15 +235,15 @@ func Register(reg *capability.Registry) error {
 		}, {
 			ID: "write", Title: "Read and change",
 			Description: "reads what the read profile reads and changes Analytics accounts, properties, data streams, custom " +
-				"dimensions, custom metrics and key events, starts audience exports and report tasks, and deletes data streams, " +
-				"measurement protocol secrets and key events; every change needs its own confirmation, and deleting an account or a " +
-				"property stays unlisted",
+				"dimensions, custom metrics, key events and event create rules, starts audience exports and report tasks, " +
+				"and deletes data streams, measurement protocol secrets and key events; every change needs its own " +
+				"confirmation, and deleting an account or a property stays unlisted",
 			Tools: append(slices.Clone(readTools), accountsUpdateID, propertiesCreateID, propertiesUpdateID,
 				dataStreamsCreateID, dataStreamsUpdateID, dataStreamsDeleteID, mpSecretsDeleteID, audienceCreateID,
 				reportTasksCreateID, enhancedUpdateID, redactionUpdateID, customDimensionsCreateID,
 				customDimensionsUpdateID, customDimensionsArchiveID,
 				customMetricsCreateID, customMetricsUpdateID, customMetricsArchiveID,
-				keyEventsCreateID, keyEventsUpdateID, keyEventsDeleteID),
+				keyEventsCreateID, keyEventsUpdateID, keyEventsDeleteID, eventRulesCreateID, eventRulesUpdateID, eventRulesDeleteID),
 		}},
 	}, TestConnection); err != nil {
 		return err
@@ -304,6 +310,14 @@ func Register(reg *capability.Registry) error {
 		{Descriptor: keyEventsCreate, Handler: handleKeyEventsCreate, ConfirmationSummary: keyEventSummary(keyEventsCreateID)},
 		{Descriptor: keyEventsUpdate, Handler: handleKeyEventsUpdate, ConfirmationSummary: keyEventSummary(keyEventsUpdateID)},
 		{Descriptor: keyEventsDelete, Handler: handleKeyEventsDelete, ConfirmationSummary: keyEventSummary(keyEventsDeleteID)},
+		{Descriptor: eventRulesList, Handler: handleEventRulesList},
+		{Descriptor: eventRulesGet, Handler: handleEventRulesGet},
+		{Descriptor: eventRulesCreate, Handler: handleEventRulesCreate,
+			ConfirmationSummary: ruleWriteSummary(eventRulesCreateID)},
+		{Descriptor: eventRulesUpdate, Handler: handleEventRulesUpdate,
+			ConfirmationSummary: ruleWriteSummary(eventRulesUpdateID)},
+		{Descriptor: eventRulesDelete, Handler: handleEventRulesDelete,
+			ConfirmationSummary: ruleWriteSummary(eventRulesDeleteID)},
 		{Descriptor: funnelRun, Handler: handleFunnelRun},
 		{Descriptor: audienceGet, Handler: handleAudienceGet},
 		{Descriptor: audienceList, Handler: handleAudienceList},

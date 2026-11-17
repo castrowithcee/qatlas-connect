@@ -1,6 +1,6 @@
 ---
 description: >
-  Describes the Google Analytics provider: the fixed Admin and Data API origins, the token credential, the optional account and property targets and what each tool does with them, the read and write profiles, the alpha tools rule, paging, bounds on provider content, rate spacing, quotas, the connection test, and the limits of what is verified; the account, property, data stream, custom dimension, custom metric, key event, report, audience export, and report task tools have their own pages.
+  Describes the Google Analytics provider: the fixed Admin and Data API origins, the token credential, the optional account and property targets and what each tool does with them, the read and write profiles, the alpha tools rule, paging, bounds on provider content, rate spacing, quotas, the connection test, and the limits of what is verified; the account, property, data stream, custom dimension, custom metric, key event, event create rule, report, audience export, and report task tools have their own pages.
 type: knowledge
 edit: shared
 created: 2026-11-16
@@ -14,18 +14,19 @@ lists the accounts and properties a credential can see, with their configuration
 property, renames an account, moves an account to the trash, creates, changes, and trashes properties, and
 reads, creates, and changes the data streams of a property, and reads and changes their enhanced measurement and
 data redaction settings and reads their site tag, and lists, reads, creates, changes, and archives the custom
-dimensions and custom metrics of a property, and lists, reads, creates, changes, and deletes its key events. It also runs reports, pivot reports, batches of up
+dimensions and custom metrics of a property, and lists, reads, creates, changes, and deletes its key events and the event create rules of a web
+stream (alpha). It also runs reports, pivot reports, batches of up
 to five of them, realtime reports, and an alpha funnel report, reads the metadata of the dimensions and metrics a
 property accepts, creates and reads audience exports, and reads the users of an export, which are personal data.
 It also starts asynchronous report tasks (alpha) and reads their state and rows. The reading tools change
-nothing. The account, property, data stream, custom dimension, custom metric, and key event tools read no report data and use no reporting quota; the report
+nothing. The account, property, data stream, custom dimension, custom metric, key event, and event create rule tools read no report data and use no reporting quota; the report
 tools do, see [reports](reports.md#quota), and so does starting an audience export, see
 [audience exports](audience-exports.md#quota), and starting a report task, see
 [report tasks](report-tasks.md#quota). Every tool that changes something needs confirmation.
 
 [Set up Google Analytics](setup.md) leads through the credential. The tools are described in
 [accounts](accounts.md), [properties](properties.md), [data streams](data-streams.md), [custom dimensions](custom-dimensions.md),
-[custom metrics](custom-metrics.md), [key events](key-events.md), [reports](reports.md), [audience exports](audience-exports.md), [report tasks](report-tasks.md), and
+[custom metrics](custom-metrics.md), [key events](key-events.md), [event create rules](event-create-rules.md), [reports](reports.md), [audience exports](audience-exports.md), [report tasks](report-tasks.md), and
 [measurement protocol secrets](measurement-protocol-secrets.md). The funnel report and the report
 tasks use the alpha version of the Data API, which Google can change without notice; their descriptions say so.
 The audience exports use the beta version. Tools on the alpha version of the Admin API follow the
@@ -52,7 +53,8 @@ The provider takes no further configuration and no exclusions.
 A tool on the alpha version of the Admin API (`v1alpha`) calls a fixed `/v1alpha/` path and ends its description
 with an `ALPHA:` note. Google can change or remove such a method without notice, and then the arguments and
 the answer of the tool change with it. Every other Admin tool uses `v1beta`. The tool groups that use `v1alpha`
-say so on their page; the [data streams](data-streams.md#stream-settings-alpha) settings tools are the first.
+say so on their page; the [data streams](data-streams.md#stream-settings-alpha) settings tools and the
+[event create rule](event-create-rules.md) tools are the ones so far.
 
 ## Targets
 
@@ -82,6 +84,7 @@ not name the resource.
 | `custom-dimensions.list`, `custom-dimensions.get`, `custom-dimensions.create`, `custom-dimensions.update`, `custom-dimensions.archive` | Use the dimensions of a bound property, or of a property of a bound account after one proof read of its parent; see [custom dimensions](custom-dimensions.md#targets-and-proof) |
 | `custom-metrics.list`, `custom-metrics.get`, `custom-metrics.create`, `custom-metrics.update`, `custom-metrics.archive` | Use the metrics of a bound property, or of a property of a bound account after one proof read of its parent; see [custom metrics](custom-metrics.md#targets-and-proof) |
 | `key-events.list`, `key-events.get`, `key-events.create`, `key-events.update`, `key-events.delete` | Use the key events of a bound property, or of a property of a bound account after one proof read of its parent; see [key events](key-events.md#targets-and-proof) |
+| `event-create-rules.list`, `event-create-rules.get`, `event-create-rules.create`, `event-create-rules.update`, `event-create-rules.delete` | The property in the stream or rule name follows the same rule as the stream tools; see [event create rules](event-create-rules.md#targets-and-proof) |
 | `reports.run`, `reports.run-pivot`, `reports.batch-run`, `reports.batch-run-pivot`, `reports.run-realtime`, `reports.check-compatibility` | Use a bound property, or a property of a bound account after one proof read of its parent |
 | `reports.get-metadata` | Like `reports.run`; `properties/0` needs no target, see [reports](reports.md#property-and-targets) |
 | `reports.run-funnel` | Like `reports.run` |
@@ -110,8 +113,9 @@ The profile `read` is the recommended one and holds `google.analytics.accounts.l
 `google.analytics.data-streams.get-enhanced-measurement`, `google.analytics.data-streams.get-data-redaction`,
 `google.analytics.data-streams.get-site-tag`, `google.analytics.custom-dimensions.list`,
 `google.analytics.custom-dimensions.get`, `google.analytics.custom-metrics.list`,
-`google.analytics.custom-metrics.get`, `google.analytics.key-events.list`, and `google.analytics.key-events.get`. The profile `write` reads like `read`, changes accounts, properties,
-data streams and their settings, custom dimensions, custom metrics, and key events, deletes data streams, measurement protocol secrets, and key events,
+`google.analytics.custom-metrics.get`, `google.analytics.key-events.list`, `google.analytics.key-events.get`,
+`google.analytics.event-create-rules.list`, and `google.analytics.event-create-rules.get`. The profile `write` reads like `read`, changes accounts, properties,
+data streams and their settings, custom dimensions, custom metrics, key events, and event create rules, deletes data streams, measurement protocol secrets, and key events,
 and starts audience exports and report tasks, each change with its own confirmation: it adds
 `google.analytics.accounts.update`, `google.analytics.properties.create`, `google.analytics.properties.update`,
 `google.analytics.data-streams.create`, `google.analytics.data-streams.update`, `google.analytics.data-streams.delete`,
@@ -120,13 +124,15 @@ and starts audience exports and report tasks, each change with its own confirmat
 `google.analytics.data-streams.update-data-redaction`, `google.analytics.custom-dimensions.create`,
 `google.analytics.custom-dimensions.update`, `google.analytics.custom-dimensions.archive`,
 `google.analytics.custom-metrics.create`, `google.analytics.custom-metrics.update`,
-`google.analytics.custom-metrics.archive`, `google.analytics.key-events.create`, `google.analytics.key-events.update`, and
-`google.analytics.key-events.delete`. The users of an
+`google.analytics.custom-metrics.archive`, `google.analytics.key-events.create`, `google.analytics.key-events.update`,
+`google.analytics.key-events.delete`, `google.analytics.event-create-rules.create`,
+`google.analytics.event-create-rules.update`, and `google.analytics.event-create-rules.delete`. The users of an
 export are personal data; see
 [audience exports](audience-exports.md#personal-data). Deleting an account or a property is in no profile: a
 connection offers `google.analytics.accounts.delete` and `google.analytics.properties.delete` only when its
 `tools` list names them, and each needs the confirmation of a person. `accounts.delete` also runs only on a
-connection that binds exactly that account and no property. Which scope each tool needs is listed in
+connection that binds exactly that account and no property. Deleting one event create rule is in the profile
+`write`, with its own confirmation. Which scope each tool needs is listed in
 [setup](setup.md#rights-and-scopes).
 
 ## Paging
@@ -145,7 +151,7 @@ pages. Google may return fewer entries than asked for and a page can be empty wh
 Everything Google returns is untrusted third-party content, including display names. Names are cut at 300
 characters and a cut text ends with `…`. Enumeration values and timestamps are kept exactly as Google sends
 them, and a value that is not printable ASCII or too long is left out. A resource name that is not
-`accounts/ID`, `properties/ID`, `accountSummaries/ID`, or `properties/ID/dataStreams/ID` is left out. Lists are
+`accounts/ID`, `properties/ID`, `accountSummaries/ID`, or `properties/ID/dataStreams/ID`, or `properties/ID/dataStreams/ID/eventCreateRules/ID` is left out. Lists are
 cut at 200 entries per page and 2,000 properties per account summary. The bounds of report values and lists are
 in [reports](reports.md#untrusted-values). Qatlas never fetches an address from a result.
 
