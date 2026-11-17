@@ -104,6 +104,10 @@ var tokenMetadata = config.TokenMetadata{Scopes: map[string][]string{
 	disksListID:               {scopeComputeReadOnly},
 	disksAggregatedListID:     {scopeComputeReadOnly},
 	disksGetID:                {scopeComputeReadOnly},
+	snapshotsListID:           {scopeComputeReadOnly},
+	snapshotsGetID:            {scopeComputeReadOnly},
+	imagesListID:              {scopeComputeReadOnly},
+	imagesGetID:               {scopeComputeReadOnly},
 	// compute v1 lists compute as the smallest scope for the deletions of firewalls, addresses, VPN tunnels, and VPN gateways.
 	firewallsDeleteID:   {scopeCompute},
 	addressesDeleteID:   {scopeCompute},

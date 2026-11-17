@@ -86,9 +86,10 @@ The profile `read` is the recommended one. It holds every tool that needs no mor
 `google.cloud.compute-operations.list`, `google.cloud.networks.list`, `google.cloud.networks.get`,
 `google.cloud.subnetworks.list`, `google.cloud.subnetworks.get`, `google.cloud.firewalls.list`,
 `google.cloud.firewalls.get`, `google.cloud.addresses.list`, `google.cloud.addresses.get`,
-`google.cloud.vpn-gateways.list`, `google.cloud.vpn-gateways.get`, `google.cloud.vpn-tunnels.list`, and
-`google.cloud.vpn-tunnels.get`, `google.cloud.disks.list`, `google.cloud.disks.aggregated-list`, and
-`google.cloud.disks.get`, which ask for `compute.readonly`. The two
+`google.cloud.vpn-gateways.list`, `google.cloud.vpn-gateways.get`, `google.cloud.vpn-tunnels.list`,
+`google.cloud.vpn-tunnels.get`, `google.cloud.disks.list`, `google.cloud.disks.aggregated-list`,
+`google.cloud.disks.get`, `google.cloud.snapshots.list`, `google.cloud.snapshots.get`,
+`google.cloud.images.list`, and `google.cloud.images.get`, which ask for `compute.readonly`. The two
 operation tools return the email address of whoever started an operation (personal data) and carry their own
 sensitivity. A connection bound to an organization or a folder needs `projects.get` next to the
 Compute tools to prove the project of a call; `read` holds both.
@@ -170,6 +171,9 @@ on [IAM bindings](iam-bindings.md).
   confirmed deletion of a tunnel.
 - [Disks](disks.md): the persistent disks of a project from Compute Engine, one, per zone, and across all zones,
   never with encryption key material.
+- [Disk snapshots](snapshots.md): the global disk snapshots of a project from Compute Engine, never with customer-supplied
+  key material.
+- [Images](images.md): the images of a project from Compute Engine, never with customer-supplied key material.
 - [Quotas](quotas.md): the quotas of a service and the quota preferences of a project from Cloud Quotas.
 
 ### Search
