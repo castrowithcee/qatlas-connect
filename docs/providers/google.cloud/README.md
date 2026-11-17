@@ -24,7 +24,7 @@ are in its descriptor; this page holds what the descriptor does not say.
 
 The service is always the official origin `https://cloudresourcemanager.googleapis.com`, which applies when
 `base_url` is left out. Qatlas refuses any other URL before a secret is read. Later packages reach other fixed
-origins of Google (IAM, Service Usage, Compute, Storage, DNS, Billing, Cloud Quotas); none of them can be configured, a
+origins of Google (IAM, Service Usage, API Keys, Compute, Storage, DNS, Billing, Cloud Quotas); none of them can be configured, a
 redirect is never followed, and a tool never takes an origin, a path, a header, or a body.
 
 The credential takes the roles of any token credential and picks its procedure from the roles that hold a value:
@@ -35,8 +35,8 @@ tokens for it). The connection holds no scope. Qatlas derives them from the tool
 smallest scope the discovery document of each method lists: `cloud-platform.read-only` for Resource Manager,
 and `cloud-platform` for the IAM and quota tools, because their discovery documents list no narrower scope
 (Google offers no read-only variant for these methods, see [IAM](iam.md) and [Quotas](quotas.md)). Only the tools of the profiles
-`service-accounts`, `service-accounts-revoke`, `iam-bindings`, and `services` and the tools `service-accounts.delete`
-and `services.disable`, which a `tools` list must name, change anything, each with a confirmation, whatever the scope allows. The access token travels in the
+`service-accounts`, `service-accounts-revoke`, `api-keys-revoke`, `iam-bindings`, and `services` and the tools
+`service-accounts.delete` and `services.disable`, which a `tools` list must name, change anything, each with a confirmation, whatever the scope allows. The access token travels in the
 `Authorization` header only, is never an argument or part of a result, and is masked in every output. A 401
 renews the token once, and nothing else repeats a request.
 
@@ -80,7 +80,7 @@ The profile `read` is the recommended one. It holds every tool that needs no mor
 `google.cloud.projects.search`, `google.cloud.projects.get`, `google.cloud.operations.get`,
 `google.cloud.organizations.get`, `google.cloud.folders.get`, `google.cloud.folders.list`,
 `google.cloud.projects.list`, `google.cloud.services.list`, `google.cloud.services.get`,
-`google.cloud.services.batch-get`, and the Compute tools `google.cloud.instances.list`,
+`google.cloud.services.batch-get`, `google.cloud.api-keys.list`, `google.cloud.api-keys.get`, and the Compute tools `google.cloud.instances.list`,
 `google.cloud.instances.aggregated-list`, `google.cloud.instances.get`, and `google.cloud.machine-types.list`, which
 ask for `compute.readonly`. A connection bound to an organization or a folder needs `projects.get` next to the
 Compute tools to prove the project of a call; `read` holds both.
@@ -111,6 +111,10 @@ The profile `service-accounts-revoke` holds only `google.cloud.service-account-k
 `google.cloud.service-accounts.delete`: that tool is listed-only and only a `tools` list that names it exactly
 releases it.
 
+The profile `api-keys-revoke` holds only `google.cloud.api-keys.delete` and `google.cloud.api-keys.undelete`. It
+asks for the scope `apikeys`, needs the effects `update` and `delete`, and is not recommended. Google uses the
+same scope to create keys and read their values, so the token may do that although no tool does.
+
 The profile `services` holds only `google.cloud.services.enable` and `google.cloud.services.batch-enable`. It asks
 for `cloud-platform`, needs the effect `update`, and is not recommended. It does not hold
 `google.cloud.services.disable`: that tool is listed-only and only a `tools` list that names it exactly releases
@@ -128,6 +132,7 @@ on [IAM bindings](iam-bindings.md).
   disabling them.
 - [IAM](iam.md): IAM policies, permission tests, and deny policies of projects, folders, organizations, and
   service accounts.
+- [API keys](api-keys.md): the metadata of the API keys of a project, and deleting and restoring a key.
 - [IAM bindings](iam-bindings.md): adding a member to, removing a member from, and moving a member between the
   bindings of the IAM policy of a project, folder, or organization.
 - [Compute instances](instances.md): the virtual machine instances of a project from Compute Engine, one, per
@@ -180,8 +185,8 @@ own pages: [organizations](organizations.md) (`organizations.get`), [folders](fo
 
 `projects.get` takes a project ID or number and applies the same check: it reads the project and, where its
 parent does not decide, the folders above it. A project outside the targets is refused without a name.
-`operations.get` takes the `service` (`resource-manager`, or `service-usage` for the operation of a change of
-services) and the operation `name`.
+`operations.get` takes the `service` (`resource-manager`, `service-usage` for the operation of a change of
+services, or `api-keys` for the operation of `api-keys.delete` or `api-keys.undelete`) and the operation `name`.
 
 ### Service accounts
 
@@ -201,7 +206,8 @@ which return metadata only and never key material, and the revocations `service-
 
 Google answers a change with an `Operation`: `name`, `done`, `metadata`, and once done either an `error` or a
 `response`. A mutation returns it as it is and never waits. `operations.get` reads the
-state: `done=false` with its metadata while it runs, `done=true` with the response when it succeeded. A done
+state: `done=false` with its metadata while it runs, `done=true` with the response when it succeeded. A member
+named `keyString` is removed from the metadata and the response of every operation, whatever the service. A done
 operation that carries an `error` is a provider error, mapped from the `google.rpc.Code`: 5 `not-found`, 7
 `permission`, 8 `rate-limited`, 16 `auth`, any other `provider-error`. The message of that error and its
 details are Google's text and go along only as the original. `metadata` and `response` are open objects and
@@ -223,7 +229,8 @@ decide beyond the HTTP status.
 | 403 with status `PERMISSION_DENIED` | `permission` |
 | 404 with status `NOT_FOUND` | `not-found` |
 | 409 with status `ABORTED` (a stale `etag` of `setIamPolicy`) | `provider-error`, the message starts with `conflict` |
-| 400 | `invalid-provider-response` (Qatlas checked the arguments before sending) |
+| 400 with status `FAILED_PRECONDITION` (a stale `etag`, a restore after the retention period) | `provider-error` |
+| other 400 | `invalid-provider-response` (Qatlas checked the arguments before sending) |
 | 429 | `rate-limited` |
 | any other 401, 403, 404, or 4xx | `invalid-provider-response` |
 | 5xx | by HTTP status |
