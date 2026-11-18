@@ -11,11 +11,12 @@ updated: 2026-11-18
 
 Google Business Profile is a provider for the Business Profile APIs v1: the accounts a person owns or manages
 and the business locations in them, and the performance of a location. Most tools read; the tools of the
-profile `write` change the role of existing admins and rename an account. [Set up Google Business
-Profile](setup.md) leads through the Google side, the approval, and the consent. The tools are described per
-group in [accounts](accounts.md), [locations](locations.md), [account admins](account-admins.md), [location
-admins](location-admins.md), [performance](performance.md), [categories](categories.md), [chains](chains.md),
-[Google locations](google-locations.md), and [lodging](lodging.md).
+profile `write` change the role of existing admins, remove admins, decline invitations, and rename an
+account. [Set up Google Business Profile](setup.md) leads through the Google side, the approval, and the
+consent. The tools are described per group in [accounts](accounts.md), [locations](locations.md), [account
+admins](account-admins.md), [location admins](location-admins.md), [invitations](invitations.md),
+[performance](performance.md), [categories](categories.md), [chains](chains.md), [Google
+locations](google-locations.md), and [lodging](lodging.md).
 
 ## Credential
 
@@ -43,11 +44,12 @@ no wider than the task needs.
 
 | Profile | Tools |
 | --- | --- |
-| `read` (recommended) | every read tool: `accounts.list`, `accounts.get`, `locations.list`, `locations.get`, `account-admins.list`, `location-admins.list`, `lodging.get`, `lodging.get-google-updated` |
-| `write` | `account-admins.update`, `location-admins.update`, `accounts.update`, `lodging.update`; each change needs confirmation |
+| `read` (recommended) | every read tool: `accounts.list`, `accounts.get`, `locations.list`, `locations.get`, `account-admins.list`, `location-admins.list`, `invitations.list`, `lodging.get`, `lodging.get-google-updated` |
+| `write` | `account-admins.update`, `location-admins.update`, `accounts.update`, `account-admins.delete`, `location-admins.delete`, `invitations.decline`, `lodging.update`; each change needs confirmation |
 
 The profile `read` changes nothing, but Google's only scope also allows changes, so the token could. The two
-admin lists name other people (first and last name, and the email address of a pending invitation), which is
+admin lists name other people (first and last name, and the email address of a pending invitation), and the
+invitation list names the accounts and locations of those who invited, with the address of a location, which is
 personal data; a connection that must not show them names its tools in a `tools` list instead of the profile.
 The profile `write` is not recommended: it holds only the changing tools and needs a person to confirm each
 change. Every change is spaced at 10 per minute and profile, see [account admins](account-admins.md).
@@ -92,8 +94,9 @@ request is sent; a refusal never names the other object.
 | `accounts.get` | the bound account only | not offered |
 | `locations.list` | the locations of the bound account; another account and `accounts/-` are refused | answers with the bound location only, read directly; `account` and `filter` are refused |
 | `locations.get` | first proves that the location is in the bound account's location list | the bound location only |
-| `account-admins.list`, `account-admins.update`, `accounts.update` | the bound account only | not offered |
-| `location-admins.list`, `location-admins.update` | prove the location first, like `locations.get` | the bound location only |
+| `account-admins.list`, `account-admins.update`, `account-admins.delete`, `accounts.update` | the bound account only | not offered |
+| `invitations.list`, `invitations.decline` | the invitations of the bound account only | not offered |
+| `location-admins.list`, `location-admins.update`, `location-admins.delete` | prove the location first, like `locations.get` | the bound location only |
 | `lodging.*` | first prove the location like `locations.get` | the bound location only |
 | `performance.*` | first prove, on every call, that the location is in the bound account's location list | the bound location only |
 
@@ -107,7 +110,8 @@ connection, so every connection offers them, whatever its target, and the target
 results. They return no data of the user, but a Google location search can name businesses of other people.
 
 A location names no account in Google's answer, so a location target offers no account tool and cannot tell
-which account the location belongs to.
+which account the location belongs to. The account tools are therefore also `account-admins.delete`,
+`invitations.list`, and `invitations.decline`: each needs an account, and a refusal beats guessing one.
 
 ## Quotas and request spacing
 
@@ -193,6 +197,8 @@ Not verified:
 - Which classification Google gives `business.manage` when it verifies an OAuth app.
 - Whether a change with `validate_only` counts against the 10 changes per minute; Qatlas counts it.
 - The format of an admin ID; Qatlas accepts up to 64 letters, digits, `_`, and `-`.
+- Whether the entry of the consenting account itself is among the admins that `admins.delete` removes; the answer
+  names no identity, so the tools cannot warn before a self-lockout.
 - Whether Google allows `SITE_MANAGER` as the new role of an account admin; its documentation names only the
   creation of such an admin as refused.
 - The date ranges the Performance API serves. Its discovery document, revision 20261116, names no limit, so
@@ -208,5 +214,9 @@ Left out on purpose:
 - `accounts.create`: it would create an account with a new owner relation.
 - The role `PRIMARY_OWNER` as a target role of an admin, and changing an admin who holds it: both transfer the
   ownership of the profile. An admin with a pending invitation is not changed either.
-- `admins.delete`, the invitation methods, and `locations.transfer`.
+- `accounts.invitations.accept`: it makes the user of the connection an admin of an account or location that
+  someone else controls, which widens the reach of the credential through an entry that only the other side
+  controls. A person accepts an invitation in Google's own interface; declining is offered because it only
+  reduces access, see [invitations](invitations.md#accepting-is-left-out).
+- `locations.transfer`.
 - The deprecated metrics `BUSINESS_CONVERSATIONS` and `BUSINESS_FOOD_ORDERS` of the performance tools.
