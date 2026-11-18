@@ -62,6 +62,9 @@ var toolScopes = map[string][]string{
 	locationAdminsDeleteID:       {scopeManage},
 	invitationsListID:            {scopeManage},
 	invitationsDeclineID:         {scopeManage},
+	lodgingGetID:                 {scopeManage},
+	lodgingGoogleUpdatedID:       {scopeManage},
+	lodgingUpdateID:              {scopeManage},
 	verificationsListID:          {scopeManage},
 	verificationsFetchOptionsID:  {scopeManage},
 	verificationsMerchantStateID: {scopeManage},
@@ -128,11 +131,12 @@ var readTools = []string{accountsListID, accountsGetID, locationsListID, locatio
 	accountAdminsListID, locationAdminsListID,
 	performanceGetDailyID, performanceFetchDailyID, performanceKeywordsID,
 	categoriesListID, categoriesBatchGetID, chainsGetID, chainsSearchID, googleLocationsSearchID,
-	invitationsListID, verificationsListID, verificationsFetchOptionsID, verificationsMerchantStateID, notificationsGetID}
+	invitationsListID, lodgingGetID, lodgingGoogleUpdatedID,
+	verificationsListID, verificationsFetchOptionsID, verificationsMerchantStateID, notificationsGetID}
 
 // writeTools are the tools of the profile write.
 var writeTools = []string{accountAdminsUpdateID, locationAdminsUpdateID, accountsUpdateID,
-	accountAdminsDeleteID, locationAdminsDeleteID, invitationsDeclineID}
+	accountAdminsDeleteID, locationAdminsDeleteID, invitationsDeclineID, lodgingUpdateID}
 
 // Register adds the provider metadata, its consent endpoints, its connection test, and its tools.
 func Register(reg *capability.Registry) error {
@@ -201,6 +205,10 @@ func Register(reg *capability.Registry) error {
 		capability.Operation{Descriptor: chainsGet, Handler: handleChainsGet},
 		capability.Operation{Descriptor: chainsSearch, Handler: handleChainsSearch},
 		capability.Operation{Descriptor: googleLocationsSearch, Handler: handleGoogleLocationsSearch},
+		capability.Operation{Descriptor: lodgingGet, Handler: handleLodgingGet},
+		capability.Operation{Descriptor: lodgingGoogleUpdated, Handler: handleLodgingGoogleUpdated},
+		capability.Operation{Descriptor: lodgingUpdate, Handler: handleLodgingUpdate,
+			ConfirmationSummary: lodgingUpdateSummary},
 		capability.Operation{Descriptor: verificationsList, Handler: handleVerificationsList},
 		capability.Operation{Descriptor: verificationsFetchOptions, Handler: handleVerificationsFetchOptions},
 		capability.Operation{Descriptor: verificationsMerchantState, Handler: handleVerificationsMerchantState},

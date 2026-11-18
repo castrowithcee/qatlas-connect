@@ -266,8 +266,9 @@ func TestRegisterPublishesMetadataScopesAndProfile(t *testing.T) {
 		"google.business-profile.invitations.list", "google.business-profile.location-admins.delete",
 		"google.business-profile.location-admins.list", "google.business-profile.location-admins.update",
 		"google.business-profile.locations.get", "google.business-profile.locations.list",
-		"google.business-profile.performance.fetch-daily-metrics", "google.business-profile.performance.get-daily-metric",
-		"google.business-profile.performance.list-search-keywords"}
+		"google.business-profile.lodging.get", "google.business-profile.lodging.get-google-updated",
+		"google.business-profile.lodging.update", "google.business-profile.performance.fetch-daily-metrics",
+		"google.business-profile.performance.get-daily-metric", "google.business-profile.performance.list-search-keywords"}
 	want = append(want, "google.business-profile.notifications.get", "google.business-profile.verifications.fetch-options",
 		"google.business-profile.verifications.get-merchant-state", "google.business-profile.verifications.list")
 	slices.Sort(want)
@@ -275,7 +276,7 @@ func TestRegisterPublishesMetadataScopesAndProfile(t *testing.T) {
 		t.Errorf("tools = %v, want %v", ids, want)
 	}
 	profile, ok := metadata.RecommendedProfile()
-	if !ok || profile.ID != "read" || len(metadata.Profiles) != 2 || len(profile.Tools) != 19 ||
+	if !ok || profile.ID != "read" || len(metadata.Profiles) != 2 || len(profile.Tools) != 21 ||
 		!strings.Contains(profile.Description, "business.manage") {
 		t.Errorf("profiles = %+v", metadata.Profiles)
 	}
