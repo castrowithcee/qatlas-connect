@@ -1462,6 +1462,8 @@ var textEN = map[textID]string{
 	tVersionWaitConfirm:                                      "Version not installed: wait until %s finishes, then choose it again.",
 
 	tKeysHeading:                         "Keys in force on this device:",
+	tScreenKeysHeading:                   "Keys of this screen:",
+	tHeaderHelpAll:                       "all keys",
 	tMacFnNote:                           "On macOS, hold fn for F-keys, or turn on 'Use F1, F2, etc. keys as standard function keys' in System Settings.",
 	tConnTestTitle:                       "Connection test",
 	tKeySpaceRefused:                     "{space}: space and control characters are no binding",

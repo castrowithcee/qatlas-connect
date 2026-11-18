@@ -14,6 +14,7 @@ import (
 // openHelp shows the help topics in the workspace, over the tab line or the list it was opened from.
 func (m *Model) openHelp() {
 	m.helpFrom = m.screen
+	m.helpKeysText, m.helpOpened = m.screenKeys, m.helpTopic
 	m.screen = screenHelp
 	m.help.reset()
 	m.clearMessages()
@@ -56,14 +57,49 @@ func (m *Model) helpInner() int {
 	return m.usable(0)
 }
 
-// helpLines is the text of the current topic, wrapped into the width the help has.
-func (m *Model) helpLines() []string {
+// helpText is the text of the current topic. On the topic the help opened on it starts with the keys of the
+// screen it was opened from.
+func (m *Model) helpText() string {
 	topic := helptopics.All()[m.helpTopic]
 	text := topic.Text
 	if topic.Name == helptopics.Keys().Name {
 		text += "\n\n" + keyListText()
 	}
-	return strings.Split(kithelp.Wrap(text, m.helpInner()), "\n")
+	if m.helpTopic == m.helpOpened {
+		if keys := m.screenKeyList(); keys != "" {
+			text = keys + "\n\n" + text
+		}
+	}
+	return text
+}
+
+// screenKeyList lists every group of the key text of the screen the help was opened from, one per line, the
+// way the footer would show them with room enough.
+func (m *Model) screenKeyList() string {
+	text := keyPlaceholders(strings.ReplaceAll(footerText(m.helpKeysText), "{info}", m.infoLabel()))
+	var lines []string
+	seen := map[string]bool{}
+	for _, group := range strings.Split(text, " · ") {
+		if group == "" || seen[group] {
+			continue
+		}
+		seen[group] = true
+		key, action, ok := strings.Cut(group, " ")
+		if ok {
+			lines = append(lines, "- "+action+": "+key)
+		} else {
+			lines = append(lines, "- "+key)
+		}
+	}
+	if len(lines) == 0 {
+		return ""
+	}
+	return tr(tScreenKeysHeading) + "\n" + strings.Join(lines, "\n")
+}
+
+// helpLines is the text of the current topic, wrapped into the width the help has.
+func (m *Model) helpLines() []string {
+	return strings.Split(kithelp.Wrap(m.helpText(), m.helpInner()), "\n")
 }
 
 // isHeading reports whether a line of a topic is a heading: short, without indent, ending in a colon.
@@ -87,11 +123,7 @@ func helpLine(line string, headings map[string]bool) string {
 
 // helpHeadings are the headings of the text of the current topic.
 func (m *Model) helpHeadings() map[string]bool {
-	topic := helptopics.All()[m.helpTopic]
-	text := topic.Text
-	if topic.Name == helptopics.Keys().Name {
-		text += "\n\n" + keyListText()
-	}
+	text := m.helpText()
 	headings := map[string]bool{}
 	for _, line := range strings.Split(text, "\n") {
 		if isHeading(line) {
@@ -190,7 +222,9 @@ func (m *Model) helpFrame() (string, string, int) {
 	// The macOS note is worth a line only where the terminal has room left over for it, position line
 	// included; a tight window keeps every line for the topic text instead, the way the keys line above
 	// already shortens itself.
-	if head, foot, room := layout(base + note); room >= 1 {
+	// The keys of the screen stand at the top of the topic they open on, so the note gives way there unless
+	// the whole text fits with it.
+	if head, foot, room := layout(base + note); room >= 1 && (lines <= room || m.screenKeyList() == "" || m.helpTopic != m.helpOpened) {
 		return head, foot, room
 	}
 	head, foot, room := layout(base)

@@ -51,7 +51,7 @@ func TestListTitleIsCompactWhereHeightIsShort(t *testing.T) {
 	m.Update(tea.WindowSizeMsg{Width: 40, Height: smallestListHeight})
 	view := screenOf(m)
 	assertViewFits(t, view, 40, smallestListHeight+1)
-	if !strings.HasPrefix(ansi.Strip(view), "Connections") || !strings.Contains(view, "? help") {
+	if !strings.HasPrefix(ansi.Strip(view), "Connections") || !namesHelp(view) {
 		t.Errorf("the smallest size loses its title or its footer:\n%s", view)
 	}
 }

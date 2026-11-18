@@ -647,6 +647,10 @@ type Model struct {
 	helpTopic int
 	help      textScroll
 	helpFrom  screen
+	// helpKeysText is the full key text of helpFrom, listed in front of the topic helpOpened, the one the help
+	// was opened on.
+	helpKeysText string
+	helpOpened   int
 
 	// Self-update state. release is a newer stable release the check at start found; updated names the
 	// version installed since, which takes effect only after a restart. updateFrom is the screen the update

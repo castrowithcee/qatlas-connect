@@ -33,10 +33,11 @@ type command struct {
 
 // commandLine is the open command line: the screen it covers, the typed text and the chosen match.
 type commandLine struct {
-	from   screen
-	input  textinput.Model
-	cursor int
-	msg    string
+	from     screen
+	fromKeys string // keys of the covered screen, which the command line's own render replaces
+	input    textinput.Model
+	cursor   int
+	msg      string
 }
 
 // commands is the register, in the order an empty line lists it.
@@ -273,14 +274,14 @@ func (m *Model) openCommandLine() {
 	in.Prompt = commandPrompt
 	in.Placeholder = tr(tCmdPlaceholder)
 	in.Focus()
-	m.cmdline = &commandLine{from: m.screen, input: in}
+	m.cmdline = &commandLine{from: m.screen, fromKeys: m.screenKeys, input: in}
 	m.screen = screenCommand
 	m.clearMessages()
 }
 
 // closeCommandLine returns to the screen it covered, unchanged.
 func (m *Model) closeCommandLine() {
-	m.screen = m.cmdline.from
+	m.screen, m.screenKeys = m.cmdline.from, m.cmdline.fromKeys
 	m.cmdline = nil
 }
 

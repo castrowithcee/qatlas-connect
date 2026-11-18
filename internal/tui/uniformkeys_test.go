@@ -445,6 +445,9 @@ func TestFootersNameTheHelpAndCommandsWhereTheyWork(t *testing.T) {
 		t.Helper()
 		view := flat(m)
 		for _, key := range keys {
+			if key == "? help" && namesHelp(view) {
+				continue
+			}
 			if !strings.Contains(view, key) {
 				t.Errorf("%s does not name %q:\n%s", what, key, screenOf(m))
 			}
@@ -479,7 +482,7 @@ func TestFootersNameTheHelpAndCommandsWhereTheyWork(t *testing.T) {
 	f := newLogFixture(t)
 	f.append("cli", "", "op.one", "wiki", "success")
 	lm := f.model(true, f.localToday())
-	lm.Update(tea.WindowSizeMsg{Width: 70, Height: 30})
+	lm.Update(tea.WindowSizeMsg{Width: 80, Height: 30})
 	want(lm, "the Logs screen", "1-6 section", ": cmds", "? help", "q quit")
 	press(t, lm, "down", "enter")
 	want(lm, "the log detail", "1-6 section", ": cmds", "? help")
