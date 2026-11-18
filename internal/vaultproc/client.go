@@ -378,14 +378,20 @@ const (
 
 // call connects, checks the server, and exchanges one request for its answer. A process that answers
 // replaced is asked again, on a new connection, for up to replacedLimit: while a vault process hands the
-// vault over, the next connection reaches its successor. Every other answer, a refusal included, is final.
+// vault over, the next connection reaches its successor. Once a process answered replaced in this call,
+// ErrNotRunning is asked again too: a connection still queued at the old listener is reset when the handover
+// closes it, and the next connection reaches the successor. Without a replaced answer before it,
+// ErrNotRunning is final at once. Every other answer, a refusal included, is final.
 // A process whose own program was replaced and that has no successor still answers replaced once the
 // limit is reached.
 func (c *Client) call(ctx context.Context, req request) (response, error) {
 	end := time.Now().Add(replacedLimit)
+	replaced := false
 	for {
 		resp, err := c.callOnce(ctx, req)
-		if !errors.Is(err, ErrReplaced) || !time.Now().Add(replacedPause).Before(end) {
+		replaced = replaced || errors.Is(err, ErrReplaced)
+		again := errors.Is(err, ErrReplaced) || replaced && errors.Is(err, ErrNotRunning)
+		if !again || !time.Now().Add(replacedPause).Before(end) {
 			return resp, err
 		}
 		select {
