@@ -1,10 +1,10 @@
 ---
 description: >
-  Describes the Google Analytics Display & Video 360 link tools, all read-only on the alpha version of the Admin API: display-video360-links.list and display-video360-links.get read the advertiser links of a property, display-video360-link-proposals.list and display-video360-link-proposals.get read the proposals to create one, with the result members, the personal data of the proposals, the checked names, how targets restrict each tool, why approving, cancelling, creating and changing are no tools, untrusted values, and the limits of what is verified.
+  Describes the Google Analytics Display & Video 360 link tools on the alpha version of the Admin API: display-video360-links.list and display-video360-links.get read the advertiser links of a property, display-video360-link-proposals.list and display-video360-link-proposals.get read the proposals to create one, display-video360-links.delete, display-video360-link-proposals.cancel and display-video360-link-proposals.delete end a link or close a proposal with confirmation, with the result members, the personal data of the proposals, the checked names, how targets restrict each tool, why approving, creating and changing are no tools, untrusted values, and the limits of what is verified.
 type: knowledge
 edit: shared
 created: 2026-11-17
-updated: 2026-11-17
+updated: 2026-11-18
 ---
 
 # Google Analytics Display & Video 360 links
@@ -12,17 +12,18 @@ updated: 2026-11-17
 The Display & Video 360 link tools of the [Google Analytics provider](README.md). A link connects a property with
 an advertiser of Display & Video 360, so that Analytics data can serve ads personalization and campaign and cost
 data flow into the property. A proposal is the invitation to create such a link; once it is approved, Google turns
-it into a link. All four tools use the alpha version of the Admin API (`v1alpha`, Discovery revision 20261115)
+it into a link. All tools use the alpha version of the Admin API (`v1alpha`, Discovery revision 20261116)
 and follow the [alpha tools](README.md#alpha-tools) rule: Google can change or remove the methods without notice,
 and then the arguments and the answer of the tools change with them. Each description ends with the `ALPHA:` note.
 
-The tools read and change nothing, a repeat is safe, they need the scope `analytics.readonly`, and the profile
-`read` holds all four, see [setup](setup.md#rights-and-scopes). Find property names with
+The four reading tools change nothing, a repeat is safe, they need the scope `analytics.readonly`, and the profile
+`read` holds all four. The three tools that [delete or cancel](#deleting-and-cancelling) need `analytics.edit` and
+are only in the profile `write`, see [setup](setup.md#rights-and-scopes). Find property names with
 [accounts.list-summaries](accounts.md). The tools read no report data and use no reporting quota.
 
-There is no tool that creates, changes, deletes, cancels or approves a link or a proposal: each one opens or
-closes a standing data path to another product, and approving a proposal creates a link. A person does that in
-Analytics or Display & Video 360.
+There is no tool that creates or changes a link or a proposal, and none that approves a proposal: creating and
+approving open a standing data path to another product, and approving a proposal creates a link. A person does that
+in Analytics or Display & Video 360.
 
 ## Result members
 
@@ -47,7 +48,7 @@ A member Google does not send is left out, so an absent setting is not `false`.
 
 A proposal names the email address of the person who proposed it (`requestorEmail`) and can name a validation
 email address. Google documents `validationEmail` as input only, so an answer usually leaves it out; Qatlas shows
-it when Google sends it. The two proposal tools are classified as such (`data_sensitivity` is
+it when Google sends it. The two proposal reading tools and the cancel tool, whose answer is the proposal, are classified as such (`data_sensitivity` is
 `analytics-link-proposals`, apart from `analytics-configuration` of the link tools), carry a `personal-data` tag,
 and their description carries a warning. Read only what the task needs and do not pass the addresses on. The
 profile `read` includes these tools, so a connection with it can read the addresses; leave the tools out with a
@@ -77,6 +78,40 @@ Reads `properties.displayVideo360AdvertiserLinkProposals.get`: one proposal with
 (`properties/ID/displayVideo360AdvertiserLinkProposals/ID`) is required, and the answer is checked like that of
 the link get.
 
+## Deleting and cancelling
+
+The delete tool changes Analytics, needs the confirmation of a person for each call, and is one request without a
+retry. After a timeout, an aborted request, a `5xx` answer, or an answer that cannot be read, the outcome is
+unknown: the error says so, and the entry is read before it is deleted again. A refusal, a `400`, a `403`, a
+`404`, and a `429` mean the change was not made. A `429` holds the next request of the credential for one second, or
+the seconds of `Retry-After` up to one minute, and nothing repeats the failed one. The name is checked before any
+request or secret access, and a refusal names the argument, never the value. The confirmation text names the entry.
+The entry is not read before it is deleted. The property in the name follows the targets rule below.
+
+### google.analytics.display-video360-links.delete
+
+Uses `properties.displayVideo360AdvertiserLinks.delete`. `name` (`properties/ID/displayVideo360AdvertiserLinks/ID`)
+is required. The data flow between the property and the advertiser ends: the sharing of audiences, campaign data
+and cost data stops. Data that was already imported stays. No tool restores or creates a link. The answer is `name`
+and `deleted: true`.
+
+### google.analytics.display-video360-link-proposals.cancel
+
+Uses `properties.displayVideo360AdvertiserLinkProposals.cancel`, a `POST` with an empty body. `name`
+(`properties/ID/displayVideo360AdvertiserLinkProposals/ID`) is required. Cancelling declines a proposal that came
+from Display & Video 360 and withdraws one that came from Google Analytics; the proposal can no longer be approved,
+and Google deletes it on its own after some time. No link is created or removed. The answer is the proposal with
+its new state (for example `WITHDRAWN` or `DECLINED`), in the form and with the bounds of the proposal get, so it
+carries the personal data of a proposal, see [Personal data](#personal-data). An answer for another proposal than
+the one asked for is reported as an unknown outcome.
+
+### google.analytics.display-video360-link-proposals.delete
+
+Uses `properties.displayVideo360AdvertiserLinkProposals.delete`. `name` is required. Google accepts this only for a
+proposal that was cancelled before. For any other proposal Google answers with an error (the Discovery document
+gives no code; a `400` with the status `FAILED_PRECONDITION` is expected). Qatlas reports that error as a provider
+error without the unknown-outcome note and does not retry. The answer of a success is `name` and `deleted: true`.
+
 ## Targets and proof
 
 The property in the argument or the name decides, like the property tools: a bound property is used at once, a
@@ -93,6 +128,7 @@ decimal number and a name that is not in the forms above are left out. Qatlas ne
 
 ## Not verified
 
-- The members were read from the Discovery document `analyticsadmin` v1alpha, revision 20261115, and Google may
+- The members were read from the Discovery document `analyticsadmin` v1alpha, revision 20261116, and Google may
   add members. The alpha version can change.
+- The exact error of Google for deleting a proposal that is not cancelled is not documented; the tests use a fake `400 FAILED_PRECONDITION`.
 - Whether a proposal answer ever carries `validationEmail` is not documented.
