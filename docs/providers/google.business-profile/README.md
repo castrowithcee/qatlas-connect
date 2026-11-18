@@ -1,6 +1,6 @@
 ---
 description: >
-  Describes the Google Business Profile provider: the consent-only token credential, the one scope business.manage, the fixed API origins, the approval of the Cloud project and its error class, the performance tools, the optional account and location targets and how they are proven, the profile, quota and request spacing, result bounds, the connection test, error classes, and the limits of what is verified.
+  Describes the Google Business Profile provider: the consent-only token credential, the one scope business.manage, the fixed API origins, the approval of the Cloud project and its error class, the performance, verification, and notification tools, the optional account and location targets and how they are proven, the profile, quota and request spacing, result bounds, the connection test, error classes, and the limits of what is verified.
 type: knowledge
 edit: shared
 created: 2026-11-17
@@ -10,11 +10,12 @@ updated: 2026-11-18
 # Google Business Profile
 
 Google Business Profile is a provider for the Business Profile APIs v1: the accounts a person owns or manages
-and the business locations in them, and the performance of a location. Most tools read; the tools of the
+and the business locations in them, the performance of a location, the verification state of a location, and the notification setting of an account. Most tools read; the tools of the
 profile `write` change the role of existing admins and rename an account. [Set up Google Business
 Profile](setup.md) leads through the Google side, the approval, and the consent. The tools are described per
 group in [accounts](accounts.md), [locations](locations.md), [account admins](account-admins.md), [location
-admins](location-admins.md), and [performance](performance.md).
+admins](location-admins.md), [performance](performance.md), [verifications](verifications.md), and
+[notifications](notifications.md).
 
 ## Credential
 
@@ -42,19 +43,20 @@ no wider than the task needs.
 
 | Profile | Tools |
 | --- | --- |
-| `read` (recommended) | every read tool: `accounts.list`, `accounts.get`, `locations.list`, `locations.get`, `account-admins.list`, `location-admins.list` |
+| `read` (recommended) | every read tool: `accounts.list`, `accounts.get`, `locations.list`, `locations.get`, `account-admins.list`, `location-admins.list`, `performance.*`, `verifications.list`, `verifications.fetch-options`, `verifications.get-merchant-state`, `notifications.get` |
 | `write` | `account-admins.update`, `location-admins.update`, `accounts.update`; each change needs confirmation |
 
 The profile `read` changes nothing, but Google's only scope also allows changes, so the token could. The two
-admin lists name other people (first and last name, and the email address of a pending invitation), which is
-personal data; a connection that must not show them names its tools in a `tools` list instead of the profile.
+admin lists name other people (first and last name, and the email address of a pending invitation), and
+`verifications.fetch-options` shows masked postal addresses, phone numbers, and email addresses a PIN could go to,
+which is personal data; a connection that must not show them names its tools in a `tools` list instead of the profile.
 The profile `write` is not recommended: it holds only the changing tools and needs a person to confirm each
 change. Every change is spaced at 10 per minute and profile, see [account admins](account-admins.md).
 
 ## Configuration
 
 The origins are fixed. Leave `base_url` out or set it to `https://mybusinessaccountmanagement.googleapis.com`;
-Qatlas refuses any other value before a secret is read. The tools use three APIs, which are enabled in the Cloud
+Qatlas refuses any other value before a secret is read. The tools use five APIs, which are enabled in the Cloud
 project one by one:
 
 | API | Origin | Tools |
@@ -62,6 +64,8 @@ project one by one:
 | My Business Account Management API | `https://mybusinessaccountmanagement.googleapis.com` | [accounts](accounts.md) |
 | My Business Business Information API | `https://mybusinessbusinessinformation.googleapis.com` | [locations](locations.md) |
 | Business Profile Performance API | `https://businessprofileperformance.googleapis.com` | [performance](performance.md) |
+| My Business Verifications API | `https://mybusinessverifications.googleapis.com` | [verifications](verifications.md) |
+| My Business Notifications API | `https://mybusinessnotifications.googleapis.com` | [notifications](notifications.md) |
 
 ## Approval of the Cloud project
 
@@ -93,8 +97,10 @@ request is sent; a refusal never names the other object.
 | `account-admins.list`, `account-admins.update`, `accounts.update` | the bound account only | not offered |
 | `location-admins.list`, `location-admins.update` | prove the location first, like `locations.get` | the bound location only |
 | `performance.*` | first prove, on every call, that the location is in the bound account's location list | the bound location only |
+| `verifications.*` | first prove, on every call, like `performance.*` | the bound location only |
+| `notifications.get` | the bound account only | not offered |
 
-The proof of `locations.get` and of the performance tools reads the location list of the bound account, names
+The proof of `locations.get` and of the performance and verification tools reads the location list of the bound account, names
 only, 100 at a time, until it finds the location. It reads at most 2000 locations; a location not found by then is refused like one outside
 the target. The time between the proof and the read is a limit of the proof.
 
@@ -168,8 +174,9 @@ not used. No tool invites anyone or creates an admin, and no tool creates an acc
 Not verified:
 
 - No live call was made. Methods, parameters, and answers are taken from the discovery documents of the My
-  Business Account Management API v1, the My Business Business Information API v1, and the Business Profile
-  Performance API v1, each of revision 20261116.
+  Business Account Management API v1, the My Business Business Information API v1, the Business Profile
+  Performance API v1, the My Business Verifications API v1, and the My Business Notifications API v1, each of
+  revision 20261116.
 - How Google answers a project without approval. Qatlas assumes a `429` with the quota limit `0`; a pending
   approval may answer differently.
 - Whether each Business Profile API needs to be enabled in the project on its own.
@@ -195,3 +202,7 @@ Left out on purpose:
   ownership of the profile. An admin with a pending invitation is not changed either.
 - `admins.delete`, the invitation methods, and `locations.transfer`.
 - The deprecated metrics `BUSINESS_CONVERSATIONS` and `BUSINESS_FOOD_ORDERS` of the performance tools.
+- `locations.verify`, `locations.verifications.complete`, and `verificationTokens.generate`: they start or confirm
+  a verification or prepare one, see [verifications](verifications.md#left-out).
+- `accounts.updateNotificationSetting`: it sets the destination of the account's notifications, see
+  [notifications](notifications.md#left-out).

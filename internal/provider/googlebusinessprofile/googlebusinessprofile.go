@@ -51,6 +51,11 @@ var toolScopes = map[string][]string{
 	performanceGetDailyID:   {scopeManage},
 	performanceFetchDailyID: {scopeManage},
 	performanceKeywordsID:   {scopeManage},
+
+	verificationsListID:          {scopeManage},
+	verificationsFetchOptionsID:  {scopeManage},
+	verificationsMerchantStateID: {scopeManage},
+	notificationsGetID:           {scopeManage},
 }
 
 // ClassAccessNotApproved is the outcome of a Cloud project that Google has not approved for the Business
@@ -111,7 +116,8 @@ func testClass(err error) (provider.Class, error) {
 // readTools are the tools of the profile read.
 var readTools = []string{accountsListID, accountsGetID, locationsListID, locationsGetID,
 	accountAdminsListID, locationAdminsListID,
-	performanceGetDailyID, performanceFetchDailyID, performanceKeywordsID}
+	performanceGetDailyID, performanceFetchDailyID, performanceKeywordsID,
+	verificationsListID, verificationsFetchOptionsID, verificationsMerchantStateID, notificationsGetID}
 
 // writeTools are the tools of the profile write.
 var writeTools = []string{accountAdminsUpdateID, locationAdminsUpdateID, accountsUpdateID}
@@ -132,7 +138,8 @@ func Register(reg *capability.Registry) error {
 			Description: "lists and reads the accounts and the business locations the consenting account manages " +
 				"and changes nothing; Google offers only the scope business.manage, which also allows changes, so " +
 				"the token may change what its account may, although no tool of this profile changes anything; " +
-				"the admin lists name other people, which is personal data",
+				"the admin lists name other people and the verification options show masked postal addresses, phone " +
+				"numbers, and email addresses, which is personal data",
 			Tools: readTools,
 		}, {
 			ID: "write", Title: "Write",
@@ -167,5 +174,9 @@ func Register(reg *capability.Registry) error {
 		capability.Operation{Descriptor: performanceGetDaily, Handler: handleGetDailyMetric},
 		capability.Operation{Descriptor: performanceFetchDaily, Handler: handleFetchDailyMetrics},
 		capability.Operation{Descriptor: performanceKeywords, Handler: handleListSearchKeywords},
+		capability.Operation{Descriptor: verificationsList, Handler: handleVerificationsList},
+		capability.Operation{Descriptor: verificationsFetchOptions, Handler: handleVerificationsFetchOptions},
+		capability.Operation{Descriptor: verificationsMerchantState, Handler: handleVerificationsMerchantState},
+		capability.Operation{Descriptor: notificationsGet, Handler: handleNotificationsGet},
 	)
 }
