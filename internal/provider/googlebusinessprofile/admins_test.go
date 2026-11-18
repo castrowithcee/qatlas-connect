@@ -308,7 +308,7 @@ func TestNoToolCreatesAdminsOrAccounts(t *testing.T) {
 		"notifications.get", "verifications.fetch-options", "verifications.get-merchant-state", "verifications.list",
 		"place-action-links.create", "place-action-links.delete", "place-action-links.get",
 		"place-action-links.list", "place-action-links.update", "place-action-types.list",
-		"reviews.batch-get", "reviews.delete-reply", "reviews.get", "reviews.list", "reviews.update-reply",
+		"reviews.batch-get", "reviews.delete-reply", "reviews.get", "reviews.list", "reviews.update-reply", "followers.get",
 		"media.create", "media.delete", "media.get", "media.list", "media.update",
 		"local-posts.create", "local-posts.delete", "local-posts.get", "local-posts.list", "local-posts.update",
 		"food-menus.get", "food-menus.update"} {
