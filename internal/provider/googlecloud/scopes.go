@@ -193,6 +193,9 @@ var tokenMetadata = config.TokenMetadata{Scopes: map[string][]string{
 	foldersPatchID:    {scopeCloudPlatform},
 	foldersMoveID:     {scopeCloudPlatform},
 	foldersUndeleteID: {scopeCloudPlatform},
+	// cloudresourcemanager v3 lists only cloud-platform for projects.delete and folders.delete.
+	projectsDeleteID: {scopeCloudPlatform},
+	foldersDeleteID:  {scopeCloudPlatform},
 	// compute v1 lists compute as the smallest scope for insert, resize, and createSnapshot of disks.
 	disksInsertID:         {scopeCompute},
 	disksResizeID:         {scopeCompute},

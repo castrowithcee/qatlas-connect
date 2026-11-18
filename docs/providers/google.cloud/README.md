@@ -36,7 +36,7 @@ smallest scope the discovery document of each method lists: `cloud-platform.read
 and `cloud-platform` for the IAM and quota tools, because their discovery documents list no narrower scope
 (Google offers no read-only variant for these methods, see [IAM](iam.md) and [Quotas](quotas.md)). Only the tools of the profiles
 `service-accounts`, `service-accounts-revoke`, `api-keys-revoke`, `iam-bindings`, `storage-delete`, `storage-revoke`, `compute-network-delete`, `compute-lifecycle`, `compute-instances-create`, `compute-disks`, `compute-images-delete`, `services`, `projects-manage`, and `folders-manage` and the tools
-`service-accounts.delete`, `services.disable`, `instances.delete`, `disks.delete`, and `buckets.delete`, which a `tools` list must name, change anything, each with a confirmation, whatever the scope allows. The access token travels in the
+`service-accounts.delete`, `services.disable`, `instances.delete`, `disks.delete`, `buckets.delete`, `projects.delete`, and `folders.delete`, which a `tools` list must name, change anything, each with a confirmation, whatever the scope allows. The access token travels in the
 `Authorization` header only, is never an argument or part of a result, and is masked in every output. A 401
 renews the token once, and nothing else repeats a request.
 
@@ -215,12 +215,13 @@ it.
 
 The profile `projects-manage` holds only `google.cloud.projects.create`, `google.cloud.projects.patch`,
 `google.cloud.projects.move`, and `google.cloud.projects.undelete`. It asks for `cloud-platform`, needs the effects
-`create` and `update`, and is not recommended. It holds no deletion and links no billing account. See
+`create` and `update`, and is not recommended. It holds no deletion and links no billing account. `google.cloud.projects.delete` is listed-only and only a `tools` list that names it exactly releases it. See
 [Projects](projects.md#changing-projects).
 
 The profile `folders-manage` holds only `google.cloud.folders.create`, `google.cloud.folders.patch`,
 `google.cloud.folders.move`, and `google.cloud.folders.undelete`. It asks for `cloud-platform`, needs the effects
-`create` and `update`, and is not recommended. It holds no deletion. See
+`create` and `update`, and is not recommended. It holds no deletion; `google.cloud.folders.delete` is listed-only and only a
+`tools` list that names it exactly releases it. See
 [Folders](folders.md#changing-folders).
 
 The profile `iam-bindings` holds the tools of `read`, `google.cloud.iam-policies.get`, and the three binding
@@ -321,8 +322,8 @@ example a `parent`. A row without a usable name is an invalid response.
 
 Reading one organization or folder and listing the folders and projects below a parent are described on their
 own pages: [organizations](organizations.md) (`organizations.get`), [folders](folders.md) (`folders.get`,
-`folders.list`, and the changes `folders.create`, `folders.patch`, `folders.move`, and `folders.undelete`), and [projects](projects.md) (`projects.list`, and the changes `projects.create`,
-`projects.patch`, `projects.move`, and `projects.undelete`).
+`folders.list`, and the changes `folders.create`, `folders.patch`, `folders.move`, and `folders.undelete`, and the listed-only `folders.delete`), and [projects](projects.md) (`projects.list`, and the changes `projects.create`,
+`projects.patch`, `projects.move`, and `projects.undelete`, and the listed-only `projects.delete`).
 
 ### Single reads
 
