@@ -19,6 +19,9 @@ array, and rich-text fields cannot be sorted by.
 
 - Qatlas checks `fields` and `order_by` against the response shape of the object in the workspace document,
   so an unknown field is refused before any record is read, and the refusal does not name it.
+- A field Twenty has deactivated is neither returned nor accepted in `fields`, `order_by`, or a condition.
+  Where Twenty refuses the key the active state (see `objects.get` in the [README](README.md)), Qatlas treats
+  every field as active.
 - Qatlas always reads at depth 0: a relation appears only as its identifier field (`companyId`), never as an
   embedded record, and a relation to an object the connection cannot reach (outside the targets or excluded)
   stays an identifier. Rich text appears only as `markdown`.
@@ -67,8 +70,8 @@ every field from the workspace catalog and builds the request body from the chec
 
 - Every field is checked against the schema before the request: a `create` against the create shape of the
   object, with its required fields, an `update` against the update shape, without required fields. The
-  schema read is the only other request, and a refusal after it sends no write. A refusal names neither
-  field nor value.
+  schema read and the one read of the field states are the only other requests, and a refusal after them
+  sends no write. A refusal names neither field nor value.
 - Supported are scalar fields, selections (values of the schema), and the composite fields emails, phones,
   links, currency, full name, and address; a composite value may contain only the parts the schema names.
   Null is refused; send an empty value to clear a text. Rich text takes only `{"markdown": ...}`, as a read

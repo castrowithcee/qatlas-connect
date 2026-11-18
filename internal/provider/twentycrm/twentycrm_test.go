@@ -45,21 +45,44 @@ type roundTripFunc func(*http.Request) (*http.Response, error)
 
 func (f roundTripFunc) RoundTrip(request *http.Request) (*http.Response, error) { return f(request) }
 
+// fieldStateBody is the answer of the field-state read (the metadata page of size activityPageSize) for the
+// next serve; empty means the key lacks the Data model permission. The read is answered here, not by the
+// handler, so existing handlers and their request counts stay unaware of it.
+var fieldStateBody string
+
 // serve replaces the package transport for one test. Production keeps Go's default transport.
 func serve(t *testing.T, handler func(*http.Request) (*http.Response, error)) {
 	t.Helper()
-	previous := transport
-	transport = roundTripFunc(handler)
+	previous, body := transport, fieldStateBody
+	transport = roundTripFunc(func(request *http.Request) (*http.Response, error) {
+		if request.URL.Path == metadataObjectsPath && request.URL.Query().Get("limit") == strconv.Itoa(activityPageSize) {
+			if body == "" {
+				return jsonResponse(http.StatusForbidden, `{"error":"forbidden"}`), nil
+			}
+			return jsonResponse(http.StatusOK, body), nil
+		}
+		return handler(request)
+	})
 	t.Cleanup(func() { transport = previous })
+}
+
+// serveFieldStates makes the field-state read of every following serve answer with body.
+func serveFieldStates(t *testing.T, body string) {
+	t.Helper()
+	previous := fieldStateBody
+	fieldStateBody = body
+	t.Cleanup(func() { fieldStateBody = previous })
 }
 
 // refuse fails the test when any provider request is attempted.
 func refuse(t *testing.T) {
 	t.Helper()
-	serve(t, func(request *http.Request) (*http.Response, error) {
+	previous := transport
+	transport = roundTripFunc(func(request *http.Request) (*http.Response, error) {
 		t.Errorf("the provider was contacted: %s %s", request.Method, request.URL.Path)
 		return nil, errors.New("no request expected")
 	})
+	t.Cleanup(func() { transport = previous })
 }
 
 func jsonResponse(status int, body string) *http.Response {
