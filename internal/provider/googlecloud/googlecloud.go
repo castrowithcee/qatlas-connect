@@ -95,7 +95,7 @@ var readTools = []string{organizationsSearch.ID, foldersSearch.ID, projectsSearc
 	vpnGatewaysList.ID, vpnGatewaysGet.ID, vpnTunnelsList.ID, vpnTunnelsGet.ID,
 	disksList.ID, disksAggregatedList.ID, disksGet.ID,
 	snapshotsList.ID, snapshotsGet.ID, imagesList.ID, imagesGet.ID,
-	bucketsList.ID, bucketsGet.ID}
+	bucketsList.ID, bucketsGet.ID, notificationsList.ID, managedFoldersList.ID, hmacKeysList.ID, hmacKeysGet.ID}
 
 // Register adds the provider metadata, its connection test, its consent endpoints, and its tools.
 func Register(reg *capability.Registry) error {
@@ -120,7 +120,8 @@ func Register(reg *capability.Registry) error {
 				"Usage, and the metadata of API keys with the read-only scope and the Compute Engine instances, machine " +
 				"types, zones, regions, operations (with the person who started each), VPC networks, subnetworks, firewall rules, " +
 				"reserved IP addresses, HA VPN gateways, VPN tunnels, persistent disks, disk snapshots, and images of a project with the scope compute.readonly, " +
-				"and the Cloud Storage buckets of a project with the scope devstorage.read_only, and changes nothing",
+				"the Cloud Storage buckets of a project, the notification configurations and managed folders of a bucket, and " +
+				"the HMAC key metadata of a project with the scope devstorage.read_only, and changes nothing",
 			Tools: readTools,
 		}, {
 			ID: "read-iam", Title: "Read with IAM",
@@ -252,6 +253,10 @@ func Register(reg *capability.Registry) error {
 		capability.Operation{Descriptor: imagesGet, Handler: handleImagesGet},
 		capability.Operation{Descriptor: bucketsList, Handler: handleBucketsList},
 		capability.Operation{Descriptor: bucketsGet, Handler: handleBucketsGet},
+		capability.Operation{Descriptor: notificationsList, Handler: handleNotificationsList},
+		capability.Operation{Descriptor: managedFoldersList, Handler: handleManagedFoldersList},
+		capability.Operation{Descriptor: hmacKeysList, Handler: handleHMACKeysList},
+		capability.Operation{Descriptor: hmacKeysGet, Handler: handleHMACKeysGet},
 		capability.Operation{Descriptor: bucketsGetIAMPolicy, Handler: handleBucketsGetIAMPolicy},
 		capability.Operation{Descriptor: bucketAccessControlsList, Handler: handleBucketAccessControlsList},
 		capability.Operation{Descriptor: firewallsDelete, Handler: handleFirewallsDelete,
