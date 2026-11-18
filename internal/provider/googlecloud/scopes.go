@@ -32,6 +32,10 @@ const scopeStorageReadOnly = "https://www.googleapis.com/auth/devstorage.read_on
 // buckets.getIamPolicy and bucketAccessControls.list, next to cloud-platform; neither lists a read-only variant.
 const scopeStorageFullControl = "https://www.googleapis.com/auth/devstorage.full_control"
 
+// scopeDNSReadOnly is the smallest scope the discovery document of dns v1 lists for managedZones.list and get and
+// resourceRecordSets.list and get, next to cloud-platform, cloud-platform.read-only, and ndev.clouddns.readwrite.
+const scopeDNSReadOnly = "https://www.googleapis.com/auth/ndev.clouddns.readonly"
+
 // tokenMetadata maps every tool to the smallest scopes it needs. The core derives the scopes of a connection
 // from it, so a tool that is not offered adds none.
 var tokenMetadata = config.TokenMetadata{Scopes: map[string][]string{
@@ -127,6 +131,11 @@ var tokenMetadata = config.TokenMetadata{Scopes: map[string][]string{
 	managedFoldersListID: {scopeStorageReadOnly},
 	hmacKeysListID:       {scopeStorageReadOnly},
 	hmacKeysGetID:        {scopeStorageReadOnly},
+	// dns v1 lists ndev.clouddns.readonly as the smallest scope for the reads of zones and record sets.
+	managedZonesListID: {scopeDNSReadOnly},
+	managedZonesGetID:  {scopeDNSReadOnly},
+	recordSetsListID:   {scopeDNSReadOnly},
+	recordSetsGetID:    {scopeDNSReadOnly},
 	// compute v1 lists compute as the smallest scope for the deletions of firewalls, addresses, VPN tunnels, and VPN gateways.
 	firewallsDeleteID:   {scopeCompute},
 	addressesDeleteID:   {scopeCompute},

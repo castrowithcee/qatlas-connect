@@ -69,6 +69,8 @@ Three rules decide which tool a binding reaches. They are separate on purpose:
 - **Storage tools** (`buckets.*`, `bucket-access-controls.list`, `notifications.list`, `managed-folders.list`, `hmac-keys.*`): the connection is unbound or names an
   organization, a folder, or a project. A bucket is bound to the targets by the project number of one read of the
   bucket, see [Buckets](buckets.md).
+- **DNS tools** (`managed-zones.*`, `record-sets.*`): the connection is unbound or names an organization, a folder, or a
+  project. The project in the path binds the zone, see [DNS managed zones](managed-zones.md).
 - **Tools without a resource** (`operations.get`): an operation belongs to no folder or project that Qatlas
   could prove, so the tool runs on a connection without targets or with an organization among them. It is not an
   organization tool: it reads no organization.
@@ -95,7 +97,8 @@ The profile `read` is the recommended one. It holds every tool that needs no mor
 `google.cloud.images.list`, and `google.cloud.images.get`, which ask for `compute.readonly`, and the Storage tools
 `google.cloud.buckets.list`, `google.cloud.buckets.get`, `google.cloud.notifications.list`,
 `google.cloud.managed-folders.list`, `google.cloud.hmac-keys.list`, and `google.cloud.hmac-keys.get`, which ask for
-`devstorage.read_only`. The two
+`devstorage.read_only`, and the DNS tools `google.cloud.managed-zones.list`, `google.cloud.managed-zones.get`,
+`google.cloud.record-sets.list`, and `google.cloud.record-sets.get`, which ask for `ndev.clouddns.readonly`. The two
 operation tools return the email address of whoever started an operation (personal data) and carry their own
 sensitivity. A connection bound to an organization or a folder needs `projects.get` next to the
 Compute tools to prove the project of a call; `read` holds both.
@@ -206,6 +209,9 @@ on [IAM bindings](iam-bindings.md).
 - [Notifications](notifications.md): the Pub/Sub notification configurations of a Cloud Storage bucket.
 - [Managed folders](managed-folders.md): the managed folders of a Cloud Storage bucket.
 - [HMAC keys](hmac-keys.md): the metadata of the HMAC keys of a project, never a key value.
+- [DNS managed zones](managed-zones.md): the Cloud DNS managed zones of a project, one and all, with the rules
+  every DNS tool follows.
+- [DNS record sets](record-sets.md): the record sets of a Cloud DNS managed zone, one and all, with routing policies.
 - [Quotas](quotas.md): the quotas of a service and the quota preferences of a project from Cloud Quotas.
 
 ### Search
