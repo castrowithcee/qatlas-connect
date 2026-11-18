@@ -113,6 +113,8 @@ func TestRegisterPublishesMetadataScopesAndConsent(t *testing.T) {
 		calculatedListID: {scopeReadOnly}, calculatedGetID: {scopeReadOnly},
 		calculatedCreateID: {scopeEdit}, calculatedUpdateID: {scopeEdit}, calculatedDeleteID: {scopeEdit},
 		accessAccountID: {scopeReadOnly}, accessPropertyID: {scopeReadOnly},
+		rollupLinksListID: {scopeReadOnly}, rollupLinksGetID: {scopeReadOnly},
+		accessBindingsListID: {scopeUsersReadOnly}, accessBindingsGetID: {scopeUsersReadOnly},
 		dataRetentionGetID: {scopeReadOnly}, dataRetentionUpdateID: {scopeEdit}, googleSignalsGetID: {scopeReadOnly},
 		googleSignalsUpdateID: {scopeEdit}, annotationsListID: {scopeReadOnly}, annotationsGetID: {scopeReadOnly},
 		annotationsCreateID: {scopeEdit}, annotationsUpdateID: {scopeEdit}, annotationsDeleteID: {scopeEdit},
@@ -191,6 +193,8 @@ func TestRegisterPublishesMetadataScopesAndConsent(t *testing.T) {
 		"google.analytics.firebase-links.list", "google.analytics.bigquery-links.list",
 		"google.analytics.bigquery-links.get", "google.analytics.attribution-settings.get",
 		"google.analytics.attribution-settings.update", "google.analytics.change-history.search",
+		"google.analytics.rollup-links.list", "google.analytics.rollup-links.get",
+		"google.analytics.access-bindings.list", "google.analytics.access-bindings.get",
 		"google.analytics.google-ads-links.delete", "google.analytics.firebase-links.delete",
 		"google.analytics.bigquery-links.delete", "google.analytics.adsense-links.delete"})) {
 		t.Errorf("tools = %v", ids)
@@ -206,7 +210,8 @@ func TestRegisterPublishesMetadataScopesAndConsent(t *testing.T) {
 		annotationsListID, annotationsGetID, dv360LinksListID, dv360LinksGetID, dv360ProposalsListID, dv360ProposalsGetID,
 		audiencesListID, audiencesGetID, channelGroupsListID, channelGroupsGetID, edsListID, edsGetID, adsLinksListID,
 		firebaseLinksListID, bigQueryLinksListID, bigQueryLinksGetID, adsenseLinksListID, adsenseLinksGetID,
-		searchAdsLinksListID, searchAdsLinksGetID, attributionGetID}
+		searchAdsLinksListID, searchAdsLinksGetID, attributionGetID, rollupLinksListID, rollupLinksGetID,
+		accessBindingsListID, accessBindingsGetID}
 	if len(metadata.Profiles) != 3 || metadata.Profiles[0].ID != "read" || !metadata.Profiles[0].Recommended ||
 		!reflect.DeepEqual(metadata.Profiles[0].Tools, reads) || metadata.Profiles[1].ID != "write" ||
 		metadata.Profiles[1].Recommended ||
@@ -255,6 +260,9 @@ func TestRegisterPublishesMetadataScopesAndConsent(t *testing.T) {
 		}
 		if descriptor.ID == changeHistoryID {
 			sensitivity = dataSensitivityChangeHistory
+		}
+		if descriptor.ID == accessBindingsListID || descriptor.ID == accessBindingsGetID {
+			sensitivity = dataSensitivityBindings
 		}
 		if effectOf(descriptor.ID) == config.EffectRead && descriptor.Risk != (capability.Risk{
 			Effect: capability.EffectRead, Idempotency: capability.IdempotencySafe,
@@ -589,7 +597,7 @@ func TestServiceAccountAndImpersonationObtainTheirTokens(t *testing.T) {
 	claims, _ := base64.RawURLEncoding.DecodeString(parts[1])
 	var assertion struct{ Iss, Scope, Aud string }
 	if len(parts) != 3 || json.Unmarshal(claims, &assertion) != nil || assertion.Iss != serviceAccount ||
-		assertion.Scope != scopeReadOnly || assertion.Aud != "https://oauth2.googleapis.com/token" {
+		assertion.Scope != scopeUsersReadOnly+" "+scopeReadOnly || assertion.Aud != "https://oauth2.googleapis.com/token" {
 		t.Errorf("assertion claims = %s", claims)
 	}
 	if masked := env.red.Apply(form.Get("assertion")); strings.Contains(masked, parts[2]) {

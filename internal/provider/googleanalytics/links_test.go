@@ -383,7 +383,8 @@ func TestLinksHaveNoCreateOrPatchTool(t *testing.T) {
 	slices.Sort(links)
 	if !slices.Equal(links, sortedCopy([]string{adsLinksListID, firebaseLinksListID, bigQueryLinksListID, bigQueryLinksGetID,
 		dv360LinksListID, dv360LinksGetID, adsenseLinksListID, adsenseLinksGetID, searchAdsLinksListID,
-		searchAdsLinksGetID, adsLinksDeleteID, firebaseLinksDeleteID, bigQueryLinksDeleteID, adsenseLinksDeleteID})) {
+		searchAdsLinksGetID, rollupLinksListID, rollupLinksGetID, adsLinksDeleteID, firebaseLinksDeleteID,
+		bigQueryLinksDeleteID, adsenseLinksDeleteID})) {
 		t.Errorf("link tools = %v", links)
 	}
 	metadata, _ := reg.ProviderMetadata(Provider)

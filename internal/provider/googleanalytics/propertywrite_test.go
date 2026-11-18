@@ -42,6 +42,10 @@ func TestExcludedMethodsHaveNoTool(t *testing.T) {
 		ids = append(ids, d.ID)
 		id := strings.ToLower(d.ID)
 		for _, excluded := range []string{"acknowledge", "rollup", "subproperty", "subproperties", "source-link"} {
+			// The two read tools of rollup source links are allowed; creating a rollup or a link is not.
+			if d.ID == rollupLinksListID || d.ID == rollupLinksGetID {
+				continue
+			}
 			if strings.Contains(id, excluded) {
 				t.Errorf("%s is a tool of an excluded method", d.ID)
 			}
@@ -70,7 +74,8 @@ func TestExcludedMethodsHaveNoTool(t *testing.T) {
 		channelGroupsDeleteID, edsListID, edsGetID, edsCreateID, edsUpdateID, edsDeleteID, adsLinksListID,
 		firebaseLinksListID, bigQueryLinksListID, bigQueryLinksGetID, adsenseLinksListID, adsenseLinksGetID,
 		searchAdsLinksListID, searchAdsLinksGetID, attributionGetID, attributionUpdateID,
-		changeHistoryID, adsLinksDeleteID, firebaseLinksDeleteID, bigQueryLinksDeleteID,
+		changeHistoryID, rollupLinksListID, rollupLinksGetID, accessBindingsListID,
+		accessBindingsGetID, adsLinksDeleteID, firebaseLinksDeleteID, bigQueryLinksDeleteID,
 		adsenseLinksDeleteID}; !slices.Equal(ids, sortedCopy(want)) {
 		t.Errorf("tools = %v", ids)
 	}

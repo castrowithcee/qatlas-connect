@@ -491,8 +491,10 @@ func TestChangeHistoryNeedsTheEditScopeAndSitsOutsideTheReadProfile(t *testing.T
 		!slices.Contains(profiles["write"].Tools, changeHistoryID) {
 		t.Error("the search belongs to write and not to the recommended read profile")
 	}
+	// The read profile asks for read-only scopes only.
 	for _, tool := range profiles["read"].Tools {
-		if !slices.Equal(metadata.Token.Scopes[tool], []string{scopeReadOnly}) {
+		if got := metadata.Token.Scopes[tool]; !slices.Equal(got, []string{scopeReadOnly}) &&
+			!slices.Equal(got, []string{scopeUsersReadOnly}) {
 			t.Errorf("profile read holds %s with scopes %v", tool, metadata.Token.Scopes[tool])
 		}
 	}
