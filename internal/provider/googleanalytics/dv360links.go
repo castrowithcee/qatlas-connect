@@ -13,8 +13,9 @@ import (
 )
 
 // Display & Video 360 advertiser links and their proposals are resources of the Admin API v1alpha below a
-// property, see alpha.go. Only reading is a tool: creating, changing, deleting, cancelling and approving are not,
-// since a link or an approved proposal opens a standing data path to another product.
+// property, see alpha.go. Reading, deleting and cancelling a proposal are tools: creating, changing and
+// approving are not, since a link or an approved proposal opens a standing data path to another product.
+// Deleting is in advertiserlinkdelete.go.
 const (
 	dv360LinksListID = Provider + ".display-video360-links.list"
 	dv360LinksGetID  = Provider + ".display-video360-links.get"
@@ -118,7 +119,7 @@ var dv360LinksList = capability.Descriptor{
 		"name, and the settings for ads personalization, campaign data and cost data. On a connection with " +
 		"targets the property must be a bound property or belong to a bound account, which is proven by one read " +
 		"of its parent before the list. Reads no report data. Creating or changing a link is not a tool; a person " +
-		"does that in Analytics or Display & Video 360." + dv360Untrusted + alphaNote,
+		"does that in Analytics or Display & Video 360; deleting one is display-video360-links.delete." + dv360Untrusted + alphaNote,
 	Tags: []string{"google", "analytics", "display-video360-links", "list", "alpha"}, Risk: readRisk, Provider: Provider,
 	InputSchema: json.RawMessage(`{"type":"object","properties":{"property":` + propertyArgSchema + `,` +
 		pageArgumentsSchema + `},"required":["property"],"additionalProperties":false}`),
