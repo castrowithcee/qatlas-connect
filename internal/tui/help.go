@@ -60,7 +60,7 @@ func (m *Model) helpInner() int {
 func (m *Model) helpLines() []string {
 	topic := helptopics.All()[m.helpTopic]
 	text := topic.Text
-	if topic.Name == helptopics.All()[0].Name {
+	if topic.Name == helptopics.Keys().Name {
 		text += "\n\n" + keyListText()
 	}
 	return strings.Split(kithelp.Wrap(text, m.helpInner()), "\n")
@@ -89,7 +89,7 @@ func helpLine(line string, headings map[string]bool) string {
 func (m *Model) helpHeadings() map[string]bool {
 	topic := helptopics.All()[m.helpTopic]
 	text := topic.Text
-	if topic.Name == helptopics.All()[0].Name {
+	if topic.Name == helptopics.Keys().Name {
 		text += "\n\n" + keyListText()
 	}
 	headings := map[string]bool{}
@@ -147,15 +147,23 @@ func (m *Model) hitHelpTopics(spans [][2]int, y, x int) {
 	}
 }
 
+// helpTitle is the title in front of the topic tabs in the workspace. The overlay carries its title in the
+// frame, and a workspace too narrow for title and tabs shows the tabs alone.
+func (m *Model) helpTitle() string {
+	strip, _ := m.helpTopics()
+	title := styles.title.Render("Help") + "  "
+	if m.helpOverlay() || lipgloss.Width(title+strip) > m.helpInner() {
+		return ""
+	}
+	return title
+}
+
 // helpFrame is everything of the help screen except the text: above it the topics with the current one in
 // brackets, and the macOS note where it fits, below it the position in the text and the keys. room is the
 // number of text lines between them.
 func (m *Model) helpFrame() (string, string, int) {
 	strip, _ := m.helpTopics()
-	base := styles.title.Render("Help") + "  " + strip + "\n\n"
-	if m.helpOverlay() {
-		base = strip + "\n\n"
-	}
+	base := m.helpTitle() + strip + "\n\n"
 	note := render(styles.hint, m.helpInner(), tr(tMacFnNote)) + "\n\n"
 	lines := len(m.helpLines())
 	keys := "{left}/{right} topic · {up}/{down} scroll · {pageup}/{pagedown} page · {back}/{help} close"
@@ -202,7 +210,7 @@ func (m *Model) helpView() string {
 	head, foot, _ := m.helpFrame()
 	if !m.inModal {
 		_, spans := m.helpTopics()
-		m.hitHelpTopics(spans, m.workspaceTop(), lipgloss.Width(styles.title.Render("Help")+"  "))
+		m.hitHelpTopics(spans, m.workspaceTop(), lipgloss.Width(m.helpTitle()))
 	}
 	shown := make([]string, 0, len(rows))
 	headings := m.helpHeadings()
