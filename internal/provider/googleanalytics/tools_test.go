@@ -19,6 +19,14 @@ func (e *testEnv) call(operation, connection, arguments string) (string, error) 
 	return string(response.Result), err
 }
 
+// callOwn invokes through a core of its own, for calls from parallel goroutines: a core serves one call.
+func (e *testEnv) callOwn(operation, connection, arguments string) (string, error) {
+	core := application.New(e.reg, e.cfg, e.secrets(), e.red)
+	response, err := core.Invoke(context.Background(), application.InvokeRequest{
+		Operation: operation, Connection: connection, Arguments: json.RawMessage(arguments)})
+	return string(response.Result), err
+}
+
 func refusedInvalid(err error) bool {
 	var refused *provider.InvalidRequestError
 	return errors.As(err, &refused)

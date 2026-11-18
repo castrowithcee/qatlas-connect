@@ -30,6 +30,7 @@ const (
 	errWriteLimit    = "fields must hold at most 100 fields, each value within 64 KiB, and the request within 1 MiB"
 	errWriteNone     = "fields must name at least one field to change"
 	errWriteField    = "a field or value cannot be written to this object"
+	errWriteInactive = "a field given is inactive in Twenty and cannot be written"
 	errWriteRequired = "the fields given do not cover what this object requires to create a record"
 	errWriteID       = "id must be a record identifier in UUID form"
 
@@ -280,6 +281,9 @@ func (o *recordObject) writeBody(bound scope, write *recordWrite) (map[string]an
 	body := make(map[string]any, len(names))
 	for _, name := range names {
 		field := fields[name]
+		if field != nil && field.inactive() {
+			return nil, invalidRequest(errWriteInactive)
+		}
 		if field == nil {
 			return nil, invalidRequest(errWriteField)
 		}
@@ -295,7 +299,8 @@ func (o *recordObject) writeBody(bound scope, write *recordWrite) (map[string]an
 	}
 	if write.Create {
 		for _, field := range o.Fields {
-			if field.Required && !systemWriteFields[field.Name] && !givenRequired(fields, field, body) {
+			if field.Required && !field.inactive() && !systemWriteFields[field.Name] &&
+				!givenRequired(fields, field, body) {
 				return nil, invalidRequest(errWriteRequired)
 			}
 		}

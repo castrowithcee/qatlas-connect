@@ -194,7 +194,7 @@ func TestReportsRunRealtimeLimitsParallelReportsPerProperty(t *testing.T) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			if _, err := env.call(reportsRunRealtimeID, "read", arguments); err != nil {
+			if _, err := env.callOwn(reportsRunRealtimeID, "read", arguments); err != nil {
 				t.Error(err)
 			}
 		}()
@@ -208,7 +208,7 @@ func TestReportsRunRealtimeLimitsParallelReportsPerProperty(t *testing.T) {
 	// The slots of the core reports are a separate pool.
 	other := make(chan error, 1)
 	go func() {
-		_, err := env.call(reportsRunID, "read", `{"property":"properties/200",`+minimalReport[1:])
+		_, err := env.callOwn(reportsRunID, "read", `{"property":"properties/200",`+minimalReport[1:])
 		other <- err
 	}()
 	<-arrived

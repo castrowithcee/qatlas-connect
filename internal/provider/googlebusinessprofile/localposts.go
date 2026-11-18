@@ -231,8 +231,8 @@ var localPostFieldList = []capability.Field{
 	{Name: "offer", Description: "couponCode, redeemOnlineUrl, termsConditions"},
 }
 
-const localPostConfirmNote = "The confirmation shows the location, the type, the whole text, every URL, and the media " +
-	"sources; a post whose confirmation would not fit into the 500 characters the core keeps is refused before " +
+var localPostConfirmNote = "The confirmation shows the location, the type, the whole text, every URL, and the media " +
+	"sources; a post whose confirmation would not fit into the " + limitText(localPostsCreateID) + " the core keeps is refused before " +
 	"anything is sent, since the confirmation would be cut. "
 
 const localPostContentArguments = "language_code, summary, call_to_action (action_type BOOK, ORDER, SHOP, " +
@@ -731,8 +731,8 @@ func localPostConfirmation(tool string, a localPostArguments) string {
 	return b.String()
 }
 
-const localPostTooLong = "the confirmation of this post would exceed 500 characters, so it could not show the " +
-	"whole text, every URL, and every media source; shorten the texts or send fewer links"
+var localPostTooLong = "the confirmation of this post would exceed " + limitText(localPostsCreateID) +
+	", so it could not show the whole text, every URL, and every media source; shorten the texts or send fewer links"
 
 func localPostDeleteConfirmation(a localPostArguments) string {
 	return "Delete the public local post " + a.LocalPost + ", which disappears from the profile and from Google Search"
@@ -753,7 +753,7 @@ func localPostSummary(tool string) capability.SummaryFunc {
 			return "Refused before sending: " + err.Error()
 		}
 		text := localPostConfirmation(tool, a)
-		if confirmationRunes(text) > maxConfirmRunes {
+		if !fitsConfirmation(tool, text) {
 			return "Refused before sending: " + localPostTooLong
 		}
 		return text
@@ -914,7 +914,7 @@ func handleLocalPostsCreate(ctx context.Context, resolved *config.Resolved, secr
 	if err := checkLocalPost(args, false); err != nil {
 		return nil, err
 	}
-	if confirmationRunes(localPostConfirmation(localPostsCreateID, args)) > maxConfirmRunes {
+	if !fitsConfirmation(localPostsCreateID, localPostConfirmation(localPostsCreateID, args)) {
 		return nil, invalidArgument(localPostTooLong)
 	}
 	body, err := localPostBody(op, args)
@@ -955,7 +955,7 @@ func handleLocalPostsUpdate(ctx context.Context, resolved *config.Resolved, secr
 	if err := checkLocalPost(args, true); err != nil {
 		return nil, err
 	}
-	if confirmationRunes(localPostConfirmation(localPostsUpdateID, args)) > maxConfirmRunes {
+	if !fitsConfirmation(localPostsUpdateID, localPostConfirmation(localPostsUpdateID, args)) {
 		return nil, invalidArgument(localPostTooLong)
 	}
 	body, err := localPostBody(op, args)

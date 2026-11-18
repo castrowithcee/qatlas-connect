@@ -221,7 +221,7 @@ var locationsCreate = capability.Descriptor{
 		"the result; after an unclear outcome check locations.list before creating again, or repeat with the same " +
 		"request_id. A create counts against the quota of the account (300 per day). validate_only asks Google to " +
 		"check the call without creating anything; the tool still needs confirmation. The confirmation shows the " +
-		"title and the field names within 500 characters: a call whose title does not fit is refused before " +
+		"title and the field names within " + limitText(locationsCreateID) + ": a call whose title does not fit is refused before " +
 		"anything is sent. A connection bound to a location does not offer this tool. " + writeUntrustedNote + untrustedNote,
 	Tags: []string{"google", "business-profile", "locations", "create"}, Provider: Provider,
 	Risk: locationWriteRisk(capability.EffectCreate, capability.IdempotencyNonIdempotent),
@@ -252,7 +252,7 @@ var locationsUpdate = capability.Descriptor{
 		"(an empty text or list clears the field), and no other field is sent. previous_values is required and " +
 		"only compared: it holds the value of each changed field as last read with locations.get, the tool reads " +
 		"the location first and changes nothing unless it still has exactly those values, so the confirmation " +
-		"shows the old and the new values in full, within 500 characters: a change whose confirmation would be " +
+		"shows the old and the new values in full, within " + limitText(locationsUpdateID) + ": a change whose confirmation would be " +
 		"longer is refused before anything is sent, so change fewer fields or shorter values per call. " + reviewNote + "languageCode is immutable. validate_only asks Google " +
 		"to check the change without making it. Google counts at most 10 changes per minute and profile. On a " +
 		"connection bound to an account the location is first proved to belong to it. " + writeUntrustedNote +
@@ -426,7 +426,7 @@ func handleLocationsCreate(ctx context.Context, resolved *config.Resolved, secre
 		return nil, invalidArgument("categories.primaryCategory.name is required: Google creates no location " +
 			"without a primary category")
 	}
-	if err := checkConfirmationFits(locationCreateConfirmation(members)); err != nil {
+	if err := checkConfirmationFits(locationsCreateID, locationCreateConfirmation(members)); err != nil {
 		return nil, err
 	}
 	requestID, err := decodeMember[string](op, members, "request_id")
@@ -504,7 +504,7 @@ func handleLocationsUpdate(ctx context.Context, resolved *config.Resolved, secre
 	if err := checkFieldsMatchMask(mask, fields, previous); err != nil {
 		return nil, err
 	}
-	if err := checkConfirmationFits(locationUpdateConfirmation(members)); err != nil {
+	if err := checkConfirmationFits(locationsUpdateID, locationUpdateConfirmation(members)); err != nil {
 		return nil, err
 	}
 	changed := false
@@ -748,12 +748,15 @@ func handleLocationsGetGoogleUpdated(ctx context.Context, resolved *config.Resol
 	return out, nil
 }
 
-func tooLongForConfirmation() error {
-	return invalidArgument("the confirmation would need more than 500 characters to show every old and new value " +
-		"or the title; change fewer fields in one call, or use shorter values")
+func tooLongForConfirmation(id string) error {
+	return invalidArgument("the confirmation would need more than " + limitText(id) + " to show every old and new " +
+		"value or the title; change fewer fields in one call, or use shorter values")
 }
 
-const unconfirmable = "This call cannot be confirmed: showing every value needs more than 500 characters, so it is refused"
+func unconfirmable(id string) string {
+	return "This call cannot be confirmed: showing every value needs more than " + limitText(id) +
+		", so it is refused"
+}
 
 // compactValue is a JSON value as shown in a confirmation.
 func compactValue(raw json.RawMessage) string {
@@ -808,9 +811,9 @@ func locationUpdateConfirmation(members map[string]json.RawMessage) string {
 }
 
 // checkConfirmationFits refuses a call whose confirmation the core would have to cut.
-func checkConfirmationFits(text string) error {
-	if confirmationRunes(text) > maxConfirmRunes {
-		return tooLongForConfirmation()
+func checkConfirmationFits(id, text string) error {
+	if !fitsConfirmation(id, text) {
+		return tooLongForConfirmation(id)
 	}
 	return nil
 }
@@ -820,10 +823,10 @@ func locationCreateSummary(raw json.RawMessage) string {
 	if err != nil {
 		return ""
 	}
-	if text := locationCreateConfirmation(members); checkConfirmationFits(text) == nil {
+	if text := locationCreateConfirmation(members); checkConfirmationFits(locationsCreateID, text) == nil {
 		return text
 	}
-	return unconfirmable
+	return unconfirmable(locationsCreateID)
 }
 
 func locationUpdateSummary(raw json.RawMessage) string {
@@ -831,10 +834,10 @@ func locationUpdateSummary(raw json.RawMessage) string {
 	if err != nil {
 		return ""
 	}
-	if text := locationUpdateConfirmation(members); checkConfirmationFits(text) == nil {
+	if text := locationUpdateConfirmation(members); checkConfirmationFits(locationsUpdateID, text) == nil {
 		return text
 	}
-	return unconfirmable
+	return unconfirmable(locationsUpdateID)
 }
 
 // locationDeleteSummary names the location and says that the deletion is not reversible.

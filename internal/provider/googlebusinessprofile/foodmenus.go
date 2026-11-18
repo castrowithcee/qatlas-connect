@@ -466,7 +466,7 @@ func planFoodMenusUpdate(op string, raw json.RawMessage) (foodPlan, error) {
 		return plan, invalidArgument("menus is what previous_menus already holds; there is nothing to change")
 	}
 	plan.text = "Replace the public food menus of " + args.Location + ": " + plan.diff.describe()
-	if confirmationRunes(plan.text) > maxConfirmRunes {
+	if !fitsConfirmation(foodMenusUpdateID, plan.text) {
 		return plan, invalidArgument(foodMenusTooLong)
 	}
 	if plan.body, err = json.Marshal(map[string]any{"name": args.Location + foodMenusSuffix,

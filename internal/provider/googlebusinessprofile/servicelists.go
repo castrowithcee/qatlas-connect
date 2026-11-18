@@ -308,7 +308,7 @@ func planServiceListUpdate(op string, raw json.RawMessage) (serviceListPlan, err
 			"to change")
 	}
 	plan.text = "Replace the public service list of " + args.Location + ": " + plan.diff.describe()
-	if confirmationRunes(plan.text) > maxConfirmRunes {
+	if !fitsConfirmation(serviceListUpdateID, plan.text) {
 		return plan, invalidArgument(serviceListTooLong)
 	}
 	if plan.body, err = json.Marshal(map[string]any{"name": args.Location + serviceListSuffix,

@@ -18,11 +18,17 @@ import (
 // often its handler and a secret read ran.
 func summaryCore(t *testing.T, fn capability.SummaryFunc, redactor *redact.Redactor) (*Core, *int, *int) {
 	t.Helper()
+	return summaryCoreLimit(t, fn, redactor, 0)
+}
+
+// summaryCoreLimit is summaryCore with a declared summary limit in runes.
+func summaryCoreLimit(t *testing.T, fn capability.SummaryFunc, redactor *redact.Redactor, limit int) (*Core, *int, *int) {
+	t.Helper()
 	handlerCalls, secretReads := 0, 0
 	descriptor := testDescriptor("fake.messages.send", capability.EffectCreate, capability.ConfirmationRequired)
 	registry := capability.NewRegistry()
 	if err := registry.Register("fake", capability.Operation{
-		Descriptor: descriptor, ConfirmationSummary: fn,
+		Descriptor: descriptor, ConfirmationSummary: fn, ConfirmationSummaryRunes: limit,
 		Handler: func(context.Context, *config.Resolved, *secret.Resolver, *redact.Redactor,
 			json.RawMessage) (any, error) {
 			handlerCalls++
@@ -146,5 +152,60 @@ func TestConfirmationSummaryNeutralizesControlCharacters(t *testing.T) {
 		if r < ' ' || r == 0x7f {
 			t.Errorf("summary still holds the control character %q", r)
 		}
+	}
+}
+
+func TestConfirmationSummaryDeclaredLimitShowsLongTextInFull(t *testing.T) {
+	text := strings.Repeat("ä€😀x", 600) // 2400 runes
+	core, _, _ := summaryCoreLimit(t, func(json.RawMessage) string { return text }, &redact.Redactor{}, 2400)
+	if summary := refuse(t, core, `{"id":"abc"}`).Summary; summary != text {
+		t.Errorf("summary has %d runes, want the full %d", utf8.RuneCountInString(summary), utf8.RuneCountInString(text))
+	}
+}
+
+func TestConfirmationSummaryDeclaredLimitStillCuts(t *testing.T) {
+	core, _, _ := summaryCoreLimit(t, func(json.RawMessage) string { return strings.Repeat("a", 2000) },
+		&redact.Redactor{}, 1000)
+	summary := refuse(t, core, `{"id":"abc"}`).Summary
+	if utf8.RuneCountInString(summary) != 1000 || !strings.HasSuffix(summary, "…") {
+		t.Errorf("summary has %d runes", utf8.RuneCountInString(summary))
+	}
+}
+
+func TestConfirmationSummaryDeclaredLimitRedactsBeforeCutting(t *testing.T) {
+	const canary = "canary-value-7731"
+	redactor := &redact.Redactor{}
+	redactor.Add(canary)
+	text := strings.Repeat("a", 1000-5) + canary + " tail"
+	core, _, _ := summaryCoreLimit(t, func(json.RawMessage) string { return text }, redactor, 1000)
+	if summary := refuse(t, core, `{"id":"abc"}`).Summary; strings.Contains(summary, "canary") {
+		t.Errorf("summary = %q", summary)
+	}
+}
+
+func TestBoundSummaryLimits(t *testing.T) {
+	long := strings.Repeat("a", 700)
+	tests := []struct {
+		name  string
+		limit int
+		runes int
+		cut   bool
+	}{
+		{"default", 0, maxSummaryRunes, true},
+		{"above default", 700, 700, false},
+		{"core ceiling", capability.MaxConfirmationSummaryRunes, 700, false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := boundSummary(long, tt.limit)
+			if utf8.RuneCountInString(got) != tt.runes || strings.HasSuffix(got, "…") != tt.cut {
+				t.Errorf("got %d runes, cut = %t", utf8.RuneCountInString(got), strings.HasSuffix(got, "…"))
+			}
+		})
+	}
+	ceiling := strings.Repeat("a", capability.MaxConfirmationSummaryRunes+1)
+	got := boundSummary(ceiling, capability.MaxConfirmationSummaryRunes)
+	if utf8.RuneCountInString(got) != capability.MaxConfirmationSummaryRunes || !strings.HasSuffix(got, "…") {
+		t.Errorf("ceiling: got %d runes", utf8.RuneCountInString(got))
 	}
 }

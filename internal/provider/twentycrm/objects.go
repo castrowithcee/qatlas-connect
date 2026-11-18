@@ -77,7 +77,7 @@ var objectsGet = capability.Descriptor{
 	OutputSchema: json.RawMessage(`{"type":"object","properties":{"name":{"type":"string"},` +
 		`"plural":{"type":"string"},"fields":{"type":"array","items":{"type":"object","properties":{` +
 		`"name":{"type":"string"},"type":{"type":"string"},"format":{"type":"string"},` +
-		`"required":{"type":"boolean"},"writable":{"type":"boolean"},` +
+		`"required":{"type":"boolean"},"writable":{"type":"boolean"},"active":{"type":"boolean"},` +
 		`"subfields":{"type":"array","items":{"type":"object","properties":{` +
 		`"name":{"type":"string"},"type":{"type":"string"},"description":{"type":"string"},` +
 		`"enum":{"type":"array","items":{"type":"string"}}},"required":["name"],"additionalProperties":false}},` +
@@ -91,7 +91,7 @@ var objectsGet = capability.Descriptor{
 	Fields: []capability.Field{
 		{Name: "name", Description: "Singular API name of the object"},
 		{Name: "plural", Description: "Plural API name of the object"},
-		{Name: "fields", Description: "The fields of the object sorted by name, with enum values and descriptions of the workspace, untrusted data"},
+		{Name: "fields", Description: "The fields of the object sorted by name, with enum values and descriptions of the workspace, untrusted data. active is false for a field Twenty has deactivated: it is not writable and the record tools neither return nor accept it. active is absent when the key cannot read the data model"},
 		{Name: "omitted_fields", Description: "Enum lists that were left out because they have too many values or a value of an unexpected form, as fields.<name>.enum or fields.<name>.subfields.<name>.enum"},
 	},
 	Examples: []capability.Example{{
@@ -122,11 +122,13 @@ type SubfieldInfo struct {
 
 // FieldInfo is one field of an object.
 type FieldInfo struct {
-	Name      string         `json:"name"`
-	Type      string         `json:"type,omitempty"`
-	Format    string         `json:"format,omitempty"`
-	Required  bool           `json:"required"`
-	Writable  bool           `json:"writable"`
+	Name     string `json:"name"`
+	Type     string `json:"type,omitempty"`
+	Format   string `json:"format,omitempty"`
+	Required bool   `json:"required"`
+	Writable bool   `json:"writable"`
+	// Active is Twenty's active state of the field; absent when the key cannot read the data model.
+	Active    *bool          `json:"active,omitempty"`
 	Subfields []SubfieldInfo `json:"subfields,omitempty"`
 	Relation  string         `json:"relation,omitempty"`
 	// Description and Enum are untrusted workspace data.
@@ -163,7 +165,7 @@ func (c *Client) GetObject(ctx context.Context, name string) (*ObjectInfo, error
 	if !c.scope.allows(name) {
 		return nil, invalidRequest(errObjectUnavailable)
 	}
-	cat, err := c.workspaceCatalog(ctx, "get object")
+	cat, err := c.activeCatalog(ctx, "get object")
 	if err != nil {
 		return nil, err
 	}
@@ -177,7 +179,8 @@ func (c *Client) GetObject(ctx context.Context, name string) (*ObjectInfo, error
 		info := &ObjectInfo{Name: object.Name, Plural: object.Plural, Fields: make([]FieldInfo, 0, len(object.Fields))}
 		for _, field := range object.Fields {
 			item := FieldInfo{Name: field.Name, Type: field.Type, Format: field.Format, Required: field.Required,
-				Writable: field.Writable, Relation: field.Relation, Description: field.Description, Enum: field.OutEnum}
+				Writable: field.Writable && !field.inactive(), Active: field.Active, Relation: field.Relation,
+				Description: field.Description, Enum: field.OutEnum}
 			if field.OutEnumOmitted {
 				info.OmittedFields = append(info.OmittedFields, "fields."+field.Name+".enum")
 			}

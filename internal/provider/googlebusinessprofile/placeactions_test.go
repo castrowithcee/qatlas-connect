@@ -307,29 +307,27 @@ func TestCreateRefusesAddressesThatAreNotPlainHTTPS(t *testing.T) {
 	}
 }
 
-func TestCreateRefusesWhenTheConfirmationWouldNotShowEverything(t *testing.T) {
+func TestCreateShowsTheLongestAddressWholeAndRefusesOneBeyondGoogleBound(t *testing.T) {
 	env, router := placeEnvironment(t)
 	fits := "https://booking.example.com/" + strings.Repeat("a", 250)
-	long := "https://booking.example.com/" + strings.Repeat("a", 450)
+	// Google accepts at most 2000 bytes; the confirmation shows that whole, which the default bound of the
+	// core could not.
+	longest := "https://booking.example.com/" + strings.Repeat("a", maxLinkURIBytes-len("https://booking.example.com/"))
+	beyond := longest + "a"
 	if _, err := env.change(t, placeActionLinksCreateID, "p-all", createArgs(fits)); err != nil {
 		t.Fatalf("an address that fits was refused: %v", err)
 	}
 	before := router.sent(http.MethodPost)
-	_, err := env.change(t, placeActionLinksCreateID, "p-all", createArgs(long))
-	if !isInvalidRequest(err) || !strings.Contains(err.Error(), "500 characters") {
-		t.Errorf("error = %v, want refusal that names the limit", err)
+	if _, err := env.change(t, placeActionLinksCreateID, "p-all", createArgs(beyond)); !isInvalidRequest(err) {
+		t.Errorf("error = %v, want refusal of an address beyond 2000 bytes", err)
 	}
 	if router.sent(http.MethodPost) != before {
 		t.Error("a long address was sent")
 	}
-	needs := env.needsConfirmation(t, placeActionLinksCreateID, "p-all", createArgs(long))
-	if !strings.Contains(needs.Summary, "Refused before sending") || strings.Contains(needs.Summary, "…") {
-		t.Errorf("summary = %q, want a refusal and no cut address", needs.Summary)
-	}
 	// What the core shows is never a cut of an address: the summary of an accepted call is whole.
-	for _, uri := range []string{fits} {
+	for _, uri := range []string{fits, longest} {
 		needs := env.needsConfirmation(t, placeActionLinksCreateID, "p-all", createArgs(uri))
-		if !strings.Contains(needs.Summary, uri) {
+		if !strings.Contains(needs.Summary, uri) || strings.Contains(needs.Summary, "…") {
 			t.Errorf("summary lacks the whole address: %q", needs.Summary)
 		}
 	}
