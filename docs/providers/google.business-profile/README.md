@@ -14,7 +14,8 @@ and the business locations in them, and the performance of a location. Most tool
 profile `write` change the role of existing admins and rename an account. [Set up Google Business
 Profile](setup.md) leads through the Google side, the approval, and the consent. The tools are described per
 group in [accounts](accounts.md), [locations](locations.md), [account admins](account-admins.md), [location
-admins](location-admins.md), [performance](performance.md), and [lodging](lodging.md).
+admins](location-admins.md), [performance](performance.md), [categories](categories.md), [chains](chains.md),
+[Google locations](google-locations.md), and [lodging](lodging.md).
 
 ## Credential
 
@@ -60,7 +61,7 @@ project one by one:
 | API | Origin | Tools |
 | --- | --- | --- |
 | My Business Account Management API | `https://mybusinessaccountmanagement.googleapis.com` | [accounts](accounts.md) |
-| My Business Business Information API | `https://mybusinessbusinessinformation.googleapis.com` | [locations](locations.md) |
+| My Business Business Information API | `https://mybusinessbusinessinformation.googleapis.com` | [locations](locations.md), [categories](categories.md), [chains](chains.md), [Google locations](google-locations.md) |
 | Business Profile Performance API | `https://businessprofileperformance.googleapis.com` | [performance](performance.md) |
 | My Business Lodging API | `https://mybusinesslodging.googleapis.com` | [lodging](lodging.md) |
 
@@ -100,6 +101,11 @@ The proof of `locations.get` and of the performance tools reads the location lis
 only, 100 at a time, until it finds the location. It reads at most 2000 locations; a location not found by then is refused like one outside
 the target. The time between the proof and the read is a limit of the proof.
 
+The tools of [categories](categories.md), [chains](chains.md), and [Google locations](google-locations.md) read
+Google's reference data and the locations that exist on Google. They name no account or location of the
+connection, so every connection offers them, whatever its target, and the target does not narrow their
+results. They return no data of the user, but a Google location search can name businesses of other people.
+
 A location names no account in Google's answer, so a location target offers no account tool and cannot tell
 which account the location belongs to.
 
@@ -108,7 +114,7 @@ which account the location belongs to.
 Requests of one OAuth client are spaced by at least 200 ms within a process, which is the 300 requests per
 minute of an approved project. Google counts the quota per project, shared by every user of the client. On a
 `429` the next request of the client waits one second, or the seconds of `Retry-After` up to one minute. The
-failed request is not repeated, and a missing `Retry-After` never leads to a retry. The calls cost nothing.
+failed request is not repeated, and a missing `Retry-After` never leads to a retry. The calls cost nothing. The reference tools count against the same quota.
 
 ## Results
 
@@ -180,6 +186,10 @@ Not verified:
   do, and whether Google answers an unset boolean without the field. Qatlas sends the paths as given and compares
   `previous_values` with exactly what Google answers.
 - The exact form Google expects for several sort fields; Qatlas joins them with a comma.
+- The exact form of chain IDs and category IDs. Qatlas accepts `chains/` with letters, digits, hyphens, and
+  underscores, and `categories/gcid:` with lower-case letters, digits, and underscores, and refuses anything
+  else before a request.
+- How many names `categories.batch-get` accepts; Qatlas allows 50.
 - Which classification Google gives `business.manage` when it verifies an OAuth app.
 - Whether a change with `validate_only` counts against the 10 changes per minute; Qatlas counts it.
 - The format of an admin ID; Qatlas accepts up to 64 letters, digits, `_`, and `-`.

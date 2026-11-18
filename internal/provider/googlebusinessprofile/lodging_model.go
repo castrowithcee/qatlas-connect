@@ -269,7 +269,7 @@ func check(f field, raw any, path string) error {
 			return bad("a number from 0 to " + strconv.FormatFloat(maxFloat32, 'g', -1, 64))
 		}
 	case kindText:
-		return checkText(f, raw, path)
+		return checkLodgingText(f, raw, path)
 	case kindTime:
 		v, ok := raw.(string)
 		if _, err := time.Parse(time.RFC3339Nano, v); !ok || err != nil || utf8.RuneCountInString(v) > f.runes {
@@ -288,7 +288,7 @@ func check(f field, raw any, path string) error {
 				if err := checkObject(f.members, entry, entryPath); err != nil {
 					return err
 				}
-			} else if err := checkText(field{kind: kindText, runes: f.runes}, entry, entryPath); err != nil {
+			} else if err := checkLodgingText(field{kind: kindText, runes: f.runes}, entry, entryPath); err != nil {
 				return err
 			}
 		}
@@ -296,7 +296,7 @@ func check(f field, raw any, path string) error {
 	return nil
 }
 
-func checkText(f field, raw any, path string) error {
+func checkLodgingText(f field, raw any, path string) error {
 	v, ok := raw.(string)
 	switch {
 	case !ok || strings.TrimSpace(v) == "" || utf8.RuneCountInString(v) > f.runes ||
