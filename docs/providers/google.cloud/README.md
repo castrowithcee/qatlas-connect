@@ -1,6 +1,6 @@
 ---
 description: >
-  Describes the Google Cloud provider: the token credential and its fixed origins, the targets (organization, folder, project, billing account) and what they reach, the read and IAM profiles, the search tools with their structured filters, cursors, and per-row target check, the Cloud Storage reads of buckets, notifications, managed folders, and HMAC key metadata, the IAM role and permission reads, the service account and key metadata reads, the Google error form and its classes, long-running operations, rate spacing, the connection test, and the limits of what is verified.
+  Describes the Google Cloud provider: the token credential and its fixed origins, the targets (organization, folder, project, billing account) and what they reach, the read and IAM profiles, the search tools with their structured filters, cursors, and per-row target check, the Cloud Storage reads of buckets, notifications, managed folders, and HMAC key metadata, the Cloud Billing reads of billing accounts and of the billing account of a project, the IAM role and permission reads, the service account and key metadata reads, the Google error form and its classes, long-running operations, rate spacing, the connection test, and the limits of what is verified.
 type: knowledge
 edit: shared
 created: 2026-11-16
@@ -50,9 +50,9 @@ either way.
 
 A billing account is a flat target of its own. Billing accounts belong to no organization, folder, or
 project, so a connection reaches one only if it names it: a connection bound to organizations, folders, or
-projects reaches no billing account, and an unbound connection reaches none either. The tools of this package
-use no billing account, and a connection bound to billing accounts alone offers none of them. The billing
-tools of a later package read the target.
+projects reaches no billing account, and an unbound connection reaches none either. Only the billing tools read
+the target (see [Billing](billing.md)); a connection bound to billing accounts alone offers none of the other
+tools.
 
 Three rules decide which tool a binding reaches. They are separate on purpose:
 
@@ -69,6 +69,10 @@ Three rules decide which tool a binding reaches. They are separate on purpose:
 - **Storage tools** (`buckets.*`, `bucket-access-controls.list`, `notifications.list`, `managed-folders.list`, `hmac-keys.*`, `objects.*`, `object-access-controls.list`): the connection is unbound or names an
   organization, a folder, or a project. A bucket is bound to the targets by the project number of one read of the
   bucket, see [Buckets](buckets.md) and [Objects](objects.md).
+- **Billing account tools** (`billing-accounts.list`, `billing-accounts.get`): the binding must name a billing
+  account, and the rows are limited to the accounts it names. `billing-accounts.list-projects` also needs an
+  organization, a folder, or a project among the targets, which limit its rows. `project-billing-info.get` is a
+  resource tool: it needs no billing account.
 - **DNS tools** (`managed-zones.*`, `record-sets.*`, `changes.*`, `dns-keys.*`): the connection is unbound or names an organization, a folder, or a
   project. The project in the path binds the zone, see [DNS managed zones](managed-zones.md).
 - **Tools without a resource** (`operations.get`): an operation belongs to no folder or project that Qatlas
@@ -81,7 +85,7 @@ secret is read and before any request.
 ## Profiles
 
 The profile `read` is the recommended one. It holds every tool that needs no more than a read scope,
-`cloud-platform.read-only` or `compute.readonly`: `google.cloud.organizations.search`, `google.cloud.folders.search`,
+`cloud-platform.read-only`, `compute.readonly`, `devstorage.read_only`, or `cloud-billing.readonly`: `google.cloud.organizations.search`, `google.cloud.folders.search`,
 `google.cloud.projects.search`, `google.cloud.projects.get`, `google.cloud.operations.get`,
 `google.cloud.organizations.get`, `google.cloud.folders.get`, `google.cloud.folders.list`,
 `google.cloud.projects.list`, `google.cloud.services.list`, `google.cloud.services.get`,
@@ -98,7 +102,9 @@ The profile `read` is the recommended one. It holds every tool that needs no mor
 `google.cloud.buckets.list`, `google.cloud.buckets.get`, `google.cloud.notifications.list`,
 `google.cloud.managed-folders.list`, `google.cloud.hmac-keys.list`, `google.cloud.hmac-keys.get`,
 `google.cloud.objects.list`, `google.cloud.objects.get`, and `google.cloud.objects.download`, which ask for
-`devstorage.read_only`. `objects.download` returns the content of an object, up to a fixed limit, as untrusted data
+`devstorage.read_only`, and the Billing tools `google.cloud.billing-accounts.list`, `google.cloud.billing-accounts.get`,
+`google.cloud.billing-accounts.list-projects`, and `google.cloud.project-billing-info.get`, which ask for
+`cloud-billing.readonly`. `objects.download` returns the content of an object, up to a fixed limit, as untrusted data
 (see [Objects](objects.md)). The DNS tools `google.cloud.managed-zones.list`, `google.cloud.managed-zones.get`,
 `google.cloud.record-sets.list`, `google.cloud.record-sets.get`, `google.cloud.changes.list`,
 `google.cloud.changes.get`, `google.cloud.dns-keys.list`, and `google.cloud.dns-keys.get` ask for `ndev.clouddns.readonly`. The two
@@ -232,6 +238,8 @@ on [IAM bindings](iam-bindings.md).
 - [Objects](objects.md): the objects of a Cloud Storage bucket, their metadata, and their content up to a fixed limit as
   untrusted data, bound to the targets through the bucket.
 - [Object access controls](object-access-controls.md): the access control list of a Cloud Storage object.
+- [Billing](billing.md): the billing accounts a connection names, their projects, and the billing account of a
+  project, read only.
 - [DNS managed zones](managed-zones.md): the Cloud DNS managed zones of a project, one and all, with the rules
   every DNS tool follows.
 - [DNS record sets](record-sets.md): the record sets of a Cloud DNS managed zone, one and all, with routing policies.

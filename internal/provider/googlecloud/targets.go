@@ -128,6 +128,15 @@ func (a allowlist) reachesFolders() bool {
 // no organization, folder, or project, so even an unbound connection does not reach one.
 func (a allowlist) allowsBillingAccount(id string) bool { return a.has(kindBilling, id) }
 
+// reachesBillingAccounts is the rule of the tools of billing accounts: the binding must name a billing account.
+func (a allowlist) reachesBillingAccounts() bool { return a.hasKind(kindBilling) }
+
+// reachesBilledProjects is the rule of the list of the projects of a billing account: the binding names a
+// billing account and, to bound the rows, an organization, a folder, or a project.
+func (a allowlist) reachesBilledProjects() bool {
+	return a.hasKind(kindBilling) && a.hasKind(kindOrganization, kindFolder, kindProject)
+}
+
 // refuseOutside is the error of a resource that lies outside the targets. It never names the resource.
 func refuseOutside(what string) error {
 	return badRequest(what + " is outside the targets of this connection")
@@ -259,7 +268,16 @@ func targetReaches(tool string, targets []string) (bool, []string) {
 		return true, nil
 	}
 	switch tool {
-	case projectsGetID, projectsSearchID, servicesListID, servicesGetID, servicesBatchGetID, iamPoliciesGetID,
+	case billingAccountsListID, billingAccountsGetID:
+		if !list.reachesBillingAccounts() {
+			return false, []string{"billingAccounts/BILLING_ACCOUNT"}
+		}
+	case billingAccountsListProjectsID:
+		if !list.reachesBilledProjects() {
+			return false, []string{"billingAccounts/BILLING_ACCOUNT with organizations/ORGANIZATION, " +
+				"folders/FOLDER, or projects/PROJECT"}
+		}
+	case projectsGetID, projectBillingInfoGetID, projectsSearchID, servicesListID, servicesGetID, servicesBatchGetID, iamPoliciesGetID,
 		iamPermissionsTestID, denyPoliciesListID, denyPoliciesGetID, serviceAccountsListID, serviceAccountsGetID,
 		serviceAccountKeysListID, serviceAccountKeysGetID, iamBindingsAddID, iamBindingsRemoveID, iamBindingsChangeID:
 		if !list.reachesResources() {

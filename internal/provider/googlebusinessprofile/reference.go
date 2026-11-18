@@ -104,7 +104,7 @@ func checkView(given string) error {
 }
 
 // postJSON sends one POST with a JSON body to a fixed path and decodes the JSON object answer into out. It is
-// used for a search whose Google method takes a body; like get it sends once, and the token source renews a
+// used for a search or a report whose Google method takes a body; like get it sends once, and the token source renews a
 // rejected token once.
 func (c *client) postJSON(ctx context.Context, op, tool string, r request, body, out any) error {
 	payload, err := json.Marshal(body)

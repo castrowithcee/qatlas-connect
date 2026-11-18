@@ -58,13 +58,17 @@ var toolScopes = map[string][]string{
 	chainsSearchID:          {scopeManage},
 	googleLocationsSearchID: {scopeManage},
 
-	accountAdminsDeleteID:  {scopeManage},
-	locationAdminsDeleteID: {scopeManage},
-	invitationsListID:      {scopeManage},
-	invitationsDeclineID:   {scopeManage},
-	lodgingGetID:           {scopeManage},
-	lodgingGoogleUpdatedID: {scopeManage},
-	lodgingUpdateID:        {scopeManage},
+	accountAdminsDeleteID:        {scopeManage},
+	locationAdminsDeleteID:       {scopeManage},
+	invitationsListID:            {scopeManage},
+	invitationsDeclineID:         {scopeManage},
+	lodgingGetID:                 {scopeManage},
+	lodgingGoogleUpdatedID:       {scopeManage},
+	lodgingUpdateID:              {scopeManage},
+	verificationsListID:          {scopeManage},
+	verificationsFetchOptionsID:  {scopeManage},
+	verificationsMerchantStateID: {scopeManage},
+	notificationsGetID:           {scopeManage},
 }
 
 // ClassAccessNotApproved is the outcome of a Cloud project that Google has not approved for the Business
@@ -127,7 +131,8 @@ var readTools = []string{accountsListID, accountsGetID, locationsListID, locatio
 	accountAdminsListID, locationAdminsListID,
 	performanceGetDailyID, performanceFetchDailyID, performanceKeywordsID,
 	categoriesListID, categoriesBatchGetID, chainsGetID, chainsSearchID, googleLocationsSearchID,
-	invitationsListID, lodgingGetID, lodgingGoogleUpdatedID}
+	invitationsListID, lodgingGetID, lodgingGoogleUpdatedID,
+	verificationsListID, verificationsFetchOptionsID, verificationsMerchantStateID, notificationsGetID}
 
 // writeTools are the tools of the profile write.
 var writeTools = []string{accountAdminsUpdateID, locationAdminsUpdateID, accountsUpdateID,
@@ -150,7 +155,8 @@ func Register(reg *capability.Registry) error {
 				"and the categories, chains, and Google locations of Google's reference data, and changes nothing; " +
 				"Google offers only the scope business.manage, which also allows changes, so " +
 				"the token may change what its account may, although no tool of this profile changes anything; " +
-				"the admin lists name other people and the invitation list names the targets of invitations, which is " +
+				"the admin lists name other people, the invitation list names the targets of invitations, and the " +
+				"verification options show masked postal addresses, phone numbers, and email addresses, which is " +
 				"personal data",
 			Tools: readTools,
 		}, {
@@ -203,5 +209,9 @@ func Register(reg *capability.Registry) error {
 		capability.Operation{Descriptor: lodgingGoogleUpdated, Handler: handleLodgingGoogleUpdated},
 		capability.Operation{Descriptor: lodgingUpdate, Handler: handleLodgingUpdate,
 			ConfirmationSummary: lodgingUpdateSummary},
+		capability.Operation{Descriptor: verificationsList, Handler: handleVerificationsList},
+		capability.Operation{Descriptor: verificationsFetchOptions, Handler: handleVerificationsFetchOptions},
+		capability.Operation{Descriptor: verificationsMerchantState, Handler: handleVerificationsMerchantState},
+		capability.Operation{Descriptor: notificationsGet, Handler: handleNotificationsGet},
 	)
 }

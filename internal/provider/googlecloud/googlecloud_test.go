@@ -110,12 +110,16 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 				wantScope = scopeStorageFullControl
 			}
 		}
+		if strings.Contains(tool.ID, "billing") {
+			// cloudbilling v1 lists cloud-billing.readonly for the four reads.
+			wantScope = scopeBillingReadOnly
+		}
 		if scopes := metadata.Token.Scopes[tool.ID]; !slices.Equal(scopes, []string{wantScope}) {
 			t.Errorf("%s scopes = %v", tool.ID, scopes)
 		}
 	}
 	if want := []string{"google.cloud.addresses.delete", "google.cloud.addresses.get", "google.cloud.addresses.list", "google.cloud.api-keys.delete", "google.cloud.api-keys.get", "google.cloud.api-keys.list",
-		"google.cloud.api-keys.undelete", "google.cloud.bucket-access-controls.list", "google.cloud.buckets.get", "google.cloud.buckets.get-iam-policy", "google.cloud.buckets.list", "google.cloud.changes.get", "google.cloud.changes.list", "google.cloud.compute-operations.get", "google.cloud.compute-operations.list", "google.cloud.disks.aggregated-list", "google.cloud.disks.create-snapshot", "google.cloud.disks.delete", "google.cloud.disks.get", "google.cloud.disks.insert", "google.cloud.disks.list", "google.cloud.disks.resize", "google.cloud.dns-keys.get", "google.cloud.dns-keys.list", "google.cloud.firewalls.delete", "google.cloud.firewalls.get", "google.cloud.firewalls.list",
+		"google.cloud.api-keys.undelete", "google.cloud.billing-accounts.get", "google.cloud.billing-accounts.list", "google.cloud.billing-accounts.list-projects", "google.cloud.bucket-access-controls.list", "google.cloud.buckets.get", "google.cloud.buckets.get-iam-policy", "google.cloud.buckets.list", "google.cloud.changes.get", "google.cloud.changes.list", "google.cloud.compute-operations.get", "google.cloud.compute-operations.list", "google.cloud.disks.aggregated-list", "google.cloud.disks.create-snapshot", "google.cloud.disks.delete", "google.cloud.disks.get", "google.cloud.disks.insert", "google.cloud.disks.list", "google.cloud.disks.resize", "google.cloud.dns-keys.get", "google.cloud.dns-keys.list", "google.cloud.firewalls.delete", "google.cloud.firewalls.get", "google.cloud.firewalls.list",
 		"google.cloud.folders.get", "google.cloud.folders.list", "google.cloud.folders.search",
 		"google.cloud.hmac-keys.get", "google.cloud.hmac-keys.list",
 		"google.cloud.iam-bindings.add-member", "google.cloud.iam-bindings.change-role",
@@ -129,7 +133,7 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 		"google.cloud.machine-types.list", "google.cloud.managed-folders.list", "google.cloud.managed-zones.get", "google.cloud.managed-zones.list",
 		"google.cloud.networks.get", "google.cloud.networks.list", "google.cloud.notifications.list", "google.cloud.object-access-controls.list",
 		"google.cloud.objects.download", "google.cloud.objects.get", "google.cloud.objects.list", "google.cloud.operations.get", "google.cloud.organizations.get",
-		"google.cloud.organizations.search", "google.cloud.projects.get", "google.cloud.projects.list",
+		"google.cloud.organizations.search", "google.cloud.project-billing-info.get", "google.cloud.projects.get", "google.cloud.projects.list",
 		"google.cloud.projects.search", "google.cloud.quota-infos.get", "google.cloud.quota-infos.list",
 		"google.cloud.quota-preferences.get", "google.cloud.quota-preferences.list", "google.cloud.record-sets.get", "google.cloud.record-sets.list", "google.cloud.regions.list", "google.cloud.service-account-keys.delete",
 		"google.cloud.service-account-keys.disable", "google.cloud.service-account-keys.enable",
@@ -143,13 +147,13 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 		"google.cloud.vpn-tunnels.delete", "google.cloud.vpn-tunnels.get", "google.cloud.vpn-tunnels.list", "google.cloud.zones.list"}; !slices.Equal(ids, want) {
 		t.Errorf("tools = %v, want %v", ids, want)
 	}
-	if profile, found := metadata.RecommendedProfile(); !found || profile.ID != "read" || len(profile.Tools) != 58 {
+	if profile, found := metadata.RecommendedProfile(); !found || profile.ID != "read" || len(profile.Tools) != 62 {
 		t.Errorf("profile = %+v", profile)
 	}
 	// The recommended profile asks only for read scopes, an explicit allow-list; a tool that needs the broad
 	// cloud-platform scope belongs to read-iam, which holds every read tool, or to a changing profile.
 	readScopes := [][]string{{"https://www.googleapis.com/auth/cloud-platform.read-only"},
-		{"https://www.googleapis.com/auth/compute.readonly"}, {scopeStorageReadOnly}, {scopeDNSReadOnly}}
+		{"https://www.googleapis.com/auth/compute.readonly"}, {scopeStorageReadOnly}, {scopeBillingReadOnly}, {scopeDNSReadOnly}}
 	for _, profile := range metadata.Profiles {
 		switch profile.ID {
 		case "read":

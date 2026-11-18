@@ -32,6 +32,11 @@ const scopeStorageReadOnly = "https://www.googleapis.com/auth/devstorage.read_on
 // buckets.getIamPolicy and bucketAccessControls.list, next to cloud-platform; neither lists a read-only variant.
 const scopeStorageFullControl = "https://www.googleapis.com/auth/devstorage.full_control"
 
+// scopeBillingReadOnly is the smallest scope the discovery document of cloudbilling v1 lists for
+// billingAccounts.list, billingAccounts.get, billingAccounts.projects.list, and projects.getBillingInfo (next to
+// cloud-billing and cloud-platform).
+const scopeBillingReadOnly = "https://www.googleapis.com/auth/cloud-billing.readonly"
+
 // scopeDNSReadOnly is the smallest scope the discovery document of dns v1 lists for managedZones.list and get and
 // resourceRecordSets.list and get, next to cloud-platform, cloud-platform.read-only, and ndev.clouddns.readwrite.
 const scopeDNSReadOnly = "https://www.googleapis.com/auth/ndev.clouddns.readonly"
@@ -137,6 +142,11 @@ var tokenMetadata = config.TokenMetadata{Scopes: map[string][]string{
 	objectsGetID:               {scopeStorageReadOnly},
 	objectsDownloadID:          {scopeStorageReadOnly},
 	objectAccessControlsListID: {scopeStorageFullControl},
+	// cloudbilling v1 lists cloud-billing.readonly as the smallest scope for the four billing reads.
+	billingAccountsListID:         {scopeBillingReadOnly},
+	billingAccountsGetID:          {scopeBillingReadOnly},
+	billingAccountsListProjectsID: {scopeBillingReadOnly},
+	projectBillingInfoGetID:       {scopeBillingReadOnly},
 	// dns v1 lists ndev.clouddns.readonly as the smallest scope for the reads of zones and record sets.
 	managedZonesListID: {scopeDNSReadOnly},
 	managedZonesGetID:  {scopeDNSReadOnly},
