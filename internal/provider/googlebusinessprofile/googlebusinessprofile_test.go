@@ -258,10 +258,13 @@ func TestRegisterPublishesMetadataScopesAndProfile(t *testing.T) {
 	want := []string{
 		"google.business-profile.account-admins.list", "google.business-profile.account-admins.update",
 		"google.business-profile.accounts.get", "google.business-profile.accounts.list",
-		"google.business-profile.accounts.update", "google.business-profile.location-admins.list",
-		"google.business-profile.location-admins.update", "google.business-profile.locations.get",
-		"google.business-profile.locations.list", "google.business-profile.performance.fetch-daily-metrics",
-		"google.business-profile.performance.get-daily-metric", "google.business-profile.performance.list-search-keywords"}
+		"google.business-profile.accounts.update", "google.business-profile.categories.batch-get",
+		"google.business-profile.categories.list", "google.business-profile.chains.get",
+		"google.business-profile.chains.search", "google.business-profile.google-locations.search",
+		"google.business-profile.location-admins.list", "google.business-profile.location-admins.update",
+		"google.business-profile.locations.get", "google.business-profile.locations.list",
+		"google.business-profile.performance.fetch-daily-metrics", "google.business-profile.performance.get-daily-metric",
+		"google.business-profile.performance.list-search-keywords"}
 	want = append(want, "google.business-profile.notifications.get", "google.business-profile.verifications.fetch-options",
 		"google.business-profile.verifications.get-merchant-state", "google.business-profile.verifications.list")
 	slices.Sort(want)
@@ -269,7 +272,7 @@ func TestRegisterPublishesMetadataScopesAndProfile(t *testing.T) {
 		t.Errorf("tools = %v, want %v", ids, want)
 	}
 	profile, ok := metadata.RecommendedProfile()
-	if !ok || profile.ID != "read" || len(metadata.Profiles) != 2 || len(profile.Tools) != 13 ||
+	if !ok || profile.ID != "read" || len(metadata.Profiles) != 2 || len(profile.Tools) != 18 ||
 		!strings.Contains(profile.Description, "business.manage") {
 		t.Errorf("profiles = %+v", metadata.Profiles)
 	}
