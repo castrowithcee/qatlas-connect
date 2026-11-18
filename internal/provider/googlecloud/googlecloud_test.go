@@ -48,7 +48,7 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 			tool.ID == projectsPatchID, tool.ID == projectsMoveID, tool.ID == projectsUndeleteID,
 			tool.ID == foldersPatchID, tool.ID == foldersMoveID, tool.ID == foldersUndeleteID,
 			strings.Contains(tool.ID, ".iam-bindings."), tool.ID == instancesStartID, tool.ID == instancesStopID,
-			tool.ID == instancesResetID, tool.ID == instancesSetMachineTypeID, tool.ID == disksResizeID, tool.ID == objectsRestoreID,
+			tool.ID == instancesResetID, tool.ID == instancesSetMachineTypeID, tool.ID == disksResizeID, tool.ID == objectsRestoreID, tool.ID == objectsRestoreOverwriteID,
 			tool.ID == objectsPatchID, tool.ID == hmacKeysDeactivateID:
 			wantEffect = config.EffectUpdate
 		case tool.ID == serviceAccountKeysDeleteID, tool.ID == serviceAccountsDeleteID, tool.ID == apiKeysDeleteID,
@@ -134,7 +134,7 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 			switch tool.ID {
 			case objectsDeleteID, bucketsDeleteID, notificationsDeleteID:
 				wantScope = scopeStorageReadWrite
-			case objectsRestoreID, hmacKeysDeactivateID, hmacKeysDeleteID:
+			case objectsRestoreID, objectsRestoreOverwriteID, hmacKeysDeactivateID, hmacKeysDeleteID:
 				wantScope = scopeStorageFullControl
 			}
 		}
@@ -168,7 +168,7 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 		"google.cloud.networks.get", "google.cloud.networks.list", "google.cloud.notifications.delete", "google.cloud.notifications.list",
 		"google.cloud.object-access-controls.list", "google.cloud.objects.compose", "google.cloud.objects.copy", "google.cloud.objects.delete",
 		"google.cloud.objects.download", "google.cloud.objects.get", "google.cloud.objects.insert", "google.cloud.objects.list",
-		"google.cloud.objects.patch", "google.cloud.objects.restore", "google.cloud.operations.get", "google.cloud.organizations.get",
+		"google.cloud.objects.patch", "google.cloud.objects.restore", "google.cloud.objects.restore-overwrite", "google.cloud.operations.get", "google.cloud.organizations.get",
 		"google.cloud.organizations.search", "google.cloud.policies.get", "google.cloud.policies.list", "google.cloud.project-billing-info.get",
 		"google.cloud.projects.create", "google.cloud.projects.delete", "google.cloud.projects.get", "google.cloud.projects.list",
 		"google.cloud.projects.move", "google.cloud.projects.patch", "google.cloud.projects.search", "google.cloud.projects.undelete",

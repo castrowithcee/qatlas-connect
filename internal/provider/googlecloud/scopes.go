@@ -155,9 +155,10 @@ var tokenMetadata = config.TokenMetadata{Scopes: map[string][]string{
 	objectsPatchID:   {scopeStorageFullControl},
 	// storage v1 lists devstorage.read_write for objects.delete and buckets.delete, and only devstorage.full_control
 	// and cloud-platform for objects.restore.
-	objectsDeleteID:  {scopeStorageReadWrite},
-	objectsRestoreID: {scopeStorageFullControl},
-	bucketsDeleteID:  {scopeStorageReadWrite},
+	objectsDeleteID:           {scopeStorageReadWrite},
+	objectsRestoreID:          {scopeStorageFullControl},
+	objectsRestoreOverwriteID: {scopeStorageFullControl},
+	bucketsDeleteID:           {scopeStorageReadWrite},
 	// cloudbilling v1 lists cloud-billing.readonly as the smallest scope for the four billing reads.
 	billingAccountsListID:         {scopeBillingReadOnly},
 	billingAccountsGetID:          {scopeBillingReadOnly},

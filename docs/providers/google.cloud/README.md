@@ -36,7 +36,7 @@ smallest scope the discovery document of each method lists: `cloud-platform.read
 and `cloud-platform` for the IAM and quota tools, because their discovery documents list no narrower scope
 (Google offers no read-only variant for these methods, see [IAM](iam.md) and [Quotas](quotas.md)). Only the tools of the profiles
 `service-accounts`, `service-accounts-revoke`, `api-keys-revoke`, `iam-bindings`, `storage-delete`, `storage-objects-write`, `storage-revoke`, `compute-network-delete`, `compute-lifecycle`, `compute-instances-create`, `compute-disks`, `compute-images-delete`, `services`, `projects-manage`, and `folders-manage` and the tools
-`service-accounts.delete`, `services.disable`, `instances.delete`, `disks.delete`, `buckets.delete`, `projects.delete`, and `folders.delete`, which a `tools` list must name, change anything, each with a confirmation, whatever the scope allows. The access token travels in the
+`service-accounts.delete`, `services.disable`, `instances.delete`, `disks.delete`, `buckets.delete`, `objects.restore-overwrite`, `projects.delete`, and `folders.delete`, which a `tools` list must name, change anything, each with a confirmation, whatever the scope allows. The access token travels in the
 `Authorization` header only, is never an argument or part of a result, and is masked in every output. A 401
 renews the token once, and nothing else repeats a request.
 
@@ -156,8 +156,8 @@ asks for `devstorage.read_write`. Google lists only `devstorage.full_control` an
 `objects.restore`, so the profile asks for `devstorage.full_control`, and the token may change what its account may
 in Cloud Storage. The profile needs the effects `delete` and `update` for the two tools and `read` for
 `projects.get`, is not recommended, and every call needs the confirmation of a person. It does not hold
-`google.cloud.buckets.delete`: that tool is listed-only and only a `tools` list that names it exactly releases it.
-See [Objects](objects.md#deleting-and-restoring) and [Buckets](buckets.md#deleting).
+`google.cloud.buckets.delete` and `google.cloud.objects.restore-overwrite`: those tools are listed-only and only a
+`tools` list that names one exactly releases it. See [Objects](objects.md#deleting-and-restoring) and [Buckets](buckets.md#deleting).
 
 The profile `compute-network-delete` holds `google.cloud.firewalls.delete`, `google.cloud.addresses.delete`,
 `google.cloud.vpn-tunnels.delete`, `google.cloud.vpn-gateways.delete`, and `google.cloud.projects.get`, which proves
