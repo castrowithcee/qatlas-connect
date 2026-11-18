@@ -16,7 +16,7 @@ roles and the roles and permissions of a resource from IAM, and changes nothing 
 `service-accounts-revoke`, which disables, enables, and deletes their keys, a `tools` list that names
 `service-accounts.delete`, which deletes a service account, the profile `api-keys-revoke`, which deletes API
 keys and restores deleted ones, the profile `iam-bindings`, which changes single
-IAM bindings, the profile `compute-network-delete`, which deletes firewall rules, reserved IP addresses, VPN tunnels, and HA VPN gateways, the profile `compute-lifecycle`, which starts, stops, resets, and changes the machine type of Compute instances, the profile `compute-instances-create`, which creates Compute instances, a `tools` list that names `instances.delete`, which deletes one, the profile `compute-disks`, which creates, grows, and snapshots disks, the profile `compute-images-delete`, which creates images and deletes disk snapshots and images, a `tools` list that names `disks.delete`, which deletes a disk, the profile `services`, which enables Google APIs, or a `tools` list that names `services.disable`,
+IAM bindings, the profile `compute-network-delete`, which deletes firewall rules, reserved IP addresses, VPN tunnels, and HA VPN gateways, the profile `compute-lifecycle`, which starts, stops, resets, and changes the machine type of Compute instances, the profile `compute-instances-create`, which creates Compute instances, a `tools` list that names `instances.delete`, which deletes one, the profile `compute-disks`, which creates, grows, and snapshots disks, the profile `compute-images-delete`, which creates images and deletes disk snapshots and images, a `tools` list that names `disks.delete`, which deletes a disk, the profile `services`, which enables Google APIs, the profile `projects-manage`, which creates, changes, moves, and restores projects, or a `tools` list that names `services.disable`,
 which disables one, each with the confirmation of a person. Tools, targets, errors, and limits are described in the [Google Cloud provider](README.md).
 
 ## What you need
@@ -34,9 +34,13 @@ which disables one, each with the confirmation of a person. Tools, targets, erro
 
 The token needs the rights of its person or service account in Google Cloud. With the recommended profile
 `read` Qatlas asks only for the read scopes `cloud-platform.read-only` and, for the Compute tools,
-`compute.readonly`. The profile `read-iam` adds the IAM tools and
+`compute.readonly`, for the Storage tools `devstorage.read_only`, and for the Billing tools `cloud-billing.readonly`.
+A connection saved earlier keeps the tools it lists and so the scopes it asked for: a new tool joins a connection
+only when you add it, and the scope that tool needs is then missing from the stored consent. Run
+`qconnect credential consent` again for the credential to give the consent that includes it; until then the tool
+ends as `scope-missing` and the other tools keep working. The profile `read-iam` adds the IAM tools and
 with them the broad scope `cloud-platform`, because Google lists no narrower scope for them. Only the tools of the profiles `service-accounts`,
-`service-accounts-revoke`, `api-keys-revoke`, `iam-bindings`, `compute-network-delete`, `compute-lifecycle`, `compute-instances-create`, `compute-disks`, `compute-images-delete`, and `services` and the listed-only `service-accounts.delete`, `instances.delete`, `disks.delete`, and
+`service-accounts-revoke`, `api-keys-revoke`, `iam-bindings`, `compute-network-delete`, `compute-lifecycle`, `compute-instances-create`, `compute-disks`, `compute-images-delete`, `services`, and `projects-manage` and the listed-only `service-accounts.delete`, `instances.delete`, `disks.delete`, and
 `services.disable` change anything, so
 without them even a broad role cannot change anything through Qatlas. Grant
 the account a viewer role at the highest level you want it to see, for example the Organization Viewer, Folder
@@ -61,6 +65,7 @@ Viewer, or Project Viewer role, or any role with these permissions:
 | `buckets.list`, `buckets.get` | `storage.buckets.list` or `storage.buckets.get` on the project or bucket; the **Cloud Storage JSON API** must be enabled in the project, and the tools ask for the read scope `devstorage.read_only` |
 | `notifications.list`, `managed-folders.list` | `storage.buckets.get` for the proof of the project of the bucket, and `storage.buckets.get` for `notifications.list` itself, `storage.managedFolders.list` for `managed-folders.list`; the **Cloud Storage JSON API** must be enabled in the project, and the tools ask for the read scope `devstorage.read_only` |
 | `hmac-keys.list`, `hmac-keys.get` | `storage.hmacKeys.list` or `storage.hmacKeys.get` on the project, and `resourcemanager.projects.get` for the proof of the project (the tools read it with `projects.get`, so the connection needs that tool and its scope `cloud-platform.read-only` too); the tools ask for the read scope `devstorage.read_only` |
+| `billing-accounts.list`, `billing-accounts.get`, `billing-accounts.list-projects`, `project-billing-info.get` | a viewer role on the billing account (`billing.resourceAssociations.list` for the project list) and `resourcemanager.projects.get` on a project for its billing information; the **Cloud Billing API** (`cloudbilling.googleapis.com`) must be enabled, and the tools ask for the read scope `cloud-billing.readonly`; see [Billing](billing.md) |
 | `managed-zones.list`, `managed-zones.get`, `record-sets.list`, `record-sets.get` | `dns.managedZones.list`, `dns.managedZones.get`, `dns.resourceRecordSets.list`, or `dns.resourceRecordSets.get` on the project (the DNS Reader role has them), and `resourcemanager.projects.get` for the proof of the project where the targets name an organization or a folder (the tools read it with `projects.get`, so the connection needs that tool and its scope `cloud-platform.read-only` too); the **Cloud DNS API** must be enabled in the project, and the tools ask for the read scope `ndev.clouddns.readonly` |
 | `buckets.get-iam-policy`, `bucket-access-controls.list` | `storage.buckets.getIamPolicy` on the bucket, and `storage.buckets.get` for the proof of its project; the tools ask for `devstorage.full_control`, the narrowest scope Google lists for them, and belong to the profile `read-storage-access` |
 | `objects.list`, `objects.get`, `objects.download` | `storage.objects.list` or `storage.objects.get` on the bucket, and `storage.buckets.get` for the proof of its project (the Storage Object Viewer role has the object permissions); the **Cloud Storage JSON API** must be enabled in the project, and the tools ask for the read scope `devstorage.read_only`. Reading and the data that leaves Google Cloud are billed |
@@ -83,6 +88,7 @@ Viewer, or Project Viewer role, or any role with these permissions:
 | `service-account-keys.disable`, `service-account-keys.enable`, `service-account-keys.delete` | `iam.serviceAccountKeys.disable`, `iam.serviceAccountKeys.enable`, or `iam.serviceAccountKeys.delete` on the project |
 | `service-accounts.delete` | `iam.serviceAccounts.delete` on the project |
 | `api-keys.list`, `api-keys.get`, `api-keys.delete`, `api-keys.undelete` | `apikeys.keys.list`, `apikeys.keys.get`, `apikeys.keys.delete`, or `apikeys.keys.undelete` on the project (the API Keys Admin role has them); where the targets do not decide, the project is read first (`resourcemanager.projects.get`) |
+| `projects.create`, `projects.patch`, `projects.move`, `projects.undelete` | `resourcemanager.projects.create` on the parent, `resourcemanager.projects.update` on the project, `resourcemanager.projects.move` on the project and the new parent, or `resourcemanager.projects.undelete` on the project; the tools ask for `cloud-platform`; `patch`, `move`, and `undelete` read the project first (`resourcemanager.projects.get`), and where the targets do not decide, the folders above it or above a parent are read (`resourcemanager.folders.get`) |
 | `services.enable`, `services.batch-enable`, `services.disable` | `serviceusage.services.enable` or `serviceusage.services.disable` on the project; the tools ask for `cloud-platform` |
 
 The IAM tools ask for the scope `cloud-platform`, because Google lists no smaller one for service accounts, folders'
@@ -110,6 +116,10 @@ Which targets a tool needs:
 
 - Searching projects and reading a project works without targets or with any organization, folder, or project.
   Searching folders needs no targets or an organization or folder.
+- The billing account tools work only on a connection that names a billing account among its targets, and
+  `billing-accounts.get` and `billing-accounts.list-projects` need that exact account. Listing the projects of an
+  account also needs an organization, a folder, or a project among the targets. Reading the billing information
+  of a project works as reading a project does and needs no billing account.
 - Searching organizations works only on a connection that names an organization. A connection without
   targets cannot search organizations, and the search returns only the organizations the targets name.
   Reading one organization needs that exact organization among the targets.

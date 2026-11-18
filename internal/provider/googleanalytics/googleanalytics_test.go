@@ -74,7 +74,9 @@ var toolEffects = map[string]config.Effect{accountsUpdateID: config.EffectUpdate
 	bigQueryLinksDeleteID: config.EffectDelete, adsenseLinksDeleteID: config.EffectDelete,
 	searchAdsLinksDeleteID: config.EffectDelete, dv360LinksDeleteID: config.EffectDelete,
 	dv360ProposalsCancelID: config.EffectDelete, dv360ProposalsDeleteID: config.EffectDelete,
-	rollupLinksDeleteID: config.EffectDelete}
+	rollupLinksDeleteID:    config.EffectDelete,
+	accessBindingsUpdateID: config.EffectUpdate, accessBindingsDeleteID: config.EffectDelete,
+	accessBindingsBatchDeleteID: config.EffectDelete}
 
 func effectOf(id string) config.Effect {
 	if effect, ok := toolEffects[id]; ok {
@@ -118,6 +120,8 @@ func TestRegisterPublishesMetadataScopesAndConsent(t *testing.T) {
 		accessAccountID: {scopeReadOnly}, accessPropertyID: {scopeReadOnly},
 		rollupLinksListID: {scopeReadOnly}, rollupLinksGetID: {scopeReadOnly},
 		accessBindingsListID: {scopeUsersReadOnly}, accessBindingsGetID: {scopeUsersReadOnly},
+		accessBindingsBatchGetID: {scopeUsersReadOnly}, accessBindingsUpdateID: {scopeUsers},
+		accessBindingsDeleteID: {scopeUsers}, accessBindingsBatchDeleteID: {scopeUsers},
 		dataRetentionGetID: {scopeReadOnly}, dataRetentionUpdateID: {scopeEdit}, googleSignalsGetID: {scopeReadOnly},
 		googleSignalsUpdateID: {scopeEdit}, annotationsListID: {scopeReadOnly}, annotationsGetID: {scopeReadOnly},
 		annotationsCreateID: {scopeEdit}, annotationsUpdateID: {scopeEdit}, annotationsDeleteID: {scopeEdit},
@@ -203,7 +207,9 @@ func TestRegisterPublishesMetadataScopesAndConsent(t *testing.T) {
 		"google.analytics.bigquery-links.delete", "google.analytics.adsense-links.delete",
 		"google.analytics.search-ads360-links.delete", "google.analytics.display-video360-links.delete",
 		"google.analytics.display-video360-link-proposals.cancel", "google.analytics.display-video360-link-proposals.delete",
-		"google.analytics.rollup-links.delete"})) {
+		"google.analytics.rollup-links.delete",
+		"google.analytics.access-bindings.batch-get", "google.analytics.access-bindings.update",
+		"google.analytics.access-bindings.delete", "google.analytics.access-bindings.batch-delete"})) {
 		t.Errorf("tools = %v", ids)
 	}
 	reads := []string{summariesID, accountsID, accountsGetID, accountsSharingID, propertiesListID, propertiesGetID,
@@ -218,8 +224,8 @@ func TestRegisterPublishesMetadataScopesAndConsent(t *testing.T) {
 		audiencesListID, audiencesGetID, channelGroupsListID, channelGroupsGetID, edsListID, edsGetID, adsLinksListID,
 		firebaseLinksListID, bigQueryLinksListID, bigQueryLinksGetID, adsenseLinksListID, adsenseLinksGetID,
 		searchAdsLinksListID, searchAdsLinksGetID, attributionGetID, rollupLinksListID, rollupLinksGetID,
-		accessBindingsListID, accessBindingsGetID}
-	if len(metadata.Profiles) != 3 || metadata.Profiles[0].ID != "read" || !metadata.Profiles[0].Recommended ||
+		accessBindingsListID, accessBindingsGetID, accessBindingsBatchGetID}
+	if len(metadata.Profiles) != 4 || metadata.Profiles[0].ID != "read" || !metadata.Profiles[0].Recommended ||
 		!reflect.DeepEqual(metadata.Profiles[0].Tools, reads) || metadata.Profiles[1].ID != "write" ||
 		metadata.Profiles[1].Recommended ||
 		!reflect.DeepEqual(metadata.Profiles[1].Tools,
@@ -239,7 +245,10 @@ func TestRegisterPublishesMetadataScopesAndConsent(t *testing.T) {
 		metadata.Profiles[2].ID != "read-change-history" || metadata.Profiles[2].Recommended ||
 		!reflect.DeepEqual(metadata.Profiles[2].Tools, append(slices.Clone(reads), changeHistoryID)) ||
 		!strings.Contains(metadata.Profiles[2].Description, "analytics.edit") ||
-		!strings.Contains(metadata.Profiles[2].Description, "personal data") {
+		!strings.Contains(metadata.Profiles[2].Description, "personal data") ||
+		metadata.Profiles[3].ID != accessBindingsProfile || metadata.Profiles[3].Recommended ||
+		!reflect.DeepEqual(metadata.Profiles[3].Tools, append(slices.Clone(reads), accessBindingsUpdateID,
+			accessBindingsDeleteID)) {
 		t.Errorf("profiles = %+v", metadata.Profiles)
 	}
 	oauth, ok := reg.OAuth(Provider)
@@ -269,7 +278,8 @@ func TestRegisterPublishesMetadataScopesAndConsent(t *testing.T) {
 		if descriptor.ID == changeHistoryID {
 			sensitivity = dataSensitivityChangeHistory
 		}
-		if descriptor.ID == accessBindingsListID || descriptor.ID == accessBindingsGetID {
+		if descriptor.ID == accessBindingsListID || descriptor.ID == accessBindingsGetID ||
+			descriptor.ID == accessBindingsBatchGetID {
 			sensitivity = dataSensitivityBindings
 		}
 		if effectOf(descriptor.ID) == config.EffectRead && descriptor.Risk != (capability.Risk{

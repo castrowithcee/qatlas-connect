@@ -4,7 +4,7 @@ description: >
 type: knowledge
 edit: shared
 created: 2026-11-16
-updated: 2026-11-17
+updated: 2026-11-18
 ---
 
 # Google Analytics
@@ -27,7 +27,8 @@ settings. It searches the change history of an account or property, which names 
 is personal data. It lists and reads the
 Display & Video 360 advertiser links of a property and the proposals for them (alpha). It also reads the Google Ads, Firebase, BigQuery (alpha), AdSense (alpha), and Search Ads 360 (alpha) links of a property; no tool creates or changes a link. The profile `write` deletes one Google Ads, Firebase, BigQuery (alpha), AdSense (alpha), Search Ads 360 (alpha), Display & Video 360 (alpha), or rollup source (alpha) link at a time, and cancels or deletes Display & Video 360 link proposals (alpha). Deleting a link ends its data flow and can be reversed only by linking again outside Qatlas; approving a proposal is not a tool. The Google Ads links name the people who created them, which is personal data. It reads the source
 links of a rollup property and the access bindings of an account or property (both alpha), which name users by
-email address and are personal data. The reading tools change
+email address and are personal data, and it changes the roles of existing access bindings and removes bindings;
+no tool adds a user. The reading tools change
 nothing. The account, property, data stream, custom dimension, custom metric, key event, event create rule, calculated metric, annotation, audience, channel group, and expanded data set tools read no report data and use no reporting quota; the report
 tools do, see [reports](reports.md#quota), and so does starting an audience export, see
 [audience exports](audience-exports.md#quota), and starting a report task, see
@@ -118,8 +119,8 @@ not name the resource.
 | `adsense-links.list`, `adsense-links.get` | Use the links of a bound property, or of a property of a bound account after one proof read of its parent; see [AdSense links](adsense-links.md#targets-and-proof) |
 | `search-ads360-links.list`, `search-ads360-links.get`, `search-ads360-links.delete` | Like the AdSense link tools; see [Search Ads 360 links](search-ads360-links.md#targets-and-proof) |
 | `rollup-links.list`, `rollup-links.get`, `rollup-links.delete` | Use the links of a bound property, or of a property of a bound account after one proof read of its parent; see [rollup links](rollup-links.md#targets-and-proof) |
-| `access-bindings.list`, `access-bindings.get` with a property parent | Like `reports.run`, on the property of `parent` or of the name: a bound property or a property of a bound account after one proof read |
-| `access-bindings.list`, `access-bindings.get` with an account parent | Like `accounts.get`, but a connection bound to properties only is refused: a bound account, or no target; see [access bindings](access-bindings.md#targets-and-proof) |
+| `access-bindings.list`, `access-bindings.get`, `access-bindings.batch-get`, `access-bindings.update`, `access-bindings.delete`, `access-bindings.batch-delete` with a property parent | Like `reports.run`, on the property of `parent` or of the name: a bound property or a property of a bound account after one proof read |
+| The same tools with an account parent | Like `accounts.get`, but a connection bound to properties only is refused: a bound account, or no target; see [access bindings](access-bindings.md#targets-and-proof) |
 | `data-retention.get`, `data-retention.update`, `google-signals.get`, `google-signals.update` | Use a bound property, or a property of a bound account after one proof read of its parent; see [data retention](data-retention.md#targets-and-proof) |
 | `google-ads-links.list`, `firebase-links.list`, `bigquery-links.list`, `bigquery-links.get`, `google-ads-links.delete`, `firebase-links.delete`, `bigquery-links.delete`, `adsense-links.delete` | Use a bound property, or a property of a bound account after one proof read of its parent; see [Google Ads links](google-ads-links.md#targets-and-proof) |
 | `attribution-settings.get`, `attribution-settings.update` | Use a bound property, or a property of a bound account after one proof read of its parent; see [attribution settings](attribution-settings.md#targets-and-proof) |
@@ -170,7 +171,8 @@ The profile `read` is the recommended one and holds `google.analytics.accounts.l
 `google.analytics.google-ads-links.list`, `google.analytics.firebase-links.list`,
 `google.analytics.bigquery-links.list`, `google.analytics.bigquery-links.get`,
 `google.analytics.attribution-settings.get`, `google.analytics.rollup-links.list`, `google.analytics.rollup-links.get`,
-`google.analytics.access-bindings.list`, and `google.analytics.access-bindings.get`. The profile `write` reads like `read`, changes accounts, properties,
+`google.analytics.access-bindings.list`, `google.analytics.access-bindings.get`, and
+`google.analytics.access-bindings.batch-get`. The profile `write` reads like `read`, changes accounts, properties,
 data streams and their settings, custom dimensions, custom metrics, key events, event create rules, calculated metrics, audiences, annotations, channel groups, expanded data sets, Google Signals, and attribution settings, deletes data streams, measurement protocol secrets, key events, channel groups, and expanded data sets, deletes Google Ads, Firebase, BigQuery, AdSense, Search Ads 360, Display & Video 360, and rollup source links and Display & Video 360 link proposals, cancels proposals, archives audiences,
 and starts audience exports and report tasks, each change with its own confirmation: it adds
 `google.analytics.accounts.update`, `google.analytics.properties.create`, `google.analytics.properties.update`,
@@ -205,7 +207,10 @@ export are personal data; see
 `read`: Google accepts only the scope `analytics.edit` for it, so its token could change what the account may
 although the tool changes nothing, and its events hold the email addresses of users, see
 [change history](change-history.md#scope-and-profiles). The profile `read-change-history` is `read` plus this tool,
-and a connection offers it only when its `tools` list names it. Deleting an account or a property is in no profile: a
+and a connection offers it only when its `tools` list names it. The profile `access-bindings` is `read` plus
+`google.analytics.access-bindings.update` and `google.analytics.access-bindings.delete`, which need the scope
+`analytics.manage.users`; `google.analytics.access-bindings.batch-delete` is in no profile, see
+[access bindings](access-bindings.md#scopes-and-profiles). Deleting an account or a property is in no profile: a
 connection offers `google.analytics.accounts.delete` and `google.analytics.properties.delete` only when its
 `tools` list names them. So does changing the data retention: `google.analytics.data-retention.update` is in no
 profile either, because shortening a period deletes data permanently, see [data retention](data-retention.md).

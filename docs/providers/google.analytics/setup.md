@@ -4,7 +4,7 @@ description: >
 type: knowledge
 edit: shared
 created: 2026-11-16
-updated: 2026-11-17
+updated: 2026-11-18
 ---
 
 # Set up Google Analytics
@@ -91,7 +91,9 @@ property, and on the property or its account to change or trash a property or to
 The reading tools need the scope `https://www.googleapis.com/auth/analytics.readonly`, the smallest scope that
 reads Analytics configuration and report data. The access binding tools need the read scope
 `https://www.googleapis.com/auth/analytics.manage.users.readonly` instead, because they list the users of an account
-or property; a consent given before they were used needs to be repeated. The tools that change an account, a property, a data stream, an event create rule, an annotation, an audience, a channel group, or an expanded data set need
+or property; a consent given before they were used needs to be repeated. Changing the roles of a binding and
+removing bindings need `https://www.googleapis.com/auth/analytics.manage.users`, which also lets the token add
+users, although no tool does; see [access bindings](access-bindings.md#scopes-and-profiles). The tools that change an account, a property, a data stream, an event create rule, an annotation, an audience, a channel group, or an expanded data set need
 `https://www.googleapis.com/auth/analytics.edit`. Qatlas asks for the scope of the tools of the connections that
 use the credential and no more. Each connection of a credential has to be for Google Analytics, so the
 credential never carries the scope of another product.
@@ -111,7 +113,8 @@ The tool is outside the profile `read` for that reason, see [change history](cha
 | [Access reports](access-reports.md) | `accounts.run-access-report`, `properties.run-access-report` | `analytics.readonly` |
 | [Rollup links](rollup-links.md) | `rollup-links.list`, `rollup-links.get` | `analytics.readonly` |
 | [Rollup links](rollup-links.md#google-analyticsrollup-linksdelete) | `rollup-links.delete` | `analytics.edit` |
-| [Access bindings](access-bindings.md) | `access-bindings.list`, `access-bindings.get` | `analytics.manage.users.readonly` |
+| [Access bindings](access-bindings.md) | `access-bindings.list`, `access-bindings.get`, `access-bindings.batch-get` | `analytics.manage.users.readonly` |
+| [Access bindings](access-bindings.md#googleanalyticsaccess-bindingsupdate) | `access-bindings.update`, `access-bindings.delete`, `access-bindings.batch-delete` | `analytics.manage.users` |
 | [Properties](properties.md#changing-properties) | `properties.create`, `properties.update`, `properties.delete` | `analytics.edit` |
 | [Data streams](data-streams.md) | `data-streams.list`, `data-streams.get` | `analytics.readonly` |
 | [Data streams](data-streams.md#changing-data-streams) | `data-streams.create`, `data-streams.update`, `data-streams.delete` | `analytics.edit` |
