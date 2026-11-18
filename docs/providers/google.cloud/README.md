@@ -1,6 +1,6 @@
 ---
 description: >
-  Describes the Google Cloud provider: the token credential and its fixed origins, the targets (organization, folder, project, billing account) and what they reach, the read and IAM profiles, the search tools with their structured filters, cursors, and per-row target check, the Cloud Storage bucket reads, the IAM role and permission reads, the service account and key metadata reads, the Google error form and its classes, long-running operations, rate spacing, the connection test, and the limits of what is verified.
+  Describes the Google Cloud provider: the token credential and its fixed origins, the targets (organization, folder, project, billing account) and what they reach, the read and IAM profiles, the search tools with their structured filters, cursors, and per-row target check, the Cloud Storage reads of buckets, notifications, managed folders, and HMAC key metadata, the IAM role and permission reads, the service account and key metadata reads, the Google error form and its classes, long-running operations, rate spacing, the connection test, and the limits of what is verified.
 type: knowledge
 edit: shared
 created: 2026-11-16
@@ -66,7 +66,7 @@ Three rules decide which tool a binding reaches. They are separate on purpose:
   organization, a folder, or a project, so a connection bound to billing accounts alone neither runs nor is
   offered them, not even for predefined roles. Organization roles and an organization resource are reached
   only if a target names exactly that organization; a connection without targets is refused.
-- **Storage tools** (`buckets.*`, `bucket-access-controls.list`): the connection is unbound or names an
+- **Storage tools** (`buckets.*`, `bucket-access-controls.list`, `notifications.list`, `managed-folders.list`, `hmac-keys.*`): the connection is unbound or names an
   organization, a folder, or a project. A bucket is bound to the targets by the project number of one read of the
   bucket, see [Buckets](buckets.md).
 - **Tools without a resource** (`operations.get`): an operation belongs to no folder or project that Qatlas
@@ -93,7 +93,9 @@ The profile `read` is the recommended one. It holds every tool that needs no mor
 `google.cloud.vpn-tunnels.get`, `google.cloud.disks.list`, `google.cloud.disks.aggregated-list`,
 `google.cloud.disks.get`, `google.cloud.snapshots.list`, `google.cloud.snapshots.get`,
 `google.cloud.images.list`, and `google.cloud.images.get`, which ask for `compute.readonly`, and the Storage tools
-`google.cloud.buckets.list` and `google.cloud.buckets.get`, which ask for `devstorage.read_only`. The two
+`google.cloud.buckets.list`, `google.cloud.buckets.get`, `google.cloud.notifications.list`,
+`google.cloud.managed-folders.list`, `google.cloud.hmac-keys.list`, and `google.cloud.hmac-keys.get`, which ask for
+`devstorage.read_only`. The two
 operation tools return the email address of whoever started an operation (personal data) and carry their own
 sensitivity. A connection bound to an organization or a folder needs `projects.get` next to the
 Compute tools to prove the project of a call; `read` holds both.
@@ -201,6 +203,9 @@ on [IAM bindings](iam-bindings.md).
 - [Buckets](buckets.md): the Cloud Storage buckets of a project, one and all, and the IAM policy of a bucket, bound to
   the targets by the project number of the bucket.
 - [Bucket access controls](bucket-access-controls.md): the access control list of a Cloud Storage bucket.
+- [Notifications](notifications.md): the Pub/Sub notification configurations of a Cloud Storage bucket.
+- [Managed folders](managed-folders.md): the managed folders of a Cloud Storage bucket.
+- [HMAC keys](hmac-keys.md): the metadata of the HMAC keys of a project, never a key value.
 - [Quotas](quotas.md): the quotas of a service and the quota preferences of a project from Cloud Quotas.
 
 ### Search

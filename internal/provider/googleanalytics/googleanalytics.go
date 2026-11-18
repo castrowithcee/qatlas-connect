@@ -20,7 +20,8 @@
 // The settings and the event create rules of a web data stream and the calculated metrics, annotations, audiences,
 // channel groups, expanded data sets and attribution settings of a property run on the Admin API v1alpha, see
 // alpha.go. So do the read-only tools for the Display & Video 360 advertiser links of a property and their
-// proposals; the proposals name email addresses, so their results carry their own data sensitivity.
+// proposals; the proposals name email addresses, so their results carry their own data sensitivity. The read-only
+// AdSense and Search Ads 360 links of a property run there as well.
 //
 // The change history search accepts only the scope analytics.edit, so it is outside the profile read. Its
 // events hold email addresses of users and snapshots of resources: personal data, shown bounded.
@@ -186,6 +187,10 @@ var scopes = map[string][]string{
 	firebaseLinksListID:  {scopeReadOnly},
 	bigQueryLinksListID:  {scopeReadOnly},
 	bigQueryLinksGetID:   {scopeReadOnly},
+	adsenseLinksListID:   {scopeReadOnly},
+	adsenseLinksGetID:    {scopeReadOnly},
+	searchAdsLinksListID: {scopeReadOnly},
+	searchAdsLinksGetID:  {scopeReadOnly},
 
 	attributionGetID:    {scopeReadOnly},
 	attributionUpdateID: {scopeEdit},
@@ -259,7 +264,8 @@ var readTools = []string{summariesID, accountsID, accountsGetID, accountsSharing
 	calculatedListID, calculatedGetID, accessAccountID, accessPropertyID, dataRetentionGetID, googleSignalsGetID,
 	annotationsListID, annotationsGetID, dv360LinksListID, dv360LinksGetID, dv360ProposalsListID, dv360ProposalsGetID,
 	audiencesListID, audiencesGetID, channelGroupsListID, channelGroupsGetID, edsListID, edsGetID, adsLinksListID,
-	firebaseLinksListID, bigQueryLinksListID, bigQueryLinksGetID, attributionGetID}
+	firebaseLinksListID, bigQueryLinksListID, bigQueryLinksGetID, adsenseLinksListID, adsenseLinksGetID,
+	searchAdsLinksListID, searchAdsLinksGetID, attributionGetID}
 
 // Register adds the provider metadata, its consent endpoints, its connection test and its tools.
 func Register(reg *capability.Registry) error {
@@ -456,6 +462,10 @@ func Register(reg *capability.Registry) error {
 		{Descriptor: firebaseLinksList, Handler: handleFirebaseLinksList},
 		{Descriptor: bigQueryLinksList, Handler: handleBigQueryLinksList},
 		{Descriptor: bigQueryLinksGet, Handler: handleBigQueryLinksGet},
+		{Descriptor: adsenseLinksList, Handler: handleAdsenseLinksList},
+		{Descriptor: adsenseLinksGet, Handler: handleAdsenseLinksGet},
+		{Descriptor: searchAdsLinksList, Handler: handleSearchAdsLinksList},
+		{Descriptor: searchAdsLinksGet, Handler: handleSearchAdsLinksGet},
 		{Descriptor: attributionGet, Handler: handleAttributionGet},
 		{Descriptor: attributionUpdate, Handler: handleAttributionUpdate, ConfirmationSummary: attributionSummary},
 		{Descriptor: changeHistorySearch, Handler: handleChangeHistorySearch},
