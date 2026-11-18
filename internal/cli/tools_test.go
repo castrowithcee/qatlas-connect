@@ -203,6 +203,34 @@ func requireIDs(t *testing.T, ids []string, anchors ...string) {
 	}
 }
 
+// requireSameIDs fails unless got lists exactly the derived IDs, in any order.
+func requireSameIDs(t *testing.T, label string, got, want []string) {
+	t.Helper()
+	got = slices.Sorted(slices.Values(got))
+	if !slices.Equal(got, want) {
+		t.Errorf("%s = %v, want the registry tools %v", label, got, want)
+	}
+}
+
+// searchPageSize is the size of a MCP search page, a contract of the search.
+const searchPageSize = 50
+
+// requireFirstSearchPage checks a MCP search that lists a whole provider without a ranking query: the
+// hits are the first page of the registry tools in ID order, and the search reports a continuation exactly
+// when the provider has more tools than one page holds.
+func requireFirstSearchPage(t *testing.T, hits []application.SearchHit, more bool, want []string) {
+	t.Helper()
+	got := make([]string, len(hits))
+	for i, hit := range hits {
+		got[i] = hit.ID
+	}
+	page := want[:min(searchPageSize, len(want))]
+	if !slices.Equal(got, page) || more != (len(want) > searchPageSize) {
+		t.Fatalf("search operations = %v, has more = %t, want the first %d registry tools %v with more = %t",
+			got, more, len(page), page, len(want) > searchPageSize)
+	}
+}
+
 // catalogContext is the search context catalogEnvironment adds to the tools of a provider: the provider
 // note and the descriptions of the provider's connections.
 var catalogContext = map[string]string{"bookstack": "company handbook read-only account on the team wiki"}
