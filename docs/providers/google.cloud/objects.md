@@ -11,7 +11,7 @@ updated: 2026-11-18
 
 Three tools read the objects of a bucket from Cloud Storage (`objects.list`, `objects.get`, and `objects.get` with
 `alt=media` of `storage` v1, discovery revision 20261111). They change nothing. Four more tools write objects (see
-[Writing objects](#writing-objects)), and two delete and restore one object each (see
+[Writing objects](#writing-objects)), and three delete, restore, or restore over a live object, one object each (see
 [Deleting and restoring](#deleting-and-restoring)). Rewriting objects is not offered. The access control list of an
 object is read by [object-access-controls.list](object-access-controls.md). Every request goes to the fixed origin
 `https://storage.googleapis.com` below `/storage/v1` (the upload below `/upload/storage/v1`); no argument takes a
@@ -24,6 +24,7 @@ path, URL, header, or body.
 | `objects.download` | `bucket`, `object`, `generation`, `range` (`start`, `end`), `max_bytes`, `user_project` |
 | `objects.delete` | `bucket`, `object`, `generation`, `if_generation_match`, `if_generation_not_match`, `if_metageneration_match`, `if_metageneration_not_match`, `user_project` |
 | `objects.restore` | `bucket`, `object`, `generation` (required), `projection`, `restore_token`, `user_project` |
+| `objects.restore-overwrite` | `bucket`, `object`, `generation` (required), `live_generation` (required), `if_metageneration_match`, `projection`, `restore_token`, `user_project` |
 
 ## Bucket, targets, and user_project
 
@@ -114,6 +115,20 @@ a provider error. There is no overwrite switch and no precondition argument; del
 is the restored object with the members of `objects.get`; an answer for another object or bucket is an invalid
 response with an unknown outcome.
 
+`objects.restore-overwrite` restores a soft-deleted object and replaces the live object of the same name. It is
+listed-only: no effect and no prefix offers it, no profile holds it, and a connection has it only when its `tools`
+list names `google.cloud.objects.restore-overwrite`. `generation` is the soft-deleted generation and
+`live_generation` the generation of the live object to replace; both are required decimal numbers, and
+`live_generation` is sent as `ifGenerationMatch`, so Google refuses the request with a precondition failure (412)
+when the live object no longer has that generation, and the tool reports it as a provider error.
+`if_metageneration_match` additionally binds the metageneration of the live object. According to the policies of the
+bucket, the replaced object becomes a noncurrent version or is soft-deleted. `copySourceAcl` is never sent. The
+confirmation names the object, the bucket, the generation to restore, and the generation of the live object to
+replace. The result is the restored object with the members of `objects.get`. An answer is accepted only if it names
+the requested bucket and object and carries a generation that is not `live_generation`; otherwise it is an invalid
+response with an unknown outcome. There is no `generation` check against the request, because the restored object
+gets a new generation.
+
 ## Cost
 
 Reading is not free. Cloud Storage bills each operation, and the data that leaves Google Cloud (egress) is billed to
@@ -132,7 +147,11 @@ bucket's project, and the Cloud Storage JSON API must be enabled in the project.
 for `objects.restore`, so that tool asks for `devstorage.full_control`. Both belong to the profile `storage-delete`,
 not to `read`, with `projects.get`; their risk is `delete` and `update`, not idempotent, confirmation required, open
 world. The account needs `storage.objects.delete` or `storage.objects.restore` (and `storage.objects.get` for a
-soft-deleted object) and `storage.buckets.get` for the proof read of the bucket. The window between that proof and
+soft-deleted object) and `storage.buckets.get` for the proof read of the bucket.
+
+`objects.restore-overwrite` asks for `devstorage.full_control` like `objects.restore`, belongs to no profile, and has
+the risk `update`, not idempotent, confirmation required, open world. The account needs `storage.objects.restore`
+and, because it replaces the live object, `storage.objects.delete`, plus `storage.buckets.get` for the proof read. The window between that proof and
 the change is a documented limit: the bucket could change its project in between.
 
 ## Writing objects
