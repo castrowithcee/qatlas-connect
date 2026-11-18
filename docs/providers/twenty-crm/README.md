@@ -81,6 +81,13 @@ also leave Qatlas, as untrusted workspace data. Enum values appear only when eve
 selection value (letters, digits, underscore, at most 64 characters) and the field has at most 500 values;
 otherwise `enum` is left out and named in `omitted_fields`.
 
+The generated API document lists a field that Twenty has deactivated like an active one, so per tool call
+Qatlas also reads the active state once from the metadata API. `objects.get` then reports `active` for every
+field the metadata names, and a deactivated field has `active: false` and `writable: false`. Twenty 2.27 allows
+the metadata API only with the "Data model" right, newer versions also without it. Where the read is refused,
+`active` is absent and the record tools treat every field as active: such a key cannot tell a deactivated field
+from an active one.
+
 ## Credential and profiles
 
 The credential provides `api-key`. The rights of the key's role are listed under [Rights per tool
