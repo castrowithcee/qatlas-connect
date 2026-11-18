@@ -10,14 +10,15 @@ updated: 2026-11-18
 # Google Business Profile
 
 Google Business Profile is a provider for the Business Profile APIs v1: the accounts a person owns or manages
-and the business locations in them, the performance of a location, the verification state of a location, and
-the notification setting of an account, and for the My Business API v4, which Google keeps for reviews. Most
-tools read; the tools of the profile `write` change the role of existing admins, remove admins, decline
-invitations, rename an account, create and change locations, create, change, and delete place action links, and
-reply to reviews or delete a reply. Deleting a location is listed-only. [Set up Google Business
-Profile](setup.md) leads through the Google side, the approval, and the consent. The tools are described per
-group in [accounts](accounts.md), [locations](locations.md), [account admins](account-admins.md), [location
-admins](location-admins.md), [invitations](invitations.md), [performance](performance.md),
+and the business locations in them, their attributes, the performance of a location, the verification state of
+a location, and the notification setting of an account, and for the My Business API v4, which Google keeps for
+reviews. Most tools read; the tools of the profile `write` change the role of existing admins, remove admins,
+decline invitations, rename an account, set or remove attributes, create and change locations, create, change,
+and delete place action links, and reply to reviews or delete a reply. Deleting a location is listed-only. [Set
+up Google Business Profile](setup.md) leads through the Google side, the approval, and the consent. The tools are
+described per group in [accounts](accounts.md), [locations](locations.md), [account admins](account-admins.md),
+[location admins](location-admins.md), [invitations](invitations.md), [attributes](attributes.md),
+[performance](performance.md),
 [categories](categories.md), [chains](chains.md), [Google locations](google-locations.md), [lodging](lodging.md),
 [verifications](verifications.md), [notifications](notifications.md), [place action
 links](place-action-links.md), [place action types](place-action-types.md), and [reviews](reviews.md).
@@ -48,8 +49,8 @@ no wider than the task needs.
 
 | Profile | Tools |
 | --- | --- |
-| `read` (recommended) | every read tool: `accounts.list`, `accounts.get`, `locations.list`, `locations.get`, `locations.get-google-updated`, `account-admins.list`, `location-admins.list`, `invitations.list`, `lodging.get`, `lodging.get-google-updated`, `performance.*`, `verifications.list`, `verifications.fetch-options`, `verifications.get-merchant-state`, `notifications.get`, `place-action-links.list`, `place-action-links.get`, `place-action-types.list`, `reviews.list`, `reviews.get`, `reviews.batch-get` |
-| `write` | `account-admins.update`, `location-admins.update`, `accounts.update`, `locations.create`, `locations.update`, `account-admins.delete`, `location-admins.delete`, `invitations.decline`, `lodging.update`, `place-action-links.create`, `place-action-links.update`, `place-action-links.delete`, `reviews.update-reply`, `reviews.delete-reply`; each change needs confirmation |
+| `read` (recommended) | every read tool: `accounts.list`, `accounts.get`, `locations.list`, `locations.get`, `locations.get-google-updated`, `account-admins.list`, `location-admins.list`, `invitations.list`, `lodging.get`, `lodging.get-google-updated`, `attributes.list`, `attributes.get`, `performance.*`, `verifications.list`, `verifications.fetch-options`, `verifications.get-merchant-state`, `notifications.get`, `place-action-links.list`, `place-action-links.get`, `place-action-types.list`, `reviews.list`, `reviews.get`, `reviews.batch-get` |
+| `write` | `account-admins.update`, `location-admins.update`, `accounts.update`, `locations.create`, `locations.update`, `account-admins.delete`, `location-admins.delete`, `invitations.decline`, `lodging.update`, `attributes.update`, `place-action-links.create`, `place-action-links.update`, `place-action-links.delete`, `reviews.update-reply`, `reviews.delete-reply`; each change needs confirmation |
 | none | `locations.delete` is listed-only: only a `tools` list offers it |
 
 The profile `read` changes nothing, but Google's only scope also allows changes, so the token could. The two
@@ -70,7 +71,7 @@ project one by one:
 | API | Origin | Tools |
 | --- | --- | --- |
 | My Business Account Management API | `https://mybusinessaccountmanagement.googleapis.com` | [accounts](accounts.md) |
-| My Business Business Information API | `https://mybusinessbusinessinformation.googleapis.com` | [locations](locations.md), [categories](categories.md), [chains](chains.md), [Google locations](google-locations.md) |
+| My Business Business Information API | `https://mybusinessbusinessinformation.googleapis.com` | [locations](locations.md), [categories](categories.md), [chains](chains.md), [Google locations](google-locations.md), [attributes](attributes.md) |
 | Business Profile Performance API | `https://businessprofileperformance.googleapis.com` | [performance](performance.md) |
 | My Business Lodging API | `https://mybusinesslodging.googleapis.com` | [lodging](lodging.md) |
 | My Business Verifications API | `https://mybusinessverifications.googleapis.com` | [verifications](verifications.md) |
@@ -110,6 +111,8 @@ request is sent; a refusal never names the other object.
 | `invitations.list`, `invitations.decline` | the invitations of the bound account only | not offered |
 | `location-admins.list`, `location-admins.update`, `location-admins.delete` | prove the location first, like `locations.get` | the bound location only |
 | `lodging.*` | first prove the location like `locations.get` | the bound location only |
+| `attributes.list` | with `location`, like `locations.get`; without it not tied to a location | with `location`, only the bound location |
+| `attributes.get`, `attributes.update` | prove the location first, like `locations.get` | the bound location only |
 | `performance.*` | first prove, on every call, that the location is in the bound account's location list | the bound location only |
 | `verifications.*` | first prove, on every call, like `performance.*` | the bound location only |
 | `notifications.get` | the bound account only | not offered |
@@ -207,6 +210,9 @@ Not verified:
 - How Google answers a project without approval. Qatlas assumes a `429` with the quota limit `0`; a pending
   approval may answer differently.
 - Whether each Business Profile API needs to be enabled in the project on its own.
+- Whether Google's attribute metadata names an attribute with or without the prefix `attributes/` in `parent`; Qatlas accepts both and always sends `attributes/ATTRIBUTE`.
+- The largest page of attribute metadata: Google names only the default of 200, so Qatlas asks for at most 200.
+- Whether Google accepts a mask that names an attribute without a value in `attributes` as a removal, as its documentation says: `attributes.update` relies on it.
 - Whether a read mask accepts nested field paths. Qatlas accepts only the top-level fields of a location.
 - Whether the read and update masks of the lodging accept nested paths and group names as field masks usually
   do, and whether Google answers an unset boolean without the field. Qatlas sends the paths as given and compares
@@ -241,6 +247,7 @@ Left out on purpose:
 - `accounts.create`: it would create an account with a new owner relation.
 - The role `PRIMARY_OWNER` as a target role of an admin, and changing an admin who holds it: both transfer the
   ownership of the profile. An admin with a pending invitation is not changed either.
+- Deprecated attributes: `attributes.update` does not change them, since Google does not save such a change.
 - `accounts.invitations.accept`: it makes the user of the connection an admin of an account or location that
   someone else controls, which widens the reach of the credential through an entry that only the other side
   controls. A person accepts an invitation in Google's own interface; declining is offered because it only
