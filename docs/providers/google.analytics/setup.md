@@ -138,14 +138,18 @@ The tool is outside the profile `read` for that reason, see [change history](cha
 | [Expanded data sets](expanded-data-sets.md#changing-expanded-data-sets) | `expanded-data-sets.create`, `expanded-data-sets.update`, `expanded-data-sets.delete` | `analytics.edit` |
 | [Display & Video 360 links](display-video360-links.md) | `display-video360-links.list`, `display-video360-links.get`, `display-video360-link-proposals.list`, `display-video360-link-proposals.get` | `analytics.readonly` |
 | [AdSense links](adsense-links.md) | `adsense-links.list`, `adsense-links.get` | `analytics.readonly` |
+| [AdSense links](adsense-links.md#deleting-a-link) | `adsense-links.delete` | `analytics.edit` |
 | [Search Ads 360 links](search-ads360-links.md) | `search-ads360-links.list`, `search-ads360-links.get` | `analytics.readonly` |
 | [Data retention](data-retention.md) | `data-retention.get` | `analytics.readonly` |
 | [Data retention](data-retention.md#googleanalyticsdata-retentionupdate) | `data-retention.update` | `analytics.edit` |
 | [Google Signals](google-signals.md) | `google-signals.get` | `analytics.readonly` |
 | [Google Signals](google-signals.md#googleanalyticsgoogle-signalsupdate) | `google-signals.update` | `analytics.edit` |
 | [Google Ads links](google-ads-links.md) | `google-ads-links.list` | `analytics.readonly` |
+| [Google Ads links](google-ads-links.md#deleting-a-link) | `google-ads-links.delete` | `analytics.edit` |
 | [Firebase links](firebase-links.md) | `firebase-links.list` | `analytics.readonly` |
+| [Firebase links](firebase-links.md#deleting-a-link) | `firebase-links.delete` | `analytics.edit` |
 | [BigQuery links](bigquery-links.md) | `bigquery-links.list`, `bigquery-links.get` | `analytics.readonly` |
+| [BigQuery links](bigquery-links.md#deleting-a-link) | `bigquery-links.delete` | `analytics.edit` |
 | [Attribution settings](attribution-settings.md) | `attribution-settings.get` | `analytics.readonly` |
 | [Attribution settings](attribution-settings.md#googleanalyticsattribution-settingsupdate) | `attribution-settings.update` | `analytics.edit` |
 | [Change history](change-history.md#scope-and-profiles) | `change-history.search` (reads only, but Google accepts `analytics.edit` alone) | `analytics.edit` |
