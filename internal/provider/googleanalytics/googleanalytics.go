@@ -212,7 +212,11 @@ var scopes = map[string][]string{
 	attributionGetID:    {scopeReadOnly},
 	attributionUpdateID: {scopeEdit},
 	// searchChangeHistoryEvents lists analytics.edit alone, so the search needs a token that could also change.
-	changeHistoryID: {scopeEdit},
+	changeHistoryID:       {scopeEdit},
+	adsLinksDeleteID:      {scopeEdit},
+	firebaseLinksDeleteID: {scopeEdit},
+	bigQueryLinksDeleteID: {scopeEdit},
+	adsenseLinksDeleteID:  {scopeEdit},
 }
 
 func tokenMetadata() config.TokenMetadata { return config.TokenMetadata{Scopes: scopes} }
@@ -324,7 +328,7 @@ func Register(reg *capability.Registry) error {
 			ID: "write", Title: "Read and change",
 			Description: "reads what the read profile reads and changes Analytics accounts, properties, data streams, custom " +
 				"dimensions, custom metrics, key events, event create rules, calculated metrics, audiences, annotations, channel groups, expanded data sets, attribution settings and Google Signals, starts audience exports and report tasks, " +
-				"and deletes data streams, measurement protocol secrets, key events, channel groups, expanded data sets, Search Ads 360 links, Display & Video 360 advertiser links, rollup source links and link proposals (also cancels proposals) and archives audiences; every change needs its own " +
+				"and deletes data streams, measurement protocol secrets, key events, channel groups, expanded data sets, the Google Ads, Firebase, BigQuery, AdSense, Search Ads 360, Display & Video 360 advertiser and rollup source links and link proposals (also cancels proposals) and archives audiences; every change needs its own " +
 				"confirmation, and deleting an account or a property stays unlisted, and so does changing the data retention. " +
 				"It also searches the change history, which holds the email addresses of users and accepts only the " +
 				"scope analytics.edit",
@@ -339,6 +343,7 @@ func Register(reg *capability.Registry) error {
 				audiencesCreateID, audiencesUpdateID, audiencesArchiveID,
 				channelGroupsCreateID, channelGroupsUpdateID, channelGroupsDeleteID,
 				edsCreateID, edsUpdateID, edsDeleteID, attributionUpdateID, changeHistoryID,
+				adsLinksDeleteID, firebaseLinksDeleteID, bigQueryLinksDeleteID, adsenseLinksDeleteID,
 				searchAdsLinksDeleteID, dv360LinksDeleteID, dv360ProposalsCancelID, dv360ProposalsDeleteID, rollupLinksDeleteID),
 		}, {
 			ID: "read-change-history", Title: "Read with change history",
@@ -502,6 +507,13 @@ func Register(reg *capability.Registry) error {
 		{Descriptor: attributionGet, Handler: handleAttributionGet},
 		{Descriptor: attributionUpdate, Handler: handleAttributionUpdate, ConfirmationSummary: attributionSummary},
 		{Descriptor: changeHistorySearch, Handler: handleChangeHistorySearch},
+		{Descriptor: adsLinksDelete, Handler: adsLinkDelete.handler(), ConfirmationSummary: adsLinkDelete.summary},
+		{Descriptor: firebaseLinksDelete, Handler: firebaseLinkDelete.handler(),
+			ConfirmationSummary: firebaseLinkDelete.summary},
+		{Descriptor: bigQueryLinksDelete, Handler: bigQueryLinkDelete.handler(),
+			ConfirmationSummary: bigQueryLinkDelete.summary},
+		{Descriptor: adsenseLinksDelete, Handler: adsenseLinkDelete.handler(),
+			ConfirmationSummary: adsenseLinkDelete.summary},
 	} {
 		if err := reg.Register(Provider, operation); err != nil {
 			return err

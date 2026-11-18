@@ -303,27 +303,9 @@ func TestAdvertiserLink429WithoutRetryAfterHoldsTheNextRequest(t *testing.T) {
 	}
 }
 
-// The link tools read, except that a Search Ads 360 link can be deleted with confirmation: no tool of the
-// provider creates or changes a link.
+// No link tool of the provider creates or changes a link; the link deletes are checked in
+// TestLinksHaveNoCreateOrPatchTool.
 func TestNoToolChangesALink(t *testing.T) {
-	reg := registry(t)
-	metadata, _ := reg.ProviderMetadata(Provider)
-	for _, tool := range metadata.Tools {
-		if !strings.Contains(tool.ID, "links.") || slices.Contains([]string{searchAdsLinksDeleteID, dv360LinksDeleteID,
-			rollupLinksDeleteID}, tool.ID) {
-			continue
-		}
-		if effectOf(tool.ID) != config.EffectRead ||
-			!slices.Contains([]string{"list", "get"}, tool.ID[strings.LastIndex(tool.ID, ".")+1:]) {
-			t.Errorf("%s is not a reading link tool", tool.ID)
-		}
-	}
-	for _, descriptor := range reg.Provider(Provider) {
-		if strings.Contains(descriptor.ID, "-links.") && descriptor.ID != searchAdsLinksDeleteID &&
-			descriptor.ID != dv360LinksDeleteID && descriptor.ID != rollupLinksDeleteID && descriptor.Risk.Effect != "read" {
-			t.Errorf("%s effect = %s", descriptor.ID, descriptor.Risk.Effect)
-		}
-	}
 	for _, id := range []string{"adsense-links", "search-ads360-links"} {
 		for _, verb := range []string{"create", "update", "patch"} {
 			if _, ok := scopes[Provider+"."+id+"."+verb]; ok {
