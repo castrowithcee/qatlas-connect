@@ -131,6 +131,12 @@ var tokenMetadata = config.TokenMetadata{Scopes: map[string][]string{
 	managedFoldersListID: {scopeStorageReadOnly},
 	hmacKeysListID:       {scopeStorageReadOnly},
 	hmacKeysGetID:        {scopeStorageReadOnly},
+	// storage v1 lists devstorage.read_only for objects.list and objects.get (with and without alt=media), and
+	// only devstorage.full_control and cloud-platform for objectAccessControls.list.
+	objectsListID:              {scopeStorageReadOnly},
+	objectsGetID:               {scopeStorageReadOnly},
+	objectsDownloadID:          {scopeStorageReadOnly},
+	objectAccessControlsListID: {scopeStorageFullControl},
 	// dns v1 lists ndev.clouddns.readonly as the smallest scope for the reads of zones and record sets.
 	managedZonesListID: {scopeDNSReadOnly},
 	managedZonesGetID:  {scopeDNSReadOnly},

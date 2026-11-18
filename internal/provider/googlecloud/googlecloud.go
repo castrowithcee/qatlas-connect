@@ -97,6 +97,7 @@ var readTools = []string{organizationsSearch.ID, foldersSearch.ID, projectsSearc
 	disksList.ID, disksAggregatedList.ID, disksGet.ID,
 	snapshotsList.ID, snapshotsGet.ID, imagesList.ID, imagesGet.ID,
 	bucketsList.ID, bucketsGet.ID, notificationsList.ID, managedFoldersList.ID, hmacKeysList.ID, hmacKeysGet.ID,
+	objectsList.ID, objectsGet.ID, objectsDownload.ID,
 	managedZonesList.ID, managedZonesGet.ID, recordSetsList.ID, recordSetsGet.ID}
 
 // Register adds the provider metadata, its connection test, its consent endpoints, and its tools.
@@ -122,8 +123,10 @@ func Register(reg *capability.Registry) error {
 				"Usage, and the metadata of API keys with the read-only scope and the Compute Engine instances, machine " +
 				"types, zones, regions, operations (with the person who started each), VPC networks, subnetworks, firewall rules, " +
 				"reserved IP addresses, HA VPN gateways, VPN tunnels, persistent disks, disk snapshots, and images of a project with the scope compute.readonly, " +
-				"the Cloud Storage buckets of a project, the notification configurations and managed folders of a bucket, and " +
-				"the HMAC key metadata of a project with the scope devstorage.read_only, and the Cloud DNS managed zones and record sets of a project with the scope ndev.clouddns.readonly, and changes nothing",
+				"the Cloud Storage buckets of a project, their objects, and the content of an object (up to a fixed limit), " +
+				"the notification configurations and managed folders of a bucket, and " +
+				"the HMAC key metadata of a project with the scope devstorage.read_only, and the Cloud DNS managed zones and record sets of a project with the scope " +
+				"ndev.clouddns.readonly, and changes nothing",
 			Tools: readTools,
 		}, {
 			ID: "read-iam", Title: "Read with IAM",
@@ -144,11 +147,12 @@ func Register(reg *capability.Registry) error {
 				quotaPreferencesList.ID, quotaPreferencesGet.ID),
 		}, {
 			ID: "read-storage-access", Title: "Read with Storage access",
-			Description: "everything of read plus the IAM policy and the access control list of a Cloud Storage bucket; " +
+			Description: "everything of read plus the IAM policy and the access control list of a Cloud Storage bucket and the access control list of an object; " +
 				"these methods accept only the scope devstorage.full_control (or cloud-platform), so the token may " +
 				"change what its account may in Cloud Storage, although no tool of this profile changes anything; " +
 				"policies and lists hold members that are personal data",
-			Tools: append(append([]string{}, readTools...), bucketsGetIAMPolicy.ID, bucketAccessControlsList.ID),
+			Tools: append(append([]string{}, readTools...), bucketsGetIAMPolicy.ID, bucketAccessControlsList.ID,
+				objectAccessControlsList.ID),
 		}, {
 			ID: "service-accounts", Title: "Service accounts",
 			Description: "creates service accounts, changes their display name and description, and disables and " +
@@ -284,6 +288,10 @@ func Register(reg *capability.Registry) error {
 		capability.Operation{Descriptor: recordSetsGet, Handler: handleRecordSetsGet},
 		capability.Operation{Descriptor: bucketsGetIAMPolicy, Handler: handleBucketsGetIAMPolicy},
 		capability.Operation{Descriptor: bucketAccessControlsList, Handler: handleBucketAccessControlsList},
+		capability.Operation{Descriptor: objectsList, Handler: handleObjectsList},
+		capability.Operation{Descriptor: objectsGet, Handler: handleObjectsGet},
+		capability.Operation{Descriptor: objectsDownload, Handler: handleObjectsDownload},
+		capability.Operation{Descriptor: objectAccessControlsList, Handler: handleObjectAccessControlsList},
 		capability.Operation{Descriptor: firewallsDelete, Handler: handleFirewallsDelete,
 			ConfirmationSummary: firewallDeleteSummary},
 		capability.Operation{Descriptor: addressesDelete, Handler: handleAddressesDelete,
