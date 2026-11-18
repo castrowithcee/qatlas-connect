@@ -12,7 +12,8 @@ updated: 2026-11-18
 Four tools read billing accounts and the link between projects and billing accounts from Cloud Billing
 (`billingAccounts.list`, `billingAccounts.get`, `billingAccounts.projects.list`, and `projects.getBillingInfo` of
 `cloudbilling` v1, discovery revision 20261106). They change nothing: linking a project to an account, moving an
-account, renaming it, and the budgets and IAM of an account are not offered. Every request is a GET to
+account, renaming it, and the IAM of an account are not offered; the budgets of an account are read by
+[Budgets](budgets.md). Every request is a GET to
 `https://cloudbilling.googleapis.com`. Account names, links between projects and accounts, and display names are
 billing data, so the tools carry their own data sensitivity.
 

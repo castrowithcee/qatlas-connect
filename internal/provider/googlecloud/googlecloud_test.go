@@ -64,7 +64,7 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 			wantEffect = config.EffectCreate
 		}
 		// The quota tools belong to read-quotas and the bucket policy and ACL to read-storage-access, not to read-iam.
-		if tool.Effect == config.EffectRead && !strings.Contains(tool.ID, ".quota-") &&
+		if tool.Effect == config.EffectRead && !strings.Contains(tool.ID, ".quota-") && !strings.Contains(tool.ID, ".budgets.") &&
 			tool.ID != bucketsGetIAMPolicyID && tool.ID != bucketAccessControlsListID &&
 			tool.ID != objectAccessControlsListID {
 			reads++
@@ -147,6 +147,14 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 			// cloudbilling v1 lists cloud-billing.readonly for the four reads.
 			wantScope = scopeBillingReadOnly
 		}
+		if strings.Contains(tool.ID, ".catalog-") {
+			// cloudbilling v1 lists cloud-billing.readonly for services.list and services.skus.list.
+			wantScope = scopeBillingReadOnly
+		}
+		if strings.Contains(tool.ID, ".budgets.") {
+			// billingbudgets v1 lists only cloud-billing and cloud-platform for budgets.list and get.
+			wantScope = scopeBilling
+		}
 		if scopes := metadata.Token.Scopes[tool.ID]; !slices.Equal(scopes, []string{wantScope}) {
 			t.Errorf("%s scopes = %v", tool.ID, scopes)
 		}
@@ -154,7 +162,7 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 	if want := []string{"google.cloud.addresses.delete", "google.cloud.addresses.get", "google.cloud.addresses.list", "google.cloud.api-keys.delete", "google.cloud.api-keys.get", "google.cloud.api-keys.list",
 		"google.cloud.api-keys.undelete", "google.cloud.billing-accounts.get", "google.cloud.billing-accounts.list", "google.cloud.billing-accounts.list-projects",
 		"google.cloud.bucket-access-controls.list", "google.cloud.buckets.delete", "google.cloud.buckets.get", "google.cloud.buckets.get-iam-policy",
-		"google.cloud.buckets.list", "google.cloud.changes.create", "google.cloud.changes.get", "google.cloud.changes.list", "google.cloud.compute-operations.get",
+		"google.cloud.buckets.list", "google.cloud.budgets.get", "google.cloud.budgets.list", "google.cloud.catalog-services.list", "google.cloud.catalog-skus.list", "google.cloud.changes.create", "google.cloud.changes.get", "google.cloud.changes.list", "google.cloud.compute-operations.get",
 		"google.cloud.compute-operations.list", "google.cloud.disks.aggregated-list", "google.cloud.disks.create-snapshot", "google.cloud.disks.delete",
 		"google.cloud.disks.get", "google.cloud.disks.insert", "google.cloud.disks.list", "google.cloud.disks.resize",
 		"google.cloud.dns-keys.get", "google.cloud.dns-keys.list", "google.cloud.firewalls.delete", "google.cloud.firewalls.get",
@@ -190,7 +198,7 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 		"google.cloud.vpn-tunnels.delete", "google.cloud.vpn-tunnels.get", "google.cloud.vpn-tunnels.list", "google.cloud.zones.list"}; !slices.Equal(ids, want) {
 		t.Errorf("tools = %v, want %v", ids, want)
 	}
-	if profile, found := metadata.RecommendedProfile(); !found || profile.ID != "read" || len(profile.Tools) != 66 {
+	if profile, found := metadata.RecommendedProfile(); !found || profile.ID != "read" || len(profile.Tools) != 68 {
 		t.Errorf("profile = %+v", profile)
 	}
 	// The recommended profile asks only for read scopes, an explicit allow-list; a tool that needs the broad
@@ -214,6 +222,10 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 		case "read-quotas":
 			if profile.Recommended || len(profile.Tools) != len(readTools)+4 {
 				t.Errorf("profile read-quotas = %+v", profile)
+			}
+		case "read-budgets":
+			if profile.Recommended || !slices.Equal(profile.Tools, append(append([]string{}, readTools...), budgetsListID, budgetsGetID)) {
+				t.Errorf("profile read-budgets = %+v", profile)
 			}
 		case "read-storage-access":
 			if profile.Recommended || len(profile.Tools) != len(readTools)+3 {
@@ -306,7 +318,7 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 }
 
 func TestServiceOriginsAreFixedHTTPSGoogleOrigins(t *testing.T) {
-	want := []service{serviceResourceManager, serviceIAM, serviceUsage, serviceCompute, serviceStorage, serviceDNS, serviceBilling, serviceAPIKeys, serviceQuotas}
+	want := []service{serviceResourceManager, serviceIAM, serviceUsage, serviceCompute, serviceStorage, serviceDNS, serviceBilling, serviceBillingBudgets, serviceAPIKeys, serviceQuotas}
 	if len(serviceOrigins) != len(want) {
 		t.Errorf("services = %d, want %d", len(serviceOrigins), len(want))
 	}
