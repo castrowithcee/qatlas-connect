@@ -121,7 +121,7 @@ func locationsOfPath(account string) string { return account + "/locations" }
 var accountTools = map[string]bool{
 	accountsListID: true, accountsGetID: true, accountsUpdateID: true,
 	accountAdminsListID: true, accountAdminsUpdateID: true, accountAdminsDeleteID: true,
-	invitationsListID: true, invitationsDeclineID: true, notificationsGetID: true,
+	invitationsListID: true, invitationsDeclineID: true, notificationsGetID: true, locationsCreateID: true,
 }
 
 // targetReaches withholds the account tools from a connection bound to a location: they act on accounts,

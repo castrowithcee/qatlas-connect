@@ -1,6 +1,6 @@
 ---
 description: >
-  Describes the Google Business Profile provider: the consent-only token credential, the one scope business.manage, the fixed API origins, the approval of the Cloud project and its error class, the performance, verification, notification, and review tools, the My Business API v4 origin, the optional account and location targets and how they are proven, the profile, quota and request spacing, result bounds, the connection test, error classes, and the limits of what is verified.
+  Describes the Google Business Profile provider: the consent-only token credential, the one scope business.manage, the fixed API origins, the approval of the Cloud project and its error class, the location, admin, performance, verification, notification, and review tools, the My Business API v4 origin, the optional account and location targets and how they are proven, the profile, quota and request spacing, result bounds, the connection test, error classes, and the limits of what is verified.
 type: knowledge
 edit: shared
 created: 2026-11-17
@@ -13,9 +13,10 @@ Google Business Profile is a provider for the Business Profile APIs v1: the acco
 and the business locations in them, their attributes, the performance of a location, the verification state of
 a location, and the notification setting of an account, and for the My Business API v4, which Google keeps for
 reviews, media, and local posts. Most tools read; the tools of the profile `write` change the role of existing
-admins, remove admins, decline invitations, rename an account, set or remove attributes, create, change, and
-delete place action links, reply to reviews or delete a reply, add photos and videos by address, recategorize
-them, and delete them, and create, change, and delete local posts. [Set up Google Business Profile](setup.md)
+admins, remove admins, decline invitations, rename an account, set or remove attributes, create and change
+locations, create, change, and delete place action links, reply to reviews or delete a reply, add photos and videos
+by address, recategorize them, and delete them, and create, change, and delete local posts. Deleting a location is
+listed-only. [Set up Google Business Profile](setup.md)
 leads through the Google side, the approval, and the consent. The tools are described per group in
 [accounts](accounts.md), [locations](locations.md), [account admins](account-admins.md), [location
 admins](location-admins.md), [invitations](invitations.md), [attributes](attributes.md),
@@ -50,8 +51,9 @@ no wider than the task needs.
 
 | Profile | Tools |
 | --- | --- |
-| `read` (recommended) | every read tool: `accounts.list`, `accounts.get`, `locations.list`, `locations.get`, `account-admins.list`, `location-admins.list`, `invitations.list`, `lodging.get`, `lodging.get-google-updated`, `attributes.list`, `attributes.get`, `performance.*`, `verifications.list`, `verifications.fetch-options`, `verifications.get-merchant-state`, `notifications.get`, `place-action-links.list`, `place-action-links.get`, `place-action-types.list`, `reviews.list`, `reviews.get`, `reviews.batch-get`, `media.list`, `media.get`, `local-posts.list`, `local-posts.get` |
-| `write` | `account-admins.update`, `location-admins.update`, `accounts.update`, `account-admins.delete`, `location-admins.delete`, `invitations.decline`, `lodging.update`, `attributes.update`, `place-action-links.create`, `place-action-links.update`, `place-action-links.delete`, `reviews.update-reply`, `reviews.delete-reply`, `media.create`, `media.update`, `media.delete`, `local-posts.create`, `local-posts.update`, `local-posts.delete`; each change needs confirmation |
+| `read` (recommended) | every read tool: `accounts.list`, `accounts.get`, `locations.list`, `locations.get`, `locations.get-google-updated`, `account-admins.list`, `location-admins.list`, `invitations.list`, `lodging.get`, `lodging.get-google-updated`, `attributes.list`, `attributes.get`, `performance.*`, `verifications.list`, `verifications.fetch-options`, `verifications.get-merchant-state`, `notifications.get`, `place-action-links.list`, `place-action-links.get`, `place-action-types.list`, `reviews.list`, `reviews.get`, `reviews.batch-get`, `media.list`, `media.get`, `local-posts.list`, `local-posts.get` |
+| `write` | `account-admins.update`, `location-admins.update`, `accounts.update`, `locations.create`, `locations.update`, `account-admins.delete`, `location-admins.delete`, `invitations.decline`, `lodging.update`, `attributes.update`, `place-action-links.create`, `place-action-links.update`, `place-action-links.delete`, `reviews.update-reply`, `reviews.delete-reply`, `media.create`, `media.update`, `media.delete`, `local-posts.create`, `local-posts.update`, `local-posts.delete`; each change needs confirmation |
+| none | `locations.delete` is listed-only: only a `tools` list offers it |
 
 The profile `read` changes nothing, but Google's only scope also allows changes, so the token could. The two
 admin lists name other people (first and last name, and the email address of a pending invitation), the
@@ -105,7 +107,8 @@ request is sent; a refusal never names the other object.
 | `accounts.list` | answers with the bound account only, read directly; `parent_account` is refused | not offered |
 | `accounts.get` | the bound account only | not offered |
 | `locations.list` | the locations of the bound account; another account and `accounts/-` are refused | answers with the bound location only, read directly; `account` and `filter` are refused |
-| `locations.get` | first proves that the location is in the bound account's location list | the bound location only |
+| `locations.get`, `locations.get-google-updated`, `locations.update`, `locations.delete` | first prove that the location is in the bound account's location list | the bound location only |
+| `locations.create` | the bound account only | not offered |
 | `account-admins.list`, `account-admins.update`, `account-admins.delete`, `accounts.update` | the bound account only | not offered |
 | `invitations.list`, `invitations.decline` | the invitations of the bound account only | not offered |
 | `location-admins.list`, `location-admins.update`, `location-admins.delete` | prove the location first, like `locations.get` | the bound location only |
@@ -121,7 +124,7 @@ request is sent; a refusal never names the other object.
 | `reviews.*` | accounts and locations as `accounts/ACCOUNT/locations/LOCATION`; the account must be the bound one and the location is proved like `locations.get` | only the location ID is compared, the account part is an argument; see [reviews](reviews.md#the-v4-client) |
 | `local-posts.*` | the same v4 paths and rules as `reviews.*`, on every call | as `reviews.*`; see [local posts](local-posts.md#the-v4-paths) |
 
-The proof of `locations.get` and of the performance and verification tools reads the location list of the bound account, names
+The proof of the location tools and of the performance and verification tools reads the location list of the bound account, names
 only, 100 at a time, until it finds the location. It reads at most 2000 locations; a location not found by then is refused like one outside
 the target. The time between the proof and the read is a limit of the proof.
 
@@ -196,7 +199,8 @@ read; no other value chooses a class.
 
 The provider reaches only the fixed origins and the fixed method of each tool. It offers no passthrough of
 method, path, header, or body. The v4 accounts, admins, invitations, and transfer methods are deprecated and
-not used. v4 is used only for reviews, media, and local posts; it has no discovery document, see [reviews](reviews.md#the-v4-client). No tool invites anyone or creates an admin, and no tool creates an account or transfers a location.
+not used. v4 is used only for reviews, media, and local posts; it has no discovery document, see [reviews](reviews.md#the-v4-client). No tool invites anyone or creates an admin, and no tool creates an account or transfers a location. The
+location writes are described in [locations](locations.md#writing-a-location).
 
 Not verified:
 
@@ -223,6 +227,11 @@ Not verified:
   else before a request.
 - How many names `categories.batch-get` accepts; Qatlas allows 50.
 - Which classification Google gives `business.manage` when it verifies an OAuth app.
+- How Google reacts to a change of the title, the address, or a category: a new verification, a review, or a
+  suspended profile.
+- Whether a deleted location can be restored.
+- Whether an update mask accepts nested field paths, and whether Google applies the limits of its documentation
+  for texts; Qatlas accepts only top-level fields and caps a `profile` description at 4000 characters.
 - Whether a change with `validate_only` counts against the 10 changes per minute; Qatlas counts it.
 - The format of an admin ID; Qatlas accepts up to 64 letters, digits, `_`, and `-`.
 - Whether the entry of the consenting account itself is among the admins that `admins.delete` removes; the answer

@@ -50,6 +50,11 @@ var toolScopes = map[string][]string{
 	locationAdminsUpdateID: {scopeManage},
 	accountsUpdateID:       {scopeManage},
 
+	locationsCreateID:           {scopeManage},
+	locationsUpdateID:           {scopeManage},
+	locationsDeleteID:           {scopeManage},
+	locationsGetGoogleUpdatedID: {scopeManage},
+
 	performanceGetDailyID:   {scopeManage},
 	performanceFetchDailyID: {scopeManage},
 	performanceKeywordsID:   {scopeManage},
@@ -156,7 +161,7 @@ func testClass(err error) (provider.Class, error) {
 
 // readTools are the tools of the profile read.
 var readTools = []string{accountsListID, accountsGetID, locationsListID, locationsGetID,
-	accountAdminsListID, locationAdminsListID,
+	accountAdminsListID, locationAdminsListID, locationsGetGoogleUpdatedID,
 	performanceGetDailyID, performanceFetchDailyID, performanceKeywordsID,
 	categoriesListID, categoriesBatchGetID, chainsGetID, chainsSearchID, googleLocationsSearchID,
 	invitationsListID, attributesListID, attributesGetID, reviewsListID, reviewsGetID, reviewsBatchGetID,
@@ -165,10 +170,13 @@ var readTools = []string{accountsListID, accountsGetID, locationsListID, locatio
 	placeActionLinksListID, placeActionLinksGetID, placeActionTypesListID}
 
 // writeTools are the tools of the profile write.
-var writeTools = []string{accountAdminsUpdateID, locationAdminsUpdateID, accountsUpdateID,
-	accountAdminsDeleteID, locationAdminsDeleteID, invitationsDeclineID, attributesUpdateID, reviewsUpdateReplyID,
-	reviewsDeleteReplyID, mediaCreateID, mediaUpdateID, mediaDeleteID, localPostsCreateID, localPostsUpdateID,
-	localPostsDeleteID, lodgingUpdateID, placeActionLinksCreateID, placeActionLinksUpdateID, placeActionLinksDeleteID}
+//
+// locations.delete is in no profile: only a tools list offers it.
+var writeTools = []string{accountAdminsUpdateID, locationAdminsUpdateID, accountsUpdateID, locationsCreateID,
+	locationsUpdateID, accountAdminsDeleteID, locationAdminsDeleteID, invitationsDeclineID, attributesUpdateID,
+	reviewsUpdateReplyID, reviewsDeleteReplyID, mediaCreateID, mediaUpdateID, mediaDeleteID, localPostsCreateID,
+	localPostsUpdateID, localPostsDeleteID, lodgingUpdateID, placeActionLinksCreateID, placeActionLinksUpdateID,
+	placeActionLinksDeleteID}
 
 // Register adds the provider metadata, its consent endpoints, its connection test, and its tools.
 func Register(reg *capability.Registry) error {
@@ -196,11 +204,12 @@ func Register(reg *capability.Registry) error {
 			ID: "write", Title: "Write",
 			Description: "changes the role of existing admins of an account or a location, removes existing admins, " +
 				"declines invitations, renames an account, sets or removes the public attributes of a location, " +
-				"creates, changes, and deletes place action links, which are public on the profile, publishes or " +
-				"deletes the public reply of the business to a review, adds, recategorizes, and deletes photos and " +
-				"videos of a location, which are public on the profile, and creates, changes, and deletes local " +
-				"posts, which are public on the profile and in Google Search, each change with the confirmation of a " +
-				"person; no tool invites or creates an admin, accepts an invitation, deletes or reports a review, " +
+				"creates and changes business locations, whose data is public, creates, changes, and deletes place " +
+				"action links, which are public on the profile, publishes or deletes the public reply of the business " +
+				"to a review, adds, recategorizes, and deletes photos and videos of a location, which are public on " +
+				"the profile, and creates, changes, and deletes local posts, which are public on the profile and in " +
+				"Google Search, each change with the confirmation of a person; no tool of this profile deletes a " +
+				"location; no tool invites or creates an admin, accepts an invitation, deletes or reports a review, " +
 				"makes anyone primary owner, or transfers a location; Google offers only the scope business.manage, " +
 				"so the " +
 				"token may change what its account may",
@@ -228,6 +237,13 @@ func Register(reg *capability.Registry) error {
 			ConfirmationSummary: adminSummary},
 		capability.Operation{Descriptor: accountsUpdate, Handler: handleAccountsUpdate,
 			ConfirmationSummary: accountUpdateSummary},
+		capability.Operation{Descriptor: locationsGetGoogleUpdated, Handler: handleLocationsGetGoogleUpdated},
+		capability.Operation{Descriptor: locationsCreate, Handler: handleLocationsCreate,
+			ConfirmationSummary: locationCreateSummary},
+		capability.Operation{Descriptor: locationsUpdate, Handler: handleLocationsUpdate,
+			ConfirmationSummary: locationUpdateSummary},
+		capability.Operation{Descriptor: locationsDelete, Handler: handleLocationsDelete,
+			ConfirmationSummary: locationDeleteSummary},
 		capability.Operation{Descriptor: accountAdminsDelete, Handler: handleAccountAdminsDelete,
 			ConfirmationSummary: adminRemoveSummary},
 		capability.Operation{Descriptor: locationAdminsDelete, Handler: handleLocationAdminsDelete,
