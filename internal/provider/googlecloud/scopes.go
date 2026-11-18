@@ -122,6 +122,11 @@ var tokenMetadata = config.TokenMetadata{Scopes: map[string][]string{
 	bucketsGetID:               {scopeStorageReadOnly},
 	bucketsGetIAMPolicyID:      {scopeStorageFullControl},
 	bucketAccessControlsListID: {scopeStorageFullControl},
+	// storage v1 lists devstorage.read_only for notifications.list, managedFolders.list, and projects.hmacKeys.list and get.
+	notificationsListID:  {scopeStorageReadOnly},
+	managedFoldersListID: {scopeStorageReadOnly},
+	hmacKeysListID:       {scopeStorageReadOnly},
+	hmacKeysGetID:        {scopeStorageReadOnly},
 	// storage v1 lists devstorage.read_only for objects.list and objects.get (with and without alt=media), and
 	// only devstorage.full_control and cloud-platform for objectAccessControls.list.
 	objectsListID:              {scopeStorageReadOnly},
