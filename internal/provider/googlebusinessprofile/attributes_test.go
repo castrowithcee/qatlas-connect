@@ -289,7 +289,8 @@ func TestAttributesUpdateRemovesAnAttributeNamedOnlyInTheMask(t *testing.T) {
 
 func TestAttributesUpdateNeedsMaskAndConfirmationAndRefusesWithoutIO(t *testing.T) {
 	env, _ := attributeEnvironment(t)
-	long := strings.Repeat("p", 600)
+	// Five addresses of 2000 characters exceed the bound of the tool.
+	long := strings.TrimSuffix(strings.Repeat(`{"uri":"https://a.example.com/`+strings.Repeat("p", 1960)+`"},`, 5), ",")
 	for name, args := range map[string]string{
 		"no mask":    `{"location":"` + boundLocation + `","attributes":[{"name":"` + attrWifi + `","values":[true]}],"previous_attributes":[]}`,
 		"empty mask": `{"location":"` + boundLocation + `","attribute_mask":[],"attributes":[],"previous_attributes":[]}`,
@@ -311,7 +312,7 @@ func TestAttributesUpdateNeedsMaskAndConfirmationAndRefusesWithoutIO(t *testing.
 		"bidi in value": `{"location":"` + boundLocation + `","attribute_mask":["` + attrSeat + `"],` +
 			`"attributes":[{"name":"` + attrSeat + `","values":["IN‮DOOR"]}],"previous_attributes":[]}`,
 		"summary too long": `{"location":"` + boundLocation + `","attribute_mask":["` + attrMenu + `"],` +
-			`"attributes":[{"name":"` + attrMenu + `","uriValues":[{"uri":"https://a.example.com/` + long + `"}]}],"previous_attributes":[]}`,
+			`"attributes":[{"name":"` + attrMenu + `","uriValues":[` + long + `]}],"previous_attributes":[]}`,
 		"other location": `{"location":"` + otherLocation + `","attribute_mask":["` + attrWifi + `"],` +
 			`"attributes":[{"name":"` + attrWifi + `","values":[true]}],"previous_attributes":[` + previousWifi + `]}`,
 		"bad name": `{"location":"` + boundLocation + `","attribute_mask":["attributes/../x"],"attributes":[],"previous_attributes":[]}`,

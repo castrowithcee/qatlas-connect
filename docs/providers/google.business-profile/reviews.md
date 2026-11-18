@@ -81,9 +81,9 @@ profile `write`.
 
 The tool reads the review first and sends nothing unless rating, text, and reply are exactly what the arguments
 name; the body holds only `comment`. The confirmation shows the location, the rating, an excerpt of the review
-(40 characters), the full reply, every URL in the reply, and the excerpt of a reply that is replaced. The core
-cuts a confirmation at 500 characters, so a reply that would not fit with that context (about 350 characters)
-is refused before anything is sent, and so is a reply with control, invisible formatting, or separator
+(40 characters), the full reply, every URL in the reply, and the excerpt of a reply that is replaced. The
+confirmation of this tool may hold 9216 characters, which fits a reply of Google's 4096 bytes with every line
+break and address counted. A reply that would not fit with that context is refused before anything is sent, and so is a reply with control, invisible formatting, or separator
 characters other than line breaks and tabs. Google may hold a reply back: the result shows
 `reviewReplyState` (`PENDING`, `REJECTED`, or `APPROVED`). The time between the read and the change is a limit
 of the comparison.

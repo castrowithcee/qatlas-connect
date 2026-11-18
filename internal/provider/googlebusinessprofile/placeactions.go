@@ -8,7 +8,6 @@ import (
 	"slices"
 	"strings"
 	"unicode"
-	"unicode/utf8"
 
 	"github.com/castrowithcee/qatlas-connect/internal/capability"
 	"github.com/castrowithcee/qatlas-connect/internal/config"
@@ -50,9 +49,6 @@ const (
 	maxLinkURIBytes = 2000
 	maxLinksPage    = 100
 	maxTypesPage    = 100
-	// maxConfirmationRunes mirrors the bound the core puts on a confirmation summary. A summary that would be
-	// cut is refused instead, so a person never confirms text that hides part of the address.
-	maxConfirmationRunes = 500
 )
 
 var (
@@ -157,7 +153,7 @@ var (
 		formPlaceActionLink}
 	uriArgument = capability.Argument{Name: "uri", Description: "Address of the link: https only, ASCII only " +
 		"(percent-encode other characters), no user information, no control characters, at most 2000 bytes; the " +
-		"whole address is shown in the confirmation, which must fit in 500 characters, and it is never fetched"}
+		"whole address is shown in the confirmation, which must fit in " + limitText(placeActionLinksCreateID) + ", and it is never fetched"}
 	typeArgument = capability.Argument{Name: "place_action_type", Description: "Type of the action: " +
 		strings.Join(placeActionTypes, ", ")}
 	preferredArgument = capability.Argument{Name: "is_preferred", Description: "true marks the link as the " +
@@ -206,7 +202,7 @@ var placeActionLinksCreate = capability.Descriptor{
 	ID: placeActionLinksCreateID, Version: 1, Title: "Create a place action link of a Business Profile location",
 	Description: "Create a place action link at one business location. The link is visible on the public profile at " +
 		"once, so the confirmation shows the whole address, the type, and the location, and the tool refuses " +
-		"before sending when that text does not fit in 500 characters. The address must be https. Google allows " +
+		"before sending when that text does not fit in " + limitText(placeActionLinksCreateID) + ". The address must be https. Google allows " +
 		"one link per address, type, and location. On a connection bound to an account the location is first " +
 		"proved to belong to it. Google counts at most 10 changes per minute and profile. " + placeActionNote +
 		untrustedNote,
@@ -230,7 +226,7 @@ var placeActionLinksUpdate = capability.Descriptor{
 		strings.Join(updatableFields, ", ") + "; a field without a value in the mask, or a value without its field " +
 		"in the mask, is refused. The confirmation shows the link, which holds the location, and each changed " +
 		"field with its new value, the whole address included; the tool refuses before sending when that text " +
-		"does not fit in 500 characters. The address must be https. On a connection bound to an account the " +
+		"does not fit in " + limitText(placeActionLinksUpdateID) + ". The address must be https. On a connection bound to an account the " +
 		"location is first proved to belong to it. Google counts at most 10 changes per minute and profile. " +
 		placeActionNote + untrustedNote,
 	Tags: []string{"google", "business-profile", "place-action-links", "update"}, Provider: Provider,
@@ -463,7 +459,9 @@ func confirmationText(tool string, args placeActionArguments) (text string, ok b
 		b.WriteString("Delete the place action link " + args.Link + ", which disappears from the public profile")
 	}
 	text = b.String()
-	return text, utf8.RuneCountInString(text) <= maxConfirmationRunes
+	// A summary that would be cut is refused instead, so a person never confirms text that hides part of the
+	// address.
+	return text, fitsConfirmation(tool, text)
 }
 
 func writeFlags(b *strings.Builder, args placeActionArguments) {
@@ -490,8 +488,8 @@ func deref(s *string) string {
 }
 
 // tooLong is the refusal of a change whose confirmation would not show everything.
-const tooLong = "the confirmation of this change would exceed 500 characters, so it could not show the whole " +
-	"address; use a shorter address"
+var tooLong = "the confirmation of this change would exceed " + limitText(placeActionLinksCreateID) +
+	", so it could not show the whole address; use a shorter address"
 
 // placeActionSummary phrases a confirmation from the arguments alone. A call that the handler refuses says so
 // instead of asking for a confirmation of what will not happen.

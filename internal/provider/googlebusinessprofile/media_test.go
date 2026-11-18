@@ -285,35 +285,36 @@ func TestMediaCreateRefusesWhatIsNotAnHttpsUrlOrCannotBeConfirmedWhole(t *testin
 	assoc := `"location_association":{"category":"EXTERIOR"}`
 	base := `{"location":"` + v4Location + `","media_format":"PHOTO",`
 	for name, args := range map[string]string{
-		"http":                 base + `"source_url":"http://media.example.invalid/a.jpg",` + assoc + `}`,
-		"no url":               base + assoc + `}`,
-		"empty url":            base + `"source_url":"",` + assoc + `}`,
-		"ftp":                  base + `"source_url":"ftp://media.example.invalid/a.jpg",` + assoc + `}`,
-		"file":                 base + `"source_url":"file:///etc/passwd",` + assoc + `}`,
-		"user info":            base + `"source_url":"https://user:pw@192.0.2.1/a.jpg",` + assoc + `}`,
-		"space":                base + `"source_url":"https://media.example.invalid/a b.jpg",` + assoc + `}`,
-		"too long for confirm": base + `"source_url":"https://media.example.invalid/` + strings.Repeat("a", 600) + `",` + assoc + `}`,
-		"no association":       base + `"source_url":"` + mediaSource + `"}`,
-		"both associations":    base + `"source_url":"` + mediaSource + `","location_association":{"category":"MENU","price_list_item_id":"x"}}`,
-		"unspecified":          base + `"source_url":"` + mediaSource + `","location_association":{"category":"CATEGORY_UNSPECIFIED"}}`,
-		"cover description":    base + `"source_url":"` + mediaSource + `","location_association":{"category":"COVER"},"description":"x"}`,
-		"control description":  base + `"source_url":"` + mediaSource + `",` + assoc + `,"description":"a\u0007b"}`,
-		"unknown format":       strings.Replace(base, "PHOTO", "GIF", 1) + `"source_url":"` + mediaSource + `",` + assoc + `}`,
-		"data reference":       base + `"source_url":"` + mediaSource + `",` + assoc + `,"data_ref":"x"}`,
+		"http":                base + `"source_url":"http://media.example.invalid/a.jpg",` + assoc + `}`,
+		"no url":              base + assoc + `}`,
+		"empty url":           base + `"source_url":"",` + assoc + `}`,
+		"ftp":                 base + `"source_url":"ftp://media.example.invalid/a.jpg",` + assoc + `}`,
+		"file":                base + `"source_url":"file:///etc/passwd",` + assoc + `}`,
+		"user info":           base + `"source_url":"https://user:pw@192.0.2.1/a.jpg",` + assoc + `}`,
+		"space":               base + `"source_url":"https://media.example.invalid/a b.jpg",` + assoc + `}`,
+		"url over 2000 bytes": base + `"source_url":"https://media.example.invalid/` + strings.Repeat("a", 2000) + `",` + assoc + `}`,
+		"no association":      base + `"source_url":"` + mediaSource + `"}`,
+		"both associations":   base + `"source_url":"` + mediaSource + `","location_association":{"category":"MENU","price_list_item_id":"x"}}`,
+		"unspecified":         base + `"source_url":"` + mediaSource + `","location_association":{"category":"CATEGORY_UNSPECIFIED"}}`,
+		"cover description":   base + `"source_url":"` + mediaSource + `","location_association":{"category":"COVER"},"description":"x"}`,
+		"control description": base + `"source_url":"` + mediaSource + `",` + assoc + `,"description":"a\u0007b"}`,
+		"unknown format":      strings.Replace(base, "PHOTO", "GIF", 1) + `"source_url":"` + mediaSource + `",` + assoc + `}`,
+		"data reference":      base + `"source_url":"` + mediaSource + `",` + assoc + `,"data_ref":"x"}`,
 	} {
 		_, err := env.change(t, mediaCreateID, "m-all", args)
 		if err == nil {
 			t.Errorf("%s: accepted", name)
 		}
-		if name == "too long for confirm" && !isInvalidRequest(err) {
-			t.Errorf("%s: error = %v, want invalid request", name, err)
-		}
 	}
 	env.noRequests(t)
-	long := mediaSummary(mediaCreateID)(json.RawMessage(base + `"source_url":"https://media.example.invalid/` +
-		strings.Repeat("a", 600) + `",` + assoc + `}`))
-	if !strings.HasPrefix(long, "Refused before sending") {
-		t.Errorf("summary of a refused call = %q", long)
+	// The longest address and description Google takes are shown whole.
+	address := "https://media.example.invalid/" + strings.Repeat("a", 2000-len("https://media.example.invalid/"))
+	description := strings.Repeat("d", maxMediaDescRune)
+	summary := mediaSummary(mediaCreateID)(json.RawMessage(base + `"source_url":"` + address + `",` + assoc +
+		`,"description":"` + description + `"}`))
+	if !strings.Contains(summary, address) || !strings.Contains(summary, description) ||
+		strings.HasPrefix(summary, "Refused before sending") || confirmationRunes(summary) > confirmLimit(mediaCreateID) {
+		t.Errorf("summary of the longest call = %q", summary)
 	}
 }
 

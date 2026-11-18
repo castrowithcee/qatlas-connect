@@ -340,9 +340,9 @@ func TestLodgingUpdateNeedsConfirmationWithOldAndNewValues(t *testing.T) {
 func TestLodgingUpdateRefusesWhatItCannotConfirmInFull(t *testing.T) {
 	env, server, _ := lodgingEnvironment(t)
 	var labels, previous []string
-	for i := 0; i < 5; i++ {
-		labels = append(labels, `{"label":"`+strings.Repeat("n", 100)+`","codes":["N`+string(rune('A'+i))+`"]}`)
-		previous = append(previous, `{"label":"`+strings.Repeat("o", 100)+`","codes":["O`+string(rune('A'+i))+`"]}`)
+	for i := 0; i < 12; i++ {
+		labels = append(labels, `{"label":"`+strings.Repeat("n", 200)+`","codes":["N`+string(rune('A'+i))+`"]}`)
+		previous = append(previous, `{"label":"`+strings.Repeat("o", 200)+`","codes":["O`+string(rune('A'+i))+`"]}`)
 	}
 	args := changeArgs(`["guestUnits"]`, `{"guestUnits":[`+strings.Join(previous, ",")+`]}`,
 		`{"guestUnits":[`+strings.Join(labels, ",")+`]}`)
