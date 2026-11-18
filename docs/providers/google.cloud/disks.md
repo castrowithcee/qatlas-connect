@@ -1,6 +1,6 @@
 ---
 description: >
-  Describes the Google Cloud Compute disk tools disks.list, disks.aggregated-list, and disks.get and the changes disks.insert, disks.resize, and disks.create-snapshot: their arguments, the scopes compute.readonly and compute with the profiles read and compute-disks, the target check, the cursor, partial results with unreachables and warning, the result members, the rule that encryption key material is never returned or taken, how sources and references are built, the size check before growing, the confirmation, the request ID and the returned operation, and what is not verified.
+  Describes the Google Cloud Compute disk tools disks.list, disks.aggregated-list, and disks.get the changes disks.insert, disks.resize, and disks.create-snapshot, and the listed-only deletion disks.delete: their arguments, the scopes compute.readonly and compute with the profiles read and compute-disks, the target check, the cursor, partial results with unreachables and warning, the result members, the rule that encryption key material is never returned or taken, how sources and references are built, the size check before growing, the comparison of size and attached instances before deleting, the confirmation, the request ID and the returned operation, and what is not verified.
 type: knowledge
 edit: shared
 created: 2026-11-17
@@ -10,8 +10,8 @@ updated: 2026-11-18
 # Google Cloud Compute disks
 
 Three tools read the persistent disks of a project from Compute Engine (`compute` v1, discovery revision
-20261106), and three more create a disk, grow a disk, and snapshot a disk ([Changes](#changes)). None of them deletes,
-attaches, or shares a disk or snapshot. Every request goes to the fixed origin `https://compute.googleapis.com` with
+20261106), three more create a disk, grow a disk, and snapshot a disk ([Changes](#changes)), and one deletes a disk
+([Deleting a disk](#deleting-a-disk)). None of them attaches or shares a disk or snapshot. Every request goes to the fixed origin `https://compute.googleapis.com` with
 the base path `/compute/v1`; no argument takes a path, URL, header, or body.
 
 | Tool | Google method | Arguments |
@@ -91,8 +91,23 @@ the effects `create` and `update`, and holds `projects.get` as well. Every call 
   the zone, or a failure after which the request may have arrived, says that the outcome is unknown: read the disk
   with `disks.get` or the snapshot with `snapshots.get`.
 
+## Deleting a disk
+
+`disks.delete` (`disks.delete` of Compute Engine, effect `delete`) removes a disk and all data on it for good; its
+snapshots stay. It is listed-only: it is in no profile, and only a `tools` list that names it exactly releases it. It
+asks for the scope `compute`; the rights are in [Set up Google Cloud](setup.md).
+
+- **Size and attached instances.** The call names the size and the attached instances that `disks.get` showed, as
+  `expected_size_gb` and `expected_users` (the instance names of `users`, empty for an unused disk), and the
+  confirmation shows them. After the confirmation the tool reads the disk and deletes it only if `sizeGb` and the
+  instances of `users` still match; otherwise it fails without a deletion. A user that is no instance of the zone of
+  the disk counts as an invalid answer. The time between the read and the deletion is a limit.
+- **Disk in use.** Google refuses a disk that an instance still uses; the tool reports that refusal.
+- **Request and result.** One DELETE, never repeated, with the request ID, the zonal operation, and the unknown
+  outcome as for the changes above.
+
 ## Not verified
 
 - The answers of Compute Engine were not seen live; which members Google fills depends on the disk.
-- The changes were checked against a simulated Compute Engine only. The list of public image projects follows
+- The changes and the deletion were checked against a simulated Compute Engine only. The list of public image projects follows
   Google's list of operating system details; a project Google adds later is refused until the list is extended.

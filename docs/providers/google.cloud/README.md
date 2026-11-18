@@ -4,7 +4,7 @@ description: >
 type: knowledge
 edit: shared
 created: 2026-11-16
-updated: 2026-11-17
+updated: 2026-11-18
 ---
 
 # Google Cloud
@@ -35,8 +35,8 @@ tokens for it). The connection holds no scope. Qatlas derives them from the tool
 smallest scope the discovery document of each method lists: `cloud-platform.read-only` for Resource Manager,
 and `cloud-platform` for the IAM and quota tools, because their discovery documents list no narrower scope
 (Google offers no read-only variant for these methods, see [IAM](iam.md) and [Quotas](quotas.md)). Only the tools of the profiles
-`service-accounts`, `service-accounts-revoke`, `api-keys-revoke`, `iam-bindings`, `compute-network-delete`, `compute-lifecycle`, `compute-instances-create`, `compute-disks`, and `services` and the tools
-`service-accounts.delete`, `services.disable`, and `instances.delete`, which a `tools` list must name, change anything, each with a confirmation, whatever the scope allows. The access token travels in the
+`service-accounts`, `service-accounts-revoke`, `api-keys-revoke`, `iam-bindings`, `compute-network-delete`, `compute-lifecycle`, `compute-instances-create`, `compute-disks`, `compute-images-delete`, and `services` and the tools
+`service-accounts.delete`, `services.disable`, `instances.delete`, and `disks.delete`, which a `tools` list must name, change anything, each with a confirmation, whatever the scope allows. The access token travels in the
 `Authorization` header only, is never an argument or part of a result, and is masked in every output. A 401
 renews the token once, and nothing else repeats a request.
 
@@ -170,6 +170,14 @@ which Google also uses to change Compute resources, so the token may do that alt
 the effects `create` and `update` for the disk tools and `read` for `projects.get`, is not recommended, and every
 call needs the confirmation of a person. See [Disks](disks.md#changes).
 
+The profile `compute-images-delete` holds `google.cloud.images.insert`, `google.cloud.snapshots.delete`,
+`google.cloud.images.delete`, and `google.cloud.projects.get`. The three tools ask for the scope `compute`, which
+Google also uses to change Compute resources, so the token may do that although no tool does. The profile needs the
+effects `create` and `delete` for the image and snapshot tools and `read` for `projects.get`, is not recommended, and
+every call needs the confirmation of a person. It does not hold `google.cloud.disks.delete`: that tool is
+listed-only and only a `tools` list that names it exactly releases it. See [Images](images.md#changes),
+[Disk snapshots](snapshots.md#deleting-a-snapshot), and [Disks](disks.md#deleting-a-disk).
+
 The profile `services` holds only `google.cloud.services.enable` and `google.cloud.services.batch-enable`. It asks
 for `cloud-platform`, needs the effect `update`, and is not recommended. It does not hold
 `google.cloud.services.disable`: that tool is listed-only and only a `tools` list that names it exactly releases
@@ -208,10 +216,12 @@ on [IAM bindings](iam-bindings.md).
 - [VPN tunnels](vpn-tunnels.md): the VPN tunnels of a region from Compute Engine, never with their shared secret, and the
   confirmed deletion of a tunnel.
 - [Disks](disks.md): the persistent disks of a project from Compute Engine, one, per zone, and across all zones,
-  never with encryption key material, and the confirmed creation, growth, and snapshot of a disk.
+  never with encryption key material, the confirmed creation, growth, and snapshot of a disk, and its deletion
+  (listed-only).
 - [Disk snapshots](snapshots.md): the global disk snapshots of a project from Compute Engine, never with customer-supplied
-  key material.
-- [Images](images.md): the images of a project from Compute Engine, never with customer-supplied key material.
+  key material, and the confirmed deletion of a snapshot.
+- [Images](images.md): the images of a project from Compute Engine, never with customer-supplied key material, and the
+  confirmed creation and deletion of an image.
 - [Buckets](buckets.md): the Cloud Storage buckets of a project, one and all, and the IAM policy of a bucket, bound to
   the targets by the project number of the bucket.
 - [Bucket access controls](bucket-access-controls.md): the access control list of a Cloud Storage bucket.
