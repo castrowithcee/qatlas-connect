@@ -9,7 +9,8 @@
 // service-accounts-revoke and the listed-only service-accounts.delete (service_accounts_revoke.go),
 // api-keys-revoke (the deletion and restoration of API keys, api_keys.go), and
 // iam-bindings (a single binding of the IAM policy of a project, folder, or organization, iam_bindings.go),
-// and compute-network-delete (firewall rules, reserved IP addresses, VPN tunnels and gateways, compute_delete.go),
+// compute-network-delete (firewall rules, reserved IP addresses, VPN tunnels and gateways, compute_delete.go),
+// compute-instances-create (instances.insert, compute_instances_insert.go) and the listed-only instances.delete,
 // each change with the confirmation of a person. Every request goes to a fixed origin of the service table,
 // with the access token in the Authorization header only, once, within a bounded size and time, and spaced per
 // credential.
@@ -196,6 +197,16 @@ func Register(reg *capability.Registry) error {
 			Tools: []string{projectsGet.ID, instancesStart.ID, instancesStop.ID, instancesReset.ID,
 				instancesSetMachineType.ID},
 		}, {
+			ID: "compute-instances-create", Title: "Create Compute instances",
+			Description: "creates Compute Engine instances in a project with the confirmation of a person; an instance " +
+				"gets no external address, no ssh-keys or windows-keys metadata, and no service account of another " +
+				"project; the instance and its disks are billed while they exist, and a start-up script in the " +
+				"metadata is not checked; projects.get is part of the profile so that targets of an organization or a " +
+				"folder can be proved and the default service account can be named by its project number; the token " +
+				"holds the compute scope, which Google also uses to change Compute resources, so the token may do what " +
+				"its account may; deleting an instance is not part of this profile and needs a tools list that names it",
+			Tools: []string{projectsGet.ID, instancesInsert.ID},
+		}, {
 			ID: "services", Title: "Enable APIs",
 			Description: "enables Google APIs in a project, one or up to 20 at a time, each with the confirmation of a " +
 				"person; these Service Usage methods accept only the broad cloud-platform scope, so the token may " +
@@ -276,6 +287,10 @@ func Register(reg *capability.Registry) error {
 		capability.Operation{Descriptor: instancesSetMachineType, Handler: instanceLifecycleHandler(
 			"change machine type", instancesSetMachineTypeID, "setMachineType"),
 			ConfirmationSummary: instanceLifecycleSummary(instancesSetMachineTypeID)},
+		capability.Operation{Descriptor: instancesInsert, Handler: handleInstancesInsert,
+			ConfirmationSummary: instanceInsertSummary},
+		capability.Operation{Descriptor: instancesDelete, Handler: handleInstancesDelete,
+			ConfirmationSummary: instanceDeleteSummary},
 		capability.Operation{Descriptor: iamRolesList, Handler: handleIAMRolesList},
 		capability.Operation{Descriptor: iamRolesGet, Handler: handleIAMRolesGet},
 		capability.Operation{Descriptor: iamRolesQuery, Handler: handleIAMRolesQuery},
