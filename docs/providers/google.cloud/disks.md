@@ -10,7 +10,7 @@ updated: 2026-11-18
 # Google Cloud Compute disks
 
 Three tools read the persistent disks of a project from Compute Engine (`compute` v1, discovery revision
-20261106), and three more create a disk, grow a disk, and snapshot a disk ([Changes](#changes)). No tool deletes,
+20261106), and three more create a disk, grow a disk, and snapshot a disk ([Changes](#changes)). None of them deletes,
 attaches, or shares a disk or snapshot. Every request goes to the fixed origin `https://compute.googleapis.com` with
 the base path `/compute/v1`; no argument takes a path, URL, header, or body.
 

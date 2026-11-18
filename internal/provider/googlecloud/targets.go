@@ -273,6 +273,7 @@ func targetReaches(tool string, targets []string) (bool, []string) {
 		snapshotsListID, snapshotsGetID, imagesListID, imagesGetID,
 		firewallsDeleteID, addressesDeleteID, vpnTunnelsDeleteID, vpnGatewaysDeleteID,
 		instancesStartID, instancesStopID, instancesResetID, instancesSetMachineTypeID,
+		instancesInsertID, instancesDeleteID,
 		disksInsertID, disksResizeID, disksCreateSnapshotID,
 		bucketsListID, bucketsGetID, bucketsGetIAMPolicyID, bucketAccessControlsListID:
 		if !list.reachesResources() {
