@@ -514,7 +514,9 @@ type Client struct {
 	limiter *ratelimit.Limiter
 	scope   scope
 	catalog *catalog
-	red     *redact.Redactor
+	// activityRead is set once the field states were requested, whether or not the read succeeded.
+	activityRead bool
+	red          *redact.Redactor
 }
 
 // Open resolves the API key of one selected connection and returns a client for its configured origin.
