@@ -94,7 +94,8 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 			// image changes.
 			wantScope = scopeCompute
 		}
-		if strings.Contains(tool.ID, ".managed-zones.") || strings.Contains(tool.ID, ".record-sets.") {
+		if strings.Contains(tool.ID, ".managed-zones.") || strings.Contains(tool.ID, ".record-sets.") ||
+			strings.Contains(tool.ID, ".changes.") || strings.Contains(tool.ID, ".dns-keys.") {
 			// dns v1 lists ndev.clouddns.readonly as the smallest scope for the reads of zones and records.
 			wantScope = scopeDNSReadOnly
 		}
@@ -114,7 +115,7 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 		}
 	}
 	if want := []string{"google.cloud.addresses.delete", "google.cloud.addresses.get", "google.cloud.addresses.list", "google.cloud.api-keys.delete", "google.cloud.api-keys.get", "google.cloud.api-keys.list",
-		"google.cloud.api-keys.undelete", "google.cloud.bucket-access-controls.list", "google.cloud.buckets.get", "google.cloud.buckets.get-iam-policy", "google.cloud.buckets.list", "google.cloud.compute-operations.get", "google.cloud.compute-operations.list", "google.cloud.disks.aggregated-list", "google.cloud.disks.create-snapshot", "google.cloud.disks.delete", "google.cloud.disks.get", "google.cloud.disks.insert", "google.cloud.disks.list", "google.cloud.disks.resize", "google.cloud.firewalls.delete", "google.cloud.firewalls.get", "google.cloud.firewalls.list",
+		"google.cloud.api-keys.undelete", "google.cloud.bucket-access-controls.list", "google.cloud.buckets.get", "google.cloud.buckets.get-iam-policy", "google.cloud.buckets.list", "google.cloud.changes.get", "google.cloud.changes.list", "google.cloud.compute-operations.get", "google.cloud.compute-operations.list", "google.cloud.disks.aggregated-list", "google.cloud.disks.create-snapshot", "google.cloud.disks.delete", "google.cloud.disks.get", "google.cloud.disks.insert", "google.cloud.disks.list", "google.cloud.disks.resize", "google.cloud.dns-keys.get", "google.cloud.dns-keys.list", "google.cloud.firewalls.delete", "google.cloud.firewalls.get", "google.cloud.firewalls.list",
 		"google.cloud.folders.get", "google.cloud.folders.list", "google.cloud.folders.search",
 		"google.cloud.hmac-keys.get", "google.cloud.hmac-keys.list",
 		"google.cloud.iam-bindings.add-member", "google.cloud.iam-bindings.change-role",
@@ -142,7 +143,7 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 		"google.cloud.vpn-tunnels.delete", "google.cloud.vpn-tunnels.get", "google.cloud.vpn-tunnels.list", "google.cloud.zones.list"}; !slices.Equal(ids, want) {
 		t.Errorf("tools = %v, want %v", ids, want)
 	}
-	if profile, found := metadata.RecommendedProfile(); !found || profile.ID != "read" || len(profile.Tools) != 54 {
+	if profile, found := metadata.RecommendedProfile(); !found || profile.ID != "read" || len(profile.Tools) != 58 {
 		t.Errorf("profile = %+v", profile)
 	}
 	// The recommended profile asks only for read scopes, an explicit allow-list; a tool that needs the broad
