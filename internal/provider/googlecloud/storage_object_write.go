@@ -43,10 +43,6 @@ const (
 	// maxUploadChars is the length of the base64 form of maxUploadBytes, the longest content text the schema accepts.
 	maxUploadChars = (maxUploadBytes + 2) / 3 * 4
 
-	// maxConfirmationRunes is the bound the core puts on the text of a confirmation. A tool whose confirmation
-	// would not fit refuses the call before it writes, because a cut text could hide what is written.
-	maxConfirmationRunes = 500
-
 	maxObjectMetadataEntries = 100
 	maxObjectMetadataKey     = 128
 	maxObjectMetadataValue   = 1024

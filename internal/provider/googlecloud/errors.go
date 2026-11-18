@@ -12,8 +12,8 @@ import (
 const subject = "Google Cloud"
 
 // etagConflict is the message of a write Google refused because the resource changed since it was read.
-const etagConflict = "conflict: " + subject + " refused the change because the policy changed since it was " +
-	"read (etag); nothing was written, read the policy again and repeat the change if it still applies"
+const etagConflict = "conflict: " + subject + " refused the change because the resource changed since it was " +
+	"read (etag); nothing was written, read it again and repeat the change if it still applies"
 
 // failure is a provider error of the generic class.
 func failure(op, message string) *provider.Error {
@@ -78,10 +78,14 @@ func googleError(op string, status int, body []byte) *provider.Error {
 		return failed(provider.ClassInvalidResponse, subject+" rejected the request as invalid (HTTP 400) although "+
 			"Qatlas Connect checked it; the API may have changed")
 	case http.StatusConflict:
-		// setIamPolicy answers a stale etag with 409 ABORTED. The provider classes hold no conflict, so the
-		// message carries it; nothing repeats the request, the caller reads again.
+		// A stale etag answers 409 ABORTED, and a name that is taken answers 409 ALREADY_EXISTS. The provider
+		// classes hold no conflict, so the message carries it; nothing repeats the request, the caller reads again.
 		if state == "ABORTED" {
 			return failed(provider.ClassProviderError, etagConflict)
+		}
+		if state == "ALREADY_EXISTS" {
+			return failed(provider.ClassProviderError, "conflict: "+subject+" refused the request because the "+
+				"resource already exists, or its ID was used before and is not free again yet")
 		}
 		return invalid()
 	case http.StatusPreconditionFailed:
