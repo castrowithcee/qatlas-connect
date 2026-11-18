@@ -71,7 +71,7 @@ printf %s "$CLIENT_ID" | qconnect credential set tag-manager client_id
 printf %s "$CLIENT_SECRET" | qconnect credential set tag-manager client_secret
 ```
 
-4. Give the consent: run `qconnect consent tag-manager` in a terminal, open the printed link, and
+4. Give the consent: run `qconnect credential consent tag-manager` in a terminal, open the printed link, and
    sign in with the account that has access in Tag Manager. The command stores the refresh token.
 
 ## Way 2: a service account
@@ -131,7 +131,7 @@ the Tag Manager API is enabled, and the account can be read, or the bound contai
 
 | Symptom | What to do |
 | --- | --- |
-| `consent-required` | Run `qconnect consent <credential>` |
+| `consent-required` | Run `qconnect credential consent <credential>` |
 | `consent-expired` | The consent ended or was revoked, or the consent screen is still in Testing; set it to In production and give the consent again |
 | `scope-missing` | Give the consent again; it then asks for the scopes your connections need |
 | `credential-unusable` | The credential holds both a client ID and a key, or neither; keep one |

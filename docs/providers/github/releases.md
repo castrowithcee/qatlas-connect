@@ -55,7 +55,10 @@ them in full. A release answers at most 100 of its assets and marks a longer lis
 untrusted data that is never fetched.
 
 `github.release-assets.list` reads only metadata, with the name and label untrusted data; an asset's content
-is never read, and its `browser_download_url` is only an address.
+is never read. Its `browser_download_url`, which the release views and `github.release-assets.update` answer
+alike, is an address and no access value: it has the fixed form
+`https://github.com/OWNER/REPO/releases/download/TAG/NAME` without a token, and only who can read the
+repository reaches it. Like every address it is untrusted data and never fetched.
 
 ### Changes
 
@@ -104,8 +107,6 @@ changes, and the tool reports that as a `permission` failure without GitHub's te
 
 #### Limits
 
-- The update answer leaves out `browser_download_url`, because the address can grant access without sign-in
-  and only a tool that a connection names explicitly may output such a value.
 - Between the read that binds the asset and the change there is a short window in which the asset can change
   at GitHub; the tool does not close it.
 - GitHub reports an immutable release through a refusal text, which the tool matches only to recognise it; a

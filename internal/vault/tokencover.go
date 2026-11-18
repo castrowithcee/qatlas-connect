@@ -103,8 +103,7 @@ func (v *Vault) ApproveWithToken(value string, current []Scope, only []string, n
 // approves, from connectionIDs by connection name, as ApproveConnections does.
 func (v *Vault) ApproveWithTokenConnections(value string, current []Scope, connectionIDs map[string]string,
 	only []string, now time.Time) (TokenApproval, error) {
-	doc, err := v.unlockedDocument()
-	if err != nil {
+	if _, err := v.unlockedDocument(); err != nil {
 		return TokenApproval{}, err
 	}
 	tokens, err := v.loadTokens()
@@ -115,11 +114,28 @@ func (v *Vault) ApproveWithTokenConnections(value string, current []Scope, conne
 	if !ok {
 		return TokenApproval{}, ErrTokenUnknown
 	}
-	result := TokenApproval{Token: token.Name}
 	if token.Expired(now) {
-		return result, ErrTokenExpired
+		return TokenApproval{Token: token.Name}, ErrTokenExpired
 	}
+	var result TokenApproval
+	// The changes are decided on the document as it is on disk under the write lock, so an approval or a
+	// secret another process stored meanwhile is neither lost nor decided on from an older state.
+	_, err = v.update(v.identity, updateOpts{}, func(doc *document) (bool, error) {
+		var written bool
+		result, written = approveWithToken(doc, token, tokens, current, connectionIDs, only, now)
+		return written, nil
+	})
+	if err != nil {
+		return TokenApproval{Token: token.Name}, err
+	}
+	return result, nil
+}
 
+// approveWithToken decides every change of ApproveWithTokenConnections on doc, applies the covered ones to its
+// approvals and reports whether it applied any.
+func approveWithToken(doc *document, token Token, tokens []Token, current []Scope, connectionIDs map[string]string,
+	only []string, now time.Time) (TokenApproval, bool) {
+	result := TokenApproval{Token: token.Name}
 	ids := map[string]string{}
 	for _, entry := range doc.Entries {
 		ids[entry.Name] = entry.ID
@@ -231,11 +247,9 @@ func (v *Vault) ApproveWithTokenConnections(value string, current []Scope, conne
 		result.Changes = append(result.Changes, change)
 	}
 	if written {
-		if err := v.writeApprovals(doc, next); err != nil {
-			return TokenApproval{Token: token.Name}, err
-		}
+		doc.Approvals = next
 	}
-	return result, nil
+	return result, written
 }
 
 // bestCover returns nil when one of models covers scope, read with the credential entry id, and otherwise
