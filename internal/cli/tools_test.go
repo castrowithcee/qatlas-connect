@@ -203,6 +203,79 @@ func requireIDs(t *testing.T, ids []string, anchors ...string) {
 	}
 }
 
+// catalogContext is the search context catalogEnvironment adds to the tools of a provider: the provider
+// note and the descriptions of the provider's connections.
+var catalogContext = map[string]string{"bookstack": "company handbook read-only account on the team wiki"}
+
+// Ranks of where a query term occurs in a tool, in the order a search lists them.
+const (
+	rankNone = iota
+	rankContext
+	rankPurpose
+	rankName
+)
+
+// queryRank says where term occurs in descriptor: in its ID or title, in its description or tags, or in the
+// search context of its provider under the catalogEnvironment configuration.
+func queryRank(descriptor capability.Descriptor, term string) int {
+	metadata, _ := sharedRegistry().ProviderMetadata(descriptor.Provider)
+	purpose := append([]string{descriptor.Description}, descriptor.Tags...)
+	switch {
+	case strings.Contains(strings.ToLower(descriptor.ID+" "+descriptor.Title), term):
+		return rankName
+	case strings.Contains(strings.ToLower(strings.Join(purpose, " ")), term):
+		return rankPurpose
+	case strings.Contains(strings.ToLower(metadata.Description+" "+catalogContext[descriptor.Provider]), term):
+		return rankContext
+	}
+	return rankNone
+}
+
+// requireRanked checks the answer to a one-term query against the registry instead of a literal list, so
+// a new tool needs no change here: every hit is a candidate that carries the term, the hits with the term
+// in the ID or title come first and are exactly the candidates with it there, each block of equal rank is
+// sorted by ID, and every anchor is a hit.
+func requireRanked(t *testing.T, got []string, term string, candidate func(capability.Descriptor) bool,
+	anchors ...string) {
+	t.Helper()
+	descriptors := map[string]capability.Descriptor{}
+	var named []string
+	for _, descriptor := range sharedRegistry().All() {
+		descriptors[descriptor.ID] = descriptor
+		if candidate(descriptor) && queryRank(descriptor, term) == rankName {
+			named = append(named, descriptor.ID)
+		}
+	}
+	var gotNamed []string
+	previousRank, previousID := rankName+1, ""
+	for _, id := range got {
+		descriptor, ok := descriptors[id]
+		rank := queryRank(descriptor, term)
+		if !ok || !candidate(descriptor) || rank == rankNone {
+			t.Errorf("%s is not a tool the query %q can find", id, term)
+			continue
+		}
+		if rank > previousRank || rank == previousRank && id <= previousID {
+			t.Errorf("%s (rank %d) follows %s (rank %d), want a higher rank first and IDs ascending within a rank",
+				id, rank, previousID, previousRank)
+		}
+		previousRank, previousID = rank, id
+		if rank == rankName {
+			gotNamed = append(gotNamed, id)
+		}
+	}
+	sort.Strings(named)
+	sort.Strings(gotNamed)
+	if !reflect.DeepEqual(gotNamed, named) {
+		t.Errorf("hits with %q in the ID or title = %v, want %v", term, gotNamed, named)
+	}
+	for _, anchor := range anchors {
+		if !slices.Contains(got, anchor) {
+			t.Errorf("tools = %v, want the stable anchor %s", got, anchor)
+		}
+	}
+}
+
 // providerSummaries decodes the namespace index. Decoding into the core type is what proves that the
 // command publishes that model and nothing else: a stray field would fail the strict decoder.
 func providerSummaries(t *testing.T, stdout string) []application.ProviderSummary {
@@ -470,6 +543,8 @@ func TestToolsFiltersByNamespaceAndQuery(t *testing.T) {
 	requireIDs(t, registryToolIDs(t, "lexware", nil), "lexware.invoices.list")
 	requireIDs(t, registryToolIDs(t, "github", nil), "github.issues.list")
 	requireIDs(t, registryToolIDs(t, "nextcloud", nil), "nextcloud.files.files.list")
+	requireIDs(t, registryToolIDs(t, "google.cloud", nil), "google.cloud.projects.search")
+	requireIDs(t, registryToolIDs(t, "google.business-profile", nil), "google.business-profile.accounts.list")
 	requireIDs(t, registryToolIDs(t, "aws", nil), "aws.sts.access-key.get-info", "aws.sts.authorization-message.decode",
 		"aws.sts.caller-identity.get", "aws.iam.user.list", "aws.iam.user.get", "aws.iam.user.list-tags",
 		"aws.iam.group.list", "aws.iam.group.get", "aws.iam.group.list-for-user", "aws.iam.role.list",
@@ -522,10 +597,9 @@ func TestToolsFiltersByNamespaceAndQuery(t *testing.T) {
 		{"namespace github", []string{"github", "--query", "github"}, registryToolIDs(t, "github", nil)},
 		{"namespace nextcloud", []string{"nextcloud", "--query", "nextcloud"}, registryToolIDs(t, "nextcloud", nil)},
 		{"namespace aws", []string{"aws", "--query", "aws"}, registryToolIDs(t, "aws", nil)},
-		{"namespace google.cloud", []string{"google.cloud"}, []string{"google.cloud.addresses.delete", "google.cloud.addresses.get", "google.cloud.addresses.list", "google.cloud.api-keys.delete", "google.cloud.api-keys.get", "google.cloud.api-keys.list", "google.cloud.api-keys.undelete", "google.cloud.billing-accounts.get", "google.cloud.billing-accounts.list", "google.cloud.billing-accounts.list-projects", "google.cloud.bucket-access-controls.list", "google.cloud.buckets.delete", "google.cloud.buckets.get", "google.cloud.buckets.get-iam-policy", "google.cloud.buckets.list", "google.cloud.budgets.get", "google.cloud.budgets.list", "google.cloud.catalog-services.list", "google.cloud.catalog-skus.list", "google.cloud.changes.create", "google.cloud.changes.get", "google.cloud.changes.list", "google.cloud.compute-operations.get", "google.cloud.compute-operations.list", "google.cloud.disks.aggregated-list", "google.cloud.disks.create-snapshot", "google.cloud.disks.delete", "google.cloud.disks.get", "google.cloud.disks.insert", "google.cloud.disks.list", "google.cloud.disks.resize", "google.cloud.dns-keys.get", "google.cloud.dns-keys.list", "google.cloud.firewalls.delete", "google.cloud.firewalls.get", "google.cloud.firewalls.list", "google.cloud.folders.create", "google.cloud.folders.delete", "google.cloud.folders.get", "google.cloud.folders.list", "google.cloud.folders.move", "google.cloud.folders.patch", "google.cloud.folders.search", "google.cloud.folders.undelete", "google.cloud.hmac-keys.deactivate", "google.cloud.hmac-keys.delete", "google.cloud.hmac-keys.get", "google.cloud.hmac-keys.list", "google.cloud.iam-bindings.add-member", "google.cloud.iam-bindings.change-role", "google.cloud.iam-bindings.remove-member", "google.cloud.iam-deny-policies.get", "google.cloud.iam-deny-policies.list", "google.cloud.iam-permissions.query-testable", "google.cloud.iam-permissions.test", "google.cloud.iam-policies.get", "google.cloud.iam-roles.get", "google.cloud.iam-roles.list", "google.cloud.iam-roles.query-grantable", "google.cloud.images.delete", "google.cloud.images.get", "google.cloud.images.insert", "google.cloud.images.list", "google.cloud.instances.aggregated-list", "google.cloud.instances.delete", "google.cloud.instances.get", "google.cloud.instances.insert", "google.cloud.instances.list", "google.cloud.instances.reset", "google.cloud.instances.set-machine-type", "google.cloud.instances.start", "google.cloud.instances.stop", "google.cloud.machine-types.list", "google.cloud.managed-folders.list", "google.cloud.managed-zones.get", "google.cloud.managed-zones.list", "google.cloud.networks.get", "google.cloud.networks.list", "google.cloud.notifications.delete", "google.cloud.notifications.list", "google.cloud.object-access-controls.list", "google.cloud.objects.compose", "google.cloud.objects.copy", "google.cloud.objects.delete", "google.cloud.objects.download", "google.cloud.objects.get", "google.cloud.objects.insert", "google.cloud.objects.list", "google.cloud.objects.patch", "google.cloud.objects.restore", "google.cloud.objects.restore-overwrite", "google.cloud.operations.get", "google.cloud.organizations.get", "google.cloud.organizations.search", "google.cloud.policies.get", "google.cloud.policies.list", "google.cloud.project-billing-info.get", "google.cloud.projects.create", "google.cloud.projects.delete", "google.cloud.projects.get", "google.cloud.projects.list", "google.cloud.projects.move", "google.cloud.projects.patch", "google.cloud.projects.search", "google.cloud.projects.undelete", "google.cloud.quota-infos.get", "google.cloud.quota-infos.list", "google.cloud.quota-preferences.get", "google.cloud.quota-preferences.list", "google.cloud.record-sets.create", "google.cloud.record-sets.delete", "google.cloud.record-sets.get", "google.cloud.record-sets.list", "google.cloud.record-sets.patch", "google.cloud.regions.list", "google.cloud.response-policies.get", "google.cloud.response-policies.list", "google.cloud.service-account-keys.delete", "google.cloud.service-account-keys.disable", "google.cloud.service-account-keys.enable", "google.cloud.service-account-keys.get", "google.cloud.service-account-keys.list", "google.cloud.service-accounts.create", "google.cloud.service-accounts.delete", "google.cloud.service-accounts.disable", "google.cloud.service-accounts.enable", "google.cloud.service-accounts.get", "google.cloud.service-accounts.list", "google.cloud.service-accounts.patch", "google.cloud.services.batch-enable", "google.cloud.services.batch-get", "google.cloud.services.disable", "google.cloud.services.enable", "google.cloud.services.get", "google.cloud.services.list", "google.cloud.snapshots.delete", "google.cloud.snapshots.get", "google.cloud.snapshots.list", "google.cloud.subnetworks.get", "google.cloud.subnetworks.list", "google.cloud.vpn-gateways.delete", "google.cloud.vpn-gateways.get", "google.cloud.vpn-gateways.list", "google.cloud.vpn-tunnels.delete", "google.cloud.vpn-tunnels.get", "google.cloud.vpn-tunnels.list", "google.cloud.zones.list"}},
-		{"namespace google.business-profile", []string{"google.business-profile"}, []string{"google.business-profile.account-admins.delete", "google.business-profile.account-admins.list", "google.business-profile.account-admins.update", "google.business-profile.accounts.get", "google.business-profile.accounts.list", "google.business-profile.accounts.update", "google.business-profile.attributes.get", "google.business-profile.attributes.list", "google.business-profile.attributes.update", "google.business-profile.categories.batch-get", "google.business-profile.categories.list", "google.business-profile.chains.get", "google.business-profile.chains.search", "google.business-profile.followers.get", "google.business-profile.food-menus.get", "google.business-profile.food-menus.update", "google.business-profile.google-locations.search", "google.business-profile.invitations.decline", "google.business-profile.invitations.list", "google.business-profile.local-posts.create", "google.business-profile.local-posts.delete", "google.business-profile.local-posts.get", "google.business-profile.local-posts.list", "google.business-profile.local-posts.update", "google.business-profile.location-admins.delete", "google.business-profile.location-admins.list", "google.business-profile.location-admins.update", "google.business-profile.locations.batch-get", "google.business-profile.locations.create", "google.business-profile.locations.delete", "google.business-profile.locations.get", "google.business-profile.locations.get-google-updated", "google.business-profile.locations.list", "google.business-profile.locations.update", "google.business-profile.lodging.get", "google.business-profile.lodging.get-google-updated", "google.business-profile.lodging.update", "google.business-profile.media.create", "google.business-profile.media.delete", "google.business-profile.media.get", "google.business-profile.media.list", "google.business-profile.media.update", "google.business-profile.notifications.get", "google.business-profile.performance.fetch-daily-metrics", "google.business-profile.performance.get-daily-metric", "google.business-profile.performance.list-search-keywords", "google.business-profile.place-action-links.create", "google.business-profile.place-action-links.delete", "google.business-profile.place-action-links.get", "google.business-profile.place-action-links.list", "google.business-profile.place-action-links.update", "google.business-profile.place-action-types.list", "google.business-profile.reviews.batch-get", "google.business-profile.reviews.delete-reply", "google.business-profile.reviews.get", "google.business-profile.reviews.list", "google.business-profile.reviews.update-reply", "google.business-profile.service-lists.get", "google.business-profile.service-lists.update", "google.business-profile.verifications.fetch-options", "google.business-profile.verifications.get-merchant-state", "google.business-profile.verifications.list"}},
-		{"query", []string{"--query", "pages"}, []string{"bookstack.pages.create", "bookstack.pages.delete", "bookstack.pages.get", "bookstack.pages.list", "bookstack.pages.update", "forgejo.wiki-pages.create", "forgejo.wiki-pages.delete", "forgejo.wiki-pages.get", "forgejo.wiki-pages.list", "forgejo.wiki-pages.update", "gitea.wiki-pages.create", "gitea.wiki-pages.delete", "gitea.wiki-pages.get", "gitea.wiki-pages.list", "gitea.wiki-pages.update", "github.pages-builds.get", "github.pages-builds.list", "github.pages-health.get", "github.pages.delete", "github.pages.get", "google.pagespeed.crux.query-history-record", "google.pagespeed.crux.query-record", "google.pagespeed.pagespeed.run", "bookstack.attachments.download", "bookstack.attachments.get", "bookstack.attachments.list", "bookstack.attachments.update", "bookstack.books.delete", "bookstack.books.get", "bookstack.chapters.delete", "bookstack.chapters.get", "bookstack.content.search", "bookstack.images.delete", "bookstack.imports.get", "bookstack.recycle-bin.list", "google.analytics.audience-exports.query", "google.analytics.change-history.search", "google.analytics.report-tasks.query", "google.analytics.reports.run", "google.maps.places.search-nearby", "google.maps.places.search-text", "google.tag-manager.tags.create", "google.tag-manager.tags.delete", "google.tag-manager.tags.revert", "google.tag-manager.tags.update", "google.tag-manager.templates.create", "google.tag-manager.templates.delete", "google.tag-manager.templates.revert", "google.tag-manager.templates.update", "google.tag-manager.triggers.create", "google.tag-manager.triggers.delete", "google.tag-manager.triggers.revert", "google.tag-manager.triggers.update", "google.tag-manager.variables.create", "google.tag-manager.variables.delete", "google.tag-manager.variables.revert", "google.tag-manager.variables.update", "matomo.bot-realtime.get", "matomo.transitions.get"}},
-		{"namespace and query", []string{"bookstack", "--query", "list"}, []string{"bookstack.attachments.list", "bookstack.audit-log.list", "bookstack.books.list", "bookstack.chapters.list", "bookstack.comments.list", "bookstack.images.list", "bookstack.imports.list", "bookstack.pages.list", "bookstack.recycle-bin.list", "bookstack.roles.list", "bookstack.shelves.list", "bookstack.tags.list", "bookstack.tags.values", "bookstack.users.list", "bookstack.attachments.download", "bookstack.attachments.get", "bookstack.chapters.get", "bookstack.content-permissions.update", "bookstack.roles.create", "bookstack.roles.delete", "bookstack.roles.update", "bookstack.shelves.create", "bookstack.shelves.get", "bookstack.shelves.update", "bookstack.users.delete", "bookstack.users.update"}},
+		{"namespace google.cloud", []string{"google.cloud"}, registryToolIDs(t, "google.cloud", nil)},
+		{"namespace google.business-profile", []string{"google.business-profile"},
+			registryToolIDs(t, "google.business-profile", nil)},
 		{"query without a match", []string{"--query", "absent"}, []string{}},
 	}
 	// --all filters the complete catalog, so namespace and query select every tool they match.
@@ -542,6 +616,42 @@ func TestToolsFiltersByNamespaceAndQuery(t *testing.T) {
 		})
 	}
 
+	// A query ranks its hits, so its expectation is the ranking rule applied to the registry. Without --all
+	// it finds only what the fixture connections offer.
+	offered := func(d capability.Descriptor) bool {
+		return d.Provider == "bookstack" && offeredBy(capability.EffectRead)(d) ||
+			d.Provider == "telegram" && offeredBy(capability.EffectCreate)(d)
+	}
+	for _, tt := range []struct {
+		name      string
+		args      []string
+		term      string
+		candidate func(capability.Descriptor) bool
+		anchors   []string
+	}{
+		{"query", []string{"--all", "--query", "pages"}, "pages", func(capability.Descriptor) bool { return true },
+			[]string{"bookstack.pages.get", "github.pages.get", "bookstack.content.search"}},
+		{"namespace and query", []string{"--all", "bookstack", "--query", "list"}, "list",
+			func(d capability.Descriptor) bool { return d.Provider == "bookstack" },
+			[]string{"bookstack.pages.list", "bookstack.attachments.get"}},
+		{"offered by query", []string{"--query", "pages"}, "pages", offered,
+			[]string{"bookstack.pages.get", "bookstack.content.search"}},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			args := append([]string{"tools"}, tt.args...)
+			code, stdout, stderr := runTools(t, nil, append(args, "--config", cfg, "--output", "json")...)
+			if code != exitOK || stderr != "" {
+				t.Fatalf("exit=%d stderr=%q", code, stderr)
+			}
+			requireRanked(t, toolIDs(t, stdout), tt.term, tt.candidate, tt.anchors...)
+			for _, tool := range toolSummaries(t, stdout) {
+				if !slices.Contains(tt.args, "--all") && tool.Reason != "" {
+					t.Errorf("%s = %+v, want no reason", tool.ID, tool)
+				}
+			}
+		})
+	}
+
 	// Without --all the same filters apply to the tools a connection offers, and --connection narrows that
 	// to the one connection.
 	for _, tt := range []struct {
@@ -550,7 +660,6 @@ func TestToolsFiltersByNamespaceAndQuery(t *testing.T) {
 		want []string
 	}{
 		{"offered by namespace", []string{"bookstack"}, wikiOffered},
-		{"offered by query", []string{"--query", "pages"}, []string{"bookstack.pages.get", "bookstack.pages.list", "bookstack.attachments.get", "bookstack.attachments.list", "bookstack.books.get", "bookstack.chapters.get", "bookstack.content.search", "bookstack.imports.get", "bookstack.recycle-bin.list"}},
 		{"offered by a connection", []string{"telegram", "--connection", "alerts"}, alertsOffered},
 		{"offered by another provider's connection", []string{"--query", "pages", "--connection", "alerts"}, []string{}},
 		// A query also finds a tool by the description and the note of its provider and by the description
