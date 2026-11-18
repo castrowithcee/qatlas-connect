@@ -188,16 +188,21 @@ func (f foodShape) label() string {
 		"description", f.text(maxLabelDescRunes), "languageCode", f.text(maxShortRunes))
 }
 
-func (f foodShape) menus(min int) string {
-	labels := f.array(f.label(), 1)
-	moneySchema := f.object([]string{"currencyCode", "units"},
-		"currencyCode", f.text(3), "units", f.text(20), "nanos", integerSchema)
+// price is the schema of Google's Money type.
+func (f foodShape) price() string {
 	if f.strict {
-		moneySchema = f.object([]string{"currencyCode", "units"},
+		return f.object([]string{"currencyCode", "units"},
 			"currencyCode", `{"type":"string","pattern":"^[A-Z]{3}$"}`,
 			"units", `{"type":"string","pattern":"^-?[0-9]{1,19}$"}`,
 			"nanos", `{"type":"integer","minimum":-999999999,"maximum":999999999}`)
 	}
+	return f.object([]string{"currencyCode", "units"},
+		"currencyCode", f.text(3), "units", f.text(20), "nanos", integerSchema)
+}
+
+func (f foodShape) menus(min int) string {
+	labels := f.array(f.label(), 1)
+	moneySchema := f.price()
 	amount := func(kind, unit string) string {
 		return f.object([]string{"lowerAmount", "unit"}, "lowerAmount", kind, "upperAmount", kind, "unit", unit)
 	}
