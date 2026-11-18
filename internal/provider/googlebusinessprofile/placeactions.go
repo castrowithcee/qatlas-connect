@@ -3,7 +3,6 @@ package googlebusinessprofile
 import (
 	"context"
 	"encoding/json"
-	"net/http"
 	"net/url"
 	"regexp"
 	"slices"
@@ -640,7 +639,7 @@ func handlePlaceActionLinksCreate(ctx context.Context, resolved *config.Resolved
 		return nil, err
 	}
 	var out placeActionLink
-	if err := c.patch(ctx, op, placeActionLinksCreateID, change{method: http.MethodPost, root: placeActionsRoot,
+	if err := c.post(ctx, op, placeActionLinksCreateID, change{root: placeActionsRoot,
 		path: name + "/placeActionLinks", body: body, key: name, notFound: notFoundLocation}, &out); err != nil {
 		return nil, err
 	}
@@ -717,7 +716,7 @@ func handlePlaceActionLinksDelete(ctx context.Context, resolved *config.Resolved
 		return nil, err
 	}
 	var empty struct{}
-	if err := c.patch(ctx, op, placeActionLinksDeleteID, change{method: http.MethodDelete, root: placeActionsRoot,
+	if err := c.remove(ctx, op, placeActionLinksDeleteID, change{root: placeActionsRoot,
 		path: args.Link, key: parent, notFound: notFoundLink}, &empty); err != nil {
 		return nil, err
 	}

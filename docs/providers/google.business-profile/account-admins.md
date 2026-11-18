@@ -1,6 +1,6 @@
 ---
 description: >
-  Describes the account admin tools of the Google Business Profile provider: listing the admins of an account with their role and pending invitations, changing the role of an existing admin with the previous name and role as required comparison arguments, the Google methods behind them, the roles that are allowed, what is refused, the personal data, and how a target narrows them.
+  Describes the account admin tools of the Google Business Profile provider: listing the admins of an account with their role and pending invitations, changing the role of an existing admin or removing one with the previous name and role as required comparison arguments, the Google methods behind them, the roles that are allowed, what is refused, the personal data, and how a target narrows them.
 type: knowledge
 edit: shared
 created: 2026-11-18
@@ -12,8 +12,8 @@ updated: 2026-11-18
 The account admin tools of the [Google Business Profile provider](README.md). Credential, target, approval,
 quotas, bounds, and errors are described there. A connection bound to a location does not offer them.
 
-An admin is a person (or a location group) who administers an account. The tools only read admins and change
-the role of an admin that already exists. No tool invites anyone or creates an admin, see
+An admin is a person (or a location group) who administers an account. The tools only read admins, change
+the role of an admin that already exists, and remove one. No tool invites anyone or creates an admin, see
 [Left out on purpose](README.md#boundary).
 
 ## google.business-profile.account-admins.list
@@ -68,3 +68,33 @@ seconds, counted per account for this tool and for [`accounts.update`](accounts.
 since an account has no location to count against. The time between the read of the list and the change is a
 limit of the comparison. A change whose outcome is unclear (timeout, `5xx`, unreadable answer) is reported as
 such and never repeated.
+
+## google.business-profile.account-admins.delete
+
+`DELETE https://mybusinessaccountmanagement.googleapis.com/v1/accounts/{account}/admins/{admin}`. Removes an
+admin from an account, or revokes the invitation of an admin that is still pending. It needs confirmation and is
+part of the profile `write`. Google answers an empty object, and the result is
+`{"name": ..., "removed": true}`.
+
+| Argument | Meaning |
+| --- | --- |
+| `admin` | required, `accounts/ACCOUNT/admins/ADMIN` of an admin as `account-admins.list` shows it |
+| `previous_admin` | required, the `admin` member of the entry as last read; only compared, never sent |
+| `previous_role` | required, the role as last read; only compared, never sent |
+
+The tool has no argument for an email address, so it invites nobody and creates no admin. Before it sends the
+delete, it reads the admin list of the account and refuses, without a change, when
+
+- the admin is not in the list (within the first 250 entries),
+- the admin holds `PRIMARY_OWNER`, which would take away the ownership of the account, or
+- `previous_admin` or `previous_role` is not exactly what the list holds now.
+
+`previous_role` itself must be `OWNER`, `MANAGER`, or `SITE_MANAGER`; `PRIMARY_OWNER` is refused before any
+request. An admin with a pending invitation is removable, since that revokes the invitation. The confirmation
+shows the path and name of the admin, the role, and the account.
+
+The admin loses access at once. The tool cannot tell whether the entry is the consenting account itself, because
+the answer of Google names no identity; removing that entry locks the account out of its own profile. The path
+is checked against its form and the target like [`account-admins.update`](#googlebusinessprofileaccount-adminsupdate),
+and the delete is counted against the 10 changes per minute of the account. A delete whose outcome is unclear
+is reported as such and never repeated.

@@ -13,11 +13,10 @@ import (
 	"github.com/castrowithcee/qatlas-connect/internal/provider"
 )
 
-// change is one change of an API, a PATCH unless method says otherwise: a fixed origin, a path of checked
-// segments, and a body built by the tool from checked arguments. key names what Google counts the change
-// against, see changeLimiter.
+// change is one changing request of an API: a fixed origin, a path of checked segments, and a body built by
+// the tool from checked arguments, none for a DELETE. key names what Google counts the change against, see
+// changeLimiter.
 type change struct {
-	method   string
 	root     string
 	path     string
 	query    url.Values
@@ -26,10 +25,25 @@ type change struct {
 	notFound string
 }
 
-// patch sends one change, exactly once, and decodes the JSON object answer into out. A token Google rejects is
-// dropped for the next call and the change is not sent again. Where the request may have reached Google and
-// the outcome is unclear, the message says so and nothing repeats the change.
+// patch sends one PATCH, see mutate.
 func (c *client) patch(ctx context.Context, op, tool string, r change, out any) error {
+	return c.mutate(ctx, http.MethodPatch, op, tool, r, out)
+}
+
+// post sends one POST, see mutate.
+func (c *client) post(ctx context.Context, op, tool string, r change, out any) error {
+	return c.mutate(ctx, http.MethodPost, op, tool, r, out)
+}
+
+// remove sends one DELETE, see mutate.
+func (c *client) remove(ctx context.Context, op, tool string, r change, out any) error {
+	return c.mutate(ctx, http.MethodDelete, op, tool, r, out)
+}
+
+// mutate sends one request, exactly once, and decodes the JSON object answer into out. A token Google rejects
+// is dropped for the next call and the change is not sent again. Where the request may have reached Google
+// and the outcome is unclear, the message says so and nothing repeats the change.
+func (c *client) mutate(ctx context.Context, method, op, tool string, r change, out any) error {
 	address := r.root + apiPrefix + r.path
 	if len(r.query) > 0 {
 		address += "?" + r.query.Encode()
@@ -41,17 +55,19 @@ func (c *client) patch(ctx context.Context, op, tool string, r change, out any) 
 		if err := c.limiter.Wait(ctx); err != nil {
 			return nil, provider.Waited(op, subject, err)
 		}
-		method := r.method
-		if method == "" {
-			method = http.MethodPatch
+		var body io.Reader
+		if r.body != nil {
+			body = bytes.NewReader(r.body)
 		}
-		req, err := http.NewRequestWithContext(ctx, method, address, bytes.NewReader(r.body))
+		req, err := http.NewRequestWithContext(ctx, method, address, body)
 		if err != nil {
 			return nil, provider.Fail(op, "the request could not be built")
 		}
 		req.Header.Set("Authorization", "Bearer "+access)
 		req.Header.Set("Accept", "application/json")
-		req.Header.Set("Content-Type", "application/json")
+		if r.body != nil {
+			req.Header.Set("Content-Type", "application/json")
+		}
 		req.Header.Set("User-Agent", userAgent)
 		return req, nil
 	}

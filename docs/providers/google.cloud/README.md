@@ -66,9 +66,9 @@ Three rules decide which tool a binding reaches. They are separate on purpose:
   organization, a folder, or a project, so a connection bound to billing accounts alone neither runs nor is
   offered them, not even for predefined roles. Organization roles and an organization resource are reached
   only if a target names exactly that organization; a connection without targets is refused.
-- **Storage tools** (`buckets.*`, `bucket-access-controls.list`, `notifications.list`, `managed-folders.list`, `hmac-keys.*`): the connection is unbound or names an
+- **Storage tools** (`buckets.*`, `bucket-access-controls.list`, `notifications.list`, `managed-folders.list`, `hmac-keys.*`, `objects.*`, `object-access-controls.list`): the connection is unbound or names an
   organization, a folder, or a project. A bucket is bound to the targets by the project number of one read of the
-  bucket, see [Buckets](buckets.md).
+  bucket, see [Buckets](buckets.md) and [Objects](objects.md).
 - **Tools without a resource** (`operations.get`): an operation belongs to no folder or project that Qatlas
   could prove, so the tool runs on a connection without targets or with an organization among them. It is not an
   organization tool: it reads no organization.
@@ -94,8 +94,10 @@ The profile `read` is the recommended one. It holds every tool that needs no mor
 `google.cloud.disks.get`, `google.cloud.snapshots.list`, `google.cloud.snapshots.get`,
 `google.cloud.images.list`, and `google.cloud.images.get`, which ask for `compute.readonly`, and the Storage tools
 `google.cloud.buckets.list`, `google.cloud.buckets.get`, `google.cloud.notifications.list`,
-`google.cloud.managed-folders.list`, `google.cloud.hmac-keys.list`, and `google.cloud.hmac-keys.get`, which ask for
-`devstorage.read_only`. The two
+`google.cloud.managed-folders.list`, `google.cloud.hmac-keys.list`, `google.cloud.hmac-keys.get`,
+`google.cloud.objects.list`, `google.cloud.objects.get`, and `google.cloud.objects.download`, which ask for
+`devstorage.read_only`. `objects.download` returns the content of an object, up to a fixed limit, as untrusted data
+(see [Objects](objects.md)). The two
 operation tools return the email address of whoever started an operation (personal data) and carry their own
 sensitivity. A connection bound to an organization or a folder needs `projects.get` next to the
 Compute tools to prove the project of a call; `read` holds both.
@@ -111,8 +113,9 @@ may change, although no tool of this profile changes anything. It is not recomme
 connection that needs IAM, preferably with a credential whose account has viewer roles only.
 
 The profile `read-storage-access` adds the IAM policy and the access control list of a Cloud Storage bucket
-(`google.cloud.buckets.get-iam-policy`, `google.cloud.bucket-access-controls.list`) to the tools of `read`. Google
-lists only `devstorage.full_control` and `cloud-platform` for these two methods, so the token may change what its
+(`google.cloud.buckets.get-iam-policy`, `google.cloud.bucket-access-controls.list`) and of an object
+(`google.cloud.object-access-controls.list`) to the tools of `read`. Google
+lists only `devstorage.full_control` and `cloud-platform` for these methods, so the token may change what its
 account may in Cloud Storage, although no tool does (see [Buckets](buckets.md)). It is not recommended.
 
 The profile `read-quotas` adds the quota tools (`google.cloud.quota-infos.list`, `google.cloud.quota-infos.get`,
@@ -212,6 +215,9 @@ on [IAM bindings](iam-bindings.md).
 - [Notifications](notifications.md): the Pub/Sub notification configurations of a Cloud Storage bucket.
 - [Managed folders](managed-folders.md): the managed folders of a Cloud Storage bucket.
 - [HMAC keys](hmac-keys.md): the metadata of the HMAC keys of a project, never a key value.
+- [Objects](objects.md): the objects of a Cloud Storage bucket, their metadata, and their content up to a fixed limit as
+  untrusted data, bound to the targets through the bucket.
+- [Object access controls](object-access-controls.md): the access control list of a Cloud Storage object.
 - [Quotas](quotas.md): the quotas of a service and the quota preferences of a project from Cloud Quotas.
 
 ### Search

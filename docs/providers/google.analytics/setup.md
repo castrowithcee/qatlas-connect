@@ -18,6 +18,7 @@ This page shows how to connect Qatlas to Google Analytics 4. Targets, paging, an
 [AdSense links](adsense-links.md), [Search Ads 360 links](search-ads360-links.md), [reports](reports.md),
 [audience exports](audience-exports.md), [report tasks](report-tasks.md),
 [measurement protocol secrets](measurement-protocol-secrets.md), [access reports](access-reports.md),
+[rollup links](rollup-links.md), [access bindings](access-bindings.md),
 [data retention](data-retention.md), [Google Signals](google-signals.md), [Google Ads links](google-ads-links.md),
 [Firebase links](firebase-links.md), [BigQuery links](bigquery-links.md), [attribution settings](attribution-settings.md),
 and [change history](change-history.md).
@@ -88,7 +89,9 @@ property, and on the property or its account to change or trash a property or to
 ## Rights and scopes
 
 The reading tools need the scope `https://www.googleapis.com/auth/analytics.readonly`, the smallest scope that
-reads Analytics configuration and report data. The tools that change an account, a property, a data stream, an event create rule, an annotation, an audience, a channel group, or an expanded data set need
+reads Analytics configuration and report data. The access binding tools need the read scope
+`https://www.googleapis.com/auth/analytics.manage.users.readonly` instead, because they list the users of an account
+or property; a consent given before they were used needs to be repeated. The tools that change an account, a property, a data stream, an event create rule, an annotation, an audience, a channel group, or an expanded data set need
 `https://www.googleapis.com/auth/analytics.edit`. Qatlas asks for the scope of the tools of the connections that
 use the credential and no more. Each connection of a credential has to be for Google Analytics, so the
 credential never carries the scope of another product.
@@ -106,6 +109,8 @@ The tool is outside the profile `read` for that reason, see [change history](cha
 | [Audience exports](audience-exports.md) | `audience-exports.create`, `audience-exports.get`, `audience-exports.list`, `audience-exports.query` | `analytics.readonly` |
 | [Report tasks](report-tasks.md) | `report-tasks.create`, `report-tasks.get`, `report-tasks.list`, `report-tasks.query` | `analytics.readonly` |
 | [Access reports](access-reports.md) | `accounts.run-access-report`, `properties.run-access-report` | `analytics.readonly` |
+| [Rollup links](rollup-links.md) | `rollup-links.list`, `rollup-links.get` | `analytics.readonly` |
+| [Access bindings](access-bindings.md) | `access-bindings.list`, `access-bindings.get` | `analytics.manage.users.readonly` |
 | [Properties](properties.md#changing-properties) | `properties.create`, `properties.update`, `properties.delete` | `analytics.edit` |
 | [Data streams](data-streams.md) | `data-streams.list`, `data-streams.get` | `analytics.readonly` |
 | [Data streams](data-streams.md#changing-data-streams) | `data-streams.create`, `data-streams.update`, `data-streams.delete` | `analytics.edit` |
