@@ -247,7 +247,8 @@ func TestRegisterPublishesMetadataScopesAndProfile(t *testing.T) {
 	var ids []string
 	for _, tool := range metadata.Tools {
 		ids = append(ids, tool.ID)
-		if tool.Effect != config.EffectRead && !strings.HasSuffix(tool.ID, ".update") {
+		if tool.Effect != config.EffectRead && !strings.HasSuffix(tool.ID, ".update") &&
+			!strings.HasSuffix(tool.ID, ".delete") && tool.ID != Provider+".invitations.decline" {
 			t.Errorf("%s effect = %s, want read", tool.ID, tool.Effect)
 		}
 		if scopes := metadata.Token.Scopes[tool.ID]; !reflect.DeepEqual(scopes, []string{scopeManage}) {
@@ -255,25 +256,31 @@ func TestRegisterPublishesMetadataScopesAndProfile(t *testing.T) {
 		}
 	}
 	want := []string{
-		"google.business-profile.account-admins.list", "google.business-profile.account-admins.update",
-		"google.business-profile.accounts.get", "google.business-profile.accounts.list",
-		"google.business-profile.accounts.update", "google.business-profile.attributes.get",
-		"google.business-profile.attributes.list", "google.business-profile.attributes.update",
-		"google.business-profile.location-admins.list",
-		"google.business-profile.location-admins.update", "google.business-profile.locations.get",
-		"google.business-profile.locations.list", "google.business-profile.performance.fetch-daily-metrics",
+		"google.business-profile.account-admins.delete", "google.business-profile.account-admins.list",
+		"google.business-profile.account-admins.update", "google.business-profile.accounts.get",
+		"google.business-profile.accounts.list", "google.business-profile.accounts.update",
+		"google.business-profile.attributes.get", "google.business-profile.attributes.list",
+		"google.business-profile.attributes.update",
+		"google.business-profile.categories.batch-get", "google.business-profile.categories.list",
+		"google.business-profile.chains.get", "google.business-profile.chains.search",
+		"google.business-profile.google-locations.search", "google.business-profile.invitations.decline",
+		"google.business-profile.invitations.list", "google.business-profile.location-admins.delete",
+		"google.business-profile.location-admins.list", "google.business-profile.location-admins.update",
+		"google.business-profile.locations.get", "google.business-profile.locations.list",
+		"google.business-profile.lodging.get", "google.business-profile.lodging.get-google-updated",
+		"google.business-profile.lodging.update", "google.business-profile.performance.fetch-daily-metrics",
 		"google.business-profile.performance.get-daily-metric", "google.business-profile.performance.list-search-keywords"}
 	if !reflect.DeepEqual(ids, want) {
 		t.Errorf("tools = %v, want %v", ids, want)
 	}
 	profile, ok := metadata.RecommendedProfile()
-	if !ok || profile.ID != "read" || len(metadata.Profiles) != 2 || len(profile.Tools) != 11 ||
+	if !ok || profile.ID != "read" || len(metadata.Profiles) != 2 || len(profile.Tools) != 19 ||
 		!strings.Contains(profile.Description, "business.manage") {
 		t.Errorf("profiles = %+v", metadata.Profiles)
 	}
 	for _, d := range reg.Provider(Provider) {
 		risk := d.Risk
-		if risk.Effect == capability.EffectUpdate {
+		if risk.Effect == capability.EffectUpdate || risk.Effect == capability.EffectDelete {
 			continue
 		}
 		if risk.Effect != capability.EffectRead || risk.Idempotency != capability.IdempotencySafe ||

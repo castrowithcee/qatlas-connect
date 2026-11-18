@@ -14,10 +14,11 @@ import (
 	"github.com/castrowithcee/qatlas-connect/internal/provider"
 )
 
-// This file is the base of the Compute tools that delete a network resource: the risk, the request ID, the one
-// DELETE request that is never repeated, and the result, which is the Compute operation as Google returned it.
-// A tool never waits for the operation; compute-operations.get reads its state. The firewall and address tools
-// use this base, and the VPN tunnel and gateway tools use it as well.
+// This file is the base of the Compute tools that delete a resource or change one through a POST: the risk of a
+// deletion, the request ID, the one request that is never repeated, and the result, which is the Compute
+// operation as Google returned it. A tool never waits for the operation; compute-operations.get reads its state.
+// The firewall, address, and VPN deletions use this base, and so do the disk and image changes
+// (compute_disks_write.go, compute_disks_delete.go, compute_images_write.go).
 
 // computeDeleteRisk is the risk of a deleting Compute tool. The method is idempotent through requestId: Google
 // ignores a repeated request with the ID of one it already received. The result is an operation, which names
@@ -83,13 +84,18 @@ func checkRequestID(value string) (string, error) {
 	return value, nil
 }
 
-// computeDeleteTarget describes one resource to delete. path is below the origin and was built from checked
-// values; region is empty for a global resource.
+// computeDeleteTarget describes one request of the base. path is below the origin and was built from checked
+// values; zone is set for a zonal resource and region for a regional one, neither for a global resource.
+// method is empty for a DELETE; a change sets POST, its JSON payload, and the query values it adds to requestId.
 // noMessages is set for a VPN resource: no Google error text is passed on, and the secret members of the
 // answer are dropped, like those of the VPN reads (see vpnGet and dropVpnSecrets).
+// keyed drops encryption key material from the answer, like the disk reads (see dropDiskKeyMaterial).
 type computeDeleteTarget struct {
-	op, tool, path, region, requestID string
-	noMessages                        bool
+	op, tool, path, zone, region, requestID string
+	method                                  string
+	payload                                 []byte
+	query                                   url.Values
+	noMessages, keyed                       bool
 }
 
 // withoutMessages keeps the status, type, and code of a provider error but not the message of its original
@@ -110,7 +116,7 @@ func withoutMessages(err error) error {
 	return &copied
 }
 
-// computeDelete sends the one DELETE request and turns the operation of the answer into the result. The
+// computeDelete sends the one request and turns the operation of the answer into the result. The
 // request is never repeated, and an answer that names no operation leaves the outcome open.
 func (c *client) computeDelete(ctx context.Context, t computeDeleteTarget) (any, error) {
 	out, err := c.deleteResource(ctx, t)
@@ -122,8 +128,15 @@ func (c *client) computeDelete(ctx context.Context, t computeDeleteTarget) (any,
 
 func (c *client) deleteResource(ctx context.Context, t computeDeleteTarget) (any, error) {
 	query := url.Values{"requestId": {t.requestID}}
+	for name, values := range t.query {
+		query[name] = values
+	}
+	method := t.method
+	if method == "" {
+		method = http.MethodDelete
+	}
 	var wire json.RawMessage
-	if err := c.send(ctx, t.op, t.tool, serviceCompute, http.MethodDelete, t.path, query, nil, &wire, true); err != nil {
+	if err := c.send(ctx, t.op, t.tool, serviceCompute, method, t.path, query, t.payload, &wire, true); err != nil {
 		return nil, err
 	}
 	unsure := func() error {
@@ -131,12 +144,17 @@ func (c *client) deleteResource(ctx context.Context, t computeDeleteTarget) (any
 		failed.Message += unsureNote
 		return failed
 	}
-	if t.noMessages {
+	if t.noMessages || t.keyed {
 		decoded, err := decodeRow(t.op, wire)
 		if err != nil {
 			return nil, unsure()
 		}
-		dropVpnSecrets(decoded)
+		if t.noMessages {
+			dropVpnSecrets(decoded)
+		}
+		if t.keyed {
+			dropDiskKeyMaterial(decoded)
+		}
 		if wire, err = json.Marshal(decoded); err != nil {
 			return nil, unsure()
 		}
@@ -149,10 +167,13 @@ func (c *client) deleteResource(ctx context.Context, t computeDeleteTarget) (any
 		return nil, unsure()
 	}
 	scope := scopeGlobal
-	if t.region != "" {
+	switch {
+	case t.zone != "":
+		scope = scopeZone
+	case t.region != "":
 		scope = scopeRegion
 	}
-	if !inScope(row, scope, "", t.region) {
+	if !inScope(row, scope, t.zone, t.region) {
 		return nil, unsure()
 	}
 	if status, _ := row["status"].(string); status == "DONE" {
@@ -161,6 +182,9 @@ func (c *client) deleteResource(ctx context.Context, t computeDeleteTarget) (any
 		}
 	}
 	out := map[string]any{"operation": row, "scope": scope, "request_id": t.requestID}
+	if t.zone != "" {
+		out["zone"] = t.zone
+	}
 	if t.region != "" {
 		out["region"] = t.region
 	}

@@ -18,9 +18,14 @@
 // the redactor.
 //
 // The settings and the event create rules of a web data stream and the calculated metrics, annotations, audiences,
-// channel groups and expanded data sets of a property run on the Admin API v1alpha, see alpha.go. So do the
-// read-only tools for the Display & Video 360 advertiser links of a property and their proposals; the proposals
-// name email addresses, so their results carry their own data sensitivity.
+// channel groups, expanded data sets and attribution settings of a property run on the Admin API v1alpha, see
+// alpha.go. So do the read-only tools for the Display & Video 360 advertiser links of a property and their
+// proposals; the proposals name email addresses, so their results carry their own data sensitivity. The read-only
+// AdSense and Search Ads 360 links of a property run there as well, and so do the rollup source links and the
+// access bindings; the access bindings name users by email address and are personal data.
+//
+// The change history search accepts only the scope analytics.edit, so it is outside the profile read. Its
+// events hold email addresses of users and snapshots of resources: personal data, shown bounded.
 //
 // A connection may bind Analytics accounts (accounts/ID) and properties (properties/ID). Without a target it
 // reaches what the credential reaches. A bound account reaches its properties, a bound property only itself;
@@ -57,6 +62,10 @@ const scopeReadOnly = "https://www.googleapis.com/auth/analytics.readonly"
 // scopeEdit is the scope that changes Analytics accounts, properties and annotations (analyticsadmin v1beta and
 // v1alpha).
 const scopeEdit = "https://www.googleapis.com/auth/analytics.edit"
+
+// scopeUsersReadOnly is the smallest scope that reads the access bindings of an account or property, the users
+// with their roles (analyticsadmin v1alpha). Google also accepts analytics.manage.users for these methods.
+const scopeUsersReadOnly = "https://www.googleapis.com/auth/analytics.manage.users.readonly"
 
 // dataSensitivity classifies the results: the configuration of the Analytics accounts the credential reaches.
 const dataSensitivity = "analytics-configuration"
@@ -146,11 +155,15 @@ var scopes = map[string][]string{
 	accessAccountID:  {scopeReadOnly},
 	accessPropertyID: {scopeReadOnly},
 
-	audiencesListID:    {scopeReadOnly},
-	audiencesGetID:     {scopeReadOnly},
-	audiencesCreateID:  {scopeEdit},
-	audiencesUpdateID:  {scopeEdit},
-	audiencesArchiveID: {scopeEdit},
+	audiencesListID:      {scopeReadOnly},
+	audiencesGetID:       {scopeReadOnly},
+	audiencesCreateID:    {scopeEdit},
+	audiencesUpdateID:    {scopeEdit},
+	audiencesArchiveID:   {scopeEdit},
+	rollupLinksListID:    {scopeReadOnly},
+	rollupLinksGetID:     {scopeReadOnly},
+	accessBindingsListID: {scopeUsersReadOnly},
+	accessBindingsGetID:  {scopeUsersReadOnly},
 
 	annotationsListID:   {scopeReadOnly},
 	annotationsGetID:    {scopeReadOnly},
@@ -183,6 +196,19 @@ var scopes = map[string][]string{
 	firebaseLinksListID:  {scopeReadOnly},
 	bigQueryLinksListID:  {scopeReadOnly},
 	bigQueryLinksGetID:   {scopeReadOnly},
+	adsenseLinksListID:   {scopeReadOnly},
+	adsenseLinksGetID:    {scopeReadOnly},
+	searchAdsLinksListID: {scopeReadOnly},
+	searchAdsLinksGetID:  {scopeReadOnly},
+
+	attributionGetID:    {scopeReadOnly},
+	attributionUpdateID: {scopeEdit},
+	// searchChangeHistoryEvents lists analytics.edit alone, so the search needs a token that could also change.
+	changeHistoryID:       {scopeEdit},
+	adsLinksDeleteID:      {scopeEdit},
+	firebaseLinksDeleteID: {scopeEdit},
+	bigQueryLinksDeleteID: {scopeEdit},
+	adsenseLinksDeleteID:  {scopeEdit},
 }
 
 func tokenMetadata() config.TokenMetadata { return config.TokenMetadata{Scopes: scopes} }
@@ -251,7 +277,9 @@ var readTools = []string{summariesID, accountsID, accountsGetID, accountsSharing
 	calculatedListID, calculatedGetID, accessAccountID, accessPropertyID, dataRetentionGetID, googleSignalsGetID,
 	annotationsListID, annotationsGetID, dv360LinksListID, dv360LinksGetID, dv360ProposalsListID, dv360ProposalsGetID,
 	audiencesListID, audiencesGetID, channelGroupsListID, channelGroupsGetID, edsListID, edsGetID, adsLinksListID,
-	firebaseLinksListID, bigQueryLinksListID, bigQueryLinksGetID}
+	firebaseLinksListID, bigQueryLinksListID, bigQueryLinksGetID, adsenseLinksListID, adsenseLinksGetID,
+	searchAdsLinksListID, searchAdsLinksGetID, attributionGetID, rollupLinksListID, rollupLinksGetID,
+	accessBindingsListID, accessBindingsGetID}
 
 // Register adds the provider metadata, its consent endpoints, its connection test and its tools.
 func Register(reg *capability.Registry) error {
@@ -284,16 +312,18 @@ func Register(reg *capability.Registry) error {
 		},
 		Profiles: []config.ToolProfile{{
 			ID: "read", Title: "Read", Recommended: true,
-			Description: "reads the Analytics accounts, properties, custom dimensions and metrics, key events, calculated metrics, audiences, channel groups, expanded data sets, reports and report tasks the connection reaches; " +
+			Description: "reads the Analytics accounts, properties, custom dimensions and metrics, key events, calculated metrics, audiences, channel groups, expanded data sets, rollup source links, reports and report tasks the connection reaches; " +
 				"nothing is changed. It includes reading the users of an audience export, the Data Access Reports, the " +
-				"Display & Video 360 link proposals and the creators of Google Ads links, which are personal data",
+				"Display & Video 360 link proposals, the creators of Google Ads links and the access bindings, which are personal data",
 			Tools: readTools,
 		}, {
 			ID: "write", Title: "Read and change",
 			Description: "reads what the read profile reads and changes Analytics accounts, properties, data streams, custom " +
-				"dimensions, custom metrics, key events, event create rules, calculated metrics, audiences, annotations, channel groups, expanded data sets and Google Signals, starts audience exports and report tasks, " +
-				"and deletes data streams, measurement protocol secrets, key events, channel groups and expanded data sets and archives audiences; every change needs its own " +
-				"confirmation, and deleting an account or a property stays unlisted, and so does changing the data retention",
+				"dimensions, custom metrics, key events, event create rules, calculated metrics, audiences, annotations, channel groups, expanded data sets, attribution settings and Google Signals, starts audience exports and report tasks, " +
+				"and deletes data streams, measurement protocol secrets, key events, channel groups, expanded data sets and the Google Ads, Firebase, BigQuery and AdSense links and archives audiences; every change needs its own " +
+				"confirmation, and deleting an account or a property stays unlisted, and so does changing the data retention. " +
+				"It also searches the change history, which holds the email addresses of users and accepts only the " +
+				"scope analytics.edit",
 			Tools: append(slices.Clone(readTools), accountsUpdateID, propertiesCreateID, propertiesUpdateID,
 				dataStreamsCreateID, dataStreamsUpdateID, dataStreamsDeleteID, mpSecretsDeleteID, audienceCreateID,
 				reportTasksCreateID, enhancedUpdateID, redactionUpdateID, customDimensionsCreateID,
@@ -304,7 +334,15 @@ func Register(reg *capability.Registry) error {
 				annotationsCreateID, annotationsUpdateID, annotationsDeleteID,
 				audiencesCreateID, audiencesUpdateID, audiencesArchiveID,
 				channelGroupsCreateID, channelGroupsUpdateID, channelGroupsDeleteID,
-				edsCreateID, edsUpdateID, edsDeleteID),
+				edsCreateID, edsUpdateID, edsDeleteID, attributionUpdateID, changeHistoryID,
+				adsLinksDeleteID, firebaseLinksDeleteID, bigQueryLinksDeleteID, adsenseLinksDeleteID),
+		}, {
+			ID: "read-change-history", Title: "Read with change history",
+			Description: "everything of read plus the search in the change history of an account or property; " +
+				"the method accepts only the scope analytics.edit, so the token may change what its account may, " +
+				"although no tool of this profile changes anything. The events hold the email addresses of users, " +
+				"which are personal data",
+			Tools: append(slices.Clone(readTools), changeHistoryID),
 		}},
 	}, TestConnection); err != nil {
 		return err
@@ -427,6 +465,10 @@ func Register(reg *capability.Registry) error {
 		{Descriptor: reportTasksQuery, Handler: handleReportTasksQuery},
 		{Descriptor: accessAccountReport, Handler: handleAccessAccount},
 		{Descriptor: accessPropertyReport, Handler: handleAccessProperty},
+		{Descriptor: rollupLinksList, Handler: handleRollupLinksList},
+		{Descriptor: rollupLinksGet, Handler: handleRollupLinksGet},
+		{Descriptor: accessBindingsList, Handler: handleAccessBindingsList},
+		{Descriptor: accessBindingsGet, Handler: handleAccessBindingsGet},
 		{Descriptor: dataRetentionGet, Handler: handleDataRetentionGet},
 		{Descriptor: dataRetentionUpdate, Handler: handleDataRetentionUpdate, ConfirmationSummary: retentionSummary},
 		{Descriptor: googleSignalsGet, Handler: handleGoogleSignalsGet},
@@ -439,6 +481,20 @@ func Register(reg *capability.Registry) error {
 		{Descriptor: firebaseLinksList, Handler: handleFirebaseLinksList},
 		{Descriptor: bigQueryLinksList, Handler: handleBigQueryLinksList},
 		{Descriptor: bigQueryLinksGet, Handler: handleBigQueryLinksGet},
+		{Descriptor: adsenseLinksList, Handler: handleAdsenseLinksList},
+		{Descriptor: adsenseLinksGet, Handler: handleAdsenseLinksGet},
+		{Descriptor: searchAdsLinksList, Handler: handleSearchAdsLinksList},
+		{Descriptor: searchAdsLinksGet, Handler: handleSearchAdsLinksGet},
+		{Descriptor: attributionGet, Handler: handleAttributionGet},
+		{Descriptor: attributionUpdate, Handler: handleAttributionUpdate, ConfirmationSummary: attributionSummary},
+		{Descriptor: changeHistorySearch, Handler: handleChangeHistorySearch},
+		{Descriptor: adsLinksDelete, Handler: adsLinkDelete.handler(), ConfirmationSummary: adsLinkDelete.summary},
+		{Descriptor: firebaseLinksDelete, Handler: firebaseLinkDelete.handler(),
+			ConfirmationSummary: firebaseLinkDelete.summary},
+		{Descriptor: bigQueryLinksDelete, Handler: bigQueryLinkDelete.handler(),
+			ConfirmationSummary: bigQueryLinkDelete.summary},
+		{Descriptor: adsenseLinksDelete, Handler: adsenseLinkDelete.handler(),
+			ConfirmationSummary: adsenseLinkDelete.summary},
 	} {
 		if err := reg.Register(Provider, operation); err != nil {
 			return err

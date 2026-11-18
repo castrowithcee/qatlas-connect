@@ -14,11 +14,14 @@ This page shows how to connect Qatlas to Google Analytics 4. Targets, paging, an
 [properties](properties.md), [data streams](data-streams.md), [custom dimensions](custom-dimensions.md),
 [custom metrics](custom-metrics.md), [event create rules](event-create-rules.md),
 [calculated metrics](calculated-metrics.md),
-[annotations](annotations.md), [audiences](audiences.md), [channel groups](channel-groups.md), [expanded data sets](expanded-data-sets.md), [Display & Video 360 links](display-video360-links.md), [reports](reports.md),
+[annotations](annotations.md), [audiences](audiences.md), [channel groups](channel-groups.md), [expanded data sets](expanded-data-sets.md), [Display & Video 360 links](display-video360-links.md),
+[AdSense links](adsense-links.md), [Search Ads 360 links](search-ads360-links.md), [reports](reports.md),
 [audience exports](audience-exports.md), [report tasks](report-tasks.md),
 [measurement protocol secrets](measurement-protocol-secrets.md), [access reports](access-reports.md),
+[rollup links](rollup-links.md), [access bindings](access-bindings.md),
 [data retention](data-retention.md), [Google Signals](google-signals.md), [Google Ads links](google-ads-links.md),
-[Firebase links](firebase-links.md), and [BigQuery links](bigquery-links.md).
+[Firebase links](firebase-links.md), [BigQuery links](bigquery-links.md), [attribution settings](attribution-settings.md),
+and [change history](change-history.md).
 
 ## What you need
 
@@ -86,10 +89,16 @@ property, and on the property or its account to change or trash a property or to
 ## Rights and scopes
 
 The reading tools need the scope `https://www.googleapis.com/auth/analytics.readonly`, the smallest scope that
-reads Analytics configuration and report data. The tools that change an account, a property, a data stream, an event create rule, an annotation, an audience, a channel group, or an expanded data set need
+reads Analytics configuration and report data. The access binding tools need the read scope
+`https://www.googleapis.com/auth/analytics.manage.users.readonly` instead, because they list the users of an account
+or property; a consent given before they were used needs to be repeated. The tools that change an account, a property, a data stream, an event create rule, an annotation, an audience, a channel group, or an expanded data set need
 `https://www.googleapis.com/auth/analytics.edit`. Qatlas asks for the scope of the tools of the connections that
 use the credential and no more. Each connection of a credential has to be for Google Analytics, so the
 credential never carries the scope of another product.
+
+One reading tool needs the editing scope: Google accepts only `analytics.edit` for the change history search, so a
+credential that is used with `change-history.search` carries a token that could also change what its account may.
+The tool is outside the profile `read` for that reason, see [change history](change-history.md#scope-and-profiles).
 
 | Tool group | Tools | Scope |
 | --- | --- | --- |
@@ -100,6 +109,8 @@ credential never carries the scope of another product.
 | [Audience exports](audience-exports.md) | `audience-exports.create`, `audience-exports.get`, `audience-exports.list`, `audience-exports.query` | `analytics.readonly` |
 | [Report tasks](report-tasks.md) | `report-tasks.create`, `report-tasks.get`, `report-tasks.list`, `report-tasks.query` | `analytics.readonly` |
 | [Access reports](access-reports.md) | `accounts.run-access-report`, `properties.run-access-report` | `analytics.readonly` |
+| [Rollup links](rollup-links.md) | `rollup-links.list`, `rollup-links.get` | `analytics.readonly` |
+| [Access bindings](access-bindings.md) | `access-bindings.list`, `access-bindings.get` | `analytics.manage.users.readonly` |
 | [Properties](properties.md#changing-properties) | `properties.create`, `properties.update`, `properties.delete` | `analytics.edit` |
 | [Data streams](data-streams.md) | `data-streams.list`, `data-streams.get` | `analytics.readonly` |
 | [Data streams](data-streams.md#changing-data-streams) | `data-streams.create`, `data-streams.update`, `data-streams.delete` | `analytics.edit` |
@@ -126,13 +137,22 @@ credential never carries the scope of another product.
 | [Expanded data sets](expanded-data-sets.md) | `expanded-data-sets.list`, `expanded-data-sets.get` | `analytics.readonly` |
 | [Expanded data sets](expanded-data-sets.md#changing-expanded-data-sets) | `expanded-data-sets.create`, `expanded-data-sets.update`, `expanded-data-sets.delete` | `analytics.edit` |
 | [Display & Video 360 links](display-video360-links.md) | `display-video360-links.list`, `display-video360-links.get`, `display-video360-link-proposals.list`, `display-video360-link-proposals.get` | `analytics.readonly` |
+| [AdSense links](adsense-links.md) | `adsense-links.list`, `adsense-links.get` | `analytics.readonly` |
+| [AdSense links](adsense-links.md#deleting-a-link) | `adsense-links.delete` | `analytics.edit` |
+| [Search Ads 360 links](search-ads360-links.md) | `search-ads360-links.list`, `search-ads360-links.get` | `analytics.readonly` |
 | [Data retention](data-retention.md) | `data-retention.get` | `analytics.readonly` |
 | [Data retention](data-retention.md#googleanalyticsdata-retentionupdate) | `data-retention.update` | `analytics.edit` |
 | [Google Signals](google-signals.md) | `google-signals.get` | `analytics.readonly` |
 | [Google Signals](google-signals.md#googleanalyticsgoogle-signalsupdate) | `google-signals.update` | `analytics.edit` |
 | [Google Ads links](google-ads-links.md) | `google-ads-links.list` | `analytics.readonly` |
+| [Google Ads links](google-ads-links.md#deleting-a-link) | `google-ads-links.delete` | `analytics.edit` |
 | [Firebase links](firebase-links.md) | `firebase-links.list` | `analytics.readonly` |
+| [Firebase links](firebase-links.md#deleting-a-link) | `firebase-links.delete` | `analytics.edit` |
 | [BigQuery links](bigquery-links.md) | `bigquery-links.list`, `bigquery-links.get` | `analytics.readonly` |
+| [BigQuery links](bigquery-links.md#deleting-a-link) | `bigquery-links.delete` | `analytics.edit` |
+| [Attribution settings](attribution-settings.md) | `attribution-settings.get` | `analytics.readonly` |
+| [Attribution settings](attribution-settings.md#googleanalyticsattribution-settingsupdate) | `attribution-settings.update` | `analytics.edit` |
+| [Change history](change-history.md#scope-and-profiles) | `change-history.search` (reads only, but Google accepts `analytics.edit` alone) | `analytics.edit` |
 
 ## Add it to Qatlas
 

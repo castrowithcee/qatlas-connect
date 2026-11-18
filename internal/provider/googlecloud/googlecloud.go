@@ -11,9 +11,10 @@
 // iam-bindings (a single binding of the IAM policy of a project, folder, or organization, iam_bindings.go),
 // compute-network-delete (firewall rules, reserved IP addresses, VPN tunnels and gateways, compute_delete.go),
 // compute-instances-create (instances.insert, compute_instances_insert.go) and the listed-only instances.delete,
-// each change with the confirmation of a person. Every request goes to a fixed origin of the service table,
-// with the access token in the Authorization header only, once, within a bounded size and time, and spaced per
-// credential.
+// compute-disks (creating, growing, and snapshotting disks, compute_disks_write.go) and the listed-only
+// disks.delete, and compute-images-delete (creating images and deleting snapshots and images,
+// compute_images_write.go), each change with the confirmation of a person. Every request goes to a fixed origin of the service table, with the access token in
+// the Authorization header only, once, within a bounded size and time, and spaced per credential.
 //
 // A connection may be bound to organizations, folders, and projects, which nest as Google nests them, and to
 // billing accounts, which belong to none of them. A project is bound to a target by reading it and the folders
@@ -96,7 +97,9 @@ var readTools = []string{organizationsSearch.ID, foldersSearch.ID, projectsSearc
 	vpnGatewaysList.ID, vpnGatewaysGet.ID, vpnTunnelsList.ID, vpnTunnelsGet.ID,
 	disksList.ID, disksAggregatedList.ID, disksGet.ID,
 	snapshotsList.ID, snapshotsGet.ID, imagesList.ID, imagesGet.ID,
-	bucketsList.ID, bucketsGet.ID}
+	bucketsList.ID, bucketsGet.ID, notificationsList.ID, managedFoldersList.ID, hmacKeysList.ID, hmacKeysGet.ID,
+	objectsList.ID, objectsGet.ID, objectsDownload.ID,
+	managedZonesList.ID, managedZonesGet.ID, recordSetsList.ID, recordSetsGet.ID}
 
 // Register adds the provider metadata, its connection test, its consent endpoints, and its tools.
 func Register(reg *capability.Registry) error {
@@ -121,7 +124,10 @@ func Register(reg *capability.Registry) error {
 				"Usage, and the metadata of API keys with the read-only scope and the Compute Engine instances, machine " +
 				"types, zones, regions, operations (with the person who started each), VPC networks, subnetworks, firewall rules, " +
 				"reserved IP addresses, HA VPN gateways, VPN tunnels, persistent disks, disk snapshots, and images of a project with the scope compute.readonly, " +
-				"and the Cloud Storage buckets of a project with the scope devstorage.read_only, and changes nothing",
+				"the Cloud Storage buckets of a project, their objects, and the content of an object (up to a fixed limit), " +
+				"the notification configurations and managed folders of a bucket, and " +
+				"the HMAC key metadata of a project with the scope devstorage.read_only, and the Cloud DNS managed zones and record sets of a project with the scope " +
+				"ndev.clouddns.readonly, and changes nothing",
 			Tools: readTools,
 		}, {
 			ID: "read-iam", Title: "Read with IAM",
@@ -142,11 +148,12 @@ func Register(reg *capability.Registry) error {
 				quotaPreferencesList.ID, quotaPreferencesGet.ID),
 		}, {
 			ID: "read-storage-access", Title: "Read with Storage access",
-			Description: "everything of read plus the IAM policy and the access control list of a Cloud Storage bucket; " +
+			Description: "everything of read plus the IAM policy and the access control list of a Cloud Storage bucket and the access control list of an object; " +
 				"these methods accept only the scope devstorage.full_control (or cloud-platform), so the token may " +
 				"change what its account may in Cloud Storage, although no tool of this profile changes anything; " +
 				"policies and lists hold members that are personal data",
-			Tools: append(append([]string{}, readTools...), bucketsGetIAMPolicy.ID, bucketAccessControlsList.ID),
+			Tools: append(append([]string{}, readTools...), bucketsGetIAMPolicy.ID, bucketAccessControlsList.ID,
+				objectAccessControlsList.ID),
 		}, {
 			ID: "service-accounts", Title: "Service accounts",
 			Description: "creates service accounts, changes their display name and description, and disables and " +
@@ -206,6 +213,25 @@ func Register(reg *capability.Registry) error {
 				"its account may; deleting an instance is not part of this profile and needs a tools list that names it",
 			Tools: []string{projectsGet.ID, instancesInsert.ID},
 		}, {
+			ID: "compute-disks", Title: "Create and grow disks",
+			Description: "creates persistent disks, grows them, and creates snapshots of them in a Compute Engine " +
+				"project, each with the confirmation of a person; disks and snapshots are billed until they are " +
+				"deleted, and a disk cannot be shrunk again; projects.get is part of the profile so that targets of " +
+				"an organization or a folder can be proved; the token holds the compute scope, which Google also " +
+				"uses to change Compute resources, so the token may do what its account may; no tool deletes, " +
+				"attaches, or shares a disk or snapshot",
+			Tools: []string{projectsGet.ID, disksInsert.ID, disksResize.ID, disksCreateSnapshot.ID},
+		}, {
+			ID: "compute-images-delete", Title: "Create images and delete snapshots and images",
+			Description: "creates images from disks, snapshots, or images of a Compute Engine project and deletes " +
+				"snapshots and images, each with the confirmation of a person; an image is billed until it is " +
+				"deleted, and a deleted snapshot or image cannot be restored; projects.get is part of the profile so " +
+				"that targets of an organization or a folder can be proved; the token holds the compute scope, which " +
+				"Google also uses to change Compute resources, so the token may do what its account may; deleting a " +
+				"disk is not part of this profile and needs a tools list that names it; no tool shares an image or " +
+				"snapshot or changes its IAM policy",
+			Tools: []string{projectsGet.ID, imagesInsert.ID, snapshotsDelete.ID, imagesDelete.ID},
+		}, {
 			ID: "services", Title: "Enable APIs",
 			Description: "enables Google APIs in a project, one or up to 20 at a time, each with the confirmation of a " +
 				"person; these Service Usage methods accept only the broad cloud-platform scope, so the token may " +
@@ -263,8 +289,20 @@ func Register(reg *capability.Registry) error {
 		capability.Operation{Descriptor: imagesGet, Handler: handleImagesGet},
 		capability.Operation{Descriptor: bucketsList, Handler: handleBucketsList},
 		capability.Operation{Descriptor: bucketsGet, Handler: handleBucketsGet},
+		capability.Operation{Descriptor: notificationsList, Handler: handleNotificationsList},
+		capability.Operation{Descriptor: managedFoldersList, Handler: handleManagedFoldersList},
+		capability.Operation{Descriptor: hmacKeysList, Handler: handleHMACKeysList},
+		capability.Operation{Descriptor: hmacKeysGet, Handler: handleHMACKeysGet},
+		capability.Operation{Descriptor: managedZonesList, Handler: handleManagedZonesList},
+		capability.Operation{Descriptor: managedZonesGet, Handler: handleManagedZonesGet},
+		capability.Operation{Descriptor: recordSetsList, Handler: handleRecordSetsList},
+		capability.Operation{Descriptor: recordSetsGet, Handler: handleRecordSetsGet},
 		capability.Operation{Descriptor: bucketsGetIAMPolicy, Handler: handleBucketsGetIAMPolicy},
 		capability.Operation{Descriptor: bucketAccessControlsList, Handler: handleBucketAccessControlsList},
+		capability.Operation{Descriptor: objectsList, Handler: handleObjectsList},
+		capability.Operation{Descriptor: objectsGet, Handler: handleObjectsGet},
+		capability.Operation{Descriptor: objectsDownload, Handler: handleObjectsDownload},
+		capability.Operation{Descriptor: objectAccessControlsList, Handler: handleObjectAccessControlsList},
 		capability.Operation{Descriptor: firewallsDelete, Handler: handleFirewallsDelete,
 			ConfirmationSummary: firewallDeleteSummary},
 		capability.Operation{Descriptor: addressesDelete, Handler: handleAddressesDelete,
@@ -286,6 +324,17 @@ func Register(reg *capability.Registry) error {
 			ConfirmationSummary: instanceInsertSummary},
 		capability.Operation{Descriptor: instancesDelete, Handler: handleInstancesDelete,
 			ConfirmationSummary: instanceDeleteSummary},
+		capability.Operation{Descriptor: disksInsert, Handler: handleDisksInsert, ConfirmationSummary: diskInsertSummary},
+		capability.Operation{Descriptor: disksResize, Handler: handleDisksResize, ConfirmationSummary: diskResizeSummary},
+		capability.Operation{Descriptor: disksCreateSnapshot, Handler: handleDisksCreateSnapshot,
+			ConfirmationSummary: diskSnapshotSummary},
+		capability.Operation{Descriptor: disksDelete, Handler: handleDisksDelete, ConfirmationSummary: diskDeleteSummary},
+		capability.Operation{Descriptor: imagesInsert, Handler: handleImagesInsert,
+			ConfirmationSummary: imageInsertSummary},
+		capability.Operation{Descriptor: snapshotsDelete, Handler: snapshotDelete.handler("delete snapshot"),
+			ConfirmationSummary: snapshotDelete.summary},
+		capability.Operation{Descriptor: imagesDelete, Handler: imageDelete.handler("delete image"),
+			ConfirmationSummary: imageDelete.summary},
 		capability.Operation{Descriptor: iamRolesList, Handler: handleIAMRolesList},
 		capability.Operation{Descriptor: iamRolesGet, Handler: handleIAMRolesGet},
 		capability.Operation{Descriptor: iamRolesQuery, Handler: handleIAMRolesQuery},
