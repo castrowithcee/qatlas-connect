@@ -62,6 +62,9 @@ var toolScopes = map[string][]string{
 	locationAdminsDeleteID:   {scopeManage},
 	invitationsListID:        {scopeManage},
 	invitationsDeclineID:     {scopeManage},
+	lodgingGetID:             {scopeManage},
+	lodgingGoogleUpdatedID:   {scopeManage},
+	lodgingUpdateID:          {scopeManage},
 	placeActionLinksListID:   {scopeManage},
 	placeActionLinksGetID:    {scopeManage},
 	placeActionLinksCreateID: {scopeManage},
@@ -130,11 +133,12 @@ var readTools = []string{accountsListID, accountsGetID, locationsListID, locatio
 	accountAdminsListID, locationAdminsListID,
 	performanceGetDailyID, performanceFetchDailyID, performanceKeywordsID,
 	categoriesListID, categoriesBatchGetID, chainsGetID, chainsSearchID, googleLocationsSearchID,
-	invitationsListID, placeActionLinksListID, placeActionLinksGetID, placeActionTypesListID}
+	invitationsListID, lodgingGetID, lodgingGoogleUpdatedID,
+	placeActionLinksListID, placeActionLinksGetID, placeActionTypesListID}
 
 // writeTools are the tools of the profile write.
 var writeTools = []string{accountAdminsUpdateID, locationAdminsUpdateID, accountsUpdateID,
-	accountAdminsDeleteID, locationAdminsDeleteID, invitationsDeclineID,
+	accountAdminsDeleteID, locationAdminsDeleteID, invitationsDeclineID, lodgingUpdateID,
 	placeActionLinksCreateID, placeActionLinksUpdateID, placeActionLinksDeleteID}
 
 // Register adds the provider metadata, its consent endpoints, its connection test, and its tools.
@@ -204,6 +208,10 @@ func Register(reg *capability.Registry) error {
 		capability.Operation{Descriptor: chainsGet, Handler: handleChainsGet},
 		capability.Operation{Descriptor: chainsSearch, Handler: handleChainsSearch},
 		capability.Operation{Descriptor: googleLocationsSearch, Handler: handleGoogleLocationsSearch},
+		capability.Operation{Descriptor: lodgingGet, Handler: handleLodgingGet},
+		capability.Operation{Descriptor: lodgingGoogleUpdated, Handler: handleLodgingGoogleUpdated},
+		capability.Operation{Descriptor: lodgingUpdate, Handler: handleLodgingUpdate,
+			ConfirmationSummary: lodgingUpdateSummary},
 		capability.Operation{Descriptor: placeActionLinksList, Handler: handlePlaceActionLinksList},
 		capability.Operation{Descriptor: placeActionLinksGet, Handler: handlePlaceActionLinksGet},
 		capability.Operation{Descriptor: placeActionLinksCreate, Handler: handlePlaceActionLinksCreate,

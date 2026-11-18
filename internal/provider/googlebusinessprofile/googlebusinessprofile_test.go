@@ -266,16 +266,17 @@ func TestRegisterPublishesMetadataScopesAndProfile(t *testing.T) {
 		"google.business-profile.invitations.list", "google.business-profile.location-admins.delete",
 		"google.business-profile.location-admins.list", "google.business-profile.location-admins.update",
 		"google.business-profile.locations.get", "google.business-profile.locations.list",
-		"google.business-profile.performance.fetch-daily-metrics", "google.business-profile.performance.get-daily-metric",
-		"google.business-profile.performance.list-search-keywords", "google.business-profile.place-action-links.create",
-		"google.business-profile.place-action-links.delete", "google.business-profile.place-action-links.get",
-		"google.business-profile.place-action-links.list", "google.business-profile.place-action-links.update",
-		"google.business-profile.place-action-types.list"}
+		"google.business-profile.lodging.get", "google.business-profile.lodging.get-google-updated",
+		"google.business-profile.lodging.update", "google.business-profile.performance.fetch-daily-metrics",
+		"google.business-profile.performance.get-daily-metric", "google.business-profile.performance.list-search-keywords",
+		"google.business-profile.place-action-links.create", "google.business-profile.place-action-links.delete",
+		"google.business-profile.place-action-links.get", "google.business-profile.place-action-links.list",
+		"google.business-profile.place-action-links.update", "google.business-profile.place-action-types.list"}
 	if !reflect.DeepEqual(ids, want) {
 		t.Errorf("tools = %v, want %v", ids, want)
 	}
 	profile, ok := metadata.RecommendedProfile()
-	if !ok || profile.ID != "read" || len(metadata.Profiles) != 2 || len(profile.Tools) != 18 ||
+	if !ok || profile.ID != "read" || len(metadata.Profiles) != 2 || len(profile.Tools) != 20 ||
 		!strings.Contains(profile.Description, "business.manage") {
 		t.Errorf("profiles = %+v", metadata.Profiles)
 	}

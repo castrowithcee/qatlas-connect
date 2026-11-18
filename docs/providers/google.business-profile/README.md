@@ -16,8 +16,8 @@ create, change, and delete place action links. [Set up Google Business Profile](
 consent. The tools are described per group in [accounts](accounts.md), [locations](locations.md), [account
 admins](account-admins.md), [location admins](location-admins.md), [invitations](invitations.md),
 [performance](performance.md), [categories](categories.md), [chains](chains.md), [Google
-locations](google-locations.md), [place action links](place-action-links.md), and [place action
-types](place-action-types.md).
+locations](google-locations.md), [lodging](lodging.md), [place action links](place-action-links.md), and
+[place action types](place-action-types.md).
 
 ## Credential
 
@@ -45,8 +45,8 @@ no wider than the task needs.
 
 | Profile | Tools |
 | --- | --- |
-| `read` (recommended) | every read tool: `accounts.list`, `accounts.get`, `locations.list`, `locations.get`, `account-admins.list`, `location-admins.list`, `invitations.list`, `place-action-links.list`, `place-action-links.get`, `place-action-types.list` |
-| `write` | `account-admins.update`, `location-admins.update`, `accounts.update`, `account-admins.delete`, `location-admins.delete`, `invitations.decline`, `place-action-links.create`, `place-action-links.update`, `place-action-links.delete`; each change needs confirmation |
+| `read` (recommended) | every read tool: `accounts.list`, `accounts.get`, `locations.list`, `locations.get`, `account-admins.list`, `location-admins.list`, `invitations.list`, `lodging.get`, `lodging.get-google-updated`, `place-action-links.list`, `place-action-links.get`, `place-action-types.list` |
+| `write` | `account-admins.update`, `location-admins.update`, `accounts.update`, `account-admins.delete`, `location-admins.delete`, `invitations.decline`, `lodging.update`, `place-action-links.create`, `place-action-links.update`, `place-action-links.delete`; each change needs confirmation |
 
 The profile `read` changes nothing, but Google's only scope also allows changes, so the token could. The two
 admin lists name other people (first and last name, and the email address of a pending invitation), and the
@@ -66,6 +66,7 @@ project one by one:
 | My Business Account Management API | `https://mybusinessaccountmanagement.googleapis.com` | [accounts](accounts.md) |
 | My Business Business Information API | `https://mybusinessbusinessinformation.googleapis.com` | [locations](locations.md), [categories](categories.md), [chains](chains.md), [Google locations](google-locations.md) |
 | Business Profile Performance API | `https://businessprofileperformance.googleapis.com` | [performance](performance.md) |
+| My Business Lodging API | `https://mybusinesslodging.googleapis.com` | [lodging](lodging.md) |
 | My Business Place Actions API | `https://mybusinessplaceactions.googleapis.com` | [place action links](place-action-links.md), [place action types](place-action-types.md) |
 
 ## Approval of the Cloud project
@@ -98,6 +99,7 @@ request is sent; a refusal never names the other object.
 | `account-admins.list`, `account-admins.update`, `account-admins.delete`, `accounts.update` | the bound account only | not offered |
 | `invitations.list`, `invitations.decline` | the invitations of the bound account only | not offered |
 | `location-admins.list`, `location-admins.update`, `location-admins.delete` | prove the location first, like `locations.get` | the bound location only |
+| `lodging.*` | first prove the location like `locations.get` | the bound location only |
 | `performance.*` | first prove, on every call, that the location is in the bound account's location list | the bound location only |
 | `place-action-links.*` | first prove the location of the link, on every call | the bound location only |
 | `place-action-types.list` | proves the location of a `location=` filter; other filters need no proof | a `location=` filter accepts only the bound location |
@@ -183,7 +185,8 @@ Not verified:
 
 - No live call was made. Methods, parameters, and answers are taken from the discovery documents of the My
   Business Account Management API v1, the My Business Business Information API v1, the Business Profile
-  Performance API v1, and the My Business Place Actions API v1, each of revision 20261116.
+  Performance API v1, the My Business Lodging API v1, and the My Business Place Actions API v1, each of revision
+  20261116.
 - Whether Google accepts the field names of the update mask of a place action link in the snake_case form its
   discovery document names, and which link ID forms it issues; Qatlas accepts letters, digits, `_`, and `-` up to
   128 characters.
@@ -191,6 +194,9 @@ Not verified:
   approval may answer differently.
 - Whether each Business Profile API needs to be enabled in the project on its own.
 - Whether a read mask accepts nested field paths. Qatlas accepts only the top-level fields of a location.
+- Whether the read and update masks of the lodging accept nested paths and group names as field masks usually
+  do, and whether Google answers an unset boolean without the field. Qatlas sends the paths as given and compares
+  `previous_values` with exactly what Google answers.
 - The exact form Google expects for several sort fields; Qatlas joins them with a comma.
 - The exact form of chain IDs and category IDs. Qatlas accepts `chains/` with letters, digits, hyphens, and
   underscores, and `categories/gcid:` with lower-case letters, digits, and underscores, and refuses anything
