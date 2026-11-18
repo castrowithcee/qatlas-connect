@@ -314,8 +314,8 @@ func matchToken(tokens []Token, value string) (Token, bool) {
 
 // OpenWithKey returns the encrypted vault in dir, the vault directory itself as Dir reports it, unlocked with
 // key, its own private key, the way a vault process holds it, without the passphrase. It reads secrets.age as
-// it is on disk now and leaves every pending entry where it is: the next unlock with the passphrase merges
-// them, and a write through the returned vault keeps them pending.
+// it is on disk now and leaves every pending entry where it is: a write of the document through the returned
+// vault merges them, as ReplaceRole does, and otherwise the next unlock with the passphrase does.
 func OpenWithKey(dir string, key *age.X25519Identity) (*Vault, error) {
 	if key == nil {
 		return nil, ErrNotUnlocked
