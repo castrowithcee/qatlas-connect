@@ -76,7 +76,7 @@ func writeEnvironment(t *testing.T) (*environment, *writer) {
 	env := newEnvironment(t, nil)
 	w := &writer{patched: `{"name":"` + adminOne + `","admin":"Sample Person","role":"MANAGER"}`}
 	env.fake.answer = w.answer
-	effects := []config.Effect{config.EffectRead, config.EffectUpdate}
+	effects := []config.Effect{config.EffectRead, config.EffectUpdate, config.EffectDelete}
 	for name, target := range map[string]string{"w-all": "", "w-account": boundAccount, "w-location": boundLocation} {
 		env.cfg.Connections[name] = config.Connection{Service: "profile", Credential: "google", Effects: effects,
 			Target: target}
@@ -296,17 +296,19 @@ func TestNoToolCreatesAdminsOrAccounts(t *testing.T) {
 		ids = append(ids, d.ID)
 	}
 	want := map[string]bool{}
-	for _, name := range []string{"account-admins.list", "account-admins.update", "accounts.get", "accounts.list",
-		"accounts.update", "location-admins.list", "location-admins.update", "locations.get", "locations.list",
-		"performance.fetch-daily-metrics", "performance.get-daily-metric", "performance.list-search-keywords",
-		"categories.batch-get", "categories.list", "chains.get", "chains.search", "google-locations.search"} {
+	for _, name := range []string{
+		"account-admins.delete", "account-admins.list", "account-admins.update", "accounts.get", "accounts.list",
+		"accounts.update", "categories.batch-get", "categories.list", "chains.get", "chains.search",
+		"google-locations.search", "invitations.decline", "invitations.list", "location-admins.delete",
+		"location-admins.list", "location-admins.update", "locations.get", "locations.list",
+		"performance.fetch-daily-metrics", "performance.get-daily-metric", "performance.list-search-keywords"} {
 		want[Provider+"."+name] = true
 	}
 	if len(ids) != len(want) {
 		t.Errorf("tools = %v", ids)
 	}
 	for _, id := range ids {
-		if !want[id] || strings.Contains(id, "create") || strings.Contains(id, "delete") || strings.Contains(id, "transfer") {
+		if !want[id] || strings.Contains(id, "create") || strings.Contains(id, "accept") || strings.Contains(id, "transfer") {
 			t.Errorf("unexpected tool %s", id)
 		}
 	}
