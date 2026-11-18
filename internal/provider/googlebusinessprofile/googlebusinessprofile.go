@@ -59,10 +59,17 @@ var toolScopes = map[string][]string{
 	chainsSearchID:          {scopeManage},
 	googleLocationsSearchID: {scopeManage},
 
-	accountAdminsDeleteID:  {scopeManage},
-	locationAdminsDeleteID: {scopeManage},
-	invitationsListID:      {scopeManage},
-	invitationsDeclineID:   {scopeManage},
+	accountAdminsDeleteID:        {scopeManage},
+	locationAdminsDeleteID:       {scopeManage},
+	invitationsListID:            {scopeManage},
+	invitationsDeclineID:         {scopeManage},
+	lodgingGetID:                 {scopeManage},
+	lodgingGoogleUpdatedID:       {scopeManage},
+	lodgingUpdateID:              {scopeManage},
+	verificationsListID:          {scopeManage},
+	verificationsFetchOptionsID:  {scopeManage},
+	verificationsMerchantStateID: {scopeManage},
+	notificationsGetID:           {scopeManage},
 
 	reviewsListID:        {scopeManage},
 	reviewsGetID:         {scopeManage},
@@ -131,11 +138,13 @@ var readTools = []string{accountsListID, accountsGetID, locationsListID, locatio
 	accountAdminsListID, locationAdminsListID,
 	performanceGetDailyID, performanceFetchDailyID, performanceKeywordsID,
 	categoriesListID, categoriesBatchGetID, chainsGetID, chainsSearchID, googleLocationsSearchID,
-	invitationsListID, reviewsListID, reviewsGetID, reviewsBatchGetID}
+	invitationsListID, reviewsListID, reviewsGetID, reviewsBatchGetID, lodgingGetID, lodgingGoogleUpdatedID,
+	verificationsListID, verificationsFetchOptionsID, verificationsMerchantStateID, notificationsGetID}
 
 // writeTools are the tools of the profile write.
 var writeTools = []string{accountAdminsUpdateID, locationAdminsUpdateID, accountsUpdateID,
-	accountAdminsDeleteID, locationAdminsDeleteID, invitationsDeclineID, reviewsUpdateReplyID, reviewsDeleteReplyID}
+	accountAdminsDeleteID, locationAdminsDeleteID, invitationsDeclineID, reviewsUpdateReplyID, reviewsDeleteReplyID,
+	lodgingUpdateID}
 
 // Register adds the provider metadata, its consent endpoints, its connection test, and its tools.
 func Register(reg *capability.Registry) error {
@@ -154,8 +163,9 @@ func Register(reg *capability.Registry) error {
 				"and the categories, chains, and Google locations of Google's reference data, and changes nothing; " +
 				"Google offers only the scope business.manage, which also allows changes, so " +
 				"the token may change what its account may, although no tool of this profile changes anything; " +
-				"the admin lists name other people and the invitation list names the targets of invitations, and " +
-				"the reviews name reviewers, which is personal data",
+				"the admin lists name other people, the invitation list names the targets of invitations, the " +
+				"verification options show masked postal addresses, phone numbers, and email addresses, and the " +
+				"reviews name reviewers, which is personal data",
 			Tools: readTools,
 		}, {
 			ID: "write", Title: "Write",
@@ -204,6 +214,14 @@ func Register(reg *capability.Registry) error {
 		capability.Operation{Descriptor: chainsGet, Handler: handleChainsGet},
 		capability.Operation{Descriptor: chainsSearch, Handler: handleChainsSearch},
 		capability.Operation{Descriptor: googleLocationsSearch, Handler: handleGoogleLocationsSearch},
+		capability.Operation{Descriptor: lodgingGet, Handler: handleLodgingGet},
+		capability.Operation{Descriptor: lodgingGoogleUpdated, Handler: handleLodgingGoogleUpdated},
+		capability.Operation{Descriptor: lodgingUpdate, Handler: handleLodgingUpdate,
+			ConfirmationSummary: lodgingUpdateSummary},
+		capability.Operation{Descriptor: verificationsList, Handler: handleVerificationsList},
+		capability.Operation{Descriptor: verificationsFetchOptions, Handler: handleVerificationsFetchOptions},
+		capability.Operation{Descriptor: verificationsMerchantState, Handler: handleVerificationsMerchantState},
+		capability.Operation{Descriptor: notificationsGet, Handler: handleNotificationsGet},
 		capability.Operation{Descriptor: reviewsList, Handler: handleReviewsList},
 		capability.Operation{Descriptor: reviewsGet, Handler: handleReviewsGet},
 		capability.Operation{Descriptor: reviewsBatchGet, Handler: handleReviewsBatchGet},

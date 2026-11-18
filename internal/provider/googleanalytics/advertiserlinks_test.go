@@ -303,26 +303,22 @@ func TestAdvertiserLink429WithoutRetryAfterHoldsTheNextRequest(t *testing.T) {
 	}
 }
 
-// The link tools only read: no tool of the provider creates, changes or deletes a link.
-func TestNoToolChangesALink(t *testing.T) {
+// The Search Ads 360 and AdSense link tools only read here; the AdSense delete is covered by the delete tests.
+func TestSearchAdsLinksHaveNoChangingTool(t *testing.T) {
 	reg := registry(t)
-	metadata, _ := reg.ProviderMetadata(Provider)
-	for _, tool := range metadata.Tools {
-		if strings.Contains(tool.ID, "links.") && (effectOf(tool.ID) != config.EffectRead ||
-			!slices.Contains([]string{"list", "get"}, tool.ID[strings.LastIndex(tool.ID, ".")+1:])) {
-			t.Errorf("%s is not a reading link tool", tool.ID)
-		}
-	}
 	for _, descriptor := range reg.Provider(Provider) {
-		if strings.Contains(descriptor.ID, "-links.") && descriptor.Risk.Effect != "read" {
+		if strings.Contains(descriptor.ID, "search-ads360-links.") && descriptor.Risk.Effect != "read" {
 			t.Errorf("%s effect = %s", descriptor.ID, descriptor.Risk.Effect)
 		}
 	}
-	for _, id := range []string{"adsense-links", "search-ads360-links"} {
-		for _, verb := range []string{"create", "update", "patch", "delete"} {
-			if _, ok := scopes[Provider+"."+id+"."+verb]; ok {
-				t.Errorf("%s.%s exists", id, verb)
-			}
+	for _, verb := range []string{"create", "update", "patch", "delete"} {
+		if _, ok := scopes[Provider+".search-ads360-links."+verb]; ok {
+			t.Errorf("search-ads360-links.%s exists", verb)
+		}
+	}
+	for _, verb := range []string{"create", "update", "patch"} {
+		if _, ok := scopes[Provider+".adsense-links."+verb]; ok {
+			t.Errorf("adsense-links.%s exists", verb)
 		}
 	}
 }

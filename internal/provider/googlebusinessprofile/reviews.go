@@ -47,10 +47,7 @@ const (
 	reviewPattern   = `^accounts/` + idPattern + `/locations/` + idPattern + `/reviews/` + reviewIDPattern + `$`
 	maxReviewLen    = 350
 
-	// maxConfirmRunes is the bound the core puts on a confirmation text. A reply that does not fit with its
-	// context is refused, so the text a person confirms is never cut.
-	maxConfirmRunes = 500
-	excerptRunes    = 40
+	excerptRunes = 40
 )
 
 var reviewForm = regexp.MustCompile(reviewPattern)
@@ -576,18 +573,6 @@ func checkReply(args reviewsArguments) error {
 			"which would cut what a person confirms; shorten the reply")
 	}
 	return nil
-}
-
-// confirmationRunes counts a text the way the confirmation shows it: a line break or tab is two characters.
-func confirmationRunes(text string) int {
-	n := 0
-	for _, r := range text {
-		n++
-		if r == '\n' || r == '\r' || r == '\t' {
-			n++
-		}
-	}
-	return n
 }
 
 func handleReviewsUpdateReply(ctx context.Context, resolved *config.Resolved, secrets *secret.Resolver,
