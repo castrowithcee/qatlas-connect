@@ -120,10 +120,10 @@ Each change needs confirmation, and the confirmation shows what is changed in fu
 | `update` | the link (which holds the location) and each changed field with its new value, the whole address included |
 | `delete` | the link (which holds the location) |
 
-The confirmation text of the core is at most 500 characters. When the text of a change does not fit, Qatlas does
+The confirmation of `create` and `update` may hold 3072 characters, which fits an address of the 2000 bytes Google
+accepts. When the text of a change does not fit, Qatlas does
 not show a cut address: the confirmation says `Refused before sending`, and the tool refuses the call with a
-message that names the limit, before anything is sent. A shorter address (for example without tracking
-parameters) fits. A call that the checks refuse shows the same refusal as its confirmation text.
+message that names the limit, before anything is sent. A call that the checks refuse shows the same refusal as its confirmation text.
 
 ## Changes per minute
 

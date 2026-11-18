@@ -278,7 +278,7 @@ func TestLocalPostsCreateAllFourTypesSendOnlyGivenMembers(t *testing.T) {
 					t.Errorf("summary %q lacks %q", summary, want)
 				}
 			}
-			if confirmationRunes(summary) > maxConfirmRunes {
+			if confirmationRunes(summary) > confirmLimit(localPostsCreateID) {
 				t.Errorf("summary is longer than the core keeps: %q", summary)
 			}
 			env.noRequests(t)
@@ -338,7 +338,9 @@ func TestLocalPostConfirmationListsUrlsInTheTexts(t *testing.T) {
 func TestLocalPostCreateRefusalsSendNothing(t *testing.T) {
 	schedule := `"schedule":{"start_date":{"year":2026,"month":12,"day":1},"start_time":{"hours":9,"minutes":0},` +
 		`"end_date":{"year":2026,"month":12,"day":2},"end_time":{"hours":18,"minutes":0}}`
-	long := strings.Repeat("word ", 120)
+	// 4096 characters is the schema maximum; each line break is shown as two characters, so with the context
+	// the confirmation exceeds the bound of the tool.
+	long := strings.Repeat("a\n", 2048)
 	for name, args := range map[string]string{
 		"media without https":       createOf("STANDARD", `,"summary":"x","media":[{"source_url":"http://example.invalid/a.jpg"}]`),
 		"media with user info":      createOf("STANDARD", `,"summary":"x","media":[{"source_url":"https://u@example.invalid/a.jpg"}]`),
@@ -364,7 +366,7 @@ func TestLocalPostCreateRefusalsSendNothing(t *testing.T) {
 		"empty summary":             createOf("STANDARD", `,"summary":"  "`),
 		"update_mask on create":     createOf("STANDARD", `,"summary":"x","update_mask":["summary"]`),
 		"confirmation does not fit": createOf("STANDARD", `,"summary":`+mustJSON(long)),
-		"urls make it not fit":      createOf("STANDARD", `,"summary":"x","media":[{"source_url":"https://example.invalid/`+strings.Repeat("a", 480)+`"}]`),
+		"urls make it not fit":      createOf("STANDARD", `,"summary":"x","media":[`+strings.TrimSuffix(strings.Repeat(`{"source_url":"https://example.invalid/`+strings.Repeat("a", 1800)+`"},`, 4), ",")+`]`),
 		"bad language":              createOf("STANDARD", `,"summary":"x","language_code":"en us"`),
 		"unknown argument":          createOf("STANDARD", `,"summary":"x","recurrence":"WEEKLY"`),
 	} {
@@ -377,7 +379,7 @@ func TestLocalPostCreateRefusalsSendNothing(t *testing.T) {
 	// The refusal of a post that does not fit names the limit.
 	env, _ := postsEnvironment(t)
 	_, err := env.change(t, localPostsCreateID, "w-all", createOf("STANDARD", `,"summary":`+mustJSON(long)))
-	if err == nil || !strings.Contains(err.Error(), "500 characters") {
+	if err == nil || !strings.Contains(err.Error(), limitText(localPostsCreateID)) {
 		t.Errorf("error = %v", err)
 	}
 	summary := env.postConfirmation(t, localPostsCreateID, "w-all", createOf("STANDARD", `,"summary":`+mustJSON(long)))
@@ -427,7 +429,7 @@ func TestLocalPostUpdateNeedsAMaskThatNamesExactlyTheGivenFields(t *testing.T) {
 		"media not https":       updateOf(`["media"]`, `,"media":[{"source_url":"http://example.invalid/a.jpg"}]`),
 		"action url not https":  updateOf(`["callToAction"]`, `,"call_to_action":{"action_type":"BOOK","url":"http://example.invalid"}`),
 		"event on standard":     updateOf(`["event"]`, `,"event":{"title":"t","schedule":{}}`),
-		"confirmation too long": updateOf(`["summary"]`, `,"summary":`+mustJSON(strings.Repeat("word ", 120))),
+		"confirmation too long": updateOf(`["summary"]`, `,"summary":`+mustJSON(strings.Repeat("a\n", 2048))),
 	} {
 		env, _ := postsEnvironment(t)
 		if _, err := env.change(t, localPostsUpdateID, "w-all", args); err == nil {

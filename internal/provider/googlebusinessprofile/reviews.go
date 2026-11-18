@@ -268,7 +268,7 @@ var reviewsUpdateReply = capability.Descriptor{
 		"and sends nothing unless it still has exactly that rating and text, and a review that already has a reply " +
 		"needs it as previous_reply, which the new reply replaces. The confirmation shows the location, the rating, " +
 		"an excerpt of the review, the full reply, and every URL in it; a reply that does not fit into the " +
-		"confirmation of 500 characters with that context is refused, and a reply with control or invisible " +
+		"confirmation of " + limitText(reviewsUpdateReplyID) + " with that context is refused, and a reply with control or invisible " +
 		"formatting characters is refused too. Google limits a reply to 4096 bytes, and a reply may be held back " +
 		"for moderation (reviewReplyState). Google counts at most 10 changes per minute and profile. " +
 		reviewsNote + untrustedReviewsHint,
@@ -568,9 +568,9 @@ func checkReply(args reviewsArguments) error {
 	if args.PreviousStarRating == "" {
 		return invalidArgument("previous_star_rating is required: the starRating as last read")
 	}
-	if confirmationRunes(replySummary(args)) > maxConfirmRunes {
-		return invalidArgument("comment does not fit into the confirmation of 500 characters with its context, " +
-			"which would cut what a person confirms; shorten the reply")
+	if !fitsConfirmation(reviewsUpdateReplyID, replySummary(args)) {
+		return invalidArgument("comment does not fit into the confirmation of " + limitText(reviewsUpdateReplyID) +
+			" with its context, which would cut what a person confirms; shorten the reply")
 	}
 	return nil
 }

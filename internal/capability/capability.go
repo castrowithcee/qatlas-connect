@@ -139,12 +139,21 @@ type Handler func(context.Context, *config.Resolved, *secret.Resolver, *redact.R
 // The arguments are untrusted data: the core redacts, neutralizes, and bounds the text it returns.
 type SummaryFunc func(arguments json.RawMessage) string
 
+// MaxConfirmationSummaryRunes is the core ceiling for Operation.ConfirmationSummaryRunes.
+const MaxConfirmationSummaryRunes = 16384
+
 // Operation binds a descriptor to its provider-independent application handler. ConfirmationSummary is
 // optional and only used for a tool that needs confirmation; it is no part of the published descriptor.
+//
+// ConfirmationSummaryRunes is the optional maximum length of the summary in runes. 0 keeps the core default.
+// Declare it only for a tool that publishes a publicly visible text, whose confirmation must show that text
+// in full: the person confirms exactly what becomes public. It needs ConfirmationSummary and must not exceed
+// MaxConfirmationSummaryRunes.
 type Operation struct {
-	Descriptor          Descriptor
-	Handler             Handler
-	ConfirmationSummary SummaryFunc
+	Descriptor               Descriptor
+	Handler                  Handler
+	ConfirmationSummary      SummaryFunc
+	ConfirmationSummaryRunes int
 }
 
 // ConnectionTester performs a provider's smallest safe authenticated read. It is separate from the
@@ -659,6 +668,14 @@ func (r *Registry) Register(provider string, operations ...Operation) error {
 		if operation.Handler == nil {
 			return fmt.Errorf("provider %q: operation %q must have a handler", provider, d.ID)
 		}
+		if n := operation.ConfirmationSummaryRunes; n < 0 || n > MaxConfirmationSummaryRunes {
+			return fmt.Errorf("provider %q: operation %q confirmation summary runes %d must be between 0 and %d",
+				provider, d.ID, n, MaxConfirmationSummaryRunes)
+		}
+		if operation.ConfirmationSummaryRunes != 0 && operation.ConfirmationSummary == nil {
+			return fmt.Errorf("provider %q: operation %q declares confirmation summary runes without a confirmation summary",
+				provider, d.ID)
+		}
 		operation.Descriptor = d.clone()
 
 		// Read r.metadata directly: this runs once per operation, and ProviderMetadataAll clones every provider.
@@ -780,6 +797,11 @@ func (r *Registry) Lookup(id string) (Descriptor, Handler, bool) {
 		return Descriptor{}, nil, false
 	}
 	return operation.Descriptor.clone(), operation.Handler, true
+}
+
+// ConfirmationSummaryRunes returns the declared summary limit of one registered operation, or 0 for the default.
+func (r *Registry) ConfirmationSummaryRunes(id string) int {
+	return r.byID[id].ConfirmationSummaryRunes
 }
 
 // ConfirmationSummary returns the summary function of one registered operation, or nil without one.

@@ -77,7 +77,7 @@ profile. That effect can only be observed live. Google counts at most 10 changes
 the tools wait for like the admin tools.
 
 The confirmation of a change shows what the contract asks for in full, the title of a create and the old and
-new value of every changed field of an update, and the core holds a confirmation to 500 characters. A call
+new value of every changed field of an update, and the confirmation of a create may hold 2048 characters, that of an update 16384. A call
 whose confirmation would be longer is refused before anything is sent, with a notice instead of an excerpt, so
 split a large change into several calls.
 
