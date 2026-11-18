@@ -44,6 +44,8 @@ var toolScopes = map[string][]string{
 	locationsListID: {scopeManage},
 	locationsGetID:  {scopeManage},
 
+	locationsBatchGetID: {scopeManage},
+
 	accountAdminsListID:    {scopeManage},
 	accountAdminsUpdateID:  {scopeManage},
 	locationAdminsListID:   {scopeManage},
@@ -164,7 +166,7 @@ func testClass(err error) (provider.Class, error) {
 
 // readTools are the tools of the profile read.
 var readTools = []string{accountsListID, accountsGetID, locationsListID, locationsGetID,
-	accountAdminsListID, locationAdminsListID, locationsGetGoogleUpdatedID,
+	accountAdminsListID, locationAdminsListID, locationsGetGoogleUpdatedID, locationsBatchGetID,
 	performanceGetDailyID, performanceFetchDailyID, performanceKeywordsID,
 	categoriesListID, categoriesBatchGetID, chainsGetID, chainsSearchID, googleLocationsSearchID,
 	invitationsListID, attributesListID, attributesGetID, reviewsListID, reviewsGetID, reviewsBatchGetID,
@@ -232,6 +234,7 @@ func Register(reg *capability.Registry) error {
 		capability.Operation{Descriptor: accountsGet, Handler: handleAccountsGet},
 		capability.Operation{Descriptor: locationsList, Handler: handleLocationsList},
 		capability.Operation{Descriptor: locationsGet, Handler: handleLocationsGet},
+		capability.Operation{Descriptor: locationsBatchGet, Handler: handleLocationsBatchGet},
 		capability.Operation{Descriptor: accountAdminsList, Handler: handleAccountAdminsList},
 		capability.Operation{Descriptor: locationAdminsList, Handler: handleLocationAdminsList},
 		capability.Operation{Descriptor: accountAdminsUpdate, Handler: handleAccountAdminsUpdate,
