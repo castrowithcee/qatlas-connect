@@ -54,8 +54,9 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 		case tool.ID == instancesInsertID:
 			wantEffect = config.EffectCreate
 		}
-		// The quota tools belong to read-quotas, not to read-iam.
-		if tool.Effect == config.EffectRead && !strings.Contains(tool.ID, ".quota-") {
+		// The quota tools belong to read-quotas and the bucket policy and ACL to read-storage-access, not to read-iam.
+		if tool.Effect == config.EffectRead && !strings.Contains(tool.ID, ".quota-") &&
+			tool.ID != bucketsGetIAMPolicyID && tool.ID != bucketAccessControlsListID {
 			reads++
 		}
 		if tool.Effect != wantEffect {
@@ -78,7 +79,7 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 			strings.Contains(tool.ID, ".networks.") || strings.Contains(tool.ID, ".subnetworks.") ||
 			strings.Contains(tool.ID, ".firewalls.") || strings.Contains(tool.ID, ".addresses.") ||
 			strings.Contains(tool.ID, ".vpn-gateways.") || strings.Contains(tool.ID, ".vpn-tunnels.") ||
-			strings.Contains(tool.ID, ".snapshots.") || strings.Contains(tool.ID, ".images.") {
+			strings.Contains(tool.ID, ".disks.") || strings.Contains(tool.ID, ".snapshots.") || strings.Contains(tool.ID, ".images.") {
 			// The discovery document of compute v1 lists compute.readonly as the smallest scope.
 			wantScope = "https://www.googleapis.com/auth/compute.readonly"
 		}
@@ -88,12 +89,21 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 			// compute v1 lists compute and cloud-platform for the four deletions and the instance tools.
 			wantScope = scopeCompute
 		}
+		if strings.Contains(tool.ID, ".buckets.") || strings.Contains(tool.ID, ".bucket-access-controls.") {
+			// storage v1 lists devstorage.read_only for the bucket reads, and only devstorage.full_control and
+			// cloud-platform for the policy and the ACL.
+			wantScope = scopeStorageReadOnly
+			if tool.ID == bucketsGetIAMPolicyID || tool.ID == bucketAccessControlsListID {
+				wantScope = scopeStorageFullControl
+			}
+		}
 		if scopes := metadata.Token.Scopes[tool.ID]; !slices.Equal(scopes, []string{wantScope}) {
 			t.Errorf("%s scopes = %v", tool.ID, scopes)
 		}
 	}
 	if want := []string{"google.cloud.addresses.delete", "google.cloud.addresses.get", "google.cloud.addresses.list", "google.cloud.api-keys.delete", "google.cloud.api-keys.get", "google.cloud.api-keys.list",
-		"google.cloud.api-keys.undelete", "google.cloud.compute-operations.get", "google.cloud.compute-operations.list", "google.cloud.firewalls.delete", "google.cloud.firewalls.get", "google.cloud.firewalls.list",
+		"google.cloud.api-keys.undelete", "google.cloud.bucket-access-controls.list", "google.cloud.buckets.get",
+		"google.cloud.buckets.get-iam-policy", "google.cloud.buckets.list", "google.cloud.compute-operations.get", "google.cloud.compute-operations.list", "google.cloud.disks.aggregated-list", "google.cloud.disks.get", "google.cloud.disks.list", "google.cloud.firewalls.delete", "google.cloud.firewalls.get", "google.cloud.firewalls.list",
 		"google.cloud.folders.get", "google.cloud.folders.list", "google.cloud.folders.search",
 		"google.cloud.iam-bindings.add-member", "google.cloud.iam-bindings.change-role",
 		"google.cloud.iam-bindings.remove-member", "google.cloud.iam-deny-policies.get", "google.cloud.iam-deny-policies.list",
@@ -119,13 +129,13 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 		"google.cloud.vpn-tunnels.delete", "google.cloud.vpn-tunnels.get", "google.cloud.vpn-tunnels.list", "google.cloud.zones.list"}; !slices.Equal(ids, want) {
 		t.Errorf("tools = %v, want %v", ids, want)
 	}
-	if profile, found := metadata.RecommendedProfile(); !found || profile.ID != "read" || len(profile.Tools) != 38 {
+	if profile, found := metadata.RecommendedProfile(); !found || profile.ID != "read" || len(profile.Tools) != 43 {
 		t.Errorf("profile = %+v", profile)
 	}
 	// The recommended profile asks only for read scopes, an explicit allow-list; a tool that needs the broad
 	// cloud-platform scope belongs to read-iam, which holds every read tool, or to a changing profile.
 	readScopes := [][]string{{"https://www.googleapis.com/auth/cloud-platform.read-only"},
-		{"https://www.googleapis.com/auth/compute.readonly"}}
+		{"https://www.googleapis.com/auth/compute.readonly"}, {scopeStorageReadOnly}}
 	for _, profile := range metadata.Profiles {
 		switch profile.ID {
 		case "read":
@@ -143,6 +153,10 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 		case "read-quotas":
 			if profile.Recommended || len(profile.Tools) != len(readTools)+4 {
 				t.Errorf("profile read-quotas = %+v", profile)
+			}
+		case "read-storage-access":
+			if profile.Recommended || len(profile.Tools) != len(readTools)+2 {
+				t.Errorf("profile read-storage-access = %+v", profile)
 			}
 		case "service-accounts":
 			if profile.Recommended || len(profile.Tools) != 4 {
