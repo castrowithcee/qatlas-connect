@@ -14,6 +14,7 @@ const (
 	serviceStorage         service = "storage"
 	serviceDNS             service = "dns"
 	serviceBilling         service = "billing"
+	serviceBillingBudgets  service = "billing-budgets"
 	serviceAPIKeys         service = "api-keys"
 	serviceQuotas          service = "quotas"
 )
@@ -29,6 +30,7 @@ var serviceOrigins = map[service]string{
 	serviceStorage:         "https://storage.googleapis.com",
 	serviceDNS:             "https://dns.googleapis.com",
 	serviceBilling:         "https://cloudbilling.googleapis.com",
+	serviceBillingBudgets:  "https://billingbudgets.googleapis.com",
 	serviceAPIKeys:         "https://apikeys.googleapis.com",
 	serviceQuotas:          "https://cloudquotas.googleapis.com",
 }
@@ -43,6 +45,7 @@ var serviceNames = map[service]string{
 	serviceStorage:         "Cloud Storage API",
 	serviceDNS:             "Cloud DNS API",
 	serviceBilling:         "Cloud Billing API",
+	serviceBillingBudgets:  "Cloud Billing Budget API",
 	serviceAPIKeys:         "API Keys API",
 	serviceQuotas:          "Cloud Quotas API",
 }

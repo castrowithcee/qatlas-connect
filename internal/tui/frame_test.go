@@ -64,9 +64,8 @@ func TestFooterIsTheLastLineAtEverySize(t *testing.T) {
 					if len(lines) != size.height {
 						t.Fatalf("view has %d lines, want %d:\n%s", len(lines), size.height, view)
 					}
-					want := keyLabel(actHelp) + " " + tr(tHeaderHelp)
-					if last := lines[len(lines)-1]; !strings.Contains(last, want) {
-						t.Errorf("the last line %q does not name %q:\n%s", last, want, view)
+					if last := lines[len(lines)-1]; !namesHelp(last) {
+						t.Errorf("the last line %q does not name the help key:\n%s", last, view)
 					}
 					if m.height != workspaceRows(m) {
 						t.Errorf("workspace height %d, want %d", m.height, workspaceRows(m))
@@ -164,7 +163,7 @@ func TestHeaderNamesEveryStateAndTheHeightFollows(t *testing.T) {
 				t.Errorf("width %d, %s: workspace height %d, want %d", width, step.name, unlocked.height, workspaceRows(unlocked))
 			}
 			view := unlocked.render()
-			if lines := strings.Split(view, "\n"); len(lines) != 30 || !strings.Contains(lines[29], tr(tHeaderHelp)) {
+			if lines := strings.Split(view, "\n"); len(lines) != 30 || !namesHelp(lines[29]) {
 				t.Errorf("width %d, %s: the footer is not the last line:\n%s", width, step.name, view)
 			}
 		}
@@ -202,16 +201,14 @@ func TestFooterGivesUpGroupsByRankAndKeepsHelp(t *testing.T) {
 		if w := lipgloss.Width(line); w > width {
 			t.Fatalf("width %d: footer is %d cells: %q", width, w, line)
 		}
-		if !strings.Contains(line, "? help") {
+		if !namesHelp(line) {
 			t.Fatalf("width %d: footer %q lost the help key", width, line)
 		}
 	}
 	m.termWidth, m.screenKeys = 40, text
 	line := shown(m.footerLine())
-	for _, want := range []string{"esc back", "? help"} {
-		if !strings.Contains(line, want) {
-			t.Errorf("40 cells: footer %q lost %q", line, want)
-		}
+	if !strings.Contains(line, "esc back") || !namesHelp(line) {
+		t.Errorf("40 cells: footer %q lost esc back or the help key", line)
 	}
 	if strings.Contains(line, "up/down") {
 		t.Errorf("40 cells: footer %q keeps navigation before other keys", line)
@@ -233,7 +230,7 @@ func TestStatusAndErrorStayVisible(t *testing.T) {
 		if flat := flatText(view); !strings.Contains(flat, "something failed") {
 			t.Errorf("%dx%d: the error is gone:\n%s", size.width, size.height, view)
 		}
-		if lines := strings.Split(view, "\n"); !strings.Contains(lines[len(lines)-1], "? help") {
+		if lines := strings.Split(view, "\n"); !namesHelp(lines[len(lines)-1]) {
 			t.Errorf("%dx%d: the footer is gone under the error:\n%s", size.width, size.height, view)
 		}
 	}

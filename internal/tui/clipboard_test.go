@@ -42,7 +42,7 @@ func noControl(t *testing.T, where, text string) {
 
 // Without an open area c copies the displayed name of the marked row, and says it handed it over.
 func TestCopyNameOfMarkedRow(t *testing.T) {
-	m := newTableModel(t, 140)
+	m := newTableModel(t, 170)
 	openSectionByName(t, m, sectionConnections)
 	m.list.selectName("tracker-issues")
 	got, ok := pressCopy(m)

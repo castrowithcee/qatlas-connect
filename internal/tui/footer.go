@@ -142,6 +142,35 @@ func fitFooter(items []footerItem, width int) []footerItem {
 	return items
 }
 
+// fitFooterHint fits the groups to width. Where a group of keys had to go, the help group says that the rest
+// is behind the help key.
+func (m *Model) fitFooterHint(items []footerItem, width int) []footerItem {
+	fitted := fitFooter(items, width)
+	keys := func(list []footerItem) (n int) {
+		for _, item := range list {
+			if !item.plain {
+				n++
+			}
+		}
+		return n
+	}
+	if keys(fitted) == keys(items) {
+		return fitted
+	}
+	hinted := slices.Clone(items)
+	for i, item := range hinted {
+		if item.rank == footerHelp {
+			hinted[i].text = keyLabel(actHelp) + " " + tr(tHeaderHelpAll)
+			// Where even the hint alone does not fit, the plain group stays.
+			if again := fitFooter(hinted, width); footerWidth(again) <= width {
+				return again
+			}
+			return fitted
+		}
+	}
+	return fitted
+}
+
 const footerGap = "  "
 
 func footerWidth(items []footerItem) int {
@@ -171,7 +200,7 @@ func footerWidth(items []footerItem) int {
 // groups stand, for the dialogs whose keys are buttons.
 func (m *Model) footerLine() string {
 	width := max(m.termWidth, 1)
-	items := fitFooter(m.footerItems(m.screenKeys), width)
+	items := m.fitFooterHint(m.footerItems(m.screenKeys), width)
 	m.footerSpans = nil
 	var left, right []footerItem
 	for _, item := range items {

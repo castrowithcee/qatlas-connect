@@ -351,7 +351,8 @@ func newTUICommand(opts *Options, reg *capability.Registry, buildVersion string)
 			"every typed line keep ? as text, and name their keys in the footer.\n" +
 			"left/right switch the topic, up/down and pgup/pgdown scroll, and esc or ? closes the help and\n" +
 			"returns to the screen it was opened from. Every footer names the keys of its screen, apart from the\n" +
-			"h/j/k/l letters.\n\n" +
+			"h/j/k/l letters; where the footer is too narrow for all of them, its help group reads '? all keys'.\n" +
+			"The help starts, on the topic it opens on, with every key group of the screen it was opened from.\n\n" +
 			"At start the editor asks GitHub in the background, for at most five seconds, whether a newer\n" +
 			"stable release exists, and names it in the top line, for example Update available v0.4.0 →\n" +
 			"v0.5.0 · U update. U on the tab line or in a list asks first and then installs it the way\n" +

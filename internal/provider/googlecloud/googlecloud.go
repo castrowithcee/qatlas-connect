@@ -104,6 +104,7 @@ var readTools = []string{organizationsSearch.ID, foldersSearch.ID, projectsSearc
 	bucketsList.ID, bucketsGet.ID, notificationsList.ID, managedFoldersList.ID, hmacKeysList.ID, hmacKeysGet.ID,
 	objectsList.ID, objectsGet.ID, objectsDownload.ID,
 	billingAccountsList.ID, billingAccountsGet.ID, billingAccountsListProjects.ID, projectBillingInfoGet.ID,
+	catalogServicesList.ID, catalogSkusList.ID,
 	managedZonesList.ID, managedZonesGet.ID, recordSetsList.ID, recordSetsGet.ID,
 	changesList.ID, changesGet.ID, dnsKeysList.ID, dnsKeysGet.ID,
 	dnsPoliciesList.ID, dnsPoliciesGet.ID, responsePoliciesList.ID, responsePoliciesGet.ID}
@@ -134,7 +135,7 @@ func Register(reg *capability.Registry) error {
 				"the Cloud Storage buckets of a project, their objects, and the content of an object (up to a fixed limit), " +
 				"the notification configurations and managed folders of a bucket, and " +
 				"the HMAC key metadata of a project with the scope devstorage.read_only, " +
-				"the Cloud Billing accounts a connection names, their projects, and the billing account of a project with the scope cloud-billing.readonly, " +
+				"the Cloud Billing accounts a connection names, their projects, and the billing account of a project, and the public services and SKUs of the Cloud Billing catalog with the scope cloud-billing.readonly, " +
 				"and the Cloud DNS managed zones, record sets, changes, DNSSEC keys, server policies, and response policies of a project with the scope ndev.clouddns.readonly, and changes nothing",
 			Tools: readTools,
 		}, {
@@ -154,6 +155,13 @@ func Register(reg *capability.Registry) error {
 				"personal data (contactEmail, justification)",
 			Tools: append(append([]string{}, readTools...), quotaInfosList.ID, quotaInfosGet.ID,
 				quotaPreferencesList.ID, quotaPreferencesGet.ID),
+		}, {
+			ID: "read-budgets", Title: "Read with budgets",
+			Description: "everything of read plus the budgets of a billing account a connection names, with their filters, " +
+				"amounts, alert thresholds, and notification targets from the Cloud Billing Budget API; this API accepts " +
+				"only the scope cloud-billing (or cloud-platform), which also lets a token change budgets, so the token " +
+				"may change what its account may, although no tool of this profile changes anything",
+			Tools: append(append([]string{}, readTools...), budgetsList.ID, budgetsGet.ID),
 		}, {
 			ID: "read-storage-access", Title: "Read with Storage access",
 			Description: "everything of read plus the IAM policy and the access control list of a Cloud Storage bucket and the access control list of an object; " +
@@ -413,6 +421,10 @@ func Register(reg *capability.Registry) error {
 		capability.Operation{Descriptor: billingAccountsGet, Handler: handleBillingAccountsGet},
 		capability.Operation{Descriptor: billingAccountsListProjects, Handler: handleBillingAccountsListProjects},
 		capability.Operation{Descriptor: projectBillingInfoGet, Handler: handleProjectBillingInfoGet},
+		capability.Operation{Descriptor: budgetsList, Handler: handleBudgetsList},
+		capability.Operation{Descriptor: budgetsGet, Handler: handleBudgetsGet},
+		capability.Operation{Descriptor: catalogServicesList, Handler: handleCatalogServicesList},
+		capability.Operation{Descriptor: catalogSkusList, Handler: handleCatalogSkusList},
 		capability.Operation{Descriptor: firewallsDelete, Handler: handleFirewallsDelete,
 			ConfirmationSummary: firewallDeleteSummary},
 		capability.Operation{Descriptor: addressesDelete, Handler: handleAddressesDelete,
