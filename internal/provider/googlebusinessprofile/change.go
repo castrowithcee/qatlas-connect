@@ -2,6 +2,7 @@ package googlebusinessprofile
 
 import (
 	"bytes"
+	"cmp"
 	"context"
 	"errors"
 	"io"
@@ -13,22 +14,42 @@ import (
 	"github.com/castrowithcee/qatlas-connect/internal/provider"
 )
 
-// change is one PATCH of an API: a fixed origin, a path of checked segments, and a body built by the tool
-// from checked arguments. key names what Google counts the change against, see changeLimiter.
+// change is one request of an API that changes something: a fixed origin, a path of checked segments below
+// its prefix (v1 unless prefix says otherwise), and a body built by the tool from checked arguments. key
+// names what Google counts the change against, see changeLimiter. method is set by the sender.
 type change struct {
 	root     string
+	prefix   string
 	path     string
+	method   string
 	query    url.Values
 	body     []byte
 	key      string
 	notFound string
 }
 
-// patch sends one PATCH, exactly once, and decodes the JSON object answer into out. A token Google rejects is
-// dropped for the next call and the change is not sent again. Where the request may have reached Google and
-// the outcome is unclear, the message says so and nothing repeats the change.
+// patch sends one PATCH, put one PUT and remove one DELETE, each exactly once.
 func (c *client) patch(ctx context.Context, op, tool string, r change, out any) error {
-	address := r.root + apiPrefix + r.path
+	r.method = http.MethodPatch
+	return c.send(ctx, op, tool, r, out)
+}
+
+func (c *client) put(ctx context.Context, op, tool string, r change, out any) error {
+	r.method = http.MethodPut
+	return c.send(ctx, op, tool, r, out)
+}
+
+func (c *client) remove(ctx context.Context, op, tool string, r change, out any) error {
+	r.method = http.MethodDelete
+	r.body = nil
+	return c.send(ctx, op, tool, r, out)
+}
+
+// send decodes the JSON object answer into out. A token Google rejects is dropped for the next call and the
+// change is not sent again. Where the request may have reached Google and the outcome is unclear, the
+// message says so and nothing repeats the change.
+func (c *client) send(ctx context.Context, op, tool string, r change, out any) error {
+	address := r.root + cmp.Or(r.prefix, apiPrefix) + r.path
 	if len(r.query) > 0 {
 		address += "?" + r.query.Encode()
 	}
@@ -39,13 +60,19 @@ func (c *client) patch(ctx context.Context, op, tool string, r change, out any) 
 		if err := c.limiter.Wait(ctx); err != nil {
 			return nil, provider.Waited(op, subject, err)
 		}
-		req, err := http.NewRequestWithContext(ctx, http.MethodPatch, address, bytes.NewReader(r.body))
+		var body io.Reader
+		if r.body != nil {
+			body = bytes.NewReader(r.body)
+		}
+		req, err := http.NewRequestWithContext(ctx, r.method, address, body)
 		if err != nil {
 			return nil, provider.Fail(op, "the request could not be built")
 		}
 		req.Header.Set("Authorization", "Bearer "+access)
 		req.Header.Set("Accept", "application/json")
-		req.Header.Set("Content-Type", "application/json")
+		if r.body != nil {
+			req.Header.Set("Content-Type", "application/json")
+		}
 		req.Header.Set("User-Agent", userAgent)
 		return req, nil
 	}
