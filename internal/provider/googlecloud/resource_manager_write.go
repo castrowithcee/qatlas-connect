@@ -85,6 +85,24 @@ func boundProject(ctx context.Context, c *client, adm *admitter, op, tool, id st
 	return project, nil
 }
 
+// boundFolder reads a folder that a tool is about to change and binds it to the targets, with the folder
+// target or the folders above it. The tool reads before it writes, so a folder outside the targets is refused
+// before any change.
+func boundFolder(ctx context.Context, c *client, adm *admitter, op, tool, id string) (folderWire, error) {
+	folder, err := c.folder(ctx, op, tool, id)
+	if err != nil {
+		return folderWire{}, err
+	}
+	admitted, err := adm.folder(ctx, folder)
+	if err != nil {
+		return folderWire{}, err
+	}
+	if !admitted {
+		return folderWire{}, refuseOutside("the folder")
+	}
+	return folder, nil
+}
+
 // projectPath is the path of a project by its number, which the answer of the read names.
 func projectPath(op string, project projectWire) (string, error) {
 	number, ok := strings.CutPrefix(project.Name, prefixProject)
@@ -100,14 +118,17 @@ type resourceManagerResult struct {
 	operationResult
 }
 
-// changeResourceManager sends the one request of a changing tool and returns the operation of the answer
-// without waiting for it: operations.get with service resource-manager reads its state. An answer that names
-// no usable operation leaves the outcome open, like an answer that cannot be read.
+// changeResourceManager sends the one request of a changing tool, with no body if body is nil, and returns the
+// operation of the answer without waiting for it: operations.get with service resource-manager reads its state.
+// An answer that names no usable operation leaves the outcome open, like an answer that cannot be read.
 func (c *client) changeResourceManager(ctx context.Context, op, tool, method, path string, query url.Values,
 	body any) (any, error) {
-	payload, err := json.Marshal(body)
-	if err != nil {
-		return nil, failure(op, "the request could not be built")
+	var payload []byte
+	if body != nil {
+		var err error
+		if payload, err = json.Marshal(body); err != nil {
+			return nil, failure(op, "the request could not be built")
+		}
 	}
 	var wire operationWire
 	if err := c.send(ctx, op, tool, serviceResourceManager, method, path, query, payload, &wire, true); err != nil {

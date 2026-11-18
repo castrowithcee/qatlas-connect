@@ -298,13 +298,27 @@ func targetReaches(tool string, targets []string) (bool, []string) {
 		notificationsListID, managedFoldersListID, hmacKeysListID, hmacKeysGetID,
 		objectsListID, objectsGetID, objectsDownloadID, objectAccessControlsListID,
 		managedZonesListID, managedZonesGetID, recordSetsListID, recordSetsGetID,
-		changesListID, changesGetID, dnsKeysListID, dnsKeysGetID:
+		changesListID, changesGetID, dnsKeysListID, dnsKeysGetID,
+		dnsPoliciesListID, dnsPoliciesGetID, responsePoliciesListID, responsePoliciesGetID:
 		if !list.reachesResources() {
 			return false, []string{"organizations/ORGANIZATION", "folders/FOLDER", "projects/PROJECT"}
 		}
 	case projectsPatchID, projectsUndeleteID:
 		if !list.reachesResources() {
 			return false, []string{"organizations/ORGANIZATION", "folders/FOLDER", "projects/PROJECT"}
+		}
+	case foldersCreateID, foldersPatchID, foldersMoveID, foldersUndeleteID:
+		if !list.reachesFolders() {
+			return false, []string{"organizations/ORGANIZATION", "folders/FOLDER"}
+		}
+	case projectsDeleteID:
+		// Only the project itself counts for a deletion, so a project target is needed.
+		if list.bound() && !list.hasKind(kindProject) {
+			return false, []string{"projects/PROJECT"}
+		}
+	case foldersDeleteID:
+		if list.bound() && !list.hasKind(kindFolder) {
+			return false, []string{"folders/FOLDER"}
 		}
 	case projectsCreateID, projectsMoveID:
 		// A project is created or moved only under an organization or a folder.

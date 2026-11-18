@@ -298,7 +298,8 @@ func TestNoToolCreatesAdminsOrAccounts(t *testing.T) {
 	want := map[string]bool{}
 	for _, name := range []string{
 		"account-admins.delete", "account-admins.list", "account-admins.update", "accounts.get", "accounts.list",
-		"accounts.update", "categories.batch-get", "categories.list", "chains.get", "chains.search",
+		"accounts.update", "attributes.get", "attributes.list", "attributes.update", "categories.batch-get",
+		"categories.list", "chains.get", "chains.search",
 		"google-locations.search", "invitations.decline", "invitations.list", "location-admins.delete",
 		"location-admins.list", "location-admins.update", "locations.get", "locations.list",
 		"performance.fetch-daily-metrics", "performance.get-daily-metric", "performance.list-search-keywords",
