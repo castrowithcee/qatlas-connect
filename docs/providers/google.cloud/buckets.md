@@ -1,6 +1,6 @@
 ---
 description: >
-  Describes the Google Cloud Storage tools buckets.list, buckets.get, and buckets.get-iam-policy: their arguments, the bucket name rule, how a bucket is bound to the targets through its project number, user_project, paging, the fields returned, how policy members are returned, the scopes and profiles, and what is not offered.
+  Describes the Google Cloud Storage tools buckets.list, buckets.get, buckets.get-iam-policy, and buckets.delete: their arguments, the bucket name rule, how a bucket is bound to the targets through its project number, user_project, paging, the fields returned, how policy members are returned, the confirmed, listed-only deletion of an empty bucket, the scopes and profiles, and what is not offered.
 type: knowledge
 edit: shared
 created: 2026-11-17
@@ -10,8 +10,9 @@ updated: 2026-11-17
 # Google Cloud Storage buckets
 
 Three tools read the buckets of a project from Cloud Storage (`buckets.list`, `buckets.get`, and
-`buckets.getIamPolicy` of `storage` v1, discovery revision 20261111). They change nothing: creating, patching,
-deleting, and locking a bucket, and changing its IAM policy or ACL, are not offered. The access control list of a
+`buckets.getIamPolicy` of `storage` v1, discovery revision 20261111). They change nothing. A fourth tool deletes an
+empty bucket, see [Deleting](#deleting). Creating, patching, and locking a bucket, and changing its IAM policy or
+ACL, are not offered. The access control list of a
 bucket is read by [bucket-access-controls.list](bucket-access-controls.md). Every request is a GET to the fixed
 origin `https://storage.googleapis.com` below `/storage/v1`; no argument takes a path, URL, header, or body.
 
@@ -20,6 +21,7 @@ origin `https://storage.googleapis.com` below `/storage/v1`; no argument takes a
 | `buckets.list` | `project_id`, `prefix`, `max_results`, `cursor`, `projection`, `soft_deleted`, `return_partial_success`, `user_project` |
 | `buckets.get` | `bucket`, `projection`, `if_metageneration_match`, `soft_deleted`, `generation`, `user_project` |
 | `buckets.get-iam-policy` | `bucket`, `options_requested_policy_version`, `user_project` |
+| `buckets.delete` | `bucket`, `project` (required), `if_metageneration_match`, `if_metageneration_not_match`, `user_project` |
 
 ## Bucket names
 
@@ -83,6 +85,23 @@ returned unchanged, with nothing flagged or removed. At most 500 bindings and 50
 returned, and `truncated` is true if more were cut. Without `options_requested_policy_version` the tool asks
 for version 3 so that conditional bindings are visible; 1 and 3 are accepted.
 
+## Deleting
+
+`buckets.delete` (`DELETE /storage/v1/b/{bucket}`) deletes one bucket. It is listed-only: it is offered only on a
+connection whose `tools` list names `google.cloud.buckets.delete` exactly, belongs to no profile, and needs the
+confirmation of a person for each call. The bucket must be empty. Google refuses the call otherwise, and the tool
+never deletes an object, so emptying a bucket is a separate step. The bucket name becomes free for others, and its
+settings, labels, and policies are lost. Before the request the tool reads the bucket once and binds it to the
+targets by its project number; a bucket outside the targets is refused without naming it, and nothing is deleted.
+`project` is required, a project ID or number, and is only compared, never written. It must lie in the targets. The
+confirmation names the bucket and this project. After the read of the bucket, and before the DELETE, the tool checks
+that the project number of the bucket is that of `project` (an ID is resolved by reading the project, which needs
+`projects.get`, as for any project the targets do not decide) and refuses the call without a change otherwise,
+naming neither project; the bucket is read for this even on a connection without targets.
+`if_metageneration_match` and `if_metageneration_not_match` are decimal numbers. Google answers with an empty body,
+so the result is `bucket` and `deleted`. The request is sent once and never repeated; after an unclear outcome the
+error says so, and the bucket should be read before the call is made again.
+
 ## Scopes and profiles
 
 `buckets.list` and `buckets.get` ask for `devstorage.read_only` and belong to the profile `read`.
@@ -92,3 +111,7 @@ the profile `read-storage-access`, not to `read`. That scope also lets a token c
 Cloud Storage, although no tool does. The account needs `storage.buckets.list`, `storage.buckets.get`, and
 `storage.buckets.getIamPolicy` on the project or bucket, and the Cloud Storage JSON API must be enabled in the project. For a Requester Pays
 bucket the account also needs `serviceusage.services.use` on `user_project`.
+
+`buckets.delete` lists `devstorage.read_write` next to `devstorage.full_control` and `cloud-platform`, so it asks for
+`devstorage.read_write`. A connection that names it in `tools` asks for that scope and needs the effect `delete`
+through the list. The account needs `storage.buckets.delete` and `storage.buckets.get`.

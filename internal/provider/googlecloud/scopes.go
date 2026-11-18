@@ -32,6 +32,10 @@ const scopeStorageReadOnly = "https://www.googleapis.com/auth/devstorage.read_on
 // buckets.getIamPolicy and bucketAccessControls.list, next to cloud-platform; neither lists a read-only variant.
 const scopeStorageFullControl = "https://www.googleapis.com/auth/devstorage.full_control"
 
+// scopeStorageReadWrite is the smallest scope the discovery document of storage v1 lists for objects.delete and
+// buckets.delete, next to devstorage.full_control and cloud-platform.
+const scopeStorageReadWrite = "https://www.googleapis.com/auth/devstorage.read_write"
+
 // tokenMetadata maps every tool to the smallest scopes it needs. The core derives the scopes of a connection
 // from it, so a tool that is not offered adds none.
 var tokenMetadata = config.TokenMetadata{Scopes: map[string][]string{
@@ -133,6 +137,11 @@ var tokenMetadata = config.TokenMetadata{Scopes: map[string][]string{
 	objectsGetID:               {scopeStorageReadOnly},
 	objectsDownloadID:          {scopeStorageReadOnly},
 	objectAccessControlsListID: {scopeStorageFullControl},
+	// storage v1 lists devstorage.read_write for objects.delete and buckets.delete, and only devstorage.full_control
+	// and cloud-platform for objects.restore.
+	objectsDeleteID:  {scopeStorageReadWrite},
+	objectsRestoreID: {scopeStorageFullControl},
+	bucketsDeleteID:  {scopeStorageReadWrite},
 	// compute v1 lists compute as the smallest scope for the deletions of firewalls, addresses, VPN tunnels, and VPN gateways.
 	firewallsDeleteID:   {scopeCompute},
 	addressesDeleteID:   {scopeCompute},
