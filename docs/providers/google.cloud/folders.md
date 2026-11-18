@@ -1,6 +1,6 @@
 ---
 description: >
-  Describes the Google Cloud folder tools: reading one folder and listing the folders below a parent, with the proof of the target binding, the handling of a parent that is only partly bound, and the cursor, and creating, renaming, moving, and restoring folders with the parent check, the confirmations, and the operation they return.
+  Describes the Google Cloud folder tools: reading one folder and listing the folders below a parent, with the proof of the target binding, the handling of a parent that is only partly bound, and the cursor, and creating, renaming, moving, restoring, and deleting folders with the parent check, the confirmations, and the operation they return.
 type: knowledge
 edit: shared
 created: 2026-11-16
@@ -71,4 +71,29 @@ the call is refused before any request.
   not check whether the destination lies below the folder itself: Google refuses that as a `provider-error`.
 - `undelete` does not check the state: for an active folder Google refuses and the call ends as a
   `provider-error`.
-- Deleting a folder is not part of the profile.
+- Deleting a folder is not part of the profile (see [Deleting a folder](#deleting-a-folder)).
+
+## Deleting a folder
+
+| Tool | Arguments | Google method |
+| --- | --- | --- |
+| `folders.delete` | `folder_id`, `expected_display_name`, `expected_parent` (all required) | `folders.delete` |
+
+`folders.delete` is listed-only: it is part of no profile and exists for a connection only where its `tools` list
+names `google.cloud.folders.delete` exactly. Without that, search, describe, and invoke do not know it. It asks
+for `cloud-platform`, needs the confirmation of a person for each call, and is offered to a connection without
+targets or with a folder target among them. The folder must be empty: Google refuses it as a `provider-error`
+while it holds folders or projects, which Qatlas does not check. [`folders.undelete`](#changing-folders) restores
+the folder until it is deleted for good. Google answers with a long-running operation and the tool never waits:
+the result is the operation with `service` set to `resource-manager`, and `operations.get` reads its state. Qatlas
+sends one request and never repeats it.
+
+- A confirmation sees only the arguments, so the call names what it expects. Qatlas reads the folder first and ends
+  without any request to delete if its display name is not `expected_display_name`, if its parent is not
+  `expected_parent` (`organizations/ID` or `folders/ID`), or if its state is not `ACTIVE`. Both values are only
+  compared and never sent. The confirmation names the folder, the display name, the parent, and the state
+  `ACTIVE`, that the folder must be empty, and that `folders.undelete` restores it.
+- Only the folder itself counts: a connection with targets may delete a folder only if it names that folder as a
+  target. A subfolder of a folder or organization target does not count. Qatlas decides this before any request.
+  A connection without targets reaches what its credential reaches.
+- The confirmation must stay within 500 characters, else the call is refused before any request.

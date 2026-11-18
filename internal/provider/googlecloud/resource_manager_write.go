@@ -118,14 +118,17 @@ type resourceManagerResult struct {
 	operationResult
 }
 
-// changeResourceManager sends the one request of a changing tool and returns the operation of the answer
-// without waiting for it: operations.get with service resource-manager reads its state. An answer that names
-// no usable operation leaves the outcome open, like an answer that cannot be read.
+// changeResourceManager sends the one request of a changing tool, with no body if body is nil, and returns the
+// operation of the answer without waiting for it: operations.get with service resource-manager reads its state.
+// An answer that names no usable operation leaves the outcome open, like an answer that cannot be read.
 func (c *client) changeResourceManager(ctx context.Context, op, tool, method, path string, query url.Values,
 	body any) (any, error) {
-	payload, err := json.Marshal(body)
-	if err != nil {
-		return nil, failure(op, "the request could not be built")
+	var payload []byte
+	if body != nil {
+		var err error
+		if payload, err = json.Marshal(body); err != nil {
+			return nil, failure(op, "the request could not be built")
+		}
 	}
 	var wire operationWire
 	if err := c.send(ctx, op, tool, serviceResourceManager, method, path, query, payload, &wire, true); err != nil {

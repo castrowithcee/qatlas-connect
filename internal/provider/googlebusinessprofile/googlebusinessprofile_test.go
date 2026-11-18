@@ -283,12 +283,14 @@ func TestRegisterPublishesMetadataScopesAndProfile(t *testing.T) {
 		"google.business-profile.reviews.batch-get", "google.business-profile.reviews.delete-reply",
 		"google.business-profile.reviews.get", "google.business-profile.reviews.list",
 		"google.business-profile.reviews.update-reply")
+	want = append(want, "google.business-profile.media.create", "google.business-profile.media.delete",
+		"google.business-profile.media.get", "google.business-profile.media.list", "google.business-profile.media.update")
 	slices.Sort(want)
 	if !reflect.DeepEqual(ids, want) {
 		t.Errorf("tools = %v, want %v", ids, want)
 	}
 	profile, ok := metadata.RecommendedProfile()
-	if !ok || profile.ID != "read" || len(metadata.Profiles) != 2 || len(profile.Tools) != 30 ||
+	if !ok || profile.ID != "read" || len(metadata.Profiles) != 2 || len(profile.Tools) != 32 ||
 		!strings.Contains(profile.Description, "business.manage") {
 		t.Errorf("profiles = %+v", metadata.Profiles)
 	}

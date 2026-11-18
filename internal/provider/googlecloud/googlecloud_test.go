@@ -56,6 +56,7 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 			tool.ID == vpnGatewaysDeleteID, tool.ID == instancesDeleteID, tool.ID == disksDeleteID,
 			tool.ID == snapshotsDeleteID, tool.ID == imagesDeleteID, tool.ID == objectsDeleteID,
 			tool.ID == bucketsDeleteID, tool.ID == hmacKeysDeleteID,
+			tool.ID == projectsDeleteID, tool.ID == foldersDeleteID,
 			tool.ID == notificationsDeleteID:
 			wantEffect = config.EffectDelete
 		case tool.ID == instancesInsertID:
@@ -76,7 +77,8 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 			tool.ID == servicesEnableID || tool.ID == servicesBatchEnableID || tool.ID == servicesDisableID ||
 			tool.ID == projectsCreateID || tool.ID == projectsPatchID || tool.ID == projectsMoveID ||
 			tool.ID == projectsUndeleteID || tool.ID == foldersCreateID || tool.ID == foldersPatchID ||
-			tool.ID == foldersMoveID || tool.ID == foldersUndeleteID {
+			tool.ID == foldersMoveID || tool.ID == foldersUndeleteID ||
+			tool.ID == projectsDeleteID || tool.ID == foldersDeleteID {
 			// The discovery documents list cloud-platform alone for the IAM methods.
 			wantScope = "https://www.googleapis.com/auth/cloud-platform"
 		}
@@ -151,7 +153,7 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 		"google.cloud.compute-operations.list", "google.cloud.disks.aggregated-list", "google.cloud.disks.create-snapshot", "google.cloud.disks.delete",
 		"google.cloud.disks.get", "google.cloud.disks.insert", "google.cloud.disks.list", "google.cloud.disks.resize",
 		"google.cloud.dns-keys.get", "google.cloud.dns-keys.list", "google.cloud.firewalls.delete", "google.cloud.firewalls.get",
-		"google.cloud.firewalls.list", "google.cloud.folders.create", "google.cloud.folders.get", "google.cloud.folders.list",
+		"google.cloud.firewalls.list", "google.cloud.folders.create", "google.cloud.folders.delete", "google.cloud.folders.get", "google.cloud.folders.list",
 		"google.cloud.folders.move", "google.cloud.folders.patch", "google.cloud.folders.search", "google.cloud.folders.undelete",
 		"google.cloud.hmac-keys.deactivate", "google.cloud.hmac-keys.delete", "google.cloud.hmac-keys.get", "google.cloud.hmac-keys.list",
 		"google.cloud.iam-bindings.add-member", "google.cloud.iam-bindings.change-role",
@@ -167,8 +169,8 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 		"google.cloud.object-access-controls.list", "google.cloud.objects.compose", "google.cloud.objects.copy", "google.cloud.objects.delete",
 		"google.cloud.objects.download", "google.cloud.objects.get", "google.cloud.objects.insert", "google.cloud.objects.list",
 		"google.cloud.objects.patch", "google.cloud.objects.restore", "google.cloud.operations.get", "google.cloud.organizations.get",
-		"google.cloud.organizations.search", "google.cloud.policies.get", "google.cloud.policies.list",
-		"google.cloud.project-billing-info.get", "google.cloud.projects.create", "google.cloud.projects.get", "google.cloud.projects.list",
+		"google.cloud.organizations.search", "google.cloud.policies.get", "google.cloud.policies.list", "google.cloud.project-billing-info.get",
+		"google.cloud.projects.create", "google.cloud.projects.delete", "google.cloud.projects.get", "google.cloud.projects.list",
 		"google.cloud.projects.move", "google.cloud.projects.patch", "google.cloud.projects.search", "google.cloud.projects.undelete",
 		"google.cloud.quota-infos.get", "google.cloud.quota-infos.list", "google.cloud.quota-preferences.get", "google.cloud.quota-preferences.list",
 		"google.cloud.record-sets.get", "google.cloud.record-sets.list", "google.cloud.regions.list", "google.cloud.response-policies.get", "google.cloud.response-policies.list", "google.cloud.service-account-keys.delete",
