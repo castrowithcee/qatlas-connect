@@ -33,6 +33,37 @@ const (
 // echoPageID is the page whose read makes the mock quote the credential back at the binary.
 const echoPageID = "13"
 
+// toonTable returns the rows of the TOON table name with the given field header and fails unless the
+// header declares exactly as many rows as follow it. The catalog decides how many providers and tools
+// there are, so the test pins only that the table is consistent.
+func toonTable(t *testing.T, stdout, name, fields string) []string {
+	t.Helper()
+	lines := strings.Split(strings.TrimRight(stdout, "\n"), "\n")
+	for i, line := range lines {
+		if !strings.HasPrefix(line, name+"[") {
+			continue
+		}
+		var count int
+		var header string
+		if _, err := fmt.Sscanf(line, name+"[%d]%s", &count, &header); err != nil || header != fields+":" {
+			t.Fatalf("table header %q, want %s[N]%s:", line, name, fields)
+		}
+		var rows []string
+		for _, row := range lines[i+1:] {
+			if !strings.HasPrefix(row, "  ") {
+				break
+			}
+			rows = append(rows, row)
+		}
+		if len(rows) != count {
+			t.Errorf("%s table declares %d rows and holds %d:\n%s", name, count, len(rows), stdout)
+		}
+		return rows
+	}
+	t.Fatalf("stdout = %q, want a %s table", stdout, name)
+	return nil
+}
+
 func allCanaries() []string {
 	return []string{canaryPrimaryID, canaryPrimarySecret, canaryArchiveID, canaryArchiveSecret}
 }
@@ -305,13 +336,10 @@ defaults:
 		// is, the note the configuration keeps on it, how many tools it offers, how many configured
 		// connections can run them, and how many are configured. A provider without a route is visible
 		// as exactly that.
-		if !strings.HasPrefix(stdout, "providers[30]{provider,description,note,tools,connections,configured}:\n") {
+		if !strings.HasPrefix(stdout, "providers[") {
 			t.Errorf("stdout = %q, want a TOON index of the compiled namespaces", stdout)
 		}
-		lines := strings.Split(strings.TrimSpace(stdout), "\n")[1:]
-		if len(lines) != 30 {
-			t.Errorf("%d provider rows, want 30:\n%s", len(lines), stdout)
-		}
+		lines := toonTable(t, stdout, "providers", "{provider,description,note,tools,connections,configured}")
 		rows := map[string][3]string{}
 		for _, line := range lines {
 			fields := strings.Split(strings.TrimSpace(line), ",")
@@ -355,9 +383,10 @@ defaults:
 		if code != 0 {
 			t.Fatalf("exit %d, stderr %q", code, stderr)
 		}
-		if !strings.HasPrefix(stdout, "connections[2]: archive,primary\ntools[27]{id,title,effect,requires,target}:\n") {
+		if !strings.HasPrefix(stdout, "connections[2]: archive,primary\ntools[") {
 			t.Errorf("stdout = %q, want a TOON listing of the offered BookStack tools", stdout)
 		}
+		toonTable(t, stdout, "tools", "{id,title,effect,requires,target}")
 		for _, want := range []string{"  bookstack.books.get,Get a BookStack book,read,id,\"\"\n",
 			"  bookstack.chapters.list,List BookStack chapters,read,\"\",\"book_id:BOOK_ID\"\n",
 			"  bookstack.content.search,Search BookStack content,read,query,\"book_id:BOOK_ID\"\n",
