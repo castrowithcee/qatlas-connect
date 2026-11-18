@@ -7,7 +7,8 @@
 // project, and the state of a long-running operation. It then reads IAM: roles, and the roles and permissions
 // of a resource. It changes only through the profiles service-accounts (service_accounts_write.go),
 // service-accounts-revoke and the listed-only service-accounts.delete (service_accounts_revoke.go),
-// api-keys-revoke (the deletion and restoration of API keys, api_keys.go), and
+// api-keys-revoke (the deletion and restoration of API keys, api_keys.go), projects-manage (creating, changing,
+// moving, and restoring projects, projects_write.go), and
 // iam-bindings (a single binding of the IAM policy of a project, folder, or organization, iam_bindings.go),
 // compute-network-delete (firewall rules, reserved IP addresses, VPN tunnels and gateways, compute_delete.go),
 // compute-instances-create (instances.insert, compute_instances_insert.go) and the listed-only instances.delete,
@@ -186,6 +187,16 @@ func Register(reg *capability.Registry) error {
 				"a key or returns a key value",
 			Tools: []string{apiKeysDelete.ID, apiKeysUndelete.ID},
 		}, {
+			ID: "storage-delete", Title: "Delete and restore Storage objects",
+			Description: "deletes Cloud Storage objects, one per call, and restores soft-deleted ones, each with the " +
+				"confirmation of a person; without a generation the live version is deleted, which cannot be undone " +
+				"without versioning or soft delete; projects.get is part of the profile so that targets of an " +
+				"organization or a folder can be proved; objects.delete asks for devstorage.read_write and " +
+				"objects.restore only accepts devstorage.full_control (or cloud-platform), so the token may change " +
+				"what its account may in Cloud Storage; deleting a bucket is not part of this profile and needs a " +
+				"tools list that names it; no tool uploads or changes an object",
+			Tools: []string{projectsGet.ID, objectsDelete.ID, objectsRestore.ID},
+		}, {
 			ID: "compute-network-delete", Title: "Delete network resources",
 			Description: "deletes firewall rules, reserved IP addresses, VPN tunnels, and HA VPN gateways of a Compute Engine project, each with the " +
 				"confirmation of a person; a firewall rule is deleted only if its direction, action, and priority " +
@@ -240,6 +251,16 @@ func Register(reg *capability.Registry) error {
 				"change what its account may; the resources and calls of an enabled API may be billed; disabling an " +
 				"API is not part of this profile and needs a tools list that names it",
 			Tools: []string{servicesEnable.ID, servicesBatchEnable.ID},
+		}, {
+			ID: "projects-manage", Title: "Manage projects",
+			Description: "creates projects under an organization or folder of the connection, changes their display " +
+				"name and labels, moves them between organizations and folders of the connection, and restores " +
+				"projects marked for deletion, each with the confirmation of a person; a move changes the IAM " +
+				"roles and policies a project inherits; no billing account is linked and nothing is deleted; " +
+				"these Resource Manager methods accept only the broad cloud-platform scope, so the token may " +
+				"change what its account may; deleting a project is not part of this profile and needs a tools " +
+				"list that names it",
+			Tools: []string{projectsCreate.ID, projectsPatch.ID, projectsMove.ID, projectsUndelete.ID},
 		}},
 	}, TestConnection); err != nil {
 		return err
@@ -305,6 +326,12 @@ func Register(reg *capability.Registry) error {
 		capability.Operation{Descriptor: objectsGet, Handler: handleObjectsGet},
 		capability.Operation{Descriptor: objectsDownload, Handler: handleObjectsDownload},
 		capability.Operation{Descriptor: objectAccessControlsList, Handler: handleObjectAccessControlsList},
+		capability.Operation{Descriptor: objectsDelete, Handler: handleObjectsDelete,
+			ConfirmationSummary: objectChangeSummary(objectsDeleteID)},
+		capability.Operation{Descriptor: objectsRestore, Handler: handleObjectsRestore,
+			ConfirmationSummary: objectChangeSummary(objectsRestoreID)},
+		capability.Operation{Descriptor: bucketsDelete, Handler: handleBucketsDelete,
+			ConfirmationSummary: bucketDeleteSummary},
 		capability.Operation{Descriptor: billingAccountsList, Handler: handleBillingAccountsList},
 		capability.Operation{Descriptor: billingAccountsGet, Handler: handleBillingAccountsGet},
 		capability.Operation{Descriptor: billingAccountsListProjects, Handler: handleBillingAccountsListProjects},
@@ -390,5 +417,13 @@ func Register(reg *capability.Registry) error {
 		capability.Operation{Descriptor: servicesBatchEnable, Handler: handleServicesBatchEnable,
 			ConfirmationSummary: serviceChangeSummary(servicesBatchEnableID)},
 		capability.Operation{Descriptor: servicesDisable, Handler: handleServicesDisable,
-			ConfirmationSummary: serviceChangeSummary(servicesDisableID)})
+			ConfirmationSummary: serviceChangeSummary(servicesDisableID)},
+		capability.Operation{Descriptor: projectsCreate, Handler: handleProjectsCreate,
+			ConfirmationSummary: projectSummary(projectsCreateID)},
+		capability.Operation{Descriptor: projectsPatch, Handler: handleProjectsPatch,
+			ConfirmationSummary: projectSummary(projectsPatchID)},
+		capability.Operation{Descriptor: projectsMove, Handler: handleProjectsMove,
+			ConfirmationSummary: projectSummary(projectsMoveID)},
+		capability.Operation{Descriptor: projectsUndelete, Handler: handleProjectsUndelete,
+			ConfirmationSummary: projectSummary(projectsUndeleteID)})
 }

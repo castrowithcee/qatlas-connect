@@ -83,7 +83,8 @@ func (f *fakeGoogle) RoundTrip(r *http.Request) (*http.Response, error) {
 		return respond(r, http.StatusOK, "application/json", fmt.Sprintf(
 			`{"access_token":"%s%d","token_type":"Bearer","expires_in":3600}`, accessPrefix, n)), nil
 	case r.URL.Host == "mybusinessaccountmanagement.googleapis.com" ||
-		r.URL.Host == "mybusinessbusinessinformation.googleapis.com" || r.URL.Host == "mybusiness.googleapis.com":
+		r.URL.Host == "mybusinessbusinessinformation.googleapis.com" ||
+		r.URL.Host == "mybusinessplaceactions.googleapis.com" || r.URL.Host == "mybusiness.googleapis.com":
 		f.api = append(f.api, seen{host: r.URL.Host, path: r.URL.EscapedPath(), query: r.URL.RawQuery,
 			authorization: r.Header.Get("Authorization"), full: r.URL.String(), body: body})
 		if f.answer != nil {
@@ -249,7 +250,7 @@ func TestRegisterPublishesMetadataScopesAndProfile(t *testing.T) {
 	for _, tool := range metadata.Tools {
 		ids = append(ids, tool.ID)
 		if tool.Effect != config.EffectRead && !strings.HasSuffix(tool.ID, ".update") &&
-			!strings.HasSuffix(tool.ID, ".delete") && tool.ID != Provider+".invitations.decline" &&
+			!strings.HasSuffix(tool.ID, ".create") && !strings.HasSuffix(tool.ID, ".delete") && tool.ID != Provider+".invitations.decline" &&
 			!strings.HasSuffix(tool.ID, "reviews.update-reply") && !strings.HasSuffix(tool.ID, "reviews.delete-reply") {
 			t.Errorf("%s effect = %s, want read", tool.ID, tool.Effect)
 		}
@@ -269,7 +270,10 @@ func TestRegisterPublishesMetadataScopesAndProfile(t *testing.T) {
 		"google.business-profile.locations.get", "google.business-profile.locations.list",
 		"google.business-profile.lodging.get", "google.business-profile.lodging.get-google-updated",
 		"google.business-profile.lodging.update", "google.business-profile.performance.fetch-daily-metrics",
-		"google.business-profile.performance.get-daily-metric", "google.business-profile.performance.list-search-keywords"}
+		"google.business-profile.performance.get-daily-metric", "google.business-profile.performance.list-search-keywords",
+		"google.business-profile.place-action-links.create", "google.business-profile.place-action-links.delete",
+		"google.business-profile.place-action-links.get", "google.business-profile.place-action-links.list",
+		"google.business-profile.place-action-links.update", "google.business-profile.place-action-types.list"}
 	want = append(want, "google.business-profile.notifications.get", "google.business-profile.verifications.fetch-options",
 		"google.business-profile.verifications.get-merchant-state", "google.business-profile.verifications.list",
 		"google.business-profile.reviews.batch-get", "google.business-profile.reviews.delete-reply",
@@ -280,13 +284,14 @@ func TestRegisterPublishesMetadataScopesAndProfile(t *testing.T) {
 		t.Errorf("tools = %v, want %v", ids, want)
 	}
 	profile, ok := metadata.RecommendedProfile()
-	if !ok || profile.ID != "read" || len(metadata.Profiles) != 2 || len(profile.Tools) != 24 ||
+	if !ok || profile.ID != "read" || len(metadata.Profiles) != 2 || len(profile.Tools) != 27 ||
 		!strings.Contains(profile.Description, "business.manage") {
 		t.Errorf("profiles = %+v", metadata.Profiles)
 	}
 	for _, d := range reg.Provider(Provider) {
 		risk := d.Risk
-		if risk.Effect == capability.EffectUpdate || risk.Effect == capability.EffectDelete {
+		if risk.Effect == capability.EffectUpdate || risk.Effect == capability.EffectCreate ||
+			risk.Effect == capability.EffectDelete {
 			continue
 		}
 		if risk.Effect != capability.EffectRead || risk.Idempotency != capability.IdempotencySafe ||

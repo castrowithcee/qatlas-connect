@@ -32,6 +32,10 @@ const scopeStorageReadOnly = "https://www.googleapis.com/auth/devstorage.read_on
 // buckets.getIamPolicy and bucketAccessControls.list, next to cloud-platform; neither lists a read-only variant.
 const scopeStorageFullControl = "https://www.googleapis.com/auth/devstorage.full_control"
 
+// scopeStorageReadWrite is the smallest scope the discovery document of storage v1 lists for objects.delete and
+// buckets.delete, next to devstorage.full_control and cloud-platform.
+const scopeStorageReadWrite = "https://www.googleapis.com/auth/devstorage.read_write"
+
 // scopeBillingReadOnly is the smallest scope the discovery document of cloudbilling v1 lists for
 // billingAccounts.list, billingAccounts.get, billingAccounts.projects.list, and projects.getBillingInfo (next to
 // cloud-billing and cloud-platform).
@@ -142,6 +146,11 @@ var tokenMetadata = config.TokenMetadata{Scopes: map[string][]string{
 	objectsGetID:               {scopeStorageReadOnly},
 	objectsDownloadID:          {scopeStorageReadOnly},
 	objectAccessControlsListID: {scopeStorageFullControl},
+	// storage v1 lists devstorage.read_write for objects.delete and buckets.delete, and only devstorage.full_control
+	// and cloud-platform for objects.restore.
+	objectsDeleteID:  {scopeStorageReadWrite},
+	objectsRestoreID: {scopeStorageFullControl},
+	bucketsDeleteID:  {scopeStorageReadWrite},
 	// cloudbilling v1 lists cloud-billing.readonly as the smallest scope for the four billing reads.
 	billingAccountsListID:         {scopeBillingReadOnly},
 	billingAccountsGetID:          {scopeBillingReadOnly},
@@ -165,6 +174,11 @@ var tokenMetadata = config.TokenMetadata{Scopes: map[string][]string{
 	// compute v1 lists compute as the smallest scope for instances.insert and instances.delete.
 	instancesInsertID: {scopeCompute},
 	instancesDeleteID: {scopeCompute},
+	// cloudresourcemanager v3 lists only cloud-platform for projects create, patch, move, and undelete.
+	projectsCreateID:   {scopeCloudPlatform},
+	projectsPatchID:    {scopeCloudPlatform},
+	projectsMoveID:     {scopeCloudPlatform},
+	projectsUndeleteID: {scopeCloudPlatform},
 	// compute v1 lists compute as the smallest scope for insert, resize, and createSnapshot of disks.
 	disksInsertID:         {scopeCompute},
 	disksResizeID:         {scopeCompute},
