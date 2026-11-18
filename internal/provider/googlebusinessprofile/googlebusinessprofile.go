@@ -85,6 +85,7 @@ var toolScopes = map[string][]string{
 	placeActionLinksDeleteID:     {scopeManage},
 	placeActionTypesListID:       {scopeManage},
 
+	followersGetID:       {scopeManage},
 	reviewsListID:        {scopeManage},
 	reviewsGetID:         {scopeManage},
 	reviewsBatchGetID:    {scopeManage},
@@ -173,7 +174,7 @@ var readTools = []string{accountsListID, accountsGetID, locationsListID, locatio
 	performanceGetDailyID, performanceFetchDailyID, performanceKeywordsID,
 	categoriesListID, categoriesBatchGetID, chainsGetID, chainsSearchID, googleLocationsSearchID,
 	invitationsListID, attributesListID, attributesGetID, reviewsListID, reviewsGetID, reviewsBatchGetID,
-	mediaListID, mediaGetID, localPostsListID, localPostsGetID, lodgingGetID, lodgingGoogleUpdatedID,
+	followersGetID, mediaListID, mediaGetID, localPostsListID, localPostsGetID, lodgingGetID, lodgingGoogleUpdatedID,
 	verificationsListID, verificationsFetchOptionsID, verificationsMerchantStateID, notificationsGetID,
 	placeActionLinksListID, placeActionLinksGetID, placeActionTypesListID, foodMenusGetID,
 	serviceListGetID}
@@ -277,6 +278,7 @@ func Register(reg *capability.Registry) error {
 		capability.Operation{Descriptor: verificationsFetchOptions, Handler: handleVerificationsFetchOptions},
 		capability.Operation{Descriptor: verificationsMerchantState, Handler: handleVerificationsMerchantState},
 		capability.Operation{Descriptor: notificationsGet, Handler: handleNotificationsGet},
+		capability.Operation{Descriptor: followersGet, Handler: handleFollowersGet},
 		capability.Operation{Descriptor: reviewsList, Handler: handleReviewsList},
 		capability.Operation{Descriptor: reviewsGet, Handler: handleReviewsGet},
 		capability.Operation{Descriptor: reviewsBatchGet, Handler: handleReviewsBatchGet},
