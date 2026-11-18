@@ -17,9 +17,11 @@
 // of a measurement protocol secret is never returned: it is read from Google's answer only to register it with
 // the redactor.
 //
-// The settings and the event create rules of a web data stream and the calculated metrics, annotations, rollup
-// source links and access bindings of a property run on the Admin API v1alpha, see alpha.go. The access bindings
-// name users by email address and are personal data.
+// The settings and the event create rules of a web data stream and the calculated metrics, annotations, audiences
+// and channel groups of a property run on the Admin API v1alpha, see alpha.go. So do the read-only tools for the
+// Display & Video 360 advertiser links of a property and their proposals; the proposals name email addresses, so
+// their results carry their own data sensitivity. The rollup source links and the access bindings run there as
+// well; the access bindings name users by email address and are personal data.
 //
 // A connection may bind Analytics accounts (accounts/ID) and properties (properties/ID). Without a target it
 // reaches what the credential reaches. A bound account reaches its properties, a bound property only itself;
@@ -149,6 +151,11 @@ var scopes = map[string][]string{
 	accessAccountID:  {scopeReadOnly},
 	accessPropertyID: {scopeReadOnly},
 
+	audiencesListID:      {scopeReadOnly},
+	audiencesGetID:       {scopeReadOnly},
+	audiencesCreateID:    {scopeEdit},
+	audiencesUpdateID:    {scopeEdit},
+	audiencesArchiveID:   {scopeEdit},
 	rollupLinksListID:    {scopeReadOnly},
 	rollupLinksGetID:     {scopeReadOnly},
 	accessBindingsListID: {scopeUsersReadOnly},
@@ -160,10 +167,21 @@ var scopes = map[string][]string{
 	annotationsUpdateID: {scopeEdit},
 	annotationsDeleteID: {scopeEdit},
 
+	channelGroupsListID:   {scopeReadOnly},
+	channelGroupsGetID:    {scopeReadOnly},
+	channelGroupsCreateID: {scopeEdit},
+	channelGroupsUpdateID: {scopeEdit},
+	channelGroupsDeleteID: {scopeEdit},
+
 	dataRetentionGetID:    {scopeReadOnly},
 	dataRetentionUpdateID: {scopeEdit},
 	googleSignalsGetID:    {scopeReadOnly},
 	googleSignalsUpdateID: {scopeEdit},
+
+	dv360LinksListID:     {scopeReadOnly},
+	dv360LinksGetID:      {scopeReadOnly},
+	dv360ProposalsListID: {scopeReadOnly},
+	dv360ProposalsGetID:  {scopeReadOnly},
 }
 
 func tokenMetadata() config.TokenMetadata { return config.TokenMetadata{Scopes: scopes} }
@@ -230,7 +248,9 @@ var readTools = []string{summariesID, accountsID, accountsGetID, accountsSharing
 	customDimensionsListID, customDimensionsGetID, customMetricsListID,
 	customMetricsGetID, keyEventsListID, keyEventsGetID, eventRulesListID, eventRulesGetID,
 	calculatedListID, calculatedGetID, accessAccountID, accessPropertyID, dataRetentionGetID, googleSignalsGetID,
-	annotationsListID, annotationsGetID, rollupLinksListID, rollupLinksGetID, accessBindingsListID, accessBindingsGetID}
+	annotationsListID, annotationsGetID, dv360LinksListID, dv360LinksGetID, dv360ProposalsListID, dv360ProposalsGetID,
+	audiencesListID, audiencesGetID, channelGroupsListID, channelGroupsGetID, rollupLinksListID, rollupLinksGetID,
+	accessBindingsListID, accessBindingsGetID}
 
 // Register adds the provider metadata, its consent endpoints, its connection test and its tools.
 func Register(reg *capability.Registry) error {
@@ -263,15 +283,15 @@ func Register(reg *capability.Registry) error {
 		},
 		Profiles: []config.ToolProfile{{
 			ID: "read", Title: "Read", Recommended: true,
-			Description: "reads the Analytics accounts, properties, custom dimensions and metrics, key events, calculated metrics, rollup source links, reports and report tasks the connection reaches; " +
-				"nothing is changed. It includes reading the users of an audience export, the Data Access Reports and the access bindings, " +
-				"which are personal data",
+			Description: "reads the Analytics accounts, properties, custom dimensions and metrics, key events, calculated metrics, audiences, channel groups, rollup source links, reports and report tasks the connection reaches; " +
+				"nothing is changed. It includes reading the users of an audience export, the Data Access Reports, the " +
+				"Display & Video 360 link proposals and the access bindings, which are personal data",
 			Tools: readTools,
 		}, {
 			ID: "write", Title: "Read and change",
 			Description: "reads what the read profile reads and changes Analytics accounts, properties, data streams, custom " +
-				"dimensions, custom metrics, key events, event create rules, calculated metrics, annotations and Google Signals, starts audience exports and report tasks, " +
-				"and deletes data streams, measurement protocol secrets and key events; every change needs its own " +
+				"dimensions, custom metrics, key events, event create rules, calculated metrics, audiences, annotations, channel groups and Google Signals, starts audience exports and report tasks, " +
+				"and deletes data streams, measurement protocol secrets, key events and channel groups and archives audiences; every change needs its own " +
 				"confirmation, and deleting an account or a property stays unlisted, and so does changing the data retention",
 			Tools: append(slices.Clone(readTools), accountsUpdateID, propertiesCreateID, propertiesUpdateID,
 				dataStreamsCreateID, dataStreamsUpdateID, dataStreamsDeleteID, mpSecretsDeleteID, audienceCreateID,
@@ -280,7 +300,9 @@ func Register(reg *capability.Registry) error {
 				customMetricsCreateID, customMetricsUpdateID, customMetricsArchiveID,
 				keyEventsCreateID, keyEventsUpdateID, keyEventsDeleteID, eventRulesCreateID, eventRulesUpdateID, eventRulesDeleteID,
 				calculatedCreateID, calculatedUpdateID, calculatedDeleteID, googleSignalsUpdateID,
-				annotationsCreateID, annotationsUpdateID, annotationsDeleteID),
+				annotationsCreateID, annotationsUpdateID, annotationsDeleteID,
+				audiencesCreateID, audiencesUpdateID, audiencesArchiveID,
+				channelGroupsCreateID, channelGroupsUpdateID, channelGroupsDeleteID),
 		}},
 	}, TestConnection); err != nil {
 		return err
@@ -363,6 +385,14 @@ func Register(reg *capability.Registry) error {
 			ConfirmationSummary: calculatedWriteSummary(calculatedUpdateID)},
 		{Descriptor: calculatedDelete, Handler: handleCalculatedDelete,
 			ConfirmationSummary: calculatedWriteSummary(calculatedDeleteID)},
+		{Descriptor: audiencesList, Handler: handleAudiencesList},
+		{Descriptor: audiencesGet, Handler: handleAudiencesGet},
+		{Descriptor: audiencesCreate, Handler: handleAudiencesCreate,
+			ConfirmationSummary: audienceWriteSummary(audiencesCreateID)},
+		{Descriptor: audiencesUpdate, Handler: handleAudiencesUpdate,
+			ConfirmationSummary: audienceWriteSummary(audiencesUpdateID)},
+		{Descriptor: audiencesArchive, Handler: handleAudiencesArchive,
+			ConfirmationSummary: audienceWriteSummary(audiencesArchiveID)},
 		{Descriptor: annotationsList, Handler: handleAnnotationsList},
 		{Descriptor: annotationsGet, Handler: handleAnnotationsGet},
 		{Descriptor: annotationsCreate, Handler: handleAnnotationsCreate,
@@ -371,6 +401,14 @@ func Register(reg *capability.Registry) error {
 			ConfirmationSummary: annotationSummary(annotationsUpdateID)},
 		{Descriptor: annotationsDelete, Handler: handleAnnotationsDelete,
 			ConfirmationSummary: annotationSummary(annotationsDeleteID)},
+		{Descriptor: channelGroupsList, Handler: handleChannelGroupsList},
+		{Descriptor: channelGroupsGet, Handler: handleChannelGroupsGet},
+		{Descriptor: channelGroupsCreate, Handler: handleChannelGroupsCreate,
+			ConfirmationSummary: channelGroupSummary(channelGroupsCreateID)},
+		{Descriptor: channelGroupsUpdate, Handler: handleChannelGroupsUpdate,
+			ConfirmationSummary: channelGroupSummary(channelGroupsUpdateID)},
+		{Descriptor: channelGroupsDelete, Handler: handleChannelGroupsDelete,
+			ConfirmationSummary: channelGroupSummary(channelGroupsDeleteID)},
 		{Descriptor: funnelRun, Handler: handleFunnelRun},
 		{Descriptor: audienceGet, Handler: handleAudienceGet},
 		{Descriptor: audienceList, Handler: handleAudienceList},
@@ -390,6 +428,10 @@ func Register(reg *capability.Registry) error {
 		{Descriptor: dataRetentionUpdate, Handler: handleDataRetentionUpdate, ConfirmationSummary: retentionSummary},
 		{Descriptor: googleSignalsGet, Handler: handleGoogleSignalsGet},
 		{Descriptor: googleSignalsUpdate, Handler: handleGoogleSignalsUpdate, ConfirmationSummary: signalsSummary},
+		{Descriptor: dv360LinksList, Handler: handleDV360LinksList},
+		{Descriptor: dv360LinksGet, Handler: handleDV360LinksGet},
+		{Descriptor: dv360ProposalsList, Handler: handleDV360ProposalsList},
+		{Descriptor: dv360ProposalsGet, Handler: handleDV360ProposalsGet},
 	} {
 		if err := reg.Register(Provider, operation); err != nil {
 			return err

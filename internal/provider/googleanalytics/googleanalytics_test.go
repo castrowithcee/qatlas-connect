@@ -65,7 +65,9 @@ var toolEffects = map[string]config.Effect{accountsUpdateID: config.EffectUpdate
 	eventRulesCreateID: config.EffectCreate, eventRulesUpdateID: config.EffectUpdate, eventRulesDeleteID: config.EffectDelete,
 	calculatedCreateID: config.EffectCreate, calculatedUpdateID: config.EffectUpdate, calculatedDeleteID: config.EffectDelete,
 	dataRetentionUpdateID: config.EffectUpdate, googleSignalsUpdateID: config.EffectUpdate,
-	annotationsCreateID: config.EffectCreate, annotationsUpdateID: config.EffectUpdate, annotationsDeleteID: config.EffectDelete}
+	annotationsCreateID: config.EffectCreate, annotationsUpdateID: config.EffectUpdate, annotationsDeleteID: config.EffectDelete,
+	audiencesCreateID: config.EffectCreate, audiencesUpdateID: config.EffectUpdate, audiencesArchiveID: config.EffectDelete,
+	channelGroupsCreateID: config.EffectCreate, channelGroupsUpdateID: config.EffectUpdate, channelGroupsDeleteID: config.EffectDelete}
 
 func effectOf(id string) config.Effect {
 	if effect, ok := toolEffects[id]; ok {
@@ -111,7 +113,12 @@ func TestRegisterPublishesMetadataScopesAndConsent(t *testing.T) {
 		accessBindingsListID: {scopeUsersReadOnly}, accessBindingsGetID: {scopeUsersReadOnly},
 		dataRetentionGetID: {scopeReadOnly}, dataRetentionUpdateID: {scopeEdit}, googleSignalsGetID: {scopeReadOnly},
 		googleSignalsUpdateID: {scopeEdit}, annotationsListID: {scopeReadOnly}, annotationsGetID: {scopeReadOnly},
-		annotationsCreateID: {scopeEdit}, annotationsUpdateID: {scopeEdit}, annotationsDeleteID: {scopeEdit}}) {
+		annotationsCreateID: {scopeEdit}, annotationsUpdateID: {scopeEdit}, annotationsDeleteID: {scopeEdit},
+		dv360LinksListID: {scopeReadOnly}, dv360LinksGetID: {scopeReadOnly}, dv360ProposalsListID: {scopeReadOnly},
+		dv360ProposalsGetID: {scopeReadOnly}, audiencesListID: {scopeReadOnly}, audiencesGetID: {scopeReadOnly},
+		audiencesCreateID: {scopeEdit}, audiencesUpdateID: {scopeEdit}, audiencesArchiveID: {scopeEdit},
+		channelGroupsListID: {scopeReadOnly}, channelGroupsGetID: {scopeReadOnly}, channelGroupsCreateID: {scopeEdit},
+		channelGroupsUpdateID: {scopeEdit}, channelGroupsDeleteID: {scopeEdit}}) {
 		t.Errorf("scopes = %v", metadata.Token.Scopes)
 	}
 	ids := []string{}
@@ -150,6 +157,11 @@ func TestRegisterPublishesMetadataScopesAndConsent(t *testing.T) {
 		"google.analytics.calculated-metrics.update", "google.analytics.calculated-metrics.delete",
 		"google.analytics.annotations.list", "google.analytics.annotations.get", "google.analytics.annotations.create",
 		"google.analytics.annotations.update", "google.analytics.annotations.delete",
+		"google.analytics.audiences.list", "google.analytics.audiences.get", "google.analytics.audiences.create",
+		"google.analytics.audiences.update", "google.analytics.audiences.archive",
+		"google.analytics.channel-groups.list", "google.analytics.channel-groups.get",
+		"google.analytics.channel-groups.create", "google.analytics.channel-groups.update",
+		"google.analytics.channel-groups.delete",
 		"google.analytics.properties.create", "google.analytics.properties.delete", "google.analytics.properties.get",
 		"google.analytics.properties.list", "google.analytics.properties.update", "google.analytics.report-tasks.create",
 		"google.analytics.report-tasks.get", "google.analytics.report-tasks.list", "google.analytics.report-tasks.query",
@@ -159,7 +171,9 @@ func TestRegisterPublishesMetadataScopesAndConsent(t *testing.T) {
 		"google.analytics.reports.run-realtime", "google.analytics.accounts.run-access-report",
 		"google.analytics.properties.run-access-report", "google.analytics.data-retention.get",
 		"google.analytics.data-retention.update", "google.analytics.google-signals.get",
-		"google.analytics.google-signals.update", "google.analytics.rollup-links.list",
+		"google.analytics.google-signals.update", "google.analytics.display-video360-links.list",
+		"google.analytics.display-video360-links.get", "google.analytics.display-video360-link-proposals.list",
+		"google.analytics.display-video360-link-proposals.get", "google.analytics.rollup-links.list",
 		"google.analytics.rollup-links.get", "google.analytics.access-bindings.list",
 		"google.analytics.access-bindings.get"})) {
 		t.Errorf("tools = %v", ids)
@@ -172,8 +186,9 @@ func TestRegisterPublishesMetadataScopesAndConsent(t *testing.T) {
 		customDimensionsListID, customDimensionsGetID, customMetricsListID,
 		customMetricsGetID, keyEventsListID, keyEventsGetID, eventRulesListID, eventRulesGetID,
 		calculatedListID, calculatedGetID, accessAccountID, accessPropertyID, dataRetentionGetID, googleSignalsGetID,
-		annotationsListID, annotationsGetID, rollupLinksListID, rollupLinksGetID, accessBindingsListID,
-		accessBindingsGetID}
+		annotationsListID, annotationsGetID, dv360LinksListID, dv360LinksGetID, dv360ProposalsListID, dv360ProposalsGetID,
+		audiencesListID, audiencesGetID, channelGroupsListID, channelGroupsGetID, rollupLinksListID, rollupLinksGetID,
+		accessBindingsListID, accessBindingsGetID}
 	if len(metadata.Profiles) != 2 || metadata.Profiles[0].ID != "read" || !metadata.Profiles[0].Recommended ||
 		!reflect.DeepEqual(metadata.Profiles[0].Tools, reads) || metadata.Profiles[1].ID != "write" ||
 		metadata.Profiles[1].Recommended ||
@@ -185,7 +200,9 @@ func TestRegisterPublishesMetadataScopesAndConsent(t *testing.T) {
 				customMetricsCreateID, customMetricsUpdateID, customMetricsArchiveID,
 				keyEventsCreateID, keyEventsUpdateID, keyEventsDeleteID, eventRulesCreateID, eventRulesUpdateID, eventRulesDeleteID,
 				calculatedCreateID, calculatedUpdateID, calculatedDeleteID, googleSignalsUpdateID,
-				annotationsCreateID, annotationsUpdateID, annotationsDeleteID)) {
+				annotationsCreateID, annotationsUpdateID, annotationsDeleteID,
+				audiencesCreateID, audiencesUpdateID, audiencesArchiveID,
+				channelGroupsCreateID, channelGroupsUpdateID, channelGroupsDeleteID)) {
 		t.Errorf("profiles = %+v", metadata.Profiles)
 	}
 	oauth, ok := reg.OAuth(Provider)
@@ -205,6 +222,9 @@ func TestRegisterPublishesMetadataScopesAndConsent(t *testing.T) {
 		}
 		if descriptor.ID == accessAccountID || descriptor.ID == accessPropertyID {
 			sensitivity = dataSensitivityAccess
+		}
+		if descriptor.ID == dv360ProposalsListID || descriptor.ID == dv360ProposalsGetID {
+			sensitivity = dataSensitivityProposals
 		}
 		if descriptor.ID == accessBindingsListID || descriptor.ID == accessBindingsGetID {
 			sensitivity = dataSensitivityBindings

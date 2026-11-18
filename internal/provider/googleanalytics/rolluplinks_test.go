@@ -30,12 +30,12 @@ func rollupEnv(t *testing.T, fake *fakeGoogle) *testEnv {
 }
 
 const (
-	linkOneJSON   = `{"name":"properties/200/rollupPropertySourceLinks/4001","sourceProperty":"properties/301","extra":1}`
-	linkTwoJSON   = `{"name":"properties/200/rollupPropertySourceLinks/4002","sourceProperty":"properties/302"}`
-	linkThreeJSON = `{"name":"properties/200/rollupPropertySourceLinks/4003","sourceProperty":"properties/303"}`
+	rollupOneJSON   = `{"name":"properties/200/rollupPropertySourceLinks/4001","sourceProperty":"properties/301","extra":1}`
+	rollupTwoJSON   = `{"name":"properties/200/rollupPropertySourceLinks/4002","sourceProperty":"properties/302"}`
+	rollupThreeJSON = `{"name":"properties/200/rollupPropertySourceLinks/4003","sourceProperty":"properties/303"}`
 )
 
-type linksOut struct {
+type rollupLinksOut struct {
 	Links      []rollupLink `json:"rollupPropertySourceLinks"`
 	NextCursor string       `json:"next_cursor"`
 	HasMore    bool         `json:"has_more"`
@@ -43,9 +43,9 @@ type linksOut struct {
 
 func TestRollupLinksListPagesThroughThreePages(t *testing.T) {
 	pages := []string{
-		`{"rollupPropertySourceLinks":[` + linkOneJSON + `],"nextPageToken":"t2"}`,
-		`{"rollupPropertySourceLinks":[` + linkTwoJSON + `],"nextPageToken":"t3"}`,
-		`{"rollupPropertySourceLinks":[` + linkThreeJSON + `]}`,
+		`{"rollupPropertySourceLinks":[` + rollupOneJSON + `],"nextPageToken":"t2"}`,
+		`{"rollupPropertySourceLinks":[` + rollupTwoJSON + `],"nextPageToken":"t3"}`,
+		`{"rollupPropertySourceLinks":[` + rollupThreeJSON + `]}`,
 	}
 	env := rollupEnv(t, &fakeGoogle{api: func(n int, r *http.Request) (*http.Response, error) {
 		return respond(r, http.StatusOK, "application/json", pages[n-1]), nil
@@ -57,7 +57,7 @@ func TestRollupLinksListPagesThroughThreePages(t *testing.T) {
 			args += `,"cursor":"` + cursor + `"`
 		}
 		result, err := env.call(rollupLinksListID, "sfree", args+`}`)
-		var out linksOut
+		var out rollupLinksOut
 		if err != nil || json.Unmarshal([]byte(result), &out) != nil || len(out.Links) != 1 ||
 			out.HasMore != (i < 2) || strings.Contains(result, "extra") {
 			t.Fatalf("page %d = %s, %v", i, result, err)
@@ -90,7 +90,7 @@ func TestRollupLinksEmptyListAndGet(t *testing.T) {
 	if err != nil || result != `{"has_more":false}` {
 		t.Errorf("empty list = %s, %v", result, err)
 	}
-	env = rollupEnv(t, &fakeGoogle{api: always(http.StatusOK, linkOneJSON)})
+	env = rollupEnv(t, &fakeGoogle{api: always(http.StatusOK, rollupOneJSON)})
 	result, err = env.call(rollupLinksGetID, "sfree", `{"name":"properties/200/rollupPropertySourceLinks/4001"}`)
 	requests, _ := env.fake.seen()
 	var link rollupLink
@@ -100,7 +100,7 @@ func TestRollupLinksEmptyListAndGet(t *testing.T) {
 		len(requests) != 1 || requests[0].path != "/v1alpha/properties/200/rollupPropertySourceLinks/4001" {
 		t.Errorf("get = %s, %v, %+v", result, err, requests)
 	}
-	env = rollupEnv(t, &fakeGoogle{api: always(http.StatusOK, linkTwoJSON)})
+	env = rollupEnv(t, &fakeGoogle{api: always(http.StatusOK, rollupTwoJSON)})
 	if _, err := env.call(rollupLinksGetID, "sfree", `{"name":"properties/200/rollupPropertySourceLinks/4001"}`); classOf(err) != provider.ClassInvalidResponse {
 		t.Errorf("an answer for another link: %v", err)
 	}
@@ -112,7 +112,7 @@ func TestRollupLinksAnswerIsChecked(t *testing.T) {
 		`{"name":"properties/999/rollupPropertySourceLinks/2","sourceProperty":"properties/7"},`+
 		`{"name":"properties/200/rollupPropertySourceLinks/x","sourceProperty":"properties/7"},{"name":"nonsense"}]}`)})
 	result, err := env.call(rollupLinksListID, "sfree", `{"property":"properties/200"}`)
-	var out linksOut
+	var out rollupLinksOut
 	if err != nil || json.Unmarshal([]byte(result), &out) != nil || len(out.Links) != 1 || out.Links[0].SourceProperty != "" {
 		t.Errorf("result = %s, %v", result, err)
 	}
@@ -199,7 +199,7 @@ func TestRollupLink429WithoutRetryAfterHoldsTheNextRequest(t *testing.T) {
 		if n == 1 {
 			return respond(r, http.StatusTooManyRequests, "application/json", errorObject(429, "RESOURCE_EXHAUSTED", "")), nil
 		}
-		return respond(r, http.StatusOK, "application/json", linkOneJSON), nil
+		return respond(r, http.StatusOK, "application/json", rollupOneJSON), nil
 	}})
 	const args = `{"name":"properties/200/rollupPropertySourceLinks/4001"}`
 	if _, err := env.call(rollupLinksGetID, "sfree", args); classOf(err) != provider.ClassRateLimited {
