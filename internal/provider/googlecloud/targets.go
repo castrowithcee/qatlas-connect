@@ -268,7 +268,7 @@ func targetReaches(tool string, targets []string) (bool, []string) {
 		return true, nil
 	}
 	switch tool {
-	case billingAccountsListID, billingAccountsGetID:
+	case billingAccountsListID, billingAccountsGetID, budgetsListID, budgetsGetID:
 		if !list.reachesBillingAccounts() {
 			return false, []string{"billingAccounts/BILLING_ACCOUNT"}
 		}

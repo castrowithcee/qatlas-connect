@@ -32,6 +32,8 @@ func TestServiceDisabledNamesTheCalledService(t *testing.T) {
 			"Cloud DNS API (dns.googleapis.com)"},
 		{"billing", serviceBilling, errorObject(403, "PERMISSION_DENIED", "SERVICE_DISABLED"),
 			"Cloud Billing API (cloudbilling.googleapis.com)"},
+		{"billing budgets", serviceBillingBudgets, errorObject(403, "PERMISSION_DENIED", "SERVICE_DISABLED"),
+			"Cloud Billing Budget API (billingbudgets.googleapis.com)"},
 		{"api keys", serviceAPIKeys, errorObject(403, "PERMISSION_DENIED", "SERVICE_DISABLED"),
 			"API Keys API (apikeys.googleapis.com)"},
 		{"quotas", serviceQuotas, errorObject(403, "PERMISSION_DENIED", "SERVICE_DISABLED"),

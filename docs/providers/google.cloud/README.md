@@ -24,7 +24,7 @@ are in its descriptor; this page holds what the descriptor does not say.
 
 The service is always the official origin `https://cloudresourcemanager.googleapis.com`, which applies when
 `base_url` is left out. Qatlas refuses any other URL before a secret is read. Later packages reach other fixed
-origins of Google (IAM, Service Usage, API Keys, Compute, Storage, DNS, Billing, Cloud Quotas); none of them can be configured, a
+origins of Google (IAM, Service Usage, API Keys, Compute, Storage, DNS, Billing, Billing Budgets, Cloud Quotas); none of them can be configured, a
 redirect is never followed, and a tool never takes an origin, a path, a header, or a body.
 
 The credential takes the roles of any token credential and picks its procedure from the roles that hold a value:
@@ -73,6 +73,11 @@ Three rules decide which tool a binding reaches. They are separate on purpose:
   account, and the rows are limited to the accounts it names. `billing-accounts.list-projects` also needs an
   organization, a folder, or a project among the targets, which limit its rows. `project-billing-info.get` is a
   resource tool: it needs no billing account.
+- **Budget tools** (`budgets.list`, `budgets.get`): the binding must name the billing account of the budgets. Next to
+  it, project, folder, and organization targets hide a budget whose filter names projects outside them, and a budget
+  without projects in its filter, which tracks the whole account, stays visible (see [Budgets](budgets.md)).
+- **Catalog tools** (`catalog-services.list`, `catalog-skus.list`): the Cloud Billing Catalog is public and tied to no
+  target, so every connection may read it.
 - **DNS tools** (`managed-zones.*`, `record-sets.*`, `changes.*`, `dns-keys.*`, `policies.*`, `response-policies.*`): the connection is unbound or names an organization, a folder, or a
   project. The project in the path binds the zone, see [DNS managed zones](managed-zones.md).
 - **Tools without a resource** (`operations.get`): an operation belongs to no folder or project that Qatlas
@@ -103,7 +108,8 @@ The profile `read` is the recommended one. It holds every tool that needs no mor
 `google.cloud.managed-folders.list`, `google.cloud.hmac-keys.list`, `google.cloud.hmac-keys.get`,
 `google.cloud.objects.list`, `google.cloud.objects.get`, and `google.cloud.objects.download`, which ask for
 `devstorage.read_only`, and the Billing tools `google.cloud.billing-accounts.list`, `google.cloud.billing-accounts.get`,
-`google.cloud.billing-accounts.list-projects`, and `google.cloud.project-billing-info.get`, which ask for
+`google.cloud.billing-accounts.list-projects`, `google.cloud.project-billing-info.get`, and the public catalog tools
+`google.cloud.catalog-services.list` and `google.cloud.catalog-skus.list`, which ask for
 `cloud-billing.readonly`. `objects.download` returns the content of an object, up to a fixed limit, as untrusted data
 (see [Objects](objects.md)). The DNS tools `google.cloud.managed-zones.list`, `google.cloud.managed-zones.get`,
 `google.cloud.record-sets.list`, `google.cloud.record-sets.get`, `google.cloud.changes.list`,
@@ -129,6 +135,10 @@ The profile `read-storage-access` adds the IAM policy and the access control lis
 (`google.cloud.object-access-controls.list`) to the tools of `read`. Google
 lists only `devstorage.full_control` and `cloud-platform` for these methods, so the token may change what its
 account may in Cloud Storage, although no tool does (see [Buckets](buckets.md)). It is not recommended.
+
+The profile `read-budgets` adds the budget tools (`google.cloud.budgets.list`, `google.cloud.budgets.get`) to the
+tools of `read`. The Budget API accepts only the scope `cloud-billing` (or `cloud-platform`), which Google also uses to
+change budgets, so the token may do that although no tool does (see [Budgets](budgets.md)). It is not recommended.
 
 The profile `read-quotas` adds the quota tools (`google.cloud.quota-infos.list`, `google.cloud.quota-infos.get`,
 `google.cloud.quota-preferences.list`, `google.cloud.quota-preferences.get`) to the tools of `read`. They accept
@@ -283,6 +293,10 @@ on [IAM bindings](iam-bindings.md).
 - [Object access controls](object-access-controls.md): the access control list of a Cloud Storage object.
 - [Billing](billing.md): the billing accounts a connection names, their projects, and the billing account of a
   project, read only.
+- [Budgets](budgets.md): the budgets of a billing account a connection names, read only, with the row filter
+  against project targets.
+- [Billing catalog services](catalog-services.md): the services of the public Cloud Billing Catalog.
+- [Billing catalog SKUs](catalog-skus.md): the SKUs and prices of one service of the public Cloud Billing Catalog.
 - [DNS managed zones](managed-zones.md): the Cloud DNS managed zones of a project, one and all, with the rules
   every DNS tool follows.
 - [DNS record sets](record-sets.md): the record sets of a Cloud DNS managed zone, one and all, with routing policies.
