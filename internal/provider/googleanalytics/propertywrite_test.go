@@ -73,7 +73,8 @@ func TestExcludedMethodsHaveNoTool(t *testing.T) {
 		channelGroupsListID, channelGroupsGetID, channelGroupsCreateID, channelGroupsUpdateID,
 		channelGroupsDeleteID, edsListID, edsGetID, edsCreateID, edsUpdateID, edsDeleteID, adsLinksListID,
 		firebaseLinksListID, bigQueryLinksListID, bigQueryLinksGetID, adsenseLinksListID, adsenseLinksGetID,
-		searchAdsLinksListID, searchAdsLinksGetID, rollupLinksListID, rollupLinksGetID, accessBindingsListID,
+		searchAdsLinksListID, searchAdsLinksGetID, attributionGetID, attributionUpdateID,
+		changeHistoryID, rollupLinksListID, rollupLinksGetID, accessBindingsListID,
 		accessBindingsGetID}; !slices.Equal(ids, sortedCopy(want)) {
 		t.Errorf("tools = %v", ids)
 	}
