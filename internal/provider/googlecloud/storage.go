@@ -6,6 +6,8 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"unicode"
+	"unicode/utf8"
 
 	"github.com/castrowithcee/qatlas-connect/internal/capability"
 	"github.com/castrowithcee/qatlas-connect/internal/config"
@@ -52,6 +54,33 @@ func checkBucket(bucket string) error {
 			"underscores, and dots, never a path or a URL")
 	}
 	return nil
+}
+
+// maxObjectNameBytes is the length Cloud Storage allows for an object name, in bytes of UTF-8.
+const maxObjectNameBytes = 1024
+
+// checkObjectText refuses text that is not usable as an object name or as a part of one: empty, longer than
+// Cloud Storage allows, not valid UTF-8, or with a control character.
+func checkObjectText(argument, value string) error {
+	if len(value) > maxObjectNameBytes || !utf8.ValidString(value) || strings.IndexFunc(value, unicode.IsControl) >= 0 {
+		return badRequest(argument + " must be valid UTF-8 of at most 1024 bytes without control characters")
+	}
+	return nil
+}
+
+// checkObjectName refuses an object name Cloud Storage cannot hold, before any I/O. A name may hold slashes, but
+// "." and ".." as a whole name are refused because they would address a path, not an object.
+func checkObjectName(value string) error {
+	if value == "" || value == "." || value == ".." {
+		return badRequest("object must be an object name, not empty, \".\", or \"..\"")
+	}
+	return checkObjectText("object", value)
+}
+
+// objectPath is the path of one object below the origin. The name is one path segment: its slashes go out as
+// %2F, so a name can never reach another path.
+func objectPath(bucket, object string) string {
+	return bucketPath(bucket) + "/o/" + url.PathEscape(object)
 }
 
 // namedProject is a project argument of a tool and the name the refusal gives it.
