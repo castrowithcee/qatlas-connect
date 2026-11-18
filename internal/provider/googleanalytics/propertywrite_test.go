@@ -42,8 +42,8 @@ func TestExcludedMethodsHaveNoTool(t *testing.T) {
 		ids = append(ids, d.ID)
 		id := strings.ToLower(d.ID)
 		for _, excluded := range []string{"acknowledge", "rollup", "subproperty", "subproperties", "source-link"} {
-			// The two read tools of rollup source links are allowed; creating a rollup or a link is not.
-			if d.ID == rollupLinksListID || d.ID == rollupLinksGetID {
+			// Reading and deleting a rollup source link are allowed; creating a rollup or a link is not.
+			if d.ID == rollupLinksListID || d.ID == rollupLinksGetID || d.ID == rollupLinksDeleteID {
 				continue
 			}
 			if strings.Contains(id, excluded) {
@@ -75,7 +75,8 @@ func TestExcludedMethodsHaveNoTool(t *testing.T) {
 		firebaseLinksListID, bigQueryLinksListID, bigQueryLinksGetID, adsenseLinksListID, adsenseLinksGetID,
 		searchAdsLinksListID, searchAdsLinksGetID, attributionGetID, attributionUpdateID,
 		changeHistoryID, rollupLinksListID, rollupLinksGetID, accessBindingsListID,
-		accessBindingsGetID}; !slices.Equal(ids, sortedCopy(want)) {
+		accessBindingsGetID, searchAdsLinksDeleteID, dv360LinksDeleteID, dv360ProposalsCancelID,
+		dv360ProposalsDeleteID, rollupLinksDeleteID}; !slices.Equal(ids, sortedCopy(want)) {
 		t.Errorf("tools = %v", ids)
 	}
 	// Only an ordinary property is created, so no tool can make a subproperty or a rollup.

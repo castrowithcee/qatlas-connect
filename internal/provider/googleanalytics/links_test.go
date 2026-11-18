@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/castrowithcee/qatlas-connect/internal/capability"
 	"github.com/castrowithcee/qatlas-connect/internal/config"
 	"github.com/castrowithcee/qatlas-connect/internal/provider"
 )
@@ -139,6 +140,12 @@ func TestAdsLinksAreClassifiedAsPersonalData(t *testing.T) {
 		if d.ID == adsLinksListID && (d.Risk != adsLinksRisk || d.Risk.DataSensitivity == dataSensitivity ||
 			!strings.Contains(d.Description, "PERSONAL DATA")) {
 			t.Errorf("%s: risk %+v, description %q", d.ID, d.Risk, d.Description)
+		}
+		if slices.Contains([]string{searchAdsLinksDeleteID, dv360LinksDeleteID, rollupLinksDeleteID}, d.ID) {
+			if d.Risk != writeRisk(capability.EffectDelete, capability.IdempotencyIdempotent) {
+				t.Errorf("%s risk = %+v", d.ID, d.Risk)
+			}
+			continue
 		}
 		if strings.Contains(d.ID, "links") && d.ID != adsLinksListID && d.Risk != readRisk {
 			t.Errorf("%s risk = %+v", d.ID, d.Risk)
@@ -349,15 +356,23 @@ func TestLink429WithoutRetryAfterHoldsTheNextRequest(t *testing.T) {
 	}
 }
 
-func TestLinksHaveOnlyReadingTools(t *testing.T) {
+// Except for the deleting tools of advertiserlinkdelete.go no link tool changes anything.
+func TestLinksHaveOnlyReadingToolsBesidesTheDeletes(t *testing.T) {
 	reg := registry(t)
 	var links []string
+	deletes := []string{searchAdsLinksDeleteID, dv360LinksDeleteID, rollupLinksDeleteID}
 	for _, d := range reg.Provider(Provider) {
 		id := strings.ToLower(d.ID)
 		if !strings.Contains(id, "-links.") {
 			continue
 		}
 		links = append(links, d.ID)
+		if slices.Contains(deletes, d.ID) {
+			if effectOf(d.ID) != config.EffectDelete || d.Risk.Effect != "delete" || d.Risk.Confirmation != "required" {
+				t.Errorf("%s is not a confirmed delete", d.ID)
+			}
+			continue
+		}
 		if effectOf(d.ID) != config.EffectRead || !strings.HasSuffix(id, ".list") && !strings.HasSuffix(id, ".get") ||
 			d.Risk.Effect != "read" {
 			t.Errorf("%s is not a reading tool", d.ID)
@@ -366,13 +381,17 @@ func TestLinksHaveOnlyReadingTools(t *testing.T) {
 	slices.Sort(links)
 	if !slices.Equal(links, sortedCopy([]string{adsLinksListID, firebaseLinksListID, bigQueryLinksListID, bigQueryLinksGetID,
 		dv360LinksListID, dv360LinksGetID, adsenseLinksListID, adsenseLinksGetID, searchAdsLinksListID,
-		searchAdsLinksGetID, rollupLinksListID, rollupLinksGetID})) {
+		searchAdsLinksGetID, rollupLinksListID, rollupLinksGetID, searchAdsLinksDeleteID, dv360LinksDeleteID,
+		rollupLinksDeleteID})) {
 		t.Errorf("link tools = %v", links)
 	}
 	metadata, _ := reg.ProviderMetadata(Provider)
 	for _, profile := range metadata.Profiles {
 		for _, id := range profile.Tools {
 			if strings.Contains(id, "-links.") && !slices.Contains(links, id) {
+				t.Errorf("profile %s holds %s", profile.ID, id)
+			}
+			if slices.Contains(deletes, id) && profile.ID != "write" {
 				t.Errorf("profile %s holds %s", profile.ID, id)
 			}
 		}
