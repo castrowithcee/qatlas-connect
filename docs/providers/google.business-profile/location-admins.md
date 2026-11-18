@@ -1,6 +1,6 @@
 ---
 description: >
-  Describes the location admin tools of the Google Business Profile provider: listing the admins of a location with their role and pending invitations, changing the role of an existing admin with the previous name and role as required comparison arguments, the Google methods behind them, the roles that are allowed, what is refused, the personal data, and how account and location targets narrow them.
+  Describes the location admin tools of the Google Business Profile provider: listing the admins of a location with their role and pending invitations, changing the role of an existing admin or removing one with the previous name and role as required comparison arguments, the Google methods behind them, the roles that are allowed, what is refused, the personal data, and how account and location targets narrow them.
 type: knowledge
 edit: shared
 created: 2026-11-18
@@ -33,3 +33,15 @@ Arguments, refusals, roles, and the confirmation are those of
 `locations/LOCATION/admins/ADMIN`. An account target proves the location first, then reads the list, then sends
 the change. A location target accepts only admins of that location. The change is counted per location, 10 per
 minute.
+
+## google.business-profile.location-admins.delete
+
+`DELETE https://mybusinessaccountmanagement.googleapis.com/v1/locations/{location}/admins/{admin}`. Removes an
+admin from a location, or revokes the invitation of an admin that is still pending. It needs confirmation and is
+part of the profile `write`.
+
+Arguments, refusals (an admin who holds `PRIMARY_OWNER`, an entry that differs from `previous_admin` and
+`previous_role`), the confirmation, and the result are those of
+[`account-admins.delete`](account-admins.md#googlebusinessprofileaccount-adminsdelete), with the path form
+`locations/LOCATION/admins/ADMIN`. An account target proves the location first, then reads the list, then sends
+the delete. A location target accepts only admins of that location. The delete is counted per location, 10 changes per minute.
