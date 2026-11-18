@@ -17,7 +17,8 @@ import (
 // This file is the base of the Compute tools that delete a resource or change one through a POST: the risk of a
 // deletion, the request ID, the one request that is never repeated, and the result, which is the Compute
 // operation as Google returned it. A tool never waits for the operation; compute-operations.get reads its state.
-// The firewall, address, and VPN deletions use this base, and so do the disk changes (compute_disks_write.go).
+// The firewall, address, and VPN deletions use this base, and so do the disk and image changes
+// (compute_disks_write.go, compute_disks_delete.go, compute_images_write.go).
 
 // computeDeleteRisk is the risk of a deleting Compute tool. The method is idempotent through requestId: Google
 // ignores a repeated request with the ID of one it already received. The result is an operation, which names
