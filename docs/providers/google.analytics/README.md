@@ -25,7 +25,7 @@ account or property, which name the users who read the data and are personal dat
 retention settings of a property and, through the alpha Admin API, its Google Signals setting and its attribution
 settings. It searches the change history of an account or property, which names the users who made changes and
 is personal data. It lists and reads the
-Display & Video 360 advertiser links of a property and the proposals for them (alpha, read-only). It also reads the Google Ads, Firebase, BigQuery (alpha), AdSense (alpha), and Search Ads 360 (alpha) links of a property; it deletes one Google Ads, Firebase, BigQuery (alpha), or AdSense (alpha) link at a time, which ends its data flow and can be reversed only by linking again outside Qatlas. No tool creates or changes a link. The Google Ads links name the people who created them, which is personal data. It reads the source
+Display & Video 360 advertiser links of a property and the proposals for them (alpha). It also reads the Google Ads, Firebase, BigQuery (alpha), AdSense (alpha), and Search Ads 360 (alpha) links of a property; no tool creates or changes a link. The profile `write` deletes one Google Ads, Firebase, BigQuery (alpha), AdSense (alpha), Search Ads 360 (alpha), Display & Video 360 (alpha), or rollup source (alpha) link at a time, and cancels or deletes Display & Video 360 link proposals (alpha). Deleting a link ends its data flow and can be reversed only by linking again outside Qatlas; approving a proposal is not a tool. The Google Ads links name the people who created them, which is personal data. It reads the source
 links of a rollup property and the access bindings of an account or property (both alpha), which name users by
 email address and are personal data, and it changes the roles of existing access bindings and removes bindings;
 no tool adds a user. The reading tools change
@@ -115,10 +115,10 @@ not name the resource.
 | `expanded-data-sets.get`, `expanded-data-sets.update`, `expanded-data-sets.delete` | The property in the data set name follows the same rule |
 | `annotations.list`, `annotations.get`, `annotations.create`, `annotations.update`, `annotations.delete` | Use the annotations of a bound property, or of a property of a bound account after one proof read of its parent; see [annotations](annotations.md#targets-and-proof) |
 | `channel-groups.list`, `channel-groups.get`, `channel-groups.create`, `channel-groups.update`, `channel-groups.delete` | Use the channel groups of a bound property, or of a property of a bound account after one proof read of its parent; see [channel groups](channel-groups.md#targets-and-proof) |
-| `display-video360-links.list`, `display-video360-links.get`, `display-video360-link-proposals.list`, `display-video360-link-proposals.get` | Use a bound property, or a property of a bound account after one proof read of its parent; see [Display & Video 360 links](display-video360-links.md#targets-and-proof) |
+| `display-video360-links.list`, `display-video360-links.get`, `display-video360-links.delete`, `display-video360-link-proposals.list`, `display-video360-link-proposals.get`, `display-video360-link-proposals.cancel`, `display-video360-link-proposals.delete` | Use a bound property, or a property of a bound account after one proof read of its parent; see [Display & Video 360 links](display-video360-links.md#targets-and-proof) |
 | `adsense-links.list`, `adsense-links.get` | Use the links of a bound property, or of a property of a bound account after one proof read of its parent; see [AdSense links](adsense-links.md#targets-and-proof) |
-| `search-ads360-links.list`, `search-ads360-links.get` | Like the AdSense link tools; see [Search Ads 360 links](search-ads360-links.md#targets-and-proof) |
-| `rollup-links.list`, `rollup-links.get` | Use the links of a bound property, or of a property of a bound account after one proof read of its parent; see [rollup links](rollup-links.md#targets-and-proof) |
+| `search-ads360-links.list`, `search-ads360-links.get`, `search-ads360-links.delete` | Like the AdSense link tools; see [Search Ads 360 links](search-ads360-links.md#targets-and-proof) |
+| `rollup-links.list`, `rollup-links.get`, `rollup-links.delete` | Use the links of a bound property, or of a property of a bound account after one proof read of its parent; see [rollup links](rollup-links.md#targets-and-proof) |
 | `access-bindings.list`, `access-bindings.get`, `access-bindings.batch-get`, `access-bindings.update`, `access-bindings.delete`, `access-bindings.batch-delete` with a property parent | Like `reports.run`, on the property of `parent` or of the name: a bound property or a property of a bound account after one proof read |
 | The same tools with an account parent | Like `accounts.get`, but a connection bound to properties only is refused: a bound account, or no target; see [access bindings](access-bindings.md#targets-and-proof) |
 | `data-retention.get`, `data-retention.update`, `google-signals.get`, `google-signals.update` | Use a bound property, or a property of a bound account after one proof read of its parent; see [data retention](data-retention.md#targets-and-proof) |
@@ -173,7 +173,7 @@ The profile `read` is the recommended one and holds `google.analytics.accounts.l
 `google.analytics.attribution-settings.get`, `google.analytics.rollup-links.list`, `google.analytics.rollup-links.get`,
 `google.analytics.access-bindings.list`, `google.analytics.access-bindings.get`, and
 `google.analytics.access-bindings.batch-get`. The profile `write` reads like `read`, changes accounts, properties,
-data streams and their settings, custom dimensions, custom metrics, key events, event create rules, calculated metrics, audiences, annotations, channel groups, expanded data sets, Google Signals, and attribution settings, deletes data streams, measurement protocol secrets, key events, channel groups, and expanded data sets, and the Google Ads, Firebase, BigQuery, and AdSense links, archives audiences,
+data streams and their settings, custom dimensions, custom metrics, key events, event create rules, calculated metrics, audiences, annotations, channel groups, expanded data sets, Google Signals, and attribution settings, deletes data streams, measurement protocol secrets, key events, channel groups, and expanded data sets, deletes Google Ads, Firebase, BigQuery, AdSense, Search Ads 360, Display & Video 360, and rollup source links and Display & Video 360 link proposals, cancels proposals, archives audiences,
 and starts audience exports and report tasks, each change with its own confirmation: it adds
 `google.analytics.accounts.update`, `google.analytics.properties.create`, `google.analytics.properties.update`,
 `google.analytics.data-streams.create`, `google.analytics.data-streams.update`, `google.analytics.data-streams.delete`,
@@ -194,11 +194,13 @@ and starts audience exports and report tasks, each change with its own confirmat
 `google.analytics.expanded-data-sets.update`, `google.analytics.expanded-data-sets.delete`,
 `google.analytics.google-signals.update`, `google.analytics.attribution-settings.update`,
 `google.analytics.google-ads-links.delete`, `google.analytics.firebase-links.delete`,
-`google.analytics.bigquery-links.delete`, `google.analytics.adsense-links.delete`, and
-`google.analytics.change-history.search`. The users of an
+`google.analytics.bigquery-links.delete`, `google.analytics.adsense-links.delete`,
+`google.analytics.search-ads360-links.delete`, `google.analytics.display-video360-links.delete`,
+`google.analytics.display-video360-link-proposals.cancel`, `google.analytics.display-video360-link-proposals.delete`,
+`google.analytics.rollup-links.delete`, and `google.analytics.change-history.search`. The users of an
 export are personal data; see
 [audience exports](audience-exports.md#personal-data); so are the access reports, see
-[access reports](access-reports.md#personal-data); so are the Display & Video 360 link proposals, see
+[access reports](access-reports.md#personal-data); so are the Display & Video 360 link proposals (also the answer of the cancel tool), see
 [Display & Video 360 links](display-video360-links.md#personal-data); so are the creators of the Google Ads links, see
 [Google Ads links](google-ads-links.md#personal-data); and so are the access bindings, see
 [access bindings](access-bindings.md#personal-data). `change-history.search` is not in the recommended profile

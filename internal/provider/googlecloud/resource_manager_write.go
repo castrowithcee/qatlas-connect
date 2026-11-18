@@ -85,6 +85,24 @@ func boundProject(ctx context.Context, c *client, adm *admitter, op, tool, id st
 	return project, nil
 }
 
+// boundFolder reads a folder that a tool is about to change and binds it to the targets, with the folder
+// target or the folders above it. The tool reads before it writes, so a folder outside the targets is refused
+// before any change.
+func boundFolder(ctx context.Context, c *client, adm *admitter, op, tool, id string) (folderWire, error) {
+	folder, err := c.folder(ctx, op, tool, id)
+	if err != nil {
+		return folderWire{}, err
+	}
+	admitted, err := adm.folder(ctx, folder)
+	if err != nil {
+		return folderWire{}, err
+	}
+	if !admitted {
+		return folderWire{}, refuseOutside("the folder")
+	}
+	return folder, nil
+}
+
 // projectPath is the path of a project by its number, which the answer of the read names.
 func projectPath(op string, project projectWire) (string, error) {
 	number, ok := strings.CutPrefix(project.Name, prefixProject)

@@ -33,7 +33,8 @@ const scopeStorageReadOnly = "https://www.googleapis.com/auth/devstorage.read_on
 const scopeStorageFullControl = "https://www.googleapis.com/auth/devstorage.full_control"
 
 // scopeStorageReadWrite is the smallest scope the discovery document of storage v1 lists for objects.insert,
-// objects.copy, objects.compose, objects.delete, and buckets.delete, next to devstorage.full_control and cloud-platform.
+// objects.copy, objects.compose, objects.delete, buckets.delete, and notifications.delete, next to
+// devstorage.full_control and cloud-platform.
 const scopeStorageReadWrite = "https://www.googleapis.com/auth/devstorage.read_write"
 
 // scopeBillingReadOnly is the smallest scope the discovery document of cloudbilling v1 lists for
@@ -167,6 +168,15 @@ var tokenMetadata = config.TokenMetadata{Scopes: map[string][]string{
 	managedZonesGetID:  {scopeDNSReadOnly},
 	recordSetsListID:   {scopeDNSReadOnly},
 	recordSetsGetID:    {scopeDNSReadOnly},
+	changesListID:      {scopeDNSReadOnly},
+	changesGetID:       {scopeDNSReadOnly},
+	dnsKeysListID:      {scopeDNSReadOnly},
+	dnsKeysGetID:       {scopeDNSReadOnly},
+	// dns v1 lists ndev.clouddns.readonly as the smallest scope for the reads of policies and response policies.
+	dnsPoliciesListID:      {scopeDNSReadOnly},
+	dnsPoliciesGetID:       {scopeDNSReadOnly},
+	responsePoliciesListID: {scopeDNSReadOnly},
+	responsePoliciesGetID:  {scopeDNSReadOnly},
 	// compute v1 lists compute as the smallest scope for the deletions of firewalls, addresses, VPN tunnels, and VPN gateways.
 	firewallsDeleteID:   {scopeCompute},
 	addressesDeleteID:   {scopeCompute},
@@ -185,6 +195,11 @@ var tokenMetadata = config.TokenMetadata{Scopes: map[string][]string{
 	projectsPatchID:    {scopeCloudPlatform},
 	projectsMoveID:     {scopeCloudPlatform},
 	projectsUndeleteID: {scopeCloudPlatform},
+	// cloudresourcemanager v3 lists only cloud-platform for folders create, patch, move, and undelete.
+	foldersCreateID:   {scopeCloudPlatform},
+	foldersPatchID:    {scopeCloudPlatform},
+	foldersMoveID:     {scopeCloudPlatform},
+	foldersUndeleteID: {scopeCloudPlatform},
 	// compute v1 lists compute as the smallest scope for insert, resize, and createSnapshot of disks.
 	disksInsertID:         {scopeCompute},
 	disksResizeID:         {scopeCompute},
@@ -195,4 +210,12 @@ var tokenMetadata = config.TokenMetadata{Scopes: map[string][]string{
 	imagesInsertID:    {scopeCompute},
 	imagesDeleteID:    {scopeCompute},
 	snapshotsDeleteID: {scopeCompute},
+	// storage v1 lists devstorage.full_control and cloud-platform for projects.hmacKeys.update, and
+	// devstorage.read_write as well for projects.hmacKeys.delete. The tool reads the key with hmacKeys.get first,
+	// which lists devstorage.full_control and read_only but not read_write, so the deletion asks for
+	// full_control too. notifications.delete lists devstorage.read_write, which notifications.get and buckets.get
+	// accept as well.
+	hmacKeysDeactivateID:  {scopeStorageFullControl},
+	hmacKeysDeleteID:      {scopeStorageFullControl},
+	notificationsDeleteID: {scopeStorageReadWrite},
 }}

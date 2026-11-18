@@ -22,7 +22,8 @@ and the base path are fixed; no tool takes a URL, a path, a header, or a body.
 
 ## Rules of the DNS tools
 
-These rules hold for [record sets](record-sets.md) as well.
+These rules hold for [record sets](record-sets.md), [server policies](policies.md), and
+[response policies](response-policies.md) as well.
 
 - `project_id` is a project ID or number, never a `projects/` name. It is checked against the targets before a
   secret is read: a project outside the targets is refused without naming it. Where the targets alone do not decide

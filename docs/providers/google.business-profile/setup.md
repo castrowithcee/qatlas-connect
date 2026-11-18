@@ -30,6 +30,7 @@ A service account does not work with this provider, see [Credential](README.md#c
    For the lodging tools also enable the **My Business Lodging API**.
    For the verification and notification tools also enable the **My Business Verifications API** and the **My
    Business Notifications API**.
+   For the place action tools also enable the **My Business Place Actions API**.
 
 ## Request access to the APIs
 
