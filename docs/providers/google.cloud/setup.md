@@ -9,15 +9,12 @@ updated: 2026-11-18
 
 # Set up Google Cloud
 
-This page shows how to connect Qatlas to Google Cloud. A Qatlas connection searches organizations, folders,
-and projects, reads projects and the state of long-running operations from Cloud Resource Manager, reads IAM
-roles and the roles and permissions of a resource from IAM, and changes nothing unless it offers the profile
-`service-accounts`, which creates, changes, disables, and enables service accounts, the profile
-`service-accounts-revoke`, which disables, enables, and deletes their keys, a `tools` list that names
-`service-accounts.delete`, which deletes a service account, the profile `api-keys-revoke`, which deletes API
-keys and restores deleted ones, the profile `iam-bindings`, which changes single
-IAM bindings, the profile `compute-network-delete`, which deletes firewall rules, reserved IP addresses, VPN tunnels, and HA VPN gateways, the profile `compute-lifecycle`, which starts, stops, resets, and changes the machine type of Compute instances, the profile `compute-instances-create`, which creates Compute instances, a `tools` list that names `instances.delete`, which deletes one, the profile `compute-disks`, which creates, grows, and snapshots disks, the profile `compute-images-delete`, which creates images and deletes disk snapshots and images, a `tools` list that names `disks.delete`, which deletes a disk, the profile `services`, which enables Google APIs, the profile `projects-manage`, which creates, changes, moves, and restores projects, the profile `folders-manage`, which creates, renames, moves, and restores folders, or a `tools` list that names `services.disable`,
-which disables one, a `tools` list that names `projects.delete` or `folders.delete`, which mark a project or a folder for deletion, each with the confirmation of a person. Tools, targets, errors, and limits are described in the [Google Cloud provider](README.md).
+This page shows how to connect Qatlas to Google Cloud. A Qatlas connection reads Cloud Resource Manager, IAM,
+Service Usage, Cloud Quotas, API Keys, Compute Engine, Cloud Storage, Cloud DNS, and Cloud Billing, the last
+only ever as a read. It changes or deletes something only through a profile that is not recommended or a tool
+that its `tools` list names, each with the confirmation of a person. [Profiles](README.md#profiles) says which
+profile or listed tool changes what. Tools, targets, errors, and limits are described in the
+[Google Cloud provider](README.md).
 
 ## What you need
 
