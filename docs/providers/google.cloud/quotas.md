@@ -58,7 +58,7 @@ first, as `projects.get` does, which needs Cloud Resource Manager enabled.
 
 Cloud Quotas (`cloudquotas.googleapis.com`) must be enabled in the Cloud project of the credential. If it is
 not, Google answers `SERVICE_DISABLED` and the tool fails with the class `permission`; a person enables it
-there. The message of that error names other Google Cloud APIs, not Cloud Quotas. A missing right is also
+there. The message of that error names the Cloud Quotas API. A missing right is also
 `permission`, an unknown project, quota, or preference `not-found`, and Google's quota refusal (429) is
 `rate-limited`; the HTTP status decides, and `Retry-After` or `QuotaFailure` details are not mapped separately.
 

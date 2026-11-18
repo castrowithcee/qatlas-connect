@@ -67,6 +67,8 @@ type catalogField struct {
 	Relation   string
 	Reference  bool
 	InResponse bool
+	// Active is Twenty's active state of the field from the metadata API; nil when that read was not possible.
+	Active *bool
 	// Files marks a list whose elements carry the subfields fileId and url.
 	Files      bool
 	Enumerated bool

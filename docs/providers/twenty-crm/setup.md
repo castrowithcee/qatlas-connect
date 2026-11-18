@@ -122,7 +122,7 @@ Companies need these rights on the object `company`. Object targets and the comp
 
 | Tools | Right of the role |
 | --- | --- |
-| `objects.list`, `objects.get` | No settings right: they read the workspace's generated API document |
+| `objects.list`, `objects.get` | No settings right: they read the workspace's generated API document. `objects.get` and the record tools also read the active state of fields from the metadata API, which Twenty 2.27 allows only with "Data model"; without it they work without the state |
 | `meta-objects.list`, `meta-objects.get`, `meta-fields.get` | "Data model" |
 | Create, update, or delete objects and fields | "Data model" |
 

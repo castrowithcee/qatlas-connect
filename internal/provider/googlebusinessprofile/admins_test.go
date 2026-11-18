@@ -301,7 +301,7 @@ func TestNoToolCreatesAdminsOrAccounts(t *testing.T) {
 		"accounts.update", "attributes.get", "attributes.list", "attributes.update", "categories.batch-get",
 		"categories.list", "chains.get", "chains.search",
 		"google-locations.search", "invitations.decline", "invitations.list", "location-admins.delete",
-		"location-admins.list", "location-admins.update", "locations.get", "locations.list",
+		"location-admins.list", "location-admins.update", "locations.get", "locations.list", "locations.batch-get",
 		"locations.create", "locations.update", "locations.delete", "locations.get-google-updated",
 		"performance.fetch-daily-metrics", "performance.get-daily-metric", "performance.list-search-keywords",
 		"lodging.get", "lodging.get-google-updated", "lodging.update",
@@ -310,7 +310,8 @@ func TestNoToolCreatesAdminsOrAccounts(t *testing.T) {
 		"place-action-links.list", "place-action-links.update", "place-action-types.list",
 		"reviews.batch-get", "reviews.delete-reply", "reviews.get", "reviews.list", "reviews.update-reply", "followers.get",
 		"media.create", "media.delete", "media.get", "media.list", "media.update",
-		"local-posts.create", "local-posts.delete", "local-posts.get", "local-posts.list", "local-posts.update"} {
+		"local-posts.create", "local-posts.delete", "local-posts.get", "local-posts.list", "local-posts.update",
+		"food-menus.get", "food-menus.update"} {
 		want[Provider+"."+name] = true
 	}
 	if len(ids) != len(want) {

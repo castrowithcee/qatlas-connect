@@ -96,7 +96,7 @@ var changesList = capability.Descriptor{
 	ID: changesListID, Version: 1, Title: "List the changes of a Cloud DNS managed zone",
 	Description: "List the history of changes of a managed zone from Cloud DNS, in the order of the change " +
 		"sequence, ascending or descending: each with its ID, start time, status (pending or done), whether it " +
-		"is serving, and the record sets it adds and removes. Changes cannot be made." + dnsTail,
+		"is serving, and the record sets it adds and removes." + dnsTail,
 	Tags: []string{"google", "cloud", "dns", "changes"}, Risk: readRisk, Provider: Provider,
 	InputSchema: json.RawMessage(`{"type":"object","properties":{` + serviceProjectProp + `,` + dnsZoneProp + `,` +
 		`"sort_by":{"type":"string","enum":["changeSequence"]},` +
