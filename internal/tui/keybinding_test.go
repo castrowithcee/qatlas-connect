@@ -171,6 +171,7 @@ func TestHelpListsTheKeysInForce(t *testing.T) {
 	applyKeys(uiprefs.Keys{Info: "f3", Save: "f4"})
 	m, _, _ := newModel(t)
 	m.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
+	m.helpTopic = 1
 	text := strings.Join(m.helpLines(), "\n")
 	for _, want := range []string{"info: i/F3", "save: F4", "help: ?", "lock: ctrl+l", "F-keys"} {
 		if !strings.Contains(text, want) {

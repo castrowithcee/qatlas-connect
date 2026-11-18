@@ -30,7 +30,7 @@ func TestHelpShowsEveryTopicAndClosesWithEscape(t *testing.T) {
 		t.Fatalf("? on the tab line opened screen %v", m.screen)
 	}
 	topics := helptopics.All()
-	for i, key := range []string{"right", "right", "right"} {
+	for i, key := range []string{"right", "right", "right", "right"} {
 		topic := topics[i%len(topics)]
 		view := m.render()
 		if !strings.Contains(view, "["+topic.Name+"]") || !strings.Contains(view, firstWords(topic)) {
@@ -62,7 +62,7 @@ func TestHelpShowsEveryTopicAndClosesWithEscape(t *testing.T) {
 		t.Errorf("the list keys do not offer ? help:\n%s", screenOf(m))
 	}
 	press(t, m, "?", "right")
-	if m.screen != screenHelp || !strings.Contains(screenOf(m), "[agents]") {
+	if m.screen != screenHelp || !strings.Contains(screenOf(m), "[keys]") {
 		t.Fatalf("? in the list does not open the help:\n%s", screenOf(m))
 	}
 	press(t, m, "esc")
@@ -81,7 +81,7 @@ func TestHelpScrollsWithinTheWorkspace(t *testing.T) {
 		view := m.render()
 		assertViewFits(t, view, size.width, size.height)
 		if !strings.Contains(view, "lines 1-") {
-			t.Fatalf("%dx%d: the agents topic does not say it scrolls:\n%s", size.width, size.height, view)
+			t.Fatalf("%dx%d: the keys topic does not say it scrolls:\n%s", size.width, size.height, view)
 		}
 		press(t, m, "down", "down")
 		if m.help.offset() != 2 {
@@ -154,7 +154,7 @@ func TestHelpIsAPanelOverTheScreenWhereThereIsRoom(t *testing.T) {
 			if framed != (size.width >= modalMinWidth && size.height >= modalMinHeight) {
 				t.Errorf("%dx%d: panel over the screen = %v:\n%s", size.width, size.height, framed, plain)
 			}
-			if !strings.Contains(plain, "[start]") || !strings.Contains(plain, "close") {
+			if !strings.Contains(plain, "["+helptopics.All()[m.helpTopic].Name+"]") || !strings.Contains(plain, "close") {
 				t.Errorf("%dx%d: the help lacks its topics or its keys:\n%s", size.width, size.height, plain)
 			}
 			if noColor && plain != view {
@@ -164,7 +164,9 @@ func TestHelpIsAPanelOverTheScreenWhereThereIsRoom(t *testing.T) {
 				if !strings.Contains(view, colourOf(styles.footKey)+"←/→") {
 					t.Errorf("%dx%d: the keys are not in the accent colour:\n%q", size.width, size.height, view)
 				}
-				// The list of keys comes with its heading in bold.
+				// The list of keys, at the end of the keys topic, comes with its heading in bold.
+				m.helpTopic = 1
+				m.clampHelp()
 				for i, line := range m.helpLines() {
 					if line == tr(tKeysHeading) {
 						m.clampHelp()
