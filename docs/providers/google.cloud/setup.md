@@ -4,7 +4,7 @@ description: >
 type: knowledge
 edit: shared
 created: 2026-11-16
-updated: 2026-11-16
+updated: 2026-11-17
 ---
 
 # Set up Google Cloud
@@ -56,7 +56,10 @@ Viewer, or Project Viewer role, or any role with these permissions:
 | `networks.list`, `networks.get`, `subnetworks.list`, `subnetworks.get` | `compute.networks.list`, `compute.networks.get`, `compute.subnetworks.list`, or `compute.subnetworks.get` on the project (the Compute Viewer role has them); the **Compute Engine API** must be enabled in the project, and the tools ask for the read scope `compute.readonly` |
 | `firewalls.list`, `firewalls.get`, `addresses.list`, `addresses.get` | `compute.firewalls.list`, `compute.firewalls.get`, `compute.addresses.list`, or `compute.addresses.get` on the project (the Compute Viewer role has them); the **Compute Engine API** must be enabled in the project, and the tools ask for the read scope `compute.readonly` |
 | `vpn-gateways.list`, `vpn-gateways.get`, `vpn-tunnels.list`, `vpn-tunnels.get` | `compute.vpnGateways.list` or `.get`, or `compute.vpnTunnels.list` or `.get` on the project (the Compute Viewer role has them); the **Compute Engine API** must be enabled in the project, and the tools ask for the read scope `compute.readonly` |
+| `disks.list`, `disks.aggregated-list`, `disks.get` | `compute.disks.list` or `compute.disks.get` on the project (the Compute Viewer role has them); the **Compute Engine API** must be enabled in the project, and the tools ask for the read scope `compute.readonly` |
 | `snapshots.list`, `snapshots.get`, `images.list`, `images.get` | `compute.snapshots.list` or `.get`, or `compute.images.list` or `.get` on the project (the Compute Viewer role has them); the **Compute Engine API** must be enabled in the project, and the tools ask for the read scope `compute.readonly` |
+| `buckets.list`, `buckets.get` | `storage.buckets.list` or `storage.buckets.get` on the project or bucket; the **Cloud Storage JSON API** must be enabled in the project, and the tools ask for the read scope `devstorage.read_only` |
+| `buckets.get-iam-policy`, `bucket-access-controls.list` | `storage.buckets.getIamPolicy` on the bucket, and `storage.buckets.get` for the proof of its project; the tools ask for `devstorage.full_control`, the narrowest scope Google lists for them, and belong to the profile `read-storage-access` |
 | `firewalls.delete`, `addresses.delete`, `vpn-tunnels.delete`, `vpn-gateways.delete` | `compute.firewalls.delete` and `compute.firewalls.get` (for the comparison before the deletion), `compute.addresses.delete`, `compute.vpnTunnels.delete`, or `compute.vpnGateways.delete`, on the project (the Compute Network Admin role has them); the **Compute Engine API** must be enabled in the project, and the tools ask for the scope `compute` and belong to the profile `compute-network-delete` |
 | `instances.start`, `instances.stop`, `instances.reset`, `instances.set-machine-type` | `compute.instances.start`, `compute.instances.stop`, `compute.instances.reset`, or `compute.instances.setMachineType` on the project (the Compute Instance Admin role has them); the **Compute Engine API** must be enabled, and the tools ask for the scope `compute` and belong to the profile `compute-lifecycle` |
 | `iam-roles.list`, `iam-roles.get` | custom roles of a project or organization: `iam.roles.list` and `iam.roles.get` (the Role Viewer role has them); Google states none for predefined roles |
