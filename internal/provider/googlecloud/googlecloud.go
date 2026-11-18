@@ -97,7 +97,8 @@ var readTools = []string{organizationsSearch.ID, foldersSearch.ID, projectsSearc
 	disksList.ID, disksAggregatedList.ID, disksGet.ID,
 	snapshotsList.ID, snapshotsGet.ID, imagesList.ID, imagesGet.ID,
 	bucketsList.ID, bucketsGet.ID, notificationsList.ID, managedFoldersList.ID, hmacKeysList.ID, hmacKeysGet.ID,
-	objectsList.ID, objectsGet.ID, objectsDownload.ID}
+	objectsList.ID, objectsGet.ID, objectsDownload.ID,
+	billingAccountsList.ID, billingAccountsGet.ID, billingAccountsListProjects.ID, projectBillingInfoGet.ID}
 
 // Register adds the provider metadata, its connection test, its consent endpoints, and its tools.
 func Register(reg *capability.Registry) error {
@@ -124,7 +125,8 @@ func Register(reg *capability.Registry) error {
 				"reserved IP addresses, HA VPN gateways, VPN tunnels, persistent disks, disk snapshots, and images of a project with the scope compute.readonly, " +
 				"the Cloud Storage buckets of a project, their objects, and the content of an object (up to a fixed limit), " +
 				"the notification configurations and managed folders of a bucket, and " +
-				"the HMAC key metadata of a project with the scope devstorage.read_only, and changes nothing",
+				"the HMAC key metadata of a project with the scope devstorage.read_only, and " +
+				"the Cloud Billing accounts a connection names, their projects, and the billing account of a project with the scope cloud-billing.readonly, and changes nothing",
 			Tools: readTools,
 		}, {
 			ID: "read-iam", Title: "Read with IAM",
@@ -286,6 +288,10 @@ func Register(reg *capability.Registry) error {
 		capability.Operation{Descriptor: objectsGet, Handler: handleObjectsGet},
 		capability.Operation{Descriptor: objectsDownload, Handler: handleObjectsDownload},
 		capability.Operation{Descriptor: objectAccessControlsList, Handler: handleObjectAccessControlsList},
+		capability.Operation{Descriptor: billingAccountsList, Handler: handleBillingAccountsList},
+		capability.Operation{Descriptor: billingAccountsGet, Handler: handleBillingAccountsGet},
+		capability.Operation{Descriptor: billingAccountsListProjects, Handler: handleBillingAccountsListProjects},
+		capability.Operation{Descriptor: projectBillingInfoGet, Handler: handleProjectBillingInfoGet},
 		capability.Operation{Descriptor: firewallsDelete, Handler: handleFirewallsDelete,
 			ConfirmationSummary: firewallDeleteSummary},
 		capability.Operation{Descriptor: addressesDelete, Handler: handleAddressesDelete,
