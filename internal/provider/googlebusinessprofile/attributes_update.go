@@ -63,8 +63,8 @@ var attributesUpdate = capability.Descriptor{
 		"removes that attribute. previous_attributes is required and only compared: give the attributes of the " +
 		"mask as last read with attributes.get, none for an attribute that is not set. The tool reads the " +
 		"attributes first and changes nothing unless they still are exactly that, so the confirmation shows the " +
-		"old and the new values; the whole change must fit into that confirmation of 500 characters, so a " +
-		"larger change is refused and goes in several calls. Every attribute must be offered for the location " +
+		"old and the new values; the whole change must fit into that confirmation of " + limitText(attributesUpdateID) +
+		", so a larger change is refused and goes in several calls. Every attribute must be offered for the location " +
 		"(attributes.list with location), must not be deprecated, and its value must match the value type: " +
 		"values with one boolean for BOOL, one listed value for ENUM, uriValues for URL, and repeatedEnumValue " +
 		"with listed values for REPEATED_ENUM. Google counts at most 10 changes per minute and profile. " +
@@ -383,9 +383,9 @@ func handleAttributesUpdate(ctx context.Context, resolved *config.Resolved, secr
 	if err != nil {
 		return nil, err
 	}
-	if confirmationRunes(attributesSummary(raw)) > maxConfirmRunes {
-		return nil, invalidArgument("the change is too large to be shown completely in the confirmation of 500 " +
-			"characters; change fewer attributes or shorter values per call")
+	if !fitsConfirmation(attributesUpdateID, attributesSummary(raw)) {
+		return nil, invalidArgument("the change is too large to be shown completely in the confirmation of " +
+			limitText(attributesUpdateID) + "; change fewer attributes or shorter values per call")
 	}
 	c, err := open(ctx, resolved, secrets, red)
 	if err != nil {

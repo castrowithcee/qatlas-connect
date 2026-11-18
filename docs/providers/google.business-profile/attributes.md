@@ -71,7 +71,7 @@ confirmation shows every address completely, old and new.
 ### Confirmation
 
 The confirmation names the location and, for each attribute of the mask, the value read before and the value to
-set. The application bounds a confirmation at 500 characters. A change whose confirmation would be cut is
+set. The confirmation of this tool may hold 8192 characters. A change whose confirmation would be cut is
 refused instead, so that what a person approves is what is sent: split it into several calls.
 
 The change is one request without a retry. After a timeout or a 5xx answer the outcome is reported as unknown,

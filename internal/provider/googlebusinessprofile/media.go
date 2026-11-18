@@ -218,7 +218,7 @@ var mediaCreate = capability.Descriptor{
 		"file or reads a local one. The media is public on the profile at once. Photos other than PROFILE and COVER " +
 		"need at least 250 pixels on the short edge and 10240 bytes. A COVER item takes no description. The " +
 		"confirmation shows the location, the format, the category or price list item, the whole address, and the " +
-		"description; a call whose confirmation would not fit into 500 characters is refused before anything is " +
+		"description; a call whose confirmation would not fit into " + limitText(mediaCreateID) + " is refused before anything is " +
 		"sent, so use a shorter address or description. Google counts at most 10 changes per minute and profile. " +
 		untrustedReviewsHint,
 	Tags: []string{"google", "business-profile", "media", "create"}, Provider: Provider,
@@ -352,14 +352,14 @@ func mediaCheckCreate(args mediaArguments) error {
 			return err
 		}
 	}
-	if confirmationRunes(mediaCreateSummary(args)) > maxConfirmRunes {
+	if !fitsConfirmation(mediaCreateID, mediaCreateSummary(args)) {
 		return invalidArgument(mediaTooLong)
 	}
 	return nil
 }
 
-const mediaTooLong = "the confirmation of this change would exceed 500 characters, so it could not show the whole " +
-	"address and description; use a shorter address or description"
+var mediaTooLong = "the confirmation of this change would exceed " + limitText(mediaCreateID) +
+	", so it could not show the whole address and description; use a shorter address or description"
 
 // mediaSourceURL accepts only a plain https address. The address is never fetched, so the checks only keep it
 // from carrying anything a person could misread in the confirmation.
@@ -445,7 +445,7 @@ func mediaSummary(tool string) capability.SummaryFunc {
 			if err := mediaCheckUpdate(args); err != nil {
 				return "Refused before sending: " + err.Error()
 			}
-			if confirmationRunes(mediaUpdateSummary(args)) > maxConfirmRunes {
+			if !fitsConfirmation(mediaUpdateID, mediaUpdateSummary(args)) {
 				return "Refused before sending: " + mediaTooLong
 			}
 			return mediaUpdateSummary(args)
