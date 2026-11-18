@@ -11,15 +11,15 @@ updated: 2026-11-18
 
 Google Business Profile is a provider for the Business Profile APIs v1: the accounts a person owns or manages
 and the business locations in them, the performance of a location, the verification state of a location, and
-the notification setting of an account, and for the My Business API v4, which Google keeps for reviews. Most
+the notification setting of an account, and for the My Business API v4, which Google keeps for reviews and local posts. Most
 tools read; the tools of the profile `write` change the role of existing admins, remove admins, decline
-invitations, rename an account, create, change, and delete place action links, and reply to reviews or delete a
-reply. [Set up Google Business Profile](setup.md) leads through the Google side, the approval, and the consent.
+invitations, rename an account, create, change, and delete place action links, reply to reviews or delete a
+reply, and create, change, and delete local posts. [Set up Google Business Profile](setup.md) leads through the Google side, the approval, and the consent.
 The tools are described per group in [accounts](accounts.md), [locations](locations.md), [account
 admins](account-admins.md), [location admins](location-admins.md), [invitations](invitations.md),
 [performance](performance.md), [categories](categories.md), [chains](chains.md), [Google
 locations](google-locations.md), [lodging](lodging.md), [verifications](verifications.md),
-[notifications](notifications.md), [place action links](place-action-links.md), [place action
+[notifications](notifications.md), [local posts](local-posts.md), [place action links](place-action-links.md), [place action
 types](place-action-types.md), and [reviews](reviews.md).
 
 ## Credential
@@ -48,8 +48,8 @@ no wider than the task needs.
 
 | Profile | Tools |
 | --- | --- |
-| `read` (recommended) | every read tool: `accounts.list`, `accounts.get`, `locations.list`, `locations.get`, `account-admins.list`, `location-admins.list`, `invitations.list`, `lodging.get`, `lodging.get-google-updated`, `performance.*`, `verifications.list`, `verifications.fetch-options`, `verifications.get-merchant-state`, `notifications.get`, `place-action-links.list`, `place-action-links.get`, `place-action-types.list`, `reviews.list`, `reviews.get`, `reviews.batch-get` |
-| `write` | `account-admins.update`, `location-admins.update`, `accounts.update`, `account-admins.delete`, `location-admins.delete`, `invitations.decline`, `lodging.update`, `place-action-links.create`, `place-action-links.update`, `place-action-links.delete`, `reviews.update-reply`, `reviews.delete-reply`; each change needs confirmation |
+| `read` (recommended) | every read tool: `accounts.list`, `accounts.get`, `locations.list`, `locations.get`, `account-admins.list`, `location-admins.list`, `invitations.list`, `lodging.get`, `lodging.get-google-updated`, `performance.*`, `verifications.list`, `verifications.fetch-options`, `verifications.get-merchant-state`, `notifications.get`, `place-action-links.list`, `place-action-links.get`, `place-action-types.list`, `reviews.list`, `reviews.get`, `reviews.batch-get`, `local-posts.list`, `local-posts.get` |
+| `write` | `account-admins.update`, `location-admins.update`, `accounts.update`, `account-admins.delete`, `location-admins.delete`, `invitations.decline`, `lodging.update`, `place-action-links.create`, `place-action-links.update`, `place-action-links.delete`, `reviews.update-reply`, `reviews.delete-reply`, `local-posts.create`, `local-posts.update`, `local-posts.delete`; each change needs confirmation |
 
 The profile `read` changes nothing, but Google's only scope also allows changes, so the token could. The two
 admin lists name other people (first and last name, and the email address of a pending invitation), the
@@ -75,7 +75,7 @@ project one by one:
 | My Business Verifications API | `https://mybusinessverifications.googleapis.com` | [verifications](verifications.md) |
 | My Business Notifications API | `https://mybusinessnotifications.googleapis.com` | [notifications](notifications.md) |
 | My Business Place Actions API | `https://mybusinessplaceactions.googleapis.com` | [place action links](place-action-links.md), [place action types](place-action-types.md) |
-| My Business API (v4) | `https://mybusiness.googleapis.com/v4` | [reviews](reviews.md) |
+| My Business API (v4) | `https://mybusiness.googleapis.com/v4` | [reviews](reviews.md), [local posts](local-posts.md) |
 
 ## Approval of the Cloud project
 
@@ -114,6 +114,7 @@ request is sent; a refusal never names the other object.
 | `place-action-links.*` | first prove the location of the link, on every call | the bound location only |
 | `place-action-types.list` | proves the location of a `location=` filter; other filters need no proof | a `location=` filter accepts only the bound location |
 | `reviews.*` | accounts and locations as `accounts/ACCOUNT/locations/LOCATION`; the account must be the bound one and the location is proved like `locations.get` | only the location ID is compared, the account part is an argument; see [reviews](reviews.md#the-v4-client) |
+| `local-posts.*` | the same v4 paths and rules as `reviews.*`, on every call | as `reviews.*`; see [local posts](local-posts.md#the-v4-paths) |
 
 The proof of `locations.get` and of the performance and verification tools reads the location list of the bound account, names
 only, 100 at a time, until it finds the location. It reads at most 2000 locations; a location not found by then is refused like one outside
@@ -190,7 +191,7 @@ read; no other value chooses a class.
 
 The provider reaches only the fixed origins and the fixed method of each tool. It offers no passthrough of
 method, path, header, or body. The v4 accounts, admins, invitations, and transfer methods are deprecated and
-not used. v4 is used only for reviews; it has no discovery document, see [reviews](reviews.md#the-v4-client). No tool invites anyone or creates an admin, and no tool creates an account or transfers a location.
+not used. v4 is used only for reviews and local posts; it has no discovery document, see [reviews](reviews.md#the-v4-client). No tool invites anyone or creates an admin, and no tool creates an account or transfers a location.
 
 Not verified:
 
