@@ -12,7 +12,7 @@ import (
 )
 
 // Search Ads 360 links are resources of the Admin API v1alpha (analyticsadmin, revision 20261116) below a
-// property: properties/ID/searchAds360Links/ID. The link ID is not the advertiser ID. Only reading is offered.
+// property: properties/ID/searchAds360Links/ID. The link ID is not the advertiser ID. Reading and deleting are offered, see advertiserlinkdelete.go.
 const (
 	searchAdsLinksListID = Provider + ".search-ads360-links.list"
 	searchAdsLinksGetID  = Provider + ".search-ads360-links.get"
@@ -87,7 +87,7 @@ var searchAdsLinksList = capability.Descriptor{
 		"settings for campaign data, cost data, ads personalization and site stats. On a connection with targets " +
 		"the property must be a bound property or belong to a bound account, which is proven by one read of its " +
 		"parent before the list. Reads no report data. Creating or changing a link is not a tool; a person does " +
-		"that in the Analytics or Search Ads 360 interface." + advertiserLinkUntrusted + alphaNote,
+		"that in the Analytics or Search Ads 360 interface; deleting one is search-ads360-links.delete." + advertiserLinkUntrusted + alphaNote,
 	Tags: []string{"google", "analytics", "search-ads360-links", "list", "alpha"}, Risk: readRisk, Provider: Provider,
 	InputSchema: json.RawMessage(`{"type":"object","properties":{"property":` + propertyArgSchema + `,"page_size":` +
 		`{"type":"integer","minimum":1,"maximum":200},"cursor":{"type":"string","minLength":1,"maxLength":4096}},` +

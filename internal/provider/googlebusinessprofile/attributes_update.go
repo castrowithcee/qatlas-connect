@@ -27,9 +27,6 @@ const (
 	// maxMetadataPages bounds the read of the attribute metadata of a location that an update checks its
 	// attributes against: 10 pages of 200 attributes.
 	maxMetadataPages = 10
-	// maxConfirmationRunes mirrors the bound the application core puts on a confirmation summary. A change
-	// whose summary is longer would not be shown completely, so it is refused.
-	maxConfirmationRunes = 500
 )
 
 var attributeNameForm = regexp.MustCompile(attributeNamePattern)
@@ -386,7 +383,7 @@ func handleAttributesUpdate(ctx context.Context, resolved *config.Resolved, secr
 	if err != nil {
 		return nil, err
 	}
-	if utf8.RuneCountInString(attributesSummary(raw)) > maxConfirmationRunes {
+	if confirmationRunes(attributesSummary(raw)) > maxConfirmRunes {
 		return nil, invalidArgument("the change is too large to be shown completely in the confirmation of 500 " +
 			"characters; change fewer attributes or shorter values per call")
 	}

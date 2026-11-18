@@ -310,31 +310,41 @@ func TestDV360ErrorsAreClassifiedWithoutProviderTextAndNeverRepeat(t *testing.T)
 	}
 }
 
-func TestDV360ToolsOnlyReadAndWarnAboutPersonalData(t *testing.T) {
+func TestDV360ToolsReadDeleteAndCancelButNeverCreateChangeOrApprove(t *testing.T) {
 	reg := registry(t)
+	reads := []string{dv360LinksListID, dv360LinksGetID, dv360ProposalsListID, dv360ProposalsGetID}
+	changes := []string{dv360LinksDeleteID, dv360ProposalsCancelID, dv360ProposalsDeleteID}
 	var ids []string
 	for _, d := range reg.Provider(Provider) {
 		if !strings.Contains(d.ID, "display-video360") {
 			continue
 		}
 		ids = append(ids, d.ID)
-		if d.Risk.Effect != capability.EffectRead || !strings.HasSuffix(d.Description, alphaNote) ||
-			!slices.Contains(d.Tags, "alpha") {
-			t.Errorf("%s is not a read tool with the alpha note: %+v", d.ID, d.Risk)
+		if !strings.HasSuffix(d.Description, alphaNote) || !slices.Contains(d.Tags, "alpha") {
+			t.Errorf("%s lacks the alpha note", d.ID)
 		}
-		proposal := strings.Contains(d.ID, "link-proposals")
-		if proposal != strings.Contains(d.Description, "PERSONAL DATA") || proposal != slices.Contains(d.Tags, "personal-data") ||
-			(proposal && d.Risk.DataSensitivity != dataSensitivityProposals) ||
-			(!proposal && d.Risk.DataSensitivity != dataSensitivity) {
+		if slices.Contains(changes, d.ID) {
+			if d.Risk.Effect != capability.EffectDelete || d.Risk.Confirmation != capability.ConfirmationRequired ||
+				!d.Risk.OpenWorld || reg.ConfirmationSummary(d.ID) == nil {
+				t.Errorf("%s is not a confirmed delete: %+v", d.ID, d.Risk)
+			}
+		} else if d.Risk.Effect != capability.EffectRead {
+			t.Errorf("%s is not a read tool: %+v", d.ID, d.Risk)
+		}
+		// Reading a proposal and cancelling one return the proposal, which names email addresses.
+		personal := d.ID == dv360ProposalsListID || d.ID == dv360ProposalsGetID || d.ID == dv360ProposalsCancelID
+		if personal != strings.Contains(d.Description, "PERSONAL DATA") || personal != slices.Contains(d.Tags, "personal-data") ||
+			(personal && d.Risk.DataSensitivity != dataSensitivityProposals) ||
+			(!personal && d.Risk.DataSensitivity != dataSensitivity) {
 			t.Errorf("%s personal data marking is wrong: %+v", d.ID, d.Risk)
 		}
 	}
 	slices.Sort(ids)
-	if want := sortedCopy([]string{dv360LinksListID, dv360LinksGetID, dv360ProposalsListID, dv360ProposalsGetID}); !slices.Equal(ids, want) {
-		t.Errorf("tools = %v, want only the four read tools and none for approve, cancel, create, patch or delete", ids)
+	if want := sortedCopy(append(slices.Clone(reads), changes...)); !slices.Equal(ids, want) {
+		t.Errorf("tools = %v, want the read, delete and cancel tools and none for approve, create or patch", ids)
 	}
 	for _, id := range ids {
-		for _, word := range []string{"approve", "cancel", "create", "patch", "update", "delete"} {
+		for _, word := range []string{"approve", "create", "patch", "update"} {
 			if strings.Contains(id, word) {
 				t.Errorf("%s is a tool of an excluded method", id)
 			}
@@ -342,8 +352,13 @@ func TestDV360ToolsOnlyReadAndWarnAboutPersonalData(t *testing.T) {
 	}
 	metadata, _ := reg.ProviderMetadata(Provider)
 	for _, p := range metadata.Profiles {
-		for _, id := range []string{dv360LinksListID, dv360LinksGetID, dv360ProposalsListID, dv360ProposalsGetID} {
+		for _, id := range reads {
 			if !slices.Contains(p.Tools, id) || !slices.Equal(metadata.Token.Scopes[id], []string{scopeReadOnly}) {
+				t.Errorf("%s: profile %s or scope is wrong", id, p.ID)
+			}
+		}
+		for _, id := range changes {
+			if slices.Contains(p.Tools, id) != (p.ID == "write") || !slices.Equal(metadata.Token.Scopes[id], []string{scopeEdit}) {
 				t.Errorf("%s: profile %s or scope is wrong", id, p.ID)
 			}
 		}

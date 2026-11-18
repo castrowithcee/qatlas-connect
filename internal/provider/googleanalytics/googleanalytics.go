@@ -19,10 +19,14 @@
 //
 // The settings and the event create rules of a web data stream and the calculated metrics, annotations, audiences,
 // channel groups, expanded data sets and attribution settings of a property run on the Admin API v1alpha, see
-// alpha.go. So do the read-only tools for the Display & Video 360 advertiser links of a property and their
-// proposals; the proposals name email addresses, so their results carry their own data sensitivity. The read-only
-// AdSense and Search Ads 360 links of a property run there as well, and so do the rollup source links and the
-// access bindings; the access bindings name users by email address and are personal data.
+// alpha.go. So do the tools for the Display & Video 360 advertiser links of a property and their proposals;
+// the proposals name email addresses, so their results carry their own data sensitivity. The AdSense and Search
+// Ads 360 links of a property run there as well, and so do the rollup source links and the access bindings; the
+// access bindings name users by email address and are personal data. Search Ads 360 links, Display & Video 360
+// links, rollup source links and Display & Video 360 proposals can be deleted (a proposal also cancelled) with
+// confirmation; creating, changing and approving them is not offered. Changing the roles of a binding and
+// removing bindings need the scope analytics.manage.users and have their own profile; creating a binding or
+// changing its user is no tool.
 //
 // The change history search accepts only the scope analytics.edit, so it is outside the profile read. Its
 // events hold email addresses of users and snapshots of resources: personal data, shown bounded.
@@ -165,6 +169,11 @@ var scopes = map[string][]string{
 	accessBindingsListID: {scopeUsersReadOnly},
 	accessBindingsGetID:  {scopeUsersReadOnly},
 
+	accessBindingsBatchGetID:    {scopeUsersReadOnly},
+	accessBindingsUpdateID:      {scopeUsers},
+	accessBindingsDeleteID:      {scopeUsers},
+	accessBindingsBatchDeleteID: {scopeUsers},
+
 	annotationsListID:   {scopeReadOnly},
 	annotationsGetID:    {scopeReadOnly},
 	annotationsCreateID: {scopeEdit},
@@ -200,6 +209,12 @@ var scopes = map[string][]string{
 	adsenseLinksGetID:    {scopeReadOnly},
 	searchAdsLinksListID: {scopeReadOnly},
 	searchAdsLinksGetID:  {scopeReadOnly},
+
+	searchAdsLinksDeleteID: {scopeEdit},
+	dv360LinksDeleteID:     {scopeEdit},
+	dv360ProposalsCancelID: {scopeEdit},
+	dv360ProposalsDeleteID: {scopeEdit},
+	rollupLinksDeleteID:    {scopeEdit},
 
 	attributionGetID:    {scopeReadOnly},
 	attributionUpdateID: {scopeEdit},
@@ -279,7 +294,7 @@ var readTools = []string{summariesID, accountsID, accountsGetID, accountsSharing
 	audiencesListID, audiencesGetID, channelGroupsListID, channelGroupsGetID, edsListID, edsGetID, adsLinksListID,
 	firebaseLinksListID, bigQueryLinksListID, bigQueryLinksGetID, adsenseLinksListID, adsenseLinksGetID,
 	searchAdsLinksListID, searchAdsLinksGetID, attributionGetID, rollupLinksListID, rollupLinksGetID,
-	accessBindingsListID, accessBindingsGetID}
+	accessBindingsListID, accessBindingsGetID, accessBindingsBatchGetID}
 
 // Register adds the provider metadata, its consent endpoints, its connection test and its tools.
 func Register(reg *capability.Registry) error {
@@ -320,7 +335,7 @@ func Register(reg *capability.Registry) error {
 			ID: "write", Title: "Read and change",
 			Description: "reads what the read profile reads and changes Analytics accounts, properties, data streams, custom " +
 				"dimensions, custom metrics, key events, event create rules, calculated metrics, audiences, annotations, channel groups, expanded data sets, attribution settings and Google Signals, starts audience exports and report tasks, " +
-				"and deletes data streams, measurement protocol secrets, key events, channel groups, expanded data sets and the Google Ads, Firebase, BigQuery and AdSense links and archives audiences; every change needs its own " +
+				"and deletes data streams, measurement protocol secrets, key events, channel groups, expanded data sets, the Google Ads, Firebase, BigQuery, AdSense, Search Ads 360, Display & Video 360 advertiser and rollup source links and link proposals (also cancels proposals) and archives audiences; every change needs its own " +
 				"confirmation, and deleting an account or a property stays unlisted, and so does changing the data retention. " +
 				"It also searches the change history, which holds the email addresses of users and accepts only the " +
 				"scope analytics.edit",
@@ -335,7 +350,8 @@ func Register(reg *capability.Registry) error {
 				audiencesCreateID, audiencesUpdateID, audiencesArchiveID,
 				channelGroupsCreateID, channelGroupsUpdateID, channelGroupsDeleteID,
 				edsCreateID, edsUpdateID, edsDeleteID, attributionUpdateID, changeHistoryID,
-				adsLinksDeleteID, firebaseLinksDeleteID, bigQueryLinksDeleteID, adsenseLinksDeleteID),
+				adsLinksDeleteID, firebaseLinksDeleteID, bigQueryLinksDeleteID, adsenseLinksDeleteID,
+				searchAdsLinksDeleteID, dv360LinksDeleteID, dv360ProposalsCancelID, dv360ProposalsDeleteID, rollupLinksDeleteID),
 		}, {
 			ID: "read-change-history", Title: "Read with change history",
 			Description: "everything of read plus the search in the change history of an account or property; " +
@@ -343,6 +359,15 @@ func Register(reg *capability.Registry) error {
 				"although no tool of this profile changes anything. The events hold the email addresses of users, " +
 				"which are personal data",
 			Tools: append(slices.Clone(readTools), changeHistoryID),
+		}, {
+			ID: accessBindingsProfile, Title: "Read and manage access bindings",
+			Description: "everything of read plus changing the roles of the users of existing access bindings of " +
+				"accounts and properties and removing one binding at a time; no tool adds a user or changes the " +
+				"user of a binding, every change needs its own confirmation, and removing many bindings at once " +
+				"stays unlisted. The changing methods accept only the scope analytics.manage.users, so the token " +
+				"may also grant access in Analytics, although no tool does. The bindings hold the email addresses " +
+				"of users, which are personal data",
+			Tools: append(slices.Clone(readTools), accessBindingsUpdateID, accessBindingsDeleteID),
 		}},
 	}, TestConnection); err != nil {
 		return err
@@ -469,6 +494,11 @@ func Register(reg *capability.Registry) error {
 		{Descriptor: rollupLinksGet, Handler: handleRollupLinksGet},
 		{Descriptor: accessBindingsList, Handler: handleAccessBindingsList},
 		{Descriptor: accessBindingsGet, Handler: handleAccessBindingsGet},
+		{Descriptor: accessBindingsBatchGet, Handler: handleAccessBindingsBatchGet},
+		{Descriptor: accessBindingsUpdate, Handler: handleAccessBindingsUpdate, ConfirmationSummary: bindingUpdateSummary},
+		{Descriptor: accessBindingsDelete, Handler: handleAccessBindingsDelete, ConfirmationSummary: bindingDeleteSummary},
+		{Descriptor: accessBindingsBatchDelete, Handler: handleAccessBindingsBatchDelete,
+			ConfirmationSummary: bindingBatchDeleteSummary},
 		{Descriptor: dataRetentionGet, Handler: handleDataRetentionGet},
 		{Descriptor: dataRetentionUpdate, Handler: handleDataRetentionUpdate, ConfirmationSummary: retentionSummary},
 		{Descriptor: googleSignalsGet, Handler: handleGoogleSignalsGet},
@@ -477,6 +507,16 @@ func Register(reg *capability.Registry) error {
 		{Descriptor: dv360LinksGet, Handler: handleDV360LinksGet},
 		{Descriptor: dv360ProposalsList, Handler: handleDV360ProposalsList},
 		{Descriptor: dv360ProposalsGet, Handler: handleDV360ProposalsGet},
+		{Descriptor: searchAdsLinksDelete, Handler: advertiserDeleteHandler(searchAdsDeleteSpec),
+			ConfirmationSummary: advertiserDeleteSummary(searchAdsDeleteSpec)},
+		{Descriptor: dv360LinksDelete, Handler: advertiserDeleteHandler(dv360DeleteSpec),
+			ConfirmationSummary: advertiserDeleteSummary(dv360DeleteSpec)},
+		{Descriptor: dv360ProposalsCancel, Handler: handleDV360ProposalsCancel,
+			ConfirmationSummary: advertiserDeleteSummary(cancelSpec)},
+		{Descriptor: dv360ProposalsDelete, Handler: advertiserDeleteHandler(dv360ProposalDeleteSpec),
+			ConfirmationSummary: advertiserDeleteSummary(dv360ProposalDeleteSpec)},
+		{Descriptor: rollupLinksDelete, Handler: advertiserDeleteHandler(rollupDeleteSpec),
+			ConfirmationSummary: advertiserDeleteSummary(rollupDeleteSpec)},
 		{Descriptor: adsLinksList, Handler: handleAdsLinksList},
 		{Descriptor: firebaseLinksList, Handler: handleFirebaseLinksList},
 		{Descriptor: bigQueryLinksList, Handler: handleBigQueryLinksList},

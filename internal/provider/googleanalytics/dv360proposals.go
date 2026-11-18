@@ -11,8 +11,8 @@ import (
 	"github.com/castrowithcee/qatlas-kit/redact"
 )
 
-// Proposals are the invitations to link a property with a Display & Video 360 advertiser. Approving, cancelling,
-// creating and deleting one are not tools, see dv360links.go.
+// Proposals are the invitations to link a property with a Display & Video 360 advertiser. Cancelling and deleting one are tools,
+// see advertiserlinkdelete.go; approving, creating and changing one are not, see dv360links.go.
 const (
 	dv360ProposalsListID = Provider + ".display-video360-link-proposals.list"
 	dv360ProposalsGetID  = Provider + ".display-video360-link-proposals.get"
@@ -82,7 +82,7 @@ const dv360ProposalFieldsText = "name (properties/ID/displayVideo360AdvertiserLi
 
 const dv360ProposalWarning = " PERSONAL DATA: a proposal names the email address of the person who proposed the " +
 	"link, and can name a validation email address. Read only what the task needs and do not pass the addresses " +
-	"on. Approving or cancelling a proposal is not a tool; a person does that in Analytics or Display & Video 360."
+	"on. Approving a proposal is not a tool; a person does that in Analytics or Display & Video 360."
 
 type (
 	dv360ProposalsPage struct {
