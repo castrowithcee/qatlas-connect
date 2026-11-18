@@ -1,6 +1,6 @@
 ---
 description: >
-  Describes the Google Business Profile provider: the consent-only token credential, the one scope business.manage, the fixed API origins, the approval of the Cloud project and its error class, the performance tools, the optional account and location targets and how they are proven, the profile, quota and request spacing, result bounds, the connection test, error classes, and the limits of what is verified.
+  Describes the Google Business Profile provider: the consent-only token credential, the one scope business.manage, the fixed API origins, the approval of the Cloud project and its error class, the location, admin, and performance tools, the optional account and location targets and how they are proven, the profile, quota and request spacing, result bounds, the connection test, error classes, and the limits of what is verified.
 type: knowledge
 edit: shared
 created: 2026-11-17
@@ -11,7 +11,8 @@ updated: 2026-11-18
 
 Google Business Profile is a provider for the Business Profile APIs v1: the accounts a person owns or manages
 and the business locations in them, and the performance of a location. Most tools read; the tools of the
-profile `write` change the role of existing admins and rename an account. [Set up Google Business
+profile `write` change the role of existing admins, rename an account, and create and change locations. Deleting
+a location is listed-only. [Set up Google Business
 Profile](setup.md) leads through the Google side, the approval, and the consent. The tools are described per
 group in [accounts](accounts.md), [locations](locations.md), [account admins](account-admins.md), [location
 admins](location-admins.md), and [performance](performance.md).
@@ -42,8 +43,9 @@ no wider than the task needs.
 
 | Profile | Tools |
 | --- | --- |
-| `read` (recommended) | every read tool: `accounts.list`, `accounts.get`, `locations.list`, `locations.get`, `account-admins.list`, `location-admins.list` |
-| `write` | `account-admins.update`, `location-admins.update`, `accounts.update`; each change needs confirmation |
+| `read` (recommended) | every read tool: `accounts.list`, `accounts.get`, `locations.list`, `locations.get`, `locations.get-google-updated`, `account-admins.list`, `location-admins.list` |
+| `write` | `account-admins.update`, `location-admins.update`, `accounts.update`, `locations.create`, `locations.update`; each change needs confirmation |
+| none | `locations.delete` is listed-only: only a `tools` list offers it |
 
 The profile `read` changes nothing, but Google's only scope also allows changes, so the token could. The two
 admin lists name other people (first and last name, and the email address of a pending invitation), which is
@@ -89,12 +91,13 @@ request is sent; a refusal never names the other object.
 | `accounts.list` | answers with the bound account only, read directly; `parent_account` is refused | not offered |
 | `accounts.get` | the bound account only | not offered |
 | `locations.list` | the locations of the bound account; another account and `accounts/-` are refused | answers with the bound location only, read directly; `account` and `filter` are refused |
-| `locations.get` | first proves that the location is in the bound account's location list | the bound location only |
+| `locations.get`, `locations.get-google-updated`, `locations.update`, `locations.delete` | first prove that the location is in the bound account's location list | the bound location only |
+| `locations.create` | the bound account only | not offered |
 | `account-admins.list`, `account-admins.update`, `accounts.update` | the bound account only | not offered |
 | `location-admins.list`, `location-admins.update` | prove the location first, like `locations.get` | the bound location only |
 | `performance.*` | first prove, on every call, that the location is in the bound account's location list | the bound location only |
 
-The proof of `locations.get` and of the performance tools reads the location list of the bound account, names
+The proof of the location tools and of the performance tools reads the location list of the bound account, names
 only, 100 at a time, until it finds the location. It reads at most 2000 locations; a location not found by then is refused like one outside
 the target. The time between the proof and the read is a limit of the proof.
 
@@ -163,7 +166,8 @@ read; no other value chooses a class.
 
 The provider reaches only the fixed origins and the fixed method of each tool. It offers no passthrough of
 method, path, header, or body. The v4 accounts, admins, invitations, and transfer methods are deprecated and
-not used. No tool invites anyone or creates an admin, and no tool creates an account or transfers a location.
+not used. No tool invites anyone or creates an admin, and no tool creates an account or transfers a location. The
+location writes are described in [locations](locations.md#writing-a-location).
 
 Not verified:
 
@@ -176,6 +180,11 @@ Not verified:
 - Whether a read mask accepts nested field paths. Qatlas accepts only the top-level fields of a location.
 - The exact form Google expects for several sort fields; Qatlas joins them with a comma.
 - Which classification Google gives `business.manage` when it verifies an OAuth app.
+- How Google reacts to a change of the title, the address, or a category: a new verification, a review, or a
+  suspended profile.
+- Whether a deleted location can be restored.
+- Whether an update mask accepts nested field paths, and whether Google applies the limits of its documentation
+  for texts; Qatlas accepts only top-level fields and caps a `profile` description at 4000 characters.
 - Whether a change with `validate_only` counts against the 10 changes per minute; Qatlas counts it.
 - The format of an admin ID; Qatlas accepts up to 64 letters, digits, `_`, and `-`.
 - Whether Google allows `SITE_MANAGER` as the new role of an account admin; its documentation names only the

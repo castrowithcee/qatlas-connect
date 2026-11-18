@@ -298,6 +298,7 @@ func TestNoToolCreatesAdminsOrAccounts(t *testing.T) {
 	want := map[string]bool{}
 	for _, name := range []string{"account-admins.list", "account-admins.update", "accounts.get", "accounts.list",
 		"accounts.update", "location-admins.list", "location-admins.update", "locations.get", "locations.list",
+		"locations.create", "locations.update", "locations.delete", "locations.get-google-updated",
 		"performance.fetch-daily-metrics", "performance.get-daily-metric", "performance.list-search-keywords"} {
 		want[Provider+"."+name] = true
 	}
@@ -305,7 +306,8 @@ func TestNoToolCreatesAdminsOrAccounts(t *testing.T) {
 		t.Errorf("tools = %v", ids)
 	}
 	for _, id := range ids {
-		if !want[id] || strings.Contains(id, "create") || strings.Contains(id, "delete") || strings.Contains(id, "transfer") {
+		if strings.Contains(id, "transfer") || !want[id] ||
+			(!strings.Contains(id, ".locations.") && (strings.Contains(id, "create") || strings.Contains(id, "delete"))) {
 			t.Errorf("unexpected tool %s", id)
 		}
 	}

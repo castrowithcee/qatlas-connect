@@ -48,6 +48,11 @@ var toolScopes = map[string][]string{
 	locationAdminsUpdateID: {scopeManage},
 	accountsUpdateID:       {scopeManage},
 
+	locationsCreateID:           {scopeManage},
+	locationsUpdateID:           {scopeManage},
+	locationsDeleteID:           {scopeManage},
+	locationsGetGoogleUpdatedID: {scopeManage},
+
 	performanceGetDailyID:   {scopeManage},
 	performanceFetchDailyID: {scopeManage},
 	performanceKeywordsID:   {scopeManage},
@@ -110,11 +115,14 @@ func testClass(err error) (provider.Class, error) {
 
 // readTools are the tools of the profile read.
 var readTools = []string{accountsListID, accountsGetID, locationsListID, locationsGetID,
-	accountAdminsListID, locationAdminsListID,
+	accountAdminsListID, locationAdminsListID, locationsGetGoogleUpdatedID,
 	performanceGetDailyID, performanceFetchDailyID, performanceKeywordsID}
 
 // writeTools are the tools of the profile write.
-var writeTools = []string{accountAdminsUpdateID, locationAdminsUpdateID, accountsUpdateID}
+//
+// locations.delete is in no profile: only a tools list offers it.
+var writeTools = []string{accountAdminsUpdateID, locationAdminsUpdateID, accountsUpdateID, locationsCreateID,
+	locationsUpdateID}
 
 // Register adds the provider metadata, its consent endpoints, its connection test, and its tools.
 func Register(reg *capability.Registry) error {
@@ -136,8 +144,9 @@ func Register(reg *capability.Registry) error {
 			Tools: readTools,
 		}, {
 			ID: "write", Title: "Write",
-			Description: "changes the role of existing admins of an account or a location and renames an account, " +
-				"each change with the confirmation of a person; no tool invites or creates an admin, makes anyone " +
+			Description: "changes the role of existing admins of an account or a location, renames an account, and " +
+				"creates and changes business locations, whose data is public, each change with the confirmation of a " +
+				"person; no tool of this profile deletes a location; no tool invites or creates an admin, makes anyone " +
 				"primary owner, or transfers a location; Google offers only the scope business.manage, so the " +
 				"token may change what its account may",
 			Tools: writeTools,
@@ -164,6 +173,13 @@ func Register(reg *capability.Registry) error {
 			ConfirmationSummary: adminSummary},
 		capability.Operation{Descriptor: accountsUpdate, Handler: handleAccountsUpdate,
 			ConfirmationSummary: accountUpdateSummary},
+		capability.Operation{Descriptor: locationsGetGoogleUpdated, Handler: handleLocationsGetGoogleUpdated},
+		capability.Operation{Descriptor: locationsCreate, Handler: handleLocationsCreate,
+			ConfirmationSummary: locationCreateSummary},
+		capability.Operation{Descriptor: locationsUpdate, Handler: handleLocationsUpdate,
+			ConfirmationSummary: locationUpdateSummary},
+		capability.Operation{Descriptor: locationsDelete, Handler: handleLocationsDelete,
+			ConfirmationSummary: locationDeleteSummary},
 		capability.Operation{Descriptor: performanceGetDaily, Handler: handleGetDailyMetric},
 		capability.Operation{Descriptor: performanceFetchDaily, Handler: handleFetchDailyMetrics},
 		capability.Operation{Descriptor: performanceKeywords, Handler: handleListSearchKeywords},
