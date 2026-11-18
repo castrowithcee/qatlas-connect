@@ -40,7 +40,8 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 		wantEffect := config.EffectRead
 		switch {
 		case tool.ID == serviceAccountsCreateID, tool.ID == projectsCreateID, tool.ID == foldersCreateID, tool.ID == disksInsertID, tool.ID == disksCreateSnapshotID,
-			tool.ID == imagesInsertID, tool.ID == objectsInsertID, tool.ID == objectsCopyID, tool.ID == objectsComposeID:
+			tool.ID == imagesInsertID, tool.ID == objectsInsertID, tool.ID == objectsCopyID, tool.ID == objectsComposeID,
+			tool.ID == changesCreateID, tool.ID == recordSetsCreateID:
 			wantEffect = config.EffectCreate
 		case tool.ID == serviceAccountsPatchID, tool.ID == serviceAccountsDisableID, tool.ID == serviceAccountsEnableID,
 			tool.ID == serviceAccountKeysDisableID, tool.ID == serviceAccountKeysEnableID, tool.ID == apiKeysUndeleteID,
@@ -49,7 +50,7 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 			tool.ID == foldersPatchID, tool.ID == foldersMoveID, tool.ID == foldersUndeleteID,
 			strings.Contains(tool.ID, ".iam-bindings."), tool.ID == instancesStartID, tool.ID == instancesStopID,
 			tool.ID == instancesResetID, tool.ID == instancesSetMachineTypeID, tool.ID == disksResizeID, tool.ID == objectsRestoreID,
-			tool.ID == objectsPatchID, tool.ID == hmacKeysDeactivateID:
+			tool.ID == objectsPatchID, tool.ID == hmacKeysDeactivateID, tool.ID == recordSetsPatchID:
 			wantEffect = config.EffectUpdate
 		case tool.ID == serviceAccountKeysDeleteID, tool.ID == serviceAccountsDeleteID, tool.ID == apiKeysDeleteID,
 			tool.ID == firewallsDeleteID, tool.ID == addressesDeleteID, tool.ID == vpnTunnelsDeleteID,
@@ -57,7 +58,7 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 			tool.ID == snapshotsDeleteID, tool.ID == imagesDeleteID, tool.ID == objectsDeleteID,
 			tool.ID == bucketsDeleteID, tool.ID == hmacKeysDeleteID,
 			tool.ID == projectsDeleteID, tool.ID == foldersDeleteID,
-			tool.ID == notificationsDeleteID:
+			tool.ID == notificationsDeleteID, tool.ID == recordSetsDeleteID:
 			wantEffect = config.EffectDelete
 		case tool.ID == instancesInsertID:
 			wantEffect = config.EffectCreate
@@ -109,6 +110,10 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 			strings.Contains(tool.ID, ".policies.") || strings.Contains(tool.ID, ".response-policies.") {
 			// dns v1 lists ndev.clouddns.readonly as the smallest scope for the reads of zones, records, and policies.
 			wantScope = scopeDNSReadOnly
+			if slices.Contains([]string{changesCreateID, recordSetsCreateID, recordSetsPatchID, recordSetsDeleteID}, tool.ID) {
+				// dns v1 lists ndev.clouddns.readwrite and cloud-platform for the four changes.
+				wantScope = scopeDNSReadWrite
+			}
 		}
 		if strings.Contains(tool.ID, ".buckets.") || strings.Contains(tool.ID, ".bucket-access-controls.") ||
 			strings.Contains(tool.ID, ".objects.") || strings.Contains(tool.ID, ".object-access-controls.") ||
@@ -157,7 +162,7 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 	if want := []string{"google.cloud.addresses.delete", "google.cloud.addresses.get", "google.cloud.addresses.list", "google.cloud.api-keys.delete", "google.cloud.api-keys.get", "google.cloud.api-keys.list",
 		"google.cloud.api-keys.undelete", "google.cloud.billing-accounts.get", "google.cloud.billing-accounts.list", "google.cloud.billing-accounts.list-projects",
 		"google.cloud.bucket-access-controls.list", "google.cloud.buckets.delete", "google.cloud.buckets.get", "google.cloud.buckets.get-iam-policy",
-		"google.cloud.buckets.list", "google.cloud.budgets.get", "google.cloud.budgets.list", "google.cloud.catalog-services.list", "google.cloud.catalog-skus.list", "google.cloud.changes.get", "google.cloud.changes.list", "google.cloud.compute-operations.get",
+		"google.cloud.buckets.list", "google.cloud.budgets.get", "google.cloud.budgets.list", "google.cloud.catalog-services.list", "google.cloud.catalog-skus.list", "google.cloud.changes.create", "google.cloud.changes.get", "google.cloud.changes.list", "google.cloud.compute-operations.get",
 		"google.cloud.compute-operations.list", "google.cloud.disks.aggregated-list", "google.cloud.disks.create-snapshot", "google.cloud.disks.delete",
 		"google.cloud.disks.get", "google.cloud.disks.insert", "google.cloud.disks.list", "google.cloud.disks.resize",
 		"google.cloud.dns-keys.get", "google.cloud.dns-keys.list", "google.cloud.firewalls.delete", "google.cloud.firewalls.get",
@@ -181,7 +186,7 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 		"google.cloud.projects.create", "google.cloud.projects.delete", "google.cloud.projects.get", "google.cloud.projects.list",
 		"google.cloud.projects.move", "google.cloud.projects.patch", "google.cloud.projects.search", "google.cloud.projects.undelete",
 		"google.cloud.quota-infos.get", "google.cloud.quota-infos.list", "google.cloud.quota-preferences.get", "google.cloud.quota-preferences.list",
-		"google.cloud.record-sets.get", "google.cloud.record-sets.list", "google.cloud.regions.list", "google.cloud.response-policies.get", "google.cloud.response-policies.list", "google.cloud.service-account-keys.delete",
+		"google.cloud.record-sets.create", "google.cloud.record-sets.delete", "google.cloud.record-sets.get", "google.cloud.record-sets.list", "google.cloud.record-sets.patch", "google.cloud.regions.list", "google.cloud.response-policies.get", "google.cloud.response-policies.list", "google.cloud.service-account-keys.delete",
 		"google.cloud.service-account-keys.disable", "google.cloud.service-account-keys.enable",
 		"google.cloud.service-account-keys.get",
 		"google.cloud.service-account-keys.list", "google.cloud.service-accounts.create",
@@ -282,6 +287,11 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 		case "storage-objects-write":
 			if profile.Recommended || !slices.Equal(profile.Tools, []string{projectsGetID, objectsInsertID, objectsCopyID, objectsComposeID, objectsPatchID}) {
 				t.Errorf("profile storage-objects-write = %+v", profile)
+			}
+		case "dns-write":
+			if profile.Recommended || !slices.Equal(profile.Tools, []string{projectsGetID, managedZonesGetID, recordSetsGetID,
+				changesGetID, changesCreateID, recordSetsCreateID, recordSetsPatchID, recordSetsDeleteID}) {
+				t.Errorf("profile dns-write = %+v", profile)
 			}
 		case "iam-bindings":
 			if profile.Recommended || !slices.Contains(profile.Tools, iamBindingsAddID) ||

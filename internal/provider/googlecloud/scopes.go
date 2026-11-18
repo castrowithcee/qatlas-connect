@@ -51,6 +51,11 @@ const scopeBilling = "https://www.googleapis.com/auth/cloud-billing"
 // resourceRecordSets.list and get, next to cloud-platform, cloud-platform.read-only, and ndev.clouddns.readwrite.
 const scopeDNSReadOnly = "https://www.googleapis.com/auth/ndev.clouddns.readonly"
 
+// scopeDNSReadWrite is the smallest scope the discovery document of dns v1 lists for changes.create and
+// resourceRecordSets.create, patch, and delete, next to cloud-platform. The reads of the zone and of the record
+// set that the tools make first list it as well.
+const scopeDNSReadWrite = "https://www.googleapis.com/auth/ndev.clouddns.readwrite"
+
 // tokenMetadata maps every tool to the smallest scopes it needs. The core derives the scopes of a connection
 // from it, so a tool that is not offered adds none.
 var tokenMetadata = config.TokenMetadata{Scopes: map[string][]string{
@@ -232,4 +237,10 @@ var tokenMetadata = config.TokenMetadata{Scopes: map[string][]string{
 	hmacKeysDeactivateID:  {scopeStorageFullControl},
 	hmacKeysDeleteID:      {scopeStorageFullControl},
 	notificationsDeleteID: {scopeStorageReadWrite},
+	// dns v1 lists ndev.clouddns.readwrite as the smallest scope for changes.create and resourceRecordSets.create,
+	// patch, and delete.
+	changesCreateID:    {scopeDNSReadWrite},
+	recordSetsCreateID: {scopeDNSReadWrite},
+	recordSetsPatchID:  {scopeDNSReadWrite},
+	recordSetsDeleteID: {scopeDNSReadWrite},
 }}

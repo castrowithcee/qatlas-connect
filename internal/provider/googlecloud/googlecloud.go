@@ -15,9 +15,10 @@
 // compute-instances-create (instances.insert, compute_instances_insert.go) and the listed-only instances.delete,
 // compute-disks (creating, growing, and snapshotting disks, compute_disks_write.go) and the listed-only
 // disks.delete, and compute-images-delete (creating images and deleting snapshots and images,
-// compute_images_write.go), and storage-objects-write (uploading, copying, composing, and changing the metadata
-// of Cloud Storage objects, storage_object_write.go), each change with the confirmation of a person. Every request goes to a fixed origin of the service table, with the access token in
-// the Authorization header only, once, within a bounded size and time, and spaced per credential.
+// compute_images_write.go), dns-write (changes and record sets of Cloud DNS zones, dns_record_sets_write.go),
+// and storage-objects-write (uploading, copying, composing, and changing the metadata of Cloud Storage objects,
+// storage_object_write.go), each change with the confirmation of a person. Every request goes to a fixed origin
+// of the service table, with the access token in the Authorization header only, once, within a bounded size and time, and spaced per credential.
 //
 // A connection may be bound to organizations, folders, and projects, which nest as Google nests them, and to
 // billing accounts, which belong to none of them. A project is bound to a target by reading it and the folders
@@ -280,6 +281,20 @@ func Register(reg *capability.Registry) error {
 			Tools: []string{projectsGet.ID, hmacKeysList.ID, hmacKeysGet.ID, notificationsList.ID, hmacKeysDeactivate.ID,
 				hmacKeysDelete.ID, notificationsDelete.ID},
 		}, {
+			ID: "dns-write", Title: "Change DNS records",
+			Description: "adds, changes, and deletes the record sets of the Cloud DNS managed zones of a project, one " +
+				"record set at a time or several in one atomic change, each with the confirmation of a person; the " +
+				"SOA record and the NS records of the zone apex are refused, because they can move the delegation of " +
+				"the zone to foreign name servers; NS records below the apex are allowed; private and public zones " +
+				"are treated alike, so a record in a public zone is visible on the internet; the profile holds the " +
+				"reads of the zone, the record set, and the change, and projects.get, which proves a project " +
+				"against targets of an organization or a folder; the tools ask for the scope " +
+				"ndev.clouddns.readwrite, which Google also uses to change every record of the project's zones, so " +
+				"the token may do that although no tool creates or deletes a zone; no tool opens network access, and " +
+				"what a record makes reachable is the responsibility of the person who confirms",
+			Tools: []string{projectsGet.ID, managedZonesGet.ID, recordSetsGet.ID, changesGet.ID, changesCreate.ID,
+				recordSetsCreate.ID, recordSetsPatch.ID, recordSetsDelete.ID},
+		}, {
 			ID: "services", Title: "Enable APIs",
 			Description: "enables Google APIs in a project, one or up to 20 at a time, each with the confirmation of a " +
 				"person; these Service Usage methods accept only the broad cloud-platform scope, so the token may " +
@@ -366,6 +381,14 @@ func Register(reg *capability.Registry) error {
 		capability.Operation{Descriptor: recordSetsGet, Handler: handleRecordSetsGet},
 		capability.Operation{Descriptor: changesList, Handler: handleChangesList},
 		capability.Operation{Descriptor: changesGet, Handler: handleChangesGet},
+		capability.Operation{Descriptor: changesCreate, Handler: handleChangesCreate,
+			ConfirmationSummary: changeSummary},
+		capability.Operation{Descriptor: recordSetsCreate, Handler: handleRecordSetsCreate,
+			ConfirmationSummary: recordSummary("create")},
+		capability.Operation{Descriptor: recordSetsPatch, Handler: handleRecordSetsPatch,
+			ConfirmationSummary: recordSummary("patch")},
+		capability.Operation{Descriptor: recordSetsDelete, Handler: handleRecordSetsDelete,
+			ConfirmationSummary: recordSummary("delete")},
 		capability.Operation{Descriptor: dnsKeysList, Handler: handleDNSKeysList},
 		capability.Operation{Descriptor: dnsKeysGet, Handler: handleDNSKeysGet},
 		capability.Operation{Descriptor: dnsPoliciesList, Handler: handleDNSPoliciesList},
