@@ -491,5 +491,9 @@ func Register(reg *capability.Registry) error {
 		capability.Operation{Descriptor: foldersMove, Handler: handleFoldersMove,
 			ConfirmationSummary: folderSummary(foldersMoveID)},
 		capability.Operation{Descriptor: foldersUndelete, Handler: handleFoldersUndelete,
-			ConfirmationSummary: folderSummary(foldersUndeleteID)})
+			ConfirmationSummary: folderSummary(foldersUndeleteID)},
+		capability.Operation{Descriptor: projectsDelete, Handler: handleProjectsDelete,
+			ConfirmationSummary: deleteSummary(projectsDeleteID)},
+		capability.Operation{Descriptor: foldersDelete, Handler: handleFoldersDelete,
+			ConfirmationSummary: deleteSummary(foldersDeleteID)})
 }
