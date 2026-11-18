@@ -89,7 +89,8 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 			// compute v1 lists compute and cloud-platform for the four deletions and the instance tools.
 			wantScope = scopeCompute
 		}
-		if strings.Contains(tool.ID, ".buckets.") || strings.Contains(tool.ID, ".bucket-access-controls.") {
+		if strings.Contains(tool.ID, ".buckets.") || strings.Contains(tool.ID, ".bucket-access-controls.") ||
+			tool.ID == notificationsListID || tool.ID == managedFoldersListID || tool.ID == hmacKeysListID || tool.ID == hmacKeysGetID {
 			// storage v1 lists devstorage.read_only for the bucket reads, and only devstorage.full_control and
 			// cloud-platform for the policy and the ACL.
 			wantScope = scopeStorageReadOnly
@@ -105,6 +106,7 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 		"google.cloud.api-keys.undelete", "google.cloud.bucket-access-controls.list", "google.cloud.buckets.get",
 		"google.cloud.buckets.get-iam-policy", "google.cloud.buckets.list", "google.cloud.compute-operations.get", "google.cloud.compute-operations.list", "google.cloud.disks.aggregated-list", "google.cloud.disks.get", "google.cloud.disks.list", "google.cloud.firewalls.delete", "google.cloud.firewalls.get", "google.cloud.firewalls.list",
 		"google.cloud.folders.get", "google.cloud.folders.list", "google.cloud.folders.search",
+		"google.cloud.hmac-keys.get", "google.cloud.hmac-keys.list",
 		"google.cloud.iam-bindings.add-member", "google.cloud.iam-bindings.change-role",
 		"google.cloud.iam-bindings.remove-member", "google.cloud.iam-deny-policies.get", "google.cloud.iam-deny-policies.list",
 		"google.cloud.iam-permissions.query-testable", "google.cloud.iam-permissions.test",
@@ -113,8 +115,8 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 		"google.cloud.instances.delete", "google.cloud.instances.get", "google.cloud.instances.insert",
 		"google.cloud.instances.list", "google.cloud.instances.reset",
 		"google.cloud.instances.set-machine-type", "google.cloud.instances.start", "google.cloud.instances.stop",
-		"google.cloud.machine-types.list",
-		"google.cloud.networks.get", "google.cloud.networks.list", "google.cloud.operations.get", "google.cloud.organizations.get",
+		"google.cloud.machine-types.list", "google.cloud.managed-folders.list",
+		"google.cloud.networks.get", "google.cloud.networks.list", "google.cloud.notifications.list", "google.cloud.operations.get", "google.cloud.organizations.get",
 		"google.cloud.organizations.search", "google.cloud.projects.get", "google.cloud.projects.list",
 		"google.cloud.projects.search", "google.cloud.quota-infos.get", "google.cloud.quota-infos.list",
 		"google.cloud.quota-preferences.get", "google.cloud.quota-preferences.list", "google.cloud.regions.list", "google.cloud.service-account-keys.delete",
@@ -129,7 +131,7 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 		"google.cloud.vpn-tunnels.delete", "google.cloud.vpn-tunnels.get", "google.cloud.vpn-tunnels.list", "google.cloud.zones.list"}; !slices.Equal(ids, want) {
 		t.Errorf("tools = %v, want %v", ids, want)
 	}
-	if profile, found := metadata.RecommendedProfile(); !found || profile.ID != "read" || len(profile.Tools) != 43 {
+	if profile, found := metadata.RecommendedProfile(); !found || profile.ID != "read" || len(profile.Tools) != 47 {
 		t.Errorf("profile = %+v", profile)
 	}
 	// The recommended profile asks only for read scopes, an explicit allow-list; a tool that needs the broad
