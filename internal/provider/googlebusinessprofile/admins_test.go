@@ -76,7 +76,7 @@ func writeEnvironment(t *testing.T) (*environment, *writer) {
 	env := newEnvironment(t, nil)
 	w := &writer{patched: `{"name":"` + adminOne + `","admin":"Sample Person","role":"MANAGER"}`}
 	env.fake.answer = w.answer
-	effects := []config.Effect{config.EffectRead, config.EffectUpdate}
+	effects := []config.Effect{config.EffectRead, config.EffectUpdate, config.EffectDelete}
 	for name, target := range map[string]string{"w-all": "", "w-account": boundAccount, "w-location": boundLocation} {
 		env.cfg.Connections[name] = config.Connection{Service: "profile", Credential: "google", Effects: effects,
 			Target: target}
@@ -296,7 +296,8 @@ func TestNoToolCreatesAdminsOrAccounts(t *testing.T) {
 		ids = append(ids, d.ID)
 	}
 	want := map[string]bool{}
-	for _, name := range []string{"account-admins.list", "account-admins.update", "accounts.get", "accounts.list",
+	for _, name := range []string{"account-admins.list", "account-admins.update", "account-admins.delete", "invitations.list", "invitations.decline",
+		"location-admins.delete", "accounts.get", "accounts.list",
 		"accounts.update", "location-admins.list", "location-admins.update", "locations.get", "locations.list"} {
 		want[Provider+"."+name] = true
 	}
@@ -304,7 +305,7 @@ func TestNoToolCreatesAdminsOrAccounts(t *testing.T) {
 		t.Errorf("tools = %v", ids)
 	}
 	for _, id := range ids {
-		if !want[id] || strings.Contains(id, "create") || strings.Contains(id, "delete") || strings.Contains(id, "transfer") {
+		if !want[id] || strings.Contains(id, "create") || strings.Contains(id, "accept") || strings.Contains(id, "transfer") {
 			t.Errorf("unexpected tool %s", id)
 		}
 	}
