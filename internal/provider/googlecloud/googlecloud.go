@@ -101,7 +101,8 @@ var readTools = []string{organizationsSearch.ID, foldersSearch.ID, projectsSearc
 	bucketsList.ID, bucketsGet.ID, notificationsList.ID, managedFoldersList.ID, hmacKeysList.ID, hmacKeysGet.ID,
 	objectsList.ID, objectsGet.ID, objectsDownload.ID,
 	billingAccountsList.ID, billingAccountsGet.ID, billingAccountsListProjects.ID, projectBillingInfoGet.ID,
-	managedZonesList.ID, managedZonesGet.ID, recordSetsList.ID, recordSetsGet.ID}
+	managedZonesList.ID, managedZonesGet.ID, recordSetsList.ID, recordSetsGet.ID,
+	changesList.ID, changesGet.ID, dnsKeysList.ID, dnsKeysGet.ID}
 
 // Register adds the provider metadata, its connection test, its consent endpoints, and its tools.
 func Register(reg *capability.Registry) error {
@@ -130,7 +131,7 @@ func Register(reg *capability.Registry) error {
 				"the notification configurations and managed folders of a bucket, and " +
 				"the HMAC key metadata of a project with the scope devstorage.read_only, " +
 				"the Cloud Billing accounts a connection names, their projects, and the billing account of a project with the scope cloud-billing.readonly, " +
-				"and the Cloud DNS managed zones and record sets of a project with the scope ndev.clouddns.readonly, and changes nothing",
+				"and the Cloud DNS managed zones, record sets, changes, and DNSSEC keys of a project with the scope ndev.clouddns.readonly, and changes nothing",
 			Tools: readTools,
 		}, {
 			ID: "read-iam", Title: "Read with IAM",
@@ -332,6 +333,10 @@ func Register(reg *capability.Registry) error {
 		capability.Operation{Descriptor: managedZonesGet, Handler: handleManagedZonesGet},
 		capability.Operation{Descriptor: recordSetsList, Handler: handleRecordSetsList},
 		capability.Operation{Descriptor: recordSetsGet, Handler: handleRecordSetsGet},
+		capability.Operation{Descriptor: changesList, Handler: handleChangesList},
+		capability.Operation{Descriptor: changesGet, Handler: handleChangesGet},
+		capability.Operation{Descriptor: dnsKeysList, Handler: handleDNSKeysList},
+		capability.Operation{Descriptor: dnsKeysGet, Handler: handleDNSKeysGet},
 		capability.Operation{Descriptor: bucketsGetIAMPolicy, Handler: handleBucketsGetIAMPolicy},
 		capability.Operation{Descriptor: bucketAccessControlsList, Handler: handleBucketAccessControlsList},
 		capability.Operation{Descriptor: objectsList, Handler: handleObjectsList},
