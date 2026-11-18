@@ -1,17 +1,18 @@
 ---
 description: >
-  Describes the Google Cloud Compute disk tools disks.list, disks.aggregated-list, and disks.get: their arguments, the compute.readonly scope and the profile read, the target check, the cursor, partial results with unreachables and warning, the result members, the rule that encryption key material is never returned, and what is not verified.
+  Describes the Google Cloud Compute disk tools disks.list, disks.aggregated-list, and disks.get and the changes disks.insert, disks.resize, and disks.create-snapshot: their arguments, the scopes compute.readonly and compute with the profiles read and compute-disks, the target check, the cursor, partial results with unreachables and warning, the result members, the rule that encryption key material is never returned or taken, how sources and references are built, the size check before growing, the confirmation, the request ID and the returned operation, and what is not verified.
 type: knowledge
 edit: shared
 created: 2026-11-17
-updated: 2026-11-17
+updated: 2026-11-18
 ---
 
 # Google Cloud Compute disks
 
 Three tools read the persistent disks of a project from Compute Engine (`compute` v1, discovery revision
-20261106). They change nothing and create, resize, or attach no disk. Every request goes to the fixed origin
-`https://compute.googleapis.com` with the base path `/compute/v1`; no argument takes a path, URL, header, or body.
+20261106), and three more create a disk, grow a disk, and snapshot a disk ([Changes](#changes)). No tool deletes,
+attaches, or shares a disk or snapshot. Every request goes to the fixed origin `https://compute.googleapis.com` with
+the base path `/compute/v1`; no argument takes a path, URL, header, or body.
 
 | Tool | Google method | Arguments |
 | --- | --- | --- |
@@ -42,10 +43,56 @@ result.
 
 ## Scope and rights
 
-The tools ask for the scope `compute.readonly` and belong to the profiles `read` and `read-iam`. The account needs
-`compute.disks.list` or `compute.disks.get` (the Compute Viewer role has them), and the Compute Engine API must be
-enabled in the project.
+The read tools ask for the scope `compute.readonly` and belong to the profiles `read` and `read-iam`. The account
+needs `compute.disks.list` or `compute.disks.get` (the Compute Viewer role has them), and the Compute Engine API must
+be enabled in the project. The rights of the changes are in [Set up Google Cloud](setup.md).
+
+## Changes
+
+| Tool | Google method | Effect | Named in the confirmation |
+| --- | --- | --- | --- |
+| `disks.insert` | `disks.insert` | `create` | project, zone, name, size, type, source, provisioned IOPS and throughput; the disk is billed until it is deleted |
+| `disks.resize` | `disks.resize` | `update` | project, zone, disk, new size; a disk cannot be shrunk again |
+| `disks.create-snapshot` | `disks.createSnapshot` | `create` | project, zone, disk, snapshot, type, storage location; the snapshot is billed until it is deleted |
+
+The three tools belong to the profile `compute-disks`, which is not recommended, asks for the scope `compute`, needs
+the effects `create` and `update`, and holds `projects.get` as well. Every call needs the confirmation of a person.
+
+- **Body.** The tools build the Disk or Snapshot from structured arguments, one per documented field that a request
+  may set; there is no passthrough of a body. Left out are the fields of a regional disk (`replicaZones`, `region`),
+  `sourceStorageObject` (a free Cloud Storage address), `asyncPrimaryDisk` (a lasting replication link from another
+  disk), `params.resourceManagerTags` (tags can decide IAM conditions and organization policies), `options` and
+  `locationHint` (internal use), `labelFingerprint` (only for changing labels), and of a snapshot the sources other
+  than the disk of the call.
+- **Sources and references.** Google takes every other resource as a URL; the tools take names and build the URL
+  themselves. Images, image families, snapshots, disks, instant snapshots, disk types, storage pools, and resource
+  policies are those of the project of the call, which the target check covers: disks, instant snapshots, disk
+  types, and storage pools of the zone, resource policies of its region. An image, image family, or license may also
+  come from one of Google's public image projects, a fixed list that the descriptor of `disks.insert` names. Any
+  other project is refused, because an image of a project outside the targets would otherwise be copied into the
+  disk. At most one source is taken.
+- **Encryption keys.** `rawKey` and `rsaEncryptedKey` are no argument of any tool, and the key fields of a source
+  (`sourceImageEncryptionKey`, `sourceSnapshotEncryptionKey`, `sourceDiskEncryptionKey`,
+  `sourceInstantSnapshotEncryptionKey`) are left out, because they hold only customer-supplied keys, which Google
+  marks deprecated. A disk or snapshot is encrypted with a Cloud KMS key through `kms_key_name` and optionally
+  `kms_key_service_account`. The key may lie in another project; the Compute Engine service agent needs the right to
+  use it. Key material is dropped from the returned operation as from the reads.
+- **Size check.** `disks.resize` reads the disk after the confirmation and sends the change only if `size_gb` is
+  larger than its `sizeGb`; otherwise it fails without a change. The time between the read and the change is a
+  limit.
+- **Labels and description.** Labels follow the read rule of [Google Cloud](README.md#boundary) (lowercase ASCII),
+  which is narrower than what Google accepts, and a value may be empty. The length of a description is a Qatlas
+  bound, because the discovery document gives none.
+- **Request and result.** Each call sends one POST and never repeats it. `request_id` is a UUID that is not all
+  zero; without it the tool creates one and returns it. Repeating a call with the same `request_id` is idempotent:
+  Google ignores a request whose ID it already received. The tool never waits: the result is
+  `{operation, scope: "zone", zone, request_id}`, and `compute-operations.get` with scope `zone` reads the state. An
+  operation that is already `DONE` with an error is reported as a provider error. An answer without an operation of
+  the zone, or a failure after which the request may have arrived, says that the outcome is unknown: read the disk
+  with `disks.get` or the snapshot with `snapshots.get`.
 
 ## Not verified
 
-The answers of Compute Engine were not seen live; which members Google fills depends on the disk.
+- The answers of Compute Engine were not seen live; which members Google fills depends on the disk.
+- The changes were checked against a simulated Compute Engine only. The list of public image projects follows
+  Google's list of operating system details; a project Google adds later is refused until the list is extended.

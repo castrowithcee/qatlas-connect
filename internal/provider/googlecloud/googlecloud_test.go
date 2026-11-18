@@ -39,13 +39,13 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 		ids = append(ids, tool.ID)
 		wantEffect := config.EffectRead
 		switch {
-		case tool.ID == serviceAccountsCreateID:
+		case tool.ID == serviceAccountsCreateID, tool.ID == disksInsertID, tool.ID == disksCreateSnapshotID:
 			wantEffect = config.EffectCreate
 		case tool.ID == serviceAccountsPatchID, tool.ID == serviceAccountsDisableID, tool.ID == serviceAccountsEnableID,
 			tool.ID == serviceAccountKeysDisableID, tool.ID == serviceAccountKeysEnableID, tool.ID == apiKeysUndeleteID,
 			tool.ID == servicesEnableID, tool.ID == servicesBatchEnableID, tool.ID == servicesDisableID,
 			strings.Contains(tool.ID, ".iam-bindings."), tool.ID == instancesStartID, tool.ID == instancesStopID,
-			tool.ID == instancesResetID, tool.ID == instancesSetMachineTypeID:
+			tool.ID == instancesResetID, tool.ID == instancesSetMachineTypeID, tool.ID == disksResizeID:
 			wantEffect = config.EffectUpdate
 		case tool.ID == serviceAccountKeysDeleteID, tool.ID == serviceAccountsDeleteID, tool.ID == apiKeysDeleteID,
 			tool.ID == firewallsDeleteID, tool.ID == addressesDeleteID, tool.ID == vpnTunnelsDeleteID,
@@ -81,7 +81,8 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 			wantScope = "https://www.googleapis.com/auth/compute.readonly"
 		}
 		if slices.Contains([]string{firewallsDeleteID, addressesDeleteID, vpnTunnelsDeleteID, vpnGatewaysDeleteID,
-			instancesStartID, instancesStopID, instancesResetID, instancesSetMachineTypeID}, tool.ID) {
+			instancesStartID, instancesStopID, instancesResetID, instancesSetMachineTypeID,
+			disksInsertID, disksResizeID, disksCreateSnapshotID}, tool.ID) {
 			// compute v1 lists compute and cloud-platform for the four deletions.
 			wantScope = scopeCompute
 		}
@@ -90,7 +91,7 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 		}
 	}
 	if want := []string{"google.cloud.addresses.delete", "google.cloud.addresses.get", "google.cloud.addresses.list", "google.cloud.api-keys.delete", "google.cloud.api-keys.get", "google.cloud.api-keys.list",
-		"google.cloud.api-keys.undelete", "google.cloud.compute-operations.get", "google.cloud.compute-operations.list", "google.cloud.disks.aggregated-list", "google.cloud.disks.get", "google.cloud.disks.list", "google.cloud.firewalls.delete", "google.cloud.firewalls.get", "google.cloud.firewalls.list",
+		"google.cloud.api-keys.undelete", "google.cloud.compute-operations.get", "google.cloud.compute-operations.list", "google.cloud.disks.aggregated-list", "google.cloud.disks.create-snapshot", "google.cloud.disks.get", "google.cloud.disks.insert", "google.cloud.disks.list", "google.cloud.disks.resize", "google.cloud.firewalls.delete", "google.cloud.firewalls.get", "google.cloud.firewalls.list",
 		"google.cloud.folders.get", "google.cloud.folders.list", "google.cloud.folders.search",
 		"google.cloud.iam-bindings.add-member", "google.cloud.iam-bindings.change-role",
 		"google.cloud.iam-bindings.remove-member", "google.cloud.iam-deny-policies.get", "google.cloud.iam-deny-policies.list",
@@ -163,6 +164,10 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 		case "compute-lifecycle":
 			if profile.Recommended || !slices.Equal(profile.Tools, []string{projectsGetID, instancesStartID, instancesStopID, instancesResetID, instancesSetMachineTypeID}) {
 				t.Errorf("profile compute-lifecycle = %+v", profile)
+			}
+		case "compute-disks":
+			if profile.Recommended || !slices.Equal(profile.Tools, []string{projectsGetID, disksInsertID, disksResizeID, disksCreateSnapshotID}) {
+				t.Errorf("profile compute-disks = %+v", profile)
 			}
 		case "iam-bindings":
 			if profile.Recommended || !slices.Contains(profile.Tools, iamBindingsAddID) ||
