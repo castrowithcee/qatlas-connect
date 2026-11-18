@@ -305,7 +305,8 @@ func TestNoToolCreatesAdminsOrAccounts(t *testing.T) {
 		"lodging.get", "lodging.get-google-updated", "lodging.update",
 		"notifications.get", "verifications.fetch-options", "verifications.get-merchant-state", "verifications.list",
 		"place-action-links.create", "place-action-links.delete", "place-action-links.get",
-		"place-action-links.list", "place-action-links.update", "place-action-types.list"} {
+		"place-action-links.list", "place-action-links.update", "place-action-types.list",
+		"reviews.batch-get", "reviews.delete-reply", "reviews.get", "reviews.list", "reviews.update-reply"} {
 		want[Provider+"."+name] = true
 	}
 	if len(ids) != len(want) {
