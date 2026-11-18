@@ -49,8 +49,8 @@ const (
 // minute, shared by every user of its client, which is 200 ms.
 const readInterval = 200 * time.Millisecond
 
-// changeInterval spaces two changes of one location: Google allows 10 changes per minute and profile, which
-// is 6 seconds. The tools that change a location wait for it with changeLimiter.
+// changeInterval spaces two changes of one profile: Google allows 10 changes per minute and profile, which
+// is 6 seconds. Every tool that changes something waits for it with changeLimiter.
 const changeInterval = 6 * time.Second
 
 // maxHold bounds how long a rate-limit answer may delay the next request of this process.
@@ -63,8 +63,8 @@ var (
 	tokenCache *provider.TokenCache
 	// limiters holds the spacing of every OAuth client this process has used.
 	limiters = ratelimit.NewRegistry(readInterval)
-	// changeLimiters holds the spacing of the changes of every location this process has changed. Google
-	// counts the changes per profile, whoever makes them, so the key is the location alone.
+	// changeLimiters holds the spacing of the changes of every account or location this process has changed.
+	// Google counts the changes per profile, whoever makes them, so the key is the account or location alone.
 	changeLimiters = ratelimit.NewRegistry(changeInterval)
 )
 
@@ -150,8 +150,8 @@ func withSource(ctx context.Context, resolved *config.Resolved, secrets *secret.
 		limiter: limiters.For("client:" + value.Secret)}, nil
 }
 
-// changeLimiter is the spacing of the changes of one location, for the tools that change a location.
-func changeLimiter(location string) *ratelimit.Limiter { return changeLimiters.For(location) }
+// changeLimiter is the spacing of the changes of one account or location, named by its resource name.
+func changeLimiter(key string) *ratelimit.Limiter { return changeLimiters.For(key) }
 
 // request is one read of an API: a fixed origin, a path below its v1 prefix built from checked segments, and
 // a query of checked arguments.
