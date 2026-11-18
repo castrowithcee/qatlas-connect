@@ -68,7 +68,8 @@ var toolEffects = map[string]config.Effect{accountsUpdateID: config.EffectUpdate
 	annotationsCreateID: config.EffectCreate, annotationsUpdateID: config.EffectUpdate, annotationsDeleteID: config.EffectDelete,
 	audiencesCreateID: config.EffectCreate, audiencesUpdateID: config.EffectUpdate, audiencesArchiveID: config.EffectDelete,
 	channelGroupsCreateID: config.EffectCreate, channelGroupsUpdateID: config.EffectUpdate, channelGroupsDeleteID: config.EffectDelete,
-	edsCreateID: config.EffectCreate, edsUpdateID: config.EffectUpdate, edsDeleteID: config.EffectDelete}
+	edsCreateID: config.EffectCreate, edsUpdateID: config.EffectUpdate, edsDeleteID: config.EffectDelete,
+	attributionUpdateID: config.EffectUpdate}
 
 func effectOf(id string) config.Effect {
 	if effect, ok := toolEffects[id]; ok {
@@ -121,7 +122,8 @@ func TestRegisterPublishesMetadataScopesAndConsent(t *testing.T) {
 		edsListID: {scopeReadOnly}, edsGetID: {scopeReadOnly}, edsCreateID: {scopeEdit}, edsUpdateID: {scopeEdit},
 		edsDeleteID: {scopeEdit}, adsLinksListID: {scopeReadOnly}, firebaseLinksListID: {scopeReadOnly},
 		bigQueryLinksListID: {scopeReadOnly}, bigQueryLinksGetID: {scopeReadOnly}, adsenseLinksListID: {scopeReadOnly},
-		adsenseLinksGetID: {scopeReadOnly}, searchAdsLinksListID: {scopeReadOnly}, searchAdsLinksGetID: {scopeReadOnly}}) {
+		adsenseLinksGetID: {scopeReadOnly}, searchAdsLinksListID: {scopeReadOnly}, searchAdsLinksGetID: {scopeReadOnly},
+		attributionGetID: {scopeReadOnly}, attributionUpdateID: {scopeEdit}, changeHistoryID: {scopeEdit}}) {
 		t.Errorf("scopes = %v", metadata.Token.Scopes)
 	}
 	ids := []string{}
@@ -183,7 +185,8 @@ func TestRegisterPublishesMetadataScopesAndConsent(t *testing.T) {
 		"google.analytics.display-video360-links.get", "google.analytics.display-video360-link-proposals.list",
 		"google.analytics.display-video360-link-proposals.get", "google.analytics.google-ads-links.list",
 		"google.analytics.firebase-links.list", "google.analytics.bigquery-links.list",
-		"google.analytics.bigquery-links.get"})) {
+		"google.analytics.bigquery-links.get", "google.analytics.attribution-settings.get",
+		"google.analytics.attribution-settings.update", "google.analytics.change-history.search"})) {
 		t.Errorf("tools = %v", ids)
 	}
 	reads := []string{summariesID, accountsID, accountsGetID, accountsSharingID, propertiesListID, propertiesGetID,
@@ -197,8 +200,8 @@ func TestRegisterPublishesMetadataScopesAndConsent(t *testing.T) {
 		annotationsListID, annotationsGetID, dv360LinksListID, dv360LinksGetID, dv360ProposalsListID, dv360ProposalsGetID,
 		audiencesListID, audiencesGetID, channelGroupsListID, channelGroupsGetID, edsListID, edsGetID, adsLinksListID,
 		firebaseLinksListID, bigQueryLinksListID, bigQueryLinksGetID, adsenseLinksListID, adsenseLinksGetID,
-		searchAdsLinksListID, searchAdsLinksGetID}
-	if len(metadata.Profiles) != 2 || metadata.Profiles[0].ID != "read" || !metadata.Profiles[0].Recommended ||
+		searchAdsLinksListID, searchAdsLinksGetID, attributionGetID}
+	if len(metadata.Profiles) != 3 || metadata.Profiles[0].ID != "read" || !metadata.Profiles[0].Recommended ||
 		!reflect.DeepEqual(metadata.Profiles[0].Tools, reads) || metadata.Profiles[1].ID != "write" ||
 		metadata.Profiles[1].Recommended ||
 		!reflect.DeepEqual(metadata.Profiles[1].Tools,
@@ -212,7 +215,11 @@ func TestRegisterPublishesMetadataScopesAndConsent(t *testing.T) {
 				annotationsCreateID, annotationsUpdateID, annotationsDeleteID,
 				audiencesCreateID, audiencesUpdateID, audiencesArchiveID,
 				channelGroupsCreateID, channelGroupsUpdateID, channelGroupsDeleteID,
-				edsCreateID, edsUpdateID, edsDeleteID)) {
+				edsCreateID, edsUpdateID, edsDeleteID, attributionUpdateID, changeHistoryID)) ||
+		metadata.Profiles[2].ID != "read-change-history" || metadata.Profiles[2].Recommended ||
+		!reflect.DeepEqual(metadata.Profiles[2].Tools, append(slices.Clone(reads), changeHistoryID)) ||
+		!strings.Contains(metadata.Profiles[2].Description, "analytics.edit") ||
+		!strings.Contains(metadata.Profiles[2].Description, "personal data") {
 		t.Errorf("profiles = %+v", metadata.Profiles)
 	}
 	oauth, ok := reg.OAuth(Provider)
@@ -238,6 +245,9 @@ func TestRegisterPublishesMetadataScopesAndConsent(t *testing.T) {
 		}
 		if descriptor.ID == adsLinksListID {
 			sensitivity = dataSensitivityLinkCreators
+		}
+		if descriptor.ID == changeHistoryID {
+			sensitivity = dataSensitivityChangeHistory
 		}
 		if effectOf(descriptor.ID) == config.EffectRead && descriptor.Risk != (capability.Risk{
 			Effect: capability.EffectRead, Idempotency: capability.IdempotencySafe,

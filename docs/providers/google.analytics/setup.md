@@ -19,7 +19,8 @@ This page shows how to connect Qatlas to Google Analytics 4. Targets, paging, an
 [audience exports](audience-exports.md), [report tasks](report-tasks.md),
 [measurement protocol secrets](measurement-protocol-secrets.md), [access reports](access-reports.md),
 [data retention](data-retention.md), [Google Signals](google-signals.md), [Google Ads links](google-ads-links.md),
-[Firebase links](firebase-links.md), and [BigQuery links](bigquery-links.md).
+[Firebase links](firebase-links.md), [BigQuery links](bigquery-links.md), [attribution settings](attribution-settings.md),
+and [change history](change-history.md).
 
 ## What you need
 
@@ -92,6 +93,10 @@ reads Analytics configuration and report data. The tools that change an account,
 use the credential and no more. Each connection of a credential has to be for Google Analytics, so the
 credential never carries the scope of another product.
 
+One reading tool needs the editing scope: Google accepts only `analytics.edit` for the change history search, so a
+credential that is used with `change-history.search` carries a token that could also change what its account may.
+The tool is outside the profile `read` for that reason, see [change history](change-history.md#scope-and-profiles).
+
 | Tool group | Tools | Scope |
 | --- | --- | --- |
 | [Accounts](accounts.md) | `accounts.list-summaries`, `accounts.list`, `accounts.get`, `accounts.get-data-sharing-settings` | `analytics.readonly` |
@@ -136,6 +141,9 @@ credential never carries the scope of another product.
 | [Google Ads links](google-ads-links.md) | `google-ads-links.list` | `analytics.readonly` |
 | [Firebase links](firebase-links.md) | `firebase-links.list` | `analytics.readonly` |
 | [BigQuery links](bigquery-links.md) | `bigquery-links.list`, `bigquery-links.get` | `analytics.readonly` |
+| [Attribution settings](attribution-settings.md) | `attribution-settings.get` | `analytics.readonly` |
+| [Attribution settings](attribution-settings.md#googleanalyticsattribution-settingsupdate) | `attribution-settings.update` | `analytics.edit` |
+| [Change history](change-history.md#scope-and-profiles) | `change-history.search` (reads only, but Google accepts `analytics.edit` alone) | `analytics.edit` |
 
 ## Add it to Qatlas
 
