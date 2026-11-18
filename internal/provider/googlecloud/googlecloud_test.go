@@ -39,7 +39,8 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 		ids = append(ids, tool.ID)
 		wantEffect := config.EffectRead
 		switch {
-		case tool.ID == serviceAccountsCreateID, tool.ID == disksInsertID, tool.ID == disksCreateSnapshotID:
+		case tool.ID == serviceAccountsCreateID, tool.ID == disksInsertID, tool.ID == disksCreateSnapshotID,
+			tool.ID == imagesInsertID:
 			wantEffect = config.EffectCreate
 		case tool.ID == serviceAccountsPatchID, tool.ID == serviceAccountsDisableID, tool.ID == serviceAccountsEnableID,
 			tool.ID == serviceAccountKeysDisableID, tool.ID == serviceAccountKeysEnableID, tool.ID == apiKeysUndeleteID,
@@ -49,7 +50,8 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 			wantEffect = config.EffectUpdate
 		case tool.ID == serviceAccountKeysDeleteID, tool.ID == serviceAccountsDeleteID, tool.ID == apiKeysDeleteID,
 			tool.ID == firewallsDeleteID, tool.ID == addressesDeleteID, tool.ID == vpnTunnelsDeleteID,
-			tool.ID == vpnGatewaysDeleteID, tool.ID == instancesDeleteID:
+			tool.ID == vpnGatewaysDeleteID, tool.ID == instancesDeleteID, tool.ID == disksDeleteID,
+			tool.ID == snapshotsDeleteID, tool.ID == imagesDeleteID:
 			wantEffect = config.EffectDelete
 		case tool.ID == instancesInsertID:
 			wantEffect = config.EffectCreate
@@ -86,9 +88,15 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 		}
 		if slices.Contains([]string{firewallsDeleteID, addressesDeleteID, vpnTunnelsDeleteID, vpnGatewaysDeleteID,
 			instancesStartID, instancesStopID, instancesResetID, instancesSetMachineTypeID,
-			instancesInsertID, instancesDeleteID, disksInsertID, disksResizeID, disksCreateSnapshotID}, tool.ID) {
-			// compute v1 lists compute and cloud-platform for the four deletions, the instance tools, and the disk changes.
+			instancesInsertID, instancesDeleteID, disksInsertID, disksResizeID, disksCreateSnapshotID,
+			disksDeleteID, imagesInsertID, imagesDeleteID, snapshotsDeleteID}, tool.ID) {
+			// compute v1 lists compute and cloud-platform for the deletions, the instance tools, and the disk and
+			// image changes.
 			wantScope = scopeCompute
+		}
+		if strings.Contains(tool.ID, ".managed-zones.") || strings.Contains(tool.ID, ".record-sets.") {
+			// dns v1 lists ndev.clouddns.readonly as the smallest scope for the reads of zones and records.
+			wantScope = scopeDNSReadOnly
 		}
 		if strings.Contains(tool.ID, ".buckets.") || strings.Contains(tool.ID, ".bucket-access-controls.") ||
 			strings.Contains(tool.ID, ".objects.") || strings.Contains(tool.ID, ".object-access-controls.") ||
@@ -106,23 +114,23 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 		}
 	}
 	if want := []string{"google.cloud.addresses.delete", "google.cloud.addresses.get", "google.cloud.addresses.list", "google.cloud.api-keys.delete", "google.cloud.api-keys.get", "google.cloud.api-keys.list",
-		"google.cloud.api-keys.undelete", "google.cloud.bucket-access-controls.list", "google.cloud.buckets.get", "google.cloud.buckets.get-iam-policy", "google.cloud.buckets.list", "google.cloud.compute-operations.get", "google.cloud.compute-operations.list", "google.cloud.disks.aggregated-list", "google.cloud.disks.create-snapshot", "google.cloud.disks.get", "google.cloud.disks.insert", "google.cloud.disks.list", "google.cloud.disks.resize", "google.cloud.firewalls.delete", "google.cloud.firewalls.get", "google.cloud.firewalls.list",
+		"google.cloud.api-keys.undelete", "google.cloud.bucket-access-controls.list", "google.cloud.buckets.get", "google.cloud.buckets.get-iam-policy", "google.cloud.buckets.list", "google.cloud.compute-operations.get", "google.cloud.compute-operations.list", "google.cloud.disks.aggregated-list", "google.cloud.disks.create-snapshot", "google.cloud.disks.delete", "google.cloud.disks.get", "google.cloud.disks.insert", "google.cloud.disks.list", "google.cloud.disks.resize", "google.cloud.firewalls.delete", "google.cloud.firewalls.get", "google.cloud.firewalls.list",
 		"google.cloud.folders.get", "google.cloud.folders.list", "google.cloud.folders.search",
 		"google.cloud.hmac-keys.get", "google.cloud.hmac-keys.list",
 		"google.cloud.iam-bindings.add-member", "google.cloud.iam-bindings.change-role",
 		"google.cloud.iam-bindings.remove-member", "google.cloud.iam-deny-policies.get", "google.cloud.iam-deny-policies.list",
 		"google.cloud.iam-permissions.query-testable", "google.cloud.iam-permissions.test",
 		"google.cloud.iam-policies.get", "google.cloud.iam-roles.get", "google.cloud.iam-roles.list",
-		"google.cloud.iam-roles.query-grantable", "google.cloud.images.get", "google.cloud.images.list", "google.cloud.instances.aggregated-list",
+		"google.cloud.iam-roles.query-grantable", "google.cloud.images.delete", "google.cloud.images.get", "google.cloud.images.insert", "google.cloud.images.list", "google.cloud.instances.aggregated-list",
 		"google.cloud.instances.delete", "google.cloud.instances.get", "google.cloud.instances.insert",
 		"google.cloud.instances.list", "google.cloud.instances.reset",
 		"google.cloud.instances.set-machine-type", "google.cloud.instances.start", "google.cloud.instances.stop",
-		"google.cloud.machine-types.list", "google.cloud.managed-folders.list",
+		"google.cloud.machine-types.list", "google.cloud.managed-folders.list", "google.cloud.managed-zones.get", "google.cloud.managed-zones.list",
 		"google.cloud.networks.get", "google.cloud.networks.list", "google.cloud.notifications.list", "google.cloud.object-access-controls.list",
 		"google.cloud.objects.download", "google.cloud.objects.get", "google.cloud.objects.list", "google.cloud.operations.get", "google.cloud.organizations.get",
 		"google.cloud.organizations.search", "google.cloud.projects.get", "google.cloud.projects.list",
 		"google.cloud.projects.search", "google.cloud.quota-infos.get", "google.cloud.quota-infos.list",
-		"google.cloud.quota-preferences.get", "google.cloud.quota-preferences.list", "google.cloud.regions.list", "google.cloud.service-account-keys.delete",
+		"google.cloud.quota-preferences.get", "google.cloud.quota-preferences.list", "google.cloud.record-sets.get", "google.cloud.record-sets.list", "google.cloud.regions.list", "google.cloud.service-account-keys.delete",
 		"google.cloud.service-account-keys.disable", "google.cloud.service-account-keys.enable",
 		"google.cloud.service-account-keys.get",
 		"google.cloud.service-account-keys.list", "google.cloud.service-accounts.create",
@@ -130,17 +138,17 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 		"google.cloud.service-accounts.get", "google.cloud.service-accounts.list",
 		"google.cloud.service-accounts.patch", "google.cloud.services.batch-enable", "google.cloud.services.batch-get",
 		"google.cloud.services.disable", "google.cloud.services.enable", "google.cloud.services.get",
-		"google.cloud.services.list", "google.cloud.snapshots.get", "google.cloud.snapshots.list", "google.cloud.subnetworks.get", "google.cloud.subnetworks.list", "google.cloud.vpn-gateways.delete", "google.cloud.vpn-gateways.get", "google.cloud.vpn-gateways.list",
+		"google.cloud.services.list", "google.cloud.snapshots.delete", "google.cloud.snapshots.get", "google.cloud.snapshots.list", "google.cloud.subnetworks.get", "google.cloud.subnetworks.list", "google.cloud.vpn-gateways.delete", "google.cloud.vpn-gateways.get", "google.cloud.vpn-gateways.list",
 		"google.cloud.vpn-tunnels.delete", "google.cloud.vpn-tunnels.get", "google.cloud.vpn-tunnels.list", "google.cloud.zones.list"}; !slices.Equal(ids, want) {
 		t.Errorf("tools = %v, want %v", ids, want)
 	}
-	if profile, found := metadata.RecommendedProfile(); !found || profile.ID != "read" || len(profile.Tools) != 50 {
+	if profile, found := metadata.RecommendedProfile(); !found || profile.ID != "read" || len(profile.Tools) != 54 {
 		t.Errorf("profile = %+v", profile)
 	}
 	// The recommended profile asks only for read scopes, an explicit allow-list; a tool that needs the broad
 	// cloud-platform scope belongs to read-iam, which holds every read tool, or to a changing profile.
 	readScopes := [][]string{{"https://www.googleapis.com/auth/cloud-platform.read-only"},
-		{"https://www.googleapis.com/auth/compute.readonly"}, {scopeStorageReadOnly}}
+		{"https://www.googleapis.com/auth/compute.readonly"}, {scopeStorageReadOnly}, {scopeDNSReadOnly}}
 	for _, profile := range metadata.Profiles {
 		switch profile.ID {
 		case "read":
@@ -194,6 +202,10 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 		case "compute-disks":
 			if profile.Recommended || !slices.Equal(profile.Tools, []string{projectsGetID, disksInsertID, disksResizeID, disksCreateSnapshotID}) {
 				t.Errorf("profile compute-disks = %+v", profile)
+			}
+		case "compute-images-delete":
+			if profile.Recommended || !slices.Equal(profile.Tools, []string{projectsGetID, imagesInsertID, snapshotsDeleteID, imagesDeleteID}) {
+				t.Errorf("profile compute-images-delete = %+v", profile)
 			}
 		case "iam-bindings":
 			if profile.Recommended || !slices.Contains(profile.Tools, iamBindingsAddID) ||
