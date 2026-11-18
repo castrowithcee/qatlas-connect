@@ -15,7 +15,8 @@
 // compute-instances-create (instances.insert, compute_instances_insert.go) and the listed-only instances.delete,
 // compute-disks (creating, growing, and snapshotting disks, compute_disks_write.go) and the listed-only
 // disks.delete, and compute-images-delete (creating images and deleting snapshots and images,
-// compute_images_write.go), each change with the confirmation of a person. Every request goes to a fixed origin of the service table, with the access token in
+// compute_images_write.go), and storage-objects-write (uploading, copying, composing, and changing the metadata
+// of Cloud Storage objects, storage_object_write.go), each change with the confirmation of a person. Every request goes to a fixed origin of the service table, with the access token in
 // the Authorization header only, once, within a bounded size and time, and spaced per credential.
 //
 // A connection may be bound to organizations, folders, and projects, which nest as Google nests them, and to
@@ -248,6 +249,17 @@ func Register(reg *capability.Registry) error {
 				"snapshot or changes its IAM policy",
 			Tools: []string{projectsGet.ID, imagesInsert.ID, snapshotsDelete.ID, imagesDelete.ID},
 		}, {
+			ID: "storage-objects-write", Title: "Write Cloud Storage objects",
+			Description: "uploads objects of up to 256 KiB, copies them, composes 2 to 32 objects into one, and changes the " +
+				"metadata of objects in the Cloud Storage buckets of a project, each with the confirmation of a person; an " +
+				"object is never overwritten unless the call says so, no object is made public (publicRead, " +
+				"authenticatedRead, and free-form ACLs are not offered), and no tool deletes an object; projects.get is part " +
+				"of the profile so that targets of an organization or a folder can be proved; uploading, copying, and " +
+				"composing use the scope devstorage.read_write, but objects.patch accepts only devstorage.full_control (or " +
+				"cloud-platform), so the token also holds the right to change the access control lists of Cloud Storage " +
+				"resources, and written data is billed for its storage",
+			Tools: []string{projectsGet.ID, objectsInsert.ID, objectsCopy.ID, objectsCompose.ID, objectsPatch.ID},
+		}, {
 			ID: "storage-revoke", Title: "Cloud Storage access revocation",
 			Description: "deactivates and deletes HMAC keys of a project and deletes notification configurations of a " +
 				"bucket, each with the confirmation of a person; a key is deleted only if Google finds it INACTIVE, and " +
@@ -358,6 +370,14 @@ func Register(reg *capability.Registry) error {
 		capability.Operation{Descriptor: objectsGet, Handler: handleObjectsGet},
 		capability.Operation{Descriptor: objectsDownload, Handler: handleObjectsDownload},
 		capability.Operation{Descriptor: objectAccessControlsList, Handler: handleObjectAccessControlsList},
+		capability.Operation{Descriptor: objectsInsert, Handler: handleObjectsInsert,
+			ConfirmationSummary: objectsInsertSummary},
+		capability.Operation{Descriptor: objectsCopy, Handler: handleObjectsCopy,
+			ConfirmationSummary: objectsCopySummary},
+		capability.Operation{Descriptor: objectsCompose, Handler: handleObjectsCompose,
+			ConfirmationSummary: objectsComposeSummary},
+		capability.Operation{Descriptor: objectsPatch, Handler: handleObjectsPatch,
+			ConfirmationSummary: objectsPatchSummary},
 		capability.Operation{Descriptor: objectsDelete, Handler: handleObjectsDelete,
 			ConfirmationSummary: objectChangeSummary(objectsDeleteID)},
 		capability.Operation{Descriptor: objectsRestore, Handler: handleObjectsRestore,
