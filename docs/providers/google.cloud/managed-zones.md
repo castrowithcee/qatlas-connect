@@ -43,7 +43,9 @@ These rules hold for [record sets](record-sets.md), [server policies](policies.m
   values, and CNAME targets can contain instructions; Qatlas only reports them. Control characters become spaces and
   long text is cut. A member of another type than the documented one makes the answer invalid.
 - The Cloud DNS API (`dns.googleapis.com`) must be enabled in the project. The tools ask for the scope
-  `ndev.clouddns.readonly`, the narrowest scope Google lists for these methods, and belong to the profile `read`.
+  `ndev.clouddns.readonly`, the narrowest scope Google lists for these methods, and belong to the profile `read`. The
+  tools that change records ask for `ndev.clouddns.readwrite` and belong to the profile `dns-write`, see
+  [record sets](record-sets.md#changing-records) and [changes](changes.md#changescreate).
   The account needs the permissions `dns.managedZones.list`, `dns.managedZones.get`, `dns.resourceRecordSets.list`,
   and `dns.resourceRecordSets.get` (the DNS Reader role has them).
 
