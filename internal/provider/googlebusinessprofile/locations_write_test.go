@@ -87,7 +87,7 @@ func locationEnvironment(t *testing.T) (*environment, *locationFake) {
 	return env, w
 }
 
-const createArgs = `{"account":"` + boundAccount + `","title":"Sample Bakery",` +
+const locationCreateArgs = `{"account":"` + boundAccount + `","title":"Sample Bakery",` +
 	`"categories":{"primaryCategory":{"name":"categories/gcid:bakery"},"additionalCategories":[{"name":"categories/gcid:cafe"}]},` +
 	`"languageCode":"de","storeCode":"s-1","phoneNumbers":{"primaryPhone":"030 0000000"},` +
 	`"storefrontAddress":{"regionCode":"DE","locality":"Berlin","addressLines":["Sample Street 1"]},` +
@@ -199,7 +199,7 @@ func TestLocationDeleteChecksTheTarget(t *testing.T) {
 func TestLocationCreateSendsTheFieldsAndNamesTheRequestID(t *testing.T) {
 	env, w := locationEnvironment(t)
 	_, err := env.core.Invoke(context.Background(), application.InvokeRequest{Operation: locationsCreateID,
-		Connection: "l-all", Arguments: json.RawMessage(createArgs)})
+		Connection: "l-all", Arguments: json.RawMessage(locationCreateArgs)})
 	var needs *application.ConfirmationRequiredError
 	if !errors.As(err, &needs) || !strings.Contains(needs.Summary, "Sample Bakery") ||
 		!strings.Contains(needs.Summary, boundAccount) {
@@ -207,7 +207,7 @@ func TestLocationCreateSendsTheFieldsAndNamesTheRequestID(t *testing.T) {
 	}
 	env.noRequests(t)
 
-	out, err := env.change(t, locationsCreateID, "l-all", createArgs)
+	out, err := env.change(t, locationsCreateID, "l-all", locationCreateArgs)
 	if err != nil || out["name"] != "locations/2000077" {
 		t.Fatalf("result = %v, %v", out, err)
 	}
@@ -235,7 +235,7 @@ func TestLocationCreateSendsTheFieldsAndNamesTheRequestID(t *testing.T) {
 
 func TestLocationCreateKeepsAGivenRequestIDAndValidates(t *testing.T) {
 	env, _ := locationEnvironment(t)
-	args := strings.Replace(createArgs, `"title"`, `"request_id":"sample-request-1","validate_only":true,"title"`, 1)
+	args := strings.Replace(locationCreateArgs, `"title"`, `"request_id":"sample-request-1","validate_only":true,"title"`, 1)
 	out, err := env.change(t, locationsCreateID, "l-all", args)
 	if err != nil || out["request_id"] != "sample-request-1" {
 		t.Fatalf("result = %v, %v", out, err)
@@ -301,7 +301,7 @@ func TestLocationCreateOnABoundAccountMayLeaveTheAccountOut(t *testing.T) {
 func TestLocationCreateFailureNamesTheRequestIDWhenUnsure(t *testing.T) {
 	env, w := locationEnvironment(t)
 	w.status = http.StatusServiceUnavailable
-	_, err := env.change(t, locationsCreateID, "l-all", strings.Replace(createArgs, `"title"`, `"request_id":"sample-request-2","title"`, 1))
+	_, err := env.change(t, locationsCreateID, "l-all", strings.Replace(locationCreateArgs, `"title"`, `"request_id":"sample-request-2","title"`, 1))
 	var failed *provider.Error
 	if !errors.As(err, &failed) || !strings.Contains(failed.Message, "outcome of the change is unknown") ||
 		!strings.Contains(failed.Message, "sample-request-2") || strings.Contains(err.Error(), detailCanary) {
@@ -460,10 +460,10 @@ func TestLocationChangesShareTheChangeLimiter(t *testing.T) {
 		t.Errorf("delete right after a change = %v, want rate-limited", err)
 	}
 	// A create counts against the account.
-	if _, err := env.changeWith(t, ctx, locationsCreateID, "l-all", createArgs); err != nil {
+	if _, err := env.changeWith(t, ctx, locationsCreateID, "l-all", locationCreateArgs); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := env.changeWith(t, ctx, locationsCreateID, "l-all", createArgs); classOf(err) != provider.ClassRateLimited {
+	if _, err := env.changeWith(t, ctx, locationsCreateID, "l-all", locationCreateArgs); classOf(err) != provider.ClassRateLimited {
 		t.Errorf("second create in the account = %v, want rate-limited", err)
 	}
 }
@@ -486,7 +486,7 @@ func TestLocationConfirmationShowsEverythingOrTheCallIsRefused(t *testing.T) {
 		!strings.Contains(err.Error(), "500 characters") {
 		t.Fatalf("error = %v", err)
 	}
-	longTitle := strings.Replace(createArgs, "Sample Bakery", strings.Repeat("t", 480), 1)
+	longTitle := strings.Replace(locationCreateArgs, "Sample Bakery", strings.Repeat("t", 480), 1)
 	if _, err := env.change(t, locationsCreateID, "l-all", longTitle); !isInvalidRequest(err) {
 		t.Fatalf("long title: %v", err)
 	}

@@ -303,15 +303,21 @@ func TestNoToolCreatesAdminsOrAccounts(t *testing.T) {
 		"location-admins.list", "location-admins.update", "locations.get", "locations.list",
 		"locations.create", "locations.update", "locations.delete", "locations.get-google-updated",
 		"performance.fetch-daily-metrics", "performance.get-daily-metric", "performance.list-search-keywords",
-		"lodging.get", "lodging.get-google-updated", "lodging.update"} {
+		"lodging.get", "lodging.get-google-updated", "lodging.update",
+		"notifications.get", "verifications.fetch-options", "verifications.get-merchant-state", "verifications.list",
+		"place-action-links.create", "place-action-links.delete", "place-action-links.get",
+		"place-action-links.list", "place-action-links.update", "place-action-types.list",
+		"reviews.batch-get", "reviews.delete-reply", "reviews.get", "reviews.list", "reviews.update-reply"} {
 		want[Provider+"."+name] = true
 	}
 	if len(ids) != len(want) {
 		t.Errorf("tools = %v", ids)
 	}
 	for _, id := range ids {
-		if strings.Contains(id, "transfer") || strings.Contains(id, "accept") || !want[id] ||
-			(!strings.Contains(id, ".locations.") && strings.Contains(id, "create")) {
+		// Only the place action links and locations are created; no admin or account is.
+		links := strings.HasPrefix(id, Provider+".place-action-links.") || strings.Contains(id, ".locations.")
+		if !want[id] || !links && strings.Contains(id, "create") || strings.Contains(id, "accept") ||
+			strings.Contains(id, "transfer") {
 			t.Errorf("unexpected tool %s", id)
 		}
 	}

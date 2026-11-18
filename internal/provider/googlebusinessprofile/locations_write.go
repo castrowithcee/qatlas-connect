@@ -12,7 +12,6 @@ import (
 	"regexp"
 	"slices"
 	"strings"
-	"unicode"
 
 	"github.com/castrowithcee/qatlas-connect/internal/capability"
 	"github.com/castrowithcee/qatlas-connect/internal/config"
@@ -749,24 +748,6 @@ func handleLocationsGetGoogleUpdated(ctx context.Context, resolved *config.Resol
 	return out, nil
 }
 
-// maxConfirmationRunes is the length the core cuts a confirmation at. The confirmation of a change shows
-// every old and new value, never an excerpt, so a change that does not fit is refused before it is written.
-const maxConfirmationRunes = 500
-
-// confirmationLength counts a text the way the core does after neutralizing it: a control, format, or
-// separator rune is shown as an escape of up to ten runes.
-func confirmationLength(text string) int {
-	n := 0
-	for _, r := range strings.ToValidUTF8(text, "\uFFFD") {
-		if unicode.In(r, unicode.Cc, unicode.Cf, unicode.Zl, unicode.Zp) {
-			n += 10
-		} else {
-			n++
-		}
-	}
-	return n
-}
-
 func tooLongForConfirmation() error {
 	return invalidArgument("the confirmation would need more than 500 characters to show every old and new value " +
 		"or the title; change fewer fields in one call, or use shorter values")
@@ -828,7 +809,7 @@ func locationUpdateConfirmation(members map[string]json.RawMessage) string {
 
 // checkConfirmationFits refuses a call whose confirmation the core would have to cut.
 func checkConfirmationFits(text string) error {
-	if confirmationLength(text) > maxConfirmationRunes {
+	if confirmationRunes(text) > maxConfirmRunes {
 		return tooLongForConfirmation()
 	}
 	return nil

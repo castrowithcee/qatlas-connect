@@ -2,6 +2,7 @@ package googlebusinessprofile
 
 import (
 	"bytes"
+	"cmp"
 	"context"
 	"errors"
 	"io"
@@ -13,11 +14,12 @@ import (
 	"github.com/castrowithcee/qatlas-connect/internal/provider"
 )
 
-// change is one changing request of an API: a fixed origin, a path of checked segments, and a body built by
-// the tool from checked arguments, none for a DELETE. key names what Google counts the change against, see
-// changeLimiter.
+// change is one changing request of an API: a fixed origin, a path of checked segments below its prefix (v1
+// unless prefix says otherwise), and a body built by the tool from checked arguments, none for a DELETE. key
+// names what Google counts the change against, see changeLimiter.
 type change struct {
 	root     string
+	prefix   string
 	path     string
 	query    url.Values
 	body     []byte
@@ -35,6 +37,11 @@ func (c *client) post(ctx context.Context, op, tool string, r change, out any) e
 	return c.mutate(ctx, http.MethodPost, op, tool, r, out)
 }
 
+// put sends one PUT, see mutate.
+func (c *client) put(ctx context.Context, op, tool string, r change, out any) error {
+	return c.mutate(ctx, http.MethodPut, op, tool, r, out)
+}
+
 // remove sends one DELETE, see mutate.
 func (c *client) remove(ctx context.Context, op, tool string, r change, out any) error {
 	return c.mutate(ctx, http.MethodDelete, op, tool, r, out)
@@ -44,7 +51,7 @@ func (c *client) remove(ctx context.Context, op, tool string, r change, out any)
 // is dropped for the next call and the change is not sent again. Where the request may have reached Google
 // and the outcome is unclear, the message says so and nothing repeats the change.
 func (c *client) mutate(ctx context.Context, method, op, tool string, r change, out any) error {
-	address := r.root + apiPrefix + r.path
+	address := r.root + cmp.Or(r.prefix, apiPrefix) + r.path
 	if len(r.query) > 0 {
 		address += "?" + r.query.Encode()
 	}

@@ -303,22 +303,14 @@ func TestAdvertiserLink429WithoutRetryAfterHoldsTheNextRequest(t *testing.T) {
 	}
 }
 
-// The Search Ads 360 and AdSense link tools only read here; the AdSense delete is covered by the delete tests.
-func TestSearchAdsLinksHaveNoChangingTool(t *testing.T) {
-	reg := registry(t)
-	for _, descriptor := range reg.Provider(Provider) {
-		if strings.Contains(descriptor.ID, "search-ads360-links.") && descriptor.Risk.Effect != "read" {
-			t.Errorf("%s effect = %s", descriptor.ID, descriptor.Risk.Effect)
-		}
-	}
-	for _, verb := range []string{"create", "update", "patch", "delete"} {
-		if _, ok := scopes[Provider+".search-ads360-links."+verb]; ok {
-			t.Errorf("search-ads360-links.%s exists", verb)
-		}
-	}
-	for _, verb := range []string{"create", "update", "patch"} {
-		if _, ok := scopes[Provider+".adsense-links."+verb]; ok {
-			t.Errorf("adsense-links.%s exists", verb)
+// No link tool of the provider creates or changes a link; the link deletes are checked in
+// TestLinksHaveNoCreateOrPatchTool.
+func TestNoToolChangesALink(t *testing.T) {
+	for _, id := range []string{"adsense-links", "search-ads360-links"} {
+		for _, verb := range []string{"create", "update", "patch"} {
+			if _, ok := scopes[Provider+"."+id+"."+verb]; ok {
+				t.Errorf("%s.%s exists", id, verb)
+			}
 		}
 	}
 }
