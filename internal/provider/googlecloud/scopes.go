@@ -144,4 +144,10 @@ var tokenMetadata = config.TokenMetadata{Scopes: map[string][]string{
 	disksInsertID:         {scopeCompute},
 	disksResizeID:         {scopeCompute},
 	disksCreateSnapshotID: {scopeCompute},
+	// compute v1 lists compute as the smallest scope for disks.delete, images.insert, images.delete, and
+	// snapshots.delete.
+	disksDeleteID:     {scopeCompute},
+	imagesInsertID:    {scopeCompute},
+	imagesDeleteID:    {scopeCompute},
+	snapshotsDeleteID: {scopeCompute},
 }}
