@@ -184,13 +184,7 @@ func (c *client) send(ctx context.Context, op, tool string, svc service, method,
 	}
 	defer response.Body.Close()
 	if response.StatusCode < 200 || response.StatusCode > 299 {
-		body := provider.ReadErrorBody(response.Body)
-		if response.StatusCode == http.StatusTooManyRequests {
-			// A missing or unusable Retry-After still means the credential sent too much: the next call waits,
-			// and nothing repeats this one.
-			c.limiter.HoldFor(min(max(provider.RetryAfter(response.Header), time.Second), maxHold))
-		}
-		mapped := googleError(op, response.StatusCode, body)
+		mapped := c.statusFailure(op, response)
 		if response.StatusCode >= 500 {
 			return unsure(mapped)
 		}
@@ -205,4 +199,15 @@ func (c *client) send(ctx context.Context, op, tool string, svc service, method,
 		return unsure(failed)
 	}
 	return nil
+}
+
+// statusFailure maps the answer of a failed status. A 429 holds the next request of the credential, and
+// nothing repeats this one.
+func (c *client) statusFailure(op string, response *http.Response) *provider.Error {
+	body := provider.ReadErrorBody(response.Body)
+	if response.StatusCode == http.StatusTooManyRequests {
+		// A missing or unusable Retry-After still means the credential sent too much: the next call waits.
+		c.limiter.HoldFor(min(max(provider.RetryAfter(response.Header), time.Second), maxHold))
+	}
+	return googleError(op, response.StatusCode, body)
 }
