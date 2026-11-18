@@ -11,10 +11,12 @@ updated: 2026-11-18
 
 Google Business Profile is a provider for the Business Profile APIs v1: the accounts a person owns or manages
 and the business locations in them, and the performance of a location. Most tools read; the tools of the
-profile `write` change the role of existing admins and rename an account. [Set up Google Business
+profile `write` change the role of existing admins, rename an account, and create, change, and delete place
+action links. [Set up Google Business
 Profile](setup.md) leads through the Google side, the approval, and the consent. The tools are described per
 group in [accounts](accounts.md), [locations](locations.md), [account admins](account-admins.md), [location
-admins](location-admins.md), and [performance](performance.md).
+admins](location-admins.md), [performance](performance.md), [place action links](place-action-links.md), and
+[place action types](place-action-types.md).
 
 ## Credential
 
@@ -42,8 +44,8 @@ no wider than the task needs.
 
 | Profile | Tools |
 | --- | --- |
-| `read` (recommended) | every read tool: `accounts.list`, `accounts.get`, `locations.list`, `locations.get`, `account-admins.list`, `location-admins.list` |
-| `write` | `account-admins.update`, `location-admins.update`, `accounts.update`; each change needs confirmation |
+| `read` (recommended) | every read tool: `accounts.list`, `accounts.get`, `locations.list`, `locations.get`, `account-admins.list`, `location-admins.list`, `place-action-links.list`, `place-action-links.get`, `place-action-types.list` |
+| `write` | `account-admins.update`, `location-admins.update`, `accounts.update`, `place-action-links.create`, `place-action-links.update`, `place-action-links.delete`; each change needs confirmation |
 
 The profile `read` changes nothing, but Google's only scope also allows changes, so the token could. The two
 admin lists name other people (first and last name, and the email address of a pending invitation), which is
@@ -54,7 +56,7 @@ change. Every change is spaced at 10 per minute and profile, see [account admins
 ## Configuration
 
 The origins are fixed. Leave `base_url` out or set it to `https://mybusinessaccountmanagement.googleapis.com`;
-Qatlas refuses any other value before a secret is read. The tools use three APIs, which are enabled in the Cloud
+Qatlas refuses any other value before a secret is read. The tools use four APIs, which are enabled in the Cloud
 project one by one:
 
 | API | Origin | Tools |
@@ -62,6 +64,7 @@ project one by one:
 | My Business Account Management API | `https://mybusinessaccountmanagement.googleapis.com` | [accounts](accounts.md) |
 | My Business Business Information API | `https://mybusinessbusinessinformation.googleapis.com` | [locations](locations.md) |
 | Business Profile Performance API | `https://businessprofileperformance.googleapis.com` | [performance](performance.md) |
+| My Business Place Actions API | `https://mybusinessplaceactions.googleapis.com` | [place action links](place-action-links.md), [place action types](place-action-types.md) |
 
 ## Approval of the Cloud project
 
@@ -93,6 +96,8 @@ request is sent; a refusal never names the other object.
 | `account-admins.list`, `account-admins.update`, `accounts.update` | the bound account only | not offered |
 | `location-admins.list`, `location-admins.update` | prove the location first, like `locations.get` | the bound location only |
 | `performance.*` | first prove, on every call, that the location is in the bound account's location list | the bound location only |
+| `place-action-links.*` | first prove the location of the link, on every call | the bound location only |
+| `place-action-types.list` | proves the location of a `location=` filter; other filters need no proof | a `location=` filter accepts only the bound location |
 
 The proof of `locations.get` and of the performance tools reads the location list of the bound account, names
 only, 100 at a time, until it finds the location. It reads at most 2000 locations; a location not found by then is refused like one outside
@@ -168,8 +173,11 @@ not used. No tool invites anyone or creates an admin, and no tool creates an acc
 Not verified:
 
 - No live call was made. Methods, parameters, and answers are taken from the discovery documents of the My
-  Business Account Management API v1, the My Business Business Information API v1, and the Business Profile
-  Performance API v1, each of revision 20261116.
+  Business Account Management API v1, the My Business Business Information API v1, the Business Profile
+  Performance API v1, and the My Business Place Actions API v1, each of revision 20261116.
+- Whether Google accepts the field names of the update mask of a place action link in the snake_case form its
+  discovery document names, and which link ID forms it issues; Qatlas accepts letters, digits, `_`, and `-` up to
+  128 characters.
 - How Google answers a project without approval. Qatlas assumes a `429` with the quota limit `0`; a pending
   approval may answer differently.
 - Whether each Business Profile API needs to be enabled in the project on its own.
