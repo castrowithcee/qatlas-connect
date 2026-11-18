@@ -73,7 +73,7 @@ Three rules decide which tool a binding reaches. They are separate on purpose:
   account, and the rows are limited to the accounts it names. `billing-accounts.list-projects` also needs an
   organization, a folder, or a project among the targets, which limit its rows. `project-billing-info.get` is a
   resource tool: it needs no billing account.
-- **DNS tools** (`managed-zones.*`, `record-sets.*`, `changes.*`, `dns-keys.*`): the connection is unbound or names an organization, a folder, or a
+- **DNS tools** (`managed-zones.*`, `record-sets.*`, `changes.*`, `dns-keys.*`, `policies.*`, `response-policies.*`): the connection is unbound or names an organization, a folder, or a
   project. The project in the path binds the zone, see [DNS managed zones](managed-zones.md).
 - **Tools without a resource** (`operations.get`): an operation belongs to no folder or project that Qatlas
   could prove, so the tool runs on a connection without targets or with an organization among them. It is not an
@@ -107,7 +107,9 @@ The profile `read` is the recommended one. It holds every tool that needs no mor
 `cloud-billing.readonly`. `objects.download` returns the content of an object, up to a fixed limit, as untrusted data
 (see [Objects](objects.md)). The DNS tools `google.cloud.managed-zones.list`, `google.cloud.managed-zones.get`,
 `google.cloud.record-sets.list`, `google.cloud.record-sets.get`, `google.cloud.changes.list`,
-`google.cloud.changes.get`, `google.cloud.dns-keys.list`, and `google.cloud.dns-keys.get` ask for `ndev.clouddns.readonly`. The two
+`google.cloud.changes.get`, `google.cloud.dns-keys.list`, `google.cloud.dns-keys.get`, `google.cloud.policies.list`,
+`google.cloud.policies.get`, `google.cloud.response-policies.list`, and `google.cloud.response-policies.get` ask for
+`ndev.clouddns.readonly`. The two
 operation tools return the email address of whoever started an operation (personal data) and carry their own
 sensitivity. A connection bound to an organization or a folder needs `projects.get` next to the
 Compute tools to prove the project of a call; `read` holds both.
@@ -271,6 +273,8 @@ on [IAM bindings](iam-bindings.md).
 - [DNS record sets](record-sets.md): the record sets of a Cloud DNS managed zone, one and all, with routing policies.
 - [DNS changes](changes.md): the history of changes of a Cloud DNS managed zone and the state of one change.
 - [DNS keys](dns-keys.md): the DNSSEC keys of a Cloud DNS managed zone, public material only.
+- [DNS server policies](policies.md): the DNS server policies of a project with their forwarding targets, one and all.
+- [DNS response policies](response-policies.md): the response policies of a project, one and all, without their rules.
 - [Quotas](quotas.md): the quotas of a service and the quota preferences of a project from Cloud Quotas.
 
 ### Search
