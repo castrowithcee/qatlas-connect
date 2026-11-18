@@ -12,7 +12,7 @@ updated: 2026-11-18
 Google Business Profile is a provider for the Business Profile APIs v1: the accounts a person owns or manages
 and the business locations in them, their attributes, the performance of a location, the verification state of
 a location, and the notification setting of an account, and for the My Business API v4, which Google keeps for
-reviews, media, and local posts. Most tools read; the tools of the profile `write` change the role of existing
+reviews, media, local posts, and the batch read of locations. Most tools read; the tools of the profile `write` change the role of existing
 admins, remove admins, decline invitations, rename an account, set or remove attributes, create and change
 locations, create, change, and delete place action links, reply to reviews or delete a reply, add photos and videos
 by address, recategorize them, and delete them, and create, change, and delete local posts. Deleting a location is
@@ -51,7 +51,7 @@ no wider than the task needs.
 
 | Profile | Tools |
 | --- | --- |
-| `read` (recommended) | every read tool: `accounts.list`, `accounts.get`, `locations.list`, `locations.get`, `locations.get-google-updated`, `account-admins.list`, `location-admins.list`, `invitations.list`, `lodging.get`, `lodging.get-google-updated`, `attributes.list`, `attributes.get`, `performance.*`, `verifications.list`, `verifications.fetch-options`, `verifications.get-merchant-state`, `notifications.get`, `place-action-links.list`, `place-action-links.get`, `place-action-types.list`, `reviews.list`, `reviews.get`, `reviews.batch-get`, `media.list`, `media.get`, `local-posts.list`, `local-posts.get` |
+| `read` (recommended) | every read tool: `accounts.list`, `accounts.get`, `locations.list`, `locations.get`, `locations.get-google-updated`, `locations.batch-get`, `account-admins.list`, `location-admins.list`, `invitations.list`, `lodging.get`, `lodging.get-google-updated`, `attributes.list`, `attributes.get`, `performance.*`, `verifications.list`, `verifications.fetch-options`, `verifications.get-merchant-state`, `notifications.get`, `place-action-links.list`, `place-action-links.get`, `place-action-types.list`, `reviews.list`, `reviews.get`, `reviews.batch-get`, `media.list`, `media.get`, `local-posts.list`, `local-posts.get` |
 | `write` | `account-admins.update`, `location-admins.update`, `accounts.update`, `locations.create`, `locations.update`, `account-admins.delete`, `location-admins.delete`, `invitations.decline`, `lodging.update`, `attributes.update`, `place-action-links.create`, `place-action-links.update`, `place-action-links.delete`, `reviews.update-reply`, `reviews.delete-reply`, `media.create`, `media.update`, `media.delete`, `local-posts.create`, `local-posts.update`, `local-posts.delete`; each change needs confirmation |
 | none | `locations.delete` is listed-only: only a `tools` list offers it |
 
@@ -79,7 +79,7 @@ project one by one:
 | My Business Verifications API | `https://mybusinessverifications.googleapis.com` | [verifications](verifications.md) |
 | My Business Notifications API | `https://mybusinessnotifications.googleapis.com` | [notifications](notifications.md) |
 | My Business Place Actions API | `https://mybusinessplaceactions.googleapis.com` | [place action links](place-action-links.md), [place action types](place-action-types.md) |
-| My Business API (v4) | `https://mybusiness.googleapis.com/v4` | [reviews](reviews.md), [media](media.md), [local posts](local-posts.md) |
+| My Business API (v4) | `https://mybusiness.googleapis.com/v4` | [reviews](reviews.md), [media](media.md), [local posts](local-posts.md), [locations](locations.md#google-business-profilelocationsbatch-get) |
 
 ## Approval of the Cloud project
 
@@ -108,6 +108,7 @@ request is sent; a refusal never names the other object.
 | `accounts.get` | the bound account only | not offered |
 | `locations.list` | the locations of the bound account; another account and `accounts/-` are refused | answers with the bound location only, read directly; `account` and `filter` are refused |
 | `locations.get`, `locations.get-google-updated`, `locations.update`, `locations.delete` | first prove that the location is in the bound account's location list | the bound location only |
+| `locations.batch-get` | the account must be the bound one and every location is proved like `locations.get`, in one pass over the location list; one location outside the binding fails the whole call | only the location ID of each name is compared, the account part is an argument; see [locations](locations.md#google-business-profilelocationsbatch-get) |
 | `locations.create` | the bound account only | not offered |
 | `account-admins.list`, `account-admins.update`, `account-admins.delete`, `accounts.update` | the bound account only | not offered |
 | `invitations.list`, `invitations.decline` | the invitations of the bound account only | not offered |
@@ -199,7 +200,7 @@ read; no other value chooses a class.
 
 The provider reaches only the fixed origins and the fixed method of each tool. It offers no passthrough of
 method, path, header, or body. The v4 accounts, admins, invitations, and transfer methods are deprecated and
-not used. v4 is used only for reviews, media, and local posts; it has no discovery document, see [reviews](reviews.md#the-v4-client). No tool invites anyone or creates an admin, and no tool creates an account or transfers a location. The
+not used. v4 is used only for reviews, media, local posts, and `locations.batch-get`; it has no discovery document, see [reviews](reviews.md#the-v4-client). No tool invites anyone or creates an admin, and no tool creates an account or transfers a location. The
 location writes are described in [locations](locations.md#writing-a-location).
 
 Not verified:
