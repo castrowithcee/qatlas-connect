@@ -5,7 +5,6 @@ package vault
 import (
 	"bytes"
 	"os"
-	"path/filepath"
 	"testing"
 	"time"
 
@@ -114,7 +113,7 @@ func TestReadsWaitForExclusiveHandle(t *testing.T) {
 		}
 	})
 	t.Run("Unlock", func(t *testing.T) {
-		h := holdExclusive(t, filepath.Join(dir, keyFile))
+		h := holdExclusive(t, v.keyPath())
 		releaseAfter(t, 200*time.Millisecond, func() { _ = windows.CloseHandle(h) })
 		if _, err := New(dir).Unlock(heldPassphrase); err != nil {
 			t.Fatalf("Unlock: %v", err)
