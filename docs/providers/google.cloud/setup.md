@@ -4,7 +4,7 @@ description: >
 type: knowledge
 edit: shared
 created: 2026-11-16
-updated: 2026-11-17
+updated: 2026-11-18
 ---
 
 # Set up Google Cloud
@@ -16,7 +16,7 @@ roles and the roles and permissions of a resource from IAM, and changes nothing 
 `service-accounts-revoke`, which disables, enables, and deletes their keys, a `tools` list that names
 `service-accounts.delete`, which deletes a service account, the profile `api-keys-revoke`, which deletes API
 keys and restores deleted ones, the profile `iam-bindings`, which changes single
-IAM bindings, the profile `compute-network-delete`, which deletes firewall rules, reserved IP addresses, VPN tunnels, and HA VPN gateways, the profile `compute-lifecycle`, which starts, stops, resets, and changes the machine type of Compute instances, the profile `compute-instances-create`, which creates Compute instances, a `tools` list that names `instances.delete`, which deletes one, the profile `services`, which enables Google APIs, or a `tools` list that names `services.disable`,
+IAM bindings, the profile `compute-network-delete`, which deletes firewall rules, reserved IP addresses, VPN tunnels, and HA VPN gateways, the profile `compute-lifecycle`, which starts, stops, resets, and changes the machine type of Compute instances, the profile `compute-instances-create`, which creates Compute instances, a `tools` list that names `instances.delete`, which deletes one, the profile `compute-disks`, which creates, grows, and snapshots disks, the profile `compute-images-delete`, which creates images and deletes disk snapshots and images, a `tools` list that names `disks.delete`, which deletes a disk, the profile `services`, which enables Google APIs, or a `tools` list that names `services.disable`,
 which disables one, each with the confirmation of a person. Tools, targets, errors, and limits are described in the [Google Cloud provider](README.md).
 
 ## What you need
@@ -36,7 +36,7 @@ The token needs the rights of its person or service account in Google Cloud. Wit
 `read` Qatlas asks only for the read scopes `cloud-platform.read-only` and, for the Compute tools,
 `compute.readonly`. The profile `read-iam` adds the IAM tools and
 with them the broad scope `cloud-platform`, because Google lists no narrower scope for them. Only the tools of the profiles `service-accounts`,
-`service-accounts-revoke`, `api-keys-revoke`, `iam-bindings`, `compute-network-delete`, `compute-lifecycle`, `compute-instances-create`, `compute-disks`, and `services` and the listed-only `service-accounts.delete`, `instances.delete`, and
+`service-accounts-revoke`, `api-keys-revoke`, `iam-bindings`, `compute-network-delete`, `compute-lifecycle`, `compute-instances-create`, `compute-disks`, `compute-images-delete`, and `services` and the listed-only `service-accounts.delete`, `instances.delete`, `disks.delete`, and
 `services.disable` change anything, so
 without them even a broad role cannot change anything through Qatlas. Grant
 the account a viewer role at the highest level you want it to see, for example the Organization Viewer, Folder
@@ -69,6 +69,8 @@ Viewer, or Project Viewer role, or any role with these permissions:
 | `instances.insert` | `compute.instances.create` on the project, and what the new instance uses: `compute.disks.create`, `compute.subnetworks.use`, `iam.serviceAccounts.actAs` on a service account, `compute.images.useReadOnly` for a source image (the Compute Instance Admin role has most of them); for a service account email `resourcemanager.projects.get` on the project; the **Compute Engine API** must be enabled, and the tool asks for the scope `compute` and belongs to the profile `compute-instances-create` |
 | `instances.delete` | `compute.instances.delete` on the project (the Compute Instance Admin role has it); the **Compute Engine API** must be enabled, the tool asks for the scope `compute`, and it is listed-only: only a `tools` list that names it releases it |
 | `disks.insert`, `disks.resize`, `disks.create-snapshot` | `compute.disks.create`, `compute.disks.resize` with `compute.disks.get` (for the size check before the change), or `compute.disks.createSnapshot` with `compute.snapshots.create` on the project, plus `compute.disks.setLabels` or `compute.snapshots.setLabels` for labels and the `use` or `useReadOnly` permission of each named image, snapshot, disk, resource policy, or storage pool (the Compute Storage Admin role has them); with a Cloud KMS key the Compute Engine service agent needs the right to use that key; the **Compute Engine API** must be enabled, and the tools ask for the scope `compute` and belong to the profile `compute-disks` |
+| `disks.delete` | `compute.disks.delete` and `compute.disks.get` (for the comparison before the deletion) on the project (the Compute Storage Admin role has them); the **Compute Engine API** must be enabled, the tool asks for the scope `compute`, and it is listed-only: only a `tools` list that names it releases it |
+| `images.insert`, `images.delete`, `snapshots.delete` | `compute.images.create` with `compute.images.setLabels` for labels and the `useReadOnly` permission of the source disk, snapshot, or image, or `compute.images.delete`, or `compute.snapshots.delete` on the project (the Compute Storage Admin role has them); with a Cloud KMS key the Compute Engine service agent needs the right to use that key; the **Compute Engine API** must be enabled, and the tools ask for the scope `compute` and belong to the profile `compute-images-delete` |
 | `iam-roles.list`, `iam-roles.get` | custom roles of a project or organization: `iam.roles.list` and `iam.roles.get` (the Role Viewer role has them); Google states none for predefined roles |
 | `iam-roles.query-grantable`, `iam-permissions.query-testable` | Google states none; Qatlas first reads the project or folder (`resourcemanager.projects.get`, `resourcemanager.folders.get`) |
 | `iam-policies.get` | `resourcemanager.projects.getIamPolicy`, `resourcemanager.folders.getIamPolicy`, `resourcemanager.organizations.getIamPolicy`, or `iam.serviceAccounts.getIamPolicy` on the resource, and `iam.serviceAccounts.get` for a service account when the connection has targets |

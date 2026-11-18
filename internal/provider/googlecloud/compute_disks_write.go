@@ -155,6 +155,16 @@ const (
 		`"maxLength":63,"pattern":"` + labelValueExpr + `"}}`
 	diskKMSProps = `"kms_key_name":{"type":"string","minLength":1,"maxLength":512,"pattern":"` + kmsKeyNameExpr + `"},` +
 		`"kms_key_service_account":{"type":"string","minLength":1,"maxLength":254,"pattern":"` + kmsAccountExpr + `"}`
+	storageLocationsProp = `"storage_locations":{"type":"array","minItems":1,"maxItems":10,"uniqueItems":true,` +
+		`"items":{"type":"string","minLength":1,"maxLength":63,"pattern":"` + computeNameExpr + `"}}`
+)
+
+var (
+	licensesProp = `"licenses":{"type":"array","maxItems":32,"items":{"type":"object","properties":{` +
+		`"project":{"type":"string","enum":` + enumOf(publicImageProjects) + `},` + nameProp("license") +
+		`},"required":["license"],"additionalProperties":false}}`
+	guestOsFeaturesProp = `"guest_os_features":{"type":"array","maxItems":17,"uniqueItems":true,"items":{"type":` +
+		`"string","enum":` + enumOf(guestOsFeatureTypes) + `}}`
 )
 
 var (
@@ -206,16 +216,12 @@ var disksInsert = capability.Descriptor{
 		`"provisioned_iops":{"type":"integer","minimum":1,"maximum":10000000},` +
 		`"provisioned_throughput":{"type":"integer","minimum":1,"maximum":10000000},` +
 		`"physical_block_size_bytes":{"type":"integer","enum":[4096,16384]},` +
-		`"licenses":{"type":"array","maxItems":32,"items":{"type":"object","properties":{` +
-		`"project":{"type":"string","enum":` + enumOf(publicImageProjects) + `},` + nameProp("license") +
-		`},"required":["license"],"additionalProperties":false}},` +
-		diskKMSProps + `,` +
+		licensesProp + `,` + diskKMSProps + `,` +
 		`"resource_policies":{"type":"array","maxItems":10,"uniqueItems":true,"items":{"type":"string",` +
 		`"minLength":1,"maxLength":63,"pattern":"` + computeNameExpr + `"}},` +
 		nameProp("storage_pool") + `,` +
 		`"architecture":{"type":"string","enum":["ARM64","X86_64"]},` +
-		`"guest_os_features":{"type":"array","maxItems":17,"uniqueItems":true,"items":{"type":"string","enum":` +
-		enumOf(guestOsFeatureTypes) + `}},` +
+		guestOsFeaturesProp + `,` +
 		`"access_mode":{"type":"string","enum":["READ_WRITE_SINGLE","READ_WRITE_MANY","READ_ONLY_MANY"]},` +
 		`"enable_confidential_compute":{"type":"boolean"},` + computeRequestIDProp +
 		`},"required":["project_id","zone","name"],"additionalProperties":false}`),
@@ -351,15 +357,8 @@ func (a diskInsertArguments) check() error {
 	if err := checkDiskKey(a.KmsKeyName, a.KmsKeyServiceAccount); err != nil {
 		return err
 	}
-	if len(a.Licenses) > maxDiskLicenses {
-		return badRequest("licenses takes at most " + strconv.Itoa(maxDiskLicenses) + " entries")
-	}
-	for _, license := range a.Licenses {
-		if !validComputeName(license.License) ||
-			license.Project != "" && !slices.Contains(publicImageProjects, license.Project) {
-			return badRequest("a license must be a license name, of the project itself or of one of Google's " +
-				"public image projects")
-		}
+	if err := checkLicenses(a.Licenses); err != nil {
+		return err
 	}
 	if len(a.ResourcePolicies) > maxDiskReferences {
 		return badRequest("resource_policies takes at most " + strconv.Itoa(maxDiskReferences) + " names")
@@ -372,12 +371,65 @@ func (a diskInsertArguments) check() error {
 	if _, ok := zoneRegion(a.Zone); len(a.ResourcePolicies) > 0 && !ok {
 		return badRequest("zone names no region, so resource_policies cannot be placed")
 	}
-	if len(a.GuestOsFeatures) > len(guestOsFeatureTypes) {
+	return checkGuestOsFeatures(a.GuestOsFeatures)
+}
+
+// checkLicenses allows at most maxDiskLicenses licenses, each a name of the project itself or of one of Google's
+// public image projects.
+func checkLicenses(licenses []diskLicense) error {
+	if len(licenses) > maxDiskLicenses {
+		return badRequest("licenses takes at most " + strconv.Itoa(maxDiskLicenses) + " entries")
+	}
+	for _, license := range licenses {
+		if !validComputeName(license.License) ||
+			license.Project != "" && !slices.Contains(publicImageProjects, license.Project) {
+			return badRequest("a license must be a license name, of the project itself or of one of Google's " +
+				"public image projects")
+		}
+	}
+	return nil
+}
+
+// licenseURLs builds the URL of each license; a license without a project is one of project.
+func licenseURLs(project string, licenses []diskLicense) []string {
+	urls := make([]string, len(licenses))
+	for i, license := range licenses {
+		owner := license.Project
+		if owner == "" {
+			owner = project
+		}
+		urls[i] = computeResourceURL("projects", owner, "global", "licenses", license.License)
+	}
+	return urls
+}
+
+func checkGuestOsFeatures(features []string) error {
+	if len(features) > len(guestOsFeatureTypes) {
 		return badRequest("guest_os_features names a feature twice")
 	}
-	for i, feature := range a.GuestOsFeatures {
-		if !slices.Contains(guestOsFeatureTypes, feature) || slices.Contains(a.GuestOsFeatures[:i], feature) {
+	for i, feature := range features {
+		if !slices.Contains(guestOsFeatureTypes, feature) || slices.Contains(features[:i], feature) {
 			return badRequest("guest_os_features must be distinct documented feature types")
+		}
+	}
+	return nil
+}
+
+func guestOsFeatureBody(features []string) []map[string]string {
+	out := make([]map[string]string, len(features))
+	for i, feature := range features {
+		out[i] = map[string]string{"type": feature}
+	}
+	return out
+}
+
+func checkStorageLocations(locations []string) error {
+	if len(locations) > maxDiskReferences {
+		return badRequest("storage_locations takes at most " + strconv.Itoa(maxDiskReferences) + " locations")
+	}
+	for i, location := range locations {
+		if !validComputeName(location) || slices.Contains(locations[:i], location) {
+			return badRequest("storage_locations must be distinct location names such as us or europe-west1")
 		}
 	}
 	return nil
@@ -454,15 +506,7 @@ func (a diskInsertArguments) body() map[string]any {
 	setInt("provisionedThroughput", a.ProvisionedThroughput)
 	setInt("physicalBlockSizeBytes", a.PhysicalBlockSizeBytes)
 	if len(a.Licenses) > 0 {
-		licenses := make([]string, len(a.Licenses))
-		for i, license := range a.Licenses {
-			project := license.Project
-			if project == "" {
-				project = p
-			}
-			licenses[i] = computeResourceURL("projects", project, "global", "licenses", license.License)
-		}
-		body["licenses"] = licenses
+		body["licenses"] = licenseURLs(p, a.Licenses)
 	}
 	if a.KmsKeyName != "" {
 		body["diskEncryptionKey"] = diskKeyBody(a.KmsKeyName, a.KmsKeyServiceAccount)
@@ -480,11 +524,7 @@ func (a diskInsertArguments) body() map[string]any {
 	}
 	set("architecture", a.Architecture)
 	if len(a.GuestOsFeatures) > 0 {
-		features := make([]map[string]string, len(a.GuestOsFeatures))
-		for i, feature := range a.GuestOsFeatures {
-			features[i] = map[string]string{"type": feature}
-		}
-		body["guestOsFeatures"] = features
+		body["guestOsFeatures"] = guestOsFeatureBody(a.GuestOsFeatures)
 	}
 	set("accessMode", a.AccessMode)
 	if a.EnableConfidentialCompute != nil {
@@ -688,8 +728,7 @@ var disksCreateSnapshot = capability.Descriptor{
 	Provider: Provider,
 	InputSchema: json.RawMessage(`{"type":"object","properties":{` + serviceProjectProp + `,` + computeZoneProp + `,` +
 		diskOrIDProp + `,` + nameProp("name") + `,` + diskDescriptionProp + `,` + diskLabelsProp + `,` +
-		`"storage_locations":{"type":"array","minItems":1,"maxItems":10,"uniqueItems":true,"items":{"type":"string",` +
-		`"minLength":1,"maxLength":63,"pattern":"` + computeNameExpr + `"}},` +
+		storageLocationsProp + `,` +
 		`"snapshot_type":{"type":"string","enum":["STANDARD","ARCHIVE"]},` + nameProp("chain_name") + `,` +
 		diskKMSProps + `,"guest_flush":{"type":"boolean"},` + computeRequestIDProp +
 		`},"required":["project_id","zone","disk","name"],"additionalProperties":false}`),
@@ -747,13 +786,9 @@ func (a diskSnapshotArguments) check() error {
 		return badRequest("snapshot_type must be STANDARD or ARCHIVE")
 	case !optionalName(a.ChainName):
 		return badRequest("chain_name must be 1 to 63 lowercase letters, digits, or '-' starting with a letter")
-	case len(a.StorageLocations) > maxDiskReferences:
-		return badRequest("storage_locations takes at most " + strconv.Itoa(maxDiskReferences) + " locations")
 	}
-	for i, location := range a.StorageLocations {
-		if !validComputeName(location) || slices.Contains(a.StorageLocations[:i], location) {
-			return badRequest("storage_locations must be distinct location names such as us or europe-west1")
-		}
+	if err := checkStorageLocations(a.StorageLocations); err != nil {
+		return err
 	}
 	if err := checkDiskLabels(a.Labels); err != nil {
 		return err

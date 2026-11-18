@@ -1,18 +1,19 @@
 ---
 description: >
-  Describes the Google Cloud Compute tools snapshots.list and snapshots.get: their arguments, the target check, the fields returned, why customer-supplied key material is never returned while the Cloud KMS key name stays, the scope and profiles, and what is not verified.
+  Describes the Google Cloud Compute tools snapshots.list and snapshots.get and the change snapshots.delete: their arguments, the target check, the fields returned, why customer-supplied key material is never returned while the Cloud KMS key name stays, the confirmation, the request ID and the returned operation of a deletion, the scopes and profiles, and what is not verified.
 type: knowledge
 edit: shared
 created: 2026-11-17
-updated: 2026-11-17
+updated: 2026-11-18
 ---
 
 # Google Cloud disk snapshots
 
 Two tools read the global disk snapshots of a project from Compute Engine (`snapshots.list` and `snapshots.get` of
-`compute` v1, discovery revision 20261106). They change nothing, create no snapshot, and read no IAM policy of a
-snapshot. Every request goes to the fixed origin `https://compute.googleapis.com`; no argument takes a path, URL,
-header, or body.
+`compute` v1, discovery revision 20261106), and one deletes a snapshot ([Deleting a snapshot](#deleting-a-snapshot)).
+A snapshot is created with `disks.create-snapshot` of [disks](disks.md#changes). No tool shares a snapshot or reads
+or changes its IAM policy. Every request goes to the fixed origin `https://compute.googleapis.com`; no argument takes
+a path, URL, header, or body.
 
 | Tool | Arguments |
 | --- | --- |
@@ -41,6 +42,17 @@ members, in any letter case and with or without `_` or `-`, at every depth of an
 with it, so no encryption key member of a snapshot, nor `labels` or `warning`, can carry them. `kmsKeyName`,
 `kmsKeyServiceAccount`, and `sha256` stay visible.
 
-The tools ask for the scope `compute.readonly` and belong to the profiles `read` and `read-iam`. The account needs
-`compute.snapshots.list` or `compute.snapshots.get` (the Compute Viewer role has them), and the Compute Engine API
-must be enabled in the project.
+The read tools ask for the scope `compute.readonly` and belong to the profiles `read` and `read-iam`. The account
+needs `compute.snapshots.list` or `compute.snapshots.get` (the Compute Viewer role has them), and the Compute Engine
+API must be enabled in the project.
+
+## Deleting a snapshot
+
+`snapshots.delete` (`snapshots.delete` of Compute Engine, effect `delete`) takes `project_id`, the name or numeric ID
+of a snapshot of that project, and `request_id`, and sends one DELETE without reading the snapshot first. The
+confirmation names the project and the snapshot and that the backup it holds is lost for good. Google moves data that
+a later snapshot of the same disk still needs into that snapshot. The tool belongs to the profile
+`compute-images-delete` and asks for the scope `compute`; the rights are in [Set up Google Cloud](setup.md). The
+request ID, the returned global operation, and an unknown outcome work as for [images](images.md#changes).
+
+The deletion was checked against a simulated Compute Engine only.
