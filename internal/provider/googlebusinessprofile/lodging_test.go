@@ -6,6 +6,7 @@ import (
 	"errors"
 	"net/http"
 	"reflect"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -564,8 +565,8 @@ func TestLodgingTablesCoverTheDiscoveryAndLeaveOutWhatItExcludes(t *testing.T) {
 }
 
 func TestLodgingToolsAreOfferedByProfile(t *testing.T) {
-	if !reflect.DeepEqual(readTools[len(readTools)-2:], []string{lodgingGetID, lodgingGoogleUpdatedID}) ||
-		writeTools[len(writeTools)-1] != lodgingUpdateID {
+	if !slices.Contains(readTools, lodgingGetID) || !slices.Contains(readTools, lodgingGoogleUpdatedID) ||
+		!slices.Contains(writeTools, lodgingUpdateID) || slices.Contains(readTools, lodgingUpdateID) {
 		t.Errorf("readTools = %v, writeTools = %v", readTools, writeTools)
 	}
 }

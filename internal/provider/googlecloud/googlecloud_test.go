@@ -39,20 +39,22 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 		ids = append(ids, tool.ID)
 		wantEffect := config.EffectRead
 		switch {
-		case tool.ID == serviceAccountsCreateID, tool.ID == disksInsertID, tool.ID == disksCreateSnapshotID,
+		case tool.ID == serviceAccountsCreateID, tool.ID == projectsCreateID, tool.ID == disksInsertID, tool.ID == disksCreateSnapshotID,
 			tool.ID == imagesInsertID:
 			wantEffect = config.EffectCreate
 		case tool.ID == serviceAccountsPatchID, tool.ID == serviceAccountsDisableID, tool.ID == serviceAccountsEnableID,
 			tool.ID == serviceAccountKeysDisableID, tool.ID == serviceAccountKeysEnableID, tool.ID == apiKeysUndeleteID,
 			tool.ID == servicesEnableID, tool.ID == servicesBatchEnableID, tool.ID == servicesDisableID,
+			tool.ID == projectsPatchID, tool.ID == projectsMoveID, tool.ID == projectsUndeleteID,
 			strings.Contains(tool.ID, ".iam-bindings."), tool.ID == instancesStartID, tool.ID == instancesStopID,
-			tool.ID == instancesResetID, tool.ID == instancesSetMachineTypeID, tool.ID == disksResizeID,
+			tool.ID == instancesResetID, tool.ID == instancesSetMachineTypeID, tool.ID == disksResizeID, tool.ID == objectsRestoreID,
 			tool.ID == hmacKeysDeactivateID:
 			wantEffect = config.EffectUpdate
 		case tool.ID == serviceAccountKeysDeleteID, tool.ID == serviceAccountsDeleteID, tool.ID == apiKeysDeleteID,
 			tool.ID == firewallsDeleteID, tool.ID == addressesDeleteID, tool.ID == vpnTunnelsDeleteID,
 			tool.ID == vpnGatewaysDeleteID, tool.ID == instancesDeleteID, tool.ID == disksDeleteID,
-			tool.ID == snapshotsDeleteID, tool.ID == imagesDeleteID, tool.ID == hmacKeysDeleteID,
+			tool.ID == snapshotsDeleteID, tool.ID == imagesDeleteID, tool.ID == objectsDeleteID,
+			tool.ID == bucketsDeleteID, tool.ID == hmacKeysDeleteID,
 			tool.ID == notificationsDeleteID:
 			wantEffect = config.EffectDelete
 		case tool.ID == instancesInsertID:
@@ -70,7 +72,9 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 		wantScope := "https://www.googleapis.com/auth/cloud-platform.read-only"
 		if strings.Contains(tool.ID, ".iam-") || strings.Contains(tool.ID, ".service-account") ||
 			strings.Contains(tool.ID, ".quota-") ||
-			tool.ID == servicesEnableID || tool.ID == servicesBatchEnableID || tool.ID == servicesDisableID {
+			tool.ID == servicesEnableID || tool.ID == servicesBatchEnableID || tool.ID == servicesDisableID ||
+			tool.ID == projectsCreateID || tool.ID == projectsPatchID || tool.ID == projectsMoveID ||
+			tool.ID == projectsUndeleteID {
 			// The discovery documents list cloud-platform alone for the IAM methods.
 			wantScope = "https://www.googleapis.com/auth/cloud-platform"
 		}
@@ -111,21 +115,30 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 				tool.ID == objectAccessControlsListID {
 				wantScope = scopeStorageFullControl
 			}
-			// storage v1 lists devstorage.full_control for hmacKeys.update, and for hmacKeys.delete because the key
-			// is read first, and devstorage.read_write for notifications.delete.
-			if tool.ID == hmacKeysDeactivateID || tool.ID == hmacKeysDeleteID {
+			// objects.delete, buckets.delete, and notifications.delete list devstorage.read_write, objects.restore
+			// and hmacKeys.update only full_control, and hmacKeys.delete takes full_control because the key is read first.
+			switch tool.ID {
+			case objectsDeleteID, bucketsDeleteID, notificationsDeleteID:
+				wantScope = scopeStorageReadWrite
+			case objectsRestoreID, hmacKeysDeactivateID, hmacKeysDeleteID:
 				wantScope = scopeStorageFullControl
 			}
-			if tool.ID == notificationsDeleteID {
-				wantScope = scopeStorageReadWrite
-			}
+		}
+		if strings.Contains(tool.ID, "billing") {
+			// cloudbilling v1 lists cloud-billing.readonly for the four reads.
+			wantScope = scopeBillingReadOnly
 		}
 		if scopes := metadata.Token.Scopes[tool.ID]; !slices.Equal(scopes, []string{wantScope}) {
 			t.Errorf("%s scopes = %v", tool.ID, scopes)
 		}
 	}
 	if want := []string{"google.cloud.addresses.delete", "google.cloud.addresses.get", "google.cloud.addresses.list", "google.cloud.api-keys.delete", "google.cloud.api-keys.get", "google.cloud.api-keys.list",
-		"google.cloud.api-keys.undelete", "google.cloud.bucket-access-controls.list", "google.cloud.buckets.get", "google.cloud.buckets.get-iam-policy", "google.cloud.buckets.list", "google.cloud.compute-operations.get", "google.cloud.compute-operations.list", "google.cloud.disks.aggregated-list", "google.cloud.disks.create-snapshot", "google.cloud.disks.delete", "google.cloud.disks.get", "google.cloud.disks.insert", "google.cloud.disks.list", "google.cloud.disks.resize", "google.cloud.firewalls.delete", "google.cloud.firewalls.get", "google.cloud.firewalls.list",
+		"google.cloud.api-keys.undelete", "google.cloud.billing-accounts.get", "google.cloud.billing-accounts.list", "google.cloud.billing-accounts.list-projects",
+		"google.cloud.bucket-access-controls.list", "google.cloud.buckets.delete", "google.cloud.buckets.get", "google.cloud.buckets.get-iam-policy",
+		"google.cloud.buckets.list", "google.cloud.compute-operations.get", "google.cloud.compute-operations.list", "google.cloud.disks.aggregated-list",
+		"google.cloud.disks.create-snapshot", "google.cloud.disks.delete", "google.cloud.disks.get", "google.cloud.disks.insert",
+		"google.cloud.disks.list", "google.cloud.disks.resize", "google.cloud.firewalls.delete", "google.cloud.firewalls.get",
+		"google.cloud.firewalls.list",
 		"google.cloud.folders.get", "google.cloud.folders.list", "google.cloud.folders.search",
 		"google.cloud.hmac-keys.deactivate", "google.cloud.hmac-keys.delete", "google.cloud.hmac-keys.get", "google.cloud.hmac-keys.list",
 		"google.cloud.iam-bindings.add-member", "google.cloud.iam-bindings.change-role",
@@ -138,10 +151,12 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 		"google.cloud.instances.set-machine-type", "google.cloud.instances.start", "google.cloud.instances.stop",
 		"google.cloud.machine-types.list", "google.cloud.managed-folders.list", "google.cloud.managed-zones.get", "google.cloud.managed-zones.list",
 		"google.cloud.networks.get", "google.cloud.networks.list", "google.cloud.notifications.delete", "google.cloud.notifications.list", "google.cloud.object-access-controls.list",
-		"google.cloud.objects.download", "google.cloud.objects.get", "google.cloud.objects.list", "google.cloud.operations.get", "google.cloud.organizations.get",
-		"google.cloud.organizations.search", "google.cloud.projects.get", "google.cloud.projects.list",
-		"google.cloud.projects.search", "google.cloud.quota-infos.get", "google.cloud.quota-infos.list",
-		"google.cloud.quota-preferences.get", "google.cloud.quota-preferences.list", "google.cloud.record-sets.get", "google.cloud.record-sets.list", "google.cloud.regions.list", "google.cloud.service-account-keys.delete",
+		"google.cloud.objects.delete", "google.cloud.objects.download", "google.cloud.objects.get", "google.cloud.objects.list",
+		"google.cloud.objects.restore", "google.cloud.operations.get", "google.cloud.organizations.get", "google.cloud.organizations.search",
+		"google.cloud.project-billing-info.get", "google.cloud.projects.create", "google.cloud.projects.get", "google.cloud.projects.list",
+		"google.cloud.projects.move", "google.cloud.projects.patch", "google.cloud.projects.search", "google.cloud.projects.undelete",
+		"google.cloud.quota-infos.get", "google.cloud.quota-infos.list", "google.cloud.quota-preferences.get", "google.cloud.quota-preferences.list",
+		"google.cloud.record-sets.get", "google.cloud.record-sets.list", "google.cloud.regions.list", "google.cloud.service-account-keys.delete",
 		"google.cloud.service-account-keys.disable", "google.cloud.service-account-keys.enable",
 		"google.cloud.service-account-keys.get",
 		"google.cloud.service-account-keys.list", "google.cloud.service-accounts.create",
@@ -153,13 +168,13 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 		"google.cloud.vpn-tunnels.delete", "google.cloud.vpn-tunnels.get", "google.cloud.vpn-tunnels.list", "google.cloud.zones.list"}; !slices.Equal(ids, want) {
 		t.Errorf("tools = %v, want %v", ids, want)
 	}
-	if profile, found := metadata.RecommendedProfile(); !found || profile.ID != "read" || len(profile.Tools) != 54 {
+	if profile, found := metadata.RecommendedProfile(); !found || profile.ID != "read" || len(profile.Tools) != 58 {
 		t.Errorf("profile = %+v", profile)
 	}
 	// The recommended profile asks only for read scopes, an explicit allow-list; a tool that needs the broad
 	// cloud-platform scope belongs to read-iam, which holds every read tool, or to a changing profile.
 	readScopes := [][]string{{"https://www.googleapis.com/auth/cloud-platform.read-only"},
-		{"https://www.googleapis.com/auth/compute.readonly"}, {scopeStorageReadOnly}, {scopeDNSReadOnly}}
+		{"https://www.googleapis.com/auth/compute.readonly"}, {scopeStorageReadOnly}, {scopeBillingReadOnly}, {scopeDNSReadOnly}}
 	for _, profile := range metadata.Profiles {
 		switch profile.ID {
 		case "read":
@@ -203,9 +218,17 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 			if profile.Recommended || !slices.Equal(profile.Tools, []string{servicesEnableID, servicesBatchEnableID}) {
 				t.Errorf("profile services = %+v", profile)
 			}
+		case "projects-manage":
+			if profile.Recommended || !slices.Equal(profile.Tools, []string{projectsCreateID, projectsPatchID, projectsMoveID, projectsUndeleteID}) {
+				t.Errorf("profile projects-manage = %+v", profile)
+			}
 		case "compute-network-delete":
 			if profile.Recommended || !slices.Equal(profile.Tools, []string{projectsGetID, firewallsDeleteID, addressesDeleteID, vpnTunnelsDeleteID, vpnGatewaysDeleteID}) {
 				t.Errorf("profile compute-network-delete = %+v", profile)
+			}
+		case "storage-delete":
+			if profile.Recommended || !slices.Equal(profile.Tools, []string{projectsGetID, objectsDeleteID, objectsRestoreID}) {
+				t.Errorf("profile storage-delete = %+v", profile)
 			}
 		case "compute-lifecycle":
 			if profile.Recommended || !slices.Equal(profile.Tools, []string{projectsGetID, instancesStartID, instancesStopID, instancesResetID, instancesSetMachineTypeID}) {
@@ -285,7 +308,8 @@ func TestGoogleErrorMapsOnlyDocumentedValues(t *testing.T) {
 		{"rate limited", 429, errorObject(429, "RESOURCE_EXHAUSTED", "RATE_LIMIT_EXCEEDED"), provider.ClassRateLimited},
 		{"rate limited without body", 429, ``, provider.ClassRateLimited},
 		{"bad request", 400, errorObject(400, "INVALID_ARGUMENT", ""), provider.ClassInvalidResponse},
-		{"unknown client error", 409, errorObject(409, "ALREADY_EXISTS", ""), provider.ClassInvalidResponse},
+		{"unknown client error", 409, errorObject(409, "SOMETHING_ELSE", ""), provider.ClassInvalidResponse},
+		{"already exists", 409, errorObject(409, "ALREADY_EXISTS", ""), provider.ClassProviderError},
 		{"etag conflict", 409, errorObject(409, "ABORTED", ""), provider.ClassProviderError},
 		{"unavailable", 503, errorObject(503, "UNAVAILABLE", ""), provider.ClassUnreachable},
 		{"gateway timeout", 504, ``, provider.ClassTimeout},
