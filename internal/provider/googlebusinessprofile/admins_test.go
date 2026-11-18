@@ -311,7 +311,7 @@ func TestNoToolCreatesAdminsOrAccounts(t *testing.T) {
 		"reviews.batch-get", "reviews.delete-reply", "reviews.get", "reviews.list", "reviews.update-reply",
 		"media.create", "media.delete", "media.get", "media.list", "media.update",
 		"local-posts.create", "local-posts.delete", "local-posts.get", "local-posts.list", "local-posts.update",
-		"food-menus.get", "food-menus.update"} {
+		"food-menus.get", "food-menus.update", "service-lists.get", "service-lists.update"} {
 		want[Provider+"."+name] = true
 	}
 	if len(ids) != len(want) {
