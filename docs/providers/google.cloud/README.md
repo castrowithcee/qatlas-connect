@@ -35,8 +35,8 @@ tokens for it). The connection holds no scope. Qatlas derives them from the tool
 smallest scope the discovery document of each method lists: `cloud-platform.read-only` for Resource Manager,
 and `cloud-platform` for the IAM and quota tools, because their discovery documents list no narrower scope
 (Google offers no read-only variant for these methods, see [IAM](iam.md) and [Quotas](quotas.md)). Only the tools of the profiles
-`service-accounts`, `service-accounts-revoke`, `api-keys-revoke`, `iam-bindings`, `compute-network-delete`, `compute-lifecycle`, `compute-instances-create`, `compute-disks`, and `services` and the tools
-`service-accounts.delete`, `services.disable`, and `instances.delete`, which a `tools` list must name, change anything, each with a confirmation, whatever the scope allows. The access token travels in the
+`service-accounts`, `service-accounts-revoke`, `api-keys-revoke`, `iam-bindings`, `compute-network-delete`, `compute-lifecycle`, `compute-instances-create`, `compute-disks`, `compute-images-delete`, and `services` and the tools
+`service-accounts.delete`, `services.disable`, `instances.delete`, and `disks.delete`, which a `tools` list must name, change anything, each with a confirmation, whatever the scope allows. The access token travels in the
 `Authorization` header only, is never an argument or part of a result, and is masked in every output. A 401
 renews the token once, and nothing else repeats a request.
 
@@ -73,6 +73,8 @@ Three rules decide which tool a binding reaches. They are separate on purpose:
   account, and the rows are limited to the accounts it names. `billing-accounts.list-projects` also needs an
   organization, a folder, or a project among the targets, which limit its rows. `project-billing-info.get` is a
   resource tool: it needs no billing account.
+- **DNS tools** (`managed-zones.*`, `record-sets.*`): the connection is unbound or names an organization, a folder, or a
+  project. The project in the path binds the zone, see [DNS managed zones](managed-zones.md).
 - **Tools without a resource** (`operations.get`): an operation belongs to no folder or project that Qatlas
   could prove, so the tool runs on a connection without targets or with an organization among them. It is not an
   organization tool: it reads no organization.
@@ -103,7 +105,8 @@ The profile `read` is the recommended one. It holds every tool that needs no mor
 `devstorage.read_only`, and the Billing tools `google.cloud.billing-accounts.list`, `google.cloud.billing-accounts.get`,
 `google.cloud.billing-accounts.list-projects`, and `google.cloud.project-billing-info.get`, which ask for
 `cloud-billing.readonly`. `objects.download` returns the content of an object, up to a fixed limit, as untrusted data
-(see [Objects](objects.md)). The two
+(see [Objects](objects.md)). The DNS tools `google.cloud.managed-zones.list`, `google.cloud.managed-zones.get`,
+`google.cloud.record-sets.list`, and `google.cloud.record-sets.get` ask for `ndev.clouddns.readonly`. The two
 operation tools return the email address of whoever started an operation (personal data) and carry their own
 sensitivity. A connection bound to an organization or a folder needs `projects.get` next to the
 Compute tools to prove the project of a call; `read` holds both.
@@ -173,6 +176,14 @@ which Google also uses to change Compute resources, so the token may do that alt
 the effects `create` and `update` for the disk tools and `read` for `projects.get`, is not recommended, and every
 call needs the confirmation of a person. See [Disks](disks.md#changes).
 
+The profile `compute-images-delete` holds `google.cloud.images.insert`, `google.cloud.snapshots.delete`,
+`google.cloud.images.delete`, and `google.cloud.projects.get`. The three tools ask for the scope `compute`, which
+Google also uses to change Compute resources, so the token may do that although no tool does. The profile needs the
+effects `create` and `delete` for the image and snapshot tools and `read` for `projects.get`, is not recommended, and
+every call needs the confirmation of a person. It does not hold `google.cloud.disks.delete`: that tool is
+listed-only and only a `tools` list that names it exactly releases it. See [Images](images.md#changes),
+[Disk snapshots](snapshots.md#deleting-a-snapshot), and [Disks](disks.md#deleting-a-disk).
+
 The profile `services` holds only `google.cloud.services.enable` and `google.cloud.services.batch-enable`. It asks
 for `cloud-platform`, needs the effect `update`, and is not recommended. It does not hold
 `google.cloud.services.disable`: that tool is listed-only and only a `tools` list that names it exactly releases
@@ -211,10 +222,12 @@ on [IAM bindings](iam-bindings.md).
 - [VPN tunnels](vpn-tunnels.md): the VPN tunnels of a region from Compute Engine, never with their shared secret, and the
   confirmed deletion of a tunnel.
 - [Disks](disks.md): the persistent disks of a project from Compute Engine, one, per zone, and across all zones,
-  never with encryption key material, and the confirmed creation, growth, and snapshot of a disk.
+  never with encryption key material, the confirmed creation, growth, and snapshot of a disk, and its deletion
+  (listed-only).
 - [Disk snapshots](snapshots.md): the global disk snapshots of a project from Compute Engine, never with customer-supplied
-  key material.
-- [Images](images.md): the images of a project from Compute Engine, never with customer-supplied key material.
+  key material, and the confirmed deletion of a snapshot.
+- [Images](images.md): the images of a project from Compute Engine, never with customer-supplied key material, and the
+  confirmed creation and deletion of an image.
 - [Buckets](buckets.md): the Cloud Storage buckets of a project, one and all, and the IAM policy of a bucket, bound to
   the targets by the project number of the bucket.
 - [Bucket access controls](bucket-access-controls.md): the access control list of a Cloud Storage bucket.
@@ -226,6 +239,9 @@ on [IAM bindings](iam-bindings.md).
 - [Object access controls](object-access-controls.md): the access control list of a Cloud Storage object.
 - [Billing](billing.md): the billing accounts a connection names, their projects, and the billing account of a
   project, read only.
+- [DNS managed zones](managed-zones.md): the Cloud DNS managed zones of a project, one and all, with the rules
+  every DNS tool follows.
+- [DNS record sets](record-sets.md): the record sets of a Cloud DNS managed zone, one and all, with routing policies.
 - [Quotas](quotas.md): the quotas of a service and the quota preferences of a project from Cloud Quotas.
 
 ### Search
