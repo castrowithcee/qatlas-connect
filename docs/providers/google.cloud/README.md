@@ -377,7 +377,7 @@ decide beyond the HTTP status.
 | Answer | Class |
 | --- | --- |
 | 401 with `CREDENTIALS_MISSING`, `ACCESS_TOKEN_EXPIRED`, or status `UNAUTHENTICATED` | `auth` |
-| 403 with reason `SERVICE_DISABLED` | `permission`, the message names Cloud Resource Manager and IAM as the APIs to enable |
+| 403 with reason `SERVICE_DISABLED` | `permission`, the message names the API of the service the request went to (for example `cloudquotas.googleapis.com` for Cloud Quotas) as the one to enable |
 | 403 with reason `ACCESS_TOKEN_SCOPE_INSUFFICIENT` | `scope-missing` |
 | 403 with status `PERMISSION_DENIED` | `permission` |
 | 404 with status `NOT_FOUND` | `not-found` |
@@ -390,7 +390,8 @@ decide beyond the HTTP status.
 
 Compute Engine may answer in the older error form, without a status string and with a list of `errors` that carry a
 `reason`. Qatlas reads the reasons `notFound`, `forbidden`, and `authError` of it like `NOT_FOUND`,
-`PERMISSION_DENIED`, and `UNAUTHENTICATED`; the 403 reason `SERVICE_DISABLED` names Compute Engine among the APIs.
+`PERMISSION_DENIED`, and `UNAUTHENTICATED`; its 403 reason `SERVICE_DISABLED` names the Compute Engine API.
+The API in the message always comes from the service of the request, never from Google's answer.
 
 A failed token request ends as `auth`, `consent-required`, or `consent-expired`, as the core decides. An
 unreadable, oversized (over 2 MiB), or non-JSON answer is `invalid-provider-response`. The timeout is 30

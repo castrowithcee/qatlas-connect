@@ -145,7 +145,7 @@ organization, folder, and project target to prove that it exists. It does not re
 
 | Symptom | Likely cause and fix |
 | --- | --- |
-| The test ends as permission and says the API is not enabled | Enable the Cloud Resource Manager API in the Cloud project of the OAuth client or service account, wait a minute, and test again. |
+| The test ends as permission and says the API is not enabled | Enable the API the message names (the Cloud Resource Manager API for the test) in the Cloud project of the OAuth client or service account, wait a minute, and test again. |
 | The test ends as permission without that message | The account may not see any project. Grant it a viewer role on the organization, folder, or project. |
 | The test ends as consent required or consent expired | Run `qconnect credential consent` for the credential again. |
 | The test ends as auth | The client ID or key is wrong or was deleted; check the roles of the credential. |
