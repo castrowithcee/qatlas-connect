@@ -28,7 +28,7 @@ type searchAdsLinkName string
 func (n *searchAdsLinkName) UnmarshalJSON(b []byte) error {
 	var value string
 	if json.Unmarshal(b, &value) == nil {
-		if _, ok := splitLinkName(value, "searchAds360Links"); ok {
+		if _, ok := splitLinkName(value, searchAdsLinksSegment, validID); ok {
 			*n = searchAdsLinkName(value)
 		}
 	}
@@ -38,7 +38,7 @@ func (n *searchAdsLinkName) UnmarshalJSON(b []byte) error {
 // checkSearchAdsLinkName checks an argument that names a Search Ads 360 link and returns its property. The
 // refusal names the argument, never the value.
 func checkSearchAdsLinkName(argument, value string) (string, error) {
-	property, ok := splitLinkName(value, "searchAds360Links")
+	property, ok := splitLinkName(value, searchAdsLinksSegment, validID)
 	if !ok {
 		return "", badRequest(argument + " must be properties/ID/searchAds360Links/ID with numeric IDs")
 	}
@@ -87,7 +87,7 @@ var searchAdsLinksList = capability.Descriptor{
 		"settings for campaign data, cost data, ads personalization and site stats. On a connection with targets " +
 		"the property must be a bound property or belong to a bound account, which is proven by one read of its " +
 		"parent before the list. Reads no report data. Creating or changing a link is not a tool; a person does " +
-		"that in the Analytics or Search Ads 360 interface." + linkUntrusted + alphaNote,
+		"that in the Analytics or Search Ads 360 interface." + advertiserLinkUntrusted + alphaNote,
 	Tags: []string{"google", "analytics", "search-ads360-links", "list", "alpha"}, Risk: readRisk, Provider: Provider,
 	InputSchema: json.RawMessage(`{"type":"object","properties":{"property":` + propertyArgSchema + `,"page_size":` +
 		`{"type":"integer","minimum":1,"maximum":200},"cursor":{"type":"string","minLength":1,"maxLength":4096}},` +
@@ -116,7 +116,7 @@ var searchAdsLinksGet = capability.Descriptor{
 		"(properties.searchAds360Links.get of the Analytics Admin API) with name, advertiser ID and name, and the " +
 		"settings for campaign data, cost data, ads personalization and site stats. On a connection with targets " +
 		"the property of the link must be a bound property or belong to a bound account, which is proven by one " +
-		"read of its parent. Reads no report data." + linkUntrusted + alphaNote,
+		"read of its parent. Reads no report data." + advertiserLinkUntrusted + alphaNote,
 	Tags: []string{"google", "analytics", "search-ads360-links", "get", "alpha"}, Risk: readRisk, Provider: Provider,
 	InputSchema: json.RawMessage(`{"type":"object","properties":{"name":` + linkNameSchema +
 		`},"required":["name"],"additionalProperties":false}`),
@@ -131,7 +131,7 @@ var searchAdsLinksGet = capability.Descriptor{
 func handleSearchAdsLinksList(ctx context.Context, resolved *config.Resolved, secrets *secret.Resolver,
 	red *redact.Redactor, raw json.RawMessage) (any, error) {
 	const op = "list Search Ads 360 links"
-	var arguments linkListArguments
+	var arguments linksListArguments
 	if err := json.Unmarshal(raw, &arguments); err != nil {
 		return nil, failure(op, "the validated arguments could not be read")
 	}
@@ -167,7 +167,7 @@ func handleSearchAdsLinksList(ctx context.Context, resolved *config.Resolved, se
 	out := searchAdsLinksResult{Links: []searchAdsLink{}}
 	// Only links of the asked property are shown; an entry without a valid name of it is dropped.
 	for _, link := range head(page.Links, maxSummaries) {
-		if owner, ok := splitLinkName(string(link.Name), "searchAds360Links"); ok && owner == name {
+		if owner, ok := splitLinkName(string(link.Name), searchAdsLinksSegment, validID); ok && owner == name {
 			out.Links = append(out.Links, link)
 		}
 	}

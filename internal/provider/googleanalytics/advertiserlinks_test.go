@@ -281,7 +281,7 @@ func TestLinkErrorsAreClassified(t *testing.T) {
 	}
 }
 
-func TestLink429WithoutRetryAfterHoldsTheNextRequest(t *testing.T) {
+func TestAdvertiserLink429WithoutRetryAfterHoldsTheNextRequest(t *testing.T) {
 	env := linkEnv(t, &fakeGoogle{api: func(n int, r *http.Request) (*http.Response, error) {
 		if n == 1 {
 			return respond(r, http.StatusTooManyRequests, "application/json", errorObject(429, "RESOURCE_EXHAUSTED", "")), nil
