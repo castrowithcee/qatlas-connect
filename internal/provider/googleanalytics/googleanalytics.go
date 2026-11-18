@@ -21,7 +21,8 @@
 // channel groups, expanded data sets and attribution settings of a property run on the Admin API v1alpha, see
 // alpha.go. So do the read-only tools for the Display & Video 360 advertiser links of a property and their
 // proposals; the proposals name email addresses, so their results carry their own data sensitivity. The read-only
-// AdSense and Search Ads 360 links of a property run there as well.
+// AdSense and Search Ads 360 links of a property run there as well, and so do the rollup source links and the
+// access bindings; the access bindings name users by email address and are personal data.
 //
 // The change history search accepts only the scope analytics.edit, so it is outside the profile read. Its
 // events hold email addresses of users and snapshots of resources: personal data, shown bounded.
@@ -61,6 +62,10 @@ const scopeReadOnly = "https://www.googleapis.com/auth/analytics.readonly"
 // scopeEdit is the scope that changes Analytics accounts, properties and annotations (analyticsadmin v1beta and
 // v1alpha).
 const scopeEdit = "https://www.googleapis.com/auth/analytics.edit"
+
+// scopeUsersReadOnly is the smallest scope that reads the access bindings of an account or property, the users
+// with their roles (analyticsadmin v1alpha). Google also accepts analytics.manage.users for these methods.
+const scopeUsersReadOnly = "https://www.googleapis.com/auth/analytics.manage.users.readonly"
 
 // dataSensitivity classifies the results: the configuration of the Analytics accounts the credential reaches.
 const dataSensitivity = "analytics-configuration"
@@ -150,11 +155,15 @@ var scopes = map[string][]string{
 	accessAccountID:  {scopeReadOnly},
 	accessPropertyID: {scopeReadOnly},
 
-	audiencesListID:    {scopeReadOnly},
-	audiencesGetID:     {scopeReadOnly},
-	audiencesCreateID:  {scopeEdit},
-	audiencesUpdateID:  {scopeEdit},
-	audiencesArchiveID: {scopeEdit},
+	audiencesListID:      {scopeReadOnly},
+	audiencesGetID:       {scopeReadOnly},
+	audiencesCreateID:    {scopeEdit},
+	audiencesUpdateID:    {scopeEdit},
+	audiencesArchiveID:   {scopeEdit},
+	rollupLinksListID:    {scopeReadOnly},
+	rollupLinksGetID:     {scopeReadOnly},
+	accessBindingsListID: {scopeUsersReadOnly},
+	accessBindingsGetID:  {scopeUsersReadOnly},
 
 	annotationsListID:   {scopeReadOnly},
 	annotationsGetID:    {scopeReadOnly},
@@ -265,7 +274,8 @@ var readTools = []string{summariesID, accountsID, accountsGetID, accountsSharing
 	annotationsListID, annotationsGetID, dv360LinksListID, dv360LinksGetID, dv360ProposalsListID, dv360ProposalsGetID,
 	audiencesListID, audiencesGetID, channelGroupsListID, channelGroupsGetID, edsListID, edsGetID, adsLinksListID,
 	firebaseLinksListID, bigQueryLinksListID, bigQueryLinksGetID, adsenseLinksListID, adsenseLinksGetID,
-	searchAdsLinksListID, searchAdsLinksGetID, attributionGetID}
+	searchAdsLinksListID, searchAdsLinksGetID, attributionGetID, rollupLinksListID, rollupLinksGetID,
+	accessBindingsListID, accessBindingsGetID}
 
 // Register adds the provider metadata, its consent endpoints, its connection test and its tools.
 func Register(reg *capability.Registry) error {
@@ -298,9 +308,9 @@ func Register(reg *capability.Registry) error {
 		},
 		Profiles: []config.ToolProfile{{
 			ID: "read", Title: "Read", Recommended: true,
-			Description: "reads the Analytics accounts, properties, custom dimensions and metrics, key events, calculated metrics, audiences, channel groups, expanded data sets, reports and report tasks the connection reaches; " +
+			Description: "reads the Analytics accounts, properties, custom dimensions and metrics, key events, calculated metrics, audiences, channel groups, expanded data sets, rollup source links, reports and report tasks the connection reaches; " +
 				"nothing is changed. It includes reading the users of an audience export, the Data Access Reports, the " +
-				"Display & Video 360 link proposals and the creators of Google Ads links, which are personal data",
+				"Display & Video 360 link proposals, the creators of Google Ads links and the access bindings, which are personal data",
 			Tools: readTools,
 		}, {
 			ID: "write", Title: "Read and change",
@@ -450,6 +460,10 @@ func Register(reg *capability.Registry) error {
 		{Descriptor: reportTasksQuery, Handler: handleReportTasksQuery},
 		{Descriptor: accessAccountReport, Handler: handleAccessAccount},
 		{Descriptor: accessPropertyReport, Handler: handleAccessProperty},
+		{Descriptor: rollupLinksList, Handler: handleRollupLinksList},
+		{Descriptor: rollupLinksGet, Handler: handleRollupLinksGet},
+		{Descriptor: accessBindingsList, Handler: handleAccessBindingsList},
+		{Descriptor: accessBindingsGet, Handler: handleAccessBindingsGet},
 		{Descriptor: dataRetentionGet, Handler: handleDataRetentionGet},
 		{Descriptor: dataRetentionUpdate, Handler: handleDataRetentionUpdate, ConfirmationSummary: retentionSummary},
 		{Descriptor: googleSignalsGet, Handler: handleGoogleSignalsGet},

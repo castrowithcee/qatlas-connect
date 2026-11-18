@@ -58,7 +58,8 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 		}
 		// The quota tools belong to read-quotas and the bucket policy and ACL to read-storage-access, not to read-iam.
 		if tool.Effect == config.EffectRead && !strings.Contains(tool.ID, ".quota-") &&
-			tool.ID != bucketsGetIAMPolicyID && tool.ID != bucketAccessControlsListID {
+			tool.ID != bucketsGetIAMPolicyID && tool.ID != bucketAccessControlsListID &&
+			tool.ID != objectAccessControlsListID {
 			reads++
 		}
 		if tool.Effect != wantEffect {
@@ -94,11 +95,13 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 			wantScope = scopeCompute
 		}
 		if strings.Contains(tool.ID, ".buckets.") || strings.Contains(tool.ID, ".bucket-access-controls.") ||
+			strings.Contains(tool.ID, ".objects.") || strings.Contains(tool.ID, ".object-access-controls.") ||
 			tool.ID == notificationsListID || tool.ID == managedFoldersListID || tool.ID == hmacKeysListID || tool.ID == hmacKeysGetID {
 			// storage v1 lists devstorage.read_only for the bucket reads, and only devstorage.full_control and
 			// cloud-platform for the policy and the ACL.
 			wantScope = scopeStorageReadOnly
-			if tool.ID == bucketsGetIAMPolicyID || tool.ID == bucketAccessControlsListID {
+			if tool.ID == bucketsGetIAMPolicyID || tool.ID == bucketAccessControlsListID ||
+				tool.ID == objectAccessControlsListID {
 				wantScope = scopeStorageFullControl
 			}
 		}
@@ -119,7 +122,8 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 		"google.cloud.instances.list", "google.cloud.instances.reset",
 		"google.cloud.instances.set-machine-type", "google.cloud.instances.start", "google.cloud.instances.stop",
 		"google.cloud.machine-types.list", "google.cloud.managed-folders.list",
-		"google.cloud.networks.get", "google.cloud.networks.list", "google.cloud.notifications.list", "google.cloud.operations.get", "google.cloud.organizations.get",
+		"google.cloud.networks.get", "google.cloud.networks.list", "google.cloud.notifications.list", "google.cloud.object-access-controls.list",
+		"google.cloud.objects.download", "google.cloud.objects.get", "google.cloud.objects.list", "google.cloud.operations.get", "google.cloud.organizations.get",
 		"google.cloud.organizations.search", "google.cloud.projects.get", "google.cloud.projects.list",
 		"google.cloud.projects.search", "google.cloud.quota-infos.get", "google.cloud.quota-infos.list",
 		"google.cloud.quota-preferences.get", "google.cloud.quota-preferences.list", "google.cloud.regions.list", "google.cloud.service-account-keys.delete",
@@ -134,7 +138,7 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 		"google.cloud.vpn-tunnels.delete", "google.cloud.vpn-tunnels.get", "google.cloud.vpn-tunnels.list", "google.cloud.zones.list"}; !slices.Equal(ids, want) {
 		t.Errorf("tools = %v, want %v", ids, want)
 	}
-	if profile, found := metadata.RecommendedProfile(); !found || profile.ID != "read" || len(profile.Tools) != 47 {
+	if profile, found := metadata.RecommendedProfile(); !found || profile.ID != "read" || len(profile.Tools) != 50 {
 		t.Errorf("profile = %+v", profile)
 	}
 	// The recommended profile asks only for read scopes, an explicit allow-list; a tool that needs the broad
@@ -160,7 +164,7 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 				t.Errorf("profile read-quotas = %+v", profile)
 			}
 		case "read-storage-access":
-			if profile.Recommended || len(profile.Tools) != len(readTools)+2 {
+			if profile.Recommended || len(profile.Tools) != len(readTools)+3 {
 				t.Errorf("profile read-storage-access = %+v", profile)
 			}
 		case "service-accounts":

@@ -127,6 +127,12 @@ var tokenMetadata = config.TokenMetadata{Scopes: map[string][]string{
 	managedFoldersListID: {scopeStorageReadOnly},
 	hmacKeysListID:       {scopeStorageReadOnly},
 	hmacKeysGetID:        {scopeStorageReadOnly},
+	// storage v1 lists devstorage.read_only for objects.list and objects.get (with and without alt=media), and
+	// only devstorage.full_control and cloud-platform for objectAccessControls.list.
+	objectsListID:              {scopeStorageReadOnly},
+	objectsGetID:               {scopeStorageReadOnly},
+	objectsDownloadID:          {scopeStorageReadOnly},
+	objectAccessControlsListID: {scopeStorageFullControl},
 	// compute v1 lists compute as the smallest scope for the deletions of firewalls, addresses, VPN tunnels, and VPN gateways.
 	firewallsDeleteID:   {scopeCompute},
 	addressesDeleteID:   {scopeCompute},

@@ -17,7 +17,8 @@ const (
 	bucketsPath          = "/storage/v1/b"
 )
 
-var storageTools = []string{bucketsListID, bucketsGetID, bucketsGetIAMPolicyID, bucketAccessControlsListID}
+var storageTools = []string{bucketsListID, bucketsGetID, bucketsGetIAMPolicyID, bucketAccessControlsListID,
+	objectsListID, objectsGetID, objectsDownloadID, objectAccessControlsListID}
 
 func bucketBody(name, number string) string {
 	return `{"kind":"storage#bucket","id":"` + name + `","name":"` + name + `","projectNumber":"` + number + `",` +
@@ -447,8 +448,15 @@ func TestStorageToolsMapBothErrorForms(t *testing.T) {
 	for _, c := range cases {
 		for _, id := range storageTools {
 			arguments := `{"bucket":"example-bucket"}`
-			if id == bucketsListID {
+			switch id {
+			case bucketsListID:
 				arguments = `{"project_id":"my-project-123"}`
+			case objectsGetID, objectsDownloadID, objectAccessControlsListID:
+				arguments = `{"bucket":"example-bucket","object":"a.txt"}`
+			}
+			if id == objectsDownloadID && c.name == "not an object" {
+				// The content of an object may be any JSON text, which is returned as data.
+				continue
 			}
 			e := newEnvironment(t, nil)
 			e.fake.hook = func(_ int, req *http.Request) *reply { return &c.reply }
@@ -491,7 +499,11 @@ func TestStorageToolsAreReadToolsWithTheSmallestScopes(t *testing.T) {
 		if !found {
 			t.Fatalf("%s is not registered", id)
 		}
-		if d.Risk != readRisk || !strings.Contains(d.Description, "untrusted") {
+		want := readRisk
+		if id == objectsDownloadID {
+			want.DataSensitivity = contentSensitivity
+		}
+		if d.Risk != want || !strings.Contains(d.Description, "untrusted") {
 			t.Errorf("%s risk = %+v", id, d.Risk)
 		}
 	}
