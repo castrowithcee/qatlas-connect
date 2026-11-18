@@ -190,6 +190,10 @@ func (c *client) send(ctx context.Context, op, tool string, svc service, method,
 		}
 		return mapped
 	}
+	if response.StatusCode == http.StatusNoContent && out == nil {
+		// Methods such as the Cloud Storage deletions answer 204 without a body.
+		return nil
+	}
 	if mediaType, _, err := mime.ParseMediaType(response.Header.Get("Content-Type")); err != nil ||
 		mediaType != "application/json" {
 		_, _ = io.Copy(io.Discard, io.LimitReader(response.Body, 1<<10))

@@ -1,6 +1,6 @@
 ---
 description: >
-  Describes the Google Cloud Storage tools objects.list, objects.get, and objects.download: their arguments, the object name rule and its encoding, the target check through the bucket, paging, the metadata returned, the envelope, the limits, and the text or base64 coding of the content, the cost, the scope and profile, and what is not offered.
+  Describes the Google Cloud Storage tools objects.list, objects.get, objects.download, objects.insert, objects.copy, objects.compose, and objects.patch: their arguments, the rule that nothing is overwritten by default, the ACL boundary, the content limit and the confirmation, the object name rule and its encoding, the target check through the bucket, paging, the metadata returned, the envelope, the limits, and the text or base64 coding of the content, the cost, the scope and profile, and what is not offered.
 type: knowledge
 edit: shared
 created: 2026-11-18
@@ -10,10 +10,11 @@ updated: 2026-11-18
 # Google Cloud Storage objects
 
 Three tools read the objects of a bucket from Cloud Storage (`objects.list`, `objects.get`, and `objects.get` with
-`alt=media` of `storage` v1, discovery revision 20261111). They change nothing: uploading, copying, composing,
-rewriting, patching, and deleting objects are not offered. The access control list of an object is read by
-[object-access-controls.list](object-access-controls.md). Every request is a GET to the fixed origin
-`https://storage.googleapis.com` below `/storage/v1`; no argument takes a path, URL, header, or body.
+`alt=media` of `storage` v1, discovery revision 20261111). They change nothing. Four more tools write objects (see
+[Writing objects](#writing-objects)). Rewriting and deleting objects are not offered. The access control list of an
+object is read by [object-access-controls.list](object-access-controls.md). Every request goes to the fixed origin
+`https://storage.googleapis.com` below `/storage/v1` (the upload below `/upload/storage/v1`); no argument takes a
+path, URL, header, or body.
 
 | Tool | Arguments |
 | --- | --- |
@@ -95,3 +96,91 @@ to the recommended profile `read`. Their risk is `read`, `safe`, no confirmation
 carries the data sensitivity `cloud-storage-object-content`, because object content can be anything people stored.
 The account needs `storage.objects.list` or `storage.objects.get` and `storage.buckets.get` for the proof read of the
 bucket's project, and the Cloud Storage JSON API must be enabled in the project.
+
+## Writing objects
+
+Four tools write objects (`storage` v1, discovery revision 20261114). Each builds its request from structured
+arguments, sends it once without a repetition, and needs the confirmation of a person. After a timeout, a 5xx, or an
+unreadable answer the error says that the outcome is unknown; read the object with `objects.get` before changing it
+again. The bucket of every tool is bound to the targets by one read of the bucket before anything is written, as
+above. `objects.copy` binds source and destination bucket one after the other, and a bucket outside the targets
+ends the call before the copy is sent. Argument names are lowercase with underscores.
+
+| Tool | Effect | Google method | Arguments |
+| --- | --- | --- | --- |
+| `objects.insert` | create | `objects.insert`, `POST /upload/storage/v1/b/{bucket}/o?uploadType=multipart` | `bucket`, `name`, `content`, `content_encoding_kind`, `content_type`, `cache_control`, `content_disposition`, `content_encoding`, `content_language`, `metadata`, `contexts`, `storage_class`, `custom_time`, `kms_key_name`, `predefined_acl`, `if_generation_match`, `if_generation_not_match`, `if_metageneration_match`, `if_metageneration_not_match`, `projection`, `overwrite`, `user_project` |
+| `objects.copy` | create | `objects.copy`, `POST .../copyTo/b/{destination}/o/{name}` | `source_bucket`, `source_object`, `source_generation`, `destination_bucket`, `destination_object`, `destination_metadata`, `destination_kms_key_name`, `destination_predefined_acl`, `if_generation_match`, `if_generation_not_match`, `if_metageneration_match`, `if_metageneration_not_match`, `if_source_generation_match`, `if_source_generation_not_match`, `if_source_metageneration_match`, `if_source_metageneration_not_match`, `projection`, `overwrite`, `user_project` |
+| `objects.compose` | create | `objects.compose` | `bucket`, `destination_object`, `source_objects` (2 to 32, each `name`, `generation`, `if_generation_match`), `content_type`, `contexts`, `drop_context_groups`, `destination_predefined_acl`, `kms_key_name`, `if_generation_match`, `if_metageneration_match`, `overwrite`, `user_project` |
+| `objects.patch` | update | `objects.patch` | `bucket`, `object`, `generation`, `content_type`, `cache_control`, `content_disposition`, `content_encoding`, `content_language`, `metadata`, `remove_metadata_keys`, `contexts`, `custom_time`, `temporary_hold`, `event_based_hold`, `predefined_acl`, `if_generation_match`, `if_generation_not_match`, `if_metageneration_match`, `if_metageneration_not_match`, `projection`, `user_project` |
+
+The result of each tool is the written object as `objects.get` returns it, never its content. A name of an object
+follows the rules above and in addition holds no format or separator character (for example a right-to-left
+override), because the confirmation must show it honestly.
+
+### Nothing is overwritten by default
+
+Without `overwrite=true`, `objects.insert`, `objects.copy`, and `objects.compose` send `ifGenerationMatch=0`, so
+Google refuses with `412` when the object exists and nothing changes; Qatlas reports a precondition failure. With
+`overwrite=true` the `if_generation_match` of the caller applies, if any, and the confirmation says that the call
+overwrites. The negative preconditions (`if_generation_not_match` and the like) are passed on as given and never lift
+the protection: without `overwrite`, `ifGenerationMatch=0` is sent in any case. Without `overwrite`, an `if_generation_match` other than `0` is refused before any request, because it
+would hide the protection.
+
+### Content and its limit
+
+`content` is text, or base64 (standard alphabet, with padding) with `content_encoding_kind` `base64`. The limit is
+262144 bytes (256 KiB) after decoding, the same bound as `objects.download`: it keeps the content inside one
+multipart request and the arguments of one invoke inside the limits of the invoke path. More content needs a
+resumable upload, which is not offered. Content over the limit and invalid base64 are refused before any request.
+Content, object names, and metadata never go to the call log or into an error message. The content type of the
+object is `content_type`; without it a text upload is stored as `text/plain; charset=utf-8` and a base64 upload as
+`application/octet-stream`.
+
+### The confirmation
+
+The confirmation text is built from the arguments alone and names the bucket, the object, the size, the storage
+class (or that the default class of the bucket applies, which decides the price), and whether the call overwrites.
+`objects.copy` cannot show the size, which is that of the source, and names the class only if
+`destination_metadata` gives one. `objects.compose` names the number of sources; its size is their sum. A call whose
+confirmation text would exceed 500 characters is refused before anything is written, because a cut text could hide
+what is written; shorten the names.
+
+### The ACL boundary
+
+Objects are never made readable for everyone. `predefined_acl` and `destination_predefined_acl` accept only
+`private`, `projectPrivate`, `bucketOwnerRead`, and `bucketOwnerFullControl`. `publicRead` and `authenticatedRead`
+are not offered and a free-form `acl` object is no argument; each is refused before any request. The metadata of a
+copy (`destination_metadata`) and the body of a patch are built from a fixed list of fields (content type, cache
+control, content disposition, content encoding, content language, custom metadata, custom time, and for a copy the
+storage class), so no `acl` member and no other field passes through. Customer-supplied encryption keys are no
+argument; a Cloud KMS key can be named with `kms_key_name` or `destination_kms_key_name`.
+
+### Limits and omissions
+
+- `projection` is `full` (the result then holds `acl`, read only) or `noAcl`. `contexts` is an object of text keys and
+  text values with the limits of `metadata`; Qatlas sends it as `contexts.custom` with each value as the payload
+  `value`. `drop_context_groups` takes `["custom"]` and is only offered by `objects.compose`.
+- Not offered, with the reason:
+  - `deleteSourceObjects` of `objects.compose`: it deletes objects, an effect outside these tools.
+  - `retention` and `overrideUnlockedRetention`: a locked retention cannot be reversed, and the override changes
+    one.
+  - `acl` and every predefined ACL that reads to everyone (see the ACL boundary), customer-supplied encryption keys,
+    and the legacy storage classes. The storage classes are `STANDARD`, `NEARLINE`, `COLDLINE`, and `ARCHIVE`.
+- `objects.rewrite`, deleting objects, and resumable uploads are not offered.
+- Metadata and contexts: at most 100 entries each, keys of 1 to 128 and values of at most 1024 bytes, 8 KiB in all.
+  `objects.patch` sets keys with `metadata` and removes keys with `remove_metadata_keys`; other keys stay, and at
+  least one field must be named. Contexts can be set but not removed by `objects.patch`.
+- The storage class of an existing object and its ACL entries are not changed by `objects.patch`.
+- The time between the proof read of a bucket and the write is a boundary: the bucket's project could change in it.
+
+### Scope, cost, and profile
+
+`objects.insert`, `objects.copy`, and `objects.compose` list `devstorage.read_write` as their smallest scope.
+`objects.patch` lists only `devstorage.full_control` and `cloud-platform`, so Qatlas asks for
+`devstorage.full_control`, which Google also uses for access control lists. The four tools belong to the profile
+`storage-objects-write`, which is not recommended and also holds `projects.get`, so that targets of an organization
+or a folder can be proved. Their risk is `create` (`update` for `objects.patch`), not idempotent, confirmation
+required, open world; the content tools carry the data sensitivity `cloud-storage-object-content`. Cloud Storage
+bills each operation and the storage of the written data for as long as it exists, and a copy or an upload into
+another region or class can bring egress or early-deletion charges. The account needs `storage.objects.create`
+(and `storage.objects.delete` to overwrite) or `storage.objects.update`, and `storage.buckets.get` for the proof read.

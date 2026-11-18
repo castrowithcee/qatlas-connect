@@ -84,6 +84,12 @@ func googleError(op string, status int, body []byte) *provider.Error {
 			return failed(provider.ClassProviderError, etagConflict)
 		}
 		return invalid()
+	case http.StatusPreconditionFailed:
+		// A write with ifGenerationMatch or ifMetagenerationMatch answers 412 when the state of the object is
+		// another one, such as an object that already exists where only a new one was to be created.
+		return failed(provider.ClassProviderError, subject+" refused the change because a precondition of the "+
+			"request was not met, for example the object already exists and overwrite was not set, or its "+
+			"generation is not the one given; nothing was written")
 	case http.StatusTooManyRequests:
 		return failed(provider.ClassRateLimited, subject+" is rate-limiting requests or the quota is used up; wait and try again")
 	}

@@ -40,13 +40,14 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 		wantEffect := config.EffectRead
 		switch {
 		case tool.ID == serviceAccountsCreateID, tool.ID == disksInsertID, tool.ID == disksCreateSnapshotID,
-			tool.ID == imagesInsertID:
+			tool.ID == imagesInsertID, tool.ID == objectsInsertID, tool.ID == objectsCopyID, tool.ID == objectsComposeID:
 			wantEffect = config.EffectCreate
 		case tool.ID == serviceAccountsPatchID, tool.ID == serviceAccountsDisableID, tool.ID == serviceAccountsEnableID,
 			tool.ID == serviceAccountKeysDisableID, tool.ID == serviceAccountKeysEnableID, tool.ID == apiKeysUndeleteID,
 			tool.ID == servicesEnableID, tool.ID == servicesBatchEnableID, tool.ID == servicesDisableID,
 			strings.Contains(tool.ID, ".iam-bindings."), tool.ID == instancesStartID, tool.ID == instancesStopID,
-			tool.ID == instancesResetID, tool.ID == instancesSetMachineTypeID, tool.ID == disksResizeID:
+			tool.ID == instancesResetID, tool.ID == instancesSetMachineTypeID, tool.ID == disksResizeID,
+			tool.ID == objectsPatchID:
 			wantEffect = config.EffectUpdate
 		case tool.ID == serviceAccountKeysDeleteID, tool.ID == serviceAccountsDeleteID, tool.ID == apiKeysDeleteID,
 			tool.ID == firewallsDeleteID, tool.ID == addressesDeleteID, tool.ID == vpnTunnelsDeleteID,
@@ -104,6 +105,14 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 			// storage v1 lists devstorage.read_only for the bucket reads, and only devstorage.full_control and
 			// cloud-platform for the policy and the ACL.
 			wantScope = scopeStorageReadOnly
+			switch tool.ID {
+			case objectsInsertID, objectsCopyID, objectsComposeID:
+				// storage v1 lists devstorage.read_write as the smallest scope for these three writes.
+				wantScope = scopeStorageReadWrite
+			case objectsPatchID:
+				// objects.patch lists only devstorage.full_control and cloud-platform.
+				wantScope = scopeStorageFullControl
+			}
 			if tool.ID == bucketsGetIAMPolicyID || tool.ID == bucketAccessControlsListID ||
 				tool.ID == objectAccessControlsListID {
 				wantScope = scopeStorageFullControl
@@ -127,7 +136,7 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 		"google.cloud.instances.set-machine-type", "google.cloud.instances.start", "google.cloud.instances.stop",
 		"google.cloud.machine-types.list", "google.cloud.managed-folders.list", "google.cloud.managed-zones.get", "google.cloud.managed-zones.list",
 		"google.cloud.networks.get", "google.cloud.networks.list", "google.cloud.notifications.list", "google.cloud.object-access-controls.list",
-		"google.cloud.objects.download", "google.cloud.objects.get", "google.cloud.objects.list", "google.cloud.operations.get", "google.cloud.organizations.get",
+		"google.cloud.objects.compose", "google.cloud.objects.copy", "google.cloud.objects.download", "google.cloud.objects.get", "google.cloud.objects.insert", "google.cloud.objects.list", "google.cloud.objects.patch", "google.cloud.operations.get", "google.cloud.organizations.get",
 		"google.cloud.organizations.search", "google.cloud.projects.get", "google.cloud.projects.list",
 		"google.cloud.projects.search", "google.cloud.quota-infos.get", "google.cloud.quota-infos.list",
 		"google.cloud.quota-preferences.get", "google.cloud.quota-preferences.list", "google.cloud.record-sets.get", "google.cloud.record-sets.list", "google.cloud.regions.list", "google.cloud.service-account-keys.delete",
@@ -206,6 +215,10 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 		case "compute-images-delete":
 			if profile.Recommended || !slices.Equal(profile.Tools, []string{projectsGetID, imagesInsertID, snapshotsDeleteID, imagesDeleteID}) {
 				t.Errorf("profile compute-images-delete = %+v", profile)
+			}
+		case "storage-objects-write":
+			if profile.Recommended || !slices.Equal(profile.Tools, []string{projectsGetID, objectsInsertID, objectsCopyID, objectsComposeID, objectsPatchID}) {
+				t.Errorf("profile storage-objects-write = %+v", profile)
 			}
 		case "iam-bindings":
 			if profile.Recommended || !slices.Contains(profile.Tools, iamBindingsAddID) ||

@@ -178,6 +178,14 @@ every call needs the confirmation of a person. It does not hold `google.cloud.di
 listed-only and only a `tools` list that names it exactly releases it. See [Images](images.md#changes),
 [Disk snapshots](snapshots.md#deleting-a-snapshot), and [Disks](disks.md#deleting-a-disk).
 
+The profile `storage-objects-write` holds `google.cloud.objects.insert`, `google.cloud.objects.copy`,
+`google.cloud.objects.compose`, `google.cloud.objects.patch`, and `google.cloud.projects.get`. The first three ask for
+`devstorage.read_write`, but Google lists only `devstorage.full_control` and `cloud-platform` for `objects.patch`, so
+the token also holds the right to change the access control lists of Cloud Storage resources although no tool does.
+The profile needs the effects `create` and `update` for the object tools and `read` for `projects.get`, is not
+recommended, and every call needs the confirmation of a person. No tool overwrites an object unless the call says
+so, makes an object public, or deletes an object. See [Objects](objects.md#writing-objects).
+
 The profile `services` holds only `google.cloud.services.enable` and `google.cloud.services.batch-enable`. It asks
 for `cloud-platform`, needs the effect `update`, and is not recommended. It does not hold
 `google.cloud.services.disable`: that tool is listed-only and only a `tools` list that names it exactly releases
@@ -229,7 +237,8 @@ on [IAM bindings](iam-bindings.md).
 - [Managed folders](managed-folders.md): the managed folders of a Cloud Storage bucket.
 - [HMAC keys](hmac-keys.md): the metadata of the HMAC keys of a project, never a key value.
 - [Objects](objects.md): the objects of a Cloud Storage bucket, their metadata, and their content up to a fixed limit as
-  untrusted data, bound to the targets through the bucket.
+  untrusted data, and uploading, copying, composing, and changing the metadata of objects, bound to the targets
+  through the bucket.
 - [Object access controls](object-access-controls.md): the access control list of a Cloud Storage object.
 - [DNS managed zones](managed-zones.md): the Cloud DNS managed zones of a project, one and all, with the rules
   every DNS tool follows.
