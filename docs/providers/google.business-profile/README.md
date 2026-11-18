@@ -1,6 +1,6 @@
 ---
 description: >
-  Describes the Google Business Profile provider: the consent-only token credential, the one scope business.manage, the fixed API origins, the approval of the Cloud project and its error class, the optional account and location targets and how they are proven, the profile, quota and request spacing, result bounds, the connection test, error classes, and the limits of what is verified.
+  Describes the Google Business Profile provider: the consent-only token credential, the one scope business.manage, the fixed API origins, the approval of the Cloud project and its error class, the performance tools, the optional account and location targets and how they are proven, the profile, quota and request spacing, result bounds, the connection test, error classes, and the limits of what is verified.
 type: knowledge
 edit: shared
 created: 2026-11-17
@@ -10,10 +10,11 @@ updated: 2026-11-18
 # Google Business Profile
 
 Google Business Profile is a provider for the Business Profile APIs v1: the accounts a person owns or manages
-and the business locations in them. Most tools read; the tools of the profile `write` change the role of existing
-admins and rename an account. [Set up Google Business Profile](setup.md) leads through
-the Google side, the approval, and the consent. The tools are described per group in [accounts](accounts.md),
-[locations](locations.md), [account admins](account-admins.md), and [location admins](location-admins.md).
+and the business locations in them, and the performance of a location. Most tools read; the tools of the
+profile `write` change the role of existing admins and rename an account. [Set up Google Business
+Profile](setup.md) leads through the Google side, the approval, and the consent. The tools are described per
+group in [accounts](accounts.md), [locations](locations.md), [account admins](account-admins.md), [location
+admins](location-admins.md), and [performance](performance.md).
 
 ## Credential
 
@@ -53,13 +54,14 @@ change. Every change is spaced at 10 per minute and profile, see [account admins
 ## Configuration
 
 The origins are fixed. Leave `base_url` out or set it to `https://mybusinessaccountmanagement.googleapis.com`;
-Qatlas refuses any other value before a secret is read. The tools use two APIs, which are enabled in the Cloud
+Qatlas refuses any other value before a secret is read. The tools use three APIs, which are enabled in the Cloud
 project one by one:
 
 | API | Origin | Tools |
 | --- | --- | --- |
 | My Business Account Management API | `https://mybusinessaccountmanagement.googleapis.com` | [accounts](accounts.md) |
 | My Business Business Information API | `https://mybusinessbusinessinformation.googleapis.com` | [locations](locations.md) |
+| Business Profile Performance API | `https://businessprofileperformance.googleapis.com` | [performance](performance.md) |
 
 ## Approval of the Cloud project
 
@@ -90,9 +92,10 @@ request is sent; a refusal never names the other object.
 | `locations.get` | first proves that the location is in the bound account's location list | the bound location only |
 | `account-admins.list`, `account-admins.update`, `accounts.update` | the bound account only | not offered |
 | `location-admins.list`, `location-admins.update` | prove the location first, like `locations.get` | the bound location only |
+| `performance.*` | first prove, on every call, that the location is in the bound account's location list | the bound location only |
 
-The proof of `locations.get` reads the location list of the bound account, names only, 100 at a time, until it
-finds the location. It reads at most 2000 locations; a location not found by then is refused like one outside
+The proof of `locations.get` and of the performance tools reads the location list of the bound account, names
+only, 100 at a time, until it finds the location. It reads at most 2000 locations; a location not found by then is refused like one outside
 the target. The time between the proof and the read is a limit of the proof.
 
 A location names no account in Google's answer, so a location target offers no account tool and cannot tell
@@ -165,7 +168,8 @@ not used. No tool invites anyone or creates an admin, and no tool creates an acc
 Not verified:
 
 - No live call was made. Methods, parameters, and answers are taken from the discovery documents of the My
-  Business Account Management API v1 and the My Business Business Information API v1, revision 20261116.
+  Business Account Management API v1, the My Business Business Information API v1, and the Business Profile
+  Performance API v1, each of revision 20261116.
 - How Google answers a project without approval. Qatlas assumes a `429` with the quota limit `0`; a pending
   approval may answer differently.
 - Whether each Business Profile API needs to be enabled in the project on its own.
@@ -176,6 +180,8 @@ Not verified:
 - The format of an admin ID; Qatlas accepts up to 64 letters, digits, `_`, and `-`.
 - Whether Google allows `SITE_MANAGER` as the new role of an account admin; its documentation names only the
   creation of such an admin as refused.
+- The date ranges the Performance API serves. Its discovery document, revision 20261116, names no limit, so
+  Qatlas checks only that dates are real and ordered; see [performance](performance.md#date-ranges).
 
 Left out on purpose:
 
@@ -188,3 +194,4 @@ Left out on purpose:
 - The role `PRIMARY_OWNER` as a target role of an admin, and changing an admin who holds it: both transfer the
   ownership of the profile. An admin with a pending invitation is not changed either.
 - `admins.delete`, the invitation methods, and `locations.transfer`.
+- The deprecated metrics `BUSINESS_CONVERSATIONS` and `BUSINESS_FOOD_ORDERS` of the performance tools.
