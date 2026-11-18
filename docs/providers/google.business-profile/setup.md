@@ -28,6 +28,8 @@ A service account does not work with this provider, see [Credential](README.md#c
 2. Under APIs and services, enable the **My Business Account Management API** and the **My Business Business
    Information API**. Each Business Profile API is enabled on its own.
    For the lodging tools also enable the **My Business Lodging API**.
+   For the verification and notification tools also enable the **My Business Verifications API** and the **My
+   Business Notifications API**.
 
 ## Request access to the APIs
 
