@@ -797,6 +797,7 @@ func TestApprovalDetailLogsKeyOpensTheFilteredLogs(t *testing.T) {
 		t.Fatalf("logs = mode %v to %q filters %v, want a range ending today filtered on personal",
 			lv.mode, lv.to, lv.filters)
 	}
+	m.Update(tea.WindowSizeMsg{Width: 160, Height: 40})
 	view := screenOf(m)
 	if !strings.Contains(view, "config.connectio") || !strings.Contains(view, "1/1") || strings.Contains(view, "elsewhere") ||
 		!strings.Contains(view, "Conn: personal ▾") {
