@@ -1,5 +1,6 @@
 // Package googlebusinessprofile implements access to the Google Business Profile APIs v1: the accounts a
-// person manages and the business locations in them.
+// person manages, the business locations in them, and the performance of a location: daily metrics and
+// search keywords.
 //
 // The credential is a person's consent through the user's own OAuth client; a service account key and the
 // impersonation of a service account are not offered, since Google documents no service account as a
@@ -40,6 +41,16 @@ var toolScopes = map[string][]string{
 	accountsGetID:   {scopeManage},
 	locationsListID: {scopeManage},
 	locationsGetID:  {scopeManage},
+
+	accountAdminsListID:    {scopeManage},
+	accountAdminsUpdateID:  {scopeManage},
+	locationAdminsListID:   {scopeManage},
+	locationAdminsUpdateID: {scopeManage},
+	accountsUpdateID:       {scopeManage},
+
+	performanceGetDailyID:   {scopeManage},
+	performanceFetchDailyID: {scopeManage},
+	performanceKeywordsID:   {scopeManage},
 
 	categoriesListID:        {scopeManage},
 	categoriesBatchGetID:    {scopeManage},
@@ -105,7 +116,12 @@ func testClass(err error) (provider.Class, error) {
 
 // readTools are the tools of the profile read.
 var readTools = []string{accountsListID, accountsGetID, locationsListID, locationsGetID,
+	accountAdminsListID, locationAdminsListID,
+	performanceGetDailyID, performanceFetchDailyID, performanceKeywordsID,
 	categoriesListID, categoriesBatchGetID, chainsGetID, chainsSearchID, googleLocationsSearchID}
+
+// writeTools are the tools of the profile write.
+var writeTools = []string{accountAdminsUpdateID, locationAdminsUpdateID, accountsUpdateID}
 
 // Register adds the provider metadata, its consent endpoints, its connection test, and its tools.
 func Register(reg *capability.Registry) error {
@@ -123,8 +139,16 @@ func Register(reg *capability.Registry) error {
 			Description: "lists and reads the accounts and the business locations the consenting account manages, " +
 				"and the categories, chains, and Google locations of Google's reference data, and changes nothing; " +
 				"Google offers only the scope business.manage, which also allows changes, so " +
-				"the token may change what its account may, although no tool of this profile changes anything",
+				"the token may change what its account may, although no tool of this profile changes anything; " +
+				"the admin lists name other people, which is personal data",
 			Tools: readTools,
+		}, {
+			ID: "write", Title: "Write",
+			Description: "changes the role of existing admins of an account or a location and renames an account, " +
+				"each change with the confirmation of a person; no tool invites or creates an admin, makes anyone " +
+				"primary owner, or transfers a location; Google offers only the scope business.manage, so the " +
+				"token may change what its account may",
+			Tools: writeTools,
 		}},
 	}, TestConnection); err != nil {
 		return err
@@ -140,6 +164,17 @@ func Register(reg *capability.Registry) error {
 		capability.Operation{Descriptor: accountsGet, Handler: handleAccountsGet},
 		capability.Operation{Descriptor: locationsList, Handler: handleLocationsList},
 		capability.Operation{Descriptor: locationsGet, Handler: handleLocationsGet},
+		capability.Operation{Descriptor: accountAdminsList, Handler: handleAccountAdminsList},
+		capability.Operation{Descriptor: locationAdminsList, Handler: handleLocationAdminsList},
+		capability.Operation{Descriptor: accountAdminsUpdate, Handler: handleAccountAdminsUpdate,
+			ConfirmationSummary: adminSummary},
+		capability.Operation{Descriptor: locationAdminsUpdate, Handler: handleLocationAdminsUpdate,
+			ConfirmationSummary: adminSummary},
+		capability.Operation{Descriptor: accountsUpdate, Handler: handleAccountsUpdate,
+			ConfirmationSummary: accountUpdateSummary},
+		capability.Operation{Descriptor: performanceGetDaily, Handler: handleGetDailyMetric},
+		capability.Operation{Descriptor: performanceFetchDaily, Handler: handleFetchDailyMetrics},
+		capability.Operation{Descriptor: performanceKeywords, Handler: handleListSearchKeywords},
 		capability.Operation{Descriptor: categoriesList, Handler: handleCategoriesList},
 		capability.Operation{Descriptor: categoriesBatchGet, Handler: handleCategoriesBatchGet},
 		capability.Operation{Descriptor: chainsGet, Handler: handleChainsGet},
