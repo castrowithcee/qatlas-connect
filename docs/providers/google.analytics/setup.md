@@ -14,7 +14,7 @@ This page shows how to connect Qatlas to Google Analytics 4. Targets, paging, an
 [properties](properties.md), [data streams](data-streams.md), [custom dimensions](custom-dimensions.md),
 [custom metrics](custom-metrics.md), [event create rules](event-create-rules.md),
 [calculated metrics](calculated-metrics.md),
-[annotations](annotations.md), [audiences](audiences.md), [channel groups](channel-groups.md), [Display & Video 360 links](display-video360-links.md),
+[annotations](annotations.md), [audiences](audiences.md), [channel groups](channel-groups.md), [expanded data sets](expanded-data-sets.md), [Display & Video 360 links](display-video360-links.md),
 [AdSense links](adsense-links.md), [Search Ads 360 links](search-ads360-links.md), [reports](reports.md),
 [audience exports](audience-exports.md), [report tasks](report-tasks.md),
 [measurement protocol secrets](measurement-protocol-secrets.md), [access reports](access-reports.md),
@@ -82,12 +82,12 @@ In Analytics, open Admin, then **Account access management** or **Property acces
 Google account or the service account address with at least the **Viewer** role. A property is visible with a
 role on the property or on its account. The Analytics roles are not changed by the scopes below. The tools that
 change something also need the **Editor** role: on the account to change or trash an account or to create a
-property, and on the property or its account to change or trash a property or to change its calculated metrics or audiences.
+property, and on the property or its account to change or trash a property or to change its calculated metrics, audiences, or expanded data sets.
 
 ## Rights and scopes
 
 The reading tools need the scope `https://www.googleapis.com/auth/analytics.readonly`, the smallest scope that
-reads Analytics configuration and report data. The tools that change an account, a property, a data stream, an event create rule, an annotation, an audience, or a channel group need
+reads Analytics configuration and report data. The tools that change an account, a property, a data stream, an event create rule, an annotation, an audience, a channel group, or an expanded data set need
 `https://www.googleapis.com/auth/analytics.edit`. Qatlas asks for the scope of the tools of the connections that
 use the credential and no more. Each connection of a credential has to be for Google Analytics, so the
 credential never carries the scope of another product.
@@ -124,6 +124,8 @@ credential never carries the scope of another product.
 | [Audiences](audiences.md#changing-audiences) | `audiences.create`, `audiences.update`, `audiences.archive` | `analytics.edit` |
 | [Channel groups](channel-groups.md) | `channel-groups.list`, `channel-groups.get` | `analytics.readonly` |
 | [Channel groups](channel-groups.md#changing-channel-groups) | `channel-groups.create`, `channel-groups.update`, `channel-groups.delete` | `analytics.edit` |
+| [Expanded data sets](expanded-data-sets.md) | `expanded-data-sets.list`, `expanded-data-sets.get` | `analytics.readonly` |
+| [Expanded data sets](expanded-data-sets.md#changing-expanded-data-sets) | `expanded-data-sets.create`, `expanded-data-sets.update`, `expanded-data-sets.delete` | `analytics.edit` |
 | [Display & Video 360 links](display-video360-links.md) | `display-video360-links.list`, `display-video360-links.get`, `display-video360-link-proposals.list`, `display-video360-link-proposals.get` | `analytics.readonly` |
 | [AdSense links](adsense-links.md) | `adsense-links.list`, `adsense-links.get` | `analytics.readonly` |
 | [Search Ads 360 links](search-ads360-links.md) | `search-ads360-links.list`, `search-ads360-links.get` | `analytics.readonly` |

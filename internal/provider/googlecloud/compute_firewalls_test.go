@@ -403,10 +403,12 @@ func TestNoToolInsertsFirewallsOrAddressesOrAddsAccessConfigs(t *testing.T) {
 	if !found {
 		t.Fatal("provider not registered")
 	}
-	forbidden := regexp.MustCompile(`\.(firewalls|addresses|global-addresses|instances)\.(insert|patch|update|add-access-config|delete-access-config|set-)|access-config|add-access`)
+	// instances.insert is the one allowed insert; it has no argument for an access config (see below).
+	forbidden := regexp.MustCompile(`\.(firewalls|addresses|global-addresses)\.(insert|patch|update|add-access-config|delete-access-config|set-)|\.instances\.(insert|patch|update|add-access-config|delete-access-config|set-)|access-config|add-access`)
 	for _, tool := range metadata.Tools {
-		// instances.set-machine-type changes the machine type, not network access, and is in scope.
-		if forbidden.MatchString(tool.ID) && tool.ID != instancesSetMachineTypeID {
+		// instances.insert takes no access config (see below) and instances.set-machine-type changes the machine
+		// type, not network access; both are in scope.
+		if tool.ID != instancesInsertID && tool.ID != instancesSetMachineTypeID && forbidden.MatchString(tool.ID) {
 			t.Errorf("tool %s names a method that creates or changes a firewall rule or an address", tool.ID)
 		}
 		if strings.Contains(tool.ID, ".firewalls.") || strings.Contains(tool.ID, ".addresses.") {
@@ -418,6 +420,10 @@ func TestNoToolInsertsFirewallsOrAddressesOrAddsAccessConfigs(t *testing.T) {
 				t.Errorf("tool %s is not one of the four read tools (effect %v)", tool.ID, tool.Effect)
 			}
 		}
+	}
+	if schema := strings.ToLower(string(instancesInsert.InputSchema)); strings.Contains(schema, "accessconfig") ||
+		strings.Contains(schema, "access_config") {
+		t.Error("instances.insert names an access config in its input schema")
 	}
 	if len(firewallAddressTools) != 4 {
 		t.Fatalf("tools = %v", firewallAddressTools)
