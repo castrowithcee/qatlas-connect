@@ -1,5 +1,6 @@
 // Package googlebusinessprofile implements access to the Google Business Profile APIs v1: the accounts a
-// person manages and the business locations in them.
+// person manages, the business locations in them, and the performance of a location: daily metrics and
+// search keywords.
 //
 // The credential is a person's consent through the user's own OAuth client; a service account key and the
 // impersonation of a service account are not offered, since Google documents no service account as a
@@ -46,6 +47,16 @@ var toolScopes = map[string][]string{
 	locationAdminsListID:   {scopeManage},
 	locationAdminsUpdateID: {scopeManage},
 	accountsUpdateID:       {scopeManage},
+
+	performanceGetDailyID:   {scopeManage},
+	performanceFetchDailyID: {scopeManage},
+	performanceKeywordsID:   {scopeManage},
+
+	categoriesListID:        {scopeManage},
+	categoriesBatchGetID:    {scopeManage},
+	chainsGetID:             {scopeManage},
+	chainsSearchID:          {scopeManage},
+	googleLocationsSearchID: {scopeManage},
 
 	accountAdminsDeleteID:  {scopeManage},
 	locationAdminsDeleteID: {scopeManage},
@@ -110,7 +121,10 @@ func testClass(err error) (provider.Class, error) {
 
 // readTools are the tools of the profile read.
 var readTools = []string{accountsListID, accountsGetID, locationsListID, locationsGetID,
-	accountAdminsListID, locationAdminsListID, invitationsListID}
+	accountAdminsListID, locationAdminsListID,
+	performanceGetDailyID, performanceFetchDailyID, performanceKeywordsID,
+	categoriesListID, categoriesBatchGetID, chainsGetID, chainsSearchID, googleLocationsSearchID,
+	invitationsListID}
 
 // writeTools are the tools of the profile write.
 var writeTools = []string{accountAdminsUpdateID, locationAdminsUpdateID, accountsUpdateID,
@@ -129,8 +143,9 @@ func Register(reg *capability.Registry) error {
 		Target:          targetMetadata,
 		Profiles: []config.ToolProfile{{
 			ID: "read", Title: "Read", Recommended: true,
-			Description: "lists and reads the accounts and the business locations the consenting account manages " +
-				"and changes nothing; Google offers only the scope business.manage, which also allows changes, so " +
+			Description: "lists and reads the accounts and the business locations the consenting account manages, " +
+				"and the categories, chains, and Google locations of Google's reference data, and changes nothing; " +
+				"Google offers only the scope business.manage, which also allows changes, so " +
 				"the token may change what its account may, although no tool of this profile changes anything; " +
 				"the admin lists name other people and the invitation list names the targets of invitations, which is " +
 				"personal data",
@@ -173,5 +188,13 @@ func Register(reg *capability.Registry) error {
 		capability.Operation{Descriptor: invitationsList, Handler: handleInvitationsList},
 		capability.Operation{Descriptor: invitationsDecline, Handler: handleInvitationsDecline,
 			ConfirmationSummary: invitationSummary},
+		capability.Operation{Descriptor: performanceGetDaily, Handler: handleGetDailyMetric},
+		capability.Operation{Descriptor: performanceFetchDaily, Handler: handleFetchDailyMetrics},
+		capability.Operation{Descriptor: performanceKeywords, Handler: handleListSearchKeywords},
+		capability.Operation{Descriptor: categoriesList, Handler: handleCategoriesList},
+		capability.Operation{Descriptor: categoriesBatchGet, Handler: handleCategoriesBatchGet},
+		capability.Operation{Descriptor: chainsGet, Handler: handleChainsGet},
+		capability.Operation{Descriptor: chainsSearch, Handler: handleChainsSearch},
+		capability.Operation{Descriptor: googleLocationsSearch, Handler: handleGoogleLocationsSearch},
 	)
 }

@@ -273,7 +273,9 @@ func targetReaches(tool string, targets []string) (bool, []string) {
 		snapshotsListID, snapshotsGetID, imagesListID, imagesGetID,
 		firewallsDeleteID, addressesDeleteID, vpnTunnelsDeleteID, vpnGatewaysDeleteID,
 		instancesStartID, instancesStopID, instancesResetID, instancesSetMachineTypeID,
-		bucketsListID, bucketsGetID, bucketsGetIAMPolicyID, bucketAccessControlsListID:
+		instancesInsertID, instancesDeleteID,
+		bucketsListID, bucketsGetID, bucketsGetIAMPolicyID, bucketAccessControlsListID,
+		notificationsListID, managedFoldersListID, hmacKeysListID, hmacKeysGetID:
 		if !list.reachesResources() {
 			return false, []string{"organizations/ORGANIZATION", "folders/FOLDER", "projects/PROJECT"}
 		}

@@ -296,9 +296,12 @@ func TestNoToolCreatesAdminsOrAccounts(t *testing.T) {
 		ids = append(ids, d.ID)
 	}
 	want := map[string]bool{}
-	for _, name := range []string{"account-admins.list", "account-admins.update", "account-admins.delete", "invitations.list", "invitations.decline",
-		"location-admins.delete", "accounts.get", "accounts.list",
-		"accounts.update", "location-admins.list", "location-admins.update", "locations.get", "locations.list"} {
+	for _, name := range []string{
+		"account-admins.delete", "account-admins.list", "account-admins.update", "accounts.get", "accounts.list",
+		"accounts.update", "categories.batch-get", "categories.list", "chains.get", "chains.search",
+		"google-locations.search", "invitations.decline", "invitations.list", "location-admins.delete",
+		"location-admins.list", "location-admins.update", "locations.get", "locations.list",
+		"performance.fetch-daily-metrics", "performance.get-daily-metric", "performance.list-search-keywords"} {
 		want[Provider+"."+name] = true
 	}
 	if len(ids) != len(want) {
