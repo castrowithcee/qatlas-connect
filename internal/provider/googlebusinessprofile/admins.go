@@ -383,27 +383,8 @@ func updateAdmin(ctx context.Context, resolved *config.Resolved, secrets *secret
 	if err != nil {
 		return nil, err
 	}
-	var current *admin
-	for i := range admins {
-		if string(admins[i].Name) == args.Admin {
-			current = &admins[i]
-			break
-		}
-	}
-	switch {
-	case current == nil && len(admins) >= maxItems:
-		return nil, invalidArgument("the admin is not among the first 250 admins of the list")
-	case current == nil:
-		return nil, invalidArgument(notFoundAdmin)
-	case current.PendingInvitation.value:
-		return nil, invalidArgument("the invitation of this admin is still pending: only the role of an existing " +
-			"admin is changed")
-	case string(current.Role) == rolePrimaryOwner:
-		return nil, invalidArgument("an admin who holds the role PRIMARY_OWNER is not changed: that would take away " +
-			"the ownership of the profile")
-	case string(current.Admin) != args.PreviousAdmin || string(current.Role) != args.PreviousRole:
-		return nil, invalidArgument("previous_admin and previous_role are not what Google holds for this admin now; " +
-			"read the admin with the list tool and send those values")
+	if _, err := matchAdmin(admins, args, "changed", false); err != nil {
+		return nil, err
 	}
 	body, err := json.Marshal(map[string]string{"role": args.Role})
 	if err != nil {
@@ -419,6 +400,35 @@ func updateAdmin(ctx context.Context, resolved *config.Resolved, secrets *secret
 		return nil, err
 	}
 	return out, nil
+}
+
+// matchAdmin finds the admin of the call in the list and refuses, without any change, what the call must not
+// touch: an admin who holds PRIMARY_OWNER, a pending invitation unless it may be revoked, and an entry whose
+// name or role is not the one the call read last. action ("changed" or "removed") only words the message.
+func matchAdmin(admins []admin, args adminArguments, action string, allowPending bool) (*admin, error) {
+	var current *admin
+	for i := range admins {
+		if string(admins[i].Name) == args.Admin {
+			current = &admins[i]
+			break
+		}
+	}
+	switch {
+	case current == nil && len(admins) >= maxItems:
+		return nil, invalidArgument("the admin is not among the first 250 admins of the list")
+	case current == nil:
+		return nil, invalidArgument(notFoundAdmin)
+	case current.PendingInvitation.value && !allowPending:
+		return nil, invalidArgument("the invitation of this admin is still pending: only the role of an existing " +
+			"admin is changed")
+	case string(current.Role) == rolePrimaryOwner:
+		return nil, invalidArgument("an admin who holds the role PRIMARY_OWNER is not " + action + ": that would take " +
+			"away the ownership of the profile")
+	case string(current.Admin) != args.PreviousAdmin || string(current.Role) != args.PreviousRole:
+		return nil, invalidArgument("previous_admin and previous_role are not what Google holds for this admin now; " +
+			"read the admin with the list tool and send those values")
+	}
+	return current, nil
 }
 
 // adminSummary phrases a confirmation from the arguments alone; the core neutralizes and bounds it.
