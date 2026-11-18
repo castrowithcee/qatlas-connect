@@ -31,8 +31,9 @@ func badRequest(message string) error {
 // from google.api.ErrorReason: SERVICE_DISABLED, ACCESS_TOKEN_EXPIRED, ACCESS_TOKEN_SCOPE_INSUFFICIENT,
 // RATE_LIMIT_EXCEEDED and RESOURCE_QUOTA_EXCEEDED; CREDENTIALS_MISSING is the reason an anonymous request
 // gets. A 401, 403 or 404 that carries none of these is an invalid response rather than a guess. The message
-// and the details of the body never reach the message; they go along as the Original.
-func googleError(op string, status int, body []byte) *provider.Error {
+// and the details of the body never reach the message; they go along as the Original. svc is the service the
+// request went to, which is the one a SERVICE_DISABLED answer means.
+func googleError(op string, svc service, status int, body []byte) *provider.Error {
 	state, reason := googleapi.StatusOf(body)
 	if state == "" {
 		state = legacyStatus(body)
@@ -54,8 +55,8 @@ func googleError(op string, status int, body []byte) *provider.Error {
 	case http.StatusForbidden:
 		switch {
 		case reason == "SERVICE_DISABLED":
-			return failed(provider.ClassPermission, subject+" refused the request because a Google API it needs "+
-				"(Cloud Resource Manager, IAM, Service Usage, or Compute Engine) is not enabled in the Cloud project of the credential; a person enables it there")
+			return failed(provider.ClassPermission, subject+" refused the request because "+disabledAPI(svc)+
+				" is not enabled in the Cloud project of the credential; a person enables it there")
 		case reason == "ACCESS_TOKEN_SCOPE_INSUFFICIENT":
 			return failed(provider.ClassScopeMissing, "the access token of the credential lacks a scope this tool needs")
 		case state == "PERMISSION_DENIED":

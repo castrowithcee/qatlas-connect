@@ -7,6 +7,8 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
+
+	"github.com/castrowithcee/qatlas-connect/internal/uiprefs"
 )
 
 // connectionForm opens the form of a new connection at the given terminal width.
@@ -40,8 +42,8 @@ func TestInfoDoesNotActOnTextRows(t *testing.T) {
 	}
 }
 
-// A search line takes i as text once it holds something, and as the info key while it is empty.
-func TestInfoActsOnASearchOnlyWhileItIsEmpty(t *testing.T) {
+// A search line takes i as text, empty or not.
+func TestInfoIsTextOnASearchLine(t *testing.T) {
 	m := connectionForm(t, helpPaneMinWidth-1)
 	focusField(t, m, accessLabel)
 	selectChoice(t, m, accessTools)
@@ -57,12 +59,8 @@ func TestInfoActsOnASearchOnlyWhileItIsEmpty(t *testing.T) {
 	}
 	press(t, m, "backspace", "backspace")
 	press(t, m, "i")
-	if !m.infoOpen {
-		t.Fatalf("i in an empty search opened nothing:\n%s", m.render())
-	}
-	press(t, m, "esc")
-	if m.infoOpen || m.screen != screenPicker {
-		t.Errorf("esc left overlay %v on screen %v, want the picker alone", m.infoOpen, m.screen)
+	if m.infoOpen || m.picker.query() != "i" {
+		t.Errorf("i in an empty search: overlay %v, query %q, want the letter typed", m.infoOpen, m.picker.query())
 	}
 }
 
@@ -131,6 +129,8 @@ func TestInfoFooterNamesTheKeyWhereItWorks(t *testing.T) {
 
 // A picker explains the marked tool from its description, and marks tools with one below the pane width.
 func TestInfoExplainsTheMarkedEntryOfAPicker(t *testing.T) {
+	keepKeys(t)
+	applyKeys(uiprefs.Keys{Info: "f3"})
 	m := connectionForm(t, helpPaneMinWidth-1)
 	focusField(t, m, accessLabel)
 	selectChoice(t, m, accessTools)
@@ -163,7 +163,7 @@ func TestInfoExplainsTheMarkedEntryOfAPicker(t *testing.T) {
 	if !strings.Contains(m.render(), "(i)") {
 		t.Errorf("a described tool carries no (i):\n%s", m.render())
 	}
-	press(t, m, "i")
+	press(t, m, "f3")
 	if got := strings.Join(strings.Fields(m.render()), " "); !m.infoOpen || !strings.Contains(got, strings.Fields(want)[0]) {
 		t.Errorf("the overlay does not show the description %q:\n%s", want, m.render())
 	}

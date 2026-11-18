@@ -113,7 +113,7 @@ func Register(reg *capability.Registry) error {
 	token := tokenMetadata
 	if err := reg.RegisterProvider(config.ProviderMetadata{
 		ID: Provider, Name: "Google Cloud", DefaultBaseURL: apiRoot,
-		Description:    "Projects, folders, organizations, IAM, and service accounts of Google Cloud: read, and service accounts and single IAM bindings changed with opt-in profiles",
+		Description:    "Google Cloud APIs from Resource Manager, IAM, and Service Usage to Compute Engine, Cloud Storage, Cloud DNS, and Cloud Billing: read, and changes and deletions through opt-in profiles or a tools list",
 		DefaultEffects: []config.Effect{config.EffectRead},
 		ValidateBaseURL: func(raw string) error {
 			if !isAPIRoot(raw) {

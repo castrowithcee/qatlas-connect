@@ -589,6 +589,13 @@ func TestValidateConsentEntries(t *testing.T) {
 			}
 		}
 	}
+	for _, result := range []string{"success", RevokeUnconfirmed} {
+		f := entry("tui", OperationConsentRevoke, "delete")
+		f.Result = result
+		if err := f.Validate(); err != nil {
+			t.Errorf("tui revoke %s: Validate() = %v", result, err)
+		}
+	}
 	bad := map[string]Fields{
 		"tui grant":           entry("tui", OperationConsentGrant, "update"),
 		"web grant as delete": entry("web", OperationConsentGrant, "delete"),

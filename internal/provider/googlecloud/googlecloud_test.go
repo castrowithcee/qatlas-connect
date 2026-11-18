@@ -351,7 +351,7 @@ func TestGoogleErrorMapsOnlyDocumentedValues(t *testing.T) {
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			failed := googleError("op", c.status, []byte(c.body))
+			failed := googleError("op", serviceResourceManager, c.status, []byte(c.body))
 			if failed.Class != c.want {
 				t.Fatalf("class = %s, want %s", failed.Class, c.want)
 			}
@@ -910,7 +910,7 @@ func TestConnectionTest(t *testing.T) {
 		if err != nil || class != provider.ClassPermission {
 			t.Fatalf("class=%s err=%v", class, err)
 		}
-		failed := googleError("test connection", 403, []byte(errorObject(403, "PERMISSION_DENIED", "SERVICE_DISABLED")))
+		failed := googleError("test connection", serviceResourceManager, 403, []byte(errorObject(403, "PERMISSION_DENIED", "SERVICE_DISABLED")))
 		if !strings.Contains(failed.Message, "not enabled") {
 			t.Errorf("message = %q, want it to say the API is not enabled", failed.Message)
 		}

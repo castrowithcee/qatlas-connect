@@ -59,34 +59,11 @@ func (v *Vault) addPending(name, credentialID string, roles map[string]string) (
 		return "", err
 	}
 	path = filepath.Join(v.pendingPath(), newID()+".age")
-	return path, writeFile(path, data)
-}
-
-// mergePending decrypts and applies every pending file to doc, in file name order, and returns how many
-// were applied. It never removes a pending file itself: the caller removes them only after the merged
-// document was written successfully, so a failed write leaves nothing lost.
-func (v *Vault) mergePending(id *identity, doc *document) (int, error) {
-	names, err := v.pendingFiles()
-	if err != nil {
-		return 0, err
+	if err := writeFile(path, data); err != nil {
+		return "", err
 	}
-	// A payload with only a credential id goes last, so it finds an entry a pending secret creates.
-	var idsOnly []pendingPayload
-	for _, name := range names {
-		payload, _, err := v.readPending(id, name)
-		if err != nil {
-			return 0, err
-		}
-		if len(payload.Roles) == 0 {
-			idsOnly = append(idsOnly, payload)
-			continue
-		}
-		doc.mergePending(payload)
-	}
-	for _, payload := range idsOnly {
-		doc.mergePending(payload)
-	}
-	return len(names), nil
+	v.journalPending(path)
+	return path, nil
 }
 
 // readPending decrypts the pending file name and returns its payload and its very bytes.
@@ -105,15 +82,6 @@ func (v *Vault) readPending(id *identity, name string) (pendingPayload, []byte, 
 		return pendingPayload{}, nil, fmt.Errorf("%s does not hold a valid pending entry", path)
 	}
 	return payload, data, nil
-}
-
-// removePending deletes the given pending files after they were merged and the document that absorbed them
-// was written. A failure here is not returned as fatal: the merge itself already succeeded, and a leftover
-// pending file merges again next time, which is a duplicate no-op, not data loss.
-func (v *Vault) removePending(names []string) {
-	for _, name := range names {
-		_ = os.Remove(filepath.Join(v.pendingPath(), name))
-	}
 }
 
 // mergePending applies one pending payload to the document: an existing entry of the same name gets the

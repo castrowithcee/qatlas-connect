@@ -201,9 +201,9 @@ const (
 )
 
 // The operations that log a consent a person gave or revoked for the credential of a connection, one entry
-// per connection that uses the credential, with no value of it. Their Path is "cli" or "web". A grant is an
-// update, a revocation a delete; the result of a revocation the provider did not confirm is
-// RevokeUnconfirmed.
+// per connection that uses the credential, with no value of it. Their Path is "cli" or "web", and a revocation
+// also "tui". A grant is an update, a revocation a delete; the result of a revocation the provider did not
+// confirm is RevokeUnconfirmed.
 const (
 	OperationConsentGrant  = "config.consent.grant"
 	OperationConsentRevoke = "config.consent.revoke"
@@ -328,9 +328,10 @@ func (f Fields) Validate() error {
 	case "cli", "mcp":
 	case "tui", "web":
 		// A surface of the interactive editors only ever logs a change to a connection or a target choice, and
-		// the web also a consent.
+		// the web also a consent. The TUI only revokes one.
 		if connectionOperations[f.Operation] == "" && !IsTargetOperation(f.Operation) &&
-			(f.Path != "web" || consentOperations[f.Operation] == "") {
+			(f.Path != "web" || consentOperations[f.Operation] == "") &&
+			(f.Path != "tui" || f.Operation != OperationConsentRevoke) {
 			return errors.New("operation is not a connection change")
 		}
 	default:

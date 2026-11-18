@@ -71,8 +71,8 @@ var releaseAssetsUpdate = capability.Descriptor{
 	Title:   "Update a GitHub release asset",
 	Description: "Rename an asset of a release of a repository a connection allows, change its label, or " +
 		"set its state to uploaded; the content never changes. The asset is read below the chosen " +
-		"repository first. The answer holds the REST url but never browser_download_url, which can grant " +
-		"access without sign-in. A release marked immutable refuses the change as a permission failure",
+		"repository first. The answer holds the REST url and browser_download_url, an address that is no " +
+		"access value and is never fetched. A release marked immutable refuses the change as a permission failure",
 	Tags:     []string{"github", "releases", "assets", "update"},
 	Risk:     changeRisk(capability.EffectUpdate, capability.IdempotencyIdempotent),
 	Provider: Provider,
@@ -99,7 +99,7 @@ var releaseAssetsUpdate = capability.Descriptor{
 		{Name: "created_at", Description: "When the asset was created"},
 		{Name: "updated_at", Description: "Time of the last change"},
 		{Name: "uploader", Description: "Uploader as an account: " + restAccountMembers},
-		{Name: "links", Description: "REST url only, untrusted data, never fetched; browser_download_url is omitted"},
+		{Name: "links", Description: "The REST url and browser_download_url, untrusted data, never fetched"},
 	},
 	Examples: []capability.Example{{
 		Description: "Rename an asset",
@@ -325,8 +325,6 @@ func (c *Client) updateReleaseAsset(ctx context.Context, a *releaseArguments) (*
 		return nil, invalidResponse(op, true)
 	}
 	view := raw.view()
-	// The download address can grant access without sign-in, so only the REST address stays.
-	delete(view.Links, "browser_download_url")
 	return &view, nil
 }
 
