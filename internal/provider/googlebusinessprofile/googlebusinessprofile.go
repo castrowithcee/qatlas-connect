@@ -52,11 +52,16 @@ var toolScopes = map[string][]string{
 	performanceFetchDailyID: {scopeManage},
 	performanceKeywordsID:   {scopeManage},
 
-	categoriesListID:             {scopeManage},
-	categoriesBatchGetID:         {scopeManage},
-	chainsGetID:                  {scopeManage},
-	chainsSearchID:               {scopeManage},
-	googleLocationsSearchID:      {scopeManage},
+	categoriesListID:        {scopeManage},
+	categoriesBatchGetID:    {scopeManage},
+	chainsGetID:             {scopeManage},
+	chainsSearchID:          {scopeManage},
+	googleLocationsSearchID: {scopeManage},
+
+	accountAdminsDeleteID:        {scopeManage},
+	locationAdminsDeleteID:       {scopeManage},
+	invitationsListID:            {scopeManage},
+	invitationsDeclineID:         {scopeManage},
 	verificationsListID:          {scopeManage},
 	verificationsFetchOptionsID:  {scopeManage},
 	verificationsMerchantStateID: {scopeManage},
@@ -123,10 +128,11 @@ var readTools = []string{accountsListID, accountsGetID, locationsListID, locatio
 	accountAdminsListID, locationAdminsListID,
 	performanceGetDailyID, performanceFetchDailyID, performanceKeywordsID,
 	categoriesListID, categoriesBatchGetID, chainsGetID, chainsSearchID, googleLocationsSearchID,
-	verificationsListID, verificationsFetchOptionsID, verificationsMerchantStateID, notificationsGetID}
+	invitationsListID, verificationsListID, verificationsFetchOptionsID, verificationsMerchantStateID, notificationsGetID}
 
 // writeTools are the tools of the profile write.
-var writeTools = []string{accountAdminsUpdateID, locationAdminsUpdateID, accountsUpdateID}
+var writeTools = []string{accountAdminsUpdateID, locationAdminsUpdateID, accountsUpdateID,
+	accountAdminsDeleteID, locationAdminsDeleteID, invitationsDeclineID}
 
 // Register adds the provider metadata, its consent endpoints, its connection test, and its tools.
 func Register(reg *capability.Registry) error {
@@ -145,14 +151,16 @@ func Register(reg *capability.Registry) error {
 				"and the categories, chains, and Google locations of Google's reference data, and changes nothing; " +
 				"Google offers only the scope business.manage, which also allows changes, so " +
 				"the token may change what its account may, although no tool of this profile changes anything; " +
-				"the admin lists name other people and the verification options show masked postal addresses, phone " +
-				"numbers, and email addresses, which is personal data",
+				"the admin lists name other people, the invitation list names the targets of invitations, and the " +
+				"verification options show masked postal addresses, phone numbers, and email addresses, which is " +
+				"personal data",
 			Tools: readTools,
 		}, {
 			ID: "write", Title: "Write",
-			Description: "changes the role of existing admins of an account or a location and renames an account, " +
-				"each change with the confirmation of a person; no tool invites or creates an admin, makes anyone " +
-				"primary owner, or transfers a location; Google offers only the scope business.manage, so the " +
+			Description: "changes the role of existing admins of an account or a location, removes existing admins, " +
+				"declines invitations, and renames an account, each change with the confirmation of a person; no " +
+				"tool invites or creates an admin, accepts an invitation, makes anyone primary owner, or " +
+				"transfers a location; Google offers only the scope business.manage, so the " +
 				"token may change what its account may",
 			Tools: writeTools,
 		}},
@@ -178,6 +186,13 @@ func Register(reg *capability.Registry) error {
 			ConfirmationSummary: adminSummary},
 		capability.Operation{Descriptor: accountsUpdate, Handler: handleAccountsUpdate,
 			ConfirmationSummary: accountUpdateSummary},
+		capability.Operation{Descriptor: accountAdminsDelete, Handler: handleAccountAdminsDelete,
+			ConfirmationSummary: adminRemoveSummary},
+		capability.Operation{Descriptor: locationAdminsDelete, Handler: handleLocationAdminsDelete,
+			ConfirmationSummary: adminRemoveSummary},
+		capability.Operation{Descriptor: invitationsList, Handler: handleInvitationsList},
+		capability.Operation{Descriptor: invitationsDecline, Handler: handleInvitationsDecline,
+			ConfirmationSummary: invitationSummary},
 		capability.Operation{Descriptor: performanceGetDaily, Handler: handleGetDailyMetric},
 		capability.Operation{Descriptor: performanceFetchDaily, Handler: handleFetchDailyMetrics},
 		capability.Operation{Descriptor: performanceKeywords, Handler: handleListSearchKeywords},

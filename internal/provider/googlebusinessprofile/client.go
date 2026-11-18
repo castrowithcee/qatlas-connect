@@ -1,7 +1,6 @@
 package googlebusinessprofile
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"io"
@@ -161,19 +160,8 @@ type request struct {
 	path     string
 	query    url.Values
 	notFound string
-	// body is the JSON body of a POST that only reads, see post; a GET has none.
-	body []byte
 	// first marks the first request of a connection test, whose rate limit means a missing approval.
 	first bool
-}
-
-// post sends the POST of a method that Google documents as a read, such as listing options. It is the same
-// request as get with a JSON body, so it is spaced and renewed like a read and never counts as a change.
-func (c *client) post(ctx context.Context, op, tool string, r request, out any) error {
-	if r.body == nil {
-		r.body = []byte("{}")
-	}
-	return c.get(ctx, op, tool, r, out)
 }
 
 // get sends one GET, once (the token source renews a rejected token once), and decodes the JSON object
@@ -187,19 +175,12 @@ func (c *client) get(ctx context.Context, op, tool string, r request, out any) e
 		if err := c.limiter.Wait(ctx); err != nil {
 			return nil, provider.Waited(op, subject, err)
 		}
-		method, payload := http.MethodGet, io.Reader(nil)
-		if r.body != nil {
-			method, payload = http.MethodPost, bytes.NewReader(r.body)
-		}
-		req, err := http.NewRequestWithContext(ctx, method, address, payload)
+		req, err := http.NewRequestWithContext(ctx, http.MethodGet, address, nil)
 		if err != nil {
 			return nil, provider.Fail(op, "the request could not be built")
 		}
 		req.Header.Set("Authorization", "Bearer "+access)
 		req.Header.Set("Accept", "application/json")
-		if r.body != nil {
-			req.Header.Set("Content-Type", "application/json")
-		}
 		req.Header.Set("User-Agent", userAgent)
 		return req, nil
 	}

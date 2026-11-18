@@ -320,17 +320,13 @@ func handleVerificationsFetchOptions(ctx context.Context, resolved *config.Resol
 		LanguageCode string          `json:"languageCode"`
 		Context      *optionsContext `json:"context,omitempty"`
 	}{LanguageCode: args.LanguageCode, Context: args.Context}
-	payload, err := json.Marshal(body)
-	if err != nil {
-		return nil, provider.Fail(op, "the request could not be built")
-	}
 	c, name, err := locationCall(ctx, op, resolved, secrets, red, args.Location)
 	if err != nil {
 		return nil, err
 	}
 	var answer optionsAnswer
-	if err := c.post(ctx, op, verificationsFetchOptionsID, request{root: verificationsRoot,
-		path: locationPath(name) + fetchOptionsPathSuffix, body: payload, notFound: notFoundLocation}, &answer); err != nil {
+	if err := c.postJSON(ctx, op, verificationsFetchOptionsID, request{root: verificationsRoot,
+		path: locationPath(name) + fetchOptionsPathSuffix, notFound: notFoundLocation}, body, &answer); err != nil {
 		return nil, err
 	}
 	return optionsResult{Options: append([]verificationOption{}, answer.Options...)}, nil
