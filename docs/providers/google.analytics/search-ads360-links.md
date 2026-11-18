@@ -1,23 +1,24 @@
 ---
 description: >
-  Describes the Google Analytics Search Ads 360 link tools, read-only and on the alpha version of the Admin API: search-ads360-links.list and search-ads360-links.get read the Search Ads 360 links of a property, with the result members, the checked values, how targets restrict each tool and prove the account of a property, the profile, and the limits of what is verified.
+  Describes the Google Analytics Search Ads 360 link tools on the alpha version of the Admin API: search-ads360-links.list and search-ads360-links.get read the Search Ads 360 links of a property, search-ads360-links.delete deletes one with confirmation and ends the data flow, with the result members, the checked values, how targets restrict each tool and prove the account of a property, the profiles, why creating and changing are no tools, and the limits of what is verified.
 type: knowledge
 edit: shared
 created: 2026-11-17
-updated: 2026-11-17
+updated: 2026-11-18
 ---
 
 # Google Analytics Search Ads 360 links
 
 The Search Ads 360 link tools of the [Google Analytics provider](README.md). A link connects a property with a
-Search Ads 360 advertiser. Both tools use the alpha version of the Admin API (`v1alpha`, Discovery revision
+Search Ads 360 advertiser. All tools use the alpha version of the Admin API (`v1alpha`, Discovery revision
 20261116) and follow the [alpha tools](README.md#alpha-tools) rule: Google can change or remove the methods
 without notice, and then the arguments and the answer of the tools change with them. Each description ends with
 the `ALPHA:` note.
 
-The tools read and change nothing, a repeat is safe, they need the scope `analytics.readonly`, and the profile
-`read` holds both, see [setup](setup.md#rights-and-scopes). No tool creates, changes, or deletes a link; a person
-does that in Analytics or Search Ads 360. Find property names with [accounts.list-summaries](accounts.md) and link
+The two reading tools change nothing, a repeat is safe, they need the scope `analytics.readonly`, and the profile
+`read` holds both. The [delete tool](#google-analyticssearch-ads360-linksdelete) needs `analytics.edit` and is only in
+the profile `write`, see [setup](setup.md#rights-and-scopes). No tool creates or changes a link; a person does that
+in Analytics or Search Ads 360. Find property names with [accounts.list-summaries](accounts.md) and link
 names with `search-ads360-links.list`. The tools read no report data. A link names a business account, not a
 person, so the results carry no personal data.
 
@@ -42,9 +43,25 @@ Reads `properties.searchAds360Links.get`: one link with all members above. `name
 (`properties/ID/searchAds360Links/ID`) is required. An answer for another link than the one asked for is refused.
 Google answers a link that is missing like one the credential cannot see; both are `not-found`.
 
+## google.analytics.search-ads360-links.delete
+
+Uses `properties.searchAds360Links.delete`. `name` (`properties/ID/searchAds360Links/ID`) is required. The data
+flow between the property and the Search Ads 360 advertiser ends: imported campaign and cost data and exported site
+stats stop. Data that was already imported stays in the property. No tool restores or creates a link. The answer is
+`name` and `deleted: true`; Google answers an empty body. The call is idempotent in effect, but a repeat answers
+`not-found`.
+
+The delete tool changes Analytics, needs the confirmation of a person for each call, and is one request without a
+retry. After a timeout, an aborted request, a `5xx` answer, or an answer that cannot be read, the outcome is
+unknown: the error says so, and the entry is read before it is deleted again. A refusal, a `400`, a `403`, a
+`404`, and a `429` mean the change was not made. A `429` holds the next request of the credential for one second, or
+the seconds of `Retry-After` up to one minute, and nothing repeats the failed one. The name is checked before any
+request or secret access, and a refusal names the argument, never the value. The confirmation text names the entry.
+The entry is not read before it is deleted. The property in the name follows the targets rule below.
+
 ## Targets and proof
 
-The property in the argument or name decides, like the property tools: a bound property is used at once, a
+The property in the argument or name decides, also for the delete tool (the link is not read first), like the property tools: a bound property is used at once, a
 property of a bound account only after one read that shows its account, and any other property is refused without
 a request or, after the proof read, without the call. A connection bound to properties only refuses every other
 property before any request. A refusal does not name the resource.

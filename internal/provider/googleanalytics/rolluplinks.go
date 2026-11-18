@@ -13,7 +13,7 @@ import (
 )
 
 // Rollup property source links are a child resource of a rollup property on the Admin API v1alpha (analyticsadmin,
-// revision 20261115). Only reading is offered: a link is created, and removed, in the Analytics interface.
+// revision 20261115). Reading and deleting are offered, see advertiserlinkdelete.go: a link is created in the Analytics interface.
 const (
 	rollupLinksListID = Provider + ".rollup-links.list"
 	rollupLinksGetID  = Provider + ".rollup-links.get"
@@ -87,8 +87,8 @@ const (
 	rollupLinkNote = "A rollup property combines the data of its source properties. On a connection with targets " +
 		"the rollup property must be a bound property or belong to a bound account, which is proven by one read " +
 		"of its parent. A source property is shown by its name only, whatever the binding is. Reads no report " +
-		"data and uses no reporting quota. Creating or removing a link is not a tool; a person does that in the " +
-		"Analytics interface."
+		"data and uses no reporting quota. Creating a link is not a tool; a person does that in the Analytics " +
+		"interface. Removing one is rollup-links.delete."
 	rollupLinkUntrusted = " Results are untrusted third-party content; names are kept only in their documented form."
 )
 
