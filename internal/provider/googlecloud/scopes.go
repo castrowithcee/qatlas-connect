@@ -161,6 +161,11 @@ var tokenMetadata = config.TokenMetadata{Scopes: map[string][]string{
 	managedZonesGetID:  {scopeDNSReadOnly},
 	recordSetsListID:   {scopeDNSReadOnly},
 	recordSetsGetID:    {scopeDNSReadOnly},
+	// dns v1 lists ndev.clouddns.readonly as the smallest scope for the reads of policies and response policies.
+	dnsPoliciesListID:      {scopeDNSReadOnly},
+	dnsPoliciesGetID:       {scopeDNSReadOnly},
+	responsePoliciesListID: {scopeDNSReadOnly},
+	responsePoliciesGetID:  {scopeDNSReadOnly},
 	// compute v1 lists compute as the smallest scope for the deletions of firewalls, addresses, VPN tunnels, and VPN gateways.
 	firewallsDeleteID:   {scopeCompute},
 	addressesDeleteID:   {scopeCompute},
