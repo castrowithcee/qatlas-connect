@@ -51,6 +51,10 @@ var toolScopes = map[string][]string{
 	performanceGetDailyID:   {scopeManage},
 	performanceFetchDailyID: {scopeManage},
 	performanceKeywordsID:   {scopeManage},
+
+	lodgingGetID:           {scopeManage},
+	lodgingGoogleUpdatedID: {scopeManage},
+	lodgingUpdateID:        {scopeManage},
 }
 
 // ClassAccessNotApproved is the outcome of a Cloud project that Google has not approved for the Business
@@ -111,10 +115,11 @@ func testClass(err error) (provider.Class, error) {
 // readTools are the tools of the profile read.
 var readTools = []string{accountsListID, accountsGetID, locationsListID, locationsGetID,
 	accountAdminsListID, locationAdminsListID,
-	performanceGetDailyID, performanceFetchDailyID, performanceKeywordsID}
+	performanceGetDailyID, performanceFetchDailyID, performanceKeywordsID,
+	lodgingGetID, lodgingGoogleUpdatedID}
 
 // writeTools are the tools of the profile write.
-var writeTools = []string{accountAdminsUpdateID, locationAdminsUpdateID, accountsUpdateID}
+var writeTools = []string{accountAdminsUpdateID, locationAdminsUpdateID, accountsUpdateID, lodgingUpdateID}
 
 // Register adds the provider metadata, its consent endpoints, its connection test, and its tools.
 func Register(reg *capability.Registry) error {
@@ -167,5 +172,9 @@ func Register(reg *capability.Registry) error {
 		capability.Operation{Descriptor: performanceGetDaily, Handler: handleGetDailyMetric},
 		capability.Operation{Descriptor: performanceFetchDaily, Handler: handleFetchDailyMetrics},
 		capability.Operation{Descriptor: performanceKeywords, Handler: handleListSearchKeywords},
+		capability.Operation{Descriptor: lodgingGet, Handler: handleLodgingGet},
+		capability.Operation{Descriptor: lodgingGoogleUpdated, Handler: handleLodgingGoogleUpdated},
+		capability.Operation{Descriptor: lodgingUpdate, Handler: handleLodgingUpdate,
+			ConfirmationSummary: lodgingUpdateSummary},
 	)
 }
