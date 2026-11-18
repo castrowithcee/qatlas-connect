@@ -274,6 +274,7 @@ func targetReaches(tool string, targets []string) (bool, []string) {
 		firewallsDeleteID, addressesDeleteID, vpnTunnelsDeleteID, vpnGatewaysDeleteID,
 		instancesStartID, instancesStopID, instancesResetID, instancesSetMachineTypeID,
 		instancesInsertID, instancesDeleteID,
+		disksInsertID, disksResizeID, disksCreateSnapshotID,
 		bucketsListID, bucketsGetID, bucketsGetIAMPolicyID, bucketAccessControlsListID,
 		notificationsListID, managedFoldersListID, hmacKeysListID, hmacKeysGetID,
 		objectsListID, objectsGetID, objectsDownloadID, objectAccessControlsListID:
