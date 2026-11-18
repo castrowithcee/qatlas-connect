@@ -58,8 +58,14 @@ type searchSpec struct {
 // searchPage reads one page of rows and the token of the next page. A row that is not a JSON object of the
 // resource, or a page of an untrusted size, is an invalid response.
 func searchPage[T any](ctx context.Context, c *client, op, tool, path string, list string, query url.Values) ([]T, string, error) {
+	return servicePage[T](ctx, c, serviceResourceManager, op, tool, path, list, query)
+}
+
+// servicePage is searchPage for the list of any service.
+func servicePage[T any](ctx context.Context, c *client, svc service, op, tool, path string, list string,
+	query url.Values) ([]T, string, error) {
 	var members map[string]json.RawMessage
-	if err := c.get(ctx, op, tool, serviceResourceManager, path, query, &members); err != nil {
+	if err := c.get(ctx, op, tool, svc, path, query, &members); err != nil {
 		return nil, "", err
 	}
 	invalid := func() error { return provider.InvalidResponse(op, subject+" returned an invalid response") }

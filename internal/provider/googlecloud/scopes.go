@@ -36,6 +36,15 @@ const scopeStorageFullControl = "https://www.googleapis.com/auth/devstorage.full
 // buckets.delete, next to devstorage.full_control and cloud-platform.
 const scopeStorageReadWrite = "https://www.googleapis.com/auth/devstorage.read_write"
 
+// scopeBillingReadOnly is the smallest scope the discovery document of cloudbilling v1 lists for
+// billingAccounts.list, billingAccounts.get, billingAccounts.projects.list, and projects.getBillingInfo (next to
+// cloud-billing and cloud-platform).
+const scopeBillingReadOnly = "https://www.googleapis.com/auth/cloud-billing.readonly"
+
+// scopeDNSReadOnly is the smallest scope the discovery document of dns v1 lists for managedZones.list and get and
+// resourceRecordSets.list and get, next to cloud-platform, cloud-platform.read-only, and ndev.clouddns.readwrite.
+const scopeDNSReadOnly = "https://www.googleapis.com/auth/ndev.clouddns.readonly"
+
 // tokenMetadata maps every tool to the smallest scopes it needs. The core derives the scopes of a connection
 // from it, so a tool that is not offered adds none.
 var tokenMetadata = config.TokenMetadata{Scopes: map[string][]string{
@@ -142,6 +151,16 @@ var tokenMetadata = config.TokenMetadata{Scopes: map[string][]string{
 	objectsDeleteID:  {scopeStorageReadWrite},
 	objectsRestoreID: {scopeStorageFullControl},
 	bucketsDeleteID:  {scopeStorageReadWrite},
+	// cloudbilling v1 lists cloud-billing.readonly as the smallest scope for the four billing reads.
+	billingAccountsListID:         {scopeBillingReadOnly},
+	billingAccountsGetID:          {scopeBillingReadOnly},
+	billingAccountsListProjectsID: {scopeBillingReadOnly},
+	projectBillingInfoGetID:       {scopeBillingReadOnly},
+	// dns v1 lists ndev.clouddns.readonly as the smallest scope for the reads of zones and record sets.
+	managedZonesListID: {scopeDNSReadOnly},
+	managedZonesGetID:  {scopeDNSReadOnly},
+	recordSetsListID:   {scopeDNSReadOnly},
+	recordSetsGetID:    {scopeDNSReadOnly},
 	// compute v1 lists compute as the smallest scope for the deletions of firewalls, addresses, VPN tunnels, and VPN gateways.
 	firewallsDeleteID:   {scopeCompute},
 	addressesDeleteID:   {scopeCompute},
@@ -155,6 +174,11 @@ var tokenMetadata = config.TokenMetadata{Scopes: map[string][]string{
 	// compute v1 lists compute as the smallest scope for instances.insert and instances.delete.
 	instancesInsertID: {scopeCompute},
 	instancesDeleteID: {scopeCompute},
+	// cloudresourcemanager v3 lists only cloud-platform for projects create, patch, move, and undelete.
+	projectsCreateID:   {scopeCloudPlatform},
+	projectsPatchID:    {scopeCloudPlatform},
+	projectsMoveID:     {scopeCloudPlatform},
+	projectsUndeleteID: {scopeCloudPlatform},
 	// compute v1 lists compute as the smallest scope for insert, resize, and createSnapshot of disks.
 	disksInsertID:         {scopeCompute},
 	disksResizeID:         {scopeCompute},
