@@ -142,14 +142,14 @@ func (e *PermissionError) Error() string {
 
 // readFile reads path and checks its permissions first, the same order the plaintext fallback uses.
 func readFile(path string) ([]byte, error) {
-	info, err := os.Stat(path)
+	info, err := statFile(path)
 	if err != nil {
 		return nil, err
 	}
 	if err := checkMode(path, info); err != nil {
 		return nil, err
 	}
-	return os.ReadFile(path)
+	return readWhole(path)
 }
 
 // writeFile replaces path atomically with mode 0600, creating its directory at 0700 if needed. It is used
@@ -191,7 +191,7 @@ func writeFile(path string, data []byte) error {
 	if err := tmp.Close(); err != nil {
 		return fmt.Errorf("cannot write %s: %w", name, err)
 	}
-	if err := os.Rename(name, target); err != nil {
+	if err := renameFile(name, target); err != nil {
 		return fmt.Errorf("cannot replace %s: %w", target, err)
 	}
 	moved = true
