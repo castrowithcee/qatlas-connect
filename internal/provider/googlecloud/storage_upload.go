@@ -100,7 +100,7 @@ func (c *client) upload(ctx context.Context, op, tool, path string, query url.Va
 	}
 	defer response.Body.Close()
 	if response.StatusCode < 200 || response.StatusCode > 299 {
-		mapped := c.statusFailure(op, response)
+		mapped := c.statusFailure(op, serviceStorage, response)
 		if response.StatusCode >= 500 {
 			return unsure(mapped)
 		}

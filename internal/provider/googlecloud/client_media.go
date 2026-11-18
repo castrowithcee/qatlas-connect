@@ -59,7 +59,7 @@ func (c *client) getMedia(ctx context.Context, op, tool string, svc service, pat
 	}
 	defer response.Body.Close()
 	if response.StatusCode < 200 || response.StatusCode > 299 {
-		return nil, c.statusFailure(op, response)
+		return nil, c.statusFailure(op, svc, response)
 	}
 	body, err := io.ReadAll(io.LimitReader(response.Body, limit))
 	if err != nil {
