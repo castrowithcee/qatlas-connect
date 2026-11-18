@@ -1,7 +1,8 @@
 // Package googlebusinessprofile implements access to the Google Business Profile APIs v1: the accounts a
-// person manages, the business locations in them, and the performance of a location: daily metrics and
-// search keywords, and the place action links of a location (ordering, booking) with their types. Reviews come
-// from the My Business API v4, which Google keeps for them and has no discovery document; see v4.go.
+// person manages, the business locations in them, the attributes of a location, and the performance of a
+// location: daily metrics and search keywords, and the place action links of a location (ordering, booking)
+// with their types. Reviews come from the My Business API v4, which Google keeps for them and has no discovery
+// document; see v4.go.
 //
 // The credential is a person's consent through the user's own OAuth client; a service account key and the
 // impersonation of a service account are not offered, since Google documents no service account as a
@@ -83,6 +84,14 @@ var toolScopes = map[string][]string{
 	reviewsUpdateReplyID: {scopeManage},
 	reviewsDeleteReplyID: {scopeManage},
 
+	attributesListID:   {scopeManage},
+	attributesGetID:    {scopeManage},
+	attributesUpdateID: {scopeManage},
+	mediaListID:        {scopeManage},
+	mediaGetID:         {scopeManage},
+	mediaCreateID:      {scopeManage},
+	mediaUpdateID:      {scopeManage},
+	mediaDeleteID:      {scopeManage},
 	localPostsListID:   {scopeManage},
 	localPostsGetID:    {scopeManage},
 	localPostsCreateID: {scopeManage},
@@ -150,16 +159,16 @@ var readTools = []string{accountsListID, accountsGetID, locationsListID, locatio
 	accountAdminsListID, locationAdminsListID,
 	performanceGetDailyID, performanceFetchDailyID, performanceKeywordsID,
 	categoriesListID, categoriesBatchGetID, chainsGetID, chainsSearchID, googleLocationsSearchID,
-	invitationsListID, reviewsListID, reviewsGetID, reviewsBatchGetID, localPostsListID, localPostsGetID,
-	lodgingGetID, lodgingGoogleUpdatedID,
+	invitationsListID, attributesListID, attributesGetID, reviewsListID, reviewsGetID, reviewsBatchGetID,
+	mediaListID, mediaGetID, localPostsListID, localPostsGetID, lodgingGetID, lodgingGoogleUpdatedID,
 	verificationsListID, verificationsFetchOptionsID, verificationsMerchantStateID, notificationsGetID,
 	placeActionLinksListID, placeActionLinksGetID, placeActionTypesListID}
 
 // writeTools are the tools of the profile write.
 var writeTools = []string{accountAdminsUpdateID, locationAdminsUpdateID, accountsUpdateID,
-	accountAdminsDeleteID, locationAdminsDeleteID, invitationsDeclineID, reviewsUpdateReplyID, reviewsDeleteReplyID,
-	localPostsCreateID, localPostsUpdateID, localPostsDeleteID,
-	lodgingUpdateID, placeActionLinksCreateID, placeActionLinksUpdateID, placeActionLinksDeleteID}
+	accountAdminsDeleteID, locationAdminsDeleteID, invitationsDeclineID, attributesUpdateID, reviewsUpdateReplyID,
+	reviewsDeleteReplyID, mediaCreateID, mediaUpdateID, mediaDeleteID, localPostsCreateID, localPostsUpdateID,
+	localPostsDeleteID, lodgingUpdateID, placeActionLinksCreateID, placeActionLinksUpdateID, placeActionLinksDeleteID}
 
 // Register adds the provider metadata, its consent endpoints, its connection test, and its tools.
 func Register(reg *capability.Registry) error {
@@ -186,12 +195,14 @@ func Register(reg *capability.Registry) error {
 		}, {
 			ID: "write", Title: "Write",
 			Description: "changes the role of existing admins of an account or a location, removes existing admins, " +
-				"declines invitations, renames an account, creates, changes, and deletes place action links, which are " +
-				"public on the profile, publishes or deletes the public reply of the business to a review, and " +
-				"creates, changes, and deletes local posts, which are public on the profile and in Google Search, each " +
-				"change with the confirmation of a person; no tool invites or creates an admin, accepts an invitation, " +
-				"deletes or reports a review, makes anyone primary owner, or " +
-				"transfers a location; Google offers only the scope business.manage, so the " +
+				"declines invitations, renames an account, sets or removes the public attributes of a location, " +
+				"creates, changes, and deletes place action links, which are public on the profile, publishes or " +
+				"deletes the public reply of the business to a review, adds, recategorizes, and deletes photos and " +
+				"videos of a location, which are public on the profile, and creates, changes, and deletes local " +
+				"posts, which are public on the profile and in Google Search, each change with the confirmation of a " +
+				"person; no tool invites or creates an admin, accepts an invitation, deletes or reports a review, " +
+				"makes anyone primary owner, or transfers a location; Google offers only the scope business.manage, " +
+				"so the " +
 				"token may change what its account may",
 			Tools: writeTools,
 		}},
@@ -247,6 +258,14 @@ func Register(reg *capability.Registry) error {
 			ConfirmationSummary: replyConfirmation},
 		capability.Operation{Descriptor: reviewsDeleteReply, Handler: handleReviewsDeleteReply,
 			ConfirmationSummary: deleteReplyConfirmation},
+		capability.Operation{Descriptor: mediaList, Handler: handleMediaList},
+		capability.Operation{Descriptor: mediaGet, Handler: handleMediaGet},
+		capability.Operation{Descriptor: mediaCreate, Handler: handleMediaCreate,
+			ConfirmationSummary: mediaSummary(mediaCreateID)},
+		capability.Operation{Descriptor: mediaUpdate, Handler: handleMediaUpdate,
+			ConfirmationSummary: mediaSummary(mediaUpdateID)},
+		capability.Operation{Descriptor: mediaDelete, Handler: handleMediaDelete,
+			ConfirmationSummary: mediaSummary(mediaDeleteID)},
 		capability.Operation{Descriptor: localPostsList, Handler: handleLocalPostsList},
 		capability.Operation{Descriptor: localPostsGet, Handler: handleLocalPostsGet},
 		capability.Operation{Descriptor: localPostsCreate, Handler: handleLocalPostsCreate,
@@ -264,5 +283,9 @@ func Register(reg *capability.Registry) error {
 		capability.Operation{Descriptor: placeActionLinksDelete, Handler: handlePlaceActionLinksDelete,
 			ConfirmationSummary: placeActionSummary(placeActionLinksDeleteID)},
 		capability.Operation{Descriptor: placeActionTypesList, Handler: handlePlaceActionTypesList},
+		capability.Operation{Descriptor: attributesList, Handler: handleAttributesList},
+		capability.Operation{Descriptor: attributesGet, Handler: handleAttributesGet},
+		capability.Operation{Descriptor: attributesUpdate, Handler: handleAttributesUpdate,
+			ConfirmationSummary: attributesSummary},
 	)
 }

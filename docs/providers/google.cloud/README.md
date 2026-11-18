@@ -35,8 +35,8 @@ tokens for it). The connection holds no scope. Qatlas derives them from the tool
 smallest scope the discovery document of each method lists: `cloud-platform.read-only` for Resource Manager,
 and `cloud-platform` for the IAM and quota tools, because their discovery documents list no narrower scope
 (Google offers no read-only variant for these methods, see [IAM](iam.md) and [Quotas](quotas.md)). Only the tools of the profiles
-`service-accounts`, `service-accounts-revoke`, `api-keys-revoke`, `iam-bindings`, `storage-delete`, `storage-revoke`, `compute-network-delete`, `compute-lifecycle`, `compute-instances-create`, `compute-disks`, `compute-images-delete`, `services`, and `projects-manage` and the tools
-`service-accounts.delete`, `services.disable`, `instances.delete`, `disks.delete`, and `buckets.delete`, which a `tools` list must name, change anything, each with a confirmation, whatever the scope allows. The access token travels in the
+`service-accounts`, `service-accounts-revoke`, `api-keys-revoke`, `iam-bindings`, `storage-delete`, `storage-objects-write`, `storage-revoke`, `compute-network-delete`, `compute-lifecycle`, `compute-instances-create`, `compute-disks`, `compute-images-delete`, `services`, `projects-manage`, and `folders-manage` and the tools
+`service-accounts.delete`, `services.disable`, `instances.delete`, `disks.delete`, `buckets.delete`, `projects.delete`, and `folders.delete`, which a `tools` list must name, change anything, each with a confirmation, whatever the scope allows. The access token travels in the
 `Authorization` header only, is never an argument or part of a result, and is masked in every output. A 401
 renews the token once, and nothing else repeats a request.
 
@@ -73,7 +73,7 @@ Three rules decide which tool a binding reaches. They are separate on purpose:
   account, and the rows are limited to the accounts it names. `billing-accounts.list-projects` also needs an
   organization, a folder, or a project among the targets, which limit its rows. `project-billing-info.get` is a
   resource tool: it needs no billing account.
-- **DNS tools** (`managed-zones.*`, `record-sets.*`): the connection is unbound or names an organization, a folder, or a
+- **DNS tools** (`managed-zones.*`, `record-sets.*`, `changes.*`, `dns-keys.*`, `policies.*`, `response-policies.*`): the connection is unbound or names an organization, a folder, or a
   project. The project in the path binds the zone, see [DNS managed zones](managed-zones.md).
 - **Tools without a resource** (`operations.get`): an operation belongs to no folder or project that Qatlas
   could prove, so the tool runs on a connection without targets or with an organization among them. It is not an
@@ -106,7 +106,10 @@ The profile `read` is the recommended one. It holds every tool that needs no mor
 `google.cloud.billing-accounts.list-projects`, and `google.cloud.project-billing-info.get`, which ask for
 `cloud-billing.readonly`. `objects.download` returns the content of an object, up to a fixed limit, as untrusted data
 (see [Objects](objects.md)). The DNS tools `google.cloud.managed-zones.list`, `google.cloud.managed-zones.get`,
-`google.cloud.record-sets.list`, and `google.cloud.record-sets.get` ask for `ndev.clouddns.readonly`. The two
+`google.cloud.record-sets.list`, `google.cloud.record-sets.get`, `google.cloud.changes.list`,
+`google.cloud.changes.get`, `google.cloud.dns-keys.list`, `google.cloud.dns-keys.get`, `google.cloud.policies.list`,
+`google.cloud.policies.get`, `google.cloud.response-policies.list`, and `google.cloud.response-policies.get` ask for
+`ndev.clouddns.readonly`. The two
 operation tools return the email address of whoever started an operation (personal data) and carry their own
 sensitivity. A connection bound to an organization or a folder needs `projects.get` next to the
 Compute tools to prove the project of a call; `read` holds both.
@@ -193,6 +196,14 @@ every call needs the confirmation of a person. It does not hold `google.cloud.di
 listed-only and only a `tools` list that names it exactly releases it. See [Images](images.md#changes),
 [Disk snapshots](snapshots.md#deleting-a-snapshot), and [Disks](disks.md#deleting-a-disk).
 
+The profile `storage-objects-write` holds `google.cloud.objects.insert`, `google.cloud.objects.copy`,
+`google.cloud.objects.compose`, `google.cloud.objects.patch`, and `google.cloud.projects.get`. The first three ask for
+`devstorage.read_write`, but Google lists only `devstorage.full_control` and `cloud-platform` for `objects.patch`, so
+the token also holds the right to change the access control lists of Cloud Storage resources although no tool does.
+The profile needs the effects `create` and `update` for the object tools and `read` for `projects.get`, is not
+recommended, and every call needs the confirmation of a person. No tool overwrites an object unless the call says
+so, makes an object public, or deletes an object. See [Objects](objects.md#writing-objects).
+
 The profile `storage-revoke` holds `google.cloud.hmac-keys.deactivate`, `google.cloud.hmac-keys.delete`,
 `google.cloud.notifications.delete`, the reads that name what is revoked (`google.cloud.hmac-keys.list`,
 `google.cloud.hmac-keys.get`, `google.cloud.notifications.list`), and `google.cloud.projects.get`, which proves a
@@ -212,8 +223,14 @@ it.
 
 The profile `projects-manage` holds only `google.cloud.projects.create`, `google.cloud.projects.patch`,
 `google.cloud.projects.move`, and `google.cloud.projects.undelete`. It asks for `cloud-platform`, needs the effects
-`create` and `update`, and is not recommended. It holds no deletion and links no billing account. See
+`create` and `update`, and is not recommended. It holds no deletion and links no billing account. `google.cloud.projects.delete` is listed-only and only a `tools` list that names it exactly releases it. See
 [Projects](projects.md#changing-projects).
+
+The profile `folders-manage` holds only `google.cloud.folders.create`, `google.cloud.folders.patch`,
+`google.cloud.folders.move`, and `google.cloud.folders.undelete`. It asks for `cloud-platform`, needs the effects
+`create` and `update`, and is not recommended. It holds no deletion; `google.cloud.folders.delete` is listed-only and only a
+`tools` list that names it exactly releases it. See
+[Folders](folders.md#changing-folders).
 
 The profile `iam-bindings` holds the tools of `read`, `google.cloud.iam-policies.get`, and the three binding
 tools `google.cloud.iam-bindings.add-member`, `google.cloud.iam-bindings.remove-member`, and
@@ -261,13 +278,18 @@ on [IAM bindings](iam-bindings.md).
 - [Managed folders](managed-folders.md): the managed folders of a Cloud Storage bucket.
 - [HMAC keys](hmac-keys.md): the metadata of the HMAC keys of a project, never a key value.
 - [Objects](objects.md): the objects of a Cloud Storage bucket, their metadata, and their content up to a fixed limit as
-  untrusted data, bound to the targets through the bucket, and the confirmed deletion and restoration of one object.
+  untrusted data, bound to the targets through the bucket, the confirmed deletion and restoration of one object,
+  and uploading, copying, composing, and changing the metadata of objects.
 - [Object access controls](object-access-controls.md): the access control list of a Cloud Storage object.
 - [Billing](billing.md): the billing accounts a connection names, their projects, and the billing account of a
   project, read only.
 - [DNS managed zones](managed-zones.md): the Cloud DNS managed zones of a project, one and all, with the rules
   every DNS tool follows.
 - [DNS record sets](record-sets.md): the record sets of a Cloud DNS managed zone, one and all, with routing policies.
+- [DNS changes](changes.md): the history of changes of a Cloud DNS managed zone and the state of one change.
+- [DNS keys](dns-keys.md): the DNSSEC keys of a Cloud DNS managed zone, public material only.
+- [DNS server policies](policies.md): the DNS server policies of a project with their forwarding targets, one and all.
+- [DNS response policies](response-policies.md): the response policies of a project, one and all, without their rules.
 - [Quotas](quotas.md): the quotas of a service and the quota preferences of a project from Cloud Quotas.
 
 ### Search
@@ -309,8 +331,8 @@ example a `parent`. A row without a usable name is an invalid response.
 
 Reading one organization or folder and listing the folders and projects below a parent are described on their
 own pages: [organizations](organizations.md) (`organizations.get`), [folders](folders.md) (`folders.get`,
-`folders.list`), and [projects](projects.md) (`projects.list`, and the changes `projects.create`,
-`projects.patch`, `projects.move`, and `projects.undelete`).
+`folders.list`, and the changes `folders.create`, `folders.patch`, `folders.move`, and `folders.undelete`, and the listed-only `folders.delete`), and [projects](projects.md) (`projects.list`, and the changes `projects.create`,
+`projects.patch`, `projects.move`, and `projects.undelete`, and the listed-only `projects.delete`).
 
 ### Single reads
 

@@ -298,7 +298,8 @@ func TestNoToolCreatesAdminsOrAccounts(t *testing.T) {
 	want := map[string]bool{}
 	for _, name := range []string{
 		"account-admins.delete", "account-admins.list", "account-admins.update", "accounts.get", "accounts.list",
-		"accounts.update", "categories.batch-get", "categories.list", "chains.get", "chains.search",
+		"accounts.update", "attributes.get", "attributes.list", "attributes.update", "categories.batch-get",
+		"categories.list", "chains.get", "chains.search",
 		"google-locations.search", "invitations.decline", "invitations.list", "location-admins.delete",
 		"location-admins.list", "location-admins.update", "locations.get", "locations.list",
 		"performance.fetch-daily-metrics", "performance.get-daily-metric", "performance.list-search-keywords",
@@ -307,6 +308,7 @@ func TestNoToolCreatesAdminsOrAccounts(t *testing.T) {
 		"place-action-links.create", "place-action-links.delete", "place-action-links.get",
 		"place-action-links.list", "place-action-links.update", "place-action-types.list",
 		"reviews.batch-get", "reviews.delete-reply", "reviews.get", "reviews.list", "reviews.update-reply",
+		"media.create", "media.delete", "media.get", "media.list", "media.update",
 		"local-posts.create", "local-posts.delete", "local-posts.get", "local-posts.list", "local-posts.update"} {
 		want[Provider+"."+name] = true
 	}
@@ -314,8 +316,9 @@ func TestNoToolCreatesAdminsOrAccounts(t *testing.T) {
 		t.Errorf("tools = %v", ids)
 	}
 	for _, id := range ids {
-		// Only the place action links are created; no admin or account is.
-		links := strings.HasPrefix(id, Provider+".place-action-links.") || strings.HasPrefix(id, Provider+".local-posts.")
+		// Only place action links, media, and local posts are created; no admin or account is.
+		links := strings.HasPrefix(id, Provider+".place-action-links.") || strings.HasPrefix(id, Provider+".media.") ||
+			strings.HasPrefix(id, Provider+".local-posts.")
 		if !want[id] || !links && strings.Contains(id, "create") || strings.Contains(id, "accept") ||
 			strings.Contains(id, "transfer") {
 			t.Errorf("unexpected tool %s", id)

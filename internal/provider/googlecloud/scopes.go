@@ -32,8 +32,9 @@ const scopeStorageReadOnly = "https://www.googleapis.com/auth/devstorage.read_on
 // buckets.getIamPolicy and bucketAccessControls.list, next to cloud-platform; neither lists a read-only variant.
 const scopeStorageFullControl = "https://www.googleapis.com/auth/devstorage.full_control"
 
-// scopeStorageReadWrite is the smallest scope the discovery document of storage v1 lists for objects.delete,
-// buckets.delete, and notifications.delete, next to devstorage.full_control and cloud-platform.
+// scopeStorageReadWrite is the smallest scope the discovery document of storage v1 lists for objects.insert,
+// objects.copy, objects.compose, objects.delete, buckets.delete, and notifications.delete, next to
+// devstorage.full_control and cloud-platform.
 const scopeStorageReadWrite = "https://www.googleapis.com/auth/devstorage.read_write"
 
 // scopeBillingReadOnly is the smallest scope the discovery document of cloudbilling v1 lists for
@@ -146,6 +147,12 @@ var tokenMetadata = config.TokenMetadata{Scopes: map[string][]string{
 	objectsGetID:               {scopeStorageReadOnly},
 	objectsDownloadID:          {scopeStorageReadOnly},
 	objectAccessControlsListID: {scopeStorageFullControl},
+	// storage v1 lists devstorage.read_write for objects.insert, copy, and compose, and only devstorage.full_control
+	// and cloud-platform for objects.patch.
+	objectsInsertID:  {scopeStorageReadWrite},
+	objectsCopyID:    {scopeStorageReadWrite},
+	objectsComposeID: {scopeStorageReadWrite},
+	objectsPatchID:   {scopeStorageFullControl},
 	// storage v1 lists devstorage.read_write for objects.delete and buckets.delete, and only devstorage.full_control
 	// and cloud-platform for objects.restore.
 	objectsDeleteID:  {scopeStorageReadWrite},
@@ -161,6 +168,15 @@ var tokenMetadata = config.TokenMetadata{Scopes: map[string][]string{
 	managedZonesGetID:  {scopeDNSReadOnly},
 	recordSetsListID:   {scopeDNSReadOnly},
 	recordSetsGetID:    {scopeDNSReadOnly},
+	changesListID:      {scopeDNSReadOnly},
+	changesGetID:       {scopeDNSReadOnly},
+	dnsKeysListID:      {scopeDNSReadOnly},
+	dnsKeysGetID:       {scopeDNSReadOnly},
+	// dns v1 lists ndev.clouddns.readonly as the smallest scope for the reads of policies and response policies.
+	dnsPoliciesListID:      {scopeDNSReadOnly},
+	dnsPoliciesGetID:       {scopeDNSReadOnly},
+	responsePoliciesListID: {scopeDNSReadOnly},
+	responsePoliciesGetID:  {scopeDNSReadOnly},
 	// compute v1 lists compute as the smallest scope for the deletions of firewalls, addresses, VPN tunnels, and VPN gateways.
 	firewallsDeleteID:   {scopeCompute},
 	addressesDeleteID:   {scopeCompute},
@@ -179,6 +195,14 @@ var tokenMetadata = config.TokenMetadata{Scopes: map[string][]string{
 	projectsPatchID:    {scopeCloudPlatform},
 	projectsMoveID:     {scopeCloudPlatform},
 	projectsUndeleteID: {scopeCloudPlatform},
+	// cloudresourcemanager v3 lists only cloud-platform for folders create, patch, move, and undelete.
+	foldersCreateID:   {scopeCloudPlatform},
+	foldersPatchID:    {scopeCloudPlatform},
+	foldersMoveID:     {scopeCloudPlatform},
+	foldersUndeleteID: {scopeCloudPlatform},
+	// cloudresourcemanager v3 lists only cloud-platform for projects.delete and folders.delete.
+	projectsDeleteID: {scopeCloudPlatform},
+	foldersDeleteID:  {scopeCloudPlatform},
 	// compute v1 lists compute as the smallest scope for insert, resize, and createSnapshot of disks.
 	disksInsertID:         {scopeCompute},
 	disksResizeID:         {scopeCompute},

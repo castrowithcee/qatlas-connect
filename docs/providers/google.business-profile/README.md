@@ -10,17 +10,19 @@ updated: 2026-11-18
 # Google Business Profile
 
 Google Business Profile is a provider for the Business Profile APIs v1: the accounts a person owns or manages
-and the business locations in them, the performance of a location, the verification state of a location, and
-the notification setting of an account, and for the My Business API v4, which Google keeps for reviews and local posts. Most
-tools read; the tools of the profile `write` change the role of existing admins, remove admins, decline
-invitations, rename an account, create, change, and delete place action links, reply to reviews or delete a
-reply, and create, change, and delete local posts. [Set up Google Business Profile](setup.md) leads through the Google side, the approval, and the consent.
-The tools are described per group in [accounts](accounts.md), [locations](locations.md), [account
-admins](account-admins.md), [location admins](location-admins.md), [invitations](invitations.md),
+and the business locations in them, their attributes, the performance of a location, the verification state of
+a location, and the notification setting of an account, and for the My Business API v4, which Google keeps for
+reviews, media, and local posts. Most tools read; the tools of the profile `write` change the role of existing
+admins, remove admins, decline invitations, rename an account, set or remove attributes, create, change, and
+delete place action links, reply to reviews or delete a reply, add photos and videos by address, recategorize
+them, and delete them, and create, change, and delete local posts. [Set up Google Business Profile](setup.md)
+leads through the Google side, the approval, and the consent. The tools are described per group in
+[accounts](accounts.md), [locations](locations.md), [account admins](account-admins.md), [location
+admins](location-admins.md), [invitations](invitations.md), [attributes](attributes.md),
 [performance](performance.md), [categories](categories.md), [chains](chains.md), [Google
 locations](google-locations.md), [lodging](lodging.md), [verifications](verifications.md),
-[notifications](notifications.md), [local posts](local-posts.md), [place action links](place-action-links.md), [place action
-types](place-action-types.md), and [reviews](reviews.md).
+[notifications](notifications.md), [place action links](place-action-links.md), [place action
+types](place-action-types.md), [reviews](reviews.md), [media](media.md), and [local posts](local-posts.md).
 
 ## Credential
 
@@ -48,14 +50,14 @@ no wider than the task needs.
 
 | Profile | Tools |
 | --- | --- |
-| `read` (recommended) | every read tool: `accounts.list`, `accounts.get`, `locations.list`, `locations.get`, `account-admins.list`, `location-admins.list`, `invitations.list`, `lodging.get`, `lodging.get-google-updated`, `performance.*`, `verifications.list`, `verifications.fetch-options`, `verifications.get-merchant-state`, `notifications.get`, `place-action-links.list`, `place-action-links.get`, `place-action-types.list`, `reviews.list`, `reviews.get`, `reviews.batch-get`, `local-posts.list`, `local-posts.get` |
-| `write` | `account-admins.update`, `location-admins.update`, `accounts.update`, `account-admins.delete`, `location-admins.delete`, `invitations.decline`, `lodging.update`, `place-action-links.create`, `place-action-links.update`, `place-action-links.delete`, `reviews.update-reply`, `reviews.delete-reply`, `local-posts.create`, `local-posts.update`, `local-posts.delete`; each change needs confirmation |
+| `read` (recommended) | every read tool: `accounts.list`, `accounts.get`, `locations.list`, `locations.get`, `account-admins.list`, `location-admins.list`, `invitations.list`, `lodging.get`, `lodging.get-google-updated`, `attributes.list`, `attributes.get`, `performance.*`, `verifications.list`, `verifications.fetch-options`, `verifications.get-merchant-state`, `notifications.get`, `place-action-links.list`, `place-action-links.get`, `place-action-types.list`, `reviews.list`, `reviews.get`, `reviews.batch-get`, `media.list`, `media.get`, `local-posts.list`, `local-posts.get` |
+| `write` | `account-admins.update`, `location-admins.update`, `accounts.update`, `account-admins.delete`, `location-admins.delete`, `invitations.decline`, `lodging.update`, `attributes.update`, `place-action-links.create`, `place-action-links.update`, `place-action-links.delete`, `reviews.update-reply`, `reviews.delete-reply`, `media.create`, `media.update`, `media.delete`, `local-posts.create`, `local-posts.update`, `local-posts.delete`; each change needs confirmation |
 
 The profile `read` changes nothing, but Google's only scope also allows changes, so the token could. The two
 admin lists name other people (first and last name, and the email address of a pending invitation), the
 invitation list names the accounts and locations of those who invited, with the address of a location,
 `verifications.fetch-options` shows masked postal addresses, phone numbers, and email addresses a PIN could go to,
-and the review tools name reviewers (name and photo link), which is personal data; a connection that must not
+and the review tools name reviewers (name and photo link) and the media tools the customers who uploaded a photo (`attribution`), which is personal data; a connection that must not
 show them names its tools in a `tools` list instead of the profile.
 The profile `write` is not recommended: it holds only the changing tools and needs a person to confirm each
 change. Every change is spaced at 10 per minute and profile, see [account admins](account-admins.md).
@@ -69,13 +71,13 @@ project one by one:
 | API | Origin | Tools |
 | --- | --- | --- |
 | My Business Account Management API | `https://mybusinessaccountmanagement.googleapis.com` | [accounts](accounts.md) |
-| My Business Business Information API | `https://mybusinessbusinessinformation.googleapis.com` | [locations](locations.md), [categories](categories.md), [chains](chains.md), [Google locations](google-locations.md) |
+| My Business Business Information API | `https://mybusinessbusinessinformation.googleapis.com` | [locations](locations.md), [categories](categories.md), [chains](chains.md), [Google locations](google-locations.md), [attributes](attributes.md) |
 | Business Profile Performance API | `https://businessprofileperformance.googleapis.com` | [performance](performance.md) |
 | My Business Lodging API | `https://mybusinesslodging.googleapis.com` | [lodging](lodging.md) |
 | My Business Verifications API | `https://mybusinessverifications.googleapis.com` | [verifications](verifications.md) |
 | My Business Notifications API | `https://mybusinessnotifications.googleapis.com` | [notifications](notifications.md) |
 | My Business Place Actions API | `https://mybusinessplaceactions.googleapis.com` | [place action links](place-action-links.md), [place action types](place-action-types.md) |
-| My Business API (v4) | `https://mybusiness.googleapis.com/v4` | [reviews](reviews.md), [local posts](local-posts.md) |
+| My Business API (v4) | `https://mybusiness.googleapis.com/v4` | [reviews](reviews.md), [media](media.md), [local posts](local-posts.md) |
 
 ## Approval of the Cloud project
 
@@ -108,11 +110,14 @@ request is sent; a refusal never names the other object.
 | `invitations.list`, `invitations.decline` | the invitations of the bound account only | not offered |
 | `location-admins.list`, `location-admins.update`, `location-admins.delete` | prove the location first, like `locations.get` | the bound location only |
 | `lodging.*` | first prove the location like `locations.get` | the bound location only |
+| `attributes.list` | with `location`, like `locations.get`; without it not tied to a location | with `location`, only the bound location |
+| `attributes.get`, `attributes.update` | prove the location first, like `locations.get` | the bound location only |
 | `performance.*` | first prove, on every call, that the location is in the bound account's location list | the bound location only |
 | `verifications.*` | first prove, on every call, like `performance.*` | the bound location only |
 | `notifications.get` | the bound account only | not offered |
 | `place-action-links.*` | first prove the location of the link, on every call | the bound location only |
 | `place-action-types.list` | proves the location of a `location=` filter; other filters need no proof | a `location=` filter accepts only the bound location |
+| `media.*` | like `reviews.*`: the account must be the bound one and the location is proved like `locations.get` | only the location ID is compared, the account part is an argument; see [media](media.md) |
 | `reviews.*` | accounts and locations as `accounts/ACCOUNT/locations/LOCATION`; the account must be the bound one and the location is proved like `locations.get` | only the location ID is compared, the account part is an argument; see [reviews](reviews.md#the-v4-client) |
 | `local-posts.*` | the same v4 paths and rules as `reviews.*`, on every call | as `reviews.*`; see [local posts](local-posts.md#the-v4-paths) |
 
@@ -191,7 +196,7 @@ read; no other value chooses a class.
 
 The provider reaches only the fixed origins and the fixed method of each tool. It offers no passthrough of
 method, path, header, or body. The v4 accounts, admins, invitations, and transfer methods are deprecated and
-not used. v4 is used only for reviews and local posts; it has no discovery document, see [reviews](reviews.md#the-v4-client). No tool invites anyone or creates an admin, and no tool creates an account or transfers a location.
+not used. v4 is used only for reviews, media, and local posts; it has no discovery document, see [reviews](reviews.md#the-v4-client). No tool invites anyone or creates an admin, and no tool creates an account or transfers a location.
 
 Not verified:
 
@@ -205,6 +210,9 @@ Not verified:
 - How Google answers a project without approval. Qatlas assumes a `429` with the quota limit `0`; a pending
   approval may answer differently.
 - Whether each Business Profile API needs to be enabled in the project on its own.
+- Whether Google's attribute metadata names an attribute with or without the prefix `attributes/` in `parent`; Qatlas accepts both and always sends `attributes/ATTRIBUTE`.
+- The largest page of attribute metadata: Google names only the default of 200, so Qatlas asks for at most 200.
+- Whether Google accepts a mask that names an attribute without a value in `attributes` as a removal, as its documentation says: `attributes.update` relies on it.
 - Whether a read mask accepts nested field paths. Qatlas accepts only the top-level fields of a location.
 - Whether the read and update masks of the lodging accept nested paths and group names as field masks usually
   do, and whether Google answers an unset boolean without the field. Qatlas sends the paths as given and compares
@@ -234,6 +242,7 @@ Left out on purpose:
 - `accounts.create`: it would create an account with a new owner relation.
 - The role `PRIMARY_OWNER` as a target role of an admin, and changing an admin who holds it: both transfer the
   ownership of the profile. An admin with a pending invitation is not changed either.
+- Deprecated attributes: `attributes.update` does not change them, since Google does not save such a change.
 - `accounts.invitations.accept`: it makes the user of the connection an admin of an account or location that
   someone else controls, which widens the reach of the credential through an entry that only the other side
   controls. A person accepts an invitation in Google's own interface; declining is offered because it only
@@ -241,6 +250,7 @@ Left out on purpose:
 - `locations.transfer`.
 - The deprecated metrics `BUSINESS_CONVERSATIONS` and `BUSINESS_FOOD_ORDERS` of the performance tools.
 - Deleting or reporting a review: `reviews.delete-reply` removes only the reply of the business.
+- `media.startUpload` and the upload of local files, see [media](media.md#adding-by-address).
 - `locations.verify`, `locations.verifications.complete`, and `verificationTokens.generate`: they start or confirm
   a verification or prepare one, see [verifications](verifications.md#left-out).
 - `accounts.updateNotificationSetting`: it sets the destination of the account's notifications, see
