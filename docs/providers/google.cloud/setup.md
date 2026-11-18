@@ -4,7 +4,7 @@ description: >
 type: knowledge
 edit: shared
 created: 2026-11-16
-updated: 2026-11-16
+updated: 2026-11-17
 ---
 
 # Set up Google Cloud
@@ -58,6 +58,8 @@ Viewer, or Project Viewer role, or any role with these permissions:
 | `vpn-gateways.list`, `vpn-gateways.get`, `vpn-tunnels.list`, `vpn-tunnels.get` | `compute.vpnGateways.list` or `.get`, or `compute.vpnTunnels.list` or `.get` on the project (the Compute Viewer role has them); the **Compute Engine API** must be enabled in the project, and the tools ask for the read scope `compute.readonly` |
 | `disks.list`, `disks.aggregated-list`, `disks.get` | `compute.disks.list` or `compute.disks.get` on the project (the Compute Viewer role has them); the **Compute Engine API** must be enabled in the project, and the tools ask for the read scope `compute.readonly` |
 | `snapshots.list`, `snapshots.get`, `images.list`, `images.get` | `compute.snapshots.list` or `.get`, or `compute.images.list` or `.get` on the project (the Compute Viewer role has them); the **Compute Engine API** must be enabled in the project, and the tools ask for the read scope `compute.readonly` |
+| `buckets.list`, `buckets.get` | `storage.buckets.list` or `storage.buckets.get` on the project or bucket; the **Cloud Storage JSON API** must be enabled in the project, and the tools ask for the read scope `devstorage.read_only` |
+| `buckets.get-iam-policy`, `bucket-access-controls.list` | `storage.buckets.getIamPolicy` on the bucket, and `storage.buckets.get` for the proof of its project; the tools ask for `devstorage.full_control`, the narrowest scope Google lists for them, and belong to the profile `read-storage-access` |
 | `firewalls.delete`, `addresses.delete`, `vpn-tunnels.delete`, `vpn-gateways.delete` | `compute.firewalls.delete` and `compute.firewalls.get` (for the comparison before the deletion), `compute.addresses.delete`, `compute.vpnTunnels.delete`, or `compute.vpnGateways.delete`, on the project (the Compute Network Admin role has them); the **Compute Engine API** must be enabled in the project, and the tools ask for the scope `compute` and belong to the profile `compute-network-delete` |
 | `instances.start`, `instances.stop`, `instances.reset`, `instances.set-machine-type` | `compute.instances.start`, `compute.instances.stop`, `compute.instances.reset`, or `compute.instances.setMachineType` on the project (the Compute Instance Admin role has them); the **Compute Engine API** must be enabled, and the tools ask for the scope `compute` and belong to the profile `compute-lifecycle` |
 | `disks.insert`, `disks.resize`, `disks.create-snapshot` | `compute.disks.create`, `compute.disks.resize` with `compute.disks.get` (for the size check before the change), or `compute.disks.createSnapshot` with `compute.snapshots.create` on the project, plus `compute.disks.setLabels` or `compute.snapshots.setLabels` for labels and the `use` or `useReadOnly` permission of each named image, snapshot, disk, resource policy, or storage pool (the Compute Storage Admin role has them); with a Cloud KMS key the Compute Engine service agent needs the right to use that key; the **Compute Engine API** must be enabled, and the tools ask for the scope `compute` and belong to the profile `compute-disks` |

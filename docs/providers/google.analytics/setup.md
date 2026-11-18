@@ -14,7 +14,7 @@ This page shows how to connect Qatlas to Google Analytics 4. Targets, paging, an
 [properties](properties.md), [data streams](data-streams.md), [custom dimensions](custom-dimensions.md),
 [custom metrics](custom-metrics.md), [event create rules](event-create-rules.md),
 [calculated metrics](calculated-metrics.md),
-[annotations](annotations.md), [audiences](audiences.md), [Display & Video 360 links](display-video360-links.md), [reports](reports.md),
+[annotations](annotations.md), [audiences](audiences.md), [channel groups](channel-groups.md), [Display & Video 360 links](display-video360-links.md), [reports](reports.md),
 [audience exports](audience-exports.md), [report tasks](report-tasks.md),
 [measurement protocol secrets](measurement-protocol-secrets.md), [access reports](access-reports.md),
 [data retention](data-retention.md), and [Google Signals](google-signals.md).
@@ -85,7 +85,7 @@ property, and on the property or its account to change or trash a property or to
 ## Rights and scopes
 
 The reading tools need the scope `https://www.googleapis.com/auth/analytics.readonly`, the smallest scope that
-reads Analytics configuration and report data. The tools that change an account, a property, a data stream, an event create rule, an annotation, or an audience need
+reads Analytics configuration and report data. The tools that change an account, a property, a data stream, an event create rule, an annotation, an audience, or a channel group need
 `https://www.googleapis.com/auth/analytics.edit`. Qatlas asks for the scope of the tools of the connections that
 use the credential and no more. Each connection of a credential has to be for Google Analytics, so the
 credential never carries the scope of another product.
@@ -120,6 +120,8 @@ credential never carries the scope of another product.
 | [Annotations](annotations.md#changing-annotations) | `annotations.create`, `annotations.update`, `annotations.delete` | `analytics.edit` |
 | [Audiences](audiences.md) | `audiences.list`, `audiences.get` | `analytics.readonly` |
 | [Audiences](audiences.md#changing-audiences) | `audiences.create`, `audiences.update`, `audiences.archive` | `analytics.edit` |
+| [Channel groups](channel-groups.md) | `channel-groups.list`, `channel-groups.get` | `analytics.readonly` |
+| [Channel groups](channel-groups.md#changing-channel-groups) | `channel-groups.create`, `channel-groups.update`, `channel-groups.delete` | `analytics.edit` |
 | [Display & Video 360 links](display-video360-links.md) | `display-video360-links.list`, `display-video360-links.get`, `display-video360-link-proposals.list`, `display-video360-link-proposals.get` | `analytics.readonly` |
 | [Data retention](data-retention.md) | `data-retention.get` | `analytics.readonly` |
 | [Data retention](data-retention.md#googleanalyticsdata-retentionupdate) | `data-retention.update` | `analytics.edit` |
