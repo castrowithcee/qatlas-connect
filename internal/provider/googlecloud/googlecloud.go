@@ -187,6 +187,16 @@ func Register(reg *capability.Registry) error {
 				"a key or returns a key value",
 			Tools: []string{apiKeysDelete.ID, apiKeysUndelete.ID},
 		}, {
+			ID: "storage-delete", Title: "Delete and restore Storage objects",
+			Description: "deletes Cloud Storage objects, one per call, and restores soft-deleted ones, each with the " +
+				"confirmation of a person; without a generation the live version is deleted, which cannot be undone " +
+				"without versioning or soft delete; projects.get is part of the profile so that targets of an " +
+				"organization or a folder can be proved; objects.delete asks for devstorage.read_write and " +
+				"objects.restore only accepts devstorage.full_control (or cloud-platform), so the token may change " +
+				"what its account may in Cloud Storage; deleting a bucket is not part of this profile and needs a " +
+				"tools list that names it; no tool uploads or changes an object",
+			Tools: []string{projectsGet.ID, objectsDelete.ID, objectsRestore.ID},
+		}, {
 			ID: "compute-network-delete", Title: "Delete network resources",
 			Description: "deletes firewall rules, reserved IP addresses, VPN tunnels, and HA VPN gateways of a Compute Engine project, each with the " +
 				"confirmation of a person; a firewall rule is deleted only if its direction, action, and priority " +
@@ -316,6 +326,12 @@ func Register(reg *capability.Registry) error {
 		capability.Operation{Descriptor: objectsGet, Handler: handleObjectsGet},
 		capability.Operation{Descriptor: objectsDownload, Handler: handleObjectsDownload},
 		capability.Operation{Descriptor: objectAccessControlsList, Handler: handleObjectAccessControlsList},
+		capability.Operation{Descriptor: objectsDelete, Handler: handleObjectsDelete,
+			ConfirmationSummary: objectChangeSummary(objectsDeleteID)},
+		capability.Operation{Descriptor: objectsRestore, Handler: handleObjectsRestore,
+			ConfirmationSummary: objectChangeSummary(objectsRestoreID)},
+		capability.Operation{Descriptor: bucketsDelete, Handler: handleBucketsDelete,
+			ConfirmationSummary: bucketDeleteSummary},
 		capability.Operation{Descriptor: billingAccountsList, Handler: handleBillingAccountsList},
 		capability.Operation{Descriptor: billingAccountsGet, Handler: handleBillingAccountsGet},
 		capability.Operation{Descriptor: billingAccountsListProjects, Handler: handleBillingAccountsListProjects},
