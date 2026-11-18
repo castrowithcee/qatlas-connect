@@ -281,6 +281,15 @@ func targetReaches(tool string, targets []string) (bool, []string) {
 		if !list.reachesResources() {
 			return false, []string{"organizations/ORGANIZATION", "folders/FOLDER", "projects/PROJECT"}
 		}
+	case projectsPatchID, projectsUndeleteID:
+		if !list.reachesResources() {
+			return false, []string{"organizations/ORGANIZATION", "folders/FOLDER", "projects/PROJECT"}
+		}
+	case projectsCreateID, projectsMoveID:
+		// A project is created or moved only under an organization or a folder.
+		if !list.reachesFolders() {
+			return false, []string{"organizations/ORGANIZATION", "folders/FOLDER"}
+		}
 	case foldersSearchID, foldersGetID, foldersListID:
 		if !list.reachesFolders() {
 			return false, []string{"organizations/ORGANIZATION", "folders/FOLDER"}

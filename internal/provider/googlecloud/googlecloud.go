@@ -7,7 +7,8 @@
 // project, and the state of a long-running operation. It then reads IAM: roles, and the roles and permissions
 // of a resource. It changes only through the profiles service-accounts (service_accounts_write.go),
 // service-accounts-revoke and the listed-only service-accounts.delete (service_accounts_revoke.go),
-// api-keys-revoke (the deletion and restoration of API keys, api_keys.go), and
+// api-keys-revoke (the deletion and restoration of API keys, api_keys.go), projects-manage (creating, changing,
+// moving, and restoring projects, projects_write.go), and
 // iam-bindings (a single binding of the IAM policy of a project, folder, or organization, iam_bindings.go),
 // compute-network-delete (firewall rules, reserved IP addresses, VPN tunnels and gateways, compute_delete.go),
 // compute-instances-create (instances.insert, compute_instances_insert.go) and the listed-only instances.delete,
@@ -225,6 +226,16 @@ func Register(reg *capability.Registry) error {
 				"change what its account may; the resources and calls of an enabled API may be billed; disabling an " +
 				"API is not part of this profile and needs a tools list that names it",
 			Tools: []string{servicesEnable.ID, servicesBatchEnable.ID},
+		}, {
+			ID: "projects-manage", Title: "Manage projects",
+			Description: "creates projects under an organization or folder of the connection, changes their display " +
+				"name and labels, moves them between organizations and folders of the connection, and restores " +
+				"projects marked for deletion, each with the confirmation of a person; a move changes the IAM " +
+				"roles and policies a project inherits; no billing account is linked and nothing is deleted; " +
+				"these Resource Manager methods accept only the broad cloud-platform scope, so the token may " +
+				"change what its account may; deleting a project is not part of this profile and needs a tools " +
+				"list that names it",
+			Tools: []string{projectsCreate.ID, projectsPatch.ID, projectsMove.ID, projectsUndelete.ID},
 		}},
 	}, TestConnection); err != nil {
 		return err
@@ -360,5 +371,13 @@ func Register(reg *capability.Registry) error {
 		capability.Operation{Descriptor: servicesBatchEnable, Handler: handleServicesBatchEnable,
 			ConfirmationSummary: serviceChangeSummary(servicesBatchEnableID)},
 		capability.Operation{Descriptor: servicesDisable, Handler: handleServicesDisable,
-			ConfirmationSummary: serviceChangeSummary(servicesDisableID)})
+			ConfirmationSummary: serviceChangeSummary(servicesDisableID)},
+		capability.Operation{Descriptor: projectsCreate, Handler: handleProjectsCreate,
+			ConfirmationSummary: projectSummary(projectsCreateID)},
+		capability.Operation{Descriptor: projectsPatch, Handler: handleProjectsPatch,
+			ConfirmationSummary: projectSummary(projectsPatchID)},
+		capability.Operation{Descriptor: projectsMove, Handler: handleProjectsMove,
+			ConfirmationSummary: projectSummary(projectsMoveID)},
+		capability.Operation{Descriptor: projectsUndelete, Handler: handleProjectsUndelete,
+			ConfirmationSummary: projectSummary(projectsUndeleteID)})
 }

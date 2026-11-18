@@ -146,6 +146,11 @@ var tokenMetadata = config.TokenMetadata{Scopes: map[string][]string{
 	// compute v1 lists compute as the smallest scope for instances.insert and instances.delete.
 	instancesInsertID: {scopeCompute},
 	instancesDeleteID: {scopeCompute},
+	// cloudresourcemanager v3 lists only cloud-platform for projects create, patch, move, and undelete.
+	projectsCreateID:   {scopeCloudPlatform},
+	projectsPatchID:    {scopeCloudPlatform},
+	projectsMoveID:     {scopeCloudPlatform},
+	projectsUndeleteID: {scopeCloudPlatform},
 	// compute v1 lists compute as the smallest scope for insert, resize, and createSnapshot of disks.
 	disksInsertID:         {scopeCompute},
 	disksResizeID:         {scopeCompute},
