@@ -9,9 +9,8 @@ updated: 2026-11-17
 
 # Set up Google Business Profile
 
-This page shows how to connect Qatlas to Google Business Profile. Credential, targets, bounds, and errors are
-described in the [Google Business Profile provider](README.md); the tools in [accounts](accounts.md) and
-[locations](locations.md).
+This page shows how to connect Qatlas to Google Business Profile. Credential, targets, bounds, errors, and the
+tool groups are described in the [Google Business Profile provider](README.md).
 
 ## What you need
 
