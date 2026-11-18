@@ -18,7 +18,8 @@ This page shows how to connect Qatlas to Google Analytics 4. Targets, paging, an
 [audience exports](audience-exports.md), [report tasks](report-tasks.md),
 [measurement protocol secrets](measurement-protocol-secrets.md), [access reports](access-reports.md),
 [rollup links](rollup-links.md), [access bindings](access-bindings.md),
-[data retention](data-retention.md), and [Google Signals](google-signals.md).
+[data retention](data-retention.md), [Google Signals](google-signals.md), [Google Ads links](google-ads-links.md),
+[Firebase links](firebase-links.md), and [BigQuery links](bigquery-links.md).
 
 ## What you need
 
@@ -132,6 +133,9 @@ credential never carries the scope of another product.
 | [Data retention](data-retention.md#googleanalyticsdata-retentionupdate) | `data-retention.update` | `analytics.edit` |
 | [Google Signals](google-signals.md) | `google-signals.get` | `analytics.readonly` |
 | [Google Signals](google-signals.md#googleanalyticsgoogle-signalsupdate) | `google-signals.update` | `analytics.edit` |
+| [Google Ads links](google-ads-links.md) | `google-ads-links.list` | `analytics.readonly` |
+| [Firebase links](firebase-links.md) | `firebase-links.list` | `analytics.readonly` |
+| [BigQuery links](bigquery-links.md) | `bigquery-links.list`, `bigquery-links.get` | `analytics.readonly` |
 
 ## Add it to Qatlas
 
