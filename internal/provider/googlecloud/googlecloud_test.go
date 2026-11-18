@@ -47,12 +47,13 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 			tool.ID == servicesEnableID, tool.ID == servicesBatchEnableID, tool.ID == servicesDisableID,
 			tool.ID == projectsPatchID, tool.ID == projectsMoveID, tool.ID == projectsUndeleteID,
 			strings.Contains(tool.ID, ".iam-bindings."), tool.ID == instancesStartID, tool.ID == instancesStopID,
-			tool.ID == instancesResetID, tool.ID == instancesSetMachineTypeID, tool.ID == disksResizeID:
+			tool.ID == instancesResetID, tool.ID == instancesSetMachineTypeID, tool.ID == disksResizeID, tool.ID == objectsRestoreID:
 			wantEffect = config.EffectUpdate
 		case tool.ID == serviceAccountKeysDeleteID, tool.ID == serviceAccountsDeleteID, tool.ID == apiKeysDeleteID,
 			tool.ID == firewallsDeleteID, tool.ID == addressesDeleteID, tool.ID == vpnTunnelsDeleteID,
 			tool.ID == vpnGatewaysDeleteID, tool.ID == instancesDeleteID, tool.ID == disksDeleteID,
-			tool.ID == snapshotsDeleteID, tool.ID == imagesDeleteID:
+			tool.ID == snapshotsDeleteID, tool.ID == imagesDeleteID, tool.ID == objectsDeleteID,
+			tool.ID == bucketsDeleteID:
 			wantEffect = config.EffectDelete
 		case tool.ID == instancesInsertID:
 			wantEffect = config.EffectCreate
@@ -112,6 +113,13 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 				tool.ID == objectAccessControlsListID {
 				wantScope = scopeStorageFullControl
 			}
+			// objects.delete and buckets.delete list devstorage.read_write, objects.restore only full_control.
+			switch tool.ID {
+			case objectsDeleteID, bucketsDeleteID:
+				wantScope = scopeStorageReadWrite
+			case objectsRestoreID:
+				wantScope = scopeStorageFullControl
+			}
 		}
 		if strings.Contains(tool.ID, "billing") {
 			// cloudbilling v1 lists cloud-billing.readonly for the four reads.
@@ -122,7 +130,7 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 		}
 	}
 	if want := []string{"google.cloud.addresses.delete", "google.cloud.addresses.get", "google.cloud.addresses.list", "google.cloud.api-keys.delete", "google.cloud.api-keys.get", "google.cloud.api-keys.list",
-		"google.cloud.api-keys.undelete", "google.cloud.billing-accounts.get", "google.cloud.billing-accounts.list", "google.cloud.billing-accounts.list-projects", "google.cloud.bucket-access-controls.list", "google.cloud.buckets.get", "google.cloud.buckets.get-iam-policy", "google.cloud.buckets.list", "google.cloud.changes.get", "google.cloud.changes.list", "google.cloud.compute-operations.get", "google.cloud.compute-operations.list", "google.cloud.disks.aggregated-list", "google.cloud.disks.create-snapshot", "google.cloud.disks.delete", "google.cloud.disks.get", "google.cloud.disks.insert", "google.cloud.disks.list", "google.cloud.disks.resize", "google.cloud.dns-keys.get", "google.cloud.dns-keys.list", "google.cloud.firewalls.delete", "google.cloud.firewalls.get", "google.cloud.firewalls.list",
+		"google.cloud.api-keys.undelete", "google.cloud.billing-accounts.get", "google.cloud.billing-accounts.list", "google.cloud.billing-accounts.list-projects", "google.cloud.bucket-access-controls.list", "google.cloud.buckets.delete", "google.cloud.buckets.get", "google.cloud.buckets.get-iam-policy", "google.cloud.buckets.list", "google.cloud.changes.get", "google.cloud.changes.list", "google.cloud.compute-operations.get", "google.cloud.compute-operations.list", "google.cloud.disks.aggregated-list", "google.cloud.disks.create-snapshot", "google.cloud.disks.delete", "google.cloud.disks.get", "google.cloud.disks.insert", "google.cloud.disks.list", "google.cloud.disks.resize", "google.cloud.dns-keys.get", "google.cloud.dns-keys.list", "google.cloud.firewalls.delete", "google.cloud.firewalls.get", "google.cloud.firewalls.list",
 		"google.cloud.folders.get", "google.cloud.folders.list", "google.cloud.folders.search",
 		"google.cloud.hmac-keys.get", "google.cloud.hmac-keys.list",
 		"google.cloud.iam-bindings.add-member", "google.cloud.iam-bindings.change-role",
@@ -135,12 +143,12 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 		"google.cloud.instances.set-machine-type", "google.cloud.instances.start", "google.cloud.instances.stop",
 		"google.cloud.machine-types.list", "google.cloud.managed-folders.list", "google.cloud.managed-zones.get", "google.cloud.managed-zones.list",
 		"google.cloud.networks.get", "google.cloud.networks.list", "google.cloud.notifications.list", "google.cloud.object-access-controls.list",
-		"google.cloud.objects.download", "google.cloud.objects.get", "google.cloud.objects.list", "google.cloud.operations.get", "google.cloud.organizations.get",
-		"google.cloud.organizations.search", "google.cloud.project-billing-info.get", "google.cloud.projects.create", "google.cloud.projects.get",
-		"google.cloud.projects.list", "google.cloud.projects.move", "google.cloud.projects.patch", "google.cloud.projects.search",
-		"google.cloud.projects.undelete", "google.cloud.quota-infos.get", "google.cloud.quota-infos.list", "google.cloud.quota-preferences.get",
-		"google.cloud.quota-preferences.list", "google.cloud.record-sets.get", "google.cloud.record-sets.list", "google.cloud.regions.list",
-		"google.cloud.service-account-keys.delete",
+		"google.cloud.objects.delete", "google.cloud.objects.download", "google.cloud.objects.get", "google.cloud.objects.list",
+		"google.cloud.objects.restore", "google.cloud.operations.get", "google.cloud.organizations.get", "google.cloud.organizations.search",
+		"google.cloud.project-billing-info.get", "google.cloud.projects.create", "google.cloud.projects.get", "google.cloud.projects.list",
+		"google.cloud.projects.move", "google.cloud.projects.patch", "google.cloud.projects.search", "google.cloud.projects.undelete",
+		"google.cloud.quota-infos.get", "google.cloud.quota-infos.list", "google.cloud.quota-preferences.get", "google.cloud.quota-preferences.list",
+		"google.cloud.record-sets.get", "google.cloud.record-sets.list", "google.cloud.regions.list", "google.cloud.service-account-keys.delete",
 		"google.cloud.service-account-keys.disable", "google.cloud.service-account-keys.enable",
 		"google.cloud.service-account-keys.get",
 		"google.cloud.service-account-keys.list", "google.cloud.service-accounts.create",
@@ -204,6 +212,10 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 		case "compute-network-delete":
 			if profile.Recommended || !slices.Equal(profile.Tools, []string{projectsGetID, firewallsDeleteID, addressesDeleteID, vpnTunnelsDeleteID, vpnGatewaysDeleteID}) {
 				t.Errorf("profile compute-network-delete = %+v", profile)
+			}
+		case "storage-delete":
+			if profile.Recommended || !slices.Equal(profile.Tools, []string{projectsGetID, objectsDeleteID, objectsRestoreID}) {
+				t.Errorf("profile storage-delete = %+v", profile)
 			}
 		case "compute-lifecycle":
 			if profile.Recommended || !slices.Equal(profile.Tools, []string{projectsGetID, instancesStartID, instancesStopID, instancesResetID, instancesSetMachineTypeID}) {
