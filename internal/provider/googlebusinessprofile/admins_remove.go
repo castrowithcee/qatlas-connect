@@ -63,7 +63,8 @@ var accountAdminsDelete = func() capability.Descriptor {
 		formAccountAdmin, accountAdminPattern,
 		`{"admin":"accounts/1000001/admins/3000003","previous_admin":"Sample Person","previous_role":"MANAGER"}`)
 	d.Description = "Remove an admin from a Google Business Profile account. " + adminRemoveNote +
-		"A connection bound to a location does not offer this tool. " + untrustedNote
+		"A connection bound to a location does not offer this tool." + listedOnlyNote + " " + untrustedNote
+	d.RequiresToolAllowList = true
 	return d
 }()
 
@@ -72,7 +73,9 @@ var locationAdminsDelete = func() capability.Descriptor {
 		formLocationAdmin, locationAdminPattern,
 		`{"admin":"locations/2000002/admins/3000003","previous_admin":"Sample Person","previous_role":"MANAGER"}`)
 	d.Description = "Remove an admin from a Google Business Profile location. " + adminRemoveNote +
-		"On a connection bound to an account the location is first proved to belong to it. " + untrustedNote
+		"On a connection bound to an account the location is first proved to belong to it." + listedOnlyNote +
+		" " + untrustedNote
+	d.RequiresToolAllowList = true
 	return d
 }()
 

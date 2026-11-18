@@ -40,8 +40,10 @@ without the scope ends the tool as `scope-missing` before Google is contacted; a
 credential serves this provider only, so its token never carries scopes of another Google product.
 
 The profile `read` is the recommended one and holds every reading tool. The profile `edit` holds those and
-the four changing tools. A connection offers a changing tool only when its effects include `create` or
-`delete`, and every call of one needs its own confirmation.
+`sites.add`, `sitemaps.submit`, and `sitemaps.delete`. `sites.delete` is listed-only: it removes a property, and
+adding it again needs a new verification, so no profile holds it and a connection offers it only when its `tools`
+list names it, whatever its effects say. A connection offers the other changing tools only when its effects
+include `create` or `delete`, and every call of one needs its own confirmation.
 
 ## Target
 

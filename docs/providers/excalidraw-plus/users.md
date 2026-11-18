@@ -14,8 +14,8 @@ Configuration, scope, targets, error classes, and cross-group limits are in [REA
 ## Users
 
 The `people` profile (not recommended; it holds personal data and access rights, so the recommended `read` profile
-leaves it out) offers four tools. They are **workspace-wide** because users belong to no collection: only a
-connection with the target `*` offers them, others are refused before any secret is read or request is sent, without
+leaves it out) offers three tools, and `users.remove` is in no profile and needs a `tools` list. The four tools are
+**workspace-wide** because users belong to no collection: only a connection with the target `*` offers them, others are refused before any secret is read or request is sent, without
 naming a target. Qatlas creates no permanent access or data paths to the outside (webhooks, invitations, public
 links), so no tool invites a person.
 

@@ -168,14 +168,19 @@ func newEnvironment(t *testing.T, values map[string]string) *environment {
 	cfg.Credentials = map[string]config.Credential{"google": {Provider: Provider, Type: config.CredentialTypeEnv, Values: roles}}
 	read := []config.Effect{config.EffectRead}
 	edit := []config.Effect{config.EffectRead, config.EffectCreate, config.EffectDelete}
+	// sites.delete is listed-only, so the connections that change entries name every tool.
+	changing := []string{sitesListID, sitesGetID, sitemapsListID, sitemapsGetID, searchAnalyticsID, sitesAddID,
+		sitesDeleteID, sitemapsSubmitID, sitemapsDeleteID}
 	cfg.Connections = map[string]config.Connection{
 		"all":    {Service: "console", Credential: "google", Effects: read},
 		"domain": {Service: "console", Credential: "google", Effects: read, Target: domainSite},
 		"prefix": {Service: "console", Credential: "google", Effects: read, Target: prefixSite},
 		// The connections that may change entries; read-only ones above never offer a changing tool.
-		"edit":       {Service: "console", Credential: "google", Effects: edit},
-		"editdomain": {Service: "console", Credential: "google", Effects: edit, Target: domainSite},
-		"editprefix": {Service: "console", Credential: "google", Effects: edit, Target: prefixSite},
+		"edit":       {Service: "console", Credential: "google", Tools: changing},
+		"editdomain": {Service: "console", Credential: "google", Tools: changing, Target: domainSite},
+		"editprefix": {Service: "console", Credential: "google", Tools: changing, Target: prefixSite},
+		// The effects alone reach every changing tool except the listed-only removal of a property.
+		"effects": {Service: "console", Credential: "google", Effects: edit},
 	}
 	if values[clientIDEnv] != "" && values[refreshEnv] != "" {
 		cfg.Connections["robot"] = config.Connection{Service: "console", Credential: "google", Effects: read,
@@ -264,7 +269,7 @@ func TestRegisterPublishesMetadataScopesAndConsent(t *testing.T) {
 	}
 	if len(metadata.Profiles) != 2 || metadata.Profiles[0].ID != "read" || !metadata.Profiles[0].Recommended ||
 		len(metadata.Profiles[0].Tools) != 5 || metadata.Profiles[1].ID != "edit" || metadata.Profiles[1].Recommended ||
-		len(metadata.Profiles[1].Tools) != 9 {
+		len(metadata.Profiles[1].Tools) != 8 {
 		t.Errorf("profiles = %+v", metadata.Profiles)
 	}
 	oauth, ok := reg.OAuth(Provider)

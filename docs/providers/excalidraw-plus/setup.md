@@ -85,10 +85,10 @@ tool.
 | --- | --- | --- |
 | Reading (`read`) | `collections.list`, `scenes.list`, `scenes.get`, `scenes.content` | `read`, or routes for collections and scenes |
 | Activity log (`activity`) | `logs.list` | `read`, or the route for the log; not documented separately |
-| Changing scenes (`manage`) | `scenes.create`, `scenes.update`, `content.patch`, `content.replace` | a right that allows changes (`full`, or the matching routes); `read` alone is not enough |
-| Deleting (`manage`) | `scenes.delete`, `collections.delete` | a right that allows changes (`full`, or the matching routes) |
+| Changing scenes (`manage`) | `scenes.create`, `scenes.update`, `content.patch` | a right that allows changes (`full`, or the matching routes); `read` alone is not enough |
+| Deleting (`manage` for `scenes.delete`, no profile for `collections.delete`) | `scenes.delete`, `collections.delete` | a right that allows changes (`full`, or the matching routes) |
 | Users (`people`) | `users.list`, `users.get` | `read`, or the matching routes; not documented separately |
-| Changing users (`people`) | `users.update`, `users.remove` | a right that allows changes (`full`, or the matching routes); Excalidraw+ documents no workspace role for it |
+| Changing users (`people` for `users.update`, no profile for `users.remove`) | `users.update`, `users.remove` | a right that allows changes (`full`, or the matching routes); Excalidraw+ documents no workspace role for it |
 
 - The tools exist for a connection only as far as its `effects` or `tools` select them; see [Tool groups](README.md#tool-groups).
 - Changing and deleting tools read the scene or collection first, so they need the right to read as well.

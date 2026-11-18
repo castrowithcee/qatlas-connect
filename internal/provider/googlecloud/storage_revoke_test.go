@@ -3,6 +3,7 @@ package googlecloud
 import (
 	"encoding/json"
 	"net/http"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -39,8 +40,12 @@ func changesOf(e *environment) []seen {
 	return out
 }
 
+// revokeTools are the tools of the profile storage-revoke and the listed-only HMAC key deletion.
+var revokeTools = []string{projectsGetID, hmacKeysListID, hmacKeysGetID, notificationsListID, hmacKeysDeactivateID,
+	hmacKeysDeleteID, notificationsDeleteID}
+
 func TestHMACKeysDeactivateSendsOneFixedInactiveBodyWithTheEtag(t *testing.T) {
-	e := revokeEnvironment(t, nil, nil)
+	e := revokeEnvironment(t, nil, revokeTools)
 	keyRoutes(e, "my-project-123", "ACTIVE", okReply(hmacRow(revokeAccessID, "my-project-123",
 		hmacAccount("deploy-account", "my-project-123"), "INACTIVE")))
 	out, err := e.invokeConfirmed(hmacKeysDeactivateID,
@@ -64,7 +69,7 @@ func TestHMACKeysDeactivateSendsOneFixedInactiveBodyWithTheEtag(t *testing.T) {
 func TestHMACKeysCannotBeActivated(t *testing.T) {
 	// No argument names a state, and the body holds INACTIVE whatever the key and the arguments are.
 	for _, extra := range []string{`,"state":"ACTIVE"`, `,"body":"{}"`, `,"active":true`} {
-		e := revokeEnvironment(t, nil, nil)
+		e := revokeEnvironment(t, nil, revokeTools)
 		keyRoutes(e, "my-project-123", "INACTIVE", okReply(hmacRow(revokeAccessID, "my-project-123",
 			hmacAccount("deploy-account", "my-project-123"), "INACTIVE")))
 		if _, err := e.invokeConfirmed(hmacKeysDeactivateID,
@@ -73,7 +78,7 @@ func TestHMACKeysCannotBeActivated(t *testing.T) {
 		}
 		noIO(t, e, extra)
 	}
-	e := revokeEnvironment(t, nil, nil)
+	e := revokeEnvironment(t, nil, revokeTools)
 	keyRoutes(e, "my-project-123", "INACTIVE", okReply(hmacRow(revokeAccessID, "my-project-123",
 		hmacAccount("deploy-account", "my-project-123"), "INACTIVE")))
 	if _, err := e.invokeConfirmed(hmacKeysDeactivateID,
@@ -100,7 +105,7 @@ func TestHMACKeysCannotBeActivated(t *testing.T) {
 }
 
 func TestHMACKeysDeactivateRefusesAnEtagThatDiffersWithoutAChange(t *testing.T) {
-	e := revokeEnvironment(t, nil, nil)
+	e := revokeEnvironment(t, nil, revokeTools)
 	keyRoutes(e, "my-project-123", "ACTIVE", okReply(`{}`))
 	_, err := e.invokeConfirmed(hmacKeysDeactivateID,
 		`{"project_id":"my-project-123","access_id":"`+revokeAccessID+`","etag":"OTHER="}`)
@@ -112,7 +117,7 @@ func TestHMACKeysDeactivateRefusesAnEtagThatDiffersWithoutAChange(t *testing.T) 
 func TestHMACKeyOfAnotherProjectIsRefusedWithoutAChange(t *testing.T) {
 	for _, id := range []string{hmacKeysDeactivateID, hmacKeysDeleteID} {
 		for _, project := range []string{"other-project-1", foreignNumber} {
-			e := revokeEnvironment(t, nil, nil)
+			e := revokeEnvironment(t, nil, revokeTools)
 			keyRoutes(e, project, "INACTIVE", okReply(`{}`))
 			_, err := e.invokeConfirmed(id, `{"project_id":"my-project-123","access_id":"`+revokeAccessID+`"}`)
 			if !isInvalidRequest(err) || strings.Contains(err.Error(), project) || len(changesOf(e)) != 0 {
@@ -121,7 +126,7 @@ func TestHMACKeyOfAnotherProjectIsRefusedWithoutAChange(t *testing.T) {
 		}
 	}
 	// A project outside the targets ends before any request about the key.
-	e := revokeEnvironment(t, []string{"projects/other-project-1"}, nil)
+	e := revokeEnvironment(t, []string{"projects/other-project-1"}, revokeTools)
 	keyRoutes(e, "my-project-123", "INACTIVE", okReply(`{}`))
 	if _, err := e.invokeConfirmed(hmacKeysDeleteID,
 		`{"project_id":"my-project-123","access_id":"`+revokeAccessID+`"}`); err == nil {
@@ -135,7 +140,7 @@ func TestHMACKeyOfAnotherProjectIsRefusedWithoutAChange(t *testing.T) {
 }
 
 func TestHMACKeysDeleteOfAnActiveKeyIsAnErrorOfGoogle(t *testing.T) {
-	e := revokeEnvironment(t, nil, nil)
+	e := revokeEnvironment(t, nil, revokeTools)
 	keyRoutes(e, "my-project-123", "ACTIVE", reply{status: 400, body: errorObject(400, "FAILED_PRECONDITION", "")})
 	_, err := e.invokeConfirmed(hmacKeysDeleteID, `{"project_id":"my-project-123","access_id":"`+revokeAccessID+`"}`)
 	changes := changesOf(e)
@@ -146,7 +151,7 @@ func TestHMACKeysDeleteOfAnActiveKeyIsAnErrorOfGoogle(t *testing.T) {
 }
 
 func TestHMACKeysDeleteOfAnInactiveKeySendsOneDeleteWithoutBody(t *testing.T) {
-	e := revokeEnvironment(t, nil, nil)
+	e := revokeEnvironment(t, nil, revokeTools)
 	keyRoutes(e, "my-project-123", "INACTIVE", reply{status: 204})
 	out, err := e.invokeConfirmed(hmacKeysDeleteID, `{"project_id":"my-project-123","access_id":"`+revokeAccessID+`"}`)
 	if err != nil {
@@ -166,7 +171,7 @@ func TestHMACKeysDeleteOfAnInactiveKeySendsOneDeleteWithoutBody(t *testing.T) {
 func TestHMACKeyChangeTextsNeverHoldAKeyValue(t *testing.T) {
 	for _, status := range []int{400, 403, 404, 500} {
 		for _, id := range []string{hmacKeysDeactivateID, hmacKeysDeleteID} {
-			e := revokeEnvironment(t, nil, nil)
+			e := revokeEnvironment(t, nil, revokeTools)
 			keyRoutes(e, "my-project-123", "ACTIVE", reply{status: status, body: `{"error":{"code":` +
 				`400,"message":"` + hmacCanaryMaterial + `","status":"X"},"secret":"` + hmacCanaryMaterial + `"}`})
 			_, err := e.invokeConfirmed(id, `{"project_id":"my-project-123","access_id":"`+revokeAccessID+`"}`)
@@ -178,7 +183,7 @@ func TestHMACKeyChangeTextsNeverHoldAKeyValue(t *testing.T) {
 }
 
 func TestNotificationsDeleteSendsOneDeleteAfterReadingTheConfiguration(t *testing.T) {
-	e := revokeEnvironment(t, []string{"projects/" + storageProjectNumber}, nil)
+	e := revokeEnvironment(t, []string{"projects/" + storageProjectNumber}, revokeTools)
 	e.fake.routes[bucketsPath+"/example-bucket"] = okReply(`{"name":"example-bucket","projectNumber":"` + storageProjectNumber + `"}`)
 	e.fake.hook = func(_ int, req *http.Request) *reply {
 		if req.URL.Path != revokeNotePath {
@@ -214,7 +219,7 @@ func TestNotificationsDeleteSendsOneDeleteAfterReadingTheConfiguration(t *testin
 }
 
 func TestNotificationsDeleteWithAnotherTopicMakesNoChange(t *testing.T) {
-	e := revokeEnvironment(t, nil, nil)
+	e := revokeEnvironment(t, nil, revokeTools)
 	e.fake.hook = func(_ int, req *http.Request) *reply {
 		if req.URL.Path == revokeNotePath {
 			return &reply{status: 200, body: `{"id":"7","topic":"` + revokeTopic + `"}`}
@@ -227,7 +232,7 @@ func TestNotificationsDeleteWithAnotherTopicMakesNoChange(t *testing.T) {
 		t.Errorf("err = %v, changes = %+v", err, changesOf(e))
 	}
 	// A read that answers another configuration is invalid and ends without a change.
-	e = revokeEnvironment(t, nil, nil)
+	e = revokeEnvironment(t, nil, revokeTools)
 	e.fake.routes[revokeNotePath] = okReply(`{"id":"8","topic":"` + revokeTopic + `"}`)
 	if _, err := e.invokeConfirmed(notificationsDeleteID, `{"bucket":"example-bucket","notification_id":"7",`+
 		`"topic":"`+revokeTopic+`"}`); err == nil || len(changesOf(e)) != 0 {
@@ -236,7 +241,7 @@ func TestNotificationsDeleteWithAnotherTopicMakesNoChange(t *testing.T) {
 }
 
 func TestNotificationsDeleteRefusesABucketOutsideTheTargetsBeforeAnyOtherRequest(t *testing.T) {
-	e := revokeEnvironment(t, []string{"projects/" + storageProjectNumber}, nil)
+	e := revokeEnvironment(t, []string{"projects/" + storageProjectNumber}, revokeTools)
 	e.fake.routes[bucketsPath+"/foreign-bucket"] = okReply(`{"name":"foreign-bucket","projectNumber":"` + foreignNumber + `"}`)
 	e.fake.routes[bucketsPath+"/foreign-bucket/notificationConfigs/7"] = okReply(`{"id":"7","topic":"` + revokeTopic + `"}`)
 	_, err := e.invokeConfirmed(notificationsDeleteID, `{"bucket":"foreign-bucket","notification_id":"7","topic":"`+revokeTopic+`"}`)
@@ -273,7 +278,7 @@ func TestStorageRevokeToolsRefuseBadInputBeforeIO(t *testing.T) {
 	}
 	for id, byName := range cases {
 		for name, args := range byName {
-			e := revokeEnvironment(t, nil, nil)
+			e := revokeEnvironment(t, nil, revokeTools)
 			if _, err := e.invokeConfirmed(id, args); err == nil {
 				t.Errorf("%s %s accepted", id, name)
 			}
@@ -289,7 +294,7 @@ func TestStorageRevokeWithoutConfirmationMakesNoProviderCall(t *testing.T) {
 		notificationsDeleteID: `{"bucket":"example-bucket","notification_id":"7","topic":"` + revokeTopic + `"}`,
 	}
 	for id, a := range args {
-		e := revokeEnvironment(t, nil, nil)
+		e := revokeEnvironment(t, nil, revokeTools)
 		keyRoutes(e, "my-project-123", "INACTIVE", reply{status: 204})
 		if _, err := e.invoke(id, a); err == nil {
 			t.Errorf("%s ran without confirmation", id)
@@ -300,7 +305,8 @@ func TestStorageRevokeWithoutConfirmationMakesNoProviderCall(t *testing.T) {
 		if id == hmacKeysDeactivateID {
 			effect = "update"
 		}
-		if d.Risk.Confirmation != "required" || string(d.Risk.Effect) != effect || !d.Risk.OpenWorld || d.RequiresToolAllowList {
+		if d.Risk.Confirmation != "required" || string(d.Risk.Effect) != effect || !d.Risk.OpenWorld ||
+			d.RequiresToolAllowList != (id == hmacKeysDeleteID) {
 			t.Errorf("%s risk = %+v", id, d.Risk)
 		}
 		if e.reg.ConfirmationSummary(id) == nil {
@@ -347,10 +353,13 @@ func TestStorageRevokeToolsRunWithTheProfileAlone(t *testing.T) {
 	if len(tools) == 0 || recommended {
 		t.Fatalf("profile storage-revoke tools = %v, recommended = %v", tools, recommended)
 	}
+	if slices.Contains(tools, hmacKeysDeleteID) {
+		t.Errorf("profile storage-revoke holds %s", hmacKeysDeleteID)
+	}
 	e = revokeEnvironment(t, []string{"projects/my-project-123"}, tools)
 	keyRoutes(e, "my-project-123", "INACTIVE", reply{status: 204})
 	if _, err := e.invokeConfirmed(hmacKeysDeleteID,
-		`{"project_id":"my-project-123","access_id":"`+revokeAccessID+`"}`); err != nil {
-		t.Fatal(err)
+		`{"project_id":"my-project-123","access_id":"`+revokeAccessID+`"}`); err == nil {
+		t.Error("hmac-keys.delete ran with the profile alone")
 	}
 }

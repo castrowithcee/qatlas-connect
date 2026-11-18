@@ -30,8 +30,8 @@ func globalOperationBody(kind, status, extra string) string {
 		`"selfLink":"` + globalOperationsURL + `/operations/` + operationName + `"` + extra + `}`
 }
 
-// imageEnvironment is an environment whose connection offers the tools of the profile compute-images-delete,
-// or the tools listed.
+// imageEnvironment is an environment whose connection offers the tools of the profile compute-images-create
+// and the listed-only deletions of snapshots and images, or the tools listed.
 func imageEnvironment(t *testing.T, tools []string) *environment {
 	t.Helper()
 	if tools == nil {
@@ -293,7 +293,7 @@ func TestImageToolsNeedConfirmationAndNameWhatIsLost(t *testing.T) {
 			wantEffect = "create"
 		}
 		if d.Risk.Confirmation != "required" || string(d.Risk.Effect) != wantEffect || !d.Risk.OpenWorld ||
-			string(d.Risk.Idempotency) != "idempotent" || d.RequiresToolAllowList {
+			string(d.Risk.Idempotency) != "idempotent" || d.RequiresToolAllowList != (id != imagesInsertID) {
 			t.Errorf("%s risk = %+v", id, d.Risk)
 		}
 		if got := tokenMetadata.Scopes[id]; !slices.Equal(got, []string{scopeCompute}) {
@@ -335,14 +335,15 @@ func TestImageToolsRunWithTheProfileAloneAndProveAFolderTarget(t *testing.T) {
 	metadata, _ := e.reg.ProviderMetadata(Provider)
 	var tools []string
 	for _, profile := range metadata.Profiles {
-		if profile.ID == "compute-images-delete" {
+		if profile.ID == "compute-images-create" {
 			tools = profile.Tools
 		}
 	}
-	if !slices.Equal(tools, []string{projectsGetID, imagesInsertID, snapshotsDeleteID, imagesDeleteID}) {
+	if !slices.Equal(tools, []string{projectsGetID, imagesInsertID}) {
 		t.Fatalf("profile tools = %v", tools)
 	}
-	e = createEnvironment(t, []string{"folders/2001"}, tools)
+	// The deletions are listed-only, so the connection names them besides the profile.
+	e = createEnvironment(t, []string{"folders/2001"}, append(slices.Clone(tools), snapshotsDeleteID, imagesDeleteID))
 	e.fake.routes["/v3/projects/my-project-123"] = okReply(projectBody)
 	e.fake.routes["/v3/folders/2001"] = okReply(`{"name":"folders/2001","parent":"organizations/1"}`)
 	e.fake.routes[imagesPath] = okReply(globalOperationBody("insert", "RUNNING", ""))

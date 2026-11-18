@@ -9,6 +9,7 @@ import (
 	"encoding/pem"
 	"errors"
 	"net/http"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -340,5 +341,44 @@ func TestReadOnlyConnectionsDoNotOfferChangingTools(t *testing.T) {
 	}
 	if calls, _ := env.fake.calls(); len(calls) != 0 {
 		t.Errorf("%d requests, want none", len(calls))
+	}
+}
+
+func TestPropertyRemovalIsListedOnlyAndInNoProfile(t *testing.T) {
+	reg := capability.NewRegistry()
+	if err := Register(reg); err != nil {
+		t.Fatal(err)
+	}
+	metadata, _ := reg.ProviderMetadata(Provider)
+	d, _, found := reg.Lookup(sitesDeleteID)
+	if !found || d.Risk.Effect != capability.EffectDelete || !d.RequiresToolAllowList ||
+		!strings.Contains(d.Description, "listed-only") {
+		t.Errorf("%s is not a listed-only deletion: %+v", sitesDeleteID, d)
+	}
+	for _, profile := range metadata.Profiles {
+		if slices.Contains(profile.Tools, sitesDeleteID) {
+			t.Errorf("profile %s holds the listed-only %s", profile.ID, sitesDeleteID)
+		}
+	}
+	// A sitemap is submitted again, so its removal stays in the profile edit.
+	d, _, _ = reg.Lookup(sitemapsDeleteID)
+	if d.RequiresToolAllowList {
+		t.Errorf("%s is listed-only", sitemapsDeleteID)
+	}
+	for _, profile := range metadata.Profiles {
+		if got := slices.Contains(profile.Tools, sitemapsDeleteID); got != (profile.ID == "edit") {
+			t.Errorf("profile %s holds %s: %t", profile.ID, sitemapsDeleteID, got)
+		}
+	}
+	env := newEnvironment(t, nil)
+	env.fake.answer = empty(http.StatusNoContent, "")
+	if _, err := env.change(t, sitesDeleteID, "effects", changes[1].args); err == nil {
+		t.Errorf("%s is reachable through effects", sitesDeleteID)
+	}
+	if _, err := env.change(t, sitemapsDeleteID, "effects", changes[3].args); err != nil {
+		t.Errorf("%s is not reachable through effects: %v", sitemapsDeleteID, err)
+	}
+	if _, err := env.change(t, sitesDeleteID, "edit", changes[1].args); err != nil {
+		t.Errorf("%s is not reachable through a tools list: %v", sitesDeleteID, err)
 	}
 }

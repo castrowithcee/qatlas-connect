@@ -325,7 +325,8 @@ func TestSettingsToolsAreRegisteredAsAlphaWithScopesProfilesAndSummaries(t *test
 			t.Errorf("%s lacks the alpha note", id)
 		}
 		write := effectOf(id) != config.EffectRead
-		if slices.Contains(profiles["read"], id) == write || !slices.Contains(profiles["write"], id) {
+		listedOnly := id == audiencesArchiveID || id == edsDeleteID
+		if slices.Contains(profiles["read"], id) == write || slices.Contains(profiles["write"], id) == listedOnly {
 			t.Errorf("%s profiles are wrong", id)
 		}
 		if write && reg.ConfirmationSummary(id) == nil {

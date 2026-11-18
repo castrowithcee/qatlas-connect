@@ -66,8 +66,9 @@ func Register(reg *capability.Registry) error {
 		// workspace loses its unpublished changes, and combining containers merges one into another with an
 		// effect on the source that is not documented, deleting a container version removes a whole version, and
 		// publishing a version changes the live tracking of every site or app that loads the container, so all
-		// five are in no profile: a connection offers them only when its tools list names them. Deleting
-		// one workspace object is not: it stays revertible until a version is published.
+		// five are in no profile: a connection offers them only when its tools list names them. So is deleting a
+		// custom environment, whose authorization code a new environment does not share. Deleting one workspace
+		// object is not: it stays revertible until a version is published.
 		if !d.RequiresToolAllowList {
 			writeIDs = append(writeIDs, d.ID)
 		}
@@ -110,7 +111,7 @@ func Register(reg *capability.Registry) error {
 				"quick previews it, creates, updates, and deletes the tags, triggers, variables, and templates of a " +
 				"workspace, creates, updates, and deletes its folders, moves tags, triggers, and variables into a " +
 				"folder, creates, updates, and deletes its clients, transformations, zones, and Google tag " +
-				"configurations, enables and disables its built-in variables, creates, updates, and deletes the " +
+				"configurations, enables and disables its built-in variables, creates and updates the " +
 				"custom environments of a container, creates a container version from a workspace, changes the name " +
 				"and notes of a version, marks a version as the latest, and restores a deleted version; every change " +
 				"needs its own confirmation. Changes of workspace " +
@@ -119,8 +120,8 @@ func Register(reg *capability.Registry) error {
 				"and renaming an account take effect at once; renaming an account (scope tagmanager.manage.accounts) " +
 				"applies for everyone who sees the account and is not available on a connection bound to a container. " +
 				"Deleting a container or a workspace, reverting a tag, trigger, variable, template, built-in variable, " +
-				"folder, client, transformation, or zone, combining containers, deleting a container version, and " +
-				"publishing a version stay unticked",
+				"folder, client, transformation, or zone, deleting an environment, combining containers, deleting a " +
+				"container version, and publishing a version stay unticked",
 			Tools: writeIDs,
 		}, {
 			ID: userPermissionsProfile, Title: "User permissions",

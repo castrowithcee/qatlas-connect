@@ -134,11 +134,11 @@ func Register(reg *capability.Registry) error {
 			Description: "lists the properties of the account, reads their sitemaps and queries their search traffic; nothing is changed",
 			Tools:       []string{sitesListID, sitesGetID, sitemapsListID, sitemapsGetID, searchAnalyticsID},
 		}, {
-			ID: "edit", Title: "Edit properties and sitemaps",
-			Description: "reads what the read profile reads and adds and removes properties and submits and removes sitemaps " +
-				"in Search Console; every change needs its own confirmation",
+			ID: "edit", Title: "Add properties and edit sitemaps",
+			Description: "reads what the read profile reads, adds properties, and submits and removes sitemaps " +
+				"in Search Console; every change needs its own confirmation, and removing a property is listed-only",
 			Tools: []string{sitesListID, sitesGetID, sitemapsListID, sitemapsGetID, searchAnalyticsID,
-				sitesAddID, sitesDeleteID, sitemapsSubmitID, sitemapsDeleteID},
+				sitesAddID, sitemapsSubmitID, sitemapsDeleteID},
 		}},
 	}, TestConnection); err != nil {
 		return err

@@ -11,8 +11,8 @@ updated: 2026-11-16
 
 The site tools of the [Google Search Console provider](README.md). Credential, target, quotas, bounds, and
 errors are described there. `sites.list` and `sites.get` read and are safe to repeat. `sites.add` and
-`sites.delete` change the account's list of properties, need the `edit` profile and a confirmation, and are
-idempotent.
+`sites.delete` change the account's list of properties, need a confirmation, and are idempotent. `sites.add` is
+in the `edit` profile; `sites.delete` is listed-only.
 
 ## google.search-console.sites.list
 
@@ -45,6 +45,8 @@ property that is already there changes nothing.
 A connection bound to a property adds only that property, and `site_url` may be left out.
 
 ## google.search-console.sites.delete
+
+Listed-only: no profile holds the tool, and a connection offers it only when its `tools` list names it.
 
 `DELETE https://searchconsole.googleapis.com/webmasters/v3/sites/{siteUrl}`. Removes the property from the
 account of the credential. Only the Search Console entry goes; the website is untouched. The account loses the

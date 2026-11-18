@@ -18,9 +18,9 @@ ends with the `ALPHA:` note.
 
 `audiences.list` and `audiences.get` read and change nothing, a repeat is safe, they need the scope
 `analytics.readonly`, and the profile `read` holds both. The three tools under
-[Changing audiences](#changing-audiences) need `analytics.edit` and are in the profile `write`; see
-[setup](setup.md#rights-and-scopes). None of them is limited to connections that name it in `tools`: each change
-needs the confirmation of a person for each call. Find property names with [accounts.list-summaries](accounts.md)
+[Changing audiences](#changing-audiences) need `analytics.edit`; `create` and `update` are in the profile `write`,
+`archive` is listed-only and in no profile; see [setup](setup.md#rights-and-scopes). Each change needs the
+confirmation of a person for each call. Find property names with [accounts.list-summaries](accounts.md)
 and audience names with `audiences.list`. The tools read no report data and use no reporting quota. Creating an
 audience links nothing: an audience reaches a linked advertising account only through links that no tool of this
 provider creates.
@@ -129,7 +129,8 @@ Google, so the tool has no argument for them and refuses them. The answer is the
 ### google.analytics.audiences.archive
 
 Uses `properties.audiences.archive`. `name` is required. Google's answer is empty; the result is the name that
-was asked for and `archived: true`. An archived audience can no longer be used, and no tool restores it.
+was asked for and `archived: true`. An archived audience can no longer be used, and no tool restores it. The tool is listed-only: a connection
+offers it only when its `tools` list names it.
 
 ### Targets and proof
 

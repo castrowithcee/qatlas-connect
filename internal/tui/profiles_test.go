@@ -157,12 +157,12 @@ func TestSwitchingProfilesAsksOnceTheTicksWereChanged(t *testing.T) {
 	if m.screen != screenForm {
 		t.Fatalf("an untouched profile asked before switching: screen %v", m.screen)
 	}
-	all := "telegram.messages.delete, telegram.messages.edit, telegram.messages.send"
+	all := "telegram.messages.edit, telegram.messages.send"
 	check("messaging", all)
 
-	// Not delete or edit: their IDs prefix other tools, so the picker filter would match several.
+	// Not edit: its ID prefixes other tools, so the picker filter would match several.
 	toggleTool(t, m, "telegram.messages.send")
-	check(profileCustom, "telegram.messages.delete, telegram.messages.edit")
+	check(profileCustom, "telegram.messages.edit")
 	focusField(t, m, profileLabel)
 	press(t, m, "right")
 	if m.screen != screenConfirm {
@@ -176,7 +176,7 @@ func TestSwitchingProfilesAsksOnceTheTicksWereChanged(t *testing.T) {
 		}
 	}
 	press(t, m, "n")
-	check(profileCustom, "telegram.messages.delete, telegram.messages.edit")
+	check(profileCustom, "telegram.messages.edit")
 	press(t, m, "right", "y")
 	if m.screen != screenForm {
 		t.Fatalf("screen = %v after confirming, want the form", m.screen)

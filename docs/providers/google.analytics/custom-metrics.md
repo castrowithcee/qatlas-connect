@@ -13,7 +13,8 @@ The custom metric tools of the [Google Analytics provider](README.md). A custom 
 collects from an event parameter, such as a load time or a margin. `custom-metrics.list` and
 `custom-metrics.get` read and change nothing, a repeat is safe, and the profile `read` holds both. They need the
 scope `analytics.readonly`. The three tools under [Changing custom metrics](#changing-custom-metrics) need
-`analytics.edit` and are in the profile `write`; see [setup](setup.md#rights-and-scopes). Configuration,
+`analytics.edit`; `create` and `update` are in the profile `write`, `archive` is listed-only and in no profile;
+see [setup](setup.md#rights-and-scopes). Configuration,
 targets, paging, and the boundary are described in the provider page. Find property names with
 [accounts.list-summaries](accounts.md) and metric names with `custom-metrics.list`.
 
@@ -82,8 +83,8 @@ for them. The answer is the metric after the change.
 
 Uses `properties.customMetrics.archive`. `name` is required. The call archives the metric: it no longer collects
 data and no longer appears in the list, and no tool of this provider restores it. The answer is `name` and
-`archived: true`, which only says that Google accepted the call. The tool changes one metric and is in the profile
-`write`, unlike the tools that delete accounts and properties.
+`archived: true`, which only says that Google accepted the call. The tool changes one metric and is listed-only, like the
+tools that delete accounts and properties: a connection offers it only when its `tools` list names it.
 
 ### Targets and proof
 

@@ -64,6 +64,6 @@ with an error is reported as a provider error. The operation names the person wh
 personal data. An unknown name is `not-found`.
 
 The tool asks for the scope `compute`, the smallest one Google lists for the method, and belongs to the profile
-`compute-network-delete`. The account needs `compute.firewalls.delete` and, for the comparison,
+`compute-firewalls-delete`. The account needs `compute.firewalls.delete` and, for the comparison,
 `compute.firewalls.get` (the Compute Network Admin role has both), and the Compute Engine API must be enabled in the
 project.

@@ -92,9 +92,9 @@ var hmacKeysDelete = capability.Descriptor{
 	Description: "Delete one HMAC key of a project for good (projects.hmacKeys.delete of storage v1). Google deletes " +
 		"only a key in the state INACTIVE and refuses an ACTIVE one; deactivate it first. A deleted key cannot be " +
 		"restored. Google answers with an empty body, so the result is the project and access ID as given, and " +
-		"deleted." + hmacRevokeTail,
+		"deleted." + listedOnlyNote + hmacRevokeTail,
 	Tags: []string{"google", "cloud", "storage", "hmac-keys", "delete"}, Risk: storageChangeRisk(capability.EffectDelete),
-	Provider: Provider,
+	Provider: Provider, RequiresToolAllowList: true,
 	InputSchema: json.RawMessage(`{"type":"object","properties":{` + hmacProjectProp + `,` + hmacAccessIDProp + `,` +
 		storageUserProjectProp + `},"required":["project_id","access_id"],"additionalProperties":false}`),
 	OutputSchema: json.RawMessage(hmacDeletedSchema),

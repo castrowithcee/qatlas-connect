@@ -79,7 +79,7 @@ func writeEnvironment(t *testing.T) (*environment, *writer) {
 	effects := []config.Effect{config.EffectRead, config.EffectUpdate, config.EffectDelete}
 	for name, target := range map[string]string{"w-all": "", "w-account": boundAccount, "w-location": boundLocation} {
 		env.cfg.Connections[name] = config.Connection{Service: "profile", Credential: "google", Effects: effects,
-			Target: target}
+			Tools: allToolIDs(t), Target: target}
 	}
 	return env, w
 }

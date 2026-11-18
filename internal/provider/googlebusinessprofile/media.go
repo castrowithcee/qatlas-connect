@@ -270,11 +270,12 @@ var mediaDelete = capability.Descriptor{
 	Description: "Delete one photo or video of a location (Google My Business API v4 accounts.locations.media." +
 		"delete). The item disappears from the public profile, and Qatlas keeps no copy. Google counts at most 10 " +
 		"changes per minute and profile. On a connection bound to an account the location is first proved to " +
-		"belong to it.",
+		"belong to it." + listedOnlyNote,
 	Tags: []string{"google", "business-profile", "media", "delete"}, Provider: Provider,
-	Risk:         mediaWriteRisk(capability.EffectDelete, capability.IdempotencyIdempotent),
-	InputSchema:  inputSchema([]string{"media_item"}, "media_item", mediaArgSchema),
-	OutputSchema: json.RawMessage(mediaDeletedSchema),
+	RequiresToolAllowList: true,
+	Risk:                  mediaWriteRisk(capability.EffectDelete, capability.IdempotencyIdempotent),
+	InputSchema:           inputSchema([]string{"media_item"}, "media_item", mediaArgSchema),
+	OutputSchema:          json.RawMessage(mediaDeletedSchema),
 	Arguments: []capability.Argument{{Name: "media_item", Required: true, Description: "Media item to delete: " +
 		formMedia}},
 	Fields: []capability.Field{{Name: "media_item", Description: "The item that was deleted"},

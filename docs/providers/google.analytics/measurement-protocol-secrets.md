@@ -13,7 +13,7 @@ The measurement protocol secret tools of the [Google Analytics provider](README.
 lets a server send events to a [data stream](data-streams.md) through the Measurement Protocol. The tools list,
 read, and revoke the secrets that exist. `measurement-protocol-secrets.list` and
 `measurement-protocol-secrets.get` read and change nothing, a repeat is safe, and the profile `read` holds both.
-They need the scope `analytics.readonly`. `measurement-protocol-secrets.delete` needs `analytics.edit`; see
+They need the scope `analytics.readonly`. `measurement-protocol-secrets.delete` needs `analytics.edit` and is listed-only, so no profile holds it; see
 [setup](setup.md#rights-and-scopes). Find stream names with `data-streams.list`.
 
 ## No secret value, no create, no change
@@ -54,8 +54,7 @@ an answer that cannot be read, the outcome is unknown and the secret is read bef
 means the secret does not exist or the credential cannot see it, a `403` and a `429` mean nothing was changed. A
 `429` holds the next request of the credential for one second, or the seconds of `Retry-After` up to one minute.
 
-The profile `write` holds the tool, and a connection with the effect `delete` offers it. It is not limited to a
-`tools` entry.
+It is listed-only: no profile holds it, and a connection offers it only when its `tools` list names it.
 
 ## Targets and proof
 

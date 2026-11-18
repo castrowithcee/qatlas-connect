@@ -103,9 +103,10 @@ var (
 			"a while. Deleting a key does not revoke short-lived credentials that were issued from it. Google " +
 			"refuses system-managed keys. The project must lie in the targets of the connection, and an account " +
 			"of another project is refused before any request. Google answers with an empty body, so the result " +
-			"is the project, the account and key as given, and deleted." + revokeNote,
+			"is the project, the account and key as given, and deleted." + listedOnlyNote + revokeNote,
 		Tags: append(append([]string{}, revokeTags...), "delete"), Provider: Provider,
-		Risk: accountWriteRisk(capability.EffectDelete, capability.IdempotencyUnknown),
+		RequiresToolAllowList: true,
+		Risk:                  accountWriteRisk(capability.EffectDelete, capability.IdempotencyUnknown),
 		InputSchema: json.RawMessage(`{"type":"object","properties":{` + projectIDProp + `,` + accountProp + `,` +
 			keyIDProp + `},"required":["project_id","account","key_id"],"additionalProperties":false}`),
 		OutputSchema: json.RawMessage(keyDeletedSchema),

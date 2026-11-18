@@ -236,7 +236,7 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 				t.Errorf("profile service-accounts = %+v", profile)
 			}
 		case "service-accounts-revoke":
-			if profile.Recommended || len(profile.Tools) != 3 {
+			if profile.Recommended || len(profile.Tools) != 2 {
 				t.Errorf("profile service-accounts-revoke = %+v", profile)
 			}
 		case "api-keys-revoke":
@@ -245,7 +245,7 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 			}
 		case "storage-revoke":
 			if profile.Recommended || !slices.Equal(profile.Tools, []string{projectsGetID, hmacKeysListID, hmacKeysGetID,
-				notificationsListID, hmacKeysDeactivateID, hmacKeysDeleteID, notificationsDeleteID}) {
+				notificationsListID, hmacKeysDeactivateID, notificationsDeleteID}) {
 				t.Errorf("profile storage-revoke = %+v", profile)
 			}
 		case "services":
@@ -260,13 +260,13 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 			if profile.Recommended || !slices.Equal(profile.Tools, []string{foldersCreateID, foldersPatchID, foldersMoveID, foldersUndeleteID}) {
 				t.Errorf("profile folders-manage = %+v", profile)
 			}
-		case "compute-network-delete":
-			if profile.Recommended || !slices.Equal(profile.Tools, []string{projectsGetID, firewallsDeleteID, addressesDeleteID, vpnTunnelsDeleteID, vpnGatewaysDeleteID}) {
-				t.Errorf("profile compute-network-delete = %+v", profile)
+		case "compute-firewalls-delete":
+			if profile.Recommended || !slices.Equal(profile.Tools, []string{projectsGetID, firewallsDeleteID}) {
+				t.Errorf("profile compute-firewalls-delete = %+v", profile)
 			}
-		case "storage-delete":
-			if profile.Recommended || !slices.Equal(profile.Tools, []string{projectsGetID, objectsDeleteID, objectsRestoreID}) {
-				t.Errorf("profile storage-delete = %+v", profile)
+		case "storage-restore":
+			if profile.Recommended || !slices.Equal(profile.Tools, []string{projectsGetID, objectsRestoreID}) {
+				t.Errorf("profile storage-restore = %+v", profile)
 			}
 		case "compute-lifecycle":
 			if profile.Recommended || !slices.Equal(profile.Tools, []string{projectsGetID, instancesStartID, instancesStopID, instancesResetID, instancesSetMachineTypeID}) {
@@ -280,9 +280,9 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 			if profile.Recommended || !slices.Equal(profile.Tools, []string{projectsGetID, disksInsertID, disksResizeID, disksCreateSnapshotID}) {
 				t.Errorf("profile compute-disks = %+v", profile)
 			}
-		case "compute-images-delete":
-			if profile.Recommended || !slices.Equal(profile.Tools, []string{projectsGetID, imagesInsertID, snapshotsDeleteID, imagesDeleteID}) {
-				t.Errorf("profile compute-images-delete = %+v", profile)
+		case "compute-images-create":
+			if profile.Recommended || !slices.Equal(profile.Tools, []string{projectsGetID, imagesInsertID}) {
+				t.Errorf("profile compute-images-create = %+v", profile)
 			}
 		case "storage-objects-write":
 			if profile.Recommended || !slices.Equal(profile.Tools, []string{projectsGetID, objectsInsertID, objectsCopyID, objectsComposeID, objectsPatchID}) {
@@ -964,5 +964,41 @@ func TestTokenEndpointsAreTheFixedGoogleOnes(t *testing.T) {
 	// The fake answers only the fixed token URL; an invocation that reached another one would have failed.
 	if e.fake.tokenRequests() != 1 {
 		t.Errorf("token requests = %d", e.fake.tokenRequests())
+	}
+}
+
+func TestDeletionsOfContentAndKeysAreListedOnlyAndInNoProfile(t *testing.T) {
+	reg := capability.NewRegistry()
+	if err := Register(reg); err != nil {
+		t.Fatal(err)
+	}
+	metadata, _ := reg.ProviderMetadata(Provider)
+	listed := []string{objectsDeleteID, snapshotsDeleteID, imagesDeleteID, addressesDeleteID, vpnGatewaysDeleteID,
+		vpnTunnelsDeleteID, hmacKeysDeleteID, serviceAccountKeysDeleteID}
+	for _, id := range listed {
+		d, _, found := reg.Lookup(id)
+		if !found || d.Risk.Effect != capability.EffectDelete || !d.RequiresToolAllowList ||
+			!strings.Contains(d.Description, "listed-only") {
+			t.Errorf("%s is not a listed-only deletion: %+v", id, d)
+		}
+		for _, profile := range metadata.Profiles {
+			if slices.Contains(profile.Tools, id) {
+				t.Errorf("profile %s holds the listed-only %s", profile.ID, id)
+			}
+		}
+	}
+	// What is restorable or recreated from its values stays in its profile.
+	stays := map[string]string{firewallsDeleteID: "compute-firewalls-delete", notificationsDeleteID: "storage-revoke",
+		apiKeysDeleteID: "api-keys-revoke", recordSetsDeleteID: "dns-write"}
+	for id, profileID := range stays {
+		d, _, found := reg.Lookup(id)
+		if !found || d.RequiresToolAllowList {
+			t.Errorf("%s is listed-only: %+v", id, d)
+		}
+		for _, profile := range metadata.Profiles {
+			if got := slices.Contains(profile.Tools, id); got != (profile.ID == profileID) {
+				t.Errorf("profile %s holds %s: %t", profile.ID, id, got)
+			}
+		}
 	}
 }

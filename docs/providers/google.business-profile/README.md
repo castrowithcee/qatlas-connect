@@ -13,10 +13,10 @@ Google Business Profile is a provider for the Business Profile APIs v1: the acco
 and the business locations in them, their attributes, the performance of a location, the verification state of
 a location, and the notification setting of an account, and for the My Business API v4, which Google keeps for
 reviews, media, local posts, food menus, followers, service lists, and the batch read of locations. Most tools read; the tools of the profile `write` change the role of existing
-admins, remove admins, decline invitations, rename an account, set or remove attributes, create and change
-locations, create, change, and delete place action links, reply to reviews or delete a reply, add photos and videos
-by address, recategorize them, and delete them, create, change, and delete local posts, replace the food menus of a location, and replace its service list. Deleting a location is
-listed-only. [Set up Google Business Profile](setup.md)
+admins, decline invitations, rename an account, set or remove attributes, create and change
+locations, create, change, and delete place action links, reply to reviews, add photos and videos
+by address and recategorize them, create and change local posts, replace the food menus of a location, and replace its service list. The deletions of a location, an admin,
+a reply to a review, a photo or video, and a local post are listed-only. [Set up Google Business Profile](setup.md)
 leads through the Google side, the approval, and the consent. The tools are described per group in
 [accounts](accounts.md), [locations](locations.md), [account admins](account-admins.md), [location
 admins](location-admins.md), [invitations](invitations.md), [attributes](attributes.md),
@@ -52,8 +52,8 @@ no wider than the task needs.
 | Profile | Tools |
 | --- | --- |
 | `read` (recommended) | every read tool: `accounts.list`, `accounts.get`, `locations.list`, `locations.get`, `locations.get-google-updated`, `locations.batch-get`, `account-admins.list`, `location-admins.list`, `invitations.list`, `lodging.get`, `lodging.get-google-updated`, `attributes.list`, `attributes.get`, `performance.*`, `verifications.list`, `verifications.fetch-options`, `verifications.get-merchant-state`, `notifications.get`, `place-action-links.list`, `place-action-links.get`, `place-action-types.list`, `reviews.list`, `reviews.get`, `reviews.batch-get`, `media.list`, `media.get`, `local-posts.list`, `local-posts.get`, `food-menus.get`, `followers.get`, `service-lists.get` |
-| `write` | `account-admins.update`, `location-admins.update`, `accounts.update`, `locations.create`, `locations.update`, `account-admins.delete`, `location-admins.delete`, `invitations.decline`, `lodging.update`, `attributes.update`, `place-action-links.create`, `place-action-links.update`, `place-action-links.delete`, `reviews.update-reply`, `reviews.delete-reply`, `media.create`, `media.update`, `media.delete`, `local-posts.create`, `local-posts.update`, `local-posts.delete`, `food-menus.update`, `service-lists.update`; each change needs confirmation |
-| none | `locations.delete` is listed-only: only a `tools` list offers it |
+| `write` | `account-admins.update`, `location-admins.update`, `accounts.update`, `locations.create`, `locations.update`, `invitations.decline`, `lodging.update`, `attributes.update`, `place-action-links.create`, `place-action-links.update`, `place-action-links.delete`, `reviews.update-reply`, `media.create`, `media.update`, `local-posts.create`, `local-posts.update`, `food-menus.update`, `service-lists.update`; each change needs confirmation |
+| none | `locations.delete`, `account-admins.delete`, `location-admins.delete`, `reviews.delete-reply`, `media.delete`, and `local-posts.delete` are listed-only: only a `tools` list offers them |
 
 The profile `read` changes nothing, but Google's only scope also allows changes, so the token could. The two
 admin lists name other people (first and last name, and the email address of a pending invitation), the
@@ -61,8 +61,8 @@ invitation list names the accounts and locations of those who invited, with the 
 `verifications.fetch-options` shows masked postal addresses, phone numbers, and email addresses a PIN could go to,
 and the review tools name reviewers (name and photo link) and the media tools the customers who uploaded a photo (`attribution`), which is personal data; a connection that must not
 show them names its tools in a `tools` list instead of the profile.
-The profile `write` is not recommended: it holds only the changing tools and needs a person to confirm each
-change. Every change is spaced at 10 per minute and profile, see [account admins](account-admins.md).
+The profile `write` is not recommended: it holds only the changing tools that do not remove content, admins, or a location, and needs a person to confirm each
+change. A connection that needs one of the listed-only deletions names it in a `tools` list; without such a list, a connection with the effect `delete` does not offer it. Every change is spaced at 10 per minute and profile, see [account admins](account-admins.md).
 
 ## Configuration
 

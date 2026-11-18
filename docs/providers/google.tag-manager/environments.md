@@ -23,12 +23,13 @@ workspace. Nothing here publishes: a version goes live only through a container 
 | `environments.get` | reads one environment by its path, the fingerprint included |
 | `environments.create` | creates a custom environment; a repeated call creates a second one |
 | `environments.update` | replaces a custom environment as a whole; needs `fingerprint` |
-| `environments.delete` | deletes a custom environment |
+| `environments.delete` | deletes a custom environment; listed-only |
 
 `container` and `environment` are paths such as `accounts/1/containers/2/environments/4`; both are checked
 against the target of the connection. `environments.list` and `environments.get` are in the `read` and `write`
-profiles, the three changing tools in `write`. Deleting one environment is in `write` like deleting a tag: it
-affects a single object and publishes nothing. Every change is confirmed, and the confirmation shows the name,
+profiles, `environments.create` and `environments.update` in `write`. `environments.delete` is listed-only: no
+profile holds it, and a connection offers it only when its `tools` list names it, because a new environment has a
+new authorization code that makes the snippet and the preview link of the deleted one invalid. Every change is confirmed, and the confirmation shows the name,
 the container or environment path, the preview URL, and whether debug is on, never the description.
 
 ## Members
@@ -62,7 +63,7 @@ of a key, and no tool of this provider returns one.
 
 ## Deleting
 
-`environments.delete` answers with `environment` and `deleted: true`. Google does not delete the system
+`environments.delete` is listed-only and answers with `environment` and `deleted: true`. Google does not delete the system
 environments Live, Latest, and the workspace previews. The tool does not read the environment first, so such a
 call reaches Google and ends with the error Google answers, mapped like every other error of the provider and
 without Google's text.

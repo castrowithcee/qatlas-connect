@@ -303,8 +303,9 @@ var reviewsDeleteReply = capability.Descriptor{
 	Description: "Delete the reply of the business to one review (Google My Business API v4 " +
 		"accounts.locations.reviews.deleteReply). Only the reply is removed, never the review, and the removal is " +
 		"public. No tool deletes or reports a review. Google counts at most 10 changes per minute and profile. " +
-		"On a connection bound to an account the location is first proved to belong to it.",
-	Tags: []string{"google", "business-profile", "reviews", "delete"},
+		"On a connection bound to an account the location is first proved to belong to it." + listedOnlyNote,
+	Tags:                  []string{"google", "business-profile", "reviews", "delete"},
+	RequiresToolAllowList: true,
 	Risk: capability.Risk{Effect: capability.EffectDelete, Idempotency: capability.IdempotencyIdempotent,
 		Confirmation: capability.ConfirmationRequired, OpenWorld: true,
 		DataSensitivity: "removes a public reply of the business to the review of a reviewer"},

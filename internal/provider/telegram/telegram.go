@@ -256,10 +256,10 @@ func Register(reg *capability.Registry) error {
 			Tools: []string{updatesList.ID, botGet.ID, chatsGet.ID, chatsAdministrators.ID, chatsMemberCount.ID,
 				chatsMember.ID},
 		}, {
-			ID: "messaging", Title: "Send, edit, and delete messages",
-			Description: "also edits messages and deletes messages in the bound chats: as admin also those of " +
-				"others, in private chats also incoming ones",
-			Tools: []string{messagesSend.ID, messagesEdit.ID, messagesDelete.ID},
+			ID: "messaging", Title: "Send and edit messages",
+			Description: "also edits the text of messages in the bound chats; deleting a message is not part of " +
+				"this profile and needs a tools list that names it",
+			Tools: []string{messagesSend.ID, messagesEdit.ID},
 		}, {
 			ID: "chat-admin", Title: "Change chat title, description, and photo",
 			Description: "changes the title, the description, and the photo of the bound chats; the photo can " +

@@ -61,7 +61,10 @@ func TestEnvironmentToolsFollowScopesProfilesAndRisks(t *testing.T) {
 		if reg.ConfirmationSummary(id) == nil {
 			t.Errorf("%s has no confirmation summary", id)
 		}
-		if d.RequiresToolAllowList || slices.Contains(profiles["read"], id) || !slices.Contains(profiles["write"], id) {
+		// The deletion is listed-only: a new environment has a new authorization code.
+		listedOnly := id == environmentsDeleteID
+		if d.RequiresToolAllowList != listedOnly || slices.Contains(profiles["read"], id) ||
+			slices.Contains(profiles["write"], id) == listedOnly {
 			t.Errorf("%s profiles are wrong", id)
 		}
 	}

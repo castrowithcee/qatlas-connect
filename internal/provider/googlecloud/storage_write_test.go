@@ -25,7 +25,7 @@ func storageChangeEnvironment(t *testing.T, tools []string) *environment {
 func noContent() reply { return reply{status: 204} }
 
 func TestObjectsDeleteSendsOneEncodedDeleteAfterTheBucketProof(t *testing.T) {
-	e := storageChangeEnvironment(t, nil)
+	e := storageChangeEnvironment(t, []string{objectsDeleteID})
 	e.fake.hook = func(_ int, req *http.Request) *reply {
 		if req.Method == "DELETE" {
 			r := noContent()
@@ -58,7 +58,7 @@ func TestObjectsDeleteSendsOneEncodedDeleteAfterTheBucketProof(t *testing.T) {
 }
 
 func TestObjectsDeleteWithAGenerationNamesIt(t *testing.T) {
-	e := storageChangeEnvironment(t, nil)
+	e := storageChangeEnvironment(t, []string{objectsDeleteID})
 	e.fake.routes[bucketRoute+"/o/a.txt"] = noContent()
 	out, err := e.invokeConfirmed(objectsDeleteID, `{"bucket":"example-bucket","object":"a.txt","generation":"1700000000000000"}`)
 	if err != nil {
@@ -72,7 +72,7 @@ func TestObjectsDeleteWithAGenerationNamesIt(t *testing.T) {
 		t.Errorf("url = %s", u)
 	}
 	// An unbound connection needs no proof, so the DELETE is the only request.
-	e = revokeEnvironment(t, nil, nil)
+	e = revokeEnvironment(t, nil, []string{objectsDeleteID})
 	e.fake.routes[bucketRoute+"/o/a.txt"] = noContent()
 	if _, err := e.invokeConfirmed(objectsDeleteID, `{"bucket":"example-bucket","object":"a.txt"}`); err != nil {
 		t.Fatal(err)
@@ -83,7 +83,7 @@ func TestObjectsDeleteWithAGenerationNamesIt(t *testing.T) {
 }
 
 func TestObjectsDeleteMapsAPreconditionConflictWithoutRepeating(t *testing.T) {
-	e := storageChangeEnvironment(t, nil)
+	e := storageChangeEnvironment(t, []string{objectsDeleteID})
 	e.fake.routes[bucketRoute+"/o/a.txt"] = reply{status: 412, body: errorObject(412, "FAILED_PRECONDITION", "")}
 	_, err := e.invokeConfirmed(objectsDeleteID, `{"bucket":"example-bucket","object":"a.txt","if_generation_match":"5"}`)
 	if err == nil || classOf(err) == "" || strings.Contains(err.Error(), detailCanary) {
@@ -96,7 +96,7 @@ func TestObjectsDeleteMapsAPreconditionConflictWithoutRepeating(t *testing.T) {
 }
 
 func TestStorageChangeOfAnUnclearOutcomeIsNotRepeated(t *testing.T) {
-	e := storageChangeEnvironment(t, nil)
+	e := storageChangeEnvironment(t, []string{objectsDeleteID})
 	e.fake.routes[bucketRoute+"/o/a.txt"] = reply{status: 503, body: errorObject(503, "UNAVAILABLE", "")}
 	_, err := e.invokeConfirmed(objectsDeleteID, `{"bucket":"example-bucket","object":"a.txt"}`)
 	if err == nil || !strings.Contains(err.Error(), "outcome of the change is unknown") || len(e.fake.api()) != 2 {
@@ -110,7 +110,7 @@ func TestStorageChangesRefuseABucketOutsideTheTargetsBeforeTheChange(t *testing.
 		objectsRestoreID: `{"bucket":"foreign-bucket","object":"a.txt","generation":"5"}`,
 		bucketsDeleteID:  `{"bucket":"foreign-bucket","project":"` + storageProjectNumber + `"}`,
 	} {
-		e := storageChangeEnvironment(t, nil)
+		e := storageChangeEnvironment(t, []string{objectsDeleteID, objectsRestoreID})
 		if id == bucketsDeleteID {
 			e = storageChangeEnvironment(t, []string{bucketsDeleteID})
 		}
@@ -130,7 +130,7 @@ func TestStorageChangesRefuseABucketOutsideTheTargetsBeforeTheChange(t *testing.
 		}
 	}
 	// A user_project outside the targets ends before any request.
-	e := storageChangeEnvironment(t, nil)
+	e := storageChangeEnvironment(t, []string{objectsDeleteID})
 	if _, err := e.invokeConfirmed(objectsDeleteID, `{"bucket":"example-bucket","object":"a.txt","user_project":"`+foreignNumber+`"}`); !isInvalidRequest(err) {
 		t.Errorf("err = %v", err)
 	}
@@ -287,7 +287,7 @@ func TestBucketsDeleteIsOnlyReachableByNameAndNeedsAnEmptyBucket(t *testing.T) {
 	}
 }
 
-func TestBucketsDeleteIsInNoProfile(t *testing.T) {
+func TestStorageDeletionsAreInNoProfile(t *testing.T) {
 	e := newEnvironment(t, nil)
 	metadata, _ := e.reg.ProviderMetadata(Provider)
 	found := false
@@ -295,12 +295,18 @@ func TestBucketsDeleteIsInNoProfile(t *testing.T) {
 		if slices.Contains(profile.Tools, bucketsDeleteID) {
 			t.Errorf("profile %s holds buckets.delete", profile.ID)
 		}
-		if profile.ID == "storage-delete" {
+		if slices.Contains(profile.Tools, objectsDeleteID) {
+			t.Errorf("profile %s holds objects.delete", profile.ID)
+		}
+		if profile.ID == "storage-restore" {
 			found = true
+			if !slices.Equal(profile.Tools, []string{projectsGetID, objectsRestoreID}) {
+				t.Errorf("profile storage-restore tools = %v", profile.Tools)
+			}
 		}
 	}
 	if !found {
-		t.Error("profile storage-delete is missing")
+		t.Error("profile storage-restore is missing")
 	}
 }
 
@@ -321,7 +327,7 @@ func TestStorageChangesNeedConfirmationAndNameWhatTheyChange(t *testing.T) {
 			wantEffect = "update"
 		}
 		if d.Risk.Confirmation != "required" || !d.Risk.OpenWorld || string(d.Risk.Effect) != wantEffect ||
-			d.RequiresToolAllowList != (id == bucketsDeleteID) {
+			d.RequiresToolAllowList != (id != objectsRestoreID) {
 			t.Errorf("%s risk = %+v, listed-only = %v", id, d.Risk, d.RequiresToolAllowList)
 		}
 		summary := e.reg.ConfirmationSummary(id)

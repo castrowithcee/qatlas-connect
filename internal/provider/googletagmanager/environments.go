@@ -167,17 +167,22 @@ var environmentsDelete = capability.Descriptor{
 	ID: environmentsDeleteID, Version: 1, Title: "Delete a Tag Manager environment",
 	Description: "Delete a custom environment of a container. The environment and its preview link are gone and " +
 		"cannot be brought back; a new environment has a new authorization code. Nothing published changes. " +
-		"Google refuses to delete the system environments Live, Latest, and the workspace previews.",
+		"Google refuses to delete the system environments Live, Latest, and the workspace previews." + listedOnlyNote,
 	Tags: []string{"google", "tag-manager", "environments", "delete"}, Provider: Provider,
-	Risk:         changeRisk(capability.EffectDelete, capability.IdempotencyIdempotent),
-	InputSchema:  inputSchema([]string{"environment"}, member("environment", environmentArgSchema)),
-	OutputSchema: json.RawMessage(objectSchema(member("environment", stringSchema), member("deleted", boolSchema))),
-	Arguments:    []capability.Argument{environmentArgument},
+	RequiresToolAllowList: true,
+	Risk:                  changeRisk(capability.EffectDelete, capability.IdempotencyIdempotent),
+	InputSchema:           inputSchema([]string{"environment"}, member("environment", environmentArgSchema)),
+	OutputSchema:          json.RawMessage(objectSchema(member("environment", stringSchema), member("deleted", boolSchema))),
+	Arguments:             []capability.Argument{environmentArgument},
 	Fields: []capability.Field{{Name: "environment", Description: "The environment path that was deleted"},
 		{Name: "deleted", Description: "True once Google accepted the deletion"}},
 	Examples: []capability.Example{{Description: "Delete one environment",
 		Arguments: json.RawMessage(`{"environment":"accounts/1000001/containers/2000002/environments/4"}`)}},
 }
+
+// listedOnlyNote ends the description of a tool that only a tools list offers.
+const listedOnlyNote = " The tool is listed-only: a connection offers it only through its tools list, and every " +
+	"call needs confirmation."
 
 func environmentDescriptors() []capability.Descriptor {
 	return []capability.Descriptor{environmentsList, environmentsGet, environmentsCreate, environmentsUpdate,

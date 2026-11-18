@@ -61,6 +61,6 @@ The tool never waits. The result is `operation`, the Compute operation as Google
 [Compute operations](compute-operations.md). An operation that is already `DONE` with an error is reported as a
 provider error. The operation names the person who started it (`user`), which is personal data.
 
-The tool asks for the scope `compute`, the smallest one Google lists for the method, and belongs to the profile
-`compute-network-delete`. The account needs `compute.addresses.delete` (the Compute Network Admin role has it), and
+The tool asks for the scope `compute`, the smallest one Google lists for the method, and is listed-only: it
+belongs to no profile, and a connection offers it only when its `tools` list names it. The account needs `compute.addresses.delete` (the Compute Network Admin role has it), and
 the Compute Engine API must be enabled in the project.

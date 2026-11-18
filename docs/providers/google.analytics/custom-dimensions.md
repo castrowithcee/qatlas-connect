@@ -13,8 +13,8 @@ The custom dimension tools of the [Google Analytics provider](README.md). A cust
 parameter, a user property, or an item parameter available as a dimension in reports and audiences.
 `custom-dimensions.list` and `custom-dimensions.get` read and change nothing, a repeat is safe, and the profile
 `read` holds both. They need the scope `analytics.readonly`. The three tools under
-[Changing custom dimensions](#changing-custom-dimensions) need `analytics.edit` and are in the profile `write`;
-see [setup](setup.md#rights-and-scopes). Configuration, targets, paging, and the boundary are described in the
+[Changing custom dimensions](#changing-custom-dimensions) need `analytics.edit`; `create` and `update` are in the
+profile `write`, `archive` is listed-only and in no profile; see [setup](setup.md#rights-and-scopes). Configuration, targets, paging, and the boundary are described in the
 provider page. Find property names with [accounts.list-summaries](accounts.md) and dimension names with
 `custom-dimensions.list`.
 
@@ -89,8 +89,8 @@ Uses `properties.customDimensions.archive`. `name` is required. An archived dime
 reports or audiences, and no tool restores it. Google restricts creating a dimension with the same parameter name
 afterwards, and an archived dimension may count towards the limit of the property for a time; this behavior
 follows Google's help pages and is not verified by Qatlas. The answer carries `name` and `archived`, true once
-Google accepted the call, and no provider content. Archiving one dimension is in the profile `write`, unlike
-deleting an account or a property, which a connection offers only when its `tools` list names them.
+Google accepted the call, and no provider content. The tool is listed-only, like deleting an account or a
+property: a connection offers it only when its `tools` list names it.
 
 ### Targets and proof
 

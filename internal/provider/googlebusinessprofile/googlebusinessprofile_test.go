@@ -541,3 +541,17 @@ func TestChangeLimiterAllowsTenChangesPerMinutePerLocation(t *testing.T) {
 		t.Errorf("a change of another location waited: %v", err)
 	}
 }
+
+// allToolIDs lists every tool of the provider, for connections that name their tools to reach listed-only ones.
+func allToolIDs(t *testing.T) []string {
+	t.Helper()
+	reg := capability.NewRegistry()
+	if err := Register(reg); err != nil {
+		t.Fatal(err)
+	}
+	var ids []string
+	for _, d := range reg.Provider(Provider) {
+		ids = append(ids, d.ID)
+	}
+	return ids
+}

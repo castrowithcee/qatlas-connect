@@ -11,11 +11,12 @@
 // moving, and restoring projects, projects_write.go), folders-manage (creating, renaming, moving, and
 // restoring folders, folders_write.go), and
 // iam-bindings (a single binding of the IAM policy of a project, folder, or organization, iam_bindings.go),
-// compute-network-delete (firewall rules, reserved IP addresses, VPN tunnels and gateways, compute_delete.go),
+// compute-firewalls-delete (firewall rules, compute_firewalls_delete.go) and the listed-only addresses.delete,
+// vpn-tunnels.delete, and vpn-gateways.delete (compute_delete.go),
 // compute-instances-create (instances.insert, compute_instances_insert.go) and the listed-only instances.delete,
 // compute-disks (creating, growing, and snapshotting disks, compute_disks_write.go) and the listed-only
-// disks.delete, and compute-images-delete (creating images and deleting snapshots and images,
-// compute_images_write.go), dns-write (changes and record sets of Cloud DNS zones, dns_record_sets_write.go),
+// disks.delete, and compute-images-create (creating images, compute_images_write.go) and the listed-only
+// snapshots.delete and images.delete, dns-write (changes and record sets of Cloud DNS zones, dns_record_sets_write.go),
 // and storage-objects-write (uploading, copying, composing, and changing the metadata of Cloud Storage objects,
 // storage_object_write.go), each change with the confirmation of a person. Every request goes to a fixed origin
 // of the service table, with the access token in the Authorization header only, once, within a bounded size and time, and spaced per credential.
@@ -40,6 +41,10 @@ import (
 
 // Provider is the provider name used in the configuration and as the operation namespace.
 const Provider = "google.cloud"
+
+// listedOnlyNote ends the description of a deletion that no profile holds.
+const listedOnlyNote = " The tool is listed-only: it exists for a connection only where its tools list names it, " +
+	"and it is part of no profile."
 
 // TestConnection obtains an access token and reads one project with projects.search, which costs nothing. A
 // target of the connection is then proved to exist by reading it. A Cloud project of the credential in which
@@ -187,11 +192,11 @@ func Register(reg *capability.Registry) error {
 				iamBindingsChange.ID),
 		}, {
 			ID: "service-accounts-revoke", Title: "Service account revocation",
-			Description: "disables, enables, and deletes the keys of service accounts; deleting a service account itself " +
-				"is not part of this profile and needs a tools list that names it; the token holds the broad " +
+			Description: "disables and enables the keys of service accounts; deleting a key or a service account is " +
+				"not part of this profile and needs a tools list that names it; the token holds the broad " +
 				"cloud-platform scope and may change what its account may, every change needs its own confirmation, " +
 				"and no tool creates a key, a token, or a signature",
-			Tools: []string{serviceAccountKeysDisable.ID, serviceAccountKeysEnable.ID, serviceAccountKeysDelete.ID},
+			Tools: []string{serviceAccountKeysDisable.ID, serviceAccountKeysEnable.ID},
 		}, {
 			ID: "api-keys-revoke", Title: "API key revocation",
 			Description: "deletes API keys of a project and restores deleted ones within the 30 days Google keeps them; " +
@@ -200,24 +205,24 @@ func Register(reg *capability.Registry) error {
 				"a key or returns a key value",
 			Tools: []string{apiKeysDelete.ID, apiKeysUndelete.ID},
 		}, {
-			ID: "storage-delete", Title: "Delete and restore Storage objects",
-			Description: "deletes Cloud Storage objects, one per call, and restores soft-deleted ones, each with the " +
-				"confirmation of a person; without a generation the live version is deleted, which cannot be undone " +
-				"without versioning or soft delete; projects.get is part of the profile so that targets of an " +
-				"organization or a folder can be proved; objects.delete asks for devstorage.read_write and " +
-				"objects.restore only accepts devstorage.full_control (or cloud-platform), so the token may change " +
-				"what its account may in Cloud Storage; deleting a bucket is not part of this profile and needs a " +
-				"tools list that names it; no tool uploads or changes an object",
-			Tools: []string{projectsGet.ID, objectsDelete.ID, objectsRestore.ID},
+			ID: "storage-restore", Title: "Restore Storage objects",
+			Description: "restores soft-deleted Cloud Storage objects, one per call, with the confirmation of a " +
+				"person; projects.get is part of the profile so that targets of an organization or a folder can be " +
+				"proved; objects.restore only accepts devstorage.full_control (or cloud-platform), so the token may " +
+				"change what its account may in Cloud Storage; deleting an object, restoring one over a live " +
+				"object, and deleting a bucket are not part of this profile and need a tools list that names " +
+				"them; no tool uploads or changes an object",
+			Tools: []string{projectsGet.ID, objectsRestore.ID},
 		}, {
-			ID: "compute-network-delete", Title: "Delete network resources",
-			Description: "deletes firewall rules, reserved IP addresses, VPN tunnels, and HA VPN gateways of a Compute Engine project, each with the " +
-				"confirmation of a person; a firewall rule is deleted only if its direction, action, and priority " +
-				"still match what was confirmed; projects.get is part of the profile so that targets of an " +
-				"organization or a folder can be proved; the token holds the compute scope, which Google also uses to " +
-				"change Compute resources, so the token may do what its account may; no tool creates or changes a " +
-				"firewall rule, an address, a VPN tunnel, or a VPN gateway",
-			Tools: []string{projectsGet.ID, firewallsDelete.ID, addressesDelete.ID, vpnTunnelsDelete.ID, vpnGatewaysDelete.ID},
+			ID: "compute-firewalls-delete", Title: "Delete firewall rules",
+			Description: "deletes firewall rules of a Compute Engine project, each with the confirmation of a " +
+				"person; a firewall rule is deleted only if its direction, action, and priority still match what was " +
+				"confirmed; projects.get is part of the profile so that targets of an organization or a folder can " +
+				"be proved; the token holds the compute scope, which Google also uses to change Compute resources, " +
+				"so the token may do what its account may; deleting a reserved IP address, a VPN tunnel, or an HA " +
+				"VPN gateway is not part of this profile and needs a tools list that names it; no tool creates or " +
+				"changes a firewall rule",
+			Tools: []string{projectsGet.ID, firewallsDelete.ID},
 		}, {
 			ID: "compute-lifecycle", Title: "Instance lifecycle",
 			Description: "starts, stops, hard-resets, and changes the machine type of existing Compute Engine instances, " +
@@ -248,15 +253,14 @@ func Register(reg *capability.Registry) error {
 				"attaches, or shares a disk or snapshot",
 			Tools: []string{projectsGet.ID, disksInsert.ID, disksResize.ID, disksCreateSnapshot.ID},
 		}, {
-			ID: "compute-images-delete", Title: "Create images and delete snapshots and images",
-			Description: "creates images from disks, snapshots, or images of a Compute Engine project and deletes " +
-				"snapshots and images, each with the confirmation of a person; an image is billed until it is " +
-				"deleted, and a deleted snapshot or image cannot be restored; projects.get is part of the profile so " +
-				"that targets of an organization or a folder can be proved; the token holds the compute scope, which " +
-				"Google also uses to change Compute resources, so the token may do what its account may; deleting a " +
-				"disk is not part of this profile and needs a tools list that names it; no tool shares an image or " +
-				"snapshot or changes its IAM policy",
-			Tools: []string{projectsGet.ID, imagesInsert.ID, snapshotsDelete.ID, imagesDelete.ID},
+			ID: "compute-images-create", Title: "Create images",
+			Description: "creates images from disks, snapshots, or images of a Compute Engine project, each with " +
+				"the confirmation of a person; an image is billed until it is deleted; projects.get is part of the " +
+				"profile so that targets of an organization or a folder can be proved; the token holds the compute " +
+				"scope, which Google also uses to change Compute resources, so the token may do what its account " +
+				"may; deleting an image, a snapshot, or a disk is not part of this profile and needs a tools list " +
+				"that names it; no tool shares an image or snapshot or changes its IAM policy",
+			Tools: []string{projectsGet.ID, imagesInsert.ID},
 		}, {
 			ID: "storage-objects-write", Title: "Write Cloud Storage objects",
 			Description: "uploads objects of up to 256 KiB, copies them, composes 2 to 32 objects into one, and changes the " +
@@ -270,16 +274,17 @@ func Register(reg *capability.Registry) error {
 			Tools: []string{projectsGet.ID, objectsInsert.ID, objectsCopy.ID, objectsCompose.ID, objectsPatch.ID},
 		}, {
 			ID: "storage-revoke", Title: "Cloud Storage access revocation",
-			Description: "deactivates and deletes HMAC keys of a project and deletes notification configurations of a " +
-				"bucket, each with the confirmation of a person; a key is deleted only if Google finds it INACTIVE, and " +
-				"a notification only if its topic is the one named; the profile holds the reads that name a key or a " +
-				"notification and projects.get, which proves a project against targets of an organization or a folder; " +
-				"the HMAC tools ask for the scope devstorage.full_control, which is broader than deleting a key needs " +
-				"because the key is read first, and which Google also uses to create keys and change what the account " +
-				"may in Cloud Storage, so the token may do that although no tool does; no tool creates or reactivates " +
-				"a key or creates a notification",
+			Description: "deactivates HMAC keys of a project and deletes notification configurations of a bucket, each " +
+				"with the confirmation of a person; a notification is deleted only if its topic is the one named; " +
+				"the profile holds the reads that name a key or a notification and projects.get, which proves a " +
+				"project against targets of an organization or a folder; the HMAC tools ask for the scope " +
+				"devstorage.full_control, which is broader than deactivating a key needs because the key is read " +
+				"first, and which Google also uses to create keys and change what the account may in Cloud Storage, " +
+				"so the token may do that although no tool does; deleting an HMAC key is not part of this profile " +
+				"and needs a tools list that names it; no tool creates or reactivates a key or creates a " +
+				"notification",
 			Tools: []string{projectsGet.ID, hmacKeysList.ID, hmacKeysGet.ID, notificationsList.ID, hmacKeysDeactivate.ID,
-				hmacKeysDelete.ID, notificationsDelete.ID},
+				notificationsDelete.ID},
 		}, {
 			ID: "dns-write", Title: "Change DNS records",
 			Description: "adds, changes, and deletes the record sets of the Cloud DNS managed zones of a project, one " +
