@@ -69,8 +69,11 @@ var toolEffects = map[string]config.Effect{accountsUpdateID: config.EffectUpdate
 	audiencesCreateID: config.EffectCreate, audiencesUpdateID: config.EffectUpdate, audiencesArchiveID: config.EffectDelete,
 	channelGroupsCreateID: config.EffectCreate, channelGroupsUpdateID: config.EffectUpdate, channelGroupsDeleteID: config.EffectDelete,
 	edsCreateID: config.EffectCreate, edsUpdateID: config.EffectUpdate, edsDeleteID: config.EffectDelete,
-	attributionUpdateID: config.EffectUpdate, accessBindingsUpdateID: config.EffectUpdate,
-	accessBindingsDeleteID: config.EffectDelete, accessBindingsBatchDeleteID: config.EffectDelete}
+	attributionUpdateID: config.EffectUpdate,
+	adsLinksDeleteID:    config.EffectDelete, firebaseLinksDeleteID: config.EffectDelete,
+	bigQueryLinksDeleteID: config.EffectDelete, adsenseLinksDeleteID: config.EffectDelete,
+	accessBindingsUpdateID: config.EffectUpdate, accessBindingsDeleteID: config.EffectDelete,
+	accessBindingsBatchDeleteID: config.EffectDelete}
 
 func effectOf(id string) config.Effect {
 	if effect, ok := toolEffects[id]; ok {
@@ -128,7 +131,9 @@ func TestRegisterPublishesMetadataScopesAndConsent(t *testing.T) {
 		edsDeleteID: {scopeEdit}, adsLinksListID: {scopeReadOnly}, firebaseLinksListID: {scopeReadOnly},
 		bigQueryLinksListID: {scopeReadOnly}, bigQueryLinksGetID: {scopeReadOnly}, adsenseLinksListID: {scopeReadOnly},
 		adsenseLinksGetID: {scopeReadOnly}, searchAdsLinksListID: {scopeReadOnly}, searchAdsLinksGetID: {scopeReadOnly},
-		attributionGetID: {scopeReadOnly}, attributionUpdateID: {scopeEdit}, changeHistoryID: {scopeEdit}}) {
+		attributionGetID: {scopeReadOnly}, attributionUpdateID: {scopeEdit}, changeHistoryID: {scopeEdit},
+		adsLinksDeleteID: {scopeEdit}, firebaseLinksDeleteID: {scopeEdit}, bigQueryLinksDeleteID: {scopeEdit},
+		adsenseLinksDeleteID: {scopeEdit}}) {
 		t.Errorf("scopes = %v", metadata.Token.Scopes)
 	}
 	ids := []string{}
@@ -194,6 +199,8 @@ func TestRegisterPublishesMetadataScopesAndConsent(t *testing.T) {
 		"google.analytics.attribution-settings.update", "google.analytics.change-history.search",
 		"google.analytics.rollup-links.list", "google.analytics.rollup-links.get",
 		"google.analytics.access-bindings.list", "google.analytics.access-bindings.get",
+		"google.analytics.google-ads-links.delete", "google.analytics.firebase-links.delete",
+		"google.analytics.bigquery-links.delete", "google.analytics.adsense-links.delete",
 		"google.analytics.access-bindings.batch-get", "google.analytics.access-bindings.update",
 		"google.analytics.access-bindings.delete", "google.analytics.access-bindings.batch-delete"})) {
 		t.Errorf("tools = %v", ids)
@@ -225,7 +232,8 @@ func TestRegisterPublishesMetadataScopesAndConsent(t *testing.T) {
 				annotationsCreateID, annotationsUpdateID, annotationsDeleteID,
 				audiencesCreateID, audiencesUpdateID, audiencesArchiveID,
 				channelGroupsCreateID, channelGroupsUpdateID, channelGroupsDeleteID,
-				edsCreateID, edsUpdateID, edsDeleteID, attributionUpdateID, changeHistoryID)) ||
+				edsCreateID, edsUpdateID, edsDeleteID, attributionUpdateID, changeHistoryID,
+				adsLinksDeleteID, firebaseLinksDeleteID, bigQueryLinksDeleteID, adsenseLinksDeleteID)) ||
 		metadata.Profiles[2].ID != "read-change-history" || metadata.Profiles[2].Recommended ||
 		!reflect.DeepEqual(metadata.Profiles[2].Tools, append(slices.Clone(reads), changeHistoryID)) ||
 		!strings.Contains(metadata.Profiles[2].Description, "analytics.edit") ||

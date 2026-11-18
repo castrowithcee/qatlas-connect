@@ -94,6 +94,10 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 			// image changes.
 			wantScope = scopeCompute
 		}
+		if strings.Contains(tool.ID, ".managed-zones.") || strings.Contains(tool.ID, ".record-sets.") {
+			// dns v1 lists ndev.clouddns.readonly as the smallest scope for the reads of zones and records.
+			wantScope = scopeDNSReadOnly
+		}
 		if strings.Contains(tool.ID, ".buckets.") || strings.Contains(tool.ID, ".bucket-access-controls.") ||
 			strings.Contains(tool.ID, ".objects.") || strings.Contains(tool.ID, ".object-access-controls.") ||
 			tool.ID == notificationsListID || tool.ID == managedFoldersListID || tool.ID == hmacKeysListID || tool.ID == hmacKeysGetID {
@@ -121,12 +125,12 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 		"google.cloud.instances.delete", "google.cloud.instances.get", "google.cloud.instances.insert",
 		"google.cloud.instances.list", "google.cloud.instances.reset",
 		"google.cloud.instances.set-machine-type", "google.cloud.instances.start", "google.cloud.instances.stop",
-		"google.cloud.machine-types.list", "google.cloud.managed-folders.list",
+		"google.cloud.machine-types.list", "google.cloud.managed-folders.list", "google.cloud.managed-zones.get", "google.cloud.managed-zones.list",
 		"google.cloud.networks.get", "google.cloud.networks.list", "google.cloud.notifications.list", "google.cloud.object-access-controls.list",
 		"google.cloud.objects.download", "google.cloud.objects.get", "google.cloud.objects.list", "google.cloud.operations.get", "google.cloud.organizations.get",
 		"google.cloud.organizations.search", "google.cloud.projects.get", "google.cloud.projects.list",
 		"google.cloud.projects.search", "google.cloud.quota-infos.get", "google.cloud.quota-infos.list",
-		"google.cloud.quota-preferences.get", "google.cloud.quota-preferences.list", "google.cloud.regions.list", "google.cloud.service-account-keys.delete",
+		"google.cloud.quota-preferences.get", "google.cloud.quota-preferences.list", "google.cloud.record-sets.get", "google.cloud.record-sets.list", "google.cloud.regions.list", "google.cloud.service-account-keys.delete",
 		"google.cloud.service-account-keys.disable", "google.cloud.service-account-keys.enable",
 		"google.cloud.service-account-keys.get",
 		"google.cloud.service-account-keys.list", "google.cloud.service-accounts.create",
@@ -138,13 +142,13 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 		"google.cloud.vpn-tunnels.delete", "google.cloud.vpn-tunnels.get", "google.cloud.vpn-tunnels.list", "google.cloud.zones.list"}; !slices.Equal(ids, want) {
 		t.Errorf("tools = %v, want %v", ids, want)
 	}
-	if profile, found := metadata.RecommendedProfile(); !found || profile.ID != "read" || len(profile.Tools) != 50 {
+	if profile, found := metadata.RecommendedProfile(); !found || profile.ID != "read" || len(profile.Tools) != 54 {
 		t.Errorf("profile = %+v", profile)
 	}
 	// The recommended profile asks only for read scopes, an explicit allow-list; a tool that needs the broad
 	// cloud-platform scope belongs to read-iam, which holds every read tool, or to a changing profile.
 	readScopes := [][]string{{"https://www.googleapis.com/auth/cloud-platform.read-only"},
-		{"https://www.googleapis.com/auth/compute.readonly"}, {scopeStorageReadOnly}}
+		{"https://www.googleapis.com/auth/compute.readonly"}, {scopeStorageReadOnly}, {scopeDNSReadOnly}}
 	for _, profile := range metadata.Profiles {
 		switch profile.ID {
 		case "read":

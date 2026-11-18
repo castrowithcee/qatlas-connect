@@ -69,6 +69,8 @@ Three rules decide which tool a binding reaches. They are separate on purpose:
 - **Storage tools** (`buckets.*`, `bucket-access-controls.list`, `notifications.list`, `managed-folders.list`, `hmac-keys.*`, `objects.*`, `object-access-controls.list`): the connection is unbound or names an
   organization, a folder, or a project. A bucket is bound to the targets by the project number of one read of the
   bucket, see [Buckets](buckets.md) and [Objects](objects.md).
+- **DNS tools** (`managed-zones.*`, `record-sets.*`): the connection is unbound or names an organization, a folder, or a
+  project. The project in the path binds the zone, see [DNS managed zones](managed-zones.md).
 - **Tools without a resource** (`operations.get`): an operation belongs to no folder or project that Qatlas
   could prove, so the tool runs on a connection without targets or with an organization among them. It is not an
   organization tool: it reads no organization.
@@ -97,7 +99,8 @@ The profile `read` is the recommended one. It holds every tool that needs no mor
 `google.cloud.managed-folders.list`, `google.cloud.hmac-keys.list`, `google.cloud.hmac-keys.get`,
 `google.cloud.objects.list`, `google.cloud.objects.get`, and `google.cloud.objects.download`, which ask for
 `devstorage.read_only`. `objects.download` returns the content of an object, up to a fixed limit, as untrusted data
-(see [Objects](objects.md)). The two
+(see [Objects](objects.md)). The DNS tools `google.cloud.managed-zones.list`, `google.cloud.managed-zones.get`,
+`google.cloud.record-sets.list`, and `google.cloud.record-sets.get` ask for `ndev.clouddns.readonly`. The two
 operation tools return the email address of whoever started an operation (personal data) and carry their own
 sensitivity. A connection bound to an organization or a folder needs `projects.get` next to the
 Compute tools to prove the project of a call; `read` holds both.
@@ -228,6 +231,9 @@ on [IAM bindings](iam-bindings.md).
 - [Objects](objects.md): the objects of a Cloud Storage bucket, their metadata, and their content up to a fixed limit as
   untrusted data, bound to the targets through the bucket.
 - [Object access controls](object-access-controls.md): the access control list of a Cloud Storage object.
+- [DNS managed zones](managed-zones.md): the Cloud DNS managed zones of a project, one and all, with the rules
+  every DNS tool follows.
+- [DNS record sets](record-sets.md): the record sets of a Cloud DNS managed zone, one and all, with routing policies.
 - [Quotas](quotas.md): the quotas of a service and the quota preferences of a project from Cloud Quotas.
 
 ### Search

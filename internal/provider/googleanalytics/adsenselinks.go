@@ -12,7 +12,7 @@ import (
 )
 
 // AdSense links are resources of the Admin API v1alpha (analyticsadmin, revision 20261116) below a property:
-// properties/ID/adSenseLinks/ID. Only reading is offered.
+// properties/ID/adSenseLinks/ID. Reading and deleting (linkdelete.go) are offered.
 const (
 	adsenseLinksListID = Provider + ".adsense-links.list"
 	adsenseLinksGetID  = Provider + ".adsense-links.get"

@@ -14,8 +14,8 @@ import (
 
 // Links join a property to Google Ads (googleAdsLinks), Firebase (firebaseLinks) and BigQuery (bigQueryLinks).
 // Google Ads and Firebase links are read on the Admin API v1beta (analyticsadmin, revision 20261116), BigQuery
-// links on v1alpha (revision 20261115), see alpha.go. Only reading has a tool: creating, changing and deleting a
-// link is not offered.
+// links on v1alpha (revision 20261115), see alpha.go. Reading and deleting have tools, see linkdelete.go:
+// creating and changing a link is not offered.
 const (
 	adsLinksListID      = Provider + ".google-ads-links.list"
 	firebaseLinksListID = Provider + ".firebase-links.list"
@@ -43,7 +43,7 @@ const (
 		"names and texts are cut or dropped when they are not in their documented form and are never fetched or followed."
 	linkTargetNote = "On a connection with targets the property must be a bound property or belong to a bound " +
 		"account, which is proven by one read of its parent. Reads no report data and uses no reporting quota. " +
-		"Creating, changing and deleting a link is not a tool."
+		"Creating and changing a link is not a tool; deleting one is a separate tool that needs confirmation."
 )
 
 var adsLinksRisk = capability.Risk{Effect: capability.EffectRead, Idempotency: capability.IdempotencySafe,
