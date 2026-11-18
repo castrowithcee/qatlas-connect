@@ -212,8 +212,8 @@ func (m *Model) targetsSubject() infoSubject {
 	return s
 }
 
-// infoReachable reports whether the info key is a key on the current screen: wherever nothing is typed, and
-// on a search line only while it is empty. A form keeps it from its text rows only.
+// infoReachable reports whether the info letter is a key on the current screen: wherever nothing is typed.
+// A search line is text, and a form keeps the letter from its text rows.
 func (m *Model) infoReachable() bool {
 	if m.infoOpen {
 		return false
@@ -221,10 +221,8 @@ func (m *Model) infoReachable() bool {
 	switch m.screen {
 	case screenForm:
 		return !m.typing()
-	case screenPicker:
-		return m.picker.query() == ""
 	}
-	return m.helpReachable()
+	return m.letterReachable()
 }
 
 // infoPressed reports whether the key press asks for the explanation. The letter works only where the
