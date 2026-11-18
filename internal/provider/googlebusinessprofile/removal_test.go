@@ -424,7 +424,7 @@ func TestInvitationsCanBeDeclinedButNotAccepted(t *testing.T) {
 	}
 	for _, d := range reg.Provider(Provider) {
 		links := strings.HasPrefix(d.ID, Provider+".place-action-links.") || strings.HasPrefix(d.ID, Provider+".media.")
-		if strings.Contains(d.ID, "accept") || !links && strings.Contains(d.ID, "create") {
+		if strings.Contains(d.ID, "accept") || !links && d.ID != locationsCreateID && strings.Contains(d.ID, "create") {
 			t.Errorf("unexpected tool %s", d.ID)
 		}
 		for _, a := range d.Arguments {

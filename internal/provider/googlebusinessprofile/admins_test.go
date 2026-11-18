@@ -302,6 +302,7 @@ func TestNoToolCreatesAdminsOrAccounts(t *testing.T) {
 		"categories.list", "chains.get", "chains.search",
 		"google-locations.search", "invitations.decline", "invitations.list", "location-admins.delete",
 		"location-admins.list", "location-admins.update", "locations.get", "locations.list",
+		"locations.create", "locations.update", "locations.delete", "locations.get-google-updated",
 		"performance.fetch-daily-metrics", "performance.get-daily-metric", "performance.list-search-keywords",
 		"lodging.get", "lodging.get-google-updated", "lodging.update",
 		"notifications.get", "verifications.fetch-options", "verifications.get-merchant-state", "verifications.list",
@@ -315,8 +316,9 @@ func TestNoToolCreatesAdminsOrAccounts(t *testing.T) {
 		t.Errorf("tools = %v", ids)
 	}
 	for _, id := range ids {
-		// Only place action links and media are created; no admin or account is.
-		links := strings.HasPrefix(id, Provider+".place-action-links.") || strings.HasPrefix(id, Provider+".media.")
+		// Only place action links, media, and locations are created; no admin or account is.
+		links := strings.HasPrefix(id, Provider+".place-action-links.") || strings.HasPrefix(id, Provider+".media.") ||
+			strings.Contains(id, ".locations.")
 		if !want[id] || !links && strings.Contains(id, "create") || strings.Contains(id, "accept") ||
 			strings.Contains(id, "transfer") {
 			t.Errorf("unexpected tool %s", id)
