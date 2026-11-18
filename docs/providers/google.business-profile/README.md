@@ -12,7 +12,7 @@ updated: 2026-11-18
 Google Business Profile is a provider for the Business Profile APIs v1: the accounts a person owns or manages
 and the business locations in them, their attributes, the performance of a location, the verification state of
 a location, and the notification setting of an account, and for the My Business API v4, which Google keeps for
-reviews, media, local posts, food menus, and the batch read of locations. Most tools read; the tools of the profile `write` change the role of existing
+reviews, media, local posts, food menus, followers, and the batch read of locations. Most tools read; the tools of the profile `write` change the role of existing
 admins, remove admins, decline invitations, rename an account, set or remove attributes, create and change
 locations, create, change, and delete place action links, reply to reviews or delete a reply, add photos and videos
 by address, recategorize them, and delete them, create, change, and delete local posts, and replace the food menus of a location. Deleting a location is
@@ -23,7 +23,7 @@ admins](location-admins.md), [invitations](invitations.md), [attributes](attribu
 [performance](performance.md), [categories](categories.md), [chains](chains.md), [Google
 locations](google-locations.md), [lodging](lodging.md), [verifications](verifications.md),
 [notifications](notifications.md), [place action links](place-action-links.md), [place action
-types](place-action-types.md), [reviews](reviews.md), [media](media.md), [local posts](local-posts.md), and [food menus](food-menus.md).
+types](place-action-types.md), [reviews](reviews.md), [media](media.md), [local posts](local-posts.md), [food menus](food-menus.md), and [followers](followers.md).
 
 ## Credential
 
@@ -51,7 +51,7 @@ no wider than the task needs.
 
 | Profile | Tools |
 | --- | --- |
-| `read` (recommended) | every read tool: `accounts.list`, `accounts.get`, `locations.list`, `locations.get`, `locations.get-google-updated`, `locations.batch-get`, `account-admins.list`, `location-admins.list`, `invitations.list`, `lodging.get`, `lodging.get-google-updated`, `attributes.list`, `attributes.get`, `performance.*`, `verifications.list`, `verifications.fetch-options`, `verifications.get-merchant-state`, `notifications.get`, `place-action-links.list`, `place-action-links.get`, `place-action-types.list`, `reviews.list`, `reviews.get`, `reviews.batch-get`, `media.list`, `media.get`, `local-posts.list`, `local-posts.get`, `food-menus.get` |
+| `read` (recommended) | every read tool: `accounts.list`, `accounts.get`, `locations.list`, `locations.get`, `locations.get-google-updated`, `locations.batch-get`, `account-admins.list`, `location-admins.list`, `invitations.list`, `lodging.get`, `lodging.get-google-updated`, `attributes.list`, `attributes.get`, `performance.*`, `verifications.list`, `verifications.fetch-options`, `verifications.get-merchant-state`, `notifications.get`, `place-action-links.list`, `place-action-links.get`, `place-action-types.list`, `reviews.list`, `reviews.get`, `reviews.batch-get`, `media.list`, `media.get`, `local-posts.list`, `local-posts.get`, `food-menus.get`, `followers.get` |
 | `write` | `account-admins.update`, `location-admins.update`, `accounts.update`, `locations.create`, `locations.update`, `account-admins.delete`, `location-admins.delete`, `invitations.decline`, `lodging.update`, `attributes.update`, `place-action-links.create`, `place-action-links.update`, `place-action-links.delete`, `reviews.update-reply`, `reviews.delete-reply`, `media.create`, `media.update`, `media.delete`, `local-posts.create`, `local-posts.update`, `local-posts.delete`, `food-menus.update`; each change needs confirmation |
 | none | `locations.delete` is listed-only: only a `tools` list offers it |
 
@@ -79,7 +79,7 @@ project one by one:
 | My Business Verifications API | `https://mybusinessverifications.googleapis.com` | [verifications](verifications.md) |
 | My Business Notifications API | `https://mybusinessnotifications.googleapis.com` | [notifications](notifications.md) |
 | My Business Place Actions API | `https://mybusinessplaceactions.googleapis.com` | [place action links](place-action-links.md), [place action types](place-action-types.md) |
-| My Business API (v4) | `https://mybusiness.googleapis.com/v4` | [reviews](reviews.md), [media](media.md), [local posts](local-posts.md), [food menus](food-menus.md), [locations](locations.md#google-business-profilelocationsbatch-get) |
+| My Business API (v4) | `https://mybusiness.googleapis.com/v4` | [reviews](reviews.md), [media](media.md), [local posts](local-posts.md), [food menus](food-menus.md), [followers](followers.md), [locations](locations.md#google-business-profilelocationsbatch-get) |
 
 ## Approval of the Cloud project
 
@@ -123,6 +123,7 @@ request is sent; a refusal never names the other object.
 | `place-action-types.list` | proves the location of a `location=` filter; other filters need no proof | a `location=` filter accepts only the bound location |
 | `media.*` | like `reviews.*`: the account must be the bound one and the location is proved like `locations.get` | only the location ID is compared, the account part is an argument; see [media](media.md) |
 | `reviews.*` | accounts and locations as `accounts/ACCOUNT/locations/LOCATION`; the account must be the bound one and the location is proved like `locations.get` | only the location ID is compared, the account part is an argument; see [reviews](reviews.md#the-v4-client) |
+| `followers.get` | the same v4 path and rules as `reviews.*`, on every call | as `reviews.*`; see [followers](followers.md#reading) |
 | `local-posts.*` | the same v4 paths and rules as `reviews.*`, on every call | as `reviews.*`; see [local posts](local-posts.md#the-v4-paths) |
 | `food-menus.*` | the same v4 paths and rules as `reviews.*`, on every call, including the live read before a change | as `reviews.*`; see [food menus](food-menus.md#the-v4-paths) |
 
@@ -201,7 +202,7 @@ read; no other value chooses a class.
 
 The provider reaches only the fixed origins and the fixed method of each tool. It offers no passthrough of
 method, path, header, or body. The v4 accounts, admins, invitations, and transfer methods are deprecated and
-not used. v4 is used only for reviews, media, local posts, food menus, and `locations.batch-get`; it has no discovery document, see [reviews](reviews.md#the-v4-client). No tool invites anyone or creates an admin, and no tool creates an account or transfers a location. The
+not used. v4 is used only for reviews, media, local posts, food menus, followers, and `locations.batch-get`; it has no discovery document, see [reviews](reviews.md#the-v4-client). No tool invites anyone or creates an admin, and no tool creates an account or transfers a location. The
 location writes are described in [locations](locations.md#writing-a-location).
 
 Not verified:

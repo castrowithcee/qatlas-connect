@@ -1110,6 +1110,8 @@ const (
 
 const (
 	tKeysHeading           textID = "KeysHeading"
+	tScreenKeysHeading     textID = "ScreenKeysHeading"
+	tHeaderHelpAll         textID = "HeaderHelpAll"
 	tMacFnNote             textID = "MacFnNote"
 	tConnTestTitle         textID = "ConnTestTitle"
 	tKeySpaceRefused       textID = "KeySpaceRefused"
