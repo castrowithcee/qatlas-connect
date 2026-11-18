@@ -68,7 +68,9 @@ var toolEffects = map[string]config.Effect{accountsUpdateID: config.EffectUpdate
 	annotationsCreateID: config.EffectCreate, annotationsUpdateID: config.EffectUpdate, annotationsDeleteID: config.EffectDelete,
 	audiencesCreateID: config.EffectCreate, audiencesUpdateID: config.EffectUpdate, audiencesArchiveID: config.EffectDelete,
 	channelGroupsCreateID: config.EffectCreate, channelGroupsUpdateID: config.EffectUpdate, channelGroupsDeleteID: config.EffectDelete,
-	edsCreateID: config.EffectCreate, edsUpdateID: config.EffectUpdate, edsDeleteID: config.EffectDelete}
+	edsCreateID: config.EffectCreate, edsUpdateID: config.EffectUpdate, edsDeleteID: config.EffectDelete,
+	adsLinksDeleteID: config.EffectDelete, firebaseLinksDeleteID: config.EffectDelete,
+	bigQueryLinksDeleteID: config.EffectDelete, adsenseLinksDeleteID: config.EffectDelete}
 
 func effectOf(id string) config.Effect {
 	if effect, ok := toolEffects[id]; ok {
@@ -121,7 +123,9 @@ func TestRegisterPublishesMetadataScopesAndConsent(t *testing.T) {
 		edsListID: {scopeReadOnly}, edsGetID: {scopeReadOnly}, edsCreateID: {scopeEdit}, edsUpdateID: {scopeEdit},
 		edsDeleteID: {scopeEdit}, adsLinksListID: {scopeReadOnly}, firebaseLinksListID: {scopeReadOnly},
 		bigQueryLinksListID: {scopeReadOnly}, bigQueryLinksGetID: {scopeReadOnly}, adsenseLinksListID: {scopeReadOnly},
-		adsenseLinksGetID: {scopeReadOnly}, searchAdsLinksListID: {scopeReadOnly}, searchAdsLinksGetID: {scopeReadOnly}}) {
+		adsenseLinksGetID: {scopeReadOnly}, searchAdsLinksListID: {scopeReadOnly}, searchAdsLinksGetID: {scopeReadOnly},
+		adsLinksDeleteID: {scopeEdit}, firebaseLinksDeleteID: {scopeEdit}, bigQueryLinksDeleteID: {scopeEdit},
+		adsenseLinksDeleteID: {scopeEdit}}) {
 		t.Errorf("scopes = %v", metadata.Token.Scopes)
 	}
 	ids := []string{}
@@ -183,7 +187,9 @@ func TestRegisterPublishesMetadataScopesAndConsent(t *testing.T) {
 		"google.analytics.display-video360-links.get", "google.analytics.display-video360-link-proposals.list",
 		"google.analytics.display-video360-link-proposals.get", "google.analytics.google-ads-links.list",
 		"google.analytics.firebase-links.list", "google.analytics.bigquery-links.list",
-		"google.analytics.bigquery-links.get"})) {
+		"google.analytics.bigquery-links.get", "google.analytics.google-ads-links.delete",
+		"google.analytics.firebase-links.delete", "google.analytics.bigquery-links.delete",
+		"google.analytics.adsense-links.delete"})) {
 		t.Errorf("tools = %v", ids)
 	}
 	reads := []string{summariesID, accountsID, accountsGetID, accountsSharingID, propertiesListID, propertiesGetID,
@@ -212,7 +218,8 @@ func TestRegisterPublishesMetadataScopesAndConsent(t *testing.T) {
 				annotationsCreateID, annotationsUpdateID, annotationsDeleteID,
 				audiencesCreateID, audiencesUpdateID, audiencesArchiveID,
 				channelGroupsCreateID, channelGroupsUpdateID, channelGroupsDeleteID,
-				edsCreateID, edsUpdateID, edsDeleteID)) {
+				edsCreateID, edsUpdateID, edsDeleteID,
+				adsLinksDeleteID, firebaseLinksDeleteID, bigQueryLinksDeleteID, adsenseLinksDeleteID)) {
 		t.Errorf("profiles = %+v", metadata.Profiles)
 	}
 	oauth, ok := reg.OAuth(Provider)

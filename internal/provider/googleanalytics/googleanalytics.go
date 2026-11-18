@@ -188,6 +188,11 @@ var scopes = map[string][]string{
 	adsenseLinksGetID:    {scopeReadOnly},
 	searchAdsLinksListID: {scopeReadOnly},
 	searchAdsLinksGetID:  {scopeReadOnly},
+
+	adsLinksDeleteID:      {scopeEdit},
+	firebaseLinksDeleteID: {scopeEdit},
+	bigQueryLinksDeleteID: {scopeEdit},
+	adsenseLinksDeleteID:  {scopeEdit},
 }
 
 func tokenMetadata() config.TokenMetadata { return config.TokenMetadata{Scopes: scopes} }
@@ -298,7 +303,7 @@ func Register(reg *capability.Registry) error {
 			ID: "write", Title: "Read and change",
 			Description: "reads what the read profile reads and changes Analytics accounts, properties, data streams, custom " +
 				"dimensions, custom metrics, key events, event create rules, calculated metrics, audiences, annotations, channel groups, expanded data sets and Google Signals, starts audience exports and report tasks, " +
-				"and deletes data streams, measurement protocol secrets, key events, channel groups and expanded data sets and archives audiences; every change needs its own " +
+				"and deletes data streams, measurement protocol secrets, key events, channel groups, expanded data sets and the Google Ads, Firebase, BigQuery and AdSense links and archives audiences; every change needs its own " +
 				"confirmation, and deleting an account or a property stays unlisted, and so does changing the data retention",
 			Tools: append(slices.Clone(readTools), accountsUpdateID, propertiesCreateID, propertiesUpdateID,
 				dataStreamsCreateID, dataStreamsUpdateID, dataStreamsDeleteID, mpSecretsDeleteID, audienceCreateID,
@@ -310,7 +315,8 @@ func Register(reg *capability.Registry) error {
 				annotationsCreateID, annotationsUpdateID, annotationsDeleteID,
 				audiencesCreateID, audiencesUpdateID, audiencesArchiveID,
 				channelGroupsCreateID, channelGroupsUpdateID, channelGroupsDeleteID,
-				edsCreateID, edsUpdateID, edsDeleteID),
+				edsCreateID, edsUpdateID, edsDeleteID,
+				adsLinksDeleteID, firebaseLinksDeleteID, bigQueryLinksDeleteID, adsenseLinksDeleteID),
 		}},
 	}, TestConnection); err != nil {
 		return err
@@ -449,6 +455,13 @@ func Register(reg *capability.Registry) error {
 		{Descriptor: adsenseLinksGet, Handler: handleAdsenseLinksGet},
 		{Descriptor: searchAdsLinksList, Handler: handleSearchAdsLinksList},
 		{Descriptor: searchAdsLinksGet, Handler: handleSearchAdsLinksGet},
+		{Descriptor: adsLinksDelete, Handler: adsLinkDelete.handler(), ConfirmationSummary: adsLinkDelete.summary},
+		{Descriptor: firebaseLinksDelete, Handler: firebaseLinkDelete.handler(),
+			ConfirmationSummary: firebaseLinkDelete.summary},
+		{Descriptor: bigQueryLinksDelete, Handler: bigQueryLinkDelete.handler(),
+			ConfirmationSummary: bigQueryLinkDelete.summary},
+		{Descriptor: adsenseLinksDelete, Handler: adsenseLinkDelete.handler(),
+			ConfirmationSummary: adsenseLinkDelete.summary},
 	} {
 		if err := reg.Register(Provider, operation); err != nil {
 			return err

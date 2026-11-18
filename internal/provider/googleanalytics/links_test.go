@@ -140,7 +140,8 @@ func TestAdsLinksAreClassifiedAsPersonalData(t *testing.T) {
 			!strings.Contains(d.Description, "PERSONAL DATA")) {
 			t.Errorf("%s: risk %+v, description %q", d.ID, d.Risk, d.Description)
 		}
-		if strings.Contains(d.ID, "links") && d.ID != adsLinksListID && d.Risk != readRisk {
+		if strings.Contains(d.ID, "links") && d.ID != adsLinksListID && !strings.HasSuffix(d.ID, ".delete") &&
+			d.Risk != readRisk {
 			t.Errorf("%s risk = %+v", d.ID, d.Risk)
 		}
 	}
@@ -349,7 +350,8 @@ func TestLink429WithoutRetryAfterHoldsTheNextRequest(t *testing.T) {
 	}
 }
 
-func TestLinksHaveOnlyReadingTools(t *testing.T) {
+// The link tools read or delete: no link tool creates or changes a link, and every delete needs confirmation.
+func TestLinksHaveNoCreateOrPatchTool(t *testing.T) {
 	reg := registry(t)
 	var links []string
 	for _, d := range reg.Provider(Provider) {
@@ -358,15 +360,30 @@ func TestLinksHaveOnlyReadingTools(t *testing.T) {
 			continue
 		}
 		links = append(links, d.ID)
-		if effectOf(d.ID) != config.EffectRead || !strings.HasSuffix(id, ".list") && !strings.HasSuffix(id, ".get") ||
-			d.Risk.Effect != "read" {
-			t.Errorf("%s is not a reading tool", d.ID)
+		verb := id[strings.LastIndex(id, ".")+1:]
+		switch verb {
+		case "list", "get":
+			if effectOf(d.ID) != config.EffectRead || d.Risk.Effect != "read" {
+				t.Errorf("%s is not a reading tool", d.ID)
+			}
+		case "delete":
+			if effectOf(d.ID) != config.EffectDelete || d.Risk.Effect != "delete" || d.Risk.Confirmation != "required" ||
+				!d.Risk.OpenWorld || reg.ConfirmationSummary(d.ID) == nil {
+				t.Errorf("%s is not a confirmed delete: %+v", d.ID, d.Risk)
+			}
+		default:
+			t.Errorf("%s has the verb %s", d.ID, verb)
+		}
+		for _, excluded := range []string{"create", "patch", "update"} {
+			if strings.HasSuffix(id, "."+excluded) {
+				t.Errorf("%s exports %s", d.ID, excluded)
+			}
 		}
 	}
 	slices.Sort(links)
 	if !slices.Equal(links, sortedCopy([]string{adsLinksListID, firebaseLinksListID, bigQueryLinksListID, bigQueryLinksGetID,
 		dv360LinksListID, dv360LinksGetID, adsenseLinksListID, adsenseLinksGetID, searchAdsLinksListID,
-		searchAdsLinksGetID})) {
+		searchAdsLinksGetID, adsLinksDeleteID, firebaseLinksDeleteID, bigQueryLinksDeleteID, adsenseLinksDeleteID})) {
 		t.Errorf("link tools = %v", links)
 	}
 	metadata, _ := reg.ProviderMetadata(Provider)

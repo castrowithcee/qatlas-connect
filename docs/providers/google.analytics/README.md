@@ -23,7 +23,7 @@ and deletes the calculated metrics, the annotations, and the expanded data sets 
 and archives its audiences (alpha), and runs Data Access Reports on an
 account or property, which name the users who read the data and are personal data. It reads and changes the data
 retention settings of a property and, through the alpha Admin API, its Google Signals setting. It lists and reads the
-Display & Video 360 advertiser links of a property and the proposals for them (alpha, read-only). It also reads the Google Ads, Firebase, BigQuery (alpha), AdSense (alpha), and Search Ads 360 (alpha) links of a property; links have no tool that creates, changes, or deletes them. The Google Ads links name the people who created them, which is personal data. The reading tools change
+Display & Video 360 advertiser links of a property and the proposals for them (alpha, read-only). It also reads the Google Ads, Firebase, BigQuery (alpha), AdSense (alpha), and Search Ads 360 (alpha) links of a property; it deletes one Google Ads, Firebase, BigQuery (alpha), or AdSense (alpha) link at a time, which ends its data flow and can be reversed only by linking again outside Qatlas. No tool creates or changes a link. The Google Ads links name the people who created them, which is personal data. The reading tools change
 nothing. The account, property, data stream, custom dimension, custom metric, key event, event create rule, calculated metric, annotation, audience, channel group, and expanded data set tools read no report data and use no reporting quota; the report
 tools do, see [reports](reports.md#quota), and so does starting an audience export, see
 [audience exports](audience-exports.md#quota), and starting a report task, see
@@ -111,7 +111,7 @@ not name the resource.
 | `adsense-links.list`, `adsense-links.get` | Use the links of a bound property, or of a property of a bound account after one proof read of its parent; see [AdSense links](adsense-links.md#targets-and-proof) |
 | `search-ads360-links.list`, `search-ads360-links.get` | Like the AdSense link tools; see [Search Ads 360 links](search-ads360-links.md#targets-and-proof) |
 | `data-retention.get`, `data-retention.update`, `google-signals.get`, `google-signals.update` | Use a bound property, or a property of a bound account after one proof read of its parent; see [data retention](data-retention.md#targets-and-proof) |
-| `google-ads-links.list`, `firebase-links.list`, `bigquery-links.list`, `bigquery-links.get` | Use a bound property, or a property of a bound account after one proof read of its parent; see [Google Ads links](google-ads-links.md#targets-and-proof) |
+| `google-ads-links.list`, `firebase-links.list`, `bigquery-links.list`, `bigquery-links.get`, `google-ads-links.delete`, `firebase-links.delete`, `bigquery-links.delete`, `adsense-links.delete` | Use a bound property, or a property of a bound account after one proof read of its parent; see [Google Ads links](google-ads-links.md#targets-and-proof) |
 | `reports.run`, `reports.run-pivot`, `reports.batch-run`, `reports.batch-run-pivot`, `reports.run-realtime`, `reports.check-compatibility` | Use a bound property, or a property of a bound account after one proof read of its parent |
 | `reports.get-metadata` | Like `reports.run`; `properties/0` needs no target, see [reports](reports.md#property-and-targets) |
 | `reports.run-funnel` | Like `reports.run` |
@@ -157,7 +157,7 @@ The profile `read` is the recommended one and holds `google.analytics.accounts.l
 `google.analytics.data-retention.get`, `google.analytics.google-signals.get`,
 `google.analytics.google-ads-links.list`, `google.analytics.firebase-links.list`,
 `google.analytics.bigquery-links.list`, and `google.analytics.bigquery-links.get`. The profile `write` reads like `read`, changes accounts, properties,
-data streams and their settings, custom dimensions, custom metrics, key events, event create rules, calculated metrics, audiences, annotations, channel groups, expanded data sets, and Google Signals, deletes data streams, measurement protocol secrets, key events, channel groups, and expanded data sets, archives audiences,
+data streams and their settings, custom dimensions, custom metrics, key events, event create rules, calculated metrics, audiences, annotations, channel groups, expanded data sets, and Google Signals, deletes data streams, measurement protocol secrets, key events, channel groups, and expanded data sets, and the Google Ads, Firebase, BigQuery, and AdSense links, archives audiences,
 and starts audience exports and report tasks, each change with its own confirmation: it adds
 `google.analytics.accounts.update`, `google.analytics.properties.create`, `google.analytics.properties.update`,
 `google.analytics.data-streams.create`, `google.analytics.data-streams.update`, `google.analytics.data-streams.delete`,
@@ -175,7 +175,9 @@ and starts audience exports and report tasks, each change with its own confirmat
 `google.analytics.audiences.create`, `google.analytics.audiences.update`, `google.analytics.audiences.archive`,
 `google.analytics.channel-groups.create`, `google.analytics.channel-groups.update`,
 `google.analytics.channel-groups.delete`, `google.analytics.expanded-data-sets.create`,
-`google.analytics.expanded-data-sets.update`, `google.analytics.expanded-data-sets.delete`, and
+`google.analytics.expanded-data-sets.update`, `google.analytics.expanded-data-sets.delete`,
+`google.analytics.google-ads-links.delete`, `google.analytics.firebase-links.delete`,
+`google.analytics.bigquery-links.delete`, `google.analytics.adsense-links.delete`, and
 `google.analytics.google-signals.update`. The users of an
 export are personal data; see
 [audience exports](audience-exports.md#personal-data); so are the access reports, see
@@ -186,7 +188,7 @@ connection offers `google.analytics.accounts.delete` and `google.analytics.prope
 `tools` list names them. So does changing the data retention: `google.analytics.data-retention.update` is in no
 profile either, because shortening a period deletes data permanently, see [data retention](data-retention.md).
 Each of these needs the confirmation of a person. `accounts.delete` also runs only on a
-connection that binds exactly that account and no property. Deleting one event create rule, one calculated metric, one annotation, one channel group, or one expanded data set and archiving one audience is in
+connection that binds exactly that account and no property. Deleting one event create rule, one calculated metric, one annotation, one channel group, one expanded data set, or one Google Ads, Firebase, BigQuery, or AdSense link and archiving one audience is in
 the profile `write`, with its own confirmation. Which scope each tool needs is listed in
 [setup](setup.md#rights-and-scopes).
 
