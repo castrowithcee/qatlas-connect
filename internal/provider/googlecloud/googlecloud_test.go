@@ -39,13 +39,14 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 		ids = append(ids, tool.ID)
 		wantEffect := config.EffectRead
 		switch {
-		case tool.ID == serviceAccountsCreateID, tool.ID == projectsCreateID, tool.ID == disksInsertID, tool.ID == disksCreateSnapshotID,
+		case tool.ID == serviceAccountsCreateID, tool.ID == projectsCreateID, tool.ID == foldersCreateID, tool.ID == disksInsertID, tool.ID == disksCreateSnapshotID,
 			tool.ID == imagesInsertID:
 			wantEffect = config.EffectCreate
 		case tool.ID == serviceAccountsPatchID, tool.ID == serviceAccountsDisableID, tool.ID == serviceAccountsEnableID,
 			tool.ID == serviceAccountKeysDisableID, tool.ID == serviceAccountKeysEnableID, tool.ID == apiKeysUndeleteID,
 			tool.ID == servicesEnableID, tool.ID == servicesBatchEnableID, tool.ID == servicesDisableID,
 			tool.ID == projectsPatchID, tool.ID == projectsMoveID, tool.ID == projectsUndeleteID,
+			tool.ID == foldersPatchID, tool.ID == foldersMoveID, tool.ID == foldersUndeleteID,
 			strings.Contains(tool.ID, ".iam-bindings."), tool.ID == instancesStartID, tool.ID == instancesStopID,
 			tool.ID == instancesResetID, tool.ID == instancesSetMachineTypeID, tool.ID == disksResizeID:
 			wantEffect = config.EffectUpdate
@@ -71,7 +72,8 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 			strings.Contains(tool.ID, ".quota-") ||
 			tool.ID == servicesEnableID || tool.ID == servicesBatchEnableID || tool.ID == servicesDisableID ||
 			tool.ID == projectsCreateID || tool.ID == projectsPatchID || tool.ID == projectsMoveID ||
-			tool.ID == projectsUndeleteID {
+			tool.ID == projectsUndeleteID || tool.ID == foldersCreateID || tool.ID == foldersPatchID ||
+			tool.ID == foldersMoveID || tool.ID == foldersUndeleteID {
 			// The discovery documents list cloud-platform alone for the IAM methods.
 			wantScope = "https://www.googleapis.com/auth/cloud-platform"
 		}
@@ -122,7 +124,8 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 	}
 	if want := []string{"google.cloud.addresses.delete", "google.cloud.addresses.get", "google.cloud.addresses.list", "google.cloud.api-keys.delete", "google.cloud.api-keys.get", "google.cloud.api-keys.list",
 		"google.cloud.api-keys.undelete", "google.cloud.billing-accounts.get", "google.cloud.billing-accounts.list", "google.cloud.billing-accounts.list-projects", "google.cloud.bucket-access-controls.list", "google.cloud.buckets.get", "google.cloud.buckets.get-iam-policy", "google.cloud.buckets.list", "google.cloud.compute-operations.get", "google.cloud.compute-operations.list", "google.cloud.disks.aggregated-list", "google.cloud.disks.create-snapshot", "google.cloud.disks.delete", "google.cloud.disks.get", "google.cloud.disks.insert", "google.cloud.disks.list", "google.cloud.disks.resize", "google.cloud.firewalls.delete", "google.cloud.firewalls.get", "google.cloud.firewalls.list",
-		"google.cloud.folders.get", "google.cloud.folders.list", "google.cloud.folders.search",
+		"google.cloud.folders.create", "google.cloud.folders.get", "google.cloud.folders.list", "google.cloud.folders.move",
+		"google.cloud.folders.patch", "google.cloud.folders.search", "google.cloud.folders.undelete",
 		"google.cloud.hmac-keys.get", "google.cloud.hmac-keys.list",
 		"google.cloud.iam-bindings.add-member", "google.cloud.iam-bindings.change-role",
 		"google.cloud.iam-bindings.remove-member", "google.cloud.iam-deny-policies.get", "google.cloud.iam-deny-policies.list",
@@ -199,6 +202,10 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 		case "projects-manage":
 			if profile.Recommended || !slices.Equal(profile.Tools, []string{projectsCreateID, projectsPatchID, projectsMoveID, projectsUndeleteID}) {
 				t.Errorf("profile projects-manage = %+v", profile)
+			}
+		case "folders-manage":
+			if profile.Recommended || !slices.Equal(profile.Tools, []string{foldersCreateID, foldersPatchID, foldersMoveID, foldersUndeleteID}) {
+				t.Errorf("profile folders-manage = %+v", profile)
 			}
 		case "compute-network-delete":
 			if profile.Recommended || !slices.Equal(profile.Tools, []string{projectsGetID, firewallsDeleteID, addressesDeleteID, vpnTunnelsDeleteID, vpnGatewaysDeleteID}) {
