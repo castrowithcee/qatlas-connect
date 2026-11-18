@@ -11,6 +11,7 @@ import (
 
 	"github.com/castrowithcee/qatlas-connect/internal/config"
 	"github.com/castrowithcee/qatlas-connect/internal/provider"
+	"github.com/castrowithcee/qatlas-connect/internal/uiprefs"
 	kittui "github.com/castrowithcee/qatlas-kit/tui"
 )
 
@@ -149,6 +150,8 @@ func TestProviderInfoLinksTheGuide(t *testing.T) {
 }
 
 func TestProviderTableInfoLinksTheMarkedProvider(t *testing.T) {
+	keepKeys(t)
+	applyKeys(uiprefs.Keys{Info: "f3"})
 	m := newTestableModel(t, nil, nil)
 	m.version = "v1.2.3"
 	m.width, m.height, m.termWidth, m.termHeight = 160, 50, 160, 50
@@ -156,7 +159,7 @@ func TestProviderTableInfoLinksTheMarkedProvider(t *testing.T) {
 	pressNew(t, m)
 	m.focus = 1
 	m.openProviderTable()
-	press(t, m, "i")
+	press(t, m, "f3")
 	if !m.infoOpen {
 		t.Fatal("the info key opened nothing on the provider table")
 	}

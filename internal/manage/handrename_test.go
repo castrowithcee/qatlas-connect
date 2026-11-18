@@ -210,11 +210,12 @@ func TestAdoptNeverApprovesAConnection(t *testing.T) {
 // a stopped rename. Adopting renames the entry and carries the valid approvals of its readers.
 func TestAdoptAVaultCredentialRenamedByHand(t *testing.T) {
 	w := newRenameWorld(t)
-	w.queuePending(t, "vault-reader", "key-id", "synthetic-queued")
 	id := w.load(t).Credentials["vault-reader"].ID
 	if _, err := w.v.SetUndoableWithID("vault-reader", id, "key-secret", "synthetic-key-secret", nil); err != nil {
 		t.Fatal(err)
 	}
+	// Queued after the write above, which merges whatever is pending when it writes.
+	w.queuePending(t, "vault-reader", "key-id", "synthetic-queued")
 	entryID, _, _ := w.v.CredentialID("vault-reader")
 	edited := w.handRename(t, "vault-reader", "reader")
 	want := canonical(t, w.load(t))

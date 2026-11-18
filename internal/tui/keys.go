@@ -72,6 +72,18 @@ func (m *Model) helpReachable() bool {
 	return !m.typing()
 }
 
+// letterReachable reports whether a letter key (i, c) is a command on the current screen. A search line is
+// text from its first character on, so unlike ? and : no letter acts there, even while the line is empty.
+func (m *Model) letterReachable() bool {
+	switch m.screen {
+	case screenHelp:
+		return false
+	case screenForm:
+		return m.payloadRemoveAsk
+	}
+	return !m.typing()
+}
+
 // moveKey turns the vim keys into the arrow keys on a screen that reads no text, so
 // every screen moves the same way and no handler needs to know the letters.
 func (m *Model) moveKey(key tea.KeyPressMsg) tea.KeyPressMsg {

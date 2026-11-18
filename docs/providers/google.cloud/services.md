@@ -46,7 +46,7 @@ project.
 
 Service Usage (`serviceusage.googleapis.com`) must be enabled in the Cloud project of the credential. If it is
 not, Google answers `SERVICE_DISABLED` and the tool fails with the class `permission` and a message that names
-the Service Usage API; a person enables it there. A missing right on the project is also `permission`, an unknown
+the Service Usage API (`serviceusage.googleapis.com`); a person enables it there. A missing right on the project is also `permission`, an unknown
 project or service `not_found`.
 
 The discovery document lists `cloud-platform.read-only` next to `cloud-platform` for all three methods, so the

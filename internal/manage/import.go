@@ -492,6 +492,8 @@ func (s *Service) ApplyImportWith(plan *ImportPlan, opts ImportOptions) (ImportR
 	}
 
 	var prepare func() (func() error, error)
+	// endCheckpoint ends the vault's checkpoint once the import is kept or taken back.
+	endCheckpoint := func() {}
 	unlocked := false
 	if store == config.CredentialTypeVault {
 		v := s.vault()
@@ -508,10 +510,11 @@ func (s *Service) ApplyImportWith(plan *ImportPlan, opts ImportOptions) (ImportR
 		}
 		unlocked = state == vault.StateUnlocked
 		prepare = func() (func() error, error) {
-			restore, err := v.Checkpoint()
+			restore, done, err := v.Checkpoint()
 			if err != nil {
 				return nil, err
 			}
+			endCheckpoint = done
 			if !unlocked {
 				return restore, nil
 			}
@@ -530,6 +533,7 @@ func (s *Service) ApplyImportWith(plan *ImportPlan, opts ImportOptions) (ImportR
 		}
 	}
 	written, err := s.commitSecretSets(cand, plan.base, sets, opts.Offer, prepare)
+	endCheckpoint()
 	if err != nil {
 		return ImportResult{}, s.redactErr(err)
 	}

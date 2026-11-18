@@ -358,59 +358,58 @@ func (v *Vault) Approve(scopes []Scope) error {
 // ApproveConnections is Approve that also records the config id of each connection, from ids by connection
 // name; a connection without an entry, or with an empty id, is approved without one.
 func (v *Vault) ApproveConnections(scopes []Scope, ids map[string]string) error {
-	doc, err := v.unlockedDocument()
-	if err != nil {
+	if _, err := v.unlockedDocument(); err != nil {
 		return err
 	}
-	now := time.Now().UTC()
-	approvals := make(map[string]Approval, len(scopes))
-	for _, scope := range scopes {
-		entry, ok := doc.byName(scope.Credential)
-		if !ok || entry.ID == "" {
-			return fmt.Errorf("connection %s cannot be approved: the vault holds no secret of credential %s",
-				scope.Connection, scope.Credential)
-		}
-		approvals[scope.Connection] = Approval{
-			Fingerprint: Fingerprint(scope, entry.ID), Scope: scope.Normalized(), CredentialID: entry.ID,
-			Approved: now, ConnectionID: ids[scope.Connection],
-		}
-	}
-	if len(approvals) == 0 {
+	if len(scopes) == 0 {
 		return nil
 	}
-	next := make(map[string]Approval, len(doc.Approvals)+len(approvals))
-	for name, approval := range doc.Approvals {
-		next[name] = approval
-	}
-	for name, approval := range approvals {
-		next[name] = approval
-	}
-	return v.writeApprovals(doc, next)
+	_, err := v.update(v.identity, updateOpts{}, func(doc *document) (bool, error) {
+		now := time.Now().UTC()
+		approvals := make(map[string]Approval, len(scopes))
+		for _, scope := range scopes {
+			entry, ok := doc.byName(scope.Credential)
+			if !ok || entry.ID == "" {
+				return false, fmt.Errorf("connection %s cannot be approved: the vault holds no secret of credential %s",
+					scope.Connection, scope.Credential)
+			}
+			approvals[scope.Connection] = Approval{
+				Fingerprint: Fingerprint(scope, entry.ID), Scope: scope.Normalized(), CredentialID: entry.ID,
+				Approved: now, ConnectionID: ids[scope.Connection],
+			}
+		}
+		if doc.Approvals == nil {
+			doc.Approvals = make(map[string]Approval, len(approvals))
+		}
+		for name, approval := range approvals {
+			doc.Approvals[name] = approval
+		}
+		return true, nil
+	})
+	return err
 }
 
 // Revoke removes the approvals of the named connections, for a connection that was deleted or renamed, and
 // writes the vault when one was there. It reports how many it removed and needs the vault unlocked in this
 // process.
 func (v *Vault) Revoke(connections []string) (int, error) {
-	doc, err := v.unlockedDocument()
+	if _, err := v.unlockedDocument(); err != nil {
+		return 0, err
+	}
+	removed := 0
+	_, err := v.update(v.identity, updateOpts{}, func(doc *document) (bool, error) {
+		for _, name := range connections {
+			if _, ok := doc.Approvals[name]; ok {
+				delete(doc.Approvals, name)
+				removed++
+			}
+		}
+		return removed > 0, nil
+	})
 	if err != nil {
 		return 0, err
 	}
-	next := make(map[string]Approval, len(doc.Approvals))
-	for name, approval := range doc.Approvals {
-		next[name] = approval
-	}
-	removed := 0
-	for _, name := range connections {
-		if _, ok := next[name]; ok {
-			delete(next, name)
-			removed++
-		}
-	}
-	if removed == 0 {
-		return 0, nil
-	}
-	return removed, v.writeApprovals(doc, next)
+	return removed, nil
 }
 
 // ErrApprovalTaken reports a rename onto a name the vault already holds an approval for that belongs to
@@ -423,54 +422,29 @@ var ErrApprovalTaken = errors.New("the vault holds an approval of another connec
 // committed: a rename cut short leaves only an extra approval that names its connection. An approval already
 // under to is replaced only when it records the same connectionID, the rest of such a rename; any other one
 // fails with ErrApprovalTaken. Without an approval under from nothing is written and carried is false. undo
-// puts the approvals back as this call found them, without a passphrase; it is nil when err is not.
+// takes back this call alone, without a passphrase: byte for byte while nobody wrote the vault since,
+// otherwise only what this call changed and nobody changed since. It is nil when err is not.
 func (v *Vault) CarryApproval(from, to, connectionID string) (carried bool, undo func() error, err error) {
-	doc, err := v.unlockedDocument()
-	if err != nil {
+	if _, err := v.unlockedDocument(); err != nil {
 		return false, nil, err
 	}
-	if taken, ok := doc.Approvals[to]; ok && (taken.ConnectionID == "" || taken.ConnectionID != connectionID) {
-		return false, nil, ErrApprovalTaken
-	}
-	approval, ok := doc.Approvals[from]
-	if !ok {
-		return false, func() error { return nil }, nil
-	}
-	// An approval exists only in a document that was read from secrets.age, so the file exists. Undo writes
-	// back its very bytes, not a new encryption of the same document.
-	original, err := readFile(v.secretsPath())
-	if err != nil {
-		return false, nil, fmt.Errorf("cannot read %s: %w", v.secretsPath(), err)
-	}
-	previous := doc.Approvals
-	next := make(map[string]Approval, len(previous)+1)
-	for name, a := range previous {
-		next[name] = a
-	}
-	approval.ConnectionID = connectionID
-	next[from] = approval
-	approval.Scope.Connection = to
-	next[to] = approval
-	if err := v.writeApprovals(doc, next); err != nil {
-		return false, nil, err
-	}
-	return true, func() error {
-		if err := writeFile(v.secretsPath(), original); err != nil {
-			return err
+	w, err := v.update(v.identity, updateOpts{}, func(doc *document) (bool, error) {
+		if taken, ok := doc.Approvals[to]; ok && (taken.ConnectionID == "" || taken.ConnectionID != connectionID) {
+			return false, ErrApprovalTaken
 		}
-		doc.Approvals = previous
-		return nil
-	}, nil
-}
-
-// writeApprovals writes doc with approvals in place of its own and adopts them only once the write
-// succeeded, so a failed write leaves this process with what the vault on disk still holds.
-func (v *Vault) writeApprovals(doc *document, approvals map[string]Approval) error {
-	next := *doc
-	next.Approvals = approvals
-	if err := v.writeEncrypted(&next); err != nil {
-		return err
+		approval, ok := doc.Approvals[from]
+		if !ok {
+			return false, nil
+		}
+		approval.ConnectionID = connectionID
+		doc.Approvals[from] = approval
+		approval.Scope.Connection = to
+		doc.Approvals[to] = approval
+		carried = true
+		return true, nil
+	})
+	if err != nil {
+		return false, nil, err
 	}
-	doc.Approvals = approvals
-	return nil
+	return carried, func() error { return v.undo(w) }, nil
 }

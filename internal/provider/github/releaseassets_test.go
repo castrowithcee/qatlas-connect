@@ -217,9 +217,9 @@ func TestReleaseAssetUpdateRenamesAfterReadingTheAsset(t *testing.T) {
 	if err := json.Unmarshal(result, &got); err != nil || got.ID != 7 || got.Name != "new.zip" {
 		t.Fatalf("asset = %s, %v", result, err)
 	}
-	if _, has := got.Links["browser_download_url"]; has || got.Links["url"] == "" ||
-		strings.Contains(string(result), "browser_download_url") || strings.Contains(string(result), "releases/download") {
-		t.Errorf("links = %v, want the REST url and no download address", got.Links)
+	if got.Links["url"] == "" ||
+		got.Links["browser_download_url"] != "https://github.com/octo-org/example/releases/download/v1/new.zip" {
+		t.Errorf("links = %v, want the REST url and the download address unchanged", got.Links)
 	}
 	requests := fake.f.recorded()
 	if len(requests) != 2 || requests[0].method != http.MethodGet || requests[1].method != http.MethodPatch ||
