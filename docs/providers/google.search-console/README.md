@@ -26,7 +26,7 @@ procedure:
 
 | Procedure | Roles | Access of |
 | --- | --- | --- |
-| Consent | `client_id`, `client_secret` if the client has one, `refresh_token` from `qconnect consent` | the Google account that gave the consent |
+| Consent | `client_id`, `client_secret` if the client has one, `refresh_token` from `qconnect credential consent` | the Google account that gave the consent |
 | Service account | `service_account_key`, the complete key file | the service account |
 | Impersonation | as consent, plus `service_account` on the connection | the named service account, through the consenting account |
 

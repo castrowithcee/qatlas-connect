@@ -51,7 +51,7 @@ printf %s "$CLIENT_ID" | qconnect credential set search-console client_id
 printf %s "$CLIENT_SECRET" | qconnect credential set search-console client_secret
 ```
 
-4. Give the consent: run `qconnect consent search-console` in a terminal, open the printed link, and sign in
+4. Give the consent: run `qconnect credential consent search-console` in a terminal, open the printed link, and sign in
    with the account that is a user of your properties. The command stores the refresh token. Over SSH, copy
    the address the browser was sent to and paste it at the hidden prompt. The browser setup (`qconnect web`)
    offers the same on the page of the credential.
@@ -121,7 +121,7 @@ connection has a target.
 
 | Symptom | What to do |
 | --- | --- |
-| `consent-required` | Run `qconnect consent <credential>` |
+| `consent-required` | Run `qconnect credential consent <credential>` |
 | `consent-expired` | The consent ended or was revoked, or the consent screen is still in Testing; set it to In production and give the consent again |
 | `scope-missing` | Give the consent again; it then asks for the scopes your connections need, also the `webmasters` scope of a changing tool |
 | `permission` on `sites.delete` or a sitemap change | Give the account a higher level on the property in Search Console; Google's reference does not name the level a change needs |

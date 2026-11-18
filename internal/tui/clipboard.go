@@ -63,7 +63,7 @@ func (m *Model) copyableFocused() bool {
 // copyKeyShown reports whether a footer names the copy key: where it copies and a screen lists it itself
 // nowhere else (the approval detail names it in its own key line).
 func (m *Model) copyKeyShown() bool {
-	if m.infoOpen || m.approvalDetail != "" || !m.helpReachable() {
+	if m.infoOpen || m.approvalDetail != "" || !m.letterReachable() {
 		return false
 	}
 	return m.copySource() != nil

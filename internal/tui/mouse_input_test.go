@@ -32,10 +32,13 @@ const (
 	splitPause  = uv.DefaultEscTimeout + 10*time.Millisecond
 )
 
-// testClock is the clock of the filter in a test; a pause in the input moves it on.
+// testClock is the clock of the filter in a test. It measures input time, not wall time: it stands still and only
+// a pause in the input moves it on, so a loaded host that stalls the event loop cannot outlast the fragment window.
 type testClock struct{ offset atomic.Int64 }
 
-func (c *testClock) now() time.Time { return time.Now().Add(time.Duration(c.offset.Load())) }
+var testClockBase = time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC)
+
+func (c *testClock) now() time.Time { return testClockBase.Add(time.Duration(c.offset.Load())) }
 
 // pause is a key that is a gap in the input instead: when the event loop meets it, the real timers run out and
 // the filter's clock moves on by a second. Handled there, not by the reader, which runs ahead of the loop.

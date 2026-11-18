@@ -33,6 +33,17 @@ func (v *Vault) Encrypt(passphrase string) error {
 	case StateLocked, StateUnlocked:
 		return ErrAlreadyEncrypted
 	}
+	release, err := v.lockWrites()
+	if err != nil {
+		return err
+	}
+	defer release()
+	if state, err = v.diskState(); err != nil {
+		return err
+	} else if state == StateLocked {
+		return ErrAlreadyEncrypted
+	}
+	v.journalSwitched()
 
 	doc := newDocument()
 	if state == StateUnencrypted {
@@ -87,6 +98,17 @@ func (v *Vault) ChangePassphrase(oldPassphrase, newPassphrase string) error {
 	if state != StateLocked && state != StateUnlocked {
 		return ErrNotEncrypted
 	}
+	release, err := v.lockWrites()
+	if err != nil {
+		return err
+	}
+	defer release()
+	if state, err := v.diskState(); err != nil {
+		return err
+	} else if state != StateLocked {
+		return ErrNotEncrypted
+	}
+	v.journalSwitched()
 
 	id, err := v.decryptIdentity(oldPassphrase)
 	if err != nil {
@@ -101,9 +123,13 @@ func (v *Vault) ChangePassphrase(oldPassphrase, newPassphrase string) error {
 	}
 
 	// The key pair itself never changes, only its wrapping, so a process that already had the vault
-	// unlocked keeps working with the identity it cached; a process that had not is left exactly as it was.
+	// unlocked keeps working with the identity it cached, and takes the document as it is on disk now; a
+	// process that had not is left exactly as it was.
 	if v.unlocked {
 		v.identity = id
+		if doc, err := v.readSecrets(id.key); err == nil {
+			v.doc = doc
+		}
 	}
 	return nil
 }
@@ -121,14 +147,29 @@ func (v *Vault) Decrypt(passphrase string) error {
 		return ErrNotEncrypted
 	}
 
-	// unlock verifies the passphrase, decrypts the document, and merges and clears every pending entry; a
-	// wrong passphrase fails here before anything is written.
-	if _, err := v.unlock(passphrase); err != nil {
+	release, err := v.lockWrites()
+	if err != nil {
 		return err
 	}
+	defer release()
+
+	// The passphrase is verified and the document read, with every pending entry merged, under the write
+	// lock; a wrong passphrase fails here before anything is written.
+	id, err := v.readIdentity(passphrase)
+	if err != nil {
+		return err
+	}
+	doc, consumed, err := v.openHeld(id)
+	if errors.Is(err, errSwitched) {
+		return ErrNotEncrypted
+	}
+	if err != nil {
+		return err
+	}
+	v.journalSwitched()
 
 	// Approvals bind connections only while the vault is encrypted; the plaintext document keeps none.
-	plain := *v.doc
+	plain := *doc
 	plain.Approvals = nil
 	if err := v.writePlain(&plain); err != nil {
 		return err
@@ -140,6 +181,9 @@ func (v *Vault) Decrypt(passphrase string) error {
 		if err := os.Remove(path); err != nil && !isNotExist(err) {
 			return err
 		}
+	}
+	for _, p := range consumed {
+		_ = os.Remove(p.path)
 	}
 	_ = os.Remove(v.pendingPath())
 

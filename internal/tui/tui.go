@@ -1035,7 +1035,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		// Like the other letters, c is text wherever text is typed.
-		if keyIs(msg, actCopy) && (m.helpReachable() || m.copyableFocused()) {
+		if keyIs(msg, actCopy) && (m.letterReachable() || m.copyableFocused()) {
 			if cmd := m.copyCurrent(); cmd != nil {
 				return m, cmd
 			}

@@ -86,6 +86,9 @@ type Vault struct {
 	unlocked bool
 	identity *identity
 	doc      *document
+
+	// journal is set while a Checkpoint is open.
+	journal *journal
 }
 
 // New returns the vault below dir, the directory holding config.yaml. The vault does not have to exist.

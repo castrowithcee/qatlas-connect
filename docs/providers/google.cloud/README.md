@@ -1,6 +1,6 @@
 ---
 description: >
-  Describes the Google Cloud provider: the token credential and its fixed origins, the targets (organization, folder, project, billing account) and what they reach, the read and IAM profiles, the search tools with their structured filters, cursors, and per-row target check, the Cloud Storage reads of buckets, notifications, managed folders, and HMAC key metadata, the Cloud Billing reads of billing accounts and of the billing account of a project, the IAM role and permission reads, the service account and key metadata reads, the Google error form and its classes, long-running operations, rate spacing, the connection test, and the limits of what is verified.
+  Describes the Google Cloud provider: the token credential and its fixed origins, the targets (organization, folder, project, billing account) and what they reach, the reads across Resource Manager, IAM, Service Usage, Cloud Quotas, API Keys, Compute Engine, Cloud Storage, Cloud DNS, and Cloud Billing, the profiles and the tools list through which changes and deletions are offered, the search tools with their structured filters, cursors, and per-row target check, the Google error form and its classes, long-running operations, rate spacing, the connection test, and the limits of what is verified.
 type: knowledge
 edit: shared
 created: 2026-11-16
@@ -9,13 +9,13 @@ updated: 2026-11-18
 
 # Google Cloud
 
-Google Cloud is a provider for Google Cloud APIs with one credential that issues access tokens. This
-package covers Cloud Resource Manager: it searches organizations, folders, and projects, reads one project, and
-reads the state of a long-running operation. It also reads IAM roles and the roles and permissions of a
-resource. The only change is to a single IAM binding, through the tools of [IAM bindings](iam-bindings.md); every
-other tool is a read. The package also lays down what the later
-Google Cloud packages build on: the service table, the token handling, the error mapping, the operation
-helper, and the targets.
+Google Cloud is a provider for Google Cloud APIs with one credential that issues access tokens. It reads
+across Cloud Resource Manager (organizations, folders, projects, and long-running operations), IAM, Service
+Usage, Cloud Quotas, API Keys, Compute Engine, Cloud Storage, Cloud DNS, and Cloud Billing, which it only ever
+reads. Changes and deletions come only from profiles that are not recommended and from tools that a `tools`
+list must name, each with the confirmation of a person. [Profiles](#profiles) says which profile or listed
+tool changes what. The package also lays down what every Google Cloud tool builds on: the service table, the
+token handling, the error mapping, the operation helper, and the targets.
 
 [Set up Google Cloud](setup.md) leads through the credential and the rights it needs. The fields of a tool
 are in its descriptor; this page holds what the descriptor does not say.
@@ -377,7 +377,7 @@ decide beyond the HTTP status.
 | Answer | Class |
 | --- | --- |
 | 401 with `CREDENTIALS_MISSING`, `ACCESS_TOKEN_EXPIRED`, or status `UNAUTHENTICATED` | `auth` |
-| 403 with reason `SERVICE_DISABLED` | `permission`, the message names Cloud Resource Manager and IAM as the APIs to enable |
+| 403 with reason `SERVICE_DISABLED` | `permission`, the message names the API of the service the request went to (for example `cloudquotas.googleapis.com` for Cloud Quotas) as the one to enable |
 | 403 with reason `ACCESS_TOKEN_SCOPE_INSUFFICIENT` | `scope-missing` |
 | 403 with status `PERMISSION_DENIED` | `permission` |
 | 404 with status `NOT_FOUND` | `not-found` |
@@ -390,7 +390,8 @@ decide beyond the HTTP status.
 
 Compute Engine may answer in the older error form, without a status string and with a list of `errors` that carry a
 `reason`. Qatlas reads the reasons `notFound`, `forbidden`, and `authError` of it like `NOT_FOUND`,
-`PERMISSION_DENIED`, and `UNAUTHENTICATED`; the 403 reason `SERVICE_DISABLED` names Compute Engine among the APIs.
+`PERMISSION_DENIED`, and `UNAUTHENTICATED`; its 403 reason `SERVICE_DISABLED` names the Compute Engine API.
+The API in the message always comes from the service of the request, never from Google's answer.
 
 A failed token request ends as `auth`, `consent-required`, or `consent-expired`, as the core decides. An
 unreadable, oversized (over 2 MiB), or non-JSON answer is `invalid-provider-response`. The timeout is 30

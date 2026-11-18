@@ -624,6 +624,43 @@ func TestDeleteSecretRevokesTheRefreshTokenFirst(t *testing.T) {
 	}
 }
 
+// A revocation from the TUI is logged per connection of the credential, without a warning.
+func TestRevocationsFromTheTUIAreLogged(t *testing.T) {
+	f := newConsentFixture(t)
+	f.svc.surface = connlog.SurfaceTUI
+	f.secrets.entries["cred."+config.RoleRefreshToken] = consentRefresh
+	cfg := mustLoad(t, f.svc)
+	out, err := f.svc.DeleteSecret(context.Background(), cfg, SecretWrite{
+		Name: "cred", Entry: cfg.Credentials["cred"], Role: config.RoleRefreshToken,
+	})
+	if err != nil || out.Revocation == nil {
+		t.Fatalf("DeleteSecret() = %+v, %v", out, err)
+	}
+	if out.Revocation.LogWarning != "" {
+		t.Errorf("LogWarning = %q, want none", out.Revocation.LogWarning)
+	}
+	assertConsentLog(t, f.dir, "config.consent.revoke", 2)
+	assertConsentLog(t, f.dir, `"path":"tui"`, 2)
+
+	// Deleting a credential from the TUI revokes without a warning. Only an unused credential can be deleted,
+	// so there is no connection to log an entry for.
+	f = newConsentFixture(t)
+	f.svc.surface = connlog.SurfaceTUI
+	f.secrets.entries["lonely."+config.RoleRefreshToken] = consentRefresh
+	cfg, rev, err := f.svc.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	deleted, err := f.svc.DeleteCredential(context.Background(), cfg, rev, "lonely")
+	if err != nil || deleted.Revocation == nil {
+		t.Fatalf("DeleteCredential() = %+v, %v", deleted, err)
+	}
+	if deleted.Revocation.LogWarning != "" {
+		t.Errorf("DeleteCredential() LogWarning = %q, want none", deleted.Revocation.LogWarning)
+	}
+	assertConsentLog(t, f.dir, "config.consent.revoke", 0)
+}
+
 // Deleting a credential that holds a consent revokes and removes its refresh token first and then removes
 // the credential, also when the provider does not confirm. A credential still in use is refused before
 // anything is sent.
