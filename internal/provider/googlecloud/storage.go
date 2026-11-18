@@ -182,22 +182,31 @@ type bucketProof struct {
 	ProjectNumber string `json:"projectNumber"`
 }
 
-// bindBucket reads the bucket once and refuses it unless its project lies in the targets, before any further
-// read of the bucket. An unbound connection needs no proof.
-func (s *storageSession) bindBucket(ctx context.Context, tool, bucket, userProject string) error {
-	if !s.list.bound() {
-		return nil
-	}
+// readBucketProof reads the bucket and checks that the answer is the one asked for.
+func (s *storageSession) readBucketProof(ctx context.Context, tool, bucket, userProject string) (bucketProof, error) {
 	query := url.Values{"fields": {"name,projectNumber"}}
 	if userProject != "" {
 		query.Set("userProject", userProject)
 	}
 	var proof bucketProof
 	if err := s.c.get(ctx, s.op, tool, serviceStorage, bucketPath(bucket), query, &proof); err != nil {
-		return err
+		return proof, err
 	}
 	if proof.Name != bucket {
-		return provider.InvalidResponse(s.op, subject+" returned an invalid response")
+		return proof, provider.InvalidResponse(s.op, subject+" returned an invalid response")
+	}
+	return proof, nil
+}
+
+// bindBucket reads the bucket once and refuses it unless its project lies in the targets, before any further
+// read of the bucket. An unbound connection needs no proof.
+func (s *storageSession) bindBucket(ctx context.Context, tool, bucket, userProject string) error {
+	if !s.list.bound() {
+		return nil
+	}
+	proof, err := s.readBucketProof(ctx, tool, bucket, userProject)
+	if err != nil {
+		return err
 	}
 	admitted, err := s.admitNumber(ctx, proof.ProjectNumber)
 	if err != nil {

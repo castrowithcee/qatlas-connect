@@ -35,7 +35,7 @@ tokens for it). The connection holds no scope. Qatlas derives them from the tool
 smallest scope the discovery document of each method lists: `cloud-platform.read-only` for Resource Manager,
 and `cloud-platform` for the IAM and quota tools, because their discovery documents list no narrower scope
 (Google offers no read-only variant for these methods, see [IAM](iam.md) and [Quotas](quotas.md)). Only the tools of the profiles
-`service-accounts`, `service-accounts-revoke`, `api-keys-revoke`, `iam-bindings`, `compute-network-delete`, `compute-lifecycle`, `compute-instances-create`, `compute-disks`, `compute-images-delete`, and `services` and the tools
+`service-accounts`, `service-accounts-revoke`, `api-keys-revoke`, `iam-bindings`, `compute-network-delete`, `compute-lifecycle`, `compute-instances-create`, `compute-disks`, `compute-images-delete`, `storage-revoke`, and `services` and the tools
 `service-accounts.delete`, `services.disable`, `instances.delete`, and `disks.delete`, which a `tools` list must name, change anything, each with a confirmation, whatever the scope allows. The access token travels in the
 `Authorization` header only, is never an argument or part of a result, and is masked in every output. A 401
 renews the token once, and nothing else repeats a request.
@@ -178,6 +178,18 @@ every call needs the confirmation of a person. It does not hold `google.cloud.di
 listed-only and only a `tools` list that names it exactly releases it. See [Images](images.md#changes),
 [Disk snapshots](snapshots.md#deleting-a-snapshot), and [Disks](disks.md#deleting-a-disk).
 
+The profile `storage-revoke` holds `google.cloud.hmac-keys.deactivate`, `google.cloud.hmac-keys.delete`,
+`google.cloud.notifications.delete`, the reads that name what is revoked (`google.cloud.hmac-keys.list`,
+`google.cloud.hmac-keys.get`, `google.cloud.notifications.list`), and `google.cloud.projects.get`, which proves a
+project against targets of an organization or a folder. The HMAC tools ask for `devstorage.full_control` and the
+notification deletion for `devstorage.read_write`. `full_control` is broader than deleting a key alone needs
+(`hmacKeys.delete` also lists `read_write`), because the tool reads the key first and `hmacKeys.get` accepts only
+`full_control` and `read_only`. Google also uses `full_control` to create keys and to change what the account may in
+Cloud Storage, so the token may do that although no tool does. The profile needs the effects `update` and `delete`
+and `read`, is not recommended, and every call needs the confirmation of a person. No tool creates or reactivates a
+key or creates a notification. See [HMAC keys](hmac-keys.md#revoking-a-key) and
+[Notifications](notifications.md#deleting-a-configuration).
+
 The profile `services` holds only `google.cloud.services.enable` and `google.cloud.services.batch-enable`. It asks
 for `cloud-platform`, needs the effect `update`, and is not recommended. It does not hold
 `google.cloud.services.disable`: that tool is listed-only and only a `tools` list that names it exactly releases
@@ -225,7 +237,7 @@ on [IAM bindings](iam-bindings.md).
 - [Buckets](buckets.md): the Cloud Storage buckets of a project, one and all, and the IAM policy of a bucket, bound to
   the targets by the project number of the bucket.
 - [Bucket access controls](bucket-access-controls.md): the access control list of a Cloud Storage bucket.
-- [Notifications](notifications.md): the Pub/Sub notification configurations of a Cloud Storage bucket.
+- [Notifications](notifications.md): the Pub/Sub notification configurations of a Cloud Storage bucket, and their deletion.
 - [Managed folders](managed-folders.md): the managed folders of a Cloud Storage bucket.
 - [HMAC keys](hmac-keys.md): the metadata of the HMAC keys of a project, never a key value.
 - [Objects](objects.md): the objects of a Cloud Storage bucket, their metadata, and their content up to a fixed limit as

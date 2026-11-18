@@ -28,6 +28,10 @@ const scopeCompute = "https://www.googleapis.com/auth/compute"
 // buckets.get (next to devstorage.read_write, devstorage.full_control, and the cloud-platform scopes).
 const scopeStorageReadOnly = "https://www.googleapis.com/auth/devstorage.read_only"
 
+// scopeStorageReadWrite is the smallest scope the discovery document of storage v1 lists for notifications.delete,
+// next to devstorage.full_control and cloud-platform.
+const scopeStorageReadWrite = "https://www.googleapis.com/auth/devstorage.read_write"
+
 // scopeStorageFullControl is the smallest scope the discovery document of storage v1 lists for
 // buckets.getIamPolicy and bucketAccessControls.list, next to cloud-platform; neither lists a read-only variant.
 const scopeStorageFullControl = "https://www.googleapis.com/auth/devstorage.full_control"
@@ -165,4 +169,12 @@ var tokenMetadata = config.TokenMetadata{Scopes: map[string][]string{
 	imagesInsertID:    {scopeCompute},
 	imagesDeleteID:    {scopeCompute},
 	snapshotsDeleteID: {scopeCompute},
+	// storage v1 lists devstorage.full_control and cloud-platform for projects.hmacKeys.update, and
+	// devstorage.read_write as well for projects.hmacKeys.delete. The tool reads the key with hmacKeys.get first,
+	// which lists devstorage.full_control and read_only but not read_write, so the deletion asks for
+	// full_control too. notifications.delete lists devstorage.read_write, which notifications.get and buckets.get
+	// accept as well.
+	hmacKeysDeactivateID:  {scopeStorageFullControl},
+	hmacKeysDeleteID:      {scopeStorageFullControl},
+	notificationsDeleteID: {scopeStorageReadWrite},
 }}
