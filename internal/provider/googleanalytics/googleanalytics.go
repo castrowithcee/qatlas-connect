@@ -20,7 +20,8 @@
 // The settings and the event create rules of a web data stream and the calculated metrics, annotations, audiences,
 // channel groups and expanded data sets of a property run on the Admin API v1alpha, see alpha.go. So do the
 // read-only tools for the Display & Video 360 advertiser links of a property and their proposals; the proposals
-// name email addresses, so their results carry their own data sensitivity.
+// name email addresses, so their results carry their own data sensitivity. The read-only AdSense and Search Ads
+// 360 links of a property run there as well.
 //
 // A connection may bind Analytics accounts (accounts/ID) and properties (properties/ID). Without a target it
 // reaches what the credential reaches. A bound account reaches its properties, a bound property only itself;
@@ -183,6 +184,10 @@ var scopes = map[string][]string{
 	firebaseLinksListID:  {scopeReadOnly},
 	bigQueryLinksListID:  {scopeReadOnly},
 	bigQueryLinksGetID:   {scopeReadOnly},
+	adsenseLinksListID:   {scopeReadOnly},
+	adsenseLinksGetID:    {scopeReadOnly},
+	searchAdsLinksListID: {scopeReadOnly},
+	searchAdsLinksGetID:  {scopeReadOnly},
 }
 
 func tokenMetadata() config.TokenMetadata { return config.TokenMetadata{Scopes: scopes} }
@@ -251,7 +256,8 @@ var readTools = []string{summariesID, accountsID, accountsGetID, accountsSharing
 	calculatedListID, calculatedGetID, accessAccountID, accessPropertyID, dataRetentionGetID, googleSignalsGetID,
 	annotationsListID, annotationsGetID, dv360LinksListID, dv360LinksGetID, dv360ProposalsListID, dv360ProposalsGetID,
 	audiencesListID, audiencesGetID, channelGroupsListID, channelGroupsGetID, edsListID, edsGetID, adsLinksListID,
-	firebaseLinksListID, bigQueryLinksListID, bigQueryLinksGetID}
+	firebaseLinksListID, bigQueryLinksListID, bigQueryLinksGetID, adsenseLinksListID, adsenseLinksGetID,
+	searchAdsLinksListID, searchAdsLinksGetID}
 
 // Register adds the provider metadata, its consent endpoints, its connection test and its tools.
 func Register(reg *capability.Registry) error {
@@ -439,6 +445,10 @@ func Register(reg *capability.Registry) error {
 		{Descriptor: firebaseLinksList, Handler: handleFirebaseLinksList},
 		{Descriptor: bigQueryLinksList, Handler: handleBigQueryLinksList},
 		{Descriptor: bigQueryLinksGet, Handler: handleBigQueryLinksGet},
+		{Descriptor: adsenseLinksList, Handler: handleAdsenseLinksList},
+		{Descriptor: adsenseLinksGet, Handler: handleAdsenseLinksGet},
+		{Descriptor: searchAdsLinksList, Handler: handleSearchAdsLinksList},
+		{Descriptor: searchAdsLinksGet, Handler: handleSearchAdsLinksGet},
 	} {
 		if err := reg.Register(Provider, operation); err != nil {
 			return err

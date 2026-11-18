@@ -1,6 +1,6 @@
 ---
 description: >
-  Describes the Google Analytics provider: the fixed Admin and Data API origins, the token credential, the optional account and property targets and what each tool does with them, the read and write profiles, the alpha tools rule, paging, bounds on provider content, rate spacing, quotas, the connection test, and the limits of what is verified; the account, property, data stream, custom dimension, custom metric, key event, event create rule, calculated metric, annotation, audience, channel group, expanded data set, Display & Video 360 link, Google Ads link, Firebase link, BigQuery link, report, audience export, report task, access report, data retention, and Google Signals tools have their own pages.
+  Describes the Google Analytics provider: the fixed Admin and Data API origins, the token credential, the optional account and property targets and what each tool does with them, the read and write profiles, the alpha tools rule, paging, bounds on provider content, rate spacing, quotas, the connection test, and the limits of what is verified; the account, property, data stream, custom dimension, custom metric, key event, event create rule, calculated metric, annotation, audience, channel group, expanded data set, Display & Video 360 link, Google Ads link, Firebase link, BigQuery link, AdSense link, Search Ads 360 link, report, audience export, report task, access report, data retention, and Google Signals tools have their own pages.
 type: knowledge
 edit: shared
 created: 2026-11-16
@@ -23,7 +23,7 @@ and deletes the calculated metrics, the annotations, and the expanded data sets 
 and archives its audiences (alpha), and runs Data Access Reports on an
 account or property, which name the users who read the data and are personal data. It reads and changes the data
 retention settings of a property and, through the alpha Admin API, its Google Signals setting. It lists and reads the
-Display & Video 360 advertiser links of a property and the proposals for them (alpha, read-only). It also reads the Google Ads, Firebase, and BigQuery (alpha) links of a property; links have no tool that creates, changes, or deletes them. The Google Ads links name the people who created them, which is personal data. The reading tools change
+Display & Video 360 advertiser links of a property and the proposals for them (alpha, read-only). It also reads the Google Ads, Firebase, BigQuery (alpha), AdSense (alpha), and Search Ads 360 (alpha) links of a property; links have no tool that creates, changes, or deletes them. The Google Ads links name the people who created them, which is personal data. The reading tools change
 nothing. The account, property, data stream, custom dimension, custom metric, key event, event create rule, calculated metric, annotation, audience, channel group, and expanded data set tools read no report data and use no reporting quota; the report
 tools do, see [reports](reports.md#quota), and so does starting an audience export, see
 [audience exports](audience-exports.md#quota), and starting a report task, see
@@ -34,6 +34,7 @@ tools do, see [reports](reports.md#quota), and so does starting an audience expo
 [custom metrics](custom-metrics.md), [key events](key-events.md), [event create rules](event-create-rules.md),
 [calculated metrics](calculated-metrics.md),
 [annotations](annotations.md), [audiences](audiences.md), [channel groups](channel-groups.md), [expanded data sets](expanded-data-sets.md), [Display & Video 360 links](display-video360-links.md),
+[AdSense links](adsense-links.md), [Search Ads 360 links](search-ads360-links.md),
 [reports](reports.md), [audience exports](audience-exports.md), [report tasks](report-tasks.md),
 [measurement protocol secrets](measurement-protocol-secrets.md), [access reports](access-reports.md),
 [data retention](data-retention.md), [Google Signals](google-signals.md), [Google Ads links](google-ads-links.md),
@@ -66,7 +67,8 @@ the answer of the tool change with it. Every other Admin tool uses `v1beta`. The
 say so on their page: the [data streams](data-streams.md#stream-settings-alpha) settings tools, the
 [event create rule](event-create-rules.md) tools, the [calculated metrics](calculated-metrics.md) tools, and the
 [annotations](annotations.md), [audiences](audiences.md), the [channel groups](channel-groups.md), the [expanded data sets](expanded-data-sets.md), the [Display & Video 360 links](display-video360-links.md), the
-[Google Signals](google-signals.md), and the [BigQuery links](bigquery-links.md) tools.
+[Google Signals](google-signals.md), the [BigQuery links](bigquery-links.md), the [AdSense links](adsense-links.md), and the
+[Search Ads 360 links](search-ads360-links.md) tools.
 
 ## Targets
 
@@ -106,6 +108,8 @@ not name the resource.
 | `annotations.list`, `annotations.get`, `annotations.create`, `annotations.update`, `annotations.delete` | Use the annotations of a bound property, or of a property of a bound account after one proof read of its parent; see [annotations](annotations.md#targets-and-proof) |
 | `channel-groups.list`, `channel-groups.get`, `channel-groups.create`, `channel-groups.update`, `channel-groups.delete` | Use the channel groups of a bound property, or of a property of a bound account after one proof read of its parent; see [channel groups](channel-groups.md#targets-and-proof) |
 | `display-video360-links.list`, `display-video360-links.get`, `display-video360-link-proposals.list`, `display-video360-link-proposals.get` | Use a bound property, or a property of a bound account after one proof read of its parent; see [Display & Video 360 links](display-video360-links.md#targets-and-proof) |
+| `adsense-links.list`, `adsense-links.get` | Use the links of a bound property, or of a property of a bound account after one proof read of its parent; see [AdSense links](adsense-links.md#targets-and-proof) |
+| `search-ads360-links.list`, `search-ads360-links.get` | Like the AdSense link tools; see [Search Ads 360 links](search-ads360-links.md#targets-and-proof) |
 | `data-retention.get`, `data-retention.update`, `google-signals.get`, `google-signals.update` | Use a bound property, or a property of a bound account after one proof read of its parent; see [data retention](data-retention.md#targets-and-proof) |
 | `google-ads-links.list`, `firebase-links.list`, `bigquery-links.list`, `bigquery-links.get` | Use a bound property, or a property of a bound account after one proof read of its parent; see [Google Ads links](google-ads-links.md#targets-and-proof) |
 | `reports.run`, `reports.run-pivot`, `reports.batch-run`, `reports.batch-run-pivot`, `reports.run-realtime`, `reports.check-compatibility` | Use a bound property, or a property of a bound account after one proof read of its parent |
@@ -147,6 +151,8 @@ The profile `read` is the recommended one and holds `google.analytics.accounts.l
 `google.analytics.expanded-data-sets.list`, `google.analytics.expanded-data-sets.get`,
 `google.analytics.display-video360-links.list`, `google.analytics.display-video360-links.get`,
 `google.analytics.display-video360-link-proposals.list`, `google.analytics.display-video360-link-proposals.get`,
+`google.analytics.adsense-links.list`, `google.analytics.adsense-links.get`,
+`google.analytics.search-ads360-links.list`, `google.analytics.search-ads360-links.get`,
 `google.analytics.accounts.run-access-report`, `google.analytics.properties.run-access-report`,
 `google.analytics.data-retention.get`, `google.analytics.google-signals.get`,
 `google.analytics.google-ads-links.list`, `google.analytics.firebase-links.list`,
