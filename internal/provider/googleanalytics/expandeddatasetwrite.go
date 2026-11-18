@@ -130,8 +130,8 @@ type (
 const filterExpressionRule = "dimension_filter_expression must be an and_group of 1 to 20 filter_expressions, each " +
 	"with exactly one of filter and not_expression (which holds one filter)"
 
-// filterBody checks one filter and returns its body form.
-func (f *filterArg) body() (*filterBody, error) {
+// edsFilterBody checks one filter and returns its body form.
+func (f *filterArg) body() (*edsFilterBody, error) {
 	if f == nil {
 		return nil, badRequest(filterExpressionRule)
 	}
@@ -142,7 +142,7 @@ func (f *filterArg) body() (*filterBody, error) {
 	if (f.StringFilter == nil) == (f.InListFilter == nil) {
 		return nil, badRequest("a filter needs exactly one of string_filter and in_list_filter")
 	}
-	out := &filterBody{FieldName: apiName(f.FieldName)}
+	out := &edsFilterBody{FieldName: apiName(f.FieldName)}
 	if s := f.StringFilter; s != nil {
 		if s.MatchType != edsMatchExact && s.MatchType != edsMatchContains {
 			return nil, badRequest("match_type must be EXACT or CONTAINS")
@@ -157,7 +157,7 @@ func (f *filterArg) body() (*filterBody, error) {
 		if !exact && s.CaseSensitive != nil && *s.CaseSensitive {
 			return nil, badRequest("case_sensitive must be false when match_type is CONTAINS")
 		}
-		out.StringFilter = &stringFilterBody{MatchType: code(s.MatchType), Value: text(s.Value), CaseSensitive: s.CaseSensitive}
+		out.StringFilter = &edsStringFilterBody{MatchType: code(s.MatchType), Value: text(s.Value), CaseSensitive: s.CaseSensitive}
 		return out, nil
 	}
 	in := f.InListFilter
@@ -174,7 +174,7 @@ func (f *filterArg) body() (*filterBody, error) {
 		}
 		values = append(values, text(v))
 	}
-	out.InListFilter = &inListFilterBody{Values: values, CaseSensitive: in.CaseSensitive}
+	out.InListFilter = &edsInListFilterBody{Values: values, CaseSensitive: in.CaseSensitive}
 	return out, nil
 }
 
@@ -184,7 +184,7 @@ func (e *filterExpressionArg) body() (*filterExpressionBody, error) {
 		len(e.AndGroup.FilterExpressions) > maxEdsFilterGroup {
 		return nil, badRequest(filterExpressionRule)
 	}
-	group := &groupBody{}
+	group := &edsGroupBody{}
 	for _, leaf := range e.AndGroup.FilterExpressions {
 		if (leaf.Filter == nil) == (leaf.NotExpression == nil) {
 			return nil, badRequest(filterExpressionRule)

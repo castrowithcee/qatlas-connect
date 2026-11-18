@@ -121,33 +121,33 @@ func inPropertyEds(name edsName, property string) bool {
 // The filter expression has the fixed shape Google documents: an and group of filters, each plain or negated.
 // These types serve the request body and the answer; a level deeper than this shape is never held.
 type (
-	stringFilterBody struct {
+	edsStringFilterBody struct {
 		MatchType     code  `json:"matchType,omitempty"`
 		Value         text  `json:"value,omitempty"`
 		CaseSensitive *bool `json:"caseSensitive,omitempty"`
 	}
-	inListFilterBody struct {
+	edsInListFilterBody struct {
 		Values        textList `json:"values,omitempty"`
 		CaseSensitive *bool    `json:"caseSensitive,omitempty"`
 	}
-	filterBody struct {
-		FieldName    apiName           `json:"fieldName,omitempty"`
-		StringFilter *stringFilterBody `json:"stringFilter,omitempty"`
-		InListFilter *inListFilterBody `json:"inListFilter,omitempty"`
+	edsFilterBody struct {
+		FieldName    apiName              `json:"fieldName,omitempty"`
+		StringFilter *edsStringFilterBody `json:"stringFilter,omitempty"`
+		InListFilter *edsInListFilterBody `json:"inListFilter,omitempty"`
 	}
 	negatedBody struct {
-		Filter *filterBody `json:"filter,omitempty"`
+		Filter *edsFilterBody `json:"filter,omitempty"`
 	}
 	leafBody struct {
-		Filter        *filterBody  `json:"filter,omitempty"`
-		NotExpression *negatedBody `json:"notExpression,omitempty"`
+		Filter        *edsFilterBody `json:"filter,omitempty"`
+		NotExpression *negatedBody   `json:"notExpression,omitempty"`
 	}
-	leafList  []leafBody
-	groupBody struct {
+	leafList     []leafBody
+	edsGroupBody struct {
 		FilterExpressions leafList `json:"filterExpressions,omitempty"`
 	}
 	filterExpressionBody struct {
-		AndGroup *groupBody `json:"andGroup,omitempty"`
+		AndGroup *edsGroupBody `json:"andGroup,omitempty"`
 	}
 )
 

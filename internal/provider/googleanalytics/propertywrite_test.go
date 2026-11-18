@@ -66,7 +66,8 @@ func TestExcludedMethodsHaveNoTool(t *testing.T) {
 		annotationsCreateID, annotationsUpdateID, annotationsDeleteID,
 		dv360LinksListID, dv360LinksGetID, dv360ProposalsListID, dv360ProposalsGetID,
 		audiencesListID, audiencesGetID, audiencesCreateID, audiencesUpdateID, audiencesArchiveID,
-		edsListID, edsGetID, edsCreateID, edsUpdateID, edsDeleteID}; !slices.Equal(ids, sortedCopy(want)) {
+		channelGroupsListID, channelGroupsGetID, channelGroupsCreateID, channelGroupsUpdateID,
+		channelGroupsDeleteID, edsListID, edsGetID, edsCreateID, edsUpdateID, edsDeleteID}; !slices.Equal(ids, sortedCopy(want)) {
 		t.Errorf("tools = %v", ids)
 	}
 	// Only an ordinary property is created, so no tool can make a subproperty or a rollup.
