@@ -300,7 +300,7 @@ func invokeRecordsGet(ctx context.Context, resolved *config.Resolved, secrets *s
 }
 
 // recordObject is one object resolved against the workspace catalog, with the fields a record read may
-// report: the fields of the response shape that are not relations.
+// report: the fields of the response shape that are neither relations nor inactive.
 type recordObject struct {
 	*catalogObject
 	readable map[string]catalogField
@@ -311,7 +311,7 @@ func (c *Client) recordObject(ctx context.Context, op, name string) (*recordObje
 	if !c.scope.allows(name) {
 		return nil, invalidRequest(errObjectUnavailable)
 	}
-	cat, err := c.workspaceCatalog(ctx, op)
+	cat, err := c.activeCatalog(ctx, op)
 	if err != nil {
 		return nil, err
 	}
@@ -321,7 +321,7 @@ func (c *Client) recordObject(ctx context.Context, op, name string) (*recordObje
 	}
 	result := &recordObject{catalogObject: object, readable: map[string]catalogField{}, origin: c.origin}
 	for _, field := range object.Fields {
-		if field.InResponse && !field.Reference && field.Relation == "" {
+		if field.InResponse && !field.Reference && field.Relation == "" && !field.inactive() {
 			result.readable[field.Name] = field
 		}
 	}
