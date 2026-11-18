@@ -17,8 +17,10 @@
 // of a measurement protocol secret is never returned: it is read from Google's answer only to register it with
 // the redactor.
 //
-// The settings and the event create rules of a web data stream and the calculated metrics, annotations and
-// attribution settings of a property run on the Admin API v1alpha, see alpha.go.
+// The settings and the event create rules of a web data stream and the calculated metrics, annotations, audiences,
+// channel groups and attribution settings of a property run on the Admin API v1alpha, see alpha.go. So do the
+// read-only tools for the Display & Video 360 advertiser links of a property and their proposals; the proposals
+// name email addresses, so their results carry their own data sensitivity.
 //
 // The change history search accepts only the scope analytics.edit, so it is outside the profile read. Its
 // events hold email addresses of users and snapshots of resources: personal data, shown bounded.
@@ -147,16 +149,33 @@ var scopes = map[string][]string{
 	accessAccountID:  {scopeReadOnly},
 	accessPropertyID: {scopeReadOnly},
 
+	audiencesListID:    {scopeReadOnly},
+	audiencesGetID:     {scopeReadOnly},
+	audiencesCreateID:  {scopeEdit},
+	audiencesUpdateID:  {scopeEdit},
+	audiencesArchiveID: {scopeEdit},
+
 	annotationsListID:   {scopeReadOnly},
 	annotationsGetID:    {scopeReadOnly},
 	annotationsCreateID: {scopeEdit},
 	annotationsUpdateID: {scopeEdit},
 	annotationsDeleteID: {scopeEdit},
 
+	channelGroupsListID:   {scopeReadOnly},
+	channelGroupsGetID:    {scopeReadOnly},
+	channelGroupsCreateID: {scopeEdit},
+	channelGroupsUpdateID: {scopeEdit},
+	channelGroupsDeleteID: {scopeEdit},
+
 	dataRetentionGetID:    {scopeReadOnly},
 	dataRetentionUpdateID: {scopeEdit},
 	googleSignalsGetID:    {scopeReadOnly},
 	googleSignalsUpdateID: {scopeEdit},
+
+	dv360LinksListID:     {scopeReadOnly},
+	dv360LinksGetID:      {scopeReadOnly},
+	dv360ProposalsListID: {scopeReadOnly},
+	dv360ProposalsGetID:  {scopeReadOnly},
 
 	attributionGetID:    {scopeReadOnly},
 	attributionUpdateID: {scopeEdit},
@@ -228,7 +247,8 @@ var readTools = []string{summariesID, accountsID, accountsGetID, accountsSharing
 	customDimensionsListID, customDimensionsGetID, customMetricsListID,
 	customMetricsGetID, keyEventsListID, keyEventsGetID, eventRulesListID, eventRulesGetID,
 	calculatedListID, calculatedGetID, accessAccountID, accessPropertyID, dataRetentionGetID, googleSignalsGetID,
-	annotationsListID, annotationsGetID, attributionGetID}
+	annotationsListID, annotationsGetID, dv360LinksListID, dv360LinksGetID, dv360ProposalsListID, dv360ProposalsGetID,
+	audiencesListID, audiencesGetID, channelGroupsListID, channelGroupsGetID, attributionGetID}
 
 // Register adds the provider metadata, its consent endpoints, its connection test and its tools.
 func Register(reg *capability.Registry) error {
@@ -261,15 +281,15 @@ func Register(reg *capability.Registry) error {
 		},
 		Profiles: []config.ToolProfile{{
 			ID: "read", Title: "Read", Recommended: true,
-			Description: "reads the Analytics accounts, properties, custom dimensions and metrics, key events, calculated metrics, reports and report tasks the connection reaches; " +
-				"nothing is changed. It includes reading the users of an audience export and the Data Access Reports, " +
-				"which are personal data",
+			Description: "reads the Analytics accounts, properties, custom dimensions and metrics, key events, calculated metrics, audiences, channel groups, reports and report tasks the connection reaches; " +
+				"nothing is changed. It includes reading the users of an audience export, the Data Access Reports and the " +
+				"Display & Video 360 link proposals, which are personal data",
 			Tools: readTools,
 		}, {
 			ID: "write", Title: "Read and change",
 			Description: "reads what the read profile reads and changes Analytics accounts, properties, data streams, custom " +
-				"dimensions, custom metrics, key events, event create rules, calculated metrics, annotations, attribution settings and Google Signals, starts audience exports and report tasks, " +
-				"and deletes data streams, measurement protocol secrets and key events; every change needs its own " +
+				"dimensions, custom metrics, key events, event create rules, calculated metrics, audiences, annotations, channel groups, attribution settings and Google Signals, starts audience exports and report tasks, " +
+				"and deletes data streams, measurement protocol secrets, key events and channel groups and archives audiences; every change needs its own " +
 				"confirmation, and deleting an account or a property stays unlisted, and so does changing the data retention. " +
 				"It also searches the change history, which holds the email addresses of users and accepts only the " +
 				"scope analytics.edit",
@@ -280,7 +300,9 @@ func Register(reg *capability.Registry) error {
 				customMetricsCreateID, customMetricsUpdateID, customMetricsArchiveID,
 				keyEventsCreateID, keyEventsUpdateID, keyEventsDeleteID, eventRulesCreateID, eventRulesUpdateID, eventRulesDeleteID,
 				calculatedCreateID, calculatedUpdateID, calculatedDeleteID, googleSignalsUpdateID,
-				annotationsCreateID, annotationsUpdateID, annotationsDeleteID, attributionUpdateID, changeHistoryID),
+				annotationsCreateID, annotationsUpdateID, annotationsDeleteID,
+				audiencesCreateID, audiencesUpdateID, audiencesArchiveID,
+				channelGroupsCreateID, channelGroupsUpdateID, channelGroupsDeleteID, attributionUpdateID, changeHistoryID),
 		}, {
 			ID: "read-change-history", Title: "Read with change history",
 			Description: "everything of read plus the search in the change history of an account or property; " +
@@ -370,6 +392,14 @@ func Register(reg *capability.Registry) error {
 			ConfirmationSummary: calculatedWriteSummary(calculatedUpdateID)},
 		{Descriptor: calculatedDelete, Handler: handleCalculatedDelete,
 			ConfirmationSummary: calculatedWriteSummary(calculatedDeleteID)},
+		{Descriptor: audiencesList, Handler: handleAudiencesList},
+		{Descriptor: audiencesGet, Handler: handleAudiencesGet},
+		{Descriptor: audiencesCreate, Handler: handleAudiencesCreate,
+			ConfirmationSummary: audienceWriteSummary(audiencesCreateID)},
+		{Descriptor: audiencesUpdate, Handler: handleAudiencesUpdate,
+			ConfirmationSummary: audienceWriteSummary(audiencesUpdateID)},
+		{Descriptor: audiencesArchive, Handler: handleAudiencesArchive,
+			ConfirmationSummary: audienceWriteSummary(audiencesArchiveID)},
 		{Descriptor: annotationsList, Handler: handleAnnotationsList},
 		{Descriptor: annotationsGet, Handler: handleAnnotationsGet},
 		{Descriptor: annotationsCreate, Handler: handleAnnotationsCreate,
@@ -378,6 +408,14 @@ func Register(reg *capability.Registry) error {
 			ConfirmationSummary: annotationSummary(annotationsUpdateID)},
 		{Descriptor: annotationsDelete, Handler: handleAnnotationsDelete,
 			ConfirmationSummary: annotationSummary(annotationsDeleteID)},
+		{Descriptor: channelGroupsList, Handler: handleChannelGroupsList},
+		{Descriptor: channelGroupsGet, Handler: handleChannelGroupsGet},
+		{Descriptor: channelGroupsCreate, Handler: handleChannelGroupsCreate,
+			ConfirmationSummary: channelGroupSummary(channelGroupsCreateID)},
+		{Descriptor: channelGroupsUpdate, Handler: handleChannelGroupsUpdate,
+			ConfirmationSummary: channelGroupSummary(channelGroupsUpdateID)},
+		{Descriptor: channelGroupsDelete, Handler: handleChannelGroupsDelete,
+			ConfirmationSummary: channelGroupSummary(channelGroupsDeleteID)},
 		{Descriptor: funnelRun, Handler: handleFunnelRun},
 		{Descriptor: audienceGet, Handler: handleAudienceGet},
 		{Descriptor: audienceList, Handler: handleAudienceList},
@@ -393,6 +431,10 @@ func Register(reg *capability.Registry) error {
 		{Descriptor: dataRetentionUpdate, Handler: handleDataRetentionUpdate, ConfirmationSummary: retentionSummary},
 		{Descriptor: googleSignalsGet, Handler: handleGoogleSignalsGet},
 		{Descriptor: googleSignalsUpdate, Handler: handleGoogleSignalsUpdate, ConfirmationSummary: signalsSummary},
+		{Descriptor: dv360LinksList, Handler: handleDV360LinksList},
+		{Descriptor: dv360LinksGet, Handler: handleDV360LinksGet},
+		{Descriptor: dv360ProposalsList, Handler: handleDV360ProposalsList},
+		{Descriptor: dv360ProposalsGet, Handler: handleDV360ProposalsGet},
 		{Descriptor: attributionGet, Handler: handleAttributionGet},
 		{Descriptor: attributionUpdate, Handler: handleAttributionUpdate, ConfirmationSummary: attributionSummary},
 		{Descriptor: changeHistorySearch, Handler: handleChangeHistorySearch},
