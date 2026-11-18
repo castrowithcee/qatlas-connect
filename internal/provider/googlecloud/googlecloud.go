@@ -102,7 +102,9 @@ var readTools = []string{organizationsSearch.ID, foldersSearch.ID, projectsSearc
 	bucketsList.ID, bucketsGet.ID, notificationsList.ID, managedFoldersList.ID, hmacKeysList.ID, hmacKeysGet.ID,
 	objectsList.ID, objectsGet.ID, objectsDownload.ID,
 	billingAccountsList.ID, billingAccountsGet.ID, billingAccountsListProjects.ID, projectBillingInfoGet.ID,
-	managedZonesList.ID, managedZonesGet.ID, recordSetsList.ID, recordSetsGet.ID}
+	managedZonesList.ID, managedZonesGet.ID, recordSetsList.ID, recordSetsGet.ID,
+	changesList.ID, changesGet.ID, dnsKeysList.ID, dnsKeysGet.ID,
+	dnsPoliciesList.ID, dnsPoliciesGet.ID, responsePoliciesList.ID, responsePoliciesGet.ID}
 
 // Register adds the provider metadata, its connection test, its consent endpoints, and its tools.
 func Register(reg *capability.Registry) error {
@@ -131,7 +133,7 @@ func Register(reg *capability.Registry) error {
 				"the notification configurations and managed folders of a bucket, and " +
 				"the HMAC key metadata of a project with the scope devstorage.read_only, " +
 				"the Cloud Billing accounts a connection names, their projects, and the billing account of a project with the scope cloud-billing.readonly, " +
-				"and the Cloud DNS managed zones and record sets of a project with the scope ndev.clouddns.readonly, and changes nothing",
+				"and the Cloud DNS managed zones, record sets, changes, DNSSEC keys, server policies, and response policies of a project with the scope ndev.clouddns.readonly, and changes nothing",
 			Tools: readTools,
 		}, {
 			ID: "read-iam", Title: "Read with IAM",
@@ -246,6 +248,18 @@ func Register(reg *capability.Registry) error {
 				"snapshot or changes its IAM policy",
 			Tools: []string{projectsGet.ID, imagesInsert.ID, snapshotsDelete.ID, imagesDelete.ID},
 		}, {
+			ID: "storage-revoke", Title: "Cloud Storage access revocation",
+			Description: "deactivates and deletes HMAC keys of a project and deletes notification configurations of a " +
+				"bucket, each with the confirmation of a person; a key is deleted only if Google finds it INACTIVE, and " +
+				"a notification only if its topic is the one named; the profile holds the reads that name a key or a " +
+				"notification and projects.get, which proves a project against targets of an organization or a folder; " +
+				"the HMAC tools ask for the scope devstorage.full_control, which is broader than deleting a key needs " +
+				"because the key is read first, and which Google also uses to create keys and change what the account " +
+				"may in Cloud Storage, so the token may do that although no tool does; no tool creates or reactivates " +
+				"a key or creates a notification",
+			Tools: []string{projectsGet.ID, hmacKeysList.ID, hmacKeysGet.ID, notificationsList.ID, hmacKeysDeactivate.ID,
+				hmacKeysDelete.ID, notificationsDelete.ID},
+		}, {
 			ID: "services", Title: "Enable APIs",
 			Description: "enables Google APIs in a project, one or up to 20 at a time, each with the confirmation of a " +
 				"person; these Service Usage methods accept only the broad cloud-platform scope, so the token may " +
@@ -330,6 +344,14 @@ func Register(reg *capability.Registry) error {
 		capability.Operation{Descriptor: managedZonesGet, Handler: handleManagedZonesGet},
 		capability.Operation{Descriptor: recordSetsList, Handler: handleRecordSetsList},
 		capability.Operation{Descriptor: recordSetsGet, Handler: handleRecordSetsGet},
+		capability.Operation{Descriptor: changesList, Handler: handleChangesList},
+		capability.Operation{Descriptor: changesGet, Handler: handleChangesGet},
+		capability.Operation{Descriptor: dnsKeysList, Handler: handleDNSKeysList},
+		capability.Operation{Descriptor: dnsKeysGet, Handler: handleDNSKeysGet},
+		capability.Operation{Descriptor: dnsPoliciesList, Handler: handleDNSPoliciesList},
+		capability.Operation{Descriptor: dnsPoliciesGet, Handler: handleDNSPoliciesGet},
+		capability.Operation{Descriptor: responsePoliciesList, Handler: handleResponsePoliciesList},
+		capability.Operation{Descriptor: responsePoliciesGet, Handler: handleResponsePoliciesGet},
 		capability.Operation{Descriptor: bucketsGetIAMPolicy, Handler: handleBucketsGetIAMPolicy},
 		capability.Operation{Descriptor: bucketAccessControlsList, Handler: handleBucketAccessControlsList},
 		capability.Operation{Descriptor: objectsList, Handler: handleObjectsList},
@@ -422,6 +444,12 @@ func Register(reg *capability.Registry) error {
 		capability.Operation{Descriptor: quotaInfosGet, Handler: handleQuotaInfosGet},
 		capability.Operation{Descriptor: quotaPreferencesList, Handler: handleQuotaPreferencesList},
 		capability.Operation{Descriptor: quotaPreferencesGet, Handler: handleQuotaPreferencesGet},
+		capability.Operation{Descriptor: hmacKeysDeactivate, Handler: handleHMACKeysDeactivate,
+			ConfirmationSummary: storageRevokeSummary(hmacKeysDeactivateID)},
+		capability.Operation{Descriptor: hmacKeysDelete, Handler: handleHMACKeysDelete,
+			ConfirmationSummary: storageRevokeSummary(hmacKeysDeleteID)},
+		capability.Operation{Descriptor: notificationsDelete, Handler: handleNotificationsDelete,
+			ConfirmationSummary: storageRevokeSummary(notificationsDeleteID)},
 		capability.Operation{Descriptor: servicesEnable, Handler: handleServicesEnable,
 			ConfirmationSummary: serviceChangeSummary(servicesEnableID)},
 		capability.Operation{Descriptor: servicesBatchEnable, Handler: handleServicesBatchEnable,

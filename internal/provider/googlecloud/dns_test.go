@@ -150,6 +150,10 @@ func TestDNSToolsRefuseAProjectOutsideTheTargetsBeforeIO(t *testing.T) {
 		{managedZonesGetID, `{"project_id":"foreign-project-1","managed_zone":"example-zone"}`},
 		{recordSetsListID, `{"project_id":"foreign-project-1","managed_zone":"example-zone"}`},
 		{recordSetsGetID, `{"project_id":"foreign-project-1","managed_zone":"example-zone","name":"www.example.com.","type":"A"}`},
+		{changesListID, `{"project_id":"foreign-project-1","managed_zone":"example-zone"}`},
+		{changesGetID, `{"project_id":"foreign-project-1","managed_zone":"example-zone","change_id":"1"}`},
+		{dnsKeysListID, `{"project_id":"foreign-project-1","managed_zone":"example-zone"}`},
+		{dnsKeysGetID, `{"project_id":"foreign-project-1","managed_zone":"example-zone","dns_key_id":"0"}`},
 	} {
 		e := newEnvironment(t, []string{"projects/my-project-123"})
 		_, err := e.invoke(call[0], call[1])
@@ -298,6 +302,10 @@ func TestDNSToolsMapErrors(t *testing.T) {
 		managedZonesGetID:  `{"project_id":"my-project-123","managed_zone":"example-zone"}`,
 		recordSetsListID:   `{"project_id":"my-project-123","managed_zone":"example-zone"}`,
 		recordSetsGetID:    `{"project_id":"my-project-123","managed_zone":"example-zone","name":"www.example.com.","type":"A"}`,
+		changesListID:      `{"project_id":"my-project-123","managed_zone":"example-zone"}`,
+		changesGetID:       `{"project_id":"my-project-123","managed_zone":"example-zone","change_id":"1"}`,
+		dnsKeysListID:      `{"project_id":"my-project-123","managed_zone":"example-zone"}`,
+		dnsKeysGetID:       `{"project_id":"my-project-123","managed_zone":"example-zone","dns_key_id":"0"}`,
 	}
 	for _, status := range []struct {
 		code   int

@@ -1,6 +1,7 @@
 // Package googlebusinessprofile implements access to the Google Business Profile APIs v1: the accounts a
 // person manages, the business locations in them, and the performance of a location: daily metrics and
-// search keywords.
+// search keywords, and the place action links of a location (ordering, booking) with their types. Reviews come
+// from the My Business API v4, which Google keeps for them and has no discovery document; see v4.go.
 //
 // The credential is a person's consent through the user's own OAuth client; a service account key and the
 // impersonation of a service account are not offered, since Google documents no service account as a
@@ -69,6 +70,18 @@ var toolScopes = map[string][]string{
 	verificationsFetchOptionsID:  {scopeManage},
 	verificationsMerchantStateID: {scopeManage},
 	notificationsGetID:           {scopeManage},
+	placeActionLinksListID:       {scopeManage},
+	placeActionLinksGetID:        {scopeManage},
+	placeActionLinksCreateID:     {scopeManage},
+	placeActionLinksUpdateID:     {scopeManage},
+	placeActionLinksDeleteID:     {scopeManage},
+	placeActionTypesListID:       {scopeManage},
+
+	reviewsListID:        {scopeManage},
+	reviewsGetID:         {scopeManage},
+	reviewsBatchGetID:    {scopeManage},
+	reviewsUpdateReplyID: {scopeManage},
+	reviewsDeleteReplyID: {scopeManage},
 }
 
 // ClassAccessNotApproved is the outcome of a Cloud project that Google has not approved for the Business
@@ -131,12 +144,14 @@ var readTools = []string{accountsListID, accountsGetID, locationsListID, locatio
 	accountAdminsListID, locationAdminsListID,
 	performanceGetDailyID, performanceFetchDailyID, performanceKeywordsID,
 	categoriesListID, categoriesBatchGetID, chainsGetID, chainsSearchID, googleLocationsSearchID,
-	invitationsListID, lodgingGetID, lodgingGoogleUpdatedID,
-	verificationsListID, verificationsFetchOptionsID, verificationsMerchantStateID, notificationsGetID}
+	invitationsListID, reviewsListID, reviewsGetID, reviewsBatchGetID, lodgingGetID, lodgingGoogleUpdatedID,
+	verificationsListID, verificationsFetchOptionsID, verificationsMerchantStateID, notificationsGetID,
+	placeActionLinksListID, placeActionLinksGetID, placeActionTypesListID}
 
 // writeTools are the tools of the profile write.
 var writeTools = []string{accountAdminsUpdateID, locationAdminsUpdateID, accountsUpdateID,
-	accountAdminsDeleteID, locationAdminsDeleteID, invitationsDeclineID, lodgingUpdateID}
+	accountAdminsDeleteID, locationAdminsDeleteID, invitationsDeclineID, reviewsUpdateReplyID, reviewsDeleteReplyID,
+	lodgingUpdateID, placeActionLinksCreateID, placeActionLinksUpdateID, placeActionLinksDeleteID}
 
 // Register adds the provider metadata, its consent endpoints, its connection test, and its tools.
 func Register(reg *capability.Registry) error {
@@ -151,19 +166,21 @@ func Register(reg *capability.Registry) error {
 		Target:          targetMetadata,
 		Profiles: []config.ToolProfile{{
 			ID: "read", Title: "Read", Recommended: true,
-			Description: "lists and reads the accounts and the business locations the consenting account manages, " +
-				"and the categories, chains, and Google locations of Google's reference data, and changes nothing; " +
-				"Google offers only the scope business.manage, which also allows changes, so " +
+			Description: "lists and reads the accounts, the business locations, and the place action links the " +
+				"consenting account manages, and the categories, chains, and Google locations of Google's reference " +
+				"data, and changes nothing; Google offers only the scope business.manage, which also allows changes, so " +
 				"the token may change what its account may, although no tool of this profile changes anything; " +
-				"the admin lists name other people, the invitation list names the targets of invitations, and the " +
-				"verification options show masked postal addresses, phone numbers, and email addresses, which is " +
-				"personal data",
+				"the admin lists name other people, the invitation list names the targets of invitations, the " +
+				"verification options show masked postal addresses, phone numbers, and email addresses, and the " +
+				"reviews name reviewers, which is personal data",
 			Tools: readTools,
 		}, {
 			ID: "write", Title: "Write",
 			Description: "changes the role of existing admins of an account or a location, removes existing admins, " +
-				"declines invitations, and renames an account, each change with the confirmation of a person; no " +
-				"tool invites or creates an admin, accepts an invitation, makes anyone primary owner, or " +
+				"declines invitations, renames an account, creates, changes, and deletes place action links, which are " +
+				"public on the profile, and publishes or deletes the public reply of the business to a review, each " +
+				"change with the confirmation of a person; no tool invites or creates an admin, accepts an invitation, " +
+				"deletes or reports a review, makes anyone primary owner, or " +
 				"transfers a location; Google offers only the scope business.manage, so the " +
 				"token may change what its account may",
 			Tools: writeTools,
@@ -213,5 +230,21 @@ func Register(reg *capability.Registry) error {
 		capability.Operation{Descriptor: verificationsFetchOptions, Handler: handleVerificationsFetchOptions},
 		capability.Operation{Descriptor: verificationsMerchantState, Handler: handleVerificationsMerchantState},
 		capability.Operation{Descriptor: notificationsGet, Handler: handleNotificationsGet},
+		capability.Operation{Descriptor: reviewsList, Handler: handleReviewsList},
+		capability.Operation{Descriptor: reviewsGet, Handler: handleReviewsGet},
+		capability.Operation{Descriptor: reviewsBatchGet, Handler: handleReviewsBatchGet},
+		capability.Operation{Descriptor: reviewsUpdateReply, Handler: handleReviewsUpdateReply,
+			ConfirmationSummary: replyConfirmation},
+		capability.Operation{Descriptor: reviewsDeleteReply, Handler: handleReviewsDeleteReply,
+			ConfirmationSummary: deleteReplyConfirmation},
+		capability.Operation{Descriptor: placeActionLinksList, Handler: handlePlaceActionLinksList},
+		capability.Operation{Descriptor: placeActionLinksGet, Handler: handlePlaceActionLinksGet},
+		capability.Operation{Descriptor: placeActionLinksCreate, Handler: handlePlaceActionLinksCreate,
+			ConfirmationSummary: placeActionSummary(placeActionLinksCreateID)},
+		capability.Operation{Descriptor: placeActionLinksUpdate, Handler: handlePlaceActionLinksUpdate,
+			ConfirmationSummary: placeActionSummary(placeActionLinksUpdateID)},
+		capability.Operation{Descriptor: placeActionLinksDelete, Handler: handlePlaceActionLinksDelete,
+			ConfirmationSummary: placeActionSummary(placeActionLinksDeleteID)},
+		capability.Operation{Descriptor: placeActionTypesList, Handler: handlePlaceActionTypesList},
 	)
 }
