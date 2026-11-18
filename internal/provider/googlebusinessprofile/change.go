@@ -14,41 +14,43 @@ import (
 	"github.com/castrowithcee/qatlas-connect/internal/provider"
 )
 
-// change is one request of an API that changes something: a fixed origin, a path of checked segments below
-// its prefix (v1 unless prefix says otherwise), and a body built by the tool from checked arguments. key
-// names what Google counts the change against, see changeLimiter. method is set by the sender.
+// change is one changing request of an API: a fixed origin, a path of checked segments below its prefix (v1
+// unless prefix says otherwise), and a body built by the tool from checked arguments, none for a DELETE. key
+// names what Google counts the change against, see changeLimiter.
 type change struct {
 	root     string
 	prefix   string
 	path     string
-	method   string
 	query    url.Values
 	body     []byte
 	key      string
 	notFound string
 }
 
-// patch sends one PATCH, put one PUT and remove one DELETE, each exactly once.
+// patch sends one PATCH, see mutate.
 func (c *client) patch(ctx context.Context, op, tool string, r change, out any) error {
-	r.method = http.MethodPatch
-	return c.send(ctx, op, tool, r, out)
+	return c.mutate(ctx, http.MethodPatch, op, tool, r, out)
 }
 
+// post sends one POST, see mutate.
+func (c *client) post(ctx context.Context, op, tool string, r change, out any) error {
+	return c.mutate(ctx, http.MethodPost, op, tool, r, out)
+}
+
+// put sends one PUT, see mutate.
 func (c *client) put(ctx context.Context, op, tool string, r change, out any) error {
-	r.method = http.MethodPut
-	return c.send(ctx, op, tool, r, out)
+	return c.mutate(ctx, http.MethodPut, op, tool, r, out)
 }
 
+// remove sends one DELETE, see mutate.
 func (c *client) remove(ctx context.Context, op, tool string, r change, out any) error {
-	r.method = http.MethodDelete
-	r.body = nil
-	return c.send(ctx, op, tool, r, out)
+	return c.mutate(ctx, http.MethodDelete, op, tool, r, out)
 }
 
-// send decodes the JSON object answer into out. A token Google rejects is dropped for the next call and the
-// change is not sent again. Where the request may have reached Google and the outcome is unclear, the
-// message says so and nothing repeats the change.
-func (c *client) send(ctx context.Context, op, tool string, r change, out any) error {
+// mutate sends one request, exactly once, and decodes the JSON object answer into out. A token Google rejects
+// is dropped for the next call and the change is not sent again. Where the request may have reached Google
+// and the outcome is unclear, the message says so and nothing repeats the change.
+func (c *client) mutate(ctx context.Context, method, op, tool string, r change, out any) error {
 	address := r.root + cmp.Or(r.prefix, apiPrefix) + r.path
 	if len(r.query) > 0 {
 		address += "?" + r.query.Encode()
@@ -64,7 +66,7 @@ func (c *client) send(ctx context.Context, op, tool string, r change, out any) e
 		if r.body != nil {
 			body = bytes.NewReader(r.body)
 		}
-		req, err := http.NewRequestWithContext(ctx, r.method, address, body)
+		req, err := http.NewRequestWithContext(ctx, method, address, body)
 		if err != nil {
 			return nil, provider.Fail(op, "the request could not be built")
 		}
