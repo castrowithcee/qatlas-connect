@@ -10,11 +10,12 @@ updated: 2026-11-18
 # Google Business Profile
 
 Google Business Profile is a provider for the Business Profile APIs v1: the accounts a person owns or manages
-and the business locations in them, and the performance of a location. Most tools read; the tools of the
-profile `write` change the role of existing admins and rename an account. [Set up Google Business
+and the business locations in them, their attributes, and the performance of a location. Most tools read; the
+tools of the profile `write` change the role of existing admins, rename an account, and set or remove
+attributes. [Set up Google Business
 Profile](setup.md) leads through the Google side, the approval, and the consent. The tools are described per
 group in [accounts](accounts.md), [locations](locations.md), [account admins](account-admins.md), [location
-admins](location-admins.md), and [performance](performance.md).
+admins](location-admins.md), [attributes](attributes.md), and [performance](performance.md).
 
 ## Credential
 
@@ -42,8 +43,8 @@ no wider than the task needs.
 
 | Profile | Tools |
 | --- | --- |
-| `read` (recommended) | every read tool: `accounts.list`, `accounts.get`, `locations.list`, `locations.get`, `account-admins.list`, `location-admins.list` |
-| `write` | `account-admins.update`, `location-admins.update`, `accounts.update`; each change needs confirmation |
+| `read` (recommended) | every read tool: `accounts.list`, `accounts.get`, `locations.list`, `locations.get`, `account-admins.list`, `location-admins.list`, `attributes.list`, `attributes.get` |
+| `write` | `account-admins.update`, `location-admins.update`, `accounts.update`, `attributes.update`; each change needs confirmation |
 
 The profile `read` changes nothing, but Google's only scope also allows changes, so the token could. The two
 admin lists name other people (first and last name, and the email address of a pending invitation), which is
@@ -60,7 +61,7 @@ project one by one:
 | API | Origin | Tools |
 | --- | --- | --- |
 | My Business Account Management API | `https://mybusinessaccountmanagement.googleapis.com` | [accounts](accounts.md) |
-| My Business Business Information API | `https://mybusinessbusinessinformation.googleapis.com` | [locations](locations.md) |
+| My Business Business Information API | `https://mybusinessbusinessinformation.googleapis.com` | [locations](locations.md), [attributes](attributes.md) |
 | Business Profile Performance API | `https://businessprofileperformance.googleapis.com` | [performance](performance.md) |
 
 ## Approval of the Cloud project
@@ -92,6 +93,8 @@ request is sent; a refusal never names the other object.
 | `locations.get` | first proves that the location is in the bound account's location list | the bound location only |
 | `account-admins.list`, `account-admins.update`, `accounts.update` | the bound account only | not offered |
 | `location-admins.list`, `location-admins.update` | prove the location first, like `locations.get` | the bound location only |
+| `attributes.list` | with `location`, like `locations.get`; without it not tied to a location | with `location`, only the bound location |
+| `attributes.get`, `attributes.update` | prove the location first, like `locations.get` | the bound location only |
 | `performance.*` | first prove, on every call, that the location is in the bound account's location list | the bound location only |
 
 The proof of `locations.get` and of the performance tools reads the location list of the bound account, names
@@ -173,6 +176,9 @@ Not verified:
 - How Google answers a project without approval. Qatlas assumes a `429` with the quota limit `0`; a pending
   approval may answer differently.
 - Whether each Business Profile API needs to be enabled in the project on its own.
+- Whether Google's attribute metadata names an attribute with or without the prefix `attributes/` in `parent`; Qatlas accepts both and always sends `attributes/ATTRIBUTE`.
+- The largest page of attribute metadata: Google names only the default of 200, so Qatlas asks for at most 200.
+- Whether Google accepts a mask that names an attribute without a value in `attributes` as a removal, as its documentation says: `attributes.update` relies on it.
 - Whether a read mask accepts nested field paths. Qatlas accepts only the top-level fields of a location.
 - The exact form Google expects for several sort fields; Qatlas joins them with a comma.
 - Which classification Google gives `business.manage` when it verifies an OAuth app.
@@ -193,5 +199,6 @@ Left out on purpose:
 - `accounts.create`: it would create an account with a new owner relation.
 - The role `PRIMARY_OWNER` as a target role of an admin, and changing an admin who holds it: both transfer the
   ownership of the profile. An admin with a pending invitation is not changed either.
+- Deprecated attributes: `attributes.update` does not change them, since Google does not save such a change.
 - `admins.delete`, the invitation methods, and `locations.transfer`.
 - The deprecated metrics `BUSINESS_CONVERSATIONS` and `BUSINESS_FOOD_ORDERS` of the performance tools.
