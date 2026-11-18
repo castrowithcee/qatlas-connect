@@ -173,6 +173,10 @@ var scopes = map[string][]string{
 	dv360LinksGetID:      {scopeReadOnly},
 	dv360ProposalsListID: {scopeReadOnly},
 	dv360ProposalsGetID:  {scopeReadOnly},
+	adsLinksListID:       {scopeReadOnly},
+	firebaseLinksListID:  {scopeReadOnly},
+	bigQueryLinksListID:  {scopeReadOnly},
+	bigQueryLinksGetID:   {scopeReadOnly},
 }
 
 func tokenMetadata() config.TokenMetadata { return config.TokenMetadata{Scopes: scopes} }
@@ -240,7 +244,8 @@ var readTools = []string{summariesID, accountsID, accountsGetID, accountsSharing
 	customMetricsGetID, keyEventsListID, keyEventsGetID, eventRulesListID, eventRulesGetID,
 	calculatedListID, calculatedGetID, accessAccountID, accessPropertyID, dataRetentionGetID, googleSignalsGetID,
 	annotationsListID, annotationsGetID, dv360LinksListID, dv360LinksGetID, dv360ProposalsListID, dv360ProposalsGetID,
-	audiencesListID, audiencesGetID, channelGroupsListID, channelGroupsGetID}
+	audiencesListID, audiencesGetID, channelGroupsListID, channelGroupsGetID, adsLinksListID, firebaseLinksListID,
+	bigQueryLinksListID, bigQueryLinksGetID}
 
 // Register adds the provider metadata, its consent endpoints, its connection test and its tools.
 func Register(reg *capability.Registry) error {
@@ -274,8 +279,8 @@ func Register(reg *capability.Registry) error {
 		Profiles: []config.ToolProfile{{
 			ID: "read", Title: "Read", Recommended: true,
 			Description: "reads the Analytics accounts, properties, custom dimensions and metrics, key events, calculated metrics, audiences, channel groups, reports and report tasks the connection reaches; " +
-				"nothing is changed. It includes reading the users of an audience export, the Data Access Reports and the " +
-				"Display & Video 360 link proposals, which are personal data",
+				"nothing is changed. It includes reading the users of an audience export, the Data Access Reports, the " +
+				"Display & Video 360 link proposals and the creators of Google Ads links, which are personal data",
 			Tools: readTools,
 		}, {
 			ID: "write", Title: "Read and change",
@@ -418,6 +423,10 @@ func Register(reg *capability.Registry) error {
 		{Descriptor: dv360LinksGet, Handler: handleDV360LinksGet},
 		{Descriptor: dv360ProposalsList, Handler: handleDV360ProposalsList},
 		{Descriptor: dv360ProposalsGet, Handler: handleDV360ProposalsGet},
+		{Descriptor: adsLinksList, Handler: handleAdsLinksList},
+		{Descriptor: firebaseLinksList, Handler: handleFirebaseLinksList},
+		{Descriptor: bigQueryLinksList, Handler: handleBigQueryLinksList},
+		{Descriptor: bigQueryLinksGet, Handler: handleBigQueryLinksGet},
 	} {
 		if err := reg.Register(Provider, operation); err != nil {
 			return err
