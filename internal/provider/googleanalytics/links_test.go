@@ -354,6 +354,8 @@ func TestLink429WithoutRetryAfterHoldsTheNextRequest(t *testing.T) {
 func TestLinksHaveNoCreateOrPatchTool(t *testing.T) {
 	reg := registry(t)
 	var links []string
+	deletes := []string{adsLinksDeleteID, firebaseLinksDeleteID, bigQueryLinksDeleteID, adsenseLinksDeleteID,
+		searchAdsLinksDeleteID, dv360LinksDeleteID, rollupLinksDeleteID}
 	for _, d := range reg.Provider(Provider) {
 		id := strings.ToLower(d.ID)
 		if !strings.Contains(id, "-links.") {
@@ -384,13 +386,17 @@ func TestLinksHaveNoCreateOrPatchTool(t *testing.T) {
 	if !slices.Equal(links, sortedCopy([]string{adsLinksListID, firebaseLinksListID, bigQueryLinksListID, bigQueryLinksGetID,
 		dv360LinksListID, dv360LinksGetID, adsenseLinksListID, adsenseLinksGetID, searchAdsLinksListID,
 		searchAdsLinksGetID, rollupLinksListID, rollupLinksGetID, adsLinksDeleteID, firebaseLinksDeleteID,
-		bigQueryLinksDeleteID, adsenseLinksDeleteID})) {
+		bigQueryLinksDeleteID, adsenseLinksDeleteID, searchAdsLinksDeleteID, dv360LinksDeleteID,
+		rollupLinksDeleteID})) {
 		t.Errorf("link tools = %v", links)
 	}
 	metadata, _ := reg.ProviderMetadata(Provider)
 	for _, profile := range metadata.Profiles {
 		for _, id := range profile.Tools {
 			if strings.Contains(id, "-links.") && !slices.Contains(links, id) {
+				t.Errorf("profile %s holds %s", profile.ID, id)
+			}
+			if slices.Contains(deletes, id) && profile.ID != "write" {
 				t.Errorf("profile %s holds %s", profile.ID, id)
 			}
 		}

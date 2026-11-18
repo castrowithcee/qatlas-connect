@@ -112,6 +112,7 @@ The tool is outside the profile `read` for that reason, see [change history](cha
 | [Report tasks](report-tasks.md) | `report-tasks.create`, `report-tasks.get`, `report-tasks.list`, `report-tasks.query` | `analytics.readonly` |
 | [Access reports](access-reports.md) | `accounts.run-access-report`, `properties.run-access-report` | `analytics.readonly` |
 | [Rollup links](rollup-links.md) | `rollup-links.list`, `rollup-links.get` | `analytics.readonly` |
+| [Rollup links](rollup-links.md#google-analyticsrollup-linksdelete) | `rollup-links.delete` | `analytics.edit` |
 | [Access bindings](access-bindings.md) | `access-bindings.list`, `access-bindings.get`, `access-bindings.batch-get` | `analytics.manage.users.readonly` |
 | [Access bindings](access-bindings.md#googleanalyticsaccess-bindingsupdate) | `access-bindings.update`, `access-bindings.delete`, `access-bindings.batch-delete` | `analytics.manage.users` |
 | [Properties](properties.md#changing-properties) | `properties.create`, `properties.update`, `properties.delete` | `analytics.edit` |
@@ -140,9 +141,11 @@ The tool is outside the profile `read` for that reason, see [change history](cha
 | [Expanded data sets](expanded-data-sets.md) | `expanded-data-sets.list`, `expanded-data-sets.get` | `analytics.readonly` |
 | [Expanded data sets](expanded-data-sets.md#changing-expanded-data-sets) | `expanded-data-sets.create`, `expanded-data-sets.update`, `expanded-data-sets.delete` | `analytics.edit` |
 | [Display & Video 360 links](display-video360-links.md) | `display-video360-links.list`, `display-video360-links.get`, `display-video360-link-proposals.list`, `display-video360-link-proposals.get` | `analytics.readonly` |
+| [Display & Video 360 links](display-video360-links.md#deleting-and-cancelling) | `display-video360-links.delete`, `display-video360-link-proposals.cancel`, `display-video360-link-proposals.delete` | `analytics.edit` |
 | [AdSense links](adsense-links.md) | `adsense-links.list`, `adsense-links.get` | `analytics.readonly` |
 | [AdSense links](adsense-links.md#deleting-a-link) | `adsense-links.delete` | `analytics.edit` |
 | [Search Ads 360 links](search-ads360-links.md) | `search-ads360-links.list`, `search-ads360-links.get` | `analytics.readonly` |
+| [Search Ads 360 links](search-ads360-links.md#google-analyticssearch-ads360-linksdelete) | `search-ads360-links.delete` | `analytics.edit` |
 | [Data retention](data-retention.md) | `data-retention.get` | `analytics.readonly` |
 | [Data retention](data-retention.md#googleanalyticsdata-retentionupdate) | `data-retention.update` | `analytics.edit` |
 | [Google Signals](google-signals.md) | `google-signals.get` | `analytics.readonly` |

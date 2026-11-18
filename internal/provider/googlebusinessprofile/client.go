@@ -1,6 +1,8 @@
 package googlebusinessprofile
 
 import (
+	"bytes"
+	"cmp"
 	"context"
 	"errors"
 	"io"
@@ -30,9 +32,10 @@ const (
 	notificationsRoot = "https://mybusinessnotifications.googleapis.com"
 	lodgingRoot       = "https://mybusinesslodging.googleapis.com"
 	placeActionsRoot  = "https://mybusinessplaceactions.googleapis.com"
-	legacyRoot        = "https://mybusiness.googleapis.com/v4"
+	legacyRoot        = "https://mybusiness.googleapis.com"
 
 	apiPrefix    = "/v1/"
+	legacyPrefix = "/v4/"
 	accountsPath = "accounts"
 	subject      = "Google"
 	userAgent    = "qatlas-connect"
@@ -153,21 +156,25 @@ func withSource(ctx context.Context, resolved *config.Resolved, secrets *secret.
 // changeLimiter is the spacing of the changes of one account or location, named by its resource name.
 func changeLimiter(key string) *ratelimit.Limiter { return changeLimiters.For(key) }
 
-// request is one read of an API: a fixed origin, a path below its v1 prefix built from checked segments, and
-// a query of checked arguments.
+// request is one read of an API: a fixed origin, a path below its prefix (v1 unless prefix says otherwise)
+// built from checked segments, and a query of checked arguments. A read that Google only offers as a POST
+// (a batch read) names the method and carries the body.
 type request struct {
 	root     string
+	prefix   string
 	path     string
 	query    url.Values
+	method   string
+	body     []byte
 	notFound string
 	// first marks the first request of a connection test, whose rate limit means a missing approval.
 	first bool
 }
 
-// get sends one GET, once (the token source renews a rejected token once), and decodes the JSON object
+// get sends one GET (or the POST of a batch read), once (the token source renews a rejected token once), and decodes the JSON object
 // answer into out.
 func (c *client) get(ctx context.Context, op, tool string, r request, out any) error {
-	address := r.root + apiPrefix + r.path
+	address := r.root + cmp.Or(r.prefix, apiPrefix) + r.path
 	if len(r.query) > 0 {
 		address += "?" + r.query.Encode()
 	}
@@ -175,12 +182,19 @@ func (c *client) get(ctx context.Context, op, tool string, r request, out any) e
 		if err := c.limiter.Wait(ctx); err != nil {
 			return nil, provider.Waited(op, subject, err)
 		}
-		req, err := http.NewRequestWithContext(ctx, http.MethodGet, address, nil)
+		var body io.Reader
+		if r.body != nil {
+			body = bytes.NewReader(r.body)
+		}
+		req, err := http.NewRequestWithContext(ctx, cmp.Or(r.method, http.MethodGet), address, body)
 		if err != nil {
 			return nil, provider.Fail(op, "the request could not be built")
 		}
 		req.Header.Set("Authorization", "Bearer "+access)
 		req.Header.Set("Accept", "application/json")
+		if r.body != nil {
+			req.Header.Set("Content-Type", "application/json")
+		}
 		req.Header.Set("User-Agent", userAgent)
 		return req, nil
 	}
