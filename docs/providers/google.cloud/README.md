@@ -35,7 +35,7 @@ tokens for it). The connection holds no scope. Qatlas derives them from the tool
 smallest scope the discovery document of each method lists: `cloud-platform.read-only` for Resource Manager,
 and `cloud-platform` for the IAM and quota tools, because their discovery documents list no narrower scope
 (Google offers no read-only variant for these methods, see [IAM](iam.md) and [Quotas](quotas.md)). Only the tools of the profiles
-`service-accounts`, `service-accounts-revoke`, `api-keys-revoke`, `iam-bindings`, `storage-delete`, `storage-objects-write`, `storage-revoke`, `compute-network-delete`, `compute-lifecycle`, `compute-instances-create`, `compute-disks`, `compute-images-delete`, `services`, `projects-manage`, and `folders-manage` and the tools
+`service-accounts`, `service-accounts-revoke`, `api-keys-revoke`, `iam-bindings`, `storage-delete`, `storage-objects-write`, `storage-revoke`, `compute-network-delete`, `compute-lifecycle`, `compute-instances-create`, `compute-disks`, `compute-images-delete`, `dns-write`, `services`, `projects-manage`, and `folders-manage` and the tools
 `service-accounts.delete`, `services.disable`, `instances.delete`, `disks.delete`, `buckets.delete`, `projects.delete`, and `folders.delete`, which a `tools` list must name, change anything, each with a confirmation, whatever the scope allows. The access token travels in the
 `Authorization` header only, is never an argument or part of a result, and is masked in every output. A 401
 renews the token once, and nothing else repeats a request.
@@ -216,6 +216,17 @@ and `read`, is not recommended, and every call needs the confirmation of a perso
 key or creates a notification. See [HMAC keys](hmac-keys.md#revoking-a-key) and
 [Notifications](notifications.md#deleting-a-configuration).
 
+The profile `dns-write` holds `google.cloud.changes.create`, `google.cloud.record-sets.create`,
+`google.cloud.record-sets.patch`, `google.cloud.record-sets.delete`, the reads `google.cloud.managed-zones.get`,
+`google.cloud.record-sets.get`, and `google.cloud.changes.get`, and `google.cloud.projects.get`, which proves a project
+against targets of an organization or a folder. The four changing tools ask for `ndev.clouddns.readwrite`, the narrowest
+scope Google lists for them, which Google also uses to change every record of the zones of the project, so the token may
+do that although no tool creates or deletes a zone. The profile needs the effects `create`, `update`, and `delete`
+and `read`, is not recommended, and every call needs the confirmation of a person. The tools never change the `SOA`
+record or the `NS` records of the zone apex, because they can move the delegation of the zone to foreign name servers;
+`NS` records below the apex are allowed. See [DNS record sets](record-sets.md#changing-records) and
+[DNS changes](changes.md#changescreate).
+
 The profile `services` holds only `google.cloud.services.enable` and `google.cloud.services.batch-enable`. It asks
 for `cloud-platform`, needs the effect `update`, and is not recommended. It does not hold
 `google.cloud.services.disable`: that tool is listed-only and only a `tools` list that names it exactly releases
@@ -285,8 +296,10 @@ on [IAM bindings](iam-bindings.md).
   project, read only.
 - [DNS managed zones](managed-zones.md): the Cloud DNS managed zones of a project, one and all, with the rules
   every DNS tool follows.
-- [DNS record sets](record-sets.md): the record sets of a Cloud DNS managed zone, one and all, with routing policies.
-- [DNS changes](changes.md): the history of changes of a Cloud DNS managed zone and the state of one change.
+- [DNS record sets](record-sets.md): the record sets of a Cloud DNS managed zone, one and all, with routing policies,
+  and creating, changing, and deleting them.
+- [DNS changes](changes.md): the history of changes of a Cloud DNS managed zone, the state of one change, and
+  applying several record changes atomically.
 - [DNS keys](dns-keys.md): the DNSSEC keys of a Cloud DNS managed zone, public material only.
 - [DNS server policies](policies.md): the DNS server policies of a project with their forwarding targets, one and all.
 - [DNS response policies](response-policies.md): the response policies of a project, one and all, without their rules.

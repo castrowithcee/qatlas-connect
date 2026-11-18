@@ -187,8 +187,7 @@ var recordSetsList = capability.Descriptor{
 	ID: recordSetsListID, Version: 1, Title: "List the records of a Cloud DNS managed zone",
 	Description: "List the record sets of a managed zone from Cloud DNS, optionally only those of one name, of one " +
 		"name and type, or matching Google's filter expression: each with its name, type, TTL, data, signature " +
-		"data, and routing policy (weighted, geographic, or failover). Records cannot be created, changed, or " +
-		"deleted." + dnsTail,
+		"data, and routing policy (weighted, geographic, or failover)." + dnsTail,
 	Tags: []string{"google", "cloud", "dns", "record-sets"}, Risk: readRisk, Provider: Provider,
 	InputSchema: json.RawMessage(`{"type":"object","properties":{` + serviceProjectProp + `,` + dnsZoneProp + `,` +
 		dnsNameProp + `,` + dnsTypeProp + `,"filter":{"type":"string","minLength":1,"maxLength":1024},` + dnsMaxProp +
