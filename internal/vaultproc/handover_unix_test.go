@@ -111,12 +111,39 @@ type probeListener struct {
 	handoverListener
 	net.Listener
 	probe *writeProbe
+	gate  *acceptGate
 }
 
+// acceptGate holds the accept loop of a probeListener once armed: the next Accept call reports that it
+// arrived and waits until the gate is opened, so connections made meanwhile stay in the listener's queue.
+type acceptGate struct {
+	armed    atomic.Bool
+	accepted atomic.Int32
+	entered  chan struct{}
+	opened   chan struct{}
+	once     sync.Once
+}
+
+func newAcceptGate() *acceptGate {
+	return &acceptGate{entered: make(chan struct{}, 1), opened: make(chan struct{})}
+}
+
+func (g *acceptGate) open() { g.once.Do(func() { close(g.opened) }) }
+
 func (l *probeListener) Accept() (net.Conn, error) {
+	if g := l.gate; g != nil && g.armed.Load() {
+		select {
+		case g.entered <- struct{}{}:
+		default:
+		}
+		<-g.opened
+	}
 	c, err := l.Listener.Accept()
 	if err != nil {
 		return nil, err
+	}
+	if l.gate != nil {
+		l.gate.accepted.Add(1)
 	}
 	return l.probe.wrap(c), nil
 }
@@ -133,6 +160,7 @@ type handoverFixture struct {
 	socket     string
 	program    string
 	replaced   atomic.Bool
+	gate       *acceptGate
 	probe      *writeProbe
 	release    ReleaseFiles
 	signer     ssh.Signer // the key the vault process trusts, which signed release
@@ -204,7 +232,10 @@ func newHandoverFixtureAt(t *testing.T, socket string) *handoverFixture {
 	f.server.ownProgram = func() (string, bool) { return f.program, f.replaced.Load() }
 	f.server.AllowHandover(f.vault.Dir(), []ssh.PublicKey{signer.PublicKey()}, f.start)
 	f.probe = &writeProbe{server: f.server}
-	f.served = serve(t, f.server, &probeListener{handoverListener: l.(handoverListener), Listener: l, probe: f.probe})
+	f.gate = newAcceptGate()
+	t.Cleanup(f.gate.open)
+	f.served = serve(t, f.server, &probeListener{handoverListener: l.(handoverListener), Listener: l, probe: f.probe,
+		gate: f.gate})
 	f.client = &Client{Path: f.socket, Recipient: key.Recipient().String(), Verify: allow}
 	return f
 }
@@ -773,6 +804,52 @@ func TestServerKeepsReplacedWhileAHandoverIsPrepared(t *testing.T) {
 	r := <-result
 	if r.err != nil || r.value != "synthetic-value" {
 		t.Fatalf("Get() across the handover = %q, %v, want the successor's answer", r.value, r.err)
+	}
+	waitServed(t, f.served)
+}
+
+// A client that was answered replaced and has its next request waiting in the old listener's queue when the
+// handover commits is reset as the old listener closes. It is asked again and lands at the successor.
+func TestHandoverAnswersAClientQueuedAtTheOldListener(t *testing.T) {
+	f := newHandoverFixture(t)
+	f.server.Verify = func(net.Conn) error {
+		if f.replaced.Load() {
+			return ErrRefused
+		}
+		return nil
+	}
+	h := f.prepare()
+	f.replaceWithRelease()
+	others := f.gate.accepted.Load()
+	c, attempts := f.countingClient()
+	type got struct {
+		value string
+		err   error
+	}
+	result := make(chan got, 1)
+	go func() {
+		value, _, err := c.Get(context.Background(), "gh-a", "user", f.scope)
+		result <- got{value, err}
+	}()
+	waitUntil(t, "the request was answered replaced and asked again", func() bool { return attempts.Load() >= 2 })
+
+	// The accept loop stops at its next Accept. The client's following request waits in the queue.
+	f.gate.armed.Store(true)
+	<-f.gate.entered
+	// The client asks one request at a time, and each one the server accepted since then was one of its attempts, so
+	// the next attempt is the one that waits.
+	next := f.gate.accepted.Load() - others + 1
+	waitUntil(t, "a request waits in the old listener's queue", func() bool { return attempts.Load() >= next })
+
+	if _, err := h.Commit(context.Background()); err != nil {
+		t.Fatalf("Commit() = %v", err)
+	}
+	// The gate stays shut until the answer is in: the queued request is reset by the close of the old
+	// listener, not accepted by the old server.
+	r := <-result
+	f.gate.open()
+	if r.err != nil || r.value != "synthetic-value" {
+		t.Fatalf("Get() queued across the handover = %q, %v, want the successor's answer", r.value, r.err)
 	}
 	waitServed(t, f.served)
 }
