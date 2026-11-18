@@ -97,6 +97,11 @@ var toolScopes = map[string][]string{
 	mediaCreateID:      {scopeManage},
 	mediaUpdateID:      {scopeManage},
 	mediaDeleteID:      {scopeManage},
+	localPostsListID:   {scopeManage},
+	localPostsGetID:    {scopeManage},
+	localPostsCreateID: {scopeManage},
+	localPostsUpdateID: {scopeManage},
+	localPostsDeleteID: {scopeManage},
 }
 
 // ClassAccessNotApproved is the outcome of a Cloud project that Google has not approved for the Business
@@ -160,7 +165,7 @@ var readTools = []string{accountsListID, accountsGetID, locationsListID, locatio
 	performanceGetDailyID, performanceFetchDailyID, performanceKeywordsID,
 	categoriesListID, categoriesBatchGetID, chainsGetID, chainsSearchID, googleLocationsSearchID,
 	invitationsListID, attributesListID, attributesGetID, reviewsListID, reviewsGetID, reviewsBatchGetID,
-	mediaListID, mediaGetID, lodgingGetID, lodgingGoogleUpdatedID,
+	mediaListID, mediaGetID, localPostsListID, localPostsGetID, lodgingGetID, lodgingGoogleUpdatedID,
 	verificationsListID, verificationsFetchOptionsID, verificationsMerchantStateID, notificationsGetID,
 	placeActionLinksListID, placeActionLinksGetID, placeActionTypesListID}
 
@@ -169,8 +174,9 @@ var readTools = []string{accountsListID, accountsGetID, locationsListID, locatio
 // locations.delete is in no profile: only a tools list offers it.
 var writeTools = []string{accountAdminsUpdateID, locationAdminsUpdateID, accountsUpdateID, locationsCreateID,
 	locationsUpdateID, accountAdminsDeleteID, locationAdminsDeleteID, invitationsDeclineID, attributesUpdateID,
-	reviewsUpdateReplyID, reviewsDeleteReplyID, mediaCreateID, mediaUpdateID, mediaDeleteID, lodgingUpdateID,
-	placeActionLinksCreateID, placeActionLinksUpdateID, placeActionLinksDeleteID}
+	reviewsUpdateReplyID, reviewsDeleteReplyID, mediaCreateID, mediaUpdateID, mediaDeleteID, localPostsCreateID,
+	localPostsUpdateID, localPostsDeleteID, lodgingUpdateID, placeActionLinksCreateID, placeActionLinksUpdateID,
+	placeActionLinksDeleteID}
 
 // Register adds the provider metadata, its consent endpoints, its connection test, and its tools.
 func Register(reg *capability.Registry) error {
@@ -189,7 +195,8 @@ func Register(reg *capability.Registry) error {
 				"consenting account manages, and the categories, chains, and Google locations of Google's reference " +
 				"data, and changes nothing; Google offers only the scope business.manage, which also allows changes, so " +
 				"the token may change what its account may, although no tool of this profile changes anything; " +
-				"the admin lists name other people, the invitation list names the targets of invitations, the " +
+				"the local posts are public profile content, the admin lists name other people, the invitation list " +
+				"names the targets of invitations, the " +
 				"verification options show masked postal addresses, phone numbers, and email addresses, and the " +
 				"reviews name reviewers, which is personal data",
 			Tools: readTools,
@@ -199,9 +206,10 @@ func Register(reg *capability.Registry) error {
 				"declines invitations, renames an account, sets or removes the public attributes of a location, " +
 				"creates and changes business locations, whose data is public, creates, changes, and deletes place " +
 				"action links, which are public on the profile, publishes or deletes the public reply of the business " +
-				"to a review, and adds, recategorizes, and deletes photos and videos of a location, which are public on " +
-				"the profile, each change with the confirmation of a person; no tool of this profile deletes a location; " +
-				"no tool invites or creates an admin, accepts an invitation, deletes or reports a review, " +
+				"to a review, adds, recategorizes, and deletes photos and videos of a location, which are public on " +
+				"the profile, and creates, changes, and deletes local posts, which are public on the profile and in " +
+				"Google Search, each change with the confirmation of a person; no tool of this profile deletes a " +
+				"location; no tool invites or creates an admin, accepts an invitation, deletes or reports a review, " +
 				"makes anyone primary owner, or transfers a location; Google offers only the scope business.manage, " +
 				"so the " +
 				"token may change what its account may",
@@ -274,6 +282,14 @@ func Register(reg *capability.Registry) error {
 			ConfirmationSummary: mediaSummary(mediaUpdateID)},
 		capability.Operation{Descriptor: mediaDelete, Handler: handleMediaDelete,
 			ConfirmationSummary: mediaSummary(mediaDeleteID)},
+		capability.Operation{Descriptor: localPostsList, Handler: handleLocalPostsList},
+		capability.Operation{Descriptor: localPostsGet, Handler: handleLocalPostsGet},
+		capability.Operation{Descriptor: localPostsCreate, Handler: handleLocalPostsCreate,
+			ConfirmationSummary: localPostSummary(localPostsCreateID)},
+		capability.Operation{Descriptor: localPostsUpdate, Handler: handleLocalPostsUpdate,
+			ConfirmationSummary: localPostSummary(localPostsUpdateID)},
+		capability.Operation{Descriptor: localPostsDelete, Handler: handleLocalPostsDelete,
+			ConfirmationSummary: localPostSummary(localPostsDeleteID)},
 		capability.Operation{Descriptor: placeActionLinksList, Handler: handlePlaceActionLinksList},
 		capability.Operation{Descriptor: placeActionLinksGet, Handler: handlePlaceActionLinksGet},
 		capability.Operation{Descriptor: placeActionLinksCreate, Handler: handlePlaceActionLinksCreate,
