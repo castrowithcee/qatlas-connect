@@ -53,6 +53,12 @@ var toolScopes = map[string][]string{
 	performanceFetchDailyID: {scopeManage},
 	performanceKeywordsID:   {scopeManage},
 
+	categoriesListID:        {scopeManage},
+	categoriesBatchGetID:    {scopeManage},
+	chainsGetID:             {scopeManage},
+	chainsSearchID:          {scopeManage},
+	googleLocationsSearchID: {scopeManage},
+
 	reviewsListID:        {scopeManage},
 	reviewsGetID:         {scopeManage},
 	reviewsBatchGetID:    {scopeManage},
@@ -119,6 +125,7 @@ func testClass(err error) (provider.Class, error) {
 var readTools = []string{accountsListID, accountsGetID, locationsListID, locationsGetID,
 	accountAdminsListID, locationAdminsListID,
 	performanceGetDailyID, performanceFetchDailyID, performanceKeywordsID,
+	categoriesListID, categoriesBatchGetID, chainsGetID, chainsSearchID, googleLocationsSearchID,
 	reviewsListID, reviewsGetID, reviewsBatchGetID}
 
 // writeTools are the tools of the profile write.
@@ -138,8 +145,9 @@ func Register(reg *capability.Registry) error {
 		Target:          targetMetadata,
 		Profiles: []config.ToolProfile{{
 			ID: "read", Title: "Read", Recommended: true,
-			Description: "lists and reads the accounts and the business locations the consenting account manages " +
-				"and changes nothing; Google offers only the scope business.manage, which also allows changes, so " +
+			Description: "lists and reads the accounts and the business locations the consenting account manages, " +
+				"and the categories, chains, and Google locations of Google's reference data, and changes nothing; " +
+				"Google offers only the scope business.manage, which also allows changes, so " +
 				"the token may change what its account may, although no tool of this profile changes anything; " +
 				"the admin lists and the reviews name other people, which is personal data",
 			Tools: readTools,
@@ -177,6 +185,11 @@ func Register(reg *capability.Registry) error {
 		capability.Operation{Descriptor: performanceGetDaily, Handler: handleGetDailyMetric},
 		capability.Operation{Descriptor: performanceFetchDaily, Handler: handleFetchDailyMetrics},
 		capability.Operation{Descriptor: performanceKeywords, Handler: handleListSearchKeywords},
+		capability.Operation{Descriptor: categoriesList, Handler: handleCategoriesList},
+		capability.Operation{Descriptor: categoriesBatchGet, Handler: handleCategoriesBatchGet},
+		capability.Operation{Descriptor: chainsGet, Handler: handleChainsGet},
+		capability.Operation{Descriptor: chainsSearch, Handler: handleChainsSearch},
+		capability.Operation{Descriptor: googleLocationsSearch, Handler: handleGoogleLocationsSearch},
 		capability.Operation{Descriptor: reviewsList, Handler: handleReviewsList},
 		capability.Operation{Descriptor: reviewsGet, Handler: handleReviewsGet},
 		capability.Operation{Descriptor: reviewsBatchGet, Handler: handleReviewsBatchGet},

@@ -299,6 +299,7 @@ func TestNoToolCreatesAdminsOrAccounts(t *testing.T) {
 	for _, name := range []string{"account-admins.list", "account-admins.update", "accounts.get", "accounts.list",
 		"accounts.update", "location-admins.list", "location-admins.update", "locations.get", "locations.list",
 		"performance.fetch-daily-metrics", "performance.get-daily-metric", "performance.list-search-keywords",
+		"categories.batch-get", "categories.list", "chains.get", "chains.search", "google-locations.search",
 		"reviews.list", "reviews.get", "reviews.batch-get", "reviews.update-reply", "reviews.delete-reply"} {
 		want[Provider+"."+name] = true
 	}
