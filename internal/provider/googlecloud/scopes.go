@@ -32,8 +32,9 @@ const scopeStorageReadOnly = "https://www.googleapis.com/auth/devstorage.read_on
 // buckets.getIamPolicy and bucketAccessControls.list, next to cloud-platform; neither lists a read-only variant.
 const scopeStorageFullControl = "https://www.googleapis.com/auth/devstorage.full_control"
 
-// scopeStorageReadWrite is the smallest scope the discovery document of storage v1 lists for objects.delete,
-// buckets.delete, and notifications.delete, next to devstorage.full_control and cloud-platform.
+// scopeStorageReadWrite is the smallest scope the discovery document of storage v1 lists for objects.insert,
+// objects.copy, objects.compose, objects.delete, buckets.delete, and notifications.delete, next to
+// devstorage.full_control and cloud-platform.
 const scopeStorageReadWrite = "https://www.googleapis.com/auth/devstorage.read_write"
 
 // scopeBillingReadOnly is the smallest scope the discovery document of cloudbilling v1 lists for
@@ -146,6 +147,12 @@ var tokenMetadata = config.TokenMetadata{Scopes: map[string][]string{
 	objectsGetID:               {scopeStorageReadOnly},
 	objectsDownloadID:          {scopeStorageReadOnly},
 	objectAccessControlsListID: {scopeStorageFullControl},
+	// storage v1 lists devstorage.read_write for objects.insert, copy, and compose, and only devstorage.full_control
+	// and cloud-platform for objects.patch.
+	objectsInsertID:  {scopeStorageReadWrite},
+	objectsCopyID:    {scopeStorageReadWrite},
+	objectsComposeID: {scopeStorageReadWrite},
+	objectsPatchID:   {scopeStorageFullControl},
 	// storage v1 lists devstorage.read_write for objects.delete and buckets.delete, and only devstorage.full_control
 	// and cloud-platform for objects.restore.
 	objectsDeleteID:  {scopeStorageReadWrite},

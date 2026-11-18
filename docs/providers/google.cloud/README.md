@@ -35,7 +35,7 @@ tokens for it). The connection holds no scope. Qatlas derives them from the tool
 smallest scope the discovery document of each method lists: `cloud-platform.read-only` for Resource Manager,
 and `cloud-platform` for the IAM and quota tools, because their discovery documents list no narrower scope
 (Google offers no read-only variant for these methods, see [IAM](iam.md) and [Quotas](quotas.md)). Only the tools of the profiles
-`service-accounts`, `service-accounts-revoke`, `api-keys-revoke`, `iam-bindings`, `storage-delete`, `storage-revoke`, `compute-network-delete`, `compute-lifecycle`, `compute-instances-create`, `compute-disks`, `compute-images-delete`, `services`, `projects-manage`, and `folders-manage` and the tools
+`service-accounts`, `service-accounts-revoke`, `api-keys-revoke`, `iam-bindings`, `storage-delete`, `storage-objects-write`, `storage-revoke`, `compute-network-delete`, `compute-lifecycle`, `compute-instances-create`, `compute-disks`, `compute-images-delete`, `services`, `projects-manage`, and `folders-manage` and the tools
 `service-accounts.delete`, `services.disable`, `instances.delete`, `disks.delete`, `buckets.delete`, `projects.delete`, and `folders.delete`, which a `tools` list must name, change anything, each with a confirmation, whatever the scope allows. The access token travels in the
 `Authorization` header only, is never an argument or part of a result, and is masked in every output. A 401
 renews the token once, and nothing else repeats a request.
@@ -196,6 +196,14 @@ every call needs the confirmation of a person. It does not hold `google.cloud.di
 listed-only and only a `tools` list that names it exactly releases it. See [Images](images.md#changes),
 [Disk snapshots](snapshots.md#deleting-a-snapshot), and [Disks](disks.md#deleting-a-disk).
 
+The profile `storage-objects-write` holds `google.cloud.objects.insert`, `google.cloud.objects.copy`,
+`google.cloud.objects.compose`, `google.cloud.objects.patch`, and `google.cloud.projects.get`. The first three ask for
+`devstorage.read_write`, but Google lists only `devstorage.full_control` and `cloud-platform` for `objects.patch`, so
+the token also holds the right to change the access control lists of Cloud Storage resources although no tool does.
+The profile needs the effects `create` and `update` for the object tools and `read` for `projects.get`, is not
+recommended, and every call needs the confirmation of a person. No tool overwrites an object unless the call says
+so, makes an object public, or deletes an object. See [Objects](objects.md#writing-objects).
+
 The profile `storage-revoke` holds `google.cloud.hmac-keys.deactivate`, `google.cloud.hmac-keys.delete`,
 `google.cloud.notifications.delete`, the reads that name what is revoked (`google.cloud.hmac-keys.list`,
 `google.cloud.hmac-keys.get`, `google.cloud.notifications.list`), and `google.cloud.projects.get`, which proves a
@@ -270,7 +278,8 @@ on [IAM bindings](iam-bindings.md).
 - [Managed folders](managed-folders.md): the managed folders of a Cloud Storage bucket.
 - [HMAC keys](hmac-keys.md): the metadata of the HMAC keys of a project, never a key value.
 - [Objects](objects.md): the objects of a Cloud Storage bucket, their metadata, and their content up to a fixed limit as
-  untrusted data, bound to the targets through the bucket, and the confirmed deletion and restoration of one object.
+  untrusted data, bound to the targets through the bucket, the confirmed deletion and restoration of one object,
+  and uploading, copying, composing, and changing the metadata of objects.
 - [Object access controls](object-access-controls.md): the access control list of a Cloud Storage object.
 - [Billing](billing.md): the billing accounts a connection names, their projects, and the billing account of a
   project, read only.
