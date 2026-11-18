@@ -343,11 +343,12 @@ func newTUICommand(opts *Options, reg *capability.Registry, buildVersion string)
 			"profile is never applied to it on its own. A profile is a starting selection, not a role: the\n" +
 			"configuration keeps only the concrete tool IDs, so a tool a later version adds joins no saved\n" +
 			"connection unless the configuration file selects it by a prefix, and no local tick narrows what the credential itself may do at the provider.\n\n" +
-			"? shows the help topics start, agents, and configuration, the same text as 'qconnect help start'\n" +
-			"and the others, on every screen that takes no typed text: the tab line, the lists, every question,\n" +
-			"the target and path lists, the setup summary, and the details of an approval, a token, and a log\n" +
-			"entry. It also opens on the provider table, the add menu of targets, and the template search while\n" +
-			"the search is empty. A form and every typed line keep ? as text, and name their keys in the footer.\n" +
+			"? shows the help topics start, keys, agents, and configuration, the same text as 'qconnect help\n" +
+			"start' and the others, with the keys of the editor in the topic keys, on every screen that takes\n" +
+			"no typed text: the tab line, the lists, every question, the target and path lists, the setup\n" +
+			"summary, and the details of an approval, a token, and a log entry. It also opens on the provider\n" +
+			"table, the add menu of targets, and the template search while the search is empty. A form and\n" +
+			"every typed line keep ? as text, and name their keys in the footer.\n" +
 			"left/right switch the topic, up/down and pgup/pgdown scroll, and esc or ? closes the help and\n" +
 			"returns to the screen it was opened from. Every footer names the keys of its screen, apart from the\n" +
 			"h/j/k/l letters.\n\n" +

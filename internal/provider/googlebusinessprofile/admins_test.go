@@ -301,7 +301,7 @@ func TestNoToolCreatesAdminsOrAccounts(t *testing.T) {
 		"accounts.update", "attributes.get", "attributes.list", "attributes.update", "categories.batch-get",
 		"categories.list", "chains.get", "chains.search",
 		"google-locations.search", "invitations.decline", "invitations.list", "location-admins.delete",
-		"location-admins.list", "location-admins.update", "locations.get", "locations.list",
+		"location-admins.list", "location-admins.update", "locations.get", "locations.list", "locations.batch-get",
 		"locations.create", "locations.update", "locations.delete", "locations.get-google-updated",
 		"performance.fetch-daily-metrics", "performance.get-daily-metric", "performance.list-search-keywords",
 		"lodging.get", "lodging.get-google-updated", "lodging.update",

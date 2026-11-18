@@ -786,3 +786,36 @@ func TestTargetBrowserIsNoOperation(t *testing.T) {
 		t.Error("a target browser can be looked up as an operation")
 	}
 }
+
+func TestRegisterChecksConfirmationSummaryRunes(t *testing.T) {
+	summary := func(json.RawMessage) string { return "text" }
+	with := func(fn SummaryFunc, runes int) Operation {
+		return Operation{Descriptor: pagesList, Handler: noopHandler, ConfirmationSummary: fn, ConfirmationSummaryRunes: runes}
+	}
+	tests := []struct {
+		name   string
+		op     Operation
+		wantIn string
+	}{
+		{"negative", with(summary, -1), "must be between 0 and"},
+		{"above ceiling", with(summary, MaxConfirmationSummaryRunes+1), "must be between 0 and"},
+		{"without summary", with(nil, 600), "without a confirmation summary"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := NewRegistry().Register("fakewiki", tt.op)
+			if err == nil || !strings.Contains(err.Error(), tt.wantIn) {
+				t.Errorf("Register() = %v, want it to contain %q", err, tt.wantIn)
+			}
+		})
+	}
+	for _, runes := range []int{0, 600, MaxConfirmationSummaryRunes} {
+		reg := NewRegistry()
+		if err := reg.Register("fakewiki", with(summary, runes)); err != nil {
+			t.Fatalf("Register(%d) = %v", runes, err)
+		}
+		if got := reg.ConfirmationSummaryRunes(pagesList.ID); got != runes {
+			t.Errorf("ConfirmationSummaryRunes() = %d, want %d", got, runes)
+		}
+	}
+}

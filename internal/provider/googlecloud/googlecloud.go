@@ -413,6 +413,8 @@ func Register(reg *capability.Registry) error {
 			ConfirmationSummary: objectChangeSummary(objectsDeleteID)},
 		capability.Operation{Descriptor: objectsRestore, Handler: handleObjectsRestore,
 			ConfirmationSummary: objectChangeSummary(objectsRestoreID)},
+		capability.Operation{Descriptor: objectsRestoreOverwrite, Handler: handleObjectsRestoreOverwrite,
+			ConfirmationSummary: objectsRestoreOverwriteSummary},
 		capability.Operation{Descriptor: bucketsDelete, Handler: handleBucketsDelete,
 			ConfirmationSummary: bucketDeleteSummary},
 		capability.Operation{Descriptor: billingAccountsList, Handler: handleBillingAccountsList},

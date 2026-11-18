@@ -224,7 +224,7 @@ func TestFoodMenusUpdateConfirmationShowsCountsAndChangedEntries(t *testing.T) {
 			t.Errorf("summary %q lacks %q", summary, want)
 		}
 	}
-	if confirmationRunes(summary) > maxConfirmRunes {
+	if !fitsConfirmation(foodMenusUpdateID, summary) {
 		t.Errorf("summary has %d characters", confirmationRunes(summary))
 	}
 	if len(f.methods) != 0 {

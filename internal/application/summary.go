@@ -8,7 +8,8 @@ import (
 	"unicode/utf8"
 )
 
-// maxSummaryRunes bounds the confirmation summary of a tool, counted in runes after neutralizing.
+// maxSummaryRunes is the default bound of the confirmation summary of a tool, counted in runes after
+// neutralizing. An operation may declare its own bound.
 const maxSummaryRunes = 500
 
 // confirmationSummary returns the text the tool derives from the validated arguments, or "" without one. It
@@ -28,7 +29,7 @@ func (c *Core) confirmationSummary(id string, arguments json.RawMessage) (summar
 	if c.redactor != nil {
 		text = c.redactor.Apply(text)
 	}
-	return boundSummary(neutralize(text))
+	return boundSummary(neutralize(text), c.registry.ConfirmationSummaryRunes(id))
 }
 
 // neutralize makes text safe to print: invalid UTF-8 becomes U+FFFD, and control, format (bidi controls,
@@ -56,11 +57,15 @@ func neutralize(text string) string {
 	return b.String()
 }
 
-// boundSummary trims text and cuts it at a rune boundary, marking a cut with an ellipsis.
-func boundSummary(text string) string {
+// boundSummary trims text and cuts it at a rune boundary, marking a cut with an ellipsis. A limit of 0 means
+// the default bound.
+func boundSummary(text string, limit int) string {
+	if limit <= 0 {
+		limit = maxSummaryRunes
+	}
 	text = strings.TrimSpace(text)
-	if utf8.RuneCountInString(text) <= maxSummaryRunes {
+	if utf8.RuneCountInString(text) <= limit {
 		return text
 	}
-	return string([]rune(text)[:maxSummaryRunes-1]) + "…"
+	return string([]rune(text)[:limit-1]) + "…"
 }

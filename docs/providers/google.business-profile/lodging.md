@@ -65,7 +65,7 @@ fields. It needs confirmation and belongs to the profile `write`.
 - The call returns the lodging Google answers.
 
 The confirmation names the location, every changed field, and its old and new value in full, `unset` for a
-field without a value. A text that exceeds the 500 characters a confirmation keeps is not cut: the confirmation
+field without a value. A text that exceeds the 4096 characters a confirmation of this tool keeps is not cut: the confirmation
 says that the change is refused, and the call is refused before anything is sent. Change fewer fields per call.
 
 A change counts against the 10 changes per minute and profile of the location, see

@@ -64,9 +64,8 @@ rejects is reported as `invalid-provider-response`, since Qatlas checked its for
 profile photo per location but not what a second one does.
 
 The confirmation shows the location, the format, the category or price list item, the **whole** address, and the
-description. The core cuts a confirmation at 500 characters, so a call whose confirmation would not fit with that
-context (an address of more than about 350 characters, less with a description) is refused before anything is sent.
-Use a shorter address or description.
+description. The confirmation of a create may hold 3072 characters, which fits an address of 2000 bytes with a description of
+500 characters; a call whose confirmation would not fit is refused before anything is sent.
 
 A create is not idempotent. It is sent once and never repeated; after a timeout, a `5xx`, or an unreadable answer
 the result is reported as unknown, so read the list before adding again.

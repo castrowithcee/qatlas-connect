@@ -470,25 +470,25 @@ func TestLocationChangesShareTheChangeLimiter(t *testing.T) {
 
 func TestLocationConfirmationShowsEverythingOrTheCallIsRefused(t *testing.T) {
 	env, w := locationEnvironment(t)
-	long := strings.Repeat("x", 300)
-	args := `{"location":"` + boundLocation + `","update_mask":["websiteUri","storeCode"],` +
-		`"previous_values":{"websiteUri":"` + long + `","storeCode":"a"},"websiteUri":"` + long + `y","storeCode":"b"}`
+	// Every quote of a 4000 character description is escaped in the confirmation, so the old and the new
+	// description alone need about 16000 characters, and a second field takes the call beyond the bound.
+	long := strings.Repeat(`\"`, 4000)
+	store := strings.Repeat("s", 500)
+	args := `{"location":"` + boundLocation + `","update_mask":["profile","storeCode"],` +
+		`"previous_values":{"profile":{"description":"` + long + `"},"storeCode":"` + store + `"},` +
+		`"profile":{"description":"` + long[2:] + `y"},"storeCode":"` + store[1:] + `y"}`
 	// Unconfirmed: no excerpt, a clear notice.
 	_, err := env.core.Invoke(context.Background(), application.InvokeRequest{Operation: locationsUpdateID,
 		Connection: "l-all", Arguments: json.RawMessage(args)})
 	var needs *application.ConfirmationRequiredError
 	if !errors.As(err, &needs) || !strings.Contains(needs.Summary, "cannot be confirmed") ||
-		strings.Contains(needs.Summary, long[:50]) {
+		strings.Contains(needs.Summary, long[:50]) || strings.Contains(needs.Summary, store) {
 		t.Fatalf("error = %v", err)
 	}
 	// Confirmed: refused before any request.
 	if _, err := env.change(t, locationsUpdateID, "l-all", args); !isInvalidRequest(err) ||
-		!strings.Contains(err.Error(), "500 characters") {
+		!strings.Contains(err.Error(), limitText(locationsUpdateID)) {
 		t.Fatalf("error = %v", err)
-	}
-	longTitle := strings.Replace(locationCreateArgs, "Sample Bakery", strings.Repeat("t", 480), 1)
-	if _, err := env.change(t, locationsCreateID, "l-all", longTitle); !isInvalidRequest(err) {
-		t.Fatalf("long title: %v", err)
 	}
 	env.noRequests(t)
 	if len(w.methods) != 0 {

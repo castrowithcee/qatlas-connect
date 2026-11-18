@@ -433,15 +433,14 @@ func TestReplyComparesWhatGoogleHoldsAndNeverWritesOnDifference(t *testing.T) {
 	env, f := reviewsEnvironment(t)
 	f.review = reviewJSON("AbCd_123", "FIVE", "ok")
 	for name, args := range map[string]string{
-		"rating":                        replyArgs("Thanks", "FOUR", "ok", ""),
-		"comment":                       replyArgs("Thanks", "FIVE", "changed", ""),
-		"hidden reply":                  replyArgs("Thanks", "FIVE", "ok", "an old reply"),
-		"same as held":                  replyArgs("Thanks", "FIVE", "ok", ""),
-		"blank":                         replyArgs("   ", "FIVE", "ok", ""),
-		"control char":                  replyArgs("a\u0007b", "FIVE", "ok", ""),
-		"bidi override":                 replyArgs("a‮b", "FIVE", "ok", ""),
-		"over 4096 byte":                replyArgs(strings.Repeat("é", 2049), "FIVE", "ok", ""),
-		"too long for the confirmation": replyArgs(strings.Repeat("a", 600), "FIVE", "ok", ""),
+		"rating":         replyArgs("Thanks", "FOUR", "ok", ""),
+		"comment":        replyArgs("Thanks", "FIVE", "changed", ""),
+		"hidden reply":   replyArgs("Thanks", "FIVE", "ok", "an old reply"),
+		"same as held":   replyArgs("Thanks", "FIVE", "ok", ""),
+		"blank":          replyArgs("   ", "FIVE", "ok", ""),
+		"control char":   replyArgs("a\u0007b", "FIVE", "ok", ""),
+		"bidi override":  replyArgs("a‮b", "FIVE", "ok", ""),
+		"over 4096 byte": replyArgs(strings.Repeat("é", 2049), "FIVE", "ok", ""),
 	} {
 		if name == "same as held" {
 			f.review = strings.TrimSuffix(reviewJSON("AbCd_123", "FIVE", "ok"), "}") + `,"reviewReply":{"comment":"Thanks"}}`

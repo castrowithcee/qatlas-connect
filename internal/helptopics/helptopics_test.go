@@ -102,3 +102,40 @@ func TestAgentsTopicNamesTheWaitCommand(t *testing.T) {
 		}
 	}
 }
+
+// The topics come in the order a newcomer reads them, and the keys guide follows the first steps.
+func TestTopicOrder(t *testing.T) {
+	var names []string
+	for _, topic := range All() {
+		names = append(names, topic.Name)
+	}
+	if got, want := strings.Join(names, " "), "start keys agents configuration"; got != want {
+		t.Errorf("topics = %q, want %q", got, want)
+	}
+}
+
+// The keys guide is laid out as headings over lists, the form the editor draws bold and indented, and the
+// first steps point to it.
+func TestKeysTopicHasHeadingsAndLists(t *testing.T) {
+	var headings, items int
+	for _, line := range strings.Split(Keys().Text, "\n") {
+		switch {
+		case strings.HasSuffix(line, ":") && !strings.HasPrefix(line, " ") && utf8.RuneCountInString(line) <= 40:
+			headings++
+		case strings.HasPrefix(line, "- "):
+			items++
+			if strings.Contains(line, ": ") {
+				t.Errorf("the item %q holds a colon and blank, which the editor draws as a key", line)
+			}
+		}
+	}
+	if headings < 8 || items < 40 {
+		t.Errorf("the keys topic has %d headings and %d list items", headings, items)
+	}
+	if !strings.Contains(start, "qconnect help keys") {
+		t.Error("the start topic does not point to the keys topic")
+	}
+	if strings.Contains(start, "Keys in the editor") {
+		t.Error("the start topic still holds the keys of the editor")
+	}
+}

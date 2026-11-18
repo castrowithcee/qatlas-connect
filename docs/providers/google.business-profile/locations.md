@@ -1,6 +1,6 @@
 ---
 description: >
-  Describes the locations tools of the Google Business Profile provider: listing and reading locations with the required read mask, reading what Google changed, creating, changing, and deleting a location, the writable fields, the previous values that a change compares, the review by Google, the listed-only deletion, and how account and location targets narrow and prove them.
+  Describes the locations tools of the Google Business Profile provider: listing and reading locations with the required read mask, reading several locations at once through the v4 batch method, reading what Google changed, creating, changing, and deleting a location, the writable fields, the previous values that a change compares, the review by Google, the listed-only deletion, and how account and location targets narrow and prove them.
 type: knowledge
 edit: shared
 created: 2026-11-17
@@ -10,7 +10,7 @@ updated: 2026-11-18
 # Google Business Profile: locations
 
 The location tools of the [Google Business Profile provider](README.md). Credential, target, approval, quotas,
-bounds, and errors are described there. `list`, `get`, and `get-google-updated` read and are safe to repeat.
+bounds, and errors are described there. `list`, `get`, `batch-get`, and `get-google-updated` read and are safe to repeat.
 `create`, `update`, and `delete` change public profile data and need confirmation.
 
 ## Read mask
@@ -53,6 +53,41 @@ A connection bound to a location reads only that location, and `location` may be
 to an account first proves that the location is in the account's location list, as described under
 [Target](README.md#target), and refuses a location the list does not hold without reading it.
 
+## google.business-profile.locations.batch-get
+
+`POST https://mybusiness.googleapis.com/v4/{account}/locations:batchGet` (My Business API v4
+`accounts.locations.batchGet`). Reads several locations of one account in one call. `locations.get` stays the
+main way to read a location, with the fields of the business information API and a read mask; this tool is for
+many locations at once. Parameters and answer members come from the v4 reference at
+`developers.google.com/my-business/reference/rest/v4` (the method, the Location resource, Category, PostalAddress,
+and Date), read on 2026-11-18; no live call was made.
+
+- `account` is `accounts/ACCOUNT`. It may be left out on a connection bound to an account and is required on one
+  bound to a location.
+- `location_names` holds 1 to 50 locations as `accounts/ACCOUNT/locations/LOCATION`, each below `account`, none
+  twice. The reference states no maximum, so 50 is Qatlas's own bound, the same as for `reviews.batch-get`. An
+  empty list and a longer one are refused before anything is sent.
+
+The answer holds `locations`, the v4 Location of each location Google returned: `name`, `languageCode`,
+`storeCode`, `locationName`, `primaryPhone`, `additionalPhones`, `address`, `primaryCategory`,
+`additionalCategories`, `websiteUrl`, `regularHours`, `specialHours`, `serviceArea`, `locationKey`, `labels`,
+`adWordsLocationExtensions`, `latlng`, `openInfo`, `locationState`, `attributes`, `metadata` (`mapsUrl` and
+`newReviewUrl`), `profile`, `relationshipData`, and `moreHours`. The v4 fields differ from those of
+`locations.get`: the business name is `locationName`, the address is `address`, hours use `hh:mm` text, and the
+state flags are in `locationState`. The reference marks `priceLists` and `metadata.duplicate` as deprecated, so
+they are never answered. An attribute value of a kind other than string or boolean is dropped. There is no read
+mask: Google answers the whole location. Text is untrusted content, cut like in the other tools and never
+followed; links are never fetched.
+
+The reference documents no per-location error. A failure of the request fails the call. A location that Google
+leaves out of its answer is missing from the result, and an entry for a location that was not asked for is
+dropped.
+
+Every name is checked against its form and the target before a secret is read, so one name outside the binding
+fails the whole call and names nothing. On a connection bound to an account the locations are then proved with
+one pass over the account's location list, as for `locations.get`, before the batch is sent. A connection bound
+to a location compares only the location ID of each name.
+
 ## google.business-profile.locations.get-google-updated
 
 `GET https://mybusinessbusinessinformation.googleapis.com/v1/{location}:getGoogleUpdated`. Reads the location as
@@ -77,7 +112,7 @@ profile. That effect can only be observed live. Google counts at most 10 changes
 the tools wait for like the admin tools.
 
 The confirmation of a change shows what the contract asks for in full, the title of a create and the old and
-new value of every changed field of an update, and the core holds a confirmation to 500 characters. A call
+new value of every changed field of an update, and the confirmation of a create may hold 2048 characters, that of an update 16384. A call
 whose confirmation would be longer is refused before anything is sent, with a notice instead of an excerpt, so
 split a large change into several calls.
 

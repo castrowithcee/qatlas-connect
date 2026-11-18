@@ -1,6 +1,6 @@
 ---
 description: >
-  Describes the local post tools of the Google Business Profile provider: listing and reading posts, creating posts of the types STANDARD, EVENT, OFFER, and ALERT, changing them with a required update mask, and deleting them, the confirmation text with its 500-character limit, the checks per post type, the https-only links, the bounds on untrusted post text, and what the v4 documentation leaves unverified.
+  Describes the local post tools of the Google Business Profile provider: listing and reading posts, creating posts of the types STANDARD, EVENT, OFFER, and ALERT, changing them with a required update mask, and deleting them, the confirmation text with its 6144-character limit, the checks per post type, the https-only links, the bounds on untrusted post text, and what the v4 documentation leaves unverified.
 type: knowledge
 edit: shared
 created: 2026-11-18
@@ -99,9 +99,10 @@ without control, invisible formatting, or separator characters other than line b
 
 The confirmation shows the location, the type, the whole text, the language, the button and its address, the
 event with its schedule, the offer with code, redemption address, and terms, the alert type, every media
-source, and every URL found inside the texts. The core cuts a confirmation at 500 characters, which would hide
-what a person confirms, so a post whose confirmation does not fit is refused before anything is sent; it is
-about 400 characters of text with typical context, and every link counts. Shorten the text or send fewer links.
+source, and every URL found inside the texts. The confirmation of a create or an update may hold 6144 characters,
+which fits a text of Google's 1500 characters with every line break and link counted. A post whose confirmation
+does not fit would hide what a person confirms and is refused before anything is sent. Shorten the text or send
+fewer links.
 
 ## Changing
 

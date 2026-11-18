@@ -10,10 +10,18 @@ import "github.com/castrowithcee/qatlas-kit/helptopics"
 func All() []helptopics.Topic {
 	return []helptopics.Topic{
 		{Name: "start", Short: "Set up a first connection and run a first tool", Text: start},
+		Keys(),
 		Agents(),
 		{Name: "configuration", Short: "Services, credentials, connections, and defaults explained",
 			Text: configuration},
 	}
+}
+
+// Keys returns the guide for the terminal editor: its areas, keys, mouse use, forms, renaming, export, and
+// import. It is laid out as short headings, each ending in a colon, over lists of one entry each, which the
+// editor draws with bold headings and which stay readable as plain text on the command line and in the manpage.
+func Keys() helptopics.Topic {
+	return helptopics.Topic{Name: "keys", Short: "Areas, keys, and screens of the terminal editor", Text: keys}
 }
 
 // Agents returns the guide for agents. 'qconnect agents' prints it; it is the one guide for the CLI, and MCP
@@ -46,9 +54,111 @@ const start = `Qatlas Connect reaches the services you already run through named
    The result arrives on stdout as JSON. A tool that changes data also needs --confirm.
 5. Stay current with 'qconnect update'; 'qconnect update --check' only reports whether a newer signed stable release exists, 'qconnect update --list' shows the signed releases from v0.30.0 on that can be chosen, and 'qconnect update --to <tag>' installs exactly one of them, a prerelease included. An older version is a rollback: qconnect first checks that it reads your configuration and, if not, offers the newest backup it reads, which only --restore-backup restores. Update verifies the release signature of checksums.txt against the keys built into qconnect and refuses an invalid one and a release without a signature. 'qconnect update' asks for y/n at the terminal and names what the update does to running processes; an unlocked vault is handed over to the new version when the update behaviour is handover, otherwise it is locked first; on Windows, which has no handover, it is always locked first. 'qconnect tui' shows a newer release at its top and asks the same question before it installs with U; on Linux and macOS it then restarts itself. The command version (also Settings, Update, choose version) lists the same versions as 'qconnect update --list' and installs the chosen one with the same question, naming whether it is newer, a prerelease, or older; an older version is a checked rollback that asks separately before it restores a backup.
 
-Keys in the editor mean the same everywhere. It opens on the Overview, which counts connections, services, credentials, agent tokens, and open approvals, shows the vault state, the next steps, a small heatmap of the latest weeks of the invocation log, and the latest calls, and opens the matching area with enter on a line; it changes nothing itself. A tab line at the top names the six areas (Overview, Library, Connections, Activity, Access, Settings), in every terminal width, with the active one as a filled area, in brackets only without colour, and a > in front while the tab line has the focus; Library and Access hold two parts each (Services and Credentials, Tokens and Approvals) and Settings six (General, then after a bar Vault, Defaults, Transfer, Update, and Self-test), named on an option bar under the tab line, where left and right choose the part. General holds the preferences of this device: the theme (terminal, the default, takes the colours of the terminal and keeps its background; every other theme paints the whole screen in its own colours; NO_COLOR turns colour off whatever is chosen, and a change applies at once), the start view (the area the editor opens on the next time), icons (unicode, the default, puts an emoji or symbol beside the area names and needs no special font; nerdfont uses Nerd Font icons instead, which show as boxes without a Nerd Font installed in the terminal, see nerdfonts.com; none shows no icons; a terminal without UTF-8 shows none whatever is chosen), and language (english, deutsch, or system, which follows the language of the device; a change applies at once and covers the editor's own texts, while guides, core messages, and provider texts stay English), and mouse (on or off; on is the default and takes effect at once). With the mouse on, a click does what the key for it does: it chooses a tab (from any level, going back the way esc does, with the same question about unsaved input), the [esc] back button in the header (one level back, where esc leads one), a part on the option bar, a row (the first click marks it, a click on the marked row opens or ticks it), a group (folds it), a field or section of a form, a value of an option bar (on a filter field it opens the list of values), a button of a dialog, or an (i) mark (opens its explanation), and the wheel scrolls; a click is never stronger than its key, so questions, confirmations, and the admin session apply as before, and it never types a character. The terminal then passes the mouse to the editor, so to select text hold Shift while dragging (macOS Terminal: fn, iTerm2: Option, VS Code on macOS: Option-click), or turn the mouse off in General. They are chosen from fixed lists, saved with F2 without an admin session or the vault's passphrase, and kept in tui.yaml beside config.yaml; that file belongs to this device, is not part of the configuration, and is neither exported nor imported. Below them, General lists the keys of the global actions save, help, command line, lock, and info: enter on a row and then pressing the new key binds it (a key that is already taken, a character for save, lock, or the extra info key, a letter, ctrl+c, esc, tab, or a digit is refused with its reason), d removes the own key so the standard applies again, and info can take a second key besides i that also works in text rows, such as F3; they are kept under keys in tui.yaml, and a key there that breaks a rule falls back to the standard with a warning at the start. Terminals and desktops take some F-keys for themselves (F1, F5, and F10 to F12 are never used), so choose one your terminal passes through (on a Mac the F-keys may need fn); the footers, and in the editor the list at the end of this guide, show the keys in force, while the text here names the standard ones. The later parts only gather the export, import, update, and selftest actions; each keeps the rules it had. On the tab line left and right choose an area, 1 to 6 open one directly, on its first part, from the tab line, a list, or the Logs screen, down moves to the option bar and then, like enter or tab, into the list, and tab or esc come back to the bar. The arrow keys move on every screen, and h, j, k, and l do the same wherever no text is typed; pgup, pgdown, home, and end jump in every list, tab and shift+tab go to the next or previous field, zone, or area (only a path line, where tab completes, and this help, where tab changes the topic, differ), and the choice lists, form fields, tab line, and command line wrap around at their ends while lists, pages, the end keys, and the wheel stop there, and ? opens this help on every screen without a text line (a form keeps it for its text rows), with esc or ? returning to where you were. A field shows one line of hint under it; i opens its longer explanation, and the explanation of the word it is about (service, credential, connection, target, effect, profile, approval, token, vault), over the screen, and esc closes it. i works on every screen without a text line; on a search line it is text, and only an extra info key set in General opens the explanation there. From a terminal width of 120 columns the explanation stands in a pane at the right of forms and pickers instead, and below it a field or entry that has one ends in (i). : opens the command line on the same screens: type to narrow the commands by name, choose with up, down, or tab, enter runs one, and esc closes it; a command that is not possible on that screen says why, so the same actions as the keys (switching areas, the guided setup, export, import, update, locking the vault, help, quit) are one line away. Each selftest scenario is a command too, such as selftest storage: it measures this machine on synthetic data in a scratch directory that is removed again, runs beside the editor and shows its progress, esc ends it, and W writes the result as JSON to a file in the temporary directory, whose path is shown. esc is one level back; in the guided setup it is one step back, and on the first step it cancels the setup. Input that is not saved is never dropped silently: the editor asks, F2 saves (in the setup it goes on to the next step), d discards, and esc keeps editing. ctrl+c quits at once and asks the same when something unsaved would be lost; q quits from the tab line, a list, and the Logs screen. Every other letter means one thing on every screen without a text line, and none acts where text is typed: n creates a new entry, path, or target (in Credentials it first asks for a credential or a payload secret), g starts the guided setup, e edits the selected entry like enter, p duplicates an entry, t tests a connection, U installs an update, A approves everything open in Approvals, V shows or hides a token's value in its detail, s shows the summary of the Logs, f their filter, and M their MCP sessions, o opens Activity on an approval's connection, c hands the full text of an open text or detail area (a log entry, the Raw tab, an explanation, an approval's detail) or, with none open, the name of the marked entry to the terminal for the clipboard, and nothing but what is shown: no secret value, no control characters; it travels as an OSC 52 sequence, which also works over SSH but which the terminal does not confirm, and some terminals need it enabled (tmux: set-clipboard on), W saves a selftest result as a file, and space ticks, and in an approval's detail shows or hides the unchanged entries. d deletes, removes, or revokes on every screen without text entry, F8 on a payload field, whose value row is a text line where ctrl+d deletes the character to the right; both ask first, y confirms, and n or esc keeps. r renames the selected service, credential, or connection on its list, and edits the label of a target on the target list: it asks for the new name, lists everything the rename touches, including what qconnect cannot change and the agent tokens whose cover ends, and renames only after y; n or esc leaves everything as it was. On Connections, Credentials, and Approvals a hint line under the list names the renames the vault shows that the configuration does not, a connection or credential renamed by hand in config.yaml or the rest of a rename that stopped early; down from the last row and then enter, or a click on the line, lists them and offers an action for each: enter adopts a hand rename or finishes an unfinished one, B puts a credential's unfinished rename back; each shows what it would change first and acts only after y, and a case that could belong to more than one entry is only shown. The command export, an admin action from the tab line or a list, writes configuration to a file in steps: tick what to take (a connection comes with its service and credentials; agent tokens, approvals, the log, and the vault settings are never exported; space ticks, enter goes on), choose whether the file holds secrets, name the file, read the preview, and press F2 in the preview to write. F2 goes on and esc goes one step back, as in the guided setup; on the first step esc cancels, asking first once something is ticked. Nothing is written before that F2, and an existing file is never replaced. Secrets are offered only where the vault has a passphrase and the admin session proves it: encrypted with an export passphrase that is typed twice and is not the vault passphrase, or, after a warning and an own y, as plain text. The preview and the result name credentials and roles, never a value; the file is imported on another installation with the command import or qconnect config import. The command import, also an admin action, takes such a file over in steps: name the file, type its export passphrase if it is encrypted, choose the mode (create stops where a name already exists, merge keeps existing entries, overwrite replaces them), read the preview, and press F2 in the preview to write; F2 and esc work as in the export, and nothing is written before that F2. The preview lists every entry with its action and id, what a replacement changes in this installation, the local access a connection brings, and per credential the roles of the secrets the file brings, never a value, and where they go. After the write it asks whether to approve the imported connections where the vault is encrypted and, for a file with plain-text secrets, whether to delete it; only y does either, and esc or n leaves things as they are. A vault that gets its first secret offers a passphrase first.
+'qconnect help keys' explains the keys and parts of the editor, the same text that ? shows there, 'qconnect help agents' explains how an agent uses qconnect, and 'qconnect help configuration' what services, credentials, connections, and defaults are. 'qconnect config validate' checks the configuration file.`
 
-'qconnect help agents' explains how an agent uses qconnect, and 'qconnect help configuration' what services, credentials, connections, and defaults are. 'qconnect config validate' checks the configuration file.`
+const keys = `Keys in the editor mean the same everywhere. Each heading below names one part of the editor, with one entry per key or rule.
+
+Overview:
+- The editor opens on the Overview. It counts connections, services, credentials, agent tokens, and open approvals, and shows the vault state, the next steps, a small heatmap of the latest weeks of the invocation log, and the latest calls.
+- enter on a line opens the matching area. The Overview changes nothing itself.
+
+Areas and the tab line:
+- A tab line at the top names the six areas (Overview, Library, Connections, Activity, Access, Settings) in every terminal width.
+- The active area is a filled area, in brackets only without colour, and a > in front of it means the tab line has the focus.
+- Library and Access hold two parts each (Services and Credentials, Tokens and Approvals). Settings holds six (General, then after a bar Vault, Defaults, Transfer, Update, and Self-test).
+- The parts are named on an option bar under the tab line, where left and right choose the part.
+- On the tab line left and right choose an area.
+- 1 to 6 open an area directly, on its first part, from the tab line, a list, or the Logs screen.
+- down moves from the tab line to the option bar and then, like enter or tab, into the list. tab or esc come back to the bar.
+
+Moving:
+- The arrow keys move on every screen. h, j, k, and l do the same wherever no text is typed.
+- pgup, pgdown, home, and end jump in every list.
+- tab and shift+tab go to the next or previous field, zone, or area. Only a path line, where tab completes, and this help, where tab changes the topic, differ.
+- The choice lists, form fields, tab line, and command line wrap around at their ends. Lists, pages, the end keys, and the wheel stop there.
+
+Global keys:
+- ? opens this help on every screen without a text line (a form keeps it for its text rows). esc or ? returns to where you were.
+- i opens the longer explanation of a field and of the word it is about (service, credential, connection, target, effect, profile, approval, token, vault), over the screen, and esc closes it.
+- i works on every screen without a text line. On a search line it is text, and only an extra info key set in General opens the explanation there.
+- From a terminal width of 120 columns the explanation stands in a pane at the right of forms and pickers instead. Below it, a field or entry that has one ends in (i).
+- The colon key opens the command line on the same screens. Type to narrow the commands by name, choose with up, down, or tab, run one with enter, and close it with esc.
+- A command that is not possible on that screen says why. The same actions as the keys (switching areas, the guided setup, export, import, update, locking the vault, help, quit) are one line away.
+- Each selftest scenario is a command too, such as selftest storage. It measures this machine on synthetic data in a scratch directory that is removed again, runs beside the editor and shows its progress, and esc ends it.
+- ctrl+c quits at once and asks the same when something unsaved would be lost. q quits from the tab line, a list, and the Logs screen.
+
+Letter keys:
+Every other letter means one thing on every screen without a text line, and none acts where text is typed.
+- n creates a new entry, path, or target. In Credentials it first asks for a credential or a payload secret.
+- g starts the guided setup.
+- e edits the selected entry like enter.
+- p duplicates an entry.
+- t tests a connection.
+- U installs an update.
+- A approves everything open in Approvals.
+- V shows or hides a token's value in its detail.
+- s shows the summary of the Logs.
+- f opens the filter of the Logs.
+- M shows the MCP sessions of the Logs.
+- o opens Activity on an approval's connection.
+- c hands the full text of an open text or detail area (a log entry, the Raw tab, an explanation, an approval's detail) or, with none open, the name of the marked entry to the terminal for the clipboard. It hands over nothing but what is shown, no secret value and no control characters. It travels as an OSC 52 sequence, which also works over SSH but which the terminal does not confirm, and some terminals need it enabled (tmux needs set-clipboard on).
+- W saves a selftest result as a JSON file in the temporary directory, whose path is shown.
+- space ticks. In an approval's detail it shows or hides the unchanged entries.
+- d deletes, removes, or revokes on every screen without text entry, and F8 does so on a payload field. On such a field the value row is a text line, where ctrl+d deletes the character to the right. All of these ask first, y confirms, and n or esc keeps.
+- r renames the selected service, credential, or connection on its list, and edits the label of a target on the target list.
+
+Mouse:
+- With the mouse on, a click does what the key for it does. It chooses a tab (from any level, going back the way esc does, with the same question about unsaved input), the [esc] back button in the header (one level back, where esc leads one), a part on the option bar, a row (the first click marks it, a click on the marked row opens or ticks it), a group (folds it), a field or section of a form, a value of an option bar (on a filter field it opens the list of values), a button of a dialog, or an (i) mark (opens its explanation).
+- The wheel scrolls.
+- A click is never stronger than its key, so questions, confirmations, and the admin session apply as before, and it never types a character.
+- The terminal then passes the mouse to the editor. To select text hold Shift while dragging (macOS Terminal uses fn, iTerm2 Option, VS Code on macOS Option-click), or turn the mouse off in General.
+
+General, the preferences of this device:
+- General holds the preferences of this device. They are chosen from fixed lists, saved with F2 without an admin session or the vault's passphrase, and kept in tui.yaml beside config.yaml. That file belongs to this device, is not part of the configuration, and is neither exported nor imported.
+- theme. terminal, the default, takes the colours of the terminal and keeps its background. Every other theme paints the whole screen in its own colours. NO_COLOR turns colour off whatever is chosen, and a change applies at once.
+- start view. The area the editor opens on the next time.
+- icons. unicode, the default, puts an emoji or symbol beside the area names and needs no special font. nerdfont uses Nerd Font icons instead, which show as boxes without a Nerd Font installed in the terminal (see nerdfonts.com). none shows no icons. A terminal without UTF-8 shows none whatever is chosen.
+- language. english, deutsch, or system, which follows the language of the device. A change applies at once and covers the editor's own texts, while guides, core messages, and provider texts stay English.
+- mouse. on or off. on is the default and takes effect at once.
+
+Keys of the global actions:
+- Below the preferences, General lists the keys of the global actions save, help, command line, lock, and info. enter on a row and then pressing the new key binds it.
+- A key that is already taken, a character for save, lock, or the extra info key, a letter, ctrl+c, esc, tab, or a digit is refused with its reason.
+- d removes the own key so the standard applies again.
+- info can take a second key besides i that also works in text rows, such as F3.
+- The keys are kept under keys in tui.yaml. A key there that breaks a rule falls back to the standard with a warning at the start.
+- Terminals and desktops take some F-keys for themselves (F1, F5, and F10 to F12 are never used), so choose one your terminal passes through. On a Mac the F-keys may need fn.
+- The footers, and in the editor the list at the end of this topic, show the keys in force, while the text here names the standard ones.
+
+Forms and saving:
+- A field shows one line of hint under it. i opens its longer explanation.
+- esc is one level back. In the guided setup it is one step back, and on the first step it cancels the setup.
+- Input that is not saved is never dropped silently. The editor asks, F2 saves (in the setup it goes on to the next step), d discards, and esc keeps editing.
+
+Renaming:
+- r asks for the new name, lists everything the rename touches, including what qconnect cannot change and the agent tokens whose cover ends, and renames only after y. n or esc leaves everything as it was.
+- On Connections, Credentials, and Approvals a hint line under the list names the renames the vault shows that the configuration does not. These are a connection or credential renamed by hand in config.yaml, or the rest of a rename that stopped early.
+- down from the last row and then enter, or a click on the line, lists them and offers an action for each. enter adopts a hand rename or finishes an unfinished one, and B puts a credential's unfinished rename back.
+- Each action shows what it would change first and acts only after y. A case that could belong to more than one entry is only shown.
+
+Export:
+- The command export, an admin action from the tab line or a list, writes configuration to a file in steps. Tick what to take (a connection comes with its service and credentials, and agent tokens, approvals, the log, and the vault settings are never exported, space ticks and enter goes on), choose whether the file holds secrets, name the file, read the preview, and press F2 in the preview to write.
+- F2 goes on and esc goes one step back, as in the guided setup. On the first step esc cancels, asking first once something is ticked.
+- Nothing is written before that F2, and an existing file is never replaced.
+- Secrets are offered only where the vault has a passphrase and the admin session proves it. They are encrypted with an export passphrase that is typed twice and is not the vault passphrase, or, after a warning and an own y, written as plain text.
+- The preview and the result name credentials and roles, never a value.
+- The file is imported on another installation with the command import or qconnect config import.
+
+Import:
+- The command import, also an admin action, takes such a file over in steps. Name the file, type its export passphrase if it is encrypted, choose the mode (create stops where a name already exists, merge keeps existing entries, overwrite replaces them), read the preview, and press F2 in the preview to write.
+- F2 and esc work as in the export, and nothing is written before that F2.
+- The preview lists every entry with its action and id, what a replacement changes in this installation, the local access a connection brings, and per credential the roles of the secrets the file brings, never a value, and where they go.
+- After the write it asks whether to approve the imported connections where the vault is encrypted and, for a file with plain-text secrets, whether to delete it. Only y does either, and esc or n leaves things as they are.
+- A vault that gets its first secret offers a passphrase first.
+
+Update:
+- U installs an update, from the tab line or a list. 'qconnect help start' describes the update.
+- The later parts of Settings (Transfer, Update, and Self-test) only gather the export, import, update, and selftest actions. Each keeps the rules it had.`
 
 const agents = `An agent uses qconnect like a person on the command line, through connections a person configured beforehand. It never handles a secret: of a connection it knows only the name, its one-line description, and the effects it may use.
 
