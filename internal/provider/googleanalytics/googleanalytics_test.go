@@ -67,7 +67,8 @@ var toolEffects = map[string]config.Effect{accountsUpdateID: config.EffectUpdate
 	dataRetentionUpdateID: config.EffectUpdate, googleSignalsUpdateID: config.EffectUpdate,
 	annotationsCreateID: config.EffectCreate, annotationsUpdateID: config.EffectUpdate, annotationsDeleteID: config.EffectDelete,
 	audiencesCreateID: config.EffectCreate, audiencesUpdateID: config.EffectUpdate, audiencesArchiveID: config.EffectDelete,
-	channelGroupsCreateID: config.EffectCreate, channelGroupsUpdateID: config.EffectUpdate, channelGroupsDeleteID: config.EffectDelete}
+	channelGroupsCreateID: config.EffectCreate, channelGroupsUpdateID: config.EffectUpdate, channelGroupsDeleteID: config.EffectDelete,
+	edsCreateID: config.EffectCreate, edsUpdateID: config.EffectUpdate, edsDeleteID: config.EffectDelete}
 
 func effectOf(id string) config.Effect {
 	if effect, ok := toolEffects[id]; ok {
@@ -119,8 +120,10 @@ func TestRegisterPublishesMetadataScopesAndConsent(t *testing.T) {
 		audiencesCreateID: {scopeEdit}, audiencesUpdateID: {scopeEdit}, audiencesArchiveID: {scopeEdit},
 		channelGroupsListID: {scopeReadOnly}, channelGroupsGetID: {scopeReadOnly}, channelGroupsCreateID: {scopeEdit},
 		channelGroupsUpdateID: {scopeEdit}, channelGroupsDeleteID: {scopeEdit},
-		adsLinksListID: {scopeReadOnly}, firebaseLinksListID: {scopeReadOnly}, bigQueryLinksListID: {scopeReadOnly},
-		bigQueryLinksGetID: {scopeReadOnly}}) {
+		edsListID: {scopeReadOnly}, edsGetID: {scopeReadOnly}, edsCreateID: {scopeEdit}, edsUpdateID: {scopeEdit},
+		edsDeleteID: {scopeEdit}, adsLinksListID: {scopeReadOnly}, firebaseLinksListID: {scopeReadOnly},
+		bigQueryLinksListID: {scopeReadOnly}, bigQueryLinksGetID: {scopeReadOnly}, adsenseLinksListID: {scopeReadOnly},
+		adsenseLinksGetID: {scopeReadOnly}, searchAdsLinksListID: {scopeReadOnly}, searchAdsLinksGetID: {scopeReadOnly}}) {
 		t.Errorf("scopes = %v", metadata.Token.Scopes)
 	}
 	ids := []string{}
@@ -164,6 +167,11 @@ func TestRegisterPublishesMetadataScopesAndConsent(t *testing.T) {
 		"google.analytics.channel-groups.list", "google.analytics.channel-groups.get",
 		"google.analytics.channel-groups.create", "google.analytics.channel-groups.update",
 		"google.analytics.channel-groups.delete",
+		"google.analytics.expanded-data-sets.list", "google.analytics.expanded-data-sets.get",
+		"google.analytics.expanded-data-sets.create", "google.analytics.expanded-data-sets.update",
+		"google.analytics.expanded-data-sets.delete",
+		"google.analytics.adsense-links.list", "google.analytics.adsense-links.get",
+		"google.analytics.search-ads360-links.list", "google.analytics.search-ads360-links.get",
 		"google.analytics.properties.create", "google.analytics.properties.delete", "google.analytics.properties.get",
 		"google.analytics.properties.list", "google.analytics.properties.update", "google.analytics.report-tasks.create",
 		"google.analytics.report-tasks.get", "google.analytics.report-tasks.list", "google.analytics.report-tasks.query",
@@ -191,8 +199,9 @@ func TestRegisterPublishesMetadataScopesAndConsent(t *testing.T) {
 		customMetricsGetID, keyEventsListID, keyEventsGetID, eventRulesListID, eventRulesGetID,
 		calculatedListID, calculatedGetID, accessAccountID, accessPropertyID, dataRetentionGetID, googleSignalsGetID,
 		annotationsListID, annotationsGetID, dv360LinksListID, dv360LinksGetID, dv360ProposalsListID, dv360ProposalsGetID,
-		audiencesListID, audiencesGetID, channelGroupsListID, channelGroupsGetID, adsLinksListID, firebaseLinksListID,
-		bigQueryLinksListID, bigQueryLinksGetID, rollupLinksListID, rollupLinksGetID, accessBindingsListID,
+		audiencesListID, audiencesGetID, channelGroupsListID, channelGroupsGetID, edsListID, edsGetID, adsLinksListID,
+		firebaseLinksListID, bigQueryLinksListID, bigQueryLinksGetID, adsenseLinksListID, adsenseLinksGetID,
+		searchAdsLinksListID, searchAdsLinksGetID, rollupLinksListID, rollupLinksGetID, accessBindingsListID,
 		accessBindingsGetID}
 	if len(metadata.Profiles) != 2 || metadata.Profiles[0].ID != "read" || !metadata.Profiles[0].Recommended ||
 		!reflect.DeepEqual(metadata.Profiles[0].Tools, reads) || metadata.Profiles[1].ID != "write" ||
@@ -207,7 +216,8 @@ func TestRegisterPublishesMetadataScopesAndConsent(t *testing.T) {
 				calculatedCreateID, calculatedUpdateID, calculatedDeleteID, googleSignalsUpdateID,
 				annotationsCreateID, annotationsUpdateID, annotationsDeleteID,
 				audiencesCreateID, audiencesUpdateID, audiencesArchiveID,
-				channelGroupsCreateID, channelGroupsUpdateID, channelGroupsDeleteID)) {
+				channelGroupsCreateID, channelGroupsUpdateID, channelGroupsDeleteID,
+				edsCreateID, edsUpdateID, edsDeleteID)) {
 		t.Errorf("profiles = %+v", metadata.Profiles)
 	}
 	oauth, ok := reg.OAuth(Provider)

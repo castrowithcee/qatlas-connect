@@ -1,6 +1,6 @@
 ---
 description: >
-  Describes the Google Cloud provider: the token credential and its fixed origins, the targets (organization, folder, project, billing account) and what they reach, the read and IAM profiles, the search tools with their structured filters, cursors, and per-row target check, the Cloud Storage bucket reads, the IAM role and permission reads, the service account and key metadata reads, the Google error form and its classes, long-running operations, rate spacing, the connection test, and the limits of what is verified.
+  Describes the Google Cloud provider: the token credential and its fixed origins, the targets (organization, folder, project, billing account) and what they reach, the read and IAM profiles, the search tools with their structured filters, cursors, and per-row target check, the Cloud Storage reads of buckets, notifications, managed folders, and HMAC key metadata, the IAM role and permission reads, the service account and key metadata reads, the Google error form and its classes, long-running operations, rate spacing, the connection test, and the limits of what is verified.
 type: knowledge
 edit: shared
 created: 2026-11-16
@@ -35,8 +35,8 @@ tokens for it). The connection holds no scope. Qatlas derives them from the tool
 smallest scope the discovery document of each method lists: `cloud-platform.read-only` for Resource Manager,
 and `cloud-platform` for the IAM and quota tools, because their discovery documents list no narrower scope
 (Google offers no read-only variant for these methods, see [IAM](iam.md) and [Quotas](quotas.md)). Only the tools of the profiles
-`service-accounts`, `service-accounts-revoke`, `api-keys-revoke`, `iam-bindings`, `compute-network-delete`, `compute-lifecycle`, and `services` and the tools
-`service-accounts.delete` and `services.disable`, which a `tools` list must name, change anything, each with a confirmation, whatever the scope allows. The access token travels in the
+`service-accounts`, `service-accounts-revoke`, `api-keys-revoke`, `iam-bindings`, `compute-network-delete`, `compute-lifecycle`, `compute-instances-create`, and `services` and the tools
+`service-accounts.delete`, `services.disable`, and `instances.delete`, which a `tools` list must name, change anything, each with a confirmation, whatever the scope allows. The access token travels in the
 `Authorization` header only, is never an argument or part of a result, and is masked in every output. A 401
 renews the token once, and nothing else repeats a request.
 
@@ -66,7 +66,7 @@ Three rules decide which tool a binding reaches. They are separate on purpose:
   organization, a folder, or a project, so a connection bound to billing accounts alone neither runs nor is
   offered them, not even for predefined roles. Organization roles and an organization resource are reached
   only if a target names exactly that organization; a connection without targets is refused.
-- **Storage tools** (`buckets.*`, `bucket-access-controls.list`): the connection is unbound or names an
+- **Storage tools** (`buckets.*`, `bucket-access-controls.list`, `notifications.list`, `managed-folders.list`, `hmac-keys.*`): the connection is unbound or names an
   organization, a folder, or a project. A bucket is bound to the targets by the project number of one read of the
   bucket, see [Buckets](buckets.md).
 - **Tools without a resource** (`operations.get`): an operation belongs to no folder or project that Qatlas
@@ -93,7 +93,9 @@ The profile `read` is the recommended one. It holds every tool that needs no mor
 `google.cloud.vpn-tunnels.get`, `google.cloud.disks.list`, `google.cloud.disks.aggregated-list`,
 `google.cloud.disks.get`, `google.cloud.snapshots.list`, `google.cloud.snapshots.get`,
 `google.cloud.images.list`, and `google.cloud.images.get`, which ask for `compute.readonly`, and the Storage tools
-`google.cloud.buckets.list` and `google.cloud.buckets.get`, which ask for `devstorage.read_only`. The two
+`google.cloud.buckets.list`, `google.cloud.buckets.get`, `google.cloud.notifications.list`,
+`google.cloud.managed-folders.list`, `google.cloud.hmac-keys.list`, and `google.cloud.hmac-keys.get`, which ask for
+`devstorage.read_only`. The two
 operation tools return the email address of whoever started an operation (personal data) and carry their own
 sensitivity. A connection bound to an organization or a folder needs `projects.get` next to the
 Compute tools to prove the project of a call; `read` holds both.
@@ -147,6 +149,15 @@ tools ask for the scope `compute`, which Google also uses to change Compute reso
 although no tool does. The profile needs the effect `update` for the instance tools and `read` for `projects.get`, is
 not recommended, and every call needs the confirmation of a person. See [Compute instances](instances.md#lifecycle).
 
+The profile `compute-instances-create` holds `google.cloud.instances.insert` and `google.cloud.projects.get`, which
+proves a project against targets of an organization or a folder and names the default service account by its
+project number. `instances.insert` asks for the scope `compute`, which Google also uses to change Compute resources,
+so the token may do that although no tool does. The profile needs the effect `create` for the tool and `read` for
+`projects.get` and is not recommended. It does not hold `google.cloud.instances.delete`: that tool is listed-only and
+only a `tools` list that names it exactly releases it. An instance is created without an external address, without
+`ssh-keys`, `sshKeys`, or `windows-keys` metadata, and without a service account of another project, and costs money
+while it exists. See [Compute instances](instances.md#creating-an-instance).
+
 The profile `services` holds only `google.cloud.services.enable` and `google.cloud.services.batch-enable`. It asks
 for `cloud-platform`, needs the effect `update`, and is not recommended. It does not hold
 `google.cloud.services.disable`: that tool is listed-only and only a `tools` list that names it exactly releases
@@ -168,7 +179,7 @@ on [IAM bindings](iam-bindings.md).
 - [IAM bindings](iam-bindings.md): adding a member to, removing a member from, and moving a member between the
   bindings of the IAM policy of a project, folder, or organization.
 - [Compute instances](instances.md): the virtual machine instances of a project from Compute Engine, one, per
-  zone, and across all zones, without metadata values.
+  zone, and across all zones, without metadata values, and creating an instance and deleting one (listed-only).
 - [Machine types](machine-types.md): the machine types of a zone from Compute Engine.
 - [Zones](zones.md): the zones of a project from Compute Engine.
 - [Regions](regions.md): the regions of a project from Compute Engine, with their quotas.
@@ -192,6 +203,9 @@ on [IAM bindings](iam-bindings.md).
 - [Buckets](buckets.md): the Cloud Storage buckets of a project, one and all, and the IAM policy of a bucket, bound to
   the targets by the project number of the bucket.
 - [Bucket access controls](bucket-access-controls.md): the access control list of a Cloud Storage bucket.
+- [Notifications](notifications.md): the Pub/Sub notification configurations of a Cloud Storage bucket.
+- [Managed folders](managed-folders.md): the managed folders of a Cloud Storage bucket.
+- [HMAC keys](hmac-keys.md): the metadata of the HMAC keys of a project, never a key value.
 - [Quotas](quotas.md): the quotas of a service and the quota preferences of a project from Cloud Quotas.
 
 ### Search

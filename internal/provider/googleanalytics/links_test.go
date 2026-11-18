@@ -365,7 +365,8 @@ func TestLinksHaveOnlyReadingTools(t *testing.T) {
 	}
 	slices.Sort(links)
 	if !slices.Equal(links, sortedCopy([]string{adsLinksListID, firebaseLinksListID, bigQueryLinksListID, bigQueryLinksGetID,
-		dv360LinksListID, dv360LinksGetID, rollupLinksListID, rollupLinksGetID})) {
+		dv360LinksListID, dv360LinksGetID, adsenseLinksListID, adsenseLinksGetID, searchAdsLinksListID,
+		searchAdsLinksGetID, rollupLinksListID, rollupLinksGetID})) {
 		t.Errorf("link tools = %v", links)
 	}
 	metadata, _ := reg.ProviderMetadata(Provider)
