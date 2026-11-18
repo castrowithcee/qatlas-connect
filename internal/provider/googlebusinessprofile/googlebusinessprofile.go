@@ -56,6 +56,20 @@ var toolScopes = map[string][]string{
 	performanceGetDailyID:   {scopeManage},
 	performanceFetchDailyID: {scopeManage},
 	performanceKeywordsID:   {scopeManage},
+
+	categoriesListID:        {scopeManage},
+	categoriesBatchGetID:    {scopeManage},
+	chainsGetID:             {scopeManage},
+	chainsSearchID:          {scopeManage},
+	googleLocationsSearchID: {scopeManage},
+
+	accountAdminsDeleteID:  {scopeManage},
+	locationAdminsDeleteID: {scopeManage},
+	invitationsListID:      {scopeManage},
+	invitationsDeclineID:   {scopeManage},
+	lodgingGetID:           {scopeManage},
+	lodgingGoogleUpdatedID: {scopeManage},
+	lodgingUpdateID:        {scopeManage},
 }
 
 // ClassAccessNotApproved is the outcome of a Cloud project that Google has not approved for the Business
@@ -116,13 +130,15 @@ func testClass(err error) (provider.Class, error) {
 // readTools are the tools of the profile read.
 var readTools = []string{accountsListID, accountsGetID, locationsListID, locationsGetID,
 	accountAdminsListID, locationAdminsListID, locationsGetGoogleUpdatedID,
-	performanceGetDailyID, performanceFetchDailyID, performanceKeywordsID}
+	performanceGetDailyID, performanceFetchDailyID, performanceKeywordsID,
+	categoriesListID, categoriesBatchGetID, chainsGetID, chainsSearchID, googleLocationsSearchID,
+	invitationsListID, lodgingGetID, lodgingGoogleUpdatedID}
 
 // writeTools are the tools of the profile write.
 //
 // locations.delete is in no profile: only a tools list offers it.
 var writeTools = []string{accountAdminsUpdateID, locationAdminsUpdateID, accountsUpdateID, locationsCreateID,
-	locationsUpdateID}
+	locationsUpdateID, accountAdminsDeleteID, locationAdminsDeleteID, invitationsDeclineID, lodgingUpdateID}
 
 // Register adds the provider metadata, its consent endpoints, its connection test, and its tools.
 func Register(reg *capability.Registry) error {
@@ -137,17 +153,20 @@ func Register(reg *capability.Registry) error {
 		Target:          targetMetadata,
 		Profiles: []config.ToolProfile{{
 			ID: "read", Title: "Read", Recommended: true,
-			Description: "lists and reads the accounts and the business locations the consenting account manages " +
-				"and changes nothing; Google offers only the scope business.manage, which also allows changes, so " +
+			Description: "lists and reads the accounts and the business locations the consenting account manages, " +
+				"and the categories, chains, and Google locations of Google's reference data, and changes nothing; " +
+				"Google offers only the scope business.manage, which also allows changes, so " +
 				"the token may change what its account may, although no tool of this profile changes anything; " +
-				"the admin lists name other people, which is personal data",
+				"the admin lists name other people and the invitation list names the targets of invitations, which is " +
+				"personal data",
 			Tools: readTools,
 		}, {
 			ID: "write", Title: "Write",
-			Description: "changes the role of existing admins of an account or a location, renames an account, and " +
-				"creates and changes business locations, whose data is public, each change with the confirmation of a " +
-				"person; no tool of this profile deletes a location; no tool invites or creates an admin, makes anyone " +
-				"primary owner, or transfers a location; Google offers only the scope business.manage, so the " +
+			Description: "changes the role of existing admins of an account or a location, removes existing admins, " +
+				"declines invitations, renames an account, and creates and changes business locations, whose data " +
+				"is public, each change with the confirmation of a person; no tool of this profile deletes a " +
+				"location; no tool invites or creates an admin, accepts an invitation, makes anyone primary owner, " +
+				"or transfers a location; Google offers only the scope business.manage, so the " +
 				"token may change what its account may",
 			Tools: writeTools,
 		}},
@@ -180,8 +199,24 @@ func Register(reg *capability.Registry) error {
 			ConfirmationSummary: locationUpdateSummary},
 		capability.Operation{Descriptor: locationsDelete, Handler: handleLocationsDelete,
 			ConfirmationSummary: locationDeleteSummary},
+		capability.Operation{Descriptor: accountAdminsDelete, Handler: handleAccountAdminsDelete,
+			ConfirmationSummary: adminRemoveSummary},
+		capability.Operation{Descriptor: locationAdminsDelete, Handler: handleLocationAdminsDelete,
+			ConfirmationSummary: adminRemoveSummary},
+		capability.Operation{Descriptor: invitationsList, Handler: handleInvitationsList},
+		capability.Operation{Descriptor: invitationsDecline, Handler: handleInvitationsDecline,
+			ConfirmationSummary: invitationSummary},
 		capability.Operation{Descriptor: performanceGetDaily, Handler: handleGetDailyMetric},
 		capability.Operation{Descriptor: performanceFetchDaily, Handler: handleFetchDailyMetrics},
 		capability.Operation{Descriptor: performanceKeywords, Handler: handleListSearchKeywords},
+		capability.Operation{Descriptor: categoriesList, Handler: handleCategoriesList},
+		capability.Operation{Descriptor: categoriesBatchGet, Handler: handleCategoriesBatchGet},
+		capability.Operation{Descriptor: chainsGet, Handler: handleChainsGet},
+		capability.Operation{Descriptor: chainsSearch, Handler: handleChainsSearch},
+		capability.Operation{Descriptor: googleLocationsSearch, Handler: handleGoogleLocationsSearch},
+		capability.Operation{Descriptor: lodgingGet, Handler: handleLodgingGet},
+		capability.Operation{Descriptor: lodgingGoogleUpdated, Handler: handleLodgingGoogleUpdated},
+		capability.Operation{Descriptor: lodgingUpdate, Handler: handleLodgingUpdate,
+			ConfirmationSummary: lodgingUpdateSummary},
 	)
 }

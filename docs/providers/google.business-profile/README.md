@@ -11,11 +11,13 @@ updated: 2026-11-18
 
 Google Business Profile is a provider for the Business Profile APIs v1: the accounts a person owns or manages
 and the business locations in them, and the performance of a location. Most tools read; the tools of the
-profile `write` change the role of existing admins, rename an account, and create and change locations. Deleting
-a location is listed-only. [Set up Google Business
-Profile](setup.md) leads through the Google side, the approval, and the consent. The tools are described per
-group in [accounts](accounts.md), [locations](locations.md), [account admins](account-admins.md), [location
-admins](location-admins.md), and [performance](performance.md).
+profile `write` change the role of existing admins, remove admins, decline invitations, rename an account, and
+create and change locations. Deleting a location is listed-only. [Set up Google Business Profile](setup.md)
+leads through the Google side, the approval, and the consent. The tools are described per group in
+[accounts](accounts.md), [locations](locations.md), [account admins](account-admins.md), [location
+admins](location-admins.md), [invitations](invitations.md), [performance](performance.md),
+[categories](categories.md), [chains](chains.md), [Google locations](google-locations.md), and
+[lodging](lodging.md).
 
 ## Credential
 
@@ -43,12 +45,13 @@ no wider than the task needs.
 
 | Profile | Tools |
 | --- | --- |
-| `read` (recommended) | every read tool: `accounts.list`, `accounts.get`, `locations.list`, `locations.get`, `locations.get-google-updated`, `account-admins.list`, `location-admins.list` |
-| `write` | `account-admins.update`, `location-admins.update`, `accounts.update`, `locations.create`, `locations.update`; each change needs confirmation |
+| `read` (recommended) | every read tool: `accounts.list`, `accounts.get`, `locations.list`, `locations.get`, `locations.get-google-updated`, `account-admins.list`, `location-admins.list`, `invitations.list`, `lodging.get`, `lodging.get-google-updated` |
+| `write` | `account-admins.update`, `location-admins.update`, `accounts.update`, `locations.create`, `locations.update`, `account-admins.delete`, `location-admins.delete`, `invitations.decline`, `lodging.update`; each change needs confirmation |
 | none | `locations.delete` is listed-only: only a `tools` list offers it |
 
 The profile `read` changes nothing, but Google's only scope also allows changes, so the token could. The two
-admin lists name other people (first and last name, and the email address of a pending invitation), which is
+admin lists name other people (first and last name, and the email address of a pending invitation), and the
+invitation list names the accounts and locations of those who invited, with the address of a location, which is
 personal data; a connection that must not show them names its tools in a `tools` list instead of the profile.
 The profile `write` is not recommended: it holds only the changing tools and needs a person to confirm each
 change. Every change is spaced at 10 per minute and profile, see [account admins](account-admins.md).
@@ -56,14 +59,15 @@ change. Every change is spaced at 10 per minute and profile, see [account admins
 ## Configuration
 
 The origins are fixed. Leave `base_url` out or set it to `https://mybusinessaccountmanagement.googleapis.com`;
-Qatlas refuses any other value before a secret is read. The tools use three APIs, which are enabled in the Cloud
+Qatlas refuses any other value before a secret is read. The tools use four APIs, which are enabled in the Cloud
 project one by one:
 
 | API | Origin | Tools |
 | --- | --- | --- |
 | My Business Account Management API | `https://mybusinessaccountmanagement.googleapis.com` | [accounts](accounts.md) |
-| My Business Business Information API | `https://mybusinessbusinessinformation.googleapis.com` | [locations](locations.md) |
+| My Business Business Information API | `https://mybusinessbusinessinformation.googleapis.com` | [locations](locations.md), [categories](categories.md), [chains](chains.md), [Google locations](google-locations.md) |
 | Business Profile Performance API | `https://businessprofileperformance.googleapis.com` | [performance](performance.md) |
+| My Business Lodging API | `https://mybusinesslodging.googleapis.com` | [lodging](lodging.md) |
 
 ## Approval of the Cloud project
 
@@ -93,23 +97,31 @@ request is sent; a refusal never names the other object.
 | `locations.list` | the locations of the bound account; another account and `accounts/-` are refused | answers with the bound location only, read directly; `account` and `filter` are refused |
 | `locations.get`, `locations.get-google-updated`, `locations.update`, `locations.delete` | first prove that the location is in the bound account's location list | the bound location only |
 | `locations.create` | the bound account only | not offered |
-| `account-admins.list`, `account-admins.update`, `accounts.update` | the bound account only | not offered |
-| `location-admins.list`, `location-admins.update` | prove the location first, like `locations.get` | the bound location only |
+| `account-admins.list`, `account-admins.update`, `account-admins.delete`, `accounts.update` | the bound account only | not offered |
+| `invitations.list`, `invitations.decline` | the invitations of the bound account only | not offered |
+| `location-admins.list`, `location-admins.update`, `location-admins.delete` | prove the location first, like `locations.get` | the bound location only |
+| `lodging.*` | first prove the location like `locations.get` | the bound location only |
 | `performance.*` | first prove, on every call, that the location is in the bound account's location list | the bound location only |
 
 The proof of the location tools and of the performance tools reads the location list of the bound account, names
 only, 100 at a time, until it finds the location. It reads at most 2000 locations; a location not found by then is refused like one outside
 the target. The time between the proof and the read is a limit of the proof.
 
+The tools of [categories](categories.md), [chains](chains.md), and [Google locations](google-locations.md) read
+Google's reference data and the locations that exist on Google. They name no account or location of the
+connection, so every connection offers them, whatever its target, and the target does not narrow their
+results. They return no data of the user, but a Google location search can name businesses of other people.
+
 A location names no account in Google's answer, so a location target offers no account tool and cannot tell
-which account the location belongs to.
+which account the location belongs to. The account tools are therefore also `account-admins.delete`,
+`invitations.list`, and `invitations.decline`: each needs an account, and a refusal beats guessing one.
 
 ## Quotas and request spacing
 
 Requests of one OAuth client are spaced by at least 200 ms within a process, which is the 300 requests per
 minute of an approved project. Google counts the quota per project, shared by every user of the client. On a
 `429` the next request of the client waits one second, or the seconds of `Retry-After` up to one minute. The
-failed request is not repeated, and a missing `Retry-After` never leads to a retry. The calls cost nothing.
+failed request is not repeated, and a missing `Retry-After` never leads to a retry. The calls cost nothing. The reference tools count against the same quota.
 
 ## Results
 
@@ -172,13 +184,20 @@ location writes are described in [locations](locations.md#writing-a-location).
 Not verified:
 
 - No live call was made. Methods, parameters, and answers are taken from the discovery documents of the My
-  Business Account Management API v1, the My Business Business Information API v1, and the Business Profile
-  Performance API v1, each of revision 20261116.
+  Business Account Management API v1, the My Business Business Information API v1, the Business Profile
+  Performance API v1, and the My Business Lodging API v1, each of revision 20261116.
 - How Google answers a project without approval. Qatlas assumes a `429` with the quota limit `0`; a pending
   approval may answer differently.
 - Whether each Business Profile API needs to be enabled in the project on its own.
 - Whether a read mask accepts nested field paths. Qatlas accepts only the top-level fields of a location.
+- Whether the read and update masks of the lodging accept nested paths and group names as field masks usually
+  do, and whether Google answers an unset boolean without the field. Qatlas sends the paths as given and compares
+  `previous_values` with exactly what Google answers.
 - The exact form Google expects for several sort fields; Qatlas joins them with a comma.
+- The exact form of chain IDs and category IDs. Qatlas accepts `chains/` with letters, digits, hyphens, and
+  underscores, and `categories/gcid:` with lower-case letters, digits, and underscores, and refuses anything
+  else before a request.
+- How many names `categories.batch-get` accepts; Qatlas allows 50.
 - Which classification Google gives `business.manage` when it verifies an OAuth app.
 - How Google reacts to a change of the title, the address, or a category: a new verification, a review, or a
   suspended profile.
@@ -187,6 +206,8 @@ Not verified:
   for texts; Qatlas accepts only top-level fields and caps a `profile` description at 4000 characters.
 - Whether a change with `validate_only` counts against the 10 changes per minute; Qatlas counts it.
 - The format of an admin ID; Qatlas accepts up to 64 letters, digits, `_`, and `-`.
+- Whether the entry of the consenting account itself is among the admins that `admins.delete` removes; the answer
+  names no identity, so the tools cannot warn before a self-lockout.
 - Whether Google allows `SITE_MANAGER` as the new role of an account admin; its documentation names only the
   creation of such an admin as refused.
 - The date ranges the Performance API serves. Its discovery document, revision 20261116, names no limit, so
@@ -202,5 +223,9 @@ Left out on purpose:
 - `accounts.create`: it would create an account with a new owner relation.
 - The role `PRIMARY_OWNER` as a target role of an admin, and changing an admin who holds it: both transfer the
   ownership of the profile. An admin with a pending invitation is not changed either.
-- `admins.delete`, the invitation methods, and `locations.transfer`.
+- `accounts.invitations.accept`: it makes the user of the connection an admin of an account or location that
+  someone else controls, which widens the reach of the credential through an entry that only the other side
+  controls. A person accepts an invitation in Google's own interface; declining is offered because it only
+  reduces access, see [invitations](invitations.md#accepting-is-left-out).
+- `locations.transfer`.
 - The deprecated metrics `BUSINESS_CONVERSATIONS` and `BUSINESS_FOOD_ORDERS` of the performance tools.

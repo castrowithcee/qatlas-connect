@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"net/http"
 	"net/url"
 	"reflect"
 	"regexp"
@@ -51,7 +50,9 @@ const reviewNote = "A change of the title, the address, or a category can make G
 const writeUntrustedNote = "Every value is public once Google accepts it, and nothing the tool sends is fetched. "
 
 // Input schemas of the writable fields. Nested members that Google marks output only are not accepted.
-func text(maxRunes int) string { return fmt.Sprintf(`{"type":"string","maxLength":%d}`, maxRunes) }
+func boundedText(maxRunes int) string {
+	return fmt.Sprintf(`{"type":"string","maxLength":%d}`, maxRunes)
+}
 
 func requiredText(maxRunes int) string {
 	return fmt.Sprintf(`{"type":"string","minLength":1,"maxLength":%d}`, maxRunes)
@@ -86,20 +87,20 @@ var (
 	writeCategory = closedObject([]string{"name"}, "name", requiredText(maxShortRunes))
 
 	writableSchemas = map[string]string{
-		"languageCode": text(maxShortRunes),
-		"storeCode":    text(maxLineRunes),
+		"languageCode": boundedText(maxShortRunes),
+		"storeCode":    boundedText(maxLineRunes),
 		"title":        requiredText(maxLineRunes),
 		"phoneNumbers": closedObject([]string{"primaryPhone"}, "primaryPhone", requiredText(maxLineRunes),
 			"additionalPhones", `{"type":"array","maxItems":2,"items":`+requiredText(maxLineRunes)+`}`),
 		"categories": closedObject([]string{"primaryCategory"}, "primaryCategory", writeCategory,
 			"additionalCategories", arrayOf(writeCategory, maxItems)),
 		"storefrontAddress": closedObject([]string{"regionCode"}, "revision", whole(0, 1<<30),
-			"regionCode", requiredText(maxShortRunes), "languageCode", text(maxShortRunes),
-			"postalCode", text(maxShortRunes), "sortingCode", text(maxShortRunes),
-			"administrativeArea", text(maxLineRunes), "locality", text(maxLineRunes),
-			"sublocality", text(maxLineRunes), "addressLines", arrayOf(requiredText(maxLineRunes), 5),
-			"recipients", arrayOf(requiredText(maxLineRunes), 5), "organization", text(maxLineRunes)),
-		"websiteUri":   text(maxURLRunes),
+			"regionCode", requiredText(maxShortRunes), "languageCode", boundedText(maxShortRunes),
+			"postalCode", boundedText(maxShortRunes), "sortingCode", boundedText(maxShortRunes),
+			"administrativeArea", boundedText(maxLineRunes), "locality", boundedText(maxLineRunes),
+			"sublocality", boundedText(maxLineRunes), "addressLines", arrayOf(requiredText(maxLineRunes), 5),
+			"recipients", arrayOf(requiredText(maxLineRunes), 5), "organization", boundedText(maxLineRunes)),
+		"websiteUri":   boundedText(maxURLRunes),
 		"regularHours": closedObject([]string{"periods"}, "periods", arrayOf(writeTimePeriod, maxItems)),
 		"specialHours": closedObject([]string{"specialHourPeriods"}, "specialHourPeriods", arrayOf(closedObject(
 			[]string{"startDate"}, "startDate", writeDate, "endDate", writeDate, "openTime", writeTimeOfDay,
@@ -109,7 +110,7 @@ var (
 			"places", closedObject([]string{"placeInfos"}, "placeInfos", arrayOf(closedObject(
 				[]string{"placeName", "placeId"}, "placeName", requiredText(maxLineRunes),
 				"placeId", requiredText(maxShortRunes)), 20)),
-			"regionCode", text(maxShortRunes)),
+			"regionCode", boundedText(maxShortRunes)),
 		"labels":                    arrayOf(`{"type":"string","minLength":1,"maxLength":255}`, maxItems),
 		"adWordsLocationExtensions": closedObject([]string{"adPhone"}, "adPhone", requiredText(maxLineRunes)),
 		"latlng": closedObject([]string{"latitude", "longitude"},
@@ -117,23 +118,23 @@ var (
 			"longitude", `{"type":"number","minimum":-180,"maximum":180}`),
 		"openInfo": closedObject([]string{"status"}, "status",
 			enum("OPEN", "CLOSED_PERMANENTLY", "CLOSED_TEMPORARILY"), "openingDate", writeDate),
-		"profile": closedObject([]string{"description"}, "description", text(maxLongRunes)),
+		"profile": closedObject([]string{"description"}, "description", boundedText(maxLongRunes)),
 		"relationshipData": closedObject(nil,
 			"parentLocation", closedObject([]string{"relationType", "placeId"},
 				"relationType", enum("DEPARTMENT_OF", "INDEPENDENT_ESTABLISHMENT_IN"), "placeId", requiredText(maxShortRunes)),
 			"childrenLocations", arrayOf(closedObject([]string{"relationType", "placeId"},
 				"relationType", enum("DEPARTMENT_OF", "INDEPENDENT_ESTABLISHMENT_IN"), "placeId", requiredText(maxShortRunes)),
 				maxItems),
-			"parentChain", text(maxShortRunes)),
+			"parentChain", boundedText(maxShortRunes)),
 		"moreHours": arrayOf(closedObject([]string{"hoursTypeId", "periods"}, "hoursTypeId", requiredText(maxShortRunes),
 			"periods", arrayOf(writeTimePeriod, maxItems)), maxItems),
 		"serviceItems": arrayOf(closedObject(nil,
 			"structuredServiceItem", closedObject([]string{"serviceTypeId"}, "serviceTypeId", requiredText(maxShortRunes),
-				"description", text(300)),
+				"description", boundedText(300)),
 			"freeFormServiceItem", closedObject([]string{"category", "label"}, "category", requiredText(maxShortRunes),
 				"label", closedObject([]string{"displayName"}, "displayName", requiredText(maxLineRunes),
-					"description", text(maxLongRunes), "languageCode", text(maxShortRunes))),
-			"price", closedObject(nil, "currencyCode", text(maxShortRunes),
+					"description", boundedText(maxLongRunes), "languageCode", boundedText(maxShortRunes))),
+			"price", closedObject(nil, "currencyCode", boundedText(maxShortRunes),
 				"units", `{"type":"string","pattern":"^-?[0-9]{1,18}$"}`, "nanos", whole(-999999999, 999999999))),
 			maxItems),
 	}
@@ -458,7 +459,7 @@ func handleLocationsCreate(ctx context.Context, resolved *config.Resolved, secre
 		return nil, err
 	}
 	var out location
-	if err := c.patch(ctx, op, locationsCreateID, change{method: http.MethodPost, root: informationRoot,
+	if err := c.post(ctx, op, locationsCreateID, change{root: informationRoot,
 		path: locationsOfPath(account), query: query, body: body, key: account, notFound: notFoundAccount}, &out); err != nil {
 		var failed *provider.Error
 		if errors.As(err, &failed) && strings.Contains(failed.Message, "outcome of the change is unknown") {
@@ -709,7 +710,7 @@ func handleLocationsDelete(ctx context.Context, resolved *config.Resolved, secre
 		}
 	}
 	var empty struct{}
-	if err := c.patch(ctx, op, locationsDeleteID, change{method: http.MethodDelete, root: informationRoot,
+	if err := c.remove(ctx, op, locationsDeleteID, change{root: informationRoot,
 		path: locationPath(name), key: name, notFound: notFoundLocation}, &empty); err != nil {
 		return nil, err
 	}

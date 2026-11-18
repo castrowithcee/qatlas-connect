@@ -120,7 +120,8 @@ func locationsOfPath(account string) string { return account + "/locations" }
 // accountTools are the tools that act on an account and have no meaning for a location target.
 var accountTools = map[string]bool{
 	accountsListID: true, accountsGetID: true, accountsUpdateID: true,
-	accountAdminsListID: true, accountAdminsUpdateID: true, locationsCreateID: true,
+	accountAdminsListID: true, accountAdminsUpdateID: true, accountAdminsDeleteID: true,
+	invitationsListID: true, invitationsDeclineID: true, locationsCreateID: true,
 }
 
 // targetReaches withholds the account tools from a connection bound to a location: they act on accounts,
