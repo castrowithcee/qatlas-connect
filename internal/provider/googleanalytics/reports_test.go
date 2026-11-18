@@ -342,7 +342,7 @@ func TestReportsRunLimitsParallelReportsPerProperty(t *testing.T) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			if _, err := env.call(reportsRunID, "read", arguments); err != nil {
+			if _, err := env.callOwn(reportsRunID, "read", arguments); err != nil {
 				t.Error(err)
 			}
 		}()
@@ -357,7 +357,7 @@ func TestReportsRunLimitsParallelReportsPerProperty(t *testing.T) {
 	// Another property still runs.
 	other := make(chan error, 1)
 	go func() {
-		_, err := env.call(reportsRunID, "read", `{"property":"properties/201",`+minimalReport[1:])
+		_, err := env.callOwn(reportsRunID, "read", `{"property":"properties/201",`+minimalReport[1:])
 		other <- err
 	}()
 	<-arrived

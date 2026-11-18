@@ -39,6 +39,8 @@ const (
 // It keeps the whole configuration and the projects of the current call (see SetProjects). Every public
 // method first takes the view of the configuration those projects may see, and every discovery and invoke
 // path reads that view alone, so a connection bound to another project is missing from all of them at once.
+//
+// A Core serves one call and is not safe for concurrent use: CLI and MCP build one per call.
 type Core struct {
 	registry *capability.Registry
 	all      *config.Config
