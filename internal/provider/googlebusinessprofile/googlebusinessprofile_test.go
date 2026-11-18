@@ -44,7 +44,7 @@ const (
 var robot = "robot" + "@" + "sample.invalid"
 
 type seen struct {
-	host, path, query, authorization, full string
+	host, path, query, authorization, full, body string
 }
 
 func (r seen) values() url.Values {
@@ -84,7 +84,7 @@ func (f *fakeGoogle) RoundTrip(r *http.Request) (*http.Response, error) {
 	case r.URL.Host == "mybusinessaccountmanagement.googleapis.com" ||
 		r.URL.Host == "mybusinessbusinessinformation.googleapis.com":
 		f.api = append(f.api, seen{host: r.URL.Host, path: r.URL.EscapedPath(), query: r.URL.RawQuery,
-			authorization: r.Header.Get("Authorization"), full: r.URL.String()})
+			authorization: r.Header.Get("Authorization"), full: r.URL.String(), body: body})
 		if f.answer != nil {
 			return f.answer(r, len(f.api))
 		}
@@ -247,25 +247,31 @@ func TestRegisterPublishesMetadataScopesAndProfile(t *testing.T) {
 	var ids []string
 	for _, tool := range metadata.Tools {
 		ids = append(ids, tool.ID)
-		if tool.Effect != config.EffectRead {
+		if tool.Effect != config.EffectRead && !strings.HasSuffix(tool.ID, ".update") {
 			t.Errorf("%s effect = %s, want read", tool.ID, tool.Effect)
 		}
 		if scopes := metadata.Token.Scopes[tool.ID]; !reflect.DeepEqual(scopes, []string{scopeManage}) {
 			t.Errorf("%s scopes = %v", tool.ID, scopes)
 		}
 	}
-	want := []string{"google.business-profile.accounts.get", "google.business-profile.accounts.list",
-		"google.business-profile.locations.get", "google.business-profile.locations.list"}
+	want := []string{"google.business-profile.account-admins.list", "google.business-profile.account-admins.update",
+		"google.business-profile.accounts.get", "google.business-profile.accounts.list",
+		"google.business-profile.accounts.update", "google.business-profile.location-admins.list",
+		"google.business-profile.location-admins.update", "google.business-profile.locations.get",
+		"google.business-profile.locations.list"}
 	if !reflect.DeepEqual(ids, want) {
 		t.Errorf("tools = %v, want %v", ids, want)
 	}
 	profile, ok := metadata.RecommendedProfile()
-	if !ok || profile.ID != "read" || len(metadata.Profiles) != 1 || len(profile.Tools) != 4 ||
+	if !ok || profile.ID != "read" || len(metadata.Profiles) != 2 || len(profile.Tools) != 6 ||
 		!strings.Contains(profile.Description, "business.manage") {
 		t.Errorf("profiles = %+v", metadata.Profiles)
 	}
 	for _, d := range reg.Provider(Provider) {
 		risk := d.Risk
+		if risk.Effect == capability.EffectUpdate {
+			continue
+		}
 		if risk.Effect != capability.EffectRead || risk.Idempotency != capability.IdempotencySafe ||
 			risk.Confirmation != capability.ConfirmationNone || !risk.OpenWorld || risk.DataSensitivity == "" {
 			t.Errorf("%s risk = %+v", d.ID, risk)
