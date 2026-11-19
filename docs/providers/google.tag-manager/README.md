@@ -182,7 +182,7 @@ and cut an oversized version with a report, see [versions](versions.md). URLs ar
 
 ## Connection test
 
-`qconnect connection test` first obtains an access token, which tells a missing consent, an expired or
+The connection test (`t` on a connection in `qconnect tui`) first obtains an access token, which tells a missing consent, an expired or
 revoked consent, and a missing scope apart. It then reads the first batch of accounts, or the bound container
 for a container target. A passing test proves the token and the enabled API, not a role on a particular
 container. Tag Manager offers no page size, so the first batch is Google's default.

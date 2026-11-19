@@ -106,7 +106,7 @@ failed request is not repeated, and a missing `Retry-After` never leads to a ret
 
 ## Connection test
 
-`qconnect connection test` asks the Chrome UX Report API for one metric, `first_contentful_paint`, of the
+The connection test (`t` on a connection in `qconnect tui`) asks the Chrome UX Report API for one metric, `first_contentful_paint`, of the
 origin `https://web.dev`, which is an origin of Google's own that the PageSpeed Insights documentation uses as
 an example. An answer with data, or `NOT_FOUND`, proves that the key is valid and that the Chrome UX Report API
 is enabled in its project; Google checks both before it looks the origin up. The test does not depend on the

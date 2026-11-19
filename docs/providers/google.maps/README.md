@@ -162,7 +162,7 @@ waits one second, or the seconds of `Retry-After` up to one minute. The failed r
 
 ## Connection test
 
-`qconnect connection test` reads one fixed place, the one of the examples in Google's Place Details
+The connection test (`t` on a connection in `qconnect tui`) reads one fixed place, the one of the examples in Google's Place Details
 documentation, with the field mask `id`, the IDs Only group. Success proves that the key reaches Places API
 (New) and that its project may call it. It does not prove Routes, Geocoding, or any other Maps API, and it does
 not show the key's restrictions for them. A place ID can become obsolete; the test then ends as `not-found`.

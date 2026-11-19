@@ -59,7 +59,7 @@ Operating limits of the instance still apply and surface as authentication or pe
 - A Matomo Cloud subscription and payment data are not available through the instance API.
 - A premium plugin that is not installed, and every tool of a plugin that is not activated, is not available.
 
-A successful `qconnect connection test` reads the instance version, requires Matomo 5 or newer, and then reads
+A successful connection test (`t` on a connection in `qconnect tui`) reads the instance version, requires Matomo 5 or newer, and then reads
 each website the targets name once. It proves the token and those websites, not write rights or further
 methods.
 
