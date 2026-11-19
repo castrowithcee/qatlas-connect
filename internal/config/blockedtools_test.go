@@ -226,3 +226,79 @@ func TestRenamedToolIsRewrittenInBlockedTools(t *testing.T) {
 		t.Errorf("ConnectionRenamings = %v, want one tool renaming", cfg.ConnectionRenamings("conn"))
 	}
 }
+
+func blockPickerMetadata() ProviderMetadata {
+	tool := func(id string, effect Effect, listed bool) ToolMetadata {
+		return ToolMetadata{ID: id, Effect: effect, RequiresToolAllowList: listed}
+	}
+	return ProviderMetadata{ID: "docs", DefaultEffects: []Effect{EffectRead}, Tools: []ToolMetadata{
+		tool("docs.pages.get", EffectRead, false), tool("docs.pages.list", EffectRead, false),
+		tool("docs.pages.delete", EffectDelete, false), tool("docs.files.get", EffectRead, false),
+		tool("docs.files.purge", EffectDelete, true), tool("docs.ping", EffectRead, false),
+	}}
+}
+
+func TestSelectionOffers(t *testing.T) {
+	md := blockPickerMetadata()
+	byID := map[string]ToolMetadata{}
+	for _, tool := range md.Tools {
+		byID[tool.ID] = tool
+	}
+	cases := []struct {
+		name    string
+		tools   []string
+		effects []Effect
+		offered map[string]bool
+	}{
+		{"default effects", nil, nil, map[string]bool{"docs.pages.get": true, "docs.pages.delete": false, "docs.files.purge": false}},
+		{"delete effect leaves the listed-only tool", nil, []Effect{EffectDelete}, map[string]bool{"docs.pages.delete": true, "docs.files.purge": false, "docs.pages.get": false}},
+		{"tools list", []string{"docs.pages.*", "docs.files.purge"}, nil, map[string]bool{"docs.pages.delete": true, "docs.files.purge": true, "docs.files.get": false}},
+		{"empty tools list", []string{}, nil, map[string]bool{"docs.pages.get": false}},
+	}
+	for _, c := range cases {
+		for id, want := range c.offered {
+			if got := SelectionOffers(md, c.tools, c.effects, byID[id]); got != want {
+				t.Errorf("%s: SelectionOffers(%s) = %v, want %v", c.name, id, got, want)
+			}
+		}
+	}
+}
+
+func TestBlockedEntriesForStoresAGroupAsPrefix(t *testing.T) {
+	md := blockPickerMetadata()
+	shown := []string{"docs.pages.get", "docs.pages.list", "docs.pages.delete", "docs.files.purge", "docs.ping"}
+	cases := []struct {
+		name     string
+		previous []string
+		ticked   []string
+		want     []string
+	}{
+		{"whole group is a prefix", nil, []string{"docs.pages.get", "docs.pages.list", "docs.pages.delete"}, []string{"docs.pages.*"}},
+		{"part of a group stays exact", nil, []string{"docs.pages.get", "docs.ping"}, []string{"docs.pages.get", "docs.ping"}},
+		{"group with an offered tool stays exact", nil, []string{"docs.files.purge"}, []string{"docs.files.purge"}},
+		{"unticking one tool ends the prefix", []string{"docs.pages.*"}, []string{"docs.pages.get", "docs.pages.list"}, []string{"docs.pages.get", "docs.pages.list"}},
+		{"untouched entry stays", []string{"docs.files.get"}, []string{"docs.ping"}, []string{"docs.files.get", "docs.ping"}},
+		{"prefix kept while ticked", []string{"docs.pages.*"}, []string{"docs.pages.get", "docs.pages.list", "docs.pages.delete", "docs.ping"}, []string{"docs.pages.*", "docs.ping"}},
+		{"nothing ticked", []string{"docs.ping"}, nil, nil},
+	}
+	for _, c := range cases {
+		ticked := map[string]bool{}
+		for _, id := range c.ticked {
+			ticked[id] = true
+		}
+		if got := BlockedEntriesFor(md, c.previous, shown, ticked); !reflect.DeepEqual(got, c.want) {
+			t.Errorf("%s: BlockedEntriesFor = %v, want %v", c.name, got, c.want)
+		}
+	}
+}
+
+func TestKeptBlocksKeepsEverythingWithoutAToolsList(t *testing.T) {
+	md := blockPickerMetadata()
+	blocked := []string{"docs.pages.*", "docs.ping"}
+	if got := KeptBlocks(md, blocked, nil); !reflect.DeepEqual(got, blocked) {
+		t.Errorf("KeptBlocks(nil) = %v", got)
+	}
+	if got := KeptBlocks(md, blocked, []string{"docs.pages.*"}); !reflect.DeepEqual(got, []string{"docs.ping"}) {
+		t.Errorf("KeptBlocks(prefix) = %v", got)
+	}
+}
