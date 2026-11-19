@@ -36,10 +36,9 @@ A connection saved earlier keeps the tools it lists and so the scopes it asked f
 only when you add it, and the scope that tool needs is then missing from the stored consent. Run
 `qconnect credential consent` again for the credential to give the consent that includes it; until then the tool
 ends as `scope-missing` and the other tools keep working. The profile `read-iam` adds the IAM tools and
-with them the broad scope `cloud-platform`, because Google lists no narrower scope for them. Only the tools of the profiles `service-accounts`,
-`service-accounts-revoke`, `api-keys-revoke`, `iam-bindings`, `compute-firewalls-delete`, `compute-lifecycle`, `compute-instances-create`, `compute-disks`, `compute-images-create`, `services`, `projects-manage`, and `folders-manage` and the listed-only `service-accounts.delete`, `service-account-keys.delete`, `instances.delete`, `disks.delete`, `snapshots.delete`, `images.delete`, `addresses.delete`, `vpn-tunnels.delete`, `vpn-gateways.delete`, `objects.delete`, `hmac-keys.delete`,
-`services.disable`, `projects.delete`, and `folders.delete` change anything, so
-without them even a broad role cannot change anything through Qatlas. Grant
+with them the broad scope `cloud-platform`, because Google lists no narrower scope for them. [Profiles](README.md#profiles)
+and [Configuration](README.md#configuration) name the profiles and listed-only tools that change anything.
+Without one of them even a broad role cannot change anything through Qatlas. Grant
 the account a viewer role at the highest level you want it to see, for example the Organization Viewer, Folder
 Viewer, or Project Viewer role, or any role with these permissions:
 
