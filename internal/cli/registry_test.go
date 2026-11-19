@@ -128,6 +128,7 @@ func TestDefaultRegistry(t *testing.T) {
 		"telegram.updates.list", "telegram.chats.get", "telegram.invite-links.primary", "telegram.bot.get",
 		"telegram.files.download", "telegram.photos.send", "telegram.callbacks.answer", "telegram.polls.send",
 		"telegram.messages.forward", "telegram.sticker-sets.create")
+	requireIDs(t, ids("google.measurement-protocol"), "google.measurement-protocol.events.send")
 }
 
 // Every shipped provider starts new connections with a valid recommended profile that selects reads only,
