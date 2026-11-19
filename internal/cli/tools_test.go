@@ -573,6 +573,7 @@ func TestToolsFiltersByNamespaceAndQuery(t *testing.T) {
 	requireIDs(t, registryToolIDs(t, "nextcloud", nil), "nextcloud.files.files.list")
 	requireIDs(t, registryToolIDs(t, "google.cloud", nil), "google.cloud.projects.search")
 	requireIDs(t, registryToolIDs(t, "google.business-profile", nil), "google.business-profile.accounts.list")
+	requireIDs(t, registryToolIDs(t, "google.measurement-protocol", nil), "google.measurement-protocol.events.send")
 	requireIDs(t, registryToolIDs(t, "aws", nil), "aws.sts.access-key.get-info", "aws.sts.authorization-message.decode",
 		"aws.sts.caller-identity.get", "aws.iam.user.list", "aws.iam.user.get", "aws.iam.user.list-tags",
 		"aws.iam.group.list", "aws.iam.group.get", "aws.iam.group.list-for-user", "aws.iam.role.list",
@@ -628,6 +629,8 @@ func TestToolsFiltersByNamespaceAndQuery(t *testing.T) {
 		{"namespace google.cloud", []string{"google.cloud"}, registryToolIDs(t, "google.cloud", nil)},
 		{"namespace google.business-profile", []string{"google.business-profile"},
 			registryToolIDs(t, "google.business-profile", nil)},
+		{"namespace google.measurement-protocol", []string{"google.measurement-protocol"},
+			registryToolIDs(t, "google.measurement-protocol", nil)},
 		{"query without a match", []string{"--query", "absent"}, []string{}},
 	}
 	// --all filters the complete catalog, so namespace and query select every tool they match.

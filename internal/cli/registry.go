@@ -13,6 +13,7 @@ import (
 	"github.com/castrowithcee/qatlas-connect/internal/provider/googlebusinessprofile"
 	"github.com/castrowithcee/qatlas-connect/internal/provider/googlecloud"
 	"github.com/castrowithcee/qatlas-connect/internal/provider/googlemaps"
+	"github.com/castrowithcee/qatlas-connect/internal/provider/googlemeasurementprotocol"
 	"github.com/castrowithcee/qatlas-connect/internal/provider/googlepagespeed"
 	"github.com/castrowithcee/qatlas-connect/internal/provider/googleroute"
 	"github.com/castrowithcee/qatlas-connect/internal/provider/googlesearchconsole"
@@ -109,6 +110,9 @@ func defaultRegistry() *capability.Registry {
 		panic("provider registration is static and must not fail: " + err.Error())
 	}
 	if err := googlemaps.Register(reg); err != nil {
+		panic("provider registration is static and must not fail: " + err.Error())
+	}
+	if err := googlemeasurementprotocol.Register(reg); err != nil {
 		panic("provider registration is static and must not fail: " + err.Error())
 	}
 	if err := googlepagespeed.Register(reg); err != nil {
