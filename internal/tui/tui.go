@@ -303,6 +303,7 @@ const (
 	accessLabel   = "access"
 	effectsLabel  = "effects"
 	toolListLabel = "tools"
+	blockedLabel  = "blocked"
 	accessEffects = "by effect"
 	accessTools   = "selected tools"
 )
@@ -473,6 +474,12 @@ type Model struct {
 	// pickerMarks holds the ticks of a tool list or the effects while their picker is open, and is nil
 	// for a single choice. The row takes them over only when they are kept.
 	pickerMarks map[string]bool
+	// pickerShown is the tools the picker of the blocked tools row lists while it is open.
+	pickerShown []string
+	// blockTicks and blockReleased cache, for the open tool picker, the ticked entries and which blocked
+	// entries they release; the next key press clears them.
+	blockTicks    []string
+	blockReleased map[string]bool
 	// pickerGroups is set while the picker of a tool list of a grouped provider is open; nil otherwise.
 	pickerGroups *toolGroups
 	// pickerEffects is set while the picker of the tool list is open; it holds the effect rows above the rest.
@@ -2036,9 +2043,16 @@ func (m *Model) choiceChanged(previous string) tea.Cmd {
 // ready for typing.
 func (m *Model) openPicker() {
 	f := m.fields[m.focus]
-	if len(f.choices) == 0 {
+	blocking := f.kind == fieldToolList && f.label == blockedLabel
+	if blocking {
+		// The tools it can block are those the form does not offer now, so they are worked out on opening.
+		f.choices = m.blockCandidates()
+		m.pickerShown = f.choices
+	}
+	if len(f.choices) == 0 && !blocking {
 		return
 	}
+	m.blockTicks, m.blockReleased = nil, nil
 	m.picker.text, m.pickerMarks, m.picker.match, m.pickerGroups, m.pickerEffects = m.choiceShown, nil, nil, nil, nil
 	if f.kind == fieldToolList || f.kind == fieldMultiChoice {
 		m.pickerMarks = map[string]bool{}
@@ -2046,11 +2060,15 @@ func (m *Model) openPicker() {
 			m.pickerMarks[choice] = marked
 		}
 	}
-	if f.kind == fieldToolList && f.label == toolListLabel {
+	if blocking {
+		m.pickerMarks = m.blockedTicks(f.choices)
+	}
+	toolPicker := f.kind == fieldToolList && (f.label == toolListLabel || blocking)
+	if toolPicker {
 		m.picker.text = m.toolText
 	}
 	entries := f.choices
-	if f.kind == fieldToolList && f.label == toolListLabel {
+	if toolPicker {
 		metadata, _ := m.cfg.ProviderMetadata(m.formProvider())
 		if g := newToolGroups(metadata, f.choices); g != nil {
 			m.pickerGroups, entries = g, g.entries()
@@ -2079,6 +2097,8 @@ func (m *Model) openPicker() {
 // updatePicker handles the picker. Every printable key belongs to the filter; enter takes the selected
 // value and esc leaves the row as it was.
 func (m *Model) updatePicker(key tea.KeyPressMsg) tea.Cmd {
+	// The ticks may change during the key, and the filter reads the cache while it does.
+	defer func() { m.blockTicks, m.blockReleased = nil, nil }()
 	if m.pickerMarks != nil {
 		// A tool list or the effects take any number of values: space ticks the selected one instead of
 		// typing a blank, which no tool ID or effect contains, and enter keeps every tick at once.
@@ -2147,6 +2167,10 @@ func (m *Model) keepPicker() {
 		return
 	}
 	f := &m.fields[m.focus]
+	if f.label == blockedLabel {
+		m.setBlocked(f, m.blockedFromPicker())
+		return
+	}
 	f.selected = map[string]bool{}
 	for choice, marked := range m.pickerMarks {
 		if marked {
@@ -2159,6 +2183,9 @@ func (m *Model) keepPicker() {
 func (m *Model) pickerChanged() bool {
 	if m.pickerMarks == nil {
 		return false
+	}
+	if m.fields[m.focus].label == blockedLabel {
+		return !slices.Equal(m.blockedFromPicker(), m.fields[m.focus].marked())
 	}
 	kept := m.fields[m.focus].selected
 	for choice, marked := range m.pickerMarks {
@@ -2320,6 +2347,10 @@ func (m *Model) connectionProviderChosen() {
 		// Tool IDs carry their provider, so no tick survives a change of provider.
 		list.choices, list.selected = m.toolChoices(provider, nil), map[string]bool{}
 	}
+	if blocked := m.field(blockedLabel); blocked != nil {
+		// Blocked IDs carry their provider as well.
+		m.setBlocked(blocked, nil)
+	}
 	if m.editing == "" {
 		m.applyRecommendedProfile()
 	}
@@ -2390,7 +2421,7 @@ func (m *Model) toolText(id string) string {
 				text += ")"
 			}
 		}
-		return text
+		return text + m.blockNote(id)
 	}
 	return id + "  " + tr(tFormNotRegistered)
 }
@@ -3190,6 +3221,7 @@ func (m *Model) buildFieldsFrom(edit, source string) []field {
 			field{label: profileLabel, kind: fieldChoice, hidden: true},
 		)
 		fields = append(fields, m.accessFields(provider, conn.Effects, conn.Tools)...)
+		fields = append(fields, m.blockedField(conn.BlockedTools))
 		if m.wantsForwardRow(conn) {
 			fields = append(fields, m.forwardField(conn.ForwardSecrets))
 		}
@@ -3402,6 +3434,11 @@ func (m *Model) apply(cfg *config.Config, name string) error {
 		if row := m.field(forwardLabel); row != nil {
 			forward = append(forward, row.marked()...)
 		}
+		// No row edits the blocked tools of a form without the row, so it keeps those of its entry.
+		blocked := cfg.Connections[m.sourceEntry(name)].BlockedTools
+		if row := m.field(blockedLabel); row != nil {
+			blocked = append([]string(nil), row.marked()...)
+		}
 		// SetConnection drops the labels of targets the list no longer holds.
 		labels := targetLabelsOf(m.fields)
 		return cfg.SetConnection(name, config.Connection{
@@ -3413,6 +3450,7 @@ func (m *Model) apply(cfg *config.Config, name string) error {
 			Description:    m.fieldValue("description"),
 			Effects:        permissions,
 			Tools:          tools,
+			BlockedTools:   blocked,
 			Paths:          paths,
 			Files:          files,
 			ForwardSecrets: forward,
@@ -4716,7 +4754,7 @@ func (m *Model) pickerRowText(i int) string {
 	case m.pickerMarks != nil:
 		text = tickBox(m.pickerMarks[choice]) + " "
 		rest := m.picker.text(choice)
-		if !active && m.fields[m.focus].label == toolListLabel {
+		if !active && (m.fields[m.focus].label == toolListLabel || m.fields[m.focus].label == blockedLabel) {
 			// The ID and what follows it stand faint on rows that are not active; they stay text, so nothing
 			// depends on the faint style. A row without a title is faint from the ID on as well.
 			// rest is toolText: the title and its gap come before the ID.
