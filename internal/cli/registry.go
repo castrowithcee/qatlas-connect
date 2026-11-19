@@ -14,6 +14,7 @@ import (
 	"github.com/castrowithcee/qatlas-connect/internal/provider/googlecloud"
 	"github.com/castrowithcee/qatlas-connect/internal/provider/googlemaps"
 	"github.com/castrowithcee/qatlas-connect/internal/provider/googlemeasurementprotocol"
+	"github.com/castrowithcee/qatlas-connect/internal/provider/googlemerchant"
 	"github.com/castrowithcee/qatlas-connect/internal/provider/googlepagespeed"
 	"github.com/castrowithcee/qatlas-connect/internal/provider/googleroute"
 	"github.com/castrowithcee/qatlas-connect/internal/provider/googlesearchconsole"
@@ -131,6 +132,9 @@ func defaultRegistry() *capability.Registry {
 		panic("provider registration is static and must not fail: " + err.Error())
 	}
 	if err := googlebusinessprofile.Register(reg); err != nil {
+		panic("provider registration is static and must not fail: " + err.Error())
+	}
+	if err := googlemerchant.Register(reg); err != nil {
 		panic("provider registration is static and must not fail: " + err.Error())
 	}
 	// Rename tables and tool profiles name registered tools, so they are checked once every provider has
