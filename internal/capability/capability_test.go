@@ -462,6 +462,50 @@ func TestValidateProfilesRejectsInvalidProfiles(t *testing.T) {
 	}
 }
 
+// A provider whose tools all require an allow-list needs no profile. Any other provider without a profile, and
+// a listed-only provider whose declared profiles break a rule, stay refused.
+func TestValidateProfilesAllowsAProviderWithOnlyListedOnlyTools(t *testing.T) {
+	guarded := func(id string) Operation {
+		d := withID(pagesGet, id)
+		d.RequiresToolAllowList = true
+		return operation(d)
+	}
+	build := func(profiles []config.ToolProfile, operations ...Operation) *Registry {
+		t.Helper()
+		reg := NewRegistry()
+		if err := reg.RegisterProvider(config.ProviderMetadata{ID: "fakewiki", Name: "Fake wiki", Profiles: profiles},
+			nil); err != nil {
+			t.Fatal(err)
+		}
+		if err := reg.Register("fakewiki", operations...); err != nil {
+			t.Fatal(err)
+		}
+		return reg
+	}
+	if err := build(nil, guarded("fakewiki.settings.get")).ValidateProfiles(); err != nil {
+		t.Fatalf("a provider with only listed-only tools and no profile was refused: %v", err)
+	}
+	if err := build(nil, guarded("fakewiki.settings.get"), guarded("fakewiki.settings.list")).ValidateProfiles(); err != nil {
+		t.Fatalf("a provider with several listed-only tools and no profile was refused: %v", err)
+	}
+	if err := build(nil, operation(pagesList), guarded("fakewiki.settings.get")).ValidateProfiles(); err == nil ||
+		!strings.Contains(err.Error(), "declares no tool profile") {
+		t.Fatalf("mixed tools without a profile = %v, want a refusal", err)
+	}
+	// The relaxed rule is only for no profile at all: a declared profile still needs one recommended profile
+	// and may not offer a listed-only tool as a recommendation.
+	listed := config.ToolProfile{ID: "admin", Title: "Admin", Tools: []string{"fakewiki.settings.get"}}
+	if err := build([]config.ToolProfile{listed}, guarded("fakewiki.settings.get")).ValidateProfiles(); err == nil ||
+		!strings.Contains(err.Error(), "0 recommended profiles") {
+		t.Fatalf("listed-only provider with a profile and no recommendation = %v, want a refusal", err)
+	}
+	listed.Recommended = true
+	if err := build([]config.ToolProfile{listed}, guarded("fakewiki.settings.get")).ValidateProfiles(); err == nil ||
+		!strings.Contains(err.Error(), "only when its tools list names it") {
+		t.Fatalf("listed-only tool in the recommended profile = %v, want a refusal", err)
+	}
+}
+
 // A profile is a list of concrete IDs: a tool registered later joins no profile, and a caller cannot change
 // the registry's profiles through an answer.
 func TestProfilesNameConcreteToolsOnly(t *testing.T) {
