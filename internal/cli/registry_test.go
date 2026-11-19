@@ -132,7 +132,8 @@ func TestDefaultRegistry(t *testing.T) {
 
 // Every shipped provider starts new connections with a valid recommended profile that selects reads only,
 // except where the provider states why a change is safe to preselect. Telegram, whose read tools expose the
-// content of incoming messages, is the only such provider.
+// content of incoming messages, is the only such provider. A provider whose tools all require an allow-list
+// declares no profile and starts without a preselection.
 func TestShippedProfilesAreValidAndSafe(t *testing.T) {
 	reg := defaultRegistry()
 	if err := reg.ValidateProfiles(); err != nil {
@@ -140,6 +141,9 @@ func TestShippedProfilesAreValidAndSafe(t *testing.T) {
 	}
 	for _, metadata := range reg.ProviderMetadataAll() {
 		profile, ok := metadata.RecommendedProfile()
+		if !ok && len(metadata.Profiles) == 0 && allListedOnly(metadata) {
+			continue
+		}
 		if !ok {
 			t.Errorf("provider %s has no recommended profile", metadata.ID)
 			continue
@@ -156,6 +160,15 @@ func TestShippedProfilesAreValidAndSafe(t *testing.T) {
 				permissions)
 		}
 	}
+}
+
+func allListedOnly(metadata config.ProviderMetadata) bool {
+	for _, tool := range metadata.Tools {
+		if !tool.RequiresToolAllowList {
+			return false
+		}
+	}
+	return len(metadata.Tools) > 0
 }
 
 // The Infomaniak providers are listed under their current ID only; a former ID resolves through a rename and

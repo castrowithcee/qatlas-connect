@@ -87,12 +87,14 @@ func (bookCatalog) ProviderMetadata(id string) (config.ProviderMetadata, bool) {
 		return excluderMetadata, true
 	case soloMetadata.ID:
 		return soloMetadata, true
+	case guardedMetadata.ID:
+		return guardedMetadata, true
 	}
 	return config.ProviderMetadata{}, false
 }
 
 func (bookCatalog) ProviderMetadataAll() []config.ProviderMetadata {
-	return []config.ProviderMetadata{bookMetadata, otherMetadata, excluderMetadata, soloMetadata}
+	return []config.ProviderMetadata{bookMetadata, otherMetadata, excluderMetadata, soloMetadata, guardedMetadata}
 }
 
 // newConnectionTestServer returns a server wired for the guided connection routes, over a temporary

@@ -457,9 +457,10 @@ func validTokenRoles(metadata config.ProviderMetadata) error {
 
 // ValidateProfiles checks the tool profiles of every registered provider against the registered tools. It
 // runs once all providers and operations are registered, because a profile may only name tools that exist.
-// A provider with tools declares exactly one recommended profile; every profile has a unique ID, a title,
-// and at least one tool; it lists only tools of its own provider, each once; and a recommended profile
-// selects a change only with a stated reason and never a tool that requires an allow-list.
+// A provider with tools declares exactly one recommended profile, unless all its tools require an allow-list
+// and it declares no profile at all; every profile has a unique ID, a title, and at least one tool; it lists
+// only tools of its own provider, each once; and a recommended profile selects a change only with a stated
+// reason and never a tool that requires an allow-list.
 func (r *Registry) ValidateProfiles() error {
 	owners := map[string]string{}
 	for provider, descriptors := range r.byProvider {
@@ -477,14 +478,17 @@ func (r *Registry) ValidateProfiles() error {
 				return fmt.Errorf("provider %q group %q has no tool", metadata.ID, group.ID)
 			}
 		}
-		if len(metadata.Tools) > 0 && len(metadata.Profiles) == 0 {
-			return fmt.Errorf("provider %q declares no tool profile", metadata.ID)
-		}
 		effects := map[string]config.Effect{}
 		explicit := map[string]bool{}
+		listedOnly := true
 		for _, tool := range metadata.Tools {
 			effects[tool.ID] = tool.Effect
 			explicit[tool.ID] = tool.RequiresToolAllowList
+			listedOnly = listedOnly && tool.RequiresToolAllowList
+		}
+		// A provider whose tools all require an allow-list has nothing a profile could safely preselect.
+		if len(metadata.Tools) > 0 && len(metadata.Profiles) == 0 && !listedOnly {
+			return fmt.Errorf("provider %q declares no tool profile", metadata.ID)
 		}
 		recommended := 0
 		seen := map[string]bool{}
