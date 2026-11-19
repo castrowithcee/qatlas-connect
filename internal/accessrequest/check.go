@@ -115,6 +115,22 @@ func (e Env) judge(clone func() *config.Config, name string, tool config.ToolMet
 	return verdict{state: stateRequestable}
 }
 
+// Requestable returns the judgment Check applies to each tool, for discovery: whether a registered tool
+// can be requested on the connection name. The configuration is cloned at most once, however often it is
+// asked.
+func (e Env) Requestable() func(name string, tool config.ToolMetadata) bool {
+	var cloned *config.Config
+	clone := func() *config.Config {
+		if cloned == nil {
+			cloned = e.Config.Clone()
+		}
+		return cloned
+	}
+	return func(name string, tool config.ToolMetadata) bool {
+		return e.judge(clone, name, tool).state == stateRequestable
+	}
+}
+
 var reasonText = map[config.Refusal]string{
 	config.RefusalToolsList:       "the connection offers selected tools and this is not among them",
 	config.RefusalEffect:          "the connection does not allow the effect of this tool",

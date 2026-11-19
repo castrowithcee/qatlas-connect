@@ -57,6 +57,10 @@ func (e *mcpExchange) classify(message mcpMessage) {
 type mcpCall struct {
 	// core holds the fields the application core logged for an invoke that reached it.
 	core *invokelog.Fields
+	// request marks an invoke of the reserved request operation, which logs request events and no invoke.
+	request bool
+	// requests holds those events, in the order the core logged them.
+	requests []invokelog.Fields
 	// dir locates the log once the configuration was loaded; it is empty before.
 	dir string
 }
@@ -64,6 +68,10 @@ type mcpCall struct {
 // Append implements invokelog.Writer: the core hands over its entry, which is appended once the response is
 // written.
 func (c *mcpCall) Append(f invokelog.Fields) error {
+	if invokelog.IsRequestOperation(f.Operation) {
+		c.requests = append(c.requests, f)
+		return nil
+	}
 	c.core = &f
 	return nil
 }
@@ -87,6 +95,13 @@ func (s *mcpServer) reply(ex *mcpExchange, response mcpResponse) {
 // other cancelled call had no response and gets none.
 func (s *mcpServer) logToolCall(ex *mcpExchange, call *mcpCall, err error, n int, written bool) {
 	if ex.area == "" {
+		return
+	}
+	if call.request {
+		// Only the events of the request, one per tool, whatever the call ended with.
+		for _, fields := range call.requests {
+			s.appendEntry(ex, call, fields, nil)
+		}
 		return
 	}
 	var fields invokelog.Fields
@@ -120,8 +135,12 @@ func (s *mcpServer) appendEntry(ex *mcpExchange, call *mcpCall, fields invokelog
 	if ex.area == invokelog.AreaInvoke && invokelog.IsReservedOperation(fields.Operation) {
 		fields.Operation, fields.Version = "", 0
 	}
-	req := int64(ex.reqBytes)
-	fields.Session, fields.ReqBytes, fields.RespBytes = s.session, &req, resp
+	fields.Session = s.session
+	if !invokelog.IsRequestOperation(fields.Operation) {
+		// A request event counts no message sizes.
+		req := int64(ex.reqBytes)
+		fields.ReqBytes, fields.RespBytes = &req, resp
+	}
 
 	var dir string
 	if call != nil && call.dir != "" {
