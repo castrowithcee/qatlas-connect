@@ -1076,7 +1076,8 @@ func TestPublicSurfaceIsTheToolTaxonomy(t *testing.T) {
 	want := []string{
 		"config", "config export", "config import", "config rename", "config validate", "connections", "credential",
 		"credential consent", "credential delete", "credential revoke", "credential set",
-		"describe", "invoke", "mcp", "providers", "selftest", "selftest storage", "tools", "tui", "update", "vault",
+		"describe", "invoke", "mcp", "providers", "requests", "requests approve", "requests block", "requests decline",
+		"selftest", "selftest storage", "tools", "tui", "update", "vault",
 		"vault approve",
 		"vault decrypt", "vault encrypt", "vault handover", "vault lock", "vault logs", "vault migrate", "vault passphrase", "vault settings",
 		"vault status", "vault token", "vault unlock", "wait", "web",
