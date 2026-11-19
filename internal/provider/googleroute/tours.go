@@ -52,12 +52,18 @@ var optimizeArgumentText = map[string]string{
 	"max_validation_errors":                     "Most validation errors Google returns, 0 to 10000; Google's default is 100",
 }
 
-func optimizeArguments() []capability.Argument {
+// optimizeArguments describes the arguments of a method. text holds their descriptions by name; the entries of
+// optimizeArgumentText apply where text has none.
+func optimizeArguments(r toursRequest, text map[string]string) []capability.Argument {
 	out := []capability.Argument{{Name: "project", Required: true, Description: "Project ID such as " +
 		"my-project-123, or the project number; never a projects/ name. It must be one of the targets of the " +
 		"connection. The optimization is billed to it"}}
-	for _, a := range optimizeTours.args() {
-		out = append(out, capability.Argument{Name: a.arg, Required: a.required, Description: optimizeArgumentText[a.arg]})
+	for _, a := range r.args() {
+		description, ok := text[a.arg]
+		if !ok {
+			description = optimizeArgumentText[a.arg]
+		}
+		out = append(out, capability.Argument{Name: a.arg, Required: a.required, Description: description})
 	}
 	return out
 }
@@ -83,7 +89,7 @@ var toursOptimize = capability.Descriptor{
 	Tags: []string{"google", "route-optimization", "tours", "optimize"}, Risk: optimizeRisk, Provider: Provider,
 	InputSchema:  optimizeTours.schema(),
 	OutputSchema: toursOutput,
-	Arguments:    optimizeArguments(),
+	Arguments:    optimizeArguments(optimizeTours, nil),
 	Fields: []capability.Field{
 		{Name: "complete", Description: "False when anything was cut or dropped; then truncation says what"},
 		{Name: "truncation", Description: "Counts of cut texts, cut lists, omitted items and polylines, dropped " +
@@ -104,9 +110,13 @@ var toursOptimize = capability.Descriptor{
 	}},
 }
 
-// toursSummary phrases the call from its arguments alone: project, shipments, vehicles, and the SKU that the
-// number of vehicles selects.
 func toursSummary(raw json.RawMessage) string {
+	return summarize(raw, "Optimize tours", "the call may be billed again if repeated and its price is not checked")
+}
+
+// summarize phrases the call from its arguments alone: project, shipments, vehicles, and the SKU that the
+// number of vehicles selects. verb opens the sentence and tail closes it.
+func summarize(raw json.RawMessage, verb, tail string) string {
 	var a struct {
 		Project string `json:"project"`
 		Model   struct {
@@ -124,10 +134,9 @@ func toursSummary(raw json.RawMessage) string {
 	case n >= 2:
 		sku = skuFleet
 	}
-	return "Optimize tours in project " + boundedText(a.Project, maxNameText) + " for " +
+	return verb + " in project " + boundedText(a.Project, maxNameText) + " for " +
 		strconv.Itoa(len(a.Model.Shipments)) + " shipments and " + strconv.Itoa(len(a.Model.Vehicles)) +
-		" vehicles. Billed to the project per shipment (SKU " + sku + "); the call may be billed again if " +
-		"repeated and its price is not checked"
+		" vehicles. Billed to the project per shipment (SKU " + sku + "); " + tail
 }
 
 func handleToursOptimize(ctx context.Context, resolved *config.Resolved, secrets *secret.Resolver,

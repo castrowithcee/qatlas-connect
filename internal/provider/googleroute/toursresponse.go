@@ -21,8 +21,8 @@ import (
 // what was cut and names the lists. A polyline is kept whole or left out, because a cut line draws a wrong
 // route.
 
-// Bounds of an answer. Google documents none of them. The reading of the body is bounded by maxResponseBytes,
-// these bounds keep the result usable for a client within that.
+// Bounds of an answer. Google documents none of them. The reading of the body is bounded by
+// maxOptimizeResponseBytes, these bounds keep the result usable for a client within that.
 const (
 	maxResponseItems = 1000
 	maxResponseLabel = 256

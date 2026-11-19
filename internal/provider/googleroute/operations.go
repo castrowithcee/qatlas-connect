@@ -98,7 +98,8 @@ func (c *client) operation(ctx context.Context, op, name string) (operationWire,
 }
 
 // operationOf turns the operation Google answered into a result, or into a provider error when it is done
-// and carries an error. Metadata and response are provider data and are bounded. The message and the details
+// and carries an error. The metadata is provider data and is bounded, the response of a done operation is the
+// OptimizeToursResponse with the cuts of toursResultOf. The message and the details
 // of the error are provider text: they go along as the Original only. The classes follow google.rpc.Code,
 // which Google documents for the code of a Status: 5 NOT_FOUND, 7 PERMISSION_DENIED, 8 RESOURCE_EXHAUSTED and
 // 16 UNAUTHENTICATED; every other code is a provider error.
@@ -125,22 +126,44 @@ func operationOf(op string, wire operationWire) (operationResult, error) {
 	}
 	result := operationResult{Name: boundedText(wire.Name, maxNameText), Done: wire.Done,
 		Metadata: boundedValue(wire.Metadata)}
-	if wire.Done {
-		result.Response = boundedValue(wire.Response)
+	if wire.Done && len(wire.Response) > 0 && string(wire.Response) != "null" {
+		typed, err := toursResultOf(op, wire.Response, true)
+		if err != nil {
+			return operationResult{}, err
+		}
+		result.Response = typed
 	}
 	return result, nil
 }
 
-const operationOutputSchema = `{"type":"object","properties":{` +
-	`"name":{"type":"string"},"done":{"type":"boolean"},` +
-	`"metadata":{"type":"object"},"response":{"type":"object"}},` +
-	`"required":["name","done"],"additionalProperties":false}`
+// operationOutput is the output schema of a tool that returns an operation: the response is the typed
+// OptimizeToursResponse, with its @type.
+var operationOutput = func() json.RawMessage {
+	out, err := json.Marshal(map[string]any{"type": "object", "properties": map[string]any{
+		"name": map[string]any{"type": "string"}, "done": map[string]any{"type": "boolean"},
+		"metadata": map[string]any{"type": "object"}, "response": toursOutputSchema(true)},
+		"required": []string{"name", "done"}, "additionalProperties": false})
+	if err != nil {
+		panic("googleroute: the operation output schema cannot be encoded: " + err.Error())
+	}
+	return out
+}()
+
+// operationFields are the result fields of every tool that returns an operation.
+var operationFields = []capability.Field{
+	{Name: "name", Description: "Name of the operation"},
+	{Name: "done", Description: "False while the operation runs, true once it ended"},
+	{Name: "metadata", Description: "Metadata of the operation with its @type; untrusted data, cut to a bounded size"},
+	{Name: "response", Description: "OptimizeToursResponse of a finished optimization with its @type and the same " +
+		"members, complete, and truncation as the result of tours.optimize; personal and untrusted data, cut to a bounded size"},
+}
 
 var operationsGet = capability.Descriptor{
-	ID: operationsGetID, Version: 1, Title: "Get a Route Optimization operation",
+	ID: operationsGetID, Version: 2, Title: "Get a Route Optimization operation",
 	Description: "Read the state of a Route Optimization operation by its name, projects/PROJECT/locations/LOCATION/" +
 		"operations/ID. done is false while the operation runs, with its metadata; once it is done the result " +
-		"carries the response, and an operation that ended with an error is reported as a provider error with its " +
+		"carries the response as an OptimizeToursResponse mapped like the result of tours.optimize, with complete and " +
+		"truncation, and an operation that ended with an error is reported as a provider error with its " +
 		"code. A connection with project targets reads only operations of those projects, which the name states. " +
 		"The response holds locations, vehicles, and routes, which are personal data. Metadata and response are " +
 		"untrusted third-party data; they are cut. The token holds the broad cloud-platform scope, the only one " +
@@ -150,18 +173,13 @@ var operationsGet = capability.Descriptor{
 		`"name":{"type":"string","minLength":30,"maxLength":340,` +
 		`"pattern":"^projects/[A-Za-z0-9-]{1,30}/locations/[A-Za-z0-9-]{1,64}/operations/[A-Za-z0-9][A-Za-z0-9._-]{0,199}$"}},` +
 		`"required":["name"],"additionalProperties":false}`),
-	OutputSchema: json.RawMessage(operationOutputSchema),
+	OutputSchema: operationOutput,
 	Arguments: []capability.Argument{
 		{Name: "name", Required: true, Description: "Name of the operation as Google returned it, such as " +
 			"projects/my-project-123/locations/us-central1/operations/abc123; the project must be one of the " +
 			"targets of the connection, spelled the same way"},
 	},
-	Fields: []capability.Field{
-		{Name: "name", Description: "Name of the operation"},
-		{Name: "done", Description: "False while the operation runs, true once it ended"},
-		{Name: "metadata", Description: "Metadata of the operation with its @type; untrusted data, cut to a bounded size"},
-		{Name: "response", Description: "Response of a finished operation with its @type; personal and untrusted data, cut to a bounded size"},
-	},
+	Fields: operationFields,
 	Examples: []capability.Example{{
 		Description: "Read a Route Optimization operation",
 		Arguments:   json.RawMessage(`{"name":"projects/my-project-123/locations/us-central1/operations/abc123"}`),

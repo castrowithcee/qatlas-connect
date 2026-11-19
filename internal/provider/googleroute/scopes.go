@@ -10,6 +10,7 @@ const scopeCloudPlatform = "https://www.googleapis.com/auth/cloud-platform"
 // tokenMetadata maps every tool to the smallest scopes it needs. The core derives the scopes of a connection
 // from it, so a tool that is not offered adds none.
 var tokenMetadata = config.TokenMetadata{Scopes: map[string][]string{
-	operationsGetID: {scopeCloudPlatform},
-	toursOptimizeID: {scopeCloudPlatform},
+	operationsGetID:    {scopeCloudPlatform},
+	toursOptimizeID:    {scopeCloudPlatform},
+	toursLongRunningID: {scopeCloudPlatform},
 }}

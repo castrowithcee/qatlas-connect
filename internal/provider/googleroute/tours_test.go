@@ -287,7 +287,7 @@ func TestToursOptimizeReadsAnAnswerBeyondTheOrdinaryBound(t *testing.T) {
 			strings.Repeat(testPolyline, 4000)+`"}}`)
 	}
 	body := `{"routes":[` + strings.Join(lines, ",") + `]}`
-	if len(body) <= maxResponseBytes || len(body) >= maxOptimizeResponseBytes {
+	if len(body) <= 2<<20 || len(body) >= maxOptimizeResponseBytes {
 		t.Fatalf("test body is %d bytes", len(body))
 	}
 	e.fake.routes[toursPath] = okReply(body)

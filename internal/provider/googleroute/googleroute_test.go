@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/castrowithcee/qatlas-connect/internal/application"
 	"github.com/castrowithcee/qatlas-connect/internal/capability"
 	"github.com/castrowithcee/qatlas-connect/internal/config"
 	"github.com/castrowithcee/qatlas-connect/internal/provider"
@@ -35,12 +36,13 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 	if !reflect.DeepEqual(metadata.SecretRoles, config.TokenSecretRoles()) {
 		t.Errorf("secret roles = %+v, want the token roles", metadata.SecretRoles)
 	}
-	if len(metadata.Tools) != 2 || metadata.Tools[0].ID != operationsGetID ||
+	if len(metadata.Tools) != 3 || metadata.Tools[0].ID != operationsGetID ||
 		metadata.Tools[0].Effect != config.EffectRead || metadata.Tools[1].ID != toursOptimizeID ||
-		metadata.Tools[1].Effect != config.EffectExecute {
-		t.Fatalf("tools = %+v", metadata.Tools)
+		metadata.Tools[1].Effect != config.EffectExecute || metadata.Tools[2].ID != toursLongRunningID ||
+		metadata.Tools[2].Effect != config.EffectExecute {
+		t.Fatalf("tool IDs = %s, %s, %s", metadata.Tools[0].ID, metadata.Tools[1].ID, metadata.Tools[2].ID)
 	}
-	for _, id := range []string{operationsGetID, toursOptimizeID} {
+	for _, id := range []string{operationsGetID, toursOptimizeID, toursLongRunningID} {
 		if want := []string{"https://www.googleapis.com/auth/cloud-platform"}; !reflect.DeepEqual(metadata.Token.Scopes[id], want) {
 			t.Errorf("scopes of %s = %v, want %v", id, metadata.Token.Scopes[id], want)
 		}
@@ -48,7 +50,7 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 	if len(metadata.Profiles) != 2 || metadata.Profiles[0].ID != "read" || !metadata.Profiles[0].Recommended ||
 		!reflect.DeepEqual(metadata.Profiles[0].Tools, []string{operationsGetID}) ||
 		metadata.Profiles[1].ID != "optimize" || metadata.Profiles[1].Recommended ||
-		!reflect.DeepEqual(metadata.Profiles[1].Tools, []string{toursOptimizeID, operationsGetID}) {
+		!reflect.DeepEqual(metadata.Profiles[1].Tools, []string{toursOptimizeID, toursLongRunningID, operationsGetID}) {
 		t.Errorf("profiles = %+v", metadata.Profiles)
 	}
 	if err := metadata.ValidateBaseURL("https://routeoptimization.googleapis.com/"); err != nil {
@@ -127,13 +129,39 @@ func TestOperationsGet(t *testing.T) {
 	})
 	t.Run("done with a response", func(t *testing.T) {
 		_, got, err := call(t, []string{"projects/" + testProject}, okReply(`{"name":"`+testName+
-			`","done":true,"response":{"@type":"type.googleapis.com/x.Response","routes":[{"vehicleIndex":1}]}}`))
+			`","done":true,"response":{"@type":"type.googleapis.com/x.Response","routes":[{"vehicleIndex":1}],`+
+			`"skippedShipments":[{"index":2}]}}`))
 		if err != nil {
 			t.Fatal(err)
 		}
 		response, _ := got["response"].(map[string]any)
-		if got["done"] != true || response["routes"] == nil {
+		if got["done"] != true || response["routes"] == nil || response["skippedShipments"] == nil ||
+			response["complete"] != true || response["@type"] != "type.googleapis.com/x.Response" {
 			t.Errorf("result = %v", got)
+		}
+	})
+	t.Run("the typed response fits the output schema", func(t *testing.T) {
+		out, err := newOperationsOutput(t, `{"name":"`+testName+`","done":true,"response":{"@type":"t","routes":[`+
+			`{"vehicleIndex":1,"visits":[{"shipmentIndex":0}]}],"metrics":{"usedVehicleCount":1}}}`)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := application.ValidateJSON(operationsGet.OutputSchema, []byte(out)); err != nil {
+			t.Errorf("output %s: %v", out, err)
+		}
+	})
+	t.Run("done without a response", func(t *testing.T) {
+		for _, response := range []string{``, `,"response":null`} {
+			_, got, err := call(t, nil, okReply(`{"name":"`+testName+`","done":true`+response+`}`))
+			if err != nil || got["done"] != true || got["response"] != nil {
+				t.Errorf("response %q: got=%v err=%v", response, got, err)
+			}
+		}
+	})
+	t.Run("a response that is not an object", func(t *testing.T) {
+		_, _, err := call(t, nil, okReply(`{"name":"`+testName+`","done":true,"response":[1]}`))
+		if classOf(err) != provider.ClassInvalidResponse {
+			t.Errorf("err = %v", err)
 		}
 	})
 	t.Run("done with an error", func(t *testing.T) {
@@ -183,15 +211,33 @@ func TestOperationsGet(t *testing.T) {
 	t.Run("bounded provider data", func(t *testing.T) {
 		deep := strings.Repeat(`{"a":`, 20) + `"x"` + strings.Repeat(`}`, 20)
 		long := strings.Repeat("y", 5000)
-		_, got, err := call(t, nil, okReply(`{"name":"`+testName+`","done":true,"response":{"deep":`+deep+`,"long":"`+long+`"}}`))
+		_, got, err := call(t, nil, okReply(`{"name":"`+testName+`","done":true,"metadata":{"deep":`+deep+`},`+
+			`"response":{"requestLabel":"`+long+`","unlisted":1}}`))
 		if err != nil {
 			t.Fatal(err)
 		}
-		encoded, _ := json.Marshal(got["response"])
-		if strings.Count(string(encoded), `"a"`) > maxDepth || strings.Contains(string(encoded), long) {
-			t.Errorf("response %s is not bounded", encoded)
+		encoded, _ := json.Marshal(got)
+		response, _ := got["response"].(map[string]any)
+		if strings.Count(string(encoded), `"a"`) > maxDepth || strings.Contains(string(encoded), long) ||
+			response["complete"] != false || response["truncation"] == nil || response["unlisted"] != nil {
+			t.Errorf("result %s is not bounded", encoded)
 		}
 	})
+	t.Run("a response above the old bound is read", func(t *testing.T) {
+		_, got, err := call(t, nil, okReply(`{"name":"`+testName+`","done":true,"response":{"requestLabel":"x",`+
+			`"unlisted":"`+strings.Repeat("x", 3<<20)+`"}}`))
+		response, _ := got["response"].(map[string]any)
+		if err != nil || response["requestLabel"] != "x" {
+			t.Errorf("got=%v err=%v", got, err)
+		}
+	})
+}
+
+func newOperationsOutput(t *testing.T, answer string) (string, error) {
+	t.Helper()
+	e := newEnvironment(t, nil)
+	e.fake.routes[testPath] = okReply(answer)
+	return e.invoke(operationsGetID, argumentsFor(testName))
 }
 
 func TestOperationsGetRefusesBeforeSecretAndIO(t *testing.T) {
@@ -317,7 +363,7 @@ func TestGoogleErrorMapping(t *testing.T) {
 		{"not an object", reply{status: 200, body: `[]`}, provider.ClassInvalidResponse},
 		{"not json", reply{status: 200, body: `<html>`, header: http.Header{"Content-Type": {"text/html"}}}, provider.ClassInvalidResponse},
 		{"no name", reply{status: 200, body: `{"done":true}`}, provider.ClassInvalidResponse},
-		{"too large", reply{status: 200, body: `{"name":"` + testName + `","metadata":{"x":"` + strings.Repeat("x", 3<<20) + `"}}`}, provider.ClassInvalidResponse},
+		{"too large", reply{status: 200, body: `{"name":"` + testName + `","metadata":{"x":"` + strings.Repeat("x", maxOptimizeResponseBytes) + `"}}`}, provider.ClassInvalidResponse},
 		{"redirect", reply{status: 302, header: http.Header{"Location": {"https://example.invalid/"}}}, provider.ClassProviderError},
 		{"timeout", reply{err: context.DeadlineExceeded}, provider.ClassTimeout},
 		{"unreachable", reply{err: &net.OpError{Op: "dial", Err: io.ErrUnexpectedEOF}}, provider.ClassUnreachable},

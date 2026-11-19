@@ -40,8 +40,8 @@ type topArg struct {
 
 func top(arg, wire string, n *node) topArg { return topArg{arg: arg, wire: wire, n: n} }
 
-// toursArgs are the arguments every optimization method takes besides project. allowLargeDeadline is left
-// out on purpose: the time an invoke may take makes it useless.
+// toursArgs are the arguments every optimization method takes besides project. allowLargeDeadline is not one of
+// them: only the long-running method has it, through toursRequest.extra.
 var toursArgs = []topArg{
 	{arg: "model", wire: "model", n: tShipmentModel, required: true},
 	top("timeout", "timeout", tDuration),
@@ -61,11 +61,14 @@ var toursArgs = []topArg{
 }
 
 // toursRequest describes one optimization method: the arguments it adds to the shared ones and the time it
-// allows. The long-running method reuses it with its own values.
+// allows. The long-running method reuses it with its own values. A method with largeTimeout allows that longer
+// solving time instead of maxTimeout while its boolean argument largeSwitch (from extra) is true.
 type toursRequest struct {
 	extra          []topArg
 	defaultTimeout time.Duration
 	maxTimeout     time.Duration
+	largeSwitch    string
+	largeTimeout   time.Duration
 }
 
 // optimizeTours is the synchronous method.
@@ -139,6 +142,10 @@ func (r toursRequest) body(raw json.RawMessage) (toursBody, error) {
 		return toursBody{}, badRequest("project must be a Cloud project ID or project number")
 	}
 	out := toursBody{Project: project, Timeout: r.defaultTimeout}
+	limit := r.maxTimeout
+	if on, _ := given[r.largeSwitch].(bool); on && r.largeTimeout > 0 {
+		limit = r.largeTimeout
+	}
 	body := map[string]any{}
 	for _, a := range r.args() {
 		value, ok := given[a.arg]
@@ -154,9 +161,8 @@ func (r toursRequest) body(raw json.RawMessage) (toursBody, error) {
 		switch a.arg {
 		case "timeout":
 			d, ok := parseDuration(value.(string))
-			if !ok || d <= 0 || d > r.maxTimeout {
-				return toursBody{}, badRequest("timeout must be longer than 0 and at most " + r.maxTimeout.String() +
-					"; a longer optimization needs the long-running tool")
+			if !ok || d <= 0 || d > limit {
+				return toursBody{}, badRequest("timeout must be longer than 0 and at most " + durationText(limit) + r.longer(limit))
 			}
 			out.Timeout = d
 		case "max_validation_errors":
@@ -190,6 +196,17 @@ func (r toursRequest) body(raw json.RawMessage) (toursBody, error) {
 	}
 	out.Payload = payload
 	return out, nil
+}
+
+// longer is the hint of a refused timeout on how to get a longer one.
+func (r toursRequest) longer(limit time.Duration) string {
+	switch {
+	case r.largeTimeout == 0:
+		return "; a longer optimization needs the long-running tool"
+	case limit < r.largeTimeout:
+		return "; up to " + durationText(r.largeTimeout) + " needs " + r.largeSwitch
+	}
+	return ""
 }
 
 func listLen(v any) int {
