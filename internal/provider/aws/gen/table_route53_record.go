@@ -42,7 +42,8 @@ var route53RecordTools = []Operation{
 		Description: "Apply a batch of changes to the record sets of a hosted zone: each change is CREATE (fails when the set exists), " +
 			"DELETE (needs the set exactly as it is, name, type, ttl, and values), or UPSERT (creates or replaces). The batch is atomic: " +
 			"when one change is invalid nothing is applied and the answer is InvalidChangeBatch with one message per problem. " +
-			"The confirmation does not list the changes: check each one in change_batch before confirming, above all NS and SOA " +
+			"The confirmation lists the changes, NS, SOA, DELETE, and UPSERT first, and names how many a long batch leaves out: " +
+			"check each one in change_batch before confirming, above all NS and SOA " +
 			"sets at the apex of the zone (delegation of the whole domain), every DELETE, and every UPSERT of a set that exists " +
 			"(read the zone first with aws.route53.record-set.list). A batch holds up to 1000 changes, 1000 record values, and 32000 " +
 			"characters of values, an UPSERT counting twice. The call is not repeated automatically: a second call with CREATE answers " +

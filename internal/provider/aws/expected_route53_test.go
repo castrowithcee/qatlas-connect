@@ -20,4 +20,5 @@ func init() {
 		"aws.route53.traffic-policy.create-version",
 		"aws.route53.vpc-association-authorization.delete",
 	)
+	expectSummary("aws.route53.record-set.change")
 }
