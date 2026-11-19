@@ -256,7 +256,7 @@ reserve and a parallel limit of their own, see [reports](reports.md#quota).
 
 ## Connection test
 
-`qconnect connection test` obtains an access token and lists one account summary. This reads no report data, so
+The connection test (`t` on a connection in `qconnect tui`) obtains an access token and lists one account summary. This reads no report data, so
 it uses no reporting quota. Success proves the token, an enabled Analytics Admin API in the Cloud project of
 the credential, and at least one visible account. A connection bound to properties is also tested by reading
 each of them. No visible account is `not-found`. The test does not prove the Analytics Data API, which the report

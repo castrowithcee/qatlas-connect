@@ -124,7 +124,7 @@ Limits:
 ## Version and connection test
 
 A connection accepts one product in a supported version: Forgejo from 15 (LTS), Gitea from 1.27 including the
-version numbers from 28. Development builds count as their number. `qconnect connection test` first proves the
+version numbers from 28. Development builds count as their number. The connection test (`t` on a connection in `qconnect tui`) first proves the
 product and version fail-closed, then reads with the token:
 
 1. `GET /api/forgejo/v1/version` without the token. A version means Forgejo.

@@ -113,7 +113,7 @@ repeated.
 
 ## Connection test
 
-`qconnect connection test` obtains an access token and checks that the consent holds the scope. For each
+The connection test (`t` on a connection in `qconnect tui`) obtains an access token and checks that the consent holds the scope. For each
 project target it then reads one operation that does not exist,
 `projects/PROJECT/locations/global/operations/qatlas-connection-test`. An answer of `404` with status
 `NOT_FOUND` passes, because the API is then enabled in the project and the credential could ask. A `403` ends as

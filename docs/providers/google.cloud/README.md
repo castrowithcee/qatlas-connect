@@ -433,7 +433,7 @@ minute; a missing `Retry-After` never leads to a loop, and the failed request is
 
 ## Connection test
 
-`qconnect connection test` obtains an access token and calls `projects.search` with `pageSize` 1, which costs
+The connection test (`t` on a connection in `qconnect tui`) obtains an access token and calls `projects.search` with `pageSize` 1, which costs
 nothing. It then reads every organization, folder, and project target to prove it exists. A billing account
 target is not read here. If the Cloud Resource Manager API is not enabled in the Cloud project of the
 credential, the test ends as `permission` with a message that says so.
