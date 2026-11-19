@@ -21,4 +21,10 @@ func init() {
 		"aws.s3.inventory.put",
 		"aws.s3.public-access-block.put",
 	)
+	expectSummary(
+		"aws.s3.object-legal-hold.put",
+		"aws.s3.object-lock.put",
+		"aws.s3.object-retention.put",
+		"aws.s3.request-payment.put",
+	)
 }

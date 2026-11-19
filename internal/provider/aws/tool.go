@@ -133,13 +133,37 @@ var policyChecks = map[string]policyCheck{
 // generatedTools checks every generated tool against the runtime and binds it to its handler.
 func generatedTools() ([]capability.Operation, error) {
 	ops := make([]capability.Operation, 0, len(generatedSpecs))
+	used := 0
 	for _, s := range generatedSpecs {
 		if err := s.check(); err != nil {
 			return nil, fmt.Errorf("aws tool %s: %w", s.descriptor.ID, err)
 		}
-		ops = append(ops, capability.Operation{Descriptor: s.descriptor, Handler: s.handler()})
+		op := capability.Operation{Descriptor: s.descriptor, Handler: s.handler()}
+		if summary, ok := summaries[s.descriptor.ID]; ok {
+			if s.descriptor.Risk.Confirmation != capability.ConfirmationRequired {
+				return nil, fmt.Errorf("aws tool %s: a confirmation text needs a tool that asks for confirmation", s.descriptor.ID)
+			}
+			op.ConfirmationSummary = summary
+			used++
+		}
+		ops = append(ops, op)
+	}
+	if used != len(summaries) {
+		return nil, errors.New("aws: a confirmation text is registered for an ID that is no generated tool")
 	}
 	return ops, nil
+}
+
+// summaries are the confirmation texts of the tools that have one, by tool ID. Each file registers the texts
+// of its tools, one call per tool, so that no line is shared between services. A text gets the arguments as
+// the caller sent them, without a connection and without I/O.
+var summaries = map[string]capability.SummaryFunc{}
+
+func registerSummary(id string, f capability.SummaryFunc) {
+	if summaries[id] != nil {
+		panic("confirmation text registered twice: " + id)
+	}
+	summaries[id] = f
 }
 
 // restCodec is the body format of a REST tool.
