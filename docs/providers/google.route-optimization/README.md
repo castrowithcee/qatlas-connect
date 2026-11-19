@@ -1,6 +1,6 @@
 ---
 description: >
-  Describes the Google Route Optimization provider: the token credential and its fixed origin, the project targets, the profiles read and optimize, the billed tool tours.optimize with its cost, time and size limits and its cut result, the tool operations.get, the Google error form and its classes, rate spacing, the connection test and its limit, and what is not verified.
+  Describes the Google Route Optimization provider: the token credential and its fixed origin, the project targets, the profiles read and optimize, the billed tools tours.optimize and tours.optimize-long-running with their cost, time and size limits, the long-running operation and what it cannot do, the tool operations.get with the typed response, the Google error form and its classes, rate spacing, the connection test and its limit, and what is not verified.
 type: knowledge
 edit: shared
 created: 2026-11-19
@@ -10,11 +10,11 @@ updated: 2026-11-19
 # Google Route Optimization
 
 Google Route Optimization is a provider for the Google Route Optimization API with one credential that issues
-access tokens. It optimizes vehicle tours synchronously, which Google bills, and reads the state of an
-operation of the API.
+access tokens. It optimizes vehicle tours, synchronously or as a long-running operation, which Google bills,
+and reads the state of an operation of the API.
 
 [Set up Google Route Optimization](setup.md) leads through the credential and the rights it needs.
-[Tools](tools.md) describes `tours.optimize`. The fields of a tool are in its descriptor; this page holds what
+[Tools](tools.md) describes `tours.optimize` and `tours.optimize-long-running`. The fields of a tool are in its descriptor; this page holds what
 the descriptor does not say.
 
 ## Configuration
@@ -30,7 +30,7 @@ service account that the connection names with `service_account` (the consent of
 tokens for it). The connection holds no scope. Qatlas derives it from the tools it offers.
 
 The only scope the reference of the API lists is `cloud-platform`, for `operations.get` and for
-`tours.optimize`. Google lists no narrower or read-only scope. The token therefore reaches more than the methods
+both optimization tools. Google lists no narrower or read-only scope. The token therefore reaches more than the methods
 Qatlas wires, in the same way as for the profile `read-iam` of Google Cloud: even the profile `read` holds a
 token that may change what its account may in every Google API. Give the account only the roles it needs, and prefer a
 service account of its own over the consent of a person. The access token travels in the `Authorization` header
@@ -53,16 +53,34 @@ way round.
 | Profile | Tools | Recommended |
 | --- | --- | --- |
 | `read` | `operations.get` | yes |
-| `optimize` | `tours.optimize`, `operations.get` | no |
+| `optimize` | `tours.optimize`, `tours.optimize-long-running`, `operations.get` | no |
 
-`optimize` has the effect `execute` and every call of `tours.optimize` costs money, so the recommended profile
-never holds it. A connection offers the tool through that profile, through the effect `execute`, or through
-its `tools` list, and a person confirms each call.
+`optimize` has the effect `execute` and every call of an optimization tool costs money, so the recommended
+profile never holds it. A connection offers a tool through that profile, through the effect `execute`, or
+through its `tools` list, and a person confirms each call.
 
 ## Tools
 
-[`tours.optimize`](tools.md) sends a model to Google and returns the solution. `operations.get` reads an
-operation.
+[`tours.optimize`](tools.md) sends a model to Google and returns the solution.
+[`tours.optimize-long-running`](tools.md) starts an optimization that may outlast an invoke and returns its
+operation. `operations.get` reads an operation.
+
+### Long-running optimization
+
+`tours.optimize-long-running` never waits. It sends one request, which Google answers with an operation at
+once, and returns that operation. The optimization goes on at Google, and `operations.get` with the name of the
+operation reads its state and, once it is done, the result. Its solving time is at most 30 minutes, and at most
+60 minutes with `allow_large_deadline_despite_interruption_risk`, which Google says raises the risk that the
+optimization is interrupted. The request to Google ends after 30 seconds whatever the solving time is.
+
+- A started run cannot be cancelled and cannot be listed: Google offers neither for these operations, and
+  neither does this provider. It runs and is billed until it ends.
+- The name of the operation is the only handle. If the answer to the start is lost (timeout, abort, 5xx, or an
+  unreadable answer), the name is unknown and cannot be asked for. The error says that an optimization may have
+  been started and billed. The tool does not repeat the call, because every call starts a new operation.
+- The name in the answer must have the form `projects/PROJECT/locations/LOCATION/operations/ID` and hold the
+  project of the request, spelled the same way. Anything else is `invalid-provider-response`, and the name is
+  not handed out.
 
 ### operations.get
 
@@ -78,17 +96,18 @@ delete, or list for these operations, and neither does this provider.
 - The answer must name the operation that was asked for: the same location and ID, and the same project or the
   same project by the other spelling (ID or number). Anything else is `invalid-provider-response`.
 - The result holds `name`, `done`, `metadata`, and, once `done` is true, `response`. `metadata` of an
-  optimization operation has no fields beyond its `@type`; `response` of a successful one is an
-  `OptimizeToursResponse`. `response` is a bounded open object without a typed mapping.
+  optimization operation has no fields beyond its `@type`. `response` of a successful one is the
+  `OptimizeToursResponse` with its `@type`, mapped and cut like the result of `tours.optimize`, including
+  `complete` and `truncation`; [Tools](tools.md) describes that result.
 - A done operation that carries an `error` is a provider error, mapped from the `google.rpc.Code`: 5 `not-found`,
   7 `permission`, 8 `rate-limited`, 16 `auth`, any other `provider-error`. The message of that error and its
   details are Google's text and go along only as the original. An `error` on an operation that is not done is not
   an outcome and is ignored.
 - Locations, vehicles, and routes are personal data. The tool carries the data sensitivity
   `location-and-route-data`, and the invoke log holds no arguments.
-- `metadata` and `response` are untrusted third-party data and are cut: text at 1024 bytes, objects and lists at
-  100 entries, nesting at six levels, and the whole value at 2000 values. A large response is therefore not
-  complete. An answer of more than 2 MiB is refused as `invalid-provider-response`.
+- `metadata` and `response` are untrusted third-party data. `metadata` is cut: text at 1024 bytes, objects and
+  lists at 100 entries, nesting at six levels, and the whole value at 2000 values. An answer of more than 8 MiB
+  is refused as `invalid-provider-response`.
 
 ## Errors
 
@@ -105,7 +124,7 @@ decide beyond the HTTP status.
 | 403 with status `PERMISSION_DENIED` | `permission` |
 | 404 with status `NOT_FOUND` | `not-found` |
 | 400 of `operations.get` | `invalid-provider-response` (Qatlas checked the name before sending) |
-| 400 of `tours.optimize` | `provider-error` that names Google's status (`INVALID_ARGUMENT`, `FAILED_PRECONDITION`, or `OUT_OF_RANGE`) |
+| 400 of an optimization tool | `provider-error` that names Google's status (`INVALID_ARGUMENT`, `FAILED_PRECONDITION`, or `OUT_OF_RANGE`) |
 | 429 | `rate-limited` |
 | any other 401, 403, 404, or 4xx | `invalid-provider-response` |
 | 5xx | by HTTP status |
@@ -113,9 +132,9 @@ decide beyond the HTTP status.
 A failed token request ends as `auth`, `consent-required`, or `consent-expired`, as the core decides. An
 unreadable, oversized, or non-JSON answer is `invalid-provider-response`. `operations.get` times out after 30
 seconds, below the 60 seconds an invoke may take, and repeats its request once after a 401 and never
-otherwise. `tours.optimize` is one request that is never repeated, also after a 401: the cached token is
+otherwise. An optimization tool is one request that is never repeated, also after a 401: the cached token is
 dropped, and the next call renews it. After a timeout, an abort, a 5xx answer, or an answer that cannot be
-read, the message of `tours.optimize` says that the request may have reached Google and may have been billed.
+read, its message says that the request may have reached Google and may have been billed.
 A 400, 401, 403, and 429 carry no such note, because Google refused the request before it solved anything.
 
 ## Rate spacing
@@ -149,6 +168,8 @@ Not verified:
 - Whether Google accepts the location `global` of the probe is not verified. Another answer for it would end the
   test as `invalid-provider-response` or `not-found` for a reason that is not a missing operation.
 - The exact answer of the API for a disabled service (`SERVICE_DISABLED`) was not seen.
+- How long a long-running optimization takes and how Google bills it, the form of the operation name and the
+  location Google assigns in it, and what happens to a run whose name was lost.
 - Whether Google bills `VALIDATE_ONLY`, what the error of an invalid model looks like beyond its status, and
   how Google behaves when the client ends the request at its time limit are not verified. No live call has been made.
 - The project of an answer is compared with the one asked for as described under `operations.get`; a project ID is
@@ -156,7 +177,7 @@ Not verified:
 
 Left out on purpose:
 
-- The long-running method, the Cloud Storage methods (`optimizeToursUri`, `batchOptimizeTours`), and the
-  argument `allowLargeDeadlineDespiteInterruptionRisk`, which the 60 seconds of an invoke make useless.
+- The Cloud Storage methods (`optimizeToursUri`, `batchOptimizeTours`), and with them every path to Cloud
+  Storage, and regional locations, which the long-running method does not support.
 - Cancel, delete, and list of operations, which the API does not offer.
 - A free path, a `$fields` parameter, and any base URL other than the official origin.

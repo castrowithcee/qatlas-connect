@@ -25,20 +25,18 @@ const apiRoot = "https://routeoptimization.googleapis.com"
 // apiName names the API for the message of a disabled API. It is fixed here and never read from an answer.
 const apiName = "the Route Optimization API (routeoptimization.googleapis.com)"
 
-// Bounds of one request. The timeout stays below the 60 seconds an invoke may take, so a slow answer ends as
-// a timeout of this provider and not as a cancelled call.
-const (
-	maxResponseBytes = 2 << 20
-	defaultTimeout   = 30 * time.Second
-)
+// defaultTimeout bounds one request. It stays below the 60 seconds an invoke may take, so a slow answer ends
+// as a timeout of this provider and not as a cancelled call.
+const defaultTimeout = 30 * time.Second
 
-// An optimization answer can carry polylines, so its reading bound is larger than that of the other tools.
-// What the tool hands back stays bounded by the cuts of toursResultOf, not by this bound.
+// An optimization answer can carry polylines, so the reading bound is large. It holds for the response of a
+// finished operation too. What a tool hands back stays bounded by the cuts of toursResultOf, not by this bound.
 const maxOptimizeResponseBytes = 8 << 20
 
 // optimizeSlack is the time the POST gets beyond the solving time of the request, for the network and the
 // reading of the answer. The solving time is at most toursMaxTimeout, so the request ends after at most
-// 50 seconds and leaves 10 seconds of the 60 an invoke may take for the limiter wait and the token.
+// 50 seconds and leaves 10 seconds of the 60 an invoke may take for the limiter wait and the token. The start
+// of a long-running optimization passes toursStartTimeout instead, because Google answers it at once.
 const optimizeSlack = 5 * time.Second
 
 // unsureNote tells that an optimization whose request may have reached Google can have been billed.
@@ -144,7 +142,7 @@ func (c *client) get(ctx context.Context, op, tool, path string, out any) error 
 		_, _ = io.Copy(io.Discard, io.LimitReader(response.Body, 1<<10))
 		return provider.InvalidResponse(op, subject+" returned an answer that is not JSON")
 	}
-	if failed := provider.ReadJSON(op, subject, response.Body, maxResponseBytes, out); failed != nil {
+	if failed := provider.ReadJSON(op, subject, response.Body, maxOptimizeResponseBytes, out); failed != nil {
 		return failed
 	}
 	return nil

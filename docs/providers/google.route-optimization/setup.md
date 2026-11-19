@@ -10,7 +10,8 @@ updated: 2026-11-19
 # Set up Google Route Optimization
 
 This page shows how to connect Qatlas to the Google Route Optimization API. A Qatlas connection optimizes
-vehicle tours, which Google bills, and reads the state of a Route Optimization operation. Tools, targets,
+vehicle tours, also as long-running operations, which Google bills, and reads the state of a Route Optimization
+operation. Tools, targets,
 errors, and limits are described in the [Google Route Optimization provider](README.md) and its
 [tools](tools.md).
 
@@ -32,27 +33,30 @@ The account of the token needs this permission in the Cloud project:
 | --- | --- |
 | `operations.get` | `routeoptimization.operations.get` on the operation |
 | `tours.optimize` | `routeoptimization.locations.use` on the project |
+| `tours.optimize-long-running` | `routeoptimization.operations.create` on the project |
 
 Qatlas asks for the scope `cloud-platform`, because it is the only scope Google lists for the Route Optimization
 API. It is a broad scope: the token can do whatever its account may do in any Google API. Therefore give the
 account only the roles it needs, and prefer a service account of its own over the consent of a person. The
-profile `read` is the recommended one and holds `operations.get`. The profile `optimize` adds `tours.optimize`.
+profile `read` is the recommended one and holds `operations.get`. The profile `optimize` adds `tours.optimize`
+and `tours.optimize-long-running`.
 
 A connection saved earlier keeps the tools it lists and so the scope it asked for. If the tool ends as
 `scope-missing`, run `qconnect credential consent` again for the credential.
 
 ## Cost
 
-Every call of `tours.optimize` is billed to the project per shipment, as Single Vehicle Routing for a model with
+Every call of `tours.optimize` and of `tours.optimize-long-running` is billed to the project per shipment, as Single Vehicle Routing for a model with
 one vehicle and as Fleet Routing for two or more. Google lists no free tier and allows 60 requests a minute.
 Qatlas checks neither price nor quota and asks a person to confirm each call, naming the shipments, vehicles,
 and SKU. Check the current prices and set a budget alert for the project in Google Cloud. A call that timed out
-or ended unclear may have been billed, and Qatlas does not repeat it.
+or ended unclear may have been billed, and Qatlas does not repeat it. A long-running optimization cannot be
+cancelled and is billed until it ends.
 
 ## Targets
 
 A connection may be limited to projects (`projects/PROJECT`, by project ID or project number), several at once.
-Without targets it reaches what its credential reaches. With targets, `tours.optimize` accepts only those
+Without targets it reaches what its credential reaches. With targets, the optimization tools accept only those
 projects as `project`, and `operations.get` reads only operations whose name holds one of them. Both check that
 before any secret is read. Qatlas does not turn a
 project ID into a project number: if the target is `projects/my-project-123`, the name must hold
@@ -85,6 +89,9 @@ that the API is enabled but not that the right is held. Reading a real operation
 | `tours.optimize` ends as permission | The account lacks `routeoptimization.locations.use` in the project, billing is not enabled, or the API is not enabled. Grant the right or enable billing or the API. |
 | `tours.optimize` ends as unclear and says it may have been billed | The request timed out, was aborted, or got a 5xx or unreadable answer. Check the billing of the project before you repeat the call. |
 | `tours.optimize` is refused as invalid before any request | The model is too large, `timeout` is above 45 seconds, or an argument has the wrong form. The message names the argument. |
+| `tours.optimize-long-running` ends as permission although `tours.optimize` works | The account lacks `routeoptimization.operations.create` in the project. Grant the right. |
+| `tours.optimize-long-running` ends as unclear and says it may have been billed | The answer with the operation name was lost, so the name is unknown and the run cannot be found or cancelled. Check the billing of the project before you start it again. |
+| `tours.optimize-long-running` is refused as invalid before any request | The model is too large, `timeout` is above 30 minutes (60 with `allow_large_deadline_despite_interruption_risk`), or an argument has the wrong form. |
 | A read is refused as outside the targets | The project in the name is not one of the targets, or it is spelled another way (ID instead of number). Use the spelling of the target. |
 | A read is refused as an invalid name | The name must be `projects/PROJECT/locations/LOCATION/operations/ID`, as the operation returned it. |
 | A read ends as not found | The operation does not exist, or the credential may not see it. Check the name. |

@@ -1,6 +1,6 @@
 ---
 description: >
-  Describes the Google Route Optimization tool tours.optimize: its cost and confirmation, the arguments and the model, the time and size limits that act before any request, the single request without retry, the cut result with complete and truncation, and the error forms.
+  Describes the Google Route Optimization tools tours.optimize and tours.optimize-long-running: their cost and confirmation, the arguments and the model, the time and size limits that act before any request, the single request without retry, the cut result with complete and truncation, how a long-running optimization is started and read, and the error forms.
 type: knowledge
 edit: shared
 created: 2026-11-19
@@ -10,7 +10,8 @@ updated: 2026-11-19
 # Google Route Optimization tools
 
 The tools of the [Google Route Optimization provider](README.md). Credential, targets, profiles, rate spacing,
-and the class of each Google answer are described there. `operations.get` is described there too.
+and the class of each Google answer are described there. `operations.get` is described there too, and the
+[long-running optimization](README.md#long-running-optimization) with its limits.
 
 ## google.route-optimization.tours.optimize
 
@@ -92,3 +93,26 @@ is bounded:
 | 403 | `permission` (the account lacks `routeoptimization.locations.use`, billing is off, or the API is not enabled) or `scope-missing` |
 | 429 | `rate-limited`; the next call of the credential waits, and this one is not repeated |
 | 5xx, timeout, abort, unreadable answer | the class of the failure, with the note that the call may have been billed |
+
+## google.route-optimization.tours.optimize-long-running
+
+`POST https://routeoptimization.googleapis.com/v1/projects/{project}:optimizeToursLongRunning`. The tool starts
+the optimization and returns the operation without waiting for it. It has the cost, the confirmation, the
+single request without retry, the arguments, and the errors of `tours.optimize`, with these differences:
+
+- `allow_large_deadline_despite_interruption_risk` is an additional argument. `timeout` is at most 30 minutes
+  (`1800s`) and defaults to 30 minutes; with the argument set to `true` it is at most 60 minutes (`3600s`).
+  Google says a deadline above 30 minutes carries a higher risk of interruption. A longer `timeout` ends as
+  `invalid-request` before any request and names the argument.
+- `project` is the only location: the method has no regional locations, so there is no location argument. It
+  takes and returns JSON only and has no path to Cloud Storage.
+- The confirmation also says that the run cannot be cancelled or listed and is billed until it ends, and that a
+  lost answer leaves the operation name unknown.
+- The right Google checks is `routeoptimization.operations.create` on the project. A token may allow
+  `optimizeTours` and refuse this method, which ends as `permission` without Google's text.
+- The result is the operation as Google answers it: `name`, `done`, and `metadata`, which has no fields beyond
+  its `@type`. A start that is already `done` carries the typed `response` like `operations.get`; one that is
+  done with an error is the provider error described under `operations.get`, with the note that the run may
+  have been billed.
+- Read the operation with `operations.get` and the returned `name`. Its `response` is the result of
+  `tours.optimize` with the member `@type`, cut by the same bounds, including `complete` and `truncation`.
