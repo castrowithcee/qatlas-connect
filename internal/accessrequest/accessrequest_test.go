@@ -390,3 +390,35 @@ func TestOpenListsNewestFirst(t *testing.T) {
 		t.Fatalf("open = %+v", got)
 	}
 }
+
+func TestLookupReadsWithoutWritingAndSettleRemovesTools(t *testing.T) {
+	f := newFixture(t)
+	id := f.add(t, "listed", "fake.pages.delete", "fake.pages.list").Request.ID
+	before, _ := os.ReadFile(f.q.Path())
+
+	// One tool is offered meanwhile: Lookup leaves it out and reports it, and writes nothing.
+	cc := f.cfg.Connections["listed"]
+	cc.Tools = append(cc.Tools, "fake.pages.list")
+	f.cfg.Connections["listed"] = cc
+	req, gone, err := f.q.Lookup(f.env, id)
+	if err != nil || strings.Join(req.Tools, ",") != "fake.pages.delete" || strings.Join(gone, ",") != "fake.pages.list" {
+		t.Fatalf("Lookup() = %+v, %v, %v", req, gone, err)
+	}
+	if after, _ := os.ReadFile(f.q.Path()); string(after) != string(before) {
+		t.Error("Lookup wrote the queue")
+	}
+	if _, _, err := f.q.Lookup(f.env, "0123456789abcdef0123456789abcdef"); !errors.Is(err, ErrNotOpen) {
+		t.Errorf("Lookup(unknown) = %v", err)
+	}
+
+	events, err := f.q.Settle(f.env, id, []string{"fake.pages.delete"}, nil)
+	if err != nil || len(events) != 1 || events[0].Kind != EventDrop || events[0].Tool != "fake.pages.list" {
+		t.Fatalf("Settle() = %v, %v, want the pruned tool as a drop event", events, err)
+	}
+	if open, _ := f.open(t); len(open) != 0 {
+		t.Errorf("open = %+v, want the emptied request gone", open)
+	}
+	if _, err := f.q.Settle(f.env, id, nil, nil); !errors.Is(err, ErrNotOpen) {
+		t.Errorf("Settle(closed) = %v", err)
+	}
+}

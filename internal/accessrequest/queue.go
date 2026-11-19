@@ -169,3 +169,92 @@ func (q *Queue) Add(env Env, in Input) (Outcome, error) {
 	}
 	return out, nil
 }
+
+// ErrNotOpen is returned for a request ID that is not open: it never existed, was decided, expired, or lost
+// every tool to the configuration.
+var ErrNotOpen = errors.New("no such open request")
+
+// Lookup returns the open request with the given ID as it stands against env, without writing anything:
+// expired or obsolete tools are already left out of it (see Open) and listed in gone. A request that is
+// not open, or is no more after that, is ErrNotOpen.
+func (q *Queue) Lookup(env Env, id string) (req Request, gone []string, err error) {
+	doc, _, err := q.store.LoadVersioned()
+	switch {
+	case errors.Is(err, fs.ErrNotExist):
+		return Request{}, nil, ErrNotOpen
+	case err != nil:
+		return Request{}, nil, q.invalid(err)
+	}
+	var raw Request
+	for _, r := range doc.Requests {
+		if r.ID == id {
+			raw = r
+		}
+	}
+	if raw.ID == "" {
+		return Request{}, nil, ErrNotOpen
+	}
+	pruned, _ := env.prune(doc)
+	for _, r := range pruned.Requests {
+		if r.ID != id {
+			continue
+		}
+		for _, tool := range raw.Tools {
+			if !slices.Contains(r.Tools, tool) {
+				gone = append(gone, tool)
+			}
+		}
+		return r, gone, nil
+	}
+	return Request{}, nil, ErrNotOpen
+}
+
+// Settle removes the tools in done from the open request with the given ID, because a person decided them,
+// and the tools in drop, because they are no longer requestable, and removes the request once it holds no
+// tool. It first prunes like Open. The events are the pruned tools and the dropped ones that were still
+// there; a decided tool has no event here, the caller logs the decision. A request that is not open is
+// ErrNotOpen.
+func (q *Queue) Settle(env Env, id string, done, drop []string) ([]Event, error) {
+	var events []Event
+	_, err := q.store.Update(func(d document) (document, error) {
+		next, pruned := env.prune(d)
+		events = pruned
+		found := false
+		for i := 0; i < len(next.Requests); i++ {
+			r := next.Requests[i]
+			if r.ID != id {
+				continue
+			}
+			found = true
+			var kept []string
+			for _, tool := range r.Tools {
+				switch {
+				case slices.Contains(done, tool):
+				case slices.Contains(drop, tool):
+					events = append(events, Event{EventDrop, r.ConnectionID, r.Connection, tool})
+				default:
+					kept = append(kept, tool)
+				}
+			}
+			if len(kept) == 0 {
+				next.Requests = slices.Delete(slices.Clone(next.Requests), i, i+1)
+			} else {
+				next.Requests = slices.Clone(next.Requests)
+				r.Tools = kept
+				next.Requests[i] = r
+			}
+			break
+		}
+		if !found {
+			return d, ErrNotOpen
+		}
+		return next, nil
+	})
+	switch {
+	case errors.Is(err, ErrNotOpen):
+		return nil, ErrNotOpen
+	case err != nil:
+		return nil, q.invalid(err)
+	}
+	return events, nil
+}

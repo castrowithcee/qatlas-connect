@@ -123,6 +123,9 @@ func TestRequestToolsStoresAndLogsOneEntryPerTool(t *testing.T) {
 	if err != nil || len(open) != 1 || open[0].Reason != "" || open[0].ConnectionID == "" {
 		t.Fatalf("open = %+v, %v", open, err)
 	}
+	if len(open[0].Entries) != len(open[0].Tools) || open[0].Entries[0].Tool != open[0].Tools[0] || open[0].Entries[0].Group != "" {
+		t.Fatalf("entries = %+v, want each tool, flat for a provider without groups", open[0].Entries)
+	}
 }
 
 func TestRequestReasonIsCleanedAndNeverLogged(t *testing.T) {

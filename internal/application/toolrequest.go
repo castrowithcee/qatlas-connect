@@ -38,15 +38,25 @@ type ToolRequestResponse struct {
 // OpenToolRequest is one open request as a person reads it. Reason and Project are untrusted display text,
 // cleaned and shortened.
 type OpenToolRequest struct {
-	ID           string    `json:"id"`
-	Connection   string    `json:"connection"`
-	ConnectionID string    `json:"connection_id"`
-	Provider     string    `json:"provider"`
-	Tools        []string  `json:"tools"`
-	Reason       string    `json:"reason,omitempty"`
-	Project      string    `json:"project,omitempty"`
-	RequestedAt  time.Time `json:"requested_at"`
-	ExpiresAt    time.Time `json:"expires_at"`
+	ID           string   `json:"id"`
+	Connection   string   `json:"connection"`
+	ConnectionID string   `json:"connection_id"`
+	Provider     string   `json:"provider"`
+	Tools        []string `json:"tools"`
+	// Entries is Tools again, each with the group the provider sorts it into (empty for a provider without
+	// groups), so a surface shows the requested tools grouped like the tool picker.
+	Entries     []OpenToolEntry `json:"entries"`
+	Reason      string          `json:"reason,omitempty"`
+	Project     string          `json:"project,omitempty"`
+	RequestedAt time.Time       `json:"requested_at"`
+	ExpiresAt   time.Time       `json:"expires_at"`
+}
+
+// OpenToolEntry is one tool or prefix of an open request with its group.
+type OpenToolEntry struct {
+	Tool       string `json:"tool"`
+	Group      string `json:"group,omitempty"`
+	GroupTitle string `json:"group_title,omitempty"`
 }
 
 func (c *Core) requestEnv() accessrequest.Env {
@@ -121,9 +131,17 @@ func (c *Core) OpenToolRequests() ([]OpenToolRequest, error) {
 	}
 	open := make([]OpenToolRequest, len(requests))
 	for i, r := range requests {
+		metadata, _ := c.all.ProviderMetadata(r.Provider)
+		entries := make([]OpenToolEntry, len(r.Tools))
+		for j, tool := range r.Tools {
+			entries[j] = OpenToolEntry{Tool: tool}
+			if group, ok := config.GroupOfEntry(metadata, tool); ok {
+				entries[j].Group, entries[j].GroupTitle = group.ID, group.Title
+			}
+		}
 		open[i] = OpenToolRequest{
 			ID: r.ID, Connection: r.Connection, ConnectionID: r.ConnectionID, Provider: r.Provider,
-			Tools: r.Tools, Reason: c.cleanReason(r.Reason), Project: boundSummary(neutralize(r.Project), 0),
+			Tools: r.Tools, Entries: entries, Reason: c.cleanReason(r.Reason), Project: boundSummary(neutralize(r.Project), 0),
 			RequestedAt: r.RequestedAt, ExpiresAt: r.ExpiresAt,
 		}
 	}

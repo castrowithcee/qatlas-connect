@@ -2,7 +2,6 @@ package tui
 
 import (
 	"fmt"
-	"sort"
 	"strings"
 
 	"charm.land/lipgloss/v2"
@@ -16,7 +15,7 @@ import (
 const (
 	groupRowPrefix = "\x00g:"
 	allGroupsRow   = "\x00all"
-	unlistedGroup  = "not-registered"
+	unlistedGroup  = config.UnlistedToolGroup
 )
 
 // toolGroups is the fold state and the membership of the grouped tool picker. It is built only for a
@@ -29,55 +28,15 @@ type toolGroups struct {
 	titleCol  int
 }
 
-// newToolGroups groups the tool choices of a picker by the groups of the provider's metadata, in the order
-// of the provider. A provider without groups is grouped by the first ID segment after its own ID, in
-// alphabetical order. A tool the provider no longer registers, which a saved list may still hold, goes into a
-// last group of its own. It returns nil when the provider has fewer than two groups.
+// newToolGroups groups the tool choices of a picker with the core's grouping (config.GroupTools) and adds
+// the fold state. It returns nil when the provider has fewer than two groups.
 func newToolGroups(metadata config.ProviderMetadata, choices []string) *toolGroups {
-	known := map[string]string{}
-	for _, tool := range metadata.Tools {
-		known[tool.ID] = tool.Group
-	}
-	candidates := append([]config.ToolGroup{}, metadata.Groups...)
-	if len(candidates) == 0 {
-		// The provider ID may hold a dot itself, so the prefix is cut, not the second segment taken.
-		seen := map[string]bool{}
-		for id := range known {
-			if rest, ok := strings.CutPrefix(id, metadata.ID+"."); ok {
-				if segment, _, more := strings.Cut(rest, "."); more && segment != "" {
-					known[id] = segment
-					if !seen[segment] {
-						seen[segment] = true
-						candidates = append(candidates, config.ToolGroup{ID: segment, Title: segment})
-					}
-					continue
-				}
-			}
-			delete(known, id)
-		}
-		if len(candidates) < 2 {
-			return nil
-		}
-		sort.Slice(candidates, func(i, j int) bool { return candidates[i].ID < candidates[j].ID })
-	}
-	if len(candidates) == 0 {
+	grouping := config.GroupTools(metadata, choices, tr(tToolGroupNotRegistered))
+	if grouping == nil {
 		return nil
 	}
-	g := &toolGroups{members: map[string][]string{}, of: map[string]string{}, collapsed: map[string]bool{}}
-	for _, choice := range choices {
-		id, ok := known[choice]
-		if !ok {
-			id = unlistedGroup
-		}
-		g.members[id] = append(g.members[id], choice)
-		g.of[choice] = id
-	}
-	candidates = append(candidates, config.ToolGroup{ID: unlistedGroup, Title: tr(tToolGroupNotRegistered)})
-	for _, group := range candidates {
-		if len(g.members[group.ID]) == 0 {
-			continue
-		}
-		g.groups = append(g.groups, group)
+	g := &toolGroups{groups: grouping.Groups, members: grouping.Members, of: grouping.Of, collapsed: map[string]bool{}}
+	for _, group := range g.groups {
 		g.collapsed[group.ID] = true
 		g.titleCol = max(g.titleCol, lipgloss.Width(g.title(group, false)))
 	}
