@@ -2,6 +2,7 @@ package googleroute
 
 import (
 	"net/http"
+	"slices"
 	"strconv"
 
 	"github.com/castrowithcee/qatlas-connect/internal/provider"
@@ -50,7 +51,7 @@ func googleError(op string, status int, body []byte) *provider.Error {
 			return failed(provider.ClassScopeMissing, "the access token of the credential lacks a scope this tool needs")
 		case state == "PERMISSION_DENIED":
 			return failed(provider.ClassPermission, subject+" refused the credential for this resource; check that "+
-				"the account may read operations in the project and that billing is enabled for it")
+				"the account holds the right this tool needs in the project and that billing is enabled for it")
 		}
 		return invalid()
 	case http.StatusNotFound:
@@ -70,4 +71,22 @@ func googleError(op string, status int, body []byte) *provider.Error {
 	mapped := provider.ClassifyStatus(op, status, provider.StatusTexts{Subject: subject})
 	mapped.Original = provider.ErrorOriginal(status, body, googleapi.Fields)
 	return mapped
+}
+
+// rejectedStatuses are the google.rpc.Code names Google documents for a request it refuses as invalid. Only
+// these reach a message: the status string of an answer is provider text otherwise.
+var rejectedStatuses = []string{"INVALID_ARGUMENT", "FAILED_PRECONDITION", "OUT_OF_RANGE"}
+
+// rejectedModel maps a 400 of an optimization: a provider error that names Google's status when it is one of
+// the documented codes. The message of the answer never reaches the message of the error; it goes along as
+// the Original. Google checks the consistency of the model, so a 400 is an expected answer here.
+func rejectedModel(op string, body []byte) *provider.Error {
+	state, _ := googleapi.StatusOf(body)
+	message := subject + " rejected the optimization request (HTTP 400"
+	if slices.Contains(rejectedStatuses, state) {
+		message += ", " + state
+	}
+	message += "); the model is inconsistent in a way only Google checks, and the Original names where"
+	return &provider.Error{Class: provider.ClassProviderError, Op: op, Message: message,
+		Original: provider.ErrorOriginal(http.StatusBadRequest, body, googleapi.Fields)}
 }

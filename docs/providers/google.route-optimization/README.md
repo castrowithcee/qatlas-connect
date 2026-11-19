@@ -1,6 +1,6 @@
 ---
 description: >
-  Describes the Google Route Optimization provider: the token credential and its fixed origin, the project targets and how the name of an operation is bound to them, the profile read, the tool operations.get with its bounded and untrusted result, the Google error form and its classes, rate spacing, the connection test and its limit, and what is not verified.
+  Describes the Google Route Optimization provider: the token credential and its fixed origin, the project targets, the profiles read and optimize, the billed tool tours.optimize with its cost, time and size limits and its cut result, the tool operations.get, the Google error form and its classes, rate spacing, the connection test and its limit, and what is not verified.
 type: knowledge
 edit: shared
 created: 2026-11-19
@@ -10,10 +10,12 @@ updated: 2026-11-19
 # Google Route Optimization
 
 Google Route Optimization is a provider for the Google Route Optimization API with one credential that issues
-access tokens. It reads the state of an operation of the API: it sends no optimization and costs nothing.
+access tokens. It optimizes vehicle tours synchronously, which Google bills, and reads the state of an
+operation of the API.
 
-[Set up Google Route Optimization](setup.md) leads through the credential and the rights it needs. The fields of
-a tool are in its descriptor; this page holds what the descriptor does not say.
+[Set up Google Route Optimization](setup.md) leads through the credential and the rights it needs.
+[Tools](tools.md) describes `tours.optimize`. The fields of a tool are in its descriptor; this page holds what
+the descriptor does not say.
 
 ## Configuration
 
@@ -27,13 +29,13 @@ a person's consent (`client_id`, optionally `client_secret`, and the `refresh_to
 service account that the connection names with `service_account` (the consent of a person who may create
 tokens for it). The connection holds no scope. Qatlas derives it from the tools it offers.
 
-The only scope the reference of the API lists is `cloud-platform`, also for `operations.get`. Google lists no
-narrower or read-only scope. The token therefore reaches more than the methods Qatlas wires, in the same way as
-for the profile `read-iam` of Google Cloud: no tool of this provider changes anything, but the token itself
-may change what its account may in every Google API. Give the account only the roles it needs, and prefer a
+The only scope the reference of the API lists is `cloud-platform`, for `operations.get` and for
+`tours.optimize`. Google lists no narrower or read-only scope. The token therefore reaches more than the methods
+Qatlas wires, in the same way as for the profile `read-iam` of Google Cloud: even the profile `read` holds a
+token that may change what its account may in every Google API. Give the account only the roles it needs, and prefer a
 service account of its own over the consent of a person. The access token travels in the `Authorization` header
-only, is never an argument or part of a result, and is masked in every output. A 401 renews the token once, and
-nothing else repeats a request.
+only, is never an argument or part of a result, and is masked in every output. A reading tool renews the token
+after a 401 and repeats its request once; an optimization is never repeated.
 
 ## Targets
 
@@ -48,11 +50,19 @@ way round.
 
 ## Profiles
 
-The profile `read` is the recommended and only one. It holds `google.route-optimization.operations.get`, which
-asks for `cloud-platform`. A tool that runs an optimization is billed and never belongs to the recommended
-profile.
+| Profile | Tools | Recommended |
+| --- | --- | --- |
+| `read` | `operations.get` | yes |
+| `optimize` | `tours.optimize`, `operations.get` | no |
+
+`optimize` has the effect `execute` and every call of `tours.optimize` costs money, so the recommended profile
+never holds it. A connection offers the tool through that profile, through the effect `execute`, or through
+its `tools` list, and a person confirms each call.
 
 ## Tools
+
+[`tours.optimize`](tools.md) sends a model to Google and returns the solution. `operations.get` reads an
+operation.
 
 ### operations.get
 
@@ -94,20 +104,24 @@ decide beyond the HTTP status.
 | 403 with reason `ACCESS_TOKEN_SCOPE_INSUFFICIENT` | `scope-missing` |
 | 403 with status `PERMISSION_DENIED` | `permission` |
 | 404 with status `NOT_FOUND` | `not-found` |
-| 400 | `invalid-provider-response` (Qatlas checked the name before sending) |
+| 400 of `operations.get` | `invalid-provider-response` (Qatlas checked the name before sending) |
+| 400 of `tours.optimize` | `provider-error` that names Google's status (`INVALID_ARGUMENT`, `FAILED_PRECONDITION`, or `OUT_OF_RANGE`) |
 | 429 | `rate-limited` |
 | any other 401, 403, 404, or 4xx | `invalid-provider-response` |
 | 5xx | by HTTP status |
 
 A failed token request ends as `auth`, `consent-required`, or `consent-expired`, as the core decides. An
-unreadable, oversized, or non-JSON answer is `invalid-provider-response`. The timeout is 30 seconds, below the
-60 seconds an invoke may take. A call is at most one request and is never repeated, apart from the single
-renewal of the token after a 401.
+unreadable, oversized, or non-JSON answer is `invalid-provider-response`. `operations.get` times out after 30
+seconds, below the 60 seconds an invoke may take, and repeats its request once after a 401 and never
+otherwise. `tours.optimize` is one request that is never repeated, also after a 401: the cached token is
+dropped, and the next call renews it. After a timeout, an abort, a 5xx answer, or an answer that cannot be
+read, the message of `tours.optimize` says that the request may have reached Google and may have been billed.
+A 400, 401, 403, and 429 carry no such note, because Google refused the request before it solved anything.
 
 ## Rate spacing
 
 Requests of one credential are spaced by at least 500 ms within a process. This is a cautious start of Qatlas,
-not a Google limit. On a 429 the next request of the credential waits at least one second, or the seconds of
+not a Google limit; Google lists 60 requests a minute for `optimizeTours`. On a 429 the next request of the credential waits at least one second, or the seconds of
 `Retry-After` up to one minute; a missing `Retry-After` never leads to a loop, and the failed request is not
 repeated.
 
@@ -135,11 +149,14 @@ Not verified:
 - Whether Google accepts the location `global` of the probe is not verified. Another answer for it would end the
   test as `invalid-provider-response` or `not-found` for a reason that is not a missing operation.
 - The exact answer of the API for a disabled service (`SERVICE_DISABLED`) was not seen.
+- Whether Google bills `VALIDATE_ONLY`, what the error of an invalid model looks like beyond its status, and
+  how Google behaves when the client ends the request at its time limit are not verified. No live call has been made.
 - The project of an answer is compared with the one asked for as described under `operations.get`; a project ID is
   never resolved to its number.
 
 Left out on purpose:
 
+- The long-running method, the Cloud Storage methods (`optimizeToursUri`, `batchOptimizeTours`), and the
+  argument `allowLargeDeadlineDespiteInterruptionRisk`, which the 60 seconds of an invoke make useless.
 - Cancel, delete, and list of operations, which the API does not offer.
-- The Cloud Storage methods (`optimizeToursUri`, `batchOptimizeTours`).
 - A free path, a `$fields` parameter, and any base URL other than the official origin.

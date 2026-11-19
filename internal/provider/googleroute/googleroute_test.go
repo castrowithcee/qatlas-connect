@@ -35,15 +35,20 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 	if !reflect.DeepEqual(metadata.SecretRoles, config.TokenSecretRoles()) {
 		t.Errorf("secret roles = %+v, want the token roles", metadata.SecretRoles)
 	}
-	if len(metadata.Tools) != 1 || metadata.Tools[0].ID != "google.route-optimization.operations.get" ||
-		metadata.Tools[0].Effect != config.EffectRead {
+	if len(metadata.Tools) != 2 || metadata.Tools[0].ID != operationsGetID ||
+		metadata.Tools[0].Effect != config.EffectRead || metadata.Tools[1].ID != toursOptimizeID ||
+		metadata.Tools[1].Effect != config.EffectExecute {
 		t.Fatalf("tools = %+v", metadata.Tools)
 	}
-	if want := []string{"https://www.googleapis.com/auth/cloud-platform"}; !reflect.DeepEqual(metadata.Token.Scopes[operationsGetID], want) {
-		t.Errorf("scopes = %v, want %v", metadata.Token.Scopes[operationsGetID], want)
+	for _, id := range []string{operationsGetID, toursOptimizeID} {
+		if want := []string{"https://www.googleapis.com/auth/cloud-platform"}; !reflect.DeepEqual(metadata.Token.Scopes[id], want) {
+			t.Errorf("scopes of %s = %v, want %v", id, metadata.Token.Scopes[id], want)
+		}
 	}
-	if len(metadata.Profiles) != 1 || metadata.Profiles[0].ID != "read" || !metadata.Profiles[0].Recommended ||
-		!reflect.DeepEqual(metadata.Profiles[0].Tools, []string{operationsGetID}) {
+	if len(metadata.Profiles) != 2 || metadata.Profiles[0].ID != "read" || !metadata.Profiles[0].Recommended ||
+		!reflect.DeepEqual(metadata.Profiles[0].Tools, []string{operationsGetID}) ||
+		metadata.Profiles[1].ID != "optimize" || metadata.Profiles[1].Recommended ||
+		!reflect.DeepEqual(metadata.Profiles[1].Tools, []string{toursOptimizeID, operationsGetID}) {
 		t.Errorf("profiles = %+v", metadata.Profiles)
 	}
 	if err := metadata.ValidateBaseURL("https://routeoptimization.googleapis.com/"); err != nil {
