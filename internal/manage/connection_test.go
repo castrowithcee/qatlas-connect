@@ -145,3 +145,32 @@ func TestConnectionDefaultsProfile(t *testing.T) {
 		}
 	}
 }
+
+// A provider whose tools all require an allow-list declares no profile, so a new connection starts without
+// any tool ticked.
+func TestConnectionDefaultsListedOnlyProvider(t *testing.T) {
+	cfg := config.New(listedOnlyCatalog{})
+	start := ConnectionDefaults(cfg, "guarded")
+	if start.ProfileID != "" || start.Effects != nil || start.Tools != nil {
+		t.Fatalf("a listed-only provider must start without ticks: %+v", start)
+	}
+	if start.Name != "guarded" || start.BaseURL != "https://guarded.example" {
+		t.Errorf("unexpected start %+v", start)
+	}
+}
+
+type listedOnlyCatalog struct{}
+
+var listedOnlyProvider = config.ProviderMetadata{
+	ID:             "guarded",
+	DefaultBaseURL: "https://guarded.example",
+	Tools:          []config.ToolMetadata{{ID: "guarded.items.send", Effect: config.EffectCreate, RequiresToolAllowList: true}},
+}
+
+func (listedOnlyCatalog) ProviderMetadata(id string) (config.ProviderMetadata, bool) {
+	return listedOnlyProvider, id == "guarded"
+}
+
+func (listedOnlyCatalog) ProviderMetadataAll() []config.ProviderMetadata {
+	return []config.ProviderMetadata{listedOnlyProvider}
+}

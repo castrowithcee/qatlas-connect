@@ -170,7 +170,8 @@ SES accounts are separate per region. `aws.ses.account.get` returns for one regi
 `additional_contact_email_addresses` (up to four), and `production_access_enabled`. The use case text is deprecated by
 AWS and not offered. What goes to AWS is the region, the mail type, the website, the contact language, and the contact
 addresses; the contact addresses go only to AWS and are not recipients of any mail. The tool sends no mail and does not
-answer AWS on your behalf.
+answer AWS on your behalf. The confirmation text of the call names the region and the submitted values, how many
+contact addresses go to AWS, whether production access is requested, and that AWS reviews the request.
 
 AWS reviews the request, and the decision can take a while; how long, and why a request is refused, are not proven
 against a live account. Call `aws.ses.account.get` again and read `details.review_details`. The request is idempotent:
@@ -178,7 +179,8 @@ the same call can be repeated.
 
 ## Account attributes
 
-Each tool needs confirmation and acts on the account of the region it names:
+Each tool needs confirmation and acts on the account of the region it names. The confirmation text of each call names
+the region and the new value, and marks switching off sending and enabling VDM:
 
 - `put-sending-attributes`: `sending_enabled`. False stops all sending of the account in that region.
 - `put-suppression-attributes`: `suppressed_reasons` (`BOUNCE`, `COMPLAINT`) and `validation_attributes`.
