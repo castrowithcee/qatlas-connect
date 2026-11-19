@@ -1290,22 +1290,48 @@ func overallState(checks []CheckEntry) string {
 	}
 }
 
-// pullRequestChecks reads the pull request to resolve its head commit, then the check runs and the combined
-// commit status at that commit, and merges them into one compact, evaluated list.
+// pullRequestChecks reads the pull request to resolve its head commit, then the checks at that commit.
 func (c *Client) pullRequestChecks(ctx context.Context, a *pullArguments) (*PullRequestChecks, error) {
-	const op = "list pull request checks"
-	number := a.Number
-	pull, err := c.pullRequest(ctx, op, number)
+	sha, read, err := c.headChecks(ctx, a)
 	if err != nil {
 		return nil, err
 	}
+	return &PullRequestChecks{Number: a.Number, HeadSHA: sha, Checks: read.Checks, Overall: read.Overall,
+		Truncated: read.Truncated, CheckWidth: read.CheckWidth}, nil
+}
+
+// headChecks resolves the head commit of the pull request and reads the checks at it.
+func (c *Client) headChecks(ctx context.Context, a *pullArguments) (string, *commitChecks, error) {
+	const op = "list pull request checks"
+	pull, err := c.pullRequest(ctx, op, a.Number)
+	if err != nil {
+		return "", nil, err
+	}
 	sha := pull.Head.SHA
 	if !validSHA(sha) {
-		return nil, &provider.Error{Class: provider.ClassInvalidResponse, Op: op,
+		return "", nil, &provider.Error{Class: provider.ClassInvalidResponse, Op: op,
 			Message: "GitHub answered the pull request without a usable head commit"}
 	}
+	read, err := c.checksAt(ctx, op, sha, a.checkRunQuery())
+	if err != nil {
+		return "", nil, err
+	}
+	return sha, read, nil
+}
+
+// commitChecks is the checks of one commit, merged into one compact, evaluated list beside their width.
+type commitChecks struct {
+	Checks    []CheckEntry
+	Overall   string
+	Truncated bool
+	CheckWidth
+}
+
+// checksAt reads the check runs, with the query of the check run read, and the combined commit status at one
+// commit, and merges them into one compact, evaluated list.
+func (c *Client) checksAt(ctx context.Context, op, sha, runQuery string) (*commitChecks, error) {
 	var runs checkRunsAnswer
-	if err := c.rest(ctx, op, c.repoPath("commits/"+sha+"/check-runs")+"?"+a.checkRunQuery(), &runs); err != nil {
+	if err := c.rest(ctx, op, c.repoPath("commits/"+sha+"/check-runs")+"?"+runQuery, &runs); err != nil {
 		return nil, actionsFailure(err, checksReadPermission)
 	}
 	var combined combinedStatusAnswer
@@ -1319,7 +1345,7 @@ func (c *Client) pullRequestChecks(ctx context.Context, a *pullArguments) (*Pull
 	for _, status := range combined.Statuses {
 		checks = append(checks, status.status.entry())
 	}
-	return &PullRequestChecks{Number: number, HeadSHA: sha, Checks: checks, Overall: overallState(checks),
+	return &commitChecks{Checks: checks, Overall: overallState(checks),
 		Truncated:  runs.TotalCount > len(runs.CheckRuns) || combined.TotalCount > len(combined.Statuses),
 		CheckWidth: runs.width(&combined)}, nil
 }

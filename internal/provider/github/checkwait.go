@@ -151,9 +151,35 @@ func finishedWait(overall string) string {
 }
 
 // waitForChecks polls the checks of the pull request until they finish, the head commit changes, or the limit
-// passes. The limit and the result at its end come from the context: the broker's call waits one slice and
-// answers pending; a command that carries wait options waits their limit and answers timeout.
+// passes.
 func (c *Client) waitForChecks(ctx context.Context, a *pullArguments) (*PullRequestChecksWait, error) {
+	end, err := pollChecks(ctx, "wait for pull request checks", a.HeadSHA,
+		func(ctx context.Context) (string, *commitChecks, error) { return c.headChecks(ctx, a) })
+	if err != nil {
+		return nil, err
+	}
+	if end.result == waitHeadChanged {
+		return &PullRequestChecksWait{Number: a.Number, Result: waitHeadChanged, HeadSHA: end.sha,
+			CurrentHeadSHA: end.currentSHA, Checks: []CheckEntry{}, Polls: end.polls}, nil
+	}
+	return &PullRequestChecksWait{Number: a.Number, Result: end.result, HeadSHA: end.sha, Checks: end.checks.Checks,
+		Truncated: end.checks.Truncated, Polls: end.polls}, nil
+}
+
+// checksWaitEnd is how a wait ended: the result, the commit awaited, the commit read instead with
+// head-changed, the last checks read at the awaited commit otherwise, and how often they were read.
+type checksWaitEnd struct {
+	result, sha, currentSHA string
+	checks                  *commitChecks
+	polls                   int
+}
+
+// pollChecks polls the checks until they finish, the commit poll reads differs from the wanted one, or the
+// limit passes. wanted is the commit poll first reads when empty. The limit and the result at its end come
+// from the context: the broker's call waits one slice and answers pending; a command that carries wait
+// options waits their limit and answers timeout. op names the wait in the error of an ended context.
+func pollChecks(ctx context.Context, op, wanted string,
+	poll func(context.Context) (string, *commitChecks, error)) (*checksWaitEnd, error) {
 	interval, limit, atLimit := checksWaitInterval, checksWaitSlice, waitPending
 	deadline := checksWaitNow()
 	if options, ok := capability.WaitFrom(ctx); ok && options.Limit > 0 {
@@ -170,13 +196,12 @@ func (c *Client) waitForChecks(ctx context.Context, a *pullArguments) (*PullRequ
 		}
 	}
 
-	wanted := a.HeadSHA
-	var last *PullRequestChecks
+	var last *commitChecks
 	var failure error
 	polls, empty, failures := 0, 0, 0
 	for {
 		polls++
-		got, err := c.pullRequestChecks(ctx, a)
+		sha, got, err := poll(ctx)
 		switch {
 		case err != nil:
 			if ctx.Err() != nil || !transientCheckFailure(err) {
@@ -189,37 +214,31 @@ func (c *Client) waitForChecks(ctx context.Context, a *pullArguments) (*PullRequ
 		default:
 			failures = 0
 			if wanted == "" {
-				wanted = got.HeadSHA
+				wanted = sha
 			}
-			if got.HeadSHA != wanted {
-				return &PullRequestChecksWait{Number: a.Number, Result: waitHeadChanged, HeadSHA: wanted,
-					CurrentHeadSHA: got.HeadSHA, Checks: []CheckEntry{}, Polls: polls}, nil
+			if sha != wanted {
+				return &checksWaitEnd{result: waitHeadChanged, sha: wanted, currentSHA: sha, polls: polls}, nil
 			}
 			last = got
 			if got.Overall == "none" {
 				if empty++; empty >= checksWaitNonePolls {
-					return waitAnswer(a.Number, waitNone, got, polls), nil
+					return &checksWaitEnd{result: waitNone, sha: wanted, checks: got, polls: polls}, nil
 				}
 			} else {
 				empty = 0
 			}
 			if result := finishedWait(got.Overall); result != "" {
-				return waitAnswer(a.Number, result, got, polls), nil
+				return &checksWaitEnd{result: result, sha: wanted, checks: got, polls: polls}, nil
 			}
 		}
 		if checksWaitNow().Add(interval).After(deadline) {
 			if last == nil {
 				return nil, failure
 			}
-			return waitAnswer(a.Number, atLimit, last, polls), nil
+			return &checksWaitEnd{result: atLimit, sha: wanted, checks: last, polls: polls}, nil
 		}
 		if !checksWaitPause(ctx, interval) {
-			return nil, provider.Waited("wait for pull request checks", "GitHub", ctx.Err())
+			return nil, provider.Waited(op, "GitHub", ctx.Err())
 		}
 	}
-}
-
-func waitAnswer(number int, result string, checks *PullRequestChecks, polls int) *PullRequestChecksWait {
-	return &PullRequestChecksWait{Number: number, Result: result, HeadSHA: checks.HeadSHA, Checks: checks.Checks,
-		Truncated: checks.Truncated, Polls: polls}
 }
