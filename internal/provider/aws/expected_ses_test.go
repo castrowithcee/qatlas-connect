@@ -19,4 +19,11 @@ func init() {
 		"aws.ses.export-job.create",
 		"aws.ses.import-job.create",
 	)
+	expectSummary(
+		"aws.ses.account.put-dedicated-ip-warmup-attributes",
+		"aws.ses.account.put-details",
+		"aws.ses.account.put-sending-attributes",
+		"aws.ses.account.put-suppression-attributes",
+		"aws.ses.account.put-vdm-attributes",
+	)
 }
