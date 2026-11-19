@@ -18,6 +18,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/castrowithcee/qatlas-connect/internal/accessrequest"
 	"github.com/castrowithcee/qatlas-connect/internal/capability"
 	"github.com/castrowithcee/qatlas-connect/internal/config"
 	"github.com/castrowithcee/qatlas-connect/internal/invokelog"
@@ -54,6 +55,7 @@ type Core struct {
 	invokeLog    invokelog.Writer
 	invokePath   string
 	invokeClient *invokelog.ClientInfo
+	requests     *accessrequest.Queue
 
 	// clock supplies the time a connection's active_until is judged at; time.Now unless a test replaces it.
 	clock func() time.Time
