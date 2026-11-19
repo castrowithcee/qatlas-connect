@@ -15,9 +15,13 @@ import (
 
 // The tool IDs of this package, fixed so a rename or an addition shows up here.
 var wantToolIDs = []string{
+	"google.merchant.account-issues.list",
 	"google.merchant.accounts.get",
 	"google.merchant.accounts.list",
+	"google.merchant.aggregate-product-statuses.list",
 	"google.merchant.developer-registrations.get",
+	"google.merchant.products.get",
+	"google.merchant.products.list",
 }
 
 func TestRegisterDeclaresTokenScopeTargetsAndFixedToolIDs(t *testing.T) {
