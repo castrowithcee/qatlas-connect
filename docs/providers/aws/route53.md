@@ -215,15 +215,17 @@ is taken with and without `/hostedzone/`.
 
 ### Confirmation and atomicity
 
-The confirmation of a change is the generic one every tool with an effect has: the request names the tool, not the
-changes. The confirmation does not list the changes, so the caller reads `change_batch` before confirming and shows
-each change to the person who confirms. Check above all:
+The confirmation of a change carries a text built from the arguments of the call alone. It names the zone and lists
+every change with its action, name, type, `ttl`, and first values, or its alias target. It marks every `DELETE`, every
+`UPSERT`, and every `NS` or `SOA` change, and lists these first. The text does not know the name of the zone, so it marks
+every `NS` change, not only the one at the apex. An alias target is named but not checked: its `hosted_zone_id` and
+`dns_name` can name a resource of another account, such as a CloudFront distribution or a load balancer, and a DNS name
+carries no account. The confirmation text is short, so a long batch is listed only in part and the text gives the number
+of changes it leaves out: read those in `change_batch` and show them to the person who confirms. Check above all:
 
 - NS and SOA sets at the apex of the zone, which delegate the whole domain;
 - every `DELETE`, and every `UPSERT` of a set that exists, which replaces it (read it first);
-- the `alias_target`: `hosted_zone_id` and `dns_name` can name a resource of another account, such as a CloudFront
-  distribution or a load balancer. The tool does not check whose it is, since a DNS name carries no account, and
-  confirms only what the caller shows.
+- the alias target, whose owner the tool does not check.
 
 A batch is atomic: when one change is invalid, nothing is applied. Route 53 answers `InvalidChangeBatch`, and the tool
 returns its single messages in `original.entries`, each with the code and one message: at most 8 messages, each cut to
