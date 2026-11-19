@@ -9,6 +9,7 @@ import (
 	"github.com/castrowithcee/qatlas-connect/internal/provider/excalidrawplus"
 	"github.com/castrowithcee/qatlas-connect/internal/provider/forge"
 	"github.com/castrowithcee/qatlas-connect/internal/provider/github"
+	"github.com/castrowithcee/qatlas-connect/internal/provider/googleads"
 	"github.com/castrowithcee/qatlas-connect/internal/provider/googleanalytics"
 	"github.com/castrowithcee/qatlas-connect/internal/provider/googlebusinessprofile"
 	"github.com/castrowithcee/qatlas-connect/internal/provider/googlecloud"
@@ -131,6 +132,9 @@ func defaultRegistry() *capability.Registry {
 		panic("provider registration is static and must not fail: " + err.Error())
 	}
 	if err := googlebusinessprofile.Register(reg); err != nil {
+		panic("provider registration is static and must not fail: " + err.Error())
+	}
+	if err := googleads.Register(reg); err != nil {
 		panic("provider registration is static and must not fail: " + err.Error())
 	}
 	// Rename tables and tool profiles name registered tools, so they are checked once every provider has
