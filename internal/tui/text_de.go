@@ -969,6 +969,7 @@ var textDE = map[textID]string{
 	tLogLabelWay:                                                   "Weg",
 	tLogLabelClient:                                                "Client",
 	tLogLabelTool:                                                  "Tool",
+	tLogLabelRequestedTool:                                         "Angefragtes Tool",
 	tLogLabelEffect:                                                "Effect",
 	tLogLabelResult:                                                "Ergebnis",
 	tLogLabelDuration:                                              "Dauer",

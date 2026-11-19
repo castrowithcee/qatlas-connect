@@ -917,3 +917,22 @@ func TestLogsSessionSummaryWithoutSessionsSaysSo(t *testing.T) {
 		t.Errorf("an empty day lacks its hint in the session summary:\n%s", view)
 	}
 }
+
+// The detail of a tool request event shows the requested tool beside the operation.
+func TestLogDetailShowsTheRequestedTool(t *testing.T) {
+	f := newLogFixture(t)
+	mustNoError(t, f.logger.Append(invokelog.Fields{Path: "cli", Operation: invokelog.OperationRequestCreate,
+		Connection: "wiki", Tool: "wiki.pages.delete", Effect: "create", Result: "success"}))
+	m := f.model(true, f.localToday())
+	m.Update(tea.WindowSizeMsg{Width: minimumWidth, Height: 60})
+	press(t, m, "down", "enter")
+	if m.screen != screenLogDetail {
+		t.Fatalf("enter = screen %v, want the detail", m.screen)
+	}
+	got := screenOf(m)
+	for _, want := range []string{logLabel("requested tool") + " ", "wiki.pages.delete", invokelog.OperationRequestCreate} {
+		if !strings.Contains(got, want) {
+			t.Errorf("the detail lacks %q:\n%s", want, got)
+		}
+	}
+}

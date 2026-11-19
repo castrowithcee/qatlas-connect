@@ -731,3 +731,96 @@ func TestZeroRetentionNeverRemovesADayFile(t *testing.T) {
 		t.Fatalf("WithRetention changed the receiver: %d", logger.retentionDays)
 	}
 }
+
+func TestValidateToolRequestEvents(t *testing.T) {
+	entry := func(path, operation, tool string) Fields {
+		return Fields{Path: path, Operation: operation, Connection: "wiki", Tool: tool,
+			Effect: requestOperations[operation].effect, Result: "success"}
+	}
+	for operation, rule := range requestOperations {
+		for _, path := range rule.paths {
+			for _, tool := range []string{"wiki.pages.delete", "wiki.pages.*", "a.b.c.d", "a.b.*"} {
+				f := entry(path, operation, tool)
+				if path == "mcp" {
+					session, err := NewSession()
+					if err != nil {
+						t.Fatal(err)
+					}
+					f.Session = session
+				}
+				if err := f.Validate(); err != nil {
+					t.Errorf("%s %s %s: Validate() = %v", path, operation, tool, err)
+				}
+			}
+		}
+		for _, tool := range []string{"", "wiki pages delete", "wiki.pages", "wiki.*", "wiki.*.get", "wiki.pa*.get",
+			"wiki.pages.**", "wiki..get", "wiki.pages.get\n", "wiki.pages.get wiki.pages.list", "wiki.pages.get,wiki.pages.list",
+			strings.Repeat("a", 300) + ".b.c"} {
+			if err := entry(rule.paths[0], operation, tool).Validate(); err == nil {
+				t.Errorf("%s with tool %q: Validate() = nil, want an error", operation, tool)
+			}
+		}
+		wrongEffect := entry(rule.paths[0], operation, "wiki.pages.get")
+		wrongEffect.Effect = "read"
+		noConnection := entry(rule.paths[0], operation, "wiki.pages.get")
+		noConnection.Connection = ""
+		for name, f := range map[string]Fields{"effect": wrongEffect, "connection": noConnection} {
+			if f.Validate() == nil {
+				t.Errorf("%s with a wrong %s: Validate() = nil", operation, name)
+			}
+		}
+		withSizes := entry(rule.paths[0], operation, "wiki.pages.get")
+		size := int64(1)
+		withSizes.ReqBytes = &size
+		if withSizes.Validate() == nil {
+			t.Errorf("%s with size counters: Validate() = nil", operation)
+		}
+		if !managementOperations[operation] || IsInvoke(Entry{Path: "cli", Operation: operation}) {
+			t.Errorf("%s is not classified as management", operation)
+		}
+	}
+	bad := map[string]Fields{
+		"create over tui":  entry("tui", OperationRequestCreate, "wiki.pages.get"),
+		"create over web":  entry("web", OperationRequestCreate, "wiki.pages.get"),
+		"accept over mcp":  entry("mcp", OperationRequestAccept, "wiki.pages.get"),
+		"accept over web":  entry("web", OperationRequestAccept, "wiki.pages.get"),
+		"block over web":   entry("web", OperationRequestBlock, "wiki.pages.get"),
+		"decline over mcp": entry("mcp", OperationRequestDecline, "wiki.pages.get"),
+		"create as update": {Path: "cli", Operation: OperationRequestCreate, Connection: "wiki", Tool: "wiki.pages.get",
+			Effect: "update", Result: "success"},
+		"expire as update": {Path: "cli", Operation: OperationRequestExpire, Connection: "wiki", Tool: "wiki.pages.get",
+			Effect: "update", Result: "success"},
+		"tool on an invoke":    {Path: "cli", Operation: "wiki.pages.get", Tool: "wiki.pages.get", Effect: "read", Result: "success"},
+		"tool on a connection": {Path: "cli", Operation: OperationConnectionCreate, Connection: "wiki", Tool: "wiki.pages.get", Effect: "create", Result: "success"},
+		"tool on a consent":    {Path: "cli", Operation: OperationConsentGrant, Connection: "wiki", Tool: "wiki.pages.get", Effect: "update", Result: "success"},
+		"tool on an approval":  {Path: "cli", Operation: OperationApprove, Tool: "wiki.pages.get", Result: "success"},
+	}
+	for name, f := range bad {
+		if err := f.Validate(); err == nil {
+			t.Errorf("%s: Validate() = nil, want an error", name)
+		}
+	}
+}
+
+func TestSignedToolRequestEntriesVerify(t *testing.T) {
+	dir := t.TempDir()
+	key, _ := testKey(t)
+	logger, _ := signedLogger(t, dir, key, time.Date(2026, 3, 1, 12, 0, 0, 0, time.UTC))
+	for _, f := range []Fields{
+		{Path: "cli", Operation: "bookstack.read", Effect: "read", Result: "success"},
+		{Path: "cli", Operation: OperationRequestCreate, Connection: "wiki", Tool: "wiki.pages.*", Effect: "create", Result: "success"},
+		{Path: "tui", Operation: OperationRequestBlock, Connection: "wiki", ConnectionID: "0123456789abcdef0123456789abcdef",
+			Tool: "wiki.pages.delete", Effect: "update", Result: "success"},
+	} {
+		if err := f.Validate(); err != nil {
+			t.Fatal(err)
+		}
+		if err := logger.Append(f); err != nil {
+			t.Fatal(err)
+		}
+	}
+	report := verifyWith(t, dir, key)
+	if report.Broken || !report.Checked {
+		t.Fatalf("report = %+v, want an intact, checked chain", report)
+	}
+}
