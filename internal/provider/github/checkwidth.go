@@ -437,11 +437,14 @@ var commitStatusProperties = `"id":{"type":"integer"},"node_id":{"type":"string"
 	`"context":{"type":"string"},"description":{"type":"string"},"required":{"type":"boolean"},` +
 	`"created_at":{"type":"string"},"updated_at":{"type":"string"},"links":` + linksSchema(commitStatusLinkKeys)
 
-var checkWidthProperties = `"check_runs":{"type":"array","maxItems":100,"items":` + objectSchema(checkRunProperties) + `},` +
+// checkWidthMembers is the width without sha, for an answer whose own sha names the same commit.
+var checkWidthMembers = `"check_runs":{"type":"array","maxItems":100,"items":` + objectSchema(checkRunProperties) + `},` +
 	`"check_runs_total_count":{"type":"integer"},` +
 	`"statuses":{"type":"array","maxItems":100,"items":` + objectSchema(commitStatusProperties) + `},` +
-	`"state":{"type":"string"},"total_count":{"type":"integer"},"sha":{"type":"string"},` +
+	`"state":{"type":"string"},"total_count":{"type":"integer"},` +
 	`"links":` + linksSchema(combinedStatusLinkKey)
+
+var checkWidthProperties = checkWidthMembers + `,"sha":{"type":"string"}`
 
 // checkRunMembers lists the members of a check run as every check read answers them.
 const checkRunMembers = "id, node_id, " +
@@ -462,4 +465,15 @@ var checkWidthFields = []capability.Field{
 	{Name: "sha", Description: "Commit the combined status belongs to"},
 	{Name: "links", Description: "url and commit_url of the combined status by their GitHub names, untrusted " +
 		"data, never fetched"},
+}
+
+// checkWidthFieldsWithoutSHA is checkWidthFields for an answer whose own sha names the commit.
+func checkWidthFieldsWithoutSHA() []capability.Field {
+	fields := make([]capability.Field, 0, len(checkWidthFields))
+	for _, field := range checkWidthFields {
+		if field.Name != "sha" {
+			fields = append(fields, field)
+		}
+	}
+	return fields
 }

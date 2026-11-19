@@ -1,10 +1,10 @@
 ---
 description: >
-  Describes the GitHub pull request tools: pull request reads and changes, the listed-only merge and its conflicts, auto-merge, pull request search, Copilot reviews, and the check runs, annotations, and check suites of a commit.
+  Describes the GitHub pull request tools: pull request reads and changes, the listed-only merge and its conflicts, auto-merge, pull request search, Copilot reviews, the checks of a commit with waiting for them, and the check runs, annotations, and check suites of a commit.
 type: knowledge
 edit: shared
 created: 2026-10-22
-updated: 2026-11-05
+updated: 2026-11-19
 ---
 
 # GitHub pull requests
@@ -19,7 +19,7 @@ GitHub's project items and its issue and comment tools still see a pull request 
 its number as an `invalid-request`; the tools of this section read, create, change, close, reopen, and merge
 the pull requests of a repository themselves. Reviewing a pull request, commenting on its conversation, and
 line comments are a separate group of tools, described under
-[Pull request reviews and comments](pull-request-reviews.md#pull-request-reviews-and-comments). The seven reads are offered by the not-recommended setup profile `pull-requests`; the not-recommended
+[Pull request reviews and comments](pull-request-reviews.md#pull-request-reviews-and-comments). The nine reads are offered by the not-recommended setup profile `pull-requests`; the not-recommended
 profile `pull-requests-operator` adds the changes, described under [Changes](#changes) below, and turning off
 auto-merge, but never the merge, described under [Merge and conflicts](#merge-and-conflicts), nor enabling
 auto-merge, described under [Auto-merge](#auto-merge): each is offered only where a connection's `tools` list
@@ -36,6 +36,8 @@ below the chosen repository; no tool accepts an owner or a free REST path.
 | `github.pull-request-diffs.get` | reads its unified diff, cut to at most 65536 bytes from its start |
 | `github.pull-request-checks.list` | reads the check runs and the combined commit status at its head commit |
 | `github.pull-request-checks.wait` | waits until those checks have finished |
+| `github.commit-checks.list` | reads the check runs and the combined commit status of the commit a branch, tag, or SHA names |
+| `github.commit-checks.wait` | waits until those checks have finished |
 
 ```yaml
 connections:
@@ -118,6 +120,17 @@ One loop serves two forms, polling every 20 seconds. Through MCP a call returns 
 the 60 seconds of an invoke, and an agent without a shell calls it again. With a shell, `qconnect wait
 github.pull-request-checks.wait --arg number=42` waits for the end in one command, up to its `--timeout`, and
 names the result in its exit code; the description of the tool names it as the preferred way.
+
+### Checks of a commit
+
+`github.commit-checks.list` and `github.commit-checks.wait` read and await the checks of any commit, such as the
+default branch after a merge, the way the two pull request tools do at a head commit, with their rights, risk,
+filters, evaluation, and loop. `ref` names a branch, a tag, or a commit SHA. Each call resolves it once, at its
+start, to the commit it answers as `sha`, and reads only that commit afterwards, so a branch that moves on
+while the wait runs is not followed and `head-changed` does not occur; an agent continues after `pending` with
+that `sha` as `ref`. The list answers `ref` and `sha` instead of `number` and `head_sha`; its `sha` is also the
+commit of the combined status. A `ref` GitHub does not hold ends as `not-found`. `qconnect wait
+github.commit-checks.wait --arg ref=main` waits for the end in one command.
 
 ### Check runs, annotations, and check suites
 

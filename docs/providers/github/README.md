@@ -276,9 +276,9 @@ GitHub answers at most 1000 runs of a run list filtered by `status`, `branch`, `
 
 `github.pull-requests.list`, `github.pull-request-files.list`, `github.pull-request-commits.list`, and the five
 [check reads](pull-requests.md#check-runs-annotations-and-check-suites) page by number as well, but GitHub answers these plain array routes without a total count, so `has_more` follows
-whether GitHub's `Link` response header names a following page instead. `github.pull-request-checks.list`
-answers no cursor at all: it reads up to 100 check runs and 100 legacy statuses at the head commit in one
-call and reports `truncated` when GitHub held more of either.
+whether GitHub's `Link` response header names a following page instead. `github.pull-request-checks.list` and
+`github.commit-checks.list` answer no cursor at all: each reads up to 100 check runs and 100 legacy statuses at
+one commit in one call and reports `truncated` when GitHub held more of either.
 
 ## Result objects
 
