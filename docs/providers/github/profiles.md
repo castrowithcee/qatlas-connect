@@ -22,8 +22,8 @@ and restoring stay unticked. The profile
 `github.project-views.list`, `create`, and `update` of the [project views](projects.md#project-views),
 `github.project-status.list`, `create`, and `update` of the [status updates](projects.md#project-status-updates),
 `github.project-teams.list` of the [teams](projects.md#project-collaborators-and-teams), and
-`github.project-workflows.list` of the [automations](projects.md#project-automations); no profile ticks a tool with the
-effect `delete` or one that changes access. The
+`github.project-workflows.list` of the [automations](projects.md#project-automations); a profile may tick an unassignment with the
+effect `delete`, but no profile ticks a tool that deletes an object or one that changes access. The
 profiles `actions-observer` and `actions-operator` are described under [GitHub Actions](actions.md#github-actions), the
 not-recommended profiles `pull-requests` and `pull-requests-operator` under
 [Pull requests](pull-requests.md#pull-requests), the not-recommended profile `checks` under

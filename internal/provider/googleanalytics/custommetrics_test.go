@@ -363,7 +363,8 @@ func TestCustomMetricToolsHaveScopesProfilesAndSummaries(t *testing.T) {
 		if reg.ConfirmationSummary(id) == nil {
 			t.Errorf("%s has no confirmation summary", id)
 		}
-		if slices.Contains(metadata.Profiles[0].Tools, id) || !slices.Contains(metadata.Profiles[1].Tools, id) {
+		if slices.Contains(metadata.Profiles[0].Tools, id) ||
+			slices.Contains(metadata.Profiles[1].Tools, id) == (id == customMetricsArchiveID) {
 			t.Errorf("%s is in the wrong profile", id)
 		}
 	}

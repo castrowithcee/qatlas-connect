@@ -59,7 +59,7 @@ func TestKeyDisableAndEnableAreRepeatable(t *testing.T) {
 }
 
 func TestKeyDeleteSendsOneDeleteWithoutBody(t *testing.T) {
-	e := revokeEnvironment(t, nil, nil)
+	e := revokeEnvironment(t, nil, []string{serviceAccountKeysDeleteID})
 	e.fake.routes[keyURLPath] = okReply(`{}`)
 	out, err := e.invokeConfirmed(serviceAccountKeysDeleteID, keyArgs)
 	if err != nil {
@@ -75,7 +75,7 @@ func TestKeyDeleteSendsOneDeleteWithoutBody(t *testing.T) {
 }
 
 func TestKeyDeleteOfASystemManagedKeyIsAnErrorOfGoogle(t *testing.T) {
-	e := revokeEnvironment(t, nil, nil)
+	e := revokeEnvironment(t, nil, []string{serviceAccountKeysDeleteID})
 	e.fake.routes[keyURLPath] = reply{status: 400, body: errorObject(400, "FAILED_PRECONDITION", "")}
 	_, err := e.invokeConfirmed(serviceAccountKeysDeleteID, keyArgs)
 	if err == nil || classOf(err) == "" || strings.Contains(err.Error(), detailCanary) || len(e.fake.api()) != 1 {
@@ -85,7 +85,7 @@ func TestKeyDeleteOfASystemManagedKeyIsAnErrorOfGoogle(t *testing.T) {
 
 func TestKeyChangesOfAnUnknownKeyAreNotFound(t *testing.T) {
 	for _, id := range []string{serviceAccountKeysDisableID, serviceAccountKeysEnableID, serviceAccountKeysDeleteID} {
-		e := revokeEnvironment(t, nil, nil)
+		e := revokeEnvironment(t, nil, []string{serviceAccountKeysDisableID, serviceAccountKeysEnableID, serviceAccountKeysDeleteID})
 		_, err := e.invokeConfirmed(id, keyArgs)
 		if classOf(err) != provider.ClassNotFound || len(e.fake.api()) != 1 {
 			t.Errorf("%s: class = %q, err = %v", id, classOf(err), err)
@@ -103,7 +103,7 @@ func TestRevokeToolsRefuseBadInputBeforeIO(t *testing.T) {
 			"extra":           `{"project_id":"example-project-123","account":"1034","key_id":"k1","reason":"x"}`,
 			"other project":   `{"project_id":"example-other-9","account":"1034","key_id":"k1"}`,
 		} {
-			e := revokeEnvironment(t, []string{"projects/example-project-123"}, nil)
+			e := revokeEnvironment(t, []string{"projects/example-project-123"}, []string{serviceAccountKeysDisableID, serviceAccountKeysEnableID, serviceAccountKeysDeleteID})
 			if _, err := e.invokeConfirmed(id, args); err == nil {
 				t.Errorf("%s %s: accepted", id, name)
 			}
@@ -140,7 +140,7 @@ func TestRevokeToolsNeedConfirmation(t *testing.T) {
 		if strings.HasSuffix(id, ".delete") {
 			wantEffect = "delete"
 		}
-		if string(d.Risk.Effect) != wantEffect || d.RequiresToolAllowList != (id == serviceAccountsDeleteID) {
+		if string(d.Risk.Effect) != wantEffect || d.RequiresToolAllowList != (id == serviceAccountsDeleteID || id == serviceAccountKeysDeleteID) {
 			t.Errorf("%s effect = %s, listed-only = %v", id, d.Risk.Effect, d.RequiresToolAllowList)
 		}
 		if e.reg.ConfirmationSummary(id) == nil {
@@ -198,19 +198,19 @@ func TestServiceAccountsDeleteIsOnlyReachableByName(t *testing.T) {
 	}
 }
 
-func TestServiceAccountsDeleteIsNotInAnyProfile(t *testing.T) {
+func TestServiceAccountDeletionsAreInNoProfile(t *testing.T) {
 	e := newEnvironment(t, nil)
 	metadata, _ := e.reg.ProviderMetadata(Provider)
 	found := false
 	for _, profile := range metadata.Profiles {
 		for _, tool := range profile.Tools {
-			if tool == serviceAccountsDeleteID {
+			if tool == serviceAccountsDeleteID || tool == serviceAccountKeysDeleteID {
 				t.Errorf("profile %s holds %s", profile.ID, tool)
 			}
 		}
 		if profile.ID == "service-accounts-revoke" {
 			found = true
-			if profile.Recommended || len(profile.Tools) != 3 {
+			if profile.Recommended || len(profile.Tools) != 2 {
 				t.Errorf("profile = %+v", profile)
 			}
 		}
@@ -227,7 +227,7 @@ func TestServiceAccountsDeleteIsNotInAnyProfile(t *testing.T) {
 }
 
 func TestRevokeFailureNamesAnUnknownOutcome(t *testing.T) {
-	e := revokeEnvironment(t, nil, nil)
+	e := revokeEnvironment(t, nil, []string{serviceAccountKeysDeleteID})
 	e.fake.routes[keyURLPath] = reply{status: 503, body: `{}`}
 	_, err := e.invokeConfirmed(serviceAccountKeysDeleteID, keyArgs)
 	if err == nil || !strings.Contains(err.Error(), "outcome") || len(e.fake.api()) != 1 {

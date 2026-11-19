@@ -352,11 +352,12 @@ var localPostsDelete = capability.Descriptor{
 	Description: "Delete one local post (Google My Business API v4 accounts.locations.localPosts.delete). The post " +
 		"disappears from the public profile and from Google Search and cannot be restored. Google counts at most 10 " +
 		"changes per minute and profile. On a connection bound to an account the location is first proved to belong " +
-		"to it.",
+		"to it." + listedOnlyNote,
 	Tags: []string{"google", "business-profile", "local-posts", "delete"}, Provider: Provider,
-	Risk:         localPostWriteRisk(capability.EffectDelete, capability.IdempotencyIdempotent),
-	InputSchema:  inputSchema([]string{"local_post"}, "local_post", localPostArgSchema),
-	OutputSchema: json.RawMessage(localPostDeletedSchema),
+	RequiresToolAllowList: true,
+	Risk:                  localPostWriteRisk(capability.EffectDelete, capability.IdempotencyIdempotent),
+	InputSchema:           inputSchema([]string{"local_post"}, "local_post", localPostArgSchema),
+	OutputSchema:          json.RawMessage(localPostDeletedSchema),
 	Arguments: []capability.Argument{{Name: "local_post", Required: true, Description: "Post to delete: " +
 		formLocalPost}},
 	Fields: []capability.Field{{Name: "local_post", Description: "The post that was deleted"},

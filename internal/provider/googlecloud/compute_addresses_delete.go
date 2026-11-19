@@ -19,9 +19,10 @@ var addressesDelete = capability.Descriptor{
 		"v1), by its name or numeric ID. An external address is released and may be given to another customer, " +
 		"so it cannot be got back; DNS records and allow lists that name it then point nowhere or elsewhere. An " +
 		"address that is still in use (the users member of addresses.get) is refused by Google, and the tool " +
-		"reports that refusal. Addresses cannot be reserved or changed." + computeDeleteNote + computeTail,
+		"reports that refusal. Addresses cannot be reserved or changed." + listedOnlyNote + computeDeleteNote +
+		computeTail,
 	Tags: []string{"google", "cloud", "compute", "addresses", "ip", "network", "delete"}, Risk: computeDeleteRisk,
-	Provider: Provider,
+	Provider: Provider, RequiresToolAllowList: true,
 	InputSchema: json.RawMessage(`{"type":"object","properties":{` + serviceProjectProp + `,` + computeRegionProp +
 		`,` + computeAddressProp + `,` + computeRequestIDProp +
 		`},"required":["project_id","region","address"],"additionalProperties":false}`),

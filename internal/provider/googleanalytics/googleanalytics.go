@@ -335,21 +335,22 @@ func Register(reg *capability.Registry) error {
 			ID: "write", Title: "Read and change",
 			Description: "reads what the read profile reads and changes Analytics accounts, properties, data streams, custom " +
 				"dimensions, custom metrics, key events, event create rules, calculated metrics, audiences, annotations, channel groups, expanded data sets, attribution settings and Google Signals, starts audience exports and report tasks, " +
-				"and deletes data streams, measurement protocol secrets, key events, channel groups, expanded data sets, the Google Ads, Firebase, BigQuery, AdSense, Search Ads 360, Display & Video 360 advertiser and rollup source links and link proposals (also cancels proposals) and archives audiences; every change needs its own " +
-				"confirmation, and deleting an account or a property stays unlisted, and so does changing the data retention. " +
+				"and deletes key events, channel groups, the Google Ads, Firebase, BigQuery, AdSense, Search Ads 360, Display & Video 360 advertiser and rollup source links and link proposals (also cancels proposals); every change needs its own " +
+				"confirmation. Deleting an account, a property, a data stream, a measurement protocol secret, or an expanded data set and archiving a custom dimension, a custom metric, or an audience are listed-only, " +
+				"and so is changing the data retention. " +
 				"It also searches the change history, which holds the email addresses of users and accepts only the " +
 				"scope analytics.edit",
 			Tools: append(slices.Clone(readTools), accountsUpdateID, propertiesCreateID, propertiesUpdateID,
-				dataStreamsCreateID, dataStreamsUpdateID, dataStreamsDeleteID, mpSecretsDeleteID, audienceCreateID,
+				dataStreamsCreateID, dataStreamsUpdateID, audienceCreateID,
 				reportTasksCreateID, enhancedUpdateID, redactionUpdateID, customDimensionsCreateID,
-				customDimensionsUpdateID, customDimensionsArchiveID,
-				customMetricsCreateID, customMetricsUpdateID, customMetricsArchiveID,
+				customDimensionsUpdateID,
+				customMetricsCreateID, customMetricsUpdateID,
 				keyEventsCreateID, keyEventsUpdateID, keyEventsDeleteID, eventRulesCreateID, eventRulesUpdateID, eventRulesDeleteID,
 				calculatedCreateID, calculatedUpdateID, calculatedDeleteID, googleSignalsUpdateID,
 				annotationsCreateID, annotationsUpdateID, annotationsDeleteID,
-				audiencesCreateID, audiencesUpdateID, audiencesArchiveID,
+				audiencesCreateID, audiencesUpdateID,
 				channelGroupsCreateID, channelGroupsUpdateID, channelGroupsDeleteID,
-				edsCreateID, edsUpdateID, edsDeleteID, attributionUpdateID, changeHistoryID,
+				edsCreateID, edsUpdateID, attributionUpdateID, changeHistoryID,
 				adsLinksDeleteID, firebaseLinksDeleteID, bigQueryLinksDeleteID, adsenseLinksDeleteID,
 				searchAdsLinksDeleteID, dv360LinksDeleteID, dv360ProposalsCancelID, dv360ProposalsDeleteID, rollupLinksDeleteID),
 		}, {

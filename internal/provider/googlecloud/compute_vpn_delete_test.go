@@ -28,7 +28,7 @@ func vpnDeleteArgs(argument, extra string) string {
 func TestVPNDeleteReturnsTheRunningOperationAndRepeatsWithTheSameRequestID(t *testing.T) {
 	for _, c := range vpnDeleteCases {
 		path := vpnRegionPath + "/" + c.segment + "/example-vpn"
-		e := revokeEnvironment(t, nil, nil)
+		e := revokeEnvironment(t, nil, networkDeleteTools)
 		deleteRoutes(e, path, "", okReply(regionalDeleteOperationBody("RUNNING")))
 		for i := 0; i < 2; i++ {
 			out, err := e.invokeConfirmed(c.id, vpnDeleteArgs(c.argument, `,"request_id":"`+deleteRequestID+`"`))
@@ -58,7 +58,7 @@ func TestVPNDeleteReturnsTheRunningOperationAndRepeatsWithTheSameRequestID(t *te
 
 func TestVPNDeleteOfAnUnknownNameIsNotFound(t *testing.T) {
 	for _, c := range vpnDeleteCases {
-		e := revokeEnvironment(t, nil, nil)
+		e := revokeEnvironment(t, nil, networkDeleteTools)
 		if _, err := e.invokeConfirmed(c.id, vpnDeleteArgs(c.argument, "")); classOf(err) != provider.ClassNotFound {
 			t.Errorf("%s: class = %q, err = %v", c.id, classOf(err), err)
 		}
@@ -77,20 +77,20 @@ func TestVPNDeleteRefusesBeforeAnyIOAndWithoutConfirmation(t *testing.T) {
 			`{"project_id":"my-project-123","region":"us-central1","` + c.argument + `":"../x"}`,
 			`{"project_id":"example-other-9","region":"us-central1","` + c.argument + `":"example-vpn"}`,
 		} {
-			e := revokeEnvironment(t, []string{"projects/my-project-123"}, nil)
+			e := revokeEnvironment(t, []string{"projects/my-project-123"}, networkDeleteTools)
 			if _, err := e.invokeConfirmed(c.id, a); err == nil {
 				t.Errorf("%s accepted %s", c.id, a)
 			}
 			noIO(t, e, c.id+" "+a)
 		}
-		e := revokeEnvironment(t, nil, nil)
+		e := revokeEnvironment(t, nil, networkDeleteTools)
 		if _, err := e.invoke(c.id, vpnDeleteArgs(c.argument, "")); err == nil {
 			t.Errorf("%s ran without confirmation", c.id)
 		}
 		noIO(t, e, c.id)
 		d, _, _ := e.reg.Lookup(c.id)
 		if d.Risk.Confirmation != "required" || string(d.Risk.Effect) != "delete" || !d.Risk.OpenWorld ||
-			string(d.Risk.Idempotency) != "idempotent" || d.RequiresToolAllowList {
+			string(d.Risk.Idempotency) != "idempotent" || d.RequiresToolAllowList != listedNetworkDelete(d.ID) {
 			t.Errorf("%s risk = %+v", c.id, d.Risk)
 		}
 		text := e.reg.ConfirmationSummary(c.id)([]byte(vpnDeleteArgs(c.argument, "")))
@@ -105,7 +105,7 @@ func TestVPNDeleteRefusesBeforeAnyIOAndWithoutConfirmation(t *testing.T) {
 func TestVPNDeleteNeverPassesASecretOrProviderText(t *testing.T) {
 	for _, c := range vpnDeleteCases {
 		path := vpnRegionPath + "/" + c.segment + "/example-vpn"
-		e := revokeEnvironment(t, nil, nil)
+		e := revokeEnvironment(t, nil, networkDeleteTools)
 		deleteRoutes(e, path, "", okReply(regionalDeleteOperationBody("RUNNING")[:len(regionalDeleteOperationBody("RUNNING"))-1]+
 			`,"sharedSecret":"`+vpnSecret+`","statusMessage":"ok"}`))
 		out, err := e.invokeConfirmed(c.id, vpnDeleteArgs(c.argument, ""))
@@ -118,7 +118,7 @@ func TestVPNDeleteNeverPassesASecretOrProviderText(t *testing.T) {
 			okReply(regionalDeleteOperationBody("DONE")[:len(regionalDeleteOperationBody("DONE"))-1] +
 				`,"httpErrorStatusCode":400,"error":{"errors":[{"code":"X","message":"` + vpnSecret + `"}]}}`),
 		} {
-			e := revokeEnvironment(t, nil, nil)
+			e := revokeEnvironment(t, nil, networkDeleteTools)
 			deleteRoutes(e, path, "", r)
 			_, err := e.invokeConfirmed(c.id, vpnDeleteArgs(c.argument, ""))
 			if err == nil || strings.Contains(err.Error(), vpnSecret) {

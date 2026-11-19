@@ -164,12 +164,15 @@ func TestSecretDeletesNeedConfirmationAndSendOneDelete(t *testing.T) {
 	}
 }
 
-func TestEntityDeletesAreReachableThroughEffects(t *testing.T) {
-	// The write connection holds every effect: neither delete of a single entity is listed-only.
+func TestEntityDeletesAreReachableOnlyThroughAToolsList(t *testing.T) {
+	// The write connection holds every effect, yet the deletes are listed-only.
 	for _, c := range []struct{ id, name string }{{dataStreamsDeleteID, streamPath}, {mpSecretsDeleteID, secretPath}} {
-		env := newEnv(t, &fakeGoogle{api: always(http.StatusOK, `{}`)})
-		if _, err := env.confirmed(c.id, "write", `{"name":"`+c.name+`"}`); err != nil {
-			t.Errorf("%s is not reachable through effects: %v", c.id, err)
+		env := secretEnv(t, &fakeGoogle{api: always(http.StatusOK, `{}`)})
+		if _, err := env.confirmed(c.id, "write", `{"name":"`+c.name+`"}`); err == nil {
+			t.Errorf("%s is reachable through effects", c.id)
+		}
+		if _, err := env.confirmed(c.id, "sfree", `{"name":"`+c.name+`"}`); err != nil {
+			t.Errorf("%s is not reachable through a tools list: %v", c.id, err)
 		}
 	}
 }
@@ -323,7 +326,7 @@ func TestSecretToolsAreRegisteredWithScopesRisksAndSummaries(t *testing.T) {
 		switch d.ID {
 		case mpSecretsDeleteID, dataStreamsDeleteID:
 			if string(d.Risk.Effect) != "delete" || d.Risk.Confirmation != "required" ||
-				d.RequiresToolAllowList || reg.ConfirmationSummary(d.ID) == nil {
+				!d.RequiresToolAllowList || reg.ConfirmationSummary(d.ID) == nil {
 				t.Errorf("%s = %+v, listed %t", d.ID, d.Risk, d.RequiresToolAllowList)
 			}
 		case mpSecretsListID, mpSecretsGetID:
@@ -334,8 +337,8 @@ func TestSecretToolsAreRegisteredWithScopesRisksAndSummaries(t *testing.T) {
 	}
 	for _, profile := range metadata.Profiles {
 		for _, id := range []string{mpSecretsDeleteID, dataStreamsDeleteID} {
-			if slices.Contains(profile.Tools, id) != (profile.ID == "write") {
-				t.Errorf("profile %s and %s do not match", profile.ID, id)
+			if slices.Contains(profile.Tools, id) {
+				t.Errorf("profile %s holds the listed-only %s", profile.ID, id)
 			}
 		}
 	}

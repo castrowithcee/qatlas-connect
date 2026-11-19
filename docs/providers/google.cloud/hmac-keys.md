@@ -75,6 +75,7 @@ cut and masked.
 **Scope and profile.** `hmacKeys.update` lists `devstorage.full_control` and `cloud-platform`, so the deactivation asks
 for `devstorage.full_control`. `hmacKeys.delete` lists `devstorage.read_write` as well, but the tool reads the key
 first and `hmacKeys.get` accepts only `full_control` and `read_only`, so it asks for `full_control` too. Google also
-uses that scope to create keys, so the token may do that although no tool does. Both tools belong to the profile
-`storage-revoke`, which is not recommended and needs `projects.get`. The account needs `storage.hmacKeys.update` or
+uses that scope to create keys, so the token may do that although no tool does. `hmac-keys.deactivate` belongs to the profile
+`storage-revoke`, which is not recommended and needs `projects.get`. `hmac-keys.delete` is listed-only: it belongs to no
+profile, and a connection offers it only when its `tools` list names it. The account needs `storage.hmacKeys.update` or
 `storage.hmacKeys.delete` on the project.

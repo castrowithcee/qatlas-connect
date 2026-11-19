@@ -55,22 +55,22 @@ Three profiles are offered:
   synchronize a
   workspace, resolve its merge conflicts, and quick preview it, that create, update, and delete tags, triggers,
   variables, templates, clients, transformations, zones, and Google tag configurations, that enable and disable
-  built-in variables, that create, update, delete, and fill folders, that create, update, and delete the
+  built-in variables, that create, update, delete, and fill folders, that create and update the
   custom environments of a container, that make a container version from a workspace, change its name and
   notes, mark it as the latest, and restore a deleted one, and `accounts.update`, which renames an account. A
   deleted tag, trigger, variable, template, folder, client, transformation, or zone and a disabled built-in
   variable stay in the workspace changes until a version is published and can be brought back with their
-  `revert` tool. A deleted Google tag configuration has no `revert` tool, and a deleted
-  environment cannot be brought back.
+  `revert` tool. A deleted Google tag configuration has no `revert` tool.
 - `user-permissions` holds the four tools of [user permissions](user-permissions.md): reading the users of an
   account with their email addresses, changing the rights of an existing user, and removing a user. It is not
   recommended and is in neither of the other profiles. No tool adds a user.
 
 `containers.delete`, `workspaces.delete`, `versions.delete`, `versions.publish`, `tags.revert`, `triggers.revert`,
 `variables.revert`, `templates.revert`, `folders.revert`, `clients.revert`, `transformations.revert`,
-`zones.revert`, `built-in-variables.revert`, and `containers.combine` are in no profile. Deleting a container
-removes it with everything in it, deleting a workspace loses its unpublished changes, a revert overwrites the
-workspace state of an object, a combine merges one container into another, `versions.delete` deletes a whole
+`zones.revert`, `built-in-variables.revert`, `containers.combine`, and `environments.delete` are in no profile.
+Deleting a container removes it with everything in it, deleting a workspace loses its unpublished changes, a revert overwrites the
+workspace state of an object, a combine merges one container into another, a deleted environment cannot be brought back and a new one has a
+new authorization code that makes the snippet and the preview link of the old one invalid, `versions.delete` deletes a whole
 container version, and publishing a version changes what runs on the live site or app, so a connection offers
 them only when its `tools` list names them. `accounts.update` needs a consent that holds
 `tagmanager.manage.accounts` and is not available on a connection bound to a container.

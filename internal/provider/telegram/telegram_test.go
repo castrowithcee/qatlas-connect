@@ -150,7 +150,7 @@ func TestRegisterContainsMetadataAndMessageDescriptors(t *testing.T) {
 	}
 }
 
-func TestDeleteRequiresAToolAllowListAndStaysInTheMessagingProfile(t *testing.T) {
+func TestDeleteIsListedOnlyAndInNoProfile(t *testing.T) {
 	reg := capability.NewRegistry()
 	if err := Register(reg); err != nil {
 		t.Fatal(err)
@@ -174,20 +174,15 @@ func TestDeleteRequiresAToolAllowListAndStaysInTheMessagingProfile(t *testing.T)
 		t.Fatalf("ValidateProfiles() = %v", err)
 	}
 	metadata, _ := reg.ProviderMetadata(Provider)
-	found := false
 	for _, profile := range metadata.Profiles {
-		if profile.ID != "messaging" {
-			continue
-		}
 		for _, tool := range profile.Tools {
-			found = found || tool == messagesDelete.ID
+			if tool == messagesDelete.ID {
+				t.Errorf("profile %s contains %s", profile.ID, tool)
+			}
 		}
-		if !strings.Contains(profile.Description, "others") || !strings.Contains(profile.Description, "private chats") {
+		if profile.ID == "messaging" && !strings.Contains(profile.Description, "tools list") {
 			t.Errorf("profile description = %q", profile.Description)
 		}
-	}
-	if !found {
-		t.Error("profile messaging lacks telegram.messages.delete")
 	}
 }
 

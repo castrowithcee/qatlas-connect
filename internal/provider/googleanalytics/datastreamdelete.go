@@ -20,9 +20,10 @@ var dataStreamsDelete = capability.Descriptor{
 		"and its measurement protocol secrets go with it. Data already collected stays in the property. Google " +
 		"offers no tool to restore a stream. Needs the confirmation of a person for each call. On a connection " +
 		"with targets the property of the stream must be a bound property or belong to a bound account, which is " +
-		"proven by one read of its parent before the change. " + streamDeleteNote,
+		"proven by one read of its parent before the change. " + streamDeleteNote + listedOnlyNote,
 	Tags: []string{"google", "analytics", "data-streams", "delete"}, Provider: Provider,
-	Risk: writeRisk(capability.EffectDelete, capability.IdempotencyIdempotent),
+	RequiresToolAllowList: true,
+	Risk:                  writeRisk(capability.EffectDelete, capability.IdempotencyIdempotent),
 	InputSchema: json.RawMessage(`{"type":"object","properties":{"name":` + streamNameSchema +
 		`},"required":["name"],"additionalProperties":false}`),
 	OutputSchema: json.RawMessage(`{"type":"object","properties":{"name":{"type":"string"},"deleted":` +

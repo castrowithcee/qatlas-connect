@@ -3,10 +3,10 @@
 // beta whose names and schemas may still change; the provider is a beta for the same reason and every tool
 // descriptor carries a version that moves with a breaking change. It lists collections and scenes, reads one
 // scene's metadata, and reads one scene's content, bounded and searchable client-side. The optional manage
-// profile also creates, renames, and moves scenes, patches a scene's elements by element version, and replaces a
-// scene's whole content with a bounded element set, and moves a scene or a collection to the trash. The optional,
-// not recommended people profile lists and reads workspace users, changes a user's name or role, and removes a user;
-// it needs a connection bound to the whole workspace with the * target.
+// profile also creates, renames, and moves scenes, patches a scene's elements by element version, and moves a
+// scene to the trash. Replacing a scene's content and deleting a collection are offered only through a tools list. The
+// optional, not recommended people profile lists and reads workspace users and changes a user's name or role;
+// removing a user is offered only through a tools list. It needs a connection bound to the whole workspace with the * target.
 //
 // A connection binds one workspace key (the key belongs to exactly one workspace) and a collection
 // allow-list (collection/COLLECTION_ID, repeatable) or the explicit * wildcard. The allow-list is the only
@@ -404,23 +404,24 @@ func Register(reg *capability.Registry) error {
 				"recommended read profile",
 			Tools: []string{logsList.ID},
 		}, {
-			ID: "manage", Title: "Create, rename, move, delete scenes and collections and edit scene content",
+			ID: "manage", Title: "Create, rename, move, and delete scenes and patch scene content",
 			Description: "reads what the read profile reads, creates a scene in an allowed collection, " +
 				"renames or moves a scene of an allowed collection into an allowed collection, patches the " +
-				"elements of a scene by element version, and replaces a scene's whole content; every change " +
-				"needs its own confirmation, and the content replacement and both deletions are offered only to a " +
-				"connection whose tools list names them. Deleting a scene or a collection moves it to the trash of " +
-				"Excalidraw+ and breaks its shared links and embeds; Qatlas Connect cannot restore it",
+				"elements of a scene by element version, and deletes a scene; every change needs its own " +
+				"confirmation, and the scene deletion is offered only to a connection whose tools list names " +
+				"it. Deleting a scene moves it to the trash of Excalidraw+ and breaks its shared links and " +
+				"embeds; Qatlas Connect cannot restore it. Replacing a scene's content and deleting a " +
+				"collection are in no profile",
 			Tools: append(append([]string{}, readTools...), scenesCreate.ID, scenesUpdate.ID, contentPatch.ID,
-				contentReplace.ID, scenesDelete.ID, collectionsDelete.ID),
+				scenesDelete.ID),
 		}, {
 			ID: "people", Title: "Manage workspace users",
 			Description: "lists and reads the users of the workspace with name, e-mail address, role, and teams " +
-				"(personal data), changes a user's name or role, and removes a user; " +
+				"(personal data) and changes a user's name or role; " +
 				"works only on a connection with the * target, every change needs its own confirmation, and the " +
-				"change tools are offered only to a connection whose tools list names them. A removed user loses " +
-				"access and workspace data; Qatlas Connect cannot undo it",
-			Tools: []string{usersList.ID, usersGet.ID, usersUpdate.ID, usersRemove.ID},
+				"change tool is offered only to a connection whose tools list names it. Removing a user is " +
+				"in no profile",
+			Tools: []string{usersList.ID, usersGet.ID, usersUpdate.ID},
 		}},
 	}, TestConnection); err != nil {
 		return err

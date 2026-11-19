@@ -13,7 +13,7 @@ Configuration, scope, targets, error classes, and cross-group limits are in [REA
 
 ## Editing scene content
 
-The `manage` profile also offers two content tools. Both need `confirm`, send exactly one request, and are never
+The `manage` profile offers `content.patch`; `content.replace` is in no profile and needs a `tools` list. Both content tools need `confirm`, send exactly one request, and are never
 repeated. Both first read the scene's metadata and continue only when its collection is allowed; a scene of another
 collection receives no `PATCH` or `PUT`.
 
@@ -33,7 +33,7 @@ the answer shows every sent element at the sent version. A patch element is a co
 **Replace.** This is an authoritative, final replacement: every element not sent is removed, embedded images and
 files are removed (`files` is sent empty), and connected editors are forced to reload instead of merging. The tool
 requires `confirm` and is offered only to a connection whose `tools` list names it (it has the effect `delete`, so
-the connection also needs the `delete` effect); the `manage` profile does not make it available on its own. An
+the connection also needs the `delete` effect); no profile contains it. An
 empty element list is refused. `view_background_color` defaults to `#ffffff`.
 
 **Elements.** An element is a closed, structured subset of the Excalidraw element format, never a free body:

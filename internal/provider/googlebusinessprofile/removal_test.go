@@ -228,14 +228,14 @@ func TestRemovalsAndDeclineNeedConfirmation(t *testing.T) {
 	env.noRequests(t)
 }
 
-func TestRemovalNeedsTheDeleteEffect(t *testing.T) {
+func TestRemovalNeedsAToolsListEvenWithTheDeleteEffect(t *testing.T) {
 	env, _ := removeEnvironment(t)
-	// w-all has the effect; a connection that only reads or updates does not offer the tool.
+	// w-all has the effect; without a tools list the listed-only tool is not offered.
 	c := env.cfg.Connections["w-all"]
-	c.Effects = []config.Effect{config.EffectRead, config.EffectUpdate}
+	c.Tools = nil
 	env.cfg.Connections["w-all"] = c
 	if _, err := env.change(t, accountAdminsDeleteID, "w-all", remove(adminOne, "Sample Person", "OWNER")); err == nil {
-		t.Error("removal accepted without the delete effect")
+		t.Error("removal accepted without a tools list")
 	}
 	env.noRequests(t)
 }

@@ -70,7 +70,7 @@ func postsEnvironment(t *testing.T) (*environment, *postsFake) {
 	effects := []config.Effect{config.EffectRead, config.EffectCreate, config.EffectUpdate, config.EffectDelete}
 	for name, target := range map[string]string{"w-all": "", "w-account": boundAccount, "w-location": boundLocation} {
 		env.cfg.Connections[name] = config.Connection{Service: "profile", Credential: "google", Effects: effects,
-			Target: target}
+			Tools: allToolIDs(t), Target: target}
 	}
 	return env, f
 }
@@ -525,10 +525,13 @@ func TestLocalPostToolsRiskAndProfiles(t *testing.T) {
 			t.Errorf("%s profiles wrong", id)
 		}
 	}
-	for _, id := range []string{localPostsCreateID, localPostsUpdateID, localPostsDeleteID} {
+	for _, id := range []string{localPostsCreateID, localPostsUpdateID} {
 		if slices.Contains(profiles["read"], id) || !slices.Contains(profiles["write"], id) {
 			t.Errorf("%s profiles wrong", id)
 		}
+	}
+	if slices.Contains(profiles["read"], localPostsDeleteID) || slices.Contains(profiles["write"], localPostsDeleteID) {
+		t.Errorf("%s is in a profile", localPostsDeleteID)
 	}
 	for _, d := range []struct{ risk, want string }{
 		{string(localPostsCreate.Risk.Idempotency), "non_idempotent"},

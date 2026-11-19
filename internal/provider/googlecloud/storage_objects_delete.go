@@ -51,10 +51,10 @@ var objectsDelete = capability.Descriptor{
 		"can be restored with objects.restore until its hard delete time. With generation exactly that version is " +
 		"deleted for good. One call deletes exactly one object; there is no bulk deletion. The object name is " +
 		"untrusted and is sent as one encoded path segment. Google answers with an empty body, so the result is " +
-		"the bucket, the object, and the generation as given, and deleted." + bucketBindingTail + storageChangeTail +
-		storageTail,
+		"the bucket, the object, and the generation as given, and deleted." + listedOnlyNote + bucketBindingTail +
+		storageChangeTail + storageTail,
 	Tags: []string{"google", "cloud", "storage", "objects", "delete"}, Risk: storageChangeRisk(capability.EffectDelete),
-	Provider: Provider,
+	Provider: Provider, RequiresToolAllowList: true,
 	InputSchema: json.RawMessage(`{"type":"object","properties":{` + storageBucketProp + `,` + storageObjectProp +
 		`,"generation":` + storageGenProp + `,` + objectPreconditionProps + `,` + storageUserProjectProp + `},` +
 		`"required":["bucket","object"],"additionalProperties":false}`),

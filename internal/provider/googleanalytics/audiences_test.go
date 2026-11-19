@@ -597,7 +597,8 @@ func TestAudienceToolsAreRegisteredWithScopesProfilesAndSummaries(t *testing.T) 
 			t.Errorf("%s scopes = %v", id, metadata.Token.Scopes[id])
 		}
 		descriptor, _, ok := reg.Lookup(id)
-		if !ok || descriptor.RequiresToolAllowList || !slices.Contains(profiles["write"], id) ||
+		archive := id == audiencesArchiveID
+		if !ok || descriptor.RequiresToolAllowList != archive || slices.Contains(profiles["write"], id) == archive ||
 			slices.Contains(profiles["read"], id) != (want == scopeReadOnly) ||
 			!strings.HasSuffix(descriptor.Description, alphaNote) {
 			t.Errorf("%s: descriptor %+v, profiles wrong", id, descriptor)

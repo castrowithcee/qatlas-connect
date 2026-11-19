@@ -89,7 +89,7 @@ characters other than line breaks and tabs. Google may hold a reply back: the re
 of the comparison.
 
 `reviews.delete-reply` (`DELETE .../reviews/REVIEW/reply`) removes the reply of the business, publicly, and
-needs confirmation; it also belongs to the profile `write`. It removes only the reply: no tool deletes or reports
+needs confirmation and is listed-only: a connection offers it only when its `tools` list names it. It removes only the reply: no tool deletes or reports
 a review.
 
 **Spacing.** Both changes count against the 10 changes per minute and profile; Qatlas spaces them by 6 seconds

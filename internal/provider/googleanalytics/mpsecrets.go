@@ -158,9 +158,10 @@ var mpSecretsDelete = capability.Descriptor{
 		"secret to send events to the stream can no longer do so, and a secret cannot be restored. Needs the " +
 		"confirmation of a person for each call. On a " +
 		"connection with targets the property of the stream must be a bound property or belong to a bound " +
-		"account, which is proven by one read of its parent before the change. " + streamDeleteNote,
+		"account, which is proven by one read of its parent before the change. " + streamDeleteNote + listedOnlyNote,
 	Tags: []string{"google", "analytics", "measurement-protocol-secrets", "delete"}, Provider: Provider,
-	Risk: writeRisk(capability.EffectDelete, capability.IdempotencyIdempotent),
+	RequiresToolAllowList: true,
+	Risk:                  writeRisk(capability.EffectDelete, capability.IdempotencyIdempotent),
 	InputSchema: json.RawMessage(`{"type":"object","properties":{"name":` + secretNameSchema +
 		`},"required":["name"],"additionalProperties":false}`),
 	OutputSchema: json.RawMessage(`{"type":"object","properties":{"name":{"type":"string"},"deleted":` +

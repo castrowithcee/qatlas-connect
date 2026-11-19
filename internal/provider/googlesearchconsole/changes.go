@@ -57,17 +57,22 @@ var sitesAdd = capability.Descriptor{
 		Arguments: json.RawMessage(`{"site_url":"sc-domain:example.com"}`)}},
 }
 
+// listedOnlyNote ends the description of a tool that only a tools list offers.
+const listedOnlyNote = " The tool is listed-only: a connection offers it only through its tools list, and every " +
+	"call needs confirmation."
+
 var sitesDelete = capability.Descriptor{
 	ID: sitesDeleteID, Version: 1, Title: "Remove a Search Console property",
 	Description: "Remove a property from the Search Console account of the credential. Only the entry in " +
 		"Search Console goes, not the website. The account loses the history and permissions of the property. " +
-		"Needs confirmation.",
+		"Needs confirmation." + listedOnlyNote,
 	Tags: []string{"google", "search-console", "sites", "properties"}, Risk: changeRisk(capability.EffectDelete),
-	Provider:     Provider,
-	InputSchema:  json.RawMessage(`{"type":"object","properties":{` + siteURLSchema + `},"additionalProperties":false}`),
-	OutputSchema: json.RawMessage(changeOutput),
-	Arguments:    []capability.Argument{siteArgument},
-	Fields:       []capability.Field{},
+	Provider:              Provider,
+	RequiresToolAllowList: true,
+	InputSchema:           json.RawMessage(`{"type":"object","properties":{` + siteURLSchema + `},"additionalProperties":false}`),
+	OutputSchema:          json.RawMessage(changeOutput),
+	Arguments:             []capability.Argument{siteArgument},
+	Fields:                []capability.Field{},
 	Examples: []capability.Example{{Description: "Remove a URL-prefix property",
 		Arguments: json.RawMessage(`{"site_url":"https://www.example.com/"}`)}},
 }

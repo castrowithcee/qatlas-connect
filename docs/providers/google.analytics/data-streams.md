@@ -15,7 +15,7 @@ nothing, a repeat is safe, and the profile `read` holds both. They need the scop
 tools under [Changing data streams](#changing-data-streams) need `analytics.edit`; see
 [setup](setup.md#rights-and-scopes). Configuration, targets, paging, and the boundary are described in the
 provider page. Find property names with [accounts.list-summaries](accounts.md) and stream names with
-`data-streams.list`. `data-streams.delete` also needs `analytics.edit`; see
+`data-streams.list`. `data-streams.delete` also needs `analytics.edit` and is listed-only, so no profile holds it; see
 [google.analytics.data-streams.delete](#googleanalyticsdata-streamsdelete). The Measurement Protocol secrets of a
 stream have their own page, [measurement protocol secrets](measurement-protocol-secrets.md).
 The enhanced measurement, data redaction, and site tag tools of a web stream are described under
@@ -91,8 +91,7 @@ collected stays. Qatlas has no tool that restores a stream. The call needs the c
 names the stream, is one request without a retry, and is idempotent in effect. The answer is `name` and
 `deleted: true`; Google sends an empty body. After a timeout, an aborted request, a `5xx` answer, or an answer that
 cannot be read, the outcome is unknown and the stream is read before anything else is done. A `404` means the
-stream does not exist or the credential cannot see it. The profile `write` holds the tool, and a connection with the effect `delete` offers it. It is not limited to a
-`tools` entry.
+stream does not exist or the credential cannot see it. It is listed-only: no profile holds it, and a connection offers it only when its `tools` list names it.
 
 ### Targets and proof
 

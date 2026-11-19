@@ -76,7 +76,7 @@ func mediaEnvironment(t *testing.T) (*environment, *mediaFake) {
 	effects := []config.Effect{config.EffectRead, config.EffectCreate, config.EffectUpdate, config.EffectDelete}
 	for name, target := range map[string]string{"m-all": "", "m-account": boundAccount, "m-location": boundLocation} {
 		env.cfg.Connections[name] = config.Connection{Service: "profile", Credential: "google", Effects: effects,
-			Target: target}
+			Tools: allToolIDs(t), Target: target}
 	}
 	return env, f
 }

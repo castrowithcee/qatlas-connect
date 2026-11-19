@@ -173,25 +173,24 @@ The profile `read` is the recommended one and holds `google.analytics.accounts.l
 `google.analytics.attribution-settings.get`, `google.analytics.rollup-links.list`, `google.analytics.rollup-links.get`,
 `google.analytics.access-bindings.list`, `google.analytics.access-bindings.get`, and
 `google.analytics.access-bindings.batch-get`. The profile `write` reads like `read`, changes accounts, properties,
-data streams and their settings, custom dimensions, custom metrics, key events, event create rules, calculated metrics, audiences, annotations, channel groups, expanded data sets, Google Signals, and attribution settings, deletes data streams, measurement protocol secrets, key events, channel groups, and expanded data sets, deletes Google Ads, Firebase, BigQuery, AdSense, Search Ads 360, Display & Video 360, and rollup source links and Display & Video 360 link proposals, cancels proposals, archives audiences,
+data streams and their settings, custom dimensions, custom metrics, key events, event create rules, calculated metrics, audiences, annotations, channel groups, expanded data sets, Google Signals, and attribution settings, deletes key events and channel groups, deletes Google Ads, Firebase, BigQuery, AdSense, Search Ads 360, Display & Video 360, and rollup source links and Display & Video 360 link proposals, cancels proposals,
 and starts audience exports and report tasks, each change with its own confirmation: it adds
 `google.analytics.accounts.update`, `google.analytics.properties.create`, `google.analytics.properties.update`,
-`google.analytics.data-streams.create`, `google.analytics.data-streams.update`, `google.analytics.data-streams.delete`,
-`google.analytics.measurement-protocol-secrets.delete`, `google.analytics.audience-exports.create`,
+`google.analytics.data-streams.create`, `google.analytics.data-streams.update`, `google.analytics.audience-exports.create`,
 `google.analytics.report-tasks.create`, `google.analytics.data-streams.update-enhanced-measurement`,
 `google.analytics.data-streams.update-data-redaction`, `google.analytics.custom-dimensions.create`,
-`google.analytics.custom-dimensions.update`, `google.analytics.custom-dimensions.archive`,
+`google.analytics.custom-dimensions.update`,
 `google.analytics.custom-metrics.create`, `google.analytics.custom-metrics.update`,
-`google.analytics.custom-metrics.archive`, `google.analytics.key-events.create`, `google.analytics.key-events.update`,
+`google.analytics.key-events.create`, `google.analytics.key-events.update`,
 `google.analytics.key-events.delete`, `google.analytics.event-create-rules.create`,
 `google.analytics.event-create-rules.update`, `google.analytics.event-create-rules.delete`,
 `google.analytics.calculated-metrics.create`, `google.analytics.calculated-metrics.update`,
 `google.analytics.calculated-metrics.delete`, `google.analytics.annotations.create`,
 `google.analytics.annotations.update`, `google.analytics.annotations.delete`,
-`google.analytics.audiences.create`, `google.analytics.audiences.update`, `google.analytics.audiences.archive`,
+`google.analytics.audiences.create`, `google.analytics.audiences.update`,
 `google.analytics.channel-groups.create`, `google.analytics.channel-groups.update`,
 `google.analytics.channel-groups.delete`, `google.analytics.expanded-data-sets.create`,
-`google.analytics.expanded-data-sets.update`, `google.analytics.expanded-data-sets.delete`,
+`google.analytics.expanded-data-sets.update`,
 `google.analytics.google-signals.update`, `google.analytics.attribution-settings.update`,
 `google.analytics.google-ads-links.delete`, `google.analytics.firebase-links.delete`,
 `google.analytics.bigquery-links.delete`, `google.analytics.adsense-links.delete`,
@@ -212,10 +211,15 @@ and a connection offers it only when its `tools` list names it. The profile `acc
 `analytics.manage.users`; `google.analytics.access-bindings.batch-delete` is in no profile, see
 [access bindings](access-bindings.md#scopes-and-profiles). Deleting an account or a property is in no profile: a
 connection offers `google.analytics.accounts.delete` and `google.analytics.properties.delete` only when its
-`tools` list names them. So does changing the data retention: `google.analytics.data-retention.update` is in no
+`tools` list names them. So are deleting a data stream, a measurement protocol secret, or an expanded data set
+and archiving a custom dimension, a custom metric, or an audience: `google.analytics.data-streams.delete`,
+`google.analytics.measurement-protocol-secrets.delete`, `google.analytics.expanded-data-sets.delete`,
+`google.analytics.custom-dimensions.archive`, `google.analytics.custom-metrics.archive`, and
+`google.analytics.audiences.archive` are listed-only, and a connection with the effect `delete` does not offer
+them without a `tools` entry. So is changing the data retention: `google.analytics.data-retention.update` is in no
 profile either, because shortening a period deletes data permanently, see [data retention](data-retention.md).
 Each of these needs the confirmation of a person. `accounts.delete` also runs only on a
-connection that binds exactly that account and no property. Deleting one event create rule, one calculated metric, one annotation, one channel group, one expanded data set, or one Google Ads, Firebase, BigQuery, or AdSense link and archiving one audience is in
+connection that binds exactly that account and no property. Deleting one event create rule, one calculated metric, one annotation, one channel group, or one Google Ads, Firebase, BigQuery, or AdSense link is in
 the profile `write`, with its own confirmation. Which scope each tool needs is listed in
 [setup](setup.md#rights-and-scopes).
 

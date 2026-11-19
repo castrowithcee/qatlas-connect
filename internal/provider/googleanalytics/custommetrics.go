@@ -257,9 +257,10 @@ var customMetricsArchive = capability.Descriptor{
 		"tool of this provider restores it, and Google counts it against the limit of the property for a time " +
 		"it decides. Needs the confirmation of a person for each call. On a connection with targets the " +
 		"property of the metric must be a bound property or belong to a bound account, which is proven by one " +
-		"read of its parent before the change. " + metricWriteNote,
+		"read of its parent before the change. " + metricWriteNote + listedOnlyNote,
 	Tags: []string{"google", "analytics", "custom-metrics", "archive"}, Provider: Provider,
-	Risk: writeRisk(capability.EffectDelete, capability.IdempotencyIdempotent),
+	RequiresToolAllowList: true,
+	Risk:                  writeRisk(capability.EffectDelete, capability.IdempotencyIdempotent),
 	InputSchema: json.RawMessage(`{"type":"object","properties":{"name":` + metricNameSchema +
 		`},"required":["name"],"additionalProperties":false}`),
 	OutputSchema: json.RawMessage(`{"type":"object","properties":{"name":{"type":"string"},"archived":` +

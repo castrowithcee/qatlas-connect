@@ -375,8 +375,9 @@ func (g globalDelete) descriptor() capability.Descriptor {
 	return capability.Descriptor{
 		ID: g.id, Version: 1, Title: g.title,
 		Description: "Delete one " + g.kind + " of a project (" + g.segment + ".delete of Compute Engine v1), by its " +
-			"name or numeric ID. " + g.effect + computeDeleteNote + computeTail,
+			"name or numeric ID. " + g.effect + listedOnlyNote + computeDeleteNote + computeTail,
 		Tags: []string{"google", "cloud", "compute", g.segment, "delete"}, Risk: computeDeleteRisk, Provider: Provider,
+		RequiresToolAllowList: true,
 		InputSchema: json.RawMessage(`{"type":"object","properties":{` + serviceProjectProp + `,` + g.prop + `,` +
 			computeRequestIDProp + `},"required":["project_id","` + g.argument + `"],"additionalProperties":false}`),
 		OutputSchema: computeDeleteOutput,

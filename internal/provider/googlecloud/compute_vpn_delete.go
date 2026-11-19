@@ -36,9 +36,9 @@ func (v vpnDelete) descriptor() capability.Descriptor {
 		ID: v.id, Version: 1, Title: v.title,
 		Description: "Delete one " + v.kind + " of a region of a project (" + v.segment + ".delete of Compute " +
 			"Engine v1), by its name or numeric ID. " + v.effect + " Tunnels and gateways cannot be created or " +
-			"changed." + computeDeleteNote + vpnSecretNote + computeTail,
+			"changed." + listedOnlyNote + computeDeleteNote + vpnSecretNote + computeTail,
 		Tags: []string{"google", "cloud", "compute", "vpn", "network", "delete"}, Risk: computeDeleteRisk,
-		Provider: Provider,
+		Provider: Provider, RequiresToolAllowList: true,
 		InputSchema: json.RawMessage(`{"type":"object","properties":{` + serviceProjectProp + `,` + computeRegionProp +
 			`,` + v.prop + `,` + computeRequestIDProp + `},"required":["project_id","region","` + v.argument +
 			`"],"additionalProperties":false}`),

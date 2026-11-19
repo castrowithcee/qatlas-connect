@@ -390,7 +390,8 @@ func TestCustomDimensionToolsAreRegisteredWithScopesProfilesAndSummaries(t *test
 		}
 	}
 	for _, id := range []string{customDimensionsCreateID, customDimensionsUpdateID, customDimensionsArchiveID} {
-		if slices.Contains(profile("read"), id) || !slices.Contains(profile("write"), id) {
+		if slices.Contains(profile("read"), id) ||
+			slices.Contains(profile("write"), id) == (id == customDimensionsArchiveID) {
 			t.Errorf("%s profile placement is wrong", id)
 		}
 		if reg.ConfirmationSummary(id) == nil {

@@ -38,7 +38,7 @@ minute.
 
 `DELETE https://mybusinessaccountmanagement.googleapis.com/v1/locations/{location}/admins/{admin}`. Removes an
 admin from a location, or revokes the invitation of an admin that is still pending. It needs confirmation and is
-part of the profile `write`.
+listed-only: a connection offers it only when its `tools` list names it.
 
 Arguments, refusals (an admin who holds `PRIMARY_OWNER`, an entry that differs from `previous_admin` and
 `previous_role`), the confirmation, and the result are those of

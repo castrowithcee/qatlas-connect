@@ -73,7 +73,7 @@ such and never repeated.
 
 `DELETE https://mybusinessaccountmanagement.googleapis.com/v1/accounts/{account}/admins/{admin}`. Removes an
 admin from an account, or revokes the invitation of an admin that is still pending. It needs confirmation and is
-part of the profile `write`. Google answers an empty object, and the result is
+listed-only: a connection offers it only when its `tools` list names it. Google answers an empty object, and the result is
 `{"name": ..., "removed": true}`.
 
 | Argument | Meaning |

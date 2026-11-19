@@ -32,8 +32,9 @@ described in the [Google Search Console provider](README.md); the tools in [site
 | [search analytics](search-analytics.md) | `webmasters.readonly` | owner, full, or restricted user of the property |
 
 Qatlas asks for no broader scope than the tools of your connections need: the `webmasters` scope only joins
-the consent when a connection offers one of the four changing tools, which needs the `edit` profile or the
-effects `create` and `delete`. Adding a property does not verify it, so a property you add stays without
+the consent when a connection offers one of the four changing tools. `sites.add`, `sitemaps.submit`, and
+`sitemaps.delete` need the `edit` profile or the effects `create` and `delete`; `sites.delete` needs a `tools` list that
+names it. Adding a property does not verify it, so a property you add stays without
 access until you verify it in Search Console.
 
 ## Way 1: your Google account with a consent

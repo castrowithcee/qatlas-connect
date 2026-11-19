@@ -259,7 +259,7 @@ func TestAccountToolsDeclareTheirRiskScopeAndProfile(t *testing.T) {
 	}
 	for _, profile := range metadata.Profiles {
 		if profile.ID == "write" && (profile.Recommended || !strings.Contains(strings.Join(profile.Tools, " "), accountsUpdateID) ||
-			len(profile.Tools) != len(readTools)+50) {
+			len(profile.Tools) != len(readTools)+44) {
 			t.Errorf("write profile = %+v", profile)
 		}
 	}

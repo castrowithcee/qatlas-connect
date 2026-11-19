@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -502,5 +503,37 @@ func TestLocationConfirmationShowsEverythingOrTheCallIsRefused(t *testing.T) {
 		Connection: "l-all", Arguments: json.RawMessage(ok)})
 	if !errors.As(err, &needs) || !strings.Contains(needs.Summary, fit+`y"`) || strings.HasSuffix(needs.Summary, "…") {
 		t.Errorf("summary = %q", needs.Summary)
+	}
+}
+
+func TestDeletionToolsAreListedOnlyAndInNoProfile(t *testing.T) {
+	reg := capability.NewRegistry()
+	if err := Register(reg); err != nil {
+		t.Fatal(err)
+	}
+	metadata, _ := reg.ProviderMetadata(Provider)
+	listed := []string{locationsDeleteID, mediaDeleteID, localPostsDeleteID, reviewsDeleteReplyID,
+		accountAdminsDeleteID, locationAdminsDeleteID}
+	for _, id := range listed {
+		d, _, found := reg.Lookup(id)
+		if !found || d.Risk.Effect != capability.EffectDelete || !d.RequiresToolAllowList ||
+			!strings.Contains(d.Description, "listed-only") {
+			t.Errorf("%s is not a listed-only deletion: %+v", id, d)
+		}
+		for _, profile := range metadata.Profiles {
+			if slices.Contains(profile.Tools, id) {
+				t.Errorf("profile %s holds the listed-only %s", profile.ID, id)
+			}
+		}
+	}
+	// A place action link is recreated from its values, so its deletion stays in the profile write.
+	d, _, _ := reg.Lookup(placeActionLinksDeleteID)
+	if d.RequiresToolAllowList {
+		t.Errorf("%s is listed-only", placeActionLinksDeleteID)
+	}
+	for _, profile := range metadata.Profiles {
+		if got := slices.Contains(profile.Tools, placeActionLinksDeleteID); got != (profile.ID == "write") {
+			t.Errorf("profile %s holds %s: %t", profile.ID, placeActionLinksDeleteID, got)
+		}
 	}
 }

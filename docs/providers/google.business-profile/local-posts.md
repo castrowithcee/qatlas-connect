@@ -125,7 +125,7 @@ shows no previous values.
 ## Deleting
 
 `local-posts.delete` (`DELETE .../localPosts/POST`) removes the post from the profile and from Google Search.
-It needs confirmation, belongs to the profile `write`, and cannot be undone. The result is `local_post` and
+It needs confirmation, is listed-only (a connection offers it only when its `tools` list names it), and cannot be undone. The result is `local_post` and
 `deleted: true`.
 
 **Spacing.** Creating, changing, and deleting count against the 10 changes per minute and profile; Qatlas

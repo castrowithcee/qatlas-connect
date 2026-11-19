@@ -25,6 +25,12 @@ const (
 	addressArgs = `{"project_id":"my-project-123","region":"us-central1","address":"web-ip"`
 )
 
+// networkDeleteTools are the deletions of network resources; only firewalls.delete is in a profile, the others
+// are offered by a tools list.
+var networkDeleteTools = []string{firewallsDeleteID, addressesDeleteID, vpnTunnelsDeleteID, vpnGatewaysDeleteID}
+
+func listedNetworkDelete(id string) bool { return id != firewallsDeleteID }
+
 func deleteOperationBody(status, extra string) string {
 	return `{"kind":"compute#operation","id":"9100000000000000001","name":"` + operationName + `",` +
 		`"operationType":"delete","status":"` + status + `","user":"person@example.com","progress":0,` +
@@ -60,7 +66,7 @@ func methodsOf(e *environment) []string {
 }
 
 func TestFirewallsDeleteReadsTheRuleAndReturnsTheRunningOperation(t *testing.T) {
-	e := revokeEnvironment(t, nil, nil)
+	e := revokeEnvironment(t, nil, networkDeleteTools)
 	deleteRoutes(e, firewallPath, ingressRuleBody(firewallRule), okReply(deleteOperationBody("RUNNING", "")))
 	out, err := e.invokeConfirmed(firewallsDeleteID, firewallArgs+`,"request_id":"`+deleteRequestID+`"}`)
 	if err != nil {
@@ -80,7 +86,7 @@ func TestFirewallsDeleteReadsTheRuleAndReturnsTheRunningOperation(t *testing.T) 
 }
 
 func TestDeleteWithTheSameRequestIDSendsItUnchangedEachTime(t *testing.T) {
-	e := revokeEnvironment(t, nil, nil)
+	e := revokeEnvironment(t, nil, networkDeleteTools)
 	deleteRoutes(e, addressPath, "", okReply(regionalDeleteOperationBody("RUNNING")))
 	for i := 0; i < 2; i++ {
 		out, err := e.invokeConfirmed(addressesDeleteID, addressArgs+`,"request_id":"`+deleteRequestID+`"}`)
@@ -107,7 +113,7 @@ func TestDeleteWithTheSameRequestIDSendsItUnchangedEachTime(t *testing.T) {
 
 func TestDeleteCreatesARequestIDWhenNoneIsGiven(t *testing.T) {
 	uuid := regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$`)
-	e := revokeEnvironment(t, nil, nil)
+	e := revokeEnvironment(t, nil, networkDeleteTools)
 	deleteRoutes(e, addressPath, "", okReply(regionalDeleteOperationBody("PENDING")))
 	out, err := e.invokeConfirmed(addressesDeleteID, addressArgs+`}`)
 	if err != nil {
@@ -128,7 +134,7 @@ func TestFirewallsDeleteDeletesOnlyWhenTheRuleStillMatches(t *testing.T) {
 		"priority":  {ingressRuleBody(firewallRule), `"expected_direction":"INGRESS","expected_action":"allow","expected_priority":999`},
 		"deny rule": {egressRuleBody(firewallRule), `"expected_direction":"EGRESS","expected_action":"allow","expected_priority":900`},
 	} {
-		e := revokeEnvironment(t, nil, nil)
+		e := revokeEnvironment(t, nil, networkDeleteTools)
 		deleteRoutes(e, firewallPath, c.rule, okReply(deleteOperationBody("RUNNING", "")))
 		_, err := e.invokeConfirmed(firewallsDeleteID, `{"project_id":"my-project-123","firewall":"allow-ssh",`+c.args+`}`)
 		var invalid *provider.InvalidRequestError
@@ -139,7 +145,7 @@ func TestFirewallsDeleteDeletesOnlyWhenTheRuleStillMatches(t *testing.T) {
 			t.Errorf("%s: methods = %v, want only the read", name, got)
 		}
 	}
-	e := revokeEnvironment(t, nil, nil)
+	e := revokeEnvironment(t, nil, networkDeleteTools)
 	deleteRoutes(e, firewallPath, egressRuleBody(firewallRule), okReply(deleteOperationBody("RUNNING", "")))
 	if _, err := e.invokeConfirmed(firewallsDeleteID, `{"project_id":"my-project-123","firewall":"allow-ssh",`+
 		`"expected_direction":"EGRESS","expected_action":"deny","expected_priority":900}`); err != nil {
@@ -182,7 +188,7 @@ func TestFirewallsDeleteSummaryNamesTheThreeValuesAndTheDenyRisk(t *testing.T) {
 }
 
 func TestAddressInUseIsTheErrorOfGoogleAndNothingIsRepeated(t *testing.T) {
-	e := revokeEnvironment(t, nil, nil)
+	e := revokeEnvironment(t, nil, networkDeleteTools)
 	deleteRoutes(e, addressPath, "", reply{status: 400, body: `{"error":{"code":400,"message":"` + detailCanary +
 		`","errors":[{"message":"` + detailCanary + `","domain":"global","reason":"resourceInUseByAnotherResource"}]}}`})
 	_, err := e.invokeConfirmed(addressesDeleteID, addressArgs+`}`)
@@ -195,21 +201,21 @@ func TestAddressInUseIsTheErrorOfGoogleAndNothingIsRepeated(t *testing.T) {
 }
 
 func TestDeleteOfAnUnknownNameIsNotFound(t *testing.T) {
-	e := revokeEnvironment(t, nil, nil)
+	e := revokeEnvironment(t, nil, networkDeleteTools)
 	if _, err := e.invokeConfirmed(firewallsDeleteID, firewallArgs+`}`); classOf(err) != provider.ClassNotFound {
 		t.Errorf("firewall: class = %q, err = %v", classOf(err), err)
 	}
 	if got := methodsOf(e); !slices.Equal(got, []string{"GET"}) {
 		t.Errorf("firewall methods = %v", got)
 	}
-	e = revokeEnvironment(t, nil, nil)
+	e = revokeEnvironment(t, nil, networkDeleteTools)
 	if _, err := e.invokeConfirmed(addressesDeleteID, addressArgs+`}`); classOf(err) != provider.ClassNotFound {
 		t.Errorf("address: class = %q, err = %v", classOf(err), err)
 	}
 }
 
 func TestDeleteReportsAnOperationThatIsDoneWithAnError(t *testing.T) {
-	e := revokeEnvironment(t, nil, nil)
+	e := revokeEnvironment(t, nil, networkDeleteTools)
 	deleteRoutes(e, addressPath, "", okReply(regionalDeleteOperationBody("DONE")[:len(regionalDeleteOperationBody("DONE"))-1]+
 		`,"httpErrorStatusCode":400,"error":{"errors":[{"code":"RESOURCE_IN_USE_BY_ANOTHER_RESOURCE",`+
 		`"message":"`+detailCanary+`"}]}}`))
@@ -220,7 +226,7 @@ func TestDeleteReportsAnOperationThatIsDoneWithAnError(t *testing.T) {
 }
 
 func TestDeleteOfAnUnclearOutcomeIsSentOnceAndSaysSo(t *testing.T) {
-	e := revokeEnvironment(t, nil, nil)
+	e := revokeEnvironment(t, nil, networkDeleteTools)
 	deleteRoutes(e, addressPath, "", reply{status: 503, body: errorObject(503, "UNAVAILABLE", "")})
 	_, err := e.invokeConfirmed(addressesDeleteID, addressArgs+`}`)
 	if err == nil || !strings.Contains(err.Error(), "outcome") {
@@ -229,7 +235,7 @@ func TestDeleteOfAnUnclearOutcomeIsSentOnceAndSaysSo(t *testing.T) {
 	if got := methodsOf(e); !slices.Equal(got, []string{"DELETE"}) {
 		t.Errorf("methods = %v", got)
 	}
-	e = revokeEnvironment(t, nil, nil)
+	e = revokeEnvironment(t, nil, networkDeleteTools)
 	deleteRoutes(e, addressPath, "", okReply(`{"kind":"compute#operation"}`))
 	if _, err := e.invokeConfirmed(addressesDeleteID, addressArgs+`}`); classOf(err) != provider.ClassInvalidResponse ||
 		!strings.Contains(err.Error(), "outcome") {
@@ -262,7 +268,7 @@ func TestDeleteRefusesBeforeAnyIO(t *testing.T) {
 	}
 	for id, list := range args {
 		for _, a := range list {
-			e := revokeEnvironment(t, []string{"projects/my-project-123"}, nil)
+			e := revokeEnvironment(t, []string{"projects/my-project-123"}, networkDeleteTools)
 			if _, err := e.invokeConfirmed(id, a); err == nil {
 				t.Errorf("%s accepted %s", id, a)
 			}
@@ -273,14 +279,14 @@ func TestDeleteRefusesBeforeAnyIO(t *testing.T) {
 
 func TestDeleteWithoutConfirmationMakesNoProviderCall(t *testing.T) {
 	for id, args := range map[string]string{firewallsDeleteID: firewallArgs + `}`, addressesDeleteID: addressArgs + `}`} {
-		e := revokeEnvironment(t, nil, nil)
+		e := revokeEnvironment(t, nil, networkDeleteTools)
 		if _, err := e.invoke(id, args); err == nil {
 			t.Errorf("%s ran without confirmation", id)
 		}
 		noIO(t, e, id)
 		d, _, _ := e.reg.Lookup(id)
 		if d.Risk.Confirmation != "required" || string(d.Risk.Effect) != "delete" || !d.Risk.OpenWorld ||
-			string(d.Risk.Idempotency) != "idempotent" || d.RequiresToolAllowList {
+			string(d.Risk.Idempotency) != "idempotent" || d.RequiresToolAllowList != listedNetworkDelete(d.ID) {
 			t.Errorf("%s risk = %+v", id, d.Risk)
 		}
 		if e.reg.ConfirmationSummary(id) == nil {
@@ -294,21 +300,41 @@ func TestDeleteToolsRunWithTheProfileAlone(t *testing.T) {
 	metadata, _ := e.reg.ProviderMetadata(Provider)
 	var tools []string
 	for _, profile := range metadata.Profiles {
-		if profile.ID == "compute-network-delete" {
+		if profile.ID == "compute-firewalls-delete" {
 			tools = profile.Tools
 		}
 	}
-	if len(tools) == 0 {
-		t.Fatal("no profile compute-network-delete")
+	if !slices.Equal(tools, []string{projectsGetID, firewallsDeleteID}) {
+		t.Fatalf("profile tools = %v", tools)
 	}
 	e = revokeEnvironment(t, []string{"projects/my-project-123"}, tools)
-	deleteRoutes(e, addressPath, "", okReply(regionalDeleteOperationBody("RUNNING")))
-	if _, err := e.invokeConfirmed(addressesDeleteID, addressArgs+`}`); err != nil {
-		t.Fatal(err)
-	}
 	deleteRoutes(e, firewallPath, ingressRuleBody(firewallRule), okReply(deleteOperationBody("RUNNING", "")))
 	if _, err := e.invokeConfirmed(firewallsDeleteID, firewallArgs+`}`); err != nil {
 		t.Fatal(err)
+	}
+	if _, err := e.invokeConfirmed(addressesDeleteID, addressArgs+`}`); err == nil {
+		t.Error("addresses.delete ran with the profile alone")
+	}
+}
+
+func TestNetworkDeletionsAreListedOnlyAndInNoProfile(t *testing.T) {
+	e := newEnvironment(t, nil)
+	metadata, _ := e.reg.ProviderMetadata(Provider)
+	for _, id := range []string{addressesDeleteID, vpnTunnelsDeleteID, vpnGatewaysDeleteID} {
+		d, _, found := e.reg.Lookup(id)
+		if !found || !d.RequiresToolAllowList || !strings.Contains(d.Description, "listed-only") {
+			t.Errorf("%s is not listed-only: %+v", id, d)
+		}
+		for _, profile := range metadata.Profiles {
+			if slices.Contains(profile.Tools, id) {
+				t.Errorf("profile %s holds %s", profile.ID, id)
+			}
+		}
+	}
+	// A firewall rule is recreated from its values, so its deletion stays in its profile.
+	d, _, _ := e.reg.Lookup(firewallsDeleteID)
+	if d.RequiresToolAllowList {
+		t.Errorf("%s is listed-only", firewallsDeleteID)
 	}
 }
 
@@ -335,7 +361,7 @@ func TestOnlyDeletionsOfFirewallsAddressesAndVPNExist(t *testing.T) {
 		case strings.HasSuffix(tool.ID, ".delete"):
 			d, _, _ := e.reg.Lookup(tool.ID)
 			if string(d.Risk.Effect) != "delete" || d.Risk.Confirmation != "required" || !d.Risk.OpenWorld ||
-				d.RequiresToolAllowList {
+				d.RequiresToolAllowList != listedNetworkDelete(d.ID) {
 				t.Errorf("%s risk = %+v", tool.ID, d.Risk)
 			}
 		default:

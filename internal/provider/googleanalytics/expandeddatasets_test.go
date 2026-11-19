@@ -499,7 +499,8 @@ func TestExpandedDataSetToolsAreRegisteredWithScopesProfilesAndSummaries(t *test
 			t.Errorf("%s scopes = %v", id, metadata.Token.Scopes[id])
 		}
 		descriptor, _, ok := reg.Lookup(id)
-		if !ok || descriptor.RequiresToolAllowList || !slices.Contains(profiles["write"], id) ||
+		deletion := id == edsDeleteID
+		if !ok || descriptor.RequiresToolAllowList != deletion || slices.Contains(profiles["write"], id) == deletion ||
 			slices.Contains(profiles["read"], id) != (want == scopeReadOnly) ||
 			!strings.HasSuffix(descriptor.Description, alphaNote) && !strings.Contains(descriptor.Description, "ALPHA:") {
 			t.Errorf("%s: descriptor %+v, profiles wrong", id, descriptor)

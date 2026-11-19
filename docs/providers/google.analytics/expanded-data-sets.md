@@ -22,9 +22,9 @@ repeated.
 
 `expanded-data-sets.list` and `expanded-data-sets.get` read and change nothing, a repeat is safe, they need the
 scope `analytics.readonly`, and the profile `read` holds both. The three tools under
-[Changing expanded data sets](#changing-expanded-data-sets) need `analytics.edit` and are in the profile `write`;
-see [setup](setup.md#rights-and-scopes). None of them is limited to connections that name it in `tools`: each
-change needs the confirmation of a person for each call. Find property names with
+[Changing expanded data sets](#changing-expanded-data-sets) need `analytics.edit`; `create` and `update` are in the
+profile `write`, `delete` is listed-only and in no profile; see [setup](setup.md#rights-and-scopes). Each change
+needs the confirmation of a person for each call. Find property names with
 [accounts.list-summaries](accounts.md) and data set names with `expanded-data-sets.list`. The tools read no report
 data and use no reporting quota.
 
@@ -99,7 +99,8 @@ them, create a new data set and delete the old one. The answer is the data set a
 ### google.analytics.expanded-data-sets.delete
 
 Uses `properties.expandedDataSets.delete`. `name` is required. Google's answer is empty; the result is the name
-that was asked for and `deleted: true`. No tool restores the data set.
+that was asked for and `deleted: true`. No tool restores the data set. The tool is listed-only: a connection
+offers it only when its `tools` list names it.
 
 ### Targets and proof
 

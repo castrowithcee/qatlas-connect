@@ -51,9 +51,10 @@ must be enabled in the project. The rights of the changes are in [Set up Google 
 | `images.insert` | `images.insert` | `create` | project, image, source, family, storage location, `force_create`; the image is billed until it is deleted |
 | `images.delete` | `images.delete` | `delete` | project, image; the image is lost for good and can no longer be used as a source |
 
-Both tools belong to the profile `compute-images-delete`, which is not recommended, asks for the scope `compute`,
-needs the effects `create` and `delete`, and holds `projects.get` and `snapshots.delete` as well. Every call needs the
-confirmation of a person.
+`images.insert` belongs to the profile `compute-images-create`, which is not recommended, asks for the scope
+`compute`, needs the effect `create`, and holds `projects.get` as well. `images.delete` is listed-only: it belongs to
+no profile, and a connection offers it only when its `tools` list names it. Every call needs the confirmation of a
+person.
 
 - **Source.** A new image has exactly one source, a disk with its zone, a snapshot, or an image, named by name.
   The tool builds the URL in the project of the call, which the target check covers, so a resource of another

@@ -144,9 +144,9 @@ The account needs `storage.objects.list` or `storage.objects.get` and `storage.b
 bucket's project, and the Cloud Storage JSON API must be enabled in the project.
 
 `objects.delete` asks for `devstorage.read_write`. Google lists only `devstorage.full_control` and `cloud-platform`
-for `objects.restore`, so that tool asks for `devstorage.full_control`. Both belong to the profile `storage-delete`,
-not to `read`, with `projects.get`; their risk is `delete` and `update`, not idempotent, confirmation required, open
-world. The account needs `storage.objects.delete` or `storage.objects.restore` (and `storage.objects.get` for a
+for `objects.restore`, so that tool asks for `devstorage.full_control`. `objects.restore` belongs to the profile
+`storage-restore`, not to `read`, with `projects.get`; `objects.delete` is listed-only and belongs to no profile. Their
+risk is `delete` and `update`, not idempotent, confirmation required, open world. The account needs `storage.objects.delete` or `storage.objects.restore` (and `storage.objects.get` for a
 soft-deleted object) and `storage.buckets.get` for the proof read of the bucket.
 
 `objects.restore-overwrite` asks for `devstorage.full_control` like `objects.restore`, belongs to no profile, and has

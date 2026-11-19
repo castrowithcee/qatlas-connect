@@ -76,12 +76,32 @@ func TestPeopleToolsAreOnlyInTheirOwnNotRecommendedProfile(t *testing.T) {
 			for _, tool := range profile.Tools {
 				has = has || tool == id
 			}
-			if has != (profile.ID == "people") {
+			if want := profile.ID == "people" && id != usersRemove.ID; has != want {
 				t.Errorf("profile %s: %s present = %t", profile.ID, id, has)
 			}
 		}
 		if profile.ID == "people" && profile.Recommended || profile.ID == "people" && recommended.ID == "people" {
 			t.Error("the people profile must not be recommended")
+		}
+	}
+}
+
+func TestDeletingToolsAreListedOnlyAndOnlySceneDeleteIsInAProfile(t *testing.T) {
+	reg := registry(t)
+	metadata, _ := reg.ProviderMetadata(Provider)
+	for _, id := range []string{contentReplace.ID, collectionsDelete.ID, usersRemove.ID, scenesDelete.ID} {
+		d, _, ok := reg.Lookup(id)
+		if !ok || d.Risk.Effect != capability.EffectDelete || !d.RequiresToolAllowList {
+			t.Errorf("%s is not a listed-only delete tool: %+v", id, d)
+		}
+		for _, profile := range metadata.Profiles {
+			has := false
+			for _, tool := range profile.Tools {
+				has = has || tool == id
+			}
+			if want := id == scenesDelete.ID && profile.ID == "manage"; has != want {
+				t.Errorf("profile %s: %s present = %t", profile.ID, id, has)
+			}
 		}
 	}
 }

@@ -13,9 +13,10 @@ updated: 2026-10-28
 
 This provider reads the collections, scenes, and scene content of one Excalidraw+ workspace through its public
 REST API (`https://api.excalidraw.com/api/v1`). The recommended `read` profile changes nothing. The optional `manage`
-profile can create a scene, rename or move one, patch its elements, replace its whole content, and move a scene or a
-collection to the trash. The optional `people` profile reads and manages workspace users, and the optional `activity`
-profile reads the workspace activity log. There is no tool for team management, workspace settings, or restoring from
+profile can create a scene, rename or move one, patch its elements, and move a scene to the trash. Replacing a scene's
+whole content, moving a collection to the trash, and removing a user are offered only through a connection's `tools`
+list and are in no profile. The optional `people` profile reads workspace users and changes a user's name or role, and
+the optional `activity` profile reads the workspace activity log. There is no tool for team management, workspace settings, or restoring from
 the trash.
 
 **Beta.** The Excalidraw+ API is a public beta whose names and schemas may change. Every tool descriptor carries a

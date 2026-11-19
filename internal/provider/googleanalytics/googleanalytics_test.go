@@ -230,16 +230,16 @@ func TestRegisterPublishesMetadataScopesAndConsent(t *testing.T) {
 		metadata.Profiles[1].Recommended ||
 		!reflect.DeepEqual(metadata.Profiles[1].Tools,
 			append(slices.Clone(reads), accountsUpdateID, propertiesCreateID, propertiesUpdateID,
-				dataStreamsCreateID, dataStreamsUpdateID, dataStreamsDeleteID, mpSecretsDeleteID, audienceCreateID,
+				dataStreamsCreateID, dataStreamsUpdateID, audienceCreateID,
 				reportTasksCreateID, enhancedUpdateID, redactionUpdateID, customDimensionsCreateID,
-				customDimensionsUpdateID, customDimensionsArchiveID,
-				customMetricsCreateID, customMetricsUpdateID, customMetricsArchiveID,
+				customDimensionsUpdateID,
+				customMetricsCreateID, customMetricsUpdateID,
 				keyEventsCreateID, keyEventsUpdateID, keyEventsDeleteID, eventRulesCreateID, eventRulesUpdateID, eventRulesDeleteID,
 				calculatedCreateID, calculatedUpdateID, calculatedDeleteID, googleSignalsUpdateID,
 				annotationsCreateID, annotationsUpdateID, annotationsDeleteID,
-				audiencesCreateID, audiencesUpdateID, audiencesArchiveID,
+				audiencesCreateID, audiencesUpdateID,
 				channelGroupsCreateID, channelGroupsUpdateID, channelGroupsDeleteID,
-				edsCreateID, edsUpdateID, edsDeleteID, attributionUpdateID, changeHistoryID,
+				edsCreateID, edsUpdateID, attributionUpdateID, changeHistoryID,
 				adsLinksDeleteID, firebaseLinksDeleteID, bigQueryLinksDeleteID, adsenseLinksDeleteID,
 				searchAdsLinksDeleteID, dv360LinksDeleteID, dv360ProposalsCancelID, dv360ProposalsDeleteID, rollupLinksDeleteID)) ||
 		metadata.Profiles[2].ID != "read-change-history" || metadata.Profiles[2].Recommended ||

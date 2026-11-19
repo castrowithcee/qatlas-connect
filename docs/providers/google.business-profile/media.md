@@ -17,8 +17,8 @@ resource and the methods `list`, `get`, `create`, `patch`, and `delete`), read o
 made. Google documents the methods only for a **verified** location.
 
 Media is public: every visitor of the business profile sees it, so an image that is pushed in is a damage to the
-reputation of the business. The three changing tools therefore belong to the profile `write` and each needs the
-confirmation of a person.
+reputation of the business. The creating and changing tools therefore belong to the profile `write`, the deleting tool is listed-only, and
+each needs the confirmation of a person.
 
 ## Reading
 
@@ -89,8 +89,8 @@ not read the item first.
 ## Deleting
 
 `media.delete` (`DELETE .../media/MEDIA`) removes an item from the public profile. It needs confirmation, shows
-the item, and keeps no copy. It belongs to the profile `write`; a connection that must not allow it names its
-tools in a `tools` list instead of the profile.
+the item, and keeps no copy. It is listed-only: it belongs to no profile, and a connection offers it only when its `tools`
+list names it.
 
 **Spacing.** Create, update, and delete count against the 10 changes per minute and profile; Qatlas spaces them
 by 6 seconds per location, like the other changes.

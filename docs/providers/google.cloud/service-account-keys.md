@@ -1,6 +1,6 @@
 ---
 description: >
-  Describes the Google Cloud service account key tools: the reads service-account-keys.list and service-account-keys.get (metadata only, the key types filter, the checks of project and key names, the disable reason) and the revocations disable, enable, and delete (profile service-accounts-revoke), the scope, and why public and private key material is never returned.
+  Describes the Google Cloud service account key tools: the reads service-account-keys.list and service-account-keys.get (metadata only, the key types filter, the checks of project and key names, the disable reason) and the revocations disable and enable (profile service-accounts-revoke) and the listed-only delete, the scope, and why public and private key material is never returned.
 type: knowledge
 edit: shared
 created: 2026-11-17
@@ -47,7 +47,7 @@ returned. The account segment is not compared with `account`, because Google may
 ## Scope and profile
 
 Discovery `iam` v1 lists only `cloud-platform` for both read methods, so the read tools belong to the profile
-`read-iam`. The revoking tools belong to `service-accounts-revoke`. The rights are listed in [setup](setup.md).
+`read-iam`. The tools `disable` and `enable` belong to `service-accounts-revoke`, and `delete` is listed-only. The rights are listed in [setup](setup.md).
 
 ## Left out on purpose
 
@@ -62,8 +62,9 @@ Creating and uploading a key, and the data fields `publicKeyData`,
 | `service-account-keys.enable` | update | `projects.serviceAccounts.keys.enable` | `project_id`, `account`, `key_id` |
 | `service-account-keys.delete` | delete | `projects.serviceAccounts.keys.delete` | `project_id`, `account`, `key_id` |
 
-They belong to the profile `service-accounts-revoke`, which holds only these three tools, is not recommended,
-and is not part of `read-iam`. The connection needs the effects `update` and `delete`. They ask for
+`disable` and `enable` belong to the profile `service-accounts-revoke`, which holds only these two tools, is not
+recommended, and is not part of `read-iam`; the connection needs the effect `update`. `delete` is listed-only: it
+belongs to no profile, and a connection offers it only when its `tools` list names it. They ask for
 `cloud-platform`, the only scope discovery `iam` v1 lists for these methods. The account needs the permissions
 `iam.serviceAccountKeys.disable`, `enable`, or `delete` on the project, which Google decides. Discovery lists no
 member in the disable and enable requests, so the tools take no reason and send an empty body.

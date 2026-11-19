@@ -51,8 +51,8 @@ API must be enabled in the project.
 `snapshots.delete` (`snapshots.delete` of Compute Engine, effect `delete`) takes `project_id`, the name or numeric ID
 of a snapshot of that project, and `request_id`, and sends one DELETE without reading the snapshot first. The
 confirmation names the project and the snapshot and that the backup it holds is lost for good. Google moves data that
-a later snapshot of the same disk still needs into that snapshot. The tool belongs to the profile
-`compute-images-delete` and asks for the scope `compute`; the rights are in [Set up Google Cloud](setup.md). The
+a later snapshot of the same disk still needs into that snapshot. The tool is listed-only: it belongs to no profile, and a connection offers it only when
+its `tools` list names it. It asks for the scope `compute`; the rights are in [Set up Google Cloud](setup.md). The
 request ID, the returned global operation, and an unknown outcome work as for [images](images.md#changes).
 
 The deletion was checked against a simulated Compute Engine only.

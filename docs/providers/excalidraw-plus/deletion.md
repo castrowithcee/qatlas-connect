@@ -13,7 +13,7 @@ Configuration, scope, targets, error classes, and cross-group limits are in [REA
 
 ## Deleting scenes and collections
 
-The `manage` profile also lists two deleting tools. Both have the effect `delete`, need `confirm`, are offered only to
+Two deleting tools exist. `scenes.delete` is in the `manage` profile, `collections.delete` is in no profile. Both have the effect `delete`, need `confirm`, are offered only to
 a connection whose `tools` list names them (and with the `delete` effect), send exactly one request, and are never
 repeated.
 

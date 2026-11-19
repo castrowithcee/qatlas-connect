@@ -61,6 +61,6 @@ provider error. The operation names the person who started it (`user`), which is
 the deletion never returns a shared secret or the text of a Google error: `sharedSecret` and `sharedSecretHash`
 are dropped from the answer, and a failure keeps status, type, and code but not the message.
 
-The tool asks for the scope `compute`, the smallest one Google lists for the method, and belongs to the profile
-`compute-network-delete`. The account needs `compute.vpnGateways.delete` (the Compute Network Admin role has it), and the Compute
+The tool asks for the scope `compute`, the smallest one Google lists for the method, and is listed-only: it
+belongs to no profile, and a connection offers it only when its `tools` list names it. The account needs `compute.vpnGateways.delete` (the Compute Network Admin role has it), and the Compute
 Engine API must be enabled in the project.

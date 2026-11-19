@@ -35,8 +35,8 @@ tokens for it). The connection holds no scope. Qatlas derives them from the tool
 smallest scope the discovery document of each method lists: `cloud-platform.read-only` for Resource Manager,
 and `cloud-platform` for the IAM and quota tools, because their discovery documents list no narrower scope
 (Google offers no read-only variant for these methods, see [IAM](iam.md) and [Quotas](quotas.md)). Only the tools of the profiles
-`service-accounts`, `service-accounts-revoke`, `api-keys-revoke`, `iam-bindings`, `storage-delete`, `storage-objects-write`, `storage-revoke`, `compute-network-delete`, `compute-lifecycle`, `compute-instances-create`, `compute-disks`, `compute-images-delete`, `dns-write`, `services`, `projects-manage`, and `folders-manage` and the tools
-`service-accounts.delete`, `services.disable`, `instances.delete`, `disks.delete`, `buckets.delete`, `objects.restore-overwrite`, `projects.delete`, and `folders.delete`, which a `tools` list must name, change anything, each with a confirmation, whatever the scope allows. The access token travels in the
+`service-accounts`, `service-accounts-revoke`, `api-keys-revoke`, `iam-bindings`, `storage-restore`, `storage-objects-write`, `storage-revoke`, `compute-firewalls-delete`, `compute-lifecycle`, `compute-instances-create`, `compute-disks`, `compute-images-create`, `dns-write`, `services`, `projects-manage`, and `folders-manage` and the tools
+`service-accounts.delete`, `service-account-keys.delete`, `services.disable`, `instances.delete`, `disks.delete`, `snapshots.delete`, `images.delete`, `addresses.delete`, `vpn-tunnels.delete`, `vpn-gateways.delete`, `buckets.delete`, `objects.delete`, `objects.restore-overwrite`, `hmac-keys.delete`, `projects.delete`, and `folders.delete`, which a `tools` list must name, change anything, each with a confirmation, whatever the scope allows. The access token travels in the
 `Authorization` header only, is never an argument or part of a result, and is masked in every output. A 401
 renews the token once, and nothing else repeats a request.
 
@@ -150,31 +150,33 @@ The profile `service-accounts` holds only the changing tools `google.cloud.servi
 `google.cloud.service-accounts.enable`. It asks for `cloud-platform`, needs the effects `create` and `update`,
 and is not recommended.
 
-The profile `service-accounts-revoke` holds only `google.cloud.service-account-keys.disable`,
-`google.cloud.service-account-keys.enable`, and `google.cloud.service-account-keys.delete`. It asks for
-`cloud-platform`, needs the effects `update` and `delete`, and is not recommended. It does not hold
-`google.cloud.service-accounts.delete`: that tool is listed-only and only a `tools` list that names it exactly
+The profile `service-accounts-revoke` holds only `google.cloud.service-account-keys.disable`
+and `google.cloud.service-account-keys.enable`. It asks for `cloud-platform`, needs the effect `update`, and is
+not recommended. It does not hold `google.cloud.service-account-keys.delete` and
+`google.cloud.service-accounts.delete`: those tools are listed-only and only a `tools` list that names one exactly
 releases it.
 
 The profile `api-keys-revoke` holds only `google.cloud.api-keys.delete` and `google.cloud.api-keys.undelete`. It
 asks for the scope `apikeys`, needs the effects `update` and `delete`, and is not recommended. Google uses the
 same scope to create keys and read their values, so the token may do that although no tool does.
 
-The profile `storage-delete` holds `google.cloud.objects.delete`, `google.cloud.objects.restore`, and
-`google.cloud.projects.get`, which proves a project against targets of an organization or a folder. `objects.delete`
-asks for `devstorage.read_write`. Google lists only `devstorage.full_control` and `cloud-platform` for
-`objects.restore`, so the profile asks for `devstorage.full_control`, and the token may change what its account may
-in Cloud Storage. The profile needs the effects `delete` and `update` for the two tools and `read` for
+The profile `storage-restore` holds `google.cloud.objects.restore` and `google.cloud.projects.get`, which proves a
+project against targets of an organization or a folder. Google lists only `devstorage.full_control` and
+`cloud-platform` for `objects.restore`, so the profile asks for `devstorage.full_control`, and the token may change
+what its account may in Cloud Storage. The profile needs the effect `update` for the tool and `read` for
 `projects.get`, is not recommended, and every call needs the confirmation of a person. It does not hold
-`google.cloud.buckets.delete` and `google.cloud.objects.restore-overwrite`: those tools are listed-only and only a
-`tools` list that names one exactly releases it. See [Objects](objects.md#deleting-and-restoring) and [Buckets](buckets.md#deleting).
+`google.cloud.objects.delete`, `google.cloud.buckets.delete`, and `google.cloud.objects.restore-overwrite`: those
+tools are listed-only and only a `tools` list that names one exactly releases it (`objects.delete` asks for
+`devstorage.read_write`). See [Objects](objects.md#deleting-and-restoring) and [Buckets](buckets.md#deleting).
 
-The profile `compute-network-delete` holds `google.cloud.firewalls.delete`, `google.cloud.addresses.delete`,
-`google.cloud.vpn-tunnels.delete`, `google.cloud.vpn-gateways.delete`, and `google.cloud.projects.get`, which proves
-a project against targets of an organization or a folder. The four deletions ask for the scope `compute`, which
+The profile `compute-firewalls-delete` holds `google.cloud.firewalls.delete` and `google.cloud.projects.get`, which
+proves a project against targets of an organization or a folder. The deletion asks for the scope `compute`, which
 Google also uses to change Compute resources, so the token may do that although no tool does. The profile needs the
-effect `delete` for the deletions and `read` for `projects.get`, is not recommended, and holds no listed-only tool;
-every call needs the confirmation of a person. See [Firewall rules](firewalls.md), [IP addresses](addresses.md),
+effect `delete` for the deletion and `read` for `projects.get`, is not recommended, and every call needs the
+confirmation of a person. It does not hold `google.cloud.addresses.delete`, `google.cloud.vpn-tunnels.delete`, and
+`google.cloud.vpn-gateways.delete`: those tools are listed-only and only a `tools` list that names one exactly
+releases it, because a released IP address is not got back and the shared secret of a tunnel cannot be read from
+Google. See [Firewall rules](firewalls.md), [IP addresses](addresses.md),
 [HA VPN gateways](vpn-gateways.md), and [VPN tunnels](vpn-tunnels.md).
 
 The profile `compute-lifecycle` holds `google.cloud.instances.start`, `google.cloud.instances.stop`,
@@ -198,12 +200,12 @@ which Google also uses to change Compute resources, so the token may do that alt
 the effects `create` and `update` for the disk tools and `read` for `projects.get`, is not recommended, and every
 call needs the confirmation of a person. See [Disks](disks.md#changes).
 
-The profile `compute-images-delete` holds `google.cloud.images.insert`, `google.cloud.snapshots.delete`,
-`google.cloud.images.delete`, and `google.cloud.projects.get`. The three tools ask for the scope `compute`, which
-Google also uses to change Compute resources, so the token may do that although no tool does. The profile needs the
-effects `create` and `delete` for the image and snapshot tools and `read` for `projects.get`, is not recommended, and
-every call needs the confirmation of a person. It does not hold `google.cloud.disks.delete`: that tool is
-listed-only and only a `tools` list that names it exactly releases it. See [Images](images.md#changes),
+The profile `compute-images-create` holds `google.cloud.images.insert` and `google.cloud.projects.get`.
+`images.insert` asks for the scope `compute`, which Google also uses to change Compute resources, so the token may do
+that although no tool does. The profile needs the effect `create` for the tool and `read` for `projects.get`, is not
+recommended, and every call needs the confirmation of a person. It does not hold `google.cloud.snapshots.delete`,
+`google.cloud.images.delete`, and `google.cloud.disks.delete`: those tools are listed-only and only a `tools` list
+that names one exactly releases it. See [Images](images.md#changes),
 [Disk snapshots](snapshots.md#deleting-a-snapshot), and [Disks](disks.md#deleting-a-disk).
 
 The profile `storage-objects-write` holds `google.cloud.objects.insert`, `google.cloud.objects.copy`,
@@ -214,16 +216,16 @@ The profile needs the effects `create` and `update` for the object tools and `re
 recommended, and every call needs the confirmation of a person. No tool overwrites an object unless the call says
 so, makes an object public, or deletes an object. See [Objects](objects.md#writing-objects).
 
-The profile `storage-revoke` holds `google.cloud.hmac-keys.deactivate`, `google.cloud.hmac-keys.delete`,
+The profile `storage-revoke` holds `google.cloud.hmac-keys.deactivate`,
 `google.cloud.notifications.delete`, the reads that name what is revoked (`google.cloud.hmac-keys.list`,
 `google.cloud.hmac-keys.get`, `google.cloud.notifications.list`), and `google.cloud.projects.get`, which proves a
 project against targets of an organization or a folder. The HMAC tools ask for `devstorage.full_control` and the
-notification deletion for `devstorage.read_write`. `full_control` is broader than deleting a key alone needs
-(`hmacKeys.delete` also lists `read_write`), because the tool reads the key first and `hmacKeys.get` accepts only
-`full_control` and `read_only`. Google also uses `full_control` to create keys and to change what the account may in
+notification deletion for `devstorage.read_write`. `full_control` is broader than deactivating a key alone needs,
+because the tool reads the key first and `hmacKeys.get` accepts only `full_control` and `read_only`. Google also uses `full_control` to create keys and to change what the account may in
 Cloud Storage, so the token may do that although no tool does. The profile needs the effects `update` and `delete`
-and `read`, is not recommended, and every call needs the confirmation of a person. No tool creates or reactivates a
-key or creates a notification. See [HMAC keys](hmac-keys.md#revoking-a-key) and
+and `read`, is not recommended, and every call needs the confirmation of a person. It does not hold
+`google.cloud.hmac-keys.delete`: that tool is listed-only and only a `tools` list that names it exactly releases it.
+No tool creates or reactivates a key or creates a notification. See [HMAC keys](hmac-keys.md#revoking-a-key) and
 [Notifications](notifications.md#deleting-a-configuration).
 
 The profile `dns-write` holds `google.cloud.changes.create`, `google.cloud.record-sets.create`,
@@ -280,18 +282,18 @@ on [IAM bindings](iam-bindings.md).
 - [Firewall rules](firewalls.md): the VPC firewall rules of a project from Compute Engine, one and all, and the
   confirmed deletion of a rule.
 - [IP addresses](addresses.md): the reserved internal and external IP addresses of a region, one and all, and the
-  confirmed deletion of an address.
+  confirmed, listed-only deletion of an address.
 - [HA VPN gateways](vpn-gateways.md): the HA VPN gateways of a region from Compute Engine, one and all, and the
-  confirmed deletion of a gateway.
+  confirmed, listed-only deletion of a gateway.
 - [VPN tunnels](vpn-tunnels.md): the VPN tunnels of a region from Compute Engine, never with their shared secret, and the
-  confirmed deletion of a tunnel.
+  confirmed, listed-only deletion of a tunnel.
 - [Disks](disks.md): the persistent disks of a project from Compute Engine, one, per zone, and across all zones,
   never with encryption key material, the confirmed creation, growth, and snapshot of a disk, and its deletion
   (listed-only).
 - [Disk snapshots](snapshots.md): the global disk snapshots of a project from Compute Engine, never with customer-supplied
-  key material, and the confirmed deletion of a snapshot.
+  key material, and the confirmed, listed-only deletion of a snapshot.
 - [Images](images.md): the images of a project from Compute Engine, never with customer-supplied key material, and the
-  confirmed creation and deletion of an image.
+  confirmed creation and the confirmed, listed-only deletion of an image.
 - [Buckets](buckets.md): the Cloud Storage buckets of a project, one and all, and the IAM policy of a bucket, bound to
   the targets by the project number of the bucket, and the confirmed, listed-only deletion of an empty bucket.
 - [Bucket access controls](bucket-access-controls.md): the access control list of a Cloud Storage bucket.
@@ -374,8 +376,8 @@ services, or `api-keys` for the operation of `api-keys.delete` or `api-keys.unde
 `service-accounts.create`, `service-accounts.patch`, `service-accounts.disable`, and `service-accounts.enable`, and
 the listed-only `service-accounts.delete`;
 [service account keys](service-account-keys.md) covers `service-account-keys.list` and `service-account-keys.get`,
-which return metadata only and never key material, and the revocations `service-account-keys.disable`,
-`service-account-keys.enable`, and `service-account-keys.delete`.
+which return metadata only and never key material, and the revocations `service-account-keys.disable` and
+`service-account-keys.enable` and the listed-only `service-account-keys.delete`.
 
 ### IAM
 
