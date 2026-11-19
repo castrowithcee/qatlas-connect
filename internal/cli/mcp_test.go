@@ -656,7 +656,7 @@ func TestMCPSearchHitsAreCompact(t *testing.T) {
 			`"effect":"read"}],"has_more":false}`,
 		`"all"`: `{"connections":["wiki"],"operations":[{"id":"bookstack.pages.get","title":"Read one page",` +
 			`"effect":"read"},{"id":"bookstack.pages.list","title":"List pages","effect":"read",` +
-			`"reason":"not-in-tools-list"}],"has_more":false}`,
+			`"reason":"not-in-tools-list","requestable_on":"wiki"}],"has_more":false}`,
 	} {
 		result := toolResultFrom(t, responses[id])
 		if result.IsError || string(result.Structured) != want || result.Content[0].Text != want {
@@ -1364,9 +1364,10 @@ func TestMisspelledNamesSuggestTheClosestOneOverCLIAndMCP(t *testing.T) {
 }
 
 // The MCP guide is what server/discover and initialize hand a client as instructions instead of the much
-// longer 'qconnect agents'; it must fit inside the roughly 2,048 characters such a client keeps, name the
-// three fixed tools and the fields a caller branches or confirms on, and only document argument names the
-// fixed tools' schemas actually have.
+// longer 'qconnect agents'; it must fit inside the roughly 2,048 characters such a client keeps and holds
+// only what applies to all three tools. The single arguments are explained by the descriptions of the tools
+// and of their properties, so each argument the guide names must be a real property, and every property
+// and tool must carry such a description.
 func TestMCPGuideFitsAndMatchesTheSchemas(t *testing.T) {
 	guide := helptopics.MCP().Text
 	if length := utf8.RuneCountInString(guide); length > 2000 {
@@ -1377,7 +1378,8 @@ func TestMCPGuideFitsAndMatchesTheSchemas(t *testing.T) {
 			t.Errorf("MCP guide does not name %s", tool)
 		}
 	}
-	for _, want := range []string{"connection", "confirm", "isError", "structuredContent"} {
+	for _, want := range []string{"connection", "confirm", "isError", "structuredContent", "qconnect.request",
+		"request-blocked", "qconnect agents"} {
 		if !strings.Contains(guide, want) {
 			t.Errorf("MCP guide does not mention %q", want)
 		}
@@ -1388,33 +1390,73 @@ func TestMCPGuideFitsAndMatchesTheSchemas(t *testing.T) {
 	properties := map[string]bool{}
 	var required []string
 	for _, tool := range mcpTools() {
+		if strings.TrimSpace(tool.Description) == "" {
+			t.Errorf("tool %s has no description", tool.Name)
+		}
 		var schema struct {
-			Properties map[string]json.RawMessage `json:"properties"`
-			Required   []string                   `json:"required"`
+			Properties map[string]struct {
+				Description string `json:"description"`
+			} `json:"properties"`
+			Required []string `json:"required"`
 		}
 		if err := json.Unmarshal(tool.InputSchema, &schema); err != nil {
 			t.Fatalf("%s schema: %v", tool.Name, err)
 		}
-		for name := range schema.Properties {
+		for name, property := range schema.Properties {
 			properties[name] = true
+			if strings.TrimSpace(property.Description) == "" {
+				t.Errorf("%s.%s has no description", tool.Name, name)
+			}
 		}
 		required = append(required, schema.Required...)
 	}
-	// The arguments this guide documents by name; every one must be a real property of a fixed tool, and
-	// every required argument of the three tools must be named here.
-	documented := []string{"query", "provider", "connection", "effect", "all", "limit", "cursor", "list",
-		"operation", "full", "arguments", "confirm"}
+	// The arguments this guide names; every one must be a real property of a fixed tool, and every required
+	// argument of the three tools must be named here.
+	documented := []string{"connection", "operation", "arguments", "confirm", "all"}
 	for _, name := range documented {
 		if !properties[name] {
-			t.Errorf("MCP guide documents %q, which is not a property of any fixed tool's input schema", name)
+			t.Errorf("MCP guide names %q, which is not a property of any fixed tool's input schema", name)
 		}
 		if !strings.Contains(guide, name) {
-			t.Errorf("MCP guide claims to document %q but does not name it", name)
+			t.Errorf("MCP guide claims to name %q but does not", name)
 		}
 	}
 	for _, name := range required {
 		if !contains(documented, name) {
 			t.Errorf("MCP guide does not name the required argument %q", name)
+		}
+	}
+}
+
+// What the instructions no longer repeat stands in the descriptions of the tools and their arguments: the
+// filters, the paging, the overview, and the fields of a hit, requestable_on included.
+func TestMCPToolDescriptionsHoldTheArgumentDetails(t *testing.T) {
+	text := map[string]string{}
+	for _, tool := range mcpTools() {
+		var schema struct {
+			Properties map[string]struct {
+				Description string `json:"description"`
+			} `json:"properties"`
+		}
+		if err := json.Unmarshal(tool.InputSchema, &schema); err != nil {
+			t.Fatal(err)
+		}
+		all := tool.Description
+		for _, property := range schema.Properties {
+			all += "\n" + property.Description
+		}
+		text[tool.Name] = all
+	}
+	for name, want := range map[string][]string{
+		"search": {"query", "provider", "connection", "effect", "all", "limit", "cursor", "group", "list",
+			"next_cursor", "requestable_on", "requires", "target", "confirm", "connections"},
+		"describe": {"full", "operation"},
+		"invoke":   {"arguments", "fields", "full", "operation", "invalid-request"},
+	} {
+		for _, word := range want {
+			if !strings.Contains(text[name], word) {
+				t.Errorf("the description of %s does not mention %q", name, word)
+			}
 		}
 	}
 }
