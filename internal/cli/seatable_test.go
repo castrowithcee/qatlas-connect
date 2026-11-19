@@ -3,6 +3,7 @@ package cli
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -108,13 +109,15 @@ func runSeatableCLI(t *testing.T, reads *atomic.Int32, input string, args ...str
 func TestSeaTableToolsAreDiscoverable(t *testing.T) {
 	path := seatableConfig(t)
 	var reads atomic.Int32
+	registryIDs := registryToolIDs(t, "seatable.base", nil)
+	requireIDs(t, registryIDs, "seatable.base.rows.list", "seatable.base.views.update")
 
 	code, stdout, stderr := runSeatableCLI(t, &reads, "", "tools", "seatable.base", "--all", "--config", path)
 	if code != exitOK || stderr != "" {
 		t.Fatalf("exit=%d stderr=%q", code, stderr)
 	}
 	for _, want := range []string{
-		"tools[40]{id,title,effect,requires,target,confirm,connections,reason}:", "seatable.base.base.operations,List SeaTable base operations,read,", "seatable.base.collaborators.list,List SeaTable collaborators,read,", "seatable.base.columns.create,Create a SeaTable column,create,", "seatable.base.columns.delete,Delete a SeaTable column,delete,", "seatable.base.columns.list,List SeaTable columns,read,", "seatable.base.columns.options-add,Add SeaTable column options,create,", "seatable.base.columns.options-delete,Delete SeaTable column options,delete,", "seatable.base.columns.options-update,Update SeaTable column options,update,", "seatable.base.columns.update,Update a SeaTable column,update,", "seatable.base.comments.create,Create a SeaTable row comment,create,", "seatable.base.comments.delete,Delete a SeaTable row comment,delete,", "seatable.base.comments.list,List SeaTable row comments,read,", "seatable.base.files.delete,Delete a SeaTable cell file,delete,", "seatable.base.files.get,Download a file of a SeaTable cell,read,", "seatable.base.files.upload,Upload a file to a SeaTable cell,create,", "seatable.base.links.create,Create SeaTable links,create,", "seatable.base.links.delete,Delete SeaTable links,delete,", "seatable.base.links.list,List SeaTable links,read,", "seatable.base.links.update,Update SeaTable links,update,", "seatable.base.rows.activities,List SeaTable row activities,read,", "seatable.base.rows.batch-create,Create up to 100 SeaTable rows,create,", "seatable.base.rows.batch-delete,Delete up to 100 SeaTable rows,delete,", "seatable.base.rows.batch-update,Update up to 100 SeaTable rows,update,", "seatable.base.rows.create,Create a SeaTable row,create,",
+		fmt.Sprintf("tools[%d]{id,title,effect,requires,target,confirm,connections,reason}:", len(registryIDs)), "seatable.base.base.operations,List SeaTable base operations,read,", "seatable.base.collaborators.list,List SeaTable collaborators,read,", "seatable.base.columns.create,Create a SeaTable column,create,", "seatable.base.columns.delete,Delete a SeaTable column,delete,", "seatable.base.columns.list,List SeaTable columns,read,", "seatable.base.columns.options-add,Add SeaTable column options,create,", "seatable.base.columns.options-delete,Delete SeaTable column options,delete,", "seatable.base.columns.options-update,Update SeaTable column options,update,", "seatable.base.columns.update,Update a SeaTable column,update,", "seatable.base.comments.create,Create a SeaTable row comment,create,", "seatable.base.comments.delete,Delete a SeaTable row comment,delete,", "seatable.base.comments.list,List SeaTable row comments,read,", "seatable.base.files.delete,Delete a SeaTable cell file,delete,", "seatable.base.files.get,Download a file of a SeaTable cell,read,", "seatable.base.files.upload,Upload a file to a SeaTable cell,create,", "seatable.base.links.create,Create SeaTable links,create,", "seatable.base.links.delete,Delete SeaTable links,delete,", "seatable.base.links.list,List SeaTable links,read,", "seatable.base.links.update,Update SeaTable links,update,", "seatable.base.rows.activities,List SeaTable row activities,read,", "seatable.base.rows.batch-create,Create up to 100 SeaTable rows,create,", "seatable.base.rows.batch-delete,Delete up to 100 SeaTable rows,delete,", "seatable.base.rows.batch-update,Update up to 100 SeaTable rows,update,", "seatable.base.rows.create,Create a SeaTable row,create,",
 		"seatable.base.rows.delete,Delete a SeaTable row,delete,", "seatable.base.rows.get,Get a SeaTable row,read,", "seatable.base.rows.list,List SeaTable rows,read,", "seatable.base.rows.search,Search SeaTable rows,read,",
 		"seatable.base.rows.update,Update a SeaTable row,update,", "seatable.base.snapshots.create,Create a SeaTable snapshot,create,", "seatable.base.tables.create,Create a SeaTable table,create,", "seatable.base.tables.delete,Delete a SeaTable table,delete,", "seatable.base.tables.duplicate,Duplicate a SeaTable table,create,", "seatable.base.tables.list,List SeaTable tables,read,", "seatable.base.tables.rename,Rename a SeaTable table,update,", "seatable.base.views.create,Create a SeaTable view,create,", "seatable.base.views.delete,Delete a SeaTable view,delete,", "seatable.base.views.get,Get a SeaTable view,read,", "seatable.base.views.list,List SeaTable views,read,", "seatable.base.views.update,Update a SeaTable view,update,",
 	} {
@@ -122,9 +125,7 @@ func TestSeaTableToolsAreDiscoverable(t *testing.T) {
 			t.Errorf("tools output does not contain %q:\n%s", want, stdout)
 		}
 	}
-	if got := toolIDs(t, string(runSeatableJSON(t, "", "tools", "seatable.base", "--all", "--config", path))); len(got) != 40 {
-		t.Errorf("seatable tools = %v, want schema discovery, all five row tools, three batch row tools, the snapshot tool, four link tools, five view tools, and the three file tools", got)
-	}
+	requireSameIDs(t, "seatable tools", toolIDs(t, string(runSeatableJSON(t, "", "tools", "seatable.base", "--all", "--config", path))), registryIDs)
 	if reads.Load() != 0 {
 		t.Errorf("secret lookups = %d, want 0", reads.Load())
 	}
@@ -272,12 +273,10 @@ func TestSeaTableMCPAndCLIShareTheCoreContracts(t *testing.T) {
 	search := toolResultFrom(t, responses[`"search"`])
 	var searched struct {
 		Operations []application.SearchHit `json:"operations"`
+		HasMore    bool                    `json:"has_more"`
 	}
 	decodeRaw(t, search.Structured, &searched)
-	if len(searched.Operations) != 40 || searched.Operations[0].ID != "seatable.base.base.operations" ||
-		searched.Operations[39].ID != "seatable.base.views.update" {
-		t.Fatalf("search operations = %+v", searched.Operations)
-	}
+	requireFirstSearchPage(t, searched.Operations, searched.HasMore, registryToolIDs(t, "seatable.base", nil))
 
 	describe := toolResultFrom(t, responses[`"describe"`])
 	describedByCLI := runSeatableJSON(t, "", "describe", "seatable.base.rows.list", "--config", path, "--output", "json")

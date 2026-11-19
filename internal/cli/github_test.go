@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -367,9 +368,14 @@ func TestGitHubMCPAndCLIShareTheCoreContracts(t *testing.T) {
 		HasMore    bool                    `json:"has_more"`
 	}
 	decodeRaw(t, toolResultFrom(t, responses[`"search"`]).Structured, &searched)
-	// The connection offers 54 read tools, one more page than the search default of 50, which this call
-	// leaves unbounded; only the first page and its continuation are asserted here.
-	if len(searched.Operations) != 50 || !searched.HasMore || searched.Operations[0].ID != "github.accounts.me" {
+	// The connection offers more read tools than one search page of 50, which this call leaves unbounded;
+	// only the first page, its order and its continuation are asserted here.
+	hitIDs := make([]string, len(searched.Operations))
+	for i, hit := range searched.Operations {
+		hitIDs[i] = hit.ID
+	}
+	if len(hitIDs) != searchPageSize || !searched.HasMore || !slices.IsSorted(hitIDs) ||
+		!slices.Contains(hitIDs, "github.accounts.me") {
 		t.Fatalf("search operations = %+v, has_more = %t", searched.Operations, searched.HasMore)
 	}
 	describedByCLI := runTwentyJSON(t, "", "describe", "github.project-items.list", "--config", path, "--output", "json")
