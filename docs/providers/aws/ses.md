@@ -276,8 +276,12 @@ one destination can fail while others succeed.
 - **What leaves the account.** Region, sender, recipients (To, Cc, Bcc), subject or template, configuration set, and
   content go to AWS and from there to the recipients and their mail providers. A sent mail cannot be taken back. The
   tool fetches no URL from the content and runs nothing in it.
-- **Confirmation.** Each call needs confirmation of exactly its request. The tool description is what the confirmation
-  covers: what is sent, the costs, the sandbox, and that nothing is repeated.
+- **Confirmation.** Each call needs confirmation of exactly its request. The confirmation text is built from the
+  arguments of the call, without a request to AWS: region, sender, the number of recipients (To, Cc, and Bcc, and for
+  `send-bulk` also the number of destinations), the first recipient addresses with the number of the rest, subject or
+  template, configuration set, the price per 1,000 mails with the number of mails of the call, and that the send
+  cannot be undone and is not repeated. Long values and long recipient lists are shortened, and the template data and
+  the mail text are not quoted. The tool description covers the rest: the sandbox and the limits.
 - **Costs.** According to the [AWS price list](https://aws.amazon.com/ses/pricing/), 0.10 USD per 1,000 mails, each
   recipient counted, plus 0.12 USD per GB of attachments.
 - **Sandbox.** An account without production access sends only to verified recipients, at most 200 mails a day and one

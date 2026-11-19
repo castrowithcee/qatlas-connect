@@ -3,9 +3,9 @@ package gen
 import "slices"
 
 const (
-	// sesSendRule is the part of the description that stands for the confirmation: what leaves the account,
-	// what it costs, the sandbox, and that nothing is repeated. The core asks only for confirm, so the
-	// description is where the caller learns what the confirmation covers.
+	// sesSendRule is the part of the description that says what the confirmation covers: what leaves the
+	// account, what it costs, the sandbox, and that nothing is repeated. The confirmation text names the call
+	// itself but cannot know the sandbox state of the account, so the description keeps it.
 	sesSendRule = "What is sent: the region, the sender, the recipients (To, Cc, and Bcc), the subject or the template, the " +
 		"configuration set, and the content go to AWS and from there to the recipients and their mail providers, third " +
 		"parties who cannot be asked to give the mail back. Costs: 0.10 USD per 1,000 mails, each recipient counted, plus " +

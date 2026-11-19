@@ -25,5 +25,7 @@ func init() {
 		"aws.ses.account.put-sending-attributes",
 		"aws.ses.account.put-suppression-attributes",
 		"aws.ses.account.put-vdm-attributes",
+		"aws.ses.email.send",
+		"aws.ses.email.send-bulk",
 	)
 }
