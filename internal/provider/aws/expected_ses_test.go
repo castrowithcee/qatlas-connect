@@ -19,4 +19,5 @@ func init() {
 		"aws.ses.export-job.create",
 		"aws.ses.import-job.create",
 	)
+	expectSummary("aws.ses.email.send", "aws.ses.email.send-bulk")
 }
