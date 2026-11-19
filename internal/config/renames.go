@@ -77,18 +77,26 @@ func (c *Config) applyRenames() error {
 	for _, name := range sortedKeys(c.Connections) {
 		conn := c.Connections[name]
 		metadata, known := catalog.ProviderMetadata(c.Services[conn.Service].Provider)
-		if !known || conn.Tools == nil || len(metadata.RenamedTools) == 0 {
+		if !known || len(metadata.RenamedTools) == 0 {
 			continue
 		}
-		tools := make([]string, len(conn.Tools))
-		for i, tool := range conn.Tools {
-			tools[i] = tool
-			if current, ok := metadata.RenamedTools[tool]; ok {
-				record("connections", name, RenamedTool, tool, current)
-				tools[i] = current
+		rename := func(entries []string) []string {
+			out := make([]string, len(entries))
+			for i, tool := range entries {
+				out[i] = tool
+				if current, ok := metadata.RenamedTools[tool]; ok {
+					record("connections", name, RenamedTool, tool, current)
+					out[i] = current
+				}
 			}
+			return out
 		}
-		conn.Tools = tools
+		if conn.Tools != nil {
+			conn.Tools = rename(conn.Tools)
+		}
+		if conn.BlockedTools != nil {
+			conn.BlockedTools = rename(conn.BlockedTools)
+		}
 		c.Connections[name] = conn
 	}
 

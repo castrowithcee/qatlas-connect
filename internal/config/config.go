@@ -146,6 +146,11 @@ type Connection struct {
 	Description     string   `yaml:"description,omitempty"`
 	Effects         []Effect `yaml:"effects,omitempty"`
 	Tools           []string `yaml:"tools,omitempty"`
+	// BlockedTools lists tools, as IDs or prefixes spelled like Tools, that a person refused to have
+	// requested for this connection. It locks no tool, never changes what the connection offers, widens no
+	// access and is no part of the approval scope; a tool that the tools list selects is not blocked (see
+	// ReleaseCoveredBlocks). Missing means nothing is blocked.
+	BlockedTools []string `yaml:"blocked_tools,omitempty"`
 	// LegacyPermissions only receives the former name of Effects while a file is read; reading folds it into
 	// Effects and leaves it empty, and it is never written.
 	LegacyPermissions []Effect `yaml:"permissions,omitempty"`
@@ -292,6 +297,7 @@ func (c Connection) MarshalYAML() (any, error) {
 		Description    string            `yaml:"description,omitempty"`
 		Effects        *[]Effect         `yaml:"effects,omitempty"`
 		Tools          *[]string         `yaml:"tools,omitempty"`
+		BlockedTools   []string          `yaml:"blocked_tools,omitempty"`
 		Paths          []string          `yaml:"paths,omitempty"`
 		Files          Files             `yaml:"files,omitempty"`
 		ForwardSecrets []string          `yaml:"forward_secrets,omitempty"`
@@ -312,7 +318,7 @@ func (c Connection) MarshalYAML() (any, error) {
 		tools = &copy
 	}
 	return wire{ID: c.ID, Service: c.Service, Credential: c.Credential, Target: c.Target, Targets: c.Targets,
-		Exclude: c.Exclude, Outdated: c.TargetsOutdated, Description: c.Description, Effects: effects, Tools: tools, Paths: c.Paths, Files: c.Files,
+		Exclude: c.Exclude, Outdated: c.TargetsOutdated, Description: c.Description, Effects: effects, Tools: tools, BlockedTools: c.BlockedTools, Paths: c.Paths, Files: c.Files,
 		ForwardSecrets: c.ForwardSecrets, Disabled: c.Disabled, ActiveUntil: activeUntil,
 		TargetLabels: c.TargetLabels, ServiceAccount: c.ServiceAccount}, nil
 }
@@ -799,6 +805,9 @@ func (c *Config) Validate() error {
 			if known && conn.Tools != nil {
 				c.validateTools(name, service.Provider, metadata, report)
 			}
+			if known && len(conn.BlockedTools) > 0 {
+				c.validateBlockedTools(name, service.Provider, metadata, report)
+			}
 			if known && credOK && metadata.Token != nil {
 				validateTokenCredential(name, conn.Credential, service.Provider, conn.ServiceAccount, cred, report)
 			}
@@ -1086,6 +1095,87 @@ func (c *Config) validateToolPrefix(name, provider string, index int, entry stri
 		report(problem(SectionConnections, name, "tools", CodeToolPrefixNoMatch,
 			"entry %d covers no registered tool of provider %q that a prefix may release", index+1, provider).
 			refined("tools").at(index+1).with("provider", provider))
+	}
+}
+
+// validateBlockedTools checks the blocked_tools of a connection with the grammar of the tools list: an entry
+// is a registered tool of the provider or a valid prefix of it, listed once. Unlike a tools prefix it may
+// cover a tool that requires the allow-list. An entry that the connection's own tools list covers is a
+// problem, because the list wins and the block could never take effect; a connection by effects may
+// block a tool it offers, which leaves the entry without effect. Entries are quoted only where they are
+// registered IDs or built from them, as in validateTools.
+func (c *Config) validateBlockedTools(name, provider string, metadata ProviderMetadata, report func(Problem)) {
+	conn := c.Connections[name]
+	registered := map[string]bool{}
+	for _, tool := range metadata.Tools {
+		registered[tool.ID] = true
+	}
+	seen := map[string]bool{}
+	for i, entry := range conn.BlockedTools {
+		const field = "blocked_tools"
+		unknown := func() {
+			report(problem(SectionConnections, name, field, CodeInvalidBlockedTool,
+				"entry %d is not a registered tool or valid tool prefix of provider %q", i+1, provider).
+				refined(field).at(i+1).with("provider", provider))
+		}
+		otherProvider := func(owner string) {
+			report(problem(SectionConnections, name, field, CodeBlockedToolOfOtherProvider,
+				"blocked tool %q belongs to provider %q, not to %q", entry, owner, provider).
+				with("tool", entry).with("owner", owner).with("provider", provider))
+		}
+		if IsToolPrefix(entry) {
+			stem, ok := ToolPrefixStem(provider, entry)
+			if !ok {
+				if shape, shaped := toolPrefixShape(entry); shaped {
+					if owner := c.stemOwner(provider, shape); owner != "" {
+						otherProvider(owner)
+						continue
+					}
+				}
+				unknown()
+				continue
+			}
+			matches := false
+			for id := range registered {
+				if strings.HasPrefix(id, stem) {
+					matches = true
+					break
+				}
+			}
+			if !matches {
+				if owner := c.stemOwner(provider, stem); owner != "" {
+					otherProvider(owner)
+				} else {
+					unknown()
+				}
+				continue
+			}
+		} else if !registered[entry] {
+			owner := ""
+			for _, other := range c.providerCatalog().ProviderMetadataAll() {
+				for _, tool := range other.Tools {
+					if tool.ID == entry {
+						owner = other.ID
+					}
+				}
+			}
+			if owner != "" && owner != provider {
+				otherProvider(owner)
+			} else {
+				unknown()
+			}
+			continue
+		}
+		if seen[entry] {
+			report(problem(SectionConnections, name, field, CodeDuplicateTool,
+				"blocked tool %q is listed more than once", entry).with("tool", entry))
+			continue
+		}
+		seen[entry] = true
+		if conn.Tools != nil && blockedEntryCoveredByList(metadata, entry, conn.Tools) {
+			report(problem(SectionConnections, name, field, CodeBlockedToolListed,
+				"blocked tool %q is covered by the tools list of the connection", entry).with("tool", entry))
+		}
 	}
 }
 
