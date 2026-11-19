@@ -27,6 +27,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -87,9 +88,12 @@ type Entry struct {
 	// FormerConnection is the name a rename replaced, present on a rename only.
 	ConnectionID     string `json:"connection_id,omitempty"`
 	FormerConnection string `json:"former_connection,omitempty"`
-	Effect           string `json:"effect,omitempty"`
-	Result           string `json:"result,omitempty"`
-	DurationMS       int64  `json:"duration_ms,omitempty"`
+	// Tool is the one tool ID or "<provider>.<segment>.*" prefix a tool request event is about, present on
+	// those events only; see Fields.Tool.
+	Tool       string `json:"tool,omitempty"`
+	Effect     string `json:"effect,omitempty"`
+	Result     string `json:"result,omitempty"`
+	DurationMS int64  `json:"duration_ms,omitempty"`
 	// ReqBytes and RespBytes are the exact sizes of a CLI invoke's arguments and successful result. On the
 	// mcp path they are the sizes of the whole JSON-RPC request and response messages, an error response
 	// included. nil means not recorded, which is different from a recorded 0.
@@ -122,7 +126,10 @@ type Fields struct {
 	// ConnectionID and FormerConnection are those of Entry; only a rename carries FormerConnection.
 	ConnectionID     string
 	FormerConnection string
-	Effect           string
+	// Tool is the tool ID or "<provider>.<segment>.*" prefix of a tool request event, required there and
+	// refused on every other operation. It is never free text, a reason, or an argument.
+	Tool   string
+	Effect string
 	// Result is "success" or the failure's error code, the same value application.auditResult uses.
 	Result   string
 	Duration time.Duration
@@ -263,6 +270,63 @@ const (
 // the code of the refusal or failure. It never holds a value or a hash of one.
 const OperationStoreRefreshToken = "credential.store-refresh-token"
 
+// The operations that log the events of a tool request, one entry per tool, with the connection and the
+// requested tool (Fields.Tool) and nothing the requester wrote. A request is created over "cli" or "mcp", a
+// decision is made over "tui" or "cli", and an expiry or a drop, which the process that notices it logs, may
+// come from any path. Creating is a create, deciding an update, and expiring or dropping a delete. None of
+// them is an invoke.
+const (
+	OperationRequestCreate  = "config.request.create"
+	OperationRequestAccept  = "config.request.accept"
+	OperationRequestDecline = "config.request.decline"
+	OperationRequestBlock   = "config.request.block"
+	OperationRequestExpire  = "config.request.expire"
+	OperationRequestDrop    = "config.request.drop"
+)
+
+// requestOperations maps each tool request operation to its effect and the paths it may carry.
+var requestOperations = map[string]struct {
+	effect string
+	paths  []string
+}{
+	OperationRequestCreate:  {"create", []string{"cli", "mcp"}},
+	OperationRequestAccept:  {"update", []string{"tui", "cli"}},
+	OperationRequestDecline: {"update", []string{"tui", "cli"}},
+	OperationRequestBlock:   {"update", []string{"tui", "cli"}},
+	OperationRequestExpire:  {"delete", []string{"cli", "mcp", "tui", "web"}},
+	OperationRequestDrop:    {"delete", []string{"cli", "mcp", "tui", "web"}},
+}
+
+// IsRequestOperation reports whether operation is one of a tool request's events.
+func IsRequestOperation(operation string) bool {
+	_, ok := requestOperations[operation]
+	return ok
+}
+
+// toolSegmentPattern is one dot-separated segment of a tool ID or prefix.
+var toolSegmentPattern = regexp.MustCompile(`^[A-Za-z0-9_-]+$`)
+
+// validToolRef reports whether tool has the form of a tool ID (at least three segments) or of a prefix,
+// "<provider>.<segment>.*" with one trailing wildcard. It checks the form only, not whether a tool exists.
+func validToolRef(tool string) bool {
+	segments := strings.Split(tool, ".")
+	if len(segments) < 3 || len(tool) > maxTextLength {
+		return false
+	}
+	if segments[len(segments)-1] == "*" {
+		segments = segments[:len(segments)-1]
+		if len(segments) < 2 {
+			return false
+		}
+	}
+	for _, segment := range segments {
+		if !toolSegmentPattern.MatchString(segment) {
+			return false
+		}
+	}
+	return true
+}
+
 // OperationConfigMigrate logs that qconnect moved the configuration file to the schema named by Version. Its
 // Path is "cli", whichever command migrated.
 const OperationConfigMigrate = "config.migrate"
@@ -300,6 +364,8 @@ var managementOperations = map[string]bool{
 	OperationConnectionCreate: true, OperationConnectionChange: true, OperationConnectionDelete: true,
 	OperationConnectionRename: true, OperationConfigMigrate: true, OperationStoreRefreshToken: true,
 	OperationConsentGrant: true, OperationConsentRevoke: true,
+	OperationRequestCreate: true, OperationRequestAccept: true, OperationRequestDecline: true,
+	OperationRequestBlock: true, OperationRequestExpire: true, OperationRequestDrop: true,
 }
 
 // consentOperations maps each consent operation to the effect it must carry.
@@ -330,6 +396,7 @@ func (f Fields) Validate() error {
 		// A surface of the interactive editors only ever logs a change to a connection or a target choice, and
 		// the web also a consent. The TUI only revokes one.
 		if connectionOperations[f.Operation] == "" && !IsTargetOperation(f.Operation) &&
+			!slices.Contains(requestOperations[f.Operation].paths, f.Path) &&
 			(f.Path != "web" || consentOperations[f.Operation] == "") &&
 			(f.Path != "tui" || f.Operation != OperationConsentRevoke) {
 			return errors.New("operation is not a connection change")
@@ -358,6 +425,16 @@ func (f Fields) Validate() error {
 	if effect, ok := consentOperations[f.Operation]; ok && (f.Effect != effect || f.Connection == "") {
 		return errors.New("a consent needs its effect and a connection")
 	}
+	if rule, ok := requestOperations[f.Operation]; ok {
+		if f.Effect != rule.effect || f.Connection == "" || !slices.Contains(rule.paths, f.Path) {
+			return errors.New("a tool request event needs its effect, a connection, and one of its paths")
+		}
+		if !validToolRef(f.Tool) {
+			return errors.New("a tool request event needs a tool ID or a prefix of the form <provider>.<segment>.*")
+		}
+	} else if f.Tool != "" {
+		return errors.New("only a tool request event has a tool")
+	}
 	if IsTargetOperation(f.Operation) && (f.Effect != "read" || f.Connection == "" || f.Path != "tui" && f.Path != "web") {
 		return errors.New("a target choice needs the read effect, a connection, and the tui or web path")
 	}
@@ -385,7 +462,8 @@ func (f Fields) Validate() error {
 		return errors.New("duration is out of range")
 	}
 	if f.ReqBytes != nil || f.RespBytes != nil {
-		if connectionOperations[f.Operation] != "" || consentOperations[f.Operation] != "" || IsTargetOperation(f.Operation) {
+		if connectionOperations[f.Operation] != "" || consentOperations[f.Operation] != "" || IsTargetOperation(f.Operation) ||
+			IsRequestOperation(f.Operation) {
 			return errors.New("a connection change has no size counters")
 		}
 		if f.RespBytes != nil && f.Result != "success" && f.Path != "mcp" {
@@ -402,6 +480,9 @@ func (f Fields) Validate() error {
 		return err
 	}
 	if err := checkText("connection", f.Connection, maxTextLength); err != nil {
+		return err
+	}
+	if err := checkText("tool", f.Tool, maxTextLength); err != nil {
 		return err
 	}
 	if err := checkText("former connection", f.FormerConnection, maxTextLength); err != nil {
@@ -551,7 +632,7 @@ func (l *Logger) Append(f Fields) error {
 	entry := Entry{
 		Seq: seq, Time: now, Path: f.Path, Client: f.Client, Operation: f.Operation, Version: f.Version,
 		Connection: f.Connection, ConnectionID: f.ConnectionID, FormerConnection: f.FormerConnection,
-		Effect: f.Effect, Result: f.Result, DurationMS: f.Duration.Milliseconds(),
+		Tool: f.Tool, Effect: f.Effect, Result: f.Result, DurationMS: f.Duration.Milliseconds(),
 		ReqBytes: f.ReqBytes, RespBytes: f.RespBytes, Token: f.Token, Session: f.Session, PrevHash: prevHash,
 	}
 	raw, err := l.encode(entry)
