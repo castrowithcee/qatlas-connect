@@ -27,8 +27,8 @@ are described in the [Google Merchant provider](README.md).
 ## Access in Merchant Center
 
 All tools use one Google scope, `content`, which allows reading and writing. What the account may do is decided
-by its role in Merchant Center, not by the Cloud project. The tools of this provider only read, so give the
-lowest role that works. Google documents only that changes to account settings need the role Admin, so whether
+by its role in Merchant Center, not by the Cloud project. A connection that offers only reads needs the
+lowest role that works, and one with the data source changes needs a role that may edit data sources. Google documents only that changes to account settings need the role Admin, so whether
 the role Read only is enough for these reads is not verified; the connection test shows it.
 
 A service account must be added in Merchant Center under Settings, Access and services, People and access, with

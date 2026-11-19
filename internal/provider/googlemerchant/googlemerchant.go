@@ -90,9 +90,14 @@ func TestConnection(ctx context.Context, resolved *config.Resolved, secrets *sec
 
 // Register adds the provider metadata, its consent endpoints, its connection test, and its tools.
 func Register(reg *capability.Registry) error {
-	var readIDs []string
+	var readIDs, changeIDs []string
 	for _, d := range descriptors() {
-		readIDs = append(readIDs, d.ID)
+		if d.Risk.Effect == capability.EffectRead {
+			readIDs = append(readIDs, d.ID)
+		}
+		if !d.RequiresToolAllowList {
+			changeIDs = append(changeIDs, d.ID)
+		}
 	}
 	if err := reg.RegisterProvider(config.ProviderMetadata{
 		ID: Provider, Name: "Google Merchant Center", DefaultBaseURL: apiRoot,
@@ -114,8 +119,14 @@ func Register(reg *capability.Registry) error {
 		},
 		Profiles: []config.ToolProfile{{
 			ID: "read", Title: "Read", Recommended: true,
-			Description: "reads Merchant Center accounts and the developer registration of an account; changes nothing",
+			Description: "reads Merchant Center accounts, the developer registration of an account, and data sources; changes nothing",
 			Tools:       readIDs,
+		}, {
+			ID: "write", Title: "Read and change API data sources",
+			Description: "reads what the read profile reads, creates API data sources, and updates their display name, " +
+				"countries, destinations, and default rule; every change needs its own confirmation. Data sources " +
+				"with file input, fetch settings, or Google Sheets are not offered",
+			Tools: changeIDs,
 		}},
 	}, TestConnection); err != nil {
 		return err
@@ -126,9 +137,15 @@ func Register(reg *capability.Registry) error {
 	handlers := map[string]capability.Handler{
 		accountsListID: handleAccountsList, accountsGetID: handleAccountsGet,
 		developerRegistrationsGetID: handleDeveloperRegistrationsGet,
+		dataSourcesListID:           handleDataSourcesList, dataSourcesGetID: handleDataSourcesGet,
+		dataSourcesCreateID: handleDataSourcesCreate, dataSourcesUpdateID: handleDataSourcesUpdate,
+	}
+	summaries := map[string]capability.SummaryFunc{
+		dataSourcesCreateID: createSummary, dataSourcesUpdateID: updateSummary,
 	}
 	for _, d := range descriptors() {
-		if err := reg.Register(Provider, capability.Operation{Descriptor: d, Handler: handlers[d.ID]}); err != nil {
+		if err := reg.Register(Provider, capability.Operation{Descriptor: d, Handler: handlers[d.ID],
+			ConfirmationSummary: summaries[d.ID]}); err != nil {
 			return err
 		}
 	}

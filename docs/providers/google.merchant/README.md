@@ -1,6 +1,6 @@
 ---
 description: >
-  Describes the Google Merchant provider: the token credential and its procedures, the single scope, the fixed API origin, the advanced-account and account targets and how an account is proven to belong to one, the tools for accounts and the developer registration, quotas, result bounds, the connection test, error classes, and the limits of what is verified.
+  Describes the Google Merchant provider: the token credential and its procedures, the single scope, the fixed API origin, the advanced-account and account targets and how an account is proven to belong to one, the tools for accounts, the developer registration, and data sources, quotas, result bounds, the connection test, error classes, and the limits of what is verified.
 type: knowledge
 edit: shared
 created: 2026-11-19
@@ -9,8 +9,9 @@ updated: 2026-11-19
 
 # Google Merchant
 
-Google Merchant is a provider for the Merchant API v1 of Google Merchant Center. It offers three read tools: the
-accounts an account holder can reach and the developer registration of an account. [Set up Google
+Google Merchant is a provider for the Merchant API v1 of Google Merchant Center. It reads the accounts an account
+holder can reach, the developer registration of an account, and data sources, and it creates and changes API data
+sources. [Set up Google
 Merchant](setup.md) leads through the Google side, the developer registration, and the consent.
 
 | Tool | What it reads |
@@ -18,8 +19,11 @@ Merchant](setup.md) leads through the Google side, the developer registration, a
 | `google.merchant.accounts.list` | the accounts the credential can access, with an optional Google filter |
 | `google.merchant.accounts.get` | one account |
 | `google.merchant.developer-registrations.get` | the Google Cloud projects registered as developers with an account |
+| `google.merchant.data-sources.list`, `.get` | the data sources of an account, one batch or one source, see [data sources](data-sources.md) |
+| `google.merchant.data-sources.create`, `.update` | create an API data source and change its name, countries, destinations, or default rule; confirmed, see [data sources](data-sources.md) |
 
-Every tool is a read and needs no confirmation. The account resource has the members `name`, `accountId`,
+The account tools and the data source reads need no confirmation; the data source changes need one for every call.
+The account resource has the members `name`, `accountId`,
 `accountName`, `testAccount`, `adultContent`, `languageCode`, `homePageUri`, and `timeZone` (`id`, `version`);
 all are output. It has no member for the account type, so Qatlas shows none: an advanced account is
 recognised only by its sub-accounts, which a target proves.
@@ -47,8 +51,8 @@ service account in Merchant Center. A token without the scope ends a tool as `sc
 contacted; a new consent adds it. A credential serves this provider only, so its token never carries scopes of
 another Google product.
 
-The profile `read` is the recommended one and holds all three tools. A connection without a `tools` list
-offers them by its effects, and `read` is the default effect.
+The profile `read` is the recommended one and holds the reads. The profile `write` holds them and the data source
+changes. A connection without a `tools` list offers tools by its effects, and `read` is the default effect.
 
 ## Targets
 
@@ -146,7 +150,7 @@ reason of each detail. The answers of the token endpoints keep only their status
 
 | Answer | Class |
 | --- | --- |
-| 401 | `auth`, after the token was renewed once and the read was sent once more |
+| 401 | `auth`, after the token was renewed once and the read was sent once more; a change is not sent again, the next call renews the token |
 | 403 | `permission`: no access to the account, a missing role, the API not enabled, or an unregistered Cloud project; a `403` renews nothing |
 | 404 | `not-found` |
 | 429 | `rate-limited`; the reason `QUOTA_REQUEST_RATE_TOO_HIGH` names the per-minute limit and `QUOTA_TOO_MANY_REQUESTS` the daily one |
@@ -156,6 +160,8 @@ reason of each detail. The answers of the token endpoints keep only their status
 
 A redirect is never followed. An unreadable, oversized, or non-JSON answer is `invalid-provider-response`.
 The reason of a `429` is the only detail of a Google error that chooses wording; no other reason chooses a class.
+A change that may have reached Google, with a transport failure, a timeout, a `5xx`, or an unreadable answer, adds that
+its outcome is unknown. Changes are never repeated.
 
 ## Boundary
 

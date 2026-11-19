@@ -17,6 +17,10 @@ import (
 var wantToolIDs = []string{
 	"google.merchant.accounts.get",
 	"google.merchant.accounts.list",
+	"google.merchant.data-sources.create",
+	"google.merchant.data-sources.get",
+	"google.merchant.data-sources.list",
+	"google.merchant.data-sources.update",
 	"google.merchant.developer-registrations.get",
 }
 
@@ -35,7 +39,10 @@ func TestRegisterDeclaresTokenScopeTargetsAndFixedToolIDs(t *testing.T) {
 		if scopes := metadata.Token.Scopes[d.ID]; len(scopes) != 1 || scopes[0] != contentScope {
 			t.Errorf("%s scopes = %v, want only %s", d.ID, scopes, contentScope)
 		}
-		if d.Version != 1 || d.Risk.Effect != capability.EffectRead || d.Risk.Idempotency != capability.IdempotencySafe ||
+		if d.Risk.Effect != capability.EffectRead {
+			continue
+		}
+		if d.Version != 1 || d.Risk.Idempotency != capability.IdempotencySafe ||
 			d.Risk.Confirmation != capability.ConfirmationNone || !d.Risk.OpenWorld || d.Risk.DataSensitivity == "" {
 			t.Errorf("%s version or risk = %d, %+v", d.ID, d.Version, d.Risk)
 		}
@@ -51,8 +58,14 @@ func TestRegisterDeclaresTokenScopeTargetsAndFixedToolIDs(t *testing.T) {
 	if !ok || oauth.TokenURL != googleapi.OAuth.TokenURL || oauth.Params["access_type"] != "offline" {
 		t.Errorf("OAuth = %+v, %v", oauth, ok)
 	}
-	if len(metadata.Profiles) != 1 || metadata.Profiles[0].ID != "read" || len(metadata.Profiles[0].Tools) != len(wantToolIDs) {
+	if len(metadata.Profiles) != 2 || metadata.Profiles[0].ID != "read" || metadata.Profiles[1].ID != "write" ||
+		len(metadata.Profiles[1].Tools) != len(wantToolIDs) {
 		t.Errorf("profiles = %+v", metadata.Profiles)
+	}
+	for _, id := range metadata.Profiles[0].Tools {
+		if d, _, _ := reg.Lookup(id); d.Risk.Effect != capability.EffectRead {
+			t.Errorf("read profile lists %s with effect %s", id, d.Risk.Effect)
+		}
 	}
 	if err := metadata.Target.ValidateKindParents(); err != nil {
 		t.Error(err)
