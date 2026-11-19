@@ -61,6 +61,7 @@ type fakePulls struct {
 	runsTotal     map[string]int
 	statuses      map[string][]fakeStatus
 	statusesTotal map[string]int
+	refs          map[string]string
 	seq           int
 	notMergeable  bool
 }
@@ -107,6 +108,8 @@ func (p *fakePulls) route(w http.ResponseWriter, r *http.Request) bool {
 		p.getCheckRuns(w, rest)
 	case r.Method == http.MethodGet && strings.HasSuffix(rest, "/status"):
 		p.getStatus(w, rest)
+	case r.Method == http.MethodGet && p.refs[strings.TrimPrefix(rest, "commits/")] != "":
+		fmt.Fprintf(w, `{"sha":%q}`, p.refs[strings.TrimPrefix(rest, "commits/")])
 	default:
 		w.WriteHeader(http.StatusNotFound)
 	}
@@ -507,7 +510,7 @@ func TestPullRequestsProfileOffersExactlyTheReadsAndIsNotRecommended(t *testing.
 		t.Fatalf("profile = %+v, found=%v, want an existing, not-recommended profile", profile, found)
 	}
 	want := []string{pullsList.ID, pullsGet.ID, pullFilesList.ID, pullCommitsList.ID, pullDiffsGet.ID, pullChecksList.ID,
-		pullChecksWait.ID}
+		pullChecksWait.ID, commitChecksList.ID, commitChecksWait.ID}
 	if strings.Join(profile.Tools, ",") != strings.Join(want, ",") {
 		t.Errorf("tools = %v, want %v", profile.Tools, want)
 	}
