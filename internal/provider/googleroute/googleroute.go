@@ -3,11 +3,12 @@
 // through the token core of internal/provider. A connection takes no secret of its own and no scope: the scopes
 // follow from the tools it offers (see scopes.go).
 //
-// The package reads the state of a long-running operation. Every request goes to the one fixed origin of the
-// API, with the access token in the Authorization header only, once, within a bounded size and time, and
-// spaced per credential. A connection may be bound to projects; the project in the name of an operation is
-// checked against them before any secret is read. Everything Google returns is untrusted third-party content:
-// strings and lists are bounded.
+// The package optimizes tours, which Google bills, and reads the state of a long-running operation. Every
+// request goes to the one fixed origin of the API, with the access token in the Authorization header only,
+// within a bounded size and time, and spaced per credential. An optimization is sent exactly once and never
+// repeated. A connection may be bound to projects; the project of a request is checked against them before
+// any secret is read. Everything Google returns is untrusted third-party content: strings and lists are
+// bounded.
 package googleroute
 
 import (
@@ -87,7 +88,7 @@ func Register(reg *capability.Registry) error {
 	token := tokenMetadata
 	if err := reg.RegisterProvider(config.ProviderMetadata{
 		ID: Provider, Name: "Google Route Optimization", DefaultBaseURL: apiRoot,
-		Description:    "Google Route Optimization API: reads the state of route optimization operations",
+		Description:    "Google Route Optimization API: optimizes vehicle tours, which Google bills, and reads the state of operations",
 		DefaultEffects: []config.Effect{config.EffectRead},
 		ValidateBaseURL: func(raw string) error {
 			if !isAPIRoot(raw) {
@@ -104,6 +105,11 @@ func Register(reg *capability.Registry) error {
 				"for this method is the broad cloud-platform scope, so the token may change what its account may, " +
 				"although no tool of this profile changes anything",
 			Tools: readTools,
+		}, {
+			ID: "optimize", Title: "Optimize",
+			Description: "optimizes tours synchronously, which Google bills per shipment, and reads operations; " +
+				"each optimization needs a person's confirmation, and the token holds the broad cloud-platform scope",
+			Tools: []string{toursOptimizeID, operationsGetID},
 		}},
 	}, TestConnection); err != nil {
 		return err
@@ -113,5 +119,8 @@ func Register(reg *capability.Registry) error {
 	if err := reg.RegisterOAuth(Provider, oauth); err != nil {
 		return err
 	}
-	return reg.Register(Provider, capability.Operation{Descriptor: operationsGet, Handler: handleOperationsGet})
+	return reg.Register(Provider,
+		capability.Operation{Descriptor: operationsGet, Handler: handleOperationsGet},
+		capability.Operation{Descriptor: toursOptimize, Handler: handleToursOptimize,
+			ConfirmationSummary: toursSummary})
 }

@@ -137,6 +137,11 @@ type environment struct {
 
 func newEnvironment(t *testing.T, targets []string) *environment {
 	t.Helper()
+	return newEnvironmentWith(t, targets, config.EffectRead)
+}
+
+func newEnvironmentWith(t *testing.T, targets []string, effects ...config.Effect) *environment {
+	t.Helper()
 	e := &environment{t: t, fake: &fakeGoogle{routes: map[string]reply{}}, red: &redact.Redactor{}}
 	e.roles = map[string]string{config.RoleClientID: "client-" + t.Name(), config.RoleRefreshToken: refreshValue}
 	previous := transport
@@ -161,7 +166,7 @@ func newEnvironment(t *testing.T, targets []string) *environment {
 	e.cfg.Services = map[string]config.Service{"route": {Provider: Provider, BaseURL: apiRoot}}
 	e.cfg.Credentials = map[string]config.Credential{credential: {Provider: Provider, Type: config.CredentialTypeKeyring}}
 	e.cfg.Connections = map[string]config.Connection{"work": {Service: "route", Credential: credential,
-		Effects: []config.Effect{config.EffectRead}, Targets: targets}}
+		Effects: effects, Targets: targets}}
 	if err := e.cfg.Validate(); err != nil {
 		t.Fatalf("Validate() = %v", err)
 	}
@@ -183,8 +188,12 @@ func (e *environment) secrets() *secret.Resolver {
 }
 
 func (e *environment) invoke(operation, arguments string) (string, error) {
+	return e.invokeConfirmed(operation, arguments, false)
+}
+
+func (e *environment) invokeConfirmed(operation, arguments string, confirmed bool) (string, error) {
 	response, err := e.core.Invoke(context.Background(), application.InvokeRequest{
-		Operation: operation, Connection: "work", Arguments: json.RawMessage(arguments)})
+		Operation: operation, Connection: "work", Arguments: json.RawMessage(arguments), Confirmed: confirmed})
 	return string(response.Result), err
 }
 

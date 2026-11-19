@@ -1,7 +1,9 @@
 package googleroute
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"io"
 	"mime"
@@ -29,6 +31,19 @@ const (
 	maxResponseBytes = 2 << 20
 	defaultTimeout   = 30 * time.Second
 )
+
+// An optimization answer can carry polylines, so its reading bound is larger than that of the other tools.
+// What the tool hands back stays bounded by the cuts of toursResultOf, not by this bound.
+const maxOptimizeResponseBytes = 8 << 20
+
+// optimizeSlack is the time the POST gets beyond the solving time of the request, for the network and the
+// reading of the answer. The solving time is at most toursMaxTimeout, so the request ends after at most
+// 50 seconds and leaves 10 seconds of the 60 an invoke may take for the limiter wait and the token.
+const optimizeSlack = 5 * time.Second
+
+// unsureNote tells that an optimization whose request may have reached Google can have been billed.
+const unsureNote = "; the request may have reached Google and may have been billed, and the tool does not " +
+	"send it again, so a repeated call can be billed a second time"
 
 // minInterval is the spacing of two requests of one credential. It is a cautious start of this provider, not a
 // documented limit.
@@ -144,4 +159,60 @@ func (c *client) statusFailure(op string, response *http.Response) *provider.Err
 		c.limiter.HoldFor(min(max(provider.RetryAfter(response.Header), time.Second), maxHold))
 	}
 	return googleError(op, response.StatusCode, body)
+}
+
+// post sends the one POST of an optimization to the fixed origin and returns the raw JSON answer. It is never
+// repeated: Mutate only drops the cached token on a 401, so the next call renews it. The request ends after
+// timeout plus optimizeSlack. A failure that may follow a delivered request says that the call may have been
+// billed; one that Google answered with a status that proves it did not process the request does not.
+func (c *client) post(ctx context.Context, op, tool, path string, payload []byte, timeout time.Duration,
+	out *json.RawMessage) error {
+	unsure := func(failed *provider.Error) *provider.Error {
+		failed.Message += unsureNote
+		return failed
+	}
+	build := func(access string) (*http.Request, error) {
+		req, err := http.NewRequestWithContext(ctx, http.MethodPost, apiRoot+path, bytes.NewReader(payload))
+		if err != nil {
+			return nil, err
+		}
+		req.Header.Set("Authorization", "Bearer "+access)
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Accept", "application/json")
+		req.Header.Set("User-Agent", userAgent)
+		return req, nil
+	}
+	if err := c.limiter.Wait(ctx); err != nil {
+		return provider.Waited(op, subject, err)
+	}
+	limited := *c.http
+	limited.Timeout = timeout + optimizeSlack
+	response, err := c.source.Mutate(ctx, &limited, tool, build)
+	if err != nil {
+		var failed *provider.Error
+		if errors.As(err, &failed) {
+			return err
+		}
+		return unsure(provider.Transport(op, subject, err))
+	}
+	defer response.Body.Close()
+	if response.StatusCode < 200 || response.StatusCode > 299 {
+		if response.StatusCode == http.StatusBadRequest {
+			return rejectedModel(op, provider.ReadErrorBody(response.Body))
+		}
+		failed := c.statusFailure(op, response)
+		if response.StatusCode >= 500 {
+			return unsure(failed)
+		}
+		return failed
+	}
+	if mediaType, _, err := mime.ParseMediaType(response.Header.Get("Content-Type")); err != nil ||
+		mediaType != "application/json" {
+		_, _ = io.Copy(io.Discard, io.LimitReader(response.Body, 1<<10))
+		return unsure(provider.InvalidResponse(op, subject+" returned an answer that is not JSON"))
+	}
+	if failed := provider.ReadJSON(op, subject, response.Body, maxOptimizeResponseBytes, out); failed != nil {
+		return unsure(failed)
+	}
+	return nil
 }
