@@ -748,6 +748,7 @@ const (
 	tLogLabelWay                             textID = "LogLabelWay"
 	tLogLabelClient                          textID = "LogLabelClient"
 	tLogLabelTool                            textID = "LogLabelTool"
+	tLogLabelRequestedTool                   textID = "LogLabelRequestedTool"
 	tLogLabelEffect                          textID = "LogLabelEffect"
 	tLogLabelResult                          textID = "LogLabelResult"
 	tLogLabelDuration                        textID = "LogLabelDuration"

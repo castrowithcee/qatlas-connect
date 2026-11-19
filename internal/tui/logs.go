@@ -137,23 +137,24 @@ var (
 )
 
 var logLabels = map[string]textID{
-	"status":   tLogLabelStatus,
-	"UTC file": tLogLabelUTCFile,
-	"sequence": tLogLabelSequence,
-	"day":      tLogLabelDay,
-	"kind":     tLogLabelKind,
-	"through":  tLogLabelThrough,
-	"way":      tLogLabelWay,
-	"client":   tLogLabelClient,
-	"tool":     tLogLabelTool,
-	"effect":   tLogLabelEffect,
-	"result":   tLogLabelResult,
-	"duration": tLogLabelDuration,
-	"request":  tLogLabelRequest,
-	"response": tLogLabelResponse,
-	"date":     tLogLabelDate,
-	"from":     tLogLabelFrom,
-	"to":       tLogLabelTo,
+	"status":         tLogLabelStatus,
+	"UTC file":       tLogLabelUTCFile,
+	"sequence":       tLogLabelSequence,
+	"day":            tLogLabelDay,
+	"kind":           tLogLabelKind,
+	"through":        tLogLabelThrough,
+	"way":            tLogLabelWay,
+	"client":         tLogLabelClient,
+	"tool":           tLogLabelTool,
+	"requested tool": tLogLabelRequestedTool,
+	"effect":         tLogLabelEffect,
+	"result":         tLogLabelResult,
+	"duration":       tLogLabelDuration,
+	"request":        tLogLabelRequest,
+	"response":       tLogLabelResponse,
+	"date":           tLogLabelDate,
+	"from":           tLogLabelFrom,
+	"to":             tLogLabelTo,
 }
 
 // logLabel is a row label of the entry detail or the date dialog in the editor's language.
@@ -1557,6 +1558,9 @@ func (m *Model) logDetailFields(row logRow) []detailFact {
 			tool += tr(tLogToolVersion, e.Version)
 		}
 		field("tool", tool)
+		if e.Tool != "" {
+			field("requested tool", m.logText(e.Tool))
+		}
 		field("connection", row.values[logFilterConnection])
 		field("effect", row.values[logFilterEffect])
 		field("result", orDash(m.logText(e.Result)))

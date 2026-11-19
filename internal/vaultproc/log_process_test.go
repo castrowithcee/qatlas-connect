@@ -37,6 +37,19 @@ func TestLogOverTheSocket(t *testing.T) {
 		t.Fatalf("VerifyWith(process) = %+v, %v, want 2 checked, signed entries", report, err)
 	}
 
+	request := invokelog.Fields{Path: "tui", Operation: invokelog.OperationRequestBlock, Connection: "wiki",
+		Tool: "wiki.pages.delete", Effect: "update", Result: "success"}
+	if err := c.Log(ctx, request); err != nil {
+		t.Fatalf("Log(tool request) error = %v", err)
+	}
+	report, err = invokelog.VerifyWith(dir, c.LogChecker(ctx))
+	if err != nil || report.Broken || !report.Checked || report.Days[0].Unverified != 0 || report.Days[0].Entries != 3 {
+		t.Fatalf("VerifyWith(process) = %+v, %v, want 3 checked, signed entries", report, err)
+	}
+	if last := logLines(t, dir)[2]; !bytes.Contains(last, []byte(`"tool":"wiki.pages.delete"`)) {
+		t.Fatalf("the tool request entry lacks its tool: %s", last)
+	}
+
 	line := logLines(t, dir)[0]
 	var lines [][]byte
 	for total := 0; total <= 2*MaxMessage; total += len(line) {
