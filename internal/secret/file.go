@@ -190,7 +190,7 @@ func (f *File) read() (content, error) {
 // load returns what is on disk, without asking whether the fallback was switched on. An absent or empty
 // file reports ErrDisabled: there is nothing there to talk about.
 func (f *File) load() (content, error) {
-	info, err := os.Stat(f.path)
+	info, err := statFile(f.path)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
 			return content{}, ErrDisabled
@@ -201,7 +201,7 @@ func (f *File) load() (content, error) {
 		return content{}, err
 	}
 
-	data, err := os.ReadFile(f.path)
+	data, err := readWhole(f.path)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
 			return content{}, ErrDisabled
@@ -268,7 +268,7 @@ func (f *File) write(c content) error {
 	if err := tmp.Close(); err != nil {
 		return fmt.Errorf("cannot write %s: %w", name, err)
 	}
-	if err := os.Rename(name, target); err != nil {
+	if err := renameFile(name, target); err != nil {
 		return fmt.Errorf("cannot replace %s: %w", target, err)
 	}
 	moved = true
