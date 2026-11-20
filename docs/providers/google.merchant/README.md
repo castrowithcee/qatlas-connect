@@ -1,6 +1,6 @@
 ---
 description: >
-  Describes the Google Merchant provider: the token credential and its procedures, the single scope, the fixed API origin, the advanced-account and account targets and how an account is proven to belong to one, the tools for accounts and the developer registration, quotas, result bounds, the connection test, error classes, and the limits of what is verified.
+  Describes the Google Merchant provider: the token credential and its procedures, the single scope, the fixed API origin, the advanced-account and account targets and how an account is proven to belong to one, the tools for accounts, the developer registration, and notification subscriptions, quotas, result bounds, the connection test, error classes, and the limits of what is verified.
 type: knowledge
 edit: shared
 created: 2026-11-19
@@ -9,17 +9,22 @@ updated: 2026-11-19
 
 # Google Merchant
 
-Google Merchant is a provider for the Merchant API v1 of Google Merchant Center. It offers three read tools: the
-accounts an account holder can reach and the developer registration of an account. [Set up Google
-Merchant](setup.md) leads through the Google side, the developer registration, and the consent.
+Google Merchant is a provider for the Merchant API v1 of Google Merchant Center. It reads the accounts an account
+holder can reach, the developer registration of an account, and the notification subscriptions of an account, and
+it deletes notification subscriptions. [Set up Google Merchant](setup.md) leads through the Google side, the
+developer registration, and the consent.
 
 | Tool | What it reads |
 | --- | --- |
 | `google.merchant.accounts.list` | the accounts the credential can access, with an optional Google filter |
 | `google.merchant.accounts.get` | one account |
 | `google.merchant.developer-registrations.get` | the Google Cloud projects registered as developers with an account |
+| `google.merchant.notification-subscriptions.list` | the notification subscriptions of an account |
+| `google.merchant.notification-subscriptions.get` | one notification subscription |
+| `google.merchant.notification-subscriptions.delete` | deletes a notification subscription (delete, confirmation, listed tools only) |
 
-Every tool is a read and needs no confirmation. The account resource has the members `name`, `accountId`,
+The subscription tools are described in [Notification subscriptions](notifications.md). Every other tool is a read
+and needs no confirmation. The account resource has the members `name`, `accountId`,
 `accountName`, `testAccount`, `adultContent`, `languageCode`, `homePageUri`, and `timeZone` (`id`, `version`);
 all are output. It has no member for the account type, so Qatlas shows none: an advanced account is
 recognised only by its sub-accounts, which a target proves.
@@ -47,8 +52,9 @@ service account in Merchant Center. A token without the scope ends a tool as `sc
 contacted; a new consent adds it. A credential serves this provider only, so its token never carries scopes of
 another Google product.
 
-The profile `read` is the recommended one and holds all three tools. A connection without a `tools` list
-offers them by its effects, and `read` is the default effect.
+The profile `read` is the recommended one and holds all read tools. A connection without a `tools` list
+offers them by its effects, and `read` is the default effect. The deletion is in no profile: only a connection whose
+`tools` list names it offers it.
 
 ## Targets
 
@@ -146,7 +152,7 @@ reason of each detail. The answers of the token endpoints keep only their status
 
 | Answer | Class |
 | --- | --- |
-| 401 | `auth`, after the token was renewed once and the read was sent once more |
+| 401 | `auth`, after the token was renewed once and the read was sent once more; a deletion is never sent again |
 | 403 | `permission`: no access to the account, a missing role, the API not enabled, or an unregistered Cloud project; a `403` renews nothing |
 | 404 | `not-found` |
 | 429 | `rate-limited`; the reason `QUOTA_REQUEST_RATE_TOO_HIGH` names the per-minute limit and `QUOTA_TOO_MANY_REQUESTS` the daily one |
@@ -176,6 +182,9 @@ Not verified:
   is enough for these tools; Google names only the role Admin for some methods.
 - Whether Merchant Center accepts an impersonated service account as a user.
 - Whether the scope `content` needs an app verification for an OAuth client of your own project.
+
+A deletion is sent once, without a body. It is not repeated after `401`, `429`, or `5xx`, because Google may already
+have applied it, and every call counts against the quota.
 
 No tool of this provider invites a user, registers or unregisters a Cloud project, links an account to another
 one, sets a notification address, or accepts terms for an account. Merchant API methods for local feed
