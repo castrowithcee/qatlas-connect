@@ -35,7 +35,7 @@ var connectionSections = map[string]string{
 	"credential": secCredential,
 	targetsLabel: secTargets, pathsLabel: secTargets,
 	profileLabel: secTools, toolListLabel: secTools,
-	accessLabel: secAccess, effectsLabel: secAccess,
+	accessLabel: secAccess, effectsLabel: secAccess, blockedLabel: secAccess,
 	filesReadLabel: secAdvanced, filesWriteLabel: secAdvanced, activeForLabel: secGeneral, forwardLabel: secAdvanced,
 }
 
