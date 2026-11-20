@@ -1172,7 +1172,7 @@ func (c *Config) validateBlockedTools(name, provider string, metadata ProviderMe
 			continue
 		}
 		seen[entry] = true
-		if conn.Tools != nil && blockedEntryCoveredByList(metadata, entry, conn.Tools) {
+		if conn.Tools != nil && BlockedEntryReleased(metadata, entry, conn.Tools) {
 			report(problem(SectionConnections, name, field, CodeBlockedToolListed,
 				"blocked tool %q is covered by the tools list of the connection", entry).with("tool", entry))
 		}
@@ -1436,10 +1436,7 @@ func (c *Config) ConnectionEffects(name string) []Effect {
 	}
 	service := c.Services[conn.Service]
 	metadata, _ := c.ProviderMetadata(service.Provider)
-	if len(metadata.DefaultEffects) > 0 {
-		return append([]Effect(nil), metadata.DefaultEffects...)
-	}
-	return []Effect{EffectRead}
+	return defaultEffectsOf(metadata)
 }
 
 // EffectsOfTools returns the effects of the tools of metadata that tools selects, by exact ID or by prefix,
