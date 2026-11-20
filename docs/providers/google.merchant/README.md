@@ -9,17 +9,21 @@ updated: 2026-11-19
 
 # Google Merchant
 
-Google Merchant is a provider for the Merchant API v1 of Google Merchant Center. It offers three read tools: the
-accounts an account holder can reach and the developer registration of an account. [Set up Google
-Merchant](setup.md) leads through the Google side, the developer registration, and the consent.
+Google Merchant is a provider for the Merchant API v1 of Google Merchant Center. It reads the accounts an account
+holder can reach and the developer registration of an account, and reads and changes the email preferences of the
+credential's user. [Set up Google Merchant](setup.md) leads through the Google side, the developer registration, and the consent.
 
 | Tool | What it reads |
 | --- | --- |
 | `google.merchant.accounts.list` | the accounts the credential can access, with an optional Google filter |
 | `google.merchant.accounts.get` | one account |
 | `google.merchant.developer-registrations.get` | the Google Cloud projects registered as developers with an account |
+| `google.merchant.email-preferences.get` | the email preferences of the user of the credential |
+| `google.merchant.email-preferences.update` | opts the user of the credential in or out of news and tips mails (update, confirmation required) |
 
-Every tool is a read and needs no confirmation. The account resource has the members `name`, `accountId`,
+The email tools are described in [email preferences](email-preferences.md).
+
+Every other tool is a read and needs no confirmation. The account resource has the members `name`, `accountId`,
 `accountName`, `testAccount`, `adultContent`, `languageCode`, `homePageUri`, and `timeZone` (`id`, `version`);
 all are output. It has no member for the account type, so Qatlas shows none: an advanced account is
 recognised only by its sub-accounts, which a target proves.
@@ -47,8 +51,8 @@ service account in Merchant Center. A token without the scope ends a tool as `sc
 contacted; a new consent adds it. A credential serves this provider only, so its token never carries scopes of
 another Google product.
 
-The profile `read` is the recommended one and holds all three tools. A connection without a `tools` list
-offers them by its effects, and `read` is the default effect.
+The profile `read` is the recommended one and holds all read tools. A connection without a `tools` list
+offers them by its effects, and `read` is the default effect. A change is in no profile.
 
 ## Targets
 
@@ -146,7 +150,7 @@ reason of each detail. The answers of the token endpoints keep only their status
 
 | Answer | Class |
 | --- | --- |
-| 401 | `auth`, after the token was renewed once and the read was sent once more |
+| 401 | `auth`, after the token was renewed once and the read was sent once more; a change is never sent again |
 | 403 | `permission`: no access to the account, a missing role, the API not enabled, or an unregistered Cloud project; a `403` renews nothing |
 | 404 | `not-found` |
 | 429 | `rate-limited`; the reason `QUOTA_REQUEST_RATE_TOO_HIGH` names the per-minute limit and `QUOTA_TOO_MANY_REQUESTS` the daily one |
