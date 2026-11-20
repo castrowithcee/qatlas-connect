@@ -407,10 +407,15 @@ func runTUI(opts *Options, reg *capability.Registry, buildVersion string) error 
 		return err
 	}
 	store := config.NewStore(path, reg)
+	requests, err := manage.NewRequestSource(path, reg)
+	if err != nil {
+		return err
+	}
 	svc := manage.New(store, secrets, connlog.SurfaceTUI, opts.Redactor).
 		WithTargetSource(targetSource(opts, reg)).
 		WithConsentSource(reg.OAuth).
-		WithExplicitConfig(opts.Config)
+		WithExplicitConfig(opts.Config).
+		WithRequests(requests)
 	// Device-local preferences live beside the configuration and are not part of it. A missing or
 	// damaged file never stops the editor; it opens with the defaults and says why.
 	prefsPath := tuiPrefsPath(path)

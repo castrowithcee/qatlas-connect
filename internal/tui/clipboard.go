@@ -43,7 +43,7 @@ func (m *Model) copySource() func() string {
 	case m.screen == screenList && m.barFocus == 0 && !m.list.editing &&
 		m.section != sectionOverview && m.section != sectionLogs:
 		name, ok := m.selected()
-		if !ok {
+		if _, isRequest := requestIDOf(name); !ok || isRequest {
 			return nil
 		}
 		if m.detailFocused() {
