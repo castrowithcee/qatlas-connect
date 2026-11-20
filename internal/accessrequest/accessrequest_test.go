@@ -4,6 +4,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 	"testing"
@@ -312,7 +313,7 @@ func TestFileIsPrivateAndHoldsNoOtherData(t *testing.T) {
 	f := newFixture(t)
 	f.add(t, "listed", "fake.pages.delete")
 	info, err := os.Stat(f.q.Path())
-	if err != nil || info.Mode().Perm() != 0o600 {
+	if err != nil || (runtime.GOOS != "windows" && info.Mode().Perm() != 0o600) {
 		t.Fatalf("file = %v, %v, want mode 0600", info, err)
 	}
 	if got := PathFor(filepath.Join("a", "b", "config.yaml")); got != filepath.Join("a", "b", FileName) {
