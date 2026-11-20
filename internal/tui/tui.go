@@ -1348,8 +1348,8 @@ func (m *Model) updateList(key tea.KeyPressMsg) tea.Cmd {
 	case keyIs(key, actEdit):
 		return m.editSelected()
 	case keyIs(key, actEnter):
-		if (m.section == sectionApprovals || m.section == sectionTokens) && m.vaultLocked() && !m.requestRowSelected() {
-			// Nothing is listed while the vault is locked (see approvalsReport); enter is a managing action
+		if (m.section == sectionApprovals || m.section == sectionTokens) && m.vaultNeedsWindowKey() && !m.requestRowSelected() {
+			// Nothing is listed while this window has no key for the vault (see approvalsReport); enter is a managing action
 			// like any other here, gated behind requireAdmin, whose "Unlock vault to continue" dialog
 			// unlocks it and starts the admin session together. The action itself writes nothing: it only
 			// rebuilds the list, now that Pending can read it.
@@ -4481,10 +4481,14 @@ func (m *Model) listFrame() (string, string) {
 		keys = "{left}/{right} tab · {next} next · {prev} rows · {up}/{down} move · {enter} edit · {back} rows · {command} cmds · {help} help · {quit} quit"
 	case m.section == sectionApprovals && m.requestRowSelected():
 		keys = "{enter} decide · " + back + " · {command} cmds · {help} help · {quit} quit"
+	case m.section == sectionApprovals && m.vaultProcessOnly():
+		keys = "{enter} passphrase for this window · " + back + " · {command} cmds · {help} help · {quit} quit"
 	case m.section == sectionApprovals && m.vaultLocked():
 		keys = "{enter} unlock · " + back + " · {command} cmds · {help} help · {quit} quit"
 	case m.section == sectionApprovals:
 		keys = "{enter} details · {approveall} approve all · " + back + " · {command} cmds · {help} help · {quit} quit"
+	case m.section == sectionTokens && m.vaultProcessOnly():
+		keys = "{enter} passphrase for this window · {new} new · " + back + " · {command} cmds · {help} help · {quit} quit"
 	case m.section == sectionTokens && m.vaultLocked():
 		keys = "{enter} unlock · {new} new · " + back + " · {command} cmds · {help} help · {quit} quit"
 	case m.section == sectionTokens && m.tokensBlocked() != "" && total == 0:
