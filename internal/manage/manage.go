@@ -130,6 +130,8 @@ func (s *Service) Path() string { return s.store.Path() }
 // *config.ConflictError (errors.Is(err, config.ErrConflict)) when the file changed, and is returned as it
 // is; the warning is the redacted failure of the log, which never undoes the save, and is "" otherwise.
 func (s *Service) SaveConfig(before, after *config.Config, base config.Revision) (warning string, err error) {
+	// A tools list that now selects a blocked tool ends its block, so the save does not fail on it.
+	after.ReleaseCoveredBlocks()
 	if err := s.store.SaveIfUnchanged(after, base); err != nil {
 		return "", err
 	}
