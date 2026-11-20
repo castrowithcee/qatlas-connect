@@ -1,6 +1,7 @@
 package googlemerchant
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"io"
@@ -131,51 +132,95 @@ func withSource(ctx context.Context, resolved *config.Resolved, secrets *secret.
 		limiter: limiters.For(key)}, nil
 }
 
+// request is one call of the API: a fixed method, a path below the API origin built from fixed sub-API paths
+// and checked IDs, and for a call with a body the JSON the provider built from checked arguments. change marks
+// a call that alters data: it is sent once and never repeated. A read with a body, such as a report query,
+// leaves it false and is sent again once after a renewed token.
+type request struct {
+	method string
+	path   string
+	query  url.Values
+	body   []byte
+	change bool
+}
+
 // get reads path once and decodes the JSON object answer into out. The path is built from the fixed
 // sub-API path and account IDs that passed validID, never from free input. The access token travels only in
 // the Authorization header; a read renews the token once on 401 and is sent again.
 func (c *client) get(ctx context.Context, op, tool, path string, query url.Values, out any) error {
-	target := apiRoot + "/" + path
-	if len(query) > 0 {
-		target += "?" + query.Encode()
+	return c.send(ctx, op, tool, request{method: http.MethodGet, path: path, query: query}, out)
+}
+
+// send makes the request and decodes the JSON object answer into out; a nil out expects no content, as the
+// answer of a delete. A change is never sent twice: after a 401 the cached token is dropped, so the next call
+// renews it, and a failure that leaves the outcome open says so.
+func (c *client) send(ctx context.Context, op, tool string, r request, out any) error {
+	target := apiRoot + "/" + r.path
+	if len(r.query) > 0 {
+		target += "?" + r.query.Encode()
 	}
 	build := func(access string) (*http.Request, error) {
 		if err := c.limiter.Wait(ctx); err != nil {
 			return nil, provider.Waited(op, subject, err)
 		}
-		req, err := http.NewRequestWithContext(ctx, http.MethodGet, target, nil)
+		var body io.Reader
+		if r.body != nil {
+			body = bytes.NewReader(r.body)
+		}
+		req, err := http.NewRequestWithContext(ctx, r.method, target, body)
 		if err != nil {
 			return nil, provider.Fail(op, "the request could not be built")
 		}
 		req.Header.Set("Authorization", "Bearer "+access)
 		req.Header.Set("Accept", "application/json")
 		req.Header.Set("User-Agent", userAgent)
+		if r.body != nil {
+			req.Header.Set("Content-Type", "application/json")
+		}
 		return req, nil
 	}
-	resp, err := c.source.Read(ctx, c.http, tool, build)
+	dispatch := c.source.Read
+	if r.change {
+		dispatch = c.source.Mutate
+	}
+	resp, err := dispatch(ctx, c.http, tool, build)
 	if err != nil {
 		// Go's own error of a request quotes its URL; every other error is already safe to return.
 		var transportErr *url.Error
 		if errors.As(err, &transportErr) {
-			return provider.Transport(op, subject, err)
+			return unsure(provider.Transport(op, subject, err), r.change)
 		}
 		return err
 	}
 	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
+	if resp.StatusCode != http.StatusOK && (out != nil || resp.StatusCode != http.StatusNoContent) {
 		body := provider.ReadErrorBody(resp.Body)
 		if resp.StatusCode == http.StatusTooManyRequests {
 			c.limiter.HoldFor(min(max(provider.RetryAfter(resp.Header), holdMin), maxHold))
 		}
-		return googleError(op, resp.StatusCode, body)
+		// A 429 or another 4xx rejected the request before it changed anything; a server error did not say.
+		return unsure(googleError(op, resp.StatusCode, body), r.change && resp.StatusCode >= 500)
+	}
+	if out == nil {
+		_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 1<<10))
+		return nil
 	}
 	if mediaType, _, err := mime.ParseMediaType(resp.Header.Get("Content-Type")); err != nil ||
 		mediaType != "application/json" {
 		_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 1<<10))
-		return provider.InvalidResponse(op, subject+" returned an answer that is not JSON")
+		return unsure(provider.InvalidResponse(op, subject+" returned an answer that is not JSON"), r.change)
 	}
 	if failed := provider.ReadJSON(op, subject, resp.Body, maxResponse, out); failed != nil {
-		return failed
+		return unsure(failed, r.change)
 	}
 	return nil
+}
+
+// unsure says that a change whose request may have reached Google has an unknown outcome: it is neither
+// claimed nor denied, and never repeated here.
+func unsure(failed *provider.Error, change bool) *provider.Error {
+	if change {
+		failed.Message += "; the outcome of the change is unknown, so read the object before changing it again"
+	}
+	return failed
 }

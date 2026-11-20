@@ -1,6 +1,6 @@
 ---
 description: >
-  Describes the Google Merchant provider: the token credential and its procedures, the single scope, the fixed API origin, the advanced-account and account targets and how an account is proven to belong to one, the tools for accounts and the developer registration, quotas, result bounds, the connection test, error classes, and the limits of what is verified.
+  Describes the Google Merchant provider: the token credential and its procedures, the single scope, the fixed API origin, the advanced-account and account targets and how an account is proven to belong to one, the tools for accounts, the developer registration, and conversion sources, quotas, result bounds, the connection test, error classes, and the limits of what is verified.
 type: knowledge
 edit: shared
 created: 2026-11-19
@@ -9,8 +9,9 @@ updated: 2026-11-19
 
 # Google Merchant
 
-Google Merchant is a provider for the Merchant API v1 of Google Merchant Center. It offers three read tools: the
-accounts an account holder can reach and the developer registration of an account. [Set up Google
+Google Merchant is a provider for the Merchant API v1 of Google Merchant Center. It reads the accounts an
+account holder can reach, the developer registration of an account, and the conversion sources of an account, and
+it creates and changes Merchant Center destinations as conversion sources. [Set up Google
 Merchant](setup.md) leads through the Google side, the developer registration, and the consent.
 
 | Tool | What it reads |
@@ -18,8 +19,13 @@ Merchant](setup.md) leads through the Google side, the developer registration, a
 | `google.merchant.accounts.list` | the accounts the credential can access, with an optional Google filter |
 | `google.merchant.accounts.get` | one account |
 | `google.merchant.developer-registrations.get` | the Google Cloud projects registered as developers with an account |
+| `google.merchant.conversion-sources.list` | the conversion sources of an account, with archived ones on request |
+| `google.merchant.conversion-sources.get` | one conversion source |
+| `google.merchant.conversion-sources.create` | creates a Merchant Center destination as conversion source (create) |
+| `google.merchant.conversion-sources.update` | changes a Merchant Center destination (update) |
 
-Every tool is a read and needs no confirmation. The account resource has the members `name`, `accountId`,
+The two conversion writes are described in [Conversion sources](conversions.md). Every other tool is a read and
+needs no confirmation. The account resource has the members `name`, `accountId`,
 `accountName`, `testAccount`, `adultContent`, `languageCode`, `homePageUri`, and `timeZone` (`id`, `version`);
 all are output. It has no member for the account type, so Qatlas shows none: an advanced account is
 recognised only by its sub-accounts, which a target proves.
@@ -47,8 +53,10 @@ service account in Merchant Center. A token without the scope ends a tool as `sc
 contacted; a new consent adds it. A credential serves this provider only, so its token never carries scopes of
 another Google product.
 
-The profile `read` is the recommended one and holds all three tools. A connection without a `tools` list
-offers them by its effects, and `read` is the default effect.
+The profile `read` is the recommended one and holds all read tools. A connection without a `tools` list
+offers them by its effects, and `read` is the default effect. The two conversion writes are in no profile: a
+connection offers them only through the effects `create` and `update`, or by naming them in its `tools` list, and
+each call needs a confirmation.
 
 ## Targets
 
@@ -146,7 +154,7 @@ reason of each detail. The answers of the token endpoints keep only their status
 
 | Answer | Class |
 | --- | --- |
-| 401 | `auth`, after the token was renewed once and the read was sent once more |
+| 401 | `auth`, after the token was renewed once and the read was sent once more; a write is never sent again |
 | 403 | `permission`: no access to the account, a missing role, the API not enabled, or an unregistered Cloud project; a `403` renews nothing |
 | 404 | `not-found` |
 | 429 | `rate-limited`; the reason `QUOTA_REQUEST_RATE_TOO_HIGH` names the per-minute limit and `QUOTA_TOO_MANY_REQUESTS` the daily one |
