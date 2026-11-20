@@ -15,8 +15,12 @@ import (
 
 // The tool IDs of this package, fixed so a rename or an addition shows up here.
 var wantToolIDs = []string{
+	"google.merchant.accounts.create-test-account",
+	"google.merchant.accounts.delete",
 	"google.merchant.accounts.get",
 	"google.merchant.accounts.list",
+	"google.merchant.accounts.list-subaccounts",
+	"google.merchant.accounts.update",
 	"google.merchant.developer-registrations.get",
 }
 
@@ -30,10 +34,17 @@ func TestRegisterDeclaresTokenScopeTargetsAndFixedToolIDs(t *testing.T) {
 		t.Fatalf("metadata = %+v, %v", metadata, ok)
 	}
 	var ids []string
+	readTools := 0
 	for _, d := range reg.Provider(Provider) {
 		ids = append(ids, d.ID)
+		if d.Risk.Effect == capability.EffectRead {
+			readTools++
+		}
 		if scopes := metadata.Token.Scopes[d.ID]; len(scopes) != 1 || scopes[0] != contentScope {
 			t.Errorf("%s scopes = %v, want only %s", d.ID, scopes, contentScope)
+		}
+		if d.Risk.Effect != capability.EffectRead {
+			continue
 		}
 		if d.Version != 1 || d.Risk.Effect != capability.EffectRead || d.Risk.Idempotency != capability.IdempotencySafe ||
 			d.Risk.Confirmation != capability.ConfirmationNone || !d.Risk.OpenWorld || d.Risk.DataSensitivity == "" {
@@ -51,7 +62,7 @@ func TestRegisterDeclaresTokenScopeTargetsAndFixedToolIDs(t *testing.T) {
 	if !ok || oauth.TokenURL != googleapi.OAuth.TokenURL || oauth.Params["access_type"] != "offline" {
 		t.Errorf("OAuth = %+v, %v", oauth, ok)
 	}
-	if len(metadata.Profiles) != 1 || metadata.Profiles[0].ID != "read" || len(metadata.Profiles[0].Tools) != len(wantToolIDs) {
+	if len(metadata.Profiles) != 1 || metadata.Profiles[0].ID != "read" || len(metadata.Profiles[0].Tools) != readTools {
 		t.Errorf("profiles = %+v", metadata.Profiles)
 	}
 	if err := metadata.Target.ValidateKindParents(); err != nil {

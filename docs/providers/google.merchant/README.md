@@ -1,28 +1,34 @@
 ---
 description: >
-  Describes the Google Merchant provider: the token credential and its procedures, the single scope, the fixed API origin, the advanced-account and account targets and how an account is proven to belong to one, the tools for accounts and the developer registration, quotas, result bounds, the connection test, error classes, and the limits of what is verified.
+  Describes the Google Merchant provider: the token credential and its procedures, the single scope, the fixed API origin, the advanced-account and account targets and how an account is proven to belong to one, the tools for accounts and the developer registration with a pointer to the pages of further tool groups, quotas, result bounds, the connection test, error classes, and the limits of what is verified.
 type: knowledge
 edit: shared
 created: 2026-11-19
-updated: 2026-11-19
+updated: 2026-11-20
 ---
 
 # Google Merchant
 
-Google Merchant is a provider for the Merchant API v1 of Google Merchant Center. It offers three read tools: the
-accounts an account holder can reach and the developer registration of an account. [Set up Google
-Merchant](setup.md) leads through the Google side, the developer registration, and the consent.
+Google Merchant is a provider for the Merchant API v1 of Google Merchant Center. Its tools read the accounts an
+account holder can reach and the developer registration of an account, and list, change, delete, and create
+accounts. [Set up Google Merchant](setup.md) leads through the Google side, the developer registration, and the
+consent.
 
-| Tool | What it reads |
+| Tool | What it does |
 | --- | --- |
 | `google.merchant.accounts.list` | the accounts the credential can access, with an optional Google filter |
 | `google.merchant.accounts.get` | one account |
 | `google.merchant.developer-registrations.get` | the Google Cloud projects registered as developers with an account |
+| `google.merchant.accounts.list-subaccounts` | the sub-accounts of an advanced account, see [account tools](accounts.md) |
+| `google.merchant.accounts.update` | changes the settings of an account, see [account tools](accounts.md) |
+| `google.merchant.accounts.delete` | deletes an account, see [account tools](accounts.md) |
+| `google.merchant.accounts.create-test-account` | creates a test account, see [account tools](accounts.md) |
 
-Every tool is a read and needs no confirmation. The account resource has the members `name`, `accountId`,
-`accountName`, `testAccount`, `adultContent`, `languageCode`, `homePageUri`, and `timeZone` (`id`, `version`);
-all are output. It has no member for the account type, so Qatlas shows none: an advanced account is
-recognised only by its sub-accounts, which a target proves.
+A read needs no confirmation, a change always does; [account tools](accounts.md) describes the tools beyond the
+first three. The account resource has the members `name`, `accountId`, `accountName`, `testAccount`,
+`adultContent`, `languageCode`, `homePageUri`, and `timeZone` (`id`, `version`); all are output. It has no member
+for the account type, so Qatlas shows none: an advanced account is recognised only by its sub-accounts, which a
+target proves.
 
 ## Configuration
 
@@ -47,8 +53,9 @@ service account in Merchant Center. A token without the scope ends a tool as `sc
 contacted; a new consent adds it. A credential serves this provider only, so its token never carries scopes of
 another Google product.
 
-The profile `read` is the recommended one and holds all three tools. A connection without a `tools` list
-offers them by its effects, and `read` is the default effect.
+The profile `read` is the recommended one and holds every tool with the effect read. A connection without a
+`tools` list offers the tools by its effects, and `read` is the default effect; some changes need the `tools`
+list, see [account tools](accounts.md).
 
 ## Targets
 
