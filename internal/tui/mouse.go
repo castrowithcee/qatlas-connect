@@ -258,7 +258,7 @@ func (m *Model) textScreen() bool {
 	case screenHelp, screenSelftest, screenLogDetail:
 		return true
 	case screenConfirm:
-		return m.approvalDetail != ""
+		return m.approvalDetail != "" || m.requestDetail != ""
 	case screenRename:
 		return m.rename != nil && m.rename.plan != nil
 	case screenTransfer:
@@ -461,7 +461,7 @@ func (m *Model) backShown() bool {
 	case screenSummary:
 		return m.wizard != nil && !m.wizard.saving
 	case screenConfirm:
-		return (m.approvalDetail != "" && !m.approveAllConfirm) || (m.tokenDetail != "" && m.tokenRevoke == "")
+		return (m.approvalDetail != "" && !m.approveAllConfirm) || (m.tokenDetail != "" && m.tokenRevoke == "") || m.requestDetail != ""
 	case screenHelp:
 		return !m.helpOverlay()
 	case screenTargets:

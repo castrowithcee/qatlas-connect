@@ -57,6 +57,9 @@ const (
 	actCopy       action = "copy"
 	actNew        action = "new"
 	actApproveAll action = "approveall"
+	actDecline    action = "decline"
+	actBlock      action = "block"
+	actTickAll    action = "tickall"
 	actEdit       action = "edit"
 	actRename     action = "rename"
 	actReveal     action = "reveal"
@@ -112,6 +115,9 @@ var keyTable = []kit.Action{
 	row(actCopy, kit.LevelLetter, tKeyHelpCopy, "c"),
 	row(actNew, kit.LevelLetter, tKeyHelpNew, "n"),
 	row(actApproveAll, kit.LevelLetter, tKeyHelpApproveAll, "A"),
+	row(actDecline, kit.LevelLetter, tKeyHelpDecline, "x"),
+	row(actBlock, kit.LevelLetter, tKeyHelpBlock, "b"),
+	row(actTickAll, kit.LevelLetter, tKeyHelpTickAll, "a"),
 	row(actEdit, kit.LevelLetter, tKeyHelpEdit, "e"),
 	row(actRename, kit.LevelLetter, tKeyHelpRename, "r"),
 	row(actReveal, kit.LevelLetter, tKeyHelpReveal, "V"),

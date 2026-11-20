@@ -525,6 +525,19 @@ type Model struct {
 	// open. Both stand over the Approvals list, not a form; see approvals.go.
 	approvalDetail    string
 	approveAllConfirm bool
+	// requests are the open tool requests, read by refreshRequests, and requestsErr why the queue cannot be
+	// read. requestDetail is the ID of the request whose detail screen is open (it shares screenConfirm),
+	// requestTicks the ticked entries, requestCursor the row under the cursor, requestTop the first line
+	// shown and requestPage the lines in view; requestChoice is the open choice of how to accept on a
+	// connection by effect. See requests.go.
+	requests      []manage.OpenRequest
+	requestsErr   string
+	requestDetail string
+	requestTicks  map[string]bool
+	requestCursor int
+	requestTop    int
+	requestPage   int
+	requestChoice *requestChoice
 	// approvalExpanded spells out the unchanged entries of a list change on the detail screen, which
 	// approval scrolls; both start over each time the screen opens.
 	approvalExpanded bool
@@ -813,6 +826,7 @@ func New(svc *manage.Service, store *config.Store, tester Tester, secrets Secret
 		startDir: startDir, execute: tea.Exec,
 	}
 	m.layoutWorkspace()
+	m.refreshRequests()
 	m.list = newFilterList(m.describe)
 	m.list.stops = true
 	m.picker = newFilterList(m.choiceShown)
@@ -942,7 +956,11 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.vaultProcessUnlocked, m.vaultProcessEndsAt = msg.unlocked, msg.endsAt
 		return m, nil
 	case vaultTickMsg:
+		m.refreshRequests()
+		m.syncRequestList()
 		return m, tea.Batch(m.checkVaultProcess(), vaultTick())
+	case requestDecisionMsg:
+		return m, m.handleRequestDecision(msg)
 	case updateCheckedMsg:
 		m.updateChecked(msg)
 		return m, nil
@@ -1330,7 +1348,7 @@ func (m *Model) updateList(key tea.KeyPressMsg) tea.Cmd {
 	case keyIs(key, actEdit):
 		return m.editSelected()
 	case keyIs(key, actEnter):
-		if (m.section == sectionApprovals || m.section == sectionTokens) && m.vaultLocked() {
+		if (m.section == sectionApprovals || m.section == sectionTokens) && m.vaultLocked() && !m.requestRowSelected() {
 			// Nothing is listed while the vault is locked (see approvalsReport); enter is a managing action
 			// like any other here, gated behind requireAdmin, whose "Unlock vault to continue" dialog
 			// unlocks it and starts the admin session together. The action itself writes nothing: it only
@@ -1342,6 +1360,10 @@ func (m *Model) updateList(key tea.KeyPressMsg) tea.Cmd {
 		}
 		name, ok := m.selected()
 		if !ok {
+			return nil
+		}
+		if id, ok := requestIDOf(name); ok && m.section == sectionApprovals {
+			m.openRequest(id)
 			return nil
 		}
 		if m.section == sectionApprovals {
@@ -1543,6 +1565,11 @@ func (m *Model) leaveScreen() tea.Cmd {
 			return m.setupEsc()
 		}
 	case screenConfirm:
+		if m.requestDetail != "" {
+			// The request detail stands over the Approvals list too; see requests.go.
+			m.closeRequest()
+			return nil
+		}
 		if m.approvalDetail != "" || m.approveAllConfirm {
 			// Both stand over the Approvals list, never a form; see approvals.go.
 			m.approvalDetail, m.approveAllConfirm = "", false
@@ -2714,6 +2741,9 @@ func (m *Model) updateConfirm(key tea.KeyPressMsg) tea.Cmd {
 	if cmd, ok := m.updateTokenScreens(key); ok {
 		return cmd
 	}
+	if m.requestDetail != "" {
+		return m.updateRequestDetail(key)
+	}
 	if name := m.approvalDetail; name != "" {
 		switch {
 		case keyIs(key, actYes):
@@ -2982,10 +3012,13 @@ func (m *Model) entryNames(s section) []string {
 	case sectionVault:
 		// A settings form, not a list of named entries.
 	case sectionApprovals:
+		// The requests come first, newest first as the queue lists them, then the connections to approve.
 		report, _ := m.approvalsReport()
 		for _, c := range report.Open {
 			names = append(names, c.Connection)
 		}
+		sort.Strings(names)
+		return append(m.requestNames(), names...)
 	case sectionTokens:
 		names = m.tokenNames()
 	}
@@ -4446,6 +4479,8 @@ func (m *Model) listFrame() (string, string) {
 		keys = "{left}/{right} tab · {next} next · {prev} rows · {up}/{down} move · {pageup}/{pagedown} scroll · {enter} edit · {back} rows · {command} cmds · {help} help · {quit} quit"
 	case m.detailFocused():
 		keys = "{left}/{right} tab · {next} next · {prev} rows · {up}/{down} move · {enter} edit · {back} rows · {command} cmds · {help} help · {quit} quit"
+	case m.section == sectionApprovals && m.requestRowSelected():
+		keys = "{enter} decide · " + back + " · {command} cmds · {help} help · {quit} quit"
 	case m.section == sectionApprovals && m.vaultLocked():
 		keys = "{enter} unlock · " + back + " · {command} cmds · {help} help · {quit} quit"
 	case m.section == sectionApprovals:
@@ -4503,6 +4538,9 @@ func (m *Model) listFrame() (string, string) {
 			}
 		}
 		foot = m.testLine() + idle.String() + foot
+	}
+	if m.section == sectionApprovals {
+		foot = m.requestsNote(total) + foot
 	}
 	if m.noticeAt >= 0 {
 		m.noticeAt += strings.Count(foot, "\n") - lines
@@ -4905,6 +4943,9 @@ type nextStepItem struct {
 // without a passphrase, then the connection setup or its test.
 func (m *Model) nextSteps() []nextStepItem {
 	var steps []nextStepItem
+	if n := len(m.requests); n > 0 {
+		steps = append(steps, nextStepItem{tr(tStepRequests, n, sectionApprovals.ref()), sectionApprovals})
+	}
 	if m.hasOpenApprovals() {
 		steps = append(steps, nextStepItem{tr(tStepOpen, sectionApprovals.ref()), sectionApprovals})
 	}
@@ -5110,9 +5151,10 @@ var sectionColumns = map[section][]column{
 		{title: "SERVICE", tone: toneText}, {title: "EFFECTS", optional: true, tone: toneDim},
 		{title: "TOOLS", optional: true, tone: toneDim}, {title: "TARGETS", optional: true, tone: toneDim},
 		{title: "DESCRIPTION", flex: true, tone: toneText}},
-	sectionDefaults:  {{title: "PROVIDER OR TOOL", tone: toneText}, {title: "CONNECTION", tone: toneText}},
-	sectionApprovals: {{title: "CONNECTION", tone: toneText}, {title: "CHANGE", flex: true, tone: toneText}},
-	sectionTokens:    {{title: "NAME", tone: toneText}, {title: "EXPIRES", tone: toneDim}, {title: "MODELS", flex: true, tone: toneText}},
+	sectionDefaults: {{title: "PROVIDER OR TOOL", tone: toneText}, {title: "CONNECTION", tone: toneText}},
+	sectionApprovals: {{title: "CONNECTION", tone: toneText}, {title: "KIND", tone: toneDim},
+		{title: "CHANGE", flex: true, tone: toneText}},
+	sectionTokens: {{title: "NAME", tone: toneText}, {title: "EXPIRES", tone: toneDim}, {title: "MODELS", flex: true, tone: toneText}},
 }
 
 // connectionStateTone colours the state of a connection: active green, expired red, anything else (disabled)
@@ -5236,13 +5278,16 @@ func (m *Model) cells(name string) []string {
 	case sectionDefaults:
 		return []string{name, m.cfg.Defaults.Connections[name]}
 	case sectionApprovals:
+		if id, ok := requestIDOf(name); ok {
+			return m.requestCells(id)
+		}
 		report, _ := m.approvalsReport()
 		for _, c := range report.Open {
 			if c.Connection == name {
-				return []string{name, approvalSummary(c)}
+				return []string{name, tr(tApprovalKindCell), approvalSummary(c)}
 			}
 		}
-		return []string{name, ""}
+		return []string{name, tr(tApprovalKindCell), ""}
 	case sectionTokens:
 		return m.tokenCells(name)
 	}
@@ -5356,6 +5401,8 @@ func (m *Model) confirmView() string {
 		return m.migratePlanView()
 	case m.migrateDeleteConfirm:
 		return m.migrateResultView()
+	case m.requestDetail != "":
+		return m.requestDetailView()
 	case m.approvalDetail != "":
 		return m.approvalDetailView()
 	case m.approveAllConfirm:

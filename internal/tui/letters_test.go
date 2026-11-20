@@ -54,6 +54,7 @@ func TestLetterActionsAreTheAgreedLetters(t *testing.T) {
 		"g": actSetup, "c": actCopy, "n": actNew, "A": actApproveAll, "e": actEdit, "r": actRename, "d": actDelete,
 		"V": actReveal, "s": actSummary, "f": actFilter, "B": actRevert, "i": actInfo, "M": actSessions, "o": actLogs,
 		"p": actDuplicate, "q": actQuit, "t": actTest, "U": actUpdate, "W": actWrite,
+		"x": actDecline, "b": actBlock, "a": actTickAll,
 	}
 	got := map[string]action{}
 	for _, d := range keyTable {
@@ -77,7 +78,7 @@ var helpWording = map[string]string{
 	"g": "g starts", "n": "n creates", "e": "e edits", "r": "r renames", "d": "d deletes", "p": "p duplicates",
 	"t": "t tests", "U": "U installs", "A": "A approves", "V": "V shows or hides", "s": "s shows", "f": "f opens the filter",
 	"M": "M shows the MCP sessions", "o": "o opens", "W": "W saves", "B": "B puts", "i": "i opens", "q": "q quits",
-	"c": "c hands", "y": "y confirms", "h": "h, j, k, and l", "j": "h, j, k, and l", "k": "h, j, k, and l", "l": "h, j, k, and l",
+	"c": "c hands", "x": "x declines", "b": "b blocks", "a": "a ticks", "y": "y confirms", "h": "h, j, k, and l", "j": "h, j, k, and l", "k": "h, j, k, and l", "l": "h, j, k, and l",
 }
 
 func TestHelpNamesEveryLetterOfTheTable(t *testing.T) {

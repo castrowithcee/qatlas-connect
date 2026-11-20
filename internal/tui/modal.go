@@ -25,7 +25,7 @@ func (m *Model) questionScreen() bool {
 	case screenRename:
 		return m.rename != nil && m.rename.plan != nil
 	case screenConfirm:
-		return m.approvalDetail == "" && m.tokenDetail == ""
+		return m.approvalDetail == "" && m.tokenDetail == "" && m.requestDetail == ""
 	}
 	return false
 }

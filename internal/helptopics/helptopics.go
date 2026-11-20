@@ -96,6 +96,7 @@ Every other letter means one thing on every screen without a text line, and none
 - t tests a connection.
 - U installs an update.
 - A approves everything open in Approvals.
+- On the detail of a tool request in Approvals, a ticks all tools or none, x declines the ticked tools, b blocks them, and y accepts them; space ticks one tool or a whole group.
 - V shows or hides a token's value in its detail.
 - s shows the summary of the Logs.
 - f opens the filter of the Logs.

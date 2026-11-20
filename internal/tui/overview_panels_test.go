@@ -125,11 +125,11 @@ func TestOverviewAtTheSmallestSize(t *testing.T) {
 	view := m.render()
 	assertViewFits(t, ansi.Strip(view), minimumWidth, minimumHeight)
 	_, items, _ := m.overviewLines()
-	// The five counts and the one next step that the height leaves room for.
-	if len(items) != 6 {
-		t.Fatalf("%d selectable items, want the 5 counts and a step:\n%s", len(items), ansi.Strip(view))
+	// The six counts and the one next step that the height leaves room for.
+	if len(items) != 7 {
+		t.Fatalf("%d selectable items, want the 6 counts and a step:\n%s", len(items), ansi.Strip(view))
 	}
-	for _, label := range []string{"Connections", "Services", "Credentials", "Tokens", "Approvals"} {
+	for _, label := range []string{"Connections", "Services", "Credentials", "Tokens", "Requests", "Approvals"} {
 		if !strings.Contains(view, label) {
 			t.Errorf("the smallest Overview lacks %q:\n%s", label, ansi.Strip(view))
 		}
