@@ -237,3 +237,29 @@ func TestTUIUpdaterIsGated(t *testing.T) {
 		t.Errorf("%s=1 still got an updater", noUpdateCheck)
 	}
 }
+
+// The guides teach asking for a tool as a request that ends the agent's own attempt: stop and tell the user,
+// and never edit the configuration or ask again after a block.
+func TestGuidesTeachTheRequestWay(t *testing.T) {
+	agents := topicText(t, "agents")
+	_, rest, found := strings.Cut(agents, "Ask for a tool that no connection offers.")
+	section, _, ended := strings.Cut(rest, "Errors go to stderr")
+	if !found || !ended {
+		t.Fatal("the agents topic has no section on asking for tools")
+	}
+	for _, want := range []string{"qconnect request", "requestable_on", "--reason", "request-blocked", "stop", "tell the user"} {
+		if !strings.Contains(section, want) {
+			t.Errorf("the request section does not say %q", want)
+		}
+	}
+	for name, text := range map[string]string{"agents request section": section, "mcp guide": helptopics.MCP().Text} {
+		if strings.Contains(text, "config.yaml") || strings.Contains(text, "edit ") {
+			t.Errorf("the %s sends an agent to the configuration file", name)
+		}
+	}
+	for _, want := range []string{"qconnect.request", "request-blocked", "stop"} {
+		if !strings.Contains(helptopics.MCP().Text, want) {
+			t.Errorf("the MCP guide does not say %q", want)
+		}
+	}
+}
