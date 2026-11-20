@@ -168,7 +168,10 @@ type SearchRequest struct {
 // tool that needs confirmation. Connections names, separated by spaces, the connections that offer the tool
 // only where they differ from those the answer names once at its top. Reason is set only by a request with
 // All, on a tool the request's connections do not offer; a tool with a reason and no connections is offered
-// by none. The JSON encoding leaves out the empty fields of each entry.
+// by none. RequestableOn is the connection to ask for such a tool: with a connection filter that connection,
+// otherwise the first connection of the tool's provider, in the order of 'qconnect connections', where the
+// request check accepts the tool; it is absent where none does, also for a blocked tool. The JSON encoding
+// leaves out the empty fields of each entry.
 type SearchHit struct {
 	ID          string            `json:"id"`
 	Title       string            `json:"title"`
@@ -178,6 +181,8 @@ type SearchHit struct {
 	Confirm     bool              `json:"confirm"`
 	Connections string            `json:"connections"`
 	Reason      config.Refusal    `json:"reason"`
+	// RequestableOn is the connection a request for the tool can name, set only on a tool with a reason.
+	RequestableOn string `json:"requestable_on"`
 }
 
 // Hits is the list of entries of a discovery answer. Each entry marshals only its non-empty fields (id,
@@ -196,8 +201,9 @@ type tableHits Hits
 func (h tableHits) MarshalJSON() ([]byte, error) { return marshalHits(Hits(h), true) }
 
 func marshalHits(h Hits, common bool) ([]byte, error) {
-	var requires, target, confirm, connections, reason bool
+	var requires, target, confirm, connections, reason, requestable bool
 	for _, hit := range h {
+		requestable = requestable || hit.RequestableOn != ""
 		requires = requires || hit.Requires != ""
 		target = target || hit.Target != ""
 		confirm = confirm || hit.Confirm
@@ -220,6 +226,7 @@ func marshalHits(h Hits, common bool) ([]byte, error) {
 			{"confirm", confirm && (common || hit.Confirm), hit.Confirm},
 			{"connections", connections && (common || hit.Connections != ""), hit.Connections},
 			{"reason", reason && (common || hit.Reason != ""), hit.Reason},
+			{"requestable_on", requestable && (common || hit.RequestableOn != ""), hit.RequestableOn},
 		}
 		out = append(out, '{')
 		first := true
@@ -391,6 +398,7 @@ func (c *Core) Search(request SearchRequest) (SearchResponse, error) {
 // tool is offered by none.
 func (c *Core) hits(request SearchRequest, descriptors []capability.Descriptor) ([]string, Hits) {
 	hits := make(Hits, 0, len(descriptors))
+	var requestable func(string, config.ToolMetadata) bool
 	offered := make([][]string, 0, len(descriptors))
 	var connections []string
 	seen := map[string]bool{}
@@ -414,6 +422,12 @@ func (c *Core) hits(request SearchRequest, descriptors []capability.Descriptor) 
 			Confirm:  descriptor.Risk.Confirmation == capability.ConfirmationRequired,
 			Reason:   c.refusal(request, descriptor),
 		})
+		if last := &hits[len(hits)-1]; request.All && last.Reason != "" {
+			if requestable == nil {
+				requestable = c.requestEnv().Requestable()
+			}
+			last.RequestableOn = c.requestableOn(request, descriptor, requestable)
+		}
 	}
 	sort.Strings(connections)
 	for i := range hits {
@@ -423,6 +437,22 @@ func (c *Core) hits(request SearchRequest, descriptors []capability.Descriptor) 
 		hits[i].Connections = strings.Join(offered[i], " ")
 	}
 	return connections, hits
+}
+
+// requestableOn names the connection a request for the tool can name: the filtered one, or else the first
+// of the provider's connections in this project, by name, that the request check accepts it on.
+func (c *Core) requestableOn(request SearchRequest, d capability.Descriptor,
+	requestable func(string, config.ToolMetadata) bool) string {
+	names := c.connectionNames(d.Provider)
+	if request.Connection != "" {
+		names = []string{request.Connection}
+	}
+	for _, name := range names {
+		if requestable(name, d.Tool()) {
+			return name
+		}
+	}
+	return ""
 }
 
 // openTargets names the target arguments of d, each as name:form, that at least one of the connections
@@ -1030,6 +1060,9 @@ func (r DescribeResponse) Compact() CompactDescribeResponse {
 // Describe returns one registered descriptor without contacting a provider.
 func (c *Core) Describe(request DescribeRequest) (DescribeResponse, error) {
 	c.scope()
+	if request.Operation == OperationRequest {
+		return c.describeRequest(request)
+	}
 	descriptor, _, err := c.operation(request.Operation, request.Version)
 	if err != nil {
 		return DescribeResponse{}, err
@@ -1084,6 +1117,10 @@ type InvokeResponse struct {
 // SetInvokeLog: descriptor and resolved are declared here, before any early return, exactly so the deferred
 // call below can still log the operation ID and the connection an earlier failure never reached.
 func (c *Core) Invoke(ctx context.Context, request InvokeRequest) (response InvokeResponse, err error) {
+	if request.Operation == OperationRequest {
+		// Not a tool: it writes the entries of the request queue, never an invoke entry.
+		return c.invokeRequest(request)
+	}
 	start := time.Now()
 	// Measured before an empty argument object is filled in below, so the log counts what the caller sent.
 	reqBytes := int64(len(request.Arguments))
