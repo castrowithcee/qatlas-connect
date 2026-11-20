@@ -12,6 +12,7 @@ package googlemerchant
 
 import (
 	"context"
+	"maps"
 	"net/url"
 
 	"github.com/castrowithcee/qatlas-connect/internal/capability"
@@ -92,6 +93,9 @@ func TestConnection(ctx context.Context, resolved *config.Resolved, secrets *sec
 func Register(reg *capability.Registry) error {
 	var readIDs []string
 	for _, d := range descriptors() {
+		if d.Risk.Effect != capability.EffectRead {
+			continue
+		}
 		readIDs = append(readIDs, d.ID)
 	}
 	if err := reg.RegisterProvider(config.ProviderMetadata{
@@ -127,8 +131,11 @@ func Register(reg *capability.Registry) error {
 		accountsListID: handleAccountsList, accountsGetID: handleAccountsGet,
 		developerRegistrationsGetID: handleDeveloperRegistrationsGet,
 	}
+	maps.Copy(handlers, returnPolicyHandlers())
+	summaries := returnPolicySummaries()
 	for _, d := range descriptors() {
-		if err := reg.Register(Provider, capability.Operation{Descriptor: d, Handler: handlers[d.ID]}); err != nil {
+		if err := reg.Register(Provider, capability.Operation{Descriptor: d, Handler: handlers[d.ID],
+			ConfirmationSummary: summaries[d.ID]}); err != nil {
 			return err
 		}
 	}
