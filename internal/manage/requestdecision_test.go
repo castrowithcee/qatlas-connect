@@ -541,3 +541,16 @@ func TestQueueFailureAfterTheSaveIsAWarningAndTheRequestHealsOnOpen(t *testing.T
 		t.Errorf("open = %+v, want the accepted request pruned", open)
 	}
 }
+
+func TestAcceptOnAToolsListRefusesAMode(t *testing.T) {
+	w := newDecisionWorld(t, false)
+	id := w.request("listed", "wiki.pages.update")
+	before := w.load()
+	var de *RequestDecisionError
+	if _, err := w.decide(id, RequestAccept, AcceptAddEffects); !errors.As(err, &de) || de.Code != RequestCodeInvalid {
+		t.Fatalf("a mode on a tools list = %v, want invalid-request", err)
+	}
+	if !reflect.DeepEqual(w.load(), before) || len(w.open()) != 1 {
+		t.Error("a refused decision changed something")
+	}
+}

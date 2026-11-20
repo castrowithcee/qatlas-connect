@@ -487,6 +487,10 @@ func (s *Service) DecideRequest(ctx context.Context, proof AdminProof, in Reques
 	if len(d.selected) > 0 {
 		switch in.Action {
 		case RequestAccept:
+			if in.Mode != "" && d.cfg.Connections[d.name].Tools != nil {
+				return RequestDecisionResult{}, decisionError(RequestCodeInvalid,
+					"this connection offers a tools list, so accepting needs no choice between adding effects and a list")
+			}
 			plan := d.planAccept()
 			switch {
 			case d.cfg.Connections[d.name].Tools != nil:

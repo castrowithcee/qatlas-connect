@@ -5,8 +5,8 @@ import (
 	"github.com/castrowithcee/qatlas-connect/internal/capability"
 )
 
-// NewRequestSource opens the request queue beside the configuration file at configPath and lists every tool
-// that reg registers, which is what listing and deciding requests need besides the configuration.
+// NewRequestSource returns the source of the open requests that belong to the configuration file at
+// configPath: its queue file and every tool the registry holds. Surfaces pass it to Service.WithRequests.
 func NewRequestSource(configPath string, reg *capability.Registry) (RequestSource, error) {
 	queue, err := accessrequest.NewQueue(accessrequest.PathFor(configPath))
 	if err != nil {
