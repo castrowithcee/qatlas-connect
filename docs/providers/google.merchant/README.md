@@ -1,23 +1,28 @@
 ---
 description: >
-  Describes the Google Merchant provider: the token credential and its procedures, the single scope, the fixed API origin, the advanced-account and account targets and how an account is proven to belong to one, the tools for accounts and the developer registration, quotas, result bounds, the connection test, error classes, and the limits of what is verified.
+  Describes the Google Merchant provider: the token credential and its procedures, the single scope, the fixed API origin, the advanced-account and account targets and how an account is proven to belong to one, the tools for accounts and the developer registration with a pointer to the pages of further tool groups, quotas, result bounds, the connection test, error classes, and the limits of what is verified.
 type: knowledge
 edit: shared
 created: 2026-11-19
-updated: 2026-11-19
+updated: 2026-11-20
 ---
 
 # Google Merchant
 
-Google Merchant is a provider for the Merchant API v1 of Google Merchant Center. It offers three read tools: the
-accounts an account holder can reach and the developer registration of an account. [Set up Google
-Merchant](setup.md) leads through the Google side, the developer registration, and the consent.
+Google Merchant is a provider for the Merchant API v1 of Google Merchant Center. It offers seven read tools: the
+accounts an account holder can reach, the developer registration of an account, reports, and the quotas and limits of
+an account. [Set up Google Merchant](setup.md) leads through the Google side, the developer registration, and the
+consent. [Reports, quotas, and limits](reports.md) describes the last four tools.
 
 | Tool | What it reads |
 | --- | --- |
 | `google.merchant.accounts.list` | the accounts the credential can access, with an optional Google filter |
 | `google.merchant.accounts.get` | one account |
 | `google.merchant.developer-registrations.get` | the Google Cloud projects registered as developers with an account |
+| `google.merchant.reports.search` | one report of an account, from a structured query, see [reports](reports.md) |
+| `google.merchant.quotas.list` | the API quota groups of an account, see [reports](reports.md#quotas-and-limits) |
+| `google.merchant.limits.list` | the limits of an account, see [reports](reports.md#quotas-and-limits) |
+| `google.merchant.limits.get` | one limit of an account, see [reports](reports.md#quotas-and-limits) |
 
 Every tool is a read and needs no confirmation. The account resource has the members `name`, `accountId`,
 `accountName`, `testAccount`, `adultContent`, `languageCode`, `homePageUri`, and `timeZone` (`id`, `version`);
@@ -47,7 +52,7 @@ service account in Merchant Center. A token without the scope ends a tool as `sc
 contacted; a new consent adds it. A credential serves this provider only, so its token never carries scopes of
 another Google product.
 
-The profile `read` is the recommended one and holds all three tools. A connection without a `tools` list
+The profile `read` is the recommended one and holds all seven tools. A connection without a `tools` list
 offers them by its effects, and `read` is the default effect.
 
 ## Targets
