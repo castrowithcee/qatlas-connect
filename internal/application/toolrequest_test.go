@@ -7,6 +7,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -95,7 +96,7 @@ func TestRequestToolsStoresAndLogsOneEntryPerTool(t *testing.T) {
 		t.Fatalf("response = %+v", response)
 	}
 	info, err := os.Stat(queue.Path())
-	if err != nil || info.Mode().Perm() != 0o600 || filepath.Dir(queue.Path()) != dir {
+	if err != nil || (runtime.GOOS != "windows" && info.Mode().Perm() != 0o600) || filepath.Dir(queue.Path()) != dir {
 		t.Fatalf("queue file = %v, %v", info, err)
 	}
 	entries := logEntries(t, dir)
