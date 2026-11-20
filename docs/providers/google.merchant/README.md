@@ -9,15 +9,20 @@ updated: 2026-11-19
 
 # Google Merchant
 
-Google Merchant is a provider for the Merchant API v1 of Google Merchant Center. It offers three read tools: the
-accounts an account holder can reach and the developer registration of an account. [Set up Google
-Merchant](setup.md) leads through the Google side, the developer registration, and the consent.
+Google Merchant is a provider for the Merchant API v1 of Google Merchant Center. It offers read tools for the
+accounts an account holder can reach, the developer registration of an account, and the rendered issues of an account
+or a product. [Set up Google Merchant](setup.md) leads through the Google side, the developer registration, and the consent.
 
 | Tool | What it reads |
 | --- | --- |
 | `google.merchant.accounts.list` | the accounts the credential can access, with an optional Google filter |
 | `google.merchant.accounts.get` | one account |
 | `google.merchant.developer-registrations.get` | the Google Cloud projects registered as developers with an account |
+| `google.merchant.issue-resolutions.render-account-issues` | the issues of an account with resolution content and actions, as text |
+| `google.merchant.issue-resolutions.render-product-issues` | the issues of one product with resolution content and actions, as text |
+
+The render tools are described in [issue rendering](issue-resolutions.md); they are reads although Google takes them
+as `POST`.
 
 Every tool is a read and needs no confirmation. The account resource has the members `name`, `accountId`,
 `accountName`, `testAccount`, `adultContent`, `languageCode`, `homePageUri`, and `timeZone` (`id`, `version`);
@@ -47,7 +52,7 @@ service account in Merchant Center. A token without the scope ends a tool as `sc
 contacted; a new consent adds it. A credential serves this provider only, so its token never carries scopes of
 another Google product.
 
-The profile `read` is the recommended one and holds all three tools. A connection without a `tools` list
+The profile `read` is the recommended one and holds all read tools. A connection without a `tools` list
 offers them by its effects, and `read` is the default effect.
 
 ## Targets

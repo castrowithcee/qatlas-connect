@@ -18,6 +18,8 @@ var wantToolIDs = []string{
 	"google.merchant.accounts.get",
 	"google.merchant.accounts.list",
 	"google.merchant.developer-registrations.get",
+	"google.merchant.issue-resolutions.render-account-issues",
+	"google.merchant.issue-resolutions.render-product-issues",
 }
 
 func TestRegisterDeclaresTokenScopeTargetsAndFixedToolIDs(t *testing.T) {
