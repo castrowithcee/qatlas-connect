@@ -50,6 +50,7 @@ type Service struct {
 	processOK bool
 	targets   TargetSource
 	consent   ConsentSource
+	requests  RequestSource
 	// consentTimeout is how long a consent start waits; zero is ConsentTimeout.
 	consentTimeout time.Duration
 	// explicitConfig is the --config value, empty where the configuration is resolved from the default
