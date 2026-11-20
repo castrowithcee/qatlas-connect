@@ -17,6 +17,10 @@ import (
 var wantToolIDs = []string{
 	"google.merchant.accounts.get",
 	"google.merchant.accounts.list",
+	"google.merchant.autofeed-settings.get",
+	"google.merchant.autofeed-settings.update",
+	"google.merchant.automatic-improvements.get",
+	"google.merchant.automatic-improvements.update",
 	"google.merchant.developer-registrations.get",
 }
 
@@ -35,6 +39,9 @@ func TestRegisterDeclaresTokenScopeTargetsAndFixedToolIDs(t *testing.T) {
 		if scopes := metadata.Token.Scopes[d.ID]; len(scopes) != 1 || scopes[0] != contentScope {
 			t.Errorf("%s scopes = %v, want only %s", d.ID, scopes, contentScope)
 		}
+		if d.Risk.Effect != capability.EffectRead {
+			continue
+		}
 		if d.Version != 1 || d.Risk.Effect != capability.EffectRead || d.Risk.Idempotency != capability.IdempotencySafe ||
 			d.Risk.Confirmation != capability.ConfirmationNone || !d.Risk.OpenWorld || d.Risk.DataSensitivity == "" {
 			t.Errorf("%s version or risk = %d, %+v", d.ID, d.Version, d.Risk)
@@ -51,7 +58,13 @@ func TestRegisterDeclaresTokenScopeTargetsAndFixedToolIDs(t *testing.T) {
 	if !ok || oauth.TokenURL != googleapi.OAuth.TokenURL || oauth.Params["access_type"] != "offline" {
 		t.Errorf("OAuth = %+v, %v", oauth, ok)
 	}
-	if len(metadata.Profiles) != 1 || metadata.Profiles[0].ID != "read" || len(metadata.Profiles[0].Tools) != len(wantToolIDs) {
+	readTools := 0
+	for _, d := range descriptors() {
+		if d.Risk.Effect == capability.EffectRead {
+			readTools++
+		}
+	}
+	if len(metadata.Profiles) != 1 || metadata.Profiles[0].ID != "read" || len(metadata.Profiles[0].Tools) != readTools {
 		t.Errorf("profiles = %+v", metadata.Profiles)
 	}
 	if err := metadata.Target.ValidateKindParents(); err != nil {
@@ -505,7 +518,8 @@ func TestEveryToolCarriesExamplesFieldsAndAnUntrustedContentNote(t *testing.T) {
 		if len(d.Examples) == 0 || len(d.Fields) == 0 {
 			t.Errorf("%s has no example or no fields", d.ID)
 		}
-		if !strings.Contains(d.Description, "untrusted") && d.ID != developerRegistrationsGetID {
+		if !strings.Contains(d.Description, "untrusted") && d.ID != developerRegistrationsGetID &&
+			!slices.Contains(flagOnlyIDs, d.ID) {
 			t.Errorf("%s does not warn about untrusted content", d.ID)
 		}
 	}

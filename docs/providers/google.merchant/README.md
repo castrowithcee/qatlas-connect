@@ -1,6 +1,6 @@
 ---
 description: >
-  Describes the Google Merchant provider: the token credential and its procedures, the single scope, the fixed API origin, the advanced-account and account targets and how an account is proven to belong to one, the tools for accounts and the developer registration, quotas, result bounds, the connection test, error classes, and the limits of what is verified.
+  Describes the Google Merchant provider: the token credential and its procedures, the single scope, the fixed API origin, the advanced-account and account targets and how an account is proven to belong to one, the tools for accounts, the developer registration, and the autofeed and automatic improvements settings, quotas, result bounds, the connection test, error classes, and the limits of what is verified.
 type: knowledge
 edit: shared
 created: 2026-11-19
@@ -9,8 +9,9 @@ updated: 2026-11-19
 
 # Google Merchant
 
-Google Merchant is a provider for the Merchant API v1 of Google Merchant Center. It offers three read tools: the
-accounts an account holder can reach and the developer registration of an account. [Set up Google
+Google Merchant is a provider for the Merchant API v1 of Google Merchant Center. It reads the accounts an account
+holder can reach, the developer registration of an account, and the autofeed and automatic improvements settings of
+an account, and it changes those two settings. [Set up Google
 Merchant](setup.md) leads through the Google side, the developer registration, and the consent.
 
 | Tool | What it reads |
@@ -18,8 +19,13 @@ Merchant](setup.md) leads through the Google side, the developer registration, a
 | `google.merchant.accounts.list` | the accounts the credential can access, with an optional Google filter |
 | `google.merchant.accounts.get` | one account |
 | `google.merchant.developer-registrations.get` | the Google Cloud projects registered as developers with an account |
+| `google.merchant.autofeed-settings.get` | whether the autofeed of an account is on and whether the account is eligible |
+| `google.merchant.automatic-improvements.get` | the automatic item updates, image improvements, and shipping improvements of an account |
+| `google.merchant.autofeed-settings.update` | turns the autofeed of an account on or off (update, listed tools only) |
+| `google.merchant.automatic-improvements.update` | changes the automatic improvements of an account (update, listed tools only) |
 
-Every tool is a read and needs no confirmation. The account resource has the members `name`, `accountId`,
+The two updates are described in [Autofeed and automatic improvements](autofeed.md). Every other tool is a read and
+needs no confirmation. The account resource has the members `name`, `accountId`,
 `accountName`, `testAccount`, `adultContent`, `languageCode`, `homePageUri`, and `timeZone` (`id`, `version`);
 all are output. It has no member for the account type, so Qatlas shows none: an advanced account is
 recognised only by its sub-accounts, which a target proves.
@@ -47,8 +53,9 @@ service account in Merchant Center. A token without the scope ends a tool as `sc
 contacted; a new consent adds it. A credential serves this provider only, so its token never carries scopes of
 another Google product.
 
-The profile `read` is the recommended one and holds all three tools. A connection without a `tools` list
-offers them by its effects, and `read` is the default effect.
+The profile `read` is the recommended one and holds all read tools. A connection without a `tools` list
+offers them by its effects, and `read` is the default effect. The updates are in no profile: only a connection whose
+`tools` list names them offers them.
 
 ## Targets
 
@@ -146,7 +153,7 @@ reason of each detail. The answers of the token endpoints keep only their status
 
 | Answer | Class |
 | --- | --- |
-| 401 | `auth`, after the token was renewed once and the read was sent once more |
+| 401 | `auth`, after the token was renewed once and the read was sent once more; an update is never sent again |
 | 403 | `permission`: no access to the account, a missing role, the API not enabled, or an unregistered Cloud project; a `403` renews nothing |
 | 404 | `not-found` |
 | 429 | `rate-limited`; the reason `QUOTA_REQUEST_RATE_TOO_HIGH` names the per-minute limit and `QUOTA_TOO_MANY_REQUESTS` the daily one |
@@ -176,6 +183,9 @@ Not verified:
   is enough for these tools; Google names only the role Admin for some methods.
 - Whether Merchant Center accepts an impersonated service account as a user.
 - Whether the scope `content` needs an app verification for an OAuth client of your own project.
+
+Updates are sent once, with a JSON body built from the structured arguments. They are not repeated after `401`,
+`429`, or `5xx`, because Google may already have applied them, and every call counts against the quota.
 
 No tool of this provider invites a user, registers or unregisters a Cloud project, links an account to another
 one, sets a notification address, or accepts terms for an account. Merchant API methods for local feed
