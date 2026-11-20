@@ -31,9 +31,9 @@ func newTUICommand(opts *Options, reg *capability.Registry, buildVersion string)
 	return &cobra.Command{
 		Use:   "tui",
 		Short: "Set up connections and edit the configuration in a terminal interface",
-		Long: "The editor is one screen: a tab line with the six areas 1 Overview, 2 Connections, 3 Activity,\n" +
-			"4 Access, 5 Library, and 6 Settings, below it, for an area with several parts, an option bar\n" +
-			"(Access: Tokens, Approvals; Library: Services, Credentials; Settings: General, then after a bar\n" +
+		Long: "The editor is one screen: a tab line with the six areas 1 Overview, 2 Library, 3 Connections,\n" +
+			"4 Activity, 5 Access, and 6 Settings, below it, for an area with several parts, an option bar\n" +
+			"(Library: Services, Credentials; Access: Tokens, Approvals; Settings: General, then after a bar\n" +
 			"Vault, Defaults, Transfer, Update, Self-test), and below that the workspace with the list, form,\n" +
 			"or setup step of the active part. The tab line has the same place at every width; the active\n" +
 			"area and part are a filled area, in brackets only without colour, and a terminal too narrow for\n" +
@@ -126,7 +126,7 @@ func newTUICommand(opts *Options, reg *capability.Registry, buildVersion string)
 			"forward row, opened with enter to tick any number of existing payload secrets. While the vault\n" +
 			"is encrypted, forward_secrets and the fields of the listed payload secrets are part of the\n" +
 			"connection's approval, and a change is never approved by saving: the connection stays open until\n" +
-			"it is approved in Access > Approvals (4). Without an encrypted vault, and for a connection whose own\n" +
+			"it is approved in Access > Approvals (5). Without an encrypted vault, and for a connection whose own\n" +
 			"credential is not in it, no approval binds the release and only the forward_secrets list in the\n" +
 			"configuration limits it; the forms say so.\n\n" +
 			"While the vault is encrypted, the editor opens read-only: saving a form, deleting an entry,\n" +
@@ -212,18 +212,18 @@ func newTUICommand(opts *Options, reg *capability.Registry, buildVersion string)
 			"Saving a change while the vault is encrypted approves it automatically, without an extra\n" +
 			"step: the connection saved directly, in its own form or by the guided setup, and any other\n" +
 			"connection whose scope changed because of that same save, such as one sharing a service\n" +
-			"whose base_url just changed. Approvals (4, second part of Access) lists every connection still open otherwise, with\n" +
+			"whose base_url just changed. Approvals (5, second part of Access) lists every connection still open otherwise, with\n" +
 			"what changed since it was last approved: enter opens its detail to approve it alone, and a\n" +
 			"on the list approves every one currently open, asking to confirm the count first. While the\n" +
 			"vault is unencrypted or locked, the section says so instead of a list.\n\n" +
-			"Tokens (4, first part of Access) lists the agent tokens of an encrypted vault with their model connections and expiry,\n" +
+			"Tokens (5, first part of Access) lists the agent tokens of an encrypted vault with their model connections and expiry,\n" +
 			"and marks an expired token, or a model that covers nothing now, with ⚠ and words behind its\n" +
 			"name. Every action on a token needs the admin session above: n creates one from a name, one or\n" +
 			"more connections that read a vault credential, ticked in a picker, and an optional expiry\n" +
 			"(YYYY-MM-DD or an RFC 3339 time), like 'qconnect vault token create'; enter opens its detail, where\n" +
 			"s shows its value and hides it again, only there and only while the session lasts; d revokes it\n" +
 			"after asking, y confirms and n or esc keeps it. While the vault is unencrypted or locked, the section says so instead of a list.\n\n" +
-			"Activity (3) shows the invocation log, read only, the same log 'qconnect vault logs verify' checks. The\n" +
+			"Activity (4) shows the invocation log, read only, the same log 'qconnect vault logs verify' checks. The\n" +
 			"bar on top reads Mode: Day, Range, or All and, for the first two, the date or the range of UTC\n" +
 			"days: tab moves the focus from the rows to the bar's fields and back, left/right change the\n" +
 			"mode, and enter or left/right on the date open a small dialog that takes one date, or from and\n" +
