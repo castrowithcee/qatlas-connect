@@ -40,6 +40,8 @@ var wantToolIDs = []string{
 	"google.merchant.conversion-sources.list",
 	"google.merchant.conversion-sources.update",
 	"google.merchant.developer-registrations.get",
+	"google.merchant.email-preferences.get",
+	"google.merchant.email-preferences.update",
 	"google.merchant.gbp-accounts.list",
 	"google.merchant.homepages.claim",
 	"google.merchant.homepages.get",
