@@ -459,3 +459,130 @@ func TestConversionToolsAreOfferedByEffectOnAConnection(t *testing.T) {
 		t.Errorf("effects = %v", effects)
 	}
 }
+
+func TestConversionRemovalToolsAreListedOnlyConfirmedAndOutsideTheProfile(t *testing.T) {
+	reg := capability.NewRegistry()
+	if err := Register(reg); err != nil {
+		t.Fatal(err)
+	}
+	metadata, _ := reg.ProviderMetadata(Provider)
+	for id, effect := range map[string]capability.Effect{conversionSourcesUndeleteID: capability.EffectUpdate,
+		conversionSourcesDeleteID: capability.EffectDelete} {
+		d, _, ok := reg.Lookup(id)
+		if !ok || !d.RequiresToolAllowList || d.Version != 1 || d.Risk.Effect != effect ||
+			d.Risk.Confirmation != capability.ConfirmationRequired || !d.Risk.OpenWorld {
+			t.Errorf("%s = %+v", id, d)
+		}
+		if slices.Contains(metadata.Profiles[0].Tools, id) {
+			t.Errorf("the read profile holds %s", id)
+		}
+		if reg.ConfirmationSummary(id) == nil {
+			t.Errorf("%s has no confirmation summary", id)
+		}
+	}
+	del := conversionDescriptor(conversionSourcesDeleteID).Description
+	for _, word := range []string{"archived", "30 days", "immediately", "delay"} {
+		if !strings.Contains(del, word) {
+			t.Errorf("delete description lacks %q", word)
+		}
+	}
+	if !strings.Contains(conversionDescriptor(conversionSourcesUndeleteID).Description, "only for a source of the type Merchant Center destination") {
+		t.Error("undelete does not name the destination limit")
+	}
+	got := conversionDeleteSummary([]byte(`{"account":"7","conversion_source":"galk:9"}`))
+	for _, want := range []string{"galk:9", "7", "archived", "30 days", "immediately"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("delete summary %q lacks %q", got, want)
+		}
+	}
+	got = conversionUndeleteSummary([]byte(`{"account":"7","conversion_source":"mcdn:1"}`))
+	if !strings.Contains(got, "only for Merchant Center destinations") {
+		t.Errorf("undelete summary %q", got)
+	}
+}
+
+func TestConversionSourcesUndeleteAndDeleteSendOneRequest(t *testing.T) {
+	h := newHarness(t)
+	h.google.api = func(*http.Request) (int, string, http.Header) {
+		return 200, `{"name":"accounts/7/conversionSources/mcdn:123","state":"ACTIVE","extra":1}`, nil
+	}
+	out, err := h.call(t, handleConversionSourcesUndelete, `{"account":"7","conversion_source":"mcdn:123"}`)
+	if err != nil || out["accepted"] != true || out["state"] != "ACTIVE" || out["extra"] != nil {
+		t.Fatalf("out = %v, %v", out, err)
+	}
+	got := h.conversionRequests(t)
+	if len(got) != 1 || got[0].method != http.MethodPost || got[0].body != "" ||
+		got[0].path != "/conversions/v1/accounts/7/conversionSources/mcdn:123:undelete" {
+		t.Errorf("sent = %+v", got)
+	}
+	for _, src := range []string{"mcdn:123", "galk:9"} {
+		h = newHarness(t)
+		h.google.api = func(*http.Request) (int, string, http.Header) { return 200, `{}`, nil }
+		out, err = h.call(t, handleConversionSourcesDelete, `{"account":"7","conversion_source":"`+src+`"}`)
+		if err != nil || out["deleted"] != true || out["conversion_source"] != src || out["account"] != "7" {
+			t.Fatalf("out = %v, %v", out, err)
+		}
+		got = h.conversionRequests(t)
+		if len(got) != 1 || got[0].method != http.MethodDelete || got[0].body != "" ||
+			got[0].path != "/conversions/v1/accounts/7/conversionSources/"+src {
+			t.Errorf("sent = %+v", got)
+		}
+	}
+}
+
+func TestConversionRemovalRefusalsComeBeforeSecretAndRequest(t *testing.T) {
+	for name, c := range map[string]struct {
+		handler capability.Handler
+		targets []string
+		args    string
+	}{
+		"undelete analytics link": {handleConversionSourcesUndelete, nil, `{"account":"7","conversion_source":"galk:9"}`},
+		"undelete no account":     {handleConversionSourcesUndelete, nil, `{"conversion_source":"mcdn:1"}`},
+		"undelete injection":      {handleConversionSourcesUndelete, nil, `{"account":"7","conversion_source":"mcdn:1/x"}`},
+		"undelete outside":        {handleConversionSourcesUndelete, []string{"accounts/1"}, `{"account":"7","conversion_source":"mcdn:1"}`},
+		"undelete extra member":   {handleConversionSourcesUndelete, nil, `{"account":"7","conversion_source":"mcdn:1","property_id":"5"}`},
+		"delete other type":       {handleConversionSourcesDelete, nil, `{"account":"7","conversion_source":"abcd:9"}`},
+		"delete no account":       {handleConversionSourcesDelete, nil, `{"conversion_source":"mcdn:1"}`},
+		"delete no source":        {handleConversionSourcesDelete, nil, `{"account":"7"}`},
+		"delete injection":        {handleConversionSourcesDelete, nil, `{"account":"7","conversion_source":"mcdn:1:undelete"}`},
+		"delete outside":          {handleConversionSourcesDelete, []string{"accounts/1"}, `{"account":"7","conversion_source":"mcdn:1"}`},
+	} {
+		t.Run(name, func(t *testing.T) {
+			h := newHarness(t, c.targets...)
+			if _, err := h.call(t, c.handler, c.args); !isInvalidRequest(err) {
+				t.Fatalf("err = %v, want an invalid request", err)
+			}
+			h.untouched(t)
+		})
+	}
+}
+
+func TestConversionRemovalsAreNeverRepeatedAndFailuresAreMapped(t *testing.T) {
+	for name, c := range map[string]struct {
+		status int
+		body   string
+		class  provider.Class
+	}{
+		"401": {401, `{"error":{"code":401,"status":"UNAUTHENTICATED"}}`, provider.ClassAuth},
+		"403": {403, googleErrorBody, provider.ClassPermission},
+		"404": {404, `{"error":{"code":404,"status":"NOT_FOUND"}}`, provider.ClassNotFound},
+		"429": {429, quotaBody(reasonDayQuota), provider.ClassRateLimited},
+		"500": {500, `{}`, provider.ClassProviderError},
+		"503": {503, `{}`, provider.ClassUnreachable},
+	} {
+		for tool, handler := range map[string]capability.Handler{"undelete": handleConversionSourcesUndelete,
+			"delete": handleConversionSourcesDelete} {
+			t.Run(tool+" "+name, func(t *testing.T) {
+				h := newHarness(t)
+				h.google.api = func(*http.Request) (int, string, http.Header) { return c.status, c.body, nil }
+				_, err := h.call(t, handler, `{"account":"7","conversion_source":"mcdn:1"}`)
+				if classOf(err) != c.class {
+					t.Fatalf("err = %v, want class %s", err, c.class)
+				}
+				if n := len(h.google.seen()); n != 1 {
+					t.Errorf("%d requests, want exactly one", n)
+				}
+			})
+		}
+	}
+}

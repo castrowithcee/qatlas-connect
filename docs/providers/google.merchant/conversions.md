@@ -27,6 +27,8 @@ that no target names is proven first.
 | `google.merchant.conversion-sources.get` | read | reads one source of either type |
 | `google.merchant.conversion-sources.create` | create | creates a Merchant Center destination |
 | `google.merchant.conversion-sources.update` | update | changes a Merchant Center destination |
+| `google.merchant.conversion-sources.undelete` | update | restores an archived Merchant Center destination, tools list only |
+| `google.merchant.conversion-sources.delete` | delete | archives or removes a source, tools list only |
 
 ## Reading
 
@@ -76,12 +78,31 @@ second source. Neither write is repeated, also not after `401`, `429`, or `5xx`.
 Google accepted the request: Google builds or changes the source with a delay, so read it again after a while.
 A new source is usually `PENDING` first.
 
+## Removing and restoring
+
+`delete` and `undelete` take `account` and `conversion_source`, both required, and send no body. They are offered
+only where the `tools` list of a connection names them, need a confirmation, and are in no profile. Neither is
+repeated, also not after `401`, `429`, or `5xx`. The result reports only that Google accepted the request.
+
+`delete` takes a source of either type (`galk:` or `mcdn:`). A Merchant Center destination is archived and can be
+restored for 30 days. A link to a Google Analytics property is removed immediately and cannot be restored: it can
+only be created again, and no tool here creates one. The confirmation says so. Removing a source changes the
+conversion data the account reports.
+
+`undelete` re-enables an archived source and works only for a Merchant Center destination, so an ID that does not
+start with `mcdn:` is refused before anything is sent. Its result carries `name` and `state` as Google reports them.
+
 ## Boundary
 
 Checked against the discovery document of the conversions API v1 (revision 20261118): `list` returns 100 sources
 by default and at most 200 in total, `displayName` is at most 64 characters, the lookback window is 7, 30, or 40,
 and `merchantCenterDestination.destination`, `state`, `controller`, and `name` are output only. In the
 reference `expireTime` is output only and not marked deprecated; it is still left out of the results.
+
+The reference for `delete` states the 30 days for a Merchant Center destination and the
+immediate removal of a Google Analytics link. The reference for `undelete` names no time limit for restoring: the
+30 days come from `delete` only, and Google may refuse an undelete after that period. Both methods have an empty
+request body, and `delete` answers with an empty object.
 
 Not verified:
 
