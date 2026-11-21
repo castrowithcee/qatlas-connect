@@ -1,0 +1,82 @@
+// Package accessrequest keeps the open tool requests of agents in their own file beside the configuration.
+//
+// A request names tools that a connection does not offer. It changes nothing by itself: it waits there until
+// a person decides. The file holds no secret, is never exported, and its reasons are untrusted text that the
+// caller has already cleaned. The package judges what may be requested, merges repeated requests, lets them
+// expire, and drops what the configuration made obsolete. It reports what happened as events and logs
+// nothing itself.
+package accessrequest
+
+import (
+	"time"
+)
+
+const (
+	// FileName is the name of the queue file, beside the configuration file.
+	FileName = "requests.yaml"
+	// Lifetime is how long a request stays open after its last request.
+	Lifetime = 14 * 24 * time.Hour
+	// MaxTools bounds the tools of one call.
+	MaxTools = 50
+	// MaxReasonRunes bounds a cleaned reason.
+	MaxReasonRunes = 500
+	// StatusOpen is the only status a stored request has: a decision removes it.
+	StatusOpen = "open"
+
+	fileVersion = 1
+)
+
+// Request is one open request. Connection is the name at the time of the last write; the ID of the
+// connection decides, so a renamed connection keeps its request.
+type Request struct {
+	ID           string    `yaml:"id" json:"id"`
+	ConnectionID string    `yaml:"connection_id" json:"connection_id"`
+	Connection   string    `yaml:"connection" json:"connection"`
+	Provider     string    `yaml:"provider" json:"provider"`
+	Tools        []string  `yaml:"tools" json:"tools"`
+	Reason       string    `yaml:"reason,omitempty" json:"reason,omitempty"`
+	Project      string    `yaml:"project,omitempty" json:"project,omitempty"`
+	RequestedAt  time.Time `yaml:"requested_at" json:"requested_at"`
+	ExpiresAt    time.Time `yaml:"expires_at" json:"expires_at"`
+}
+
+// Input is a request to add: the connection already resolved, the tools as the agent wrote them, and the
+// cleaned reason and project path.
+type Input struct {
+	Connection   string
+	ConnectionID string
+	Tools        []string
+	Reason       string
+	Project      string
+}
+
+// EventKind says what happened to one tool of a request.
+type EventKind string
+
+// The kinds of event, in the order of the log operations they map to.
+const (
+	EventCreate EventKind = "create"
+	EventExpire EventKind = "expire"
+	EventDrop   EventKind = "drop"
+)
+
+// Event is one tool that was requested, expired, or dropped, with its connection.
+type Event struct {
+	Kind         EventKind
+	ConnectionID string
+	Connection   string
+	Tool         string
+}
+
+// Outcome is what adding a request produced: the open request after merging, and the events to log.
+type Outcome struct {
+	Request Request
+	// New lists the tools this call added to the request.
+	New    []string
+	Events []Event
+}
+
+type document struct {
+	Version  int       `yaml:"version"`
+	Requests []Request `yaml:"requests,omitempty"`
+}

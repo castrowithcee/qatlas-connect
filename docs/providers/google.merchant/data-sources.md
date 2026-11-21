@@ -23,8 +23,9 @@ data through the API. Every change is confirmed.
 | `data-sources.create` | creates a new API data source; a repeated call creates another one |
 | `data-sources.update` | changes the display name, countries, destinations, or default rule of a data source |
 
-`data-sources.list` and `data-sources.get` are in the `read` and `write` profiles, `data-sources.create` and
-`data-sources.update` in `write` only. No tool of this group is limited to a connection's `tools` list. `account` is
+`data-sources.list` and `data-sources.get` are in the `read` profile. `data-sources.create` and `data-sources.update`
+are in no profile and are offered through the effects `create` and `update`. No tool of this group is limited to a
+connection's `tools` list. `account` is
 checked against the targets before any secret is read, as for the account tools; a sub-account of a bound advanced
 account is proven by one read of the sub-accounts first, and an account outside the targets is refused without a
 request.

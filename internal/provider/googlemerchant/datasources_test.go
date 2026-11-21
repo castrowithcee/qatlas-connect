@@ -102,10 +102,8 @@ func TestDataSourceToolsAreDeclaredWithTheirRisk(t *testing.T) {
 		if scopes := metadata.Token.Scopes[id]; len(scopes) != 1 || scopes[0] != contentScope {
 			t.Errorf("%s scopes = %v", id, scopes)
 		}
-		inRead := slices.Contains(metadata.Profiles[0].Tools, id)
-		inWrite := slices.Contains(metadata.Profiles[1].Tools, id)
-		if inRead != (w.effect == capability.EffectRead) || !inWrite {
-			t.Errorf("%s profiles: read %t, write %t", id, inRead, inWrite)
+		if inRead := slices.Contains(metadata.Profiles[0].Tools, id); inRead != (w.effect == capability.EffectRead) {
+			t.Errorf("%s in read profile: %t", id, inRead)
 		}
 	}
 	for _, id := range []string{dataSourcesCreateID, dataSourcesUpdateID} {

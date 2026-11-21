@@ -45,7 +45,7 @@ func TestDefaultKeymapKeepsTheKnownKeys(t *testing.T) {
 		actEnter: "enter", actSpace: "space", actSearch: "/", actQuit: "q", actYes: "y", actNo: "n", actDiscard: "d",
 		actSetup: "g", actCopy: "c", actNew: "n", actApproveAll: "A", actEdit: "e", actRename: "r", actReveal: "V",
 		actSummary: "s", actFilter: "f", actRevert: "B", actSessions: "M", actLogs: "o", actDuplicate: "p",
-		actTest: "t", actUpdate: "U", actWrite: "W",
+		actTest: "t", actUpdate: "U", actWrite: "W", actDecline: "x", actBlock: "b", actTickAll: "a",
 		actRemoveField: "f8", actSuggestPrev: "ctrl+p", actSuggestNext: "ctrl+n", actNextKind: "ctrl+y",
 		actReload: "ctrl+r", actArea: "1",
 	}
@@ -340,7 +340,7 @@ func TestVimLettersMoveOnlyWhereNothingIsTyped(t *testing.T) {
 // The shortcut column of the command line shows the binding in force, also after a rebinding, and the
 // descriptions name no key.
 func TestPaletteShortcutsFollowTheKeymap(t *testing.T) {
-	rebind(t, actQuit, "x")
+	rebind(t, actQuit, "Z")
 	rebind(t, actSetup, "ctrl+x")
 	m := paletteModel(t, 150, 42)
 	m.prefs.Icons = uiprefs.IconsNone
@@ -361,7 +361,7 @@ func TestPaletteShortcutsFollowTheKeymap(t *testing.T) {
 		t.Errorf("the area shortcut is not its digit: %q", line)
 	}
 	typeText(t, m, "quit")
-	if line := lineWith(ansi.Strip(m.render()), "Leave the editor"); !shortcutIs(line, "x") || strings.Contains(line, "(") {
+	if line := lineWith(ansi.Strip(m.render()), "Leave the editor"); !shortcutIs(line, "Z") || strings.Contains(line, "(") {
 		t.Errorf("the quit row = %q", line)
 	}
 	if !strings.Contains(view, ": search or run a command…") {
@@ -380,14 +380,14 @@ func lineWith(view, text string) string {
 
 // A footer names every fixed key through the table: a rebound key, an arrow and a digit range show as bound.
 func TestFooterNamesFixedKeysFromTheTable(t *testing.T) {
-	rebind(t, actQuit, "x")
+	rebind(t, actQuit, "Z")
 	rebind(t, actNew, "N")
 	rebind(t, actUp, "ctrl+x")
 	m, _, _ := newModel(t)
 	m.Update(tea.WindowSizeMsg{Width: 160, Height: 40})
 	m.screen, m.section, m.navSub = screenNav, sectionOverview, false
 	foot := flatText(m.render())
-	for _, want := range []string{"x quit", "1-6 open"} {
+	for _, want := range []string{"Z quit", "1-6 open"} {
 		if !strings.Contains(foot, want) {
 			t.Errorf("the footer lacks %q:\n%s", want, foot)
 		}

@@ -268,6 +268,10 @@ func (m *Model) selectEntry(name string) {
 func (m *Model) resetList(s section) {
 	m.barFocus = 0
 	m.leaveDetail()
+	if s == sectionApprovals || s == sectionOverview {
+		// Agents add requests at any time, so a section that shows them reads the queue as it opens.
+		m.refreshRequests()
+	}
 	m.list.reset(m.listItems(s))
 	if len(m.list.matches) > 1 && isGroupRow(m.list.matches[0]) {
 		m.list.cursor = 1

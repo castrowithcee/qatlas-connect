@@ -522,10 +522,10 @@ func TestToolsListsOneNamespaceAsTOON(t *testing.T) {
 			t.Fatalf("exit=%d stderr=%q", code, stderr)
 		}
 		for _, want := range []string{
-			fmt.Sprintf("connections[1]: wiki\ntools[%d]{id,title,effect,requires,target,confirm,reason}:\n", len(sharedRegistry().Provider("bookstack"))),
-			`  bookstack.pages.create,Create a BookStack page,create,name,"",true,effect-not-permitted` + "\n",
-			`  bookstack.pages.delete,Delete a BookStack page,delete,id,"",true,effect-not-permitted` + "\n",
-			`  bookstack.pages.get,Get a BookStack page,read,id,"",false,""` + "\n",
+			fmt.Sprintf("connections[1]: wiki\ntools[%d]{id,title,effect,requires,target,confirm,reason,requestable_on}:\n", len(sharedRegistry().Provider("bookstack"))),
+			`  bookstack.pages.create,Create a BookStack page,create,name,"",true,effect-not-permitted,wiki` + "\n",
+			`  bookstack.pages.delete,Delete a BookStack page,delete,id,"",true,effect-not-permitted,wiki` + "\n",
+			`  bookstack.pages.get,Get a BookStack page,read,id,"",false,"",""` + "\n",
 		} {
 			if !strings.Contains(stdout, want) {
 				t.Errorf("stdout does not contain %q:\n%s", want, stdout)
@@ -1076,7 +1076,8 @@ func TestPublicSurfaceIsTheToolTaxonomy(t *testing.T) {
 	want := []string{
 		"config", "config export", "config import", "config rename", "config validate", "connections", "credential",
 		"credential consent", "credential delete", "credential revoke", "credential set",
-		"describe", "invoke", "mcp", "providers", "selftest", "selftest storage", "tools", "tui", "update", "vault",
+		"describe", "invoke", "mcp", "providers", "request", "requests", "requests approve", "requests block",
+		"requests decline", "selftest", "selftest storage", "tools", "tui", "update", "vault",
 		"vault approve",
 		"vault decrypt", "vault encrypt", "vault handover", "vault lock", "vault logs", "vault migrate", "vault passphrase", "vault settings",
 		"vault status", "vault token", "vault unlock", "wait", "web",

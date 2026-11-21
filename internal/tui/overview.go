@@ -53,8 +53,8 @@ var overviewIcons = map[section]iconID{
 // overviewTiles are the counts, in the order of the areas that hold them.
 func (m *Model) overviewTiles() []overviewItem {
 	count := func(n int) string { return fmt.Sprint(n) }
-	var tokens, approvals string
-	var tokensDim, approvalsDim bool
+	var tokens, approvals, requests string
+	var tokensDim, approvalsDim, requestsDim bool
 	if entries, why := m.tokensReport(); why == "" {
 		tokens = count(len(entries))
 	} else {
@@ -65,6 +65,11 @@ func (m *Model) overviewTiles() []overviewItem {
 	} else {
 		approvals, approvalsDim = m.unavailableWord(), true
 	}
+	if m.requestsErr == "" {
+		requests = count(len(m.requests))
+	} else {
+		requests, requestsDim = tr(tRequestsUnreadable), true
+	}
 	tile := func(target section, value string, dim bool) overviewItem {
 		name := target.title()
 		return overviewItem{text: fmt.Sprintf("%-12s %s", name, value), target: target, label: name, value: value, dim: dim}
@@ -74,14 +79,26 @@ func (m *Model) overviewTiles() []overviewItem {
 		tile(sectionServices, count(len(m.cfg.Services)), false),
 		tile(sectionCredentials, count(len(m.cfg.Credentials)), false),
 		tile(sectionTokens, tokens, tokensDim),
+		requestsTile(tile(sectionApprovals, requests, requestsDim)),
 		tile(sectionApprovals, approvals, approvalsDim),
 	}
 }
 
+// requestsTile gives the counter of open tool requests its own label; it opens the same section as the
+// counter of connection approvals.
+func requestsTile(t overviewItem) overviewItem {
+	t.label = tr(tOverviewRequests)
+	t.text = fmt.Sprintf("%-12s %s", t.label, t.value)
+	return t
+}
+
 // unavailableWord says in a word why the vault cannot list tokens or approvals now.
 func (m *Model) unavailableWord() string {
-	if m.vaultLocked() {
+	switch {
+	case m.vaultLocked():
 		return tr(tOverviewVaultLocked)
+	case m.vaultProcessOnly():
+		return tr(tOverviewVaultProcessOnly)
 	}
 	return tr(tOverviewNeedsVault)
 }

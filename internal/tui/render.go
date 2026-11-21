@@ -250,6 +250,8 @@ func (m *Model) renderField(f field, focused bool) string {
 		value = emptyValue(wordNone)
 	case f.kind == fieldToolList && f.label == vorbilderLabel:
 		value = strings.Join(f.marked(), ", ")
+	case f.kind == fieldToolList && f.label == blockedLabel:
+		value = m.blockedSummary(f)
 	case f.kind == fieldToolList && len(f.marked()) == 0:
 		value = emptyValue(wordNone) + tr(tRenderNoToolIsOffered)
 	case f.kind == fieldToolList && f.label == toolListLabel:

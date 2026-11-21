@@ -697,6 +697,9 @@ func (s *mcpServer) callTool(ctx context.Context, name string, raw json.RawMessa
 	if name == "invoke" {
 		// The core hands its entry to call, which the server appends once the response is written.
 		core.SetInvokeLog(call, "mcp", client)
+		if err := installRequestQueue(core, configPath); err != nil {
+			return nil, nil, err
+		}
 	}
 	if len(projects) > 0 {
 		core.SetProjects(projects)
@@ -732,6 +735,8 @@ func (s *mcpServer) callTool(ctx context.Context, name string, raw json.RawMessa
 		if err := decodeMCPArguments(raw, &request); err != nil {
 			return nil, nil, err
 		}
+		// A tool request is no tool call: the core answers it itself and writes request entries only.
+		call.request = request.Operation == application.OperationRequest
 		core.SetAudit(&audit)
 		response, err := core.Invoke(ctx, request)
 		return response, audit.Bytes(), err
@@ -835,33 +840,38 @@ func mcpTools() []mcpTool {
 	return []mcpTool{
 		{
 			Name: "search",
-			Description: "Search the configured tool catalog, best matches first. Each operation has id, title, " +
-				"effect, requires (required arguments with their form), target (the optional target argument, " +
-				"where a connection leaves the target open), confirm, and connections only where " +
+			Description: "Search the configured tool catalog like 'qconnect tools', best matches first; query, " +
+				"provider, connection, and effect filter. Each operation has id, title, " +
+				"effect, requires (required arguments as name:form), target (the optional target argument as " +
+				"name:form, where a connection leaves the target open), confirm, and connections only where " +
 				"fewer than the connections named once at the top offer it; that suffices for a call, and " +
-				"describe adds the optional arguments. all adds the tools no connection offers, each " +
-				"with its reason. For a provider with tool groups and more than 50 matching tools, a first page " +
+				"describe adds the other optional arguments. all adds the tools no connection offers, each " +
+				"with its reason, and requestable_on where a request can ask for the tool: the connection to " +
+				"name, absent where no request can, a blocked tool included. For a provider with tool groups " +
+				"and more than 50 matching tools, a first page " +
 				"without query, limit, or cursor returns groups (group, title, description, tools, and offered " +
 				"with all) instead of operations; group, only with provider, then returns the operations of " +
-				"one group. has_more and next_cursor, passed back as cursor with the same filters, page " +
-				"the result. list returns an overview instead: providers lists every provider with its " +
+				"one group. limit pages the result (default 50); has_more and next_cursor, passed back as " +
+				"cursor with the same filters, continue it. list returns an overview instead: providers lists every provider with its " +
 				"description, note, and counts; connections lists the configured connections, of provider " +
 				"when given, with description, permitted effects, tools list, state disabled where a person " +
 				"switched it off, and unusable: vault-locked or approval-required where a person must act. " +
 				"list takes no other argument than provider with connections.",
-			InputSchema: json.RawMessage(`{"type":"object","properties":{"list":{"type":"string","enum":["providers","connections"],"description":"Return the providers or the configured connections instead of tools; only provider may accompany connections"},"query":{"type":"string"},"provider":{"type":"string"},"group":{"type":"string","description":"Only the tools of this tool group; needs provider"},"connection":{"type":"string"},"effect":{"type":"string","enum":["read","create","update","delete","execute"]},"all":{"type":"boolean","description":"Also return the tools no connection offers, each with its reason"},"limit":{"type":"integer","description":"Page size; omitted, non-positive, or larger values become 50"},"cursor":{"type":"string","description":"Opaque next_cursor of a previous page with the same filters; the first page when omitted"}},"additionalProperties":false}`),
+			InputSchema: json.RawMessage(`{"type":"object","properties":{"list":{"type":"string","enum":["providers","connections"],"description":"Return the providers or the configured connections instead of tools; only provider may accompany connections"},"query":{"type":"string","description":"Keep the tools where every term occurs in the ID, title, description, or tags, the text of the provider, or the description of an offering connection"},"provider":{"type":"string","description":"Only the tools of this provider; with list connections, only its connections"},"group":{"type":"string","description":"Only the tools of this tool group; needs provider"},"connection":{"type":"string","description":"Only the tools this connection offers"},"effect":{"type":"string","enum":["read","create","update","delete","execute"],"description":"Only the tools with this effect"},"all":{"type":"boolean","description":"Also return the tools no connection offers, each with its reason and, where a request can ask for it, requestable_on"},"limit":{"type":"integer","description":"Page size; omitted, non-positive, or larger values become 50"},"cursor":{"type":"string","description":"Opaque next_cursor of a previous page with the same filters; the first page when omitted"}},"additionalProperties":false}`),
 		},
 		{
 			Name: "describe",
 			Description: "Describe one versioned tool contract; operation is the tool ID. Returns the compact " +
 				"contract: arguments and result fields as rows derived from the schemas, risk, examples, and the " +
 				"connections that can run it; full returns the complete descriptor with both schemas.",
-			InputSchema: json.RawMessage(`{"type":"object","properties":{"operation":{"type":"string"},"version":{"type":"integer"},"connection":{"type":"string"},"full":{"type":"boolean","description":"Return the complete descriptor with the input and output schema instead of the compact contract"}},"required":["operation"],"additionalProperties":false}`),
+			InputSchema: json.RawMessage(`{"type":"object","properties":{"operation":{"type":"string","description":"The tool ID"},"version":{"type":"integer","description":"Version of the tool; the current one when omitted"},"connection":{"type":"string","description":"Only this connection among the routes the answer lists"},"full":{"type":"boolean","description":"Return the complete descriptor with the input and output schema instead of the compact contract"}},"required":["operation"],"additionalProperties":false}`),
 		},
 		{
-			Name:        "invoke",
-			Description: "Invoke one tool through a configured connection; operation is the tool ID",
-			InputSchema: json.RawMessage(`{"type":"object","properties":{"operation":{"type":"string"},"version":{"type":"integer"},"connection":{"type":"string"},"arguments":{"type":"object"},"confirm":{"type":"boolean"},"fields":{"type":"array","items":{"type":"string"},"description":"Keep only these members in each entry of the tool's result list, or of a result without one; see fields and selectable_fields of describe"},"full":{"type":"boolean","description":"Return the whole result instead of the default fields describe lists"}},"required":["operation"],"additionalProperties":false}`),
+			Name: "invoke",
+			Description: "Invoke one tool through a configured connection; operation is the tool ID and " +
+				"arguments the tool's own arguments as its contract describes them. The result holds the " +
+				"fields describe lists; full adds the others.",
+			InputSchema: json.RawMessage(`{"type":"object","properties":{"operation":{"type":"string","description":"The tool ID"},"version":{"type":"integer","description":"Version of the tool; the current one when omitted"},"connection":{"type":"string","description":"Connection to run the tool through"},"arguments":{"type":"object","description":"The arguments of the tool, as its contract describes them"},"confirm":{"type":"boolean","description":"Confirms this one call; it is never kept for another"},"fields":{"type":"array","items":{"type":"string"},"description":"Keep only these members in each entry of the tool's result list, or of a result without one; see selectable_fields of describe, and an unknown name is invalid-request"},"full":{"type":"boolean","description":"Return the whole result instead of the default fields describe lists"}},"required":["operation"],"additionalProperties":false}`),
 		},
 	}
 }

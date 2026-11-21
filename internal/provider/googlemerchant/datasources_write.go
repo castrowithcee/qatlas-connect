@@ -18,12 +18,6 @@ import (
 	"github.com/castrowithcee/qatlas-kit/redact"
 )
 
-// changeRisk is the risk of every changing tool: confirmed, and open to the account.
-func changeRisk(effect capability.Effect, idempotency capability.Idempotency) capability.Risk {
-	return capability.Risk{Effect: effect, Idempotency: idempotency, Confirmation: capability.ConfirmationRequired,
-		OpenWorld: true, DataSensitivity: "merchant-account-data"}
-}
-
 // Bounds of the arguments. Google documents none for the display name; the cap is Qatlas'.
 const (
 	maxDisplayNameRunes = 200
