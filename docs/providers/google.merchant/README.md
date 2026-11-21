@@ -20,8 +20,18 @@ developer registration, and the consent.
 | `google.merchant.developer-registrations.get` | the Google Cloud projects registered as developers with an account |
 | `google.merchant.programs.list`, `.get` | the programs of an account with state, active regions, and unmet requirements, see [programs](programs.md) |
 | `google.merchant.programs.enable`, `.disable` | enable or disable participation in a program; confirmed and offered only through the `tools` list of a connection, see [programs](programs.md) |
+| `google.merchant.reports.search` | one report of an account, from a structured query, see [reports](reports.md) |
+| `google.merchant.quotas.list` | the API quota groups of an account, see [reports](reports.md#quotas-and-limits) |
+| `google.merchant.limits.list` | the limits of an account, see [reports](reports.md#quotas-and-limits) |
+| `google.merchant.limits.get` | one limit of an account, see [reports](reports.md#quotas-and-limits) |
+| `google.merchant.terms-of-service.get` | one version of the terms of service |
+| `google.merchant.terms-of-service.retrieve-latest` | the latest terms of service for a kind and a region |
+| `google.merchant.terms-of-service-agreement-states.get` | the agreement state of an account for one kind and country |
+| `google.merchant.terms-of-service-agreement-states.retrieve-for-application` | the agreement state of an account for the application terms |
 
-The account tools and the program reads need no confirmation; enabling or disabling a program needs one for
+The terms tools are described in [terms of service](terms-of-service.md).
+
+Every read tool needs no confirmation; enabling or disabling a program needs one for
 every call. The account resource has the members `name`, `accountId`,
 `accountName`, `testAccount`, `adultContent`, `languageCode`, `homePageUri`, and `timeZone` (`id`, `version`);
 all are output. It has no member for the account type, so Qatlas shows none: an advanced account is
@@ -86,6 +96,8 @@ is sent. The path of every request is built from the checked ID, never from free
   needs `advanced-accounts/ACCOUNT` for that account: a sub-account, an account target, or an advanced account
   that is not bound is not enough. A connection bound only to account targets is not offered the tool. Without
   targets any account ID is accepted.
+- `terms-of-service.get` and `terms-of-service.retrieve-latest` read global documents and act on no account, so
+  every connection is offered them whatever its targets; see [terms of service](terms-of-service.md).
 - The time between the proof read and the call that follows is not covered: an account that leaves its advanced
   account in between is still read once.
 
@@ -184,5 +196,5 @@ Not verified:
 - Whether the scope `content` needs an app verification for an OAuth client of your own project.
 
 No tool of this provider invites a user, registers or unregisters a Cloud project, links an account to another
-one, sets a notification address, or accepts terms for an account. Merchant API methods for local feed
-partners and for triggering actions are not offered.
+one, sets a notification address, or accepts terms for an account (`terms-of-service.accept` is deliberately
+missing). Merchant API methods for local feed partners and for triggering actions are not offered.
