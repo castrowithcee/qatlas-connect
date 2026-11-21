@@ -4,7 +4,7 @@ description: >
 type: knowledge
 edit: shared
 created: 2026-11-19
-updated: 2026-11-20
+updated: 2026-11-21
 ---
 
 # Google Merchant
@@ -36,16 +36,35 @@ developer registration, and the consent.
 | `google.merchant.automatic-improvements.get` | the automatic item updates, image improvements, and shipping improvements of an account |
 | `google.merchant.autofeed-settings.update` | turns the autofeed of an account on or off (update, listed tools only) |
 | `google.merchant.automatic-improvements.update` | changes the automatic improvements of an account (update, listed tools only) |
+| `google.merchant.users.list`, `google.merchant.users.get` | the users of an account, see [users](users.md) |
+| `google.merchant.users.update`, `google.merchant.users.delete` | replace the roles of a user, remove a user; only through the `tools` list, see [users](users.md) |
+| `google.merchant.homepages.get` | the home page address of an account and whether it is claimed, see [home page](homepages.md) |
+| `google.merchant.homepages.update` | sets the home page address, see [home page](homepages.md) |
+| `google.merchant.homepages.claim` | claims the home page, see [home page](homepages.md) |
+| `google.merchant.homepages.unclaim` | removes the claim of the home page, see [home page](homepages.md) |
+| `google.merchant.regions.list`, `.get` | the regions of an account, one batch or one region, see [regions](regions.md) |
+| `google.merchant.regions.create`, `.update` | create a region and replace members of it; confirmed, only through the `tools` list of a connection, see [regions](regions.md) |
+| `google.merchant.omnichannel-settings.list` | the omnichannel settings of an account, see [omnichannel settings](omnichannel.md) |
+| `google.merchant.omnichannel-settings.get` | the omnichannel setting of one country, see [omnichannel settings](omnichannel.md) |
+| `google.merchant.omnichannel-settings.create` | creates the omnichannel setting of a country, see [omnichannel settings](omnichannel.md) |
+| `google.merchant.omnichannel-settings.update` | changes the omnichannel setting of a country, see [omnichannel settings](omnichannel.md) |
+| `google.merchant.notification-subscriptions.list` | the notification subscriptions of an account |
+| `google.merchant.notification-subscriptions.get` | one notification subscription |
+| `google.merchant.notification-subscriptions.delete` | deletes a notification subscription (delete, confirmation, listed tools only) |
 | `google.merchant.account-services.list`, `.get` | the services of an advanced account with the state of each handshake, see [services](services.md) |
 | `google.merchant.account-services.reject` | reject a service and end the access it gave a provider account; confirmed and offered only through the `tools` list of a connection, see [services](services.md) |
 | `google.merchant.account-relationships.list` | the relationships of an account with provider accounts, see [services](services.md) |
 
 The terms tools are described in [terms of service](terms-of-service.md), the two updates in [Autofeed and
-automatic improvements](autofeed.md), and the account tools beyond the first three in [account tools](accounts.md).
+automatic improvements](autofeed.md), the account tools beyond the first three in [account tools](accounts.md),
+the user tools in [users](users.md), the home page tools in [home page](homepages.md), the region tools in
+[regions](regions.md), the subscription tools in [Notification subscriptions](notifications.md), the
+omnichannel tools in [omnichannel settings](omnichannel.md), and the service tools in [services](services.md).
 
 Every read tool needs no confirmation, and every change needs one for every call. The account resource has the
 members `name`, `accountId`, `accountName`, `testAccount`, `adultContent`, `languageCode`, `homePageUri`, and
-`timeZone` (`id`, `version`); all are output. It has no member for the account type, so Qatlas shows none: an advanced account is
+`timeZone` (`id`, `version`); all are output. It has no member for the account type, so Qatlas shows none: an
+advanced account is
 recognised only by its sub-accounts, which a target proves.
 
 ## Configuration
@@ -103,8 +122,8 @@ is sent. The path of every request is built from the checked ID, never from free
   ID cannot be read, or whose `name` and `accountId` disagree. The filter only narrows what Google sends. A
   batch can therefore be short or empty while `next_cursor` says there is more. For rows that no target
   names, the sub-accounts of the bound advanced accounts are read once per call.
-- `developer-registrations.get` and the `account-services` tools act on an advanced account as a whole. On a
-  connection bound to targets they need `advanced-accounts/ACCOUNT` for that account: a sub-account, an account target, or an advanced account
+- `developer-registrations.get`, the user tools, and the `account-services` tools act on an advanced account as a
+  whole. On a connection bound to targets they need `advanced-accounts/ACCOUNT` for that account: a sub-account, an account target, or an advanced account
   that is not bound is not enough. A connection bound only to account targets is not offered these tools. Without
   targets any account ID is accepted.
 - `terms-of-service.get` and `terms-of-service.retrieve-latest` read global documents and act on no account, so
@@ -206,9 +225,10 @@ Not verified:
 - Whether Merchant Center accepts an impersonated service account as a user.
 - Whether the scope `content` needs an app verification for an OAuth client of your own project.
 
-Updates are sent once, with a JSON body built from the structured arguments. They are not repeated after `401`,
-`429`, or `5xx`, because Google may already have applied them, and every call counts against the quota.
+Changes are sent once: an update with a JSON body built from the structured arguments, a deletion without a
+body. They are not repeated after `401`, `429`, or `5xx`, because Google may already have applied them, and every
+call counts against the quota.
 
-No tool of this provider proposes or approves a service, invites a user, registers or unregisters a Cloud project, links an account to another
+No tool of this provider proposes or approves a service, invites a user or accepts an invitation, registers or unregisters a Cloud project, links an account to another
 one, sets a notification address, or accepts terms for an account (`terms-of-service.accept` is deliberately
 missing). Merchant API methods for local feed partners and for triggering actions are not offered.

@@ -59,6 +59,8 @@ var textDE = map[textID]string{
 	tPassphraseWrong:                       "Falsche Passphrase",
 	tVaultNowUnlocked:                      "Der Tresor ist entsperrt",
 	tVaultNowLocked:                        "Der Tresor ist gesperrt",
+	tVaultLockedElsewhere:                  "Der Tresor wurde außerhalb dieses Fensters gesperrt",
+	tVaultMaxUnlockReached:                 "Der Tresor wurde in diesem Fenster gesperrt: Die Höchstdauer der Entsperrung ist abgelaufen",
 	tBusyUnlocking:                         "Tresor wird entsperrt",
 	tBusyLocking:                           "Tresor wird gesperrt",
 	tBusyChecking:                          "Passphrase des Tresors wird geprüft",

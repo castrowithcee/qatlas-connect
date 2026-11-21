@@ -117,7 +117,7 @@ func Register(reg *capability.Registry) error {
 		},
 		Profiles: []config.ToolProfile{{
 			ID: "read", Title: "Read", Recommended: true,
-			Description: "reads Merchant Center accounts, the developer registration of an account, reports, quotas, and limits; changes nothing",
+			Description: "reads Merchant Center accounts, the developer registration of an account, the users of an account, reports, quotas, and limits; changes nothing",
 			Tools:       readIDs,
 		}},
 	}, TestConnection); err != nil {
@@ -138,16 +138,30 @@ func Register(reg *capability.Registry) error {
 		programsEnableID: handleProgramsEnable, programsDisableID: handleProgramsDisable,
 		autofeedSettingsGetID: handleAutofeedSettingsGet, autofeedSettingsUpdateID: handleAutofeedSettingsUpdate,
 		automaticImprovementsGetID: handleAutomaticImprovementsGet, automaticImprovementsUpdateID: handleAutomaticImprovementsUpdate,
-		accountServicesListID: handleAccountServicesList, accountServicesGetID: handleAccountServicesGet,
+		usersListID: handleUsersList, usersGetID: handleUsersGet,
+		usersUpdateID: handleUsersUpdate, usersDeleteID: handleUsersDelete,
+		regionsListID: handleRegionsList, regionsGetID: handleRegionsGet,
+		regionsCreateID: handleRegionsCreate, regionsUpdateID: handleRegionsUpdate,
+		notificationSubscriptionsListID:   handleNotificationSubscriptionsList,
+		notificationSubscriptionsGetID:    handleNotificationSubscriptionsGet,
+		notificationSubscriptionsDeleteID: handleNotificationSubscriptionsDelete,
+		accountServicesListID:             handleAccountServicesList, accountServicesGetID: handleAccountServicesGet,
 		accountServicesRejectID: handleAccountServicesReject, accountRelationshipsListID: handleAccountRelationshipsList,
 	}
 	summaries := map[string]capability.SummaryFunc{
 		programsEnableID: programSummary("Enable"), programsDisableID: programSummary("Disable"),
 		autofeedSettingsUpdateID: autofeedSummary, automaticImprovementsUpdateID: improvementsSummary,
-		accountServicesRejectID: serviceRejectSummary,
+		usersUpdateID: usersUpdateSummary, usersDeleteID: usersDeleteSummary,
+		regionsCreateID: regionCreateSummary, regionsUpdateID: regionUpdateSummary,
+		notificationSubscriptionsDeleteID: notificationDeleteSummary,
+		accountServicesRejectID:           serviceRejectSummary,
 	}
 	maps.Copy(handlers, accountWriteHandlers())
 	maps.Copy(summaries, accountSummaries())
+	maps.Copy(handlers, homepageHandlers())
+	maps.Copy(summaries, homepageSummaries())
+	maps.Copy(handlers, omnichannelHandlers())
+	maps.Copy(summaries, omnichannelSummaries())
 	for _, d := range descriptors() {
 		if err := reg.Register(Provider, capability.Operation{Descriptor: d, Handler: handlers[d.ID],
 			ConfirmationSummary: summaries[d.ID]}); err != nil {

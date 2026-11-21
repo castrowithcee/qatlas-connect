@@ -751,13 +751,19 @@ type Model struct {
 	versionRestored string
 
 	// Vault header and 'ctrl+l' state (see vaultheader.go). vaultProcessUnlocked caches whether a vault
-	// process holds a locked vault open, refreshed by a tick and right after this window's own lock and
-	// unlock actions; it is read only while the vault is locked in this process, since an unlocked one
-	// already answers the header synchronously from vault.State() alone. vaultUnlock holds the masked
+	// process holds the vault open, refreshed by a tick and right after this window's own lock and unlock
+	// actions. vaultKeySince and vaultSeenPID are this window's own hold on the key (see manage.WindowKey):
+	// when it unlocked the vault itself and the vault process seen since; vaultKeyGen counts changes of that
+	// hold, so an answer of the vault process asked before one is dropped. vaultMaxUnlock caches the maximum
+	// unlock duration beside the admin session time. vaultUnlock holds the masked
 	// 'ctrl+l' unlock dialog while it is open, back is the screen it returns to either way once it is done.
 	// vaultLockConfirm and vaultLockBack are the same for the short 'Lock the vault now?' question.
 	vaultProcessUnlocked bool
 	vaultProcessEndsAt   time.Time // hard unlock deadline of that process; zero without one
+	vaultKeySince        time.Time
+	vaultSeenPID         int
+	vaultKeyGen          int
+	vaultMaxUnlock       time.Duration
 	vaultUnlock          *vaultUnlockPrompt
 	vaultLockConfirm     bool
 	vaultLockBack        screen
@@ -953,12 +959,11 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.handleOverviewActivity(msg)
 		return m, nil
 	case vaultProcessCheckMsg:
-		m.vaultProcessUnlocked, m.vaultProcessEndsAt = msg.unlocked, msg.endsAt
-		return m, nil
+		return m, m.handleVaultProcessCheck(msg)
 	case vaultTickMsg:
 		m.refreshRequests()
 		m.syncRequestList()
-		return m, tea.Batch(m.checkVaultProcess(), vaultTick())
+		return m, tea.Batch(m.vaultKeyTick(), vaultTick())
 	case requestDecisionMsg:
 		return m, m.handleRequestDecision(msg)
 	case updateCheckedMsg:
