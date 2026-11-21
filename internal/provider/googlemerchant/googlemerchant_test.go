@@ -38,6 +38,10 @@ var wantToolIDs = []string{
 	"google.merchant.terms-of-service-agreement-states.retrieve-for-application",
 	"google.merchant.terms-of-service.get",
 	"google.merchant.terms-of-service.retrieve-latest",
+	"google.merchant.users.delete",
+	"google.merchant.users.get",
+	"google.merchant.users.list",
+	"google.merchant.users.update",
 }
 
 func TestRegisterDeclaresTokenScopeTargetsAndFixedToolIDs(t *testing.T) {
