@@ -139,6 +139,9 @@ type request struct {
 	body                   []byte
 	onAccount              bool
 	change                 bool
+	// judgesInput marks a read whose arguments Google validates, such as GenerateRecommendations: a 400 with
+	// an error code is then Google's refusal of the input and is mapped with the code.
+	judgesInput bool
 }
 
 // read sends one reading request to the fixed origin and decodes the JSON answer into out. The token
@@ -187,7 +190,7 @@ func (c *client) send(ctx context.Context, r request, out any) error {
 	}
 	defer response.Body.Close()
 	if response.StatusCode < 200 || response.StatusCode > 299 {
-		failed, hold := adsError(r.op, response.StatusCode, provider.ReadErrorBody(response.Body), r.change)
+		failed, hold := adsErrorFor(r.op, response.StatusCode, provider.ReadErrorBody(response.Body), r.change, r.judgesInput)
 		if response.StatusCode == http.StatusTooManyRequests || failed.Class == provider.ClassRateLimited {
 			// A missing or unusable wait still means the credential sent too much: the next call waits.
 			hold = max(hold, provider.RetryAfter(response.Header), time.Second)

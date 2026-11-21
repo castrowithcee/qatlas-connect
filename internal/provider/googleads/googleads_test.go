@@ -36,13 +36,16 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 		customerClientsListID, customerUserAccessInvitationsListID, customerUserAccessInvitationsRemoveID,
 		customerUserAccessesListID, customerUserAccessesRemoveID, customerUserAccessesUpdateID,
 		customersGetID, customersListAccessibleID, customersUpdateID, fieldsGetID, fieldsSearchID,
-		multiPartyAuthReviewsListID, multiPartyAuthReviewsResolveID, reportsSearchID}
+		multiPartyAuthReviewsListID, multiPartyAuthReviewsResolveID, recommendationsApplyID,
+		recommendationsDismissID, recommendationsGenerateID, reportsSearchID}
 	if len(metadata.Tools) != len(want) {
 		t.Fatalf("tools = %+v", metadata.Tools)
 	}
 	for i, tool := range metadata.Tools {
-		changing := slices.Contains(changeToolIDs, tool.ID)
-		if tool.ID != want[i] || (tool.Effect == config.EffectRead) == changing || tool.RequiresToolAllowList != changing {
+		// The recommendation tools are tested in recommendations_test.go: apply is listed-only, dismiss is not.
+		listed := slices.Contains(changeToolIDs, tool.ID) || tool.ID == recommendationsApplyID
+		changing := listed || tool.ID == recommendationsDismissID
+		if tool.ID != want[i] || (tool.Effect == config.EffectRead) == changing || tool.RequiresToolAllowList != listed {
 			t.Errorf("tool %d = %+v", i, tool)
 		}
 		if scopes := metadata.Token.Scopes[tool.ID]; !reflect.DeepEqual(scopes, []string{"https://www.googleapis.com/auth/adwords"}) {

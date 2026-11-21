@@ -1,10 +1,10 @@
 ---
 description: >
-  Describes the Google Ads provider: the token credential with the adwords scope and no developer token, the fixed API version v26, the service option login_customer_id and the login-customer-id header, the manager and customer targets with the membership read, the profile read, the tools customers.list-accessible, customers.get, customer-clients.list, reports.search, fields.search, fields.get, customer-user-accesses.list, customer-user-access-invitations.list and multi-party-auth-reviews.list, the settings, user access, invitation and review tools customers.update, customer-budget-network-settings.create and update, customer-user-accesses.update and remove, customer-user-access-invitations.remove and multi-party-auth-reviews.resolve that only the tools list offers, the GoogleAdsFailure and quota errors and their classes, rate spacing, the connection test, and what is not verified.
+  Describes the Google Ads provider: the token credential with the adwords scope and no developer token, the fixed API version v26, the service option login_customer_id and the login-customer-id header, the manager and customer targets with the membership read, the profile read, the tools customers.list-accessible, customers.get, customer-clients.list, reports.search, fields.search, fields.get, customer-user-accesses.list, customer-user-access-invitations.list and multi-party-auth-reviews.list, the settings, user access, invitation and review tools customers.update, customer-budget-network-settings.create and update, customer-user-accesses.update and remove, customer-user-access-invitations.remove and multi-party-auth-reviews.resolve that only the tools list offers, the recommendation tools recommendations.generate, apply and dismiss, the GoogleAdsFailure and quota errors and their classes, rate spacing, the connection test, and what is not verified.
 type: knowledge
 edit: shared
 created: 2026-11-19
-updated: 2026-11-21
+updated: 2026-11-22
 ---
 
 # Google Ads
@@ -12,9 +12,10 @@ updated: 2026-11-21
 Google Ads is a provider for the Google Ads API, version v26, over its REST interface, with one credential that
 issues access tokens. It lists the accounts a credential reaches, reads the settings of an account, lists the
 hierarchy below a manager account, lists the invitations and approval requests of an account, runs reports on any
-resource, and reads the field reference of the query language. The [report tools](reports.md) have their own
-page. Tools that change account settings or turn down invitations and approval requests are offered
-only through the `tools` list of a connection and need a confirmation per call.
+resource, generates, applies and dismisses recommendations, and reads the field reference of the query
+language. The [report tools](reports.md) and the [recommendation tools](recommendations.md) have their own pages. Tools that change account settings, turn down invitations and approval requests, or apply recommendations are
+offered only through the `tools` list of a connection; dismissing recommendations needs the effect `update`
+instead. Every changing tool needs a confirmation per call.
 
 [Set up Google Ads](setup.md) leads through the Cloud project, its access level, and the credential. The fields
 of a tool are in its descriptor; this page holds what the descriptor does not say.
@@ -88,10 +89,12 @@ sits.
 
 | Profile | Tools | Recommended |
 | --- | --- | --- |
-| `read` | `customers.list-accessible`, `customers.get`, `customer-clients.list`, `reports.search`, `fields.search`, `fields.get`, `customer-user-accesses.list`, `customer-user-access-invitations.list`, `multi-party-auth-reviews.list` | yes |
+| `read` | `customers.list-accessible`, `customers.get`, `customer-clients.list`, `reports.search`, `fields.search`, `fields.get`, `customer-user-accesses.list`, `customer-user-access-invitations.list`, `multi-party-auth-reviews.list`, `recommendations.generate` | yes |
 
-Tools that change an account belong to no profile: a connection offers them only when its `tools` list names
-them, see [settings tools](settings.md).
+Tools that change an account belong to no profile and need a confirmation per call. A connection offers the
+settings, user access, invitation, approval request and `recommendations.apply` tools only when its `tools` list
+names them, see [settings tools](settings.md) and [recommendation tools](recommendations.md);
+`recommendations.dismiss` is offered by the effect `update`.
 
 ## Tools
 
@@ -103,6 +106,7 @@ them, see [settings tools](settings.md).
 | `customer-user-accesses.update`, `.remove` | change the role of a user, remove a user, see [user access tools](user-access.md) |
 | `customer-user-access-invitations.list`, `.remove` | list and revoke the invitations of an account, see [invitations and approval requests](access.md) |
 | `multi-party-auth-reviews.list`, `.resolve` | list the approval requests of an account, reject or revoke one, never approve, see [invitations and approval requests](access.md) |
+| `recommendations.generate`, `.apply`, `.dismiss` | generate recommendations for a campaign, apply them with the parameters of one variant, dismiss them, see [recommendation tools](recommendations.md) |
 
 ### customers.list-accessible
 
