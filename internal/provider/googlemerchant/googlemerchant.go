@@ -149,6 +149,7 @@ func Register(reg *capability.Registry) error {
 		accountServicesRejectID: handleAccountServicesReject, accountRelationshipsListID: handleAccountRelationshipsList,
 		conversionSourcesListID: handleConversionSourcesList, conversionSourcesGetID: handleConversionSourcesGet,
 		conversionSourcesCreateID: handleConversionSourcesCreate, conversionSourcesUpdateID: handleConversionSourcesUpdate,
+		conversionSourcesUndeleteID: handleConversionSourcesUndelete, conversionSourcesDeleteID: handleConversionSourcesDelete,
 		renderAccountIssuesID: handleRenderAccountIssues, renderProductIssuesID: handleRenderProductIssues,
 		emailPreferencesGetID: handleEmailPreferencesGet, emailPreferencesUpdateID: handleEmailPreferencesUpdate,
 		regionsDeleteID: handleRegionsDelete, regionsBatchCreateID: handleRegionsBatchCreate,
@@ -162,6 +163,7 @@ func Register(reg *capability.Registry) error {
 		notificationSubscriptionsDeleteID: notificationDeleteSummary,
 		accountServicesRejectID:           serviceRejectSummary,
 		conversionSourcesCreateID:         conversionCreateSummary, conversionSourcesUpdateID: conversionUpdateSummary,
+		conversionSourcesUndeleteID: conversionUndeleteSummary, conversionSourcesDeleteID: conversionDeleteSummary,
 		emailPreferencesUpdateID: emailPreferencesSummary,
 		regionsDeleteID:          regionDeleteSummary,
 	}
