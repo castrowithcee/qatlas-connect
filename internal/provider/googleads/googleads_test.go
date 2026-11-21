@@ -32,7 +32,8 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 	if !reflect.DeepEqual(metadata.SecretRoles, config.TokenSecretRoles()) {
 		t.Errorf("secret roles = %+v, want the token roles", metadata.SecretRoles)
 	}
-	want := []string{customerBudgetNetworkSettingsCreateID, customerBudgetNetworkSettingsUpdateID,
+	want := []string{assetsCreateID, assetsUpdateID, campaignAutomaticallyCreatedAssetsRemoveID,
+		customerBudgetNetworkSettingsCreateID, customerBudgetNetworkSettingsUpdateID,
 		customerClientsListID, customerUserAccessInvitationsListID, customerUserAccessInvitationsRemoveID,
 		customerUserAccessesListID, customerUserAccessesRemoveID, customerUserAccessesUpdateID,
 		customersGetID, customersListAccessibleID, customersUpdateID, fieldsGetID, fieldsSearchID,
@@ -41,7 +42,7 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 		t.Fatalf("tools = %+v", metadata.Tools)
 	}
 	for i, tool := range metadata.Tools {
-		changing := slices.Contains(changeToolIDs, tool.ID)
+		changing := slices.Contains(changeToolIDs, tool.ID) || slices.Contains(assetToolIDs, tool.ID)
 		if tool.ID != want[i] || (tool.Effect == config.EffectRead) == changing || tool.RequiresToolAllowList != changing {
 			t.Errorf("tool %d = %+v", i, tool)
 		}
