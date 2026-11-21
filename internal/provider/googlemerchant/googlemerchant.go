@@ -117,7 +117,7 @@ func Register(reg *capability.Registry) error {
 		},
 		Profiles: []config.ToolProfile{{
 			ID: "read", Title: "Read", Recommended: true,
-			Description: "reads Merchant Center accounts, the developer registration of an account, the users of an account, data sources, products, the local inventories of a product, issues, reports, quotas, and limits; changes nothing",
+			Description: "reads Merchant Center accounts, the developer registration of an account, the users of an account, data sources, products, the local and regional inventories of a product, issues, reports, quotas, and limits; changes nothing",
 			Tools:       readIDs,
 		}},
 	}, TestConnection); err != nil {
@@ -159,8 +159,10 @@ func Register(reg *capability.Registry) error {
 		dataSourcesListID: handleDataSourcesList, dataSourcesGetID: handleDataSourcesGet,
 		dataSourcesCreateID: handleDataSourcesCreate, dataSourcesUpdateID: handleDataSourcesUpdate,
 		localInventoriesListID: handleLocalInventoriesList, localInventoriesInsertID: handleLocalInventoriesInsert,
-		localInventoriesDeleteID: handleLocalInventoriesDelete,
-		promotionsListID:         handlePromotionsList, promotionsGetID: handlePromotionsGet,
+		localInventoriesDeleteID:  handleLocalInventoriesDelete,
+		regionalInventoriesListID: handleRegionalInventoriesList, regionalInventoriesInsertID: handleRegionalInventoriesInsert,
+		regionalInventoriesDeleteID: handleRegionalInventoriesDelete,
+		promotionsListID:            handlePromotionsList, promotionsGetID: handlePromotionsGet,
 		promotionsInsertID: handlePromotionsInsert,
 	}
 	summaries := map[string]capability.SummaryFunc{
@@ -175,6 +177,7 @@ func Register(reg *capability.Registry) error {
 		emailPreferencesUpdateID: emailPreferencesSummary,
 		regionsDeleteID:          regionDeleteSummary,
 		localInventoriesInsertID: localInventoryInsertSummary, localInventoriesDeleteID: localInventoryDeleteSummary,
+		regionalInventoriesInsertID: regionalInventoryInsertSummary, regionalInventoriesDeleteID: regionalInventoryDeleteSummary,
 		promotionsInsertID: promotionSummary,
 	}
 	maps.Copy(summaries, regionBatchSummaries())
@@ -190,9 +193,13 @@ func Register(reg *capability.Registry) error {
 	maps.Copy(summaries, returnPolicySummaries())
 	maps.Copy(handlers, shippingHandlers())
 	maps.Copy(summaries, shippingSummaries())
+	maps.Copy(handlers, productInputHandlers())
+	maps.Copy(summaries, productInputSummaries())
 	maps.Copy(handlers, relationshipHandlers())
 	maps.Copy(summaries, relationshipSummaries())
 	maps.Copy(handlers, linkHandlers())
+	maps.Copy(handlers, dataSourceOperationHandlers())
+	maps.Copy(summaries, dataSourceOperationSummaries())
 	maps.Copy(handlers, developerRegistrationHandlers())
 	maps.Copy(summaries, developerRegistrationSummaries())
 	for _, d := range descriptors() {

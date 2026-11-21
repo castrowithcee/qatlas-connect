@@ -89,6 +89,7 @@ func descriptors() []capability.Descriptor {
 	return append([]capability.Descriptor{accountsList, accountsGet, developerRegistrationsGet,
 		productsList, productsGet, aggregateProductStatusesList, accountIssuesList,
 		localInventoriesList, localInventoriesInsert, localInventoriesDelete,
+		regionalInventoriesList, regionalInventoriesInsert, regionalInventoriesDelete,
 		autofeedSettingsGet, autofeedSettingsUpdate, automaticImprovementsGet, automaticImprovementsUpdate,
 		programsList, programsGet, programsEnable, programsDisable,
 		reportsSearch, quotasList, limitsList, limitsGet,
@@ -105,8 +106,8 @@ func descriptors() []capability.Descriptor {
 		promotionsList, promotionsGet, promotionsInsert},
 		append(append(append(append(append(accountWriteDescriptors(), homepageDescriptors()...), omnichannelDescriptors()...),
 			checkoutDescriptors()...), returnPolicyDescriptors()...),
-			append(append(append(relationshipDescriptors(), linkDescriptors()...), developerRegistrationDescriptors()...),
-				shippingDescriptors()...)...)...)
+			append(append(append(append(append(relationshipDescriptors(), linkDescriptors()...), developerRegistrationDescriptors()...),
+				shippingDescriptors()...), dataSourceOperationDescriptors()...), productInputDescriptors()...)...)...)
 }
 
 var accountsList = capability.Descriptor{

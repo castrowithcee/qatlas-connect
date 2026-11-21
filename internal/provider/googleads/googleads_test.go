@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"reflect"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -31,13 +32,15 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 	if !reflect.DeepEqual(metadata.SecretRoles, config.TokenSecretRoles()) {
 		t.Errorf("secret roles = %+v, want the token roles", metadata.SecretRoles)
 	}
-	want := []string{customerClientsListID, customersGetID, customersListAccessibleID, fieldsGetID, fieldsSearchID,
-		reportsSearchID}
+	want := []string{customerBudgetNetworkSettingsCreateID, customerBudgetNetworkSettingsUpdateID,
+		customerClientsListID, customerUserAccessesListID, customerUserAccessesRemoveID, customerUserAccessesUpdateID,
+		customersGetID, customersListAccessibleID, customersUpdateID, fieldsGetID, fieldsSearchID, reportsSearchID}
 	if len(metadata.Tools) != len(want) {
 		t.Fatalf("tools = %+v", metadata.Tools)
 	}
 	for i, tool := range metadata.Tools {
-		if tool.ID != want[i] || tool.Effect != config.EffectRead || tool.RequiresToolAllowList {
+		changing := slices.Contains(changeToolIDs, tool.ID)
+		if tool.ID != want[i] || (tool.Effect == config.EffectRead) == changing || tool.RequiresToolAllowList != changing {
 			t.Errorf("tool %d = %+v", i, tool)
 		}
 		if scopes := metadata.Token.Scopes[tool.ID]; !reflect.DeepEqual(scopes, []string{"https://www.googleapis.com/auth/adwords"}) {
@@ -652,7 +655,7 @@ func TestErrorMapping(t *testing.T) {
 	}
 	t.Run("the original carries the codes and the request ID, never the trigger", func(t *testing.T) {
 		failed, hold := adsError("op", 429, []byte(adsFailure(429, "RESOURCE_EXHAUSTED", "quotaError",
-			"RESOURCE_TEMPORARILY_EXHAUSTED", `{"retryDelay":"12.5s"}`)))
+			"RESOURCE_TEMPORARILY_EXHAUSTED", `{"retryDelay":"12.5s"}`)), false)
 		if hold != 12500*time.Millisecond || failed.Original == nil || failed.Original.Status != 429 {
 			t.Fatalf("hold=%v failed=%+v", hold, failed)
 		}

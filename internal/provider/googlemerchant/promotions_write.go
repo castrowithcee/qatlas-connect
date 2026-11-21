@@ -20,12 +20,12 @@ import (
 // Bounds of the arguments. Google documents none of them except the five Google product categories; the
 // others are Qatlas' own.
 const (
-	maxPromotionIDRunes  = 128
-	maxPromotionTextRune = 300
-	maxPromotionCodeRune = 100
-	maxCustomAttributes  = 100
-	maxCustomMembers     = 100
-	maxCategories        = 5
+	maxPromotionIDRunes          = 128
+	maxPromotionTextRune         = 300
+	maxPromotionCodeRune         = 100
+	maxPromotionCustomAttributes = 100
+	maxCustomMembers             = 100
+	maxCategories                = 5
 	// maxJSONInteger is the largest integer every JSON reader keeps exactly.
 	maxJSONInteger = 9007199254740991
 )
@@ -142,7 +142,7 @@ type promotionBody struct {
 	CustomAttributes  []customAttributeInput `json:"customAttributes,omitempty"`
 }
 
-type insertBody struct {
+type promotionInsertBody struct {
 	Promotion  promotionBody `json:"promotion"`
 	DataSource string        `json:"dataSource"`
 }
@@ -188,7 +188,7 @@ var (
 		member("minMoneyOffAmount", moneySchema), member("maxMoneyOffAmount", moneySchema),
 		member("minPercentOff", wholeSchema), member("maxPercentOff", wholeSchema))
 
-	customAttributesInput = `{"type":"array","minItems":1,"maxItems":` + strconv.Itoa(maxCustomAttributes) + `,"items":` +
+	promotionCustomAttributesInput = `{"type":"array","minItems":1,"maxItems":` + strconv.Itoa(maxPromotionCustomAttributes) + `,"items":` +
 		closedSchemaOf([]string{"name"}, member("name", codeSchema), member("value", titleSchema),
 			member("groupValues", `{"type":"array","minItems":1,"maxItems":`+strconv.Itoa(maxCustomMembers)+`,"items":`+
 				closedSchemaOf([]string{"name", "value"}, member("name", codeSchema), member("value", titleSchema))+`}`)) + `}`
@@ -227,7 +227,7 @@ var promotionsInsert = capability.Descriptor{
 		member("redemption_channel", `{"type":"array","minItems":1,"maxItems":2,"uniqueItems":true,"items":`+
 			enumSchema(redemptionChannels)+`}`),
 		member("version_number", wholeSchema), member("attributes", promotionAttributesInput),
-		member("custom_attributes", customAttributesInput)),
+		member("custom_attributes", promotionCustomAttributesInput)),
 	OutputSchema: json.RawMessage(promotionAcceptedSchema),
 	Arguments: []capability.Argument{accountArgument, dataSourceIDArgument,
 		{Name: "promotion_id", Required: true, Description: "Your ID of the promotion, 1 to 128 characters"},
@@ -474,8 +474,8 @@ func (a promotionArguments) check() error {
 	if err := a.Attributes.check(); err != nil {
 		return err
 	}
-	if len(a.CustomAttributes) > maxCustomAttributes {
-		return invalidArgument("custom_attributes takes at most " + strconv.Itoa(maxCustomAttributes) + " entries")
+	if len(a.CustomAttributes) > maxPromotionCustomAttributes {
+		return invalidArgument("custom_attributes takes at most " + strconv.Itoa(maxPromotionCustomAttributes) + " entries")
 	}
 	for _, c := range a.CustomAttributes {
 		if err := checkText("custom attribute name", c.Name, maxPromotionCodeRune); err != nil {
@@ -527,7 +527,7 @@ func handlePromotionsInsert(ctx context.Context, resolved *config.Resolved, secr
 	if err := args.check(); err != nil {
 		return nil, err
 	}
-	body, err := json.Marshal(insertBody{
+	body, err := json.Marshal(promotionInsertBody{
 		Promotion: promotionBody{PromotionID: args.PromotionID, ContentLanguage: args.ContentLanguage,
 			TargetCountry: args.TargetCountry, RedemptionChannel: args.RedemptionChannel,
 			VersionNumber: args.VersionNumber, Attributes: args.Attributes, CustomAttributes: args.CustomAttributes},

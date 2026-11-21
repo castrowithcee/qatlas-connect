@@ -47,7 +47,7 @@ const (
 func searchPath(id string) string { return "/v26/customers/" + id + "/googleAds:search" }
 
 type seen struct {
-	method, url, path, auth, login, developerToken, query, body string
+	method, url, path, auth, login, developerToken, query, body, contentType string
 }
 
 type reply struct {
@@ -100,6 +100,7 @@ func (f *fakeGoogle) RoundTrip(req *http.Request) (*http.Response, error) {
 		_ = json.Unmarshal(raw, &body)
 		s.query = body.Query
 		s.body = string(raw)
+		s.contentType = req.Header.Get("Content-Type")
 	}
 	f.requests = append(f.requests, s)
 	if req.URL.Scheme != "https" || req.URL.Host != "googleads.googleapis.com" {
@@ -185,6 +186,17 @@ type environment struct {
 
 func newEnvironment(t *testing.T, targets []string, options map[string]string) *environment {
 	t.Helper()
+	return newEnvironmentWith(t, targets, options, config.Connection{Effects: []config.Effect{config.EffectRead}})
+}
+
+// newMutationEnvironment is a connection whose tools list names the changing tools and that has no effects.
+func newMutationEnvironment(t *testing.T, targets []string, options map[string]string) *environment {
+	t.Helper()
+	return newEnvironmentWith(t, targets, options, config.Connection{Tools: changeToolIDs})
+}
+
+func newEnvironmentWith(t *testing.T, targets []string, options map[string]string, conn config.Connection) *environment {
+	t.Helper()
 	e := &environment{t: t, fake: &fakeGoogle{routes: map[string]reply{}}, red: &redact.Redactor{}}
 	e.roles = map[string]string{config.RoleClientID: "client-" + t.Name(), config.RoleRefreshToken: refreshValue}
 	previous := transport
@@ -208,8 +220,8 @@ func newEnvironment(t *testing.T, targets []string, options map[string]string) *
 	e.cfg = config.New(e.reg)
 	e.cfg.Services = map[string]config.Service{"ads": {Provider: Provider, BaseURL: apiRoot, Options: options}}
 	e.cfg.Credentials = map[string]config.Credential{credential: {Provider: Provider, Type: config.CredentialTypeKeyring}}
-	e.cfg.Connections = map[string]config.Connection{"work": {Service: "ads", Credential: credential,
-		Effects: []config.Effect{config.EffectRead}, Targets: targets}}
+	conn.Service, conn.Credential, conn.Targets = "ads", credential, targets
+	e.cfg.Connections = map[string]config.Connection{"work": conn}
 	if err := e.cfg.Validate(); err != nil {
 		t.Fatalf("Validate() = %v", err)
 	}
@@ -233,6 +245,13 @@ func (e *environment) secrets() *secret.Resolver {
 func (e *environment) invoke(operation, arguments string) (string, error) {
 	response, err := e.core.Invoke(context.Background(), application.InvokeRequest{
 		Operation: operation, Connection: "work", Arguments: json.RawMessage(arguments), Full: true})
+	return string(response.Result), err
+}
+
+// invokeConfirmed is an invoke with the confirmation of this one call.
+func (e *environment) invokeConfirmed(operation, arguments string) (string, error) {
+	response, err := e.core.Invoke(context.Background(), application.InvokeRequest{
+		Operation: operation, Connection: "work", Arguments: json.RawMessage(arguments), Full: true, Confirmed: true})
 	return string(response.Result), err
 }
 

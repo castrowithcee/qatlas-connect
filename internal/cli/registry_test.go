@@ -130,7 +130,11 @@ func TestDefaultRegistry(t *testing.T) {
 		"telegram.messages.forward", "telegram.sticker-sets.create")
 	requireIDs(t, ids("google.measurement-protocol"), "google.measurement-protocol.events.send")
 	requireIDs(t, ids("google.ads"), "google.ads.customers.list-accessible", "google.ads.customers.get",
-		"google.ads.customer-clients.list", "google.ads.reports.search", "google.ads.fields.search", "google.ads.fields.get")
+		"google.ads.customer-clients.list", "google.ads.reports.search", "google.ads.fields.search", "google.ads.fields.get",
+		"google.ads.customers.update",
+		"google.ads.customer-budget-network-settings.create", "google.ads.customer-budget-network-settings.update",
+		"google.ads.customer-user-accesses.list", "google.ads.customer-user-accesses.update",
+		"google.ads.customer-user-accesses.remove")
 }
 
 // Every shipped provider starts new connections with a valid recommended profile that selects reads only,
