@@ -43,21 +43,16 @@ func (m *Model) vaultHeaderText() string { return strings.Join(m.vaultSegments()
 // admin session too. None for a run with no vault configured at all: showing a warning for something that
 // does not exist yet would be misleading.
 func (m *Model) vaultSegments() []string {
-	v := m.secrets.Vault()
-	if v == nil {
-		return nil
-	}
-	state, err := v.State()
-	if err != nil {
+	vs := m.vaultPlace()
+	switch vs.Kind {
+	case manage.VaultUnreadable:
 		// Neither locked nor unlocked describes a vault whose state cannot even be read; this is closer to
 		// the unencrypted warning than to either of the other two, and keeps the line naming what is wrong
 		// instead of silently showing nothing.
-		return []string{statusMark(statusFail, tr(tVaultError, m.redactor.Apply(err.Error())))}
-	}
-	switch {
-	case state == vault.StateUnencrypted:
+		return []string{statusMark(statusFail, tr(tVaultError, m.redactor.Apply(vs.Err.Error())))}
+	case manage.VaultUnencrypted:
 		return []string{statusMark(statusWarn, tr(tVaultUnencrypted))}
-	case m.vaultDisplayUnlocked(state):
+	case manage.VaultProcessOnly, manage.VaultThisWindow:
 		// A vault process elsewhere may hold it open while this window itself has never unlocked it; either
 		// way the admin state belongs here too, since every unlocked, encrypted vault shows one, and
 		// adminHeaderText already reads "admin off" (or the admin session time 0 text) on its own for a
@@ -67,34 +62,24 @@ func (m *Model) vaultSegments() []string {
 			admin = statusOK
 		}
 		unlocked := tr(tVaultUnlocked)
-		if state == vault.StateLocked && !m.vaultProcessEndsAt.IsZero() {
-			unlocked = tr(tVaultUnlockedUntil, unlockDeadlineText(m.vaultProcessEndsAt, time.Now()))
+		if !vs.EndsAt.IsZero() {
+			unlocked = tr(tVaultUnlockedUntil, unlockDeadlineText(vs.EndsAt, time.Now()))
 		}
 		return []string{statusMark(statusOK, unlocked), statusMark(admin, m.adminHeaderText())}
-	case state == vault.StateLocked:
+	case manage.VaultLocked:
 		return []string{statusMark(statusWarn, tr(tVaultLocked))}
 	}
 	return nil
 }
 
-// vaultUnencrypted reports whether the vault exists without a passphrase, the state the header warns about.
-func (m *Model) vaultUnencrypted() bool {
-	v := m.secrets.Vault()
-	if v == nil {
-		return false
-	}
-	state, err := v.State()
-	return err == nil && state == vault.StateUnencrypted
+// vaultPlace places the vault by the one rule of the management core, from this window's cached view of the
+// vault process (see checkVaultProcess), so drawing never asks a socket.
+func (m *Model) vaultPlace() manage.VaultState {
+	return manage.VaultStateOf(m.secrets.Vault(), manage.VaultProcess{Unlocked: m.vaultProcessUnlocked, EndsAt: m.vaultProcessEndsAt})
 }
 
-// vaultDisplayUnlocked reports whether the header, and 'ctrl+l', should treat the vault as unlocked: this
-// process unlocked it itself, or a vault process elsewhere holds it open (see checkVaultProcess). The two
-// are deliberately folded into one question here, unlike admin.go's own requireAdmin, which always asks this
-// window's own state alone: a shown "unlocked" vault must behave as one for 'ctrl+l' as well, or the header
-// and the key would contradict each other.
-func (m *Model) vaultDisplayUnlocked(state vault.State) bool {
-	return state == vault.StateUnlocked || (state == vault.StateLocked && m.vaultProcessUnlocked)
-}
+// vaultUnencrypted reports whether the vault exists without a passphrase, the state the header warns about.
+func (m *Model) vaultUnencrypted() bool { return m.vaultPlace().Kind == manage.VaultUnencrypted }
 
 // adminHeaderText is the header's admin abbreviation for an encrypted, unlocked vault: "admin off" while
 // this window has no session, "admin Nm left" with its remaining time rounded to minutes, or "admin: confirm
@@ -114,16 +99,10 @@ func (m *Model) adminHeaderText() string {
 // encrypted vault, since an absent or unencrypted one has nothing to lock or unlock (handleVaultLockKey says
 // so itself if it is pressed anyway).
 func (m *Model) vaultLockKeyHint() string {
-	v := m.secrets.Vault()
-	if v == nil {
-		return ""
-	}
-	switch state, err := v.State(); {
-	case err != nil:
-		return ""
-	case m.vaultDisplayUnlocked(state):
+	switch vs := m.vaultPlace(); {
+	case vs.Unlocked():
 		return footerPlaceholder(actLock) + " lock vault"
-	case state == vault.StateLocked:
+	case vs.Kind == manage.VaultLocked:
 		return footerPlaceholder(actLock) + " unlock vault"
 	}
 	return ""
@@ -145,28 +124,23 @@ func (m *Model) vaultLockKeyAllowed() bool {
 // handleVaultLockKey runs 'ctrl+l' with no other dialog open (see vaultLockKeyAllowed, its only caller):
 // gated first behind vaultBusy, since vault work already in flight must not be raced by a second attempt,
 // exactly like every other vault action of this editor, it then opens the dialog the displayed state calls
-// for (see vaultDisplayUnlocked, which the header itself also follows, so the two never contradict each
+// for (see vaultPlace, which the header itself also follows, so the two never contradict each
 // other), or says there is nothing to do for one that is absent or unencrypted.
 func (m *Model) handleVaultLockKey() tea.Cmd {
 	if m.vaultBusy {
 		m.status = tr(tVaultWriteBusy)
 		return nil
 	}
-	v := m.secrets.Vault()
-	if v == nil {
-		m.status = tr(tVaultNone)
-		return nil
-	}
-	state, err := v.State()
-	if err != nil {
-		m.fail = m.redactor.Apply(err.Error())
-		return nil
-	}
+	vs := m.vaultPlace()
 	switch {
-	case m.vaultDisplayUnlocked(state):
+	case vs.Kind == manage.VaultUnreadable:
+		m.fail = m.redactor.Apply(vs.Err.Error())
+	case vs.Unlocked():
 		m.openVaultLockConfirm(m.screen)
-	case state == vault.StateLocked:
+	case vs.Kind == manage.VaultLocked:
 		m.openVaultUnlockPrompt(m.screen)
+	case m.secrets.Vault() == nil:
+		m.status = tr(tVaultNone)
 	default:
 		m.status = tr(tVaultNothingToLock)
 	}
@@ -528,18 +502,17 @@ func (m *Model) lockUnavailable() string {
 	if !m.vaultLockKeyAllowed() {
 		return tr(tLockCannotHere)
 	}
-	v := m.secrets.Vault()
-	if v == nil {
-		return tr(tVaultNone)
-	}
-	state, err := v.State()
+	vs := m.vaultPlace()
 	switch {
-	case err != nil:
+	case vs.Kind == manage.VaultUnreadable:
 		return tr(tLockStateUnknown)
-	case m.vaultDisplayUnlocked(state):
+	case vs.Unlocked():
 		return ""
-	case state == vault.StateLocked:
+	case vs.Kind == manage.VaultLocked:
 		return tr(tLockAlready)
+	}
+	if m.secrets.Vault() == nil {
+		return tr(tVaultNone)
 	}
 	return tr(tVaultNothingToLock)
 }
