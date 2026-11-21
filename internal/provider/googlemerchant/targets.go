@@ -199,16 +199,10 @@ func (s scope) advancedOf(given string) (string, error) {
 	return given, nil
 }
 
-// advancedTools are the tools that act on an advanced account as a whole.
-var advancedTools = map[string]bool{
-	developerRegistrationsGetID: true,
-	accountServicesListID:       true, accountServicesGetID: true, accountServicesRejectID: true,
-}
-
 // reaches withholds the tools that act on an advanced account as a whole from a connection bound without
 // one: a sub-account or account target does not bind the advanced account.
 func reaches(tool string, targets []string) (bool, []string) {
-	if !advancedTools[tool] || len(targets) == 0 {
+	if !advancedOnlyTools(tool) || len(targets) == 0 {
 		return true, nil
 	}
 	for _, raw := range targets {

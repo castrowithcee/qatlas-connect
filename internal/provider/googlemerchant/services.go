@@ -238,16 +238,16 @@ type serviceRejectResult struct {
 	Name     string `json:"name"`
 }
 
-const kindSchema = `{"type":"object"}`
+const serviceKindSchema = `{"type":"object"}`
 
 var (
 	accountServiceSchema = objectSchema(member("name", stringSchema), member("provider", stringSchema),
 		member("providerDisplayName", stringSchema), member("externalAccountId", stringSchema),
 		member("handshake", objectSchema(member("actor", stringSchema), member("approvalState", stringSchema))),
-		member("mutability", stringSchema), member("accountManagement", kindSchema),
-		member("productsManagement", kindSchema), member("campaignsManagement", kindSchema),
-		member("localListingManagement", kindSchema), member("accountAggregation", kindSchema),
-		member("comparisonShopping", kindSchema))
+		member("mutability", stringSchema), member("accountManagement", serviceKindSchema),
+		member("productsManagement", serviceKindSchema), member("campaignsManagement", serviceKindSchema),
+		member("localListingManagement", serviceKindSchema), member("accountAggregation", serviceKindSchema),
+		member("comparisonShopping", serviceKindSchema))
 	serviceRejectSchema = objectSchema(member("accepted", boolSchema), member("name", stringSchema))
 )
 
