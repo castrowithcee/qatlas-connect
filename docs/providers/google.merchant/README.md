@@ -18,6 +18,8 @@ developer registration, and the consent.
 | `google.merchant.accounts.list` | the accounts the credential can access, with an optional Google filter |
 | `google.merchant.accounts.get` | one account |
 | `google.merchant.developer-registrations.get` | the Google Cloud projects registered as developers with an account |
+| `google.merchant.developer-registrations.get-account-for-gcp-registration` | the account the Cloud project of the credential is registered with; on a bound connection only if it lies within the targets, see [developer registration](developer-registrations.md) |
+| `google.merchant.developer-registrations.unregister-gcp` | unregisters the Cloud project of the credential from an account, which ends its API access, Qatlas included; confirmed and only through the `tools` list, see [developer registration](developer-registrations.md) |
 | `google.merchant.accounts.list-subaccounts` | the sub-accounts of an advanced account, see [account tools](accounts.md) |
 | `google.merchant.accounts.update` | changes the settings of an account, see [account tools](accounts.md) |
 | `google.merchant.accounts.delete` | deletes an account, see [account tools](accounts.md) |
@@ -50,6 +52,7 @@ developer registration, and the consent.
 | `google.merchant.omnichannel-settings.get` | the omnichannel setting of one country, see [omnichannel settings](omnichannel.md) |
 | `google.merchant.omnichannel-settings.create` | creates the omnichannel setting of a country, see [omnichannel settings](omnichannel.md) |
 | `google.merchant.omnichannel-settings.update` | changes the omnichannel setting of a country, see [omnichannel settings](omnichannel.md) |
+| `google.merchant.omnichannel-settings.request-inventory-verification` | starts the inventory verification process at Google for a country; confirmed, only through the `tools` list, see [omnichannel settings](omnichannel.md) |
 | `google.merchant.checkout-settings.get` | the checkout settings of an account, see [checkout settings](checkout.md) |
 | `google.merchant.checkout-settings.create` | enrolls an account in the Checkout program, see [checkout settings](checkout.md) |
 | `google.merchant.checkout-settings.update` | changes the checkout settings of an account, see [checkout settings](checkout.md) |
@@ -73,6 +76,8 @@ developer registration, and the consent.
 | `google.merchant.conversion-sources.get` | one conversion source, see [conversion sources](conversions.md) |
 | `google.merchant.conversion-sources.create` | creates a Merchant Center destination as conversion source (create), see [conversion sources](conversions.md) |
 | `google.merchant.conversion-sources.update` | changes a Merchant Center destination (update), see [conversion sources](conversions.md) |
+| `google.merchant.conversion-sources.undelete` | restores an archived Merchant Center destination (update, tools list only), see [conversion sources](conversions.md) |
+| `google.merchant.conversion-sources.delete` | archives a Merchant Center destination or removes a Google Analytics link (delete, tools list only), see [conversion sources](conversions.md) |
 | `google.merchant.issue-resolutions.render-account-issues` | the issues of an account with resolution content and actions, as text, see [issue rendering](issue-resolutions.md) |
 | `google.merchant.issue-resolutions.render-product-issues` | the issues of one product with resolution content and actions, as text, see [issue rendering](issue-resolutions.md) |
 | `google.merchant.email-preferences.get` | the email preferences of the user of the credential, see [email preferences](email-preferences.md) |
@@ -149,10 +154,13 @@ is sent. The path of every request is built from the checked ID, never from free
   ID cannot be read, or whose `name` and `accountId` disagree. The filter only narrows what Google sends. A
   batch can therefore be short or empty while `next_cursor` says there is more. For rows that no target
   names, the sub-accounts of the bound advanced accounts are read once per call.
-- `developer-registrations.get`, the user tools, and the `account-services` tools act on an advanced account as a
+- `developer-registrations.get`, `developer-registrations.unregister-gcp`, the user tools, and the `account-services` tools act on an advanced account as a
   whole. On a connection bound to targets they need `advanced-accounts/ACCOUNT` for that account: a sub-account, an account target, or an advanced account
   that is not bound is not enough. A connection bound only to account targets is not offered these tools. Without
   targets any account ID is accepted.
+- `developer-registrations.get-account-for-gcp-registration` takes no account. On a bound connection the account
+  Google names is checked against the targets, with the same proof read, and refused without naming it if it lies
+  outside; see [developer registration](developer-registrations.md).
 - `terms-of-service.get` and `terms-of-service.retrieve-latest` read global documents and act on no account, so
   every connection is offered them whatever its targets; see [terms of service](terms-of-service.md).
 - The time between the proof read and the call that follows is not covered: an account that leaves its advanced
@@ -256,6 +264,6 @@ Changes are sent once: an update with a JSON body built from the structured argu
 body. They are not repeated after `401`, `429`, or `5xx`, because Google may already have applied them, and every
 call counts against the quota.
 
-No tool of this provider proposes or approves a service, invites a user or accepts an invitation, registers or unregisters a Cloud project, links an account to another
+No tool of this provider proposes or approves a service, invites a user or accepts an invitation, registers a Cloud project (`registerGcp`), links an account to another
 one (a Business Profile account or a Local Feeds Partnership provider included), sets a notification address, or accepts terms for an account (`terms-of-service.accept` is deliberately
 missing). The Merchant API methods of the Local Feeds Partnership service (stores, inventories, sales) and for triggering actions are not offered.

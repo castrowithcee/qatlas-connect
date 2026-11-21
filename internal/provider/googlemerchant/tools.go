@@ -97,10 +97,12 @@ func descriptors() []capability.Descriptor {
 		notificationSubscriptionsList, notificationSubscriptionsGet, notificationSubscriptionsDelete,
 		accountServicesList, accountServicesGet, accountServicesReject, accountRelationshipsList,
 		conversionSourcesList, conversionSourcesGet, conversionSourcesCreate, conversionSourcesUpdate,
+		conversionSourcesUndelete, conversionSourcesDelete,
 		renderAccountIssues, renderProductIssues, emailPreferencesGet, emailPreferencesUpdate},
 		append(append(append(append(append(accountWriteDescriptors(), homepageDescriptors()...), omnichannelDescriptors()...),
 			checkoutDescriptors()...), returnPolicyDescriptors()...),
-			append(append(relationshipDescriptors(), linkDescriptors()...), shippingDescriptors()...)...)...)
+			append(append(append(relationshipDescriptors(), linkDescriptors()...), developerRegistrationDescriptors()...),
+				shippingDescriptors()...)...)...)
 }
 
 var accountsList = capability.Descriptor{

@@ -41,7 +41,7 @@ var (
 func advancedOnlyTools(tool string) bool {
 	switch tool {
 	case developerRegistrationsGetID, accountsListSubaccountsID, accountsDeleteID, accountsCreateTestAccountID,
-		accountServicesListID, accountServicesGetID, accountServicesRejectID:
+		accountServicesListID, accountServicesGetID, accountServicesRejectID, developerRegistrationsUnregisterID:
 		return true
 	}
 	return false
