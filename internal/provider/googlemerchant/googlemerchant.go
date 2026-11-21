@@ -117,7 +117,7 @@ func Register(reg *capability.Registry) error {
 		},
 		Profiles: []config.ToolProfile{{
 			ID: "read", Title: "Read", Recommended: true,
-			Description: "reads Merchant Center accounts, the developer registration of an account, the users of an account, data sources, products, the local and regional inventories of a product, issues, reports, quotas, and limits; changes nothing",
+			Description: "reads Merchant Center accounts, the developer registration of an account, the users of an account, data sources, product reviews, products, the local and regional inventories of a product, issues, reports, quotas, and limits; changes nothing",
 			Tools:       readIDs,
 		}},
 	}, TestConnection); err != nil {
@@ -195,6 +195,8 @@ func Register(reg *capability.Registry) error {
 	maps.Copy(summaries, shippingSummaries())
 	maps.Copy(handlers, productInputHandlers())
 	maps.Copy(summaries, productInputSummaries())
+	maps.Copy(handlers, reviewHandlers())
+	maps.Copy(summaries, reviewSummaries())
 	maps.Copy(handlers, relationshipHandlers())
 	maps.Copy(summaries, relationshipSummaries())
 	maps.Copy(handlers, linkHandlers())

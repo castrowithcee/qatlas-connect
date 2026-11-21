@@ -80,6 +80,8 @@ developer registration, and the consent.
 | `google.merchant.online-return-policies.get` | one online return policy, see [return policies](return-policies.md) |
 | `google.merchant.online-return-policies.create` | creates an online return policy, see [return policies](return-policies.md) |
 | `google.merchant.online-return-policies.delete` | deletes an online return policy, see [return policies](return-policies.md) |
+| `google.merchant.product-reviews.list`, `.get` | the product reviews of an account, one batch or one review, with the identifiers of the reviewers (personal data of third parties), see [product reviews](product-reviews.md) |
+| `google.merchant.product-reviews.delete` | deletes one product review; confirmed, only through the `tools` list, see [product reviews](product-reviews.md) |
 | `google.merchant.notification-subscriptions.list` | the notification subscriptions of an account |
 | `google.merchant.notification-subscriptions.get` | one notification subscription |
 | `google.merchant.notification-subscriptions.delete` | deletes a notification subscription (delete, confirmation, listed tools only) |
@@ -108,7 +110,7 @@ automatic improvements](autofeed.md), the account tools beyond the first three i
 [products and issues](products.md), the local inventory tools in [local inventories](local-inventories.md), the regional inventory tools in
 [regional inventories](regional-inventories.md),
 the user tools in [users](users.md), the home page tools in [home page](homepages.md), the region tools in
-[regions](regions.md), the promotion tools in [promotions](promotions.md), the subscription tools in [Notification subscriptions](notifications.md), the
+[regions](regions.md), the promotion tools in [promotions](promotions.md), the review tools in [product reviews](product-reviews.md), the subscription tools in [Notification subscriptions](notifications.md), the
 omnichannel tools in [omnichannel settings](omnichannel.md), the service and relationship tools in [services](services.md),
 the Business Profile and Local Feeds Partnership reads in [linked accounts](links.md), the conversion tools in [conversion sources](conversions.md), the checkout tools in [checkout
 settings](checkout.md), the return policy tools in [return policies](return-policies.md), the shipping tools in [shipping settings](shipping-settings.md), the render tools in
@@ -288,4 +290,4 @@ call counts against the quota.
 
 No tool of this provider proposes or approves a service, invites a user or accepts an invitation, registers a Cloud project (`registerGcp`), links an account to another
 one (a Business Profile account or a Local Feeds Partnership provider included), sets a notification address, or accepts terms for an account (`terms-of-service.accept` is deliberately
-missing). The Merchant API methods of the Local Feeds Partnership service (stores, inventories, sales) and for triggering actions are not offered.
+missing). The Merchant API methods of the Local Feeds Partnership service (stores, inventories, sales) and for triggering actions are not offered. Submitting product reviews (`productReviews.insert`) is not offered either.
