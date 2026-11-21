@@ -129,7 +129,7 @@ Left out on purpose:
 
 - `google_ads_conversion_customer`.
 - `CustomerService.CreateCustomerClient`, which creates an account and may invite a user, and every
-  other service of access, links, and billing.
+  other service of links and billing, and the invitation of users.
 - `partial_failure`, a list of operations, and `GoogleAdsService.Mutate`: the tools use the Mutate service of
   their resource family with one operation.
 - Smart campaign settings.

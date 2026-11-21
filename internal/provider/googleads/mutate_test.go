@@ -16,7 +16,11 @@ import (
 	"github.com/castrowithcee/qatlas-connect/internal/provider"
 )
 
-var changeToolIDs = []string{customersUpdateID, customerBudgetNetworkSettingsCreateID, customerBudgetNetworkSettingsUpdateID}
+var changeToolIDs = []string{customersUpdateID, customerBudgetNetworkSettingsCreateID, customerBudgetNetworkSettingsUpdateID,
+	customerUserAccessesUpdateID, customerUserAccessesRemoveID}
+
+// noValidateOnly are the change tools whose Google service has no validate_only member.
+var noValidateOnly = []string{customerUserAccessesUpdateID, customerUserAccessesRemoveID}
 
 func mutatePath(id string) string { return "/v26/customers/" + id + ":mutate" }
 func networkPath(id string) string {
@@ -63,7 +67,8 @@ func TestChangeToolsAreListedOnlyConfirmedAndOutsideTheReadProfile(t *testing.T)
 	metadata, _ := reg.ProviderMetadata(Provider)
 	wantEffect := map[string]capability.Effect{customersUpdateID: capability.EffectUpdate,
 		customerBudgetNetworkSettingsCreateID: capability.EffectCreate,
-		customerBudgetNetworkSettingsUpdateID: capability.EffectUpdate}
+		customerBudgetNetworkSettingsUpdateID: capability.EffectUpdate,
+		customerUserAccessesUpdateID:          capability.EffectUpdate, customerUserAccessesRemoveID: capability.EffectDelete}
 	for _, id := range changeToolIDs {
 		d, _, ok := reg.Lookup(id)
 		if !ok || !d.RequiresToolAllowList || d.Version != 1 || d.Risk.Effect != wantEffect[id] ||
@@ -91,7 +96,7 @@ func TestChangeToolsAreListedOnlyConfirmedAndOutsideTheReadProfile(t *testing.T)
 				t.Errorf("%s offers the argument %s", id, forbidden)
 			}
 		}
-		if _, found := properties["validate_only"]; !found {
+		if _, found := properties["validate_only"]; !found && !slices.Contains(noValidateOnly, id) {
 			t.Errorf("%s has no validate_only", id)
 		}
 		if strings.Contains(string(d.InputSchema), "google_ads_conversion_customer") {
