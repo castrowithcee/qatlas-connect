@@ -57,6 +57,8 @@ developer registration, and the consent.
 | `google.merchant.checkout-settings.create` | enrolls an account in the Checkout program, see [checkout settings](checkout.md) |
 | `google.merchant.checkout-settings.update` | changes the checkout settings of an account, see [checkout settings](checkout.md) |
 | `google.merchant.checkout-settings.delete` | deletes the checkout settings of an account, see [checkout settings](checkout.md) |
+| `google.merchant.shipping-settings.get` | the whole shipping setting of an account, see [shipping settings](shipping-settings.md) |
+| `google.merchant.shipping-settings.insert` | REPLACES the whole shipping setting (update, confirmation, listed tools only), see [shipping settings](shipping-settings.md) |
 | `google.merchant.online-return-policies.list` | the online return policies of an account, see [return policies](return-policies.md) |
 | `google.merchant.online-return-policies.get` | one online return policy, see [return policies](return-policies.md) |
 | `google.merchant.online-return-policies.create` | creates an online return policy, see [return policies](return-policies.md) |
@@ -87,7 +89,7 @@ the user tools in [users](users.md), the home page tools in [home page](homepage
 [regions](regions.md), the subscription tools in [Notification subscriptions](notifications.md), the
 omnichannel tools in [omnichannel settings](omnichannel.md), the service and relationship tools in [services](services.md),
 the Business Profile and Local Feeds Partnership reads in [linked accounts](links.md), the conversion tools in [conversion sources](conversions.md), the checkout tools in [checkout
-settings](checkout.md), the return policy tools in [return policies](return-policies.md), the render tools in
+settings](checkout.md), the return policy tools in [return policies](return-policies.md), the shipping tools in [shipping settings](shipping-settings.md), the render tools in
 [issue rendering](issue-resolutions.md), and the email tools in [email preferences](email-preferences.md); the
 render tools are reads although Google takes them as `POST`.
 

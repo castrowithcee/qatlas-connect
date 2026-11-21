@@ -101,7 +101,8 @@ func descriptors() []capability.Descriptor {
 		renderAccountIssues, renderProductIssues, emailPreferencesGet, emailPreferencesUpdate},
 		append(append(append(append(append(accountWriteDescriptors(), homepageDescriptors()...), omnichannelDescriptors()...),
 			checkoutDescriptors()...), returnPolicyDescriptors()...),
-			append(append(relationshipDescriptors(), linkDescriptors()...), developerRegistrationDescriptors()...)...)...)
+			append(append(append(relationshipDescriptors(), linkDescriptors()...), developerRegistrationDescriptors()...),
+				shippingDescriptors()...)...)...)
 }
 
 var accountsList = capability.Descriptor{
