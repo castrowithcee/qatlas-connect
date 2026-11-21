@@ -91,6 +91,9 @@ developer registration, and the consent.
 | `google.merchant.issue-resolutions.render-product-issues` | the issues of one product with resolution content and actions, as text, see [issue rendering](issue-resolutions.md) |
 | `google.merchant.email-preferences.get` | the email preferences of the user of the credential, see [email preferences](email-preferences.md) |
 | `google.merchant.email-preferences.update` | opts the user of the credential in or out of news and tips mails (update, confirmation required), see [email preferences](email-preferences.md) |
+| `google.merchant.product-inputs.insert` | uploads a product input to an API data source and REPLACES an existing input of the same identity (create, confirmation, `tools` list only), see [product inputs](product-inputs.md) |
+| `google.merchant.product-inputs.update` | sets and removes single attributes of a product input with an update mask that Qatlas builds (update, confirmation, `tools` list only), see [product inputs](product-inputs.md) |
+| `google.merchant.product-inputs.delete` | deletes a product input from a data source (delete, confirmation, `tools` list only), see [product inputs](product-inputs.md) |
 
 The terms tools are described in [terms of service](terms-of-service.md), the two updates in [Autofeed and
 automatic improvements](autofeed.md), the account tools beyond the first three in [account tools](accounts.md), the product and issue tools in
@@ -100,7 +103,7 @@ the user tools in [users](users.md), the home page tools in [home page](homepage
 omnichannel tools in [omnichannel settings](omnichannel.md), the service and relationship tools in [services](services.md),
 the Business Profile and Local Feeds Partnership reads in [linked accounts](links.md), the conversion tools in [conversion sources](conversions.md), the checkout tools in [checkout
 settings](checkout.md), the return policy tools in [return policies](return-policies.md), the shipping tools in [shipping settings](shipping-settings.md), the render tools in
-[issue rendering](issue-resolutions.md), and the email tools in [email preferences](email-preferences.md); the
+[issue rendering](issue-resolutions.md), the email tools in [email preferences](email-preferences.md), and the product input tools in [product inputs](product-inputs.md); the
 render tools are reads although Google takes them as `POST`.
 
 Every read tool needs no confirmation, and every change needs one for every call. The account resource has the

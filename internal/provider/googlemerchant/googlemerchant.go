@@ -187,6 +187,8 @@ func Register(reg *capability.Registry) error {
 	maps.Copy(summaries, returnPolicySummaries())
 	maps.Copy(handlers, shippingHandlers())
 	maps.Copy(summaries, shippingSummaries())
+	maps.Copy(handlers, productInputHandlers())
+	maps.Copy(summaries, productInputSummaries())
 	maps.Copy(handlers, relationshipHandlers())
 	maps.Copy(summaries, relationshipSummaries())
 	maps.Copy(handlers, linkHandlers())
