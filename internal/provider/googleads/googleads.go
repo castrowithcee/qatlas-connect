@@ -31,7 +31,8 @@ const Provider = "google.ads"
 const subject = "Google Ads"
 
 // readTools are the tools of the profile read.
-var readTools = []string{customersListAccessibleID, customersGetID, customerClientsListID}
+var readTools = []string{customersListAccessibleID, customersGetID, customerClientsListID, reportsSearchID,
+	fieldsSearchID, fieldsGetID}
 
 // TestConnection obtains an access token, checks its scope, and lists the accounts the credential reaches
 // directly. That call costs one operation of the daily quota and nothing else, and proves the token, the
@@ -70,7 +71,7 @@ func Register(reg *capability.Registry) error {
 	token := tokenMetadata
 	if err := reg.RegisterProvider(config.ProviderMetadata{
 		ID: Provider, Name: "Google Ads", DefaultBaseURL: apiRoot,
-		Description:    "Google Ads API v26: accounts, manager hierarchy and account settings of Google Ads",
+		Description:    "Google Ads API v26: accounts, manager hierarchy, account settings, reports and the field reference of Google Ads",
 		DefaultEffects: []config.Effect{config.EffectRead},
 		ValidateBaseURL: func(raw string) error {
 			if !isAPIRoot(raw) {
@@ -84,7 +85,7 @@ func Register(reg *capability.Registry) error {
 		Profiles: []config.ToolProfile{{
 			ID: "read", Title: "Read", Recommended: true,
 			Description: "lists the accounts the credential reaches, reads account settings and the hierarchy " +
-				"below a manager account; the adwords scope is the only one Google offers and also allows changes, " +
+				"below a manager account, runs reports and reads the field reference; the adwords scope is the only one Google offers and also allows changes, " +
 				"although no tool of this profile changes anything",
 			Tools: readTools,
 		}},
@@ -99,5 +100,8 @@ func Register(reg *capability.Registry) error {
 	return reg.Register(Provider,
 		capability.Operation{Descriptor: customersListAccessible, Handler: handleCustomersListAccessible},
 		capability.Operation{Descriptor: customersGet, Handler: handleCustomersGet},
-		capability.Operation{Descriptor: customerClientsList, Handler: handleCustomerClientsList})
+		capability.Operation{Descriptor: customerClientsList, Handler: handleCustomerClientsList},
+		capability.Operation{Descriptor: reportsSearch, Handler: handleReportsSearch},
+		capability.Operation{Descriptor: fieldsSearch, Handler: handleFieldsSearch},
+		capability.Operation{Descriptor: fieldsGet, Handler: handleFieldsGet})
 }

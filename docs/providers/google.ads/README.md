@@ -1,17 +1,18 @@
 ---
 description: >
-  Describes the Google Ads provider: the token credential with the adwords scope and no developer token, the fixed API version v26, the service option login_customer_id and the login-customer-id header, the manager and customer targets with the membership read, the profile read, the tools customers.list-accessible, customers.get and customer-clients.list, the GoogleAdsFailure and quota errors and their classes, rate spacing, the connection test, and what is not verified.
+  Describes the Google Ads provider: the token credential with the adwords scope and no developer token, the fixed API version v26, the service option login_customer_id and the login-customer-id header, the manager and customer targets with the membership read, the profile read, the tools customers.list-accessible, customers.get, customer-clients.list, reports.search, fields.search and fields.get, the GoogleAdsFailure and quota errors and their classes, rate spacing, the connection test, and what is not verified.
 type: knowledge
 edit: shared
 created: 2026-11-19
-updated: 2026-11-19
+updated: 2026-11-21
 ---
 
 # Google Ads
 
 Google Ads is a provider for the Google Ads API, version v26, over its REST interface, with one credential that
-issues access tokens. It lists the accounts a credential reaches, reads the settings of an account, and lists the
-hierarchy below a manager account.
+issues access tokens. It lists the accounts a credential reaches, reads the settings of an account, lists the
+hierarchy below a manager account, runs reports on any resource, and reads the field reference of the query
+language. The [report tools](reports.md) have their own page.
 
 [Set up Google Ads](setup.md) leads through the Cloud project, its access level, and the credential. The fields
 of a tool are in its descriptor; this page holds what the descriptor does not say.
@@ -85,7 +86,7 @@ sits.
 
 | Profile | Tools | Recommended |
 | --- | --- | --- |
-| `read` | `customers.list-accessible`, `customers.get`, `customer-clients.list` | yes |
+| `read` | `customers.list-accessible`, `customers.get`, `customer-clients.list`, `reports.search`, `fields.search`, `fields.get` | yes |
 
 ## Tools
 
@@ -132,6 +133,13 @@ Every text Google returns is untrusted and is cut: names, codes, and resource na
 tracking templates, URL suffixes, and the global site tag at 4096 bytes, lists at 500 entries. An answer above
 8 MiB is `invalid-provider-response`.
 
+### reports.search, fields.search, fields.get
+
+`reports.search` runs a search `FROM` any resource of the field catalog from a structured query, with a limit of
+100 rows or up to 1,000, and no query string. `fields.search` and `fields.get` read the field reference of the
+query language and need no account. The checks, the limits, `has_more`, the fields whose values are never
+returned, and the personal data a report can hold are on the page of the [report tools](reports.md).
+
 ## Errors
 
 Qatlas' message never carries Google's text. Google answers a failed call with the Google error object whose
@@ -163,6 +171,10 @@ Without a documented code, the HTTP status and the error object decide: 401 `aut
 `invalid-provider-response`, since Qatlas built the request; 5xx by HTTP status. A failed token request ends as
 `auth`, `consent-required`, or `consent-expired`, as the core decides.
 
+A report that Google refuses as a query that cannot be run, a `queryError`, ends as `provider-error` with the code
+in the original, and the message says the query is not allowed; in the tools that Qatlas builds the query for
+itself, the same answer is `invalid-provider-response`.
+
 Every request is a read. It times out after 20 seconds and repeats once after a 401 with a renewed token, never
 otherwise.
 
@@ -173,7 +185,8 @@ not a Google limit. After a rate or quota error the next request of the credenti
 the quota error details or the seconds of `Retry-After`, at least one second and at most one minute. The failed
 request is not repeated.
 
-Every search and every `listAccessibleCustomers` counts as one operation of the daily quota of the Cloud
+Every search, every `listAccessibleCustomers`, and every call of the field service counts as one request, and a
+search or `listAccessibleCustomers` as one operation of the daily quota of the Cloud
 project, also when it fails; the membership read counts as well.
 
 ## Connection test
@@ -204,5 +217,5 @@ Left out on purpose:
 
 - The `linked-customer-id` header, which only partners with a product link use.
 - `GoogleAdsService.SearchStream`, page tokens of Google, and the `page_size` of a search, which Google no
-  longer accepts.
+  longer accepts. `reports.search` has no cursor; the [report tools](reports.md) say how to go on.
 - Any free query, path, or header.

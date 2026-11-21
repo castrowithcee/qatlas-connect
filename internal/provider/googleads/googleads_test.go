@@ -31,7 +31,8 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 	if !reflect.DeepEqual(metadata.SecretRoles, config.TokenSecretRoles()) {
 		t.Errorf("secret roles = %+v, want the token roles", metadata.SecretRoles)
 	}
-	want := []string{customerClientsListID, customersGetID, customersListAccessibleID}
+	want := []string{customerClientsListID, customersGetID, customersListAccessibleID, fieldsGetID, fieldsSearchID,
+		reportsSearchID}
 	if len(metadata.Tools) != len(want) {
 		t.Fatalf("tools = %+v", metadata.Tools)
 	}
@@ -127,7 +128,7 @@ func TestConnectionIsCheckedBeforeSecretAndIO(t *testing.T) {
 			resolved := e.resolved()
 			c.change(resolved)
 			for _, handler := range []capability.Handler{handleCustomersListAccessible, handleCustomersGet,
-				handleCustomerClientsList} {
+				handleCustomerClientsList, handleReportsSearch, handleFieldsSearch, handleFieldsGet} {
 				_, err := handler(context.Background(), resolved, e.secrets(), e.red,
 					json.RawMessage(`{"customer_id":"`+clientID+`"}`))
 				if classOf(err) != provider.ClassProviderError {
