@@ -48,6 +48,10 @@ developer registration, and the consent.
 | `google.merchant.omnichannel-settings.get` | the omnichannel setting of one country, see [omnichannel settings](omnichannel.md) |
 | `google.merchant.omnichannel-settings.create` | creates the omnichannel setting of a country, see [omnichannel settings](omnichannel.md) |
 | `google.merchant.omnichannel-settings.update` | changes the omnichannel setting of a country, see [omnichannel settings](omnichannel.md) |
+| `google.merchant.checkout-settings.get` | the checkout settings of an account, see [checkout settings](checkout.md) |
+| `google.merchant.checkout-settings.create` | enrolls an account in the Checkout program, see [checkout settings](checkout.md) |
+| `google.merchant.checkout-settings.update` | changes the checkout settings of an account, see [checkout settings](checkout.md) |
+| `google.merchant.checkout-settings.delete` | deletes the checkout settings of an account, see [checkout settings](checkout.md) |
 | `google.merchant.notification-subscriptions.list` | the notification subscriptions of an account |
 | `google.merchant.notification-subscriptions.get` | one notification subscription |
 | `google.merchant.notification-subscriptions.delete` | deletes a notification subscription (delete, confirmation, listed tools only) |
@@ -63,8 +67,9 @@ The terms tools are described in [terms of service](terms-of-service.md), the tw
 automatic improvements](autofeed.md), the account tools beyond the first three in [account tools](accounts.md),
 the user tools in [users](users.md), the home page tools in [home page](homepages.md), the region tools in
 [regions](regions.md), the subscription tools in [Notification subscriptions](notifications.md), the
-omnichannel tools in [omnichannel settings](omnichannel.md), the service tools in [services](services.md), and
-the conversion tools in [conversion sources](conversions.md).
+omnichannel tools in [omnichannel settings](omnichannel.md), the service tools in [services](services.md),
+the conversion tools in [conversion sources](conversions.md), and the checkout tools in [checkout
+settings](checkout.md).
 
 Every read tool needs no confirmation, and every change needs one for every call. The account resource has the
 members `name`, `accountId`, `accountName`, `testAccount`, `adultContent`, `languageCode`, `homePageUri`, and
