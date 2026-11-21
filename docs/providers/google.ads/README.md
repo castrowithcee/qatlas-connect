@@ -1,10 +1,10 @@
 ---
 description: >
-  Describes the Google Ads provider: the token credential with the adwords scope and no developer token, the fixed API version v26, the service option login_customer_id and the login-customer-id header, the manager and customer targets with the membership read, the profile read, the tools customers.list-accessible, customers.get, customer-clients.list, reports.search, fields.search, fields.get, customer-user-accesses.list, customer-user-access-invitations.list and multi-party-auth-reviews.list, the settings, user access, invitation and review tools customers.update, customer-budget-network-settings.create and update, customer-user-accesses.update and remove, customer-user-access-invitations.remove and multi-party-auth-reviews.resolve that only the tools list offers, the GoogleAdsFailure and quota errors and their classes, rate spacing, the connection test, and what is not verified.
+  Describes the Google Ads provider: the token credential with the adwords scope and no developer token, the fixed API version v26, the service option login_customer_id and the login-customer-id header, the manager and customer targets with the membership read, the profile read, the tools customers.list-accessible, customers.get, customer-clients.list, reports.search, fields.search, fields.get, customer-user-accesses.list, customer-user-access-invitations.list, multi-party-auth-reviews.list, invoices.list, incentives.fetch and third-party-app-analytics-links.list, the settings, user access, invitation and review tools customers.update, customer-budget-network-settings.create and update, customer-user-accesses.update and remove, customer-user-access-invitations.remove and multi-party-auth-reviews.resolve that only the tools list offers, the GoogleAdsFailure and quota errors and their classes, rate spacing, the connection test, and what is not verified.
 type: knowledge
 edit: shared
 created: 2026-11-19
-updated: 2026-11-21
+updated: 2026-11-22
 ---
 
 # Google Ads
@@ -88,7 +88,7 @@ sits.
 
 | Profile | Tools | Recommended |
 | --- | --- | --- |
-| `read` | `customers.list-accessible`, `customers.get`, `customer-clients.list`, `reports.search`, `fields.search`, `fields.get`, `customer-user-accesses.list`, `customer-user-access-invitations.list`, `multi-party-auth-reviews.list` | yes |
+| `read` | `customers.list-accessible`, `customers.get`, `customer-clients.list`, `reports.search`, `fields.search`, `fields.get`, `customer-user-accesses.list`, `customer-user-access-invitations.list`, `multi-party-auth-reviews.list`, `invoices.list`, `incentives.fetch`, `third-party-app-analytics-links.list` | yes |
 
 Tools that change an account belong to no profile: a connection offers them only when its `tools` list names
 them, see [settings tools](settings.md).
@@ -103,6 +103,7 @@ them, see [settings tools](settings.md).
 | `customer-user-accesses.update`, `.remove` | change the role of a user, remove a user, see [user access tools](user-access.md) |
 | `customer-user-access-invitations.list`, `.remove` | list and revoke the invitations of an account, see [invitations and approval requests](access.md) |
 | `multi-party-auth-reviews.list`, `.resolve` | list the approval requests of an account, reject or revoke one, never approve, see [invitations and approval requests](access.md) |
+| `invoices.list`, `incentives.fetch`, `third-party-app-analytics-links.list` | read the invoices of a billing setup, the incentive offer of the user and the app analytics links of an account; no incentive is applied and the PDF address and shareable link ID are withheld, see [invoices, incentives and app analytics links](invoices.md) |
 
 ### customers.list-accessible
 
