@@ -92,7 +92,9 @@ func TestConnection(ctx context.Context, resolved *config.Resolved, secrets *sec
 func Register(reg *capability.Registry) error {
 	var readIDs []string
 	for _, d := range descriptors() {
-		readIDs = append(readIDs, d.ID)
+		if d.Risk.Effect == capability.EffectRead && !d.RequiresToolAllowList {
+			readIDs = append(readIDs, d.ID)
+		}
 	}
 	if err := reg.RegisterProvider(config.ProviderMetadata{
 		ID: Provider, Name: "Google Merchant Center", DefaultBaseURL: apiRoot,
@@ -130,10 +132,16 @@ func Register(reg *capability.Registry) error {
 		termsOfServiceAgreementStatesGetID:            handleAgreementStatesGet,
 		termsOfServiceAgreementStatesForApplicationID: handleAgreementStatesRetrieveForApplication,
 		reportsSearchID: handleReportsSearch, quotasListID: handleQuotasList, limitsListID: handleLimitsList,
-		limitsGetID: handleLimitsGet,
+		limitsGetID:    handleLimitsGet,
+		programsListID: handleProgramsList, programsGetID: handleProgramsGet,
+		programsEnableID: handleProgramsEnable, programsDisableID: handleProgramsDisable,
+	}
+	summaries := map[string]capability.SummaryFunc{
+		programsEnableID: programSummary("Enable"), programsDisableID: programSummary("Disable"),
 	}
 	for _, d := range descriptors() {
-		if err := reg.Register(Provider, capability.Operation{Descriptor: d, Handler: handlers[d.ID]}); err != nil {
+		if err := reg.Register(Provider, capability.Operation{Descriptor: d, Handler: handlers[d.ID],
+			ConfirmationSummary: summaries[d.ID]}); err != nil {
 			return err
 		}
 	}

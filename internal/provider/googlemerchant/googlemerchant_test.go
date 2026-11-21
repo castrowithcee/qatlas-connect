@@ -20,6 +20,10 @@ var wantToolIDs = []string{
 	"google.merchant.developer-registrations.get",
 	"google.merchant.limits.get",
 	"google.merchant.limits.list",
+	"google.merchant.programs.disable",
+	"google.merchant.programs.enable",
+	"google.merchant.programs.get",
+	"google.merchant.programs.list",
 	"google.merchant.quotas.list",
 	"google.merchant.reports.search",
 	"google.merchant.terms-of-service-agreement-states.get",
@@ -43,7 +47,10 @@ func TestRegisterDeclaresTokenScopeTargetsAndFixedToolIDs(t *testing.T) {
 		if scopes := metadata.Token.Scopes[d.ID]; len(scopes) != 1 || scopes[0] != contentScope {
 			t.Errorf("%s scopes = %v, want only %s", d.ID, scopes, contentScope)
 		}
-		if d.Version != 1 || d.Risk.Effect != capability.EffectRead || d.Risk.Idempotency != capability.IdempotencySafe ||
+		if d.Risk.Effect != capability.EffectRead {
+			continue
+		}
+		if d.Version != 1 || d.Risk.Idempotency != capability.IdempotencySafe ||
 			d.Risk.Confirmation != capability.ConfirmationNone || !d.Risk.OpenWorld || d.Risk.DataSensitivity == "" {
 			t.Errorf("%s version or risk = %d, %+v", d.ID, d.Version, d.Risk)
 		}
@@ -59,8 +66,22 @@ func TestRegisterDeclaresTokenScopeTargetsAndFixedToolIDs(t *testing.T) {
 	if !ok || oauth.TokenURL != googleapi.OAuth.TokenURL || oauth.Params["access_type"] != "offline" {
 		t.Errorf("OAuth = %+v, %v", oauth, ok)
 	}
-	if len(metadata.Profiles) != 1 || metadata.Profiles[0].ID != "read" || len(metadata.Profiles[0].Tools) != len(wantToolIDs) {
+	if len(metadata.Profiles) != 1 || metadata.Profiles[0].ID != "read" {
 		t.Errorf("profiles = %+v", metadata.Profiles)
+	}
+	for _, id := range metadata.Profiles[0].Tools {
+		if d, _, _ := reg.Lookup(id); d.Risk.Effect != capability.EffectRead || d.RequiresToolAllowList {
+			t.Errorf("read profile lists %s with effect %s", id, d.Risk.Effect)
+		}
+	}
+	var wantRead []string
+	for _, d := range descriptors() {
+		if d.Risk.Effect == capability.EffectRead && !d.RequiresToolAllowList {
+			wantRead = append(wantRead, d.ID)
+		}
+	}
+	if !slices.Equal(metadata.Profiles[0].Tools, wantRead) {
+		t.Errorf("read profile tools = %v, want %v", metadata.Profiles[0].Tools, wantRead)
 	}
 	if err := metadata.Target.ValidateKindParents(); err != nil {
 		t.Error(err)
