@@ -1,6 +1,6 @@
 ---
 description: >
-  Describes the Google Merchant provider: the token credential and its procedures, the single scope, the fixed API origin, the advanced-account and account targets and how an account is proven to belong to one, the tools for accounts, the developer registration, and terms of service, quotas, result bounds, the connection test, error classes, and the limits of what is verified.
+  Describes the Google Merchant provider: the token credential and its procedures, the single scope, the fixed API origin, the advanced-account and account targets and how an account is proven to belong to one, the tools for accounts, the developer registration, and terms of service with a pointer to the pages of further tool groups, quotas, result bounds, the connection test, error classes, and the limits of what is verified.
 type: knowledge
 edit: shared
 created: 2026-11-19
@@ -10,14 +10,20 @@ updated: 2026-11-20
 # Google Merchant
 
 Google Merchant is a provider for the Merchant API v1 of Google Merchant Center. It offers read tools for the
-accounts an account holder can reach, the developer registration of an account, and terms of service. [Set up
-Google Merchant](setup.md) leads through the Google side, the developer registration, and the consent.
+accounts an account holder can reach, the developer registration of an account, terms of service, reports, and the
+quotas and limits of an account. [Set up Google Merchant](setup.md) leads through the Google side, the developer
+registration, and the consent. [Reports, quotas, and limits](reports.md) describes the reports, quota, and limit
+tools.
 
 | Tool | What it reads |
 | --- | --- |
 | `google.merchant.accounts.list` | the accounts the credential can access, with an optional Google filter |
 | `google.merchant.accounts.get` | one account |
 | `google.merchant.developer-registrations.get` | the Google Cloud projects registered as developers with an account |
+| `google.merchant.reports.search` | one report of an account, from a structured query, see [reports](reports.md) |
+| `google.merchant.quotas.list` | the API quota groups of an account, see [reports](reports.md#quotas-and-limits) |
+| `google.merchant.limits.list` | the limits of an account, see [reports](reports.md#quotas-and-limits) |
+| `google.merchant.limits.get` | one limit of an account, see [reports](reports.md#quotas-and-limits) |
 | `google.merchant.terms-of-service.get` | one version of the terms of service |
 | `google.merchant.terms-of-service.retrieve-latest` | the latest terms of service for a kind and a region |
 | `google.merchant.terms-of-service-agreement-states.get` | the agreement state of an account for one kind and country |
