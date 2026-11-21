@@ -136,7 +136,9 @@ func TestDefaultRegistry(t *testing.T) {
 		"google.ads.customer-user-accesses.list", "google.ads.customer-user-accesses.update",
 		"google.ads.customer-user-accesses.remove",
 		"google.ads.customer-user-access-invitations.list", "google.ads.customer-user-access-invitations.remove",
-		"google.ads.multi-party-auth-reviews.list", "google.ads.multi-party-auth-reviews.resolve")
+		"google.ads.multi-party-auth-reviews.list", "google.ads.multi-party-auth-reviews.resolve",
+		"google.ads.conversion-custom-variables.create", "google.ads.conversion-custom-variables.update",
+		"google.ads.remarketing-actions.create", "google.ads.remarketing-actions.update")
 }
 
 // Every shipped provider starts new connections with a valid recommended profile that selects reads only,

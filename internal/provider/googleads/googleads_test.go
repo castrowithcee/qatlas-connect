@@ -32,17 +32,20 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 	if !reflect.DeepEqual(metadata.SecretRoles, config.TokenSecretRoles()) {
 		t.Errorf("secret roles = %+v, want the token roles", metadata.SecretRoles)
 	}
-	want := []string{customerBudgetNetworkSettingsCreateID, customerBudgetNetworkSettingsUpdateID,
-		customerClientsListID, customerUserAccessInvitationsListID, customerUserAccessInvitationsRemoveID,
+	want := []string{conversionCustomVariablesCreateID, conversionCustomVariablesUpdateID,
+		customerBudgetNetworkSettingsCreateID, customerBudgetNetworkSettingsUpdateID, customerClientsListID, customerUserAccessInvitationsListID, customerUserAccessInvitationsRemoveID,
 		customerUserAccessesListID, customerUserAccessesRemoveID, customerUserAccessesUpdateID,
 		customersGetID, customersListAccessibleID, customersUpdateID, fieldsGetID, fieldsSearchID,
-		multiPartyAuthReviewsListID, multiPartyAuthReviewsResolveID, reportsSearchID}
+		multiPartyAuthReviewsListID, multiPartyAuthReviewsResolveID, remarketingActionsCreateID,
+		remarketingActionsUpdateID, reportsSearchID}
 	if len(metadata.Tools) != len(want) {
 		t.Fatalf("tools = %+v", metadata.Tools)
 	}
 	for i, tool := range metadata.Tools {
 		changing := slices.Contains(changeToolIDs, tool.ID)
-		if tool.ID != want[i] || (tool.Effect == config.EffectRead) == changing || tool.RequiresToolAllowList != changing {
+		byEffect := slices.Contains(effectChangeToolIDs, tool.ID)
+		if tool.ID != want[i] || (tool.Effect == config.EffectRead) == (changing || byEffect) ||
+			tool.RequiresToolAllowList != changing {
 			t.Errorf("tool %d = %+v", i, tool)
 		}
 		if scopes := metadata.Token.Scopes[tool.ID]; !reflect.DeepEqual(scopes, []string{"https://www.googleapis.com/auth/adwords"}) {
