@@ -19,6 +19,7 @@ import (
 
 	"github.com/castrowithcee/qatlas-connect/internal/approval"
 	"github.com/castrowithcee/qatlas-connect/internal/config"
+	"github.com/castrowithcee/qatlas-connect/internal/manage"
 	"github.com/castrowithcee/qatlas-connect/internal/vault"
 )
 
@@ -43,23 +44,23 @@ type tokenEntry struct {
 // tokensReport is the Tokens section's data: every agent token of the vault unlocked in this process, sorted
 // by name, without values. unavailable names why the section cannot show that list otherwise, in the words a
 // person reads on the section itself, so a caller shows it instead of an empty list: there is no vault, it
-// is unencrypted (agent tokens need a passphrase, adr-0002), or it is locked. A locked vault is never
-// unlocked merely to compute this list; enter on the list does that, through requireAdmin, exactly like the
-// Approvals section (see approvalsReport).
+// is unencrypted (agent tokens need a passphrase, adr-0002), it is locked, or only a vault process holds it
+// open. Such a vault is never unlocked merely to compute this list; enter on the list does that, through
+// requireAdmin, exactly like the Approvals section (see approvalsReport).
 func (m *Model) tokensReport() (entries []tokenEntry, unavailable string) {
 	v := m.secrets.Vault()
 	if v == nil {
 		return nil, tr(tNoVaultSentence)
 	}
-	state, err := v.State()
-	if err != nil {
-		return nil, m.redactor.Apply(err.Error())
-	}
-	switch state {
-	case vault.StateAbsent, vault.StateUnencrypted:
+	switch vs := m.vaultPlace(); vs.Kind {
+	case manage.VaultUnreadable:
+		return nil, m.redactor.Apply(vs.Err.Error())
+	case manage.VaultNone, manage.VaultUnencrypted:
 		return nil, tr(tTokensNeedVault, sectionVault.ref())
-	case vault.StateLocked:
+	case manage.VaultLocked:
 		return nil, tr(tTokensLocked)
+	case manage.VaultProcessOnly:
+		return nil, tr(tTokensProcessOnly)
 	}
 	tokens, err := v.Tokens()
 	if err != nil {
@@ -191,10 +192,10 @@ func (m *Model) vorbildChoices() []string {
 }
 
 // tokensBlocked is why n cannot start a token now, "" when it can: the vault cannot hold tokens at all, or no
-// connection could be a model. A locked vault does not block it; requireAdmin unlocks it first.
+// connection could be a model. A vault this window has no key for does not block it; requireAdmin asks for the passphrase first.
 func (m *Model) tokensBlocked() string {
 	_, unavailable := m.tokensReport()
-	if unavailable != "" && !m.vaultLocked() {
+	if unavailable != "" && !m.vaultNeedsWindowKey() {
 		return unavailable
 	}
 	if len(m.vorbildChoices()) == 0 {

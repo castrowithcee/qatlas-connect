@@ -751,13 +751,19 @@ type Model struct {
 	versionRestored string
 
 	// Vault header and 'ctrl+l' state (see vaultheader.go). vaultProcessUnlocked caches whether a vault
-	// process holds a locked vault open, refreshed by a tick and right after this window's own lock and
-	// unlock actions; it is read only while the vault is locked in this process, since an unlocked one
-	// already answers the header synchronously from vault.State() alone. vaultUnlock holds the masked
+	// process holds the vault open, refreshed by a tick and right after this window's own lock and unlock
+	// actions. vaultKeySince and vaultSeenPID are this window's own hold on the key (see manage.WindowKey):
+	// when it unlocked the vault itself and the vault process seen since; vaultKeyGen counts changes of that
+	// hold, so an answer of the vault process asked before one is dropped. vaultMaxUnlock caches the maximum
+	// unlock duration beside the admin session time. vaultUnlock holds the masked
 	// 'ctrl+l' unlock dialog while it is open, back is the screen it returns to either way once it is done.
 	// vaultLockConfirm and vaultLockBack are the same for the short 'Lock the vault now?' question.
 	vaultProcessUnlocked bool
 	vaultProcessEndsAt   time.Time // hard unlock deadline of that process; zero without one
+	vaultKeySince        time.Time
+	vaultSeenPID         int
+	vaultKeyGen          int
+	vaultMaxUnlock       time.Duration
 	vaultUnlock          *vaultUnlockPrompt
 	vaultLockConfirm     bool
 	vaultLockBack        screen
@@ -953,12 +959,11 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.handleOverviewActivity(msg)
 		return m, nil
 	case vaultProcessCheckMsg:
-		m.vaultProcessUnlocked, m.vaultProcessEndsAt = msg.unlocked, msg.endsAt
-		return m, nil
+		return m, m.handleVaultProcessCheck(msg)
 	case vaultTickMsg:
 		m.refreshRequests()
 		m.syncRequestList()
-		return m, tea.Batch(m.checkVaultProcess(), vaultTick())
+		return m, tea.Batch(m.vaultKeyTick(), vaultTick())
 	case requestDecisionMsg:
 		return m, m.handleRequestDecision(msg)
 	case updateCheckedMsg:
@@ -1348,8 +1353,8 @@ func (m *Model) updateList(key tea.KeyPressMsg) tea.Cmd {
 	case keyIs(key, actEdit):
 		return m.editSelected()
 	case keyIs(key, actEnter):
-		if (m.section == sectionApprovals || m.section == sectionTokens) && m.vaultLocked() && !m.requestRowSelected() {
-			// Nothing is listed while the vault is locked (see approvalsReport); enter is a managing action
+		if (m.section == sectionApprovals || m.section == sectionTokens) && m.vaultNeedsWindowKey() && !m.requestRowSelected() {
+			// Nothing is listed while this window has no key for the vault (see approvalsReport); enter is a managing action
 			// like any other here, gated behind requireAdmin, whose "Unlock vault to continue" dialog
 			// unlocks it and starts the admin session together. The action itself writes nothing: it only
 			// rebuilds the list, now that Pending can read it.
@@ -4481,10 +4486,14 @@ func (m *Model) listFrame() (string, string) {
 		keys = "{left}/{right} tab · {next} next · {prev} rows · {up}/{down} move · {enter} edit · {back} rows · {command} cmds · {help} help · {quit} quit"
 	case m.section == sectionApprovals && m.requestRowSelected():
 		keys = "{enter} decide · " + back + " · {command} cmds · {help} help · {quit} quit"
+	case m.section == sectionApprovals && m.vaultProcessOnly():
+		keys = "{enter} passphrase for this window · " + back + " · {command} cmds · {help} help · {quit} quit"
 	case m.section == sectionApprovals && m.vaultLocked():
 		keys = "{enter} unlock · " + back + " · {command} cmds · {help} help · {quit} quit"
 	case m.section == sectionApprovals:
 		keys = "{enter} details · {approveall} approve all · " + back + " · {command} cmds · {help} help · {quit} quit"
+	case m.section == sectionTokens && m.vaultProcessOnly():
+		keys = "{enter} passphrase for this window · {new} new · " + back + " · {command} cmds · {help} help · {quit} quit"
 	case m.section == sectionTokens && m.vaultLocked():
 		keys = "{enter} unlock · {new} new · " + back + " · {command} cmds · {help} help · {quit} quit"
 	case m.section == sectionTokens && m.tokensBlocked() != "" && total == 0:
