@@ -54,12 +54,17 @@ developer registration, and the consent.
 | `google.merchant.account-services.list`, `.get` | the services of an advanced account with the state of each handshake, see [services](services.md) |
 | `google.merchant.account-services.reject` | reject a service and end the access it gave a provider account; confirmed and offered only through the `tools` list of a connection, see [services](services.md) |
 | `google.merchant.account-relationships.list` | the relationships of an account with provider accounts, see [services](services.md) |
+| `google.merchant.conversion-sources.list` | the conversion sources of an account, with archived ones on request, see [conversion sources](conversions.md) |
+| `google.merchant.conversion-sources.get` | one conversion source, see [conversion sources](conversions.md) |
+| `google.merchant.conversion-sources.create` | creates a Merchant Center destination as conversion source (create), see [conversion sources](conversions.md) |
+| `google.merchant.conversion-sources.update` | changes a Merchant Center destination (update), see [conversion sources](conversions.md) |
 
 The terms tools are described in [terms of service](terms-of-service.md), the two updates in [Autofeed and
 automatic improvements](autofeed.md), the account tools beyond the first three in [account tools](accounts.md),
 the user tools in [users](users.md), the home page tools in [home page](homepages.md), the region tools in
 [regions](regions.md), the subscription tools in [Notification subscriptions](notifications.md), the
-omnichannel tools in [omnichannel settings](omnichannel.md), and the service tools in [services](services.md).
+omnichannel tools in [omnichannel settings](omnichannel.md), the service tools in [services](services.md), and
+the conversion tools in [conversion sources](conversions.md).
 
 Every read tool needs no confirmation, and every change needs one for every call. The account resource has the
 members `name`, `accountId`, `accountName`, `testAccount`, `adultContent`, `languageCode`, `homePageUri`, and

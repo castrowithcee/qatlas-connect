@@ -147,6 +147,8 @@ func Register(reg *capability.Registry) error {
 		notificationSubscriptionsDeleteID: handleNotificationSubscriptionsDelete,
 		accountServicesListID:             handleAccountServicesList, accountServicesGetID: handleAccountServicesGet,
 		accountServicesRejectID: handleAccountServicesReject, accountRelationshipsListID: handleAccountRelationshipsList,
+		conversionSourcesListID: handleConversionSourcesList, conversionSourcesGetID: handleConversionSourcesGet,
+		conversionSourcesCreateID: handleConversionSourcesCreate, conversionSourcesUpdateID: handleConversionSourcesUpdate,
 	}
 	summaries := map[string]capability.SummaryFunc{
 		programsEnableID: programSummary("Enable"), programsDisableID: programSummary("Disable"),
@@ -155,6 +157,7 @@ func Register(reg *capability.Registry) error {
 		regionsCreateID: regionCreateSummary, regionsUpdateID: regionUpdateSummary,
 		notificationSubscriptionsDeleteID: notificationDeleteSummary,
 		accountServicesRejectID:           serviceRejectSummary,
+		conversionSourcesCreateID:         conversionCreateSummary, conversionSourcesUpdateID: conversionUpdateSummary,
 	}
 	maps.Copy(handlers, accountWriteHandlers())
 	maps.Copy(summaries, accountSummaries())
