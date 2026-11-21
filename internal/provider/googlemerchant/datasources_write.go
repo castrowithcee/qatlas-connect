@@ -26,16 +26,15 @@ const (
 	maxRuleEntries      = 50
 )
 
-var (
-	feedLabelForm = regexp.MustCompile(`^[A-Z0-9-]{1,20}$`)
-	languageForm  = regexp.MustCompile(`^[a-z]{2}$`)
-	countryForm   = regexp.MustCompile(`^[A-Z]{2}$`)
+// A data source takes a narrower feed label and language than a product or an issue query.
+const (
+	sourceFeedLabelPattern = `^[A-Z0-9-]{1,20}$`
+	sourceLanguagePattern  = `^[a-z]{2}$`
 )
 
-const (
-	feedLabelPattern = `^[A-Z0-9-]{1,20}$`
-	languagePattern  = `^[a-z]{2}$`
-	countryPattern   = `^[A-Z]{2}$`
+var (
+	sourceFeedLabelForm = regexp.MustCompile(sourceFeedLabelPattern)
+	sourceLanguageForm  = regexp.MustCompile(sourceLanguagePattern)
 )
 
 // destinationNames are the marketing methods of the discovery document, without the unspecified value.
@@ -121,10 +120,10 @@ func closedSchema(required []string, members ...string) string {
 }
 
 var (
-	displayNameSchema = `{"type":"string","minLength":1,"maxLength":` + strconv.Itoa(maxDisplayNameRunes) + `}`
-	feedLabelSchema   = `{"type":"string","pattern":"` + feedLabelPattern + `"}`
-	languageSchema    = `{"type":"string","pattern":"` + languagePattern + `"}`
-	countriesSchema   = `{"type":"array","minItems":1,"maxItems":` + strconv.Itoa(maxCountries) +
+	displayNameSchema    = `{"type":"string","minLength":1,"maxLength":` + strconv.Itoa(maxDisplayNameRunes) + `}`
+	feedLabelSchema      = `{"type":"string","pattern":"` + sourceFeedLabelPattern + `"}`
+	sourceLanguageSchema = `{"type":"string","pattern":"` + sourceLanguagePattern + `"}`
+	countriesSchema      = `{"type":"array","minItems":1,"maxItems":` + strconv.Itoa(maxCountries) +
 		`,"uniqueItems":true,"items":{"type":"string","pattern":"` + countryPattern + `"}}`
 	destinationsSchema = `{"type":"array","minItems":1,"maxItems":` + strconv.Itoa(maxDestinations) + `,"items":` +
 		closedSchema([]string{"destination"},
@@ -134,16 +133,16 @@ var (
 		member("takeFromDataSources", `{"type":"array","minItems":1,"maxItems":`+strconv.Itoa(maxRuleEntries)+
 			`,"items":`+closedSchema(nil, member("self", `{"type":"boolean"}`),
 			member("supplementalDataSourceId", dataSourceIDSchema))+`}`))
-	primarySchema = closedSchema(nil, member("feedLabel", feedLabelSchema), member("contentLanguage", languageSchema),
+	primarySchema = closedSchema(nil, member("feedLabel", feedLabelSchema), member("contentLanguage", sourceLanguageSchema),
 		member("countries", countriesSchema), member("destinations", destinationsSchema),
 		member("legacyLocal", `{"type":"boolean"}`), member("defaultRule", defaultRuleSchema))
 	supplementalSchema = closedSchema(nil, member("feedLabel", feedLabelSchema),
-		member("contentLanguage", languageSchema))
+		member("contentLanguage", sourceLanguageSchema))
 	regionalSchema = closedSchema([]string{"feedLabel", "contentLanguage"}, member("feedLabel", feedLabelSchema),
-		member("contentLanguage", languageSchema))
+		member("contentLanguage", sourceLanguageSchema))
 	promotionSchema = closedSchema([]string{"targetCountry", "contentLanguage"},
 		member("targetCountry", `{"type":"string","pattern":"`+countryPattern+`"}`),
-		member("contentLanguage", languageSchema))
+		member("contentLanguage", sourceLanguageSchema))
 	emptySchema = closedSchema(nil)
 )
 
@@ -237,10 +236,10 @@ func validText(value string, max int) bool {
 }
 
 func validLabelPair(label, language string) error {
-	if label != "" && !feedLabelForm.MatchString(label) {
+	if label != "" && !sourceFeedLabelForm.MatchString(label) {
 		return invalidArgument("feedLabel must be at most 20 uppercase letters, digits, and dashes")
 	}
-	if language != "" && !languageForm.MatchString(language) {
+	if language != "" && !sourceLanguageForm.MatchString(language) {
 		return invalidArgument("contentLanguage must be a two-letter ISO 639-1 code in lower case")
 	}
 	if (label == "") != (language == "") {
@@ -394,7 +393,7 @@ func createBody(account string, a createArguments) (map[string]any, error) {
 		body["regionalInventoryDataSource"] = map[string]any{"feedLabel": r.FeedLabel, "contentLanguage": r.ContentLanguage}
 	case a.Promotion != nil:
 		p := a.Promotion
-		if !countryForm.MatchString(p.TargetCountry) || !languageForm.MatchString(p.ContentLanguage) {
+		if !countryForm.MatchString(p.TargetCountry) || !sourceLanguageForm.MatchString(p.ContentLanguage) {
 			return nil, invalidArgument("promotion needs a two-letter upper case targetCountry and a two-letter " +
 				"lower case contentLanguage")
 		}

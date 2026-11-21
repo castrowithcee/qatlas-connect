@@ -22,6 +22,10 @@ developer registration, and the consent.
 | `google.merchant.data-sources.create`, `.update` | create an API data source and change its name, countries, destinations, or default rule; confirmed, see [data sources](data-sources.md) |
 | `google.merchant.developer-registrations.get-account-for-gcp-registration` | the account the Cloud project of the credential is registered with; on a bound connection only if it lies within the targets, see [developer registration](developer-registrations.md) |
 | `google.merchant.developer-registrations.unregister-gcp` | unregisters the Cloud project of the credential from an account, which ends its API access, Qatlas included; confirmed and only through the `tools` list, see [developer registration](developer-registrations.md) |
+| `google.merchant.products.list` | the processed products of an account, with all attributes, see [products and issues](products.md) |
+| `google.merchant.products.get` | one processed product, see [products and issues](products.md) |
+| `google.merchant.aggregate-product-statuses.list` | product counts and issues per reporting context and country, see [products and issues](products.md) |
+| `google.merchant.account-issues.list` | the account-level issues of an account, see [products and issues](products.md) |
 | `google.merchant.accounts.list-subaccounts` | the sub-accounts of an advanced account, see [account tools](accounts.md) |
 | `google.merchant.accounts.update` | changes the settings of an account, see [account tools](accounts.md) |
 | `google.merchant.accounts.delete` | deletes an account, see [account tools](accounts.md) |
@@ -86,7 +90,8 @@ developer registration, and the consent.
 | `google.merchant.email-preferences.update` | opts the user of the credential in or out of news and tips mails (update, confirmation required), see [email preferences](email-preferences.md) |
 
 The terms tools are described in [terms of service](terms-of-service.md), the two updates in [Autofeed and
-automatic improvements](autofeed.md), the account tools beyond the first three in [account tools](accounts.md),
+automatic improvements](autofeed.md), the account tools beyond the first three in [account tools](accounts.md), the product and issue tools in
+[products and issues](products.md),
 the user tools in [users](users.md), the home page tools in [home page](homepages.md), the region tools in
 [regions](regions.md), the subscription tools in [Notification subscriptions](notifications.md), the
 omnichannel tools in [omnichannel settings](omnichannel.md), the service and relationship tools in [services](services.md),
