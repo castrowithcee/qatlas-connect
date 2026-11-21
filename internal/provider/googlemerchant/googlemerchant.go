@@ -126,7 +126,9 @@ func Register(reg *capability.Registry) error {
 	handlers := map[string]capability.Handler{
 		accountsListID: handleAccountsList, accountsGetID: handleAccountsGet,
 		developerRegistrationsGetID: handleDeveloperRegistrationsGet,
-
+		termsOfServiceGetID:         handleTermsOfServiceGet, termsOfServiceRetrieveLatestID: handleTermsOfServiceRetrieveLatest,
+		termsOfServiceAgreementStatesGetID:            handleAgreementStatesGet,
+		termsOfServiceAgreementStatesForApplicationID: handleAgreementStatesRetrieveForApplication,
 		reportsSearchID: handleReportsSearch, quotasListID: handleQuotasList, limitsListID: handleLimitsList,
 		limitsGetID: handleLimitsGet,
 	}
