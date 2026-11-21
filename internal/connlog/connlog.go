@@ -101,6 +101,9 @@ func (w SigningWriter) Append(f invokelog.Fields) error {
 type Recorder struct {
 	Writer  invokelog.Writer
 	Surface string
+	// Session is the invokelog.NewSession ID of the MCP process; it is required by the mcp surface and set
+	// on no other.
+	Session string
 }
 
 // NewRecorder returns the recorder for surface that writes under the vault directory next to the
@@ -295,4 +298,55 @@ func (r *Recorder) RecordConsent(operation, connection, connectionID, result str
 		return fmt.Errorf("the consent was changed, but the log entry could not be written: %w", err)
 	}
 	return nil
+}
+
+// RecordRequest appends one entry of a tool request event, operation being one of the
+// invokelog.OperationRequest* constants, for each of tools: the connection, its id, and the tool ID or
+// prefix, and never the requester's reason. An entry that cannot be written does not keep the remaining
+// ones from being written. A failure is returned the way Record returns one; it never undoes the event.
+func (r *Recorder) RecordRequest(operation, connection, connectionID string, tools []string) error {
+	if r == nil || r.Writer == nil {
+		return nil
+	}
+	var invalid, failed, unsigned error
+	for _, tool := range tools {
+		fields := invokelog.Fields{
+			Path: r.Surface, Operation: operation, Connection: connection, ConnectionID: connectionID,
+			Tool: tool, Effect: requestEffect(operation), Result: "success", Session: r.Session,
+		}
+		if err := fields.Validate(); err != nil {
+			invalid = errors.New("a tool request event could not be logged: " + err.Error())
+			continue
+		}
+		err := r.Writer.Append(fields)
+		var unsignedErr *invokelog.UnsignedError
+		switch {
+		case errors.As(err, &unsignedErr):
+			unsigned = err
+		case err != nil:
+			failed = err
+		}
+	}
+	switch {
+	case failed != nil:
+		return fmt.Errorf("the tool request event could not be written: %w", failed)
+	case invalid != nil:
+		return invalid
+	case unsigned != nil:
+		return fmt.Errorf("the tool request event was logged, but unsigned: %w", unsigned)
+	}
+	return nil
+}
+
+// requestEffect is the effect of a tool request operation, empty for any other operation.
+func requestEffect(operation string) string {
+	switch operation {
+	case invokelog.OperationRequestCreate:
+		return "create"
+	case invokelog.OperationRequestAccept, invokelog.OperationRequestDecline, invokelog.OperationRequestBlock:
+		return "update"
+	case invokelog.OperationRequestExpire, invokelog.OperationRequestDrop:
+		return "delete"
+	}
+	return ""
 }

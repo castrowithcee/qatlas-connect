@@ -33,7 +33,7 @@ var groupBySegment = map[string]string{
 	"sub-issues": "issues", "issue-events": "issues", "issue-timeline": "issues", "assignees": "issues",
 	"copilot-assignments": "issues",
 	"copilot-reviews":     "pull-requests", "check-runs": "pull-requests", "check-annotations": "pull-requests",
-	"check-suites": "pull-requests", "check-suite-runs": "pull-requests",
+	"check-suites": "pull-requests", "check-suite-runs": "pull-requests", "commit-checks": "pull-requests",
 	"workflows": "actions", "workflow-runs": "actions", "workflow-jobs": "actions", "workflow-run-logs": "actions",
 	"workflow-run-attempts": "actions", "workflow-run-approvals": "actions",
 	"workflow-artifacts": "actions", "workflow-files": "actions", "workflow-permissions": "actions",

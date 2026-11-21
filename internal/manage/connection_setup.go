@@ -255,6 +255,7 @@ func buildCandidate(cfg *config.Config, d ConnectionDraft, stage ConnectionStage
 		}
 	}
 
+	cand.Config.ReleaseCoveredBlocks()
 	if err := cand.Config.Validate(); err != nil {
 		return cand, err
 	}

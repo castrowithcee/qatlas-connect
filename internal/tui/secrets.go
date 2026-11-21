@@ -832,25 +832,27 @@ func (m *Model) storedSource(credential, role string) string {
 	return manage.RoleState(manage.RoleStateInput{Source: source, Checked: m.checked[key]})
 }
 
-// vaultLocked reports whether the vault is encrypted and locked, the one state a vault write or read must
-// not proceed into here: finding or removing an entry inside secrets.age needs the passphrase, and this
-// editor never asks its own terminal for one (see tuiSecrets in internal/cli). Storing a new secret is
-// unaffected: it always queues as a pending entry the vault's public key can take, whatever state the
-// vault is in, so this guard has no reason to block it.
-func (m *Model) vaultLocked() bool {
-	v := m.secrets.Vault()
-	if v == nil {
-		return false
-	}
-	state, err := v.State()
-	return err == nil && state == vault.StateLocked
-}
+// vaultLocked reports whether the vault is encrypted and locked everywhere, with no vault process holding
+// it open, the one state a vault write or read must not proceed into here: finding or removing an entry
+// inside secrets.age needs the passphrase, and this editor never asks its own terminal for one (see
+// tuiSecrets in internal/cli). Storing a new secret is unaffected: it always queues as a pending entry the
+// vault's public key can take, whatever state the vault is in, so this guard has no reason to block it.
+func (m *Model) vaultLocked() bool { return m.vaultPlace().Kind == manage.VaultLocked }
+
+// vaultProcessOnly reports an encrypted vault that only a vault process holds open: agents can work, but
+// this window has no key and reads nothing inside the vault until its own passphrase is entered.
+func (m *Model) vaultProcessOnly() bool { return m.vaultPlace().Kind == manage.VaultProcessOnly }
+
+// vaultNeedsWindowKey reports an encrypted vault this window cannot read yet, whether it is locked or open
+// only in a vault process; enter on a list that needs the vault then asks for the passphrase.
+func (m *Model) vaultNeedsWindowKey() bool { return m.vaultPlace().NeedsWindowKey() }
 
 // vaultRoleState reports where a role of a vault credential's secret currently sits; see manage.RoleState.
 func (m *Model) vaultRoleState(credential, role string) string {
 	return manage.RoleState(manage.RoleStateInput{
 		Type: config.CredentialTypeVault, Credential: credential, Role: role,
-		Vault: m.secrets.Vault(), ProcessUnlocked: m.vaultProcessUnlocked,
+		Vault:   m.secrets.Vault(),
+		Process: manage.VaultProcess{Unlocked: m.vaultProcessUnlocked, EndsAt: m.vaultProcessEndsAt},
 	})
 }
 

@@ -480,6 +480,12 @@ func pullRequestOperations() []capability.Operation {
 		bind(pullChecksWait, checkPullChecksWaitArguments, func(ctx context.Context, c *Client, a *pullArguments) (any, error) {
 			return c.waitForChecks(ctx, a)
 		}),
+		bind(commitChecksList, checkCommitChecksArguments, func(ctx context.Context, c *Client, a *pullArguments) (any, error) {
+			return c.commitChecks(ctx, a)
+		}),
+		bind(commitChecksWait, checkCommitChecksArguments, func(ctx context.Context, c *Client, a *pullArguments) (any, error) {
+			return c.waitForCommitChecks(ctx, a)
+		}),
 		bind(pullsCreate, checkPullCreateArguments, func(ctx context.Context, c *Client, a *pullArguments) (any, error) {
 			return c.createPullRequest(ctx, a)
 		}),
@@ -525,6 +531,9 @@ type pullArguments struct {
 
 	// HeadSHA is the head commit the wait awaits.
 	HeadSHA string `json:"head_sha"`
+
+	// Ref names the commit of the commit checks tools.
+	Ref string `json:"ref"`
 
 	// The filters of the check run read.
 	CheckName   string `json:"check_name"`

@@ -174,7 +174,7 @@ func (m *Model) pickerChoiceSubject(f field, choice string) infoSubject {
 			}
 		}
 		return s
-	case f.kind == fieldToolList && f.label == toolListLabel:
+	case f.kind == fieldToolList && (f.label == toolListLabel || f.label == blockedLabel):
 		for _, tool := range metadata.Tools {
 			if tool.ID == choice {
 				s.title, s.long = tool.ID, tool.Description

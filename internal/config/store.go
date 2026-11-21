@@ -67,6 +67,7 @@ func (c *Config) Clone() *Config {
 		if conn.Tools != nil && copied.Tools == nil {
 			copied.Tools = []string{}
 		}
+		copied.BlockedTools = append([]string(nil), conn.BlockedTools...)
 		copied.Paths = append([]string(nil), conn.Paths...)
 		copied.Files = conn.Files.Clone()
 		copied.ForwardSecrets = append([]string(nil), conn.ForwardSecrets...)

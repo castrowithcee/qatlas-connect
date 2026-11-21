@@ -12,6 +12,7 @@ package googlemerchant
 
 import (
 	"context"
+	"maps"
 	"net/url"
 
 	"github.com/castrowithcee/qatlas-connect/internal/capability"
@@ -92,7 +93,9 @@ func TestConnection(ctx context.Context, resolved *config.Resolved, secrets *sec
 func Register(reg *capability.Registry) error {
 	var readIDs []string
 	for _, d := range descriptors() {
-		readIDs = append(readIDs, d.ID)
+		if d.Risk.Effect == capability.EffectRead && !d.RequiresToolAllowList {
+			readIDs = append(readIDs, d.ID)
+		}
 	}
 	if err := reg.RegisterProvider(config.ProviderMetadata{
 		ID: Provider, Name: "Google Merchant Center", DefaultBaseURL: apiRoot,
@@ -114,7 +117,7 @@ func Register(reg *capability.Registry) error {
 		},
 		Profiles: []config.ToolProfile{{
 			ID: "read", Title: "Read", Recommended: true,
-			Description: "reads Merchant Center accounts and the developer registration of an account; changes nothing",
+			Description: "reads Merchant Center accounts, the developer registration of an account, the users of an account, reports, quotas, and limits; changes nothing",
 			Tools:       readIDs,
 		}},
 	}, TestConnection); err != nil {
@@ -126,9 +129,65 @@ func Register(reg *capability.Registry) error {
 	handlers := map[string]capability.Handler{
 		accountsListID: handleAccountsList, accountsGetID: handleAccountsGet,
 		developerRegistrationsGetID: handleDeveloperRegistrationsGet,
+		termsOfServiceGetID:         handleTermsOfServiceGet, termsOfServiceRetrieveLatestID: handleTermsOfServiceRetrieveLatest,
+		termsOfServiceAgreementStatesGetID:            handleAgreementStatesGet,
+		termsOfServiceAgreementStatesForApplicationID: handleAgreementStatesRetrieveForApplication,
+		reportsSearchID: handleReportsSearch, quotasListID: handleQuotasList, limitsListID: handleLimitsList,
+		limitsGetID:    handleLimitsGet,
+		programsListID: handleProgramsList, programsGetID: handleProgramsGet,
+		programsEnableID: handleProgramsEnable, programsDisableID: handleProgramsDisable,
+		autofeedSettingsGetID: handleAutofeedSettingsGet, autofeedSettingsUpdateID: handleAutofeedSettingsUpdate,
+		automaticImprovementsGetID: handleAutomaticImprovementsGet, automaticImprovementsUpdateID: handleAutomaticImprovementsUpdate,
+		usersListID: handleUsersList, usersGetID: handleUsersGet,
+		usersUpdateID: handleUsersUpdate, usersDeleteID: handleUsersDelete,
+		regionsListID: handleRegionsList, regionsGetID: handleRegionsGet,
+		regionsCreateID: handleRegionsCreate, regionsUpdateID: handleRegionsUpdate,
+		notificationSubscriptionsListID:   handleNotificationSubscriptionsList,
+		notificationSubscriptionsGetID:    handleNotificationSubscriptionsGet,
+		notificationSubscriptionsDeleteID: handleNotificationSubscriptionsDelete,
+		accountServicesListID:             handleAccountServicesList, accountServicesGetID: handleAccountServicesGet,
+		accountServicesRejectID: handleAccountServicesReject, accountRelationshipsListID: handleAccountRelationshipsList,
+		conversionSourcesListID: handleConversionSourcesList, conversionSourcesGetID: handleConversionSourcesGet,
+		conversionSourcesCreateID: handleConversionSourcesCreate, conversionSourcesUpdateID: handleConversionSourcesUpdate,
+		conversionSourcesUndeleteID: handleConversionSourcesUndelete, conversionSourcesDeleteID: handleConversionSourcesDelete,
+		renderAccountIssuesID: handleRenderAccountIssues, renderProductIssuesID: handleRenderProductIssues,
+		emailPreferencesGetID: handleEmailPreferencesGet, emailPreferencesUpdateID: handleEmailPreferencesUpdate,
+		regionsDeleteID: handleRegionsDelete, regionsBatchCreateID: handleRegionsBatchCreate,
+		regionsBatchUpdateID: handleRegionsBatchUpdate, regionsBatchDeleteID: handleRegionsBatchDelete,
 	}
+	summaries := map[string]capability.SummaryFunc{
+		programsEnableID: programSummary("Enable"), programsDisableID: programSummary("Disable"),
+		autofeedSettingsUpdateID: autofeedSummary, automaticImprovementsUpdateID: improvementsSummary,
+		usersUpdateID: usersUpdateSummary, usersDeleteID: usersDeleteSummary,
+		regionsCreateID: regionCreateSummary, regionsUpdateID: regionUpdateSummary,
+		notificationSubscriptionsDeleteID: notificationDeleteSummary,
+		accountServicesRejectID:           serviceRejectSummary,
+		conversionSourcesCreateID:         conversionCreateSummary, conversionSourcesUpdateID: conversionUpdateSummary,
+		conversionSourcesUndeleteID: conversionUndeleteSummary, conversionSourcesDeleteID: conversionDeleteSummary,
+		emailPreferencesUpdateID: emailPreferencesSummary,
+		regionsDeleteID:          regionDeleteSummary,
+	}
+	maps.Copy(summaries, regionBatchSummaries())
+	maps.Copy(handlers, accountWriteHandlers())
+	maps.Copy(summaries, accountSummaries())
+	maps.Copy(handlers, homepageHandlers())
+	maps.Copy(summaries, homepageSummaries())
+	maps.Copy(handlers, omnichannelHandlers())
+	maps.Copy(summaries, omnichannelSummaries())
+	maps.Copy(handlers, checkoutHandlers())
+	maps.Copy(summaries, checkoutSummaries())
+	maps.Copy(handlers, returnPolicyHandlers())
+	maps.Copy(summaries, returnPolicySummaries())
+	maps.Copy(handlers, shippingHandlers())
+	maps.Copy(summaries, shippingSummaries())
+	maps.Copy(handlers, relationshipHandlers())
+	maps.Copy(summaries, relationshipSummaries())
+	maps.Copy(handlers, linkHandlers())
+	maps.Copy(handlers, developerRegistrationHandlers())
+	maps.Copy(summaries, developerRegistrationSummaries())
 	for _, d := range descriptors() {
-		if err := reg.Register(Provider, capability.Operation{Descriptor: d, Handler: handlers[d.ID]}); err != nil {
+		if err := reg.Register(Provider, capability.Operation{Descriptor: d, Handler: handlers[d.ID],
+			ConfirmationSummary: summaries[d.ID]}); err != nil {
 			return err
 		}
 	}
