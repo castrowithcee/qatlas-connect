@@ -29,7 +29,7 @@ are described in the [Google Merchant provider](README.md).
 All tools use one Google scope, `content`, which allows reading and writing. What the account may do is decided
 by its role in Merchant Center, not by the Cloud project. Give the lowest role that the tools of the
 connection need. Google documents that changes to account settings and to the home page, and deleting an account,
-need the role Admin, and names no role for the omnichannel, checkout, and return policy methods. Whether the role
+need the role Admin, and names no role for the data source, omnichannel, checkout, and return policy methods. Whether the role
 Read only is enough for the reads is not verified; the connection test shows it.
 
 A service account must be added in Merchant Center under Settings, Access and services, People and access, with

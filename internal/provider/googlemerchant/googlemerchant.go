@@ -117,7 +117,7 @@ func Register(reg *capability.Registry) error {
 		},
 		Profiles: []config.ToolProfile{{
 			ID: "read", Title: "Read", Recommended: true,
-			Description: "reads Merchant Center accounts, the developer registration of an account, the users of an account, products, issues, reports, quotas, and limits; changes nothing",
+			Description: "reads Merchant Center accounts, the developer registration of an account, the users of an account, data sources, products, issues, reports, quotas, and limits; changes nothing",
 			Tools:       readIDs,
 		}},
 	}, TestConnection); err != nil {
@@ -156,6 +156,8 @@ func Register(reg *capability.Registry) error {
 		regionsBatchUpdateID: handleRegionsBatchUpdate, regionsBatchDeleteID: handleRegionsBatchDelete,
 		productsListID: handleProductsList, productsGetID: handleProductsGet,
 		aggregateProductStatusesListID: handleAggregateProductStatusesList, accountIssuesListID: handleAccountIssuesList,
+		dataSourcesListID: handleDataSourcesList, dataSourcesGetID: handleDataSourcesGet,
+		dataSourcesCreateID: handleDataSourcesCreate, dataSourcesUpdateID: handleDataSourcesUpdate,
 	}
 	summaries := map[string]capability.SummaryFunc{
 		programsEnableID: programSummary("Enable"), programsDisableID: programSummary("Disable"),
