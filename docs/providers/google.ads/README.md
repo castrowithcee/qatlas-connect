@@ -1,6 +1,6 @@
 ---
 description: >
-  Describes the Google Ads provider: the token credential with the adwords scope and no developer token, the fixed API version v26, the service option login_customer_id and the login-customer-id header, the manager and customer targets with the membership read, the profile read, the tools customers.list-accessible, customers.get, customer-clients.list, reports.search, fields.search and fields.get, the GoogleAdsFailure and quota errors and their classes, rate spacing, the connection test, and what is not verified.
+  Describes the Google Ads provider: the token credential with the adwords scope and no developer token, the fixed API version v26, the service option login_customer_id and the login-customer-id header, the manager and customer targets with the membership read, the profile read, the tools customers.list-accessible, customers.get, customer-clients.list, reports.search, fields.search and fields.get, and the settings tools customers.update and customer-budget-network-settings.create and update that only the tools list offers, the GoogleAdsFailure and quota errors and their classes, rate spacing, the connection test, and what is not verified.
 type: knowledge
 edit: shared
 created: 2026-11-19
@@ -12,7 +12,8 @@ updated: 2026-11-21
 Google Ads is a provider for the Google Ads API, version v26, over its REST interface, with one credential that
 issues access tokens. It lists the accounts a credential reaches, reads the settings of an account, lists the
 hierarchy below a manager account, runs reports on any resource, and reads the field reference of the query
-language. The [report tools](reports.md) have their own page.
+language. The [report tools](reports.md) have their own page. Tools that change account settings are offered
+only through the `tools` list of a connection and need a confirmation per call.
 
 [Set up Google Ads](setup.md) leads through the Cloud project, its access level, and the credential. The fields
 of a tool are in its descriptor; this page holds what the descriptor does not say.
@@ -88,7 +89,15 @@ sits.
 | --- | --- | --- |
 | `read` | `customers.list-accessible`, `customers.get`, `customer-clients.list`, `reports.search`, `fields.search`, `fields.get` | yes |
 
+Tools that change an account belong to no profile: a connection offers them only when its `tools` list names
+them, see [settings tools](settings.md).
+
 ## Tools
+
+| Tool | Where |
+| --- | --- |
+| `customers.update` | changes name, tracking template, final URL suffix, auto-tagging, and call reporting, see [settings tools](settings.md) |
+| `customer-budget-network-settings.create`, `.update` | set the default distribution of budgets over network channels, see [settings tools](settings.md) |
 
 ### customers.list-accessible
 
@@ -175,8 +184,8 @@ A report that Google refuses as a query that cannot be run, a `queryError`, ends
 in the original, and the message says the query is not allowed; in the tools that Qatlas builds the query for
 itself, the same answer is `invalid-provider-response`.
 
-Every request is a read. It times out after 20 seconds and repeats once after a 401 with a renewed token, never
-otherwise.
+A read times out after 20 seconds and repeats once after a 401 with a renewed token, never otherwise. A change
+is sent once and never repeated, also not after a 401; see [settings tools](settings.md).
 
 ## Rate spacing
 
@@ -215,6 +224,8 @@ Not verified:
 
 Left out on purpose:
 
+- The mutation of accounts, access, links, billing, and everything else that is not in the
+  [settings tools](settings.md).
 - The `linked-customer-id` header, which only partners with a product link use.
 - `GoogleAdsService.SearchStream`, page tokens of Google, and the `page_size` of a search, which Google no
   longer accepts. `reports.search` has no cursor; the [report tools](reports.md) say how to go on.
