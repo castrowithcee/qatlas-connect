@@ -56,7 +56,8 @@ POST https://merchantapi.googleapis.com/accounts/v1/accounts/ACCOUNT_ID/develope
 
 Google describes the steps in its guide [Quickstart: direct API calls](https://developers.google.com/merchant/api/guides/quickstart/direct-api-calls).
 The tool `google.merchant.developer-registrations.get` and the connection test show whether the account lists a
-registered project.
+registered project. The tool `unregister-gcp` can end the registration and with it the access of Qatlas; a new
+registration is always made as above, see [developer registration](developer-registrations.md).
 
 ## Way 1: your Google account with a consent
 

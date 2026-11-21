@@ -42,6 +42,8 @@ var wantToolIDs = []string{
 	"google.merchant.conversion-sources.undelete",
 	"google.merchant.conversion-sources.update",
 	"google.merchant.developer-registrations.get",
+	"google.merchant.developer-registrations.get-account-for-gcp-registration",
+	"google.merchant.developer-registrations.unregister-gcp",
 	"google.merchant.email-preferences.get",
 	"google.merchant.email-preferences.update",
 	"google.merchant.gbp-accounts.list",
