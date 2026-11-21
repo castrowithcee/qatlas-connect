@@ -130,18 +130,25 @@ func withSource(resolved *config.Resolved, conn connection, source *provider.Tok
 		limiter: limiters.For(resolved.Credential), login: conn.login}
 }
 
-// request is one read of the API: the method, the path below the version, a JSON body for a POST, and
-// whether the login-customer-id header goes along, which only requests on an account carry.
+// request is one call of the API: the method, the path below the version, a JSON body for a POST, and
+// whether the login-customer-id header goes along, which only requests on an account carry. change marks a
+// mutation: it is sent once, never repeated, and a failure that may have reached Google says that the outcome
+// is unknown.
 type request struct {
 	op, tool, method, path string
 	body                   []byte
 	onAccount              bool
+	change                 bool
 }
 
 // read sends one reading request to the fixed origin and decodes the JSON answer into out. The token
 // travels in the Authorization header alone. A 401 renews the token once, and nothing else repeats the
 // request: a search is a read, also as a POST.
-func (c *client) read(ctx context.Context, r request, out any) error {
+func (c *client) read(ctx context.Context, r request, out any) error { return c.send(ctx, r, out) }
+
+// send makes one request. A mutation goes through the token source without a repeat: after a 401 the cached
+// token is dropped, so only the next call renews it.
+func (c *client) send(ctx context.Context, r request, out any) error {
 	build := func(access string) (*http.Request, error) {
 		var body io.Reader
 		if r.body != nil {
@@ -165,31 +172,46 @@ func (c *client) read(ctx context.Context, r request, out any) error {
 	if err := c.limiter.Wait(ctx); err != nil {
 		return provider.Waited(r.op, subject, err)
 	}
-	response, err := c.source.Read(ctx, c.http, r.tool, build)
+	dispatch := c.source.Read
+	if r.change {
+		dispatch = c.source.Mutate
+	}
+	response, err := dispatch(ctx, c.http, r.tool, build)
 	if err != nil {
 		var failed *provider.Error
 		if errors.As(err, &failed) {
 			return err
 		}
-		return provider.Transport(r.op, subject, err)
+		// A failure of the transport itself may have come after Google took the request.
+		return unsure(provider.Transport(r.op, subject, err), r.change)
 	}
 	defer response.Body.Close()
 	if response.StatusCode < 200 || response.StatusCode > 299 {
-		failed, hold := adsError(r.op, response.StatusCode, provider.ReadErrorBody(response.Body))
+		failed, hold := adsError(r.op, response.StatusCode, provider.ReadErrorBody(response.Body), r.change)
 		if response.StatusCode == http.StatusTooManyRequests || failed.Class == provider.ClassRateLimited {
 			// A missing or unusable wait still means the credential sent too much: the next call waits.
 			hold = max(hold, provider.RetryAfter(response.Header), time.Second)
 			c.limiter.HoldFor(min(hold, maxHold))
 		}
-		return failed
+		// A 4xx answer and a GoogleAdsFailure reject the whole atomic request; a server error does not say.
+		return unsure(failed, r.change && response.StatusCode >= 500)
 	}
 	if mediaType, _, err := mime.ParseMediaType(response.Header.Get("Content-Type")); err != nil ||
 		mediaType != "application/json" {
 		_, _ = io.Copy(io.Discard, io.LimitReader(response.Body, 1<<10))
-		return provider.InvalidResponse(r.op, subject+" returned an answer that is not JSON")
+		return unsure(provider.InvalidResponse(r.op, subject+" returned an answer that is not JSON"), r.change)
 	}
 	if failed := provider.ReadJSON(r.op, subject, response.Body, maxResponseBytes, out); failed != nil {
-		return failed
+		return unsure(failed, r.change)
 	}
 	return nil
+}
+
+// unsure says that a mutation whose request may have reached Google has an unknown outcome: it is neither
+// claimed nor denied, and never repeated here.
+func unsure(failed *provider.Error, change bool) *provider.Error {
+	if change {
+		failed.Message += "; the outcome of the change is unknown, so read the object before changing it again"
+	}
+	return failed
 }

@@ -8,10 +8,13 @@ const scopeAdwords = "https://www.googleapis.com/auth/adwords"
 
 // tokenMetadata maps every tool to the scopes it needs. The core derives the scopes of a connection from it.
 var tokenMetadata = config.TokenMetadata{Scopes: map[string][]string{
-	customersListAccessibleID: {scopeAdwords},
-	customersGetID:            {scopeAdwords},
-	customerClientsListID:     {scopeAdwords},
-	reportsSearchID:           {scopeAdwords},
-	fieldsSearchID:            {scopeAdwords},
-	fieldsGetID:               {scopeAdwords},
+	customersListAccessibleID:             {scopeAdwords},
+	customersGetID:                        {scopeAdwords},
+	customerClientsListID:                 {scopeAdwords},
+	reportsSearchID:                       {scopeAdwords},
+	fieldsSearchID:                        {scopeAdwords},
+	fieldsGetID:                           {scopeAdwords},
+	customersUpdateID:                     {scopeAdwords},
+	customerBudgetNetworkSettingsCreateID: {scopeAdwords},
+	customerBudgetNetworkSettingsUpdateID: {scopeAdwords},
 }}

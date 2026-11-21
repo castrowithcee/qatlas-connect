@@ -71,7 +71,7 @@ func Register(reg *capability.Registry) error {
 	token := tokenMetadata
 	if err := reg.RegisterProvider(config.ProviderMetadata{
 		ID: Provider, Name: "Google Ads", DefaultBaseURL: apiRoot,
-		Description:    "Google Ads API v26: accounts, manager hierarchy, account settings, reports and the field reference of Google Ads",
+		Description:    "Google Ads API v26: accounts, manager hierarchy, account settings, reports and the field reference of Google Ads, and changes to the settings",
 		DefaultEffects: []config.Effect{config.EffectRead},
 		ValidateBaseURL: func(raw string) error {
 			if !isAPIRoot(raw) {
@@ -103,5 +103,11 @@ func Register(reg *capability.Registry) error {
 		capability.Operation{Descriptor: customerClientsList, Handler: handleCustomerClientsList},
 		capability.Operation{Descriptor: reportsSearch, Handler: handleReportsSearch},
 		capability.Operation{Descriptor: fieldsSearch, Handler: handleFieldsSearch},
-		capability.Operation{Descriptor: fieldsGet, Handler: handleFieldsGet})
+		capability.Operation{Descriptor: fieldsGet, Handler: handleFieldsGet},
+		capability.Operation{Descriptor: customersUpdate, Handler: handleCustomersUpdate,
+			ConfirmationSummary: customerUpdateSummary},
+		capability.Operation{Descriptor: customerBudgetNetworkSettingsCreate, Handler: handleBudgetNetworkCreate,
+			ConfirmationSummary: budgetNetworkSummary("Create")},
+		capability.Operation{Descriptor: customerBudgetNetworkSettingsUpdate, Handler: handleBudgetNetworkUpdate,
+			ConfirmationSummary: budgetNetworkSummary("Replace")})
 }
