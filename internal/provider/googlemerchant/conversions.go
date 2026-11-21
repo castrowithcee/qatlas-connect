@@ -20,10 +20,12 @@ import (
 )
 
 const (
-	conversionSourcesListID   = Provider + ".conversion-sources.list"
-	conversionSourcesGetID    = Provider + ".conversion-sources.get"
-	conversionSourcesCreateID = Provider + ".conversion-sources.create"
-	conversionSourcesUpdateID = Provider + ".conversion-sources.update"
+	conversionSourcesListID     = Provider + ".conversion-sources.list"
+	conversionSourcesGetID      = Provider + ".conversion-sources.get"
+	conversionSourcesCreateID   = Provider + ".conversion-sources.create"
+	conversionSourcesUpdateID   = Provider + ".conversion-sources.update"
+	conversionSourcesUndeleteID = Provider + ".conversion-sources.undelete"
+	conversionSourcesDeleteID   = Provider + ".conversion-sources.delete"
 )
 
 // conversionsAPI is the path prefix of the conversions sub-API.
@@ -159,6 +161,8 @@ var (
 			member("propertyId", stringSchema), member("attributionSettings", attributionOutSchema))))
 	conversionAcceptedSchema = objectSchema(member("accepted", boolSchema), member("name", stringSchema),
 		member("state", stringSchema))
+	conversionDeletedSchema = objectSchema(member("account", stringSchema), member("conversion_source", stringSchema),
+		member("deleted", boolSchema))
 	conversionUpdatedSchema = objectSchema(member("accepted", boolSchema), member("name", stringSchema),
 		member("updated", listSchema))
 )
@@ -211,6 +215,19 @@ var (
 		Confirmation: capability.ConfirmationRequired, OpenWorld: true, DataSensitivity: "merchant-account-data"}
 	updateRisk = capability.Risk{Effect: capability.EffectUpdate, Idempotency: capability.IdempotencyIdempotent,
 		Confirmation: capability.ConfirmationRequired, OpenWorld: true, DataSensitivity: "merchant-account-data"}
+)
+
+var (
+	undeleteRisk = capability.Risk{Effect: capability.EffectUpdate, Idempotency: capability.IdempotencyUnknown,
+		Confirmation: capability.ConfirmationRequired, OpenWorld: true, DataSensitivity: "merchant-account-data"}
+	deleteRisk = capability.Risk{Effect: capability.EffectDelete, Idempotency: capability.IdempotencyUnknown,
+		Confirmation: capability.ConfirmationRequired, OpenWorld: true, DataSensitivity: "merchant-account-data"}
+)
+
+const (
+	conversionDeleteEffect = "A Merchant Center destination is archived and can be restored for 30 days; a link to a " +
+		"Google Analytics property is removed immediately and cannot be restored, only created again."
+	conversionDeleteNote = " Offered only where a connection's tools list names it."
 )
 
 var conversionSourcesList = capability.Descriptor{
@@ -294,6 +311,51 @@ var conversionSourcesUpdate = capability.Descriptor{
 	Examples: []capability.Example{{Description: "Change the lookback window",
 		Arguments: json.RawMessage(`{"account":"1000001","conversion_source":"mcdn:12345",` +
 			`"attribution_settings":{"attribution_lookback_window_days":40}}`)}},
+}
+
+var conversionSourcesUndelete = capability.Descriptor{
+	ID: conversionSourcesUndeleteID, Version: 1, Title: "Restore an archived Merchant Center destination",
+	Description: "Re-enable an archived conversion source. This works only for a source of the type Merchant Center " +
+		"destination, whose ID starts with mcdn:; a link to a Google Analytics property is refused here before " +
+		"anything is sent. The account argument is required. " + conversionEffectNote + conversionDeleteNote +
+		conversionAcceptedNote + " " + conversionContentNote,
+	Tags: []string{"google", "merchant", "conversions", "update"}, Risk: undeleteRisk, Provider: Provider,
+	RequiresToolAllowList: true,
+	InputSchema: inputSchema([]string{"conversion_source"}, member("account", accountArgSchema),
+		member("conversion_source", mcdnArgSchema)),
+	OutputSchema: json.RawMessage(conversionAcceptedSchema),
+	Arguments: []capability.Argument{accountArgument,
+		{Name: "conversion_source", Required: true, Description: "ID of the archived Merchant Center destination, " +
+			"mcdn: and the ID within the type"}},
+	Fields: conversionAcceptedFields,
+	Examples: []capability.Example{{Description: "Restore a source",
+		Arguments: json.RawMessage(`{"account":"1000001","conversion_source":"mcdn:12345"}`)}},
+}
+
+var conversionSourcesDelete = capability.Descriptor{
+	ID: conversionSourcesDeleteID, Version: 1, Title: "Delete a conversion source",
+	Description: "Delete a conversion source. " + conversionDeleteEffect + " " + conversionEffectNote +
+		" The account argument is required." + conversionDeleteNote + " Only the acceptance of the request is " +
+		"reported: Google processes it with a delay. " + conversionContentNote,
+	Tags: []string{"google", "merchant", "conversions", "delete"}, Risk: deleteRisk, Provider: Provider,
+	RequiresToolAllowList: true,
+	InputSchema: inputSchema([]string{"conversion_source"}, member("account", accountArgSchema),
+		member("conversion_source", sourceArgSchema)),
+	OutputSchema: json.RawMessage(conversionDeletedSchema),
+	Arguments: []capability.Argument{accountArgument,
+		{Name: "conversion_source", Required: true, Description: "ID of the source, galk: or mcdn: and the ID " +
+			"within the type"}},
+	Fields: []capability.Field{{Name: "account", Description: "ID of the account whose source Google was asked to delete"},
+		{Name: "conversion_source", Description: "ID of the source"},
+		{Name: "deleted", Description: "true once Google accepted the deletion"}},
+	Examples: []capability.Example{{Description: "Delete a source",
+		Arguments: json.RawMessage(`{"account":"1000001","conversion_source":"mcdn:12345"}`)}},
+}
+
+type conversionDeleteResult struct {
+	Account          string `json:"account"`
+	ConversionSource string `json:"conversion_source"`
+	Deleted          bool   `json:"deleted"`
 }
 
 type attributionArguments struct {
@@ -607,6 +669,88 @@ func handleConversionSourcesUpdate(ctx context.Context, resolved *config.Resolve
 	}
 	return conversionUpdated{Accepted: true, Name: "accounts/" + id + "/conversionSources/" + args.ConversionSource,
 		Updated: mask}, nil
+}
+
+func handleConversionSourcesUndelete(ctx context.Context, resolved *config.Resolved, secrets *secret.Resolver,
+	red *redact.Redactor, raw json.RawMessage) (any, error) {
+	c, err := prepare("restore conversion source", conversionSourcesUndeleteID, resolved, raw)
+	if err != nil {
+		return nil, err
+	}
+	args, err := readConversionArguments(raw)
+	if err != nil {
+		return nil, err
+	}
+	if args.Account == "" {
+		return nil, invalidArgument("account is required")
+	}
+	if !mcdnIDForm.MatchString(args.ConversionSource) {
+		return nil, invalidArgument("conversion_source must be the ID of a Merchant Center destination: mcdn: " +
+			"followed by the ID; other source types cannot be restored")
+	}
+	id, needsProof, err := c.scope.accountOf(args.Account)
+	if err != nil {
+		return nil, err
+	}
+	cl, err := openConversionAccount(ctx, c, resolved, secrets, red, id, needsProof)
+	if err != nil {
+		return nil, err
+	}
+	var answer struct {
+		Name  idText `json:"name"`
+		State idText `json:"state"`
+	}
+	if err := cl.send(ctx, c.op, c.tool, request{method: http.MethodPost,
+		path: conversionsPath(id) + "/" + args.ConversionSource + ":undelete", change: true}, &answer); err != nil {
+		return nil, err
+	}
+	return conversionAccepted{Accepted: true, Name: answer.Name, State: answer.State}, nil
+}
+
+func handleConversionSourcesDelete(ctx context.Context, resolved *config.Resolved, secrets *secret.Resolver,
+	red *redact.Redactor, raw json.RawMessage) (any, error) {
+	c, err := prepare("delete conversion source", conversionSourcesDeleteID, resolved, raw)
+	if err != nil {
+		return nil, err
+	}
+	args, err := readConversionArguments(raw)
+	if err != nil {
+		return nil, err
+	}
+	if args.Account == "" {
+		return nil, invalidArgument("account is required")
+	}
+	if !sourceIDForm.MatchString(args.ConversionSource) {
+		return nil, invalidArgument("conversion_source must be galk: or mcdn: followed by the ID of the source")
+	}
+	id, needsProof, err := c.scope.accountOf(args.Account)
+	if err != nil {
+		return nil, err
+	}
+	cl, err := openConversionAccount(ctx, c, resolved, secrets, red, id, needsProof)
+	if err != nil {
+		return nil, err
+	}
+	if err := cl.send(ctx, c.op, c.tool, request{method: http.MethodDelete,
+		path: conversionsPath(id) + "/" + args.ConversionSource, change: true}, nil); err != nil {
+		return nil, err
+	}
+	return conversionDeleteResult{Account: id, ConversionSource: args.ConversionSource, Deleted: true}, nil
+}
+
+func conversionUndeleteSummary(raw json.RawMessage) string {
+	var args conversionArguments
+	_ = json.Unmarshal(raw, &args)
+	return "Restore the archived Merchant Center destination " + args.ConversionSource + " of Merchant Center account " +
+		conversionAccountText(args.Account) + "; it works only for Merchant Center destinations." + conversionEffect
+}
+
+func conversionDeleteSummary(raw json.RawMessage) string {
+	var args conversionArguments
+	_ = json.Unmarshal(raw, &args)
+	return "Delete conversion source " + args.ConversionSource + " of Merchant Center account " +
+		conversionAccountText(args.Account) + ". A Merchant Center destination is archived and can be restored for " +
+		"30 days; a Google Analytics link is removed immediately." + conversionEffect
 }
 
 const conversionEffect = " This changes the conversion data of the account; Google processes it with a delay."
