@@ -57,6 +57,8 @@ developer registration, and the consent.
 | `google.merchant.regions.create`, `.update` | create a region and replace members of it; confirmed, only through the `tools` list of a connection, see [regions](regions.md) |
 | `google.merchant.regions.delete` | deletes one region; confirmed, only through the `tools` list, see [regions](regions.md) |
 | `google.merchant.regions.batch-create`, `.batch-update`, `.batch-delete` | create, replace members of, or delete 1 to 100 regions in one request that counts as one call; confirmed, only through the `tools` list, see [regions](regions.md) |
+| `google.merchant.promotions.list`, `.get` | the processed promotions of an account, one batch or one promotion, see [promotions](promotions.md) |
+| `google.merchant.promotions.insert` | creates a promotion or REPLACES the one with the same ID, country, and language; confirmed, only through the `tools` list, cannot be undone through Qatlas, see [promotions](promotions.md) |
 | `google.merchant.omnichannel-settings.list` | the omnichannel settings of an account, see [omnichannel settings](omnichannel.md) |
 | `google.merchant.omnichannel-settings.get` | the omnichannel setting of one country, see [omnichannel settings](omnichannel.md) |
 | `google.merchant.omnichannel-settings.create` | creates the omnichannel setting of a country, see [omnichannel settings](omnichannel.md) |
@@ -96,7 +98,7 @@ The terms tools are described in [terms of service](terms-of-service.md), the tw
 automatic improvements](autofeed.md), the account tools beyond the first three in [account tools](accounts.md), the product and issue tools in
 [products and issues](products.md), the local inventory tools in [local inventories](local-inventories.md),
 the user tools in [users](users.md), the home page tools in [home page](homepages.md), the region tools in
-[regions](regions.md), the subscription tools in [Notification subscriptions](notifications.md), the
+[regions](regions.md), the promotion tools in [promotions](promotions.md), the subscription tools in [Notification subscriptions](notifications.md), the
 omnichannel tools in [omnichannel settings](omnichannel.md), the service and relationship tools in [services](services.md),
 the Business Profile and Local Feeds Partnership reads in [linked accounts](links.md), the conversion tools in [conversion sources](conversions.md), the checkout tools in [checkout
 settings](checkout.md), the return policy tools in [return policies](return-policies.md), the shipping tools in [shipping settings](shipping-settings.md), the render tools in

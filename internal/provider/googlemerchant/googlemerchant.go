@@ -160,6 +160,8 @@ func Register(reg *capability.Registry) error {
 		dataSourcesCreateID: handleDataSourcesCreate, dataSourcesUpdateID: handleDataSourcesUpdate,
 		localInventoriesListID: handleLocalInventoriesList, localInventoriesInsertID: handleLocalInventoriesInsert,
 		localInventoriesDeleteID: handleLocalInventoriesDelete,
+		promotionsListID:         handlePromotionsList, promotionsGetID: handlePromotionsGet,
+		promotionsInsertID: handlePromotionsInsert,
 	}
 	summaries := map[string]capability.SummaryFunc{
 		programsEnableID: programSummary("Enable"), programsDisableID: programSummary("Disable"),
@@ -173,6 +175,7 @@ func Register(reg *capability.Registry) error {
 		emailPreferencesUpdateID: emailPreferencesSummary,
 		regionsDeleteID:          regionDeleteSummary,
 		localInventoriesInsertID: localInventoryInsertSummary, localInventoriesDeleteID: localInventoryDeleteSummary,
+		promotionsInsertID: promotionSummary,
 	}
 	maps.Copy(summaries, regionBatchSummaries())
 	maps.Copy(handlers, accountWriteHandlers())
