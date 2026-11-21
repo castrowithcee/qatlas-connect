@@ -72,7 +72,7 @@ func Register(reg *capability.Registry) error {
 	token := tokenMetadata
 	if err := reg.RegisterProvider(config.ProviderMetadata{
 		ID: Provider, Name: "Google Ads", DefaultBaseURL: apiRoot,
-		Description:    "Google Ads API v26: accounts, hierarchy, settings, user access, invitations, approval requests, reports and the field reference of Google Ads, and changes to them",
+		Description:    "Google Ads API v26: accounts, hierarchy, settings, user access, invitations, approval requests, custom audiences, reports and the field reference of Google Ads, and changes to them",
 		DefaultEffects: []config.Effect{config.EffectRead},
 		ValidateBaseURL: func(raw string) error {
 			if !isAPIRoot(raw) {
@@ -121,5 +121,11 @@ func Register(reg *capability.Registry) error {
 			ConfirmationSummary: invitationRemoveSummary},
 		capability.Operation{Descriptor: multiPartyAuthReviewsList, Handler: handleReviewsList},
 		capability.Operation{Descriptor: multiPartyAuthReviewsResolve, Handler: handleReviewsResolve,
-			ConfirmationSummary: reviewResolveSummary})
+			ConfirmationSummary: reviewResolveSummary},
+		capability.Operation{Descriptor: customAudiencesCreate, Handler: handleCustomAudiencesCreate,
+			ConfirmationSummary: customAudienceSummary(false)},
+		capability.Operation{Descriptor: customAudiencesUpdate, Handler: handleCustomAudiencesUpdate,
+			ConfirmationSummary: customAudienceSummary(true)},
+		capability.Operation{Descriptor: customAudiencesRemove, Handler: handleCustomAudiencesRemove,
+			ConfirmationSummary: customAudienceRemoveSummary})
 }
