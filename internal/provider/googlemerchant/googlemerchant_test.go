@@ -42,6 +42,8 @@ var wantToolIDs = []string{
 	"google.merchant.homepages.get",
 	"google.merchant.homepages.unclaim",
 	"google.merchant.homepages.update",
+	"google.merchant.issue-resolutions.render-account-issues",
+	"google.merchant.issue-resolutions.render-product-issues",
 	"google.merchant.limits.get",
 	"google.merchant.limits.list",
 	"google.merchant.notification-subscriptions.delete",

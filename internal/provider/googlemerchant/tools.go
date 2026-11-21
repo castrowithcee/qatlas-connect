@@ -96,7 +96,8 @@ func descriptors() []capability.Descriptor {
 		regionsDelete, regionsBatchCreate, regionsBatchUpdate, regionsBatchDelete,
 		notificationSubscriptionsList, notificationSubscriptionsGet, notificationSubscriptionsDelete,
 		accountServicesList, accountServicesGet, accountServicesReject, accountRelationshipsList,
-		conversionSourcesList, conversionSourcesGet, conversionSourcesCreate, conversionSourcesUpdate},
+		conversionSourcesList, conversionSourcesGet, conversionSourcesCreate, conversionSourcesUpdate,
+		renderAccountIssues, renderProductIssues},
 		append(append(append(accountWriteDescriptors(), homepageDescriptors()...), omnichannelDescriptors()...),
 			checkoutDescriptors()...)...)
 }

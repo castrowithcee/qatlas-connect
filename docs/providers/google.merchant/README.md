@@ -64,14 +64,17 @@ developer registration, and the consent.
 | `google.merchant.conversion-sources.get` | one conversion source, see [conversion sources](conversions.md) |
 | `google.merchant.conversion-sources.create` | creates a Merchant Center destination as conversion source (create), see [conversion sources](conversions.md) |
 | `google.merchant.conversion-sources.update` | changes a Merchant Center destination (update), see [conversion sources](conversions.md) |
+| `google.merchant.issue-resolutions.render-account-issues` | the issues of an account with resolution content and actions, as text, see [issue rendering](issue-resolutions.md) |
+| `google.merchant.issue-resolutions.render-product-issues` | the issues of one product with resolution content and actions, as text, see [issue rendering](issue-resolutions.md) |
 
 The terms tools are described in [terms of service](terms-of-service.md), the two updates in [Autofeed and
 automatic improvements](autofeed.md), the account tools beyond the first three in [account tools](accounts.md),
 the user tools in [users](users.md), the home page tools in [home page](homepages.md), the region tools in
 [regions](regions.md), the subscription tools in [Notification subscriptions](notifications.md), the
 omnichannel tools in [omnichannel settings](omnichannel.md), the service tools in [services](services.md),
-the conversion tools in [conversion sources](conversions.md), and the checkout tools in [checkout
-settings](checkout.md).
+the conversion tools in [conversion sources](conversions.md), the checkout tools in [checkout
+settings](checkout.md), and the render tools in [issue rendering](issue-resolutions.md); the render tools are
+reads although Google takes them as `POST`.
 
 Every read tool needs no confirmation, and every change needs one for every call. The account resource has the
 members `name`, `accountId`, `accountName`, `testAccount`, `adultContent`, `languageCode`, `homePageUri`, and
