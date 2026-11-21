@@ -138,6 +138,8 @@ var knownCodes = map[adsCode]mapped{
 	{"quotaError", "EXCESSIVE_LONG_TERM_QUERY_RESOURCE_CONSUMPTION"}: {provider.ClassRateLimited, "counted too " +
 		"many resource-intensive queries over a long time; " + rateGuidance},
 	{"quotaError", "ACCESS_PROHIBITED"}: {provider.ClassPermission, refusedPrefix + " because access to the resource is not permitted"},
+	{"budgetNetworkSettingError", "CUSTOMER_NOT_ALLOWLISTED"}: {provider.ClassPermission, refusedPrefix + " because " +
+		"the account is not allowlisted for budget network settings"},
 	{"headerError", "INVALID_LOGIN_CUSTOMER_ID"}: {provider.ClassProviderError, refusedPrefix + " because the " +
 		"service option " + optionLoginCustomerID + " names no account Google accepts there"},
 }
@@ -146,7 +148,7 @@ var knownCodes = map[adsCode]mapped{
 // when it says so. A documented error code of a GoogleAdsFailure decides first; an answer without one is the
 // plain Google error object, mapped by its status and the reason of its ErrorInfo. Google's text never
 // reaches the message; it goes along as the original.
-func adsError(op string, status int, body []byte) (*provider.Error, time.Duration) {
+func adsError(op string, status int, body []byte, change bool) (*provider.Error, time.Duration) {
 	var answer failureWire
 	_ = json.Unmarshal(body, &answer)
 	var codes []adsCode
@@ -202,6 +204,11 @@ func adsError(op string, status int, body []byte) (*provider.Error, time.Duratio
 			return failed(provider.ClassPermission, refusedPrefix+" because the feature is not allowlisted for this "+
 				"account or the Cloud project of the credential"), hold
 		}
+	}
+	if change && adsFailure && status == http.StatusBadRequest && len(codes) > 0 && codes[0] != (adsCode{}) {
+		// Google validated the change and refused it: the code names the rule, the original carries the field.
+		return failed(provider.ClassProviderError, "rejected the change ("+codes[0].category+" "+codes[0].value+
+			"), nothing was changed"), hold
 	}
 	return statusFailure(op, status, body, original, failed), hold
 }

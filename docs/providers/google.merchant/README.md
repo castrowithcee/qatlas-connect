@@ -20,6 +20,9 @@ developer registration, and the consent.
 | `google.merchant.developer-registrations.get` | the Google Cloud projects registered as developers with an account |
 | `google.merchant.data-sources.list`, `.get` | the data sources of an account, one batch or one source, see [data sources](data-sources.md) |
 | `google.merchant.data-sources.create`, `.update` | create an API data source and change its name, countries, destinations, or default rule; confirmed, see [data sources](data-sources.md) |
+| `google.merchant.data-sources.fetch` | asks Merchant Center to fetch a file data source now, from the address configured in Merchant Center; confirmed, see [data sources](data-sources.md) |
+| `google.merchant.data-sources.delete` | deletes a data source of any kind; confirmed and only through the `tools` list, see [data sources](data-sources.md) |
+| `google.merchant.file-uploads.get` | the latest file upload of a file data source: state, item counts, issues, see [data sources](data-sources.md) |
 | `google.merchant.developer-registrations.get-account-for-gcp-registration` | the account the Cloud project of the credential is registered with; on a bound connection only if it lies within the targets, see [developer registration](developer-registrations.md) |
 | `google.merchant.developer-registrations.unregister-gcp` | unregisters the Cloud project of the credential from an account, which ends its API access, Qatlas included; confirmed and only through the `tools` list, see [developer registration](developer-registrations.md) |
 | `google.merchant.products.list` | the processed products of an account, with all attributes, see [products and issues](products.md) |
@@ -29,6 +32,9 @@ developer registration, and the consent.
 | `google.merchant.local-inventories.list` | the local inventories of one product, one entry per store, see [local inventories](local-inventories.md) |
 | `google.merchant.local-inventories.insert` | replaces the whole local inventory of one store code of a product; confirmed, only through the `tools` list, see [local inventories](local-inventories.md) |
 | `google.merchant.local-inventories.delete` | deletes the local inventory of one store code of a product; confirmed, only through the `tools` list, see [local inventories](local-inventories.md) |
+| `google.merchant.regional-inventories.list` | the regional inventories of one product, one entry per region, see [regional inventories](regional-inventories.md) |
+| `google.merchant.regional-inventories.insert` | replaces the whole regional inventory of one region of a product; confirmed, only through the `tools` list, see [regional inventories](regional-inventories.md) |
+| `google.merchant.regional-inventories.delete` | deletes the regional inventory of one region of a product; confirmed, only through the `tools` list, see [regional inventories](regional-inventories.md) |
 | `google.merchant.accounts.list-subaccounts` | the sub-accounts of an advanced account, see [account tools](accounts.md) |
 | `google.merchant.accounts.update` | changes the settings of an account, see [account tools](accounts.md) |
 | `google.merchant.accounts.delete` | deletes an account, see [account tools](accounts.md) |
@@ -93,16 +99,20 @@ developer registration, and the consent.
 | `google.merchant.issue-resolutions.render-product-issues` | the issues of one product with resolution content and actions, as text, see [issue rendering](issue-resolutions.md) |
 | `google.merchant.email-preferences.get` | the email preferences of the user of the credential, see [email preferences](email-preferences.md) |
 | `google.merchant.email-preferences.update` | opts the user of the credential in or out of news and tips mails (update, confirmation required), see [email preferences](email-preferences.md) |
+| `google.merchant.product-inputs.insert` | uploads a product input to an API data source and REPLACES an existing input of the same identity (create, confirmation, `tools` list only), see [product inputs](product-inputs.md) |
+| `google.merchant.product-inputs.update` | sets and removes single attributes of a product input with an update mask that Qatlas builds (update, confirmation, `tools` list only), see [product inputs](product-inputs.md) |
+| `google.merchant.product-inputs.delete` | deletes a product input from a data source (delete, confirmation, `tools` list only), see [product inputs](product-inputs.md) |
 
 The terms tools are described in [terms of service](terms-of-service.md), the two updates in [Autofeed and
 automatic improvements](autofeed.md), the account tools beyond the first three in [account tools](accounts.md), the product and issue tools in
-[products and issues](products.md), the local inventory tools in [local inventories](local-inventories.md),
+[products and issues](products.md), the local inventory tools in [local inventories](local-inventories.md), the regional inventory tools in
+[regional inventories](regional-inventories.md),
 the user tools in [users](users.md), the home page tools in [home page](homepages.md), the region tools in
 [regions](regions.md), the review tools in [product reviews](product-reviews.md), the subscription tools in [Notification subscriptions](notifications.md), the
 omnichannel tools in [omnichannel settings](omnichannel.md), the service and relationship tools in [services](services.md),
 the Business Profile and Local Feeds Partnership reads in [linked accounts](links.md), the conversion tools in [conversion sources](conversions.md), the checkout tools in [checkout
 settings](checkout.md), the return policy tools in [return policies](return-policies.md), the shipping tools in [shipping settings](shipping-settings.md), the render tools in
-[issue rendering](issue-resolutions.md), and the email tools in [email preferences](email-preferences.md); the
+[issue rendering](issue-resolutions.md), the email tools in [email preferences](email-preferences.md), and the product input tools in [product inputs](product-inputs.md); the
 render tools are reads although Google takes them as `POST`.
 
 Every read tool needs no confirmation, and every change needs one for every call. The account resource has the
