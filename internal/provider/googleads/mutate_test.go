@@ -18,11 +18,12 @@ import (
 
 var changeToolIDs = []string{customersUpdateID, customerBudgetNetworkSettingsCreateID, customerBudgetNetworkSettingsUpdateID,
 	customerUserAccessesUpdateID, customerUserAccessesRemoveID, customerUserAccessInvitationsRemoveID,
-	multiPartyAuthReviewsResolveID}
+	multiPartyAuthReviewsResolveID, campaignsCreateID, campaignsUpdateID, campaignsRemoveID,
+	campaignsEnablePMaxBrandGuidelinesID}
 
 // noValidateOnly are the changing tools whose Mutate request has no validate_only in v26; they offer none.
 var noValidateOnly = []string{customerUserAccessesUpdateID, customerUserAccessesRemoveID,
-	customerUserAccessInvitationsRemoveID, multiPartyAuthReviewsResolveID}
+	customerUserAccessInvitationsRemoveID, multiPartyAuthReviewsResolveID, campaignsEnablePMaxBrandGuidelinesID}
 
 func mutatePath(id string) string { return "/v26/customers/" + id + ":mutate" }
 func networkPath(id string) string {
@@ -71,7 +72,9 @@ func TestChangeToolsAreListedOnlyConfirmedAndOutsideTheReadProfile(t *testing.T)
 		customerBudgetNetworkSettingsCreateID: capability.EffectCreate,
 		customerBudgetNetworkSettingsUpdateID: capability.EffectUpdate,
 		customerUserAccessesUpdateID:          capability.EffectUpdate, customerUserAccessesRemoveID: capability.EffectDelete,
-		customerUserAccessInvitationsRemoveID: capability.EffectDelete, multiPartyAuthReviewsResolveID: capability.EffectUpdate}
+		customerUserAccessInvitationsRemoveID: capability.EffectDelete, multiPartyAuthReviewsResolveID: capability.EffectUpdate,
+		campaignsCreateID: capability.EffectCreate, campaignsUpdateID: capability.EffectUpdate,
+		campaignsRemoveID: capability.EffectDelete, campaignsEnablePMaxBrandGuidelinesID: capability.EffectUpdate}
 	for _, id := range changeToolIDs {
 		d, _, ok := reg.Lookup(id)
 		if !ok || !d.RequiresToolAllowList || d.Version != 1 || d.Risk.Effect != wantEffect[id] ||

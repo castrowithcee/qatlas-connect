@@ -1,10 +1,10 @@
 ---
 description: >
-  Describes the Google Ads provider: the token credential with the adwords scope and no developer token, the fixed API version v26, the service option login_customer_id and the login-customer-id header, the manager and customer targets with the membership read, the profile read, the tools customers.list-accessible, customers.get, customer-clients.list, reports.search, fields.search, fields.get, customer-user-accesses.list, customer-user-access-invitations.list and multi-party-auth-reviews.list, the settings, user access, invitation and review tools customers.update, customer-budget-network-settings.create and update, customer-user-accesses.update and remove, customer-user-access-invitations.remove and multi-party-auth-reviews.resolve that only the tools list offers, the GoogleAdsFailure and quota errors and their classes, rate spacing, the connection test, and what is not verified.
+  Describes the Google Ads provider: the token credential with the adwords scope and no developer token, the fixed API version v26, the service option login_customer_id and the login-customer-id header, the manager and customer targets with the membership read, the profile read, the tools customers.list-accessible, customers.get, customer-clients.list, reports.search, fields.search, fields.get, customer-user-accesses.list, customer-user-access-invitations.list and multi-party-auth-reviews.list, the settings, user access, invitation and review tools customers.update, customer-budget-network-settings.create and update, customer-user-accesses.update and remove, customer-user-access-invitations.remove and multi-party-auth-reviews.resolve, and the campaign tools campaigns.create, campaigns.update, campaigns.remove and campaigns.enable-pmax-brand-guidelines, that only the tools list offers, the GoogleAdsFailure and quota errors and their classes, rate spacing, the connection test, and what is not verified.
 type: knowledge
 edit: shared
 created: 2026-11-19
-updated: 2026-11-21
+updated: 2026-11-22
 ---
 
 # Google Ads
@@ -99,6 +99,7 @@ them, see [settings tools](settings.md).
 | --- | --- |
 | `customers.update` | changes name, tracking template, final URL suffix, auto-tagging, and call reporting, see [settings tools](settings.md) |
 | `customer-budget-network-settings.create`, `.update` | set the default distribution of budgets over network channels, see [settings tools](settings.md) |
+| `campaigns.create`, `.update`, `.remove`, `campaigns.enable-pmax-brand-guidelines` | create, change, and remove campaigns and prepare the brand guidelines of one, see [campaign tools](campaigns.md) |
 | `customer-user-accesses.list` | lists the users of an account with role and e-mail addresses, see [user access tools](user-access.md) |
 | `customer-user-accesses.update`, `.remove` | change the role of a user, remove a user, see [user access tools](user-access.md) |
 | `customer-user-access-invitations.list`, `.remove` | list and revoke the invitations of an account, see [invitations and approval requests](access.md) |
@@ -230,7 +231,7 @@ Not verified:
 Left out on purpose:
 
 - The mutation of links, billing, and everything else that is not in the [settings tools](settings.md), the
-  [user access tools](user-access.md), or the [invitations and approval requests](access.md); no access is
+  [user access tools](user-access.md), the [campaign tools](campaigns.md), or the [invitations and approval requests](access.md); no access is
   created, no invitation is sent, and no request approved.
 - The `linked-customer-id` header, which only partners with a product link use.
 - `GoogleAdsService.SearchStream`, page tokens of Google, and the `page_size` of a search, which Google no
