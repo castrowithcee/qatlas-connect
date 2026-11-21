@@ -148,6 +148,8 @@ func Register(reg *capability.Registry) error {
 	}
 	maps.Copy(handlers, accountWriteHandlers())
 	maps.Copy(summaries, accountSummaries())
+	maps.Copy(handlers, homepageHandlers())
+	maps.Copy(summaries, homepageSummaries())
 	for _, d := range descriptors() {
 		if err := reg.Register(Provider, capability.Operation{Descriptor: d, Handler: handlers[d.ID],
 			ConfirmationSummary: summaries[d.ID]}); err != nil {

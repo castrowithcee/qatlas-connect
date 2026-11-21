@@ -4,7 +4,7 @@ description: >
 type: knowledge
 edit: shared
 created: 2026-11-19
-updated: 2026-11-20
+updated: 2026-11-21
 ---
 
 # Google Merchant
@@ -38,10 +38,14 @@ developer registration, and the consent.
 | `google.merchant.automatic-improvements.update` | changes the automatic improvements of an account (update, listed tools only) |
 | `google.merchant.users.list`, `google.merchant.users.get` | the users of an account, see [users](users.md) |
 | `google.merchant.users.update`, `google.merchant.users.delete` | replace the roles of a user, remove a user; only through the `tools` list, see [users](users.md) |
+| `google.merchant.homepages.get` | the home page address of an account and whether it is claimed, see [home page](homepages.md) |
+| `google.merchant.homepages.update` | sets the home page address, see [home page](homepages.md) |
+| `google.merchant.homepages.claim` | claims the home page, see [home page](homepages.md) |
+| `google.merchant.homepages.unclaim` | removes the claim of the home page, see [home page](homepages.md) |
 
 The terms tools are described in [terms of service](terms-of-service.md), the two updates in [Autofeed and
 automatic improvements](autofeed.md), the account tools beyond the first three in [account tools](accounts.md),
-and the user tools in [users](users.md).
+the user tools in [users](users.md), and the home page tools in [home page](homepages.md).
 
 Every read tool needs no confirmation, and every change needs one for every call. The account resource has the
 members `name`, `accountId`, `accountName`, `testAccount`, `adultContent`, `languageCode`, `homePageUri`, and

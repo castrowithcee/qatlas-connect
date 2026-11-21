@@ -92,7 +92,7 @@ func descriptors() []capability.Descriptor {
 		reportsSearch, quotasList, limitsList, limitsGet,
 		termsOfServiceGet, termsOfServiceRetrieveLatest, termsOfServiceAgreementStatesGet,
 		termsOfServiceAgreementStatesRetrieveForApplication, usersList, usersGet, usersUpdate, usersDelete},
-		accountWriteDescriptors()...)
+		append(accountWriteDescriptors(), homepageDescriptors()...)...)
 }
 
 var accountsList = capability.Descriptor{
