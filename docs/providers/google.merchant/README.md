@@ -32,6 +32,9 @@ developer registration, and the consent.
 | `google.merchant.local-inventories.list` | the local inventories of one product, one entry per store, see [local inventories](local-inventories.md) |
 | `google.merchant.local-inventories.insert` | replaces the whole local inventory of one store code of a product; confirmed, only through the `tools` list, see [local inventories](local-inventories.md) |
 | `google.merchant.local-inventories.delete` | deletes the local inventory of one store code of a product; confirmed, only through the `tools` list, see [local inventories](local-inventories.md) |
+| `google.merchant.regional-inventories.list` | the regional inventories of one product, one entry per region, see [regional inventories](regional-inventories.md) |
+| `google.merchant.regional-inventories.insert` | replaces the whole regional inventory of one region of a product; confirmed, only through the `tools` list, see [regional inventories](regional-inventories.md) |
+| `google.merchant.regional-inventories.delete` | deletes the regional inventory of one region of a product; confirmed, only through the `tools` list, see [regional inventories](regional-inventories.md) |
 | `google.merchant.accounts.list-subaccounts` | the sub-accounts of an advanced account, see [account tools](accounts.md) |
 | `google.merchant.accounts.update` | changes the settings of an account, see [account tools](accounts.md) |
 | `google.merchant.accounts.delete` | deletes an account, see [account tools](accounts.md) |
@@ -97,7 +100,8 @@ developer registration, and the consent.
 
 The terms tools are described in [terms of service](terms-of-service.md), the two updates in [Autofeed and
 automatic improvements](autofeed.md), the account tools beyond the first three in [account tools](accounts.md), the product and issue tools in
-[products and issues](products.md), the local inventory tools in [local inventories](local-inventories.md),
+[products and issues](products.md), the local inventory tools in [local inventories](local-inventories.md), the regional inventory tools in
+[regional inventories](regional-inventories.md),
 the user tools in [users](users.md), the home page tools in [home page](homepages.md), the region tools in
 [regions](regions.md), the subscription tools in [Notification subscriptions](notifications.md), the
 omnichannel tools in [omnichannel settings](omnichannel.md), the service and relationship tools in [services](services.md),
