@@ -32,8 +32,10 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 	if !reflect.DeepEqual(metadata.SecretRoles, config.TokenSecretRoles()) {
 		t.Errorf("secret roles = %+v, want the token roles", metadata.SecretRoles)
 	}
-	want := []string{conversionCustomVariablesCreateID, conversionCustomVariablesUpdateID,
-		customerBudgetNetworkSettingsCreateID, customerBudgetNetworkSettingsUpdateID, customerClientsListID, customerUserAccessInvitationsListID, customerUserAccessInvitationsRemoveID,
+	want := []string{conversionActionsCreateID, conversionActionsRemoveID, conversionActionsUpdateID,
+		conversionCustomVariablesCreateID, conversionCustomVariablesUpdateID,
+		customerBudgetNetworkSettingsCreateID, customerBudgetNetworkSettingsUpdateID,
+		customerClientsListID, customerUserAccessInvitationsListID, customerUserAccessInvitationsRemoveID,
 		customerUserAccessesListID, customerUserAccessesRemoveID, customerUserAccessesUpdateID,
 		customersGetID, customersListAccessibleID, customersUpdateID, fieldsGetID, fieldsSearchID,
 		multiPartyAuthReviewsListID, multiPartyAuthReviewsResolveID, remarketingActionsCreateID,
