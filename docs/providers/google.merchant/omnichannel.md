@@ -12,7 +12,7 @@ updated: 2026-11-21
 The omnichannel settings of a Merchant Center account say how a country takes part in local programs such as
 free local listings and local inventory ads: the type of the local storefront, the product pages Google reviews
 for in-stock and pickup serving, the policy and about pages, and the contact of the inventory verification. Each
-country has one setting, named by its region code. Four tools cover them. Targets, quotas, results, and errors
+country has one setting, named by its region code. Five tools cover them. Targets, quotas, results, and errors
 are as described in the [provider overview](README.md).
 
 | Tool | Method | Effect |
@@ -21,6 +21,7 @@ are as described in the [provider overview](README.md).
 | `google.merchant.omnichannel-settings.get` | `accounts.omnichannelSettings.get` | reads the setting of one country |
 | `google.merchant.omnichannel-settings.create` | `accounts.omnichannelSettings.create` | creates the setting of a country |
 | `google.merchant.omnichannel-settings.update` | `accounts.omnichannelSettings.patch` | changes members of the setting of a country |
+| `google.merchant.omnichannel-settings.request-inventory-verification` | `accounts.omnichannelSettings.requestInventoryVerification` | starts the inventory verification process at Google for a country |
 
 ## Access
 
@@ -34,6 +35,18 @@ exactly one target. It is checked against the targets before any secret is read 
 that no target names is read or changed only after the proof read of the sub-accounts of a bound advanced
 account, as for `accounts.get`; a refused account is never changed. An account target is enough: these tools act on
 one account, not on the advanced account as a whole.
+
+## Inventory verification request
+
+`request-inventory-verification` takes `account` (required, as for `create`) and `region_code` (required). It sends a
+`POST` to `accounts/{account}/omnichannelSettings/{region}:requestInventoryVerification` with an empty request
+body and shows the `OmnichannelSetting` of the answer in the form of `get`. It sets nothing: the contact comes from
+the setting, so `inventory_verification` must have been stored by `create` or `update`. The request starts a
+verification process at Google for that country, Google mails the contact, and the state of the verification
+changes as the process runs. It is offered only to a connection whose `tools` list names it, needs a confirmation
+on every call, is never repeated, and counts against the quota of the Merchant API, a failed call too. The
+answer only tells that Google accepted the request, it can still show the earlier state, and the process takes
+about 48 hours. The account and region code are checked before any secret is read or a request is sent.
 
 ## Arguments
 
@@ -126,5 +139,13 @@ Not verified:
 - The quota group of these methods and their per-minute and daily limits.
 - Which Merchant Center role the methods need.
 
-The request of an inventory verification, the link to a provider of local feeds, and the search for such a provider
-are not offered by these tools.
+Inventory verification request:
+
+- Checked against the reference page of the method and the API description: `POST`, path with the setting name,
+  empty body, answer holding `omnichannelSetting`, scope `content`. No difference was found. The reference page
+  does not list the states of the verification; the states shown are those of the API description: `ACTION_REQUIRED`,
+  `INACTIVE`, `RUNNING`, `SUCCEEDED`, `SUSPENDED`.
+- Not verified: the states from which Google accepts the request, what it answers in other states, and whether a
+  stored contact is required. Qatlas does not check them and leaves the answer to Google. No live call was made.
+
+The link to a provider of local feeds and the search for such a provider are not offered by these tools.

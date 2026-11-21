@@ -62,6 +62,7 @@ func TestOmnichannelDescriptorsCarryRiskAndToolListRequirement(t *testing.T) {
 		{omnichannelSettingsGet, capability.EffectRead, capability.IdempotencySafe, false},
 		{omnichannelSettingsCreate, capability.EffectCreate, capability.IdempotencyNonIdempotent, true},
 		{omnichannelSettingsUpdate, capability.EffectUpdate, capability.IdempotencyIdempotent, true},
+		{omnichannelVerify, capability.EffectExecute, capability.IdempotencyNonIdempotent, true},
 	} {
 		r := c.d.Risk
 		changes := c.effect != capability.EffectRead
@@ -100,7 +101,7 @@ func TestOmnichannelDescriptorsCarryRiskAndToolListRequirement(t *testing.T) {
 	metadata, _ := reg.ProviderMetadata(Provider)
 	tools := metadata.Profiles[0].Tools
 	if !slices.Contains(tools, omnichannelSettingsListID) || !slices.Contains(tools, omnichannelSettingsGetID) ||
-		slices.Contains(tools, omnichannelSettingsCreateID) || slices.Contains(tools, omnichannelSettingsUpdateID) {
+		slices.Contains(tools, omnichannelVerifyID) || slices.Contains(tools, omnichannelSettingsCreateID) || slices.Contains(tools, omnichannelSettingsUpdateID) {
 		t.Errorf("profile tools = %v", tools)
 	}
 	if got, _ := metadata.Target.Reach(omnichannelSettingsUpdateID, []string{"accounts/2"}); !got {
@@ -118,6 +119,7 @@ func TestOmnichannelToolsSettleTheAccountBeforeSecretAndRequest(t *testing.T) {
 		{"get", handleOmnichannelGet, `,"region_code":"CH"`},
 		{"create", handleOmnichannelCreate, `,"region_code":"CH","lsf_type":"GHLSF"`},
 		{"update", handleOmnichannelUpdate, `,"region_code":"CH","lsf_type":"GHLSF"`},
+		{"verify", handleOmnichannelVerify, `,"region_code":"CH"`},
 	} {
 		for name, c := range map[string]struct {
 			targets []string
@@ -154,6 +156,7 @@ func TestOmnichannelWritesNameTheirAccountExplicitly(t *testing.T) {
 	}{
 		"create": {handleOmnichannelCreate, `{"region_code":"CH","lsf_type":"GHLSF"}`},
 		"update": {handleOmnichannelUpdate, `{"region_code":"CH","lsf_type":"GHLSF"}`},
+		"verify": {handleOmnichannelVerify, `{"region_code":"CH"}`},
 	} {
 		t.Run(name, func(t *testing.T) {
 			h := newHarness(t, "accounts/1")
@@ -225,6 +228,9 @@ func TestOmnichannelArgumentsAreCheckedBeforeSecretAndRequest(t *testing.T) {
 	}{
 		"get: lower-case region":     {handleOmnichannelGet, `{"account":"1","region_code":"ch"}`},
 		"get: path in region":        {handleOmnichannelGet, `{"account":"1","region_code":"CH/x"}`},
+		"verify: lower-case region":  {handleOmnichannelVerify, `{"account":"1","region_code":"ch"}`},
+		"verify: path in region":     {handleOmnichannelVerify, `{"account":"1","region_code":"CH/x"}`},
+		"verify: no region":          {handleOmnichannelVerify, `{"account":"1"}`},
 		"get: no region":             {handleOmnichannelGet, `{"account":"1"}`},
 		"get: three letters":         {handleOmnichannelGet, `{"account":"1","region_code":"CHE"}`},
 		"create: no region":          {handleOmnichannelCreate, `{"account":"1","lsf_type":"GHLSF"}`},
@@ -468,7 +474,7 @@ func TestOmnichannelConfirmationSummariesNameTheChange(t *testing.T) {
 		t.Fatal(err)
 	}
 	summaries := omnichannelSummaries()
-	if len(summaries) != 2 || summaries[omnichannelSettingsListID] != nil || summaries[omnichannelSettingsGetID] != nil {
+	if len(summaries) != 3 || summaries[omnichannelSettingsListID] != nil || summaries[omnichannelSettingsGetID] != nil {
 		t.Fatalf("summaries = %v", summaries)
 	}
 	create := summaries[omnichannelSettingsCreateID](json.RawMessage(`{"account":"1","region_code":"CH","lsf_type":"MHLSF_BASIC",` +
@@ -483,5 +489,67 @@ func TestOmnichannelConfirmationSummariesNameTheChange(t *testing.T) {
 	}
 	if summaries[omnichannelSettingsUpdateID](json.RawMessage(`[`)) != "" || summaries[omnichannelSettingsCreateID](json.RawMessage(`{}`)) != "" {
 		t.Error("a summary of unreadable arguments is not empty")
+	}
+}
+
+func TestOmnichannelVerifyPostsAnEmptyBodyOnceAndShowsTheSetting(t *testing.T) {
+	h := newHarness(t, "accounts/1000002")
+	h.google.api = func(*http.Request) (int, string, http.Header) {
+		return 200, `{"omnichannelSetting":` + testOmnichannelAnswer + `}`, nil
+	}
+	out, err := h.call(t, handleOmnichannelVerify, `{"account":"1000002","region_code":"CH"}`)
+	if err != nil || out["regionCode"] != "CH" || out["unknownMember"] != nil {
+		t.Fatalf("out = %v, %v", out, err)
+	}
+	verification := out["inventoryVerification"].(map[string]any)
+	if verification["state"] != "INACTIVE" || verification["contactEmail"] != testContactEmail ||
+		verification["contactState"] != "RUNNING" {
+		t.Errorf("inventoryVerification = %v", verification)
+	}
+	want := omniRequest{"POST", "/accounts/v1/accounts/1000002/omnichannelSettings/CH:requestInventoryVerification", "{}"}
+	if got := h.omniRequests(t); len(got) != 1 || got[0] != want {
+		t.Errorf("requests = %v, want %v", got, want)
+	}
+	summary := omnichannelSummaries()[omnichannelVerifyID](json.RawMessage(`{"account":"1","region_code":"CH"}`))
+	if !strings.Contains(summary, "verification process at Google") || !strings.Contains(summary, `"CH"`) ||
+		!strings.Contains(summary, "contact") {
+		t.Errorf("summary = %q", summary)
+	}
+}
+
+func TestOmnichannelVerifyIsSentOnceAndMapsGoogleAndQuotaErrors(t *testing.T) {
+	for name, c := range map[string]struct {
+		status  int
+		unclear bool
+		class   provider.Class
+	}{
+		"server error": {500, true, provider.ClassProviderError},
+		"unauthorized": {401, false, provider.ClassAuth},
+		"quota":        {429, false, provider.ClassRateLimited},
+		"bad request":  {400, false, ""},
+		"not found":    {404, false, ""},
+	} {
+		t.Run(name, func(t *testing.T) {
+			h := newHarness(t, "accounts/1")
+			h.google.api = func(*http.Request) (int, string, http.Header) {
+				return c.status, `{"error":{"code":0,"message":"untrusted text","status":"X"}}`, nil
+			}
+			_, err := h.call(t, handleOmnichannelVerify, `{"account":"1","region_code":"CH"}`)
+			if err == nil {
+				t.Fatal("no error")
+			}
+			if c.class != "" && classOf(err) != c.class {
+				t.Errorf("class = %s, want %s", classOf(err), c.class)
+			}
+			if unclear := strings.Contains(err.Error(), "outcome of the change is unknown"); unclear != c.unclear {
+				t.Errorf("unclear outcome said = %t: %v", unclear, err)
+			}
+			if strings.Contains(err.Error(), "untrusted text") {
+				t.Errorf("the message carries Google's text: %v", err)
+			}
+			if got := h.omniRequests(t); len(got) != 1 {
+				t.Errorf("%d requests, want exactly one", len(got))
+			}
+		})
 	}
 }
