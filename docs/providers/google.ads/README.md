@@ -1,6 +1,6 @@
 ---
 description: >
-  Describes the Google Ads provider: the token credential with the adwords scope and no developer token, the fixed API version v26, the service option login_customer_id and the login-customer-id header, the manager and customer targets with the membership read, the profile read, the tools customers.list-accessible, customers.get, customer-clients.list, reports.search, fields.search, fields.get, customer-user-accesses.list, customer-user-access-invitations.list and multi-party-auth-reviews.list, the settings, user access, invitation and review tools customers.update, customer-budget-network-settings.create and update, customer-user-accesses.update and remove, customer-user-access-invitations.remove and multi-party-auth-reviews.resolve that only the tools list offers, the GoogleAdsFailure and quota errors and their classes, rate spacing, the connection test, and what is not verified.
+  Describes the Google Ads provider: the token credential with the adwords scope and no developer token, the fixed API version v26, the service option login_customer_id and the login-customer-id header, the manager and customer targets with the membership read, the profile read, the tools customers.list-accessible, customers.get, customer-clients.list, reports.search, fields.search, fields.get, customer-user-accesses.list, customer-user-access-invitations.list, multi-party-auth-reviews.list, billing-setups.list, account-budgets.list, account-budget-proposals.list and payments-accounts.list, the settings, user access, invitation and review tools customers.update, customer-budget-network-settings.create and update, customer-user-accesses.update and remove, customer-user-access-invitations.remove and multi-party-auth-reviews.resolve that only the tools list offers, the GoogleAdsFailure and quota errors and their classes, rate spacing, the connection test, and what is not verified.
 type: knowledge
 edit: shared
 created: 2026-11-19
@@ -88,7 +88,7 @@ sits.
 
 | Profile | Tools | Recommended |
 | --- | --- | --- |
-| `read` | `customers.list-accessible`, `customers.get`, `customer-clients.list`, `reports.search`, `fields.search`, `fields.get`, `customer-user-accesses.list`, `customer-user-access-invitations.list`, `multi-party-auth-reviews.list` | yes |
+| `read` | `customers.list-accessible`, `customers.get`, `customer-clients.list`, `reports.search`, `fields.search`, `fields.get`, `customer-user-accesses.list`, `customer-user-access-invitations.list`, `multi-party-auth-reviews.list`, `billing-setups.list`, `account-budgets.list`, `account-budget-proposals.list`, `payments-accounts.list` | yes |
 
 Tools that change an account belong to no profile: a connection offers them only when its `tools` list names
 them, see [settings tools](settings.md).
@@ -103,6 +103,7 @@ them, see [settings tools](settings.md).
 | `customer-user-accesses.update`, `.remove` | change the role of a user, remove a user, see [user access tools](user-access.md) |
 | `customer-user-access-invitations.list`, `.remove` | list and revoke the invitations of an account, see [invitations and approval requests](access.md) |
 | `multi-party-auth-reviews.list`, `.resolve` | list the approval requests of an account, reject or revoke one, never approve, see [invitations and approval requests](access.md) |
+| `billing-setups.list`, `account-budgets.list`, `account-budget-proposals.list`, `payments-accounts.list` | read the billing setups, account budgets, budget proposals and payments accounts of an account, never change them, see [billing tools](billing.md) |
 
 ### customers.list-accessible
 
@@ -232,6 +233,8 @@ Left out on purpose:
 - The mutation of links, billing, and everything else that is not in the [settings tools](settings.md), the
   [user access tools](user-access.md), or the [invitations and approval requests](access.md); no access is
   created, no invitation is sent, and no request approved.
+- Anything that changes billing: the [billing tools](billing.md) only read, and no billing setup, budget
+  proposal, or payments account is created, changed, or removed.
 - The `linked-customer-id` header, which only partners with a product link use.
 - `GoogleAdsService.SearchStream`, page tokens of Google, and the `page_size` of a search, which Google no
   longer accepts. `reports.search` has no cursor; the [report tools](reports.md) say how to go on.

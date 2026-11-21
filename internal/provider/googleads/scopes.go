@@ -24,4 +24,8 @@ var tokenMetadata = config.TokenMetadata{Scopes: map[string][]string{
 	customerUserAccessInvitationsRemoveID: {scopeAdwords},
 	multiPartyAuthReviewsListID:           {scopeAdwords},
 	multiPartyAuthReviewsResolveID:        {scopeAdwords},
+	billingSetupsListID:                   {scopeAdwords},
+	accountBudgetsListID:                  {scopeAdwords},
+	accountBudgetProposalsListID:          {scopeAdwords},
+	paymentsAccountsListID:                {scopeAdwords},
 }}
