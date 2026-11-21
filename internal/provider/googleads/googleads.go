@@ -32,7 +32,7 @@ const subject = "Google Ads"
 
 // readTools are the tools of the profile read.
 var readTools = []string{customersListAccessibleID, customersGetID, customerClientsListID, reportsSearchID,
-	fieldsSearchID, fieldsGetID}
+	fieldsSearchID, fieldsGetID, customerUserAccessesListID}
 
 // TestConnection obtains an access token, checks its scope, and lists the accounts the credential reaches
 // directly. That call costs one operation of the daily quota and nothing else, and proves the token, the
@@ -71,7 +71,7 @@ func Register(reg *capability.Registry) error {
 	token := tokenMetadata
 	if err := reg.RegisterProvider(config.ProviderMetadata{
 		ID: Provider, Name: "Google Ads", DefaultBaseURL: apiRoot,
-		Description:    "Google Ads API v26: accounts, manager hierarchy, account settings, reports and the field reference of Google Ads, and changes to the settings",
+		Description:    "Google Ads API v26: accounts, manager hierarchy, account settings, user access, reports and the field reference of Google Ads, and changes to settings and user access",
 		DefaultEffects: []config.Effect{config.EffectRead},
 		ValidateBaseURL: func(raw string) error {
 			if !isAPIRoot(raw) {
@@ -84,8 +84,8 @@ func Register(reg *capability.Registry) error {
 		Target:      targetMetadata,
 		Profiles: []config.ToolProfile{{
 			ID: "read", Title: "Read", Recommended: true,
-			Description: "lists the accounts the credential reaches, reads account settings and the hierarchy " +
-				"below a manager account, runs reports and reads the field reference; the adwords scope is the only one Google offers and also allows changes, " +
+			Description: "lists the accounts the credential reaches, reads account settings, the hierarchy " +
+				"below a manager account and the users of an account, runs reports and reads the field reference; the adwords scope is the only one Google offers and also allows changes, " +
 				"although no tool of this profile changes anything",
 			Tools: readTools,
 		}},
@@ -109,5 +109,10 @@ func Register(reg *capability.Registry) error {
 		capability.Operation{Descriptor: customerBudgetNetworkSettingsCreate, Handler: handleBudgetNetworkCreate,
 			ConfirmationSummary: budgetNetworkSummary("Create")},
 		capability.Operation{Descriptor: customerBudgetNetworkSettingsUpdate, Handler: handleBudgetNetworkUpdate,
-			ConfirmationSummary: budgetNetworkSummary("Replace")})
+			ConfirmationSummary: budgetNetworkSummary("Replace")},
+		capability.Operation{Descriptor: customerUserAccessesList, Handler: handleUserAccessesList},
+		capability.Operation{Descriptor: customerUserAccessesUpdate, Handler: handleUserAccessUpdate,
+			ConfirmationSummary: userAccessSummary(true)},
+		capability.Operation{Descriptor: customerUserAccessesRemove, Handler: handleUserAccessRemove,
+			ConfirmationSummary: userAccessSummary(false)})
 }

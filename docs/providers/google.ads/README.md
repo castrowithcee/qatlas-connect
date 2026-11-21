@@ -1,6 +1,6 @@
 ---
 description: >
-  Describes the Google Ads provider: the token credential with the adwords scope and no developer token, the fixed API version v26, the service option login_customer_id and the login-customer-id header, the manager and customer targets with the membership read, the profile read, the tools customers.list-accessible, customers.get, customer-clients.list, reports.search, fields.search and fields.get, and the settings tools customers.update and customer-budget-network-settings.create and update that only the tools list offers, the GoogleAdsFailure and quota errors and their classes, rate spacing, the connection test, and what is not verified.
+  Describes the Google Ads provider: the token credential with the adwords scope and no developer token, the fixed API version v26, the service option login_customer_id and the login-customer-id header, the manager and customer targets with the membership read, the profile read, the tools customers.list-accessible, customers.get, customer-clients.list, reports.search, fields.search, fields.get and customer-user-accesses.list, and the settings and user access tools customers.update, customer-budget-network-settings.create and update, and customer-user-accesses.update and remove that only the tools list offers, the GoogleAdsFailure and quota errors and their classes, rate spacing, the connection test, and what is not verified.
 type: knowledge
 edit: shared
 created: 2026-11-19
@@ -87,7 +87,7 @@ sits.
 
 | Profile | Tools | Recommended |
 | --- | --- | --- |
-| `read` | `customers.list-accessible`, `customers.get`, `customer-clients.list`, `reports.search`, `fields.search`, `fields.get` | yes |
+| `read` | `customers.list-accessible`, `customers.get`, `customer-clients.list`, `reports.search`, `fields.search`, `fields.get`, `customer-user-accesses.list` | yes |
 
 Tools that change an account belong to no profile: a connection offers them only when its `tools` list names
 them, see [settings tools](settings.md).
@@ -98,6 +98,8 @@ them, see [settings tools](settings.md).
 | --- | --- |
 | `customers.update` | changes name, tracking template, final URL suffix, auto-tagging, and call reporting, see [settings tools](settings.md) |
 | `customer-budget-network-settings.create`, `.update` | set the default distribution of budgets over network channels, see [settings tools](settings.md) |
+| `customer-user-accesses.list` | lists the users of an account with role and e-mail addresses, see [user access tools](user-access.md) |
+| `customer-user-accesses.update`, `.remove` | change the role of a user, remove a user, see [user access tools](user-access.md) |
 
 ### customers.list-accessible
 
@@ -224,8 +226,8 @@ Not verified:
 
 Left out on purpose:
 
-- The mutation of accounts, access, links, billing, and everything else that is not in the
-  [settings tools](settings.md).
+- The mutation of links, billing, invitations, and everything else that is not in the
+  [settings tools](settings.md) or the [user access tools](user-access.md).
 - The `linked-customer-id` header, which only partners with a product link use.
 - `GoogleAdsService.SearchStream`, page tokens of Google, and the `page_size` of a search, which Google no
   longer accepts. `reports.search` has no cursor; the [report tools](reports.md) say how to go on.
