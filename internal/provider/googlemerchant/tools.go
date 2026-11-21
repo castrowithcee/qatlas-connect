@@ -98,8 +98,8 @@ func descriptors() []capability.Descriptor {
 		accountServicesList, accountServicesGet, accountServicesReject, accountRelationshipsList,
 		conversionSourcesList, conversionSourcesGet, conversionSourcesCreate, conversionSourcesUpdate,
 		renderAccountIssues, renderProductIssues},
-		append(append(append(accountWriteDescriptors(), homepageDescriptors()...), omnichannelDescriptors()...),
-			checkoutDescriptors()...)...)
+		append(append(append(append(accountWriteDescriptors(), homepageDescriptors()...), omnichannelDescriptors()...),
+			checkoutDescriptors()...), returnPolicyDescriptors()...)...)
 }
 
 var accountsList = capability.Descriptor{

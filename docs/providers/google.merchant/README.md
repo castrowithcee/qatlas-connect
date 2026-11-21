@@ -54,6 +54,10 @@ developer registration, and the consent.
 | `google.merchant.checkout-settings.create` | enrolls an account in the Checkout program, see [checkout settings](checkout.md) |
 | `google.merchant.checkout-settings.update` | changes the checkout settings of an account, see [checkout settings](checkout.md) |
 | `google.merchant.checkout-settings.delete` | deletes the checkout settings of an account, see [checkout settings](checkout.md) |
+| `google.merchant.online-return-policies.list` | the online return policies of an account, see [return policies](return-policies.md) |
+| `google.merchant.online-return-policies.get` | one online return policy, see [return policies](return-policies.md) |
+| `google.merchant.online-return-policies.create` | creates an online return policy, see [return policies](return-policies.md) |
+| `google.merchant.online-return-policies.delete` | deletes an online return policy, see [return policies](return-policies.md) |
 | `google.merchant.notification-subscriptions.list` | the notification subscriptions of an account |
 | `google.merchant.notification-subscriptions.get` | one notification subscription |
 | `google.merchant.notification-subscriptions.delete` | deletes a notification subscription (delete, confirmation, listed tools only) |
@@ -73,8 +77,8 @@ the user tools in [users](users.md), the home page tools in [home page](homepage
 [regions](regions.md), the subscription tools in [Notification subscriptions](notifications.md), the
 omnichannel tools in [omnichannel settings](omnichannel.md), the service tools in [services](services.md),
 the conversion tools in [conversion sources](conversions.md), the checkout tools in [checkout
-settings](checkout.md), and the render tools in [issue rendering](issue-resolutions.md); the render tools are
-reads although Google takes them as `POST`.
+settings](checkout.md), the return policy tools in [return policies](return-policies.md), and the render tools in
+[issue rendering](issue-resolutions.md); the render tools are reads although Google takes them as `POST`.
 
 Every read tool needs no confirmation, and every change needs one for every call. The account resource has the
 members `name`, `accountId`, `accountName`, `testAccount`, `adultContent`, `languageCode`, `homePageUri`, and
