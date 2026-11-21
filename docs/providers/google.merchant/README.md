@@ -44,11 +44,14 @@ developer registration, and the consent.
 | `google.merchant.homepages.unclaim` | removes the claim of the home page, see [home page](homepages.md) |
 | `google.merchant.regions.list`, `.get` | the regions of an account, one batch or one region, see [regions](regions.md) |
 | `google.merchant.regions.create`, `.update` | create a region and replace members of it; confirmed, only through the `tools` list of a connection, see [regions](regions.md) |
+| `google.merchant.notification-subscriptions.list` | the notification subscriptions of an account |
+| `google.merchant.notification-subscriptions.get` | one notification subscription |
+| `google.merchant.notification-subscriptions.delete` | deletes a notification subscription (delete, confirmation, listed tools only) |
 
 The terms tools are described in [terms of service](terms-of-service.md), the two updates in [Autofeed and
 automatic improvements](autofeed.md), the account tools beyond the first three in [account tools](accounts.md),
-the user tools in [users](users.md), the home page tools in [home page](homepages.md), and the region tools in
-[regions](regions.md).
+the user tools in [users](users.md), the home page tools in [home page](homepages.md), the region tools in
+[regions](regions.md), and the subscription tools in [Notification subscriptions](notifications.md).
 
 Every read tool needs no confirmation, and every change needs one for every call. The account resource has the
 members `name`, `accountId`, `accountName`, `testAccount`, `adultContent`, `languageCode`, `homePageUri`, and
@@ -214,8 +217,9 @@ Not verified:
 - Whether Merchant Center accepts an impersonated service account as a user.
 - Whether the scope `content` needs an app verification for an OAuth client of your own project.
 
-Updates are sent once, with a JSON body built from the structured arguments. They are not repeated after `401`,
-`429`, or `5xx`, because Google may already have applied them, and every call counts against the quota.
+Changes are sent once: an update with a JSON body built from the structured arguments, a deletion without a
+body. They are not repeated after `401`, `429`, or `5xx`, because Google may already have applied them, and every
+call counts against the quota.
 
 No tool of this provider invites a user or accepts an invitation, registers or unregisters a Cloud project, links an account to another
 one, sets a notification address, or accepts terms for an account (`terms-of-service.accept` is deliberately

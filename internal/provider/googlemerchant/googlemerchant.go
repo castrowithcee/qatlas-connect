@@ -142,12 +142,16 @@ func Register(reg *capability.Registry) error {
 		usersUpdateID: handleUsersUpdate, usersDeleteID: handleUsersDelete,
 		regionsListID: handleRegionsList, regionsGetID: handleRegionsGet,
 		regionsCreateID: handleRegionsCreate, regionsUpdateID: handleRegionsUpdate,
+		notificationSubscriptionsListID:   handleNotificationSubscriptionsList,
+		notificationSubscriptionsGetID:    handleNotificationSubscriptionsGet,
+		notificationSubscriptionsDeleteID: handleNotificationSubscriptionsDelete,
 	}
 	summaries := map[string]capability.SummaryFunc{
 		programsEnableID: programSummary("Enable"), programsDisableID: programSummary("Disable"),
 		autofeedSettingsUpdateID: autofeedSummary, automaticImprovementsUpdateID: improvementsSummary,
 		usersUpdateID: usersUpdateSummary, usersDeleteID: usersDeleteSummary,
 		regionsCreateID: regionCreateSummary, regionsUpdateID: regionUpdateSummary,
+		notificationSubscriptionsDeleteID: notificationDeleteSummary,
 	}
 	maps.Copy(handlers, accountWriteHandlers())
 	maps.Copy(summaries, accountSummaries())
