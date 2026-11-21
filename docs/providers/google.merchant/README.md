@@ -44,6 +44,8 @@ developer registration, and the consent.
 | `google.merchant.homepages.unclaim` | removes the claim of the home page, see [home page](homepages.md) |
 | `google.merchant.regions.list`, `.get` | the regions of an account, one batch or one region, see [regions](regions.md) |
 | `google.merchant.regions.create`, `.update` | create a region and replace members of it; confirmed, only through the `tools` list of a connection, see [regions](regions.md) |
+| `google.merchant.regions.delete` | deletes one region; confirmed, only through the `tools` list, see [regions](regions.md) |
+| `google.merchant.regions.batch-create`, `.batch-update`, `.batch-delete` | create, replace members of, or delete 1 to 100 regions in one request that counts as one call; confirmed, only through the `tools` list, see [regions](regions.md) |
 
 The terms tools are described in [terms of service](terms-of-service.md), the two updates in [Autofeed and
 automatic improvements](autofeed.md), the account tools beyond the first three in [account tools](accounts.md),
