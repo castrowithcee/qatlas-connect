@@ -105,8 +105,8 @@ func descriptors() []capability.Descriptor {
 		dataSourcesList, dataSourcesGet, dataSourcesCreate, dataSourcesUpdate},
 		append(append(append(append(append(accountWriteDescriptors(), homepageDescriptors()...), omnichannelDescriptors()...),
 			checkoutDescriptors()...), returnPolicyDescriptors()...),
-			append(append(append(append(relationshipDescriptors(), linkDescriptors()...), developerRegistrationDescriptors()...),
-				shippingDescriptors()...), dataSourceOperationDescriptors()...)...)...)
+			append(append(append(append(append(relationshipDescriptors(), linkDescriptors()...), developerRegistrationDescriptors()...),
+				shippingDescriptors()...), dataSourceOperationDescriptors()...), productInputDescriptors()...)...)...)
 }
 
 var accountsList = capability.Descriptor{
