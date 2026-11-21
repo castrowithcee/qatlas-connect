@@ -93,8 +93,12 @@ func descriptors() []capability.Descriptor {
 		termsOfServiceGet, termsOfServiceRetrieveLatest, termsOfServiceAgreementStatesGet,
 		termsOfServiceAgreementStatesRetrieveForApplication, usersList, usersGet, usersUpdate, usersDelete,
 		regionsList, regionsGet, regionsCreate, regionsUpdate,
-		regionsDelete, regionsBatchCreate, regionsBatchUpdate, regionsBatchDelete},
-		append(accountWriteDescriptors(), homepageDescriptors()...)...)
+		regionsDelete, regionsBatchCreate, regionsBatchUpdate, regionsBatchDelete,
+		notificationSubscriptionsList, notificationSubscriptionsGet, notificationSubscriptionsDelete,
+		accountServicesList, accountServicesGet, accountServicesReject, accountRelationshipsList,
+		conversionSourcesList, conversionSourcesGet, conversionSourcesCreate, conversionSourcesUpdate},
+		append(append(append(accountWriteDescriptors(), homepageDescriptors()...), omnichannelDescriptors()...),
+			checkoutDescriptors()...)...)
 }
 
 var accountsList = capability.Descriptor{

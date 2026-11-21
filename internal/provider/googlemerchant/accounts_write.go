@@ -40,7 +40,8 @@ var (
 // needs the advanced-account target of the account for them.
 func advancedOnlyTools(tool string) bool {
 	switch tool {
-	case developerRegistrationsGetID, accountsListSubaccountsID, accountsDeleteID, accountsCreateTestAccountID:
+	case developerRegistrationsGetID, accountsListSubaccountsID, accountsDeleteID, accountsCreateTestAccountID,
+		accountServicesListID, accountServicesGetID, accountServicesRejectID:
 		return true
 	}
 	return false

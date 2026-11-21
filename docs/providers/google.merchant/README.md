@@ -46,11 +46,32 @@ developer registration, and the consent.
 | `google.merchant.regions.create`, `.update` | create a region and replace members of it; confirmed, only through the `tools` list of a connection, see [regions](regions.md) |
 | `google.merchant.regions.delete` | deletes one region; confirmed, only through the `tools` list, see [regions](regions.md) |
 | `google.merchant.regions.batch-create`, `.batch-update`, `.batch-delete` | create, replace members of, or delete 1 to 100 regions in one request that counts as one call; confirmed, only through the `tools` list, see [regions](regions.md) |
+| `google.merchant.omnichannel-settings.list` | the omnichannel settings of an account, see [omnichannel settings](omnichannel.md) |
+| `google.merchant.omnichannel-settings.get` | the omnichannel setting of one country, see [omnichannel settings](omnichannel.md) |
+| `google.merchant.omnichannel-settings.create` | creates the omnichannel setting of a country, see [omnichannel settings](omnichannel.md) |
+| `google.merchant.omnichannel-settings.update` | changes the omnichannel setting of a country, see [omnichannel settings](omnichannel.md) |
+| `google.merchant.checkout-settings.get` | the checkout settings of an account, see [checkout settings](checkout.md) |
+| `google.merchant.checkout-settings.create` | enrolls an account in the Checkout program, see [checkout settings](checkout.md) |
+| `google.merchant.checkout-settings.update` | changes the checkout settings of an account, see [checkout settings](checkout.md) |
+| `google.merchant.checkout-settings.delete` | deletes the checkout settings of an account, see [checkout settings](checkout.md) |
+| `google.merchant.notification-subscriptions.list` | the notification subscriptions of an account |
+| `google.merchant.notification-subscriptions.get` | one notification subscription |
+| `google.merchant.notification-subscriptions.delete` | deletes a notification subscription (delete, confirmation, listed tools only) |
+| `google.merchant.account-services.list`, `.get` | the services of an advanced account with the state of each handshake, see [services](services.md) |
+| `google.merchant.account-services.reject` | reject a service and end the access it gave a provider account; confirmed and offered only through the `tools` list of a connection, see [services](services.md) |
+| `google.merchant.account-relationships.list` | the relationships of an account with provider accounts, see [services](services.md) |
+| `google.merchant.conversion-sources.list` | the conversion sources of an account, with archived ones on request, see [conversion sources](conversions.md) |
+| `google.merchant.conversion-sources.get` | one conversion source, see [conversion sources](conversions.md) |
+| `google.merchant.conversion-sources.create` | creates a Merchant Center destination as conversion source (create), see [conversion sources](conversions.md) |
+| `google.merchant.conversion-sources.update` | changes a Merchant Center destination (update), see [conversion sources](conversions.md) |
 
 The terms tools are described in [terms of service](terms-of-service.md), the two updates in [Autofeed and
 automatic improvements](autofeed.md), the account tools beyond the first three in [account tools](accounts.md),
-the user tools in [users](users.md), the home page tools in [home page](homepages.md), and the region tools in
-[regions](regions.md).
+the user tools in [users](users.md), the home page tools in [home page](homepages.md), the region tools in
+[regions](regions.md), the subscription tools in [Notification subscriptions](notifications.md), the
+omnichannel tools in [omnichannel settings](omnichannel.md), the service tools in [services](services.md),
+the conversion tools in [conversion sources](conversions.md), and the checkout tools in [checkout
+settings](checkout.md).
 
 Every read tool needs no confirmation, and every change needs one for every call. The account resource has the
 members `name`, `accountId`, `accountName`, `testAccount`, `adultContent`, `languageCode`, `homePageUri`, and
@@ -113,8 +134,8 @@ is sent. The path of every request is built from the checked ID, never from free
   ID cannot be read, or whose `name` and `accountId` disagree. The filter only narrows what Google sends. A
   batch can therefore be short or empty while `next_cursor` says there is more. For rows that no target
   names, the sub-accounts of the bound advanced accounts are read once per call.
-- `developer-registrations.get` and the user tools act on an advanced account as a whole. On a connection bound to targets they
-  need `advanced-accounts/ACCOUNT` for that account: a sub-account, an account target, or an advanced account
+- `developer-registrations.get`, the user tools, and the `account-services` tools act on an advanced account as a
+  whole. On a connection bound to targets they need `advanced-accounts/ACCOUNT` for that account: a sub-account, an account target, or an advanced account
   that is not bound is not enough. A connection bound only to account targets is not offered these tools. Without
   targets any account ID is accepted.
 - `terms-of-service.get` and `terms-of-service.retrieve-latest` read global documents and act on no account, so
@@ -216,9 +237,10 @@ Not verified:
 - Whether Merchant Center accepts an impersonated service account as a user.
 - Whether the scope `content` needs an app verification for an OAuth client of your own project.
 
-Updates are sent once, with a JSON body built from the structured arguments. They are not repeated after `401`,
-`429`, or `5xx`, because Google may already have applied them, and every call counts against the quota.
+Changes are sent once: an update with a JSON body built from the structured arguments, a deletion without a
+body. They are not repeated after `401`, `429`, or `5xx`, because Google may already have applied them, and every
+call counts against the quota.
 
-No tool of this provider invites a user or accepts an invitation, registers or unregisters a Cloud project, links an account to another
+No tool of this provider proposes or approves a service, invites a user or accepts an invitation, registers or unregisters a Cloud project, links an account to another
 one, sets a notification address, or accepts terms for an account (`terms-of-service.accept` is deliberately
 missing). Merchant API methods for local feed partners and for triggering actions are not offered.

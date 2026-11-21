@@ -59,6 +59,8 @@ const (
 	tPassphraseWrong                         textID = "PassphraseWrong"
 	tVaultNowUnlocked                        textID = "VaultNowUnlocked"
 	tVaultNowLocked                          textID = "VaultNowLocked"
+	tVaultLockedElsewhere                    textID = "VaultLockedElsewhere"
+	tVaultMaxUnlockReached                   textID = "VaultMaxUnlockReached"
 	tBusyUnlocking                           textID = "BusyUnlocking"
 	tBusyLocking                             textID = "BusyLocking"
 	tBusyChecking                            textID = "BusyChecking"

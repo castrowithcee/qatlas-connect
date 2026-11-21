@@ -142,6 +142,13 @@ func Register(reg *capability.Registry) error {
 		usersUpdateID: handleUsersUpdate, usersDeleteID: handleUsersDelete,
 		regionsListID: handleRegionsList, regionsGetID: handleRegionsGet,
 		regionsCreateID: handleRegionsCreate, regionsUpdateID: handleRegionsUpdate,
+		notificationSubscriptionsListID:   handleNotificationSubscriptionsList,
+		notificationSubscriptionsGetID:    handleNotificationSubscriptionsGet,
+		notificationSubscriptionsDeleteID: handleNotificationSubscriptionsDelete,
+		accountServicesListID:             handleAccountServicesList, accountServicesGetID: handleAccountServicesGet,
+		accountServicesRejectID: handleAccountServicesReject, accountRelationshipsListID: handleAccountRelationshipsList,
+		conversionSourcesListID: handleConversionSourcesList, conversionSourcesGetID: handleConversionSourcesGet,
+		conversionSourcesCreateID: handleConversionSourcesCreate, conversionSourcesUpdateID: handleConversionSourcesUpdate,
 		regionsDeleteID: handleRegionsDelete, regionsBatchCreateID: handleRegionsBatchCreate,
 		regionsBatchUpdateID: handleRegionsBatchUpdate, regionsBatchDeleteID: handleRegionsBatchDelete,
 	}
@@ -150,6 +157,9 @@ func Register(reg *capability.Registry) error {
 		autofeedSettingsUpdateID: autofeedSummary, automaticImprovementsUpdateID: improvementsSummary,
 		usersUpdateID: usersUpdateSummary, usersDeleteID: usersDeleteSummary,
 		regionsCreateID: regionCreateSummary, regionsUpdateID: regionUpdateSummary,
+		notificationSubscriptionsDeleteID: notificationDeleteSummary,
+		accountServicesRejectID:           serviceRejectSummary,
+		conversionSourcesCreateID:         conversionCreateSummary, conversionSourcesUpdateID: conversionUpdateSummary,
 		regionsDeleteID: regionDeleteSummary,
 	}
 	maps.Copy(summaries, regionBatchSummaries())
@@ -157,6 +167,10 @@ func Register(reg *capability.Registry) error {
 	maps.Copy(summaries, accountSummaries())
 	maps.Copy(handlers, homepageHandlers())
 	maps.Copy(summaries, homepageSummaries())
+	maps.Copy(handlers, omnichannelHandlers())
+	maps.Copy(summaries, omnichannelSummaries())
+	maps.Copy(handlers, checkoutHandlers())
+	maps.Copy(summaries, checkoutSummaries())
 	for _, d := range descriptors() {
 		if err := reg.Register(Provider, capability.Operation{Descriptor: d, Handler: handlers[d.ID],
 			ConfirmationSummary: summaries[d.ID]}); err != nil {
