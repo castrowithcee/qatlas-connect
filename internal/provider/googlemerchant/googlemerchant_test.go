@@ -77,6 +77,8 @@ var wantToolIDs = []string{
 	"google.merchant.regions.list",
 	"google.merchant.regions.update",
 	"google.merchant.reports.search",
+	"google.merchant.shipping-settings.get",
+	"google.merchant.shipping-settings.insert",
 	"google.merchant.terms-of-service-agreement-states.get",
 	"google.merchant.terms-of-service-agreement-states.retrieve-for-application",
 	"google.merchant.terms-of-service.get",
