@@ -15,13 +15,70 @@ import (
 
 // The tool IDs of this package, fixed so a rename or an addition shows up here.
 var wantToolIDs = []string{
+	"google.merchant.account-relationships.list",
+	"google.merchant.account-services.get",
+	"google.merchant.account-services.list",
+	"google.merchant.account-services.reject",
+	"google.merchant.accounts.create-test-account",
+	"google.merchant.accounts.delete",
 	"google.merchant.accounts.get",
 	"google.merchant.accounts.list",
+	"google.merchant.accounts.list-subaccounts",
+	"google.merchant.accounts.update",
+	"google.merchant.autofeed-settings.get",
+	"google.merchant.autofeed-settings.update",
+	"google.merchant.automatic-improvements.get",
+	"google.merchant.automatic-improvements.update",
+	"google.merchant.checkout-settings.create",
+	"google.merchant.checkout-settings.delete",
+	"google.merchant.checkout-settings.get",
+	"google.merchant.checkout-settings.update",
+	"google.merchant.conversion-sources.create",
+	"google.merchant.conversion-sources.get",
+	"google.merchant.conversion-sources.list",
+	"google.merchant.conversion-sources.update",
 	"google.merchant.developer-registrations.get",
+	"google.merchant.homepages.claim",
+	"google.merchant.homepages.get",
+	"google.merchant.homepages.unclaim",
+	"google.merchant.homepages.update",
+	"google.merchant.issue-resolutions.render-account-issues",
+	"google.merchant.issue-resolutions.render-product-issues",
+	"google.merchant.limits.get",
+	"google.merchant.limits.list",
+	"google.merchant.notification-subscriptions.delete",
+	"google.merchant.notification-subscriptions.get",
+	"google.merchant.notification-subscriptions.list",
+	"google.merchant.omnichannel-settings.create",
+	"google.merchant.omnichannel-settings.get",
+	"google.merchant.omnichannel-settings.list",
+	"google.merchant.omnichannel-settings.update",
 	"google.merchant.online-return-policies.create",
 	"google.merchant.online-return-policies.delete",
 	"google.merchant.online-return-policies.get",
 	"google.merchant.online-return-policies.list",
+	"google.merchant.programs.disable",
+	"google.merchant.programs.enable",
+	"google.merchant.programs.get",
+	"google.merchant.programs.list",
+	"google.merchant.quotas.list",
+	"google.merchant.regions.batch-create",
+	"google.merchant.regions.batch-delete",
+	"google.merchant.regions.batch-update",
+	"google.merchant.regions.create",
+	"google.merchant.regions.delete",
+	"google.merchant.regions.get",
+	"google.merchant.regions.list",
+	"google.merchant.regions.update",
+	"google.merchant.reports.search",
+	"google.merchant.terms-of-service-agreement-states.get",
+	"google.merchant.terms-of-service-agreement-states.retrieve-for-application",
+	"google.merchant.terms-of-service.get",
+	"google.merchant.terms-of-service.retrieve-latest",
+	"google.merchant.users.delete",
+	"google.merchant.users.get",
+	"google.merchant.users.list",
+	"google.merchant.users.update",
 }
 
 func TestRegisterDeclaresTokenScopeTargetsAndFixedToolIDs(t *testing.T) {
@@ -34,19 +91,15 @@ func TestRegisterDeclaresTokenScopeTargetsAndFixedToolIDs(t *testing.T) {
 		t.Fatalf("metadata = %+v, %v", metadata, ok)
 	}
 	var ids []string
-	readTools := 0
 	for _, d := range reg.Provider(Provider) {
 		ids = append(ids, d.ID)
-		if d.Risk.Effect == capability.EffectRead {
-			readTools++
-		}
 		if scopes := metadata.Token.Scopes[d.ID]; len(scopes) != 1 || scopes[0] != contentScope {
 			t.Errorf("%s scopes = %v, want only %s", d.ID, scopes, contentScope)
 		}
 		if d.Risk.Effect != capability.EffectRead {
 			continue
 		}
-		if d.Version != 1 || d.Risk.Effect != capability.EffectRead || d.Risk.Idempotency != capability.IdempotencySafe ||
+		if d.Version != 1 || d.Risk.Idempotency != capability.IdempotencySafe ||
 			d.Risk.Confirmation != capability.ConfirmationNone || !d.Risk.OpenWorld || d.Risk.DataSensitivity == "" {
 			t.Errorf("%s version or risk = %d, %+v", d.ID, d.Version, d.Risk)
 		}
@@ -62,8 +115,22 @@ func TestRegisterDeclaresTokenScopeTargetsAndFixedToolIDs(t *testing.T) {
 	if !ok || oauth.TokenURL != googleapi.OAuth.TokenURL || oauth.Params["access_type"] != "offline" {
 		t.Errorf("OAuth = %+v, %v", oauth, ok)
 	}
-	if len(metadata.Profiles) != 1 || metadata.Profiles[0].ID != "read" || len(metadata.Profiles[0].Tools) != readTools {
+	if len(metadata.Profiles) != 1 || metadata.Profiles[0].ID != "read" {
 		t.Errorf("profiles = %+v", metadata.Profiles)
+	}
+	for _, id := range metadata.Profiles[0].Tools {
+		if d, _, _ := reg.Lookup(id); d.Risk.Effect != capability.EffectRead || d.RequiresToolAllowList {
+			t.Errorf("read profile lists %s with effect %s", id, d.Risk.Effect)
+		}
+	}
+	var wantRead []string
+	for _, d := range descriptors() {
+		if d.Risk.Effect == capability.EffectRead && !d.RequiresToolAllowList {
+			wantRead = append(wantRead, d.ID)
+		}
+	}
+	if !slices.Equal(metadata.Profiles[0].Tools, wantRead) {
+		t.Errorf("read profile tools = %v, want %v", metadata.Profiles[0].Tools, wantRead)
 	}
 	if err := metadata.Target.ValidateKindParents(); err != nil {
 		t.Error(err)
@@ -516,7 +583,8 @@ func TestEveryToolCarriesExamplesFieldsAndAnUntrustedContentNote(t *testing.T) {
 		if len(d.Examples) == 0 || len(d.Fields) == 0 {
 			t.Errorf("%s has no example or no fields", d.ID)
 		}
-		if !strings.Contains(d.Description, "untrusted") && d.ID != developerRegistrationsGetID {
+		if !strings.Contains(d.Description, "untrusted") && d.ID != developerRegistrationsGetID &&
+			!slices.Contains(flagOnlyIDs, d.ID) {
 			t.Errorf("%s does not warn about untrusted content", d.ID)
 		}
 	}
