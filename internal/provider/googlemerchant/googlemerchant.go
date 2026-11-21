@@ -12,6 +12,7 @@ package googlemerchant
 
 import (
 	"context"
+	"maps"
 	"net/url"
 
 	"github.com/castrowithcee/qatlas-connect/internal/capability"
@@ -92,7 +93,7 @@ func TestConnection(ctx context.Context, resolved *config.Resolved, secrets *sec
 func Register(reg *capability.Registry) error {
 	var readIDs []string
 	for _, d := range descriptors() {
-		if d.Risk.Effect == capability.EffectRead {
+		if d.Risk.Effect == capability.EffectRead && !d.RequiresToolAllowList {
 			readIDs = append(readIDs, d.ID)
 		}
 	}
@@ -116,7 +117,7 @@ func Register(reg *capability.Registry) error {
 		},
 		Profiles: []config.ToolProfile{{
 			ID: "read", Title: "Read", Recommended: true,
-			Description: "reads Merchant Center accounts, the developer registration of an account, and the users of an account; changes nothing",
+			Description: "reads Merchant Center accounts, the developer registration of an account, the users of an account, reports, quotas, and limits; changes nothing",
 			Tools:       readIDs,
 		}},
 	}, TestConnection); err != nil {
@@ -128,12 +129,25 @@ func Register(reg *capability.Registry) error {
 	handlers := map[string]capability.Handler{
 		accountsListID: handleAccountsList, accountsGetID: handleAccountsGet,
 		developerRegistrationsGetID: handleDeveloperRegistrationsGet,
-		usersListID:                 handleUsersList, usersGetID: handleUsersGet,
+		termsOfServiceGetID:         handleTermsOfServiceGet, termsOfServiceRetrieveLatestID: handleTermsOfServiceRetrieveLatest,
+		termsOfServiceAgreementStatesGetID:            handleAgreementStatesGet,
+		termsOfServiceAgreementStatesForApplicationID: handleAgreementStatesRetrieveForApplication,
+		reportsSearchID: handleReportsSearch, quotasListID: handleQuotasList, limitsListID: handleLimitsList,
+		limitsGetID:    handleLimitsGet,
+		programsListID: handleProgramsList, programsGetID: handleProgramsGet,
+		programsEnableID: handleProgramsEnable, programsDisableID: handleProgramsDisable,
+		autofeedSettingsGetID: handleAutofeedSettingsGet, autofeedSettingsUpdateID: handleAutofeedSettingsUpdate,
+		automaticImprovementsGetID: handleAutomaticImprovementsGet, automaticImprovementsUpdateID: handleAutomaticImprovementsUpdate,
+		usersListID: handleUsersList, usersGetID: handleUsersGet,
 		usersUpdateID: handleUsersUpdate, usersDeleteID: handleUsersDelete,
 	}
 	summaries := map[string]capability.SummaryFunc{
+		programsEnableID: programSummary("Enable"), programsDisableID: programSummary("Disable"),
+		autofeedSettingsUpdateID: autofeedSummary, automaticImprovementsUpdateID: improvementsSummary,
 		usersUpdateID: usersUpdateSummary, usersDeleteID: usersDeleteSummary,
 	}
+	maps.Copy(handlers, accountWriteHandlers())
+	maps.Copy(summaries, accountSummaries())
 	for _, d := range descriptors() {
 		if err := reg.Register(Provider, capability.Operation{Descriptor: d, Handler: handlers[d.ID],
 			ConfirmationSummary: summaries[d.ID]}); err != nil {

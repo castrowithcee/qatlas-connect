@@ -15,9 +15,29 @@ import (
 
 // The tool IDs of this package, fixed so a rename or an addition shows up here.
 var wantToolIDs = []string{
+	"google.merchant.accounts.create-test-account",
+	"google.merchant.accounts.delete",
 	"google.merchant.accounts.get",
 	"google.merchant.accounts.list",
+	"google.merchant.accounts.list-subaccounts",
+	"google.merchant.accounts.update",
+	"google.merchant.autofeed-settings.get",
+	"google.merchant.autofeed-settings.update",
+	"google.merchant.automatic-improvements.get",
+	"google.merchant.automatic-improvements.update",
 	"google.merchant.developer-registrations.get",
+	"google.merchant.limits.get",
+	"google.merchant.limits.list",
+	"google.merchant.programs.disable",
+	"google.merchant.programs.enable",
+	"google.merchant.programs.get",
+	"google.merchant.programs.list",
+	"google.merchant.quotas.list",
+	"google.merchant.reports.search",
+	"google.merchant.terms-of-service-agreement-states.get",
+	"google.merchant.terms-of-service-agreement-states.retrieve-for-application",
+	"google.merchant.terms-of-service.get",
+	"google.merchant.terms-of-service.retrieve-latest",
 	"google.merchant.users.delete",
 	"google.merchant.users.get",
 	"google.merchant.users.list",
@@ -42,7 +62,7 @@ func TestRegisterDeclaresTokenScopeTargetsAndFixedToolIDs(t *testing.T) {
 		if d.Risk.Effect != capability.EffectRead {
 			continue
 		}
-		if d.Version != 1 || d.Risk.Effect != capability.EffectRead || d.Risk.Idempotency != capability.IdempotencySafe ||
+		if d.Version != 1 || d.Risk.Idempotency != capability.IdempotencySafe ||
 			d.Risk.Confirmation != capability.ConfirmationNone || !d.Risk.OpenWorld || d.Risk.DataSensitivity == "" {
 			t.Errorf("%s version or risk = %d, %+v", d.ID, d.Version, d.Risk)
 		}
@@ -58,14 +78,22 @@ func TestRegisterDeclaresTokenScopeTargetsAndFixedToolIDs(t *testing.T) {
 	if !ok || oauth.TokenURL != googleapi.OAuth.TokenURL || oauth.Params["access_type"] != "offline" {
 		t.Errorf("OAuth = %+v, %v", oauth, ok)
 	}
-	readTools := 0
-	for _, d := range descriptors() {
-		if d.Risk.Effect == capability.EffectRead {
-			readTools++
+	if len(metadata.Profiles) != 1 || metadata.Profiles[0].ID != "read" {
+		t.Errorf("profiles = %+v", metadata.Profiles)
+	}
+	for _, id := range metadata.Profiles[0].Tools {
+		if d, _, _ := reg.Lookup(id); d.Risk.Effect != capability.EffectRead || d.RequiresToolAllowList {
+			t.Errorf("read profile lists %s with effect %s", id, d.Risk.Effect)
 		}
 	}
-	if len(metadata.Profiles) != 1 || metadata.Profiles[0].ID != "read" || len(metadata.Profiles[0].Tools) != readTools {
-		t.Errorf("profiles = %+v", metadata.Profiles)
+	var wantRead []string
+	for _, d := range descriptors() {
+		if d.Risk.Effect == capability.EffectRead && !d.RequiresToolAllowList {
+			wantRead = append(wantRead, d.ID)
+		}
+	}
+	if !slices.Equal(metadata.Profiles[0].Tools, wantRead) {
+		t.Errorf("read profile tools = %v, want %v", metadata.Profiles[0].Tools, wantRead)
 	}
 	if err := metadata.Target.ValidateKindParents(); err != nil {
 		t.Error(err)
@@ -518,7 +546,8 @@ func TestEveryToolCarriesExamplesFieldsAndAnUntrustedContentNote(t *testing.T) {
 		if len(d.Examples) == 0 || len(d.Fields) == 0 {
 			t.Errorf("%s has no example or no fields", d.ID)
 		}
-		if !strings.Contains(d.Description, "untrusted") && d.ID != developerRegistrationsGetID {
+		if !strings.Contains(d.Description, "untrusted") && d.ID != developerRegistrationsGetID &&
+			!slices.Contains(flagOnlyIDs, d.ID) {
 			t.Errorf("%s does not warn about untrusted content", d.ID)
 		}
 	}
