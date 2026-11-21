@@ -15,6 +15,10 @@ import (
 
 // The tool IDs of this package, fixed so a rename or an addition shows up here.
 var wantToolIDs = []string{
+	"google.merchant.account-relationships.list",
+	"google.merchant.account-services.get",
+	"google.merchant.account-services.list",
+	"google.merchant.account-services.reject",
 	"google.merchant.accounts.create-test-account",
 	"google.merchant.accounts.delete",
 	"google.merchant.accounts.get",
