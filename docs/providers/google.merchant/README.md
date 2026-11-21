@@ -18,6 +18,10 @@ developer registration, and the consent.
 | `google.merchant.accounts.list` | the accounts the credential can access, with an optional Google filter |
 | `google.merchant.accounts.get` | one account |
 | `google.merchant.developer-registrations.get` | the Google Cloud projects registered as developers with an account |
+| `google.merchant.accounts.list-subaccounts` | the sub-accounts of an advanced account, see [account tools](accounts.md) |
+| `google.merchant.accounts.update` | changes the settings of an account, see [account tools](accounts.md) |
+| `google.merchant.accounts.delete` | deletes an account, see [account tools](accounts.md) |
+| `google.merchant.accounts.create-test-account` | creates a test account, see [account tools](accounts.md) |
 | `google.merchant.programs.list`, `.get` | the programs of an account with state, active regions, and unmet requirements, see [programs](programs.md) |
 | `google.merchant.programs.enable`, `.disable` | enable or disable participation in a program; confirmed and offered only through the `tools` list of a connection, see [programs](programs.md) |
 | `google.merchant.reports.search` | one report of an account, from a structured query, see [reports](reports.md) |
@@ -34,12 +38,11 @@ developer registration, and the consent.
 | `google.merchant.automatic-improvements.update` | changes the automatic improvements of an account (update, listed tools only) |
 
 The terms tools are described in [terms of service](terms-of-service.md), the two updates in [Autofeed and
-automatic improvements](autofeed.md).
+automatic improvements](autofeed.md), and the account tools beyond the first three in [account tools](accounts.md).
 
-Every read tool needs no confirmation; enabling or disabling a program and the two updates need one for every
-call. The account resource has the members `name`, `accountId`,
-`accountName`, `testAccount`, `adultContent`, `languageCode`, `homePageUri`, and `timeZone` (`id`, `version`);
-all are output. It has no member for the account type, so Qatlas shows none: an advanced account is
+Every read tool needs no confirmation, and every change needs one for every call. The account resource has the
+members `name`, `accountId`, `accountName`, `testAccount`, `adultContent`, `languageCode`, `homePageUri`, and
+`timeZone` (`id`, `version`); all are output. It has no member for the account type, so Qatlas shows none: an advanced account is
 recognised only by its sub-accounts, which a target proves.
 
 ## Configuration

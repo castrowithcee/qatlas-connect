@@ -12,6 +12,7 @@ package googlemerchant
 
 import (
 	"context"
+	"maps"
 	"net/url"
 
 	"github.com/castrowithcee/qatlas-connect/internal/capability"
@@ -142,6 +143,8 @@ func Register(reg *capability.Registry) error {
 		programsEnableID: programSummary("Enable"), programsDisableID: programSummary("Disable"),
 		autofeedSettingsUpdateID: autofeedSummary, automaticImprovementsUpdateID: improvementsSummary,
 	}
+	maps.Copy(handlers, accountWriteHandlers())
+	maps.Copy(summaries, accountSummaries())
 	for _, d := range descriptors() {
 		if err := reg.Register(Provider, capability.Operation{Descriptor: d, Handler: handlers[d.ID],
 			ConfirmationSummary: summaries[d.ID]}); err != nil {
