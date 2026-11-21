@@ -20,6 +20,9 @@ developer registration, and the consent.
 | `google.merchant.developer-registrations.get` | the Google Cloud projects registered as developers with an account |
 | `google.merchant.data-sources.list`, `.get` | the data sources of an account, one batch or one source, see [data sources](data-sources.md) |
 | `google.merchant.data-sources.create`, `.update` | create an API data source and change its name, countries, destinations, or default rule; confirmed, see [data sources](data-sources.md) |
+| `google.merchant.data-sources.fetch` | asks Merchant Center to fetch a file data source now, from the address configured in Merchant Center; confirmed, see [data sources](data-sources.md) |
+| `google.merchant.data-sources.delete` | deletes a data source of any kind; confirmed and only through the `tools` list, see [data sources](data-sources.md) |
+| `google.merchant.file-uploads.get` | the latest file upload of a file data source: state, item counts, issues, see [data sources](data-sources.md) |
 | `google.merchant.developer-registrations.get-account-for-gcp-registration` | the account the Cloud project of the credential is registered with; on a bound connection only if it lies within the targets, see [developer registration](developer-registrations.md) |
 | `google.merchant.developer-registrations.unregister-gcp` | unregisters the Cloud project of the credential from an account, which ends its API access, Qatlas included; confirmed and only through the `tools` list, see [developer registration](developer-registrations.md) |
 | `google.merchant.products.list` | the processed products of an account, with all attributes, see [products and issues](products.md) |

@@ -187,6 +187,8 @@ func Register(reg *capability.Registry) error {
 	maps.Copy(handlers, relationshipHandlers())
 	maps.Copy(summaries, relationshipSummaries())
 	maps.Copy(handlers, linkHandlers())
+	maps.Copy(handlers, dataSourceOperationHandlers())
+	maps.Copy(summaries, dataSourceOperationSummaries())
 	maps.Copy(handlers, developerRegistrationHandlers())
 	maps.Copy(summaries, developerRegistrationSummaries())
 	for _, d := range descriptors() {
