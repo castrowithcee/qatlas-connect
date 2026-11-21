@@ -147,6 +147,11 @@ func Register(reg *capability.Registry) error {
 		notificationSubscriptionsDeleteID: handleNotificationSubscriptionsDelete,
 		accountServicesListID:             handleAccountServicesList, accountServicesGetID: handleAccountServicesGet,
 		accountServicesRejectID: handleAccountServicesReject, accountRelationshipsListID: handleAccountRelationshipsList,
+		conversionSourcesListID: handleConversionSourcesList, conversionSourcesGetID: handleConversionSourcesGet,
+		conversionSourcesCreateID: handleConversionSourcesCreate, conversionSourcesUpdateID: handleConversionSourcesUpdate,
+		renderAccountIssuesID: handleRenderAccountIssues, renderProductIssuesID: handleRenderProductIssues,
+		regionsDeleteID: handleRegionsDelete, regionsBatchCreateID: handleRegionsBatchCreate,
+		regionsBatchUpdateID: handleRegionsBatchUpdate, regionsBatchDeleteID: handleRegionsBatchDelete,
 	}
 	summaries := map[string]capability.SummaryFunc{
 		programsEnableID: programSummary("Enable"), programsDisableID: programSummary("Disable"),
@@ -155,13 +160,20 @@ func Register(reg *capability.Registry) error {
 		regionsCreateID: regionCreateSummary, regionsUpdateID: regionUpdateSummary,
 		notificationSubscriptionsDeleteID: notificationDeleteSummary,
 		accountServicesRejectID:           serviceRejectSummary,
+		conversionSourcesCreateID:         conversionCreateSummary, conversionSourcesUpdateID: conversionUpdateSummary,
+		regionsDeleteID: regionDeleteSummary,
 	}
+	maps.Copy(summaries, regionBatchSummaries())
 	maps.Copy(handlers, accountWriteHandlers())
 	maps.Copy(summaries, accountSummaries())
 	maps.Copy(handlers, homepageHandlers())
 	maps.Copy(summaries, homepageSummaries())
 	maps.Copy(handlers, omnichannelHandlers())
 	maps.Copy(summaries, omnichannelSummaries())
+	maps.Copy(handlers, checkoutHandlers())
+	maps.Copy(summaries, checkoutSummaries())
+	maps.Copy(handlers, returnPolicyHandlers())
+	maps.Copy(summaries, returnPolicySummaries())
 	maps.Copy(handlers, relationshipHandlers())
 	maps.Copy(summaries, relationshipSummaries())
 	maps.Copy(handlers, linkHandlers())

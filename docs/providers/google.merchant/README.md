@@ -44,10 +44,20 @@ developer registration, and the consent.
 | `google.merchant.homepages.unclaim` | removes the claim of the home page, see [home page](homepages.md) |
 | `google.merchant.regions.list`, `.get` | the regions of an account, one batch or one region, see [regions](regions.md) |
 | `google.merchant.regions.create`, `.update` | create a region and replace members of it; confirmed, only through the `tools` list of a connection, see [regions](regions.md) |
+| `google.merchant.regions.delete` | deletes one region; confirmed, only through the `tools` list, see [regions](regions.md) |
+| `google.merchant.regions.batch-create`, `.batch-update`, `.batch-delete` | create, replace members of, or delete 1 to 100 regions in one request that counts as one call; confirmed, only through the `tools` list, see [regions](regions.md) |
 | `google.merchant.omnichannel-settings.list` | the omnichannel settings of an account, see [omnichannel settings](omnichannel.md) |
 | `google.merchant.omnichannel-settings.get` | the omnichannel setting of one country, see [omnichannel settings](omnichannel.md) |
 | `google.merchant.omnichannel-settings.create` | creates the omnichannel setting of a country, see [omnichannel settings](omnichannel.md) |
 | `google.merchant.omnichannel-settings.update` | changes the omnichannel setting of a country, see [omnichannel settings](omnichannel.md) |
+| `google.merchant.checkout-settings.get` | the checkout settings of an account, see [checkout settings](checkout.md) |
+| `google.merchant.checkout-settings.create` | enrolls an account in the Checkout program, see [checkout settings](checkout.md) |
+| `google.merchant.checkout-settings.update` | changes the checkout settings of an account, see [checkout settings](checkout.md) |
+| `google.merchant.checkout-settings.delete` | deletes the checkout settings of an account, see [checkout settings](checkout.md) |
+| `google.merchant.online-return-policies.list` | the online return policies of an account, see [return policies](return-policies.md) |
+| `google.merchant.online-return-policies.get` | one online return policy, see [return policies](return-policies.md) |
+| `google.merchant.online-return-policies.create` | creates an online return policy, see [return policies](return-policies.md) |
+| `google.merchant.online-return-policies.delete` | deletes an online return policy, see [return policies](return-policies.md) |
 | `google.merchant.notification-subscriptions.list` | the notification subscriptions of an account |
 | `google.merchant.notification-subscriptions.get` | one notification subscription |
 | `google.merchant.notification-subscriptions.delete` | deletes a notification subscription (delete, confirmation, listed tools only) |
@@ -57,13 +67,21 @@ developer registration, and the consent.
 | `google.merchant.account-relationships.update` | sets the alias of a relationship; confirmed, see [services](services.md) |
 | `google.merchant.gbp-accounts.list` | the Google Business Profile accounts linked to an account, see [linked accounts](links.md) |
 | `google.merchant.lfp-providers.find` | the Local Feeds Partnership providers offered in a country, see [linked accounts](links.md) |
+| `google.merchant.conversion-sources.list` | the conversion sources of an account, with archived ones on request, see [conversion sources](conversions.md) |
+| `google.merchant.conversion-sources.get` | one conversion source, see [conversion sources](conversions.md) |
+| `google.merchant.conversion-sources.create` | creates a Merchant Center destination as conversion source (create), see [conversion sources](conversions.md) |
+| `google.merchant.conversion-sources.update` | changes a Merchant Center destination (update), see [conversion sources](conversions.md) |
+| `google.merchant.issue-resolutions.render-account-issues` | the issues of an account with resolution content and actions, as text, see [issue rendering](issue-resolutions.md) |
+| `google.merchant.issue-resolutions.render-product-issues` | the issues of one product with resolution content and actions, as text, see [issue rendering](issue-resolutions.md) |
 
 The terms tools are described in [terms of service](terms-of-service.md), the two updates in [Autofeed and
 automatic improvements](autofeed.md), the account tools beyond the first three in [account tools](accounts.md),
 the user tools in [users](users.md), the home page tools in [home page](homepages.md), the region tools in
 [regions](regions.md), the subscription tools in [Notification subscriptions](notifications.md), the
-omnichannel tools in [omnichannel settings](omnichannel.md), the service and relationship tools in
-[services](services.md), and the Business Profile and Local Feeds Partnership reads in [linked accounts](links.md).
+omnichannel tools in [omnichannel settings](omnichannel.md), the service and relationship tools in [services](services.md),
+the Business Profile and Local Feeds Partnership reads in [linked accounts](links.md), the conversion tools in [conversion sources](conversions.md), the checkout tools in [checkout
+settings](checkout.md), the return policy tools in [return policies](return-policies.md), and the render tools in
+[issue rendering](issue-resolutions.md); the render tools are reads although Google takes them as `POST`.
 
 Every read tool needs no confirmation, and every change needs one for every call. The account resource has the
 members `name`, `accountId`, `accountName`, `testAccount`, `adultContent`, `languageCode`, `homePageUri`, and
