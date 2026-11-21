@@ -12,24 +12,51 @@ import (
 )
 
 // searchPage is the answer of GoogleAdsService.Search. Every query of this provider carries a LIMIT below the
-// fixed page of 10,000 rows, so a next page never matters.
+// fixed page of 10,000 rows, so a next page never matters and its token is not read.
 type searchPage struct {
-	Results []json.RawMessage `json:"results"`
+	Results                  []json.RawMessage `json:"results"`
+	TotalResultsCount        *wireInt          `json:"totalResultsCount"`
+	FieldMask                string            `json:"fieldMask"`
+	SummaryRow               json.RawMessage   `json:"summaryRow"`
+	QueryResourceConsumption *wireInt          `json:"queryResourceConsumption"`
+	MetricAttributes         []json.RawMessage `json:"metricAttributes"`
 }
 
-// search runs one GAQL query that this provider built on an account. The query travels in the body, never in
-// the URL.
+// searchRequest is the body of a search: the query and the documented request options, nothing else.
+type searchRequest struct {
+	Query          string          `json:"query"`
+	ValidateOnly   bool            `json:"validateOnly,omitempty"`
+	SearchSettings *searchSettings `json:"searchSettings,omitempty"`
+}
+
+type searchSettings struct {
+	ReturnTotalResultsCount bool `json:"returnTotalResultsCount,omitempty"`
+	ReturnSummaryRow        bool `json:"returnSummaryRow,omitempty"`
+	OmitResults             bool `json:"omitResults,omitempty"`
+}
+
+// search runs one GAQL query that this provider built on an account and returns its rows. The query travels in
+// the body, never in the URL.
 func (c *client) search(ctx context.Context, op, tool, customerID, query string) ([]json.RawMessage, error) {
-	body, err := json.Marshal(map[string]string{"query": query})
+	page, err := c.searchPage(ctx, op, tool, customerID, searchRequest{Query: query})
 	if err != nil {
-		return nil, failure(op, "the query could not be encoded")
-	}
-	var page searchPage
-	if err := c.read(ctx, request{op: op, tool: tool, method: http.MethodPost,
-		path: "/" + customerName(customerID) + "/googleAds:search", body: body, onAccount: true}, &page); err != nil {
 		return nil, err
 	}
 	return page.Results, nil
+}
+
+// searchPage runs one search with the given body on an account and returns the whole first page.
+func (c *client) searchPage(ctx context.Context, op, tool, customerID string, body searchRequest) (searchPage, error) {
+	encoded, err := json.Marshal(body)
+	if err != nil {
+		return searchPage{}, failure(op, "the query could not be encoded")
+	}
+	var page searchPage
+	if err := c.read(ctx, request{op: op, tool: tool, method: http.MethodPost,
+		path: "/" + customerName(customerID) + "/googleAds:search", body: encoded, onAccount: true}, &page); err != nil {
+		return searchPage{}, err
+	}
+	return page, nil
 }
 
 // checkGAQLText refuses a value that is to become a GAQL string when it holds a quote, a double quote, a

@@ -47,7 +47,7 @@ const (
 func searchPath(id string) string { return "/v26/customers/" + id + "/googleAds:search" }
 
 type seen struct {
-	method, url, path, auth, login, developerToken, query string
+	method, url, path, auth, login, developerToken, query, body string
 }
 
 type reply struct {
@@ -99,6 +99,7 @@ func (f *fakeGoogle) RoundTrip(req *http.Request) (*http.Response, error) {
 		raw, _ := io.ReadAll(req.Body)
 		_ = json.Unmarshal(raw, &body)
 		s.query = body.Query
+		s.body = string(raw)
 	}
 	f.requests = append(f.requests, s)
 	if req.URL.Scheme != "https" || req.URL.Host != "googleads.googleapis.com" {
