@@ -18,7 +18,7 @@ import (
 
 var changeToolIDs = []string{customersUpdateID, customerBudgetNetworkSettingsCreateID, customerBudgetNetworkSettingsUpdateID,
 	customerUserAccessesUpdateID, customerUserAccessesRemoveID, customerUserAccessInvitationsRemoveID,
-	multiPartyAuthReviewsResolveID}
+	multiPartyAuthReviewsResolveID, conversionActionsCreateID, conversionActionsUpdateID, conversionActionsRemoveID}
 
 // noValidateOnly are the changing tools whose Mutate request has no validate_only in v26; they offer none.
 var noValidateOnly = []string{customerUserAccessesUpdateID, customerUserAccessesRemoveID,
@@ -71,7 +71,9 @@ func TestChangeToolsAreListedOnlyConfirmedAndOutsideTheReadProfile(t *testing.T)
 		customerBudgetNetworkSettingsCreateID: capability.EffectCreate,
 		customerBudgetNetworkSettingsUpdateID: capability.EffectUpdate,
 		customerUserAccessesUpdateID:          capability.EffectUpdate, customerUserAccessesRemoveID: capability.EffectDelete,
-		customerUserAccessInvitationsRemoveID: capability.EffectDelete, multiPartyAuthReviewsResolveID: capability.EffectUpdate}
+		customerUserAccessInvitationsRemoveID: capability.EffectDelete, multiPartyAuthReviewsResolveID: capability.EffectUpdate,
+		conversionActionsCreateID: capability.EffectCreate, conversionActionsUpdateID: capability.EffectUpdate,
+		conversionActionsRemoveID: capability.EffectDelete}
 	for _, id := range changeToolIDs {
 		d, _, ok := reg.Lookup(id)
 		if !ok || !d.RequiresToolAllowList || d.Version != 1 || d.Risk.Effect != wantEffect[id] ||
