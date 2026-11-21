@@ -58,6 +58,7 @@ var wantToolIDs = []string{
 	"google.merchant.omnichannel-settings.create",
 	"google.merchant.omnichannel-settings.get",
 	"google.merchant.omnichannel-settings.list",
+	"google.merchant.omnichannel-settings.request-inventory-verification",
 	"google.merchant.omnichannel-settings.update",
 	"google.merchant.online-return-policies.create",
 	"google.merchant.online-return-policies.delete",

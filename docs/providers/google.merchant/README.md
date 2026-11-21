@@ -50,6 +50,7 @@ developer registration, and the consent.
 | `google.merchant.omnichannel-settings.get` | the omnichannel setting of one country, see [omnichannel settings](omnichannel.md) |
 | `google.merchant.omnichannel-settings.create` | creates the omnichannel setting of a country, see [omnichannel settings](omnichannel.md) |
 | `google.merchant.omnichannel-settings.update` | changes the omnichannel setting of a country, see [omnichannel settings](omnichannel.md) |
+| `google.merchant.omnichannel-settings.request-inventory-verification` | starts the inventory verification process at Google for a country; confirmed, only through the `tools` list, see [omnichannel settings](omnichannel.md) |
 | `google.merchant.checkout-settings.get` | the checkout settings of an account, see [checkout settings](checkout.md) |
 | `google.merchant.checkout-settings.create` | enrolls an account in the Checkout program, see [checkout settings](checkout.md) |
 | `google.merchant.checkout-settings.update` | changes the checkout settings of an account, see [checkout settings](checkout.md) |

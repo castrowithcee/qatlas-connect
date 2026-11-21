@@ -23,6 +23,7 @@ const (
 	omnichannelSettingsGetID    = Provider + ".omnichannel-settings.get"
 	omnichannelSettingsCreateID = Provider + ".omnichannel-settings.create"
 	omnichannelSettingsUpdateID = Provider + ".omnichannel-settings.update"
+	omnichannelVerifyID         = Provider + ".omnichannel-settings.request-inventory-verification"
 )
 
 // Bounds of the arguments. The API documents no length for any member; the bounds are ours. maxEntries and
@@ -240,15 +241,41 @@ var (
 	}
 )
 
+var omnichannelVerify = capability.Descriptor{
+	ID: omnichannelVerifyID, Version: 1, Title: "Request the inventory verification of a country",
+	Description: "Request the inventory verification of one country of an account " +
+		"(accounts.omnichannelSettings.requestInventoryVerification). The request starts a verification process at " +
+		"Google for that country: Google sends the contact stored in the setting (inventoryVerification.contact and " +
+		"contactEmail) a mail, and the state of the verification changes as the process runs (documented states: " +
+		"ACTION_REQUIRED, INACTIVE, RUNNING, SUCCEEDED, SUSPENDED). The request has no body and sets nothing; the " +
+		"setting must already hold the contact. Offered only where a connection's tools list names it. Google only " +
+		"accepts the request: the process can take from a couple of hours to about 48 hours, and the answer shows the setting as Google " +
+		"holds it right after, which can still show the old state. Every call counts against the quota of the " +
+		"Merchant API, a failed one too, and a call is never repeated: when the outcome is unknown, read the " +
+		"setting before asking again. Needs confirmation. " + omnichannelUntrustedNote,
+	Tags: []string{"google", "merchant", "omnichannel-settings"}, Provider: Provider, RequiresToolAllowList: true,
+	Risk:         omnichannelRisk(capability.EffectExecute, capability.IdempotencyNonIdempotent),
+	InputSchema:  inputSchema([]string{"region_code"}, member("account", accountArgSchema), member("region_code", regionCodeSchema)),
+	OutputSchema: json.RawMessage(omnichannelSchema),
+	Arguments: []capability.Argument{omnichannelWriteArguments[0],
+		{Name: "region_code", Required: true, Description: "Region code of the country whose inventory is verified, " +
+			"two uppercase letters"}},
+	Fields: []capability.Field{{Name: "omnichannelSetting", Description: "The setting as Google answered: " +
+		omnichannelFieldsDescription}},
+	Examples: []capability.Example{{Description: "Request the verification for one country",
+		Arguments: json.RawMessage(`{"account":"1000001","region_code":"CH"}`)}},
+}
+
 func omnichannelDescriptors() []capability.Descriptor {
 	return []capability.Descriptor{omnichannelSettingsList, omnichannelSettingsGet, omnichannelSettingsCreate,
-		omnichannelSettingsUpdate}
+		omnichannelSettingsUpdate, omnichannelVerify}
 }
 
 func omnichannelHandlers() map[string]capability.Handler {
 	return map[string]capability.Handler{
 		omnichannelSettingsListID: handleOmnichannelList, omnichannelSettingsGetID: handleOmnichannelGet,
 		omnichannelSettingsCreateID: handleOmnichannelCreate, omnichannelSettingsUpdateID: handleOmnichannelUpdate,
+		omnichannelVerifyID: handleOmnichannelVerify,
 	}
 }
 
@@ -575,6 +602,54 @@ func handleOmnichannelUpdate(ctx context.Context, resolved *config.Resolved, sec
 		body: body, change: true})
 }
 
+// verifyAnswer is the answer of the verification request: the setting is wrapped.
+type verifyAnswer struct {
+	Setting omnichannelSetting `json:"omnichannelSetting"`
+}
+
+func handleOmnichannelVerify(ctx context.Context, resolved *config.Resolved, secrets *secret.Resolver,
+	red *redact.Redactor, raw json.RawMessage) (any, error) {
+	c, err := prepare("request inventory verification", omnichannelVerifyID, resolved, raw)
+	if err != nil {
+		return nil, err
+	}
+	a, err := readOmnichannelArguments(raw)
+	if err != nil {
+		return nil, err
+	}
+	if a.Account == "" {
+		return nil, invalidArgument("account is required")
+	}
+	if a.RegionCode == "" {
+		return nil, invalidArgument("region_code is required")
+	}
+	if err := a.checkRegion(); err != nil {
+		return nil, err
+	}
+	id, needsProof, err := c.scope.accountOf(a.Account)
+	if err != nil {
+		return nil, err
+	}
+	cl, err := open(ctx, resolved, secrets, red)
+	if err != nil {
+		return nil, err
+	}
+	if needsProof {
+		if err := cl.prove(ctx, c.op, c.tool, id); err != nil {
+			return nil, err
+		}
+	}
+	var out verifyAnswer
+	// The documented request body is empty; an empty object is the JSON form of it.
+	err = cl.send(ctx, c.op, c.tool, request{method: http.MethodPost,
+		path: omnichannelSettingsPath(id) + "/" + a.RegionCode + ":requestInventoryVerification",
+		body: []byte("{}"), change: true}, &out)
+	if err != nil {
+		return nil, err
+	}
+	return out.Setting, nil
+}
+
 // omnichannelSummaries phrase what a confirmed call would do, from its arguments alone.
 func omnichannelSummaries() map[string]capability.SummaryFunc {
 	return map[string]capability.SummaryFunc{
@@ -585,6 +660,14 @@ func omnichannelSummaries() map[string]capability.SummaryFunc {
 			}
 			return "Create the omnichannel setting " + strconv.Quote(*a.LsfType) + " of region " +
 				strconv.Quote(a.RegionCode) + " for Merchant Center account " + a.Account + a.addresses()
+		},
+		omnichannelVerifyID: func(raw json.RawMessage) string {
+			a, err := readOmnichannelArguments(raw)
+			if err != nil {
+				return ""
+			}
+			return "Start the inventory verification process at Google for region " + strconv.Quote(a.RegionCode) +
+				" of Merchant Center account " + a.Account + "; Google mails the contact stored in the setting"
 		},
 		omnichannelSettingsUpdateID: func(raw json.RawMessage) string {
 			a, err := readOmnichannelArguments(raw)
