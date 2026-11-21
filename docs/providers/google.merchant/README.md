@@ -1,23 +1,29 @@
 ---
 description: >
-  Describes the Google Merchant provider: the token credential and its procedures, the single scope, the fixed API origin, the advanced-account and account targets and how an account is proven to belong to one, the tools for accounts and the developer registration, quotas, result bounds, the connection test, error classes, and the limits of what is verified.
+  Describes the Google Merchant provider: the token credential and its procedures, the single scope, the fixed API origin, the advanced-account and account targets and how an account is proven to belong to one, the tools for accounts, the developer registration, and terms of service, quotas, result bounds, the connection test, error classes, and the limits of what is verified.
 type: knowledge
 edit: shared
 created: 2026-11-19
-updated: 2026-11-19
+updated: 2026-11-20
 ---
 
 # Google Merchant
 
-Google Merchant is a provider for the Merchant API v1 of Google Merchant Center. It offers three read tools: the
-accounts an account holder can reach and the developer registration of an account. [Set up Google
-Merchant](setup.md) leads through the Google side, the developer registration, and the consent.
+Google Merchant is a provider for the Merchant API v1 of Google Merchant Center. It offers read tools for the
+accounts an account holder can reach, the developer registration of an account, and terms of service. [Set up
+Google Merchant](setup.md) leads through the Google side, the developer registration, and the consent.
 
 | Tool | What it reads |
 | --- | --- |
 | `google.merchant.accounts.list` | the accounts the credential can access, with an optional Google filter |
 | `google.merchant.accounts.get` | one account |
 | `google.merchant.developer-registrations.get` | the Google Cloud projects registered as developers with an account |
+| `google.merchant.terms-of-service.get` | one version of the terms of service |
+| `google.merchant.terms-of-service.retrieve-latest` | the latest terms of service for a kind and a region |
+| `google.merchant.terms-of-service-agreement-states.get` | the agreement state of an account for one kind and country |
+| `google.merchant.terms-of-service-agreement-states.retrieve-for-application` | the agreement state of an account for the application terms |
+
+The terms tools are described in [terms of service](terms-of-service.md).
 
 Every tool is a read and needs no confirmation. The account resource has the members `name`, `accountId`,
 `accountName`, `testAccount`, `adultContent`, `languageCode`, `homePageUri`, and `timeZone` (`id`, `version`);
@@ -47,7 +53,7 @@ service account in Merchant Center. A token without the scope ends a tool as `sc
 contacted; a new consent adds it. A credential serves this provider only, so its token never carries scopes of
 another Google product.
 
-The profile `read` is the recommended one and holds all three tools. A connection without a `tools` list
+The profile `read` is the recommended one and holds all read tools. A connection without a `tools` list
 offers them by its effects, and `read` is the default effect.
 
 ## Targets
@@ -82,6 +88,8 @@ is sent. The path of every request is built from the checked ID, never from free
   needs `advanced-accounts/ACCOUNT` for that account: a sub-account, an account target, or an advanced account
   that is not bound is not enough. A connection bound only to account targets is not offered the tool. Without
   targets any account ID is accepted.
+- `terms-of-service.get` and `terms-of-service.retrieve-latest` read global documents and act on no account, so
+  every connection is offered them whatever its targets; see [terms of service](terms-of-service.md).
 - The time between the proof read and the call that follows is not covered: an account that leaves its advanced
   account in between is still read once.
 
@@ -178,5 +186,5 @@ Not verified:
 - Whether the scope `content` needs an app verification for an OAuth client of your own project.
 
 No tool of this provider invites a user, registers or unregisters a Cloud project, links an account to another
-one, sets a notification address, or accepts terms for an account. Merchant API methods for local feed
-partners and for triggering actions are not offered.
+one, sets a notification address, or accepts terms for an account (`terms-of-service.accept` is deliberately
+missing). Merchant API methods for local feed partners and for triggering actions are not offered.

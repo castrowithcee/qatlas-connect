@@ -86,7 +86,9 @@ func inputSchema(required []string, members ...string) json.RawMessage {
 }
 
 func descriptors() []capability.Descriptor {
-	return []capability.Descriptor{accountsList, accountsGet, developerRegistrationsGet}
+	return []capability.Descriptor{accountsList, accountsGet, developerRegistrationsGet,
+		termsOfServiceGet, termsOfServiceRetrieveLatest, termsOfServiceAgreementStatesGet,
+		termsOfServiceAgreementStatesRetrieveForApplication}
 }
 
 var accountsList = capability.Descriptor{
