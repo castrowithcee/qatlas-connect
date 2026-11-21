@@ -1,6 +1,6 @@
 ---
 description: >
-  Describes the Google Merchant provider: the token credential and its procedures, the single scope, the fixed API origin, the advanced-account and account targets and how an account is proven to belong to one, the tools for accounts, the developer registration, and the home page, quotas, result bounds, the connection test, error classes, and the limits of what is verified.
+  Describes the Google Merchant provider: the token credential and its procedures, the single scope, the fixed API origin, the advanced-account and account targets and how an account is proven to belong to one, the tools and their groups, quotas, result bounds, the connection test, error classes, and the limits of what is verified.
 type: knowledge
 edit: shared
 created: 2026-11-19
@@ -9,24 +9,48 @@ updated: 2026-11-21
 
 # Google Merchant
 
-Google Merchant is a provider for the Merchant API v1 of Google Merchant Center. It offers read tools for the
-accounts an account holder can reach and the developer registration of an account, and tools for the home page
-of an account. [Set up Google Merchant](setup.md) leads through the Google side, the developer registration, and
-the consent.
+Google Merchant is a provider for the Merchant API v1 of Google Merchant Center. The table lists its tools; a tool
+group with its own page links to it. [Set up Google Merchant](setup.md) leads through the Google side, the
+developer registration, and the consent.
 
 | Tool | What it does |
 | --- | --- |
 | `google.merchant.accounts.list` | the accounts the credential can access, with an optional Google filter |
 | `google.merchant.accounts.get` | one account |
 | `google.merchant.developer-registrations.get` | the Google Cloud projects registered as developers with an account |
+| `google.merchant.accounts.list-subaccounts` | the sub-accounts of an advanced account, see [account tools](accounts.md) |
+| `google.merchant.accounts.update` | changes the settings of an account, see [account tools](accounts.md) |
+| `google.merchant.accounts.delete` | deletes an account, see [account tools](accounts.md) |
+| `google.merchant.accounts.create-test-account` | creates a test account, see [account tools](accounts.md) |
+| `google.merchant.programs.list`, `.get` | the programs of an account with state, active regions, and unmet requirements, see [programs](programs.md) |
+| `google.merchant.programs.enable`, `.disable` | enable or disable participation in a program; confirmed and offered only through the `tools` list of a connection, see [programs](programs.md) |
+| `google.merchant.reports.search` | one report of an account, from a structured query, see [reports](reports.md) |
+| `google.merchant.quotas.list` | the API quota groups of an account, see [reports](reports.md#quotas-and-limits) |
+| `google.merchant.limits.list` | the limits of an account, see [reports](reports.md#quotas-and-limits) |
+| `google.merchant.limits.get` | one limit of an account, see [reports](reports.md#quotas-and-limits) |
+| `google.merchant.terms-of-service.get` | one version of the terms of service |
+| `google.merchant.terms-of-service.retrieve-latest` | the latest terms of service for a kind and a region |
+| `google.merchant.terms-of-service-agreement-states.get` | the agreement state of an account for one kind and country |
+| `google.merchant.terms-of-service-agreement-states.retrieve-for-application` | the agreement state of an account for the application terms |
+| `google.merchant.autofeed-settings.get` | whether the autofeed of an account is on and whether the account is eligible |
+| `google.merchant.automatic-improvements.get` | the automatic item updates, image improvements, and shipping improvements of an account |
+| `google.merchant.autofeed-settings.update` | turns the autofeed of an account on or off (update, listed tools only) |
+| `google.merchant.automatic-improvements.update` | changes the automatic improvements of an account (update, listed tools only) |
+| `google.merchant.users.list`, `google.merchant.users.get` | the users of an account, see [users](users.md) |
+| `google.merchant.users.update`, `google.merchant.users.delete` | replace the roles of a user, remove a user; only through the `tools` list, see [users](users.md) |
 | `google.merchant.homepages.get` | the home page address of an account and whether it is claimed, see [home page](homepages.md) |
 | `google.merchant.homepages.update` | sets the home page address, see [home page](homepages.md) |
 | `google.merchant.homepages.claim` | claims the home page, see [home page](homepages.md) |
 | `google.merchant.homepages.unclaim` | removes the claim of the home page, see [home page](homepages.md) |
 
-A read needs no confirmation, a change always does; [home page](homepages.md) describes the home page tools. The account resource has the members `name`, `accountId`,
-`accountName`, `testAccount`, `adultContent`, `languageCode`, `homePageUri`, and `timeZone` (`id`, `version`);
-all are output. It has no member for the account type, so Qatlas shows none: an advanced account is
+The terms tools are described in [terms of service](terms-of-service.md), the two updates in [Autofeed and
+automatic improvements](autofeed.md), the account tools beyond the first three in [account tools](accounts.md),
+the user tools in [users](users.md), and the home page tools in [home page](homepages.md).
+
+Every read tool needs no confirmation, and every change needs one for every call. The account resource has the
+members `name`, `accountId`, `accountName`, `testAccount`, `adultContent`, `languageCode`, `homePageUri`, and
+`timeZone` (`id`, `version`); all are output. It has no member for the account type, so Qatlas shows none: an
+advanced account is
 recognised only by its sub-accounts, which a target proves.
 
 ## Configuration
@@ -52,9 +76,9 @@ service account in Merchant Center. A token without the scope ends a tool as `sc
 contacted; a new consent adds it. A credential serves this provider only, so its token never carries scopes of
 another Google product.
 
-The profile `read` is the recommended one and holds every tool with the effect read. A connection without a
-`tools` list offers the tools by its effects, and `read` is the default effect; the tools that change the home
-page need the `tools` list.
+The profile `read` is the recommended one and holds the read tools that need no `tools` list. A
+connection without a `tools` list offers tools by their effects, and `read` is the default effect. A tool marked
+as listed-only, such as `programs.enable`, is in no profile and reaches a connection only through its `tools` list.
 
 ## Targets
 
@@ -84,10 +108,12 @@ is sent. The path of every request is built from the checked ID, never from free
   ID cannot be read, or whose `name` and `accountId` disagree. The filter only narrows what Google sends. A
   batch can therefore be short or empty while `next_cursor` says there is more. For rows that no target
   names, the sub-accounts of the bound advanced accounts are read once per call.
-- `developer-registrations.get` acts on an advanced account as a whole. On a connection bound to targets it
-  needs `advanced-accounts/ACCOUNT` for that account: a sub-account, an account target, or an advanced account
-  that is not bound is not enough. A connection bound only to account targets is not offered the tool. Without
+- `developer-registrations.get` and the user tools act on an advanced account as a whole. On a connection bound to targets they
+  need `advanced-accounts/ACCOUNT` for that account: a sub-account, an account target, or an advanced account
+  that is not bound is not enough. A connection bound only to account targets is not offered these tools. Without
   targets any account ID is accepted.
+- `terms-of-service.get` and `terms-of-service.retrieve-latest` read global documents and act on no account, so
+  every connection is offered them whatever its targets; see [terms of service](terms-of-service.md).
 - The time between the proof read and the call that follows is not covered: an account that leaves its advanced
   account in between is still read once.
 
@@ -152,7 +178,7 @@ reason of each detail. The answers of the token endpoints keep only their status
 
 | Answer | Class |
 | --- | --- |
-| 401 | `auth`, after the token was renewed once and the read was sent once more |
+| 401 | `auth`, after the token was renewed once and the read was sent once more; a change is not sent again, the next call renews the token |
 | 403 | `permission`: no access to the account, a missing role, the API not enabled, or an unregistered Cloud project; a `403` renews nothing |
 | 404 | `not-found` |
 | 429 | `rate-limited`; the reason `QUOTA_REQUEST_RATE_TOO_HIGH` names the per-minute limit and `QUOTA_TOO_MANY_REQUESTS` the daily one |
@@ -162,6 +188,8 @@ reason of each detail. The answers of the token endpoints keep only their status
 
 A redirect is never followed. An unreadable, oversized, or non-JSON answer is `invalid-provider-response`.
 The reason of a `429` is the only detail of a Google error that chooses wording; no other reason chooses a class.
+A change that may have reached Google, with a transport failure, a timeout, a `5xx`, or an unreadable answer, adds
+that its outcome is unknown. Changes are never repeated.
 
 ## Boundary
 
@@ -183,6 +211,9 @@ Not verified:
 - Whether Merchant Center accepts an impersonated service account as a user.
 - Whether the scope `content` needs an app verification for an OAuth client of your own project.
 
-No tool of this provider invites a user, registers or unregisters a Cloud project, links an account to another
-one, sets a notification address, or accepts terms for an account. Merchant API methods for local feed
-partners and for triggering actions are not offered.
+Updates are sent once, with a JSON body built from the structured arguments. They are not repeated after `401`,
+`429`, or `5xx`, because Google may already have applied them, and every call counts against the quota.
+
+No tool of this provider invites a user or accepts an invitation, registers or unregisters a Cloud project, links an account to another
+one, sets a notification address, or accepts terms for an account (`terms-of-service.accept` is deliberately
+missing). Merchant API methods for local feed partners and for triggering actions are not offered.

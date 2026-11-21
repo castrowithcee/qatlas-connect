@@ -202,7 +202,7 @@ func (s scope) advancedOf(given string) (string, error) {
 // reaches withholds the tools that act on an advanced account as a whole from a connection bound without
 // one: a sub-account or account target does not bind the advanced account.
 func reaches(tool string, targets []string) (bool, []string) {
-	if tool != developerRegistrationsGetID || len(targets) == 0 {
+	if (!advancedOnlyTools(tool) && !strings.HasPrefix(tool, usersToolPrefix)) || len(targets) == 0 {
 		return true, nil
 	}
 	for _, raw := range targets {
