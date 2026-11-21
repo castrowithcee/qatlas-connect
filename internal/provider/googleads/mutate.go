@@ -20,10 +20,11 @@ import (
 // itself and keeps its own fixed bound.
 
 // mutation is one request of a Mutate service: the service path below the customer ("" for the customer
-// service itself) and the JSON body the tool built from checked arguments.
+// service itself), the action ("mutate" when left empty, "resolve" for the review service) and the JSON body
+// the tool built from checked arguments.
 type mutation struct {
-	op, tool, customerID, service string
-	body                          map[string]any
+	op, tool, customerID, service, action string
+	body                                  map[string]any
 }
 
 // mutateBody is the body of a request with one operation. validate_only validates without writing; content
@@ -46,8 +47,12 @@ func (c *client) mutate(ctx context.Context, m mutation, out any) error {
 	if err != nil {
 		return failure(m.op, "the request body could not be encoded")
 	}
+	action := m.action
+	if action == "" {
+		action = "mutate"
+	}
 	return c.send(ctx, request{op: m.op, tool: m.tool, method: http.MethodPost,
-		path: "/" + customerName(m.customerID) + m.service + ":mutate", body: body, onAccount: true, change: true}, out)
+		path: "/" + customerName(m.customerID) + m.service + ":" + action, body: body, onAccount: true, change: true}, out)
 }
 
 var responseContentTypes = []string{"RESOURCE_NAME_ONLY", "MUTABLE_RESOURCE"}

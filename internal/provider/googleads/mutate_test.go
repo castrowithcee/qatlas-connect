@@ -17,10 +17,12 @@ import (
 )
 
 var changeToolIDs = []string{customersUpdateID, customerBudgetNetworkSettingsCreateID, customerBudgetNetworkSettingsUpdateID,
-	customerUserAccessesUpdateID, customerUserAccessesRemoveID}
+	customerUserAccessesUpdateID, customerUserAccessesRemoveID, customerUserAccessInvitationsRemoveID,
+	multiPartyAuthReviewsResolveID}
 
-// noValidateOnly are the change tools whose Google service has no validate_only member.
-var noValidateOnly = []string{customerUserAccessesUpdateID, customerUserAccessesRemoveID}
+// noValidateOnly are the changing tools whose Mutate request has no validate_only in v26; they offer none.
+var noValidateOnly = []string{customerUserAccessesUpdateID, customerUserAccessesRemoveID,
+	customerUserAccessInvitationsRemoveID, multiPartyAuthReviewsResolveID}
 
 func mutatePath(id string) string { return "/v26/customers/" + id + ":mutate" }
 func networkPath(id string) string {
@@ -36,7 +38,7 @@ const networkArgs = `"budget_network_settings":[{"advertising_channel_type":"SEA
 func (e *environment) posts() []seen {
 	var out []seen
 	for _, s := range e.fake.api() {
-		if s.method == http.MethodPost && strings.HasSuffix(s.path, ":mutate") {
+		if s.method == http.MethodPost && (strings.HasSuffix(s.path, ":mutate") || strings.HasSuffix(s.path, ":resolve")) {
 			out = append(out, s)
 		}
 	}
@@ -68,7 +70,8 @@ func TestChangeToolsAreListedOnlyConfirmedAndOutsideTheReadProfile(t *testing.T)
 	wantEffect := map[string]capability.Effect{customersUpdateID: capability.EffectUpdate,
 		customerBudgetNetworkSettingsCreateID: capability.EffectCreate,
 		customerBudgetNetworkSettingsUpdateID: capability.EffectUpdate,
-		customerUserAccessesUpdateID:          capability.EffectUpdate, customerUserAccessesRemoveID: capability.EffectDelete}
+		customerUserAccessesUpdateID:          capability.EffectUpdate, customerUserAccessesRemoveID: capability.EffectDelete,
+		customerUserAccessInvitationsRemoveID: capability.EffectDelete, multiPartyAuthReviewsResolveID: capability.EffectUpdate}
 	for _, id := range changeToolIDs {
 		d, _, ok := reg.Lookup(id)
 		if !ok || !d.RequiresToolAllowList || d.Version != 1 || d.Risk.Effect != wantEffect[id] ||
@@ -96,8 +99,8 @@ func TestChangeToolsAreListedOnlyConfirmedAndOutsideTheReadProfile(t *testing.T)
 				t.Errorf("%s offers the argument %s", id, forbidden)
 			}
 		}
-		if _, found := properties["validate_only"]; !found && !slices.Contains(noValidateOnly, id) {
-			t.Errorf("%s has no validate_only", id)
+		if _, found := properties["validate_only"]; !found == !slices.Contains(noValidateOnly, id) {
+			t.Errorf("%s: validate_only present = %v", id, found)
 		}
 		if strings.Contains(string(d.InputSchema), "google_ads_conversion_customer") {
 			t.Errorf("%s offers google_ads_conversion_customer", id)

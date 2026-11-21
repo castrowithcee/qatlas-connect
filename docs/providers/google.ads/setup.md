@@ -4,14 +4,15 @@ description: >
 type: knowledge
 edit: shared
 created: 2026-11-19
-updated: 2026-11-19
+updated: 2026-11-21
 ---
 
 # Set up Google Ads
 
 This page shows how to connect Qatlas to the Google Ads API. A connection lists the accounts a credential
-reaches, reads account settings, lists the hierarchy below a manager account, and, when its `tools` list names them,
-changes account settings. Configuration, targets,
+reaches, reads account settings, lists the hierarchy below a manager account, lists invitations and approval
+requests of an account, and, when its `tools` list names them, changes account settings and turns down invitations and
+approval requests. Configuration, targets,
 errors, and limits are described in the [Google Ads provider](README.md).
 
 ## What you need
@@ -44,7 +45,9 @@ on Google's page about access levels; they change from time to time.
 
 Google Ads has one scope, `adwords`, for reading and changing. Qatlas asks for it for every tool. The rights come
 from the role of the account in Google Ads. The read tools only read, so the role **Read-only** is
-enough for them. The tools that change settings (see [settings tools](settings.md)) are offered only when the
+enough for them, except the lists of invitations and approval requests, whose role Google does not document (see
+[invitations and approval requests](access.md); the services need at least the Basic access level). The tools that change
+settings (see [settings tools](settings.md)) and those that revoke an invitation or turn down a request are offered only when the
 `tools` list of a connection names them; Google does not document which call needs which role, so test them with
 `validate_only` first. Give the account no more than it needs, since the token itself would allow changes.
 

@@ -103,6 +103,7 @@ func descriptors() []capability.Descriptor {
 		conversionSourcesUndelete, conversionSourcesDelete,
 		renderAccountIssues, renderProductIssues, emailPreferencesGet, emailPreferencesUpdate,
 		dataSourcesList, dataSourcesGet, dataSourcesCreate, dataSourcesUpdate,
+		promotionsList, promotionsGet, promotionsInsert,
 		productReviewsList, productReviewsGet, productReviewsDelete},
 		append(append(append(append(append(accountWriteDescriptors(), homepageDescriptors()...), omnichannelDescriptors()...),
 			checkoutDescriptors()...), returnPolicyDescriptors()...),
