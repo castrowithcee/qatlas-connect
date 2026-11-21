@@ -59,6 +59,8 @@ var textEN = map[textID]string{
 	tPassphraseWrong:                       "wrong passphrase",
 	tVaultNowUnlocked:                      "The vault is unlocked",
 	tVaultNowLocked:                        "The vault is locked",
+	tVaultLockedElsewhere:                  "The vault was locked outside this window",
+	tVaultMaxUnlockReached:                 "The vault was locked in this window: its maximum unlock duration has passed",
 	tBusyUnlocking:                         "unlocking the vault",
 	tBusyLocking:                           "locking the vault",
 	tBusyChecking:                          "checking the vault passphrase",
