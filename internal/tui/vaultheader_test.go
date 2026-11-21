@@ -47,6 +47,12 @@ func TestMain(m *testing.M) {
 	os.Exit(m.Run())
 }
 
+// processAnswer is what checkVaultProcess delivers to m when the vault process answers with status, or
+// fails with err.
+func processAnswer(m *Model, status vaultproc.Status, err error) vaultProcessCheckMsg {
+	return vaultProcessCheckMsg{status: status, err: err, gen: m.vaultKeyGen}
+}
+
 // unencryptedVaultModel builds an editor whose vault exists but was never given a passphrase.
 func unencryptedVaultModel(t *testing.T) *Model {
 	t.Helper()
@@ -504,13 +510,13 @@ func TestVaultHeaderShowsTheUnlockDeadline(t *testing.T) {
 	}
 
 	soon := time.Now().Add(time.Minute)
-	m.Update(vaultProcessCheckMsg{unlocked: true, endsAt: soon})
+	m.Update(processAnswer(m, vaultproc.Status{PID: 4100, UnlockEndsAt: soon}, nil))
 	want := "vault unlocked until " + unlockDeadlineText(soon, time.Now())
 	if got := shown(m.vaultHeaderText()); !strings.Contains(got, want) {
 		t.Fatalf("header = %q, want it to contain %q", got, want)
 	}
 
-	m.Update(vaultProcessCheckMsg{unlocked: true})
+	m.Update(processAnswer(m, vaultproc.Status{PID: 4100}, nil))
 	if got := shown(m.vaultHeaderText()); strings.Contains(got, " until ") {
 		t.Fatalf("header after the deadline vanished = %q, want none", got)
 	}
