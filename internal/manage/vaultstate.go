@@ -40,7 +40,8 @@ type VaultState struct {
 	// Local is the state of the vault in this process as read, empty when it could not be read or there is
 	// no vault handle.
 	Local vault.State
-	// EndsAt is the hard unlock deadline of the vault process, only set for VaultProcessOnly.
+	// EndsAt is the hard unlock deadline: of the vault process for VaultProcessOnly, and of the window's own
+	// key for VaultThisWindow once WithWindowKey added it. Zero without one.
 	EndsAt time.Time
 	// Err is the failure reading the local state; set exactly for VaultUnreadable.
 	Err error

@@ -8,6 +8,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 
+	"github.com/castrowithcee/qatlas-connect/internal/vaultproc"
 	"github.com/castrowithcee/qatlas-kit/i18n"
 )
 
@@ -31,7 +32,7 @@ func TestApprovalsSectionWithOnlyTheVaultProcessUnlocked(t *testing.T) {
 
 	m := openApprovalModel(t, store, dir)
 	m.Update(tea.WindowSizeMsg{Width: 160, Height: 28})
-	m.Update(vaultProcessCheckMsg{unlocked: true})
+	m.Update(processAnswer(m, vaultproc.Status{PID: 4100}, nil))
 	openSectionByName(t, m, sectionApprovals)
 	if m.screen == screenAdminAuth || m.adminAuth != nil {
 		t.Fatal("merely opening the Approvals section asked for the passphrase")
@@ -66,7 +67,7 @@ func TestTokensSectionWithOnlyTheVaultProcessUnlocked(t *testing.T) {
 	fixtureToken(t, v, "kunde-a-ci", nil, "personal")
 	m := openApprovalModel(t, store, dir)
 	m.Update(tea.WindowSizeMsg{Width: 160, Height: 28})
-	m.Update(vaultProcessCheckMsg{unlocked: true})
+	m.Update(processAnswer(m, vaultproc.Status{PID: 4100}, nil))
 
 	openSectionByName(t, m, sectionTokens)
 	view := screenOf(m)
@@ -92,7 +93,7 @@ func TestOverviewAndRenameSearchWithOnlyTheVaultProcessUnlocked(t *testing.T) {
 	m := openApprovalModel(t, store, dir)
 	m.Update(tea.WindowSizeMsg{Width: 100, Height: 28})
 
-	m.Update(vaultProcessCheckMsg{unlocked: true})
+	m.Update(processAnswer(m, vaultproc.Status{PID: 4100}, nil))
 	if got := m.unavailableWord(); got != tr(tOverviewVaultProcessOnly) {
 		t.Errorf("overview word = %q, want %q", got, tr(tOverviewVaultProcessOnly))
 	}
@@ -104,7 +105,7 @@ func TestOverviewAndRenameSearchWithOnlyTheVaultProcessUnlocked(t *testing.T) {
 	noUnlockAdvice(t, "the rename search status", m.status)
 
 	// The same window with no vault process keeps the old texts.
-	m.Update(vaultProcessCheckMsg{})
+	m.Update(processAnswer(m, vaultproc.Status{}, vaultproc.ErrNotRunning))
 	if got := m.unavailableWord(); got != tr(tOverviewVaultLocked) {
 		t.Errorf("overview word locked = %q, want %q", got, tr(tOverviewVaultLocked))
 	}
@@ -119,7 +120,7 @@ func TestApprovalsAndTokensKeepTheLockedTextWithoutAVaultProcess(t *testing.T) {
 	store, dir, _ := newTokenFixture(t)
 	m := openApprovalModel(t, store, dir)
 	m.Update(tea.WindowSizeMsg{Width: 160, Height: 28})
-	m.Update(vaultProcessCheckMsg{})
+	m.Update(processAnswer(m, vaultproc.Status{}, vaultproc.ErrNotRunning))
 	for _, s := range []section{sectionApprovals, sectionTokens} {
 		openSectionByName(t, m, s)
 		view := screenOf(m)
@@ -138,7 +139,7 @@ func TestProcessOnlyKeyHintIsTranslated(t *testing.T) {
 		useLanguage(t, i18n.German)
 		m := openApprovalModel(t, store, dir)
 		m.Update(tea.WindowSizeMsg{Width: 200, Height: 28})
-		m.Update(vaultProcessCheckMsg{unlocked: true})
+		m.Update(processAnswer(m, vaultproc.Status{PID: 4100}, nil))
 		openSectionByName(t, m, s)
 		view := screenOf(m)
 		if !strings.Contains(view, "enter Passphrase für dieses Fenster") || strings.Contains(view, "passphrase for this window") {
