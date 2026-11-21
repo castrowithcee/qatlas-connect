@@ -91,7 +91,8 @@ func descriptors() []capability.Descriptor {
 		programsList, programsGet, programsEnable, programsDisable,
 		reportsSearch, quotasList, limitsList, limitsGet,
 		termsOfServiceGet, termsOfServiceRetrieveLatest, termsOfServiceAgreementStatesGet,
-		termsOfServiceAgreementStatesRetrieveForApplication, usersList, usersGet, usersUpdate, usersDelete},
+		termsOfServiceAgreementStatesRetrieveForApplication, usersList, usersGet, usersUpdate, usersDelete,
+		regionsList, regionsGet, regionsCreate, regionsUpdate},
 		append(accountWriteDescriptors(), homepageDescriptors()...)...)
 }
 

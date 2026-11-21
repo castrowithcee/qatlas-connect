@@ -42,10 +42,13 @@ developer registration, and the consent.
 | `google.merchant.homepages.update` | sets the home page address, see [home page](homepages.md) |
 | `google.merchant.homepages.claim` | claims the home page, see [home page](homepages.md) |
 | `google.merchant.homepages.unclaim` | removes the claim of the home page, see [home page](homepages.md) |
+| `google.merchant.regions.list`, `.get` | the regions of an account, one batch or one region, see [regions](regions.md) |
+| `google.merchant.regions.create`, `.update` | create a region and replace members of it; confirmed, only through the `tools` list of a connection, see [regions](regions.md) |
 
 The terms tools are described in [terms of service](terms-of-service.md), the two updates in [Autofeed and
 automatic improvements](autofeed.md), the account tools beyond the first three in [account tools](accounts.md),
-the user tools in [users](users.md), and the home page tools in [home page](homepages.md).
+the user tools in [users](users.md), the home page tools in [home page](homepages.md), and the region tools in
+[regions](regions.md).
 
 Every read tool needs no confirmation, and every change needs one for every call. The account resource has the
 members `name`, `accountId`, `accountName`, `testAccount`, `adultContent`, `languageCode`, `homePageUri`, and
