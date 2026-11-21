@@ -63,7 +63,10 @@ developer registration, and the consent.
 | `google.merchant.notification-subscriptions.delete` | deletes a notification subscription (delete, confirmation, listed tools only) |
 | `google.merchant.account-services.list`, `.get` | the services of an advanced account with the state of each handshake, see [services](services.md) |
 | `google.merchant.account-services.reject` | reject a service and end the access it gave a provider account; confirmed and offered only through the `tools` list of a connection, see [services](services.md) |
-| `google.merchant.account-relationships.list` | the relationships of an account with provider accounts, see [services](services.md) |
+| `google.merchant.account-relationships.list`, `.get` | the relationships of an account with provider accounts, see [services](services.md) |
+| `google.merchant.account-relationships.update` | sets the alias of a relationship; confirmed, see [services](services.md) |
+| `google.merchant.gbp-accounts.list` | the Google Business Profile accounts linked to an account, see [linked accounts](links.md) |
+| `google.merchant.lfp-providers.find` | the Local Feeds Partnership providers offered in a country, see [linked accounts](links.md) |
 | `google.merchant.conversion-sources.list` | the conversion sources of an account, with archived ones on request, see [conversion sources](conversions.md) |
 | `google.merchant.conversion-sources.get` | one conversion source, see [conversion sources](conversions.md) |
 | `google.merchant.conversion-sources.create` | creates a Merchant Center destination as conversion source (create), see [conversion sources](conversions.md) |
@@ -75,8 +78,8 @@ The terms tools are described in [terms of service](terms-of-service.md), the tw
 automatic improvements](autofeed.md), the account tools beyond the first three in [account tools](accounts.md),
 the user tools in [users](users.md), the home page tools in [home page](homepages.md), the region tools in
 [regions](regions.md), the subscription tools in [Notification subscriptions](notifications.md), the
-omnichannel tools in [omnichannel settings](omnichannel.md), the service tools in [services](services.md),
-the conversion tools in [conversion sources](conversions.md), the checkout tools in [checkout
+omnichannel tools in [omnichannel settings](omnichannel.md), the service and relationship tools in [services](services.md),
+the Business Profile and Local Feeds Partnership reads in [linked accounts](links.md), the conversion tools in [conversion sources](conversions.md), the checkout tools in [checkout
 settings](checkout.md), the return policy tools in [return policies](return-policies.md), and the render tools in
 [issue rendering](issue-resolutions.md); the render tools are reads although Google takes them as `POST`.
 
@@ -249,5 +252,5 @@ body. They are not repeated after `401`, `429`, or `5xx`, because Google may alr
 call counts against the quota.
 
 No tool of this provider proposes or approves a service, invites a user or accepts an invitation, registers or unregisters a Cloud project, links an account to another
-one, sets a notification address, or accepts terms for an account (`terms-of-service.accept` is deliberately
-missing). Merchant API methods for local feed partners and for triggering actions are not offered.
+one (a Business Profile account or a Local Feeds Partnership provider included), sets a notification address, or accepts terms for an account (`terms-of-service.accept` is deliberately
+missing). The Merchant API methods of the Local Feeds Partnership service (stores, inventories, sales) and for triggering actions are not offered.

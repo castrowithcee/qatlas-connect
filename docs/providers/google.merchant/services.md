@@ -1,6 +1,6 @@
 ---
 description: >
-  Describes the service and relationship tools of the Google Merchant provider: listing and reading the services of an advanced account, rejecting a service, listing the relationships of an account, the service ID form, the advanced-account target the service tools need, how provider display names are masked outside the targets, the fixed reject request, the role needed, the access effect, confirmation and the tools list, result bounds, the tools that are left out on purpose, and what is not verified.
+  Describes the service and relationship tools of the Google Merchant provider: listing and reading the services of an advanced account, rejecting a service, listing and reading the relationships of an account, setting the alias of a relationship, the service and relationship ID forms, the advanced-account target the service tools need, how provider display names are masked outside the targets, the fixed reject and alias requests, the roles needed, the access effect, confirmation and the tools list, result bounds, the tools that are left out on purpose, and what is not verified.
 type: knowledge
 edit: shared
 created: 2026-11-20
@@ -15,7 +15,7 @@ quotas, cursors, and errors are described there.
 A service gives a provider account a defined kind of access to a Merchant Center account, for example managing its
 products or campaigns, or aggregating it as a sub-account. A service starts as a proposal and exists once both
 sides agree. A relationship is the plain link between the account and a provider account; its only member the
-account can change is an alias. The tools read both and can reject a service.
+account can change is an alias. The tools read both, can reject a service, and can set the alias of a relationship.
 
 | Tool | Does |
 | --- | --- |
@@ -23,17 +23,22 @@ account can change is an alias. The tools read both and can reject a service.
 | `account-services.get` | reads one service |
 | `account-services.reject` | rejects a proposed or approved service |
 | `account-relationships.list` | reads the relationships of an account, a batch per call with `cursor` |
+| `account-relationships.get` | reads one relationship |
+| `account-relationships.update` | sets the alias of a relationship |
 
-The three reads are in the `read` profile and need no confirmation. `account-services.reject` is in no profile: a
+The four reads are in the `read` profile and need no confirmation. `account-services.reject` is in no profile: a
 connection offers it only when its `tools` list names it, and every call needs a confirmation that shows the service
-and the account.
+and the account. `account-relationships.update` is in no profile either, because a change is never in the `read`
+profile; a connection that selects the effect `update` offers it, and every call needs a confirmation that shows the
+account, the relationship, and the new alias. It is not a listed-only tool: it gives no access and ends none.
 
 ## Left out on purpose
 
 There is no tool to propose or approve a service. Both give another account access to your account, which this
 provider never does: it can read such access and end it, not create it. A service that a provider proposed can be
-approved only in Merchant Center. The tools to read, change, or link relationships beyond listing them are separate
-and not part of this page.
+approved only in Merchant Center. Nor is there a tool to create a relationship; a relationship comes from a service or
+from linking in Merchant Center. Linking an account to a Google Business Profile account or to a Local Feeds
+Partnership provider is left out for the same reason and is described in [linked accounts](links.md).
 
 ## Arguments
 
@@ -45,14 +50,21 @@ read.
   account target, or any other account is refused without naming it, and a connection bound only to account targets is
   not offered these tools. With exactly one advanced account bound, the argument may be left out. Without targets any
   account ID is accepted.
-- `account-relationships.list` works on any account the connection reaches. An account that no target names is read
-  only after one proof read of the sub-accounts of a bound advanced account, as described in the README.
+- The relationship tools work on any account the connection reaches. An account that no target names is read or
+  changed only after one proof read of the sub-accounts of a bound advanced account, as described in the README; a
+  refused account is never changed. `account-relationships.update` requires `account`, the reads take it from a
+  connection with exactly one target.
 
 `service` is the service ID, the last segment of `accounts/ACCOUNT/services/SERVICE`, and one path segment. The
 discovery document gives the name pattern `accounts/{account}/services/{service}` with no form for the ID beyond
 "no slash", and the guides show no service name. Qatlas accepts only 1 to 64 letters, digits, dashes, and underscores.
 A slash, a dot, a colon, a space, an escape, or any other character is refused before any secret is read or request is
 sent. Whether the ID names a service is Google's answer (`not-found`).
+
+`relationship` is the relationship ID, the last segment of `accounts/ACCOUNT/relationships/RELATIONSHIP`, and one path
+segment. The discovery document gives the pattern `accounts/{account}/relationships/{relationship}` and a numeric
+example, but no rule for the ID. Qatlas applies the same narrow form as for a service, 1 to 64 letters, digits, dashes,
+and underscores, and refuses anything else before any secret is read or request is sent.
 
 The list tools also take `page_size` (1 to 1000) and `cursor`. Google sends 100 by default and at most 1000; Qatlas
 always sends the page size, 100 when `page_size` is left out. A cursor is tied to the tool, the account, the page size,
@@ -107,6 +119,24 @@ service. It says only that Google accepted the request.
   unknown; read the service before changing it again.
 - **Quota.** Each call counts against the quota of the method group, also when it fails.
 
+## Setting the alias of a relationship
+
+`account-relationships.update` sends one `PATCH` to `accounts/ACCOUNT/relationships/RELATIONSHIP`. The update mask is
+the constant `accountIdAlias`, the only member the discovery document lists as writable, and the body holds that member
+alone; `provider` and `name` cannot be set, and no argument names a mask. The result is the relationship as Google
+answered, in the shape above, with the same masking of the display name.
+
+- **Alias.** `account_id_alias` is 1 to 300 characters without control characters. Google asks for an alias that is
+  unique among the relationships with the same provider and documents no length limit, so the bound is Qatlas' own. The
+  alias cannot be cleared here: an empty value is refused, because what Google does with an empty alias is not
+  documented.
+- **Role.** The discovery document says the method requires admin access. Qatlas cannot check the role beforehand;
+  Google answers a missing role with `403`, class `permission`.
+- **Delay.** Google applies the change afterwards, so read the relationship again to see it.
+- **No repetition.** The change is sent once, also after `401`, `429`, or `5xx`. After a transport failure, a timeout, a
+  `5xx`, or an unreadable answer the message says that the outcome is unknown; read the relationship before changing it
+  again. Each call counts against the quota of the method group, also when it fails.
+
 ## Boundary
 
 Checked against the discovery document of the accounts API v1 (revision 20261118):
@@ -115,6 +145,9 @@ Checked against the discovery document of the accounts API v1 (revision 20261118
   The description of `services.list` says it supports filtering, but the document lists no filter parameter, so none is
   offered. The research behind this provider named `provider` and `externalAccountId` as service filters; they are
   members of the service, not parameters.
+- `relationships.get` takes only the name. `relationships.patch` takes the name and `updateMask`, whose documented
+  values are `account_id_alias` and `accountIdAlias`; Qatlas sends the second. The text says the method requires admin
+  access.
 - `services.get` and `services.reject` take only the name. The reject request is the empty `RejectAccountServiceRequest`
   and the answer is `Empty`.
 - `AccountService` has no member besides the ones above, and `AccountRelationship` has `name`, `provider`,
@@ -126,7 +159,9 @@ Not verified:
 
 - No live call was made. Answers are taken from the discovery document and the guides of the Merchant API.
 - Which role each method needs: the guides name Admin for rejecting, the discovery document names none for the service
-  methods.
+  methods and admin access for the alias change.
+- The form of a real relationship ID, whether Google refuses an alias that another relationship of the same provider
+  uses, and the length limit of an alias.
 - The form of a real service ID. A real ID outside letters, digits, dash, and underscore, or longer than 64 characters,
   is refused by Qatlas.
 - How long access takes to end after a rejection, and in which state a rejected service stays visible.

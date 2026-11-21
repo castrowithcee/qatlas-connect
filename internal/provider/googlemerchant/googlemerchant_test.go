@@ -15,7 +15,9 @@ import (
 
 // The tool IDs of this package, fixed so a rename or an addition shows up here.
 var wantToolIDs = []string{
+	"google.merchant.account-relationships.get",
 	"google.merchant.account-relationships.list",
+	"google.merchant.account-relationships.update",
 	"google.merchant.account-services.get",
 	"google.merchant.account-services.list",
 	"google.merchant.account-services.reject",
@@ -38,12 +40,14 @@ var wantToolIDs = []string{
 	"google.merchant.conversion-sources.list",
 	"google.merchant.conversion-sources.update",
 	"google.merchant.developer-registrations.get",
+	"google.merchant.gbp-accounts.list",
 	"google.merchant.homepages.claim",
 	"google.merchant.homepages.get",
 	"google.merchant.homepages.unclaim",
 	"google.merchant.homepages.update",
 	"google.merchant.issue-resolutions.render-account-issues",
 	"google.merchant.issue-resolutions.render-product-issues",
+	"google.merchant.lfp-providers.find",
 	"google.merchant.limits.get",
 	"google.merchant.limits.list",
 	"google.merchant.notification-subscriptions.delete",

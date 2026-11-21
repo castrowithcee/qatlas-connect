@@ -174,6 +174,9 @@ func Register(reg *capability.Registry) error {
 	maps.Copy(summaries, checkoutSummaries())
 	maps.Copy(handlers, returnPolicyHandlers())
 	maps.Copy(summaries, returnPolicySummaries())
+	maps.Copy(handlers, relationshipHandlers())
+	maps.Copy(summaries, relationshipSummaries())
+	maps.Copy(handlers, linkHandlers())
 	for _, d := range descriptors() {
 		if err := reg.Register(Provider, capability.Operation{Descriptor: d, Handler: handlers[d.ID],
 			ConfirmationSummary: summaries[d.ID]}); err != nil {
