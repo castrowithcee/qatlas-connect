@@ -49,8 +49,8 @@ var (
 	updateMaskSchema = `{"type":"array","minItems":1,"maxItems":4,"uniqueItems":true,` +
 		`"items":{"type":"string","enum":["displayName","postalCodeArea","geotargetArea","radiusArea"]}}`
 
-	numberSchema = `{"type":"number"}`
-	regionSchema = objectSchema(member("name", stringSchema), member("displayName", stringSchema),
+	numberSchema         = `{"type":"number"}`
+	regionResourceSchema = objectSchema(member("name", stringSchema), member("displayName", stringSchema),
 		member("postalCodeArea", objectSchema(member("regionCode", stringSchema), member("postalCodes",
 			`{"type":"array","items":`+objectSchema(member("begin", stringSchema), member("end", stringSchema))+`}`))),
 		member("geotargetArea", objectSchema(member("geotargetCriteriaIds", listSchema))),
@@ -58,7 +58,7 @@ var (
 			member("latitude", numberSchema), member("longitude", numberSchema))), member("regionCode", stringSchema),
 			member("radiusUnits", stringSchema))),
 		member("shippingEligible", boolSchema), member("regionalInventoryEligible", boolSchema))
-	regionChangeSchema = objectSchema(member("accepted", boolSchema), member("region", regionSchema))
+	regionChangeSchema = objectSchema(member("accepted", boolSchema), member("region", regionResourceSchema))
 )
 
 func closedSchemaOf(required []string, members ...string) string {
@@ -76,7 +76,7 @@ var regionsList = capability.Descriptor{
 	Tags: []string{"google", "merchant", "regions"}, Risk: readRisk, Provider: Provider,
 	InputSchema: inputSchema(nil, member("account", accountArgSchema), member("page_size", regionPageSizeSchema),
 		member("cursor", cursorSchema)),
-	OutputSchema: json.RawMessage(listResultSchema("regions", regionSchema)),
+	OutputSchema: json.RawMessage(listResultSchema("regions", regionResourceSchema)),
 	Arguments: []capability.Argument{accountArgument,
 		{Name: "page_size", Description: "Regions per batch, 1 to 1000"}, cursorArgument},
 	Fields: []capability.Field{
@@ -93,7 +93,7 @@ var regionsGet = capability.Descriptor{
 	Tags: []string{"google", "merchant", "regions"}, Risk: readRisk, Provider: Provider,
 	InputSchema: inputSchema([]string{"region_id"}, member("account", accountArgSchema),
 		member("region_id", regionIDSchema)),
-	OutputSchema: json.RawMessage(regionSchema),
+	OutputSchema: json.RawMessage(regionResourceSchema),
 	Arguments:    []capability.Argument{accountArgument, regionIDArgument},
 	Fields:       []capability.Field{{Name: "region", Description: regionFieldsDescription}},
 	Examples: []capability.Example{{Description: "One region",

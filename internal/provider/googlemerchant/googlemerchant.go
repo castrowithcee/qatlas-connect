@@ -12,6 +12,7 @@ package googlemerchant
 
 import (
 	"context"
+	"maps"
 	"net/url"
 
 	"github.com/castrowithcee/qatlas-connect/internal/capability"
@@ -116,7 +117,7 @@ func Register(reg *capability.Registry) error {
 		},
 		Profiles: []config.ToolProfile{{
 			ID: "read", Title: "Read", Recommended: true,
-			Description: "reads Merchant Center accounts and the developer registration of an account; changes nothing",
+			Description: "reads Merchant Center accounts, the developer registration of an account, reports, quotas, and limits; changes nothing",
 			Tools:       readIDs,
 		}},
 	}, TestConnection); err != nil {
@@ -128,12 +129,25 @@ func Register(reg *capability.Registry) error {
 	handlers := map[string]capability.Handler{
 		accountsListID: handleAccountsList, accountsGetID: handleAccountsGet,
 		developerRegistrationsGetID: handleDeveloperRegistrationsGet,
-		regionsListID:               handleRegionsList, regionsGetID: handleRegionsGet,
+		termsOfServiceGetID:         handleTermsOfServiceGet, termsOfServiceRetrieveLatestID: handleTermsOfServiceRetrieveLatest,
+		termsOfServiceAgreementStatesGetID:            handleAgreementStatesGet,
+		termsOfServiceAgreementStatesForApplicationID: handleAgreementStatesRetrieveForApplication,
+		reportsSearchID: handleReportsSearch, quotasListID: handleQuotasList, limitsListID: handleLimitsList,
+		limitsGetID:    handleLimitsGet,
+		programsListID: handleProgramsList, programsGetID: handleProgramsGet,
+		programsEnableID: handleProgramsEnable, programsDisableID: handleProgramsDisable,
+		autofeedSettingsGetID: handleAutofeedSettingsGet, autofeedSettingsUpdateID: handleAutofeedSettingsUpdate,
+		automaticImprovementsGetID: handleAutomaticImprovementsGet, automaticImprovementsUpdateID: handleAutomaticImprovementsUpdate,
+		regionsListID: handleRegionsList, regionsGetID: handleRegionsGet,
 		regionsCreateID: handleRegionsCreate, regionsUpdateID: handleRegionsUpdate,
 	}
 	summaries := map[string]capability.SummaryFunc{
+		programsEnableID: programSummary("Enable"), programsDisableID: programSummary("Disable"),
+		autofeedSettingsUpdateID: autofeedSummary, automaticImprovementsUpdateID: improvementsSummary,
 		regionsCreateID: regionCreateSummary, regionsUpdateID: regionUpdateSummary,
 	}
+	maps.Copy(handlers, accountWriteHandlers())
+	maps.Copy(summaries, accountSummaries())
 	for _, d := range descriptors() {
 		if err := reg.Register(Provider, capability.Operation{Descriptor: d, Handler: handlers[d.ID],
 			ConfirmationSummary: summaries[d.ID]}); err != nil {

@@ -70,7 +70,7 @@ var (
 
 // What Google returns for a region is untrusted: the display name comes from whoever runs the account.
 type (
-	numberValue float64
+	regionNumber float64
 
 	postalRange struct {
 		Begin idText `json:"begin,omitempty"`
@@ -86,14 +86,14 @@ type (
 		GeotargetCriteriaIDs idList `json:"geotargetCriteriaIds,omitempty"`
 	}
 	latLng struct {
-		Latitude  numberValue `json:"latitude"`
-		Longitude numberValue `json:"longitude"`
+		Latitude  regionNumber `json:"latitude"`
+		Longitude regionNumber `json:"longitude"`
 	}
 	radiusArea struct {
-		Radius      numberValue `json:"radius"`
-		LatLng      *latLng     `json:"latLng,omitempty"`
-		RegionCode  idText      `json:"regionCode,omitempty"`
-		RadiusUnits idText      `json:"radiusUnits,omitempty"`
+		Radius      regionNumber `json:"radius"`
+		LatLng      *latLng      `json:"latLng,omitempty"`
+		RegionCode  idText       `json:"regionCode,omitempty"`
+		RadiusUnits idText       `json:"radiusUnits,omitempty"`
 	}
 
 	// region is the Region resource of the accounts sub-API; no member is added or derived.
@@ -109,13 +109,13 @@ type (
 )
 
 // UnmarshalJSON keeps a finite number and drops anything else.
-func (n *numberValue) UnmarshalJSON(b []byte) error {
+func (n *regionNumber) UnmarshalJSON(b []byte) error {
 	var v float64
 	if json.Unmarshal(b, &v) != nil || math.IsNaN(v) || math.IsInf(v, 0) {
 		*n = 0
 		return nil
 	}
-	*n = numberValue(v)
+	*n = regionNumber(v)
 	return nil
 }
 

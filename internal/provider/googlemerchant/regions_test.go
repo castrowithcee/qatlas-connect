@@ -284,12 +284,12 @@ func TestRegionsCreateSendsOneCheckedRequest(t *testing.T) {
 	if out["accepted"] != true || out["region"].(map[string]any)["name"] != "accounts/1000001/regions/north-1" {
 		t.Errorf("result = %v", out)
 	}
-	for name, body := range map[string]string{
-		"geotarget": `"geotarget_area":{"geotargetCriteriaIds":["21137","21138"]}`,
-		"radius":    `"radius_area":` + validRadius(),
+	for _, c := range []struct{ name, body string }{
+		{"geotarget", `"geotarget_area":{"geotargetCriteriaIds":["21137","21138"]}`},
+		{"radius", `"radius_area":` + validRadius()},
 	} {
-		if _, err := h.call(t, handleRegionsCreate, `{"account":"1000001","region_id":"r-`+name+`",`+body+`}`); err != nil {
-			t.Fatalf("%s: %v", name, err)
+		if _, err := h.call(t, handleRegionsCreate, `{"account":"1000001","region_id":"r-`+c.name+`",`+c.body+`}`); err != nil {
+			t.Fatalf("%s: %v", c.name, err)
 		}
 	}
 	if got := (*seen)[1].body; got != `{"geotargetArea":{"geotargetCriteriaIds":["21137","21138"]}}` {
