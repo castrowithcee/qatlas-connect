@@ -16,9 +16,18 @@ import (
 	"github.com/castrowithcee/qatlas-connect/internal/provider"
 )
 
-var changeToolIDs = []string{customersUpdateID, customerBudgetNetworkSettingsCreateID, customerBudgetNetworkSettingsUpdateID,
-	customerUserAccessesUpdateID, customerUserAccessesRemoveID, customerUserAccessInvitationsRemoveID,
-	multiPartyAuthReviewsResolveID}
+// listedChangeToolIDs are the changing tools that only the tools list of a connection offers (T); the other
+// changing tools are offered by an effect profile and still need the confirmation of each call.
+var listedChangeToolIDs = []string{customersUpdateID, customerBudgetNetworkSettingsCreateID,
+	customerBudgetNetworkSettingsUpdateID, customerUserAccessesUpdateID, customerUserAccessesRemoveID,
+	customerUserAccessInvitationsRemoveID, multiPartyAuthReviewsResolveID, userListsRemoveID}
+
+// notListedOnly are the changing tools that a connection with the matching effect offers without a tools list.
+// They still need the confirmation of every call.
+var notListedOnly = []string{userListsCreateID, userListsUpdateID, userListCustomerTypesCreateID,
+	userListCustomerTypesRemoveID}
+
+var changeToolIDs = append(slices.Clone(listedChangeToolIDs), notListedOnly...)
 
 // noValidateOnly are the changing tools whose Mutate request has no validate_only in v26; they offer none.
 var noValidateOnly = []string{customerUserAccessesUpdateID, customerUserAccessesRemoveID,
@@ -71,10 +80,14 @@ func TestChangeToolsAreListedOnlyConfirmedAndOutsideTheReadProfile(t *testing.T)
 		customerBudgetNetworkSettingsCreateID: capability.EffectCreate,
 		customerBudgetNetworkSettingsUpdateID: capability.EffectUpdate,
 		customerUserAccessesUpdateID:          capability.EffectUpdate, customerUserAccessesRemoveID: capability.EffectDelete,
-		customerUserAccessInvitationsRemoveID: capability.EffectDelete, multiPartyAuthReviewsResolveID: capability.EffectUpdate}
+		customerUserAccessInvitationsRemoveID: capability.EffectDelete, multiPartyAuthReviewsResolveID: capability.EffectUpdate,
+		userListsCreateID: capability.EffectCreate, userListsUpdateID: capability.EffectUpdate,
+		userListsRemoveID: capability.EffectDelete, userListCustomerTypesCreateID: capability.EffectCreate,
+		userListCustomerTypesRemoveID: capability.EffectDelete}
 	for _, id := range changeToolIDs {
 		d, _, ok := reg.Lookup(id)
-		if !ok || !d.RequiresToolAllowList || d.Version != 1 || d.Risk.Effect != wantEffect[id] ||
+		listed := slices.Contains(listedChangeToolIDs, id)
+		if !ok || d.RequiresToolAllowList != listed || d.Version != 1 || d.Risk.Effect != wantEffect[id] ||
 			d.Risk.Confirmation != capability.ConfirmationRequired || !d.Risk.OpenWorld {
 			t.Errorf("%s = %+v", id, d)
 		}
@@ -108,6 +121,11 @@ func TestChangeToolsAreListedOnlyConfirmedAndOutsideTheReadProfile(t *testing.T)
 		if !strings.Contains(d.Description, "outcome is unknown") || !strings.Contains(d.Description, "never repeats") {
 			t.Errorf("%s: description does not name the unknown outcome: %s", id, d.Description)
 		}
+		if listed != strings.HasSuffix(d.Description, mutateNote) ||
+			!listed && !strings.HasSuffix(d.Description, changeNote) ||
+			!listed && strings.Contains(d.Description, "tools list names it") {
+			t.Errorf("%s: description does not end on the note of its class (listed = %v)", id, listed)
+		}
 	}
 	update, _, _ := reg.Lookup(customersUpdateID)
 	for _, word := range []string{"tracking", "final URL", "click data", "https", "not offered"} {
@@ -122,8 +140,9 @@ func TestChangeToolsAreListedOnlyConfirmedAndOutsideTheReadProfile(t *testing.T)
 		}
 	}
 	for _, tool := range metadata.Tools {
-		if slices.Contains(changeToolIDs, tool.ID) && (!tool.RequiresToolAllowList || tool.Effect == config.EffectRead) {
-			t.Errorf("tool %+v is not a listed-only change tool", tool)
+		if slices.Contains(changeToolIDs, tool.ID) && (tool.RequiresToolAllowList != slices.Contains(listedChangeToolIDs, tool.ID) ||
+			tool.Effect == config.EffectRead) {
+			t.Errorf("tool %+v is not a change tool of its class", tool)
 		}
 	}
 }

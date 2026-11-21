@@ -36,13 +36,14 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 		customerClientsListID, customerUserAccessInvitationsListID, customerUserAccessInvitationsRemoveID,
 		customerUserAccessesListID, customerUserAccessesRemoveID, customerUserAccessesUpdateID,
 		customersGetID, customersListAccessibleID, customersUpdateID, fieldsGetID, fieldsSearchID,
-		multiPartyAuthReviewsListID, multiPartyAuthReviewsResolveID, reportsSearchID}
+		multiPartyAuthReviewsListID, multiPartyAuthReviewsResolveID, reportsSearchID, userListCustomerTypesCreateID,
+		userListCustomerTypesRemoveID, userListsCreateID, userListsRemoveID, userListsUpdateID}
 	if len(metadata.Tools) != len(want) {
 		t.Fatalf("tools = %+v", metadata.Tools)
 	}
 	for i, tool := range metadata.Tools {
 		changing := slices.Contains(changeToolIDs, tool.ID)
-		if tool.ID != want[i] || (tool.Effect == config.EffectRead) == changing || tool.RequiresToolAllowList != changing {
+		if tool.ID != want[i] || (tool.Effect == config.EffectRead) == changing || tool.RequiresToolAllowList != slices.Contains(listedChangeToolIDs, tool.ID) {
 			t.Errorf("tool %d = %+v", i, tool)
 		}
 		if scopes := metadata.Token.Scopes[tool.ID]; !reflect.DeepEqual(scopes, []string{"https://www.googleapis.com/auth/adwords"}) {
