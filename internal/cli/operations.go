@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/castrowithcee/qatlas-connect/internal/accessrequest"
 	"github.com/castrowithcee/qatlas-connect/internal/application"
 	"github.com/castrowithcee/qatlas-connect/internal/capability"
 	"github.com/castrowithcee/qatlas-connect/internal/config"
@@ -123,7 +124,34 @@ func applicationCoreForInvoke(opts *Options, registry *capability.Registry, path
 		return nil, err
 	}
 	core.SetInvokeLog(newInvokeLogWriter(opts, invokeLogDir(configPath)), path, client)
+	if err := installRequestQueue(core, configPath); err != nil {
+		return nil, err
+	}
 	return core, nil
+}
+
+// applicationCoreForRequest builds a core for asking for tools: no secret is resolved, the request queue and
+// the invocation log, which takes the request entries, are installed.
+func applicationCoreForRequest(opts *Options, registry *capability.Registry, path string) (*application.Core, error) {
+	core, _, configPath, err := loadCore(opts, registry, false)
+	if err != nil {
+		return nil, err
+	}
+	core.SetInvokeLog(newInvokeLogWriter(opts, invokeLogDir(configPath)), path, nil)
+	if err := installRequestQueue(core, configPath); err != nil {
+		return nil, err
+	}
+	return core, nil
+}
+
+// installRequestQueue gives the core the file of open tool requests beside the configuration at configPath.
+func installRequestQueue(core *application.Core, configPath string) error {
+	queue, err := accessrequest.NewQueue(accessrequest.PathFor(configPath))
+	if err != nil {
+		return err
+	}
+	core.SetRequestQueue(queue)
+	return nil
 }
 
 // invokeLogDir is the vault directory the invocation log of the configuration at configPath lives under.

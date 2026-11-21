@@ -10,6 +10,8 @@ func init() {
 		{id: "github.check-runs.list", born: true, output: CheckRunList{}, risk: readRisk},
 		{id: "github.check-suite-runs.list", born: true, output: CheckSuiteRunList{}, risk: readRisk},
 		{id: "github.check-suites.list", born: true, output: CheckSuiteList{}, risk: readRisk},
+		{id: "github.commit-checks.list", born: true, output: CommitChecks{}, risk: readRisk},
+		{id: "github.commit-checks.wait", born: true, output: CommitChecksWait{}, risk: readRisk},
 		{id: "github.copilot-reviews.request", output: PullRequest{}, risk: changeRisk(capability.EffectUpdate, capability.IdempotencyIdempotent)},
 		{id: "github.pull-request-auto-merge.disable", born: true, output: PullRequestAutoMerge{}, risk: changeRisk(capability.EffectUpdate, capability.IdempotencyIdempotent)},
 		{id: "github.pull-request-auto-merge.enable", born: true, allow: true, output: PullRequestAutoMerge{}, risk: guardedRisk(capability.EffectUpdate, capability.IdempotencyIdempotent, dataSensitivity)},

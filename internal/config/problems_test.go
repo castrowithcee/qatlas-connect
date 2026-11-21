@@ -252,6 +252,21 @@ func TestProblemsAreStructured(t *testing.T) {
 			conn(c, "gh", func(v *Connection) { v.Tools = []string{"github.nothing.*"} })
 		},
 			"connections.gh.tools[1]", CodeToolPrefixNoMatch, "connections.gh.tools: entry 1 covers no registered tool", "tools", 1},
+		{"blocked tool unknown", func(c *Config) {
+			conn(c, "gh", func(v *Connection) { v.BlockedTools = []string{"github.issues.get", "nope"} })
+		},
+			"connections.gh.blocked_tools[2]", CodeInvalidBlockedTool, "connections.gh.blocked_tools: entry 2 is not a registered tool", "blocked_tools", 2},
+		{"blocked tool of other provider", func(c *Config) {
+			conn(c, "gh", func(v *Connection) { v.BlockedTools = []string{"bookstack.pages.get"} })
+		},
+			"connections.gh.blocked_tools", CodeBlockedToolOfOtherProvider, "connections.gh.blocked_tools: blocked tool \"bookstack.pages.get\" belongs to provider \"bookstack\"", "blocked_tools", -1},
+		{"blocked tool listed", func(c *Config) {
+			conn(c, "gh", func(v *Connection) {
+				v.Tools = []string{"github.issues.*"}
+				v.BlockedTools = []string{"github.issues.get"}
+			})
+		},
+			"connections.gh.blocked_tools", CodeBlockedToolListed, "connections.gh.blocked_tools: blocked tool \"github.issues.get\" is covered", "blocked_tools", -1},
 		{"files empty", func(c *Config) { conn(c, "docs", func(v *Connection) { v.Files.Read = []string{} }) },
 			"connections.docs.files.read", CodeFilesEmpty, "connections.docs.files.read: must name at least one", "files.read", -1},
 		{"files direction", func(c *Config) { conn(c, "wiki", func(v *Connection) { v.Files.Write = []string{drive + "/srv/a"} }) },

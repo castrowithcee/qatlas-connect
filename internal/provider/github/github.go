@@ -765,9 +765,10 @@ func Register(reg *capability.Registry) error {
 			ID: "pull-requests", Title: "Pull requests",
 			Description: "reads the pull requests of a repository: their list, one pull request with its " +
 				"body and merge state, its changed files, its commits, its diff, and the checks at its head " +
-				"commit, also waiting for them to finish; changes nothing",
+				"commit or at the commit a branch, tag, or SHA names, also waiting for them to finish; " +
+				"changes nothing",
 			Tools: []string{pullsList.ID, pullsGet.ID, pullFilesList.ID, pullCommitsList.ID, pullDiffsGet.ID,
-				pullChecksList.ID, pullChecksWait.ID},
+				pullChecksList.ID, pullChecksWait.ID, commitChecksList.ID, commitChecksWait.ID},
 		}, {
 			ID: "checks", Title: "Checks",
 			Description: "reads the check runs of a branch, tag, or commit, one check run, its annotations, the " +
@@ -783,7 +784,7 @@ func Register(reg *capability.Registry) error {
 				"connection's tools list names github.pull-requests.merge or " +
 				"github.pull-request-auto-merge.enable",
 			Tools: []string{pullsList.ID, pullsGet.ID, pullFilesList.ID, pullCommitsList.ID, pullDiffsGet.ID,
-				pullChecksList.ID, pullChecksWait.ID, pullsCreate.ID, pullsUpdate.ID, pullsClose.ID, pullsReopen.ID,
+				pullChecksList.ID, pullChecksWait.ID, commitChecksList.ID, commitChecksWait.ID, pullsCreate.ID, pullsUpdate.ID, pullsClose.ID, pullsReopen.ID,
 				pullBranchesUpdate.ID, pullAutoMergeDisable.ID},
 		}, {
 			ID: "releases", Title: "Releases",

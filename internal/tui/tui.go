@@ -303,6 +303,7 @@ const (
 	accessLabel   = "access"
 	effectsLabel  = "effects"
 	toolListLabel = "tools"
+	blockedLabel  = "blocked"
 	accessEffects = "by effect"
 	accessTools   = "selected tools"
 )
@@ -473,6 +474,12 @@ type Model struct {
 	// pickerMarks holds the ticks of a tool list or the effects while their picker is open, and is nil
 	// for a single choice. The row takes them over only when they are kept.
 	pickerMarks map[string]bool
+	// pickerShown is the tools the picker of the blocked tools row lists while it is open.
+	pickerShown []string
+	// blockTicks and blockReleased cache, for the open tool picker, the ticked entries and which blocked
+	// entries they release; the next key press clears them.
+	blockTicks    []string
+	blockReleased map[string]bool
 	// pickerGroups is set while the picker of a tool list of a grouped provider is open; nil otherwise.
 	pickerGroups *toolGroups
 	// pickerEffects is set while the picker of the tool list is open; it holds the effect rows above the rest.
@@ -518,6 +525,19 @@ type Model struct {
 	// open. Both stand over the Approvals list, not a form; see approvals.go.
 	approvalDetail    string
 	approveAllConfirm bool
+	// requests are the open tool requests, read by refreshRequests, and requestsErr why the queue cannot be
+	// read. requestDetail is the ID of the request whose detail screen is open (it shares screenConfirm),
+	// requestTicks the ticked entries, requestCursor the row under the cursor, requestTop the first line
+	// shown and requestPage the lines in view; requestChoice is the open choice of how to accept on a
+	// connection by effect. See requests.go.
+	requests      []manage.OpenRequest
+	requestsErr   string
+	requestDetail string
+	requestTicks  map[string]bool
+	requestCursor int
+	requestTop    int
+	requestPage   int
+	requestChoice *requestChoice
 	// approvalExpanded spells out the unchanged entries of a list change on the detail screen, which
 	// approval scrolls; both start over each time the screen opens.
 	approvalExpanded bool
@@ -731,13 +751,19 @@ type Model struct {
 	versionRestored string
 
 	// Vault header and 'ctrl+l' state (see vaultheader.go). vaultProcessUnlocked caches whether a vault
-	// process holds a locked vault open, refreshed by a tick and right after this window's own lock and
-	// unlock actions; it is read only while the vault is locked in this process, since an unlocked one
-	// already answers the header synchronously from vault.State() alone. vaultUnlock holds the masked
+	// process holds the vault open, refreshed by a tick and right after this window's own lock and unlock
+	// actions. vaultKeySince and vaultSeenPID are this window's own hold on the key (see manage.WindowKey):
+	// when it unlocked the vault itself and the vault process seen since; vaultKeyGen counts changes of that
+	// hold, so an answer of the vault process asked before one is dropped. vaultMaxUnlock caches the maximum
+	// unlock duration beside the admin session time. vaultUnlock holds the masked
 	// 'ctrl+l' unlock dialog while it is open, back is the screen it returns to either way once it is done.
 	// vaultLockConfirm and vaultLockBack are the same for the short 'Lock the vault now?' question.
 	vaultProcessUnlocked bool
 	vaultProcessEndsAt   time.Time // hard unlock deadline of that process; zero without one
+	vaultKeySince        time.Time
+	vaultSeenPID         int
+	vaultKeyGen          int
+	vaultMaxUnlock       time.Duration
 	vaultUnlock          *vaultUnlockPrompt
 	vaultLockConfirm     bool
 	vaultLockBack        screen
@@ -806,6 +832,7 @@ func New(svc *manage.Service, store *config.Store, tester Tester, secrets Secret
 		startDir: startDir, execute: tea.Exec,
 	}
 	m.layoutWorkspace()
+	m.refreshRequests()
 	m.list = newFilterList(m.describe)
 	m.list.stops = true
 	m.picker = newFilterList(m.choiceShown)
@@ -932,10 +959,13 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.handleOverviewActivity(msg)
 		return m, nil
 	case vaultProcessCheckMsg:
-		m.vaultProcessUnlocked, m.vaultProcessEndsAt = msg.unlocked, msg.endsAt
-		return m, nil
+		return m, m.handleVaultProcessCheck(msg)
 	case vaultTickMsg:
-		return m, tea.Batch(m.checkVaultProcess(), vaultTick())
+		m.refreshRequests()
+		m.syncRequestList()
+		return m, tea.Batch(m.vaultKeyTick(), vaultTick())
+	case requestDecisionMsg:
+		return m, m.handleRequestDecision(msg)
 	case updateCheckedMsg:
 		m.updateChecked(msg)
 		return m, nil
@@ -1323,8 +1353,8 @@ func (m *Model) updateList(key tea.KeyPressMsg) tea.Cmd {
 	case keyIs(key, actEdit):
 		return m.editSelected()
 	case keyIs(key, actEnter):
-		if (m.section == sectionApprovals || m.section == sectionTokens) && m.vaultLocked() {
-			// Nothing is listed while the vault is locked (see approvalsReport); enter is a managing action
+		if (m.section == sectionApprovals || m.section == sectionTokens) && m.vaultNeedsWindowKey() && !m.requestRowSelected() {
+			// Nothing is listed while this window has no key for the vault (see approvalsReport); enter is a managing action
 			// like any other here, gated behind requireAdmin, whose "Unlock vault to continue" dialog
 			// unlocks it and starts the admin session together. The action itself writes nothing: it only
 			// rebuilds the list, now that Pending can read it.
@@ -1335,6 +1365,10 @@ func (m *Model) updateList(key tea.KeyPressMsg) tea.Cmd {
 		}
 		name, ok := m.selected()
 		if !ok {
+			return nil
+		}
+		if id, ok := requestIDOf(name); ok && m.section == sectionApprovals {
+			m.openRequest(id)
 			return nil
 		}
 		if m.section == sectionApprovals {
@@ -1536,6 +1570,11 @@ func (m *Model) leaveScreen() tea.Cmd {
 			return m.setupEsc()
 		}
 	case screenConfirm:
+		if m.requestDetail != "" {
+			// The request detail stands over the Approvals list too; see requests.go.
+			m.closeRequest()
+			return nil
+		}
 		if m.approvalDetail != "" || m.approveAllConfirm {
 			// Both stand over the Approvals list, never a form; see approvals.go.
 			m.approvalDetail, m.approveAllConfirm = "", false
@@ -2036,9 +2075,16 @@ func (m *Model) choiceChanged(previous string) tea.Cmd {
 // ready for typing.
 func (m *Model) openPicker() {
 	f := m.fields[m.focus]
-	if len(f.choices) == 0 {
+	blocking := f.kind == fieldToolList && f.label == blockedLabel
+	if blocking {
+		// The tools it can block are those the form does not offer now, so they are worked out on opening.
+		f.choices = m.blockCandidates()
+		m.pickerShown = f.choices
+	}
+	if len(f.choices) == 0 && !blocking {
 		return
 	}
+	m.blockTicks, m.blockReleased = nil, nil
 	m.picker.text, m.pickerMarks, m.picker.match, m.pickerGroups, m.pickerEffects = m.choiceShown, nil, nil, nil, nil
 	if f.kind == fieldToolList || f.kind == fieldMultiChoice {
 		m.pickerMarks = map[string]bool{}
@@ -2046,11 +2092,15 @@ func (m *Model) openPicker() {
 			m.pickerMarks[choice] = marked
 		}
 	}
-	if f.kind == fieldToolList && f.label == toolListLabel {
+	if blocking {
+		m.pickerMarks = m.blockedTicks(f.choices)
+	}
+	toolPicker := f.kind == fieldToolList && (f.label == toolListLabel || blocking)
+	if toolPicker {
 		m.picker.text = m.toolText
 	}
 	entries := f.choices
-	if f.kind == fieldToolList && f.label == toolListLabel {
+	if toolPicker {
 		metadata, _ := m.cfg.ProviderMetadata(m.formProvider())
 		if g := newToolGroups(metadata, f.choices); g != nil {
 			m.pickerGroups, entries = g, g.entries()
@@ -2079,6 +2129,8 @@ func (m *Model) openPicker() {
 // updatePicker handles the picker. Every printable key belongs to the filter; enter takes the selected
 // value and esc leaves the row as it was.
 func (m *Model) updatePicker(key tea.KeyPressMsg) tea.Cmd {
+	// The ticks may change during the key, and the filter reads the cache while it does.
+	defer func() { m.blockTicks, m.blockReleased = nil, nil }()
 	if m.pickerMarks != nil {
 		// A tool list or the effects take any number of values: space ticks the selected one instead of
 		// typing a blank, which no tool ID or effect contains, and enter keeps every tick at once.
@@ -2147,6 +2199,10 @@ func (m *Model) keepPicker() {
 		return
 	}
 	f := &m.fields[m.focus]
+	if f.label == blockedLabel {
+		m.setBlocked(f, m.blockedFromPicker())
+		return
+	}
 	f.selected = map[string]bool{}
 	for choice, marked := range m.pickerMarks {
 		if marked {
@@ -2159,6 +2215,9 @@ func (m *Model) keepPicker() {
 func (m *Model) pickerChanged() bool {
 	if m.pickerMarks == nil {
 		return false
+	}
+	if m.fields[m.focus].label == blockedLabel {
+		return !slices.Equal(m.blockedFromPicker(), m.fields[m.focus].marked())
 	}
 	kept := m.fields[m.focus].selected
 	for choice, marked := range m.pickerMarks {
@@ -2320,6 +2379,10 @@ func (m *Model) connectionProviderChosen() {
 		// Tool IDs carry their provider, so no tick survives a change of provider.
 		list.choices, list.selected = m.toolChoices(provider, nil), map[string]bool{}
 	}
+	if blocked := m.field(blockedLabel); blocked != nil {
+		// Blocked IDs carry their provider as well.
+		m.setBlocked(blocked, nil)
+	}
 	if m.editing == "" {
 		m.applyRecommendedProfile()
 	}
@@ -2390,7 +2453,7 @@ func (m *Model) toolText(id string) string {
 				text += ")"
 			}
 		}
-		return text
+		return text + m.blockNote(id)
 	}
 	return id + "  " + tr(tFormNotRegistered)
 }
@@ -2683,6 +2746,9 @@ func (m *Model) updateConfirm(key tea.KeyPressMsg) tea.Cmd {
 	if cmd, ok := m.updateTokenScreens(key); ok {
 		return cmd
 	}
+	if m.requestDetail != "" {
+		return m.updateRequestDetail(key)
+	}
 	if name := m.approvalDetail; name != "" {
 		switch {
 		case keyIs(key, actYes):
@@ -2951,10 +3017,13 @@ func (m *Model) entryNames(s section) []string {
 	case sectionVault:
 		// A settings form, not a list of named entries.
 	case sectionApprovals:
+		// The requests come first, newest first as the queue lists them, then the connections to approve.
 		report, _ := m.approvalsReport()
 		for _, c := range report.Open {
 			names = append(names, c.Connection)
 		}
+		sort.Strings(names)
+		return append(m.requestNames(), names...)
 	case sectionTokens:
 		names = m.tokenNames()
 	}
@@ -3190,6 +3259,7 @@ func (m *Model) buildFieldsFrom(edit, source string) []field {
 			field{label: profileLabel, kind: fieldChoice, hidden: true},
 		)
 		fields = append(fields, m.accessFields(provider, conn.Effects, conn.Tools)...)
+		fields = append(fields, m.blockedField(conn.BlockedTools))
 		if m.wantsForwardRow(conn) {
 			fields = append(fields, m.forwardField(conn.ForwardSecrets))
 		}
@@ -3402,6 +3472,11 @@ func (m *Model) apply(cfg *config.Config, name string) error {
 		if row := m.field(forwardLabel); row != nil {
 			forward = append(forward, row.marked()...)
 		}
+		// No row edits the blocked tools of a form without the row, so it keeps those of its entry.
+		blocked := cfg.Connections[m.sourceEntry(name)].BlockedTools
+		if row := m.field(blockedLabel); row != nil {
+			blocked = append([]string(nil), row.marked()...)
+		}
 		// SetConnection drops the labels of targets the list no longer holds.
 		labels := targetLabelsOf(m.fields)
 		return cfg.SetConnection(name, config.Connection{
@@ -3413,6 +3488,7 @@ func (m *Model) apply(cfg *config.Config, name string) error {
 			Description:    m.fieldValue("description"),
 			Effects:        permissions,
 			Tools:          tools,
+			BlockedTools:   blocked,
 			Paths:          paths,
 			Files:          files,
 			ForwardSecrets: forward,
@@ -4408,10 +4484,16 @@ func (m *Model) listFrame() (string, string) {
 		keys = "{left}/{right} tab · {next} next · {prev} rows · {up}/{down} move · {pageup}/{pagedown} scroll · {enter} edit · {back} rows · {command} cmds · {help} help · {quit} quit"
 	case m.detailFocused():
 		keys = "{left}/{right} tab · {next} next · {prev} rows · {up}/{down} move · {enter} edit · {back} rows · {command} cmds · {help} help · {quit} quit"
+	case m.section == sectionApprovals && m.requestRowSelected():
+		keys = "{enter} decide · " + back + " · {command} cmds · {help} help · {quit} quit"
+	case m.section == sectionApprovals && m.vaultProcessOnly():
+		keys = "{enter} passphrase for this window · " + back + " · {command} cmds · {help} help · {quit} quit"
 	case m.section == sectionApprovals && m.vaultLocked():
 		keys = "{enter} unlock · " + back + " · {command} cmds · {help} help · {quit} quit"
 	case m.section == sectionApprovals:
 		keys = "{enter} details · {approveall} approve all · " + back + " · {command} cmds · {help} help · {quit} quit"
+	case m.section == sectionTokens && m.vaultProcessOnly():
+		keys = "{enter} passphrase for this window · {new} new · " + back + " · {command} cmds · {help} help · {quit} quit"
 	case m.section == sectionTokens && m.vaultLocked():
 		keys = "{enter} unlock · {new} new · " + back + " · {command} cmds · {help} help · {quit} quit"
 	case m.section == sectionTokens && m.tokensBlocked() != "" && total == 0:
@@ -4465,6 +4547,9 @@ func (m *Model) listFrame() (string, string) {
 			}
 		}
 		foot = m.testLine() + idle.String() + foot
+	}
+	if m.section == sectionApprovals {
+		foot = m.requestsNote(total) + foot
 	}
 	if m.noticeAt >= 0 {
 		m.noticeAt += strings.Count(foot, "\n") - lines
@@ -4716,7 +4801,7 @@ func (m *Model) pickerRowText(i int) string {
 	case m.pickerMarks != nil:
 		text = tickBox(m.pickerMarks[choice]) + " "
 		rest := m.picker.text(choice)
-		if !active && m.fields[m.focus].label == toolListLabel {
+		if !active && (m.fields[m.focus].label == toolListLabel || m.fields[m.focus].label == blockedLabel) {
 			// The ID and what follows it stand faint on rows that are not active; they stay text, so nothing
 			// depends on the faint style. A row without a title is faint from the ID on as well.
 			// rest is toolText: the title and its gap come before the ID.
@@ -4867,6 +4952,9 @@ type nextStepItem struct {
 // without a passphrase, then the connection setup or its test.
 func (m *Model) nextSteps() []nextStepItem {
 	var steps []nextStepItem
+	if n := len(m.requests); n > 0 {
+		steps = append(steps, nextStepItem{tr(tStepRequests, n, sectionApprovals.ref()), sectionApprovals})
+	}
 	if m.hasOpenApprovals() {
 		steps = append(steps, nextStepItem{tr(tStepOpen, sectionApprovals.ref()), sectionApprovals})
 	}
@@ -5072,9 +5160,10 @@ var sectionColumns = map[section][]column{
 		{title: "SERVICE", tone: toneText}, {title: "EFFECTS", optional: true, tone: toneDim},
 		{title: "TOOLS", optional: true, tone: toneDim}, {title: "TARGETS", optional: true, tone: toneDim},
 		{title: "DESCRIPTION", flex: true, tone: toneText}},
-	sectionDefaults:  {{title: "PROVIDER OR TOOL", tone: toneText}, {title: "CONNECTION", tone: toneText}},
-	sectionApprovals: {{title: "CONNECTION", tone: toneText}, {title: "CHANGE", flex: true, tone: toneText}},
-	sectionTokens:    {{title: "NAME", tone: toneText}, {title: "EXPIRES", tone: toneDim}, {title: "MODELS", flex: true, tone: toneText}},
+	sectionDefaults: {{title: "PROVIDER OR TOOL", tone: toneText}, {title: "CONNECTION", tone: toneText}},
+	sectionApprovals: {{title: "CONNECTION", tone: toneText}, {title: "KIND", tone: toneDim},
+		{title: "CHANGE", flex: true, tone: toneText}},
+	sectionTokens: {{title: "NAME", tone: toneText}, {title: "EXPIRES", tone: toneDim}, {title: "MODELS", flex: true, tone: toneText}},
 }
 
 // connectionStateTone colours the state of a connection: active green, expired red, anything else (disabled)
@@ -5198,13 +5287,16 @@ func (m *Model) cells(name string) []string {
 	case sectionDefaults:
 		return []string{name, m.cfg.Defaults.Connections[name]}
 	case sectionApprovals:
+		if id, ok := requestIDOf(name); ok {
+			return m.requestCells(id)
+		}
 		report, _ := m.approvalsReport()
 		for _, c := range report.Open {
 			if c.Connection == name {
-				return []string{name, approvalSummary(c)}
+				return []string{name, tr(tApprovalKindCell), approvalSummary(c)}
 			}
 		}
-		return []string{name, ""}
+		return []string{name, tr(tApprovalKindCell), ""}
 	case sectionTokens:
 		return m.tokenCells(name)
 	}
@@ -5318,6 +5410,8 @@ func (m *Model) confirmView() string {
 		return m.migratePlanView()
 	case m.migrateDeleteConfirm:
 		return m.migrateResultView()
+	case m.requestDetail != "":
+		return m.requestDetailView()
 	case m.approvalDetail != "":
 		return m.approvalDetailView()
 	case m.approveAllConfirm:

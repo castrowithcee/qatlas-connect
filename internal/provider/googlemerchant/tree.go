@@ -21,12 +21,12 @@ type node struct {
 type nodeKind int
 
 const (
-	kindText nodeKind = iota
-	kindBool
-	kindNumber
-	kindInt // a 64-bit integer, which the API writes as a string
-	kindObject
-	kindList
+	nodeText nodeKind = iota
+	nodeBool
+	nodeNumber
+	nodeInt // a 64-bit integer, which the API writes as a string
+	nodeObject
+	nodeList
 )
 
 type field struct {
@@ -42,41 +42,41 @@ const (
 )
 
 var (
-	tID   = &node{kind: kindText, limit: maxIDRunes}   // codes, enum values, times, units
-	tName = &node{kind: kindText, limit: maxNameRunes} // titles and other free text
-	tLong = &node{kind: kindText, limit: maxTextRunes} // descriptions
-	tURL  = &node{kind: kindText, limit: maxURLRunes}  // links, never fetched
-	tBool = &node{kind: kindBool}
-	tNum  = &node{kind: kindNumber}
-	tInt  = &node{kind: kindInt}
+	tID   = &node{kind: nodeText, limit: maxIDRunes}   // codes, enum values, times, units
+	tName = &node{kind: nodeText, limit: maxNameRunes} // titles and other free text
+	tLong = &node{kind: nodeText, limit: maxTextRunes} // descriptions
+	tURL  = &node{kind: nodeText, limit: maxURLRunes}  // links, never fetched
+	tBool = &node{kind: nodeBool}
+	tNum  = &node{kind: nodeNumber}
+	tInt  = &node{kind: nodeInt}
 )
 
 func f(name string, n *node) field { return field{name: name, node: n} }
-func obj(fields ...field) *node    { return &node{kind: kindObject, fields: fields} }
-func list(item *node) *node        { return &node{kind: kindList, item: item} }
+func obj(fields ...field) *node    { return &node{kind: nodeObject, fields: fields} }
+func list(item *node) *node        { return &node{kind: nodeList, item: item} }
 
 var integerForm = regexp.MustCompile(`^-?[0-9]{1,20}$`)
 
 // clean reads raw against the node. It reports false for a value that is missing, of the wrong type, or empty.
 func (n *node) clean(raw json.RawMessage, depth int) (any, bool) {
 	switch n.kind {
-	case kindText:
+	case nodeText:
 		text := clipJSON(raw, n.limit)
 		return text, text != ""
-	case kindBool:
+	case nodeBool:
 		var v *bool
 		if json.Unmarshal(raw, &v) != nil || v == nil {
 			return nil, false
 		}
 		return *v, true
-	case kindNumber:
+	case nodeNumber:
 		var v any
 		if json.Unmarshal(raw, &v) != nil {
 			return nil, false
 		}
 		number, ok := v.(float64)
 		return number, ok
-	case kindInt:
+	case nodeInt:
 		var v any
 		if json.Unmarshal(raw, &v) != nil {
 			return nil, false
@@ -90,7 +90,7 @@ func (n *node) clean(raw json.RawMessage, depth int) (any, bool) {
 			}
 		}
 		return nil, false
-	case kindObject:
+	case nodeObject:
 		if depth >= maxDepth {
 			return nil, false
 		}
@@ -147,13 +147,13 @@ func cleanObjects(n *node, raws []json.RawMessage) []map[string]any {
 // schema writes the JSON schema of the node. A node met again inside itself ends as a plain object.
 func (n *node) schema(open map[*node]bool) string {
 	switch n.kind {
-	case kindText, kindInt:
+	case nodeText, nodeInt:
 		return stringSchema
-	case kindBool:
+	case nodeBool:
 		return boolSchema
-	case kindNumber:
+	case nodeNumber:
 		return `{"type":"number"}`
-	case kindList:
+	case nodeList:
 		return `{"type":"array","items":` + n.item.schema(open) + `}`
 	}
 	if open[n] {

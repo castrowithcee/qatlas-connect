@@ -80,6 +80,9 @@ const (
 	CodeUnknownToolEntry             = "unknown-tool-entry"
 	CodeInvalidToolPrefix            = "invalid-tool-prefix"
 	CodeToolPrefixNoMatch            = "tool-prefix-no-match"
+	CodeInvalidBlockedTool           = "invalid-blocked-tool"
+	CodeBlockedToolOfOtherProvider   = "blocked-tool-of-other-provider"
+	CodeBlockedToolListed            = "blocked-tool-listed"
 	CodeFilesEmpty                   = "files-empty"
 	CodeFilesDirectionUnsupported    = "files-direction-unsupported"
 	CodeInvalidFilesEntry            = "invalid-files-entry"
@@ -159,6 +162,9 @@ var hints = map[string]string{
 	CodeToolOfOtherProvider:          "Remove the tool; it belongs to another provider.",
 	CodeUnknownToolEntry:             "Remove the entry, or choose a registered tool of the provider.",
 	CodeInvalidToolPrefix:            "Write the prefix as the provider ID, at least one whole segment and a final '*' (no '*' elsewhere), or list the exact tool.",
+	CodeInvalidBlockedTool:           "Remove the entry, or name a registered tool of the provider or a prefix of one (provider ID, at least one whole segment, final '*').",
+	CodeBlockedToolOfOtherProvider:   "Remove the entry; it belongs to another provider.",
+	CodeBlockedToolListed:            "Remove the entry, or take the tool out of the tools list; a tool the list selects cannot also be blocked.",
 	CodeToolPrefixNoMatch:            "Remove the prefix, or choose one that covers a registered tool; a tool that requires the allow-list is never covered and needs its exact ID.",
 	CodeFilesEmpty:                   "List at least one directory, or leave the direction out to release none.",
 	CodeFilesDirectionUnsupported:    "Remove the direction; the provider has no tool that uses it.",

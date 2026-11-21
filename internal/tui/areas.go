@@ -29,6 +29,16 @@ func (a area) key() string {
 	return [...]string{"Overview", "Library", "Connections", "Activity", "Access", "Settings"}[a]
 }
 
+// AreaNames returns the English names of the areas in the order of the tab line; the digit that opens an
+// area is its position plus one.
+func AreaNames() []string {
+	names := make([]string, 0, areaCount)
+	for a := area(0); a < areaCount; a++ {
+		names = append(names, a.key())
+	}
+	return names
+}
+
 // title is the name of the area as drawn.
 func (a area) title() string {
 	return tr([...]textID{tAreaOverview, tAreaLibrary, tAreaConnections, tAreaActivity, tAreaAccess, tAreaSettings}[a])

@@ -45,15 +45,15 @@ var wantProductAttributes = []string{
 // sample writes a value of the right type for every member of a node.
 func sample(n *node) any {
 	switch n.kind {
-	case kindText:
+	case nodeText:
 		return "text"
-	case kindBool:
+	case nodeBool:
 		return true
-	case kindNumber:
+	case nodeNumber:
 		return 1.5
-	case kindInt:
+	case nodeInt:
 		return "7"
-	case kindList:
+	case nodeList:
 		return []any{sample(n.item)}
 	}
 	out := map[string]any{}

@@ -172,3 +172,67 @@ func TestRecordedExclusionChangeCarriesNoValue(t *testing.T) {
 		t.Errorf("the log carries an exclusion: %s", lines[0])
 	}
 }
+
+func TestRecordRequestWritesOneEntryPerTool(t *testing.T) {
+	dir := t.TempDir()
+	id, err := age.GenerateX25519Identity()
+	if err != nil {
+		t.Fatal(err)
+	}
+	key, err := invokelog.DeriveKey(id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	recorder := &Recorder{Writer: invokelog.New(dir, 90).WithKey(key), Surface: SurfaceCLI}
+	const connectionID = "0123456789abcdef0123456789abcdef"
+	if err := recorder.RecordRequest(invokelog.OperationRequestCreate, "wiki", connectionID,
+		[]string{"wiki.pages.delete", "wiki.books.*"}); err != nil {
+		t.Fatalf("RecordRequest() = %v", err)
+	}
+	lines := logLines(t, dir)
+	if len(lines) != 2 {
+		t.Fatalf("%d entries, want 2: %v", len(lines), lines)
+	}
+	for i, tool := range []string{"wiki.pages.delete", "wiki.books.*"} {
+		for _, want := range []string{`"operation":"config.request.create"`, `"connection":"wiki"`,
+			`"connection_id":"` + connectionID + `"`, `"tool":"` + tool + `"`, `"effect":"create"`} {
+			if !strings.Contains(lines[i], want) {
+				t.Errorf("entry %d lacks %s: %s", i, want, lines[i])
+			}
+		}
+	}
+	report, err := invokelog.VerifyWith(dir, key)
+	if err != nil || report.Broken || !report.Checked || report.Days[0].Unverified != 0 {
+		t.Fatalf("report = %+v, %v, want signed entries in an intact chain", report, err)
+	}
+
+	before := len(lines)
+	if err := recorder.RecordRequest(invokelog.OperationRequestCreate, "wiki", connectionID, []string{"free text"}); err == nil {
+		t.Error("RecordRequest() with free text = nil, want an error")
+	}
+	if err := recorder.RecordRequest(invokelog.OperationConnectionCreate, "wiki", connectionID, []string{"wiki.pages.get"}); err == nil {
+		t.Error("RecordRequest() with another operation = nil, want an error")
+	}
+	if got := len(logLines(t, dir)); got != before {
+		t.Errorf("an invalid event was logged: %d entries, want %d", got, before)
+	}
+	if err := (*Recorder)(nil).RecordRequest(invokelog.OperationRequestCreate, "wiki", "", []string{"wiki.pages.get"}); err != nil {
+		t.Errorf("nil recorder: %v", err)
+	}
+}
+
+func TestRecordRequestOverMCPNeedsTheSession(t *testing.T) {
+	dir := t.TempDir()
+	recorder := &Recorder{Writer: invokelog.New(dir, 90), Surface: "mcp"}
+	if err := recorder.RecordRequest(invokelog.OperationRequestCreate, "wiki", "", []string{"wiki.pages.get"}); err == nil {
+		t.Fatal("RecordRequest() without a session = nil, want an error")
+	}
+	session, err := invokelog.NewSession()
+	if err != nil {
+		t.Fatal(err)
+	}
+	recorder.Session = session
+	if err := recorder.RecordRequest(invokelog.OperationRequestCreate, "wiki", "", []string{"wiki.pages.get"}); err != nil {
+		t.Fatalf("RecordRequest() = %v", err)
+	}
+}

@@ -7,6 +7,7 @@ import (
 	"strings"
 	"unicode/utf8"
 
+	"github.com/castrowithcee/qatlas-connect/internal/accessrequest"
 	"github.com/castrowithcee/qatlas-connect/internal/capability"
 	"github.com/castrowithcee/qatlas-connect/internal/config"
 	"github.com/castrowithcee/qatlas-connect/internal/provider"
@@ -36,6 +37,7 @@ const (
 	CodeCredentialUnusable    output.Code = "credential-unusable"
 	CodeImpersonationDenied   output.Code = "impersonation-denied"
 	CodeServiceAccountUnknown output.Code = "service-account-unknown"
+	CodeRequestBlocked        output.Code = "request-blocked"
 )
 
 // AllErrorCodes lists every error code this build can emit: the shared codes of the kit, then the ones above.
@@ -44,13 +46,16 @@ func AllErrorCodes() ([]output.Code, error) {
 		CodeConnectionSelection, CodeUnknownConnection, CodeConnectionAmbiguous, CodeUnknownOperation,
 		CodeUnsupportedCapability, CodeMissingSecret, CodePolicyDenied, CodeSecretRefNotAllowed,
 		CodeInvalidProviderResult, CodeProviderError, CodeConsentRequired, CodeConsentExpired, CodeScopeMissing,
-		CodeCredentialUnusable, CodeImpersonationDenied, CodeServiceAccountUnknown,
+		CodeCredentialUnusable, CodeImpersonationDenied, CodeServiceAccountUnknown, CodeRequestBlocked,
 	)
 }
 
 // InvalidRequestError reports malformed JSON or arguments that do not satisfy the input schema. The message
 // carries no prefix of its own: every diagnostic already leads with the invalid-request code.
 type InvalidRequestError = provider.InvalidRequestError
+
+// RequestBlockedError reports a tool request for tools a person blocked on the connection.
+type RequestBlockedError = accessrequest.BlockedError
 
 // UnknownOperationError reports an operation ID or requested version absent from the registry. Suggestion
 // is the registered ID the unknown one most likely misspells, or empty. RenamedTo is the current ID when
@@ -269,6 +274,7 @@ func ErrorCode(err error) output.Code {
 		invalidResult *InvalidProviderResponseError
 		adminReq      *AdminRequiredError
 		secretRef     *SecretRefNotAllowedError
+		blocked       *RequestBlockedError
 
 		missingSecret   *secret.MissingSecretError
 		permission      *secret.PermissionError
@@ -304,6 +310,8 @@ func ErrorCode(err error) output.Code {
 		return output.CodeConfirmationRequired
 	case errors.As(err, &secretRef):
 		return CodeSecretRefNotAllowed
+	case errors.As(err, &blocked):
+		return CodeRequestBlocked
 	case errors.As(err, &denied):
 		return CodePolicyDenied
 	case errors.As(err, &invalidResult):

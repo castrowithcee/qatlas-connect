@@ -148,11 +148,11 @@ func TestGitHubToolsAreDiscoverable(t *testing.T) {
 	if code != exitOK || stderr != "" {
 		t.Fatalf("exit=%d stderr=%q", code, stderr)
 	}
-	listed := toolRows(t, stdout, "{id,title,effect,requires,target,confirm,connections,reason}:")
+	listed := toolRows(t, stdout, "{id,title,effect,requires,target,confirm,connections,reason,requestable_on}:")
 	if want := len(sharedRegistry().Provider("github")); listed != want {
 		t.Errorf("tools --all lists %d GitHub tools, the registry holds %d", listed, want)
 	}
-	if got := strings.Count(stdout, ",\"\"\n"); got != offered {
+	if got := strings.Count(stdout, ",\"\",\"\"\n"); got != offered {
 		t.Errorf("tools --all lists %d tools without a reason, the default listing offers %d", got, offered)
 	}
 	for _, want := range []string{

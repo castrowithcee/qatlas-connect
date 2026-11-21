@@ -152,6 +152,9 @@ func nextStep(err error, r route) string {
 		}
 		return "store either a client ID or a service account key for the credential, and remove the other with " +
 			"'qconnect credential delete <credential> <role>' or in 'qconnect tui'"
+	case application.CodeRequestBlocked:
+		// The person decided; asking again would only press them.
+		return "do not request these tools again; tell the user if the task cannot go on without them"
 	case application.CodeUnsupportedCapability:
 		// The step is the same whatever the reason: pick a route that offers the tool, or change this one.
 		// Without a refused connection no route offers the tool at all, and nothing is left to pick.
@@ -331,6 +334,7 @@ func classifyUserError(err error) error {
 		confirmation *application.ConfirmationRequiredError
 		denied       *application.PolicyDeniedError
 		secretRef    *application.SecretRefNotAllowedError
+		blocked      *application.RequestBlockedError
 
 		missingSecret   *secret.MissingSecretError
 		permission      *secret.PermissionError
@@ -343,7 +347,8 @@ func classifyUserError(err error) error {
 		errors.As(err, &missingSecret), errors.As(err, &permission), errors.As(err, &vaultPermission),
 		errors.As(err, &approval),
 		errors.As(err, &invalidReq), errors.As(err, &unknownOp), errors.As(err, &ambiguous),
-		errors.As(err, &confirmation), errors.As(err, &appSelection), errors.As(err, &denied), errors.As(err, &secretRef):
+		errors.As(err, &confirmation), errors.As(err, &appSelection), errors.As(err, &denied), errors.As(err, &secretRef),
+		errors.As(err, &blocked):
 		return &UsageError{err}
 	}
 	return err

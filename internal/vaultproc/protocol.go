@@ -151,6 +151,7 @@ type logEntry struct {
 	// drops them and logs the entry without.
 	ConnectionID     string `json:"connection_id,omitempty"`
 	FormerConnection string `json:"former_connection,omitempty"`
+	Tool             string `json:"tool,omitempty"`
 	Effect           string `json:"effect,omitempty"`
 	Result           string `json:"result"`
 	DurationMS       int64  `json:"duration_ms,omitempty"`
@@ -162,7 +163,7 @@ type logEntry struct {
 func (e logEntry) fields() invokelog.Fields {
 	return invokelog.Fields{
 		Path: e.Path, Client: e.Client, Operation: e.Operation, Version: e.Version, Connection: e.Connection,
-		ConnectionID: e.ConnectionID, FormerConnection: e.FormerConnection,
+		ConnectionID: e.ConnectionID, FormerConnection: e.FormerConnection, Tool: e.Tool,
 		Effect: e.Effect, Result: e.Result, Duration: time.Duration(e.DurationMS) * time.Millisecond,
 		ReqBytes: e.ReqBytes, RespBytes: e.RespBytes, Session: e.Session,
 	}
@@ -171,7 +172,7 @@ func (e logEntry) fields() invokelog.Fields {
 func logEntryOf(f invokelog.Fields) *logEntry {
 	return &logEntry{
 		Path: f.Path, Client: f.Client, Operation: f.Operation, Version: f.Version, Connection: f.Connection,
-		ConnectionID: f.ConnectionID, FormerConnection: f.FormerConnection,
+		ConnectionID: f.ConnectionID, FormerConnection: f.FormerConnection, Tool: f.Tool,
 		Effect: f.Effect, Result: f.Result, DurationMS: f.Duration.Milliseconds(),
 		ReqBytes: f.ReqBytes, RespBytes: f.RespBytes, Session: f.Session,
 	}

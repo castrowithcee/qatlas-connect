@@ -55,7 +55,8 @@ var problemRows = map[string]map[string]string{
 		"": "name", "service": "service", "credential": "credential", "forward_secrets": forwardLabel,
 		"description": "description", "effects": effectsLabel, "target": targetsLabel,
 		"targets": targetsLabel, "exclude": targetsLabel, "target_labels": targetsLabel, "paths": pathsLabel, "tools": toolListLabel,
-		"files.read": filesReadLabel, "files.write": filesWriteLabel,
+		"blocked_tools": blockedLabel,
+		"files.read":    filesReadLabel, "files.write": filesWriteLabel,
 	},
 	config.SectionDefaults: {"": "domain"},
 }
