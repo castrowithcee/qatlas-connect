@@ -72,6 +72,8 @@ developer registration, and the consent.
 | `google.merchant.conversion-sources.get` | one conversion source, see [conversion sources](conversions.md) |
 | `google.merchant.conversion-sources.create` | creates a Merchant Center destination as conversion source (create), see [conversion sources](conversions.md) |
 | `google.merchant.conversion-sources.update` | changes a Merchant Center destination (update), see [conversion sources](conversions.md) |
+| `google.merchant.conversion-sources.undelete` | restores an archived Merchant Center destination (update, tools list only), see [conversion sources](conversions.md) |
+| `google.merchant.conversion-sources.delete` | archives a Merchant Center destination or removes a Google Analytics link (delete, tools list only), see [conversion sources](conversions.md) |
 | `google.merchant.issue-resolutions.render-account-issues` | the issues of an account with resolution content and actions, as text, see [issue rendering](issue-resolutions.md) |
 | `google.merchant.issue-resolutions.render-product-issues` | the issues of one product with resolution content and actions, as text, see [issue rendering](issue-resolutions.md) |
 | `google.merchant.email-preferences.get` | the email preferences of the user of the credential, see [email preferences](email-preferences.md) |
