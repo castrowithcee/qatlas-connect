@@ -17,6 +17,10 @@ import (
 var wantToolIDs = []string{
 	"google.merchant.accounts.get",
 	"google.merchant.accounts.list",
+	"google.merchant.autofeed-settings.get",
+	"google.merchant.autofeed-settings.update",
+	"google.merchant.automatic-improvements.get",
+	"google.merchant.automatic-improvements.update",
 	"google.merchant.developer-registrations.get",
 	"google.merchant.limits.get",
 	"google.merchant.limits.list",
@@ -534,7 +538,8 @@ func TestEveryToolCarriesExamplesFieldsAndAnUntrustedContentNote(t *testing.T) {
 		if len(d.Examples) == 0 || len(d.Fields) == 0 {
 			t.Errorf("%s has no example or no fields", d.ID)
 		}
-		if !strings.Contains(d.Description, "untrusted") && d.ID != developerRegistrationsGetID {
+		if !strings.Contains(d.Description, "untrusted") && d.ID != developerRegistrationsGetID &&
+			!slices.Contains(flagOnlyIDs, d.ID) {
 			t.Errorf("%s does not warn about untrusted content", d.ID)
 		}
 	}

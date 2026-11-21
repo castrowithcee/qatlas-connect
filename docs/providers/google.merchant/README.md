@@ -28,11 +28,16 @@ developer registration, and the consent.
 | `google.merchant.terms-of-service.retrieve-latest` | the latest terms of service for a kind and a region |
 | `google.merchant.terms-of-service-agreement-states.get` | the agreement state of an account for one kind and country |
 | `google.merchant.terms-of-service-agreement-states.retrieve-for-application` | the agreement state of an account for the application terms |
+| `google.merchant.autofeed-settings.get` | whether the autofeed of an account is on and whether the account is eligible |
+| `google.merchant.automatic-improvements.get` | the automatic item updates, image improvements, and shipping improvements of an account |
+| `google.merchant.autofeed-settings.update` | turns the autofeed of an account on or off (update, listed tools only) |
+| `google.merchant.automatic-improvements.update` | changes the automatic improvements of an account (update, listed tools only) |
 
-The terms tools are described in [terms of service](terms-of-service.md).
+The terms tools are described in [terms of service](terms-of-service.md), the two updates in [Autofeed and
+automatic improvements](autofeed.md).
 
-Every read tool needs no confirmation; enabling or disabling a program needs one for
-every call. The account resource has the members `name`, `accountId`,
+Every read tool needs no confirmation; enabling or disabling a program and the two updates need one for every
+call. The account resource has the members `name`, `accountId`,
 `accountName`, `testAccount`, `adultContent`, `languageCode`, `homePageUri`, and `timeZone` (`id`, `version`);
 all are output. It has no member for the account type, so Qatlas shows none: an advanced account is
 recognised only by its sub-accounts, which a target proves.
@@ -194,6 +199,9 @@ Not verified:
   is enough for these tools; Google names only the role Admin for some methods.
 - Whether Merchant Center accepts an impersonated service account as a user.
 - Whether the scope `content` needs an app verification for an OAuth client of your own project.
+
+Updates are sent once, with a JSON body built from the structured arguments. They are not repeated after `401`,
+`429`, or `5xx`, because Google may already have applied them, and every call counts against the quota.
 
 No tool of this provider invites a user, registers or unregisters a Cloud project, links an account to another
 one, sets a notification address, or accepts terms for an account (`terms-of-service.accept` is deliberately

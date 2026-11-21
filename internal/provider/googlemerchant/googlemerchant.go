@@ -135,9 +135,12 @@ func Register(reg *capability.Registry) error {
 		limitsGetID:    handleLimitsGet,
 		programsListID: handleProgramsList, programsGetID: handleProgramsGet,
 		programsEnableID: handleProgramsEnable, programsDisableID: handleProgramsDisable,
+		autofeedSettingsGetID: handleAutofeedSettingsGet, autofeedSettingsUpdateID: handleAutofeedSettingsUpdate,
+		automaticImprovementsGetID: handleAutomaticImprovementsGet, automaticImprovementsUpdateID: handleAutomaticImprovementsUpdate,
 	}
 	summaries := map[string]capability.SummaryFunc{
 		programsEnableID: programSummary("Enable"), programsDisableID: programSummary("Disable"),
+		autofeedSettingsUpdateID: autofeedSummary, automaticImprovementsUpdateID: improvementsSummary,
 	}
 	for _, d := range descriptors() {
 		if err := reg.Register(Provider, capability.Operation{Descriptor: d, Handler: handlers[d.ID],
