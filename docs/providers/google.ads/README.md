@@ -1,0 +1,208 @@
+---
+description: >
+  Describes the Google Ads provider: the token credential with the adwords scope and no developer token, the fixed API version v26, the service option login_customer_id and the login-customer-id header, the manager and customer targets with the membership read, the profile read, the tools customers.list-accessible, customers.get and customer-clients.list, the GoogleAdsFailure and quota errors and their classes, rate spacing, the connection test, and what is not verified.
+type: knowledge
+edit: shared
+created: 2026-11-19
+updated: 2026-11-19
+---
+
+# Google Ads
+
+Google Ads is a provider for the Google Ads API, version v26, over its REST interface, with one credential that
+issues access tokens. It lists the accounts a credential reaches, reads the settings of an account, and lists the
+hierarchy below a manager account.
+
+[Set up Google Ads](setup.md) leads through the Cloud project, its access level, and the credential. The fields
+of a tool are in its descriptor; this page holds what the descriptor does not say.
+
+## Configuration
+
+The service is always the official origin `https://googleads.googleapis.com`, which applies when `base_url` is
+left out. Qatlas refuses any other URL before a secret is read. The API version is fixed in the provider; a
+newer version comes with a new release of Qatlas, never from the configuration. A redirect is never followed,
+and a tool never takes an origin, a path, a header, a query string, or a body.
+
+The credential takes the roles of any token credential and picks its procedure from the roles that hold a value:
+a person's consent (`client_id`, optionally `client_secret`, and the `refresh_token` that
+`qconnect credential consent` stores), a service account (`service_account_key`), or the impersonation of a
+service account that the connection names with `service_account`. The connection holds no scope.
+
+The Google Ads API has one scope, `adwords`, for reading and changing alike. A token with it may change whatever
+its account may change in the reached Google Ads accounts, also when the connection offers only reading tools.
+What a connection may do is bounded by its effects, its `tools` list, and its targets. Qatlas sends no developer
+token; Google ended developer tokens, and its access level now belongs to the Cloud project of the OAuth client
+or the service account.
+
+### login_customer_id
+
+| Setting | Where | Meaning |
+| --- | --- | --- |
+| `login_customer_id` | `options` of the service, not secret, optional | Ten-digit customer ID of the manager account, without hyphens |
+
+When the credential reaches an account through a manager account, Google needs the ID of that manager in the
+`login-customer-id` header and evaluates the rights of the credential in its hierarchy. Without the header it
+evaluates the direct access of the credential. The value is no argument and never follows from a target: a
+caller cannot set or change it. Qatlas sends it with every request on an account, also with the membership read,
+and not with `customers.list-accessible`, for which it has no effect. A service takes no other option.
+
+To work in several manager hierarchies, configure one service with its own `login_customer_id` and a
+connection on it for each hierarchy. A service option is not part of the approval of a connection: changing it
+asks for no new approval. The targets keep bounding what the connection reaches either way.
+
+## Targets
+
+A connection may be bound to accounts by their ten-digit customer ID, several at once and of both kinds:
+
+| Form | Kind | Reaches |
+| --- | --- | --- |
+| `managers/MANAGER_ID` | manager | the manager account and every manager and client account below it, at any level |
+| `customers/CUSTOMER_ID` | customer | this one account; below a manager target or on its own |
+
+Targets are optional: without them the connection reaches what its credential reaches. The ID is written
+without hyphens. An ID may stand in the list only once, also across both kinds. A connection takes at most 100
+targets and no exclusions.
+
+Every tool that acts on an account takes `customer_id` as a required argument. Before a secret is read and
+before any request, Qatlas checks its form and the targets:
+
+- An account that a target names passes at once, as does any account of a connection without targets.
+- An account that no target names, on a connection without a manager target, is refused as `invalid-request`.
+  The message does not name the account.
+- An account that no target names, on a connection with manager targets, needs a membership read before the
+  tool reads anything of it: Qatlas asks the hierarchy of each manager target, under the `login_customer_id` of
+  the service, for exactly this client (`customer_client.id = ID`), in the order of the IDs, until one shows it.
+  Only a single row with the asked ID proves the membership. No row in any manager is the same refusal as above.
+  Two rows, another ID, an unreadable answer, or a failed read refuse the call with the class of that failure
+  and a message that names the membership check. Each read costs one operation of the daily quota.
+
+The membership read and the read of the tool are two requests. An account moved out of a manager in between is
+still read once. A customer target that names a manager account gives the hierarchy of that manager only as far
+as the targets name its accounts, because a row of `customer_client` does not say under which manager an account
+sits.
+
+## Profiles
+
+| Profile | Tools | Recommended |
+| --- | --- | --- |
+| `read` | `customers.list-accessible`, `customers.get`, `customer-clients.list` | yes |
+
+## Tools
+
+### customers.list-accessible
+
+Calls `GET /v26/customers:listAccessibleCustomers`. Google returns only the resource names of the accounts the
+credential reaches directly, without names; an account reached through a manager is often not among them, and
+`customer-clients.list` on the manager lists it. On a connection with targets, only accounts that a target
+names are returned; an account reachable only below a manager target is left out, since proving it would cost
+one read per manager. At most 1,000 accounts are returned, `truncated` says when more were cut. A resource name
+in another form than `customers/ID` makes the answer `invalid-provider-response`.
+
+### customers.get
+
+Runs a GAQL search `FROM customer` on the account with every selectable field of the `customer` resource in
+the fields reference of v26. The answer must hold exactly one row with the asked ID, otherwise it is
+`invalid-provider-response`. The redemption provider of Local Services appears as
+`external_merchant_numeric_id` and `external_merchant_alphanumeric_id`; each verification partner as `partner`
+and `allow_share_cost`. Without `full` or `fields`, an invoke answers the name, currency, time zone, status,
+and the manager and test account flags.
+
+`google_ads_conversion_customer` names the account that tracks conversions for this one. It is only an
+identifier and may name an account outside the targets.
+
+### customer-clients.list
+
+Runs a GAQL search `FROM customer_client` on the account, which lists every account below it at every level,
+the account itself at level 0. A client account lists only itself. Rows come sorted by ID. Qatlas asks for
+`page_size` rows plus one, which tells whether more follow, and continues after the ID of the last row with
+`next_cursor`. The cursor is bound to the arguments, the targets, and `login_customer_id`; it fails before any
+request if one of them changed. Rows must name the queried account and their own ID, and come in the order
+asked for; anything else is `invalid-provider-response`.
+
+Filters become conditions joined with `AND`. `name_contains` becomes `LIKE` with the characters `[`, `]`, `%`,
+and `_` matched literally; whether Google matches case-sensitively is not documented. Qatlas Connect does not
+escape GAQL strings: a text filter that holds a quote, a double quote, a backslash, or a control character is
+refused as `invalid-request` before a secret is read.
+
+On a manager target, or an account proved below one, every row is returned. On a customer target only rows of
+accounts that a target names are returned, so a page can hold fewer rows than `page_size`, or none, while
+`has_more` is true.
+
+Every text Google returns is untrusted and is cut: names, codes, and resource names at 1024 bytes or less,
+tracking templates, URL suffixes, and the global site tag at 4096 bytes, lists at 500 entries. An answer above
+8 MiB is `invalid-provider-response`.
+
+## Errors
+
+Qatlas' message never carries Google's text. Google answers a failed call with the Google error object whose
+details hold a `GoogleAdsFailure` with one or more errors, each with an error code of a category such as
+`authorizationError`, a message, and a field path, plus the request ID. The original in the `provider` field of
+the error detail (untrusted, redacted, and bounded) carries the status, every error code with its message and
+field path, and the request ID; the `trigger` of an error is left out, because it echoes request values. The
+first documented code decides:
+
+| Error code | Class | The message says |
+| --- | --- | --- |
+| `authorizationError.CLOUD_PROJECT_NOT_APPROVED_FOR_PRODUCTION` | `permission` | the Cloud project has test access only and how to apply for more |
+| `authorizationError.USER_PERMISSION_DENIED` | `permission` | the credential may not access the account; `login_customer_id` must name the manager |
+| `authorizationError.INVALID_LOGIN_CUSTOMER_ID_SERVING_CUSTOMER_ID_COMBINATION` | `permission` | the manager of `login_customer_id` does not reach the account |
+| `authorizationError.CUSTOMER_NOT_ENABLED`, `PROJECT_DISABLED`, `MISSING_TOS`, `CLOUD_PROJECT_NOT_UNDER_ORGANIZATION` | `permission` | the reason |
+| any other `authorizationError` | `permission` | the code |
+| `authenticationError.NOT_ADS_USER` | `auth` | the account of the credential is a user of no Google Ads account |
+| `authenticationError.OAUTH_TOKEN_*` and other token errors | `auth` | the token was refused |
+| `authenticationError.CUSTOMER_NOT_FOUND` | `not-found` | no account with this ID |
+| `quotaError.RESOURCE_TEMPORARILY_EXHAUSTED`, `RESOURCE_EXHAUSTED`, `EXCESSIVE_*_QUERY_RESOURCE_CONSUMPTION` | `rate-limited` | wait and try again |
+| `quotaError.ACCESS_PROHIBITED` | `permission` | access is not permitted |
+| `headerError.INVALID_LOGIN_CUSTOMER_ID` | `provider-error` | Google refused `login_customer_id` |
+| any `notAllowlistedError` | `permission` | the feature is not allowlisted |
+
+Without a documented code, the HTTP status and the error object decide: 401 `auth`; 403 with reason
+`SERVICE_DISABLED` `permission` naming `googleads.googleapis.com` as the API to enable, with
+`ACCESS_TOKEN_SCOPE_INSUFFICIENT` `scope-missing`, otherwise `permission`; 404 with status `NOT_FOUND`
+`not-found`; 429 `rate-limited`, which also covers a request Google found too large; 400 and any other 4xx
+`invalid-provider-response`, since Qatlas built the request; 5xx by HTTP status. A failed token request ends as
+`auth`, `consent-required`, or `consent-expired`, as the core decides.
+
+Every request is a read. It times out after 20 seconds and repeats once after a 401 with a renewed token, never
+otherwise.
+
+## Rate spacing
+
+Requests of one credential are spaced by at least 250 ms within a process. This is a cautious start of Qatlas,
+not a Google limit. After a rate or quota error the next request of the credential waits the `retryDelay` of
+the quota error details or the seconds of `Retry-After`, at least one second and at most one minute. The failed
+request is not repeated.
+
+Every search and every `listAccessibleCustomers` counts as one operation of the daily quota of the Cloud
+project, also when it fails; the membership read counts as well.
+
+## Connection test
+
+The connection test (`t` on a connection in `qconnect tui`) obtains an access token, checks that it holds the
+`adwords` scope, and calls `listAccessibleCustomers`. That costs one operation of the daily quota and no money,
+and needs no account. It proves the token, the scope, and the enabled API. It does not prove the access level
+of the Cloud project for production accounts, the access to a target, or `login_customer_id`; the first call of
+`customers.get` on a target shows those.
+
+## Boundary
+
+Not verified:
+
+- Whether `listAccessibleCustomers` with a project of test access answers `CLOUD_PROJECT_NOT_APPROVED_FOR_PRODUCTION`
+  for production accounts, and which role an account needs for which call. No live call has been made.
+- Which Cloud project decides the access level when a person's token impersonates a service account. Google
+  documents the consent and the service account key for Google Ads, not the impersonation.
+- Whether `customer_client` lists hidden, canceled, or closed clients by default.
+- `listAccessibleCustomers` ignoring `login-customer-id` is not stated on its reference page; Qatlas does not
+  send the header there.
+- The fields reference of v26 lists `customer.local_services_settings.redemption_provider_info.external_merchant_id`
+  as selectable, while the reference of `LocalServicesSettings` lists only the license and insurance statuses.
+  Qatlas follows the fields reference.
+- The error code of the daily operation limit, and how `retryDelay` and its scope behave in practice.
+
+Left out on purpose:
+
+- The `linked-customer-id` header, which only partners with a product link use.
+- `GoogleAdsService.SearchStream`, page tokens of Google, and the `page_size` of a search, which Google no
+  longer accepts.
+- Any free query, path, or header.
