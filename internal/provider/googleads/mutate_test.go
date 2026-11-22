@@ -18,7 +18,12 @@ import (
 
 var changeToolIDs = []string{customersUpdateID, customerBudgetNetworkSettingsCreateID, customerBudgetNetworkSettingsUpdateID,
 	customerUserAccessesUpdateID, customerUserAccessesRemoveID, customerUserAccessInvitationsRemoveID,
-	multiPartyAuthReviewsResolveID}
+	multiPartyAuthReviewsResolveID, conversionActionsCreateID, conversionActionsUpdateID, conversionActionsRemoveID,
+	customerManagerLinksUpdateID, customerClientLinksUpdateID}
+
+// notListedOnly are the changing tools that a connection with the matching effect offers without a tools list.
+// They still need the confirmation of every call.
+var notListedOnly = []string{customInterestsCreateID, customInterestsUpdateID, audiencesCreateID, audiencesUpdateID}
 
 // noValidateOnly are the changing tools whose Mutate request has no validate_only in v26; they offer none.
 var noValidateOnly = []string{customerUserAccessesUpdateID, customerUserAccessesRemoveID,
@@ -71,7 +76,10 @@ func TestChangeToolsAreListedOnlyConfirmedAndOutsideTheReadProfile(t *testing.T)
 		customerBudgetNetworkSettingsCreateID: capability.EffectCreate,
 		customerBudgetNetworkSettingsUpdateID: capability.EffectUpdate,
 		customerUserAccessesUpdateID:          capability.EffectUpdate, customerUserAccessesRemoveID: capability.EffectDelete,
-		customerUserAccessInvitationsRemoveID: capability.EffectDelete, multiPartyAuthReviewsResolveID: capability.EffectUpdate}
+		customerUserAccessInvitationsRemoveID: capability.EffectDelete, multiPartyAuthReviewsResolveID: capability.EffectUpdate,
+		conversionActionsCreateID: capability.EffectCreate, conversionActionsUpdateID: capability.EffectUpdate,
+		conversionActionsRemoveID:    capability.EffectDelete,
+		customerManagerLinksUpdateID: capability.EffectUpdate, customerClientLinksUpdateID: capability.EffectUpdate}
 	for _, id := range changeToolIDs {
 		d, _, ok := reg.Lookup(id)
 		if !ok || !d.RequiresToolAllowList || d.Version != 1 || d.Risk.Effect != wantEffect[id] ||
@@ -104,6 +112,9 @@ func TestChangeToolsAreListedOnlyConfirmedAndOutsideTheReadProfile(t *testing.T)
 		}
 		if strings.Contains(string(d.InputSchema), "google_ads_conversion_customer") {
 			t.Errorf("%s offers google_ads_conversion_customer", id)
+		}
+		if !strings.HasSuffix(d.Description, mutateNote) {
+			t.Errorf("%s: a tools-list-only tool must end on the note that says so", id)
 		}
 		if !strings.Contains(d.Description, "outcome is unknown") || !strings.Contains(d.Description, "never repeats") {
 			t.Errorf("%s: description does not name the unknown outcome: %s", id, d.Description)
