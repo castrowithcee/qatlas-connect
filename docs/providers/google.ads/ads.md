@@ -29,7 +29,8 @@ No profile offers them: a connection has a tool only when its `tools` list names
 inline only: `content_base64`, up to 4 MiB; a larger image or a local file goes through
 [assets.create](assets.md) and `image_asset`. Read ads with
 `reports.search` on `ad_group_ad`, `ad_group_ad_asset_view`, and `ad`. The content of an existing ad
-(`AdService.MutateAds`) and the ad parameters are not part of these tools.
+(`AdService.MutateAds`) and the ad parameters are not part of these tools: they are the
+[ad content tools](ad-content.md).
 
 ## What differs from the ad group tools
 
@@ -173,4 +174,5 @@ Not verified:
 Left out on purpose:
 
 - `partial_failure`, `GoogleAdsService.Mutate`, and temporary IDs.
-- The change of the content of an ad, ad parameters, and labels on ads: they have their own tools or none.
+- The change of the content of an ad and the ad parameters (see the [ad content tools](ad-content.md)), and
+  labels on ads: they have their own tools or none.

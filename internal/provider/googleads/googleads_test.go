@@ -34,7 +34,8 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 	}
 	want := []string{accountBudgetProposalsListID, accountBudgetsListID, accountLinksListID, accountLinksRemoveID,
 		adGroupAdsCreateID, adGroupAdsRemoveID, adGroupAdCreatedAssetsRemoveID, adGroupAdsUpdateID, adGroupsCreateID,
-		adGroupsRemoveID, adGroupsUpdateID, assetSetsCreateID, assetSetsRemoveID, assetSetsUpdateID, assetsCreateID,
+		adGroupsRemoveID, adGroupsUpdateID, adParametersCreateID, adParametersRemoveID, adParametersUpdateID, adsUpdateID,
+		assetSetsCreateID, assetSetsRemoveID, assetSetsUpdateID, assetsCreateID,
 		assetsUpdateID, audiencesCreateID, audiencesUpdateID, billingSetupsListID,
 		campaignAssetsCreateID, campaignAssetsRemoveID, campaignAssetsUpdateID,
 		campaignAutomaticallyCreatedAssetsRemoveID, campaignBudgetsCreateID, campaignBudgetsRemoveID,

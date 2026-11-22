@@ -138,6 +138,8 @@ func TestDefaultRegistry(t *testing.T) {
 		"google.ads.ad-groups.create", "google.ads.ad-groups.update", "google.ads.ad-groups.remove",
 		"google.ads.ad-group-ads.create", "google.ads.ad-group-ads.update", "google.ads.ad-group-ads.remove",
 		"google.ads.ad-group-ads.remove-automatically-created-assets",
+		"google.ads.ads.update", "google.ads.ad-parameters.create", "google.ads.ad-parameters.update",
+		"google.ads.ad-parameters.remove",
 		"google.ads.customer-user-accesses.list", "google.ads.customer-user-accesses.update",
 		"google.ads.customer-user-accesses.remove",
 		"google.ads.customer-user-access-invitations.list", "google.ads.customer-user-access-invitations.remove",
