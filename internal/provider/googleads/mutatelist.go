@@ -53,13 +53,7 @@ func numericIDOf(name, customerID, collection string) (string, bool) {
 // mutateList sends the request once and checks the answer. Anything that is not exactly what was asked for leaves
 // the outcome open, because the request was sent.
 func (c *client) mutateList(ctx context.Context, m listMutation) ([]listResult, error) {
-	body := map[string]any{"operations": m.operations}
-	if m.validateOnly {
-		body["validateOnly"] = true
-	}
-	if m.content != "" {
-		body["responseContentType"] = m.content
-	}
+	body := mutateOperationsBody(m.operations, m.validateOnly, m.content)
 	var answer struct {
 		Results             []map[string]json.RawMessage `json:"results"`
 		PartialFailureError json.RawMessage              `json:"partialFailureError"`

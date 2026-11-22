@@ -508,9 +508,8 @@ func TestConversionSummariesNameTheEffect(t *testing.T) {
 	}
 }
 
-// effectChangeToolIDs are the changing tools of this package: reachable through the effects of a connection,
-// each call confirmed, never in the read profile.
-var effectChangeToolIDs = []string{conversionCustomVariablesCreateID, conversionCustomVariablesUpdateID,
+// conversionChangeToolIDs are the tools of this file; all of them are in notListedOnly.
+var conversionChangeToolIDs = []string{conversionCustomVariablesCreateID, conversionCustomVariablesUpdateID,
 	remarketingActionsCreateID, remarketingActionsUpdateID}
 
 // newEffectEnvironment is a connection with the effects create and update and no tools list.
@@ -529,7 +528,7 @@ func TestConversionToolsAreConfirmedEffectToolsOutsideTheReadProfile(t *testing.
 	wantEffect := map[string]capability.Effect{conversionCustomVariablesCreateID: capability.EffectCreate,
 		conversionCustomVariablesUpdateID: capability.EffectUpdate, remarketingActionsCreateID: capability.EffectCreate,
 		remarketingActionsUpdateID: capability.EffectUpdate}
-	for _, id := range effectChangeToolIDs {
+	for _, id := range conversionChangeToolIDs {
 		d, _, ok := reg.Lookup(id)
 		if !ok || d.RequiresToolAllowList || d.Version != 1 || d.Risk.Effect != wantEffect[id] ||
 			d.Risk.Confirmation != capability.ConfirmationRequired || !d.Risk.OpenWorld {
@@ -563,7 +562,7 @@ func TestConversionToolsAreConfirmedEffectToolsOutsideTheReadProfile(t *testing.
 		}
 	}
 	for _, tool := range metadata.Tools {
-		if slices.Contains(effectChangeToolIDs, tool.ID) && (tool.RequiresToolAllowList || tool.Effect == config.EffectRead ||
+		if slices.Contains(conversionChangeToolIDs, tool.ID) && (tool.RequiresToolAllowList || tool.Effect == config.EffectRead ||
 			tool.Effect != config.Effect(wantEffect[tool.ID])) {
 			t.Errorf("tool %+v is not an effect-reachable change tool", tool)
 		}

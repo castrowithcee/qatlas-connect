@@ -20,6 +20,11 @@ var changeToolIDs = []string{customersUpdateID, customerBudgetNetworkSettingsCre
 	customerUserAccessesUpdateID, customerUserAccessesRemoveID, customerUserAccessInvitationsRemoveID,
 	multiPartyAuthReviewsResolveID, conversionActionsCreateID, conversionActionsUpdateID, conversionActionsRemoveID}
 
+// notListedOnly are the changing tools that a connection with the matching effect offers without a tools list.
+// They still need the confirmation of every call.
+var notListedOnly = []string{customInterestsCreateID, customInterestsUpdateID, audiencesCreateID, audiencesUpdateID,
+	conversionCustomVariablesCreateID, conversionCustomVariablesUpdateID, remarketingActionsCreateID, remarketingActionsUpdateID}
+
 // noValidateOnly are the changing tools whose Mutate request has no validate_only in v26; they offer none.
 var noValidateOnly = []string{customerUserAccessesUpdateID, customerUserAccessesRemoveID,
 	customerUserAccessInvitationsRemoveID, multiPartyAuthReviewsResolveID}
@@ -106,6 +111,9 @@ func TestChangeToolsAreListedOnlyConfirmedAndOutsideTheReadProfile(t *testing.T)
 		}
 		if strings.Contains(string(d.InputSchema), "google_ads_conversion_customer") {
 			t.Errorf("%s offers google_ads_conversion_customer", id)
+		}
+		if !strings.HasSuffix(d.Description, mutateNote) {
+			t.Errorf("%s: a tools-list-only tool must end on the note that says so", id)
 		}
 		if !strings.Contains(d.Description, "outcome is unknown") || !strings.Contains(d.Description, "never repeats") {
 			t.Errorf("%s: description does not name the unknown outcome: %s", id, d.Description)
