@@ -35,8 +35,10 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 	want := []string{accountBudgetProposalsListID, accountBudgetsListID, accountLinksListID, accountLinksRemoveID,
 		adGroupsCreateID, adGroupsRemoveID, adGroupsUpdateID, assetsCreateID,
 		assetsUpdateID, audiencesCreateID, audiencesUpdateID, billingSetupsListID,
+		campaignAssetsCreateID, campaignAssetsRemoveID, campaignAssetsUpdateID,
 		campaignAutomaticallyCreatedAssetsRemoveID, campaignBidModifiersCreateID, campaignBidModifiersRemoveID,
-		campaignBidModifiersUpdateID, campaignsCreateID, campaignsEnablePMaxBrandGuidelinesID,
+		campaignBidModifiersUpdateID, campaignBudgetsCreateID, campaignBudgetsRemoveID,
+		campaignBudgetsUpdateID, campaignsCreateID, campaignsEnablePMaxBrandGuidelinesID,
 		campaignsRemoveID, campaignsUpdateID, conversionActionsCreateID, conversionActionsRemoveID,
 		conversionActionsUpdateID, conversionCustomVariablesCreateID, conversionCustomVariablesUpdateID,
 		customAudiencesCreateID, customAudiencesRemoveID, customAudiencesUpdateID, customInterestsCreateID,
@@ -60,7 +62,8 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 		listed := slices.Contains(changeToolIDs, tool.ID) || slices.Contains(assetToolIDs, tool.ID) ||
 			tool.ID == recommendationsApplyID
 		changing := listed || slices.Contains(notListedOnly, tool.ID) || tool.ID == labelsCreateID ||
-			tool.ID == labelsUpdateID
+			tool.ID == labelsUpdateID || tool.ID == campaignAssetsCreateID || tool.ID == campaignAssetsUpdateID ||
+			tool.ID == campaignAssetsRemoveID
 		if tool.ID != want[i] || (tool.Effect == config.EffectRead) == changing || tool.RequiresToolAllowList != listed {
 			t.Errorf("tool %d = %+v", i, tool)
 		}
