@@ -1,6 +1,6 @@
 ---
 description: >
-  Describes the Google Ads provider: the token credential with the adwords scope and no developer token, the fixed API version v26, the service option login_customer_id and the login-customer-id header, the manager and customer targets with the membership read, the profile read, the tools customers.list-accessible, customers.get, customer-clients.list, reports.search, fields.search, fields.get, customer-user-accesses.list, customer-user-access-invitations.list and multi-party-auth-reviews.list, the settings, user access, invitation and review tools customers.update, customer-budget-network-settings.create and update, customer-user-accesses.update and remove, customer-user-access-invitations.remove, multi-party-auth-reviews.resolve, conversion-actions.create, update and remove and custom-audiences.remove that only the tools list offers, the audience tools custom-audiences.create and update, custom-interests.create and update and audiences.create and update that a connection offers by effect, the GoogleAdsFailure and quota errors and their classes, rate spacing, the connection test, and what is not verified.
+  Describes the Google Ads provider: the token credential with the adwords scope and no developer token, the fixed API version v26, the service option login_customer_id and the login-customer-id header, the manager and customer targets with the membership read, the profile read, the tools customers.list-accessible, customers.get, customer-clients.list, reports.search, fields.search, fields.get, customer-user-accesses.list, customer-user-access-invitations.list, multi-party-auth-reviews.list, customer-manager-links.list and customer-client-links.list, the settings, user access, invitation and review tools customers.update, customer-budget-network-settings.create and update, customer-user-accesses.update and remove, customer-user-access-invitations.remove, multi-party-auth-reviews.resolve, customer-manager-links.update, customer-client-links.update, conversion-actions.create, update and remove and custom-audiences.remove that only the tools list offers, the audience tools custom-audiences.create and update, custom-interests.create and update and audiences.create and update and the conversion variable and remarketing tools conversion-custom-variables.create and update and remarketing-actions.create and update that a connection offers by effect, the GoogleAdsFailure and quota errors and their classes, rate spacing, the connection test, and what is not verified.
 type: knowledge
 edit: shared
 created: 2026-11-19
@@ -13,8 +13,9 @@ Google Ads is a provider for the Google Ads API, version v26, over its REST inte
 issues access tokens. It lists the accounts a credential reaches, reads the settings of an account, lists the
 hierarchy below a manager account, lists the invitations and approval requests of an account, runs reports on any
 resource, and reads the field reference of the query language. The [report tools](reports.md) have their own
-page. Tools that change account settings or turn down invitations and approval requests are offered
-only through the `tools` list of a connection and need a confirmation per call.
+page. Tools that change account settings or conversion actions or turn down invitations and approval requests are offered
+only through the `tools` list of a connection, the [conversion variable and remarketing tools](conversion-variables-remarketing.md)
+also through its create and update effects, and all of them need a confirmation per call.
 
 [Set up Google Ads](setup.md) leads through the Cloud project, its access level, and the credential. The fields
 of a tool are in its descriptor; this page holds what the descriptor does not say.
@@ -88,11 +89,12 @@ sits.
 
 | Profile | Tools | Recommended |
 | --- | --- | --- |
-| `read` | `customers.list-accessible`, `customers.get`, `customer-clients.list`, `reports.search`, `fields.search`, `fields.get`, `customer-user-accesses.list`, `customer-user-access-invitations.list`, `multi-party-auth-reviews.list` | yes |
+| `read` | `customers.list-accessible`, `customers.get`, `customer-clients.list`, `reports.search`, `fields.search`, `fields.get`, `customer-user-accesses.list`, `customer-user-access-invitations.list`, `multi-party-auth-reviews.list`, `customer-manager-links.list`, `customer-client-links.list` | yes |
 
-Tools that change an account belong to no profile. A connection offers the settings, user access, invitation, and
-approval request tools only when its `tools` list names them, see [settings tools](settings.md); the
-[audience tools](audiences.md) that create and change are offered by the effects `create` and `update` as well.
+Tools that change an account belong to no profile. A connection offers the settings, user access, invitation,
+approval request, and link tools only when its `tools` list names them, see [settings tools](settings.md); the
+[audience tools](audiences.md) that create and change and the [conversion variable and remarketing tools](conversion-variables-remarketing.md)
+are offered by the effects `create` and `update` as well.
 
 ## Tools
 
@@ -105,8 +107,12 @@ approval request tools only when its `tools` list names them, see [settings tool
 | `customer-user-access-invitations.list`, `.remove` | list and revoke the invitations of an account, see [invitations and approval requests](access.md) |
 | `multi-party-auth-reviews.list`, `.resolve` | list the approval requests of an account, reject or revoke one, never approve, see [invitations and approval requests](access.md) |
 | `conversion-actions.create`, `.update`, `.remove` | create, change, and remove conversion actions in one atomic request, see [conversion action tools](conversions.md) |
+| `conversion-custom-variables.create`, `.update` | create conversion custom variables and change their name or status, see [conversion variable and remarketing tools](conversion-variables-remarketing.md) |
 | `custom-audiences.create`, `.update`, `.remove` | create, change, and remove up to 10 custom audiences in one request; `remove` only through the `tools` list, see [audience tools](audiences.md) |
+| `remarketing-actions.create`, `.update` | create and rename remarketing actions, never handle their tag snippets, see [conversion variable and remarketing tools](conversion-variables-remarketing.md) |
 | `custom-interests.create`, `.update`, `audiences.create`, `.update` | create and change audiences from keywords and URLs, and from demographic dimensions and segments, see [audience tools](audiences.md) |
+| `customer-manager-links.list`, `customer-client-links.list` | list the manager links of an account and the client links of a manager account, see [manager and client links](manager-links.md) |
+| `customer-manager-links.update`, `customer-client-links.update` | decline or end a manager link, withdraw a request or hide a client link, never make or accept one, see [manager and client links](manager-links.md) |
 
 ### customers.list-accessible
 
@@ -234,9 +240,9 @@ Not verified:
 Left out on purpose:
 
 - The mutation of links, billing, and everything else that is not in the [settings tools](settings.md), the
-  [user access tools](user-access.md), the [audience tools](audiences.md), the [invitations and approval requests](access.md), or
-  the [conversion action tools](conversions.md); no access is
-  created, no invitation is sent, and no request approved.
+  [user access tools](user-access.md), the [audience tools](audiences.md), the [invitations and approval requests](access.md), the [manager and client links](manager-links.md), the
+  [conversion action tools](conversions.md), or the [conversion variable and remarketing tools](conversion-variables-remarketing.md); no access is
+  created, no invitation is sent, no link is made or accepted, and no request approved.
 - The `linked-customer-id` header, which only partners with a product link use.
 - `GoogleAdsService.SearchStream`, page tokens of Google, and the `page_size` of a search, which Google no
   longer accepts. `reports.search` has no cursor; the [report tools](reports.md) say how to go on.

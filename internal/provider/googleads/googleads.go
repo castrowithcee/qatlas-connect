@@ -33,7 +33,7 @@ const subject = "Google Ads"
 // readTools are the tools of the profile read.
 var readTools = []string{customersListAccessibleID, customersGetID, customerClientsListID, reportsSearchID,
 	fieldsSearchID, fieldsGetID, customerUserAccessesListID, customerUserAccessInvitationsListID,
-	multiPartyAuthReviewsListID}
+	multiPartyAuthReviewsListID, customerManagerLinksListID, customerClientLinksListID}
 
 // TestConnection obtains an access token, checks its scope, and lists the accounts the credential reaches
 // directly. That call costs one operation of the daily quota and nothing else, and proves the token, the
@@ -72,7 +72,7 @@ func Register(reg *capability.Registry) error {
 	token := tokenMetadata
 	if err := reg.RegisterProvider(config.ProviderMetadata{
 		ID: Provider, Name: "Google Ads", DefaultBaseURL: apiRoot,
-		Description:    "Google Ads API v26: accounts, hierarchy, settings, user access, invitations, approval requests, audiences, reports and the field reference of Google Ads, and changes to them",
+		Description:    "Google Ads API v26: accounts, hierarchy, settings, user access, invitations, approvals, manager and client links, conversion actions, audiences, reports and field reference, and changes to them",
 		DefaultEffects: []config.Effect{config.EffectRead},
 		ValidateBaseURL: func(raw string) error {
 			if !isAPIRoot(raw) {
@@ -86,7 +86,7 @@ func Register(reg *capability.Registry) error {
 		Profiles: []config.ToolProfile{{
 			ID: "read", Title: "Read", Recommended: true,
 			Description: "lists the accounts the credential reaches, reads account settings, the hierarchy " +
-				"below a manager account and the users of an account, lists the invitations and the multi-party approval requests of an account, runs reports and reads the field reference; the adwords scope is the only one Google offers and also allows changes, " +
+				"below a manager account and the users of an account, lists the invitations and the multi-party approval requests of an account, lists its manager and client links, runs reports and reads the field reference; the adwords scope is the only one Google offers and also allows changes, " +
 				"although no tool of this profile changes anything",
 			Tools: readTools,
 		}},
@@ -117,6 +117,14 @@ func Register(reg *capability.Registry) error {
 			ConfirmationSummary: budgetNetworkSummary("Create")},
 		capability.Operation{Descriptor: customerBudgetNetworkSettingsUpdate, Handler: handleBudgetNetworkUpdate,
 			ConfirmationSummary: budgetNetworkSummary("Replace")},
+		capability.Operation{Descriptor: conversionCustomVariablesCreate, Handler: handleConversionCustomVariablesCreate,
+			ConfirmationSummary: conversionVariablesSummary(true)},
+		capability.Operation{Descriptor: conversionCustomVariablesUpdate, Handler: handleConversionCustomVariablesUpdate,
+			ConfirmationSummary: conversionVariablesSummary(false)},
+		capability.Operation{Descriptor: remarketingActionsCreate, Handler: handleRemarketingActionsCreate,
+			ConfirmationSummary: remarketingActionsSummary(true)},
+		capability.Operation{Descriptor: remarketingActionsUpdate, Handler: handleRemarketingActionsUpdate,
+			ConfirmationSummary: remarketingActionsSummary(false)},
 		capability.Operation{Descriptor: customerUserAccessesList, Handler: handleUserAccessesList},
 		capability.Operation{Descriptor: customerUserAccessesUpdate, Handler: handleUserAccessUpdate,
 			ConfirmationSummary: userAccessSummary(true)},
@@ -141,5 +149,11 @@ func Register(reg *capability.Registry) error {
 		capability.Operation{Descriptor: audiencesCreate, Handler: handleAudiencesCreate,
 			ConfirmationSummary: audiencesCreateSummary},
 		capability.Operation{Descriptor: audiencesUpdate, Handler: handleAudiencesUpdate,
-			ConfirmationSummary: audiencesUpdateSummary})
+			ConfirmationSummary: audiencesUpdateSummary},
+		capability.Operation{Descriptor: customerManagerLinksList, Handler: handleManagerLinksList},
+		capability.Operation{Descriptor: customerManagerLinksUpdate, Handler: handleManagerLinkUpdate,
+			ConfirmationSummary: linkUpdateSummary(true)},
+		capability.Operation{Descriptor: customerClientLinksList, Handler: handleClientLinksList},
+		capability.Operation{Descriptor: customerClientLinksUpdate, Handler: handleClientLinkUpdate,
+			ConfirmationSummary: linkUpdateSummary(false)})
 }

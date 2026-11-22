@@ -69,9 +69,8 @@ func TestAudienceListToolsAreOfferedByEffectAndConfirmed(t *testing.T) {
 	metadata, _ := reg.ProviderMetadata(Provider)
 	wantEffect := map[string]capability.Effect{customInterestsCreateID: capability.EffectCreate,
 		customInterestsUpdateID: capability.EffectUpdate, audiencesCreateID: capability.EffectCreate,
-		audiencesUpdateID: capability.EffectUpdate, customAudiencesCreateID: capability.EffectCreate,
-		customAudiencesUpdateID: capability.EffectUpdate}
-	for _, id := range notListedOnly {
+		audiencesUpdateID: capability.EffectUpdate}
+	for id := range audienceListCalls {
 		d, _, ok := reg.Lookup(id)
 		if !ok || d.RequiresToolAllowList || d.Version != 1 || d.Risk.Effect != wantEffect[id] ||
 			d.Risk.Confirmation != capability.ConfirmationRequired || !d.Risk.OpenWorld {
