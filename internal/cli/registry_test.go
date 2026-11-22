@@ -162,7 +162,9 @@ func TestDefaultRegistry(t *testing.T) {
 		"google.ads.campaign-budgets.create", "google.ads.campaign-budgets.update", "google.ads.campaign-budgets.remove",
 		"google.ads.campaign-groups.create", "google.ads.campaign-groups.update", "google.ads.campaign-groups.remove",
 		"google.ads.recommendations.generate", "google.ads.recommendations.apply", "google.ads.recommendations.dismiss",
-		"google.ads.asset-sets.create", "google.ads.asset-sets.update", "google.ads.asset-sets.remove")
+		"google.ads.asset-sets.create", "google.ads.asset-sets.update", "google.ads.asset-sets.remove",
+		"google.ads.asset-set-assets.create", "google.ads.asset-set-assets.remove",
+		"google.ads.campaign-asset-sets.create", "google.ads.campaign-asset-sets.remove")
 }
 
 // Every shipped provider starts new connections with a valid recommended profile that selects reads only,

@@ -31,7 +31,10 @@ type listMutation struct {
 	resourceKey string
 	operations  []any
 	// names are the resource names an update names, one per operation in order; nil for a creation.
-	names        []string
+	names []string
+	// idOf reads the ID of a resource name of the collection; the default is a single positive number, a
+	// family with a composite key such as 12~34 brings its own.
+	idOf         func(name string) (string, bool)
 	validateOnly bool
 	content      string
 }
@@ -77,7 +80,13 @@ func (c *client) mutateList(ctx context.Context, m listMutation) ([]listResult, 
 		if json.Unmarshal(result["resourceName"], &name) != nil {
 			return nil, unsureResult(m.op, "answered with a result without a resource name")
 		}
-		id, ok := numericIDOf(name, m.customerID, m.collection)
+		var id string
+		var ok bool
+		if m.idOf != nil {
+			id, ok = m.idOf(name)
+		} else {
+			id, ok = numericIDOf(name, m.customerID, m.collection)
+		}
 		if !ok {
 			return nil, unsureResult(m.op, "answered with a result for another account than the one asked for")
 		}
