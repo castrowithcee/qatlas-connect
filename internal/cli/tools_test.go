@@ -593,6 +593,10 @@ func TestToolsFiltersByNamespaceAndQuery(t *testing.T) {
 		"google.ads.account-links.list", "google.ads.product-links.list", "google.ads.product-link-invitations.list",
 		"google.ads.data-links.list",
 		"google.ads.assets.create", "google.ads.assets.update", "google.ads.campaign-automatically-created-assets.remove",
+		"google.ads.user-lists.create", "google.ads.user-lists.update", "google.ads.user-lists.remove",
+		"google.ads.user-list-customer-types.create", "google.ads.user-list-customer-types.remove",
+		"google.ads.billing-setups.list", "google.ads.account-budgets.list", "google.ads.account-budget-proposals.list",
+		"google.ads.payments-accounts.list",
 		"google.ads.invoices.list", "google.ads.incentives.fetch", "google.ads.third-party-app-analytics-links.list")
 	requireIDs(t, registryToolIDs(t, "aws", nil), "aws.sts.access-key.get-info", "aws.sts.authorization-message.decode",
 		"aws.sts.caller-identity.get", "aws.iam.user.list", "aws.iam.user.get", "aws.iam.user.list-tags",

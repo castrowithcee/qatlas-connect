@@ -34,7 +34,8 @@ const subject = "Google Ads"
 var readTools = []string{customersListAccessibleID, customersGetID, customerClientsListID, reportsSearchID,
 	fieldsSearchID, fieldsGetID, customerUserAccessesListID, customerUserAccessInvitationsListID,
 	multiPartyAuthReviewsListID, customerManagerLinksListID, customerClientLinksListID, accountLinksListID,
-	productLinksListID, productLinkInvitationsListID, dataLinksListID, invoicesListID, incentivesFetchID,
+	productLinksListID, productLinkInvitationsListID, dataLinksListID, billingSetupsListID, accountBudgetsListID,
+	accountBudgetProposalsListID, paymentsAccountsListID, invoicesListID, incentivesFetchID,
 	thirdPartyAppAnalyticsLinksListID}
 
 // TestConnection obtains an access token, checks its scope, and lists the accounts the credential reaches
@@ -74,7 +75,7 @@ func Register(reg *capability.Registry) error {
 	token := tokenMetadata
 	if err := reg.RegisterProvider(config.ProviderMetadata{
 		ID: Provider, Name: "Google Ads", DefaultBaseURL: apiRoot,
-		Description:    "Google Ads API v26: accounts, hierarchy, links, settings, user access, approvals, invoices, incentives, assets, conversions, remarketing, audiences, reports and field reference, and changes to them",
+		Description:    "Google Ads API v26: accounts, links, settings, access, billing, invoices, incentives, assets, conversions, remarketing, audiences, reports and field reference, and changes to them",
 		DefaultEffects: []config.Effect{config.EffectRead},
 		ValidateBaseURL: func(raw string) error {
 			if !isAPIRoot(raw) {
@@ -88,7 +89,7 @@ func Register(reg *capability.Registry) error {
 		Profiles: []config.ToolProfile{{
 			ID: "read", Title: "Read", Recommended: true,
 			Description: "lists the accounts the credential reaches, reads account settings, the hierarchy " +
-				"below a manager account and the users of an account, lists the invitations and the multi-party approval requests of an account, lists its manager, client, account, product and data links, lists the invoices of a billing setup, fetches the incentive offer of the user and lists the third-party app analytics links of an account, runs reports and reads the field reference; the adwords scope is the only one Google offers and also allows changes, " +
+				"below a manager account and the users of an account, lists the invitations and the multi-party approval requests of an account, lists its manager, client, account, product and data links, lists the billing setups, account budgets, budget proposals and payments accounts of an account, lists the invoices of a billing setup, fetches the incentive offer of the user and lists the third-party app analytics links of an account, runs reports and reads the field reference; the adwords scope is the only one Google offers and also allows changes, " +
 				"although no tool of this profile changes anything",
 			Tools: readTools,
 		}},
@@ -169,6 +170,20 @@ func Register(reg *capability.Registry) error {
 		capability.Operation{Descriptor: campaignAutomaticallyCreatedAssetsRemove,
 			Handler:             handleCampaignAutomaticallyCreatedAssetsRemove,
 			ConfirmationSummary: removalSummary},
+		capability.Operation{Descriptor: userListsCreate, Handler: userListsHandleCreate,
+			ConfirmationSummary: userListsSummary(true)},
+		capability.Operation{Descriptor: userListsUpdate, Handler: userListsHandleUpdate,
+			ConfirmationSummary: userListsSummary(false)},
+		capability.Operation{Descriptor: userListsRemove, Handler: userListsHandleRemove,
+			ConfirmationSummary: userListsRemoveSummary},
+		capability.Operation{Descriptor: userListCustomerTypesCreate, Handler: userListHandleCustomerTypesCreate,
+			ConfirmationSummary: userListCustomerTypesSummary(true)},
+		capability.Operation{Descriptor: userListCustomerTypesRemove, Handler: userListHandleCustomerTypesRemove,
+			ConfirmationSummary: userListCustomerTypesSummary(false)},
+		capability.Operation{Descriptor: billingSetupsList, Handler: handleBillingSetupsList},
+		capability.Operation{Descriptor: accountBudgetsList, Handler: handleAccountBudgetsList},
+		capability.Operation{Descriptor: accountBudgetProposalsList, Handler: handleAccountBudgetProposalsList},
+		capability.Operation{Descriptor: paymentsAccountsList, Handler: handlePaymentsAccountsList},
 		capability.Operation{Descriptor: invoicesList, Handler: handleInvoicesList},
 		capability.Operation{Descriptor: incentivesFetch, Handler: handleIncentivesFetch},
 		capability.Operation{Descriptor: thirdPartyAppAnalyticsLinksList, Handler: handleAppAnalyticsLinksList})
