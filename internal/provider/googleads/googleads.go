@@ -74,7 +74,7 @@ func Register(reg *capability.Registry) error {
 	token := tokenMetadata
 	if err := reg.RegisterProvider(config.ProviderMetadata{
 		ID: Provider, Name: "Google Ads", DefaultBaseURL: apiRoot,
-		Description:    "Google Ads API v26: accounts, hierarchy, settings, user access, invitations, approvals, links, invoices, incentives, conversion actions, audiences, reports and field reference, and changes to them",
+		Description:    "Google Ads API v26: accounts, hierarchy, links, settings, user access, approvals, invoices, incentives, assets, conversions, remarketing, audiences, reports and field reference, and changes to them",
 		DefaultEffects: []config.Effect{config.EffectRead},
 		ValidateBaseURL: func(raw string) error {
 			if !isAPIRoot(raw) {
@@ -138,6 +138,12 @@ func Register(reg *capability.Registry) error {
 		capability.Operation{Descriptor: multiPartyAuthReviewsList, Handler: handleReviewsList},
 		capability.Operation{Descriptor: multiPartyAuthReviewsResolve, Handler: handleReviewsResolve,
 			ConfirmationSummary: reviewResolveSummary},
+		capability.Operation{Descriptor: customAudiencesCreate, Handler: handleCustomAudiencesCreate,
+			ConfirmationSummary: customAudienceSummary(false)},
+		capability.Operation{Descriptor: customAudiencesUpdate, Handler: handleCustomAudiencesUpdate,
+			ConfirmationSummary: customAudienceSummary(true)},
+		capability.Operation{Descriptor: customAudiencesRemove, Handler: handleCustomAudiencesRemove,
+			ConfirmationSummary: customAudienceRemoveSummary},
 		capability.Operation{Descriptor: customInterestsCreate, Handler: handleCustomInterestsCreate,
 			ConfirmationSummary: customInterestsCreateSummary},
 		capability.Operation{Descriptor: customInterestsUpdate, Handler: handleCustomInterestsUpdate,
@@ -156,6 +162,13 @@ func Register(reg *capability.Registry) error {
 		capability.Operation{Descriptor: productLinksList, Handler: handleProductLinksList},
 		capability.Operation{Descriptor: productLinkInvitationsList, Handler: handleProductLinkInvitationsList},
 		capability.Operation{Descriptor: dataLinksList, Handler: handleDataLinksList},
+		capability.Operation{Descriptor: assetsCreate, Handler: handleAssetsCreate,
+			ConfirmationSummary: assetSummary("Create")},
+		capability.Operation{Descriptor: assetsUpdate, Handler: handleAssetsUpdate,
+			ConfirmationSummary: assetSummary("Change")},
+		capability.Operation{Descriptor: campaignAutomaticallyCreatedAssetsRemove,
+			Handler:             handleCampaignAutomaticallyCreatedAssetsRemove,
+			ConfirmationSummary: removalSummary},
 		capability.Operation{Descriptor: invoicesList, Handler: handleInvoicesList},
 		capability.Operation{Descriptor: incentivesFetch, Handler: handleIncentivesFetch},
 		capability.Operation{Descriptor: thirdPartyAppAnalyticsLinksList, Handler: handleAppAnalyticsLinksList})
