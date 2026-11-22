@@ -323,5 +323,15 @@ func Register(reg *capability.Registry) error {
 		capability.Operation{Descriptor: campaignCriteriaUpdate, Handler: handleCampaignCriteriaUpdate,
 			ConfirmationSummary: campaignCriteriaSummary(campaignCriteriaUpdateID)},
 		capability.Operation{Descriptor: campaignCriteriaRemove, Handler: handleCampaignCriteriaRemove,
-			ConfirmationSummary: campaignCriteriaSummary(campaignCriteriaRemoveID)})
+			ConfirmationSummary: campaignCriteriaSummary(campaignCriteriaRemoveID)},
+		capability.Operation{Descriptor: customerNegativeCriteriaCreate, Handler: handleCustomerNegativeCriteriaCreate,
+			ConfirmationSummary: exclusionSummary(customerNegativeCriteriaCreateID, customerNegativeCriterionTypes,
+				"customer negative criteria")},
+		capability.Operation{Descriptor: customerNegativeCriteriaRemove, Handler: handleCustomerNegativeCriteriaRemove,
+			ConfirmationSummary: exclusionSummary(customerNegativeCriteriaRemoveID, customerNegativeCriterionTypes,
+				"customer negative criteria")},
+		capability.Operation{Descriptor: sharedCriteriaCreate, Handler: handleSharedCriteriaCreate,
+			ConfirmationSummary: exclusionSummary(sharedCriteriaCreateID, sharedCriterionTypes, "shared criteria")},
+		capability.Operation{Descriptor: sharedCriteriaRemove, Handler: handleSharedCriteriaRemove,
+			ConfirmationSummary: exclusionSummary(sharedCriteriaRemoveID, sharedCriterionTypes, "shared criteria")})
 }
