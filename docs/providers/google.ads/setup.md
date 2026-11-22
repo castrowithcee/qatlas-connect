@@ -51,6 +51,10 @@ settings (see [settings tools](settings.md)), conversion actions (see [conversio
 `tools` list of a connection names them (the link changes need at least the Basic access level); Google does not document which call needs which role, so test them with
 `validate_only` first. Give the account no more than it needs, since the token itself would allow changes.
 
+The [billing tools](billing.md) only read. Google blocks `PaymentsAccountService`, which `payments-accounts.list`
+calls, at the Explorer access level, so that tool needs at least Basic; whether the same holds for the queries of
+the other three billing tools is not verified. On a manager account every billing tool needs a manager target.
+
 If the account reaches a client through a manager account, set `login_customer_id` on the service to the ID of
 that manager. Without it Google evaluates the direct access of the account and refuses the call.
 
