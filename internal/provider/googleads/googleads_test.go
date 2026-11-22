@@ -32,11 +32,12 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 	if !reflect.DeepEqual(metadata.SecretRoles, config.TokenSecretRoles()) {
 		t.Errorf("secret roles = %+v, want the token roles", metadata.SecretRoles)
 	}
-	want := []string{accountLinksListID, audiencesCreateID, audiencesUpdateID, conversionActionsCreateID,
-		conversionActionsRemoveID, conversionActionsUpdateID, conversionCustomVariablesCreateID,
-		conversionCustomVariablesUpdateID, customInterestsCreateID, customInterestsUpdateID,
-		customerBudgetNetworkSettingsCreateID, customerBudgetNetworkSettingsUpdateID, customerClientLinksListID,
-		customerClientLinksUpdateID, customerClientsListID, customerManagerLinksListID,
+	want := []string{accountLinksListID, assetsCreateID, assetsUpdateID, audiencesCreateID, audiencesUpdateID,
+		campaignAutomaticallyCreatedAssetsRemoveID, conversionActionsCreateID, conversionActionsRemoveID,
+		conversionActionsUpdateID, conversionCustomVariablesCreateID, conversionCustomVariablesUpdateID,
+		customAudiencesCreateID, customAudiencesRemoveID, customAudiencesUpdateID, customInterestsCreateID,
+		customInterestsUpdateID, customerBudgetNetworkSettingsCreateID, customerBudgetNetworkSettingsUpdateID,
+		customerClientLinksListID, customerClientLinksUpdateID, customerClientsListID, customerManagerLinksListID,
 		customerManagerLinksUpdateID, customerUserAccessInvitationsListID, customerUserAccessInvitationsRemoveID,
 		customerUserAccessesListID, customerUserAccessesRemoveID, customerUserAccessesUpdateID, customersGetID,
 		customersListAccessibleID, customersUpdateID, dataLinksListID, fieldsGetID, fieldsSearchID, labelsCreateID,
@@ -47,7 +48,7 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 		t.Fatalf("tools = %+v", metadata.Tools)
 	}
 	for i, tool := range metadata.Tools {
-		listed := slices.Contains(changeToolIDs, tool.ID)
+		listed := slices.Contains(changeToolIDs, tool.ID) || slices.Contains(assetToolIDs, tool.ID)
 		changing := listed || slices.Contains(notListedOnly, tool.ID) || tool.ID == labelsCreateID ||
 			tool.ID == labelsUpdateID
 		if tool.ID != want[i] || (tool.Effect == config.EffectRead) == changing || tool.RequiresToolAllowList != listed {
