@@ -136,6 +136,8 @@ func TestDefaultRegistry(t *testing.T) {
 		"google.ads.campaigns.create", "google.ads.campaigns.update", "google.ads.campaigns.remove",
 		"google.ads.campaigns.enable-pmax-brand-guidelines",
 		"google.ads.ad-groups.create", "google.ads.ad-groups.update", "google.ads.ad-groups.remove",
+		"google.ads.ad-group-bid-modifiers.create", "google.ads.ad-group-bid-modifiers.update",
+		"google.ads.ad-group-bid-modifiers.remove",
 		"google.ads.customer-user-accesses.list", "google.ads.customer-user-accesses.update",
 		"google.ads.customer-user-accesses.remove",
 		"google.ads.customer-user-access-invitations.list", "google.ads.customer-user-access-invitations.remove",
