@@ -44,10 +44,11 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 		customerManagerLinksUpdateID, customerUserAccessInvitationsListID, customerUserAccessInvitationsRemoveID,
 		customerUserAccessesListID, customerUserAccessesRemoveID, customerUserAccessesUpdateID, customersGetID,
 		customersListAccessibleID, customersUpdateID, dataLinksListID, fieldsGetID, fieldsSearchID,
-		multiPartyAuthReviewsListID, multiPartyAuthReviewsResolveID, paymentsAccountsListID,
-		productLinkInvitationsListID, productLinksListID, remarketingActionsCreateID, remarketingActionsUpdateID,
-		reportsSearchID, userListCustomerTypesCreateID,
-		userListCustomerTypesRemoveID, userListsCreateID, userListsRemoveID, userListsUpdateID}
+		incentivesFetchID, invoicesListID, multiPartyAuthReviewsListID, multiPartyAuthReviewsResolveID,
+		paymentsAccountsListID, productLinkInvitationsListID, productLinksListID, remarketingActionsCreateID,
+		remarketingActionsUpdateID, reportsSearchID, thirdPartyAppAnalyticsLinksListID,
+		userListCustomerTypesCreateID, userListCustomerTypesRemoveID, userListsCreateID, userListsRemoveID,
+		userListsUpdateID}
 	if len(metadata.Tools) != len(want) {
 		t.Fatalf("tools = %+v", metadata.Tools)
 	}

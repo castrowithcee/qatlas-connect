@@ -153,7 +153,8 @@ func TestDefaultRegistry(t *testing.T) {
 		"google.ads.user-lists.create", "google.ads.user-lists.update", "google.ads.user-lists.remove",
 		"google.ads.user-list-customer-types.create", "google.ads.user-list-customer-types.remove",
 		"google.ads.billing-setups.list", "google.ads.account-budgets.list", "google.ads.account-budget-proposals.list",
-		"google.ads.payments-accounts.list")
+		"google.ads.payments-accounts.list",
+		"google.ads.invoices.list", "google.ads.incentives.fetch", "google.ads.third-party-app-analytics-links.list")
 }
 
 // Every shipped provider starts new connections with a valid recommended profile that selects reads only,

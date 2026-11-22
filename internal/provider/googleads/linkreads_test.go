@@ -116,9 +116,9 @@ func TestLinkListsAreRegisteredAsDescribed(t *testing.T) {
 			t.Errorf("%s: %d schema properties but %d documented arguments", id, len(input.Properties), len(d.Arguments))
 		}
 	}
-	// No tool reaches the sharing value of an app analytics link, creates or changes a link.
+	// No tool regenerates the sharing value of an app analytics link, creates or changes a link.
 	for _, tool := range metadata.Tools {
-		if strings.Contains(tool.ID, "third-party-app-analytics") ||
+		if (strings.Contains(tool.ID, "third-party-app-analytics") && tool.Effect != config.EffectRead) ||
 			(strings.Contains(tool.ID, "link") && tool.Effect != config.EffectRead && !strings.Contains(tool.ID, "manager") &&
 				!strings.Contains(tool.ID, "client")) {
 			t.Errorf("tool %s must not exist in this group", tool.ID)
