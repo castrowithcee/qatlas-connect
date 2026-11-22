@@ -22,6 +22,7 @@ var changeToolIDs = []string{customersUpdateID, customerBudgetNetworkSettingsCre
 	customerManagerLinksUpdateID, customerClientLinksUpdateID,
 	customAudiencesRemoveID, userListsRemoveID,
 	campaignsCreateID, campaignsUpdateID, campaignsRemoveID, campaignsEnablePMaxBrandGuidelinesID, labelsRemoveID,
+	adGroupsCreateID, adGroupsUpdateID, adGroupsRemoveID,
 	biddingDataExclusionsCreateID, biddingDataExclusionsUpdateID, biddingDataExclusionsRemoveID}
 
 // notListedOnly are the changing tools that a connection with the matching effect offers without a tools list.
@@ -91,7 +92,9 @@ func TestChangeToolsAreListedOnlyConfirmedAndOutsideTheReadProfile(t *testing.T)
 		userListsRemoveID:       capability.EffectDelete,
 		campaignsCreateID:       capability.EffectCreate, campaignsUpdateID: capability.EffectUpdate,
 		campaignsRemoveID: capability.EffectDelete, campaignsEnablePMaxBrandGuidelinesID: capability.EffectUpdate,
-		labelsRemoveID: capability.EffectDelete, biddingDataExclusionsCreateID: capability.EffectCreate,
+		labelsRemoveID: capability.EffectDelete, adGroupsCreateID: capability.EffectCreate,
+		adGroupsUpdateID: capability.EffectUpdate, adGroupsRemoveID: capability.EffectDelete,
+		biddingDataExclusionsCreateID: capability.EffectCreate,
 		biddingDataExclusionsUpdateID: capability.EffectUpdate, biddingDataExclusionsRemoveID: capability.EffectDelete}
 	for _, id := range changeToolIDs {
 		d, _, ok := reg.Lookup(id)
