@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"slices"
 	"strconv"
-	"strings"
 
 	"github.com/castrowithcee/qatlas-connect/internal/capability"
 	"github.com/castrowithcee/qatlas-connect/internal/config"
@@ -400,27 +399,6 @@ func campaignAssetsSend(ctx context.Context, resolved *config.Resolved, secrets 
 
 // --- confirmation ---
 
-func campaignAssetsLead(validateOnly bool) string {
-	if validateOnly {
-		return "Only validate: "
-	}
-	return ""
-}
-
-// campaignAssetsList phrases the entries for the confirmation, at most ten, from the arguments alone and with
-// every text bounded.
-func campaignAssetsList(n int, entry func(i int) string) string {
-	shown := make([]string, 0, 10)
-	for i := 0; i < min(n, 10); i++ {
-		shown = append(shown, entry(i))
-	}
-	more := ""
-	if n > len(shown) {
-		more = " and " + strconv.Itoa(n-len(shown)) + " more"
-	}
-	return strings.Join(shown, "; ") + more
-}
-
 func campaignAssetsKeyText(k campaignAssetKey) string {
 	return boundedText(k.FieldType, maxCodeText) + " asset " + boundedText(k.AssetID, maxCodeText) + " on campaign " +
 		boundedText(k.CampaignID, maxCodeText)
@@ -429,7 +407,7 @@ func campaignAssetsKeyText(k campaignAssetKey) string {
 func campaignAssetsCreateSummary(raw json.RawMessage) string {
 	var a campaignAssetsCreateArguments
 	_ = json.Unmarshal(raw, &a)
-	list := campaignAssetsList(len(a.CampaignAssets), func(i int) string {
+	list := assetLinksList(len(a.CampaignAssets), func(i int) string {
 		c := a.CampaignAssets[i]
 		text := campaignAssetsKeyText(c.campaignAssetKey)
 		if c.Status != nil {
@@ -437,28 +415,28 @@ func campaignAssetsCreateSummary(raw json.RawMessage) string {
 		}
 		return text
 	})
-	return campaignAssetsLead(a.ValidateOnly) + "Attach " + strconv.Itoa(len(a.CampaignAssets)) +
+	return assetLinksLead(a.ValidateOnly) + "Attach " + strconv.Itoa(len(a.CampaignAssets)) +
 		" asset(s) to campaigns of Google Ads account " + a.CustomerID + ": " + list + "."
 }
 
 func campaignAssetsUpdateSummary(raw json.RawMessage) string {
 	var a campaignAssetsUpdateArguments
 	_ = json.Unmarshal(raw, &a)
-	list := campaignAssetsList(len(a.CampaignAssets), func(i int) string {
+	list := assetLinksList(len(a.CampaignAssets), func(i int) string {
 		c := a.CampaignAssets[i]
 		return campaignAssetsKeyText(c.campaignAssetKey) + " to " + boundedText(c.Status, maxCodeText)
 	})
-	return campaignAssetsLead(a.ValidateOnly) + "Set the status of " + strconv.Itoa(len(a.CampaignAssets)) +
+	return assetLinksLead(a.ValidateOnly) + "Set the status of " + strconv.Itoa(len(a.CampaignAssets)) +
 		" campaign asset(s) of Google Ads account " + a.CustomerID + ": " + list + "."
 }
 
 func campaignAssetsRemoveSummary(raw json.RawMessage) string {
 	var a campaignAssetsRemoveArguments
 	_ = json.Unmarshal(raw, &a)
-	list := campaignAssetsList(len(a.CampaignAssets), func(i int) string {
+	list := assetLinksList(len(a.CampaignAssets), func(i int) string {
 		return campaignAssetsKeyText(a.CampaignAssets[i])
 	})
-	return campaignAssetsLead(a.ValidateOnly) + "Remove " + strconv.Itoa(len(a.CampaignAssets)) +
+	return assetLinksLead(a.ValidateOnly) + "Remove " + strconv.Itoa(len(a.CampaignAssets)) +
 		" asset(s) from campaigns of Google Ads account " + a.CustomerID + ": " + list +
 		". Google marks the links removed; the assets stay in the account."
 }
