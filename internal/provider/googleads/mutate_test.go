@@ -22,8 +22,9 @@ var changeToolIDs = []string{customersUpdateID, customerBudgetNetworkSettingsCre
 	customerManagerLinksUpdateID, customerClientLinksUpdateID,
 	customAudiencesRemoveID, userListsRemoveID,
 	campaignsCreateID, campaignsUpdateID, campaignsRemoveID, campaignsEnablePMaxBrandGuidelinesID, labelsRemoveID,
-	adGroupsCreateID, adGroupsUpdateID, adGroupsRemoveID, adGroupCriteriaCreateID, adGroupCriteriaUpdateID,
-	adGroupCriteriaRemoveID}
+	accountLinksRemoveID, productLinksRemoveID, dataLinksRemoveID, adGroupsCreateID, adGroupsUpdateID, adGroupsRemoveID,
+	campaignBudgetsCreateID, campaignBudgetsUpdateID, campaignBudgetsRemoveID, adGroupCriteriaCreateID,
+	adGroupCriteriaUpdateID, adGroupCriteriaRemoveID}
 
 // notListedOnly are the changing tools that a connection with the matching effect offers without a tools list.
 // They still need the confirmation of every call.
@@ -31,11 +32,12 @@ var notListedOnly = []string{customInterestsCreateID, customInterestsUpdateID, a
 	conversionCustomVariablesCreateID, conversionCustomVariablesUpdateID, remarketingActionsCreateID, remarketingActionsUpdateID,
 	customAudiencesCreateID, customAudiencesUpdateID,
 	userListsCreateID, userListsUpdateID, userListCustomerTypesCreateID, userListCustomerTypesRemoveID,
-	recommendationsDismissID}
+	recommendationsDismissID, productLinkInvitationsUpdateID, dataLinksUpdateID}
 
 // noValidateOnly are the changing tools whose Mutate request has no validate_only in v26; they offer none.
 var noValidateOnly = []string{customerUserAccessesUpdateID, customerUserAccessesRemoveID,
-	customerUserAccessInvitationsRemoveID, multiPartyAuthReviewsResolveID, campaignsEnablePMaxBrandGuidelinesID}
+	customerUserAccessInvitationsRemoveID, multiPartyAuthReviewsResolveID, campaignsEnablePMaxBrandGuidelinesID,
+	dataLinksRemoveID}
 
 func mutatePath(id string) string { return "/v26/customers/" + id + ":mutate" }
 func networkPath(id string) string {
@@ -92,8 +94,12 @@ func TestChangeToolsAreListedOnlyConfirmedAndOutsideTheReadProfile(t *testing.T)
 		userListsRemoveID:       capability.EffectDelete,
 		campaignsCreateID:       capability.EffectCreate, campaignsUpdateID: capability.EffectUpdate,
 		campaignsRemoveID: capability.EffectDelete, campaignsEnablePMaxBrandGuidelinesID: capability.EffectUpdate,
-		labelsRemoveID: capability.EffectDelete, adGroupsCreateID: capability.EffectCreate,
-		adGroupsUpdateID: capability.EffectUpdate, adGroupsRemoveID: capability.EffectDelete,
+		labelsRemoveID: capability.EffectDelete, accountLinksRemoveID: capability.EffectDelete,
+		productLinksRemoveID: capability.EffectDelete, dataLinksRemoveID: capability.EffectDelete,
+		adGroupsCreateID: capability.EffectCreate, adGroupsUpdateID: capability.EffectUpdate,
+		adGroupsRemoveID:        capability.EffectDelete,
+		campaignBudgetsCreateID: capability.EffectCreate, campaignBudgetsUpdateID: capability.EffectUpdate,
+		campaignBudgetsRemoveID: capability.EffectDelete,
 		adGroupCriteriaCreateID: capability.EffectCreate, adGroupCriteriaUpdateID: capability.EffectUpdate,
 		adGroupCriteriaRemoveID: capability.EffectDelete}
 	for _, id := range changeToolIDs {

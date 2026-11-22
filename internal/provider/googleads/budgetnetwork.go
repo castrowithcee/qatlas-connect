@@ -63,12 +63,18 @@ func (a budgetNetworkArguments) settings() (map[string]any, error) {
 	if err := checkContentType(a.ResponseContentType); err != nil {
 		return nil, err
 	}
-	if n := len(a.BudgetNetworkSettings); n == 0 || n > len(advertisingChannelTypes) {
+	return networkSettingsBody(a.BudgetNetworkSettings)
+}
+
+// networkSettingsBody checks the entries and builds the BudgetNetworkSettings message, which the customer
+// setting and a campaign budget share.
+func networkSettingsBody(settings []networkSetting) (map[string]any, error) {
+	if n := len(settings); n == 0 || n > len(advertisingChannelTypes) {
 		return nil, badRequest("budget_network_settings must hold one to 12 entries")
 	}
 	var seenTypes []string
 	wire := []any{}
-	for _, s := range a.BudgetNetworkSettings {
+	for _, s := range settings {
 		if !slices.Contains(advertisingChannelTypes, s.AdvertisingChannelType) || slices.Contains(seenTypes, s.AdvertisingChannelType) {
 			return nil, badRequest("every entry of budget_network_settings needs its own advertising_channel_type of " +
 				"the API, and a type appears at most once")
@@ -180,8 +186,17 @@ func networkResourceOf(raw json.RawMessage, customerID string) (*budgetNetworkRe
 	if json.Unmarshal(raw, &w) != nil || w.ResourceName != networkSettingName(customerID) {
 		return nil, false
 	}
-	out := &budgetNetworkResource{ResourceName: w.ResourceName, BudgetNetworkSettings: []networkSettingEntry{}}
-	for _, s := range w.BudgetNetworkSettings.Settings[:min(len(w.BudgetNetworkSettings.Settings), maxListItems)] {
+	entries, ok := networkEntriesOf(w.BudgetNetworkSettings)
+	if !ok {
+		return nil, false
+	}
+	return &budgetNetworkResource{ResourceName: w.ResourceName, BudgetNetworkSettings: entries}, true
+}
+
+// networkEntriesOf maps the BudgetNetworkSettings message of an answer, cut and without control characters.
+func networkEntriesOf(settings networkSettingsWire) ([]networkSettingEntry, bool) {
+	entries := []networkSettingEntry{}
+	for _, s := range settings.Settings[:min(len(settings.Settings), maxListItems)] {
 		entry := networkSettingEntry{AdvertisingChannelType: code(s.AdvertisingChannelType), BudgetCaps: []capEntry{},
 			ChannelPriorities: []tierEntry{}}
 		for _, c := range s.BudgetCaps[:min(len(s.BudgetCaps), maxListItems)] {
@@ -199,9 +214,9 @@ func networkResourceOf(raw json.RawMessage, customerID string) (*budgetNetworkRe
 			entry.ChannelPriorities = append(entry.ChannelPriorities, tierEntry{PriorityTier: code(p.PriorityTier),
 				NetworkChannels: boundedList(p.NetworkChannels, maxCodeText)})
 		}
-		out.BudgetNetworkSettings = append(out.BudgetNetworkSettings, entry)
+		entries = append(entries, entry)
 	}
-	return out, true
+	return entries, true
 }
 
 func networkSettingName(customerID string) string {
@@ -219,13 +234,15 @@ var (
 		"channel_priorities": schema{"type": "array", "maxItems": len(priorityTiers), "items": tierSchema}},
 		"advertising_channel_type")
 
+	networkEntriesSchema = arrayOf(object(schema{"advertising_channel_type": stringSchema,
+		"budget_caps": arrayOf(object(schema{"network_channel": stringSchema, "cap_percent_millis": integerSchema})),
+		"channel_priorities": arrayOf(object(schema{"priority_tier": stringSchema,
+			"network_channels": arrayOf(stringSchema)}))}))
+
 	networkOutputSchema = object(schema{"customer_id": stringSchema, "validate_only": booleanSchema,
 		"resource_name": stringSchema,
 		"customer_budget_network_setting": object(schema{"resource_name": stringSchema,
-			"budget_network_settings": arrayOf(object(schema{"advertising_channel_type": stringSchema,
-				"budget_caps": arrayOf(object(schema{"network_channel": stringSchema, "cap_percent_millis": integerSchema})),
-				"channel_priorities": arrayOf(object(schema{"priority_tier": stringSchema,
-					"network_channels": arrayOf(stringSchema)}))}))})},
+			"budget_network_settings": networkEntriesSchema})},
 		"customer_id", "validate_only")
 
 	networkInputSchema = encoded(object(schema{"customer_id": customerIDArgument,

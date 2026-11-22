@@ -595,7 +595,8 @@ func TestToolsFiltersByNamespaceAndQuery(t *testing.T) {
 		"google.ads.customer-manager-links.list", "google.ads.customer-manager-links.update",
 		"google.ads.customer-client-links.list", "google.ads.customer-client-links.update",
 		"google.ads.account-links.list", "google.ads.product-links.list", "google.ads.product-link-invitations.list",
-		"google.ads.data-links.list",
+		"google.ads.data-links.list", "google.ads.account-links.remove", "google.ads.product-links.remove",
+		"google.ads.product-link-invitations.update", "google.ads.data-links.remove", "google.ads.data-links.update",
 		"google.ads.assets.create", "google.ads.assets.update", "google.ads.campaign-automatically-created-assets.remove",
 		"google.ads.user-lists.create", "google.ads.user-lists.update", "google.ads.user-lists.remove",
 		"google.ads.user-list-customer-types.create", "google.ads.user-list-customer-types.remove",
@@ -603,6 +604,7 @@ func TestToolsFiltersByNamespaceAndQuery(t *testing.T) {
 		"google.ads.payments-accounts.list",
 		"google.ads.invoices.list", "google.ads.incentives.fetch", "google.ads.third-party-app-analytics-links.list",
 		"google.ads.labels.create", "google.ads.labels.update", "google.ads.labels.remove",
+		"google.ads.campaign-budgets.create", "google.ads.campaign-budgets.update", "google.ads.campaign-budgets.remove",
 		"google.ads.recommendations.generate", "google.ads.recommendations.apply", "google.ads.recommendations.dismiss")
 	requireIDs(t, registryToolIDs(t, "aws", nil), "aws.sts.access-key.get-info", "aws.sts.authorization-message.decode",
 		"aws.sts.caller-identity.get", "aws.iam.user.list", "aws.iam.user.get", "aws.iam.user.list-tags",
