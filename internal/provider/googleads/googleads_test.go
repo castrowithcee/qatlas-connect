@@ -35,6 +35,7 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 	want := []string{accountLinksListID, audiencesCreateID, audiencesUpdateID,
 		conversionActionsCreateID, conversionActionsRemoveID, conversionActionsUpdateID,
 		conversionCustomVariablesCreateID, conversionCustomVariablesUpdateID,
+		customAudiencesCreateID, customAudiencesRemoveID, customAudiencesUpdateID,
 		customInterestsCreateID, customInterestsUpdateID,
 		customerBudgetNetworkSettingsCreateID, customerBudgetNetworkSettingsUpdateID,
 		customerClientLinksListID, customerClientLinksUpdateID, customerClientsListID,
