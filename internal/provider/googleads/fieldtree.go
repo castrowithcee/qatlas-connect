@@ -52,6 +52,8 @@ type node struct {
 	exclusive []string
 	// createOnly marks a member Google accepts only when the object is created.
 	createOnly bool
+	// emptyOK marks an object whose members are all optional, so that giving it without members is meaningful.
+	emptyOK bool
 }
 
 func (n node) with(f func(*node)) node { f(&n); return n }
@@ -176,7 +178,7 @@ func (n node) inputSchema() schema {
 			props[f.name] = f.inputSchema()
 		}
 		s = object(props)
-		if len(n.fields) > 0 {
+		if len(n.fields) > 0 && !n.emptyOK {
 			s["minProperties"] = 1
 		}
 	} else {
@@ -331,7 +333,7 @@ func (b *builder) single(n node, value any, at pathOfMember, maskIt bool) (any, 
 		if !ok {
 			return nil, false, badRequest(at.snake + " must be an object")
 		}
-		if len(n.fields) == 0 {
+		if len(n.fields) == 0 || (n.emptyOK && len(in) == 0) {
 			if len(in) != 0 {
 				return nil, false, badRequest(at.snake + " takes no members")
 			}
