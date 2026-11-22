@@ -578,6 +578,8 @@ func TestToolsFiltersByNamespaceAndQuery(t *testing.T) {
 		"google.ads.customers.get", "google.ads.customer-clients.list", "google.ads.reports.search",
 		"google.ads.fields.search", "google.ads.fields.get", "google.ads.customers.update",
 		"google.ads.customer-budget-network-settings.create", "google.ads.customer-budget-network-settings.update",
+		"google.ads.campaigns.create", "google.ads.campaigns.update", "google.ads.campaigns.remove",
+		"google.ads.campaigns.enable-pmax-brand-guidelines",
 		"google.ads.customer-user-accesses.list", "google.ads.customer-user-accesses.update",
 		"google.ads.customer-user-accesses.remove",
 		"google.ads.customer-user-access-invitations.list", "google.ads.customer-user-access-invitations.remove",
@@ -597,6 +599,7 @@ func TestToolsFiltersByNamespaceAndQuery(t *testing.T) {
 		"google.ads.user-list-customer-types.create", "google.ads.user-list-customer-types.remove",
 		"google.ads.billing-setups.list", "google.ads.account-budgets.list", "google.ads.account-budget-proposals.list",
 		"google.ads.payments-accounts.list",
+		"google.ads.invoices.list", "google.ads.incentives.fetch", "google.ads.third-party-app-analytics-links.list",
 		"google.ads.labels.create", "google.ads.labels.update", "google.ads.labels.remove")
 	requireIDs(t, registryToolIDs(t, "aws", nil), "aws.sts.access-key.get-info", "aws.sts.authorization-message.decode",
 		"aws.sts.caller-identity.get", "aws.iam.user.list", "aws.iam.user.get", "aws.iam.user.list-tags",

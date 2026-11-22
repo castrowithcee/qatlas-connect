@@ -34,18 +34,20 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 	}
 	want := []string{accountBudgetProposalsListID, accountBudgetsListID, accountLinksListID, assetsCreateID,
 		assetsUpdateID, audiencesCreateID, audiencesUpdateID, billingSetupsListID,
-		campaignAutomaticallyCreatedAssetsRemoveID, conversionActionsCreateID, conversionActionsRemoveID,
+		campaignAutomaticallyCreatedAssetsRemoveID, campaignsCreateID, campaignsEnablePMaxBrandGuidelinesID,
+		campaignsRemoveID, campaignsUpdateID, conversionActionsCreateID, conversionActionsRemoveID,
 		conversionActionsUpdateID, conversionCustomVariablesCreateID, conversionCustomVariablesUpdateID,
 		customAudiencesCreateID, customAudiencesRemoveID, customAudiencesUpdateID, customInterestsCreateID,
 		customInterestsUpdateID, customerBudgetNetworkSettingsCreateID, customerBudgetNetworkSettingsUpdateID,
 		customerClientLinksListID, customerClientLinksUpdateID, customerClientsListID, customerManagerLinksListID,
 		customerManagerLinksUpdateID, customerUserAccessInvitationsListID, customerUserAccessInvitationsRemoveID,
 		customerUserAccessesListID, customerUserAccessesRemoveID, customerUserAccessesUpdateID, customersGetID,
-		customersListAccessibleID, customersUpdateID, dataLinksListID, fieldsGetID, fieldsSearchID, labelsCreateID,
-		labelsRemoveID, labelsUpdateID, multiPartyAuthReviewsListID, multiPartyAuthReviewsResolveID,
-		paymentsAccountsListID, productLinkInvitationsListID, productLinksListID, remarketingActionsCreateID,
-		remarketingActionsUpdateID, reportsSearchID, userListCustomerTypesCreateID, userListCustomerTypesRemoveID,
-		userListsCreateID, userListsRemoveID, userListsUpdateID}
+		customersListAccessibleID, customersUpdateID, dataLinksListID, fieldsGetID, fieldsSearchID,
+		incentivesFetchID, invoicesListID, labelsCreateID, labelsRemoveID, labelsUpdateID,
+		multiPartyAuthReviewsListID, multiPartyAuthReviewsResolveID, paymentsAccountsListID,
+		productLinkInvitationsListID, productLinksListID, remarketingActionsCreateID, remarketingActionsUpdateID,
+		reportsSearchID, thirdPartyAppAnalyticsLinksListID, userListCustomerTypesCreateID,
+		userListCustomerTypesRemoveID, userListsCreateID, userListsRemoveID, userListsUpdateID}
 	if len(metadata.Tools) != len(want) {
 		t.Fatalf("tools = %+v", metadata.Tools)
 	}
