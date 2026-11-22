@@ -609,9 +609,13 @@ func TestToolsFiltersByNamespaceAndQuery(t *testing.T) {
 		"google.ads.labels.create", "google.ads.labels.update", "google.ads.labels.remove",
 		"google.ads.campaign-assets.create", "google.ads.campaign-assets.update", "google.ads.campaign-assets.remove",
 		"google.ads.campaign-budgets.create", "google.ads.campaign-budgets.update", "google.ads.campaign-budgets.remove",
+		"google.ads.ad-group-assets.create", "google.ads.ad-group-assets.update", "google.ads.ad-group-assets.remove",
 		"google.ads.campaign-groups.create", "google.ads.campaign-groups.update", "google.ads.campaign-groups.remove",
+		"google.ads.bidding-strategies.create", "google.ads.bidding-strategies.update", "google.ads.bidding-strategies.remove",
 		"google.ads.recommendations.generate", "google.ads.recommendations.apply", "google.ads.recommendations.dismiss",
-		"google.ads.asset-sets.create", "google.ads.asset-sets.update", "google.ads.asset-sets.remove")
+		"google.ads.asset-sets.create", "google.ads.asset-sets.update", "google.ads.asset-sets.remove",
+		"google.ads.asset-set-assets.create", "google.ads.asset-set-assets.remove",
+		"google.ads.campaign-asset-sets.create", "google.ads.campaign-asset-sets.remove")
 	requireIDs(t, registryToolIDs(t, "aws", nil), "aws.sts.access-key.get-info", "aws.sts.authorization-message.decode",
 		"aws.sts.caller-identity.get", "aws.iam.user.list", "aws.iam.user.get", "aws.iam.user.list-tags",
 		"aws.iam.group.list", "aws.iam.group.get", "aws.iam.group.list-for-user", "aws.iam.role.list",
