@@ -22,6 +22,7 @@ var changeToolIDs = []string{customersUpdateID, customerBudgetNetworkSettingsCre
 	customerManagerLinksUpdateID, customerClientLinksUpdateID,
 	customAudiencesRemoveID, userListsRemoveID,
 	campaignsCreateID, campaignsUpdateID, campaignsRemoveID, campaignsEnablePMaxBrandGuidelinesID, labelsRemoveID,
+	accountLinksRemoveID, productLinksRemoveID, dataLinksRemoveID, adGroupsCreateID, adGroupsUpdateID, adGroupsRemoveID,
 	seasonalityCreateID, seasonalityUpdateID, seasonalityRemoveID}
 
 // notListedOnly are the changing tools that a connection with the matching effect offers without a tools list.
@@ -30,11 +31,12 @@ var notListedOnly = []string{customInterestsCreateID, customInterestsUpdateID, a
 	conversionCustomVariablesCreateID, conversionCustomVariablesUpdateID, remarketingActionsCreateID, remarketingActionsUpdateID,
 	customAudiencesCreateID, customAudiencesUpdateID,
 	userListsCreateID, userListsUpdateID, userListCustomerTypesCreateID, userListCustomerTypesRemoveID,
-	recommendationsDismissID}
+	recommendationsDismissID, productLinkInvitationsUpdateID, dataLinksUpdateID}
 
 // noValidateOnly are the changing tools whose Mutate request has no validate_only in v26; they offer none.
 var noValidateOnly = []string{customerUserAccessesUpdateID, customerUserAccessesRemoveID,
-	customerUserAccessInvitationsRemoveID, multiPartyAuthReviewsResolveID, campaignsEnablePMaxBrandGuidelinesID}
+	customerUserAccessInvitationsRemoveID, multiPartyAuthReviewsResolveID, campaignsEnablePMaxBrandGuidelinesID,
+	dataLinksRemoveID}
 
 func mutatePath(id string) string { return "/v26/customers/" + id + ":mutate" }
 func networkPath(id string) string {
@@ -91,7 +93,10 @@ func TestChangeToolsAreListedOnlyConfirmedAndOutsideTheReadProfile(t *testing.T)
 		userListsRemoveID:       capability.EffectDelete,
 		campaignsCreateID:       capability.EffectCreate, campaignsUpdateID: capability.EffectUpdate,
 		campaignsRemoveID: capability.EffectDelete, campaignsEnablePMaxBrandGuidelinesID: capability.EffectUpdate,
-		labelsRemoveID: capability.EffectDelete, seasonalityCreateID: capability.EffectCreate,
+		labelsRemoveID: capability.EffectDelete, accountLinksRemoveID: capability.EffectDelete,
+		productLinksRemoveID: capability.EffectDelete, dataLinksRemoveID: capability.EffectDelete,
+		adGroupsCreateID: capability.EffectCreate, adGroupsUpdateID: capability.EffectUpdate,
+		adGroupsRemoveID: capability.EffectDelete, seasonalityCreateID: capability.EffectCreate,
 		seasonalityUpdateID: capability.EffectUpdate, seasonalityRemoveID: capability.EffectDelete}
 	for _, id := range changeToolIDs {
 		d, _, ok := reg.Lookup(id)
