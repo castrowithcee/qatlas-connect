@@ -32,7 +32,7 @@ import (
 )
 
 const (
-	// formerTag is the last release before the rename, which an update starts from and a rollback returns to.
+	// formerTag is the last release before the rename, whose state this program migrates and a rollback returns to.
 	formerTag = "v2.2.0"
 	// renamedTag is the version of this program in these tests, a release after the rename.
 	renamedTag = "v3.1.0"
@@ -111,7 +111,7 @@ func formerRelease(t *testing.T, signer ssh.Signer, tag string, program []byte) 
 // repository API at repositoryAPI.
 func buildRenamed(t *testing.T, path, keyLine, repositoryAPI string) []byte {
 	t.Helper()
-	// Stripped like a release build: the updater refuses a program over its size limit.
+	// Stripped like a release build.
 	cmd := exec.Command("go", "build", "-tags", "e2e", "-buildvcs=false", "-trimpath", "-ldflags",
 		"-s -w -X github.com/castrowithcee/qatlas-connect/internal/cli.version="+renamedTag+
 			" -X 'github.com/castrowithcee/qatlas-connect/internal/release.extraKeyLines="+keyLine+"'"+
@@ -128,9 +128,10 @@ func buildRenamed(t *testing.T, path, keyLine, repositoryAPI string) []byte {
 	return program
 }
 
-// installFormerly puts the program of archive at <prefix>/bin/qatlas the way an updater of a release before
-// the rename does: it checks the former signature over checksums.txt, the archive's checksum, and replaces
-// bin/qatlas and share/man/man1/qatlas.1 from the archive's bin/qatlas and its manual page.
+// installFormerly puts the program of the former archive of rel at <prefix>/bin/qatlas, as a manual
+// installation over a release before the rename or that release's own updater does: it checks the former
+// signature over checksums.txt, the archive's checksum, and replaces bin/qatlas and share/man/man1/qatlas.1
+// from the archive's bin/qatlas and its manual page.
 func installFormerly(t *testing.T, prefix string, rel selfupdatetest.Release, key ssh.PublicKey) {
 	t.Helper()
 	name := release.Layout{Program: "qatlas"}.ArchiveName(rel.Tag, "linux", runtime.GOARCH)
@@ -510,14 +511,16 @@ func logCalls(t *testing.T, home string) int {
 	return strings.Count(readLogs(t, home), `"bookstack.pages.list"`)
 }
 
-// TestUpdateFromTheFormerReleaseAndRollBack updates a program built from the tag of the release before the
-// rename, with its own updater, to this release on a local signed release server, and back. The former
-// program sets up its configuration, vault secrets, approval, and a logged call at its own default place and
-// holds the vault unlocked. Its update installs this program as qatlas and hands the vault over; the first
-// start then gives it the name qconnect with qatlas as an alias, and the vault stays unlocked through it.
-// Configuration, secrets, approval, and log are migrated: after a fresh unlock with the same passphrase
-// qconnect still reads the secret. 'qatlas mcp' serves as qconnect. A rollback to the former release names
-// the state it works on before it installs, and afterwards qatlas is the former program on that state.
+// TestUpdateFromTheFormerReleaseAndRollBack replaces a program built from the tag of the release before the
+// rename with this release, installed manually, and rolls back to it from a local signed release server. The
+// updater of that release refuses a program over 64 MiB, so its own update is no longer a supported way. The
+// former program sets up its configuration, vault secrets, approval, and a logged call at its own default
+// place and leaves its vault process unlocked. The manual installation puts this program in place as qatlas
+// and hands no vault over; the first start then gives it the name qconnect with qatlas as an alias.
+// Configuration, secrets, approval, and log are migrated: the unlock with the same passphrase ends the former
+// vault process, and qconnect reads the secret. 'qatlas mcp' serves as qconnect. A rollback to the former
+// release names the state it works on before it installs, and afterwards qatlas is the former program on
+// that state.
 func TestUpdateFromTheFormerReleaseAndRollBack(t *testing.T) {
 	if testing.Short() {
 		t.Skip("builds the former release and this one")
@@ -539,7 +542,8 @@ func TestUpdateFromTheFormerReleaseAndRollBack(t *testing.T) {
 	server := selfupdatetest.NewServer(t)
 	formerProgram := buildFormer(t, src, filepath.Join(dir, "build", "former", "qatlas"), keyLine, server.URL)
 	renamedProgram := buildRenamed(t, filepath.Join(dir, "build", "renamed", "qconnect"), keyLine, server.RepositoryAPI())
-	server.Set(renamedRelease(t, signer, renamedTag, renamedProgram), formerRelease(t, signer, formerTag, formerProgram))
+	renamed := renamedRelease(t, signer, renamedTag, renamedProgram)
+	server.Set(renamed, formerRelease(t, signer, formerTag, formerProgram))
 
 	home := filepath.Join(dir, "home")
 	legacyHome := filepath.Join(home, ".qatlas", "cli")
@@ -627,47 +631,38 @@ defaults:
 		t.Fatal("the former release logged no call")
 	}
 
-	// The former updater installs this release as qatlas from the former assets.
-	code, stdout, stderr := former.run(t, "update", "--yes", "--output", "json")
-	if code != 0 || !strings.Contains(stdout, `"updated":true`) || !strings.Contains(stdout, `"latest":"`+renamedTag+`"`) {
-		t.Fatalf("former update: exit %d, stdout %q, stderr %q", code, stdout, stderr)
-	}
+	// This release is installed manually as qatlas from the former assets, beside the unlocked vault process.
+	installFormerly(t, filepath.Dir(bin), renamed, signer.PublicKey())
 	if got, _ := os.ReadFile(former.bin); !bytes.Equal(got, renamedProgram) {
-		t.Fatal("the former updater did not install this release as qatlas")
-	}
-	if _, err := os.Lstat(current.bin); err == nil {
-		t.Fatal("the former updater left a qconnect")
+		t.Fatal("the manual installation did not put this release in place as qatlas")
 	}
 
-	// The first start adopts the current name; the vault handed over stays unlocked through it.
-	stderr = invoke(former)
-	if strings.Count(stderr, adoptedNote) != 1 {
-		t.Errorf("first start stderr = %q, want the adoption said once", stderr)
+	// The first start adopts the current name and migrates the configuration.
+	code, stdout, stderr := former.run(t, "providers", "--output", "json")
+	if code != 0 || !json.Valid([]byte(stdout)) || strings.Count(stderr, adoptedNote) != 1 {
+		t.Fatalf("first start: exit %d, stdout %q, stderr %q, want the adoption said once", code, stdout, stderr)
 	}
 	assertAdopted(t, bin, renamedProgram)
+	if _, err := os.Stat(filepath.Join(currentHome, "config.yaml")); err != nil {
+		t.Fatalf("the configuration was not migrated: %v", err)
+	}
+
+	// Migrated: the vault with its secrets and approval, read after an unlock with the same passphrase, and
+	// the log with the former call.
+	unlock(current)
 	if stderr := invoke(current); strings.Contains(stderr, adoptedNote) {
 		t.Errorf("qconnect said the adoption again: %q", stderr)
 	}
 	invoke(former)
+	if got := logCalls(t, currentHome); got < 2 {
+		t.Errorf("the migrated log records %d calls, want the former one and those after the installation", got)
+	}
 	assertMCPAnswersAsQconnect(t, former)
 	for _, r := range []*runner{current, former} {
 		if code, stdout, _ := r.run(t, "--version"); code != 0 || strings.TrimSpace(stdout) != "qconnect "+renamedTag {
 			t.Errorf("%s --version = %d, %q", r.bin, code, stdout)
 		}
 	}
-
-	// Migrated: the configuration, the vault with its secrets and approval, and the log with the former call.
-	if _, err := os.Stat(filepath.Join(currentHome, "config.yaml")); err != nil {
-		t.Fatalf("the configuration was not migrated: %v", err)
-	}
-	if got := logCalls(t, currentHome); got < 2 {
-		t.Errorf("the migrated log records %d calls, want the former one and those after the update", got)
-	}
-	if code, _, stderr := current.run(t, "vault", "lock"); code != 0 {
-		t.Fatalf("qconnect vault lock: exit %d, stderr %q", code, stderr)
-	}
-	unlock(current)
-	invoke(current)
 
 	// The rollback names the state the former release works on before it installs anything.
 	formerCalls := logCalls(t, legacyHome)
