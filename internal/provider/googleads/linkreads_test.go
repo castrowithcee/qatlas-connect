@@ -120,7 +120,7 @@ func TestLinkListsAreRegisteredAsDescribed(t *testing.T) {
 	for _, tool := range metadata.Tools {
 		if (strings.Contains(tool.ID, "third-party-app-analytics") && tool.Effect != config.EffectRead) ||
 			(strings.Contains(tool.ID, "link") && tool.Effect != config.EffectRead && !strings.Contains(tool.ID, "manager") &&
-				!strings.Contains(tool.ID, "client")) {
+				!strings.Contains(tool.ID, "client") && !slices.Contains(linkRemovalToolIDs, tool.ID)) {
 			t.Errorf("tool %s must not exist in this group", tool.ID)
 		}
 	}

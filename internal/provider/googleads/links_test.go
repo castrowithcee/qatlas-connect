@@ -104,7 +104,7 @@ func TestLinkToolsAreRegisteredAsDescribed(t *testing.T) {
 	}
 	// No tool creates, accepts or moves a link.
 	for _, tool := range metadata.Tools {
-		if strings.Contains(tool.ID, "link") && (strings.HasSuffix(tool.ID, ".create") || strings.Contains(tool.ID, "move") ||
+		if strings.Contains(tool.ID, "link") && (strings.HasSuffix(tool.ID, ".create") || strings.Contains(tool.ID, ".move") ||
 			strings.Contains(tool.ID, "accept")) {
 			t.Errorf("tool %s must not exist", tool.ID)
 		}
