@@ -75,7 +75,7 @@ func Register(reg *capability.Registry) error {
 	token := tokenMetadata
 	if err := reg.RegisterProvider(config.ProviderMetadata{
 		ID: Provider, Name: "Google Ads", DefaultBaseURL: apiRoot,
-		Description:    "Google Ads API v26: accounts, links, settings, access, billing, invoices, incentives, assets, conversions, remarketing, audiences, reports and field reference, and changes to them",
+		Description:    "Google Ads API v26: accounts, links, settings, access, billing, invoices, incentives, campaigns, assets, conversions, remarketing, audiences, reports and field reference, and changes to them",
 		DefaultEffects: []config.Effect{config.EffectRead},
 		ValidateBaseURL: func(raw string) error {
 			if !isAPIRoot(raw) {
@@ -128,6 +128,14 @@ func Register(reg *capability.Registry) error {
 			ConfirmationSummary: remarketingActionsSummary(true)},
 		capability.Operation{Descriptor: remarketingActionsUpdate, Handler: handleRemarketingActionsUpdate,
 			ConfirmationSummary: remarketingActionsSummary(false)},
+		capability.Operation{Descriptor: campaignsCreate, Handler: handleCampaignsCreate,
+			ConfirmationSummary: campaignSummary(campaignsCreateID)},
+		capability.Operation{Descriptor: campaignsUpdate, Handler: handleCampaignsUpdate,
+			ConfirmationSummary: campaignSummary(campaignsUpdateID)},
+		capability.Operation{Descriptor: campaignsRemove, Handler: handleCampaignsRemove,
+			ConfirmationSummary: campaignSummary(campaignsRemoveID)},
+		capability.Operation{Descriptor: campaignsEnablePMaxBrandGuidelines, Handler: handleCampaignsEnablePMaxBrandGuidelines,
+			ConfirmationSummary: brandGuidelinesSummary},
 		capability.Operation{Descriptor: customerUserAccessesList, Handler: handleUserAccessesList},
 		capability.Operation{Descriptor: customerUserAccessesUpdate, Handler: handleUserAccessUpdate,
 			ConfirmationSummary: userAccessSummary(true)},
