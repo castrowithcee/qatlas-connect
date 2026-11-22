@@ -39,4 +39,8 @@ var tokenMetadata = config.TokenMetadata{Scopes: map[string][]string{
 	customerManagerLinksUpdateID:          {scopeAdwords},
 	customerClientLinksListID:             {scopeAdwords},
 	customerClientLinksUpdateID:           {scopeAdwords},
+	accountLinksListID:                    {scopeAdwords},
+	productLinksListID:                    {scopeAdwords},
+	productLinkInvitationsListID:          {scopeAdwords},
+	dataLinksListID:                       {scopeAdwords},
 }}
