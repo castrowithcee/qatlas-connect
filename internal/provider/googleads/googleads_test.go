@@ -32,21 +32,22 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 	if !reflect.DeepEqual(metadata.SecretRoles, config.TokenSecretRoles()) {
 		t.Errorf("secret roles = %+v, want the token roles", metadata.SecretRoles)
 	}
-	want := []string{conversionActionsCreateID, conversionActionsRemoveID, conversionActionsUpdateID,
-		customerBudgetNetworkSettingsCreateID, customerBudgetNetworkSettingsUpdateID,
-		customerClientsListID, customerUserAccessInvitationsListID, customerUserAccessInvitationsRemoveID,
-		customerUserAccessesListID, customerUserAccessesRemoveID, customerUserAccessesUpdateID,
-		customersGetID, customersListAccessibleID, customersUpdateID, fieldsGetID, fieldsSearchID,
-		labelsCreateID, labelsRemoveID, labelsUpdateID, multiPartyAuthReviewsListID, multiPartyAuthReviewsResolveID, reportsSearchID}
+	want := []string{audiencesCreateID, audiencesUpdateID, conversionActionsCreateID, conversionActionsRemoveID,
+		conversionActionsUpdateID, customInterestsCreateID, customInterestsUpdateID,
+		customerBudgetNetworkSettingsCreateID, customerBudgetNetworkSettingsUpdateID, customerClientLinksListID,
+		customerClientLinksUpdateID, customerClientsListID, customerManagerLinksListID,
+		customerManagerLinksUpdateID, customerUserAccessInvitationsListID, customerUserAccessInvitationsRemoveID,
+		customerUserAccessesListID, customerUserAccessesRemoveID, customerUserAccessesUpdateID, customersGetID,
+		customersListAccessibleID, customersUpdateID, fieldsGetID, fieldsSearchID, labelsCreateID, labelsRemoveID,
+		labelsUpdateID, multiPartyAuthReviewsListID, multiPartyAuthReviewsResolveID, reportsSearchID}
 	if len(metadata.Tools) != len(want) {
 		t.Fatalf("tools = %+v", metadata.Tools)
 	}
 	for i, tool := range metadata.Tools {
-		if slices.Contains(labelsToolIDs, tool.ID) {
-			continue // checked by TestLabelsToolsAreRegisteredAsDescribed
-		}
-		changing := slices.Contains(changeToolIDs, tool.ID)
-		if tool.ID != want[i] || (tool.Effect == config.EffectRead) == changing || tool.RequiresToolAllowList != changing {
+		listed := slices.Contains(changeToolIDs, tool.ID)
+		changing := listed || slices.Contains(notListedOnly, tool.ID) || tool.ID == labelsCreateID ||
+			tool.ID == labelsUpdateID
+		if tool.ID != want[i] || (tool.Effect == config.EffectRead) == changing || tool.RequiresToolAllowList != listed {
 			t.Errorf("tool %d = %+v", i, tool)
 		}
 		if scopes := metadata.Token.Scopes[tool.ID]; !reflect.DeepEqual(scopes, []string{"https://www.googleapis.com/auth/adwords"}) {

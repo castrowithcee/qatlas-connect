@@ -67,6 +67,13 @@ func TestLabelsToolsAreRegisteredAsDescribed(t *testing.T) {
 		if d.RequiresToolAllowList != (id == labelsRemoveID) {
 			t.Errorf("%s: tools list required = %v", id, d.RequiresToolAllowList)
 		}
+		note := changeNote
+		if id == labelsRemoveID {
+			note = mutateNote
+		}
+		if !strings.HasSuffix(d.Description, note) || (id != labelsRemoveID && strings.HasSuffix(d.Description, mutateNote)) {
+			t.Errorf("%s: description does not end on the note of how it is offered", id)
+		}
 		if slices.Contains(metadata.Profiles[0].Tools, id) || slices.Contains(readTools, id) {
 			t.Errorf("the read profile holds %s", id)
 		}

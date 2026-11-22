@@ -387,8 +387,9 @@ var labelsCreate = capability.Descriptor{
 	ID: labelsCreateID, Version: 1, Title: "Create labels in a Google Ads account",
 	Description: "Create one or more labels in a Google Ads account: a name of 1 to 80 characters, optionally " +
 		"a description of up to 200 characters and a background color as hex (#RRGGBB or #RGB). Google decides " +
-		"whether a name may be used twice and which color a label without one gets." + labelsNote + mutateNote +
-		" Offered by a connection with the create effect or whose tools list names it; no profile holds it.",
+		"whether a name may be used twice and which color a label without one gets." + labelsNote +
+		" Offered by a connection with the create effect or whose tools list names it; no profile holds it." +
+		changeNote,
 	Tags: []string{"google", "ads", "labels", "create"}, Provider: Provider,
 	Risk: changeRisk(capability.EffectCreate, capability.IdempotencyNonIdempotent, labelsSensitivity),
 	InputSchema: encoded(object(schema{
@@ -414,8 +415,9 @@ var labelsUpdate = capability.Descriptor{
 	Description: "Change the name, the description or the background color of existing labels of a Google Ads " +
 		"account (an update with a field mask that names exactly the fields given). Only the label_id selects a " +
 		"label: its resource name is built from customer_id and label_id. An empty description clears it; the " +
-		"status of a label cannot be set." + labelsNote + mutateNote +
-		" Offered by a connection with the update effect or whose tools list names it; no profile holds it.",
+		"status of a label cannot be set." + labelsNote +
+		" Offered by a connection with the update effect or whose tools list names it; no profile holds it." +
+		changeNote,
 	Tags: []string{"google", "ads", "labels", "update"}, Provider: Provider,
 	Risk: changeRisk(capability.EffectUpdate, capability.IdempotencyIdempotent, labelsSensitivity),
 	InputSchema: encoded(object(schema{
