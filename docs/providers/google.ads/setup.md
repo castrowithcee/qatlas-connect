@@ -4,7 +4,7 @@ description: >
 type: knowledge
 edit: shared
 created: 2026-11-19
-updated: 2026-11-21
+updated: 2026-11-22
 ---
 
 # Set up Google Ads
@@ -46,9 +46,9 @@ on Google's page about access levels; they change from time to time.
 Google Ads has one scope, `adwords`, for reading and changing. Qatlas asks for it for every tool. The rights come
 from the role of the account in Google Ads. The read tools only read, so the role **Read-only** is
 enough for them, except the lists of invitations and approval requests, whose role Google does not document (see
-[invitations and approval requests](access.md); the services need at least the Basic access level). The tools that change
-settings (see [settings tools](settings.md)), campaigns (see [campaign tools](campaigns.md)), conversion actions (see
-[conversion actions](conversions.md)), or assets (see [asset tools](assets.md)), those that revoke an invitation,
+[invitations and approval requests](access.md); the services need at least the Basic access level). The invoice list needs at least the Basic access level as well and an account with monthly invoicing (see
+[invoices, incentives and app analytics links](invoices.md)). The tools that change
+settings (see [settings tools](settings.md)), campaigns (see [campaign tools](campaigns.md)), conversion actions (see [conversion actions](conversions.md)), or assets (see [asset tools](assets.md)), those that revoke an invitation,
 turn down a request or change a link, and `recommendations.apply` (see [recommendation tools](recommendations.md))
 are offered only when the
 `tools` list of a connection names them (the link changes need at least the Basic access level); Google does not document which call needs which role, so test them with

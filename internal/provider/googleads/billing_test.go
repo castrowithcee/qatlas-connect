@@ -133,7 +133,8 @@ func TestBillingHasNoWriteForm(t *testing.T) {
 		".invoices.", ".incentives.", ".reservations."}
 	for _, tool := range metadata.Tools {
 		for _, family := range families {
-			if strings.Contains(tool.ID, family) && (!strings.HasSuffix(tool.ID, ".list") || tool.Effect != config.EffectRead ||
+			readName := strings.HasSuffix(tool.ID, ".list") || strings.HasSuffix(tool.ID, ".fetch")
+			if strings.Contains(tool.ID, family) && (!readName || tool.Effect != config.EffectRead ||
 				tool.RequiresToolAllowList) {
 				t.Errorf("%s is not a plain read tool", tool.ID)
 			}
