@@ -34,20 +34,23 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 	}
 	want := []string{audiencesCreateID, audiencesUpdateID,
 		conversionActionsCreateID, conversionActionsRemoveID, conversionActionsUpdateID,
+		conversionCustomVariablesCreateID, conversionCustomVariablesUpdateID,
 		customInterestsCreateID, customInterestsUpdateID,
 		customerBudgetNetworkSettingsCreateID, customerBudgetNetworkSettingsUpdateID,
-		customerClientsListID, customerUserAccessInvitationsListID, customerUserAccessInvitationsRemoveID,
+		customerClientLinksListID, customerClientLinksUpdateID, customerClientsListID,
+		customerManagerLinksListID, customerManagerLinksUpdateID, customerUserAccessInvitationsListID, customerUserAccessInvitationsRemoveID,
 		customerUserAccessesListID, customerUserAccessesRemoveID, customerUserAccessesUpdateID,
 		customersGetID, customersListAccessibleID, customersUpdateID, fieldsGetID, fieldsSearchID,
 		multiPartyAuthReviewsListID, multiPartyAuthReviewsResolveID, recommendationsApplyID,
-		recommendationsDismissID, recommendationsGenerateID, reportsSearchID}
+		recommendationsDismissID, recommendationsGenerateID, remarketingActionsCreateID,
+		remarketingActionsUpdateID, reportsSearchID}
 	if len(metadata.Tools) != len(want) {
 		t.Fatalf("tools = %+v", metadata.Tools)
 	}
 	for i, tool := range metadata.Tools {
-		// The recommendation tools are tested in recommendations_test.go: apply is listed-only, dismiss is not.
+		// recommendations.apply is listed-only but tested in recommendations_test.go, not with changeToolIDs.
 		listed := slices.Contains(changeToolIDs, tool.ID) || tool.ID == recommendationsApplyID
-		changing := listed || slices.Contains(notListedOnly, tool.ID) || tool.ID == recommendationsDismissID
+		changing := listed || slices.Contains(notListedOnly, tool.ID)
 		if tool.ID != want[i] || (tool.Effect == config.EffectRead) == changing || tool.RequiresToolAllowList != listed {
 			t.Errorf("tool %d = %+v", i, tool)
 		}
