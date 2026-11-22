@@ -34,10 +34,12 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 	}
 	want := []string{accountBudgetProposalsListID, accountBudgetsListID, accountLinksListID, accountLinksRemoveID,
 		adGroupAdsCreateID, adGroupAdsRemoveID, adGroupAdCreatedAssetsRemoveID, adGroupAdsUpdateID, adGroupsCreateID,
-		adGroupsRemoveID, adGroupsUpdateID, assetsCreateID,
+		adGroupsRemoveID, adGroupsUpdateID, assetSetsCreateID, assetSetsRemoveID, assetSetsUpdateID, assetsCreateID,
 		assetsUpdateID, audiencesCreateID, audiencesUpdateID, billingSetupsListID,
+		campaignAssetsCreateID, campaignAssetsRemoveID, campaignAssetsUpdateID,
 		campaignAutomaticallyCreatedAssetsRemoveID, campaignBudgetsCreateID, campaignBudgetsRemoveID,
-		campaignBudgetsUpdateID, campaignsCreateID, campaignsEnablePMaxBrandGuidelinesID,
+		campaignBudgetsUpdateID, campaignGroupsCreateID, campaignGroupsRemoveID,
+		campaignGroupsUpdateID, campaignsCreateID, campaignsEnablePMaxBrandGuidelinesID,
 		campaignsRemoveID, campaignsUpdateID, conversionActionsCreateID, conversionActionsRemoveID,
 		conversionActionsUpdateID, conversionCustomVariablesCreateID, conversionCustomVariablesUpdateID,
 		customAudiencesCreateID, customAudiencesRemoveID, customAudiencesUpdateID, customInterestsCreateID,
@@ -59,9 +61,11 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 	for i, tool := range metadata.Tools {
 		// recommendations.apply is listed-only but tested in recommendations_test.go, not with changeToolIDs.
 		listed := slices.Contains(changeToolIDs, tool.ID) || slices.Contains(assetToolIDs, tool.ID) ||
-			tool.ID == recommendationsApplyID
+			tool.ID == recommendationsApplyID || tool.ID == campaignGroupsRemoveID
 		changing := listed || slices.Contains(notListedOnly, tool.ID) || tool.ID == labelsCreateID ||
-			tool.ID == labelsUpdateID
+			tool.ID == labelsUpdateID || tool.ID == campaignGroupsCreateID || tool.ID == campaignGroupsUpdateID ||
+			tool.ID == campaignAssetsCreateID || tool.ID == campaignAssetsUpdateID || tool.ID == campaignAssetsRemoveID ||
+			tool.ID == assetSetsCreateID || tool.ID == assetSetsUpdateID
 		if tool.ID != want[i] || (tool.Effect == config.EffectRead) == changing || tool.RequiresToolAllowList != listed {
 			t.Errorf("tool %d = %+v", i, tool)
 		}

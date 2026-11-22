@@ -23,8 +23,8 @@ var changeToolIDs = []string{customersUpdateID, customerBudgetNetworkSettingsCre
 	customAudiencesRemoveID, userListsRemoveID,
 	campaignsCreateID, campaignsUpdateID, campaignsRemoveID, campaignsEnablePMaxBrandGuidelinesID, labelsRemoveID,
 	accountLinksRemoveID, productLinksRemoveID, dataLinksRemoveID, adGroupsCreateID, adGroupsUpdateID, adGroupsRemoveID,
-	campaignBudgetsCreateID, campaignBudgetsUpdateID, campaignBudgetsRemoveID, adGroupAdsCreateID, adGroupAdsUpdateID,
-	adGroupAdsRemoveID, adGroupAdCreatedAssetsRemoveID}
+	campaignBudgetsCreateID, campaignBudgetsUpdateID, campaignBudgetsRemoveID, campaignGroupsRemoveID, assetSetsRemoveID,
+	adGroupAdsCreateID, adGroupAdsUpdateID, adGroupAdsRemoveID, adGroupAdCreatedAssetsRemoveID}
 
 // notListedOnly are the changing tools that a connection with the matching effect offers without a tools list.
 // They still need the confirmation of every call.
@@ -99,8 +99,9 @@ func TestChangeToolsAreListedOnlyConfirmedAndOutsideTheReadProfile(t *testing.T)
 		adGroupsCreateID: capability.EffectCreate, adGroupsUpdateID: capability.EffectUpdate,
 		adGroupsRemoveID:        capability.EffectDelete,
 		campaignBudgetsCreateID: capability.EffectCreate, campaignBudgetsUpdateID: capability.EffectUpdate,
-		campaignBudgetsRemoveID: capability.EffectDelete,
-		adGroupAdsCreateID:      capability.EffectCreate, adGroupAdsUpdateID: capability.EffectUpdate,
+		campaignBudgetsRemoveID: capability.EffectDelete, campaignGroupsRemoveID: capability.EffectDelete,
+		assetSetsRemoveID:  capability.EffectDelete,
+		adGroupAdsCreateID: capability.EffectCreate, adGroupAdsUpdateID: capability.EffectUpdate,
 		adGroupAdsRemoveID: capability.EffectDelete, adGroupAdCreatedAssetsRemoveID: capability.EffectDelete}
 	for _, id := range changeToolIDs {
 		d, _, ok := reg.Lookup(id)
