@@ -34,7 +34,8 @@ const subject = "Google Ads"
 var readTools = []string{customersListAccessibleID, customersGetID, customerClientsListID, reportsSearchID,
 	fieldsSearchID, fieldsGetID, customerUserAccessesListID, customerUserAccessInvitationsListID,
 	multiPartyAuthReviewsListID, customerManagerLinksListID, customerClientLinksListID, accountLinksListID,
-	productLinksListID, productLinkInvitationsListID, dataLinksListID,
+	productLinksListID, productLinkInvitationsListID, dataLinksListID, billingSetupsListID, accountBudgetsListID,
+	accountBudgetProposalsListID, paymentsAccountsListID,
 	recommendationsGenerateID}
 
 // TestConnection obtains an access token, checks its scope, and lists the accounts the credential reaches
@@ -74,7 +75,7 @@ func Register(reg *capability.Registry) error {
 	token := tokenMetadata
 	if err := reg.RegisterProvider(config.ProviderMetadata{
 		ID: Provider, Name: "Google Ads", DefaultBaseURL: apiRoot,
-		Description:    "Google Ads API v26: accounts, hierarchy and links, settings, user access, invitations, approvals, assets, conversions, remarketing, audiences, recommendations, reports and field reference, and changes",
+		Description:    "Google Ads API v26: accounts, hierarchy, links, settings, user access, approvals, billing, campaigns, assets, conversions, remarketing, audiences, recommendations, reports and fields, and changes",
 		DefaultEffects: []config.Effect{config.EffectRead},
 		ValidateBaseURL: func(raw string) error {
 			if !isAPIRoot(raw) {
@@ -88,7 +89,7 @@ func Register(reg *capability.Registry) error {
 		Profiles: []config.ToolProfile{{
 			ID: "read", Title: "Read", Recommended: true,
 			Description: "lists the accounts the credential reaches, reads account settings, the hierarchy " +
-				"below a manager account and the users of an account, lists the invitations and the multi-party approval requests of an account, lists its manager, client, account, product and data links, generates recommendations for a campaign described in the arguments, runs reports and reads the field reference; the adwords scope is the only one Google offers and also allows changes, " +
+				"below a manager account and the users of an account, lists the invitations and the multi-party approval requests of an account, lists its manager, client, account, product and data links, lists the billing setups, account budgets, budget proposals and payments accounts of an account, generates recommendations for a campaign described in the arguments, runs reports and reads the field reference; the adwords scope is the only one Google offers and also allows changes, " +
 				"although no tool of this profile changes anything",
 			Tools: readTools,
 		}},
@@ -127,6 +128,14 @@ func Register(reg *capability.Registry) error {
 			ConfirmationSummary: remarketingActionsSummary(true)},
 		capability.Operation{Descriptor: remarketingActionsUpdate, Handler: handleRemarketingActionsUpdate,
 			ConfirmationSummary: remarketingActionsSummary(false)},
+		capability.Operation{Descriptor: campaignsCreate, Handler: handleCampaignsCreate,
+			ConfirmationSummary: campaignSummary(campaignsCreateID)},
+		capability.Operation{Descriptor: campaignsUpdate, Handler: handleCampaignsUpdate,
+			ConfirmationSummary: campaignSummary(campaignsUpdateID)},
+		capability.Operation{Descriptor: campaignsRemove, Handler: handleCampaignsRemove,
+			ConfirmationSummary: campaignSummary(campaignsRemoveID)},
+		capability.Operation{Descriptor: campaignsEnablePMaxBrandGuidelines, Handler: handleCampaignsEnablePMaxBrandGuidelines,
+			ConfirmationSummary: brandGuidelinesSummary},
 		capability.Operation{Descriptor: customerUserAccessesList, Handler: handleUserAccessesList},
 		capability.Operation{Descriptor: customerUserAccessesUpdate, Handler: handleUserAccessUpdate,
 			ConfirmationSummary: userAccessSummary(true)},
@@ -169,6 +178,20 @@ func Register(reg *capability.Registry) error {
 		capability.Operation{Descriptor: campaignAutomaticallyCreatedAssetsRemove,
 			Handler:             handleCampaignAutomaticallyCreatedAssetsRemove,
 			ConfirmationSummary: removalSummary},
+		capability.Operation{Descriptor: userListsCreate, Handler: userListsHandleCreate,
+			ConfirmationSummary: userListsSummary(true)},
+		capability.Operation{Descriptor: userListsUpdate, Handler: userListsHandleUpdate,
+			ConfirmationSummary: userListsSummary(false)},
+		capability.Operation{Descriptor: userListsRemove, Handler: userListsHandleRemove,
+			ConfirmationSummary: userListsRemoveSummary},
+		capability.Operation{Descriptor: userListCustomerTypesCreate, Handler: userListHandleCustomerTypesCreate,
+			ConfirmationSummary: userListCustomerTypesSummary(true)},
+		capability.Operation{Descriptor: userListCustomerTypesRemove, Handler: userListHandleCustomerTypesRemove,
+			ConfirmationSummary: userListCustomerTypesSummary(false)},
+		capability.Operation{Descriptor: billingSetupsList, Handler: handleBillingSetupsList},
+		capability.Operation{Descriptor: accountBudgetsList, Handler: handleAccountBudgetsList},
+		capability.Operation{Descriptor: accountBudgetProposalsList, Handler: handleAccountBudgetProposalsList},
+		capability.Operation{Descriptor: paymentsAccountsList, Handler: handlePaymentsAccountsList},
 		capability.Operation{Descriptor: recommendationsGenerate, Handler: handleRecommendationsGenerate},
 		capability.Operation{Descriptor: recommendationsApply, Handler: handleRecommendationsApply,
 			ConfirmationSummary: recommendationApplySummary},

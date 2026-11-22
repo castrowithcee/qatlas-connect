@@ -32,20 +32,23 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 	if !reflect.DeepEqual(metadata.SecretRoles, config.TokenSecretRoles()) {
 		t.Errorf("secret roles = %+v, want the token roles", metadata.SecretRoles)
 	}
-	want := []string{accountLinksListID, assetsCreateID, assetsUpdateID, audiencesCreateID, audiencesUpdateID,
+	want := []string{accountBudgetProposalsListID, accountBudgetsListID, accountLinksListID, assetsCreateID,
+		assetsUpdateID, audiencesCreateID, audiencesUpdateID, billingSetupsListID,
 		campaignAutomaticallyCreatedAssetsRemoveID,
-		conversionActionsCreateID, conversionActionsRemoveID, conversionActionsUpdateID,
-		conversionCustomVariablesCreateID, conversionCustomVariablesUpdateID,
-		customAudiencesCreateID, customAudiencesRemoveID, customAudiencesUpdateID,
-		customInterestsCreateID, customInterestsUpdateID,
-		customerBudgetNetworkSettingsCreateID, customerBudgetNetworkSettingsUpdateID,
-		customerClientLinksListID, customerClientLinksUpdateID, customerClientsListID,
-		customerManagerLinksListID, customerManagerLinksUpdateID, customerUserAccessInvitationsListID, customerUserAccessInvitationsRemoveID,
-		customerUserAccessesListID, customerUserAccessesRemoveID, customerUserAccessesUpdateID,
-		customersGetID, customersListAccessibleID, customersUpdateID, dataLinksListID, fieldsGetID, fieldsSearchID,
-		multiPartyAuthReviewsListID, multiPartyAuthReviewsResolveID, productLinkInvitationsListID,
-		productLinksListID, recommendationsApplyID, recommendationsDismissID, recommendationsGenerateID,
-		remarketingActionsCreateID, remarketingActionsUpdateID, reportsSearchID}
+		campaignsCreateID, campaignsEnablePMaxBrandGuidelinesID, campaignsRemoveID, campaignsUpdateID,
+		conversionActionsCreateID, conversionActionsRemoveID,
+		conversionActionsUpdateID, conversionCustomVariablesCreateID, conversionCustomVariablesUpdateID,
+		customAudiencesCreateID, customAudiencesRemoveID, customAudiencesUpdateID, customInterestsCreateID,
+		customInterestsUpdateID, customerBudgetNetworkSettingsCreateID, customerBudgetNetworkSettingsUpdateID,
+		customerClientLinksListID, customerClientLinksUpdateID, customerClientsListID, customerManagerLinksListID,
+		customerManagerLinksUpdateID, customerUserAccessInvitationsListID, customerUserAccessInvitationsRemoveID,
+		customerUserAccessesListID, customerUserAccessesRemoveID, customerUserAccessesUpdateID, customersGetID,
+		customersListAccessibleID, customersUpdateID, dataLinksListID, fieldsGetID, fieldsSearchID,
+		multiPartyAuthReviewsListID, multiPartyAuthReviewsResolveID, paymentsAccountsListID,
+		productLinkInvitationsListID, productLinksListID, recommendationsApplyID, recommendationsDismissID,
+		recommendationsGenerateID, remarketingActionsCreateID, remarketingActionsUpdateID,
+		reportsSearchID, userListCustomerTypesCreateID,
+		userListCustomerTypesRemoveID, userListsCreateID, userListsRemoveID, userListsUpdateID}
 	if len(metadata.Tools) != len(want) {
 		t.Fatalf("tools = %+v", metadata.Tools)
 	}

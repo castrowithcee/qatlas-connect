@@ -20,17 +20,20 @@ var changeToolIDs = []string{customersUpdateID, customerBudgetNetworkSettingsCre
 	customerUserAccessesUpdateID, customerUserAccessesRemoveID, customerUserAccessInvitationsRemoveID,
 	multiPartyAuthReviewsResolveID, conversionActionsCreateID, conversionActionsUpdateID, conversionActionsRemoveID,
 	customerManagerLinksUpdateID, customerClientLinksUpdateID,
-	customAudiencesRemoveID}
+	customAudiencesRemoveID, userListsRemoveID,
+	campaignsCreateID, campaignsUpdateID, campaignsRemoveID, campaignsEnablePMaxBrandGuidelinesID}
 
 // notListedOnly are the changing tools that a connection with the matching effect offers without a tools list.
 // They still need the confirmation of every call.
 var notListedOnly = []string{customInterestsCreateID, customInterestsUpdateID, audiencesCreateID, audiencesUpdateID,
 	conversionCustomVariablesCreateID, conversionCustomVariablesUpdateID, remarketingActionsCreateID, remarketingActionsUpdateID,
-	customAudiencesCreateID, customAudiencesUpdateID, recommendationsDismissID}
+	customAudiencesCreateID, customAudiencesUpdateID,
+	userListsCreateID, userListsUpdateID, userListCustomerTypesCreateID, userListCustomerTypesRemoveID,
+	recommendationsDismissID}
 
 // noValidateOnly are the changing tools whose Mutate request has no validate_only in v26; they offer none.
 var noValidateOnly = []string{customerUserAccessesUpdateID, customerUserAccessesRemoveID,
-	customerUserAccessInvitationsRemoveID, multiPartyAuthReviewsResolveID}
+	customerUserAccessInvitationsRemoveID, multiPartyAuthReviewsResolveID, campaignsEnablePMaxBrandGuidelinesID}
 
 func mutatePath(id string) string { return "/v26/customers/" + id + ":mutate" }
 func networkPath(id string) string {
@@ -83,7 +86,10 @@ func TestChangeToolsAreListedOnlyConfirmedAndOutsideTheReadProfile(t *testing.T)
 		conversionActionsCreateID: capability.EffectCreate, conversionActionsUpdateID: capability.EffectUpdate,
 		conversionActionsRemoveID:    capability.EffectDelete,
 		customerManagerLinksUpdateID: capability.EffectUpdate, customerClientLinksUpdateID: capability.EffectUpdate,
-		customAudiencesRemoveID: capability.EffectDelete}
+		customAudiencesRemoveID: capability.EffectDelete,
+		userListsRemoveID:       capability.EffectDelete,
+		campaignsCreateID:       capability.EffectCreate, campaignsUpdateID: capability.EffectUpdate,
+		campaignsRemoveID: capability.EffectDelete, campaignsEnablePMaxBrandGuidelinesID: capability.EffectUpdate}
 	for _, id := range changeToolIDs {
 		d, _, ok := reg.Lookup(id)
 		if !ok || !d.RequiresToolAllowList || d.Version != 1 || d.Risk.Effect != wantEffect[id] ||

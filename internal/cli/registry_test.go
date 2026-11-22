@@ -133,6 +133,8 @@ func TestDefaultRegistry(t *testing.T) {
 		"google.ads.customer-clients.list", "google.ads.reports.search", "google.ads.fields.search", "google.ads.fields.get",
 		"google.ads.customers.update",
 		"google.ads.customer-budget-network-settings.create", "google.ads.customer-budget-network-settings.update",
+		"google.ads.campaigns.create", "google.ads.campaigns.update", "google.ads.campaigns.remove",
+		"google.ads.campaigns.enable-pmax-brand-guidelines",
 		"google.ads.customer-user-accesses.list", "google.ads.customer-user-accesses.update",
 		"google.ads.customer-user-accesses.remove",
 		"google.ads.customer-user-access-invitations.list", "google.ads.customer-user-access-invitations.remove",
@@ -148,6 +150,10 @@ func TestDefaultRegistry(t *testing.T) {
 		"google.ads.account-links.list", "google.ads.product-links.list", "google.ads.product-link-invitations.list",
 		"google.ads.data-links.list",
 		"google.ads.assets.create", "google.ads.assets.update", "google.ads.campaign-automatically-created-assets.remove",
+		"google.ads.user-lists.create", "google.ads.user-lists.update", "google.ads.user-lists.remove",
+		"google.ads.user-list-customer-types.create", "google.ads.user-list-customer-types.remove",
+		"google.ads.billing-setups.list", "google.ads.account-budgets.list", "google.ads.account-budget-proposals.list",
+		"google.ads.payments-accounts.list",
 		"google.ads.recommendations.generate", "google.ads.recommendations.apply", "google.ads.recommendations.dismiss")
 }
 
