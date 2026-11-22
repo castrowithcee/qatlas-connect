@@ -240,5 +240,11 @@ func Register(reg *capability.Registry) error {
 		capability.Operation{Descriptor: recommendationsApply, Handler: handleRecommendationsApply,
 			ConfirmationSummary: recommendationApplySummary},
 		capability.Operation{Descriptor: recommendationsDismiss, Handler: handleRecommendationsDismiss,
-			ConfirmationSummary: recommendationDismissSummary})
+			ConfirmationSummary: recommendationDismissSummary},
+		capability.Operation{Descriptor: assetSetsCreate, Handler: handleAssetSetsCreate,
+			ConfirmationSummary: assetSetSummary(assetSetsCreateID)},
+		capability.Operation{Descriptor: assetSetsUpdate, Handler: handleAssetSetsUpdate,
+			ConfirmationSummary: assetSetSummary(assetSetsUpdateID)},
+		capability.Operation{Descriptor: assetSetsRemove, Handler: handleAssetSetsRemove,
+			ConfirmationSummary: assetSetSummary(assetSetsRemoveID)})
 }
