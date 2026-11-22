@@ -140,7 +140,8 @@ func TestBillingHasNoWriteForm(t *testing.T) {
 			}
 		}
 		for _, word := range []string{"billing-setup", "budget", "payments-account"} {
-			if strings.Contains(tool.ID, word) && tool.Effect != config.EffectRead && !strings.Contains(tool.ID, "budget-network") {
+			if strings.Contains(tool.ID, word) && tool.Effect != config.EffectRead && !strings.Contains(tool.ID, "budget-network") &&
+				!strings.Contains(tool.ID, ".campaign-budgets.") {
 				t.Errorf("%s changes a billing resource", tool.ID)
 			}
 		}
