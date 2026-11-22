@@ -206,5 +206,11 @@ func Register(reg *capability.Registry) error {
 		capability.Operation{Descriptor: recommendationsApply, Handler: handleRecommendationsApply,
 			ConfirmationSummary: recommendationApplySummary},
 		capability.Operation{Descriptor: recommendationsDismiss, Handler: handleRecommendationsDismiss,
-			ConfirmationSummary: recommendationDismissSummary})
+			ConfirmationSummary: recommendationDismissSummary},
+		capability.Operation{Descriptor: seasonalityCreate, Handler: handleSeasonalityCreate,
+			ConfirmationSummary: seasonalitySummary(seasonalityCreateID)},
+		capability.Operation{Descriptor: seasonalityUpdate, Handler: handleSeasonalityUpdate,
+			ConfirmationSummary: seasonalitySummary(seasonalityUpdateID)},
+		capability.Operation{Descriptor: seasonalityRemove, Handler: handleSeasonalityRemove,
+			ConfirmationSummary: seasonalitySummary(seasonalityRemoveID)})
 }

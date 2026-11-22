@@ -33,7 +33,8 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 		t.Errorf("secret roles = %+v, want the token roles", metadata.SecretRoles)
 	}
 	want := []string{accountBudgetProposalsListID, accountBudgetsListID, accountLinksListID, assetsCreateID,
-		assetsUpdateID, audiencesCreateID, audiencesUpdateID, billingSetupsListID,
+		assetsUpdateID, audiencesCreateID, audiencesUpdateID, seasonalityCreateID, seasonalityRemoveID,
+		seasonalityUpdateID, billingSetupsListID,
 		campaignAutomaticallyCreatedAssetsRemoveID, campaignsCreateID, campaignsEnablePMaxBrandGuidelinesID,
 		campaignsRemoveID, campaignsUpdateID, conversionActionsCreateID, conversionActionsRemoveID,
 		conversionActionsUpdateID, conversionCustomVariablesCreateID, conversionCustomVariablesUpdateID,
