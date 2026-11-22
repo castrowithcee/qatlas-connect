@@ -583,6 +583,8 @@ func TestToolsFiltersByNamespaceAndQuery(t *testing.T) {
 		"google.ads.ad-groups.create", "google.ads.ad-groups.update", "google.ads.ad-groups.remove",
 		"google.ads.ad-group-ads.create", "google.ads.ad-group-ads.update", "google.ads.ad-group-ads.remove",
 		"google.ads.ad-group-ads.remove-automatically-created-assets",
+		"google.ads.ads.update", "google.ads.ad-parameters.create", "google.ads.ad-parameters.update",
+		"google.ads.ad-parameters.remove",
 		"google.ads.customer-user-accesses.list", "google.ads.customer-user-accesses.update",
 		"google.ads.customer-user-accesses.remove",
 		"google.ads.customer-user-access-invitations.list", "google.ads.customer-user-access-invitations.remove",
@@ -613,7 +615,9 @@ func TestToolsFiltersByNamespaceAndQuery(t *testing.T) {
 		"google.ads.bidding-data-exclusions.create", "google.ads.bidding-data-exclusions.update",
 		"google.ads.bidding-data-exclusions.remove",
 		"google.ads.recommendations.generate", "google.ads.recommendations.apply", "google.ads.recommendations.dismiss",
-		"google.ads.asset-sets.create", "google.ads.asset-sets.update", "google.ads.asset-sets.remove")
+		"google.ads.asset-sets.create", "google.ads.asset-sets.update", "google.ads.asset-sets.remove",
+		"google.ads.asset-set-assets.create", "google.ads.asset-set-assets.remove",
+		"google.ads.campaign-asset-sets.create", "google.ads.campaign-asset-sets.remove")
 	requireIDs(t, registryToolIDs(t, "aws", nil), "aws.sts.access-key.get-info", "aws.sts.authorization-message.decode",
 		"aws.sts.caller-identity.get", "aws.iam.user.list", "aws.iam.user.get", "aws.iam.user.list-tags",
 		"aws.iam.group.list", "aws.iam.group.get", "aws.iam.group.list-for-user", "aws.iam.role.list",
