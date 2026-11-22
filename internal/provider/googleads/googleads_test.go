@@ -32,7 +32,10 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 	if !reflect.DeepEqual(metadata.SecretRoles, config.TokenSecretRoles()) {
 		t.Errorf("secret roles = %+v, want the token roles", metadata.SecretRoles)
 	}
-	want := []string{customerBudgetNetworkSettingsCreateID, customerBudgetNetworkSettingsUpdateID,
+	want := []string{audiencesCreateID, audiencesUpdateID,
+		conversionActionsCreateID, conversionActionsRemoveID, conversionActionsUpdateID,
+		customInterestsCreateID, customInterestsUpdateID,
+		customerBudgetNetworkSettingsCreateID, customerBudgetNetworkSettingsUpdateID,
 		customerClientsListID, customerUserAccessInvitationsListID, customerUserAccessInvitationsRemoveID,
 		customerUserAccessesListID, customerUserAccessesRemoveID, customerUserAccessesUpdateID,
 		customersGetID, customersListAccessibleID, customersUpdateID, fieldsGetID, fieldsSearchID,
@@ -44,7 +47,7 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 	for i, tool := range metadata.Tools {
 		// The recommendation tools are tested in recommendations_test.go: apply is listed-only, dismiss is not.
 		listed := slices.Contains(changeToolIDs, tool.ID) || tool.ID == recommendationsApplyID
-		changing := listed || tool.ID == recommendationsDismissID
+		changing := listed || slices.Contains(notListedOnly, tool.ID) || tool.ID == recommendationsDismissID
 		if tool.ID != want[i] || (tool.Effect == config.EffectRead) == changing || tool.RequiresToolAllowList != listed {
 			t.Errorf("tool %d = %+v", i, tool)
 		}
