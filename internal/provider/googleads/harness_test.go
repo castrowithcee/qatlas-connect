@@ -189,10 +189,11 @@ func newEnvironment(t *testing.T, targets []string, options map[string]string) *
 	return newEnvironmentWith(t, targets, options, config.Connection{Effects: []config.Effect{config.EffectRead}})
 }
 
-// newMutationEnvironment is a connection whose tools list names the changing tools and that has no effects.
+// newMutationEnvironment is a connection whose tools list names all changing tools and that has no effects.
 func newMutationEnvironment(t *testing.T, targets []string, options map[string]string) *environment {
 	t.Helper()
-	return newEnvironmentWith(t, targets, options, config.Connection{Tools: changeToolIDs})
+	return newEnvironmentWith(t, targets, options,
+		config.Connection{Tools: append(append([]string(nil), changeToolIDs...), notListedOnly...)})
 }
 
 func newEnvironmentWith(t *testing.T, targets []string, options map[string]string, conn config.Connection) *environment {
