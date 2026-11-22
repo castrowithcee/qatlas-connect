@@ -72,7 +72,7 @@ func Register(reg *capability.Registry) error {
 	token := tokenMetadata
 	if err := reg.RegisterProvider(config.ProviderMetadata{
 		ID: Provider, Name: "Google Ads", DefaultBaseURL: apiRoot,
-		Description:    "Google Ads API v26: accounts, hierarchy, settings, user access, invitations, approval requests, assets, reports and the field reference of Google Ads, and changes to them",
+		Description:    "Google Ads API v26: accounts, hierarchy, settings, user access, invitations, approval requests, assets, audiences, reports and the field reference, and changes to them",
 		DefaultEffects: []config.Effect{config.EffectRead},
 		ValidateBaseURL: func(raw string) error {
 			if !isAPIRoot(raw) {
@@ -128,6 +128,14 @@ func Register(reg *capability.Registry) error {
 		capability.Operation{Descriptor: multiPartyAuthReviewsList, Handler: handleReviewsList},
 		capability.Operation{Descriptor: multiPartyAuthReviewsResolve, Handler: handleReviewsResolve,
 			ConfirmationSummary: reviewResolveSummary},
+		capability.Operation{Descriptor: customInterestsCreate, Handler: handleCustomInterestsCreate,
+			ConfirmationSummary: customInterestsCreateSummary},
+		capability.Operation{Descriptor: customInterestsUpdate, Handler: handleCustomInterestsUpdate,
+			ConfirmationSummary: customInterestsUpdateSummary},
+		capability.Operation{Descriptor: audiencesCreate, Handler: handleAudiencesCreate,
+			ConfirmationSummary: audiencesCreateSummary},
+		capability.Operation{Descriptor: audiencesUpdate, Handler: handleAudiencesUpdate,
+			ConfirmationSummary: audiencesUpdateSummary},
 		capability.Operation{Descriptor: assetsCreate, Handler: handleAssetsCreate,
 			ConfirmationSummary: assetSummary("Create")},
 		capability.Operation{Descriptor: assetsUpdate, Handler: handleAssetsUpdate,

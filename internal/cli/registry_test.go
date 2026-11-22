@@ -138,6 +138,8 @@ func TestDefaultRegistry(t *testing.T) {
 		"google.ads.customer-user-access-invitations.list", "google.ads.customer-user-access-invitations.remove",
 		"google.ads.multi-party-auth-reviews.list", "google.ads.multi-party-auth-reviews.resolve",
 		"google.ads.conversion-actions.create", "google.ads.conversion-actions.update", "google.ads.conversion-actions.remove",
+		"google.ads.custom-interests.create", "google.ads.custom-interests.update",
+		"google.ads.audiences.create", "google.ads.audiences.update",
 		"google.ads.assets.create", "google.ads.assets.update", "google.ads.campaign-automatically-created-assets.remove")
 }
 
