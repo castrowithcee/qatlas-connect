@@ -72,7 +72,7 @@ func Register(reg *capability.Registry) error {
 	token := tokenMetadata
 	if err := reg.RegisterProvider(config.ProviderMetadata{
 		ID: Provider, Name: "Google Ads", DefaultBaseURL: apiRoot,
-		Description:    "Google Ads API v26: accounts, hierarchy, settings, user access, invitations, approval requests, custom audiences, reports and the field reference of Google Ads, and changes to them",
+		Description:    "Google Ads API v26: accounts, hierarchy, settings, user access, invitations, approval requests, audiences, reports and the field reference of Google Ads, and changes to them",
 		DefaultEffects: []config.Effect{config.EffectRead},
 		ValidateBaseURL: func(raw string) error {
 			if !isAPIRoot(raw) {
@@ -107,6 +107,12 @@ func Register(reg *capability.Registry) error {
 		capability.Operation{Descriptor: fieldsGet, Handler: handleFieldsGet},
 		capability.Operation{Descriptor: customersUpdate, Handler: handleCustomersUpdate,
 			ConfirmationSummary: customerUpdateSummary},
+		capability.Operation{Descriptor: conversionActionsCreate, Handler: handleConversionActionsCreate,
+			ConfirmationSummary: conversionActionsSummary(conversionActionsCreateID)},
+		capability.Operation{Descriptor: conversionActionsUpdate, Handler: handleConversionActionsUpdate,
+			ConfirmationSummary: conversionActionsSummary(conversionActionsUpdateID)},
+		capability.Operation{Descriptor: conversionActionsRemove, Handler: handleConversionActionsRemove,
+			ConfirmationSummary: conversionActionsSummary(conversionActionsRemoveID)},
 		capability.Operation{Descriptor: customerBudgetNetworkSettingsCreate, Handler: handleBudgetNetworkCreate,
 			ConfirmationSummary: budgetNetworkSummary("Create")},
 		capability.Operation{Descriptor: customerBudgetNetworkSettingsUpdate, Handler: handleBudgetNetworkUpdate,
@@ -127,5 +133,13 @@ func Register(reg *capability.Registry) error {
 		capability.Operation{Descriptor: customAudiencesUpdate, Handler: handleCustomAudiencesUpdate,
 			ConfirmationSummary: customAudienceSummary(true)},
 		capability.Operation{Descriptor: customAudiencesRemove, Handler: handleCustomAudiencesRemove,
-			ConfirmationSummary: customAudienceRemoveSummary})
+			ConfirmationSummary: customAudienceRemoveSummary},
+		capability.Operation{Descriptor: customInterestsCreate, Handler: handleCustomInterestsCreate,
+			ConfirmationSummary: customInterestsCreateSummary},
+		capability.Operation{Descriptor: customInterestsUpdate, Handler: handleCustomInterestsUpdate,
+			ConfirmationSummary: customInterestsUpdateSummary},
+		capability.Operation{Descriptor: audiencesCreate, Handler: handleAudiencesCreate,
+			ConfirmationSummary: audiencesCreateSummary},
+		capability.Operation{Descriptor: audiencesUpdate, Handler: handleAudiencesUpdate,
+			ConfirmationSummary: audiencesUpdateSummary})
 }

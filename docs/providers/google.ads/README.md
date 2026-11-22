@@ -1,6 +1,6 @@
 ---
 description: >
-  Describes the Google Ads provider: the token credential with the adwords scope and no developer token, the fixed API version v26, the service option login_customer_id and the login-customer-id header, the manager and customer targets with the membership read, the profile read, the tools customers.list-accessible, customers.get, customer-clients.list, reports.search, fields.search, fields.get, customer-user-accesses.list, customer-user-access-invitations.list and multi-party-auth-reviews.list, the settings, user access, invitation and review tools customers.update, customer-budget-network-settings.create and update, customer-user-accesses.update and remove, customer-user-access-invitations.remove, multi-party-auth-reviews.resolve and custom-audiences.remove that only the tools list offers, the audience tools custom-audiences.create and update that need only a confirmation per call (see audiences.md), the GoogleAdsFailure and quota errors and their classes, rate spacing, the connection test, and what is not verified.
+  Describes the Google Ads provider: the token credential with the adwords scope and no developer token, the fixed API version v26, the service option login_customer_id and the login-customer-id header, the manager and customer targets with the membership read, the profile read, the tools customers.list-accessible, customers.get, customer-clients.list, reports.search, fields.search, fields.get, customer-user-accesses.list, customer-user-access-invitations.list and multi-party-auth-reviews.list, the settings, user access, invitation and review tools customers.update, customer-budget-network-settings.create and update, customer-user-accesses.update and remove, customer-user-access-invitations.remove, multi-party-auth-reviews.resolve, conversion-actions.create, update and remove and custom-audiences.remove that only the tools list offers, the audience tools custom-audiences.create and update, custom-interests.create and update and audiences.create and update that a connection offers by effect, the GoogleAdsFailure and quota errors and their classes, rate spacing, the connection test, and what is not verified.
 type: knowledge
 edit: shared
 created: 2026-11-19
@@ -90,9 +90,9 @@ sits.
 | --- | --- | --- |
 | `read` | `customers.list-accessible`, `customers.get`, `customer-clients.list`, `reports.search`, `fields.search`, `fields.get`, `customer-user-accesses.list`, `customer-user-access-invitations.list`, `multi-party-auth-reviews.list` | yes |
 
-Tools that change an account belong to no profile: a connection offers them only when its `tools` list names
-them, see [settings tools](settings.md), except `custom-audiences.create` and `.update`, which the effects
-`create` and `update` of a connection offer, see [audience tools](audiences.md).
+Tools that change an account belong to no profile. A connection offers the settings, user access, invitation, and
+approval request tools only when its `tools` list names them, see [settings tools](settings.md); the
+[audience tools](audiences.md) that create and change are offered by the effects `create` and `update` as well.
 
 ## Tools
 
@@ -104,7 +104,9 @@ them, see [settings tools](settings.md), except `custom-audiences.create` and `.
 | `customer-user-accesses.update`, `.remove` | change the role of a user, remove a user, see [user access tools](user-access.md) |
 | `customer-user-access-invitations.list`, `.remove` | list and revoke the invitations of an account, see [invitations and approval requests](access.md) |
 | `multi-party-auth-reviews.list`, `.resolve` | list the approval requests of an account, reject or revoke one, never approve, see [invitations and approval requests](access.md) |
+| `conversion-actions.create`, `.update`, `.remove` | create, change, and remove conversion actions in one atomic request, see [conversion action tools](conversions.md) |
 | `custom-audiences.create`, `.update`, `.remove` | create, change, and remove up to 10 custom audiences in one request; `remove` only through the `tools` list, see [audience tools](audiences.md) |
+| `custom-interests.create`, `.update`, `audiences.create`, `.update` | create and change audiences from keywords and URLs, and from demographic dimensions and segments, see [audience tools](audiences.md) |
 
 ### customers.list-accessible
 
@@ -232,8 +234,8 @@ Not verified:
 Left out on purpose:
 
 - The mutation of links, billing, and everything else that is not in the [settings tools](settings.md), the
-  [user access tools](user-access.md), the [audience tools](audiences.md), or the
-  [invitations and approval requests](access.md); no access is
+  [user access tools](user-access.md), the [audience tools](audiences.md), the [invitations and approval requests](access.md), or
+  the [conversion action tools](conversions.md); no access is
   created, no invitation is sent, and no request approved.
 - The `linked-customer-id` header, which only partners with a product link use.
 - `GoogleAdsService.SearchStream`, page tokens of Google, and the `page_size` of a search, which Google no

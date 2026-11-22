@@ -18,11 +18,13 @@ import (
 
 var changeToolIDs = []string{customersUpdateID, customerBudgetNetworkSettingsCreateID, customerBudgetNetworkSettingsUpdateID,
 	customerUserAccessesUpdateID, customerUserAccessesRemoveID, customerUserAccessInvitationsRemoveID,
-	multiPartyAuthReviewsResolveID, customAudiencesCreateID, customAudiencesUpdateID, customAudiencesRemoveID}
+	multiPartyAuthReviewsResolveID, conversionActionsCreateID, conversionActionsUpdateID, conversionActionsRemoveID,
+	customAudiencesRemoveID}
 
 // notListedOnly are the changing tools that a connection with the matching effect offers without a tools list.
 // They still need the confirmation of every call.
-var notListedOnly = []string{customAudiencesCreateID, customAudiencesUpdateID}
+var notListedOnly = []string{customInterestsCreateID, customInterestsUpdateID, audiencesCreateID, audiencesUpdateID,
+	customAudiencesCreateID, customAudiencesUpdateID}
 
 // noValidateOnly are the changing tools whose Mutate request has no validate_only in v26; they offer none.
 var noValidateOnly = []string{customerUserAccessesUpdateID, customerUserAccessesRemoveID,
@@ -76,11 +78,11 @@ func TestChangeToolsAreListedOnlyConfirmedAndOutsideTheReadProfile(t *testing.T)
 		customerBudgetNetworkSettingsUpdateID: capability.EffectUpdate,
 		customerUserAccessesUpdateID:          capability.EffectUpdate, customerUserAccessesRemoveID: capability.EffectDelete,
 		customerUserAccessInvitationsRemoveID: capability.EffectDelete, multiPartyAuthReviewsResolveID: capability.EffectUpdate,
-		customAudiencesCreateID: capability.EffectCreate, customAudiencesUpdateID: capability.EffectUpdate,
-		customAudiencesRemoveID: capability.EffectDelete}
+		conversionActionsCreateID: capability.EffectCreate, conversionActionsUpdateID: capability.EffectUpdate,
+		conversionActionsRemoveID: capability.EffectDelete, customAudiencesRemoveID: capability.EffectDelete}
 	for _, id := range changeToolIDs {
 		d, _, ok := reg.Lookup(id)
-		if !ok || d.RequiresToolAllowList == slices.Contains(notListedOnly, id) || d.Version != 1 || d.Risk.Effect != wantEffect[id] ||
+		if !ok || !d.RequiresToolAllowList || d.Version != 1 || d.Risk.Effect != wantEffect[id] ||
 			d.Risk.Confirmation != capability.ConfirmationRequired || !d.Risk.OpenWorld {
 			t.Errorf("%s = %+v", id, d)
 		}
@@ -111,15 +113,11 @@ func TestChangeToolsAreListedOnlyConfirmedAndOutsideTheReadProfile(t *testing.T)
 		if strings.Contains(string(d.InputSchema), "google_ads_conversion_customer") {
 			t.Errorf("%s offers google_ads_conversion_customer", id)
 		}
+		if !strings.HasSuffix(d.Description, mutateNote) {
+			t.Errorf("%s: a tools-list-only tool must end on the note that says so", id)
+		}
 		if !strings.Contains(d.Description, "outcome is unknown") || !strings.Contains(d.Description, "never repeats") {
 			t.Errorf("%s: description does not name the unknown outcome: %s", id, d.Description)
-		}
-		wantEnd := mutateNote
-		if slices.Contains(notListedOnly, id) {
-			wantEnd = changeNote
-		}
-		if !strings.HasSuffix(d.Description, wantEnd) || strings.Contains(d.Description, "tools list names it") == slices.Contains(notListedOnly, id) {
-			t.Errorf("%s: description does not end on its note", id)
 		}
 	}
 	update, _, _ := reg.Lookup(customersUpdateID)
@@ -135,9 +133,8 @@ func TestChangeToolsAreListedOnlyConfirmedAndOutsideTheReadProfile(t *testing.T)
 		}
 	}
 	for _, tool := range metadata.Tools {
-		if slices.Contains(changeToolIDs, tool.ID) && (tool.RequiresToolAllowList == slices.Contains(notListedOnly, tool.ID) ||
-			tool.Effect == config.EffectRead) {
-			t.Errorf("tool %+v is not a change tool of its class", tool)
+		if slices.Contains(changeToolIDs, tool.ID) && (!tool.RequiresToolAllowList || tool.Effect == config.EffectRead) {
+			t.Errorf("tool %+v is not a listed-only change tool", tool)
 		}
 	}
 }
