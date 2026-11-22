@@ -73,7 +73,7 @@ func Register(reg *capability.Registry) error {
 	token := tokenMetadata
 	if err := reg.RegisterProvider(config.ProviderMetadata{
 		ID: Provider, Name: "Google Ads", DefaultBaseURL: apiRoot,
-		Description:    "Google Ads API v26: accounts, hierarchy, settings, user access, invitations, approvals, links, conversion actions, audiences, reports and field reference, and changes to them",
+		Description:    "Google Ads API v26: accounts, hierarchy and links, settings, user access, invitations, approvals, assets, conversions, remarketing, audiences, reports and the field reference, and changes to them",
 		DefaultEffects: []config.Effect{config.EffectRead},
 		ValidateBaseURL: func(raw string) error {
 			if !isAPIRoot(raw) {
@@ -160,5 +160,12 @@ func Register(reg *capability.Registry) error {
 		capability.Operation{Descriptor: accountLinksList, Handler: handleAccountLinksList},
 		capability.Operation{Descriptor: productLinksList, Handler: handleProductLinksList},
 		capability.Operation{Descriptor: productLinkInvitationsList, Handler: handleProductLinkInvitationsList},
-		capability.Operation{Descriptor: dataLinksList, Handler: handleDataLinksList})
+		capability.Operation{Descriptor: dataLinksList, Handler: handleDataLinksList},
+		capability.Operation{Descriptor: assetsCreate, Handler: handleAssetsCreate,
+			ConfirmationSummary: assetSummary("Create")},
+		capability.Operation{Descriptor: assetsUpdate, Handler: handleAssetsUpdate,
+			ConfirmationSummary: assetSummary("Change")},
+		capability.Operation{Descriptor: campaignAutomaticallyCreatedAssetsRemove,
+			Handler:             handleCampaignAutomaticallyCreatedAssetsRemove,
+			ConfirmationSummary: removalSummary})
 }
