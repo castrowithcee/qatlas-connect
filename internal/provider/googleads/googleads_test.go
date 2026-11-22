@@ -33,7 +33,8 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 		t.Errorf("secret roles = %+v, want the token roles", metadata.SecretRoles)
 	}
 	want := []string{accountBudgetProposalsListID, accountBudgetsListID, accountLinksListID, accountLinksRemoveID,
-		adGroupsCreateID, adGroupsRemoveID, adGroupsUpdateID, assetsCreateID,
+		adGroupAssetsCreateID, adGroupAssetsRemoveID, adGroupAssetsUpdateID, adGroupsCreateID, adGroupsRemoveID,
+		adGroupsUpdateID, assetsCreateID,
 		assetsUpdateID, audiencesCreateID, audiencesUpdateID, billingSetupsListID,
 		campaignAssetsCreateID, campaignAssetsRemoveID, campaignAssetsUpdateID,
 		campaignAutomaticallyCreatedAssetsRemoveID, campaignBudgetsCreateID, campaignBudgetsRemoveID,
@@ -62,7 +63,8 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 			tool.ID == recommendationsApplyID
 		changing := listed || slices.Contains(notListedOnly, tool.ID) || tool.ID == labelsCreateID ||
 			tool.ID == labelsUpdateID || tool.ID == campaignAssetsCreateID || tool.ID == campaignAssetsUpdateID ||
-			tool.ID == campaignAssetsRemoveID
+			tool.ID == campaignAssetsRemoveID || tool.ID == adGroupAssetsCreateID ||
+			tool.ID == adGroupAssetsUpdateID || tool.ID == adGroupAssetsRemoveID
 		if tool.ID != want[i] || (tool.Effect == config.EffectRead) == changing || tool.RequiresToolAllowList != listed {
 			t.Errorf("tool %d = %+v", i, tool)
 		}

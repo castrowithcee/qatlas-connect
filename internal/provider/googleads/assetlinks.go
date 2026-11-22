@@ -218,3 +218,26 @@ func (k assetLinkKind) results(op, customerID string, results []map[string]json.
 	}
 	return out, nil
 }
+
+// --- confirmation ---
+
+func assetLinksLead(validateOnly bool) string {
+	if validateOnly {
+		return "Only validate: "
+	}
+	return ""
+}
+
+// assetLinksList phrases the entries for the confirmation, at most ten, from the arguments alone and with
+// every text bounded.
+func assetLinksList(n int, entry func(i int) string) string {
+	shown := make([]string, 0, 10)
+	for i := 0; i < min(n, 10); i++ {
+		shown = append(shown, entry(i))
+	}
+	more := ""
+	if n > len(shown) {
+		more = " and " + strconv.Itoa(n-len(shown)) + " more"
+	}
+	return strings.Join(shown, "; ") + more
+}
