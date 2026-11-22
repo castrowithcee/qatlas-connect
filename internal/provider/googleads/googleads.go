@@ -147,6 +147,14 @@ func Register(reg *capability.Registry) error {
 			ConfirmationSummary: adGroupSummary(adGroupsUpdateID)},
 		capability.Operation{Descriptor: adGroupsRemove, Handler: handleAdGroupsRemove,
 			ConfirmationSummary: adGroupSummary(adGroupsRemoveID)},
+		capability.Operation{Descriptor: adGroupAdsCreate, Handler: handleAdGroupAdsCreate,
+			ConfirmationSummary: adGroupAdSummary(adGroupAdsCreateID)},
+		capability.Operation{Descriptor: adGroupAdsUpdate, Handler: handleAdGroupAdsUpdate,
+			ConfirmationSummary: adGroupAdSummary(adGroupAdsUpdateID)},
+		capability.Operation{Descriptor: adGroupAdsRemove, Handler: handleAdGroupAdsRemove,
+			ConfirmationSummary: adGroupAdSummary(adGroupAdsRemoveID)},
+		capability.Operation{Descriptor: adGroupAdsRemoveAutomaticallyCreatedAssets,
+			Handler: handleAdGroupAdsRemoveAutomaticallyCreatedAssets, ConfirmationSummary: adAssetRemovalSummary},
 		capability.Operation{Descriptor: campaignsEnablePMaxBrandGuidelines, Handler: handleCampaignsEnablePMaxBrandGuidelines,
 			ConfirmationSummary: brandGuidelinesSummary},
 		capability.Operation{Descriptor: customerUserAccessesList, Handler: handleUserAccessesList},
@@ -246,5 +254,11 @@ func Register(reg *capability.Registry) error {
 		capability.Operation{Descriptor: recommendationsApply, Handler: handleRecommendationsApply,
 			ConfirmationSummary: recommendationApplySummary},
 		capability.Operation{Descriptor: recommendationsDismiss, Handler: handleRecommendationsDismiss,
-			ConfirmationSummary: recommendationDismissSummary})
+			ConfirmationSummary: recommendationDismissSummary},
+		capability.Operation{Descriptor: assetSetsCreate, Handler: handleAssetSetsCreate,
+			ConfirmationSummary: assetSetSummary(assetSetsCreateID)},
+		capability.Operation{Descriptor: assetSetsUpdate, Handler: handleAssetSetsUpdate,
+			ConfirmationSummary: assetSetSummary(assetSetsUpdateID)},
+		capability.Operation{Descriptor: assetSetsRemove, Handler: handleAssetSetsRemove,
+			ConfirmationSummary: assetSetSummary(assetSetsRemoveID)})
 }
