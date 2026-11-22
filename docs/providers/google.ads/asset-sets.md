@@ -21,8 +21,8 @@ apply here too.
 | `google.ads.asset-sets.remove` | delete | removes existing asset sets |
 
 Reading asset sets is not a tool of this page: run `reports.search` on `asset_set`. Putting an asset into a set
-and attaching a set to a campaign, an ad group, or the account are not offered either. The assets themselves are
-the [asset tools](assets.md).
+and attaching a set to a campaign are the [asset set assignment tools](asset-set-links.md); attaching a set to an
+ad group or the account is not offered. The assets themselves are the [asset tools](assets.md).
 
 ## How the tools are offered
 
@@ -126,8 +126,9 @@ Left out on purpose:
   `business_account_id`, `business_name_filter`, `label_filters`, and `listing_id_filters`; the token is never
   answered.
   Chain and Maps location syncs, location groups, and all other types are offered.
-- The asset set assets (`AssetSetAsset`), the links of a set to a campaign, an ad group, or the account, and
-  reading asset sets.
+- The asset set assets (`AssetSetAsset`) and the links of a set to a campaign, which are the
+  [asset set assignment tools](asset-set-links.md), the links of a set to an ad group or the account, and reading
+  asset sets.
 - `partial_failure`, any free operation, mask, or resource name, and `GoogleAdsService.Mutate`.
 
 Checked against the Google Ads API reference of v26: the pages `AssetSet`, `AssetSetService`,
