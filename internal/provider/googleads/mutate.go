@@ -40,6 +40,19 @@ func mutateBody(operation any, validateOnly bool, content string) map[string]any
 	return body
 }
 
+// mutateOperationsBody is the body of a request with several operations, for a family whose service takes
+// operations[]. partial_failure is never set, so Google applies all operations or none.
+func mutateOperationsBody(operations []any, validateOnly bool, content string) map[string]any {
+	body := map[string]any{"operations": operations}
+	if validateOnly {
+		body["validateOnly"] = true
+	}
+	if content != "" {
+		body["responseContentType"] = content
+	}
+	return body
+}
+
 // mutate sends the request once. The answer is decoded into out; with validate_only Google answers without a
 // result, which out then does not receive.
 func (c *client) mutate(ctx context.Context, m mutation, out any) error {
@@ -76,19 +89,22 @@ var (
 		"the resource name only"}
 )
 
-// changeRisk is the risk of a tool that changes an account. The change is confirmed per call, and the tool is
-// offered only by a connection whose tools list names it.
+// changeRisk is the risk of a tool that changes an account. The change is confirmed per call; whether only the
+// tools list offers the tool is up to its descriptor.
 func changeRisk(effect capability.Effect, idempotency capability.Idempotency, sensitivity string) capability.Risk {
 	return capability.Risk{Effect: effect, Idempotency: idempotency, Confirmation: capability.ConfirmationRequired,
 		OpenWorld: true, DataSensitivity: sensitivity}
 }
 
-// mutateNote ends the description of every changing tool.
-const mutateNote = " The change is one atomic request that Qatlas Connect sends once and never repeats; when a " +
-	"timeout, a cut connection, or a server error leaves open whether Google took it, the error says that the " +
-	"outcome is unknown, and the object is to be read before it is changed again. Costs one operation of the " +
-	"daily quota, plus one for a membership read below a manager target and one for the check that the account " +
-	"is no manager account. Offered only by a connection whose tools list names it."
+// changeNote ends the description of every changing tool; mutateNote adds that only the tools list offers it.
+const (
+	changeNote = " The change is one atomic request that Qatlas Connect sends once and never repeats; when a " +
+		"timeout, a cut connection, or a server error leaves open whether Google took it, the error says that the " +
+		"outcome is unknown, and the object is to be read before it is changed again. Costs one operation of the " +
+		"daily quota, plus one for a membership read below a manager target and one for the check that the account " +
+		"is no manager account."
+	mutateNote = changeNote + " Offered only by a connection whose tools list names it."
+)
 
 // callEnv is what a handler of a changing tool holds after the connection and the arguments are checked.
 type callEnv struct {

@@ -80,12 +80,7 @@ var campaignsEnablePMaxBrandGuidelines = capability.Descriptor{
 		"square logos, optionally landscape logos, all assets of customer_id. The colors are given together. " +
 		"Google offers no validate_only for this call and answers a campaign that it could not enable inside a " +
 		"successful answer, so the tool takes one campaign and a failure is the error of the call. The campaign " +
-		"and the assets must belong to customer_id; a temporary negative ID is refused. The call is one request " +
-		"that Qatlas Connect sends once and never repeats; when a timeout, a cut connection, or a server error " +
-		"leaves open whether Google took it, the error says that the outcome is unknown, and the campaign is to " +
-		"be read before it is changed again. Costs one operation of the daily quota, plus one for a membership " +
-		"read below a manager target and one for the check that the account is no manager account. Offered only " +
-		"by a connection whose tools list names it.",
+		"and the assets must belong to customer_id; a temporary negative ID is refused." + mutateNote,
 	Tags: []string{"google", "ads", "campaigns", "performance-max", "brand"}, Provider: Provider, RequiresToolAllowList: true,
 	Risk:        changeRisk(capability.EffectUpdate, capability.IdempotencyNonIdempotent, campaignSensitivity),
 	InputSchema: encoded(pmaxBrandInput),
