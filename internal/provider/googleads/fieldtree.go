@@ -260,7 +260,7 @@ func (b *builder) object(n node, in map[string]any, at pathOfMember) (map[string
 		}
 		given = append(given, key)
 		if member.createOnly && !b.create {
-			return nil, badRequest(joinPath(at.snake, key) + " can be set only when the campaign is created")
+			return nil, badRequest(joinPath(at.snake, key) + " can be set only when the object is created")
 		}
 	}
 	slices.Sort(given)
