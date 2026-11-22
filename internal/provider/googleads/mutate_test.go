@@ -23,7 +23,8 @@ var changeToolIDs = []string{customersUpdateID, customerBudgetNetworkSettingsCre
 	customAudiencesRemoveID, userListsRemoveID,
 	campaignsCreateID, campaignsUpdateID, campaignsRemoveID, campaignsEnablePMaxBrandGuidelinesID, labelsRemoveID,
 	accountLinksRemoveID, productLinksRemoveID, dataLinksRemoveID, adGroupsCreateID, adGroupsUpdateID, adGroupsRemoveID,
-	campaignBudgetsCreateID, campaignBudgetsUpdateID, campaignBudgetsRemoveID, campaignGroupsRemoveID,
+	campaignBudgetsCreateID, campaignBudgetsUpdateID, campaignBudgetsRemoveID, campaignGroupsRemoveID, assetSetsRemoveID,
+	adGroupAdsCreateID, adGroupAdsUpdateID, adGroupAdsRemoveID, adGroupAdCreatedAssetsRemoveID,
 	biddingStrategiesCreateID, biddingStrategiesUpdateID, biddingStrategiesRemoveID}
 
 // notListedOnly are the changing tools that a connection with the matching effect offers without a tools list.
@@ -37,7 +38,7 @@ var notListedOnly = []string{customInterestsCreateID, customInterestsUpdateID, a
 // noValidateOnly are the changing tools whose Mutate request has no validate_only in v26; they offer none.
 var noValidateOnly = []string{customerUserAccessesUpdateID, customerUserAccessesRemoveID,
 	customerUserAccessInvitationsRemoveID, multiPartyAuthReviewsResolveID, campaignsEnablePMaxBrandGuidelinesID,
-	dataLinksRemoveID}
+	dataLinksRemoveID, adGroupAdCreatedAssetsRemoveID}
 
 func mutatePath(id string) string { return "/v26/customers/" + id + ":mutate" }
 func networkPath(id string) string {
@@ -100,6 +101,9 @@ func TestChangeToolsAreListedOnlyConfirmedAndOutsideTheReadProfile(t *testing.T)
 		adGroupsRemoveID:        capability.EffectDelete,
 		campaignBudgetsCreateID: capability.EffectCreate, campaignBudgetsUpdateID: capability.EffectUpdate,
 		campaignBudgetsRemoveID: capability.EffectDelete, campaignGroupsRemoveID: capability.EffectDelete,
+		assetSetsRemoveID:  capability.EffectDelete,
+		adGroupAdsCreateID: capability.EffectCreate, adGroupAdsUpdateID: capability.EffectUpdate,
+		adGroupAdsRemoveID: capability.EffectDelete, adGroupAdCreatedAssetsRemoveID: capability.EffectDelete,
 		biddingStrategiesCreateID: capability.EffectCreate, biddingStrategiesUpdateID: capability.EffectUpdate,
 		biddingStrategiesRemoveID: capability.EffectDelete}
 	for _, id := range changeToolIDs {

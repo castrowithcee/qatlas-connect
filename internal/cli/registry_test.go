@@ -136,6 +136,8 @@ func TestDefaultRegistry(t *testing.T) {
 		"google.ads.campaigns.create", "google.ads.campaigns.update", "google.ads.campaigns.remove",
 		"google.ads.campaigns.enable-pmax-brand-guidelines",
 		"google.ads.ad-groups.create", "google.ads.ad-groups.update", "google.ads.ad-groups.remove",
+		"google.ads.ad-group-ads.create", "google.ads.ad-group-ads.update", "google.ads.ad-group-ads.remove",
+		"google.ads.ad-group-ads.remove-automatically-created-assets",
 		"google.ads.customer-user-accesses.list", "google.ads.customer-user-accesses.update",
 		"google.ads.customer-user-accesses.remove",
 		"google.ads.customer-user-access-invitations.list", "google.ads.customer-user-access-invitations.remove",
@@ -162,7 +164,8 @@ func TestDefaultRegistry(t *testing.T) {
 		"google.ads.campaign-budgets.create", "google.ads.campaign-budgets.update", "google.ads.campaign-budgets.remove",
 		"google.ads.campaign-groups.create", "google.ads.campaign-groups.update", "google.ads.campaign-groups.remove",
 		"google.ads.bidding-strategies.create", "google.ads.bidding-strategies.update", "google.ads.bidding-strategies.remove",
-		"google.ads.recommendations.generate", "google.ads.recommendations.apply", "google.ads.recommendations.dismiss")
+		"google.ads.recommendations.generate", "google.ads.recommendations.apply", "google.ads.recommendations.dismiss",
+		"google.ads.asset-sets.create", "google.ads.asset-sets.update", "google.ads.asset-sets.remove")
 }
 
 // Every shipped provider starts new connections with a valid recommended profile that selects reads only,
