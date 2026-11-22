@@ -140,10 +140,14 @@ func TestDefaultRegistry(t *testing.T) {
 		"google.ads.conversion-actions.create", "google.ads.conversion-actions.update", "google.ads.conversion-actions.remove",
 		"google.ads.conversion-custom-variables.create", "google.ads.conversion-custom-variables.update",
 		"google.ads.remarketing-actions.create", "google.ads.remarketing-actions.update",
+		"google.ads.custom-audiences.create", "google.ads.custom-audiences.update", "google.ads.custom-audiences.remove",
 		"google.ads.custom-interests.create", "google.ads.custom-interests.update",
 		"google.ads.audiences.create", "google.ads.audiences.update",
 		"google.ads.customer-manager-links.list", "google.ads.customer-manager-links.update",
 		"google.ads.customer-client-links.list", "google.ads.customer-client-links.update",
+		"google.ads.account-links.list", "google.ads.product-links.list", "google.ads.product-link-invitations.list",
+		"google.ads.data-links.list",
+		"google.ads.assets.create", "google.ads.assets.update", "google.ads.campaign-automatically-created-assets.remove",
 		"google.ads.recommendations.generate", "google.ads.recommendations.apply", "google.ads.recommendations.dismiss")
 }
 

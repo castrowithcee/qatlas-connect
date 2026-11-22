@@ -47,9 +47,9 @@ Google Ads has one scope, `adwords`, for reading and changing. Qatlas asks for i
 from the role of the account in Google Ads. The read tools only read, so the role **Read-only** is
 enough for them, except the lists of invitations and approval requests, whose role Google does not document (see
 [invitations and approval requests](access.md); the services need at least the Basic access level). The tools that change
-settings (see [settings tools](settings.md)) or conversion actions (see [conversion actions](conversions.md)), those
-that revoke an invitation, turn down a request or change a link, and `recommendations.apply` (see
-[recommendation tools](recommendations.md)) are offered only when the
+settings (see [settings tools](settings.md)), conversion actions (see [conversion actions](conversions.md)), or assets
+(see [asset tools](assets.md)), those that revoke an invitation, turn down a request or change a link, and
+`recommendations.apply` (see [recommendation tools](recommendations.md)) are offered only when the
 `tools` list of a connection names them (the link changes need at least the Basic access level); Google does not document which call needs which role, so test them with
 `validate_only` first. Give the account no more than it needs, since the token itself would allow changes.
 

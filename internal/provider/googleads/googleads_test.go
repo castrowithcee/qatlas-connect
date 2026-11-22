@@ -32,24 +32,27 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 	if !reflect.DeepEqual(metadata.SecretRoles, config.TokenSecretRoles()) {
 		t.Errorf("secret roles = %+v, want the token roles", metadata.SecretRoles)
 	}
-	want := []string{audiencesCreateID, audiencesUpdateID,
+	want := []string{accountLinksListID, assetsCreateID, assetsUpdateID, audiencesCreateID, audiencesUpdateID,
+		campaignAutomaticallyCreatedAssetsRemoveID,
 		conversionActionsCreateID, conversionActionsRemoveID, conversionActionsUpdateID,
 		conversionCustomVariablesCreateID, conversionCustomVariablesUpdateID,
+		customAudiencesCreateID, customAudiencesRemoveID, customAudiencesUpdateID,
 		customInterestsCreateID, customInterestsUpdateID,
 		customerBudgetNetworkSettingsCreateID, customerBudgetNetworkSettingsUpdateID,
 		customerClientLinksListID, customerClientLinksUpdateID, customerClientsListID,
 		customerManagerLinksListID, customerManagerLinksUpdateID, customerUserAccessInvitationsListID, customerUserAccessInvitationsRemoveID,
 		customerUserAccessesListID, customerUserAccessesRemoveID, customerUserAccessesUpdateID,
-		customersGetID, customersListAccessibleID, customersUpdateID, fieldsGetID, fieldsSearchID,
-		multiPartyAuthReviewsListID, multiPartyAuthReviewsResolveID, recommendationsApplyID,
-		recommendationsDismissID, recommendationsGenerateID, remarketingActionsCreateID,
-		remarketingActionsUpdateID, reportsSearchID}
+		customersGetID, customersListAccessibleID, customersUpdateID, dataLinksListID, fieldsGetID, fieldsSearchID,
+		multiPartyAuthReviewsListID, multiPartyAuthReviewsResolveID, productLinkInvitationsListID,
+		productLinksListID, recommendationsApplyID, recommendationsDismissID, recommendationsGenerateID,
+		remarketingActionsCreateID, remarketingActionsUpdateID, reportsSearchID}
 	if len(metadata.Tools) != len(want) {
 		t.Fatalf("tools = %+v", metadata.Tools)
 	}
 	for i, tool := range metadata.Tools {
 		// recommendations.apply is listed-only but tested in recommendations_test.go, not with changeToolIDs.
-		listed := slices.Contains(changeToolIDs, tool.ID) || tool.ID == recommendationsApplyID
+		listed := slices.Contains(changeToolIDs, tool.ID) || slices.Contains(assetToolIDs, tool.ID) ||
+			tool.ID == recommendationsApplyID
 		changing := listed || slices.Contains(notListedOnly, tool.ID)
 		if tool.ID != want[i] || (tool.Effect == config.EffectRead) == changing || tool.RequiresToolAllowList != listed {
 			t.Errorf("tool %d = %+v", i, tool)
