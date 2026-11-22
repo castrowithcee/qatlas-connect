@@ -91,12 +91,15 @@ func TestInvoicesToolsAreRegisteredAsReadOnlyAndWithholdAccessValues(t *testing.
 			}
 		}
 	}
-	// No tool applies an incentive or regenerates a link ID.
+	// No tool applies an incentive or regenerates a link ID. recommendations.apply is another family.
 	for _, tool := range metadata.Tools {
-		for _, word := range []string{"apply", "regenerate", "shareable"} {
+		for _, word := range []string{"regenerate", "shareable"} {
 			if strings.Contains(tool.ID, word) {
 				t.Errorf("tool %s must not exist", tool.ID)
 			}
+		}
+		if strings.Contains(tool.ID, "apply") && (strings.Contains(tool.ID, "incentive") || tool.ID != recommendationsApplyID) {
+			t.Errorf("tool %s must not exist", tool.ID)
 		}
 	}
 	d, _, _ := reg.Lookup(invoicesListID)

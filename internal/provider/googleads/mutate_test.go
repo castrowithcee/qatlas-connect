@@ -28,7 +28,8 @@ var changeToolIDs = []string{customersUpdateID, customerBudgetNetworkSettingsCre
 var notListedOnly = []string{customInterestsCreateID, customInterestsUpdateID, audiencesCreateID, audiencesUpdateID,
 	conversionCustomVariablesCreateID, conversionCustomVariablesUpdateID, remarketingActionsCreateID, remarketingActionsUpdateID,
 	customAudiencesCreateID, customAudiencesUpdateID,
-	userListsCreateID, userListsUpdateID, userListCustomerTypesCreateID, userListCustomerTypesRemoveID}
+	userListsCreateID, userListsUpdateID, userListCustomerTypesCreateID, userListCustomerTypesRemoveID,
+	recommendationsDismissID}
 
 // noValidateOnly are the changing tools whose Mutate request has no validate_only in v26; they offer none.
 var noValidateOnly = []string{customerUserAccessesUpdateID, customerUserAccessesRemoveID,

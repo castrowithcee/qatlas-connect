@@ -68,4 +68,7 @@ var tokenMetadata = config.TokenMetadata{Scopes: map[string][]string{
 	labelsCreateID:                             {scopeAdwords},
 	labelsUpdateID:                             {scopeAdwords},
 	labelsRemoveID:                             {scopeAdwords},
+	recommendationsGenerateID:                  {scopeAdwords},
+	recommendationsApplyID:                     {scopeAdwords},
+	recommendationsDismissID:                   {scopeAdwords},
 }}

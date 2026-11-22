@@ -149,6 +149,12 @@ var knownCodes = map[adsCode]mapped{
 // plain Google error object, mapped by its status and the reason of its ErrorInfo. Google's text never
 // reaches the message; it goes along as the original.
 func adsError(op string, status int, body []byte, change bool) (*provider.Error, time.Duration) {
+	return adsErrorFor(op, status, body, change, false)
+}
+
+// adsErrorFor is adsError for a call whose arguments Google judges: with input set, a 400 with a documented
+// error code of a read names the code as Google's refusal of the input, as it does for a change.
+func adsErrorFor(op string, status int, body []byte, change, input bool) (*provider.Error, time.Duration) {
 	var answer failureWire
 	_ = json.Unmarshal(body, &answer)
 	var codes []adsCode
@@ -209,6 +215,11 @@ func adsError(op string, status int, body []byte, change bool) (*provider.Error,
 		// Google validated the change and refused it: the code names the rule, the original carries the field.
 		return failed(provider.ClassProviderError, "rejected the change ("+codes[0].category+" "+codes[0].value+
 			"), nothing was changed"), hold
+	}
+	if input && !change && adsFailure && status == http.StatusBadRequest && len(codes) > 0 && codes[0] != (adsCode{}) {
+		// Google judged the input of a read and refused it: the code names the rule, the original carries the field.
+		return failed(provider.ClassProviderError, "rejected the request as invalid input ("+codes[0].category+" "+
+			codes[0].value+")"), hold
 	}
 	return statusFailure(op, status, body, original, failed), hold
 }

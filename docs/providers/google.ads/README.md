@@ -1,6 +1,6 @@
 ---
 description: >
-  Describes the Google Ads provider: the token credential with the adwords scope and no developer token, the fixed API version v26, the service option login_customer_id and the login-customer-id header, the manager and customer targets with the membership read, the profile read, the tools customers.list-accessible, customers.get, customer-clients.list, reports.search, fields.search, fields.get, customer-user-accesses.list, customer-user-access-invitations.list, multi-party-auth-reviews.list, customer-manager-links.list, customer-client-links.list, account-links.list, product-links.list, product-link-invitations.list, data-links.list, billing-setups.list, account-budgets.list, account-budget-proposals.list, payments-accounts.list, invoices.list, incentives.fetch and third-party-app-analytics-links.list, the settings, user access, invitation and review tools customers.update, customer-budget-network-settings.create and update, customer-user-accesses.update and remove, customer-user-access-invitations.remove, multi-party-auth-reviews.resolve, customer-manager-links.update, customer-client-links.update, conversion-actions.create, update and remove, custom-audiences.remove, user-lists.remove and labels.remove that only the tools list offers, the user list tools user-lists.create and update and user-list-customer-types.create and remove, the audience tools custom-audiences.create and update, custom-interests.create and update and audiences.create and update and the conversion variable and remarketing tools conversion-custom-variables.create and update and remarketing-actions.create and update and the label tools labels.create and update that a connection offers by effect, the asset tools assets.create, assets.update and campaign-automatically-created-assets.remove that only the tools list offers, the campaign tools campaigns.create, campaigns.update, campaigns.remove and campaigns.enable-pmax-brand-guidelines that only the tools list offers, the GoogleAdsFailure and quota errors and their classes, rate spacing, the connection test, and what is not verified.
+  Describes the Google Ads provider: the token credential with the adwords scope and no developer token, the fixed API version v26, the service option login_customer_id and the login-customer-id header, the manager and customer targets with the membership read, the profile read, the tools customers.list-accessible, customers.get, customer-clients.list, reports.search, fields.search, fields.get, customer-user-accesses.list, customer-user-access-invitations.list, multi-party-auth-reviews.list, customer-manager-links.list, customer-client-links.list, account-links.list, product-links.list, product-link-invitations.list, data-links.list, billing-setups.list, account-budgets.list, account-budget-proposals.list, payments-accounts.list, invoices.list, incentives.fetch and third-party-app-analytics-links.list, the settings, user access, invitation and review tools customers.update, customer-budget-network-settings.create and update, customer-user-accesses.update and remove, customer-user-access-invitations.remove, multi-party-auth-reviews.resolve, customer-manager-links.update, customer-client-links.update, conversion-actions.create, update and remove, custom-audiences.remove, user-lists.remove and labels.remove that only the tools list offers, the user list tools user-lists.create and update and user-list-customer-types.create and remove, the audience tools custom-audiences.create and update, custom-interests.create and update and audiences.create and update and the conversion variable and remarketing tools conversion-custom-variables.create and update and remarketing-actions.create and update and the label tools labels.create and update that a connection offers by effect, the asset tools assets.create, assets.update and campaign-automatically-created-assets.remove that only the tools list offers, the campaign tools campaigns.create, campaigns.update, campaigns.remove and campaigns.enable-pmax-brand-guidelines that only the tools list offers, the recommendation tools recommendations.generate, apply and dismiss, the GoogleAdsFailure and quota errors and their classes, rate spacing, the connection test, and what is not verified.
 type: knowledge
 edit: shared
 created: 2026-11-19
@@ -12,12 +12,13 @@ updated: 2026-11-22
 Google Ads is a provider for the Google Ads API, version v26, over its REST interface, with one credential that
 issues access tokens. It lists the accounts a credential reaches, reads the settings of an account, lists the
 hierarchy below a manager account, lists the invitations and approval requests and the links of an account, runs reports on any
-resource, and reads the field reference of the query language. The [report tools](reports.md) have their own
-page. Tools that change account settings or conversion actions, turn down invitations and approval requests,
-or remove user lists are offered only through the `tools` list of a connection. The [audience tools](audiences.md),
-the other [user list tools](user-lists.md), and the
-[conversion variable and remarketing tools](conversion-variables-remarketing.md) are offered through its effects
-as well. All of them need a confirmation per call.
+resource, generates, applies and dismisses recommendations, and reads the field reference of the query
+language. The [report tools](reports.md) and the [recommendation tools](recommendations.md) have their own
+pages. Tools that change account settings or conversion actions, turn down invitations and approval requests,
+remove user lists or apply recommendations are offered only through the `tools` list of a connection. The
+[audience tools](audiences.md), the other [user list tools](user-lists.md), the
+[conversion variable and remarketing tools](conversion-variables-remarketing.md) and `recommendations.dismiss`
+are offered through its effects as well. All of them need a confirmation per call.
 
 [Set up Google Ads](setup.md) leads through the Cloud project, its access level, and the credential. The fields
 of a tool are in its descriptor; this page holds what the descriptor does not say.
@@ -91,10 +92,12 @@ sits.
 
 | Profile | Tools | Recommended |
 | --- | --- | --- |
-| `read` | `customers.list-accessible`, `customers.get`, `customer-clients.list`, `reports.search`, `fields.search`, `fields.get`, `customer-user-accesses.list`, `customer-user-access-invitations.list`, `multi-party-auth-reviews.list`, `customer-manager-links.list`, `customer-client-links.list`, `account-links.list`, `product-links.list`, `product-link-invitations.list`, `data-links.list`, `billing-setups.list`, `account-budgets.list`, `account-budget-proposals.list`, `payments-accounts.list`, `invoices.list`, `incentives.fetch`, `third-party-app-analytics-links.list` | yes |
+| `read` | `customers.list-accessible`, `customers.get`, `customer-clients.list`, `reports.search`, `fields.search`, `fields.get`, `customer-user-accesses.list`, `customer-user-access-invitations.list`, `multi-party-auth-reviews.list`, `customer-manager-links.list`, `customer-client-links.list`, `account-links.list`, `product-links.list`, `product-link-invitations.list`, `data-links.list`, `billing-setups.list`, `account-budgets.list`, `account-budget-proposals.list`, `payments-accounts.list`, `invoices.list`, `incentives.fetch`, `third-party-app-analytics-links.list`, `recommendations.generate` | yes |
 
 Tools that change an account belong to no profile. A connection offers the settings, user access, invitation,
-approval request, link, campaign, and asset tools only when its `tools` list names them, see [settings tools](settings.md); the
+approval request, link, campaign, asset and `recommendations.apply` tools only when its `tools` list names them,
+see [settings tools](settings.md) and [recommendation tools](recommendations.md); `recommendations.dismiss` is
+offered by the effect `update`, the
 [audience tools](audiences.md) that create and change and the [conversion variable and remarketing tools](conversion-variables-remarketing.md)
 are offered by the effects `create` and `update` as well, and the [user list tools](user-lists.md) except
 `user-lists.remove` by the effects `create`, `update`, and `delete`. The [label tools](labels.md) `labels.create`
@@ -125,6 +128,7 @@ and `labels.update` are offered by the effects `create` and `update`; `labels.re
 | `billing-setups.list`, `account-budgets.list`, `account-budget-proposals.list`, `payments-accounts.list` | read the billing setups, account budgets, budget proposals and payments accounts of an account, never change them, see [billing tools](billing.md) |
 | `invoices.list`, `incentives.fetch`, `third-party-app-analytics-links.list` | read the invoices of a billing setup, the incentive offer of the user and the app analytics links of an account; no incentive is applied and the PDF address and shareable link ID are withheld, see [invoices, incentives and app analytics links](invoices.md) |
 | `labels.create`, `.update`, `.remove` | create, change, and remove the labels of an account, see [label tools](labels.md) |
+| `recommendations.generate`, `.apply`, `.dismiss` | generate recommendations for a campaign, apply them with the parameters of one variant, dismiss them, see [recommendation tools](recommendations.md) |
 
 ### customers.list-accessible
 

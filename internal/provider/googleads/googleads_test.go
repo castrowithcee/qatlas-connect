@@ -45,14 +45,17 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 		customersListAccessibleID, customersUpdateID, dataLinksListID, fieldsGetID, fieldsSearchID,
 		incentivesFetchID, invoicesListID, labelsCreateID, labelsRemoveID, labelsUpdateID,
 		multiPartyAuthReviewsListID, multiPartyAuthReviewsResolveID, paymentsAccountsListID,
-		productLinkInvitationsListID, productLinksListID, remarketingActionsCreateID, remarketingActionsUpdateID,
+		productLinkInvitationsListID, productLinksListID, recommendationsApplyID, recommendationsDismissID,
+		recommendationsGenerateID, remarketingActionsCreateID, remarketingActionsUpdateID,
 		reportsSearchID, thirdPartyAppAnalyticsLinksListID, userListCustomerTypesCreateID,
 		userListCustomerTypesRemoveID, userListsCreateID, userListsRemoveID, userListsUpdateID}
 	if len(metadata.Tools) != len(want) {
 		t.Fatalf("tools = %+v", metadata.Tools)
 	}
 	for i, tool := range metadata.Tools {
-		listed := slices.Contains(changeToolIDs, tool.ID) || slices.Contains(assetToolIDs, tool.ID)
+		// recommendations.apply is listed-only but tested in recommendations_test.go, not with changeToolIDs.
+		listed := slices.Contains(changeToolIDs, tool.ID) || slices.Contains(assetToolIDs, tool.ID) ||
+			tool.ID == recommendationsApplyID
 		changing := listed || slices.Contains(notListedOnly, tool.ID) || tool.ID == labelsCreateID ||
 			tool.ID == labelsUpdateID
 		if tool.ID != want[i] || (tool.Effect == config.EffectRead) == changing || tool.RequiresToolAllowList != listed {
