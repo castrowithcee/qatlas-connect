@@ -581,6 +581,8 @@ func TestToolsFiltersByNamespaceAndQuery(t *testing.T) {
 		"google.ads.campaigns.create", "google.ads.campaigns.update", "google.ads.campaigns.remove",
 		"google.ads.campaigns.enable-pmax-brand-guidelines",
 		"google.ads.ad-groups.create", "google.ads.ad-groups.update", "google.ads.ad-groups.remove",
+		"google.ads.ad-group-ads.create", "google.ads.ad-group-ads.update", "google.ads.ad-group-ads.remove",
+		"google.ads.ad-group-ads.remove-automatically-created-assets",
 		"google.ads.customer-user-accesses.list", "google.ads.customer-user-accesses.update",
 		"google.ads.customer-user-accesses.remove",
 		"google.ads.customer-user-access-invitations.list", "google.ads.customer-user-access-invitations.remove",
@@ -607,6 +609,7 @@ func TestToolsFiltersByNamespaceAndQuery(t *testing.T) {
 		"google.ads.campaign-budgets.create", "google.ads.campaign-budgets.update", "google.ads.campaign-budgets.remove",
 		"google.ads.campaign-groups.create", "google.ads.campaign-groups.update", "google.ads.campaign-groups.remove",
 		"google.ads.recommendations.generate", "google.ads.recommendations.apply", "google.ads.recommendations.dismiss",
+		"google.ads.asset-sets.create", "google.ads.asset-sets.update", "google.ads.asset-sets.remove",
 		"google.ads.bidding-seasonality-adjustments.create", "google.ads.bidding-seasonality-adjustments.update",
 		"google.ads.bidding-seasonality-adjustments.remove")
 	requireIDs(t, registryToolIDs(t, "aws", nil), "aws.sts.access-key.get-info", "aws.sts.authorization-message.decode",
