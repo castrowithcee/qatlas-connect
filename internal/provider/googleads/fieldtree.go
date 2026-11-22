@@ -52,6 +52,10 @@ type node struct {
 	exclusive []string
 	// createOnly marks a member Google accepts only when the object is created.
 	createOnly bool
+	// required names members an object must hold when it is created. requiredAlways extends this to every
+	// change, for an entry of a list that an update replaces as a whole.
+	required       []string
+	requiredAlways bool
 }
 
 func (n node) with(f func(*node)) node { f(&n); return n }
@@ -111,6 +115,9 @@ func sendable(values []string) []string {
 
 // mutable is the node without the members Google accepts only at creation.
 func (n node) mutable() node {
+	if !n.requiredAlways {
+		n.required = nil
+	}
 	fields := make([]node, 0, len(n.fields))
 	for _, f := range n.fields {
 		if !f.createOnly {
@@ -175,7 +182,7 @@ func (n node) inputSchema() schema {
 		for _, f := range n.fields {
 			props[f.name] = f.inputSchema()
 		}
-		s = object(props)
+		s = object(props, n.required...)
 		if len(n.fields) > 0 {
 			s["minProperties"] = 1
 		}
@@ -257,10 +264,17 @@ func (b *builder) object(n node, in map[string]any, at pathOfMember) (map[string
 		}
 		given = append(given, key)
 		if member.createOnly && !b.create {
-			return nil, badRequest(joinPath(at.snake, key) + " can be set only when the campaign is created")
+			return nil, badRequest(joinPath(at.snake, key) + " can be set only when the object is created")
 		}
 	}
 	slices.Sort(given)
+	if b.create || n.requiredAlways {
+		for _, key := range n.required {
+			if _, found := in[key]; !found {
+				return nil, badRequest(joinPath(at.snake, key) + " is required")
+			}
+		}
+	}
 	if len(n.exclusive) > 0 {
 		count := 0
 		for _, key := range given {
