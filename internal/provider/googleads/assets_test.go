@@ -26,6 +26,9 @@ func assetName(id string, n int) string { return "customers/" + queryNumber(id) 
 
 func itoa(n int) string { b, _ := json.Marshal(n); return string(b) }
 
+// jsonText quotes a value for an argument document, so that a Windows path keeps its backslashes.
+func jsonText(s string) string { b, _ := json.Marshal(s); return string(b) }
+
 // assetEnvironment is a connection whose tools list names the asset tools and that releases dir for reading.
 func assetEnvironment(t *testing.T, targets []string, dir string) *environment {
 	t.Helper()
@@ -217,7 +220,7 @@ func TestAssetsImageBytesFollowTheFileContract(t *testing.T) {
 		`{"resourceName":"` + assetName(clientID, 8) + `"}]}`)
 	inline := base64.StdEncoding.EncodeToString([]byte("inline bytes"))
 	out, err := e.invokeConfirmed(assetsCreateID, `{"customer_id":"`+clientID+`","assets":[`+
-		`{"name":"From file","image_asset":{"local_path":"`+filepath.Join(dir, "banner.png")+`"}},`+
+		`{"name":"From file","image_asset":{"local_path":`+jsonText(filepath.Join(dir, "banner.png"))+`}},`+
 		`{"name":"Inline","image_asset":{"content_base64":"`+inline+`"}}]}`)
 	if err != nil {
 		t.Fatal(err)
@@ -252,15 +255,15 @@ func TestAssetsImageInputsAreRefusedBeforeSecretAndIO(t *testing.T) {
 	}
 	inline := base64.StdEncoding.EncodeToString([]byte("x"))
 	cases := map[string]string{
-		"outside":     `{"image_asset":{"local_path":"` + filepath.Join(outside, "x.png") + `"}}`,
+		"outside":     `{"image_asset":{"local_path":` + jsonText(filepath.Join(outside, "x.png")) + `}}`,
 		"relative":    `{"image_asset":{"local_path":"x.png"}}`,
-		"missing":     `{"image_asset":{"local_path":"` + filepath.Join(dir, "none.png") + `"}}`,
-		"both":        `{"image_asset":{"local_path":"` + filepath.Join(dir, "ok.png") + `","content_base64":"` + inline + `"}}`,
+		"missing":     `{"image_asset":{"local_path":` + jsonText(filepath.Join(dir, "none.png")) + `}}`,
+		"both":        `{"image_asset":{"local_path":` + jsonText(filepath.Join(dir, "ok.png")) + `,"content_base64":"` + inline + `"}}`,
 		"neither":     `{"image_asset":{}}`,
 		"bad base64":  `{"image_asset":{"content_base64":"***"}}`,
-		"empty":       `{"image_asset":{"local_path":"` + filepath.Join(dir, "empty.png") + `"}}`,
-		"too large":   `{"image_asset":{"local_path":"` + filepath.Join(dir, "big.png") + `"}}`,
-		"bundle path": `{"media_bundle_asset":{"local_path":"` + filepath.Join(outside, "x.png") + `"}}`,
+		"empty":       `{"image_asset":{"local_path":` + jsonText(filepath.Join(dir, "empty.png")) + `}}`,
+		"too large":   `{"image_asset":{"local_path":` + jsonText(filepath.Join(dir, "big.png")) + `}}`,
+		"bundle path": `{"media_bundle_asset":{"local_path":` + jsonText(filepath.Join(outside, "x.png")) + `}}`,
 		"inline big":  `{"image_asset":{"content_base64":"` + strings.Repeat("A", maxInlineBase64+4) + `"}}`,
 		"on update":   ``,
 	}
@@ -269,7 +272,7 @@ func TestAssetsImageInputsAreRefusedBeforeSecretAndIO(t *testing.T) {
 			e := assetEnvironment(t, nil, dir)
 			if asset == "" {
 				if _, err := e.invokeConfirmed(assetsUpdateID, `{"customer_id":"`+clientID+`","assets":[{"resource_name":"`+
-					assetName(clientID, 3)+`","image_asset":{"local_path":"`+filepath.Join(dir, "ok.png")+`"}}]}`); err == nil {
+					assetName(clientID, 3)+`","image_asset":{"local_path":`+jsonText(filepath.Join(dir, "ok.png"))+`}}]}`); err == nil {
 					t.Fatal("update accepted image data")
 				}
 				e.untouched(t)
@@ -284,7 +287,7 @@ func TestAssetsImageInputsAreRefusedBeforeSecretAndIO(t *testing.T) {
 	}
 	t.Run("more than 10 MiB in one call", func(t *testing.T) {
 		e := assetEnvironment(t, nil, dir)
-		one := `{"image_asset":{"local_path":"` + filepath.Join(dir, "ok.png") + `"}}`
+		one := `{"image_asset":{"local_path":` + jsonText(filepath.Join(dir, "ok.png")) + `}}`
 		_, err := e.invokeConfirmed(assetsCreateID, `{"customer_id":"`+clientID+`","assets":[`+
 			strings.Join([]string{one, one, one, one}, ",")+`]}`)
 		if err == nil {
@@ -368,7 +371,7 @@ func TestAssetsTargetsAreCheckedBeforeSecretAndIO(t *testing.T) {
 	}
 	// A file that does not exist would be a file error if it were opened first.
 	cases[assetsCreateID+" with a local file"] = `{"customer_id":"` + otherID + `","assets":[{"image_asset":` +
-		`{"local_path":"` + filepath.Join(t.TempDir(), "missing.png") + `"}}]}`
+		`{"local_path":` + jsonText(filepath.Join(t.TempDir(), "missing.png")) + `}}]}`
 	for id, arguments := range cases {
 		id = strings.TrimSuffix(id, " with a local file")
 		t.Run(id, func(t *testing.T) {
