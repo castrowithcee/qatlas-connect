@@ -194,5 +194,11 @@ func Register(reg *capability.Registry) error {
 		capability.Operation{Descriptor: paymentsAccountsList, Handler: handlePaymentsAccountsList},
 		capability.Operation{Descriptor: invoicesList, Handler: handleInvoicesList},
 		capability.Operation{Descriptor: incentivesFetch, Handler: handleIncentivesFetch},
-		capability.Operation{Descriptor: thirdPartyAppAnalyticsLinksList, Handler: handleAppAnalyticsLinksList})
+		capability.Operation{Descriptor: thirdPartyAppAnalyticsLinksList, Handler: handleAppAnalyticsLinksList},
+		capability.Operation{Descriptor: labelsCreate, Handler: handleLabelsCreate,
+			ConfirmationSummary: labelsCreateSummary},
+		capability.Operation{Descriptor: labelsUpdate, Handler: handleLabelsUpdate,
+			ConfirmationSummary: labelsUpdateSummary},
+		capability.Operation{Descriptor: labelsRemove, Handler: handleLabelsRemove,
+			ConfirmationSummary: labelsRemoveSummary})
 }

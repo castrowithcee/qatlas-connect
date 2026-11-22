@@ -65,4 +65,7 @@ var tokenMetadata = config.TokenMetadata{Scopes: map[string][]string{
 	invoicesListID:                             {scopeAdwords},
 	incentivesFetchID:                          {scopeAdwords},
 	thirdPartyAppAnalyticsLinksListID:          {scopeAdwords},
+	labelsCreateID:                             {scopeAdwords},
+	labelsUpdateID:                             {scopeAdwords},
+	labelsRemoveID:                             {scopeAdwords},
 }}
