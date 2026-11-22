@@ -266,5 +266,13 @@ func Register(reg *capability.Registry) error {
 		capability.Operation{Descriptor: assetSetsUpdate, Handler: handleAssetSetsUpdate,
 			ConfirmationSummary: assetSetSummary(assetSetsUpdateID)},
 		capability.Operation{Descriptor: assetSetsRemove, Handler: handleAssetSetsRemove,
-			ConfirmationSummary: assetSetSummary(assetSetsRemoveID)})
+			ConfirmationSummary: assetSetSummary(assetSetsRemoveID)},
+		capability.Operation{Descriptor: assetSetAssetsCreate, Handler: assetSetAssetsFamily.handler("create"),
+			ConfirmationSummary: assetSetAssetsFamily.summary("create")},
+		capability.Operation{Descriptor: assetSetAssetsRemove, Handler: assetSetAssetsFamily.handler("remove"),
+			ConfirmationSummary: assetSetAssetsFamily.summary("remove")},
+		capability.Operation{Descriptor: campaignAssetSetsCreate, Handler: campaignAssetSetsFamily.handler("create"),
+			ConfirmationSummary: campaignAssetSetsFamily.summary("create")},
+		capability.Operation{Descriptor: campaignAssetSetsRemove, Handler: campaignAssetSetsFamily.handler("remove"),
+			ConfirmationSummary: campaignAssetSetsFamily.summary("remove")})
 }
