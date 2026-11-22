@@ -206,5 +206,11 @@ func Register(reg *capability.Registry) error {
 		capability.Operation{Descriptor: recommendationsApply, Handler: handleRecommendationsApply,
 			ConfirmationSummary: recommendationApplySummary},
 		capability.Operation{Descriptor: recommendationsDismiss, Handler: handleRecommendationsDismiss,
-			ConfirmationSummary: recommendationDismissSummary})
+			ConfirmationSummary: recommendationDismissSummary},
+		capability.Operation{Descriptor: campaignCriteriaCreate, Handler: handleCampaignCriteriaCreate,
+			ConfirmationSummary: campaignCriteriaSummary(campaignCriteriaCreateID)},
+		capability.Operation{Descriptor: campaignCriteriaUpdate, Handler: handleCampaignCriteriaUpdate,
+			ConfirmationSummary: campaignCriteriaSummary(campaignCriteriaUpdateID)},
+		capability.Operation{Descriptor: campaignCriteriaRemove, Handler: handleCampaignCriteriaRemove,
+			ConfirmationSummary: campaignCriteriaSummary(campaignCriteriaRemoveID)})
 }
