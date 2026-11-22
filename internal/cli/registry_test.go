@@ -141,7 +141,9 @@ func TestDefaultRegistry(t *testing.T) {
 		"google.ads.conversion-custom-variables.create", "google.ads.conversion-custom-variables.update",
 		"google.ads.remarketing-actions.create", "google.ads.remarketing-actions.update",
 		"google.ads.custom-interests.create", "google.ads.custom-interests.update",
-		"google.ads.audiences.create", "google.ads.audiences.update")
+		"google.ads.audiences.create", "google.ads.audiences.update",
+		"google.ads.customer-manager-links.list", "google.ads.customer-manager-links.update",
+		"google.ads.customer-client-links.list", "google.ads.customer-client-links.update")
 }
 
 // Every shipped provider starts new connections with a valid recommended profile that selects reads only,

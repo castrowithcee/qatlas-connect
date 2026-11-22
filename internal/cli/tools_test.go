@@ -586,7 +586,9 @@ func TestToolsFiltersByNamespaceAndQuery(t *testing.T) {
 		"google.ads.conversion-custom-variables.create", "google.ads.conversion-custom-variables.update",
 		"google.ads.remarketing-actions.create", "google.ads.remarketing-actions.update",
 		"google.ads.custom-interests.create", "google.ads.custom-interests.update",
-		"google.ads.audiences.create", "google.ads.audiences.update")
+		"google.ads.audiences.create", "google.ads.audiences.update",
+		"google.ads.customer-manager-links.list", "google.ads.customer-manager-links.update",
+		"google.ads.customer-client-links.list", "google.ads.customer-client-links.update")
 	requireIDs(t, registryToolIDs(t, "aws", nil), "aws.sts.access-key.get-info", "aws.sts.authorization-message.decode",
 		"aws.sts.caller-identity.get", "aws.iam.user.list", "aws.iam.user.get", "aws.iam.user.list-tags",
 		"aws.iam.group.list", "aws.iam.group.get", "aws.iam.group.list-for-user", "aws.iam.role.list",
