@@ -32,18 +32,19 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 	if !reflect.DeepEqual(metadata.SecretRoles, config.TokenSecretRoles()) {
 		t.Errorf("secret roles = %+v, want the token roles", metadata.SecretRoles)
 	}
-	want := []string{assetsCreateID, assetsUpdateID, audiencesCreateID, audiencesUpdateID,
+	want := []string{accountLinksListID, assetsCreateID, assetsUpdateID, audiencesCreateID, audiencesUpdateID,
 		campaignAutomaticallyCreatedAssetsRemoveID,
 		conversionActionsCreateID, conversionActionsRemoveID, conversionActionsUpdateID,
 		conversionCustomVariablesCreateID, conversionCustomVariablesUpdateID,
+		customAudiencesCreateID, customAudiencesRemoveID, customAudiencesUpdateID,
 		customInterestsCreateID, customInterestsUpdateID,
 		customerBudgetNetworkSettingsCreateID, customerBudgetNetworkSettingsUpdateID,
 		customerClientLinksListID, customerClientLinksUpdateID, customerClientsListID,
 		customerManagerLinksListID, customerManagerLinksUpdateID, customerUserAccessInvitationsListID, customerUserAccessInvitationsRemoveID,
 		customerUserAccessesListID, customerUserAccessesRemoveID, customerUserAccessesUpdateID,
-		customersGetID, customersListAccessibleID, customersUpdateID, fieldsGetID, fieldsSearchID,
-		multiPartyAuthReviewsListID, multiPartyAuthReviewsResolveID, remarketingActionsCreateID,
-		remarketingActionsUpdateID, reportsSearchID}
+		customersGetID, customersListAccessibleID, customersUpdateID, dataLinksListID, fieldsGetID, fieldsSearchID,
+		multiPartyAuthReviewsListID, multiPartyAuthReviewsResolveID, productLinkInvitationsListID,
+		productLinksListID, remarketingActionsCreateID, remarketingActionsUpdateID, reportsSearchID}
 	if len(metadata.Tools) != len(want) {
 		t.Fatalf("tools = %+v", metadata.Tools)
 	}
