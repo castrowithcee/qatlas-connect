@@ -121,5 +121,11 @@ func Register(reg *capability.Registry) error {
 			ConfirmationSummary: invitationRemoveSummary},
 		capability.Operation{Descriptor: multiPartyAuthReviewsList, Handler: handleReviewsList},
 		capability.Operation{Descriptor: multiPartyAuthReviewsResolve, Handler: handleReviewsResolve,
-			ConfirmationSummary: reviewResolveSummary})
+			ConfirmationSummary: reviewResolveSummary},
+		capability.Operation{Descriptor: labelsCreate, Handler: handleLabelsCreate,
+			ConfirmationSummary: labelsCreateSummary},
+		capability.Operation{Descriptor: labelsUpdate, Handler: handleLabelsUpdate,
+			ConfirmationSummary: labelsUpdateSummary},
+		capability.Operation{Descriptor: labelsRemove, Handler: handleLabelsRemove,
+			ConfirmationSummary: labelsRemoveSummary})
 }

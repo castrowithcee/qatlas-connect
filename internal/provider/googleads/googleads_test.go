@@ -36,11 +36,14 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 		customerClientsListID, customerUserAccessInvitationsListID, customerUserAccessInvitationsRemoveID,
 		customerUserAccessesListID, customerUserAccessesRemoveID, customerUserAccessesUpdateID,
 		customersGetID, customersListAccessibleID, customersUpdateID, fieldsGetID, fieldsSearchID,
-		multiPartyAuthReviewsListID, multiPartyAuthReviewsResolveID, reportsSearchID}
+		labelsCreateID, labelsRemoveID, labelsUpdateID, multiPartyAuthReviewsListID, multiPartyAuthReviewsResolveID, reportsSearchID}
 	if len(metadata.Tools) != len(want) {
 		t.Fatalf("tools = %+v", metadata.Tools)
 	}
 	for i, tool := range metadata.Tools {
+		if slices.Contains(labelsToolIDs, tool.ID) {
+			continue // checked by TestLabelsToolsAreRegisteredAsDescribed
+		}
 		changing := slices.Contains(changeToolIDs, tool.ID)
 		if tool.ID != want[i] || (tool.Effect == config.EffectRead) == changing || tool.RequiresToolAllowList != changing {
 			t.Errorf("tool %d = %+v", i, tool)
