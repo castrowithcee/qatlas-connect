@@ -32,11 +32,13 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 	if !reflect.DeepEqual(metadata.SecretRoles, config.TokenSecretRoles()) {
 		t.Errorf("secret roles = %+v, want the token roles", metadata.SecretRoles)
 	}
-	want := []string{accountBudgetProposalsListID, accountBudgetsListID, accountLinksListID, adGroupsCreateID, adGroupsRemoveID,
-		adGroupsUpdateID, assetsCreateID,
+	want := []string{accountBudgetProposalsListID, accountBudgetsListID, accountLinksListID, accountLinksRemoveID,
+		adGroupsCreateID, adGroupsRemoveID, adGroupsUpdateID, assetsCreateID,
 		assetsUpdateID, audiencesCreateID, audiencesUpdateID, biddingDataExclusionsCreateID,
 		biddingDataExclusionsRemoveID, biddingDataExclusionsUpdateID, billingSetupsListID,
-		campaignAutomaticallyCreatedAssetsRemoveID, campaignsCreateID, campaignsEnablePMaxBrandGuidelinesID,
+		campaignAssetsCreateID, campaignAssetsRemoveID, campaignAssetsUpdateID,
+		campaignAutomaticallyCreatedAssetsRemoveID, campaignBudgetsCreateID, campaignBudgetsRemoveID,
+		campaignBudgetsUpdateID, campaignsCreateID, campaignsEnablePMaxBrandGuidelinesID,
 		campaignsRemoveID, campaignsUpdateID, conversionActionsCreateID, conversionActionsRemoveID,
 		conversionActionsUpdateID, conversionCustomVariablesCreateID, conversionCustomVariablesUpdateID,
 		customAudiencesCreateID, customAudiencesRemoveID, customAudiencesUpdateID, customInterestsCreateID,
@@ -44,10 +46,11 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 		customerClientLinksListID, customerClientLinksUpdateID, customerClientsListID, customerManagerLinksListID,
 		customerManagerLinksUpdateID, customerUserAccessInvitationsListID, customerUserAccessInvitationsRemoveID,
 		customerUserAccessesListID, customerUserAccessesRemoveID, customerUserAccessesUpdateID, customersGetID,
-		customersListAccessibleID, customersUpdateID, dataLinksListID, fieldsGetID, fieldsSearchID,
+		customersListAccessibleID, customersUpdateID, dataLinksListID, dataLinksRemoveID, dataLinksUpdateID, fieldsGetID, fieldsSearchID,
 		incentivesFetchID, invoicesListID, labelsCreateID, labelsRemoveID, labelsUpdateID,
 		multiPartyAuthReviewsListID, multiPartyAuthReviewsResolveID, paymentsAccountsListID,
-		productLinkInvitationsListID, productLinksListID, recommendationsApplyID, recommendationsDismissID,
+		productLinkInvitationsListID, productLinkInvitationsUpdateID, productLinksListID, productLinksRemoveID,
+		recommendationsApplyID, recommendationsDismissID,
 		recommendationsGenerateID, remarketingActionsCreateID, remarketingActionsUpdateID,
 		reportsSearchID, thirdPartyAppAnalyticsLinksListID, userListCustomerTypesCreateID,
 		userListCustomerTypesRemoveID, userListsCreateID, userListsRemoveID, userListsUpdateID}
@@ -59,7 +62,8 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 		listed := slices.Contains(changeToolIDs, tool.ID) || slices.Contains(assetToolIDs, tool.ID) ||
 			tool.ID == recommendationsApplyID
 		changing := listed || slices.Contains(notListedOnly, tool.ID) || tool.ID == labelsCreateID ||
-			tool.ID == labelsUpdateID
+			tool.ID == labelsUpdateID || tool.ID == campaignAssetsCreateID || tool.ID == campaignAssetsUpdateID ||
+			tool.ID == campaignAssetsRemoveID
 		if tool.ID != want[i] || (tool.Effect == config.EffectRead) == changing || tool.RequiresToolAllowList != listed {
 			t.Errorf("tool %d = %+v", i, tool)
 		}
