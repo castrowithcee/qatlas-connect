@@ -48,11 +48,13 @@ from the role of the account in Google Ads. The read tools only read, so the rol
 enough for them, except the lists of invitations and approval requests, whose role Google does not document (see
 [invitations and approval requests](access.md); the services need at least the Basic access level). The invoice list needs at least the Basic access level as well and an account with monthly invoicing (see
 [invoices, incentives and app analytics links](invoices.md)). The tools that change
-settings (see [settings tools](settings.md)), campaigns (see [campaign tools](campaigns.md)), campaign budgets (see [campaign budget tools](campaign-budgets.md)), conversion actions (see [conversion actions](conversions.md)), or assets (see [asset tools](assets.md)), those that revoke an invitation,
-turn down a request or change a link, and `recommendations.apply` (see [recommendation tools](recommendations.md))
+settings (see [settings tools](settings.md)), campaigns (see [campaign tools](campaigns.md)), campaign budgets (see [campaign budget tools](campaign-budgets.md)), ad groups (see [ad group tools](ad-groups.md)), conversion actions (see [conversion actions](conversions.md)), or assets (see [asset tools](assets.md)), those that revoke an invitation,
+turn down a request, change a manager or client link or remove a link, and `recommendations.apply` (see [recommendation tools](recommendations.md))
 are offered only when the
 `tools` list of a connection names them (the link changes need at least the Basic access level); Google does not document which call needs which role, so test them with
-`validate_only` first. Give the account no more than it needs, since the token itself would allow changes.
+`validate_only` first. The link tools `product-link-invitations.update` and `data-links.update` are offered by the
+effect `update` as well, and they and `data-links.remove` have no `validate_only` (see [link tools](account-links.md)).
+Give the account no more than it needs, since the token itself would allow changes.
 
 The [billing tools](billing.md) only read. Google blocks `PaymentsAccountService`, which `payments-accounts.list`
 calls, at the Explorer access level, so that tool needs at least Basic; whether the same holds for the queries of

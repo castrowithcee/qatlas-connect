@@ -1,17 +1,18 @@
 ---
 description: >
-  Describes the link read tools of the Google Ads provider: account-links.list, product-links.list, product-link-invitations.list and data-links.list, with the fixed field set of each query, the structured filters, the manager target rule, paging, the identifiers of linked accounts that can lie outside the targets, the fields that are not offered, what was checked against Google's field reference, and what is not verified.
+  Describes the link tools of the Google Ads provider: the read tools account-links.list, product-links.list, product-link-invitations.list and data-links.list with the fixed field set of each query, the structured filters, the manager target rule, paging, the identifiers of linked accounts that can lie outside the targets, and the tools that end or step back from a link or invitation, account-links.remove, product-links.remove, data-links.remove, product-link-invitations.update and data-links.update, with the methods behind them, the statuses they set, where validate_only exists, their effects, the fields and actions that are not offered, what was checked against Google's references, and what is not verified.
 type: knowledge
 edit: shared
 created: 2026-11-21
 updated: 2026-11-21
 ---
 
-# Google Ads: link read tools
+# Google Ads: link tools
 
-These tools list what a Google Ads account is linked to: app analytics providers, products such as Merchant
-Center, invitations to link a product, and data such as YouTube videos. They only read. They add to the
-[Google Ads provider](README.md), whose configuration, targets, quotas, and errors apply here too.
+These tools list what a Google Ads account is linked to, and end or step back from such a link: app analytics
+providers, products such as Merchant Center, invitations to link a product, and data such as YouTube videos.
+They add to the [Google Ads provider](README.md), whose configuration, targets, quotas, and errors apply here
+too. The four list tools only read; the five tools in [Ending links](#ending-links) change an account.
 
 | Tool | Effect | Lists |
 | --- | --- | --- |
@@ -20,7 +21,7 @@ Center, invitations to link a product, and data such as YouTube videos. They onl
 | `google.ads.product-link-invitations.list` | read | invitations to link a product |
 | `google.ads.data-links.list` | read | links to data, today YouTube videos |
 
-All four belong to the `read` profile. No tool creates, accepts, changes, or removes a link or an invitation.
+All four belong to the `read` profile.
 
 ## Fixed field sets
 
@@ -58,7 +59,7 @@ that does not fill the page, the product links that follow, which costs a second
 ## Manager accounts
 
 On a connection with targets, a manager account needs a manager target that names it (`managers/ID`) for all four
-tools, as for the user access and invitation tools. A customer target that names a manager, and a manager that is
+list tools and the five tools below, as for the user access and invitation tools. A customer target that names a manager, and a manager that is
 only reached below a manager target, are refused as `invalid-request` before the tool reads anything of the
 account; Qatlas reads `customer.manager` of the account once to tell. A connection without targets makes no such
 read. This is the narrower reading of the rule for tools that act on a manager account: Google documents no
@@ -81,6 +82,51 @@ targets, like `google_ads_conversion_customer` of `customers.get`. Text is untru
 - Linked accounts, products, and data are only identifiers: no tool calls Google Merchant Center, YouTube, or
   another service to resolve them, and none fetches an address.
 
+## Ending links
+
+| Tool | Effect | Method | What it does |
+| --- | --- | --- | --- |
+| `google.ads.account-links.remove` | delete | `AccountLinkService.MutateAccountLink` | removes a link to an app analytics provider |
+| `google.ads.product-links.remove` | delete | `ProductLinkService.RemoveProductLink` | removes a link to a product or account |
+| `google.ads.data-links.remove` | delete | `DataLinkService.RemoveDataLink` | removes a link to data such as a YouTube video |
+| `google.ads.product-link-invitations.update` | update | `ProductLinkInvitationService.UpdateProductLinkInvitation` | sets the status `REJECTED` or `REVOKED` of an invitation |
+| `google.ads.data-links.update` | update | `DataLinkService.UpdateDataLink` | sets the status `DISABLED`, `REVOKED`, or `REJECTED` of a data link |
+
+The three `remove` tools are offered only through the `tools` list of a connection. The two `update` tools are
+offered by the effect `update` or the `tools` list. All five need the confirmation of every call and belong to
+no profile. Each names one object by its IDs, as the list tools return them (`account_link_id`,
+`product_link_id`, `product_link_invitation_id`, and for a data link `product_link_id` with `data_link_id`), and
+Qatlas builds the resource name from them and the checked `customer_id`. A resource name, a status other than the
+ones above, an operation list, or a header is no argument. On a connection with targets, `customer_id` must be a
+target or lie below a manager target, and a manager account needs a manager target that names it; both are
+checked before a secret is read.
+
+Each call sends one request that changes exactly one object, so it is atomic, without `partial_failure`. It is
+sent once and never repeated: after a timeout, a cut connection, a server error, or an answer that does not name
+the object asked for, the error says that the outcome is unknown, and the object is to be read with the list
+before it is changed again. The answer names the resource name Google returned, which must be that of the object
+asked for; an update adds the status that was set.
+
+`validate_only` exists where the method has it: `account-links.remove` and `product-links.remove`. With it,
+Google validates and answers errors only, and the answer has no `resource_name`. `product-link-invitations.update`,
+`data-links.remove`, and `data-links.update` have no `validate_only` in v26, so their tools have none, and the
+call changes the object. `AccountLinkService.MutateAccountLink` takes a single `operation` rather than a list.
+
+The statuses are only steps back. `REJECTED` and `REVOKED` end an invitation (the invitee declines, the sender
+withdraws), and `DISABLED`, `REVOKED`, and `REJECTED` end or decline a data link. The method pages of Google do
+not list which transitions a method accepts, so Google decides, and a transition it refuses changes nothing.
+Removing a link or ending one can stop what it provides, such as product data for ads, and no tool brings a
+removed link or invitation back.
+
+### Not offered
+
+- No tool creates a link or an invitation, accepts one, or sets `ACCEPTED`, `ENABLED`, `PENDING_APPROVAL`, or
+  `REQUESTED`: `CreateAccountLink`, `CreateProductLink`, `CreateProductLinkInvitation`, `CreateDataLink`, and the
+  update of an account link are not offered, and neither are `RemoveProductLinkInvitation` and `MoveManagerLink`.
+  Creating a data link shares the account name and ID with a third party, which Google documents.
+- `ThirdPartyAppAnalyticsLinkService.RegenerateShareableLinkId` is not offered, and `shareable_link_id` is not
+  read.
+
 ## Boundary
 
 Checked against the field reference and the message pages of Google for v26 (`AccountLink`, `ProductLink`,
@@ -97,7 +143,21 @@ Checked against the field reference and the message pages of Google for v26 (`Ac
 - No field of the four resources is marked deprecated on the pages read.
 - The field pages state no condition that a query on these resources must carry.
 
+For the tools that end links, checked against the service definitions of v26 (`account_link_service.proto`,
+`product_link_service.proto`, `product_link_invitation_service.proto`, `data_link_service.proto`) and the
+status enums:
+
+- `MutateAccountLink`, `RemoveProductLink`, `UpdateProductLinkInvitation`, `UpdateDataLink`, and `RemoveDataLink`
+  are single methods without an `operations` list. A request holds one object, so the fixed bound is one.
+- Only `RemoveProductLink` and `MutateAccountLink` have `validate_only`.
+- `MutateAccountLink` has `partial_failure`, which no tool sets. Its description says that creating through it is
+  not supported.
+- The required fields are the customer ID and the resource name, plus the status for the two updates; the update
+  methods have no field mask.
+
 Not verified: that Google accepts the queries as built and returns the messages as the field pages describe (no
 live call has been made), which role an account needs to read links, whether the services are available at the
 Explorer access level, how many rows a real account holds, and whether Google compares the text filters
-case-sensitively.
+case-sensitively. For the tools that end links: which status transitions and which account roles Google accepts
+(the method pages name neither), whether the REST answers hold the shapes of the service definitions, and the
+effect of a removal on a live account (no live call has been made).
