@@ -32,8 +32,8 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 	if !reflect.DeepEqual(metadata.SecretRoles, config.TokenSecretRoles()) {
 		t.Errorf("secret roles = %+v, want the token roles", metadata.SecretRoles)
 	}
-	want := []string{accountBudgetProposalsListID, accountBudgetsListID, accountLinksListID, adGroupsCreateID, adGroupsRemoveID,
-		adGroupsUpdateID, assetsCreateID,
+	want := []string{accountBudgetProposalsListID, accountBudgetsListID, accountLinksListID, accountLinksRemoveID,
+		adGroupsCreateID, adGroupsRemoveID, adGroupsUpdateID, assetsCreateID,
 		assetsUpdateID, audiencesCreateID, audiencesUpdateID, billingSetupsListID,
 		campaignAutomaticallyCreatedAssetsRemoveID, campaignsCreateID, campaignsEnablePMaxBrandGuidelinesID,
 		campaignsRemoveID, campaignsUpdateID, conversionActionsCreateID, conversionActionsRemoveID,
@@ -43,10 +43,11 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 		customerClientLinksListID, customerClientLinksUpdateID, customerClientsListID, customerManagerLinksListID,
 		customerManagerLinksUpdateID, customerUserAccessInvitationsListID, customerUserAccessInvitationsRemoveID,
 		customerUserAccessesListID, customerUserAccessesRemoveID, customerUserAccessesUpdateID, customersGetID,
-		customersListAccessibleID, customersUpdateID, dataLinksListID, fieldsGetID, fieldsSearchID,
+		customersListAccessibleID, customersUpdateID, dataLinksListID, dataLinksRemoveID, dataLinksUpdateID, fieldsGetID, fieldsSearchID,
 		incentivesFetchID, invoicesListID, labelsCreateID, labelsRemoveID, labelsUpdateID,
 		multiPartyAuthReviewsListID, multiPartyAuthReviewsResolveID, paymentsAccountsListID,
-		productLinkInvitationsListID, productLinksListID, recommendationsApplyID, recommendationsDismissID,
+		productLinkInvitationsListID, productLinkInvitationsUpdateID, productLinksListID, productLinksRemoveID,
+		recommendationsApplyID, recommendationsDismissID,
 		recommendationsGenerateID, remarketingActionsCreateID, remarketingActionsUpdateID,
 		reportsSearchID, thirdPartyAppAnalyticsLinksListID, userListCustomerTypesCreateID,
 		userListCustomerTypesRemoveID, userListsCreateID, userListsRemoveID, userListsUpdateID}
