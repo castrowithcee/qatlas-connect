@@ -44,7 +44,8 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 		customerUserAccessesListID, customerUserAccessesRemoveID, customerUserAccessesUpdateID,
 		customersGetID, customersListAccessibleID, customersUpdateID, dataLinksListID, fieldsGetID, fieldsSearchID,
 		multiPartyAuthReviewsListID, multiPartyAuthReviewsResolveID, productLinkInvitationsListID,
-		productLinksListID, remarketingActionsCreateID, remarketingActionsUpdateID, reportsSearchID}
+		productLinksListID, remarketingActionsCreateID, remarketingActionsUpdateID, reportsSearchID, userListCustomerTypesCreateID,
+		userListCustomerTypesRemoveID, userListsCreateID, userListsRemoveID, userListsUpdateID}
 	if len(metadata.Tools) != len(want) {
 		t.Fatalf("tools = %+v", metadata.Tools)
 	}

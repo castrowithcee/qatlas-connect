@@ -167,5 +167,15 @@ func Register(reg *capability.Registry) error {
 			ConfirmationSummary: assetSummary("Change")},
 		capability.Operation{Descriptor: campaignAutomaticallyCreatedAssetsRemove,
 			Handler:             handleCampaignAutomaticallyCreatedAssetsRemove,
-			ConfirmationSummary: removalSummary})
+			ConfirmationSummary: removalSummary},
+		capability.Operation{Descriptor: userListsCreate, Handler: userListsHandleCreate,
+			ConfirmationSummary: userListsSummary(true)},
+		capability.Operation{Descriptor: userListsUpdate, Handler: userListsHandleUpdate,
+			ConfirmationSummary: userListsSummary(false)},
+		capability.Operation{Descriptor: userListsRemove, Handler: userListsHandleRemove,
+			ConfirmationSummary: userListsRemoveSummary},
+		capability.Operation{Descriptor: userListCustomerTypesCreate, Handler: userListHandleCustomerTypesCreate,
+			ConfirmationSummary: userListCustomerTypesSummary(true)},
+		capability.Operation{Descriptor: userListCustomerTypesRemove, Handler: userListHandleCustomerTypesRemove,
+			ConfirmationSummary: userListCustomerTypesSummary(false)})
 }
