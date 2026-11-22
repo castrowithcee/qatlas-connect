@@ -34,9 +34,8 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 	}
 	want := []string{accountBudgetProposalsListID, accountBudgetsListID, accountLinksListID, assetsCreateID,
 		assetsUpdateID, audiencesCreateID, audiencesUpdateID, billingSetupsListID,
-		campaignAutomaticallyCreatedAssetsRemoveID,
-		campaignsCreateID, campaignsEnablePMaxBrandGuidelinesID, campaignsRemoveID, campaignsUpdateID,
-		conversionActionsCreateID, conversionActionsRemoveID,
+		campaignAutomaticallyCreatedAssetsRemoveID, campaignsCreateID, campaignsEnablePMaxBrandGuidelinesID,
+		campaignsRemoveID, campaignsUpdateID, conversionActionsCreateID, conversionActionsRemoveID,
 		conversionActionsUpdateID, conversionCustomVariablesCreateID, conversionCustomVariablesUpdateID,
 		customAudiencesCreateID, customAudiencesRemoveID, customAudiencesUpdateID, customInterestsCreateID,
 		customInterestsUpdateID, customerBudgetNetworkSettingsCreateID, customerBudgetNetworkSettingsUpdateID,
@@ -44,12 +43,12 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 		customerManagerLinksUpdateID, customerUserAccessInvitationsListID, customerUserAccessInvitationsRemoveID,
 		customerUserAccessesListID, customerUserAccessesRemoveID, customerUserAccessesUpdateID, customersGetID,
 		customersListAccessibleID, customersUpdateID, dataLinksListID, fieldsGetID, fieldsSearchID,
-		incentivesFetchID, invoicesListID, multiPartyAuthReviewsListID, multiPartyAuthReviewsResolveID,
-		paymentsAccountsListID, productLinkInvitationsListID, productLinksListID, recommendationsApplyID, recommendationsDismissID,
-		recommendationsGenerateID, remarketingActionsCreateID,
-		remarketingActionsUpdateID, reportsSearchID, thirdPartyAppAnalyticsLinksListID,
-		userListCustomerTypesCreateID, userListCustomerTypesRemoveID, userListsCreateID, userListsRemoveID,
-		userListsUpdateID}
+		incentivesFetchID, invoicesListID, labelsCreateID, labelsRemoveID, labelsUpdateID,
+		multiPartyAuthReviewsListID, multiPartyAuthReviewsResolveID, paymentsAccountsListID,
+		productLinkInvitationsListID, productLinksListID, recommendationsApplyID, recommendationsDismissID,
+		recommendationsGenerateID, remarketingActionsCreateID, remarketingActionsUpdateID,
+		reportsSearchID, thirdPartyAppAnalyticsLinksListID, userListCustomerTypesCreateID,
+		userListCustomerTypesRemoveID, userListsCreateID, userListsRemoveID, userListsUpdateID}
 	if len(metadata.Tools) != len(want) {
 		t.Fatalf("tools = %+v", metadata.Tools)
 	}
@@ -57,7 +56,8 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 		// recommendations.apply is listed-only but tested in recommendations_test.go, not with changeToolIDs.
 		listed := slices.Contains(changeToolIDs, tool.ID) || slices.Contains(assetToolIDs, tool.ID) ||
 			tool.ID == recommendationsApplyID
-		changing := listed || slices.Contains(notListedOnly, tool.ID)
+		changing := listed || slices.Contains(notListedOnly, tool.ID) || tool.ID == labelsCreateID ||
+			tool.ID == labelsUpdateID
 		if tool.ID != want[i] || (tool.Effect == config.EffectRead) == changing || tool.RequiresToolAllowList != listed {
 			t.Errorf("tool %d = %+v", i, tool)
 		}

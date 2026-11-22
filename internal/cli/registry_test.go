@@ -155,6 +155,7 @@ func TestDefaultRegistry(t *testing.T) {
 		"google.ads.billing-setups.list", "google.ads.account-budgets.list", "google.ads.account-budget-proposals.list",
 		"google.ads.payments-accounts.list",
 		"google.ads.invoices.list", "google.ads.incentives.fetch", "google.ads.third-party-app-analytics-links.list",
+		"google.ads.labels.create", "google.ads.labels.update", "google.ads.labels.remove",
 		"google.ads.recommendations.generate", "google.ads.recommendations.apply", "google.ads.recommendations.dismiss")
 }
 
