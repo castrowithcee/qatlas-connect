@@ -31,11 +31,11 @@ func campaignsCall(campaigns string, extra string) string {
 	return `{"customer_id":"` + clientID + `","campaigns":` + campaigns + extra + `}`
 }
 
-func createArgs(members string) string {
+func campaignCreateArgs(members string) string {
 	return campaignsCall(`[`+createdCampaign+members+`}]`, "")
 }
 
-func updateArgs(members string) string {
+func campaignUpdateArgs(members string) string {
 	return campaignsCall(`[{"resource_name":"`+own+`/campaigns/21"`+members+`}]`, "")
 }
 
@@ -109,8 +109,8 @@ func TestCampaignMembersAreFieldsOfTheCatalog(t *testing.T) {
 
 func TestCampaignChangesNeedTheToolsListAndTheConfirmation(t *testing.T) {
 	calls := map[string]string{
-		campaignsCreateID: createArgs(``),
-		campaignsUpdateID: updateArgs(`,"status":"ENABLED"`),
+		campaignsCreateID: campaignCreateArgs(``),
+		campaignsUpdateID: campaignUpdateArgs(`,"status":"ENABLED"`),
 		campaignsRemoveID: `{"customer_id":"` + clientID + `","resource_names":["` + own + `/campaigns/21"]}`,
 		campaignsEnablePMaxBrandGuidelinesID: `{"customer_id":"` + clientID + `","campaign":"` + own +
 			`/campaigns/21","auto_populate_brand_assets":true}`,
@@ -172,57 +172,57 @@ func TestCampaignArgumentsAreCheckedBeforeSecretAndIO(t *testing.T) {
 		"no status":   {campaignsCreateID, campaignsCall(`[{"name":"x","advertising_channel_type":"SEARCH"}]`, "")},
 		"no name":     {campaignsCreateID, campaignsCall(`[{"status":"PAUSED","advertising_channel_type":"SEARCH"}]`, "")},
 		"no channel":  {campaignsCreateID, campaignsCall(`[{"name":"x","status":"PAUSED"}]`, "")},
-		"removed":     {campaignsCreateID, createArgs(`,"status":"REMOVED"`)},
-		"unknown":     {campaignsCreateID, createArgs(`,"advertising_channel_type":"UNKNOWN"`)},
+		"removed":     {campaignsCreateID, campaignCreateArgs(`,"status":"REMOVED"`)},
+		"unknown":     {campaignsCreateID, campaignCreateArgs(`,"advertising_channel_type":"UNKNOWN"`)},
 		"no campaign": {campaignsCreateID, campaignsCall(`[]`, "")},
 		"eleven":      {campaignsCreateID, campaignsCall(`[`+strings.Repeat(createdCampaign+`},`, 10)+createdCampaign+`}]`, "")},
 		"http template": {campaignsCreateID,
-			createArgs(`,"tracking_url_template":"http://t.example.com/?u={lpurl}"`)},
+			campaignCreateArgs(`,"tracking_url_template":"http://t.example.com/?u={lpurl}"`)},
 		"user info": {campaignsCreateID,
-			createArgs(`,"tracking_url_template":"https://user:pw` + at + `t.example.com/?u={lpurl}"`)},
-		"template parameter first": {campaignsCreateID, createArgs(`,"tracking_url_template":"{lpurl}?x=1"`)},
-		"suffix address":           {campaignsCreateID, createArgs(`,"final_url_suffix":"https://x.example.com/"`)},
-		"suffix space":             {campaignsCreateID, createArgs(`,"final_url_suffix":"a=1 b=2"`)},
-		"foreign budget":           {campaignsCreateID, createArgs(`,"campaign_budget":"` + foreign + `/campaignBudgets/11"`)},
-		"temporary budget":         {campaignsCreateID, createArgs(`,"campaign_budget":"` + own + `/campaignBudgets/-1"`)},
-		"zero budget":              {campaignsCreateID, createArgs(`,"campaign_budget":"` + own + `/campaignBudgets/0"`)},
-		"budget collection":        {campaignsCreateID, createArgs(`,"campaign_budget":"` + own + `/campaigns/11"`)},
-		"foreign strategy":         {campaignsCreateID, createArgs(`,"bidding_strategy":"` + foreign + `/biddingStrategies/3"`)},
-		"temporary strategy":       {campaignsCreateID, createArgs(`,"bidding_strategy":"` + own + `/biddingStrategies/-3"`)},
-		"foreign group":            {campaignsCreateID, createArgs(`,"campaign_group":"` + foreign + `/campaignGroups/3"`)},
-		"foreign conversion action": {campaignsCreateID, createArgs(`,"selective_optimization":{"conversion_actions":["` +
+			campaignCreateArgs(`,"tracking_url_template":"https://user:pw` + at + `t.example.com/?u={lpurl}"`)},
+		"template parameter first": {campaignsCreateID, campaignCreateArgs(`,"tracking_url_template":"{lpurl}?x=1"`)},
+		"suffix address":           {campaignsCreateID, campaignCreateArgs(`,"final_url_suffix":"https://x.example.com/"`)},
+		"suffix space":             {campaignsCreateID, campaignCreateArgs(`,"final_url_suffix":"a=1 b=2"`)},
+		"foreign budget":           {campaignsCreateID, campaignCreateArgs(`,"campaign_budget":"` + foreign + `/campaignBudgets/11"`)},
+		"temporary budget":         {campaignsCreateID, campaignCreateArgs(`,"campaign_budget":"` + own + `/campaignBudgets/-1"`)},
+		"zero budget":              {campaignsCreateID, campaignCreateArgs(`,"campaign_budget":"` + own + `/campaignBudgets/0"`)},
+		"budget collection":        {campaignsCreateID, campaignCreateArgs(`,"campaign_budget":"` + own + `/campaigns/11"`)},
+		"foreign strategy":         {campaignsCreateID, campaignCreateArgs(`,"bidding_strategy":"` + foreign + `/biddingStrategies/3"`)},
+		"temporary strategy":       {campaignsCreateID, campaignCreateArgs(`,"bidding_strategy":"` + own + `/biddingStrategies/-3"`)},
+		"foreign group":            {campaignsCreateID, campaignCreateArgs(`,"campaign_group":"` + foreign + `/campaignGroups/3"`)},
+		"foreign conversion action": {campaignsCreateID, campaignCreateArgs(`,"selective_optimization":{"conversion_actions":["` +
 			foreign + `/conversionActions/3"]}`)},
-		"two strategies":      {campaignsCreateID, createArgs(`,"manual_cpm":{},"target_cpa":{"target_cpa_micros":1}`)},
-		"strategy and shared": {campaignsCreateID, createArgs(`,"bidding_strategy":"` + own + `/biddingStrategies/3","manual_cpc":{}`)},
-		"negative micros":     {campaignsCreateID, createArgs(`,"target_cpa":{"target_cpa_micros":-1}`)},
-		"fraction micros":     {campaignsCreateID, createArgs(`,"target_cpa":{"target_cpa_micros":1.5}`)},
-		"roas range":          {campaignsCreateID, createArgs(`,"target_roas":{"target_roas":2000}`)},
-		"bad date":            {campaignsCreateID, createArgs(`,"start_date_time":"2027-01-01"`)},
-		"bad color":           {campaignsCreateID, createArgs(`,"brand_guidelines":{"main_color":"green","accent_color":"#00ff00"}`)},
-		"bad font":            {campaignsCreateID, createArgs(`,"brand_guidelines":{"predefined_font_family":"Comic Sans"}`)},
-		"both controls": {campaignsCreateID, createArgs(`,"video_campaign_settings":{"video_ad_inventory_control":` +
+		"two strategies":      {campaignsCreateID, campaignCreateArgs(`,"manual_cpm":{},"target_cpa":{"target_cpa_micros":1}`)},
+		"strategy and shared": {campaignsCreateID, campaignCreateArgs(`,"bidding_strategy":"` + own + `/biddingStrategies/3","manual_cpc":{}`)},
+		"negative micros":     {campaignsCreateID, campaignCreateArgs(`,"target_cpa":{"target_cpa_micros":-1}`)},
+		"fraction micros":     {campaignsCreateID, campaignCreateArgs(`,"target_cpa":{"target_cpa_micros":1.5}`)},
+		"roas range":          {campaignsCreateID, campaignCreateArgs(`,"target_roas":{"target_roas":2000}`)},
+		"bad date":            {campaignsCreateID, campaignCreateArgs(`,"start_date_time":"2027-01-01"`)},
+		"bad color":           {campaignsCreateID, campaignCreateArgs(`,"brand_guidelines":{"main_color":"green","accent_color":"#00ff00"}`)},
+		"bad font":            {campaignsCreateID, campaignCreateArgs(`,"brand_guidelines":{"predefined_font_family":"Comic Sans"}`)},
+		"both controls": {campaignsCreateID, campaignCreateArgs(`,"video_campaign_settings":{"video_ad_inventory_control":` +
 			`{"allow_shorts":true},"video_ad_format_control":{"format_restriction":"NON_SKIPPABLE_IN_STREAM"}}`)},
-		"crawl address": {campaignsCreateID, createArgs(`,"asset_automation_settings":[{"asset_automation_type":"AUTOMATED_VIDEO_CRAWL",` +
+		"crawl address": {campaignsCreateID, campaignCreateArgs(`,"asset_automation_settings":[{"asset_automation_type":"AUTOMATED_VIDEO_CRAWL",` +
 			`"automated_video_crawl_setting":{"automated_video_crawl_infos":[{"url":"http://x.example.com/"}]}}]`)},
-		"member of a message":  {campaignsCreateID, createArgs(`,"network_settings":{"target_everything":true}`)},
-		"empty message":        {campaignsCreateID, createArgs(`,"network_settings":{}`)},
-		"filled empty message": {campaignsCreateID, createArgs(`,"manual_cpm":{"x":1}`)},
-		"excluded member":      {campaignsCreateID, createArgs(`,"third_party_integration_partners":{}`)},
-		"excluded strategy":    {campaignsCreateID, createArgs(`,"fixed_cpm":{"goal":"TARGET_FREQUENCY"}`)},
-		"deprecated member":    {campaignsCreateID, createArgs(`,"target_spend":{"target_spend_micros":5}`)},
-		"output only member":   {campaignsCreateID, createArgs(`,"bidding_strategy_type":"MANUAL_CPC"`)},
+		"member of a message":  {campaignsCreateID, campaignCreateArgs(`,"network_settings":{"target_everything":true}`)},
+		"empty message":        {campaignsCreateID, campaignCreateArgs(`,"network_settings":{}`)},
+		"filled empty message": {campaignsCreateID, campaignCreateArgs(`,"manual_cpm":{"x":1}`)},
+		"excluded member":      {campaignsCreateID, campaignCreateArgs(`,"third_party_integration_partners":{}`)},
+		"excluded strategy":    {campaignsCreateID, campaignCreateArgs(`,"fixed_cpm":{"goal":"TARGET_FREQUENCY"}`)},
+		"deprecated member":    {campaignsCreateID, campaignCreateArgs(`,"target_spend":{"target_spend_micros":5}`)},
+		"output only member":   {campaignsCreateID, campaignCreateArgs(`,"bidding_strategy_type":"MANUAL_CPC"`)},
 		"content type":         {campaignsCreateID, campaignsCall(`[`+createdCampaign+`}]`, `,"response_content_type":"ALL"`)},
 
-		"update no member":  {campaignsUpdateID, updateArgs(``)},
-		"update channel":    {campaignsUpdateID, updateArgs(`,"advertising_channel_type":"DISPLAY"`)},
-		"update guidelines": {campaignsUpdateID, updateArgs(`,"brand_guidelines_enabled":true`)},
-		"update removed":    {campaignsUpdateID, updateArgs(`,"status":"REMOVED"`)},
+		"update no member":  {campaignsUpdateID, campaignUpdateArgs(``)},
+		"update channel":    {campaignsUpdateID, campaignUpdateArgs(`,"advertising_channel_type":"DISPLAY"`)},
+		"update guidelines": {campaignsUpdateID, campaignUpdateArgs(`,"brand_guidelines_enabled":true`)},
+		"update removed":    {campaignsUpdateID, campaignUpdateArgs(`,"status":"REMOVED"`)},
 		"update foreign":    {campaignsUpdateID, campaignsCall(`[{"resource_name":"`+foreign+`/campaigns/21","status":"PAUSED"}]`, "")},
 		"update temporary":  {campaignsUpdateID, campaignsCall(`[{"resource_name":"`+own+`/campaigns/-2","status":"PAUSED"}]`, "")},
 		"update twice": {campaignsUpdateID, campaignsCall(`[{"resource_name":"`+own+`/campaigns/21","status":"PAUSED"},`+
 			`{"resource_name":"`+own+`/campaigns/21","status":"ENABLED"}]`, "")},
-		"update foreign budget": {campaignsUpdateID, updateArgs(`,"campaign_budget":"` + foreign + `/campaignBudgets/1"`)},
-		"update template":       {campaignsUpdateID, updateArgs(`,"tracking_url_template":"https://evil.example` + at + `t.example.com/"`)},
+		"update foreign budget": {campaignsUpdateID, campaignUpdateArgs(`,"campaign_budget":"` + foreign + `/campaignBudgets/1"`)},
+		"update template":       {campaignsUpdateID, campaignUpdateArgs(`,"tracking_url_template":"https://evil.example` + at + `t.example.com/"`)},
 
 		"remove foreign":   {campaignsRemoveID, `{"customer_id":"` + clientID + `","resource_names":["` + foreign + `/campaigns/21"]}`},
 		"remove temporary": {campaignsRemoveID, `{"customer_id":"` + clientID + `","resource_names":["` + own + `/campaigns/-21"]}`},
