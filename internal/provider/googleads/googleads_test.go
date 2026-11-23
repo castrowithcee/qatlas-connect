@@ -53,8 +53,10 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 		campaignGroupsUpdateID, campaignSharedSetsCreateID, campaignSharedSetsRemoveID, campaignsCreateID, campaignsEnablePMaxBrandGuidelinesID,
 		campaignsRemoveID, campaignsUpdateID, conversionActionsCreateID, conversionActionsRemoveID,
 		conversionActionsUpdateID, conversionCustomVariablesCreateID, conversionCustomVariablesUpdateID,
+		conversionValueRulesCreateID, conversionValueRulesRemoveID, conversionValueRulesUpdateID,
 		customAudiencesCreateID, customAudiencesRemoveID, customAudiencesUpdateID, customInterestsCreateID,
-		customInterestsUpdateID, customerAssetSetsCreateID, customerAssetSetsRemoveID, customerBudgetNetworkSettingsCreateID, customerBudgetNetworkSettingsUpdateID,
+		customInterestsUpdateID, customerAssetSetsCreateID, customerAssetSetsRemoveID, customerAssetsCreateID, customerAssetsRemoveID,
+		customerAssetsUpdateID, customerBudgetNetworkSettingsCreateID, customerBudgetNetworkSettingsUpdateID,
 		customerClientLinksListID, customerClientLinksUpdateID, customerClientsListID, customerManagerLinksListID,
 		customerManagerLinksUpdateID, customerNegativeCriteriaCreateID, customerNegativeCriteriaRemoveID,
 		customerUserAccessInvitationsListID, customerUserAccessInvitationsRemoveID,
@@ -82,6 +84,7 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 			tool.ID == campaignAssetsCreateID || tool.ID == campaignAssetsUpdateID || tool.ID == campaignAssetsRemoveID ||
 			tool.ID == assetSetsCreateID || tool.ID == assetSetsUpdateID ||
 			tool.ID == adGroupAssetsCreateID || tool.ID == adGroupAssetsUpdateID || tool.ID == adGroupAssetsRemoveID ||
+			tool.ID == customerAssetsCreateID || tool.ID == customerAssetsUpdateID || tool.ID == customerAssetsRemoveID ||
 			slices.Contains(setLinkToolIDs, tool.ID) ||
 			tool.ID == sharedSetsCreateID || tool.ID == sharedSetsUpdateID || tool.ID == campaignSharedSetsCreateID ||
 			tool.ID == customerNegativeCriteriaCreateID || tool.ID == sharedCriteriaCreateID ||
