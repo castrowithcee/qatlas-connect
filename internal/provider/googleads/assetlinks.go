@@ -17,7 +17,8 @@ type assetLinkKind struct {
 	// collection is the collection of the links below the customer, such as campaignAssets.
 	collection string
 	// parentCollection is the collection of the parents, such as campaigns, and parentKey the member of the wire
-	// object that names the parent, such as campaign.
+	// object that names the parent, such as campaign. Links of the account have no parent: both stay empty and the
+	// resource name is ASSET~FIELD_TYPE.
 	parentCollection, parentKey string
 	// parentNoun and parentArgument name the parent in error texts, such as campaign and campaign_id.
 	parentNoun, parentArgument string
@@ -43,7 +44,11 @@ type assetLinkKey struct {
 
 // name is the resource name of the link, built from checked parts alone.
 func (k assetLinkKind) name(customerID string, key assetLinkKey) string {
-	return customerName(customerID) + "/" + k.collection + "/" + key.ParentID + "~" + key.AssetID + "~" + key.FieldType
+	rest := key.AssetID + "~" + key.FieldType
+	if k.parentCollection != "" {
+		rest = key.ParentID + "~" + rest
+	}
+	return customerName(customerID) + "/" + k.collection + "/" + rest
 }
 
 func (k assetLinkKind) parentName(customerID, parentID string) string {
@@ -57,11 +62,19 @@ func (k assetLinkKind) parse(name, customerID string) (assetLinkKey, bool) {
 		return assetLinkKey{}, false
 	}
 	parts := strings.Split(rest, "~")
-	if len(parts) != 3 {
+	var key assetLinkKey
+	if k.parentCollection != "" {
+		if len(parts) != 3 {
+			return assetLinkKey{}, false
+		}
+		key.ParentID, parts = parts[0], parts[1:]
+	}
+	if len(parts) != 2 {
 		return assetLinkKey{}, false
 	}
-	key := assetLinkKey{ParentID: parts[0], AssetID: parts[1], FieldType: parts[2]}
-	return key, assetLinkIDOK(key.ParentID) && assetLinkIDOK(key.AssetID) && slices.Contains(assetLinkFieldTypes, key.FieldType)
+	key.AssetID, key.FieldType = parts[0], parts[1]
+	return key, (k.parentCollection == "" || assetLinkIDOK(key.ParentID)) && assetLinkIDOK(key.AssetID) &&
+		slices.Contains(assetLinkFieldTypes, key.FieldType)
 }
 
 func assetLinkIDOK(value string) bool {
@@ -76,7 +89,7 @@ func assetLinkIDOK(value string) bool {
 // refuses the temporary negative IDs of a batch.
 func (k assetLinkKind) check(path string, key assetLinkKey) error {
 	switch {
-	case !assetLinkIDOK(key.ParentID):
+	case k.parentCollection != "" && !assetLinkIDOK(key.ParentID):
 		return badRequest(path + k.parentArgument + " must be the ID of an existing " + k.parentNoun + ", a positive number")
 	case !assetLinkIDOK(key.AssetID):
 		return badRequest(path + "asset_id must be the ID of an existing asset, a positive number")
