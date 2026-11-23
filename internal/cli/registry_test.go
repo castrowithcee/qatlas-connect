@@ -147,6 +147,7 @@ func TestDefaultRegistry(t *testing.T) {
 		"google.ads.multi-party-auth-reviews.list", "google.ads.multi-party-auth-reviews.resolve",
 		"google.ads.conversion-actions.create", "google.ads.conversion-actions.update", "google.ads.conversion-actions.remove",
 		"google.ads.conversion-custom-variables.create", "google.ads.conversion-custom-variables.update",
+		"google.ads.conversion-value-rules.create", "google.ads.conversion-value-rules.update", "google.ads.conversion-value-rules.remove",
 		"google.ads.remarketing-actions.create", "google.ads.remarketing-actions.update",
 		"google.ads.custom-audiences.create", "google.ads.custom-audiences.update", "google.ads.custom-audiences.remove",
 		"google.ads.custom-interests.create", "google.ads.custom-interests.update",
