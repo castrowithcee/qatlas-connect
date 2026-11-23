@@ -18,13 +18,16 @@ const (
 	assetSetAssetsRemoveID    = Provider + ".asset-set-assets.remove"
 	campaignAssetSetsCreateID = Provider + ".campaign-asset-sets.create"
 	campaignAssetSetsRemoveID = Provider + ".campaign-asset-sets.remove"
+	adGroupAssetSetsCreateID  = Provider + ".ad-group-asset-sets.create"
+	adGroupAssetSetsRemoveID  = Provider + ".ad-group-asset-sets.remove"
+	customerAssetSetsCreateID = Provider + ".customer-asset-sets.create"
+	customerAssetSetsRemoveID = Provider + ".customer-asset-sets.remove"
 )
 
 // A setLinkFamily is a resource that ties an asset set to another object: an asset in a set, a set attached to
-// a campaign. Such a link has no mutable member and no update. It is created from the resource names of the
+// a campaign, an ad group, or the account. Such a link has no mutable member and no update. It is created from the resource names of the
 // objects it ties and removed by its own resource name, customers/ID/<collection>/A~B, whose key is the IDs of
-// the parts in order. The ad group and customer links of asset sets have the same form (a customer link has a
-// single part), so a further family is one more value of this type.
+// the parts in order. The customer link has a single part, the asset set, since the account is the one of the call.
 type setLinkFamily struct {
 	// tool is the name segment of the tool IDs; argument is the list argument of the create tool.
 	tool, argument string
@@ -34,6 +37,8 @@ type setLinkFamily struct {
 	// resultKey is the output member of a result that holds the link; noun names a link in texts.
 	resultKey, noun string
 	parts           []setLinkPart
+	// account names a member of the answer that holds the account of the call; it is never an argument.
+	account string
 	// example is a create call and removeExample a remove call, each with the arguments after customer_id.
 	example, removeExample string
 	// rpc is the method that serves both tools; effect says in a few words what a link does, and sensitivity
@@ -90,6 +95,9 @@ func (f setLinkFamily) outputTree() node {
 	fields := []node{textNode("resource_name", "", maxNameArgument)}
 	for _, p := range f.parts {
 		fields = append(fields, resourceNode(p.name, "", p.collection))
+	}
+	if f.account != "" {
+		fields = append(fields, textNode(f.account, "", maxNameArgument))
 	}
 	return objectNode("", "", append(fields, enumNode("status", "", nil))...)
 }
@@ -262,6 +270,9 @@ func (f setLinkFamily) result(op, customerID string, results []listResult, valid
 			if ok {
 				name, _ := members["resource_name"].(string)
 				ok = name == "" || name == r.ResourceName
+				if got, has := members[f.account].(string); f.account != "" && has && got != customerName(customerID) {
+					ok = false
+				}
 				for i, p := range f.parts {
 					if got, has := members[p.name].(string); has && got != f.partName(customerID, i, ids[i]) {
 						ok = false
@@ -287,8 +298,15 @@ func (f setLinkFamily) fields() []capability.Field {
 		{Name: "results", Description: "One entry per " + f.noun + ", in the order given, with its resource_name " +
 			"(customers/ID/" + f.collection + "/" + strings.Repeat("N~", len(f.parts)-1) + "N, always of the account " +
 			"of the call) and, with MUTABLE_RESOURCE, the " + f.noun + " after the change under " + f.resultKey + ": " +
-			f.partList() + ", resource_name and status as Google returns them. Empty after validate_only"},
+			f.partList() + f.accountField() + ", resource_name and status as Google returns them. Empty after validate_only"},
 	}
+}
+
+func (f setLinkFamily) accountField() string {
+	if f.account == "" {
+		return ""
+	}
+	return ", " + f.account + " (always the account of the call)"
 }
 
 func (f setLinkFamily) note() string {
@@ -456,5 +474,33 @@ var campaignAssetSetsFamily = setLinkFamily{
 	sensitivity:   "which asset sets a campaign of a Google Ads account uses",
 }
 
+var adGroupAssetSetsFamily = setLinkFamily{
+	tool: "ad-group-asset-sets", argument: "ad_group_asset_sets",
+	service: "/adGroupAssetSets", collection: "adGroupAssetSets", key: "adGroupAssetSet", resultKey: "ad_group_asset_set",
+	noun: "ad group asset set",
+	parts: []setLinkPart{{name: "ad_group", collection: "adGroups", noun: "Ad group"},
+		{name: "asset_set", collection: "assetSets", noun: "Asset set"}},
+	example:       `{"ad_group":"customers/1234567890/adGroups/51","asset_set":"customers/1234567890/assetSets/31"}`,
+	removeExample: "customers/1234567890/adGroupAssetSets/51~31",
+	rpc:           "AdGroupAssetSetService.MutateAdGroupAssetSets",
+	effect:        "attaches an asset set to an ad group",
+	sensitivity:   "which asset sets an ad group of a Google Ads account uses",
+}
+
+var customerAssetSetsFamily = setLinkFamily{
+	tool: "customer-asset-sets", argument: "customer_asset_sets",
+	service: "/customerAssetSets", collection: "customerAssetSets", key: "customerAssetSet", resultKey: "customer_asset_set",
+	noun:          "customer asset set",
+	parts:         []setLinkPart{{name: "asset_set", collection: "assetSets", noun: "Asset set"}},
+	account:       "customer",
+	example:       `{"asset_set":"customers/1234567890/assetSets/31"}`,
+	removeExample: "customers/1234567890/customerAssetSets/31",
+	rpc:           "CustomerAssetSetService.MutateCustomerAssetSets",
+	effect:        "attaches an asset set to the account itself",
+	sensitivity:   "which asset sets a Google Ads account uses for itself",
+}
+
 var assetSetAssetsCreate, assetSetAssetsRemove = assetSetAssetsFamily.descriptors()
 var campaignAssetSetsCreate, campaignAssetSetsRemove = campaignAssetSetsFamily.descriptors()
+var adGroupAssetSetsCreate, adGroupAssetSetsRemove = adGroupAssetSetsFamily.descriptors()
+var customerAssetSetsCreate, customerAssetSetsRemove = customerAssetSetsFamily.descriptors()

@@ -52,6 +52,8 @@ type node struct {
 	exclusive []string
 	// createOnly marks a member Google accepts only when the object is created.
 	createOnly bool
+	// allowEmpty lets a list of objects be empty, where an empty list has a meaning of its own.
+	allowEmpty bool
 	// required names members an object must hold when it is created. requiredAlways extends this to every
 	// change, for an entry of a list that an update replaces as a whole.
 	required       []string
@@ -84,6 +86,7 @@ func objectNode(name, desc string, fields ...node) node {
 }
 func listOf(n node, max int) node { n.list, n.maxItems = true, max; return n }
 func createOnly(n node) node      { n.createOnly = true; return n }
+func allowEmpty(n node) node      { n.allowEmpty = true; return n }
 
 // enumOf is the list of values of the enum of a field of the catalog, without the two values that are never
 // sent.
@@ -193,7 +196,7 @@ func (n node) inputSchema() schema {
 	}
 	if n.list {
 		s = schema{"type": "array", "maxItems": n.maxItems, "items": s}
-		if n.kind == kindObject {
+		if n.kind == kindObject && !n.allowEmpty {
 			s["minItems"] = 1
 		}
 	}
@@ -321,7 +324,7 @@ func joinPath(parent, key string) string {
 func (b *builder) member(n node, value any, at pathOfMember) (any, bool, error) {
 	if n.list {
 		items, ok := value.([]any)
-		if !ok || len(items) > n.maxItems || (n.kind == kindObject && len(items) == 0) {
+		if !ok || len(items) > n.maxItems || (n.kind == kindObject && len(items) == 0 && !n.allowEmpty) {
 			return nil, false, badRequest(at.snake + " must be a list of at most " + strconv.Itoa(n.maxItems) + " entries")
 		}
 		out := make([]any, 0, len(items))
