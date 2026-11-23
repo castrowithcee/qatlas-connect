@@ -63,7 +63,7 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 		incentivesFetchID, invoicesListID, labelsCreateID, labelsRemoveID, labelsUpdateID,
 		multiPartyAuthReviewsListID, multiPartyAuthReviewsResolveID, paymentsAccountsListID,
 		productLinkInvitationsListID, productLinkInvitationsUpdateID, productLinksListID, productLinksRemoveID,
-		recommendationsApplyID, recommendationsDismissID,
+		recommendationSubscriptionsCreateID, recommendationSubscriptionsUpdateID, recommendationsApplyID, recommendationsDismissID,
 		recommendationsGenerateID, remarketingActionsCreateID, remarketingActionsUpdateID,
 		reportsSearchID, sharedCriteriaCreateID, sharedCriteriaRemoveID, sharedSetsCreateID, sharedSetsRemoveID, sharedSetsUpdateID, thirdPartyAppAnalyticsLinksListID, userListCustomerTypesCreateID,
 		userListCustomerTypesRemoveID, userListsCreateID, userListsRemoveID, userListsUpdateID}
