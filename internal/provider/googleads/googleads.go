@@ -37,9 +37,11 @@ var readTools = []string{customersListAccessibleID, customersGetID, customerClie
 	productLinksListID, productLinkInvitationsListID, dataLinksListID, billingSetupsListID, accountBudgetsListID,
 	accountBudgetProposalsListID, paymentsAccountsListID, invoicesListID, incentivesFetchID,
 	thirdPartyAppAnalyticsLinksListID,
-	recommendationsGenerateID, experimentsListAsyncErrorsID, contentCreatorInsightsGenerateCreatorID,
+	recommendationsGenerateID, experimentsListAsyncErrorsID, campaignDraftsListAsyncErrorsID,
+	contentCreatorInsightsGenerateCreatorID,
 	contentCreatorInsightsGenerateTrendingID, geoTargetConstantsSuggestID, keywordThemeConstantsSuggestID,
-	brandSuggestionsSuggestID}
+	brandSuggestionsSuggestID,
+	keywordIdeasID, keywordMetricsID, keywordThemesID, keywordForecastID}
 
 // TestConnection obtains an access token, checks its scope, and lists the accounts the credential reaches
 // directly. That call costs one operation of the daily quota and nothing else, and proves the token, the
@@ -92,7 +94,7 @@ func Register(reg *capability.Registry) error {
 		Profiles: []config.ToolProfile{{
 			ID: "read", Title: "Read", Recommended: true,
 			Description: "lists the accounts the credential reaches, reads account settings, the hierarchy " +
-				"below a manager account and the users of an account, lists the invitations and the multi-party approval requests of an account, lists its manager, client, account, product and data links, lists the billing setups, account budgets, budget proposals and payments accounts of an account, lists the invoices of a billing setup, fetches the incentive offer of the user and lists the third-party app analytics links of an account, lists the asynchronous errors of an experiment, generates recommendations for a campaign described in the arguments, suggests geo target constants, keyword themes and brands, reads YouTube creator and trending insights, runs reports and reads the field reference; the adwords scope is the only one Google offers and also allows changes, " +
+				"below a manager account and the users of an account, lists the invitations and the multi-party approval requests of an account, lists its manager, client, account, product and data links, lists the billing setups, account budgets, budget proposals and payments accounts of an account, lists the invoices of a billing setup, fetches the incentive offer of the user and lists the third-party app analytics links of an account, lists the asynchronous errors of an experiment and of a campaign draft promotion, generates recommendations for a campaign described in the arguments, generates keyword ideas, historical metrics, ad group themes and forecasts, suggests geo target constants, keyword themes and brands, reads YouTube creator and trending insights, runs reports and reads the field reference; the adwords scope is the only one Google offers and also allows changes, " +
 				"although no tool of this profile changes anything",
 			Tools: readTools,
 		}},
@@ -119,6 +121,14 @@ func Register(reg *capability.Registry) error {
 			ConfirmationSummary: conversionActionsSummary(conversionActionsUpdateID)},
 		capability.Operation{Descriptor: conversionActionsRemove, Handler: handleConversionActionsRemove,
 			ConfirmationSummary: conversionActionsSummary(conversionActionsRemoveID)},
+		capability.Operation{Descriptor: customerConversionGoalsUpdate, Handler: handleCustomerConversionGoalsUpdate,
+			ConfirmationSummary: goalSettingsSummary(customerConversionGoalsUpdateID)},
+		capability.Operation{Descriptor: campaignConversionGoalsUpdate, Handler: handleCampaignConversionGoalsUpdate,
+			ConfirmationSummary: goalSettingsSummary(campaignConversionGoalsUpdateID)},
+		capability.Operation{Descriptor: conversionGoalCampaignConfigsUpdate, Handler: handleConversionGoalCampaignConfigsUpdate,
+			ConfirmationSummary: goalSettingsSummary(conversionGoalCampaignConfigsUpdateID)},
+		capability.Operation{Descriptor: customerSkAdNetworkConversionValueSchemasUpdate,
+			Handler: handleSkAdNetworkSchemaUpdate, ConfirmationSummary: skSummary},
 		capability.Operation{Descriptor: customConversionGoalsCreate, Handler: handleCustomConversionGoalsCreate,
 			ConfirmationSummary: customGoalsSummary(customConversionGoalsCreateID)},
 		capability.Operation{Descriptor: customConversionGoalsUpdate, Handler: handleCustomConversionGoalsUpdate,
@@ -343,6 +353,10 @@ func Register(reg *capability.Registry) error {
 		capability.Operation{Descriptor: campaignSharedSetsRemove, Handler: handleCampaignSharedSetsRemove,
 			ConfirmationSummary: campaignSharedSetsRemoveSummary},
 		capability.Operation{Descriptor: recommendationsGenerate, Handler: handleRecommendationsGenerate},
+		capability.Operation{Descriptor: keywordIdeas, Handler: handleKeywordIdeas},
+		capability.Operation{Descriptor: keywordMetricsTool, Handler: handleKeywordMetrics},
+		capability.Operation{Descriptor: keywordThemes, Handler: handleKeywordThemes},
+		capability.Operation{Descriptor: keywordForecast, Handler: handleKeywordForecast},
 		capability.Operation{Descriptor: recommendationsApply, Handler: handleRecommendationsApply,
 			ConfirmationSummary: recommendationApplySummary},
 		capability.Operation{Descriptor: recommendationsDismiss, Handler: handleRecommendationsDismiss,
@@ -381,6 +395,14 @@ func Register(reg *capability.Registry) error {
 			ConfirmationSummary: adGroupLabelsFamily.summary("create")},
 		capability.Operation{Descriptor: adGroupLabelsRemove, Handler: adGroupLabelsFamily.handler("remove"),
 			ConfirmationSummary: adGroupLabelsFamily.summary("remove")},
+		capability.Operation{Descriptor: adGroupAdLabelsCreate, Handler: adGroupAdLabelsFamily.handler("create"),
+			ConfirmationSummary: adGroupAdLabelsFamily.summary("create")},
+		capability.Operation{Descriptor: adGroupAdLabelsRemove, Handler: adGroupAdLabelsFamily.handler("remove"),
+			ConfirmationSummary: adGroupAdLabelsFamily.summary("remove")},
+		capability.Operation{Descriptor: adGroupCriterionLabelsCreate, Handler: adGroupCriterionLabelsFamily.handler("create"),
+			ConfirmationSummary: adGroupCriterionLabelsFamily.summary("create")},
+		capability.Operation{Descriptor: adGroupCriterionLabelsRemove, Handler: adGroupCriterionLabelsFamily.handler("remove"),
+			ConfirmationSummary: adGroupCriterionLabelsFamily.summary("remove")},
 		capability.Operation{Descriptor: campaignCriteriaCreate, Handler: handleCampaignCriteriaCreate,
 			ConfirmationSummary: campaignCriteriaSummary(campaignCriteriaCreateID)},
 		capability.Operation{Descriptor: campaignCriteriaUpdate, Handler: handleCampaignCriteriaUpdate,
@@ -403,5 +425,14 @@ func Register(reg *capability.Registry) error {
 			ConfirmationSummary: experimentsUpdateSummary},
 		capability.Operation{Descriptor: experimentsRemove, Handler: handleExperimentsRemove,
 			ConfirmationSummary: experimentsRemoveSummary},
-		capability.Operation{Descriptor: experimentsListAsyncErrors, Handler: handleExperimentsListAsyncErrors})
+		capability.Operation{Descriptor: experimentsListAsyncErrors, Handler: handleExperimentsListAsyncErrors},
+		capability.Operation{Descriptor: campaignDraftsCreate, Handler: handleCampaignDraftsCreate,
+			ConfirmationSummary: campaignDraftsCreateSummary},
+		capability.Operation{Descriptor: campaignDraftsUpdate, Handler: handleCampaignDraftsUpdate,
+			ConfirmationSummary: campaignDraftsUpdateSummary},
+		capability.Operation{Descriptor: campaignDraftsRemove, Handler: handleCampaignDraftsRemove,
+			ConfirmationSummary: campaignDraftsRemoveSummary},
+		capability.Operation{Descriptor: campaignDraftsPromote, Handler: handleCampaignDraftsPromote,
+			ConfirmationSummary: campaignDraftsPromoteSummary},
+		capability.Operation{Descriptor: campaignDraftsListAsyncErrors, Handler: handleCampaignDraftsListAsyncErrors})
 }

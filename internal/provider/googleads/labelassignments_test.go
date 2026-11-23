@@ -18,7 +18,8 @@ import (
 )
 
 var labelAssignmentToolIDs = []string{campaignLabelsCreateID, campaignLabelsRemoveID, adGroupLabelsCreateID,
-	adGroupLabelsRemoveID}
+	adGroupLabelsRemoveID, adGroupAdLabelsCreateID, adGroupAdLabelsRemoveID, adGroupCriterionLabelsCreateID,
+	adGroupCriterionLabelsRemoveID}
 
 // labelCase is one label assignment family with the calls and answers both of its tools use.
 type labelCase struct {
