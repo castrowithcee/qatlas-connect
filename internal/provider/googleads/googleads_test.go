@@ -69,6 +69,7 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 		customerUserAccessInvitationsListID, customerUserAccessInvitationsRemoveID,
 		customerUserAccessesListID, customerUserAccessesRemoveID, customerUserAccessesUpdateID, customersGetID,
 		customersListAccessibleID, customersUpdateID, customizerAttributesCreateID, customizerAttributesRemoveID, dataLinksListID, dataLinksRemoveID, dataLinksUpdateID,
+		experimentArmsCreateID, experimentArmsRemoveID, experimentArmsUpdateID,
 		experimentsCreateID, experimentsListAsyncErrorsID, experimentsRemoveID, experimentsUpdateID, fieldsGetID, fieldsSearchID,
 		geoTargetConstantsSuggestID,
 		goalsCreateID, goalsUpdateID,
@@ -91,7 +92,7 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 		listed := slices.Contains(changeToolIDs, tool.ID) || slices.Contains(assetToolIDs, tool.ID) ||
 			tool.ID == recommendationsApplyID || tool.ID == campaignGroupsRemoveID || tool.ID == sharedSetsRemoveID ||
 			tool.ID == campaignSharedSetsRemoveID || tool.ID == customerNegativeCriteriaRemoveID ||
-			tool.ID == sharedCriteriaRemoveID || tool.ID == experimentsRemoveID || tool.ID == campaignDraftsRemoveID ||
+			tool.ID == sharedCriteriaRemoveID || tool.ID == experimentsRemoveID || tool.ID == experimentArmsRemoveID || tool.ID == experimentArmsCreateID || tool.ID == campaignDraftsRemoveID ||
 			tool.ID == campaignDraftsPromoteID || tool.ID == customizerAttributesRemoveID
 		changing := listed || slices.Contains(notListedOnly, tool.ID) || tool.ID == labelsCreateID ||
 			tool.ID == labelsUpdateID || tool.ID == campaignGroupsCreateID || tool.ID == campaignGroupsUpdateID ||
@@ -102,7 +103,7 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 			slices.Contains(setLinkToolIDs, tool.ID) || slices.Contains(labelAssignmentToolIDs, tool.ID) || tool.ID == customizerAttributesCreateID ||
 			tool.ID == sharedSetsCreateID || tool.ID == sharedSetsUpdateID || tool.ID == campaignSharedSetsCreateID ||
 			tool.ID == customerNegativeCriteriaCreateID || tool.ID == sharedCriteriaCreateID ||
-			tool.ID == experimentsCreateID || tool.ID == experimentsUpdateID || tool.ID == campaignDraftsCreateID ||
+			tool.ID == experimentsCreateID || tool.ID == experimentsUpdateID || tool.ID == experimentArmsUpdateID || tool.ID == campaignDraftsCreateID ||
 			tool.ID == campaignDraftsUpdateID
 		if tool.ID != want[i] || (tool.Effect == config.EffectRead) == changing || tool.RequiresToolAllowList != listed {
 			t.Errorf("tool %d = %+v", i, tool)
