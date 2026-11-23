@@ -41,6 +41,10 @@ developer registration, and the consent.
 | `google.merchant.accounts.create-test-account` | creates a test account, see [account tools](accounts.md) |
 | `google.merchant.programs.list`, `.get` | the programs of an account with state, active regions, and unmet requirements, see [programs](programs.md) |
 | `google.merchant.programs.enable`, `.disable` | enable or disable participation in a program; confirmed and offered only through the `tools` list of a connection, see [programs](programs.md) |
+| `google.merchant.business-infos.get` | the business address, customer service contacts, and phone number of an account, see [business profile](business-profile.md) |
+| `google.merchant.business-infos.update` | change the address, customer service contacts, or Korean registration number; confirmed and offered only through the `tools` list of a connection, needs the Admin role, see [business profile](business-profile.md) |
+| `google.merchant.business-identities.get` | the business identity declarations and the promotions consent of an account, see [business profile](business-profile.md) |
+| `google.merchant.business-identities.update` | change the identity declarations or the promotions consent; confirmed and offered only through the `tools` list of a connection, needs the Admin role, see [business profile](business-profile.md) |
 | `google.merchant.reports.search` | one report of an account, from a structured query, see [reports](reports.md) |
 | `google.merchant.quotas.list` | the API quota groups of an account, see [reports](reports.md#quotas-and-limits) |
 | `google.merchant.limits.list` | the limits of an account, see [reports](reports.md#quotas-and-limits) |
