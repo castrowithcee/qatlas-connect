@@ -597,6 +597,7 @@ func TestToolsFiltersByNamespaceAndQuery(t *testing.T) {
 		"google.ads.custom-conversion-goals.create", "google.ads.custom-conversion-goals.update", "google.ads.custom-conversion-goals.remove",
 		"google.ads.conversion-custom-variables.create", "google.ads.conversion-custom-variables.update",
 		"google.ads.conversion-value-rules.create", "google.ads.conversion-value-rules.update", "google.ads.conversion-value-rules.remove",
+		"google.ads.conversion-value-rule-sets.create", "google.ads.conversion-value-rule-sets.update", "google.ads.conversion-value-rule-sets.remove",
 		"google.ads.remarketing-actions.create", "google.ads.remarketing-actions.update",
 		"google.ads.custom-audiences.create", "google.ads.custom-audiences.update", "google.ads.custom-audiences.remove",
 		"google.ads.custom-interests.create", "google.ads.custom-interests.update",
