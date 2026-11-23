@@ -176,6 +176,7 @@ func TestDefaultRegistry(t *testing.T) {
 		"google.ads.campaign-assets.create", "google.ads.campaign-assets.update", "google.ads.campaign-assets.remove",
 		"google.ads.campaign-budgets.create", "google.ads.campaign-budgets.update", "google.ads.campaign-budgets.remove",
 		"google.ads.ad-group-assets.create", "google.ads.ad-group-assets.update", "google.ads.ad-group-assets.remove",
+		"google.ads.asset-group-assets.create", "google.ads.asset-group-assets.update", "google.ads.asset-group-assets.remove",
 		"google.ads.campaign-groups.create", "google.ads.campaign-groups.update", "google.ads.campaign-groups.remove",
 		"google.ads.experiments.create", "google.ads.experiments.update", "google.ads.experiments.remove",
 		"google.ads.experiments.list-async-errors",
