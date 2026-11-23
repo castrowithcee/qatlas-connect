@@ -64,11 +64,11 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 		customConversionGoalsCreateID, customConversionGoalsRemoveID, customConversionGoalsUpdateID, customInterestsCreateID,
 		customInterestsUpdateID, customerAssetSetsCreateID, customerAssetSetsRemoveID, customerAssetsCreateID, customerAssetsRemoveID,
 		customerAssetsUpdateID, customerBudgetNetworkSettingsCreateID, customerBudgetNetworkSettingsUpdateID,
-		customerClientLinksListID, customerClientLinksUpdateID, customerClientsListID, customerConversionGoalsUpdateID, customerManagerLinksListID,
+		customerClientLinksListID, customerClientLinksUpdateID, customerClientsListID, customerConversionGoalsUpdateID, customerLabelsCreateID, customerLabelsRemoveID, customerManagerLinksListID,
 		customerManagerLinksUpdateID, customerNegativeCriteriaCreateID, customerNegativeCriteriaRemoveID, customerSkAdNetworkSchemasUpdateID,
 		customerUserAccessInvitationsListID, customerUserAccessInvitationsRemoveID,
 		customerUserAccessesListID, customerUserAccessesRemoveID, customerUserAccessesUpdateID, customersGetID,
-		customersListAccessibleID, customersUpdateID, dataLinksListID, dataLinksRemoveID, dataLinksUpdateID,
+		customersListAccessibleID, customersUpdateID, customizerAttributesCreateID, customizerAttributesRemoveID, dataLinksListID, dataLinksRemoveID, dataLinksUpdateID,
 		experimentsCreateID, experimentsListAsyncErrorsID, experimentsRemoveID, experimentsUpdateID, fieldsGetID, fieldsSearchID,
 		geoTargetConstantsSuggestID,
 		goalsCreateID, goalsUpdateID,
@@ -90,14 +90,14 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 			tool.ID == recommendationsApplyID || tool.ID == campaignGroupsRemoveID || tool.ID == sharedSetsRemoveID ||
 			tool.ID == campaignSharedSetsRemoveID || tool.ID == customerNegativeCriteriaRemoveID ||
 			tool.ID == sharedCriteriaRemoveID || tool.ID == experimentsRemoveID || tool.ID == campaignDraftsRemoveID ||
-			tool.ID == campaignDraftsPromoteID
+			tool.ID == campaignDraftsPromoteID || tool.ID == customizerAttributesRemoveID
 		changing := listed || slices.Contains(notListedOnly, tool.ID) || tool.ID == labelsCreateID ||
 			tool.ID == labelsUpdateID || tool.ID == campaignGroupsCreateID || tool.ID == campaignGroupsUpdateID ||
 			tool.ID == campaignAssetsCreateID || tool.ID == campaignAssetsUpdateID || tool.ID == campaignAssetsRemoveID ||
 			tool.ID == assetSetsCreateID || tool.ID == assetSetsUpdateID ||
 			tool.ID == adGroupAssetsCreateID || tool.ID == adGroupAssetsUpdateID || tool.ID == adGroupAssetsRemoveID ||
 			tool.ID == customerAssetsCreateID || tool.ID == customerAssetsUpdateID || tool.ID == customerAssetsRemoveID ||
-			slices.Contains(setLinkToolIDs, tool.ID) || slices.Contains(labelAssignmentToolIDs, tool.ID) ||
+			slices.Contains(setLinkToolIDs, tool.ID) || slices.Contains(labelAssignmentToolIDs, tool.ID) || tool.ID == customizerAttributesCreateID ||
 			tool.ID == sharedSetsCreateID || tool.ID == sharedSetsUpdateID || tool.ID == campaignSharedSetsCreateID ||
 			tool.ID == customerNegativeCriteriaCreateID || tool.ID == sharedCriteriaCreateID ||
 			tool.ID == experimentsCreateID || tool.ID == experimentsUpdateID || tool.ID == campaignDraftsCreateID ||
