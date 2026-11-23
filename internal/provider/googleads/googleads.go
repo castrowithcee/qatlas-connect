@@ -37,7 +37,9 @@ var readTools = []string{customersListAccessibleID, customersGetID, customerClie
 	productLinksListID, productLinkInvitationsListID, dataLinksListID, billingSetupsListID, accountBudgetsListID,
 	accountBudgetProposalsListID, paymentsAccountsListID, invoicesListID, incentivesFetchID,
 	thirdPartyAppAnalyticsLinksListID,
-	recommendationsGenerateID, experimentsListAsyncErrorsID}
+	recommendationsGenerateID, experimentsListAsyncErrorsID, contentCreatorInsightsGenerateCreatorID,
+	contentCreatorInsightsGenerateTrendingID, geoTargetConstantsSuggestID, keywordThemeConstantsSuggestID,
+	brandSuggestionsSuggestID}
 
 // TestConnection obtains an access token, checks its scope, and lists the accounts the credential reaches
 // directly. That call costs one operation of the daily quota and nothing else, and proves the token, the
@@ -76,7 +78,7 @@ func Register(reg *capability.Registry) error {
 	token := tokenMetadata
 	if err := reg.RegisterProvider(config.ProviderMetadata{
 		ID: Provider, Name: "Google Ads", DefaultBaseURL: apiRoot,
-		Description:    "Google Ads API v26: accounts, links, settings, access, billing, invoices, incentives, campaigns, assets, conversions, remarketing, audiences, experiments, recommendations, reports, fields and changes",
+		Description:    "Google Ads API v26: accounts, links, settings, access, billing, incentives, campaigns, assets, conversions, remarketing, audiences, experiments, recommendations, suggestions, reports, fields, changes",
 		DefaultEffects: []config.Effect{config.EffectRead},
 		ValidateBaseURL: func(raw string) error {
 			if !isAPIRoot(raw) {
@@ -90,7 +92,7 @@ func Register(reg *capability.Registry) error {
 		Profiles: []config.ToolProfile{{
 			ID: "read", Title: "Read", Recommended: true,
 			Description: "lists the accounts the credential reaches, reads account settings, the hierarchy " +
-				"below a manager account and the users of an account, lists the invitations and the multi-party approval requests of an account, lists its manager, client, account, product and data links, lists the billing setups, account budgets, budget proposals and payments accounts of an account, lists the invoices of a billing setup, fetches the incentive offer of the user and lists the third-party app analytics links of an account, lists the asynchronous errors of an experiment, generates recommendations for a campaign described in the arguments, runs reports and reads the field reference; the adwords scope is the only one Google offers and also allows changes, " +
+				"below a manager account and the users of an account, lists the invitations and the multi-party approval requests of an account, lists its manager, client, account, product and data links, lists the billing setups, account budgets, budget proposals and payments accounts of an account, lists the invoices of a billing setup, fetches the incentive offer of the user and lists the third-party app analytics links of an account, lists the asynchronous errors of an experiment, generates recommendations for a campaign described in the arguments, suggests geo target constants, keyword themes and brands, reads YouTube creator and trending insights, runs reports and reads the field reference; the adwords scope is the only one Google offers and also allows changes, " +
 				"although no tool of this profile changes anything",
 			Tools: readTools,
 		}},
@@ -269,6 +271,11 @@ func Register(reg *capability.Registry) error {
 		capability.Operation{Descriptor: invoicesList, Handler: handleInvoicesList},
 		capability.Operation{Descriptor: incentivesFetch, Handler: handleIncentivesFetch},
 		capability.Operation{Descriptor: thirdPartyAppAnalyticsLinksList, Handler: handleAppAnalyticsLinksList},
+		capability.Operation{Descriptor: contentCreatorInsightsGenerateCreator, Handler: handleCreatorInsights},
+		capability.Operation{Descriptor: contentCreatorInsightsGenerateTrending, Handler: handleTrendingInsights},
+		capability.Operation{Descriptor: geoTargetConstantsSuggest, Handler: handleGeoSuggest},
+		capability.Operation{Descriptor: keywordThemeConstantsSuggest, Handler: handleKeywordThemeSuggest},
+		capability.Operation{Descriptor: brandSuggestionsSuggest, Handler: handleBrandSuggest},
 		capability.Operation{Descriptor: campaignBudgetsCreate, Handler: handleCampaignBudgetsCreate,
 			ConfirmationSummary: campaignBudgetsCreateSummary},
 		capability.Operation{Descriptor: campaignBudgetsUpdate, Handler: handleCampaignBudgetsUpdate,
