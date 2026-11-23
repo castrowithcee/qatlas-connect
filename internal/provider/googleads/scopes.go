@@ -136,4 +136,8 @@ var tokenMetadata = config.TokenMetadata{Scopes: map[string][]string{
 	seasonalityCreateID:                        {scopeAdwords},
 	seasonalityUpdateID:                        {scopeAdwords},
 	seasonalityRemoveID:                        {scopeAdwords},
+	customerNegativeCriteriaCreateID:           {scopeAdwords},
+	customerNegativeCriteriaRemoveID:           {scopeAdwords},
+	sharedCriteriaCreateID:                     {scopeAdwords},
+	sharedCriteriaRemoveID:                     {scopeAdwords},
 }}

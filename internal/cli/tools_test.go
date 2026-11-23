@@ -629,7 +629,9 @@ func TestToolsFiltersByNamespaceAndQuery(t *testing.T) {
 		"google.ads.customer-asset-sets.create", "google.ads.customer-asset-sets.remove",
 		"google.ads.campaign-criteria.create", "google.ads.campaign-criteria.update", "google.ads.campaign-criteria.remove",
 		"google.ads.shared-sets.create", "google.ads.shared-sets.update", "google.ads.shared-sets.remove",
-		"google.ads.campaign-shared-sets.create", "google.ads.campaign-shared-sets.remove")
+		"google.ads.campaign-shared-sets.create", "google.ads.campaign-shared-sets.remove",
+		"google.ads.customer-negative-criteria.create", "google.ads.customer-negative-criteria.remove",
+		"google.ads.shared-criteria.create", "google.ads.shared-criteria.remove")
 	requireIDs(t, registryToolIDs(t, "aws", nil), "aws.sts.access-key.get-info", "aws.sts.authorization-message.decode",
 		"aws.sts.caller-identity.get", "aws.iam.user.list", "aws.iam.user.get", "aws.iam.user.list-tags",
 		"aws.iam.group.list", "aws.iam.group.get", "aws.iam.group.list-for-user", "aws.iam.role.list",
