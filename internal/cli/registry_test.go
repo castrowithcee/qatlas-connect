@@ -188,6 +188,8 @@ func TestDefaultRegistry(t *testing.T) {
 		"google.ads.ad-group-bid-modifiers.remove",
 		"google.ads.recommendation-subscriptions.create", "google.ads.recommendation-subscriptions.update",
 		"google.ads.recommendations.generate", "google.ads.recommendations.apply", "google.ads.recommendations.dismiss",
+		"google.ads.keyword-plan-ideas.generate-ideas", "google.ads.keyword-plan-ideas.generate-historical-metrics",
+		"google.ads.keyword-plan-ideas.generate-ad-group-themes", "google.ads.keyword-plan-ideas.generate-forecast-metrics",
 		"google.ads.asset-sets.create", "google.ads.asset-sets.update", "google.ads.asset-sets.remove",
 		"google.ads.asset-set-assets.create", "google.ads.asset-set-assets.remove",
 		"google.ads.campaign-asset-sets.create", "google.ads.campaign-asset-sets.remove",
