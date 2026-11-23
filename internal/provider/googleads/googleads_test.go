@@ -39,6 +39,7 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 		adGroupCriteriaCreateID, adGroupCriteriaRemoveID, adGroupCriteriaUpdateID,
 		adGroupsCreateID,
 		adGroupsRemoveID, adGroupsUpdateID, adParametersCreateID, adParametersRemoveID, adParametersUpdateID, adsUpdateID,
+		assetGroupsCreateID, assetGroupsRemoveID, assetGroupsUpdateID,
 		assetSetAssetsCreateID, assetSetAssetsRemoveID,
 		assetSetsCreateID, assetSetsRemoveID, assetSetsUpdateID, assetsCreateID,
 		assetsUpdateID, audiencesCreateID, audiencesUpdateID, biddingDataExclusionsCreateID, biddingDataExclusionsRemoveID,
