@@ -34,18 +34,23 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 	}
 	want := []string{accountBudgetProposalsListID, accountBudgetsListID, accountLinksListID, accountLinksRemoveID,
 		adGroupAdsCreateID, adGroupAdsRemoveID, adGroupAdCreatedAssetsRemoveID, adGroupAdsUpdateID,
-		adGroupAssetsCreateID, adGroupAssetsRemoveID, adGroupAssetsUpdateID, adGroupsCreateID,
-		adGroupsRemoveID, adGroupsUpdateID, assetSetsCreateID, assetSetsRemoveID, assetSetsUpdateID, assetsCreateID,
-		assetsUpdateID, audiencesCreateID, audiencesUpdateID, billingSetupsListID,
-		campaignAssetsCreateID, campaignAssetsRemoveID, campaignAssetsUpdateID,
-		campaignAutomaticallyCreatedAssetsRemoveID, campaignBudgetsCreateID, campaignBudgetsRemoveID,
+		adGroupAssetSetsCreateID, adGroupAssetSetsRemoveID, adGroupAssetsCreateID, adGroupAssetsRemoveID,
+		adGroupAssetsUpdateID, adGroupsCreateID,
+		adGroupsRemoveID, adGroupsUpdateID, adParametersCreateID, adParametersRemoveID, adParametersUpdateID, adsUpdateID,
+		assetSetAssetsCreateID, assetSetAssetsRemoveID,
+		assetSetsCreateID, assetSetsRemoveID, assetSetsUpdateID, assetsCreateID,
+		assetsUpdateID, audiencesCreateID, audiencesUpdateID, biddingDataExclusionsCreateID, biddingDataExclusionsRemoveID,
+		biddingDataExclusionsUpdateID, biddingStrategiesCreateID, biddingStrategiesRemoveID,
+		biddingStrategiesUpdateID, billingSetupsListID,
+		campaignAssetSetsCreateID, campaignAssetSetsRemoveID, campaignAssetsCreateID, campaignAssetsRemoveID,
+		campaignAssetsUpdateID, campaignAutomaticallyCreatedAssetsRemoveID, campaignBudgetsCreateID, campaignBudgetsRemoveID,
 		campaignBudgetsUpdateID, campaignCriteriaCreateID, campaignCriteriaRemoveID,
 		campaignCriteriaUpdateID, campaignGroupsCreateID, campaignGroupsRemoveID,
 		campaignGroupsUpdateID, campaignsCreateID, campaignsEnablePMaxBrandGuidelinesID,
 		campaignsRemoveID, campaignsUpdateID, conversionActionsCreateID, conversionActionsRemoveID,
 		conversionActionsUpdateID, conversionCustomVariablesCreateID, conversionCustomVariablesUpdateID,
 		customAudiencesCreateID, customAudiencesRemoveID, customAudiencesUpdateID, customInterestsCreateID,
-		customInterestsUpdateID, customerBudgetNetworkSettingsCreateID, customerBudgetNetworkSettingsUpdateID,
+		customInterestsUpdateID, customerAssetSetsCreateID, customerAssetSetsRemoveID, customerBudgetNetworkSettingsCreateID, customerBudgetNetworkSettingsUpdateID,
 		customerClientLinksListID, customerClientLinksUpdateID, customerClientsListID, customerManagerLinksListID,
 		customerManagerLinksUpdateID, customerUserAccessInvitationsListID, customerUserAccessInvitationsRemoveID,
 		customerUserAccessesListID, customerUserAccessesRemoveID, customerUserAccessesUpdateID, customersGetID,
@@ -68,7 +73,8 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 			tool.ID == labelsUpdateID || tool.ID == campaignGroupsCreateID || tool.ID == campaignGroupsUpdateID ||
 			tool.ID == campaignAssetsCreateID || tool.ID == campaignAssetsUpdateID || tool.ID == campaignAssetsRemoveID ||
 			tool.ID == assetSetsCreateID || tool.ID == assetSetsUpdateID ||
-			tool.ID == adGroupAssetsCreateID || tool.ID == adGroupAssetsUpdateID || tool.ID == adGroupAssetsRemoveID
+			tool.ID == adGroupAssetsCreateID || tool.ID == adGroupAssetsUpdateID || tool.ID == adGroupAssetsRemoveID ||
+			slices.Contains(setLinkToolIDs, tool.ID)
 		if tool.ID != want[i] || (tool.Effect == config.EffectRead) == changing || tool.RequiresToolAllowList != listed {
 			t.Errorf("tool %d = %+v", i, tool)
 		}
