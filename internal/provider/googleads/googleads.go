@@ -41,7 +41,9 @@ var readTools = []string{customersListAccessibleID, customersGetID, customerClie
 	contentCreatorInsightsGenerateCreatorID,
 	contentCreatorInsightsGenerateTrendingID, geoTargetConstantsSuggestID, keywordThemeConstantsSuggestID,
 	brandSuggestionsSuggestID,
-	keywordIdeasID, keywordMetricsID, keywordThemesID, keywordForecastID}
+	keywordIdeasID, keywordMetricsID, keywordThemesID, keywordForecastID,
+	reachPlansListLocationsID, reachPlansListProductsID, reachPlansGenerateForecastID,
+	reachPlansGenerateConversionRatesID, reachPlansListUserListsID, reachPlansListUserInterestsID}
 
 // TestConnection obtains an access token, checks its scope, and lists the accounts the credential reaches
 // directly. That call costs one operation of the daily quota and nothing else, and proves the token, the
@@ -94,7 +96,7 @@ func Register(reg *capability.Registry) error {
 		Profiles: []config.ToolProfile{{
 			ID: "read", Title: "Read", Recommended: true,
 			Description: "lists the accounts the credential reaches, reads account settings, the hierarchy " +
-				"below a manager account and the users of an account, lists the invitations and the multi-party approval requests of an account, lists its manager, client, account, product and data links, lists the billing setups, account budgets, budget proposals and payments accounts of an account, lists the invoices of a billing setup, fetches the incentive offer of the user and lists the third-party app analytics links of an account, lists the asynchronous errors of an experiment and of a campaign draft promotion, generates recommendations for a campaign described in the arguments, generates keyword ideas, historical metrics, ad group themes and forecasts, suggests geo target constants, keyword themes and brands, reads YouTube creator and trending insights, runs reports and reads the field reference; the adwords scope is the only one Google offers and also allows changes, " +
+				"below a manager account and the users of an account, lists the invitations and the multi-party approval requests of an account, lists its manager, client, account, product and data links, lists the billing setups, account budgets, budget proposals and payments accounts of an account, lists the invoices of a billing setup, fetches the incentive offer of the user and lists the third-party app analytics links of an account, lists the asynchronous errors of an experiment and of a campaign draft promotion, generates recommendations for a campaign described in the arguments, generates keyword ideas, historical metrics, ad group themes and forecasts, plans reach with the plannable locations, products, user lists and user interests, forecasts reach and suggests conversion rates, suggests geo target constants, keyword themes and brands, reads YouTube creator and trending insights, runs reports and reads the field reference; the adwords scope is the only one Google offers and also allows changes, " +
 				"although no tool of this profile changes anything",
 			Tools: readTools,
 		}},
@@ -357,6 +359,12 @@ func Register(reg *capability.Registry) error {
 		capability.Operation{Descriptor: keywordMetricsTool, Handler: handleKeywordMetrics},
 		capability.Operation{Descriptor: keywordThemes, Handler: handleKeywordThemes},
 		capability.Operation{Descriptor: keywordForecast, Handler: handleKeywordForecast},
+		capability.Operation{Descriptor: reachPlansListLocations, Handler: handleReachListLocations},
+		capability.Operation{Descriptor: reachPlansListProducts, Handler: handleReachListProducts},
+		capability.Operation{Descriptor: reachPlansGenerateForecast, Handler: handleReachGenerateForecast},
+		capability.Operation{Descriptor: reachPlansGenerateConversionRates, Handler: handleReachGenerateConversionRates},
+		capability.Operation{Descriptor: reachPlansListUserLists, Handler: handleReachListUserLists},
+		capability.Operation{Descriptor: reachPlansListUserInterests, Handler: handleReachListUserInterests},
 		capability.Operation{Descriptor: recommendationsApply, Handler: handleRecommendationsApply,
 			ConfirmationSummary: recommendationApplySummary},
 		capability.Operation{Descriptor: recommendationsDismiss, Handler: handleRecommendationsDismiss,

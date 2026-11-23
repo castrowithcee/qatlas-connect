@@ -561,6 +561,8 @@ type recommendationCleaner struct {
 	// maxAnswerNodes.
 	what     string
 	maxNodes int
+	// cut is set when a list was cut.
+	cut bool
 }
 
 func (c *recommendationCleaner) bad(message string) error {
@@ -595,6 +597,7 @@ func (c *recommendationCleaner) clean(value any, depth int) (any, bool, error) {
 		}
 		return out, true, nil
 	case []any:
+		c.cut = c.cut || len(v) > maxListItems
 		out := make([]any, 0, min(len(v), maxListItems))
 		for _, child := range v[:min(len(v), maxListItems)] {
 			cleaned, keep, err := c.clean(child, depth+1)
