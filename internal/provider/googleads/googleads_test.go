@@ -60,6 +60,7 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 		contentCreatorInsightsGenerateTrendingID, conversionActionsCreateID, conversionActionsRemoveID,
 		conversionActionsUpdateID, conversionCustomVariablesCreateID, conversionCustomVariablesUpdateID,
 		conversionGoalCampaignConfigsUpdateID,
+		conversionValueRuleSetsCreateID, conversionValueRuleSetsRemoveID, conversionValueRuleSetsUpdateID,
 		conversionValueRulesCreateID, conversionValueRulesRemoveID, conversionValueRulesUpdateID,
 		customAudiencesCreateID, customAudiencesRemoveID, customAudiencesUpdateID,
 		customConversionGoalsCreateID, customConversionGoalsRemoveID, customConversionGoalsUpdateID, customInterestsCreateID,
