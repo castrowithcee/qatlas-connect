@@ -25,28 +25,28 @@ import (
 // approvalsReport is the Approvals section's data: which connections still need approval, right now, in an
 // encrypted and unlocked vault. unavailable names why the section cannot show that list otherwise, in the
 // same words a person reads on the section itself, so a caller shows it instead of an empty list: there is
-// no vault, it is unencrypted (an unencrypted vault binds no connection), or it is locked. A locked vault is
-// never unlocked merely to compute this list, the same way a connection test or a secret row does not
-// unlock it either; enter on the empty list is what does, through requireAdmin like any other managing
-// action, and updateList's own key hint says so (see approvalsUnlockHint). ctrl+l unlocks it the same way,
-// from here or any other section (see handleVaultLockKey in tui.go, which intercepts it before this list
-// ever sees the key).
+// no vault, it is unencrypted (an unencrypted vault binds no connection), it is locked, or only a vault
+// process holds it open and this window has no key. Such a vault is never unlocked merely to compute this
+// list, the same way a connection test or a secret row does not unlock it either, and a vault process is
+// never asked to read it for this window; enter on the empty list asks for this window's passphrase through
+// requireAdmin like any other managing action, and updateList's own key hint says so. For a locked vault
+// ctrl+l unlocks it the same way, from here or any other section (see handleVaultLockKey in tui.go).
 func (m *Model) approvalsReport() (report approval.Report, unavailable string) {
 	v := m.secrets.Vault()
 	if v == nil {
 		return approval.Report{}, tr(tNoVaultSentence)
 	}
-	state, err := v.State()
-	if err != nil {
-		return approval.Report{}, m.redactor.Apply(err.Error())
-	}
-	switch state {
-	case vault.StateAbsent, vault.StateUnencrypted:
+	switch vs := m.vaultPlace(); vs.Kind {
+	case manage.VaultUnreadable:
+		return approval.Report{}, m.redactor.Apply(vs.Err.Error())
+	case manage.VaultNone, manage.VaultUnencrypted:
 		return approval.Report{}, tr(tApprovalsNeedVault, sectionVault.ref())
-	case vault.StateLocked:
+	case manage.VaultLocked:
 		return approval.Report{}, tr(tApprovalsLocked)
+	case manage.VaultProcessOnly:
+		return approval.Report{}, tr(tApprovalsProcessOnly)
 	}
-	report, err = approval.Pending(m.cfg, v)
+	report, err := approval.Pending(m.cfg, v)
 	if err != nil {
 		return approval.Report{}, m.redactor.Apply(err.Error())
 	}

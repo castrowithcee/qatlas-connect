@@ -62,6 +62,11 @@ func clipJSON(b []byte, limit int) string {
 	if json.Unmarshal(b, &value) != nil {
 		return ""
 	}
+	return clipText(value, limit)
+}
+
+// clipText cuts text to limit runes, marking a cut with …, and replaces invalid UTF-8.
+func clipText(value string, limit int) string {
 	value = strings.ToValidUTF8(value, "�")
 	if utf8.RuneCountInString(value) <= limit {
 		return value

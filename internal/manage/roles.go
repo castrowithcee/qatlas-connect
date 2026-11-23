@@ -84,9 +84,9 @@ type RoleStateInput struct {
 	// Source and Checked are the resolver's last answer for a keyring credential (secret.Resolver.Status).
 	Source  secret.Source
 	Checked []string
-	// ProcessUnlocked reports a locked vault as held open by a vault process elsewhere. A surface that
-	// does not show that distinction leaves it false and sees StateVaultLocked.
-	ProcessUnlocked bool
+	// Process is the last known status of the vault process. A surface that does not show that distinction
+	// leaves it zero and sees StateVaultLocked.
+	Process VaultProcess
 }
 
 // RoleState reports where one secret role currently sits, never what it holds. It never asks for a
@@ -123,18 +123,15 @@ func vaultRoleState(in RoleStateInput) string {
 	if v == nil {
 		return StateNoVault
 	}
-	state, err := v.State()
-	if err != nil {
-		return err.Error()
-	}
-	switch state {
-	case vault.StateAbsent:
+	switch vs := VaultStateOf(v, in.Process); vs.Kind {
+	case VaultUnreadable:
+		return vs.Err.Error()
+	case VaultNone:
 		return StateEmpty
-	case vault.StateLocked:
-		if in.ProcessUnlocked {
-			return StateVaultElsewhere
-		}
+	case VaultLocked:
 		return StateVaultLocked
+	case VaultProcessOnly:
+		return StateVaultElsewhere
 	}
 	_, found, _, err := v.Get(in.Credential, in.Role, nil)
 	if err != nil {

@@ -94,8 +94,11 @@ func requestsTile(t overviewItem) overviewItem {
 
 // unavailableWord says in a word why the vault cannot list tokens or approvals now.
 func (m *Model) unavailableWord() string {
-	if m.vaultLocked() {
+	switch {
+	case m.vaultLocked():
 		return tr(tOverviewVaultLocked)
+	case m.vaultProcessOnly():
+		return tr(tOverviewVaultProcessOnly)
 	}
 	return tr(tOverviewNeedsVault)
 }

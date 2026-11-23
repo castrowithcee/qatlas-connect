@@ -12,6 +12,7 @@ package googlemerchant
 
 import (
 	"context"
+	"maps"
 	"net/url"
 
 	"github.com/castrowithcee/qatlas-connect/internal/capability"
@@ -116,7 +117,7 @@ func Register(reg *capability.Registry) error {
 		},
 		Profiles: []config.ToolProfile{{
 			ID: "read", Title: "Read", Recommended: true,
-			Description: "reads Merchant Center accounts, the developer registration of an account, reports, quotas, and limits; changes nothing",
+			Description: "reads Merchant Center accounts, the developer registration of an account, the users of an account, data sources, product reviews, products, the local and regional inventories of a product, issues, reports, quotas, and limits; changes nothing",
 			Tools:       readIDs,
 		}},
 	}, TestConnection); err != nil {
@@ -132,16 +133,83 @@ func Register(reg *capability.Registry) error {
 		termsOfServiceAgreementStatesGetID:            handleAgreementStatesGet,
 		termsOfServiceAgreementStatesForApplicationID: handleAgreementStatesRetrieveForApplication,
 		reportsSearchID: handleReportsSearch, quotasListID: handleQuotasList, limitsListID: handleLimitsList,
-		limitsGetID:        handleLimitsGet,
+		limitsGetID:    handleLimitsGet,
+		programsListID: handleProgramsList, programsGetID: handleProgramsGet,
+		programsEnableID: handleProgramsEnable, programsDisableID: handleProgramsDisable,
+		autofeedSettingsGetID: handleAutofeedSettingsGet, autofeedSettingsUpdateID: handleAutofeedSettingsUpdate,
+		automaticImprovementsGetID: handleAutomaticImprovementsGet, automaticImprovementsUpdateID: handleAutomaticImprovementsUpdate,
+		usersListID: handleUsersList, usersGetID: handleUsersGet,
+		usersUpdateID: handleUsersUpdate, usersDeleteID: handleUsersDelete,
+		regionsListID: handleRegionsList, regionsGetID: handleRegionsGet,
+		regionsCreateID: handleRegionsCreate, regionsUpdateID: handleRegionsUpdate,
+		notificationSubscriptionsListID:   handleNotificationSubscriptionsList,
+		notificationSubscriptionsGetID:    handleNotificationSubscriptionsGet,
+		notificationSubscriptionsDeleteID: handleNotificationSubscriptionsDelete,
+		accountServicesListID:             handleAccountServicesList, accountServicesGetID: handleAccountServicesGet,
+		accountServicesRejectID: handleAccountServicesReject, accountRelationshipsListID: handleAccountRelationshipsList,
+		conversionSourcesListID: handleConversionSourcesList, conversionSourcesGetID: handleConversionSourcesGet,
+		conversionSourcesCreateID: handleConversionSourcesCreate, conversionSourcesUpdateID: handleConversionSourcesUpdate,
+		conversionSourcesUndeleteID: handleConversionSourcesUndelete, conversionSourcesDeleteID: handleConversionSourcesDelete,
+		renderAccountIssuesID: handleRenderAccountIssues, renderProductIssuesID: handleRenderProductIssues,
+		emailPreferencesGetID: handleEmailPreferencesGet, emailPreferencesUpdateID: handleEmailPreferencesUpdate,
+		regionsDeleteID: handleRegionsDelete, regionsBatchCreateID: handleRegionsBatchCreate,
+		regionsBatchUpdateID: handleRegionsBatchUpdate, regionsBatchDeleteID: handleRegionsBatchDelete,
+		productsListID: handleProductsList, productsGetID: handleProductsGet,
+		aggregateProductStatusesListID: handleAggregateProductStatusesList, accountIssuesListID: handleAccountIssuesList,
+		dataSourcesListID: handleDataSourcesList, dataSourcesGetID: handleDataSourcesGet,
+		dataSourcesCreateID: handleDataSourcesCreate, dataSourcesUpdateID: handleDataSourcesUpdate,
+		localInventoriesListID: handleLocalInventoriesList, localInventoriesInsertID: handleLocalInventoriesInsert,
+		localInventoriesDeleteID:  handleLocalInventoriesDelete,
+		regionalInventoriesListID: handleRegionalInventoriesList, regionalInventoriesInsertID: handleRegionalInventoriesInsert,
+		regionalInventoriesDeleteID: handleRegionalInventoriesDelete,
+		promotionsListID:            handlePromotionsList, promotionsGetID: handlePromotionsGet,
+		promotionsInsertID: handlePromotionsInsert,
 		businessInfosGetID: handleBusinessInfosGet, businessInfosUpdateID: handleBusinessInfosUpdate,
 		businessIdentitiesGetID: handleBusinessIdentitiesGet, businessIdentitiesUpdateID: handleBusinessIdentitiesUpdate,
 	}
 	summaries := map[string]capability.SummaryFunc{
+		programsEnableID: programSummary("Enable"), programsDisableID: programSummary("Disable"),
+		autofeedSettingsUpdateID: autofeedSummary, automaticImprovementsUpdateID: improvementsSummary,
+		usersUpdateID: usersUpdateSummary, usersDeleteID: usersDeleteSummary,
+		regionsCreateID: regionCreateSummary, regionsUpdateID: regionUpdateSummary,
+		notificationSubscriptionsDeleteID: notificationDeleteSummary,
+		accountServicesRejectID:           serviceRejectSummary,
+		conversionSourcesCreateID:         conversionCreateSummary, conversionSourcesUpdateID: conversionUpdateSummary,
+		conversionSourcesUndeleteID: conversionUndeleteSummary, conversionSourcesDeleteID: conversionDeleteSummary,
+		emailPreferencesUpdateID: emailPreferencesSummary,
+		regionsDeleteID:          regionDeleteSummary,
+		localInventoriesInsertID: localInventoryInsertSummary, localInventoriesDeleteID: localInventoryDeleteSummary,
+		regionalInventoriesInsertID: regionalInventoryInsertSummary, regionalInventoriesDeleteID: regionalInventoryDeleteSummary,
+		promotionsInsertID: promotionSummary,
 		businessInfosUpdateID: businessSummary("the business info", businessInfoPaths,
 			"this can change the address and the contacts Google shows to customers"),
 		businessIdentitiesUpdateID: businessSummary("the business identity", businessIdentityPaths,
 			"this can change how Google presents the business in promotions"),
 	}
+	maps.Copy(summaries, regionBatchSummaries())
+	maps.Copy(handlers, accountWriteHandlers())
+	maps.Copy(summaries, accountSummaries())
+	maps.Copy(handlers, homepageHandlers())
+	maps.Copy(summaries, homepageSummaries())
+	maps.Copy(handlers, omnichannelHandlers())
+	maps.Copy(summaries, omnichannelSummaries())
+	maps.Copy(handlers, checkoutHandlers())
+	maps.Copy(summaries, checkoutSummaries())
+	maps.Copy(handlers, returnPolicyHandlers())
+	maps.Copy(summaries, returnPolicySummaries())
+	maps.Copy(handlers, shippingHandlers())
+	maps.Copy(summaries, shippingSummaries())
+	maps.Copy(handlers, productInputHandlers())
+	maps.Copy(summaries, productInputSummaries())
+	maps.Copy(handlers, reviewHandlers())
+	maps.Copy(summaries, reviewSummaries())
+	maps.Copy(handlers, relationshipHandlers())
+	maps.Copy(summaries, relationshipSummaries())
+	maps.Copy(handlers, linkHandlers())
+	maps.Copy(handlers, dataSourceOperationHandlers())
+	maps.Copy(summaries, dataSourceOperationSummaries())
+	maps.Copy(handlers, developerRegistrationHandlers())
+	maps.Copy(summaries, developerRegistrationSummaries())
 	for _, d := range descriptors() {
 		if err := reg.Register(Provider, capability.Operation{Descriptor: d, Handler: handlers[d.ID],
 			ConfirmationSummary: summaries[d.ID]}); err != nil {

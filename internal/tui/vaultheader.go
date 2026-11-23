@@ -43,21 +43,16 @@ func (m *Model) vaultHeaderText() string { return strings.Join(m.vaultSegments()
 // admin session too. None for a run with no vault configured at all: showing a warning for something that
 // does not exist yet would be misleading.
 func (m *Model) vaultSegments() []string {
-	v := m.secrets.Vault()
-	if v == nil {
-		return nil
-	}
-	state, err := v.State()
-	if err != nil {
+	vs := m.vaultPlace()
+	switch vs.Kind {
+	case manage.VaultUnreadable:
 		// Neither locked nor unlocked describes a vault whose state cannot even be read; this is closer to
 		// the unencrypted warning than to either of the other two, and keeps the line naming what is wrong
 		// instead of silently showing nothing.
-		return []string{statusMark(statusFail, tr(tVaultError, m.redactor.Apply(err.Error())))}
-	}
-	switch {
-	case state == vault.StateUnencrypted:
+		return []string{statusMark(statusFail, tr(tVaultError, m.redactor.Apply(vs.Err.Error())))}
+	case manage.VaultUnencrypted:
 		return []string{statusMark(statusWarn, tr(tVaultUnencrypted))}
-	case m.vaultDisplayUnlocked(state):
+	case manage.VaultProcessOnly, manage.VaultThisWindow:
 		// A vault process elsewhere may hold it open while this window itself has never unlocked it; either
 		// way the admin state belongs here too, since every unlocked, encrypted vault shows one, and
 		// adminHeaderText already reads "admin off" (or the admin session time 0 text) on its own for a
@@ -67,34 +62,86 @@ func (m *Model) vaultSegments() []string {
 			admin = statusOK
 		}
 		unlocked := tr(tVaultUnlocked)
-		if state == vault.StateLocked && !m.vaultProcessEndsAt.IsZero() {
-			unlocked = tr(tVaultUnlockedUntil, unlockDeadlineText(m.vaultProcessEndsAt, time.Now()))
+		if !vs.EndsAt.IsZero() {
+			unlocked = tr(tVaultUnlockedUntil, unlockDeadlineText(vs.EndsAt, m.timeNow()))
 		}
 		return []string{statusMark(statusOK, unlocked), statusMark(admin, m.adminHeaderText())}
-	case state == vault.StateLocked:
+	case manage.VaultLocked:
 		return []string{statusMark(statusWarn, tr(tVaultLocked))}
 	}
 	return nil
 }
 
-// vaultUnencrypted reports whether the vault exists without a passphrase, the state the header warns about.
-func (m *Model) vaultUnencrypted() bool {
-	v := m.secrets.Vault()
-	if v == nil {
-		return false
-	}
-	state, err := v.State()
-	return err == nil && state == vault.StateUnencrypted
+// vaultPlace places the vault by the one rule of the management core, from this window's cached view of the
+// vault process (see checkVaultProcess) and its own hold on the key, so drawing never asks a socket.
+func (m *Model) vaultPlace() manage.VaultState {
+	vs := manage.VaultStateOf(m.secrets.Vault(), manage.VaultProcess{Unlocked: m.vaultProcessUnlocked, EndsAt: m.vaultProcessEndsAt})
+	return vs.WithWindowKey(m.windowKey(vs), m.vaultMaxUnlock)
 }
 
-// vaultDisplayUnlocked reports whether the header, and 'ctrl+l', should treat the vault as unlocked: this
-// process unlocked it itself, or a vault process elsewhere holds it open (see checkVaultProcess). The two
-// are deliberately folded into one question here, unlike admin.go's own requireAdmin, which always asks this
-// window's own state alone: a shown "unlocked" vault must behave as one for 'ctrl+l' as well, or the header
-// and the key would contradict each other.
-func (m *Model) vaultDisplayUnlocked(state vault.State) bool {
-	return state == vault.StateUnlocked || (state == vault.StateLocked && m.vaultProcessUnlocked)
+// windowKey is this window's own hold on the key of the vault placed at vs, as the management core decides
+// from it.
+func (m *Model) windowKey(vs manage.VaultState) manage.WindowKey {
+	key := manage.WindowKey{Held: vs.Kind == manage.VaultThisWindow, SeenPID: m.vaultSeenPID, Busy: m.vaultBusy}
+	if key.Held {
+		key.Since = m.vaultKeySince
+	}
+	return key
 }
+
+// beginWindowKey starts this window's own hold on the key at its own unlock, with no vault process seen yet.
+func (m *Model) beginWindowKey() {
+	m.vaultKeySince, m.vaultSeenPID = m.timeNow(), 0
+	m.vaultKeyGen++
+}
+
+// endWindowKey ends this window's own hold on the key.
+func (m *Model) endWindowKey() {
+	m.vaultKeySince, m.vaultSeenPID = time.Time{}, 0
+	m.vaultKeyGen++
+}
+
+// noteWindowKey keeps the hold in step with the vault itself: a key this window came to hold without the
+// unlock dialog, such as by turning on encryption, starts one, and a key it no longer holds ends it. A vault
+// that cannot be read right now changes nothing.
+func (m *Model) noteWindowKey() {
+	vs := m.vaultPlace()
+	held := vs.Kind == manage.VaultThisWindow
+	switch {
+	case held && m.vaultKeySince.IsZero():
+		m.beginWindowKey()
+	case !held && vs.Kind != manage.VaultUnreadable && !m.vaultKeySince.IsZero():
+		m.endWindowKey()
+	}
+}
+
+// vaultKeyTick is the vault's part of the periodic tick: a key this window holds past its maximum unlock
+// duration, with no vault process seen since the unlock, is forgotten; otherwise the vault process is asked.
+func (m *Model) vaultKeyTick() tea.Cmd {
+	m.noteWindowKey()
+	if m.windowKey(m.vaultPlace()).Expired(m.vaultMaxUnlock, m.timeNow()) {
+		return m.forgetWindowKey(tr(tVaultMaxUnlockReached))
+	}
+	return m.checkVaultProcess()
+}
+
+// forgetWindowKey takes this window's own key away after a lock it did not ask for: the same steps as its
+// own lock (see beginVaultLock and handleVaultLocked) without asking the vault process anything. Open forms
+// and dialogs stay as they are; saving asks for the passphrase again through requireAdmin.
+func (m *Model) forgetWindowKey(status string) tea.Cmd {
+	if v := m.secrets.Vault(); v != nil {
+		v.Forget()
+	}
+	m.endWindowKey()
+	m.endAdminSession()
+	m.RefreshAdminTimeout()
+	m.refreshLogRetention()
+	m.status = status
+	return tea.Batch(m.reloadShownLogs(), m.loadOverviewActivity())
+}
+
+// vaultUnencrypted reports whether the vault exists without a passphrase, the state the header warns about.
+func (m *Model) vaultUnencrypted() bool { return m.vaultPlace().Kind == manage.VaultUnencrypted }
 
 // adminHeaderText is the header's admin abbreviation for an encrypted, unlocked vault: "admin off" while
 // this window has no session, "admin Nm left" with its remaining time rounded to minutes, or "admin: confirm
@@ -114,16 +161,10 @@ func (m *Model) adminHeaderText() string {
 // encrypted vault, since an absent or unencrypted one has nothing to lock or unlock (handleVaultLockKey says
 // so itself if it is pressed anyway).
 func (m *Model) vaultLockKeyHint() string {
-	v := m.secrets.Vault()
-	if v == nil {
-		return ""
-	}
-	switch state, err := v.State(); {
-	case err != nil:
-		return ""
-	case m.vaultDisplayUnlocked(state):
+	switch vs := m.vaultPlace(); {
+	case vs.Unlocked():
 		return footerPlaceholder(actLock) + " lock vault"
-	case state == vault.StateLocked:
+	case vs.Kind == manage.VaultLocked:
 		return footerPlaceholder(actLock) + " unlock vault"
 	}
 	return ""
@@ -145,28 +186,23 @@ func (m *Model) vaultLockKeyAllowed() bool {
 // handleVaultLockKey runs 'ctrl+l' with no other dialog open (see vaultLockKeyAllowed, its only caller):
 // gated first behind vaultBusy, since vault work already in flight must not be raced by a second attempt,
 // exactly like every other vault action of this editor, it then opens the dialog the displayed state calls
-// for (see vaultDisplayUnlocked, which the header itself also follows, so the two never contradict each
+// for (see vaultPlace, which the header itself also follows, so the two never contradict each
 // other), or says there is nothing to do for one that is absent or unencrypted.
 func (m *Model) handleVaultLockKey() tea.Cmd {
 	if m.vaultBusy {
 		m.status = tr(tVaultWriteBusy)
 		return nil
 	}
-	v := m.secrets.Vault()
-	if v == nil {
-		m.status = tr(tVaultNone)
-		return nil
-	}
-	state, err := v.State()
-	if err != nil {
-		m.fail = m.redactor.Apply(err.Error())
-		return nil
-	}
+	vs := m.vaultPlace()
 	switch {
-	case m.vaultDisplayUnlocked(state):
+	case vs.Kind == manage.VaultUnreadable:
+		m.fail = m.redactor.Apply(vs.Err.Error())
+	case vs.Unlocked():
 		m.openVaultLockConfirm(m.screen)
-	case state == vault.StateLocked:
+	case vs.Kind == manage.VaultLocked:
 		m.openVaultUnlockPrompt(m.screen)
+	case m.secrets.Vault() == nil:
+		m.status = tr(tVaultNone)
 	default:
 		m.status = tr(tVaultNothingToLock)
 	}
@@ -302,6 +338,7 @@ func (m *Model) handleVaultUnlocked(msg vaultUnlockedMsg) tea.Cmd {
 		m.screen = back
 	}
 	m.vaultProcessUnlocked, m.vaultProcessEndsAt = false, time.Time{}
+	m.beginWindowKey()
 	if cmd := m.startVaultProcess(); cmd != nil {
 		return cmd
 	}
@@ -313,6 +350,8 @@ func (m *Model) handleVaultUnlocked(msg vaultUnlockedMsg) tea.Cmd {
 // loop; see startVaultProcess.
 type vaultProcessStartedMsg struct {
 	err error
+	// pid is the vault process that holds the vault after the hand-off, 0 if none does.
+	pid int
 	// ended is the id of a vault process with a replaced program that was ended first, 0 if none was.
 	ended int
 	// earlier are the ids of vault processes of the release before qatlas-connect that were ended first.
@@ -368,10 +407,10 @@ func (m *Model) startVaultProcess() tea.Cmd {
 		if err != nil {
 			return vaultProcessStartedMsg{err: err}
 		}
-		if _, err := client.Status(context.Background()); err == nil {
+		if status, err := client.Status(context.Background()); err == nil {
 			// Another window, or another terminal's 'qconnect vault unlock', already started one: nothing more
 			// to do.
-			return vaultProcessStartedMsg{}
+			return vaultProcessStartedMsg{pid: status.PID}
 		} else if errors.Is(err, vaultproc.ErrReplaced) {
 			// Its program was replaced and no successor took over: it is ended, as 'qconnect vault lock'
 			// does, and a new one started with the vault unlocked here.
@@ -393,15 +432,18 @@ func (m *Model) startVaultProcess() tea.Cmd {
 		if err != nil {
 			return vaultProcessStartedMsg{err: err, ended: ended, earlier: earlier}
 		}
-		_, err = startVaultProcessFn(context.Background(), configPath, snap, client)
-		return vaultProcessStartedMsg{err: err, ended: ended, earlier: earlier}
+		status, err := startVaultProcessFn(context.Background(), configPath, snap, client)
+		return vaultProcessStartedMsg{err: err, pid: status.PID, ended: ended, earlier: earlier}
 	}
 }
 
 // handleVaultProcessStarted reports a failed hand-off as a warning, never blocking anything the unlock
-// itself already finished: the vault stays unlocked in this process either way.
+// itself already finished: the vault stays unlocked in this process either way. The process it handed to is
+// the first one this window has seen since its unlock; an answer asked during the hand-off is dropped.
 func (m *Model) handleVaultProcessStarted(msg vaultProcessStartedMsg) tea.Cmd {
 	m.vaultBusy, m.busy = false, ""
+	m.vaultKeyGen++
+	m.vaultSeenPID = m.windowKey(m.vaultPlace()).Seen(vaultproc.Status{PID: msg.pid}, msg.err).SeenPID
 	var ended []string
 	if msg.ended > 0 {
 		ended = append(ended, tr(tVaultProcessEnded, msg.ended))
@@ -471,6 +513,7 @@ func (m *Model) beginVaultLock() tea.Cmd {
 // be reached to lock as well.
 func (m *Model) handleVaultLocked(msg vaultLockedMsg) tea.Cmd {
 	m.vaultBusy, m.busy = false, ""
+	m.endWindowKey()
 	m.endAdminSession()
 	m.RefreshAdminTimeout()
 	m.vaultProcessUnlocked, m.vaultProcessEndsAt = false, time.Time{}
@@ -491,36 +534,60 @@ func unlockDeadlineText(t, now time.Time) string {
 	return t.Format("2006-01-02 15:04")
 }
 
-// vaultProcessCheckMsg carries the result of asking a vault process whether it holds the locked vault open,
-// purely for the header (see checkVaultProcess); it is never used to read or write a secret.
+// vaultProcessCheckMsg carries the answer of the vault process to checkVaultProcess: its status, or why there
+// was none. It holds no secret and is never used to read or write one. gen is vaultKeyGen when it was asked.
 type vaultProcessCheckMsg struct {
-	unlocked bool
-	// endsAt is the process's hard unlock deadline; zero without a maximum unlock duration.
-	endsAt time.Time
+	status vaultproc.Status
+	err    error
+	gen    int
 }
 
-// checkVaultProcess asks, off the event loop, whether a vault process holds the vault open right now (not where
-// this platform runs no vault process), so the header can show "unlocked" for a vault this process itself has not unlocked. It asks only
-// while there is something worth asking about: an encrypted, locked vault on a platform that runs
-// a vault process at all; every other case has nothing to gain from a round trip and returns nil, so
-// vaultTick's own tea.Batch simply carries nothing for it that tick.
+// vaultStatusFn asks the vault process for its status: vaultproc.Client.Status for a real run. A test
+// replaces it to stand in for a process with another id, since every in-process server reports the id of
+// the test binary.
+var vaultStatusFn = func(ctx context.Context, client *vaultproc.Client) (vaultproc.Status, error) {
+	return client.Status(ctx)
+}
+
+// checkVaultProcess asks, off the event loop, whether a vault process holds the vault open right now, for
+// every encrypted vault on a platform that runs a vault process at all: the header shows "unlocked" for a
+// vault only a process holds open, and a window that holds the key itself learns of a lock elsewhere (see
+// handleVaultProcessCheck). Every other case returns nil, so vaultTick's own tea.Batch carries nothing for
+// it that tick.
 func (m *Model) checkVaultProcess() tea.Cmd {
 	v := m.secrets.Vault()
 	if v == nil || !vaultproc.Supported {
 		return nil
 	}
 	state, err := v.State()
-	if err != nil || state != vault.StateLocked {
+	if err != nil || state != vault.StateLocked && state != vault.StateUnlocked {
 		return nil
 	}
+	gen := m.vaultKeyGen
 	return func() tea.Msg {
 		client, err := vaultproc.ProcessClientOf(v)
 		if err != nil {
-			return vaultProcessCheckMsg{}
+			return vaultProcessCheckMsg{err: err, gen: gen}
 		}
-		status, err := client.Status(context.Background())
-		return vaultProcessCheckMsg{unlocked: err == nil, endsAt: status.UnlockEndsAt}
+		status, err := vaultStatusFn(context.Background(), client)
+		return vaultProcessCheckMsg{status: status, err: err, gen: gen}
 	}
+}
+
+// handleVaultProcessCheck applies an answer of the vault process: to the header, and to this window's own
+// key, which the management core decides is locked elsewhere or has now seen its vault process. An answer
+// asked before this window's hold on the key last changed is dropped; the next tick asks again.
+func (m *Model) handleVaultProcessCheck(msg vaultProcessCheckMsg) tea.Cmd {
+	if msg.gen != m.vaultKeyGen {
+		return nil
+	}
+	m.vaultProcessUnlocked, m.vaultProcessEndsAt = msg.err == nil, msg.status.UnlockEndsAt
+	key := m.windowKey(m.vaultPlace())
+	if manage.LockedElsewhere(key, msg.status, msg.err) {
+		return m.forgetWindowKey(tr(tVaultLockedElsewhere))
+	}
+	m.vaultSeenPID = key.Seen(msg.status, msg.err).SeenPID
+	return nil
 }
 
 // lockUnavailable is why ctrl+l would not lock the vault now.
@@ -528,18 +595,17 @@ func (m *Model) lockUnavailable() string {
 	if !m.vaultLockKeyAllowed() {
 		return tr(tLockCannotHere)
 	}
-	v := m.secrets.Vault()
-	if v == nil {
-		return tr(tVaultNone)
-	}
-	state, err := v.State()
+	vs := m.vaultPlace()
 	switch {
-	case err != nil:
+	case vs.Kind == manage.VaultUnreadable:
 		return tr(tLockStateUnknown)
-	case m.vaultDisplayUnlocked(state):
+	case vs.Unlocked():
 		return ""
-	case state == vault.StateLocked:
+	case vs.Kind == manage.VaultLocked:
 		return tr(tLockAlready)
+	}
+	if m.secrets.Vault() == nil {
+		return tr(tVaultNone)
 	}
 	return tr(tVaultNothingToLock)
 }

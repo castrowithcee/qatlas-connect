@@ -184,14 +184,7 @@ func (m *Model) runInstall(target string, work func(progress func(done, total in
 }
 
 // vaultOpen reports whether the vault is encrypted and unlocked, in this process or in a vault process.
-func (m *Model) vaultOpen() bool {
-	v := m.secrets.Vault()
-	if v == nil {
-		return false
-	}
-	state, err := v.State()
-	return err == nil && m.vaultDisplayUnlocked(state)
-}
+func (m *Model) vaultOpen() bool { return m.vaultPlace().Unlocked() }
 
 // updateDone reports the outcome. The running process is not replaced in memory: where the editor can
 // restart, it replaces itself with the new program, asking first when that would drop unsaved input;

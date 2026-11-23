@@ -4,7 +4,7 @@ description: >
 type: knowledge
 edit: shared
 created: 2026-11-19
-updated: 2026-11-19
+updated: 2026-11-21
 ---
 
 # Set up Google Merchant
@@ -27,9 +27,10 @@ are described in the [Google Merchant provider](README.md).
 ## Access in Merchant Center
 
 All tools use one Google scope, `content`, which allows reading and writing. What the account may do is decided
-by its role in Merchant Center, not by the Cloud project. The tools of this provider only read, so give the
-lowest role that works. Google documents only that changes to account settings need the role Admin, so whether
-the role Read only is enough for these reads is not verified; the connection test shows it.
+by its role in Merchant Center, not by the Cloud project. Give the lowest role that the tools of the
+connection need. Google documents that changes to account settings and to the home page, and deleting an account,
+need the role Admin, and names no role for the data source, omnichannel, checkout, and return policy methods. Whether the role
+Read only is enough for the reads is not verified; the connection test shows it.
 
 A service account must be added in Merchant Center under Settings, Access and services, People and access, with
 its e-mail address, like a person. It cannot sign in to the Merchant Center interface. For an advanced account,
@@ -55,7 +56,8 @@ POST https://merchantapi.googleapis.com/accounts/v1/accounts/ACCOUNT_ID/develope
 
 Google describes the steps in its guide [Quickstart: direct API calls](https://developers.google.com/merchant/api/guides/quickstart/direct-api-calls).
 The tool `google.merchant.developer-registrations.get` and the connection test show whether the account lists a
-registered project.
+registered project. The tool `unregister-gcp` can end the registration and with it the access of Qatlas; a new
+registration is always made as above, see [developer registration](developer-registrations.md).
 
 ## Way 1: your Google account with a consent
 

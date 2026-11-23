@@ -1061,10 +1061,7 @@ func plural(n int, singular, plural string) string {
 // vaultStatusObject reports the vault's effective state: a vault locked in this process but held open by a
 // running vault process is unlocked for every connection, and the TUI shows it so as well.
 func vaultStatusObject(status vault.Status, process vaultProcessState) output.Object {
-	state := status.State
-	if state == vault.StateLocked && process.State == "running" {
-		state = vault.StateUnlocked
-	}
+	state := manage.ClassifyVault(status.State, nil, manage.VaultProcess{Unlocked: process.State == "running"}).Effective()
 	entries := "unknown, locked"
 	switch {
 	case status.Entries >= 0:

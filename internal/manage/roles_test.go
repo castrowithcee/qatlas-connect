@@ -138,7 +138,7 @@ func TestRoleStateKeyringVocabulary(t *testing.T) {
 
 func TestRoleStateWithoutVault(t *testing.T) {
 	for _, processUnlocked := range []bool{false, true} {
-		in := RoleStateInput{Type: config.CredentialTypeVault, Credential: "c", Role: "r", ProcessUnlocked: processUnlocked}
+		in := RoleStateInput{Type: config.CredentialTypeVault, Credential: "c", Role: "r", Process: VaultProcess{Unlocked: processUnlocked}}
 		if got := RoleState(in); got != StateNoVault {
 			t.Errorf("RoleState() = %q, want %q", got, StateNoVault)
 		}
@@ -149,7 +149,7 @@ func TestRoleStateVaultVocabulary(t *testing.T) {
 	dir := t.TempDir()
 	state := func(v *vault.Vault, processUnlocked bool) string {
 		return RoleState(RoleStateInput{
-			Type: config.CredentialTypeVault, Credential: "c", Role: "r", Vault: v, ProcessUnlocked: processUnlocked,
+			Type: config.CredentialTypeVault, Credential: "c", Role: "r", Vault: v, Process: VaultProcess{Unlocked: processUnlocked},
 		})
 	}
 

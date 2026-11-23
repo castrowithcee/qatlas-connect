@@ -165,6 +165,8 @@ func (m *Model) handleAdminVerified(msg adminVerifiedMsg) tea.Cmd {
 	// exactly as an ungated call to action would have found it, before action runs and decides for itself
 	// where the screen goes from there.
 	m.screen = msg.back
+	// The passphrase may just have unlocked the vault in this window.
+	m.noteWindowKey()
 	m.startAdminSession()
 	return msg.action()
 }
@@ -222,12 +224,14 @@ func (m *Model) adminTimeout() time.Duration {
 }
 
 // RefreshAdminTimeout reads the admin session time from the effective settings of this run's vault (see
-// manage.AdminTimeout) and caches it. Call it whenever the vault's state or its settings.age may have
+// manage.AdminTimeout) and caches it, and the maximum unlock duration of this window's own key beside it
+// (see manage.MaxUnlock). Call it whenever the vault's state or its settings.age may have
 // changed: after an unlock or lock, a proven passphrase, and a saved change of the settings. The time is
 // never taken from the configuration file. A locked vault, which cannot read settings.age, or an untrusted
 // settings.age gives 0: every managing action asks for the passphrase.
 func (m *Model) RefreshAdminTimeout() {
 	m.adminTimeoutValue, m.adminTimeoutRead = manage.AdminTimeout(m.secrets.Vault()), true
+	m.vaultMaxUnlock = manage.MaxUnlock(m.secrets.Vault())
 }
 
 // adminSessionActive reports whether this window's admin session is active right now.

@@ -221,8 +221,12 @@ func (m *Model) openFindings() tea.Cmd {
 		return nil
 	}
 	m.clearMessages()
-	if m.vaultLocked() {
+	switch {
+	case m.vaultLocked():
 		m.status = tr(tFindVaultLocked)
+		return nil
+	case m.vaultProcessOnly():
+		m.status = tr(tFindVaultProcessOnly, sectionApprovals.ref(), sectionTokens.ref())
 		return nil
 	}
 	items := m.renameFindings()

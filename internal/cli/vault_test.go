@@ -1576,3 +1576,56 @@ func TestVaultStatusObjectNamesTheUnlockDeadline(t *testing.T) {
 		t.Error("status with a maximum lacks unlock_ends_at")
 	}
 }
+
+func TestVaultStatusObjectStateAndFieldsForEachProcessCase(t *testing.T) {
+	at := time.Date(2026, 5, 4, 14, 30, 0, 0, time.UTC)
+	running := vaultProcessState{State: "running", Status: vaultproc.Status{PID: 4242, LocksAt: at}}
+	cases := []struct {
+		name       string
+		status     vault.Status
+		process    vaultProcessState
+		wantState  string
+		wantFields []string
+	}{
+		{"locked", vault.Status{State: vault.StateLocked, Entries: -1}, vaultProcessState{State: "none"},
+			"locked", []string{"state", "entries", "pending", "process"}},
+		{"locked with a running vault process", vault.Status{State: vault.StateLocked, Entries: -1}, running,
+			"unlocked", []string{"state", "entries", "pending", "process", "pid", "locks_at"}},
+		{"unlocked", vault.Status{State: vault.StateUnlocked, Entries: 2}, vaultProcessState{State: "none"},
+			"unlocked", []string{"state", "entries", "pending", "process"}},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			obj := vaultStatusObject(c.status, c.process)
+			var names []string
+			for _, f := range obj.Fields {
+				names = append(names, f.Name)
+				if f.Name == "state" && f.Value != c.wantState {
+					t.Errorf("state = %v, want %s", f.Value, c.wantState)
+				}
+				if f.Name == "entries" && c.status.Entries < 0 && f.Value != "unknown" && f.Value != "unknown, locked" {
+					t.Errorf("entries = %v", f.Value)
+				}
+			}
+			if strings.Join(names, ",") != strings.Join(c.wantFields, ",") {
+				t.Errorf("fields = %v, want %v", names, c.wantFields)
+			}
+		})
+	}
+	// The wording of entries for a locked vault, with and without a process, is as before the rule moved.
+	locked := vault.Status{State: vault.StateLocked, Entries: -1}
+	entry := func(obj output.Object) any {
+		for _, f := range obj.Fields {
+			if f.Name == "entries" {
+				return f.Value
+			}
+		}
+		return nil
+	}
+	if got := entry(vaultStatusObject(locked, vaultProcessState{State: "none"})); got != "unknown, locked" {
+		t.Errorf("entries locked = %v", got)
+	}
+	if got := entry(vaultStatusObject(locked, running)); got != "unknown" {
+		t.Errorf("entries locked with a process = %v", got)
+	}
+}
