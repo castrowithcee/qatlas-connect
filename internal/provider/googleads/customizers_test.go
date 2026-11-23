@@ -15,19 +15,32 @@ import (
 )
 
 var customizerToolIDs = []string{campaignCustomizersCreateID, campaignCustomizersRemoveID, adGroupCustomizersCreateID,
-	adGroupCustomizersRemoveID}
+	adGroupCustomizersRemoveID, adGroupCriterionCustomizersCreateID, adGroupCriterionCustomizersRemoveID,
+	customerCustomizersCreateID, customerCustomizersRemoveID}
 
 // customizerCase is one customizer family with the calls and answers both of its tools use.
 type customizerCase struct {
 	family   setLinkFamily
 	object   string // collection of the object that gets the value
-	wireName string // member of the create body that names the object
+	wireName string // member of the create body that names the object, empty for the account itself
+	// objects are the keys of the two objects of the entries; the keys of the customizers add the attributes 71 and 72.
+	objects [2]string
+}
+
+func (c customizerCase) keys() [2]string {
+	if c.wireName == "" {
+		return [2]string{"71", "72"}
+	}
+	return [2]string{c.objects[0] + "~71", c.objects[1] + "~72"}
 }
 
 func customizerCases() []customizerCase {
 	return []customizerCase{
-		{family: campaignCustomizersFamily, object: "campaigns", wireName: "campaign"},
-		{family: adGroupCustomizersFamily, object: "adGroups", wireName: "adGroup"},
+		{family: campaignCustomizersFamily, object: "campaigns", wireName: "campaign", objects: [2]string{"21", "22"}},
+		{family: adGroupCustomizersFamily, object: "adGroups", wireName: "adGroup", objects: [2]string{"21", "22"}},
+		{family: adGroupCriterionCustomizersFamily, object: "adGroupCriteria", wireName: "adGroupCriterion",
+			objects: [2]string{"21~81", "22~82"}},
+		{family: customerCustomizersFamily},
 	}
 }
 
@@ -40,8 +53,11 @@ func (c customizerCase) name(customer, key string) string {
 }
 
 func (c customizerCase) entry(customer, objectID, attributeID, value string) string {
-	return `{"` + c.family.parts[0].name + `":"` + linkResource(customer, c.object, objectID) +
-		`","customizer_attribute":"` + linkResource(customer, "customizerAttributes", attributeID) +
+	member := ""
+	if c.wireName != "" {
+		member = `"` + c.family.parts[0].name + `":"` + linkResource(customer, c.object, objectID) + `",`
+	}
+	return `{` + member + `"customizer_attribute":"` + linkResource(customer, "customizerAttributes", attributeID) +
 		`","value":` + value + `}`
 }
 
@@ -51,13 +67,14 @@ const (
 )
 
 func (c customizerCase) create() string {
-	return `{"customer_id":"` + clientID + `","` + c.family.argument + `":[` + c.entry(clientID, "21", "71", textValue) +
-		`,` + c.entry(clientID, "22", "72", numberValue) + `]}`
+	return `{"customer_id":"` + clientID + `","` + c.family.argument + `":[` + c.entry(clientID, c.objects[0], "71", textValue) +
+		`,` + c.entry(clientID, c.objects[1], "72", numberValue) + `]}`
 }
 
 func (c customizerCase) remove() string {
-	return `{"customer_id":"` + clientID + `","resource_names":["` + c.name(clientID, "21~71") + `","` +
-		c.name(clientID, "22~72") + `"]}`
+	k := c.keys()
+	return `{"customer_id":"` + clientID + `","resource_names":["` + c.name(clientID, k[0]) + `","` +
+		c.name(clientID, k[1]) + `"]}`
 }
 
 func (c customizerCase) call(verb string) string {
@@ -68,16 +85,23 @@ func (c customizerCase) call(verb string) string {
 }
 
 func (c customizerCase) answer() string {
-	return `{"results":[{"resourceName":"` + c.name(clientID, "21~71") + `"},{"resourceName":"` +
-		c.name(clientID, "22~72") + `"}]}`
+	k := c.keys()
+	return `{"results":[{"resourceName":"` + c.name(clientID, k[0]) + `"},{"resourceName":"` +
+		c.name(clientID, k[1]) + `"}]}`
+}
+
+func (c customizerCase) wireEntry(objectID, attributeID, value string) string {
+	member := ""
+	if c.wireName != "" {
+		member = `"` + c.wireName + `":"` + linkResource(clientID, c.object, objectID) + `",`
+	}
+	return `{"create":{` + member + `"customizerAttribute":"` + linkResource(clientID, "customizerAttributes", attributeID) +
+		`","value":` + value + `}}`
 }
 
 func (c customizerCase) createBody() string {
-	return `[{"create":{"` + c.wireName + `":"` + linkResource(clientID, c.object, "21") +
-		`","customizerAttribute":"` + linkResource(clientID, "customizerAttributes", "71") +
-		`","value":{"type":"TEXT","stringValue":"Spring"}}},{"create":{"` + c.wireName + `":"` +
-		linkResource(clientID, c.object, "22") + `","customizerAttribute":"` +
-		linkResource(clientID, "customizerAttributes", "72") + `","value":{"type":"NUMBER","stringValue":"15"}}}]`
+	return `[` + c.wireEntry(c.objects[0], "71", `{"type":"TEXT","stringValue":"Spring"}`) + `,` +
+		c.wireEntry(c.objects[1], "72", `{"type":"NUMBER","stringValue":"15"}`) + `]`
 }
 
 func newCustomizerEnvironment(t *testing.T, targets []string, options map[string]string) *environment {
@@ -260,8 +284,9 @@ func TestCustomizerArgumentsAreCheckedBeforeSecretAndIO(t *testing.T) {
 
 func TestCustomizersSendOneAtomicRequestWithTheCheckedOperations(t *testing.T) {
 	for _, c := range customizerCases() {
+		k := c.keys()
 		want := map[string]string{"create": c.createBody(),
-			"remove": `[{"remove":"` + c.name(clientID, "21~71") + `"},{"remove":"` + c.name(clientID, "22~72") + `"}]`}
+			"remove": `[{"remove":"` + c.name(clientID, k[0]) + `"},{"remove":"` + c.name(clientID, k[1]) + `"}]`}
 		for _, verb := range []string{"create", "remove"} {
 			id := c.family.id(verb)
 			t.Run(id, func(t *testing.T) {
@@ -282,7 +307,7 @@ func TestCustomizersSendOneAtomicRequestWithTheCheckedOperations(t *testing.T) {
 				got := decode(t, out)
 				results := got["results"].([]any)
 				if got["customer_id"] != clientID || got["validate_only"] != false || len(results) != 2 ||
-					results[1].(map[string]any)["resource_name"] != c.name(clientID, "22~72") {
+					results[1].(map[string]any)["resource_name"] != c.name(clientID, k[1]) {
 					t.Errorf("out = %s", out)
 				}
 			})
@@ -438,5 +463,95 @@ func TestCustomizerSummariesNameTheEffect(t *testing.T) {
 	long := strings.Replace(c.create(), "Spring", strings.Repeat("x", 500), 1)
 	if text := c.family.summary("create")(json.RawMessage(long)); len(text) > 1500 {
 		t.Errorf("summary holds %d bytes", len(text))
+	}
+}
+
+// The new keys: three IDs for a criterion, one for the account.
+func TestCustomizerKeysOfCriteriaAndAccount(t *testing.T) {
+	criterion, account := customizerCases()[2], customizerCases()[3]
+	attribute := linkResource(clientID, "customizerAttributes", "71")
+	bad := map[string]string{
+		"criterion two ids": `{"customer_id":"` + clientID + `","ad_group_criterion_customizers":[{"ad_group_criterion":"` +
+			linkResource(clientID, "adGroupCriteria", "21") + `","customizer_attribute":"` + attribute + `","value":` + textValue + `}]}`,
+		"criterion of ad": `{"customer_id":"` + clientID + `","ad_group_criterion_customizers":[{"ad_group_criterion":"` +
+			linkResource(clientID, "adGroupAds", "21~81") + `","customizer_attribute":"` + attribute + `","value":` + textValue + `}]}`,
+		"account member": `{"customer_id":"` + clientID + `","customer_customizers":[{"customer":"` + customerName(clientID) +
+			`","customizer_attribute":"` + attribute + `","value":` + textValue + `}]}`,
+		"account foreign attribute": `{"customer_id":"` + clientID + `","customer_customizers":[{"customizer_attribute":"` +
+			linkResource(otherID, "customizerAttributes", "71") + `","value":` + textValue + `}]}`,
+	}
+	for name, arguments := range bad {
+		t.Run(name, func(t *testing.T) {
+			c := criterion
+			if strings.HasPrefix(name, "account") {
+				c = account
+			}
+			e := newCustomizerEnvironment(t, nil, nil)
+			if _, err := e.invokeConfirmed(c.family.id("create"), arguments); err == nil {
+				t.Fatal("accepted")
+			}
+			e.untouched(t)
+		})
+	}
+	removes := []struct {
+		c    customizerCase
+		name string
+		in   string
+	}{
+		{criterion, "criterion without attribute", linkResource(clientID, "adGroupCriterionCustomizers", "21~81")},
+		{criterion, "criterion four ids", linkResource(clientID, "adGroupCriterionCustomizers", "21~81~71~1")},
+		{account, "account two ids", linkResource(clientID, "customerCustomizers", "21~71")},
+		{account, "account foreign", linkResource(otherID, "customerCustomizers", "71")},
+	}
+	for _, k := range removes {
+		t.Run(k.name, func(t *testing.T) {
+			e := newCustomizerEnvironment(t, nil, nil)
+			if _, err := e.invokeConfirmed(k.c.family.id("remove"), `{"customer_id":"`+clientID+`","resource_names":["`+k.in+`"]}`); err == nil {
+				t.Fatal("accepted")
+			}
+			e.untouched(t)
+		})
+	}
+}
+
+func TestCustomizerCriterionAndAccountShowTheValueAndBindResults(t *testing.T) {
+	for _, c := range customizerCases()[2:] {
+		k := c.keys()
+		shown := func(object, extra string) string {
+			return `{"results":[{"resourceName":"` + c.name(clientID, k[0]) + `","` + camel(c.family.resultKey) + `":{"resourceName":"` +
+				c.name(clientID, k[0]) + `"` + object + extra + `}},{"resourceName":"` + c.name(clientID, k[1]) + `"}]}`
+		}
+		arguments := strings.TrimSuffix(c.create(), "}") + `,"response_content_type":"MUTABLE_RESOURCE"}`
+		attribute := `,"customizerAttribute":"` + linkResource(clientID, "customizerAttributes", "71") + `"`
+		t.Run(c.family.tool+" shown", func(t *testing.T) {
+			e := newCustomizerEnvironment(t, nil, nil)
+			e.fake.routes["POST "+c.path(clientID)] = okReply(shown(attribute, `,"status":"ENABLED","value":{"type":"TEXT","stringValue":"Spring"}`))
+			out, err := e.invokeConfirmed(c.family.id("create"), arguments)
+			if err != nil {
+				t.Fatal(err)
+			}
+			item := decode(t, out)["results"].([]any)[0].(map[string]any)[c.family.resultKey].(map[string]any)
+			value, _ := item["value"].(map[string]any)
+			if item["status"] != "ENABLED" || value["string_value"] != "Spring" {
+				t.Errorf("%s = %v", c.family.resultKey, item)
+			}
+		})
+		wrong := map[string]string{
+			"foreign attribute": `,"customizerAttribute":"` + linkResource(otherID, "customizerAttributes", "71") + `"`,
+			"other attribute":   `,"customizerAttribute":"` + linkResource(clientID, "customizerAttributes", "99") + `"`,
+		}
+		if c.wireName != "" {
+			wrong["other object"] = `,"` + c.wireName + `":"` + linkResource(clientID, c.object, "99~98") + `"`
+		}
+		for name, member := range wrong {
+			t.Run(c.family.tool+" "+name, func(t *testing.T) {
+				e := newCustomizerEnvironment(t, nil, nil)
+				e.fake.routes["POST "+c.path(clientID)] = okReply(shown(member, ""))
+				_, err := e.invokeConfirmed(c.family.id("create"), arguments)
+				if classOf(err) != provider.ClassInvalidResponse || len(e.posts()) != 1 {
+					t.Fatalf("err = %v", err)
+				}
+			})
+		}
 	}
 }
