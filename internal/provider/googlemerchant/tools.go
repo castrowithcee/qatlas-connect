@@ -89,7 +89,8 @@ func descriptors() []capability.Descriptor {
 	return []capability.Descriptor{accountsList, accountsGet, developerRegistrationsGet,
 		reportsSearch, quotasList, limitsList, limitsGet,
 		termsOfServiceGet, termsOfServiceRetrieveLatest, termsOfServiceAgreementStatesGet,
-		termsOfServiceAgreementStatesRetrieveForApplication}
+		termsOfServiceAgreementStatesRetrieveForApplication,
+		businessInfosGet, businessInfosUpdate, businessIdentitiesGet, businessIdentitiesUpdate}
 }
 
 var accountsList = capability.Descriptor{

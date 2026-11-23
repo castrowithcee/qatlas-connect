@@ -92,7 +92,9 @@ func TestConnection(ctx context.Context, resolved *config.Resolved, secrets *sec
 func Register(reg *capability.Registry) error {
 	var readIDs []string
 	for _, d := range descriptors() {
-		readIDs = append(readIDs, d.ID)
+		if d.Risk.Effect == capability.EffectRead && !d.RequiresToolAllowList {
+			readIDs = append(readIDs, d.ID)
+		}
 	}
 	if err := reg.RegisterProvider(config.ProviderMetadata{
 		ID: Provider, Name: "Google Merchant Center", DefaultBaseURL: apiRoot,
@@ -130,10 +132,19 @@ func Register(reg *capability.Registry) error {
 		termsOfServiceAgreementStatesGetID:            handleAgreementStatesGet,
 		termsOfServiceAgreementStatesForApplicationID: handleAgreementStatesRetrieveForApplication,
 		reportsSearchID: handleReportsSearch, quotasListID: handleQuotasList, limitsListID: handleLimitsList,
-		limitsGetID: handleLimitsGet,
+		limitsGetID:        handleLimitsGet,
+		businessInfosGetID: handleBusinessInfosGet, businessInfosUpdateID: handleBusinessInfosUpdate,
+		businessIdentitiesGetID: handleBusinessIdentitiesGet, businessIdentitiesUpdateID: handleBusinessIdentitiesUpdate,
+	}
+	summaries := map[string]capability.SummaryFunc{
+		businessInfosUpdateID: businessSummary("the business info", businessInfoPaths,
+			"this can change the address and the contacts Google shows to customers"),
+		businessIdentitiesUpdateID: businessSummary("the business identity", businessIdentityPaths,
+			"this can change how Google presents the business in promotions"),
 	}
 	for _, d := range descriptors() {
-		if err := reg.Register(Provider, capability.Operation{Descriptor: d, Handler: handlers[d.ID]}); err != nil {
+		if err := reg.Register(Provider, capability.Operation{Descriptor: d, Handler: handlers[d.ID],
+			ConfirmationSummary: summaries[d.ID]}); err != nil {
 			return err
 		}
 	}
