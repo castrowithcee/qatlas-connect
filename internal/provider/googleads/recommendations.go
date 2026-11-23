@@ -2,6 +2,7 @@ package googleads
 
 import (
 	"bytes"
+	"cmp"
 	"context"
 	"encoding/json"
 	"math"
@@ -556,9 +557,16 @@ func recSnakeCase(name string) string {
 type recommendationCleaner struct {
 	op, customerID string
 	nodes          int
+	// what names the cleaned object in errors and maxNodes bounds it; the zero values mean a recommendation and
+	// maxAnswerNodes.
+	what     string
+	maxNodes int
 }
 
 func (c *recommendationCleaner) bad(message string) error {
+	if c.what != "" {
+		message = strings.ReplaceAll(message, "recommendation", c.what)
+	}
 	return provider.InvalidResponse(c.op, subject+" "+message)
 }
 
@@ -566,7 +574,7 @@ func (c *recommendationCleaner) clean(value any, depth int) (any, bool, error) {
 	if depth > maxAnswerDepth {
 		return nil, false, c.bad("returned a recommendation nested deeper than Qatlas Connect reads")
 	}
-	if c.nodes++; c.nodes > maxAnswerNodes {
+	if c.nodes++; c.nodes > cmp.Or(c.maxNodes, maxAnswerNodes) {
 		return nil, false, c.bad("returned more recommendation data than Qatlas Connect reads")
 	}
 	switch v := value.(type) {
