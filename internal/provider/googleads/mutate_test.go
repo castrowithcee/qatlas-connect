@@ -35,7 +35,8 @@ var changeToolIDs = []string{customersUpdateID, customerBudgetNetworkSettingsCre
 	adGroupBidModifiersCreateID, adGroupBidModifiersUpdateID, adGroupBidModifiersRemoveID,
 	adGroupCriteriaCreateID, adGroupCriteriaUpdateID, adGroupCriteriaRemoveID,
 	conversionValueRulesCreateID, conversionValueRulesUpdateID, conversionValueRulesRemoveID,
-	assetGroupsCreateID, assetGroupsUpdateID, assetGroupsRemoveID}
+	assetGroupsCreateID, assetGroupsUpdateID, assetGroupsRemoveID,
+	recommendationSubscriptionsCreateID, recommendationSubscriptionsUpdateID}
 
 // notListedOnly are the changing tools that a connection with the matching effect offers without a tools list.
 // They still need the confirmation of every call.
@@ -133,7 +134,8 @@ func TestChangeToolsAreListedOnlyConfirmedAndOutsideTheReadProfile(t *testing.T)
 		conversionValueRulesCreateID: capability.EffectCreate, conversionValueRulesUpdateID: capability.EffectUpdate,
 		conversionValueRulesRemoveID: capability.EffectDelete,
 		assetGroupsCreateID:          capability.EffectCreate, assetGroupsUpdateID: capability.EffectUpdate,
-		assetGroupsRemoveID: capability.EffectDelete}
+		assetGroupsRemoveID:                 capability.EffectDelete,
+		recommendationSubscriptionsCreateID: capability.EffectCreate, recommendationSubscriptionsUpdateID: capability.EffectUpdate}
 	for _, id := range changeToolIDs {
 		d, _, ok := reg.Lookup(id)
 		if !ok || !d.RequiresToolAllowList || d.Version != 1 || d.Risk.Effect != wantEffect[id] ||

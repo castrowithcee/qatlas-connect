@@ -153,6 +153,8 @@ var tokenMetadata = config.TokenMetadata{Scopes: map[string][]string{
 	adGroupBidModifiersUpdateID:                {scopeAdwords},
 	adGroupBidModifiersRemoveID:                {scopeAdwords},
 	recommendationsGenerateID:                  {scopeAdwords},
+	recommendationSubscriptionsCreateID:        {scopeAdwords},
+	recommendationSubscriptionsUpdateID:        {scopeAdwords},
 	recommendationsApplyID:                     {scopeAdwords},
 	recommendationsDismissID:                   {scopeAdwords},
 	campaignCriteriaCreateID:                   {scopeAdwords},
