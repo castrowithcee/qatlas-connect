@@ -17,15 +17,15 @@ func goalsPath(id string) string { return "/v26/customers/" + id + "/goals:mutat
 func campaignGoalConfigsPath(id string) string {
 	return "/v26/customers/" + id + "/campaignGoalConfigs:mutate"
 }
-func goalName(id, n string) string { return "customers/" + queryNumber(id) + "/goals/" + n }
+func lifecycleGoalName(id, n string) string { return "customers/" + queryNumber(id) + "/goals/" + n }
 func goalConfigName(id, campaign, goal string) string {
 	return "customers/" + queryNumber(id) + "/campaignGoalConfigs/" + campaign + "~" + goal
 }
 
-var goalToolIDs = []string{goalsCreateID, goalsUpdateID, campaignGoalConfigsCreateID, campaignGoalConfigsUpdateID,
+var lifecycleGoalToolIDs = []string{goalsCreateID, goalsUpdateID, campaignGoalConfigsCreateID, campaignGoalConfigsUpdateID,
 	campaignGoalConfigsRemoveID}
 
-func goalCalls() map[string]string {
+func lifecycleGoalCalls() map[string]string {
 	c := `{"customer_id":"` + clientID + `",`
 	return map[string]string{
 		goalsCreateID: c + `"goals":[{"goal_type":"LOYALTY_RETENTION","value_settings":{"additional_value":2.5,` +
@@ -56,8 +56,8 @@ func goalAnswers() map[string]string {
 		return `{"results":[` + strings.Join(items, ",") + `]}`
 	}
 	return map[string]string{
-		goalsCreateID:               r(goalName(clientID, "81"), goalName(clientID, "82")),
-		goalsUpdateID:               r(goalName(clientID, "71")),
+		goalsCreateID:               r(lifecycleGoalName(clientID, "81"), lifecycleGoalName(clientID, "82")),
+		goalsUpdateID:               r(lifecycleGoalName(clientID, "71")),
 		campaignGoalConfigsCreateID: r(goalConfigName(clientID, "11", "71")),
 		campaignGoalConfigsUpdateID: r(goalConfigName(clientID, "11", "72")),
 		campaignGoalConfigsRemoveID: r(goalConfigName(clientID, "11", "71"), goalConfigName(clientID, "12", "71")),
@@ -66,7 +66,7 @@ func goalAnswers() map[string]string {
 
 func TestGoalToolsAreDescribed(t *testing.T) {
 	e := newMutationEnvironment(t, nil, nil)
-	for _, id := range goalToolIDs {
+	for _, id := range lifecycleGoalToolIDs {
 		d, _, ok := e.reg.Lookup(id)
 		if !ok {
 			t.Fatalf("%s is not registered", id)
@@ -95,7 +95,7 @@ func TestGoalToolsAreDescribed(t *testing.T) {
 }
 
 func TestGoalChangesNeedTheToolsListAndTheConfirmation(t *testing.T) {
-	for id, arguments := range goalCalls() {
+	for id, arguments := range lifecycleGoalCalls() {
 		t.Run(id+" without the tools list", func(t *testing.T) {
 			e := newEnvironmentWith(t, nil, nil, config.Connection{Effects: []config.Effect{config.EffectRead,
 				config.EffectCreate, config.EffectUpdate, config.EffectDelete, config.EffectExecute}})
@@ -197,11 +197,11 @@ func operationsOf(t *testing.T, e *environment) []map[string]any {
 }
 
 func TestGoalToolsSendOneAtomicRequestPerCall(t *testing.T) {
-	for _, id := range goalToolIDs {
+	for _, id := range lifecycleGoalToolIDs {
 		t.Run(id, func(t *testing.T) {
 			e := newMutationEnvironment(t, nil, map[string]string{optionLoginCustomerID: loginID})
 			e.fake.routes["POST "+goalPathOf(id)] = okReply(goalAnswers()[id])
-			out, err := e.invokeConfirmed(id, goalCalls()[id])
+			out, err := e.invokeConfirmed(id, lifecycleGoalCalls()[id])
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -222,12 +222,12 @@ func TestGoalToolsSendOneAtomicRequestPerCall(t *testing.T) {
 func TestGoalCreateAndUpdateBodies(t *testing.T) {
 	e := newMutationEnvironment(t, nil, nil)
 	e.fake.routes["POST "+goalsPath(clientID)] = okReply(goalAnswers()[goalsCreateID])
-	out, err := e.invokeConfirmed(goalsCreateID, goalCalls()[goalsCreateID])
+	out, err := e.invokeConfirmed(goalsCreateID, lifecycleGoalCalls()[goalsCreateID])
 	if err != nil {
 		t.Fatal(err)
 	}
 	first := decode(t, out)["results"].([]any)[0].(map[string]any)
-	if first["goal_id"] != "81" || first["resource_name"] != goalName(clientID, "81") {
+	if first["goal_id"] != "81" || first["resource_name"] != lifecycleGoalName(clientID, "81") {
 		t.Errorf("result = %v", first)
 	}
 	ops := operationsOf(t, e)
@@ -240,12 +240,12 @@ func TestGoalCreateAndUpdateBodies(t *testing.T) {
 
 	e = newMutationEnvironment(t, nil, nil)
 	e.fake.routes["POST "+goalsPath(clientID)] = okReply(goalAnswers()[goalsUpdateID])
-	if _, err := e.invokeConfirmed(goalsUpdateID, goalCalls()[goalsUpdateID]); err != nil {
+	if _, err := e.invokeConfirmed(goalsUpdateID, lifecycleGoalCalls()[goalsUpdateID]); err != nil {
 		t.Fatal(err)
 	}
 	op := operationsOf(t, e)[0]
 	update := op["update"].(map[string]any)
-	if op["updateMask"] != "retentionGoalSettings.valueSettings" || update["resourceName"] != goalName(clientID, "71") ||
+	if op["updateMask"] != "retentionGoalSettings.valueSettings" || update["resourceName"] != lifecycleGoalName(clientID, "71") ||
 		update["retentionGoalSettings"].(map[string]any)["valueSettings"].(map[string]any)["valueMultiplier"] != 1.5 {
 		t.Errorf("operation = %v", op)
 	}
@@ -254,7 +254,7 @@ func TestGoalCreateAndUpdateBodies(t *testing.T) {
 func TestCampaignGoalConfigBodiesAreBuiltFromTheCheckedAccount(t *testing.T) {
 	e := newMutationEnvironment(t, nil, nil)
 	e.fake.routes["POST "+campaignGoalConfigsPath(clientID)] = okReply(goalAnswers()[campaignGoalConfigsCreateID])
-	out, err := e.invokeConfirmed(campaignGoalConfigsCreateID, goalCalls()[campaignGoalConfigsCreateID])
+	out, err := e.invokeConfirmed(campaignGoalConfigsCreateID, lifecycleGoalCalls()[campaignGoalConfigsCreateID])
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -265,14 +265,14 @@ func TestCampaignGoalConfigBodiesAreBuiltFromTheCheckedAccount(t *testing.T) {
 	create := operationsOf(t, e)[0]["create"].(map[string]any)
 	settings := create["campaignNewCustomerAcquisitionSettings"].(map[string]any)
 	if create["campaign"] != "customers/"+queryNumber(clientID)+"/campaigns/11" ||
-		create["goal"] != goalName(clientID, "71") || settings["targetOption"] != "TARGET_SPECIFIC" ||
+		create["goal"] != lifecycleGoalName(clientID, "71") || settings["targetOption"] != "TARGET_SPECIFIC" ||
 		settings["valueSettingsOverride"].(map[string]any)["valueMultiplier"] != float64(2) {
 		t.Errorf("create = %v", create)
 	}
 
 	e = newMutationEnvironment(t, nil, nil)
 	e.fake.routes["POST "+campaignGoalConfigsPath(clientID)] = okReply(goalAnswers()[campaignGoalConfigsUpdateID])
-	if _, err := e.invokeConfirmed(campaignGoalConfigsUpdateID, goalCalls()[campaignGoalConfigsUpdateID]); err != nil {
+	if _, err := e.invokeConfirmed(campaignGoalConfigsUpdateID, lifecycleGoalCalls()[campaignGoalConfigsUpdateID]); err != nil {
 		t.Fatal(err)
 	}
 	op := operationsOf(t, e)[0]
@@ -287,7 +287,7 @@ func TestCampaignGoalConfigBodiesAreBuiltFromTheCheckedAccount(t *testing.T) {
 
 	e = newMutationEnvironment(t, nil, nil)
 	e.fake.routes["POST "+campaignGoalConfigsPath(clientID)] = okReply(goalAnswers()[campaignGoalConfigsRemoveID])
-	if _, err := e.invokeConfirmed(campaignGoalConfigsRemoveID, goalCalls()[campaignGoalConfigsRemoveID]); err != nil {
+	if _, err := e.invokeConfirmed(campaignGoalConfigsRemoveID, lifecycleGoalCalls()[campaignGoalConfigsRemoveID]); err != nil {
 		t.Fatal(err)
 	}
 	ops := operationsOf(t, e)
@@ -298,7 +298,7 @@ func TestCampaignGoalConfigBodiesAreBuiltFromTheCheckedAccount(t *testing.T) {
 }
 
 func TestGoalValidateOnlyAnswersWithoutResults(t *testing.T) {
-	for id, arguments := range goalCalls() {
+	for id, arguments := range lifecycleGoalCalls() {
 		t.Run(id, func(t *testing.T) {
 			e := newMutationEnvironment(t, nil, nil)
 			e.fake.routes["POST "+goalPathOf(id)] = okReply(`{}`)
@@ -319,14 +319,14 @@ func TestGoalValidateOnlyAnswersWithoutResults(t *testing.T) {
 // An answer that does not fit the request is never taken for the change: the request was sent, so the error
 // says that the outcome is unknown.
 func TestGoalAnswersAreBoundToTheCheckedAccountAndRequest(t *testing.T) {
-	foreignGoal, foreignConfig := goalName(otherID, "71"), goalConfigName(otherID, "11", "71")
+	foreignGoal, foreignConfig := lifecycleGoalName(otherID, "71"), goalConfigName(otherID, "11", "71")
 	cases := map[string]struct{ id, body string }{
 		"goal foreign account":   {goalsUpdateID, `{"results":[{"resourceName":"` + foreignGoal + `"}]}`},
-		"goal other object":      {goalsUpdateID, `{"results":[{"resourceName":"` + goalName(clientID, "9") + `"}]}`},
+		"goal other object":      {goalsUpdateID, `{"results":[{"resourceName":"` + lifecycleGoalName(clientID, "9") + `"}]}`},
 		"goal no results":        {goalsUpdateID, `{}`},
-		"goal partial failure":   {goalsUpdateID, `{"results":[{"resourceName":"` + goalName(clientID, "71") + `"}],"partialFailureError":{"code":3}}`},
+		"goal partial failure":   {goalsUpdateID, `{"results":[{"resourceName":"` + lifecycleGoalName(clientID, "71") + `"}],"partialFailureError":{"code":3}}`},
 		"goal create foreign":    {goalsCreateID, `{"results":[{"resourceName":"` + foreignGoal + `"},{"resourceName":"` + foreignGoal + `"}]}`},
-		"goal create count":      {goalsCreateID, `{"results":[{"resourceName":"` + goalName(clientID, "81") + `"}]}`},
+		"goal create count":      {goalsCreateID, `{"results":[{"resourceName":"` + lifecycleGoalName(clientID, "81") + `"}]}`},
 		"config foreign account": {campaignGoalConfigsCreateID, `{"results":[{"resourceName":"` + foreignConfig + `"}]}`},
 		"config other pair":      {campaignGoalConfigsCreateID, `{"results":[{"resourceName":"` + goalConfigName(clientID, "11", "9") + `"}]}`},
 		"config no tilde":        {campaignGoalConfigsUpdateID, `{"results":[{"resourceName":"customers/` + queryNumber(clientID) + `/campaignGoalConfigs/11"}]}`},
@@ -336,7 +336,7 @@ func TestGoalAnswersAreBoundToTheCheckedAccountAndRequest(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			e := newMutationEnvironment(t, nil, nil)
 			e.fake.routes["POST "+goalPathOf(c.id)] = okReply(c.body)
-			_, err := e.invokeConfirmed(c.id, goalCalls()[c.id])
+			_, err := e.invokeConfirmed(c.id, lifecycleGoalCalls()[c.id])
 			if classOf(err) != provider.ClassInvalidResponse || !strings.Contains(err.Error(), "outcome of the change is unknown") ||
 				len(e.posts()) != 1 {
 				t.Fatalf("err = %v, posts = %d", err, len(e.posts()))
@@ -363,7 +363,7 @@ func TestGoalErrorsAreMappedAndNeverRepeated(t *testing.T) {
 		{"timeout", reply{err: errors.New("i/o timeout")}, provider.ClassUnreachable, true},
 	}
 	for _, c := range cases {
-		for id, arguments := range goalCalls() {
+		for id, arguments := range lifecycleGoalCalls() {
 			t.Run(c.name+" "+id, func(t *testing.T) {
 				e := newMutationEnvironment(t, nil, nil)
 				e.fake.routes["POST "+goalPathOf(id)] = c.reply
@@ -391,7 +391,7 @@ func TestGoalChangeOnManagerAccountNeedsAManagerTarget(t *testing.T) {
 	e := newMutationEnvironment(t, []string{"customers/" + clientID}, nil)
 	e.fake.routes["GET "+searchPath(clientID)] = rows()
 	e.fake.routes["POST "+searchPath(clientID)] = rows(`{"customer":{"id":"` + clientID + `","manager":true}}`)
-	_, err := e.invokeConfirmed(campaignGoalConfigsRemoveID, goalCalls()[campaignGoalConfigsRemoveID])
+	_, err := e.invokeConfirmed(campaignGoalConfigsRemoveID, lifecycleGoalCalls()[campaignGoalConfigsRemoveID])
 	if !isInvalidRequest(err) || len(e.posts()) != 0 {
 		t.Fatalf("err = %v, posts = %d, want invalid-request and no change", err, len(e.posts()))
 	}
@@ -399,7 +399,7 @@ func TestGoalChangeOnManagerAccountNeedsAManagerTarget(t *testing.T) {
 
 func TestGoalSummariesNameTheEffect(t *testing.T) {
 	e := newMutationEnvironment(t, nil, nil)
-	for id, arguments := range goalCalls() {
+	for id, arguments := range lifecycleGoalCalls() {
 		_, err := e.invoke(id, arguments)
 		var needed *application.ConfirmationRequiredError
 		if !errors.As(err, &needed) || !strings.Contains(needed.Summary, clientID) ||
@@ -407,7 +407,7 @@ func TestGoalSummariesNameTheEffect(t *testing.T) {
 			t.Errorf("%s: summary %v", id, err)
 		}
 	}
-	if s := campaignGoalConfigsSummary(campaignGoalConfigsRemoveID)(json.RawMessage(goalCalls()[campaignGoalConfigsRemoveID])); !strings.Contains(s, "detach") ||
+	if s := campaignGoalConfigsSummary(campaignGoalConfigsRemoveID)(json.RawMessage(lifecycleGoalCalls()[campaignGoalConfigsRemoveID])); !strings.Contains(s, "detach") ||
 		!strings.Contains(s, "no longer optimize") {
 		t.Errorf("summary = %q", s)
 	}

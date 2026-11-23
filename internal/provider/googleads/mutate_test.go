@@ -19,6 +19,7 @@ import (
 var changeToolIDs = []string{customersUpdateID, customerBudgetNetworkSettingsCreateID, customerBudgetNetworkSettingsUpdateID,
 	customerUserAccessesUpdateID, customerUserAccessesRemoveID, customerUserAccessInvitationsRemoveID,
 	multiPartyAuthReviewsResolveID, conversionActionsCreateID, conversionActionsUpdateID, conversionActionsRemoveID,
+	customConversionGoalsCreateID, customConversionGoalsUpdateID, customConversionGoalsRemoveID,
 	customerManagerLinksUpdateID, customerClientLinksUpdateID,
 	customAudiencesRemoveID, userListsRemoveID,
 	campaignsCreateID, campaignsUpdateID, campaignsRemoveID, campaignsEnablePMaxBrandGuidelinesID, labelsRemoveID,
@@ -33,6 +34,9 @@ var changeToolIDs = []string{customersUpdateID, customerBudgetNetworkSettingsCre
 	campaignBidModifiersCreateID, campaignBidModifiersUpdateID, campaignBidModifiersRemoveID,
 	adGroupBidModifiersCreateID, adGroupBidModifiersUpdateID, adGroupBidModifiersRemoveID,
 	adGroupCriteriaCreateID, adGroupCriteriaUpdateID, adGroupCriteriaRemoveID,
+	conversionValueRulesCreateID, conversionValueRulesUpdateID, conversionValueRulesRemoveID,
+	assetGroupsCreateID, assetGroupsUpdateID, assetGroupsRemoveID,
+	recommendationSubscriptionsCreateID, recommendationSubscriptionsUpdateID,
 	goalsCreateID, goalsUpdateID, campaignGoalConfigsCreateID, campaignGoalConfigsUpdateID, campaignGoalConfigsRemoveID}
 
 // notListedOnly are the changing tools that a connection with the matching effect offers without a tools list.
@@ -98,8 +102,10 @@ func TestChangeToolsAreListedOnlyConfirmedAndOutsideTheReadProfile(t *testing.T)
 		customerUserAccessesUpdateID:          capability.EffectUpdate, customerUserAccessesRemoveID: capability.EffectDelete,
 		customerUserAccessInvitationsRemoveID: capability.EffectDelete, multiPartyAuthReviewsResolveID: capability.EffectUpdate,
 		conversionActionsCreateID: capability.EffectCreate, conversionActionsUpdateID: capability.EffectUpdate,
-		conversionActionsRemoveID:    capability.EffectDelete,
-		customerManagerLinksUpdateID: capability.EffectUpdate, customerClientLinksUpdateID: capability.EffectUpdate,
+		conversionActionsRemoveID:     capability.EffectDelete,
+		customConversionGoalsCreateID: capability.EffectCreate, customConversionGoalsUpdateID: capability.EffectUpdate,
+		customConversionGoalsRemoveID: capability.EffectDelete,
+		customerManagerLinksUpdateID:  capability.EffectUpdate, customerClientLinksUpdateID: capability.EffectUpdate,
 		customAudiencesRemoveID: capability.EffectDelete,
 		userListsRemoveID:       capability.EffectDelete,
 		campaignsCreateID:       capability.EffectCreate, campaignsUpdateID: capability.EffectUpdate,
@@ -125,8 +131,13 @@ func TestChangeToolsAreListedOnlyConfirmedAndOutsideTheReadProfile(t *testing.T)
 		campaignBidModifiersCreateID: capability.EffectCreate, campaignBidModifiersUpdateID: capability.EffectUpdate, campaignBidModifiersRemoveID: capability.EffectDelete,
 		adGroupBidModifiersCreateID: capability.EffectCreate, adGroupBidModifiersUpdateID: capability.EffectUpdate, adGroupBidModifiersRemoveID: capability.EffectDelete,
 		adGroupCriteriaCreateID: capability.EffectCreate, adGroupCriteriaUpdateID: capability.EffectUpdate,
-		adGroupCriteriaRemoveID: capability.EffectDelete,
-		goalsCreateID:           capability.EffectCreate, goalsUpdateID: capability.EffectUpdate,
+		adGroupCriteriaRemoveID:      capability.EffectDelete,
+		conversionValueRulesCreateID: capability.EffectCreate, conversionValueRulesUpdateID: capability.EffectUpdate,
+		conversionValueRulesRemoveID: capability.EffectDelete,
+		assetGroupsCreateID:          capability.EffectCreate, assetGroupsUpdateID: capability.EffectUpdate,
+		assetGroupsRemoveID:                 capability.EffectDelete,
+		recommendationSubscriptionsCreateID: capability.EffectCreate, recommendationSubscriptionsUpdateID: capability.EffectUpdate,
+		goalsCreateID: capability.EffectCreate, goalsUpdateID: capability.EffectUpdate,
 		campaignGoalConfigsCreateID: capability.EffectCreate, campaignGoalConfigsUpdateID: capability.EffectUpdate,
 		campaignGoalConfigsRemoveID: capability.EffectDelete}
 	for _, id := range changeToolIDs {
