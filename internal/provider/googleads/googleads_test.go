@@ -69,7 +69,8 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 		customerUserAccessInvitationsListID, customerUserAccessInvitationsRemoveID,
 		customerUserAccessesListID, customerUserAccessesRemoveID, customerUserAccessesUpdateID, customersGetID,
 		customersListAccessibleID, customersUpdateID, customizerAttributesCreateID, customizerAttributesRemoveID, dataLinksListID, dataLinksRemoveID, dataLinksUpdateID,
-		experimentsCreateID, experimentsListAsyncErrorsID, experimentsRemoveID, experimentsUpdateID, fieldsGetID, fieldsSearchID,
+		experimentsCreateID, experimentsEndID, experimentsGraduateID, experimentsListAsyncErrorsID, experimentsPromoteID,
+		experimentsRemoveID, experimentsScheduleID, experimentsUpdateID, fieldsGetID, fieldsSearchID,
 		geoTargetConstantsSuggestID,
 		goalsCreateID, goalsUpdateID,
 		incentivesFetchID, invoicesListID,
@@ -92,7 +93,8 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 			tool.ID == recommendationsApplyID || tool.ID == campaignGroupsRemoveID || tool.ID == sharedSetsRemoveID ||
 			tool.ID == campaignSharedSetsRemoveID || tool.ID == customerNegativeCriteriaRemoveID ||
 			tool.ID == sharedCriteriaRemoveID || tool.ID == experimentsRemoveID || tool.ID == campaignDraftsRemoveID ||
-			tool.ID == campaignDraftsPromoteID || tool.ID == customizerAttributesRemoveID
+			tool.ID == campaignDraftsPromoteID || tool.ID == customizerAttributesRemoveID ||
+			slices.Contains(experimentActionIDs, tool.ID)
 		changing := listed || slices.Contains(notListedOnly, tool.ID) || tool.ID == labelsCreateID ||
 			tool.ID == labelsUpdateID || tool.ID == campaignGroupsCreateID || tool.ID == campaignGroupsUpdateID ||
 			tool.ID == campaignAssetsCreateID || tool.ID == campaignAssetsUpdateID || tool.ID == campaignAssetsRemoveID ||
