@@ -327,7 +327,7 @@ var adGroupBidModifiersCreate = capability.Descriptor{
 		"length_of_booking, start_date_range, start_day_of_week, or user_set_dates, as the AdGroupBidModifier " +
 		"resource of v26 has them. " + adGroupBidModifierSpendNote +
 		" Not offered: the members Google fills itself (criterion_id, base_ad_group, bid_modifier_source), " +
-		"which an answer shows." + mutateNote,
+		"which an answer shows." + mutateListListedNote,
 	Tags: []string{"google", "ads", "ad-group-bid-modifiers", "create"}, Provider: Provider, RequiresToolAllowList: true,
 	Risk:        changeRisk(capability.EffectCreate, capability.IdempotencyNonIdempotent, adGroupBidModifierSensitivity),
 	InputSchema: encoded(adGroupBidModifierInputSchema(true)), OutputSchema: encoded(adGroupBidModifierOutputSchema),
@@ -347,7 +347,7 @@ var adGroupBidModifiersUpdate = capability.Descriptor{
 		"(AdGroupBidModifierService.MutateAdGroupBidModifiers with update operations and a field mask that names " +
 		"bid_modifier): Google applies all of them or none. Each entry names the bid modifier by resource_name. " +
 		"The ad group and the criterion are fixed after creation, so they are not offered: remove the bid " +
-		"modifier and create another instead. " + adGroupBidModifierSpendNote + mutateNote,
+		"modifier and create another instead. " + adGroupBidModifierSpendNote + mutateListListedNote,
 	Tags: []string{"google", "ads", "ad-group-bid-modifiers", "update"}, Provider: Provider, RequiresToolAllowList: true,
 	Risk:        changeRisk(capability.EffectUpdate, capability.IdempotencyIdempotent, adGroupBidModifierSensitivity),
 	InputSchema: encoded(adGroupBidModifierInputSchema(false)), OutputSchema: encoded(adGroupBidModifierOutputSchema),
@@ -366,7 +366,7 @@ var adGroupBidModifiersRemove = capability.Descriptor{
 		"(AdGroupBidModifierService.MutateAdGroupBidModifiers with remove operations): Google applies all of them " +
 		"or none. A removed bid modifier no longer adjusts the bids of its ad group, which changes what the ad " +
 		"group spends. Resource names must be bid modifiers of customer_id. Offers no response_content_type: a " +
-		"removed bid modifier has no mutable resource to show." + mutateNote,
+		"removed bid modifier has no mutable resource to show." + mutateListListedNote,
 	Tags: []string{"google", "ads", "ad-group-bid-modifiers", "remove"}, Provider: Provider, RequiresToolAllowList: true,
 	Risk: changeRisk(capability.EffectDelete, capability.IdempotencyIdempotent, adGroupBidModifierSensitivity),
 	InputSchema: encoded(object(schema{"customer_id": customerIDArgument,

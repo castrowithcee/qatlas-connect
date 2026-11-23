@@ -346,7 +346,7 @@ var biddingStrategiesCreate = capability.Descriptor{
 	ID: biddingStrategiesCreateID, Version: 1, Title: "Create Google Ads bidding strategies",
 	Description: "Create up to 10 portfolio bidding strategies in a Google Ads account. Each needs a name and exactly " +
 		"one scheme with its members; currency_code is for strategies of a manager account only. " +
-		biddingStrategyNote + mutateNote,
+		biddingStrategyNote + mutateListListedNote,
 	Tags: []string{"google", "ads", "bidding-strategies", "create"}, Provider: Provider, RequiresToolAllowList: true,
 	Risk:        changeRisk(capability.EffectCreate, capability.IdempotencyNonIdempotent, biddingStrategySensitivity),
 	InputSchema: encoded(biddingStrategyInputSchema(true)), OutputSchema: encoded(biddingStrategyOutputSchema),
@@ -366,7 +366,7 @@ var biddingStrategiesUpdate = capability.Descriptor{
 	Description: "Change up to 10 portfolio bidding strategies of a Google Ads account (an update with a field mask " +
 		"that names exactly the members given). Each entry names the strategy by resource_name and the members to " +
 		"change, nested as the resource nests them. Giving a scheme member sets the members of that scheme given; " +
-		"the currency of a strategy is fixed after creation. " + biddingStrategyNote + mutateNote,
+		"the currency of a strategy is fixed after creation. " + biddingStrategyNote + mutateListListedNote,
 	Tags: []string{"google", "ads", "bidding-strategies", "update"}, Provider: Provider, RequiresToolAllowList: true,
 	Risk:        changeRisk(capability.EffectUpdate, capability.IdempotencyIdempotent, biddingStrategySensitivity),
 	InputSchema: encoded(biddingStrategyInputSchema(false)), OutputSchema: encoded(biddingStrategyOutputSchema),
@@ -386,7 +386,7 @@ var biddingStrategiesRemove = capability.Descriptor{
 		"BiddingStrategyService.MutateBiddingStrategies): Google applies all of them or none. A removed strategy " +
 		"cannot be used again, and Google decides what happens to campaigns still attached to it. Resource names " +
 		"must be strategies of customer_id. Offers no response_content_type: a removed strategy has no mutable " +
-		"resource to show." + mutateNote,
+		"resource to show." + mutateListListedNote,
 	Tags: []string{"google", "ads", "bidding-strategies", "remove"}, Provider: Provider, RequiresToolAllowList: true,
 	Risk: changeRisk(capability.EffectDelete, capability.IdempotencyIdempotent, biddingStrategySensitivity),
 	InputSchema: encoded(object(schema{"customer_id": customerIDArgument,

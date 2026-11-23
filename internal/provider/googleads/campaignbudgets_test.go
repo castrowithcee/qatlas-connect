@@ -65,7 +65,7 @@ func TestCampaignBudgetsToolsAreRegisteredAsDescribed(t *testing.T) {
 			d.Risk.Confirmation != capability.ConfirmationRequired || !d.Risk.OpenWorld || !d.RequiresToolAllowList {
 			t.Fatalf("%s = %+v", id, d)
 		}
-		if !strings.HasSuffix(d.Description, mutateNote) {
+		if !strings.HasSuffix(d.Description, mutateListListedNote) {
 			t.Errorf("%s: description does not end on the note that only the tools list offers it", id)
 		}
 		if slices.Contains(metadata.Profiles[0].Tools, id) || slices.Contains(readTools, id) {

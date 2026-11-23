@@ -257,7 +257,7 @@ var campaignsCreate = capability.Descriptor{
 		"budget, bidding and the settings of the channel are as the Campaign resource of v26 has them, with at " +
 		"most one of the bidding members (a portfolio bidding_strategy or one embedded strategy). " +
 		campaignSpendNote + " Not offered: members Google fills itself, deprecated members, reservation bidding " +
-		"(fixed_cpm), third-party integration partners and advertising partners, and phone numbers." + mutateNote,
+		"(fixed_cpm), third-party integration partners and advertising partners, and phone numbers." + mutateListListedNote,
 	Tags: []string{"google", "ads", "campaigns", "create"}, Provider: Provider, RequiresToolAllowList: true,
 	Risk:        changeRisk(capability.EffectCreate, capability.IdempotencyNonIdempotent, campaignSensitivity),
 	InputSchema: encoded(campaignInputSchema(true)), OutputSchema: encoded(campaignOutputSchema),
@@ -279,7 +279,7 @@ var campaignsUpdate = capability.Descriptor{
 		"Each entry names the campaign by resource_name and the members to change, nested as the Campaign " +
 		"resource nests them; a list member replaces the whole list, and members that Google accepts only at " +
 		"creation (the channel type, for one) are not offered. Setting status to ENABLED starts serving, and " +
-		"setting a budget, bidding or networks changes the spend. " + campaignSpendNote + mutateNote,
+		"setting a budget, bidding or networks changes the spend. " + campaignSpendNote + mutateListListedNote,
 	Tags: []string{"google", "ads", "campaigns", "update"}, Provider: Provider, RequiresToolAllowList: true,
 	Risk:        changeRisk(capability.EffectUpdate, capability.IdempotencyIdempotent, campaignSensitivity),
 	InputSchema: encoded(campaignInputSchema(false)), OutputSchema: encoded(campaignOutputSchema),
@@ -296,7 +296,7 @@ var campaignsRemove = capability.Descriptor{
 	Description: "Remove up to 10 campaigns of a Google Ads account (CampaignService.MutateCampaigns with remove " +
 		"operations): Google applies all of them or none. A removed campaign stops serving and cannot be enabled " +
 		"again; its history stays readable with reports.search. Resource names must be campaigns of customer_id. " +
-		"Offers no response_content_type: a removed campaign has no mutable resource to show." + mutateNote,
+		"Offers no response_content_type: a removed campaign has no mutable resource to show." + mutateListListedNote,
 	Tags: []string{"google", "ads", "campaigns", "remove"}, Provider: Provider, RequiresToolAllowList: true,
 	Risk: changeRisk(capability.EffectDelete, capability.IdempotencyIdempotent, campaignSensitivity),
 	InputSchema: encoded(object(schema{"customer_id": customerIDArgument,

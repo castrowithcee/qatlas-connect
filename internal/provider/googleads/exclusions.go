@@ -439,7 +439,7 @@ var (
 // The notes end the descriptions of the changing tools. Google counts the quota per operation of the list.
 const (
 	exclusionsChangeNote = mutateListNote
-	exclusionsListedNote = mutateListNote + " Offered only by a connection whose tools list names it."
+	exclusionsListedNote = mutateListListedNote
 )
 
 const exclusionsReferenceNote = " References in the arguments to shared sets must belong to customer_id, and a temporary " +

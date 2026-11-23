@@ -58,7 +58,7 @@ func TestBiddingDataExclusionsToolsAreRegisteredAsDescribed(t *testing.T) {
 	}
 	for _, id := range bdeToolIDs {
 		d, _, ok := reg.Lookup(id)
-		if !ok || !d.RequiresToolAllowList || !strings.HasSuffix(d.Description, mutateNote) {
+		if !ok || !d.RequiresToolAllowList || !strings.HasSuffix(d.Description, mutateListListedNote) {
 			t.Fatalf("%s = %+v", id, d)
 		}
 		var input struct {

@@ -67,11 +67,11 @@ func TestCampaignGroupsToolsAreRegisteredAsDescribed(t *testing.T) {
 		if d.RequiresToolAllowList != (id == campaignGroupsRemoveID) {
 			t.Errorf("%s: tools list required = %v", id, d.RequiresToolAllowList)
 		}
-		note := changeNote
+		note := mutateListNote
 		if id == campaignGroupsRemoveID {
-			note = mutateNote
+			note = mutateListListedNote
 		}
-		if !strings.HasSuffix(d.Description, note) || (id != campaignGroupsRemoveID && strings.HasSuffix(d.Description, mutateNote)) {
+		if !strings.HasSuffix(d.Description, note) || (id != campaignGroupsRemoveID && strings.HasSuffix(d.Description, mutateListListedNote)) {
 			t.Errorf("%s: description does not end on the note of how it is offered", id)
 		}
 		if slices.Contains(metadata.Profiles[0].Tools, id) || slices.Contains(readTools, id) {

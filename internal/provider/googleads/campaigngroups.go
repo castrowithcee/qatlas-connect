@@ -344,7 +344,7 @@ var campaignGroupsCreate = capability.Descriptor{
 		strconv.Itoa(campaignGroupNameMax) + " characters without null, line feed, or carriage return. A new " +
 		"group is ENABLED, which status may also be given. Google decides whether a name may be used twice." +
 		campaignGroupsNote + " Offered by a connection with the create effect or whose tools list names it; no " +
-		"profile holds it." + changeNote,
+		"profile holds it." + mutateListNote,
 	Tags: []string{"google", "ads", "campaign-groups", "create"}, Provider: Provider,
 	Risk: changeRisk(capability.EffectCreate, capability.IdempotencyNonIdempotent, campaignGroupsSensitivity),
 	InputSchema: encoded(object(schema{
@@ -371,7 +371,7 @@ var campaignGroupsUpdate = capability.Descriptor{
 		"resource name is built from customer_id and campaign_group_id. The only status a tool sets is ENABLED; " +
 		"campaign-groups.remove removes a group." + campaignGroupsNote +
 		" Offered by a connection with the update effect or whose tools list names it; no profile holds it." +
-		changeNote,
+		mutateListNote,
 	Tags: []string{"google", "ads", "campaign-groups", "update"}, Provider: Provider,
 	Risk: changeRisk(capability.EffectUpdate, capability.IdempotencyIdempotent, campaignGroupsSensitivity),
 	InputSchema: encoded(object(schema{
@@ -396,7 +396,7 @@ var campaignGroupsRemove = capability.Descriptor{
 	ID: campaignGroupsRemoveID, Version: 1, Title: "Remove campaign groups from a Google Ads account",
 	Description: "Remove existing campaign groups of a Google Ads account (a remove of " +
 		"customers/ID/campaignGroups/GROUP_ID, built from customer_id and campaign_group_id). Google marks a " +
-		"removed group REMOVED; no tool of this provider brings it back." + campaignGroupsNote + mutateNote,
+		"removed group REMOVED; no tool of this provider brings it back." + campaignGroupsNote + mutateListListedNote,
 	Tags: []string{"google", "ads", "campaign-groups", "remove"}, Provider: Provider, RequiresToolAllowList: true,
 	Risk: changeRisk(capability.EffectDelete, capability.IdempotencyIdempotent, campaignGroupsSensitivity),
 	InputSchema: encoded(object(schema{

@@ -332,7 +332,7 @@ var assetSetsCreate = capability.Descriptor{
 		"At most one of location_set, business_profile_location_group and chain_location_group. Which type takes " +
 		"which member is Google's to validate; use validate_only to see its verdict. A Merchant Center feed " +
 		"links data of a Merchant Center account to the account of the call." + assetSetNote +
-		" Offered by a connection with the create effect or whose tools list names it; no profile holds it." + changeNote,
+		" Offered by a connection with the create effect or whose tools list names it; no profile holds it." + mutateListNote,
 	Tags: []string{"google", "ads", "assets", "asset-sets", "create"}, Provider: Provider,
 	Risk:        changeRisk(capability.EffectCreate, capability.IdempotencyNonIdempotent, assetSetSensitivity),
 	InputSchema: encoded(assetSetInputSchema(true)), OutputSchema: encoded(assetSetOutputSchema),
@@ -356,7 +356,7 @@ var assetSetsUpdate = capability.Descriptor{
 		"change, nested as the AssetSet resource nests them; a list member replaces the whole list. The type, " +
 		"location_group_parent_asset_set_id, location_ownership_type and the relationship_type of a chain set are " +
 		"fixed at creation and not offered." + assetSetNote +
-		" Offered by a connection with the update effect or whose tools list names it; no profile holds it." + changeNote,
+		" Offered by a connection with the update effect or whose tools list names it; no profile holds it." + mutateListNote,
 	Tags: []string{"google", "ads", "assets", "asset-sets", "update"}, Provider: Provider,
 	Risk:        changeRisk(capability.EffectUpdate, capability.IdempotencyIdempotent, assetSetSensitivity),
 	InputSchema: encoded(assetSetInputSchema(false)), OutputSchema: encoded(assetSetOutputSchema),
@@ -373,7 +373,7 @@ var assetSetsRemove = capability.Descriptor{
 	ID: assetSetsRemoveID, Version: 1, Title: "Remove asset sets from a Google Ads account",
 	Description: "Remove one to 10 asset sets of a Google Ads account (one remove operation each). Google marks a " +
 		"removed asset set REMOVED; no tool of this provider brings it back. Offers no response_content_type: a " +
-		"removed asset set has no mutable resource to show." + assetSetNote + mutateNote,
+		"removed asset set has no mutable resource to show." + assetSetNote + mutateListListedNote,
 	Tags: []string{"google", "ads", "assets", "asset-sets", "remove"}, Provider: Provider, RequiresToolAllowList: true,
 	Risk: changeRisk(capability.EffectDelete, capability.IdempotencyIdempotent, assetSetSensitivity),
 	InputSchema: encoded(object(schema{"customer_id": customerIDArgument,

@@ -322,7 +322,7 @@ var cbmCustomerArgument = capability.Argument{Name: "customer_id", Required: tru
 var campaignBidModifiersCreate = capability.Descriptor{
 	ID: campaignBidModifiersCreateID, Version: 1, Title: "Create campaign bid modifiers in a Google Ads account",
 	Description: "Create one to 10 campaign bid modifiers: for each entry a campaign (campaign_id), the " +
-		"interaction_type CALLS and the bid_modifier factor." + cbmNote + mutateNote,
+		"interaction_type CALLS and the bid_modifier factor." + cbmNote + mutateListListedNote,
 	Tags: []string{"google", "ads", "bid-modifiers", "create"}, Provider: Provider, RequiresToolAllowList: true,
 	Risk: changeRisk(capability.EffectCreate, capability.IdempotencyNonIdempotent, cbmSensitivity),
 	InputSchema: encoded(object(schema{
@@ -349,7 +349,7 @@ var campaignBidModifiersUpdate = capability.Descriptor{
 	ID: campaignBidModifiersUpdateID, Version: 1, Title: "Change campaign bid modifiers of a Google Ads account",
 	Description: "Change the bid_modifier factor of one to 10 existing campaign bid modifiers (an update with the " +
 		"field mask bidModifier): the criterion of a modifier cannot change, so only the factor is offered." +
-		cbmNote + mutateNote,
+		cbmNote + mutateListListedNote,
 	Tags: []string{"google", "ads", "bid-modifiers", "update"}, Provider: Provider, RequiresToolAllowList: true,
 	Risk: changeRisk(capability.EffectUpdate, capability.IdempotencyIdempotent, cbmSensitivity),
 	InputSchema: encoded(object(schema{
@@ -375,7 +375,7 @@ var campaignBidModifiersRemove = capability.Descriptor{
 	ID: campaignBidModifiersRemoveID, Version: 1, Title: "Remove campaign bid modifiers from a Google Ads account",
 	Description: "Remove one to 10 existing campaign bid modifiers (a remove of " +
 		"customers/ID/campaignBidModifiers/CAMPAIGN_ID~CRITERION_ID, built from customer_id, campaign_id and " +
-		"criterion_id): the bids of the campaign no longer carry the factor." + cbmNote + mutateNote,
+		"criterion_id): the bids of the campaign no longer carry the factor." + cbmNote + mutateListListedNote,
 	Tags: []string{"google", "ads", "bid-modifiers", "remove"}, Provider: Provider, RequiresToolAllowList: true,
 	Risk: changeRisk(capability.EffectDelete, capability.IdempotencyIdempotent, cbmSensitivity),
 	InputSchema: encoded(object(schema{

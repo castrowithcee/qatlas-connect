@@ -4,7 +4,7 @@ description: >
 type: knowledge
 edit: shared
 created: 2026-11-22
-updated: 2026-11-22
+updated: 2026-11-23
 ---
 
 # Google Ads: user list tools
@@ -133,8 +133,8 @@ The tools label lists; they upload nothing and read no member.
 
 ## Quota and errors
 
-Each call counts as one operation of the daily quota, a refused one too, plus the membership read and the manager
-check when they apply, however many entries it holds. A change that Google validated and refused ends as
+Each entry of the list counts as one operation of the daily quota, a refused request too, plus the membership read
+and the manager check when they apply. A change that Google validated and refused ends as
 `provider-error` with the error category and code in the message (such as `userListError INVALID_NAME`), and
 the field path of the failing operation in the original; the other codes of the README apply.
 

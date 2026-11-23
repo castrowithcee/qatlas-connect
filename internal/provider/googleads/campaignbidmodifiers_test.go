@@ -63,7 +63,7 @@ func TestCampaignBidModifierToolsAreRegisteredAsDescribed(t *testing.T) {
 			d.Risk.Confirmation != capability.ConfirmationRequired || !d.Risk.OpenWorld || !d.RequiresToolAllowList {
 			t.Fatalf("%s = %+v", id, d)
 		}
-		if !strings.HasSuffix(d.Description, mutateNote) {
+		if !strings.HasSuffix(d.Description, mutateListListedNote) {
 			t.Errorf("%s: description does not end on the note of how it is offered", id)
 		}
 		for _, word := range []string{"outcome is unknown", "never repeats", "atomic", "CALLS", "spend"} {

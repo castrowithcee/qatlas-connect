@@ -4,7 +4,7 @@ description: >
 type: knowledge
 edit: shared
 created: 2026-11-22
-updated: 2026-11-22
+updated: 2026-11-23
 ---
 
 # Google Ads: label tools
@@ -62,9 +62,9 @@ campaign, an ad group, an ad, a keyword, or an account is not offered either.
 - **Errors.** A change that Google validated and refused ends as `provider-error` with the error category and code
   in the message, such as `labelError DUPLICATE_NAME`, and the field path in the original. The other codes of the
   README apply.
-- **Quota.** Each request counts as one operation, a refused one too, however many operations the list holds. A
-  call may add one operation for the membership read below a manager target and one for the check that the
-  account is no manager.
+- **Quota.** Each entry of the list counts as one operation of the daily quota, in a refused request too. A call
+  may add one operation for the membership read below a manager target and one for the check that the account is no
+  manager.
 - **Manager accounts.** A manager account has labels of its own. On a connection with targets, such an account
   needs a manager target that names it (`managers/ID`): a customer target that names it, and a manager that is
   only reached below a manager target, are refused as `invalid-request`. Google documents that the background

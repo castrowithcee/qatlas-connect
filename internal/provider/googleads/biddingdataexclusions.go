@@ -594,7 +594,7 @@ var bdeCreate = capability.Descriptor{
 	ID: biddingDataExclusionsCreateID, Version: 1, Title: "Create bidding data exclusions in a Google Ads account",
 	Description: "Create one or more bidding data exclusions in a Google Ads account, each with a scope, a start and " +
 		"an end, and optionally a name, a description, devices and the campaigns or channel types it covers." +
-		bdeNote + " The status of an exclusion is output only and no argument." + mutateNote,
+		bdeNote + " The status of an exclusion is output only and no argument." + mutateListListedNote,
 	Tags: []string{"google", "ads", "bidding", "data-exclusions", "create"}, Provider: Provider, RequiresToolAllowList: true,
 	Risk: changeRisk(capability.EffectCreate, capability.IdempotencyNonIdempotent, bdeSensitivity),
 	InputSchema: encoded(object(schema{
@@ -623,7 +623,7 @@ var bdeUpdate = capability.Descriptor{
 	Description: "Change existing bidding data exclusions of a Google Ads account (an update with a field mask that " +
 		"names exactly the fields given). Only the data_exclusion_id selects an exclusion: its resource name is built " +
 		"from customer_id and data_exclusion_id. An empty description or an empty devices list clears it. The status " +
-		"of an exclusion is output only and no argument." + bdeNote + mutateNote,
+		"of an exclusion is output only and no argument." + bdeNote + mutateListListedNote,
 	Tags: []string{"google", "ads", "bidding", "data-exclusions", "update"}, Provider: Provider, RequiresToolAllowList: true,
 	Risk: changeRisk(capability.EffectUpdate, capability.IdempotencyIdempotent, bdeSensitivity),
 	InputSchema: encoded(object(schema{
@@ -652,7 +652,7 @@ var bdeRemove = capability.Descriptor{
 	Description: "Remove existing bidding data exclusions of a Google Ads account (a remove of " +
 		"customers/ID/biddingDataExclusions/N, built from customer_id and data_exclusion_id). The bidding strategies " +
 		"then learn from the data of that period again. Google marks a removed exclusion REMOVED; no tool of this " +
-		"provider brings it back." + bdeNote + mutateNote,
+		"provider brings it back." + bdeNote + mutateListListedNote,
 	Tags: []string{"google", "ads", "bidding", "data-exclusions", "remove"}, Provider: Provider, RequiresToolAllowList: true,
 	Risk: changeRisk(capability.EffectDelete, capability.IdempotencyIdempotent, bdeSensitivity),
 	InputSchema: encoded(object(schema{

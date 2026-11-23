@@ -434,7 +434,7 @@ var adGroupAdsCreate = capability.Descriptor{
 		adGroupAdSpendNote + adPolicyNote + " An image ad takes image_asset, or the bytes of an image as content_base64 up " +
 		"to 4 MiB, never both; a larger image or a local file goes through assets.create and image_asset. Not offered: members Google fills itself, the deprecated or no longer " +
 		"creatable types (expanded_text_ad, legacy_responsive_display_ad, legacy_app_install_ad, shopping_smart_ad; " +
-		"call-only ads no longer exist in v26), and the copy source of an image ad." + mutateNote,
+		"call-only ads no longer exist in v26), and the copy source of an image ad." + mutateListListedNote,
 	Tags: []string{"google", "ads", "ad-group-ads", "create"}, Provider: Provider, RequiresToolAllowList: true,
 	Risk:        changeRisk(capability.EffectCreate, capability.IdempotencyNonIdempotent, adGroupAdSensitivity),
 	InputSchema: encoded(adGroupAdInputSchema(true)), OutputSchema: encoded(adGroupAdOutputSchema),
@@ -458,7 +458,7 @@ var adGroupAdsUpdate = capability.Descriptor{
 		"Each entry names the ad by resource_name and the members to change: status (ENABLED or PAUSED), " +
 		"start_date_time and end_date_time (an empty text clears), and ad_group_ad_asset_automation_settings (the list " +
 		"replaces the current one). The ad itself and its ad group are immutable in this call; the content of an ad " +
-		"is not changed here. Setting status to ENABLED starts serving. " + adGroupAdSpendNote + adPolicyNote + mutateNote,
+		"is not changed here. Setting status to ENABLED starts serving. " + adGroupAdSpendNote + adPolicyNote + mutateListListedNote,
 	Tags: []string{"google", "ads", "ad-group-ads", "update"}, Provider: Provider, RequiresToolAllowList: true,
 	Risk:        changeRisk(capability.EffectUpdate, capability.IdempotencyIdempotent, adGroupAdSensitivity),
 	InputSchema: encoded(adGroupAdInputSchema(false)), OutputSchema: encoded(adGroupAdOutputSchema),
@@ -475,7 +475,7 @@ var adGroupAdsRemove = capability.Descriptor{
 	Description: "Remove up to 10 ads of a Google Ads account (AdGroupAdService.MutateAdGroupAds with remove " +
 		"operations): Google applies all of them or none. A removed ad stops serving and cannot be enabled again; " +
 		"its history stays readable with reports.search. Resource names must be ads of customer_id. Offers no " +
-		"response_content_type: a removed ad has no mutable resource to show." + mutateNote,
+		"response_content_type: a removed ad has no mutable resource to show." + mutateListListedNote,
 	Tags: []string{"google", "ads", "ad-group-ads", "remove"}, Provider: Provider, RequiresToolAllowList: true,
 	Risk: changeRisk(capability.EffectDelete, capability.IdempotencyIdempotent, adGroupAdSensitivity),
 	InputSchema: encoded(object(schema{"customer_id": customerIDArgument,

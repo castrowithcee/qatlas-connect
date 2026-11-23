@@ -77,7 +77,7 @@ var adGroupAdsRemoveAutomaticallyCreatedAssets = capability.Descriptor{
 		"descriptions, from one ad, each named by asset and asset field type " +
 		"(AdGroupAdService.RemoveAutomaticallyCreatedAssets). The asset itself stays in the account; only its use " +
 		"by the ad for that field type ends. The service has no validate_only and no partial failure, so the tool " +
-		"offers none; the request is one atomic transaction and answers nothing but success." + mutateNote,
+		"offers none; the request is one atomic transaction and answers nothing but success." + mutateListListedNote,
 	Tags: []string{"google", "ads", "ad-group-ads", "assets", "remove"}, Provider: Provider, RequiresToolAllowList: true,
 	Risk: changeRisk(capability.EffectDelete, capability.IdempotencyIdempotent,
 		"ad content of a Google Ads account"),

@@ -877,7 +877,7 @@ var recommendationsDismiss = capability.Descriptor{
 		"Nothing else in the account changes. The request is atomic, without partial_failure: Google dismisses all " +
 		"of them or none, and the reference asks for recommendations of one type per request. The service has no " +
 		"validate_only, so this tool has none either: the call dismisses. Recommendations are named by their " +
-		"resource names, customers/CUSTOMER_ID/recommendations/ID of the account of the call." + mutateNote,
+		"resource names, customers/CUSTOMER_ID/recommendations/ID of the account of the call." + mutateListNote,
 	Tags: []string{"google", "ads", "recommendations", "dismiss"}, Provider: Provider,
 	Risk: changeRisk(capability.EffectUpdate, capability.IdempotencyNonIdempotent,
 		"suggestions of a Google Ads account: hides recommendations; no spend changes"),

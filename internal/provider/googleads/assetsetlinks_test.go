@@ -116,8 +116,8 @@ func TestSetLinkToolsAreRegisteredAsDescribed(t *testing.T) {
 				t.Fatalf("%s = %+v", id, d)
 			}
 			// Neither tool is a listed-only tool: a connection with the matching effect offers both.
-			if d.RequiresToolAllowList || !strings.HasSuffix(d.Description, changeNote) ||
-				strings.HasSuffix(d.Description, mutateNote) {
+			if d.RequiresToolAllowList || !strings.HasSuffix(d.Description, mutateListNote) ||
+				strings.HasSuffix(d.Description, mutateListListedNote) {
 				t.Errorf("%s: offered by the tools list only = %v", id, d.RequiresToolAllowList)
 			}
 			if slices.Contains(metadata.Profiles[0].Tools, id) || slices.Contains(readTools, id) {

@@ -389,7 +389,7 @@ var adParametersCreate = capability.Descriptor{
 	Description: "Create up to 10 ad parameters for keywords of a Google Ads account (AdParameterService." +
 		"MutateAdParameters with create operations): Google applies all of them or none. Each entry needs " +
 		"ad_group_criterion (the keyword), parameter_index (1 or 2) and insertion_text (a number such as 99.99, " +
-		"$99.99, EUR200, 1.0%, 25+ or 4/1; Qatlas asks for it, Google does not require it). " + adParameterNote + changeNote,
+		"$99.99, EUR200, 1.0%, 25+ or 4/1; Qatlas asks for it, Google does not require it). " + adParameterNote + mutateListNote,
 	Tags: []string{"google", "ads", "ad-parameters", "create"}, Provider: Provider,
 	Risk:        changeRisk(capability.EffectCreate, capability.IdempotencyNonIdempotent, adParameterSensitivity),
 	InputSchema: encoded(adParameterInputSchema(adParametersCreateID)), OutputSchema: encoded(adParameterOutputSchema),
@@ -407,7 +407,7 @@ var adParametersUpdate = capability.Descriptor{
 	Description: "Change the insertion text of up to 10 ad parameters of a Google Ads account (AdParameterService." +
 		"MutateAdParameters with update operations and a field mask): Google applies all of them or none. Each " +
 		"entry names the ad parameter by resource_name and gives insertion_text, the one member that can change; " +
-		"the keyword and the index are fixed after creation. " + adParameterNote + changeNote,
+		"the keyword and the index are fixed after creation. " + adParameterNote + mutateListNote,
 	Tags: []string{"google", "ads", "ad-parameters", "update"}, Provider: Provider,
 	Risk:        changeRisk(capability.EffectUpdate, capability.IdempotencyIdempotent, adParameterSensitivity),
 	InputSchema: encoded(adParameterInputSchema(adParametersUpdateID)), OutputSchema: encoded(adParameterOutputSchema),
@@ -425,7 +425,7 @@ var adParametersRemove = capability.Descriptor{
 		"with remove operations): Google applies all of them or none. The ads of the keyword no longer get the " +
 		"value of the parameter in their placeholder; an ad parameter that is removed can be created again. " +
 		"Resource names must be ad parameters of customer_id. Offers no response_content_type: a removed ad " +
-		"parameter has no mutable resource to show." + mutateNote,
+		"parameter has no mutable resource to show." + mutateListListedNote,
 	Tags: []string{"google", "ads", "ad-parameters", "remove"}, Provider: Provider, RequiresToolAllowList: true,
 	Risk: changeRisk(capability.EffectDelete, capability.IdempotencyIdempotent, adParameterSensitivity),
 	InputSchema: encoded(object(schema{"customer_id": customerIDArgument,

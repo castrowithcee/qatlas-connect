@@ -257,7 +257,7 @@ var adGroupAssetsCreate = capability.Descriptor{
 	Description: "Attach existing assets to ad groups of a Google Ads account, each for one field type, " +
 		"optionally with the status ENABLED or PAUSED." + adGroupAssetsNote +
 		" Offered by a connection with the create effect or whose tools list names it; no profile holds it." +
-		changeNote,
+		mutateListNote,
 	Tags: []string{"google", "ads", "assets", "adGroups", "create"}, Provider: Provider,
 	Risk: changeRisk(capability.EffectCreate, capability.IdempotencyNonIdempotent, adGroupAssetsSensitivity),
 	InputSchema: encoded(object(schema{
@@ -282,7 +282,7 @@ var adGroupAssetsUpdate = capability.Descriptor{
 		"Ad group, asset, and field type cannot be changed: they name the link. A link is ended with " +
 		"ad-group-assets.remove, not with a status." + adGroupAssetsNote +
 		" Offered by a connection with the update effect or whose tools list names it; no profile holds it." +
-		changeNote,
+		mutateListNote,
 	Tags: []string{"google", "ads", "assets", "adGroups", "update"}, Provider: Provider,
 	Risk: changeRisk(capability.EffectUpdate, capability.IdempotencyIdempotent, adGroupAssetsSensitivity),
 	InputSchema: encoded(object(schema{
@@ -307,7 +307,7 @@ var adGroupAssetsRemove = capability.Descriptor{
 		"a removed link REMOVED; no tool of this provider brings it back, but the same asset can be attached " +
 		"again." + adGroupAssetsNote +
 		" Offered by a connection with the delete effect or whose tools list names it; no profile holds it." +
-		changeNote,
+		mutateListNote,
 	Tags: []string{"google", "ads", "assets", "adGroups", "remove"}, Provider: Provider,
 	Risk: changeRisk(capability.EffectDelete, capability.IdempotencyIdempotent, adGroupAssetsSensitivity),
 	InputSchema: encoded(object(schema{
