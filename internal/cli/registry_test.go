@@ -199,6 +199,7 @@ func TestDefaultRegistry(t *testing.T) {
 		"google.ads.keyword-plan-ideas.generate-ad-group-themes", "google.ads.keyword-plan-ideas.generate-forecast-metrics",
 		"google.ads.keyword-plans.create", "google.ads.keyword-plans.update", "google.ads.keyword-plans.remove",
 		"google.ads.keyword-plan-campaigns.create", "google.ads.keyword-plan-campaigns.update", "google.ads.keyword-plan-campaigns.remove",
+		"google.ads.keyword-plan-ad-group-keywords.create", "google.ads.keyword-plan-ad-group-keywords.update", "google.ads.keyword-plan-ad-group-keywords.remove",
 		"google.ads.keyword-plan-ad-groups.create", "google.ads.keyword-plan-ad-groups.update", "google.ads.keyword-plan-ad-groups.remove",
 		"google.ads.reach-plans.list-locations", "google.ads.reach-plans.list-products", "google.ads.reach-plans.generate-forecast",
 		"google.ads.reach-plans.generate-conversion-rates", "google.ads.reach-plans.list-user-lists",
