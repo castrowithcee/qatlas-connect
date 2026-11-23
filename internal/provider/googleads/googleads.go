@@ -37,7 +37,8 @@ var readTools = []string{customersListAccessibleID, customersGetID, customerClie
 	productLinksListID, productLinkInvitationsListID, dataLinksListID, billingSetupsListID, accountBudgetsListID,
 	accountBudgetProposalsListID, paymentsAccountsListID, invoicesListID, incentivesFetchID,
 	thirdPartyAppAnalyticsLinksListID,
-	recommendationsGenerateID, experimentsListAsyncErrorsID, contentCreatorInsightsGenerateCreatorID,
+	recommendationsGenerateID, experimentsListAsyncErrorsID, campaignDraftsListAsyncErrorsID,
+	contentCreatorInsightsGenerateCreatorID,
 	contentCreatorInsightsGenerateTrendingID, geoTargetConstantsSuggestID, keywordThemeConstantsSuggestID,
 	brandSuggestionsSuggestID}
 
@@ -92,7 +93,7 @@ func Register(reg *capability.Registry) error {
 		Profiles: []config.ToolProfile{{
 			ID: "read", Title: "Read", Recommended: true,
 			Description: "lists the accounts the credential reaches, reads account settings, the hierarchy " +
-				"below a manager account and the users of an account, lists the invitations and the multi-party approval requests of an account, lists its manager, client, account, product and data links, lists the billing setups, account budgets, budget proposals and payments accounts of an account, lists the invoices of a billing setup, fetches the incentive offer of the user and lists the third-party app analytics links of an account, lists the asynchronous errors of an experiment, generates recommendations for a campaign described in the arguments, suggests geo target constants, keyword themes and brands, reads YouTube creator and trending insights, runs reports and reads the field reference; the adwords scope is the only one Google offers and also allows changes, " +
+				"below a manager account and the users of an account, lists the invitations and the multi-party approval requests of an account, lists its manager, client, account, product and data links, lists the billing setups, account budgets, budget proposals and payments accounts of an account, lists the invoices of a billing setup, fetches the incentive offer of the user and lists the third-party app analytics links of an account, lists the asynchronous errors of an experiment and of a campaign draft promotion, generates recommendations for a campaign described in the arguments, suggests geo target constants, keyword themes and brands, reads YouTube creator and trending insights, runs reports and reads the field reference; the adwords scope is the only one Google offers and also allows changes, " +
 				"although no tool of this profile changes anything",
 			Tools: readTools,
 		}},
@@ -371,5 +372,14 @@ func Register(reg *capability.Registry) error {
 			ConfirmationSummary: experimentsUpdateSummary},
 		capability.Operation{Descriptor: experimentsRemove, Handler: handleExperimentsRemove,
 			ConfirmationSummary: experimentsRemoveSummary},
-		capability.Operation{Descriptor: experimentsListAsyncErrors, Handler: handleExperimentsListAsyncErrors})
+		capability.Operation{Descriptor: experimentsListAsyncErrors, Handler: handleExperimentsListAsyncErrors},
+		capability.Operation{Descriptor: campaignDraftsCreate, Handler: handleCampaignDraftsCreate,
+			ConfirmationSummary: campaignDraftsCreateSummary},
+		capability.Operation{Descriptor: campaignDraftsUpdate, Handler: handleCampaignDraftsUpdate,
+			ConfirmationSummary: campaignDraftsUpdateSummary},
+		capability.Operation{Descriptor: campaignDraftsRemove, Handler: handleCampaignDraftsRemove,
+			ConfirmationSummary: campaignDraftsRemoveSummary},
+		capability.Operation{Descriptor: campaignDraftsPromote, Handler: handleCampaignDraftsPromote,
+			ConfirmationSummary: campaignDraftsPromoteSummary},
+		capability.Operation{Descriptor: campaignDraftsListAsyncErrors, Handler: handleCampaignDraftsListAsyncErrors})
 }
