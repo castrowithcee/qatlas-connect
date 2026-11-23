@@ -1,6 +1,6 @@
 ---
 description: >
-  Describes the label assignment tools of the Google Ads provider: campaign-labels.create and remove, which attach a label to a campaign or detach it, and ad-group-labels.create and remove for an ad group, with the Mutate services and their operations lists, the bound of 10 entries, the composite resource names and how they are built and checked, the absence of an update and of response_content_type, validate_only, confirmation, how both create and remove are reached by effect without the tools list, the unknown outcome, the binding of the label, the object and the resource names to the account, the manager account rule, and the limits of what is verified.
+  Describes the label assignment tools of the Google Ads provider: campaign-labels.create and remove, which attach a label to a campaign or detach it, and ad-group-labels.create and remove for an ad group, and customer-labels.create and remove for the account itself, with the Mutate services and their operations lists, the bound of 10 entries, the composite resource names and how they are built and checked, the absence of an update and of response_content_type, validate_only, confirmation, how both create and remove are reached by effect without the tools list, the unknown outcome, the binding of the label, the object and the resource names to the account, the manager account rule, and the limits of what is verified.
 type: knowledge
 edit: shared
 created: 2026-11-23
@@ -21,13 +21,15 @@ configuration, targets, quotas, and errors apply here too.
 | `google.ads.campaign-labels.remove` | delete | detaches labels from campaigns again |
 | `google.ads.ad-group-labels.create` | create | attaches one to 10 labels to ad groups |
 | `google.ads.ad-group-labels.remove` | delete | detaches labels from ad groups again |
+| `google.ads.customer-labels.create` | create | attaches one to 10 labels to the account |
+| `google.ads.customer-labels.remove` | delete | detaches labels from the account again |
 
 Reading the assignments is not a tool of this page: run `reports.search` on `campaign_label` or `ad_group_label`.
-Labels on ads, on ad group criteria, and on the account are not offered.
+Labels on ads and on ad group criteria are not offered.
 
 ## How the tools are offered
 
-- **All four tools** are offered by a connection whose effects include the effect of the tool (`create` for the
+- **All tools** are offered by a connection whose effects include the effect of the tool (`create` for the
   create tools, `delete` for the remove tools), and by a connection whose `tools` list names them. They belong to
   no profile: the `read` profile holds none of them. A connection with a `tools` list gets exactly the tools the
   list names, whatever its effects are. Unlike `labels.remove`, the remove tools of this page need no `tools`
@@ -83,6 +85,8 @@ Labels on ads, on ad group criteria, and on the account are not offered.
 | `ad-group-labels.create` | `ad_group_labels` | 1 to 10 entries, each an object of `ad_group` (`customers/ID/adGroups/N`) and `label` (`customers/ID/labels/N`), both required, no other member, each pair once |
 | `campaign-labels.remove` | `resource_names` | 1 to 10 distinct `customers/ID/campaignLabels/N~M` of the account |
 | `ad-group-labels.remove` | `resource_names` | 1 to 10 distinct `customers/ID/adGroupLabels/N~M` of the account |
+| `customer-labels.create` | `customer_labels` | 1 to 10 entries, each an object of `label` (`customers/ID/labels/N`) alone, each label once |
+| `customer-labels.remove` | `resource_names` | 1 to 10 distinct `customers/ID/customerLabels/N` of the account |
 | all | `validate_only` | true validates only |
 
 Whether a label exists, and whether a link may exist twice, is Google's to validate. Use `validate_only` to see it.
@@ -102,7 +106,7 @@ A result holds `resource_name` only: the reference of v26 lists no other member 
 Left out on purpose:
 
 - The update of a link. The services of v26 offer create and remove only, and every member of a link is immutable.
-- Labels on ads, on ad group criteria, and on the account.
+- Labels on ads and on ad group criteria.
 - Reading the links, and everything of the labels themselves: see the [label tools](labels.md).
 - `partial_failure`, any free operation, mask, or resource name, and `GoogleAdsService.Mutate`.
 
@@ -118,3 +122,34 @@ Not verified:
 - Which role in Google Ads an account needs for these calls. Google documents it per call nowhere.
 - Limits on the number of labels per campaign or ad group. The pages read do not state them. No live call has been made.
 - Whether removing a link that does not exist is answered as success or as an error.
+
+## Account labels
+
+`customer-labels.create` and `customer-labels.remove` attach a label to the account of the call and detach it again.
+A `CustomerLabel` has one part, since the account is the one of `customer_id`: its resource name is
+`customers/ID/customerLabels/LABEL_ID`, and a result holds that name only. Everything above applies as written,
+except for the number of IDs in a key.
+
+- **Create.** An entry is an object of `label` alone, `customers/ID/labels/N`. Account labels are usually made in the
+  manager account and attached to client accounts, so `ID` is the `customer_id` of the call or the fixed
+  `login_customer_id` option of the connection. Any other account is refused as `invalid-request` before a secret is
+  read. Google resolves the label by its ID and does not validate the account part of the name. The create request
+  still goes to `customer_id`.
+- **Remove.** An entry is `customers/ID/customerLabels/N` as `reports.search` returns it on `customer_label`. A key
+  of two IDs is refused.
+- **Manager accounts.** A manager account carries labels of its own. On a connection with targets, `customer_id`
+  of a manager needs a manager target, as above. Google notes that `reports.search` on `customer_label` may return
+  more labels of an account when the login manager has more access. These tools create and remove only the links
+  they name.
+
+Checked against the v26 definitions of `CustomerLabel`, `CustomerLabelService`, `MutateCustomerLabelsRequest`,
+`CustomerLabelOperation`, and `MutateCustomerLabelResult`: the request holds `customer_id`, `operations`,
+`partial_failure`, and `validate_only` and no `response_content_type`, the operation holds `create` and `remove`
+only, and no limit on the number of operations is named.
+
+Not verified for account labels:
+
+- `CustomerLabel.label` is marked output only, and its text says it should not be set when a `CustomerLabel` is
+  created, yet the create operation can name the label only through it. The tool sends it. No live call has been
+  made.
+- Whether Google accepts the label of the login manager for every client account below it.

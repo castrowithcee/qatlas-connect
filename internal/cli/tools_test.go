@@ -639,6 +639,8 @@ func TestToolsFiltersByNamespaceAndQuery(t *testing.T) {
 		"google.ads.customer-assets.create", "google.ads.customer-assets.update", "google.ads.customer-assets.remove",
 		"google.ads.campaign-labels.create", "google.ads.campaign-labels.remove",
 		"google.ads.ad-group-labels.create", "google.ads.ad-group-labels.remove",
+		"google.ads.customer-labels.create", "google.ads.customer-labels.remove",
+		"google.ads.customizer-attributes.create", "google.ads.customizer-attributes.remove",
 		"google.ads.campaign-criteria.create", "google.ads.campaign-criteria.update", "google.ads.campaign-criteria.remove",
 		"google.ads.shared-sets.create", "google.ads.shared-sets.update", "google.ads.shared-sets.remove",
 		"google.ads.campaign-shared-sets.create", "google.ads.campaign-shared-sets.remove",
