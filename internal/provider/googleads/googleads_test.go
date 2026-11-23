@@ -54,13 +54,16 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 		campaignsRemoveID, campaignsUpdateID, contentCreatorInsightsGenerateCreatorID,
 		contentCreatorInsightsGenerateTrendingID, conversionActionsCreateID, conversionActionsRemoveID,
 		conversionActionsUpdateID, conversionCustomVariablesCreateID, conversionCustomVariablesUpdateID,
+		conversionValueRulesCreateID, conversionValueRulesRemoveID, conversionValueRulesUpdateID,
 		customAudiencesCreateID, customAudiencesRemoveID, customAudiencesUpdateID, customInterestsCreateID,
-		customInterestsUpdateID, customerAssetSetsCreateID, customerAssetSetsRemoveID, customerBudgetNetworkSettingsCreateID, customerBudgetNetworkSettingsUpdateID,
+		customInterestsUpdateID, customerAssetSetsCreateID, customerAssetSetsRemoveID, customerAssetsCreateID, customerAssetsRemoveID,
+		customerAssetsUpdateID, customerBudgetNetworkSettingsCreateID, customerBudgetNetworkSettingsUpdateID,
 		customerClientLinksListID, customerClientLinksUpdateID, customerClientsListID, customerManagerLinksListID,
 		customerManagerLinksUpdateID, customerNegativeCriteriaCreateID, customerNegativeCriteriaRemoveID,
 		customerUserAccessInvitationsListID, customerUserAccessInvitationsRemoveID,
 		customerUserAccessesListID, customerUserAccessesRemoveID, customerUserAccessesUpdateID, customersGetID,
-		customersListAccessibleID, customersUpdateID, dataLinksListID, dataLinksRemoveID, dataLinksUpdateID, fieldsGetID, fieldsSearchID,
+		customersListAccessibleID, customersUpdateID, dataLinksListID, dataLinksRemoveID, dataLinksUpdateID,
+		experimentsCreateID, experimentsListAsyncErrorsID, experimentsRemoveID, experimentsUpdateID, fieldsGetID, fieldsSearchID,
 		geoTargetConstantsSuggestID,
 		incentivesFetchID, invoicesListID, keywordThemeConstantsSuggestID, labelsCreateID, labelsRemoveID, labelsUpdateID,
 		multiPartyAuthReviewsListID, multiPartyAuthReviewsResolveID, paymentsAccountsListID,
@@ -77,15 +80,17 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 		listed := slices.Contains(changeToolIDs, tool.ID) || slices.Contains(assetToolIDs, tool.ID) ||
 			tool.ID == recommendationsApplyID || tool.ID == campaignGroupsRemoveID || tool.ID == sharedSetsRemoveID ||
 			tool.ID == campaignSharedSetsRemoveID || tool.ID == customerNegativeCriteriaRemoveID ||
-			tool.ID == sharedCriteriaRemoveID
+			tool.ID == sharedCriteriaRemoveID || tool.ID == experimentsRemoveID
 		changing := listed || slices.Contains(notListedOnly, tool.ID) || tool.ID == labelsCreateID ||
 			tool.ID == labelsUpdateID || tool.ID == campaignGroupsCreateID || tool.ID == campaignGroupsUpdateID ||
 			tool.ID == campaignAssetsCreateID || tool.ID == campaignAssetsUpdateID || tool.ID == campaignAssetsRemoveID ||
 			tool.ID == assetSetsCreateID || tool.ID == assetSetsUpdateID ||
 			tool.ID == adGroupAssetsCreateID || tool.ID == adGroupAssetsUpdateID || tool.ID == adGroupAssetsRemoveID ||
+			tool.ID == customerAssetsCreateID || tool.ID == customerAssetsUpdateID || tool.ID == customerAssetsRemoveID ||
 			slices.Contains(setLinkToolIDs, tool.ID) ||
 			tool.ID == sharedSetsCreateID || tool.ID == sharedSetsUpdateID || tool.ID == campaignSharedSetsCreateID ||
-			tool.ID == customerNegativeCriteriaCreateID || tool.ID == sharedCriteriaCreateID
+			tool.ID == customerNegativeCriteriaCreateID || tool.ID == sharedCriteriaCreateID ||
+			tool.ID == experimentsCreateID || tool.ID == experimentsUpdateID
 		if tool.ID != want[i] || (tool.Effect == config.EffectRead) == changing || tool.RequiresToolAllowList != listed {
 			t.Errorf("tool %d = %+v", i, tool)
 		}
