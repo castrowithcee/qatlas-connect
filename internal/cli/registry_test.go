@@ -208,6 +208,8 @@ func TestDefaultRegistry(t *testing.T) {
 		"google.ads.ad-group-labels.create", "google.ads.ad-group-labels.remove",
 		"google.ads.customer-labels.create", "google.ads.customer-labels.remove",
 		"google.ads.customizer-attributes.create", "google.ads.customizer-attributes.remove",
+		"google.ads.campaign-customizers.create", "google.ads.campaign-customizers.remove",
+		"google.ads.ad-group-customizers.create", "google.ads.ad-group-customizers.remove",
 		"google.ads.ad-group-ad-labels.create", "google.ads.ad-group-ad-labels.remove",
 		"google.ads.ad-group-criterion-labels.create", "google.ads.ad-group-criterion-labels.remove",
 		"google.ads.campaign-criteria.create", "google.ads.campaign-criteria.update", "google.ads.campaign-criteria.remove",

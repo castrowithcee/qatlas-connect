@@ -38,6 +38,7 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 		adGroupAssetsUpdateID, adGroupBidModifiersCreateID, adGroupBidModifiersRemoveID, adGroupBidModifiersUpdateID,
 		adGroupCriteriaCreateID, adGroupCriteriaRemoveID, adGroupCriteriaUpdateID,
 		adGroupCriterionLabelsCreateID, adGroupCriterionLabelsRemoveID,
+		adGroupCustomizersCreateID, adGroupCustomizersRemoveID,
 		adGroupLabelsCreateID, adGroupLabelsRemoveID, adGroupsCreateID,
 		adGroupsRemoveID, adGroupsUpdateID, adParametersCreateID, adParametersRemoveID, adParametersUpdateID, adsUpdateID,
 		assetGroupAssetsCreateID, assetGroupAssetsRemoveID, assetGroupAssetsUpdateID, assetGroupsCreateID, assetGroupsRemoveID, assetGroupsUpdateID,
@@ -51,7 +52,7 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 		campaignAssetsUpdateID, campaignAutomaticallyCreatedAssetsRemoveID, campaignBidModifiersCreateID, campaignBidModifiersRemoveID, campaignBidModifiersUpdateID,
 		campaignBudgetsCreateID, campaignBudgetsRemoveID,
 		campaignBudgetsUpdateID, campaignConversionGoalsUpdateID, campaignCriteriaCreateID, campaignCriteriaRemoveID,
-		campaignCriteriaUpdateID, campaignDraftsCreateID, campaignDraftsListAsyncErrorsID, campaignDraftsPromoteID,
+		campaignCriteriaUpdateID, campaignCustomizersCreateID, campaignCustomizersRemoveID, campaignDraftsCreateID, campaignDraftsListAsyncErrorsID, campaignDraftsPromoteID,
 		campaignDraftsRemoveID, campaignDraftsUpdateID, campaignGoalConfigsCreateID, campaignGoalConfigsRemoveID,
 		campaignGoalConfigsUpdateID, campaignGroupsCreateID, campaignGroupsRemoveID,
 		campaignGroupsUpdateID, campaignLabelsCreateID, campaignLabelsRemoveID, campaignSharedSetsCreateID, campaignSharedSetsRemoveID, campaignsCreateID, campaignsEnablePMaxBrandGuidelinesID,
@@ -104,6 +105,7 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 			tool.ID == assetGroupAssetsCreateID || tool.ID == assetGroupAssetsUpdateID || tool.ID == assetGroupAssetsRemoveID ||
 			tool.ID == customerAssetsCreateID || tool.ID == customerAssetsUpdateID || tool.ID == customerAssetsRemoveID ||
 			slices.Contains(setLinkToolIDs, tool.ID) || slices.Contains(labelAssignmentToolIDs, tool.ID) || tool.ID == customizerAttributesCreateID ||
+			slices.Contains(customizerToolIDs, tool.ID) ||
 			tool.ID == sharedSetsCreateID || tool.ID == sharedSetsUpdateID || tool.ID == campaignSharedSetsCreateID ||
 			tool.ID == customerNegativeCriteriaCreateID || tool.ID == sharedCriteriaCreateID ||
 			tool.ID == experimentsCreateID || tool.ID == experimentsUpdateID || tool.ID == campaignDraftsCreateID ||
