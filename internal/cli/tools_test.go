@@ -614,6 +614,8 @@ func TestToolsFiltersByNamespaceAndQuery(t *testing.T) {
 		"google.ads.bidding-strategies.create", "google.ads.bidding-strategies.update", "google.ads.bidding-strategies.remove",
 		"google.ads.bidding-data-exclusions.create", "google.ads.bidding-data-exclusions.update",
 		"google.ads.bidding-data-exclusions.remove",
+		"google.ads.bidding-seasonality-adjustments.create", "google.ads.bidding-seasonality-adjustments.update",
+		"google.ads.bidding-seasonality-adjustments.remove",
 		"google.ads.ad-group-bid-modifiers.create", "google.ads.ad-group-bid-modifiers.update",
 		"google.ads.ad-group-bid-modifiers.remove",
 		"google.ads.recommendations.generate", "google.ads.recommendations.apply", "google.ads.recommendations.dismiss",
