@@ -37,7 +37,7 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 		adGroupAssetSetsCreateID, adGroupAssetSetsRemoveID, adGroupAssetsCreateID, adGroupAssetsRemoveID,
 		adGroupAssetsUpdateID, adGroupBidModifiersCreateID, adGroupBidModifiersRemoveID, adGroupBidModifiersUpdateID,
 		adGroupCriteriaCreateID, adGroupCriteriaRemoveID, adGroupCriteriaUpdateID,
-		adGroupsCreateID,
+		adGroupLabelsCreateID, adGroupLabelsRemoveID, adGroupsCreateID,
 		adGroupsRemoveID, adGroupsUpdateID, adParametersCreateID, adParametersRemoveID, adParametersUpdateID, adsUpdateID,
 		assetSetAssetsCreateID, assetSetAssetsRemoveID,
 		assetSetsCreateID, assetSetsRemoveID, assetSetsUpdateID, assetsCreateID,
@@ -50,7 +50,7 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 		campaignBudgetsCreateID, campaignBudgetsRemoveID,
 		campaignBudgetsUpdateID, campaignCriteriaCreateID, campaignCriteriaRemoveID,
 		campaignCriteriaUpdateID, campaignGroupsCreateID, campaignGroupsRemoveID,
-		campaignGroupsUpdateID, campaignSharedSetsCreateID, campaignSharedSetsRemoveID, campaignsCreateID, campaignsEnablePMaxBrandGuidelinesID,
+		campaignGroupsUpdateID, campaignLabelsCreateID, campaignLabelsRemoveID, campaignSharedSetsCreateID, campaignSharedSetsRemoveID, campaignsCreateID, campaignsEnablePMaxBrandGuidelinesID,
 		campaignsRemoveID, campaignsUpdateID, conversionActionsCreateID, conversionActionsRemoveID,
 		conversionActionsUpdateID, conversionCustomVariablesCreateID, conversionCustomVariablesUpdateID,
 		customAudiencesCreateID, customAudiencesRemoveID, customAudiencesUpdateID, customInterestsCreateID,
@@ -81,7 +81,7 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 			tool.ID == campaignAssetsCreateID || tool.ID == campaignAssetsUpdateID || tool.ID == campaignAssetsRemoveID ||
 			tool.ID == assetSetsCreateID || tool.ID == assetSetsUpdateID ||
 			tool.ID == adGroupAssetsCreateID || tool.ID == adGroupAssetsUpdateID || tool.ID == adGroupAssetsRemoveID ||
-			slices.Contains(setLinkToolIDs, tool.ID) ||
+			slices.Contains(setLinkToolIDs, tool.ID) || slices.Contains(labelAssignmentToolIDs, tool.ID) ||
 			tool.ID == sharedSetsCreateID || tool.ID == sharedSetsUpdateID || tool.ID == campaignSharedSetsCreateID ||
 			tool.ID == customerNegativeCriteriaCreateID || tool.ID == sharedCriteriaCreateID
 		if tool.ID != want[i] || (tool.Effect == config.EffectRead) == changing || tool.RequiresToolAllowList != listed {
