@@ -295,5 +295,11 @@ func Register(reg *capability.Registry) error {
 		capability.Operation{Descriptor: customerAssetSetsCreate, Handler: customerAssetSetsFamily.handler("create"),
 			ConfirmationSummary: customerAssetSetsFamily.summary("create")},
 		capability.Operation{Descriptor: customerAssetSetsRemove, Handler: customerAssetSetsFamily.handler("remove"),
-			ConfirmationSummary: customerAssetSetsFamily.summary("remove")})
+			ConfirmationSummary: customerAssetSetsFamily.summary("remove")},
+		capability.Operation{Descriptor: campaignCriteriaCreate, Handler: handleCampaignCriteriaCreate,
+			ConfirmationSummary: campaignCriteriaSummary(campaignCriteriaCreateID)},
+		capability.Operation{Descriptor: campaignCriteriaUpdate, Handler: handleCampaignCriteriaUpdate,
+			ConfirmationSummary: campaignCriteriaSummary(campaignCriteriaUpdateID)},
+		capability.Operation{Descriptor: campaignCriteriaRemove, Handler: handleCampaignCriteriaRemove,
+			ConfirmationSummary: campaignCriteriaSummary(campaignCriteriaRemoveID)})
 }

@@ -174,7 +174,8 @@ func TestDefaultRegistry(t *testing.T) {
 		"google.ads.asset-set-assets.create", "google.ads.asset-set-assets.remove",
 		"google.ads.campaign-asset-sets.create", "google.ads.campaign-asset-sets.remove",
 		"google.ads.ad-group-asset-sets.create", "google.ads.ad-group-asset-sets.remove",
-		"google.ads.customer-asset-sets.create", "google.ads.customer-asset-sets.remove")
+		"google.ads.customer-asset-sets.create", "google.ads.customer-asset-sets.remove",
+		"google.ads.campaign-criteria.create", "google.ads.campaign-criteria.update", "google.ads.campaign-criteria.remove")
 }
 
 // Every shipped provider starts new connections with a valid recommended profile that selects reads only,
