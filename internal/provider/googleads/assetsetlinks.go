@@ -52,8 +52,66 @@ type setLinkFamily struct {
 }
 
 // setLinkPart is one object a link ties: a member of the link that holds a resource name of this account.
+// ids is the number of IDs in the key of that object; zero means one. An ad of an ad group has two, so its
+// resource name is customers/ID/adGroupAds/A~B and the key of its link starts with both.
 type setLinkPart struct {
 	name, collection, noun string
+	ids                    int
+}
+
+func (p setLinkPart) count() int { return max(p.ids, 1) }
+
+// form is the shape of the key of the object in texts: N, or N~N for two IDs.
+func (p setLinkPart) form() string { return strings.TrimSuffix(strings.Repeat("N~", p.count()), "~") }
+
+// pattern matches the resource name of the object of an account, whatever its number of IDs.
+func (p setLinkPart) pattern() string {
+	id := `[1-9][0-9]{0,18}`
+	return `^customers/[0-9]{1,10}/` + p.collection + `/` + id + strings.Repeat(`~`+id, p.count()-1) + `$`
+}
+
+// keyIDs returns the IDs of a resource name of the object in the account of the call.
+func (p setLinkPart) keyIDs(name, customerID string) ([]string, bool) {
+	rest, ok := strings.CutPrefix(name, customerName(customerID)+"/"+p.collection+"/")
+	if !ok {
+		return nil, false
+	}
+	ids := strings.Split(rest, "~")
+	if len(ids) != p.count() {
+		return nil, false
+	}
+	for _, id := range ids {
+		if !numericIDPattern.MatchString(id) {
+			return nil, false
+		}
+	}
+	return ids, true
+}
+
+// idCount is the number of IDs in the key of the link: those of all parts in order.
+func (f setLinkFamily) idCount() int {
+	n := 0
+	for _, p := range f.parts {
+		n += p.count()
+	}
+	return n
+}
+
+// partForms is the shape of the keys of the parts in texts: N for all of them, unless a part has several IDs.
+func (f setLinkFamily) partForms() string {
+	forms := make([]string, 0, len(f.parts))
+	for _, p := range f.parts {
+		forms = append(forms, p.form())
+	}
+	if f.idCount() == len(f.parts) {
+		return "N"
+	}
+	return strings.Join(forms, " or ")
+}
+
+// keyForm is the shape of the key of the link in texts, N~N.
+func (f setLinkFamily) keyForm() string {
+	return strings.TrimSuffix(strings.Repeat("N~", f.idCount()), "~")
 }
 
 func (f setLinkFamily) id(verb string) string { return Provider + "." + f.tool + "." + verb }
@@ -70,7 +128,7 @@ func (f setLinkFamily) idsOf(name, customerID string) ([]string, bool) {
 		return nil, false
 	}
 	ids := strings.Split(rest, "~")
-	if len(ids) != len(f.parts) {
+	if len(ids) != f.idCount() {
 		return nil, false
 	}
 	for _, id := range ids {
@@ -85,13 +143,19 @@ func (f setLinkFamily) nameOf(customerID string, ids []string) string {
 	return f.prefix(customerID) + strings.Join(ids, "~")
 }
 
-func (f setLinkFamily) partName(customerID string, i int, id string) string {
-	return customerName(customerID) + "/" + f.parts[i].collection + "/" + id
+// partName is the resource name of part i, built from the IDs of the key of the link.
+func (f setLinkFamily) partName(customerID string, i int, ids []string) string {
+	from := 0
+	for _, p := range f.parts[:i] {
+		from += p.count()
+	}
+	return customerName(customerID) + "/" + f.parts[i].collection + "/" +
+		strings.Join(ids[from:from+f.parts[i].count()], "~")
 }
 
 func (f setLinkFamily) namePattern() string {
 	id := `[1-9][0-9]{0,18}`
-	return `^customers/[0-9]{1,10}/` + f.collection + `/` + id + strings.Repeat(`~`+id, len(f.parts)-1) + `$`
+	return `^customers/[0-9]{1,10}/` + f.collection + `/` + id + strings.Repeat(`~`+id, f.idCount()-1) + `$`
 }
 
 // outputTree is the link as Google answers with it: the parts, bound to the account, and the status, which
@@ -99,7 +163,7 @@ func (f setLinkFamily) namePattern() string {
 func (f setLinkFamily) outputTree() node {
 	fields := []node{textNode("resource_name", "", maxNameArgument)}
 	for _, p := range f.parts {
-		fields = append(fields, resourceNode(p.name, "", p.collection))
+		fields = append(fields, f.nodeOf(p, ""))
 	}
 	if f.account != "" {
 		fields = append(fields, textNode(f.account, "", maxNameArgument))
@@ -110,8 +174,18 @@ func (f setLinkFamily) outputTree() node {
 // partNode is the argument for one part of a link to create.
 func (f setLinkFamily) partNode(i int) node {
 	p := f.parts[i]
-	return resourceNode(p.name, p.noun+" of this account, customers/ID/"+p.collection+"/N; a temporary negative ID is refused",
-		p.collection)
+	return f.nodeOf(p, p.noun+" of this account, customers/ID/"+p.collection+"/"+p.form()+"; a temporary negative ID is refused")
+}
+
+// nodeOf is the member for a part. An object with several IDs is a text with its own pattern, since the
+// resource node of the field tree takes one number.
+func (f setLinkFamily) nodeOf(p setLinkPart, desc string) node {
+	if p.count() == 1 {
+		return resourceNode(p.name, desc, p.collection)
+	}
+	n := textNode(p.name, desc, maxNameArgument)
+	n.pattern = p.pattern()
+	return n
 }
 
 func (f setLinkFamily) createItemSchema() schema {
@@ -213,13 +287,13 @@ func (f setLinkFamily) createOperations(customerID string, items []any) ([]any, 
 		ids := make([]string, 0, len(f.parts))
 		for j, p := range f.parts {
 			value, _ := in[p.name].(string)
-			id, ok := numericIDOf(value, customerID, p.collection)
+			partIDs, ok := p.keyIDs(value, customerID)
 			if !ok {
 				return nil, nil, badRequest(at + "." + p.name + " must be customers/" + queryNumber(customerID) + "/" +
-					p.collection + "/N of the account of customer_id; a temporary ID is not accepted")
+					p.collection + "/" + p.form() + " of the account of customer_id; a temporary ID is not accepted")
 			}
 			body[camel(f.parts[j].name)] = value
-			ids = append(ids, id)
+			ids = append(ids, partIDs...)
 		}
 		name := f.nameOf(customerID, ids)
 		for _, seen := range names {
@@ -249,7 +323,7 @@ func (f setLinkFamily) removeOperations(customerID string, resourceNames []strin
 	for i, name := range resourceNames {
 		if _, ok := f.idsOf(name, customerID); !ok {
 			return nil, badRequest("resource_names[" + strconv.Itoa(i) + "] must be customers/" + queryNumber(customerID) +
-				"/" + f.collection + "/" + strings.Repeat("N~", len(f.parts)-1) + "N of the account of customer_id")
+				"/" + f.collection + "/" + f.keyForm() + " of the account of customer_id")
 		}
 		for _, seen := range resourceNames[:i] {
 			if seen == name {
@@ -285,7 +359,7 @@ func (f setLinkFamily) result(op, customerID string, results []listResult, valid
 					ok = false
 				}
 				for i, p := range f.parts {
-					if got, has := members[p.name].(string); has && got != f.partName(customerID, i, ids[i]) {
+					if got, has := members[p.name].(string); has && got != f.partName(customerID, i, ids) {
 						ok = false
 					}
 				}
@@ -308,7 +382,7 @@ func (f setLinkFamily) fields() []capability.Field {
 			{Name: "customer_id", Description: "The account of the call"},
 			{Name: "validate_only", Description: "true when Google only validated the change"},
 			{Name: "results", Description: "One entry per " + f.noun + ", in the order given, with its resource_name " +
-				"(customers/ID/" + f.collection + "/" + strings.Repeat("N~", len(f.parts)-1) + "N, always of the account " +
+				"(customers/ID/" + f.collection + "/" + f.keyForm() + ", always of the account " +
 				"of the call). Google answers with nothing else. Empty after validate_only"},
 		}
 	}
@@ -316,7 +390,7 @@ func (f setLinkFamily) fields() []capability.Field {
 		{Name: "customer_id", Description: "The account of the call"},
 		{Name: "validate_only", Description: "true when Google only validated the change"},
 		{Name: "results", Description: "One entry per " + f.noun + ", in the order given, with its resource_name " +
-			"(customers/ID/" + f.collection + "/" + strings.Repeat("N~", len(f.parts)-1) + "N, always of the account " +
+			"(customers/ID/" + f.collection + "/" + f.keyForm() + ", always of the account " +
 			"of the call) and, with MUTABLE_RESOURCE, the " + f.noun + " after the change under " + f.resultKey + ": " +
 			f.partList() + f.accountField() + ", resource_name and status as Google returns them. Empty after validate_only"},
 	}
@@ -346,7 +420,7 @@ func (f setLinkFamily) descriptors() (capability.Descriptor, capability.Descript
 	}
 	createArguments := []capability.Argument{assetSetCustomerArgument,
 		{Name: f.argument, Required: true, Description: "One to 10 entries, each an object of " + f.partList() +
-			" as customers/ID/<collection>/N of customer_id, each link once"},
+			" as customers/ID/<collection>/" + f.partForms() + " of customer_id, each link once"},
 		validateOnlyArgument}
 	removeText := "Only the link ends, none of the objects it ties is removed; Google marks the link REMOVED, and it " +
 		"can be created again. Offers no response_content_type: a removed link has no mutable resource to show."
@@ -383,7 +457,7 @@ func (f setLinkFamily) descriptors() (capability.Descriptor, capability.Descript
 		InputSchema: encoded(f.inputSchema(false)), OutputSchema: encoded(f.outputSchema()),
 		Arguments: []capability.Argument{assetSetCustomerArgument,
 			{Name: "resource_names", Required: true, Description: "One to 10 " + f.noun + "s of this account, each once, " +
-				"customers/ID/" + f.collection + "/" + strings.Repeat("N~", len(f.parts)-1) + "N as reports.search returns them"},
+				"customers/ID/" + f.collection + "/" + f.keyForm() + " as reports.search returns them"},
 			validateOnlyArgument},
 		Fields: f.fields(),
 		Examples: []capability.Example{{Description: "Validate the removal without making it", Arguments: json.RawMessage(
