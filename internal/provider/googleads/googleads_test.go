@@ -35,12 +35,15 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 	want := []string{accountBudgetProposalsListID, accountBudgetsListID, accountLinksListID, accountLinksRemoveID,
 		adGroupAdsCreateID, adGroupAdsRemoveID, adGroupAdCreatedAssetsRemoveID, adGroupAdsUpdateID,
 		adGroupAssetsCreateID, adGroupAssetsRemoveID, adGroupAssetsUpdateID, adGroupsCreateID,
-		adGroupsRemoveID, adGroupsUpdateID, assetSetsCreateID, assetSetsRemoveID, assetSetsUpdateID, assetsCreateID,
-		assetsUpdateID, audiencesCreateID, audiencesUpdateID, biddingStrategiesCreateID, biddingStrategiesRemoveID,
+		adGroupsRemoveID, adGroupsUpdateID, adParametersCreateID, adParametersRemoveID, adParametersUpdateID, adsUpdateID,
+		assetSetAssetsCreateID, assetSetAssetsRemoveID,
+		assetSetsCreateID, assetSetsRemoveID, assetSetsUpdateID, assetsCreateID,
+		assetsUpdateID, audiencesCreateID, audiencesUpdateID, biddingDataExclusionsCreateID, biddingDataExclusionsRemoveID,
+		biddingDataExclusionsUpdateID, biddingStrategiesCreateID, biddingStrategiesRemoveID,
 		biddingStrategiesUpdateID, billingSetupsListID,
-		campaignAssetsCreateID, campaignAssetsRemoveID, campaignAssetsUpdateID,
-		campaignAutomaticallyCreatedAssetsRemoveID, campaignBidModifiersCreateID, campaignBidModifiersRemoveID,
-		campaignBidModifiersUpdateID, campaignBudgetsCreateID, campaignBudgetsRemoveID,
+		campaignAssetSetsCreateID, campaignAssetSetsRemoveID, campaignAssetsCreateID, campaignAssetsRemoveID,
+		campaignAssetsUpdateID, campaignAutomaticallyCreatedAssetsRemoveID, campaignBidModifiersCreateID, campaignBidModifiersRemoveID, campaignBidModifiersUpdateID,
+		campaignBudgetsCreateID, campaignBudgetsRemoveID,
 		campaignBudgetsUpdateID, campaignGroupsCreateID, campaignGroupsRemoveID,
 		campaignGroupsUpdateID, campaignsCreateID, campaignsEnablePMaxBrandGuidelinesID,
 		campaignsRemoveID, campaignsUpdateID, conversionActionsCreateID, conversionActionsRemoveID,
@@ -69,7 +72,8 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 			tool.ID == labelsUpdateID || tool.ID == campaignGroupsCreateID || tool.ID == campaignGroupsUpdateID ||
 			tool.ID == campaignAssetsCreateID || tool.ID == campaignAssetsUpdateID || tool.ID == campaignAssetsRemoveID ||
 			tool.ID == assetSetsCreateID || tool.ID == assetSetsUpdateID ||
-			tool.ID == adGroupAssetsCreateID || tool.ID == adGroupAssetsUpdateID || tool.ID == adGroupAssetsRemoveID
+			tool.ID == adGroupAssetsCreateID || tool.ID == adGroupAssetsUpdateID || tool.ID == adGroupAssetsRemoveID ||
+			slices.Contains(setLinkToolIDs, tool.ID)
 		if tool.ID != want[i] || (tool.Effect == config.EffectRead) == changing || tool.RequiresToolAllowList != listed {
 			t.Errorf("tool %d = %+v", i, tool)
 		}
