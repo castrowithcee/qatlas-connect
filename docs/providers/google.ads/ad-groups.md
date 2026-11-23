@@ -111,4 +111,5 @@ Not verified:
 Left out on purpose:
 
 - `partial_failure`, `GoogleAdsService.Mutate`, and temporary IDs.
-- Bid modifiers, criteria, labels on ad groups, and ads: they have their own tools or none.
+- Criteria have the [ad group criterion tools](ad-group-criteria.md). Bid modifiers, labels on ad groups, and ads
+  have their own tools or none.
