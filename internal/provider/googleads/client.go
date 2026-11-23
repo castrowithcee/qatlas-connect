@@ -142,6 +142,9 @@ type request struct {
 	// judgesInput marks a read whose arguments Google validates, such as GenerateRecommendations: a 400 with
 	// an error code is then Google's refusal of the input and is mapped with the code.
 	judgesInput bool
+	// account is an extra spacing of the customer account of the call, for the services whose limit counts
+	// per account; nil for every other request.
+	account *ratelimit.Limiter
 }
 
 // read sends one reading request to the fixed origin and decodes the JSON answer into out. The token
@@ -175,6 +178,11 @@ func (c *client) send(ctx context.Context, r request, out any) error {
 	if err := c.limiter.Wait(ctx); err != nil {
 		return provider.Waited(r.op, subject, err)
 	}
+	if r.account != nil {
+		if err := r.account.Wait(ctx); err != nil {
+			return provider.Waited(r.op, subject, err)
+		}
+	}
 	dispatch := c.source.Read
 	if r.change {
 		dispatch = c.source.Mutate
@@ -195,6 +203,9 @@ func (c *client) send(ctx context.Context, r request, out any) error {
 			// A missing or unusable wait still means the credential sent too much: the next call waits.
 			hold = max(hold, provider.RetryAfter(response.Header), time.Second)
 			c.limiter.HoldFor(min(hold, maxHold))
+			if r.account != nil {
+				r.account.HoldFor(min(hold, maxHold))
+			}
 		}
 		// A 4xx answer and a GoogleAdsFailure reject the whole atomic request; a server error does not say.
 		return unsure(failed, r.change && response.StatusCode >= 500)
