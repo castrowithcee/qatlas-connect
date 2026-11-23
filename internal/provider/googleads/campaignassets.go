@@ -257,7 +257,7 @@ var campaignAssetsCreate = capability.Descriptor{
 	Description: "Attach existing assets to campaigns of a Google Ads account, each for one field type, " +
 		"optionally with the status ENABLED or PAUSED." + campaignAssetsNote +
 		" Offered by a connection with the create effect or whose tools list names it; no profile holds it." +
-		changeNote,
+		mutateListNote,
 	Tags: []string{"google", "ads", "assets", "campaigns", "create"}, Provider: Provider,
 	Risk: changeRisk(capability.EffectCreate, capability.IdempotencyNonIdempotent, campaignAssetsSensitivity),
 	InputSchema: encoded(object(schema{
@@ -282,7 +282,7 @@ var campaignAssetsUpdate = capability.Descriptor{
 		"Campaign, asset, and field type cannot be changed: they name the link. A link is ended with " +
 		"campaign-assets.remove, not with a status." + campaignAssetsNote +
 		" Offered by a connection with the update effect or whose tools list names it; no profile holds it." +
-		changeNote,
+		mutateListNote,
 	Tags: []string{"google", "ads", "assets", "campaigns", "update"}, Provider: Provider,
 	Risk: changeRisk(capability.EffectUpdate, capability.IdempotencyIdempotent, campaignAssetsSensitivity),
 	InputSchema: encoded(object(schema{
@@ -307,7 +307,7 @@ var campaignAssetsRemove = capability.Descriptor{
 		"a removed link REMOVED; no tool of this provider brings it back, but the same asset can be attached " +
 		"again." + campaignAssetsNote +
 		" Offered by a connection with the delete effect or whose tools list names it; no profile holds it." +
-		changeNote,
+		mutateListNote,
 	Tags: []string{"google", "ads", "assets", "campaigns", "remove"}, Provider: Provider,
 	Risk: changeRisk(capability.EffectDelete, capability.IdempotencyIdempotent, campaignAssetsSensitivity),
 	InputSchema: encoded(object(schema{

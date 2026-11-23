@@ -389,7 +389,7 @@ var labelsCreate = capability.Descriptor{
 		"a description of up to 200 characters and a background color as hex (#RRGGBB or #RGB). Google decides " +
 		"whether a name may be used twice and which color a label without one gets." + labelsNote +
 		" Offered by a connection with the create effect or whose tools list names it; no profile holds it." +
-		changeNote,
+		mutateListNote,
 	Tags: []string{"google", "ads", "labels", "create"}, Provider: Provider,
 	Risk: changeRisk(capability.EffectCreate, capability.IdempotencyNonIdempotent, labelsSensitivity),
 	InputSchema: encoded(object(schema{
@@ -417,7 +417,7 @@ var labelsUpdate = capability.Descriptor{
 		"label: its resource name is built from customer_id and label_id. An empty description clears it; the " +
 		"status of a label cannot be set." + labelsNote +
 		" Offered by a connection with the update effect or whose tools list names it; no profile holds it." +
-		changeNote,
+		mutateListNote,
 	Tags: []string{"google", "ads", "labels", "update"}, Provider: Provider,
 	Risk: changeRisk(capability.EffectUpdate, capability.IdempotencyIdempotent, labelsSensitivity),
 	InputSchema: encoded(object(schema{
@@ -442,7 +442,7 @@ var labelsRemove = capability.Descriptor{
 	ID: labelsRemoveID, Version: 1, Title: "Remove labels from a Google Ads account",
 	Description: "Remove existing labels of a Google Ads account (a remove of customers/ID/labels/LABEL_ID, built " +
 		"from customer_id and label_id). Google marks a removed label REMOVED; no tool of this provider brings it " +
-		"back." + labelsNote + mutateNote,
+		"back." + labelsNote + mutateListListedNote,
 	Tags: []string{"google", "ads", "labels", "remove"}, Provider: Provider, RequiresToolAllowList: true,
 	Risk: changeRisk(capability.EffectDelete, capability.IdempotencyIdempotent, labelsSensitivity),
 	InputSchema: encoded(object(schema{

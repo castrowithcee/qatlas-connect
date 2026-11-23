@@ -455,7 +455,7 @@ var (
 // The notes end the descriptions of the changing tools. The quota is counted per operation of the list.
 const (
 	sharedSetsChangeNote = mutateListNote
-	sharedSetsListedNote = mutateListNote + " Offered only by a connection whose tools list names it."
+	sharedSetsListedNote = mutateListListedNote
 )
 
 const sharedSetsSensitivity = "shared sets of a Google Ads account, their names and the campaigns that use them, " +

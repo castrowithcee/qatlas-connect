@@ -67,11 +67,11 @@ func TestAssetSetToolsAreRegisteredAsDescribed(t *testing.T) {
 		if d.RequiresToolAllowList != (id == assetSetsRemoveID) {
 			t.Errorf("%s: tools list required = %v", id, d.RequiresToolAllowList)
 		}
-		note := changeNote
+		note := mutateListNote
 		if id == assetSetsRemoveID {
-			note = mutateNote
+			note = mutateListListedNote
 		}
-		if !strings.HasSuffix(d.Description, note) || (id != assetSetsRemoveID && strings.HasSuffix(d.Description, mutateNote)) {
+		if !strings.HasSuffix(d.Description, note) || (id != assetSetsRemoveID && strings.HasSuffix(d.Description, mutateListListedNote)) {
 			t.Errorf("%s: description does not end on the note of how it is offered", id)
 		}
 		if slices.Contains(metadata.Profiles[0].Tools, id) || slices.Contains(readTools, id) {

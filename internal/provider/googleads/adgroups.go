@@ -248,7 +248,7 @@ var adGroupsCreate = capability.Descriptor{
 		"PAUSED: Qatlas has no default, so that no ad group starts serving unintended); type, bids, targeting " +
 		"and the settings are as the AdGroup resource of v26 has them. " + adGroupSpendNote +
 		" Not offered: members Google fills itself, the reservation price (fixed_cpm_micros), and the type " +
-		"SHOPPING_SMART_ADS, which Google no longer creates." + mutateNote,
+		"SHOPPING_SMART_ADS, which Google no longer creates." + mutateListListedNote,
 	Tags: []string{"google", "ads", "ad-groups", "create"}, Provider: Provider, RequiresToolAllowList: true,
 	Risk:        changeRisk(capability.EffectCreate, capability.IdempotencyNonIdempotent, adGroupSensitivity),
 	InputSchema: encoded(adGroupInputSchema(true)), OutputSchema: encoded(adGroupOutputSchema),
@@ -269,7 +269,7 @@ var adGroupsUpdate = capability.Descriptor{
 		"Each entry names the ad group by resource_name and the members to change, nested as the AdGroup " +
 		"resource nests them; a list member replaces the whole list, and members that Google accepts only at " +
 		"creation (the campaign and the type) are not offered. Setting status to ENABLED starts serving, and " +
-		"setting a bid changes the spend. " + adGroupSpendNote + mutateNote,
+		"setting a bid changes the spend. " + adGroupSpendNote + mutateListListedNote,
 	Tags: []string{"google", "ads", "ad-groups", "update"}, Provider: Provider, RequiresToolAllowList: true,
 	Risk:        changeRisk(capability.EffectUpdate, capability.IdempotencyIdempotent, adGroupSensitivity),
 	InputSchema: encoded(adGroupInputSchema(false)), OutputSchema: encoded(adGroupOutputSchema),
@@ -286,7 +286,7 @@ var adGroupsRemove = capability.Descriptor{
 	Description: "Remove up to 10 ad groups of a Google Ads account (AdGroupService.MutateAdGroups with remove " +
 		"operations): Google applies all of them or none. A removed ad group stops serving and cannot be enabled " +
 		"again; its history stays readable with reports.search. Resource names must be ad groups of customer_id. " +
-		"Offers no response_content_type: a removed ad group has no mutable resource to show." + mutateNote,
+		"Offers no response_content_type: a removed ad group has no mutable resource to show." + mutateListListedNote,
 	Tags: []string{"google", "ads", "ad-groups", "remove"}, Provider: Provider, RequiresToolAllowList: true,
 	Risk: changeRisk(capability.EffectDelete, capability.IdempotencyIdempotent, adGroupSensitivity),
 	InputSchema: encoded(object(schema{"customer_id": customerIDArgument,

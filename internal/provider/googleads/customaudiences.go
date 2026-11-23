@@ -318,7 +318,7 @@ var customAudiencesCreate = capability.Descriptor{
 		"(CustomAudienceService.MutateCustomAudiences with create operations). A custom audience can then be " +
 		"targeted by campaigns and ad groups. The name must be unique among the custom audiences of the account " +
 		"(Google answers NAME_ALREADY_USED otherwise). Only the types AUTO and SEARCH are offered, because Google " +
-		"does not allow INTEREST and PURCHASE_INTENT for new audiences." + customAudienceNote + changeNote,
+		"does not allow INTEREST and PURCHASE_INTENT for new audiences." + customAudienceNote + mutateListNote,
 	Tags: []string{"google", "ads", "audiences", "custom-audiences", "create"}, Provider: Provider,
 	Risk: changeRisk(capability.EffectCreate, capability.IdempotencyNonIdempotent, customAudienceSensitivity),
 	InputSchema: encoded(object(schema{"customer_id": customerIDArgument,
@@ -343,7 +343,7 @@ var customAudiencesUpdate = capability.Descriptor{
 		"update operations; the mask names exactly the fields that are given). Members cannot be changed one by " +
 		"one: when members is given, it replaces all existing members of that audience, so repeat the ones to " +
 		"keep. Fields that are left out stay as they are. The resource names are built from customer_id and " +
-		"custom_audience_id." + customAudienceNote + changeNote,
+		"custom_audience_id." + customAudienceNote + mutateListNote,
 	Tags: []string{"google", "ads", "audiences", "custom-audiences", "update"}, Provider: Provider,
 	Risk: changeRisk(capability.EffectUpdate, capability.IdempotencyIdempotent, customAudienceSensitivity),
 	InputSchema: encoded(object(schema{"customer_id": customerIDArgument,
@@ -371,7 +371,7 @@ var customAudiencesRemove = capability.Descriptor{
 	Description: "Remove one to 10 existing custom audiences (CustomAudienceService.MutateCustomAudiences with " +
 		"remove operations on customers/ID/customAudiences/AUDIENCE_ID). A removed audience has the status " +
 		"REMOVED and can no longer be used for targeting; Qatlas Connect cannot bring it back." + customAudienceNote +
-		mutateNote,
+		mutateListListedNote,
 	Tags: []string{"google", "ads", "audiences", "custom-audiences", "remove"}, Provider: Provider,
 	RequiresToolAllowList: true,
 	Risk:                  changeRisk(capability.EffectDelete, capability.IdempotencyIdempotent, customAudienceSensitivity),

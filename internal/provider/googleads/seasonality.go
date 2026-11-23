@@ -359,7 +359,7 @@ var seasonalityCreate = capability.Descriptor{
 		"(BiddingSeasonalityAdjustmentService.MutateBiddingSeasonalityAdjustments with create operations): Google " +
 		"applies all of them or none. Each needs scope (CAMPAIGN or CHANNEL, not CUSTOMER, which Google refuses), " +
 		"start_date_time and end_date_time; name, description, devices, conversion_rate_modifier and the campaigns or " +
-		"channel types are optional." + seasonalityNote + mutateNote,
+		"channel types are optional." + seasonalityNote + mutateListListedNote,
 	Tags: []string{"google", "ads", "bidding", "seasonality", "create"}, Provider: Provider, RequiresToolAllowList: true,
 	Risk:        changeRisk(capability.EffectCreate, capability.IdempotencyNonIdempotent, seasonalitySensitivity),
 	InputSchema: encoded(seasonalityInputSchema(true)), OutputSchema: encoded(seasonalityOutputSchema),
@@ -380,7 +380,7 @@ var seasonalityUpdate = capability.Descriptor{
 		"(BiddingSeasonalityAdjustmentService.MutateBiddingSeasonalityAdjustments with update operations and a field mask " +
 		"that names exactly the members given): Google applies all of them or none. Each entry names the adjustment by " +
 		"resource_name and the members to change; a list member replaces the whole list, and an empty list or empty " +
-		"text clears it. Google decides which members of an adjustment it accepts to change." + seasonalityNote + mutateNote,
+		"text clears it. Google decides which members of an adjustment it accepts to change." + seasonalityNote + mutateListListedNote,
 	Tags: []string{"google", "ads", "bidding", "seasonality", "update"}, Provider: Provider, RequiresToolAllowList: true,
 	Risk:        changeRisk(capability.EffectUpdate, capability.IdempotencyIdempotent, seasonalitySensitivity),
 	InputSchema: encoded(seasonalityInputSchema(false)), OutputSchema: encoded(seasonalityOutputSchema),
@@ -399,7 +399,7 @@ var seasonalityRemove = capability.Descriptor{
 		"(BiddingSeasonalityAdjustmentService.MutateBiddingSeasonalityAdjustments with remove operations): Google applies " +
 		"all of them or none. A removed adjustment no longer changes bids; no tool of this provider brings it back. " +
 		"Resource names must be adjustments of customer_id. Offers no response_content_type: a removed adjustment has no " +
-		"mutable resource to show." + seasonalityNote + mutateNote,
+		"mutable resource to show." + seasonalityNote + mutateListListedNote,
 	Tags: []string{"google", "ads", "bidding", "seasonality", "remove"}, Provider: Provider, RequiresToolAllowList: true,
 	Risk: changeRisk(capability.EffectDelete, capability.IdempotencyIdempotent, seasonalitySensitivity),
 	InputSchema: encoded(object(schema{"customer_id": customerIDArgument,

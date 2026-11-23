@@ -74,7 +74,7 @@ func TestCampaignAssetsToolsAreRegisteredAsDescribed(t *testing.T) {
 		if d.RequiresToolAllowList {
 			t.Errorf("%s: tools list required", id)
 		}
-		if !strings.HasSuffix(d.Description, changeNote) || strings.HasSuffix(d.Description, mutateNote) {
+		if !strings.HasSuffix(d.Description, mutateListNote) || strings.HasSuffix(d.Description, mutateListListedNote) {
 			t.Errorf("%s: description does not end on the note of how it is offered", id)
 		}
 		if slices.Contains(metadata.Profiles[0].Tools, id) || slices.Contains(readTools, id) {

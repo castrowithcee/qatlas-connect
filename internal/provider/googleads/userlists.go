@@ -432,7 +432,7 @@ var userListsCreate = userListsDescriptor(userListsCreateID, "Create user lists 
 	"Create audience lists in a Google Ads account (UserListService.MutateUserLists with create operations): "+
 		"basic lists of conversion or remarketing actions, rule based lists, logical combinations of lists, "+
 		"lookalike lists, and the empty shell of a Customer Match list. Lists are what campaigns target and what "+
-		"reports segment by; a new list gathers members only from its definition."+userListNote+changeNote,
+		"reports segment by; a new list gathers members only from its definition."+userListNote+mutateListNote,
 	capability.EffectCreate, capability.IdempotencyNonIdempotent, true)
 
 var userListsUpdate = userListsDescriptor(userListsUpdateID, "Change user lists of a Google Ads account",
@@ -440,7 +440,7 @@ var userListsUpdate = userListsDescriptor(userListsUpdateID, "Change user lists 
 		"operations and a mask of the given fields). The name, description, status and settings of a list can "+
 		"change, and the definition of a basic, rule based, logical or Customer Match list is replaced as a "+
 		"whole; a lookalike list is immutable. Closing a list stops new members and its targeting; changing a "+
-		"rule changes who is on the list."+userListNote+changeNote,
+		"rule changes who is on the list."+userListNote+mutateListNote,
 	capability.EffectUpdate, capability.IdempotencyIdempotent, false)
 
 var userListsRemove = capability.Descriptor{
@@ -448,7 +448,7 @@ var userListsRemove = capability.Descriptor{
 	Description: "Remove audience lists from a Google Ads account (UserListService.MutateUserLists with remove " +
 		"operations of customers/ID/userLists/N, built from customer_id and user_list_ids). A removed list can no " +
 		"longer be targeted, campaigns and ad groups that use it lose that audience, and it is not reactivated. " +
-		"One to 20 lists per call, as one atomic request without partial_failure." + mutateNote,
+		"One to 20 lists per call, as one atomic request without partial_failure." + mutateListListedNote,
 	Tags: []string{"google", "ads", "audiences", "user-lists", "remove"}, Provider: Provider,
 	RequiresToolAllowList: true,
 	Risk: changeRisk(capability.EffectDelete, capability.IdempotencyIdempotent,

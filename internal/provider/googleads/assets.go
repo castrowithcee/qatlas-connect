@@ -371,7 +371,7 @@ var assetsCreate = capability.Descriptor{
 		"to 4 MiB, never both; a file is up to 5120 KiB and one call carries up to 10 MiB of them. The delivery " +
 		"of lead form data to a webhook (delivery_methods) is not offered, and location assets are output only." +
 		assetCommonNote + " An asset cannot be removed: to stop it from serving, remove it from what uses it." +
-		mutateNote,
+		mutateListListedNote,
 	Tags: []string{"google", "ads", "assets", "create"}, Provider: Provider, RequiresToolAllowList: true,
 	LocalFiles:  config.LocalFilesRead,
 	Risk:        changeRisk(capability.EffectCreate, capability.IdempotencyNonIdempotent, assetSensitivity),
@@ -400,7 +400,7 @@ var assetsUpdate = capability.Descriptor{
 		"members to change, an empty text or list clears a member. Only these types can change: " + typeList(true) +
 		"; text, image, media bundle, YouTube video and the other types that Google marks immutable cannot, and a " +
 		"member set at creation, such as external_redeem_info of a promotion, stays. The type of an asset does not " +
-		"change." + assetCommonNote + mutateNote,
+		"change." + assetCommonNote + mutateListListedNote,
 	Tags: []string{"google", "ads", "assets", "update"}, Provider: Provider, RequiresToolAllowList: true,
 	Risk:        changeRisk(capability.EffectUpdate, capability.IdempotencyIdempotent, assetSensitivity),
 	InputSchema: assetInputSchema(true), OutputSchema: assetOutputSchema,

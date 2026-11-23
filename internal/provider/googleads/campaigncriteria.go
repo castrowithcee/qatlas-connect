@@ -374,7 +374,7 @@ var campaignCriteriaCreate = capability.Descriptor{
 		"with the members Google documents for it, and optionally negative (excludes), bid_modifier and status." +
 		campaignCriteriaNote + " Not offered: the criterion type webpage_list, which Google does not make publicly " +
 		"available, the feed item sets of location_group, the deprecated product dimensions of listing_scope, and what " +
-		"Google fills itself." + mutateNote,
+		"Google fills itself." + mutateListListedNote,
 	Tags: []string{"google", "ads", "campaign-criteria", "create"}, Provider: Provider, RequiresToolAllowList: true,
 	Risk:        changeRisk(capability.EffectCreate, capability.IdempotencyNonIdempotent, campaignCriteriaSensitivity),
 	InputSchema: encoded(campaignCriteriaInputSchema(true)), OutputSchema: encoded(campaignCriteriaOutputSchema),
@@ -393,7 +393,7 @@ var campaignCriteriaUpdate = capability.Descriptor{
 		"with update operations and a field mask that names exactly the members given): Google applies all of them " +
 		"or none. Google changes only bid_modifier and status of a criterion that targets; the type, the campaign and " +
 		"negative are fixed, and an excluded criterion cannot be changed at all, so it is removed and created again." +
-		campaignCriteriaNote + mutateNote,
+		campaignCriteriaNote + mutateListListedNote,
 	Tags: []string{"google", "ads", "campaign-criteria", "update"}, Provider: Provider, RequiresToolAllowList: true,
 	Risk:        changeRisk(capability.EffectUpdate, capability.IdempotencyIdempotent, campaignCriteriaSensitivity),
 	InputSchema: encoded(campaignCriteriaInputSchema(false)), OutputSchema: encoded(campaignCriteriaOutputSchema),
@@ -412,7 +412,7 @@ var campaignCriteriaRemove = capability.Descriptor{
 		"with remove operations): Google applies all of them or none. A removed criterion no longer targets or " +
 		"excludes anything and cannot be restored, only created again; this is also how a language criterion of a " +
 		"Search campaign is taken away. Resource names must be criteria of customer_id. Offers no " +
-		"response_content_type: a removed criterion has no mutable resource to show." + mutateNote,
+		"response_content_type: a removed criterion has no mutable resource to show." + mutateListListedNote,
 	Tags: []string{"google", "ads", "campaign-criteria", "remove"}, Provider: Provider, RequiresToolAllowList: true,
 	Risk: changeRisk(capability.EffectDelete, capability.IdempotencyIdempotent, campaignCriteriaSensitivity),
 	InputSchema: encoded(object(schema{"customer_id": customerIDArgument,

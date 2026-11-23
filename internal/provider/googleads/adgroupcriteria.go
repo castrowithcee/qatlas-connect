@@ -439,7 +439,7 @@ var adGroupCriteriaCreate = capability.Descriptor{
 		"AdGroupCriterion resource of v26), and a status, ENABLED or PAUSED (Qatlas has no default, so that no criterion " +
 		"starts serving unintended); a negative criterion (negative true) excludes and takes no status, bid or URL. " +
 		adGroupCriterionSpendNote + " Not offered: members Google fills itself, and " +
-		"a new tree with a parent and its children in one request." + mutateNote,
+		"a new tree with a parent and its children in one request." + mutateListListedNote,
 	Tags: []string{"google", "ads", "ad-group-criteria", "create"}, Provider: Provider, RequiresToolAllowList: true,
 	Risk:        changeRisk(capability.EffectCreate, capability.IdempotencyNonIdempotent, adGroupCriterionSens),
 	InputSchema: encoded(adGroupCriterionInputSchema(true)), OutputSchema: encoded(adGroupCriterionOutputSchema),
@@ -460,7 +460,7 @@ var adGroupCriteriaUpdate = capability.Descriptor{
 		"applies all of them or none. Each entry names the criterion by resource_name and the members to change; a list " +
 		"member replaces the whole list. The ad group, the sign (negative) and the criterion itself are fixed at creation " +
 		"and are not offered, and Google does not update a negative criterion. Setting status to ENABLED starts " +
-		"serving, and setting a bid or bid modifier changes the spend. " + adGroupCriterionSpendNote + mutateNote,
+		"serving, and setting a bid or bid modifier changes the spend. " + adGroupCriterionSpendNote + mutateListListedNote,
 	Tags: []string{"google", "ads", "ad-group-criteria", "update"}, Provider: Provider, RequiresToolAllowList: true,
 	Risk:        changeRisk(capability.EffectUpdate, capability.IdempotencyIdempotent, adGroupCriterionSens),
 	InputSchema: encoded(adGroupCriterionInputSchema(false)), OutputSchema: encoded(adGroupCriterionOutputSchema),
@@ -478,7 +478,7 @@ var adGroupCriteriaRemove = capability.Descriptor{
 		"MutateAdGroupCriteria with remove operations): Google applies all of them or none. A removed criterion stops " +
 		"serving, or, for a negative criterion, excluding, and is not enabled again: it is created anew. Its history stays " +
 		"readable with reports.search. Resource names must be criteria of customer_id. Offers no response_content_type: " +
-		"a removed criterion has no mutable resource to show." + mutateNote,
+		"a removed criterion has no mutable resource to show." + mutateListListedNote,
 	Tags: []string{"google", "ads", "ad-group-criteria", "remove"}, Provider: Provider, RequiresToolAllowList: true,
 	Risk: changeRisk(capability.EffectDelete, capability.IdempotencyIdempotent, adGroupCriterionSens),
 	InputSchema: encoded(object(schema{"customer_id": customerIDArgument,

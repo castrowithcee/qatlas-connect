@@ -20,6 +20,9 @@ const mutateListNote = " The entries are sent as one atomic request that Qatlas 
 	"they are changed again. Costs one operation of the daily quota per entry, plus one for a membership read " +
 	"below a manager target and one for the check that the account is no manager."
 
+// mutateListListedNote is mutateListNote for a tool that only a connection whose tools list names it offers.
+const mutateListListedNote = mutateListNote + " Offered only by a connection whose tools list names it."
+
 // numericIDPattern is a positive int64 in decimal form, as the numeric ID of a resource name.
 var numericIDPattern = regexp.MustCompile(`^[1-9][0-9]{0,18}$`)
 

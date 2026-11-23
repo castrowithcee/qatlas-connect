@@ -598,7 +598,7 @@ var recommendationsApply = capability.Descriptor{
 		"one type per request. The service has no validate_only, so this tool has none either: the call " +
 		"applies. A raise of a target CPA that is too low is applied by Google asynchronously and can take " +
 		"minutes. Recommendations are named by customers/CUSTOMER_ID/recommendations/ID of the account of the " +
-		"call." + mutateNote,
+		"call." + mutateListListedNote,
 	Tags: []string{"google", "ads", "recommendations", "apply"}, Provider: Provider, RequiresToolAllowList: true,
 	Risk: changeRisk(capability.EffectUpdate, capability.IdempotencyNonIdempotent,
 		"spend and content of a Google Ads account: budgets, bids, bidding strategies, keywords, ads and assets "+

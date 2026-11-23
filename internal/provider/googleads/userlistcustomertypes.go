@@ -130,7 +130,7 @@ var userListCustomerTypesCreate = capability.Descriptor{
 	ID: userListCustomerTypesCreateID, Version: 1, Title: "Attach customer types to user lists of a Google Ads account",
 	Description: "Attach a customer type category to a user list (UserListCustomerTypeService." +
 		"MutateUserListCustomerTypes with create operations of a userList and a customerTypeCategory). The user " +
-		"list must belong to customer_id, and Google refuses a pair that exists." + userListCustomerTypeNote + changeNote,
+		"list must belong to customer_id, and Google refuses a pair that exists." + userListCustomerTypeNote + mutateListNote,
 	Tags: []string{"google", "ads", "audiences", "user-lists", "customer-types", "create"}, Provider: Provider,
 	Risk: changeRisk(capability.EffectCreate, capability.IdempotencyNonIdempotent,
 		"customer type labels of audience lists of a Google Ads account; no members and no personal data"),
@@ -146,7 +146,7 @@ var userListCustomerTypesRemove = capability.Descriptor{
 	Description: "Detach a customer type category from a user list (UserListCustomerTypeService." +
 		"MutateUserListCustomerTypes with remove operations of customers/ID/userListCustomerTypes/" +
 		"USER_LIST_ID~CATEGORY, built from customer_id, the user list and the category). The list itself stays." +
-		userListCustomerTypeNote + changeNote,
+		userListCustomerTypeNote + mutateListNote,
 	Tags: []string{"google", "ads", "audiences", "user-lists", "customer-types", "remove"}, Provider: Provider,
 	Risk: changeRisk(capability.EffectDelete, capability.IdempotencyIdempotent,
 		"customer type labels of audience lists of a Google Ads account; no members and no personal data"),

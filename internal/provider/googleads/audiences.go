@@ -696,7 +696,7 @@ var audiencesCreate = capability.Descriptor{
 		"the scope CUSTOMER, the default, an audience needs a name, unique in the account. With the scope " +
 		"ASSET_GROUP it belongs to one asset group of the account, named by asset_group, and has no name." +
 		audiencesNote + " On a connection with targets, a manager account needs a manager target that names it." +
-		changeNote,
+		mutateListNote,
 	Tags: []string{"google", "ads", "audiences", "create"}, Provider: Provider,
 	Risk: changeRisk(capability.EffectCreate, capability.IdempotencyNonIdempotent, audiencesSensitivity),
 	InputSchema: encoded(object(schema{
@@ -745,7 +745,7 @@ var audiencesUpdate = capability.Descriptor{
 		"replaces the exclusions; an empty list of exclusions clears them. The scope can only be set to CUSTOMER " +
 		"to make the audience of an asset group an audience of the account; the asset group cannot be changed." +
 		audiencesNote + " On a connection with targets, a manager account needs a manager target that names it." +
-		changeNote,
+		mutateListNote,
 	Tags: []string{"google", "ads", "audiences", "update"}, Provider: Provider,
 	Risk: changeRisk(capability.EffectUpdate, capability.IdempotencyIdempotent, audiencesSensitivity),
 	InputSchema: encoded(object(schema{

@@ -228,7 +228,7 @@ var customInterestsCreate = capability.Descriptor{
 	Description: "Create custom interests, audiences that Google builds from keywords and URLs " +
 		"(CustomInterestService.MutateCustomInterests, create): name, type CUSTOM_AFFINITY (the default) or " +
 		"CUSTOM_INTENT, description, and members, each a KEYWORD or a URL." + customInterestsNote +
-		" On a connection with targets, a manager account needs a manager target that names it." + changeNote,
+		" On a connection with targets, a manager account needs a manager target that names it." + mutateListNote,
 	Tags: []string{"google", "ads", "custom-interests", "create"}, Provider: Provider,
 	Risk: changeRisk(capability.EffectCreate, capability.IdempotencyNonIdempotent, customInterestsSensitivity),
 	InputSchema: encoded(object(schema{
@@ -263,7 +263,7 @@ var customInterestsUpdate = capability.Descriptor{
 	Description: "Change custom interests by ID (CustomInterestService.MutateCustomInterests, update with its " +
 		"field mask); only the fields that are given change. Giving members replaces all members of the interest, " +
 		"and the members are never changed one by one." + customInterestsNote +
-		" On a connection with targets, a manager account needs a manager target that names it." + changeNote,
+		" On a connection with targets, a manager account needs a manager target that names it." + mutateListNote,
 	Tags: []string{"google", "ads", "custom-interests", "update"}, Provider: Provider,
 	Risk: changeRisk(capability.EffectUpdate, capability.IdempotencyIdempotent, customInterestsSensitivity),
 	InputSchema: encoded(object(schema{

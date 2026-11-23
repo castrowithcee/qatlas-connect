@@ -228,7 +228,7 @@ var adsUpdate = capability.Descriptor{
 		"with the new content once it passes: the content of an ad that serves is public at once. Resource names in " +
 		"the arguments (assets) must belong to customer_id. Final URLs and tracking templates send clicks to an " +
 		"address: each must be an https address without user info, and the final URL suffix must be parameters, not " +
-		"an address. Up to 10 ads per call, one atomic request without partial failure." + adUpdatePolicyNote + mutateNote,
+		"an address. Up to 10 ads per call, one atomic request without partial failure." + adUpdatePolicyNote + mutateListListedNote,
 	Tags: []string{"google", "ads", "ad-content", "update"}, Provider: Provider, RequiresToolAllowList: true,
 	Risk:        changeRisk(capability.EffectUpdate, capability.IdempotencyIdempotent, adSensitivity),
 	InputSchema: encoded(adInputSchema()), OutputSchema: encoded(adOutputSchema),

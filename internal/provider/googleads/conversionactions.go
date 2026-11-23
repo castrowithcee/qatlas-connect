@@ -337,8 +337,7 @@ const conversionNote = " The settings change what campaigns optimize for: a conv
 	"without partial_failure: Google applies all of them or none. The tool offers no Firebase, third-party app " +
 	"analytics, Google Play or app conversion types and no app_id, because they bind the account to an app or a " +
 	"foreign analytics platform; include_in_conversions_metric is read-only in the API and not offered either. " +
-	"Conversion actions are read with reports.search on conversion_action. Counts as operations of the daily " +
-	"quota, one per operation sent."
+	"Conversion actions are read with reports.search on conversion_action."
 
 // --- descriptors ---
 
@@ -347,7 +346,7 @@ var conversionActionsCreate = capability.Descriptor{
 	Description: "Create one to 20 conversion actions in a Google Ads account (ConversionActionService." +
 		"MutateConversionActions with create operations). Each needs a name and a type: WEBPAGE, UPLOAD_CLICKS, " +
 		"UPLOAD_CALLS, AD_CALL or WEBSITE_CALL; the type cannot be changed later. Optional: " + settingsDoc + "." +
-		conversionNote + mutateNote,
+		conversionNote + mutateListListedNote,
 	Tags: []string{"google", "ads", "conversions", "create"}, Provider: Provider, RequiresToolAllowList: true,
 	Risk: changeRisk(capability.EffectCreate, capability.IdempotencyNonIdempotent,
 		"conversion measurement settings of a Google Ads account"),
@@ -367,7 +366,7 @@ var conversionActionsUpdate = capability.Descriptor{
 	Description: "Change the settings of one to 20 existing conversion actions of a Google Ads account " +
 		"(ConversionActionService.MutateConversionActions with update operations and a mask of exactly the given " +
 		"settings). Each entry names the conversion_action_id and at least one of: " + settingsDoc + ". The type " +
-		"cannot be changed, and settings are set, not cleared." + conversionNote + mutateNote,
+		"cannot be changed, and settings are set, not cleared." + conversionNote + mutateListListedNote,
 	Tags: []string{"google", "ads", "conversions", "update"}, Provider: Provider, RequiresToolAllowList: true,
 	Risk: changeRisk(capability.EffectUpdate, capability.IdempotencyIdempotent,
 		"conversion measurement settings of a Google Ads account"),
@@ -389,7 +388,7 @@ var conversionActionsRemove = capability.Descriptor{
 		"and goals that used it lose it as a bidding signal. The tool builds the names from customer_id and the " +
 		"numeric IDs and takes no other settings. Up to 20 operations go in one atomic request without " +
 		"partial_failure. The service answers the resource names only, so there is no response_content_type." +
-		mutateNote,
+		mutateListListedNote,
 	Tags: []string{"google", "ads", "conversions", "remove"}, Provider: Provider, RequiresToolAllowList: true,
 	Risk: changeRisk(capability.EffectDelete, capability.IdempotencyIdempotent,
 		"conversion measurement settings of a Google Ads account"),

@@ -158,7 +158,7 @@ func TestChangeToolsAreListedOnlyConfirmedAndOutsideTheReadProfile(t *testing.T)
 		if strings.Contains(string(d.InputSchema), "google_ads_conversion_customer") {
 			t.Errorf("%s offers google_ads_conversion_customer", id)
 		}
-		if !strings.HasSuffix(d.Description, mutateNote) {
+		if !strings.HasSuffix(d.Description, mutateNote) && !strings.HasSuffix(d.Description, mutateListListedNote) {
 			t.Errorf("%s: a tools-list-only tool must end on the note that says so", id)
 		}
 		if !strings.Contains(d.Description, "outcome is unknown") || !strings.Contains(d.Description, "never repeats") {

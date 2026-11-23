@@ -96,7 +96,8 @@ func changeRisk(effect capability.Effect, idempotency capability.Idempotency, se
 		OpenWorld: true, DataSensitivity: sensitivity}
 }
 
-// changeNote ends the description of every changing tool; mutateNote adds that only the tools list offers it.
+// changeNote ends the description of a changing tool that sends exactly one operation; mutateNote adds that only
+// the tools list offers it. A tool that takes a list of entries ends on mutateListNote or mutateListListedNote.
 const (
 	changeNote = " The change is one atomic request that Qatlas Connect sends once and never repeats; when a " +
 		"timeout, a cut connection, or a server error leaves open whether Google took it, the error says that the " +

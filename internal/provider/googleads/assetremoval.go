@@ -71,7 +71,7 @@ var campaignAutomaticallyCreatedAssetsRemove = capability.Descriptor{
 		"descriptions, from campaigns, each named by campaign, asset and field type " +
 		"(AutomaticallyCreatedAssetRemovalService.RemoveCampaignAutomaticallyCreatedAsset). The asset itself stays " +
 		"in the account; only its use by the campaign for that field type ends. The service has no validate_only, " +
-		"so the tool offers none; the request is one atomic transaction without partial_failure." + mutateNote,
+		"so the tool offers none; the request is one atomic transaction without partial_failure." + mutateListListedNote,
 	Tags: []string{"google", "ads", "assets", "campaigns", "remove"}, Provider: Provider, RequiresToolAllowList: true,
 	Risk: changeRisk(capability.EffectDelete, capability.IdempotencyIdempotent,
 		"ad content of campaigns of a Google Ads account"),

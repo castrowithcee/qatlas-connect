@@ -326,7 +326,7 @@ func (f setLinkFamily) descriptors() (capability.Descriptor, capability.Descript
 	create := capability.Descriptor{
 		ID: f.id("create"), Version: 1, Title: "Create " + f.noun + "s in a Google Ads account",
 		Description: createDescription + f.note() +
-			" Offered by a connection with the create effect or whose tools list names it; no profile holds it." + changeNote,
+			" Offered by a connection with the create effect or whose tools list names it; no profile holds it." + mutateListNote,
 		Tags: tags("create"), Provider: Provider,
 		Risk:        changeRisk(capability.EffectCreate, capability.IdempotencyNonIdempotent, f.sensitivity),
 		InputSchema: encoded(f.inputSchema(true)), OutputSchema: encoded(f.outputSchema()),
@@ -344,7 +344,7 @@ func (f setLinkFamily) descriptors() (capability.Descriptor, capability.Descript
 			"by its resource name. Only the link ends, none of the objects it ties is removed; Google marks the link " +
 			"REMOVED, and it can be created again. Offers no response_content_type: a removed link has no mutable " +
 			"resource to show." + f.note() + " Offered by a connection with the delete effect or whose tools list names " +
-			"it; no profile holds it." + changeNote,
+			"it; no profile holds it." + mutateListNote,
 		Tags: tags("remove"), Provider: Provider,
 		Risk:        changeRisk(capability.EffectDelete, capability.IdempotencyIdempotent, f.sensitivity),
 		InputSchema: encoded(f.inputSchema(false)), OutputSchema: encoded(f.outputSchema()),

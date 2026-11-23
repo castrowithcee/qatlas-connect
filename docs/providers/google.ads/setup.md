@@ -4,7 +4,7 @@ description: >
 type: knowledge
 edit: shared
 created: 2026-11-19
-updated: 2026-11-22
+updated: 2026-11-23
 ---
 
 # Set up Google Ads
@@ -37,9 +37,10 @@ The access level belongs to the Cloud project that owns the OAuth client or the 
 | Basic | 15,000 operations a day | 15,000 | apply the same way after brand verification |
 | Standard | unlimited | unlimited | "Start application" on the same page, from Basic; a manual review of about 10 business days |
 
-Each call of a Qatlas tool and each membership read counts as one operation, also when it fails. With Test
-access, a call on a production account ends as `permission` and names the test access. Check the current terms
-on Google's page about access levels; they change from time to time.
+Each call of a Qatlas tool and each membership read counts as one operation, also when it fails. A change with a
+list of entries counts one operation per entry. With Test access, a call on a production account ends as
+`permission` and names the test access. Check the current terms on Google's page about access levels; they change
+from time to time.
 
 ## Rights in Google Ads
 

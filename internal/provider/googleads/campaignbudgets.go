@@ -520,7 +520,7 @@ var campaignBudgetsCreate = capability.Descriptor{
 		"amount over its whole duration, and no amount_micros. A budget is explicitly shared unless " +
 		"explicitly_shared is false, and a shared budget needs a name of 1 to 255 bytes. delivery_method is " +
 		"STANDARD (the default) or ACCELERATED. period and type cannot be changed afterwards." +
-		campaignBudgetsNote + mutateNote,
+		campaignBudgetsNote + mutateListListedNote,
 	Tags: []string{"google", "ads", "budgets", "campaigns", "create"}, Provider: Provider, RequiresToolAllowList: true,
 	Risk: changeRisk(capability.EffectCreate, capability.IdempotencyNonIdempotent, campaignBudgetsSensitivity),
 	InputSchema: encoded(object(schema{
@@ -561,7 +561,7 @@ var campaignBudgetsUpdate = capability.Descriptor{
 		"budget_id selects a budget: its resource name is built from customer_id and budget_id. A shared " +
 		"budget never becomes non-shared; explicitly_shared can be set to true on an update, with a name, to share " +
 		"a budget of one campaign. Raising an amount raises what the campaigns using the budget may spend. " +
-		"The period and the type cannot be changed." + campaignBudgetsNote + mutateNote,
+		"The period and the type cannot be changed." + campaignBudgetsNote + mutateListListedNote,
 	Tags: []string{"google", "ads", "budgets", "campaigns", "update"}, Provider: Provider, RequiresToolAllowList: true,
 	Risk: changeRisk(capability.EffectUpdate, capability.IdempotencyIdempotent, campaignBudgetsSensitivity),
 	InputSchema: encoded(object(schema{
@@ -593,7 +593,7 @@ var campaignBudgetsRemove = capability.Descriptor{
 	Description: "Remove existing campaign budgets of a Google Ads account (a remove of " +
 		"customers/ID/campaignBudgets/BUDGET_ID, built from customer_id and budget_id). Google marks a removed " +
 		"budget REMOVED; no tool of this provider brings it back. Whether Google refuses to remove a budget that " +
-		"campaigns still use is Google's to decide; validate_only shows it." + campaignBudgetsNote + mutateNote,
+		"campaigns still use is Google's to decide; validate_only shows it." + campaignBudgetsNote + mutateListListedNote,
 	Tags: []string{"google", "ads", "budgets", "campaigns", "remove"}, Provider: Provider, RequiresToolAllowList: true,
 	Risk: changeRisk(capability.EffectDelete, capability.IdempotencyIdempotent, campaignBudgetsSensitivity),
 	InputSchema: encoded(object(schema{
