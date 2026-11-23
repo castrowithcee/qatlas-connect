@@ -556,9 +556,16 @@ func recSnakeCase(name string) string {
 type recommendationCleaner struct {
 	op, customerID string
 	nodes          int
+	// what names the cleaned answer in messages; empty means a recommendation. cut is set when a list was cut.
+	what string
+	cut  bool
 }
 
 func (c *recommendationCleaner) bad(message string) error {
+	if c.what != "" {
+		message = strings.ReplaceAll(message, "a recommendation", "a "+c.what)
+		message = strings.ReplaceAll(message, "recommendation data", c.what+" data")
+	}
 	return provider.InvalidResponse(c.op, subject+" "+message)
 }
 
@@ -587,6 +594,7 @@ func (c *recommendationCleaner) clean(value any, depth int) (any, bool, error) {
 		}
 		return out, true, nil
 	case []any:
+		c.cut = c.cut || len(v) > maxListItems
 		out := make([]any, 0, min(len(v), maxListItems))
 		for _, child := range v[:min(len(v), maxListItems)] {
 			cleaned, keep, err := c.clean(child, depth+1)
