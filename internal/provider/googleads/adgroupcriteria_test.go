@@ -15,25 +15,25 @@ import (
 
 var adGroupCriterionToolIDs = []string{adGroupCriteriaCreateID, adGroupCriteriaUpdateID, adGroupCriteriaRemoveID}
 
-func criteriaPath(id string) string { return "/v26/customers/" + id + "/adGroupCriteria:mutate" }
+func adGroupCriteriaPath(id string) string { return "/v26/customers/" + id + "/adGroupCriteria:mutate" }
 
 var criterionAdGroup = `"ad_group":"` + own + `/adGroups/31"`
 
 var createdCriterion = `{` + criterionAdGroup + `,"status":"PAUSED","keyword":{"text":"running shoes","match_type":"EXACT"}`
 
-func criteriaCall(items, extra string) string {
+func adGroupCriteriaCall(items, extra string) string {
 	return `{"customer_id":"` + clientID + `","ad_group_criteria":` + items + extra + `}`
 }
 
-func criterionCreateArgs(members string) string {
-	return criteriaCall(`[`+createdCriterion+members+`}]`, "")
+func adGroupCriterionCreateArgs(members string) string {
+	return adGroupCriteriaCall(`[`+createdCriterion+members+`}]`, "")
 }
 
-func criterionUpdateArgs(members string) string {
-	return criteriaCall(`[{"resource_name":"`+own+`/adGroupCriteria/31~41"`+members+`}]`, "")
+func adGroupCriterionUpdateArgs(members string) string {
+	return adGroupCriteriaCall(`[{"resource_name":"`+own+`/adGroupCriteria/31~41"`+members+`}]`, "")
 }
 
-func criterionRemoveArgs(extra string) string {
+func adGroupCriterionRemoveArgs(extra string) string {
 	return `{"customer_id":"` + clientID + `","resource_names":["` + own + `/adGroupCriteria/31~41"]` + extra + `}`
 }
 
@@ -127,9 +127,9 @@ func TestAdGroupCriterionMembersAreFieldsOfTheCatalog(t *testing.T) {
 
 func TestAdGroupCriterionChangesNeedTheToolsListAndTheConfirmation(t *testing.T) {
 	calls := map[string]string{
-		adGroupCriteriaCreateID: criterionCreateArgs(``),
-		adGroupCriteriaUpdateID: criterionUpdateArgs(`,"status":"ENABLED"`),
-		adGroupCriteriaRemoveID: criterionRemoveArgs(""),
+		adGroupCriteriaCreateID: adGroupCriterionCreateArgs(``),
+		adGroupCriteriaUpdateID: adGroupCriterionUpdateArgs(`,"status":"ENABLED"`),
+		adGroupCriteriaRemoveID: adGroupCriterionRemoveArgs(""),
 	}
 	for id, arguments := range calls {
 		t.Run(id+" without the tools list", func(t *testing.T) {
@@ -162,7 +162,7 @@ func TestAdGroupCriterionChangesNeedTheToolsListAndTheConfirmation(t *testing.T)
 
 func TestAdGroupCriterionSummaryNamesTheSpendingEffect(t *testing.T) {
 	e := newMutationEnvironment(t, nil, nil)
-	_, err := e.invoke(adGroupCriteriaCreateID, criteriaCall(`[{`+criterionAdGroup+`,"status":"ENABLED",`+
+	_, err := e.invoke(adGroupCriteriaCreateID, adGroupCriteriaCall(`[{`+criterionAdGroup+`,"status":"ENABLED",`+
 		`"keyword":{"text":"shoes","match_type":"BROAD"},"cpc_bid_micros":750000,"bid_modifier":1.5}]`, `,"validate_only":true`))
 	var needed *application.ConfirmationRequiredError
 	if !errors.As(err, &needed) {
@@ -173,7 +173,7 @@ func TestAdGroupCriterionSummaryNamesTheSpendingEffect(t *testing.T) {
 			t.Errorf("summary %q lacks %q", needed.Summary, word)
 		}
 	}
-	_, err = e.invoke(adGroupCriteriaRemoveID, criterionRemoveArgs(""))
+	_, err = e.invoke(adGroupCriteriaRemoveID, adGroupCriterionRemoveArgs(""))
 	if !errors.As(err, &needed) || !strings.Contains(needed.Summary, "not enabled again") {
 		t.Errorf("summary = %v", err)
 	}
@@ -183,15 +183,15 @@ func TestAdGroupCriterionSummaryNamesTheSpendingEffect(t *testing.T) {
 func TestAdGroupCriterionArgumentsAreCheckedBeforeSecretAndIO(t *testing.T) {
 	// at keeps the user-info samples from reading as mail addresses.
 	const at = "@"
-	item := func(members string) string { return criteriaCall(`[{`+criterionAdGroup+members+`}]`, "") }
+	item := func(members string) string { return adGroupCriteriaCall(`[{`+criterionAdGroup+members+`}]`, "") }
 	bad := map[string]struct{ id, arguments string }{
 		"no status":       {adGroupCriteriaCreateID, item(`,"keyword":{"text":"x","match_type":"EXACT"}`)},
-		"no ad group":     {adGroupCriteriaCreateID, criteriaCall(`[{"status":"PAUSED","keyword":{"text":"x","match_type":"EXACT"}}]`, "")},
+		"no ad group":     {adGroupCriteriaCreateID, adGroupCriteriaCall(`[{"status":"PAUSED","keyword":{"text":"x","match_type":"EXACT"}}]`, "")},
 		"no type":         {adGroupCriteriaCreateID, item(`,"status":"PAUSED"`)},
 		"two types":       {adGroupCriteriaCreateID, item(`,"status":"PAUSED","keyword":{"text":"x","match_type":"EXACT"},"gender":{"type":"MALE"}`)},
 		"removed":         {adGroupCriteriaCreateID, item(`,"status":"REMOVED","gender":{"type":"MALE"}`)},
-		"none":            {adGroupCriteriaCreateID, criteriaCall(`[]`, "")},
-		"fifty one":       {adGroupCriteriaCreateID, criteriaCall(`[`+strings.Repeat(createdCriterion+`},`, 50)+createdCriterion+`}]`, "")},
+		"none":            {adGroupCriteriaCreateID, adGroupCriteriaCall(`[]`, "")},
+		"fifty one":       {adGroupCriteriaCreateID, adGroupCriteriaCall(`[`+strings.Repeat(createdCriterion+`},`, 50)+createdCriterion+`}]`, "")},
 		"no match type":   {adGroupCriteriaCreateID, item(`,"status":"PAUSED","keyword":{"text":"x"}`)},
 		"no keyword text": {adGroupCriteriaCreateID, item(`,"status":"PAUSED","keyword":{"match_type":"EXACT"}`)},
 		"empty keyword":   {adGroupCriteriaCreateID, item(`,"status":"PAUSED","keyword":{"text":"","match_type":"EXACT"}`)},
@@ -206,9 +206,9 @@ func TestAdGroupCriterionArgumentsAreCheckedBeforeSecretAndIO(t *testing.T) {
 		"long placement":     {adGroupCriteriaCreateID, item(`,"status":"PAUSED","placement":{"url":"` + strings.Repeat("a", 251) + `"}`)},
 		"empty type":         {adGroupCriteriaCreateID, item(`,"status":"PAUSED","gender":{}`)},
 		"gender value":       {adGroupCriteriaCreateID, item(`,"status":"PAUSED","gender":{"type":"OTHER"}`)},
-		"foreign ad group":   {adGroupCriteriaCreateID, criteriaCall(`[{"ad_group":"`+foreign+`/adGroups/31","status":"PAUSED","gender":{"type":"MALE"}}]`, "")},
-		"temp ad group":      {adGroupCriteriaCreateID, criteriaCall(`[{"ad_group":"`+own+`/adGroups/-1","status":"PAUSED","gender":{"type":"MALE"}}]`, "")},
-		"ad group kind":      {adGroupCriteriaCreateID, criteriaCall(`[{"ad_group":"`+own+`/campaigns/31","status":"PAUSED","gender":{"type":"MALE"}}]`, "")},
+		"foreign ad group":   {adGroupCriteriaCreateID, adGroupCriteriaCall(`[{"ad_group":"`+foreign+`/adGroups/31","status":"PAUSED","gender":{"type":"MALE"}}]`, "")},
+		"temp ad group":      {adGroupCriteriaCreateID, adGroupCriteriaCall(`[{"ad_group":"`+own+`/adGroups/-1","status":"PAUSED","gender":{"type":"MALE"}}]`, "")},
+		"ad group kind":      {adGroupCriteriaCreateID, adGroupCriteriaCall(`[{"ad_group":"`+own+`/campaigns/31","status":"PAUSED","gender":{"type":"MALE"}}]`, "")},
 		"foreign user list":  {adGroupCriteriaCreateID, item(`,"status":"PAUSED","user_list":{"user_list":"` + foreign + `/userLists/5"}`)},
 		"temp user list":     {adGroupCriteriaCreateID, item(`,"status":"PAUSED","user_list":{"user_list":"` + own + `/userLists/-5"}`)},
 		"user list kind":     {adGroupCriteriaCreateID, item(`,"status":"PAUSED","user_list":{"user_list":"` + own + `/audiences/5"}`)},
@@ -258,8 +258,8 @@ func TestAdGroupCriterionArgumentsAreCheckedBeforeSecretAndIO(t *testing.T) {
 		"exempt empty":        {adGroupCriteriaCreateID, item(`,"status":"PAUSED","gender":{"type":"MALE"},"exempt_policy_violation_keys":[{"policy_name":""}]`)},
 		"exempt control":      {adGroupCriteriaCreateID, item(`,"status":"PAUSED","gender":{"type":"MALE"},"exempt_policy_violation_keys":[{"policy_name":"a\nb"}]`)},
 		"exempt type":         {adGroupCriteriaCreateID, item(`,"status":"PAUSED","gender":{"type":"MALE"},"exempt_policy_violation_keys":"P"`)},
-		"update exempt alone": {adGroupCriteriaUpdateID, criterionUpdateArgs(`,"exempt_policy_violation_keys":[{"policy_name":"P"}]`)},
-		"update exempt bad":   {adGroupCriteriaUpdateID, criterionUpdateArgs(`,"status":"PAUSED","exempt_policy_violation_keys":[{"policy_name":7}]`)},
+		"update exempt alone": {adGroupCriteriaUpdateID, adGroupCriterionUpdateArgs(`,"exempt_policy_violation_keys":[{"policy_name":"P"}]`)},
+		"update exempt bad":   {adGroupCriteriaUpdateID, adGroupCriterionUpdateArgs(`,"status":"PAUSED","exempt_policy_violation_keys":[{"policy_name":7}]`)},
 		"device":              {adGroupCriteriaCreateID, item(`,"status":"PAUSED","device":{"type":"MOBILE"}`)},
 		"http final url":      {adGroupCriteriaCreateID, item(`,"status":"PAUSED","gender":{"type":"MALE"},"final_urls":["http://x.example.com/"]`)},
 		"final url info": {adGroupCriteriaCreateID, item(`,"status":"PAUSED","gender":{"type":"MALE"},"final_urls":["https://u:p` + at +
@@ -282,21 +282,21 @@ func TestAdGroupCriterionArgumentsAreCheckedBeforeSecretAndIO(t *testing.T) {
 		"negative text":     {adGroupCriteriaCreateID, item(`,"negative":"yes","keyword":{"text":"x","match_type":"EXACT"}`)},
 		"output only":       {adGroupCriteriaCreateID, item(`,"status":"PAUSED","gender":{"type":"MALE"},"approval_status":"APPROVED"`)},
 		"labels":            {adGroupCriteriaCreateID, item(`,"status":"PAUSED","gender":{"type":"MALE"},"labels":["` + own + `/labels/1"]`)},
-		"content type":      {adGroupCriteriaCreateID, criteriaCall(`[`+createdCriterion+`}]`, `,"response_content_type":"ALL"`)},
+		"content type":      {adGroupCriteriaCreateID, adGroupCriteriaCall(`[`+createdCriterion+`}]`, `,"response_content_type":"ALL"`)},
 
-		"update no member": {adGroupCriteriaUpdateID, criterionUpdateArgs(``)},
-		"update ad group":  {adGroupCriteriaUpdateID, criterionUpdateArgs(`,"ad_group":"` + own + `/adGroups/32"`)},
-		"update negative":  {adGroupCriteriaUpdateID, criterionUpdateArgs(`,"negative":true`)},
-		"update keyword":   {adGroupCriteriaUpdateID, criterionUpdateArgs(`,"keyword":{"text":"y","match_type":"EXACT"}`)},
-		"update removed":   {adGroupCriteriaUpdateID, criterionUpdateArgs(`,"status":"REMOVED"`)},
-		"update foreign":   {adGroupCriteriaUpdateID, criteriaCall(`[{"resource_name":"`+foreign+`/adGroupCriteria/31~41","status":"PAUSED"}]`, "")},
-		"update temporary": {adGroupCriteriaUpdateID, criteriaCall(`[{"resource_name":"`+own+`/adGroupCriteria/31~-2","status":"PAUSED"}]`, "")},
-		"update no tilde":  {adGroupCriteriaUpdateID, criteriaCall(`[{"resource_name":"`+own+`/adGroupCriteria/41","status":"PAUSED"}]`, "")},
-		"update kind":      {adGroupCriteriaUpdateID, criteriaCall(`[{"resource_name":"`+own+`/adGroups/31","status":"PAUSED"}]`, "")},
-		"update twice": {adGroupCriteriaUpdateID, criteriaCall(`[{"resource_name":"`+own+`/adGroupCriteria/31~41","status":"PAUSED"},`+
+		"update no member": {adGroupCriteriaUpdateID, adGroupCriterionUpdateArgs(``)},
+		"update ad group":  {adGroupCriteriaUpdateID, adGroupCriterionUpdateArgs(`,"ad_group":"` + own + `/adGroups/32"`)},
+		"update negative":  {adGroupCriteriaUpdateID, adGroupCriterionUpdateArgs(`,"negative":true`)},
+		"update keyword":   {adGroupCriteriaUpdateID, adGroupCriterionUpdateArgs(`,"keyword":{"text":"y","match_type":"EXACT"}`)},
+		"update removed":   {adGroupCriteriaUpdateID, adGroupCriterionUpdateArgs(`,"status":"REMOVED"`)},
+		"update foreign":   {adGroupCriteriaUpdateID, adGroupCriteriaCall(`[{"resource_name":"`+foreign+`/adGroupCriteria/31~41","status":"PAUSED"}]`, "")},
+		"update temporary": {adGroupCriteriaUpdateID, adGroupCriteriaCall(`[{"resource_name":"`+own+`/adGroupCriteria/31~-2","status":"PAUSED"}]`, "")},
+		"update no tilde":  {adGroupCriteriaUpdateID, adGroupCriteriaCall(`[{"resource_name":"`+own+`/adGroupCriteria/41","status":"PAUSED"}]`, "")},
+		"update kind":      {adGroupCriteriaUpdateID, adGroupCriteriaCall(`[{"resource_name":"`+own+`/adGroups/31","status":"PAUSED"}]`, "")},
+		"update twice": {adGroupCriteriaUpdateID, adGroupCriteriaCall(`[{"resource_name":"`+own+`/adGroupCriteria/31~41","status":"PAUSED"},`+
 			`{"resource_name":"`+own+`/adGroupCriteria/31~41","status":"ENABLED"}]`, "")},
-		"update template": {adGroupCriteriaUpdateID, criterionUpdateArgs(`,"tracking_url_template":"https://evil.example` + at + `t.example.com/"`)},
-		"update final":    {adGroupCriteriaUpdateID, criterionUpdateArgs(`,"final_urls":["http://x.example.com/"]`)},
+		"update template": {adGroupCriteriaUpdateID, adGroupCriterionUpdateArgs(`,"tracking_url_template":"https://evil.example` + at + `t.example.com/"`)},
+		"update final":    {adGroupCriteriaUpdateID, adGroupCriterionUpdateArgs(`,"final_urls":["http://x.example.com/"]`)},
 
 		"remove foreign":   {adGroupCriteriaRemoveID, `{"customer_id":"` + clientID + `","resource_names":["` + foreign + `/adGroupCriteria/31~41"]}`},
 		"remove temporary": {adGroupCriteriaRemoveID, `{"customer_id":"` + clientID + `","resource_names":["` + own + `/adGroupCriteria/31~-41"]}`},
@@ -304,7 +304,7 @@ func TestAdGroupCriterionArgumentsAreCheckedBeforeSecretAndIO(t *testing.T) {
 		"remove twice": {adGroupCriteriaRemoveID, `{"customer_id":"` + clientID + `","resource_names":["` + own + `/adGroupCriteria/31~41","` +
 			own + `/adGroupCriteria/31~41"]}`},
 		"remove none":    {adGroupCriteriaRemoveID, `{"customer_id":"` + clientID + `","resource_names":[]}`},
-		"remove content": {adGroupCriteriaRemoveID, criterionRemoveArgs(`,"response_content_type":"MUTABLE_RESOURCE"`)},
+		"remove content": {adGroupCriteriaRemoveID, adGroupCriterionRemoveArgs(`,"response_content_type":"MUTABLE_RESOURCE"`)},
 	}
 	for name, c := range bad {
 		t.Run(name, func(t *testing.T) {
@@ -319,9 +319,9 @@ func TestAdGroupCriterionArgumentsAreCheckedBeforeSecretAndIO(t *testing.T) {
 
 func TestAdGroupCriteriaCreateSendsOneAtomicRequest(t *testing.T) {
 	e := newMutationEnvironment(t, nil, map[string]string{optionLoginCustomerID: loginID})
-	e.fake.routes["POST "+criteriaPath(clientID)] = criterionResults(own+"/adGroupCriteria/31~41", own+"/adGroupCriteria/31~42",
+	e.fake.routes["POST "+adGroupCriteriaPath(clientID)] = criterionResults(own+"/adGroupCriteria/31~41", own+"/adGroupCriteria/31~42",
 		own+"/adGroupCriteria/31~43")
-	out, err := e.invokeConfirmed(adGroupCriteriaCreateID, criteriaCall(`[{`+criterionAdGroup+`,"status":"PAUSED",`+
+	out, err := e.invokeConfirmed(adGroupCriteriaCreateID, adGroupCriteriaCall(`[{`+criterionAdGroup+`,"status":"PAUSED",`+
 		`"keyword":{"text":"running shoes","match_type":"PHRASE"},"cpc_bid_micros":750000,"bid_modifier":1.5,`+
 		`"final_urls":["https://shop.example.com/shoes"],"tracking_url_template":"https://t.example.com/?u={lpurl}",`+
 		`"final_url_suffix":"utm_source=g","url_custom_parameters":[{"key":"season","value":"spring"}]},`+
@@ -342,7 +342,7 @@ func TestAdGroupCriteriaCreateSendsOneAtomicRequest(t *testing.T) {
 		t.Fatalf("requests = %+v", e.fake.api())
 	}
 	p := posts[0]
-	if p.url != "https://googleads.googleapis.com"+criteriaPath(clientID) || p.auth != "Bearer synthetic-access-1" ||
+	if p.url != "https://googleads.googleapis.com"+adGroupCriteriaPath(clientID) || p.auth != "Bearer synthetic-access-1" ||
 		p.login != loginID || p.contentType != "application/json" || p.developerToken != "" {
 		t.Errorf("request = %+v", p)
 	}
@@ -389,8 +389,8 @@ func TestAdGroupCriteriaCreateSendsTheOtherCriterionTypes(t *testing.T) {
 	for name, c := range cases {
 		t.Run(name, func(t *testing.T) {
 			e := newMutationEnvironment(t, nil, nil)
-			e.fake.routes["POST "+criteriaPath(clientID)] = criterionResults(own + "/adGroupCriteria/31~41")
-			_, err := e.invokeConfirmed(adGroupCriteriaCreateID, criteriaCall(`[{`+criterionAdGroup+`,"status":"PAUSED",`+c[0]+`}]`, ""))
+			e.fake.routes["POST "+adGroupCriteriaPath(clientID)] = criterionResults(own + "/adGroupCriteria/31~41")
+			_, err := e.invokeConfirmed(adGroupCriteriaCreateID, adGroupCriteriaCall(`[{`+criterionAdGroup+`,"status":"PAUSED",`+c[0]+`}]`, ""))
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -404,8 +404,8 @@ func TestAdGroupCriteriaCreateSendsTheOtherCriterionTypes(t *testing.T) {
 
 func TestAdGroupCriteriaUpdateNamesExactlyTheGivenMembersInTheMask(t *testing.T) {
 	e := newMutationEnvironment(t, nil, nil)
-	e.fake.routes["POST "+criteriaPath(clientID)] = criterionResults(own+"/adGroupCriteria/31~41", own+"/adGroupCriteria/31~42")
-	_, err := e.invokeConfirmed(adGroupCriteriaUpdateID, criteriaCall(`[{"resource_name":"`+own+`/adGroupCriteria/31~41","status":"ENABLED",`+
+	e.fake.routes["POST "+adGroupCriteriaPath(clientID)] = criterionResults(own+"/adGroupCriteria/31~41", own+"/adGroupCriteria/31~42")
+	_, err := e.invokeConfirmed(adGroupCriteriaUpdateID, adGroupCriteriaCall(`[{"resource_name":"`+own+`/adGroupCriteria/31~41","status":"ENABLED",`+
 		`"cpc_bid_micros":900000,"bid_modifier":2,"final_urls":["https://a.example.com/"],`+
 		`"url_custom_parameters":[{"key":"a","value":"b"}]},`+
 		`{"resource_name":"`+own+`/adGroupCriteria/31~42","tracking_url_template":"","final_url_suffix":"x=1","final_urls":[]}]`, ""))
@@ -432,7 +432,7 @@ func TestAdGroupCriteriaUpdateNamesExactlyTheGivenMembersInTheMask(t *testing.T)
 
 func TestAdGroupCriteriaRemoveSendsRemoveOperations(t *testing.T) {
 	e := newMutationEnvironment(t, nil, nil)
-	e.fake.routes["POST "+criteriaPath(clientID)] = criterionResults(own+"/adGroupCriteria/31~41", own+"/adGroupCriteria/32~42")
+	e.fake.routes["POST "+adGroupCriteriaPath(clientID)] = criterionResults(own+"/adGroupCriteria/31~41", own+"/adGroupCriteria/32~42")
 	out, err := e.invokeConfirmed(adGroupCriteriaRemoveID, `{"customer_id":"`+clientID+`","resource_names":["`+own+
 		`/adGroupCriteria/31~41","`+own+`/adGroupCriteria/32~42"]}`)
 	if err != nil || len(decode(t, out)["results"].([]any)) != 2 {
@@ -447,14 +447,14 @@ func TestAdGroupCriteriaRemoveSendsRemoveOperations(t *testing.T) {
 
 func TestAdGroupCriterionValidateOnlyAnswersNoResult(t *testing.T) {
 	for id, arguments := range map[string]string{
-		adGroupCriteriaCreateID: criteriaCall(`[`+createdCriterion+`}]`, `,"validate_only":true`),
-		adGroupCriteriaUpdateID: criteriaCall(`[{"resource_name":"`+own+`/adGroupCriteria/31~41","status":"PAUSED"}]`, `,"validate_only":true`),
-		adGroupCriteriaRemoveID: criterionRemoveArgs(`,"validate_only":true`),
+		adGroupCriteriaCreateID: adGroupCriteriaCall(`[`+createdCriterion+`}]`, `,"validate_only":true`),
+		adGroupCriteriaUpdateID: adGroupCriteriaCall(`[{"resource_name":"`+own+`/adGroupCriteria/31~41","status":"PAUSED"}]`, `,"validate_only":true`),
+		adGroupCriteriaRemoveID: adGroupCriterionRemoveArgs(`,"validate_only":true`),
 	} {
 		for _, answer := range []string{`{}`, `{"results":[]}`} {
 			t.Run(id+" "+answer, func(t *testing.T) {
 				e := newMutationEnvironment(t, nil, nil)
-				e.fake.routes["POST "+criteriaPath(clientID)] = okReply(answer)
+				e.fake.routes["POST "+adGroupCriteriaPath(clientID)] = okReply(answer)
 				out, err := e.invokeConfirmed(id, arguments)
 				got := decode(t, out)
 				if err != nil || got["validate_only"] != true || got["results"] != nil {
@@ -470,12 +470,12 @@ func TestAdGroupCriterionValidateOnlyAnswersNoResult(t *testing.T) {
 
 func TestAdGroupCriterionResponseContentTypeShowsTheMutableCriterion(t *testing.T) {
 	e := newMutationEnvironment(t, nil, nil)
-	e.fake.routes["POST "+criteriaPath(clientID)] = okReply(`{"results":[{"resourceName":"` + own + `/adGroupCriteria/31~41",` +
+	e.fake.routes["POST "+adGroupCriteriaPath(clientID)] = okReply(`{"results":[{"resourceName":"` + own + `/adGroupCriteria/31~41",` +
 		`"adGroupCriterion":{"resourceName":"` + own + `/adGroupCriteria/31~41","adGroup":"` + own + `/adGroups/31","status":"PAUSED",` +
 		`"keyword":{"text":"shoes","matchType":"EXACT"},"cpcBidMicros":"750000","bidModifier":1.5,"finalUrls":["https://a.example.com/"],` +
 		`"urlCustomParameters":[{"key":"a","value":"b"}],"criterionId":"41","type":"KEYWORD","approvalStatus":"APPROVED",` +
 		`"labels":["` + own + `/labels/1"],"unknownMember":"never held"}}]}`)
-	out, err := e.invokeConfirmed(adGroupCriteriaUpdateID, criteriaCall(`[{"resource_name":"`+own+`/adGroupCriteria/31~41","status":"PAUSED"}]`,
+	out, err := e.invokeConfirmed(adGroupCriteriaUpdateID, adGroupCriteriaCall(`[{"resource_name":"`+own+`/adGroupCriteria/31~41","status":"PAUSED"}]`,
 		`,"response_content_type":"MUTABLE_RESOURCE"`))
 	if err != nil {
 		t.Fatal(err)
@@ -496,8 +496,8 @@ func TestAdGroupCriterionResponseContentTypeShowsTheMutableCriterion(t *testing.
 // An answer that names another account, another criterion, another ad group, or another number of results than
 // asked for never passes. The change was made as far as Qatlas can tell, so the error says that the outcome is unknown.
 func TestAdGroupCriterionAnswersAreBoundToTheCheckedAccount(t *testing.T) {
-	update := criteriaCall(`[{"resource_name":"`+own+`/adGroupCriteria/31~41","status":"PAUSED"}]`, `,"response_content_type":"MUTABLE_RESOURCE"`)
-	create := criteriaCall(`[`+createdCriterion+`}]`, `,"response_content_type":"MUTABLE_RESOURCE"`)
+	update := adGroupCriteriaCall(`[{"resource_name":"`+own+`/adGroupCriteria/31~41","status":"PAUSED"}]`, `,"response_content_type":"MUTABLE_RESOURCE"`)
+	create := adGroupCriteriaCall(`[`+createdCriterion+`}]`, `,"response_content_type":"MUTABLE_RESOURCE"`)
 	cases := map[string]struct{ id, arguments, body string }{
 		"foreign result":     {adGroupCriteriaCreateID, create, `{"results":[{"resourceName":"` + foreign + `/adGroupCriteria/31~41"}]}`},
 		"other ad group":     {adGroupCriteriaCreateID, create, `{"results":[{"resourceName":"` + own + `/adGroupCriteria/99~41"}]}`},
@@ -520,7 +520,7 @@ func TestAdGroupCriterionAnswersAreBoundToTheCheckedAccount(t *testing.T) {
 	for name, c := range cases {
 		t.Run(name, func(t *testing.T) {
 			e := newMutationEnvironment(t, nil, nil)
-			e.fake.routes["POST "+criteriaPath(clientID)] = okReply(c.body)
+			e.fake.routes["POST "+adGroupCriteriaPath(clientID)] = okReply(c.body)
 			_, err := e.invokeConfirmed(c.id, c.arguments)
 			if classOf(err) != provider.ClassInvalidResponse || !strings.Contains(err.Error(), "outcome of the change is unknown") ||
 				len(e.posts()) != 1 {
@@ -531,7 +531,7 @@ func TestAdGroupCriterionAnswersAreBoundToTheCheckedAccount(t *testing.T) {
 }
 
 func TestAdGroupCriterionFailuresMapWithoutProviderText(t *testing.T) {
-	arguments := criteriaCall(`[`+createdCriterion+`}]`, "")
+	arguments := adGroupCriteriaCall(`[`+createdCriterion+`}]`, "")
 	cases := map[string]struct {
 		status        int
 		body, outcome string
@@ -548,7 +548,7 @@ func TestAdGroupCriterionFailuresMapWithoutProviderText(t *testing.T) {
 	for name, c := range cases {
 		t.Run(name, func(t *testing.T) {
 			e := newMutationEnvironment(t, nil, nil)
-			e.fake.routes["POST "+criteriaPath(clientID)] = reply{status: c.status, body: c.body}
+			e.fake.routes["POST "+adGroupCriteriaPath(clientID)] = reply{status: c.status, body: c.body}
 			_, err := e.invokeConfirmed(adGroupCriteriaCreateID, arguments)
 			if classOf(err) != c.class || strings.Contains(err.Error(), detailCanary) || strings.Contains(err.Error(), triggerCanary) ||
 				strings.Contains(err.Error(), "outcome of the change is unknown") != (c.outcome != "") || len(e.posts()) != 1 {
@@ -558,7 +558,7 @@ func TestAdGroupCriterionFailuresMapWithoutProviderText(t *testing.T) {
 	}
 	t.Run("a cut connection", func(t *testing.T) {
 		e := newMutationEnvironment(t, nil, nil)
-		e.fake.routes["POST "+criteriaPath(clientID)] = reply{err: errors.New("connection reset")}
+		e.fake.routes["POST "+adGroupCriteriaPath(clientID)] = reply{err: errors.New("connection reset")}
 		_, err := e.invokeConfirmed(adGroupCriteriaCreateID, arguments)
 		if err == nil || !strings.Contains(err.Error(), "outcome of the change is unknown") || len(e.posts()) != 1 {
 			t.Fatalf("err = %v, posts = %d", err, len(e.posts()))
@@ -585,8 +585,8 @@ func TestAdGroupCriterionChangesRefuseAManagerAccountOnACustomerTarget(t *testin
 
 func TestAdGroupCriteriaCreateSendsAListingGroupUnderAnExistingSubdivision(t *testing.T) {
 	e := newMutationEnvironment(t, nil, nil)
-	e.fake.routes["POST "+criteriaPath(clientID)] = criterionResults(own+"/adGroupCriteria/31~41", own+"/adGroupCriteria/31~42")
-	_, err := e.invokeConfirmed(adGroupCriteriaCreateID, criteriaCall(`[{`+criterionAdGroup+`,"status":"ENABLED","cpc_bid_micros":500000,`+
+	e.fake.routes["POST "+adGroupCriteriaPath(clientID)] = criterionResults(own+"/adGroupCriteria/31~41", own+"/adGroupCriteria/31~42")
+	_, err := e.invokeConfirmed(adGroupCriteriaCreateID, adGroupCriteriaCall(`[{`+criterionAdGroup+`,"status":"ENABLED","cpc_bid_micros":500000,`+
 		`"listing_group":{"type":"UNIT","parent_ad_group_criterion":"`+own+`/adGroupCriteria/31~7","case_value":`+
 		`{"product_category":{"category_id":166,"level":"LEVEL1"}},"path":{"dimensions":[{"product_brand":{"value":"Acme"}},`+
 		`{"unknown_listing_dimension":{}}]}}},`+
@@ -607,9 +607,9 @@ func TestAdGroupCriteriaCreateSendsAListingGroupUnderAnExistingSubdivision(t *te
 
 func TestAdGroupCriteriaSendPolicyExemptionKeysAndConfirmThem(t *testing.T) {
 	e := newMutationEnvironment(t, nil, nil)
-	e.fake.routes["POST "+criteriaPath(clientID)] = criterionResults(own + "/adGroupCriteria/31~41")
+	e.fake.routes["POST "+adGroupCriteriaPath(clientID)] = criterionResults(own + "/adGroupCriteria/31~41")
 	keys := `"exempt_policy_violation_keys":[{"policy_name":"TRADEMARKS_IN_AD_TEXT","violating_text":"Acme"},{"policy_name":"OTHER"}]`
-	args := criteriaCall(`[{`+criterionAdGroup+`,"status":"PAUSED","keyword":{"text":"acme","match_type":"EXACT"},`+keys+`}]`, "")
+	args := adGroupCriteriaCall(`[{`+criterionAdGroup+`,"status":"PAUSED","keyword":{"text":"acme","match_type":"EXACT"},`+keys+`}]`, "")
 	var needed *application.ConfirmationRequiredError
 	if _, err := e.invoke(adGroupCriteriaCreateID, args); !errors.As(err, &needed) ||
 		!strings.Contains(needed.Summary, "POLICY EXEMPTION") || !strings.Contains(needed.Summary, "TRADEMARKS_IN_AD_TEXT") {
@@ -618,8 +618,8 @@ func TestAdGroupCriteriaSendPolicyExemptionKeysAndConfirmThem(t *testing.T) {
 	if _, err := e.invokeConfirmed(adGroupCriteriaCreateID, args); err != nil {
 		t.Fatal(err)
 	}
-	e.fake.routes["POST "+criteriaPath(clientID)] = criterionResults(own + "/adGroupCriteria/31~42")
-	if _, err := e.invokeConfirmed(adGroupCriteriaUpdateID, criteriaCall(`[{"resource_name":"`+own+`/adGroupCriteria/31~42","status":"ENABLED",`+
+	e.fake.routes["POST "+adGroupCriteriaPath(clientID)] = criterionResults(own + "/adGroupCriteria/31~42")
+	if _, err := e.invokeConfirmed(adGroupCriteriaUpdateID, adGroupCriteriaCall(`[{"resource_name":"`+own+`/adGroupCriteria/31~42","status":"ENABLED",`+
 		keys+`}]`, "")); err != nil {
 		t.Fatal(err)
 	}
@@ -635,10 +635,10 @@ func TestAdGroupCriteriaSendPolicyExemptionKeysAndConfirmThem(t *testing.T) {
 
 func TestAdGroupCriterionAnswerWithAForeignListingParentNeverPasses(t *testing.T) {
 	e := newMutationEnvironment(t, nil, nil)
-	e.fake.routes["POST "+criteriaPath(clientID)] = okReply(`{"results":[{"resourceName":"` + own + `/adGroupCriteria/31~41",` +
+	e.fake.routes["POST "+adGroupCriteriaPath(clientID)] = okReply(`{"results":[{"resourceName":"` + own + `/adGroupCriteria/31~41",` +
 		`"adGroupCriterion":{"resourceName":"` + own + `/adGroupCriteria/31~41","listingGroup":{"type":"UNIT",` +
 		`"parentAdGroupCriterion":"` + foreign + `/adGroupCriteria/31~7"}}}]}`)
-	_, err := e.invokeConfirmed(adGroupCriteriaUpdateID, criteriaCall(`[{"resource_name":"`+own+`/adGroupCriteria/31~41","cpc_bid_micros":1}]`,
+	_, err := e.invokeConfirmed(adGroupCriteriaUpdateID, adGroupCriteriaCall(`[{"resource_name":"`+own+`/adGroupCriteria/31~41","cpc_bid_micros":1}]`,
 		`,"response_content_type":"MUTABLE_RESOURCE"`))
 	if classOf(err) != provider.ClassInvalidResponse || !strings.Contains(err.Error(), "outcome of the change is unknown") {
 		t.Fatalf("err = %v", err)

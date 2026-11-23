@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -54,6 +55,24 @@ type errorWire struct {
 		QuotaErrorDetails *struct {
 			RetryDelay string `json:"retryDelay"`
 		} `json:"quotaErrorDetails"`
+		PolicyFindingDetails *struct {
+			PolicyTopicEntries []struct {
+				Topic     string `json:"topic"`
+				Type      string `json:"type"`
+				Evidences []struct {
+					TextList *struct {
+						Texts []string `json:"texts"`
+					} `json:"textList"`
+				} `json:"evidences"`
+			} `json:"policyTopicEntries"`
+		} `json:"policyFindingDetails"`
+		PolicyViolationDetails *struct {
+			IsExemptible bool `json:"isExemptible"`
+			Key          *struct {
+				PolicyName    string `json:"policyName"`
+				ViolatingText string `json:"violatingText"`
+			} `json:"key"`
+		} `json:"policyViolationDetails"`
 	} `json:"details"`
 }
 
@@ -61,10 +80,94 @@ const failureTypePrefix = "type.googleapis.com/google.ads.googleads."
 const failureTypeSuffix = ".errors.GoogleAdsFailure"
 
 var (
-	categoryPattern  = regexp.MustCompile(`^[a-z][A-Za-z]{0,63}$`)
-	codePattern      = regexp.MustCompile(`^[A-Z][A-Z0-9_]{0,99}$`)
-	requestIDPattern = regexp.MustCompile(`^[A-Za-z0-9_-]{1,64}$`)
+	categoryPattern   = regexp.MustCompile(`^[a-z][A-Za-z]{0,63}$`)
+	codePattern       = regexp.MustCompile(`^[A-Z][A-Z0-9_]{0,99}$`)
+	requestIDPattern  = regexp.MustCompile(`^[A-Za-z0-9_-]{1,64}$`)
+	policyNamePattern = regexp.MustCompile(`^[A-Za-z0-9_.-]{1,100}$`)
+	pathPattern       = regexp.MustCompile(`^[A-Za-z0-9_.\[\]]{1,200}$`)
 )
+
+// policyTopicTypes are the values of PolicyTopicEntryType that a finding of a rejected change can carry.
+var policyTopicTypes = []string{"PROHIBITED", "LIMITED", "FULLY_LIMITED", "DESCRIPTIVE", "BROADENING", "AREA_OF_INTEREST_ONLY"}
+
+// policyNote is one policy finding of a GoogleAdsError, reduced to what Qatlas can state without Google's
+// text: the topic or policy name, the type of a topic entry, whether a violation is exemptible, and where in
+// the request it was found. The raw texts (the violating text, the evidence) go only into the original.
+type policyNote struct {
+	topic, policy, entryType, path string
+	exemptible                     bool
+}
+
+// policyNotes reads the policy findings of one error: the topic entries of its PolicyFindingDetails and the
+// violation of its PolicyViolationDetails. A name or type that is not of the documented form is left out of
+// the note, since it would be provider text.
+func policyNotes(e errorWire, path string, original *[]provider.OriginalEntry) []policyNote {
+	var notes []policyNote
+	if d := e.Details.PolicyFindingDetails; d != nil {
+		for _, entry := range d.PolicyTopicEntries {
+			note := policyNote{path: path}
+			if codePattern.MatchString(entry.Topic) {
+				note.topic = entry.Topic
+			}
+			if slices.Contains(policyTopicTypes, entry.Type) {
+				note.entryType = entry.Type
+			}
+			var evidence []string
+			for _, ev := range entry.Evidences {
+				if ev.TextList != nil {
+					evidence = append(evidence, ev.TextList.Texts...)
+				}
+			}
+			*original = append(*original, provider.OriginalEntry{Type: "policyTopic", Code: entry.Topic, Path: path,
+				Message: strings.TrimSpace(entry.Type + " " + strings.Join(evidence, "; "))})
+			if note.topic != "" {
+				notes = append(notes, note)
+			}
+		}
+	}
+	if d := e.Details.PolicyViolationDetails; d != nil && d.Key != nil {
+		note := policyNote{path: path, exemptible: d.IsExemptible}
+		if policyNamePattern.MatchString(d.Key.PolicyName) {
+			note.policy = d.Key.PolicyName
+		}
+		*original = append(*original, provider.OriginalEntry{Type: "policyViolation", Code: d.Key.PolicyName, Path: path,
+			Message: strings.TrimSpace("exemptible " + strconv.FormatBool(d.IsExemptible) + " " + d.Key.ViolatingText)})
+		if note.policy != "" {
+			notes = append(notes, note)
+		}
+	}
+	return notes
+}
+
+// maxPolicyNotes bounds the findings a message names.
+const maxPolicyNotes = 10
+
+// policySentence phrases the findings of a rejected change from the notes alone. It is empty without a note.
+func policySentence(notes []policyNote) string {
+	if len(notes) == 0 {
+		return ""
+	}
+	var parts []string
+	seen := map[policyNote]bool{}
+	for _, n := range notes {
+		if seen[n] || len(parts) == maxPolicyNotes {
+			continue
+		}
+		seen[n] = true
+		part := "topic " + n.topic
+		if n.topic == "" {
+			part = "policy " + n.policy + " (exemptible: " + strconv.FormatBool(n.exemptible) + ")"
+		} else if n.entryType != "" {
+			part += " (" + n.entryType + ")"
+		}
+		if pathPattern.MatchString(n.path) {
+			part += " at " + n.path
+		}
+		parts = append(parts, part)
+	}
+	return "; policy findings: " + strings.Join(parts, ", ") + ". Change the content, or, where a tool offers " +
+		"policy_validation_parameter, name the topics in ignorable_policy_topics to save without serving"
+}
 
 // adsCode is one error of a GoogleAdsFailure: its category and the name of its enum value.
 type adsCode struct{ category, value string }
@@ -159,6 +262,8 @@ func adsErrorFor(op string, status int, body []byte, change, input bool) (*provi
 	_ = json.Unmarshal(body, &answer)
 	var codes []adsCode
 	var paths, messages []string
+	var notes []policyNote
+	var policyEntries []provider.OriginalEntry
 	var hold time.Duration
 	requestID := ""
 	adsFailure := false
@@ -173,6 +278,7 @@ func adsErrorFor(op string, status int, body []byte, change, input bool) (*provi
 		for _, e := range detail.Errors {
 			code := codeOf(e.ErrorCode)
 			codes, messages, paths = append(codes, code), append(messages, e.Message), append(paths, pathOf(e))
+			notes = append(notes, policyNotes(e, paths[len(paths)-1], &policyEntries)...)
 			if quota := e.Details.QuotaErrorDetails; quota != nil {
 				if delay, err := time.ParseDuration(quota.RetryDelay); err == nil && delay > 0 {
 					hold = max(hold, delay)
@@ -191,6 +297,7 @@ func adsErrorFor(op string, status int, body []byte, change, input bool) (*provi
 			original.Entries = append(original.Entries, provider.OriginalEntry{Type: code.category, Code: code.value,
 				Path: paths[i], Message: messages[i]})
 		}
+		original.Entries = append(original.Entries, policyEntries...)
 		if requestID != "" {
 			original.Entries = append(original.Entries, provider.OriginalEntry{Type: "requestId", Code: requestID})
 		}
@@ -214,7 +321,7 @@ func adsErrorFor(op string, status int, body []byte, change, input bool) (*provi
 	if change && adsFailure && status == http.StatusBadRequest && len(codes) > 0 && codes[0] != (adsCode{}) {
 		// Google validated the change and refused it: the code names the rule, the original carries the field.
 		return failed(provider.ClassProviderError, "rejected the change ("+codes[0].category+" "+codes[0].value+
-			"), nothing was changed"), hold
+			"), nothing was changed"+policySentence(notes)), hold
 	}
 	if input && !change && adsFailure && status == http.StatusBadRequest && len(codes) > 0 && codes[0] != (adsCode{}) {
 		// Google judged the input of a read and refused it: the code names the rule, the original carries the field.

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"io"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 	"unicode"
@@ -34,6 +35,7 @@ const (
 	kObject
 	kObjects
 	kBytes
+	kRef
 )
 
 type assetField struct {
@@ -49,6 +51,11 @@ type assetField struct {
 	// typeMember marks the member that holds the data of one asset type.
 	typeMember bool
 	sub        *assetSpec
+	// values restricts an enum to the values the tool offers, coll names the collection of a resource name of
+	// the account (kRef), and pattern is the form a text must have.
+	values  []string
+	coll    string
+	pattern *regexp.Regexp
 }
 
 type assetSpec struct {
@@ -72,6 +79,15 @@ func members(name string, sub *assetSpec) assetField {
 	return assetField{name: name, kind: kObjects, sub: sub}
 }
 
+func ref(name, collection string) assetField {
+	return assetField{name: name, kind: kRef, coll: collection}
+}
+
+func (f assetField) among(values ...string) assetField { f.values = values; return f }
+func (f assetField) matching(re string) assetField {
+	f.pattern = regexp.MustCompile(re)
+	return f
+}
 func (f assetField) required() assetField      { f.req = true; return f }
 func (f assetField) created() assetField       { f.fixed = true; return f }
 func (f assetField) output() assetField        { f.out = true; return f }
@@ -295,9 +311,17 @@ const (
 func (f assetField) schema(update bool) schema {
 	switch f.kind {
 	case kText:
+		if f.pattern != nil {
+			return schema{"type": "string", "maxLength": maxAssetText, "pattern": "^$|" + f.pattern.String()}
+		}
 		return schema{"type": "string", "maxLength": maxAssetText}
 	case kEnum:
+		if f.values != nil {
+			return schema{"type": "string", "enum": f.values}
+		}
 		return schema{"type": "string", "pattern": enumPattern.String()}
+	case kRef:
+		return schema{"type": "string", "pattern": "^$|^customers/[0-9]{1,10}/" + f.coll + "/[0-9]{1,20}$"}
 	case kDate:
 		return schema{"type": "string", "pattern": "^$|" + datePattern.String()}
 	case kAddress:
@@ -392,6 +416,11 @@ func (w *assetCall) object(s *assetSpec, in map[string]any, path string) (map[st
 		}
 		here := path + f.name
 		if f.kind == kBytes {
+			_, hasPath := in[localfile.LocalPathArgument]
+			_, hasContent := in[localfile.ContentArgument]
+			if !f.req && !hasPath && !hasContent {
+				continue
+			}
 			data, err := w.bytes(in, path)
 			if err != nil {
 				return nil, nil, err
@@ -471,7 +500,7 @@ func plainText(path, v string, limit int) error {
 func (w *assetCall) value(f assetField, v any, path string) (any, []string, error) {
 	bad := func(rule string) (any, []string, error) { return nil, nil, argumentError(path, rule) }
 	switch f.kind {
-	case kText, kEnum, kDate, kAddress, kSuffix, kAssetRef, kActionRef:
+	case kText, kEnum, kDate, kAddress, kSuffix, kAssetRef, kActionRef, kRef:
 		s, ok := v.(string)
 		if !ok {
 			return bad("must be a string")
@@ -484,7 +513,13 @@ func (w *assetCall) value(f assetField, v any, path string) (any, []string, erro
 			if err := plainText(path, s, maxAssetText); err != nil {
 				return nil, nil, err
 			}
+			if f.pattern != nil && !f.pattern.MatchString(s) {
+				return bad("must have the form " + f.pattern.String())
+			}
 		case kEnum:
+			if f.values != nil && !slices.Contains(f.values, s) {
+				return bad("must be one of " + strings.Join(f.values, ", "))
+			}
 			if !enumPattern.MatchString(s) || strings.HasPrefix(s, "UNSPECIFIED") || strings.HasPrefix(s, "UNKNOWN") {
 				return bad("must be the name of an enum value of the API, such as SOME_VALUE")
 			}
@@ -507,6 +542,10 @@ func (w *assetCall) value(f assetField, v any, path string) (any, []string, erro
 		case kActionRef:
 			if !ownedName(s, w.customerID, "conversionActions") {
 				return bad("must be a conversion action of customer_id, customers/ID/conversionActions/N")
+			}
+		case kRef:
+			if !ownedResource(s, w.customerID, f.coll) {
+				return bad("must be customers/ID/" + f.coll + "/N of customer_id; temporary IDs are not accepted")
 			}
 		}
 		return s, nil, nil
@@ -644,11 +683,14 @@ func outObject(s *assetSpec, raw map[string]any, customerID string) (map[string]
 				return nil, false
 			}
 			out[f.name] = code(t)
-		case kAssetRef, kActionRef:
+		case kAssetRef, kActionRef, kRef:
 			t, ok := v.(string)
 			collection := "assets"
-			if f.kind == kActionRef {
+			switch f.kind {
+			case kActionRef:
 				collection = "conversionActions"
+			case kRef:
+				collection = f.coll
 			}
 			if !ok || !ownedName(t, customerID, collection) {
 				return nil, false

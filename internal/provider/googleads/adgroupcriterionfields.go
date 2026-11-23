@@ -60,8 +60,8 @@ var negativeRefused = []string{"bid_modifier", "cpc_bid_micros", "cpm_bid_micros
 
 // The enums below are in no field of the catalog; their values are the ones of the reference of v26.
 var (
-	webpageOperands  = []string{"CATEGORY", "CUSTOM_LABEL", "PAGE_CONTENT", "PAGE_TITLE", "URL"}
-	webpageOperators = []string{"CONTAINS", "EQUALS"}
+	adGroupWebpageOperands  = []string{"CATEGORY", "CUSTOM_LABEL", "PAGE_CONTENT", "PAGE_TITLE", "URL"}
+	adGroupWebpageOperators = []string{"CONTAINS", "EQUALS"}
 )
 
 const (
@@ -74,9 +74,9 @@ const (
 	youtubeChannelPattern  = `^[A-Za-z0-9_-]{1,64}$`
 )
 
-// checkKeywordText refuses keyword text Google would: empty, longer than 80 characters or 255 bytes, more than
+// checkAdGroupKeywordText refuses keyword text Google would: empty, longer than 80 characters or 255 bytes, more than
 // ten words, or holding a control character.
-func checkKeywordText(argument, value string) error {
+func checkAdGroupKeywordText(argument, value string) error {
 	if value == "" || hasControl(value) || utf8.RuneCountInString(value) > maxKeywordRunes ||
 		len(value) > maxKeywordBytes || len(strings.Fields(value)) > maxCriterionKeywordWords {
 		return badRequest(argument + " must be text of 1 to 80 characters, at most 255 bytes and 10 words, without control characters")
@@ -84,16 +84,18 @@ func checkKeywordText(argument, value string) error {
 	return nil
 }
 
-// checkPlacementURL refuses a placement that is empty, longer than 250 characters or holds a control character.
-func checkPlacementURL(argument, value string) error {
+// checkAdGroupPlacement refuses a placement that is empty, longer than 250 characters or holds a control character.
+func checkAdGroupPlacement(argument, value string) error {
 	if value == "" || hasControl(value) || utf8.RuneCountInString(value) > maxPlacementRunes {
 		return badRequest(argument + " must be text of 1 to 250 characters without control characters")
 	}
 	return nil
 }
 
-// constantNode is a resource of Google that belongs to no account: its form is checked, not its owner.
-func constantNode(name, desc, pattern string) node { return patternNode(name, desc, pattern, 64) }
+// adGroupConstantNode is a resource of Google that belongs to no account: its form is checked, not its owner.
+func adGroupConstantNode(name, desc, pattern string) node {
+	return patternNode(name, desc, pattern, 64)
+}
 
 func sharedSetNode(desc string) node {
 	return resourceNode("shared_set", desc, "sharedSets")
@@ -105,11 +107,11 @@ var listingDimensionNames = []string{"hotel_id", "hotel_class", "hotel_country_r
 	"product_custom_attribute", "product_item_id", "product_type", "activity_id", "activity_rating", "activity_country",
 	"activity_state", "activity_city", "unknown_listing_dimension"}
 
-// listingDimension is one dimension of a listing group: exactly one of the members.
-func listingDimension(name, desc string) node {
+// adGroupListingDimension is one dimension of a listing group: exactly one of the members.
+func adGroupListingDimension(name, desc string) node {
 	const base = "ad_group_criterion.listing_group.case_value."
 	geo := func(member string) node {
-		return constantNode(member, "Geo target constant of Google, geoTargetConstants/N", geoConstantPattern)
+		return adGroupConstantNode(member, "Geo target constant of Google, geoTargetConstants/N", geoConstantPattern)
 	}
 	value := func(desc string) node { return textNode("value", desc, maxNameArgument) }
 	rating := func(desc string) node { return wholeNode("value", desc, 1, 5) }
@@ -145,9 +147,9 @@ func listingDimension(name, desc string) node {
 
 func criterionNodes() []node {
 	keywordText := textNode("text", "Keyword text, at most 80 characters, 255 bytes and 10 words; Google allows an asterisk only in a negative keyword", maxKeywordRunes)
-	keywordText.check = checkKeywordText
+	keywordText.check = checkAdGroupKeywordText
 	placementURL := textNode("url", "Placement: a site, such as www.example.com, or a page two levels deep at most, up to 250 characters; Google refuses adsenseformobileapps.com", maxPlacementRunes)
-	placementURL.check = checkPlacementURL
+	placementURL.check = checkAdGroupPlacement
 	return []node{
 		objectNode("age_range", "Age range", enumNode("type", "Age range", enumOf("ad_group_criterion.age_range.type"))),
 		objectNode("app_payment_model", "App payment model; targeting only",
@@ -173,18 +175,18 @@ func criterionNodes() []node {
 		objectNode("keyword", "Keyword", keywordText,
 			enumNode("match_type", "Match type", enumOf("ad_group_criterion.keyword.match_type"))),
 		objectNode("language", "Language; targeting only, and Google refuses it in Search campaigns",
-			constantNode("language_constant", "Language constant of Google, languageConstants/N", languageConstantPat)),
+			adGroupConstantNode("language_constant", "Language constant of Google, languageConstants/N", languageConstantPat)),
 		objectNode("life_event", "Life event", wholeNode("life_event_id", "Taxonomy ID of the life event", 1, math64)),
 		objectNode("listing_group", "Listing group of Hotel and Shopping ads, targeting only. A new tree, with a parent and its children in one request, needs temporary IDs and cannot be created; a unit is created under an existing subdivision",
 			enumNode("type", "SUBDIVISION splits further, UNIT is a leaf that can have bids", enumOf("ad_group_criterion.listing_group.type")),
-			listingDimension("case_value", "Dimension with which this group refines its parent; none for the root"),
+			adGroupListingDimension("case_value", "Dimension with which this group refines its parent; none for the root"),
 			patternNode("parent_ad_group_criterion", "Subdivision of the same ad group and account this group refines, customers/ID/adGroupCriteria/ADGROUPID~CRITERIONID; none for the root", criterionNamePattern, 100),
 			objectNode("path", "Complete path of dimensions from the root, without the root",
-				listOf(listingDimension("dimensions", ""), maxListingPath))),
+				listOf(adGroupListingDimension("dimensions", ""), maxListingPath))),
 		objectNode("location", "Location",
-			constantNode("geo_target_constant", "Geo target constant of Google, geoTargetConstants/N", geoConstantPattern)),
+			adGroupConstantNode("geo_target_constant", "Geo target constant of Google, geoTargetConstants/N", geoConstantPattern)),
 		objectNode("mobile_app_category", "Mobile app category",
-			constantNode("mobile_app_category_constant", "Mobile app category constant of Google, mobileAppCategoryConstants/N", appCategoryPattern)),
+			adGroupConstantNode("mobile_app_category_constant", "Mobile app category constant of Google, mobileAppCategoryConstants/N", appCategoryPattern)),
 		objectNode("mobile_application", "Mobile application",
 			patternNode("app_id", "App as 1-NINE_DIGIT_ID for iOS or 2-PACKAGE_NAME for Android", mobileApplicationIDPat, maxMobileApplicationID),
 			textNode("name", "Name of the app", maxNameArgument)),
@@ -193,7 +195,7 @@ func criterionNodes() []node {
 		objectNode("retail_filter_bundle", "Retail filter bundle; Google offers it to allowlisted accounts only",
 			sharedSetNode("Shared set of the retail filter in this account, customers/ID/sharedSets/N")),
 		objectNode("topic", "Topic",
-			constantNode("topic_constant", "Topic constant of Google, topicConstants/N", topicConstantPattern)),
+			adGroupConstantNode("topic_constant", "Topic constant of Google, topicConstants/N", topicConstantPattern)),
 		objectNode("user_interest", "User interest",
 			resourceNode("user_interest_category", "User interest of this account, customers/ID/userInterests/N", "userInterests")),
 		objectNode("user_list", "User list",
@@ -204,8 +206,8 @@ func criterionNodes() []node {
 		objectNode("webpage", "Webpage of the website of the campaign",
 			textNode("criterion_name", "Name of the criterion; required", maxNameArgument),
 			listOf(objectNode("conditions", "Conditions that are all met; at least one is needed, so that a criterion never covers every page by accident",
-				enumNode("operand", "Part of the page the condition looks at", webpageOperands),
-				enumNode("operator", "Comparison", webpageOperators),
+				enumNode("operand", "Part of the page the condition looks at", adGroupWebpageOperands),
+				enumNode("operator", "Comparison", adGroupWebpageOperators),
 				textNode("argument", "Value compared with", maxNameArgument)), maxCriterionConditions)),
 		objectNode("youtube_channel", "YouTube channel",
 			patternNode("channel_id", "ID of the channel or its channel code", youtubeChannelPattern, 64)),

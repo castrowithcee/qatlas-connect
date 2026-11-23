@@ -25,11 +25,10 @@ const (
 )
 
 const (
-	criterionNamePattern = `^customers/[0-9]{1,10}/adGroupCriteria/[0-9]{1,20}~[0-9]{1,20}$`
 	adGroupCriterionSens = "criteria of ad groups of a Google Ads account: keywords, audiences, placements, bids, tracking templates"
 )
 
-var criterionNameSchema = schema{"type": "string", "maxLength": 100, "pattern": criterionNamePattern,
+var adGroupCriterionNameSchema = schema{"type": "string", "maxLength": 100, "pattern": criterionNamePattern,
 	"description": "Ad group criterion of this account, customers/ID/adGroupCriteria/ADGROUPID~CRITERIONID"}
 
 var exemptionKeysSchema = schema{"type": "array", "minItems": 1, "maxItems": maxExemptionKeys,
@@ -400,7 +399,7 @@ func adGroupCriterionInputSchema(create bool) schema {
 	} else {
 		item = adGroupCriterionTree.mutable().inputSchema()
 		props := item["properties"].(schema)
-		props["resource_name"] = criterionNameSchema
+		props["resource_name"] = adGroupCriterionNameSchema
 		props["exempt_policy_violation_keys"] = exemptionKeysSchema
 		item["required"] = []string{"resource_name"}
 		item["minProperties"] = 2
@@ -483,7 +482,7 @@ var adGroupCriteriaRemove = capability.Descriptor{
 	Tags: []string{"google", "ads", "ad-group-criteria", "remove"}, Provider: Provider, RequiresToolAllowList: true,
 	Risk: changeRisk(capability.EffectDelete, capability.IdempotencyIdempotent, adGroupCriterionSens),
 	InputSchema: encoded(object(schema{"customer_id": customerIDArgument,
-		"resource_names": schema{"type": "array", "minItems": 1, "maxItems": maxAdGroupCriteria, "items": criterionNameSchema},
+		"resource_names": schema{"type": "array", "minItems": 1, "maxItems": maxAdGroupCriteria, "items": adGroupCriterionNameSchema},
 		"validate_only":  validateOnlySchema}, "customer_id", "resource_names")),
 	OutputSchema: encoded(adGroupCriterionOutputSchema),
 	Arguments: []capability.Argument{adGroupCriterionCustomerArgument,
