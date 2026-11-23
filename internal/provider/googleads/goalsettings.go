@@ -35,7 +35,7 @@ var (
 )
 
 type (
-	goalItem struct {
+	goalSettingItem struct {
 		CampaignID string `json:"campaign_id"`
 		Category   string `json:"category"`
 		Origin     string `json:"origin"`
@@ -55,15 +55,15 @@ type (
 	}
 )
 
-func customerGoalName(customerID string, g goalItem) string {
+func customerGoalName(customerID string, g goalSettingItem) string {
 	return customerName(customerID) + customerConversionGoalService + "/" + g.Category + "~" + g.Origin
 }
 
-func campaignGoalName(customerID string, g goalItem) string {
+func campaignGoalName(customerID string, g goalSettingItem) string {
 	return customerName(customerID) + campaignConversionGoalService + "/" + g.CampaignID + "~" + g.Category + "~" + g.Origin
 }
 
-func goalConfigName(customerID, campaignID string) string {
+func goalSettingConfigName(customerID, campaignID string) string {
 	return customerName(customerID) + conversionGoalCampaignConfigService + "/" + campaignID
 }
 
@@ -76,7 +76,7 @@ func checkNumericID(argument, value string) error {
 
 // check refuses what no request may start with. The category and the origin come from the enums of the API and
 // build the resource name, so no free text reaches it.
-func (g goalItem) check(withCampaign bool) error {
+func (g goalSettingItem) check(withCampaign bool) error {
 	if withCampaign {
 		if err := checkNumericID("campaign_id", g.CampaignID); err != nil {
 			return err
@@ -106,7 +106,7 @@ func (a goalSettingsArguments) operations(tool string) (operations []any, names 
 			if err := checkNumericID("campaign_id", item.CampaignID); err != nil {
 				return nil, nil, err
 			}
-			name := goalConfigName(a.CustomerID, item.CampaignID)
+			name := goalSettingConfigName(a.CustomerID, item.CampaignID)
 			if slices.Contains(names, name) {
 				return nil, nil, badRequest("configs names each campaign once")
 			}
@@ -136,7 +136,7 @@ func (a goalSettingsArguments) operations(tool string) (operations []any, names 
 		return operations, names, nil
 	}
 	campaign := tool == campaignConversionGoalsUpdateID
-	var items []goalItem
+	var items []goalSettingItem
 	if json.Unmarshal(a.Goals, &items) != nil || len(items) < 1 || len(items) > maxGoalOperations {
 		return nil, nil, badRequest("goals holds one to 20 entries")
 	}
@@ -253,7 +253,7 @@ func goalSettingsChange(ctx context.Context, resolved *config.Resolved, secrets 
 	out := goalSettingsOutput{CustomerID: args.CustomerID, ValidateOnly: args.ValidateOnly, Results: []goalSettingsResult{}}
 	// The arguments were decoded once by operations, so these decodings cannot fail and the lists have the length
 	// of the results.
-	var goals []goalItem
+	var goals []goalSettingItem
 	var configs []goalConfigItem
 	_ = json.Unmarshal(args.Goals, &goals)
 	_ = json.Unmarshal(args.Configs, &configs)
@@ -322,7 +322,7 @@ func goalSettingsSummary(tool string) capability.SummaryFunc {
 			return prefix + "Change the conversion goal settings of " + strconv.Itoa(len(items)) + " campaign(s)" + where +
 				" (" + strings.Join(parts, "; ") + "). This changes which conversion goals the campaigns optimize for."
 		}
-		var items []goalItem
+		var items []goalSettingItem
 		_ = json.Unmarshal(a.Goals, &items)
 		scope := "account"
 		for _, item := range items {
@@ -365,13 +365,13 @@ var (
 		return s
 	}()
 
-	goalOutputSchema = encoded(object(schema{"customer_id": stringSchema, "validate_only": booleanSchema,
+	goalSettingOutputSchema = encoded(object(schema{"customer_id": stringSchema, "validate_only": booleanSchema,
 		"results": arrayOf(object(schema{"campaign_id": stringSchema, "category": stringSchema, "origin": stringSchema,
 			"resource_name": stringSchema, "conversion_goal_campaign_config": object(schema{"resource_name": stringSchema,
 				"campaign": stringSchema, "goal_config_level": stringSchema, "custom_conversion_goal": stringSchema})},
 			"resource_name"))}, "customer_id", "validate_only", "results"))
 
-	goalFields = []capability.Field{
+	goalSettingFields = []capability.Field{
 		{Name: "customer_id", Description: "The account of the call"},
 		{Name: "validate_only", Description: "true when Google only validated the request: results is then empty"},
 		{Name: "results", Description: "One entry per operation, in the order of the request: the campaign_id, " +
@@ -390,7 +390,7 @@ func goalInputSchema(member string, items schema, content bool) json.RawMessage 
 	return encoded(object(properties, "customer_id", member))
 }
 
-const goalNote = " The change decides which conversions campaigns bid for, so it can move spend. Up to 20 entries go in " +
+const goalSettingNote = " The change decides which conversions campaigns bid for, so it can move spend. Up to 20 entries go in " +
 	"one request without partial_failure. The resource names are built from customer_id and the checked parts; no " +
 	"argument takes a resource name. The settings are read with reports.search on the resource."
 
@@ -402,14 +402,14 @@ var customerConversionGoalsUpdate = capability.Descriptor{
 	Description: "Turn conversion goals on or off for the bidding of a whole Google Ads account " +
 		"(CustomerConversionGoalService.MutateCustomerConversionGoals with update operations and the mask biddable). " +
 		"A goal is the pair of a conversion category and a conversion origin; biddable decides whether the conversion " +
-		"actions of that pair count for the bidding of the account's campaigns by default." + goalNote + mutateListListedNote,
+		"actions of that pair count for the bidding of the account's campaigns by default." + goalSettingNote + mutateListListedNote,
 	Tags: []string{"google", "ads", "conversions", "goals", "update"}, Provider: Provider, RequiresToolAllowList: true,
-	Risk: goalUpdateRisk, InputSchema: goalInputSchema("goals", goalAccountItem, false), OutputSchema: goalOutputSchema,
+	Risk: goalUpdateRisk, InputSchema: goalInputSchema("goals", goalAccountItem, false), OutputSchema: goalSettingOutputSchema,
 	Arguments: append([]capability.Argument{goalCustomerDoc,
 		{Name: "goals", Required: true, Description: "One to 20 entries, each with category (a ConversionActionCategory " +
 			"such as PURCHASE), origin (WEBSITE, GOOGLE_HOSTED, APP, CALL_FROM_ADS, STORE, YOUTUBE_HOSTED or " +
 			"LOCAL_SERVICES_ADS) and biddable (true or false); each pair at most once"}}, goalResponseDoc...),
-	Fields: goalFields,
+	Fields: goalSettingFields,
 	Examples: []capability.Example{{Description: "Take a goal out of bidding, validated only",
 		Arguments: json.RawMessage(`{"customer_id":"1234567890","goals":[{"category":"PAGE_VIEW","origin":"WEBSITE",` +
 			`"biddable":false}],"validate_only":true}`)}},
@@ -421,15 +421,15 @@ var campaignConversionGoalsUpdate = capability.Descriptor{
 		"(CampaignConversionGoalService.MutateCampaignConversionGoals with update operations and the mask biddable). " +
 		"The goal is the pair of a conversion category and a conversion origin. A campaign that was never changed " +
 		"inherits the account default; to keep a campaign from bidding on a goal, set biddable to false for it " +
-		"explicitly." + goalNote + mutateListListedNote,
+		"explicitly." + goalSettingNote + mutateListListedNote,
 	Tags: []string{"google", "ads", "conversions", "goals", "campaigns", "update"}, Provider: Provider,
 	RequiresToolAllowList: true, Risk: goalUpdateRisk,
-	InputSchema: goalInputSchema("goals", goalCampaignItem, false), OutputSchema: goalOutputSchema,
+	InputSchema: goalInputSchema("goals", goalCampaignItem, false), OutputSchema: goalSettingOutputSchema,
 	Arguments: append([]capability.Argument{goalCustomerDoc,
 		{Name: "goals", Required: true, Description: "One to 20 entries, each with campaign_id (numeric, as " +
 			"reports.search returns it), category, origin (as for customer-conversion-goals.update) and biddable " +
 			"(true or false); each campaign, category and origin at most once"}}, goalResponseDoc...),
-	Fields: goalFields,
+	Fields: goalSettingFields,
 	Examples: []capability.Example{{Description: "Keep one campaign from bidding on a goal, validated only",
 		Arguments: json.RawMessage(`{"customer_id":"1234567890","goals":[{"campaign_id":"5544332211","category":"PURCHASE",` +
 			`"origin":"WEBSITE","biddable":false}],"validate_only":true}`)}},
@@ -441,16 +441,16 @@ var conversionGoalCampaignConfigsUpdate = capability.Descriptor{
 		"(ConversionGoalCampaignConfigService.MutateConversionGoalCampaignConfigs with update operations and a mask " +
 		"of exactly the given settings): the goal config level (CUSTOMER uses the goals of the account, CAMPAIGN the " +
 		"goals of the campaign) and the custom conversion goal of the campaign. The campaign itself cannot be " +
-		"changed. A setting is set, never cleared." + goalNote + mutateListListedNote,
+		"changed. A setting is set, never cleared." + goalSettingNote + mutateListListedNote,
 	Tags: []string{"google", "ads", "conversions", "goals", "campaigns", "update"}, Provider: Provider,
 	RequiresToolAllowList: true, Risk: goalUpdateRisk,
-	InputSchema: goalInputSchema("configs", goalConfigItemSchema, true), OutputSchema: goalOutputSchema,
+	InputSchema: goalInputSchema("configs", goalConfigItemSchema, true), OutputSchema: goalSettingOutputSchema,
 	Arguments: append([]capability.Argument{goalCustomerDoc,
 		{Name: "configs", Required: true, Description: "One to 20 entries, each with campaign_id (numeric) and at " +
 			"least one of goal_config_level (CUSTOMER or CAMPAIGN) and custom_conversion_goal_id (numeric ID of a " +
 			"custom conversion goal of the same account); each campaign at most once"}},
 		validateOnlyArgument, responseContentTypeArgument),
-	Fields: goalFields,
+	Fields: goalSettingFields,
 	Examples: []capability.Example{{Description: "Let a campaign use the goals of its own level, validated only",
 		Arguments: json.RawMessage(`{"customer_id":"1234567890","configs":[{"campaign_id":"5544332211",` +
 			`"goal_config_level":"CAMPAIGN"}],"validate_only":true}`)}},
