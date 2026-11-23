@@ -37,7 +37,7 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 		adGroupAssetSetsCreateID, adGroupAssetSetsRemoveID, adGroupAssetsCreateID, adGroupAssetsRemoveID,
 		adGroupAssetsUpdateID, adGroupBidModifiersCreateID, adGroupBidModifiersRemoveID, adGroupBidModifiersUpdateID,
 		adGroupCriteriaCreateID, adGroupCriteriaRemoveID, adGroupCriteriaUpdateID,
-		adGroupsCreateID,
+		adGroupLabelsCreateID, adGroupLabelsRemoveID, adGroupsCreateID,
 		adGroupsRemoveID, adGroupsUpdateID, adParametersCreateID, adParametersRemoveID, adParametersUpdateID, adsUpdateID,
 		assetGroupsCreateID, assetGroupsRemoveID, assetGroupsUpdateID,
 		assetSetAssetsCreateID, assetSetAssetsRemoveID,
@@ -51,7 +51,7 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 		campaignBudgetsCreateID, campaignBudgetsRemoveID,
 		campaignBudgetsUpdateID, campaignCriteriaCreateID, campaignCriteriaRemoveID,
 		campaignCriteriaUpdateID, campaignGroupsCreateID, campaignGroupsRemoveID,
-		campaignGroupsUpdateID, campaignSharedSetsCreateID, campaignSharedSetsRemoveID, campaignsCreateID, campaignsEnablePMaxBrandGuidelinesID,
+		campaignGroupsUpdateID, campaignLabelsCreateID, campaignLabelsRemoveID, campaignSharedSetsCreateID, campaignSharedSetsRemoveID, campaignsCreateID, campaignsEnablePMaxBrandGuidelinesID,
 		campaignsRemoveID, campaignsUpdateID, contentCreatorInsightsGenerateCreatorID,
 		contentCreatorInsightsGenerateTrendingID, conversionActionsCreateID, conversionActionsRemoveID,
 		conversionActionsUpdateID, conversionCustomVariablesCreateID, conversionCustomVariablesUpdateID,
@@ -89,7 +89,7 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 			tool.ID == assetSetsCreateID || tool.ID == assetSetsUpdateID ||
 			tool.ID == adGroupAssetsCreateID || tool.ID == adGroupAssetsUpdateID || tool.ID == adGroupAssetsRemoveID ||
 			tool.ID == customerAssetsCreateID || tool.ID == customerAssetsUpdateID || tool.ID == customerAssetsRemoveID ||
-			slices.Contains(setLinkToolIDs, tool.ID) ||
+			slices.Contains(setLinkToolIDs, tool.ID) || slices.Contains(labelAssignmentToolIDs, tool.ID) ||
 			tool.ID == sharedSetsCreateID || tool.ID == sharedSetsUpdateID || tool.ID == campaignSharedSetsCreateID ||
 			tool.ID == customerNegativeCriteriaCreateID || tool.ID == sharedCriteriaCreateID ||
 			tool.ID == experimentsCreateID || tool.ID == experimentsUpdateID
