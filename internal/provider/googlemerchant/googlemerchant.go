@@ -164,6 +164,8 @@ func Register(reg *capability.Registry) error {
 		regionalInventoriesDeleteID: handleRegionalInventoriesDelete,
 		promotionsListID:            handlePromotionsList, promotionsGetID: handlePromotionsGet,
 		promotionsInsertID: handlePromotionsInsert,
+		businessInfosGetID: handleBusinessInfosGet, businessInfosUpdateID: handleBusinessInfosUpdate,
+		businessIdentitiesGetID: handleBusinessIdentitiesGet, businessIdentitiesUpdateID: handleBusinessIdentitiesUpdate,
 	}
 	summaries := map[string]capability.SummaryFunc{
 		programsEnableID: programSummary("Enable"), programsDisableID: programSummary("Disable"),
@@ -179,6 +181,10 @@ func Register(reg *capability.Registry) error {
 		localInventoriesInsertID: localInventoryInsertSummary, localInventoriesDeleteID: localInventoryDeleteSummary,
 		regionalInventoriesInsertID: regionalInventoryInsertSummary, regionalInventoriesDeleteID: regionalInventoryDeleteSummary,
 		promotionsInsertID: promotionSummary,
+		businessInfosUpdateID: businessSummary("the business info", businessInfoPaths,
+			"this can change the address and the contacts Google shows to customers"),
+		businessIdentitiesUpdateID: businessSummary("the business identity", businessIdentityPaths,
+			"this can change how Google presents the business in promotions"),
 	}
 	maps.Copy(summaries, regionBatchSummaries())
 	maps.Copy(handlers, accountWriteHandlers())

@@ -41,6 +41,11 @@ type setLinkFamily struct {
 	account string
 	// example is a create call and removeExample a remove call, each with the arguments after customer_id.
 	example, removeExample string
+	// group is the tag of the tool family; empty means the asset set links.
+	group string
+	// noContent marks a service whose request has no response_content_type and whose result holds only the
+	// resource name: its tools offer neither the argument nor the object in the answer.
+	noContent bool
 	// rpc is the method that serves both tools; effect says in a few words what a link does, and sensitivity
 	// is the data it exposes.
 	rpc, effect, sensitivity string
@@ -121,10 +126,13 @@ func (f setLinkFamily) createItemSchema() schema {
 
 func (f setLinkFamily) inputSchema(create bool) schema {
 	if create {
-		return object(schema{"customer_id": customerIDArgument,
-			f.argument:              schema{"type": "array", "minItems": 1, "maxItems": maxListOperations, "items": f.createItemSchema()},
-			"validate_only":         validateOnlySchema,
-			"response_content_type": responseContentTypeSchema}, "customer_id", f.argument)
+		props := schema{"customer_id": customerIDArgument,
+			f.argument:      schema{"type": "array", "minItems": 1, "maxItems": maxListOperations, "items": f.createItemSchema()},
+			"validate_only": validateOnlySchema}
+		if !f.noContent {
+			props["response_content_type"] = responseContentTypeSchema
+		}
+		return object(props, "customer_id", f.argument)
 	}
 	return object(schema{"customer_id": customerIDArgument,
 		"resource_names": schema{"type": "array", "minItems": 1, "maxItems": maxListOperations, "uniqueItems": true,
@@ -133,9 +141,12 @@ func (f setLinkFamily) inputSchema(create bool) schema {
 }
 
 func (f setLinkFamily) outputSchema() schema {
+	item := schema{"resource_name": stringSchema}
+	if !f.noContent {
+		item[f.resultKey] = f.outputTree().outputSchema()
+	}
 	return object(schema{"customer_id": stringSchema, "validate_only": booleanSchema,
-		"results": arrayOf(object(schema{"resource_name": stringSchema, f.resultKey: f.outputTree().outputSchema()},
-			"resource_name"))}, "customer_id", "validate_only", "results")
+		"results": arrayOf(object(item, "resource_name"))}, "customer_id", "validate_only", "results")
 }
 
 // setLinkArguments are the arguments of both tools. Entries is the list of the create tool under its own
@@ -292,6 +303,15 @@ func (f setLinkFamily) result(op, customerID string, results []listResult, valid
 // --- descriptors ---
 
 func (f setLinkFamily) fields() []capability.Field {
+	if f.noContent {
+		return []capability.Field{
+			{Name: "customer_id", Description: "The account of the call"},
+			{Name: "validate_only", Description: "true when Google only validated the change"},
+			{Name: "results", Description: "One entry per " + f.noun + ", in the order given, with its resource_name " +
+				"(customers/ID/" + f.collection + "/" + strings.Repeat("N~", len(f.parts)-1) + "N, always of the account " +
+				"of the call). Google answers with nothing else. Empty after validate_only"},
+		}
+	}
 	return []capability.Field{
 		{Name: "customer_id", Description: "The account of the call"},
 		{Name: "validate_only", Description: "true when Google only validated the change"},
@@ -319,31 +339,44 @@ func (f setLinkFamily) note() string {
 
 func (f setLinkFamily) descriptors() (capability.Descriptor, capability.Descriptor) {
 	tags := func(verb string) []string {
+		if f.group != "" {
+			return []string{"google", "ads", f.group, f.tool, verb}
+		}
 		return []string{"google", "ads", "assets", "asset-sets", f.tool, verb}
+	}
+	createArguments := []capability.Argument{assetSetCustomerArgument,
+		{Name: f.argument, Required: true, Description: "One to 10 entries, each an object of " + f.partList() +
+			" as customers/ID/<collection>/N of customer_id, each link once"},
+		validateOnlyArgument}
+	removeText := "Only the link ends, none of the objects it ties is removed; Google marks the link REMOVED, and it " +
+		"can be created again. Offers no response_content_type: a removed link has no mutable resource to show."
+	if f.noContent {
+		removeText = "Only the link ends, none of the objects it ties is removed, and it can be created again."
+	} else {
+		createArguments = append(createArguments, responseContentTypeArgument)
+	}
+	createText := ""
+	if f.noContent {
+		createText = " Offers no response_content_type: Google answers with the resource names only."
 	}
 	createDescription := "Create one to 10 " + f.noun + "s in a Google Ads account (one create operation each), each " +
 		"named by " + f.partList() + ", resources of the account of the call."
 	create := capability.Descriptor{
 		ID: f.id("create"), Version: 1, Title: "Create " + f.noun + "s in a Google Ads account",
-		Description: createDescription + f.note() +
+		Description: createDescription + createText + f.note() +
 			" Offered by a connection with the create effect or whose tools list names it; no profile holds it." + mutateListNote,
 		Tags: tags("create"), Provider: Provider,
 		Risk:        changeRisk(capability.EffectCreate, capability.IdempotencyNonIdempotent, f.sensitivity),
 		InputSchema: encoded(f.inputSchema(true)), OutputSchema: encoded(f.outputSchema()),
-		Arguments: []capability.Argument{assetSetCustomerArgument,
-			{Name: f.argument, Required: true, Description: "One to 10 entries, each an object of " + f.partList() +
-				" as customers/ID/<collection>/N of customer_id, each link once"},
-			validateOnlyArgument, responseContentTypeArgument},
-		Fields: f.fields(),
+		Arguments: createArguments,
+		Fields:    f.fields(),
 		Examples: []capability.Example{{Description: "Validate the creation without making it", Arguments: json.RawMessage(
 			`{"customer_id":"1234567890","` + f.argument + `":[` + f.example + `],"validate_only":true}`)}},
 	}
 	remove := capability.Descriptor{
 		ID: f.id("remove"), Version: 1, Title: "Remove " + f.noun + "s from a Google Ads account",
 		Description: "Remove one to 10 " + f.noun + "s of a Google Ads account (one remove operation each), each named " +
-			"by its resource name. Only the link ends, none of the objects it ties is removed; Google marks the link " +
-			"REMOVED, and it can be created again. Offers no response_content_type: a removed link has no mutable " +
-			"resource to show." + f.note() + " Offered by a connection with the delete effect or whose tools list names " +
+			"by its resource name. " + removeText + f.note() + " Offered by a connection with the delete effect or whose tools list names " +
 			"it; no profile holds it." + mutateListNote,
 		Tags: tags("remove"), Provider: Provider,
 		Risk:        changeRisk(capability.EffectDelete, capability.IdempotencyIdempotent, f.sensitivity),
@@ -379,6 +412,9 @@ func (f setLinkFamily) handler(verb string) capability.Handler {
 		}
 		if err := checkContentType(a.ResponseContentType); err != nil {
 			return nil, err
+		}
+		if f.noContent && a.ResponseContentType != "" {
+			return nil, badRequest("response_content_type is not offered by " + tool)
 		}
 		var ops []any
 		var names []string
