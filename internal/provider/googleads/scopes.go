@@ -112,6 +112,8 @@ var tokenMetadata = config.TokenMetadata{Scopes: map[string][]string{
 	assetGroupsCreateID:                        {scopeAdwords},
 	assetGroupsUpdateID:                        {scopeAdwords},
 	assetGroupsRemoveID:                        {scopeAdwords},
+	assetGroupSignalsCreateID:                  {scopeAdwords},
+	assetGroupSignalsRemoveID:                  {scopeAdwords},
 	adGroupCriteriaCreateID:                    {scopeAdwords},
 	adGroupCriteriaUpdateID:                    {scopeAdwords},
 	adGroupCriteriaRemoveID:                    {scopeAdwords},
