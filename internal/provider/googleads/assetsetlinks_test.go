@@ -18,7 +18,8 @@ import (
 )
 
 var setLinkToolIDs = []string{assetSetAssetsCreateID, assetSetAssetsRemoveID, campaignAssetSetsCreateID,
-	campaignAssetSetsRemoveID}
+	campaignAssetSetsRemoveID, adGroupAssetSetsCreateID, adGroupAssetSetsRemoveID, customerAssetSetsCreateID,
+	customerAssetSetsRemoveID}
 
 // setLinkCase is one family with the calls and the answers that the tests of both tools use.
 type setLinkCase struct {
@@ -61,6 +62,7 @@ func newSetLinkCases() []setLinkCase {
 	asset := func(id string) string { return linkResource(clientID, "assets", id) }
 	set := func(id string) string { return linkResource(clientID, "assetSets", id) }
 	campaign := func(id string) string { return linkResource(clientID, "campaigns", id) }
+	adGroup := func(id string) string { return linkResource(clientID, "adGroups", id) }
 	head := `{"customer_id":"` + clientID + `",`
 	return []setLinkCase{
 		{family: assetSetAssetsFamily, argument: "asset_set_assets",
@@ -80,6 +82,15 @@ func newSetLinkCases() []setLinkCase {
 			linkNames: [2]string{linkResource(clientID, "campaignAssetSets", "21~31"), linkResource(clientID, "campaignAssetSets", "22~31")},
 			createBody: `[{"create":{"campaign":"` + campaign("21") + `","assetSet":"` + set("31") + `"}},` +
 				`{"create":{"campaign":"` + campaign("22") + `","assetSet":"` + set("31") + `"}}]`,
+			otherCollection: "labels"},
+		{family: adGroupAssetSetsFamily, argument: "ad_group_asset_sets",
+			create: head + `"ad_group_asset_sets":[{"ad_group":"` + adGroup("51") + `","asset_set":"` + set("31") + `"},` +
+				`{"ad_group":"` + adGroup("52") + `","asset_set":"` + set("31") + `"}]}`,
+			remove: head + `"resource_names":["` + linkResource(clientID, "adGroupAssetSets", "51~31") + `","` +
+				linkResource(clientID, "adGroupAssetSets", "52~31") + `"]}`,
+			linkNames: [2]string{linkResource(clientID, "adGroupAssetSets", "51~31"), linkResource(clientID, "adGroupAssetSets", "52~31")},
+			createBody: `[{"create":{"adGroup":"` + adGroup("51") + `","assetSet":"` + set("31") + `"}},` +
+				`{"create":{"adGroup":"` + adGroup("52") + `","assetSet":"` + set("31") + `"}}]`,
 			otherCollection: "labels"},
 	}
 }
@@ -555,5 +566,89 @@ func TestSetLinkSummariesNameTheEffect(t *testing.T) {
 		if strings.ContainsAny(hostile, "\n\r") {
 			t.Errorf("summary %q holds a line break", hostile)
 		}
+	}
+}
+
+// The customer link has one part: its resource name is customers/ID/customerAssetSets/ASSET_SET_ID.
+func TestCustomerAssetSetsFamilyHasOnePart(t *testing.T) {
+	f := customerAssetSetsFamily
+	set := func(id string) string { return linkResource(clientID, "assetSets", id) }
+	name := linkResource(clientID, "customerAssetSets", "31")
+	if ids, ok := f.idsOf(name, clientID); !ok || !reflect.DeepEqual(ids, []string{"31"}) {
+		t.Fatalf("idsOf = %v, %v", ids, ok)
+	}
+	for _, bad := range []string{linkResource(clientID, "customerAssetSets", "31~32"), linkResource(clientID, "customerAssetSets", "0"),
+		linkResource(otherID, "customerAssetSets", "31"), linkResource(clientID, "labels", "31")} {
+		if _, ok := f.idsOf(bad, clientID); ok {
+			t.Errorf("idsOf accepted %s", bad)
+		}
+	}
+	ops, names, err := f.createOperations(clientID, []any{map[string]any{"asset_set": set("31")}})
+	if err != nil || len(names) != 1 || names[0] != name ||
+		!reflect.DeepEqual(ops, []any{map[string]any{"create": map[string]any{"assetSet": set("31")}}}) {
+		t.Fatalf("ops = %v, names = %v, err = %v", ops, names, err)
+	}
+	for label, items := range map[string][]any{
+		"none":      nil,
+		"extra":     {map[string]any{"asset_set": set("31"), "customer": "customers/" + clientID}},
+		"foreign":   {map[string]any{"asset_set": linkResource(otherID, "assetSets", "31")}},
+		"temporary": {map[string]any{"asset_set": set("-31")}},
+		"twice":     {map[string]any{"asset_set": set("31")}, map[string]any{"asset_set": set("31")}},
+	} {
+		if _, _, err := f.createOperations(clientID, items); err == nil {
+			t.Errorf("%s: accepted", label)
+		}
+	}
+	if ops, err := f.removeOperations(clientID, []string{name}); err != nil || !reflect.DeepEqual(ops, []any{map[string]any{"remove": name}}) {
+		t.Fatalf("remove ops = %v, %v", ops, err)
+	}
+	if _, err := f.removeOperations(clientID, []string{linkResource(clientID, "customerAssetSets", "31~32")}); err == nil {
+		t.Error("remove accepted two IDs")
+	}
+	got, err := f.result("create", clientID, []listResult{{ResourceName: name,
+		Resource: json.RawMessage(`{"resourceName":"` + name + `","assetSet":"` + set("31") + `","customer":"customers/` + clientID + `","status":"ENABLED"}`)}}, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	item := got["results"].([]map[string]any)[0][f.resultKey].(map[string]any)
+	if item["asset_set"] != set("31") || item["status"] != "ENABLED" || item["customer"] != "customers/"+clientID {
+		t.Errorf("link = %v", item)
+	}
+	if _, err := f.result("create", clientID, []listResult{{ResourceName: name,
+		Resource: json.RawMessage(`{"assetSet":"` + set("32") + `"}`)}}, false); err == nil {
+		t.Error("another asset set accepted")
+	}
+	if _, err := f.result("create", clientID, []listResult{{ResourceName: name,
+		Resource: json.RawMessage(`{"customer":"customers/` + otherID + `"}`)}}, false); err == nil {
+		t.Error("another account accepted")
+	}
+}
+
+func TestCustomerAssetSetsSendTheCheckedOperations(t *testing.T) {
+	f := customerAssetSetsFamily
+	set := linkResource(clientID, "assetSets", "31")
+	name := linkResource(clientID, "customerAssetSets", "31")
+	for verb, call := range map[string]string{
+		"create": `{"customer_id":"` + clientID + `","customer_asset_sets":[{"asset_set":"` + set + `"}]}`,
+		"remove": `{"customer_id":"` + clientID + `","resource_names":["` + name + `"]}`,
+	} {
+		t.Run(verb, func(t *testing.T) {
+			e := newSetLinkEnvironment(t, nil, nil)
+			e.fake.routes["POST /v26/customers/"+clientID+f.service+":mutate"] = okReply(`{"results":[{"resourceName":"` + name + `"}]}`)
+			out, err := e.invokeConfirmed(f.id(verb), call)
+			if err != nil {
+				t.Fatal(err)
+			}
+			want := `[{"remove":"` + name + `"}]`
+			if verb == "create" {
+				want = `[{"create":{"assetSet":"` + set + `"}}]`
+			}
+			if posts := e.posts(); len(posts) != 1 || !reflect.DeepEqual(bodyOf(t, posts[0])["operations"], wantWire(t, want)) {
+				t.Fatalf("posts = %+v", posts)
+			}
+			if results := decode(t, out)["results"].([]any); len(results) != 1 || results[0].(map[string]any)["resource_name"] != name {
+				t.Errorf("out = %s", out)
+			}
+		})
 	}
 }

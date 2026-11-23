@@ -21,8 +21,7 @@ apply here too.
 | `google.ads.asset-sets.remove` | delete | removes existing asset sets |
 
 Reading asset sets is not a tool of this page: run `reports.search` on `asset_set`. Putting an asset into a set
-and attaching a set to a campaign are the [asset set assignment tools](asset-set-links.md); attaching a set to an
-ad group or the account is not offered. The assets themselves are the [asset tools](assets.md).
+and attaching a set to a campaign, an ad group, or the account are the [asset set assignment tools](asset-set-links.md). The assets themselves are the [asset tools](assets.md).
 
 ## How the tools are offered
 
