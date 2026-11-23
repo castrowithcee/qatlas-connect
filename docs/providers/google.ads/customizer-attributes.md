@@ -94,8 +94,8 @@ required: an attribute created without a type is of no use, and `UNSPECIFIED` an
 Left out on purpose:
 
 - The update of an attribute: name and type are immutable and the service has no update operation.
-- Setting values: the customizers of campaigns and ad groups are the [customizer value tools](customizers.md), the
-  others are separate tools.
+- Setting values: the customizers of campaigns, ad groups, ad group criteria, and the account are the
+  [customizer value tools](customizers.md).
 - Reading attributes.
 - `status` as an argument, `partial_failure`, any free operation, mask, or resource name, and
   `GoogleAdsService.Mutate`.

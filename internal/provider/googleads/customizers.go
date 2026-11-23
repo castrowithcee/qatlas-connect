@@ -12,6 +12,11 @@ const (
 	campaignCustomizersRemoveID = Provider + ".campaign-customizers.remove"
 	adGroupCustomizersCreateID  = Provider + ".ad-group-customizers.create"
 	adGroupCustomizersRemoveID  = Provider + ".ad-group-customizers.remove"
+
+	adGroupCriterionCustomizersCreateID = Provider + ".ad-group-criterion-customizers.create"
+	adGroupCriterionCustomizersRemoveID = Provider + ".ad-group-criterion-customizers.remove"
+	customerCustomizersCreateID         = Provider + ".customer-customizers.create"
+	customerCustomizersRemoveID         = Provider + ".customer-customizers.remove"
 )
 
 // customizerValueMax is Qatlas's own bound of string_value in characters. The v26 definition of CustomizerValue
@@ -51,8 +56,7 @@ func customizerValueOf(at string, raw any) (map[string]any, error) {
 }
 
 // The customizer services attach a value of a customizer attribute to an object. Like the label links they
-// are keyed by the IDs of the object and the attribute, and have no update. Customizers of other levels join
-// this family with their own parts.
+// are keyed by the IDs of the object and the attribute, and have no update.
 var campaignCustomizersFamily = setLinkFamily{
 	tool: "campaign-customizers", argument: "campaign_customizers", group: "customizers", value: true,
 	service: "/campaignCustomizers", collection: "campaignCustomizers", key: "campaignCustomizer",
@@ -81,5 +85,36 @@ var adGroupCustomizersFamily = setLinkFamily{
 	sensitivity:   "which customizer values an ad group of a Google Ads account has, which ads insert into their text",
 }
 
+// The criterion is named by two IDs, so the key of its customizer holds three. Google requires a keyword criterion.
+var adGroupCriterionCustomizersFamily = setLinkFamily{
+	tool: "ad-group-criterion-customizers", argument: "ad_group_criterion_customizers", group: "customizers", value: true,
+	service: "/adGroupCriterionCustomizers", collection: "adGroupCriterionCustomizers", key: "adGroupCriterionCustomizer",
+	resultKey: "ad_group_criterion_customizer", noun: "ad group criterion customizer",
+	parts: []setLinkPart{{name: "ad_group_criterion", collection: "adGroupCriteria", noun: "Ad group criterion", ids: 2},
+		{name: "customizer_attribute", collection: "customizerAttributes", noun: "Customizer attribute"}},
+	example: `{"ad_group_criterion":"customers/1234567890/adGroupCriteria/51~81","customizer_attribute":` +
+		`"customers/1234567890/customizerAttributes/71","value":{"type":"TEXT","string_value":"Spring"}}`,
+	removeExample: "customers/1234567890/adGroupCriterionCustomizers/51~81~71",
+	rpc:           "AdGroupCriterionCustomizerService.MutateAdGroupCriterionCustomizers",
+	effect:        "sets the value of a customizer attribute for an ad group criterion, which must be a keyword",
+	sensitivity:   "which customizer values an ad group criterion of a Google Ads account has, which ads insert into their text",
+}
+
+// The account is the one of the call, so a customer customizer has the attribute as its only part. The resource
+// has no member that names the account.
+var customerCustomizersFamily = setLinkFamily{
+	tool: "customer-customizers", argument: "customer_customizers", group: "customizers", value: true,
+	service: "/customerCustomizers", collection: "customerCustomizers", key: "customerCustomizer",
+	resultKey: "customer_customizer", noun: "customer customizer",
+	parts:         []setLinkPart{{name: "customizer_attribute", collection: "customizerAttributes", noun: "Customizer attribute"}},
+	example:       `{"customizer_attribute":"customers/1234567890/customizerAttributes/71","value":{"type":"TEXT","string_value":"Spring"}}`,
+	removeExample: "customers/1234567890/customerCustomizers/71",
+	rpc:           "CustomerCustomizerService.MutateCustomerCustomizers",
+	effect:        "sets the value of a customizer attribute for the account itself",
+	sensitivity:   "which customizer values a Google Ads account has itself, which ads insert into their text",
+}
+
 var campaignCustomizersCreate, campaignCustomizersRemove = campaignCustomizersFamily.descriptors()
 var adGroupCustomizersCreate, adGroupCustomizersRemove = adGroupCustomizersFamily.descriptors()
+var adGroupCriterionCustomizersCreate, adGroupCriterionCustomizersRemove = adGroupCriterionCustomizersFamily.descriptors()
+var customerCustomizersCreate, customerCustomizersRemove = customerCustomizersFamily.descriptors()

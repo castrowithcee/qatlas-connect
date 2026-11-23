@@ -1,6 +1,6 @@
 ---
 description: >
-  Describes the keyword plan tools of the Google Ads provider: keyword-plans.create, keyword-plans.update and keyword-plans.remove, with the Mutate service and its operations list, the bound of 50 operations, the checks on name and forecast period against the v26 definitions, the field mask of update, the absence of response_content_type, validate_only, confirmation, how the tools are reached by effect, the plan limit of an account, the Explorer access level, the unknown outcome, the binding of resource names to the account, the manager account rule, and the limits of what is verified.
+  Describes the keyword plan tools of the Google Ads provider: keyword-plans.create, keyword-plans.update and keyword-plans.remove, and keyword-plan-campaigns.create, keyword-plan-campaigns.update and keyword-plan-campaigns.remove, with the Mutate service and its operations list, the bound of 50 operations, the checks on name and forecast period against the v26 definitions, the field mask of update, the absence of response_content_type, validate_only, confirmation, how the tools are reached by effect, the plan limit of an account, the Explorer access level, the unknown outcome, the binding of resource names to the account, the manager account rule, and the one-campaign-per-plan rule, the bid, network, language and location checks of plan campaigns, and the limits of what is verified.
 type: knowledge
 edit: shared
 created: 2026-11-23
@@ -10,7 +10,8 @@ updated: 2026-11-23
 # Google Ads: keyword plan tools
 
 These tools create, change, and remove the keyword plans of a Google Ads account. A keyword plan is a saved Keyword
-Planner plan. The tools of this page set the name and the forecast period of a plan only. They add to the read tools of
+Planner plan, and a plan holds at most one campaign. The plan tools set the name and the forecast period of a plan, the
+plan campaign tools the name, network, default bid, language, and locations of its campaign. They add to the read tools of
 the [Google Ads provider](README.md), whose configuration, targets, quotas, and errors apply here too, and they sit
 beside the [keyword idea tools](keyword-ideas.md), which need no saved plan.
 
@@ -19,8 +20,12 @@ beside the [keyword idea tools](keyword-ideas.md), which need no saved plan.
 | `google.ads.keyword-plans.create` | create | creates one to 50 keyword plans |
 | `google.ads.keyword-plans.update` | update | changes the name or the forecast period of existing plans |
 | `google.ads.keyword-plans.remove` | delete | removes existing plans |
+| `google.ads.keyword-plan-campaigns.create` | create | creates the campaign of one to 50 plans |
+| `google.ads.keyword-plan-campaigns.update` | update | changes name, network, bid, language, or locations of existing plan campaigns |
+| `google.ads.keyword-plan-campaigns.remove` | delete | removes existing plan campaigns |
 
-Reading plans is not a tool of this page: run `reports.search` on the `keyword_plan` resource.
+Reading plans and plan campaigns is not a tool of this page: run `reports.search` on the `keyword_plan` and
+`keyword_plan_campaign` resources.
 
 ## How the tools are offered
 
@@ -92,6 +97,46 @@ The forecast period is optional on a plan, as in the definition. `id` is output 
   states the dates as inclusive, in the future, and a span of at most one year. Qatlas does not check the last two:
   Google checks them when a forecast runs, so a plan with a past range can be saved.
 
+## Plan campaign tools
+
+The sections above hold for the plan campaign tools too, with these differences: a call goes to
+`KeywordPlanCampaignService.MutateKeywordPlanCampaigns`, resource names are
+`customers/ID/keywordPlanCampaigns/N`, and a result is `keyword_plan_campaign_id` and `resource_name`. The request of
+v26 has no `response_content_type` here either.
+
+- **The plan is given as an ID.** `create` takes `keyword_plan_id` and builds `customers/ID/keywordPlans/PLAN_ID` from
+  it and the checked `customer_id`. The plan of a campaign is not an argument of `update`.
+- **One campaign per plan.** Google allows one campaign per plan. `create` refuses a call that names a plan twice,
+  and Google refuses a plan that has a campaign already.
+- **Update replaces lists.** `language_constants` and `geo_target_constants` given in `update` replace the whole
+  list, and the field mask names exactly the fields given: `name`, `keyword_plan_network`, `cpc_bid_micros`,
+  `language_constants`, `geo_targets`. An empty list is refused, since the definition does not document that it
+  clears the field.
+
+| Tool | Argument | Rule |
+| --- | --- | --- |
+| `create` | `keyword_plan_campaigns` | 1 to 50 entries for distinct plans, each an object of `keyword_plan_id`, `name`, `keyword_plan_network`, `cpc_bid_micros` (all required), `language_constants`, and `geo_target_constants` |
+| `update` | `keyword_plan_campaigns` | 1 to 50 entries, each an object of `keyword_plan_campaign_id` (required, once per call) and at least one of the other four fields |
+| `remove` | `keyword_plan_campaign_ids` | 1 to 50 distinct positive numbers |
+| `create`, `update` | `name` | 1 to 255 characters, no control characters |
+| `create`, `update` | `keyword_plan_network` | `GOOGLE_SEARCH` or `GOOGLE_SEARCH_AND_PARTNERS` |
+| `create`, `update` | `cpc_bid_micros` | whole positive number of micros of the account currency that fits 64 bits, the default max CPC bid of the campaign |
+| `create`, `update` | `language_constants` | one `languageConstants/ID` |
+| `create`, `update` | `geo_target_constants` | 1 to 20 distinct `geoTargetConstants/ID` |
+
+`id` is output only and `keyword_plan` and `resource_name` are no arguments of `update`.
+
+### Plan campaign bounds
+
+- Google's definition requires `name`, `keyword_plan_network`, and `cpc_bid_micros` on create, allows at most one
+  language constant and at most 20 geo targets, and one campaign per plan. The tool checks all of these before a
+  request.
+- The 50 entries per call and the 255 characters of the name are Qatlas's own, as for plans.
+- `UNSPECIFIED` and `UNKNOWN` of the network enum are not accepted.
+- Google documents no minimum or multiple of the bid; the smallest unit of the currency is Google's to validate.
+- The tool takes geo targets as a list of `geoTargetConstants/ID` strings and sends each as a `geoTargets` entry with
+  its `geoTargetConstant`.
+
 ## Limits of the account
 
 - **At most 10000 saved plans** per account. Google refuses a create beyond that and allows removing plans when the
@@ -108,7 +153,7 @@ The forecast period is optional on a plan, as in the definition. `id` is output 
 Left out on purpose:
 
 - Reading plans.
-- The campaigns, ad groups, and keywords of a plan, and running a forecast on a plan.
+- The ad groups and keywords of a plan, the keywords of a plan campaign, and running a forecast on a plan.
 - `partial_failure`, `response_content_type`, any free operation, mask, or resource name, and
   `GoogleAdsService.Mutate`.
 
@@ -118,10 +163,19 @@ Checked against the v26 definitions of `KeywordPlan`, `KeywordPlanForecastPeriod
 and `update_mask`, the name is required on create, `id` is output only, `resource_name` is immutable, the period holds
 one of the three intervals or a date range, and the limit of 10000 plans stands on the resource.
 
+Checked against the v26 definitions of `KeywordPlanCampaign`, `KeywordPlanGeoTarget`,
+`KeywordPlanCampaignOperation`, `KeywordPlanNetworkEnum.KeywordPlanNetwork`, and `KeywordPlanCampaignService`: the
+request holds `customer_id`, `operations`, `partial_failure`, and `validate_only`, the result holds the resource name
+only, `name`, `keyword_plan_network`, and `cpc_bid_micros` are required on create, `resource_name` is immutable, and
+the resource states one campaign per plan, one language, and 20 geo targets. The definition marks `keyword_plan` as
+no more than a reference, so whether Google refuses to change it is not stated; the tool offers no such change.
+
 Not verified:
 
 - Which role in Google Ads an account needs for these calls. Google does not document it per call.
 - Whether Google counts the 255 characters of a name as characters, which names it refuses, and whether it refuses a
   second plan with the same name.
+- Which error Google answers when a plan has a campaign already, and which language and location constants it
+  refuses.
 - Whether the Explorer access level blocks these calls, and the error then answered.
 - The behavior at the planning rate. No live call has been made.

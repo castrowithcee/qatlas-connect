@@ -37,6 +37,7 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 		adGroupAssetSetsCreateID, adGroupAssetSetsRemoveID, adGroupAssetsCreateID, adGroupAssetsRemoveID,
 		adGroupAssetsUpdateID, adGroupBidModifiersCreateID, adGroupBidModifiersRemoveID, adGroupBidModifiersUpdateID,
 		adGroupCriteriaCreateID, adGroupCriteriaRemoveID, adGroupCriteriaUpdateID,
+		adGroupCriterionCustomizersCreateID, adGroupCriterionCustomizersRemoveID,
 		adGroupCriterionLabelsCreateID, adGroupCriterionLabelsRemoveID,
 		adGroupCustomizersCreateID, adGroupCustomizersRemoveID,
 		adGroupLabelsCreateID, adGroupLabelsRemoveID, adGroupsCreateID,
@@ -60,12 +61,13 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 		contentCreatorInsightsGenerateTrendingID, conversionActionsCreateID, conversionActionsRemoveID,
 		conversionActionsUpdateID, conversionCustomVariablesCreateID, conversionCustomVariablesUpdateID,
 		conversionGoalCampaignConfigsUpdateID,
+		conversionValueRuleSetsCreateID, conversionValueRuleSetsRemoveID, conversionValueRuleSetsUpdateID,
 		conversionValueRulesCreateID, conversionValueRulesRemoveID, conversionValueRulesUpdateID,
 		customAudiencesCreateID, customAudiencesRemoveID, customAudiencesUpdateID,
 		customConversionGoalsCreateID, customConversionGoalsRemoveID, customConversionGoalsUpdateID, customInterestsCreateID,
 		customInterestsUpdateID, customerAssetSetsCreateID, customerAssetSetsRemoveID, customerAssetsCreateID, customerAssetsRemoveID,
 		customerAssetsUpdateID, customerBudgetNetworkSettingsCreateID, customerBudgetNetworkSettingsUpdateID,
-		customerClientLinksListID, customerClientLinksUpdateID, customerClientsListID, customerConversionGoalsUpdateID, customerLabelsCreateID, customerLabelsRemoveID, customerManagerLinksListID,
+		customerClientLinksListID, customerClientLinksUpdateID, customerClientsListID, customerConversionGoalsUpdateID, customerCustomizersCreateID, customerCustomizersRemoveID, customerLabelsCreateID, customerLabelsRemoveID, customerManagerLinksListID,
 		customerManagerLinksUpdateID, customerNegativeCriteriaCreateID, customerNegativeCriteriaRemoveID, customerSkAdNetworkSchemasUpdateID,
 		customerUserAccessInvitationsListID, customerUserAccessInvitationsRemoveID,
 		customerUserAccessesListID, customerUserAccessesRemoveID, customerUserAccessesUpdateID, customersGetID,
@@ -76,6 +78,7 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 		geoTargetConstantsSuggestID,
 		goalsCreateID, goalsUpdateID,
 		incentivesFetchID, invoicesListID,
+		keywordPlanCampaignsCreateID, keywordPlanCampaignsRemoveID, keywordPlanCampaignsUpdateID,
 		keywordThemesID, keywordForecastID, keywordMetricsID, keywordIdeasID, keywordPlansCreateID, keywordPlansRemoveID,
 		keywordPlansUpdateID, keywordThemeConstantsSuggestID,
 		labelsCreateID, labelsRemoveID, labelsUpdateID,
@@ -112,7 +115,8 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 			tool.ID == customerNegativeCriteriaCreateID || tool.ID == sharedCriteriaCreateID ||
 			tool.ID == experimentsCreateID || tool.ID == experimentsUpdateID || tool.ID == experimentArmsUpdateID || tool.ID == campaignDraftsCreateID ||
 			tool.ID == campaignDraftsUpdateID || tool.ID == keywordPlansCreateID || tool.ID == keywordPlansUpdateID ||
-			tool.ID == keywordPlansRemoveID
+			tool.ID == keywordPlansRemoveID || tool.ID == keywordPlanCampaignsCreateID ||
+			tool.ID == keywordPlanCampaignsUpdateID || tool.ID == keywordPlanCampaignsRemoveID
 		if tool.ID != want[i] || (tool.Effect == config.EffectRead) == changing || tool.RequiresToolAllowList != listed {
 			t.Errorf("tool %d = %+v", i, tool)
 		}

@@ -1,6 +1,6 @@
 ---
 description: >
-  Describes the customizer value tools of the Google Ads provider: campaign-customizers.create and remove, which set the value of a customizer attribute for a campaign or end it, and ad-group-customizers.create and remove for an ad group, with the Mutate services and their operations list, the bound of 10 entries, the value of type and string_value and what the tool checks of it, the absence of an update, response_content_type on create only, validate_only, confirmation, how both tools are reached by effect, the unknown outcome, the binding of resource names to the account, the manager account rule, and the limits of what is verified.
+  Describes the customizer value tools of the Google Ads provider: campaign-customizers.create and remove, which set the value of a customizer attribute for a campaign or end it, ad-group-customizers.create and remove for an ad group, ad-group-criterion-customizers.create and remove for an ad group criterion, and customer-customizers.create and remove for the account itself, with the Mutate services and their operations list, the bound of 10 entries, the value of type and string_value and what the tool checks of it, the absence of an update, response_content_type on create only, validate_only, confirmation, how the tools are reached by effect, the unknown outcome, the binding of resource names to the account, the manager account rule, and the limits of what is verified.
 type: knowledge
 edit: shared
 created: 2026-11-23
@@ -9,11 +9,12 @@ updated: 2026-11-23
 
 # Google Ads: customizer value tools
 
-These tools set the value of a [customizer attribute](customizer-attributes.md) for a campaign or an ad group and
-end that value again. A customizer value is a link resource of v26 that ties an attribute to an object of one account
-and carries a value that ads insert with a customizer tag: `CampaignCustomizer` for a campaign and
-`AdGroupCustomizer` for an ad group. The services offer create and remove only, so each family has a create and a
-remove tool and no update tool. They add to the read tools of the [Google Ads provider](README.md), whose
+These tools set the value of a [customizer attribute](customizer-attributes.md) for a campaign, an ad group, an ad
+group criterion, or the account itself, and end that value again. A customizer value is a link resource of v26 that
+ties an attribute to an object of one account and carries a value that ads insert with a customizer tag:
+`CampaignCustomizer` for a campaign, `AdGroupCustomizer` for an ad group, `AdGroupCriterionCustomizer` for an ad
+group criterion, and `CustomerCustomizer` for the account, which is the one of the call. The services offer create
+and remove only, so each family has a create and a remove tool and no update tool. They add to the read tools of the [Google Ads provider](README.md), whose
 configuration, targets, quotas, and errors apply here too.
 
 | Tool | Effect | What it does |
@@ -22,9 +23,13 @@ configuration, targets, quotas, and errors apply here too.
 | `google.ads.campaign-customizers.remove` | delete | ends customizer values of campaigns |
 | `google.ads.ad-group-customizers.create` | create | sets one to 10 customizer values for ad groups |
 | `google.ads.ad-group-customizers.remove` | delete | ends customizer values of ad groups |
+| `google.ads.ad-group-criterion-customizers.create` | create | sets one to 10 customizer values for ad group criteria |
+| `google.ads.ad-group-criterion-customizers.remove` | delete | ends customizer values of ad group criteria |
+| `google.ads.customer-customizers.create` | create | sets one to 10 customizer values for the account |
+| `google.ads.customer-customizers.remove` | delete | ends customizer values of the account |
 
-Reading the values is not a tool of this page: run `reports.search` on `campaign_customizer` or
-`ad_group_customizer`. The customizers of other levels are not part of these tools.
+Reading the values is not a tool of this page: run `reports.search` on `campaign_customizer`,
+`ad_group_customizer`, `ad_group_criterion_customizer`, or `customer_customizer`.
 
 ## How the tools are offered
 
@@ -41,21 +46,28 @@ Reading the values is not a tool of this page: run `reports.search` on `campaign
 
 ## What every call does
 
-- **One atomic request.** A call sends one request to `CampaignCustomizerService.MutateCampaignCustomizers` or
-  `AdGroupCustomizerService.MutateAdGroupCustomizers` with an `operations` list and without `partial_failure`:
+- **One atomic request.** A call sends one request to the Mutate method of the service of its level
+  (`CampaignCustomizerService.MutateCampaignCustomizers`, `AdGroupCustomizerService.MutateAdGroupCustomizers`,
+  `AdGroupCriterionCustomizerService.MutateAdGroupCriterionCustomizers`, or
+  `CustomerCustomizerService.MutateCustomerCustomizers`) with an `operations` list and without `partial_failure`:
   Google applies all operations or none. A list holds 1 to 10 entries. The 10 are Qatlas's own bound; the
   reference of v26 names none.
 - **`validate_only`.** With `true`, Google validates the request completely and changes nothing. It answers
   errors only, so the answer then holds `validate_only: true` and no `results`. Validation needs the same
   confirmation and the same checks and costs the same operations as the change.
 - **`response_content_type`** (`create`). `MUTABLE_RESOURCE` adds the value after the change to each result
-  under `campaign_customizer` or `ad_group_customizer`: the object, `customizer_attribute`, `value` (`type` and
+  under `campaign_customizer`, `ad_group_customizer`, `ad_group_criterion_customizer`, or `customer_customizer`:
+  the object (not for the account), `customizer_attribute`, `value` (`type` and
   `string_value`), `resource_name`, and `status`. Without it a result holds the `resource_name` only. The `remove`
   tools have no such argument.
 - **Names come from checked arguments.** A create entry names the object and the attribute, each as
-  `customers/ID/<collection>/N` of the `customer_id` of the call, and the value. A remove entry is the resource
+  `customers/ID/<collection>/N` of the `customer_id` of the call (an ad group criterion as
+  `customers/ID/adGroupCriteria/AD_GROUP_ID~CRITERION_ID`), and the value. The entry for the account names the
+  attribute and the value only: the account is the one of the call. A remove entry is the resource
   name of the value, `customers/ID/campaignCustomizers/CAMPAIGN_ID~ATTRIBUTE_ID` or
-  `customers/ID/adGroupCustomizers/AD_GROUP_ID~ATTRIBUTE_ID`, which `reports.search` returns as `resource_name`.
+  `customers/ID/adGroupCustomizers/AD_GROUP_ID~ATTRIBUTE_ID`,
+  `customers/ID/adGroupCriterionCustomizers/AD_GROUP_ID~CRITERION_ID~ATTRIBUTE_ID`, or
+  `customers/ID/customerCustomizers/ATTRIBUTE_ID`, which `reports.search` returns as `resource_name`.
   A foreign account, another collection, a zero ID, a leading zero, a temporary negative ID, and a key of the wrong
   number of IDs are refused. A caller never passes a field mask or an operation. The same value twice in one call
   is refused.
@@ -65,9 +77,10 @@ Reading the values is not a tool of this page: run `reports.search` on `campaign
   the values with `reports.search` before changing them again. A 4xx answer and a `GoogleAdsFailure` refuse the
   whole request and say so.
 - **Resource names stay with the account.** Every `resource_name` of a result must be the collection of the
-  `customer_id` with the key of its two IDs. The results must be exactly the values asked for, in the order asked
+  `customer_id` with the key of its IDs (two, three for a criterion, one for the account). The results must be exactly the values asked for, in the order asked
   for: for a create call the resource name follows from the IDs of each entry. A returned value must have the
-  resource name of its result, and the object and attribute it names must be the ones of that key. Anything else
+  resource name of its result, and the object and attribute it names must be the ones of that key. The account resource names no account, so
+  only its attribute is compared. Anything else
   is `invalid-provider-response` with the note about the unknown outcome, since the change may have been made. A
   `partial_failure_error` in an answer is treated the same way, as the request asked for none.
 - **Errors.** A change that Google validated and refused, for example with a `CustomizerError`, ends as
@@ -86,12 +99,16 @@ Reading the values is not a tool of this page: run `reports.search` on `campaign
 | all | `customer_id` | ten digits without hyphens |
 | `campaign-customizers.create` | `campaign_customizers` | 1 to 10 entries, each an object of `campaign` (`customers/ID/campaigns/N`), `customizer_attribute` (`customers/ID/customizerAttributes/N`), and `value`, all required, no other member, each campaign and attribute once |
 | `ad-group-customizers.create` | `ad_group_customizers` | 1 to 10 entries, each an object of `ad_group` (`customers/ID/adGroups/N`), `customizer_attribute`, and `value`, all required, no other member, each ad group and attribute once |
+| `ad-group-criterion-customizers.create` | `ad_group_criterion_customizers` | 1 to 10 entries, each an object of `ad_group_criterion` (`customers/ID/adGroupCriteria/N~M`, a keyword criterion), `customizer_attribute`, and `value`, all required, no other member, each criterion and attribute once |
+| `customer-customizers.create` | `customer_customizers` | 1 to 10 entries, each an object of `customizer_attribute` and `value`, both required, no other member, each attribute once |
 | `create` | `value` | an object of `type` and `string_value`, both required, no other member |
 | `create` | `value.type` | `TEXT`, `NUMBER`, `PRICE`, or `PERCENT` |
 | `create` | `value.string_value` | 1 to 1024 characters, no control characters |
 | `create` | `response_content_type` | `MUTABLE_RESOURCE` or `RESOURCE_NAME_ONLY` |
 | `campaign-customizers.remove` | `resource_names` | 1 to 10 distinct `customers/ID/campaignCustomizers/N~M` of the account |
 | `ad-group-customizers.remove` | `resource_names` | 1 to 10 distinct `customers/ID/adGroupCustomizers/N~M` of the account |
+| `ad-group-criterion-customizers.remove` | `resource_names` | 1 to 10 distinct `customers/ID/adGroupCriterionCustomizers/N~M~K` of the account |
+| `customer-customizers.remove` | `resource_names` | 1 to 10 distinct `customers/ID/customerCustomizers/N` of the account |
 | all | `validate_only` | true validates only |
 
 A new value is ENABLED. `status` is output only and no argument. An ended value is REMOVED.
@@ -114,15 +131,16 @@ Left out on purpose:
   set it again.
 - Reading the values, and everything of the attributes themselves: see the
   [customizer attribute tools](customizer-attributes.md).
-- The customizers of ad group criteria and of the account.
 - `status` as an argument, `partial_failure`, any free operation, mask, or resource name, and
   `GoogleAdsService.Mutate`.
 
-Checked against the v26 definitions of `CampaignCustomizer`, `AdGroupCustomizer`, `CampaignCustomizerService`,
-`AdGroupCustomizerService`, their `Mutate...Request`, `...Operation`, and `Mutate...Result` messages,
+Checked against the v26 definitions of `CampaignCustomizer`, `AdGroupCustomizer`, `AdGroupCriterionCustomizer`,
+`CustomerCustomizer`, `CampaignCustomizerService`, `AdGroupCustomizerService`,
+`AdGroupCriterionCustomizerService`, `CustomerCustomizerService`, their `Mutate...Request`, `...Operation`, and `Mutate...Result` messages,
 `CustomizerValue`, and `CustomizerValueStatusEnum`: the requests hold `customer_id`, `operations`,
 `partial_failure`, `validate_only`, and `response_content_type`, the operations hold `create` and `remove` only, the
-`customizer_attribute` and the `value` are required, the object and the attribute are immutable, the status is
+`customizer_attribute` and the `value` are required, the object and the attribute are immutable, the criterion must be a keyword criterion, the criterion is optional in
+the definition but the key of its resource name needs it, the customer customizer has no member for the account, the status is
 output only with `ENABLED` and `REMOVED`, and `CustomizerValue` holds a required `type` that must match the
 attribute and a required `string_value`. The pages name no limit on the number of operations. The limit of 10,000
 operations per request that is known for the Mutate services is not on these pages.
@@ -130,5 +148,6 @@ operations per request that is known for the Mutate services is not on these pag
 Not verified:
 
 - Which role in Google Ads an account needs for these calls. Google does not document it per call.
+- Whether Google refuses a criterion that is no keyword: the tool does not read the criterion.
 - The form `string_value` must have for each type, its maximum length, and what happens when a value exists
   already. The pages read do not state them. No live call has been made.
