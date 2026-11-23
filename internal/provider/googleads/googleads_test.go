@@ -33,15 +33,25 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 		t.Errorf("secret roles = %+v, want the token roles", metadata.SecretRoles)
 	}
 	want := []string{accountBudgetProposalsListID, accountBudgetsListID, accountLinksListID, accountLinksRemoveID,
-		adGroupsCreateID, adGroupsRemoveID, adGroupsUpdateID, assetsCreateID,
-		assetsUpdateID, audiencesCreateID, audiencesUpdateID, billingSetupsListID,
-		campaignAutomaticallyCreatedAssetsRemoveID, campaignBudgetsCreateID, campaignBudgetsRemoveID,
-		campaignBudgetsUpdateID, campaignSharedSetsCreateID, campaignSharedSetsRemoveID,
-		campaignsCreateID, campaignsEnablePMaxBrandGuidelinesID,
+		adGroupAdsCreateID, adGroupAdsRemoveID, adGroupAdCreatedAssetsRemoveID, adGroupAdsUpdateID,
+		adGroupAssetSetsCreateID, adGroupAssetSetsRemoveID, adGroupAssetsCreateID, adGroupAssetsRemoveID,
+		adGroupAssetsUpdateID, adGroupsCreateID,
+		adGroupsRemoveID, adGroupsUpdateID, adParametersCreateID, adParametersRemoveID, adParametersUpdateID, adsUpdateID,
+		assetSetAssetsCreateID, assetSetAssetsRemoveID,
+		assetSetsCreateID, assetSetsRemoveID, assetSetsUpdateID, assetsCreateID,
+		assetsUpdateID, audiencesCreateID, audiencesUpdateID, biddingDataExclusionsCreateID, biddingDataExclusionsRemoveID,
+		biddingDataExclusionsUpdateID, seasonalityCreateID, seasonalityRemoveID, seasonalityUpdateID,
+		biddingStrategiesCreateID, biddingStrategiesRemoveID,
+		biddingStrategiesUpdateID, billingSetupsListID,
+		campaignAssetSetsCreateID, campaignAssetSetsRemoveID, campaignAssetsCreateID, campaignAssetsRemoveID,
+		campaignAssetsUpdateID, campaignAutomaticallyCreatedAssetsRemoveID, campaignBudgetsCreateID, campaignBudgetsRemoveID,
+		campaignBudgetsUpdateID, campaignCriteriaCreateID, campaignCriteriaRemoveID,
+		campaignCriteriaUpdateID, campaignGroupsCreateID, campaignGroupsRemoveID,
+		campaignGroupsUpdateID, campaignSharedSetsCreateID, campaignSharedSetsRemoveID, campaignsCreateID, campaignsEnablePMaxBrandGuidelinesID,
 		campaignsRemoveID, campaignsUpdateID, conversionActionsCreateID, conversionActionsRemoveID,
 		conversionActionsUpdateID, conversionCustomVariablesCreateID, conversionCustomVariablesUpdateID,
 		customAudiencesCreateID, customAudiencesRemoveID, customAudiencesUpdateID, customInterestsCreateID,
-		customInterestsUpdateID, customerBudgetNetworkSettingsCreateID, customerBudgetNetworkSettingsUpdateID,
+		customInterestsUpdateID, customerAssetSetsCreateID, customerAssetSetsRemoveID, customerBudgetNetworkSettingsCreateID, customerBudgetNetworkSettingsUpdateID,
 		customerClientLinksListID, customerClientLinksUpdateID, customerClientsListID, customerManagerLinksListID,
 		customerManagerLinksUpdateID, customerUserAccessInvitationsListID, customerUserAccessInvitationsRemoveID,
 		customerUserAccessesListID, customerUserAccessesRemoveID, customerUserAccessesUpdateID, customersGetID,
@@ -59,9 +69,14 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 	for i, tool := range metadata.Tools {
 		// recommendations.apply is listed-only but tested in recommendations_test.go, not with changeToolIDs.
 		listed := slices.Contains(changeToolIDs, tool.ID) || slices.Contains(assetToolIDs, tool.ID) ||
-			tool.ID == recommendationsApplyID || tool.ID == sharedSetsRemoveID || tool.ID == campaignSharedSetsRemoveID
+			tool.ID == recommendationsApplyID || tool.ID == campaignGroupsRemoveID || tool.ID == sharedSetsRemoveID ||
+			tool.ID == campaignSharedSetsRemoveID
 		changing := listed || slices.Contains(notListedOnly, tool.ID) || tool.ID == labelsCreateID ||
-			tool.ID == labelsUpdateID ||
+			tool.ID == labelsUpdateID || tool.ID == campaignGroupsCreateID || tool.ID == campaignGroupsUpdateID ||
+			tool.ID == campaignAssetsCreateID || tool.ID == campaignAssetsUpdateID || tool.ID == campaignAssetsRemoveID ||
+			tool.ID == assetSetsCreateID || tool.ID == assetSetsUpdateID ||
+			tool.ID == adGroupAssetsCreateID || tool.ID == adGroupAssetsUpdateID || tool.ID == adGroupAssetsRemoveID ||
+			slices.Contains(setLinkToolIDs, tool.ID) ||
 			tool.ID == sharedSetsCreateID || tool.ID == sharedSetsUpdateID || tool.ID == campaignSharedSetsCreateID
 		if tool.ID != want[i] || (tool.Effect == config.EffectRead) == changing || tool.RequiresToolAllowList != listed {
 			t.Errorf("tool %d = %+v", i, tool)

@@ -52,6 +52,14 @@ type node struct {
 	exclusive []string
 	// createOnly marks a member Google accepts only when the object is created.
 	createOnly bool
+	// allowEmpty lets a list of objects be empty, where an empty list has a meaning of its own.
+	allowEmpty bool
+	// required names members an object must hold when it is created. requiredAlways extends this to every
+	// change, for an entry of a list that an update replaces as a whole.
+	required       []string
+	requiredAlways bool
+	// emptyOK marks an object whose members are all optional, so that giving it without members is meaningful.
+	emptyOK bool
 }
 
 func (n node) with(f func(*node)) node { f(&n); return n }
@@ -78,6 +86,7 @@ func objectNode(name, desc string, fields ...node) node {
 }
 func listOf(n node, max int) node { n.list, n.maxItems = true, max; return n }
 func createOnly(n node) node      { n.createOnly = true; return n }
+func allowEmpty(n node) node      { n.allowEmpty = true; return n }
 
 // enumOf is the list of values of the enum of a field of the catalog, without the two values that are never
 // sent.
@@ -111,6 +120,9 @@ func sendable(values []string) []string {
 
 // mutable is the node without the members Google accepts only at creation.
 func (n node) mutable() node {
+	if !n.requiredAlways {
+		n.required = nil
+	}
 	fields := make([]node, 0, len(n.fields))
 	for _, f := range n.fields {
 		if !f.createOnly {
@@ -175,8 +187,8 @@ func (n node) inputSchema() schema {
 		for _, f := range n.fields {
 			props[f.name] = f.inputSchema()
 		}
-		s = object(props)
-		if len(n.fields) > 0 {
+		s = object(props, n.required...)
+		if len(n.fields) > 0 && !n.emptyOK {
 			s["minProperties"] = 1
 		}
 	} else {
@@ -184,7 +196,7 @@ func (n node) inputSchema() schema {
 	}
 	if n.list {
 		s = schema{"type": "array", "maxItems": n.maxItems, "items": s}
-		if n.kind == kindObject {
+		if n.kind == kindObject && !n.allowEmpty {
 			s["minItems"] = 1
 		}
 	}
@@ -261,6 +273,13 @@ func (b *builder) object(n node, in map[string]any, at pathOfMember) (map[string
 		}
 	}
 	slices.Sort(given)
+	if b.create || n.requiredAlways {
+		for _, key := range n.required {
+			if _, found := in[key]; !found {
+				return nil, badRequest(joinPath(at.snake, key) + " is required")
+			}
+		}
+	}
 	if len(n.exclusive) > 0 {
 		count := 0
 		for _, key := range given {
@@ -305,7 +324,7 @@ func joinPath(parent, key string) string {
 func (b *builder) member(n node, value any, at pathOfMember) (any, bool, error) {
 	if n.list {
 		items, ok := value.([]any)
-		if !ok || len(items) > n.maxItems || (n.kind == kindObject && len(items) == 0) {
+		if !ok || len(items) > n.maxItems || (n.kind == kindObject && len(items) == 0 && !n.allowEmpty) {
 			return nil, false, badRequest(at.snake + " must be a list of at most " + strconv.Itoa(n.maxItems) + " entries")
 		}
 		out := make([]any, 0, len(items))
@@ -331,7 +350,7 @@ func (b *builder) single(n node, value any, at pathOfMember, maskIt bool) (any, 
 		if !ok {
 			return nil, false, badRequest(at.snake + " must be an object")
 		}
-		if len(n.fields) == 0 {
+		if len(n.fields) == 0 || (n.emptyOK && len(in) == 0) {
 			if len(in) != 0 {
 				return nil, false, badRequest(at.snake + " takes no members")
 			}

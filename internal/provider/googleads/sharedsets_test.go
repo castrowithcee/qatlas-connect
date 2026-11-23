@@ -31,7 +31,7 @@ func setResource(customer, id string) string {
 	return "customers/" + queryNumber(customer) + "/sharedSets/" + id
 }
 
-func linkResource(customer, campaign, set string) string {
+func campaignSharedSetResource(customer, campaign, set string) string {
 	return "customers/" + queryNumber(customer) + "/campaignSharedSets/" + campaign + "~" + set
 }
 
@@ -55,8 +55,8 @@ var sharedSetsCalls = map[string]string{
 var sharedSetsAnswers = func() map[string]string {
 	sets := `{"results":[{"resourceName":"` + setResource(clientID, "111") + `"},{"resourceName":"` +
 		setResource(clientID, "222") + `"}]}`
-	links := `{"results":[{"resourceName":"` + linkResource(clientID, "31", "111") + `"},{"resourceName":"` +
-		linkResource(clientID, "32", "111") + `"}]}`
+	links := `{"results":[{"resourceName":"` + campaignSharedSetResource(clientID, "31", "111") + `"},{"resourceName":"` +
+		campaignSharedSetResource(clientID, "32", "111") + `"}]}`
 	return map[string]string{sharedSetsCreateID: sets, sharedSetsUpdateID: sets, sharedSetsRemoveID: sets,
 		campaignSharedSetsCreateID: links, campaignSharedSetsRemoveID: links}
 }()
@@ -323,7 +323,7 @@ func TestSharedSetsSendOneAtomicRequestWithTheCheckedOperations(t *testing.T) {
 			if id == campaignSharedSetsCreateID || id == campaignSharedSetsRemoveID {
 				first := results[0].(map[string]any)
 				if first["campaign_id"] != "31" || first["shared_set_id"] != "111" ||
-					results[1].(map[string]any)["resource_name"] != linkResource(clientID, "32", "111") {
+					results[1].(map[string]any)["resource_name"] != campaignSharedSetResource(clientID, "32", "111") {
 					t.Errorf("out = %s", out)
 				}
 			} else if results[0].(map[string]any)["shared_set_id"] != "111" ||
@@ -387,7 +387,7 @@ func TestSharedSetsResponseContentTypeShowsTheObjects(t *testing.T) {
 	})
 	t.Run("link", func(t *testing.T) {
 		e := newSharedSetsEnvironment(t, nil, nil)
-		name := linkResource(clientID, "31", "111")
+		name := campaignSharedSetResource(clientID, "31", "111")
 		e.fake.routes["POST "+sharedSetsPathOf(campaignSharedSetsCreateID)] = okReply(`{"results":[{"resourceName":"` + name +
 			`","campaignSharedSet":{"resourceName":"` + name + `","campaign":"customers/1000000003/campaigns/31",` +
 			`"sharedSet":"customers/1000000003/sharedSets/111","status":"ENABLED"}}]}`)
@@ -409,10 +409,10 @@ func TestSharedSetsResponseContentTypeShowsTheObjects(t *testing.T) {
 func TestSharedSetsResourceNamesAreBoundToTheCheckedAccount(t *testing.T) {
 	own := func(id string) string { return `{"resourceName":"` + setResource(clientID, id) + `"}` }
 	ownLink := func(campaign, set string) string {
-		return `{"resourceName":"` + linkResource(clientID, campaign, set) + `"}`
+		return `{"resourceName":"` + campaignSharedSetResource(clientID, campaign, set) + `"}`
 	}
 	foreign := `{"resourceName":"` + setResource(otherID, "111") + `"}`
-	foreignLink := `{"resourceName":"` + linkResource(otherID, "31", "111") + `"}`
+	foreignLink := `{"resourceName":"` + campaignSharedSetResource(otherID, "31", "111") + `"}`
 	withSet := func(body string) string {
 		return `{"resourceName":"` + setResource(clientID, "111") + `","sharedSet":` + body + `}`
 	}
@@ -436,11 +436,11 @@ func TestSharedSetsResourceNamesAreBoundToTheCheckedAccount(t *testing.T) {
 		"link none":          {campaignSharedSetsRemoveID, `{"results":[]}`},
 		"link partial": {campaignSharedSetsCreateID, `{"results":[` + ownLink("31", "111") + `,` + ownLink("32", "111") +
 			`],"partialFailureError":{"code":3}}`},
-		"link member foreign": {campaignSharedSetsCreateID, `{"results":[{"resourceName":"` + linkResource(clientID, "31", "111") +
-			`","campaignSharedSet":{"resourceName":"` + linkResource(clientID, "31", "111") +
+		"link member foreign": {campaignSharedSetsCreateID, `{"results":[{"resourceName":"` + campaignSharedSetResource(clientID, "31", "111") +
+			`","campaignSharedSet":{"resourceName":"` + campaignSharedSetResource(clientID, "31", "111") +
 			`","campaign":"customers/` + queryNumber(otherID) + `/campaigns/31"}},` + ownLink("32", "111") + `]}`},
-		"link member name": {campaignSharedSetsCreateID, `{"results":[{"resourceName":"` + linkResource(clientID, "31", "111") +
-			`","campaignSharedSet":{"resourceName":"` + linkResource(clientID, "31", "222") + `"}},` + ownLink("32", "111") + `]}`},
+		"link member name": {campaignSharedSetsCreateID, `{"results":[{"resourceName":"` + campaignSharedSetResource(clientID, "31", "111") +
+			`","campaignSharedSet":{"resourceName":"` + campaignSharedSetResource(clientID, "31", "222") + `"}},` + ownLink("32", "111") + `]}`},
 	}
 	for name, c := range cases {
 		t.Run(name, func(t *testing.T) {
