@@ -49,6 +49,9 @@ type setLinkFamily struct {
 	// rpc is the method that serves both tools; effect says in a few words what a link does, and sensitivity
 	// is the data it exposes.
 	rpc, effect, sensitivity string
+	// value marks a link that carries a customizer value next to its parts: the create entry then holds a
+	// value member, and the answer shows it.
+	value bool
 }
 
 // setLinkPart is one object a link ties: a member of the link that holds a resource name of this account.
@@ -168,6 +171,9 @@ func (f setLinkFamily) outputTree() node {
 	if f.account != "" {
 		fields = append(fields, textNode(f.account, "", maxNameArgument))
 	}
+	if f.value {
+		fields = append(fields, customizerValueNode())
+	}
 	return objectNode("", "", append(fields, enumNode("status", "", nil))...)
 }
 
@@ -194,6 +200,10 @@ func (f setLinkFamily) createItemSchema() schema {
 	for i, p := range f.parts {
 		props[p.name] = f.partNode(i).inputSchema()
 		required = append(required, p.name)
+	}
+	if f.value {
+		props["value"] = customizerValueSchema
+		required = append(required, "value")
 	}
 	return object(props, required...)
 }
@@ -280,8 +290,8 @@ func (f setLinkFamily) createOperations(customerID string, items []any) ([]any, 
 	for i, item := range items {
 		at := f.argument + "[" + strconv.Itoa(i) + "]"
 		in, ok := item.(map[string]any)
-		if !ok || len(in) != len(f.parts) {
-			return nil, nil, badRequest(at + " must be an object with exactly " + f.partList())
+		if !ok || len(in) != len(f.parts)+f.valueCount() {
+			return nil, nil, badRequest(at + " must be an object with exactly " + f.entryList())
 		}
 		body := map[string]any{}
 		ids := make([]string, 0, len(f.parts))
@@ -294,6 +304,13 @@ func (f setLinkFamily) createOperations(customerID string, items []any) ([]any, 
 			}
 			body[camel(f.parts[j].name)] = value
 			ids = append(ids, partIDs...)
+		}
+		if f.value {
+			v, err := customizerValueOf(at+".value", in["value"])
+			if err != nil {
+				return nil, nil, err
+			}
+			body["value"] = v
 		}
 		name := f.nameOf(customerID, ids)
 		for _, seen := range names {
@@ -313,6 +330,21 @@ func (f setLinkFamily) partList() string {
 		names[i] = p.name
 	}
 	return strings.Join(names, " and ")
+}
+
+func (f setLinkFamily) valueCount() int {
+	if f.value {
+		return 1
+	}
+	return 0
+}
+
+// entryList names the members of a create entry: the parts, and the value when the link carries one.
+func (f setLinkFamily) entryList() string {
+	if !f.value {
+		return f.partList()
+	}
+	return strings.Join(strings.Split(f.partList(), " and "), ", ") + " and value"
 }
 
 func (f setLinkFamily) removeOperations(customerID string, resourceNames []string) ([]any, error) {
@@ -392,8 +424,15 @@ func (f setLinkFamily) fields() []capability.Field {
 		{Name: "results", Description: "One entry per " + f.noun + ", in the order given, with its resource_name " +
 			"(customers/ID/" + f.collection + "/" + f.keyForm() + ", always of the account " +
 			"of the call) and, with MUTABLE_RESOURCE, the " + f.noun + " after the change under " + f.resultKey + ": " +
-			f.partList() + f.accountField() + ", resource_name and status as Google returns them. Empty after validate_only"},
+			f.partList() + f.accountField() + f.valueField() + ", resource_name and status as Google returns them. Empty after validate_only"},
 	}
+}
+
+func (f setLinkFamily) valueField() string {
+	if !f.value {
+		return ""
+	}
+	return ", value (type and string_value)"
 }
 
 func (f setLinkFamily) accountField() string {
@@ -403,12 +442,37 @@ func (f setLinkFamily) accountField() string {
 	return ", " + f.account + " (always the account of the call)"
 }
 
+func (f setLinkFamily) noUpdate() string {
+	if f.value {
+		return "the service has no update operation, so there is no update tool."
+	}
+	return "it has no member that can be changed, so there is no update tool."
+}
+
 func (f setLinkFamily) note() string {
-	return " A " + f.noun + " " + f.effect + "; it has no member that can be changed, so there is no update tool. " +
+	return " A " + f.noun + " " + f.effect + "; " + f.noUpdate() + " " +
 		"The request goes to " + f.rpc + " with up to 10 operations, atomic and without partial_failure: Google " +
 		"applies all of them or none. Resource names in the arguments must belong to customer_id, and an ID that is " +
 		"negative, a temporary one, is refused. The tool does not read " + f.noun + "s (read them with " +
 		"reports.search on " + f.resultKey + ")."
+}
+
+func (f setLinkFamily) valueText() string {
+	if !f.value {
+		return ""
+	}
+	return " Each entry also sets the value of the customizer attribute for that object: a type that must match the " +
+		"type of the attribute and a string_value that must fit it. The tool does not read the attribute, so " +
+		"Google checks the match."
+}
+
+func (f setLinkFamily) valueArgument() string {
+	if !f.value {
+		return ""
+	}
+	return ", and value is an object of type (" + strings.Join(customizerValueTypes, ", ") + ", the type of the " +
+		"customizer attribute) and string_value (1 to " + strconv.Itoa(customizerValueMax) + " characters, no control " +
+		"characters, in the form the type requires)"
 }
 
 func (f setLinkFamily) descriptors() (capability.Descriptor, capability.Descriptor) {
@@ -419,8 +483,9 @@ func (f setLinkFamily) descriptors() (capability.Descriptor, capability.Descript
 		return []string{"google", "ads", "assets", "asset-sets", f.tool, verb}
 	}
 	createArguments := []capability.Argument{assetSetCustomerArgument,
-		{Name: f.argument, Required: true, Description: "One to 10 entries, each an object of " + f.partList() +
-			" as customers/ID/<collection>/" + f.partForms() + " of customer_id, each link once"},
+		{Name: f.argument, Required: true, Description: "One to 10 entries, each an object of " + f.entryList() +
+			". The parts are customers/ID/<collection>/" + f.partForms() + " of customer_id" + f.valueArgument() +
+			"; each link once"},
 		validateOnlyArgument}
 	removeText := "Only the link ends, none of the objects it ties is removed; Google marks the link REMOVED, and it " +
 		"can be created again. Offers no response_content_type: a removed link has no mutable resource to show."
@@ -434,7 +499,7 @@ func (f setLinkFamily) descriptors() (capability.Descriptor, capability.Descript
 		createText = " Offers no response_content_type: Google answers with the resource names only."
 	}
 	createDescription := "Create one to 10 " + f.noun + "s in a Google Ads account (one create operation each), each " +
-		"named by " + f.partList() + ", resources of the account of the call."
+		"named by " + f.partList() + ", resources of the account of the call." + f.valueText()
 	create := capability.Descriptor{
 		ID: f.id("create"), Version: 1, Title: "Create " + f.noun + "s in a Google Ads account",
 		Description: createDescription + createText + f.note() +
@@ -540,7 +605,13 @@ func (f setLinkFamily) summary(verb string) capability.SummaryFunc {
 			for _, p := range f.parts {
 				pair = append(pair, p.name+" "+boundedText(stringOf(in[p.name]), maxCodeText))
 			}
-			parts = append(parts, strings.Join(pair, " in "))
+			text := strings.Join(pair, " in ")
+			if f.value {
+				v, _ := in["value"].(map[string]any)
+				text += " with " + boundedText(stringOf(v["type"]), maxCodeText) + " value " +
+					strconv.Quote(boundedText(stringOf(v["string_value"]), 80))
+			}
+			parts = append(parts, text)
 		}
 		total := len(a.Entries) + len(a.ResourceNames)
 		more := ""
