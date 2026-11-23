@@ -72,6 +72,7 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 		customerUserAccessInvitationsListID, customerUserAccessInvitationsRemoveID,
 		customerUserAccessesListID, customerUserAccessesRemoveID, customerUserAccessesUpdateID, customersGetID,
 		customersListAccessibleID, customersUpdateID, customizerAttributesCreateID, customizerAttributesRemoveID, dataLinksListID, dataLinksRemoveID, dataLinksUpdateID,
+		experimentArmsCreateID, experimentArmsRemoveID, experimentArmsUpdateID,
 		experimentsCreateID, experimentsEndID, experimentsGraduateID, experimentsListAsyncErrorsID, experimentsPromoteID,
 		experimentsRemoveID, experimentsScheduleID, experimentsUpdateID, fieldsGetID, fieldsSearchID,
 		geoTargetConstantsSuggestID,
@@ -99,7 +100,8 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 			tool.ID == campaignSharedSetsRemoveID || tool.ID == customerNegativeCriteriaRemoveID ||
 			tool.ID == sharedCriteriaRemoveID || tool.ID == experimentsRemoveID || tool.ID == campaignDraftsRemoveID ||
 			tool.ID == campaignDraftsPromoteID || tool.ID == customizerAttributesRemoveID ||
-			slices.Contains(experimentActionIDs, tool.ID)
+			slices.Contains(experimentActionIDs, tool.ID) || tool.ID == experimentArmsCreateID ||
+			tool.ID == experimentArmsRemoveID
 		changing := listed || slices.Contains(notListedOnly, tool.ID) || tool.ID == labelsCreateID ||
 			tool.ID == labelsUpdateID || tool.ID == campaignGroupsCreateID || tool.ID == campaignGroupsUpdateID ||
 			tool.ID == campaignAssetsCreateID || tool.ID == campaignAssetsUpdateID || tool.ID == campaignAssetsRemoveID ||
@@ -111,7 +113,7 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 			slices.Contains(customizerToolIDs, tool.ID) ||
 			tool.ID == sharedSetsCreateID || tool.ID == sharedSetsUpdateID || tool.ID == campaignSharedSetsCreateID ||
 			tool.ID == customerNegativeCriteriaCreateID || tool.ID == sharedCriteriaCreateID ||
-			tool.ID == experimentsCreateID || tool.ID == experimentsUpdateID || tool.ID == campaignDraftsCreateID ||
+			tool.ID == experimentsCreateID || tool.ID == experimentsUpdateID || tool.ID == experimentArmsUpdateID || tool.ID == campaignDraftsCreateID ||
 			tool.ID == campaignDraftsUpdateID || tool.ID == keywordPlansCreateID || tool.ID == keywordPlansUpdateID ||
 			tool.ID == keywordPlansRemoveID || tool.ID == keywordPlanCampaignsCreateID ||
 			tool.ID == keywordPlanCampaignsUpdateID || tool.ID == keywordPlanCampaignsRemoveID

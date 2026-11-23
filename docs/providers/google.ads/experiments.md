@@ -25,7 +25,7 @@ whose configuration, targets, quotas, and errors apply here too.
 | `google.ads.experiments.list-async-errors` | read | lists the errors of the last scheduling or promotion of one experiment |
 
 Reading experiments is not a tool of this page: run `reports.search` on the `experiment` resource, which also shows
-the state of a scheduling or promotion. The arms of an experiment are not offered here.
+the state of a scheduling or promotion. The arms of an experiment have their own [experiment arm tools](experiment-arms.md).
 
 ## How the tools are offered
 
@@ -188,7 +188,7 @@ Not verified:
 
 Left out on purpose:
 
-- The arms of an experiment, and a tool that polls an operation.
+- A tool that polls an operation.
 - `status` `REMOVED`, `PROMOTED`, `GRADUATED`, and `INITIATED` on `update`, `partial_failure`, and any free operation, mask, or
   resource name.
 - `GoogleAdsService.Mutate`: the tools use the Mutate service of the experiment family.

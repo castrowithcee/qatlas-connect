@@ -182,6 +182,7 @@ func TestDefaultRegistry(t *testing.T) {
 		"google.ads.experiments.create", "google.ads.experiments.update", "google.ads.experiments.remove",
 		"google.ads.experiments.list-async-errors", "google.ads.experiments.schedule", "google.ads.experiments.end",
 		"google.ads.experiments.graduate", "google.ads.experiments.promote",
+		"google.ads.experiment-arms.create", "google.ads.experiment-arms.update", "google.ads.experiment-arms.remove",
 		"google.ads.campaign-drafts.create", "google.ads.campaign-drafts.update", "google.ads.campaign-drafts.remove",
 		"google.ads.campaign-drafts.promote", "google.ads.campaign-drafts.list-async-errors",
 		"google.ads.bidding-strategies.create", "google.ads.bidding-strategies.update", "google.ads.bidding-strategies.remove",
