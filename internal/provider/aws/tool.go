@@ -71,6 +71,8 @@ type toolSpec struct {
 	// selfRole is the argument that names a role the tool changes or deletes; the call is refused when it is
 	// the role whose session signs it (see Client.refuseOwnRole).
 	selfRole string
+	// selfUser is the same for an IAM user (see Client.refuseOwnUser).
+	selfUser string
 	// resultHook names the step in resultHooks that adds a member to the result.
 	resultHook string
 	// guards name steps in guards that judge the arguments before any I/O.
@@ -128,6 +130,7 @@ var policyChecks = map[string]policyCheck{
 	"trust-policy":                checkTrustPolicy,
 	"resource-policy-own-account": checkResourcePolicyOwnAccount,
 	"bucket-policy":               checkBucketPolicy,
+	"identity-policy":             checkIdentityPolicy,
 }
 
 // generatedTools checks every generated tool against the runtime and binds it to its handler.
@@ -250,8 +253,8 @@ func (s toolSpec) check() error {
 	if _, ok := deliveries[s.delivery]; s.delivery != "" && (!ok || s.rest == nil || s.descriptor.Risk.Idempotency != capability.IdempotencyNonIdempotent) {
 		return fmt.Errorf("delivery %q has no implementation or does not belong to a non-idempotent REST tool", s.delivery)
 	}
-	if s.selfRole != "" && (s.accountCheck || s.descriptor.Risk.Effect == capability.EffectRead) {
-		return errors.New("the own-role check belongs to a tool that changes or deletes a role")
+	if (s.selfRole != "" || s.selfUser != "") && (s.accountCheck || s.descriptor.Risk.Effect == capability.EffectRead) {
+		return errors.New("the own-identity check belongs to a tool that changes or deletes a role or user")
 	}
 	for _, r := range s.rules {
 		if _, ok := forms[r.form]; r.form != "" && !ok {
@@ -361,6 +364,12 @@ func (s toolSpec) handler() capability.Handler {
 			if s.selfRole != "" {
 				target, _ := args[s.selfRole].(string)
 				if err := client.refuseOwnRole(ctx, op, region, creds, s.selfRole, target); err != nil {
+					return nil, err
+				}
+			}
+			if s.selfUser != "" {
+				target, _ := args[s.selfUser].(string)
+				if err := client.refuseOwnUser(ctx, op, region, creds, s.selfUser, target); err != nil {
 					return nil, err
 				}
 			}
