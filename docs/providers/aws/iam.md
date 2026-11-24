@@ -42,7 +42,9 @@ policies are set by whoever manages the account and are untrusted data.
 
 These tools create, change, and delete roles and instance profiles. Each one is `listed-only`: a connection offers
 it only when its `tools` list names the exact tool ID. Neither effects nor a prefix such as `aws.iam.role.*` select
-it. Each one needs confirmation. A create or delete is not repeated after an unclear outcome, so read the entity
+it. Each one needs confirmation, and the confirmation text names the role or instance profile, the effect, and for
+a trust policy or a permissions boundary the principals it admits or the policy it sets, without quoting the document.
+A create or delete is not repeated after an unclear outcome, so read the entity
 before trying again.
 
 | Tool | AWS action | Arguments | Result |
