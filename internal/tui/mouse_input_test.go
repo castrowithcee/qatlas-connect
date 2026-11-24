@@ -5,7 +5,6 @@ import (
 	"io"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"testing"
 	"time"
 
@@ -16,6 +15,7 @@ import (
 
 // chunkReader hands out its chunks one per Read, the way a terminal behind SSH or tmux delivers a short read,
 // then reports the end of the input. It waits gap before each of the first paused chunks after the first.
+// The wait is real: it only has to outlast the input reader's own escape timer, which the test cannot inject.
 type chunkReader struct {
 	mu     sync.Mutex
 	chunks [][]byte
@@ -32,19 +32,50 @@ const (
 	splitPause  = uv.DefaultEscTimeout + 10*time.Millisecond
 )
 
-// testClock is the clock of the filter in a test. It measures input time, not wall time: it stands still and only
-// a pause in the input moves it on, so a loaded host that stalls the event loop cannot outlast the fragment window.
-type testClock struct{ offset atomic.Int64 }
+// testClock is the clock of the filter in a test, and the timer it schedules holds on. It measures input time, not
+// wall time: it stands still and only a pause in the input moves it on, so a loaded host that stalls the event loop
+// cannot outlast the fragment window or a hold. It is used from the event loop alone, which is why it needs no
+// lock: due timers run inside advance, on the loop, never on a goroutine of their own.
+type testClock struct {
+	now    time.Duration
+	timers []clockTimer
+}
+
+type clockTimer struct {
+	due time.Duration
+	fn  func()
+}
 
 var testClockBase = time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC)
 
-func (c *testClock) now() time.Time { return testClockBase.Add(time.Duration(c.offset.Load())) }
+func (c *testClock) time() time.Time { return testClockBase.Add(c.now) }
 
-// pause is a key that is a gap in the input instead: when the event loop meets it, the real timers run out and
-// the filter's clock moves on by a second. Handled there, not by the reader, which runs ahead of the loop.
-// holdWait outlasts the hold the kit filter puts on a "[" (200 ms).
-const holdWait = 200 * time.Millisecond
+// after is the filter's timer: fn runs once the clock has moved d on.
+func (c *testClock) after(d time.Duration, fn func()) {
+	c.timers = append(c.timers, clockTimer{c.now + d, fn})
+}
 
+// advance moves the clock on by d and runs the timers that are due, in the order of their due time.
+func (c *testClock) advance(d time.Duration) {
+	c.now += d
+	for {
+		next := -1
+		for i, t := range c.timers {
+			if t.due <= c.now && (next < 0 || t.due < c.timers[next].due) {
+				next = i
+			}
+		}
+		if next < 0 {
+			return
+		}
+		fn := c.timers[next].fn
+		c.timers = append(c.timers[:next], c.timers[next+1:]...)
+		fn()
+	}
+}
+
+// pause is a key that is a gap in the input instead: when the event loop meets it, the clock moves on by a second
+// and every hold of the filter ends. Handled there, not by the reader, which runs ahead of the loop.
 const pause = "\x1b[23~"
 
 func (r *chunkReader) Read(p []byte) (int, error) {
@@ -86,13 +117,27 @@ func runPaused(t *testing.T, model *Model, gap time.Duration, chunks ...string) 
 		reader.chunks = append(reader.chunks, []byte(c))
 	}
 	reader.chunks = append(reader.chunks, []byte(inputEnd))
-	fragments := kittui.NewInputFilter(clock.now)
+	fragments := kittui.NewInputFilter(clock.time)
+	fragments.SetAfterFunc(clock.after)
+	// A hold that ends is queued, not sent: the loop delivers it itself when the pause advances the clock.
+	var ended []tea.Msg
+	fragments.Attach(func(m tea.Msg) { ended = append(ended, m) })
 	var seen []string
-	observe := func(m tea.Model, msg tea.Msg) tea.Msg {
+	var observe func(m tea.Model, msg tea.Msg) tea.Msg
+	observe = func(m tea.Model, msg tea.Msg) tea.Msg {
 		if key, ok := msg.(tea.KeyPressMsg); ok && key.Code == tea.KeyF11 {
-			clock.offset.Add(int64(time.Second))
-			time.Sleep(2 * holdWait)
-			return nil
+			clock.advance(time.Second)
+			var out kittui.InputBatch
+			for _, e := range ended {
+				if msg := observe(m, e); msg != nil {
+					out = append(out, msg)
+				}
+			}
+			ended = nil
+			if len(out) == 0 {
+				return nil
+			}
+			return out
 		}
 		msg = fragments.Filter(m, msg)
 		if key, ok := msg.(tea.KeyPressMsg); ok && key.Code == tea.KeyF12 {
@@ -114,7 +159,6 @@ func runPaused(t *testing.T, model *Model, gap time.Duration, chunks ...string) 
 	}
 	p := tea.NewProgram(model, tea.WithInput(reader), tea.WithOutput(io.Discard), tea.WithFilter(observe),
 		tea.WithoutSignals())
-	fragments.Attach(p.Send)
 	done := make(chan error, 1)
 	go func() { _, err := p.Run(); done <- err }()
 	select {
