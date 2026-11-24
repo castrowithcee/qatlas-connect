@@ -179,6 +179,26 @@ to AWS. The refusal and every other message leave the key ID of the connection o
 The confirmation text, shown as `summary` before the call, names the action (deactivate or delete for good), the key
 ID, and the user, or the calling user when `user_name` is left out. It never holds a secret.
 
+## Account settings
+
+These tools set and delete the password policy and the alias of the account and delete identity providers. All are `listed-only` and need confirmation. Creating and changing an OpenID Connect or SAML provider stays excluded.
+
+| Tool | AWS action | Arguments | Effect |
+| --- | --- | --- | --- |
+| `aws.iam.account.update-password-policy` | `UpdateAccountPasswordPolicy` | `minimum_password_length`, `require_symbols`, `require_numbers`, `require_uppercase_characters`, `require_lowercase_characters`, `allow_users_to_change_password`, `max_password_age`, `password_reuse_prevention`, `hard_expiry` | Sets the policy for all IAM users; idempotent |
+| `aws.iam.account.delete-password-policy` | `DeleteAccountPasswordPolicy` | | The AWS default applies afterwards; not idempotent |
+| `aws.iam.account.create-alias` | `CreateAccountAlias` | `account_alias` (required) | Changes the sign-in address of the console; not idempotent |
+| `aws.iam.account.delete-alias` | `DeleteAccountAlias` | `account_alias` (required) | The sign-in address returns to the account ID; not idempotent |
+| `aws.iam.oidc-provider.delete` | `DeleteOpenIDConnectProvider` | `open_id_connect_provider_arn` (required) | Deletes the provider for good; not idempotent |
+| `aws.iam.saml-provider.delete` | `DeleteSAMLProvider` | `saml_provider_arn` (required) | Deletes the provider for good; not idempotent |
+
+A setting left out of `update-password-policy` returns to its AWS default, so give every setting to keep. A provider
+ARN must belong to the bound account in the `aws` partition, otherwise the call is refused before a request.
+
+The confirmation text, shown as `summary` before the call, names the action. For the password policy it gives the
+minimum length, required character classes, expiry, and reuse limit, for an alias the alias, and for a provider its
+ARN and that sign-ins through it end.
+
 ## Credential metadata
 
 These tools return metadata only. No result ever holds a secret access key, a password, an MFA seed or QR code, a

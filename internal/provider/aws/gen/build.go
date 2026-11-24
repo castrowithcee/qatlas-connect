@@ -932,11 +932,21 @@ func (c *converter) failf(format string, args ...any) error {
 	return c.t.failf("%s: %s", c.path, fmt.Sprintf(format, args...))
 }
 
+// re2Patterns are hand-checked RE2 equivalents of model patterns that use a lookahead. The account alias
+// pattern allows single hyphens between letters and digits, which is the same language; the length stays a
+// separate bound.
+var re2Patterns = map[string]string{
+	`^[a-z0-9]([a-z0-9]|-(?!-)){1,61}[a-z0-9]$`: `^[a-z0-9]+(-[a-z0-9]+)*$`,
+}
+
 // pattern translates a model pattern into the RE2 syntax of the schema validator. Smithy patterns are
 // ECMA-262 expressions, whose \uXXXX is one UTF-16 code unit and which RE2 writes \x{XXXX}; that is exact
 // outside the surrogate range, so a surrogate escape, and any pattern RE2 then refuses, stops the generation
 // instead of being guessed at.
 func (c *converter) pattern(p string) (string, error) {
+	if re2, ok := re2Patterns[p]; ok {
+		return re2, nil
+	}
 	var b strings.Builder
 	for i := 0; i < len(p); i++ {
 		if p[i] != '\\' || i+1 >= len(p) {

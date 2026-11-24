@@ -88,6 +88,10 @@ permission. Grant only the actions of the tools the connection lists.
 The [access key tools](iam.md#access-keys) need `iam:UpdateAccessKey` and `iam:DeleteAccessKey`, each for its own
 tool. The own-key check needs no call to AWS. Grant only the actions of the tools the connection lists.
 
+The [account setting tools](iam.md#account-settings) need `iam:UpdateAccountPasswordPolicy`,
+`iam:DeleteAccountPasswordPolicy`, `iam:CreateAccountAlias`, `iam:DeleteAccountAlias`,
+`iam:DeleteOpenIDConnectProvider`, and `iam:DeleteSAMLProvider`, each for its own tool.
+
 ### Account
 
 The [region tools](account.md) need `account:ListRegions`, `account:GetRegionOptStatus`, `account:EnableRegion`, and
