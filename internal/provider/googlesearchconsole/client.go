@@ -167,6 +167,43 @@ func (c *client) send(ctx context.Context, op, tool, method, address string, bod
 	if err := limiter.Wait(ctx); err != nil {
 		return provider.Waited(op, "Google", err)
 	}
+	response, err := c.roundTrip(ctx, op, tool, method, address, body, "application/json", "application/json", mutate)
+	if err != nil {
+		return err
+	}
+	defer response.Body.Close()
+	if response.StatusCode < 200 || response.StatusCode > 299 {
+		raw := provider.ReadErrorBody(response.Body)
+		if response.StatusCode == http.StatusTooManyRequests {
+			// A missing retry time still means too many requests: the next call waits, nothing repeats this one.
+			limiter.HoldFor(min(max(provider.RetryAfter(response.Header), time.Second), maxHold))
+		}
+		return googleError(op, response.StatusCode, raw, notFound)
+	}
+	if out == nil {
+		return emptyAnswer(op, response)
+	}
+	return readJSONAnswer(op, response, limit, out)
+}
+
+// readJSONAnswer decodes a 2xx answer that must be a JSON object of at most limit bytes into out.
+func readJSONAnswer(op string, response *http.Response, limit int64, out any) error {
+	if mediaType, _, err := mime.ParseMediaType(response.Header.Get("Content-Type")); err != nil ||
+		mediaType != "application/json" {
+		_, _ = io.Copy(io.Discard, io.LimitReader(response.Body, 1<<10))
+		return provider.InvalidResponse(op, "Google returned an answer that is not JSON")
+	}
+	if failed := provider.ReadJSON(op, "Google", response.Body, limit, out); failed != nil {
+		return failed
+	}
+	return nil
+}
+
+// roundTrip sends one request of tool with the access token in the Authorization header, through the read
+// path of the token source or, for mutate, through the mutation path that never repeats it. contentType is
+// set only with a body. The caller classifies the answer and closes its body.
+func (c *client) roundTrip(ctx context.Context, op, tool, method, address string, body []byte, contentType, accept string,
+	mutate bool) (*http.Response, error) {
 	send := c.source.Read
 	if mutate {
 		send = c.source.Mutate
@@ -182,40 +219,20 @@ func (c *client) send(ctx context.Context, op, tool, method, address string, bod
 		}
 		req.Header.Set("Authorization", "Bearer "+access)
 		if body != nil {
-			req.Header.Set("Content-Type", "application/json")
+			req.Header.Set("Content-Type", contentType)
 		}
-		req.Header.Set("Accept", "application/json")
+		req.Header.Set("Accept", accept)
 		req.Header.Set("User-Agent", userAgent)
 		return req, nil
 	})
 	if err != nil {
 		var failed *provider.Error
 		if errors.As(err, &failed) {
-			return err
+			return nil, err
 		}
-		return provider.Transport(op, "Google", err)
+		return nil, provider.Transport(op, "Google", err)
 	}
-	defer response.Body.Close()
-	if response.StatusCode < 200 || response.StatusCode > 299 {
-		raw := provider.ReadErrorBody(response.Body)
-		if response.StatusCode == http.StatusTooManyRequests {
-			// A missing retry time still means too many requests: the next call waits, nothing repeats this one.
-			limiter.HoldFor(min(max(provider.RetryAfter(response.Header), time.Second), maxHold))
-		}
-		return googleError(op, response.StatusCode, raw, notFound)
-	}
-	if out == nil {
-		return emptyAnswer(op, response)
-	}
-	if mediaType, _, err := mime.ParseMediaType(response.Header.Get("Content-Type")); err != nil ||
-		mediaType != "application/json" {
-		_, _ = io.Copy(io.Discard, io.LimitReader(response.Body, 1<<10))
-		return provider.InvalidResponse(op, "Google returned an answer that is not JSON")
-	}
-	if failed := provider.ReadJSON(op, "Google", response.Body, limit, out); failed != nil {
-		return failed
-	}
-	return nil
+	return response, nil
 }
 
 // emptyAnswer accepts the answer of a method that has none: no body at all, or an empty JSON object.

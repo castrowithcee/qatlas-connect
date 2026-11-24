@@ -1,15 +1,17 @@
-// Package googlesearchconsole implements read access to the Google Search Console API: the properties an
-// account can see, the sitemaps of a property, its search traffic, and the index state of a URL.
+// Package googlesearchconsole implements the Google Search Console API (the properties an account can see,
+// the sitemaps of a property, its search traffic, and the index state of a URL) and the Indexing API, which
+// reads and sends the notifications of single URLs.
 //
 // The credential issues access tokens: a person's consent, a service account key, or the impersonation of a
 // service account. The core token source obtains them from Google's fixed endpoints; this package only names
-// the scope each tool needs and sends the token in the Authorization header, never in a URL. The API origin
-// is fixed; a configured base URL other than the default is refused before any secret is read.
+// the scope each tool needs and sends the token in the Authorization header, never in a URL. Both API origins
+// are fixed; a configured base URL other than the default is refused before any secret is read.
 //
 // A connection may be bound to one property, either a domain property (sc-domain:example.com) or a URL
 // prefix ending in a slash. A bound connection reaches that property only: another site_url is refused
-// before anything is resolved or sent. Property URLs, sitemap paths and every other value Google returns
-// are untrusted third-party content: strings and lists are bounded and URLs are never fetched.
+// before anything is resolved or sent, and so is an Indexing API URL outside the property. Property URLs,
+// sitemap paths, Indexing API URLs and every other value Google returns are untrusted third-party content:
+// strings and lists are bounded and URLs are never fetched.
 package googlesearchconsole
 
 import (
@@ -47,6 +49,11 @@ var toolScopes = map[string][]string{
 	sitemapsSubmitID:  {scopeEdit},
 	sitemapsDeleteID:  {scopeEdit},
 	urlInspectionID:   {scopeRead},
+	// The Indexing API names one scope for reading and publishing alike.
+	indexingMetadataID:      {scopeIndexing},
+	indexingMetadataBatchID: {scopeIndexing},
+	indexingPublishID:       {scopeIndexing},
+	indexingPublishBatchID:  {scopeIndexing},
 }
 
 const testOp = "test connection"
@@ -111,10 +118,14 @@ func Register(reg *capability.Registry) error {
 		{Descriptor: sitemapsSubmit, Handler: handleSitemapsSubmit},
 		{Descriptor: sitemapsDelete, Handler: handleSitemapsDelete},
 		{Descriptor: urlInspectionInspect, Handler: handleURLInspection},
+		{Descriptor: indexingMetadata, Handler: handleIndexingMetadata},
+		{Descriptor: indexingMetadataBatch, Handler: handleIndexingMetadataBatch},
+		{Descriptor: indexingPublish, Handler: handleIndexingPublish, ConfirmationSummary: publishSummary},
+		{Descriptor: indexingPublishBatch, Handler: handleIndexingPublishBatch, ConfirmationSummary: publishBatchSummary},
 	}
 	if err := reg.RegisterProvider(config.ProviderMetadata{
 		ID: Provider, Name: "Google Search Console", DefaultBaseURL: apiRoot,
-		Description:    "Properties, sitemaps and search traffic of Google Search Console, read with an OAuth consent or a service account",
+		Description:    "Properties, sitemaps and search traffic of Google Search Console and its Indexing API notifications, used with an OAuth consent or a service account",
 		DefaultEffects: []config.Effect{config.EffectRead},
 		ValidateBaseURL: func(raw string) error {
 			if !isDefaultRoot(raw) {
@@ -137,10 +148,13 @@ func Register(reg *capability.Registry) error {
 			Tools:       []string{sitesListID, sitesGetID, sitemapsListID, sitemapsGetID, searchAnalyticsID, urlInspectionID},
 		}, {
 			ID: "edit", Title: "Add properties and edit sitemaps",
-			Description: "reads what the read profile reads, adds properties, and submits and removes sitemaps " +
-				"in Search Console; every change needs its own confirmation, and removing a property is listed-only",
+			Description: "reads what the read profile reads and the Indexing API status of URLs, adds properties, " +
+				"and submits and removes sitemaps in Search Console; every change needs its own confirmation, " +
+				"and removing a property is listed-only",
+			// The Indexing API reads join here and not the read profile: their only scope also allows
+			// notifications, which a read-only consent should not grant.
 			Tools: []string{sitesListID, sitesGetID, sitemapsListID, sitemapsGetID, searchAnalyticsID, urlInspectionID,
-				sitesAddID, sitemapsSubmitID, sitemapsDeleteID},
+				sitesAddID, sitemapsSubmitID, sitemapsDeleteID, indexingMetadataID, indexingMetadataBatchID},
 		}},
 	}, TestConnection); err != nil {
 		return err
