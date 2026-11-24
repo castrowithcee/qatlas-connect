@@ -80,6 +80,11 @@ The [policy tools](iam.md#policies) need `iam:CreatePolicy`, `iam:DeletePolicy`,
 for its own tool. Creating a policy with tags also needs `iam:TagPolicy`. The own-identity check calls
 `sts:GetCallerIdentity`, which needs no permission. Grant only the actions of the tools the connection lists.
 
+The [user and group tools](iam.md#users-and-groups) need `iam:UpdateUser`, `iam:DeleteUser`, `iam:TagUser`,
+`iam:UntagUser`, `iam:CreateGroup`, `iam:UpdateGroup`, `iam:DeleteGroup`, `iam:AddUserToGroup`, and
+`iam:RemoveUserFromGroup`, each for its own tool. The own-user check calls `sts:GetCallerIdentity`, which needs no
+permission. Grant only the actions of the tools the connection lists.
+
 ### Account
 
 The [region tools](account.md) need `account:ListRegions`, `account:GetRegionOptStatus`, `account:EnableRegion`, and

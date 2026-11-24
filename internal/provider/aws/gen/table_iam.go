@@ -7,15 +7,17 @@ import "slices"
 // and service-specific credentials. A secret, a password, a seed, or a private key is never a field, and the
 // operations that create or change a credential are excluded for good. The role tools create, change, and
 // delete roles and instance profiles, and the policy tools create, change, tag, and delete managed policies and
-// their versions, attach and detach them, write inline policies, and set the permissions boundary of a user; all
+// their versions, attach and detach them, write inline policies, and set the permissions boundary of a user, and the user tools rename, tag, and
+// delete users and create, rename, and delete groups and their members; all
 // are listed-only and with confirmation. The account tools read the account
 // summary, password policy, identity providers, server certificates, and delegation requests. The report tools
 // generate and read the credential report and the service last accessed reports; their generators are
-// listed-only and need confirmation. The remaining operations wait for the IAM tools that follow: groups, users, and the Organizations and root actions; the
+// listed-only and need confirmation. The remaining operations wait for the IAM tools that follow: credentials, the account, and the Organizations and
+// root actions; the
 // completeness test runs on the whole table, so a new IAM operation shows up.
 var iamTable = Table{
 	Service: "iam", Segment: "iam", Geltung: Global,
-	Operations: slices.Concat(iamIdentityTools, iamPolicyTools, iamRoleTools, iamPolicyWriteTools, iamAccountTools, iamReportTools),
+	Operations: slices.Concat(iamIdentityTools, iamPolicyTools, iamRoleTools, iamPolicyWriteTools, iamUserWriteTools, iamAccountTools, iamReportTools),
 	// IAM returns policy documents percent-encoded. A trust policy is decoded to JSON text and cut at 32 KiB;
 	// it is untrusted like every provider content.
 	URLEncoded: []URLEncoded{{Shape: "policyDocumentType", MaxLen: 32 << 10}},
@@ -45,16 +47,13 @@ var iamTable = Table{
 	},
 	Defer: []Omission{
 		{Operation: "AcquireRole", Reason: deferIAM},
-		{Operation: "AddUserToGroup", Reason: deferIAM},
 		{Operation: "AssociateDelegationRequest", Reason: deferIAM},
 		{Operation: "CreateAccountAlias", Reason: deferIAM},
-		{Operation: "CreateGroup", Reason: deferIAM},
 		{Operation: "CreateServiceLinkedRole", Reason: deferIAM},
 		{Operation: "DeactivateMFADevice", Reason: deferIAM},
 		{Operation: "DeleteAccessKey", Reason: deferIAM},
 		{Operation: "DeleteAccountAlias", Reason: deferIAM},
 		{Operation: "DeleteAccountPasswordPolicy", Reason: deferIAM},
-		{Operation: "DeleteGroup", Reason: deferIAM},
 		{Operation: "DeleteLoginProfile", Reason: deferIAM},
 		{Operation: "DeleteOpenIDConnectProvider", Reason: deferIAM},
 		{Operation: "DeleteSAMLProvider", Reason: deferIAM},
@@ -63,7 +62,6 @@ var iamTable = Table{
 		{Operation: "DeleteServiceLinkedRole", Reason: deferIAM},
 		{Operation: "DeleteServiceSpecificCredential", Reason: deferIAM},
 		{Operation: "DeleteSigningCertificate", Reason: deferIAM},
-		{Operation: "DeleteUser", Reason: deferIAM},
 		{Operation: "DeleteVirtualMFADevice", Reason: deferIAM},
 		{Operation: "DisableOrganizationsRootCredentialsManagement", Reason: deferIAM},
 		{Operation: "DisableOrganizationsRootSessions", Reason: deferIAM},
@@ -74,30 +72,25 @@ var iamTable = Table{
 		{Operation: "PutAccountProperties", Reason: deferIAM},
 		{Operation: "RejectDelegationRequest", Reason: deferIAM},
 		{Operation: "RemoveClientIDFromOpenIDConnectProvider", Reason: deferIAM},
-		{Operation: "RemoveUserFromGroup", Reason: deferIAM},
 		{Operation: "SetSecurityTokenServicePreferences", Reason: deferIAM},
 		{Operation: "TagInstanceProfile", Reason: deferIAM},
 		{Operation: "TagMFADevice", Reason: deferIAM},
 		{Operation: "TagOpenIDConnectProvider", Reason: deferIAM},
 		{Operation: "TagSAMLProvider", Reason: deferIAM},
 		{Operation: "TagServerCertificate", Reason: deferIAM},
-		{Operation: "TagUser", Reason: deferIAM},
 		{Operation: "UntagInstanceProfile", Reason: deferIAM},
 		{Operation: "UntagMFADevice", Reason: deferIAM},
 		{Operation: "UntagOpenIDConnectProvider", Reason: deferIAM},
 		{Operation: "UntagSAMLProvider", Reason: deferIAM},
 		{Operation: "UntagServerCertificate", Reason: deferIAM},
-		{Operation: "UntagUser", Reason: deferIAM},
 		{Operation: "UpdateAccessKey", Reason: deferIAM},
 		{Operation: "UpdateAccountPasswordPolicy", Reason: deferIAM},
 		{Operation: "UpdateDelegationRequest", Reason: deferIAM},
-		{Operation: "UpdateGroup", Reason: deferIAM},
 		{Operation: "UpdateRoleDescription", Reason: deferIAM},
 		{Operation: "UpdateSSHPublicKey", Reason: deferIAM},
 		{Operation: "UpdateServerCertificate", Reason: deferIAM},
 		{Operation: "UpdateServiceSpecificCredential", Reason: deferIAM},
 		{Operation: "UpdateSigningCertificate", Reason: deferIAM},
-		{Operation: "UpdateUser", Reason: deferIAM},
 	},
 }
 
