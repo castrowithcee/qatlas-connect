@@ -4,7 +4,7 @@ description: >
 type: knowledge
 edit: shared
 created: 2026-11-06
-updated: 2026-11-14
+updated: 2026-11-24
 ---
 
 # Set up AWS
@@ -184,8 +184,8 @@ the object `arn:aws:s3:::<bucket>/<key>` except the two lists. The writes and th
 | `aws.s3.object-lock.put` | `s3:PutBucketObjectLockConfiguration` |
 | `aws.s3.object-retention.put` | `s3:PutObjectRetention` |
 | `aws.s3.object-legal-hold.put` | `s3:PutObjectLegalHold` |
-| `aws.s3.lifecycle.delete` | `s3:PutLifecycleConfiguration` |
-| `aws.s3.cors.delete` | `s3:PutBucketCORS` |
+| `aws.s3.lifecycle.put`, `aws.s3.lifecycle.delete` | `s3:PutLifecycleConfiguration` |
+| `aws.s3.cors.put`, `aws.s3.cors.delete` | `s3:PutBucketCORS` |
 | `aws.s3.bucket-policy.put` | `s3:PutBucketPolicy` and `s3:GetBucketPolicyStatus` (the read after the change) |
 | `aws.s3.bucket-policy.delete` | `s3:DeleteBucketPolicy` |
 | `aws.s3.object.copy` | `s3:GetObject` (`s3:GetObjectVersion` for a version) on the source and `s3:PutObject` on the destination; with tags also `s3:GetObjectTagging` and `s3:PutObjectTagging` |

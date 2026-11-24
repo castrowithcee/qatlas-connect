@@ -35,8 +35,6 @@ var s3Table = Table{
 		{Operation: "DeleteBucketReplication", Reason: "replication is not offered as a write, and removing it is a change to the same configuration"},
 	},
 	Defer: []Omission{
-		{Operation: "PutBucketLifecycleConfiguration", Reason: "waits until the confirmation of a call can name the rules it sets; not offered yet"},
-		{Operation: "PutBucketCors", Reason: "waits until the confirmation of a call can name the rules it sets; not offered yet"},
 		{Operation: "CreateBucketMetadataConfiguration", Reason: deferS3},
 		{Operation: "CreateBucketMetadataTableConfiguration", Reason: deferS3},
 		{Operation: "CreateSession", Reason: deferS3},
