@@ -105,8 +105,8 @@ func TestSESSendRawConfirmationText(t *testing.T) {
 	m = strings.Replace(m, "Subject: Report", "Subject: =?UTF-8?B?"+base64.StdEncoding.EncodeToString([]byte("Hi‮ there "+strings.Repeat("s", 80)))+"?=", 1)
 	f := restAnswer(reply{status: 200})
 	got := confirmationSummary(t, sendEnv(t, f), sendTool, rawArgs(m))
-	for _, part := range []string{"sender@example.com", "First recipients: to@example.com", "Raw MIME from", `subject "Hi  there `, "…",
-		"3 attachments", `"evil  name.txt"`, "and 2 more", "Cannot be undone"} {
+	for _, part := range []string{"sender@example.com", "First recipients: to@example.com", "Raw MIME from sender@example.com,",
+		`subject "Hi  there `, "…", `3 attachments: "evil  name.txt", "report.pdf", "c.txt".`, "Cannot be undone"} {
 		if !strings.Contains(got, part) {
 			t.Errorf("summary %q lacks %q", got, part)
 		}
@@ -126,7 +126,43 @@ func TestSESSendRawConfirmationText(t *testing.T) {
 		`","destination":{"to_addresses":[` + sendSummaryList("t", 50) + `]},"content":{"raw":{"data":"` + rawB64(worst) + `"}}}`
 	if n := utf8.RuneCountInString(sendSummary([]byte(args))); n > 500 {
 		t.Errorf("worst case has %d runes", n)
+	}
+}
 
+// A long display name cannot hide the sender's address: the address is named in full beside the cut name.
+func TestSESSendRawConfirmationNamesTheSenderAddress(t *testing.T) {
+	m := strings.Replace(rawPlain, "From: Sender <sender@example.com>",
+		"From: \"Your Bank Customer Service Department\" <other@example.org>", 1)
+	got := sendSummary([]byte(rawArgs(m)))
+	if !strings.Contains(got, `Raw MIME from other@example.org ("Your Bank Customer S…")`) {
+		t.Errorf("summary = %q", got)
+	}
+}
+
+// Attachment names fill the room the core bound leaves; only the names that do not fit are counted.
+func TestSESSendRawConfirmationNamesAttachmentsUpToTheBound(t *testing.T) {
+	var short, parts []string
+	for i := range sesMaxAttachments {
+		short = append(short, rawAttachment(string(rune('a'+i))+".txt"))
+		parts = append(parts, rawAttachment("file-"+strings.Repeat(string(rune('a'+i)), 12)+".txt"))
+	}
+	few := sendSummary([]byte(rawArgs(rawMultipart("", short...))))
+	if !strings.Contains(few, `10 attachments: "a.txt", "b.txt",`) || !strings.Contains(few, `"j.txt".`) ||
+		strings.Contains(few, "more") || utf8.RuneCountInString(few) > 500 {
+		t.Errorf("short summary = %q", few)
+	}
+	m := rawMultipart("", parts...)
+	long := strings.Repeat("x", 300)
+	args := `{"region":"` + strings.Repeat("r", 32) + `","from_email_address":"` + long + `","configuration_set_name":"` +
+		strings.Repeat("c", 64) + `","destination":{"to_addresses":[` + sendSummaryList("t", 50) + `]},"content":{"raw":{"data":"` +
+		rawB64(m) + `"}}}`
+	got := sendSummary([]byte(args))
+	n := utf8.RuneCountInString(got)
+	if n > 500 || !strings.Contains(got, `"file-aaaaaaaaaaa…"`) || !strings.Contains(got, "more.") {
+		t.Errorf("full summary (%d runes) = %q", n, got)
+	}
+	if n < 500-len(`, "file-aaaaaaaaaaa…" and 9 more.`) {
+		t.Errorf("summary leaves room for another name: %d runes", n)
 	}
 }
 
