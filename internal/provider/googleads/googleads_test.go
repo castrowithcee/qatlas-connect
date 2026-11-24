@@ -42,7 +42,9 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 		adGroupCustomizersCreateID, adGroupCustomizersRemoveID,
 		adGroupLabelsCreateID, adGroupLabelsRemoveID, adGroupsCreateID,
 		adGroupsRemoveID, adGroupsUpdateID, adParametersCreateID, adParametersRemoveID, adParametersUpdateID, adsUpdateID,
-		assetGroupAssetsCreateID, assetGroupAssetsRemoveID, assetGroupAssetsUpdateID, assetGroupSignalsCreateID, assetGroupSignalsRemoveID, assetGroupsCreateID, assetGroupsRemoveID, assetGroupsUpdateID,
+		assetGroupAssetsCreateID, assetGroupAssetsRemoveID, assetGroupAssetsUpdateID,
+		listingGroupFiltersCreateID, listingGroupFiltersRemoveID, listingGroupFiltersUpdateID,
+		assetGroupSignalsCreateID, assetGroupSignalsRemoveID, assetGroupsCreateID, assetGroupsRemoveID, assetGroupsUpdateID,
 		assetSetAssetsCreateID, assetSetAssetsRemoveID,
 		assetSetsCreateID, assetSetsRemoveID, assetSetsUpdateID, assetsCreateID,
 		assetsUpdateID, audiencesCreateID, audiencesUpdateID, biddingDataExclusionsCreateID, biddingDataExclusionsRemoveID,
@@ -80,6 +82,7 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 		incentivesFetchID, invoicesListID,
 		keywordPlanAdGroupKeywordsCreateID, keywordPlanAdGroupKeywordsRemoveID, keywordPlanAdGroupKeywordsUpdateID,
 		keywordPlanAdGroupsCreateID, keywordPlanAdGroupsRemoveID, keywordPlanAdGroupsUpdateID,
+		keywordPlanCampaignKeywordsCreateID, keywordPlanCampaignKeywordsRemoveID, keywordPlanCampaignKeywordsUpdateID,
 		keywordPlanCampaignsCreateID, keywordPlanCampaignsRemoveID, keywordPlanCampaignsUpdateID,
 		keywordThemesID, keywordForecastID, keywordMetricsID, keywordIdeasID, keywordPlansCreateID, keywordPlansRemoveID,
 		keywordPlansUpdateID, keywordThemeConstantsSuggestID,
@@ -122,7 +125,9 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 			tool.ID == keywordPlanAdGroupsCreateID || tool.ID == keywordPlanAdGroupsUpdateID ||
 			tool.ID == keywordPlanAdGroupsRemoveID ||
 			tool.ID == keywordPlanAdGroupKeywordsCreateID || tool.ID == keywordPlanAdGroupKeywordsUpdateID ||
-			tool.ID == keywordPlanAdGroupKeywordsRemoveID
+			tool.ID == keywordPlanAdGroupKeywordsRemoveID ||
+			tool.ID == keywordPlanCampaignKeywordsCreateID || tool.ID == keywordPlanCampaignKeywordsUpdateID ||
+			tool.ID == keywordPlanCampaignKeywordsRemoveID
 		if tool.ID != want[i] || (tool.Effect == config.EffectRead) == changing || tool.RequiresToolAllowList != listed {
 			t.Errorf("tool %d = %+v", i, tool)
 		}
