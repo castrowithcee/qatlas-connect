@@ -81,6 +81,7 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 		goalsCreateID, goalsUpdateID,
 		incentivesFetchID, invoicesListID,
 		keywordPlanAdGroupsCreateID, keywordPlanAdGroupsRemoveID, keywordPlanAdGroupsUpdateID,
+		keywordPlanCampaignKeywordsCreateID, keywordPlanCampaignKeywordsRemoveID, keywordPlanCampaignKeywordsUpdateID,
 		keywordPlanCampaignsCreateID, keywordPlanCampaignsRemoveID, keywordPlanCampaignsUpdateID,
 		keywordThemesID, keywordForecastID, keywordMetricsID, keywordIdeasID, keywordPlansCreateID, keywordPlansRemoveID,
 		keywordPlansUpdateID, keywordThemeConstantsSuggestID,
@@ -121,7 +122,9 @@ func TestRegisterPublishesMetadata(t *testing.T) {
 			tool.ID == keywordPlansRemoveID || tool.ID == keywordPlanCampaignsCreateID ||
 			tool.ID == keywordPlanCampaignsUpdateID || tool.ID == keywordPlanCampaignsRemoveID ||
 			tool.ID == keywordPlanAdGroupsCreateID || tool.ID == keywordPlanAdGroupsUpdateID ||
-			tool.ID == keywordPlanAdGroupsRemoveID
+			tool.ID == keywordPlanAdGroupsRemoveID ||
+			tool.ID == keywordPlanCampaignKeywordsCreateID || tool.ID == keywordPlanCampaignKeywordsUpdateID ||
+			tool.ID == keywordPlanCampaignKeywordsRemoveID
 		if tool.ID != want[i] || (tool.Effect == config.EffectRead) == changing || tool.RequiresToolAllowList != listed {
 			t.Errorf("tool %d = %+v", i, tool)
 		}

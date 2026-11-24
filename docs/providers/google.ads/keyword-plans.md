@@ -1,6 +1,6 @@
 ---
 description: >
-  Describes the keyword plan tools of the Google Ads provider: keyword-plans.create, keyword-plans.update and keyword-plans.remove, and keyword-plan-campaigns.create, keyword-plan-campaigns.update and keyword-plan-campaigns.remove, and keyword-plan-ad-groups.create, keyword-plan-ad-groups.update and keyword-plan-ad-groups.remove, with the Mutate service and its operations list, the bound of 50 operations, the checks on name and forecast period against the v26 definitions, the field mask of update, the absence of response_content_type, validate_only, confirmation, how the tools are reached by effect, the plan limit of an account, the Explorer access level, the unknown outcome, the binding of resource names to the account, the manager account rule, and the one-campaign-per-plan rule, the bid, network, language and location checks of plan campaigns, the name and bid checks and the 200-ad-group limit of plan ad groups, and the limits of what is verified.
+  Describes the keyword plan tools of the Google Ads provider: keyword-plans.create, keyword-plans.update and keyword-plans.remove, and keyword-plan-campaigns.create, keyword-plan-campaigns.update and keyword-plan-campaigns.remove, and keyword-plan-campaign-keywords.create, keyword-plan-campaign-keywords.update and keyword-plan-campaign-keywords.remove, and keyword-plan-ad-groups.create, keyword-plan-ad-groups.update and keyword-plan-ad-groups.remove, with the Mutate service and its operations list, the bound of 50 operations, the checks on name and forecast period against the v26 definitions, the field mask of update, the absence of response_content_type, validate_only, confirmation, how the tools are reached by effect, the plan limit of an account, the Explorer access level, the unknown outcome, the binding of resource names to the account, the manager account rule, and the one-campaign-per-plan rule, the bid, network, language and location checks of plan campaigns, the negative-only rule, text and match type checks, and the 1000-negative-keyword limit of plan campaign keywords, the name and bid checks and the 200-ad-group limit of plan ad groups, and the limits of what is verified.
 type: knowledge
 edit: shared
 created: 2026-11-23
@@ -12,7 +12,8 @@ updated: 2026-11-23
 These tools create, change, and remove the keyword plans of a Google Ads account. A keyword plan is a saved Keyword
 Planner plan, and a plan holds at most one campaign. The plan tools set the name and the forecast period of a plan, the
 plan campaign tools the name, network, default bid, language, and locations of its campaign, the plan ad group tools the
-name and default bid of the ad groups of that campaign. They add to the read tools of
+name and default bid of the ad groups of that campaign, the plan campaign keyword tools the negative keywords of that
+campaign. They add to the read tools of
 the [Google Ads provider](README.md), whose configuration, targets, quotas, and errors apply here too, and they sit
 beside the [keyword idea tools](keyword-ideas.md), which need no saved plan.
 
@@ -27,9 +28,13 @@ beside the [keyword idea tools](keyword-ideas.md), which need no saved plan.
 | `google.ads.keyword-plan-ad-groups.create` | create | creates one to 50 ad groups in plan campaigns |
 | `google.ads.keyword-plan-ad-groups.update` | update | changes name or bid of existing plan ad groups |
 | `google.ads.keyword-plan-ad-groups.remove` | delete | removes existing plan ad groups |
+| `google.ads.keyword-plan-campaign-keywords.create` | create | creates one to 50 negative keywords of plan campaigns |
+| `google.ads.keyword-plan-campaign-keywords.update` | update | changes the text or match type of existing negative keywords |
+| `google.ads.keyword-plan-campaign-keywords.remove` | delete | removes existing negative keywords of plan campaigns |
 
-Reading plans, plan campaigns, and plan ad groups is not a tool of this page: run `reports.search` on the
-`keyword_plan`, `keyword_plan_campaign`, and `keyword_plan_ad_group` resources.
+Reading plans, plan campaigns, plan ad groups, and plan campaign keywords is not a tool of this page: run
+`reports.search` on the `keyword_plan`, `keyword_plan_campaign`, `keyword_plan_ad_group`, and
+`keyword_plan_campaign_keyword` resources.
 
 ## How the tools are offered
 
@@ -172,6 +177,41 @@ either.
 - The 50 entries per call and the 255 characters of the name are Qatlas's own, as for plans.
 - Google documents no minimum or multiple of the bid.
 
+## Plan campaign keyword tools
+
+The sections above hold for the plan campaign keyword tools too, with these differences: a call goes to
+`KeywordPlanCampaignKeywordService.MutateKeywordPlanCampaignKeywords`, resource names are
+`customers/ID/keywordPlanCampaignKeywords/N`, and a result is `keyword_plan_campaign_keyword_id` and `resource_name`.
+The request of v26 has no `response_content_type` here either.
+
+- **Negative keywords only.** Google supports only negative keywords on a plan campaign, and `negative` is immutable and
+  must be true. The tools always send `negative: true` and have no argument for it, so no positive keyword can be
+  made.
+- **The campaign is given as an ID.** `create` takes `keyword_plan_campaign_id` and builds
+  `customers/ID/keywordPlanCampaigns/CAMPAIGN_ID` from it and the checked `customer_id`. The campaign of a keyword is
+  not an argument of `update`.
+- **Update names its fields.** The field mask names exactly the fields given: `text`, `match_type`.
+- **The keyword text is untrusted input.** It is checked before any request and shown quoted and cut in the
+  confirmation.
+
+| Tool | Argument | Rule |
+| --- | --- | --- |
+| `create` | `keyword_plan_campaign_keywords` | 1 to 50 entries, each an object of `keyword_plan_campaign_id`, `text`, and `match_type` (all required) |
+| `update` | `keyword_plan_campaign_keywords` | 1 to 50 entries, each an object of `keyword_plan_campaign_keyword_id` (required, once per call) and at least one of `text` and `match_type` |
+| `remove` | `keyword_plan_campaign_keyword_ids` | 1 to 50 distinct positive numbers |
+| `create`, `update` | `text` | 1 to 80 characters, not blank, no control characters |
+| `create`, `update` | `match_type` | `BROAD`, `EXACT`, or `PHRASE` |
+
+`id` is output only and `negative`, `keyword_plan_campaign`, and `resource_name` are no arguments of `update`.
+
+### Plan campaign keyword bounds
+
+- **At most 1000 negative keywords per plan**, campaign keywords and ad group keywords together, as the service
+  definition states. Google refuses a create beyond that with a resource count limit error.
+- The 80 characters of the text and the 50 entries per call are Qatlas's own. Google's definition states no length or
+  word count for the text, so Google may refuse a text that Qatlas accepts.
+- `UNSPECIFIED` and `UNKNOWN` of the match type enum are not accepted.
+
 ## Limits of the account
 
 - **At most 10000 saved plans** per account. Google refuses a create beyond that and allows removing plans when the
@@ -188,7 +228,7 @@ either.
 Left out on purpose:
 
 - Reading plans.
-- The keywords of a plan campaign and of a plan ad group, and running a forecast on a plan.
+- The keywords of a plan ad group, positive keywords of a plan campaign, and running a forecast on a plan.
 - `partial_failure`, `response_content_type`, any free operation, mask, or resource name, and
   `GoogleAdsService.Mutate`.
 
@@ -212,6 +252,15 @@ plan campaign, `id` is output only, `resource_name` is immutable, and the resour
 definition marks `keyword_plan_campaign` as no more than a reference, so whether Google refuses to move an ad group to
 another plan campaign is not stated; the tool offers no such change.
 
+Checked against the v26 definitions of `KeywordPlanCampaignKeyword`, `KeywordPlanCampaignKeywordOperation`,
+`KeywordMatchTypeEnum.KeywordMatchType`, and `KeywordPlanCampaignKeywordService`: the request holds `customer_id`,
+`operations`, `partial_failure`, and `validate_only`, the result holds the resource name only, only negative keywords are
+supported, `negative` and `resource_name` are immutable, `id` is output only, the match type is `BROAD`, `EXACT`, or
+`PHRASE`, and a plan holds at most 1000 negative keywords. The definition marks no field as required, so the tool
+requires `keyword_plan_campaign`, `text`, and `match_type` on create, since a keyword without them has no meaning.
+The definition marks `keyword_plan_campaign` as no more than a reference, so whether Google refuses to change it is not
+stated; the tool offers no such change.
+
 Not verified:
 
 - Which role in Google Ads an account needs for these calls. Google does not document it per call.
@@ -221,3 +270,6 @@ Not verified:
   refuses.
 - Whether the Explorer access level blocks these calls, and the error then answered.
 - The behavior at the planning rate. No live call has been made.
+- For plan campaign keywords: the length and word count of a text and which symbols Google refuses, whether a second
+  keyword with the same text and match type on a campaign is refused, and which error Google answers for a positive
+  keyword (the tool never sends one).
