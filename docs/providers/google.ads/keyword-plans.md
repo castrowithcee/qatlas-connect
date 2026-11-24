@@ -1,6 +1,6 @@
 ---
 description: >
-  Describes the keyword plan tools of the Google Ads provider: keyword-plans.create, keyword-plans.update and keyword-plans.remove, and keyword-plan-campaigns.create, keyword-plan-campaigns.update and keyword-plan-campaigns.remove, with the Mutate service and its operations list, the bound of 50 operations, the checks on name and forecast period against the v26 definitions, the field mask of update, the absence of response_content_type, validate_only, confirmation, how the tools are reached by effect, the plan limit of an account, the Explorer access level, the unknown outcome, the binding of resource names to the account, the manager account rule, and the one-campaign-per-plan rule, the bid, network, language and location checks of plan campaigns, and the limits of what is verified.
+  Describes the keyword plan tools of the Google Ads provider: keyword-plans.create, keyword-plans.update and keyword-plans.remove, and keyword-plan-campaigns.create, keyword-plan-campaigns.update and keyword-plan-campaigns.remove, and keyword-plan-ad-groups.create, keyword-plan-ad-groups.update and keyword-plan-ad-groups.remove, with the Mutate service and its operations list, the bound of 50 operations, the checks on name and forecast period against the v26 definitions, the field mask of update, the absence of response_content_type, validate_only, confirmation, how the tools are reached by effect, the plan limit of an account, the Explorer access level, the unknown outcome, the binding of resource names to the account, the manager account rule, and the one-campaign-per-plan rule, the bid, network, language and location checks of plan campaigns, the name and bid checks and the 200-ad-group limit of plan ad groups, and the limits of what is verified.
 type: knowledge
 edit: shared
 created: 2026-11-23
@@ -11,7 +11,8 @@ updated: 2026-11-23
 
 These tools create, change, and remove the keyword plans of a Google Ads account. A keyword plan is a saved Keyword
 Planner plan, and a plan holds at most one campaign. The plan tools set the name and the forecast period of a plan, the
-plan campaign tools the name, network, default bid, language, and locations of its campaign. They add to the read tools of
+plan campaign tools the name, network, default bid, language, and locations of its campaign, the plan ad group tools the
+name and default bid of the ad groups of that campaign. They add to the read tools of
 the [Google Ads provider](README.md), whose configuration, targets, quotas, and errors apply here too, and they sit
 beside the [keyword idea tools](keyword-ideas.md), which need no saved plan.
 
@@ -23,9 +24,12 @@ beside the [keyword idea tools](keyword-ideas.md), which need no saved plan.
 | `google.ads.keyword-plan-campaigns.create` | create | creates the campaign of one to 50 plans |
 | `google.ads.keyword-plan-campaigns.update` | update | changes name, network, bid, language, or locations of existing plan campaigns |
 | `google.ads.keyword-plan-campaigns.remove` | delete | removes existing plan campaigns |
+| `google.ads.keyword-plan-ad-groups.create` | create | creates one to 50 ad groups in plan campaigns |
+| `google.ads.keyword-plan-ad-groups.update` | update | changes name or bid of existing plan ad groups |
+| `google.ads.keyword-plan-ad-groups.remove` | delete | removes existing plan ad groups |
 
-Reading plans and plan campaigns is not a tool of this page: run `reports.search` on the `keyword_plan` and
-`keyword_plan_campaign` resources.
+Reading plans, plan campaigns, and plan ad groups is not a tool of this page: run `reports.search` on the
+`keyword_plan`, `keyword_plan_campaign`, and `keyword_plan_ad_group` resources.
 
 ## How the tools are offered
 
@@ -137,6 +141,37 @@ v26 has no `response_content_type` here either.
 - The tool takes geo targets as a list of `geoTargetConstants/ID` strings and sends each as a `geoTargets` entry with
   its `geoTargetConstant`.
 
+## Plan ad group tools
+
+The sections above hold for the plan ad group tools too, with these differences: a call goes to
+`KeywordPlanAdGroupService.MutateKeywordPlanAdGroups`, resource names are `customers/ID/keywordPlanAdGroups/N`, and a
+result is `keyword_plan_ad_group_id` and `resource_name`. The request of v26 has no `response_content_type` here
+either.
+
+- **The plan campaign is given as an ID.** `create` takes `keyword_plan_campaign_id` and builds
+  `customers/ID/keywordPlanCampaigns/CAMPAIGN_ID` from it and the checked `customer_id`. The plan campaign of an ad
+  group is not an argument of `update`.
+- **Several ad groups per campaign.** One call may create many ad groups in the same plan campaign.
+- **The bid is optional.** An ad group without `cpc_bid_micros` inherits the bid of its plan campaign. The field mask
+  of `update` names exactly the fields given: `name`, `cpc_bid_micros`.
+
+| Tool | Argument | Rule |
+| --- | --- | --- |
+| `create` | `keyword_plan_ad_groups` | 1 to 50 entries, each an object of `keyword_plan_campaign_id` and `name` (required) and `cpc_bid_micros` |
+| `update` | `keyword_plan_ad_groups` | 1 to 50 entries, each an object of `keyword_plan_ad_group_id` (required, once per call) and at least one of `name` and `cpc_bid_micros` |
+| `remove` | `keyword_plan_ad_group_ids` | 1 to 50 distinct positive numbers |
+| `create`, `update` | `name` | 1 to 255 characters, no control characters |
+| `create`, `update` | `cpc_bid_micros` | whole positive number of micros of the account currency that fits 64 bits, the default max CPC bid of the ad group |
+
+`id` is output only and `keyword_plan_campaign` and `resource_name` are no arguments of `update`.
+
+### Plan ad group bounds
+
+- Google's definition requires `name` on create and states at most 200 ad groups per plan. Google checks the 200 and
+  refuses a create beyond it; the tool does not count them.
+- The 50 entries per call and the 255 characters of the name are Qatlas's own, as for plans.
+- Google documents no minimum or multiple of the bid.
+
 ## Limits of the account
 
 - **At most 10000 saved plans** per account. Google refuses a create beyond that and allows removing plans when the
@@ -153,7 +188,7 @@ v26 has no `response_content_type` here either.
 Left out on purpose:
 
 - Reading plans.
-- The ad groups and keywords of a plan, the keywords of a plan campaign, and running a forecast on a plan.
+- The keywords of a plan campaign and of a plan ad group, and running a forecast on a plan.
 - `partial_failure`, `response_content_type`, any free operation, mask, or resource name, and
   `GoogleAdsService.Mutate`.
 
@@ -170,12 +205,19 @@ only, `name`, `keyword_plan_network`, and `cpc_bid_micros` are required on creat
 the resource states one campaign per plan, one language, and 20 geo targets. The definition marks `keyword_plan` as
 no more than a reference, so whether Google refuses to change it is not stated; the tool offers no such change.
 
+Checked against the v26 definitions of `KeywordPlanAdGroup`, `KeywordPlanAdGroupOperation`, and
+`KeywordPlanAdGroupService`: the request holds `customer_id`, `operations`, `partial_failure`, and `validate_only`, the
+result holds the resource name only, `name` is required on create, `cpc_bid_micros` is optional and inherited from the
+plan campaign, `id` is output only, `resource_name` is immutable, and the resource states 200 ad groups per plan. The
+definition marks `keyword_plan_campaign` as no more than a reference, so whether Google refuses to move an ad group to
+another plan campaign is not stated; the tool offers no such change.
+
 Not verified:
 
 - Which role in Google Ads an account needs for these calls. Google does not document it per call.
 - Whether Google counts the 255 characters of a name as characters, which names it refuses, and whether it refuses a
   second plan with the same name.
-- Which error Google answers when a plan has a campaign already, and which language and location constants it
+- Which error Google answers when a plan has a campaign already or holds 200 ad groups, and which language and location constants it
   refuses.
 - Whether the Explorer access level blocks these calls, and the error then answered.
 - The behavior at the planning rate. No live call has been made.
