@@ -1,6 +1,6 @@
 ---
 description: >
-  Guides a user through setting up the Google Search Console provider: a Cloud project with the Search Console API, an own OAuth client with a consent, a service account, or the impersonation of one, the rights each tool group needs, adding it to Qatlas, the connection test, and troubleshooting by symptom.
+  Guides a user through setting up the Google Search Console provider: a Cloud project with the Search Console API and, for the indexing tools, the Indexing API, an own OAuth client with a consent, a service account, or the impersonation of one, the rights each tool group needs including the owner role of the Indexing API, adding it to Qatlas, the connection test, and troubleshooting by symptom.
 type: knowledge
 edit: shared
 created: 2026-11-16
@@ -11,11 +11,13 @@ updated: 2026-11-16
 
 This page shows how to connect Qatlas to Google Search Console. Configuration, target, bounds, and errors are
 described in the [Google Search Console provider](README.md); the tools in [sites](sites.md),
-[sitemaps](sitemaps.md), [search analytics](search-analytics.md), and [URL inspection](url-inspection.md).
+[sitemaps](sitemaps.md), [search analytics](search-analytics.md), [URL inspection](url-inspection.md), and
+[indexing](indexing.md).
 
 ## What you need
 
-- A Google Cloud project with the **Google Search Console API** enabled.
+- A Google Cloud project with the **Google Search Console API** enabled, and for the indexing tools also the
+  **Web Search Indexing API** (the Indexing API), see [Indexing API](#indexing-api).
 - A Google account, or a service account, that is a user of the Search Console properties you want to read.
 - One of three ways to sign in, described below. Pick one per credential.
 - Qatlas keeps the secrets in the vault or the system keyring. A credential from environment variables works
@@ -31,12 +33,14 @@ described in the [Google Search Console provider](README.md); the tools in [site
 | [sitemaps](sitemaps.md), `submit` and `delete` | `webmasters` | Google's reference names no level; use owner or full user, since a restricted user may be refused |
 | [search analytics](search-analytics.md) | `webmasters.readonly` | owner, full, or restricted user of the property |
 | [URL inspection](url-inspection.md) | `webmasters.readonly` | owner, full, or restricted user of the property |
+| [indexing](indexing.md), all four tools | `indexing` | owner of the property |
 
 Qatlas asks for no broader scope than the tools of your connections need: the `webmasters` scope only joins
 the consent when a connection offers one of the four changing tools. `sites.add`, `sitemaps.submit`, and
-`sitemaps.delete` need the `edit` profile or the effects `create` and `delete`; `sites.delete` needs a `tools` list that
-names it. Adding a property does not verify it, so a property you add stays without
-access until you verify it in Search Console.
+`sitemaps.delete` need the `edit` profile or the effects `create` and `delete`; `sites.delete` needs a `tools`
+list that names it. The `indexing` scope joins when a connection offers an indexing tool, which the `edit` profile, the
+effect `read`, or a `tools` list does; the `read` profile does not. Adding a property does not verify it, so a
+property you add stays without access until you verify it in Search Console.
 
 ## Way 1: your Google account with a consent
 
@@ -87,6 +91,21 @@ Your account signs in as in way 1 and obtains tokens of a service account, witho
    in way 1. That consent asks only for the scope the impersonation needs; the read scope goes to the
    service account's token.
 
+## Indexing API
+
+The indexing tools use a second Google API with its own switch and its own rights.
+
+1. In the Cloud project of the OAuth client or service account, enable the **Web Search Indexing API**. The
+   connection test does not check it.
+2. In Search Console, open the property, then Settings, Users and permissions, and add the account behind
+   the credential as an **Owner**; for a service account use its e-mail address. Google accepts notifications
+   only from an owner, and only for URLs of that property.
+3. Use the Indexing API only for URLs whose content carries `JobPosting` or `BroadcastEvent` structured data.
+   Google sets this limit, and Qatlas does not check it.
+4. The notification tools are offered only by a connection whose `tools` list names them, see
+   [indexing](indexing.md#listed-only-notifications). With way 1, give the consent again after adding an
+   indexing tool, so it covers the `indexing` scope.
+
 ## Add it to Qatlas
 
 The guided setup in `qconnect tui` (Connections, `n`) covers service, credential, and access. Written by
@@ -134,3 +153,6 @@ connection has a target.
 | `impersonation-denied` | Grant your account the role Service Account Token Creator on the service account |
 | `service-account-unknown` | Correct `service_account` on the connection |
 | `rate-limited` | Wait a minute; Google allows 200 requests per minute per user for these tools |
+| `permission` on an indexing tool | Make the account an owner of the property and enable the Web Search Indexing API in the Cloud project |
+| `rate-limited` on an indexing notification | The daily quota of 200 notifications is used up, by Qatlas' count or Google's; it resets at midnight Pacific Time |
+| `scope-missing` on an indexing tool, or in the test after adding one | Give the consent again; it then asks for the `indexing` scope |

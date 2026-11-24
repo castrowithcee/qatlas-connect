@@ -86,7 +86,7 @@ func (f *fakeGoogle) RoundTrip(r *http.Request) (*http.Response, error) {
 		return respond(r, http.StatusOK, "application/json", fmt.Sprintf(
 			`{"accessToken":"%simpersonated","expireTime":"%s"}`, accessPrefix,
 			time.Now().Add(time.Hour).UTC().Format(time.RFC3339))), nil
-	case r.URL.Host == "searchconsole.googleapis.com":
+	case r.URL.Host == "searchconsole.googleapis.com" || r.URL.Host == "indexing.googleapis.com":
 		f.api = append(f.api, request{method: r.Method, host: r.URL.Host, escapedPath: r.URL.EscapedPath(),
 			rawQuery: r.URL.RawQuery, authorization: r.Header.Get("Authorization"), accept: r.Header.Get("Accept"),
 			full: r.URL.String(), contentType: r.Header.Get("Content-Type"), body: body})
@@ -139,14 +139,18 @@ func newEnvironment(t *testing.T, values map[string]string) *environment {
 	t.Helper()
 	fake := &fakeGoogle{}
 	previousTransport, previousCache, previousLimiters, previousQuery := transport, tokenCache, limiters, queryLimiters
+	previousIndexing, previousMetadata, previousNotifications := indexingLimiters, metadataLimiters, notificationDays
 	transport, tokenCache, limiters = fake, provider.NewTokenCache(time.Now), ratelimit.NewRegistry(0)
 	queryLimiters = ratelimit.NewRegistry(0)
 	previousInspection, previousDays := inspectionLimiters, inspectionDays
 	inspectionLimiters = ratelimit.NewRegistry(0)
 	inspectionDays = ratelimit.NewCounterRegistry(dailyInspections, ratelimit.Daily(pacific()))
+	indexingLimiters, metadataLimiters = ratelimit.NewRegistry(0), ratelimit.NewRegistry(0)
+	notificationDays = ratelimit.NewCounterRegistry(dailyNotifications, ratelimit.Daily(pacific()))
 	t.Cleanup(func() {
 		inspectionLimiters, inspectionDays = previousInspection, previousDays
 		transport, tokenCache, limiters, queryLimiters = previousTransport, previousCache, previousLimiters, previousQuery
+		indexingLimiters, metadataLimiters, notificationDays = previousIndexing, previousMetadata, previousNotifications
 	})
 
 	reg := capability.NewRegistry()
@@ -185,6 +189,11 @@ func newEnvironment(t *testing.T, values map[string]string) *environment {
 		"editprefix": {Service: "console", Credential: "google", Tools: changing, Target: prefixSite},
 		// The effects alone reach every changing tool except the listed-only removal of a property.
 		"effects": {Service: "console", Credential: "google", Effects: edit},
+		// The Indexing API notifications are offered only by a connection whose tools list names them.
+		"index":        {Service: "console", Credential: "google", Tools: indexingTools},
+		"indexdomain":  {Service: "console", Credential: "google", Tools: indexingTools, Target: domainSite},
+		"indexprefix":  {Service: "console", Credential: "google", Tools: indexingTools, Target: prefixSite},
+		"indexeffects": {Service: "console", Credential: "google", Effects: []config.Effect{config.EffectRead, config.EffectExecute}},
 	}
 	if values[clientIDEnv] != "" && values[refreshEnv] != "" {
 		cfg.Connections["robot"] = config.Connection{Service: "console", Credential: "google", Effects: read,
@@ -250,10 +259,13 @@ func TestRegisterPublishesMetadataScopesAndConsent(t *testing.T) {
 		!reflect.DeepEqual(metadata.SecretRoles, config.TokenSecretRoles()) || metadata.Token == nil {
 		t.Fatalf("metadata = %+v", metadata)
 	}
-	want := []string{searchAnalyticsID, sitemapsDeleteID, sitemapsGetID, sitemapsListID, sitemapsSubmitID,
+	want := []string{indexingMetadataID, indexingMetadataBatchID, indexingPublishID, indexingPublishBatchID,
+		searchAnalyticsID, sitemapsDeleteID, sitemapsGetID, sitemapsListID, sitemapsSubmitID,
 		sitesAddID, sitesDeleteID, sitesGetID, sitesListID, urlInspectionID}
 	changing := map[string]config.Effect{sitesAddID: config.EffectCreate, sitemapsSubmitID: config.EffectCreate,
 		sitesDeleteID: config.EffectDelete, sitemapsDeleteID: config.EffectDelete}
+	indexing := map[string]config.Effect{indexingMetadataID: config.EffectRead, indexingMetadataBatchID: config.EffectRead,
+		indexingPublishID: config.EffectExecute, indexingPublishBatchID: config.EffectExecute}
 	var tools []string
 	for _, tool := range metadata.Tools {
 		tools = append(tools, tool.ID)
@@ -261,8 +273,14 @@ func TestRegisterPublishesMetadataScopesAndConsent(t *testing.T) {
 		if effect, ok := changing[tool.ID]; ok {
 			wantEffect, wantScope = effect, scopeEdit
 		}
+		if effect, ok := indexing[tool.ID]; ok {
+			wantEffect, wantScope = effect, scopeIndexing
+		}
 		if tool.Effect != wantEffect {
 			t.Errorf("%s effect = %s, want %s", tool.ID, tool.Effect, wantEffect)
+		}
+		if listed := wantEffect == config.EffectExecute || tool.ID == sitesDeleteID; tool.RequiresToolAllowList != listed {
+			t.Errorf("%s listed-only = %t, want %t", tool.ID, tool.RequiresToolAllowList, listed)
 		}
 		if scopes := metadata.Token.Scopes[tool.ID]; !reflect.DeepEqual(scopes, []string{wantScope}) {
 			t.Errorf("%s scopes = %v, want %s", tool.ID, scopes, wantScope)
@@ -273,7 +291,7 @@ func TestRegisterPublishesMetadataScopesAndConsent(t *testing.T) {
 	}
 	if len(metadata.Profiles) != 2 || metadata.Profiles[0].ID != "read" || !metadata.Profiles[0].Recommended ||
 		len(metadata.Profiles[0].Tools) != 6 || metadata.Profiles[1].ID != "edit" || metadata.Profiles[1].Recommended ||
-		len(metadata.Profiles[1].Tools) != 9 {
+		len(metadata.Profiles[1].Tools) != 11 {
 		t.Errorf("profiles = %+v", metadata.Profiles)
 	}
 	oauth, ok := reg.OAuth(Provider)
@@ -744,7 +762,8 @@ func TestServiceAccountKeyObtainsTheReadScope(t *testing.T) {
 		t.Fatalf("assertion has %d parts", len(parts))
 	}
 	claims := decodeSegment(t, parts[1])
-	if claims["scope"] != scopeRead || claims["aud"] != tokenEndpoint {
+	// A connection by effects offers the Indexing API reads as well, so their scope joins the read scope.
+	if claims["scope"] != scopeIndexing+" "+scopeRead || claims["aud"] != tokenEndpoint {
 		t.Errorf("claims = %v", claims)
 	}
 	if got := env.red.Apply(form.Get("assertion")); strings.Contains(got, parts[2]) {

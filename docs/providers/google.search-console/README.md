@@ -1,6 +1,6 @@
 ---
 description: >
-  Describes the Google Search Console provider: the token credential and its procedures, the scope of each tool, the fixed API origin, the optional property target and how it is proven, the profiles, quotas and rate spacing including the search-analytics query and the URL inspection, result bounds, the connection test, error classes, and the limits of what is verified.
+  Describes the Google Search Console provider: the token credential and its procedures, the scope of each tool, the fixed API origins, the optional property target and how it is proven, the profiles and the listed-only Indexing API notifications, quotas and rate spacing including the search-analytics query, the URL inspection, and the Indexing API, result bounds, the connection test, error classes, and the limits of what is verified.
 type: knowledge
 edit: shared
 created: 2026-11-16
@@ -11,17 +11,18 @@ updated: 2026-11-16
 
 Google Search Console is a provider for the Search Console API: the properties an account can see and the
 sitemaps of a property, its search traffic, the index state of a URL, and the adding and removing of
-properties and sitemaps. Only the four tools that add or remove something change data; every other tool is a
-read. [Set up Google Search Console](setup.md) leads through the
-Google side and the consent. The tools are described per group in [sites](sites.md),
-[sitemaps](sitemaps.md), [search analytics](search-analytics.md), and
-[URL inspection](url-inspection.md).
+properties and sitemaps. It also covers the Indexing API, which reads the notification status of URLs and
+notifies Google of updated or removed URLs. The four tools that add or remove something change data, and the
+two Indexing API notifications act at Google; every other tool is a read. [Set up Google Search Console](setup.md)
+leads through the Google side and the consent. The tools are described per group in [sites](sites.md),
+[sitemaps](sitemaps.md), [search analytics](search-analytics.md), [URL inspection](url-inspection.md), and
+[indexing](indexing.md).
 
 ## Configuration
 
 The API origin is fixed: `https://searchconsole.googleapis.com`. Leave `base_url` out or set it to that value;
-Qatlas refuses any other value before a secret is read. There is no API key: the API answers only to an OAuth
-access token.
+Qatlas refuses any other value before a secret is read. The Indexing API tools use their own fixed origin,
+`https://indexing.googleapis.com`. There is no API key: both APIs answer only to an OAuth access token.
 
 The credential issues access tokens. It names `provider: google.search-console` and holds the roles of one
 procedure:
@@ -35,17 +36,23 @@ procedure:
 A credential with both a client ID and a key, or neither, is unusable. Access tokens stay in memory, travel
 only in the `Authorization` header, and are masked in every output; no tool returns a token.
 
-The reading tools need the scope `https://www.googleapis.com/auth/webmasters.readonly`. The four changing
-tools need `https://www.googleapis.com/auth/webmasters`, because the read scope does not suffice for them. A connection asks only for the
-scopes of the tools it offers, and a consent asks for those of every connection of the credential. A token
-without the scope ends the tool as `scope-missing` before Google is contacted; a new consent adds it. A
+The reading tools of the Search Console API need the scope `https://www.googleapis.com/auth/webmasters.readonly`.
+The four changing tools need `https://www.googleapis.com/auth/webmasters`, because the read scope does not
+suffice for them. All four Indexing API tools need `https://www.googleapis.com/auth/indexing`, the only scope of
+that API, which allows notifications as well. A connection asks only for the scopes of the tools it offers, and
+a consent asks for those of every connection of the credential. A connection by the effect `read` offers the
+Indexing API reads too, so it asks for the Indexing scope as well, which Google cannot separate from
+notifications. The profile `read` does not hold them, and a connection that should not hold the scope names
+its tools in a `tools` list. A token without the scope ends the tool as `scope-missing` before Google is contacted; a new consent adds it. A
 credential serves this provider only, so its token never carries scopes of another Google product.
 
-The profile `read` is the recommended one and holds every reading tool. The profile `edit` holds those and
-`sites.add`, `sitemaps.submit`, and `sitemaps.delete`. `sites.delete` is listed-only: it removes a property, and
-adding it again needs a new verification, so no profile holds it and a connection offers it only when its `tools`
-list names it, whatever its effects say. A connection offers the other changing tools only when its effects
-include `create` or `delete`, and every call of one needs its own confirmation.
+The profile `read` is the recommended one and holds every reading tool of the Search Console API. The profile
+`edit` holds those, `sites.add`, `sitemaps.submit`, `sitemaps.delete`, and the two Indexing API reads.
+`sites.delete` is listed-only: it removes a property, and adding it again needs a new verification, so no
+profile holds it and a connection offers it only when its `tools` list names it, whatever its effects say. The
+Indexing API notifications are listed-only too: no profile and no effect offers them, only a `tools` list that
+names them, see [indexing](indexing.md#listed-only-notifications). A connection offers the other changing tools
+only when its effects include `create` or `delete`, and every call of one needs its own confirmation.
 
 ## Target
 
@@ -58,7 +65,9 @@ A connection may be bound to one property, spelled exactly as Search Console nam
 
 Without a target the connection reaches every property the account can see. With one, `site_url` may be left
 out and means the bound property; any other value, also the same property spelled differently, is refused
-before a secret is read or a request is sent. `sites.list` then shows only the bound property.
+before a secret is read or a request is sent. `sites.list` then shows only the bound property. The Indexing
+API tools take URLs instead of a property; a bound connection refuses every URL outside the property, see
+[indexing](indexing.md#binding-to-a-property).
 
 The connection test proves a bound property with `sites.get`: the account must hold it as owner, full user,
 or restricted user. An unverified user has no access to the property's data, so Qatlas treats that level,
@@ -80,9 +89,10 @@ Google allows the site and sitemap methods 20 queries per second and 200 per min
 
 Requests of one credential, and for an impersonation of one service account, are spaced by at least 300 ms
 within a process, which is the per-user limit. The search-analytics query has its own limits and spacing, see
-[search analytics](search-analytics.md#quota-and-spacing). On a `429` the next request of the credential waits one
-second, or the seconds of `Retry-After` up to one minute. The failed request is not repeated, and a missing
-`Retry-After` never leads to a retry.
+[search analytics](search-analytics.md#quota-and-spacing), and so has the Indexing API, whose notifications Qatlas
+also counts per day, 200 per credential, see [indexing](indexing.md#quota-and-spacing). On a `429` the next
+request of the credential to that API waits one second, or the seconds of `Retry-After` up to one minute. The
+failed request is not repeated, and a missing `Retry-After` never leads to a retry.
 
 ## Results
 
@@ -97,14 +107,15 @@ capped at 4 MiB. Counts keep Google's form, a decimal string.
 
 The connection test (`t` on a connection in `qconnect tui`) obtains an access token the way a call does, then lists the properties with
 `sites.list`, and for a bound connection reads the bound property with `sites.get`. A pass proves the
-credential, the read scope, the Search Console API enabled in the Cloud project of the OAuth client or
-service account, and at least one property with access.
+credential, the scopes of the tools the connection offers, the Search Console API enabled in the Cloud project
+of the OAuth client or service account, and at least one property with access. It proves nothing about the
+Indexing API: neither its activation nor the owner role it needs.
 
 | Result | Meaning |
 | --- | --- |
 | `consent-required` | the credential holds a client ID but no refresh token yet |
 | `consent-expired` | Google no longer accepts the consent: it expired or was revoked |
-| `scope-missing` | the token lacks the read scope |
+| `scope-missing` | the token lacks a scope of the tools the connection offers |
 | `credential-unusable` | the roles fit no procedure |
 | `auth` | Google refused the client, the key, or the token |
 | `permission` | the API is not enabled, or the account has no access to the bound property |
@@ -121,7 +132,7 @@ reason of each detail. The answers of the token endpoints keep only their status
 | --- | --- |
 | 400 | `invalid-provider-response`: Qatlas checked the request, so the API may have changed |
 | 401 | `auth`, after the token was renewed once and the read was sent once more; a changing tool is never sent twice, so it ends at the first 401 and the next call renews the token |
-| 403 | `permission` |
+| 403 | `permission`; for the Indexing API the message names the owner role and the API activation |
 | 404 | `not-found` |
 | 429 | `rate-limited` |
 | 503 | `unreachable` |
@@ -136,8 +147,9 @@ Beyond the status, only `CREDENTIALS_MISSING` or `UNAUTHENTICATED` with 401, `PE
 
 ## Boundary
 
-The provider reaches only the fixed origin and the fixed method of each tool. It offers no passthrough of
-method, path, header, query, or body, and none of Google's global request parameters such as `fields`.
+The provider reaches only the fixed origins and the fixed method of each tool. It offers no passthrough of
+method, path, header, query, or body, and none of Google's global request parameters such as `fields`. A
+batch of the Indexing API is built from fixed parts as well, see [indexing](indexing.md#batches).
 
 Not verified:
 
