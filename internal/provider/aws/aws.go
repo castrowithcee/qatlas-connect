@@ -122,7 +122,7 @@ func Register(reg *capability.Registry, version string) error {
 	userAgent = agentFor(version)
 	if err := reg.RegisterProvider(config.ProviderMetadata{
 		ID: Provider, Name: "Amazon Web Services", DefaultBaseURL: consoleOrigin, ValidateBaseURL: validBaseURL,
-		Description:    "Amazon Web Services account: STS, IAM identity and credential reads, SES sender identities, and IAM role writes named in the tools list, bound to one account and its regions",
+		Description:    "Amazon Web Services account: STS, IAM identity and credential reads, SES sender identities, and IAM role and policy writes named in the tools list, bound to one account and its regions",
 		DefaultEffects: []config.Effect{config.EffectRead},
 		Groups:         toolGroups, ServiceLevel: true,
 		SecretRoles: []config.SecretRole{{

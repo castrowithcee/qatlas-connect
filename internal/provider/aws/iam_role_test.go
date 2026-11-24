@@ -34,10 +34,8 @@ var iamWriteTools = []struct {
 	{"aws.iam.instance-profile.remove-role", capability.EffectUpdate, capability.IdempotencyNonIdempotent, true},
 }
 
-// The operations that stay out of the role tools: service-linked roles, the deprecated description update,
-// and every policy attachment or inline policy write.
-var iamRoleOmitted = []string{"CreateServiceLinkedRole", "DeleteServiceLinkedRole", "UpdateRoleDescription",
-	"AttachRolePolicy", "DetachRolePolicy", "PutRolePolicy", "DeleteRolePolicy", "CreatePolicy", "CreatePolicyVersion"}
+// The operations that stay out of the role tools: service-linked roles and the deprecated description update.
+var iamRoleOmitted = []string{"CreateServiceLinkedRole", "DeleteServiceLinkedRole", "UpdateRoleDescription"}
 
 const (
 	ownRoleIdentity = `<GetCallerIdentityResponse><GetCallerIdentityResult><Arn>arn:aws:sts::123456789012:assumed-role/Deploy/qatlas-x</Arn>` +
@@ -387,7 +385,7 @@ func TestOwnRoleName(t *testing.T) {
 		"arn:aws:sts:eu-central-1:123456789012:assumed-role/x/s": {"", false},
 		"arn:aws:sts::210987654321:assumed-role/x/s":             {"", false},
 	} {
-		role, ok := ownRoleName(arn, testAccount)
+		role, _, ok := ownIdentity(arn, testAccount)
 		if role != want.role || ok != want.ok {
 			t.Errorf("ownRoleName(%s) = %q, %v", arn, role, ok)
 		}
