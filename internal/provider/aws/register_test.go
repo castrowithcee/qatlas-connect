@@ -29,11 +29,15 @@ var wantTools = []string{
 	"aws.iam.access-key.delete",
 	"aws.iam.access-key.get-last-used",
 	"aws.iam.access-key.list",
+	"aws.iam.account.create-alias",
+	"aws.iam.account.delete-alias",
+	"aws.iam.account.delete-password-policy",
 	"aws.iam.account.get-authorization-details",
 	"aws.iam.account.get-password-policy",
 	"aws.iam.account.get-properties",
 	"aws.iam.account.get-summary",
 	"aws.iam.account.list-aliases",
+	"aws.iam.account.update-password-policy",
 	"aws.iam.attached-policy.attach-to-group",
 	"aws.iam.attached-policy.attach-to-role",
 	"aws.iam.attached-policy.attach-to-user",
@@ -80,6 +84,7 @@ var wantTools = []string{
 	"aws.iam.mfa-device.get",
 	"aws.iam.mfa-device.list",
 	"aws.iam.mfa-device.list-tags",
+	"aws.iam.oidc-provider.delete",
 	"aws.iam.oidc-provider.get",
 	"aws.iam.oidc-provider.list",
 	"aws.iam.oidc-provider.list-tags",
@@ -115,6 +120,7 @@ var wantTools = []string{
 	"aws.iam.role.untag",
 	"aws.iam.role.update",
 	"aws.iam.role.update-trust-policy",
+	"aws.iam.saml-provider.delete",
 	"aws.iam.saml-provider.get",
 	"aws.iam.saml-provider.list",
 	"aws.iam.saml-provider.list-tags",
@@ -486,10 +492,11 @@ func TestBaseURLIsFixed(t *testing.T) {
 	}
 }
 
-// readOnlyIdentityProviderTools are reads whose IDs name an identity provider or federation setting; they
-// return metadata only, and the operations that create or change trust are excluded.
-var readOnlyIdentityProviderTools = map[string]bool{
+// identityProviderTools name an identity provider or federation setting: reads that return metadata only, and the
+// delete of a provider, which ends trust. The operations that create or change trust are excluded.
+var identityProviderTools = map[string]bool{
 	"aws.iam.saml-provider.list": true, "aws.iam.saml-provider.get": true, "aws.iam.saml-provider.list-tags": true,
+	"aws.iam.saml-provider.delete":         true,
 	"aws.iam.outbound-federation.get-info": true,
 }
 
@@ -521,7 +528,7 @@ func TestSTSToolsAreTheCredentialFreeActions(t *testing.T) {
 			t.Errorf("%s input schema is open", d.ID)
 		}
 		for _, banned := range []string{"assume", "session", "federation", "token", "root", "delegated", "saml", "web-identity"} {
-			if strings.Contains(d.ID, banned) && !readOnlyIdentityProviderTools[d.ID] {
+			if strings.Contains(d.ID, banned) && !identityProviderTools[d.ID] {
 				t.Errorf("%s names a credential action (%s)", d.ID, banned)
 			}
 		}
