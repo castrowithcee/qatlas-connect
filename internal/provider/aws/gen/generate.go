@@ -338,6 +338,9 @@ var generatedSpecs = []toolSpec{
 		if t.selfRole != "" {
 			fmt.Fprintf(b, "selfRole: %s,\n", lit(t.selfRole))
 		}
+		if t.selfUser != "" {
+			fmt.Fprintf(b, "selfUser: %s,\n", lit(t.selfUser))
+		}
 		if t.op.ResultHook != "" {
 			fmt.Fprintf(b, "resultHook: %s,\n", lit(t.op.ResultHook))
 		}

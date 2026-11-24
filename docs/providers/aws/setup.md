@@ -73,6 +73,13 @@ also needs `iam:TagRole` or `iam:TagInstanceProfile`, and adding a role to an in
 `iam:PassRole` for that role. The own-role check calls `sts:GetCallerIdentity`, which needs no permission. Grant
 only the actions of the tools the connection lists.
 
+The [policy tools](iam.md#policies) need `iam:CreatePolicy`, `iam:DeletePolicy`, `iam:CreatePolicyVersion`,
+`iam:SetDefaultPolicyVersion`, `iam:DeletePolicyVersion`, `iam:TagPolicy`, `iam:UntagPolicy`,
+`iam:Attach{User,Group,Role}Policy`, `iam:Detach{User,Group,Role}Policy`, `iam:Put{User,Group,Role}Policy`,
+`iam:Delete{User,Group,Role}Policy`, `iam:PutUserPermissionsBoundary`, and `iam:DeleteUserPermissionsBoundary`, each
+for its own tool. Creating a policy with tags also needs `iam:TagPolicy`. The own-identity check calls
+`sts:GetCallerIdentity`, which needs no permission. Grant only the actions of the tools the connection lists.
+
 ### Account
 
 The [region tools](account.md) need `account:ListRegions`, `account:GetRegionOptStatus`, `account:EnableRegion`, and

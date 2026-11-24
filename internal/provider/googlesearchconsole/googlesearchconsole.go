@@ -1,5 +1,5 @@
 // Package googlesearchconsole implements read access to the Google Search Console API: the properties an
-// account can see, the sitemaps of a property, and its search traffic.
+// account can see, the sitemaps of a property, its search traffic, and the index state of a URL.
 //
 // The credential issues access tokens: a person's consent, a service account key, or the impersonation of a
 // service account. The core token source obtains them from Google's fixed endpoints; this package only names
@@ -46,6 +46,7 @@ var toolScopes = map[string][]string{
 	sitesDeleteID:     {scopeEdit},
 	sitemapsSubmitID:  {scopeEdit},
 	sitemapsDeleteID:  {scopeEdit},
+	urlInspectionID:   {scopeRead},
 }
 
 const testOp = "test connection"
@@ -109,6 +110,7 @@ func Register(reg *capability.Registry) error {
 		{Descriptor: sitesDelete, Handler: handleSitesDelete},
 		{Descriptor: sitemapsSubmit, Handler: handleSitemapsSubmit},
 		{Descriptor: sitemapsDelete, Handler: handleSitemapsDelete},
+		{Descriptor: urlInspectionInspect, Handler: handleURLInspection},
 	}
 	if err := reg.RegisterProvider(config.ProviderMetadata{
 		ID: Provider, Name: "Google Search Console", DefaultBaseURL: apiRoot,
@@ -131,13 +133,13 @@ func Register(reg *capability.Registry) error {
 		},
 		Profiles: []config.ToolProfile{{
 			ID: "read", Title: "Read", Recommended: true,
-			Description: "lists the properties of the account, reads their sitemaps and queries their search traffic; nothing is changed",
-			Tools:       []string{sitesListID, sitesGetID, sitemapsListID, sitemapsGetID, searchAnalyticsID},
+			Description: "lists the properties of the account, reads their sitemaps, queries their search traffic and inspects the index state of a URL; nothing is changed",
+			Tools:       []string{sitesListID, sitesGetID, sitemapsListID, sitemapsGetID, searchAnalyticsID, urlInspectionID},
 		}, {
 			ID: "edit", Title: "Add properties and edit sitemaps",
 			Description: "reads what the read profile reads, adds properties, and submits and removes sitemaps " +
 				"in Search Console; every change needs its own confirmation, and removing a property is listed-only",
-			Tools: []string{sitesListID, sitesGetID, sitemapsListID, sitemapsGetID, searchAnalyticsID,
+			Tools: []string{sitesListID, sitesGetID, sitemapsListID, sitemapsGetID, searchAnalyticsID, urlInspectionID,
 				sitesAddID, sitemapsSubmitID, sitemapsDeleteID},
 		}},
 	}, TestConnection); err != nil {

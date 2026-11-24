@@ -141,7 +141,11 @@ func newEnvironment(t *testing.T, values map[string]string) *environment {
 	previousTransport, previousCache, previousLimiters, previousQuery := transport, tokenCache, limiters, queryLimiters
 	transport, tokenCache, limiters = fake, provider.NewTokenCache(time.Now), ratelimit.NewRegistry(0)
 	queryLimiters = ratelimit.NewRegistry(0)
+	previousInspection, previousDays := inspectionLimiters, inspectionDays
+	inspectionLimiters = ratelimit.NewRegistry(0)
+	inspectionDays = ratelimit.NewCounterRegistry(dailyInspections, ratelimit.Daily(pacific()))
 	t.Cleanup(func() {
+		inspectionLimiters, inspectionDays = previousInspection, previousDays
 		transport, tokenCache, limiters, queryLimiters = previousTransport, previousCache, previousLimiters, previousQuery
 	})
 
@@ -247,7 +251,7 @@ func TestRegisterPublishesMetadataScopesAndConsent(t *testing.T) {
 		t.Fatalf("metadata = %+v", metadata)
 	}
 	want := []string{searchAnalyticsID, sitemapsDeleteID, sitemapsGetID, sitemapsListID, sitemapsSubmitID,
-		sitesAddID, sitesDeleteID, sitesGetID, sitesListID}
+		sitesAddID, sitesDeleteID, sitesGetID, sitesListID, urlInspectionID}
 	changing := map[string]config.Effect{sitesAddID: config.EffectCreate, sitemapsSubmitID: config.EffectCreate,
 		sitesDeleteID: config.EffectDelete, sitemapsDeleteID: config.EffectDelete}
 	var tools []string
@@ -268,8 +272,8 @@ func TestRegisterPublishesMetadataScopesAndConsent(t *testing.T) {
 		t.Errorf("tools = %v, want %v", tools, want)
 	}
 	if len(metadata.Profiles) != 2 || metadata.Profiles[0].ID != "read" || !metadata.Profiles[0].Recommended ||
-		len(metadata.Profiles[0].Tools) != 5 || metadata.Profiles[1].ID != "edit" || metadata.Profiles[1].Recommended ||
-		len(metadata.Profiles[1].Tools) != 8 {
+		len(metadata.Profiles[0].Tools) != 6 || metadata.Profiles[1].ID != "edit" || metadata.Profiles[1].Recommended ||
+		len(metadata.Profiles[1].Tools) != 9 {
 		t.Errorf("profiles = %+v", metadata.Profiles)
 	}
 	oauth, ok := reg.OAuth(Provider)

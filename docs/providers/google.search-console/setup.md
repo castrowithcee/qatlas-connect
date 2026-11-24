@@ -11,7 +11,7 @@ updated: 2026-11-16
 
 This page shows how to connect Qatlas to Google Search Console. Configuration, target, bounds, and errors are
 described in the [Google Search Console provider](README.md); the tools in [sites](sites.md),
-[sitemaps](sitemaps.md), and [search analytics](search-analytics.md).
+[sitemaps](sitemaps.md), [search analytics](search-analytics.md), and [URL inspection](url-inspection.md).
 
 ## What you need
 
@@ -30,6 +30,7 @@ described in the [Google Search Console provider](README.md); the tools in [site
 | [sitemaps](sitemaps.md), reading | `webmasters.readonly` | owner, full, or restricted user of the property |
 | [sitemaps](sitemaps.md), `submit` and `delete` | `webmasters` | Google's reference names no level; use owner or full user, since a restricted user may be refused |
 | [search analytics](search-analytics.md) | `webmasters.readonly` | owner, full, or restricted user of the property |
+| [URL inspection](url-inspection.md) | `webmasters.readonly` | owner, full, or restricted user of the property |
 
 Qatlas asks for no broader scope than the tools of your connections need: the `webmasters` scope only joins
 the consent when a connection offers one of the four changing tools. `sites.add`, `sitemaps.submit`, and

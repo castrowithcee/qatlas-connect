@@ -1,6 +1,6 @@
 ---
 description: >
-  Describes the tools of the AWS Identity and Access Management group: reading users, groups, roles, instance profiles, the metadata of their credentials, policies with their simulation, the account state, identity providers, server certificates, and further lookups, writing roles and instance profiles with the trust policy check and the own-role check, generating and reading the credential report and the service last accessed reports, and which credential operations are never tools.
+  Describes the tools of the AWS Identity and Access Management group: reading users, groups, roles, instance profiles, the metadata of their credentials, policies with their simulation, the account state, identity providers, server certificates, and further lookups, writing roles and instance profiles with the trust policy check and the own-role check, writing policies and attaching them to identities with the policy document check and the own-identity check, generating and reading the credential report and the service last accessed reports, and which credential operations are never tools.
 type: knowledge
 edit: shared
 created: 2026-11-10
@@ -90,6 +90,44 @@ The tools that change or delete a role (`update`, `update-trust-policy`, `put-pe
 whose credentials the connection uses. Before the call they ask `sts:GetCallerIdentity` and refuse a `role_name`
 that matches the role of an assumed-role session, in any case. An IAM user or the root user has no own role. A
 failed or unreadable answer refuses the call.
+
+## Policies
+
+These tools write managed policies and their versions, attach policies to users, groups, and roles, write inline
+policies, and set the permissions boundary of a user. Each one is `listed-only` like the role tools: a connection
+offers it only when its `tools` list names the exact tool ID, and each one needs confirmation. A create or delete is
+not repeated after an unclear outcome.
+
+| Tool | AWS action | Arguments |
+| --- | --- | --- |
+| `aws.iam.policy.create` | `CreatePolicy` | `policy_name`, `policy_document` (both required), `path`, `description`, `tags` |
+| `aws.iam.policy.delete` | `DeletePolicy` | `policy_arn` (required) |
+| `aws.iam.policy-version.create` | `CreatePolicyVersion` | `policy_arn`, `policy_document` (both required), `set_as_default` |
+| `aws.iam.policy-version.set-default`, `.delete` | `SetDefaultPolicyVersion`, `DeletePolicyVersion` | `policy_arn`, `version_id`, both required |
+| `aws.iam.policy.tag`, `.untag` | `TagPolicy`, `UntagPolicy` | `policy_arn`, and `tags` or `tag_keys`, both required |
+| `aws.iam.attached-policy.attach-to-user`, `-group`, `-role`; `.detach-from-user`, `-group`, `-role` | `Attach*Policy`, `Detach*Policy` | `user_name`, `group_name`, or `role_name`, and `policy_arn`, both required |
+| `aws.iam.inline-policy.put-for-user`, `-group`, `-role` | `Put*Policy` | the identity name, `policy_name`, `policy_document`, all required |
+| `aws.iam.inline-policy.delete-for-user`, `-group`, `-role` | `Delete*Policy` | the identity name and `policy_name`, both required |
+| `aws.iam.user.put-permissions-boundary`, `.delete-permissions-boundary` | `PutUserPermissionsBoundary`, `DeleteUserPermissionsBoundary` | `user_name`, and `permissions_boundary` to put, both required |
+
+The identity must exist in the bound account. `policy_arn` and `permissions_boundary` must be an AWS managed policy
+(`arn:aws:iam::aws:policy/...`) or an ARN of the bound account. Any other ARN is refused before a request.
+
+Every `policy_document` that `aws.iam.policy.create`, `aws.iam.policy-version.create`, or an inline `put` would send
+is checked first: valid JSON with `Version` and `Statement`, no key given twice, no `Principal` or `NotPrincipal` in
+a statement, and at most 131072 characters. How wide the permissions reach is not judged. The confirmation is the
+safeguard.
+
+The attach, detach, inline policy, and `user.*-permissions-boundary` tools never act on the IAM user or role whose
+credentials the connection uses, so a connection cannot give itself permissions or take them away. Before the call
+they ask `sts:GetCallerIdentity` and refuse a matching `user_name`, or a `role_name` that matches the role of an
+assumed-role session. Groups are never the caller. A failed or unreadable answer refuses the call.
+
+The confirmation text, shown as `summary` before the call, names the action, the policy, and the identity with its
+kind. For a policy document it gives the number of statements, how many allow statements carry a wildcard in
+`Action` (with a few of the actions) or in `Resource`, and the accounts named in resource ARNs, so an account other
+than the bound one stands out. A `NotAction` or `NotResource` counts as a wildcard. It never quotes the document. A
+version made the default, or a default switched, is marked as taking effect at once.
 
 ## Credential metadata
 
