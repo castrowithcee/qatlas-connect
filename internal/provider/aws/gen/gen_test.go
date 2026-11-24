@@ -851,3 +851,35 @@ func TestNestedHiddenOutputsAndLowerCaseTruncationFlag(t *testing.T) {
 		t.Errorf("pager = %+v", tl.pager)
 	}
 }
+
+// A fixed member is no argument and is always sent; a wrong one stops the generator.
+func TestFixedMemberIsNoArgument(t *testing.T) {
+	p, err := LoadPin(ModelDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	m, err := LoadTableModel(ModelDir, p, iamTable)
+	if err != nil {
+		t.Fatal(err)
+	}
+	iam := &Table{Service: "iam", Segment: "iam", Geltung: Global}
+	i := slices.IndexFunc(iamAccessKeyTools, func(o Operation) bool { return o.Operation == "UpdateAccessKey" })
+	op := iamAccessKeyTools[i]
+	tl, err := build(m, iam, op)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if tl.fixed["Status"] != "Inactive" || tl.selfKey != "access_key_id" || strings.Contains(tl.inputSchema, "status") {
+		t.Errorf("fixed %v, self key %q, schema %s", tl.fixed, tl.selfKey, tl.inputSchema)
+	}
+	for name, change := range map[string]func(*Operation){
+		"not an enum value": func(o *Operation) { o.Fixed = map[string]string{"Status": "Revoked"} },
+		"not an input":      func(o *Operation) { o.Fixed = map[string]string{"Status": "Inactive", "Invented": "x"} },
+	} {
+		wrong := op
+		change(&wrong)
+		if _, err := build(m, iam, wrong); err == nil {
+			t.Errorf("%s: the generator accepted the table", name)
+		}
+	}
+}

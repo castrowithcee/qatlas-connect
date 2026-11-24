@@ -73,6 +73,12 @@ type toolSpec struct {
 	selfRole string
 	// selfUser is the same for an IAM user (see Client.refuseOwnUser).
 	selfUser string
+	// selfKey is the argument that holds an access key ID the tool changes or deletes; the call is refused when
+	// it is the key that signs it (see Client.refuseOwnKey).
+	selfKey string
+	// fixed are the request parameters of an awsQuery tool that are always sent with these values and are no
+	// arguments, so the caller cannot choose them.
+	fixed map[string]string
 	// resultHook names the step in resultHooks that adds a member to the result.
 	resultHook string
 	// guards name steps in guards that judge the arguments before any I/O.
@@ -253,7 +259,7 @@ func (s toolSpec) check() error {
 	if _, ok := deliveries[s.delivery]; s.delivery != "" && (!ok || s.rest == nil || s.descriptor.Risk.Idempotency != capability.IdempotencyNonIdempotent) {
 		return fmt.Errorf("delivery %q has no implementation or does not belong to a non-idempotent REST tool", s.delivery)
 	}
-	if (s.selfRole != "" || s.selfUser != "") && (s.accountCheck || s.descriptor.Risk.Effect == capability.EffectRead) {
+	if (s.selfRole != "" || s.selfUser != "" || s.selfKey != "") && (s.accountCheck || s.descriptor.Risk.Effect == capability.EffectRead) {
 		return errors.New("the own-identity check belongs to a tool that changes or deletes a role or user")
 	}
 	for _, r := range s.rules {
@@ -373,6 +379,12 @@ func (s toolSpec) handler() capability.Handler {
 					return nil, err
 				}
 			}
+			if s.selfKey != "" {
+				target, _ := args[s.selfKey].(string)
+				if err := client.refuseOwnKey(op, creds, s.selfKey, target); err != nil {
+					return nil, err
+				}
+			}
 			if check := readbacks[s.readback]; check != nil {
 				// The read is part of the change: a refusal here means nothing was sent that changes anything.
 				if err := check(ctx, client, s, creds, region, args); err != nil {
@@ -445,6 +457,9 @@ func (s toolSpec) encode(args map[string]any, page listPage, owner string) (stri
 	req, err := awsquery.Encode(s.input, args, nil)
 	if err != nil {
 		return "", nil, &provider.InvalidRequestError{Message: strings.TrimPrefix(err.Error(), "awsquery: ")}
+	}
+	for k, v := range s.fixed {
+		req.Params[k] = v
 	}
 	if page != nil {
 		for k, v := range page.Params() {

@@ -25,6 +25,8 @@ var wantTools = []string{
 	"aws.account.region.enable",
 	"aws.account.region.get-opt-status",
 	"aws.account.region.list",
+	"aws.iam.access-key.deactivate",
+	"aws.iam.access-key.delete",
 	"aws.iam.access-key.get-last-used",
 	"aws.iam.access-key.list",
 	"aws.iam.account.get-authorization-details",

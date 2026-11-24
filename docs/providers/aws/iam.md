@@ -1,6 +1,6 @@
 ---
 description: >
-  Describes the tools of the AWS Identity and Access Management group: reading users, groups, roles, instance profiles, the metadata of their credentials, policies with their simulation, the account state, identity providers, server certificates, and further lookups, writing roles and instance profiles with the trust policy check and the own-role check, writing policies and attaching them to identities with the policy document check and the own-identity check, changing users and groups with the own-user check, generating and reading the credential report and the service last accessed reports, and which credential operations are never tools.
+  Describes the tools of the AWS Identity and Access Management group: reading users, groups, roles, instance profiles, the metadata of their credentials, policies with their simulation, the account state, identity providers, server certificates, and further lookups, writing roles and instance profiles with the trust policy check and the own-role check, writing policies and attaching them to identities with the policy document check and the own-identity check, changing users and groups with the own-user check, deactivating and deleting access keys with the own-key check, generating and reading the credential report and the service last accessed reports, and which credential operations are never tools.
 type: knowledge
 edit: shared
 created: 2026-11-10
@@ -159,6 +159,25 @@ no own-user check.
 The confirmation text, shown as `summary` before the call, names the action and the user or group. An update names
 the new name and path, a membership change names the user and the group, and a delete says it cannot be undone.
 Names, paths, and tag keys are cut.
+
+## Access keys
+
+These tools deactivate and delete an access key of an IAM user. Both are `listed-only` and need confirmation.
+
+| Tool | AWS action | Arguments | Effect |
+| --- | --- | --- | --- |
+| `aws.iam.access-key.deactivate` | `UpdateAccessKey` | `access_key_id` (required), `user_name` | Sets the status `Inactive`; idempotent |
+| `aws.iam.access-key.delete` | `DeleteAccessKey` | `access_key_id` (required), `user_name` | Deletes the key for good; not idempotent |
+
+`deactivate` always sends `Status=Inactive`. The tool has no status argument, so a key is never set to `Active`
+again and no tool creates a key. Where `user_name` is left out, AWS uses the user of the signing credentials.
+
+Both tools refuse the access key the connection works with, the key of its credential and the key that signs the
+call (the temporary key of a role session), before any change. The key IDs are compared in any case and need no call
+to AWS. The refusal and every other message leave the key ID of the connection out.
+
+The confirmation text, shown as `summary` before the call, names the action (deactivate or delete for good), the key
+ID, and the user, or the calling user when `user_name` is left out. It never holds a secret.
 
 ## Credential metadata
 
@@ -331,8 +350,10 @@ others take it up to 1000.
 The operations that create a credential, return one, take a password, a private key, or a one-time code, or grant
 trust to an identity outside the account are excluded for good: `ChangePassword`, `CreateAccessKey`,
 `CreateLoginProfile`, `UpdateLoginProfile`, `CreateServiceSpecificCredential`, `ResetServiceSpecificCredential`,
-`CreateUser`, `CreateVirtualMFADevice`, `EnableMFADevice`, `ResyncMFADevice`, `UploadSSHPublicKey`,
+`CreateUser`, `CreateVirtualMFADevice`, `EnableMFADevice`, `ResyncMFADevice`, `DeleteLoginProfile`,
+`DeactivateMFADevice`, `UploadSSHPublicKey`,
 `UploadSigningCertificate`, `UploadServerCertificate`, `CreateSAMLProvider`, `UpdateSAMLProvider`,
 `CreateOpenIDConnectProvider`, `UpdateOpenIDConnectProviderThumbprint`, `AddClientIDToOpenIDConnectProvider`,
 `EnableOutboundWebIdentityFederation`, `CreateDelegationRequest`, `SendDelegationToken`, and
-`AcceptDelegationRequest`.
+`AcceptDelegationRequest`. `UpdateAccessKey` is a tool only with the status `Inactive`: setting `Active` is excluded.
+Login profiles and MFA devices are never changed or removed through a tool.

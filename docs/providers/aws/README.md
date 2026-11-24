@@ -9,14 +9,14 @@ updated: 2026-11-24
 
 # Amazon Web Services
 
-The `aws` provider gives agents controlled access to one AWS account, read-only except for the IAM role, policy, user, and group tools and the two
+The `aws` provider gives agents controlled access to one AWS account, read-only except for the IAM role, policy, user, group, and access key tools and the two
 IAM report generators a connection names in its tools list, the SES identity tools, the S3 bucket tools, and the Route 53
 hosted zone, record, health check, delegation set, and CIDR collection tools, and the Account region and contact tools, which change state with confirmation, the Route 53 query logging writes, and the Route 53 DNSSEC writes a connection names in its tools list. Qatlas signs requests with
 Signature Version 4 using the Go standard library; it uses no AWS SDK. It ships the foundation (credential, role
 assumption, account and region binding, connection test, endpoint table, error mapping), the Security Token Service
 (STS) tools, the IAM tools that read identities, the metadata of their credentials, policies with their simulation,
 the account state, identity providers, and server certificates, the IAM report tools (credential report and service
-last accessed), the IAM tools that write roles, instance profiles, policies, users, and groups, the SES v2 tools that read, create, configure, tag, and delete
+last accessed), the IAM tools that write roles, instance profiles, policies, users, groups, and access key deactivation and deletion, the SES v2 tools that read, create, configure, tag, and delete
 sender identities with DKIM and MAIL FROM, read the account status and change its attributes and production access request, create, configure, and delete configuration sets, manage the suppression list, manage dedicated IP addresses and pools, keep email templates, contact lists, and contacts, send mail, read deliverability metrics, insights, and reputation, read and start import and export jobs and cancel export jobs, run the Deliverability Dashboard and inbox placement tests, handle identity certificates, keep tenants and the sending status and policy of reputation entities, and manage multi-region endpoints, and the S3 tools that read buckets and create, delete, and configure them
 (versioning, default encryption, tags, public access block, object ownership), set and remove their lifecycle and CORS rules,
 and read the rest of their configuration and the Object Lock state of their objects, and the Route 53 tools that list, read, create,

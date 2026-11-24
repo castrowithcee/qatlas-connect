@@ -85,6 +85,9 @@ The [user and group tools](iam.md#users-and-groups) need `iam:UpdateUser`, `iam:
 `iam:RemoveUserFromGroup`, each for its own tool. The own-user check calls `sts:GetCallerIdentity`, which needs no
 permission. Grant only the actions of the tools the connection lists.
 
+The [access key tools](iam.md#access-keys) need `iam:UpdateAccessKey` and `iam:DeleteAccessKey`, each for its own
+tool. The own-key check needs no call to AWS. Grant only the actions of the tools the connection lists.
+
 ### Account
 
 The [region tools](account.md) need `account:ListRegions`, `account:GetRegionOptStatus`, `account:EnableRegion`, and
