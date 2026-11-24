@@ -268,7 +268,7 @@ regions to the user before confirming.
 
 ## Sending mail
 
-`send` sends one mail with simple content (subject, text, HTML, headers, attachments) or a template: a stored one by
+`send` sends one mail with simple content (subject, text, HTML, headers, attachments), raw MIME content, or a template: a stored one by
 name or ARN, or one given inline, with template data. `send-bulk` sends one template to several destinations, each its
 own mail with its own recipients, template data, headers, and tags, and returns status and message ID per destination;
 one destination can fail while others succeed.
@@ -282,6 +282,17 @@ one destination can fail while others succeed.
   template, configuration set, the price per 1,000 mails with the number of mails of the call, and that the send
   cannot be undone and is not repeated. Long values and long recipient lists are shortened, and the template data and
   the mail text are not quoted. The tool description covers the rest: the sandbox and the limits.
+- **Raw MIME content.** `send` also takes `content.raw.data`, base64 MIME content, as the only content form: `raw`
+  together with `simple` or `template` is refused. The tool reads the content before any request and refuses it unless:
+  it parses as a message; the top level has exactly one `From` header (no `Bcc`, no `Return-Path`; header names are
+  compared without case, repeated and folded headers included); the base64 text is at most 10,000,000 characters (about
+  7.5 MB decoded); and the multipart parts parse (at most 5 levels, 200 parts) and hold at most 10 attachments over all
+  levels. Only the top-level headers count, as they are the ones SES sends. The recipients are always those of
+  `destination`, never the headers. The tool does not sign or change the content, does not look into the attachments,
+  and fetches no URL from it. The confirmation adds the `From` header, the subject, and the number and first name of the
+  attachments of the content, decoded, shortened, and cleaned of control characters; the content itself is never quoted
+  in the confirmation, in an error, or in a log. The sender identity still has to be verified in SES and, with
+  `from_email_address_identity_arn`, in the bound account. These rules have not been proven against a live account.
 - **Costs.** According to the [AWS price list](https://aws.amazon.com/ses/pricing/), 0.10 USD per 1,000 mails, each
   recipient counted, plus 0.12 USD per GB of attachments.
 - **Sandbox.** An account without production access sends only to verified recipients, at most 200 mails a day and one
@@ -397,8 +408,6 @@ and descriptions are untrusted data.
 - `SendCustomVerificationEmail` is never a tool: it would send mail to any address given as an argument. The custom
   verification email templates (`Create`, `Update`, `Delete`, `Get`, and `ListCustomVerificationEmailTemplates`) are not
   tools either, since they only serve that mail.
-- No raw MIME content (`Content.Raw` of `SendEmail`): it carries headers and parts of its own that no check of the tool
-  sees. Simple and template content are the structured way to send, attachments included.
 - No multi-region endpoint (`EndpointId`): it has a host of its own outside the endpoint table and needs another
   signature. A send goes to the regional endpoint of the call.
 

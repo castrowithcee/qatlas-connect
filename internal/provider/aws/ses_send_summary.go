@@ -18,6 +18,8 @@ const (
 	sendSummarySubject = 40
 	sendSummaryRef     = 64 // runes of a template name or ARN
 	sendSummaryRegion  = 16
+	sendSummaryName    = 16 // runes of one attachment name
+	sendSummaryNames   = 1  // attachment names shown, the rest only counted
 )
 
 func init() {
@@ -124,6 +126,9 @@ func sendSummary(raw json.RawMessage) string {
 				} `json:"subject"`
 			} `json:"simple"`
 			Template sendTemplate `json:"template"`
+			Raw      struct {
+				Data string `json:"data"`
+			} `json:"raw"`
 		} `json:"content"`
 	}
 	if json.Unmarshal(raw, &a) != nil {
@@ -131,6 +136,9 @@ func sendSummary(raw json.RawMessage) string {
 	}
 	head, first := sendRecipients(a.sendCommon, "", []sendDestination{a.Destination})
 	content := a.Content.Template.text()
+	if a.Content.Raw.Data != "" {
+		content = rawSummary(a.Content.Raw.Data)
+	}
 	if s := a.Content.Simple.Subject.Data; s != "" {
 		content = " Subject \"" + sendSummaryValue(s, sendSummarySubject) + "\"."
 	}
@@ -156,4 +164,28 @@ func sendBulkSummary(raw json.RawMessage) string {
 	}
 	head, first := sendRecipients(a.sendCommon, strconv.Itoa(len(dests))+" destinations, ", dests)
 	return "Send template mail per destination" + head + first + a.Default.Template.text() + a.configSet()
+}
+
+// rawSummary names From header, subject, and attachments of raw MIME content, each cut short. The content
+// itself never enters the text; one that cannot be read is named as such, and the guard refuses it.
+func rawSummary(data string) string {
+	m, err := parseRawMessage(data)
+	if err != nil {
+		return " Raw MIME content, unreadable."
+	}
+	out := " Raw MIME from \"" + sendSummaryValue(m.from, 20) + "\", subject \"" +
+		sendSummaryValue(m.subject, 24) + "\", " + strconv.Itoa(len(m.attachments)) + " attachments"
+	shown := min(len(m.attachments), sendSummaryNames)
+	if shown == 0 {
+		return out + "."
+	}
+	names := make([]string, shown)
+	for i := range shown {
+		names[i] = "\"" + sendSummaryValue(m.attachments[i], sendSummaryName) + "\""
+	}
+	out += ": " + strings.Join(names, ", ")
+	if rest := len(m.attachments) - shown; rest > 0 {
+		out += " and " + strconv.Itoa(rest) + " more"
+	}
+	return out + "."
 }

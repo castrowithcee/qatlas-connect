@@ -13,7 +13,7 @@ const (
 		"sandbox) sends only to verified recipients. At most 50 recipients (To, Cc, and Bcc together) per call; more " +
 		"recipients take more calls, each confirmed on its own. Calls of one connection and region start at least one " +
 		"second apart. Never repeated automatically, not even after a timeout or a server error: such a failure says " +
-		"that the mail may have gone out, so check before sending again. Raw MIME content is not offered. Needs confirmation."
+		"that the mail may have gone out, so check before sending again. Raw MIME content of a single send is checked but not signed or changed. Needs confirmation."
 
 	descSESSendAddress = "Address, either local@domain or Display Name <local@domain>; a display name of other than printable ASCII must be MIME encoded-word"
 	descSESFrom        = "Sender address of a verified identity of the bound account. " + descSESSendAddress
@@ -32,7 +32,6 @@ const (
 
 	sesMessageID = "Message ID SES gave the mail"
 
-	reasonSESRaw      = "raw MIME content carries headers and parts of its own that no check of the tool sees; the simple and template content are the structured way to send"
 	reasonSESEndpoint = "a multi-region endpoint has its own host outside the endpoint table and needs a SigV4a signature; the tool sends only to the regional endpoint of the call"
 
 	// sesRecipientCap is the SES limit of 50 recipients per message, To, Cc, and Bcc together (SES developer
@@ -102,19 +101,20 @@ var sesSendTools = []Operation{
 		Operation: "SendEmail", Action: "send",
 		Title: "Send a mail with SES",
 		Description: "Send one mail through SES v2 from a sender identity of the bound account, with simple content (subject, " +
-			"text, HTML, headers, and attachments) or a template (stored, by name or ARN, or given inline, with template data), " +
+			"text, HTML, headers, and attachments), raw MIME content, or a template (stored, by name or ARN, or given inline, with template data), " +
 			"optionally to a contact list topic for unsubscribe handling. Returns the message ID. Needs ses:SendEmail. " + sesSendRule,
 		Arguments: withArguments(map[string]Argument{
 			"Destination": {Description: descSESDest},
 			"Content": {Description: "Content, exactly one of simple (subject and body with text or html, each with data and " +
-				"charset, plus headers and attachments) or template (" + descSESTemplate + ")"},
+				"charset, plus headers and attachments), template (" + descSESTemplate + "), or raw (data: base64 MIME content of " +
+				"at most 10 MB with exactly one From header, no Bcc or Return-Path header, and at most 10 attachments; the recipients " +
+				"are those of destination, never the headers; not signed or changed, attachments not inspected)"},
 			"EmailTags":             {Description: descSESMsgTags},
 			"ListManagementOptions": {Description: "Contact list (contact_list_name) and topic (topic_name) the mail belongs to, for unsubscribe handling"},
 		}),
 		Fields: map[string]Field{"MessageId": {Description: sesMessageID}},
 		HiddenInputs: []Hidden{
 			{Member: "EndpointId", Reason: reasonSESEndpoint},
-			{Member: "Content.Raw", Reason: reasonSESRaw},
 		},
 		Limits: sesDestinationLimits(""),
 		SampleArgs: `{` + sesSendSample + `,"destination":{"to_addresses":["to!@example.com"],"cc_addresses":["cc!@example.com"],"bcc_addresses":["bcc!@example.com"]},` +

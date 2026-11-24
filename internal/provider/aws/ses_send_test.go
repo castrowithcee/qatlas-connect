@@ -47,7 +47,7 @@ func TestSESSendDescribesWhatTheConfirmationCovers(t *testing.T) {
 		}
 		for _, part := range []string{"the region", "the sender", "the recipients (To, Cc, and Bcc)", "the subject or the template",
 			"the configuration set", "the content", "third parties", "0.10 USD per 1,000 mails", "sandbox", "verified recipients",
-			"Never repeated automatically", "may have gone out", "At most 50 recipients", "Raw MIME content is not offered", "Needs confirmation"} {
+			"Never repeated automatically", "may have gone out", "At most 50 recipients", "Raw MIME content of a single send is checked", "Needs confirmation"} {
 			if !strings.Contains(d.Description, part) {
 				t.Errorf("%s description lacks %q", d.ID, part)
 			}
@@ -58,8 +58,8 @@ func TestSESSendDescribesWhatTheConfirmationCovers(t *testing.T) {
 	}
 }
 
-// Raw MIME content and the multi-region endpoint are no arguments, and SendCustomVerificationEmail is no tool.
-func TestSESSendOffersNoRawContent(t *testing.T) {
+// The multi-region endpoint is no argument, and SendCustomVerificationEmail is no tool.
+func TestSESSendOffersNoEndpoint(t *testing.T) {
 	found := 0
 	for _, s := range generatedSpecs {
 		if s.service != "ses" {
@@ -73,7 +73,7 @@ func TestSESSendOffersNoRawContent(t *testing.T) {
 		}
 		found++
 		schema := string(s.descriptor.InputSchema)
-		for _, banned := range []string{`"raw"`, `"endpoint_id"`} {
+		for _, banned := range []string{`"endpoint_id"`} {
 			if strings.Contains(schema, banned) {
 				t.Errorf("%s input schema offers %s", s.descriptor.ID, banned)
 			}
@@ -81,12 +81,6 @@ func TestSESSendOffersNoRawContent(t *testing.T) {
 	}
 	if found != 2 {
 		t.Errorf("%d send tools, want 2", found)
-	}
-	f := sesFake(func(sent) reply { return ok(`{"MessageId":"m-1"}`) })
-	e := sendEnv(t, f)
-	raw := `{"from_email_address":"sender@example.com","destination":{"to_addresses":["to@example.com"]},"content":{"raw":{"data":"AA=="}}}`
-	if _, err := e.invokeConfirmed(sendTool, raw, true); err == nil || sendCount(f) != 0 {
-		t.Errorf("raw content: %v after %d requests", err, sendCount(f))
 	}
 }
 
