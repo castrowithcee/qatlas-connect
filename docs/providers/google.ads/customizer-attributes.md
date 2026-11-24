@@ -12,7 +12,7 @@ updated: 2026-11-23
 These tools create and remove the customizer attributes of a Google Ads account. A customizer attribute defines a
 name and a type, such as a text or a price, for values that customizers attach to campaigns, ad groups, keywords,
 or the account and that ads insert with a customizer tag. The tools of this page define the attributes only: they set
-no value. They add to the read tools of the [Google Ads provider](README.md), whose configuration, targets, quotas,
+no value, which the [customizer value tools](customizers.md) do. They add to the read tools of the [Google Ads provider](README.md), whose configuration, targets, quotas,
 and errors apply here too.
 
 | Tool | Effect | What it does |
@@ -94,7 +94,8 @@ required: an attribute created without a type is of no use, and `UNSPECIFIED` an
 Left out on purpose:
 
 - The update of an attribute: name and type are immutable and the service has no update operation.
-- Setting values: the customizers of campaigns, ad groups, ad group criteria, and the account are separate tools.
+- Setting values: the customizers of campaigns, ad groups, ad group criteria, and the account are the
+  [customizer value tools](customizers.md).
 - Reading attributes.
 - `status` as an argument, `partial_failure`, any free operation, mask, or resource name, and
   `GoogleAdsService.Mutate`.
