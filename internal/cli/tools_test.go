@@ -701,6 +701,8 @@ func TestToolsFiltersByNamespaceAndQuery(t *testing.T) {
 		"aws.iam.attached-policy.detach-from-role", "aws.iam.inline-policy.put-for-user", "aws.iam.inline-policy.put-for-group",
 		"aws.iam.inline-policy.put-for-role", "aws.iam.inline-policy.delete-for-user", "aws.iam.inline-policy.delete-for-group",
 		"aws.iam.inline-policy.delete-for-role", "aws.iam.user.put-permissions-boundary", "aws.iam.user.delete-permissions-boundary",
+		"aws.iam.user.update", "aws.iam.user.delete", "aws.iam.user.tag", "aws.iam.user.untag", "aws.iam.group.create",
+		"aws.iam.group.update", "aws.iam.group.delete", "aws.iam.group.add-user", "aws.iam.group.remove-user",
 		"aws.iam.credential-report.generate", "aws.iam.credential-report.get", "aws.iam.service-last-accessed.generate",
 		"aws.iam.service-last-accessed.get-details", "aws.iam.service-last-accessed.get-entities", "aws.iam.service-access.list-policies",
 		"aws.iam.account.get-summary", "aws.iam.account.get-authorization-details",

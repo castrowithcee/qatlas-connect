@@ -1,6 +1,6 @@
 ---
 description: >
-  Describes the tools of the AWS Identity and Access Management group: reading users, groups, roles, instance profiles, the metadata of their credentials, policies with their simulation, the account state, identity providers, server certificates, and further lookups, writing roles and instance profiles with the trust policy check and the own-role check, writing policies and attaching them to identities with the policy document check and the own-identity check, generating and reading the credential report and the service last accessed reports, and which credential operations are never tools.
+  Describes the tools of the AWS Identity and Access Management group: reading users, groups, roles, instance profiles, the metadata of their credentials, policies with their simulation, the account state, identity providers, server certificates, and further lookups, writing roles and instance profiles with the trust policy check and the own-role check, writing policies and attaching them to identities with the policy document check and the own-identity check, changing users and groups with the own-user check, generating and reading the credential report and the service last accessed reports, and which credential operations are never tools.
 type: knowledge
 edit: shared
 created: 2026-11-10
@@ -126,6 +126,37 @@ kind. For a policy document it gives the number of statements, how many allow st
 `Action` (with a few of the actions) or in `Resource`, and the accounts named in resource ARNs, so an account other
 than the bound one stands out. A `NotAction` or `NotResource` counts as a wildcard. It never quotes the document. A
 version made the default, or a default switched, is marked as taking effect at once.
+
+## Users and groups
+
+These tools rename, tag, and delete existing users, and create, rename, and delete groups and change their members.
+`CreateUser` is not among them. Each one is `listed-only` like the role tools and needs confirmation. A create or
+delete is not repeated after an unclear outcome.
+
+| Tool | AWS action | Arguments | Result |
+| --- | --- | --- | --- |
+| `aws.iam.user.update` | `UpdateUser` | `user_name` (required), `new_user_name`, `new_path` | |
+| `aws.iam.user.delete` | `DeleteUser` | `user_name` (required) | |
+| `aws.iam.user.tag`, `.untag` | `TagUser`, `UntagUser` | `user_name`, and `tags` or `tag_keys`, both required | |
+| `aws.iam.group.create` | `CreateGroup` | `group_name` (required), `path` | `group` |
+| `aws.iam.group.update` | `UpdateGroup` | `group_name` (required), `new_group_name`, `new_path` | |
+| `aws.iam.group.delete` | `DeleteGroup` | `group_name` (required) | |
+| `aws.iam.group.add-user`, `.remove-user` | `AddUserToGroup`, `RemoveUserFromGroup` | `group_name`, `user_name`, both required | |
+
+The user and the group must exist in the bound account. AWS refuses `user.delete` with a conflict while the user still
+has access keys, a password, MFA devices, certificates, policies, or group memberships, and `group.delete` while the
+group has members or policies. The tools remove none of them. Renaming keeps policies, memberships, and credentials,
+but policies and applications that name the old name or ARN no longer match. The update tools and `tag` and `untag`
+are idempotent, the others are not.
+
+`aws.iam.user.delete` and `aws.iam.group.remove-user` never act on the IAM user whose access key the connection signs
+with. Before the call they ask `sts:GetCallerIdentity` and refuse a `user_name` that matches that user, in any case.
+A role session or the root user has no own user. A failed or unreadable answer refuses the call. The other tools have
+no own-user check.
+
+The confirmation text, shown as `summary` before the call, names the action and the user or group. An update names
+the new name and path, a membership change names the user and the group, and a delete says it cannot be undone.
+Names, paths, and tag keys are cut.
 
 ## Credential metadata
 
