@@ -742,12 +742,12 @@ func TestRestXMLToolsAreAssembled(t *testing.T) {
 }
 
 // An attribute and a namespace below the top level are carried from the binding to the tool: the xsi:type of a
-// grantee, and the deprecated rule prefix that a table keeps in an answer.
+// grantee, and the deprecated rule prefix that a table keeps in an answer only.
 func TestRestXMLNestedAttributeAndNamespaceAreCarried(t *testing.T) {
 	m := loadXML(t, s3Table)
 	built := map[string]*tool{}
 	for _, op := range s3Table.Operations {
-		if op.Operation == "GetBucketAcl" || op.Operation == "GetBucketLifecycleConfiguration" {
+		if op.Operation == "GetBucketAcl" || op.Operation == "GetBucketLifecycleConfiguration" || op.Operation == "PutBucketLifecycleConfiguration" {
 			tl, err := build(m, &s3Table, op)
 			if err != nil {
 				t.Fatal(err)
@@ -772,6 +772,11 @@ func TestRestXMLNestedAttributeAndNamespaceAreCarried(t *testing.T) {
 	}
 	if !strings.Contains(built["GetBucketLifecycleConfiguration"].outputSchema, `"id":{"type":"string","maxLength":131072},"prefix":`) {
 		t.Error("the kept rule prefix is not in the lifecycle answer")
+	}
+	rules := fieldByKey(built["PutBucketLifecycleConfiguration"].restOp.Input, "lifecycle_configuration")
+	if rules == nil || strings.Contains(built["PutBucketLifecycleConfiguration"].inputSchema, `"id":{"type":"string","maxLength":255},"prefix"`) ||
+		fieldByKey(rules.Shape, "rules").Shape.Elem == nil || fieldByKey(fieldByKey(rules.Shape, "rules").Shape.Elem, "prefix") != nil {
+		t.Error("the put offers the deprecated rule prefix")
 	}
 }
 

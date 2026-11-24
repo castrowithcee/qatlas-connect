@@ -197,7 +197,7 @@ func build(m *Model, table *Table, op Operation) (*tool, error) {
 		t.released[r.Member] = false
 	}
 	for _, l := range op.Limits {
-		t.limited[l.Member] = false
+		t.limited[limitKey(l)] = false
 	}
 	if err := t.bindInput(m, in, pag); err != nil {
 		return nil, err
@@ -1105,6 +1105,14 @@ func (c *converter) convert(target string, traits *object, output bool, depth in
 	return nil, nil, c.failf("shape type %s has no query-protocol binding here", kind)
 }
 
+// limitKey names a cap: a list of strings may carry one cap for the list and one for its strings.
+func limitKey(l InputLimit) string {
+	if l.MaxItems > 0 {
+		return l.Member + " (items)"
+	}
+	return l.Member
+}
+
 // limit returns the table cap of the input member at c.path and marks it used.
 func (c *converter) limit(items bool) (InputLimit, bool) {
 	if c.output {
@@ -1112,7 +1120,7 @@ func (c *converter) limit(items bool) (InputLimit, bool) {
 	}
 	for _, l := range c.t.op.Limits {
 		if l.Member == c.path && (l.MaxItems > 0) == items {
-			c.t.limited[l.Member] = true
+			c.t.limited[limitKey(l)] = true
 			return l, true
 		}
 	}
@@ -1126,7 +1134,7 @@ func (c *converter) intLimit() (InputLimit, bool) {
 	}
 	for _, l := range c.t.op.Limits {
 		if l.Member == c.path && l.MaxValue > 0 {
-			c.t.limited[l.Member] = true
+			c.t.limited[limitKey(l)] = true
 			return l, true
 		}
 	}

@@ -1,6 +1,8 @@
 package aws
 
 import (
+	"crypto/sha256"
+	"encoding/base64"
 	"strings"
 	"testing"
 
@@ -204,11 +206,131 @@ func TestS3ConfigMissingIsNotFound(t *testing.T) {
 	}
 }
 
-// The deletes send DELETE with the expected owner and need the confirmation before any request.
+func checksumOf(body string) string {
+	sum := sha256.Sum256([]byte(body))
+	return base64.StdEncoding.EncodeToString(sum[:])
+}
+
+// The lifecycle put sends the rules as XML with the checksum the service requires and the expected owner; rules
+// with expiration, tag and and-filters, a rule without a filter, and the default minimum size are encoded.
+func TestS3LifecyclePutSendsRulesWithChecksum(t *testing.T) {
+	f := restAnswer(reply{status: 200, header: map[string]string{"X-Amz-Transition-Default-Minimum-Object-Size": "all_storage_classes_128K"}})
+	e := s3WriteEnv(t, f, testRegion)
+	args := `{"bucket":"my-bucket","transition_default_minimum_object_size":"all_storage_classes_128K","lifecycle_configuration":{"rules":[` +
+		`{"id":"logs","status":"Enabled","filter":{"prefix":"logs/"},"expiration":{"days":30}},` +
+		`{"id":"tagged","status":"Enabled","filter":{"tag":{"key":"temp","value":"yes"}},"expiration":{"date":"2027-01-01T00:00:00Z"}},` +
+		`{"id":"both","status":"Disabled","filter":{"and":{"prefix":"a/","tags":[{"key":"k","value":"v"}],"object_size_greater_than":100}},` +
+		`"transitions":[{"days":10,"storage_class":"GLACIER"}],"noncurrent_version_expiration":{"noncurrent_days":5},` +
+		`"abort_incomplete_multipart_upload":{"days_after_initiation":7}},` +
+		`{"id":"whole","status":"Enabled","expiration":{"days":365}}]}}`
+	text, err := e.invokeConfirmed("aws.s3.lifecycle.put", args, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := decodeResult(t, text); got["transition_default_minimum_object_size"] != "all_storage_classes_128K" {
+		t.Errorf("result = %s", text)
+	}
+	reqs := restRequests(f)
+	if len(reqs) != 1 {
+		t.Fatalf("requests = %d", len(reqs))
+	}
+	r := reqs[0]
+	for _, want := range []string{
+		`<LifecycleConfiguration xmlns="http://s3.amazonaws.com/doc/2006-03-01/">`,
+		`<Rule><Expiration><Days>30</Days></Expiration><ID>logs</ID><Filter><Prefix>logs/</Prefix></Filter><Status>Enabled</Status></Rule>`,
+		`<Filter><Tag><Key>temp</Key><Value>yes</Value></Tag></Filter>`, `<Expiration><Date>2027-01-01T00:00:00Z</Date></Expiration><ID>tagged</ID>`,
+		`<Filter><And><Prefix>a/</Prefix><Tag><Key>k</Key><Value>v</Value></Tag><ObjectSizeGreaterThan>100</ObjectSizeGreaterThan></And></Filter>`,
+		`<Transition><Days>10</Days><StorageClass>GLACIER</StorageClass></Transition>`,
+		`<NoncurrentVersionExpiration><NoncurrentDays>5</NoncurrentDays></NoncurrentVersionExpiration>`,
+		`<AbortIncompleteMultipartUpload><DaysAfterInitiation>7</DaysAfterInitiation></AbortIncompleteMultipartUpload>`,
+		`<Rule><Expiration><Days>365</Days></Expiration><ID>whole</ID><Status>Enabled</Status></Rule>`,
+	} {
+		if !strings.Contains(r.body, want) {
+			t.Errorf("body lacks %s: %s", want, r.body)
+		}
+	}
+	if r.method != "PUT" || r.rawQuery != "lifecycle" || r.host != "my-bucket.s3."+testRegion+".amazonaws.com" ||
+		r.header.Get("X-Amz-Expected-Bucket-Owner") != testAccount ||
+		r.header.Get("X-Amz-Transition-Default-Minimum-Object-Size") != "all_storage_classes_128K" {
+		t.Errorf("request = %+v", r)
+	}
+	if r.header.Get("X-Amz-Checksum-Sha256") != checksumOf(r.body) || r.header.Get("X-Amz-Sdk-Checksum-Algorithm") != "SHA256" {
+		t.Errorf("checksum headers = %v", r.header)
+	}
+	if strings.Contains(r.body, "<Prefix></Prefix>") {
+		t.Errorf("a rule without a filter gained a prefix: %s", r.body)
+	}
+}
+
+// The CORS put sends several rules, also the origin *, with the checksum header and the expected owner.
+func TestS3CORSPutSendsRulesWithChecksum(t *testing.T) {
+	f := restAnswer(reply{status: 200})
+	e := s3WriteEnv(t, f, testRegion)
+	args := `{"bucket":"my-bucket","cors_configuration":{"cors_rules":[` +
+		`{"id":"any","allowed_origins":["*"],"allowed_methods":["GET","HEAD"],"allowed_headers":["*"],"expose_headers":["ETag"],"max_age_seconds":3000},` +
+		`{"allowed_origins":["https://a.example","https://b.example"],"allowed_methods":["PUT"]}]}}`
+	if _, err := e.invokeConfirmed("aws.s3.cors.put", args, true); err != nil {
+		t.Fatal(err)
+	}
+	r := restRequests(f)[0]
+	for _, want := range []string{`<CORSConfiguration xmlns="http://s3.amazonaws.com/doc/2006-03-01/">`,
+		`<CORSRule><ID>any</ID><AllowedHeader>*</AllowedHeader><AllowedMethod>GET</AllowedMethod><AllowedMethod>HEAD</AllowedMethod><AllowedOrigin>*</AllowedOrigin>`,
+		`<ExposeHeader>ETag</ExposeHeader><MaxAgeSeconds>3000</MaxAgeSeconds></CORSRule>`,
+		`<AllowedMethod>PUT</AllowedMethod><AllowedOrigin>https://a.example</AllowedOrigin><AllowedOrigin>https://b.example</AllowedOrigin>`} {
+		if !strings.Contains(r.body, want) {
+			t.Errorf("body lacks %s: %s", want, r.body)
+		}
+	}
+	if r.method != "PUT" || r.rawQuery != "cors" || r.header.Get("X-Amz-Expected-Bucket-Owner") != testAccount ||
+		r.header.Get("X-Amz-Checksum-Sha256") != checksumOf(r.body) || r.header.Get("X-Amz-Sdk-Checksum-Algorithm") != "SHA256" {
+		t.Errorf("request = %+v", r)
+	}
+}
+
+// A rejected document is an error, not a result, and is not repeated; invalid arguments send nothing.
+func TestS3ConfigPutsRefuseBadInput(t *testing.T) {
+	f := restAnswer(reply{status: 400, header: map[string]string{"Content-Type": "application/xml"},
+		body: `<Error><Code>MalformedXML</Code><Message>m</Message></Error>`})
+	e := s3WriteEnv(t, f, testRegion)
+	for id, args := range map[string]string{
+		"aws.s3.lifecycle.put": `{"bucket":"my-bucket","lifecycle_configuration":{"rules":[{"id":"a","status":"Enabled"}]}}`,
+		"aws.s3.cors.put":      `{"bucket":"my-bucket","cors_configuration":{"cors_rules":[{"allowed_origins":["*"],"allowed_methods":["GET"]}]}}`,
+	} {
+		_, err := e.invokeConfirmed(id, args, true)
+		var failed *provider.Error
+		if !errorsAs(err, &failed) || failed.Class != provider.ClassProviderError || failed.Original == nil || failed.Original.Entries[0].Code != "MalformedXML" {
+			t.Errorf("%s: %v", id, err)
+		}
+	}
+	if n := len(restRequests(f)); n != 2 {
+		t.Errorf("requests = %d, a failed write was repeated", n)
+	}
+	before := len(f.requests)
+	for id, args := range map[string]string{
+		"aws.s3.lifecycle.put": `{"bucket":"my-bucket","lifecycle_configuration":{"rules":[{"id":"a","status":"Maybe"}]}}`,
+		"aws.s3.cors.put":      `{"bucket":"my-bucket","cors_configuration":{"cors_rules":[{"allowed_methods":["GET"]}]}}`,
+	} {
+		if _, err := e.invokeConfirmed(id, args, true); err == nil {
+			t.Errorf("%s accepted %s", id, args)
+		}
+	}
+	for _, id := range []string{"aws.s3.lifecycle.delete", "aws.s3.cors.delete"} {
+		if _, err := e.invokeConfirmed(id, `{"bucket":"my-bucket","expected_bucket_owner":"999999999999"}`, true); err == nil {
+			t.Errorf("%s accepted an owner argument", id)
+		}
+	}
+	if len(f.requests) != before {
+		t.Errorf("a refused call reached the network: %v", f.actions()[before:])
+	}
+}
+
+// The deletes send DELETE with the expected owner; all four writes need the confirmation before any request.
 func TestS3ConfigWritesNeedConfirmation(t *testing.T) {
 	cases := []struct{ id, args, query string }{
 		{"aws.s3.lifecycle.delete", `{"bucket":"my-bucket"}`, "lifecycle"},
 		{"aws.s3.cors.delete", `{"bucket":"my-bucket"}`, "cors"},
+		{"aws.s3.lifecycle.put", `{"bucket":"my-bucket","lifecycle_configuration":{"rules":[{"id":"a","status":"Enabled","filter":{"prefix":"x/"},"expiration":{"days":1}}]}}`, "lifecycle"},
+		{"aws.s3.cors.put", `{"bucket":"my-bucket","cors_configuration":{"cors_rules":[{"allowed_origins":["*"],"allowed_methods":["GET"]}]}}`, "cors"},
 	}
 	for _, c := range cases {
 		f := restAnswer(reply{status: 200})
@@ -223,12 +345,20 @@ func TestS3ConfigWritesNeedConfirmation(t *testing.T) {
 			t.Fatalf("%s: %v", c.id, err)
 		}
 		r := restRequests(f)[0]
-		if r.method != "DELETE" || r.rawQuery != c.query || r.header.Get("X-Amz-Expected-Bucket-Owner") != testAccount {
+		want := "PUT"
+		if strings.HasSuffix(c.id, ".delete") {
+			want = "DELETE"
+		}
+		if r.method != want || r.rawQuery != c.query || r.header.Get("X-Amz-Expected-Bucket-Owner") != testAccount {
 			t.Errorf("%s request = %+v", c.id, r)
 		}
 	}
 	for _, d := range registered(t).Provider(Provider) {
 		switch d.ID {
+		case "aws.s3.lifecycle.put", "aws.s3.cors.put":
+			if d.Risk.Idempotency != "idempotent" {
+				t.Errorf("%s idempotency = %s", d.ID, d.Risk.Idempotency)
+			}
 		case "aws.s3.lifecycle.delete", "aws.s3.cors.delete":
 			if d.Risk.Idempotency != "non_idempotent" {
 				t.Errorf("%s idempotency = %s", d.ID, d.Risk.Idempotency)
@@ -237,11 +367,14 @@ func TestS3ConfigWritesNeedConfirmation(t *testing.T) {
 	}
 }
 
-// The description is the confirmation text: it names what the call deletes or opens and the right it needs.
+// The description names what the call deletes or opens and the right it needs.
 func TestS3ConfigDescriptionsSayWhatTheyDo(t *testing.T) {
 	for id, parts := range map[string][]string{
+		"aws.s3.lifecycle.put": {"Replace all lifecycle rules", "expiration deletes objects", "noncurrent version expiration deletes noncurrent versions",
+			"its filter", "without a filter, or with an empty prefix, covers the whole bucket", "s3:PutLifecycleConfiguration", "bound account", "set filter.prefix to the same value"},
 		"aws.s3.lifecycle.delete":    {"Remove all lifecycle rules", "s3:PutLifecycleConfiguration"},
 		"aws.s3.lifecycle.get":       {"covers the whole bucket", "old form shows its prefix on the rule itself", "s3:GetLifecycleConfiguration", "NoSuchLifecycleConfiguration"},
+		"aws.s3.cors.put":            {"Replace all CORS rules", "origin of * is allowed", "s3:PutBucketCORS"},
 		"aws.s3.cors.delete":         {"Remove all CORS rules", "s3:PutBucketCORS"},
 		"aws.s3.cors.get":            {"s3:GetBucketCORS", "NoSuchCORSConfiguration"},
 		"aws.s3.acl.get":             {"s3:GetBucketAcl", "follows none of them and fetches no URL"},
@@ -266,9 +399,9 @@ func TestS3ConfigDescriptionsSayWhatTheyDo(t *testing.T) {
 }
 
 // No write exists for the configurations that can point at targets of other accounts, nor for ACLs, website,
-// or the setting of lifecycle and CORS rules; only the two deletes
-// and the ownership put (which only turns ACLs off) write.
-func TestS3ConfigWritesAreOnlyLifecycleAndCORSDeletes(t *testing.T) {
+// or the configurations of other groups; lifecycle and CORS rules are set and removed, and the ownership put
+// (which only turns ACLs off) writes.
+func TestS3ConfigWritesAreOnlyLifecycleAndCORS(t *testing.T) {
 	writers := map[string]bool{}
 	for _, d := range registered(t).Provider(Provider) {
 		if strings.HasPrefix(d.ID, "aws.s3.") && d.Risk.Confirmation != "none" {
@@ -276,12 +409,12 @@ func TestS3ConfigWritesAreOnlyLifecycleAndCORSDeletes(t *testing.T) {
 		}
 	}
 	for _, id := range []string{"aws.s3.acl.put", "aws.s3.website.put", "aws.s3.website.delete", "aws.s3.logging.put", "aws.s3.notification.put",
-		"aws.s3.replication.put", "aws.s3.replication.delete", "aws.s3.ownership.delete", "aws.s3.lifecycle.put", "aws.s3.cors.put"} {
+		"aws.s3.replication.put", "aws.s3.replication.delete", "aws.s3.ownership.delete"} {
 		if writers[id] {
 			t.Errorf("%s is registered", id)
 		}
 	}
-	for _, id := range []string{"aws.s3.lifecycle.delete", "aws.s3.cors.delete"} {
+	for _, id := range []string{"aws.s3.lifecycle.put", "aws.s3.lifecycle.delete", "aws.s3.cors.put", "aws.s3.cors.delete"} {
 		if !writers[id] {
 			t.Errorf("%s is not a confirmed write", id)
 		}
@@ -303,7 +436,7 @@ func TestS3ConfigWritesAreOnlyLifecycleAndCORSDeletes(t *testing.T) {
 }
 
 // A rule of the old form, limited by a rule-level prefix, shows that prefix: it is not read as a rule without a
-// filter.
+// filter. The put does not offer the old prefix.
 func TestS3LifecycleGetShowsTheOldRulePrefix(t *testing.T) {
 	f := restAnswer(xmlReply(`<LifecycleConfiguration ` + s3NS + `><Rule><ID>old</ID><Prefix>logs/</Prefix><Status>Enabled</Status>` +
 		`<Expiration><Days>1</Days></Expiration></Rule></LifecycleConfiguration>`))
@@ -314,5 +447,9 @@ func TestS3LifecycleGetShowsTheOldRulePrefix(t *testing.T) {
 	rule := decodeResult(t, text)["rules"].([]any)[0].(map[string]any)
 	if rule["prefix"] != "logs/" || rule["filter"] != nil {
 		t.Errorf("rule = %v", rule)
+	}
+	e := s3WriteEnv(t, restAnswer(reply{status: 200}), testRegion)
+	if _, err := e.invokeConfirmed("aws.s3.lifecycle.put", `{"bucket":"my-bucket","lifecycle_configuration":{"rules":[{"id":"a","status":"Enabled","prefix":"logs/"}]}}`, true); err == nil {
+		t.Error("the old rule-level prefix was accepted by the put")
 	}
 }
