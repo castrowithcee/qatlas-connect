@@ -1,6 +1,6 @@
 ---
 description: >
-  Describes the Google Search Console provider: the token credential and its procedures, the scope of each tool, the fixed API origin, the optional property target and how it is proven, the profiles, quotas and rate spacing including the search-analytics query, result bounds, the connection test, error classes, and the limits of what is verified.
+  Describes the Google Search Console provider: the token credential and its procedures, the scope of each tool, the fixed API origin, the optional property target and how it is proven, the profiles, quotas and rate spacing including the search-analytics query and the URL inspection, result bounds, the connection test, error classes, and the limits of what is verified.
 type: knowledge
 edit: shared
 created: 2026-11-16
@@ -10,10 +10,12 @@ updated: 2026-11-16
 # Google Search Console
 
 Google Search Console is a provider for the Search Console API: the properties an account can see and the
-sitemaps of a property, its search traffic, and the adding and removing of properties and sitemaps. Only the
-four tools that add or remove something change data; every other tool is a read. [Set up Google Search Console](setup.md) leads through the
+sitemaps of a property, its search traffic, the index state of a URL, and the adding and removing of
+properties and sitemaps. Only the four tools that add or remove something change data; every other tool is a
+read. [Set up Google Search Console](setup.md) leads through the
 Google side and the consent. The tools are described per group in [sites](sites.md),
-[sitemaps](sitemaps.md), and [search analytics](search-analytics.md).
+[sitemaps](sitemaps.md), [search analytics](search-analytics.md), and
+[URL inspection](url-inspection.md).
 
 ## Configuration
 
@@ -68,6 +70,10 @@ uses, `siteOwner` and `SITE_OWNER`.
 The search-analytics query is counted apart: 1,200 queries per minute per site and per user, plus a load quota
 that grows with the date range and with grouping or filtering by page or query. Qatlas spaces its queries by
 50 ms per credential and property.
+
+The URL inspection is counted apart: 2,000 per day and 600 per minute per property. Qatlas spaces its
+inspections by 100 ms per credential and property and counts them per day (Pacific Time), see
+[URL inspection](url-inspection.md#quota-and-spacing).
 
 Google allows the site and sitemap methods 20 queries per second and 200 per minute per user, and
 100,000,000 per day per Cloud project. The calls cost nothing.
@@ -151,4 +157,5 @@ Not verified:
 
 Left out on purpose:
 
+- The deprecated mobile usability result of the URL inspection.
 - The deprecated `indexed` count of a sitemap's contents.

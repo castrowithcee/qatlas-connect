@@ -117,8 +117,13 @@ func open(ctx context.Context, resolved *config.Resolved, secrets *secret.Resolv
 // the account behind the credential, so the limit follows the credential and the service account it
 // impersonates, never a token value.
 func newClient(source *provider.TokenSource, resolved *config.Resolved) *client {
-	key := strings.Join([]string{resolved.Credential, resolved.Secrets.ID, resolved.ServiceAccount}, "\x00")
+	key := credentialKey(resolved)
 	return &client{source: source, http: provider.NoRedirectClient(timeout, transport), limiter: limiters.For(key), key: key}
+}
+
+// credentialKey names the credential and the service account a rate limit follows.
+func credentialKey(resolved *config.Resolved) string {
+	return strings.Join([]string{resolved.Credential, resolved.Secrets.ID, resolved.ServiceAccount}, "\x00")
 }
 
 // get sends one GET of tool, once (the token source renews a rejected token once), and decodes the JSON
