@@ -99,7 +99,7 @@ type tool struct {
 	fields                    []descField
 	rules                     []outputRule
 	targetArgs, policyArgs    []string
-	selfRole                  string
+	selfRole, selfUser        string
 	csv                       *CSVReport
 	// nested are the dotted HiddenOutputs paths, true once the converter left the member out.
 	nested map[string]bool
@@ -600,13 +600,19 @@ func (t *tool) bindInput(m *Model, in []member, pag *pagingPlan) error {
 			*list.out = append(*list.out, orDefault(t.op.Arguments[name].Name, snake(name)))
 		}
 	}
-	if name := t.op.SelfRole; name != "" {
-		// A required member, so the own-role check can never be skipped by leaving the argument out.
-		mm, ok := find(in, name)
-		if !ok || !offered[name] || mm.kind != "string" || !mm.traits.has("smithy.api#required") {
-			return t.failf("self_role %s is not an offered, required top-level string member", name)
+	for _, self := range []struct {
+		name, label string
+		out         *string
+	}{{t.op.SelfRole, "self_role", &t.selfRole}, {t.op.SelfUser, "self_user", &t.selfUser}} {
+		if self.name == "" {
+			continue
 		}
-		t.selfRole = orDefault(t.op.Arguments[name].Name, snake(name))
+		// A required member, so the own-identity check can never be skipped by leaving the argument out.
+		mm, ok := find(in, self.name)
+		if !ok || !offered[self.name] || mm.kind != "string" || !mm.traits.has("smithy.api#required") {
+			return t.failf("%s %s is not an offered, required top-level string member", self.label, self.name)
+		}
+		*self.out = orDefault(t.op.Arguments[self.name].Name, snake(self.name))
 	}
 	if pag != nil {
 		if pag.sizeMember != "" {
@@ -1279,6 +1285,10 @@ func (t *tool) makeSamples(m *Model) error {
 			args.set(f.Key, sampleTrustPolicy)
 			continue
 		}
+		if t.op.PolicyCheck == "identity-policy" && slices.Contains(t.policyArgs, f.Key) {
+			args.set(f.Key, sampleIdentityPolicy)
+			continue
+		}
 		if t.op.PolicyCheck == "resource-policy-own-account" && slices.Contains(t.policyArgs, f.Key) {
 			args.set(f.Key, sampleResourcePolicy)
 			continue
@@ -1363,6 +1373,9 @@ const sampleTrustPolicy = `{"Version":"2012-10-17","Statement":[{"Effect":"Allow
 
 // sampleResourcePolicy passes the resource-policy-own-account check in the account the generated tests bind.
 const sampleResourcePolicy = `{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Principal":{"AWS":"123456789012"},"Action":"ses:SendEmail","Resource":"*"}]}`
+
+// sampleIdentityPolicy is an identity policy that passes the identity-policy check.
+const sampleIdentityPolicy = `{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Action":"s3:GetObject","Resource":"*"}]}`
 
 // sampleWords are whole values tried after the repeated characters, for patterns with a fixed prefix such as
 // the version IDs of IAM policies, the UUID of a Route 53 CIDR collection, an IPv4 address, a bucket/key pair, the ARN

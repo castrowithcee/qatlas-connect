@@ -129,6 +129,9 @@ type Operation struct {
 	// runtime asks GetCallerIdentity before the call and refuses it when that role is the one whose session
 	// signs it, so a connection never changes or deletes its own role. Only a tool that is not a read may set it.
 	SelfRole string
+	// SelfUser is the same for an IAM user: the input member (a required top-level string) that names a user the
+	// tool changes, and the call is refused when it is the user whose access key signs it.
+	SelfUser string
 	// AccountCheck marks the operation that is the account check itself (STS GetCallerIdentity): its answer
 	// is the result, so the call is made once and is its own proof.
 	AccountCheck bool
@@ -420,6 +423,8 @@ func (op Operation) validate() error {
 		return fmt.Errorf("policy_check %s needs the arguments it checks, and none only without", op.PolicyCheck)
 	case op.SelfRole != "" && (op.Effect == "read" || !opName.MatchString(op.SelfRole)):
 		return fmt.Errorf("self_role %q must name an input member of a tool that is not a read", op.SelfRole)
+	case op.SelfUser != "" && (op.Effect == "read" || !opName.MatchString(op.SelfUser)):
+		return fmt.Errorf("self_user %q must name an input member of a tool that is not a read", op.SelfUser)
 	case op.ResultHook != "" && !slices.Contains(ResultHooks, op.ResultHook):
 		return fmt.Errorf("unknown result_hook %q", op.ResultHook)
 	case op.TokenMember != "" && (!opName.MatchString(op.TokenMember) || op.Effect != "create"):
