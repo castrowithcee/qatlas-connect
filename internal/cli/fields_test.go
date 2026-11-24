@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"strings"
+	"sync/atomic"
 	"testing"
 
 	"github.com/castrowithcee/qatlas-connect/internal/capability"
@@ -14,7 +15,7 @@ import (
 
 // listRegistry adds a tool with a result list, one without, and one with default fields to the fake
 // registry; calls counts how often a handler ran.
-func listRegistry(t *testing.T, calls *int) *capability.Registry {
+func listRegistry(t *testing.T, calls *atomic.Int32) *capability.Registry {
 	t.Helper()
 	registry := fakeRegistry(t)
 	descriptor := func(id, output string) capability.Descriptor {
@@ -28,7 +29,7 @@ func listRegistry(t *testing.T, calls *int) *capability.Registry {
 	}
 	handler := func(answer map[string]any) capability.Handler {
 		return func(context.Context, *config.Resolved, *secret.Resolver, *redact.Redactor, json.RawMessage) (any, error) {
-			*calls++
+			calls.Add(1)
 			return answer, nil
 		}
 	}
@@ -69,7 +70,7 @@ const fieldsWant = `{"has_more":true,"next_cursor":"c1","things":[{"id":1,"name"
 // --fields over the CLI and fields over MCP select the same members and leave the envelope of the result.
 func TestFieldsSelectAlikeOverCLIAndMCP(t *testing.T) {
 	config := bookstackConfig(t, "https://example.invalid")
-	calls := 0
+	var calls atomic.Int32
 	registry := listRegistry(t, &calls)
 
 	for _, args := range [][]string{{"--fields", "id,name"}, {"--fields", "id", "--fields", "name"}} {
@@ -149,8 +150,8 @@ func TestFieldsSelectAlikeOverCLIAndMCP(t *testing.T) {
 		strings.Contains(toolResultFrom(t, responses[`"describe-get"`]).Content[0].Text, "selectable_fields") {
 		t.Errorf("describe does not name the selectable fields of the list tool alone")
 	}
-	if calls != 7 {
-		t.Fatalf("handler ran %d times, want 7: the refused call must not reach the provider", calls)
+	if got := calls.Load(); got != 7 {
+		t.Fatalf("handler ran %d times, want 7: the refused call must not reach the provider", got)
 	}
 
 	var stdout, stderr strings.Builder
@@ -165,7 +166,7 @@ func TestFieldsSelectAlikeOverCLIAndMCP(t *testing.T) {
 	}
 
 	// The CLI refuses the same requests, before any provider, with the same message.
-	calls = 0
+	calls.Store(0)
 	for _, tc := range []struct{ tool, fields, want string }{
 		{"bookstack.things.list", "id,nam", `unknown field "nam"`},
 		{"bookstack.things.get", "nme", `unknown field "nme"`},
@@ -179,7 +180,7 @@ func TestFieldsSelectAlikeOverCLIAndMCP(t *testing.T) {
 			t.Errorf("%s: exit=%d stderr=%q", tc.tool, code, stderr.String())
 		}
 	}
-	if calls != 0 {
-		t.Fatalf("handler ran %d times for refused CLI requests", calls)
+	if got := calls.Load(); got != 0 {
+		t.Fatalf("handler ran %d times for refused CLI requests", got)
 	}
 }
