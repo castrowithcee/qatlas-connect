@@ -14,10 +14,11 @@ import (
 )
 
 var s3WriteToolIDs = []string{"aws.s3.bucket.create", "aws.s3.bucket.delete", "aws.s3.versioning.put", "aws.s3.encryption.put",
-	"aws.s3.encryption.delete", "aws.s3.tagging.put", "aws.s3.tagging.delete", "aws.s3.public-access-block.put", "aws.s3.lifecycle.delete",
-	"aws.s3.cors.delete", "aws.s3.ownership.put", "aws.s3.object-lock.put", "aws.s3.object-retention.put", "aws.s3.object-legal-hold.put", "aws.s3.request-payment.put",
-	"aws.s3.inventory.put", "aws.s3.inventory.delete", "aws.s3.analytics.put", "aws.s3.analytics.delete",
-	"aws.s3.metrics.put", "aws.s3.metrics.delete", "aws.s3.intelligent-tiering.put", "aws.s3.intelligent-tiering.delete", "aws.s3.accelerate.put"}
+	"aws.s3.encryption.delete", "aws.s3.tagging.put", "aws.s3.tagging.delete", "aws.s3.public-access-block.put", "aws.s3.lifecycle.put",
+	"aws.s3.lifecycle.delete", "aws.s3.cors.put", "aws.s3.cors.delete", "aws.s3.ownership.put", "aws.s3.object-lock.put", "aws.s3.object-retention.put",
+	"aws.s3.object-legal-hold.put", "aws.s3.request-payment.put", "aws.s3.inventory.put", "aws.s3.inventory.delete", "aws.s3.analytics.put",
+	"aws.s3.analytics.delete", "aws.s3.metrics.put", "aws.s3.metrics.delete", "aws.s3.intelligent-tiering.put", "aws.s3.intelligent-tiering.delete",
+	"aws.s3.accelerate.put"}
 
 // s3WriteEnv offers the S3 write tools by name on a connection bound to the account and the given regions.
 func s3WriteEnv(t *testing.T, f *fakeAWS, regions ...string) *env {

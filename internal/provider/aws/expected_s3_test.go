@@ -22,6 +22,8 @@ func init() {
 		"aws.s3.public-access-block.put",
 	)
 	expectSummary(
+		"aws.s3.cors.put",
+		"aws.s3.lifecycle.put",
 		"aws.s3.object-legal-hold.put",
 		"aws.s3.object-lock.put",
 		"aws.s3.object-retention.put",

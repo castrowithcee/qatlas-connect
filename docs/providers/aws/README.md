@@ -4,7 +4,7 @@ description: >
 type: knowledge
 edit: shared
 created: 2026-11-06
-updated: 2026-11-14
+updated: 2026-11-24
 ---
 
 # Amazon Web Services
@@ -18,7 +18,7 @@ assumption, account and region binding, connection test, endpoint table, error m
 the account state, identity providers, and server certificates, the IAM report tools (credential report and service
 last accessed), the IAM tools that write roles and instance profiles, the SES v2 tools that read, create, configure, tag, and delete
 sender identities with DKIM and MAIL FROM, read the account status and change its attributes and production access request, create, configure, and delete configuration sets, manage the suppression list, manage dedicated IP addresses and pools, keep email templates, contact lists, and contacts, send mail, read deliverability metrics, insights, and reputation, read and start import and export jobs and cancel export jobs, run the Deliverability Dashboard and inbox placement tests, handle identity certificates, keep tenants and the sending status and policy of reputation entities, and manage multi-region endpoints, and the S3 tools that read buckets and create, delete, and configure them
-(versioning, default encryption, tags, public access block, object ownership), remove their lifecycle and CORS rules,
+(versioning, default encryption, tags, public access block, object ownership), set and remove their lifecycle and CORS rules,
 and read the rest of their configuration and the Object Lock state of their objects, and the Route 53 tools that list, read, create,
 and delete hosted zones, change their comments and tags, list and change their records in atomic batches, test a DNS answer, read the status of a change, list, read, create, change, and delete health checks with their status and tags, read DNSSEC and manage key signing keys, create, version, and delete traffic policies, create, switch, and delete traffic policy instances, create and delete reusable delegation sets, create, change, and delete CIDR collections, and read query logging configurations, reusable delegation sets, traffic policies and their instances, CIDR collections, limits, geolocations, health checker addresses, and VPC associations, and associate and release VPCs of private zones, and the Account tools that read the regions of the account with their opt-in status and enable and disable opt-in regions, and read and change the name, the primary contact, and the alternate contacts of the account. Further services build on it.
 

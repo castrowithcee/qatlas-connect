@@ -474,10 +474,10 @@ func (op Operation) validate() error {
 			}
 		}
 		if strings.TrimSpace(l.Member) == "" || strings.TrimSpace(l.Reason) == "" || caps != 1 || l.MinValue < 0 ||
-			(l.MinValue > 0 && l.MaxValue < l.MinValue) || l.MaxLen < 0 || l.MaxItems < 0 || l.MaxValue < 0 || limits[l.Member] {
+			(l.MinValue > 0 && l.MaxValue < l.MinValue) || l.MaxLen < 0 || l.MaxItems < 0 || l.MaxValue < 0 || limits[limitKey(l)] {
 			return fmt.Errorf("limit %q needs a reason, exactly one positive cap, and no repetition", l.Member)
 		}
-		limits[l.Member] = true
+		limits[limitKey(l)] = true
 	}
 	releases := map[string]bool{}
 	for _, r := range op.Release {
