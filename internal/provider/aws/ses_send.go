@@ -159,6 +159,9 @@ func checkSESSend(b binding, _ string, args map[string]any) error {
 	}
 	for _, content := range []string{"content", "default_content"} {
 		outer, _ := args[content].(map[string]any)
+		if err := checkSESRaw(outer); err != nil {
+			return err
+		}
 		template, _ := outer["template"].(map[string]any)
 		if arn, set := template["template_arn"]; set {
 			text, _ := arn.(string)

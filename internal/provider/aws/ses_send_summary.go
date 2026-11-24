@@ -2,9 +2,11 @@ package aws
 
 import (
 	"encoding/json"
+	"net/mail"
 	"strconv"
 	"strings"
 	"unicode"
+	"unicode/utf8"
 )
 
 // The confirmation texts of the SES send tools. The core cuts a text above its bound from the end, so the
@@ -18,6 +20,9 @@ const (
 	sendSummarySubject = 40
 	sendSummaryRef     = 64 // runes of a template name or ARN
 	sendSummaryRegion  = 16
+	sendSummaryName    = 16  // runes of one attachment name
+	sendSummaryDisplay = 20  // runes of the display name of a raw sender
+	sendSummaryBound   = 500 // the core's default bound, which attachment names fill up to
 )
 
 func init() {
@@ -124,6 +129,9 @@ func sendSummary(raw json.RawMessage) string {
 				} `json:"subject"`
 			} `json:"simple"`
 			Template sendTemplate `json:"template"`
+			Raw      struct {
+				Data string `json:"data"`
+			} `json:"raw"`
 		} `json:"content"`
 	}
 	if json.Unmarshal(raw, &a) != nil {
@@ -131,6 +139,10 @@ func sendSummary(raw json.RawMessage) string {
 	}
 	head, first := sendRecipients(a.sendCommon, "", []sendDestination{a.Destination})
 	content := a.Content.Template.text()
+	if a.Content.Raw.Data != "" {
+		room := sendSummaryBound - utf8.RuneCountInString("Send one mail"+head+first+a.configSet())
+		content = rawSummary(a.Content.Raw.Data, room)
+	}
 	if s := a.Content.Simple.Subject.Data; s != "" {
 		content = " Subject \"" + sendSummaryValue(s, sendSummarySubject) + "\"."
 	}
@@ -156,4 +168,53 @@ func sendBulkSummary(raw json.RawMessage) string {
 	}
 	head, first := sendRecipients(a.sendCommon, strconv.Itoa(len(dests))+" destinations, ", dests)
 	return "Send template mail per destination" + head + first + a.Default.Template.text() + a.configSet()
+}
+
+// rawSummary names sender, subject, and attachments of raw MIME content within room runes. The sender's address
+// is named apart from its display name, so a long display name cannot hide it. Attachment names fill the room
+// left; only those that do not fit are counted. The content itself never enters the text; one that cannot be
+// read is named as such, and the guard refuses it.
+func rawSummary(data string, room int) string {
+	m, err := parseRawMessage(data)
+	if err != nil {
+		return " Raw MIME content, unreadable."
+	}
+	out := " Raw MIME from " + rawSender(m.from) + ", subject \"" + sendSummaryValue(m.subject, 24) + "\", " +
+		strconv.Itoa(len(m.attachments)) + " attachments"
+	for i, name := range m.attachments {
+		sep := ": "
+		if i > 0 {
+			sep = ", "
+		}
+		piece := sep + "\"" + sendSummaryValue(name, sendSummaryName) + "\""
+		tail := "."
+		if rest := len(m.attachments) - i - 1; rest > 0 {
+			tail = " and " + strconv.Itoa(rest) + " more."
+		}
+		if utf8.RuneCountInString(out+piece+tail) > room {
+			if i == 0 {
+				return out + "."
+			}
+			return out + " and " + strconv.Itoa(len(m.attachments)-i) + " more."
+		}
+		out += piece
+	}
+	return out + "."
+}
+
+// rawSender names the address of a From header, cut like the sender address of the text, and its display
+// name only cut short beside it. A header that is no address list is named cut as it is.
+func rawSender(from string) string {
+	list, err := mail.ParseAddressList(from)
+	if err != nil || len(list) == 0 {
+		return "\"" + sendSummaryValue(from, sendSummarySender) + "\""
+	}
+	out := sendSummaryValue(list[0].Address, sendSummarySender)
+	if list[0].Name != "" {
+		out += " (\"" + sendSummaryValue(list[0].Name, sendSummaryDisplay) + "\")"
+	}
+	if len(list) > 1 {
+		out += " and " + strconv.Itoa(len(list)-1) + " more"
+	}
+	return out
 }
