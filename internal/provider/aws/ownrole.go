@@ -73,3 +73,14 @@ func ownIdentity(arn, account string) (role, user string, ok bool) {
 	}
 	return "", "", false
 }
+
+// refuseOwnKey refuses target when it is an access key the connection works with: the key of its credential
+// or the key that signs this call (the temporary key of an assumed role differs from the first). The comparison
+// ignores case so that no spelling of the own key gets through, and the value never appears in the message.
+func (c *Client) refuseOwnKey(op string, creds sigv4.Credentials, name, target string) error {
+	if target == "" || (!strings.EqualFold(target, c.creds.key.AccessKeyID) && !strings.EqualFold(target, creds.AccessKeyID)) {
+		return nil
+	}
+	return &provider.InvalidRequestError{Message: name + " names the access key this connection signs with; a " +
+		"connection never deactivates or deletes its own access key"}
+}

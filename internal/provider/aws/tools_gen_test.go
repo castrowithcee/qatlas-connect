@@ -13,7 +13,7 @@ import (
 var excludedSTSActions = []string{"AssumeRole", "AssumeRoleWithSAML", "AssumeRoleWithWebIdentity", "AssumeRoot", "GetDelegatedAccessToken", "GetFederationToken", "GetSessionToken", "GetWebIdentityToken"}
 
 // excludedIAMActions are the operations the iam table excludes; no tool may send one.
-var excludedIAMActions = []string{"AcceptDelegationRequest", "AddClientIDToOpenIDConnectProvider", "ChangePassword", "CreateAccessKey", "CreateDelegationRequest", "CreateLoginProfile", "CreateOpenIDConnectProvider", "CreateSAMLProvider", "CreateServiceSpecificCredential", "CreateUser", "CreateVirtualMFADevice", "EnableMFADevice", "EnableOutboundWebIdentityFederation", "ResetServiceSpecificCredential", "ResyncMFADevice", "SendDelegationToken", "UpdateLoginProfile", "UpdateOpenIDConnectProviderThumbprint", "UpdateSAMLProvider", "UploadSSHPublicKey", "UploadServerCertificate", "UploadSigningCertificate"}
+var excludedIAMActions = []string{"AcceptDelegationRequest", "AddClientIDToOpenIDConnectProvider", "ChangePassword", "CreateAccessKey", "CreateDelegationRequest", "CreateLoginProfile", "CreateOpenIDConnectProvider", "CreateSAMLProvider", "CreateServiceSpecificCredential", "CreateUser", "CreateVirtualMFADevice", "DeactivateMFADevice", "DeleteLoginProfile", "EnableMFADevice", "EnableOutboundWebIdentityFederation", "ResetServiceSpecificCredential", "ResyncMFADevice", "SendDelegationToken", "UpdateLoginProfile", "UpdateOpenIDConnectProviderThumbprint", "UpdateSAMLProvider", "UploadSSHPublicKey", "UploadServerCertificate", "UploadSigningCertificate"}
 
 // excludedACCOUNTActions are the operations the account table excludes; no tool may send one.
 var excludedACCOUNTActions = []string{"StartPrimaryEmailUpdate", "AcceptPrimaryEmailUpdate", "GetPrimaryEmailUpdateStatus"}
@@ -461,6 +461,16 @@ var generatedCases = []struct {
 		arguments: `{"group_name":"a","user_name":"a"}`,
 		answer:    `<RemoveUserFromGroupResponse xmlns="https://iam.amazonaws.com/doc/2010-05-08/"><RemoveUserFromGroupResult></RemoveUserFromGroupResult></RemoveUserFromGroupResponse>`,
 		form:      map[string]string{"GroupName": "a", "UserName": "a"},
+		token:     false, confirm: true, listed: true, result: nil},
+	{tool: "aws.iam.access-key.deactivate", action: "UpdateAccessKey",
+		arguments: `{"user_name":"a","access_key_id":"aaaaaaaaaaaaaaaa"}`,
+		answer:    `<UpdateAccessKeyResponse xmlns="https://iam.amazonaws.com/doc/2010-05-08/"><UpdateAccessKeyResult></UpdateAccessKeyResult></UpdateAccessKeyResponse>`,
+		form:      map[string]string{"AccessKeyId": "aaaaaaaaaaaaaaaa", "Status": "Inactive", "UserName": "a"},
+		token:     false, confirm: true, listed: true, result: nil},
+	{tool: "aws.iam.access-key.delete", action: "DeleteAccessKey",
+		arguments: `{"user_name":"a","access_key_id":"aaaaaaaaaaaaaaaa"}`,
+		answer:    `<DeleteAccessKeyResponse xmlns="https://iam.amazonaws.com/doc/2010-05-08/"><DeleteAccessKeyResult></DeleteAccessKeyResult></DeleteAccessKeyResponse>`,
+		form:      map[string]string{"AccessKeyId": "aaaaaaaaaaaaaaaa", "UserName": "a"},
 		token:     false, confirm: true, listed: true, result: nil},
 	{tool: "aws.iam.account.get-summary", action: "GetAccountSummary",
 		arguments: "{}",

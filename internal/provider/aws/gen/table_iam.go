@@ -17,7 +17,7 @@ import "slices"
 // completeness test runs on the whole table, so a new IAM operation shows up.
 var iamTable = Table{
 	Service: "iam", Segment: "iam", Geltung: Global,
-	Operations: slices.Concat(iamIdentityTools, iamPolicyTools, iamRoleTools, iamPolicyWriteTools, iamUserWriteTools, iamAccountTools, iamReportTools),
+	Operations: slices.Concat(iamIdentityTools, iamPolicyTools, iamRoleTools, iamPolicyWriteTools, iamUserWriteTools, iamAccessKeyTools, iamAccountTools, iamReportTools),
 	// IAM returns policy documents percent-encoded. A trust policy is decoded to JSON text and cut at 32 KiB;
 	// it is untrusted like every provider content.
 	URLEncoded: []URLEncoded{{Shape: "policyDocumentType", MaxLen: 32 << 10}},
@@ -33,6 +33,8 @@ var iamTable = Table{
 		{Operation: "CreateServiceSpecificCredential", Reason: "returns the password or secret of the new service credential; a credential never appears in a result"},
 		{Operation: "CreateUser", Reason: "adds an IAM user, a new identity that can hold credentials; the user of an application outside AWS is created by a person"},
 		{Operation: "CreateVirtualMFADevice", Reason: "returns the seed and QR code of the virtual MFA device, which authenticate as the device"},
+		{Operation: "DeactivateMFADevice", Reason: "removes the MFA device of an IAM user and with it the second factor of its sign-in; multi-factor authentication is never changed through a tool"},
+		{Operation: "DeleteLoginProfile", Reason: "removes the console password of an IAM user; a password and its sign-in are never changed through a tool"},
 		{Operation: "EnableMFADevice", Reason: "takes one-time codes of an MFA device; enrolling a device is a step of the person who holds it"},
 		{Operation: "EnableOutboundWebIdentityFederation", Reason: "lets the account issue identity tokens to outside parties; access to the outside is never opened through a tool"},
 		{Operation: "ResetServiceSpecificCredential", Reason: "returns the new password or secret of the service credential; a credential never appears in a result"},
@@ -50,11 +52,8 @@ var iamTable = Table{
 		{Operation: "AssociateDelegationRequest", Reason: deferIAM},
 		{Operation: "CreateAccountAlias", Reason: deferIAM},
 		{Operation: "CreateServiceLinkedRole", Reason: deferIAM},
-		{Operation: "DeactivateMFADevice", Reason: deferIAM},
-		{Operation: "DeleteAccessKey", Reason: deferIAM},
 		{Operation: "DeleteAccountAlias", Reason: deferIAM},
 		{Operation: "DeleteAccountPasswordPolicy", Reason: deferIAM},
-		{Operation: "DeleteLoginProfile", Reason: deferIAM},
 		{Operation: "DeleteOpenIDConnectProvider", Reason: deferIAM},
 		{Operation: "DeleteSAMLProvider", Reason: deferIAM},
 		{Operation: "DeleteSSHPublicKey", Reason: deferIAM},
@@ -83,7 +82,6 @@ var iamTable = Table{
 		{Operation: "UntagOpenIDConnectProvider", Reason: deferIAM},
 		{Operation: "UntagSAMLProvider", Reason: deferIAM},
 		{Operation: "UntagServerCertificate", Reason: deferIAM},
-		{Operation: "UpdateAccessKey", Reason: deferIAM},
 		{Operation: "UpdateAccountPasswordPolicy", Reason: deferIAM},
 		{Operation: "UpdateDelegationRequest", Reason: deferIAM},
 		{Operation: "UpdateRoleDescription", Reason: deferIAM},

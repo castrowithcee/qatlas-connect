@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"go/format"
+	"maps"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -340,6 +341,16 @@ var generatedSpecs = []toolSpec{
 		}
 		if t.selfUser != "" {
 			fmt.Fprintf(b, "selfUser: %s,\n", lit(t.selfUser))
+		}
+		if t.selfKey != "" {
+			fmt.Fprintf(b, "selfKey: %s,\n", lit(t.selfKey))
+		}
+		if len(t.fixed) > 0 {
+			b.WriteString("fixed: map[string]string{")
+			for _, k := range slices.Sorted(maps.Keys(t.fixed)) {
+				fmt.Fprintf(b, "%s: %s, ", lit(k), lit(t.fixed[k]))
+			}
+			b.WriteString("},\n")
 		}
 		if t.op.ResultHook != "" {
 			fmt.Fprintf(b, "resultHook: %s,\n", lit(t.op.ResultHook))

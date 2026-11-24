@@ -132,6 +132,12 @@ type Operation struct {
 	// SelfUser is the same for an IAM user: the input member (a required top-level string) that names a user the
 	// tool changes, and the call is refused when it is the user whose access key signs it.
 	SelfUser string
+	// SelfKey is the input member (a required top-level string) that holds an access key ID the tool changes or
+	// deletes; the call is refused when it is the key that signs it (the connection's own key).
+	SelfKey string
+	// Fixed maps input members (top-level strings of an awsQuery tool) to the value the tool always sends. The
+	// member is not offered as an argument, so the caller cannot choose another value.
+	Fixed map[string]string
 	// AccountCheck marks the operation that is the account check itself (STS GetCallerIdentity): its answer
 	// is the result, so the call is made once and is its own proof.
 	AccountCheck bool
@@ -425,6 +431,8 @@ func (op Operation) validate() error {
 		return fmt.Errorf("self_role %q must name an input member of a tool that is not a read", op.SelfRole)
 	case op.SelfUser != "" && (op.Effect == "read" || !opName.MatchString(op.SelfUser)):
 		return fmt.Errorf("self_user %q must name an input member of a tool that is not a read", op.SelfUser)
+	case op.SelfKey != "" && (op.Effect == "read" || !opName.MatchString(op.SelfKey)):
+		return fmt.Errorf("self_key %q must name an input member of a tool that is not a read", op.SelfKey)
 	case op.ResultHook != "" && !slices.Contains(ResultHooks, op.ResultHook):
 		return fmt.Errorf("unknown result_hook %q", op.ResultHook)
 	case op.TokenMember != "" && (!opName.MatchString(op.TokenMember) || op.Effect != "create"):

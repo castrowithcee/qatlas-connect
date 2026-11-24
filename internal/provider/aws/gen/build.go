@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"maps"
 	"regexp"
 	"slices"
 	"strconv"
@@ -100,7 +101,10 @@ type tool struct {
 	rules                     []outputRule
 	targetArgs, policyArgs    []string
 	selfRole, selfUser        string
-	csv                       *CSVReport
+	selfKey                   string
+	// fixed are the wire names and values of the members the tool always sends.
+	fixed map[string]string
+	csv   *CSVReport
 	// nested are the dotted HiddenOutputs paths, true once the converter left the member out.
 	nested map[string]bool
 
@@ -495,8 +499,26 @@ func (t *tool) bindInput(m *Model, in []member, pag *pagingPlan) error {
 	var required []string
 	used := map[string]bool{}
 	offered := map[string]bool{}
+	t.fixed = nil
+	fixedUsed := map[string]bool{}
 	for _, mm := range in {
 		if deprecated(mm) || hidden[mm.name] {
+			continue
+		}
+		if value, ok := t.op.Fixed[mm.name]; ok {
+			if t.rest || !stringKind(mm.kind) {
+				return t.failf("fixed member %s is not a top-level string member of an awsQuery tool", mm.name)
+			}
+			if kind, shape, err := m.resolve(mm.target); err != nil {
+				return t.failf("fixed member %s: %v", mm.name, err)
+			} else if values := enumValues(kind, shape, mm.traits); len(values) > 0 && !slices.Contains(values, any(value)) {
+				return t.failf("fixed value of %s is not one of its enum values", mm.name)
+			}
+			if t.fixed == nil {
+				t.fixed = map[string]string{}
+			}
+			t.fixed[t.wire(mm)] = value
+			fixedUsed[mm.name] = true
 			continue
 		}
 		if t.isStream(mm.name, true) {
@@ -548,6 +570,11 @@ func (t *tool) bindInput(m *Model, in []member, pag *pagingPlan) error {
 			required = append(required, name)
 		}
 		t.args = append(t.args, descArg{name: name, description: a.Description, required: isRequired})
+	}
+	for name := range t.op.Fixed {
+		if !fixedUsed[name] {
+			return t.failf("fixed member %s is not an input member", name)
+		}
 	}
 	for name := range t.op.Arguments {
 		if !offered[name] {
@@ -603,7 +630,7 @@ func (t *tool) bindInput(m *Model, in []member, pag *pagingPlan) error {
 	for _, self := range []struct {
 		name, label string
 		out         *string
-	}{{t.op.SelfRole, "self_role", &t.selfRole}, {t.op.SelfUser, "self_user", &t.selfUser}} {
+	}{{t.op.SelfRole, "self_role", &t.selfRole}, {t.op.SelfUser, "self_user", &t.selfUser}, {t.op.SelfKey, "self_key", &t.selfKey}} {
 		if self.name == "" {
 			continue
 		}
@@ -1342,6 +1369,7 @@ func (t *tool) makeSamples(m *Model) error {
 			t.sampleForm[k] = v
 		}
 	}
+	maps.Copy(t.sampleForm, t.fixed)
 	var body strings.Builder
 	if err := t.answer(&body, t.output); err != nil {
 		return err
