@@ -39,6 +39,7 @@ var changeToolIDs = []string{customersUpdateID, customerBudgetNetworkSettingsCre
 	conversionValueRulesCreateID, conversionValueRulesUpdateID, conversionValueRulesRemoveID,
 	conversionValueRuleSetsCreateID, conversionValueRuleSetsUpdateID, conversionValueRuleSetsRemoveID,
 	assetGroupsCreateID, assetGroupsUpdateID, assetGroupsRemoveID,
+	listingGroupFiltersCreateID, listingGroupFiltersUpdateID, listingGroupFiltersRemoveID,
 	recommendationSubscriptionsCreateID, recommendationSubscriptionsUpdateID,
 	goalsCreateID, goalsUpdateID, campaignGoalConfigsCreateID, campaignGoalConfigsUpdateID, campaignGoalConfigsRemoveID}
 
@@ -142,7 +143,9 @@ func TestChangeToolsAreListedOnlyConfirmedAndOutsideTheReadProfile(t *testing.T)
 		conversionValueRuleSetsCreateID: capability.EffectCreate, conversionValueRuleSetsUpdateID: capability.EffectUpdate,
 		conversionValueRuleSetsRemoveID: capability.EffectDelete,
 		assetGroupsCreateID:             capability.EffectCreate, assetGroupsUpdateID: capability.EffectUpdate,
-		assetGroupsRemoveID:                 capability.EffectDelete,
+		assetGroupsRemoveID:         capability.EffectDelete,
+		listingGroupFiltersCreateID: capability.EffectCreate, listingGroupFiltersUpdateID: capability.EffectUpdate,
+		listingGroupFiltersRemoveID:         capability.EffectDelete,
 		recommendationSubscriptionsCreateID: capability.EffectCreate, recommendationSubscriptionsUpdateID: capability.EffectUpdate,
 		goalsCreateID: capability.EffectCreate, goalsUpdateID: capability.EffectUpdate,
 		campaignGoalConfigsCreateID: capability.EffectCreate, campaignGoalConfigsUpdateID: capability.EffectUpdate,

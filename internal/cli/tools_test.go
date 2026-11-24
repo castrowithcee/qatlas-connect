@@ -582,6 +582,8 @@ func TestToolsFiltersByNamespaceAndQuery(t *testing.T) {
 		"google.ads.campaigns.enable-pmax-brand-guidelines",
 		"google.ads.ad-groups.create", "google.ads.ad-groups.update", "google.ads.ad-groups.remove",
 		"google.ads.asset-groups.create", "google.ads.asset-groups.update", "google.ads.asset-groups.remove",
+		"google.ads.asset-group-listing-group-filters.create", "google.ads.asset-group-listing-group-filters.update",
+		"google.ads.asset-group-listing-group-filters.remove",
 		"google.ads.asset-group-signals.create", "google.ads.asset-group-signals.remove",
 		"google.ads.ad-group-criteria.create", "google.ads.ad-group-criteria.update", "google.ads.ad-group-criteria.remove",
 		"google.ads.ad-group-ads.create", "google.ads.ad-group-ads.update", "google.ads.ad-group-ads.remove",
