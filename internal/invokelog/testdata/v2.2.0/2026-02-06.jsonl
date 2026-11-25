@@ -1,0 +1,1 @@
+{"seq":8,"time":"2026-02-06T12:00:00Z","path":"cli","operation":"canary.v220.three","connection":"canary-v220-docs","effect":"delete","result":"permission","duration_ms":1500,"prev_hash":"f84bf83b734bdf568392f8fa57117aee9f664c2a9d9ef74fe74abd1cf3129922","mac":"3dcad38f0059b27f464bd41c3b8076dc4e9dd2aa99571b5cee5ce8bf6c96d223"}

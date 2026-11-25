@@ -150,11 +150,17 @@ func (w renameWorld) pending(t *testing.T) approval.Report {
 }
 
 // logged decodes every entry of the invocation log.
-func (w renameWorld) logged(t *testing.T) []invokelog.Entry {
+// loggedEntry is a log line decoded with its check value.
+type loggedEntry struct {
+	invokelog.Entry
+	MAC string `json:"mac"`
+}
+
+func (w renameWorld) logged(t *testing.T) []loggedEntry {
 	t.Helper()
-	var entries []invokelog.Entry
+	var entries []loggedEntry
 	for _, line := range logEntries(t, w.dir) {
-		var e invokelog.Entry
+		var e loggedEntry
 		if err := json.Unmarshal([]byte(line), &e); err != nil {
 			t.Fatal(err)
 		}
