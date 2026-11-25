@@ -103,7 +103,7 @@ func TestSessionEntriesMixWithOldOnesInOneChain(t *testing.T) {
 	key, _ := testKey(t)
 	signed, _ := signedLogger(t, dir, key, time.Date(2026, 4, 1, 8, 0, 0, 0, time.UTC))
 	unsigned, _ := clockAt(time.Date(2026, 4, 1, 8, 0, 0, 0, time.UTC))
-	unsigned.vaultDir, unsigned.retentionDays = dir, 90
+	unsigned.opts.Dir, unsigned.opts.RetentionDays = logsDir(dir), 90
 
 	mustAppend(t, signed, "old.style.signed")
 	mustAppend(t, unsigned, "old.style.unsigned")
@@ -114,7 +114,7 @@ func TestSessionEntriesMixWithOldOnesInOneChain(t *testing.T) {
 	}
 	mustAppend(t, signed, "old.style.after")
 
-	lines := readLines(t, filepath.Join(signed.logsDir(), "2026-04-01.jsonl"))
+	lines := readLines(t, filepath.Join(signed.opts.Dir, "2026-04-01.jsonl"))
 	if len(lines) != 6 {
 		t.Fatalf("log holds %d lines, want 6", len(lines))
 	}
@@ -131,7 +131,7 @@ func TestSessionEntriesMixWithOldOnesInOneChain(t *testing.T) {
 
 	// Changing the session of a signed line is detected.
 	lines[2] = []byte(strings.Replace(string(lines[2]), testSession, "fedcba9876543210", 1))
-	writeLines(t, filepath.Join(signed.logsDir(), "2026-04-01.jsonl"), lines)
+	writeLines(t, filepath.Join(signed.opts.Dir, "2026-04-01.jsonl"), lines)
 	if report := verifyWith(t, dir, key); !report.Broken || report.Days[0].Changed != 1 {
 		t.Fatalf("report = %+v, want the changed session found", report)
 	}
@@ -140,12 +140,12 @@ func TestSessionEntriesMixWithOldOnesInOneChain(t *testing.T) {
 func TestAppendKeepsSessionOutOfCutMarkersAndDecodes(t *testing.T) {
 	dir := t.TempDir()
 	logger, _ := clockAt(time.Date(2026, 4, 1, 8, 0, 0, 0, time.UTC))
-	logger.vaultDir, logger.retentionDays = dir, 90
+	logger.opts.Dir, logger.opts.RetentionDays = logsDir(dir), 90
 	if err := logger.Append(mcpFields(OperationMCPSearch)); err != nil {
 		t.Fatal(err)
 	}
 	var e Entry
-	if err := json.Unmarshal(readLines(t, filepath.Join(logger.logsDir(), "2026-04-01.jsonl"))[0], &e); err != nil ||
+	if err := json.Unmarshal(readLines(t, filepath.Join(logger.opts.Dir, "2026-04-01.jsonl"))[0], &e); err != nil ||
 		e.Session != testSession || e.Operation != OperationMCPSearch || *e.RespBytes != 2000 {
 		t.Fatalf("entry = %+v, %v", e, err)
 	}

@@ -69,7 +69,10 @@ func TestInvokeWritesTheInvocationLog(t *testing.T) {
 	if strings.Contains(string(data), `{"id"`) {
 		t.Fatalf("invocation log contains argument bytes: %s", data)
 	}
-	var entry invokelog.Entry
+	var entry struct {
+		invokelog.Entry
+		MAC string `json:"mac"`
+	}
 	if err := json.Unmarshal(data[:len(data)-1], &entry); err != nil {
 		t.Fatalf("Unmarshal(%s) error = %v", data, err)
 	}

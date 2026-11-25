@@ -35,7 +35,8 @@ func TestMain(m *testing.M) {
 // clockAt returns a logger whose clock is fixed at t until moveTo advances it.
 func clockAt(t time.Time) (*Logger, func(time.Time)) {
 	current := t.UTC()
-	logger := &Logger{now: func() time.Time { return current }}
+	logger := &Logger{opts: logOptions("", 0)}
+	logger.opts.Now = func() time.Time { return current }
 	return logger, func(next time.Time) { current = next.UTC() }
 }
 
@@ -50,15 +51,15 @@ func mustAppend(t *testing.T, logger *Logger, operation string) {
 func TestAppendChainsAcrossDays(t *testing.T) {
 	dir := t.TempDir()
 	logger, moveTo := clockAt(time.Date(2026, 1, 1, 10, 0, 0, 0, time.UTC))
-	logger.vaultDir = dir
-	logger.retentionDays = 90
+	logger.opts.Dir = logsDir(dir)
+	logger.opts.RetentionDays = 90
 
 	mustAppend(t, logger, "op.one")
 	mustAppend(t, logger, "op.two")
 	moveTo(time.Date(2026, 1, 3, 9, 0, 0, 0, time.UTC)) // a day with no invoke in between
 	mustAppend(t, logger, "op.three")
 
-	if _, err := os.Stat(filepath.Join(logger.logsDir(), "2026-01-02.jsonl")); !os.IsNotExist(err) {
+	if _, err := os.Stat(filepath.Join(logger.opts.Dir, "2026-01-02.jsonl")); !os.IsNotExist(err) {
 		t.Fatalf("a day with no invoke must not get a file, stat error = %v", err)
 	}
 
@@ -107,13 +108,13 @@ func writeLines(t *testing.T, path string, lines [][]byte) {
 func TestVerifyDetectsTamperedLine(t *testing.T) {
 	dir := t.TempDir()
 	logger, _ := clockAt(time.Date(2026, 2, 1, 0, 0, 0, 0, time.UTC))
-	logger.vaultDir = dir
-	logger.retentionDays = 90
+	logger.opts.Dir = logsDir(dir)
+	logger.opts.RetentionDays = 90
 	mustAppend(t, logger, "op.one")
 	mustAppend(t, logger, "op.two")
 	mustAppend(t, logger, "op.three")
 
-	path := filepath.Join(logger.logsDir(), "2026-02-01.jsonl")
+	path := filepath.Join(logger.opts.Dir, "2026-02-01.jsonl")
 	lines := readLines(t, path)
 	lines[1] = bytes.Replace(lines[1], []byte(`"op.two"`), []byte(`"op.tampered"`), 1)
 	writeLines(t, path, lines)
@@ -130,13 +131,13 @@ func TestVerifyDetectsTamperedLine(t *testing.T) {
 func TestVerifyDetectsDeletedLine(t *testing.T) {
 	dir := t.TempDir()
 	logger, _ := clockAt(time.Date(2026, 2, 1, 0, 0, 0, 0, time.UTC))
-	logger.vaultDir = dir
-	logger.retentionDays = 90
+	logger.opts.Dir = logsDir(dir)
+	logger.opts.RetentionDays = 90
 	mustAppend(t, logger, "op.one")
 	mustAppend(t, logger, "op.two")
 	mustAppend(t, logger, "op.three")
 
-	path := filepath.Join(logger.logsDir(), "2026-02-01.jsonl")
+	path := filepath.Join(logger.opts.Dir, "2026-02-01.jsonl")
 	lines := readLines(t, path)
 	writeLines(t, path, append(lines[:1], lines[2:]...))
 
@@ -152,15 +153,15 @@ func TestVerifyDetectsDeletedLine(t *testing.T) {
 func TestVerifyDetectsMissingMiddleDay(t *testing.T) {
 	dir := t.TempDir()
 	logger, moveTo := clockAt(time.Date(2026, 3, 1, 0, 0, 0, 0, time.UTC))
-	logger.vaultDir = dir
-	logger.retentionDays = 90
+	logger.opts.Dir = logsDir(dir)
+	logger.opts.RetentionDays = 90
 	mustAppend(t, logger, "day1")
 	moveTo(time.Date(2026, 3, 2, 0, 0, 0, 0, time.UTC))
 	mustAppend(t, logger, "day2")
 	moveTo(time.Date(2026, 3, 3, 0, 0, 0, 0, time.UTC))
 	mustAppend(t, logger, "day3")
 
-	if err := os.Remove(filepath.Join(logger.logsDir(), "2026-03-02.jsonl")); err != nil {
+	if err := os.Remove(filepath.Join(logger.opts.Dir, "2026-03-02.jsonl")); err != nil {
 		t.Fatalf("Remove() error = %v", err)
 	}
 
@@ -176,8 +177,8 @@ func TestVerifyDetectsMissingMiddleDay(t *testing.T) {
 func TestRetentionCutIsNotReportedAsAGap(t *testing.T) {
 	dir := t.TempDir()
 	logger, moveTo := clockAt(time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC))
-	logger.vaultDir = dir
-	logger.retentionDays = 5
+	logger.opts.Dir = logsDir(dir)
+	logger.opts.RetentionDays = 5
 
 	mustAppend(t, logger, "old.one")
 	moveTo(time.Date(2026, 1, 2, 0, 0, 0, 0, time.UTC))
@@ -187,14 +188,14 @@ func TestRetentionCutIsNotReportedAsAGap(t *testing.T) {
 	mustAppend(t, logger, "fresh.one")
 	mustAppend(t, logger, "fresh.two")
 
-	if _, err := os.Stat(filepath.Join(logger.logsDir(), "2026-01-01.jsonl")); !os.IsNotExist(err) {
+	if _, err := os.Stat(filepath.Join(logger.opts.Dir, "2026-01-01.jsonl")); !os.IsNotExist(err) {
 		t.Fatalf("2026-01-01.jsonl should have been removed by retention, stat error = %v", err)
 	}
-	if _, err := os.Stat(filepath.Join(logger.logsDir(), "2026-01-02.jsonl")); !os.IsNotExist(err) {
+	if _, err := os.Stat(filepath.Join(logger.opts.Dir, "2026-01-02.jsonl")); !os.IsNotExist(err) {
 		t.Fatalf("2026-01-02.jsonl should have been removed by retention, stat error = %v", err)
 	}
 
-	freshLines := readLines(t, filepath.Join(logger.logsDir(), "2026-01-20.jsonl"))
+	freshLines := readLines(t, filepath.Join(logger.opts.Dir, "2026-01-20.jsonl"))
 	if len(freshLines) != 3 {
 		t.Fatalf("2026-01-20.jsonl has %d lines, want 3 (a cut marker plus two invoke entries)", len(freshLines))
 	}
@@ -219,12 +220,12 @@ func TestRetentionCutIsNotReportedAsAGap(t *testing.T) {
 func TestVerifyDetectsSeqOneWithWrongGenesisHash(t *testing.T) {
 	dir := t.TempDir()
 	logger, _ := clockAt(time.Date(2026, 4, 1, 0, 0, 0, 0, time.UTC))
-	logger.vaultDir = dir
-	logger.retentionDays = 90
+	logger.opts.Dir = logsDir(dir)
+	logger.opts.RetentionDays = 90
 	mustAppend(t, logger, "op.one")
 	mustAppend(t, logger, "op.two")
 
-	path := filepath.Join(logger.logsDir(), "2026-04-01.jsonl")
+	path := filepath.Join(logger.opts.Dir, "2026-04-01.jsonl")
 	lines := readLines(t, path)
 	var first map[string]any
 	if err := json.Unmarshal(lines[0], &first); err != nil {
@@ -256,14 +257,14 @@ func TestVerifyDetectsSeqOneWithWrongGenesisHash(t *testing.T) {
 func TestVerifyDetectsOldestDayRemovedWithoutRetention(t *testing.T) {
 	dir := t.TempDir()
 	logger, moveTo := clockAt(time.Date(2026, 5, 1, 0, 0, 0, 0, time.UTC))
-	logger.vaultDir = dir
-	logger.retentionDays = 90
+	logger.opts.Dir = logsDir(dir)
+	logger.opts.RetentionDays = 90
 	mustAppend(t, logger, "day1.one")
 	moveTo(time.Date(2026, 5, 2, 0, 0, 0, 0, time.UTC))
 	mustAppend(t, logger, "day2.one")
 	mustAppend(t, logger, "day2.two")
 
-	if err := os.Remove(filepath.Join(logger.logsDir(), "2026-05-01.jsonl")); err != nil {
+	if err := os.Remove(filepath.Join(logger.opts.Dir, "2026-05-01.jsonl")); err != nil {
 		t.Fatalf("Remove() error = %v", err)
 	}
 
@@ -287,8 +288,8 @@ func TestVerifyDetectsOldestDayRemovedWithoutRetention(t *testing.T) {
 func TestRetentionCutTwiceStaysIntact(t *testing.T) {
 	dir := t.TempDir()
 	logger, moveTo := clockAt(time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC))
-	logger.vaultDir = dir
-	logger.retentionDays = 5
+	logger.opts.Dir = logsDir(dir)
+	logger.opts.RetentionDays = 5
 
 	mustAppend(t, logger, "day1.one") // seq 1, day 2026-01-01
 	moveTo(time.Date(2026, 1, 2, 0, 0, 0, 0, time.UTC))
@@ -305,12 +306,12 @@ func TestRetentionCutTwiceStaysIntact(t *testing.T) {
 	mustAppend(t, logger, "day-feb.one") // cut marker (seq 5, through_seq 4) + entry seq 6
 
 	for _, name := range []string{"2026-01-01.jsonl", "2026-01-02.jsonl", "2026-01-20.jsonl"} {
-		if _, err := os.Stat(filepath.Join(logger.logsDir(), name)); !os.IsNotExist(err) {
+		if _, err := os.Stat(filepath.Join(logger.opts.Dir, name)); !os.IsNotExist(err) {
 			t.Fatalf("%s should have been removed by a retention cut, stat error = %v", name, err)
 		}
 	}
 
-	lines := readLines(t, filepath.Join(logger.logsDir(), "2026-02-15.jsonl"))
+	lines := readLines(t, filepath.Join(logger.opts.Dir, "2026-02-15.jsonl"))
 	if len(lines) != 2 {
 		t.Fatalf("2026-02-15.jsonl has %d lines, want 2 (a cut marker plus the invoke entry)", len(lines))
 	}
@@ -340,8 +341,8 @@ func TestRetentionCutTwiceStaysIntact(t *testing.T) {
 func TestVerifyDetectsGapAfterADocumentedCut(t *testing.T) {
 	dir := t.TempDir()
 	logger, moveTo := clockAt(time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC))
-	logger.vaultDir = dir
-	logger.retentionDays = 5
+	logger.opts.Dir = logsDir(dir)
+	logger.opts.RetentionDays = 5
 
 	mustAppend(t, logger, "day1.one") // seq 1, 2026-01-01
 	moveTo(time.Date(2026, 1, 8, 0, 0, 0, 0, time.UTC))
@@ -351,13 +352,13 @@ func TestVerifyDetectsGapAfterADocumentedCut(t *testing.T) {
 	// marker (through_seq 1) chains from seq 2, not from the entry it documents removing.
 	mustAppend(t, logger, "day3.one") // cut marker (through_seq 1, seq 3) + seq 4, both on 2026-01-10
 
-	if _, err := os.Stat(filepath.Join(logger.logsDir(), "2026-01-01.jsonl")); !os.IsNotExist(err) {
+	if _, err := os.Stat(filepath.Join(logger.opts.Dir, "2026-01-01.jsonl")); !os.IsNotExist(err) {
 		t.Fatalf("2026-01-01.jsonl should have been removed by the first retention cut, stat error = %v", err)
 	}
 
 	// Removing 2026-01-08 (seq 2) by hand, outside of Append's own retention step, leaves the surviving
 	// marker's through_seq (1) one behind where the chain would need to continue (3) for it to still match.
-	if err := os.Remove(filepath.Join(logger.logsDir(), "2026-01-08.jsonl")); err != nil {
+	if err := os.Remove(filepath.Join(logger.opts.Dir, "2026-01-08.jsonl")); err != nil {
 		t.Fatalf("Remove() error = %v", err)
 	}
 
@@ -463,11 +464,11 @@ func TestAppendNeverWritesArgumentsOrSecrets(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("Append() error = %v", err)
 	}
-	files, err := dayFiles(logger.logsDir())
+	files, err := dayFiles(logger.opts.Dir)
 	if err != nil || len(files) != 1 {
 		t.Fatalf("dayFiles() = %v, %v, want exactly one file", files, err)
 	}
-	data, err := os.ReadFile(filepath.Join(logger.logsDir(), files[0]))
+	data, err := os.ReadFile(filepath.Join(logger.opts.Dir, files[0]))
 	if err != nil {
 		t.Fatalf("ReadFile() error = %v", err)
 	}
@@ -492,8 +493,8 @@ func TestSizeCountersAreAdditive(t *testing.T) {
 			t.Fatalf("Append() error = %v", err)
 		}
 	}
-	files, _ := dayFiles(logger.logsDir())
-	lines := readLines(t, filepath.Join(logger.logsDir(), files[0]))
+	files, _ := dayFiles(logger.opts.Dir)
+	lines := readLines(t, filepath.Join(logger.opts.Dir, files[0]))
 	if len(lines) != 3 {
 		t.Fatalf("got %d lines, want 3", len(lines))
 	}
@@ -713,22 +714,22 @@ func TestValidateDraftTargetChoiceEntries(t *testing.T) {
 func TestZeroRetentionNeverRemovesADayFile(t *testing.T) {
 	dir := t.TempDir()
 	logger, moveTo := clockAt(time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC))
-	logger.vaultDir = dir
+	logger.opts.Dir = logsDir(dir)
 	mustAppend(t, logger, "old.one")
 	moveTo(time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC))
 	mustAppend(t, logger, "fresh.one")
-	if _, err := os.Stat(filepath.Join(logger.logsDir(), "2026-01-01.jsonl")); err != nil {
+	if _, err := os.Stat(filepath.Join(logger.opts.Dir, "2026-01-01.jsonl")); err != nil {
 		t.Fatalf("a logger without retention removed an old day file: %v", err)
 	}
 
 	kept := logger.WithRetention(30)
 	moveTo(time.Date(2026, 6, 2, 0, 0, 0, 0, time.UTC))
 	mustAppend(t, kept, "fresh.two")
-	if _, err := os.Stat(filepath.Join(logger.logsDir(), "2026-01-01.jsonl")); !os.IsNotExist(err) {
+	if _, err := os.Stat(filepath.Join(logger.opts.Dir, "2026-01-01.jsonl")); !os.IsNotExist(err) {
 		t.Fatalf("WithRetention(30) kept a day file older than 30 days: %v", err)
 	}
-	if logger.retentionDays != 0 {
-		t.Fatalf("WithRetention changed the receiver: %d", logger.retentionDays)
+	if logger.opts.RetentionDays != 0 {
+		t.Fatalf("WithRetention changed the receiver: %d", logger.opts.RetentionDays)
 	}
 }
 
@@ -822,5 +823,18 @@ func TestSignedToolRequestEntriesVerify(t *testing.T) {
 	report := verifyWith(t, dir, key)
 	if report.Broken || !report.Checked {
 		t.Fatalf("report = %+v, want an intact, checked chain", report)
+	}
+	days, err := VerifyLines(dir, key, "", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var tools []string
+	for _, d := range days {
+		for _, l := range d.Lines {
+			tools = append(tools, l.Entry.Tool)
+		}
+	}
+	if got, want := strings.Join(tools, ","), ",wiki.pages.*,wiki.pages.delete"; got != want {
+		t.Fatalf("tools read back = %q, want %q", got, want)
 	}
 }

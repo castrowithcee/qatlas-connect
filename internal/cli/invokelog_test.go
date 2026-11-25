@@ -9,15 +9,23 @@ import (
 	"testing"
 	"time"
 
+	"filippo.io/age"
+
 	"github.com/castrowithcee/qatlas-connect/internal/invokelog"
 	"github.com/castrowithcee/qatlas-connect/internal/vault"
 )
 
+// loggedEntry is a log line decoded with its check value.
+type loggedEntry struct {
+	invokelog.Entry
+	MAC string `json:"mac"`
+}
+
 // logEntries returns every line of the invocation log below dir, the configuration directory, decoded.
-func logEntries(t *testing.T, dir string) ([]invokelog.Entry, [][]byte) {
+func logEntries(t *testing.T, dir string) ([]loggedEntry, [][]byte) {
 	t.Helper()
 	files, _ := filepath.Glob(filepath.Join(dir, vault.DirName, "logs", "*.jsonl"))
-	var entries []invokelog.Entry
+	var entries []loggedEntry
 	var lines [][]byte
 	for _, file := range files {
 		data, err := os.ReadFile(file)
@@ -28,7 +36,7 @@ func logEntries(t *testing.T, dir string) ([]invokelog.Entry, [][]byte) {
 			if line == "" {
 				continue
 			}
-			var entry invokelog.Entry
+			var entry loggedEntry
 			if err := json.Unmarshal([]byte(line), &entry); err != nil {
 				t.Fatalf("log line %q: %v", line, err)
 			}
@@ -132,5 +140,52 @@ func TestInvokeLogStaysUnsignedWithoutAnEncryptedVault(t *testing.T) {
 	code, doc, _ := verifyJSON(t, dir)
 	if code != exitOK || doc.MACCheck != macNoVaultKey || doc.Days[0].Unverified != 1 {
 		t.Fatalf("verify: exit %d, report %+v", code, doc)
+	}
+}
+
+// A retention cut is a line of the log but no invocation: verify counts it as neither unverified nor
+// unchecked, signed or not, in the text output and in JSON.
+func TestLogsVerifyCountsOnlyInvocationsAsUnverified(t *testing.T) {
+	id, err := age.GenerateX25519Identity()
+	if err != nil {
+		t.Fatal(err)
+	}
+	key, err := invokelog.DeriveKey(id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for name, signer := range map[string]*invokelog.Key{"unsigned": nil, "signed": key} {
+		t.Run(name, func(t *testing.T) {
+			dir := t.TempDir()
+			logs := filepath.Join(dir, vault.DirName)
+			at := time.Date(2026, 3, 1, 8, 0, 0, 0, time.UTC)
+			logger := invokelog.New(logs, 90).WithClock(func() time.Time { return at }).WithKey(signer)
+			if err := logger.Append(logFields("op.one")); err != nil {
+				t.Fatal(err)
+			}
+			at = time.Date(2026, 9, 1, 8, 0, 0, 0, time.UTC)
+			if err := logger.Append(logFields("op.two")); err != nil {
+				t.Fatal(err)
+			}
+			entries, lines := logEntries(t, dir)
+			if len(lines) != 2 || !strings.Contains(string(lines[0]), `"kind":"retention-cut"`) ||
+				(entries[0].MAC != "") != (signer != nil) {
+				t.Fatalf("lines = %s, want a retention cut and an entry, signed as the logger is", lines)
+			}
+			// Without a vault key nothing is checked: the entry is unverified or unchecked, the cut neither.
+			unverified, unchecked, row := 1, 0, "2026-09-01,1,1,0,0,0"
+			if signer != nil {
+				unverified, unchecked, row = 0, 1, "2026-09-01,1,0,1,0,0"
+			}
+			code, doc, stderr := verifyJSON(t, dir)
+			if code != exitOK || doc.Broken || len(doc.Days) != 1 || doc.Days[0].Entries != 1 ||
+				doc.Days[0].Unverified != unverified || doc.Days[0].Unchecked != unchecked || stderr != "" {
+				t.Fatalf("verify JSON: exit %d, report %+v, stderr %q", code, doc, stderr)
+			}
+			code, stdout, stderr := runWithInput(t, &Options{}, "", "vault", "logs", "verify", "--config", configIn(dir))
+			if code != exitOK || stderr != "" || !strings.Contains(stdout, row) {
+				t.Fatalf("verify text: exit %d, stdout %q, stderr %q", code, stdout, stderr)
+			}
+		})
 	}
 }

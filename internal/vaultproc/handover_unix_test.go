@@ -415,7 +415,10 @@ func (f *handoverFixture) handoverLog() []string {
 	f.t.Helper()
 	var results []string
 	for _, line := range strings.Split(strings.TrimSpace(logText(f.t, f.vault.Dir())), "\n") {
-		var entry invokelog.Entry
+		var entry struct {
+			invokelog.Entry
+			MAC string `json:"mac"`
+		}
 		if line == "" || json.Unmarshal([]byte(line), &entry) != nil || entry.Operation != handoverOperation {
 			continue
 		}
