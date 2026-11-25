@@ -67,8 +67,11 @@ func arrayOf(item string, maxCount int) string {
 	return fmt.Sprintf(`{"type":"array","maxItems":%d,"items":%s}`, maxCount, item)
 }
 
-// closedObject is objectSchema with required members.
+// closedObject is objectSchema with required members; JSON Schema rejects a null required list.
 func closedObject(required []string, pairs ...string) string {
+	if len(required) == 0 {
+		return objectSchema(pairs...)
+	}
 	names, _ := json.Marshal(required)
 	return strings.TrimSuffix(objectSchema(pairs...), `,"additionalProperties":false}`) +
 		`,"required":` + string(names) + `,"additionalProperties":false}`

@@ -15,6 +15,7 @@ import (
 	"github.com/castrowithcee/qatlas-connect/internal/capability"
 	"github.com/castrowithcee/qatlas-connect/internal/config"
 	"github.com/castrowithcee/qatlas-connect/internal/provider"
+	"github.com/castrowithcee/qatlas-kit/jsonschema"
 )
 
 // heldLocation is what the fake holds for locations/2000002: output-only members included.
@@ -95,6 +96,17 @@ const locationCreateArgs = `{"account":"` + boundAccount + `","title":"Sample Ba
 	`"websiteUri":"https://www.example.invalid","labels":["a"],"latlng":{"latitude":52.5,"longitude":13.4},` +
 	`"regularHours":{"periods":[{"openDay":"MONDAY","openTime":{"hours":8},"closeDay":"MONDAY","closeTime":{"hours":17}}]},` +
 	`"profile":{"description":"A sample bakery."}}`
+
+func TestLocationWriteInputSchemasAreValidJSONSchemas(t *testing.T) {
+	for _, descriptor := range []capability.Descriptor{locationsCreate, locationsUpdate} {
+		if err := jsonschema.CheckSchema(descriptor.InputSchema); err != nil {
+			t.Errorf("%s: %v", descriptor.ID, err)
+		}
+		if strings.Contains(string(descriptor.InputSchema), `"required":null`) {
+			t.Errorf("%s: input schema has a null required list", descriptor.ID)
+		}
+	}
+}
 
 func TestLocationWriteToolsAreRegisteredWithTheirRisk(t *testing.T) {
 	reg := capability.NewRegistry()
