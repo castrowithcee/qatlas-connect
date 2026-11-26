@@ -50,12 +50,8 @@ var updateSurfaces = map[string]func(t *testing.T, dir string, updater *selfupda
 // cannot be started: the test binary's own program is never replaced, so a commit is refused.
 func handoverServer(t *testing.T, dir string, key ssh.PublicKey) *vaultproc.Client {
 	t.Helper()
-	_, client := serveVaultInProcessWith(t, dir, func(s *vaultproc.Server) {
-		s.AllowHandover(vault.New(dir).Dir(), []ssh.PublicKey{key},
-			func(context.Context, string, vault.Snapshot) (int, func(), error) {
-				return 0, nil, errors.New("no successor in this test")
-			})
-	})
+	_, client := serveVaultInProcessWith(t, dir, vaultproc.ServerOptions{TrustedKeys: []ssh.PublicKey{key},
+		ConfigPath: configIn(dir)})
 	return client
 }
 

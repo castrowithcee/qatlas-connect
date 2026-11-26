@@ -18,6 +18,7 @@ import (
 	"github.com/castrowithcee/qatlas-connect/internal/manage"
 	"github.com/castrowithcee/qatlas-connect/internal/vault"
 	"github.com/castrowithcee/qatlas-connect/internal/vaultproc"
+	"github.com/castrowithcee/qatlas-connect/internal/vaultproc/vaultproctest"
 	kittui "github.com/castrowithcee/qatlas-kit/tui"
 )
 
@@ -34,6 +35,7 @@ import (
 // Every vault the tests create, re-key or unlock, also through a dialog, uses a low scrypt work factor; the
 // real one costs seconds per passphrase and would let the package overrun the CI time limit.
 func TestMain(m *testing.M) {
+	vaultproctest.RunIfHelper()
 	vault.LowerWorkFactorForTests()
 	startVaultProcessFn = func(context.Context, string, vault.Snapshot, *vaultproc.Client) (vaultproc.Status, error) {
 		return vaultproc.Status{}, vaultproc.ErrUnsupported

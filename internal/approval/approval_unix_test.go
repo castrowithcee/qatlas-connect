@@ -5,34 +5,22 @@ package approval
 import (
 	"context"
 	"errors"
-	"fmt"
-	"net"
 	"os"
 	"strings"
 	"testing"
-
-	"filippo.io/age"
 
 	"github.com/castrowithcee/qatlas-connect/internal/config"
 	"github.com/castrowithcee/qatlas-connect/internal/secret"
 	"github.com/castrowithcee/qatlas-connect/internal/vault"
 	"github.com/castrowithcee/qatlas-connect/internal/vaultproc"
+	"github.com/castrowithcee/qatlas-connect/internal/vaultproc/vaultproctest"
 )
 
 // serve starts a vault process for v in this test process, with what v holds now, and returns its client.
-func serve(t *testing.T, v *vault.Vault, verify vaultproc.Verifier) *vaultproc.Client {
+func serve(t *testing.T, v *vault.Vault) *vaultproc.Client {
 	t.Helper()
-	runtimeDir, err := os.MkdirTemp("", "qa")
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { _ = os.RemoveAll(runtimeDir) })
-	t.Setenv("XDG_RUNTIME_DIR", runtimeDir)
+	runtimeDir(t)
 	snap, err := v.Snapshot()
-	if err != nil {
-		t.Fatal(err)
-	}
-	key, err := age.ParseX25519Identity(snap.Identity)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -40,16 +28,31 @@ func serve(t *testing.T, v *vault.Vault, verify vaultproc.Verifier) *vaultproc.C
 	if err != nil {
 		t.Fatal(err)
 	}
-	l, err := vaultproc.Listen(client.Path)
+	server, err := vaultproc.NewServer(v.Dir(), snap, vaultproc.ServerOptions{})
 	if err != nil {
 		t.Fatal(err)
 	}
-	server := vaultproc.NewServer(key, snap.Secrets, snap.Bindings)
-	server.Verify = verify
-	done := make(chan struct{})
-	go func() { _ = server.Serve(l); close(done) }()
-	t.Cleanup(func() { _ = server.Close(); <-done })
+	t.Cleanup(func() { _ = server.Close() })
 	return client
+}
+
+// serveRefusing listens at the channel of v's vault process as one does once an update replaced its
+// program, refusing every client.
+func serveRefusing(t *testing.T, v *vault.Vault) {
+	t.Helper()
+	runtimeDir(t)
+	vaultproctest.Refuse(t, v.Dir())
+}
+
+// runtimeDir gives the test a runtime directory of its own.
+func runtimeDir(t *testing.T) {
+	t.Helper()
+	dir, err := os.MkdirTemp("", "qa")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.RemoveAll(dir) })
+	t.Setenv("XDG_RUNTIME_DIR", dir)
 }
 
 func scopeOf(t *testing.T, cfg *config.Config, name string) vault.Scope {
@@ -65,7 +68,7 @@ func scopeOf(t *testing.T, cfg *config.Config, name string) vault.Scope {
 // it ran included.
 func TestApprovalsReachTheVaultProcess(t *testing.T) {
 	cfg, v := fixture(t)
-	client := serve(t, v, nil)
+	client := serve(t, v)
 	ctx := context.Background()
 	read := scopeOf(t, cfg, "wiki-read")
 	if err := client.Check(ctx, read); !errors.Is(err, vault.ErrApprovalRequired) {
@@ -89,9 +92,7 @@ func TestApprovalsReachTheVaultProcess(t *testing.T) {
 // approval itself and never carrying a secret.
 func TestApproveWarnsWhenTheVaultProcessRefuses(t *testing.T) {
 	cfg, v := fixture(t)
-	serve(t, v, func(net.Conn) error {
-		return fmt.Errorf("%w: its program was replaced", vaultproc.ErrRefused)
-	})
+	serveRefusing(t, v)
 	approved, warning, err := Approve(context.Background(), cfg, v, nil)
 	if err != nil || len(approved) != 2 {
 		t.Fatalf("Approve() = %v, %v", approved, err)
