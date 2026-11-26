@@ -341,11 +341,13 @@ func (r *Recorder) RecordRequest(operation, connection, connectionID string, too
 // requestEffect is the effect of a tool request operation, empty for any other operation.
 func requestEffect(operation string) string {
 	switch operation {
-	case invokelog.OperationRequestCreate:
+	case invokelog.OperationRequestCreate, invokelog.OperationRequestRemoveCreate:
 		return "create"
-	case invokelog.OperationRequestAccept, invokelog.OperationRequestDecline, invokelog.OperationRequestBlock:
+	case invokelog.OperationRequestAccept, invokelog.OperationRequestDecline, invokelog.OperationRequestBlock,
+		invokelog.OperationRequestRemoveAccept, invokelog.OperationRequestRemoveDecline:
 		return "update"
-	case invokelog.OperationRequestExpire, invokelog.OperationRequestDrop:
+	case invokelog.OperationRequestExpire, invokelog.OperationRequestDrop,
+		invokelog.OperationRequestRemoveExpire, invokelog.OperationRequestRemoveDrop:
 		return "delete"
 	}
 	return ""

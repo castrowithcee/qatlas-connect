@@ -7,6 +7,7 @@ import (
 	"io"
 	"path/filepath"
 	"regexp"
+	"slices"
 
 	"github.com/castrowithcee/qatlas-kit/configfile"
 	yaml "go.yaml.in/yaml/v3"
@@ -24,6 +25,13 @@ func newStore(path string) (*configfile.Store[document], error) {
 		Validate: validate,
 		Encode: func(d document) ([]byte, error) {
 			d.Version = fileVersion
+			// The default stays out of the file; see KindAddTools.
+			d.Requests = slices.Clone(d.Requests)
+			for i := range d.Requests {
+				if d.Requests[i].Kind == KindAddTools {
+					d.Requests[i].Kind = ""
+				}
+			}
 			return yaml.Marshal(d)
 		},
 		Decode: func(data []byte) (document, error) {
@@ -32,6 +40,11 @@ func newStore(path string) (*configfile.Store[document], error) {
 			dec.KnownFields(true)
 			if err := dec.Decode(&d); err != nil && !errors.Is(err, io.EOF) {
 				return document{}, err
+			}
+			for i := range d.Requests {
+				if d.Requests[i].Kind == "" {
+					d.Requests[i].Kind = KindAddTools
+				}
 			}
 			return d, nil
 		},
@@ -48,6 +61,8 @@ func validate(d document) error {
 		switch {
 		case !idPattern.MatchString(r.ID) || seen[r.ID]:
 			return fmt.Errorf("request %d has no unique id", i+1)
+		case r.Kind != KindAddTools && r.Kind != KindRemoveTools:
+			return fmt.Errorf("request %d has an unknown kind", i+1)
 		case r.ConnectionID == "" || len(r.Tools) == 0:
 			return fmt.Errorf("request %d names no connection or no tool", i+1)
 		case r.RequestedAt.IsZero() || r.ExpiresAt.IsZero():

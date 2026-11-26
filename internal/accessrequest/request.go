@@ -8,6 +8,7 @@
 package accessrequest
 
 import (
+	"fmt"
 	"time"
 )
 
@@ -26,10 +27,34 @@ const (
 	fileVersion = 1
 )
 
+// Kind says what a request asks for.
+type Kind string
+
+const (
+	// KindAddTools asks that a connection offer tools it does not. It is the default and is never written to
+	// the file, so a file without another kind stays readable by a Connect that predates kinds.
+	KindAddTools Kind = "add-tools"
+	// KindRemoveTools asks that a connection stop offering tools it offers now. A file holding one carries a
+	// field an older Connect does not know, which it refuses to read instead of misreading it.
+	KindRemoveTools Kind = "remove-tools"
+)
+
+// ParseKind returns the kind a caller wrote: empty is KindAddTools, an unknown value is *InvalidError.
+func ParseKind(s string) (Kind, error) {
+	switch Kind(s) {
+	case "", KindAddTools:
+		return KindAddTools, nil
+	case KindRemoveTools:
+		return KindRemoveTools, nil
+	}
+	return "", &InvalidError{fmt.Sprintf("unknown request kind %q; use %q or %q", shorten(s), KindAddTools, KindRemoveTools)}
+}
+
 // Request is one open request. Connection is the name at the time of the last write; the ID of the
 // connection decides, so a renamed connection keeps its request.
 type Request struct {
 	ID           string    `yaml:"id" json:"id"`
+	Kind         Kind      `yaml:"kind,omitempty" json:"kind"`
 	ConnectionID string    `yaml:"connection_id" json:"connection_id"`
 	Connection   string    `yaml:"connection" json:"connection"`
 	Provider     string    `yaml:"provider" json:"provider"`
@@ -43,6 +68,8 @@ type Request struct {
 // Input is a request to add: the connection already resolved, the tools as the agent wrote them, and the
 // cleaned reason and project path.
 type Input struct {
+	// Kind is empty for KindAddTools.
+	Kind         Kind
 	Connection   string
 	ConnectionID string
 	Tools        []string
@@ -53,12 +80,25 @@ type Input struct {
 // EventKind says what happened to one tool of a request.
 type EventKind string
 
-// The kinds of event, in the order of the log operations they map to.
+// The kinds of event, in the order of the log operations they map to. The Remove events are those of a
+// request of KindRemoveTools; a decision is no event here.
 const (
 	EventCreate EventKind = "create"
 	EventExpire EventKind = "expire"
 	EventDrop   EventKind = "drop"
+
+	EventRemoveCreate EventKind = "remove-create"
+	EventRemoveExpire EventKind = "remove-expire"
+	EventRemoveDrop   EventKind = "remove-drop"
 )
+
+// eventFor returns the event of the request kind that corresponds to event.
+func eventFor(kind Kind, event EventKind) EventKind {
+	if kind != KindRemoveTools {
+		return event
+	}
+	return "remove-" + event
+}
 
 // Event is one tool that was requested, expired, or dropped, with its connection.
 type Event struct {

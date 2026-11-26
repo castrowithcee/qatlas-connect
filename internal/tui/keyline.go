@@ -37,6 +37,9 @@ const (
 	keysImportDelete  = "{yes} delete the file · {no}/{back} keep it · {up}/{down} scroll · {command} cmds · {help} help"
 )
 
+// keysRequestRemoveBody is the key text of a request to remove tools, which is accepted or declined, never blocked.
+const keysRequestRemoveBody = "{up}/{down} move · {space} tick · {tickall} all or none · {yes} accept · {decline} decline · {back} back · {command} cmds · {help} help"
+
 // screenKeyText is the key text the current screen puts in the footer, known before anything is drawn. A
 // screen that a modal dialog covers draws its keys in the dialog, so this is the line of the workspace form.
 func (m *Model) screenKeyText() string {
@@ -180,6 +183,9 @@ func (m *Model) confirmKeys() string {
 		}
 		if m.requestChoice != nil {
 			return keysRequestChoice
+		}
+		if r, _ := m.requestByID(m.requestDetail); removes(r) {
+			return keysRequestRemoveBody
 		}
 		return keysRequestBody
 	case m.approvalDetail != "":

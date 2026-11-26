@@ -143,28 +143,13 @@ var reasonText = map[config.Refusal]string{
 	config.RefusalDisabled:        "the connection is disabled",
 }
 
-// Check judges the tools of a request for the connection name, all or nothing, and returns them without
-// duplicates, sorted. A blocked tool is reported as *BlockedError, anything else that cannot be requested
-// as *InvalidError naming the tool and the reason.
+// Check judges the tools of a request to add for the connection name, all or nothing, and returns them
+// without duplicates, sorted. A blocked tool is reported as *BlockedError, anything else that cannot be
+// requested as *InvalidError naming the tool and the reason.
 func Check(env Env, name string, entries []string) ([]string, error) {
-	if len(entries) == 0 {
-		return nil, &InvalidError{"a request names at least one tool"}
-	}
-	if len(entries) > MaxTools {
-		return nil, &InvalidError{fmt.Sprintf("a request names at most %d tools, not %d", MaxTools, len(entries))}
-	}
-	conn, ok := env.Config.Connections[name]
-	if !ok {
-		return nil, &InvalidError{fmt.Sprintf("connection %q is not configured", name)}
-	}
-	provider := env.Config.Services[conn.Service].Provider
-	own := map[string]config.ToolMetadata{}
-	var ownList []config.ToolMetadata
-	for _, tool := range env.Tools {
-		if tool.Provider == provider {
-			own[tool.ID] = tool.ToolMetadata
-			ownList = append(ownList, tool.ToolMetadata)
-		}
+	own, err := env.begin(name, entries)
+	if err != nil {
+		return nil, err
 	}
 	var cloned *config.Config
 	clone := func() *config.Config {
@@ -180,44 +165,10 @@ func Check(env Env, name string, entries []string) ([]string, error) {
 			continue
 		}
 		unique = append(unique, entry)
-		var tools []config.ToolMetadata
-		var covered, skipped int
-		if config.IsToolPrefix(entry) {
-			stem, valid := config.ToolPrefixStem(provider, entry)
-			if !valid {
-				if owner, known := ProviderOf(env.Tools, entry); known && owner != provider {
-					problems = append(problems, fmt.Sprintf("tool %q: %s, %s", shorten(entry), config.RefusalOtherProvider, reasonText[config.RefusalOtherProvider]))
-				} else {
-					problems = append(problems, fmt.Sprintf("%q is not a valid tool prefix; a prefix is <provider>.<segment>.*", shorten(entry)))
-				}
-				continue
-			}
-			for _, tool := range ownList {
-				if !strings.HasPrefix(tool.ID, stem) {
-					continue
-				}
-				covered++
-				if tool.RequiresToolAllowList {
-					skipped++
-					continue
-				}
-				tools = append(tools, tool)
-			}
-			if covered == 0 {
-				problems = append(problems, fmt.Sprintf("prefix %q matches no tool of the connection's provider", shorten(entry)))
-				continue
-			}
-		} else {
-			tool, known := own[entry]
-			if !known {
-				if owner, other := ProviderOf(env.Tools, entry); other && owner != provider {
-					problems = append(problems, fmt.Sprintf("tool %q: %s, %s", shorten(entry), config.RefusalOtherProvider, reasonText[config.RefusalOtherProvider]))
-				} else {
-					problems = append(problems, fmt.Sprintf("tool %q is not a registered tool", shorten(entry)))
-				}
-				continue
-			}
-			tools = []config.ToolMetadata{tool}
+		tools, skipped, problem := own.resolve(env, entry)
+		if problem != "" {
+			problems = append(problems, problem)
+			continue
 		}
 
 		counts := map[state]int{}
@@ -244,6 +195,128 @@ func Check(env Env, name string, entries []string) ([]string, error) {
 	if len(blocked) > 0 {
 		return nil, &BlockedError{Connection: name, Tools: blocked}
 	}
+	return finish(problems, unique)
+}
+
+// CheckRemove judges the tools of a request to remove for the connection name, all or nothing, and returns
+// them without duplicates, sorted. An entry is valid when the connection offers at least one tool it
+// covers. What a person blocked plays no role: blocking only keeps a tool from being requested to be offered.
+func CheckRemove(env Env, name string, entries []string) ([]string, error) {
+	own, err := env.begin(name, entries)
+	if err != nil {
+		return nil, err
+	}
+	var problems, unique []string
+	for _, entry := range entries {
+		if slices.Contains(unique, entry) {
+			continue
+		}
+		unique = append(unique, entry)
+		tools, skipped, problem := own.resolve(env, entry)
+		if problem != "" {
+			problems = append(problems, problem)
+			continue
+		}
+		offered := false
+		for _, tool := range tools {
+			if env.offers(name, tool) {
+				offered = true
+				break
+			}
+		}
+		if !offered {
+			problems = append(problems, fmt.Sprintf("tool %q is not offered by connection %q, so there is nothing to remove; "+
+				"to have it offered, request it to be added", shorten(entry), name)+allowListNote(entry, skipped))
+		}
+	}
+	return finish(problems, unique)
+}
+
+// CheckKind judges a request of the given kind.
+func CheckKind(env Env, kind Kind, name string, entries []string) ([]string, error) {
+	if kind == KindRemoveTools {
+		return CheckRemove(env, name, entries)
+	}
+	return Check(env, name, entries)
+}
+
+// offers reports whether the connection offers the tool now. A disabled connection still offers what its
+// selection selects.
+func (e Env) offers(name string, tool config.ToolMetadata) bool {
+	refusal := e.Config.ConnectionRefusal(name, tool, e.Now)
+	return refusal == "" || refusal == config.RefusalDisabled
+}
+
+// ownTools are the registered tools of one provider.
+type ownTools struct {
+	provider string
+	byID     map[string]config.ToolMetadata
+	list     []config.ToolMetadata
+}
+
+// begin checks what every kind of request needs first and returns the registered tools of the connection's
+// provider.
+func (e Env) begin(name string, entries []string) (ownTools, error) {
+	if len(entries) == 0 {
+		return ownTools{}, &InvalidError{"a request names at least one tool"}
+	}
+	if len(entries) > MaxTools {
+		return ownTools{}, &InvalidError{fmt.Sprintf("a request names at most %d tools, not %d", MaxTools, len(entries))}
+	}
+	conn, ok := e.Config.Connections[name]
+	if !ok {
+		return ownTools{}, &InvalidError{fmt.Sprintf("connection %q is not configured", name)}
+	}
+	own := ownTools{provider: e.Config.Services[conn.Service].Provider, byID: map[string]config.ToolMetadata{}}
+	for _, tool := range e.Tools {
+		if tool.Provider == own.provider {
+			own.byID[tool.ID] = tool.ToolMetadata
+			own.list = append(own.list, tool.ToolMetadata)
+		}
+	}
+	return own, nil
+}
+
+// resolve returns the registered tools an entry names: the tool itself, or the tools under a prefix except
+// those that need the allow-list, whose number is skipped. A non-empty problem says why the entry names none.
+func (o ownTools) resolve(env Env, entry string) (tools []config.ToolMetadata, skipped int, problem string) {
+	if config.IsToolPrefix(entry) {
+		stem, valid := config.ToolPrefixStem(o.provider, entry)
+		if !valid {
+			if owner, known := ProviderOf(env.Tools, entry); known && owner != o.provider {
+				return nil, 0, fmt.Sprintf("tool %q: %s, %s", shorten(entry), config.RefusalOtherProvider, reasonText[config.RefusalOtherProvider])
+			}
+			return nil, 0, fmt.Sprintf("%q is not a valid tool prefix; a prefix is <provider>.<segment>.*", shorten(entry))
+		}
+		covered := 0
+		for _, tool := range o.list {
+			if !strings.HasPrefix(tool.ID, stem) {
+				continue
+			}
+			covered++
+			if tool.RequiresToolAllowList {
+				skipped++
+				continue
+			}
+			tools = append(tools, tool)
+		}
+		if covered == 0 {
+			return nil, 0, fmt.Sprintf("prefix %q matches no tool of the connection's provider", shorten(entry))
+		}
+		return tools, skipped, ""
+	}
+	tool, known := o.byID[entry]
+	if !known {
+		if owner, other := ProviderOf(env.Tools, entry); other && owner != o.provider {
+			return nil, 0, fmt.Sprintf("tool %q: %s, %s", shorten(entry), config.RefusalOtherProvider, reasonText[config.RefusalOtherProvider])
+		}
+		return nil, 0, fmt.Sprintf("tool %q is not a registered tool", shorten(entry))
+	}
+	return []config.ToolMetadata{tool}, 0, ""
+}
+
+// finish turns the problems of a check into its error, or the sorted unique entries into its result.
+func finish(problems, unique []string) ([]string, error) {
 	if len(problems) > 0 {
 		more := ""
 		if len(problems) > 5 {
@@ -264,9 +337,10 @@ func allowListNote(entry string, skipped int) string {
 	return fmt.Sprintf(" (a prefix does not cover the %d tool(s) below it that require the allow-list; request those by their exact ID)", skipped)
 }
 
-// alive reports whether a stored entry is still worth waiting for: a registered tool, or a prefix over one,
-// that the connection neither offers nor blocks now.
-func (e Env) alive(name, provider, entry string) bool {
+// alive reports whether a stored entry is still worth waiting for: for a request to add, a registered tool,
+// or a prefix over one, that the connection neither offers nor blocks now; for a request to remove, one the
+// connection still offers.
+func (e Env) alive(kind Kind, name, provider, entry string) bool {
 	stem := ""
 	if config.IsToolPrefix(entry) {
 		var ok bool
@@ -279,6 +353,12 @@ func (e Env) alive(name, provider, entry string) bool {
 			continue
 		}
 		if stem == "" && tool.ID != entry || stem != "" && (tool.RequiresToolAllowList || !strings.HasPrefix(tool.ID, stem)) {
+			continue
+		}
+		if kind == KindRemoveTools {
+			if e.offers(name, tool.ToolMetadata) {
+				return true
+			}
 			continue
 		}
 		// Only what a person's decision on the list, the effects, or the allow-list can still offer is alive.
