@@ -123,14 +123,6 @@ func TestTabClickClosesAnOverlayAndActs(t *testing.T) {
 			press(t, m, ":")
 			return m
 		}, func(m *Model) bool { return m.screen == screenCommand }},
-		{"explanation", func(t *testing.T) *Model {
-			m := sizedModel(groupModel(t), 160, 40)
-			openSectionByName(t, m, sectionServices)
-			pressNew(t, m)
-			press(t, m, "tab")
-			m.infoOpen = true
-			return m
-		}, func(m *Model) bool { return m.infoOpen }},
 		{"filter values", func(t *testing.T) *Model {
 			m := newTableModel(t, 100)
 			openSectionByName(t, m, sectionConnections)
@@ -151,11 +143,14 @@ func TestTabClickClosesAnOverlayAndActs(t *testing.T) {
 }
 
 // helpBox is the cells the frame of the help drawn over the screen covers.
-func helpBox(t *testing.T, m *Model) kittui.Rect {
+func helpBox(t *testing.T, m *Model) kittui.Rect { t.Helper(); return modalBox(t, m, "Help") }
+
+// modalBox is the cells the frame of the modal titled title drawn over the screen covers.
+func modalBox(t *testing.T, m *Model, title string) kittui.Rect {
 	t.Helper()
 	lines := frameLines(m)
 	for y, line := range lines {
-		if !strings.Contains(line, "═ Help ") {
+		if !strings.Contains(line, "═ "+title+" ") {
 			continue
 		}
 		left := ansi.StringWidth(line[:strings.Index(line, "╔")])
@@ -166,7 +161,7 @@ func helpBox(t *testing.T, m *Model) kittui.Rect {
 			}
 		}
 	}
-	t.Fatalf("no help frame:\n%s", strings.Join(lines, "\n"))
+	t.Fatalf("no frame titled %s:\n%s", title, strings.Join(lines, "\n"))
 	return kittui.Rect{}
 }
 
@@ -237,6 +232,67 @@ func TestClicksBesideTheHelpCloseItAndRunNothing(t *testing.T) {
 	unchanged(t, m, "a click on the header over the help in the workspace", true)
 	clickAt(t, m, 3, 1)
 	unchanged(t, m, "a click on the tab line over the help in the workspace", true)
+}
+
+// Under the explanation only its own targets act: a click on a tab, the header or the footer behind it
+// switches nothing, runs no key and closes it. Unlike the other modals, a click inside its frame beside its keys
+// closes it too, and a click on one of its keys acts as that key.
+func TestClicksBesideTheExplanationCloseItAndRunNothing(t *testing.T) {
+	open := func(t *testing.T) *Model {
+		m := sizedModel(groupModel(t), 160, 40)
+		m.prefs.Icons = kitprefs.IconsNone
+		openSectionByName(t, m, sectionServices)
+		m.render()
+		press(t, m, "i")
+		if !infoOpen(m) {
+			t.Fatal("i did not open the explanation")
+		}
+		return m
+	}
+	unchanged := func(t *testing.T, m *Model, what string, wantOpen bool) {
+		t.Helper()
+		if m.section != sectionServices || m.screen != screenList || m.cmdline != nil || helpOpen(m) || infoOpen(m) != wantOpen {
+			t.Errorf("%s: section %v screen %v command line %v help open %v explanation open %v, want the list with the explanation open %v",
+				what, m.section, m.screen, m.cmdline != nil, helpOpen(m), infoOpen(m), wantOpen)
+		}
+	}
+	tabs := open(t)
+	title := tabs.explanation().Item().Title
+	tabs.closeModal()
+	tabs.render()
+	if len(tabs.frameTabs) == 0 {
+		t.Fatal("the screen has no tab targets")
+	}
+	for _, tab := range tabs.frameTabs {
+		m := open(t)
+		clickAt(t, m, tab.Rect.X+(tab.Rect.Width-1)/2, tab.Rect.Y)
+		unchanged(t, m, fmt.Sprintf("a click on the tab %s/%s", tab.Area, tab.Tab), false)
+	}
+	for _, text := range []string{"[?] help", "[:] cmd"} {
+		m := open(t)
+		clickOn(t, m, text)
+		unchanged(t, m, "a click on the header key "+text, false)
+	}
+	m := open(t)
+	lines := frameLines(m)
+	clickAt(t, m, ansi.StringWidth(lines[len(lines)-1][:strings.Index(lines[len(lines)-1], "? help")]), len(lines)-1)
+	unchanged(t, m, "a click on the footer", false)
+
+	m = open(t)
+	box := modalBox(t, m, title)
+	clickAt(t, m, box.X+box.Width+2, box.Y+box.Height/2)
+	unchanged(t, m, "a click beside the frame", false)
+	for _, at := range []struct {
+		what string
+		x, y int
+	}{{"on its title", box.X + 1, box.Y}, {"on its text", box.X + 3, box.Y + 1}, {"on its blank right edge", box.X + box.Width - 3, box.Y + 1}} {
+		m = open(t)
+		clickAt(t, m, at.x, at.y)
+		unchanged(t, m, "a click inside the frame "+at.what, false)
+	}
+	m = open(t)
+	clickOn(t, m, "esc/i close")
+	unchanged(t, m, "a click on the close key", false)
 }
 
 // A dialog covers the tab line it stands over; a click there is a click on the dialog.

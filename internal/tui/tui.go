@@ -444,10 +444,9 @@ type Model struct {
 	detailFocus bool
 	detailTab   detailTab
 	// detailPane scrolls the text of the detail pane that is longer than the pane, infoPane the one of the
-	// explanation pane beside a form; info scrolls the explanation overlay.
+	// explanation pane beside a form.
 	detailPane paneScroll
 	infoPane   paneScroll
-	info       textScroll
 	// dd is the open list of a dropdown field of a bar (see dropdown.go).
 	dd *dropdown
 
@@ -663,11 +662,8 @@ type Model struct {
 	// sectionPinned holds the sections the user jumped into, which stay open while the form does even when
 	// nothing in them has a value (see sectionClosed).
 	sectionPinned map[string]bool
-	// infoOpen is set while the explanation of infoShown stands as an overlay over the screen.
-	infoOpen bool
 	// inPane is set while the left part of a screen with a pane is drawn, whose width is already reduced.
-	inPane    bool
-	infoShown infoSubject
+	inPane bool
 	// modal is the part of the kit open over the screen, nil for none; modalDone runs what it answers, and
 	// modalTargets are its click targets in the frame drawn last. See kitmodal.go.
 	modal        kittui.Modal
@@ -1011,16 +1007,6 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 	case tea.KeyPressMsg:
 		msg = legacyKey(msg)
-		if m.infoOpen {
-			if keyIs(msg, actForceQuit) {
-				return m, m.interrupt()
-			}
-			if keyIs(msg, actCopy) {
-				return m, m.copyCurrent()
-			}
-			m.updateInfo(msg)
-			return m, nil
-		}
 		if !fits && m.activeScreenTooSmall() {
 			switch {
 			case keyIs(msg, actForceQuit):
@@ -4050,9 +4036,6 @@ func (m *Model) renderFrame() string {
 			return m.boundKeepingKeys(m.leaveView(), m.termWidth, m.termHeight)
 		}
 		return m.resizeView()
-	}
-	if m.infoOpen {
-		return m.infoView()
 	}
 	if m.modal != nil {
 		return m.modalFrame()

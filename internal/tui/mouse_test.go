@@ -521,11 +521,11 @@ func TestClickOnAnInfoMarkOpensTheExplanation(t *testing.T) {
 		t.Fatalf("no info mark on the focused row:\n%s", ansi.Strip(m.render()))
 	}
 	clickOn(t, m, "(i)")
-	if !m.infoOpen {
+	if !infoOpen(m) {
 		t.Fatal("the click on (i) opened nothing")
 	}
 	clickAt(t, m, 3, 3)
-	if m.infoOpen {
+	if infoOpen(m) {
 		t.Error("a click did not close the explanation")
 	}
 }

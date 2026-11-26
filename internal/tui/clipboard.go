@@ -16,9 +16,10 @@ import (
 // open explanation, the entry of a log, the detail of an approval, the pane of the marked entry, or else the
 // name of the marked row. The text is built only when the key is pressed.
 func (m *Model) copySource() func() string {
+	if e := m.explanation(); e != nil {
+		return e.Text
+	}
 	switch {
-	case m.infoOpen:
-		return func() string { return infoText(m.infoShown) }
 	case m.copyableFocused():
 		id := m.fields[m.focus].value()
 		if id == "" {
@@ -63,7 +64,7 @@ func (m *Model) copyableFocused() bool {
 // copyKeyShown reports whether a footer names the copy key: where it copies and a screen lists it itself
 // nowhere else (the approval detail names it in its own key line).
 func (m *Model) copyKeyShown() bool {
-	if m.infoOpen || m.approvalDetail != "" || !m.letterReachable() {
+	if m.explanation() != nil || m.approvalDetail != "" || !m.letterReachable() {
 		return false
 	}
 	return m.copySource() != nil
@@ -135,15 +136,6 @@ func factsText(facts []styledFact) []string {
 		lines = append(lines, wordText(f.label)+": "+value)
 	}
 	return lines
-}
-
-// infoText is the explanation as the overlay shows it, without the wrapping.
-func infoText(s infoSubject) string {
-	parts := append([]string{s.title}, s.paragraphs()...)
-	if s.doc != "" {
-		parts = append(parts, tr(tDocGuide)+" "+s.doc)
-	}
-	return strings.Join(parts, "\n\n")
 }
 
 // logDetailText is the detail screen of one log entry.

@@ -768,8 +768,8 @@ func TestStorageRowNamesThePlatformKeyringWhole(t *testing.T) {
 					t.Errorf("the storage row does not name %q:\n%s", label, screenOf(m))
 				}
 				press(t, m, "i")
-				if !m.infoOpen || !strings.Contains(m.infoShown.long, "environment variables suit CI and containers") ||
-					!strings.Contains(m.infoShown.long, label) {
+				if !infoOpen(m) || !strings.Contains(m.explanation().Item().Body, "environment variables suit CI and containers") ||
+					!strings.Contains(m.explanation().Item().Body, label) {
 					t.Errorf("i does not show the long form:\n%s", m.render())
 				}
 			})

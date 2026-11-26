@@ -66,15 +66,15 @@ func TestInfoExtraKeyWorksOnTextRowsAndFooters(t *testing.T) {
 		t.Fatalf("a text row names only the key that works there:\n%s", view)
 	}
 	press(t, m, "i")
-	if m.infoOpen {
+	if infoOpen(m) {
 		t.Fatal("the letter opened the explanation on a text row")
 	}
 	press(t, m, "f3")
-	if !m.infoOpen {
+	if !infoOpen(m) {
 		t.Fatal("the extra key did not open the explanation on a text row")
 	}
 	press(t, m, "f3")
-	if m.infoOpen {
+	if infoOpen(m) {
 		t.Fatal("the extra key does not close the explanation")
 	}
 	press(t, m, "tab")
@@ -85,7 +85,7 @@ func TestInfoExtraKeyWorksOnTextRowsAndFooters(t *testing.T) {
 		t.Fatalf("a choice row names both keys:\n%s", view)
 	}
 	press(t, m, "i")
-	if !m.infoOpen {
+	if !infoOpen(m) {
 		t.Fatal("the letter no longer works beside the extra key")
 	}
 }

@@ -120,16 +120,10 @@ func (m *Model) updateMouse(msg tea.MouseMsg) tea.Cmd {
 	if wheel {
 		targets, _ := m.mouseTargets(false)
 		r := kittui.NewMouseMap(targets, true).Handle(msg)
-		if !r.Handled || (m.dd != nil && !m.infoOpen) {
+		if !r.Handled || m.dd != nil {
 			return nil
 		}
 		return m.wheel(event, r)
-	}
-	if m.infoOpen {
-		// The explanation closes the way esc closes it; a click on a tab then goes on.
-		m.infoOpen = false
-		cmd, _ := m.clickTab(msg)
-		return cmd
 	}
 	if m.dd != nil {
 		return m.clickDropdown(msg)
@@ -231,9 +225,6 @@ func (m *Model) wheelScreens() bool {
 // textScreen reports whether what the screen shows is a plain text area, which the wheel moves by wheelText
 // rows. The steps of a transfer or rename that ask for input or move over rows are not.
 func (m *Model) textScreen() bool {
-	if m.infoOpen {
-		return true
-	}
 	switch m.screen {
 	case screenSelftest, screenLogDetail:
 		return true
@@ -263,24 +254,22 @@ func (m *Model) atListTop() bool {
 // the frame read it.
 func (m *Model) wheel(event tea.Mouse, r kittui.MouseResult) tea.Cmd {
 	up := event.Button == tea.MouseWheelUp
-	if !m.infoOpen {
-		// A text pane beside the screen scrolls under the wheel without taking the focus or moving the rows.
-		for _, pane := range []*paneScroll{&m.detailPane, &m.infoPane} {
-			if (pane == &m.detailPane && (m.screen == screenList || m.screen == screenNav) && m.paneWidth() > 0 || pane == &m.infoPane && m.paneShown()) && pane.at(event.X, event.Y) {
-				m.touchAdminSessionIfActive()
-				pane.wheel(up)
-				return nil
-			}
+	// A text pane beside the screen scrolls under the wheel without taking the focus or moving the rows.
+	for _, pane := range []*paneScroll{&m.detailPane, &m.infoPane} {
+		if (pane == &m.detailPane && (m.screen == screenList || m.screen == screenNav) && m.paneWidth() > 0 || pane == &m.infoPane && m.paneShown()) && pane.at(event.X, event.Y) {
+			m.touchAdminSessionIfActive()
+			pane.wheel(up)
+			return nil
 		}
 	}
-	if m.screen == screenList && m.listSection() && !m.infoOpen {
+	if m.screen == screenList && m.listSection() {
 		if r.Zone == kittui.ZoneRows {
 			m.touchAdminSessionIfActive()
 			m.list.Wheel(r.WheelSteps)
 		}
 		return nil
 	}
-	if !m.wheelScreens() || (up && !m.infoOpen && m.atListTop()) {
+	if !m.wheelScreens() || (up && m.atListTop()) {
 		return nil
 	}
 	m.touchAdminSessionIfActive()
@@ -291,7 +280,7 @@ func (m *Model) wheel(event tea.Mouse, r kittui.MouseResult) tea.Cmd {
 	if m.textScreen() {
 		times = wheelText
 	}
-	if m.screen == screenForm && !m.infoOpen && event.X < m.sectionListWidth {
+	if m.screen == screenForm && event.X < m.sectionListWidth {
 		key = tea.KeyPgDown
 		if up {
 			key = tea.KeyPgUp
@@ -394,7 +383,7 @@ const barLeaveSteps = 8
 // whose esc only returns to the tab line, and wherever a question, a dialog or an overlay is open and esc
 // answers that instead.
 func (m *Model) backShown() bool {
-	if m.backdrop || m.modal != nil || m.infoOpen || m.keyCapture || m.dd != nil || m.testResultShown() {
+	if m.backdrop || m.modal != nil || m.keyCapture || m.dd != nil || m.testResultShown() {
 		return false
 	}
 	if _, ok := keyPress(keyLabel(actBack)); !ok {
