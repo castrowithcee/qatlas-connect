@@ -14,11 +14,15 @@ import (
 // has no confirmation gate, needs no terminal, no passphrase, and no agent token.
 func newRequestCommand(opts *Options, registry *capability.Registry) *cobra.Command {
 	var (
-		reason string
-		remove bool
+		reason   string
+		remove   bool
+		create   bool
+		provider string
+		name     string
+		targets  []string
 	)
 	cmd := &cobra.Command{
-		Use:   "request [--remove] <tool-id or prefix>...",
+		Use:   "request [--remove | --create-connection --provider <id> --name <name> [--target <target>]...] <tool-id or prefix>...",
 		Short: "Ask the user for tools a connection does not offer",
 		Long: "Request asks for tools that a connection of this project does not offer, so that the user can offer\n" +
 			"them. Name each tool by its ID, or a whole group by a prefix of the form <provider>.<segment>.*;\n" +
@@ -34,6 +38,14 @@ func newRequestCommand(opts *Options, registry *capability.Registry) *cobra.Comm
 			"move admin tools into a connection of limited duration. Name tools or prefixes the connection offers;\n" +
 			"a tool it does not offer ends with invalid-request. The user can only accept or decline such a\n" +
 			"request; it cannot be blocked.\n\n" +
+			"--create-connection asks the user to set up a new connection, for example one of limited duration for\n" +
+			"admin tools, when no connection of a provider fits. Give --provider, --name (the connection name you\n" +
+			"wish), each --target the connection should reach (repeatable, as the provider writes them), and the\n" +
+			"tools or prefixes it should offer, at most 50. It takes no --connection and carries no credential,\n" +
+			"service, URL, or secret: the user chooses those in 'qconnect tui' and may change every value. The\n" +
+			"answer says the request is open and nothing was created. Stop then and tell the user what you asked\n" +
+			"for. Example: qconnect request --create-connection --provider example --name example-admin\n" +
+			"--target spaces/ENG --reason \"reset a user\" example.users.reset\n\n" +
 			"A request changes nothing by itself: it stays open for 14 days, until the user decides, and a\n" +
 			"further request for the same connection joins it. The answer names the request id, the connection,\n" +
 			"every tool the request now holds, the status open, and expires_at. Stop then, tell the user what you\n" +
@@ -61,11 +73,17 @@ func newRequestCommand(opts *Options, registry *capability.Registry) *cobra.Comm
 				return err
 			}
 			var kind string
-			if remove {
+			switch {
+			case remove && create:
+				return newSyntaxError(fmt.Errorf("--remove and --create-connection exclude each other"))
+			case remove:
 				kind = string(accessrequest.KindRemoveTools)
+			case create:
+				kind = string(accessrequest.KindCreateConnection)
 			}
 			response, err := core.RequestTools(application.ToolRequest{
 				Connection: opts.Connection, Tools: args, Reason: reason, Kind: kind,
+				Provider: provider, Name: name, Targets: targets,
 			})
 			if err != nil {
 				return classifyUserError(err)
@@ -74,6 +92,10 @@ func newRequestCommand(opts *Options, registry *capability.Registry) *cobra.Comm
 		},
 	}
 	cmd.Flags().BoolVar(&remove, "remove", false, "ask that the connection stop offering the named tools instead of offering them")
+	cmd.Flags().BoolVar(&create, "create-connection", false, "ask the user to set up a new connection instead of offering tools on an existing one")
+	cmd.Flags().StringVar(&provider, "provider", "", "with --create-connection: the provider of the wished connection")
+	cmd.Flags().StringVar(&name, "name", "", "with --create-connection: the wished name of the connection")
+	cmd.Flags().StringArrayVar(&targets, "target", nil, "with --create-connection: a target the connection should reach, repeatable")
 	cmd.Flags().StringVar(&reason, "reason", "", "a short reason for the user, shown as untrusted text and never logged")
 	return cmd
 }

@@ -44,11 +44,15 @@ type fixture struct {
 
 func newFixture(t *testing.T) *fixture {
 	t.Helper()
-	meta := config.ProviderMetadata{ID: "fake", Target: config.TargetMetadata{
+	return newFixtureWith(t, config.ProviderMetadata{ID: "fake", Target: config.TargetMetadata{
 		Reaches: func(tool string, targets []string) (bool, []string) {
 			return tool != "fake.pages.remote" || len(targets) > 0, nil
 		},
-	}}
+	}})
+}
+
+func newFixtureWith(t *testing.T, meta config.ProviderMetadata) *fixture {
+	t.Helper()
 	cfg := config.New(catalog{meta})
 	cfg.Services["svc"] = config.Service{Provider: "fake", BaseURL: "https://example.invalid"}
 	cfg.Credentials["cred"] = config.Credential{Type: config.CredentialTypeEnv, Values: map[string]string{"token": "FAKE_TOKEN"}}
