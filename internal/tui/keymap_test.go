@@ -14,7 +14,7 @@ import (
 	kit "github.com/castrowithcee/qatlas-kit/tui"
 	"github.com/charmbracelet/x/ansi"
 
-	"github.com/castrowithcee/qatlas-connect/internal/uiprefs"
+	kitprefs "github.com/castrowithcee/qatlas-kit/uiprefs"
 )
 
 // rebind gives an action another default key for one test: the table is checked again by the kit, so the key
@@ -157,11 +157,11 @@ func TestKeyTableIsValidAndRebindingKeepsItValid(t *testing.T) {
 		t.Error("delete and discard, new and no should share a key on different levels")
 	}
 	// A swap of two keys is valid as a whole, a collision is refused as a whole.
-	applyKeys(uiprefs.Keys{Info: "f3", Save: "f4", Help: "ctrl+x", Command: "f7", Lock: "f6"})
+	applyKeys(map[action]string{actInfo: "f3", actSave: "f4", actHelp: "ctrl+x", actCommand: "f7", actLock: "f6"})
 	if keyLabel(actCommand) != "F7" || keyLabel(actHelp) != "ctrl+x" || keyLabel(actLock) != "F6" || keyLabel(actSave) != "F4" {
 		t.Errorf("the swapped keys are not in force: %s %s %s %s", keyLabel(actCommand), keyLabel(actHelp), keyLabel(actLock), keyLabel(actSave))
 	}
-	applyKeys(uiprefs.Keys{Save: "f4", Lock: "f4"})
+	applyKeys(map[action]string{actSave: "f4", actLock: "f4"})
 	if keyLabel(actSave) != "F2" || keyLabel(actLock) != "ctrl+l" {
 		t.Errorf("two actions on one key were taken: %s %s", keyLabel(actSave), keyLabel(actLock))
 	}
@@ -171,40 +171,45 @@ func TestKeyTableIsValidAndRebindingKeepsItValid(t *testing.T) {
 // own keys are, and the keys the kit leaves free stay bindable.
 func TestCheckRefusesReservedStandardKeys(t *testing.T) {
 	keepKeys(t)
-	refused := map[string][]string{
-		uiprefs.ActionSave:    {"ctrl+l"},
-		uiprefs.ActionHelp:    {"f2", ":", "ctrl+l"},
-		uiprefs.ActionCommand: {"f2", "?", "ctrl+l"},
-		uiprefs.ActionLock:    {"f2"},
-		uiprefs.ActionInfo:    {"f2", "ctrl+l"},
+	refused := map[action][]string{
+		actSave:    {"ctrl+l"},
+		actHelp:    {"f2", ":", "ctrl+l"},
+		actCommand: {"f2", "?", "ctrl+l"},
+		actLock:    {"f2"},
+		actInfo:    {"f2", "ctrl+l"},
 	}
 	for name, keys := range refused {
 		for _, k := range keys {
-			if _, err := uiprefs.DefaultKeys().Check(name, k); err == nil {
+			if _, err := keymap.CheckBinding(name, k, nil); err == nil {
 				t.Errorf("Check(%s, %q) accepts a reserved standard key", name, k)
 			}
 		}
 	}
-	if _, err := uiprefs.DefaultKeys().Check(uiprefs.ActionInfo, "f3"); err != nil {
+	if _, err := keymap.CheckBinding(actInfo, "f3", nil); err != nil {
 		t.Errorf("Check(info, f3) = %v", err)
 	}
-	if _, err := uiprefs.DefaultKeys().Check(uiprefs.ActionSave, "f4"); err != nil {
+	if _, err := keymap.CheckBinding(actSave, "f4", nil); err != nil {
 		t.Errorf("Check(save, f4) = %v", err)
+	}
+	for _, k := range []string{"ctrl+]", "ctrl+\\"} {
+		if _, err := keymap.CheckBinding(actLock, k, nil); err != nil {
+			t.Errorf("Check(lock, %q) = %v", k, err)
+		}
 	}
 }
 
 // A file with a reserved key keeps the default of that action with a warning, and its valid keys stay.
 func TestLoadKeepsValidKeysBesideAReservedOne(t *testing.T) {
 	keepKeys(t)
-	path := filepath.Join(t.TempDir(), uiprefs.FileName)
+	path := filepath.Join(t.TempDir(), kitprefs.FileName)
 	if err := os.WriteFile(path, []byte("keys:\n  command: ctrl+l\n  lock: f6\n  info: f3\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	prefs, warnings := uiprefs.Load(path)
+	prefs, warnings := kitprefs.Load(path, PrefsSchema())
 	if len(warnings) != 1 || !strings.Contains(warnings[0], "keys.command") {
 		t.Fatalf("warnings = %v", warnings)
 	}
-	if prefs.Keys.Command != ":" || prefs.Keys.Lock != "f6" || prefs.Keys.Info != "f3" {
+	if _, own := prefs.Keys[actCommand]; own || prefs.Keys[actLock] != "f6" || prefs.Keys[actInfo] != "f3" {
 		t.Errorf("keys = %+v", prefs.Keys)
 	}
 	applyKeys(prefs.Keys)
@@ -214,7 +219,7 @@ func TestLoadKeepsValidKeysBesideAReservedOne(t *testing.T) {
 	if err := os.WriteFile(path, []byte("keys:\n  info: f3\n  save: f4\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if prefs, warnings = uiprefs.Load(path); len(warnings) != 0 {
+	if prefs, warnings = kitprefs.Load(path, PrefsSchema()); len(warnings) != 0 {
 		t.Fatalf("warnings = %v", warnings)
 	}
 	applyKeys(prefs.Keys)
@@ -263,32 +268,28 @@ func TestCheckRefusesTheKeysOfTheTable(t *testing.T) {
 			continue
 		}
 		for _, k := range d.DefaultKeys {
-			for _, name := range uiprefs.Actions {
+			for _, name := range boundActions() {
 				// A table space is spelled "space", the rules know it as " ".
 				if k == "space" {
 					k = " "
 				}
-				if k == " " && name == uiprefs.ActionInfo {
-					// Normalize trims a space to "", which the info action takes as "no second key".
+				if k == " " && name == actInfo {
+					// CheckBinding trims a space to "", which the info action takes as "no second key".
 					continue
 				}
-				if _, err := uiprefs.DefaultKeys().Check(name, k); err == nil {
+				if _, err := keymap.CheckBinding(name, k, nil); err == nil {
 					t.Errorf("Check(%s, %q) accepts the key of %s", name, k, d.ID)
 				}
 			}
 		}
 	}
-	if _, err := uiprefs.DefaultKeys().Check(uiprefs.ActionHelp, "ctrl+x"); err != nil {
+	if _, err := keymap.CheckBinding(actHelp, "ctrl+x", nil); err != nil {
 		t.Errorf("a free key is refused: %v", err)
 	}
 	// The table itself, not a copy of the rules, decides: a key it newly gives away is refused.
 	rebind(t, actQuit, "ctrl+x")
-	if _, err := uiprefs.DefaultKeys().Check(uiprefs.ActionHelp, "ctrl+x"); err == nil || !strings.Contains(err.Error(), string(actQuit)) {
+	if _, err := keymap.CheckBinding(actHelp, "ctrl+x", nil); err == nil || !strings.Contains(err.Error(), string(actQuit)) {
 		t.Errorf("Check does not consult the table: %v", err)
-	}
-	// A key of a replaceable action stays free for another one to take when it is not in the form.
-	if owner := reservedOwner("f2"); owner != "" {
-		t.Errorf("f2 is reserved by %s, but save can be replaced", owner)
 	}
 }
 
@@ -420,7 +421,7 @@ func TestPaletteShortcutsFollowTheKeymap(t *testing.T) {
 	rebind(t, actQuit, "Z")
 	rebind(t, actSetup, "ctrl+x")
 	m := paletteModel(t, 150, 42)
-	m.prefs.Icons = uiprefs.IconsNone
+	m.prefs.Icons = kitprefs.IconsNone
 	view := ansi.Strip(m.render())
 	for _, name := range []string{"Start the guided setup", "Open Connections"} {
 		line := lineWith(view, name)

@@ -9,9 +9,9 @@ import (
 	"github.com/charmbracelet/x/ansi"
 
 	"github.com/castrowithcee/qatlas-connect/internal/helptopics"
-	"github.com/castrowithcee/qatlas-connect/internal/uiprefs"
 	kithelp "github.com/castrowithcee/qatlas-kit/helptopics"
 	kit "github.com/castrowithcee/qatlas-kit/tui"
+	kitprefs "github.com/castrowithcee/qatlas-kit/uiprefs"
 )
 
 const (
@@ -184,7 +184,7 @@ func (m *Model) pickerChoiceSubject(f field, choice string) infoSubject {
 			}
 		}
 		return s
-	case f.label == iconsLabel && choice == uiprefs.IconsNerdFont:
+	case f.label == iconsLabel && choice == kitprefs.IconsNerdFont:
 		s.long = iconsDetail()
 		return s.withTerm(m.fieldTerm(f))
 	case f.label == profileLabel:

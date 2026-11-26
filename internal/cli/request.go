@@ -19,8 +19,8 @@ func newRequestCommand(opts *Options, registry *capability.Registry) *cobra.Comm
 		Long: "Request asks for tools that a connection of this project does not offer, so that the user can offer\n" +
 			"them. Name each tool by its ID, or a whole group by a prefix of the form <provider>.<segment>.*;\n" +
 			"'qconnect tools <provider> --all' lists the tools no connection offers and names, as requestable_on,\n" +
-			"the connection to ask. Ask only for what the task needs. One call names the tools of one provider, at\n" +
-			"most 50, and is accepted or refused as a whole.\n\n" +
+			"the connection to ask, always an active one. Ask only for what the task needs. One call names the\n" +
+			"tools of one provider, at most 50, and is accepted or refused as a whole.\n\n" +
 			"--connection selects the connection like it does for invoke: its name, its id, or name|id; left out,\n" +
 			"the default of the tool, then that of its provider, then the one connection of the provider in this\n" +
 			"project is used, and several candidates are refused with connection-ambiguous.\n\n" +

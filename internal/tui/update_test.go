@@ -10,8 +10,8 @@ import (
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/castrowithcee/qatlas-connect/internal/selfupdate"
-	"github.com/castrowithcee/qatlas-connect/internal/uiprefs"
 	kittui "github.com/castrowithcee/qatlas-kit/tui"
+	kitprefs "github.com/castrowithcee/qatlas-kit/uiprefs"
 )
 
 // fakeUpdater answers the check and the installation from its fields and counts the installations.
@@ -391,11 +391,11 @@ func TestTheBannerShowsTheDownloadProgress(t *testing.T) {
 func TestTheBannerEmojiIsAnIcon(t *testing.T) {
 	setUTF8(t, "xterm-256color", "C.UTF-8")
 	m := startedWith(t, newerRelease())
-	m.prefs.Icons = uiprefs.IconsUnicode
+	m.prefs.Icons = kitprefs.IconsUnicode
 	if got, want := m.updateBanners()[0], "Update available v0.4.0 → v0.5.0 🎉 · U update"; got != want {
 		t.Errorf("unicode banner = %q, want %q", got, want)
 	}
-	m.prefs.Icons = uiprefs.IconsNone
+	m.prefs.Icons = kitprefs.IconsNone
 	if got := m.updateBanners()[0]; got != fullBanner {
 		t.Errorf("banner without icons = %q, want %q", got, fullBanner)
 	}

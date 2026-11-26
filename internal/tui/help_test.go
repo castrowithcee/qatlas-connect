@@ -11,7 +11,6 @@ import (
 	"github.com/charmbracelet/x/ansi"
 
 	"github.com/castrowithcee/qatlas-connect/internal/helptopics"
-	"github.com/castrowithcee/qatlas-connect/internal/uiprefs"
 	kithelp "github.com/castrowithcee/qatlas-kit/helptopics"
 	kittui "github.com/castrowithcee/qatlas-kit/tui"
 )
@@ -229,7 +228,7 @@ func TestHelpIsAPanelOverTheScreenWhereThereIsRoom(t *testing.T) {
 // without them.
 func TestHelpKeyListsEndTheFirstTopic(t *testing.T) {
 	keepKeys(t)
-	applyKeys(uiprefs.Keys{Command: "f6"})
+	applyKeys(map[action]string{actCommand: "f6"})
 	m := sizedModel(groupModel(t), 120, 40)
 	openSectionByName(t, m, sectionConnections)
 	press(t, m, "?")

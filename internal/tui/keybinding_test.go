@@ -7,7 +7,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"github.com/charmbracelet/x/ansi"
 
-	"github.com/castrowithcee/qatlas-connect/internal/uiprefs"
+	kitprefs "github.com/castrowithcee/qatlas-kit/uiprefs"
 )
 
 // keepKeys puts the process-wide keymap back after a test that changes it.
@@ -20,6 +20,15 @@ func keepKeys(t *testing.T) {
 			t.Error(err)
 		}
 	})
+}
+
+// boundActions are the actions the key rows of the General form bind.
+func boundActions() []action {
+	var actions []action
+	for _, r := range keyRows {
+		actions = append(actions, r.action)
+	}
+	return actions
 }
 
 // focusKeyRow focuses the row of an action in the General form.
@@ -46,7 +55,7 @@ func TestInfoExtraKeyWorksOnTextRowsAndFooters(t *testing.T) {
 	keepKeys(t)
 	m, _, _ := newModel(t)
 	m.Update(tea.WindowSizeMsg{Width: 140, Height: 40})
-	applyKeys(uiprefs.Keys{Info: "f3"})
+	applyKeys(map[action]string{actInfo: "f3"})
 	addService(t, m, "wiki", "https://wiki.example.invalid")
 	openSectionByName(t, m, sectionConnections)
 	pressNew(t, m)
@@ -98,8 +107,8 @@ func TestSettingsBindsKeysAndFootersFollow(t *testing.T) {
 	if !strings.HasPrefix(m.status, "Saved") || m.fail != "" {
 		t.Fatalf("the new save key did not save: status %q fail %q", m.status, m.fail)
 	}
-	got, warnings := uiprefs.Load(path)
-	if got.Keys.Info != "f3" || got.Keys.Save != "f4" || len(warnings) != 0 {
+	got, warnings := kitprefs.Load(path, PrefsSchema())
+	if got.Keys[actInfo] != "f3" || got.Keys[actSave] != "f4" || len(got.Keys) != 2 || len(warnings) != 0 {
 		t.Fatalf("stored keys = %+v %v", got.Keys, warnings)
 	}
 	if infoExtraLabel() != "F3" || keyLabel(actSave) != "F4" {
@@ -119,10 +128,10 @@ func TestSettingsRefusesKeysWithReason(t *testing.T) {
 	keepKeys(t)
 	cases := []struct{ row, key, reason string }{
 		{"info key", "f2", "already the key of save"},
-		{"save key", "x", "acts on text lines"},
+		{"save key", "x", "already the key of decline"},
 		{"info key", "!", "acts on text lines"},
 		{"help key", "tab", "move between fields"},
-		{"command key", "5", "digits choose an area"},
+		{"command key", "5", "already the key of area"},
 		{"lock key", "f1", "terminals take"},
 		{"lock key", "!", "acts on text lines"},
 		{"save key", "space", "space and control characters"},
@@ -177,7 +186,7 @@ func TestSettingsCaptureShadowsGlobalKeys(t *testing.T) {
 
 func TestStandardKeysNeedNoExtra(t *testing.T) {
 	keepKeys(t)
-	applyKeys(uiprefs.DefaultKeys())
+	applyKeys(nil)
 	if infoExtraLabel() != "" || keyLabel(actInfo) != "i" || keyLabel(actSave) != "F2" {
 		t.Fatalf("defaults: extra %q info %q save %q", infoExtraLabel(), keyLabel(actInfo), keyLabel(actSave))
 	}
@@ -185,7 +194,7 @@ func TestStandardKeysNeedNoExtra(t *testing.T) {
 
 func TestHelpListsTheKeysInForce(t *testing.T) {
 	keepKeys(t)
-	applyKeys(uiprefs.Keys{Info: "f3", Save: "f4"})
+	applyKeys(map[action]string{actInfo: "f3", actSave: "f4"})
 	m, _, _ := newModel(t)
 	m.Update(tea.WindowSizeMsg{Width: 100, Height: 80})
 	press(t, m, "?")
@@ -215,25 +224,28 @@ func TestCtrlCStillQuitsDuringCapture(t *testing.T) {
 // terminals send for it: the shifted F1 to F8 of xterm-like terminals as F13 to F20, and the F1 to F5 of the
 // Linux console as F1 to F5.
 func TestStoredKeyNamesReachTheEditorUnchanged(t *testing.T) {
-	keys := []struct{ sequence, name, action string }{
-		{"\x1bOQ", "f2", uiprefs.ActionSave}, {"\x1bOR", "f3", uiprefs.ActionSave}, {"\x1bOS", "f4", uiprefs.ActionSave},
-		{"\x1b[17~", "f6", uiprefs.ActionSave}, {"\x1b[18~", "f7", uiprefs.ActionSave},
-		{"\x1b[19~", "f8", ""}, {"\x1b[20~", "f9", uiprefs.ActionSave},
-		{"\x1b[25~", "f13", uiprefs.ActionSave}, {"\x1b[1;2P", "f13", uiprefs.ActionSave},
-		{"\x1b[1;2Q", "f14", uiprefs.ActionSave}, {"\x1b[1;2R", "f15", uiprefs.ActionSave},
-		{"\x1b[1;2S", "f16", uiprefs.ActionSave}, {"\x1b[15;2~", "f17", uiprefs.ActionSave},
-		{"\x1b[17;2~", "f18", uiprefs.ActionSave}, {"\x1b[18;2~", "f19", uiprefs.ActionSave},
-		{"\x1b[19;2~", "f20", uiprefs.ActionSave}, {"\x1b[[B", "f2", uiprefs.ActionSave}, {"\x1b[[D", "f4", uiprefs.ActionSave},
-		{"\x0c", "ctrl+l", uiprefs.ActionLock},
-		{"\x12", "ctrl+r", ""}, {"\x19", "ctrl+y", ""}, {"\x18", "ctrl+x", uiprefs.ActionSave},
-		{"?", "?", uiprefs.ActionHelp}, {":", ":", uiprefs.ActionCommand}, {"!", "!", uiprefs.ActionHelp},
+	keys := []struct {
+		sequence, name string
+		action         action
+	}{
+		{"\x1bOQ", "f2", actSave}, {"\x1bOR", "f3", actSave}, {"\x1bOS", "f4", actSave},
+		{"\x1b[17~", "f6", actSave}, {"\x1b[18~", "f7", actSave},
+		{"\x1b[19~", "f8", ""}, {"\x1b[20~", "f9", actSave},
+		{"\x1b[25~", "f13", actSave}, {"\x1b[1;2P", "f13", actSave},
+		{"\x1b[1;2Q", "f14", actSave}, {"\x1b[1;2R", "f15", actSave},
+		{"\x1b[1;2S", "f16", actSave}, {"\x1b[15;2~", "f17", actSave},
+		{"\x1b[17;2~", "f18", actSave}, {"\x1b[18;2~", "f19", actSave},
+		{"\x1b[19;2~", "f20", actSave}, {"\x1b[[B", "f2", actSave}, {"\x1b[[D", "f4", actSave},
+		{"\x0c", "ctrl+l", actLock},
+		{"\x12", "ctrl+r", ""}, {"\x19", "ctrl+y", ""}, {"\x18", "ctrl+x", actSave},
+		{"?", "?", actHelp}, {":", ":", actCommand}, {"!", "!", actHelp},
 	}
 	var stream strings.Builder
 	var want []string
 	for _, k := range keys {
 		// ctrl+y belongs to the target picker, ctrl+r is free, and f8 to the payload form: they reach the editor by
 		// name, but no binding holds them.
-		if _, err := uiprefs.DefaultKeys().Check(k.action, k.name); err != nil && k.action != "" {
+		if _, err := keymap.CheckBinding(k.action, k.name, nil); err != nil && k.action != "" {
 			t.Errorf("%s is no key a binding may hold: %v", k.name, err)
 		}
 		stream.WriteString(k.sequence)

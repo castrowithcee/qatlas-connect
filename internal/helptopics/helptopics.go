@@ -229,7 +229,7 @@ A tool whose description says that it waits, for example for the checks of a pul
 
 Pass --connection only when the choice is open; it takes the name, the id that 'qconnect connections' shows, or name|id, where the id decides and the name only helps reading, so a project file keeps working after a rename. A value that is the name of one connection and the id of another fails with connection-ambiguous. Without it qconnect takes the default of the tool ID, then the default of its provider, then the one connection of this project that offers the tool, for reading and changing tools alike; a default whose connection does not offer the tool is refused. With several candidates and no default it fails with connection-ambiguous, and the connection descriptions are the basis for choosing one.
 
-Ask for a tool that no connection offers. 'qconnect tools <provider> --all' lists such tools, each with its reason, and gives a tool that a request can ask for the field requestable_on: the connection to name. Ask only for what the task needs, single tools or a group as a prefix of the form <provider>.<segment>.*, never more than that:
+Ask for a tool that no connection offers. 'qconnect tools <provider> --all' lists such tools, each with its reason, and gives a tool that a request can ask for the field requestable_on: the connection to name. It names an active connection only and is missing where the only candidates are switched off or expired; 'qconnect connections' shows their state, and only the user switches one on. Ask only for what the task needs, single tools or a group as a prefix of the form <provider>.<segment>.*, never more than that:
 
   qconnect request <tool-id or prefix>... --connection <name> --reason "<why the task needs them>"
 
