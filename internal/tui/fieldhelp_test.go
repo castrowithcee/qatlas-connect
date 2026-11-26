@@ -132,7 +132,7 @@ func TestFocusedFieldHintIsOneLineAndTheLongFormIsInThePane(t *testing.T) {
 						t.Errorf("%dx%d: want the one-line hint without the long form or a mark:\n%s", size.w, size.h, full)
 					}
 					press(t, m, "i")
-					if m.infoOpen {
+					if infoOpen(m) {
 						t.Errorf("%dx%d: i opened the info over a text row:\n%s", size.w, size.h, m.render())
 					}
 				}

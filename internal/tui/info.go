@@ -59,6 +59,15 @@ func (s infoSubject) paragraphs() []string {
 	return out
 }
 
+// item is the subject as the kit's explanation shows it, the term in the language in force.
+func (s infoSubject) item() kit.ExplanationItem {
+	term := s.term
+	if term.ID != "" {
+		term.Title, term.Text = termName(term), termText(term)
+	}
+	return kit.ExplanationItem{Title: s.title, Body: s.long, Term: term, URL: s.doc, LinkText: tr(tDocGuide)}
+}
+
 // lines wraps the text of the subject into width cells, a blank line between its paragraphs.
 func (s infoSubject) lines(width int) []string {
 	var out []string
@@ -215,7 +224,7 @@ func (m *Model) targetsSubject() infoSubject {
 // infoReachable reports whether the info letter is a key on the current screen: wherever nothing is typed.
 // A search line is text, and a form keeps the letter from its text rows.
 func (m *Model) infoReachable() bool {
-	if m.infoOpen {
+	if m.explanation() != nil {
 		return false
 	}
 	switch m.screen {
@@ -230,7 +239,7 @@ func (m *Model) infoReachable() bool {
 func (m *Model) infoPressed(key tea.KeyPressMsg) bool {
 	switch {
 	case keymap.Is(key, actInfo, kit.InputText):
-		return !m.infoOpen && !m.keyCapture
+		return !m.keyCapture
 	case keyIs(key, actInfo):
 		return m.infoReachable()
 	}
@@ -242,41 +251,45 @@ func (m *Model) infoWorks() bool {
 	if m.keyCapture || m.infoSubject().empty() {
 		return false
 	}
-	return m.infoReachable() || (infoExtraLabel() != "" && !m.infoOpen)
+	return m.infoReachable() || (infoExtraLabel() != "" && m.explanation() == nil)
 }
 
-// openInfo opens the explanation as an overlay and reports whether there was one to open.
+// openInfo opens the explanation of the current screen over it and reports whether there was one to open.
 func (m *Model) openInfo() bool {
 	s := m.infoSubject()
 	if s.empty() {
 		return false
 	}
-	m.infoOpen, m.infoShown = true, s
-	m.info.reset()
+	m.openExplanation(s)
 	return true
 }
 
-// updateInfo handles the keys while the overlay is open: the key that closes it, and the keys that scroll a
-// text longer than the overlay.
-func (m *Model) updateInfo(msg tea.KeyPressMsg) {
-	if keyIs(msg, actBack) || keyIs(msg, actInfo) {
-		m.infoOpen = false
+// openExplanation opens the explanation of s over the screen.
+func (m *Model) openExplanation(s infoSubject) {
+	// Every info key closes the explanation, so its key line names them all.
+	e, err := kit.NewExplanation(kit.ExplanationSpec{
+		Item: s.item(),
+		Keys: kit.ExplanationKeys{Back: actBack, Info: actInfo, Copy: actCopy, Up: actUp, Down: actDown,
+			PageUp: actPageUp, PageDown: actPageDown, First: actHome, Last: actEnd},
+		CloseOutside: true,
+	}, keymap, translator(false))
+	if err != nil {
+		m.fail = err.Error()
 		return
 	}
-	_, _, room := m.infoLayout()
-	m.info.scroll(msg, room)
+	m.showModal(e, func(act action) tea.Cmd {
+		if act == actCopy {
+			return m.copyCurrent()
+		}
+		m.closeModal()
+		return nil
+	})
 }
 
-// infoLayout is the text of the overlay wrapped into its inner width, and the rows it shows of it: all of them
-// while they fit, otherwise one less, which the position line takes.
-func (m *Model) infoLayout() ([]string, int, int) {
-	inner := min(modalMaxInner, max(m.termWidth-8, 10))
-	lines := m.infoShown.lines(inner)
-	room := max(m.termHeight-8, 3)
-	if len(lines) > room {
-		room--
-	}
-	return lines, inner, room
+// explanation is the explanation open over the screen, or nil.
+func (m *Model) explanation() *kit.Explanation {
+	e, _ := m.modal.(*kit.Explanation)
+	return e
 }
 
 // paneScreen reports whether the current screen is a form or a picker, which carry the pane.
@@ -388,45 +401,6 @@ func (m *Model) moreBehind(f field, hint string) bool {
 	one := strings.Join(strings.Fields(hint), " ")
 	return s.term.ID != "" || (strings.TrimSpace(s.long) != "" &&
 		(f.detail != "" || lipgloss.Width(one) > width-lipgloss.Width(infoMark)))
-}
-
-// infoView is the overlay over the current screen, or false when the terminal is too small for one and the
-// explanation takes the whole workspace.
-func (m *Model) infoView() string {
-	s := m.infoShown
-	text, inner, room := m.infoLayout()
-	lines := m.info.window(text, room, false)
-	position := m.info.position(len(text), room)
-	if s.term.ID != "" {
-		// The term the text ends with is named in bold where its paragraph starts.
-		head := termName(s.term) + ": "
-		for i, l := range lines {
-			if strings.HasPrefix(l, head) {
-				lines[i] = styles.title.Render(termName(s.term)) + l[len(head)-2:]
-			}
-		}
-	}
-	keys := footerKeys("{back} close")
-	scroll := ""
-	if position != "" {
-		lines = append(lines, styles.hint.Render(position))
-		scroll = footerKeys("{up}/{down} scroll") + " · "
-	}
-	// The copy key is named only where it fits beside the others on the line.
-	if withCopy := scroll + footerKeys("{copy} copy") + " · " + keys; lipgloss.Width(withCopy) <= inner {
-		keys = withCopy
-	} else {
-		keys = scroll + keys
-	}
-	lines = append(lines, "", keyHintGroupFoot(keys))
-	for i, l := range lines {
-		lines[i] = ansi.Truncate(l, inner, "")
-	}
-	dialog := panel(truncateDots(s.title, inner-2), lines, inner, len(lines), panelOpts{focused: true})
-	background := m.frame(m.workspaceView())
-	top, left := dialogOrigin(dialog, m.termWidth, m.termHeight)
-	m.markDialog(dialog, top, left)
-	return overlay(background, dialog, m.termWidth, m.termHeight)
 }
 
 // pickerMark is the info mark of a picker entry that has a long explanation, where the pane is not shown.

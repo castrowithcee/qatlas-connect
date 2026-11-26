@@ -967,11 +967,11 @@ func TestITargetsExplainsInsteadOfEditingTheLabel(t *testing.T) {
 	openTargetList(t, m)
 
 	press(t, m, "i")
-	if m.labelEdit || !m.infoOpen {
-		t.Fatalf("i: label edit %v, overlay %v, want the explanation only:\n%s", m.labelEdit, m.infoOpen, screenOf(m))
+	if m.labelEdit || !infoOpen(m) {
+		t.Fatalf("i: label edit %v, overlay %v, want the explanation only:\n%s", m.labelEdit, infoOpen(m), screenOf(m))
 	}
 	press(t, m, "esc")
-	if m.infoOpen || m.screen != screenTargets {
-		t.Errorf("esc left overlay %v on screen %v, want the target list", m.infoOpen, m.screen)
+	if infoOpen(m) || m.screen != screenTargets {
+		t.Errorf("esc left overlay %v on screen %v, want the target list", infoOpen(m), m.screen)
 	}
 }

@@ -171,13 +171,14 @@ func TestEveryScreenControlHasATargetAndClicksAsItsKey(t *testing.T) {
 					}
 				})
 			}
-			// The help turns the wheel, which sets the process-wide wheelClamp, so it runs before the
-			// screens and dialogs, which wait until this function returns.
+			// The help and the explanation turn the wheel, which sets the process-wide wheelClamp, so they run
+			// before the screens and dialogs, which wait until this function returns.
 			for _, help := range clickHelps() {
 				t.Run(help.name, func(t *testing.T) {
 					assertHelpTargetsClickAsKeys(t, help.build, help.lists)
 				})
 			}
+			t.Run("explanation", assertExplanationTargetsClickAsKeys)
 			for _, dialog := range clickDialogs() {
 				t.Run(dialog.name, func(t *testing.T) {
 					t.Parallel()
@@ -375,6 +376,67 @@ func assertHelpTargetsClickAsKeys(t *testing.T, build func(t *testing.T) *Model,
 	if lists && listed == 0 {
 		t.Error("no line of the key lists is a target")
 	}
+	pressed, wheeled := build(t), build(t)
+	press(t, pressed, firstKey(t, actDown), firstKey(t, actDown), firstKey(t, actDown))
+	wheelEvent(t, wheeled, base.termWidth/2, base.termHeight/2, tea.MouseWheelDown)
+	if want, got := clickState(pressed), clickState(wheeled); want != got {
+		t.Errorf("a notch of the wheel does not act as three presses of down:\nkey:\n%s\nwheel:\n%s", want, got)
+	}
+}
+
+// clickExplanationURL is the address of the explanation of the click test.
+const clickExplanationURL = "https://example.org/explained"
+
+// assertExplanationTargetsClickAsKeys requires each key of the explanation over the screen to act as its key,
+// a click on its address, elsewhere in its frame and outside it to act as the back key that closes it, and a
+// notch of the wheel over it to act as three presses of down. The text is long enough to scroll; the key line
+// leaves out the keys that do not fit it.
+func assertExplanationTargetsClickAsKeys(t *testing.T) {
+	t.Helper()
+	open := func(end bool) func(t *testing.T) *Model {
+		return func(t *testing.T) *Model {
+			m := sizedModel(groupModel(t), 100, 30)
+			openSectionByName(t, m, sectionServices)
+			m.openExplanation(infoSubject{title: "Long", long: longText(300), doc: clickExplanationURL}.withTerm("term.service"))
+			m.render()
+			if end {
+				press(t, m, firstKey(t, actEnd))
+				m.render()
+			}
+			return m
+		}
+	}
+	build := open(false)
+	base := build(t)
+	if base.explanation() == nil {
+		t.Fatal("the explanation is not open")
+	}
+	var keys []action
+	frame, outside := false, false
+	for _, target := range base.modalTargets {
+		x, y := target.Rect.X+(target.Rect.Width-1)/2, target.Rect.Y
+		switch {
+		case target.Action != "":
+			keys = append(keys, target.Action)
+			assertClickActsAsKey(t, build, x, y, firstKey(t, target.Action))
+		case target.Zone == kittui.ZoneOutside:
+			outside = true
+			assertClickActsAsKey(t, build, x, y+target.Rect.Height/2, firstKey(t, actBack))
+		case target.Item != "":
+			frame = true
+			assertClickActsAsKey(t, build, x, y, firstKey(t, actBack))
+		}
+	}
+	for _, a := range []action{actUp, actDown, actPageUp, actPageDown, actCopy, actBack, actInfo} {
+		if !slices.Contains(keys, a) {
+			t.Errorf("the key %q of the explanation is no target; targets: %q", a, keys)
+		}
+	}
+	if !frame || !outside {
+		t.Errorf("the frame is a target %v, the screen outside it %v", frame, outside)
+	}
+	x, y := cellOf(t, open(true)(t), clickExplanationURL)
+	assertClickActsAsKey(t, open(true), x+len(clickExplanationURL)/2, y, firstKey(t, actBack))
 	pressed, wheeled := build(t), build(t)
 	press(t, pressed, firstKey(t, actDown), firstKey(t, actDown), firstKey(t, actDown))
 	wheelEvent(t, wheeled, base.termWidth/2, base.termHeight/2, tea.MouseWheelDown)
