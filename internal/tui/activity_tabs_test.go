@@ -185,7 +185,7 @@ func TestLogsCompactFrameLeavesTheSummaryHelpToTheInfoKey(t *testing.T) {
 					t.Errorf("the compact frame keeps the help inline:\n%s", small)
 				}
 				pump(t, m, tableKey(actInfo))
-				if !m.infoOpen {
+				if !infoOpen(m) {
 					t.Fatalf("the info key opens nothing:\n%s", small)
 				}
 				open := strings.Join(strings.Fields(ansi.Strip(m.render())), " ")

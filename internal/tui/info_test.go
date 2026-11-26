@@ -7,7 +7,26 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
+
+	"github.com/castrowithcee/qatlas-connect/internal/helptopics"
+	kit "github.com/castrowithcee/qatlas-kit/tui"
 )
+
+// infoOpen reports whether the explanation stands open over the screen.
+func infoOpen(m *Model) bool { return m.explanation() != nil }
+
+// Every term opens as the explanation of the kit in every language, so the info key never fails on one.
+func TestEveryTermOpensAsAnExplanationInEveryLanguage(t *testing.T) {
+	eachLanguage(t, func(t *testing.T) {
+		for _, term := range helptopics.Terms() {
+			s := infoSubject{title: "Term"}.withTerm(term.ID)
+			if _, err := kit.NewExplanation(kit.ExplanationSpec{Item: s.item(), Keys: kit.ExplanationKeys{Back: actBack,
+				Info: actInfo, Copy: actCopy, Up: actUp, Down: actDown}}, keymap, translator(false)); err != nil {
+				t.Errorf("%s: %v", term.ID, err)
+			}
+		}
+	})
+}
 
 // connectionForm opens the form of a new connection at the given terminal width.
 func connectionForm(t *testing.T, width int) *Model {
@@ -32,8 +51,8 @@ func TestInfoDoesNotActOnTextRows(t *testing.T) {
 		t.Fatalf("focus on %q, want the name row", m.fields[m.focus].label)
 	}
 	press(t, m, "i")
-	if m.infoOpen || m.fieldValue("name") != "i" {
-		t.Errorf("i on a text row: overlay %v, value %q, want the letter typed", m.infoOpen, m.fieldValue("name"))
+	if infoOpen(m) || m.fieldValue("name") != "i" {
+		t.Errorf("i on a text row: overlay %v, value %q, want the letter typed", infoOpen(m), m.fieldValue("name"))
 	}
 	if strings.Contains(screenOf(m), "(i)") || strings.Contains(screenOf(m), "i info") {
 		t.Errorf("a text row promises an info key:\n%s", screenOf(m))
@@ -52,13 +71,13 @@ func TestInfoIsTextOnASearchLine(t *testing.T) {
 	}
 	typeText(t, m, "p")
 	press(t, m, "i")
-	if m.infoOpen || m.picker.query() != "pi" {
-		t.Errorf("i in a filled search: overlay %v, query %q, want the letter typed", m.infoOpen, m.picker.query())
+	if infoOpen(m) || m.picker.query() != "pi" {
+		t.Errorf("i in a filled search: overlay %v, query %q, want the letter typed", infoOpen(m), m.picker.query())
 	}
 	press(t, m, "backspace", "backspace")
 	press(t, m, "i")
-	if m.infoOpen || m.picker.query() != "i" {
-		t.Errorf("i in an empty search: overlay %v, query %q, want the letter typed", m.infoOpen, m.picker.query())
+	if infoOpen(m) || m.picker.query() != "i" {
+		t.Errorf("i in an empty search: overlay %v, query %q, want the letter typed", infoOpen(m), m.picker.query())
 	}
 }
 
@@ -67,23 +86,23 @@ func TestInfoOverlayShowsTheLongFormAndTheTermAndClosesWithEsc(t *testing.T) {
 	m := connectionForm(t, helpPaneMinWidth-1)
 	focusField(t, m, "credential")
 	press(t, m, "i")
-	if !m.infoOpen {
+	if !infoOpen(m) {
 		t.Fatalf("i on the credential row opened nothing:\n%s", m.render())
 	}
 	view := strings.Join(strings.Fields(m.render()), " ")
 	for _, want := range []string{"the provider credential this route authenticates with", "Credential: A credential says where",
-		"esc close"} {
+		"esc/i close"} {
 		if !strings.Contains(view, want) {
 			t.Errorf("the overlay lacks %q:\n%s", want, m.render())
 		}
 	}
 	press(t, m, "x", "enter")
-	if !m.infoOpen {
+	if !infoOpen(m) {
 		t.Error("another key closed the overlay")
 	}
 	press(t, m, "esc")
-	if m.infoOpen || m.screen != screenForm || m.fields[m.focus].label != "credential" {
-		t.Errorf("after esc: overlay %v, screen %v, focus %q", m.infoOpen, m.screen, m.fields[m.focus].label)
+	if infoOpen(m) || m.screen != screenForm || m.fields[m.focus].label != "credential" {
+		t.Errorf("after esc: overlay %v, screen %v, focus %q", infoOpen(m), m.screen, m.fields[m.focus].label)
 	}
 }
 
@@ -162,7 +181,7 @@ func TestInfoExplainsTheMarkedEntryOfAPicker(t *testing.T) {
 		t.Errorf("a described tool carries no (i):\n%s", m.render())
 	}
 	press(t, m, "f3")
-	if got := strings.Join(strings.Fields(m.render()), " "); !m.infoOpen || !strings.Contains(got, strings.Fields(want)[0]) {
+	if got := strings.Join(strings.Fields(m.render()), " "); !infoOpen(m) || !strings.Contains(got, strings.Fields(want)[0]) {
 		t.Errorf("the overlay does not show the description %q:\n%s", want, m.render())
 	}
 	press(t, m, "esc")
@@ -179,11 +198,11 @@ func TestInfoOnAListShowsTheTermOfTheArea(t *testing.T) {
 	m, _, _ := newModel(t)
 	openSectionByName(t, m, sectionServices)
 	press(t, m, "i")
-	if got := strings.Join(strings.Fields(m.render()), " "); !m.infoOpen || !strings.Contains(got, "Service: A service is one instance") {
+	if got := strings.Join(strings.Fields(m.render()), " "); !infoOpen(m) || !strings.Contains(got, "Service: A service is one instance") {
 		t.Errorf("i on the services list shows no term:\n%s", m.render())
 	}
 	press(t, m, "esc")
-	if m.infoOpen {
+	if infoOpen(m) {
 		t.Error("esc did not close the overlay")
 	}
 }
@@ -226,7 +245,7 @@ func TestInfoOverlayIsAFilledPanelWithAnAccentKey(t *testing.T) {
 			view := m.render()
 			assertViewFits(t, view, size.width, size.height)
 			plain := ansi.Strip(view)
-			if !strings.Contains(plain, "esc close") {
+			if !strings.Contains(plain, "esc/i close") {
 				t.Errorf("%dx%d: the overlay does not name its key:\n%s", size.width, size.height, plain)
 			}
 			if noColor && plain != view {

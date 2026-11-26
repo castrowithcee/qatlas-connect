@@ -159,10 +159,10 @@ func TestProviderTableInfoLinksTheMarkedProvider(t *testing.T) {
 	m.focus = 1
 	m.openProviderTable()
 	press(t, m, "f3")
-	if !m.infoOpen {
+	if !infoOpen(m) {
 		t.Fatal("the info key opened nothing on the provider table")
 	}
-	if want := providerDocURL("v1.2.3", config.ProviderMetadata{ID: "bookstack"}); m.infoShown.doc != want {
-		t.Errorf("doc = %q, want %q", m.infoShown.doc, want)
+	if want := providerDocURL("v1.2.3", config.ProviderMetadata{ID: "bookstack"}); m.explanation().Item().URL != want {
+		t.Errorf("doc = %q, want %q", m.explanation().Item().URL, want)
 	}
 }
