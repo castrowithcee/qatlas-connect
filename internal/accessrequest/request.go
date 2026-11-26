@@ -19,6 +19,12 @@ const (
 	Lifetime = 14 * 24 * time.Hour
 	// MaxTools bounds the tools of one call.
 	MaxTools = 50
+	// MaxTargets bounds the targets of a request to create a connection.
+	MaxTargets = 20
+	// MaxTargetRunes bounds one target of such a request.
+	MaxTargetRunes = 200
+	// MaxNameRunes bounds the requested name of a connection.
+	MaxNameRunes = 64
 	// MaxReasonRunes bounds a cleaned reason.
 	MaxReasonRunes = 500
 	// StatusOpen is the only status a stored request has: a decision removes it.
@@ -37,6 +43,11 @@ const (
 	// KindRemoveTools asks that a connection stop offering tools it offers now. A file holding one carries a
 	// field an older Connect does not know, which it refuses to read instead of misreading it.
 	KindRemoveTools Kind = "remove-tools"
+	// KindCreateConnection asks that a person set up a connection of a provider under a name with targets and
+	// tools. It names no existing connection (ConnectionID is empty, Connection is the requested name) and
+	// carries no credential, service, or secret. A file holding one carries fields an older Connect does not
+	// know, which it refuses to read.
+	KindCreateConnection Kind = "create-connection"
 )
 
 // ParseKind returns the kind a caller wrote: empty is KindAddTools, an unknown value is *InvalidError.
@@ -46,18 +57,23 @@ func ParseKind(s string) (Kind, error) {
 		return KindAddTools, nil
 	case KindRemoveTools:
 		return KindRemoveTools, nil
+	case KindCreateConnection:
+		return KindCreateConnection, nil
 	}
-	return "", &InvalidError{fmt.Sprintf("unknown request kind %q; use %q or %q", shorten(s), KindAddTools, KindRemoveTools)}
+	return "", &InvalidError{fmt.Sprintf("unknown request kind %q; use %q, %q or %q", shorten(s), KindAddTools, KindRemoveTools, KindCreateConnection)}
 }
 
 // Request is one open request. Connection is the name at the time of the last write; the ID of the
-// connection decides, so a renamed connection keeps its request.
+// connection decides, so a renamed connection keeps its request. For KindCreateConnection there is no
+// connection yet: ConnectionID is empty, Connection is the requested name, and Targets are the requested
+// targets.
 type Request struct {
 	ID           string    `yaml:"id" json:"id"`
 	Kind         Kind      `yaml:"kind,omitempty" json:"kind"`
-	ConnectionID string    `yaml:"connection_id" json:"connection_id"`
+	ConnectionID string    `yaml:"connection_id,omitempty" json:"connection_id"`
 	Connection   string    `yaml:"connection" json:"connection"`
 	Provider     string    `yaml:"provider" json:"provider"`
+	Targets      []string  `yaml:"targets,omitempty" json:"targets,omitempty"`
 	Tools        []string  `yaml:"tools" json:"tools"`
 	Reason       string    `yaml:"reason,omitempty" json:"reason,omitempty"`
 	Project      string    `yaml:"project,omitempty" json:"project,omitempty"`
@@ -69,12 +85,19 @@ type Request struct {
 // cleaned reason and project path.
 type Input struct {
 	// Kind is empty for KindAddTools.
-	Kind         Kind
+	Kind Kind
+	// Connection is the resolved connection, or the requested name for KindCreateConnection.
 	Connection   string
 	ConnectionID string
-	Tools        []string
-	Reason       string
-	Project      string
+	// Provider and Targets are only for KindCreateConnection.
+	Provider string
+	Targets  []string
+	Tools    []string
+	Reason   string
+	// ReasonRaw is the reason as the requester wrote it, which KindCreateConnection judges for a known
+	// secret; Reason is the cleaned text that is stored.
+	ReasonRaw string
+	Project   string
 }
 
 // EventKind says what happened to one tool of a request.
@@ -90,14 +113,21 @@ const (
 	EventRemoveCreate EventKind = "remove-create"
 	EventRemoveExpire EventKind = "remove-expire"
 	EventRemoveDrop   EventKind = "remove-drop"
+
+	EventCreateConnectionCreate EventKind = "create-connection-create"
+	EventCreateConnectionExpire EventKind = "create-connection-expire"
+	EventCreateConnectionDrop   EventKind = "create-connection-drop"
 )
 
 // eventFor returns the event of the request kind that corresponds to event.
 func eventFor(kind Kind, event EventKind) EventKind {
-	if kind != KindRemoveTools {
-		return event
+	switch kind {
+	case KindRemoveTools:
+		return "remove-" + event
+	case KindCreateConnection:
+		return "create-connection-" + event
 	}
-	return "remove-" + event
+	return event
 }
 
 // Event is one tool that was requested, expired, or dropped, with its connection.

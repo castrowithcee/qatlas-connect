@@ -50,6 +50,12 @@ const (
 	RequestCodeInvalid       = "invalid-request"
 	RequestCodeNeedsList     = "needs-tool-list"
 	RequestCodeUnavailable   = "unavailable"
+	// RequestCodeSetupInTUI refuses to accept or block a request to create a connection outside the setup
+	// of the TUI.
+	RequestCodeSetupInTUI = "setup-in-tui"
+	// RequestCodeNotSaved refuses to close a request to create a connection when no connection of its
+	// provider was saved.
+	RequestCodeNotSaved = "connection-not-saved"
 )
 
 // RequestDecisionError is why a decision was refused before it changed anything. Code is one of the
@@ -142,6 +148,9 @@ type RequestPreview struct {
 	// ApprovalExpected is true when accepting also approves the connection: its credential is in an
 	// encrypted vault.
 	ApprovalExpected bool
+	// Create is set for a request to create a connection and is then the only other field besides Request
+	// and Kind that is filled.
+	Create *ConnectionPrefill
 }
 
 // ApprovalState is what happened to the approval of an accepted connection.
@@ -221,6 +230,14 @@ func (s *Service) openDecision(sel RequestSelection) (*decisionState, error) {
 		return nil, err
 	}
 	d.req, d.name = req, req.Connection
+	if req.Kind == accessrequest.KindCreateConnection {
+		// It decides as a whole and names no connection yet, so there is nothing to re-check per entry.
+		if len(sel.Tools) > 0 {
+			return nil, decisionError(RequestCodeInvalid, "a request to create a connection is decided as a whole, not per tool")
+		}
+		d.provider, d.selected = req.Provider, slices.Clone(req.Tools)
+		return d, nil
+	}
 	d.provider = cfg.Services[cfg.Connections[d.name].Service].Provider
 	entries := sel.Tools
 	if len(entries) == 0 {
@@ -438,6 +455,9 @@ func (s *Service) PreviewRequestDecision(sel RequestSelection) (RequestPreview, 
 	if err != nil {
 		return RequestPreview{}, err
 	}
+	if d.req.Kind == accessrequest.KindCreateConnection {
+		return s.previewCreate(d)
+	}
 	metadata, _ := d.cfg.ProviderMetadata(d.provider)
 	preview := RequestPreview{
 		Request: d.req.ID, Kind: d.req.Kind, Connection: d.name, ByEffects: d.cfg.Connections[d.name].Tools == nil,
@@ -494,6 +514,9 @@ func (s *Service) DecideRequest(ctx context.Context, proof AdminProof, in Reques
 	d, err := s.openDecision(in.RequestSelection)
 	if err != nil {
 		return RequestDecisionResult{}, err
+	}
+	if d.req.Kind == accessrequest.KindCreateConnection {
+		return s.declineCreate(d, in.Action)
 	}
 	removing := d.req.Kind == accessrequest.KindRemoveTools
 	if removing {
@@ -627,6 +650,9 @@ var queueEventOperations = map[accessrequest.EventKind]string{
 
 	accessrequest.EventRemoveExpire: invokelog.OperationRequestRemoveExpire,
 	accessrequest.EventRemoveDrop:   invokelog.OperationRequestRemoveDrop,
+
+	accessrequest.EventCreateConnectionExpire: invokelog.OperationRequestConnectionExpire,
+	accessrequest.EventCreateConnectionDrop:   invokelog.OperationRequestConnectionDrop,
 }
 
 // recordRequestEvents logs the tools that expired or were dropped while the queue was settled, one entry

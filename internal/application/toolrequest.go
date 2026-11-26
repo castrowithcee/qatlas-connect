@@ -21,10 +21,15 @@ func (c *Core) SetRequestQueue(queue *accessrequest.Queue) { c.requests = queue 
 // untrusted text of the requester; the core cleans it before anything stores or shows it.
 //
 // Kind is accessrequest.KindAddTools (the default, when empty) to ask for tools the connection does not
-// offer, or accessrequest.KindRemoveTools to ask that it stop offering tools it offers.
+// offer, or accessrequest.KindRemoveTools to ask that it stop offering tools it offers, or
+// accessrequest.KindCreateConnection to ask a person to set up a connection. Only that kind takes Provider,
+// Name (the wished connection name) and Targets, and it takes no Connection.
 type ToolRequest struct {
 	Kind       string   `json:"kind,omitempty"`
 	Connection string   `json:"connection,omitempty"`
+	Provider   string   `json:"provider,omitempty"`
+	Name       string   `json:"name,omitempty"`
+	Targets    []string `json:"targets,omitempty"`
 	Tools      []string `json:"tools"`
 	Reason     string   `json:"reason,omitempty"`
 }
@@ -35,20 +40,27 @@ type ToolRequestResponse struct {
 	ID         string    `json:"id"`
 	Kind       string    `json:"kind"`
 	Connection string    `json:"connection"`
+	Provider   string    `json:"provider,omitempty"`
+	Targets    []string  `json:"targets,omitempty"`
 	Tools      []string  `json:"tools"`
 	Status     string    `json:"status"`
 	ExpiresAt  time.Time `json:"expires_at"`
+	// Message tells the requester what to do next; only a request to create a connection has one.
+	Message string `json:"message,omitempty"`
 }
 
 // OpenToolRequest is one open request as a person reads it. Reason and Project are untrusted display text,
 // cleaned and shortened.
 type OpenToolRequest struct {
-	ID           string   `json:"id"`
-	Kind         string   `json:"kind"`
-	Connection   string   `json:"connection"`
-	ConnectionID string   `json:"connection_id"`
-	Provider     string   `json:"provider"`
-	Tools        []string `json:"tools"`
+	ID           string `json:"id"`
+	Kind         string `json:"kind"`
+	Connection   string `json:"connection"`
+	ConnectionID string `json:"connection_id"`
+	Provider     string `json:"provider"`
+	// Targets are those of a request to create a connection, for which Connection is the wished name and
+	// ConnectionID is empty.
+	Targets []string `json:"targets,omitempty"`
+	Tools   []string `json:"tools"`
 	// Entries is Tools again, each with the group the provider sorts it into (empty for a provider without
 	// groups), so a surface shows the requested tools grouped like the tool picker.
 	Entries     []OpenToolEntry `json:"entries"`
@@ -67,6 +79,9 @@ type OpenToolEntry struct {
 
 func (c *Core) requestEnv() accessrequest.Env {
 	env := accessrequest.Env{Config: c.all, Now: c.now()}
+	if c.redactor != nil {
+		env.Redact = c.redactor.Apply
+	}
 	for _, d := range c.registry.All() {
 		env.Tools = append(env.Tools, accessrequest.Tool{ToolMetadata: d.Tool(), Provider: d.Provider})
 	}
@@ -99,6 +114,12 @@ func (c *Core) RequestTools(request ToolRequest) (ToolRequestResponse, error) {
 		return ToolRequestResponse{}, &InvalidRequestError{Message: err.Error()}
 	}
 	env := c.requestEnv()
+	if kind == accessrequest.KindCreateConnection {
+		return c.requestCreateConnection(env, request)
+	}
+	if request.Provider != "" || request.Name != "" || len(request.Targets) > 0 {
+		return ToolRequestResponse{}, &InvalidRequestError{Message: "provider, name and targets apply only to kind " + string(accessrequest.KindCreateConnection)}
+	}
 	name, err := c.requestConnection(env, request)
 	if err != nil {
 		return ToolRequestResponse{}, err
@@ -112,26 +133,33 @@ func (c *Core) RequestTools(request ToolRequest) (ToolRequestResponse, error) {
 			Connection: name, Capability: c.requestCapability(env, request.Tools[0]), Reason: config.RefusalDisabled,
 		}
 	}
-	project := ""
-	if len(c.projects) > 0 {
-		project = boundSummary(neutralize(c.projects[0]), 0)
-	}
-	outcome, err := c.requests.Add(env, accessrequest.Input{
-		Kind: kind, Connection: name, ConnectionID: conn.ID, Tools: request.Tools,
-		Reason: c.cleanReason(request.Reason), Project: project,
+	r, err := c.addRequest(env, accessrequest.Input{
+		Kind: kind, Connection: name, ConnectionID: conn.ID, Tools: request.Tools, Reason: c.cleanReason(request.Reason),
 	})
+	if err != nil {
+		return ToolRequestResponse{}, err
+	}
+	return ToolRequestResponse{
+		ID: r.ID, Kind: string(r.Kind), Connection: r.Connection, Tools: r.Tools, Status: accessrequest.StatusOpen, ExpiresAt: r.ExpiresAt,
+	}, nil
+}
+
+// addRequest stores the request with the project of the call, logs its events, and reports an invalid
+// request as an *InvalidRequestError.
+func (c *Core) addRequest(env accessrequest.Env, in accessrequest.Input) (accessrequest.Request, error) {
+	if len(c.projects) > 0 {
+		in.Project = boundSummary(neutralize(c.projects[0]), 0)
+	}
+	outcome, err := c.requests.Add(env, in)
 	c.logRequestEvents(outcome.Events)
 	if err != nil {
 		var invalid *accessrequest.InvalidError
 		if errors.As(err, &invalid) {
-			return ToolRequestResponse{}, &InvalidRequestError{Message: invalid.Message}
+			return accessrequest.Request{}, &InvalidRequestError{Message: invalid.Message}
 		}
-		return ToolRequestResponse{}, err
+		return accessrequest.Request{}, err
 	}
-	r := outcome.Request
-	return ToolRequestResponse{
-		ID: r.ID, Kind: string(r.Kind), Connection: r.Connection, Tools: r.Tools, Status: accessrequest.StatusOpen, ExpiresAt: r.ExpiresAt,
-	}, nil
+	return outcome.Request, nil
 }
 
 // OpenToolRequests returns every open request of every connection, newest first, for a person to decide.
@@ -156,9 +184,17 @@ func (c *Core) OpenToolRequests() ([]OpenToolRequest, error) {
 				entries[j].Group, entries[j].GroupTitle = group.ID, group.Title
 			}
 		}
+		connection, targets := r.Connection, r.Targets
+		if r.Kind == accessrequest.KindCreateConnection {
+			// The requested name and targets come from a file an agent may have written.
+			connection, targets = c.cleanShown(connection), make([]string, len(r.Targets))
+			for j, target := range r.Targets {
+				targets[j] = c.cleanShown(target)
+			}
+		}
 		open[i] = OpenToolRequest{
-			ID: r.ID, Kind: string(r.Kind), Connection: r.Connection, ConnectionID: r.ConnectionID, Provider: r.Provider,
-			Tools: r.Tools, Entries: entries, Reason: c.cleanReason(r.Reason), Project: boundSummary(neutralize(r.Project), 0),
+			ID: r.ID, Kind: string(r.Kind), Connection: connection, ConnectionID: r.ConnectionID, Provider: r.Provider,
+			Targets: targets, Tools: r.Tools, Entries: entries, Reason: c.cleanReason(r.Reason), Project: boundSummary(neutralize(r.Project), 0),
 			RequestedAt: r.RequestedAt, ExpiresAt: r.ExpiresAt,
 		}
 	}
@@ -172,6 +208,14 @@ func (c *Core) cleanReason(reason string) string {
 		reason = c.redactor.Apply(reason)
 	}
 	return boundSummary(neutralize(reason), accessrequest.MaxReasonRunes)
+}
+
+// cleanShown is cleanReason for a short value, bounded by the default of a summary.
+func (c *Core) cleanShown(text string) string {
+	if c.redactor != nil {
+		text = c.redactor.Apply(text)
+	}
+	return boundSummary(neutralize(text), 0)
 }
 
 // requestCapability is a tool ID for the diagnostic that names the request: the entry itself, or the first
@@ -265,6 +309,10 @@ var requestOperations = map[accessrequest.EventKind]string{
 	accessrequest.EventRemoveCreate: invokelog.OperationRequestRemoveCreate,
 	accessrequest.EventRemoveExpire: invokelog.OperationRequestRemoveExpire,
 	accessrequest.EventRemoveDrop:   invokelog.OperationRequestRemoveDrop,
+
+	accessrequest.EventCreateConnectionCreate: invokelog.OperationRequestConnectionCreate,
+	accessrequest.EventCreateConnectionExpire: invokelog.OperationRequestConnectionExpire,
+	accessrequest.EventCreateConnectionDrop:   invokelog.OperationRequestConnectionDrop,
 }
 
 var requestEffects = map[accessrequest.EventKind]string{
@@ -275,6 +323,10 @@ var requestEffects = map[accessrequest.EventKind]string{
 	accessrequest.EventRemoveCreate: "create",
 	accessrequest.EventRemoveExpire: "delete",
 	accessrequest.EventRemoveDrop:   "delete",
+
+	accessrequest.EventCreateConnectionCreate: "create",
+	accessrequest.EventCreateConnectionExpire: "delete",
+	accessrequest.EventCreateConnectionDrop:   "delete",
 }
 
 // logRequestEvents appends one entry per tool event, with the connection and the tool and nothing the

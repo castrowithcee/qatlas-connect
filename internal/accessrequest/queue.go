@@ -57,6 +57,22 @@ func (e Env) prune(d document) (document, []Event) {
 	}
 	out := document{Version: d.Version}
 	for _, r := range d.Requests {
+		if r.Kind == KindCreateConnection {
+			// It names no connection yet: it lapses when one of that name exists or the provider is gone.
+			_, taken := e.Config.Connections[r.Connection]
+			event := EventExpire
+			if e.Now.Before(r.ExpiresAt) {
+				if e.registered(r.Provider) && !taken {
+					out.Requests = append(out.Requests, r)
+					continue
+				}
+				event = EventDrop
+			}
+			for _, tool := range r.Tools {
+				events = append(events, Event{eventFor(r.Kind, event), "", r.Connection, tool})
+			}
+			continue
+		}
 		name, found := names[r.ConnectionID]
 		switch {
 		case !e.Now.Before(r.ExpiresAt):
@@ -121,6 +137,9 @@ func (q *Queue) Add(env Env, in Input) (Outcome, error) {
 	kind, err := ParseKind(string(in.Kind))
 	if err != nil {
 		return Outcome{}, err
+	}
+	if kind == KindCreateConnection {
+		return q.addCreate(env, in)
 	}
 	tools, err := CheckKind(env, kind, in.Connection, in.Tools)
 	if err != nil {
@@ -262,4 +281,67 @@ func (q *Queue) Settle(env Env, id string, done, drop []string) ([]Event, error)
 		return nil, q.invalid(err)
 	}
 	return events, nil
+}
+
+// addCreate stores a request to create a connection, merged into the open one of the same provider and
+// requested name: tools and targets are united, the union is judged again, and the newest reason and project
+// and a new expiry win.
+func (q *Queue) addCreate(env Env, in Input) (Outcome, error) {
+	if in.ConnectionID != "" {
+		return Outcome{}, &InvalidError{"a request to create a connection names no existing connection"}
+	}
+	check := CreateInput{Provider: in.Provider, Name: in.Connection, Targets: in.Targets, Tools: in.Tools, Reason: in.ReasonRaw}
+	if _, err := CheckCreate(env, check); err != nil {
+		return Outcome{}, err
+	}
+	id, err := newID()
+	if err != nil {
+		return Outcome{}, err
+	}
+	var out Outcome
+	_, err = q.store.Update(func(d document) (document, error) {
+		next, events := env.prune(d)
+		now := stamp(env.Now)
+		at := slices.IndexFunc(next.Requests, func(r Request) bool {
+			return r.Kind == KindCreateConnection && r.Provider == in.Provider && r.Connection == in.Connection
+		})
+		req := Request{ID: id, Kind: KindCreateConnection, Provider: in.Provider, Connection: in.Connection}
+		if at >= 0 {
+			req = next.Requests[at]
+		}
+		united := CreateInput{Provider: in.Provider, Name: in.Connection,
+			Targets: append(slices.Clone(req.Targets), in.Targets...), Tools: append(slices.Clone(req.Tools), in.Tools...)}
+		united, err := CheckCreate(env, united)
+		if err != nil {
+			return d, err
+		}
+		var added []string
+		for _, tool := range united.Tools {
+			if !slices.Contains(req.Tools, tool) {
+				added = append(added, tool)
+			}
+		}
+		req.Tools, req.Targets = united.Tools, united.Targets
+		req.Reason, req.Project = in.Reason, in.Project
+		req.RequestedAt, req.ExpiresAt = now, now.Add(Lifetime)
+		next.Requests = slices.Clone(next.Requests)
+		if at >= 0 {
+			next.Requests[at] = req
+		} else {
+			next.Requests = append(next.Requests, req)
+		}
+		for _, tool := range added {
+			events = append(events, Event{eventFor(KindCreateConnection, EventCreate), "", in.Connection, tool})
+		}
+		out = Outcome{Request: req, New: added, Events: events}
+		return next, nil
+	})
+	var invalid *InvalidError
+	switch {
+	case errors.As(err, &invalid):
+		return Outcome{}, invalid
+	case err != nil:
+		return Outcome{}, q.invalid(err)
+	}
+	return out, nil
 }
