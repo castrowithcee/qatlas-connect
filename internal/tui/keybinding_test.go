@@ -144,6 +144,22 @@ func TestSettingsRefusesKeysWithReason(t *testing.T) {
 	}
 }
 
+// A reserved standard key is refused with the kit's reason even when the form no longer holds it.
+func TestSettingsRefusesReservedStandardKeys(t *testing.T) {
+	keepKeys(t)
+	m, _ := lockedVaultModel(t)
+	openSectionByName(t, m, sectionGeneral)
+	bindKey(t, m, "lock key", "f6")
+	bindKey(t, m, "save key", "f4")
+	for _, c := range []struct{ row, key string }{{"command key", "ctrl+l"}, {"lock key", "f2"}} {
+		before := m.fieldValue(c.row)
+		bindKey(t, m, c.row, c.key)
+		if !strings.Contains(m.fail, "reserved for the standard action") || m.fieldValue(c.row) != before {
+			t.Errorf("%s <- %s: fail %q value %q", c.row, c.key, m.fail, m.fieldValue(c.row))
+		}
+	}
+}
+
 func TestSettingsCaptureShadowsGlobalKeys(t *testing.T) {
 	keepKeys(t)
 	m, _ := lockedVaultModel(t)

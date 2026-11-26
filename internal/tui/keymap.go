@@ -195,7 +195,30 @@ var userActions = map[string]action{
 	uiprefs.ActionSave: actSave, uiprefs.ActionHelp: actHelp, uiprefs.ActionCommand: actCommand, uiprefs.ActionLock: actLock,
 }
 
-func init() { uiprefs.Reserved = reservedOwner }
+func init() {
+	uiprefs.Reserved = reservedOwner
+	uiprefs.Standard = standardRule
+}
+
+// standardRule applies the kit's rule for a binding, which refuses the keys of the standard actions. It
+// takes the keys the other actions hold from others, as the kit counts an action it is not told about with
+// its default keys.
+func standardRule(name, key string, others uiprefs.Keys) error {
+	a, ok := userActions[name]
+	if name == uiprefs.ActionInfo {
+		a, ok = actInfo, true
+	}
+	if !ok {
+		return nil
+	}
+	held := map[action]string{actInfo: others.Info}
+	for n, ua := range userActions {
+		held[ua] = others.Get(n)
+	}
+	delete(held, a)
+	_, err := keymap.CheckBinding(a, key, held)
+	return err
+}
 
 // reservedOwner names the action of the table that owns k and that the preferences cannot replace, so no
 // binding may take it; "" means the key is free. The info letter is such an owner: its second key is a

@@ -33,6 +33,11 @@ type Keys struct {
 // editor sets it to its key table, so a key it gives to any other action cannot be bound here.
 var Reserved func(key string) string
 
+// Standard, when set, is the key table's own rule for a key on an action while the others hold the keys
+// in others, such as the keys reserved for standard actions. Check applies it after its own rules and
+// returns its error as the reason.
+var Standard func(action, key string, others Keys) error
+
 // Fixed keys of other actions and of the editor that no binding may take.
 const (
 	infoLetter = "i"
@@ -183,6 +188,11 @@ func (k Keys) Check(action, key string) (string, error) {
 	if Reserved != nil {
 		if owner := Reserved(key); owner != "" {
 			return "", fmt.Errorf("%s: already the key of %s", key, owner)
+		}
+	}
+	if Standard != nil {
+		if err := Standard(action, key, k); err != nil {
+			return "", err
 		}
 	}
 	return key, nil

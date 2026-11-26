@@ -125,6 +125,7 @@ General, the preferences of this device:
 Keys of the global actions:
 - Below the preferences, General lists the keys of the global actions save, help, command line, lock, and info. enter on a row and then pressing the new key binds it.
 - A key that is already taken, a character for save, lock, or the extra info key, a letter, ctrl+c, esc, tab, or a digit is refused with its reason.
+- The keys of the standard actions of Qatlas tools belong to those actions alone. F2 stays with save, ? with help, the colon key with the command line, and ctrl+l with lock, so another action cannot take them and a tui.yaml that does falls back with a warning.
 - d removes the own key so the standard applies again.
 - info can take a second key besides i that also works in text rows, such as F3.
 - The keys are kept under keys in tui.yaml. A key there that breaks a rule falls back to the standard with a warning at the start.
