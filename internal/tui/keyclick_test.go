@@ -3,6 +3,7 @@ package tui
 import (
 	"fmt"
 	"path/filepath"
+	"regexp"
 	"slices"
 	"strings"
 	"testing"
@@ -62,9 +63,13 @@ func clickScreens() []struct {
 
 // state is what a key and a click must leave alike: the screen, the focus, the selection and the view. The
 // view names the configuration file, which every model of a test keeps in a directory of its own.
+var shownConfigPath = regexp.MustCompile(`\S*config\.yaml`)
+
 func clickState(m *Model) string {
 	selected, _ := m.list.selected()
 	view := strings.ReplaceAll(m.render(), filepath.Dir(m.svc.Path()), "<dir>")
+	// Each model has its own temporary directory, and a shortened path shows only its end.
+	view = shownConfigPath.ReplaceAllString(view, "<config>")
 	return fmt.Sprintf("screen %v section %v focus %d sub %v selected %q\n%s", m.screen, m.section, m.focus, m.navSub, selected, view)
 }
 
