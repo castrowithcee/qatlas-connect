@@ -66,8 +66,9 @@ func TestQuestionIsCentredOverItsBackground(t *testing.T) {
 		t.Fatalf("no modal frame found:\n%s", view)
 	}
 	lines := strings.Split(view, "\n")
-	if above, below := top, 30-1-bottom; above-below > 1 || below-above > 1 {
-		t.Errorf("modal spans rows %d-%d, not centred in 30 rows", top, bottom)
+	// The top line and the tab line stay in view, so the question is centred in the rows below them.
+	if above, below := top-questionTop, 30-1-bottom; above-below > 1 || below-above > 1 {
+		t.Errorf("modal spans rows %d-%d, not centred in rows %d-29", top, bottom, questionTop)
 	}
 	edge := lines[top][strings.Index(lines[top], "╭"):]
 	width := lipgloss.Width(edge[:strings.Index(edge, "╮")+len("╮")])

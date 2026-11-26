@@ -16,6 +16,9 @@ func (m *Model) showModal(part kittui.Modal, done func(action) tea.Cmd) {
 	m.modal, m.modalDone, m.modalTargets = part, done, nil
 }
 
+// questionTop is the first row a question may cover: the top line and the tab line stay in view.
+const questionTop = 2
+
 func (m *Model) closeModal() { m.modal, m.modalDone, m.modalTargets = nil, nil, nil }
 
 // dialogExtras are the actions a dialog leaves to its opener: the hints behind its answers that open the
@@ -82,8 +85,12 @@ func (m *Model) modalFrame() string {
 	})
 	// A screen under the modal too large for the terminal leaves the modal its clicks.
 	m.tooSmall = false
-	view, targets, ok := m.modal.Overlay(styles.Styles, screen, m.termWidth, m.termHeight,
-		kittui.Rect{Width: m.termWidth, Height: m.termHeight})
+	area := kittui.Rect{Width: m.termWidth, Height: m.termHeight}
+	if _, question := m.modal.(*kittui.Dialog); question {
+		// A question leaves the top line and the tab line in view, so it never hides where it was asked.
+		area.Y, area.Height = questionTop, max(m.termHeight-questionTop, 0)
+	}
+	view, targets, ok := m.modal.Overlay(styles.Styles, screen, m.termWidth, m.termHeight, area)
 	if !ok {
 		spec := m.spec
 		spec.Footer, spec.Input, spec.Focus = m.modal.Hints(), kittui.InputNavigation, ""

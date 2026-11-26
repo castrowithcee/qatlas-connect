@@ -400,3 +400,15 @@ func TestTheBannerEmojiIsAnIcon(t *testing.T) {
 		t.Errorf("banner without icons = %q, want %q", got, fullBanner)
 	}
 }
+
+// However long its details run, a question leaves the top line and the tab line in view.
+func TestALongQuestionLeavesTheTabLineInView(t *testing.T) {
+	m := startedWith(t, newerRelease())
+	m.Update(tea.WindowSizeMsg{Width: 50, Height: 24})
+	press(t, m, "U")
+	m.updateText = strings.Repeat("A long line about the processes that keep running on this machine. ", 12) + "Restart them."
+	lines := strings.Split(m.render(), "\n")
+	if !strings.Contains(lines[1], "[2 Library]") {
+		t.Fatalf("the question covers the tab line: %q", lines[:3])
+	}
+}
