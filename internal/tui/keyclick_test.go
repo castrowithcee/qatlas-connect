@@ -49,6 +49,47 @@ func clickScreens() []struct {
 			press(t, m, "enter")
 			return m
 		}},
+		{"defaults list filtered", func(t *testing.T) *Model {
+			m := sizedModel(groupModel(t), 140, 40)
+			openSectionByName(t, m, sectionDefaults)
+			press(t, m, "/")
+			typeText(t, m, "a")
+			press(t, m, "enter")
+			return m
+		}},
+		{"connections filter bar", func(t *testing.T) *Model {
+			m := sizedModel(groupModel(t), 140, 40)
+			openSectionByName(t, m, sectionConnections)
+			press(t, m, firstKey(t, actFilter), "tab")
+			return m
+		}},
+		{"services filter values", func(t *testing.T) *Model {
+			m := sizedModel(groupModel(t), 140, 40)
+			openSectionByName(t, m, sectionServices)
+			press(t, m, firstKey(t, actFilter), "tab", "enter")
+			return m
+		}},
+		{"credentials filter button", func(t *testing.T) *Model {
+			m := sizedModel(groupModel(t), 140, 40)
+			openSectionByName(t, m, sectionCredentials)
+			m = sizedModel(m, 44, 30)
+			m.list.SetFilter("reader")
+			return m
+		}},
+		{"connections filter modal", func(t *testing.T) *Model {
+			m := sizedModel(groupModel(t), 140, 40)
+			openSectionByName(t, m, sectionConnections)
+			m = sizedModel(m, 44, 30)
+			press(t, m, firstKey(t, actFilter), "enter", "down")
+			return m
+		}},
+		{"connections filter modal in the workspace", func(t *testing.T) *Model {
+			m := sizedModel(groupModel(t), 140, 40)
+			openSectionByName(t, m, sectionConnections)
+			m = sizedModel(m, minimumWidth, minimumHeight)
+			press(t, m, firstKey(t, actFilter), "enter", "down")
+			return m
+		}},
 		{"form", func(t *testing.T) *Model {
 			m := sizedModel(groupModel(t), 140, 40)
 			openSectionByName(t, m, sectionConnections)
@@ -114,6 +155,7 @@ func clickDialogs() []struct {
 func TestEveryScreenControlHasATargetAndClicksAsItsKey(t *testing.T) {
 	backButtons, footerTargets := 0, 0
 	var listTargets listTargetCount
+	var barTargets barTargetCount
 	for _, binding := range []struct {
 		name string
 		keys map[action]string
@@ -124,6 +166,7 @@ func TestEveryScreenControlHasATargetAndClicksAsItsKey(t *testing.T) {
 				applyKeys(binding.keys)
 				base := screen.build(t)
 				base.render()
+				barTargets.add(assertBarTargetsClickAsKeys(t, base, screen.build))
 				if base.modalShown() {
 					if len(base.frameKeys) > 0 {
 						t.Fatalf("the frame behind a modal has key targets: %+v", base.frameKeys)
@@ -217,6 +260,129 @@ func TestEveryScreenControlHasATargetAndClicksAsItsKey(t *testing.T) {
 	if listTargets.rows == 0 || listTargets.groups == 0 || listTargets.search == 0 || listTargets.free == 0 {
 		t.Fatalf("list targets %+v: the lists drew no such target", listTargets)
 	}
+	if barTargets.fields == 0 || barTargets.values == 0 || barTargets.button == 0 || barTargets.modalFields == 0 ||
+		barTargets.modalValues == 0 || barTargets.search == 0 || barTargets.free == 0 || barTargets.keys == 0 {
+		t.Fatalf("filter bar targets %+v: the bars drew no such target", barTargets)
+	}
+}
+
+// barTargetCount counts the targets of the filter bars by kind.
+type barTargetCount struct{ fields, values, button, modalFields, modalValues, search, free, keys int }
+
+func (c *barTargetCount) add(n barTargetCount) {
+	c.fields, c.values, c.button = c.fields+n.fields, c.values+n.values, c.button+n.button
+	c.modalFields, c.modalValues = c.modalFields+n.modalFields, c.modalValues+n.modalValues
+	c.search, c.free, c.keys = c.search+n.search, c.free+n.free, c.keys+n.keys
+}
+
+// barFieldIndex is the place of the field id among the fields of the bar of the active section.
+func barFieldIndex(m *Model, id string) int {
+	return slices.IndexFunc(barKinds(m.section), func(k barKind) bool { return string(barIDs[k]) == id })
+}
+
+// barMoves are the keys that move from place from to place to, down or up.
+func barMoves(from, to int, down, up string) []string {
+	if to < from {
+		return slices.Repeat([]string{up}, from-to)
+	}
+	return slices.Repeat([]string{down}, to-from)
+}
+
+// assertBarTargetsClickAsKeys clicks the middle of every target the filter bar, its open values and its modal
+// drew, and requires the keys that reach it and press it: a field is the filter key and tab up to it and
+// enter, or esc where its values are open; a value the moves from the value in force and enter; the button
+// the filter key and enter; a field of the modal the moves to it, its value those and right; the search field
+// the search key, after esc where values are open; a key of the modal its first key; the free area of the bar
+// the filter key unless the bar has the focus.
+func assertBarTargetsClickAsKeys(t *testing.T, base *Model, build func(t *testing.T) *Model) barTargetCount {
+	t.Helper()
+	var n barTargetCount
+	focus := -1
+	if label := focusedBarField(base); label != "" {
+		focus = slices.IndexFunc(barKinds(base.section), func(k barKind) bool { l, _, _ := base.barField(k); return l == label })
+	}
+	open := base.barValuesOpen()
+	modal := base.barOpen() && !open
+	reach := func() []string {
+		if focus < 0 && !base.barFocused() {
+			return []string{firstKey(t, actFilter)}
+		}
+		return nil
+	}
+	elements := func(x, y int) bool {
+		for _, o := range base.barTargets {
+			r := o.Rect
+			if (o.Item != "" || o.Action != "") && x >= r.X && x < r.X+r.Width && y >= r.Y && y < r.Y+r.Height {
+				return true
+			}
+		}
+		return false
+	}
+	enter := firstKey(t, actEnter)
+	for _, target := range base.barTargets {
+		r := target.Rect
+		x, y := r.X+(r.Width-1)/2, r.Y
+		var keys []string
+		switch item := target.Item; {
+		case strings.HasPrefix(item, "\x00mf"), strings.HasPrefix(item, "\x00mv"):
+			// The modal opens on its first field, and the screens move it one down.
+			to := barFieldIndex(base, item[3:])
+			keys = barMoves(1, to, "down", "up")
+			if strings.HasPrefix(item, "\x00mv") {
+				n.modalValues++
+				keys = append(keys, "right")
+			} else {
+				n.modalFields++
+			}
+		case strings.HasPrefix(item, "\x00f"):
+			n.fields++
+			to := barFieldIndex(base, item[2:])
+			switch {
+			case open && to == focus:
+				keys = []string{firstKey(t, actBack)}
+			case open:
+				keys = append([]string{firstKey(t, actBack)}, barMoves(focus, to, "tab", "shift+tab")...)
+				keys = append(keys, enter)
+			default:
+				keys = append(reach(), barMoves(max(focus, 0), to, "tab", "shift+tab")...)
+				keys = append(keys, enter)
+			}
+		case strings.HasPrefix(item, "\x00o"):
+			n.values++
+			field, value, _ := strings.Cut(item[2:], "\x00")
+			k := barKinds(base.section)[barFieldIndex(base, field)]
+			_, values, active := base.barField(k)
+			keys = append(barMoves(active, slices.Index(values, value), "down", "up"), enter)
+		case item == "\x00b":
+			n.button++
+			keys = append(reach(), enter)
+		case item != "":
+			t.Errorf("the bar target %q is of no known kind", item)
+			continue
+		case target.Action == actSearch:
+			n.search++
+			if open {
+				keys = []string{firstKey(t, actBack)}
+			}
+			keys = append(keys, firstKey(t, actSearch))
+		case target.Action != "":
+			if !modal {
+				t.Errorf("the key target %q stands outside the modal", target.Action)
+			}
+			n.keys++
+			keys = []string{firstKey(t, target.Action)}
+		default:
+			for x = r.X; x < r.X+r.Width && elements(x, y); x++ {
+			}
+			if x == r.X+r.Width {
+				continue
+			}
+			n.free++
+			keys = reach()
+		}
+		assertClickActsAsKey(t, build, x, y, keys...)
+	}
+	return n
 }
 
 // listTargetCount counts the targets of the lists by kind.

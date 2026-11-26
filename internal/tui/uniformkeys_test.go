@@ -410,18 +410,18 @@ func TestTabAndShiftTabCycleThroughTheAreas(t *testing.T) {
 	// Forward: the tab line, the rows, the fields of the filter bar, the tab line again.
 	m.screen = screenNav
 	press(t, m, "tab")
-	if m.screen != screenList || m.barFocus != 0 {
-		t.Fatalf("tab on the tab line = screen %v bar %d, want the rows", m.screen, m.barFocus)
+	if m.screen != screenList || m.barFocused() {
+		t.Fatalf("tab on the tab line = screen %v bar %q, want the rows", m.screen, focusedBarField(m))
 	}
-	for field := 1; field <= len(barKinds(m.section)); field++ {
+	for field, k := range barKinds(m.section) {
 		press(t, m, "tab")
-		if m.screen != screenList || m.barFocus != field {
-			t.Fatalf("tab %d in the list = screen %v bar %d, want bar field %d", field, m.screen, m.barFocus, field)
+		if label, _, _ := m.barField(k); m.screen != screenList || focusedBarField(m) != label {
+			t.Fatalf("tab %d in the list = screen %v bar %q, want bar field %q", field+1, m.screen, focusedBarField(m), label)
 		}
 	}
 	press(t, m, "tab")
-	if m.screen != screenNav || m.barFocus != 0 {
-		t.Fatalf("tab on the last bar field = screen %v bar %d, want the tab line", m.screen, m.barFocus)
+	if m.screen != screenNav || m.barFocused() {
+		t.Fatalf("tab on the last bar field = screen %v bar %q, want the tab line", m.screen, focusedBarField(m))
 	}
 	// Backward: shift+tab from the rows leads to the tab line, from the first bar field back to the rows.
 	m.screen = screenNav
@@ -433,10 +433,11 @@ func TestTabAndShiftTabCycleThroughTheAreas(t *testing.T) {
 	if m.screen != screenNav {
 		t.Fatalf("shift+tab in the list = screen %v, want the tab line", m.screen)
 	}
-	m.screen, m.barFocus = screenList, 1
+	m.screen = screenList
+	m.focusBar()
 	press(t, m, "shift+tab")
-	if m.screen != screenList || m.barFocus != 0 {
-		t.Fatalf("shift+tab on the first bar field = screen %v bar %d, want the rows", m.screen, m.barFocus)
+	if m.screen != screenList || m.barFocused() {
+		t.Fatalf("shift+tab on the first bar field = screen %v bar %q, want the rows", m.screen, focusedBarField(m))
 	}
 }
 

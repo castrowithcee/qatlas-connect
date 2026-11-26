@@ -41,7 +41,7 @@ func (m *Model) copySource() func() string {
 		if path, ok := m.pathList.selected(); ok {
 			return func() string { return path }
 		}
-	case m.screen == screenList && m.barFocus == 0 && !m.list.Searching() &&
+	case m.screen == screenList && !m.barFocused() && !m.list.Searching() &&
 		m.section != sectionOverview && m.section != sectionLogs:
 		name, ok := m.selected()
 		if _, isRequest := requestIDOf(name); !ok || isRequest {

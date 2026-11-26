@@ -59,7 +59,7 @@ func (m *Model) listFit(prefix string) (string, int) { return m.fitIn(m.listWidt
 // detailFocused reports whether the pane has the focus: the rows are the screen's focus, no filter is typed
 // and no bar field is open.
 func (m *Model) detailFocused() bool {
-	return m.detailFocus && m.screen == screenList && m.barFocus == 0 && !m.list.Searching() && m.paneWidth() > 0
+	return m.detailFocus && m.screen == screenList && !m.barFocused() && !m.list.Searching() && m.paneWidth() > 0
 }
 
 // shownTab is the tab the pane shows: the chosen one while the pane has the focus, the overview otherwise.
@@ -100,7 +100,7 @@ func (m *Model) updateDetail(key tea.KeyPressMsg) (tea.Cmd, bool) {
 	case keyIs(key, actNext):
 		m.leaveDetail()
 		if m.listBarShown() {
-			m.barFocus = 1
+			m.focusBar()
 		} else {
 			m.focusNav()
 		}
@@ -126,7 +126,7 @@ func (m *Model) clickDetailTab(tab detailTab) tea.Cmd {
 		// Enter keeps the typed filter and ends the typing.
 		m.list.Act(actEnter)
 	}
-	m.barFocus = 0
+	m.blurBar()
 	m.detailFocus, m.detailTab = true, tab
 	return nil
 }
