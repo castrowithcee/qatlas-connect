@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"path/filepath"
 
 	"github.com/castrowithcee/qatlas-connect/internal/config"
 	"github.com/castrowithcee/qatlas-connect/internal/selfupdate"
@@ -32,8 +31,7 @@ type RollbackCheck struct {
 	// none. Offering is not restoring: nothing is changed until Rollback gets restore true.
 	Offer *config.Backup
 
-	offerData []byte
-	base      config.Revision
+	base config.Revision
 }
 
 // CheckRollback runs the program of the prepared older release against copies of the configuration and,
@@ -65,7 +63,7 @@ func (s *Service) CheckRollback(ctx context.Context, p *selfupdate.Prepared) (*R
 		backups = backups[:maxCheckedBackups]
 	}
 	for _, b := range backups {
-		backup, err := s.store.ReadBackup(b)
+		backup, err := s.store.ReadBackup(b.Name)
 		if err != nil {
 			continue
 		}
@@ -75,7 +73,7 @@ func (s *Service) CheckRollback(ctx context.Context, p *selfupdate.Prepared) (*R
 		}
 		if ok {
 			offer := b
-			check.Offer, check.offerData = &offer, backup
+			check.Offer = &offer
 			break
 		}
 	}
@@ -104,7 +102,7 @@ func (s *Service) Rollback(ctx context.Context, client *selfupdate.Client, p *se
 	if !restore {
 		return selfupdate.Result{}, ErrRestoreNotConfirmed
 	}
-	restored, err := s.store.RestoreBackup(check.offerData, check.base)
+	restored, err := s.store.RestoreBackup(check.Offer.Name, check.base)
 	if err != nil {
 		return selfupdate.Result{}, err
 	}
@@ -112,7 +110,7 @@ func (s *Service) Rollback(ctx context.Context, client *selfupdate.Client, p *se
 	if err != nil {
 		if undoErr := s.store.UndoRestore(restored); undoErr != nil {
 			return selfupdate.Result{}, fmt.Errorf("%w; the previous configuration could not be put back: %v; it is saved as %s",
-				err, undoErr, filepath.Base(restored.Previous))
+				err, undoErr, restored.Previous)
 		}
 		return selfupdate.Result{}, err
 	}

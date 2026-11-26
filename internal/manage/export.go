@@ -10,6 +10,7 @@ import (
 	"github.com/castrowithcee/qatlas-connect/internal/config"
 	"github.com/castrowithcee/qatlas-connect/internal/secret"
 	"github.com/castrowithcee/qatlas-connect/internal/vault"
+	"github.com/castrowithcee/qatlas-kit/configfile"
 	yaml "go.yaml.in/yaml/v3"
 )
 
@@ -154,7 +155,7 @@ func (s *Service) export(sel ExportSelection, path string, withSecrets *SecretEx
 			res.Warnings = append(res.Warnings, "the file holds secrets in plain text: delete it after the import")
 		}
 	}
-	if err := config.WriteNewPrivateFile(path, data); err != nil {
+	if err := configfile.WriteNewPrivateFile(path, data); err != nil {
 		return nil, err
 	}
 	res.Path = path

@@ -180,9 +180,7 @@ func TestCommitConflictAtSaveRollsBackOwnSecrets(t *testing.T) {
 	foreign := commitWithCredential(t, other, "foreign")
 	secrets := &commitMapSecrets{values: map[string]string{"foreign/token": "keep"}}
 	secrets.onSet = func() {
-		if err := other.Save(foreign); err != nil {
-			t.Errorf("Save() = %v", err)
-		}
+		saveWithoutLock(t, other.Path(), foreign)
 		secrets.onSet = nil
 	}
 

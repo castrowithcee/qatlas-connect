@@ -4,6 +4,8 @@ import (
 	"context"
 	"net/http"
 	"net/url"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -129,8 +131,13 @@ func TestWebSaveForeignWriterBetweenReadAndCommit(t *testing.T) {
 	}
 	hook := &hookStore{MemoryStore: mem}
 	hook.onSet = func() {
-		if err := other.Save(foreign); err != nil {
+		// The foreign writer takes no lock: it replaces the file with one it saved elsewhere.
+		staged := config.NewStore(filepath.Join(t.TempDir(), "config.yaml"), wikiCatalog{})
+		if err := staged.Save(foreign); err != nil {
 			t.Errorf("foreign Save: %v", err)
+		}
+		if err := os.Rename(staged.Path(), other.Path()); err != nil {
+			t.Errorf("foreign Rename: %v", err)
 		}
 	}
 	red := &redact.Redactor{}

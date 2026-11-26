@@ -188,7 +188,7 @@ func (s *Service) removeSettingFields() (string, error) {
 	backups, _ := s.store.Backups()
 	for _, b := range backups {
 		if !before[b.Name] {
-			return b.Path(), nil
+			return s.store.BackupPath(b.Name), nil
 		}
 	}
 	return "", nil
