@@ -125,6 +125,8 @@ func TestQuestionMarkIsTextWhereTextIsTyped(t *testing.T) {
 	}
 
 	list, _, _ := newModel(t)
+	// The search field of a list with a filter bar stands in the bar, which a list without entries has not.
+	seedServices(t, list, "a-one")
 	press(t, list, "enter", "/", "?")
 	if list.screen != screenList || list.list.Query() != "?" {
 		t.Errorf("? in a filter was not typed: screen %v query %q", list.screen, list.list.Query())

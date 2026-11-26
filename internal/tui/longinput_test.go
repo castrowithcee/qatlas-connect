@@ -156,7 +156,9 @@ func longInputCases() []longInputCase {
 		{name: "list filter",
 			open: func(t *testing.T, long string) (*Model, func(*testing.T, *Model)) {
 				m, _, _ := newModel(t)
-				openSectionByName(t, m, sectionServices)
+				// A list without a filter bar draws its search on a line of its own; the search field in the
+				// bar is checked in TestFilterBarFitsEveryWidth.
+				openSectionByName(t, m, sectionDefaults)
 				press(t, m, "/")
 				return m, func(t *testing.T, m *Model) {
 					if got := m.list.Query(); got != long {

@@ -233,21 +233,19 @@ func TestClickFromOutsideTheRowsOnTheMarkedRowOnlyMarks(t *testing.T) {
 	name := markedRow(m)
 	m.focusNav()
 	clickOnRow(t, m, name)
-	if m.screen != screenList || m.barFocus != 0 || m.editing != "" {
-		t.Fatalf("click from the tab line: screen %v bar %d editing %q, want the list with the focus on the rows", m.screen, m.barFocus, m.editing)
+	if m.screen != screenList || m.barFocused() || m.editing != "" {
+		t.Fatalf("click from the tab line: screen %v bar %q editing %q, want the list with the focus on the rows", m.screen, focusedBarField(m), m.editing)
 	}
 	clickOn(t, m, "Sort:")
-	if m.barFocus == 0 && m.dd == nil {
+	if !m.barFocused() {
 		t.Fatal("the click on the filter bar did nothing")
 	}
 	press(t, m, "esc")
 	m.render()
-	if m.barFocus == 0 {
-		m.barFocus = 1
-	}
+	m.focusBar()
 	clickOnRow(t, m, name)
-	if m.screen != screenList || m.barFocus != 0 || m.editing != "" {
-		t.Fatalf("click from the filter bar: screen %v bar %d editing %q, want only the focus on the row", m.screen, m.barFocus, m.editing)
+	if m.screen != screenList || m.barFocused() || m.editing != "" {
+		t.Fatalf("click from the filter bar: screen %v bar %q editing %q, want only the focus on the row", m.screen, focusedBarField(m), m.editing)
 	}
 	clickOnRow(t, m, name)
 	if m.screen != screenForm || m.editing != name {
@@ -410,14 +408,14 @@ func TestClickOnTheFilterBarChoosesAValue(t *testing.T) {
 	m := sizedModel(groupModel(t), 100, 40)
 	openSectionByName(t, m, sectionConnections)
 	clickOn(t, m, "Group: Provider")
-	if m.dd == nil || m.barFocus != 1 {
+	if !m.barValuesOpen() || focusedBarField(m) != "Group" {
 		t.Fatalf("the click on Group did not open its list; the bar reads:\n%s", ansi.Strip(m.render()))
 	}
-	if view := ansi.Strip(m.render()); !strings.Contains(view, "> Provider") || !strings.Contains(view, "  None") {
+	if view := ansi.Strip(m.render()); !strings.Contains(view, "✓ Provider") || !strings.Contains(view, "  None") {
 		t.Fatalf("the list does not show the values:\n%s", view)
 	}
 	clickOn(t, m, "  None")
-	if m.dd != nil || !m.opts(sectionConnections).flat {
+	if m.barOpen() || !m.opts(sectionConnections).flat {
 		t.Fatalf("the click on None left the grouping on; the bar reads:\n%s", ansi.Strip(m.render()))
 	}
 	clickOn(t, m, "State: All")

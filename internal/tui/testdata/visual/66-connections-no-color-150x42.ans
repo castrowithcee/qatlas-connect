@@ -4,7 +4,7 @@
 [1mConnections (7)[m                                                                       [2m1/7[m                                                             
                                                                                                                                                       
 ╔═[1m[m══════════════════════════════════════════════════════════════════════════════════════╗ [2m╭─[m[1m[m[2m─────────────────────────────────────────────────────────╮[m
-║    Group: Provider ▾      State: All ▾      Sort: Name ▾                              ║ [2m│[m [1mwiki-main[m                                       [1m●[m active [2m│[m
+║    Group: Provider ▾      State: All ▾      Sort: Name ▾   [4m[2m/ search…[m[4m                 [m ║ [2m│[m [1mwiki-main[m                                       [1m●[m active [2m│[m
 ║       [1mNAME            STATE   SERVICE  EFFECTS             TOOLS  DESCRIPTION[m         ║ [2m│[m [2mbookstack[m                                                [2m│[m
 ║       [2m───────────────────────────────────────────────────────────────────────────────[m ║ [2m│[m                                                          [2m│[m
 ║   [2m▾[m ■ [1mbookstack[m[2m (1)[m                                                                   ║ [2m│[m [1m[Overview][m [2m Details [m [2m Raw [m                               [2m│[m

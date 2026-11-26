@@ -103,7 +103,7 @@ Every other letter means one thing on every screen without a text line, and none
 - On the detail of a tool request in Approvals, a ticks all tools or none, x declines the ticked tools, b blocks them, and y accepts them; space ticks one tool or a whole group.
 - V shows or hides a token's value in its detail.
 - s shows the summary of the Logs.
-- f opens the filter of the Logs.
+- f moves the focus to the filter bar of a list and of the Logs. left and right change a field, enter opens its values with a search line that narrows them as you type, and where a narrow terminal has no room for the fields, one Filter (n) button opens them all at once.
 - M shows the MCP sessions of the Logs.
 - o opens Activity on an approval's connection.
 - c hands the full text of an open text or detail area (a log entry, the Raw tab, an explanation, an approval's detail) or, with none open, the name of the marked entry to the terminal for the clipboard. It hands over nothing but what is shown, no secret value and no control characters. It travels as an OSC 52 sequence, which also works over SSH but which the terminal does not confirm, and some terminals need it enabled (tmux needs set-clipboard on).

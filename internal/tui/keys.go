@@ -20,7 +20,7 @@ func (m *Model) typing() bool {
 		screenVersions:
 		return true
 	case screenList:
-		return m.list.Searching()
+		return m.list.Searching() || m.barValuesOpen()
 	case screenForm:
 		if m.payloadRemoveAsk || m.payloadSaving || m.focus >= len(m.fields) {
 			return false
@@ -50,6 +50,9 @@ func (m *Model) helpReachable() bool {
 	switch m.screen {
 	case screenHelp:
 		return false
+	case screenList:
+		// The open values and the modal of the filter bar take every key.
+		return !m.typing() && !m.barOpen()
 	case screenForm:
 		return m.payloadRemoveAsk
 	case screenProviders:
