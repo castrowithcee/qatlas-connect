@@ -6,6 +6,8 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"github.com/charmbracelet/x/ansi"
+
+	kittui "github.com/castrowithcee/qatlas-kit/tui"
 )
 
 // namesHelp reports whether text names the help key.
@@ -30,36 +32,36 @@ func TestFooterKeepsTheHelpKeyWhereGroupsAreDropped(t *testing.T) {
 	}
 }
 
-// Opened from a screen, the first section of the help lists every group of that screen, also those the
+// Opened from a screen, the first topic of the help ends with every group of that screen, also those the
 // footer had to drop.
 func TestHelpListsEveryKeyGroupOfTheScreenItWasOpenedFrom(t *testing.T) {
 	check := func(t *testing.T, m *Model) {
 		t.Helper()
-		if m.screen != screenHelp {
-			m.Update(tea.WindowSizeMsg{Width: 60, Height: 24})
-			m.render()
+		m.Update(tea.WindowSizeMsg{Width: 120, Height: 80})
+		m.render()
+		if !helpOpen(m) {
 			m.openHelp()
 		}
-		keys := m.helpKeysText
-		if keys == "" {
+		if m.screenKeys == "" {
 			t.Fatal("the screen handed no keys to the footer")
 		}
-		lines := m.helpLines()
-		if len(lines) == 0 || lines[0] != tr(tScreenKeysHeading) || !isHeading(lines[0]) {
-			t.Fatalf("the help does not start with the screen's keys:\n%s", strings.Join(lines, "\n"))
+		m.render()
+		press(t, m, "end")
+		plain := ansi.Strip(m.render())
+		at := strings.Index(plain, "This screen")
+		if at < 0 {
+			t.Fatalf("the help does not list the screen's keys:\n%s", plain)
 		}
-		text := strings.Join(lines, "\n")
-		for _, group := range strings.Split(m.footerKeys(keys), " · ") {
-			key, action, _ := strings.Cut(group, " ")
-			want := "- " + action + ": " + key
-			if action == "" {
-				want = "- " + key
-			}
-			if !strings.Contains(text, want) {
-				t.Errorf("group %q is not listed as %q:\n%s", group, want, text)
+		groups := keymap.Hints(m.keyHints(m.screenKeys), kittui.InputNavigation, translator(false))
+		if len(groups) == 0 {
+			t.Fatal("the screen names no key group")
+		}
+		for _, g := range groups {
+			if !strings.Contains(plain[at:], g.Text()) {
+				t.Errorf("group %q is not listed:\n%s", g.Text(), plain[at:])
 			}
 		}
-		assertViewFits(t, m.render(), 60, 24)
+		assertViewFits(t, m.render(), 120, 80)
 	}
 	t.Run("list", func(t *testing.T) {
 		m, _, _ := newModel(t)
@@ -68,7 +70,7 @@ func TestHelpListsEveryKeyGroupOfTheScreenItWasOpenedFrom(t *testing.T) {
 		m.Update(tea.WindowSizeMsg{Width: 60, Height: 24})
 		m.render()
 		press(t, m, "?")
-		if m.screen != screenHelp {
+		if !helpOpen(m) {
 			t.Fatalf("? opened screen %v", m.screen)
 		}
 		check(t, m)
@@ -113,7 +115,7 @@ func TestHelpFromTheCommandLineListsTheCoveredScreen(t *testing.T) {
 	}
 	typeText(t, m, "help")
 	press(t, m, "enter")
-	if m.screen != screenHelp || m.helpKeysText != want {
-		t.Errorf("help from the command line lists %q on screen %v, want %q", m.helpKeysText, m.screen, want)
+	if !helpOpen(m) || m.screenKeys != want {
+		t.Errorf("help from the command line lists %q on screen %v, want %q", m.screenKeys, m.screen, want)
 	}
 }

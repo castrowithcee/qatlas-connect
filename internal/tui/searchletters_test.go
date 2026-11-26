@@ -88,7 +88,7 @@ func TestHelpAndCommandStillOpenOnAnEmptySearchLine(t *testing.T) {
 				t.Skip("the tool picker never opened the help from its search line")
 			}
 			press(t, m, "?")
-			if m.screen != screenHelp {
+			if !helpOpen(m) {
 				t.Fatalf("? left screen %v, want the help", m.screen)
 			}
 		})

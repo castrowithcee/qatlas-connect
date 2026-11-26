@@ -5,6 +5,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/castrowithcee/qatlas-connect/internal/accessrequest"
 	"github.com/castrowithcee/qatlas-connect/internal/application"
 	"github.com/castrowithcee/qatlas-connect/internal/capability"
 )
@@ -12,9 +13,12 @@ import (
 // newRequestCommand asks for tools a connection does not offer. A request changes nothing, so the command
 // has no confirmation gate, needs no terminal, no passphrase, and no agent token.
 func newRequestCommand(opts *Options, registry *capability.Registry) *cobra.Command {
-	var reason string
+	var (
+		reason string
+		remove bool
+	)
 	cmd := &cobra.Command{
-		Use:   "request <tool-id or prefix>...",
+		Use:   "request [--remove] <tool-id or prefix>...",
 		Short: "Ask the user for tools a connection does not offer",
 		Long: "Request asks for tools that a connection of this project does not offer, so that the user can offer\n" +
 			"them. Name each tool by its ID, or a whole group by a prefix of the form <provider>.<segment>.*;\n" +
@@ -26,6 +30,10 @@ func newRequestCommand(opts *Options, registry *capability.Registry) *cobra.Comm
 			"project is used, and several candidates are refused with connection-ambiguous.\n\n" +
 			"--reason gives the user a short reason. It is shown to the user as untrusted text, shortened, with\n" +
 			"known secrets removed and control characters escaped, and it is never logged.\n\n" +
+			"--remove asks the opposite: that the connection stop offering tools it offers now, for example to\n" +
+			"move admin tools into a connection of limited duration. Name tools or prefixes the connection offers;\n" +
+			"a tool it does not offer ends with invalid-request. The user can only accept or decline such a\n" +
+			"request; it cannot be blocked.\n\n" +
 			"A request changes nothing by itself: it stays open for 14 days, until the user decides, and a\n" +
 			"further request for the same connection joins it. The answer names the request id, the connection,\n" +
 			"every tool the request now holds, the status open, and expires_at. Stop then, tell the user what you\n" +
@@ -52,8 +60,12 @@ func newRequestCommand(opts *Options, registry *capability.Registry) *cobra.Comm
 			if err != nil {
 				return err
 			}
+			var kind string
+			if remove {
+				kind = string(accessrequest.KindRemoveTools)
+			}
 			response, err := core.RequestTools(application.ToolRequest{
-				Connection: opts.Connection, Tools: args, Reason: reason,
+				Connection: opts.Connection, Tools: args, Reason: reason, Kind: kind,
 			})
 			if err != nil {
 				return classifyUserError(err)
@@ -61,6 +73,7 @@ func newRequestCommand(opts *Options, registry *capability.Registry) *cobra.Comm
 			return emitDocument(c, format, response)
 		},
 	}
+	cmd.Flags().BoolVar(&remove, "remove", false, "ask that the connection stop offering the named tools instead of offering them")
 	cmd.Flags().StringVar(&reason, "reason", "", "a short reason for the user, shown as untrusted text and never logged")
 	return cmd
 }

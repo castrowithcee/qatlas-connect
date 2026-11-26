@@ -23,11 +23,6 @@ func TestTheWheelScrollsEveryTextAreaByThreeLines(t *testing.T) {
 		open   func(t *testing.T) (*Model, *textScroll)
 		redraw func(m *Model)
 	}{
-		{"help", func(t *testing.T) (*Model, *textScroll) {
-			m := sizedModel(groupModel(t), 100, 40)
-			m.openHelp()
-			return m, &m.help
-		}, nil},
 		{"approval detail", func(t *testing.T) (*Model, *textScroll) {
 			dir := filepath.Join(t.TempDir(), "qconnect")
 			store, _, _ := newApprovalFixture(t, dir, "correct horse battery staple")

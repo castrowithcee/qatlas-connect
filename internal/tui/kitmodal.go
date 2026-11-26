@@ -1,0 +1,86 @@
+package tui
+
+import (
+	tea "charm.land/bubbletea/v2"
+	kittui "github.com/castrowithcee/qatlas-kit/tui"
+)
+
+// A part of the kit that answers with an action, such as the help, stands as the open modal over the current
+// screen: it takes every key, click and notch of the wheel first, the screen under it takes none, and what it
+// answers runs through the function its opener gave.
+
+// showModal opens part over the current screen; done runs each action part answers with.
+func (m *Model) showModal(part kittui.Modal, done func(action) tea.Cmd) {
+	m.modal, m.modalDone, m.modalTargets = part, done, nil
+}
+
+func (m *Model) closeModal() { m.modal, m.modalDone, m.modalTargets = nil, nil, nil }
+
+// modalKey gives a key to the open modal; ctrl+c still quits.
+func (m *Model) modalKey(msg tea.KeyPressMsg) tea.Cmd {
+	if keyIs(msg, actForceQuit) {
+		return m.interrupt()
+	}
+	act, _ := m.modal.Update(msg)
+	return m.modalAct(act)
+}
+
+// modalMouse gives a click or a notch of the wheel to the open modal, whose targets are the only ones.
+func (m *Model) modalMouse(msg tea.MouseMsg) tea.Cmd {
+	r := kittui.NewMouseMap(m.modalTargets, true).Handle(msg)
+	if !r.Handled {
+		return nil
+	}
+	m.touchAdminSessionIfActive()
+	if r.WheelSteps != 0 {
+		// A dialog scrolls only under a notch over its details.
+		if _, dialog := m.modal.(*kittui.Dialog); !dialog || r.Zone == kittui.ZoneDetail {
+			m.modal.Wheel(r.WheelSteps)
+		}
+		return nil
+	}
+	act, _ := m.modal.Click(r)
+	return m.modalAct(act)
+}
+
+func (m *Model) modalAct(act action) tea.Cmd {
+	if act == "" || m.modalDone == nil {
+		return nil
+	}
+	return m.modalDone(act)
+}
+
+// modalFrame draws the open modal over the dimmed current screen where it fits, else in the workspace with
+// its keys in the footer, and keeps its targets: in the second case those of the footer too, while header and
+// tabs take no click.
+func (m *Model) modalFrame() string {
+	var screen string
+	m.renderAs(m.screen, 0, func() {
+		m.backdrop = true
+		defer func() { m.backdrop = false }()
+		screen = m.frame(m.workspaceView())
+	})
+	// A screen under the modal too large for the terminal leaves the modal its clicks.
+	m.tooSmall = false
+	view, targets, ok := m.modal.Overlay(styles.Styles, screen, m.termWidth, m.termHeight,
+		kittui.Rect{Width: m.termWidth, Height: m.termHeight})
+	if !ok {
+		spec := m.spec
+		spec.Footer, spec.Input, spec.Focus = m.modal.Hints(), kittui.InputNavigation, ""
+		spec.HeaderKeys, spec.Back, spec.Position = nil, nil, ""
+		frame := m.kitFrame()
+		room := frame.Workspace(spec)
+		var body []kittui.Target
+		spec.Workspace, body = m.modal.View(styles.Styles, room.Width, room.Height)
+		var all []kittui.Target
+		view, all = frame.Render(styles.Styles, spec)
+		targets = kittui.OffsetTargets(body, room.X, room.Y)
+		for _, t := range all {
+			if t.Rect.Y >= room.Y+room.Height {
+				targets = append(targets, t)
+			}
+		}
+	}
+	m.modalTargets = targets
+	return view
+}

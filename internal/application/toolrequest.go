@@ -19,7 +19,11 @@ func (c *Core) SetRequestQueue(queue *accessrequest.Queue) { c.requests = queue 
 // ToolRequest asks for tools a connection does not offer. Tools are exact tool IDs or prefixes of the form
 // <provider>.<segment>.*. Connection selects the connection like an invoke does and may be empty. Reason is
 // untrusted text of the requester; the core cleans it before anything stores or shows it.
+//
+// Kind is accessrequest.KindAddTools (the default, when empty) to ask for tools the connection does not
+// offer, or accessrequest.KindRemoveTools to ask that it stop offering tools it offers.
 type ToolRequest struct {
+	Kind       string   `json:"kind,omitempty"`
 	Connection string   `json:"connection,omitempty"`
 	Tools      []string `json:"tools"`
 	Reason     string   `json:"reason,omitempty"`
@@ -29,6 +33,7 @@ type ToolRequest struct {
 // now holds (earlier ones included when it was merged), its status, and when it expires.
 type ToolRequestResponse struct {
 	ID         string    `json:"id"`
+	Kind       string    `json:"kind"`
 	Connection string    `json:"connection"`
 	Tools      []string  `json:"tools"`
 	Status     string    `json:"status"`
@@ -39,6 +44,7 @@ type ToolRequestResponse struct {
 // cleaned and shortened.
 type OpenToolRequest struct {
 	ID           string   `json:"id"`
+	Kind         string   `json:"kind"`
 	Connection   string   `json:"connection"`
 	ConnectionID string   `json:"connection_id"`
 	Provider     string   `json:"provider"`
@@ -78,8 +84,8 @@ func (c *Core) requestActive(name string) bool {
 // It selects the connection like Invoke, refuses a disabled or expired one the same way, and merges the
 // request into the open one of the connection. The reason is cleaned like a confirmation summary: known
 // secrets redacted, control characters escaped, at most 500 characters. It is never logged. One
-// config.request.create entry per newly requested tool goes to the invocation log, and so does every
-// request that expired or became obsolete on the way.
+// config.request.create entry per newly requested tool (config.request.remove.create for a request to
+// remove tools) goes to the invocation log, and so does every request that expired or became obsolete on the way.
 func (c *Core) RequestTools(request ToolRequest) (ToolRequestResponse, error) {
 	c.scope()
 	if c.requests == nil {
@@ -87,6 +93,10 @@ func (c *Core) RequestTools(request ToolRequest) (ToolRequestResponse, error) {
 	}
 	if len(request.Tools) == 0 {
 		return ToolRequestResponse{}, &InvalidRequestError{Message: "a request names at least one tool"}
+	}
+	kind, err := accessrequest.ParseKind(request.Kind)
+	if err != nil {
+		return ToolRequestResponse{}, &InvalidRequestError{Message: err.Error()}
 	}
 	env := c.requestEnv()
 	name, err := c.requestConnection(env, request)
@@ -107,7 +117,7 @@ func (c *Core) RequestTools(request ToolRequest) (ToolRequestResponse, error) {
 		project = boundSummary(neutralize(c.projects[0]), 0)
 	}
 	outcome, err := c.requests.Add(env, accessrequest.Input{
-		Connection: name, ConnectionID: conn.ID, Tools: request.Tools,
+		Kind: kind, Connection: name, ConnectionID: conn.ID, Tools: request.Tools,
 		Reason: c.cleanReason(request.Reason), Project: project,
 	})
 	c.logRequestEvents(outcome.Events)
@@ -120,7 +130,7 @@ func (c *Core) RequestTools(request ToolRequest) (ToolRequestResponse, error) {
 	}
 	r := outcome.Request
 	return ToolRequestResponse{
-		ID: r.ID, Connection: r.Connection, Tools: r.Tools, Status: accessrequest.StatusOpen, ExpiresAt: r.ExpiresAt,
+		ID: r.ID, Kind: string(r.Kind), Connection: r.Connection, Tools: r.Tools, Status: accessrequest.StatusOpen, ExpiresAt: r.ExpiresAt,
 	}, nil
 }
 
@@ -147,7 +157,7 @@ func (c *Core) OpenToolRequests() ([]OpenToolRequest, error) {
 			}
 		}
 		open[i] = OpenToolRequest{
-			ID: r.ID, Connection: r.Connection, ConnectionID: r.ConnectionID, Provider: r.Provider,
+			ID: r.ID, Kind: string(r.Kind), Connection: r.Connection, ConnectionID: r.ConnectionID, Provider: r.Provider,
 			Tools: r.Tools, Entries: entries, Reason: c.cleanReason(r.Reason), Project: boundSummary(neutralize(r.Project), 0),
 			RequestedAt: r.RequestedAt, ExpiresAt: r.ExpiresAt,
 		}
@@ -251,12 +261,20 @@ var requestOperations = map[accessrequest.EventKind]string{
 	accessrequest.EventCreate: invokelog.OperationRequestCreate,
 	accessrequest.EventExpire: invokelog.OperationRequestExpire,
 	accessrequest.EventDrop:   invokelog.OperationRequestDrop,
+
+	accessrequest.EventRemoveCreate: invokelog.OperationRequestRemoveCreate,
+	accessrequest.EventRemoveExpire: invokelog.OperationRequestRemoveExpire,
+	accessrequest.EventRemoveDrop:   invokelog.OperationRequestRemoveDrop,
 }
 
 var requestEffects = map[accessrequest.EventKind]string{
 	accessrequest.EventCreate: "create",
 	accessrequest.EventExpire: "delete",
 	accessrequest.EventDrop:   "delete",
+
+	accessrequest.EventRemoveCreate: "create",
+	accessrequest.EventRemoveExpire: "delete",
+	accessrequest.EventRemoveDrop:   "delete",
 }
 
 // logRequestEvents appends one entry per tool event, with the connection and the tool and nothing the

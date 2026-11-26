@@ -1104,8 +1104,6 @@ const (
 )
 
 const (
-	tKeysHeading           textID = "KeysHeading"
-	tScreenKeysHeading     textID = "ScreenKeysHeading"
 	tMacFnNote             textID = "MacFnNote"
 	tConnTestTitle         textID = "ConnTestTitle"
 	tKeySpaceRefused       textID = "KeySpaceRefused"
@@ -1173,4 +1171,19 @@ const (
 	tRequestsUnreadable       textID = "RequestsUnreadable"
 	tRequestsApprovalsNote    textID = "RequestsApprovalsNote"
 	tRequestsReadError        textID = "RequestsReadError"
+)
+
+const (
+	tRequestKindRemove         textID = "RequestKindRemove"
+	tRequestTitleRemove        textID = "RequestTitleRemove"
+	tRequestRemoveTitle        textID = "RequestRemoveTitle"
+	tRequestRemoveListNote     textID = "RequestRemoveListNote"
+	tRequestRemoveEffectNote   textID = "RequestRemoveEffectNote"
+	tRequestRemoveOpt          textID = "RequestRemoveOpt"
+	tRequestRemoveOptSwitch    textID = "RequestRemoveOptSwitch"
+	tRequestRemoveFollow       textID = "RequestRemoveFollow"
+	tRequestRemoveFollowSwitch textID = "RequestRemoveFollowSwitch"
+	tRequestRemoveSplit        textID = "RequestRemoveSplit"
+	tRequestRemoveEmpty        textID = "RequestRemoveEmpty"
+	tRequestRemoved            textID = "RequestRemoved"
 )

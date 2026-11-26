@@ -476,7 +476,7 @@ func TestExportFooterNamesHelpAndCommandsOnlyWhereTheyWork(t *testing.T) {
 			before := m.export.input.Value()
 			v.pump("?")
 			if named {
-				if m.screen != screenHelp {
+				if !helpOpen(m) {
 					t.Fatalf("? = screen %v, want the help", m.screen)
 				}
 				v.pump("esc", ":")

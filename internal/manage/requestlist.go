@@ -19,6 +19,7 @@ import (
 // requester, cleaned and shortened: secrets are redacted and control characters are shown escaped.
 type OpenRequest struct {
 	ID         string
+	Kind       accessrequest.Kind
 	Connection string
 	Provider   string
 	// Entries are the requested tools and prefixes with their groups, in the order of the groups of the
@@ -58,7 +59,7 @@ func (s *Service) OpenRequests() ([]OpenRequest, error) {
 	for i, r := range requests {
 		metadata, _ := cfg.ProviderMetadata(r.Provider)
 		out[i] = OpenRequest{
-			ID: r.ID, Connection: r.Connection, Provider: r.Provider, Entries: orderedEntries(metadata, r.Tools),
+			ID: r.ID, Kind: r.Kind, Connection: r.Connection, Provider: r.Provider, Entries: orderedEntries(metadata, r.Tools),
 			Reason: s.cleanText(r.Reason, accessrequest.MaxReasonRunes), Project: s.cleanText(r.Project, 0),
 			RequestedAt: r.RequestedAt, ExpiresAt: r.ExpiresAt,
 		}
