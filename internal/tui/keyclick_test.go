@@ -2,12 +2,15 @@ package tui
 
 import (
 	"fmt"
+	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
 	"github.com/charmbracelet/x/ansi"
 
 	"github.com/castrowithcee/qatlas-connect/internal/uiprefs"
+	kittui "github.com/castrowithcee/qatlas-kit/tui"
 )
 
 // clickScreens build the screens whose keys the keymap names: each has a footer with key groups and, one level
@@ -57,10 +60,12 @@ func clickScreens() []struct {
 	}
 }
 
-// state is what a key and a click must leave alike: the screen, the focus, the selection and the view.
+// state is what a key and a click must leave alike: the screen, the focus, the selection and the view. The
+// view names the configuration file, which every model of a test keeps in a directory of its own.
 func clickState(m *Model) string {
 	selected, _ := m.list.selected()
-	return fmt.Sprintf("screen %v section %v focus %d selected %q\n%s", m.screen, m.section, m.focus, selected, m.render())
+	view := strings.ReplaceAll(m.render(), filepath.Dir(m.svc.Path()), "<dir>")
+	return fmt.Sprintf("screen %v section %v focus %d sub %v selected %q\n%s", m.screen, m.section, m.focus, m.navSub, selected, view)
 }
 
 // clickDialogs are the questions whose answers the key line names: the key line groups and the buttons drawn
@@ -87,31 +92,54 @@ func clickDialogs() []struct {
 	}
 }
 
-// Every key a footer names and every back button and dialog answer a screen draws as a control is a target, and
-// a click in its middle acts as the key it names, with every question and check of the key. The keys come from
-// the keymap, also after the preferences rebound some. The key groups of the footer of a plain screen are no
-// targets yet; they become ones with the frame of the kit.
+// Every control of the frame is a target, and a click in its middle acts as the first key bound to its action,
+// with every question and check of the key: the back button and the keys of the header, every key group of
+// the footer, and the tabs, whose click on the tab line is the digit of the area. The dialog answers the key
+// line names are targets as well. The keys come from the keymap, also after the preferences rebound some.
 func TestEveryScreenControlHasATargetAndClicksAsItsKey(t *testing.T) {
-	backButtons := 0
+	backButtons, footerTargets := 0, 0
 	for _, binding := range []struct {
 		name string
 		keys uiprefs.Keys
 	}{{"default keys", uiprefs.DefaultKeys()}, {"rebound keys", uiprefs.Keys{Info: "f3", Save: "f4", Help: "ctrl+x", Command: "f6", Lock: "ctrl+l"}}} {
-		for _, screen := range clickScreens() {
+		for _, screen := range frameScreens() {
 			t.Run(binding.name+"/"+screen.name, func(t *testing.T) {
 				keepKeys(t)
 				applyKeys(binding.keys)
 				base := screen.build(t)
 				base.render()
-				_, back := base.headerLayout()
-				if back.x1 <= back.x0 {
-					return // the screen is one level deep: esc leads nowhere, so there is no button
+				if base.modalShown() {
+					if len(base.frameKeys) > 0 {
+						t.Fatalf("the frame behind a modal has key targets: %+v", base.frameKeys)
+					}
+					return
 				}
-				if !base.hitAt(back.x0, 0) {
-					t.Fatalf("the back button has no target:\n%s", ansi.Strip(base.render()))
+				assertFrameControlsAreTargets(t, base)
+				for _, target := range base.frameKeys {
+					x, y := target.Rect.X+(target.Rect.Width-1)/2, target.Rect.Y
+					if target.Action == actBack && y == 0 {
+						backButtons++
+					}
+					if y > 0 {
+						footerTargets++
+					}
+					assertClickActsAsKey(t, screen.build, x, y, firstKey(t, target.Action))
 				}
-				backButtons++
-				assertClickActsAsKey(t, screen.build, (back.x0+back.x1-1)/2, 0, keyLabel(actBack))
+				if base.screen != screenNav || base.navSub {
+					return
+				}
+				// On the focused tab line the arrows reach a tab as its click does: the area opens there and the
+				// line keeps the focus; the sub-tabs lie one line down.
+				active := base.section.area()
+				for _, target := range base.frameTabs {
+					a, _ := areaByName(string(target.Area))
+					keys := slices.Repeat([]string{"right"}, (int(a)-int(active)+int(areaCount))%int(areaCount))
+					if target.Tab != "" {
+						at := slices.IndexFunc(areaSections[a], func(s section) bool { return s.key() == string(target.Tab) })
+						keys = append([]string{"down"}, slices.Repeat([]string{"right"}, at-base.section.index())...)
+					}
+					assertClickActsAsKey(t, screen.build, target.Rect.X+(target.Rect.Width-1)/2, target.Rect.Y, keys...)
+				}
 			})
 		}
 		for _, dialog := range clickDialogs() {
@@ -140,7 +168,11 @@ func TestEveryScreenControlHasATargetAndClicksAsItsKey(t *testing.T) {
 						t.Errorf("the target %q names no key", text)
 						continue
 					}
-					assertClickActsAsKey(t, dialog.build, (h.x0+h.x1-1)/2, (h.y0+h.y1-1)/2, key)
+					msg, ok := keyPress(key)
+					if !ok {
+						t.Fatalf("%q is no key a control may send", key)
+					}
+					assertClickActsAsKey(t, dialog.build, (h.x0+h.x1-1)/2, (h.y0+h.y1-1)/2, kittui.KeyName(msg))
 				}
 				for label := range dialog.buttons {
 					if !seen[label] {
@@ -150,38 +182,108 @@ func TestEveryScreenControlHasATargetAndClicksAsItsKey(t *testing.T) {
 			})
 		}
 	}
-	if backButtons == 0 {
-		t.Fatal("no screen drew a back button")
+	if backButtons == 0 || footerTargets == 0 {
+		t.Fatalf("back buttons %d, footer targets %d: the screens drew no such control", backButtons, footerTargets)
 	}
 }
 
-// assertClickActsAsKey builds two equal screens, presses key on one and clicks the cell on the other, and
+// frameScreens are the screens of the key line test and the questions that fill the workspace of a terminal
+// too small for a modal, whose footer holds their answers.
+func frameScreens() []struct {
+	name  string
+	build func(t *testing.T) *Model
+} {
+	screens := keyLineScreens()
+	for _, s := range append([]struct {
+		name  string
+		build func(t *testing.T) *Model
+	}{}, screens...) {
+		if s.name == "leave question" || s.name == "delete question" {
+			build := s.build
+			screens = append(screens, struct {
+				name  string
+				build func(t *testing.T) *Model
+			}{s.name + " in the workspace", func(t *testing.T) *Model { return sizedModel(build(t), modalMinWidth-1, 24) }})
+		}
+	}
+	return screens
+}
+
+// firstKey is the name of the first key bound to an action, which a click on its hint stands for.
+func firstKey(t *testing.T, a action) string {
+	t.Helper()
+	keys := keymap.Keys(a)
+	if len(keys) == 0 {
+		t.Fatalf("the action %q has no key", a)
+	}
+	return keys[0]
+}
+
+// modalShown reports whether the frame drawn last holds a modal over the screen.
+func (m *Model) modalShown() bool { d := m.dialogBox; return d.x1 > d.x0 && d.y1 > d.y0 }
+
+// assertFrameControlsAreTargets requires a target for each control the frame draws: the back button, the
+// header keys and each key of a footer group with its label, as cells of the drawn lines, and each tab.
+func assertFrameControlsAreTargets(t *testing.T, m *Model) {
+	t.Helper()
+	view, _ := m.kitFrame().Render(styles.Styles, m.spec)
+	lines := strings.Split(ansi.Strip(view), "\n")
+	covered := func(y int, cells string, at int) bool {
+		for _, target := range m.frameKeys {
+			r := target.Rect
+			if r.Y == y && r.X <= at && at < r.X+r.Width {
+				return true
+			}
+		}
+		return false
+	}
+	text := translator(infoExtraLabel() != "" && !m.infoReachable())
+	keys := m.spec.HeaderKeys
+	if m.spec.Back != nil {
+		keys = append(keys, *m.spec.Back)
+	}
+	for _, g := range keymap.Hints(keys, m.spec.Input, text) {
+		block := "[" + g.Keys[0].Keys + "] " + g.Label
+		if at := strings.Index(lines[0], block); at >= 0 && !covered(0, block, ansi.StringWidth(lines[0][:at])) {
+			t.Errorf("the header key %q has no target:\n%s", block, lines[0])
+		}
+	}
+	for y := m.top + m.height; y < len(lines); y++ {
+		for _, g := range keymap.Hints(m.spec.Footer, m.spec.Input, text) {
+			at := strings.Index(lines[y], g.Text())
+			if at < 0 || len(g.Keys) == 0 {
+				continue
+			}
+			x := ansi.StringWidth(lines[y][:at])
+			if !covered(y, g.Text(), x) || !covered(y, g.Text(), x+ansi.StringWidth(g.Text())-1) {
+				t.Errorf("the footer group %q has no target:\n%s", g.Text(), lines[y])
+			}
+		}
+	}
+	tabs := 0
+	for _, target := range m.frameTabs {
+		if target.Tab == "" {
+			tabs++
+		}
+	}
+	if tabs != int(areaCount) {
+		t.Errorf("%d of %d area tabs are targets:\n%s", tabs, areaCount, lines[1])
+	}
+}
+
+// assertClickActsAsKey builds two equal screens, presses the keys on one and clicks the cell on the other, and
 // requires the same screen, focus, selection and view.
-func assertClickActsAsKey(t *testing.T, build func(t *testing.T) *Model, x, y int, key string) {
+func assertClickActsAsKey(t *testing.T, build func(t *testing.T) *Model, x, y int, keys ...string) {
 	t.Helper()
 	pressed, clicked := build(t), build(t)
 	pressed.render()
 	clicked.render()
-	msg, ok := keyPress(key)
-	if !ok {
-		t.Fatalf("%q is no key a control may send", key)
+	for _, key := range keys {
+		_, cmd := pressed.Update(keyMsg(key))
+		deliver(pressed, cmd)
 	}
-	_, cmd := pressed.Update(msg)
-	deliver(pressed, cmd)
 	clickAt(t, clicked, x, y)
 	if want, got := clickState(pressed), clickState(clicked); want != got {
-		t.Errorf("a click at (%d,%d) does not act as the key %q:\nkey:\n%s\nclick:\n%s", x, y, key, want, got)
+		t.Errorf("a click at (%d,%d) does not act as the keys %q:\nkey:\n%s\nclick:\n%s", x, y, keys, want, got)
 	}
-}
-
-// hitAt reports whether a click target stands at the cell.
-func (m *Model) hitAt(x, y int) bool {
-	for _, group := range [][]hit{m.hits, m.frameHits, m.barHits} {
-		for _, h := range group {
-			if x >= h.x0 && x < h.x1 && y >= h.y0 && y < h.y1 {
-				return true
-			}
-		}
-	}
-	return false
 }

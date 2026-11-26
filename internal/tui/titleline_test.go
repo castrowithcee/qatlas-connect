@@ -40,7 +40,8 @@ func TestListScreensTitleAboveThePanels(t *testing.T) {
 func TestListTitleIsCompactWhereHeightIsShort(t *testing.T) {
 	m := newTableModel(t, 100)
 	openSectionByName(t, m, sectionConnections)
-	m.Update(tea.WindowSizeMsg{Width: 100, Height: tableFrameMinHeight + 4})
+	// The footer of the list takes two rows at this width.
+	m.Update(tea.WindowSizeMsg{Width: 100, Height: tableFrameMinHeight + 5})
 	if m.titleBlank() {
 		t.Fatal("the gap under the title is kept at a height that only just holds the frame")
 	}

@@ -192,7 +192,7 @@ func (m *Model) clickDropdown(msg tea.MouseMsg) tea.Cmd {
 	}
 	// Any other click closes the list, as esc does; a click on a tab then goes on.
 	m.dd = nil
-	cmd, _ := m.clickBar(msg)
+	cmd, _ := m.clickTab(msg)
 	return cmd
 }
 

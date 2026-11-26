@@ -462,20 +462,14 @@ func selectionMark() string {
 // being cut off at its right edge.
 func (m *Model) hint(text string) string { return "\n" + m.wrapped(styles.hint, text) }
 
-// keyHint is the key line of a screen: groups of keys separated by " · ". It hands the line to the footer of
-// the frame (see footerLine) and returns nothing for the workspace; only while a modal dialog is drawn does
-// it return the line itself (see dialogKeyHint).
+// keyHint is the key line of a screen: groups of keys separated by " · ". A screen's keys stand in the footer
+// of the frame, which takes them before the screen is drawn (see screenKeyText), so it returns nothing for the
+// workspace; only while a modal dialog is drawn does it return the line itself (see dialogKeyHint).
 func (m *Model) keyHint(text string) string {
-	text = m.withInfoKey(text)
 	if m.footerLog == nil {
-		// A screen's keys stand in the footer of the frame, not in the workspace. A dialog under a backdrop
-		// leaves the footer as it was.
-		if !m.backdrop {
-			m.screenKeys = m.withCopyKeyShown(text)
-		}
 		return ""
 	}
-	return m.dialogKeyHint(text)
+	return m.dialogKeyHint(m.withInfoKey(text))
 }
 
 // withCopyKeyShown adds the copy group to a key line of the footer where the screen has something to copy.
@@ -546,6 +540,16 @@ func (m *Model) keyHintLinesWith(text string, style func(group string) string) [
 		}
 	}
 	return lines
+}
+
+// keyHintGroupFoot styles one "key action" group as the footer draws it: the key in the footer key style, its
+// action dimmed.
+func keyHintGroupFoot(group string) string {
+	key, action, ok := strings.Cut(group, " ")
+	if !ok {
+		return styles.footKey.Render(key)
+	}
+	return styles.footKey.Render(key) + styles.hint.Render(" "+action)
 }
 
 // keyHintGroup styles one "key action" hint: the key (its first word) bold, the action after it faint.

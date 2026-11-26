@@ -1,5 +1,5 @@
 // The vault state segment of the header, and 'ctrl+l', which unlocks or locks the vault from anywhere in
-// the editor. See the header itself in layout.go (headerLines) and this window's own
+// the editor. See the header itself in frame.go (frameSpec) and this window's own
 // admin session in admin.go, which 'ctrl+l' starts or ends alongside the vault itself but never otherwise
 // touches: the two stay independent.
 package tui
@@ -37,7 +37,7 @@ func vaultTick() tea.Cmd {
 // vaultHeaderText is the vault state of the header as one text: symbol and word together, so it reads
 // without colour and under NO_COLOR, plus the admin state for an encrypted, unlocked vault. "" for a run
 // with no vault configured at all.
-func (m *Model) vaultHeaderText() string { return strings.Join(m.vaultSegments(), headerSep) }
+func (m *Model) vaultHeaderText() string { return strings.Join(m.vaultSegments(), "  ") }
 
 // vaultSegments are the status marks of the header: the vault, and for an encrypted, unlocked vault the
 // admin session too. None for a run with no vault configured at all: showing a warning for something that
@@ -57,6 +57,8 @@ type headerMark struct {
 	kind   statusKind
 	text   string
 	urgent bool
+	// short is the form a narrow header takes; empty for none.
+	short string
 }
 
 // vaultMarks are the status marks of the header as data; vaultSegments draws them.
@@ -67,9 +69,9 @@ func (m *Model) vaultMarks() []headerMark {
 		// Neither locked nor unlocked describes a vault whose state cannot even be read; this is closer to
 		// the unencrypted warning than to either of the other two, and keeps the line naming what is wrong
 		// instead of silently showing nothing.
-		return []headerMark{{statusFail, tr(tVaultError, m.redactor.Apply(vs.Err.Error())), true}}
+		return []headerMark{{statusFail, tr(tVaultError, m.redactor.Apply(vs.Err.Error())), true, tr(tVaultErrorShort)}}
 	case manage.VaultUnencrypted:
-		return []headerMark{{statusWarn, tr(tVaultUnencrypted), true}}
+		return []headerMark{{kind: statusWarn, text: tr(tVaultUnencrypted), urgent: true}}
 	case manage.VaultProcessOnly, manage.VaultThisWindow:
 		// A vault process elsewhere may hold it open while this window itself has never unlocked it; either
 		// way the admin state belongs here too, since every unlocked, encrypted vault shows one, and
@@ -83,9 +85,9 @@ func (m *Model) vaultMarks() []headerMark {
 		if !vs.EndsAt.IsZero() {
 			unlocked = tr(tVaultUnlockedUntil, unlockDeadlineText(vs.EndsAt, m.timeNow()))
 		}
-		return []headerMark{{statusOK, unlocked, false}, {admin, m.adminHeaderText(), false}}
+		return []headerMark{{kind: statusOK, text: unlocked}, {kind: admin, text: m.adminHeaderText()}}
 	case manage.VaultLocked:
-		return []headerMark{{statusWarn, tr(tVaultLocked), true}}
+		return []headerMark{{kind: statusWarn, text: tr(tVaultLocked), urgent: true}}
 	}
 	return nil
 }

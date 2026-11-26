@@ -245,7 +245,9 @@ type logView struct {
 	// view scrolls the detail screen of one entry; page is how many of its lines the last drawing showed.
 	view textScroll
 	page int
-	mode logMode
+	// position is the place of the marked row among the shown ones, as the full frame of the table names it.
+	position string
+	mode     logMode
 	// day is the day of logModeDay, from and to the range of logModeRange, all as logDateLayout.
 	day, from, to string
 	focus         logFocus
@@ -1070,6 +1072,7 @@ func (m *Model) logRowLine(i int, l layout) string {
 func (m *Model) logsFrame() (string, string) {
 	lv := m.logs
 	focused := m.screen == screenLogs
+	lv.position = ""
 	width := m.usable(0)
 	status := styles.hint.Render(tr(tLogLoading))
 	if lv.loaded {
@@ -1228,7 +1231,7 @@ func (m *Model) logsFrame() (string, string) {
 		}
 		foot := keys
 		if shown > 0 && focused && !lv.stats && !lv.heat {
-			m.screenPos = fmt.Sprintf("%d/%d · %d%%", lv.list.cursor+1, shown, (lv.list.cursor+1)*100/shown)
+			lv.position = fmt.Sprintf("%d/%d · %d%%", lv.list.cursor+1, shown, (lv.list.cursor+1)*100/shown)
 		}
 		if lv.note != "" && lv.loaded && lv.hasUnchecked() {
 			foot = "\n" + m.wrapped(styles.hint, lv.note) + foot
@@ -1241,6 +1244,17 @@ func (m *Model) logsFrame() (string, string) {
 		return build(true)
 	}
 	return head, f
+}
+
+// logPosition is the position the table of the Logs screen puts at the right end of the footer, known before
+// it is drawn.
+func (m *Model) logPosition() string {
+	lv := m.logs
+	if m.screen != screenLogs || lv.dialog != nil || lv.pick != nil {
+		return ""
+	}
+	m.logsFrame()
+	return lv.position
 }
 
 // compactSubject is the explanation the compact frame left out of the summary tab, or none: the full frame

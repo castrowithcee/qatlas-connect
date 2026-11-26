@@ -321,7 +321,7 @@ func TestChangedFootersFitTheSmallestTerminalInBothLanguages(t *testing.T) {
 			view := m.render()
 			assertViewFits(t, view, minimumWidth, minimumHeight)
 			lines := strings.Split(view, "\n")
-			footer := lines[len(lines)-1]
+			footer := strings.Join(lines[len(lines)-footerRows(m):], "\n")
 			// The key row has no room for more than its own answer at this width.
 			want := keyLabel(actHelp)
 			if name == "key row" {

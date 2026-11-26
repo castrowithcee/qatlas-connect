@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	tea "charm.land/bubbletea/v2"
+	kittui "github.com/castrowithcee/qatlas-kit/tui"
 )
 
 // focusState is where the focus stands, as far as the keys and the clicks can move it.
@@ -33,7 +34,10 @@ func zoneModel(t *testing.T, w, h int, s section) *Model {
 // freeCell finds a cell of zone i that no target ranked above it covers.
 func freeCell(m *Model, i int) (x, y int, ok bool) {
 	z := m.zones[i]
-	above := append(append(append([]hit{}, m.zones[i+1:]...), m.frameHits...), m.hits...)
+	above := append(append([]hit{}, m.zones[i+1:]...), m.hits...)
+	for _, t := range append(append([]kittui.Target{}, m.frameTabs...), m.frameKeys...) {
+		above = append(above, hit{x0: t.Rect.X, y0: t.Rect.Y, x1: t.Rect.X + t.Rect.Width, y1: t.Rect.Y + t.Rect.Height})
+	}
 	for y := z.y0; y < z.y1; y++ {
 		for x := z.x0; x < z.x1; x++ {
 			covered := false

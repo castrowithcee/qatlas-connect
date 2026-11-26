@@ -748,7 +748,7 @@ func TestLogsSummaryFollowsFiltersAndShowsApproximations(t *testing.T) {
 		!strings.Contains(line, "10500") {
 		t.Errorf("wiki row lacks calls, ~tok total, or bytes: %q", line)
 	}
-	if !strings.Contains(view, "s or esc back to the rows") {
+	if !strings.Contains(view, "s/esc back to the rows") {
 		t.Errorf("the key line does not name s:\n%s", view)
 	}
 
@@ -827,7 +827,7 @@ func TestLogsSessionSummaryShowsAreasToolsAndEstimates(t *testing.T) {
 	// The panel wraps the note, so the words are compared without its frame and line breaks.
 	flat := strings.Join(strings.Fields(strings.NewReplacer("│", " ", "║", " ").Replace(view)), " ")
 	for _, want := range []string{"~tokens", "estimate", "system prompt and thinking", "session " + sessionNew,
-		"M or s or esc back to the rows"} {
+		"M/s/esc back to the rows"} {
 		if !strings.Contains(flat, want) {
 			t.Errorf("the session summary lacks %q:\n%s", want, view)
 		}

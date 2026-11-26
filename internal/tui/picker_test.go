@@ -452,7 +452,7 @@ func TestPickerRowsAreHighlightedFullWidthReadWithoutColourAndSearchByTyping(t *
 
 		setProfile(kittui.ProfileANSI16)
 		coloured := screenOf(m)
-		assertViewFits(t, coloured, width, m.height+1)
+		assertViewFits(t, coloured, width, m.height+footerRows(m))
 		if row := findRow(coloured, marked); !strings.Contains(row, "\x1b[") {
 			t.Errorf("width %d: the marked picker row shows no colour: %q\n%s", width, row, coloured)
 		}
@@ -462,7 +462,7 @@ func TestPickerRowsAreHighlightedFullWidthReadWithoutColourAndSearchByTyping(t *
 
 		setProfile(kittui.ProfileNone)
 		plain := screenOf(m)
-		assertViewFits(t, plain, width, m.height+1)
+		assertViewFits(t, plain, width, m.height+footerRows(m))
 		if strings.Contains(plain, "\x1b") {
 			t.Errorf("width %d: NO_COLOR still emits escape sequences in the picker:\n%s", width, plain)
 		}

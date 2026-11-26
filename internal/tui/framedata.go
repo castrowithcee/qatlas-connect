@@ -36,6 +36,9 @@ func (m *Model) kitMarks() []kit.StatusMark {
 	var marks []kit.StatusMark
 	for _, mark := range m.vaultMarks() {
 		km := kit.StatusMark{Text: mark.text}
+		if mark.short != "" {
+			km.Short = []string{mark.short}
+		}
 		switch mark.kind {
 		case statusOK:
 			km.Kind = kit.StatusOK

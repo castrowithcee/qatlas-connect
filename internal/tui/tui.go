@@ -319,7 +319,7 @@ const (
 	defaultWidth  = 120
 	defaultHeight = 100
 	minimumWidth  = 40
-	minimumHeight = 14
+	minimumHeight = 15
 	// narrowWidth is the width below which the header and long headings take a second line.
 	narrowWidth = 80
 	// frameCells is what the frame of the workspace takes from each dimension: a border line on both
@@ -701,11 +701,11 @@ type Model struct {
 	// screen would show for its own input.
 	backdrop bool
 	// The click targets of the frame drawn last; see mouse.go.
-	hits      []hit
-	frameHits []hit
-	// barHits are the tabs of the tab line and the option bar. Unlike the other targets they stand under a
-	// dialog too, because a click on a tab leaves what the dialog allows to leave.
-	barHits []hit
+	hits []hit
+	// frameTabs are the tabs of the tab line and the sub-tab line. Unlike the other targets they stand under a
+	// dialog too, because a click on a tab leaves what the dialog allows to leave. frameKeys are the keys of
+	// the header and the footer.
+	frameTabs, frameKeys []kittui.Target
 	// dialogBox is the cells a dialog covers in the frame drawn last; a tab under it is not reachable.
 	dialogBox hit
 	// zones are the focus zones of the frame drawn last, ranked below every other target.
@@ -725,14 +725,14 @@ type Model struct {
 	inModal bool
 	// inPanel is set while a question is drawn for the inside of a frame (see framedText).
 	inPanel bool
-	// screenKeys is the key text the screen drawn last hands to the footer of the frame.
-	screenKeys string
+	// screenKeys is the key text of the footer of the current screen, and screenPos the position in its list
+	// at the right end of the footer; layoutWorkspace takes both before the screen is drawn.
+	screenKeys, screenPos string
 	// probeKeys, while set, makes questionText hand over the keys of a question instead of drawing it.
 	probeKeys *string
-	// screenPos is the position in the list of the screen drawn last, for the right end of the footer.
-	screenPos string
-	// footerSpans are the cells of the key groups in the footer drawn last.
-	footerSpans []footerSpan
+	// spec is the frame of the current screen without its workspace, and top the row its workspace starts in.
+	spec kittui.FrameSpec
+	top  int
 	// formTop and formLeft are where the rows of the form being drawn start; sectionListWidth is the width of
 	// the list of its sections, 0 where there is none.
 	formTop, formLeft, sectionListWidth int
@@ -834,7 +834,6 @@ func New(svc *manage.Service, store *config.Store, tester Tester, secrets Secret
 		termWidth: defaultWidth, termHeight: defaultHeight, configExists: configExists,
 		startDir: startDir, execute: tea.Exec,
 	}
-	m.layoutWorkspace()
 	m.refreshRequests()
 	m.list = newFilterList(m.describe)
 	m.list.stops = true
@@ -858,6 +857,7 @@ func New(svc *manage.Service, store *config.Store, tester Tester, secrets Secret
 	// The editor opens on the tab line, with the Overview already shown below it.
 	m.section = sectionOverview
 	m.list.reset(m.listItems(m.section))
+	m.layoutWorkspace()
 	return m, nil
 }
 
@@ -4014,13 +4014,12 @@ func (m *Model) renderFrame() string {
 	if m.quitting {
 		return ""
 	}
-	m.hits, m.frameHits, m.zones, m.barHits, m.dialogBox, m.tooSmall = nil, nil, nil, nil, hit{}, false
+	m.hits, m.frameTabs, m.frameKeys, m.zones, m.dialogBox, m.tooSmall = nil, nil, nil, nil, hit{}, false
 	m.pathShown = nil
 	m.drawn = true
 	if m.dd != nil {
 		m.dd.placed = false
 	}
-	m.screenKeys, m.screenPos = "", ""
 	m.layoutWorkspace()
 	if m.terminalTooSmall() {
 		if m.screen == screenLeave {
@@ -4039,10 +4038,8 @@ func (m *Model) renderFrame() string {
 		return view
 	}
 	if m.questionScreen() || m.promptScreen() {
-		// A dialog that has no room for a modal fills the workspace; its keys stand in the footer, as buttons.
-		view := m.frame(m.workspaceView())
-		m.footerHits()
-		return view
+		// A dialog that has no room for a modal fills the workspace; its keys stand in the footer.
+		return m.frame(m.workspaceView())
 	}
 	return m.overlayDropdown(m.frame(m.workspaceView()))
 }

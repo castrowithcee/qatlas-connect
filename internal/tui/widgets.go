@@ -150,7 +150,7 @@ func surfaceRow(text string, width int) string {
 // it is the bold style of the plain tabs.
 func accentFill() lipgloss.Style {
 	p := styles.Palette()
-	if plainTabs() {
+	if noColour() {
 		return styles.active
 	}
 	return lipgloss.NewStyle().Bold(true).Background(lip(p.Accent)).Foreground(lip(p.Base))
@@ -165,7 +165,7 @@ func tabStrip(words []string, active int, focused bool) (string, [][2]int) {
 	var b strings.Builder
 	spans := make([][2]int, 0, len(words))
 	x := 0
-	plain := plainTabs()
+	plain := noColour()
 	for i, word := range words {
 		text, style := " "+word+" ", styles.hint
 		switch {

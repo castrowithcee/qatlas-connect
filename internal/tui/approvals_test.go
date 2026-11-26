@@ -662,10 +662,12 @@ func TestApprovalDetailShowsNewAndRemovedBeforeUnchanged(t *testing.T) {
 	m.Update(tea.WindowSizeMsg{Width: 80, Height: 24})
 	change := toolsChange()
 	title := "Approve gh?"
+	// The change is built for the test and is no approval of the store, so its keys are read from it directly.
+	keys := func() string { return footerKeys(m.approvalKeys(change, len(m.approvalBody(change)))) }
 
 	view := m.approvalChangeView(title, change)
 	assertViewFits(t, view, m.width, m.height)
-	view = withFooter(m, view)
+	view = shown(view + "\n" + keys())
 	for _, want := range []string{
 		"tools:        2 new, 1 removed",
 		"+ github.pull-request-checks.list", "+ github.pull-requests.get", "- github.repositories.archive",
@@ -693,7 +695,7 @@ func TestApprovalDetailShowsNewAndRemovedBeforeUnchanged(t *testing.T) {
 	}
 	view = m.approvalChangeView(title, change)
 	assertViewFits(t, view, m.width, m.height)
-	view = withFooter(m, view)
+	view = shown(view + "\n" + keys())
 	if !strings.Contains(view, "lines 1-") || !strings.Contains(view, "e fold unchanged") {
 		t.Errorf("an expanded view that is longer than the window does not scroll:\n%s", view)
 	}

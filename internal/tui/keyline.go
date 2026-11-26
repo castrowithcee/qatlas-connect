@@ -2,6 +2,7 @@ package tui
 
 import (
 	"regexp"
+	"slices"
 	"strings"
 
 	kit "github.com/castrowithcee/qatlas-kit/tui"
@@ -37,12 +38,30 @@ const (
 	keysImportDelete  = "{yes} delete the file · {no}/{back} keep it · {up}/{down} scroll · {command} cmds · {help} help"
 )
 
-// screenKeyText is the key text the current screen puts in the footer, known before anything is drawn: what
-// keyHint records while the screen draws in the workspace. A screen that a modal dialog covers draws its keys
-// in the dialog, and the modal hands the footer nothing, so this is the line of the workspace form.
+// screenKeyText is the key text the current screen puts in the footer, known before anything is drawn. A
+// screen that a modal dialog covers draws its keys in the dialog, so this is the line of the workspace form.
 func (m *Model) screenKeyText() string {
-	if m.quitting || m.terminalTooSmall() {
+	var text string
+	m.asDrawn(func() { text = m.workspaceKeys() })
+	if text == "" {
 		return ""
+	}
+	return m.withCopyKeyShown(m.withInfoKey(text))
+}
+
+// screenPosition is the position in the list of the current screen that the footer shows at its right end,
+// known before anything is drawn.
+func (m *Model) screenPosition() string {
+	var pos string
+	m.asDrawn(func() { pos = m.logPosition() })
+	return pos
+}
+
+// asDrawn runs build in the room the current screen is drawn in; a terminal too small for the frame draws no
+// screen.
+func (m *Model) asDrawn(build func()) {
+	if m.quitting || m.terminalTooSmall() {
+		return
 	}
 	if m.paneShown() {
 		// The screen draws beside its pane, in less width, and the pane changes what its keys cost.
@@ -50,11 +69,7 @@ func (m *Model) screenKeyText() string {
 		m.width, m.inPane = full-helpPaneWidth, true
 		defer func() { m.width, m.inPane = full, in }()
 	}
-	text := m.workspaceKeys()
-	if text == "" {
-		return ""
-	}
-	return m.withCopyKeyShown(m.withInfoKey(text))
+	build()
 }
 
 // workspaceKeys is the key text of the current screen before the keys every screen adds.
@@ -232,10 +247,21 @@ func hintLabelID(group string) textID { return textID("hint." + group) }
 
 // keyHints is a key text as the kit's hints. The groups keep their order: a group of several keys becomes
 // one hint per key, which Keymap.Hints folds into one group again by their shared label. The help group
-// stays at every width, a group at the right end is navigation, and the answers of a question stay.
+// stays at every width, a group at the right end is navigation, and the answers of a question stay. A screen
+// that reads text names only keys it acts on before the text, so its hints name them while it types; the
+// help, command and info keys follow their own reach.
 func (m *Model) keyHints(text string) []kit.Hint {
 	t := translator(infoExtraLabel() != "" && !m.infoReachable())
 	answering := m.questionScreen() || m.promptScreen()
+	typed := func(a action) bool {
+		switch a {
+		case actHelp, actCommand:
+			return m.helpReachable()
+		case actInfo:
+			return m.infoReachable()
+		}
+		return true
+	}
 	resolved := strings.Split(footerResolve(t, text), " · ")
 	var hints []kit.Hint
 	seen := map[string]bool{}
@@ -268,15 +294,76 @@ func (m *Model) keyHints(text string) []kit.Hint {
 			hints = append(hints, kit.Hint{Label: labelID, Priority: rank, Kind: kind})
 		}
 		for _, a := range actions {
-			hints = append(hints, kit.Hint{Action: a, Label: labelID, Priority: rank, Kind: kind})
+			hints = append(hints, kit.Hint{Action: a, Label: labelID, Priority: rank, Kind: kind, WhileTyping: typed(a)})
 		}
 	}
-	// A screen that names no keys at all gets the help key, as the footer gives it.
+	// A screen that names no keys at all gets the help key.
 	if len(hints) == 0 && keyLabel(actHelp) != "" {
-		hints = append(hints, kit.Hint{Action: actHelp, Label: tHeaderHelp, Priority: footerHelp, Kind: kit.HintAlways})
+		hints = append(hints, kit.Hint{Action: actHelp, Label: tHeaderHelp, Priority: footerHelp, Kind: kit.HintAlways, WhileTyping: typed(actHelp)})
 	}
 	return hints
 }
 
 // screenHints is the key line of the current screen as the kit's hints, before anything is drawn.
 func (m *Model) screenHints() []kit.Hint { return m.keyHints(m.screenKeyText()) }
+
+// Ranks of the groups of a key line, lowest stays longest. Groups that match no rule rank by position in the
+// screen's own text, earlier first; every rank below footerOthers is kept ahead of them, every rank above
+// is dropped before them.
+const (
+	footerHelp     = 0 // never dropped
+	footerBack     = 1
+	footerLock     = 2 // the only way to learn the lock key
+	footerPrimary  = 3 // enter, y, n, the delete key, the digits of the areas and the filter key
+	footerSave     = 4
+	footerCommand  = 5
+	footerQuit     = 6
+	footerOthers   = 10
+	footerInfo     = 700
+	footerCopy     = 710  // goes before the info key does
+	footerNavigate = 1000 // navigation stands right and goes first
+)
+
+// footerGroupRank is the rank of a group. Order of the rules is the order of importance.
+func footerGroupRank(group string, index int) (rank int, right bool) {
+	key, _, _ := strings.Cut(group, " ")
+	switch {
+	case key == keyLabel(actHelp) && key != "":
+		return footerHelp, false
+	case isNavigation(key):
+		return footerNavigate + index, true
+	case slices.Contains(strings.Split(key, "/"), keyLabel(actBack)):
+		return footerBack, false
+	case key == keyLabel(actSave):
+		return footerSave, false
+	case key == keyLabel(actQuit):
+		return footerQuit, false
+	case slices.Contains(strings.Split(key, "/"), keyLabel(actEnter)) || key == keyLabel(actYes) || key == keyLabel(actNo) || key == keyLabel(actFilter) || key == keyLabel(actDelete) || isSectionRange(key):
+		return footerPrimary, false
+	case key == keyLabel(actLock):
+		return footerLock, false
+	case key == keyLabel(actCommand):
+		return footerCommand, false
+	case key == keyLabel(actInfo) || key == tableKey(actInfo):
+		return footerInfo, false
+	case key == keyLabel(actCopy):
+		return footerCopy, false
+	}
+	return footerOthers + index, false
+}
+
+// isSectionRange reports whether a key is a digit range ("1-6"), which opens an area.
+func isSectionRange(key string) bool {
+	return len(key) >= 3 && key[0] >= '0' && key[0] <= '9' && key[1] == '-'
+}
+
+// isNavigation reports whether the first word of a group names moving through the screen rather than
+// acting on it.
+func isNavigation(key string) bool {
+	for _, pair := range [][2]action{{actUp, actDown}, {actLeft, actRight}, {actPageUp, actPageDown}, {actHome, actEnd}} {
+		if key == keyLabel(pair[0])+"/"+keyLabel(pair[1]) {
+			return true
+		}
+	}
+	return key == keyLabel(actNext)
+}
