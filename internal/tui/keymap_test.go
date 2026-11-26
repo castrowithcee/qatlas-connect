@@ -156,13 +156,69 @@ func TestKeyTableIsValidAndRebindingKeepsItValid(t *testing.T) {
 		t.Error("delete and discard, new and no should share a key on different levels")
 	}
 	// A swap of two keys is valid as a whole, a collision is refused as a whole.
-	applyKeys(uiprefs.Keys{Info: "f3", Save: "f4", Help: "ctrl+x", Command: "ctrl+l", Lock: "f6"})
-	if keyLabel(actCommand) != "ctrl+l" || keyLabel(actHelp) != "ctrl+x" || keyLabel(actLock) != "F6" {
-		t.Errorf("the swapped keys are not in force: %s %s %s", keyLabel(actCommand), keyLabel(actHelp), keyLabel(actLock))
+	applyKeys(uiprefs.Keys{Info: "f3", Save: "f4", Help: "ctrl+x", Command: "f7", Lock: "f6"})
+	if keyLabel(actCommand) != "F7" || keyLabel(actHelp) != "ctrl+x" || keyLabel(actLock) != "F6" || keyLabel(actSave) != "F4" {
+		t.Errorf("the swapped keys are not in force: %s %s %s %s", keyLabel(actCommand), keyLabel(actHelp), keyLabel(actLock), keyLabel(actSave))
 	}
 	applyKeys(uiprefs.Keys{Save: "f4", Lock: "f4"})
 	if keyLabel(actSave) != "F2" || keyLabel(actLock) != "ctrl+l" {
 		t.Errorf("two actions on one key were taken: %s %s", keyLabel(actSave), keyLabel(actLock))
+	}
+}
+
+// A key the kit reserves for a standard action is refused for any other action, in the same way the table's
+// own keys are, and the keys the kit leaves free stay bindable.
+func TestCheckRefusesReservedStandardKeys(t *testing.T) {
+	keepKeys(t)
+	refused := map[string][]string{
+		uiprefs.ActionSave:    {"ctrl+l"},
+		uiprefs.ActionHelp:    {"f2", ":", "ctrl+l"},
+		uiprefs.ActionCommand: {"f2", "?", "ctrl+l"},
+		uiprefs.ActionLock:    {"f2"},
+		uiprefs.ActionInfo:    {"f2", "ctrl+l"},
+	}
+	for name, keys := range refused {
+		for _, k := range keys {
+			if _, err := uiprefs.DefaultKeys().Check(name, k); err == nil {
+				t.Errorf("Check(%s, %q) accepts a reserved standard key", name, k)
+			}
+		}
+	}
+	if _, err := uiprefs.DefaultKeys().Check(uiprefs.ActionInfo, "f3"); err != nil {
+		t.Errorf("Check(info, f3) = %v", err)
+	}
+	if _, err := uiprefs.DefaultKeys().Check(uiprefs.ActionSave, "f4"); err != nil {
+		t.Errorf("Check(save, f4) = %v", err)
+	}
+}
+
+// A file with a reserved key keeps the default of that action with a warning, and its valid keys stay.
+func TestLoadKeepsValidKeysBesideAReservedOne(t *testing.T) {
+	keepKeys(t)
+	path := filepath.Join(t.TempDir(), uiprefs.FileName)
+	if err := os.WriteFile(path, []byte("keys:\n  command: ctrl+l\n  lock: f6\n  info: f3\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	prefs, warnings := uiprefs.Load(path)
+	if len(warnings) != 1 || !strings.Contains(warnings[0], "keys.command") {
+		t.Fatalf("warnings = %v", warnings)
+	}
+	if prefs.Keys.Command != ":" || prefs.Keys.Lock != "f6" || prefs.Keys.Info != "f3" {
+		t.Errorf("keys = %+v", prefs.Keys)
+	}
+	applyKeys(prefs.Keys)
+	if keyLabel(actCommand) != ":" || keyLabel(actLock) != "F6" {
+		t.Errorf("the loaded keys are not in force: %s %s", keyLabel(actCommand), keyLabel(actLock))
+	}
+	if err := os.WriteFile(path, []byte("keys:\n  info: f3\n  save: f4\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if prefs, warnings = uiprefs.Load(path); len(warnings) != 0 {
+		t.Fatalf("warnings = %v", warnings)
+	}
+	applyKeys(prefs.Keys)
+	if keyLabel(actSave) != "F4" {
+		t.Errorf("save = %s", keyLabel(actSave))
 	}
 }
 
