@@ -43,6 +43,10 @@ import (
 // successor that file. The successor migrates to ~/.qatlas/connect and serves it there, where this release's
 // program finds it by default, and leaves ~/.qatlas/cli as it was, but for the earlier process's own record
 // of the handover.
+//
+// The case from a release before the kit's channel starts from a program built out of the source of
+// kitlessTag, whose vault process speaks Connect's own protocol and hands its successor the earlier format,
+// which this release's successor reads.
 func TestUpdateHandsTheVaultOverToTheNewProgram(t *testing.T) {
 	if testing.Short() {
 		t.Skip("the acceptance run builds the binary six times")
@@ -52,19 +56,55 @@ func TestUpdateHandsTheVaultOverToTheNewProgram(t *testing.T) {
 		behaviour vault.UpdateBehaviour
 		earlier   bool
 		atDefault bool
+		fromTag   string
 	}{
-		{string(vault.UpdateHandover), vault.UpdateHandover, false, false},
-		{string(vault.UpdateLock), vault.UpdateLock, false, false},
-		{"handover from the earlier release", vault.UpdateHandover, true, false},
-		{"handover from the earlier release at its default location", vault.UpdateHandover, true, true},
+		{string(vault.UpdateHandover), vault.UpdateHandover, false, false, ""},
+		{string(vault.UpdateLock), vault.UpdateLock, false, false, ""},
+		{"handover from the earlier release", vault.UpdateHandover, true, false, ""},
+		{"handover from the earlier release at its default location", vault.UpdateHandover, true, true, ""},
+		{"handover from a release before the kit's channel", vault.UpdateHandover, false, false, kitlessTag},
 	} {
-		t.Run(tc.name, func(t *testing.T) { updateHandoverCase(t, tc.behaviour, tc.earlier, tc.atDefault) })
+		t.Run(tc.name, func(t *testing.T) {
+			updateHandoverCase(t, tc.behaviour, tc.earlier, tc.atDefault, tc.fromTag)
+		})
 	}
 }
 
+// kitlessTag is the last release after the rename whose vault process speaks Connect's own protocol and
+// hands its successor the earlier format; the successor of this release takes the vault over from it.
+const kitlessTag = "v3.6.0"
+
+// taggedSource extracts the source of tag from this repository into a new directory, or skips the test
+// where the tag is not there, as in a shallow checkout without tags.
+func taggedSource(t *testing.T, tag string) string {
+	t.Helper()
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git is not installed")
+	}
+	if err := exec.Command("git", "rev-parse", "--verify", "--quiet", tag+"^{commit}").Run(); err != nil {
+		t.Skipf("the tag %s is not in this checkout, as in a shallow one without tags", tag)
+	}
+	src := t.TempDir()
+	archive := filepath.Join(t.TempDir(), "source.tar")
+	if out, err := exec.Command("git", "archive", "--format=tar", "--output="+archive, tag).CombinedOutput(); err != nil {
+		t.Fatalf("git archive %s: %v: %s", tag, err, out)
+	}
+	if out, err := exec.Command("tar", "-xf", archive, "-C", src).CombinedOutput(); err != nil {
+		t.Fatalf("extracting %s: %v: %s", tag, err, out)
+	}
+	download := exec.Command("go", "mod", "download")
+	download.Dir = src
+	download.Env = append(os.Environ(), "GOFLAGS=-mod=mod", "GOWORK=off")
+	if out, err := download.CombinedOutput(); err != nil {
+		t.Fatalf("downloading the modules of %s: %v: %s", tag, err, out)
+	}
+	return src
+}
+
 // updateHandoverCase runs one case; atDefault keeps the configuration in the earlier release's default
-// location instead of naming it in QCONNECT_CONFIG.
-func updateHandoverCase(t *testing.T, behaviour vault.UpdateBehaviour, earlier, atDefault bool) {
+// location instead of naming it in QCONNECT_CONFIG; fromTag builds the program the update starts from out of
+// the source of that release instead of this one.
+func updateHandoverCase(t *testing.T, behaviour vault.UpdateBehaviour, earlier, atDefault bool, fromTag string) {
 	const (
 		storedID     = "canary-handover-id-5d27a1"
 		storedSecret = "canary-handover-secret-93be60"
@@ -82,7 +122,7 @@ func updateHandoverCase(t *testing.T, behaviour vault.UpdateBehaviour, earlier, 
 	keyLine := strings.TrimSpace(string(ssh.MarshalAuthorizedKey(signer.PublicKey())))
 	releases := selfupdatetest.NewServer(t)
 
-	build := func(path, version, tags string) {
+	build := func(path, version, tags, src string) {
 		t.Helper()
 		// Stripped like a release build: the updater refuses a program over its size limit.
 		cmd := exec.Command("go", "build", "-tags", tags, "-buildvcs=false", "-trimpath", "-ldflags",
@@ -90,6 +130,10 @@ func updateHandoverCase(t *testing.T, behaviour vault.UpdateBehaviour, earlier, 
 				" -X 'github.com/castrowithcee/qatlas-connect/internal/release.extraKeyLines="+keyLine+"'"+
 				" -X github.com/castrowithcee/qatlas-connect/internal/selfupdate.testBaseURL="+releases.RepositoryAPI(),
 			"-o", path, ".")
+		if src != "" {
+			cmd.Dir = src
+			cmd.Env = append(os.Environ(), "GOFLAGS=-mod=mod", "GOPROXY=off", "GOWORK=off")
+		}
 		cmd.Stderr = os.Stderr
 		if err := cmd.Run(); err != nil {
 			t.Fatalf("building the binary: %v", err)
@@ -99,9 +143,13 @@ func updateHandoverCase(t *testing.T, behaviour vault.UpdateBehaviour, earlier, 
 	if earlier {
 		tags += ",legacy_vault_names"
 	}
-	build(bin, "v3.0.0", tags)
+	src := ""
+	if fromTag != "" {
+		src = taggedSource(t, fromTag)
+	}
+	build(bin, "v3.0.0", tags, src)
 	next := filepath.Join(dir, "next")
-	build(next, "v3.1.0", "e2e")
+	build(next, "v3.1.0", "e2e", "")
 	program, err := os.ReadFile(next)
 	if err != nil {
 		t.Fatal(err)

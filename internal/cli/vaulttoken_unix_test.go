@@ -6,11 +6,11 @@ import (
 	"context"
 	"errors"
 	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/castrowithcee/qatlas-connect/internal/vault"
+	"github.com/castrowithcee/qatlas-connect/internal/vaultproc"
 )
 
 // Without a terminal, 'vault approve' hands the agent token to the vault process: it approves the change
@@ -20,9 +20,8 @@ import (
 func TestVaultApproveWithAnAgentToken(t *testing.T) {
 	dir := encryptedVaultFixture(t, "")
 	value := createAgentToken(t, dir, "kunde-a", "wiki")
-	server, client := serveVaultInProcess(t, dir)
-	server.ApproveWithTokens(filepath.Join(dir, vault.DirName))
-	server.KeepLog(filepath.Join(dir, vault.DirName), 90)
+	_, client := serveVaultInProcessWith(t, dir, vaultproc.ServerOptions{Tokens: true, KeepLog: true,
+		RetentionDays: 90})
 
 	config, _ := os.ReadFile(configIn(dir))
 	extended := strings.Replace(string(config), "defaults:", "  wiki-agent:\n    service: wiki\n"+

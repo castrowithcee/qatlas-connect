@@ -6,7 +6,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/castrowithcee/qatlas-connect/internal/vault"
 	"github.com/castrowithcee/qatlas-connect/internal/vaultproc"
 )
 
@@ -15,7 +14,7 @@ import (
 func TestConfigValidateReadsTheNamesFromAVaultProcess(t *testing.T) {
 	dir := renameVault(t)
 	handRenameConnection(t, dir)
-	serveVaultInProcessWith(t, dir, func(s *vaultproc.Server) { s.ApproveWithTokens(vault.New(dir).Dir()) })
+	serveVaultInProcessWith(t, dir, vaultproc.ServerOptions{Tokens: true})
 
 	code, stdout, stderr := validateNotes(t, dir)
 	if code != exitOK || !strings.HasPrefix(stdout, "configuration is valid: ") ||

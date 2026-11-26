@@ -870,11 +870,11 @@ func (r *Resolver) processClient() *vaultproc.Client {
 	if err != nil {
 		return nil
 	}
-	path, err := vaultproc.SocketPath(r.vault.Dir())
+	client, err := vaultproc.ClientFor(r.vault.Dir(), recipient)
 	if err != nil {
 		return nil
 	}
-	return vaultproc.NewClient(path, recipient)
+	return client
 }
 
 // Usable reports, without reading a secret or asking for a passphrase, why the connection resolved describes
