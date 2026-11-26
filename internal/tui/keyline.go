@@ -20,7 +20,6 @@ const (
 	keysRequestBody   = "{up}/{down} move · {space} tick · {tickall} all or none · {yes} accept · {decline} decline · {block} block · {back} back · {command} cmds · {help} help"
 	keysRequestChoice = "{up}/{down} choose · {enter} accept · {back} back · {command} cmds · {help} help"
 	keysCommandLine   = "type to search · {up}/{down} or {next} choose · {enter} run · {back} close"
-	keysHelp          = "{left}/{right} topic · {up}/{down} scroll · {pageup}/{pagedown} page · {back}/{help} close"
 	keysLogDetail     = "{back} back · {area} section · {command} cmds · {help} help"
 	keysTemplateKind  = "{up}/{down} move · {enter} choose · {back} cancel · {command} cmds · {help} help"
 
@@ -95,8 +94,6 @@ func (m *Model) workspaceKeys() string {
 		return m.pickerKeys()
 	case screenProviders:
 		return m.providerKeys()
-	case screenHelp:
-		return keysHelp
 	case screenCommand:
 		return keysCommandLine
 	case screenSelftest:

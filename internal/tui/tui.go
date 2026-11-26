@@ -128,8 +128,6 @@ const (
 	screenProviders
 	// screenLeave asks what happens to the unsaved input of a form before it is left: save, discard, or stay.
 	screenLeave
-	// screenHelp shows the help topics over the tab line or the list it was opened from.
-	screenHelp
 	// screenUpdate asks before a newer release of qconnect is installed.
 	screenUpdate
 	// screenVersions is the searchable list of the versions of qconnect that can be chosen.
@@ -668,15 +666,13 @@ type Model struct {
 	// inPane is set while the left part of a screen with a pane is drawn, whose width is already reduced.
 	inPane    bool
 	infoShown infoSubject
-	// helpTopic is the topic the help screen shows, scrolled by help; helpFrom is the screen it
-	// returns to.
-	helpTopic int
-	help      textScroll
-	helpFrom  screen
-	// helpKeysText is the full key text of helpFrom, listed in front of the topic helpOpened, the one the help
-	// was opened on.
-	helpKeysText string
-	helpOpened   int
+	// modal is the part of the kit open over the screen, nil for none; modalDone runs what it answers, and
+	// modalTargets are its click targets in the frame drawn last. See kitmodal.go.
+	modal        kittui.Modal
+	modalDone    func(action) tea.Cmd
+	modalTargets []kittui.Target
+	// helpTopic is the topic the help showed when it last closed; it opens there again.
+	helpTopic string
 
 	// Self-update state. release is a newer stable release the check at start found; updated names the
 	// version installed since, which takes effect only after a restart. updateFrom is the screen the update
@@ -1033,6 +1029,9 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					return m, m.quit()
 				}
 			case keyIs(msg, actBack):
+				if m.modal != nil {
+					return m, m.modalKey(msg)
+				}
 				// Leaving is what makes this a notice instead of a trap: a screen too large for the
 				// terminal must not be the only way out of the editor.
 				return m, m.leaveScreen()
@@ -1051,6 +1050,9 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			// ctrl+c ends the editor everywhere, so it ends the capture first and then acts as usual.
 			m.keyCapture = false
+		}
+		if m.modal != nil {
+			return m, m.modalKey(msg)
 		}
 		if keyIs(msg, actLock) && m.vaultLockKeyAllowed() {
 			return m, m.handleVaultLockKey()
@@ -1107,8 +1109,6 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			cmd = m.updateSummary(msg)
 		case screenLeave:
 			cmd = m.updateLeave(msg)
-		case screenHelp:
-			cmd = m.updateHelp(msg)
 		case screenUpdate:
 			cmd = m.updateUpdateConfirm(msg)
 		case screenVersions:
@@ -1526,9 +1526,6 @@ func (m *Model) leaveScreen() tea.Cmd {
 		m.screen = m.vaultUnlock.back
 		m.vaultUnlock = nil
 		m.status = tr(tCancelled)
-		return nil
-	case screenHelp:
-		m.screen = m.helpFrom
 		return nil
 	case screenCommand:
 		m.closeCommandLine()
@@ -4002,6 +3999,7 @@ func (m *Model) renderFrame() string {
 		return ""
 	}
 	m.hits, m.frameTabs, m.frameKeys, m.zones, m.listTargets, m.dialogBox, m.tooSmall = nil, nil, nil, nil, nil, hit{}, false
+	m.modalTargets = nil
 	m.pathShown = nil
 	m.drawn = true
 	if m.dd != nil {
@@ -4020,6 +4018,9 @@ func (m *Model) renderFrame() string {
 	}
 	if m.infoOpen {
 		return m.infoView()
+	}
+	if m.modal != nil {
+		return m.modalFrame()
 	}
 	if view, ok := m.modalView(); ok {
 		return view
@@ -4074,8 +4075,6 @@ func (m *Model) editorView() string {
 		return m.pickerView()
 	case screenProviders:
 		return m.providerTableView()
-	case screenHelp:
-		return m.helpView()
 	case screenCommand:
 		return m.commandLineView()
 	case screenSelftest:
@@ -4881,6 +4880,9 @@ func (m *Model) activeScreenTooSmall() bool {
 	}
 	if m.terminalTooSmall() {
 		return true
+	}
+	if m.modal != nil {
+		return false
 	}
 	if _, ok := m.modalView(); ok {
 		return false

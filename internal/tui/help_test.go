@@ -1,6 +1,9 @@
 package tui
 
 import (
+	"regexp"
+	"slices"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -9,7 +12,46 @@ import (
 
 	"github.com/castrowithcee/qatlas-connect/internal/helptopics"
 	kithelp "github.com/castrowithcee/qatlas-kit/helptopics"
+	kittui "github.com/castrowithcee/qatlas-kit/tui"
 )
+
+// helpOf is the help open over the screen, nil for none.
+func helpOf(m *Model) *kittui.Help {
+	h, _ := m.modal.(vimHelp)
+	return h.Help
+}
+
+func helpOpen(m *Model) bool { return helpOf(m) != nil }
+
+// helpTopicIndex is the index of the topic the open help shows.
+func helpTopicIndex(t *testing.T, m *Model) int {
+	t.Helper()
+	if !helpOpen(m) {
+		t.Fatal("the help is not open")
+	}
+	return slices.IndexFunc(helptopics.All(), func(topic kithelp.Topic) bool { return topic.Name == helpOf(m).Topic() })
+}
+
+var helpPosition = regexp.MustCompile(`lines (\d+)-(\d+) of (\d+)`)
+
+// helpScroll is the first shown line of the help text, counted from 0, and whether its last line is in view,
+// as the position line of the drawn help says; a text without that line fits.
+func helpScroll(t *testing.T, m *Model) (offset int, atEnd bool) {
+	t.Helper()
+	found := helpPosition.FindAllStringSubmatch(ansi.Strip(m.render()), -1)
+	if len(found) == 0 {
+		return 0, true
+	}
+	n := func(s string) int { v, _ := strconv.Atoi(s); return v }
+	last := found[len(found)-1]
+	return n(last[1]) - 1, n(last[2]) == n(last[3])
+}
+
+func helpOffset(t *testing.T, m *Model) int {
+	t.Helper()
+	offset, _ := helpScroll(t, m)
+	return offset
+}
 
 // firstWords is the start of a topic's text, short enough to stand on one line of any workspace.
 func firstWords(topic kithelp.Topic) string {
@@ -26,8 +68,8 @@ func TestHelpShowsEveryTopicAndClosesWithEscape(t *testing.T) {
 	}
 
 	press(t, m, "?")
-	if m.screen != screenHelp {
-		t.Fatalf("? on the tab line opened screen %v", m.screen)
+	if !helpOpen(m) || m.screen != screenNav {
+		t.Fatalf("? on the tab line: help %v over screen %v", helpOpen(m), m.screen)
 	}
 	topics := helptopics.All()
 	for i, key := range []string{"right", "right", "right", "right"} {
@@ -37,24 +79,24 @@ func TestHelpShowsEveryTopicAndClosesWithEscape(t *testing.T) {
 			t.Errorf("topic %s is not shown:\n%s", topic.Name, view)
 		}
 		if !strings.Contains(view, " Help ") {
-			t.Errorf("the workspace is not titled Help:\n%s", view)
+			t.Errorf("the help is not titled Help:\n%s", view)
 		}
 		press(t, m, key)
 	}
-	if m.helpTopic != 0 {
-		t.Errorf("right after the last topic shows topic %d, want the first", m.helpTopic)
+	if i := helpTopicIndex(t, m); i != 0 {
+		t.Errorf("right after the last topic shows topic %d, want the first", i)
 	}
 	press(t, m, "left")
 	if last := topics[len(topics)-1]; !strings.Contains(screenOf(m), "["+last.Name+"]") {
 		t.Errorf("left from the first topic does not show the last one:\n%s", screenOf(m))
 	}
 	press(t, m, "tab")
-	if m.helpTopic != 0 {
-		t.Errorf("tab does not switch the topic: %d", m.helpTopic)
+	if i := helpTopicIndex(t, m); i != 0 {
+		t.Errorf("tab does not switch the topic: %d", i)
 	}
 	press(t, m, "esc")
-	if m.screen != screenNav {
-		t.Fatalf("esc returned to screen %v, want the tab line", m.screen)
+	if helpOpen(m) || m.screen != screenNav {
+		t.Fatalf("esc returned to screen %v, help open %v, want the tab line", m.screen, helpOpen(m))
 	}
 
 	press(t, m, "enter")
@@ -62,17 +104,18 @@ func TestHelpShowsEveryTopicAndClosesWithEscape(t *testing.T) {
 		t.Errorf("the list keys do not offer ? help:\n%s", screenOf(m))
 	}
 	press(t, m, "?", "right")
-	if m.screen != screenHelp || !strings.Contains(screenOf(m), "[keys]") {
+	if !helpOpen(m) || !strings.Contains(screenOf(m), "[keys]") {
 		t.Fatalf("? in the list does not open the help:\n%s", screenOf(m))
 	}
 	press(t, m, "esc")
-	if m.screen != screenList {
+	if helpOpen(m) || m.screen != screenList {
 		t.Errorf("esc returned to screen %v, want the list", m.screen)
 	}
 }
 
-// A topic longer than the workspace scrolls, and the screen keeps its size while it does.
-func TestHelpScrollsWithinTheWorkspace(t *testing.T) {
+// A topic longer than its room scrolls, over the screen and in the workspace, and the screen keeps its size
+// while it does.
+func TestHelpScrollsWithinItsRoom(t *testing.T) {
 	m, _, _ := newModel(t)
 	for _, size := range []struct{ width, height int }{{100, 28}, {60, 24}, {40, minimumHeight}} {
 		m.Update(tea.WindowSizeMsg{Width: size.width, Height: size.height})
@@ -84,31 +127,29 @@ func TestHelpScrollsWithinTheWorkspace(t *testing.T) {
 			t.Fatalf("%dx%d: the keys topic does not say it scrolls:\n%s", size.width, size.height, view)
 		}
 		press(t, m, "down", "down")
-		if m.help.offset() != 2 {
-			t.Errorf("%dx%d: down twice scrolled to %d", size.width, size.height, m.help.offset())
+		if got := helpOffset(t, m); got != 2 {
+			t.Errorf("%dx%d: down twice scrolled to %d", size.width, size.height, got)
 		}
 		press(t, m, "end")
-		view = m.render()
-		assertViewFits(t, view, size.width, size.height)
-		lines := m.helpLines()
-		if !strings.Contains(view, strings.TrimSpace(lines[len(lines)-1])) {
-			t.Errorf("%dx%d: end does not show the last line:\n%s", size.width, size.height, view)
+		assertViewFits(t, m.render(), size.width, size.height)
+		end, atEnd := helpScroll(t, m)
+		if !atEnd {
+			t.Errorf("%dx%d: end does not show the last line:\n%s", size.width, size.height, m.render())
 		}
-		end := m.help.offset()
 		press(t, m, "down")
-		if m.help.offset() != end {
+		if got := helpOffset(t, m); got != end {
 			t.Errorf("%dx%d: down scrolled past the end", size.width, size.height)
 		}
 		press(t, m, "home")
-		if m.help.offset() != 0 {
-			t.Errorf("%dx%d: home scrolled to %d", size.width, size.height, m.help.offset())
+		if got := helpOffset(t, m); got != 0 {
+			t.Errorf("%dx%d: home scrolled to %d", size.width, size.height, got)
 		}
 		press(t, m, "pgdown")
-		if m.help.offset() == 0 {
+		if helpOffset(t, m) == 0 {
 			t.Errorf("%dx%d: pgdown did not scroll", size.width, size.height)
 		}
 		press(t, m, "right")
-		if m.help.offset() != 0 {
+		if got := helpOffset(t, m); got != 0 {
 			t.Errorf("%dx%d: a new topic does not start at its top", size.width, size.height)
 		}
 		press(t, m, "esc")
@@ -131,10 +172,21 @@ func TestQuestionMarkIsTextWhereTextIsTyped(t *testing.T) {
 	}
 }
 
-// The help stands as a centred panel over the screen it was opened from where the terminal has the room for a
-// modal, and fills the workspace below that; the topics are tabs, a heading is bold and a key is in the accent
-// colour, and without colour everything is still there.
+// The help stands as a framed panel over the screen it was opened from wherever three text rows and an inner
+// width of 36 cells fit, and fills the workspace below that; the topics are tabs and the keys are named, also
+// without colour, and every size from 44x15 up draws it without error.
 func TestHelpIsAPanelOverTheScreenWhereThereIsRoom(t *testing.T) {
+	type size struct {
+		width, height int
+		over          bool
+	}
+	sizes := []size{{100, 28, true}, {modalMinWidth, modalMinHeight, true}, {modalMinWidth - 1, modalMinHeight, true},
+		{43, minimumHeight, false}, {minimumWidth, minimumHeight, false}}
+	for w := 44; w <= 59; w++ {
+		for h := minimumHeight; h <= 19; h++ {
+			sizes = append(sizes, size{w, h, true})
+		}
+	}
 	for _, noColor := range []bool{false, true} {
 		restoreRenderer(t)
 		t.Setenv("NO_COLOR", "")
@@ -143,41 +195,67 @@ func TestHelpIsAPanelOverTheScreenWhereThereIsRoom(t *testing.T) {
 			withNoColor(t)
 		}
 		m, _, _ := newModel(t)
-		for _, size := range []struct{ width, height int }{{100, 28}, {modalMinWidth, modalMinHeight}, {modalMinWidth - 1, modalMinHeight}, {40, minimumHeight}} {
+		for _, size := range sizes {
 			m.Update(tea.WindowSizeMsg{Width: size.width, Height: size.height})
 			m.screen = screenNav
 			press(t, m, "?")
+			if m.fail != "" {
+				t.Fatalf("%dx%d: the help failed: %s", size.width, size.height, m.fail)
+			}
 			view := m.render()
 			assertViewFits(t, view, size.width, size.height)
 			plain := ansi.Strip(view)
 			framed := strings.Contains(plain, "╭─ Help ") || strings.Contains(plain, "╔═ Help ")
-			if framed != (size.width >= modalMinWidth && size.height >= modalMinHeight) {
+			if framed != size.over {
 				t.Errorf("%dx%d: panel over the screen = %v:\n%s", size.width, size.height, framed, plain)
 			}
-			if !strings.Contains(plain, "["+helptopics.All()[m.helpTopic].Name+"]") || !strings.Contains(plain, "close") {
+			if !strings.Contains(plain, "["+helptopics.All()[0].Name+"]") || !strings.Contains(plain, "close") {
 				t.Errorf("%dx%d: the help lacks its topics or its keys:\n%s", size.width, size.height, plain)
 			}
 			if noColor && plain != view {
 				t.Errorf("%dx%d: NO_COLOR still emits escape sequences", size.width, size.height)
 			}
-			if framed && !noColor {
-				if !strings.Contains(view, colourOf(styles.footKey)+"←/→") {
-					t.Errorf("%dx%d: the keys are not in the accent colour:\n%q", size.width, size.height, view)
-				}
-				// The list of keys, at the end of the keys topic, comes with its heading in bold.
-				m.helpTopic = 1
-				m.clampHelp()
-				for i, line := range m.helpLines() {
-					if line == tr(tKeysHeading) {
-						m.clampHelp()
-						m.help.vp.SetYOffset(i)
-					}
-				}
-				if !strings.Contains(m.render(), colourOf(styles.title)+tr(tKeysHeading)) {
-					t.Errorf("%dx%d: the heading of the keys is not bold:\n%q", size.width, size.height, m.render())
-				}
-			}
 			press(t, m, "esc")
+			if helpOpen(m) {
+				t.Fatalf("%dx%d: esc left the help open", size.width, size.height)
+			}
 		}
+	}
+}
+
+// The key lists stand at the end of the first topic, the keys of the screen under "This screen" and the
+// global actions under "Everywhere", with the keys bound now; the other topics end
+// without them.
+func TestHelpKeyListsEndTheFirstTopic(t *testing.T) {
+	keepKeys(t)
+	applyKeys(map[action]string{actCommand: "f6"})
+	m := sizedModel(groupModel(t), 120, 40)
+	openSectionByName(t, m, sectionConnections)
+	press(t, m, "?")
+	// The help learns the length of its text as it draws, as after every key of a run.
+	m.render()
+	press(t, m, "end")
+	plain := ansi.Strip(m.render())
+	screen, all := strings.Index(plain, "This screen"), strings.Index(plain, "Everywhere")
+	if screen < 0 || screen > all {
+		t.Fatalf("the keys of the screen do not come first:\n%s", plain)
+	}
+	if !strings.Contains(plain[all:], "F6") {
+		t.Errorf("the global keys do not name the command key in force:\n%s", plain)
+	}
+	press(t, m, "right")
+	m.render()
+	press(t, m, "end")
+	if plain := ansi.Strip(m.render()); strings.Contains(plain, "Everywhere") {
+		t.Errorf("the second topic ends with the key lists:\n%s", plain)
+	}
+}
+
+func TestHelpOpensOnTheTopicItLastShowed(t *testing.T) {
+	m, _, _ := newModel(t)
+	m.Update(tea.WindowSizeMsg{Width: 150, Height: 42})
+	press(t, m, "?", "right", "right", "esc", "?")
+	if i := helpTopicIndex(t, m); i != 2 {
+		t.Fatalf("the help opens on topic %d, want the last shown topic 2", i)
 	}
 }

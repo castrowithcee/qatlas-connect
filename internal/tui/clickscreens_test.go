@@ -7,41 +7,67 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/charmbracelet/x/ansi"
+
 	"github.com/castrowithcee/qatlas-connect/internal/helptopics"
 	kitprefs "github.com/castrowithcee/qatlas-kit/uiprefs"
 )
 
-// helpTabClick clicks the tab of the help topic at index i and checks that the topic switched.
+// helpTabClick clicks the tab of the help topic at index i and checks that the topic switched and starts at
+// its top. The tabs stand in the row of the title or the one under it, a tab cut at the right end by its
+// first letters.
 func helpTabClick(t *testing.T, m *Model, i int) {
 	t.Helper()
-	m.help.scroll(keyMsg("down"), 3)
 	m.render()
-	topics := helptopics.All()
-	x, y := cellOf(t, m, topics[i].Name)
-	clickAt(t, m, x, y)
-	if m.screen != screenHelp || m.helpTopic != i {
-		t.Fatalf("click on the tab %q: screen %v topic %d, want topic %d", topics[i].Name, m.screen, m.helpTopic, i)
+	press(t, m, "down")
+	if helpOffset(t, m) != 1 {
+		t.Fatal("down did not scroll the help")
 	}
-	if view := strings.Join(frameLines(m), "\n"); !strings.Contains(view, "["+topics[i].Name+"]") {
-		t.Errorf("the topic %q is not the active tab:\n%s", topics[i].Name, view)
+	name := helptopics.All()[i].Name
+	lines := frameLines(m)
+	x, y := -1, -1
+	for row, line := range lines {
+		if !strings.Contains(line, "Help") {
+			continue
+		}
+		for _, r := range []int{row, row + 1} {
+			if at := strings.Index(lines[r], name[:min(5, len(name))]); at >= 0 {
+				x, y = ansi.StringWidth(lines[r][:at]), r
+				break
+			}
+		}
+		break
+	}
+	if y < 0 {
+		t.Fatalf("no tab shows the topic %q:\n%s", name, strings.Join(lines, "\n"))
+	}
+	clickAt(t, m, x, y)
+	if !helpOpen(m) || helpTopicIndex(t, m) != i || helpOffset(t, m) != 0 {
+		t.Fatalf("click on the tab %q: help open %v, want topic %d from its top", name, helpOpen(m), i)
+	}
+	if view := strings.Join(frameLines(m), "\n"); !strings.Contains(view, "["+name[:min(5, len(name))]) {
+		t.Errorf("the topic %q is not the active tab:\n%s", name, view)
 	}
 }
 
 func TestClickOnAHelpTopicTabSwitchesTheTopicInTheOverlayAndTheWorkspace(t *testing.T) {
+	last := len(helptopics.All()) - 1
 	for _, size := range []struct {
-		name string
-		w, h int
-	}{{"overlay", 120, 40}, {"workspace", 50, 16}} {
+		name  string
+		w, h  int
+		order []int
+	}{{"overlay", 120, 40, []int{1, last, 0}}, {"workspace", 43, 16, []int{1, 2, 1}}} {
 		t.Run(size.name, func(t *testing.T) {
 			m := sizedModel(groupModel(t), size.w, size.h)
 			m.prefs.Icons = kitprefs.IconsNone
 			m.openHelp()
-			if m.helpOverlay() != (size.name == "overlay") {
-				t.Fatalf("helpOverlay = %v at %dx%d", m.helpOverlay(), size.w, size.h)
+			view := strings.Join(frameLines(m), "\n")
+			if framed := strings.Contains(view, "═ Help ") || strings.Contains(view, "─ Help "); framed != (size.name == "overlay") {
+				t.Fatalf("help framed over the screen = %v at %dx%d", framed, size.w, size.h)
 			}
-			helpTabClick(t, m, 1)
-			helpTabClick(t, m, len(helptopics.All())-1)
-			helpTabClick(t, m, 0)
+			for _, i := range size.order {
+				helpTabClick(t, m, i)
+			}
 		})
 	}
 }
