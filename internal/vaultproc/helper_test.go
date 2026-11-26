@@ -6,6 +6,7 @@ import (
 	"bufio"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -118,6 +119,10 @@ func runHelper(spec helperSpec) int {
 func answerEvery(l net.Listener, line string) {
 	for {
 		conn, err := l.Accept()
+		var refused *localipc.PeerError
+		if errors.As(err, &refused) {
+			continue // a peer the listener refused and closed, such as one that left before it was checked
+		}
 		if err != nil {
 			return
 		}

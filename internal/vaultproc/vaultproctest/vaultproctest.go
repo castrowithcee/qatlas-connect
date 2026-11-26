@@ -5,6 +5,7 @@ package vaultproctest
 import (
 	"bufio"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -15,6 +16,7 @@ import (
 	"time"
 
 	"github.com/castrowithcee/qatlas-connect/internal/vaultproc"
+	"github.com/castrowithcee/qatlas-kit/localipc"
 	kitvaultproc "github.com/castrowithcee/qatlas-kit/vaultproc"
 )
 
@@ -28,6 +30,10 @@ func Answer(code string) string {
 func Serve(l net.Listener, line string) {
 	for {
 		conn, err := l.Accept()
+		var refused *localipc.PeerError
+		if errors.As(err, &refused) {
+			continue // a peer the listener refused and closed, such as one that left before it was checked
+		}
 		if err != nil {
 			return
 		}

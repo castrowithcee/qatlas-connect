@@ -38,12 +38,6 @@ func TestCtrlLEndsAReplacedVaultProcessBeforeStartingOne(t *testing.T) {
 		t.Fatalf("New() = %v", err)
 	}
 	replaced := vaultproctest.Start(t, m.secrets.Vault().Dir(), "", vaultproctest.Answer("replaced"))
-	// temporary macOS diagnosis
-	realEndpoint, err := vaultproc.Endpoint(m.secrets.Vault().Dir())
-	mustNoError(t, err)
-	macDiagReplaced(t, realEndpoint, replaced.PID, vaultproc.Endpoint, func(dir string) int {
-		return vaultproctest.Start(t, dir, "", vaultproctest.Answer("replaced")).PID
-	})
 
 	openSectionByName(t, m, sectionServices)
 	pump(t, m, "ctrl+l")

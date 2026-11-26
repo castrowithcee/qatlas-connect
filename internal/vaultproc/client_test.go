@@ -67,11 +67,6 @@ func TestLockEndsAProcessThatCannotBeAsked(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			tv := newTestVault(t)
 			h := startHelper(t, helperSpec{Mode: "serve", VaultDir: tv.vault.Dir(), Line: line}, "listening")
-			if name == "replaced" { // temporary macOS diagnosis
-				macDiagReplaced(t, endpointOf(t, tv.vault.Dir()), h.pid(), Endpoint, func(dir string) int {
-					return startHelper(t, helperSpec{Mode: "serve", VaultDir: dir, Line: line}, "listening").pid()
-				})
-			}
 			client := tv.client(t)
 			if _, err := client.Status(withTimeout(t)); err == nil {
 				t.Fatal("Status() succeeded")
