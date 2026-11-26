@@ -112,6 +112,9 @@ func (m *Model) updateMouse(msg tea.MouseMsg) tea.Cmd {
 	if m.tooSmall {
 		return nil
 	}
+	if m.modal != nil {
+		return m.modalMouse(msg)
+	}
 	// The targets of the frame go through the kit map; the acts stay with the application, which runs the
 	// click as the key or the tab click it stands for.
 	if wheel {
@@ -205,7 +208,7 @@ func (m *Model) runTarget(r kittui.MouseResult, acts []func() tea.Cmd) tea.Cmd {
 // wheelScreens are the screens whose up and down keys move over rows; the wheel is those keys there.
 func (m *Model) wheelScreens() bool {
 	switch m.screen {
-	case screenList, screenForm, screenPicker, screenProviders, screenHelp, screenLogs, screenLogDetail,
+	case screenList, screenForm, screenPicker, screenProviders, screenLogs, screenLogDetail,
 		screenTargets, screenPaths, screenTemplate, screenFindings, screenCommand, screenVersions:
 		return true
 	}
@@ -219,7 +222,7 @@ func (m *Model) textScreen() bool {
 		return true
 	}
 	switch m.screen {
-	case screenHelp, screenSelftest, screenLogDetail:
+	case screenSelftest, screenLogDetail:
 		return true
 	case screenConfirm:
 		return m.approvalDetail != "" || m.requestDetail != ""
@@ -378,7 +381,7 @@ const barLeaveSteps = 8
 // whose esc only returns to the tab line, and wherever a question, a dialog or an overlay is open and esc
 // answers that instead.
 func (m *Model) backShown() bool {
-	if m.backdrop || m.infoOpen || m.keyCapture || m.dd != nil || m.testResultShown() {
+	if m.backdrop || m.modal != nil || m.infoOpen || m.keyCapture || m.dd != nil || m.testResultShown() {
 		return false
 	}
 	if _, ok := keyPress(keyLabel(actBack)); !ok {
@@ -394,8 +397,6 @@ func (m *Model) backShown() bool {
 		return m.wizard != nil && !m.wizard.saving
 	case screenConfirm:
 		return (m.approvalDetail != "" && !m.approveAllConfirm) || (m.tokenDetail != "" && m.tokenRevoke == "") || m.requestDetail != ""
-	case screenHelp:
-		return !m.helpOverlay()
 	case screenTargets:
 		return !m.targetRemove
 	case screenPaths:
@@ -456,7 +457,7 @@ func (m *Model) leaveForBar() (cmd tea.Cmd, ok bool) {
 				return tea.Batch(cmds...), m.screen != screenLeave
 			}
 		}
-		if !m.typing() && !m.backShown() && m.screen != screenHelp {
+		if !m.typing() && !m.backShown() {
 			break
 		}
 		cmds = append(cmds, m.pressBack())

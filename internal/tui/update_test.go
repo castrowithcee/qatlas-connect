@@ -244,6 +244,7 @@ func TestTheBannerKeepsTheFrameInLine(t *testing.T) {
 	} {
 		m.Update(tea.WindowSizeMsg{Width: tt.width, Height: tt.height})
 		for _, screen := range []string{"tab line", "help", "question"} {
+			m.closeModal()
 			m.screen = screenNav
 			switch screen {
 			case "help":
@@ -260,10 +261,12 @@ func TestTheBannerKeepsTheFrameInLine(t *testing.T) {
 			if tt.width < 100 && strings.Contains(lines[0], "🎉") {
 				t.Errorf("%dx%d: a narrow top line keeps the emoji: %q", tt.width, tt.height, lines[0])
 			}
-			// A modal may stand over the option bar and the rule of a small terminal; its background keeps the
-			// tab line.
-			covered := screen == "question" && tt.height < 28 ||
-				screen == "help" && tt.width >= modalMinWidth && tt.height >= modalMinHeight
+			// A question may stand over the option bar and the rule of a small terminal, the help over the tab
+			// line too; its background keeps the tab line.
+			if screen == "help" && strings.Contains(view, "═ Help ") {
+				continue
+			}
+			covered := screen == "question" && tt.height < 28
 			if !strings.Contains(lines[1], "[2 Library]") ||
 				!covered && (!strings.Contains(lines[2], "[Services]") || !strings.Contains(lines[3], "─")) {
 				t.Errorf("%dx%d %s: the tab line, option bar and rule do not follow the banner: %q", tt.width, tt.height, screen, lines[1:4])

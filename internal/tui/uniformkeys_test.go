@@ -15,7 +15,7 @@ func helpRoundTrip(t *testing.T, m *Model, what string) {
 	t.Helper()
 	from := m.screen
 	press(t, m, "?")
-	if m.screen != screenHelp {
+	if !helpOpen(m) {
 		t.Fatalf("? on %s opened screen %v, want the help:\n%s", what, m.screen, screenOf(m))
 	}
 	press(t, m, "esc")
@@ -111,20 +111,21 @@ func TestVimKeysMoveLikeTheArrowsOnEveryKindOfScreen(t *testing.T) {
 		m, _, _ := newModel(t)
 		m.Update(tea.WindowSizeMsg{Width: 60, Height: minimumHeight})
 		press(t, m, "?", "l")
-		if m.helpTopic != 1 {
-			t.Fatalf("l = topic %d, want 1", m.helpTopic)
+		if i := helpTopicIndex(t, m); i != 1 {
+			t.Fatalf("l = topic %d, want 1", i)
 		}
 		press(t, m, "h")
-		if m.helpTopic != 0 {
-			t.Fatalf("h = topic %d, want 0", m.helpTopic)
+		if i := helpTopicIndex(t, m); i != 0 {
+			t.Fatalf("h = topic %d, want 0", i)
 		}
+		m.render()
 		press(t, m, "j")
-		if m.help.offset() != 1 {
-			t.Fatalf("j = offset %d, want 1", m.help.offset())
+		if got := helpOffset(t, m); got != 1 {
+			t.Fatalf("j = offset %d, want 1", got)
 		}
 		press(t, m, "k")
-		if m.help.offset() != 0 {
-			t.Fatalf("k = offset %d, want 0", m.help.offset())
+		if got := helpOffset(t, m); got != 0 {
+			t.Fatalf("k = offset %d, want 0", got)
 		}
 	})
 
@@ -385,8 +386,8 @@ func TestSpaceOnlyTicksInMultipleChoices(t *testing.T) {
 
 	m.screen = screenNav
 	press(t, m, "?", " ")
-	if m.help.offset() != 0 {
-		t.Fatalf("space in the help scrolled to %d", m.help.offset())
+	if got := helpOffset(t, m); got != 0 {
+		t.Fatalf("space in the help scrolled to %d", got)
 	}
 
 	f := newLogFixture(t)

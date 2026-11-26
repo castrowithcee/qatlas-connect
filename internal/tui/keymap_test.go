@@ -78,7 +78,7 @@ func TestRebindingChangesFooterAndDispatchTogether(t *testing.T) {
 		t.Fatalf("the footer does not follow the keymap:\n%s", view)
 	}
 	press(t, m, "?")
-	if m.screen == screenHelp {
+	if helpOpen(m) {
 		t.Fatal("the old help key still opens the help")
 	}
 	press(t, m, ":")
@@ -91,14 +91,14 @@ func TestRebindingChangesFooterAndDispatchTogether(t *testing.T) {
 	}
 	press(t, m, "esc")
 	m.Update(tea.KeyPressMsg{Code: 'x', Mod: tea.ModCtrl})
-	if m.screen != screenHelp {
+	if !helpOpen(m) {
 		t.Fatalf("the new help key left screen %v", m.screen)
 	}
 	if !strings.Contains(m.render(), "esc/ctrl+x close") {
 		t.Errorf("the help footer does not follow the keymap:\n%s", m.render())
 	}
 	m.Update(tea.KeyPressMsg{Code: 'x', Mod: tea.ModCtrl})
-	if m.screen == screenHelp {
+	if helpOpen(m) {
 		t.Fatal("the new help key does not close the help")
 	}
 

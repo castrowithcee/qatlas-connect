@@ -168,8 +168,8 @@ func TestEnterRunsSetupHelpAndQuit(t *testing.T) {
 	pump(t, m, ":")
 	typeText(t, m, "help")
 	pump(t, m, "enter")
-	if m.screen != screenHelp || m.helpFrom != screenNav {
-		t.Errorf("help: screen %v from %v", m.screen, m.helpFrom)
+	if !helpOpen(m) || m.screen != screenNav {
+		t.Errorf("help: open %v over screen %v", helpOpen(m), m.screen)
 	}
 
 	m = cmdModel(t)
@@ -375,7 +375,7 @@ func TestPaletteStaysUsableAtTheSmallestSize(t *testing.T) {
 		t.Fatalf("no cursor at 40x%d:\n%s", minimumHeight, view)
 	}
 	press(t, m, "h", "e", "l", "p", "enter")
-	if m.screen != screenHelp {
+	if !helpOpen(m) {
 		t.Errorf("enter did not run help, screen %v", m.screen)
 	}
 }

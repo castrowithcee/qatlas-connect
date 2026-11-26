@@ -1,269 +1,46 @@
 package tui
 
 import (
-	"strings"
-
 	tea "charm.land/bubbletea/v2"
-	"charm.land/lipgloss/v2"
+	kittui "github.com/castrowithcee/qatlas-kit/tui"
 
 	"github.com/castrowithcee/qatlas-connect/internal/helptopics"
-	"github.com/castrowithcee/qatlas-connect/internal/uiprefs"
-	kithelp "github.com/castrowithcee/qatlas-kit/helptopics"
 )
 
-// openHelp shows the help topics in the workspace, over the tab line or the list it was opened from.
+// openHelp opens the help topics over the current screen. The first topic ends with the keys of that screen
+// and those of the global actions, as they are bound now.
 func (m *Model) openHelp() {
-	m.helpFrom = m.screen
-	m.helpKeysText, m.helpOpened = m.screenKeys, m.helpTopic
-	m.screen = screenHelp
-	m.help.reset()
+	h, err := kittui.NewHelp(kittui.HelpSpec{
+		Topics: helptopics.All(),
+		Screen: m.keyHints(m.screenKeys),
+		Global: []action{actSave, actHelp, actCommand, actLock, actInfo},
+		Keys: kittui.HelpKeys{Left: actLeft, Right: actRight, Next: actTopicNext, Prev: actTopicPrev,
+			Up: actUp, Down: actDown, PageUp: actPageUp, PageDown: actPageDown, First: actHome, Last: actEnd,
+			Back: actBack, Help: actHelp},
+		Note:         kittui.TextID(tMacFnNote),
+		CloseOutside: true,
+	}, keymap, translator(infoExtraLabel() != "" && !m.infoReachable()))
+	if err != nil {
+		m.fail = err.Error()
+		return
+	}
+	if m.helpTopic != "" {
+		h.SetTopic(m.helpTopic)
+	}
 	m.clearMessages()
-}
-
-func (m *Model) updateHelp(key tea.KeyPressMsg) tea.Cmd {
-	topics := len(helptopics.All())
-	_, _, room := m.helpFrame()
-	switch {
-	case keyIs(key, actBack) || keyIs(key, actHelp):
-		m.screen = m.helpFrom
-	case keyIs(key, actRight) || keyIs(key, actTopicNext):
-		m.helpTopic = wrap(m.helpTopic+1, topics)
-		m.help.reset()
-	case keyIs(key, actLeft) || keyIs(key, actTopicPrev):
-		m.helpTopic = wrap(m.helpTopic-1, topics)
-		m.help.reset()
-	default:
-		m.clampHelp()
-		m.help.scroll(key, room)
-	}
-	m.clampHelp()
-	return nil
-}
-
-// helpMaxInner is the widest text of the help overlay.
-const helpMaxInner = 72
-
-// helpOverlay reports whether the help stands as an overlay over the screen it was opened from: the terminal
-// has the room a modal needs. Smaller, it fills the workspace.
-func (m *Model) helpOverlay() bool {
-	return m.termWidth >= modalMinWidth && m.termHeight >= modalMinHeight
-}
-
-// helpInner is the width the help text is wrapped into.
-func (m *Model) helpInner() int {
-	if m.helpOverlay() {
-		return min(m.termWidth-8, helpMaxInner)
-	}
-	return m.usable(0)
-}
-
-// helpText is the text of the current topic. On the topic the help opened on it starts with the keys of the
-// screen it was opened from.
-func (m *Model) helpText() string {
-	topic := helptopics.All()[m.helpTopic]
-	text := topic.Text
-	if topic.Name == helptopics.Keys().Name {
-		text += "\n\n" + keyListText()
-	}
-	if m.helpTopic == m.helpOpened {
-		if keys := m.screenKeyList(); keys != "" {
-			text = keys + "\n\n" + text
-		}
-	}
-	return text
-}
-
-// screenKeyList lists every group of the key text of the screen the help was opened from, one per line, the
-// way the footer would show them with room enough.
-func (m *Model) screenKeyList() string {
-	text := m.footerKeys(m.helpKeysText)
-	var lines []string
-	seen := map[string]bool{}
-	for _, group := range strings.Split(text, " · ") {
-		if group == "" || seen[group] {
-			continue
-		}
-		seen[group] = true
-		key, action, ok := strings.Cut(group, " ")
-		if ok {
-			lines = append(lines, "- "+action+": "+key)
-		} else {
-			lines = append(lines, "- "+key)
-		}
-	}
-	if len(lines) == 0 {
-		return ""
-	}
-	return tr(tScreenKeysHeading) + "\n" + strings.Join(lines, "\n")
-}
-
-// helpLines is the text of the current topic, wrapped into the width the help has.
-func (m *Model) helpLines() []string {
-	return strings.Split(kithelp.Wrap(m.helpText(), m.helpInner()), "\n")
-}
-
-// isHeading reports whether a line of a topic is a heading: short, without indent, ending in a colon.
-func isHeading(line string) bool {
-	return strings.HasSuffix(line, ":") && !strings.HasPrefix(line, " ") && lipgloss.Width(line) <= 40
-}
-
-// helpLine draws one wrapped line of a topic: a heading is bold, and in the list of keys the key is in the
-// accent colour. headings are the headings of the unwrapped text, so the end of a long wrapped sentence that
-// happens to be short is no heading.
-func helpLine(line string, headings map[string]bool) string {
-	switch {
-	case strings.HasPrefix(line, "- ") && strings.Contains(line, ": "):
-		i := strings.LastIndex(line, ": ") + 2
-		return line[:i] + styles.active.Render(line[i:])
-	case headings[line]:
-		return styles.title.Render(line)
-	}
-	return line
-}
-
-// helpHeadings are the headings of the text of the current topic.
-func (m *Model) helpHeadings() map[string]bool {
-	text := m.helpText()
-	headings := map[string]bool{}
-	for _, line := range strings.Split(text, "\n") {
-		if isHeading(line) {
-			headings[line] = true
-		}
-	}
-	return headings
-}
-
-// helpKeys is the key line of the help: at the foot of the overlay, with the keys in the accent colour, or, in
-// the workspace, the footer of the frame.
-func (m *Model) helpKeys(keys string) string {
-	if !m.inModal {
-		return m.keyHint(keys)
-	}
-	return "\n" + strings.Join(m.keyHintLinesWith(keys, keyHintGroupFoot), "\n")
-}
-
-// keyLineCount is how many lines the key line takes in the overlay, whatever is logged for the mouse.
-func (m *Model) keyLineCount(keys string) int {
-	log := m.footerLog
-	width := m.width
-	m.footerLog = nil
-	if m.helpOverlay() {
-		// Outside a render the model has the width of the terminal; the overlay wraps its keys to its own.
-		m.width = m.helpInner()
-	}
-	defer func() { m.footerLog, m.width = log, width }()
-	return len(m.keyHintLines(keys))
-}
-
-// helpTopics draws the topics with the current one in brackets, like the tabs of a detail pane.
-func (m *Model) helpTopics() (string, [][2]int) {
-	var names []string
-	for _, topic := range helptopics.All() {
-		names = append(names, topic.Name)
-	}
-	return tabStrip(names, m.helpTopic, true)
-}
-
-// hitHelpTopics makes the topic tabs clickable. The strip stands in screen row y from column x on. A click does
-// what the keys that switch the topic do, and so starts the text at its top.
-func (m *Model) hitHelpTopics(spans [][2]int, y, x int) {
-	for i, span := range spans {
-		m.addHit(x+span[0], y, x+span[1], y+1, func() tea.Cmd {
-			if m.screen == screenHelp {
-				m.helpTopic = i
-				m.help.reset()
-				m.clampHelp()
-			}
+	m.showModal(vimHelp{h}, func(act action) tea.Cmd {
+		m.helpTopic = h.Topic()
+		m.closeModal()
+		if act == actBack || act == actHelp {
 			return nil
-		})
-	}
-}
-
-// helpTitle is the title in front of the topic tabs in the workspace. The overlay carries its title in the
-// frame, and a workspace too narrow for title and tabs shows the tabs alone.
-func (m *Model) helpTitle() string {
-	strip, _ := m.helpTopics()
-	title := styles.title.Render("Help") + "  "
-	if m.helpOverlay() || lipgloss.Width(title+strip) > m.helpInner() {
-		return ""
-	}
-	return title
-}
-
-// helpFrame is everything of the help screen except the text: above it the topics with the current one in
-// brackets, and the macOS note where it fits, below it the position in the text and the keys. room is the
-// number of text lines between them.
-func (m *Model) helpFrame() (string, string, int) {
-	strip, _ := m.helpTopics()
-	base := m.helpTitle() + strip + "\n\n"
-	note := render(styles.hint, m.helpInner(), tr(tMacFnNote)) + "\n\n"
-	lines := len(m.helpLines())
-	keys := keysHelp
-	// layout lays the topic text out under head and reports how many lines of it fit; a topic longer than
-	// that gains the position line, which itself takes one of those lines.
-	layout := func(head string) (string, string, int) {
-		foot := m.helpKeys(keys)
-		var room int
-		if m.helpOverlay() {
-			// The dialog keeps two rows free around it; the key line is set off by a blank line.
-			room = m.termHeight - 6 - strings.Count(head, "\n") - m.keyLineCount(keys) - 1
-		} else {
-			room = m.height - strings.Count(head, "\n") - strings.Count(foot, "\n") - 1
 		}
-		if lines > room {
-			room--
-			offset := m.help.offset()
-			first := min(offset+1, lines)
-			foot = "\n" + render(styles.hint, m.helpInner(), tr(tApprovalLines, first,
-				min(offset+max(room, 1), lines), lines)) + foot
-		}
-		return head, foot, room
-	}
-	// The macOS note is worth a line only where the terminal has room left over for it, position line
-	// included; a tight window keeps every line for the topic text instead, the way the keys line above
-	// already shortens itself.
-	// The keys of the screen stand at the top of the topic they open on, so the note gives way there unless
-	// the whole text fits with it.
-	if head, foot, room := layout(base + note); room >= 1 && (lines <= room || m.screenKeyList() == "" || m.helpTopic != m.helpOpened) {
-		return head, foot, room
-	}
-	head, foot, room := layout(base)
-	return head, foot, max(room, 1)
+		// A line of the key list runs as its key does on the screen.
+		return m.pressAction(act)
+	})
 }
 
-// clampHelp hands the text and the room it has to the scroll area, which keeps the position inside the
-// text, also after a resize.
-func (m *Model) clampHelp() []string {
-	_, _, room := m.helpFrame()
-	return m.help.window(m.helpLines(), room, false)
-}
+// vimHelp is the kit's help that also takes the vim letters for the arrows, as every screen without a text
+// line does.
+type vimHelp struct{ *kittui.Help }
 
-// helpView draws the current topic from its scroll position.
-func (m *Model) helpView() string {
-	rows := m.clampHelp()
-	head, foot, _ := m.helpFrame()
-	if !m.inModal {
-		_, spans := m.helpTopics()
-		m.hitHelpTopics(spans, m.workspaceTop(), lipgloss.Width(m.helpTitle()))
-	}
-	shown := make([]string, 0, len(rows))
-	headings := m.helpHeadings()
-	for _, line := range rows {
-		shown = append(shown, helpLine(line, headings))
-	}
-	return head + strings.Join(shown, "\n") + "\n" + foot
-}
-
-// keyListText names the keys of the global actions as they are bound now, so the help is right whatever the
-// preferences changed.
-func keyListText() string {
-	lines := []string{tr(tKeysHeading)}
-	for _, r := range keyRows {
-		a := userActions[r.action]
-		if r.action == uiprefs.ActionInfo {
-			a = actInfo
-		}
-		lines = append(lines, "- "+strings.TrimSuffix(r.label, " key")+": "+keyLabel(a))
-	}
-	return strings.Join(lines, "\n")
-}
+func (h vimHelp) Update(msg tea.KeyPressMsg) (action, bool) { return h.Help.Update(vimArrow(msg)) }

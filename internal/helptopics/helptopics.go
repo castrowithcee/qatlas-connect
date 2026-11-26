@@ -81,6 +81,7 @@ Moving:
 
 Global keys:
 - ? opens this help on every screen without a text line (a form keeps it for its text rows). esc or ? returns to where you were.
+- The help stands over the screen, or fills the workspace of a terminal too small for that. Its first topic ends with the keys of the screen it was opened from and the keys that act everywhere, as they are bound now.
 - The right end of the header names [?] help and [:] cmd wherever these keys act, and [esc] back where esc leads one level back. A text line, where ? and the colon key are text, shows neither.
 - i opens the longer explanation of a field and of the word it is about (service, credential, connection, target, effect, profile, approval, token, vault), over the screen, and esc closes it.
 - i works on every screen without a text line. On a search line it is text, and only an extra info key set in General opens the explanation there.
@@ -115,6 +116,7 @@ Every other letter means one thing on every screen without a text line, and none
 Mouse:
 - With the mouse on, a click does what the key for it does. It chooses a tab (from any level, going back the way esc does, with the same question about unsaved input), presses the keys of the header ([esc] back, [?] help, [:] cmd) and every key group of the footer at the bottom (a click on the words of a group presses its first key), chooses a part on the option bar, a row (the first click marks it, a click on the marked row opens or ticks it), a group (folds it), a field or section of a form, a value of an option bar (on a filter field it opens the list of values), a button of a dialog, or an (i) mark (opens its explanation).
 - The wheel scrolls.
+- Over the help only the help reacts. A click on a topic shows that topic, a click on a key or on a line of its key lists acts as that key, and a click outside its frame closes it and does nothing else, on a tab, the header, or the footer too.
 - A click is never stronger than its key, so questions, confirmations, and the admin session apply as before, and it never types a character.
 - The terminal then passes the mouse to the editor. To select text hold Shift while dragging (macOS Terminal uses fn, iTerm2 Option, VS Code on macOS Option-click), or turn the mouse off in General.
 
@@ -134,7 +136,7 @@ Keys of the global actions:
 - info can take a second key besides i that also works in text rows, such as F3.
 - The keys are kept under keys in tui.yaml. A key there that breaks a rule falls back to the standard with a warning at the start.
 - Terminals and desktops take some F-keys for themselves (F1, F5, and F10 to F12 are never used), so choose one your terminal passes through. On a Mac the F-keys may need fn.
-- The footers, and in the editor the list at the end of this topic, show the keys in force, while the text here names the standard ones. A footer takes a second row where its keys do not fit one, and where even two rows are short it drops keys, never ? help.
+- The footers, and in the editor the key lists at the end of the first help topic, show the keys in force, while the text here names the standard ones. A footer takes a second row where its keys do not fit one, and where even two rows are short it drops keys, never ? help.
 
 Forms and saving:
 - A field shows one line of hint under it. i opens its longer explanation.

@@ -1476,8 +1476,6 @@ var textDE = map[textID]string{
 	tVersionWaitAsk:                                          "Warten, bis %s fertig ist, dann erneut eine Version wählen.",
 	tVersionWaitConfirm:                                      "Version nicht installiert: warten, bis %s fertig ist, dann erneut wählen.",
 
-	tKeysHeading:                         "Tasten auf diesem Gerät:",
-	tScreenKeysHeading:                   "Tasten dieses Bildschirms:",
 	tMacFnNote:                           "Auf macOS fn gedrückt halten für F-Tasten oder in den Systemeinstellungen „F1, F2 usw. als Standardfunktionstasten verwenden“ einschalten.",
 	tConnTestTitle:                       "Test der Connection",
 	tKeySpaceRefused:                     "{space}: Leer- und Steuerzeichen sind keine Belegung",

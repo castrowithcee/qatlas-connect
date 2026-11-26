@@ -1150,7 +1150,7 @@ func TestTinyTerminalIsBoundedAndResizePreservesState(t *testing.T) {
 // and rule above it, as the terminal of the current colour profile is sent it. The frame itself is tested on
 // its own, through View.
 func screenOf(m *Model) string {
-	if m.quitting || m.terminalTooSmall() {
+	if m.quitting || m.terminalTooSmall() || m.modal != nil {
 		return m.render()
 	}
 	m.screenKeys, m.screenPos = "", ""
