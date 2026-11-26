@@ -8,6 +8,7 @@ import (
 	"runtime"
 	"strings"
 	"testing"
+	"time"
 )
 
 // sample builds a small but complete configuration in memory. No test uses a real secret.
@@ -503,5 +504,32 @@ func assertNoLeftovers(t *testing.T, dir string) {
 		if strings.HasPrefix(e.Name(), ".qatlas-config-") {
 			t.Errorf("temporary file left behind: %s", e.Name())
 		}
+	}
+}
+
+func noTempFiles(t *testing.T, dir string) {
+	t.Helper()
+	left, _ := filepath.Glob(filepath.Join(dir, ".qatlas-config-*.tmp"))
+	if len(left) != 0 {
+		t.Errorf("temporary files left behind: %v", left)
+	}
+}
+
+func TestMissingFileIsNeverRetried(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config.yaml")
+	retries := 0
+	store := NewStore(path, testProviders).Observed(Observer{FileRetry: func(time.Duration) { retries++ }})
+
+	if _, err := Load(path, testProviders); !errors.As(err, new(*NotFoundError)) {
+		t.Errorf("Load err = %v, want NotFoundError", err)
+	}
+	if _, rev, err := store.LoadVersioned(); !errors.As(err, new(*NotFoundError)) || rev != RevisionAbsent {
+		t.Errorf("LoadVersioned = %v, %v, want NotFoundError and RevisionAbsent", rev, err)
+	}
+	if _, _, err := store.Snapshot(); !errors.As(err, new(*NotFoundError)) {
+		t.Errorf("Snapshot err = %v, want NotFoundError", err)
+	}
+	if retries != 0 {
+		t.Errorf("waited %d times, want none", retries)
 	}
 }

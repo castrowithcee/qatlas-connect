@@ -453,23 +453,7 @@ func Path(explicit string) (string, error) {
 
 // Load reads and validates the configuration at path.
 func Load(path string, providers ...ProviderCatalog) (*Config, error) {
-	return load(path, Observer{}, providers...)
-}
-
-func load(path string, obs Observer, providers ...ProviderCatalog) (*Config, error) {
-	data, err := readFile(path, obs)
-	if err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			return nil, &NotFoundError{Path: path}
-		}
-		return nil, fmt.Errorf("cannot read %s: %w", path, err)
-	}
-
-	cfg, err := decode(bytes.NewReader(data), providers...)
-	if err != nil {
-		return nil, &InvalidError{Path: path, Err: err}
-	}
-	return cfg, nil
+	return NewStore(path, providers...).Load()
 }
 
 // Decode reads a configuration from r. Unknown keys and duplicate keys are errors.
@@ -550,6 +534,11 @@ var yamlProblems = []struct{ match, problem string }{
 	{"value contains itself", "an anchor that refers to itself"},
 	{"invalid map key", "an unusable key"},
 }
+
+// RedactDecodeError rebuilds an error of a YAML decoder so that it names the place and the kind of problem
+// but never the text of the file that caused it (see Decode). A caller that decodes a YAML file of its own
+// uses it before it shows the error.
+func RedactDecodeError(err error) error { return redactDecodeError(err) }
 
 // redactDecodeError replaces a decoder error with one that names the place and the kind of problem but
 // never the text that caused it. The library quotes the offending key or value, and a user can type a

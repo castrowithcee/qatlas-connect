@@ -232,9 +232,6 @@ func TestUpdateThroughSymlinkLocksRealTarget(t *testing.T) {
 	must(t, os.Symlink(realPath, link))
 
 	viaLink := NewStore(link, testProviders)
-	if viaLink.lockPath() != real.lockPath() {
-		t.Fatalf("lock paths differ: %s vs %s", viaLink.lockPath(), real.lockPath())
-	}
 	must(t, viaLink.Update(func(c *Config) error {
 		return c.SetService("extra", Service{Provider: "bookstack", BaseURL: "https://x.example.invalid"})
 	}))
@@ -251,6 +248,9 @@ func TestUpdateThroughSymlinkLocksRealTarget(t *testing.T) {
 	if _, err := os.Stat(link + ".lock"); err == nil {
 		t.Error("a lock file was created next to the symlink")
 	}
+	if _, err := os.Stat(realPath + ".lock"); err != nil {
+		t.Errorf("no lock file beside the real file: %v", err)
+	}
 }
 
 func TestUpdateDetectsLockBypassingWriter(t *testing.T) {
@@ -259,7 +259,7 @@ func TestUpdateDetectsLockBypassingWriter(t *testing.T) {
 	err := store.Update(func(c *Config) error {
 		other := sample(t)
 		must(t, other.SetService("other", Service{Provider: "bookstack", BaseURL: "https://o.example.invalid"}))
-		must(t, store.Save(other)) // a writer that ignores the lock
+		writeBypassingLock(t, store, other)
 		return nil
 	})
 	if !errors.Is(err, ErrConflict) {
@@ -269,6 +269,16 @@ func TestUpdateDetectsLockBypassingWriter(t *testing.T) {
 	if _, ok := cfg.Services["other"]; !ok {
 		t.Error("the bypassing writer's change was overwritten")
 	}
+}
+
+// writeBypassingLock replaces the file the way a writer that ignores the lock would.
+func writeBypassingLock(t *testing.T, store *Store, cfg *Config) {
+	t.Helper()
+	data, err := store.encode(cfg)
+	must(t, err)
+	tmp := store.Path() + ".bypass"
+	must(t, os.WriteFile(tmp, data, 0o600))
+	must(t, os.Rename(tmp, store.Path()))
 }
 
 func TestConflictErrorHasNoContent(t *testing.T) {
@@ -318,7 +328,7 @@ func TestTransactChecksRevisionBeforeWorkAndAtSave(t *testing.T) {
 	intruder := cfg.Clone()
 	must(t, intruder.SetService("intruder", Service{Provider: "bookstack", BaseURL: "https://intruder.example.invalid"}))
 	err = store.Transact(rev, func(save func(*Config) error) error {
-		must(t, other.Save(intruder))
+		writeBypassingLock(t, other, intruder)
 		return save(cfg)
 	})
 	if !errors.Is(err, ErrConflict) {

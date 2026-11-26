@@ -120,10 +120,6 @@ func TestSaveFailsCleanlyWhenFileStaysOpen(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	oldSleep := sleepFile
-	t.Cleanup(func() { sleepFile = oldSleep })
-	sleepFile = func(d time.Duration) { time.Sleep(d / 100) }
-
 	f := holdOpen(t, path)
 	cfg := sample(t)
 	if err := cfg.SetService("second", Service{Provider: "bookstack", BaseURL: "https://second.example.invalid"}); err != nil {

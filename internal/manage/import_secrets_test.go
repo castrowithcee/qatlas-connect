@@ -262,9 +262,7 @@ func TestImportSecretsRollsBackEverySecret(t *testing.T) {
 						dst.sec.onWrite = nil
 						foreign := dst.load()
 						foreign.Credentials["foreign"] = config.Credential{Provider: "mail", Type: config.CredentialTypeKeyring}
-						if err := config.NewStore(dst.path, setupCatalog{}).Save(foreign); err != nil {
-							t.Fatal(err)
-						}
+						saveWithoutLock(t, dst.path, foreign, setupCatalog{})
 						other = dst.raw()
 					}
 				}
@@ -437,9 +435,7 @@ func TestImportSecretsOverwriteWithdrawsApprovals(t *testing.T) {
 			dst.sec.onWrite = nil
 			cfg := dst.load()
 			cfg.Services["other"] = config.Service{Provider: "mail", BaseURL: "https://other.example.test"}
-			if err := config.NewStore(dst.path, setupCatalog{}).Save(cfg); err != nil {
-				t.Fatal(err)
-			}
+			saveWithoutLock(t, dst.path, cfg, setupCatalog{})
 		}
 		if _, err := dst.svc.ApplyImportWith(plan(), ImportOptions{SecretStore: config.CredentialTypeVault}); !errors.Is(err, config.ErrConflict) {
 			t.Fatalf("ApplyImportWith() = %v, want a conflict", err)
@@ -519,4 +515,17 @@ func TestImportSecretsOverwriteWithdrawsApprovals(t *testing.T) {
 			t.Errorf("ApproveImport() = %+v, want the locked vault reported", out)
 		}
 	})
+}
+
+// saveWithoutLock replaces the configuration at path the way a writer that takes no lock does, so a test can
+// run it while the store holds the lock.
+func saveWithoutLock(t *testing.T, path string, cfg *config.Config, providers ...config.ProviderCatalog) {
+	t.Helper()
+	staged := config.NewStore(filepath.Join(t.TempDir(), filepath.Base(path)), providers...)
+	if err := staged.Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Rename(staged.Path(), path); err != nil {
+		t.Fatal(err)
+	}
 }

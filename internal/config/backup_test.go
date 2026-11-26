@@ -5,18 +5,13 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"strings"
 	"testing"
-	"time"
 )
 
-func fixedClock(t *testing.T) {
-	t.Helper()
-	old := backupNow
-	backupNow = func() time.Time { return time.Date(2026, 1, 2, 3, 4, 5, 0, time.UTC) }
-	t.Cleanup(func() { backupNow = old })
-}
+var copyName = regexp.MustCompile(`^secrets\.age-\d{8}T\d{6}Z-\d{3}\.bak$`)
 
 func backupNames(t *testing.T, store *Store) []string {
 	t.Helper()
@@ -67,8 +62,7 @@ func TestFirstSaveHasNothingToBackUp(t *testing.T) {
 	}
 }
 
-func TestBackupsInTheSameSecondAreDistinctAndPrivate(t *testing.T) {
-	fixedClock(t)
+func TestBackupsAreDistinctPrivateAndInCreationOrder(t *testing.T) {
 	store, path := newTarget(t)
 	must(t, store.Save(sample(t)))
 	first := mustRead(t, path)
@@ -97,21 +91,38 @@ func TestBackupsInTheSameSecondAreDistinctAndPrivate(t *testing.T) {
 }
 
 func TestBackupsRotateAfterTen(t *testing.T) {
-	fixedClock(t)
-	store, _ := newTarget(t)
+	store, path := newTarget(t)
 	must(t, store.Save(sample(t)))
-	saveN(t, store, 15)
+	// Each save backs up the bytes it replaces; the newest ten of those must survive.
+	var replaced []string
+	for i := 0; i < 15; i++ {
+		replaced = append(replaced, string(mustRead(t, path)))
+		cfg, err := store.Load()
+		must(t, err)
+		must(t, cfg.SetProviderNote("bookstack", strings.Repeat("n", i+1)))
+		must(t, store.Save(cfg))
+	}
 	names := backupNames(t, store)
 	if len(names) != 10 {
 		t.Fatalf("backups = %v, want 10", names)
 	}
-	if !strings.HasSuffix(names[9], "-014.yaml") || !strings.HasSuffix(names[0], "-005.yaml") {
-		t.Errorf("rotation did not keep the newest ten: %v", names)
+	for i, n := range names {
+		if got := string(mustRead(t, filepath.Join(store.backupDir(), n))); got != replaced[5+i] {
+			t.Errorf("backup %s holds the bytes of save %d, want those before save %d", n, indexOf(replaced, got), 5+i)
+		}
 	}
 }
 
+func indexOf(list []string, s string) int {
+	for i, v := range list {
+		if v == s {
+			return i
+		}
+	}
+	return -1
+}
+
 func TestFirstHandVersionSurvivesRotation(t *testing.T) {
-	fixedClock(t)
 	store, path := newTarget(t)
 	must(t, store.Save(sample(t)))
 	hand := append(mustRead(t, path), "# my note\n"...)
@@ -121,9 +132,9 @@ func TestFirstHandVersionSurvivesRotation(t *testing.T) {
 	var firsts, hands []string
 	for _, n := range backupNames(t, store) {
 		switch {
-		case strings.HasPrefix(n, firstHandPrefix):
+		case strings.HasPrefix(n, backupNaming.FirstHandPrefix):
 			firsts = append(firsts, n)
-		case strings.Contains(n, handSuffix):
+		case strings.Contains(n, backupNaming.HandMarker):
 			hands = append(hands, n)
 		}
 	}
@@ -137,9 +148,9 @@ func TestFirstHandVersionSurvivesRotation(t *testing.T) {
 	saveN(t, store, 1)
 	firsts, hands = nil, nil
 	for _, n := range backupNames(t, store) {
-		if strings.HasPrefix(n, firstHandPrefix) {
+		if strings.HasPrefix(n, backupNaming.FirstHandPrefix) {
 			firsts = append(firsts, n)
-		} else if strings.Contains(n, handSuffix) {
+		} else if strings.Contains(n, backupNaming.HandMarker) {
 			hands = append(hands, n)
 		}
 	}
@@ -152,7 +163,6 @@ func TestFirstHandVersionSurvivesRotation(t *testing.T) {
 }
 
 func TestRenamedIDsAreNotAHandVersion(t *testing.T) {
-	fixedClock(t)
 	path := filepath.Join(t.TempDir(), "config.yaml")
 	store := NewStore(path, renameProviders)
 	cfg := store.New()
@@ -185,7 +195,7 @@ func TestRenamedIDsAreNotAHandVersion(t *testing.T) {
 	// Renamed IDs plus a hand edit still count as a hand version.
 	must(t, os.WriteFile(path, []byte(old+"# note\n"), 0o600))
 	must(t, store.Save(loaded))
-	if names := backupNames(t, store); len(names) != 2 || !strings.HasPrefix(names[1], firstHandPrefix) {
+	if names := backupNames(t, store); len(names) != 2 || !strings.HasPrefix(names[1], backupNaming.FirstHandPrefix) {
 		t.Fatalf("backups = %v, want a first hand version", names)
 	}
 }
@@ -230,11 +240,11 @@ func TestSymlinkedConfigKeepsBackupsBesideTheConfiguredPath(t *testing.T) {
 	must(t, os.MkdirAll(realDir, 0o700))
 	must(t, os.MkdirAll(linkDir, 0o700))
 	link := filepath.Join(linkDir, "config.yaml")
+	must(t, NewStore(filepath.Join(realDir, "config.yaml"), testProviders).Save(sample(t)))
 	if err := os.Symlink(filepath.Join(realDir, "config.yaml"), link); err != nil {
 		t.Skipf("symlinks are not available: %v", err)
 	}
 	store := NewStore(link, testProviders)
-	must(t, store.Save(sample(t)))
 	before := mustRead(t, link)
 	saveN(t, store, 1)
 
@@ -248,7 +258,6 @@ func TestSymlinkedConfigKeepsBackupsBesideTheConfiguredPath(t *testing.T) {
 }
 
 func TestBackupCopyIsExactPrivateAndNotRotated(t *testing.T) {
-	fixedClock(t)
 	store, path := newTarget(t)
 	must(t, store.Save(sample(t)))
 	src := filepath.Join(filepath.Dir(path), "secrets.age")
@@ -264,6 +273,14 @@ func TestBackupCopyIsExactPrivateAndNotRotated(t *testing.T) {
 	}
 	if filepath.Dir(a) != store.backupDir() || !bytes.Equal(mustRead(t, a), payload) {
 		t.Errorf("copy %s is not an exact copy in the backups directory", a)
+	}
+	for _, p := range []string{a, b} {
+		if !copyName.MatchString(filepath.Base(p)) {
+			t.Errorf("copy name %s, want secrets.age-<stamp>-NNN.bak", filepath.Base(p))
+		}
+	}
+	if backups, err := store.Backups(); err != nil || len(backups) != 0 {
+		t.Errorf("Backups() = %v, %v, want copies left out", backups, err)
 	}
 	if runtime.GOOS != "windows" {
 		if fi, _ := os.Stat(a); fi.Mode().Perm() != 0o600 {
