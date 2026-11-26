@@ -28,7 +28,7 @@ func TestUnlockAsksSettingsTakeoverYes(t *testing.T) {
 	if m.screen != screenConfirm || m.settingsTakeover == nil {
 		t.Fatalf("after the unlock screen = %v, takeover = %v, want the question", m.screen, m.settingsTakeover)
 	}
-	view := m.confirmView()
+	view := askedText(m)
 	for _, want := range []string{"vault.idle_timeout: 2h", "vault.admin_timeout: 5m", "logs.retention_days: 30"} {
 		if !strings.Contains(view, want) {
 			t.Errorf("the question = %q, want it to show %q", view, want)

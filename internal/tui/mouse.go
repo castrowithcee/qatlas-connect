@@ -217,15 +217,13 @@ func (m *Model) wheelScreens() bool {
 }
 
 // textScreen reports whether what the screen shows is a plain text area, which the wheel moves by wheelText
-// rows. The steps of a transfer or rename that ask for input or move over rows are not.
+// rows. The steps of a transfer that ask for input or move over rows are not.
 func (m *Model) textScreen() bool {
 	switch m.screen {
 	case screenSelftest, screenLogDetail:
 		return true
 	case screenConfirm:
 		return m.approvalDetail != "" || m.requestDetail != ""
-	case screenRename:
-		return m.rename != nil && m.rename.plan != nil
 	case screenTransfer:
 		if e := m.export; e != nil {
 			return e.step == exportPreview || e.step == exportResult
@@ -464,7 +462,7 @@ func (m *Model) leaveForBar() (cmd tea.Cmd, ok bool) {
 // barAsked reports whether a click on a tab must leave the screen as it is: a question or a dialog with a
 // passphrase is open, a connection test result waits, or a key is being captured.
 func (m *Model) barAsked() bool {
-	if m.keyCapture || m.questionScreen() || m.testResultShown() {
+	if m.keyCapture || m.testResultShown() {
 		return true
 	}
 	switch m.screen {

@@ -69,7 +69,7 @@ func TestTabClickDoesNothingWhileAsked(t *testing.T) {
 	m := sizedModel(groupModel(t), 160, 40)
 	openSectionByName(t, m, sectionServices)
 	press(t, m, "d")
-	if !m.questionScreen() {
+	if m.screen != screenConfirm || m.question == nil {
 		t.Fatalf("d did not ask: screen %v", m.screen)
 	}
 	asked := m.screen

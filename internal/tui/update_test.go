@@ -137,7 +137,7 @@ func TestUAsksBeforeItInstalls(t *testing.T) {
 		m := startedWith(t, fake)
 		press(t, m, "U")
 		if m.screen != screenUpdate || !strings.Contains(screenOf(m), "Update qconnect to v0.5.0?") ||
-			!strings.Contains(flatText(screenOf(m)), "y update n/esc cancel") {
+			!strings.Contains(flatText(screenOf(m)), "y update n/enter/esc cancel") {
 			t.Fatalf("u did not ask:\n%s", m.render())
 		}
 		pump(t, m, no)

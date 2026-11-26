@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
 )
@@ -117,8 +118,10 @@ func TestModalBackgroundDoesNotChangeScrollState(t *testing.T) {
 	}
 }
 
+// A question stands over the screen once 36 cells of its text fit beside its frame; below that it fills the
+// workspace.
 func TestQuestionTakesTheWholeWorkspaceBelowTheModalSize(t *testing.T) {
-	for _, size := range []struct{ width, height int }{{40, minimumHeight}, {59, 30}, {100, 19}} {
+	for _, size := range []struct{ width, height int }{{40, minimumHeight}, {43, 30}} {
 		m, _, _ := newModel(t)
 		addService(t, m, "wiki", "https://wiki.example.invalid")
 		sizedModel(m, size.width, size.height)
@@ -132,6 +135,14 @@ func TestQuestionTakesTheWholeWorkspaceBelowTheModalSize(t *testing.T) {
 		if !strings.Contains(view, `Delete "wiki"?`) || !strings.Contains(view, "y remove") {
 			t.Errorf("%dx%d lacks the question:\n%s", size.width, size.height, view)
 		}
+	}
+	m, _, _ := newModel(t)
+	addService(t, m, "wiki", "https://wiki.example.invalid")
+	sizedModel(m, 44, 30)
+	openSectionByName(t, m, sectionServices)
+	press(t, m, "d")
+	if view := m.render(); !hasQuestionModal(view) {
+		t.Errorf("44x30 shows no modal:\n%s", view)
 	}
 }
 
@@ -245,13 +256,15 @@ func TestQuestionsReadQuestionConsequenceKeys(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			m := tc.open(t)
-			lines := strings.Split(strings.TrimSpace(shown(m.questionView())), "\n")
-			if !strings.HasPrefix(strings.TrimSpace(lines[0]), tc.title) ||
-				!strings.HasSuffix(strings.TrimSpace(lines[0]), "?") && !strings.Contains(lines[0], "secret for") {
+			text := askedText(m)
+			lines := strings.Split(strings.TrimSpace(text), "\n")
+			first := strings.TrimPrefix(strings.TrimSpace(lines[0]), warnMark+" ")
+			if !strings.HasPrefix(first, tc.title) ||
+				!strings.HasSuffix(first, "?") && !strings.Contains(first, "secret for") {
 				t.Errorf("first line is not the question %q: %q", tc.title, lines[0])
 			}
-			if !strings.Contains(shown(m.questionView()), tc.consequence) {
-				t.Errorf("consequence %q missing:\n%s", tc.consequence, shown(m.questionView()))
+			if !strings.Contains(text, tc.consequence) {
+				t.Errorf("consequence %q missing:\n%s", tc.consequence, text)
 			}
 			if footer := footerText(m); !strings.Contains(footer, "help") {
 				t.Errorf("the footer is not the key line: %q", footer)
@@ -269,7 +282,7 @@ func TestQuestionsReadQuestionConsequenceKeys(t *testing.T) {
 					return -1
 				}
 				// The question is searched from its own row on: the background has key lines too.
-				q := find(tc.title, 0)
+				q := find(tc.title[:min(len(tc.title), 16)], 0)
 				c := find(tc.consequence[:min(len(tc.consequence), 16)], q)
 				k := find(tc.key, c)
 				if q < 0 || c < 0 || k < 0 || q >= c || c >= k {
@@ -284,46 +297,49 @@ func TestQuestionsReadQuestionConsequenceKeys(t *testing.T) {
 	}
 }
 
-// A long dry run does not fit a modal: it takes the whole workspace and scrolls there, with up/down moving
-// the same offset as before.
-func TestLongRenamePlanFallsBackToTheScrollingWorkspace(t *testing.T) {
-	m, _, _ := newModel(t)
-	seedConnections(t, m, "docs")
-	sizedModel(m, 100, 30)
-	startRename(t, m, sectionServices, "wiki", "handbook")
-	pump(t, m, "f2")
-	if view := m.render(); !hasQuestionModal(view) {
-		t.Fatalf("a short plan is not a modal:\n%s", view)
+// A long dry run stays a modal: its lines scroll inside it under the question, by the keys and by the wheel
+// over them, with their position under them.
+func TestLongRenamePlanScrollsInsideTheModal(t *testing.T) {
+	build := func(t *testing.T) *Model {
+		m, _, _ := newModel(t)
+		seedConnections(t, m, "docs")
+		sizedModel(m, 100, 30)
+		startRename(t, m, sectionServices, "wiki", "handbook")
+		pump(t, m, "f2")
+		for i := 0; i < 60; i++ {
+			m.rename.plan.References = append(m.rename.plan.References, fmt.Sprintf("connections.c%02d.service", i))
+		}
+		m.render()
+		return m
 	}
-
-	for i := 0; i < 60; i++ {
-		m.rename.plan.References = append(m.rename.plan.References, fmt.Sprintf("connections.c%02d.service", i))
-	}
+	m := build(t)
 	view := m.render()
 	assertViewFits(t, view, 100, 30)
-	if hasQuestionModal(view) {
-		t.Fatalf("a plan taller than the screen is a modal:\n%s", view)
+	if !hasQuestionModal(view) {
+		t.Fatalf("a plan taller than the screen is no modal:\n%s", view)
 	}
-	if !strings.Contains(view, "connections.c00.service") || strings.Contains(view, "connections.c59.service") {
-		t.Fatalf("the full screen does not start at the first line:\n%s", view)
+	if !strings.Contains(view, "Rename service wiki to handbook?") || !strings.Contains(view, "connections.c00.service") ||
+		strings.Contains(view, "connections.c59.service") {
+		t.Fatalf("the modal does not start at the first line under the question:\n%s", view)
 	}
-	for _, keys := range []string{"y rename", "n/esc cancel", "↑/↓ scroll"} {
+	for _, keys := range []string{"y rename", "n/enter/esc cancel", "scroll"} {
 		if !strings.Contains(view, keys) {
 			t.Errorf("the key line lacks %q:\n%s", keys, view)
 		}
 	}
 	press(t, m, "end")
-	view = m.render()
-	if !strings.Contains(view, "connections.c59.service") || strings.Contains(view, "connections.c00.service") {
-		t.Errorf("end did not scroll to the last line:\n%s", view)
-	}
-	end := m.rename.view.offset()
-	press(t, m, "up")
-	if m.rename.view.offset() != end-1 {
-		t.Errorf("up moved the offset from %d to %d", end, m.rename.view.offset())
+	if view := m.render(); !strings.Contains(view, "connections.c59.service") || strings.Contains(view, "connections.c00.service") ||
+		!hasQuestionModal(view) {
+		t.Errorf("end did not scroll to the last line in the modal:\n%s", view)
 	}
 	press(t, m, "home")
-	if m.rename.view.offset() != 0 || !strings.Contains(m.render(), "connections.c00.service") {
-		t.Errorf("home did not return to the first line, offset %d", m.rename.view.offset())
+	if view := m.render(); !strings.Contains(view, "connections.c00.service") {
+		t.Errorf("home did not return to the first line:\n%s", view)
+	}
+	pressed, wheeled := build(t), build(t)
+	press(t, pressed, "down", "down", "down")
+	wheelEvent(t, wheeled, 50, 15, tea.MouseWheelDown)
+	if want, got := ansi.Strip(pressed.render()), ansi.Strip(wheeled.render()); want != got || want == ansi.Strip(build(t).render()) {
+		t.Errorf("a notch of the wheel does not act as three presses of down:\nkey:\n%s\nwheel:\n%s", want, got)
 	}
 }
