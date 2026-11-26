@@ -17,7 +17,7 @@ func focusState(m *Model) string {
 	if m.screen == screenLogs {
 		logs = m.logs.focus
 	}
-	return fmt.Sprint(m.screen, " sub:", m.navSub, " bar:", m.barFocus, " detail:", m.detailFocus, " notice:", m.noticeFocus,
+	return fmt.Sprint(m.screen, " sub:", m.onOptionBar(), " bar:", m.barFocus, " detail:", m.detailFocus, " notice:", m.noticeFocus,
 		" logs:", logs)
 }
 
@@ -79,7 +79,7 @@ func TestFreeAreaOfAZoneFocusesLikeTab(t *testing.T) {
 				}
 				// The tab line is a stop of its own that tab does not reach where the area has an option bar.
 				bar := zoneModel(t, size.w, size.h, s)
-				bar.navSub = false
+				bar.navZone = optionBar(false)
 				allowed[focusState(bar)] = true
 
 				reached := map[string]bool{}

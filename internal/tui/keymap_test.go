@@ -48,7 +48,7 @@ func TestDefaultKeymapKeepsTheKnownKeys(t *testing.T) {
 		actSummary: "s", actFilter: "f", actRevert: "B", actSessions: "M", actLogs: "o", actClone: "C",
 		actTest: "t", actUpdate: "U", actWrite: "W", actDecline: "x", actBlock: "b", actTickAll: "a",
 		actRemoveField: "f8", actSuggestPrev: "ctrl+p", actSuggestNext: "ctrl+n", actNextKind: "ctrl+y",
-		actReload: "R", actArea: "1",
+		actReload: "R", actArea: "1", actMenu: "m",
 	}
 	if len(keyTable) != len(want) {
 		t.Fatalf("keymap has %d actions, want %d", len(keyTable), len(want))
@@ -463,7 +463,7 @@ func TestFooterNamesFixedKeysFromTheTable(t *testing.T) {
 	rebind(t, actUp, "ctrl+x")
 	m, _, _ := newModel(t)
 	m.Update(tea.WindowSizeMsg{Width: 160, Height: 40})
-	m.screen, m.section, m.navSub = screenNav, sectionOverview, false
+	m.screen, m.section, m.navZone = screenNav, sectionOverview, optionBar(false)
 	foot := flatText(m.render())
 	for _, want := range []string{"Z quit", "1-6 open"} {
 		if !strings.Contains(foot, want) {

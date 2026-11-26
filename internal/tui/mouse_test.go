@@ -116,8 +116,8 @@ func TestClickOnATabAndAPartOfTheOptionBar(t *testing.T) {
 	row := len([]string{headerLine(m)}) + 1
 	x := cellInRow(t, m, row, "Vault")
 	clickAt(t, m, x, row)
-	if m.section != sectionVault || !m.navSub {
-		t.Fatalf("after the click on Vault: section %v navSub %v", m.section, m.navSub)
+	if m.section != sectionVault || !m.onOptionBar() {
+		t.Fatalf("after the click on Vault: section %v option bar %v", m.section, m.onOptionBar())
 	}
 	clickOn(t, m, "3 Connections")
 	if m.section != sectionConnections {
@@ -145,7 +145,7 @@ func TestLibrarySubTabsAreTabsForKeyAndClick(t *testing.T) {
 				t.Errorf("%dx%d: NO_COLOR still emits escape sequences in the sub-tabs", size.w, size.h)
 			}
 			clickAt(t, m, cellInRow(t, m, row, "Credentials"), row)
-			if m.section != sectionCredentials || !m.navSub {
+			if m.section != sectionCredentials || !m.onOptionBar() {
 				t.Fatalf("%dx%d: the click on Credentials opened %v", size.w, size.h, m.section)
 			}
 			if line := ansi.Strip(frameLines(m)[row]); !strings.Contains(line, "[Credentials]") {
@@ -740,7 +740,7 @@ func TestTheMouseSettingAppliesAtOnce(t *testing.T) {
 		t.Error("tui.yaml still has the mouse on")
 	}
 	clickOn(t, m, "6 Settings")
-	if m.screen == screenNav && m.navSub {
+	if m.screen == screenNav && m.onOptionBar() {
 		t.Error("a click after switching the mouse off acted")
 	}
 }

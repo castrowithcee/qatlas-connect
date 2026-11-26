@@ -112,6 +112,9 @@ func (m *Model) updateMouse(msg tea.MouseMsg) tea.Cmd {
 	if m.tooSmall {
 		return nil
 	}
+	if m.menu != nil {
+		return m.clickMenu(msg)
+	}
 	// The targets of the frame go through the kit map; the acts stay with the application, which runs the
 	// click as the key or the tab click it stands for.
 	if wheel {
@@ -500,7 +503,7 @@ func (m *Model) clickSubTab(s section) tea.Cmd {
 		return lead
 	}
 	cmd := m.previewSection(s)
-	m.navSub = true
+	m.navZone = kittui.ZoneSubtabs
 	return tea.Batch(lead, cmd)
 }
 

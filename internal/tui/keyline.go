@@ -46,6 +46,9 @@ func (m *Model) screenKeyText() string {
 	if text == "" {
 		return ""
 	}
+	if m.menuReachable() {
+		text = strings.Replace(text, " · {command}", " · {menu} menu · {command}", 1)
+	}
 	return m.withCopyKeyShown(m.withInfoKey(text))
 }
 

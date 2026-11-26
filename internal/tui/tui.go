@@ -422,8 +422,15 @@ type Model struct {
 	section section
 	// overviewCursor is the selected line of the Overview, counting its tiles first and then its next steps.
 	overviewCursor int
-	// navSub is set while screenNav stands on the option bar of the area instead of on the tab line.
-	navSub bool
+	// navZone is the line of the navigation screenNav stands on: the tab line or the choice field of the
+	// header, the option bar of the area, or the path. navLine resolves it against the form in force.
+	navZone kittui.FocusZone
+	// pathArea puts the focus of the path on its area instead of its part.
+	pathArea bool
+	// menu is the open overlay of the path or the choice field, nil while none is open; menuTargets are its
+	// click targets as drawn last, the only ones a click reaches while it is open.
+	menu        *kittui.PathNav
+	menuTargets []kittui.Target
 	// list is the list of the active section, one of lists, which keeps the list of each section in the
 	// language listLang; names are the entries it holds, through the filter bar (see kitlist.go).
 	list     *kittui.List
@@ -1013,6 +1020,12 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 	case tea.KeyPressMsg:
 		msg = legacyKey(msg)
+		if m.menu != nil && !m.terminalTooSmall() {
+			if keyIs(msg, actForceQuit) {
+				return m, m.interrupt()
+			}
+			return m, m.updateMenu(msg)
+		}
 		if m.infoOpen {
 			if keyIs(msg, actForceQuit) {
 				return m, m.interrupt()
@@ -1074,6 +1087,10 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		if m.infoPressed(msg) && m.openInfo() {
+			return m, nil
+		}
+		if keyIs(msg, actMenu) && m.menuReachable() {
+			m.openMenu((*kittui.PathNav).OpenOverview)
 			return m, nil
 		}
 		// Like the other letters, c is text wherever text is typed.
@@ -1147,11 +1164,12 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-// updateNav handles the tab line and the option bar in focus: left/right step through the areas, or on the
-// option bar through the sub-tabs, with wraparound. Down from the tab line moves to the option bar when the
-// area has one; down from the option bar, enter, or tab move the focus into the workspace, and up on the
-// option bar returns to the tab line. home/end and pgup/pgdown jump to the first or last area. Moving
-// changes the active section at once, so the workspace below always shows what the marker stands on.
+// updateNav handles the lines of the navigation in focus: left/right step through the areas, or on the
+// option bar through the sub-tabs, with wraparound, and on the path between its area and its part. Down
+// moves one line down and from the last into the workspace, as tab does, and up one line up. enter opens the
+// overlay of the path or the choice field, and elsewhere moves into the workspace. home/end and pgup/pgdown
+// jump to the first or last area. Moving changes the active section at once, so the workspace below always
+// shows what the marker stands on.
 func (m *Model) updateNav(key tea.KeyPressMsg) tea.Cmd {
 	if s, ok := sectionShortcut(key.String()); ok {
 		return m.openSection(s)
@@ -1171,19 +1189,17 @@ func (m *Model) updateNav(key tea.KeyPressMsg) tea.Cmd {
 		if keyIs(key, actLeft) {
 			step = -1
 		}
-		if m.navSub && m.hasSubTabs() {
-			tabs := areaSections[m.section.area()]
-			return m.previewSection(tabs[wrap(m.section.index()+step, len(tabs))])
-		}
-		return m.previewArea(area(wrap(int(m.section.area())+step, int(areaCount))))
+		return m.stepNav(step)
 	case keyIs(key, actUp):
-		m.navSub = false
+		m.navZone = kittui.StepZoneLevel(m.navZones(), m.navLine(), -1)
 	case keyIs(key, actDown):
-		if !m.navSub && m.hasSubTabs() {
-			m.navSub = true
+		if z := kittui.StepZoneLevel(m.navZones(), m.navLine(), 1); z != kittui.ZoneRows {
+			m.navZone = z
 			return nil
 		}
 		return m.focusList()
+	case keyIs(key, actEnter) && m.openFocusedMenu():
+		return nil
 	case keyIs(key, actEnter) || keyIs(key, actNext) || keyIs(key, actPrev):
 		// The bars and the workspace are the stops, so next and previous lead to the same one.
 		return m.focusList()
@@ -1265,10 +1281,11 @@ func (m *Model) focusList() tea.Cmd {
 	return nil
 }
 
-// previewSection makes s the active section while the tab line keeps the focus.
+// previewSection makes s the active section while the tab line keeps the focus; the path then has it on the
+// part.
 func (m *Model) previewSection(s section) tea.Cmd {
 	cmd := m.openSection(s)
-	m.screen = screenNav
+	m.screen, m.pathArea = screenNav, false
 	return cmd
 }
 
@@ -1610,13 +1627,13 @@ func (m *Model) leaveScreen() tea.Cmd {
 	return nil
 }
 
-// focusNav hands the focus to the bar above the workspace: the option bar when the area has one, else the
-// tab line. The workspace keeps showing the list of the active section.
+// focusNav hands the focus to the line above the workspace: the option bar when the area has one, else the
+// tab line or the path. The workspace keeps showing the list of the active section.
 func (m *Model) focusNav() {
 	m.barFocus, m.noticeFocus = 0, false
 	m.leaveDetail()
 	m.screen = screenNav
-	m.navSub = m.hasSubTabs()
+	m.navZone = kittui.StepZoneLevel(m.navZones(), kittui.ZoneRows, -1)
 	m.clearMessages()
 }
 
@@ -4002,6 +4019,7 @@ func (m *Model) renderFrame() string {
 		return ""
 	}
 	m.hits, m.frameTabs, m.frameKeys, m.zones, m.listTargets, m.dialogBox, m.tooSmall = nil, nil, nil, nil, nil, hit{}, false
+	m.menuTargets = nil
 	m.pathShown = nil
 	m.drawn = true
 	if m.dd != nil {
@@ -4020,6 +4038,9 @@ func (m *Model) renderFrame() string {
 	}
 	if m.infoOpen {
 		return m.infoView()
+	}
+	if m.menu != nil {
+		return m.menuView()
 	}
 	if view, ok := m.modalView(); ok {
 		return view
