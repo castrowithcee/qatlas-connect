@@ -228,7 +228,7 @@ func TestStoredKeyNamesReachTheEditorUnchanged(t *testing.T) {
 	var stream strings.Builder
 	var want []string
 	for _, k := range keys {
-		// ctrl+r and ctrl+y belong to the target picker and f8 to the payload form: they reach the editor by
+		// ctrl+y belongs to the target picker, ctrl+r is free, and f8 to the payload form: they reach the editor by
 		// name, but no binding holds them.
 		if _, err := uiprefs.DefaultKeys().Check(k.action, k.name); err != nil && k.action != "" {
 			t.Errorf("%s is no key a binding may hold: %v", k.name, err)

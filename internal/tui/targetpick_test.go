@@ -418,7 +418,7 @@ func TestAFailedReadShowsTheCodeAndTheTextOfTheCore(t *testing.T) {
 	m := pickerModel(t, src)
 	openPicker(t, m)
 	view := strings.Join(strings.Fields(screenOf(m)), " ")
-	if !strings.Contains(view, "auth: ") || !strings.Contains(view, "ctrl+r reads again") {
+	if !strings.Contains(view, "auth: ") || !strings.Contains(view, "R reads again") {
 		t.Fatalf("the failure is not shown with its code:\n%s", view)
 	}
 

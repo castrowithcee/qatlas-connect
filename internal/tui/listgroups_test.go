@@ -92,7 +92,7 @@ func TestActionsIgnoreGroupRows(t *testing.T) {
 	if _, ok := m.selected(); ok {
 		t.Fatal("a group row is selected as an entry")
 	}
-	for _, key := range []string{"d", "r", "p", "t"} {
+	for _, key := range []string{"d", "r", "C", "t"} {
 		_, cmd := m.Update(keyMsg(key))
 		if m.screen != screenList || cmd != nil || m.editing != "" || m.rename != nil || m.testing {
 			t.Errorf("%s on a group row acted: screen %v, editing %q", key, m.screen, m.editing)

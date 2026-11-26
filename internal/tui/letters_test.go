@@ -53,7 +53,7 @@ func TestLetterActionsAreTheAgreedLetters(t *testing.T) {
 	want := map[string]action{
 		"g": actSetup, "c": actCopy, "n": actNew, "A": actApproveAll, "e": actEdit, "r": actRename, "d": actDelete,
 		"V": actReveal, "s": actSummary, "f": actFilter, "B": actRevert, "i": actInfo, "M": actSessions, "o": actLogs,
-		"p": actDuplicate, "q": actQuit, "t": actTest, "U": actUpdate, "W": actWrite,
+		"C": actClone, "R": actReload, "/": actSearch, "q": actQuit, "t": actTest, "U": actUpdate, "W": actWrite,
 		"x": actDecline, "b": actBlock, "a": actTickAll,
 	}
 	got := map[string]action{}
@@ -75,7 +75,7 @@ func TestLetterActionsAreTheAgreedLetters(t *testing.T) {
 // helpWording is how the help names each letter of the table: the letter followed by what it does. A letter the
 // table gains fails here until the help and this list both name it.
 var helpWording = map[string]string{
-	"g": "g starts", "n": "n creates", "e": "e edits", "r": "r renames", "d": "d deletes", "p": "p duplicates",
+	"g": "g starts", "n": "n creates", "e": "e edits", "r": "r renames", "d": "d deletes", "C": "C clones", "R": "R reads",
 	"t": "t tests", "U": "U installs", "A": "A approves", "V": "V shows or hides", "s": "s shows", "f": "f opens the filter",
 	"M": "M shows the MCP sessions", "o": "o opens", "W": "W saves", "B": "B puts", "i": "i opens", "q": "q quits",
 	"c": "c hands", "x": "x declines", "b": "b blocks", "a": "a ticks", "y": "y confirms", "h": "h, j, k, and l", "j": "h, j, k, and l", "k": "h, j, k, and l", "l": "h, j, k, and l",
@@ -222,7 +222,7 @@ func TestRenameHintLineTakesNoRowAction(t *testing.T) {
 	if !m.noticeFocused() {
 		t.Fatal("down from the last row did not reach the hint line")
 	}
-	press(t, m, "d", "r", "e", "t", "p")
+	press(t, m, "d", "r", "e", "t", "C")
 	if m.screen != screenList || !m.noticeFocused() {
 		t.Fatalf("a row action reached past the hint line: screen %v", m.screen)
 	}
@@ -239,38 +239,36 @@ func TestRenameHintLineTakesNoRowAction(t *testing.T) {
 // ctrl+y and ctrl+r belong to the target picker: no binding may take them, whatever the rules of the file say.
 func TestPickerControlKeysAreNoBindings(t *testing.T) {
 	keepKeys(t)
-	for _, k := range []string{"ctrl+y", "ctrl+r", "ctrl+d", "ctrl+p", "ctrl+n"} {
+	for _, k := range []string{"ctrl+y", "ctrl+d", "ctrl+p", "ctrl+n"} {
 		for _, name := range uiprefs.Actions {
 			if _, err := uiprefs.DefaultKeys().Check(name, k); err == nil {
 				t.Errorf("Check(%s, %s) accepts a key of a screen", name, k)
 			}
 		}
 	}
-	if _, err := uiprefs.DefaultKeys().Check(uiprefs.ActionLock, "ctrl+r"); err == nil || !strings.Contains(err.Error(), string(actReload)) {
-		t.Errorf("ctrl+r is refused without naming the picker's action: %v", err)
-	}
 }
 
-// Reloading the listing of the picker with ctrl+r works, and no global key can hide it.
-func TestCtrlRReloadsThePickerListing(t *testing.T) {
+// Reloading the listing of the picker with R works, and an R typed into the filter stays text.
+func TestRReloadsThePickerListing(t *testing.T) {
 	keepKeys(t)
 	src := &listSource{list: func(config.TargetListRequest) (config.TargetPage, error) {
 		return config.TargetPage{Entries: []config.TargetEntry{group("a")}}, nil
 	}}
 	m := pickerModel(t, src)
 	openPicker(t, m)
+	lv := m.targetPick.top()
+	lv.list.stopFilter()
 	before := len(src.reqs)
-	_, cmd := m.Update(tea.KeyPressMsg{Code: 'r', Mod: tea.ModCtrl})
+	_, cmd := m.Update(tea.KeyPressMsg{Code: 'R', Text: "R"})
 	deliver(m, cmd)
 	if len(src.reqs) != before+1 {
-		t.Errorf("ctrl+r made %d reads, want one more than %d", len(src.reqs), before)
+		t.Errorf("R made %d reads, want one more than %d", len(src.reqs), before)
 	}
-	// Every key that can still be bound is a free one, so none of them is ctrl+r or ctrl+y.
-	applyKeys(uiprefs.Keys{Help: "ctrl+x", Command: "ctrl+l", Lock: "f6"})
-	_, cmd = m.Update(tea.KeyPressMsg{Code: 'r', Mod: tea.ModCtrl})
+	lv.list.startFilter()
+	_, cmd = m.Update(tea.KeyPressMsg{Code: 'R', Text: "R"})
 	deliver(m, cmd)
-	if len(src.reqs) != before+2 {
-		t.Errorf("ctrl+r with other bindings made %d reads, want %d", len(src.reqs), before+2)
+	if len(src.reqs) != before+1 || lv.list.query() != "R" {
+		t.Errorf("R in the filter: %d reads, query %q, want no read and the text R", len(src.reqs), lv.list.query())
 	}
 }
 

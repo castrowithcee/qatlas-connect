@@ -1346,7 +1346,7 @@ func (m *Model) updateList(key tea.KeyPressMsg) tea.Cmd {
 		m.foldKey(key)
 	case keyIs(key, actNew):
 		return m.newEntry()
-	case keyIs(key, actDuplicate):
+	case keyIs(key, actClone):
 		return m.duplicateSelected()
 	case keyIs(key, actRename):
 		return m.openRename()
@@ -4499,16 +4499,16 @@ func (m *Model) listFrame() (string, string) {
 	case m.section == sectionTokens && m.tokensBlocked() != "" && total == 0:
 		keys = back + " · {command} cmds · {help} help · {quit} quit"
 	case m.section == sectionTokens:
-		keys = "{search} filter · {new} new · {duplicate} duplicate · {enter} show · {delete} revoke · " + back + " · {command} cmds · {help} help · {quit} quit"
+		keys = "{search} filter · {new} new · {clone} clone · {enter} show · {delete} revoke · " + back + " · {command} cmds · {help} help · {quit} quit"
 	case m.section == sectionConnections:
-		keys = "{search} filter · {left}/{right} fold · {new} new · {duplicate} duplicate · {enter}/{edit} edit/fold · {rename} rename · {delete} delete · {test} test · {setup} setup · " +
+		keys = "{search} filter · {left}/{right} fold · {new} new · {clone} clone · {enter}/{edit} edit/fold · {rename} rename · {delete} delete · {test} test · {setup} setup · " +
 			back +
 			" · {command} cmds · {help} help · {quit} quit"
 	case m.section == sectionCredentials:
-		keys = "{search} filter · {left}/{right} fold · {new} new · {duplicate} duplicate · {enter}/{edit} edit/fold · {rename} rename · {delete} delete · {setup} setup · " +
+		keys = "{search} filter · {left}/{right} fold · {new} new · {clone} clone · {enter}/{edit} edit/fold · {rename} rename · {delete} delete · {setup} setup · " +
 			back + " · {command} cmds · {help} help · {quit} quit"
 	case m.templateSection(m.section):
-		keys = "{search} filter · {new} new · {duplicate} duplicate · {enter}/{edit} edit/fold · {rename} rename · {delete} delete · {setup} setup · " + back +
+		keys = "{search} filter · {new} new · {clone} clone · {enter}/{edit} edit/fold · {rename} rename · {delete} delete · {setup} setup · " + back +
 			" · {command} cmds · {help} help · {quit} quit"
 	default:
 		keys = "{search} filter · {new} new · {enter}/{edit} edit · {delete} delete · {setup} setup · " + back + " · {command} cmds · {help} help · {quit} quit"

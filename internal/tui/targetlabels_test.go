@@ -51,9 +51,9 @@ func TestDuplicatingAConnectionKeepsTargetLabels(t *testing.T) {
 	m, path := labelledModel(t)
 	openSectionByName(t, m, sectionConnections)
 	m.screen = screenList
-	pump(t, m, "p")
+	pump(t, m, "C")
 	if m.screen != screenForm {
-		t.Fatalf("p opened screen %v", m.screen)
+		t.Fatalf("C opened screen %v", m.screen)
 	}
 	clearField(t, m)
 	typeText(t, m, "gh-copy")

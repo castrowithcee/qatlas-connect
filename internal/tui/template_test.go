@@ -97,15 +97,26 @@ func TestCopyNameCountsUp(t *testing.T) {
 	}
 }
 
-// p duplicates a service into a new form: the name is the suggested copy, editable; everything else is the
+// The old duplicate letter p does nothing on the list.
+func TestPDoesNotCloneAnymore(t *testing.T) {
+	m, _ := templateModel(t)
+	openSectionByName(t, m, sectionServices)
+	m.screen = screenList
+	pump(t, m, "p")
+	if m.screen != screenList || m.copyFrom != "" {
+		t.Errorf("p: screen %v copyFrom %q, want the list and no copy", m.screen, m.copyFrom)
+	}
+}
+
+// C clones a service into a new form: the name is the suggested copy, editable; everything else is the
 // original's; saving leaves the original alone, and a second copy counts up.
 func TestDuplicateServiceFromTheList(t *testing.T) {
 	m, path := templateModel(t)
 	openSectionByName(t, m, sectionServices)
 	m.screen = screenList
-	pump(t, m, "p")
+	pump(t, m, "C")
 	if m.screen != screenForm || m.editing != "" || m.copyFrom != "wiki" {
-		t.Fatalf("p: screen %v editing %q copyFrom %q, want a new form copied from wiki", m.screen, m.editing,
+		t.Fatalf("C: screen %v editing %q copyFrom %q, want a new form copied from wiki", m.screen, m.editing,
 			m.copyFrom)
 	}
 	if got := m.fieldValue("name"); got != "wiki-copy" || m.fields[0].readOnly {
@@ -130,7 +141,7 @@ func TestDuplicateServiceFromTheList(t *testing.T) {
 		t.Error("the original service is gone")
 	}
 	m.list.selectName("wiki")
-	pump(t, m, "p")
+	pump(t, m, "C")
 	if got := m.fieldValue("name"); got != "wiki-copy-2" {
 		t.Errorf("second copy name = %q, want wiki-copy-2", got)
 	}
@@ -149,9 +160,9 @@ func TestDuplicateCredentialCopiesNoSecret(t *testing.T) {
 	m.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
 	openSectionByName(t, m, sectionCredentials)
 	m.screen = screenList
-	pump(t, m, "p")
+	pump(t, m, "C")
 	if m.screen != screenForm || m.fieldValue("name") != "reader-copy" {
-		t.Fatalf("p: screen %v name %q, want the copied credential form", m.screen, m.fieldValue("name"))
+		t.Fatalf("C: screen %v name %q, want the copied credential form", m.screen, m.fieldValue("name"))
 	}
 	if got := m.fieldValue(storageLabel); got != storageKeyring {
 		t.Errorf("storage = %q, want %q", got, storageKeyring)
@@ -188,9 +199,9 @@ func TestDuplicateConnectionKeepsToolsAndPaths(t *testing.T) {
 	m, path := templateModel(t)
 	openSectionByName(t, m, sectionConnections)
 	m.screen = screenList
-	pump(t, m, "p")
+	pump(t, m, "C")
 	if m.screen != screenForm || m.fieldValue("name") != "github-ops-copy" {
-		t.Fatalf("p: screen %v name %q", m.screen, m.fieldValue("name"))
+		t.Fatalf("C: screen %v name %q", m.screen, m.fieldValue("name"))
 	}
 	if got := m.fieldValue(accessLabel); got != accessTools {
 		t.Errorf("tools mode = %q, want %q kept", got, accessTools)
@@ -239,9 +250,9 @@ func TestDuplicateSavesOnlyInAnAdminSession(t *testing.T) {
 	syncRevision(t, m)
 	openSectionByName(t, m, sectionServices)
 	m.screen = screenList
-	pump(t, m, "p")
+	pump(t, m, "C")
 	if m.screen != screenForm {
-		t.Fatalf("p: screen %v, want the form; opening a copy is reading", m.screen)
+		t.Fatalf("C: screen %v, want the form; opening a copy is reading", m.screen)
 	}
 	pump(t, m, "f2")
 	if m.screen != screenAdminAuth {
@@ -341,9 +352,9 @@ func TestDuplicateTokenTakesVorbilderAndFutureExpiry(t *testing.T) {
 	openTokensUnlocked(t, m)
 
 	m.list.selectName("kunde-a")
-	pump(t, m, "p")
+	pump(t, m, "C")
 	if m.screen != screenForm || m.copyFrom != "kunde-a" {
-		t.Fatalf("p: screen %v copyFrom %q, want the token form copied from kunde-a", m.screen, m.copyFrom)
+		t.Fatalf("C: screen %v copyFrom %q, want the token form copied from kunde-a", m.screen, m.copyFrom)
 	}
 	if m.fieldValue("name") != "kunde-a-copy" || m.fieldValue(vorbilderLabel) != "personal" ||
 		m.fieldValue(expiresLabel) != "2099-12-01" {
@@ -358,7 +369,7 @@ func TestDuplicateTokenTakesVorbilderAndFutureExpiry(t *testing.T) {
 	press(t, m, "esc")
 
 	m.list.selectName("alt")
-	pump(t, m, "p")
+	pump(t, m, "C")
 	if m.screen != screenForm || m.fieldValue(expiresLabel) != "" {
 		t.Errorf("copy of an expired token: screen %v expires %q, want none", m.screen, m.fieldValue(expiresLabel))
 	}

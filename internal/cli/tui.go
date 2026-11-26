@@ -73,7 +73,7 @@ func newTUICommand(opts *Options, reg *capability.Registry, buildVersion string)
 			"screen q is not a key. esc is one level back on every screen, and the only key that\n" +
 			"goes back: it clears a filter, cancels a running test, closes a picker, a table, a dialog, or a\n" +
 			"log entry, or leaves a form. backspace never goes back.\n\n" +
-			"Services, credentials, connections, and agent tokens can be copied. p duplicates the selected\n" +
+			"Services, credentials, connections, and agent tokens can be copied. C clones the selected\n" +
 			"entry into a filled form of a new entry named <name>-copy (or <name>-copy-2, and so on), and n\n" +
 			"first asks whether the new entry starts empty or from an existing one, which is chosen in a\n" +
 			"searchable list; in Connections, n and g ask the same for the guided setup, which then starts\n" +

@@ -92,7 +92,8 @@ Every other letter means one thing on every screen without a text line, and none
 - n creates a new entry, path, or target. In Credentials it first asks for a credential or a payload secret.
 - g starts the guided setup.
 - e edits the selected entry like enter.
-- p duplicates an entry.
+- C clones an entry.
+- R reads the listing of the target picker again.
 - t tests a connection.
 - U installs an update.
 - A approves everything open in Approvals.
