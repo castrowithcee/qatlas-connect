@@ -12,6 +12,7 @@ import (
 
 	"github.com/castrowithcee/qatlas-connect/internal/secret"
 	"github.com/castrowithcee/qatlas-connect/internal/vault"
+	"github.com/castrowithcee/qatlas-connect/internal/vaultproc/vaultproctest"
 	"github.com/castrowithcee/qatlas-kit/redact"
 )
 
@@ -26,6 +27,7 @@ import (
 // itself, selected by runAsQatlasEnv, instead of running the tests; started with vaultClientEnv, it is a
 // client of a vault process instead (see runVaultClient).
 func TestMain(m *testing.M) {
+	vaultproctest.RunIfHelper()
 	trustTestServers()
 	if os.Getenv(runAsQatlasEnv) == "1" {
 		guardTestBinary()

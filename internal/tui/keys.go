@@ -20,7 +20,7 @@ func (m *Model) typing() bool {
 		screenVersions:
 		return true
 	case screenList:
-		return m.list.editing
+		return m.list.Searching()
 	case screenForm:
 		if m.payloadRemoveAsk || m.payloadSaving || m.focus >= len(m.fields) {
 			return false

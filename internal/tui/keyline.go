@@ -278,6 +278,10 @@ func (m *Model) keyHints(text string) []kit.Hint {
 			labelID = hintLabelID(group)
 		}
 		rank, right := footerGroupRank(resolved[i], i)
+		if len(actions) == 1 && listMove(actions[0], label) {
+			// The up and down keys of a list stand apart, each with the kit's label, and move.
+			rank, right = footerNavigate+i, true
+		}
 		kind := kit.HintNormal
 		switch {
 		case rank == footerHelp:
@@ -299,6 +303,11 @@ func (m *Model) keyHints(text string) []kit.Hint {
 		hints = append(hints, kit.Hint{Action: actHelp, Label: tHeaderHelp, Priority: footerHelp, Kind: kit.HintAlways, WhileTyping: typed(actHelp)})
 	}
 	return hints
+}
+
+// listMove reports whether a group of action a and label is the up or down hint of a list (see listHintText).
+func listMove(a action, label string) bool {
+	return (a == actUp && label == tr(kit.TextKeyUp)) || (a == actDown && label == tr(kit.TextKeyDown))
 }
 
 // screenHints is the key line of the current screen as the kit's hints, before anything is drawn.

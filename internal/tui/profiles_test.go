@@ -46,7 +46,7 @@ func tick(t *testing.T, m *Model, label, value string) {
 func openConnection(t *testing.T, m *Model, name string) {
 	t.Helper()
 	openSectionByName(t, m, sectionConnections)
-	m.list.selectName(name)
+	selectRow(m, name)
 	pump(t, m, "enter")
 	if m.screen != screenForm || m.editing != name {
 		t.Fatalf("screen = %v, editing = %q, want the form of %q", m.screen, m.editing, name)

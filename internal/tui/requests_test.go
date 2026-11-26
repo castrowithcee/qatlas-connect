@@ -180,7 +180,8 @@ func TestRequestsShowForEveryStateOfTheVault(t *testing.T) {
 			if got := strings.Contains(view, "Connection approvals:"); got != (tt.note != "") {
 				t.Errorf("note about the connection approvals shown = %v, want %v:\n%s", got, tt.note != "", view)
 			}
-			if tt.state == "locked" && !strings.Contains(view, "enter decide") {
+			// The list's enter opens the request; it is not the unlock key of the empty list.
+			if tt.state == "locked" && (!strings.Contains(view, "enter choose") || strings.Contains(view, "enter unlock")) {
 				t.Errorf("a locked vault does not take enter away from the request:\n%s", view)
 			}
 		})
@@ -214,8 +215,8 @@ func TestRequestFiledOutsideShowsAfterSwitchingToApprovals(t *testing.T) {
 	w.ask("listed", "", "wiki.spaces.get")
 	_, cmd := w.m.Update(vaultTickMsg{})
 	_ = cmd
-	if len(w.m.requests) != 2 || len(w.m.list.all) < 2 {
-		t.Errorf("the tick did not refresh the requests: %d, list %v", len(w.m.requests), w.m.list.all)
+	if len(w.m.requests) != 2 || len(w.m.names) < 2 {
+		t.Errorf("the tick did not refresh the requests: %d, list %v", len(w.m.requests), w.m.names)
 	}
 }
 

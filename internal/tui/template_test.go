@@ -140,7 +140,7 @@ func TestDuplicateServiceFromTheList(t *testing.T) {
 	if _, ok := saved.Services["wiki"]; !ok {
 		t.Error("the original service is gone")
 	}
-	m.list.selectName("wiki")
+	selectRow(m, "wiki")
 	pump(t, m, "C")
 	if got := m.fieldValue("name"); got != "wiki-copy-2" {
 		t.Errorf("second copy name = %q, want wiki-copy-2", got)
@@ -351,7 +351,7 @@ func TestDuplicateTokenTakesVorbilderAndFutureExpiry(t *testing.T) {
 	m.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
 	openTokensUnlocked(t, m)
 
-	m.list.selectName("kunde-a")
+	selectRow(m, "kunde-a")
 	pump(t, m, "C")
 	if m.screen != screenForm || m.copyFrom != "kunde-a" {
 		t.Fatalf("C: screen %v copyFrom %q, want the token form copied from kunde-a", m.screen, m.copyFrom)
@@ -368,7 +368,7 @@ func TestDuplicateTokenTakesVorbilderAndFutureExpiry(t *testing.T) {
 	assertNoTokenValue(t, m)
 	press(t, m, "esc")
 
-	m.list.selectName("alt")
+	selectRow(m, "alt")
 	pump(t, m, "C")
 	if m.screen != screenForm || m.fieldValue(expiresLabel) != "" {
 		t.Errorf("copy of an expired token: screen %v expires %q, want none", m.screen, m.fieldValue(expiresLabel))

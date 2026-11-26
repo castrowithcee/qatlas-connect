@@ -42,7 +42,7 @@ func selectedName(t *testing.T, m *Model) string {
 	t.Helper()
 	name, ok := m.selected()
 	if !ok {
-		t.Fatalf("nothing is selected; shown %v", m.list.matches)
+		t.Fatalf("nothing is selected; shown %v", listRowsOf(m))
 	}
 	return name
 }
@@ -88,21 +88,21 @@ func TestALongListScrollsInsideTheTerminal(t *testing.T) {
 			check(names[118], 119)
 			// Home goes to the group row above the first entry.
 			press(t, m, "home")
-			if name, _ := m.list.selected(); name != groupRow("bookstack") {
+			if name, _ := m.marked(); name != groupRow("bookstack") {
 				t.Fatalf("home selected %q, want the group row", name)
 			}
 			press(t, m, "down")
 			check(names[0], 1)
 			press(t, m, "pgdown")
-			if got := m.list.cursor; got < 2 {
+			if got := listCursor(m); got < 2 {
 				t.Fatalf("pgdown moved to %d, want at least one entry further", got)
 			}
 			// The list holds the group row first, so the cursor is one ahead of the entry index.
-			check(names[m.list.cursor-1], m.list.cursor)
+			check(names[listCursor(m)-1], listCursor(m))
 			press(t, m, "end")
 			check(names[119], 120)
 			press(t, m, "pgup")
-			check(names[m.list.cursor-1], m.list.cursor)
+			check(names[listCursor(m)-1], listCursor(m))
 		})
 	}
 }
@@ -163,8 +163,8 @@ func TestFilterIgnoresCaseAndLeavesTheConfigurationAlone(t *testing.T) {
 	if string(after) != string(before) {
 		t.Error("filtering changed the configuration file")
 	}
-	if len(m.cfg.Services) != 103 || m.entryTotal() != 103 {
-		t.Errorf("filtering removed entries: %d configured, %d listed", len(m.cfg.Services), len(m.list.all))
+	if len(m.cfg.Services) != 103 || len(m.names) != 103 {
+		t.Errorf("filtering removed entries: %d configured, %d listed", len(m.cfg.Services), len(m.names))
 	}
 }
 
@@ -184,9 +184,9 @@ func TestActionsFollowTheFilteredSelection(t *testing.T) {
 		t.Fatalf("enter opened screen %v editing %q, want the form of wiki-b", m.screen, m.editing)
 	}
 	press(t, m, "esc")
-	if m.screen != screenList || m.list.query() != "wiki" || selectedName(t, m) != "wiki-b" {
+	if m.screen != screenList || m.list.Query() != "wiki" || selectedName(t, m) != "wiki-b" {
 		t.Fatalf("returning from the form lost its place: screen %v filter %q selected %v",
-			m.screen, m.list.query(), m.list.matches)
+			m.screen, m.list.Query(), listRowsOf(m))
 	}
 
 	press(t, m, "d")
@@ -202,8 +202,8 @@ func TestActionsFollowTheFilteredSelection(t *testing.T) {
 		t.Fatalf("deleting removed the wrong entries: wiki-b kept %v, %d left", ok, len(saved.Services))
 	}
 	// The deleted entry is replaced by the one now in its place, and the filter is still there.
-	if got := selectedName(t, m); got != "wiki-a" || m.list.query() != "wiki" {
-		t.Errorf("after deleting: selected %q with filter %q, want wiki-a with wiki", got, m.list.query())
+	if got := selectedName(t, m); got != "wiki-a" || m.list.Query() != "wiki" {
+		t.Errorf("after deleting: selected %q with filter %q, want wiki-a with wiki", got, m.list.Query())
 	}
 
 	pressNew(t, m)
@@ -214,8 +214,8 @@ func TestActionsFollowTheFilteredSelection(t *testing.T) {
 	if m.fail != "" {
 		t.Fatalf("creating reported %q", m.fail)
 	}
-	if got := selectedName(t, m); got != "wiki-c" || m.list.query() != "wiki" {
-		t.Errorf("after creating: selected %q with filter %q, want the new wiki-c", got, m.list.query())
+	if got := selectedName(t, m); got != "wiki-c" || m.list.Query() != "wiki" {
+		t.Errorf("after creating: selected %q with filter %q, want the new wiki-c", got, m.list.Query())
 	}
 }
 
@@ -258,9 +258,9 @@ func TestResizeKeepsTheFilterAndTheSelection(t *testing.T) {
 
 	for _, size := range []struct{ width, height int }{{40, minimumHeight}, {20, 5}, {200, 60}, {60, 14}, {80, 24}} {
 		m.Update(tea.WindowSizeMsg{Width: size.width, Height: size.height})
-		if got := selectedName(t, m); got != want || m.list.query() != "svc-1" {
+		if got := selectedName(t, m); got != want || m.list.Query() != "svc-1" {
 			t.Fatalf("%dx%d: selected %q with filter %q, want %q with svc-1",
-				size.width, size.height, got, m.list.query(), want)
+				size.width, size.height, got, m.list.Query(), want)
 		}
 		view := screenOf(m)
 		assertViewFits(t, view, size.width, size.height)
@@ -284,7 +284,7 @@ func TestEmptyListNoMatchesAndEscape(t *testing.T) {
 	press(t, m, "/")
 	typeText(t, m, "zzz")
 	view := screenOf(m)
-	for _, want := range []string{`No entry matches "zzz"`, "esc to clear", "0/0 (2 total)"} {
+	for _, want := range []string{`No entry matches "zzz"`, "esc clears the filter", "0/0 (2 total)"} {
 		if !strings.Contains(view, want) {
 			t.Errorf("a filter without matches does not say %q:\n%s", want, view)
 		}
@@ -301,8 +301,8 @@ func TestEmptyListNoMatchesAndEscape(t *testing.T) {
 	// Escape while typing clears the filter and keeps the list.
 	press(t, m, "/")
 	press(t, m, "esc")
-	if m.screen != screenList || m.list.query() != "" || len(shownEntries(m)) != 2 || m.list.editing {
-		t.Fatalf("escape while typing: screen %v filter %q shown %v", m.screen, m.list.query(), m.list.matches)
+	if m.screen != screenList || m.list.Query() != "" || len(shownEntries(m)) != 2 || m.list.Searching() {
+		t.Fatalf("escape while typing: screen %v filter %q shown %v", m.screen, m.list.Query(), listRowsOf(m))
 	}
 
 	// Escape after a kept filter clears it first, and only the next one leaves the list.
@@ -312,12 +312,12 @@ func TestEmptyListNoMatchesAndEscape(t *testing.T) {
 	if got := selectedName(t, m); got != "wiki" {
 		t.Fatalf("selected %q, want wiki", got)
 	}
-	if view := screenOf(m); !strings.Contains(view, "esc clear filter") {
-		t.Errorf("the keys do not say that escape clears the filter:\n%s", view)
+	if view := screenOf(m); !strings.Contains(view, "esc back") {
+		t.Errorf("the keys do not name escape, which clears the filter:\n%s", view)
 	}
 	press(t, m, "esc")
-	if m.screen != screenList || m.list.query() != "" || selectedName(t, m) != "wiki" {
-		t.Fatalf("the first escape: screen %v filter %q selected %q", m.screen, m.list.query(),
+	if m.screen != screenList || m.list.Query() != "" || selectedName(t, m) != "wiki" {
+		t.Fatalf("the first escape: screen %v filter %q selected %q", m.screen, m.list.Query(),
 			selectedName(t, m))
 	}
 	press(t, m, "esc")
@@ -329,8 +329,8 @@ func TestEmptyListNoMatchesAndEscape(t *testing.T) {
 	press(t, m, "2", "/")
 	typeText(t, m, "chat")
 	press(t, m, "enter", "esc", "esc", "2")
-	if m.list.query() != "" || len(shownEntries(m)) != 2 {
-		t.Errorf("a reopened section kept an old filter %q", m.list.query())
+	if m.list.Query() != "" || len(shownEntries(m)) != 2 {
+		t.Errorf("a reopened section kept an old filter %q", m.list.Query())
 	}
 }
 

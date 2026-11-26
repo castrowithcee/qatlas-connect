@@ -69,7 +69,7 @@ func newTableModel(t *testing.T, width int) *Model {
 // shownEntries are the entries the list shows, group rows left out.
 func shownEntries(m *Model) []string {
 	var entries []string
-	for _, name := range m.list.matches {
+	for _, name := range listRowsOf(m) {
 		if !isGroupRow(name) {
 			entries = append(entries, name)
 		}
@@ -89,13 +89,19 @@ func tableLines(t *testing.T, m *Model) (string, []string) {
 		}
 		lines[i] = line
 	}
+	// The entries of a grouped list stand four cells further in than its group rows.
+	lead := "  "
+	if listGrouped(m) {
+		lead = "      "
+	}
 	for i, line := range lines {
-		if strings.HasPrefix(line, m.entryIndent()+sectionColumns[m.section][0].title) {
-			// Group rows are drawn between the entry rows; the rows returned are those of the entries.
+		if strings.HasPrefix(line, lead+string(sectionColumns[m.section][0].Title)) {
+			// The rule follows the column names; group rows are drawn between the entry rows, and the rows
+			// returned are those of the entries.
 			var rows []string
-			for j, name := range m.list.matches {
-				if i+1+j < len(lines) && !isGroupRow(name) {
-					rows = append(rows, lines[i+1+j])
+			for j, name := range listRowsOf(m) {
+				if i+2+j < len(lines) && !isGroupRow(name) {
+					rows = append(rows, lines[i+2+j])
 				}
 			}
 			return line, rows
@@ -158,8 +164,8 @@ func TestSectionListsAreAlignedTables(t *testing.T) {
 		for i, row := range rows {
 			cells := entries[shownEntries(m)[i]]
 			for c, col := range sectionColumns[s] {
-				if got := cellAt(header, row, col.title); got != cells[c] {
-					t.Errorf("%s: column %s of %q = %q, want %q\n%s", s.title(), col.title,
+				if got := cellAt(header, row, string(col.Title)); got != cells[c] {
+					t.Errorf("%s: column %s of %q = %q, want %q\n%s", s.title(), col.Title,
 						shownEntries(m)[i], got, cells[c], screenOf(m))
 				}
 			}
@@ -181,14 +187,16 @@ func TestNarrowTablesCutTheLongTextsButNeverTheName(t *testing.T) {
 			header, rows := tableLines(t, m)
 			for i, row := range rows {
 				name := shownEntries(m)[i]
-				if got := cellAt(header, row, sectionColumns[s][0].title); got != name {
+				if got := cellAt(header, row, string(sectionColumns[s][0].Title)); got != name {
 					t.Errorf("width %d, %s: name cell = %q, want %q whole\n%s", width, s.title(), got, name,
 						screenOf(m))
 				}
 			}
 		}
 		openSectionByName(t, m, sectionConnections)
-		if view := screenOf(m); !strings.Contains(view, "…") || !strings.Contains(view, "DESCRIPTION") {
+		// At 40 columns the name, the service and the title of the description no longer fit beside the
+		// indent of a grouped list, so the row ends at the edge of the list within that title.
+		if view := screenOf(m); !strings.Contains(view, "…") || !strings.Contains(view, "DESCRIPTI") {
 			t.Errorf("width %d: the description is not cut to fit:\n%s", width, view)
 		}
 	}
@@ -250,7 +258,7 @@ func TestFilterFindsTableEntriesByAnyCell(t *testing.T) {
 	press(t, m, "/")
 	typeText(t, m, "onboarding")
 	if got := shownEntries(m); len(got) != 1 || got[0] != "wiki-docs" {
-		t.Fatalf("matches = %v, want the connection whose description holds the text", m.list.matches)
+		t.Fatalf("matches = %v, want the connection whose description holds the text", listRowsOf(m))
 	}
 	if header, rows := tableLines(t, m); !strings.Contains(header, "SERVICE") || len(rows) != 1 ||
 		!strings.Contains(rows[0], "wiki-docs") {
@@ -261,7 +269,7 @@ func TestFilterFindsTableEntriesByAnyCell(t *testing.T) {
 	press(t, m, "/")
 	typeText(t, m, "missing")
 	if got := shownEntries(m); len(got) != 1 || got[0] != "wiki-reader" {
-		t.Errorf("matches = %v, want the credential with a missing secret", m.list.matches)
+		t.Errorf("matches = %v, want the credential with a missing secret", listRowsOf(m))
 	}
 }
 
@@ -279,7 +287,7 @@ func TestTheColumnNamesDoNotScrollAway(t *testing.T) {
 	if !strings.Contains(header, "BASE URL") || len(rows) == 0 {
 		t.Fatalf("the column names are gone after scrolling:\n%s", screenOf(m))
 	}
-	if !strings.Contains(screenOf(m), ">   tracker-main") {
+	if !strings.Contains(screenOf(m), ">     tracker-main") {
 		t.Errorf("the last entry is not selected and shown:\n%s", screenOf(m))
 	}
 	assertViewFits(t, screenOf(m), m.width, m.height+footerRows(m))
@@ -393,7 +401,7 @@ func TestListRowsAreHighlightedFullWidthAndReadWithoutColour(t *testing.T) {
 		m := newTableModel(t, width)
 		openSectionByName(t, m, sectionServices)
 		var entries []string
-		for _, name := range m.list.matches {
+		for _, name := range listRowsOf(m) {
 			if !isGroupRow(name) {
 				entries = append(entries, name)
 			}
@@ -428,8 +436,8 @@ func TestListRowsAreHighlightedFullWidthAndReadWithoutColour(t *testing.T) {
 
 		press(t, m, "/")
 		typeText(t, m, marked)
-		if got := m.list.matches; len(got) != 2 || !isGroupRow(got[0]) || got[1] != marked {
-			t.Errorf("width %d: typing %q does not filter down to it: %v", width, marked, m.list.matches)
+		if got := listRowsOf(m); len(got) != 2 || !isGroupRow(got[0]) || got[1] != marked {
+			t.Errorf("width %d: typing %q does not filter down to it: %v", width, marked, listRowsOf(m))
 		}
 		press(t, m, "esc")
 	}

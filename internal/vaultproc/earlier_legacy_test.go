@@ -13,8 +13,8 @@ import (
 func TestABuildOfTheEarlierNamesFindsNoEarlierProcess(t *testing.T) {
 	t.Setenv("XDG_RUNTIME_DIR", shortTempDir(t))
 	vaultDir := filepath.Join(t.TempDir(), "vault")
-	if path := earlierPathOf(vaultDir); path != "" {
-		t.Fatalf("earlierPathOf() = %q, want none", path)
+	if e, ok := earlierEndpoint(vaultDir); ok {
+		t.Fatalf("earlierEndpoint() = %+v, want none", e)
 	}
 	if pid, err := EndEarlier(context.Background(), vaultDir); pid != 0 || err != nil {
 		t.Fatalf("EndEarlier() = %d, %v, want none", pid, err)

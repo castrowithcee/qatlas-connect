@@ -41,12 +41,14 @@ func TestApprovalsSectionWithOnlyTheVaultProcessUnlocked(t *testing.T) {
 		t.Fatalf("header = %q, want it to show unlocked", h)
 	}
 	view := screenOf(m)
+	// The sentence of the empty list wraps inside the frame.
+	prose := flatText(strings.NewReplacer("║", " ", "│", " ").Replace(view))
 	for _, want := range []string{
 		"unlocked in the vault process, but not in this window",
 		"to enter the passphrase for this window",
 		"enter passphrase for this window",
 	} {
-		if !strings.Contains(view, want) {
+		if !strings.Contains(prose, want) {
 			t.Errorf("the section lacks %q:\n%s", want, view)
 		}
 	}
@@ -57,8 +59,8 @@ func TestApprovalsSectionWithOnlyTheVaultProcessUnlocked(t *testing.T) {
 	if m.screen != screenList || m.section != sectionApprovals {
 		t.Fatalf("screen after the passphrase = %v section %v, want the Approvals list", m.screen, m.section)
 	}
-	if len(m.list.all) != 1 || m.list.all[0] != "personal" {
-		t.Errorf("Approvals lists %v, want personal", m.list.all)
+	if len(m.names) != 1 || m.names[0] != "personal" {
+		t.Errorf("Approvals lists %v, want personal", m.names)
 	}
 }
 
@@ -83,8 +85,8 @@ func TestTokensSectionWithOnlyTheVaultProcessUnlocked(t *testing.T) {
 
 	pump(t, m, "enter")
 	unlockWithAdminPassphrase(t, m, tokenPassphrase)
-	if !slices.Equal(m.list.all, []string{"kunde-a-ci"}) {
-		t.Fatalf("Tokens lists %v after the passphrase, want kunde-a-ci", m.list.all)
+	if !slices.Equal(m.names, []string{"kunde-a-ci"}) {
+		t.Fatalf("Tokens lists %v after the passphrase, want kunde-a-ci", m.names)
 	}
 }
 

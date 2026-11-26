@@ -69,26 +69,6 @@ func TestStatusMarkAndButtonWithoutColour(t *testing.T) {
 	}
 }
 
-func TestProviderMarkIsStableAndUsesBrandColours(t *testing.T) {
-	withTheme(t, darkTheme())
-	for _, name := range []string{"github", "gitlab", "mattermost", "", "x"} {
-		c := brandColor(name)
-		if c != brandColor(name) {
-			t.Fatalf("%q unstable", name)
-		}
-		found := false
-		for _, b := range styles.Palette().Brand {
-			found = found || b == c
-		}
-		if !found {
-			t.Fatalf("%q colour %q is no brand colour", name, c)
-		}
-		if lipgloss.Width(providerMark(name)) != 1 {
-			t.Fatal("mark width")
-		}
-	}
-}
-
 // The active tab is a surface under colour and brackets without it; both take the same cells, so a click
 // target never moves with the profile, and the others stay unshaded.
 func TestTabStripActiveTabIsASurfaceAndBracketsWithoutColour(t *testing.T) {

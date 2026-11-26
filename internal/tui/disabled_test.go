@@ -32,7 +32,7 @@ func TestSavingADisabledConnectionKeepsItsStateAndSelection(t *testing.T) {
 	}
 
 	m.screen = screenList
-	m.list.selectName("wiki")
+	selectRow(m, "wiki")
 	pump(t, m, "C")
 	if m.copyFrom != "wiki" {
 		t.Fatalf("C: copyFrom %q, want wiki", m.copyFrom)

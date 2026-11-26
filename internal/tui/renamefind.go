@@ -88,7 +88,7 @@ func (m *Model) sectionFindings() []renameFinding {
 // noticeFocused reports whether the hint line about the renames found has the focus: down on the last row
 // reaches it, enter opens the findings, and up or esc return to the rows.
 func (m *Model) noticeFocused() bool {
-	return m.noticeFocus && m.screen == screenList && !m.list.editing && len(m.sectionFindings()) > 0
+	return m.noticeFocus && m.screen == screenList && !m.list.Searching() && len(m.sectionFindings()) > 0
 }
 
 // updateNotice handles a key while the hint line has the focus. Every key that acts on a row is ignored, so
@@ -116,7 +116,7 @@ func (m *Model) hitNotice(out, footer string) {
 	}
 	y := m.workspaceTop() + strings.Count(out, "\n") - strings.Count(footer, "\n") + m.noticeAt
 	m.addHit(0, y, m.listWidth(), y+m.noticeRows, func() tea.Cmd {
-		if m.screen != screenList || m.list.editing {
+		if m.screen != screenList || m.list.Searching() {
 			return nil
 		}
 		m.noticeFocus = false

@@ -960,8 +960,6 @@ const (
 	tFormSecretFor                           textID = "FormSecretFor"
 	tFormMaskedGoesInto                      textID = "FormMaskedGoesInto"
 	tFormNoEntryMatchesTheFilter             textID = "FormNoEntryMatchesTheFilter"
-	tFormNoEntryMatchesPressEsc              textID = "FormNoEntryMatchesPressEsc"
-	tFormFilter                              textID = "FormFilter"
 	tFormChooseTotal                         textID = "FormChooseTotal"
 	tFormChooseTicked                        textID = "FormChooseTicked"
 	tFormTickedOf                            textID = "FormTickedOf"

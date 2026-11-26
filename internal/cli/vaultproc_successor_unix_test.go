@@ -10,7 +10,7 @@ import (
 	"filippo.io/age"
 
 	"github.com/castrowithcee/qatlas-connect/internal/vault"
-	"github.com/castrowithcee/qatlas-connect/internal/vaultproc"
+	"github.com/castrowithcee/qatlas-connect/internal/vaultproc/vaultproctest"
 )
 
 // successorHome is a home directory with an encrypted vault in the default location of the release before
@@ -50,19 +50,11 @@ func encryptedVault(t *testing.T, dir string) *age.X25519Identity {
 	return key
 }
 
-// serveEarlier listens at the socket a vault process of the release before qatlas-connect serves the vault in
-// vaultDir at, until the test ends.
+// serveEarlier serves, from a process of its own, the channel a vault process of the release before
+// qatlas-connect serves the vault in vaultDir at, until the test ends.
 func serveEarlier(t *testing.T, vaultDir string) {
 	t.Helper()
-	current, err := vaultproc.SocketPath(vaultDir)
-	if err != nil {
-		t.Fatal(err)
-	}
-	l, err := vaultproc.Listen(filepath.Join(os.Getenv("XDG_RUNTIME_DIR"), "qatlas", filepath.Base(current)))
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { _ = l.Close() })
+	vaultproctest.Start(t, vaultDir, "qatlas", vaultproctest.Answer("refused"))
 }
 
 // A successor started with the default file of the release before qatlas-connect by a vault process of that
@@ -74,7 +66,7 @@ func TestSuccessorConfigPathMapsTheEarlierDefault(t *testing.T) {
 	serveEarlier(t, vaultDir)
 	before := treeOf(t, legacy)
 
-	got, err := successorConfigPath(filepath.Join(legacy, "config.yaml"), vaultDir, key)
+	got, err := successorConfigPath(filepath.Join(legacy, "config.yaml"), key)
 
 	if want := filepath.Join(home, ".qatlas", "connect", "config.yaml"); err != nil || got != want {
 		t.Fatalf("successorConfigPath() = %q, %v, want %q", got, err, want)
@@ -117,7 +109,7 @@ func TestSuccessorConfigPathKeepsEveryOtherPath(t *testing.T) {
 			home, key := successorHome(t)
 			path := setup(t, home)
 
-			got, err := successorConfigPath(path, vault.New(filepath.Dir(path)).Dir(), key)
+			got, err := successorConfigPath(path, key)
 
 			if err != nil || got != path {
 				t.Fatalf("successorConfigPath() = %q, %v, want %q unchanged", got, err, path)
@@ -145,7 +137,7 @@ func TestSuccessorConfigPathFailsRatherThanServeTheLegacyPlace(t *testing.T) {
 		}
 		t.Cleanup(func() { _ = os.Chmod(root, 0o700) })
 
-		if got, err := successorConfigPath(filepath.Join(legacy, "config.yaml"), vault.New(legacy).Dir(), key); err == nil {
+		if got, err := successorConfigPath(filepath.Join(legacy, "config.yaml"), key); err == nil {
 			t.Fatalf("successorConfigPath() = %q, want an error", got)
 		}
 	})
@@ -155,7 +147,7 @@ func TestSuccessorConfigPathFailsRatherThanServeTheLegacyPlace(t *testing.T) {
 		serveEarlier(t, vault.New(legacy).Dir())
 		encryptedVault(t, filepath.Join(home, ".qatlas", "connect"))
 
-		if got, err := successorConfigPath(filepath.Join(legacy, "config.yaml"), vault.New(legacy).Dir(), key); err == nil {
+		if got, err := successorConfigPath(filepath.Join(legacy, "config.yaml"), key); err == nil {
 			t.Fatalf("successorConfigPath() = %q, want an error", got)
 		}
 	})

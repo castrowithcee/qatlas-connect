@@ -220,7 +220,7 @@ func accessGermanScreens() []germanScreen {
 		{"approvals list", approvals},
 		{"approval detail", func(t *testing.T) *Model {
 			m := approvals(t)
-			m.list.selectName("personal")
+			selectRow(m, "personal")
 			pump(t, m, "enter")
 			return m
 		}},

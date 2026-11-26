@@ -51,8 +51,8 @@ func TestMarkedRowAndStateAreClearWithAndWithoutColour(t *testing.T) {
 	if row := findRow(coloured, "tracker-issues"); !strings.Contains(row, "\x1b[") || strings.Contains(row, "▌") || hasBackground(row) {
 		t.Errorf("an unmarked row must carry cell colours, no mark and no bar: %q", row)
 	}
-	if shown(connectionStateTone("active").Render("x")) == shown(connectionStateTone("expired").Render("x")) ||
-		shown(connectionStateTone("disabled").Render("x")) == shown(connectionStateTone("active").Render("x")) {
+	if tone := styles.Styles.Render; shown(tone(connectionStateTone("active"), "x")) == shown(tone(connectionStateTone("expired"), "x")) ||
+		shown(tone(connectionStateTone("disabled"), "x")) == shown(tone(connectionStateTone("active"), "x")) {
 		t.Error("active, expired and disabled share one style")
 	}
 
@@ -84,7 +84,7 @@ func TestTableScreensFitTheSmallestTerminalWithAndWithoutColour(t *testing.T) {
 				if profile == kittui.ProfileNone && strings.Contains(view, "\x1b") {
 					t.Errorf("%dx%d %s: NO_COLOR still emits styles:\n%s", size[0], size[1], s.title(), view)
 				}
-				if profile == kittui.ProfileNone && len(m.list.matches) > 0 && s != sectionTokens && s != sectionApprovals &&
+				if profile == kittui.ProfileNone && len(listRowsOf(m)) > 0 && s != sectionTokens && s != sectionApprovals &&
 					!strings.Contains(view, "> ") {
 					t.Errorf("%dx%d %s: no '>' marks the selection:\n%s", size[0], size[1], s.title(), view)
 				}

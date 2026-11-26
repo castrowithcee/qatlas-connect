@@ -4,30 +4,23 @@ package manage
 
 import (
 	"context"
-	"fmt"
-	"net"
 	"os"
 	"path/filepath"
 	"runtime"
 	"strings"
 	"testing"
 
-	"filippo.io/age"
-
 	"github.com/castrowithcee/qatlas-connect/internal/connlog"
 	"github.com/castrowithcee/qatlas-connect/internal/vault"
 	"github.com/castrowithcee/qatlas-connect/internal/vaultproc"
+	"github.com/castrowithcee/qatlas-connect/internal/vaultproc/vaultproctest"
 	"github.com/castrowithcee/qatlas-kit/redact"
 )
 
 const refusal = "the vault process refused this program"
 
-func refuseEveryClient(net.Conn) error {
-	return fmt.Errorf("%w: %s", vaultproc.ErrRefused, refusal)
-}
-
 // serveVault serves an encrypted vault in dir from this test process, the way a detached vault process
-// holds it unlocked. The server checks its clients by their program, which is this test binary on both ends.
+// holds it unlocked, or with refuse a process that refuses every client.
 func serveVault(t *testing.T, dir string, refuse bool) *vaultproc.Client {
 	t.Helper()
 	base := ""
@@ -50,29 +43,23 @@ func serveVault(t *testing.T, dir string, refuse bool) *vaultproc.Client {
 	if _, err := v.Unlock(passphrase); err != nil {
 		t.Fatalf("Unlock() = %v", err)
 	}
-	snap, err := v.Snapshot()
-	if err != nil {
-		t.Fatal(err)
-	}
-	key, err := age.ParseX25519Identity(snap.Identity)
-	if err != nil {
-		t.Fatal(err)
-	}
 	client, err := vaultproc.ProcessClientOf(v)
 	if err != nil {
 		t.Fatal(err)
 	}
-	l, err := vaultproc.Listen(client.Path)
+	if refuse {
+		vaultproctest.Refuse(t, v.Dir())
+		return client
+	}
+	snap, err := v.Snapshot()
 	if err != nil {
 		t.Fatal(err)
 	}
-	server := vaultproc.NewServer(key, snap.Secrets, snap.Bindings)
-	if refuse {
-		server.Verify = refuseEveryClient
+	server, err := vaultproc.NewServer(v.Dir(), snap, vaultproc.ServerOptions{})
+	if err != nil {
+		t.Fatal(err)
 	}
-	done := make(chan struct{})
-	go func() { _ = server.Serve(l); close(done) }()
-	t.Cleanup(func() { _ = server.Close(); <-done })
+	t.Cleanup(func() { _ = server.Close() })
 	return client
 }
 
@@ -147,7 +134,11 @@ func TestLockVaultProcess(t *testing.T) {
 		if err := vault.New(dir).Set("seed", "role", "seed-value-1", func(string) (string, error) { return "hunter2-phrase", nil }); err != nil {
 			t.Fatal(err)
 		}
-		t.Setenv("XDG_RUNTIME_DIR", t.TempDir())
+		runtimeDir := t.TempDir()
+		if err := os.Chmod(runtimeDir, 0o700); err != nil {
+			t.Fatal(err)
+		}
+		t.Setenv("XDG_RUNTIME_DIR", runtimeDir)
 		f.secrets.vault = vault.New(dir)
 		svc := New(f.store, f.secrets, connlog.SurfaceTUI, nil).WithVaultProcessSupport(true)
 		if got := svc.LockVaultProcess(context.Background(), "", "next"); got != "" {

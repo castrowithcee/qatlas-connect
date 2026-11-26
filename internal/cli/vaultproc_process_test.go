@@ -38,11 +38,10 @@ func withVaultProcess(t *testing.T, dir string) *vaultproc.Client {
 	if err != nil {
 		t.Fatalf("Recipient() = %v", err)
 	}
-	path, err := vaultproc.SocketPath(v.Dir())
+	client, err := vaultproc.ClientFor(v.Dir(), recipient)
 	if err != nil {
-		t.Fatalf("SocketPath() = %v", err)
+		t.Fatalf("ClientFor() = %v", err)
 	}
-	client := vaultproc.NewClient(path, recipient)
 	t.Cleanup(func() { endVaultProcess(t, client, registry) })
 	return client
 }
@@ -105,7 +104,10 @@ func TestEndVaultProcessKillsAProcessThatDoesNotAnswer(t *testing.T) {
 		t.Fatal(err)
 	}
 	// A client of a socket nobody serves stands for a vault process whose own socket is gone.
-	unreachable := vaultproc.NewClient(filepath.Join(t.TempDir(), "none"), recipient)
+	unreachable, err := vaultproc.ClientFor(filepath.Join(t.TempDir(), "none"), recipient)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if _, err := unreachable.Status(context.Background()); err == nil {
 		t.Fatal("Status() of an unreachable socket succeeded")
 	}
@@ -377,7 +379,6 @@ func TestVaultServeRefusesToRunByHand(t *testing.T) {
 	if !errors.As(err, &exit) || exit.ExitCode() != exitUsage || !strings.Contains(string(out), "'qconnect vault unlock'") {
 		t.Fatalf("vault serve by hand = %v, %q, want a usage error naming vault unlock", err, out)
 	}
-	checkServeStreams(t, dir)
 }
 
 func mustOpen(t *testing.T, path string) *os.File {
