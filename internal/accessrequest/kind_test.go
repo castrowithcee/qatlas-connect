@@ -270,7 +270,7 @@ func TestFileWithUnknownKindIsInvalid(t *testing.T) {
 	raw := fmt.Sprintf(`version: 1
 requests:
   - id: 0123456789abcdef0123456789abcdef
-    kind: create-connection
+    kind: unknown-kind
     connection_id: %s
     connection: listed
     provider: fake
