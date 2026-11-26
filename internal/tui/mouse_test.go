@@ -257,7 +257,7 @@ func TestClickFromOutsideTheRowsOnTheMarkedRowOnlyMarks(t *testing.T) {
 func TestClickOnALogRowMarksItAndASecondClickOpensIt(t *testing.T) {
 	m := sizedModel(heatModel(t, activityLog(t)), 120, 40)
 	m.logs.heat = false
-	m.logs.focus = logFocusRows
+	m.logs.setFocus(logFocusRows, false)
 	m.screen = screenLogs
 	m.setLogTab(logTabTable)
 	m.render()
@@ -278,7 +278,7 @@ func TestClickOnALogRowMarksItAndASecondClickOpensIt(t *testing.T) {
 func TestClickFromTheTabLineOnTheMarkedLogRowOnlyMarks(t *testing.T) {
 	m := sizedModel(heatModel(t, activityLog(t)), 120, 40)
 	m.logs.heat = false
-	m.logs.focus = logFocusRows
+	m.logs.setFocus(logFocusRows, false)
 	m.screen = screenLogs
 	m.setLogTab(logTabTable)
 	m.render()
@@ -287,7 +287,7 @@ func TestClickFromTheTabLineOnTheMarkedLogRowOnlyMarks(t *testing.T) {
 	if m.screen != screenLogs || m.logs.focus != logFocusRows {
 		t.Fatalf("click from the tab line: screen %v focus %v, want the rows", m.screen, m.logs.focus)
 	}
-	m.logs.focus = logFocusTabs
+	m.logs.setFocus(logFocusTabs, false)
 	m.render()
 	clickOn(t, m, activityStamp(8, 0))
 	if m.screen != screenLogs || m.logs.focus != logFocusRows {
@@ -768,15 +768,15 @@ func TestAFailedRestartKeepsTheMouseModeOfThePreference(t *testing.T) {
 }
 
 func TestClickOnALogRowAndTheBarOfTheLogs(t *testing.T) {
-	m := sizedModel(groupModel(t), 140, 40)
+	m := sizedModel(groupModel(t), 160, 40)
 	openSectionByName(t, m, sectionLogs)
 	clickOn(t, m, "Mode: Day")
-	if m.dd == nil || m.logs.mode != logModeDay {
-		t.Fatalf("the click on Mode did not open its list: mode %v", m.logs.mode)
+	if !m.logs.bar.Open() || m.logs.mode != logModeDay {
+		t.Fatalf("the click on Mode did not open its values: mode %v", m.logs.mode)
 	}
-	// A click on an entry of the list chooses it, as enter does.
-	clickOn(t, m, "  Range")
-	if m.dd != nil || m.logs.mode != logModeRange {
+	// A click on a value takes it, as enter does.
+	clickOn(t, m, "Range")
+	if m.logs.bar.Open() || m.logs.mode != logModeRange {
 		t.Errorf("mode = %v, want the range", m.logs.mode)
 	}
 }
@@ -927,7 +927,7 @@ func TestTheWheelStopsAtTheEnds(t *testing.T) {
 func TestTheWheelStopsAtTheEndsOfTheActivityTable(t *testing.T) {
 	m := sizedModel(heatModel(t, activityLog(t)), 120, 40)
 	m.logs.heat = false
-	m.logs.focus = logFocusRows
+	m.logs.setFocus(logFocusRows, false)
 	m.screen = screenLogs
 	m.setLogTab(logTabTable)
 	m.render()

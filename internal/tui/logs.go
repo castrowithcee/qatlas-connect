@@ -1,6 +1,6 @@
 // The Logs section (the Activity area, see the sectionLogs comment in tui.go): the invocation log, read only. A bar on
-// top chooses a day, a range of days, or every recorded day; f narrows the rows by way, MCP client, tool,
-// connection, effect, and result in a picker; / searches the text of the rows; the tabs of the bar show the
+// top (logbar.go) chooses a day, a range of days, or every recorded day and narrows the rows by way, MCP client,
+// tool, connection, effect, and result; / searches the text of the rows; the tabs of the bar show the
 // rows (Table), a heatmap of their days (Activity, activity.go), or the response sizes summed up per tool and
 // connection (Details; s toggles it, m shows the context cost of each MCP session instead); enter opens one
 // entry. Every row and the bar carry the status the hash chain and the check values give it, found by the same walk
@@ -14,14 +14,12 @@ import (
 	"errors"
 	"fmt"
 	"path/filepath"
-	"sort"
 	"strconv"
 	"strings"
 	"time"
 	"unicode"
 	"unicode/utf8"
 
-	"charm.land/bubbles/v2/textinput"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
@@ -29,6 +27,7 @@ import (
 	"github.com/castrowithcee/qatlas-connect/internal/invokelog"
 	"github.com/castrowithcee/qatlas-connect/internal/vault"
 	"github.com/castrowithcee/qatlas-connect/internal/vaultproc"
+	kit "github.com/castrowithcee/qatlas-kit/tui"
 )
 
 // logDateLayout is how a local day is typed and shown.
@@ -68,14 +67,13 @@ func (s logStatus) style() lipgloss.Style {
 	return [...]lipgloss.Style{styles.ok, styles.warning, styles.warning, styles.fail}[s]
 }
 
-// logFocus is the part of the Logs screen the keys act on: the rows, the tabs, or one of the bar's two fields.
+// logFocus is the part of the Logs screen the keys act on: the rows, the tabs, or the filter bar.
 type logFocus int
 
 const (
 	logFocusRows logFocus = iota
 	logFocusTabs
-	logFocusMode
-	logFocusDate
+	logFocusBar
 )
 
 // logTab is what the tabs of the Logs screen select: the rows, the heatmap of their days, or the summary.
@@ -118,7 +116,7 @@ func (m *Model) setLogTab(tab logTab) tea.Cmd {
 	return nil
 }
 
-// The filters f offers, in the order of the filter line.
+// The filters of the bar, in its order.
 const (
 	logFilterWay = iota
 	logFilterClient
@@ -130,8 +128,6 @@ const (
 )
 
 var (
-	logFilterNames = [logFilterCount]textID{tLogFilterWay, tLogFilterClient, tLogFilterTool, tLogFilterConnection,
-		tLogFilterEffect, tLogFilterResult}
 	logFilterShort = [logFilterCount]textID{tLogFilterShortWay, tLogFilterShortClient, tLogFilterShortTool,
 		tLogFilterShortConn, tLogFilterShortEffect, tLogFilterShortResult}
 )
@@ -152,12 +148,9 @@ var logLabels = map[string]textID{
 	"duration":       tLogLabelDuration,
 	"request":        tLogLabelRequest,
 	"response":       tLogLabelResponse,
-	"date":           tLogLabelDate,
-	"from":           tLogLabelFrom,
-	"to":             tLogLabelTo,
 }
 
-// logLabel is a row label of the entry detail or the date dialog in the editor's language.
+// logLabel is a row label of the entry detail in the editor's language.
 func logLabel(english string) string {
 	if id, ok := logLabels[english]; ok {
 		return tr(id)
@@ -251,8 +244,8 @@ type logView struct {
 	// day is the day of logModeDay, from and to the range of logModeRange, all as logDateLayout.
 	day, from, to string
 	focus         logFocus
-	// zoneTabs and zoneBar are the lines of the tab line and of the filter line in the head of the last
-	// frame, counted from its first line.
+	// zoneTabs and zoneBar are the lines of the tab line and of the filter bar with the search under it in the
+	// head of the last frame, counted from its first line.
 	zoneTabs, zoneBar [2]int
 
 	// loadID guards against an answer to a load that a later one replaced; loading is true until the latest
@@ -289,24 +282,12 @@ type logView struct {
 	// sessions makes the summary the one of the MCP sessions, scrolled down by scroll lines.
 	sessions bool
 	scroll   int
-	dialog   *logDateDialog
-	pick     *logPick
+	// bar is the filter bar of the mode, the date and the filters; barTargets are its targets in the last
+	// frame, counted from the left of its line.
+	bar        *kit.FilterBar
+	barTargets []kit.Target
 	// detail is the index of the row the detail screen shows.
 	detail int
-}
-
-// logDateDialog is the small dialog enter opens on the bar's date field: one day, or from and to.
-type logDateDialog struct {
-	inputs []textinput.Model
-	focus  int
-	err    string
-}
-
-// logPick is the filter dialog f opens, in the picker pattern: first the filter, then its value.
-type logPick struct {
-	// filter is the filter whose value is chosen, -1 while the filter itself is.
-	filter int
-	list   filterList
 }
 
 func newLogView(now time.Time) *logView {
@@ -338,6 +319,27 @@ func (lv *logView) row(name string) *logRow {
 		return nil
 	}
 	return &lv.rows[i]
+}
+
+// dateText is the text of the date field of the bar: the day, or from and to.
+func (lv *logView) dateText() string {
+	if lv.mode == logModeRange {
+		return lv.from + ".." + lv.to
+	}
+	return lv.day
+}
+
+// setFocus moves the focus to f, into the bar at its first field or, fromEnd, its last.
+func (lv *logView) setFocus(f logFocus, fromEnd bool) {
+	if lv.bar != nil {
+		switch {
+		case f != logFocusBar:
+			lv.bar.Blur()
+		case lv.focus != logFocusBar || !lv.bar.Focused():
+			lv.bar.Focus(fromEnd)
+		}
+	}
+	lv.focus = f
 }
 
 // bounds is the from and to of the selected days; "" leaves an end open.
@@ -386,6 +388,10 @@ func (m *Model) loadLogs() tea.Cmd {
 	lv.loading = true
 	id := lv.loadID
 	from, to := lv.bounds()
+	if lv.bar != nil {
+		// The bar of All has no date field.
+		_ = lv.bar.SetActionText(logBarDate, lv.dateText())
+	}
 	utcFrom, utcTo := logUTCFileBounds(from, to)
 	v := m.logVault()
 	return func() tea.Msg {
@@ -477,6 +483,7 @@ func (m *Model) handleLogsLoaded(msg logsLoadedMsg) tea.Cmd {
 	}
 	lv.span = span
 	lv.applyFilters()
+	m.setLogBarOptions()
 	return nil
 }
 
@@ -623,7 +630,9 @@ func (m *Model) openLogs() tea.Cmd {
 	m.clearMessages()
 	m.refreshLogRetention()
 	lv := m.logs
-	lv.focus, lv.dialog, lv.pick, lv.stats, lv.sessions, lv.heat = logFocusRows, nil, nil, false, false, false
+	lv.setFocus(logFocusRows, false)
+	lv.stats, lv.sessions, lv.heat = false, false, false
+	m.syncLogBar()
 	m.screen = screenLogs
 	return m.loadLogs()
 }
@@ -637,16 +646,16 @@ func (m *Model) reloadShownLogs() tea.Cmd {
 	return m.loadLogs()
 }
 
-// updateLogs handles the keys of the Logs screen and of the dialogs over it.
+// updateLogs handles the keys of the Logs screen and of its bar.
 func (m *Model) updateLogs(key tea.KeyPressMsg) tea.Cmd {
 	lv := m.logs
-	switch {
-	case lv.dialog != nil:
-		return m.updateLogDateDialog(key)
-	case lv.pick != nil:
-		return m.updateLogPick(key)
-	case lv.list.editing:
+	if lv.list.editing {
 		return m.updateLogSearch(key)
+	}
+	if lv.focus == logFocusBar {
+		if cmd, handled := m.updateLogBar(key); handled {
+			return cmd
+		}
 	}
 	if s, ok := sectionShortcut(key.String()); ok {
 		return m.openSection(s)
@@ -673,13 +682,7 @@ func (m *Model) updateLogs(key tea.KeyPressMsg) tea.Cmd {
 		if keyIs(key, actLeft) {
 			by = -1
 		}
-		switch lv.focus {
-		case logFocusMode:
-			lv.mode = logMode(wrap(int(lv.mode)+by, int(logModeCount)))
-			return m.loadLogs()
-		case logFocusDate:
-			m.openLogDateDialog()
-		case logFocusTabs:
+		if lv.focus == logFocusTabs {
 			return m.setLogTab(logTab(min(max(int(lv.tab())+by, 0), int(logTabCount)-1)))
 		}
 	case keyIs(key, actSummary):
@@ -689,12 +692,8 @@ func (m *Model) updateLogs(key tea.KeyPressMsg) tea.Cmd {
 		lv.stats, lv.sessions, lv.scroll, lv.heat = on, on, 0, false
 	case keyIs(key, actEnter):
 		switch lv.focus {
-		case logFocusDate:
-			m.openLogDateDialog()
-		case logFocusMode:
-			m.openLogBarDropdown()
 		case logFocusTabs:
-			lv.focus = logFocusRows
+			lv.setFocus(logFocusRows, false)
 		case logFocusRows:
 			if row, ok := lv.list.selected(); ok && !lv.stats && !lv.heat {
 				lv.detail, _ = strconv.Atoi(row)
@@ -704,7 +703,7 @@ func (m *Model) updateLogs(key tea.KeyPressMsg) tea.Cmd {
 			}
 		}
 	case keyIs(key, actUp) || keyIs(key, actDown) || keyIs(key, actPageUp) || keyIs(key, actPageDown) || keyIs(key, actHome) || keyIs(key, actEnd):
-		lv.focus = logFocusRows
+		lv.setFocus(logFocusRows, false)
 		if lv.heat {
 			break
 		}
@@ -722,41 +721,27 @@ func (m *Model) updateLogs(key tea.KeyPressMsg) tea.Cmd {
 			lv.list.page(key, start, end)
 		}
 	case keyIs(key, actFilter):
-		m.openLogPick(-1)
+		if lv.focus != logFocusBar {
+			m.logBar()
+			lv.setFocus(logFocusBar, false)
+		}
 	case keyIs(key, actSearch):
-		lv.focus = logFocusRows
+		lv.setFocus(logFocusRows, false)
 		lv.list.startFilter()
 	}
 	return nil
 }
 
-// moveFocus steps through the bar's fields and the rows; All has no date field to stop at.
+// moveFocus steps from the tabs to the bar and the rows and round; the bar steps through its own fields first.
 func (lv *logView) moveFocus(by int) {
-	order := []logFocus{logFocusTabs, logFocusMode, logFocusDate, logFocusRows}
-	if lv.mode == logModeAll {
-		order = []logFocus{logFocusTabs, logFocusMode, logFocusRows}
-	}
+	order := []logFocus{logFocusTabs, logFocusBar, logFocusRows}
 	at := len(order) - 1
 	for i, f := range order {
 		if f == lv.focus {
 			at = i
 		}
 	}
-	lv.focus = order[wrap(at+by, len(order))]
-}
-
-// openLogBarDropdown opens the list of the bar's mode field, which takes the focus.
-func (m *Model) openLogBarDropdown() {
-	lv := m.logs
-	lv.focus = logFocusMode
-	var modes []string
-	for mode := logModeDay; mode < logModeCount; mode++ {
-		modes = append(modes, mode.String())
-	}
-	m.openDropdown("logmode", modes, int(lv.mode), func(i int) tea.Cmd {
-		lv.mode = logMode(i)
-		return m.loadLogs()
-	})
+	lv.setFocus(order[wrap(at+by, len(order))], by < 0)
 }
 
 // updateLogSearch is the Logs screen while its search is typed; every printable key is search text.
@@ -794,172 +779,25 @@ func (m *Model) updateLogDetail(key tea.KeyPressMsg) tea.Cmd {
 	return nil
 }
 
-func newLogInput(value string) textinput.Model {
-	in := newTextInput()
-	in.Prompt = ""
-	in.CharLimit = len(logDateLayout)
-	in.Placeholder = tr(tLogDateFormat)
-	in.SetValue(value)
-	in.CursorEnd()
-	return in
-}
-
-// openLogDateDialog opens the dialog of the bar's date field: one day, or from and to.
-func (m *Model) openLogDateDialog() {
-	lv := m.logs
-	d := &logDateDialog{}
-	switch lv.mode {
-	case logModeDay:
-		d.inputs = []textinput.Model{newLogInput(lv.day)}
-	case logModeRange:
-		d.inputs = []textinput.Model{newLogInput(lv.from), newLogInput(lv.to)}
-	default:
-		return
-	}
-	d.inputs[0].Focus()
-	lv.dialog = d
-	m.clearMessages()
-}
-
-func (m *Model) updateLogDateDialog(key tea.KeyPressMsg) tea.Cmd {
-	lv, d := m.logs, m.logs.dialog
-	switch {
-	case keyIs(key, actBack):
-		lv.dialog = nil
-		return nil
-	case keyIs(key, actNext) || keyIs(key, actPrev) || keyIs(key, actUp) || keyIs(key, actDown):
-		d.inputs[d.focus].Blur()
-		by := 1
-		if keyIs(key, actPrev) || keyIs(key, actUp) {
-			by = -1
-		}
-		d.focus = wrap(d.focus+by, len(d.inputs))
-		d.inputs[d.focus].Focus()
-		return nil
-	case keyIs(key, actEnter):
-		var days []string
-		for _, in := range d.inputs {
-			value := strings.TrimSpace(in.Value())
-			if _, err := time.Parse(logDateLayout, value); err != nil {
-				d.err = tr(tLogDateInvalid, time.Now().In(time.Local).Format(logDateLayout))
-				return nil
-			}
-			days = append(days, value)
-		}
-		if len(days) == 2 && days[0] > days[1] {
-			d.err = tr(tLogDateOrder)
-			return nil
-		}
-		if len(days) == 1 {
-			lv.day = days[0]
-		} else {
-			lv.from, lv.to = days[0], days[1]
-		}
-		lv.dialog = nil
-		return m.loadLogs()
-	}
-	var cmd tea.Cmd
-	d.inputs[d.focus], cmd = d.inputs[d.focus].Update(inputMsg(key))
-	d.err = ""
-	return cmd
-}
-
-// openLogPick opens the filter dialog: the filters for filter -1, else the values of that filter, which are
-// all and every value the loaded rows hold for it. Typing searches at once, as in every picker.
-func (m *Model) openLogPick(filter int) {
-	lv := m.logs
-	p := &logPick{filter: filter}
-	var names []string
-	if filter < 0 {
-		p.list = newFilterList(func(name string) string {
-			k, _ := strconv.Atoi(name)
-			return fmt.Sprintf("%-11s %s", tr(logFilterNames[k]), filterText(lv.filters[k]))
-		})
-		for k := range logFilterNames {
-			names = append(names, strconv.Itoa(k))
-		}
-	} else {
-		p.list = newFilterList(filterText)
-		seen := map[string]bool{}
-		for _, row := range lv.rows {
-			if v := row.values[filter]; !seen[v] {
-				seen[v] = true
-				names = append(names, v)
-			}
-		}
-		sort.Strings(names)
-		names = append([]string{""}, names...)
-	}
-	p.list.input.Placeholder = tr(tLogSearchPlaceholder)
-	p.list.reset(names)
-	p.list.startFilter()
-	if filter >= 0 {
-		p.list.selectName(lv.filters[filter])
-	}
-	lv.pick = p
-	m.clearMessages()
-}
-
-// filterText shows a filter value; "" keeps every row.
-func filterText(value string) string {
-	if value == "" {
-		return tr(tLogAll)
-	}
-	return value
-}
-
-func (m *Model) updateLogPick(key tea.KeyPressMsg) tea.Cmd {
-	lv, p := m.logs, m.logs.pick
-	switch {
-	case keyIs(key, actBack):
-		if p.filter >= 0 {
-			m.openLogPick(-1)
-			m.logs.pick.list.selectName(strconv.Itoa(p.filter))
-			return nil
-		}
-		lv.pick = nil
-	case keyIs(key, actEnter):
-		choice, ok := p.list.selected()
-		if !ok {
-			return nil
-		}
-		if p.filter < 0 {
-			k, _ := strconv.Atoi(choice)
-			m.openLogPick(k)
-			return nil
-		}
-		lv.filters[p.filter] = choice
-		lv.pick = nil
-		lv.applyFilters()
-	case keyIs(key, actUp):
-		p.list.move(-1)
-	case keyIs(key, actDown):
-		p.list.move(1)
-	case keyIs(key, actPageUp) || keyIs(key, actPageDown) || keyIs(key, actHome) || keyIs(key, actEnd):
-		start, end := m.logPickWindow()
-		p.list.page(key, start, end)
-	default:
-		return p.list.updateFilter(key)
-	}
-	return nil
-}
-
 // logsView draws the Logs section: the tabs, the filter and search lines, the panel with the table, the heatmap
 // or the summary, and the keys. It is also what the workspace shows below the tab line while the section is only
 // marked there.
 func (m *Model) logsView() string {
 	lv := m.logs
-	if m.screen == screenLogs && lv.dialog != nil {
-		return m.logDateDialogView()
-	}
-	if m.screen == screenLogs && lv.pick != nil {
-		return m.logPickView()
-	}
 	head, foot := m.logsFrame()
 	var b strings.Builder
 	b.WriteString(head)
 	m.hitBar(strings.Split(head, "\n"), m.workspaceTop(), m.logBarSpecs)
+	m.addLogBarTargets(lv.barTargets, 0)
 	room := m.height - strings.Count(head, "\n") - strings.Count(foot, "\n") - 1
+	if view, targets := m.logBar().ValueList(styles.Styles, m.logRoom(), room); view != "" {
+		// The open values of a field take the place of the rows below the bar.
+		b.WriteString(m.logInside(view + "\n"))
+		m.addLogBarTargets(targets, strings.Count(head, "\n")-lv.zoneBar[0])
+		m.zoneLogs(b.String())
+		b.WriteString(foot)
+		return b.String()
+	}
 	if lv.stats && lv.loaded && lv.err == "" && len(lv.list.matches) > 0 {
 		if lv.sessions {
 			b.WriteString(m.logInside(m.sessionStatLines(m.logSessionStats(), room)))
@@ -988,7 +826,7 @@ func (m *Model) logsView() string {
 }
 
 // zoneLogs registers the zones of the Logs screen, whose lines up to its foot are drawn: the panel with its
-// table, summary or heatmap takes the rows, the tab line the tabs, the filter line its first field. The
+// table, summary or heatmap takes the rows and the tab line the tabs; the bar has a free area of its own. The
 // frame of the panel, where there is one, belongs to the panel.
 func (m *Model) zoneLogs(drawn string) {
 	lv := m.logs
@@ -999,7 +837,19 @@ func (m *Model) zoneLogs(drawn string) {
 	}
 	m.addZone(0, top, width, end, func() tea.Cmd { return m.zoneLogFocus(logFocusRows) })
 	m.addZone(0, top+lv.zoneTabs[0], width, top+lv.zoneTabs[1], func() tea.Cmd { return m.zoneLogFocus(logFocusTabs) })
-	m.addZone(0, top+lv.zoneBar[0], width, top+lv.zoneBar[1], func() tea.Cmd { return m.zoneLogFocus(logFocusMode) })
+}
+
+// addLogBarTargets places targets of the bar, counted from the left of the bar's line and from dy lines below
+// it, on the screen: inside the frame of the panel where there is one.
+func (m *Model) addLogBarTargets(targets []kit.Target, dy int) {
+	if m.backdrop || m.tooSmall {
+		return
+	}
+	x := 0
+	if m.logs.framed {
+		x = 2
+	}
+	m.barTargets = append(m.barTargets, kit.OffsetTargets(targets, x, m.workspaceTop()+m.logs.zoneBar[0]+dy)...)
 }
 
 // zoneLogFocus is the click on the free area of a part of the Logs screen: that part takes the focus, with the
@@ -1007,7 +857,7 @@ func (m *Model) zoneLogs(drawn string) {
 func (m *Model) zoneLogFocus(focus logFocus) tea.Cmd {
 	lead, ok := m.logBarGuard()
 	if ok {
-		m.logs.focus = focus
+		m.logs.setFocus(focus, false)
 	}
 	return lead
 }
@@ -1066,9 +916,8 @@ func (m *Model) logRowLine(i int, l layout) string {
 }
 
 // logsFrame is everything of the Logs screen except its rows. The tab line carries the status of the chain;
-// the filter line holds the mode, the date, the filters and the search, and wraps where it must. The rows stand
-// in a panel where there is room; a terminal too low for them drops the panel, the rules and the idle search
-// line first.
+// the bar holds the mode, the date and the filters, and the search stands under it while it is used. The rows
+// stand in a panel where there is room; a terminal too low for them drops the panel and the rules first.
 func (m *Model) logsFrame() (string, string) {
 	lv := m.logs
 	focused := m.screen == screenLogs
@@ -1078,60 +927,37 @@ func (m *Model) logsFrame() (string, string) {
 	if lv.loaded {
 		status = lv.worst.style().Render(lv.worst.label())
 	}
-	marker := func(f logFocus) string { return barMarker(focused && lv.focus == f) }
-	barLabel := func(id textID) string { return strings.TrimRight(tr(id), ": ") }
-	var modes []string
-	for mode := logModeDay; mode < logModeCount; mode++ {
-		modes = append(modes, mode.String())
-	}
-	// bar draws the tab line and the filter line for a room of width cells: inside the panel where there is one.
+	// bar draws the tab line, the filter bar and, while it is typed or holds a text, the search under the bar,
+	// for a room of width cells: inside the panel where there is one.
 	bar := func(width int) (tabLine, filterRows, compactRows []string) {
-		field := func(f logFocus, label, value string) (string, string) {
-			text := dropdownField(label, value, focused && lv.focus == f, width-2)
-			return marker(f) + text, ansi.Strip(text)
-		}
 		strip, spans := tabStrip(logTabWords(), int(lv.tab()), focused && lv.focus == logFocusTabs)
 		tabsPlain := make([]string, len(spans))
 		for i, span := range spans {
 			tabsPlain[i] = ansi.Cut(ansi.Strip(strip), span[0], span[1])
 		}
-		tabItem := marker(logFocusTabs) + strip
+		tabItem := barMarker(focused && lv.focus == logFocusTabs) + strip
 		if !lv.compactSubject().empty() {
 			// The compact frame leaves the explanation of the summary to the info key.
 			tabItem += styles.hint.Render(infoMark)
 		}
 		tabLine = packBar([]string{tabItem}, status, width)
-		modeField, modePlain := field(logFocusMode, barLabel(tLogBarMode), modes[lv.mode])
-		var dateField, datePlain string
-		switch lv.mode {
-		case logModeDay, logModeRange:
-			text := tr(tLogBarDate, lv.day)
-			if lv.mode == logModeRange {
-				text = tr(tLogBarRange, lv.from, lv.to)
-			}
-			label, value, _ := strings.Cut(text, ": ")
-			dateField, datePlain = field(logFocusDate, label, strings.Trim(value, "[]"))
-		default:
-			dateField = "  " + styles.hint.Render(tr(tLogBarAll))
+		b := m.logBar()
+		if !focused && lv.focus == logFocusBar {
+			// The tab line took the focus: the bar gives it up, and the rows have it on the way back.
+			lv.setFocus(logFocusRows, false)
 		}
-
-		// The fields stand behind a marker column of two cells: the mode and the date carry their own, the filters
-		// leave it blank.
-		fields := []string{modeField, dateField}
-		var filterPlain []string
-		for k, value := range lv.filters {
-			label := []rune(tr(logFilterShort[k]))
-			text := dropdownField(strings.ToUpper(string(label[:1]))+string(label[1:]), filterText(value), false, min(width-2, 24))
-			fields = append(fields, "  "+text)
-			filterPlain = append(filterPlain, ansi.Strip(text))
-		}
-		filterRows, searchPlain := fieldRows(fields, func(room int) string { return searchContent(&lv.list, room) }, width)
-		// A compact frame keeps one line of the filter line: the search while it is typed, else the first fields.
-		compactRows = filterRows[:1]
+		var line string
+		line, lv.barTargets = b.View(styles.Styles, width)
+		filterRows, compactRows = []string{line}, []string{line}
+		var search string
 		if lv.list.editing || lv.list.query() != "" {
-			compactRows = []string{searchField(searchContent(&lv.list, width-2), width-2)}
+			search = searchField(searchContent(&lv.list, width-2), width-2)
+			filterRows = append(filterRows, search)
+			// A compact frame keeps one line: the search while it is typed.
+			compactRows = []string{search}
+			lv.barTargets = nil
 		}
-		m.logBarSpecs = m.logBarTargets(modePlain, datePlain, tabsPlain, filterPlain, searchPlain)
+		m.logBarSpecs = m.logTabTargets(tabsPlain, ansi.Strip(search))
 		return tabLine, filterRows, compactRows
 	}
 	rule := styles.quietBorder.Render(strings.Repeat("─", width))
@@ -1250,7 +1076,7 @@ func (m *Model) logsFrame() (string, string) {
 // it is drawn.
 func (m *Model) logPosition() string {
 	lv := m.logs
-	if m.screen != screenLogs || lv.dialog != nil || lv.pick != nil {
+	if m.screen != screenLogs {
 		return ""
 	}
 	m.logsFrame()
@@ -1303,10 +1129,10 @@ func (m *Model) logKeys() string {
 			return "{summary} rows · {filter} filter · {search} search · {area} section · {command} cmds · {help} help · {quit} quit"
 		case lv.list.editing:
 			return "type to search · {up}/{down} move · {enter} keep · {back} clear"
-		case lv.focus == logFocusMode:
-			return "{left}/{right} mode · {enter} open · {next} next · {filter} filter · {summary} summary · {sessions} MCP sessions · {search} search · {area} section · {back} back · {command} cmds · {help} help · {quit} quit"
-		case lv.focus == logFocusDate:
-			return "{enter} date · {next} next · {filter} filter · {summary} summary · {sessions} MCP sessions · {search} search · {area} section · {back} back · {command} cmds · {help} help · {quit} quit"
+		case lv.focus == logFocusBar && lv.bar != nil && lv.bar.Open():
+			return "type to search · {up}/{down} move · {enter} choose · {back} close"
+		case lv.focus == logFocusBar:
+			return "{left}/{right} change · {enter} open · {next} next · {summary} summary · {sessions} MCP sessions · {search} search · {area} section · {back} back · {command} cmds · {help} help · {quit} quit"
 		case lv.focus == logFocusTabs:
 			return "{left}/{right} tab · {next} next · {filter} filter · {summary} summary · {sessions} MCP sessions · {search} search · {area} section · {back} back · {command} cmds · {help} help · {quit} quit"
 		case len(lv.list.matches) == 0 || lv.heat:
@@ -1325,10 +1151,10 @@ func (m *Model) logKeys() string {
 		return m.navKeys()
 	case lv.list.editing:
 		return "type to search · {up}/{down} move · {enter} keep search · {back} clear search"
-	case lv.focus == logFocusMode:
-		return "{left}/{right} change mode · {enter} open · {next} next field · {filter} filter · {summary} summary · {sessions} MCP sessions · {search} search · {area} section · {back} back · {command} cmds · {help} help · {quit} quit"
-	case lv.focus == logFocusDate:
-		return "{enter} or {left}/{right} change the date · {next} next field · {filter} filter · {summary} summary · {sessions} MCP sessions · {search} search · {area} section · {back} back · {command} cmds · {help} help · {quit} quit"
+	case lv.focus == logFocusBar && lv.bar != nil && lv.bar.Open():
+		return "type to search · {up}/{down} move · {enter} choose · {back} close"
+	case lv.focus == logFocusBar:
+		return "{left}/{right} change · {enter} open · {next} next field · {summary} summary · {sessions} MCP sessions · {search} search · {area} section · {back} back · {command} cmds · {help} help · {quit} quit"
 	case lv.focus == logFocusTabs:
 		return "{left}/{right} change tab · {next} next field · {filter} filter · {summary} summary · {sessions} MCP sessions · {search} search · {area} section · {back} back · {command} cmds · {help} help · {quit} quit"
 	case len(lv.list.matches) == 0 || lv.heat:
@@ -1638,119 +1464,5 @@ func (m *Model) logReason(line invokelog.LineResult) string {
 	return strings.Join(reasons, "; ")
 }
 
-// logDateDialogView draws the dialog of the bar's date field.
-func (m *Model) logDateDialogView() string {
-	d := m.logs.dialog
-	title, labels := tr(tLogDayTitle), []string{"date"}
-	if len(d.inputs) == 2 {
-		title, labels = tr(tLogRangeTitle), []string{"from", "to"}
-	}
-	var b strings.Builder
-	b.WriteString(m.wrapped(styles.title, title) + "\n\n")
-	m.formCol = m.labelColumn(labels...)
-	defer func() { m.formCol = 0 }()
-	row := func(i int) string { return m.formRow(i == d.focus, logLabel(labels[i]), inputView(d.inputs[i])) }
-	for i := range d.inputs {
-		b.WriteString(row(i) + "\n")
-	}
-	// A click on a field takes the focus, as tab does; nothing is typed or applied by it.
-	m.hitRows(m.hitTop(m.wrapped(styles.title, title)+"\n\n"), m.usable(0), 0, len(d.inputs), row, func(i int) tea.Cmd {
-		if m.screen != screenLogs || m.logs.dialog != d || i >= len(d.inputs) {
-			return nil
-		}
-		d.inputs[d.focus].Blur()
-		d.focus = i
-		d.inputs[d.focus].Focus()
-		return nil
-	})
-	b.WriteString(m.indented(tr(tLogDateHint)) + "\n")
-	if d.err != "" {
-		b.WriteString(m.indentedWith(styles.fail, tr(tNoteError, d.err)) + "\n")
-	}
-	b.WriteString(m.keyHint(logDateKeys(d)))
-	return b.String()
-}
-
-// logDateKeys is the key text of the date dialog: the next-field key only where there are two fields.
-func logDateKeys(d *logDateDialog) string {
-	if len(d.inputs) == 2 {
-		return "{enter} apply · {next} next field · {back} cancel"
-	}
-	return "{enter} apply · {back} cancel"
-}
-
-// logPickKeys is the key text of the filter dialog.
-func (m *Model) logPickKeys() string {
-	if m.logs.pick.filter >= 0 {
-		return "type to search · {up}/{down} move · {enter} keep this value · {back} back to the filters"
-	}
-	return "type to search · {up}/{down} move · {enter} choose · {back} close"
-}
-
-// logPickView draws the filter dialog in the picker pattern: its frame, and as many values as fit.
-func (m *Model) logPickView() string {
-	head, foot := m.logPickFrame()
-	var b strings.Builder
-	b.WriteString(head)
-	start, end := m.logPickWindow()
-	for i := start; i < end; i++ {
-		b.WriteString(m.logPickRow(i) + "\n")
-	}
-	p := m.logs.pick
-	m.hitRows(m.hitTop(head), m.usable(0), start, end, m.logPickRow, func(i int) tea.Cmd {
-		if m.screen != screenLogs || m.logs.pick != p || i >= len(p.list.matches) {
-			return nil
-		}
-		return markOrAct(&p.list.cursor, i, true, func() tea.Cmd { return m.press(tea.KeyPressMsg{Code: tea.KeyEnter}) })
-	})
-	b.WriteString(foot)
-	return b.String()
-}
-
-func (m *Model) logPickFrame() (string, string) {
-	p := m.logs.pick
-	shown, total := len(p.list.matches), len(p.list.all)
-	title := tr(tLogPickChoose)
-	if p.filter >= 0 {
-		title = tr(tLogPickBy, tr(logFilterNames[p.filter]))
-	}
-	var head strings.Builder
-	head.WriteString(m.wrapped(styles.title, tr(tLogPickCount, title,
-		min(p.list.cursor+1, shown), shown, total)) + "\n")
-	head.WriteString(m.searchLine(&p.list, tr(tLogPickSearch)) + "\n")
-	if p.filter >= 0 {
-		head.WriteString(m.wrapped(styles.hint, tr(tLogPickCurrent, filterText(m.logs.filters[p.filter]))) + "\n")
-	}
-	if shown == 0 {
-		head.WriteString(m.wrapped(styles.hint, tr(tLogPickNone, p.list.query())) + "\n")
-	}
-	return head.String(), m.keyHint(m.logPickKeys()) + m.notes()
-}
-
-func (m *Model) logPickRow(i int) string {
-	p := m.logs.pick
-	_, width := m.fit("  ")
-	name := p.list.matches[i]
-	text := p.list.text(name)
-	if p.filter >= 0 && name == m.logs.filters[p.filter] {
-		text += tr(tLogPickCurrentMark)
-	}
-	return m.listRow(i == p.list.cursor, truncateCells(text, width))
-}
-
-func (m *Model) logPickWindow() (int, int) {
-	head, foot := m.logPickFrame()
-	return m.windowIn(&m.logs.pick.list, head, foot, m.logPickRow)
-}
-
-// keepLogsScrollPosition is keepScrollPosition for the Logs screen and the filter dialog over it.
-func (m *Model) keepLogsScrollPosition() {
-	lv := m.logs
-	switch {
-	case m.screen == screenLogs && lv.pick != nil:
-		lv.pick.list.offset, _ = m.logPickWindow()
-	case m.screen == screenLogs && lv.dialog != nil:
-	default:
-		lv.list.offset, _ = m.logsWindow()
-	}
-}
+// keepLogsScrollPosition is keepScrollPosition for the Logs screen.
+func (m *Model) keepLogsScrollPosition() { m.logs.list.offset, _ = m.logsWindow() }

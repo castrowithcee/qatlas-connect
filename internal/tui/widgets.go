@@ -225,3 +225,36 @@ func statusMark(kind statusKind, word string) string {
 	}
 	return style.Render("●") + " " + word
 }
+
+// fieldArrow ends a field that opens a list of values.
+const fieldArrow = "▾"
+
+// fieldStyle is the surface of a field: the field colour behind the text, the accent colour and bold while
+// the field has the focus. Without colour it names nothing; the marker carries the focus then.
+func fieldStyle(focused bool) lipgloss.Style {
+	p := styles.Palette()
+	style := lipgloss.NewStyle()
+	if p.Surface != "" {
+		style = style.Background(lip(p.Surface)).Foreground(lip(p.Text))
+	}
+	if focused {
+		style = style.Bold(true)
+		if p.Accent != "" {
+			style = style.Foreground(lip(p.Accent))
+		}
+	}
+	return style
+}
+
+// searchField draws the search field of width cells: the placeholder, dimmed, while content is empty, else
+// content (the text after "/ ", or the input being typed, already drawn).
+func searchField(content string, width int) string {
+	if content == "" {
+		hint := styles.hint
+		if styles.Palette().Surface != "" {
+			hint = hint.Background(lip(styles.Palette().Surface))
+		}
+		return hint.Render(padLine(clipCells(" "+tr(tSearchField), width), width))
+	}
+	return fieldStyle(false).Render(padLine(clipCells(" "+content, width), width))
+}

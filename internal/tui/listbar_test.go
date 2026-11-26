@@ -2,6 +2,7 @@ package tui
 
 import (
 	"fmt"
+	"os"
 	"reflect"
 	"slices"
 	"strings"
@@ -510,4 +511,16 @@ func TestFilterBarReadsWithoutColour(t *testing.T) {
 	if plain := ansi.Strip(view); !strings.Contains(plain, ">  Group: Provider ▾") || !strings.Contains(plain, "✓ Provider") {
 		t.Errorf("the focus is not readable without colour:\n%s", plain)
 	}
+}
+
+// configBytes is the content of the configuration file, or a marker where it does not exist yet.
+func configBytes(m *Model) string {
+	if m.store == nil {
+		return fmt.Sprintf("%#v", *m.cfg)
+	}
+	b, err := os.ReadFile(m.store.Path())
+	if err != nil {
+		return "absent"
+	}
+	return string(b)
 }

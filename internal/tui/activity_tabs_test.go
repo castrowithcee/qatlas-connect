@@ -156,8 +156,8 @@ func TestLogsEmptyDayShowsAShortHintInThePanel(t *testing.T) {
 	}
 }
 
-// The smallest terminal draws the compact Logs frame with or without rows; the explanation of the summary then
-// stands behind the info key, marked on the tab line, and a large terminal keeps it inline.
+// The smallest terminal draws the compact Logs frame where the full one leaves no room; the explanation of the
+// summary then stands behind the info key, marked on the tab line, and a large terminal keeps it inline.
 func TestLogsCompactFrameLeavesTheSummaryHelpToTheInfoKey(t *testing.T) {
 	eachLanguage(t, func(t *testing.T) {
 		for _, sessions := range []bool{false, true} {
@@ -203,8 +203,9 @@ func TestLogsCompactFrameLeavesTheSummaryHelpToTheInfoKey(t *testing.T) {
 			m.status = tr(tCancelled)
 			view := ansi.Strip(m.render())
 			assertViewFits(t, view, minimumWidth, minimumHeight)
-			if !m.logs.compact {
-				t.Errorf("an empty Logs screen at the smallest size is not compact:\n%s", view)
+			// The bar takes one line, so an empty screen keeps its full frame with the reason.
+			if !strings.Contains(view, "2000-01-01") {
+				t.Errorf("an empty Logs screen at the smallest size does not say why:\n%s", view)
 			}
 		})
 	})

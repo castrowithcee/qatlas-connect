@@ -67,7 +67,7 @@ func logsGermanScreens() []germanScreen {
 		{"logs day dialog", func(t *testing.T) *Model {
 			f := filled(t)
 			m := f.model(true, f.localToday())
-			m.logs.focus = logFocusDate
+			focusLogDate(t, m)
 			pump(t, m, "enter")
 			typeText(t, m, "x")
 			pump(t, m, "enter")
@@ -77,7 +77,7 @@ func logsGermanScreens() []germanScreen {
 			f := filled(t)
 			m := f.model(true, f.localToday())
 			m.logs.mode = logModeRange
-			m.logs.focus = logFocusDate
+			focusLogDate(t, m)
 			pump(t, m, "enter")
 			return m
 		}},

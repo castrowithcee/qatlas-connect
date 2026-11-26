@@ -129,8 +129,8 @@ func TestFreeAreaOfAZoneFocusesLikeTab(t *testing.T) {
 				}
 				for _, st := range stops {
 					if !reached[st] && st != stops[0] {
-						// The detail pane and the date field of the Logs are elements with targets of their own.
-						if strings.Contains(st, "detail:true") || st == fmt.Sprint(screenLogs, " sub:false bar: detail:false notice:false logs:", logFocusDate) {
+						// The detail pane is an element with targets of its own.
+						if strings.Contains(st, "detail:true") {
 							continue
 						}
 						t.Errorf("no zone reaches the stop %q", st)

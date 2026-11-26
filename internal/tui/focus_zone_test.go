@@ -49,12 +49,12 @@ func TestActivityFocusStaysInsideItsPanel(t *testing.T) {
 	withNoColor(t)
 	t.Setenv("LC_ALL", "en_US.UTF-8")
 	for _, size := range []struct{ w, h int }{{minimumWidth, minimumHeight}, {80, 24}, {150, 42}} {
-		for _, focus := range []logFocus{logFocusTabs, logFocusMode, logFocusRows} {
+		for _, focus := range []logFocus{logFocusTabs, logFocusBar, logFocusRows} {
 			t.Run(fmt.Sprintf("%dx%d/focus %v", size.w, size.h, focus), func(t *testing.T) {
 				m := heatModel(t, activityLog(t))
 				m.Update(tea.WindowSizeMsg{Width: size.w, Height: size.h})
 				m.setLogTab(logTabTable)
-				m.logs.focus = focus
+				m.logs.setFocus(focus, false)
 				view := m.render()
 				assertViewFits(t, view, size.w, size.h)
 				lines := strings.Split(ansi.Strip(view), "\n")

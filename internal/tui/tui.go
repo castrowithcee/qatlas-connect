@@ -144,7 +144,7 @@ const (
 	// the unlock itself, the vault process handoff on Linux, macOS, and Windows, and starting this window's admin session. See
 	// vaultheader.go. The matching "Lock the vault now?" question reuses screenConfirm (vaultLockConfirm).
 	screenVaultUnlock
-	// screenLogs is the Logs section with the focus in its workspace, including its date and filter dialogs.
+	// screenLogs is the Logs section with the focus in its workspace, including the values of its bar.
 	// See logs.go.
 	screenLogs
 	// screenLogDetail shows every field of one log entry.
@@ -455,8 +455,6 @@ type Model struct {
 	// explanation pane beside a form.
 	detailPane paneScroll
 	infoPane   paneScroll
-	// dd is the open list of a dropdown field of a bar (see dropdown.go).
-	dd *dropdown
 
 	editing string
 	// copyFrom names the entry a new form was filled from. The form is still a new entry (editing stays
@@ -746,7 +744,7 @@ type Model struct {
 	formTop, formLeft, sectionListWidth int
 	// overviewHits are the cells of the Overview that select each of its items, in the order of the items.
 	overviewHits []overviewHit
-	// logBarSpecs are the fields of the bar of the Logs screen as the last frame drew them.
+	// logBarSpecs are the tabs and the search line of the Logs screen as the last frame drew them.
 	logBarSpecs []barSpec
 	// updateText is what the update question says an installation does, set when it opens.
 	updateText string
@@ -1067,9 +1065,6 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		if keyIs(msg, actForceQuit) {
 			return m, m.interrupt()
-		}
-		if m.dd != nil {
-			return m, m.updateDropdown(msg)
 		}
 		if m.barOpen() {
 			return m, m.updateOpenBar(msg)
@@ -1486,10 +1481,8 @@ func (m *Model) leaveScreen() tea.Cmd {
 	case screenLogs:
 		// A dialog or a typed search is left before the screen is, the way esc leaves them.
 		switch lv := m.logs; {
-		case lv.dialog != nil:
-			lv.dialog = nil
-		case lv.pick != nil:
-			lv.pick = nil
+		case lv.bar != nil && lv.bar.Open():
+			lv.setFocus(logFocusRows, false)
 		case lv.list.editing:
 			lv.list.clearFilter()
 		default:
@@ -4030,9 +4023,6 @@ func (m *Model) renderFrame() string {
 	m.menuTargets, m.barTargets, m.modalTargets = nil, nil, nil
 	m.syncQuestion()
 	m.drawn = true
-	if m.dd != nil {
-		m.dd.placed = false
-	}
 	m.layoutWorkspace()
 	if m.terminalTooSmall() {
 		return m.resizeView()
@@ -4049,7 +4039,7 @@ func (m *Model) renderFrame() string {
 	if view, ok := m.barModalView(); ok {
 		return view
 	}
-	return m.overlayDropdown(m.frame(m.workspaceView()))
+	return m.frame(m.workspaceView())
 }
 
 // workspaceView is the current screen, or, when it cannot fit the workspace, what it needs and the way out

@@ -36,7 +36,7 @@ func (m *Model) typing() bool {
 	case screenTemplate:
 		return m.template != nil && m.template.picking
 	case screenLogs:
-		return m.logs.dialog != nil || m.logs.pick != nil || m.logs.list.editing
+		return m.logs.list.editing || m.logs.bar != nil && m.logs.bar.Open()
 	}
 	return false
 }

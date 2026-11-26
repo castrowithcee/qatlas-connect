@@ -33,7 +33,7 @@ func TestLogDetailScrollsALongResult(t *testing.T) {
 
 	open := func(op string) {
 		m.screen = screenLogs
-		m.logs.focus = logFocusRows
+		m.logs.setFocus(logFocusRows, false)
 		for i, row := range m.logs.rows {
 			if row.line.Entry.Operation == op {
 				m.logs.detail = i
