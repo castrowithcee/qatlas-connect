@@ -82,7 +82,10 @@ jobs:
       - name: Test with timings
         if: runner.os == 'macOS'
         run: |
+          # head closes the pipe of sort early.
+          set +o pipefail
           sysctl -n hw.ncpu hw.memsize
+          ps -Ao pid,lstart,etime,pcpu,comm | grep -i -E 'safari' || true
           out="$RUNNER_TEMP/test.json"
           status=0
           go test -count=1 -timeout 25m -json ./... > "$out" || status=$?
