@@ -88,8 +88,8 @@ func TestDescribeRequestOperationIsAFixedContract(t *testing.T) {
 	if required, ok := names["tools"]; !ok || !required {
 		t.Errorf("rows = %+v, want tools as required argument", compact.Arguments)
 	}
-	if _, ok := names["reason"]; !ok || len(names) != 2 {
-		t.Errorf("rows = %+v, want tools and reason", compact.Arguments)
+	if _, ok := names["reason"]; !ok || len(names) != 3 {
+		t.Errorf("rows = %+v, want kind, tools and reason", compact.Arguments)
 	}
 	if response.Connections == nil {
 		t.Error("connections is null, want an empty list")

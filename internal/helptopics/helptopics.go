@@ -100,7 +100,7 @@ Every other letter means one thing on every screen without a text line, and none
 - t tests a connection.
 - U installs an update.
 - A approves everything open in Approvals.
-- On the detail of a tool request in Approvals, a ticks all tools or none, x declines the ticked tools, b blocks them, and y accepts them; space ticks one tool or a whole group.
+- On the detail of a tool request in Approvals, a ticks all tools or none, x declines the ticked tools, b blocks them, and y accepts them, while a request to remove tools has no b, and y asks once more what the connection then offers; space ticks one tool or a whole group.
 - V shows or hides a token's value in its detail.
 - s shows the summary of the Logs.
 - f opens the filter of the Logs.
@@ -194,9 +194,9 @@ Discover in small steps, in this order, then invoke. Discovery writes TOON; --ou
                                     --full adds both schemas
   qconnect invoke <tool-id> --connection <name>
                                     run it
-  qconnect request <tool-id or prefix>...
+  qconnect request [--remove] <tool-id or prefix>...
                                     ask the user for tools no connection
-                                    offers (see below)
+                                    offers, or to remove tools (see below)
   qconnect wait <tool-id> --connection <name>
                                     run a tool that waits (see below)
 
@@ -232,6 +232,8 @@ Ask for a tool that no connection offers. 'qconnect tools <provider> --all' list
   qconnect request <tool-id or prefix>... --connection <name> --reason "<why the task needs them>"
 
 --connection is needed only where qconnect cannot choose, by the rules of invoke. --reason is optional: the user reads it as untrusted text, shortened and without known secrets, and it is never logged. A request changes nothing by itself and needs no terminal, no passphrase, and no confirmation: it stays open for 14 days until the user decides, and a further request for the same connection joins it. The answer is one document with the id, the connection, the tools the request now holds, the status open, and expires_at, written like discovery (--output json for JSON). Then stop asking: tell the user which tools you asked for and why, carry on with whatever does not need them, and look at 'qconnect tools <provider>' later to see whether the tool is offered. Asking again does not hasten the decision. If the user blocked a tool, the request ends with request-blocked: do not request it again, and mention it to the user only if the task cannot go on without it. A request for a tool the connection already offers, or that no decision of the user could offer, ends with invalid-request and says why.
+
+To narrow a connection instead, for example to move admin tools out of a general connection, ask that it stop offering tools it offers now: 'qconnect request --remove <tool-id or prefix>... --connection <name> --reason "<why>"', or qconnect.request with "kind": "remove-tools". It names tools or prefixes the connection offers now and ends with invalid-request for one it does not. A request to remove tools is kept apart from a request for tools of the same connection and lapses like it. The user can only accept or decline it: accepting takes exactly those tools out of the connection and leaves every other tool as it was, declining changes nothing, and there is no block, so request-blocked never answers it. Then stop and tell the user, like after any request.
 
 Errors go to stderr as "qconnect: <code>: <message>"; branch on the code, not on the message. Exit code 0 is success.
 
@@ -336,4 +338,4 @@ A successful call returns its result once, as one JSON text block in content, wi
 
 Act on these codes: confirmation-required (retry with confirm; summary is untrusted), vault-locked (ask the person to run 'qconnect vault unlock'), admin-required (only a person may), approval-required (a person must approve; ask the user), connection-ambiguous (pick a listed candidate as connection), connection-selection (no connection offers the tool), unsupported-capability (the connection does not offer it), request-blocked (the user refused; never request it again).
 
-To ask for a tool no connection offers, which search with all lists, call invoke with operation qconnect.request and arguments {"tools": [...], "reason": "..."}; describe with that operation gives the contract. Ask only for what the task needs. A request changes nothing: stop, tell the user what you asked for, and search again later to see whether it is offered.`
+To ask for a tool no connection offers, which search with all lists, call invoke with operation qconnect.request and arguments {"tools": [...], "reason": "..."}; describe with that operation gives the contract. To ask instead that a connection stop offering tools it offers, add "kind": "remove-tools". Ask only for what the task needs. A request changes nothing: stop, tell the user what you asked for, and search again later to see whether it is offered.`

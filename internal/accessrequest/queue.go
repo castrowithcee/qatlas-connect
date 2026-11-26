@@ -61,22 +61,22 @@ func (e Env) prune(d document) (document, []Event) {
 		switch {
 		case !e.Now.Before(r.ExpiresAt):
 			for _, tool := range r.Tools {
-				events = append(events, Event{EventExpire, r.ConnectionID, r.Connection, tool})
+				events = append(events, Event{eventFor(r.Kind, EventExpire), r.ConnectionID, r.Connection, tool})
 			}
 			continue
 		case !found:
 			for _, tool := range r.Tools {
-				events = append(events, Event{EventDrop, r.ConnectionID, r.Connection, tool})
+				events = append(events, Event{eventFor(r.Kind, EventDrop), r.ConnectionID, r.Connection, tool})
 			}
 			continue
 		}
 		provider := e.Config.Services[e.Config.Connections[name].Service].Provider
 		var kept []string
 		for _, tool := range r.Tools {
-			if e.alive(name, provider, tool) {
+			if e.alive(r.Kind, name, provider, tool) {
 				kept = append(kept, tool)
 			} else {
-				events = append(events, Event{EventDrop, r.ConnectionID, name, tool})
+				events = append(events, Event{eventFor(r.Kind, EventDrop), r.ConnectionID, name, tool})
 			}
 		}
 		if len(kept) == 0 {
@@ -113,11 +113,16 @@ func (q *Queue) Open(env Env) ([]Request, []Event, error) {
 	return requests, events, nil
 }
 
-// Add judges a request and stores it, merged into the open request of the same connection if there is one.
+// Add judges a request and stores it, merged into the open request of the same connection and kind if
+// there is one.
 // Nothing is written when a tool is not requestable. The merged request takes the new tools, the newest
 // reason and project, and a new expiry; tools requested before stay once.
 func (q *Queue) Add(env Env, in Input) (Outcome, error) {
-	tools, err := Check(env, in.Connection, in.Tools)
+	kind, err := ParseKind(string(in.Kind))
+	if err != nil {
+		return Outcome{}, err
+	}
+	tools, err := CheckKind(env, kind, in.Connection, in.Tools)
 	if err != nil {
 		return Outcome{}, err
 	}
@@ -132,7 +137,7 @@ func (q *Queue) Add(env Env, in Input) (Outcome, error) {
 		provider := env.Config.Services[env.Config.Connections[in.Connection].Service].Provider
 		at := -1
 		for i, r := range next.Requests {
-			if r.ConnectionID == in.ConnectionID {
+			if r.ConnectionID == in.ConnectionID && r.Kind == kind {
 				at = i
 			}
 		}
@@ -142,7 +147,7 @@ func (q *Queue) Add(env Env, in Input) (Outcome, error) {
 			req = next.Requests[at]
 			req.Tools = slices.Clone(req.Tools)
 		} else {
-			req = Request{ID: id, ConnectionID: in.ConnectionID, Provider: provider}
+			req = Request{ID: id, Kind: kind, ConnectionID: in.ConnectionID, Provider: provider}
 		}
 		for _, tool := range tools {
 			if !slices.Contains(req.Tools, tool) {
@@ -159,7 +164,7 @@ func (q *Queue) Add(env Env, in Input) (Outcome, error) {
 			next.Requests = append(next.Requests, req)
 		}
 		for _, tool := range added {
-			events = append(events, Event{EventCreate, in.ConnectionID, in.Connection, tool})
+			events = append(events, Event{eventFor(kind, EventCreate), in.ConnectionID, in.Connection, tool})
 		}
 		out = Outcome{Request: req, New: added, Events: events}
 		return next, nil
@@ -231,7 +236,7 @@ func (q *Queue) Settle(env Env, id string, done, drop []string) ([]Event, error)
 				switch {
 				case slices.Contains(done, tool):
 				case slices.Contains(drop, tool):
-					events = append(events, Event{EventDrop, r.ConnectionID, r.Connection, tool})
+					events = append(events, Event{eventFor(r.Kind, EventDrop), r.ConnectionID, r.Connection, tool})
 				default:
 					kept = append(kept, tool)
 				}

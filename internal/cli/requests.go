@@ -7,6 +7,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/castrowithcee/qatlas-connect/internal/accessrequest"
 	"github.com/castrowithcee/qatlas-connect/internal/application"
 	"github.com/castrowithcee/qatlas-connect/internal/capability"
 	"github.com/castrowithcee/qatlas-connect/internal/config"
@@ -22,7 +23,8 @@ func newRequestsCommand(opts *Options, reg *capability.Registry) *cobra.Command 
 		Short: "List the tool requests of agents and decide them",
 		Long: "Requests lists the open requests of agents for tools a connection does not offer: the request ID,\n" +
 			"the connection, the project it came from, when it expires, the reason the agent gave, and the\n" +
-			"requested tools grouped like the tool picker of 'qconnect tui'. The reason is text of the agent: it\n" +
+			"requested tools grouped like the tool picker of 'qconnect tui'. A request to remove tools (made with\n" +
+			"'qconnect request --remove') shows kind remove-tools, any other kind add-tools. The reason is text of the agent: it\n" +
 			"is shortened and cleaned of known secrets and control characters, and it is never logged. Listing\n" +
 			"needs no terminal and reads no secret. A request expires after 14 days.\n\n" +
 			"'requests approve', 'requests decline', and 'requests block' decide the tools of one request. Each\n" +
@@ -72,6 +74,7 @@ type requestListDocument struct {
 
 type requestDocument struct {
 	ID         string                 `json:"id"`
+	Kind       string                 `json:"kind"`
 	Connection string                 `json:"connection"`
 	Provider   string                 `json:"provider"`
 	Project    string                 `json:"project"`
@@ -92,7 +95,7 @@ func newRequestListDocument(open []application.OpenToolRequest) requestListDocum
 	doc := requestListDocument{Requests: []requestDocument{}}
 	for _, r := range open {
 		item := requestDocument{
-			ID: r.ID, Connection: r.Connection, Provider: r.Provider, Project: r.Project,
+			ID: r.ID, Kind: string(r.Kind), Connection: r.Connection, Provider: r.Provider, Project: r.Project,
 			ExpiresAt: r.ExpiresAt.UTC().Format("2006-01-02T15:04:05Z"), Reason: r.Reason,
 			Groups: []requestGroupDocument{},
 		}
@@ -213,8 +216,11 @@ func newRequestsDecisionCommand(opts *Options, reg *capability.Registry, action 
 				if err := checkAcceptMode(svc, selection, mode); err != nil {
 					return err
 				}
-			} else if _, err := svc.PreviewRequestDecision(selection); err != nil {
+			} else if preview, err := svc.PreviewRequestDecision(selection); err != nil {
 				return requestFailure(err)
+			} else if action == manage.RequestBlock && preview.Kind == accessrequest.KindRemoveTools {
+				return &UsageError{&application.InvalidRequestError{Message: "a request to remove tools is approved or " +
+					"declined, not blocked; decline it, or leave it open"}}
 			}
 			if err := requireAdmin(opts); err != nil {
 				return err
@@ -263,12 +269,17 @@ var requestLong = map[manage.RequestAction]string{
 		"also tools added later; 'tools' switches the connection to a tools list of every tool it offers today\n" +
 		"plus the requested ones, and tools added later no longer join by themselves. Without --as the command\n" +
 		"stops and names both ways with the number of tools each one offers. A tool that only an exact entry in a\n" +
-		"tools list can release goes through 'tools' only. --as is refused for a connection with a tools list.",
+		"tools list can release goes through 'tools' only. --as is refused for a connection with a tools list.\n\n" +
+		"For a request to remove tools, approve takes the named tools out of the connection and leaves every\n" +
+		"other tool it offers. A prefix entry of a tools list that covers a removed tool is replaced by the exact\n" +
+		"IDs of its other tools, so tools added later under it no longer join by themselves, and a list may end\n" +
+		"up empty. A connection by effect needs --as tools, which switches it to a tools list; --as effect is\n" +
+		"refused.",
 	manage.RequestDecline: "Decline closes the tools of the request and changes nothing else. The agent may request\n" +
 		"them again later.",
 	manage.RequestBlock: "Block closes the tools of the request and records them as blocked on the connection, so a\n" +
 		"new request for them ends at once with request-blocked. A block only stops requests: it never\n" +
-		"removes a tool from what the connection offers.",
+		"removes a tool from what the connection offers. A request to remove tools cannot be blocked.",
 }
 
 const requestCommon = "The request ID and the tools are those of 'qconnect requests'. A tool that was offered or blocked\n" +
@@ -300,6 +311,16 @@ func checkAcceptMode(svc *manage.Service, sel manage.RequestSelection, mode mana
 	if len(preview.Entries) == 0 {
 		return nil
 	}
+	if preview.Kind == accessrequest.KindRemoveTools {
+		if preview.ByEffects && mode != manage.AcceptSwitchToList {
+			return &UsageError{&application.InvalidRequestError{Message: removeChoiceMessage(preview)}}
+		}
+		if !preview.ByEffects && mode != "" {
+			return &UsageError{&application.InvalidRequestError{Message: fmt.Sprintf("connection %s offers a tools list, "+
+				"so --as does not apply; leave it out", preview.Connection)}}
+		}
+		return nil
+	}
 	switch {
 	case !preview.ByEffects && mode != "":
 		return &UsageError{&application.InvalidRequestError{Message: fmt.Sprintf("connection %s offers a tools list, "+
@@ -308,6 +329,12 @@ func checkAcceptMode(svc *manage.Service, sel manage.RequestSelection, mode mana
 		return &UsageError{&application.InvalidRequestError{Message: acceptChoiceMessage(preview)}}
 	}
 	return nil
+}
+
+func removeChoiceMessage(p manage.RequestPreview) string {
+	return fmt.Sprintf("connection %s offers its tools by effect, so removing tools needs --as tools: it switches the "+
+		"connection to a tools list of %d %s, and tools added later no longer join by themselves",
+		p.Connection, p.Remaining, plural(p.Remaining, "tool", "tools"))
 }
 
 func acceptChoiceMessage(p manage.RequestPreview) string {
