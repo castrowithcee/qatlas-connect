@@ -6,8 +6,8 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 
-	"github.com/castrowithcee/qatlas-connect/internal/uiprefs"
 	kittui "github.com/castrowithcee/qatlas-kit/tui"
+	kitprefs "github.com/castrowithcee/qatlas-kit/uiprefs"
 )
 
 func TestIconTableIsUniqueAndSafeToMeasure(t *testing.T) {
@@ -46,10 +46,10 @@ func TestIconsFollowThePreference(t *testing.T) {
 	m, _ := lockedVaultModel(t)
 	m.Update(tea.WindowSizeMsg{Width: 100, Height: 28})
 	for value, want := range map[string]func(iconID) string{
-		uiprefs.IconsUnicode:  func(id iconID) string { return iconTable[id].unicode },
-		uiprefs.IconsNerdFont: func(id iconID) string { return iconTable[id].nerd },
-		uiprefs.IconsNone:     func(iconID) string { return "" },
-		"":                    func(iconID) string { return "" },
+		kitprefs.IconsUnicode:  func(id iconID) string { return iconTable[id].unicode },
+		kitprefs.IconsNerdFont: func(id iconID) string { return iconTable[id].nerd },
+		kitprefs.IconsNone:     func(iconID) string { return "" },
+		"":                     func(iconID) string { return "" },
 	} {
 		m.prefs.Icons = value
 		for id := iconLogo; id < iconCount; id++ {
@@ -59,7 +59,7 @@ func TestIconsFollowThePreference(t *testing.T) {
 		}
 	}
 	// Without a choice the model of a fresh device shows unicode icons.
-	m.prefs = uiprefs.Default()
+	m.prefs = defaultPrefs()
 	if line := tabLine(m); !strings.Contains(line, iconTable[iconOverview].unicode) {
 		t.Errorf("default tab line shows no unicode icon: %q", line)
 	}
@@ -70,7 +70,7 @@ func TestNoIconsWithoutUTF8(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			setUTF8(t, env[0], env[1])
 			m, _ := lockedVaultModel(t)
-			for _, value := range []string{uiprefs.IconsUnicode, uiprefs.IconsNerdFont} {
+			for _, value := range []string{kitprefs.IconsUnicode, kitprefs.IconsNerdFont} {
 				m.prefs.Icons = value
 				for id := iconLogo; id < iconCount; id++ {
 					if got := m.icon(id); got != "" {
@@ -85,7 +85,7 @@ func TestNoIconsWithoutUTF8(t *testing.T) {
 func TestTwoCellIconsKeepEveryViewInsideTheTerminal(t *testing.T) {
 	setUTF8(t, "xterm-256color", "C.UTF-8")
 	m, _ := lockedVaultModel(t)
-	m.prefs.Icons = uiprefs.IconsUnicode
+	m.prefs.Icons = kitprefs.IconsUnicode
 	for _, size := range [][2]int{{40, 14}, {60, 20}, {80, 24}, {100, 28}, {140, 36}} {
 		m.Update(tea.WindowSizeMsg{Width: size[0], Height: size[1]})
 		m.screen = screenNav

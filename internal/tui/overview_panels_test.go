@@ -15,6 +15,7 @@ import (
 	"github.com/castrowithcee/qatlas-connect/internal/invokelog"
 	"github.com/castrowithcee/qatlas-connect/internal/uiprefs"
 	"github.com/castrowithcee/qatlas-kit/i18n"
+	kitprefs "github.com/castrowithcee/qatlas-kit/uiprefs"
 )
 
 // demoOverview is the Overview of the snapshot setup at the given size, with its log read.
@@ -24,7 +25,7 @@ func demoOverview(t *testing.T, noColor bool, width, height int) *Model {
 	visualSetup(t, noColor)
 	m := visualModel(t, fixtures, width, height, uiprefs.ThemeQatlasDark)
 	// These tests look for plain labels; the icons have tests of their own.
-	m.prefs.Icons = uiprefs.IconsNone
+	m.prefs.Icons = kitprefs.IconsNone
 	return m
 }
 

@@ -4,10 +4,10 @@ import (
 	"strings"
 
 	"github.com/castrowithcee/qatlas-connect/internal/helptopics"
-	"github.com/castrowithcee/qatlas-connect/internal/uiprefs"
 	kithelp "github.com/castrowithcee/qatlas-kit/helptopics"
 	"github.com/castrowithcee/qatlas-kit/i18n"
 	kit "github.com/castrowithcee/qatlas-kit/tui"
+	kitprefs "github.com/castrowithcee/qatlas-kit/uiprefs"
 )
 
 // The editor's own texts live in a catalog of typed keys per language (text_keys.go, text_en.go,
@@ -98,20 +98,9 @@ func init() {
 // process, and the text helpers are called from places that hold no model.
 var uiLang = i18n.English
 
-// languageOf resolves the language preference to a language; system asks the device.
-func languageOf(pref string) i18n.Lang {
-	switch pref {
-	case uiprefs.LanguageGerman:
-		return i18n.German
-	case uiprefs.LanguageSystem:
-		return i18n.Detect()
-	}
-	return i18n.English
-}
-
 // setLanguage makes the preference the language of every text drawn from now on.
 func setLanguage(pref string) {
-	uiLang = languageOf(pref)
+	uiLang = kitprefs.Language(pref)
 }
 
 // tr is the text of id in the current language; args are formatted into it. A text names a key by the

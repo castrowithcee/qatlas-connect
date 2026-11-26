@@ -3,7 +3,6 @@ package tui
 import (
 	tea "charm.land/bubbletea/v2"
 
-	"github.com/castrowithcee/qatlas-connect/internal/uiprefs"
 	kittui "github.com/castrowithcee/qatlas-kit/tui"
 )
 
@@ -33,7 +32,7 @@ func (m *Model) takeTerminalColour(msg tea.Msg) {
 		}
 		termColors.Background = kittui.ColorOf(msg.Color)
 	}
-	if themeOrDefault(m.prefs.Theme) == uiprefs.ThemeTerminal {
-		applyTheme(uiprefs.ThemeTerminal)
+	if themeOrDefault(m.prefs.Theme) == kittui.ThemeTerminal {
+		applyTheme(kittui.ThemeTerminal)
 	}
 }

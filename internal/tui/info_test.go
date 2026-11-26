@@ -7,8 +7,6 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
-
-	"github.com/castrowithcee/qatlas-connect/internal/uiprefs"
 )
 
 // connectionForm opens the form of a new connection at the given terminal width.
@@ -130,7 +128,7 @@ func TestInfoFooterNamesTheKeyWhereItWorks(t *testing.T) {
 // A picker explains the marked tool from its description, and marks tools with one below the pane width.
 func TestInfoExplainsTheMarkedEntryOfAPicker(t *testing.T) {
 	keepKeys(t)
-	applyKeys(uiprefs.Keys{Info: "f3"})
+	applyKeys(map[action]string{actInfo: "f3"})
 	m := connectionForm(t, helpPaneMinWidth-1)
 	focusField(t, m, accessLabel)
 	selectChoice(t, m, accessTools)
