@@ -6,6 +6,8 @@ import (
 	"regexp"
 	"slices"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"testing"
 
 	"github.com/charmbracelet/x/ansi"
@@ -109,95 +111,105 @@ func clickDialogs() []struct {
 // the footer, and the tabs, whose click on the tab line is the digit of the area. The dialog answers the key
 // line names are targets as well. The keys come from the keymap, also after the preferences rebound some.
 func TestEveryScreenControlHasATargetAndClicksAsItsKey(t *testing.T) {
-	backButtons, footerTargets := 0, 0
+	var backButtons, footerTargets atomic.Int32
 	var listTargets listTargetCount
+	var listMu sync.Mutex
+	// The translators are built lazily; the screens below read them side by side.
+	translator(false)
 	for _, binding := range []struct {
 		name string
 		keys map[action]string
 	}{{"default keys", nil}, {"rebound keys", map[action]string{actInfo: "f3", actSave: "f4", actHelp: "ctrl+x", actCommand: "f6", actLock: "ctrl+l"}}} {
-		for _, screen := range frameScreens() {
-			t.Run(binding.name+"/"+screen.name, func(t *testing.T) {
-				keepKeys(t)
-				applyKeys(binding.keys)
-				base := screen.build(t)
-				base.render()
-				if base.modalShown() {
-					if len(base.frameKeys) > 0 {
-						t.Fatalf("the frame behind a modal has key targets: %+v", base.frameKeys)
+		// The screens of a binding run side by side: they only read the keymap, which stays bound until the
+		// last of them is done.
+		t.Run(binding.name, func(t *testing.T) {
+			keepKeys(t)
+			applyKeys(binding.keys)
+			for _, screen := range frameScreens() {
+				t.Run(screen.name, func(t *testing.T) {
+					t.Parallel()
+					base := screen.build(t)
+					base.render()
+					if base.modalShown() {
+						if len(base.frameKeys) > 0 {
+							t.Fatalf("the frame behind a modal has key targets: %+v", base.frameKeys)
+						}
+						return
 					}
-					return
-				}
-				assertFrameControlsAreTargets(t, base)
-				for _, target := range base.frameKeys {
-					x, y := target.Rect.X+(target.Rect.Width-1)/2, target.Rect.Y
-					if target.Action == actBack && y == 0 {
-						backButtons++
+					assertFrameControlsAreTargets(t, base)
+					for _, target := range base.frameKeys {
+						x, y := target.Rect.X+(target.Rect.Width-1)/2, target.Rect.Y
+						if target.Action == actBack && y == 0 {
+							backButtons.Add(1)
+						}
+						if y > 0 {
+							footerTargets.Add(1)
+						}
+						assertClickActsAsKey(t, screen.build, x, y, firstKey(t, target.Action))
 					}
-					if y > 0 {
-						footerTargets++
+					n := assertListTargetsClickAsKeys(t, base, screen.build)
+					listMu.Lock()
+					listTargets.add(n)
+					listMu.Unlock()
+					if base.screen != screenNav || base.navSub {
+						return
 					}
-					assertClickActsAsKey(t, screen.build, x, y, firstKey(t, target.Action))
-				}
-				listTargets.add(assertListTargetsClickAsKeys(t, base, screen.build))
-				if base.screen != screenNav || base.navSub {
-					return
-				}
-				// On the focused tab line the arrows reach a tab as its click does: the area opens there and the
-				// line keeps the focus; the sub-tabs lie one line down.
-				active := base.section.area()
-				for _, target := range base.frameTabs {
-					a, _ := areaByName(string(target.Area))
-					keys := slices.Repeat([]string{"right"}, (int(a)-int(active)+int(areaCount))%int(areaCount))
-					if target.Tab != "" {
-						at := slices.IndexFunc(areaSections[a], func(s section) bool { return s.key() == string(target.Tab) })
-						keys = append([]string{"down"}, slices.Repeat([]string{"right"}, at-base.section.index())...)
+					// On the focused tab line the arrows reach a tab as its click does: the area opens there and the
+					// line keeps the focus; the sub-tabs lie one line down.
+					active := base.section.area()
+					for _, target := range base.frameTabs {
+						a, _ := areaByName(string(target.Area))
+						keys := slices.Repeat([]string{"right"}, (int(a)-int(active)+int(areaCount))%int(areaCount))
+						if target.Tab != "" {
+							at := slices.IndexFunc(areaSections[a], func(s section) bool { return s.key() == string(target.Tab) })
+							keys = append([]string{"down"}, slices.Repeat([]string{"right"}, at-base.section.index())...)
+						}
+						assertClickActsAsKey(t, screen.build, target.Rect.X+(target.Rect.Width-1)/2, target.Rect.Y, keys...)
 					}
-					assertClickActsAsKey(t, screen.build, target.Rect.X+(target.Rect.Width-1)/2, target.Rect.Y, keys...)
-				}
-			})
-		}
-		for _, dialog := range clickDialogs() {
-			t.Run(binding.name+"/"+dialog.name, func(t *testing.T) {
-				keepKeys(t)
-				applyKeys(binding.keys)
-				base := dialog.build(t)
-				base.render()
-				lines := frameLines(base)
-				seen := map[string]bool{}
-				if len(base.hits) == 0 {
-					t.Fatal("the dialog has no target")
-				}
-				for _, h := range base.hits {
-					text := ansi.Cut(lines[h.y0], h.x0, h.x1)
-					key := footerKey(text)
-					if label, ok := strings.CutPrefix(strings.TrimSpace(text), "[ "); ok {
-						label = strings.TrimSpace(strings.TrimSuffix(strings.TrimSpace(label), "]"))
-						if key = dialog.buttons[label]; key == "" {
-							t.Errorf("the button %q is none of %v", label, dialog.buttons)
+				})
+			}
+			for _, dialog := range clickDialogs() {
+				t.Run(dialog.name, func(t *testing.T) {
+					t.Parallel()
+					base := dialog.build(t)
+					base.render()
+					lines := frameLines(base)
+					seen := map[string]bool{}
+					if len(base.hits) == 0 {
+						t.Fatal("the dialog has no target")
+					}
+					for _, h := range base.hits {
+						text := ansi.Cut(lines[h.y0], h.x0, h.x1)
+						key := footerKey(text)
+						if label, ok := strings.CutPrefix(strings.TrimSpace(text), "[ "); ok {
+							label = strings.TrimSpace(strings.TrimSuffix(strings.TrimSpace(label), "]"))
+							if key = dialog.buttons[label]; key == "" {
+								t.Errorf("the button %q is none of %v", label, dialog.buttons)
+								continue
+							}
+							seen[label] = true
+						}
+						if key == "" {
+							t.Errorf("the target %q names no key", text)
 							continue
 						}
-						seen[label] = true
+						msg, ok := keyPress(key)
+						if !ok {
+							t.Fatalf("%q is no key a control may send", key)
+						}
+						assertClickActsAsKey(t, dialog.build, (h.x0+h.x1-1)/2, (h.y0+h.y1-1)/2, kittui.KeyName(msg))
 					}
-					if key == "" {
-						t.Errorf("the target %q names no key", text)
-						continue
+					for label := range dialog.buttons {
+						if !seen[label] {
+							t.Errorf("the button %q has no target", label)
+						}
 					}
-					msg, ok := keyPress(key)
-					if !ok {
-						t.Fatalf("%q is no key a control may send", key)
-					}
-					assertClickActsAsKey(t, dialog.build, (h.x0+h.x1-1)/2, (h.y0+h.y1-1)/2, kittui.KeyName(msg))
-				}
-				for label := range dialog.buttons {
-					if !seen[label] {
-						t.Errorf("the button %q has no target", label)
-					}
-				}
-			})
-		}
+				})
+			}
+		})
 	}
-	if backButtons == 0 || footerTargets == 0 {
-		t.Fatalf("back buttons %d, footer targets %d: the screens drew no such control", backButtons, footerTargets)
+	if backButtons.Load() == 0 || footerTargets.Load() == 0 {
+		t.Fatalf("back buttons %d, footer targets %d: the screens drew no such control", backButtons.Load(), footerTargets.Load())
 	}
 	if listTargets.rows == 0 || listTargets.groups == 0 || listTargets.search == 0 || listTargets.free == 0 {
 		t.Fatalf("list targets %+v: the lists drew no such target", listTargets)
