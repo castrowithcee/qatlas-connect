@@ -8,8 +8,8 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 
-	"github.com/castrowithcee/qatlas-connect/internal/uiprefs"
 	kittui "github.com/castrowithcee/qatlas-kit/tui"
+	kitprefs "github.com/castrowithcee/qatlas-kit/uiprefs"
 )
 
 // clipboardOf is the text a command hands to the terminal, and whether it is a clipboard command at all.
@@ -59,8 +59,8 @@ func TestCopyNameOfMarkedRow(t *testing.T) {
 
 // The status never claims the text was copied, in either language.
 func TestCopyStatusIsAHandOverInBothLanguages(t *testing.T) {
-	t.Cleanup(func() { setLanguage(uiprefs.LanguageEnglish) })
-	for lang, want := range map[string]string{uiprefs.LanguageEnglish: "Handed to the terminal", uiprefs.LanguageGerman: "An das Terminal"} {
+	t.Cleanup(func() { setLanguage(kitprefs.LanguageEnglish) })
+	for lang, want := range map[string]string{kitprefs.LanguageEnglish: "Handed to the terminal", kitprefs.LanguageGerman: "An das Terminal"} {
 		setLanguage(lang)
 		m := newTableModel(t, 140)
 		m.Update(tea.WindowSizeMsg{Width: 200, Height: 40})
@@ -76,7 +76,7 @@ func TestCopyStatusIsAHandOverInBothLanguages(t *testing.T) {
 		if strings.Contains(low, "copied") || strings.Contains(low, "kopiert") {
 			t.Errorf("%s: status %q claims the text was copied", lang, m.status)
 		}
-		if foot := withFooter(m, screenOf(m)); !strings.Contains(foot, map[string]string{uiprefs.LanguageEnglish: "c copy", uiprefs.LanguageGerman: "c kopieren"}[lang]) {
+		if foot := withFooter(m, screenOf(m)); !strings.Contains(foot, map[string]string{kitprefs.LanguageEnglish: "c copy", kitprefs.LanguageGerman: "c kopieren"}[lang]) {
 			t.Errorf("%s: the footer does not name c:\n%s", lang, foot)
 		}
 	}

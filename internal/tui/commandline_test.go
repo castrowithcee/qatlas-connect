@@ -8,7 +8,6 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 
-	"github.com/castrowithcee/qatlas-connect/internal/uiprefs"
 	kittui "github.com/castrowithcee/qatlas-kit/tui"
 )
 
@@ -357,7 +356,7 @@ func TestPaletteReadsWithoutColour(t *testing.T) {
 	prior := styles
 	t.Cleanup(func() { setProfile(before); setTheme(prior) })
 	setProfile(kittui.ProfileNone)
-	applyTheme(uiprefs.ThemeTerminal)
+	applyTheme(kittui.ThemeTerminal)
 	m := paletteModel(t, 150, 42)
 	view := m.render()
 	if strings.Contains(view, "\x1b[") {

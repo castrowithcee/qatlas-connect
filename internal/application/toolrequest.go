@@ -67,6 +67,13 @@ func (c *Core) requestEnv() accessrequest.Env {
 	return env
 }
 
+// requestActive is the one test of whether a request on the connection is accepted at the core's clock,
+// shared by RequestTools and the discovery of requestable_on.
+func (c *Core) requestActive(name string) bool {
+	conn, ok := c.config.Connections[name]
+	return ok && !conn.Off(c.now())
+}
+
 // RequestTools stores a request for tools of an existing connection of the current project, all or nothing.
 // It selects the connection like Invoke, refuses a disabled or expired one the same way, and merges the
 // request into the open one of the connection. The reason is cleaned like a confirmation summary: known
@@ -90,7 +97,7 @@ func (c *Core) RequestTools(request ToolRequest) (ToolRequestResponse, error) {
 	if conn.ID == "" {
 		return ToolRequestResponse{}, fmt.Errorf("connection %q has no id yet, so a request cannot refer to it", name)
 	}
-	if conn.Off(c.now()) {
+	if !c.requestActive(name) {
 		return ToolRequestResponse{}, &capability.UnsupportedError{
 			Connection: name, Capability: c.requestCapability(env, request.Tools[0]), Reason: config.RefusalDisabled,
 		}

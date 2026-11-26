@@ -11,7 +11,6 @@ import (
 	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
 
-	"github.com/castrowithcee/qatlas-connect/internal/uiprefs"
 	kittui "github.com/castrowithcee/qatlas-kit/tui"
 )
 
@@ -288,7 +287,7 @@ func TestFrameReadsWithoutColour(t *testing.T) {
 	prior := styles
 	t.Cleanup(func() { setProfile(before); setTheme(prior) })
 	setProfile(kittui.ProfileMono)
-	applyTheme(uiprefs.ThemeTerminal)
+	applyTheme(kittui.ThemeTerminal)
 
 	m, _ := newEncryptedVaultModel(t, filepath.Join(t.TempDir(), "qconnect"), "hunter2", true)
 	m.Update(tea.WindowSizeMsg{Width: 220, Height: 30})

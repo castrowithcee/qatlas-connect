@@ -11,7 +11,6 @@ import (
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/castrowithcee/qatlas-connect/internal/config"
-	"github.com/castrowithcee/qatlas-connect/internal/uiprefs"
 	kittui "github.com/castrowithcee/qatlas-kit/tui"
 )
 
@@ -20,7 +19,7 @@ func withNoColor(t *testing.T) {
 	t.Helper()
 	restoreRenderer(t)
 	setProfile(kittui.ProfileNone)
-	applyTheme(uiprefs.ThemeTerminal)
+	applyTheme(kittui.ThemeTerminal)
 }
 
 // The detail screens of a token and of an open approval keep their state as a mark with its word, and every

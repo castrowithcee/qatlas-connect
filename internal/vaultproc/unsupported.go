@@ -4,38 +4,24 @@ package vaultproc
 
 import (
 	"context"
-	"net"
+
+	"github.com/castrowithcee/qatlas-kit/localipc"
 )
 
-// Supported reports whether a vault process runs on this platform. It does not here yet.
+// Supported reports whether a vault process runs on this platform. It does not here.
 const Supported = false
-
-// VerifyProgram refuses every peer on this platform: nothing checks here yet what runs at the other end.
-func VerifyProgram(net.Conn) error { return ErrUnsupported }
-
-// VerifyUser refuses every peer on this platform, like VerifyProgram.
-func VerifyUser(net.Conn) error { return ErrUnsupported }
-
-func verifyServer(net.Conn) error { return ErrUnsupported }
-
-func peerPID(net.Conn) int { return 0 }
-
-func terminate(int) error { return ErrUnsupported }
-
-// userRuntimeDir finds no runtime directory without XDG_RUNTIME_DIR on this platform.
-func userRuntimeDir() string { return "" }
-
-// Listen does not open a vault socket on this platform.
-func Listen(string) (net.Listener, error) { return nil, ErrUnsupported }
-
-// Harden has nothing to protect the vault process with on this platform.
-func Harden() error { return ErrUnsupported }
-
-// ReplacedProgram cannot tell on this platform whether the running program was replaced.
-func ReplacedProgram() (string, bool) { return "", false }
 
 // FindEarlier finds nothing on this platform, which runs no vault process.
 func FindEarlier(string) (int, error) { return 0, nil }
 
 // EndEarlier has nothing to end on this platform, which runs no vault process.
 func EndEarlier(context.Context, string) (int, error) { return 0, nil }
+
+// EarlierServes finds no earlier vault process on this platform.
+func EarlierServes(string) bool { return false }
+
+// successorEarlier finds no earlier channel on this platform, which starts no successor.
+func successorEarlier(string, string) (*localipc.Endpoint, error) { return nil, nil }
+
+// earlierEndpoint finds no earlier channel on this platform.
+func earlierEndpoint(string) (localipc.Endpoint, bool) { return localipc.Endpoint{}, false }

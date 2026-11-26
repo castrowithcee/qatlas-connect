@@ -6,7 +6,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 
-	"github.com/castrowithcee/qatlas-connect/internal/uiprefs"
+	kitprefs "github.com/castrowithcee/qatlas-kit/uiprefs"
 )
 
 // atSettingsBar reports whether the click on the Settings tab went through: the tab line has the focus on it.
@@ -91,7 +91,7 @@ func TestTabClickDoesNothingWhileAsked(t *testing.T) {
 	}
 
 	m, _ = lockedVaultModel(t)
-	m.prefs.Icons = uiprefs.IconsNone
+	m.prefs.Icons = kitprefs.IconsNone
 	sizedModel(m, 160, 40)
 	openSectionByName(t, m, sectionGeneral)
 	focusKeyRow(t, m, "info key")

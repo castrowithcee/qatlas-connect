@@ -7,6 +7,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/castrowithcee/qatlas-connect/internal/uiprefs"
+	kitprefs "github.com/castrowithcee/qatlas-kit/uiprefs"
 )
 
 // iconsTest explains the nerdfont value with the glyphs themselves.
@@ -91,35 +92,28 @@ func (m *Model) openPageForm() tea.Cmd {
 // generalFields are the rows of the General form: finite choices only, so nothing is typed.
 func (m *Model) generalFields() []field {
 	prefs := m.prefs
-	if prefs == (uiprefs.Prefs{}) {
-		prefs = uiprefs.Default()
-	}
-	var areas []string
-	for a := area(0); a < areaCount; a++ {
-		areas = append(areas, strings.ToLower(a.key()))
+	// Loaded preferences always name a theme; without one none were loaded.
+	if prefs.Theme == "" {
+		prefs = defaultPrefs()
 	}
 	start := prefs.Start
 	if _, ok := areaByName(start); !ok {
 		start = uiprefs.DefaultStart
 	}
-	language := prefs.Language
-	if language == "" {
-		language = uiprefs.LanguageEnglish
-	}
 	mouse := uiprefs.ChoiceMouseOn
-	if !prefs.MouseEnabled() {
+	if !prefs.MouseEnabled {
 		mouse = uiprefs.ChoiceMouseOff
 	}
 	fields := []field{
 		choiceField(themeLabel, themeSet.Names(), themeOrDefault(prefs.Theme)).
 			withHint(tr(tThemeHint)).
 			withDetail(tr(tThemeDetail)),
-		choiceField(startLabel, areas, start).
+		choiceField(startLabel, startNames(), start).
 			withHint(tr(tStartHint)),
-		choiceField(iconsLabel, []string{uiprefs.IconsUnicode, uiprefs.IconsNerdFont, uiprefs.IconsNone}, prefs.Icons).
+		choiceField(iconsLabel, []string{kitprefs.IconsUnicode, kitprefs.IconsNerdFont, kitprefs.IconsNone}, prefs.Icons).
 			withHint(tr(tIconsHint)).
 			withDetail(iconsDetail()),
-		choiceField(langLabel, []string{uiprefs.LanguageEnglish, uiprefs.LanguageGerman, uiprefs.LanguageSystem}, language).
+		choiceField(langLabel, []string{kitprefs.LanguageEnglish, kitprefs.LanguageGerman, kitprefs.LanguageSystem}, prefs.Language).
 			withHint(tr(tLanguageHint)).
 			withDetail(tr(tLanguageDetail)),
 		choiceField(mouseLabel, []string{uiprefs.ChoiceMouseOn, uiprefs.ChoiceMouseOff}, mouse).
@@ -133,14 +127,16 @@ func (m *Model) generalFields() []field {
 // passphrase: the file is not part of the configuration. leave says the save came from the leave question,
 // which goes on to the tab line afterwards.
 func (m *Model) saveGeneral(leave bool) tea.Cmd {
-	next := uiprefs.Prefs{
-		Theme: m.fieldValue(themeLabel), Start: m.fieldValue(startLabel), Icons: m.fieldValue(iconsLabel),
-		Language: m.fieldValue(langLabel), MouseOff: m.fieldValue(mouseLabel) == uiprefs.ChoiceMouseOff, Keys: m.keysOfForm(),
-	}
-	if err := next.Keys.Validate(); err != nil {
-		m.status, m.fail = "", err.Error()
+	// The preferences the form has no row for, such as the editor, stay as they were.
+	next := m.prefs
+	next.Theme, next.Start, next.Icons = m.fieldValue(themeLabel), m.fieldValue(startLabel), m.fieldValue(iconsLabel)
+	next.Language, next.MouseEnabled = m.fieldValue(langLabel), m.fieldValue(mouseLabel) != uiprefs.ChoiceMouseOff
+	keys, errs := keymap.Resolve(m.keysOfForm())
+	if len(errs) > 0 {
+		m.status, m.fail = "", errs[0].Error()
 		return nil
 	}
+	next.Keys = keys
 	if m.savePrefs == nil {
 		m.status, m.fail = "", tr(tSettingsCannotSaveHere)
 		return nil

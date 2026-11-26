@@ -3,7 +3,6 @@
 package cli
 
 import (
-	"os"
 	"testing"
 	"unsafe"
 
@@ -47,25 +46,4 @@ func processArguments(t *testing.T, pid int) string {
 		t.Fatalf("cannot read the command line of process %d: %v", pid, err)
 	}
 	return (*windows.NTUnicodeString)(unsafe.Pointer(&buf[0])).String()
-}
-
-// checkServeStreams checks what 'vault serve' takes for the handover and the report it inherits: a pipe on
-// standard input and output, and nothing else.
-func checkServeStreams(t *testing.T, dir string) {
-	t.Helper()
-	if isPipe(mustOpen(t, configIn(dir))) {
-		t.Errorf("isPipe() accepted a regular file")
-	}
-	r, w, err := os.Pipe()
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer r.Close()
-	defer w.Close()
-	if !isPipe(r) || !isPipe(w) {
-		t.Errorf("isPipe() refused a pipe")
-	}
-	if isPipe(nil) {
-		t.Errorf("isPipe() accepted no file")
-	}
 }

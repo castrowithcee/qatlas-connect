@@ -10,7 +10,6 @@ import (
 
 	"github.com/charmbracelet/x/ansi"
 
-	"github.com/castrowithcee/qatlas-connect/internal/uiprefs"
 	kittui "github.com/castrowithcee/qatlas-kit/tui"
 )
 
@@ -114,8 +113,8 @@ func TestEveryScreenControlHasATargetAndClicksAsItsKey(t *testing.T) {
 	var listTargets listTargetCount
 	for _, binding := range []struct {
 		name string
-		keys uiprefs.Keys
-	}{{"default keys", uiprefs.DefaultKeys()}, {"rebound keys", uiprefs.Keys{Info: "f3", Save: "f4", Help: "ctrl+x", Command: "f6", Lock: "ctrl+l"}}} {
+		keys map[action]string
+	}{{"default keys", nil}, {"rebound keys", map[action]string{actInfo: "f3", actSave: "f4", actHelp: "ctrl+x", actCommand: "f6", actLock: "ctrl+l"}}} {
 		for _, screen := range frameScreens() {
 			t.Run(binding.name+"/"+screen.name, func(t *testing.T) {
 				keepKeys(t)

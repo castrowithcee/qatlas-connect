@@ -29,10 +29,10 @@ import (
 	"github.com/castrowithcee/qatlas-connect/internal/provider"
 	"github.com/castrowithcee/qatlas-connect/internal/secret"
 	"github.com/castrowithcee/qatlas-connect/internal/selfupdate"
-	"github.com/castrowithcee/qatlas-connect/internal/uiprefs"
 	"github.com/castrowithcee/qatlas-kit/i18n"
 	"github.com/castrowithcee/qatlas-kit/redact"
 	kittui "github.com/castrowithcee/qatlas-kit/tui"
+	kitprefs "github.com/castrowithcee/qatlas-kit/uiprefs"
 	"github.com/charmbracelet/x/ansi"
 )
 
@@ -798,10 +798,10 @@ type Model struct {
 
 	// prefs are the device-local preferences and savePrefs stores them; the latter is nil when they cannot be
 	// saved.
-	prefs uiprefs.Prefs
+	prefs kitprefs.Prefs
 	// keyCapture is set while a key row of the General form waits for the key to bind; see keybinding.go.
 	keyCapture bool
-	savePrefs  func(uiprefs.Prefs) error
+	savePrefs  func(kitprefs.Prefs) error
 	// start is the area the editor opens on; the Overview is where it already is.
 	start area
 }
@@ -838,6 +838,8 @@ func New(svc *manage.Service, store *config.Store, tester Tester, secrets Secret
 		checked:   map[string][]string{},
 		termWidth: defaultWidth, termHeight: defaultHeight, configExists: configExists,
 		startDir: startDir, execute: tea.Exec,
+		// Until Run sets the loaded preferences the editor takes the mouse, as it does without a file.
+		prefs: kitprefs.Prefs{MouseEnabled: true},
 	}
 	m.refreshRequests()
 	m.picker = newFilterList(m.choiceShown)
@@ -5262,12 +5264,13 @@ type Options struct {
 	Restart *Restart
 	// SelfTest says how the selftest commands run.
 	SelfTest SelfTest
-	// Prefs are the device-local preferences; the zero value is read as the defaults.
-	Prefs uiprefs.Prefs
+	// Prefs are the device-local preferences as loading them under PrefsSchema gives them; the zero value is
+	// read as the defaults.
+	Prefs kitprefs.Prefs
 	// PrefsWarnings are problems found while loading Prefs; the editor shows the first one at start.
-	PrefsWarnings []string
+	PrefsWarnings []kitprefs.Warning
 	// SavePrefs stores changed preferences. It may be nil, in which case they cannot be saved.
-	SavePrefs func(uiprefs.Prefs) error
+	SavePrefs func(kitprefs.Prefs) error
 	In, Out   *os.File
 }
 
@@ -5276,13 +5279,11 @@ func Run(opts Options) error {
 	// Read before anything else, so that no child of the editor inherits the handoff.
 	predecessor := takeHandoff()
 	prefs := opts.Prefs
-	if prefs == (uiprefs.Prefs{}) {
-		prefs = uiprefs.Default()
+	if prefs.Theme == "" {
+		prefs = defaultPrefs()
 	}
 	setProfile(kittui.DetectColorProfile(opts.Out, os.Environ()))
 	setLanguage(prefs.Language)
-	known, themeWarning := knownTheme(prefs.Theme)
-	prefs.Theme = known
 	applyTheme(prefs.Theme)
 	model, err := New(opts.Service, opts.Store, opts.Tester, opts.Secrets, opts.Redactor)
 	if err != nil {
@@ -5294,23 +5295,11 @@ func Run(opts Options) error {
 	model.selftest = opts.SelfTest
 	model.prefs = prefs
 	model.savePrefs = opts.SavePrefs
-	warnings := opts.PrefsWarnings
-	if themeWarning != "" {
-		warnings = append(warnings, themeWarning)
-	}
-	if err := prefs.Keys.WithDefaults().Validate(); err != nil {
-		warnings = append(warnings, tr(tKeysInvalid, err.Error()))
-		prefs.Keys, model.prefs.Keys = uiprefs.DefaultKeys(), uiprefs.DefaultKeys()
-	}
 	applyKeys(prefs.Keys)
 	if start, ok := areaByName(prefs.Start); ok {
 		model.start = start
-	} else {
-		warnings = append(warnings, tr(tStartUnknown, prefs.Start))
 	}
-	if len(warnings) > 0 {
-		model.status = warningLine(warnings[0])
-	}
+	model.status = prefsWarningLine(opts.PrefsWarnings)
 	if predecessor != nil {
 		model.adopt(predecessor)
 	}

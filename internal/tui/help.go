@@ -7,7 +7,6 @@ import (
 	"charm.land/lipgloss/v2"
 
 	"github.com/castrowithcee/qatlas-connect/internal/helptopics"
-	"github.com/castrowithcee/qatlas-connect/internal/uiprefs"
 	kithelp "github.com/castrowithcee/qatlas-kit/helptopics"
 )
 
@@ -259,11 +258,7 @@ func (m *Model) helpView() string {
 func keyListText() string {
 	lines := []string{tr(tKeysHeading)}
 	for _, r := range keyRows {
-		a := userActions[r.action]
-		if r.action == uiprefs.ActionInfo {
-			a = actInfo
-		}
-		lines = append(lines, "- "+strings.TrimSuffix(r.label, " key")+": "+keyLabel(a))
+		lines = append(lines, "- "+strings.TrimSuffix(r.label, " key")+": "+keyLabel(r.action))
 	}
 	return strings.Join(lines, "\n")
 }
