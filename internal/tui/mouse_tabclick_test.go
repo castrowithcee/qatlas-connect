@@ -123,12 +123,12 @@ func TestTabClickClosesAnOverlayAndActs(t *testing.T) {
 			press(t, m, ":")
 			return m
 		}, func(m *Model) bool { return m.screen == screenCommand }},
-		{"dropdown", func(t *testing.T) *Model {
+		{"filter values", func(t *testing.T) *Model {
 			m := newTableModel(t, 100)
 			openSectionByName(t, m, sectionConnections)
 			press(t, m, "tab", "right", "left", "enter")
 			return m
-		}, func(m *Model) bool { return m.dd != nil }},
+		}, func(m *Model) bool { return m.barOpen() }},
 	}
 	for _, c := range cases {
 		m := c.open(t)

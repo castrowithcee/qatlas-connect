@@ -83,7 +83,7 @@ func TestClicksFollowTheTitleLine(t *testing.T) {
 		t.Fatalf("the filter bar stands in row %d, want %d", y, want)
 	}
 	clickOn(t, m, "Sort:")
-	if m.barFocus == 0 && m.dd == nil {
+	if !m.barFocused() {
 		t.Errorf("a click on a field of the filter bar did nothing:\n%s", ansi.Strip(m.render()))
 	}
 	press(t, m, "esc")

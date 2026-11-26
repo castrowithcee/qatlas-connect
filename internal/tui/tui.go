@@ -430,10 +430,12 @@ type Model struct {
 	names    []string
 	// listTargets are the click targets the list drew in the last frame, placed on the screen.
 	listTargets []kittui.Target
-	// listOpts holds the filter bar of each grouped section; barFocus is the bar field that has the focus
-	// (1-based), 0 while the rows do (see listbar.go).
-	listOpts map[section]*listOptions
-	barFocus int
+	// listOpts holds the values of the filter bar of each grouped section, bars the kit's bar of each that
+	// shows them, and barTargets the click targets the bar, its values or its modal drew in the last frame
+	// (see listbar.go and kitlistbar.go).
+	listOpts   map[section]*listOptions
+	bars       map[section]*kittui.FilterBar
+	barTargets []kittui.Target
 	// noticeFocus is set while the hint line about the renames found has the focus, the stop below the last
 	// row; noticeAt and noticeRows are where the last frame drew that line in the foot (see renamefind.go).
 	noticeFocus          bool
@@ -1058,6 +1060,9 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.testResultKey(msg)
 			return m, nil
 		}
+		if m.barOpen() {
+			return m, m.updateOpenBar(msg)
+		}
 		if keyIs(msg, actHelp) && m.helpReachable() {
 			m.openHelp()
 			return m, nil
@@ -1243,7 +1248,7 @@ func (m *Model) focusList() tea.Cmd {
 		return nil
 	}
 	m.screen = screenList
-	m.barFocus = 0
+	m.blurBar()
 	m.clearMessages()
 	return nil
 }
@@ -1262,7 +1267,7 @@ func (m *Model) updateList(key tea.KeyPressMsg) tea.Cmd {
 	if m.list.Searching() {
 		return m.updateFilter(key)
 	}
-	if m.barFocus > 0 {
+	if m.barFocused() {
 		if cmd, done := m.updateBar(key); done {
 			return cmd
 		}
@@ -1301,7 +1306,7 @@ func (m *Model) updateList(key tea.KeyPressMsg) tea.Cmd {
 		if m.paneWidth() > 0 {
 			m.detailFocus, m.detailTab = true, tabOverview
 		} else if m.listBarShown() {
-			m.barFocus = 1
+			m.focusBar()
 		} else {
 			m.focusNav()
 		}
@@ -1310,13 +1315,20 @@ func (m *Model) updateList(key tea.KeyPressMsg) tea.Cmd {
 	case keyIs(key, actQuit):
 		return m.quit()
 	case keyIs(key, actSearch):
-		m.list.Act(actSearch)
+		if !groupedSection(m.section) || m.listBarShown() {
+			// The search field of a grouped list stands in its filter bar, which an empty list has not.
+			m.list.Act(actSearch)
+		}
+	case keyIs(key, actFilter):
+		if m.listBarShown() {
+			m.focusBar()
+		}
 	case keyIs(key, actUp):
 		// No wraparound: the first entry is where the list ends and the filter bar or, without one, the tab
 		// line begins, in an empty list just as much as a full one.
 		if _, moved := m.list.Act(actUp); !moved {
 			if m.listBarShown() {
-				m.barFocus = 1
+				m.focusBar()
 			} else {
 				m.focusNav()
 			}
@@ -1593,7 +1605,8 @@ func (m *Model) leaveScreen() tea.Cmd {
 // focusNav hands the focus to the bar above the workspace: the option bar when the area has one, else the
 // tab line. The workspace keeps showing the list of the active section.
 func (m *Model) focusNav() {
-	m.barFocus, m.noticeFocus = 0, false
+	m.blurBar()
+	m.noticeFocus = false
 	m.leaveDetail()
 	m.screen = screenNav
 	m.navSub = m.hasSubTabs()
@@ -3998,7 +4011,7 @@ func (m *Model) renderFrame() string {
 		return ""
 	}
 	m.hits, m.frameTabs, m.frameKeys, m.zones, m.listTargets, m.dialogBox, m.tooSmall = nil, nil, nil, nil, nil, hit{}, false
-	m.modalTargets = nil
+	m.barTargets, m.modalTargets = nil, nil
 	m.syncQuestion()
 	m.pathShown = nil
 	m.drawn = true
@@ -4018,6 +4031,9 @@ func (m *Model) renderFrame() string {
 	if m.promptScreen() {
 		// A dialog that has no room for a modal fills the workspace; its keys stand in the footer.
 		return m.frame(m.workspaceView())
+	}
+	if view, ok := m.barModalView(); ok {
+		return view
 	}
 	return m.overlayDropdown(m.frame(m.workspaceView()))
 }
@@ -4367,7 +4383,7 @@ func (m *Model) listView() string {
 	header, footer := m.listFrame()
 	framed, room := m.tableFramed(), m.tableRoom()
 	height := m.height - strings.Count(header, "\n") - strings.Count(footer, "\n") - 1
-	view, targets := m.list.View(styles.Styles, room, max(height, 0))
+	view, targets, ofBar := m.listBody(room, max(height, 0))
 	lines := strings.Split(view, "\n")
 	// The list fills its height with blank lines; the frame closes below the last one it drew.
 	for len(lines) > 0 && strings.TrimSpace(ansi.Strip(lines[len(lines)-1])) == "" {
@@ -4381,9 +4397,14 @@ func (m *Model) listView() string {
 		}
 		b.WriteString(line + "\n")
 	}
-	m.addListTargets(targets, header, len(lines))
-	if m.listBarShown() && !m.list.Searching() {
-		m.hitBarFields(m.workspaceTop() + m.listBarOffset())
+	if ofBar {
+		x := 0
+		if framed {
+			x = 2
+		}
+		m.addBarTargets(targets, x, m.hitTop(header))
+	} else {
+		m.addListTargets(targets, header, len(lines))
 	}
 	out := b.String() + footer
 	if m.paneWidth() > 0 {
@@ -4393,6 +4414,24 @@ func (m *Model) listView() string {
 	m.hitNotice(out, footer)
 	m.zoneList(out, footer)
 	return out
+}
+
+// listBody is what stands below the filter bar in width by height cells: the open values of a field of the bar,
+// the filter modal where it has no room over the screen, or the rows of the list. ofBar says the bar drew it.
+func (m *Model) listBody(width, height int) (view string, targets []kittui.Target, ofBar bool) {
+	if m.listBarShown() {
+		b := m.bar()
+		if view, targets := b.ValueList(styles.Styles, width, height); view != "" {
+			return view, targets, true
+		}
+		if _, _, over := m.barModalOverlay(""); m.barFocused() && len(b.Hints()) > 0 && !over {
+			// The modal fills the workspace; its keys stand in the footer.
+			view, targets := b.ModalView(styles.Styles, width, height)
+			return view, targets, true
+		}
+	}
+	view, targets = m.list.View(styles.Styles, width, height)
+	return view, targets, false
 }
 
 // addListTargets places the targets the list drew, from the first line below header, on the screen: inside
@@ -4441,7 +4480,16 @@ func (m *Model) listFrame() (string, string) {
 	}
 	switch {
 	case m.listBarShown():
-		head.WriteString(inside(m.barLine(room)))
+		line, targets := m.barView(room)
+		x := 0
+		if framed {
+			x = 2
+		}
+		if len(m.bar().Hints()) == 0 {
+			// The open modal takes every click.
+			m.addBarTargets(targets, x, m.workspaceTop()+m.listBarOffset())
+		}
+		head.WriteString(inside(line))
 	case !framed && !m.list.Searching() && m.list.Query() == "":
 		// The search line of the list takes the place of the gap.
 		head.WriteString("\n")
@@ -4457,7 +4505,8 @@ func (m *Model) listFrame() (string, string) {
 	need := 0
 	if total > 0 {
 		need = 3
-		if m.list.Searching() || m.list.Query() != "" {
+		if !groupedSection(m.section) && (m.list.Searching() || m.list.Query() != "") {
+			// A grouped list draws its search in the filter bar, the others on a line of their own.
 			need++
 		}
 	}
@@ -4550,7 +4599,7 @@ func (m *Model) listKeys() string {
 		keys = "type to filter"
 	case m.noticeFocused():
 		keys, own = "{enter} review · {up}/{back} rows"+tail, false
-	case m.barFocus > 0:
+	case m.barFocused():
 		keys, own = m.barKeys(), false
 	case m.detailFocused() && m.detailPane.more:
 		keys, own = "{left}/{right} tab · {next} next · {prev} rows · {up}/{down} move · {pageup}/{pagedown} scroll · {enter} edit · {back} rows"+tail, false
@@ -4604,7 +4653,7 @@ func (m *Model) listKeys() string {
 func (m *Model) listHintText(enter bool) string {
 	var groups []string
 	for _, h := range m.list.Hints() {
-		if (h.Action == actEnter && !enter) || (h.Action == actSearch && m.list.Searching()) {
+		if (h.Action == actEnter && !enter) || (h.Action == actSearch && (m.list.Searching() || groupedSection(m.section) && !m.listBarShown())) {
 			continue
 		}
 		groups = append(groups, footerPlaceholder(h.Action)+" "+tr(h.Label))

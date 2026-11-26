@@ -93,10 +93,9 @@ func TestNoColourProfilesKeepTheFocusReadable(t *testing.T) {
 				if !strings.Contains(view, "\x1b[1m") && !strings.Contains(view, "\x1b[7m") {
 					t.Errorf("no attribute survives:\n%q", view)
 				}
-				for _, seq := range []string{"38;", "48;", "\x1b[3", "\x1b[4"} {
-					if strings.Contains(view, seq) {
-						t.Errorf("the view holds the colour sequence %q", seq)
-					}
+				// Underline (4 alone) is an attribute: the search field of the filter bar is drawn underlined.
+				if hasColour(view) {
+					t.Errorf("the view holds a colour sequence:\n%q", view)
 				}
 			} else if strings.Contains(view, "\x1b") {
 				t.Errorf("the view holds escape sequences:\n%q", view)
