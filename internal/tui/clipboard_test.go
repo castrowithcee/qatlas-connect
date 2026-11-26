@@ -44,7 +44,7 @@ func noControl(t *testing.T, where, text string) {
 func TestCopyNameOfMarkedRow(t *testing.T) {
 	m := newTableModel(t, 170)
 	openSectionByName(t, m, sectionConnections)
-	m.list.selectName("tracker-issues")
+	selectRow(m, "tracker-issues")
 	got, ok := pressCopy(m)
 	if !ok || got != "tracker-issues" {
 		t.Fatalf("c copied %q (%v), want the name of the marked connection", got, ok)
@@ -65,7 +65,7 @@ func TestCopyStatusIsAHandOverInBothLanguages(t *testing.T) {
 		m := newTableModel(t, 140)
 		m.Update(tea.WindowSizeMsg{Width: 200, Height: 40})
 		openSectionByName(t, m, sectionServices)
-		m.list.selectName("wiki-main")
+		selectRow(m, "wiki-main")
 		if _, ok := pressCopy(m); !ok {
 			t.Fatalf("%s: c handed nothing over", lang)
 		}
@@ -91,8 +91,8 @@ func TestCopyKeyTypesOnTextLines(t *testing.T) {
 	if text, ok := clipboardOf(cmd); ok {
 		t.Fatalf("c on the filter line copied %q", text)
 	}
-	if m.list.query() != "c" {
-		t.Errorf("the filter = %q, want c typed", m.list.query())
+	if m.list.Query() != "c" {
+		t.Errorf("the filter = %q, want c typed", m.list.Query())
 	}
 }
 
@@ -116,13 +116,13 @@ func TestCopyRawTabIsWholeAndSafe(t *testing.T) {
 	canaries := []string{canaryUser, canaryURLPass, canaryQuery, canaryOption, canaryVault, "canary env", "canary-redacted-registered"}
 	for _, s := range []section{sectionServices, sectionCredentials, sectionConnections} {
 		openSectionByName(t, m, s)
-		for _, name := range m.list.all {
+		for _, name := range m.names {
 			if isGroupRow(name) {
 				continue
 			}
 			m.leaveDetail()
 			m.screen = screenList
-			m.list.selectName(name)
+			selectRow(m, name)
 			if s == sectionConnections {
 				conn := m.cfg.Connections[name]
 				conn.Description += " canary-redacted-registered"
@@ -202,10 +202,10 @@ func TestCopyApprovalDetail(t *testing.T) {
 	press(t, m, "f2")
 	unlockWithAdminPassphrase(t, m, passphrase)
 	openSectionByName(t, m, sectionApprovals)
-	if len(m.list.all) == 0 {
+	if len(m.names) == 0 {
 		t.Fatal("no open approval")
 	}
-	m.list.selectName(m.list.all[0])
+	selectRow(m, m.names[0])
 	press(t, m, "enter")
 	if m.approvalDetail == "" {
 		t.Fatalf("enter opened no detail: screen %v", m.screen)

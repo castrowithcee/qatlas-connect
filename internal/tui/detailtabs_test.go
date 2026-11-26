@@ -58,11 +58,11 @@ func TestServicesTableAndFilterTextHoldNoURLCredential(t *testing.T) {
 	m := rawModel(t)
 	openSectionByName(t, m, sectionServices)
 	canaries := []string{canaryURLPass, canaryQuery, canaryUser}
-	for _, name := range m.list.all {
+	for _, name := range m.names {
 		if isGroupRow(name) {
 			continue
 		}
-		m.list.selectName(name)
+		selectRow(m, name)
 		shown := map[string]string{
 			"screen":   screenOf(m),
 			"cells":    strings.Join(m.cells(name), "\n"),
@@ -88,13 +88,13 @@ func TestDetailRawHoldsNoSecretAndNoControlCharacter(t *testing.T) {
 	canaries := []string{canaryUser, canaryURLPass, canaryQuery, canaryOption, canaryVault, "canary env", "secret value"}
 	for _, s := range []section{sectionServices, sectionCredentials, sectionConnections} {
 		openSectionByName(t, m, s)
-		for _, name := range m.list.all {
+		for _, name := range m.names {
 			if isGroupRow(name) {
 				continue
 			}
 			m.leaveDetail()
 			m.screen = screenList
-			m.list.selectName(name)
+			selectRow(m, name)
 			view := showRaw(t, m)
 			for _, c := range canaries {
 				if strings.Contains(view, c) {
@@ -107,12 +107,12 @@ func TestDetailRawHoldsNoSecretAndNoControlCharacter(t *testing.T) {
 		}
 	}
 	openSectionByName(t, m, sectionCredentials)
-	m.list.selectName("tracker-bot")
+	selectRow(m, "tracker-bot")
 	if view := showRaw(t, m); !strings.Contains(view, "TRACKER_TOKEN") || !strings.Contains(view, "type: env") {
 		t.Errorf("the raw tab omits the entry:\n%s", view)
 	}
 	openSectionByName(t, m, sectionConnections)
-	m.list.selectName("tracker-issues")
+	selectRow(m, "tracker-issues")
 	if view := showRaw(t, m); !strings.Contains(view, "tracker-main") || !strings.Contains(view, "description:") {
 		t.Errorf("the raw tab omits the connection:\n%s", view)
 	}
@@ -124,7 +124,7 @@ func TestDetailFocusCycleAndTabs(t *testing.T) {
 	m := newTableModel(t, 140)
 	for _, s := range []section{sectionConnections, sectionServices, sectionCredentials} {
 		openSectionByName(t, m, s)
-		m.list.selectName(shownEntries(m)[0])
+		selectRow(m, shownEntries(m)[0])
 		press(t, m, "right")
 		if m.detailFocused() || m.shownTab() != tabOverview {
 			t.Fatalf("%v: right on the rows changed the pane", s)
@@ -174,7 +174,7 @@ func TestDetailFocusCycleAndTabs(t *testing.T) {
 func TestDetailTabsAreClickable(t *testing.T) {
 	m := newTableModel(t, 140)
 	openSectionByName(t, m, sectionConnections)
-	m.list.selectName("tracker-issues")
+	selectRow(m, "tracker-issues")
 	m.render()
 	clickOn(t, m, "Raw")
 	if !m.detailFocused() || m.shownTab() != tabRaw {
@@ -227,7 +227,7 @@ func TestDetailPaneReadsWithoutColourAtItsSmallestSize(t *testing.T) {
 		m.Update(tea.WindowSizeMsg{Width: size.w, Height: size.h})
 		for _, s := range []section{sectionConnections, sectionServices, sectionCredentials} {
 			openSectionByName(t, m, s)
-			m.list.selectName(shownEntries(m)[0])
+			selectRow(m, shownEntries(m)[0])
 			m.render()
 			view := screenOf(m)
 			assertViewFits(t, view, size.w, size.h)

@@ -38,6 +38,14 @@ func clickScreens() []struct {
 			openSectionByName(t, m, sectionCredentials)
 			return m
 		}},
+		{"connections list filtered", func(t *testing.T) *Model {
+			m := sizedModel(groupModel(t), 140, 40)
+			openSectionByName(t, m, sectionConnections)
+			press(t, m, "/")
+			typeText(t, m, "tracker")
+			press(t, m, "enter")
+			return m
+		}},
 		{"form", func(t *testing.T) *Model {
 			m := sizedModel(groupModel(t), 140, 40)
 			openSectionByName(t, m, sectionConnections)
@@ -65,7 +73,7 @@ func clickScreens() []struct {
 var shownConfigPath = regexp.MustCompile(`\S*config\.yaml`)
 
 func clickState(m *Model) string {
-	selected, _ := m.list.selected()
+	selected, _ := m.marked()
 	view := strings.ReplaceAll(m.render(), filepath.Dir(m.svc.Path()), "<dir>")
 	// Each model has its own temporary directory, and a shortened path shows only its end.
 	view = shownConfigPath.ReplaceAllString(view, "<config>")
@@ -102,6 +110,7 @@ func clickDialogs() []struct {
 // line names are targets as well. The keys come from the keymap, also after the preferences rebound some.
 func TestEveryScreenControlHasATargetAndClicksAsItsKey(t *testing.T) {
 	backButtons, footerTargets := 0, 0
+	var listTargets listTargetCount
 	for _, binding := range []struct {
 		name string
 		keys map[action]string
@@ -129,6 +138,7 @@ func TestEveryScreenControlHasATargetAndClicksAsItsKey(t *testing.T) {
 					}
 					assertClickActsAsKey(t, screen.build, x, y, firstKey(t, target.Action))
 				}
+				listTargets.add(assertListTargetsClickAsKeys(t, base, screen.build))
 				if base.screen != screenNav || base.navSub {
 					return
 				}
@@ -189,6 +199,83 @@ func TestEveryScreenControlHasATargetAndClicksAsItsKey(t *testing.T) {
 	if backButtons == 0 || footerTargets == 0 {
 		t.Fatalf("back buttons %d, footer targets %d: the screens drew no such control", backButtons, footerTargets)
 	}
+	if listTargets.rows == 0 || listTargets.groups == 0 || listTargets.search == 0 || listTargets.free == 0 {
+		t.Fatalf("list targets %+v: the lists drew no such target", listTargets)
+	}
+}
+
+// listTargetCount counts the targets of the lists by kind.
+type listTargetCount struct{ rows, groups, search, free int }
+
+func (c *listTargetCount) add(n listTargetCount) {
+	c.rows, c.groups, c.search, c.free = c.rows+n.rows, c.groups+n.groups, c.search+n.search, c.free+n.free
+}
+
+// assertListTargetsClickAsKeys clicks the middle of every target the list of a screen drew, while its rows
+// have the focus: an entry row acts as the moves to it, and on the marked row as enter; a group row as the
+// moves to it and enter, which folds it; the search line as the search key; the free area as nothing, since
+// the rows have the focus already.
+func assertListTargetsClickAsKeys(t *testing.T, base *Model, build func(t *testing.T) *Model) listTargetCount {
+	t.Helper()
+	var n listTargetCount
+	if !base.listSection() || !base.rowsFocused() {
+		return n
+	}
+	rows := listRowsOf(base)
+	at, _ := base.marked()
+	from := slices.Index(rows, at)
+	elements := func(x, y int) bool {
+		for _, o := range base.listTargets {
+			r := o.Rect
+			if (o.Item != "" || o.Action != "") && x >= r.X && x < r.X+r.Width && y >= r.Y && y < r.Y+r.Height {
+				return true
+			}
+		}
+		return false
+	}
+	for _, target := range base.listTargets {
+		r := target.Rect
+		x, y := r.X+(r.Width-1)/2, r.Y
+		var keys []string
+		switch {
+		case target.Item != "":
+			name := target.Item
+			if key, ok := strings.CutPrefix(name, "\x00g"); ok {
+				name = groupRow(key)
+			}
+			to := slices.Index(rows, name)
+			if to < 0 || from < 0 {
+				t.Errorf("the row target %q is no shown row of %q", name, rows)
+				continue
+			}
+			move := "down"
+			if to < from {
+				move = "up"
+			}
+			keys = slices.Repeat([]string{move}, max(to-from, from-to))
+			if isGroupRow(name) {
+				n.groups++
+				keys = append(keys, "enter")
+			} else {
+				n.rows++
+				if to == from {
+					keys = append(keys, "enter")
+				}
+			}
+		case target.Action == actSearch:
+			n.search++
+			keys = []string{firstKey(t, actSearch)}
+		default:
+			for y = r.Y; y < r.Y+r.Height && elements(x, y); y++ {
+			}
+			if y == r.Y+r.Height {
+				continue
+			}
+			n.free++
+		}
+		assertClickActsAsKey(t, build, x, y, keys...)
+	}
+	return n
 }
 
 // frameScreens are the screens of the key line test and the questions that fill the workspace of a terminal

@@ -29,11 +29,11 @@ func TestFilterBarShapesTheListAndNeverTheConfiguration(t *testing.T) {
 		t.Fatalf("tab did not reach the Group field: bar %d, line %q", m.barFocus, m.barLine(80))
 	}
 	press(t, m, "right")
-	if m.groups != nil || len(m.list.matches) != 3 {
-		t.Fatalf("Group none: groups %v, rows %v", m.groups != nil, m.list.matches)
+	if listGrouped(m) || len(listRowsOf(m)) != 3 {
+		t.Fatalf("Group none: groups %v, rows %v", listGrouped(m), listRowsOf(m))
 	}
 	press(t, m, "left")
-	if m.groups == nil {
+	if !listGrouped(m) {
 		t.Fatal("Group provider did not bring the groups back")
 	}
 
@@ -80,9 +80,9 @@ func TestFilterBarOfStatelessListsHasNoStateField(t *testing.T) {
 	if line := m.barLine(100); strings.Contains(line, "State") {
 		t.Errorf("Credentials bar shows a state: %q", line)
 	}
-	m.list.selectName(groupRow("tracker"))
+	selectRow(m, groupRow("tracker"))
 	press(t, m, "left")
-	if !m.groups.collapsed["tracker"] {
+	if !groupFolded(m, "tracker") {
 		t.Error("left on the rows no longer folds the group")
 	}
 	press(t, m, "tab", "tab", "tab")
@@ -114,7 +114,7 @@ func TestDetailPaneAppearsAtItsMinimumWidth(t *testing.T) {
 	}{{detailPaneMinWidth, true}, {detailPaneMinWidth - 1, false}} {
 		m := newTableModel(t, c.width)
 		openSectionByName(t, m, sectionConnections)
-		m.list.selectName("tracker-issues")
+		selectRow(m, "tracker-issues")
 		view := screenOf(m)
 		assertViewFits(t, view, c.width, m.termHeight)
 		if has := strings.Contains(view, "Credential:") && strings.Contains(view, "Base URL:"); has != c.want {
@@ -137,8 +137,8 @@ func TestDetailPaneIsSafe(t *testing.T) {
 	m.cfg.Connections["tracker-issues"] = conn
 	for _, s := range []section{sectionConnections, sectionCredentials, sectionServices} {
 		openSectionByName(t, m, s)
-		for _, name := range m.list.all {
-			m.list.selectName(name)
+		for _, name := range m.names {
+			selectRow(m, name)
 			view := screenOf(m)
 			assertNoCanary(t, "the detail pane", view)
 			for _, secretValue := range []string{"canary-tracker-token", "canary-wiki-id"} {
@@ -152,7 +152,7 @@ func TestDetailPaneIsSafe(t *testing.T) {
 		}
 	}
 	openSectionByName(t, m, sectionConnections)
-	m.list.selectName("tracker-issues")
+	selectRow(m, "tracker-issues")
 	if view := screenOf(m); !strings.Contains(view, "issues") || !strings.Contains(view, "Description:") {
 		t.Errorf("the description is missing from the pane:\n%s", view)
 	}
@@ -162,7 +162,7 @@ func TestDetailPaneIsSafe(t *testing.T) {
 func TestDetailPaneShowsTheLastTest(t *testing.T) {
 	m := newTableModel(t, 130)
 	openSectionByName(t, m, sectionConnections)
-	m.list.selectName("tracker-issues")
+	selectRow(m, "tracker-issues")
 	if view := screenOf(m); strings.Contains(view, "Last test") {
 		t.Errorf("a pane shows a test nobody ran:\n%s", view)
 	}
@@ -185,8 +185,7 @@ func TestFilterBarFitsEveryWidth(t *testing.T) {
 				case "focus":
 					press(t, m, "tab")
 				case "query":
-					m.list.input.SetValue("wiki")
-					m.list.refilter()
+					m.list.SetFilter("wiki")
 				case "editing":
 					press(t, m, "/")
 				}

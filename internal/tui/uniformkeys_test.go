@@ -47,7 +47,7 @@ func TestVimKeysMoveLikeTheArrowsOnEveryKindOfScreen(t *testing.T) {
 			t.Fatalf("home = section %v, want the first area", m.section)
 		}
 		m.screen, m.section = screenNav, sectionServices
-		m.list.reset(m.entryNames(m.section))
+		m.resetList(m.section)
 		press(t, m, "j", "j")
 		if m.screen != screenList {
 			t.Fatalf("j, j = screen %v, want the list", m.screen)
@@ -79,7 +79,7 @@ func TestVimKeysMoveLikeTheArrowsOnEveryKindOfScreen(t *testing.T) {
 		seedServices(t, m, "a-one", "b-two")
 		m.screen = screenList
 		press(t, m, "/", "j", "k")
-		if got := m.list.query(); got != "jk" {
+		if got := m.list.Query(); got != "jk" {
 			t.Fatalf("filter = %q, want the typed letters", got)
 		}
 	})
@@ -523,18 +523,20 @@ func TestListsStopAndChoiceListsWrapAtTheirEnds(t *testing.T) {
 	t.Run("a list of records stops", func(t *testing.T) {
 		m, _, _ := newModel(t)
 		m.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
-		seedServices(t, m, "a-one", "b-two", "c-three")
-		m.screen, m.section = screenList, sectionServices
-		m.list.reset(m.entryNames(m.section))
+		// An ungrouped list, so its first entry is its first row.
+		m.screen, m.section = screenList, sectionDefaults
+		setNames(m, "a-one", "b-two", "c-three")
 		press(t, m, "down", "down", "down", "down")
 		if name := selectedName(t, m); name != "c-three" {
 			t.Fatalf("down past the end selected %q, want the last entry", name)
 		}
-		m.list.move(1)
+		m.list.Act(actDown)
 		if name := selectedName(t, m); name != "c-three" {
 			t.Fatalf("move past the end selected %q, want it to stop", name)
 		}
-		m.list.move(-5)
+		for range 5 {
+			m.list.Act(actUp)
+		}
 		if name := selectedName(t, m); name != "a-one" {
 			t.Fatalf("move past the start selected %q, want it to stop", name)
 		}

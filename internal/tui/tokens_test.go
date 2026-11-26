@@ -119,8 +119,8 @@ func TestTokensWhileLocked(t *testing.T) {
 
 	pump(t, m, "enter")
 	unlockWithAdminPassphrase(t, m, tokenPassphrase)
-	if !slices.Equal(m.list.all, []string{"kunde-a-ci"}) {
-		t.Fatalf("Tokens lists %v after unlocking, want kunde-a-ci", m.list.all)
+	if !slices.Equal(m.names, []string{"kunde-a-ci"}) {
+		t.Fatalf("Tokens lists %v after unlocking, want kunde-a-ci", m.names)
 	}
 	view = m.render()
 	for _, want := range []string{"kunde-a-ci", "personal", "no expiry", "n new", "d revoke"} {
@@ -312,8 +312,8 @@ func TestRevokingATokenAsksFirst(t *testing.T) {
 		t.Fatalf("d on the list = screen %v:\n%s", m.screen, screenOf(m))
 	}
 	press(t, m, "n")
-	if m.screen != screenList || len(m.list.all) != 2 {
-		t.Fatalf("n = screen %v list %v, want the list with both tokens", m.screen, m.list.all)
+	if m.screen != screenList || len(m.names) != 2 {
+		t.Fatalf("n = screen %v list %v, want the list with both tokens", m.screen, m.names)
 	}
 
 	pump(t, m, "enter", "d")
@@ -328,9 +328,9 @@ func TestRevokingATokenAsksFirst(t *testing.T) {
 	if m.fail != "" {
 		t.Fatalf("revoking reported %q", m.fail)
 	}
-	if m.screen != screenList || !slices.Equal(m.list.all, []string{"other"}) ||
+	if m.screen != screenList || !slices.Equal(m.names, []string{"other"}) ||
 		!strings.Contains(m.status, "Revoked agent token ci") {
-		t.Errorf("after y: screen %v list %v status %q, want the list without ci", m.screen, m.list.all, m.status)
+		t.Errorf("after y: screen %v list %v status %q, want the list without ci", m.screen, m.names, m.status)
 	}
 	tokens, err := m.secrets.Vault().Tokens()
 	if err != nil || len(tokens) != 1 || tokens[0].Name != "other" {

@@ -15,7 +15,7 @@ import (
 func startRename(t *testing.T, m *Model, s section, name, to string) {
 	t.Helper()
 	openSectionByName(t, m, s)
-	m.list.selectName(name)
+	selectRow(m, name)
 	pump(t, m, "r")
 	if m.screen != screenForm || m.rename != nil || m.fields[m.focus].label != "name" {
 		t.Fatalf("r = screen %v, want the form with the cursor on the name:\n%s", m.screen, screenOf(m))
@@ -199,7 +199,7 @@ func TestRenameKeyOpensTheFormOnTheName(t *testing.T) {
 		name string
 	}{{sectionServices, "wiki"}, {sectionCredentials, "reader"}, {sectionConnections, "docs"}} {
 		openSectionByName(t, m, c.s)
-		m.list.selectName(c.name)
+		selectRow(m, c.name)
 		pump(t, m, "r")
 		if m.screen != screenForm || m.editing != c.name || m.fields[m.focus].label != "name" || m.fields[m.focus].readOnly {
 			t.Errorf("r in %v: screen %v editing %q focus %q", c.s, m.screen, m.editing, m.fields[m.focus].label)
@@ -211,7 +211,7 @@ func TestRenameKeyOpensTheFormOnTheName(t *testing.T) {
 	}
 	// e opens the same form where it always did, not on the name.
 	openSectionByName(t, m, sectionServices)
-	m.list.selectName("wiki")
+	selectRow(m, "wiki")
 	pump(t, m, "e")
 	if m.fields[m.focus].label == "name" {
 		t.Error("e puts the cursor on the name row")
@@ -282,7 +282,7 @@ func TestSavingWithoutANewNameIsNoRename(t *testing.T) {
 	seedConnections(t, m)
 
 	openSectionByName(t, m, sectionServices)
-	m.list.selectName("wiki")
+	selectRow(m, "wiki")
 	pump(t, m, "e")
 	focusField(t, m, "base url")
 	clearField(t, m)

@@ -66,7 +66,7 @@ func buildModel(store *config.Store, tester Tester, secrets Secrets, redactor *r
 		return nil, err
 	}
 	m.section = sectionServices
-	m.list.reset(m.entryNames(m.section))
+	m.resetList(m.section)
 	m.layoutWorkspace()
 	return m, nil
 }
@@ -549,8 +549,9 @@ func TestNarrowListFocus(t *testing.T) {
 		t.Run(fmt.Sprintf("width=%d", width), func(t *testing.T) {
 			m, _, _ := newModel(t)
 			m.Update(tea.WindowSizeMsg{Width: width, Height: 24})
-			m.section = sectionServices
-			m.list.reset([]string{"a", "b", "c"})
+			// An ungrouped list, so the first entry is the first row.
+			m.section = sectionDefaults
+			setNames(m, "a", "b", "c")
 			m.screen = screenList
 
 			if !strings.Contains(m.render(), "tab areas") {
@@ -564,12 +565,12 @@ func TestNarrowListFocus(t *testing.T) {
 
 			m.screen = screenList
 			press(t, m, "down", "down")
-			if m.list.cursor != 2 {
-				t.Fatalf("cursor after two downs = %d, want 2 (last entry)", m.list.cursor)
+			if listCursor(m) != 2 {
+				t.Fatalf("cursor after two downs = %d, want 2 (last entry)", listCursor(m))
 			}
 			press(t, m, "down")
-			if m.list.cursor != 2 || m.screen != screenList {
-				t.Errorf("down at the last entry = cursor %d screen %v, want to stay put", m.list.cursor, m.screen)
+			if listCursor(m) != 2 || m.screen != screenList {
+				t.Errorf("down at the last entry = cursor %d screen %v, want to stay put", listCursor(m), m.screen)
 			}
 
 			for _, key := range []string{"left", "h", "right", "l"} {
@@ -586,7 +587,7 @@ func TestNarrowListFocus(t *testing.T) {
 			}
 
 			m.screen = screenList
-			m.list.reset(nil)
+			setNames(m)
 			press(t, m, "up")
 			if m.screen != screenNav {
 				t.Errorf("up in an empty list = screen %v, want the tab line", m.screen)
@@ -995,7 +996,7 @@ func TestTheScreenReadsWithoutColour(t *testing.T) {
 	if strings.Contains(view, "\x1b") {
 		t.Fatalf("a terminal without colour got escape sequences:\n%q", view)
 	}
-	for _, want := range []string{"[3 Connections]", ">   wiki"} {
+	for _, want := range []string{"[3 Connections]", ">     wiki"} {
 		if !strings.Contains(view, want) {
 			t.Errorf("the list in focus does not show %q:\n%s", want, view)
 		}
@@ -1051,10 +1052,10 @@ func TestResizePreservesState(t *testing.T) {
 	for _, size := range []struct{ width, height int }{{100, 28}, {60, 24}, {40, minimumHeight}, {20, 5}, {80, 24}} {
 		m.Update(tea.WindowSizeMsg{Width: size.width, Height: size.height})
 		assertViewFits(t, m.render(), max(size.width, minimumWidth), max(size.height, minimumHeight))
-		if m.screen != screenList || m.section != sectionServices || m.list.query() != "a" ||
+		if m.screen != screenList || m.section != sectionServices || m.list.Query() != "a" ||
 			selectedName(t, m) != selected {
 			t.Fatalf("%dx%d changed the list: screen %v section %v filter %q selected %q", size.width,
-				size.height, m.screen, m.section, m.list.query(), selectedName(t, m))
+				size.height, m.screen, m.section, m.list.Query(), selectedName(t, m))
 		}
 		if size.width >= minimumWidth && !strings.Contains(m.render(), "/ a") {
 			t.Errorf("%dx%d does not show the filter:\n%s", size.width, size.height, m.render())
@@ -1590,7 +1591,7 @@ func TestFieldHintsSayWhatAFieldExpects(t *testing.T) {
 func openEntryForm(t *testing.T, m *Model, s section, name string) {
 	t.Helper()
 	openSectionByName(t, m, s)
-	m.list.selectName(name)
+	selectRow(m, name)
 	pump(t, m, "enter")
 	if m.screen != screenForm || m.editing != name {
 		t.Fatalf("screen = %v, editing = %q, want the form of %q", m.screen, m.editing, name)

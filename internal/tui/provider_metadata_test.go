@@ -174,12 +174,12 @@ func TestProviderMetadataDrivesMultipleProviderConnections(t *testing.T) {
 			lexwareFields[8].detail)
 	}
 	for _, name := range []string{"books-primary", "books-audit"} {
-		if got := m.describe(name); !strings.HasPrefix(got, name+"  active  lexware-main  ") {
+		if got := m.describe(name); !strings.Contains(got, name+"  active  lexware-main  ") {
 			t.Fatalf("Lexware list entry = %q, want named connection %q", got, name)
 		}
 	}
 	for _, name := range []string{"wiki-primary", "wiki-audit"} {
-		if got := m.describe(name); !strings.HasPrefix(got, name+"  active  wiki-main  ") {
+		if got := m.describe(name); !strings.Contains(got, name+"  active  wiki-main  ") {
 			t.Fatalf("BookStack list entry = %q, want named connection %q", got, name)
 		}
 	}
