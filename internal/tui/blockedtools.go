@@ -98,18 +98,16 @@ func (m *Model) tickedNow() []string {
 
 // blockNote is the state a tool of the open tool picker is in beyond ticked (offered) and not ticked (not
 // offered): blocked, or blocked until the tick is saved. It stays text, so it reads without colour.
-func (m *Model) blockNote(id string) string {
+func (m *Model) blockNote(index *toolIndex, id string) string {
 	row := m.field(blockedLabel)
 	if row == nil || m.pickerMarks == nil || m.fields[m.focus].label != toolListLabel {
 		return ""
 	}
-	metadata, _ := m.cfg.ProviderMetadata(m.formProvider())
+	metadata := index.metadata
 	ticks := m.tickedNow()
 	offered := m.pickerMarks[id]
-	for _, tool := range metadata.Tools {
-		if tool.ID == id {
-			offered = config.ToolListCovers(metadata.ID, ticks, tool)
-		}
+	if i, ok := index.byID[id]; ok {
+		offered = config.ToolListCovers(metadata.ID, ticks, metadata.Tools[i])
 	}
 	if m.blockReleased == nil {
 		m.blockReleased = map[string]bool{}
