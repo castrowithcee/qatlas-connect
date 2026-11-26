@@ -63,11 +63,12 @@ func clipCells(text string, width int) string {
 		return ""
 	}
 	var b strings.Builder
-	parser := ansi.NewParser()
 	state := byte(ansi.NormalState)
 	used, styled := 0, false
 	for rest := text; rest != ""; {
-		seq, w, n, next := ansi.DecodeSequence(rest, state, parser)
+		// No parser: only the bounds and widths of the sequences count, and a parser allocates a 64 KiB
+		// buffer per call.
+		seq, w, n, next := ansi.DecodeSequence(rest, state, nil)
 		state = next
 		if w == 0 && ansi.HasCsiPrefix(seq) && strings.HasSuffix(seq, "m") {
 			// An SGR sequence: keep it whole; a bare reset leaves nothing open.
