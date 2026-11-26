@@ -163,12 +163,12 @@ func TestDetailRawScrollKeepsSecretsMasked(t *testing.T) {
 func TestInfoOverlayScrolls(t *testing.T) {
 	m := connectionForm(t, 100)
 	m.Update(tea.WindowSizeMsg{Width: 100, Height: 20})
-	m.infoOpen, m.infoShown = true, infoSubject{title: "Long", long: "short text"}
-	m.info.reset()
+	m.openExplanation(infoSubject{title: "Long", long: "short text"})
 	if view := m.render(); hasPosition(view) || strings.Contains(view, "scroll") {
 		t.Fatalf("a short explanation shows a position:\n%s", view)
 	}
-	m.infoShown = infoSubject{title: "Long", long: longText(300)}
+	m.closeModal()
+	m.openExplanation(infoSubject{title: "Long", long: longText(300)})
 	view := m.render()
 	if !hasPosition(view) || !strings.Contains(view, "↑/↓ scroll") || strings.Contains(view, "word299") {
 		t.Fatalf("a long explanation does not offer to scroll:\n%s", view)
@@ -178,12 +178,15 @@ func TestInfoOverlayScrolls(t *testing.T) {
 		t.Fatalf("end does not reach the last line:\n%s", view)
 	}
 	press(t, m, "home")
+	top := m.render()
 	wheelAt(t, m, 20, 10, tea.MouseWheelDown)
-	if !m.infoOpen || m.info.offset() != wheelText {
-		t.Errorf("the wheel: overlay %v offset %d, want open at %d", m.infoOpen, m.info.offset(), wheelText)
+	wheeled := m.render()
+	press(t, m, "home", "down", "down", "down")
+	if pressed := m.render(); !infoOpen(m) || wheeled == top || wheeled != pressed {
+		t.Errorf("the wheel does not scroll as three presses of down: open %v\nwheel:\n%s\nkeys:\n%s", infoOpen(m), wheeled, pressed)
 	}
 	press(t, m, "esc")
-	if m.infoOpen {
+	if infoOpen(m) {
 		t.Error("esc did not close the overlay")
 	}
 }

@@ -151,11 +151,11 @@ func TestCopyInfoOverlay(t *testing.T) {
 	m := newTableModel(t, 100)
 	openSectionByName(t, m, sectionServices)
 	press(t, m, "i")
-	if !m.infoOpen {
+	if !infoOpen(m) {
 		t.Fatal("i did not open the explanation")
 	}
 	got, ok := pressCopy(m)
-	if !ok || !strings.Contains(got, m.infoShown.title) || len(got) < len(m.infoShown.title)+10 {
+	if title := m.explanation().Item().Title; !ok || !strings.Contains(got, title) || len(got) < len(title)+10 {
 		t.Fatalf("the overlay copy = %q (%v)", got, ok)
 	}
 	if !strings.Contains(shown(m.render()), "c copy") {
