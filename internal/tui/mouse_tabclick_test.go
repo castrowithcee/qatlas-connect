@@ -1,11 +1,15 @@
 package tui
 
 import (
+	"fmt"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	tea "charm.land/bubbletea/v2"
+	"github.com/charmbracelet/x/ansi"
 
+	kittui "github.com/castrowithcee/qatlas-kit/tui"
 	kitprefs "github.com/castrowithcee/qatlas-kit/uiprefs"
 )
 
@@ -105,19 +109,14 @@ func TestTabClickDoesNothingWhileAsked(t *testing.T) {
 	}
 }
 
-// Overlays without a question close the way esc closes them, and the click goes on.
+// Overlays without a question that are no modal of the kit close the way esc closes them, and the click goes
+// on.
 func TestTabClickClosesAnOverlayAndActs(t *testing.T) {
 	cases := []struct {
 		name   string
 		open   func(t *testing.T) *Model
 		isOpen func(m *Model) bool
 	}{
-		{"help overlay", func(t *testing.T) *Model {
-			m := sizedModel(groupModel(t), 160, 40)
-			openSectionByName(t, m, sectionServices)
-			press(t, m, "?")
-			return m
-		}, func(m *Model) bool { return m.screen == screenHelp }},
 		{"command line", func(t *testing.T) *Model {
 			m := sizedModel(groupModel(t), 160, 40)
 			openSectionByName(t, m, sectionServices)
@@ -151,11 +150,100 @@ func TestTabClickClosesAnOverlayAndActs(t *testing.T) {
 	}
 }
 
+// helpBox is the cells the frame of the help drawn over the screen covers.
+func helpBox(t *testing.T, m *Model) kittui.Rect {
+	t.Helper()
+	lines := frameLines(m)
+	for y, line := range lines {
+		if !strings.Contains(line, "═ Help ") {
+			continue
+		}
+		left := ansi.StringWidth(line[:strings.Index(line, "╔")])
+		right := ansi.StringWidth(line[:strings.Index(line, "╗")])
+		for b := y + 1; b < len(lines); b++ {
+			if strings.Contains(lines[b], "╚") {
+				return kittui.Rect{X: left, Y: y, Width: right - left + 1, Height: b - y + 1}
+			}
+		}
+	}
+	t.Fatalf("no help frame:\n%s", strings.Join(lines, "\n"))
+	return kittui.Rect{}
+}
+
+// Under the help only its own targets act: a click on a tab, the header or the footer behind it switches
+// nothing and runs no key. A click outside the frame of the help closes it, and one inside the frame beside
+// its targets does nothing. In the workspace the help leaves the header and the tabs without a click.
+func TestClicksBesideTheHelpCloseItAndRunNothing(t *testing.T) {
+	open := func(t *testing.T, w, h int) *Model {
+		m := sizedModel(groupModel(t), w, h)
+		m.prefs.Icons = kitprefs.IconsNone
+		openSectionByName(t, m, sectionServices)
+		m.render()
+		press(t, m, "?")
+		if !helpOpen(m) {
+			t.Fatal("? did not open the help")
+		}
+		return m
+	}
+	unchanged := func(t *testing.T, m *Model, what string, wantOpen bool) {
+		t.Helper()
+		if m.section != sectionServices || m.screen != screenList || m.cmdline != nil || helpOpen(m) != wantOpen {
+			t.Errorf("%s: section %v screen %v command line %v help open %v, want the list with the help open %v",
+				what, m.section, m.screen, m.cmdline != nil, helpOpen(m), wantOpen)
+		}
+	}
+	tabs := open(t, 160, 40)
+	tabs.closeModal()
+	tabs.render()
+	inside, outside := 0, 0
+	for _, tab := range tabs.frameTabs {
+		m := open(t, 160, 40)
+		box := helpBox(t, m)
+		x, y := tab.Rect.X+(tab.Rect.Width-1)/2, tab.Rect.Y
+		in := x >= box.X && x < box.X+box.Width && y >= box.Y && y < box.Y+box.Height
+		if in {
+			inside++
+		} else {
+			outside++
+		}
+		clickAt(t, m, x, y)
+		unchanged(t, m, fmt.Sprintf("a click on the tab %s/%s %s", tab.Area, tab.Tab, map[bool]string{true: "under the frame", false: "beside the frame"}[in]), in)
+	}
+	if inside == 0 || outside == 0 {
+		t.Errorf("%d tabs under and %d beside the frame of the help: the test reaches no case", inside, outside)
+	}
+	for _, text := range []string{"[?] help", "[:] cmd"} {
+		m := open(t, 160, 40)
+		clickOn(t, m, text)
+		unchanged(t, m, "a click on the header key "+text, false)
+	}
+	m := open(t, 160, 40)
+	lines := frameLines(m)
+	clickAt(t, m, ansi.StringWidth(lines[len(lines)-1][:strings.Index(lines[len(lines)-1], "? help")]), len(lines)-1)
+	unchanged(t, m, "a click on the footer", false)
+
+	m = open(t, 160, 40)
+	box := helpBox(t, m)
+	clickAt(t, m, box.X+box.Width-2, box.Y+box.Height-3)
+	unchanged(t, m, "a click inside the frame beside its targets", true)
+	clickAt(t, m, box.X+box.Width+2, box.Y+box.Height/2)
+	unchanged(t, m, "a click beside the frame", false)
+
+	m = open(t, 43, 18)
+	if strings.Contains(strings.Join(frameLines(m), "\n"), "═ Help ") {
+		t.Fatal("the help stands over the screen at 43x18")
+	}
+	clickAt(t, m, 2, 0)
+	unchanged(t, m, "a click on the header over the help in the workspace", true)
+	clickAt(t, m, 3, 1)
+	unchanged(t, m, "a click on the tab line over the help in the workspace", true)
+}
+
 // A dialog covers the tab line it stands over; a click there is a click on the dialog.
 func TestTabClickUnderADialogIsNotATabClick(t *testing.T) {
 	m := sizedModel(groupModel(t), 100, 24)
 	openSectionByName(t, m, sectionServices)
-	press(t, m, "?")
+	press(t, m, ":")
 	m.render()
 	box := m.dialogBox
 	covered := 0

@@ -20,7 +20,6 @@ const (
 	keysRequestBody   = "{up}/{down} move · {space} tick · {tickall} all or none · {yes} accept · {decline} decline · {block} block · {back} back · {command} cmds · {help} help"
 	keysRequestChoice = "{up}/{down} choose · {enter} accept · {back} back · {command} cmds · {help} help"
 	keysCommandLine   = "type to search · {up}/{down} or {next} choose · {enter} run · {back} close"
-	keysHelp          = "{left}/{right} topic · {up}/{down} scroll · {pageup}/{pagedown} page · {back}/{help} close"
 	keysLogDetail     = "{back} back · {area} section · {command} cmds · {help} help"
 	keysTemplateKind  = "{up}/{down} move · {enter} choose · {back} cancel · {command} cmds · {help} help"
 
@@ -37,6 +36,9 @@ const (
 	keysImportApprove = "{yes} approve · {no}/{back} not now, nothing is approved · {up}/{down} scroll · {command} cmds · {help} help"
 	keysImportDelete  = "{yes} delete the file · {no}/{back} keep it · {up}/{down} scroll · {command} cmds · {help} help"
 )
+
+// keysRequestRemoveBody is the key text of a request to remove tools, which is accepted or declined, never blocked.
+const keysRequestRemoveBody = "{up}/{down} move · {space} tick · {tickall} all or none · {yes} accept · {decline} decline · {back} back · {command} cmds · {help} help"
 
 // screenKeyText is the key text the current screen puts in the footer, known before anything is drawn. A
 // screen that a modal dialog covers draws its keys in the dialog, so this is the line of the workspace form.
@@ -95,8 +97,6 @@ func (m *Model) workspaceKeys() string {
 		return m.pickerKeys()
 	case screenProviders:
 		return m.providerKeys()
-	case screenHelp:
-		return keysHelp
 	case screenCommand:
 		return keysCommandLine
 	case screenSelftest:
@@ -183,6 +183,9 @@ func (m *Model) confirmKeys() string {
 		}
 		if m.requestChoice != nil {
 			return keysRequestChoice
+		}
+		if r, _ := m.requestByID(m.requestDetail); removes(r) {
+			return keysRequestRemoveBody
 		}
 		return keysRequestBody
 	case m.approvalDetail != "":

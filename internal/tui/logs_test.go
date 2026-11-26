@@ -373,7 +373,7 @@ func TestLogsKeys(t *testing.T) {
 		t.Errorf("v/g changed the Logs screen: screen %v mode %v", m.screen, m.logs.mode)
 	}
 	press(t, m, "?")
-	if m.screen != screenHelp {
+	if !helpOpen(m) {
 		t.Fatalf("? = screen %v, want the help", m.screen)
 	}
 	press(t, m, "esc")

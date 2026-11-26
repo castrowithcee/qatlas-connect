@@ -948,15 +948,14 @@ func TestTheWheelStopsAtTheEndsOfTheActivityTable(t *testing.T) {
 func TestTheWheelScrollsATextAreaByThreeLines(t *testing.T) {
 	m := sizedModel(groupModel(t), 100, 40)
 	m.openHelp()
-	m.help.reset()
 	m.render()
 	wheelAt(t, m, 20, 10, tea.MouseWheelDown)
-	if m.help.offset() != 3 {
-		t.Errorf("the wheel down moved the help by %d lines, want 3", m.help.offset())
+	if got := helpOffset(t, m); got != 3 {
+		t.Errorf("the wheel down moved the help by %d lines, want 3", got)
 	}
 	wheelAt(t, m, 20, 10, tea.MouseWheelUp)
-	if m.help.offset() != 0 {
-		t.Errorf("the wheel up left the help at %d, want 0", m.help.offset())
+	if got := helpOffset(t, m); got != 0 {
+		t.Errorf("the wheel up left the help at %d, want 0", got)
 	}
 }
 
@@ -1000,12 +999,12 @@ func backCases() []backCase {
 			clickOn(t, m, labelText(providerLabel))
 			return m
 		}, true},
-		{"help over the workspace", func(t *testing.T) *Model {
-			m := sizedModel(groupModel(t), 160, 18)
+		{"help in the workspace", func(t *testing.T) *Model {
+			m := sizedModel(groupModel(t), 43, 18)
 			openSectionByName(t, m, sectionServices)
 			press(t, m, "?")
 			return m
-		}, true},
+		}, false},
 		{"help as an overlay", func(t *testing.T) *Model {
 			m := sizedModel(groupModel(t), 160, 40)
 			openSectionByName(t, m, sectionServices)

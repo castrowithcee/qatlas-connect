@@ -48,8 +48,6 @@ func (m *Model) typing() bool {
 // its text rows, so only the question inside it is covered.
 func (m *Model) helpReachable() bool {
 	switch m.screen {
-	case screenHelp:
-		return false
 	case screenList:
 		// The open values and the modal of the filter bar take every key.
 		return !m.typing() && !m.barOpen()
@@ -79,8 +77,6 @@ func (m *Model) helpReachable() bool {
 // text from its first character on, so unlike ? and : no letter acts there, even while the line is empty.
 func (m *Model) letterReachable() bool {
 	switch m.screen {
-	case screenHelp:
-		return false
 	case screenForm:
 		return m.payloadRemoveAsk
 	}
@@ -93,6 +89,11 @@ func (m *Model) moveKey(key tea.KeyPressMsg) tea.KeyPressMsg {
 	if m.typing() {
 		return key
 	}
+	return vimArrow(key)
+}
+
+// vimArrow is the arrow key a vim letter stands for, and any other key as it is.
+func vimArrow(key tea.KeyPressMsg) tea.KeyPressMsg {
 	for _, d := range []struct {
 		act  action
 		code rune

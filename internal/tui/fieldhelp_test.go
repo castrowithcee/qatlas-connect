@@ -156,7 +156,7 @@ func TestF1HasNoEffect(t *testing.T) {
 	// f1 closes nothing in the help either.
 	m.openHelp()
 	press(t, m, "f1")
-	if m.screen != screenHelp {
+	if !helpOpen(m) {
 		t.Errorf("f1 in the help left it for screen %v", m.screen)
 	}
 }

@@ -113,6 +113,7 @@ type EffectGain struct {
 // gone) and fall away with the decision.
 type RequestPreview struct {
 	Request    string
+	Kind       accessrequest.Kind
 	Connection string
 	// ByEffects is true for a connection that offers its tools by effect, false for one with a tools list.
 	ByEffects bool
@@ -130,6 +131,14 @@ type RequestPreview struct {
 	// SwitchTools is the number of tools the connection offers after switching to a tools list. Tools
 	// registered later no longer join by themselves.
 	SwitchTools int
+	// Remaining is, for a request to remove tools, the number of tools the connection offers after accepting;
+	// for a connection by effect that is the switch to a tools list, which accepting then requires.
+	Remaining int
+	// SplitPrefixes are, for a request to remove tools from a tools list, the prefix entries accepting
+	// replaces by exact IDs, so tools added later under those prefixes no longer join by themselves.
+	SplitPrefixes []string
+	// EmptyList is true when accepting leaves the connection with a tools list that offers no tool.
+	EmptyList bool
 	// ApprovalExpected is true when accepting also approves the connection: its credential is in an
 	// encrypted vault.
 	ApprovalExpected bool
@@ -194,7 +203,7 @@ func (s *Service) requestNow() time.Time {
 }
 
 // openDecision loads the configuration and the request and re-checks the selection against the connection
-// as it is now with accessrequest.Check, the check a new request passes. Nothing is written.
+// as it is now with accessrequest.CheckKind, the check a new request of its kind passes. Nothing is written.
 func (s *Service) openDecision(sel RequestSelection) (*decisionState, error) {
 	if s.requests.Queue == nil {
 		return nil, decisionError(RequestCodeUnavailable, "tool requests are not available here")
@@ -229,7 +238,7 @@ func (s *Service) openDecision(sel RequestSelection) (*decisionState, error) {
 		case !slices.Contains(req.Tools, entry):
 			return nil, decisionError(RequestCodeInvalid, "tool %q is not part of this request", shortEntry(entry))
 		default:
-			if _, err := accessrequest.Check(d.env, d.name, []string{entry}); err != nil {
+			if _, err := accessrequest.CheckKind(d.env, req.Kind, d.name, []string{entry}); err != nil {
 				d.dropped = append(d.dropped, entry)
 				continue
 			}
@@ -431,10 +440,15 @@ func (s *Service) PreviewRequestDecision(sel RequestSelection) (RequestPreview, 
 	}
 	metadata, _ := d.cfg.ProviderMetadata(d.provider)
 	preview := RequestPreview{
-		Request: d.req.ID, Connection: d.name, ByEffects: d.cfg.Connections[d.name].Tools == nil,
+		Request: d.req.ID, Kind: d.req.Kind, Connection: d.name, ByEffects: d.cfg.Connections[d.name].Tools == nil,
 		Entries: d.entries(metadata), Dropped: d.dropped, ApprovalExpected: s.encryptedVaultCredential(d.cfg, d.name),
 	}
 	if len(d.selected) == 0 {
+		return preview, nil
+	}
+	if d.req.Kind == accessrequest.KindRemoveTools {
+		plan := d.planRemove()
+		preview.Remaining, preview.SplitPrefixes, preview.EmptyList = plan.remaining, plan.split, plan.remaining == 0
 		return preview, nil
 	}
 	plan := d.planAccept()
@@ -481,6 +495,19 @@ func (s *Service) DecideRequest(ctx context.Context, proof AdminProof, in Reques
 	if err != nil {
 		return RequestDecisionResult{}, err
 	}
+	removing := d.req.Kind == accessrequest.KindRemoveTools
+	if removing {
+		// Blocking only keeps a tool from being requested to be offered, so it has no meaning here.
+		switch in.Action {
+		case RequestBlock:
+			return RequestDecisionResult{}, decisionError(RequestCodeInvalid,
+				"a request to remove tools is accepted or declined; blocking does not apply")
+		case RequestAccept:
+			operation = invokelog.OperationRequestRemoveAccept
+		case RequestDecline:
+			operation = invokelog.OperationRequestRemoveDecline
+		}
+	}
 	result := RequestDecisionResult{Action: in.Action, Request: d.req.ID, Connection: d.name, Decided: d.selected, Dropped: d.dropped}
 
 	var saved *config.Config
@@ -490,6 +517,22 @@ func (s *Service) DecideRequest(ctx context.Context, proof AdminProof, in Reques
 			if in.Mode != "" && d.cfg.Connections[d.name].Tools != nil {
 				return RequestDecisionResult{}, decisionError(RequestCodeInvalid,
 					"this connection offers a tools list, so accepting needs no choice between adding effects and a list")
+			}
+			if removing {
+				if d.cfg.Connections[d.name].Tools == nil && in.Mode != AcceptSwitchToList {
+					return RequestDecisionResult{}, decisionError(RequestCodeInvalid,
+						"this connection offers its tools by effect; removing tools needs switching it to a tools list")
+				}
+				plan := d.planRemove()
+				if !d.removalHolds(plan) {
+					return RequestDecisionResult{}, decisionError(RequestCodeInvalid,
+						"removing these tools would change what else the connection offers; nothing was changed")
+				}
+				saved = plan.cfg
+				if d.cfg.Connections[d.name].Tools == nil {
+					result.Mode = in.Mode
+				}
+				break
 			}
 			plan := d.planAccept()
 			switch {
@@ -581,6 +624,9 @@ func (s *Service) approveAccepted(ctx context.Context, saved *config.Config, nam
 var queueEventOperations = map[accessrequest.EventKind]string{
 	accessrequest.EventExpire: invokelog.OperationRequestExpire,
 	accessrequest.EventDrop:   invokelog.OperationRequestDrop,
+
+	accessrequest.EventRemoveExpire: invokelog.OperationRequestRemoveExpire,
+	accessrequest.EventRemoveDrop:   invokelog.OperationRequestRemoveDrop,
 }
 
 // recordRequestEvents logs the tools that expired or were dropped while the queue was settled, one entry

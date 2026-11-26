@@ -13,6 +13,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 
+	"github.com/castrowithcee/qatlas-connect/internal/accessrequest"
 	"github.com/castrowithcee/qatlas-connect/internal/manage"
 )
 
@@ -25,6 +26,9 @@ func requestRowName(id string) string { return requestRowPrefix + id }
 
 // requestIDOf is the request a list name stands for.
 func requestIDOf(name string) (string, bool) { return strings.CutPrefix(name, requestRowPrefix) }
+
+// removes reports whether a request asks to remove tools.
+func removes(r manage.OpenRequest) bool { return r.Kind == accessrequest.KindRemoveTools }
 
 // requestChoice is the open choice of how to accept on a connection that offers its tools by effect.
 type requestChoice struct {
@@ -138,7 +142,11 @@ func (m *Model) requestCells(id string) []string {
 	if r.Project != "" {
 		parts = append(parts, tr(tRequestCellProject, m.logText(r.Project)))
 	}
-	return []string{m.logText(r.Connection), tr(tRequestKind), strings.Join(parts, " · ")}
+	kind := tr(tRequestKind)
+	if removes(r) {
+		kind = tr(tRequestKindRemove)
+	}
+	return []string{m.logText(r.Connection), kind, strings.Join(parts, " · ")}
 }
 
 // requestRows lays the entries of a request out as the tool picker groups them: a heading per group and the
@@ -275,7 +283,7 @@ func (m *Model) updateRequestDetail(key tea.KeyPressMsg) tea.Cmd {
 		return m.acceptRequest(r)
 	case keyIs(key, actDecline):
 		return m.decideTicked(r, manage.RequestDecline)
-	case keyIs(key, actBlock):
+	case keyIs(key, actBlock) && !removes(r):
 		return m.decideTicked(r, manage.RequestBlock)
 	}
 	return nil
@@ -311,6 +319,10 @@ func (m *Model) acceptRequest(r manage.OpenRequest) tea.Cmd {
 	if err != nil {
 		m.fail = m.redactor.Apply(err.Error())
 		m.refreshRequests()
+		return nil
+	}
+	if removes(r) {
+		m.openRemoveChoice(sel, preview)
 		return nil
 	}
 	if !preview.ByEffects || len(preview.Entries) == 0 {
@@ -378,6 +390,10 @@ func (m *Model) handleRequestDecision(msg requestDecisionMsg) tea.Cmd {
 		return nil
 	}
 	res := msg.result
+	removed := false
+	if r, ok := m.requestByID(m.requestDetail); ok {
+		removed = removes(r)
+	}
 	if err := m.reloadConfig(); err != nil {
 		m.fail = m.redactor.Apply(err.Error())
 	}
@@ -388,6 +404,9 @@ func (m *Model) handleRequestDecision(msg requestDecisionMsg) tea.Cmd {
 	switch res.Action {
 	case manage.RequestAccept:
 		status = tr(tRequestAccepted, len(res.Decided), res.Connection)
+		if removed {
+			status = tr(tRequestRemoved, len(res.Decided), res.Connection)
+		}
 	case manage.RequestDecline:
 		status = tr(tRequestDeclined, len(res.Decided), res.Connection)
 	case manage.RequestBlock:
@@ -469,6 +488,9 @@ func (m *Model) requestBodyView(r manage.OpenRequest) string {
 		}
 	}
 	keys := keysRequestBody
+	if removes(r) {
+		keys = keysRequestRemoveBody
+	}
 	room := m.height - m.detailChrome() - strings.Count(m.keyHint(keys), "\n") - 2
 	room = max(room, 1)
 	m.requestPage = room
@@ -484,13 +506,20 @@ func (m *Model) requestBodyView(r manage.OpenRequest) string {
 	}
 	m.requestTop = min(max(m.requestTop, 0), max(len(lines)-room, 0))
 	end := min(m.requestTop+room, len(lines))
-	return m.frameDetail(tr(tRequestTitle, m.logText(r.Connection)), statusMark(statusWarn, tr(tStatusOpen)), lines[m.requestTop:end]) +
+	title := tr(tRequestTitle, m.logText(r.Connection))
+	if removes(r) {
+		title = tr(tRequestTitleRemove, m.logText(r.Connection))
+	}
+	return m.frameDetail(title, statusMark(statusWarn, tr(tStatusOpen)), lines[m.requestTop:end]) +
 		"\n" + m.keyHint(keys)
 }
 
 // requestChoiceView is the choice of how to accept on a connection by effect, each way with what it does.
 func (m *Model) requestChoiceView(r manage.OpenRequest) string {
 	c := m.requestChoice
+	if removes(r) {
+		return m.requestRemoveChoiceView(r)
+	}
 	var details []string
 	for i, mode := range c.modes {
 		cursor := "  "

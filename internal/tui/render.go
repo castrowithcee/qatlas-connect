@@ -506,10 +506,7 @@ func (m *Model) dialogKeyHint(text string) string {
 }
 
 // keyHintLines is the footer text broken into lines of whole groups.
-func (m *Model) keyHintLines(text string) []string { return m.keyHintLinesWith(text, keyHintGroup) }
-
-// keyHintLinesWith is keyHintLines with each group drawn by style.
-func (m *Model) keyHintLinesWith(text string, style func(group string) string) []string {
+func (m *Model) keyHintLines(text string) []string {
 	text = m.footerKeys(text)
 	width := m.usable(0)
 	var lines []string
@@ -529,7 +526,7 @@ func (m *Model) keyHintLinesWith(text string, style func(group string) string) [
 			lineWidth += lipgloss.Width(" · ")
 		}
 		current = append(current, footerSpan{lineWidth, lineWidth + gw, footerKey(group)})
-		line += style(group)
+		line += keyHintGroup(group)
 		lineWidth += gw
 	}
 	if lineWidth > 0 || len(lines) == 0 {

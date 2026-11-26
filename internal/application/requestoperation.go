@@ -14,25 +14,30 @@ import (
 const OperationRequest = "qconnect.request"
 
 var requestInputSchema = json.RawMessage(fmt.Sprintf(`{"type":"object","properties":{`+
+	`"kind":{"type":"string","enum":["add-tools","remove-tools"],"default":"add-tools",`+
+	`"description":"add-tools asks for tools the connection does not offer; remove-tools asks that the connection stop offering tools it offers now"},`+
 	`"tools":{"type":"array","items":{"type":"string"},"minItems":1,"maxItems":%d,`+
-	`"description":"Tool IDs, or groups as prefixes of the form <provider>.<segment>.*, that the connection does not offer; ask only for what the task needs"},`+
+	`"description":"Tool IDs, or groups as prefixes of the form <provider>.<segment>.*, that the connection does not offer (add-tools) or offers (remove-tools); ask only for what the task needs"},`+
 	`"reason":{"type":"string","description":"Why the task needs them, in a short sentence; the user reads it as untrusted text, and it is never logged"}},`+
 	`"required":["tools"],"additionalProperties":false}`, accessrequest.MaxTools))
 
 var requestOutputSchema = json.RawMessage(`{"type":"object","properties":{` +
 	`"id":{"type":"string","description":"ID of the open request"},` +
+	`"kind":{"type":"string","enum":["add-tools","remove-tools"],"description":"The kind of the open request"},` +
 	`"connection":{"type":"string","description":"Name of the connection the request names"},` +
 	`"tools":{"type":"array","items":{"type":"string"},"description":"Every tool the open request holds, an earlier request of the connection included"},` +
 	`"status":{"type":"string","enum":["open"],"description":"open: a person has not decided yet"},` +
 	`"expires_at":{"type":"string","description":"When the request lapses unless a person decides"}},` +
-	`"required":["id","connection","tools","status","expires_at"],"additionalProperties":false}`)
+	`"required":["id","kind","connection","tools","status","expires_at"],"additionalProperties":false}`)
 
 // requestDescriptor is the fixed contract of OperationRequest. It belongs to no provider and no connection
 // offers it, so discovery never lists it as a tool.
 func requestDescriptor() capability.Descriptor {
 	return capability.Descriptor{
 		ID: OperationRequest, Version: 1, Title: "Request tools",
-		Description: "Ask the user for tools the connection does not offer. A request changes nothing by itself: " +
+		Description: "Ask the user for tools the connection does not offer (kind add-tools, the default), or ask " +
+			"that a connection stop offering tools it offers now (kind remove-tools), for example to narrow it. " +
+			"A request changes nothing by itself: " +
 			"it stays open until the user decides, so stop and tell the user what you asked for, and look at the " +
 			"tools of the connection later to see whether they are offered.",
 		Tags: []string{"request"},
@@ -42,11 +47,13 @@ func requestDescriptor() capability.Descriptor {
 		},
 		InputSchema: requestInputSchema, OutputSchema: requestOutputSchema,
 		Arguments: []capability.Argument{
+			{Name: "kind", Description: "add-tools (default) or remove-tools"},
 			{Name: "tools", Required: true, Description: "Tool IDs or <provider>.<segment>.* prefixes to request"},
 			{Name: "reason", Description: "Short reason for the user"},
 		},
 		Fields: []capability.Field{
 			{Name: "id", Description: "ID of the open request"},
+			{Name: "kind", Description: "add-tools or remove-tools"},
 			{Name: "connection", Description: "Name of the connection the request names"},
 			{Name: "tools", Description: "Every tool the open request holds"},
 			{Name: "status", Description: "open until the user decides"},
@@ -55,6 +62,9 @@ func requestDescriptor() capability.Descriptor {
 		Examples: []capability.Example{{
 			Description: "Ask for one tool of a group the connection leaves out",
 			Arguments:   json.RawMessage(`{"tools":["example.pages.delete"],"reason":"The task removes an obsolete page"}`),
+		}, {
+			Description: "Ask that the connection stop offering a group of tools it offers",
+			Arguments:   json.RawMessage(`{"kind":"remove-tools","tools":["example.admin.*"],"reason":"The task needs no admin tools"}`),
 		}},
 	}
 }
@@ -93,6 +103,7 @@ func (c *Core) invokeRequest(request InvokeRequest) (InvokeResponse, error) {
 		return InvokeResponse{}, &InvalidRequestError{Message: err.Error()}
 	}
 	var arguments struct {
+		Kind   string   `json:"kind"`
 		Tools  []string `json:"tools"`
 		Reason string   `json:"reason"`
 	}
@@ -100,7 +111,7 @@ func (c *Core) invokeRequest(request InvokeRequest) (InvokeResponse, error) {
 		return InvokeResponse{}, &InvalidRequestError{Message: "arguments do not satisfy the request contract"}
 	}
 	response, err := c.RequestTools(ToolRequest{
-		Connection: request.Connection, Tools: arguments.Tools, Reason: arguments.Reason,
+		Kind: arguments.Kind, Connection: request.Connection, Tools: arguments.Tools, Reason: arguments.Reason,
 	})
 	if err != nil {
 		return InvokeResponse{}, err

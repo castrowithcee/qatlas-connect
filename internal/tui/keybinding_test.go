@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	tea "charm.land/bubbletea/v2"
+	"github.com/charmbracelet/x/ansi"
 
 	kitprefs "github.com/castrowithcee/qatlas-kit/uiprefs"
 )
@@ -175,7 +176,7 @@ func TestSettingsCaptureShadowsGlobalKeys(t *testing.T) {
 	openSectionByName(t, m, sectionGeneral)
 	focusKeyRow(t, m, "info key")
 	press(t, m, "enter", "?")
-	if m.screen == screenHelp {
+	if helpOpen(m) {
 		t.Fatal("? opened the help while a key was captured")
 	}
 	if m.fail == "" {
@@ -195,10 +196,12 @@ func TestHelpListsTheKeysInForce(t *testing.T) {
 	keepKeys(t)
 	applyKeys(map[action]string{actInfo: "f3", actSave: "f4"})
 	m, _, _ := newModel(t)
-	m.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
-	m.helpTopic = 1
-	text := strings.Join(m.helpLines(), "\n")
-	for _, want := range []string{"info: i/F3", "save: F4", "help: ?", "lock: ctrl+l", "F-keys"} {
+	m.Update(tea.WindowSizeMsg{Width: 100, Height: 80})
+	press(t, m, "?")
+	m.render()
+	press(t, m, "end")
+	text := ansi.Strip(m.render())
+	for _, want := range []string{"i/F3 ", "F4 ", "? ", "ctrl+l ", "F-keys"} {
 		if !strings.Contains(text, want) {
 			t.Errorf("the help lacks %q", want)
 		}

@@ -102,7 +102,7 @@ func (m *Model) restartAsks() bool {
 		return true
 	}
 	switch m.screen {
-	case screenNav, screenList, screenForm, screenHelp, screenLogs, screenLogDetail:
+	case screenNav, screenList, screenForm, screenLogs, screenLogDetail:
 		return false
 	}
 	return true

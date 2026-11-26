@@ -284,6 +284,17 @@ const (
 	OperationRequestDrop    = "config.request.drop"
 )
 
+// The same events for a request to remove tools from a connection. Each entry still holds one tool, so the
+// kind of the request is part of the operation name and never of a field the requester could fill.
+const (
+	OperationRequestRemoveCreate = "config.request.remove.create"
+	OperationRequestRemoveExpire = "config.request.remove.expire"
+	OperationRequestRemoveDrop   = "config.request.remove.drop"
+	// A person's decision on such a request. Blocking does not exist for it.
+	OperationRequestRemoveAccept  = "config.request.remove.accept"
+	OperationRequestRemoveDecline = "config.request.remove.decline"
+)
+
 // requestOperations maps each tool request operation to its effect and the paths it may carry.
 var requestOperations = map[string]struct {
 	effect string
@@ -295,6 +306,13 @@ var requestOperations = map[string]struct {
 	OperationRequestBlock:   {"update", []string{"tui", "cli"}},
 	OperationRequestExpire:  {"delete", []string{"cli", "mcp", "tui", "web"}},
 	OperationRequestDrop:    {"delete", []string{"cli", "mcp", "tui", "web"}},
+
+	OperationRequestRemoveCreate: {"create", []string{"cli", "mcp"}},
+	OperationRequestRemoveExpire: {"delete", []string{"cli", "mcp", "tui", "web"}},
+	OperationRequestRemoveDrop:   {"delete", []string{"cli", "mcp", "tui", "web"}},
+
+	OperationRequestRemoveAccept:  {"update", []string{"tui", "cli"}},
+	OperationRequestRemoveDecline: {"update", []string{"tui", "cli"}},
 }
 
 // IsRequestOperation reports whether operation is one of a tool request's events.
@@ -366,6 +384,8 @@ var managementOperations = map[string]bool{
 	OperationConsentGrant: true, OperationConsentRevoke: true,
 	OperationRequestCreate: true, OperationRequestAccept: true, OperationRequestDecline: true,
 	OperationRequestBlock: true, OperationRequestExpire: true, OperationRequestDrop: true,
+	OperationRequestRemoveCreate: true, OperationRequestRemoveExpire: true, OperationRequestRemoveDrop: true,
+	OperationRequestRemoveAccept: true, OperationRequestRemoveDecline: true,
 }
 
 // consentOperations maps each consent operation to the effect it must carry.

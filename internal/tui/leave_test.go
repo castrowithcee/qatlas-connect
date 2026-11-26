@@ -28,7 +28,7 @@ func TestEscIsOneLevelBackOnEveryScreen(t *testing.T) {
 		t.Fatalf("opening a section left screen %v", m.screen)
 	}
 	press(t, m, "?")
-	if m.screen != screenHelp {
+	if !helpOpen(m) {
 		t.Fatalf("? opened screen %v", m.screen)
 	}
 	press(t, m, "esc")
@@ -312,7 +312,7 @@ func TestF3BackspaceAndQAreNotBackOrQuitInTheSetupAndForms(t *testing.T) {
 	}
 	press(t, m, "esc", "d", "?")
 	press(t, m, "q")
-	if m.quitting || m.screen != screenHelp {
+	if m.quitting || !helpOpen(m) {
 		t.Fatalf("q in the help: quitting %v, screen %v", m.quitting, m.screen)
 	}
 }
