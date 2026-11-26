@@ -61,7 +61,7 @@ func TestSavingTheFormKeepsExclusionsAndTheirLabels(t *testing.T) {
 	m, path = excludedModel(t)
 	openSectionByName(t, m, sectionConnections)
 	m.screen = screenList
-	pump(t, m, "p")
+	pump(t, m, "C")
 	clearField(t, m)
 	typeText(t, m, "ex-copy")
 	pump(t, m, "f2")

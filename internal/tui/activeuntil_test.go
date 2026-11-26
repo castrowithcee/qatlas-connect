@@ -134,7 +134,7 @@ func TestCopyKeepsTheInstantOfItsOriginal(t *testing.T) {
 	openEntryForm(t, m, sectionConnections, "wiki")
 	m.screen = screenList
 	m.list.selectName("wiki")
-	pump(t, m, "p")
+	pump(t, m, "C")
 	if m.copyFrom != "wiki" || m.fieldValue(activeForLabel) != "5h0m left" {
 		t.Fatalf("copy form: from %q, row %q, want wiki and 5h0m left", m.copyFrom, m.fieldValue(activeForLabel))
 	}

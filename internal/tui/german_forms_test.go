@@ -121,7 +121,7 @@ func (v *viewSet) forms() {
 	m = formsBase(t, navWidth, navHeight)
 	openSectionByName(t, m, sectionConnections)
 	m.list.selectName("docs")
-	press(t, m, "p")
+	press(t, m, "C")
 	v.see(m)
 	if m.screen == screenForm {
 		v.walkRows(m)

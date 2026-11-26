@@ -3,6 +3,7 @@ package tui
 import (
 	"os"
 	"path/filepath"
+	"reflect"
 	"regexp"
 	"slices"
 	"strconv"
@@ -44,10 +45,10 @@ func TestDefaultKeymapKeepsTheKnownKeys(t *testing.T) {
 		actTopicNext: "tab", actTopicPrev: "shift+tab",
 		actEnter: "enter", actSpace: "space", actSearch: "/", actQuit: "q", actYes: "y", actNo: "n", actDiscard: "d",
 		actSetup: "g", actCopy: "c", actNew: "n", actApproveAll: "A", actEdit: "e", actRename: "r", actReveal: "V",
-		actSummary: "s", actFilter: "f", actRevert: "B", actSessions: "M", actLogs: "o", actDuplicate: "p",
+		actSummary: "s", actFilter: "f", actRevert: "B", actSessions: "M", actLogs: "o", actClone: "C",
 		actTest: "t", actUpdate: "U", actWrite: "W", actDecline: "x", actBlock: "b", actTickAll: "a",
 		actRemoveField: "f8", actSuggestPrev: "ctrl+p", actSuggestNext: "ctrl+n", actNextKind: "ctrl+y",
-		actReload: "ctrl+r", actArea: "1",
+		actReload: "R", actArea: "1",
 	}
 	if len(keyTable) != len(want) {
 		t.Fatalf("keymap has %d actions, want %d", len(keyTable), len(want))
@@ -222,10 +223,30 @@ func TestLoadKeepsValidKeysBesideAReservedOne(t *testing.T) {
 	}
 }
 
+// Every standard action of the kit, but the menu Connect has not got, is in the table as the kit defines it.
+func TestTableHoldsTheStandardActionsAsTheKitDefinesThem(t *testing.T) {
+	for _, std := range kit.StandardActions() {
+		if std.ID == kit.ActionMenu {
+			continue
+		}
+		i := slices.IndexFunc(keyTable, func(a kit.Action) bool { return a.ID == std.ID })
+		if i < 0 {
+			t.Errorf("standard action %q is missing from the table", std.ID)
+			continue
+		}
+		if !reflect.DeepEqual(keyTable[i], std) {
+			t.Errorf("action %q = %+v, the kit defines %+v", std.ID, keyTable[i], std)
+		}
+	}
+}
+
 func TestEveryActionHasALevelAndHelpInBothLanguages(t *testing.T) {
 	for _, d := range keyTable {
 		if d.Level == "" || len(d.DefaultKeys) == 0 {
 			t.Errorf("action %q has no level or key", d.ID)
+		}
+		if strings.HasPrefix(string(d.Help), "tui.") {
+			continue // the kit's own text of a standard action
 		}
 		if textEN[textID(d.Help)] == "" || textDE[textID(d.Help)] == "" {
 			t.Errorf("action %q lacks a help text in a language", d.ID)

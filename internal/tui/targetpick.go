@@ -479,7 +479,7 @@ func (m *Model) updatePick(key tea.KeyPressMsg) tea.Cmd {
 		lv.list.startFilter()
 	case keyIs(key, actNextKind):
 		return m.pickNextKind(lv)
-	case keyIs(key, actReload):
+	case keyIs(key, actReload) && !lv.list.editing:
 		return m.pickLoad(lv, "")
 	case keyIs(key, actUp):
 		lv.list.move(-1)

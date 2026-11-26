@@ -16,7 +16,9 @@ import (
 type action = kit.ActionID
 
 const (
-	actInfo      action = "info"
+	actInfo      action = kit.ActionInfo
+	actClone     action = kit.ActionClone
+	actReload    action = kit.ActionReload
 	actSave      action = "save"
 	actHelp      action = "help"
 	actCommand   action = "command"
@@ -68,7 +70,6 @@ const (
 	actRevert     action = "revert"
 	actSessions   action = "sessions"
 	actLogs       action = "logs"
-	actDuplicate  action = "duplicate"
 	actTest       action = "test"
 	actUpdate     action = "update"
 	actWrite      action = "write"
@@ -77,7 +78,6 @@ const (
 	actSuggestPrev action = "suggestprev"
 	actSuggestNext action = "suggestnext"
 	actNextKind    action = "nextkind"
-	actReload      action = "reload"
 )
 
 // row is one entry of the key table with fixed keys.
@@ -98,45 +98,27 @@ func secondWayOf(a kit.Action, first action) kit.Action { a.SecondWayOf = first;
 // holds the keys only the help overlay knows; tab there steps through topics, not fields. Within the main
 // levels no two actions share a key; across them one key may mean different things only where the levels
 // never meet: the answers of a question (y, n, d) and the keys only the help overlay knows.
-var keyTable = []kit.Action{
-	rebindable(row(actSave, kit.LevelGlobal, tKeyHelpSave, "f2"), kit.RebindReplace),
-	rebindable(row(actHelp, kit.LevelGlobal, tKeyHelpHelp, "?"), kit.RebindReplace),
-	rebindable(row(actCommand, kit.LevelGlobal, tKeyHelpCommand, ":"), kit.RebindReplace),
-	rebindable(row(actLock, kit.LevelGlobal, tKeyHelpLock, "ctrl+l"), kit.RebindReplace),
-	row(actBack, kit.LevelGlobal, tKeyHelpBack, "esc"),
-	row(actForceQuit, kit.LevelGlobal, tKeyHelpForceQuit, "ctrl+c"),
+var keyTable = slices.Concat(standardActions(), []kit.Action{
 
-	// The letter actions: each letter means one thing on every screen where nothing is typed. The info letter
-	// takes an optional second key that, unlike the letter, also works on text lines.
-	rebindable(row(actInfo, kit.LevelLetter, tKeyHelpInfo, "i"), kit.RebindExtra),
-	row(actDelete, kit.LevelLetter, tKeyHelpDelete, "d"),
-	row(actQuit, kit.LevelLetter, tKeyHelpQuit, "q"),
+	// The letter actions of Connect: each letter means one thing on every screen where nothing is typed.
 	row(actSetup, kit.LevelLetter, tKeyHelpSetup, "g"),
-	row(actCopy, kit.LevelLetter, tKeyHelpCopy, "c"),
-	row(actNew, kit.LevelLetter, tKeyHelpNew, "n"),
 	row(actApproveAll, kit.LevelLetter, tKeyHelpApproveAll, "A"),
 	row(actDecline, kit.LevelLetter, tKeyHelpDecline, "x"),
 	row(actBlock, kit.LevelLetter, tKeyHelpBlock, "b"),
 	row(actTickAll, kit.LevelLetter, tKeyHelpTickAll, "a"),
-	row(actEdit, kit.LevelLetter, tKeyHelpEdit, "e"),
-	row(actRename, kit.LevelLetter, tKeyHelpRename, "r"),
 	row(actReveal, kit.LevelLetter, tKeyHelpReveal, "V"),
 	row(actSummary, kit.LevelLetter, tKeyHelpSummary, "s"),
-	row(actFilter, kit.LevelLetter, tKeyHelpFilter, "f"),
 	row(actRevert, kit.LevelLetter, tKeyHelpRevert, "B"),
 	row(actSessions, kit.LevelLetter, tKeyHelpSessions, "M"),
 	row(actLogs, kit.LevelLetter, tKeyHelpLogs, "o"),
-	row(actDuplicate, kit.LevelLetter, tKeyHelpDuplicate, "p"),
 	row(actTest, kit.LevelLetter, tKeyHelpTest, "t"),
-	row(actUpdate, kit.LevelLetter, tKeyHelpUpdate, "U"),
 	row(actWrite, kit.LevelLetter, tKeyHelpWrite, "W"),
 
-	// The control keys of text lines and of the target picker, and F8 of the payload form. None can be rebound to a global action.
+	// The control keys of text lines and F8 of the payload form. None can be rebound to a global action.
 	row(actRemoveField, kit.LevelCtrl, tKeyHelpRemoveField, "f8"),
 	secondWayOf(row(actSuggestPrev, kit.LevelCtrl, tKeyHelpSuggestPrev, "ctrl+p"), actUp),
 	secondWayOf(row(actSuggestNext, kit.LevelCtrl, tKeyHelpSuggestNext, "ctrl+n"), actDown),
 	row(actNextKind, kit.LevelCtrl, tKeyHelpNextKind, "ctrl+y"),
-	row(actReload, kit.LevelCtrl, tKeyHelpReload, "ctrl+r"),
 
 	row(actUp, kit.LevelMove, tKeyHelpUp, "up"),
 	row(actDown, kit.LevelMove, tKeyHelpDown, "down"),
@@ -150,7 +132,6 @@ var keyTable = []kit.Action{
 	row(actPrev, kit.LevelMove, tKeyHelpPrev, "shift+tab"),
 	row(actEnter, kit.LevelMove, tKeyHelpEnter, "enter"),
 	row(actSpace, kit.LevelMove, tKeyHelpSpace, "space"),
-	row(actSearch, kit.LevelMove, tKeyHelpSearch, "/"),
 	row(actArea, kit.LevelMove, tKeyHelpArea, areaKeys()...),
 
 	row(actVimUp, kit.LevelVim, tKeyHelpUp, "k"),
@@ -164,6 +145,12 @@ var keyTable = []kit.Action{
 	row(actYes, kit.LevelConfirm, tKeyHelpYes, "y"),
 	row(actNo, kit.LevelConfirm, tKeyHelpNo, "n"),
 	row(actDiscard, kit.LevelConfirm, tKeyHelpDiscard, "d"),
+})
+
+// standardActions are the kit's standard actions, taken as they are. The menu is left out: Connect has no
+// menu yet, and the kit allows leaving an action out.
+func standardActions() []kit.Action {
+	return slices.DeleteFunc(kit.StandardActions(), func(a kit.Action) bool { return a.ID == kit.ActionMenu })
 }
 
 // areaKeys are the digits that open the areas, one per area in the order of the tab line.
