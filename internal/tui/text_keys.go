@@ -33,6 +33,7 @@ const (
 	tHeaderCreated                           textID = "HeaderCreated"
 	tTabSetup                                textID = "TabSetup"
 	tVaultError                              textID = "VaultError"
+	tVaultErrorShort                         textID = "VaultErrorShort"
 	tVaultUnencrypted                        textID = "VaultUnencrypted"
 	tVaultUnlocked                           textID = "VaultUnlocked"
 	tVaultUnlockedUntil                      textID = "VaultUnlockedUntil"
@@ -1105,7 +1106,6 @@ const (
 const (
 	tKeysHeading           textID = "KeysHeading"
 	tScreenKeysHeading     textID = "ScreenKeysHeading"
-	tHeaderHelpAll         textID = "HeaderHelpAll"
 	tMacFnNote             textID = "MacFnNote"
 	tConnTestTitle         textID = "ConnTestTitle"
 	tKeySpaceRefused       textID = "KeySpaceRefused"

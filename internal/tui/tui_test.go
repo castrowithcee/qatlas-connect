@@ -165,6 +165,14 @@ func keyMsg(k string) tea.KeyPressMsg {
 		return tea.KeyPressMsg{Code: tea.KeyLeft}
 	case "right":
 		return tea.KeyPressMsg{Code: tea.KeyRight}
+	case "pgup":
+		return tea.KeyPressMsg{Code: tea.KeyPgUp}
+	case "pgdown":
+		return tea.KeyPressMsg{Code: tea.KeyPgDown}
+	case "home":
+		return tea.KeyPressMsg{Code: tea.KeyHome}
+	case "end":
+		return tea.KeyPressMsg{Code: tea.KeyEnd}
 	default:
 		// A function key or a control key carries no text, as a terminal reports it.
 		if n, err := strconv.Atoi(strings.TrimPrefix(k, "f")); err == nil && strings.HasPrefix(k, "f") && n >= 1 && n <= 20 {
@@ -667,7 +675,7 @@ func TestTabLineKeepsTheActiveTabWhole(t *testing.T) {
 		m.Update(tea.WindowSizeMsg{Width: width, Height: 24})
 		for a := area(0); a < areaCount; a++ {
 			m.section, m.screen = areaSections[a][0], screenList
-			line := shown(m.navLine())
+			line := shown(tabLine(m))
 			if strings.Contains(line, "\x1b") {
 				t.Fatalf("width %d: the tab line carries colour codes: %q", width, line)
 			}
@@ -681,7 +689,7 @@ func TestTabLineKeepsTheActiveTabWhole(t *testing.T) {
 				t.Errorf("width %d: the tab line is %d cells wide: %q", width, got, line)
 			}
 			m.screen = screenNav
-			if line := shown(m.navLine()); !strings.HasPrefix(line, "> ") {
+			if line := shown(tabLine(m)); !strings.HasPrefix(line, "> ") {
 				t.Errorf("width %d: the focused tab line has no marker: %q", width, line)
 			}
 		}
@@ -1147,7 +1155,7 @@ func screenOf(m *Model) string {
 	}
 	m.screenKeys, m.screenPos = "", ""
 	view := leftOfPane(m, m.workspaceView())
-	return shown(view + "\n" + m.footerLine())
+	return shown(view + "\n" + footerText(m))
 }
 
 // flatText is a view as one line of words, where the spacing between groups of keys does not matter.
@@ -1161,7 +1169,7 @@ func flatText(view string) string { return strings.Join(strings.Fields(view), " 
 
 // withFooter is a view drawn by a single screen function with the footer under it, which the keys of that
 // screen went to.
-func withFooter(m *Model, view string) string { return shown(view + "\n" + m.footerLine()) }
+func withFooter(m *Model, view string) string { return shown(view + "\n" + footerText(m)) }
 
 // explained is the whole explanation of the focused row as one line of words: what the pane and the overlay
 // show, while the form itself shows one line of hint.

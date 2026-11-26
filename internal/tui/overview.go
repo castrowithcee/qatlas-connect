@@ -2,6 +2,8 @@ package tui
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -531,11 +533,37 @@ func (m *Model) overviewStateLine(width int) string {
 	if !m.configExists {
 		suffix = tr(tHeaderCreated)
 	}
-	room := width - lipgloss.Width(line) - lipgloss.Width(headerSep)
+	room := width - lipgloss.Width(line) - lipgloss.Width(stateGap)
 	if room < overviewPathRoom {
 		return line
 	}
-	return line + headerSep + fitPath(m.configPath(), suffix, room)
+	return line + stateGap + fitPath(m.configPath(), suffix, room)
+}
+
+// stateGap is the gap between the version and the config path.
+const stateGap = "  "
+
+// fitPath is the plain path text for room cells: with the note that the file is still to be created if
+// that fits, else the path alone, else the end of the path.
+func fitPath(path, suffix string, room int) string {
+	if lipgloss.Width(path+suffix) <= room {
+		return path + suffix
+	}
+	return truncateLeft(path, room)
+}
+
+// configPath is the path of the configuration file, with the home directory written as "~".
+func (m *Model) configPath() string {
+	path := m.svc.Path()
+	if home, err := os.UserHomeDir(); err == nil && home != "" {
+		if path == home {
+			return "~"
+		}
+		if rest, ok := strings.CutPrefix(path, home+string(filepath.Separator)); ok {
+			return "~" + string(filepath.Separator) + rest
+		}
+	}
+	return path
 }
 
 // runningVersion is the version this editor runs; models built without one report dev.

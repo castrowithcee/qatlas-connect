@@ -15,40 +15,52 @@ import (
 	kittui "github.com/castrowithcee/qatlas-kit/tui"
 )
 
-// vaultCases are the vault states the header shows, each with the word it must name.
+// vaultCases are the vault states the header shows, each with the word it must name. A warning stands at
+// every width; the other marks give way to the keys of the header where the width is short.
 func vaultCases(t *testing.T) []struct {
-	name  string
-	m     *Model
-	words []string
+	name    string
+	m       *Model
+	words   []string
+	warning bool
 } {
 	t.Helper()
 	none, _, _ := newModel(t)
 	locked, _ := newEncryptedVaultModel(t, filepath.Join(t.TempDir(), "qconnect"), "hunter2", false)
 	unlocked, _ := newEncryptedVaultModel(t, filepath.Join(t.TempDir(), "qconnect"), "hunter2", true)
 	return []struct {
-		name  string
-		m     *Model
-		words []string
+		name    string
+		m       *Model
+		words   []string
+		warning bool
 	}{
-		{"no vault", none, nil},
-		{"unencrypted", unencryptedVaultModel(t), []string{"vault unencrypted"}},
-		{"locked", locked, []string{"vault locked"}},
-		{"unlocked", unlocked, []string{"vault unlocked", "admin"}},
+		{"no vault", none, nil, false},
+		{"unencrypted", unencryptedVaultModel(t), []string{"vault unencrypted"}, true},
+		{"locked", locked, []string{"vault locked"}, true},
+		{"unlocked", unlocked, []string{"vault unlocked", "admin"}, false},
 	}
 }
 
-// workspaceRows is what the frame leaves the workspace: the screen minus header, tab line, option bar, rule,
-// and the footer.
-func workspaceRows(m *Model) int {
-	rows := m.termHeight - len(m.headerLines()) - 3
-	if m.hasSubTabs() {
-		rows--
-	}
-	return max(rows, 1)
+// drawnFrame is the frame of the current screen around an empty workspace, line by line, as the kit draws it.
+func drawnFrame(m *Model) []string {
+	m.layoutWorkspace()
+	view, _ := m.kitFrame().Render(styles.Styles, m.spec)
+	return strings.Split(view, "\n")
 }
 
-// The footer is the last line of the screen at every size and in every vault state, it is one line, and it
-// names the help key; the workspace height follows from the header that is actually drawn.
+// headerLine, tabLine and subTabLine are the first lines of the frame, footerText its last one or two.
+func headerLine(m *Model) string { return drawnFrame(m)[0] }
+func tabLine(m *Model) string    { return drawnFrame(m)[1] }
+func subTabLine(m *Model) string { return drawnFrame(m)[2] }
+func footerText(m *Model) string {
+	lines := drawnFrame(m)
+	return strings.Join(lines[m.top+m.height:], "\n")
+}
+
+// footerRows is the number of rows below the workspace, which the footer takes.
+func footerRows(m *Model) int { return m.termHeight - m.top - m.height }
+
+// The footer takes the last line of the screen, or the last two, at every size and in every vault state, and
+// it names the help key; the workspace takes the rows between the frame's lines.
 func TestFooterIsTheLastLineAtEverySize(t *testing.T) {
 	sizes := []struct{ width, height int }{{minimumWidth, minimumHeight}, {79, 24}, {150, 42}}
 	for _, vc := range vaultCases(t) {
@@ -64,11 +76,12 @@ func TestFooterIsTheLastLineAtEverySize(t *testing.T) {
 					if len(lines) != size.height {
 						t.Fatalf("view has %d lines, want %d:\n%s", len(lines), size.height, view)
 					}
-					if last := lines[len(lines)-1]; !namesHelp(last) {
-						t.Errorf("the last line %q does not name the help key:\n%s", last, view)
+					rows := footerRows(m)
+					if rows < 1 || rows > 2 {
+						t.Fatalf("the footer takes %d rows", rows)
 					}
-					if m.height != workspaceRows(m) {
-						t.Errorf("workspace height %d, want %d", m.height, workspaceRows(m))
+					if foot := strings.Join(lines[len(lines)-rows:], "\n"); !namesHelp(foot) {
+						t.Errorf("the footer %q does not name the help key:\n%s", foot, view)
 					}
 				})
 			}
@@ -111,32 +124,32 @@ func TestEverySectionFitsTheSmallestSizeWithAStatusNote(t *testing.T) {
 	})
 }
 
-// The header names every vault and admin state, and the workspace height follows each change of it. At the
-// smallest width a long admin text is cut with an ellipsis; its first word stays.
+// The header names every vault and admin state, and the workspace keeps the rows the frame leaves it at each
+// change of it. A warning stands at the smallest width too.
 func TestHeaderNamesEveryStateAndTheHeightFollows(t *testing.T) {
 	for _, vc := range vaultCases(t) {
 		for _, width := range []int{minimumWidth, 79, 150} {
 			t.Run(fmt.Sprintf("%s/%d", vc.name, width), func(t *testing.T) {
 				m := vc.m
 				m.Update(tea.WindowSizeMsg{Width: width, Height: 30})
-				header := strings.Join(strings.Fields(strings.Join(m.headerLines(), " ")), " ")
+				header := strings.Join(strings.Fields(headerLine(m)), " ")
 				for _, word := range vc.words {
-					if !strings.Contains(header, word) {
+					if (vc.warning || width > minimumWidth) && !strings.Contains(header, word) {
 						t.Errorf("header %q lacks %q", header, word)
 					}
 				}
 				if !strings.Contains(header, "Qatlas") {
 					t.Errorf("header %q lacks the name", header)
 				}
-				if m.height != workspaceRows(m) {
-					t.Errorf("workspace height %d, want %d", m.height, workspaceRows(m))
+				if rows := footerRows(m); rows < 1 || rows > 2 {
+					t.Errorf("workspace height %d leaves %d rows for the footer", m.height, rows)
 				}
 			})
 		}
 	}
 
 	unlocked, _ := newEncryptedVaultModel(t, filepath.Join(t.TempDir(), "qconnect"), "hunter2", true)
-	for _, width := range []int{minimumWidth, 79} {
+	for _, width := range []int{79, 150} {
 		unlocked.Update(tea.WindowSizeMsg{Width: width, Height: 30})
 		for _, step := range []struct {
 			name string
@@ -151,20 +164,14 @@ func TestHeaderNamesEveryStateAndTheHeightFollows(t *testing.T) {
 		} {
 			step.do()
 			unlocked.Update(vaultTickMsg{})
-			header := strings.Join(strings.Fields(strings.Join(unlocked.headerLines(), " ")), " ")
-			want := step.want
-			if width == minimumWidth {
-				want = strings.Fields(want)[0] + " "
-			}
-			if !strings.Contains(header, want) {
-				t.Errorf("width %d, %s: header %q lacks %q", width, step.name, header, want)
-			}
-			if unlocked.height != workspaceRows(unlocked) {
-				t.Errorf("width %d, %s: workspace height %d, want %d", width, step.name, unlocked.height, workspaceRows(unlocked))
+			header := strings.Join(strings.Fields(headerLine(unlocked)), " ")
+			if !strings.Contains(header, step.want) {
+				t.Errorf("width %d, %s: header %q lacks %q", width, step.name, header, step.want)
 			}
 			view := unlocked.render()
-			if lines := strings.Split(view, "\n"); len(lines) != 30 || !namesHelp(lines[29]) {
-				t.Errorf("width %d, %s: the footer is not the last line:\n%s", width, step.name, view)
+			lines := strings.Split(view, "\n")
+			if rows := footerRows(unlocked); len(lines) != 30 || rows < 1 || rows > 2 || !namesHelp(strings.Join(lines[30-rows:], "\n")) {
+				t.Errorf("width %d, %s: the footer is not at the end:\n%s", width, step.name, view)
 			}
 		}
 		unlocked.RefreshAdminTimeout()
@@ -175,43 +182,67 @@ func TestHeaderNamesEveryStateAndTheHeightFollows(t *testing.T) {
 func TestHeaderNamesTheBoundKeys(t *testing.T) {
 	m, _, _ := newModel(t)
 	m.Update(tea.WindowSizeMsg{Width: 200, Height: 30})
-	if got := m.headerLines()[0]; !strings.Contains(got, "[?] help") || !strings.Contains(got, "[:] cmd") {
+	if got := headerLine(m); !strings.Contains(got, "[?] help") || !strings.Contains(got, "[:] cmd") {
 		t.Fatalf("header %q lacks the default keys", got)
 	}
 	rebind(t, actHelp, "ctrl+x")
 	rebind(t, actCommand, "f3")
-	got := m.headerLines()[0]
+	got := headerLine(m)
 	if !strings.Contains(got, "[ctrl+x] help") || !strings.Contains(got, "[F3] cmd") || strings.Contains(got, "[?]") {
 		t.Errorf("header %q does not follow the keymap", got)
 	}
 	m.Update(tea.WindowSizeMsg{Width: 30, Height: 30})
-	if got := m.headerLines()[0]; strings.Contains(got, "cmd") {
+	if got := headerLine(m); strings.Contains(got, "cmd") {
 		t.Errorf("header %q keeps the hints although they do not fit", got)
 	}
 }
 
-// The footer gives up groups by rank, never the help key, and never exceeds the width.
+// The help and command keys stand in the header only where they act: a text field takes ? and : as text.
+func TestHeaderKeysStandWhereTheyAct(t *testing.T) {
+	m := sizedModel(groupModel(t), 140, 40)
+	openSectionByName(t, m, sectionConnections)
+	if got := ansi.Strip(headerLine(m)); !strings.Contains(got, "[?] help") || !strings.Contains(got, "[:] cmd") {
+		t.Fatalf("list header %q lacks the keys", got)
+	}
+	pressNew(t, m)
+	if !m.typing() {
+		t.Fatalf("the new form does not start on a text field")
+	}
+	if got := ansi.Strip(headerLine(m)); strings.Contains(got, "[?]") || strings.Contains(got, "[:]") {
+		t.Errorf("header %q names keys that type text in the field", got)
+	}
+}
+
+// The footer takes a second row before it gives up groups, then gives them up navigation first, never the
+// help key, and never exceeds the width.
 func TestFooterGivesUpGroupsByRankAndKeepsHelp(t *testing.T) {
 	m, _, _ := newModel(t)
-	text := "up/down move · enter edit · n new · / filter · {back} back · {command} cmds · {help} help · q quit"
+	text := "{up}/{down} move · {enter} edit · {new} new · {filter} filter · {back} back · {command} cmds · {help} help · {quit} quit"
 	for width := 120; width >= 8; width-- {
-		m.termWidth = width
-		m.screenKeys = text
-		line := shown(m.footerLine())
-		if w := lipgloss.Width(line); w > width {
-			t.Fatalf("width %d: footer is %d cells: %q", width, w, line)
+		m.Update(tea.WindowSizeMsg{Width: width, Height: 30})
+		spec := m.spec
+		spec.Footer = m.keyHints(text)
+		view, _ := m.kitFrame().Render(styles.Styles, spec)
+		lines := strings.Split(ansi.Strip(view), "\n")
+		foot := strings.Join(lines[len(lines)-2:], "\n")
+		for _, line := range lines[len(lines)-2:] {
+			if w := lipgloss.Width(line); w > width {
+				t.Fatalf("width %d: footer is %d cells: %q", width, w, line)
+			}
 		}
-		if !namesHelp(line) {
-			t.Fatalf("width %d: footer %q lost the help key", width, line)
+		if !namesHelp(foot) {
+			t.Fatalf("width %d: footer %q lost the help key", width, foot)
 		}
-	}
-	m.termWidth, m.screenKeys = 40, text
-	line := shown(m.footerLine())
-	if !strings.Contains(line, "esc back") || !namesHelp(line) {
-		t.Errorf("40 cells: footer %q lost esc back or the help key", line)
-	}
-	if strings.Contains(line, "up/down") {
-		t.Errorf("40 cells: footer %q keeps navigation before other keys", line)
+		if strings.Contains(foot, "↑/↓ move") {
+			for _, group := range []string{"enter edit", "n new", "f filter", "esc back", ": cmds", "q quit"} {
+				if !strings.Contains(foot, group) {
+					t.Errorf("width %d: footer %q keeps navigation and gave up %q", width, foot, group)
+				}
+			}
+		}
+		if width == 40 && !strings.Contains(foot, "esc back") {
+			t.Errorf("40 cells: footer %q lost esc back", foot)
+		}
 	}
 }
 
@@ -230,7 +261,7 @@ func TestStatusAndErrorStayVisible(t *testing.T) {
 		if flat := flatText(view); !strings.Contains(flat, "something failed") {
 			t.Errorf("%dx%d: the error is gone:\n%s", size.width, size.height, view)
 		}
-		if lines := strings.Split(view, "\n"); !namesHelp(lines[len(lines)-1]) {
+		if lines := strings.Split(view, "\n"); !namesHelp(strings.Join(lines[len(lines)-footerRows(m):], "\n")) {
 			t.Errorf("%dx%d: the footer is gone under the error:\n%s", size.width, size.height, view)
 		}
 	}
@@ -264,7 +295,7 @@ func TestFrameReadsWithoutColour(t *testing.T) {
 	m.section, m.screen = sectionServices, screenList
 	view := m.render()
 	lines := strings.Split(view, "\n")
-	header, tabs, footer := lines[0], lines[1], lines[len(lines)-1]
+	header, tabs, footer := lines[0], lines[1], strings.Join(lines[len(lines)-footerRows(m):], "\n")
 	for name, line := range map[string]string{"header": header, "tab line": tabs, "footer": footer} {
 		if hasColour(line) {
 			t.Errorf("%s carries a colour under NO_COLOR: %q", name, line)
@@ -286,8 +317,8 @@ func TestFrameReadsWithoutColour(t *testing.T) {
 	}
 }
 
-// The header names the product in full at a usual width and gives way to the short name at the smallest
-// width, beside the vault mark and the keys, staying one row.
+// The header names the product in full at a usual width and gives way to the short name where the name and
+// the keys at its right end do not fit beside each other, staying one row.
 func TestHeaderNameFollowsTheWidth(t *testing.T) {
 	eachLanguage(t, func(t *testing.T) {
 		for _, vc := range vaultCases(t) {
@@ -298,25 +329,46 @@ func TestHeaderNameFollowsTheWidth(t *testing.T) {
 				m := vc.m
 				for _, width := range []int{80, 150} {
 					m.Update(tea.WindowSizeMsg{Width: width, Height: 30})
-					if row := ansi.Strip(m.headerLines()[0]); !strings.Contains(row, tr(tHeaderTitle)) {
+					if row := ansi.Strip(headerLine(m)); !strings.Contains(row, tr(tHeaderTitle)) {
 						t.Errorf("width %d: header %q lacks %q", width, row, tr(tHeaderTitle))
 					}
 				}
 				m.Update(tea.WindowSizeMsg{Width: minimumWidth, Height: minimumHeight})
-				lines := m.headerLines()
-				if len(lines) != 1 || ansi.StringWidth(lines[0]) > minimumWidth {
-					t.Fatalf("header %q is not one row within %d cells", lines, minimumWidth)
+				m.termWidth = lipgloss.Width(tr(tHeaderTitle)) + 3
+				line := headerLine(m)
+				if ansi.StringWidth(line) > m.termWidth {
+					t.Fatalf("header %q is not one row within %d cells", line, m.termWidth)
 				}
-				row := ansi.Strip(lines[0])
-				if strings.Contains(row, tr(tHeaderTitle)) || !strings.Contains(row, tr(tHeaderTitleShort)+" ") {
+				if row := ansi.Strip(line); strings.Contains(row, tr(tHeaderTitle)) || !strings.Contains(row, tr(tHeaderTitleShort)) {
 					t.Errorf("header %q does not show the short name %q", row, tr(tHeaderTitleShort))
-				}
-				if !strings.Contains(row, "●") {
-					t.Errorf("header %q lacks the vault mark", row)
 				}
 			})
 		}
 	})
+}
+
+// The warning about the vault stands in a narrow header too, before the back button and the keys of the
+// header: it is what the person must not miss.
+func TestTheVaultWarningStaysInANarrowHeader(t *testing.T) {
+	for _, vc := range vaultCases(t) {
+		if !vc.warning {
+			continue
+		}
+		t.Run(vc.name, func(t *testing.T) {
+			m := vc.m
+			m.Update(tea.WindowSizeMsg{Width: 140, Height: 30})
+			openSectionByName(t, m, sectionConnections)
+			pressNew(t, m)
+			press(t, m, "tab")
+			for width := minimumWidth; width <= 100; width++ {
+				m.Update(tea.WindowSizeMsg{Width: width, Height: 30})
+				row := ansi.Strip(headerLine(m))
+				if !strings.Contains(row, vc.words[0]) {
+					t.Fatalf("width %d: header %q lacks the warning %q", width, row, vc.words[0])
+				}
+			}
+		})
+	}
 }
 
 // From the smallest width on the header is one row in every vault state, with the admin text that asks for
@@ -333,15 +385,15 @@ func TestHeaderIsOneRowWithoutThePathAtTheSmallestWidth(t *testing.T) {
 					}
 					for _, width := range []int{minimumWidth, minimumWidth + 1, 60} {
 						m.Update(tea.WindowSizeMsg{Width: width, Height: minimumHeight})
-						lines := m.headerLines()
-						if len(lines) != 1 || ansi.StringWidth(lines[0]) > width {
-							t.Fatalf("width %d: header %q is not one row within the terminal", width, lines)
+						line := headerLine(m)
+						if ansi.StringWidth(line) > width {
+							t.Fatalf("width %d: header %q is not one row within the terminal", width, line)
 						}
-						if row := ansi.Strip(lines[0]); strings.Contains(row, "config.yaml") || !strings.Contains(row, "Qatlas") {
+						if row := ansi.Strip(line); strings.Contains(row, "config.yaml") || !strings.Contains(row, "Qatlas") {
 							t.Errorf("width %d: header %q", width, row)
 						}
-						if len(vc.words) > 0 {
-							if row := ansi.Strip(lines[0]); !strings.Contains(row, "●") {
+						if vc.warning {
+							if row := ansi.Strip(line); !strings.Contains(row, "●") {
 								t.Errorf("width %d: header %q lacks the vault mark", width, row)
 							}
 						}

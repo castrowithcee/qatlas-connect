@@ -56,14 +56,9 @@ func keyLineScreens() []struct {
 	return cases
 }
 
-// drawnKeyLine is the key text the screen records while it draws in the workspace, also where a modal would
-// cover it.
+// drawnKeyLine is the key text the frame drawn last took for the footer of the screen.
 func drawnKeyLine(m *Model) string {
 	m.render()
-	if m.screenKeys == "" {
-		m.layoutWorkspace()
-		m.workspaceView()
-	}
 	return m.screenKeys
 }
 

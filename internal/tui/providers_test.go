@@ -487,7 +487,7 @@ func TestProviderTableRowsAreHighlightedFullWidthReadWithoutColourAndSearchByTyp
 
 		setProfile(kittui.ProfileANSI16)
 		coloured := screenOf(m)
-		assertViewFits(t, coloured, width, m.height+1)
+		assertViewFits(t, coloured, width, m.height+footerRows(m))
 		if row := findRow(coloured, marked); !hasBackground(row) {
 			t.Errorf("width %d: the marked provider row shows no colour: %q\n%s", width, row, coloured)
 		}
@@ -497,7 +497,7 @@ func TestProviderTableRowsAreHighlightedFullWidthReadWithoutColourAndSearchByTyp
 
 		setProfile(kittui.ProfileNone)
 		plain := screenOf(m)
-		assertViewFits(t, plain, width, m.height+1)
+		assertViewFits(t, plain, width, m.height+footerRows(m))
 		if strings.Contains(plain, "\x1b") {
 			t.Errorf("width %d: NO_COLOR still emits escape sequences in the provider table:\n%s", width, plain)
 		}

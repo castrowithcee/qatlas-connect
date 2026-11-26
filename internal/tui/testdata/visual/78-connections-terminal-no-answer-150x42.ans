@@ -1,8 +1,8 @@
-[1;34m🌐[m [1mQatlas Connect[m  [1;32m●[m vault unlocked  [90m●[m admin off                                                                                     [90m[?] help[m  [90m[:] cmd[m
-[1;34m  [m[90m 1 🏠 Overview [m [90m 2 📚 Library [m [1;44m 3 🔗 Connections [m [90m 4 📈 Activity [m [90m 5 🔑 Access [m [90m 6 🔧 Settings [m
+[1m🌐 Qatlas Connect[m  [1;32m●[m vault unlocked  [90madmin off[m                                                                                       [90m[?] help[m  [90m[:] cmd[m
+  [90m 1 🏠 Overview [m [90m 2 📚 Library [m [1;44m 3 🔗 Connections [m [90m 4 📈 Activity [m [90m 5 🔑 Access [m [90m 6 🔧 Settings [m                                                     
 [90m──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────[m
-[1mConnections (7)[m                                                                       [90m1/7[m
-
+[1mConnections (7)[m                                                                       [90m1/7[m                                                             
+                                                                                                                                                      
 [34m╭─[m[1m[m[34m──────────────────────────────────────────────────────────────────────────────────────╮[m [90m╭─[m[1m[m[90m─────────────────────────────────────────────────────────╮[m
 [34m│[m    Group: Provider ▾      State: All ▾      Sort: Name ▾   [90m / search…                [m [34m│[m [90m│[m [1mwiki-main[m                                       [1;32m●[m active [90m│[m
 [34m│[m [90m    NAME            STATE   SERVICE  EFFECTS             TOOLS  DESCRIPTION[m           [34m│[m [90m│[m [90mbookstack[m                                                [90m│[m
@@ -21,22 +21,22 @@
 [34m│[m   [90m▾ [m[31m■[m [1;34mtwenty-crm[m[90m (1)[m                                                                  [34m│[m [90m│[m                                                          [90m│[m
 [34m│[m     crm-sales       [1;32mactive[m  crm      [90mread[m                [90mall[m    Sales pipeline        [34m│[m [90m│[m                                                          [90m│[m
 [34m╰───────────────────────────────────────────────────────────────────────────────────────╯[m [90m╰──────────────────────────────────────────────────────────╯[m
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-[1;34m/[m[90m filter[m  [1;34mn[m[90m new[m  [1;34mC[m[90m clone[m  [1;34menter/e[m[90m edit/fold[m  [1;34mr[m[90m rename[m  [1;34md[m[90m delete[m  [1;34mt[m[90m test[m  [1;34mg[m[90m setup[m  [1;34m1-6/esc[m[90m areas[m  [1;34mctrl+l[m[90m lock vault[m  [1;34mi[m[90m info[m  [1;34m:[m[90m cmds[m  [1;34m?[m[90m all keys[m  [1;34mq[m[90m quit[m
+                                                                                                                                                      
+                                                                                                                                                      
+                                                                                                                                                      
+                                                                                                                                                      
+                                                                                                                                                      
+                                                                                                                                                      
+                                                                                                                                                      
+                                                                                                                                                      
+                                                                                                                                                      
+                                                                                                                                                      
+                                                                                                                                                      
+                                                                                                                                                      
+                                                                                                                                                      
+                                                                                                                                                      
+                                                                                                                                                      
+                                                                                                                                                      
+                                                                                                                                                      
+[1;34m/[m [90mfilter[m  [1;34mn[m [90mnew[m  [1;34mC[m [90mclone[m  [1;34menter[m[1;34m/[m[1;34me[m [90medit/fold[m  [1;34mr[m [90mrename[m  [1;34md[m [90mdelete[m  [1;34mt[m [90mtest[m  [1;34mg[m [90msetup[m  [1;34m1-6[m[1;34m/[m[1;34mesc[m [90mareas[m  [1;34mctrl+l[m [90mlock vault[m  [1;34mc[m [90mcopy[m  [1;34mi[m [90minfo[m  [1;34m:[m [90mcmds[m  [1;34m?[m [90mhelp[m    
+[1;34mq[m [90mquit[m                                                                                                                               [90m←[m[90m/[m[90m→[m [90mfold[m  [90mtab[m [90mbar[m
