@@ -1,13 +1,10 @@
 package tui
 
 import (
-	"fmt"
 	"strings"
 
-	"charm.land/lipgloss/v2"
-
-	"charm.land/bubbles/v2/textinput"
 	tea "charm.land/bubbletea/v2"
+	kittui "github.com/castrowithcee/qatlas-kit/tui"
 )
 
 // The command line (':') runs the editor's recurring actions by name. It is a register, not a second set of
@@ -16,13 +13,19 @@ import (
 
 // command is one entry of the register.
 type command struct {
-	name    string
-	desc    string
+	name string
+	// desc is the description, formatted with args.
+	desc    textID
+	args    []any
 	aliases []string
 	// hidden keeps the command out of the empty line's list; it still matches what is typed.
 	hidden bool
-	// shortcut returns the key that already does the same, or "" where there is none.
-	shortcut func() string
+	// act is the action whose key already does the same, and key the position of that one key where each key
+	// of act does another thing; a command without such a key has an action of its own. area tells apart the
+	// commands that share act.
+	act  action
+	key  int
+	area kittui.AreaID
 	// icon is the meaning of the glyph shown before the name; iconNone where there is none.
 	icon iconID
 	// unavailable returns the reason the command cannot run on m.screen now, or "" where it can.
@@ -31,27 +34,20 @@ type command struct {
 	run func(m *Model) tea.Cmd
 }
 
-// commandLine is the open command line: the screen it covers, the typed text and the chosen match.
-type commandLine struct {
-	from     screen
-	fromKeys string // keys of the covered screen, which the command line's own render replaces
-	input    textinput.Model
-	cursor   int
-	msg      string
-}
-
 // commands is the register, in the order an empty line lists it.
 func (m *Model) commands() []command {
 	var list []command
-	keys := areaKeys()
 	for a := area(0); a < areaCount; a++ {
 		title := strings.ToLower(a.key())
 		first := areaSections[a][0]
 		list = append(list, command{
 			name:        "go " + title,
-			desc:        tr(tCmdGoArea, a.title()),
+			desc:        tCmdGoArea,
+			args:        []any{a.title()},
 			icon:        areaIcons[a],
-			shortcut:    func() string { return keys[a] },
+			act:         actArea,
+			key:         int(a) + 1,
+			area:        kittui.AreaID(a.key()),
 			aliases:     []string{title},
 			unavailable: onScreens("switch areas", screenNav, screenList, screenLogs),
 			run:         func(m *Model) tea.Cmd { return m.openSection(first) },
@@ -70,7 +66,8 @@ func (m *Model) commands() []command {
 			}
 			list = append(list, command{
 				name:        "go " + name,
-				desc:        tr(tCmdGoSection, a.title(), s.title()),
+				desc:        tCmdGoSection,
+				args:        []any{a.title(), s.title()},
 				aliases:     aliases,
 				hidden:      true,
 				unavailable: onScreens("switch areas", screenNav, screenList, screenLogs),
@@ -82,15 +79,15 @@ func (m *Model) commands() []command {
 	return append(list,
 		command{
 			name:        "setup",
-			desc:        tr(tCmdSetup),
-			shortcut:    shortcutOf(actSetup),
+			desc:        tCmdSetup,
+			act:         actSetup,
 			aliases:     []string{"guided setup", "new connection"},
 			unavailable: onScreens("start the setup", screenNav, screenList),
 			run:         func(m *Model) tea.Cmd { m.askSetupTemplate(); return nil },
 		},
 		command{
 			name:    "add exclusion",
-			desc:    tr(tCmdAddExclusion),
+			desc:    tCmdAddExclusion,
 			aliases: []string{"exclude", "exclusion"},
 			// Only the target list carries it, so the empty line of other screens does not list it.
 			hidden:      true,
@@ -99,7 +96,7 @@ func (m *Model) commands() []command {
 		},
 		command{
 			name:    "renames",
-			desc:    tr(tCmdRenames),
+			desc:    tCmdRenames,
 			aliases: []string{"adopt", "rename leftovers"},
 			unavailable: func(m *Model) string {
 				if r := onScreens("review renames", screenList)(m); r != "" {
@@ -114,10 +111,10 @@ func (m *Model) commands() []command {
 			run: func(m *Model) tea.Cmd { return m.openFindings() },
 		},
 		command{
-			name:     "update",
-			desc:     tr(tCmdUpdate),
-			shortcut: shortcutOf(actUpdate),
-			aliases:  []string{"upgrade"},
+			name:    "update",
+			desc:    tCmdUpdate,
+			act:     actUpdate,
+			aliases: []string{"upgrade"},
 			unavailable: func(m *Model) string {
 				if r := onScreens("update", screenNav, screenList)(m); r != "" {
 					return r
@@ -128,7 +125,7 @@ func (m *Model) commands() []command {
 		},
 		command{
 			name:    "version",
-			desc:    tr(tCmdVersion),
+			desc:    tCmdVersion,
 			aliases: []string{"versions", "rollback", "downgrade", "prerelease"},
 			unavailable: func(m *Model) string {
 				if r := onScreens("choose a version", screenNav, screenList)(m); r != "" {
@@ -140,60 +137,57 @@ func (m *Model) commands() []command {
 		},
 		command{
 			name:        "export",
-			desc:        tr(tCmdExport),
+			desc:        tCmdExport,
 			aliases:     []string{"export config", "backup"},
 			unavailable: onScreens("export", screenNav, screenList),
 			run:         func(m *Model) tea.Cmd { return m.askExport() },
 		},
 		command{
 			name:        "import",
-			desc:        tr(tCmdImport),
+			desc:        tCmdImport,
 			aliases:     []string{"import config", "restore"},
 			unavailable: onScreens("import", screenNav, screenList),
 			run:         func(m *Model) tea.Cmd { return m.askImport() },
 		},
 		command{
 			name:        "view heatmap",
-			desc:        tr(tCmdHeat),
+			desc:        tCmdHeat,
 			aliases:     []string{"heatmap"},
 			unavailable: onScreens("change the view", screenLogs),
 			run:         func(m *Model) tea.Cmd { return m.setHeat(true) },
 		},
 		command{
 			name:        "view table",
-			desc:        tr(tCmdTable),
+			desc:        tCmdTable,
 			aliases:     []string{"table"},
 			unavailable: onScreens("change the view", screenLogs),
 			run:         func(m *Model) tea.Cmd { return m.setHeat(false) },
 		},
 		command{
 			name:        "lock vault",
-			desc:        tr(tCmdLock),
-			shortcut:    shortcutOf(actLock),
+			desc:        tCmdLock,
+			act:         actLock,
 			aliases:     []string{"lock"},
 			unavailable: (*Model).lockUnavailable,
 			run:         func(m *Model) tea.Cmd { return m.handleVaultLockKey() },
 		},
 		command{
 			name:        "help",
-			desc:        tr(tCmdHelp),
-			shortcut:    shortcutOf(actHelp),
+			desc:        tCmdHelp,
+			act:         actHelp,
 			unavailable: func(m *Model) string { return "" },
 			run:         func(m *Model) tea.Cmd { m.openHelp(); return nil },
 		},
 		command{
 			name:        "quit",
-			desc:        tr(tCmdQuit),
-			shortcut:    shortcutOf(actQuit),
+			desc:        tCmdQuit,
+			act:         actQuit,
 			aliases:     []string{"exit"},
 			unavailable: onScreens("quit", screenNav, screenList, screenLogs),
 			run:         func(m *Model) tea.Cmd { return m.quit() },
 		},
 	)
 }
-
-// shortcutOf is the shortcut column of a command: the keys bound to the action now.
-func shortcutOf(a action) func() string { return func() string { return keyLabel(a) } }
 
 // onScreens is the availability of a command whose key works on these screens only.
 func onScreens(what string, screens ...screen) func(m *Model) string {
@@ -222,221 +216,84 @@ func (m *Model) updateUnavailable() string {
 	return ""
 }
 
-// unavailableFrom evaluates a command as if the editor were on screen from.
-func (m *Model) unavailableFrom(c command, from screen) string {
-	saved := m.screen
-	m.screen = from
-	defer func() { m.screen = saved }()
-	return c.unavailable(m)
-}
-
-// matchCommands returns the commands matching query by name or alias, ignoring case: prefixes first, then
-// other word starts, then any part of a word; each group keeps the register's order.
-func matchCommands(list []command, query string) []command {
-	query = strings.ToLower(strings.TrimSpace(query))
-	if query == "" {
-		var shown []command
-		for _, c := range list {
-			if !c.hidden {
-				shown = append(shown, c)
-			}
-		}
-		return shown
-	}
-	var groups [3][]command
-	for _, c := range list {
-		rank := 3
-		for _, n := range append([]string{c.name}, c.aliases...) {
-			n = strings.ToLower(n)
-			switch {
-			case strings.HasPrefix(n, query):
-				rank = min(rank, 0)
-			case strings.Contains(n, " "+query):
-				rank = min(rank, 1)
-			case strings.Contains(n, query):
-				rank = min(rank, 2)
-			}
-		}
-		if rank < 3 {
-			groups[rank] = append(groups[rank], c)
-		}
-	}
-	return append(append(groups[0], groups[1]...), groups[2]...)
-}
-
-// commandPrompt opens the input line of the command line. It is a prompt symbol, not the key that opens
-// the line, which may be rebound.
-const commandPrompt = ": "
-
-// openCommandLine shows the command line over the current screen.
+// openCommandLine opens the command line over the current screen, which decides where each command acts.
 func (m *Model) openCommandLine() {
-	in := newTextInput()
-	in.Prompt = commandPrompt
-	in.Placeholder = tr(tCmdPlaceholder)
-	in.Focus()
-	m.cmdline = &commandLine{from: m.screen, fromKeys: m.screenKeys, input: in}
-	m.screen = screenCommand
-	m.clearMessages()
-}
-
-// closeCommandLine returns to the screen it covered, unchanged.
-func (m *Model) closeCommandLine() {
-	m.screen, m.screenKeys = m.cmdline.from, m.cmdline.fromKeys
-	m.cmdline = nil
-}
-
-func (m *Model) updateCommandLine(key tea.KeyPressMsg) tea.Cmd {
-	cl := m.cmdline
-	matches := matchCommands(m.commands(), cl.input.Value())
-	switch {
-	case keyIs(key, actBack):
-		m.closeCommandLine()
-		return nil
-	case keyIs(key, actUp) || keyIs(key, actPrev):
-		cl.cursor = wrap(cl.cursor-1, max(len(matches), 1))
-		cl.msg = ""
-		return nil
-	case keyIs(key, actDown) || keyIs(key, actNext):
-		cl.cursor = wrap(cl.cursor+1, max(len(matches), 1))
-		cl.msg = ""
-		return nil
-	case keyIs(key, actEnter):
-		if len(matches) == 0 {
-			cl.msg = tr(tCmdUnknown, strings.TrimSpace(cl.input.Value()))
-			return nil
+	list := m.commands()
+	kitList := make([]kittui.Command, len(list))
+	for i, c := range list {
+		act := c.act
+		if act == "" {
+			act = action("command." + strings.ReplaceAll(c.name, " ", "-"))
 		}
-		c := matches[min(cl.cursor, len(matches)-1)]
-		if reason := m.unavailableFrom(c, cl.from); reason != "" {
-			cl.msg = c.name + ": " + reason
-			return nil
+		icon := m.icon(c.icon)
+		if kittui.CheckIcon(icon) != nil {
+			icon = ""
 		}
-		m.closeCommandLine()
-		return c.run(m)
+		kitList[i] = kittui.Command{Name: c.name, Aliases: c.aliases, Icon: icon, Description: c.desc,
+			DescriptionArgs: c.args, Action: act, Key: c.key, Area: c.area, Hidden: c.hidden,
+			Available: func(kittui.Context) (bool, string) {
+				reason := c.unavailable(m)
+				return reason == "", reason
+			}}
 	}
-	before := cl.input.Value()
-	cl.input, _ = cl.input.Update(inputMsg(key))
-	if cl.input.Value() != before {
-		cl.cursor, cl.msg = 0, ""
+	line, err := kittui.NewCommandLine(kittui.CommandLineSpec{
+		Commands: kitList,
+		Keys: kittui.CommandLineKeys{Up: actUp, Down: actDown, Next: actNext, Prev: actPrev, Enter: actEnter,
+			Back: actBack},
+		CloseOutside: true,
+	}, keymap, translator(false))
+	if err != nil {
+		m.fail = err.Error()
+		return
+	}
+	area, tab, _ := m.kitActive()
+	line.SetContext(kittui.Context{Area: area, Tab: tab, Focus: kittui.InputNavigation})
+	cl := &commandModal{CommandLine: line}
+	m.clearMessages()
+	m.showModal(cl, func(action) tea.Cmd {
+		m.closeModal()
+		for _, c := range list {
+			if c.name == cl.chosen {
+				return c.run(m)
+			}
+		}
+		return nil
+	})
+}
+
+// commandModal is the kit's command line as a modal. It answers with the action of the command it ran, or
+// with back where it closed without one, and keeps the name of that command in chosen.
+type commandModal struct {
+	*kittui.CommandLine
+	chosen string
+}
+
+func (c *commandModal) Update(msg tea.KeyPressMsg) (action, bool) {
+	return c.answer(c.CommandLine.Update(msg))
+}
+
+func (c *commandModal) Click(r kittui.MouseResult) (action, bool) {
+	return c.answer(c.CommandLine.Click(r))
+}
+
+// Input is the focus of the line's keys: it reads text, so a letter is never a key.
+func (c *commandModal) Input() kittui.InputFocus { return kittui.InputText }
+
+func (c *commandModal) answer(cmd kittui.Command, done bool) (action, bool) {
+	if !done {
+		return "", false
+	}
+	c.chosen = cmd.Name
+	if cmd.Name == "" {
+		return actBack, true
+	}
+	return cmd.Action, true
+}
+
+// commandLine is the command line open over the screen, or nil.
+func (m *Model) commandLine() *kittui.CommandLine {
+	if c, ok := m.modal.(*commandModal); ok {
+		return c.CommandLine
 	}
 	return nil
-}
-
-// commandLineView draws the line, the matching commands (unavailable ones faint) and the reason of a
-// refusal. The matches scroll with the choice where the workspace is short.
-func (m *Model) commandLineView() string {
-	cl := m.cmdline
-	matches := matchCommands(m.commands(), cl.input.Value())
-	foot := m.keyHint(keysCommandLine)
-	if cl.msg != "" {
-		foot = "\n" + m.wrapped(styles.fail, tr(tNoteError, cl.msg)) + foot
-	}
-	head := m.wrapped(styles.title, tr(tCmdHead)) + "\n\n" + inputView(cl.input) + "\n\n"
-	room := max(m.height-strings.Count(head, "\n")-strings.Count(foot, "\n")-1, 1)
-	if len(matches) == 0 {
-		return head + m.wrapped(styles.hint, tr(tCmdNoMatch)) + "\n" + foot
-	}
-	cursor := min(cl.cursor, len(matches)-1)
-	start := max(min(cursor-room/2, len(matches)-room), 0)
-	end := min(start+room, len(matches))
-	width := m.usable(2)
-	var rows []string
-	for i := start; i < end; i++ {
-		c := matches[i]
-		text := truncateCells(fmt.Sprintf("%-14s %s", c.name, c.desc), width)
-		switch {
-		case m.unavailableFrom(c, cl.from) != "":
-			text = styles.hint.Render(text)
-		case i == cursor:
-			text = styles.active.Render(text)
-		}
-		prefix := "  "
-		if i == cursor {
-			prefix = "> "
-		}
-		rows = append(rows, prefix+text)
-	}
-	return head + strings.Join(rows, "\n") + "\n" + foot
-}
-
-// paletteMaxRows caps the entries the palette shows at once; the list scrolls with the cursor.
-const paletteMaxRows = 12
-
-// paletteLines is the palette as the content of its overlay panel, inner cells wide, and the index of the
-// match each line shows (-1 for the other lines). Room is the most lines the panel may take.
-func (m *Model) paletteLines(inner, room int) ([]string, []int) {
-	cl := m.cmdline
-	matches := matchCommands(m.commands(), cl.input.Value())
-	foot := strings.Split(strings.TrimLeft(m.keyHint(keysCommandLine), "\n"), "\n")
-	var msg []string
-	if cl.msg != "" {
-		msg = strings.Split(render(styles.fail, inner, tr(tNoteError, cl.msg)), "\n")
-	}
-	field := cl.input
-	setInputWidth(&field, max(inner-3, 1))
-	lines := []string{surfaceRow(" "+inputView(field), inner), ""}
-	index := []int{-1, -1}
-	fixed := len(lines) + 1 + len(foot) + len(msg)
-	rows := max(min(room-fixed, paletteMaxRows, max(len(matches), 1)), 1)
-	if len(matches) == 0 {
-		lines, index = append(lines, styles.hint.Render(tr(tCmdNoMatch))), append(index, -1)
-	} else {
-		cursor := min(cl.cursor, len(matches)-1)
-		start := max(min(cursor-rows/2, len(matches)-rows), 0)
-		end := min(start+rows, len(matches))
-		icons := m.icon(areaIcons[areaOverview]) != ""
-		for i := start; i < end; i++ {
-			lines, index = append(lines, m.paletteRow(matches[i], i == cursor, icons, inner)), append(index, i)
-		}
-	}
-	lines, index = append(lines, ""), append(index, -1)
-	for _, l := range append(msg, foot...) {
-		lines, index = append(lines, l), append(index, -1)
-	}
-	return lines, index
-}
-
-// paletteRow is one entry: marker, icon, name and description at the left, the shortcut at the right.
-func (m *Model) paletteRow(c command, chosen, icons bool, width int) string {
-	right := ""
-	if c.shortcut != nil {
-		right = c.shortcut()
-	}
-	prefix := "  "
-	if chosen {
-		prefix = "> "
-	}
-	left := fmt.Sprintf("%-14s %s", c.name, c.desc)
-	if icons {
-		// Entries without an icon keep the column, so the names stay aligned.
-		icon := m.icon(c.icon)
-		if icon == "" {
-			icon = strings.Repeat(" ", lipgloss.Width(m.icon(areaIcons[areaOverview])))
-		}
-		left = icon + " " + left
-	}
-	avail := max(width-len(prefix)-lipgloss.Width(right)-1, 1)
-	left = padLine(truncateCells(left, avail), avail)
-	switch {
-	case m.unavailableFrom(c, m.cmdline.from) != "":
-		left = styles.hint.Render(left)
-	case chosen:
-		left = styles.active.Render(left)
-	}
-	if right != "" {
-		right = styles.hint.Render(right)
-	}
-	row := prefix + left + " " + right
-	if chosen {
-		return surfaceRow(row, width)
-	}
-	return row
-}
-
-// pickCommand is a click on the i-th match: it chooses the entry and runs it as enter does.
-func (m *Model) pickCommand(i int) tea.Cmd {
-	if m.cmdline == nil {
-		return nil
-	}
-	m.cmdline.cursor = i
-	return m.updateCommandLine(tea.KeyPressMsg{Code: tea.KeyEnter})
 }

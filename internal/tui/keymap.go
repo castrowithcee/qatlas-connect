@@ -20,6 +20,7 @@ const (
 	actMenu      action = kit.ActionMenu
 	actSave      action = "save"
 	actHelp      action = "help"
+	actHelpF9    action = kit.ActionHelpF9
 	actCommand   action = "command"
 	actLock      action = "lock"
 	actBack      action = "back"

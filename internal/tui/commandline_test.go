@@ -1,12 +1,13 @@
 package tui
 
 import (
-	"github.com/charmbracelet/x/ansi"
+	"fmt"
 	"path/filepath"
 	"strings"
 	"testing"
 
 	tea "charm.land/bubbletea/v2"
+	"github.com/charmbracelet/x/ansi"
 
 	kittui "github.com/castrowithcee/qatlas-kit/tui"
 )
@@ -17,6 +18,29 @@ func commandNames(list []command) []string {
 		names = append(names, c.name)
 	}
 	return names
+}
+
+func cmdlineOpen(m *Model) bool { return m.commandLine() != nil }
+
+// matchNames are the names of the commands the command line of m lists for query, the line left as it was.
+func matchNames(t *testing.T, m *Model, query string) []string {
+	t.Helper()
+	m.openCommandLine()
+	defer m.closeModal()
+	m.commandLine().Paste(query)
+	var names []string
+	for _, c := range m.commandLine().Matches() {
+		names = append(names, c.Name)
+	}
+	return names
+}
+
+// unavailableOn is why c cannot run with screen s under the command line, "" where it can.
+func unavailableOn(m *Model, c command, s screen) string {
+	saved := m.screen
+	defer func() { m.screen = saved }()
+	m.screen = s
+	return c.unavailable(m)
 }
 
 func cmdModel(t *testing.T) *Model {
@@ -37,11 +61,11 @@ func TestColonOpensTheCommandLineAndEscClosesIt(t *testing.T) {
 		screens()
 		from := m.screen
 		press(t, m, ":")
-		if m.screen != screenCommand || !strings.Contains(screenOf(m), "Command Palette") {
+		if m.screen != from || !cmdlineOpen(m) || !strings.Contains(screenOf(m), "Commands") {
 			t.Fatalf("%s: : opened screen %v:\n%s", name, m.screen, screenOf(m))
 		}
 		press(t, m, "esc")
-		if m.screen != from || m.cmdline != nil {
+		if m.screen != from || cmdlineOpen(m) {
 			t.Fatalf("%s: esc = screen %v, want %v", name, m.screen, from)
 		}
 	}
@@ -66,6 +90,28 @@ func TestColonStaysTextWhereTextIsTyped(t *testing.T) {
 	}
 }
 
+// A letter on the command line is text, also one that is a key elsewhere.
+func TestLettersOnTheCommandLineAreText(t *testing.T) {
+	m := cmdModel(t)
+	m.screen = screenNav
+	press(t, m, ":", "k", "q", "?", "i", "j")
+	if !cmdlineOpen(m) || m.quitting || helpOpen(m) || m.commandLine().Query() != "kq?ij" {
+		t.Fatalf("letters on the command line: open %v quitting %v help %v query %q", cmdlineOpen(m), m.quitting,
+			helpOpen(m), m.commandLine().Query())
+	}
+}
+
+// A paste goes whole into the line.
+func TestPasteGoesIntoTheCommandLine(t *testing.T) {
+	m := cmdModel(t)
+	m.screen = screenNav
+	press(t, m, ":")
+	m.Update(tea.PasteMsg{Content: "go logs\n"})
+	if got := m.commandLine().Query(); got != "go logs" {
+		t.Fatalf("pasted query %q, want %q", got, "go logs")
+	}
+}
+
 func TestSlashStillFiltersTheList(t *testing.T) {
 	m := cmdModel(t)
 	seedServices(t, m, "a-one", "b-two")
@@ -79,13 +125,15 @@ func TestSlashStillFiltersTheList(t *testing.T) {
 
 func TestCommandSuggestionsMatchPrefixWordAliasAndCase(t *testing.T) {
 	m := cmdModel(t)
-	list := m.commands()
 	cases := []struct {
 		query string
 		first string
 		has   string
 	}{
 		{"", "go overview", "quit"},
+		// The exact name comes first, before a name that begins with it.
+		{"go logs", "go logs", ""},
+		{"update", "update", ""},
 		{"QU", "quit", ""},
 		{"go lo", "go logs", ""},
 		{"tokens", "go tokens", ""},
@@ -95,7 +143,7 @@ func TestCommandSuggestionsMatchPrefixWordAliasAndCase(t *testing.T) {
 		{"guided", "setup", ""},
 	}
 	for _, c := range cases {
-		got := commandNames(matchCommands(list, c.query))
+		got := matchNames(t, m, c.query)
 		if len(got) == 0 || got[0] != c.first {
 			t.Errorf("%q matches %v, want %q first", c.query, got, c.first)
 		}
@@ -103,8 +151,8 @@ func TestCommandSuggestionsMatchPrefixWordAliasAndCase(t *testing.T) {
 			t.Errorf("%q matches %v, want %q among them", c.query, got, c.has)
 		}
 	}
-	if got := matchCommands(list, "zzz"); len(got) != 0 {
-		t.Errorf("zzz matches %v, want none", commandNames(got))
+	if got := matchNames(t, m, "zzz"); len(got) != 0 {
+		t.Errorf("zzz matches %v, want none", got)
 	}
 }
 
@@ -116,7 +164,7 @@ func TestEnterRunsAreaCommandsLikeTheDigits(t *testing.T) {
 		pump(t, y, ":")
 		typeText(t, y, "go "+strings.ToLower(a.title()))
 		pump(t, y, "enter")
-		if y.section != x.section || y.screen != x.screen || y.cmdline != nil {
+		if y.section != x.section || y.screen != x.screen || cmdlineOpen(y) {
 			t.Errorf("%v: command = section %v screen %v, key = section %v screen %v",
 				a.title(), y.section, y.screen, x.section, x.screen)
 		}
@@ -132,7 +180,7 @@ func TestEnterRunsSectionAliasesLikeTheOptionBar(t *testing.T) {
 		pump(t, y, ":")
 		typeText(t, y, "go "+strings.ToLower(s.title()))
 		pump(t, y, "enter")
-		if y.section != s || y.screen != x.screen || y.cmdline != nil {
+		if y.section != s || y.screen != x.screen || cmdlineOpen(y) {
 			t.Errorf("%v: command = section %v screen %v, option bar = section %v screen %v",
 				s.title(), y.section, y.screen, x.section, x.screen)
 		}
@@ -142,9 +190,9 @@ func TestEnterRunsSectionAliasesLikeTheOptionBar(t *testing.T) {
 // The empty line lists the areas, not every sub-tab.
 func TestEmptyCommandLineListsOnlyTheAreas(t *testing.T) {
 	var got []string
-	for _, c := range matchCommands(cmdModel(t).commands(), "") {
-		if strings.HasPrefix(c.name, "go ") {
-			got = append(got, c.name)
+	for _, name := range matchNames(t, cmdModel(t), "") {
+		if strings.HasPrefix(name, "go ") {
+			got = append(got, name)
 		}
 	}
 	want := "go overview|go library|go connections|go activity|go access|go settings"
@@ -218,7 +266,7 @@ func TestUnknownAndImpossibleCommandsSayWhy(t *testing.T) {
 	pump(t, m, ":")
 	typeText(t, m, "frobnicate")
 	pump(t, m, "enter")
-	if m.screen != screenCommand || !strings.Contains(screenOf(m), `unknown command "frobnicate"`) {
+	if !cmdlineOpen(m) || !strings.Contains(screenOf(m), `unknown command "frobnicate"`) {
 		t.Fatalf("unknown command:\n%s", screenOf(m))
 	}
 	press(t, m, "esc")
@@ -227,7 +275,7 @@ func TestUnknownAndImpossibleCommandsSayWhy(t *testing.T) {
 	pump(t, m, ":")
 	typeText(t, m, "lock vault")
 	pump(t, m, "enter")
-	if m.screen != screenCommand || !strings.Contains(screenOf(m), "lock vault: ") {
+	if !cmdlineOpen(m) || !strings.Contains(screenOf(m), "lock vault: ") {
 		t.Fatalf("impossible command:\n%s", screenOf(m))
 	}
 	press(t, m, "esc")
@@ -236,7 +284,7 @@ func TestUnknownAndImpossibleCommandsSayWhy(t *testing.T) {
 	pump(t, m, ":")
 	typeText(t, m, "update")
 	pump(t, m, "enter")
-	if m.screen != screenCommand || !strings.Contains(screenOf(m), "update: ") {
+	if !cmdlineOpen(m) || !strings.Contains(screenOf(m), "update: ") {
 		t.Fatalf("update without a release:\n%s", screenOf(m))
 	}
 }
@@ -252,7 +300,7 @@ func TestSectionCommandIsRefusedOnAConfirmationAndKeepsIt(t *testing.T) {
 	press(t, m, ":")
 	typeText(t, m, "go logs")
 	pump(t, m, "enter")
-	if m.screen != screenCommand || !strings.Contains(screenOf(m), "cannot switch areas") {
+	if !cmdlineOpen(m) || !strings.Contains(screenOf(m), "cannot switch areas") {
 		t.Fatalf("refusal:\n%s", screenOf(m))
 	}
 	press(t, m, "esc")
@@ -281,41 +329,28 @@ func paletteModel(t *testing.T, w, h int) *Model {
 	return m
 }
 
-func TestPaletteIsAnOverlayWithPlaceholderAndShortcuts(t *testing.T) {
+// The command line stands at the top of the screen under the kit's title, with the placeholder, the key of
+// each command at the right and a key line of enter and back.
+func TestPaletteIsAnOverlayAtTheTopWithPlaceholderAndShortcuts(t *testing.T) {
 	useColour(t)
 	m := paletteModel(t, 150, 42)
 	view := ansi.Strip(m.render())
-	for _, want := range []string{"Command Palette", ": search or run a command…", "Open Connections", "close"} {
-		if !strings.Contains(view, want) {
-			t.Fatalf("palette lacks %q:\n%s", want, view)
-		}
-	}
 	lines := strings.Split(view, "\n")
-	for _, l := range lines {
-		if strings.Contains(l, "Open Connections") {
-			if !strings.HasSuffix(strings.TrimRight(l, " │"), "3") && !strings.Contains(l, "3 │") {
-				t.Errorf("shortcut not at the right: %q", l)
-			}
-			if !strings.Contains(l, "> ") && !strings.Contains(l, "  ") {
-				t.Errorf("row %q", l)
-			}
-		}
-		if strings.Contains(l, "╭") && ansi.StringWidth(l) < 150 {
-			continue
+	if !strings.Contains(lines[0], "╭") || !strings.Contains(lines[0], "Commands") {
+		t.Fatalf("the command line does not stand at the top under its title:\n%s", view)
+	}
+	for _, want := range []string{": search or run a command…", "Open Connections", "open or confirm", "back"} {
+		if !strings.Contains(view, want) {
+			t.Fatalf("the command line lacks %q:\n%s", want, view)
 		}
 	}
-	if !strings.Contains(view, "qconnect") && len(lines) != 42 {
+	for _, l := range lines {
+		if strings.Contains(l, "Open Connections") && !strings.HasSuffix(strings.TrimRight(l, " │"), "3") {
+			t.Errorf("shortcut not at the right: %q", l)
+		}
+	}
+	if len(lines) != 42 || !strings.Contains(view, "Qatlas") {
 		t.Errorf("the screen below is gone: %d lines", len(lines))
-	}
-	width := 0
-	for _, l := range lines {
-		if strings.Contains(l, "Command Palette") {
-			trimmed := strings.TrimSpace(l)
-			width = ansi.StringWidth(trimmed[strings.Index(trimmed, "╭") : strings.LastIndex(trimmed, "╮")+len("╮")])
-		}
-	}
-	if width == 0 || width > 60 {
-		t.Errorf("palette width %d, want 1..60", width)
 	}
 	press(t, m, "c", "o", "n")
 	view = ansi.Strip(m.render())
@@ -324,30 +359,60 @@ func TestPaletteIsAnOverlayWithPlaceholderAndShortcuts(t *testing.T) {
 	}
 }
 
+// A list longer than the rows shown says which of them show.
+func TestPaletteShowsItsPositionWhereNotAllMatchesShow(t *testing.T) {
+	m := paletteModel(t, 150, 42)
+	n := len(m.commandLine().Matches())
+	if n <= 12 {
+		t.Fatalf("%d commands fit the line at once; the test needs more", n)
+	}
+	if want := fmt.Sprintf("1-12 of %d", n); !strings.Contains(ansi.Strip(m.render()), want) {
+		t.Errorf("the command line lacks the position %q:\n%s", want, ansi.Strip(m.render()))
+	}
+}
+
 func TestPaletteScrollKeepsTheCursorVisible(t *testing.T) {
 	m := paletteModel(t, 80, 24)
-	n := len(matchCommands(m.commands(), ""))
-	for i := 0; i < n-1; i++ {
+	matches := m.commandLine().Matches()
+	for range len(matches) - 1 {
 		press(t, m, "down")
 	}
-	last := matchCommands(m.commands(), "")[n-1]
-	view := ansi.Strip(m.render())
-	found := false
-	for _, l := range strings.Split(view, "\n") {
-		if strings.Contains(l, "> ") && strings.Contains(l, last.name) {
-			found = true
+	last := matches[len(matches)-1]
+	if !strings.Contains(ansi.Strip(m.render()), last.Name) {
+		t.Errorf("cursor row %q not visible:\n%s", last.Name, ansi.Strip(m.render()))
+	}
+}
+
+// The wheel over the matches moves the choice a match a notch and stops at the first and the last, where the
+// arrow keys wrap round.
+func TestPaletteWheelMovesTheChoiceAndStopsAtTheEnds(t *testing.T) {
+	chosen := func(m *Model) string {
+		for _, l := range strings.Split(ansi.Strip(m.render()), "\n") {
+			if strings.Contains(l, styles.SelectionMark()+" ") && strings.Contains(l, "go ") {
+				return l
+			}
 		}
+		return ""
 	}
-	if !found {
-		t.Errorf("cursor row %q not visible:\n%s", last.name, view)
+	m := paletteModel(t, 150, 42)
+	x, y := cellOf(t, m, "go library")
+	first := chosen(m)
+	wheelEvent(t, m, x, y, tea.MouseWheelUp)
+	if got := chosen(m); got != first || !strings.Contains(got, "go overview") {
+		t.Errorf("a notch up at the first match chose %q, want it to stay", got)
 	}
+	wheelEvent(t, m, x, y, tea.MouseWheelDown)
+	if got := chosen(m); !strings.Contains(got, "go library") || !cmdlineOpen(m) {
+		t.Errorf("a notch down chose %q, want go library", got)
+	}
+
 }
 
 func TestPaletteClickRunsTheEntry(t *testing.T) {
 	m := paletteModel(t, 150, 42)
 	clickOn(t, m, "Open Connections")
-	if m.screen == screenCommand || m.cmdline != nil {
-		t.Fatalf("click left the palette open on screen %v", m.screen)
+	if cmdlineOpen(m) || m.section.area() != areaConnections {
+		t.Fatalf("click left the palette open %v, section %v", cmdlineOpen(m), m.section)
 	}
 }
 
@@ -362,19 +427,62 @@ func TestPaletteReadsWithoutColour(t *testing.T) {
 	if strings.Contains(view, "\x1b[") {
 		t.Errorf("colour sequence in the palette: %q", view)
 	}
-	if !strings.Contains(view, "> ") || !strings.Contains(view, "Command Palette") {
+	if !strings.Contains(view, styles.SelectionMark()) || !strings.Contains(view, "Commands") {
 		t.Errorf("selection lost:\n%s", view)
 	}
 }
 
-func TestPaletteStaysUsableAtTheSmallestSize(t *testing.T) {
-	m := paletteModel(t, 40, minimumHeight)
-	view := ansi.Strip(m.render())
-	if !strings.Contains(view, "> ") {
-		t.Fatalf("no cursor at 40x%d:\n%s", minimumHeight, view)
+// From the smallest frame up to the size of a modal over the screen, the command line stands over the screen
+// or fills the workspace, and runs what is typed.
+func TestPaletteStaysUsableAtSmallSizes(t *testing.T) {
+	for _, size := range []struct{ w, h int }{{minimumWidth, minimumHeight}, {44, 15}, {50, 17}, {59, 19}} {
+		m := paletteModel(t, size.w, size.h)
+		view := m.render()
+		assertViewFits(t, view, size.w, size.h)
+		if !cmdlineOpen(m) || !strings.Contains(ansi.Strip(view), ": search") {
+			t.Fatalf("%dx%d: no command line:\n%s", size.w, size.h, ansi.Strip(view))
+		}
+		press(t, m, "h", "e", "l", "p", "enter")
+		if !helpOpen(m) {
+			t.Errorf("%dx%d: enter did not run help:\n%s", size.w, size.h, ansi.Strip(m.render()))
+		}
 	}
-	press(t, m, "h", "e", "l", "p", "enter")
-	if !helpOpen(m) {
-		t.Errorf("enter did not run help, screen %v", m.screen)
+}
+
+// Over a list of the kit, which takes only its own keys, F9 opens no help, and the command version that opened
+// the list leaves it open once the command line closed.
+func TestF9DoesNothingOverAKitList(t *testing.T) {
+	m := startedVersions(t, choosable())
+	openVersions(t, m)
+	if !choiceOpen(m, screenVersions) {
+		t.Fatalf("the version list is not open: screen %v", m.screen)
+	}
+	press(t, m, "f9")
+	if helpOpen(m) || !choiceOpen(m, screenVersions) {
+		t.Errorf("f9 over the version list: help %v list open %v", helpOpen(m), choiceOpen(m, screenVersions))
+	}
+}
+
+// The command line opened from a question over a form stands over the question, which comes back when it
+// closes.
+func TestCommandLineFromAQuestionReturnsToIt(t *testing.T) {
+	m, _, _ := knownTargetsModel(t)
+	openConnection(t, m, "gh-a")
+	focusField(t, m, effectsLabel)
+	press(t, m, "enter")
+	typeText(t, m, "create")
+	press(t, m, " ", "esc", "esc")
+	if m.screen != screenLeave || m.question == nil {
+		t.Fatalf("no leave question: screen %v", m.screen)
+	}
+	asked := m.question
+	press(t, m, keyLabel(actCommand))
+	if !cmdlineOpen(m) || m.screen != screenLeave {
+		t.Fatalf(": over the question: command line %v screen %v", cmdlineOpen(m), m.screen)
+	}
+	press(t, m, "esc")
+	m.render()
+	if m.screen != screenLeave || m.modal != asked {
+		t.Errorf("closing the command line left screen %v without the question", m.screen)
 	}
 }

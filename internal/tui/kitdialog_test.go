@@ -144,8 +144,8 @@ func TestHelpAndCommandLineOpenOverAQuestion(t *testing.T) {
 		t.Fatalf("closing the help left screen %v without the question", m.screen)
 	}
 	press(t, m, keyLabel(actCommand))
-	if m.screen != screenCommand {
-		t.Fatalf(": opens screen %v, want the command line", m.screen)
+	if !cmdlineOpen(m) || m.screen != screenConfirm {
+		t.Fatalf(": opens screen %v, want the command line over the question", m.screen)
 	}
 	press(t, m, "esc")
 	m.render()

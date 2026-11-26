@@ -32,15 +32,6 @@ func (m *Model) addHit(x0, y0, x1, y1 int, act func() tea.Cmd) {
 	m.hits = append(m.hits, hit{x0, y0, x1, y1, act})
 }
 
-// markDialog notes the cells a dialog drawn from row top and column left covers.
-func (m *Model) markDialog(dialog []string, top, left int) {
-	w := 0
-	for _, line := range dialog {
-		w = max(w, ansi.StringWidth(line))
-	}
-	m.dialogBox = hit{x0: left, y0: top, x1: left + w, y1: top + len(dialog)}
-}
-
 // addZone registers a focus zone: the free area of a part of the screen that a key press can focus. A click on
 // it does only what tabbing there does, never more, and a zone ranks below every other target, so that a click
 // on an element inside it stays that element's click.
@@ -219,7 +210,7 @@ func (m *Model) runTarget(r kittui.MouseResult, acts []func() tea.Cmd) tea.Cmd {
 func (m *Model) wheelScreens() bool {
 	switch m.screen {
 	case screenList, screenForm, screenPicker, screenLogs, screenLogDetail,
-		screenTargets, screenPaths, screenFindings, screenCommand:
+		screenTargets, screenPaths, screenFindings:
 		return true
 	}
 	return m.textScreen()
@@ -336,43 +327,6 @@ func footerKey(group string) string {
 		return word
 	}
 	return ""
-}
-
-// hitDialog makes the keys of the footer lines of a dialog clickable: they are its buttons. lines are the
-// rows of the dialog text, drawn from column left+2 of row top+1 on, inside its frame.
-func (m *Model) hitDialog(lines []string, log []footerLine, top, left int) {
-	m.hitFooters(lines, log, top+1, left+2)
-}
-
-// hitFooters makes the key groups of the footer lines found among lines clickable. lines are drawn from screen
-// row y0 and column x0 on.
-func (m *Model) hitFooters(lines []string, log []footerLine, y0, x0 int) {
-	used := make([]bool, len(lines))
-	for _, footer := range log {
-		for i, line := range lines {
-			if used[i] || ansi.Strip(line) != footer.plain {
-				continue
-			}
-			used[i] = true
-			for _, span := range footer.spans {
-				if span.key == "" {
-					continue
-				}
-				name := span.key
-				m.addHit(x0+span.x0, y0+i, x0+span.x1, y0+i+1, func() tea.Cmd { return m.pressName(name) })
-			}
-			break
-		}
-	}
-}
-
-// dialogOrigin is the top row and left column of a dialog centred in a screen of width by height.
-func dialogOrigin(dialog []string, width, height int) (top, left int) {
-	dialogWidth := 0
-	for _, line := range dialog {
-		dialogWidth = max(dialogWidth, ansi.StringWidth(line))
-	}
-	return max((height-len(dialog))/2, 0), max((width-dialogWidth)/2, 0)
 }
 
 // barLeaveSteps bounds the esc presses a click on a bar makes, so a screen whose esc changes nothing cannot

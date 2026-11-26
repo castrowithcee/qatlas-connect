@@ -7,6 +7,8 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"github.com/charmbracelet/x/ansi"
+
+	kit "github.com/castrowithcee/qatlas-kit/tui"
 )
 
 // typing reports whether the current screen reads typed text right now, as a dialog with an input does.
@@ -19,7 +21,7 @@ func (m *Model) typing() bool {
 		return true
 	}
 	switch m.screen {
-	case screenCommand, screenPicker:
+	case screenPicker:
 		return true
 	case screenList:
 		return m.list.Searching() || m.barValuesOpen()
@@ -58,6 +60,18 @@ func (m *Model) helpReachable() bool {
 		}
 	}
 	return !m.typing()
+}
+
+// helpF9Pressed reports whether the key is the second way of the help, which also reaches it from a text line
+// where ? is a character. A dialog with an input keeps it, as a dialog of the kit does.
+func (m *Model) helpF9Pressed(key tea.KeyPressMsg) bool {
+	return keymap.Is(key, actHelpF9, kit.InputText) && !m.askingInput()
+}
+
+// askingInput reports whether the current question is a dialog with an input line.
+func (m *Model) askingInput() bool {
+	q, ok := m.currentAsk()
+	return ok && q.input
 }
 
 // letterReachable reports whether a letter key (i, c) is a command on the current screen. A search line is

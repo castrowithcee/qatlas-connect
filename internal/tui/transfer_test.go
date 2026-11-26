@@ -488,7 +488,7 @@ func TestExportFooterNamesHelpAndCommandsOnlyWhereTheyWork(t *testing.T) {
 					t.Fatalf("? = screen %v, want the help", m.screen)
 				}
 				v.pump("esc", ":")
-				if m.screen != screenCommand {
+				if !cmdlineOpen(m) {
 					t.Fatalf(": = screen %v, want the command line", m.screen)
 				}
 				v.pump("esc")
@@ -605,16 +605,16 @@ func TestExportIsInTheRegisterAndTheHelp(t *testing.T) {
 	if export == nil {
 		t.Fatalf("the register %v has no export", commandNames(list))
 	}
-	if got := commandNames(matchCommands(list, "backup")); len(got) != 1 || got[0] != "export" {
+	if got := matchNames(t, m, "backup"); len(got) != 1 || got[0] != "export" {
 		t.Errorf("backup matches %v, want export", got)
 	}
 	for _, from := range []screen{screenNav, screenList} {
-		if reason := m.unavailableFrom(*export, from); reason != "" {
+		if reason := unavailableOn(m, *export, from); reason != "" {
 			t.Errorf("export from screen %v is unavailable: %s", from, reason)
 		}
 	}
 	for _, from := range []screen{screenForm, screenTransfer, screenLogs} {
-		if reason := m.unavailableFrom(*export, from); reason == "" {
+		if reason := unavailableOn(m, *export, from); reason == "" {
 			t.Errorf("export from screen %v is available", from)
 		}
 	}

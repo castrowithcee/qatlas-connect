@@ -2,18 +2,6 @@ package tui
 
 import (
 	"strings"
-
-	tea "charm.land/bubbletea/v2"
-	"github.com/charmbracelet/x/ansi"
-)
-
-const (
-	// modalMinWidth and modalMinHeight are the smallest terminal that carries a modal over its background;
-	// below them a question takes the whole workspace as before.
-	modalMinWidth  = 60
-	modalMinHeight = 20
-	// modalMaxInner is the widest text of a modal.
-	modalMaxInner = 60
 )
 
 // screenBeneath is the screen a dialog stands over, and false for a screen that is none.
@@ -42,10 +30,6 @@ func (m *Model) screenBeneath(s screen) (screen, bool) {
 		// question (see exportView).
 		if m.imp != nil && (m.imp.step == importFile || m.imp.step == importPassphrase) {
 			return m.imp.from, true
-		}
-	case screenCommand:
-		if m.cmdline != nil {
-			return m.cmdline.from, true
 		}
 	case screenLeave:
 		return m.leaveFrom, true
@@ -158,85 +142,6 @@ func (m *Model) renderAs(s screen, width int, render func()) {
 		m.width = width
 	}
 	render()
-}
-
-// modalView is the command line centred over its dimmed background, or false when the terminal is too small
-// for that and the command line takes the whole workspace.
-func (m *Model) modalView() (string, bool) {
-	if m.screen != screenCommand || m.termWidth < modalMinWidth || m.termHeight < modalMinHeight {
-		return "", false
-	}
-	inner := min(modalMaxInner-4, m.termWidth-8)
-	var footers []footerLine
-	m.footerLog = &footers
-	defer func() { m.footerLog = nil }()
-	var palette []string
-	var paletteIndex []int
-	title := tr(tCmdHead)
-	m.renderAs(m.screen, inner, func() { palette, paletteIndex = m.paletteLines(inner, m.termHeight-4) })
-	text := strings.Join(palette, "\n")
-	m.footerLog = nil
-	base := m.baseScreen()
-	if base == screenForm && m.fields == nil {
-		return "", false
-	}
-	lines := strings.Split(strings.TrimRight(text, "\n"), "\n")
-	if len(lines) > m.termHeight-4 {
-		return "", false
-	}
-	for i, line := range lines {
-		lines[i] = ansi.Truncate(line, inner, "")
-	}
-	dialog := panel(title, lines, inner, len(lines), panelOpts{focused: true})
-
-	var background string
-	m.renderAs(base, 0, func() {
-		m.backdrop = true
-		defer func() { m.backdrop = false }()
-		background = m.frame(m.workspaceView())
-	})
-	top, left := dialogOrigin(dialog, m.termWidth, m.termHeight)
-	m.markDialog(dialog, top, left)
-	m.hitDialog(lines, footers, top, left)
-	for i, match := range paletteIndex {
-		if match >= 0 {
-			m.addHit(left+1, top+1+i, left+inner+3, top+2+i, func() tea.Cmd { return m.pickCommand(match) })
-		}
-	}
-	return overlay(background, dialog, m.termWidth, m.termHeight), true
-}
-
-// overlay draws dialog centred over background in a screen of width by height. The background is dimmed:
-// stripped of its colours and drawn faint, so it stays readable and only the dialog stands out, and still
-// does without colour, where its border marks the dialog.
-func overlay(background string, dialog []string, width, height int) string {
-	rows := strings.Split(background, "\n")
-	for len(rows) < height {
-		rows = append(rows, "")
-	}
-	rows = rows[:height]
-	dialogWidth := 0
-	for _, line := range dialog {
-		dialogWidth = max(dialogWidth, ansi.StringWidth(line))
-	}
-	top, left := dialogOrigin(dialog, width, height)
-	for i, row := range rows {
-		plain := ansi.Strip(row)
-		plain += strings.Repeat(" ", max(width-ansi.StringWidth(plain), 0))
-		if i < top || i >= top+len(dialog) {
-			rows[i] = dim(ansi.Cut(plain, 0, width))
-			continue
-		}
-		rows[i] = dim(ansi.Cut(plain, 0, left)) + dialog[i-top] + dim(ansi.Cut(plain, left+dialogWidth, width))
-	}
-	return strings.Join(rows, "\n")
-}
-
-func dim(text string) string {
-	if text == "" {
-		return ""
-	}
-	return styles.hint.Render(text)
 }
 
 // question is the shape of a question a detail screen asks in its own text: the question itself, one sentence

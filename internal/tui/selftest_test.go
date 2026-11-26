@@ -223,7 +223,7 @@ func TestSelftestIsRefusedWithoutAWorker(t *testing.T) {
 	press(t, m, ":")
 	typeText(t, m, "selftest storage")
 	m.Update(keyMsg("enter"))
-	if m.screen != screenCommand || !strings.Contains(screenOf(m), "cannot start the selftest") {
+	if !cmdlineOpen(m) || !strings.Contains(boxText(screenOf(m)), "cannot start the selftest") {
 		t.Errorf("screen %v:\n%s", m.screen, screenOf(m))
 	}
 }

@@ -182,7 +182,7 @@ func TestHelpIsAPanelOverTheScreenWhereThereIsRoom(t *testing.T) {
 		width, height int
 		over          bool
 	}
-	sizes := []size{{100, 28, true}, {modalMinWidth, modalMinHeight, true}, {modalMinWidth - 1, modalMinHeight, true},
+	sizes := []size{{100, 28, true}, {60, 20, true}, {59, 20, true},
 		{43, minimumHeight, false}, {minimumWidth, minimumHeight, false}}
 	for w := 44; w <= 59; w++ {
 		for h := minimumHeight; h <= 19; h++ {

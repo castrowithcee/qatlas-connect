@@ -82,13 +82,13 @@ Moving:
 - While the tab line has the focus the wheel moves nothing; the keys lead into the content.
 
 Global keys:
-- ? opens this help on every screen without a text line (a form keeps it for its text rows, and a list over the screen takes only its own keys). esc or ? returns to where you were.
+- ? opens this help on every screen without a text line (a form keeps it for its text rows), and F9 also on a text line, but not in a dialog with a text line. esc, ?, or F9 returns to where you were. A list over the screen takes only its own keys, so neither opens the help there.
 - The help stands over the screen, or fills the workspace of a terminal too small for that. Its first topic ends with the keys of the screen it was opened from and the keys that act everywhere, as they are bound now.
 - The right end of the header names [?] help and [:] cmd wherever these keys act, and [esc] back where esc leads one level back. A text line, where ? and the colon key are text, shows neither.
 - i opens the longer explanation of a field and of the word it is about (service, credential, connection, target, effect, profile, approval, token, vault), over the screen, and esc or i closes it.
 - i works on every screen without a text line. On a search line it is text, and only an extra info key set in General opens the explanation there.
 - From a terminal width of 120 columns the explanation stands in a pane at the right of forms and pickers instead. Below it, a field or entry that has one ends in (i).
-- The colon key opens the command line on the same screens. Type to narrow the commands by name, choose with up, down, or tab, run one with enter, and close it with esc.
+- The colon key opens the command line on the same screens, at the top over the screen, or in the workspace of a terminal too small for that. Type to narrow the commands by name, an exact name first, as every letter there is text. Choose with up, down, or tab, run one with enter, and close it with esc.
 - A command that is not possible on that screen says why. The same actions as the keys (switching areas, the guided setup, export, import, update, locking the vault, help, quit) are one line away.
 - Each selftest scenario is a command too, such as selftest storage. It measures this machine on synthetic data in a scratch directory that is removed again, runs beside the editor and shows its progress, and esc ends it.
 - ctrl+c quits at once and asks the same when something unsaved would be lost. q quits from the tab line, a list, and the Logs screen.
@@ -119,7 +119,7 @@ Every other letter means one thing on every screen without a text line, and none
 Mouse:
 - With the mouse on, a click does what the key for it does. It chooses a tab (from any level, going back the way esc does, with the same question about unsaved input), presses the keys of the header ([esc] back, [?] help, [:] cmd) and every key group of the footer at the bottom (a click on the words of a group presses its first key), chooses a part on the option bar, a row (the first click marks it, a click on the marked row opens or ticks it), a group (folds it), a field or section of a form, a value of an option bar (on a filter field it opens the list of values), a button of a dialog, or an (i) mark (opens its explanation).
 - The wheel scrolls.
-- Over the help, an explanation, a list over the screen (a value picker, the provider table, the template choice, the version list), a question, or a dialog with a text line only that overlay reacts, and the screen behind it takes no click. A click on a topic of the help shows that topic, a click on a key, a button, or a line of the help's key lists acts as that key, a click on a row of a list marks it and one on the marked row acts as enter, and a click on a tick box ticks. A click outside the frame acts as esc and does nothing else, on a tab, the header, or the footer too. It closes the overlay, and in a list it first clears a typed search. An explanation also closes on a click inside its frame beside its keys. A click outside a question or a dialog with a text line answers it as esc does, unless one of its answers deletes or discards; then it does nothing. A click on a suggestion under a path line marks it, and a click on the marked one takes it as tab does.
+- Over the help, the command line, an explanation, a list over the screen (a value picker, the provider table, the template choice, the version list), a question, or a dialog with a text line only that overlay reacts, and the screen behind it takes no click. A click on a topic of the help shows that topic, a click on a command runs it as enter does, a click on a key, a button, or a line of the help's key lists acts as that key, a click on a row of a list marks it and one on the marked row acts as enter, and a click on a tick box ticks. A click outside the frame acts as esc and does nothing else, on a tab, the header, or the footer too. It closes the overlay, and in a list it first clears a typed search. An explanation also closes on a click inside its frame beside its keys. A click outside a question or a dialog with a text line answers it as esc does, unless one of its answers deletes or discards; then it does nothing. A click on a suggestion under a path line marks it, and a click on the marked one takes it as tab does.
 - A click is never stronger than its key, so questions, confirmations, and the admin session apply as before, and it never types a character.
 - The terminal then passes the mouse to the editor. To select text hold Shift while dragging (macOS Terminal uses fn, iTerm2 Option, VS Code on macOS Option-click), or turn the mouse off in General.
 
@@ -135,11 +135,11 @@ General, the preferences of this device:
 Keys of the global actions:
 - Below the preferences, General lists the keys of the global actions save, help, command line, lock, and info. enter on a row and then pressing the new key binds it.
 - A key that is already taken, a character for save, lock, or the extra info key, a letter, ctrl+c, esc, tab, or a digit is refused with its reason.
-- The keys of the standard actions of Qatlas tools belong to those actions alone. F2 stays with save, ? with help, the colon key with the command line, and ctrl+l with lock, so another action cannot take them and a tui.yaml that does falls back with a warning.
+- The keys of the standard actions of Qatlas tools belong to those actions alone. F2 stays with save, ? and F9 with help, the colon key with the command line, and ctrl+l with lock, so another action cannot take them and a tui.yaml that does falls back with a warning.
 - d removes the own key so the standard applies again.
 - info can take a second key besides i that also works in text rows, such as F3.
 - The keys are kept under keys in tui.yaml. A key there that breaks a rule falls back to the standard with a warning at the start.
-- Terminals and desktops take some F-keys for themselves (F1, F5, and F10 to F12 are never used), so choose one your terminal passes through. On a Mac the F-keys may need fn.
+- Terminals and desktops take some F-keys for themselves (F5 and F10 to F12 are never used), so choose one your terminal passes through. F1 is reserved by IDEs and terminal applications for their own help, and no action may hold it. On a Mac the F-keys may need fn.
 - The footers, and in the editor the key lists at the end of the first help topic, show the keys in force, while the text here names the standard ones. A footer takes a second row where its keys do not fit one, and where even two rows are short it drops keys, never ? help.
 
 Forms and saving:

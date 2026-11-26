@@ -309,7 +309,7 @@ func (m *Model) answerQuestion(act action) tea.Cmd {
 			m.openHelp()
 			return nil
 		}
-		m.closeModal()
+		// The command line stands over the question, which comes back when it closes.
 		m.openCommandLine()
 		return nil
 	case actSave:

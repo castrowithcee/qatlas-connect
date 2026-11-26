@@ -384,8 +384,8 @@ func TestTheVersionListReportsWhatItCannotDo(t *testing.T) {
 		pump(t, m, ":")
 		typeText(t, m, "version")
 		pump(t, m, "enter")
-		if m.screen != screenCommand || !strings.Contains(m.cmdline.msg, "cannot update itself") {
-			t.Errorf("%s: screen %v message %q", name, m.screen, m.cmdline.msg)
+		if !cmdlineOpen(m) || !strings.Contains(boxText(screenOf(m)), "cannot update itself") {
+			t.Errorf("%s: screen %v:\n%s", name, m.screen, screenOf(m))
 		}
 	}
 }

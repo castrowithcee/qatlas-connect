@@ -19,7 +19,6 @@ const (
 	keysTokenDetail   = "{reveal} reveal/hide · {delete} revoke · {back} back · {command} cmds · {help} help"
 	keysRequestBody   = "{up}/{down} move · {space} tick · {tickall} all or none · {yes} accept · {decline} decline · {block} block · {back} back · {command} cmds · {help} help"
 	keysRequestChoice = "{up}/{down} choose · {enter} accept · {back} back · {command} cmds · {help} help"
-	keysCommandLine   = "type to search · {up}/{down} or {next} choose · {enter} run · {back} close"
 	keysLogDetail     = "{back} back · {area} section · {command} cmds · {help} help"
 
 	keysExportSelect = "{up}/{down} move · {space} tick · {save} or {enter} next · {back} cancel · {command} cmds · {help} help"
@@ -104,8 +103,6 @@ func (m *Model) workspaceKeys() string {
 		return m.logDetailKeys()
 	case screenPicker:
 		return m.pickerKeys()
-	case screenCommand:
-		return keysCommandLine
 	case screenSelftest:
 		if m.st == nil {
 			return ""

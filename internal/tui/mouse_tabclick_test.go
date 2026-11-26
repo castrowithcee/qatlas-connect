@@ -6,7 +6,6 @@ import (
 	"strings"
 	"testing"
 
-	tea "charm.land/bubbletea/v2"
 	"github.com/charmbracelet/x/ansi"
 
 	kittui "github.com/castrowithcee/qatlas-kit/tui"
@@ -110,7 +109,7 @@ func TestTabClickDoesNothingWhileAsked(t *testing.T) {
 	}
 }
 
-// Overlays without a question that are no modal of the kit close the way esc closes them, and the click goes
+// An overlay without a question that is no modal of the kit closes the way esc closes it, and the click goes
 // on.
 func TestTabClickClosesAnOverlayAndActs(t *testing.T) {
 	cases := []struct {
@@ -118,12 +117,6 @@ func TestTabClickClosesAnOverlayAndActs(t *testing.T) {
 		open   func(t *testing.T) *Model
 		isOpen func(m *Model) bool
 	}{
-		{"command line", func(t *testing.T) *Model {
-			m := sizedModel(groupModel(t), 160, 40)
-			openSectionByName(t, m, sectionServices)
-			press(t, m, ":")
-			return m
-		}, func(m *Model) bool { return m.screen == screenCommand }},
 		{"filter values", func(t *testing.T) *Model {
 			m := newTableModel(t, 100)
 			openSectionByName(t, m, sectionConnections)
@@ -183,9 +176,9 @@ func TestClicksBesideTheHelpCloseItAndRunNothing(t *testing.T) {
 	}
 	unchanged := func(t *testing.T, m *Model, what string, wantOpen bool) {
 		t.Helper()
-		if m.section != sectionServices || m.screen != screenList || m.cmdline != nil || helpOpen(m) != wantOpen {
+		if m.section != sectionServices || m.screen != screenList || cmdlineOpen(m) || helpOpen(m) != wantOpen {
 			t.Errorf("%s: section %v screen %v command line %v help open %v, want the list with the help open %v",
-				what, m.section, m.screen, m.cmdline != nil, helpOpen(m), wantOpen)
+				what, m.section, m.screen, cmdlineOpen(m), helpOpen(m), wantOpen)
 		}
 	}
 	tabs := open(t, 160, 40)
@@ -235,6 +228,77 @@ func TestClicksBesideTheHelpCloseItAndRunNothing(t *testing.T) {
 	unchanged(t, m, "a click on the tab line over the help in the workspace", true)
 }
 
+// Under the command line only its own targets act: a click on a tab, the header or the footer behind it
+// switches nothing and runs no key. A click outside its frame closes it, and one inside the frame beside its
+// targets does nothing. In the workspace the command line leaves the header and the tabs without a click.
+func TestClicksBesideTheCommandLineCloseItAndRunNothing(t *testing.T) {
+	open := func(t *testing.T, w, h int) *Model {
+		m := sizedModel(groupModel(t), w, h)
+		m.prefs.Icons = kitprefs.IconsNone
+		openSectionByName(t, m, sectionServices)
+		m.render()
+		press(t, m, ":")
+		if !cmdlineOpen(m) {
+			t.Fatal(": did not open the command line")
+		}
+		return m
+	}
+	unchanged := func(t *testing.T, m *Model, what string, wantOpen bool) {
+		t.Helper()
+		if m.section != sectionServices || m.screen != screenList || helpOpen(m) || m.quitting || cmdlineOpen(m) != wantOpen {
+			t.Errorf("%s: section %v screen %v help open %v command line open %v, want the list with the command line open %v",
+				what, m.section, m.screen, helpOpen(m), cmdlineOpen(m), wantOpen)
+		}
+	}
+	tabs := open(t, 160, 40)
+	box := modalBox(t, tabs, "Commands")
+	if box.Y != 0 {
+		t.Errorf("the command line stands at row %d, want the top", box.Y)
+	}
+	tabs.closeModal()
+	tabs.render()
+	inside, outside := 0, 0
+	for _, tab := range tabs.frameTabs {
+		m := open(t, 160, 40)
+		x, y := tab.Rect.X+(tab.Rect.Width-1)/2, tab.Rect.Y
+		in := x >= box.X && x < box.X+box.Width && y >= box.Y && y < box.Y+box.Height
+		if in {
+			inside++
+		} else {
+			outside++
+		}
+		clickAt(t, m, x, y)
+		unchanged(t, m, fmt.Sprintf("a click on the tab %s/%s %s", tab.Area, tab.Tab, map[bool]string{true: "under the frame", false: "beside the frame"}[in]), in)
+	}
+	if inside == 0 || outside == 0 {
+		t.Errorf("%d tabs under and %d beside the frame of the command line: the test reaches no case", inside, outside)
+	}
+	for _, text := range []string{"[?] help", "[:] cmd"} {
+		m := open(t, 160, 40)
+		clickOn(t, m, text)
+		unchanged(t, m, "a click on the header key "+text, false)
+	}
+	m := open(t, 160, 40)
+	lines := frameLines(m)
+	clickAt(t, m, ansi.StringWidth(lines[len(lines)-1][:strings.Index(lines[len(lines)-1], "? help")]), len(lines)-1)
+	unchanged(t, m, "a click on the footer", false)
+
+	m = open(t, 160, 40)
+	clickAt(t, m, box.X+box.Width-2, box.Y+1)
+	unchanged(t, m, "a click inside the frame beside its targets", true)
+	clickAt(t, m, box.X+box.Width+2, box.Y+box.Height/2)
+	unchanged(t, m, "a click beside the frame", false)
+
+	m = open(t, 43, 18)
+	if modalBox(t, m, "Commands").Y < 2 {
+		t.Fatal("the command line stands over the screen at 43x18")
+	}
+	clickAt(t, m, 2, 0)
+	unchanged(t, m, "a click on the header over the command line in the workspace", true)
+	clickAt(t, m, 3, 1)
+	unchanged(t, m, "a click on the tab line over the command line in the workspace", true)
+}
+
 // Under the explanation only its own targets act: a click on a tab, the header or the footer behind it
 // switches nothing, runs no key and closes it. Unlike the other modals, a click inside its frame beside its keys
 // closes it too, and a click on one of its keys acts as that key.
@@ -252,9 +316,9 @@ func TestClicksBesideTheExplanationCloseItAndRunNothing(t *testing.T) {
 	}
 	unchanged := func(t *testing.T, m *Model, what string, wantOpen bool) {
 		t.Helper()
-		if m.section != sectionServices || m.screen != screenList || m.cmdline != nil || helpOpen(m) || infoOpen(m) != wantOpen {
+		if m.section != sectionServices || m.screen != screenList || cmdlineOpen(m) || helpOpen(m) || infoOpen(m) != wantOpen {
 			t.Errorf("%s: section %v screen %v command line %v help open %v explanation open %v, want the list with the explanation open %v",
-				what, m.section, m.screen, m.cmdline != nil, helpOpen(m), infoOpen(m), wantOpen)
+				what, m.section, m.screen, cmdlineOpen(m), helpOpen(m), infoOpen(m), wantOpen)
 		}
 	}
 	tabs := open(t)
@@ -294,29 +358,6 @@ func TestClicksBesideTheExplanationCloseItAndRunNothing(t *testing.T) {
 	m = open(t)
 	clickOn(t, m, "esc/i close")
 	unchanged(t, m, "a click on the close key", false)
-}
-
-// A dialog covers the tab line it stands over; a click there is a click on the dialog.
-func TestTabClickUnderADialogIsNotATabClick(t *testing.T) {
-	m := sizedModel(groupModel(t), 100, 24)
-	openSectionByName(t, m, sectionServices)
-	press(t, m, ":")
-	m.render()
-	box := m.dialogBox
-	covered := 0
-	for _, tab := range m.frameTabs {
-		r := tab.Rect
-		if box.x0 < r.X+r.Width && r.X < box.x1 && box.y0 <= r.Y && r.Y < box.y1 {
-			covered++
-			x, y := max(r.X, box.x0), r.Y
-			if _, ok := m.clickTab(tea.MouseClickMsg{X: x, Y: y, Button: tea.MouseLeft}); ok {
-				t.Fatalf("a tab under the dialog is a target at %d,%d", x, y)
-			}
-		}
-	}
-	if covered == 0 {
-		t.Fatalf("the dialog %+v covers no tab", box)
-	}
 }
 
 // In the guided setup a click on a tab goes through the leave question of the setup.

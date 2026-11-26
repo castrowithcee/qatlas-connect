@@ -720,7 +720,7 @@ func TestImportFooterNamesHelpAndCommandsOnlyWhereTheyWork(t *testing.T) {
 					t.Fatalf("? = screen %v, want the help", m.screen)
 				}
 				v.pump("esc", ":")
-				if m.screen != screenCommand {
+				if !cmdlineOpen(m) {
 					t.Fatalf(": = screen %v, want the command line", m.screen)
 				}
 				v.pump("esc")
@@ -793,12 +793,12 @@ func TestImportIsInTheRegisterAndTheHelp(t *testing.T) {
 		t.Fatalf("the register %v has no import", commandNames(list))
 	}
 	for _, from := range []screen{screenNav, screenList} {
-		if reason := m.unavailableFrom(*imp, from); reason != "" {
+		if reason := unavailableOn(m, *imp, from); reason != "" {
 			t.Errorf("import from screen %v is unavailable: %s", from, reason)
 		}
 	}
 	for _, from := range []screen{screenForm, screenTransfer, screenLogs} {
-		if reason := m.unavailableFrom(*imp, from); reason == "" {
+		if reason := unavailableOn(m, *imp, from); reason == "" {
 			t.Errorf("import from screen %v is available", from)
 		}
 	}
