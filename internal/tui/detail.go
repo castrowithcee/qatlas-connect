@@ -39,7 +39,7 @@ var tabWords = [tabCount]string{"Overview", "Details", "Raw"}
 // paneWidth is the width of the detail pane, 0 where there is none: below detailPaneMinWidth, in a section
 // without one, where the table has no frame to stand beside, and while no entry is shown for it to describe.
 func (m *Model) paneWidth() int {
-	if m.width < detailPaneMinWidth || !groupedSection(m.section) || len(m.list.matches) == 0 || !m.tableFramed() {
+	if m.width < detailPaneMinWidth || !groupedSection(m.section) || !m.listShowsRows() || !m.tableFramed() {
 		return 0
 	}
 	return min(max(m.width*2/5, 40), 60)
@@ -59,7 +59,7 @@ func (m *Model) listFit(prefix string) (string, int) { return m.fitIn(m.listWidt
 // detailFocused reports whether the pane has the focus: the rows are the screen's focus, no filter is typed
 // and no bar field is open.
 func (m *Model) detailFocused() bool {
-	return m.detailFocus && m.screen == screenList && m.barFocus == 0 && !m.list.editing && m.paneWidth() > 0
+	return m.detailFocus && m.screen == screenList && m.barFocus == 0 && !m.list.Searching() && m.paneWidth() > 0
 }
 
 // shownTab is the tab the pane shows: the chosen one while the pane has the focus, the overview otherwise.
@@ -77,8 +77,8 @@ func (m *Model) leaveDetail() {
 
 // marksEntry reports whether the marked row is an entry, which has tabs; a group row has none.
 func (m *Model) marksEntry() bool {
-	name, ok := m.list.selected()
-	return ok && !isGroupRow(name)
+	_, ok := m.list.Selected()
+	return ok
 }
 
 // updateDetail is a key while the pane has the focus: left/right change the tab, tab goes on to the filter
@@ -122,8 +122,9 @@ func (m *Model) clickDetailTab(tab detailTab) tea.Cmd {
 	if m.screen != screenList {
 		return nil
 	}
-	if m.list.editing {
-		m.list.stopFilter()
+	if m.list.Searching() {
+		// Enter keeps the typed filter and ends the typing.
+		m.list.Act(actEnter)
 	}
 	m.barFocus = 0
 	m.detailFocus, m.detailTab = true, tab
@@ -140,7 +141,7 @@ func (m *Model) withPane(lines []string, footer string, room, skip int) string {
 	for len(lines)-skip < min(room-skip, detailMinHeight-1) {
 		lines = append(lines, panelSide("", m.tableRoom(), m.tableFocused()))
 	}
-	name, _ := m.list.selected()
+	name, _ := m.marked()
 	panelLines, tabRow, spans := m.detailPanel(name, len(lines)-skip+1)
 	top := m.workspaceTop() + skip
 	x := width + lipgloss.Width(paneGap)
@@ -398,8 +399,13 @@ func (m *Model) groupTitle(name string) string {
 
 // groupFacts describe a group row.
 func (m *Model) groupFacts(name string) []detailFact {
-	key := strings.TrimPrefix(name, groupRowPrefix)
-	return []detailFact{{"Group", m.groupTitle(name)}, {"Entries", fmt.Sprint(len(m.groups.members[key]))}}
+	key, of, n := strings.TrimPrefix(name, groupRowPrefix), m.providerOf(m.section), 0
+	for _, entry := range m.names {
+		if of(entry) == key {
+			n++
+		}
+	}
+	return []detailFact{{"Group", m.groupTitle(name)}, {"Entries", fmt.Sprint(n)}}
 }
 
 // connectionsOf names the connections that use the service or credential name of the active section.

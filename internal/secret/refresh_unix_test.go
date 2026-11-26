@@ -12,8 +12,6 @@ import (
 	"sync"
 	"testing"
 
-	"filippo.io/age"
-
 	"github.com/castrowithcee/qatlas-connect/internal/config"
 	"github.com/castrowithcee/qatlas-connect/internal/vault"
 	"github.com/castrowithcee/qatlas-connect/internal/vaultproc"
@@ -38,25 +36,13 @@ func refreshProcess(t *testing.T) (string, func()) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	key, err := age.ParseX25519Identity(snap.Identity)
+	s, err := vaultproc.NewServer(v.Dir(), snap, vaultproc.ServerOptions{KeepLog: true, RetentionDays: 90,
+		Tokens: true})
 	if err != nil {
 		t.Fatal(err)
 	}
-	path, err := vaultproc.SocketPath(v.Dir())
-	if err != nil {
-		t.Fatal(err)
-	}
-	l, err := vaultproc.Listen(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	s := vaultproc.NewServer(key, snap.Secrets, snap.Bindings)
-	s.ApproveWithTokens(v.Dir())
-	s.KeepLog(v.Dir(), 90)
-	done := make(chan struct{})
-	go func() { _ = s.Serve(l); close(done) }()
 	var once sync.Once
-	lock := func() { once.Do(func() { _ = s.Close(); <-done }) }
+	lock := func() { once.Do(func() { _ = s.Close() }) }
 	t.Cleanup(lock)
 	return dir, lock
 }

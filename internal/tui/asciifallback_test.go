@@ -11,6 +11,7 @@ import (
 
 	"github.com/castrowithcee/qatlas-connect/internal/uiprefs"
 	kittui "github.com/castrowithcee/qatlas-kit/tui"
+	kitprefs "github.com/castrowithcee/qatlas-kit/uiprefs"
 )
 
 // withoutUTF8 makes the terminal one that draws no UTF-8, through the real detection: the environment says so
@@ -100,7 +101,7 @@ func TestASCIIScreensKeepWidth(t *testing.T) {
 				m := visualModel(t, fixtures, shot.width, shot.height, shot.theme)
 				shot.show(t, m)
 				// Icons vanish without UTF-8 by design; the comparison is of the other symbols.
-				m.prefs.Icons = uiprefs.IconsNone
+				m.prefs.Icons = kitprefs.IconsNone
 				want := strings.Split(m.render(), "\n")
 				withoutUTF8(t, kind)
 				got := strings.Split(m.render(), "\n")

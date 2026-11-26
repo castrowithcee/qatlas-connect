@@ -16,8 +16,9 @@ import (
 	"github.com/castrowithcee/qatlas-connect/internal/manage"
 )
 
-// requestRowPrefix starts the list name of a request, so it never clashes with a connection name.
-const requestRowPrefix = "\x01req:"
+// requestRowPrefix starts the list name of a request. A connection name holds no colon, so the two never
+// clash, and the list takes no control character in a name.
+const requestRowPrefix = "req:"
 
 // requestRowName is the name a request has in the Approvals list.
 func requestRowName(id string) string { return requestRowPrefix + id }
@@ -76,14 +77,11 @@ func (m *Model) syncRequestTicks() {
 
 // syncRequestList rebuilds the Approvals list after a refresh, keeping the selected row.
 func (m *Model) syncRequestList() {
-	if m.section != sectionApprovals || m.screen != screenList || m.list.editing {
+	if m.section != sectionApprovals || m.screen != screenList || m.list.Searching() {
 		return
 	}
-	name, _ := m.list.selected()
-	m.list.setItems(m.listItems(m.section))
-	if name != "" {
-		m.list.selectName(name)
-	}
+	// The list keeps the marked row where it still shows.
+	m.fillList()
 }
 
 func (m *Model) requestByID(id string) (manage.OpenRequest, bool) {

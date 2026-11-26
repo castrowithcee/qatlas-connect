@@ -29,9 +29,11 @@ import (
 	"github.com/castrowithcee/qatlas-connect/internal/provider"
 	"github.com/castrowithcee/qatlas-connect/internal/secret"
 	"github.com/castrowithcee/qatlas-connect/internal/selfupdate"
-	"github.com/castrowithcee/qatlas-connect/internal/uiprefs"
+	"github.com/castrowithcee/qatlas-kit/i18n"
 	"github.com/castrowithcee/qatlas-kit/redact"
 	kittui "github.com/castrowithcee/qatlas-kit/tui"
+	kitprefs "github.com/castrowithcee/qatlas-kit/uiprefs"
+	"github.com/charmbracelet/x/ansi"
 )
 
 // Tester checks one configured connection and reports the stable outcome class. The editor holds no
@@ -422,11 +424,14 @@ type Model struct {
 	overviewCursor int
 	// navSub is set while screenNav stands on the option bar of the area instead of on the tab line.
 	navSub bool
-	list   filterList
-	// groups is the provider grouping of list while its section is grouped, nil otherwise; folds keeps
-	// the fold state of each grouped section (see listgroups.go).
-	groups *listGroups
-	folds  map[section]map[string]bool
+	// list is the list of the active section, one of lists, which keeps the list of each section in the
+	// language listLang; names are the entries it holds, through the filter bar (see kitlist.go).
+	list     *kittui.List
+	lists    map[section]*kittui.List
+	listLang i18n.Lang
+	names    []string
+	// listTargets are the click targets the list drew in the last frame, placed on the screen.
+	listTargets []kittui.Target
 	// listOpts holds the filter bar of each grouped section; barFocus is the bar field that has the focus
 	// (1-based), 0 while the rows do (see listbar.go).
 	listOpts map[section]*listOptions
@@ -793,10 +798,10 @@ type Model struct {
 
 	// prefs are the device-local preferences and savePrefs stores them; the latter is nil when they cannot be
 	// saved.
-	prefs uiprefs.Prefs
+	prefs kitprefs.Prefs
 	// keyCapture is set while a key row of the General form waits for the key to bind; see keybinding.go.
 	keyCapture bool
-	savePrefs  func(uiprefs.Prefs) error
+	savePrefs  func(kitprefs.Prefs) error
 	// start is the area the editor opens on; the Overview is where it already is.
 	start area
 }
@@ -833,10 +838,10 @@ func New(svc *manage.Service, store *config.Store, tester Tester, secrets Secret
 		checked:   map[string][]string{},
 		termWidth: defaultWidth, termHeight: defaultHeight, configExists: configExists,
 		startDir: startDir, execute: tea.Exec,
+		// Until Run sets the loaded preferences the editor takes the mouse, as it does without a file.
+		prefs: kitprefs.Prefs{MouseEnabled: true},
 	}
 	m.refreshRequests()
-	m.list = newFilterList(m.describe)
-	m.list.stops = true
 	m.picker = newFilterList(m.choiceShown)
 	m.templateList = newFilterList(m.templateText)
 	m.templateList.input.Placeholder = tr(tLogSearchPlaceholder)
@@ -856,7 +861,7 @@ func New(svc *manage.Service, store *config.Store, tester Tester, secrets Secret
 	m.RefreshAdminTimeout()
 	// The editor opens on the tab line, with the Overview already shown below it.
 	m.section = sectionOverview
-	m.list.reset(m.listItems(m.section))
+	m.fillList()
 	m.layoutWorkspace()
 	return m, nil
 }
@@ -1271,7 +1276,7 @@ func (m *Model) updateList(key tea.KeyPressMsg) tea.Cmd {
 	if m.section == sectionOverview {
 		return m.updateOverview(key)
 	}
-	if m.list.editing {
+	if m.list.Searching() {
 		return m.updateFilter(key)
 	}
 	if m.barFocus > 0 {
@@ -1303,9 +1308,8 @@ func (m *Model) updateList(key tea.KeyPressMsg) tea.Cmd {
 			m.status = tr(tSetupConnectionTestCancelled)
 			return nil
 		}
-		if m.list.query() != "" {
+		if _, cleared := m.list.Act(actBack); cleared {
 			// A filter is left before the list is: the first escape shows every entry again.
-			m.list.clearFilter()
 			return nil
 		}
 		m.focusNav()
@@ -1323,30 +1327,28 @@ func (m *Model) updateList(key tea.KeyPressMsg) tea.Cmd {
 	case keyIs(key, actQuit):
 		return m.quit()
 	case keyIs(key, actSearch):
-		m.list.startFilter()
+		m.list.Act(actSearch)
 	case keyIs(key, actUp):
 		// No wraparound: the first entry is where the list ends and the filter bar or, without one, the tab
 		// line begins, in an empty list just as much as a full one.
-		if m.list.cursor <= 0 {
+		if _, moved := m.list.Act(actUp); !moved {
 			if m.listBarShown() {
 				m.barFocus = 1
 			} else {
 				m.focusNav()
 			}
-		} else {
-			m.list.jump(-1)
 		}
 	case keyIs(key, actDown):
-		if m.list.cursor >= len(m.list.matches)-1 && len(m.sectionFindings()) > 0 {
+		before, _ := m.marked()
+		m.list.Act(actDown)
+		if after, _ := m.marked(); after == before && len(m.sectionFindings()) > 0 {
 			// The stop below the last row is the hint line about the renames found.
 			m.noticeFocus = true
-		} else {
-			m.list.jump(1)
 		}
-	case keyIs(key, actPageUp) || keyIs(key, actPageDown) || keyIs(key, actHome) || keyIs(key, actEnd):
-		m.jumpList(key)
-	case keyIs(key, actLeft) || keyIs(key, actRight):
-		m.foldKey(key)
+	case keyIs(key, actPageUp) || keyIs(key, actPageDown) || keyIs(key, actHome) || keyIs(key, actEnd) ||
+		keyIs(key, actLeft) || keyIs(key, actRight):
+		// The page and end keys move, left and right fold a group, as the list reads them.
+		m.list.Update(key)
 	case keyIs(key, actNew):
 		return m.newEntry()
 	case keyIs(key, actClone):
@@ -1363,13 +1365,12 @@ func (m *Model) updateList(key tea.KeyPressMsg) tea.Cmd {
 			// rebuilds the list, now that Pending can read it.
 			return m.requireAdmin(func() tea.Cmd { return m.returnToList("") })
 		}
-		if m.foldKey(key) {
+		// On a group row enter folds; on an entry the list names it.
+		open, _ := m.list.Act(actEnter)
+		if open == "" {
 			return nil
 		}
-		name, ok := m.selected()
-		if !ok {
-			return nil
-		}
+		name := string(open)
 		if id, ok := requestIDOf(name); ok && m.section == sectionApprovals {
 			m.openRequest(id)
 			return nil
@@ -1427,36 +1428,22 @@ func (m *Model) editSelected() tea.Cmd {
 		return nil
 	}
 	name, ok := m.selected()
-	if !ok || isGroupRow(name) {
+	if !ok {
 		return nil
 	}
 	return m.openForm(name)
 }
 
 // updateFilter is the list while its filter is typed. Every printable key belongs to the filter, including
-// the letters and digits that are list keys otherwise; the arrows still move through what it matches.
+// the letters and digits that are list keys otherwise; the arrows still move through what it matches, enter
+// keeps the filter and the back key clears it.
 func (m *Model) updateFilter(key tea.KeyPressMsg) tea.Cmd {
-	switch {
-	case keyIs(key, actBack):
-		m.list.clearFilter()
-	case keyIs(key, actEnter):
-		m.list.stopFilter()
-	case keyIs(key, actUp):
-		m.list.move(-1)
-	case keyIs(key, actDown):
-		m.list.move(1)
-	case keyIs(key, actPageUp) || keyIs(key, actPageDown) || keyIs(key, actHome) || keyIs(key, actEnd):
-		m.jumpList(key)
-	default:
-		return m.list.updateFilter(key)
+	if content, ok := pasted(key); ok {
+		m.list.Paste(content)
+		return nil
 	}
+	m.list.Update(key)
 	return nil
-}
-
-// jumpList moves by one screen of entries or to either end of the list.
-func (m *Model) jumpList(key tea.KeyPressMsg) {
-	start, end := m.listWindow()
-	m.list.page(key, start, end)
 }
 
 // newEntryBlocked keeps a form with empty choice lists from turning an obvious missing prerequisite into
@@ -2946,9 +2933,9 @@ func (m *Model) openSection(s section) tea.Cmd {
 // does the selection: on the named entry when it is shown, on the entry that was selected otherwise, or,
 // when that one is gone, on the one now in its place.
 func (m *Model) returnToList(name string) tea.Cmd {
-	m.list.setItems(m.listItems(m.section))
+	m.fillList()
 	if name != "" {
-		m.selectEntry(name)
+		m.list.Select(kittui.ItemID(name))
 	}
 	return m.showList()
 }
@@ -2994,8 +2981,8 @@ func (m *Model) enterPage() tea.Cmd {
 
 // selected is the entry under the cursor; a group row is no entry, so no action applies to it.
 func (m *Model) selected() (string, bool) {
-	name, ok := m.list.selected()
-	return name, ok && !isGroupRow(name)
+	id, ok := m.list.Selected()
+	return string(id), ok
 }
 
 func (m *Model) entryNames(s section) []string {
@@ -4014,7 +4001,7 @@ func (m *Model) renderFrame() string {
 	if m.quitting {
 		return ""
 	}
-	m.hits, m.frameTabs, m.frameKeys, m.zones, m.dialogBox, m.tooSmall = nil, nil, nil, nil, hit{}, false
+	m.hits, m.frameTabs, m.frameKeys, m.zones, m.listTargets, m.dialogBox, m.tooSmall = nil, nil, nil, nil, nil, hit{}, false
 	m.pathShown = nil
 	m.drawn = true
 	if m.dd != nil {
@@ -4367,8 +4354,8 @@ func (m *Model) notes() string {
 	return b.String()
 }
 
-// listView draws the list screen: its frame, and between them as many rows as fit. Logs and the Overview
-// have no list; the tab line stays above them.
+// listView draws the list screen: the title with the position, the frame with the filter bar and the kit's
+// list in it, and below them the notes. Logs and the Overview have no list; the tab line stays above them.
 func (m *Model) listView() string {
 	if m.section == sectionLogs {
 		return m.logsView()
@@ -4379,31 +4366,60 @@ func (m *Model) listView() string {
 	if m.detailFocus && !m.detailFocused() {
 		m.leaveDetail()
 	}
+	m.syncList()
 	header, footer := m.listFrame()
-	row := m.listRows()
+	framed, room := m.tableFramed(), m.tableRoom()
+	height := m.height - strings.Count(header, "\n") - strings.Count(footer, "\n") - 1
+	view, targets := m.list.View(styles.Styles, room, max(height, 0))
+	lines := strings.Split(view, "\n")
+	// The list fills its height with blank lines; the frame closes below the last one it drew.
+	for len(lines) > 0 && strings.TrimSpace(ansi.Strip(lines[len(lines)-1])) == "" {
+		lines = lines[:len(lines)-1]
+	}
 	var b strings.Builder
 	b.WriteString(header)
-	start, end := m.windowIn(&m.list, header, footer, row)
-	for i := start; i < end; i++ {
-		b.WriteString(row(i) + "\n")
+	for _, line := range lines {
+		if framed {
+			line = panelSide(line, room, m.tableFocused())
+		}
+		b.WriteString(line + "\n")
 	}
-	m.hitList(header, start, end, row)
+	m.addListTargets(targets, header, len(lines))
+	if m.listBarShown() && !m.list.Searching() {
+		m.hitBarFields(m.workspaceTop() + m.listBarOffset())
+	}
+	out := b.String() + footer
 	if m.paneWidth() > 0 {
 		room := m.height - strings.Count(footer, "\n") - 1
-		out := m.withPane(strings.Split(strings.TrimSuffix(b.String(), "\n"), "\n"), footer, room, m.titleRows())
-		m.hitNotice(out, footer)
-		m.zoneList(out, footer)
-		return out
+		out = m.withPane(strings.Split(strings.TrimSuffix(b.String(), "\n"), "\n"), footer, room, m.titleRows())
 	}
-	b.WriteString(footer)
-	m.hitNotice(b.String(), footer)
-	m.zoneList(b.String(), footer)
-	return b.String()
+	m.hitNotice(out, footer)
+	m.zoneList(out, footer)
+	return out
 }
 
-// listFrame is everything of the list screen except its rows: above them the heading, the position of the
-// selection, the filter and the column names; below them the test result, the keys and the notes. The rows
-// get the lines that are left, so a list of any length fits the terminal and only the rows scroll.
+// addListTargets places the targets the list drew, from the first line below header, on the screen: inside
+// the frame where there is one, and cut to the rows lines it shows.
+func (m *Model) addListTargets(targets []kittui.Target, header string, rows int) {
+	if m.backdrop || m.tooSmall {
+		return
+	}
+	x, top := 0, m.hitTop(header)
+	if m.tableFramed() {
+		x = 2
+	}
+	for _, t := range kittui.OffsetTargets(targets, x, top) {
+		if t.Rect.Y >= top+rows {
+			continue
+		}
+		t.Rect.Height = min(t.Rect.Height, top+rows-t.Rect.Y)
+		m.listTargets = append(m.listTargets, t)
+	}
+}
+
+// listFrame is everything of the list screen except the list: above it the heading with the position of the
+// selection and the filter bar; below it the test result, the keys and the notes. The list gets the lines
+// that are left, so a list of any length fits the terminal and only its rows scroll.
 func (m *Model) listFrame() (string, string) {
 	var head strings.Builder
 	framed, room := m.tableFramed(), m.tableRoom()
@@ -4412,73 +4428,64 @@ func (m *Model) listFrame() (string, string) {
 		if !framed {
 			return text + "\n"
 		}
-		var b strings.Builder
-		for _, line := range strings.Split(text, "\n") {
-			b.WriteString(panelSide(line, room, m.tableFocused()) + "\n")
-		}
-		return b.String()
+		return panelSide(text, room, m.tableFocused()) + "\n"
 	}
-	note := func(style lipgloss.Style, text string) string {
-		if !framed {
-			return m.wrapped(style, text) + "\n"
-		}
-		return inside(render(style, room, text))
-	}
-	total := m.entryTotal()
-	shown, pos := m.entryPosition()
-	filtered := m.list.editing || m.list.query() != ""
+	total := len(m.names)
+	position := m.list.Position()
 	if framed {
-		position := ""
-		switch {
-		case filtered:
-			position = tr(tPositionFiltered, pos, shown, total)
-		case total > 0:
-			position = fmt.Sprintf("%d/%d", pos, total)
-		}
 		head.WriteString(m.titled(fmt.Sprintf("%s (%d)", m.section.title(), total), position, room+4))
 		head.WriteString(panelTop("", "", room, m.tableFocused()) + "\n")
 	} else {
 		title := styles.title.Render(m.section.title())
-		switch {
-		case filtered:
-			title += "  " + tr(tPositionFiltered, pos, shown, total)
-		case total > 0:
-			title += fmt.Sprintf("  %d/%d", pos, total)
+		if position != "" {
+			title += "  " + position
 		}
 		head.WriteString(title + "\n")
 	}
-	bar := m.listBarShown()
 	switch {
-	case bar:
-		// The search field stands in the line of the bar, so a filter costs no row.
+	case m.listBarShown():
 		head.WriteString(inside(m.barLine(room)))
-	case filtered:
-		head.WriteString(inside(m.filterLine(&m.list)))
-	case !framed:
+	case !framed && !m.list.Searching() && m.list.Query() == "":
+		// The search line of the list takes the place of the gap.
 		head.WriteString("\n")
-	}
-	if total > 0 {
-		t := m.listTable()
-		indent := m.entryIndent()
-		_, width := m.fitIn(room, indent)
-		head.WriteString(inside(styles.hint.Render(clipCells(indent+t.header(t.layout(width)), room))))
-	}
-	switch {
-	case total == 0 && bar:
-		head.WriteString(note(styles.hint, tr(tFormNoEntryMatchesTheFilter)))
-	case total == 0:
-		head.WriteString(note(styles.hint, m.emptyHelp()))
-	case shown == 0:
-		head.WriteString(note(styles.hint, tr(tFormNoEntryMatchesPressEsc, m.list.query())))
 	}
 
 	var finds []renameFinding
-	if m.screen == screenList && !m.list.editing {
+	if m.screen == screenList && !m.list.Searching() {
 		finds = m.sectionFindings()
 	}
-	keys := m.listKeys()
-	notice := m.findingsNotice(finds)
-	foot := notice + m.keyHint(keys)
+	// The list keeps room for its column names, their rule and one row: where the terminal is too short for
+	// that, the notes about the entries give way, the idle warnings first, then the hint about missing
+	// descriptions, then the unfocused notice about renames found.
+	need := 0
+	if total > 0 {
+		need = 3
+		if m.list.Searching() || m.list.Query() != "" {
+			need++
+		}
+	}
+	var foot string
+	for drop := 0; drop <= 3; drop++ {
+		foot = m.listFoot(finds, total, drop)
+		if framed {
+			foot = panelBottom(room, m.tableFocused()) + foot
+		}
+		if m.height-strings.Count(head.String(), "\n")-strings.Count(foot, "\n")-1 >= need {
+			break
+		}
+	}
+	return head.String(), foot
+}
+
+// listFoot is what stands below the table of a list screen: the test result, the notes about the entries
+// and the messages. drop leaves out the notes about the entries, from the idle warnings (1) over the hint
+// about missing descriptions (2) to the notice about renames found while it has no focus (3).
+func (m *Model) listFoot(finds []renameFinding, total, drop int) string {
+	notice := ""
+	if drop < 3 || m.noticeFocused() {
+		notice = m.findingsNotice(finds)
+	}
+	foot := notice + m.keyHint(m.listKeys())
 	m.noticeAt, m.noticeRows = -1, 0
 	if notice != "" {
 		// The notice starts with the blank line a hint has, so its text is the second line of the foot.
@@ -4486,20 +4493,14 @@ func (m *Model) listFrame() (string, string) {
 	}
 	lines := strings.Count(foot, "\n")
 	if m.section == sectionConnections {
-		for _, name := range m.list.all {
-			if !isGroupRow(name) && m.needsDescription(name) {
-				foot = m.hint(tr(tFormUndescribedHint)) + foot
-				break
-			}
+		if drop < 2 && slices.ContainsFunc(m.names, m.needsDescription) {
+			foot = m.hint(tr(tFormUndescribedHint)) + foot
 		}
 		// A connection that offers no tool is valid, so it is named rather than refused, with the same
 		// words 'qconnect config validate' uses.
 		var idle strings.Builder
-		for _, name := range m.list.all {
-			if isGroupRow(name) {
-				continue
-			}
-			if warning := m.cfg.IdleWarning(name); warning != "" {
+		for _, name := range m.names {
+			if warning := m.cfg.IdleWarning(name); warning != "" && drop < 1 {
 				idle.WriteString("\n" + m.wrapped(styles.warning, warningLine(warning)))
 			}
 		}
@@ -4511,11 +4512,7 @@ func (m *Model) listFrame() (string, string) {
 	if m.noticeAt >= 0 {
 		m.noticeAt += strings.Count(foot, "\n") - lines
 	}
-	foot += m.notes()
-	if framed {
-		foot = panelBottom(room, m.tableFocused()) + foot
-	}
-	return head.String(), foot
+	return foot + m.notes()
 }
 
 // Below these sizes the table of a list screen is drawn without its frame, which costs a row and four cells.
@@ -4540,61 +4537,82 @@ func (m *Model) tableRoom() int {
 	return m.listWidth()
 }
 
-// listKeys is the key text of the list screen and of the tab line above it.
+// listKeys is the key text of the list screen and of the tab line above it. While the rows have the focus the
+// list's own keys lead it with the kit's labels (see listHintText); the rest are the editor's actions.
 func (m *Model) listKeys() string {
-	total := m.entryTotal()
-	back := m.backToSectionsHint()
+	total := len(m.names)
+	areas := m.backToSectionsHint()
+	const tail = " · {command} cmds · {help} help · {quit} quit"
 	var keys string
+	// own says the list's keys lead the line; enter says enter opens the marked entry there.
+	own, enter := true, true
 	switch {
 	case m.screen == screenNav:
-		keys = m.navKeys()
-	case m.list.editing:
-		keys = "type to filter · {up}/{down} move · {enter} keep filter · {back} clear filter"
+		keys, own = m.navKeys(), false
+	case m.list.Searching():
+		keys = "type to filter"
 	case m.noticeFocused():
-		keys = "{enter} review · {up}/{back} rows · {command} cmds · {help} help · {quit} quit"
+		keys, own = "{enter} review · {up}/{back} rows"+tail, false
 	case m.barFocus > 0:
-		keys = m.barKeys()
+		keys, own = m.barKeys(), false
 	case m.detailFocused() && m.detailPane.more:
-		keys = "{left}/{right} tab · {next} next · {prev} rows · {up}/{down} move · {pageup}/{pagedown} scroll · {enter} edit · {back} rows · {command} cmds · {help} help · {quit} quit"
+		keys, own = "{left}/{right} tab · {next} next · {prev} rows · {up}/{down} move · {pageup}/{pagedown} scroll · {enter} edit · {back} rows"+tail, false
 	case m.detailFocused():
-		keys = "{left}/{right} tab · {next} next · {prev} rows · {up}/{down} move · {enter} edit · {back} rows · {command} cmds · {help} help · {quit} quit"
+		keys, own = "{left}/{right} tab · {next} next · {prev} rows · {up}/{down} move · {enter} edit · {back} rows"+tail, false
+	case (m.section == sectionApprovals || m.section == sectionTokens) && m.vaultNeedsWindowKey() && !m.requestRowSelected():
+		// Enter unlocks here, before the list reads it (see updateList).
+		enter = false
+		keys = "{enter} unlock · "
+		if m.vaultProcessOnly() {
+			keys = "{enter} passphrase for this window · "
+		}
+		if m.section == sectionTokens {
+			keys += "{new} new · "
+		}
+		keys += areas + tail
 	case m.section == sectionApprovals && m.requestRowSelected():
-		keys = "{enter} decide · " + back + " · {command} cmds · {help} help · {quit} quit"
-	case m.section == sectionApprovals && m.vaultProcessOnly():
-		keys = "{enter} passphrase for this window · " + back + " · {command} cmds · {help} help · {quit} quit"
-	case m.section == sectionApprovals && m.vaultLocked():
-		keys = "{enter} unlock · " + back + " · {command} cmds · {help} help · {quit} quit"
+		keys = areas + tail
 	case m.section == sectionApprovals:
-		keys = "{enter} details · {approveall} approve all · " + back + " · {command} cmds · {help} help · {quit} quit"
-	case m.section == sectionTokens && m.vaultProcessOnly():
-		keys = "{enter} passphrase for this window · {new} new · " + back + " · {command} cmds · {help} help · {quit} quit"
-	case m.section == sectionTokens && m.vaultLocked():
-		keys = "{enter} unlock · {new} new · " + back + " · {command} cmds · {help} help · {quit} quit"
+		keys = "{approveall} approve all · " + areas + tail
 	case m.section == sectionTokens && m.tokensBlocked() != "" && total == 0:
-		keys = back + " · {command} cmds · {help} help · {quit} quit"
+		keys = areas + tail
 	case m.section == sectionTokens:
-		keys = "{search} filter · {new} new · {clone} clone · {enter} show · {delete} revoke · " + back + " · {command} cmds · {help} help · {quit} quit"
+		keys = "{new} new · {clone} clone · {delete} revoke · " + areas + tail
 	case m.section == sectionConnections:
-		keys = "{search} filter · {left}/{right} fold · {new} new · {clone} clone · {enter}/{edit} edit/fold · {rename} rename · {delete} delete · {test} test · {setup} setup · " +
-			back +
-			" · {command} cmds · {help} help · {quit} quit"
+		keys = "{left}/{right} fold · {new} new · {clone} clone · {edit} edit · {rename} rename · {delete} delete · {test} test · {setup} setup · " +
+			areas + tail
 	case m.section == sectionCredentials:
-		keys = "{search} filter · {left}/{right} fold · {new} new · {clone} clone · {enter}/{edit} edit/fold · {rename} rename · {delete} delete · {setup} setup · " +
-			back + " · {command} cmds · {help} help · {quit} quit"
+		keys = "{left}/{right} fold · {new} new · {clone} clone · {edit} edit · {rename} rename · {delete} delete · {setup} setup · " +
+			areas + tail
 	case m.templateSection(m.section):
-		keys = "{search} filter · {new} new · {clone} clone · {enter}/{edit} edit/fold · {rename} rename · {delete} delete · {setup} setup · " + back +
-			" · {command} cmds · {help} help · {quit} quit"
+		keys = "{new} new · {clone} clone · {edit} edit · {rename} rename · {delete} delete · {setup} setup · " + areas + tail
 	default:
-		keys = "{search} filter · {new} new · {enter}/{edit} edit · {delete} delete · {setup} setup · " + back + " · {command} cmds · {help} help · {quit} quit"
+		keys = "{new} new · {edit} edit · {delete} delete · {setup} setup · " + areas + tail
 	}
-	if hint := m.vaultLockKeyHint(); hint != "" && !m.list.editing {
+	if own {
+		if m.list.Searching() {
+			keys += " · " + m.listHintText(true)
+		} else {
+			keys = m.listHintText(enter) + " · " + keys
+		}
+	}
+	if hint := m.vaultLockKeyHint(); hint != "" && !m.list.Searching() {
 		keys = strings.Replace(keys, " · {command}", " · "+hint+" · {command}", 1)
 	}
-	if m.screen == screenList && !m.list.editing && m.list.query() != "" {
-		// The first esc clears the filter, so the areas keep their digits only.
-		keys = strings.Replace(keys, "{area}/{back} areas", "{area} areas", 1) + " · {back} clear filter"
-	}
 	return keys
+}
+
+// listHintText is the list's own keys as groups of a key text, in the order and with the labels of the kit's
+// hints; without enter it leaves out the enter key, and while a filter is typed the search key, which types.
+func (m *Model) listHintText(enter bool) string {
+	var groups []string
+	for _, h := range m.list.Hints() {
+		if (h.Action == actEnter && !enter) || (h.Action == actSearch && m.list.Searching()) {
+			continue
+		}
+		groups = append(groups, footerPlaceholder(h.Action)+" "+tr(h.Label))
+	}
+	return strings.Join(groups, " · ")
 }
 
 // navKeys is the key line while the tab line has the focus: left/right step through the sections, and
@@ -4611,16 +4629,14 @@ func (m *Model) navKeys() string {
 	return keys
 }
 
-// backToSectionsHint names the keys that take the focus from the list back to the tab line.
+// backToSectionsHint names the keys besides the back key of the list that take the focus from the list to
+// the tab line.
 func (m *Model) backToSectionsHint() string {
 	if m.listBarShown() && m.screen == screenList {
-		return "{next} bar · {area}/{back} areas"
+		return "{next} bar · {area} areas"
 	}
-	return "{area}/{back}/{next} areas"
+	return "{area}/{next} areas"
 }
-
-// filterLine shows the filter of l: while it is typed with its cursor, afterwards as the text it holds.
-func (m *Model) filterLine(l *filterList) string { return m.searchLine(l, tr(tFormFilter)) }
 
 // searchLine shows the filter of l behind the given label.
 func (m *Model) searchLine(l *filterList, label string) string {
@@ -4662,46 +4678,6 @@ func (m *Model) inputLine(prefix string, in textinput.Model) string {
 func (m *Model) inputLineIn(room int, prefix string, in textinput.Model) string {
 	prefix, width := m.fitIn(room, prefix)
 	return prefix + inputView(fitInput(in, width))
-}
-
-// listRows draws the shown entry at index i of the list as a row of its table, with the columns laid out
-// once for all rows. The selection carries the focus marker only while the list has the focus, so the screen
-// never shows two.
-func (m *Model) listRows() func(i int) string {
-	t := m.listTable()
-	indent := m.entryIndent()
-	room := m.tableRoom()
-	_, width := m.fitIn(room, indent)
-	layout := t.layout(width)
-	return func(i int) string {
-		name := m.list.matches[i]
-		active := i == m.list.cursor && m.screen != screenNav && m.barFocus == 0 && !m.noticeFocused()
-		var row string
-		if isGroupRow(name) {
-			row = m.listRowIn(room, active, m.groups.styledRow(name, m.groups.open(name) || m.list.query() != ""))
-		} else {
-			row = m.listRowIn(room, active, indent[2:]+t.line(t.rows[name], layout))
-		}
-		if m.tableFramed() {
-			return panelSide(row, room, m.tableFocused())
-		}
-		return row
-	}
-}
-
-// entryIndent is what an entry row is indented by behind the focus marker: below its group row, a grouped
-// list's entries stand two cells further in.
-func (m *Model) entryIndent() string {
-	if m.groups != nil {
-		return "    "
-	}
-	return "  "
-}
-
-// listWindow is the range of shown entries whose rows fit between the frame of the list screen.
-func (m *Model) listWindow() (int, int) {
-	header, footer := m.listFrame()
-	return m.windowIn(&m.list, header, footer, m.listRows())
 }
 
 // windowIn is the range of shown entries of l whose rows, drawn by row, fit between header and footer.
@@ -4868,8 +4844,6 @@ func (m *Model) keepScrollPosition() {
 		return
 	}
 	switch m.screen {
-	case screenNav, screenList:
-		m.list.offset, _ = m.listWindow()
 	case screenPicker:
 		m.picker.offset, _ = m.pickerWindow()
 	case screenTemplate:
@@ -5165,58 +5139,11 @@ func (m *Model) testLine() string {
 // domainHint is the hint of the key row of a default.
 func domainHint() string { return tr(tDomainHint) }
 
-// sectionColumns are the columns of the list of each section. The name leads, the free text of a section
-// is the first to give way, and a column that only adds detail to the others may be left out of a narrow
-// terminal.
-var sectionColumns = map[section][]column{
-	sectionServices: {{title: "NAME", tone: toneText}, {title: "BASE URL", flex: true, tone: toneText}},
-	sectionCredentials: {{title: "NAME", tone: toneText},
-		{title: "STORAGE", optional: true, tone: toneDim, short: map[string]string{
-			placeKeyring: "keyring", placeEnv: "env", placePlaintext: "file", placeVault: "vault"},
-			shown: func(place string) string { return valueText(storageLabel, place) }},
-		{title: "SECRETS", flex: true, tone: toneText}},
-	sectionConnections: {{title: "NAME", tone: toneText}, {title: "STATE", optional: true, tone: connectionStateTone},
-		{title: "SERVICE", tone: toneText}, {title: "EFFECTS", optional: true, tone: toneDim},
-		{title: "TOOLS", optional: true, tone: toneDim}, {title: "TARGETS", optional: true, tone: toneDim},
-		{title: "DESCRIPTION", flex: true, tone: toneText}},
-	sectionDefaults: {{title: "PROVIDER OR TOOL", tone: toneText}, {title: "CONNECTION", tone: toneText}},
-	sectionApprovals: {{title: "CONNECTION", tone: toneText}, {title: "KIND", tone: toneDim},
-		{title: "CHANGE", flex: true, tone: toneText}},
-	sectionTokens: {{title: "NAME", tone: toneText}, {title: "EXPIRES", tone: toneDim}, {title: "MODELS", flex: true, tone: toneText}},
-}
-
-// connectionStateTone colours the state of a connection: active green, expired red, anything else (disabled)
-// dimmed. The word stays in the cell.
-func connectionStateTone(cell string) lipgloss.Style {
-	switch {
-	case strings.HasPrefix(cell, valueText(stateLabel, stateActive)):
-		return styles.ok
-	case strings.HasPrefix(cell, valueText(stateLabel, expiredText)):
-		return styles.fail
-	}
-	return styles.hint
-}
-
-// listTable is the table of every entry of the section, filtered out or not.
-func (m *Model) listTable() table {
-	columns := slices.Clone(sectionColumns[m.section])
-	for i := range columns {
-		columns[i].title = columnText(columns[i].title)
-	}
-	t := table{columns: columns, rows: map[string][]string{}}
-	for _, name := range m.list.all {
-		if !isGroupRow(name) {
-			t.rows[name] = m.cells(name)
-		}
-	}
-	return t
-}
-
 // describe is what the filter of the list looks at for one entry: every cell of its row, so what can be
 // read can be found. It never holds a secret value.
 func (m *Model) describe(name string) string {
 	text := strings.Join(m.cells(name), columnGap)
-	if m.groups != nil || (groupedSection(m.section) && m.opts(m.section).flat) {
+	if groupedSection(m.section) {
 		// The provider is the group heading or the detail, not a column; it is found all the same.
 		text = m.providerOf(m.section)(name) + columnGap + text
 	}
@@ -5337,12 +5264,13 @@ type Options struct {
 	Restart *Restart
 	// SelfTest says how the selftest commands run.
 	SelfTest SelfTest
-	// Prefs are the device-local preferences; the zero value is read as the defaults.
-	Prefs uiprefs.Prefs
+	// Prefs are the device-local preferences as loading them under PrefsSchema gives them; the zero value is
+	// read as the defaults.
+	Prefs kitprefs.Prefs
 	// PrefsWarnings are problems found while loading Prefs; the editor shows the first one at start.
-	PrefsWarnings []string
+	PrefsWarnings []kitprefs.Warning
 	// SavePrefs stores changed preferences. It may be nil, in which case they cannot be saved.
-	SavePrefs func(uiprefs.Prefs) error
+	SavePrefs func(kitprefs.Prefs) error
 	In, Out   *os.File
 }
 
@@ -5351,13 +5279,11 @@ func Run(opts Options) error {
 	// Read before anything else, so that no child of the editor inherits the handoff.
 	predecessor := takeHandoff()
 	prefs := opts.Prefs
-	if prefs == (uiprefs.Prefs{}) {
-		prefs = uiprefs.Default()
+	if prefs.Theme == "" {
+		prefs = defaultPrefs()
 	}
 	setProfile(kittui.DetectColorProfile(opts.Out, os.Environ()))
 	setLanguage(prefs.Language)
-	known, themeWarning := knownTheme(prefs.Theme)
-	prefs.Theme = known
 	applyTheme(prefs.Theme)
 	model, err := New(opts.Service, opts.Store, opts.Tester, opts.Secrets, opts.Redactor)
 	if err != nil {
@@ -5369,23 +5295,11 @@ func Run(opts Options) error {
 	model.selftest = opts.SelfTest
 	model.prefs = prefs
 	model.savePrefs = opts.SavePrefs
-	warnings := opts.PrefsWarnings
-	if themeWarning != "" {
-		warnings = append(warnings, themeWarning)
-	}
-	if err := prefs.Keys.WithDefaults().Validate(); err != nil {
-		warnings = append(warnings, tr(tKeysInvalid, err.Error()))
-		prefs.Keys, model.prefs.Keys = uiprefs.DefaultKeys(), uiprefs.DefaultKeys()
-	}
 	applyKeys(prefs.Keys)
 	if start, ok := areaByName(prefs.Start); ok {
 		model.start = start
-	} else {
-		warnings = append(warnings, tr(tStartUnknown, prefs.Start))
 	}
-	if len(warnings) > 0 {
-		model.status = warningLine(warnings[0])
-	}
+	model.status = prefsWarningLine(opts.PrefsWarnings)
 	if predecessor != nil {
 		model.adopt(predecessor)
 	}

@@ -24,6 +24,7 @@ import (
 	"github.com/castrowithcee/qatlas-connect/internal/uiprefs"
 	"github.com/castrowithcee/qatlas-connect/internal/vault"
 	kittui "github.com/castrowithcee/qatlas-kit/tui"
+	kitprefs "github.com/castrowithcee/qatlas-kit/uiprefs"
 )
 
 // The visual snapshots render the main screens of the editor from a fixed demo setup and compare the raw
@@ -89,7 +90,7 @@ func visualSetup(t *testing.T, noColor bool) {
 	restoreRenderer(t)
 	lang, local := uiLang, time.Local
 	t.Cleanup(func() { uiLang, time.Local = lang, local })
-	setLanguage(uiprefs.LanguageEnglish)
+	setLanguage(kitprefs.LanguageEnglish)
 	time.Local = time.UTC
 	// Icons and block characters depend on the locale; the snapshots must not depend on the machine.
 	t.Setenv("LC_ALL", "C.UTF-8")
@@ -133,7 +134,7 @@ func visualModel(t *testing.T, fixtures string, width, height int, theme string)
 	m.version = "1.2.3"
 	m.now = func() time.Time { return visualNow }
 	m.logs = newLogView(visualNow)
-	m.prefs = uiprefs.Default()
+	m.prefs = defaultPrefs()
 	m.prefs.Theme = theme
 	applyTheme(theme)
 	m.Update(tea.WindowSizeMsg{Width: width, Height: height})
@@ -318,7 +319,7 @@ func visualShots() []visualShot {
 		}},
 		{"58-targets", 150, 42, dark, false, func(t *testing.T, m *Model) {
 			connections(t, m)
-			m.list.selectName("code-planning")
+			selectRow(m, "code-planning")
 			pump(t, m, "enter")
 			openTargetList(t, m)
 		}},
@@ -367,7 +368,7 @@ func visualTerminalShots() []visualTerminalShot {
 	}
 	settings := func(t *testing.T, m *Model) { openSectionByName(t, m, sectionGeneral) }
 	shot := func(name string, show func(*testing.T, *Model), profile kittui.ColorProfile, fg, bg string) visualTerminalShot {
-		return visualTerminalShot{visualProfileShot{visualShot{name, 150, 42, uiprefs.ThemeTerminal, false, show}, profile}, fg, bg}
+		return visualTerminalShot{visualProfileShot{visualShot{name, 150, 42, kittui.ThemeTerminal, false, show}, profile}, fg, bg}
 	}
 	return []visualTerminalShot{
 		shot("70-overview-terminal-dark", overview, kittui.ProfileTrueColor, darkFg, darkBg),

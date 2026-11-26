@@ -159,7 +159,7 @@ func longInputCases() []longInputCase {
 				openSectionByName(t, m, sectionServices)
 				press(t, m, "/")
 				return m, func(t *testing.T, m *Model) {
-					if got := m.list.input.Value(); got != long {
+					if got := m.list.Query(); got != long {
 						t.Errorf("filter holds %d characters, want %d", len(got), len(long))
 					}
 				}

@@ -6,7 +6,7 @@ import (
 	"strings"
 
 	tea "charm.land/bubbletea/v2"
-	"charm.land/lipgloss/v2"
+	kit "github.com/castrowithcee/qatlas-kit/tui"
 	"github.com/charmbracelet/x/ansi"
 )
 
@@ -112,9 +112,9 @@ func (m *Model) setBar(k barKind, next int) {
 // relist rebuilds the list after the bar changed, on the entry that was selected where it is still shown.
 func (m *Model) relist() {
 	name, ok := m.selected()
-	m.list.setItems(m.listItems(m.section))
+	m.fillList()
 	if ok {
-		m.selectEntry(name)
+		m.list.Select(kit.ItemID(name))
 	}
 }
 
@@ -166,11 +166,11 @@ func searchContent(l *filterList, room int) string {
 	return ""
 }
 
-// barLayout draws the bar on one line of width cells: the fields as dropdown fields and the search field
-// right of them. Where the fields do not all fit, their values are cut; where even that does not suffice, the
-// focused field stands alone, and a bar without the focus shrinks to the values it holds, or, while a search
-// is typed, to the search field. It returns the line, the fields drawn and the plain search field ("" if none).
-func (m *Model) barLayout(width int) (string, []barPart, string) {
+// barLayout draws the bar on one line of width cells: the fields as dropdown fields. Where the fields do not
+// all fit, their values are cut; where even that does not suffice, the focused field stands alone, and a bar
+// without the focus shrinks to the values it holds. The search field is the list's own, on the line below.
+// It returns the line and the fields drawn.
+func (m *Model) barLayout(width int) (string, []barPart) {
 	kinds := barKinds(m.section)
 	focus := -1
 	if m.screen == screenList && m.barFocus > 0 {
@@ -205,60 +205,36 @@ func (m *Model) barLayout(width int) (string, []barPart, string) {
 		}
 		return widths, true
 	}
-	idle := !(m.list.editing || m.list.query() != "")
-	draw := func(widths []int, searchWidth int) (string, []barPart) {
+	if widths, ok := build(width); ok {
 		var parts []barPart
 		var b strings.Builder
-		used := 0
 		for i := range kinds {
 			if i > 0 {
 				b.WriteString(strings.Repeat(" ", gap))
-				used += gap
 			}
 			field := dropdownField(labels[i], values[i], i == focus, widths[i])
 			b.WriteString(barMarker(i == focus) + field)
 			parts = append(parts, barPart{i, ansi.Strip(field)})
-			used += 2 + lipgloss.Width(field)
-		}
-		if searchWidth > 0 {
-			b.WriteString(strings.Repeat(" ", max(width-used-searchWidth, 0)) + searchField(searchContent(&m.list, searchWidth), searchWidth))
 		}
 		return b.String(), parts
 	}
-	if widths, ok := build(width - gap - searchFieldMin); ok {
-		used := gap * (len(kinds) - 1)
-		for i := range widths {
-			used += 2 + widths[i]
-		}
-		sw := min(searchFieldMax, width-used-gap)
-		line, parts := draw(widths, sw)
-		return line, parts, ansi.Strip(searchField(searchContent(&m.list, sw), sw))
-	}
-	if widths, ok := build(width); ok && idle {
-		line, parts := draw(widths, 0)
-		return line, parts, ""
-	}
 	if focus >= 0 {
 		field := clipCells(dropdownField(labels[focus], values[focus], true, max(width-2, 1)), max(width-2, 0))
-		return clipCells(barMarker(true)+field, width), []barPart{{focus, ansi.Strip(field)}}, ""
+		return clipCells(barMarker(true)+field, width), []barPart{{focus, ansi.Strip(field)}}
 	}
-	if !idle {
-		return searchField(searchContent(&m.list, width), width), nil, ""
-	}
-	return styles.hint.Render(truncateCells("  "+strings.Join(summary, " · "), width)), nil, ""
+	return styles.hint.Render(truncateCells("  "+strings.Join(summary, " · "), width)), nil
 }
 
 // barLine is the bar as drawn on one line of width cells.
 func (m *Model) barLine(width int) string {
-	line, _, _ := m.barLayout(width)
+	line, _ := m.barLayout(width)
 	return line
 }
 
-// hitBarFields makes the fields of the filter bar and its search field clickable: a click on a field opens its
-// list, which enter does on the focused field, and one on the search field starts the search, as / does.
-// row is the screen row of the bar.
+// hitBarFields makes the fields of the filter bar clickable: a click on a field opens its list, which enter
+// does on the focused field. row is the screen row of the bar.
 func (m *Model) hitBarFields(row int) {
-	line, parts, search := m.barLayout(m.tableRoom())
+	line, parts := m.barLayout(m.tableRoom())
 	if m.tableFramed() {
 		// The bar stands behind the side of the frame and its blank.
 		line = "  " + line
@@ -274,18 +250,6 @@ func (m *Model) hitBarFields(row int) {
 			}
 			m.barFocus = field + 1
 			m.openBarDropdown(field)
-			return nil
-		}})
-	}
-	if search != "" {
-		specs = append(specs, barSpec{field: strings.TrimRight(search, " "), whole: func() tea.Cmd {
-			if m.screen == screenNav {
-				if cmd := m.focusList(); m.screen != screenList {
-					return cmd
-				}
-			}
-			m.barFocus = 0
-			m.list.startFilter()
 			return nil
 		}})
 	}

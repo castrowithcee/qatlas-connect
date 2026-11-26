@@ -13,7 +13,7 @@ import (
 	"github.com/castrowithcee/qatlas-connect/internal/config"
 	"github.com/castrowithcee/qatlas-connect/internal/provider/github"
 	"github.com/castrowithcee/qatlas-connect/internal/selftest"
-	"github.com/castrowithcee/qatlas-connect/internal/uiprefs"
+	kitprefs "github.com/castrowithcee/qatlas-kit/uiprefs"
 )
 
 // frameLines is the frame the editor draws now, without styling, one string per screen row.
@@ -176,14 +176,14 @@ func TestClickOnATabAsksBeforeUnsavedInputIsDropped(t *testing.T) {
 func TestClickOnAListRowOpensItAndOnAGroupFoldsIt(t *testing.T) {
 	m := sizedModel(groupModel(t), 120, 40)
 	openSectionByName(t, m, sectionServices)
-	before := len(m.list.matches)
+	before := len(listRowsOf(m))
 	clickOn(t, m, "▾ ■ tracker (1)")
-	if len(m.list.matches) != before-1 {
-		t.Fatalf("a click on a group row left %d rows, want %d", len(m.list.matches), before-1)
+	if len(listRowsOf(m)) != before-1 {
+		t.Fatalf("a click on a group row left %d rows, want %d", len(listRowsOf(m)), before-1)
 	}
 	clickOn(t, m, "▸ ■ tracker (1)")
-	if len(m.list.matches) != before {
-		t.Fatalf("a second click left %d rows, want %d", len(m.list.matches), before)
+	if len(listRowsOf(m)) != before {
+		t.Fatalf("a second click left %d rows, want %d", len(listRowsOf(m)), before)
 	}
 	clickOnRow(t, m, "wiki-main")
 	if m.screen != screenList || m.editing != "" || markedRow(m) != "wiki-main" {
@@ -196,7 +196,7 @@ func TestClickOnAListRowOpensItAndOnAGroupFoldsIt(t *testing.T) {
 }
 
 func markedRow(m *Model) string {
-	name, _ := m.list.selected()
+	name, _ := m.marked()
 	return name
 }
 
@@ -587,14 +587,14 @@ func TestClickOnAConfirmationAnswersWithTheUsualKey(t *testing.T) {
 func TestTheWheelScrollsAListAndAForm(t *testing.T) {
 	m := sizedModel(groupModel(t), 100, 40)
 	openSectionByName(t, m, sectionConnections)
-	before := m.list.cursor
+	before := listCursor(m)
 	wheelAt(t, m, 5, 10, tea.MouseWheelDown)
-	if want := before + 1; m.list.cursor != want {
-		t.Errorf("after the wheel down the cursor is %d, want %d", m.list.cursor, want)
+	if want := before + 1; listCursor(m) != want {
+		t.Errorf("after the wheel down the cursor is %d, want %d", listCursor(m), want)
 	}
 	wheelAt(t, m, 5, 10, tea.MouseWheelUp)
-	if m.list.cursor != before {
-		t.Errorf("after the wheel up the cursor is %d, want %d", m.list.cursor, before)
+	if listCursor(m) != before {
+		t.Errorf("after the wheel up the cursor is %d, want %d", listCursor(m), before)
 	}
 
 	clickOnRow(t, m, "wiki-docs")
@@ -681,38 +681,38 @@ func TestATooSmallTerminalIgnoresTheMouse(t *testing.T) {
 	if !m.tooSmall {
 		t.Fatalf("the Details tab with a long note fits the smallest terminal; the notice is not shown:\n%s", ansi.Strip(m.render()))
 	}
-	cursor, area, screen := m.list.cursor, m.section.area(), m.screen
+	cursor, area, screen := listCursor(m), m.section.area(), m.screen
 	for row := 0; row < minimumHeight; row++ {
 		for _, x := range []int{0, 3, 12, 30} {
 			clickAt(t, m, x, row)
 			wheelAt(t, m, x, row, tea.MouseWheelDown)
 		}
 	}
-	if m.list.cursor != cursor || m.section.area() != area || m.screen != screen {
-		t.Errorf("cursor %d area %v screen %v after clicks on the size notice", m.list.cursor, m.section.area(), m.screen)
+	if listCursor(m) != cursor || m.section.area() != area || m.screen != screen {
+		t.Errorf("cursor %d area %v screen %v after clicks on the size notice", listCursor(m), m.section.area(), m.screen)
 	}
 }
 
 func TestSwitchedOffMouseDoesNothing(t *testing.T) {
 	m := sizedModel(groupModel(t), 120, 40)
-	m.prefs = uiprefs.Default()
-	m.prefs.Icons = uiprefs.IconsNone
-	m.prefs.MouseOff = true
+	m.prefs = defaultPrefs()
+	m.prefs.Icons = kitprefs.IconsNone
+	m.prefs.MouseEnabled = false
 	section := m.section
 	clickOn(t, m, "6 Settings")
 	if m.section != section {
 		t.Error("a click switched the area with the mouse off")
 	}
 	openSectionByName(t, m, sectionServices)
-	cursor := m.list.cursor
+	cursor := listCursor(m)
 	wheelAt(t, m, 5, 10, tea.MouseWheelDown)
-	if m.list.cursor != cursor {
+	if listCursor(m) != cursor {
 		t.Error("the wheel moved the list with the mouse off")
 	}
 	if mode := m.View().MouseMode; mode != tea.MouseModeNone {
 		t.Errorf("the view asks for mouse mode %v with the mouse off, want none", mode)
 	}
-	m.prefs.MouseOff = false
+	m.prefs.MouseEnabled = true
 	if mode := m.View().MouseMode; mode != tea.MouseModeCellMotion {
 		t.Errorf("the view asks for mouse mode %v with the mouse on, want cell motion", mode)
 	}
@@ -720,7 +720,7 @@ func TestSwitchedOffMouseDoesNothing(t *testing.T) {
 
 func TestTheMouseSettingAppliesAtOnce(t *testing.T) {
 	m, path := lockedVaultModel(t)
-	m.prefs.Icons = uiprefs.IconsNone
+	m.prefs.Icons = kitprefs.IconsNone
 	sizedModel(m, 100, 40)
 	openSectionByName(t, m, sectionGeneral)
 	focusField(t, m, mouseLabel)
@@ -736,7 +736,7 @@ func TestTheMouseSettingAppliesAtOnce(t *testing.T) {
 	if mode := m.View().MouseMode; mode != tea.MouseModeNone {
 		t.Errorf("after saving the view asks for mouse mode %v, want none", mode)
 	}
-	if got, _ := uiprefs.Load(path); got.MouseEnabled() {
+	if got, _ := kitprefs.Load(path, PrefsSchema()); got.MouseEnabled {
 		t.Error("tui.yaml still has the mouse on")
 	}
 	clickOn(t, m, "6 Settings")
@@ -753,7 +753,7 @@ func TestAFailedRestartKeepsTheMouseModeOfThePreference(t *testing.T) {
 	if mode := m.View().MouseMode; mode != tea.MouseModeCellMotion {
 		t.Errorf("after a failed restart with the mouse on the view asks for mouse mode %v", mode)
 	}
-	m.prefs.MouseOff = true
+	m.prefs.MouseEnabled = false
 	m.Update(restartFailedMsg{})
 	if mode := m.View().MouseMode; mode != tea.MouseModeNone {
 		t.Errorf("after a failed restart with the mouse off the view asks for mouse mode %v", mode)
@@ -882,11 +882,11 @@ func TestDialogButtonsWorkInTheFullScreenFallback(t *testing.T) {
 func TestTheWheelStopsAtTheEnds(t *testing.T) {
 	m := sizedModel(groupModel(t), 100, 40)
 	openSectionByName(t, m, sectionConnections)
-	last := len(m.list.matches) - 1
-	m.list.cursor = last
+	last := len(listRowsOf(m)) - 1
+	setListCursor(m, last)
 	wheelAt(t, m, 5, 10, tea.MouseWheelDown)
-	if m.list.cursor != last {
-		t.Errorf("the wheel down at the end of the list moved the cursor to %d", m.list.cursor)
+	if listCursor(m) != last {
+		t.Errorf("the wheel down at the end of the list moved the cursor to %d", listCursor(m))
 	}
 
 	clickOnRow(t, m, "wiki-docs")

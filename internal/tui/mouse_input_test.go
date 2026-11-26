@@ -377,28 +377,28 @@ func wheelFilter(m *Model) (send func(x, y int, button tea.MouseButton), advance
 func TestOneNotchIsOneStepWhateverTheTerminalReports(t *testing.T) {
 	m := sizedModel(groupModel(t), 100, 40)
 	openSectionByName(t, m, sectionConnections)
-	m.list.cursor = 0
+	setListCursor(m, 0)
 	wheel, advance := wheelFilter(m)
 	wheel(5, 10, tea.MouseWheelDown)
 	wheel(5, 10, tea.MouseWheelDown)
-	if m.list.cursor != 1 {
-		t.Fatalf("a notch with its release moved the cursor to %d, want one row", m.list.cursor)
+	if listCursor(m) != 1 {
+		t.Fatalf("a notch with its release moved the cursor to %d, want one row", listCursor(m))
 	}
 	for range 3 {
 		advance(15 * time.Millisecond)
 		wheel(5, 10, tea.MouseWheelDown)
 		wheel(5, 10, tea.MouseWheelDown)
 	}
-	if m.list.cursor != 4 {
-		t.Errorf("three more notches ended on %d, want 4", m.list.cursor)
+	if listCursor(m) != 4 {
+		t.Errorf("three more notches ended on %d, want 4", listCursor(m))
 	}
 	wheel(5, 10, tea.MouseWheelUp)
-	if m.list.cursor != 3 {
-		t.Errorf("the wheel up right after a wheel down ended on %d, want 3", m.list.cursor)
+	if listCursor(m) != 3 {
+		t.Errorf("the wheel up right after a wheel down ended on %d, want 3", listCursor(m))
 	}
 	wheel(6, 10, tea.MouseWheelUp)
-	if m.list.cursor != 2 {
-		t.Errorf("the wheel up in another cell ended on %d, want 2", m.list.cursor)
+	if listCursor(m) != 2 {
+		t.Errorf("the wheel up in another cell ended on %d, want 2", listCursor(m))
 	}
 }
 
@@ -406,12 +406,12 @@ func TestOneNotchIsOneStepWhateverTheTerminalReports(t *testing.T) {
 func TestQueuedWheelPairsMoveOneRowEach(t *testing.T) {
 	m := sizedModel(groupModel(t), 100, 40)
 	openSectionByName(t, m, sectionConnections)
-	m.list.cursor = 0
+	setListCursor(m, 0)
 	wheel, _ := wheelFilter(m)
 	for range 4 {
 		wheel(5, 10, tea.MouseWheelDown)
 	}
-	if m.list.cursor != 2 {
-		t.Errorf("four queued events moved the cursor to %d, want 2", m.list.cursor)
+	if listCursor(m) != 2 {
+		t.Errorf("four queued events moved the cursor to %d, want 2", listCursor(m))
 	}
 }

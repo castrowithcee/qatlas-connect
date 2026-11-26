@@ -141,7 +141,7 @@ func BenchmarkScaleList(b *testing.B) {
 func TestScaleModelSmall(t *testing.T) {
 	model := scaleModel(t, 25)
 	model.openSection(sectionConnections)
-	if got := model.entryTotal(); got != 25 {
+	if got := len(model.names); got != 25 {
 		t.Fatalf("connections = %d, want 25", got)
 	}
 	model.Update(tea.KeyPressMsg{Code: '/', Text: string('/')})

@@ -7,8 +7,6 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	kit "github.com/castrowithcee/qatlas-kit/tui"
-
-	"github.com/castrowithcee/qatlas-connect/internal/uiprefs"
 )
 
 // action names a key-bound action of the editor. Dispatch and footers refer to the action, never to the
@@ -177,58 +175,11 @@ var keymap = func() *kit.Keymap {
 	return km
 }()
 
-// userActions maps the rebindable actions of the preferences to the actions of the keymap.
-var userActions = map[string]action{
-	uiprefs.ActionSave: actSave, uiprefs.ActionHelp: actHelp, uiprefs.ActionCommand: actCommand, uiprefs.ActionLock: actLock,
-}
-
-func init() {
-	uiprefs.Reserved = reservedOwner
-	uiprefs.Standard = standardRule
-}
-
-// standardRule applies the kit's rule for a binding, which refuses the keys of the standard actions. It
-// takes the keys the other actions hold from others, as the kit counts an action it is not told about with
-// its default keys.
-func standardRule(name, key string, others uiprefs.Keys) error {
-	a, ok := userActions[name]
-	if name == uiprefs.ActionInfo {
-		a, ok = actInfo, true
-	}
-	if !ok {
-		return nil
-	}
-	held := map[action]string{actInfo: others.Info}
-	for n, ua := range userActions {
-		held[ua] = others.Get(n)
-	}
-	delete(held, a)
-	_, err := keymap.CheckBinding(a, key, held)
-	return err
-}
-
-// reservedOwner names the action of the table that owns k and that the preferences cannot replace, so no
-// binding may take it; "" means the key is free. The info letter is such an owner: its second key is a
-// preference, the letter is not.
-func reservedOwner(k string) string {
-	for _, a := range keymap.Actions() {
-		if a.Rebind != kit.RebindReplace && slices.Contains(a.DefaultKeys, k) {
-			return string(a.ID)
-		}
-	}
-	return ""
-}
-
 // applyKeys makes the keys of the preferences the keymap. Dispatch and footers read the keymap alone, so
 // both follow at once. The preferences are checked before they get here; a set the table still refuses
 // leaves the default keys.
-func applyKeys(k uiprefs.Keys) {
-	k = k.WithDefaults()
-	overrides := map[action]string{actInfo: k.Info}
-	for name, a := range userActions {
-		overrides[a] = k.Get(name)
-	}
-	if err := keymap.Bind(overrides); err != nil {
+func applyKeys(keys map[action]string) {
+	if err := keymap.Bind(keys); err != nil {
 		_ = keymap.Bind(nil)
 	}
 }

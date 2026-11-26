@@ -5,40 +5,51 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	kit "github.com/castrowithcee/qatlas-kit/tui"
-
-	"github.com/castrowithcee/qatlas-connect/internal/uiprefs"
 )
 
 // keyRows are the key rows of the General form: the label of a row, the action it binds, its one-line hint,
 // and the explanation behind it.
 var keyRows = []struct {
-	label, action string
-	hint, detail  textID
+	label        string
+	action       action
+	hint, detail textID
 }{
-	{"save key", uiprefs.ActionSave, tKeySaveHint, tKeySaveDetail},
-	{"help key", uiprefs.ActionHelp, tKeyHelpHint, tKeyHelpDetail},
-	{"command key", uiprefs.ActionCommand, tKeyCommandHint, tKeyCommandDetail},
-	{"lock key", uiprefs.ActionLock, tKeyLockHint, tKeyLockDetail},
-	{"info key", uiprefs.ActionInfo, tKeyInfoHint, tKeyInfoDetail},
+	{"save key", actSave, tKeySaveHint, tKeySaveDetail},
+	{"help key", actHelp, tKeyHelpHint, tKeyHelpDetail},
+	{"command key", actCommand, tKeyCommandHint, tKeyCommandDetail},
+	{"lock key", actLock, tKeyLockHint, tKeyLockDetail},
+	{"info key", actInfo, tKeyInfoHint, tKeyInfoDetail},
 }
 
-// keyFields are the key rows of the General form for keys.
-func keyFields(keys uiprefs.Keys) []field {
-	keys = keys.WithDefaults()
+// standardKey is the key a key row holds without a binding of its own: the key of the table, and none for
+// the second info key.
+func standardKey(a action) string {
+	if a == actInfo {
+		return ""
+	}
+	return tableKey(a)
+}
+
+// keyFields are the key rows of the General form for the keys that differ from the standard.
+func keyFields(keys map[action]string) []field {
 	var fields []field
 	for _, r := range keyRows {
-		fields = append(fields, field{label: r.label, kind: fieldKey, action: r.action, bound: keys.Get(r.action),
+		bound, ok := keys[r.action]
+		if !ok {
+			bound = standardKey(r.action)
+		}
+		fields = append(fields, field{label: r.label, kind: fieldKey, action: string(r.action), bound: bound,
 			detail: tr(r.detail) + tr(tKeyDetailSuffix)}.withHint(tr(r.hint)))
 	}
 	return fields
 }
 
-// keysOfForm reads the keys the key rows of the form hold.
-func (m *Model) keysOfForm() uiprefs.Keys {
-	var keys uiprefs.Keys
+// keysOfForm reads the keys the key rows of the form hold, the standard ones included.
+func (m *Model) keysOfForm() map[action]string {
+	keys := map[action]string{}
 	for _, f := range m.fields {
 		if f.kind == fieldKey {
-			keys = keys.With(f.action, f.bound)
+			keys[action(f.action)] = f.bound
 		}
 	}
 	return keys
@@ -47,13 +58,12 @@ func (m *Model) keysOfForm() uiprefs.Keys {
 // keyRowValue is how a key row shows its binding: the key by name, and where the key is the standard or
 // none, said in words, so colour carries nothing.
 func keyRowValue(f field) string {
-	standard := uiprefs.DefaultKeys().Get(f.action)
 	switch {
-	case f.action == uiprefs.ActionInfo && f.bound == "":
+	case action(f.action) == actInfo && f.bound == "":
 		return tr(tKeyInfoOnly, tableKey(actInfo))
-	case f.action == uiprefs.ActionInfo:
+	case action(f.action) == actInfo:
 		return tr(tKeyInfoAnd, tableKey(actInfo), shownKey(f))
-	case f.bound == standard:
+	case f.bound == standardKey(action(f.action)):
 		return tr(tKeyStandard, shownKey(f))
 	}
 	return shownKey(f)
@@ -63,12 +73,9 @@ func keyRowValue(f field) string {
 // the keymap can only label once it holds it, so it is bound in a copy of the table; a key the table refuses
 // stays as typed.
 func shownKey(f field) string {
-	a, ok := userActions[f.action]
-	if f.action == uiprefs.ActionInfo {
-		a, ok = actInfo, true
-	}
+	a := action(f.action)
 	km, err := newKeymap(keyTable)
-	if !ok || err != nil || km.Bind(map[action]string{a: f.bound}) != nil {
+	if err != nil || km.Bind(map[action]string{a: f.bound}) != nil {
 		return f.bound
 	}
 	if a == actInfo {
@@ -89,7 +96,7 @@ func (m *Model) keyRowKey(key tea.KeyPressMsg) (tea.Cmd, bool) {
 		return nil, true
 	case keyIs(key, actDelete):
 		m.clearMessages()
-		f.bound = uiprefs.DefaultKeys().Get(f.action)
+		f.bound = standardKey(action(f.action))
 		return nil, true
 	}
 	return nil, false
@@ -116,12 +123,14 @@ func (m *Model) captureKey(key tea.KeyPressMsg) tea.Cmd {
 	// checks against what is shown, not against what was saved.
 	name := key.String()
 	if name == keyLabel(actSpace) {
-		// Check trims a blank key to "", which Info accepts as "no second key", so a space would silently
-		// clear it; refuse it here with the rule's wording for every action.
+		// CheckBinding trims a blank key to "", which info accepts as "no second key", so a space would
+		// silently clear it; refuse it here with the rule's wording for every action.
 		m.fail = tr(tKeySpaceRefused)
 		return nil
 	}
-	chosen, err := m.keysOfForm().Check(f.action, name)
+	others := m.keysOfForm()
+	delete(others, action(f.action))
+	chosen, err := keymap.CheckBinding(action(f.action), name, others)
 	if err != nil {
 		m.fail = err.Error()
 		return nil

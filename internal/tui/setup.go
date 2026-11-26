@@ -15,6 +15,7 @@ import (
 	"github.com/castrowithcee/qatlas-connect/internal/manage"
 	"github.com/castrowithcee/qatlas-connect/internal/secret"
 	"github.com/castrowithcee/qatlas-connect/internal/vault"
+	kittui "github.com/castrowithcee/qatlas-kit/tui"
 )
 
 // The guided setup leads from a provider to a saved and optionally tested connection. It is a sequence of
@@ -299,7 +300,7 @@ func (m *Model) finishSetup() tea.Cmd {
 	name := m.wizard.saved
 	m.wizard, m.fields = nil, nil
 	cmd := m.openSection(sectionConnections)
-	m.selectEntry(name)
+	m.list.Select(kittui.ItemID(name))
 	m.status = tr(tSetupSaved, name)
 	return cmd
 }

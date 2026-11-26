@@ -55,7 +55,7 @@ func formsBase(t *testing.T, w, h int) *Model {
 	mustNoError(t, m.cfg.SetService("bot", config.Service{Provider: "telegram", BaseURL: "https://bot.example.invalid"}))
 	mustNoError(t, m.cfg.SetCredential("billing", config.Credential{Type: config.CredentialTypeKeyring, Forward: true,
 		Fields: []string{"login"}}))
-	m.list.reset(m.entryNames(m.section))
+	m.resetList(m.section)
 	return sizedModel(m, w, h)
 }
 
@@ -120,7 +120,7 @@ func (v *viewSet) forms() {
 	// A copy of a connection.
 	m = formsBase(t, navWidth, navHeight)
 	openSectionByName(t, m, sectionConnections)
-	m.list.selectName("docs")
+	selectRow(m, "docs")
 	press(t, m, "C")
 	v.see(m)
 	if m.screen == screenForm {
@@ -154,7 +154,7 @@ func (v *viewSet) forms() {
 	// A credential whose secret row opens the masked prompt.
 	m = formsBase(t, navWidth, navHeight)
 	openSectionByName(t, m, sectionCredentials)
-	m.list.selectName("reader")
+	selectRow(m, "reader")
 	pump(t, m, "enter")
 	focusRole(t, m, "token-id")
 	v.see(m)
@@ -183,7 +183,7 @@ func (v *viewSet) forms() {
 	}
 	m = formsBase(t, navWidth, navHeight)
 	openSectionByName(t, m, sectionCredentials)
-	m.list.selectName("billing")
+	selectRow(m, "billing")
 	pump(t, m, "enter")
 	if m.screen == screenForm {
 		v.walkRows(m)

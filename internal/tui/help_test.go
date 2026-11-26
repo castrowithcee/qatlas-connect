@@ -126,8 +126,8 @@ func TestQuestionMarkIsTextWhereTextIsTyped(t *testing.T) {
 
 	list, _, _ := newModel(t)
 	press(t, list, "enter", "/", "?")
-	if list.screen != screenList || list.list.query() != "?" {
-		t.Errorf("? in a filter was not typed: screen %v query %q", list.screen, list.list.query())
+	if list.screen != screenList || list.list.Query() != "?" {
+		t.Errorf("? in a filter was not typed: screen %v query %q", list.screen, list.list.Query())
 	}
 }
 

@@ -5,8 +5,6 @@ package cli
 import (
 	"context"
 	"errors"
-	"fmt"
-	"net"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -14,27 +12,26 @@ import (
 	"strings"
 	"testing"
 
-	"filippo.io/age"
 	"golang.org/x/crypto/ssh"
 
 	"github.com/castrowithcee/qatlas-connect/internal/selfupdate"
 	"github.com/castrowithcee/qatlas-connect/internal/selfupdate/selfupdatetest"
 	"github.com/castrowithcee/qatlas-connect/internal/vault"
 	"github.com/castrowithcee/qatlas-connect/internal/vaultproc"
+	"github.com/castrowithcee/qatlas-connect/internal/vaultproc/vaultproctest"
 	"github.com/castrowithcee/qatlas-kit/redact"
 	"github.com/castrowithcee/qatlas-kit/release/releasetest"
 )
 
 // serveVaultInProcess serves the encrypted vault of the fixture in dir from this test process, the way
-// 'qconnect vault unlock' hands it to a vault process, and lets every command of the test reach it. The
-// server checks its clients by their program, which is this test binary on both ends.
+// 'qconnect vault unlock' hands it to a vault process, and lets every command of the test reach it.
 func serveVaultInProcess(t *testing.T, dir string) (*vaultproc.Server, *vaultproc.Client) {
 	t.Helper()
-	return serveVaultInProcessWith(t, dir, nil)
+	return serveVaultInProcessWith(t, dir, vaultproc.ServerOptions{})
 }
 
-// serveVaultInProcessWith is serveVaultInProcess for a server that configure sets up before it serves.
-func serveVaultInProcessWith(t *testing.T, dir string, configure func(*vaultproc.Server)) (*vaultproc.Server, *vaultproc.Client) {
+// serveVaultInProcessWith is serveVaultInProcess for a server with opts.
+func serveVaultInProcessWith(t *testing.T, dir string, opts vaultproc.ServerOptions) (*vaultproc.Server, *vaultproc.Client) {
 	t.Helper()
 	original := vaultProcessSupported
 	vaultProcessSupported = true
@@ -49,32 +46,27 @@ func serveVaultInProcessWith(t *testing.T, dir string, configure func(*vaultproc
 	if err != nil {
 		t.Fatalf("Snapshot() = %v", err)
 	}
-	key, err := age.ParseX25519Identity(snap.Identity)
-	if err != nil {
-		t.Fatalf("ParseX25519Identity() = %v", err)
-	}
 	client, err := vaultProcessClient(v)
 	if err != nil {
 		t.Fatalf("vaultProcessClient() = %v", err)
 	}
-	l, err := vaultproc.Listen(client.Path)
+	server, err := vaultproc.NewServer(v.Dir(), snap, opts)
 	if err != nil {
-		t.Fatalf("Listen() = %v", err)
+		t.Fatalf("NewServer() = %v", err)
 	}
-	server := vaultproc.NewServer(key, snap.Secrets, snap.Bindings)
-	if configure != nil {
-		configure(server)
-	}
-	done := make(chan struct{})
-	go func() { _ = server.Serve(l); close(done) }()
-	t.Cleanup(func() { _ = server.Close(); <-done })
+	t.Cleanup(func() { _ = server.Close() })
 	return server, client
 }
 
-// refuseEveryClient makes a server refuse every client, as a vault process does once an update replaced
-// its program.
-func refuseEveryClient(net.Conn) error {
-	return fmt.Errorf("%w: its program was removed or replaced since it started", vaultproc.ErrRefused)
+// serveRefusingVaultProcess listens at the channel of the vault in dir as a vault process does once an update
+// replaced its program, refusing every client. It stands in the test's own process.
+func serveRefusingVaultProcess(t *testing.T, dir string) {
+	t.Helper()
+	original := vaultProcessSupported
+	vaultProcessSupported = true
+	t.Cleanup(func() { vaultProcessSupported = original })
+	t.Setenv("XDG_RUNTIME_DIR", shortRuntimeDir(t))
+	vaultproctest.Refuse(t, vault.New(dir).Dir())
 }
 
 // 'credential set' and 'credential delete' hand what they wrote to the vault process that holds the
@@ -140,8 +132,7 @@ func TestVaultApproveSyncsARunningVaultProcess(t *testing.T) {
 // what it stored.
 func TestCredentialSetWarnsWhenTheVaultProcessRefuses(t *testing.T) {
 	dir := encryptedVaultFixture(t, "")
-	server, _ := serveVaultInProcess(t, dir)
-	server.Verify = refuseEveryClient
+	serveRefusingVaultProcess(t, dir)
 	withVaultPassphrase(t, offeringPassphrase("s3cret-phrase"))
 
 	code, _, stderr := runWithInput(t, &Options{}, "changed-"+canaryVault+"\n",
@@ -160,8 +151,7 @@ func TestCredentialSetWarnsWhenTheVaultProcessRefuses(t *testing.T) {
 // command: a registered value inside it never reaches standard error, and the prefix stays.
 func TestCredentialSetRedactsTheVaultProcessWarning(t *testing.T) {
 	dir := encryptedVaultFixture(t, "")
-	server, _ := serveVaultInProcess(t, dir)
-	server.Verify = refuseEveryClient
+	serveRefusingVaultProcess(t, dir)
 	withVaultPassphrase(t, offeringPassphrase("s3cret-phrase"))
 
 	opts := &Options{Redactor: &redact.Redactor{}}
@@ -246,9 +236,12 @@ func TestRekeyingLocksTheVaultProcess(t *testing.T) {
 func TestUpdateLocksTheVaultProcess(t *testing.T) {
 	for _, refuse := range []bool{false, true} {
 		dir := encryptedVaultFixture(t, "")
-		server, client := serveVaultInProcess(t, dir)
+		var client *vaultproc.Client
 		if refuse {
-			server.Verify = refuseEveryClient
+			serveRefusingVaultProcess(t, dir)
+			client, _ = vaultProcessClient(vault.New(dir))
+		} else {
+			_, client = serveVaultInProcess(t, dir)
 		}
 		executable := installedProgram(t)
 		updater := releaseUpdater(t, executable, func() {

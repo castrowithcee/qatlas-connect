@@ -83,7 +83,7 @@ func longRawModel(t *testing.T) *Model {
 	conn.Description = longText(300)
 	m.cfg.Connections["tracker-issues"] = conn
 	openSectionByName(t, m, sectionConnections)
-	m.list.selectName("tracker-issues")
+	selectRow(m, "tracker-issues")
 	return m
 }
 
@@ -92,7 +92,7 @@ func longRawModel(t *testing.T) *Model {
 func TestDetailPaneScrollsLongTabs(t *testing.T) {
 	short := newTableModel(t, 140)
 	openSectionByName(t, short, sectionServices)
-	short.list.selectName("wiki-main")
+	selectRow(short, "wiki-main")
 	if view := showRaw(t, short); hasPosition(view) {
 		t.Fatalf("a short raw tab shows a position:\n%s", view)
 	}
@@ -110,17 +110,17 @@ func TestDetailPaneScrollsLongTabs(t *testing.T) {
 	if m.detailPane.view.offset() != 0 {
 		t.Fatalf("home left offset %d", m.detailPane.view.offset())
 	}
-	before := m.list.cursor
+	before := listCursor(m)
 	press(t, m, "pgdown")
-	if m.detailPane.view.offset() == 0 || m.list.cursor != before {
-		t.Errorf("pgdown: pane offset %d, row %d -> %d", m.detailPane.view.offset(), before, m.list.cursor)
+	if m.detailPane.view.offset() == 0 || listCursor(m) != before {
+		t.Errorf("pgdown: pane offset %d, row %d -> %d", m.detailPane.view.offset(), before, listCursor(m))
 	}
 	press(t, m, "home")
 	// The wheel over the pane scrolls it and leaves the rows alone.
 	x, y := m.detailPane.x0+5, m.detailPane.y0+5
 	wheelAt(t, m, x, y, tea.MouseWheelDown)
-	if m.detailPane.view.offset() != wheelText || m.list.cursor != before {
-		t.Errorf("the wheel moved the pane to %d and the row from %d to %d", m.detailPane.view.offset(), before, m.list.cursor)
+	if m.detailPane.view.offset() != wheelText || listCursor(m) != before {
+		t.Errorf("the wheel moved the pane to %d and the row from %d to %d", m.detailPane.view.offset(), before, listCursor(m))
 	}
 	// Another tab starts at its first line.
 	press(t, m, "left", "left")
@@ -142,9 +142,9 @@ func TestDetailRawScrollKeepsSecretsMasked(t *testing.T) {
 	}
 	m.cfg.Connections["tracker-issues"] = conn
 	openSectionByName(t, m, sectionServices)
-	m.list.selectName("wiki-main")
+	selectRow(m, "wiki-main")
 	for _, name := range []string{"wiki-main", "token-host"} {
-		m.list.selectName(name)
+		selectRow(m, name)
 		showRaw(t, m)
 		for _, key := range []string{"end", "home", "pgdown"} {
 			press(t, m, key)

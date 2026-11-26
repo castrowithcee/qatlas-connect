@@ -21,8 +21,7 @@ func TestPayloadSaveChainsTheVaultProcessWarnings(t *testing.T) {
 	secrets, _ := newVaultResolver(t, dir)
 	mustNoError(t, secrets.SetVault("billing", "user", "old-user-1", func(string) (string, error) { return passphrase, nil }))
 	mustNoError(t, secrets.SetVault("billing", "pass", "old-pass-1", nil))
-	server, _ := serveVaultProcess(t, dir, passphrase)
-	server.Verify = refuseEveryClient
+	serveRefusingVaultProcess(t, dir)
 
 	cfg := newTestConfig(t)
 	mustNoError(t, cfg.SetCredential("billing", config.Credential{

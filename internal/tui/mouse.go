@@ -66,7 +66,7 @@ func (m *Model) hitRows(top, width, start, end int, row func(i int) string, act 
 }
 
 // mouseEnabled reports whether the editor takes mouse input.
-func (m *Model) mouseEnabled() bool { return m.prefs.MouseEnabled() }
+func (m *Model) mouseEnabled() bool { return m.prefs.MouseEnabled }
 
 // mouseMode is the mouse mode the view asks the terminal for: cell motion while the editor takes the mouse.
 func (m *Model) mouseMode() tea.MouseMode {
@@ -116,10 +116,11 @@ func (m *Model) updateMouse(msg tea.MouseMsg) tea.Cmd {
 	// click as the key or the tab click it stands for.
 	if wheel {
 		targets, _ := m.mouseTargets(false)
-		if !kittui.NewMouseMap(targets, true).Handle(msg).Handled || (m.dd != nil && !m.infoOpen) {
+		r := kittui.NewMouseMap(targets, true).Handle(msg)
+		if !r.Handled || (m.dd != nil && !m.infoOpen) {
 			return nil
 		}
-		return m.wheel(event)
+		return m.wheel(event, r)
 	}
 	if m.infoOpen {
 		// The explanation closes the way esc closes it; a click on a tab then goes on.
@@ -170,6 +171,8 @@ func (m *Model) mouseTargets(tabsOnly bool) ([]kittui.Target, []func() tea.Cmd) 
 		for _, h := range m.hits {
 			add(h, false)
 		}
+		// The list names its own rows; its free area lies above the zone of the frame around it.
+		targets = append(targets, m.listTargets...)
 	}
 	return targets, acts
 }
@@ -190,6 +193,10 @@ func targetIndex(r kittui.MouseResult) int {
 // runTarget runs the act of a kit result as the click it stands for: a tab or a key of the frame as the frame
 // names it, a bare zone focuses, an item acts.
 func (m *Model) runTarget(r kittui.MouseResult, acts []func() tea.Cmd) tea.Cmd {
+	if r.Zone == kittui.ZoneRows {
+		m.touchAdminSessionIfActive()
+		return m.clickList(r)
+	}
 	if r.Area != "" || r.Action != "" {
 		m.touchAdminSessionIfActive()
 		return m.clickFrame(r)
@@ -236,23 +243,16 @@ func (m *Model) textScreen() bool {
 	return false
 }
 
-// atListTop reports whether up would leave the rows of the list for its filter bar or the tab line.
+// atListTop reports whether up would leave the lines of the Overview for the tab line.
 func (m *Model) atListTop() bool {
-	if m.screen != screenList {
-		return false
-	}
-	if m.barFocus != 0 {
-		return true
-	}
-	if m.section == sectionOverview {
-		return m.overviewCursor <= 0
-	}
-	return m.list.cursor <= 0
+	return m.screen == screenList && m.section == sectionOverview && (m.barFocus != 0 || m.overviewCursor <= 0)
 }
 
 // wheel scrolls: a notch is one press of up or down (three in a text area), and over the list of the sections
-// of a form it is a press of pgup or pgdown, which jump from section to section.
-func (m *Model) wheel(event tea.Mouse) tea.Cmd {
+// of a form it is a press of pgup or pgdown, which jump from section to section. Over the rows of a list it
+// moves the selection alone and stops at the ends; beside them it does nothing. r is the notch as the map of
+// the frame read it.
+func (m *Model) wheel(event tea.Mouse, r kittui.MouseResult) tea.Cmd {
 	up := event.Button == tea.MouseWheelUp
 	if !m.infoOpen {
 		// A text pane beside the screen scrolls under the wheel without taking the focus or moving the rows.
@@ -263,6 +263,13 @@ func (m *Model) wheel(event tea.Mouse) tea.Cmd {
 				return nil
 			}
 		}
+	}
+	if m.screen == screenList && m.listSection() && !m.infoOpen {
+		if r.Zone == kittui.ZoneRows {
+			m.touchAdminSessionIfActive()
+			m.list.Wheel(r.WheelSteps)
+		}
+		return nil
 	}
 	if !m.wheelScreens() || (up && !m.infoOpen && m.atListTop()) {
 		return nil
@@ -508,7 +515,7 @@ func (m *Model) zoneRows() tea.Cmd {
 	default:
 		return nil
 	}
-	if m.list.editing {
+	if m.list.Searching() {
 		return nil
 	}
 	m.barFocus, m.noticeFocus = 0, false
@@ -524,7 +531,7 @@ func (m *Model) zoneFilterBar() tea.Cmd {
 			return cmd
 		}
 	}
-	if m.screen != screenList || m.list.editing || !m.listBarShown() {
+	if m.screen != screenList || m.list.Searching() || !m.listBarShown() {
 		return nil
 	}
 	m.leaveDetail()
@@ -535,10 +542,11 @@ func (m *Model) zoneFilterBar() tea.Cmd {
 	return nil
 }
 
-// zoneList registers the zones of a list screen drawn as out with footer below the table: the table, from its
-// title to the end of its frame, and the filter bar inside it. A filter being typed has none.
+// zoneList registers the zones of the frame of a list screen drawn as out with footer below the table: the
+// table, from its title to the end of its frame, and the filter bar inside it. The list puts the free area of
+// its rows above them. A filter being typed has none.
 func (m *Model) zoneList(out, footer string) {
-	if m.list.editing {
+	if m.list.Searching() {
 		return
 	}
 	top := m.workspaceTop()
@@ -607,14 +615,6 @@ func (m *Model) listBarOffset() int {
 	return 1
 }
 
-// hitList makes the rows of the list screen, and its filter bar, clickable.
-func (m *Model) hitList(header string, start, end int, row func(i int) string) {
-	if m.listBarShown() && !m.list.editing {
-		m.hitBarFields(m.workspaceTop() + m.listBarOffset())
-	}
-	m.hitRows(m.hitTop(header), m.listWidth(), start, end, row, m.clickListRow)
-}
-
 // markOrAct is the click on a row of a list: it marks the row, and only a click on the row that already was
 // marked, with the focus on the rows, does act. focused says the rows had the focus before the click.
 func markOrAct(cursor *int, i int, focused bool, act func() tea.Cmd) tea.Cmd {
@@ -625,14 +625,11 @@ func markOrAct(cursor *int, i int, focused bool, act func() tea.Cmd) tea.Cmd {
 	return act()
 }
 
-// clickListRow is a click on a row of the list: it marks the row, and a click on the marked row does what enter
-// does there, which opens an entry. A group folds at the first click, which is harmless and undone by the next.
-// A filter being typed is only kept.
-func (m *Model) clickListRow(i int) tea.Cmd {
-	if i < 0 || i >= len(m.list.matches) {
-		return nil
-	}
-	focused := m.screen == screenList && m.barFocus == 0 && !m.list.editing && !m.detailFocused()
+// clickList is a click on a target the list drew: it takes the focus to the rows, as tab gives it, and hands
+// the click to the list, which marks a row, folds a group or starts the search. A click on the marked entry
+// is a press of enter, so it meets every check the key meets. A filter being typed is kept.
+func (m *Model) clickList(r kittui.MouseResult) tea.Cmd {
+	m.list.SetFocused(m.rowsFocused())
 	switch m.screen {
 	case screenNav:
 		if cmd := m.focusList(); m.screen != screenList {
@@ -642,19 +639,15 @@ func (m *Model) clickListRow(i int) tea.Cmd {
 	default:
 		return nil
 	}
-	m.barFocus = 0
+	if r.Item == "" && r.Action == "" {
+		return m.zoneRows()
+	}
+	m.barFocus, m.noticeFocus = 0, false
 	m.leaveDetail()
-	if m.list.editing {
-		m.list.cursor = i
-		m.list.stopFilter()
+	if open, _ := m.list.Click(r); open == "" {
 		return nil
 	}
-	enter := func() tea.Cmd { return m.press(tea.KeyPressMsg{Code: tea.KeyEnter}) }
-	if isGroupRow(m.list.matches[i]) {
-		m.list.cursor = i
-		return enter()
-	}
-	return markOrAct(&m.list.cursor, i, focused, enter)
+	return m.press(tea.KeyPressMsg{Code: tea.KeyEnter})
 }
 
 // hitOverview makes the selectable items of the Overview, its cards and lines, clickable.

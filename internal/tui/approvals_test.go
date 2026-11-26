@@ -362,8 +362,8 @@ func TestBulkApproveRemovesStaleApprovals(t *testing.T) {
 	unlockWithAdminPassphrase(t, m, passphrase)
 
 	openSectionByName(t, m, sectionApprovals)
-	if len(m.list.all) != 0 {
-		t.Fatalf("Approvals lists %v, want none open", m.list.all)
+	if len(m.names) != 0 {
+		t.Fatalf("Approvals lists %v, want none open", m.names)
 	}
 	// Anything but y leaves the approvals as they are, and the lowercase letter is not bound.
 	press(t, m, "a")
@@ -469,15 +469,15 @@ func TestApprovalsSectionListsDetailsAndApproves(t *testing.T) {
 	if m.section != sectionApprovals || m.screen != screenList {
 		t.Fatalf("opening Approvals = section %v screen %v", m.section, m.screen)
 	}
-	if len(m.list.all) != 2 {
-		t.Fatalf("Approvals lists %v, want both new connections", m.list.all)
+	if len(m.names) != 2 {
+		t.Fatalf("Approvals lists %v, want both new connections", m.names)
 	}
 	if !strings.Contains(screenOf(m), "new connection, not yet approved") {
 		t.Errorf("the list does not describe a new connection:\n%s", screenOf(m))
 	}
 
 	// The detail of one, approved on its own.
-	m.list.selectName("personal")
+	selectRow(m, "personal")
 	press(t, m, "enter")
 	if m.approvalDetail != "personal" || m.screen != screenConfirm {
 		t.Fatalf("enter on personal = detail %q screen %v", m.approvalDetail, m.screen)
@@ -498,8 +498,8 @@ func TestApprovalsSectionListsDetailsAndApproves(t *testing.T) {
 	if m.screen != screenList || m.section != sectionApprovals {
 		t.Fatalf("screen after approving = %v section %v, want back on the Approvals list", m.screen, m.section)
 	}
-	if len(m.list.all) != 1 || m.list.all[0] != "other" {
-		t.Errorf("Approvals still lists %v after approving personal, want only other", m.list.all)
+	if len(m.names) != 1 || m.names[0] != "other" {
+		t.Errorf("Approvals still lists %v after approving personal, want only other", m.names)
 	}
 
 	// Bulk approval of what remains, with a confirmation naming the count.
@@ -517,8 +517,8 @@ func TestApprovalsSectionListsDetailsAndApproves(t *testing.T) {
 	if !isApproved(t, dir, passphrase, m.cfg, "other") {
 		t.Error("a did not approve the remaining connection")
 	}
-	if len(m.list.all) != 0 {
-		t.Errorf("Approvals still lists %v after approving everything", m.list.all)
+	if len(m.names) != 0 {
+		t.Errorf("Approvals still lists %v after approving everything", m.names)
 	}
 	if !strings.Contains(screenOf(m), "No open approvals.") {
 		t.Errorf("an empty Approvals section does not say so:\n%s", screenOf(m))
@@ -604,9 +604,9 @@ func TestApprovalsSectionWhileLocked(t *testing.T) {
 	if m.screen != screenList || m.section != sectionApprovals {
 		t.Fatalf("screen after unlocking = %v section %v, want back on the Approvals list", m.screen, m.section)
 	}
-	if len(m.list.all) != 1 || m.list.all[0] != "personal" {
+	if len(m.names) != 1 || m.names[0] != "personal" {
 		t.Errorf("Approvals lists %v after unlocking, want personal, freshly computed and not yet approved",
-			m.list.all)
+			m.names)
 	}
 	if isApproved(t, dir, passphrase, m.cfg, "personal") {
 		t.Error("merely unlocking the vault to see the list approved a connection")
@@ -742,7 +742,7 @@ func openApprovalDetail(t *testing.T, dir, passphrase string, store *config.Stor
 	press(t, m, "f2")
 	unlockWithAdminPassphrase(t, m, passphrase)
 	openSectionByName(t, m, sectionApprovals)
-	m.list.selectName("personal")
+	selectRow(m, "personal")
 	pump(t, m, "enter")
 	if m.approvalDetail != "personal" {
 		t.Fatalf("detail = %q, want personal", m.approvalDetail)

@@ -21,7 +21,7 @@ import (
 	"github.com/castrowithcee/qatlas-connect/internal/selftest"
 	"github.com/castrowithcee/qatlas-connect/internal/selfupdate"
 	"github.com/castrowithcee/qatlas-connect/internal/tui"
-	"github.com/castrowithcee/qatlas-connect/internal/uiprefs"
+	"github.com/castrowithcee/qatlas-kit/uiprefs"
 )
 
 // noUpdateCheck is the environment variable that keeps the editor from looking for a newer release.
@@ -419,7 +419,8 @@ func runTUI(opts *Options, reg *capability.Registry, buildVersion string) error 
 	// Device-local preferences live beside the configuration and are not part of it. A missing or
 	// damaged file never stops the editor; it opens with the defaults and says why.
 	prefsPath := tuiPrefsPath(path)
-	prefs, prefsWarnings := uiprefs.Load(prefsPath)
+	prefsSchema := tui.PrefsSchema()
+	prefs, prefsWarnings := uiprefs.LoadWarnings(prefsPath, prefsSchema)
 	updater := tuiUpdater(opts, buildVersion)
 	if locking, ok := updater.(*lockingUpdater); ok {
 		locking.svc = svc
@@ -428,7 +429,7 @@ func runTUI(opts *Options, reg *capability.Registry, buildVersion string) error 
 		Service: svc, Store: store, Tester: connectionTester(store, opts, reg), Secrets: secrets,
 		Redactor: opts.Redactor, Version: buildVersion, Updater: updater, Restart: tuiRestart(restartArgs(opts)),
 		SelfTest: tuiSelfTest(buildVersion), Prefs: prefs, PrefsWarnings: prefsWarnings,
-		SavePrefs: func(p uiprefs.Prefs) error { return uiprefs.Save(prefsPath, p) },
+		SavePrefs: func(p uiprefs.Prefs) error { return uiprefs.Save(prefsPath, p, prefsSchema) },
 		In:        os.Stdin, Out: os.Stdout,
 	}))
 }

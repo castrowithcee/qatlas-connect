@@ -108,9 +108,9 @@ func runAtTerminal(t *testing.T, c *runner, input string, args ...string) (strin
 	if _, err := typing.WriteString(strings.ReplaceAll(input, "\n", "\r")); err != nil {
 		t.Fatalf("typing at the console: %v", err)
 	}
-	if event, err := windows.WaitForSingleObject(process, 60*1000); err != nil || event != windows.WAIT_OBJECT_0 {
+	if event, err := windows.WaitForSingleObject(process, uint32(terminalRunLimit.Milliseconds())); err != nil || event != windows.WAIT_OBJECT_0 {
 		_ = windows.TerminateProcess(process, 1)
-		t.Fatalf("running %v did not end: %q", args, text())
+		t.Fatalf("running %v did not end within %v: %q", args, terminalRunLimit, text())
 	}
 	var code uint32
 	if err := windows.GetExitCodeProcess(process, &code); err != nil {

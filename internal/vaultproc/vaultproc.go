@@ -1,106 +1,89 @@
-// Package vaultproc keeps an unlocked vault's secrets in a process of their own, so later invocations of
-// qatlas, the CLI and the MCP broker alike, read them without asking for the passphrase again.
+// Package vaultproc is Connect's vault process: an unlocked vault held in a process of its own, so later
+// invocations of qconnect, the CLI and the MCP broker alike, read secrets without asking for the passphrase
+// again.
 //
-// The process listens on a Unix socket in a private runtime directory, on Windows on a named pipe only this
-// user can open, and answers one request per connection: status, get, check, set, delete, bind, lock, for the invocation log, log and logcheck, and
-// approve-token, which approves open connection changes an agent token covers. Every message is one line of JSON, versioned
-// and bounded in size, and every connection has a deadline, so a peer that hangs cannot hold either side. The
-// one exception is handover, which hands the unlocked vault to a successor started from the program an update
-// installs, in two requests on one connection; see Client.PrepareHandover.
+// The process, its channel, the check of both ends, the challenge, the locks and the handover to a successor
+// are the kit's (qatlas-kit vaultproc and localipc). This package holds what is Connect's own: the names of
+// the channel (Endpoint), the proof label, the document the process holds (the secrets and the bindings that
+// say which connection may read which credential), the operations on it (get, check, set, delete, bind, log,
+// logcheck, approve-token, names, update and store-refresh), what the process reads from settings.age with
+// its own key, the events it writes to the invocation log, and the formats and channels of earlier releases
+// it still takes a vault over from or ends.
 //
-// A secret leaves the process only for a connection the vault approved (see vault.Bindings), and only for
-// this very program run by this very user. Both ends check each other. The server checks the process that
-// connected, its user and its program, before it answers anything; see VerifyProgram. The client checks the
-// user of the process that listens, on macOS and Windows its program as well, and then challenges it to
-// prove that it holds the vault's key, before it sends anything else, not even a credential name; see
-// Client. A connection therefore carries two exchanges: the challenge and its proof, then the request and
-// its answer.
-//
-// While it runs, the process is the one writer of the invocation log that signs its entries: a client hands
-// it the fields of an invoke, and the process checks them, chains them, and signs them with the log key it
-// derives from the vault's key, which never leaves it; see invokelog. It checks a stored line's check value
-// the same way, answering only whether it matches.
-//
-// Nothing here writes a diagnostic log, and no error or answer other than a successful get carries a secret
-// value. The
-// process locks itself after a period without a get, when asked to, or when it ends; locking overwrites the
-// values it holds as far as Go allows, which is the copies this package owns and no others.
+// A secret leaves the process only for a connection the vault approved (see vault.Bindings). While it runs,
+// the process is the one writer of the invocation log that signs its entries, with the log key it derives
+// from the vault's key, which never leaves it; see invokelog. No error or answer other than a successful get
+// or store-refresh carries a secret value.
 package vaultproc
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
 	"errors"
 	"fmt"
-	"net"
-	"os"
 	"path/filepath"
+	"runtime"
 	"time"
+
+	"github.com/castrowithcee/qatlas-kit/localipc"
+	kitvaultproc "github.com/castrowithcee/qatlas-kit/vaultproc"
 )
 
-// Version is the protocol version a request carries and an answer repeats. A server refuses a request of
-// another version rather than guessing what it meant. Version 7 adds handover, which hands the vault over to
-// a successor started from an updated program, and the answer replaced, which sends a client on to it.
-// Version 8 adds the session ID to a log entry; an older process would drop it and sign an entry without it.
-// Version 9 lets an invoke entry carry the connection ID; an older process would drop it likewise.
-// Version 10 lets a connection's scope name the service account its token credential impersonates; an
-// older process would drop it and match an approval given before the connection named one.
-const Version = 10
+// Version is Connect's protocol version within the kit's protocol (kitvaultproc.Config.Version). Either side
+// refuses a message of another version. Version 11 is the first on the kit's channel; versions up to 10
+// spoke Connect's own protocol, which a client of this release answers as ErrVersion.
+const Version = 11
 
-// MaxMessage bounds one request or answer, newline included. It leaves room for any token or key a
-// credential holds, and keeps a peer from making the other side buffer without end.
-const MaxMessage = 64 << 10
-
-// DefaultIdleTimeout is how long the process holds the secrets without a get before it locks itself.
+// DefaultIdleTimeout is how long the process holds the vault without a get before it locks itself, where
+// settings.age names no idle time.
 const DefaultIdleTimeout = 12 * time.Hour
 
-// DefaultRequestTimeout bounds one request on either side of a connection. A caller's own, shorter limit
-// wins on the client.
-const DefaultRequestTimeout = 5 * time.Second
+// DefaultRequestTimeout bounds one request on either side of a connection.
+const DefaultRequestTimeout = kitvaultproc.DefaultRequestTimeout
 
-// HandoverTimeout bounds each phase of a handover on either side of its connection: the prepare, the wait for
-// the commit while the program is replaced, and the commit, which starts the successor.
-const HandoverTimeout = 30 * time.Second
+// HandoverTimeout bounds each phase of a handover.
+const HandoverTimeout = kitvaultproc.HandoverTimeout
 
-// maxSocketPath is the longest socket path accepted, in bytes. The kernel's sun_path holds 108 bytes on
-// Linux and 104 on macOS and the BSDs, terminator included; a longer path would be cut off silently, and
-// the socket would appear somewhere else. The stricter bound holds on every platform.
-const maxSocketPath = 103
+// maxHandoverFile is the largest release archive the process reads and program it hashes in a handover,
+// stricter than the kit's limit.
+const maxHandoverFile = 128 << 20
 
+// The errors of a client. The kit's errors are told as these, with the texts Connect always had, and still
+// match the kit's (see translate).
 var (
-	// ErrNotRunning reports that no vault process answers at the socket: it is missing, nobody listens on
-	// it any more, or the process is locking itself right now. Every one of those means the vault is not
-	// unlocked in a process, which is a state rather than a failure.
-	ErrNotRunning = errors.New("no vault process is running")
-
-	// ErrRunning reports that another vault process already serves the socket.
+	// ErrNotRunning reports that no vault process answers: the vault is not unlocked in a process.
+	ErrNotRunning = kitvaultproc.ErrNotRunning
+	// ErrRunning reports that another vault process already serves the channel.
 	ErrRunning = errors.New("a vault process is already running")
-
-	// ErrRefused reports a peer that is not this program run by this user. It wraps the reason, which
-	// never contains a secret.
+	// ErrRefused reports a peer that is not this program run by this user. It wraps the reason, which never
+	// contains a secret.
 	ErrRefused = errors.New("the process at the other end of the vault socket is not this qconnect of this user")
-
-	// ErrTooLarge reports a message above MaxMessage.
-	ErrTooLarge = fmt.Errorf("a vault process message exceeds %d bytes", MaxMessage)
-
-	// ErrVersion reports a vault process that speaks another protocol version, which is a process started
-	// by another build of qatlas.
+	// errUnproven reports a process that did not prove that it holds the vault's key.
+	errUnproven = fmt.Errorf("%w: it cannot prove that it holds this vault's key", ErrRefused)
+	// ErrProgramRefused reports that the vault process refused this program, as it refuses every program
+	// once its own was replaced. It wraps ErrRefused.
+	ErrProgramRefused = fmt.Errorf("%w: the vault process refused this program", ErrRefused)
+	// ErrReplaced reports a vault process that hands, or handed, the vault over to a successor, or whose
+	// handover did not finish. It wraps ErrProgramRefused, which such a process answered before.
+	ErrReplaced = fmt.Errorf("%w; its own program was replaced since it started", ErrProgramRefused)
+	// ErrVersion reports a vault process of another protocol version, one of another build.
 	ErrVersion = errors.New("the vault process speaks another protocol version; lock it and unlock the vault again")
+	// ErrHandover reports a handover that did not happen; the vault process locked itself. It wraps the
+	// reason, which never carries a secret or a path.
+	ErrHandover = errors.New("the vault process did not hand the vault over and locked itself")
+	// ErrNoRecipient reports a client without a vault recipient: the vault is not encrypted.
+	ErrNoRecipient = errors.New("the vault has no recipient to check the vault process with; it is not encrypted")
 
 	// ErrNoLog reports a vault process that does not keep the invocation log, or cannot sign it.
 	ErrNoLog = errors.New("the vault process does not keep the invocation log")
-
-	// ErrNoNames reports a vault process that cannot tell the names of the vault: one of an earlier build,
-	// which does not know the request, or one that was not started with the vault's directory. The process
-	// is otherwise usable; lock it and unlock the vault again to get one that answers.
+	// ErrNoNames reports a vault process that cannot tell the names of the vault.
 	ErrNoNames = errors.New("the vault process cannot tell the names the vault holds")
-
 	// ErrNoTokens reports a vault process that does not approve with agent tokens.
 	ErrNoTokens = errors.New("the vault process does not approve with agent tokens")
-
-	// ErrUnsupported reports a platform the vault process does not run on yet.
+	// ErrUnsupported reports a platform the vault process does not run on.
 	ErrUnsupported = fmt.Errorf("the vault process is not supported on this platform: %w", errors.ErrUnsupported)
 )
+
+// maxSocketPath is the longest socket path the kit accepts, in bytes.
+const maxSocketPath = 103
 
 // PathTooLongError reports a socket path the kernel would cut off.
 type PathTooLongError struct{ Path string }
@@ -110,75 +93,60 @@ func (e *PathTooLongError) Error() string {
 		"use a shorter configuration directory or set XDG_RUNTIME_DIR", e.Path, len(e.Path), maxSocketPath)
 }
 
-func checkPathLength(path string) error {
-	if len(path) > maxSocketPath {
-		return &PathTooLongError{Path: path}
-	}
-	return nil
+// PeerError is a failure at a process that did listen, with its process id.
+type PeerError = localipc.PeerError
+
+// Endpoint returns the channel of the vault process that serves the vault in vaultDir, as vault.Vault.Dir
+// reports it. On Unix the socket lives at $XDG_RUNTIME_DIR/qatlas-connect, on Linux without the variable at
+// /run/user/<uid>/qatlas-connect, and otherwise in run beside the vault (<parent>/run); on macOS a path too
+// long for a socket moves to $TMPDIR/qatlas-connect. Its name is a hash of the vault's absolute path. On
+// Windows it is the pipe qatlas-connect-vault-<sid>-<hash>.
+func Endpoint(vaultDir string) (localipc.Endpoint, error) {
+	return endpointNamed(vaultDir, runtimeDirName, pipeName, "the vault process channel")
 }
 
-// userRuntimeRoot holds the per-user runtime directories systemd-logind creates on Linux; a variable so
-// tests can point it at a directory of their own.
-var userRuntimeRoot = "/run/user"
-
-// SocketPath returns the socket of the vault process that serves the vault in vaultDir, as vault.Vault.Dir
-// reports it. The socket lives in $XDG_RUNTIME_DIR/qatlas-connect when the session has a runtime directory,
-// which the system empties at logout or restart. Without the variable, as under agent hosts that start qatlas
-// with a filtered environment, the user's runtime directory is found by its conventional place on
-// platforms that have one, so such a process still reaches the vault process an unlock in a terminal
-// started. Only when there is none the socket lives in run beside the vault, ~/.qatlas/connect/run by
-// default. Its name is derived from the vault's absolute path, so a vault under another configuration
-// directory, a test's included, never reaches the process of another vault through the shared runtime
-// directory.
-//
-// On macOS, where a socket path holds fewer bytes, a path that would be too long there moves to
-// qatlas-connect in the per-user temporary directory ($TMPDIR) instead; every other platform, and a path too
-// long even there, fails with a PathTooLongError.
-//
-// On Windows the vault process listens on a named pipe instead,
-// \\.\pipe\qatlas-connect-vault-<user>-<vault>: the security identifier of this user, so no two users'
-// names collide, and a hash of the vault's absolute path, compared without regard to case as the file system
-// does. A pipe leaves nothing on disk, and the system removes it once its process ends, at logout or restart
-// included.
-func SocketPath(vaultDir string) (string, error) { return socketPath(vaultDir, runtimeDirName) }
-
-// socketPath is SocketPath with name as the directory below the runtime directory, and below $TMPDIR on macOS.
-func socketPath(vaultDir, name string) (string, error) {
+// endpointNamed is Endpoint under the names of a release.
+func endpointNamed(vaultDir, runtimeDir, pipe, label string) (localipc.Endpoint, error) {
 	abs, err := filepath.Abs(vaultDir)
 	if err != nil {
-		return "", fmt.Errorf("cannot determine the vault directory: %w", err)
+		return localipc.Endpoint{}, fmt.Errorf("cannot determine the vault directory: %w", err)
 	}
-	if path, ok, err := pipePath(abs); ok {
-		return path, err
+	prefix := "vault-"
+	if runtime.GOOS == "windows" {
+		prefix = ""
 	}
-	sum := sha256.Sum256([]byte(abs))
-	file := "vault-" + hex.EncodeToString(sum[:8]) + ".sock"
-
-	dir := filepath.Join(filepath.Dir(abs), "run")
-	// A relative XDG_RUNTIME_DIR is invalid by the specification and ignored like an unset one.
-	if runtime := os.Getenv("XDG_RUNTIME_DIR"); filepath.IsAbs(runtime) {
-		dir = filepath.Join(runtime, name)
-	} else if runtime := userRuntimeDir(); runtime != "" {
-		dir = filepath.Join(runtime, name)
+	base, err := kitvaultproc.SocketBase(prefix, abs)
+	if err != nil {
+		return localipc.Endpoint{}, err
 	}
-	path := filepath.Join(dir, file)
-	if err := checkPathLength(path); err != nil {
-		if fallback, ok := fallbackSocketDir(name); ok && checkPathLength(filepath.Join(fallback, file)) == nil {
-			return filepath.Join(fallback, file), nil
-		}
-		return "", err
-	}
-	return path, nil
+	return localipc.Endpoint{
+		RuntimeDirName:  runtimeDir,
+		SocketBase:      base,
+		FallbackDir:     filepath.Dir(abs),
+		FallbackDirName: "run",
+		// A runtime directory others may read, though not write, holds the socket as it did before the kit.
+		RuntimeAccess: localipc.RuntimeReadable,
+		PipePrefix:    pipe,
+		ErrorName:     label,
+	}, nil
 }
 
-// nextSuffix names the socket a successor listens on beside the vault socket until the handover moves it
-// onto the vault socket; with ".lock" appended, it names the successor's lock.
-const nextSuffix = ".next"
+// SocketPath returns the socket, or on Windows the pipe, of the vault process for the vault in vaultDir.
+func SocketPath(vaultDir string) (string, error) {
+	e, err := Endpoint(vaultDir)
+	if err != nil {
+		return "", err
+	}
+	path, err := e.Path()
+	return path, translate(err)
+}
 
-// NextPath returns the path the successor of the vault process at socket listens on until the handover
-// moves its socket, and its lock beside it, onto socket.
-func NextPath(socket string) string { return socket + nextSuffix }
-
-// Verifier checks the process at the other end of a connection and returns an error wrapping ErrRefused
-// when it is not to be answered or told anything. VerifyProgram is the check every real run uses.
-type Verifier func(conn net.Conn) error
+// ReplacedProgram returns the path this process's program had at its start and whether that file was
+// removed or replaced since, as an update does. Where that cannot be told, it reports not replaced.
+func ReplacedProgram() (string, bool) {
+	path, replaced, err := localipc.ProgramReplaced()
+	if err != nil {
+		return "", false
+	}
+	return path, replaced
+}

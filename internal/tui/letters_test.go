@@ -13,7 +13,7 @@ import (
 
 	"github.com/castrowithcee/qatlas-connect/internal/config"
 	"github.com/castrowithcee/qatlas-connect/internal/helptopics"
-	"github.com/castrowithcee/qatlas-connect/internal/uiprefs"
+	kitprefs "github.com/castrowithcee/qatlas-kit/uiprefs"
 )
 
 // answerLevels are the levels in which one key may mean something else: a question's answers and the keys only
@@ -240,8 +240,8 @@ func TestRenameHintLineTakesNoRowAction(t *testing.T) {
 func TestPickerControlKeysAreNoBindings(t *testing.T) {
 	keepKeys(t)
 	for _, k := range []string{"ctrl+y", "ctrl+d", "ctrl+p", "ctrl+n"} {
-		for _, name := range uiprefs.Actions {
-			if _, err := uiprefs.DefaultKeys().Check(name, k); err == nil {
+		for _, name := range boundActions() {
+			if _, err := keymap.CheckBinding(name, k, nil); err == nil {
 				t.Errorf("Check(%s, %s) accepts a key of a screen", name, k)
 			}
 		}
@@ -275,8 +275,8 @@ func TestRReloadsThePickerListing(t *testing.T) {
 // The footers of the screens whose keys changed fit the smallest terminal in both languages: the answer keys of
 // the question and the help stay on the line.
 func TestChangedFootersFitTheSmallestTerminalInBothLanguages(t *testing.T) {
-	t.Cleanup(func() { setLanguage(uiprefs.LanguageEnglish) })
-	for _, lang := range []string{uiprefs.LanguageEnglish, uiprefs.LanguageGerman} {
+	t.Cleanup(func() { setLanguage(kitprefs.LanguageEnglish) })
+	for _, lang := range []string{kitprefs.LanguageEnglish, kitprefs.LanguageGerman} {
 		setLanguage(lang)
 		screens := map[string]func() *Model{
 			"kind question": func() *Model {
@@ -415,18 +415,18 @@ func TestCapitalUpdateActsAndLowercaseLettersDoNot(t *testing.T) {
 // warning.
 func TestRemoveFieldKeyIsNoBinding(t *testing.T) {
 	keepKeys(t)
-	for _, name := range uiprefs.Actions {
-		_, err := uiprefs.DefaultKeys().Check(name, "f8")
+	for _, name := range boundActions() {
+		_, err := keymap.CheckBinding(name, "f8", nil)
 		if err == nil || !strings.Contains(err.Error(), "already the key of removefield") {
 			t.Errorf("Check(%s, f8) = %v, want a refusal naming the other action", name, err)
 		}
 	}
-	path := uiprefs.Path(t.TempDir())
+	path := kitprefs.Path(t.TempDir())
 	if err := os.WriteFile(path, []byte("keys:\n  lock: F8\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	got, warnings := uiprefs.Load(path)
-	if got.Keys.Lock != uiprefs.DefaultKeys().Lock || len(warnings) != 1 || !strings.Contains(warnings[0], "keys.lock") {
+	got, warnings := kitprefs.Load(path, PrefsSchema())
+	if _, own := got.Keys[actLock]; own || len(warnings) != 1 || !strings.Contains(warnings[0], "keys.lock") {
 		t.Fatalf("keys %+v, warnings %v, want the standard lock key and one warning", got.Keys, warnings)
 	}
 }

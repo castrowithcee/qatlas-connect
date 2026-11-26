@@ -8,8 +8,8 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 
-	"github.com/castrowithcee/qatlas-connect/internal/uiprefs"
 	kittui "github.com/castrowithcee/qatlas-kit/tui"
+	kitprefs "github.com/castrowithcee/qatlas-kit/uiprefs"
 )
 
 // clipboardOf is the text a command hands to the terminal, and whether it is a clipboard command at all.
@@ -44,7 +44,7 @@ func noControl(t *testing.T, where, text string) {
 func TestCopyNameOfMarkedRow(t *testing.T) {
 	m := newTableModel(t, 170)
 	openSectionByName(t, m, sectionConnections)
-	m.list.selectName("tracker-issues")
+	selectRow(m, "tracker-issues")
 	got, ok := pressCopy(m)
 	if !ok || got != "tracker-issues" {
 		t.Fatalf("c copied %q (%v), want the name of the marked connection", got, ok)
@@ -59,13 +59,13 @@ func TestCopyNameOfMarkedRow(t *testing.T) {
 
 // The status never claims the text was copied, in either language.
 func TestCopyStatusIsAHandOverInBothLanguages(t *testing.T) {
-	t.Cleanup(func() { setLanguage(uiprefs.LanguageEnglish) })
-	for lang, want := range map[string]string{uiprefs.LanguageEnglish: "Handed to the terminal", uiprefs.LanguageGerman: "An das Terminal"} {
+	t.Cleanup(func() { setLanguage(kitprefs.LanguageEnglish) })
+	for lang, want := range map[string]string{kitprefs.LanguageEnglish: "Handed to the terminal", kitprefs.LanguageGerman: "An das Terminal"} {
 		setLanguage(lang)
 		m := newTableModel(t, 140)
 		m.Update(tea.WindowSizeMsg{Width: 200, Height: 40})
 		openSectionByName(t, m, sectionServices)
-		m.list.selectName("wiki-main")
+		selectRow(m, "wiki-main")
 		if _, ok := pressCopy(m); !ok {
 			t.Fatalf("%s: c handed nothing over", lang)
 		}
@@ -76,7 +76,7 @@ func TestCopyStatusIsAHandOverInBothLanguages(t *testing.T) {
 		if strings.Contains(low, "copied") || strings.Contains(low, "kopiert") {
 			t.Errorf("%s: status %q claims the text was copied", lang, m.status)
 		}
-		if foot := withFooter(m, screenOf(m)); !strings.Contains(foot, map[string]string{uiprefs.LanguageEnglish: "c copy", uiprefs.LanguageGerman: "c kopieren"}[lang]) {
+		if foot := withFooter(m, screenOf(m)); !strings.Contains(foot, map[string]string{kitprefs.LanguageEnglish: "c copy", kitprefs.LanguageGerman: "c kopieren"}[lang]) {
 			t.Errorf("%s: the footer does not name c:\n%s", lang, foot)
 		}
 	}
@@ -91,8 +91,8 @@ func TestCopyKeyTypesOnTextLines(t *testing.T) {
 	if text, ok := clipboardOf(cmd); ok {
 		t.Fatalf("c on the filter line copied %q", text)
 	}
-	if m.list.query() != "c" {
-		t.Errorf("the filter = %q, want c typed", m.list.query())
+	if m.list.Query() != "c" {
+		t.Errorf("the filter = %q, want c typed", m.list.Query())
 	}
 }
 
@@ -116,13 +116,13 @@ func TestCopyRawTabIsWholeAndSafe(t *testing.T) {
 	canaries := []string{canaryUser, canaryURLPass, canaryQuery, canaryOption, canaryVault, "canary env", "canary-redacted-registered"}
 	for _, s := range []section{sectionServices, sectionCredentials, sectionConnections} {
 		openSectionByName(t, m, s)
-		for _, name := range m.list.all {
+		for _, name := range m.names {
 			if isGroupRow(name) {
 				continue
 			}
 			m.leaveDetail()
 			m.screen = screenList
-			m.list.selectName(name)
+			selectRow(m, name)
 			if s == sectionConnections {
 				conn := m.cfg.Connections[name]
 				conn.Description += " canary-redacted-registered"
@@ -202,10 +202,10 @@ func TestCopyApprovalDetail(t *testing.T) {
 	press(t, m, "f2")
 	unlockWithAdminPassphrase(t, m, passphrase)
 	openSectionByName(t, m, sectionApprovals)
-	if len(m.list.all) == 0 {
+	if len(m.names) == 0 {
 		t.Fatal("no open approval")
 	}
-	m.list.selectName(m.list.all[0])
+	selectRow(m, m.names[0])
 	press(t, m, "enter")
 	if m.approvalDetail == "" {
 		t.Fatalf("enter opened no detail: screen %v", m.screen)

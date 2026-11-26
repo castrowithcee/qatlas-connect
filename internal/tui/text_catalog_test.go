@@ -9,7 +9,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/castrowithcee/qatlas-connect/internal/uiprefs"
 	"github.com/castrowithcee/qatlas-kit/i18n"
 )
 
@@ -76,7 +75,7 @@ func TestProseNamesTheKeysInForce(t *testing.T) {
 	eachLanguage(t, func(t *testing.T) {
 		rebind(t, actSetup, "G")
 		rebind(t, actBack, "ctrl+x")
-		applyKeys(uiprefs.Keys{Save: "f4", Lock: "f6"})
+		applyKeys(map[action]string{actSave: "f4", actLock: "f6"})
 		for _, c := range []struct {
 			id        textID
 			want, not string

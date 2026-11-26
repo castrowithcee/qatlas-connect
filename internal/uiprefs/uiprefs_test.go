@@ -3,281 +3,160 @@ package uiprefs
 import (
 	"os"
 	"path/filepath"
+	"reflect"
+	"slices"
 	"strings"
+	"sync"
 	"testing"
+
+	"go.yaml.in/yaml/v3"
+
+	kittui "github.com/castrowithcee/qatlas-kit/tui"
+	kitprefs "github.com/castrowithcee/qatlas-kit/uiprefs"
 )
 
-func TestLoadMissingFileGivesDefaultsWithoutWarning(t *testing.T) {
-	got, warnings := Load(Path(t.TempDir()))
-	if got != Default() || len(warnings) != 0 {
-		t.Fatalf("Load() = %+v, %v; want defaults and no warning", got, warnings)
-	}
-}
-
-func TestLoadDamagedFileGivesDefaultsAndWarning(t *testing.T) {
-	path := Path(t.TempDir())
-	if err := os.WriteFile(path, []byte("theme: [unclosed\n\t:"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	got, warnings := Load(path)
-	if got != Default() || len(warnings) != 1 || !strings.Contains(warnings[0], "cannot parse") {
-		t.Fatalf("Load() = %+v, %v; want defaults and one parse warning", got, warnings)
-	}
-}
-
-func TestLoadUnreadablePathGivesDefaultsAndWarning(t *testing.T) {
-	// A directory in place of the file cannot be read.
-	path := Path(t.TempDir())
-	if err := os.Mkdir(path, 0o700); err != nil {
-		t.Fatal(err)
-	}
-	got, warnings := Load(path)
-	if got != Default() || len(warnings) != 1 {
-		t.Fatalf("Load() = %+v, %v; want defaults and one warning", got, warnings)
-	}
-}
-
-func TestLoadInvalidValuesFallBackPerField(t *testing.T) {
-	path := Path(t.TempDir())
-	data := "theme: \"\"\nstart: connections\nicons: emoji\n"
-	if err := os.WriteFile(path, []byte(data), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	got, warnings := Load(path)
-	want := Default()
-	want.Start = "connections"
-	if got != want || len(warnings) != 2 {
-		t.Fatalf("Load() = %+v, %v; want %+v and two warnings", got, warnings, want)
-	}
-}
-
-func TestLoadToleratesUnknownKeys(t *testing.T) {
-	path := Path(t.TempDir())
-	data := "theme: dark\nmouse: true\nfont: x\n"
-	if err := os.WriteFile(path, []byte(data), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	got, warnings := Load(path)
-	if got.Theme != ThemeQatlasDark || len(warnings) != 0 {
-		t.Fatalf("Load() = %+v, %v; want theme qatlas dark and no warning", got, warnings)
-	}
-}
-
-func TestSaveRoundTripLeavesNoTempFile(t *testing.T) {
-	dir := t.TempDir()
-	want := Prefs{Theme: ThemeQatlasLight, Start: "access", Icons: IconsNerdFont, Language: LanguageGerman, Keys: DefaultKeys()}
-	if err := Save(Path(dir), want); err != nil {
-		t.Fatal(err)
-	}
-	got, warnings := Load(Path(dir))
-	if got != want || len(warnings) != 0 {
-		t.Fatalf("Load() = %+v, %v; want %+v", got, warnings, want)
-	}
-	entries, err := os.ReadDir(dir)
+// testSchema is the schema of the editor with its own themes and areas and the kit's standard actions, whose
+// rebindable keys are the editor's.
+func testSchema(t *testing.T) kitprefs.Schema {
+	t.Helper()
+	keys, err := kittui.NewKeymap(kittui.StandardActions(), kittui.CharsetUnicode)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(entries) != 1 || entries[0].Name() != FileName {
-		t.Fatalf("directory holds %v; want only %s", entries, FileName)
+	return Schema([]string{kittui.ThemeTerminal, ThemeQatlasDark, ThemeQatlasLight},
+		[]string{"overview", "library", "connections", "activity", "access", "settings"}, keys)
+}
+
+func writeFile(t *testing.T, path, data string) {
+	t.Helper()
+	if err := os.WriteFile(path, []byte(data), 0o600); err != nil {
+		t.Fatal(err)
 	}
 }
 
-func TestSaveReplacesWholeFileAndLastWriterWins(t *testing.T) {
-	path := Path(t.TempDir())
-	if err := os.WriteFile(path, []byte("theme: dark\nstart: library\nicons: nerdfont\nextra: x\n"), 0o600); err != nil {
-		t.Fatal(err)
+// A file of v2.0.0 names a former colour scheme and holds icons: none without a format marker; it loads as
+// before, without a warning.
+func TestFileOfV200LoadsWithoutWarning(t *testing.T) {
+	schema := testSchema(t)
+	for _, tc := range []struct{ file, theme string }{
+		{"theme: auto\nstart: overview\nicons: none\nlanguage: english\nmouse: true\n", kittui.ThemeTerminal},
+		{"theme: light\nstart: overview\nicons: none\nlanguage: english\nmouse: true\n", ThemeQatlasLight},
+		{"theme: dark\nstart: library\nicons: none\nlanguage: english\nmouse: true\n", ThemeQatlasDark},
+		{"theme: dark\nbackground: qatlas\nicons: none\n", ThemeQatlasDark},
+	} {
+		path := kitprefs.Path(t.TempDir())
+		writeFile(t, path, tc.file)
+		got, warnings := kitprefs.LoadWarnings(path, schema)
+		if got.Theme != tc.theme || got.Icons != kitprefs.IconsUnicode || len(warnings) != 0 {
+			t.Errorf("Load(%q) = theme %q icons %q %v; want %q, unicode and no warning", tc.file, got.Theme, got.Icons, warnings, tc.theme)
+		}
 	}
-	if err := Save(path, Prefs{Theme: ThemeQatlasLight, Start: "overview", Icons: IconsNone}); err != nil {
+}
+
+// The files v2.2.0 wrote, the default one and one with every preference changed, load without a warning.
+func TestFileOfV220LoadsWithoutWarning(t *testing.T) {
+	schema := testSchema(t)
+	path := kitprefs.Path(t.TempDir())
+	writeFile(t, path, "theme: terminal\nstart: overview\nicons: unicode\nlanguage: english\nmouse: true\nformat: 2\n")
+	got, warnings := kitprefs.LoadWarnings(path, schema)
+	if want := kitprefs.Default(schema); !reflect.DeepEqual(got, want) || len(warnings) != 0 {
+		t.Errorf("default file = %+v %v; want %+v", got, warnings, want)
+	}
+	writeFile(t, path, "theme: qatlas dark\nstart: overview\nicons: nerdfont\nlanguage: deutsch\nmouse: false\nformat: 2\n"+
+		"keys:\n  info: f3\n  save: f4\n")
+	got, warnings = kitprefs.LoadWarnings(path, schema)
+	want := kitprefs.Prefs{Theme: ThemeQatlasDark, Start: DefaultStart, Icons: kitprefs.IconsNerdFont,
+		Language: kitprefs.LanguageGerman, Keys: map[kittui.ActionID]string{kittui.ActionInfo: "f3", kittui.ActionSave: "f4"}}
+	if !reflect.DeepEqual(got, want) || len(warnings) != 0 {
+		t.Errorf("changed file = %+v %v; want %+v", got, warnings, want)
+	}
+}
+
+// A saved none carries the format marker, so the kit keeps it and so does the reader of v2.2.0.
+func TestSavedFileCarriesTheFormatForEarlierVersions(t *testing.T) {
+	schema := testSchema(t)
+	path := kitprefs.Path(t.TempDir())
+	prefs := kitprefs.Default(schema)
+	prefs.Icons = kitprefs.IconsNone
+	if err := kitprefs.Save(path, prefs, schema); err != nil {
 		t.Fatal(err)
 	}
 	data, err := os.ReadFile(path)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := string(data); got != "theme: qatlas light\nstart: overview\nicons: none\nlanguage: english\nmouse: true\nformat: 2\n" {
-		t.Fatalf("file = %q", got)
+	if !strings.Contains(string(data), "\nformat: 2\n") {
+		t.Fatalf("file = %q, want format: 2", data)
+	}
+	if got := iconsOfV220(t, data); got != kitprefs.IconsNone {
+		t.Errorf("v2.2.0 reads icons %q, want none", got)
+	}
+	if got, warnings := kitprefs.LoadWarnings(path, schema); got.Icons != kitprefs.IconsNone || len(warnings) != 0 {
+		t.Errorf("reload = icons %q %v, want none", got.Icons, warnings)
 	}
 }
 
-func TestSaveInvalidWritesNothing(t *testing.T) {
+// iconsOfV220 is the icons value the reader of v2.2.0 takes from data.
+func iconsOfV220(t *testing.T, data []byte) string {
+	t.Helper()
+	var raw struct {
+		Format *int    `yaml:"format"`
+		Icons  *string `yaml:"icons"`
+	}
+	if err := yaml.Unmarshal(data, &raw); err != nil {
+		t.Fatal(err)
+	}
+	icons := kitprefs.IconsUnicode
+	if raw.Icons != nil {
+		icons = *raw.Icons
+		if icons == kitprefs.IconsNone && (raw.Format == nil || *raw.Format < formatVersion) {
+			icons = kitprefs.IconsUnicode
+		}
+	}
+	return icons
+}
+
+// Two writers that save at once lose nothing: the file holds one save whole, and the backups beside it hold
+// the file each save replaced.
+func TestConcurrentSavesLoseNothing(t *testing.T) {
+	schema := testSchema(t)
 	dir := t.TempDir()
-	for _, bad := range []Prefs{
-		{Theme: "", Start: "overview", Icons: IconsNone},
-		{Theme: ThemeTerminal, Start: "", Icons: IconsNone},
-		{Theme: ThemeTerminal, Start: "overview", Icons: "x"},
-		{Theme: ThemeTerminal, Start: "overview", Icons: IconsNone, Language: "fr"},
-	} {
-		if err := Save(Path(dir), bad); err == nil {
-			t.Errorf("Save(%+v) = nil; want an error", bad)
-		}
-	}
-	if entries, _ := os.ReadDir(dir); len(entries) != 0 {
-		t.Fatalf("directory holds %v; want it empty", entries)
-	}
-}
-
-func TestSaveFailedRenameLeavesNoTempFile(t *testing.T) {
-	dir := t.TempDir()
-	// A non-empty directory in place of the file makes the rename fail.
-	target := Path(dir)
-	if err := os.MkdirAll(filepath.Join(target, "x"), 0o700); err != nil {
+	path := kitprefs.Path(dir)
+	first := kitprefs.Default(schema)
+	if err := kitprefs.Save(path, first, schema); err != nil {
 		t.Fatal(err)
 	}
-	if err := Save(target, Default()); err == nil {
-		t.Fatal("Save() = nil; want an error")
+	light, dark := first, first
+	light.Theme, dark.Theme = ThemeQatlasLight, ThemeQatlasDark
+	var wg sync.WaitGroup
+	errs := make([]error, 2)
+	for i, p := range []kitprefs.Prefs{light, dark} {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			errs[i] = kitprefs.Save(path, p, schema)
+		}()
 	}
-	entries, _ := os.ReadDir(dir)
-	if len(entries) != 1 || entries[0].Name() != FileName {
-		t.Fatalf("directory holds %v; want no temporary file", entries)
-	}
-}
-
-func TestSaveCreatesDirectory(t *testing.T) {
-	path := Path(filepath.Join(t.TempDir(), "new", "dir"))
-	if err := Save(path, Default()); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := os.Stat(path); err != nil {
-		t.Fatal(err)
-	}
-}
-
-func TestLanguageLoadsAndFallsBack(t *testing.T) {
-	path := Path(t.TempDir())
-	if err := os.WriteFile(path, []byte("language: system\n"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	if got, warnings := Load(path); got.Language != LanguageSystem || len(warnings) != 0 {
-		t.Fatalf("Load() = %+v, %v; want language system", got, warnings)
-	}
-	if err := os.WriteFile(path, []byte("language: de\n"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	got, warnings := Load(path)
-	if got.Language != LanguageEnglish || len(warnings) != 1 {
-		t.Fatalf("Load() = %+v, %v; want english and one warning", got, warnings)
-	}
-	if Default().Language != LanguageEnglish {
-		t.Fatalf("default language = %q, want english", Default().Language)
-	}
-}
-
-func TestMouseIsOnByDefaultAndSurvivesARoundTrip(t *testing.T) {
-	if !Default().MouseEnabled() || !(Prefs{}).MouseEnabled() {
-		t.Fatal("the mouse is not on in the defaults")
-	}
-	path := Path(t.TempDir())
-	off := Default()
-	off.MouseOff = true
-	if err := Save(path, off); err != nil {
-		t.Fatal(err)
-	}
-	if data, _ := os.ReadFile(path); !strings.Contains(string(data), "mouse: false\n") {
-		t.Fatalf("file = %q, want mouse: false", data)
-	}
-	got, warnings := Load(path)
-	if len(warnings) != 0 || got.MouseEnabled() {
-		t.Fatalf("Load() = %+v, %v; want the mouse off and no warning", got, warnings)
-	}
-	if err := Save(path, Default()); err != nil {
-		t.Fatal(err)
-	}
-	if got, warnings := Load(path); len(warnings) != 0 || !got.MouseEnabled() {
-		t.Fatalf("Load() = %+v, %v; want the mouse on and no warning", got, warnings)
-	}
-}
-
-func TestLoadWarnsForAMouseValueThatIsNoBoolean(t *testing.T) {
-	path := Path(t.TempDir())
-	if err := os.WriteFile(path, []byte("mouse: sometimes\n"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	got, warnings := Load(path)
-	if len(warnings) != 1 || !got.MouseEnabled() {
-		t.Fatalf("Load() = %+v, %v; want the mouse on and one warning", got, warnings)
-	}
-}
-
-// A file of an earlier version names a colour scheme and maybe a background: the scheme becomes its theme, and
-// the background is dropped without a word and not written again.
-func TestFormerColourSchemeBecomesTheme(t *testing.T) {
-	for _, tc := range []struct {
-		file, want string
-	}{
-		{"theme: auto\n", ThemeTerminal},
-		{"theme: light\n", ThemeQatlasLight},
-		{"theme: dark\n", ThemeQatlasDark},
-		{"start: overview\n", ThemeTerminal},
-		{"theme: auto\nbackground: qatlas\n", ThemeTerminal},
-		{"theme: light\nbackground: terminal\n", ThemeQatlasLight},
-		{"theme: dark\nbackground: qatlas\n", ThemeQatlasDark},
-		{"background: neon\n", ThemeTerminal},
-		{"theme: qatlas light\n", ThemeQatlasLight},
-		{"theme: some later theme\n", "some later theme"},
-	} {
-		path := Path(t.TempDir())
-		if err := os.WriteFile(path, []byte(tc.file), 0o600); err != nil {
-			t.Fatal(err)
-		}
-		got, warnings := Load(path)
-		if got.Theme != tc.want || len(warnings) != 0 {
-			t.Errorf("Load(%q) = theme %q, %v; want %q and no warning", tc.file, got.Theme, warnings, tc.want)
-			continue
-		}
-		if err := Save(path, got); err != nil {
-			t.Fatal(err)
-		}
-		data, err := os.ReadFile(path)
+	wg.Wait()
+	for _, err := range errs {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if strings.Contains(string(data), "background") {
-			t.Errorf("Save after Load(%q) still writes the background:\n%s", tc.file, data)
-		}
 	}
-	if got, _ := Load(Path(t.TempDir())); got.Theme != ThemeTerminal {
-		t.Errorf("without a file the theme is %q, want %s", got.Theme, ThemeTerminal)
-	}
-}
-
-func TestIconsDefaultAndMigration(t *testing.T) {
-	dir := t.TempDir()
-	path := Path(dir)
-	if got, _ := Load(path); got.Icons != IconsUnicode {
-		t.Errorf("default icons = %q, want %q", got.Icons, IconsUnicode)
-	}
-	// A file from before the format field holds the former default none, which was never a choice.
-	if err := os.WriteFile(path, []byte("theme: terminal\nstart: overview\nicons: none\nlanguage: english\nmouse: true\n"), 0o600); err != nil {
+	backups, err := filepath.Glob(filepath.Join(dir, "backups", kitprefs.FileName+"-*.bak"))
+	if err != nil {
 		t.Fatal(err)
 	}
-	got, warnings := Load(path)
-	if got.Icons != IconsUnicode || len(warnings) != 0 {
-		t.Fatalf("old none = %q %v, want %q", got.Icons, warnings, IconsUnicode)
-	}
-	// A none chosen and saved afterwards stays.
-	got.Icons = IconsNone
-	if err := Save(path, got); err != nil {
-		t.Fatal(err)
-	}
-	if again, _ := Load(path); again.Icons != IconsNone {
-		t.Errorf("saved none = %q, want it kept", again.Icons)
-	}
-	// A saved unicode and nerdfont load as they are.
-	for _, v := range []string{IconsUnicode, IconsNerdFont} {
-		got.Icons = v
-		if err := Save(path, got); err != nil {
-			t.Fatal(err)
+	var themes []string
+	for _, file := range append(backups, path) {
+		got, warnings := kitprefs.LoadWarnings(file, schema)
+		if len(warnings) != 0 {
+			t.Fatalf("%s: %v", file, warnings)
 		}
-		if again, _ := Load(path); again.Icons != v {
-			t.Errorf("saved %q = %q", v, again.Icons)
-		}
+		themes = append(themes, got.Theme)
 	}
-	// The message of an invalid value names all three.
-	if err := os.WriteFile(path, []byte("icons: emoji\n"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	_, warnings = Load(path)
-	if len(warnings) != 1 || !strings.Contains(warnings[0], "unicode, nerdfont or none") {
-		t.Errorf("warnings = %v", warnings)
+	slices.Sort(themes)
+	if want := []string{ThemeQatlasDark, ThemeQatlasLight, kittui.ThemeTerminal}; !slices.Equal(themes, want) {
+		t.Errorf("file and backups hold the themes %v, want %v", themes, want)
 	}
 }

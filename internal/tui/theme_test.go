@@ -174,11 +174,11 @@ func TestThemesPaintOnlyWhereTheyOwnTheBackground(t *testing.T) {
 		}
 	}
 	termColors = kittui.TerminalColors{Foreground: "#cdd6f4", Background: "#1e1e2e"}
-	applyTheme(uiprefs.ThemeTerminal)
+	applyTheme(kittui.ThemeTerminal)
 	if styles.filled {
 		t.Error("the terminal theme paints the screen")
 	}
-	if got := themeOrDefault("no such theme"); got != uiprefs.ThemeTerminal {
+	if got := themeOrDefault("no such theme"); got != kittui.ThemeTerminal {
 		t.Errorf("an unknown name gives %q, want the terminal theme", got)
 	}
 }
@@ -190,9 +190,9 @@ func TestTerminalThemeTakesTheColoursOfTheTerminal(t *testing.T) {
 	setProfile(kittui.ProfileTrueColor)
 	t.Setenv("NO_COLOR", "")
 	m, _, _ := newModel(t)
-	m.prefs = uiprefs.Default()
+	m.prefs = defaultPrefs()
 	applyTheme(m.prefs.Theme)
-	if styles.Palette() != paletteOfTheme(uiprefs.ThemeTerminal, kittui.ProfileTrueColor, nil) || styles.Palette().Panel != "" {
+	if styles.Palette() != paletteOfTheme(kittui.ThemeTerminal, kittui.ProfileTrueColor, nil) || styles.Palette().Panel != "" {
 		t.Fatalf("before the answer the palette is %+v, want the plain one", styles.Palette())
 	}
 	answerColours(t, m, "#cdd6f4", "#1e1e2e")
@@ -223,7 +223,7 @@ func TestTerminalAnswerLeavesOtherThemes(t *testing.T) {
 	setProfile(kittui.ProfileTrueColor)
 	t.Setenv("NO_COLOR", "")
 	m, _, _ := newModel(t)
-	m.prefs = uiprefs.Default()
+	m.prefs = defaultPrefs()
 	m.prefs.Theme = uiprefs.ThemeQatlasLight
 	applyTheme(m.prefs.Theme)
 	answerColours(t, m, "#cdd6f4", "#1e1e2e")
@@ -249,7 +249,7 @@ func TestTerminalThemeFallsBackToFrames(t *testing.T) {
 	} {
 		setProfile(tc.profile)
 		termColors = tc.colors
-		applyTheme(uiprefs.ThemeTerminal)
+		applyTheme(kittui.ThemeTerminal)
 		p := styles.Palette()
 		if p.Panel != "" || p.Surface != "" || p.Selection != "" || p.Base != "" || styles.filled {
 			t.Errorf("%s: palette %+v, want no fills", tc.name, p)
@@ -268,23 +268,23 @@ func TestTerminalThemeFallsBackToFrames(t *testing.T) {
 func TestNoColorAsksTheTerminalNothing(t *testing.T) {
 	restoreRenderer(t)
 	setProfile(kittui.ProfileTrueColor)
-	if terminalColourQuery(uiprefs.ThemeTerminal) == nil {
+	if terminalColourQuery(kittui.ThemeTerminal) == nil {
 		t.Fatal("the terminal theme does not ask the terminal for its colours")
 	}
 	if terminalColourQuery(uiprefs.ThemeQatlasDark) != nil {
 		t.Error("a qatlas theme asks the terminal for its colours")
 	}
 	setProfile(kittui.ProfileANSI16)
-	if terminalColourQuery(uiprefs.ThemeTerminal) != nil {
+	if terminalColourQuery(kittui.ThemeTerminal) != nil {
 		t.Error("a 16-colour terminal is asked for colours it cannot use")
 	}
 	for _, p := range []kittui.ColorProfile{kittui.ProfileMono, kittui.ProfileNone} {
 		setProfile(p)
-		if terminalColourQuery(uiprefs.ThemeTerminal) != nil {
+		if terminalColourQuery(kittui.ThemeTerminal) != nil {
 			t.Errorf("profile %v: the terminal is asked for its colours", p)
 		}
 		termColors = kittui.TerminalColors{Foreground: "#ffffff", Background: "#000000"}
-		applyTheme(uiprefs.ThemeTerminal)
+		applyTheme(kittui.ThemeTerminal)
 		if styles.Palette() != (kittui.Palette{}) || strings.Contains(styles.active.Render("x"), "\x1b[3") {
 			t.Errorf("profile %v: the terminal theme still names colours", p)
 		}
@@ -303,12 +303,5 @@ func TestThemeRegistry(t *testing.T) {
 			t.Errorf("theme %q is registered twice", name)
 		}
 		seen[name] = true
-		if got, warning := knownTheme(name); got != name || warning != "" {
-			t.Errorf("knownTheme(%q) = %q, %q", name, got, warning)
-		}
-	}
-	got, warning := knownTheme("purple")
-	if got != uiprefs.ThemeTerminal || !strings.Contains(warning, `theme "purple"`) {
-		t.Errorf("knownTheme(purple) = %q, %q; want terminal and a warning", got, warning)
 	}
 }

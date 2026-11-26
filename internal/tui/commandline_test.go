@@ -8,7 +8,6 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 
-	"github.com/castrowithcee/qatlas-connect/internal/uiprefs"
 	kittui "github.com/castrowithcee/qatlas-kit/tui"
 )
 
@@ -53,8 +52,8 @@ func TestColonStaysTextWhereTextIsTyped(t *testing.T) {
 	seedServices(t, m, "a-one")
 	m.screen = screenList
 	press(t, m, "/", ":")
-	if m.screen != screenList || m.list.query() != ":" {
-		t.Fatalf(": in the filter: screen %v query %q, want it as text", m.screen, m.list.query())
+	if m.screen != screenList || m.list.Query() != ":" {
+		t.Fatalf(": in the filter: screen %v query %q, want it as text", m.screen, m.list.Query())
 	}
 	press(t, m, "esc", "esc")
 
@@ -73,8 +72,8 @@ func TestSlashStillFiltersTheList(t *testing.T) {
 	m.screen = screenList
 	press(t, m, "/")
 	typeText(t, m, "two")
-	if !m.list.editing || m.list.query() != "two" {
-		t.Fatalf("/ = editing %v query %q, want the list filter", m.list.editing, m.list.query())
+	if !m.list.Searching() || m.list.Query() != "two" {
+		t.Fatalf("/ = editing %v query %q, want the list filter", m.list.Searching(), m.list.Query())
 	}
 }
 
@@ -357,7 +356,7 @@ func TestPaletteReadsWithoutColour(t *testing.T) {
 	prior := styles
 	t.Cleanup(func() { setProfile(before); setTheme(prior) })
 	setProfile(kittui.ProfileNone)
-	applyTheme(uiprefs.ThemeTerminal)
+	applyTheme(kittui.ThemeTerminal)
 	m := paletteModel(t, 150, 42)
 	view := m.render()
 	if strings.Contains(view, "\x1b[") {

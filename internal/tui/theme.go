@@ -35,15 +35,6 @@ func themeOrDefault(name string) string {
 	return names[0]
 }
 
-// knownTheme is the theme the preference names, or the default with a warning where this version has no theme
-// of that name.
-func knownTheme(name string) (string, string) {
-	if got := themeOrDefault(name); got != name {
-		return got, tr(tThemeUnknown, name, got)
-	}
-	return name, ""
-}
-
 // theme is the active look: the styles the kit resolved for the theme, the colour profile and the character
 // set, with their text styles under the names the screens use. None of them carries meaning on its own: focus
 // has its marker and its border, a result its "[ok]", "[failed]", "warning:" or "error:" prefix, and a
@@ -102,7 +93,7 @@ var styles = noColorTheme()
 // noColorTheme names no colour at all and keeps only the attributes (bold, faint, reverse), as NO_COLOR at a
 // terminal does.
 func noColorTheme() theme {
-	s, _ := themeSet.Resolve(uiprefs.ThemeTerminal, kittui.ProfileMono, terminalCharset(), nil)
+	s, _ := themeSet.Resolve(kittui.ThemeTerminal, kittui.ProfileMono, terminalCharset(), nil)
 	return themeOf(s)
 }
 

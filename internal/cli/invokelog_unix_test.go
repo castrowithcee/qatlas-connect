@@ -3,10 +3,8 @@
 package cli
 
 import (
-	"bufio"
 	"context"
 	"errors"
-	"net"
 	"os"
 	"path/filepath"
 	"strings"
@@ -15,6 +13,7 @@ import (
 	"github.com/castrowithcee/qatlas-connect/internal/invokelog"
 	"github.com/castrowithcee/qatlas-connect/internal/vault"
 	"github.com/castrowithcee/qatlas-connect/internal/vaultproc"
+	"github.com/castrowithcee/qatlas-connect/internal/vaultproc/vaultproctest"
 )
 
 // While a vault process holds the vault unlocked, it writes and signs every entry itself, and verify has it
@@ -106,29 +105,16 @@ func oldVaultProcess(t *testing.T, dir string) {
 	}
 	t.Cleanup(func() { _ = os.RemoveAll(runtimeDir) })
 	t.Setenv("XDG_RUNTIME_DIR", runtimeDir)
-	path, err := vaultproc.SocketPath(vault.New(dir).Dir())
+	e, err := vaultproc.Endpoint(vault.New(dir).Dir())
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
-		t.Fatal(err)
-	}
-	l, err := net.Listen("unix", path)
+	l, err := e.Listen()
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = l.Close() })
-	go func() {
-		for {
-			conn, err := l.Accept()
-			if err != nil {
-				return
-			}
-			_, _ = bufio.NewReader(conn).ReadBytes('\n')
-			_, _ = conn.Write([]byte(`{"v":3,"error":"version"}` + "\n"))
-			_ = conn.Close()
-		}
-	}()
+	go vaultproctest.Serve(l, `{"v":3,"error":"version"}`+"\n")
 }
 
 // A vault process of another build cannot sign: the entry is written unsigned all the same, the invoke is
