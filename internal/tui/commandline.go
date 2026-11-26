@@ -326,7 +326,7 @@ func (m *Model) updateCommandLine(key tea.KeyPressMsg) tea.Cmd {
 func (m *Model) commandLineView() string {
 	cl := m.cmdline
 	matches := matchCommands(m.commands(), cl.input.Value())
-	foot := m.keyHint("type to search · {up}/{down} or {next} choose · {enter} run · {back} close")
+	foot := m.keyHint(keysCommandLine)
 	if cl.msg != "" {
 		foot = "\n" + m.wrapped(styles.fail, tr(tNoteError, cl.msg)) + foot
 	}
@@ -366,7 +366,7 @@ const paletteMaxRows = 12
 func (m *Model) paletteLines(inner, room int) ([]string, []int) {
 	cl := m.cmdline
 	matches := matchCommands(m.commands(), cl.input.Value())
-	foot := strings.Split(strings.TrimLeft(m.keyHint("type to search · {up}/{down} or {next} choose · {enter} run · {back} close"), "\n"), "\n")
+	foot := strings.Split(strings.TrimLeft(m.keyHint(keysCommandLine), "\n"), "\n")
 	var msg []string
 	if cl.msg != "" {
 		msg = strings.Split(render(styles.fail, inner, tr(tNoteError, cl.msg)), "\n")

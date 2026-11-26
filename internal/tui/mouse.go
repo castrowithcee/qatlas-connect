@@ -32,23 +32,6 @@ func (m *Model) addHit(x0, y0, x1, y1 int, act func() tea.Cmd) {
 	m.hits = append(m.hits, hit{x0, y0, x1, y1, act})
 }
 
-// addFrameHit registers a click target of the tab line or the option bar.
-func (m *Model) addFrameHit(x0, y0, x1, y1 int, act func() tea.Cmd) {
-	if m.backdrop || m.tooSmall || x1 <= x0 || y1 <= y0 {
-		return
-	}
-	m.frameHits = append(m.frameHits, hit{x0, y0, x1, y1, act})
-}
-
-// addBarHit registers a tab of the tab line or the option bar. It also stands under a dialog, whose backdrop is
-// the frame with these bars: whether a click on one may go on is for leaveForBar to say.
-func (m *Model) addBarHit(x0, y0, x1, y1 int, act func() tea.Cmd) {
-	if m.tooSmall || x1 <= x0 || y1 <= y0 {
-		return
-	}
-	m.barHits = append(m.barHits, hit{x0, y0, x1, y1, act})
-}
-
 // markDialog notes the cells a dialog drawn from row top and column left covers.
 func (m *Model) markDialog(dialog []string, top, left int) {
 	w := 0
@@ -66,16 +49,6 @@ func (m *Model) addZone(x0, y0, x1, y1 int, act func() tea.Cmd) {
 		return
 	}
 	m.zones = append(m.zones, hit{x0, y0, x1, y1, act})
-}
-
-// workspaceTop is the screen row of the first line of the workspace: below the header, the tab line, the option
-// bar of an area that has one, and the rule.
-func (m *Model) workspaceTop() int {
-	top := len(m.headerLines()) + 2
-	if m.hasSubTabs() {
-		top++
-	}
-	return top
 }
 
 // hitTop is the screen row of the first line after header, a text the workspace starts with.
@@ -151,7 +124,7 @@ func (m *Model) updateMouse(msg tea.MouseMsg) tea.Cmd {
 	if m.infoOpen {
 		// The explanation closes the way esc closes it; a click on a tab then goes on.
 		m.infoOpen = false
-		cmd, _ := m.clickBar(msg)
+		cmd, _ := m.clickTab(msg)
 		return cmd
 	}
 	if m.dd != nil {
@@ -161,23 +134,13 @@ func (m *Model) updateMouse(msg tea.MouseMsg) tea.Cmd {
 	return m.runTarget(kittui.NewMouseMap(targets, true).Handle(msg), acts)
 }
 
-// clickBar is the click on a tab of the tab line or the option bar, if the event is one. A dialog covers the
-// tabs under it.
-func (m *Model) clickBar(msg tea.MouseMsg) (tea.Cmd, bool) {
-	targets, acts := m.mouseTargets(true)
-	r := kittui.NewMouseMap(targets, true).Handle(msg)
-	if !r.Handled || acts[targetIndex(r)] == nil {
-		return nil, false
-	}
-	return m.runTarget(r, acts), true
-}
-
-// mouseTargets is the bridge from the click targets of the frame to kit targets. Each old target becomes one
-// kit target whose Item (or, for a zone, Zone) is its index in acts; the kit map finds the target, the act
-// stays the application's. Later stages replace the bridged targets of a part by the part's own. Stacking
-// follows from the order: a zone lies below every element, a tab bar target below the frame and workspace
-// targets (a dialog over a tab takes the click there), and the explanation leaves the tab bars alone.
-func (m *Model) mouseTargets(barsOnly bool) ([]kittui.Target, []func() tea.Cmd) {
+// mouseTargets are the click targets of the frame drawn last: the kit frame's own and, bridged, those of the
+// parts that still note their own. Each bridged target becomes one kit target whose Item (or, for a zone,
+// Zone) is its index in acts; the kit map finds the target, the act stays the application's. Later stages
+// replace the bridged targets of a part by the part's own. Stacking follows from the order: a zone lies below
+// every element, a tab below the dialog, the keys of the frame and the workspace targets (a dialog over a tab
+// takes the click there), and the explanation leaves the tabs alone.
+func (m *Model) mouseTargets(tabsOnly bool) ([]kittui.Target, []func() tea.Cmd) {
 	var targets []kittui.Target
 	var acts []func() tea.Cmd
 	add := func(h hit, zone bool) {
@@ -191,23 +154,19 @@ func (m *Model) mouseTargets(barsOnly bool) ([]kittui.Target, []func() tea.Cmd) 
 		targets = append(targets, t)
 		acts = append(acts, h.act)
 	}
-	if !barsOnly {
+	if !tabsOnly {
 		for _, h := range m.zones {
 			add(h, true)
 		}
 	}
-	for _, h := range m.barHits {
-		add(h, false)
-	}
+	targets = append(targets, m.frameTabs...)
 	if d := m.dialogBox; d.x1 > d.x0 && d.y1 > d.y0 {
 		// The dialog covers the tabs under it: a click on its text reaches no tab and does nothing.
 		add(d, false)
 		acts[len(acts)-1] = nil
 	}
-	if !barsOnly {
-		for _, h := range m.frameHits {
-			add(h, false)
-		}
+	if !tabsOnly {
+		targets = append(targets, m.frameKeys...)
 		for _, h := range m.hits {
 			add(h, false)
 		}
@@ -228,8 +187,13 @@ func targetIndex(r kittui.MouseResult) int {
 	return i
 }
 
-// runTarget runs the act of a kit result as the click it stands for: a bare zone focuses, an item acts.
+// runTarget runs the act of a kit result as the click it stands for: a tab or a key of the frame as the frame
+// names it, a bare zone focuses, an item acts.
 func (m *Model) runTarget(r kittui.MouseResult, acts []func() tea.Cmd) tea.Cmd {
+	if r.Area != "" || r.Action != "" {
+		m.touchAdminSessionIfActive()
+		return m.clickFrame(r)
+	}
 	i := targetIndex(r)
 	if i < 0 || i >= len(acts) || acts[i] == nil {
 		return nil
@@ -287,8 +251,7 @@ func (m *Model) atListTop() bool {
 }
 
 // wheel scrolls: a notch is one press of up or down (three in a text area), and over the list of the sections
-// of a form it is a press of pgup or pgdown, which jump from section to section. On the tab line a notch down
-// goes into the content and nothing leads back out of it.
+// of a form it is a press of pgup or pgdown, which jump from section to section.
 func (m *Model) wheel(event tea.Mouse) tea.Cmd {
 	up := event.Button == tea.MouseWheelUp
 	if !m.infoOpen {
@@ -300,21 +263,6 @@ func (m *Model) wheel(event tea.Mouse) tea.Cmd {
 				return nil
 			}
 		}
-	}
-	if m.screen == screenNav && !m.infoOpen {
-		if up {
-			return nil
-		}
-		m.touchAdminSessionIfActive()
-		var cmds []tea.Cmd
-		// The option bar of an area is a stop before its content.
-		for range 2 {
-			if m.screen != screenNav {
-				break
-			}
-			cmds = append(cmds, m.press(tea.KeyPressMsg{Code: tea.KeyDown}))
-		}
-		return tea.Batch(cmds...)
 	}
 	if !m.wheelScreens() || (up && !m.infoOpen && m.atListTop()) {
 		return nil
@@ -421,22 +369,6 @@ func dialogOrigin(dialog []string, width, height int) (top, left int) {
 	return max((height-len(dialog))/2, 0), max((width-dialogWidth)/2, 0)
 }
 
-// navSpan is the cells one entry of the tab line or the option bar stands in.
-type navSpan struct{ x0, x1 int }
-
-// spanItems places the items of a bar one after the other from column start on, with sep between them, and
-// cuts the places to width cells.
-func spanItems(items []string, start int, sep string, width int) []navSpan {
-	spans := make([]navSpan, len(items))
-	x := start
-	for i, item := range items {
-		w := ansi.StringWidth(item)
-		spans[i] = navSpan{min(x, width), min(x+w, width)}
-		x += w + ansi.StringWidth(sep)
-	}
-	return spans
-}
-
 // barLeaveSteps bounds the esc presses a click on a bar makes, so a screen whose esc changes nothing cannot
 // loop; the deepest stack of screens is a few levels.
 const barLeaveSteps = 8
@@ -494,11 +426,6 @@ func (m *Model) pressBack() tea.Cmd {
 		return nil
 	}
 	return m.press(key)
-}
-
-// registerBack makes the back button of the header clickable.
-func (m *Model) registerBack(span navSpan) {
-	m.addFrameHit(span.x0, 0, span.x1, 1, m.pressBack)
 }
 
 // leaveForBar prepares the screen for a click on the tab line or the option bar: it goes the way esc goes, one
@@ -570,23 +497,6 @@ func (m *Model) clickSubTab(s section) tea.Cmd {
 	return tea.Batch(lead, cmd)
 }
 
-// zoneBar is the click on the free area of the tab line or the option bar: it leaves the screen the way a click
-// on a tab does, and hands the focus to the bar without changing the section.
-func (m *Model) zoneBar(sub bool) tea.Cmd {
-	lead, ok := m.leaveForBar()
-	if !ok {
-		return lead
-	}
-	if m.screen != screenNav {
-		m.focusNav()
-	}
-	m.navSub = sub && m.hasSubTabs()
-	return lead
-}
-
-func (m *Model) zoneTabLine() tea.Cmd   { return m.zoneBar(false) }
-func (m *Model) zoneOptionBar() tea.Cmd { return m.zoneBar(true) }
-
 // zoneRows is the click on the free area of the rows of a list or the Overview: the rows take the focus, as
 // tab or enter from the bars gives it. On the page of a setting that is entering the page. A typed filter is
 // left alone.
@@ -640,34 +550,6 @@ func (m *Model) zoneList(out, footer string) {
 	if m.listBarShown() {
 		row := top + m.listBarOffset()
 		m.addZone(0, row, m.listWidth(), row+1, m.zoneFilterBar)
-	}
-}
-
-// registerBars makes the tab line and the option bar clickable. The guided setup shows the tab line only; its
-// option bar row stays empty, and the free areas of the bars are not targets there.
-func (m *Model) registerBars() {
-	if m.tooSmall {
-		return
-	}
-	row := len(m.headerLines())
-	setup := m.wizard != nil
-	if !setup {
-		m.addZone(0, row, m.termWidth, row+1, m.zoneTabLine)
-		if m.hasSubTabs() {
-			m.addZone(0, row+1, m.termWidth, row+2, m.zoneOptionBar)
-		}
-	}
-	areas := m.navTabs()
-	for s, span := range areas.spans {
-		a := area(s)
-		m.addBarHit(span.x0, row, span.x1, row+1, func() tea.Cmd { return m.clickArea(a) })
-	}
-	if setup || !m.hasSubTabs() {
-		return
-	}
-	for _, sub := range m.subNavSpans() {
-		s := sub.section
-		m.addBarHit(sub.x0, row+1, sub.x1, row+2, func() tea.Cmd { return m.clickSubTab(s) })
 	}
 }
 

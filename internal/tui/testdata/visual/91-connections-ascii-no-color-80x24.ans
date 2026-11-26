@@ -1,8 +1,8 @@
-[1mQatlas Connect[m  [1mo[m vault unlocked  [2mo[m admin off                  [2m[?] help[m  [2m[:] cmd[m
-[1m  [m[2m 1 Overview [m [2m 2 Library [m [1m[3 Connections][m [2m 4 Activity [m [2m 5 Access [m [2m 6 Settings [m
+[1mQatlas Connect[m  [1mo[m vault unlocked  [2madmin off[m                    [2m[?] help[m  [2m[:] cmd[m
+  [2m 1 Overview [m [2m 2 Library [m [1;7m[3 Connections][m [2m 4 Activity [m [2m 5 Access [m [2m 6 Settings [m 
 [2m--------------------------------------------------------------------------------[m
 [1mConnections (7)[m                                                              [2m1/7[m
-
+                                                                                
 #=[1m[m=============================================================================#
 #    Group: Provider v      State: All v      Sort: Name v   [2m / search~       [m #
 # [2m    NAME            STATE   SERVICE  EFFECTS             TOOLS  DESCRIPTION[m  #
@@ -19,6 +19,6 @@
 #   [2mv [m# [1mtodoist[m[2m (1)[m                                                            #
 #     tasks-personal  [1mactive[m  tasks    [2mread,create,update[m  [2mall[m    Personal ta~ #
 #   [2mv [m# [1mtwenty-crm[m[2m (1)[m                                                         #
-#     crm-sales       [1mactive[m  crm      [2mread[m                [2mall[m    Sales pipel~ #
 #==============================================================================#
-[1mn[m[2m new[m  [1menter/e[m[2m edit/fold[m  [1md[m[2m delete[m  [1m1-6/esc[m[2m areas[m  [1mctrl+l[m[2m lock vault[m  [1m?[m[2m all keys[m
+[1m/[m [2mfilter[m  [1mn[m [2mnew[m  [1mC[m [2mclone[m  [1menter[m[1m/[m[1me[m [2medit/fold[m  [1mr[m [2mrename[m  [1md[m [2mdelete[m  [1mt[m [2mtest[m  [1mg[m [2msetup[m
+[1m1-6[m[1m/[m[1mesc[m [2mareas[m  [1mctrl+l[m [2mlock vault[m  [1mc[m [2mcopy[m  [1mi[m [2minfo[m  [1m:[m [2mcmds[m  [1m?[m [2mhelp[m  [1mq[m [2mquit[m        

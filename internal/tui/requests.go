@@ -419,7 +419,7 @@ func (m *Model) requestDetailView() string {
 	r, ok := m.requestByID(m.requestDetail)
 	if !ok {
 		return m.wrapped(styles.title, tr(tRequestTitle, "")) + "\n\n" + m.wrapped(styles.hint, tr(tRequestClosed)) +
-			m.keyHint("{back} back · {command} cmds · {help} help")
+			m.keyHint(keysBackOnly)
 	}
 	if m.requestChoice != nil {
 		return m.requestChoiceView(r)
@@ -470,7 +470,7 @@ func (m *Model) requestBodyView(r manage.OpenRequest) string {
 			lines = append(lines, "  "+cursor+tickBox(m.requestTicks[row.entry])+" "+m.toolEntryLabel(r.Provider, row.entry))
 		}
 	}
-	keys := "{up}/{down} move · {space} tick · {tickall} all or none · {yes} accept · {decline} decline · {block} block · {back} back · {command} cmds · {help} help"
+	keys := keysRequestBody
 	room := m.height - m.detailChrome() - strings.Count(m.keyHint(keys), "\n") - 2
 	room = max(room, 1)
 	m.requestPage = room
@@ -524,7 +524,7 @@ func (m *Model) requestChoiceView(r manage.OpenRequest) string {
 		title:       tr(tRequestChoiceTitle, m.logText(r.Connection)),
 		consequence: tr(tRequestChoiceConsequence),
 		details:     details,
-		keys:        "{up}/{down} choose · {enter} accept · {back} back · {command} cmds · {help} help",
+		keys:        keysRequestChoice,
 	})
 }
 

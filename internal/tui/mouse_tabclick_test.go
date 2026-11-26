@@ -159,11 +159,12 @@ func TestTabClickUnderADialogIsNotATabClick(t *testing.T) {
 	m.render()
 	box := m.dialogBox
 	covered := 0
-	for _, h := range m.barHits {
-		if box.x0 < h.x1 && h.x0 < box.x1 && box.y0 <= h.y0 && h.y0 < box.y1 {
+	for _, tab := range m.frameTabs {
+		r := tab.Rect
+		if box.x0 < r.X+r.Width && r.X < box.x1 && box.y0 <= r.Y && r.Y < box.y1 {
 			covered++
-			x, y := max(h.x0, box.x0), h.y0
-			if _, ok := m.clickBar(tea.MouseClickMsg{X: x, Y: y, Button: tea.MouseLeft}); ok {
+			x, y := max(r.X, box.x0), r.Y
+			if _, ok := m.clickTab(tea.MouseClickMsg{X: x, Y: y, Button: tea.MouseLeft}); ok {
 				t.Fatalf("a tab under the dialog is a target at %d,%d", x, y)
 			}
 		}

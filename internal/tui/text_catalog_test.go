@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/castrowithcee/qatlas-connect/internal/uiprefs"
+	"github.com/castrowithcee/qatlas-kit/i18n"
 )
 
 var placeholderPattern = regexp.MustCompile(`\{[a-z]+\}`)
@@ -100,12 +101,13 @@ func TestProseNamesTheKeysInForce(t *testing.T) {
 // No placeholder is left unresolved in a prose text and none is unknown to the key table.
 func TestProsePlaceholdersAreActions(t *testing.T) {
 	keepKeys(t)
-	for lang, catalog := range map[string]map[textID]string{"English": textEN, "German": textDE} {
-		for id, text := range catalog {
+	for lang, catalog := range map[i18n.Lang]map[textID]string{i18n.English: textEN, i18n.German: textDE} {
+		useLanguage(t, lang)
+		for id := range catalog {
 			if strings.HasPrefix(string(id), "footer.") {
 				continue
 			}
-			resolved := keyPlaceholders(text)
+			resolved := translator(false).Lookup(id)
 			for _, bad := range placeholderPattern.FindAllString(resolved, -1) {
 				t.Errorf("%s text of %q holds the unresolved %s", lang, id, bad)
 			}

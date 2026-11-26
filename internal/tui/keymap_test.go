@@ -488,7 +488,7 @@ func TestHeaderNamesTheBoundCommandKey(t *testing.T) {
 	rebind(t, actCommand, "f3")
 	m, _, _ := newModel(t)
 	m.Update(tea.WindowSizeMsg{Width: 140, Height: 40})
-	if head := ansi.Strip(m.headerHints()); !strings.Contains(head, "[F3] cmd") || strings.Contains(head, "[:]") {
+	if head := ansi.Strip(headerLine(m)); !strings.Contains(head, "[F3] cmd") || strings.Contains(head, "[:]") {
 		t.Errorf("header = %q", head)
 	}
 }

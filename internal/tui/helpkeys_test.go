@@ -8,33 +8,25 @@ import (
 	"github.com/charmbracelet/x/ansi"
 )
 
-// lastLine is the footer of a rendered frame.
-func lastLine(m *Model) string {
-	lines := strings.Split(ansi.Strip(m.render()), "\n")
-	return strings.TrimRight(lines[len(lines)-1], " ")
-}
-
-// namesHelp reports whether text names the help key, plain or as the hint to the keys that did not fit.
+// namesHelp reports whether text names the help key.
 func namesHelp(text string) bool {
-	return strings.Contains(text, keyLabel(actHelp)+" "+tr(tHeaderHelp)) || strings.Contains(text, keyLabel(actHelp)+" "+tr(tHeaderHelpAll))
+	return strings.Contains(text, keyLabel(actHelp)+" "+tr(tHeaderHelp))
 }
 
-// The help group of the footer says "all keys" only where groups of keys had to give way.
-func TestFooterHintsAtTheHelpWhereGroupsAreDropped(t *testing.T) {
+// Where the footer has to give up groups of keys, the help key stays.
+func TestFooterKeepsTheHelpKeyWhereGroupsAreDropped(t *testing.T) {
 	m, _, _ := newModel(t)
 	m.Update(tea.WindowSizeMsg{Width: 150, Height: 30})
 	m.screen = screenNav
-	hint := keyLabel(actHelp) + " " + tr(tHeaderHelpAll)
-	if last := lastLine(m); strings.Contains(last, tr(tHeaderHelpAll)) || !strings.Contains(last, keyLabel(actHelp)+" "+tr(tHeaderHelp)) {
-		t.Errorf("full width footer = %q, want the plain help group", last)
+	if foot := footerText(m); !namesHelp(ansi.Strip(foot)) {
+		t.Errorf("full width footer = %q, want the help group", foot)
 	}
 	m.Update(tea.WindowSizeMsg{Width: minimumWidth, Height: 30})
-	m.render()
 	if full := flatText(strings.ReplaceAll(m.screenKeys, " · ", " ")); full == "" {
 		t.Fatal("the screen names no keys")
 	}
-	if last := lastLine(m); !strings.Contains(last, hint) {
-		t.Errorf("narrow footer = %q, want %q", last, hint)
+	if foot := ansi.Strip(footerText(m)); !namesHelp(foot) {
+		t.Errorf("narrow footer = %q, want the help group", foot)
 	}
 }
 
@@ -57,7 +49,7 @@ func TestHelpListsEveryKeyGroupOfTheScreenItWasOpenedFrom(t *testing.T) {
 			t.Fatalf("the help does not start with the screen's keys:\n%s", strings.Join(lines, "\n"))
 		}
 		text := strings.Join(lines, "\n")
-		for _, group := range strings.Split(keyPlaceholders(strings.ReplaceAll(footerText(keys), "{info}", m.infoLabel())), " · ") {
+		for _, group := range strings.Split(m.footerKeys(keys), " · ") {
 			key, action, _ := strings.Cut(group, " ")
 			want := "- " + action + ": " + key
 			if action == "" {

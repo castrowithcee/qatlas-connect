@@ -1,13 +1,13 @@
 package tui
 
 import (
-	"fmt"
 	"strings"
 
 	"github.com/castrowithcee/qatlas-connect/internal/helptopics"
 	"github.com/castrowithcee/qatlas-connect/internal/uiprefs"
 	kithelp "github.com/castrowithcee/qatlas-kit/helptopics"
 	"github.com/castrowithcee/qatlas-kit/i18n"
+	kit "github.com/castrowithcee/qatlas-kit/tui"
 )
 
 // The editor's own texts live in a catalog of typed keys per language (text_keys.go, text_en.go,
@@ -17,7 +17,7 @@ import (
 // (labelText, valueText), and a label or value without an entry is drawn as it is.
 
 // textID is the key of one text of the catalog.
-type textID string
+type textID = kit.TextID
 
 // Keys that are built from a name instead of being declared as constants.
 func labelID(english string) textID       { return textID("label." + english) }
@@ -32,11 +32,65 @@ func entryID(kind string) textID          { return textID("entry." + kind) }
 
 var catalogs = i18n.Catalogs[textID]{i18n.English: textEN, i18n.German: textDE}
 
+// keyLabels resolves the key placeholders of the texts against the keymap in force at each call, so a
+// rebinding shows without a new Translator. With extraInfo the info placeholder names the second info key,
+// the one that also acts on text lines, as long as there is one.
+type keyLabels struct{ extraInfo bool }
+
+func (l keyLabels) KeyLabel(id action) (string, bool) {
+	if l.extraInfo && id == actInfo {
+		if extra := infoExtraLabel(); extra != "" {
+			return extra, true
+		}
+	}
+	return keymap.KeyLabel(id)
+}
+
+// translators are the Translators of the language in force: one for the keys of a screen that names the
+// info key by its first key, one for a screen where the info key is only reachable by its second key.
+var translators struct {
+	lang        i18n.Lang
+	plain, info kit.Translator
+}
+
+// translator returns the Translator of uiLang, built anew when the language changed.
+func translator(extraInfo bool) kit.Translator {
+	if translators.plain == nil || translators.lang != uiLang {
+		plain, err := kit.NewTranslator(uiLang, catalogs, keyLabels{})
+		if err != nil {
+			panic("the text catalog is invalid: " + err.Error())
+		}
+		info, _ := kit.NewTranslator(uiLang, catalogs, keyLabels{extraInfo: true})
+		translators.lang, translators.plain, translators.info = uiLang, plain, info
+	}
+	if extraInfo {
+		return translators.info
+	}
+	return translators.plain
+}
+
 func init() {
 	// The English words of a term are shared with the CLI and the manpage and stay in helptopics.
 	for _, t := range helptopics.Terms() {
 		textEN[termID(t.ID)] = t.Text
 		textEN[termTitleID(t.ID)] = t.Title
+	}
+	// The label of a key group is the group's text without its keys, for the kit's hints, which name keys and
+	// label apart.
+	for id, group := range textEN {
+		name, ok := strings.CutPrefix(string(id), "footer.")
+		if !ok {
+			continue
+		}
+		for _, catalog := range []map[textID]string{textEN, textDE} {
+			text := catalog[id]
+			if text == "" {
+				text = group
+			}
+			if _, label := hintParts(text); label != "" {
+				catalog[hintLabelID(name)] = label
+			}
+		}
 	}
 }
 
@@ -63,17 +117,11 @@ func setLanguage(pref string) {
 // tr is the text of id in the current language; args are formatted into it. A text names a key by the
 // placeholder of its action ("{enter}"), resolved against the keys in force before the arguments are
 // formatted in, so a rebinding shows and an argument that happens to hold braces stays as it is.
-func tr(id textID, args ...any) string {
-	text := keyPlaceholders(i18n.Lookup(catalogs, uiLang, id))
-	if len(args) == 0 {
-		return text
-	}
-	return fmt.Sprintf(text, args...)
-}
+func tr(id textID, args ...any) string { return translator(false).Lookup(id, args...) }
 
 // trOr is the text of id, or fallback when no catalog holds one.
 func trOr(id textID, fallback string) string {
-	if text, ok := i18n.Find(catalogs, uiLang, id); ok {
+	if text, ok := translator(false).Find(id); ok {
 		return text
 	}
 	return fallback
@@ -92,21 +140,28 @@ func valueText(rowLabel, choice string) string {
 	return trOr(valueID(rowLabel, choice), choice)
 }
 
-// footerText translates the groups of a key line, separated by " · ". A group without an entry stays as it
-// is; the keys inside a translated group stay the keys.
-func footerText(text string) string {
-	if uiLang == i18n.English {
-		return text
-	}
-	var out []string
-	for _, group := range strings.Split(text, " · ") {
-		// A group whose German text is empty is folded into a neighbour's and left out: the German words are
-		// longer, and the key line of a 40-column terminal must still fit the lines English needs.
-		if translated := trOr(footerID(group), group); translated != "" {
-			out = append(out, translated)
+// footerResolve translates the groups of a key line, separated by " · ", and resolves their key placeholders
+// with t. A group the catalog does not hold, such as one built from a name, is not translated; the keys in
+// it still resolve, because the Translator resolves the placeholders of an unknown ID as it returns it.
+func footerResolve(t kit.Translator, text string) string {
+	groups := strings.Split(text, " · ")
+	for i, group := range groups {
+		id := footerID(group)
+		if _, ok := t.Find(id); !ok {
+			id = textID(group)
 		}
+		groups[i] = t.Lookup(id)
 	}
-	return strings.Join(out, " · ")
+	return strings.Join(groups, " · ")
+}
+
+// footerKeys is footerResolve for a key line outside a screen's footer.
+func footerKeys(text string) string { return footerResolve(translator(false), text) }
+
+// footerKeys is the footer text of a screen as drawn: the info placeholder names the key that reaches the
+// explanation of the focused row.
+func (m *Model) footerKeys(text string) string {
+	return footerResolve(translator(infoExtraLabel() != "" && !m.infoReachable()), text)
 }
 
 // termText is the explanation of a term, and termName its title.

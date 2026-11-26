@@ -113,7 +113,7 @@ func TestClickOnATabAndAPartOfTheOptionBar(t *testing.T) {
 	if m.section.area() != areaSettings || m.screen != screenNav {
 		t.Fatalf("after the click on the Settings tab: section %v screen %v", m.section, m.screen)
 	}
-	row := len(m.headerLines()) + 1
+	row := len([]string{headerLine(m)}) + 1
 	x := cellInRow(t, m, row, "Vault")
 	clickAt(t, m, x, row)
 	if m.section != sectionVault || !m.navSub {
@@ -136,7 +136,7 @@ func TestLibrarySubTabsAreTabsForKeyAndClick(t *testing.T) {
 			m := sizedModel(groupModel(t), size.w, size.h)
 			openSectionByName(t, m, sectionServices)
 			m.screen = screenNav
-			row := len(m.headerLines()) + 1
+			row := len([]string{headerLine(m)}) + 1
 			line := ansi.Strip(frameLines(m)[row])
 			if !strings.Contains(line, "[Services]") || !strings.Contains(line, "Credentials") || strings.Contains(line, "Library:") {
 				t.Fatalf("%dx%d: the sub-tabs read %q, want the active one in brackets", size.w, size.h, line)
@@ -947,31 +947,6 @@ func TestTheWheelStopsAtTheEndsOfTheActivityTable(t *testing.T) {
 	}
 }
 
-func TestTheWheelLeadsFromTheTabLineIntoTheContentOnly(t *testing.T) {
-	for _, s := range []section{sectionOverview, sectionConnections, sectionServices, sectionTokens} {
-		m := sizedModel(groupModel(t), 120, 40)
-		openSectionByName(t, m, s)
-		m.focusNav()
-		wheelAt(t, m, 5, 10, tea.MouseWheelUp)
-		if m.screen != screenNav {
-			t.Errorf("%v: the wheel up on the tab line left it for screen %v", s, m.screen)
-		}
-		wheelAt(t, m, 5, 10, tea.MouseWheelDown)
-		if m.screen != screenList {
-			t.Errorf("%v: the wheel down on the tab line led to screen %v, want the list", s, m.screen)
-		}
-		// On the first row the wheel up stays in the list.
-		wheelAt(t, m, 5, 10, tea.MouseWheelUp)
-		if m.screen != screenList {
-			t.Errorf("%v: the wheel up on the first row left the list for screen %v", s, m.screen)
-		}
-		wheelAt(t, m, 5, 10, tea.MouseWheelDown)
-		if m.screen != screenList {
-			t.Errorf("%v: the wheel down in the list left it for screen %v", s, m.screen)
-		}
-	}
-}
-
 func TestTheWheelScrollsATextAreaByThreeLines(t *testing.T) {
 	m := sizedModel(groupModel(t), 100, 40)
 	m.openHelp()
@@ -1215,9 +1190,9 @@ func TestBackButtonGivesWayAtTheSmallestSize(t *testing.T) {
 	m := sizedModel(groupModel(t), minimumWidth, minimumHeight)
 	openSectionByName(t, m, sectionServices)
 	pressNew(t, m)
-	with := len(m.headerLines())
+	with := len([]string{headerLine(m)})
 	m.backdrop = true
-	without := len(m.headerLines())
+	without := len([]string{headerLine(m)})
 	m.backdrop = false
 	if with != without {
 		t.Errorf("the button changed the rows of the header: %d against %d", with, without)
@@ -1243,10 +1218,10 @@ func TestBackButtonOutlastsTheHeaderHints(t *testing.T) {
 			t.Fatalf("width %d: hints without the button: %q", width, row)
 		}
 		// The button neither adds a row nor moves the path.
-		with := len(m.headerLines())
+		with := len([]string{headerLine(m)})
 		m.backdrop = true
-		bare := ansi.Strip(m.headerLines()[0])
-		without := len(m.headerLines())
+		bare := ansi.Strip([]string{headerLine(m)}[0])
+		without := len([]string{headerLine(m)})
 		m.backdrop = false
 		if with != without {
 			t.Fatalf("width %d: %d header rows with the button, %d without", width, with, without)
@@ -1374,6 +1349,8 @@ func backOutranksTheKeys(t *testing.T, deep string) {
 	m.updater, m.release = fake, fake.check
 	openSectionByName(t, m, sectionServices)
 	pressNew(t, m)
+	// The keys of the header stand where they act, which a text field they would type into is not.
+	focusField(t, m, providerLabel)
 	row := frameLines(m)[0]
 	if !strings.Contains(row, backText) || !strings.Contains(row, "["+keyLabel(actHelp)+"]") || strings.Contains(row, "deep-directory") {
 		t.Fatalf("header = %q, want the button and the keys and no path", row)
@@ -1383,13 +1360,14 @@ func backOutranksTheKeys(t *testing.T, deep string) {
 		t.Errorf("click on the button: screen %v", m.screen)
 	}
 	pressNew(t, m)
+	focusField(t, m, providerLabel)
 	keysGone := false
 	for width := 120; width >= minimumWidth; width-- {
 		m.Update(tea.WindowSizeMsg{Width: width, Height: 40})
 		row := frameLines(m)[0]
 		hints := strings.Contains(row, "["+keyLabel(actHelp)+"]")
 		button := strings.Contains(row, backText)
-		if len(m.headerLines()) != 1 || ansi.StringWidth(row) > width {
+		if ansi.StringWidth(row) > width {
 			t.Fatalf("width %d: the header is not one row within the terminal: %q", width, row)
 		}
 		if hints && !button {

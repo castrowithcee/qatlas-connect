@@ -85,10 +85,11 @@ func (s section) key() string {
 }
 
 // title is the name of the section as drawn.
-func (s section) title() string {
-	return tr([...]textID{tSecServices, tSecCredentials, tSecConnections, tSecDefaults, tSecVault, tSecApprovals,
-		tSecTokens, tSecLogs, tSecOverview, tSecGeneral, tSecTransfer, tSecUpdate, tSecSelftest}[s])
-}
+func (s section) title() string { return tr(sectionTitles[s]) }
+
+// sectionTitles are the catalog texts of the section names, in the order of the sections.
+var sectionTitles = [sectionCount]textID{tSecServices, tSecCredentials, tSecConnections, tSecDefaults, tSecVault, tSecApprovals,
+	tSecTokens, tSecLogs, tSecOverview, tSecGeneral, tSecTransfer, tSecUpdate, tSecSelftest}
 
 // entry is what one entry of the section is called. Vault has no entries of its own; the name here is
 // never shown, because the vault form and its leave question are worded on their own (see editorView and
@@ -318,7 +319,7 @@ const (
 	defaultWidth  = 120
 	defaultHeight = 100
 	minimumWidth  = 40
-	minimumHeight = 14
+	minimumHeight = 15
 	// narrowWidth is the width below which the header and long headings take a second line.
 	narrowWidth = 80
 	// frameCells is what the frame of the workspace takes from each dimension: a border line on both
@@ -700,11 +701,11 @@ type Model struct {
 	// screen would show for its own input.
 	backdrop bool
 	// The click targets of the frame drawn last; see mouse.go.
-	hits      []hit
-	frameHits []hit
-	// barHits are the tabs of the tab line and the option bar. Unlike the other targets they stand under a
-	// dialog too, because a click on a tab leaves what the dialog allows to leave.
-	barHits []hit
+	hits []hit
+	// frameTabs are the tabs of the tab line and the sub-tab line. Unlike the other targets they stand under a
+	// dialog too, because a click on a tab leaves what the dialog allows to leave. frameKeys are the keys of
+	// the header and the footer.
+	frameTabs, frameKeys []kittui.Target
 	// dialogBox is the cells a dialog covers in the frame drawn last; a tab under it is not reachable.
 	dialogBox hit
 	// zones are the focus zones of the frame drawn last, ranked below every other target.
@@ -724,12 +725,14 @@ type Model struct {
 	inModal bool
 	// inPanel is set while a question is drawn for the inside of a frame (see framedText).
 	inPanel bool
-	// screenKeys is the key text the screen drawn last hands to the footer of the frame.
-	screenKeys string
-	// screenPos is the position in the list of the screen drawn last, for the right end of the footer.
-	screenPos string
-	// footerSpans are the cells of the key groups in the footer drawn last.
-	footerSpans []footerSpan
+	// screenKeys is the key text of the footer of the current screen, and screenPos the position in its list
+	// at the right end of the footer; layoutWorkspace takes both before the screen is drawn.
+	screenKeys, screenPos string
+	// probeKeys, while set, makes questionText hand over the keys of a question instead of drawing it.
+	probeKeys *string
+	// spec is the frame of the current screen without its workspace, and top the row its workspace starts in.
+	spec kittui.FrameSpec
+	top  int
 	// formTop and formLeft are where the rows of the form being drawn start; sectionListWidth is the width of
 	// the list of its sections, 0 where there is none.
 	formTop, formLeft, sectionListWidth int
@@ -831,7 +834,6 @@ func New(svc *manage.Service, store *config.Store, tester Tester, secrets Secret
 		termWidth: defaultWidth, termHeight: defaultHeight, configExists: configExists,
 		startDir: startDir, execute: tea.Exec,
 	}
-	m.layoutWorkspace()
 	m.refreshRequests()
 	m.list = newFilterList(m.describe)
 	m.list.stops = true
@@ -855,6 +857,7 @@ func New(svc *manage.Service, store *config.Store, tester Tester, secrets Secret
 	// The editor opens on the tab line, with the Overview already shown below it.
 	m.section = sectionOverview
 	m.list.reset(m.listItems(m.section))
+	m.layoutWorkspace()
 	return m, nil
 }
 
@@ -4011,13 +4014,12 @@ func (m *Model) renderFrame() string {
 	if m.quitting {
 		return ""
 	}
-	m.hits, m.frameHits, m.zones, m.barHits, m.dialogBox, m.tooSmall = nil, nil, nil, nil, hit{}, false
+	m.hits, m.frameTabs, m.frameKeys, m.zones, m.dialogBox, m.tooSmall = nil, nil, nil, nil, hit{}, false
 	m.pathShown = nil
 	m.drawn = true
 	if m.dd != nil {
 		m.dd.placed = false
 	}
-	m.screenKeys, m.screenPos = "", ""
 	m.layoutWorkspace()
 	if m.terminalTooSmall() {
 		if m.screen == screenLeave {
@@ -4036,10 +4038,8 @@ func (m *Model) renderFrame() string {
 		return view
 	}
 	if m.questionScreen() || m.promptScreen() {
-		// A dialog that has no room for a modal fills the workspace; its keys stand in the footer, as buttons.
-		view := m.frame(m.workspaceView())
-		m.footerHits()
-		return view
+		// A dialog that has no room for a modal fills the workspace; its keys stand in the footer.
+		return m.frame(m.workspaceView())
 	}
 	return m.overlayDropdown(m.frame(m.workspaceView()))
 }
@@ -4154,63 +4154,10 @@ func (m *Model) editorView() string {
 		if m.copyFrom != "" && m.editing == "" && m.wizard == nil {
 			b.WriteString("\n" + m.wrapped(styles.hint, m.copyNote()) + "\n")
 		}
-		keys := "{enter} next · {next} next field · " + formKeys
-		switch m.fields[m.focus].kind {
-		case fieldChoice:
-			keys = "{enter} choose · {left}/{right} switch · {next} next field · " + formKeys
-		case fieldMultiChoice, fieldToolList:
-			keys = "{enter} open · {next} next field · " + formKeys
-		case fieldProvider:
-			keys = "{enter} choose provider in the table · {next} next field · " + formKeys
-		case fieldTargets, fieldPaths:
-			keys = "{enter} edit list · {right}/{left} expand/collapse · {next} next field · " + formKeys
-		case fieldVaultAction:
-			keys = "{enter} run · {next} next field · " + formKeys
-		case fieldKey:
-			keys = "{enter} press new key · {delete} standard · {next} next field · " + formKeys
-		}
-		if m.keyCapture {
-			keys = "press the new key · {back} cancel"
-		}
-		if m.isPayloadForm() {
-			if payloadKeys := m.payloadKeys(); payloadKeys != "" {
-				keys = payloadKeys
-			}
-		}
-		if m.fields[m.focus].kind == fieldSecret {
-			if m.editing == "" {
-				keys = "{save} save credential first · {next} next field · " + leaveKeys
-			} else {
-				keys = m.secretKeys() + " · {next} next field · " + formKeys
-			}
-		}
-		if m.wizard != nil {
-			keys = strings.Replace(keys, formKeys, setupKeys(m.wizard.step), 1)
-		}
-		if m.section == sectionTokens && m.wizard == nil {
-			// A token is created, not saved: it goes to the vault, never into the configuration.
-			keys = strings.ReplaceAll(keys, " save", " create")
-		}
-		if m.section == sectionTransfer || m.section == sectionUpdate || m.section == sectionSelftest {
-			keys = "{enter} run · {next} next field · " + leaveKeys
-		}
-		if m.pagePreview() {
-			keys = m.navKeys()
-		}
 		if m.payloadRemoveAsk {
 			b.WriteString("\n" + m.wrapped(styles.warning, tr(tFormRemoveTheField, m.shownLabel(m.fields[m.focus].label))) + "\n")
-			keys = "{yes} remove · {no}/{back} keep · {command} cmds · {help} help"
 		}
-		if !m.payloadRemoveAsk && m.infoWorks() {
-			keys += " · {info} info"
-		}
-		if len(m.formSections()) >= 2 && !m.payloadRemoveAsk && !m.keyCapture {
-			// The key to the sections is named only where that costs no extra footer line.
-			if with := keys + " · {pageup}/{pagedown} section"; len(m.keyHintLines(with)) <= len(m.keyHintLines(keys)) {
-				keys = with
-			}
-		}
-		b.WriteString(m.keyHint(keys))
+		b.WriteString(m.keyHint(m.formScreenKeys()))
 	case screenSecret, screenVaultOffer, screenAdminAuth, screenVaultUnlock:
 		d, _ := m.prompt()
 		b.WriteString(m.promptScreenText(d))
@@ -4229,6 +4176,66 @@ func (m *Model) editorView() string {
 		m.addZone(0, top, m.width, top+m.height, m.zoneRows)
 	}
 	return b.String()
+}
+
+// formScreenKeys is the key text of the form screen, from the focused row and the state of the form.
+func (m *Model) formScreenKeys() string {
+	keys := "{enter} next · {next} next field · " + formKeys
+	switch m.fields[m.focus].kind {
+	case fieldChoice:
+		keys = "{enter} choose · {left}/{right} switch · {next} next field · " + formKeys
+	case fieldMultiChoice, fieldToolList:
+		keys = "{enter} open · {next} next field · " + formKeys
+	case fieldProvider:
+		keys = "{enter} choose provider in the table · {next} next field · " + formKeys
+	case fieldTargets, fieldPaths:
+		keys = "{enter} edit list · {right}/{left} expand/collapse · {next} next field · " + formKeys
+	case fieldVaultAction:
+		keys = "{enter} run · {next} next field · " + formKeys
+	case fieldKey:
+		keys = "{enter} press new key · {delete} standard · {next} next field · " + formKeys
+	}
+	if m.keyCapture {
+		keys = "press the new key · {back} cancel"
+	}
+	if m.isPayloadForm() {
+		if payloadKeys := m.payloadKeys(); payloadKeys != "" {
+			keys = payloadKeys
+		}
+	}
+	if m.fields[m.focus].kind == fieldSecret {
+		if m.editing == "" {
+			keys = "{save} save credential first · {next} next field · " + leaveKeys
+		} else {
+			keys = m.secretKeys() + " · {next} next field · " + formKeys
+		}
+	}
+	if m.wizard != nil {
+		keys = strings.Replace(keys, formKeys, setupKeys(m.wizard.step), 1)
+	}
+	if m.section == sectionTokens && m.wizard == nil {
+		// A token is created, not saved: it goes to the vault, never into the configuration.
+		keys = strings.ReplaceAll(keys, " save", " create")
+	}
+	if m.section == sectionTransfer || m.section == sectionUpdate || m.section == sectionSelftest {
+		keys = "{enter} run · {next} next field · " + leaveKeys
+	}
+	if m.pagePreview() {
+		keys = m.navKeys()
+	}
+	if m.payloadRemoveAsk {
+		keys = "{yes} remove · {no}/{back} keep · {command} cmds · {help} help"
+	}
+	if !m.payloadRemoveAsk && m.infoWorks() {
+		keys += " · {info} info"
+	}
+	if len(m.formSections()) >= 2 && !m.payloadRemoveAsk && !m.keyCapture {
+		// The key to the sections is named only where that costs no extra footer line.
+		if with := keys + " · {pageup}/{pagedown} section"; len(m.keyHintLines(with)) <= len(m.keyHintLines(keys)) {
+			keys = with
+		}
+	}
+	return keys
 }
 
 // secretPrompt is the masked dialog for the secret of the credential role being edited.
@@ -4465,61 +4472,11 @@ func (m *Model) listFrame() (string, string) {
 		head.WriteString(note(styles.hint, tr(tFormNoEntryMatchesPressEsc, m.list.query())))
 	}
 
-	back := m.backToSectionsHint()
 	var finds []renameFinding
 	if m.screen == screenList && !m.list.editing {
 		finds = m.sectionFindings()
 	}
-	var keys string
-	switch {
-	case m.screen == screenNav:
-		keys = m.navKeys()
-	case m.list.editing:
-		keys = "type to filter · {up}/{down} move · {enter} keep filter · {back} clear filter"
-	case m.noticeFocused():
-		keys = "{enter} review · {up}/{back} rows · {command} cmds · {help} help · {quit} quit"
-	case m.barFocus > 0:
-		keys = m.barKeys()
-	case m.detailFocused() && m.detailPane.more:
-		keys = "{left}/{right} tab · {next} next · {prev} rows · {up}/{down} move · {pageup}/{pagedown} scroll · {enter} edit · {back} rows · {command} cmds · {help} help · {quit} quit"
-	case m.detailFocused():
-		keys = "{left}/{right} tab · {next} next · {prev} rows · {up}/{down} move · {enter} edit · {back} rows · {command} cmds · {help} help · {quit} quit"
-	case m.section == sectionApprovals && m.requestRowSelected():
-		keys = "{enter} decide · " + back + " · {command} cmds · {help} help · {quit} quit"
-	case m.section == sectionApprovals && m.vaultProcessOnly():
-		keys = "{enter} passphrase for this window · " + back + " · {command} cmds · {help} help · {quit} quit"
-	case m.section == sectionApprovals && m.vaultLocked():
-		keys = "{enter} unlock · " + back + " · {command} cmds · {help} help · {quit} quit"
-	case m.section == sectionApprovals:
-		keys = "{enter} details · {approveall} approve all · " + back + " · {command} cmds · {help} help · {quit} quit"
-	case m.section == sectionTokens && m.vaultProcessOnly():
-		keys = "{enter} passphrase for this window · {new} new · " + back + " · {command} cmds · {help} help · {quit} quit"
-	case m.section == sectionTokens && m.vaultLocked():
-		keys = "{enter} unlock · {new} new · " + back + " · {command} cmds · {help} help · {quit} quit"
-	case m.section == sectionTokens && m.tokensBlocked() != "" && total == 0:
-		keys = back + " · {command} cmds · {help} help · {quit} quit"
-	case m.section == sectionTokens:
-		keys = "{search} filter · {new} new · {clone} clone · {enter} show · {delete} revoke · " + back + " · {command} cmds · {help} help · {quit} quit"
-	case m.section == sectionConnections:
-		keys = "{search} filter · {left}/{right} fold · {new} new · {clone} clone · {enter}/{edit} edit/fold · {rename} rename · {delete} delete · {test} test · {setup} setup · " +
-			back +
-			" · {command} cmds · {help} help · {quit} quit"
-	case m.section == sectionCredentials:
-		keys = "{search} filter · {left}/{right} fold · {new} new · {clone} clone · {enter}/{edit} edit/fold · {rename} rename · {delete} delete · {setup} setup · " +
-			back + " · {command} cmds · {help} help · {quit} quit"
-	case m.templateSection(m.section):
-		keys = "{search} filter · {new} new · {clone} clone · {enter}/{edit} edit/fold · {rename} rename · {delete} delete · {setup} setup · " + back +
-			" · {command} cmds · {help} help · {quit} quit"
-	default:
-		keys = "{search} filter · {new} new · {enter}/{edit} edit · {delete} delete · {setup} setup · " + back + " · {command} cmds · {help} help · {quit} quit"
-	}
-	if hint := m.vaultLockKeyHint(); hint != "" && !m.list.editing {
-		keys = strings.Replace(keys, " · {command}", " · "+hint+" · {command}", 1)
-	}
-	if m.screen == screenList && !m.list.editing && m.list.query() != "" {
-		// The first esc clears the filter, so the areas keep their digits only.
-		keys = strings.Replace(keys, "{area}/{back} areas", "{area} areas", 1) + " · {back} clear filter"
-	}
+	keys := m.listKeys()
 	notice := m.findingsNotice(finds)
 	foot := notice + m.keyHint(keys)
 	m.noticeAt, m.noticeRows = -1, 0
@@ -4581,6 +4538,63 @@ func (m *Model) tableRoom() int {
 		return max(m.listWidth()-4, 1)
 	}
 	return m.listWidth()
+}
+
+// listKeys is the key text of the list screen and of the tab line above it.
+func (m *Model) listKeys() string {
+	total := m.entryTotal()
+	back := m.backToSectionsHint()
+	var keys string
+	switch {
+	case m.screen == screenNav:
+		keys = m.navKeys()
+	case m.list.editing:
+		keys = "type to filter · {up}/{down} move · {enter} keep filter · {back} clear filter"
+	case m.noticeFocused():
+		keys = "{enter} review · {up}/{back} rows · {command} cmds · {help} help · {quit} quit"
+	case m.barFocus > 0:
+		keys = m.barKeys()
+	case m.detailFocused() && m.detailPane.more:
+		keys = "{left}/{right} tab · {next} next · {prev} rows · {up}/{down} move · {pageup}/{pagedown} scroll · {enter} edit · {back} rows · {command} cmds · {help} help · {quit} quit"
+	case m.detailFocused():
+		keys = "{left}/{right} tab · {next} next · {prev} rows · {up}/{down} move · {enter} edit · {back} rows · {command} cmds · {help} help · {quit} quit"
+	case m.section == sectionApprovals && m.requestRowSelected():
+		keys = "{enter} decide · " + back + " · {command} cmds · {help} help · {quit} quit"
+	case m.section == sectionApprovals && m.vaultProcessOnly():
+		keys = "{enter} passphrase for this window · " + back + " · {command} cmds · {help} help · {quit} quit"
+	case m.section == sectionApprovals && m.vaultLocked():
+		keys = "{enter} unlock · " + back + " · {command} cmds · {help} help · {quit} quit"
+	case m.section == sectionApprovals:
+		keys = "{enter} details · {approveall} approve all · " + back + " · {command} cmds · {help} help · {quit} quit"
+	case m.section == sectionTokens && m.vaultProcessOnly():
+		keys = "{enter} passphrase for this window · {new} new · " + back + " · {command} cmds · {help} help · {quit} quit"
+	case m.section == sectionTokens && m.vaultLocked():
+		keys = "{enter} unlock · {new} new · " + back + " · {command} cmds · {help} help · {quit} quit"
+	case m.section == sectionTokens && m.tokensBlocked() != "" && total == 0:
+		keys = back + " · {command} cmds · {help} help · {quit} quit"
+	case m.section == sectionTokens:
+		keys = "{search} filter · {new} new · {clone} clone · {enter} show · {delete} revoke · " + back + " · {command} cmds · {help} help · {quit} quit"
+	case m.section == sectionConnections:
+		keys = "{search} filter · {left}/{right} fold · {new} new · {clone} clone · {enter}/{edit} edit/fold · {rename} rename · {delete} delete · {test} test · {setup} setup · " +
+			back +
+			" · {command} cmds · {help} help · {quit} quit"
+	case m.section == sectionCredentials:
+		keys = "{search} filter · {left}/{right} fold · {new} new · {clone} clone · {enter}/{edit} edit/fold · {rename} rename · {delete} delete · {setup} setup · " +
+			back + " · {command} cmds · {help} help · {quit} quit"
+	case m.templateSection(m.section):
+		keys = "{search} filter · {new} new · {clone} clone · {enter}/{edit} edit/fold · {rename} rename · {delete} delete · {setup} setup · " + back +
+			" · {command} cmds · {help} help · {quit} quit"
+	default:
+		keys = "{search} filter · {new} new · {enter}/{edit} edit · {delete} delete · {setup} setup · " + back + " · {command} cmds · {help} help · {quit} quit"
+	}
+	if hint := m.vaultLockKeyHint(); hint != "" && !m.list.editing {
+		keys = strings.Replace(keys, " · {command}", " · "+hint+" · {command}", 1)
+	}
+	if m.screen == screenList && !m.list.editing && m.list.query() != "" {
+		// The first esc clears the filter, so the areas keep their digits only.
+		keys = strings.Replace(keys, "{area}/{back} areas", "{area} areas", 1) + " · {back} clear filter"
+	}
+	return keys
 }
 
 // navKeys is the key line while the tab line has the focus: left/right step through the sections, and
@@ -4745,7 +4759,6 @@ func (m *Model) pickerFrame() (string, string) {
 	}
 	head.WriteString(m.boxTop(title, ""))
 	head.WriteString(m.boxSearch(&m.picker, tr(tLogPickSearch)))
-	keys := "type to search · {up}/{down} move · {enter} choose · {back} cancel"
 	if m.pickerMarks != nil {
 		ticked := 0
 		for _, choice := range m.picker.all {
@@ -4757,13 +4770,7 @@ func (m *Model) pickerFrame() (string, string) {
 			total = len(f.choices)
 		}
 		if m.pickerGroups == nil {
-			if m.pickerEffects != nil {
-				keys = "type to search · {up}/{down} move · {space} tick, on an effect row all its tools · {enter} keep · {back} cancel"
-			}
 			head.WriteString(m.boxText(styles.hint, tr(tFormTickedOf, ticked, total)))
-			keys = "type to search · {up}/{down} move · {space} tick · {enter} keep · {back} cancel"
-		} else {
-			keys = "type to search · {up}/{down} move · {space} tick row, group or effect · {left}/{right} fold group · {enter} keep · {back} cancel"
 		}
 	} else {
 		head.WriteString(m.boxText(styles.hint, tr(tLogPickCurrent, m.choiceShown(f.value()))))
@@ -4776,10 +4783,22 @@ func (m *Model) pickerFrame() (string, string) {
 			head.WriteString(m.boxText(styles.warning, warningLine(note)))
 		}
 	}
+	return head.String(), m.boxBottom() + m.keyHint(m.pickerKeys()) + m.notes()
+}
+
+// pickerKeys is the key text of the value picker.
+func (m *Model) pickerKeys() string {
+	keys := "type to search · {up}/{down} move · {enter} choose · {back} cancel"
+	switch {
+	case m.pickerMarks != nil && m.pickerGroups == nil:
+		keys = "type to search · {up}/{down} move · {space} tick · {enter} keep · {back} cancel"
+	case m.pickerMarks != nil:
+		keys = "type to search · {up}/{down} move · {space} tick row, group or effect · {left}/{right} fold group · {enter} keep · {back} cancel"
+	}
 	if m.infoWorks() {
 		keys = strings.Replace(keys, " · {back} cancel", " · {info} info · {back} cancel", 1)
 	}
-	return head.String(), m.boxBottom() + m.keyHint(keys) + m.notes()
+	return keys
 }
 
 // pickerRow draws the shown value at index i of the picker and marks the value the row holds now. Its text

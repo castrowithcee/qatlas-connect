@@ -253,7 +253,7 @@ func TestQuestionsReadQuestionConsequenceKeys(t *testing.T) {
 			if !strings.Contains(shown(m.questionView()), tc.consequence) {
 				t.Errorf("consequence %q missing:\n%s", tc.consequence, shown(m.questionView()))
 			}
-			if footer := m.footerLine(); !strings.Contains(footer, "help") {
+			if footer := footerText(m); !strings.Contains(footer, "help") {
 				t.Errorf("the footer is not the key line: %q", footer)
 			}
 			for name, size := range map[string][2]int{"modal": {100, 30}, "fallback": {50, 30}} {

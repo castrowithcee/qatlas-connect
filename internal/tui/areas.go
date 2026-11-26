@@ -5,7 +5,6 @@ import (
 	"strings"
 
 	tea "charm.land/bubbletea/v2"
-	"charm.land/lipgloss/v2"
 )
 
 // An area is a task the person came to do. It is the top level of the tab line; the section stays the
@@ -40,9 +39,10 @@ func AreaNames() []string {
 }
 
 // title is the name of the area as drawn.
-func (a area) title() string {
-	return tr([...]textID{tAreaOverview, tAreaLibrary, tAreaConnections, tAreaActivity, tAreaAccess, tAreaSettings}[a])
-}
+func (a area) title() string { return tr(areaTitles[a]) }
+
+// areaTitles are the catalog texts of the area names, in the order of the areas.
+var areaTitles = [areaCount]textID{tAreaOverview, tAreaLibrary, tAreaConnections, tAreaActivity, tAreaAccess, tAreaSettings}
 
 // areaByName finds the area whose English name is name, ignoring case.
 func areaByName(name string) (area, bool) {
@@ -103,65 +103,6 @@ func (m *Model) previewArea(a area) tea.Cmd {
 // shows a bar before the page, the part of Settings that manages the vault, the configuration and the
 // program itself.
 const advancedStart = sectionVault
-
-// subNavLine is the tab row of the active area, drawn like the tabs of the detail pane, with "> " in front
-// while it has the focus. A terminal too narrow for every name shows the active one alone.
-func (m *Model) subNavLine() string {
-	if !m.hasSubTabs() || m.wizard != nil {
-		return ""
-	}
-	line, _ := m.subNavBar()
-	return clipCells(line, m.termWidth)
-}
-
-// subNavItem is a part on the tab row and the cells it stands in.
-type subNavItem struct {
-	section section
-	navSpan
-}
-
-// subNavSpans are the cells of the parts on the tab row.
-func (m *Model) subNavSpans() []subNavItem {
-	if !m.hasSubTabs() || m.wizard != nil {
-		return nil
-	}
-	_, items := m.subNavBar()
-	return items
-}
-
-// subNavBar is the text of the tab row and the cells of its parts.
-func (m *Model) subNavBar() (string, []subNavItem) {
-	focus := "  "
-	focused := m.screen == screenNav && m.navSub
-	if focused {
-		focus = "> "
-	}
-	var words []string
-	var sections []section
-	active := 0
-	for _, s := range areaSections[m.section.area()] {
-		if s == advancedStart {
-			// The advanced pages follow the preferences after a bar, so the split reads at any width.
-			words, sections = append(words, "|"), append(sections, -1)
-		}
-		if s == m.section {
-			active = len(words)
-		}
-		words, sections = append(words, s.subTitle()), append(sections, s)
-	}
-	strip, spans := tabStrip(words, active, focused)
-	if lipgloss.Width(focus)+lipgloss.Width(strip) > m.termWidth {
-		words, sections = words[active:active+1], sections[active:active+1]
-		strip, spans = tabStrip(words, 0, focused)
-	}
-	var out []subNavItem
-	for i, span := range spans {
-		if sections[i] >= 0 {
-			out = append(out, subNavItem{sections[i], navSpan{min(span[0]+len(focus), m.termWidth), min(span[1]+len(focus), m.termWidth)}})
-		}
-	}
-	return focus + strip, out
-}
 
 // ref names s for a message that points at it: its sub-tab inside its area, with the digit that opens the
 // area.

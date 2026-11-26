@@ -109,7 +109,7 @@ func TestVimKeysMoveLikeTheArrowsOnEveryKindOfScreen(t *testing.T) {
 
 	t.Run("help topics and text", func(t *testing.T) {
 		m, _, _ := newModel(t)
-		m.Update(tea.WindowSizeMsg{Width: 60, Height: 14})
+		m.Update(tea.WindowSizeMsg{Width: 60, Height: minimumHeight})
 		press(t, m, "?", "l")
 		if m.helpTopic != 1 {
 			t.Fatalf("l = topic %d, want 1", m.helpTopic)

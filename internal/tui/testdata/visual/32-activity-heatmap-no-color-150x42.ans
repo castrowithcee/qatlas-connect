@@ -1,8 +1,8 @@
-[1m🌐[m [1mQatlas Connect[m  [1m●[m vault unlocked  [2m●[m admin off                                                                                     [2m[?] help[m  [2m[:] cmd[m
-[1m  [m[2m 1 🏠 Overview [m [2m 2 📚 Library [m [2m 3 🔗 Connections [m [1m[4 📈 Activity][m [2m 5 🔑 Access [m [2m 6 🔧 Settings [m
+[1m🌐 Qatlas Connect[m  [1m●[m vault unlocked  [2madmin off[m                                                                                       [2m[?] help[m  [2m[:] cmd[m
+  [2m 1 🏠 Overview [m [2m 2 📚 Library [m [2m 3 🔗 Connections [m [1;7m[4 📈 Activity][m [2m 5 🔑 Access [m [2m 6 🔧 Settings [m                                                     
 [2m──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────[m
-[1mLogs[m
-
+[1mLogs[m                                                                                                                                                  
+                                                                                                                                                      
 ╔═[1m[m═══════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════╗
 ║ > [2m Table [m [1;7m[Activity][m [2m Details [m                                                                                                        [1m? unverified[m ║
 ║    Mode: All ▾     [2m(all recorded days)[m     Way: all ▾      Client: all ▾      Tool: all ▾      Conn: all ▾      Effect: all ▾      Result: all ▾   ║
@@ -26,17 +26,17 @@
 ║   [2mless [m·· ░░ ▒▒ ▓▓ ██[2m more[m[2m (levels by quartile of the busy days)[m                                                                                   ║
 ║   [2m× outside retention · ✗ altered entries · … gap in the chain[m                                                                                     ║
 ╚════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════╝
-
-
-
-
-
-
-
-
-
-
-
-
-
-[1mf[m[2m filter[m  [1ms[m[2m summary[m  [1mM[m[2m MCP sessions[m  [1m/[m[2m search[m  [1m1-6[m[2m section[m  [1mesc[m[2m back[m  [1m:[m[2m cmds[m  [1m?[m[2m help[m  [1mq[m[2m quit[m                            [1m←/→[m[2m change tab[m  [1mtab[m[2m next field[m
+                                                                                                                                                      
+                                                                                                                                                      
+                                                                                                                                                      
+                                                                                                                                                      
+                                                                                                                                                      
+                                                                                                                                                      
+                                                                                                                                                      
+                                                                                                                                                      
+                                                                                                                                                      
+                                                                                                                                                      
+                                                                                                                                                      
+                                                                                                                                                      
+                                                                                                                                                      
+[1mf[m [2mfilter[m  [1ms[m [2msummary[m  [1mM[m [2mMCP sessions[m  [1m/[m [2msearch[m  [1m1-6[m [2msection[m  [1mesc[m [2mback[m  [1m:[m [2mcmds[m  [1m?[m [2mhelp[m  [1mq[m [2mquit[m                            [2m←[m[2m/[m[2m→[m [2mchange tab[m  [2mtab[m [2mnext field[m

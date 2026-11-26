@@ -1,12 +1,12 @@
-[1m🌐[m [1mQatlas Connect[m  [1m●[m vault unlocked  [2m●[m admin off                                                                                     [2m[?] help[m  [2m[:] cmd[m
-[1m> [m[1m[1 🏠 Overview][m [2m 2 📚 Library [m [2m 3 🔗 Connections [m [2m 4 📈 Activity [m [2m 5 🔑 Access [m [2m 6 🔧 Settings [m
+[1m🌐 Qatlas Connect[m  [1m●[m vault unlocked  [2madmin off[m                                                                                       [2m[?] help[m  [2m[:] cmd[m
+[1m> [m[1;7m[1 🏠 Overview][m [2m 2 📚 Library [m [2m 3 🔗 Connections [m [2m 4 📈 Activity [m [2m 5 🔑 Access [m [2m 6 🔧 Settings [m                                                     
 [2m──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────[m
 [1mOverview[m                                                                                                                       [2mWed, 18 Mar 2026  12:00[m
-[2mSetup and recent activity[m
+[2mSetup and recent activity[m                                                                                                                             
 [2m╭─[m[1m 🔗 Connections [m[2m──────╮[m [2m╭─[m[1m 📦 Services [m[2m────────╮[m [2m╭─[m[1m 🔐 Credentials [m[2m─────╮[m [2m╭─[m[1m 🎫 Tokens [m[2m──────────╮[m [2m╭─[m[1m ✅ Requests [m[2m────────╮[m [2m╭─[m[1m ✅ Approvals [m[2m───────╮[m
 [2m│[m [1m7[m                     [2m│[m [2m│[m [1m7[m                    [2m│[m [2m│[m [1m7[m                    [2m│[m [2m│[m [1m0[m                    [2m│[m [2m│[m [1m0[m                    [2m│[m [2m│[m [1m7[m                    [2m│[m
 [2m╰───────────────────────╯[m [2m╰──────────────────────╯[m [2m╰──────────────────────╯[m [2m╰──────────────────────╯[m [2m╰──────────────────────╯[m [2m╰──────────────────────╯[m
-[2mqconnect 1.2.3  config.yaml[m
+[2mqconnect 1.2.3  config.yaml[m                                                                                                                           
 [2m╭─[m[1m Next steps [m[2m───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮[m
 [2m│[m   open Access > Approvals (5)                                                                                                                      [2m│[m
 [2m│[m   open Connections and press t to test; Defaults are optional                                                                                      [2m│[m
@@ -23,20 +23,20 @@
 [2m│[m [2m03-15 12:34[m  [1m✗[m  twentycrm.people.list               crm-sales                 [1mnot-found      [m  [2m 288ms[m [2m│[m [2m│[m [2mCalls 180 · success 70% · errors 54[m      [2m│[m
 [2m│[m [2m03-15 10:21[m  [1m✓[m  github.issues.list                  code-planning             [1mok             [m  [2m 257ms[m [2m│[m [2m│[m [2mless [m·· ░░ ▒▒ ▓▓ ██[2m more[m                 [2m│[m
 [2m╰───────────────────────────────────────────────────────────────────────────────────────────────────────╯[m [2m╰──────────────────────────────────────────╯[m
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-[1m↓[m[2m open[m  [1m1-6[m[2m open[m  [1mg[m[2m setup[m  [1mctrl+l[m[2m lock vault[m  [1m:[m[2m cmds[m  [1m?[m[2m help[m  [1mq[m[2m quit[m                                                                          [1m←/→[m[2m move[m
+                                                                                                                                                      
+                                                                                                                                                      
+                                                                                                                                                      
+                                                                                                                                                      
+                                                                                                                                                      
+                                                                                                                                                      
+                                                                                                                                                      
+                                                                                                                                                      
+                                                                                                                                                      
+                                                                                                                                                      
+                                                                                                                                                      
+                                                                                                                                                      
+                                                                                                                                                      
+                                                                                                                                                      
+                                                                                                                                                      
+                                                                                                                                                      
+[1m↓[m[1m/[m[1m1-6[m [2mopen[m  [1mg[m [2msetup[m  [1mctrl+l[m [2mlock vault[m  [1m:[m [2mcmds[m  [1m?[m [2mhelp[m  [1mq[m [2mquit[m                                                                                [2m←[m[2m/[m[2m→[m [2mmove[m

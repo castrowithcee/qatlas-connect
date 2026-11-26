@@ -245,7 +245,9 @@ type logView struct {
 	// view scrolls the detail screen of one entry; page is how many of its lines the last drawing showed.
 	view textScroll
 	page int
-	mode logMode
+	// position is the place of the marked row among the shown ones, as the full frame of the table names it.
+	position string
+	mode     logMode
 	// day is the day of logModeDay, from and to the range of logModeRange, all as logDateLayout.
 	day, from, to string
 	focus         logFocus
@@ -1070,6 +1072,7 @@ func (m *Model) logRowLine(i int, l layout) string {
 func (m *Model) logsFrame() (string, string) {
 	lv := m.logs
 	focused := m.screen == screenLogs
+	lv.position = ""
 	width := m.usable(0)
 	status := styles.hint.Render(tr(tLogLoading))
 	if lv.loaded {
@@ -1228,7 +1231,7 @@ func (m *Model) logsFrame() (string, string) {
 		}
 		foot := keys
 		if shown > 0 && focused && !lv.stats && !lv.heat {
-			m.screenPos = fmt.Sprintf("%d/%d · %d%%", lv.list.cursor+1, shown, (lv.list.cursor+1)*100/shown)
+			lv.position = fmt.Sprintf("%d/%d · %d%%", lv.list.cursor+1, shown, (lv.list.cursor+1)*100/shown)
 		}
 		if lv.note != "" && lv.loaded && lv.hasUnchecked() {
 			foot = "\n" + m.wrapped(styles.hint, lv.note) + foot
@@ -1241,6 +1244,17 @@ func (m *Model) logsFrame() (string, string) {
 		return build(true)
 	}
 	return head, f
+}
+
+// logPosition is the position the table of the Logs screen puts at the right end of the footer, known before
+// it is drawn.
+func (m *Model) logPosition() string {
+	lv := m.logs
+	if m.screen != screenLogs || lv.dialog != nil || lv.pick != nil {
+		return ""
+	}
+	m.logsFrame()
+	return lv.position
 }
 
 // compactSubject is the explanation the compact frame left out of the summary tab, or none: the full frame
@@ -1486,9 +1500,30 @@ func (m *Model) logsWindow() (int, int) {
 func (m *Model) logDetailView() string {
 	lv := m.logs
 	if lv.detail < 0 || lv.detail >= len(lv.rows) {
-		return m.keyHint("{back} back · {command} cmds · {help} help")
+		return m.keyHint(keysBackOnly)
 	}
-	row := lv.rows[lv.detail]
+	head, lines := m.logDetailLayout(lv.rows[lv.detail])
+	keys := keysLogDetail
+	// The lines after the last field are the key line and the notes, and at least the empty line the view
+	// ends in.
+	tail := func(keys string) int { return strings.Count(m.keyHint(keys)+m.notes(), "\n") + 1 }
+	room := m.height - strings.Count(head, "\n") - tail(keys)
+	position := ""
+	if total := len(lines); total > room {
+		keys = keysScroll + keys
+		room = max(m.height-strings.Count(head, "\n")-tail(keys)-1, 1)
+		lv.page = room
+		lines = lv.view.window(lines, room, false)
+		position = m.wrapped(styles.hint, lv.view.position(total, room)) + "\n"
+	} else {
+		lv.view.reset()
+	}
+	return head + strings.Join(lines, "\n") + "\n" + position + m.keyHint(keys)
+}
+
+// logDetailLayout is the heading and the laid out fields of the detail screen of one entry. The fields are
+// laid out first and shown from the scroll position on, so a long message scrolls and nothing is cut.
+func (m *Model) logDetailLayout(row logRow) (string, []string) {
 	var b strings.Builder
 	head := m.wrapped(styles.title, m.logDetailTitle(row)) + "\n\n"
 	m.formCol = m.labelColumn(logLabel("status"), logLabel("UTC file"), logLabel("sequence"), logLabel("day"), logLabel("kind"),
@@ -1498,25 +1533,20 @@ func (m *Model) logDetailView() string {
 	for _, f := range m.logDetailFields(row) {
 		b.WriteString(m.formRow(false, f.label, f.value) + "\n")
 	}
-	// The fields are laid out first and shown from the scroll position on, so a long message scrolls and
-	// nothing is cut; a longer text gains the position line and the scroll keys.
-	lines := strings.Split(strings.TrimSuffix(b.String(), "\n"), "\n")
-	keys := "{back} back · {area} section · {command} cmds · {help} help"
-	// The lines after the last field are the key line and the notes, and at least the empty line the view
-	// ends in.
-	tail := func(keys string) int { return strings.Count(m.keyHint(keys)+m.notes(), "\n") + 1 }
-	room := m.height - strings.Count(head, "\n") - tail(keys)
-	position := ""
-	if total := len(lines); total > room {
-		keys = "{up}/{down} scroll · " + keys
-		room = max(m.height-strings.Count(head, "\n")-tail(keys)-1, 1)
-		lv.page = room
-		lines = lv.view.window(lines, room, false)
-		position = m.wrapped(styles.hint, lv.view.position(total, room)) + "\n"
-	} else {
-		lv.view.reset()
+	return head, strings.Split(strings.TrimSuffix(b.String(), "\n"), "\n")
+}
+
+// logDetailKeys is the key text of the detail screen: a text longer than the room gains the scroll keys.
+func (m *Model) logDetailKeys() string {
+	lv := m.logs
+	if lv.detail < 0 || lv.detail >= len(lv.rows) {
+		return keysBackOnly
 	}
-	return head + strings.Join(lines, "\n") + "\n" + position + m.keyHint(keys)
+	head, lines := m.logDetailLayout(lv.rows[lv.detail])
+	if len(lines) > m.height-strings.Count(head, "\n")-strings.Count(m.notes(), "\n")-1 {
+		return keysScroll + keysLogDetail
+	}
+	return keysLogDetail
 }
 
 // logDetailTitle is the heading of the detail screen of one entry.
@@ -1637,12 +1667,24 @@ func (m *Model) logDateDialogView() string {
 	if d.err != "" {
 		b.WriteString(m.indentedWith(styles.fail, tr(tNoteError, d.err)) + "\n")
 	}
-	keys := "{enter} apply · {back} cancel"
-	if len(d.inputs) == 2 {
-		keys = "{enter} apply · {next} next field · {back} cancel"
-	}
-	b.WriteString(m.keyHint(keys))
+	b.WriteString(m.keyHint(logDateKeys(d)))
 	return b.String()
+}
+
+// logDateKeys is the key text of the date dialog: the next-field key only where there are two fields.
+func logDateKeys(d *logDateDialog) string {
+	if len(d.inputs) == 2 {
+		return "{enter} apply · {next} next field · {back} cancel"
+	}
+	return "{enter} apply · {back} cancel"
+}
+
+// logPickKeys is the key text of the filter dialog.
+func (m *Model) logPickKeys() string {
+	if m.logs.pick.filter >= 0 {
+		return "type to search · {up}/{down} move · {enter} keep this value · {back} back to the filters"
+	}
+	return "type to search · {up}/{down} move · {enter} choose · {back} close"
 }
 
 // logPickView draws the filter dialog in the picker pattern: its frame, and as many values as fit.
@@ -1682,11 +1724,7 @@ func (m *Model) logPickFrame() (string, string) {
 	if shown == 0 {
 		head.WriteString(m.wrapped(styles.hint, tr(tLogPickNone, p.list.query())) + "\n")
 	}
-	keys := "type to search · {up}/{down} move · {enter} choose · {back} close"
-	if p.filter >= 0 {
-		keys = "type to search · {up}/{down} move · {enter} keep this value · {back} back to the filters"
-	}
-	return head.String(), m.keyHint(keys) + m.notes()
+	return head.String(), m.keyHint(m.logPickKeys()) + m.notes()
 }
 
 func (m *Model) logPickRow(i int) string {

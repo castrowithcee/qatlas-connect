@@ -112,11 +112,11 @@ func TestGeneralWithThemeFieldFitsSmallTerminal(t *testing.T) {
 	restoreRenderer(t)
 	m, _ := lockedVaultModel(t)
 	openSectionByName(t, m, sectionGeneral)
-	m.Update(tea.WindowSizeMsg{Width: 40, Height: 14})
+	m.Update(tea.WindowSizeMsg{Width: minimumWidth, Height: minimumHeight})
 	view := m.render()
 	lines := strings.Split(view, "\n")
-	if len(lines) > 14 || m.tooSmall {
-		t.Fatalf("%d lines at height 14, too small %v\n%s", len(lines), m.tooSmall, view)
+	if len(lines) > minimumHeight || m.tooSmall {
+		t.Fatalf("%d lines at height %d, too small %v\n%s", len(lines), minimumHeight, m.tooSmall, view)
 	}
 	for i, line := range lines {
 		if w := lipgloss.Width(line); w > 40 {
@@ -230,7 +230,7 @@ func TestSettingsSubTabsInOrderWithAdvancedBar(t *testing.T) {
 		t.Fatalf("digit 6 opened %v, want General first", m.section.title())
 	}
 	m.screen = screenNav
-	if line := shown(m.subNavLine()); !strings.Contains(strings.Join(strings.Fields(line), " "), "[General] | Vault Defaults Transfer Update Self-test") {
+	if line := shown(subTabLine(m)); !strings.Contains(strings.Join(strings.Fields(line), " "), "[General] | Vault Defaults Transfer Update Self-test") {
 		t.Errorf("option bar = %q", line)
 	}
 	m.screen, m.navSub = screenNav, true
@@ -246,7 +246,7 @@ func TestSettingsSubTabsInOrderWithAdvancedBar(t *testing.T) {
 	}
 	// At 40 columns the bar falls back to the active page alone and stays within the width.
 	m.Update(tea.WindowSizeMsg{Width: 40, Height: 14})
-	if line := m.subNavLine(); lipgloss.Width(line) > 40 || !strings.Contains(line, "[General]") {
+	if line := subTabLine(m); lipgloss.Width(line) > 40 || !strings.Contains(line, "[General]") {
 		t.Errorf("narrow option bar = %q", line)
 	}
 }
@@ -256,7 +256,7 @@ func TestIconsKeepTheNameVisible(t *testing.T) {
 	for _, width := range []int{40, 60, 100} {
 		m.Update(tea.WindowSizeMsg{Width: width, Height: 28})
 		m.prefs.Icons = uiprefs.IconsNone
-		plain := m.navLine()
+		plain := tabLine(m)
 		for _, id := range areaIcons {
 			if strings.Contains(plain, iconTable[id].unicode) || strings.Contains(plain, iconTable[id].nerd) {
 				t.Errorf("width %d: icons shown although the preference is none", width)
@@ -266,9 +266,10 @@ func TestIconsKeepTheNameVisible(t *testing.T) {
 			m.prefs.Icons = value
 			for _, s := range []section{sectionOverview, sectionConnections, sectionSettings()} {
 				m.section = s
-				line := m.navLine()
+				line := tabLine(m)
 				a := s.area()
-				if !strings.Contains(line, a.title()) || !strings.Contains(line, m.icon(areaIcons[a])) {
+				// A short line gives up the icons before anything else; the name of the active area stays.
+				if !strings.Contains(line, a.title()) || width >= 100 && !strings.Contains(line, m.icon(areaIcons[a])) {
 					t.Errorf("width %d, %s, area %s: tab line lacks icon or name: %q", width, value, a.title(), line)
 				}
 				if lipgloss.Width(line) > width {

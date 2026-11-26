@@ -715,7 +715,7 @@ func (m *Model) pickFrame() (string, string) {
 	}
 	switch {
 	case lv.err != "":
-		head.WriteString(m.boxText(styles.fail, "[!] "+lv.err+" "+tr(tPickCtrlRReadsAgain)))
+		head.WriteString(m.boxText(styles.fail, "[!] "+lv.err+" "+tr(tPickReloadReadsAgain)))
 	case lv.loading:
 		head.WriteString(m.boxText(styles.hint, tr(tLogLoading)))
 	case len(lv.list.all) == 0:
@@ -726,6 +726,13 @@ func (m *Model) pickFrame() (string, string) {
 		head.WriteString(m.boxText(styles.hint, tr(tPickNoEntryMatches, lv.list.query())))
 	}
 
+	return head.String(), m.boxBottom() + m.keyHint(m.pickKeys()) + m.notes()
+}
+
+// pickKeys is the key text of the target picker, for the level it stands on.
+func (m *Model) pickKeys() string {
+	p := m.targetPick
+	lv := p.top()
 	keys := "type to search · {up}/{down} move · {enter} take"
 	if _, ok := lv.current(); ok && p.url == "" && len(m.pickKindsUnder(lv.kind())) > 0 {
 		keys += " · {right} open"
@@ -749,7 +756,7 @@ func (m *Model) pickFrame() (string, string) {
 	if lv.list.query() == "" {
 		keys += " · {command} cmds · {help} help"
 	}
-	return head.String(), m.boxBottom() + m.keyHint(keys) + m.notes()
+	return keys
 }
 
 // pickLayout is the layout of the level's table for width cells, kept while the entries stay the same.

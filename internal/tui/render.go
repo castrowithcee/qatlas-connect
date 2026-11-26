@@ -462,25 +462,30 @@ func selectionMark() string {
 // being cut off at its right edge.
 func (m *Model) hint(text string) string { return "\n" + m.wrapped(styles.hint, text) }
 
-// keyHint is the key line of a screen: groups of keys separated by " · ". It hands the line to the footer of
-// the frame (see footerLine) and returns nothing for the workspace; only while a modal dialog is drawn does
-// it return the line itself (see dialogKeyHint).
+// keyHint is the key line of a screen: groups of keys separated by " · ". A screen's keys stand in the footer
+// of the frame, which takes them before the screen is drawn (see screenKeyText), so it returns nothing for the
+// workspace; only while a modal dialog is drawn does it return the line itself (see dialogKeyHint).
 func (m *Model) keyHint(text string) string {
-	if strings.Contains(text, "{command} cmds") && !strings.Contains(text, "{info}") && m.infoWorks() {
-		text = strings.Replace(text, "{command} cmds", "{info} info · {command} cmds", 1)
-	}
 	if m.footerLog == nil {
-		// A screen's keys stand in the footer of the frame, not in the workspace. A dialog under a backdrop
-		// leaves the footer as it was.
-		if !m.backdrop {
-			if m.copyKeyShown() {
-				text = withCopyKey(text)
-			}
-			m.screenKeys = text
-		}
 		return ""
 	}
-	return m.dialogKeyHint(text)
+	return m.dialogKeyHint(m.withInfoKey(text))
+}
+
+// withCopyKeyShown adds the copy group to a key line of the footer where the screen has something to copy.
+func (m *Model) withCopyKeyShown(text string) string {
+	if m.copyKeyShown() {
+		return withCopyKey(text)
+	}
+	return text
+}
+
+// withInfoKey names the info key in front of the command key where the screen has an explanation to show.
+func (m *Model) withInfoKey(text string) string {
+	if strings.Contains(text, "{command} cmds") && !strings.Contains(text, "{info}") && m.infoWorks() {
+		return strings.Replace(text, "{command} cmds", "{info} info · {command} cmds", 1)
+	}
+	return text
 }
 
 // dialogKeyHint is the key line of a modal dialog: groups never split across a wrap, only between groups,
@@ -504,7 +509,7 @@ func (m *Model) keyHintLines(text string) []string { return m.keyHintLinesWith(t
 
 // keyHintLinesWith is keyHintLines with each group drawn by style.
 func (m *Model) keyHintLinesWith(text string, style func(group string) string) []string {
-	text = keyPlaceholders(strings.ReplaceAll(footerText(text), "{info}", m.infoLabel()))
+	text = m.footerKeys(text)
 	width := m.usable(0)
 	var lines []string
 	var line string
@@ -535,6 +540,16 @@ func (m *Model) keyHintLinesWith(text string, style func(group string) string) [
 		}
 	}
 	return lines
+}
+
+// keyHintGroupFoot styles one "key action" group as the footer draws it: the key in the footer key style, its
+// action dimmed.
+func keyHintGroupFoot(group string) string {
+	key, action, ok := strings.Cut(group, " ")
+	if !ok {
+		return styles.footKey.Render(key)
+	}
+	return styles.footKey.Render(key) + styles.hint.Render(" "+action)
 }
 
 // keyHintGroup styles one "key action" hint: the key (its first word) bold, the action after it faint.

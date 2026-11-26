@@ -1,9 +1,9 @@
-[1m🌐[m [1mQatlas Connect[m  [1m●[m vault unlocked  [2m●[m admin off                                                                                     [2m[?] help[m  [2m[:] cmd[m
-[1m  [m[2m 1 🏠 Overview [m [1m[2 📚 Library][m [2m 3 🔗 Connections [m [2m 4 📈 Activity [m [2m 5 🔑 Access [m [2m 6 🔧 Settings [m
-  [1m[Services][m [2m Credentials [m
+[1m🌐 Qatlas Connect[m  [1m●[m vault unlocked  [2madmin off[m                                                                                       [2m[?] help[m  [2m[:] cmd[m
+  [2m 1 🏠 Overview [m [1;7m[2 📚 Library][m [2m 3 🔗 Connections [m [2m 4 📈 Activity [m [2m 5 🔑 Access [m [2m 6 🔧 Settings [m                                                     
+  [1m[Services][m [2m Credentials [m                                                                                                                            
 [2m──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────[m
-[1mServices (7)[m                                                                          [2m1/7[m
-
+[1mServices (7)[m                                                                          [2m1/7[m                                                             
+                                                                                                                                                      
 ╔═[1m[m══════════════════════════════════════════════════════════════════════════════════════╗ [2m╭─[m[1m[m[2m─────────────────────────────────────────────────────────╮[m
 ║    Group: Provider ▾      Sort: Name ▾                 [2m / search…                    [m ║ [2m│[m [1mwiki[m                                     [2m●[m 1 connections [2m│[m
 ║ [2m    NAME    BASE URL[m                                                                  ║ [2m│[m [2mbookstack[m                                                [2m│[m
@@ -22,21 +22,21 @@
 ║   [2m▾ [m■ [1mtwenty-crm[m[2m (1)[m                                                                  ║ [2m│[m                                                          [2m│[m
 ║     crm     https://crm.example.invalid                                               ║ [2m│[m                                                          [2m│[m
 ╚═══════════════════════════════════════════════════════════════════════════════════════╝ [2m╰──────────────────────────────────────────────────────────╯[m
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-[1m/[m[2m filter[m  [1mn[m[2m new[m  [1mC[m[2m clone[m  [1menter/e[m[2m edit/fold[m  [1mr[m[2m rename[m  [1md[m[2m delete[m  [1mg[m[2m setup[m  [1m1-6/esc[m[2m areas[m  [1mctrl+l[m[2m lock vault[m  [1mc[m[2m copy[m  [1mi[m[2m info[m  [1m:[m[2m cmds[m  [1m?[m[2m all keys[m  [1mq[m[2m quit[m
+                                                                                                                                                      
+                                                                                                                                                      
+                                                                                                                                                      
+                                                                                                                                                      
+                                                                                                                                                      
+                                                                                                                                                      
+                                                                                                                                                      
+                                                                                                                                                      
+                                                                                                                                                      
+                                                                                                                                                      
+                                                                                                                                                      
+                                                                                                                                                      
+                                                                                                                                                      
+                                                                                                                                                      
+                                                                                                                                                      
+                                                                                                                                                      
+[1m/[m [2mfilter[m  [1mn[m [2mnew[m  [1mC[m [2mclone[m  [1menter[m[1m/[m[1me[m [2medit/fold[m  [1mr[m [2mrename[m  [1md[m [2mdelete[m  [1mg[m [2msetup[m  [1m1-6[m[1m/[m[1mesc[m [2mareas[m  [1mctrl+l[m [2mlock vault[m  [1mc[m [2mcopy[m  [1mi[m [2minfo[m  [1m:[m [2mcmds[m  [1m?[m [2mhelp[m  [1mq[m [2mquit[m    
+                                                                                                                                               [2mtab[m [2mbar[m

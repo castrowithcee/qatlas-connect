@@ -29,7 +29,7 @@ const buttonGap = "  "
 // that answer with y or d are drawn as the dangerous kind. The group of enter is the focused one, so the
 // default answer shows without colour too; a question that enter does not answer has none.
 func (m *Model) dialogButtons(keys string, danger bool, labels map[string]string) []dialogButton {
-	text := keyPlaceholders(strings.ReplaceAll(footerText(keys), "{info}", m.infoLabel()))
+	text := m.footerKeys(keys)
 	var buttons []dialogButton
 	seen := map[string]bool{}
 	for i, group := range strings.Split(text, " · ") {

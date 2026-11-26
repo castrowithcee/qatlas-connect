@@ -278,24 +278,42 @@ func keyPress(name string) (tea.KeyPressMsg, bool) {
 	return tea.KeyPressMsg{}, false
 }
 
+// namedCodes are the keys a key table names by a word.
+var namedCodes = map[string]rune{
+	"enter": tea.KeyEnter, "esc": tea.KeyEscape, "tab": tea.KeyTab, "space": tea.KeySpace, "backspace": tea.KeyBackspace,
+	"delete": tea.KeyDelete, "insert": tea.KeyInsert, "up": tea.KeyUp, "down": tea.KeyDown, "left": tea.KeyLeft,
+	"right": tea.KeyRight, "home": tea.KeyHome, "end": tea.KeyEnd, "pgup": tea.KeyPgUp, "pgdown": tea.KeyPgDown,
+}
+
+// namedKey is the key press a key name of the table stands for, as a terminal reports it; false for a name it
+// cannot build back.
+func namedKey(name string) (tea.KeyPressMsg, bool) {
+	var key tea.KeyPressMsg
+	base := name
+	for _, mod := range []struct {
+		prefix string
+		mod    tea.KeyMod
+	}{{"ctrl+", tea.ModCtrl}, {"alt+", tea.ModAlt}, {"shift+", tea.ModShift}} {
+		if rest, ok := strings.CutPrefix(base, mod.prefix); ok && rest != "" {
+			key.Mod, base = key.Mod|mod.mod, rest
+		}
+	}
+	if code, ok := namedCodes[base]; ok {
+		key.Code = code
+		if base == "space" && key.Mod == 0 {
+			key.Text = " "
+		}
+	} else if n, err := strconv.Atoi(strings.TrimPrefix(base, "f")); err == nil && strings.HasPrefix(base, "f") && n >= 1 && n <= 20 {
+		key.Code = tea.KeyF1 + rune(n-1)
+	} else if runes := []rune(base); len(runes) == 1 {
+		key.Code = runes[0]
+		if key.Mod == 0 {
+			key.Text = base
+		}
+	}
+	return key, key.Code != 0 && kit.KeyName(key) == name
+}
+
 // footerPlaceholder is the name a footer text uses for the keys of an action, e.g. "{save} save": the action
 // in braces, so every action of the table can be named and none by hand.
 func footerPlaceholder(a action) string { return "{" + string(a) + "}" }
-
-// footerKeys replaces the key placeholders of a footer text with the current key names, so a footer
-// follows the keymap while a screen-local key stays a plain literal in its text.
-func footerKeys(text string) string { return keyPlaceholders(footerText(text)) }
-
-// keyPlaceholders replaces the key placeholders of an already translated footer text. Translating comes
-// first because the catalog is keyed by the group with its placeholders.
-func keyPlaceholders(text string) string {
-	if !strings.Contains(text, "{") {
-		return text
-	}
-	for _, e := range keyTable {
-		if p := footerPlaceholder(e.ID); strings.Contains(text, p) {
-			text = strings.ReplaceAll(text, p, keyLabel(e.ID))
-		}
-	}
-	return text
-}

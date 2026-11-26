@@ -81,9 +81,6 @@ func TestVaultHeaderThreeStatesAndNoVault(t *testing.T) {
 			if got := none.vaultHeaderText(); got != "" {
 				t.Errorf("no vault: vaultHeaderText() = %q, want \"\"", got)
 			}
-			if lines := none.headerLines(); len(lines) != 1 {
-				t.Fatalf("no vault: headerLines() = %d lines, want 1: %q", len(lines), lines)
-			}
 
 			for _, tt := range []struct {
 				name  string
@@ -103,17 +100,13 @@ func TestVaultHeaderThreeStatesAndNoVault(t *testing.T) {
 				t.Run(tt.name, func(t *testing.T) {
 					m := tt.build(t)
 					m.Update(tea.WindowSizeMsg{Width: width, Height: 30})
-					lines := m.headerLines()
-					joined := strings.Join(lines, "\n")
-					if !strings.Contains(joined, tt.want) {
-						t.Fatalf("header = %q, want it to contain %q", joined, tt.want)
+					line := headerLine(m)
+					if !strings.Contains(line, tt.want) {
+						t.Fatalf("header = %q, want it to contain %q", line, tt.want)
 					}
-					// The header is one row and leaves the config path to the Overview.
-					switch {
-					case len(lines) != 1:
-						t.Fatalf("headerLines() = %d lines, want 1: %q", len(lines), lines)
-					case strings.Contains(lines[0], "config.yaml"):
-						t.Errorf("header = %q, want no config path", lines[0])
+					// The header leaves the config path to the Overview.
+					if strings.Contains(line, "config.yaml") {
+						t.Errorf("header = %q, want no config path", line)
 					}
 				})
 			}

@@ -60,7 +60,7 @@ func TestIconsFollowThePreference(t *testing.T) {
 	}
 	// Without a choice the model of a fresh device shows unicode icons.
 	m.prefs = uiprefs.Default()
-	if line := m.navLine(); !strings.Contains(line, iconTable[iconOverview].unicode) {
+	if line := tabLine(m); !strings.Contains(line, iconTable[iconOverview].unicode) {
 		t.Errorf("default tab line shows no unicode icon: %q", line)
 	}
 }
