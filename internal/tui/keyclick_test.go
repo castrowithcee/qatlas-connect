@@ -10,8 +10,11 @@ import (
 	"sync/atomic"
 	"testing"
 
+	tea "charm.land/bubbletea/v2"
 	"github.com/charmbracelet/x/ansi"
 
+	"github.com/castrowithcee/qatlas-connect/internal/helptopics"
+	kithelp "github.com/castrowithcee/qatlas-kit/helptopics"
 	kittui "github.com/castrowithcee/qatlas-kit/tui"
 )
 
@@ -168,6 +171,13 @@ func TestEveryScreenControlHasATargetAndClicksAsItsKey(t *testing.T) {
 					}
 				})
 			}
+			// The help turns the wheel, which sets the process-wide wheelClamp, so it runs before the
+			// screens and dialogs, which wait until this function returns.
+			for _, help := range clickHelps() {
+				t.Run(help.name, func(t *testing.T) {
+					assertHelpTargetsClickAsKeys(t, help.build, help.lists)
+				})
+			}
 			for _, dialog := range clickDialogs() {
 				t.Run(dialog.name, func(t *testing.T) {
 					t.Parallel()
@@ -290,6 +300,89 @@ func assertListTargetsClickAsKeys(t *testing.T, base *Model, build func(t *testi
 	return n
 }
 
+// clickHelps are the help over the screen, at the top of its first topic and at its end with the key lists,
+// and the help in the workspace, whose keys stand in the footer. lists tests only the lines of the key lists,
+// which the other cases leave out.
+func clickHelps() []struct {
+	name  string
+	build func(t *testing.T) *Model
+	lists bool
+} {
+	open := func(w, h int, end bool) func(t *testing.T) *Model {
+		return func(t *testing.T) *Model {
+			m := sizedModel(groupModel(t), w, h)
+			openSectionByName(t, m, sectionConnections)
+			m.openHelp()
+			m.render()
+			if end {
+				press(t, m, firstKey(t, actEnd))
+				m.render()
+			}
+			return m
+		}
+	}
+	return []struct {
+		name  string
+		build func(t *testing.T) *Model
+		lists bool
+	}{{"help over the screen", open(140, 40, false), false}, {"help with its key lists", open(140, 60, true), true},
+		{"help in the workspace", open(43, 30, true), false}}
+}
+
+// assertHelpTargetsClickAsKeys requires each target of the help to act as its key: a topic tab as the
+// right key up to that topic, a key of the key line or the footer as that key, and a line of the key lists as
+// the back key that closes the help and then the key of the line; a notch of the wheel over the text is three
+// presses of down.
+func assertHelpTargetsClickAsKeys(t *testing.T, build func(t *testing.T) *Model, lists bool) {
+	t.Helper()
+	base := build(t)
+	h := helpOf(base)
+	if h == nil {
+		t.Fatal("the help is not open")
+	}
+	topics := helptopics.All()
+	nav := []action{actLeft, actRight, actTopicNext, actTopicPrev, actUp, actDown, actPageUp, actPageDown, actHome, actEnd, actBack, actHelp}
+	tabs, keys, listed := 0, 0, 0
+	for _, target := range base.modalTargets {
+		x, y := target.Rect.X+(target.Rect.Width-1)/2, target.Rect.Y
+		switch name, tab := strings.CutPrefix(target.Item, "\x00t"); {
+		case tab:
+			tabs++
+			if lists {
+				break
+			}
+			at := slices.IndexFunc(topics, func(topic kithelp.Topic) bool { return topic.Name == name })
+			// The tab of the topic shown starts it at its top again.
+			keys := []string{firstKey(t, actHome)}
+			if from := helpTopicIndex(t, base); at != from {
+				keys = slices.Repeat([]string{firstKey(t, actRight)}, (at-from+len(topics))%len(topics))
+			}
+			assertClickActsAsKey(t, build, x, y, keys...)
+		case target.Action == "":
+		case slices.Contains(nav, target.Action):
+			keys++
+			if !lists {
+				assertClickActsAsKey(t, build, x, y, firstKey(t, target.Action))
+			}
+		default:
+			listed++
+			assertClickActsAsKey(t, build, x, y, firstKey(t, actBack), firstKey(t, target.Action))
+		}
+	}
+	if tabs != len(topics) || keys == 0 {
+		t.Errorf("%d topic tabs and %d keys are targets", tabs, keys)
+	}
+	if lists && listed == 0 {
+		t.Error("no line of the key lists is a target")
+	}
+	pressed, wheeled := build(t), build(t)
+	press(t, pressed, firstKey(t, actDown), firstKey(t, actDown), firstKey(t, actDown))
+	wheelEvent(t, wheeled, base.termWidth/2, base.termHeight/2, tea.MouseWheelDown)
+	if want, got := clickState(pressed), clickState(wheeled); want != got {
+		t.Errorf("a notch of the wheel does not act as three presses of down:\nkey:\n%s\nwheel:\n%s", want, got)
+	}
+}
+
 // frameScreens are the screens of the key line test and the questions that fill the workspace of a terminal
 // too small for a modal, whose footer holds their answers.
 func frameScreens() []struct {
@@ -323,7 +416,10 @@ func firstKey(t *testing.T, a action) string {
 }
 
 // modalShown reports whether the frame drawn last holds a modal over the screen.
-func (m *Model) modalShown() bool { d := m.dialogBox; return d.x1 > d.x0 && d.y1 > d.y0 }
+func (m *Model) modalShown() bool {
+	d := m.dialogBox
+	return m.modal != nil || d.x1 > d.x0 && d.y1 > d.y0
+}
 
 // assertFrameControlsAreTargets requires a target for each control the frame draws: the back button, the
 // header keys and each key of a footer group with its label, as cells of the drawn lines, and each tab.
