@@ -289,6 +289,12 @@ func visualShots() []visualShot {
 			openSectionByName(t, m, sectionApprovals)
 			pump(t, m, "enter")
 		}},
+		{"43-connections-filter-button", 44, 24, dark, false, func(t *testing.T, m *Model) {
+			// In a narrow terminal one button stands for the fields of the filter bar; State is set to Active
+			// through its modal, so the button counts one field off its first value.
+			connections(t, m)
+			pump(t, m, "tab", "f", "enter", "down", "right", "enter")
+		}},
 		{"44-library-credentials", 150, 42, dark, false, func(t *testing.T, m *Model) {
 			openSectionByName(t, m, sectionCredentials)
 		}},

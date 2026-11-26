@@ -123,16 +123,10 @@ func (m *Model) updateMouse(msg tea.MouseMsg) tea.Cmd {
 	if wheel {
 		targets, _ := m.mouseTargets(false)
 		r := kittui.NewMouseMap(targets, true).Handle(msg)
-		if !r.Handled || (m.dd != nil && !m.infoOpen) {
+		if !r.Handled || m.dd != nil {
 			return nil
 		}
 		return m.wheel(event, r)
-	}
-	if m.infoOpen {
-		// The explanation closes the way esc closes it; a click on a tab then goes on.
-		m.infoOpen = false
-		cmd, _ := m.clickTab(msg)
-		return cmd
 	}
 	if m.dd != nil {
 		return m.clickDropdown(msg)
@@ -177,8 +171,10 @@ func (m *Model) mouseTargets(tabsOnly bool) ([]kittui.Target, []func() tea.Cmd) 
 		for _, h := range m.hits {
 			add(h, false)
 		}
-		// The list names its own rows; its free area lies above the zone of the frame around it.
+		// The list names its own rows; its free area lies above the zone of the frame around it. The filter bar,
+		// its values and its modal name their own as well.
 		targets = append(targets, m.listTargets...)
+		targets = append(targets, m.barTargets...)
 	}
 	return targets, acts
 }
@@ -199,6 +195,10 @@ func targetIndex(r kittui.MouseResult) int {
 // runTarget runs the act of a kit result as the click it stands for: a tab or a key of the frame as the frame
 // names it, a bare zone focuses, an item acts.
 func (m *Model) runTarget(r kittui.MouseResult, acts []func() tea.Cmd) tea.Cmd {
+	if r.Zone == kittui.ZoneFilters {
+		m.touchAdminSessionIfActive()
+		return m.clickBar(r)
+	}
 	if r.Zone == kittui.ZoneRows {
 		m.touchAdminSessionIfActive()
 		return m.clickList(r)
@@ -228,9 +228,6 @@ func (m *Model) wheelScreens() bool {
 // textScreen reports whether what the screen shows is a plain text area, which the wheel moves by wheelText
 // rows. The steps of a transfer or rename that ask for input or move over rows are not.
 func (m *Model) textScreen() bool {
-	if m.infoOpen {
-		return true
-	}
 	switch m.screen {
 	case screenSelftest, screenLogDetail:
 		return true
@@ -251,7 +248,7 @@ func (m *Model) textScreen() bool {
 
 // atListTop reports whether up would leave the lines of the Overview for the tab line.
 func (m *Model) atListTop() bool {
-	return m.screen == screenList && m.section == sectionOverview && (m.barFocus != 0 || m.overviewCursor <= 0)
+	return m.screen == screenList && m.section == sectionOverview && m.overviewCursor <= 0
 }
 
 // wheel scrolls: a notch is one press of up or down (three in a text area), and over the list of the sections
@@ -260,24 +257,22 @@ func (m *Model) atListTop() bool {
 // the frame read it.
 func (m *Model) wheel(event tea.Mouse, r kittui.MouseResult) tea.Cmd {
 	up := event.Button == tea.MouseWheelUp
-	if !m.infoOpen {
-		// A text pane beside the screen scrolls under the wheel without taking the focus or moving the rows.
-		for _, pane := range []*paneScroll{&m.detailPane, &m.infoPane} {
-			if (pane == &m.detailPane && (m.screen == screenList || m.screen == screenNav) && m.paneWidth() > 0 || pane == &m.infoPane && m.paneShown()) && pane.at(event.X, event.Y) {
-				m.touchAdminSessionIfActive()
-				pane.wheel(up)
-				return nil
-			}
+	// A text pane beside the screen scrolls under the wheel without taking the focus or moving the rows.
+	for _, pane := range []*paneScroll{&m.detailPane, &m.infoPane} {
+		if (pane == &m.detailPane && (m.screen == screenList || m.screen == screenNav) && m.paneWidth() > 0 || pane == &m.infoPane && m.paneShown()) && pane.at(event.X, event.Y) {
+			m.touchAdminSessionIfActive()
+			pane.wheel(up)
+			return nil
 		}
 	}
-	if m.screen == screenList && m.listSection() && !m.infoOpen {
+	if m.screen == screenList && m.listSection() {
 		if r.Zone == kittui.ZoneRows {
 			m.touchAdminSessionIfActive()
 			m.list.Wheel(r.WheelSteps)
 		}
 		return nil
 	}
-	if !m.wheelScreens() || (up && !m.infoOpen && m.atListTop()) {
+	if !m.wheelScreens() || (up && m.atListTop()) {
 		return nil
 	}
 	m.touchAdminSessionIfActive()
@@ -288,7 +283,7 @@ func (m *Model) wheel(event tea.Mouse, r kittui.MouseResult) tea.Cmd {
 	if m.textScreen() {
 		times = wheelText
 	}
-	if m.screen == screenForm && !m.infoOpen && event.X < m.sectionListWidth {
+	if m.screen == screenForm && event.X < m.sectionListWidth {
 		key = tea.KeyPgDown
 		if up {
 			key = tea.KeyPgUp
@@ -391,7 +386,7 @@ const barLeaveSteps = 8
 // whose esc only returns to the tab line, and wherever a question, a dialog or an overlay is open and esc
 // answers that instead.
 func (m *Model) backShown() bool {
-	if m.backdrop || m.modal != nil || m.infoOpen || m.keyCapture || m.dd != nil || m.testResultShown() {
+	if m.backdrop || m.modal != nil || m.keyCapture || m.dd != nil || m.testResultShown() {
 		return false
 	}
 	if _, ok := keyPress(keyLabel(actBack)); !ok {
@@ -522,33 +517,15 @@ func (m *Model) zoneRows() tea.Cmd {
 	if m.list.Searching() {
 		return nil
 	}
-	m.barFocus, m.noticeFocus = 0, false
-	m.leaveDetail()
-	return nil
-}
-
-// zoneFilterBar is the click on the free area of the filter bar of a list: the first field takes the focus,
-// as tab gives it, unless a field of the bar has it already.
-func (m *Model) zoneFilterBar() tea.Cmd {
-	if m.screen == screenNav {
-		if cmd := m.focusList(); m.screen != screenList {
-			return cmd
-		}
-	}
-	if m.screen != screenList || m.list.Searching() || !m.listBarShown() {
-		return nil
-	}
-	m.leaveDetail()
+	m.blurBar()
 	m.noticeFocus = false
-	if m.barFocus == 0 {
-		m.barFocus = 1
-	}
+	m.leaveDetail()
 	return nil
 }
 
-// zoneList registers the zones of the frame of a list screen drawn as out with footer below the table: the
-// table, from its title to the end of its frame, and the filter bar inside it. The list puts the free area of
-// its rows above them. A filter being typed has none.
+// zoneList registers the zone of the frame of a list screen drawn as out with footer below the table: the
+// table, from its title to the end of its frame. The list puts the free area of its rows above it, the filter
+// bar its own. A filter being typed has none.
 func (m *Model) zoneList(out, footer string) {
 	if m.list.Searching() {
 		return
@@ -559,10 +536,6 @@ func (m *Model) zoneList(out, footer string) {
 		end++
 	}
 	m.addZone(0, top, m.listWidth(), end, m.zoneRows)
-	if m.listBarShown() {
-		row := top + m.listBarOffset()
-		m.addZone(0, row, m.listWidth(), row+1, m.zoneFilterBar)
-	}
 }
 
 // barSpec says where one field of an option bar stands in a drawn line and what it offers: its text, the width
@@ -646,7 +619,8 @@ func (m *Model) clickList(r kittui.MouseResult) tea.Cmd {
 	if r.Item == "" && r.Action == "" {
 		return m.zoneRows()
 	}
-	m.barFocus, m.noticeFocus = 0, false
+	m.blurBar()
+	m.noticeFocus = false
 	m.leaveDetail()
 	if open, _ := m.list.Click(r); open == "" {
 		return nil

@@ -62,8 +62,8 @@ func TestInfoAndCopyLettersAreTextOnEverySearchLine(t *testing.T) {
 			}
 			scr := m.screen
 			_, cmd := m.Update(textKey("i"))
-			if m.infoOpen || query() != "i" {
-				t.Fatalf("i: overlay %v, query %q, want the letter typed", m.infoOpen, query())
+			if infoOpen(m) || query() != "i" {
+				t.Fatalf("i: overlay %v, query %q, want the letter typed", infoOpen(m), query())
 			}
 			if cmd != nil {
 				if _, ok := clipboardOf(cmd); ok {
@@ -72,8 +72,8 @@ func TestInfoAndCopyLettersAreTextOnEverySearchLine(t *testing.T) {
 			}
 			press(t, m, "backspace")
 			got, copied := pressCopy(m)
-			if copied || m.infoOpen || query() != "c" || m.screen != scr {
-				t.Fatalf("c: copied %q (%v), overlay %v, query %q, want the letter typed", got, copied, m.infoOpen, query())
+			if copied || infoOpen(m) || query() != "c" || m.screen != scr {
+				t.Fatalf("c: copied %q (%v), overlay %v, query %q, want the letter typed", got, copied, infoOpen(m), query())
 			}
 		})
 	}
@@ -118,7 +118,7 @@ func TestInfoExtraKeyOpensTheExplanationOnASearchLine(t *testing.T) {
 		t.Fatalf("screen %v, want the tool picker", m.screen)
 	}
 	press(t, m, "f3")
-	if !m.infoOpen {
+	if !infoOpen(m) {
 		t.Fatalf("the extra info key opened nothing:\n%s", m.render())
 	}
 }

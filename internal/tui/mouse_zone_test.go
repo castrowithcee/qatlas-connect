@@ -17,7 +17,7 @@ func focusState(m *Model) string {
 	if m.screen == screenLogs {
 		logs = m.logs.focus
 	}
-	return fmt.Sprint(m.screen, " sub:", m.onOptionBar(), " bar:", m.barFocus, " detail:", m.detailFocus, " notice:", m.noticeFocus,
+	return fmt.Sprint(m.screen, " sub:", m.onOptionBar(), " bar:", focusedBarField(m), " detail:", m.detailFocus, " notice:", m.noticeFocus,
 		" logs:", logs)
 }
 
@@ -31,11 +31,30 @@ func zoneModel(t *testing.T, w, h int, s section) *Model {
 	return m
 }
 
-// freeCell finds a cell of zone i that no target ranked above it covers.
+// zonesOf are the focus zones of the frame drawn last, lowest first: the bridged ones and the free area of the
+// filter bar, which the bar names itself.
+func zonesOf(m *Model) []hit {
+	zones := append([]hit{}, m.zones...)
+	for _, t := range m.barTargets {
+		if t.Item == "" && t.Action == "" {
+			zones = append(zones, hit{x0: t.Rect.X, y0: t.Rect.Y, x1: t.Rect.X + t.Rect.Width, y1: t.Rect.Y + t.Rect.Height})
+		}
+	}
+	return zones
+}
+
+// freeCell finds a cell of zone i of zonesOf that no target ranked above it covers.
 func freeCell(m *Model, i int) (x, y int, ok bool) {
-	z := m.zones[i]
-	above := append(append([]hit{}, m.zones[i+1:]...), m.hits...)
-	for _, t := range append(append([]kittui.Target{}, m.frameTabs...), m.frameKeys...) {
+	zones := zonesOf(m)
+	z := zones[i]
+	above := append(append([]hit{}, zones[i+1:]...), m.hits...)
+	elements := append(append([]kittui.Target{}, m.frameTabs...), m.frameKeys...)
+	for _, t := range m.barTargets {
+		if t.Item != "" || t.Action != "" {
+			elements = append(elements, t)
+		}
+	}
+	for _, t := range elements {
 		above = append(above, hit{x0: t.Rect.X, y0: t.Rect.Y, x1: t.Rect.X + t.Rect.Width, y1: t.Rect.Y + t.Rect.Height})
 	}
 	for y := z.y0; y < z.y1; y++ {
@@ -89,7 +108,7 @@ func TestFreeAreaOfAZoneFocusesLikeTab(t *testing.T) {
 						deliverKey(t, probe, "tab")
 					}
 					probe.render()
-					for i := range probe.zones {
+					for i := range zonesOf(probe) {
 						x, y, ok := freeCell(probe, i)
 						if !ok {
 							t.Errorf("stop %d: zone %d has no free cell", from, i)
@@ -111,7 +130,7 @@ func TestFreeAreaOfAZoneFocusesLikeTab(t *testing.T) {
 				for _, st := range stops {
 					if !reached[st] && st != stops[0] {
 						// The detail pane and the date field of the Logs are elements with targets of their own.
-						if strings.Contains(st, "detail:true") || st == fmt.Sprint(screenLogs, " sub:false bar:0 detail:false notice:false logs:", logFocusDate) {
+						if strings.Contains(st, "detail:true") || st == fmt.Sprint(screenLogs, " sub:false bar: detail:false notice:false logs:", logFocusDate) {
 							continue
 						}
 						t.Errorf("no zone reaches the stop %q", st)
@@ -151,7 +170,7 @@ func TestClickIntoTheWorkspaceOfASettingsPageEntersIt(t *testing.T) {
 // A click on the free area of a zone never types and never acts: the only keys it stands for move the focus.
 func TestZoneClickNeverMakesText(t *testing.T) {
 	m := zoneModel(t, 120, 40, sectionServices)
-	for i := range m.zones {
+	for i := range zonesOf(m) {
 		if x, y, ok := freeCell(m, i); ok {
 			_, cmd := m.Update(mouseEvent(x, y, tea.MouseLeft))
 			deliver(m, cmd)

@@ -130,8 +130,8 @@ func TestDetailFocusCycleAndTabs(t *testing.T) {
 			t.Fatalf("%v: right on the rows changed the pane", s)
 		}
 		press(t, m, "tab")
-		if !m.detailFocused() || m.barFocus != 0 {
-			t.Fatalf("%v: tab on the rows = pane %v bar %d, want the pane", s, m.detailFocused(), m.barFocus)
+		if !m.detailFocused() || m.barFocused() {
+			t.Fatalf("%v: tab on the rows = pane %v bar %q, want the pane", s, m.detailFocused(), focusedBarField(m))
 		}
 		press(t, m, "right")
 		if view := screenOf(m); m.shownTab() != tabDetails || !strings.Contains(view, "[Details]") {
@@ -149,8 +149,8 @@ func TestDetailFocusCycleAndTabs(t *testing.T) {
 		}
 		press(t, m, "tab")
 		press(t, m, "tab")
-		if m.detailFocused() || m.barFocus != 1 {
-			t.Fatalf("%v: tab in the pane = pane %v bar %d, want the first bar field", s, m.detailFocused(), m.barFocus)
+		if m.detailFocused() || focusedBarField(m) != "Group" {
+			t.Fatalf("%v: tab in the pane = pane %v bar %q, want the first bar field", s, m.detailFocused(), focusedBarField(m))
 		}
 		press(t, m, "shift+tab")
 		if !m.detailFocused() {
@@ -253,8 +253,8 @@ func TestDetailPaneIsLeftOutBelowItsWidth(t *testing.T) {
 	m := newTableModel(t, detailPaneMinWidth-1)
 	openSectionByName(t, m, sectionConnections)
 	press(t, m, "tab")
-	if m.detailFocused() || m.barFocus != 1 {
-		t.Errorf("tab without a pane = pane %v bar %d, want bar field 1", m.detailFocused(), m.barFocus)
+	if m.detailFocused() || focusedBarField(m) != "Group" {
+		t.Errorf("tab without a pane = pane %v bar %q, want the Group field", m.detailFocused(), focusedBarField(m))
 	}
 	if strings.Contains(ansi.Strip(screenOf(m)), "[Overview]") {
 		t.Errorf("a pane shows below its width")

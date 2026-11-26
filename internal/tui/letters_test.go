@@ -76,7 +76,7 @@ func TestLetterActionsAreTheAgreedLetters(t *testing.T) {
 // table gains fails here until the help and this list both name it.
 var helpWording = map[string]string{
 	"g": "g starts", "n": "n creates", "e": "e edits", "r": "r renames", "d": "d deletes", "C": "C clones", "R": "R reads",
-	"t": "t tests", "U": "U installs", "A": "A approves", "V": "V shows or hides", "s": "s shows", "f": "f opens the filter",
+	"t": "t tests", "U": "U installs", "A": "A approves", "V": "V shows or hides", "s": "s shows", "f": "f moves the focus to the filter bar",
 	"M": "M shows the MCP sessions", "o": "o opens", "W": "W saves", "B": "B puts", "i": "i opens", "q": "q quits",
 	"c": "c hands", "x": "x declines", "b": "b blocks", "a": "a ticks", "y": "y confirms", "m": "m opens the overview", "h": "h, j, k, and l", "j": "h, j, k, and l", "k": "h, j, k, and l", "l": "h, j, k, and l",
 }

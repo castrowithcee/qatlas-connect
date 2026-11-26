@@ -85,7 +85,7 @@ Global keys:
 - ? opens this help on every screen without a text line (a form keeps it for its text rows). esc or ? returns to where you were.
 - The help stands over the screen, or fills the workspace of a terminal too small for that. Its first topic ends with the keys of the screen it was opened from and the keys that act everywhere, as they are bound now.
 - The right end of the header names [?] help and [:] cmd wherever these keys act, and [esc] back where esc leads one level back. A text line, where ? and the colon key are text, shows neither.
-- i opens the longer explanation of a field and of the word it is about (service, credential, connection, target, effect, profile, approval, token, vault), over the screen, and esc closes it.
+- i opens the longer explanation of a field and of the word it is about (service, credential, connection, target, effect, profile, approval, token, vault), over the screen, and esc or i closes it.
 - i works on every screen without a text line. On a search line it is text, and only an extra info key set in General opens the explanation there.
 - From a terminal width of 120 columns the explanation stands in a pane at the right of forms and pickers instead. Below it, a field or entry that has one ends in (i).
 - The colon key opens the command line on the same screens. Type to narrow the commands by name, choose with up, down, or tab, run one with enter, and close it with esc.
@@ -106,7 +106,7 @@ Every other letter means one thing on every screen without a text line, and none
 - On the detail of a tool request in Approvals, a ticks all tools or none, x declines the ticked tools, b blocks them, and y accepts them, while a request to remove tools has no b, and y asks once more what the connection then offers; space ticks one tool or a whole group.
 - V shows or hides a token's value in its detail.
 - s shows the summary of the Logs.
-- f opens the filter of the Logs.
+- f moves the focus to the filter bar of a list and of the Logs. left and right change a field, enter opens its values with a search line that narrows them as you type, and where a narrow terminal has no room for the fields, one Filter (n) button opens them all at once.
 - M shows the MCP sessions of the Logs.
 - o opens Activity on an approval's connection.
 - c hands the full text of an open text or detail area (a log entry, the Raw tab, an explanation, an approval's detail) or, with none open, the name of the marked entry to the terminal for the clipboard. It hands over nothing but what is shown, no secret value and no control characters. It travels as an OSC 52 sequence, which also works over SSH but which the terminal does not confirm, and some terminals need it enabled (tmux needs set-clipboard on).
@@ -119,7 +119,7 @@ Every other letter means one thing on every screen without a text line, and none
 Mouse:
 - With the mouse on, a click does what the key for it does. It chooses a tab (from any level, going back the way esc does, with the same question about unsaved input), presses the keys of the header ([esc] back, [?] help, [:] cmd) and every key group of the footer at the bottom (a click on the words of a group presses its first key), chooses a part on the option bar, a row (the first click marks it, a click on the marked row opens or ticks it), a group (folds it), a field or section of a form, a value of an option bar (on a filter field it opens the list of values), a button of a dialog, or an (i) mark (opens its explanation).
 - The wheel scrolls.
-- Over the help only the help reacts. A click on a topic shows that topic, a click on a key or on a line of its key lists acts as that key, and a click outside its frame closes it and does nothing else, on a tab, the header, or the footer too.
+- Over the help or an explanation only that overlay reacts. A click on a topic of the help shows that topic, a click on a key or on a line of the help's key lists acts as that key, and a click outside the frame closes the overlay and does nothing else, on a tab, the header, or the footer too. An explanation also closes on a click inside its frame beside its keys.
 - A click is never stronger than its key, so questions, confirmations, and the admin session apply as before, and it never types a character.
 - The terminal then passes the mouse to the editor. To select text hold Shift while dragging (macOS Terminal uses fn, iTerm2 Option, VS Code on macOS Option-click), or turn the mouse off in General.
 
