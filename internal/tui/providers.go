@@ -147,6 +147,18 @@ func (m *Model) providerTableView() string {
 	return b.String()
 }
 
+// providerKeys is the key text of the provider table: the setup names its next step.
+func (m *Model) providerKeys() string {
+	keys := "type to search · {up}/{down} move · {enter} choose · {back} cancel"
+	if m.wizard != nil {
+		keys = "type to search · {up}/{down} move · {enter} next · {back} cancel setup"
+	}
+	if m.providers.list.query() == "" {
+		keys += " · {command} cmds · {help} help"
+	}
+	return keys
+}
+
 // providerTableFrame is everything of the table except its rows: above them the position among the matches
 // and the total, the search line, the current provider and the column names; below them the keys and the
 // notes. Like the picker it leaves out the heading of the other screens, so the rows keep room in a small
@@ -155,10 +167,8 @@ func (m *Model) providerTableFrame() (string, string) {
 	t := &m.providers
 	shown, total := len(t.list.matches), len(t.list.all)
 	title := tr(tProviderChooseProvider)
-	keys := "type to search · {up}/{down} move · {enter} choose · {back} cancel"
 	if w := m.wizard; w != nil {
 		title = tr(tProviderSetupStepOfChooseProvider, w.step+1, setupSteps)
-		keys = "type to search · {up}/{down} move · {enter} next · {back} cancel setup"
 	}
 	var head strings.Builder
 	head.WriteString(m.boxTop(title, tr(tPositionFiltered, min(t.list.cursor+1, shown), shown, total)))
@@ -173,10 +183,7 @@ func (m *Model) providerTableFrame() (string, string) {
 	if shown == 0 {
 		head.WriteString(m.boxText(styles.hint, tr(tProviderNoProviderMatchesEscKeeps, t.list.query())))
 	}
-	if t.list.query() == "" {
-		keys += " · {command} cmds · {help} help"
-	}
-	return head.String(), m.boxBottom() + m.keyHint(keys) + m.notes()
+	return head.String(), m.boxBottom() + m.keyHint(m.providerKeys()) + m.notes()
 }
 
 // providerTableRow draws the shown provider at index i of the table.

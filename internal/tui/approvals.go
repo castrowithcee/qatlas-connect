@@ -242,7 +242,7 @@ func (m *Model) approvalDetailView() string {
 	if unavailable != "" {
 		// The vault changed under the open detail screen (locked, or turned unencrypted, elsewhere): there
 		// is nothing left here to show or approve.
-		return title + m.wrapped(styles.fail, tr(tNoteError, unavailable)) + m.keyHint("{back} back · {command} cmds · {help} help")
+		return title + m.wrapped(styles.fail, tr(tNoteError, unavailable)) + m.keyHint(keysBackOnly)
 	}
 	var change *approval.Change
 	for i := range report.Open {
@@ -254,7 +254,7 @@ func (m *Model) approvalDetailView() string {
 	if change == nil {
 		// Approved or removed elsewhere while this screen was open.
 		return title + m.wrapped(styles.hint, tr(tApprovalClosed)) +
-			m.keyHint("{back} back · {command} cmds · {help} help")
+			m.keyHint(keysBackOnly)
 	}
 	return m.approvalChangeView(heading, *change)
 }
@@ -296,16 +296,8 @@ func (m *Model) approvalFacts(change approval.Change) []styledFact {
 // first and shown from the scroll position of m.approval on, so a scope of any length fits the workspace and only the lines
 // scroll; nothing is cut.
 func (m *Model) approvalChangeView(heading string, change approval.Change) string {
-	inner, _ := m.detailInner()
-	facts := m.approvalFacts(change)
-	lines := factLinesIn(facts, inner, factColumn(facts, inner), func(s string) string { return s })
-	keys := "{logs} logs · {yes} approve · {no}/{back} back, stays open · {copy} copy · {command} cmds · {help} help"
-	if len(lines) > 0 && approvalHasKept(change) {
-		keys = "{space} unchanged · " + keys
-		if m.approvalExpanded {
-			keys = "{space} fold unchanged · {logs} logs · {yes} approve · {no}/{back} back, stays open · {copy} copy · {command} cmds · {help} help"
-		}
-	}
+	lines := m.approvalBody(change)
+	keys := m.approvalKeys(change, len(lines))
 	room := m.approvalRoom(keys, len(lines))
 	shown := m.approval.window(lines, room, false)
 	offset := m.approval.offset()
@@ -316,6 +308,26 @@ func (m *Model) approvalChangeView(heading string, change approval.Change) strin
 			min(offset+room, len(lines)), len(lines))) + m.keyHint("{up}/{down} scroll · "+keys)
 	}
 	return m.frameDetail(heading, m.approvalMark(change), shown) + "\n" + foot
+}
+
+// approvalBody is the lines of the detail screen of one change, laid out for the width of the workspace.
+func (m *Model) approvalBody(change approval.Change) []string {
+	inner, _ := m.detailInner()
+	facts := m.approvalFacts(change)
+	return factLinesIn(facts, inner, factColumn(facts, inner), func(s string) string { return s })
+}
+
+// approvalKeys is the key text of the detail screen of a change whose body has the given number of lines,
+// before the scroll keys a long body gains.
+func (m *Model) approvalKeys(change approval.Change, lines int) string {
+	keys := "{logs} logs · {yes} approve · {no}/{back} back, stays open · {copy} copy · {command} cmds · {help} help"
+	switch {
+	case lines > 0 && approvalHasKept(change) && m.approvalExpanded:
+		return "{space} fold unchanged · " + keys
+	case lines > 0 && approvalHasKept(change):
+		return "{space} unchanged · " + keys
+	}
+	return keys
 }
 
 // approvalRoom is how many body lines of the detail screen fit around its frame and above its keys; when the

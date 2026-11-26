@@ -321,6 +321,10 @@ func (m *Model) questionHeading(title string) string {
 }
 
 func (m *Model) questionText(q question) string {
+	if m.probeKeys != nil {
+		*m.probeKeys = q.keys
+		return ""
+	}
 	style := styles.hint
 	if q.warn {
 		style = styles.warning

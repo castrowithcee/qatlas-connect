@@ -250,7 +250,6 @@ func (m *Model) pathFrame() (string, string) {
 	}
 
 	var foot strings.Builder
-	keys := "{new} new · {enter}/{edit} edit · {delete} remove · {up}/{down} move · {save} save · {back} close · {command} cmds · {help} help"
 	switch {
 	case m.pathEdit >= 0 && m.backdrop:
 		// The typed path stands in its own dialog (see pathPrompt) over this screen.
@@ -260,17 +259,28 @@ func (m *Model) pathFrame() (string, string) {
 			label = tr(tPathEditPath)
 		}
 		foot.WriteString(p.blank() + p.styled(m.pathLinesIn(p.room, label, &m.pathInput)))
-		keys = pathKeys(&m.pathInput, "{enter} take · {save} save · {back} cancel entry")
 	case m.pathRemove:
 		path, _ := m.pathList.selected()
 		// %q keeps control characters visible, but it would also double every backslash of a Windows path.
 		quoted := strings.ReplaceAll(fmt.Sprintf("%q", path), `\\`, `\`)
 		foot.WriteString(p.blank() + p.text(styles.warning, warnMark+" "+tr(tPathRemoveFromTheList, quoted)))
-		keys = "{yes} remove · {no}/{back} keep · {command} cmds · {help} help"
 	}
 	foot.WriteString(p.bottom())
-	foot.WriteString(m.keyHint(keys))
+	foot.WriteString(m.keyHint(m.pathKeys()))
 	return head.String(), foot.String() + m.notes()
+}
+
+// pathKeys is the key text of the path list screen: the list, the path being typed, or the remove question.
+func (m *Model) pathKeys() string {
+	switch {
+	case m.pathEdit >= 0 && m.backdrop:
+		// The typed path stands in its own dialog (see pathPrompt) over this screen.
+	case m.pathEdit >= 0:
+		return pathKeys(&m.pathInput, "{enter} take · {save} save · {back} cancel entry")
+	case m.pathRemove:
+		return "{yes} remove · {no}/{back} keep · {command} cmds · {help} help"
+	}
+	return "{new} new · {enter}/{edit} edit · {delete} remove · {up}/{down} move · {save} save · {back} close · {command} cmds · {help} help"
 }
 
 // pathPrompt is the dialog the path being added or edited is typed into.

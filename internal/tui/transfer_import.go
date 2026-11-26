@@ -709,34 +709,20 @@ func (m *Model) importView() string {
 			b.WriteString(p.tableRow(i == e.modeCursor, truncateCells(tr(row.text), p.cells())) + "\n")
 		}
 		b.WriteString(p.blank() + p.hint(tr(tImportModeNote)) + p.bottom())
-		return b.String() + m.importKeys("{up}/{down} move · {save} or {enter} preview · {back} back · {command} cmds · {help} help") + m.notes()
+		return b.String() + m.importKeys(keysImportMode) + m.notes()
 	}
-	title, question, keys := tr(tImportPreviewTitle), tr(tTransferPreviewQuestion), "{save} write · {back} back · {up}/{down} scroll · {command} cmds · {help} help"
+	title, question := tr(tImportPreviewTitle), tr(tTransferPreviewQuestion)
 	lines := e.lines
 	switch e.step {
-	case importPreview:
-		if e.plan != nil {
-			if created, replaced, _ := e.plan.Count(); created+replaced == 0 {
-				keys = "{back} back · {up}/{down} scroll · {command} cmds · {help} help"
-			}
-		}
 	case importResult:
-		title, question, keys = tr(tImportWrittenTitle), "", "{enter} or {back} done · {up}/{down} scroll · {command} cmds · {help} help"
-		if e.pendingApprove || e.pendingDelete {
-			keys = "{enter}, {save} or {back} next question · {up}/{down} scroll · {command} cmds · {help} help"
-		}
+		title, question = tr(tImportWrittenTitle), ""
 	case importApprove:
-		title, question, keys = tr(tImportWrittenTitle), tr(tImportApproveQuestion),
-			"{yes} approve · {no}/{back} not now, nothing is approved · {up}/{down} scroll · {command} cmds · {help} help"
+		title, question = tr(tImportWrittenTitle), tr(tImportApproveQuestion)
 		lines = append(slices.Clone(lines), e.toApprove...)
 	case importDelete:
-		title, question, keys = tr(tImportWrittenTitle), tr(tImportDeleteQuestion, m.redactor.Apply(e.path)),
-			"{yes} delete the file · {no}/{back} keep it · {up}/{down} scroll · {command} cmds · {help} help"
+		title, question = tr(tImportWrittenTitle), tr(tImportDeleteQuestion, m.redactor.Apply(e.path))
 	}
-	if e.working != "" {
-		keys = workingWait(e.working)
-	}
-	return m.linesView(title, question, keys, lines, &e.view,
+	return m.linesView(title, question, m.importKeyText(), lines, &e.view,
 		e.step == importResult || e.step == importApprove || e.step == importDelete)
 }
 
@@ -765,6 +751,39 @@ func (m *Model) importPrompt() (promptDialog, bool) {
 		}, true
 	}
 	return promptDialog{}, false
+}
+
+// importKeyText is the key text of the step the import is at.
+func (m *Model) importKeyText() string {
+	e := m.imp
+	if e == nil {
+		return ""
+	}
+	if d, ok := m.importPrompt(); ok {
+		return d.keys
+	}
+	switch {
+	case e.working != "":
+		return workingWait(e.working)
+	case e.step == importMode:
+		return keysImportMode
+	case e.step == importPreview:
+		if e.plan != nil {
+			if created, replaced, _ := e.plan.Count(); created+replaced == 0 {
+				return keysImportNothing
+			}
+		}
+	case e.step == importResult:
+		if e.pendingApprove || e.pendingDelete {
+			return keysImportNext
+		}
+		return keysTransferDone
+	case e.step == importApprove:
+		return keysImportApprove
+	case e.step == importDelete:
+		return keysImportDelete
+	}
+	return keysTransferPreview
 }
 
 // importDialogKeys is the key line of a dialog, or the wait while the import works.

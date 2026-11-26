@@ -337,6 +337,23 @@ func (m *Model) planFinding(f renameFinding, revert bool) tea.Cmd {
 	return nil
 }
 
+// findingsKeys is the key text of the findings screen, for the selected finding.
+func (m *Model) findingsKeys() string {
+	s := m.findings
+	if s == nil {
+		return ""
+	}
+	f := s.items[s.cursor]
+	keys := "{up}/{down} choose"
+	switch {
+	case f.canRevert():
+		keys += " · {enter} finish · {revert} put back"
+	case f.action() != "":
+		keys += " · {enter} " + f.action()
+	}
+	return keys + " · {back} back · {command} cmds · {help} help"
+}
+
 // findingsView draws the findings, the selected one explained below the rows.
 func (m *Model) findingsView() string {
 	s := m.findings
@@ -346,19 +363,11 @@ func (m *Model) findingsView() string {
 	p := m.dialogPanelOf()
 	head := p.top(tr(tFindTitle), fmt.Sprintf("%d/%d", s.cursor+1, len(s.items))) + p.blank()
 	f := s.items[s.cursor]
-	keys := "{up}/{down} choose"
-	switch {
-	case f.canRevert():
-		keys += " · {enter} finish · {revert} put back"
-	case f.action() != "":
-		keys += " · {enter} " + f.action()
-	}
-	keys += " · {back} back · {command} cmds · {help} help"
 	foot := m.wrapped(styles.hint, m.findingDetail(f))
 	if p.framed {
 		foot = p.blank() + p.text(styles.hint, m.findingDetail(f)) + p.bottom()
 	}
-	foot += m.keyHint(keys) + m.notes()
+	foot += m.keyHint(m.findingsKeys()) + m.notes()
 	room := max(m.height-strings.Count(head, "\n")-strings.Count(foot, "\n")-1, 1)
 	start := max(min(s.cursor-room/2, len(s.items)-room), 0)
 	end := min(start+room, len(s.items))

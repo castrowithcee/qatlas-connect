@@ -490,13 +490,8 @@ func (m *Model) addFrame() (string, string) {
 	p := m.dialogPanelOf()
 	a := m.targetAdd
 	metadata := m.targetMetadata()
-	save := "{save} save"
-	if m.wizard != nil {
-		save = "{save} next step"
-	}
 	var head strings.Builder
 	label := tr(tTargetFilterOrType)
-	keys := "type to filter or to type a target · {up}/{down} move · {enter} choose · " + save + " · {back} cancel entry"
 	if a.kind < 0 {
 		head.WriteString(p.top(tr(tTargetAddA, metadata.Label), ""))
 		hint := tr(tTargetBuildANewTargetStep)
@@ -518,10 +513,6 @@ func (m *Model) addFrame() (string, string) {
 		}
 		head.WriteString(p.text(styles.hint, tr(tTargetSoFarForms, so, strings.Join(forms, ", "))))
 		label = tr(tTargetValue)
-		keys = "type a value or filter · {up}/{down} move · {enter} choose · " + save + " · {back} step back"
-		if len(a.history) <= 1 {
-			keys = "type a value or filter · {up}/{down} move · {enter} choose · " + save + " · {back} cancel entry"
-		}
 	}
 	if m.targetAsExclusion {
 		head.WriteString(p.text(styles.warning, tr(tTargetTakenAsExclusion)))
@@ -530,10 +521,27 @@ func (m *Model) addFrame() (string, string) {
 	if len(a.choices.matches) == 0 {
 		head.WriteString(p.text(styles.hint, tr(tTargetNothingToChooseTypeA)))
 	}
+	return head.String(), p.bottom() + m.keyHint(m.addKeys()) + m.notes()
+}
+
+// addKeys is the key text of the add menu and the builder of a target.
+func (m *Model) addKeys() string {
+	a := m.targetAdd
+	save := "{save} save"
+	if m.wizard != nil {
+		save = "{save} next step"
+	}
+	keys := "type to filter or to type a target · {up}/{down} move · {enter} choose · " + save + " · {back} cancel entry"
+	if a.kind >= 0 {
+		keys = "type a value or filter · {up}/{down} move · {enter} choose · " + save + " · {back} step back"
+		if len(a.history) <= 1 {
+			keys = "type a value or filter · {up}/{down} move · {enter} choose · " + save + " · {back} cancel entry"
+		}
+	}
 	if a.choices.query() == "" {
 		keys += " · {command} cmds · {help} help"
 	}
-	return head.String(), p.bottom() + m.keyHint(keys) + m.notes()
+	return keys
 }
 
 func (m *Model) addRow(i int) string {

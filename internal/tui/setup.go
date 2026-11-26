@@ -622,6 +622,20 @@ func (m *Model) setupHeading(withLead bool) string {
 // summaryView shows what the setup saves. It names where every secret goes, never what it is. Where the
 // terminal has room the pairs of label and value stand aligned in a panel, beside the list of the steps on a
 // wide one; otherwise they follow each other as plain rows.
+// summaryKeys is the key text of the setup summary: before the save, while it runs, and after it.
+func (m *Model) summaryKeys() string {
+	w := m.wizard
+	switch {
+	case w.saving:
+		return "{forcequit} quit · {command} cmds · {help} help"
+	case w.saved != "" && m.testing:
+		return "{back} cancel test · {command} cmds · {help} help"
+	case w.saved != "":
+		return "{test} test connection · {back} connections list · {command} cmds · {help} help"
+	}
+	return "{save} save · {back} back · {command} cmds · {help} help"
+}
+
 func (m *Model) summaryView() string {
 	w := m.wizard
 	var b strings.Builder
@@ -649,20 +663,11 @@ func (m *Model) summaryView() string {
 	if warning := w.candidate.IdleWarning(w.plan.connection); warning != "" {
 		b.WriteString(m.indentedWith(styles.warning, warningLine(warning)) + "\n")
 	}
-	keys := "{save} save · {back} back · {command} cmds · {help} help"
-	switch {
-	case w.saving:
-		keys = "{forcequit} quit · {command} cmds · {help} help"
-	case w.saved != "" && m.testing:
-		keys = "{back} cancel test · {command} cmds · {help} help"
-	case w.saved != "":
-		keys = "{test} test connection · {back} connections list · {command} cmds · {help} help"
-	}
 	var tail strings.Builder
 	if w.saved != "" {
 		tail.WriteString(m.testLine())
 	}
-	tail.WriteString(m.keyHint(keys))
+	tail.WriteString(m.keyHint(m.summaryKeys()))
 	// The guide is an extra: it stands only where the screen has rows to spare, so it never raises the size
 	// the summary needs.
 	if doc := m.docText(w.provider); doc != "" &&

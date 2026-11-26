@@ -466,21 +466,32 @@ func (m *Model) hint(text string) string { return "\n" + m.wrapped(styles.hint, 
 // the frame (see footerLine) and returns nothing for the workspace; only while a modal dialog is drawn does
 // it return the line itself (see dialogKeyHint).
 func (m *Model) keyHint(text string) string {
-	if strings.Contains(text, "{command} cmds") && !strings.Contains(text, "{info}") && m.infoWorks() {
-		text = strings.Replace(text, "{command} cmds", "{info} info · {command} cmds", 1)
-	}
+	text = m.withInfoKey(text)
 	if m.footerLog == nil {
 		// A screen's keys stand in the footer of the frame, not in the workspace. A dialog under a backdrop
 		// leaves the footer as it was.
 		if !m.backdrop {
-			if m.copyKeyShown() {
-				text = withCopyKey(text)
-			}
-			m.screenKeys = text
+			m.screenKeys = m.withCopyKeyShown(text)
 		}
 		return ""
 	}
 	return m.dialogKeyHint(text)
+}
+
+// withCopyKeyShown adds the copy group to a key line of the footer where the screen has something to copy.
+func (m *Model) withCopyKeyShown(text string) string {
+	if m.copyKeyShown() {
+		return withCopyKey(text)
+	}
+	return text
+}
+
+// withInfoKey names the info key in front of the command key where the screen has an explanation to show.
+func (m *Model) withInfoKey(text string) string {
+	if strings.Contains(text, "{command} cmds") && !strings.Contains(text, "{info}") && m.infoWorks() {
+		return strings.Replace(text, "{command} cmds", "{info} info · {command} cmds", 1)
+	}
+	return text
 }
 
 // dialogKeyHint is the key line of a modal dialog: groups never split across a wrap, only between groups,
