@@ -305,7 +305,7 @@ func (m *Model) templateView() string {
 		})
 		b.WriteString(text + "\n")
 	}
-	b.WriteString(m.boxBottom() + m.keyHint("{up}/{down} move · {enter} choose · {back} cancel · {command} cmds · {help} help") + m.notes())
+	b.WriteString(m.boxBottom() + m.keyHint(keysTemplateKind) + m.notes())
 	return b.String()
 }
 
@@ -333,11 +333,19 @@ func (m *Model) templateFrame() (string, string) {
 	if shown == 0 {
 		head.WriteString(m.boxText(styles.hint, tr(tTemplateNoEntryMatchesEscGoes, l.query())))
 	}
+	return head.String(), m.boxBottom() + m.keyHint(m.templateKeys()) + m.notes()
+}
+
+// templateKeys is the key text of the template screen: the picker of entries, or the choice of how to start.
+func (m *Model) templateKeys() string {
+	if m.template == nil || !m.template.picking {
+		return keysTemplateKind
+	}
 	keys := "type to search · {up}/{down} move · {enter} choose · {back} back"
-	if l.query() == "" {
+	if m.templateList.query() == "" {
 		keys += " · {command} cmds · {help} help"
 	}
-	return head.String(), m.boxBottom() + m.keyHint(keys) + m.notes()
+	return keys
 }
 
 // templateRow is one entry of the picker: its name, and what follows the name dimmed.

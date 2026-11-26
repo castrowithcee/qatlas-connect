@@ -425,10 +425,10 @@ func (m *Model) tokenDetailView() string {
 	title := m.wrapped(styles.title, heading) + "\n\n"
 	entry, ok, unavailable := m.tokenByName(name)
 	if unavailable != "" {
-		return title + m.wrapped(styles.fail, tr(tNoteError, unavailable)) + m.keyHint("{back} back · {command} cmds · {help} help")
+		return title + m.wrapped(styles.fail, tr(tNoteError, unavailable)) + m.keyHint(keysBackOnly)
 	}
 	if !ok {
-		return title + m.wrapped(styles.hint, tr(tTokenGone)) + m.keyHint("{back} back · {command} cmds · {help} help")
+		return title + m.wrapped(styles.hint, tr(tTokenGone)) + m.keyHint(keysBackOnly)
 	}
 	inner, _ := m.detailInner()
 	expired := entry.token.Expired(time.Now())
@@ -482,7 +482,7 @@ func (m *Model) tokenDetailView() string {
 	}
 	facts = append(facts, fact("created", entry.token.Created.Local().Format("2006-01-02 15:04"), lipgloss.NewStyle()))
 	lines := factLinesIn(facts, inner, column, func(s string) string { return s })
-	return m.frameDetail(heading, state, lines) + "\n" + m.keyHint("{reveal} reveal/hide · {delete} revoke · {back} back · {command} cmds · {help} help")
+	return m.frameDetail(heading, state, lines) + "\n" + m.keyHint(keysTokenDetail)
 }
 
 // tokenRevokeView draws the question asked before a token is revoked.

@@ -198,7 +198,7 @@ func (m *Model) helpFrame() (string, string, int) {
 	base := m.helpTitle() + strip + "\n\n"
 	note := render(styles.hint, m.helpInner(), tr(tMacFnNote)) + "\n\n"
 	lines := len(m.helpLines())
-	keys := "{left}/{right} topic · {up}/{down} scroll · {pageup}/{pagedown} page · {back}/{help} close"
+	keys := keysHelp
 	// layout lays the topic text out under head and reports how many lines of it fit; a topic longer than
 	// that gains the position line, which itself takes one of those lines.
 	layout := func(head string) (string, string, int) {

@@ -617,7 +617,7 @@ func (m *Model) exportSelectFrame() (string, string) {
 		head += p.text(styles.hint, tr(tExportAllTicked))
 	}
 	head += p.blank()
-	return head, p.closing() + m.keyHint("{up}/{down} move · {space} tick · {save} or {enter} next · {back} cancel · {command} cmds · {help} help") + m.notes()
+	return head, p.closing() + m.keyHint(keysExportSelect) + m.notes()
 }
 
 // exportTyping reports whether the export reads text now.
@@ -693,21 +693,42 @@ func (m *Model) exportView() string {
 			note = p.hint(reason)
 		}
 		b.WriteString(p.blank() + note + p.bottom())
-		return b.String() + m.keyHint("{up}/{down} move · {save} or {enter} choose · {back} back · {command} cmds · {help} help") + m.notes()
+		return b.String() + m.keyHint(keysExportMode) + m.notes()
 	case exportPlainConfirm:
 		p := m.dialogPanelOf()
 		return p.top(tr(tExportPlainTitle), "") + p.blank() +
 			p.text(styles.warning, warnMark+" "+tr(tExportPlainWarn)) + p.bottom() +
-			m.keyHint("{yes} write unencrypted · {no}/{back} back, nothing written · {command} cmds · {help} help") + m.notes()
+			m.keyHint(keysExportPlain) + m.notes()
 	}
-	title, question, keys := tr(tExportPreviewTitle), tr(tTransferPreviewQuestion), "{save} write · {back} back · {up}/{down} scroll · {command} cmds · {help} help"
+	title, question := tr(tExportPreviewTitle), tr(tTransferPreviewQuestion)
 	if e.step == exportResult {
-		title, question, keys = tr(tExportWrittenTitle), "", "{enter} or {back} done · {up}/{down} scroll · {command} cmds · {help} help"
+		title, question = tr(tExportWrittenTitle), ""
 	}
-	if e.writing {
-		keys = tr(tWorkWritingWait)
+	return m.linesView(title, question, m.exportKeys(), e.lines, &e.view, e.step == exportResult)
+}
+
+// exportKeys is the key text of the step the export is at.
+func (m *Model) exportKeys() string {
+	e := m.export
+	if e == nil {
+		return ""
 	}
-	return m.linesView(title, question, keys, e.lines, &e.view, e.step == exportResult)
+	if d, ok := m.exportPrompt(); ok {
+		return d.keys
+	}
+	switch {
+	case e.step == exportSelect:
+		return keysExportSelect
+	case e.step == exportMode:
+		return keysExportMode
+	case e.step == exportPlainConfirm:
+		return keysExportPlain
+	case e.writing:
+		return tr(tWorkWritingWait)
+	case e.step == exportResult:
+		return keysTransferDone
+	}
+	return keysTransferPreview
 }
 
 // exportPrompt is the one-line dialog the export is at, if it is at one.

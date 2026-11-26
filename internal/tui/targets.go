@@ -372,6 +372,30 @@ func (m *Model) targetsView() string {
 	return b.String()
 }
 
+// targetKeys is the key text of the target list screen: the list, the target or label being typed, or the
+// remove question.
+func (m *Model) targetKeys() string {
+	save := "{save} save"
+	if m.wizard != nil {
+		// The guided setup saves only from its summary.
+		save = "{save} next step"
+	}
+	switch {
+	case m.labelEdit, m.targetEdit >= 0:
+		return "{enter} take · " + save + " · {back} cancel entry"
+	case m.targetRemove:
+		return "{yes} remove · {no}/{back} keep · {command} cmds · {help} help"
+	}
+	rename, exclude := "{rename} rename · ", ""
+	if m.wizard != nil {
+		rename = ""
+	}
+	if m.targetMetadata().Excludes() {
+		exclude = "{space} switch · "
+	}
+	return "{new} new · {enter}/{edit} edit · " + rename + exclude + "{delete} remove · {up}/{down} move · " + save + " · {back} close · {command} cmds · {help} help"
+}
+
 // targetFrame is everything of the target list screen except the targets: above them what one target is
 // and what the provider allows of the list, below them the target being typed or the remove question, the
 // keys and the notes.
@@ -392,25 +416,11 @@ func (m *Model) targetFrame() (string, string) {
 	}
 
 	var foot strings.Builder
-	save := "{save} save"
-	if m.wizard != nil {
-		// The guided setup saves only from its summary.
-		save = "{save} next step"
-	}
-	rename, exclude := "{rename} rename · ", ""
-	if m.wizard != nil {
-		rename = ""
-	}
-	if metadata.Excludes() {
-		exclude = "{space} switch · "
-	}
-	keys := "{new} new · {enter}/{edit} edit · " + rename + exclude + "{delete} remove · {up}/{down} move · " + save + " · {back} close · {command} cmds · {help} help"
 	switch {
 	case m.labelEdit:
 		target, _ := m.targetList.selected()
 		foot.WriteString(p.blank() + p.text(styles.hint, tr(tTargetLabelForLeaveItEmpty, target)))
 		foot.WriteString(p.styled(m.inputLineIn(p.room, tr(tTargetLabel), m.labelInput)))
-		keys = "{enter} take · " + save + " · {back} cancel entry"
 	case m.targetEdit >= 0:
 		label := tr(tTargetNew2)
 		if m.targetEdit < total {
@@ -419,14 +429,12 @@ func (m *Model) targetFrame() (string, string) {
 			label = tr(tTargetNewExclusion)
 		}
 		foot.WriteString(p.blank() + p.styled(m.inputLineIn(p.room, label, m.targetInput)))
-		keys = "{enter} take · " + save + " · {back} cancel entry"
 	case m.targetRemove:
 		target, _ := m.targetList.selected()
 		foot.WriteString(p.blank() + p.text(styles.warning, warnMark+" "+tr(tTargetRemoveFromTheList, target)))
-		keys = "{yes} remove · {no}/{back} keep · {command} cmds · {help} help"
 	}
 	foot.WriteString(p.bottom())
-	foot.WriteString(m.keyHint(keys))
+	foot.WriteString(m.keyHint(m.targetKeys()))
 	return head.String(), foot.String() + m.notes()
 }
 

@@ -75,6 +75,23 @@ func init() {
 		textEN[termID(t.ID)] = t.Text
 		textEN[termTitleID(t.ID)] = t.Title
 	}
+	// The label of a key group is the group's text without its keys, for the kit's hints, which name keys and
+	// label apart.
+	for id, group := range textEN {
+		name, ok := strings.CutPrefix(string(id), "footer.")
+		if !ok {
+			continue
+		}
+		for _, catalog := range []map[textID]string{textEN, textDE} {
+			text := catalog[id]
+			if text == "" {
+				text = group
+			}
+			if _, label := hintParts(text); label != "" {
+				catalog[hintLabelID(name)] = label
+			}
+		}
+	}
 }
 
 // uiLang is the language the editor draws in. Like the theme it is process-wide: one editor runs per

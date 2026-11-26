@@ -43,15 +43,33 @@ func (m *Model) vaultHeaderText() string { return strings.Join(m.vaultSegments()
 // admin session too. None for a run with no vault configured at all: showing a warning for something that
 // does not exist yet would be misleading.
 func (m *Model) vaultSegments() []string {
+	var segments []string
+	for _, mark := range m.vaultMarks() {
+		segments = append(segments, statusMark(mark.kind, mark.text))
+	}
+	return segments
+}
+
+// headerMark is a status mark of the header as data: its kind and its words. A mark that tells what is wrong
+// with the vault is urgent: it stands ahead of the keys at the right end of the header, so it stays in a
+// narrow terminal.
+type headerMark struct {
+	kind   statusKind
+	text   string
+	urgent bool
+}
+
+// vaultMarks are the status marks of the header as data; vaultSegments draws them.
+func (m *Model) vaultMarks() []headerMark {
 	vs := m.vaultPlace()
 	switch vs.Kind {
 	case manage.VaultUnreadable:
 		// Neither locked nor unlocked describes a vault whose state cannot even be read; this is closer to
 		// the unencrypted warning than to either of the other two, and keeps the line naming what is wrong
 		// instead of silently showing nothing.
-		return []string{statusMark(statusFail, tr(tVaultError, m.redactor.Apply(vs.Err.Error())))}
+		return []headerMark{{statusFail, tr(tVaultError, m.redactor.Apply(vs.Err.Error())), true}}
 	case manage.VaultUnencrypted:
-		return []string{statusMark(statusWarn, tr(tVaultUnencrypted))}
+		return []headerMark{{statusWarn, tr(tVaultUnencrypted), true}}
 	case manage.VaultProcessOnly, manage.VaultThisWindow:
 		// A vault process elsewhere may hold it open while this window itself has never unlocked it; either
 		// way the admin state belongs here too, since every unlocked, encrypted vault shows one, and
@@ -65,9 +83,9 @@ func (m *Model) vaultSegments() []string {
 		if !vs.EndsAt.IsZero() {
 			unlocked = tr(tVaultUnlockedUntil, unlockDeadlineText(vs.EndsAt, m.timeNow()))
 		}
-		return []string{statusMark(statusOK, unlocked), statusMark(admin, m.adminHeaderText())}
+		return []headerMark{{statusOK, unlocked, false}, {admin, m.adminHeaderText(), false}}
 	case manage.VaultLocked:
-		return []string{statusMark(statusWarn, tr(tVaultLocked))}
+		return []headerMark{{statusWarn, tr(tVaultLocked), true}}
 	}
 	return nil
 }

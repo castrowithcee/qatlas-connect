@@ -404,11 +404,16 @@ func (m *Model) versionFrame() (string, string) {
 	if shown == 0 {
 		head.WriteString(m.boxText(styles.hint, tr(tVersionsNoMatch, l.query())))
 	}
+	return head.String(), m.boxBottom() + m.keyHint(m.versionKeys()) + m.notes()
+}
+
+// versionKeys is the key text of the version list: the global keys give way to the filter while one is set.
+func (m *Model) versionKeys() string {
 	keys := "type to search · {up}/{down} move · {enter} choose · {back} close"
-	if l.query() == "" {
+	if m.versionList.query() == "" {
 		keys += " · {command} cmds · {help} help"
 	}
-	return head.String(), m.boxBottom() + m.keyHint(keys) + m.notes()
+	return keys
 }
 
 // versionRow is one version of the list: its tag, and the words that mark it dimmed.

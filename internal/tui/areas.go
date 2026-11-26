@@ -40,9 +40,10 @@ func AreaNames() []string {
 }
 
 // title is the name of the area as drawn.
-func (a area) title() string {
-	return tr([...]textID{tAreaOverview, tAreaLibrary, tAreaConnections, tAreaActivity, tAreaAccess, tAreaSettings}[a])
-}
+func (a area) title() string { return tr(areaTitles[a]) }
+
+// areaTitles are the catalog texts of the area names, in the order of the areas.
+var areaTitles = [areaCount]textID{tAreaOverview, tAreaLibrary, tAreaConnections, tAreaActivity, tAreaAccess, tAreaSettings}
 
 // areaByName finds the area whose English name is name, ignoring case.
 func areaByName(name string) (area, bool) {
