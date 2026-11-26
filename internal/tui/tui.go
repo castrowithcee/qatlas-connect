@@ -2099,12 +2099,16 @@ func (m *Model) openPicker() {
 		m.pickerMarks = m.blockedTicks(f.choices)
 	}
 	toolPicker := f.kind == fieldToolList && (f.label == toolListLabel || blocking)
+	var metadata config.ProviderMetadata
 	if toolPicker {
-		m.picker.text = m.toolText
+		// The index lives in this closure, so the next picker always starts from fresh metadata. The form
+		// cannot change the provider or the configuration while the picker is open.
+		index := m.newToolIndex()
+		metadata = index.metadata
+		m.picker.text = func(id string) string { return m.toolTextIn(index, id) }
 	}
 	entries := f.choices
 	if toolPicker {
-		metadata, _ := m.cfg.ProviderMetadata(m.formProvider())
 		if g := newToolGroups(metadata, f.choices); g != nil {
 			m.pickerGroups, entries = g, g.entries()
 			m.picker.match = g.matches(m.picker.text)
@@ -2431,14 +2435,32 @@ func (m *Model) toolChoices(provider string, current []string) []string {
 // what the filter searches. A tool outside the targets stays tickable: the selection is kept and the tool is
 // offered once the targets reach it.
 func (m *Model) toolText(id string) string {
+	return m.toolTextIn(m.newToolIndex(), id)
+}
+
+// toolIndex is the metadata of the form's provider with its tools by ID. ProviderMetadata clones the whole
+// provider, so the picker takes it once instead of once per tool and key press.
+type toolIndex struct {
+	metadata config.ProviderMetadata
+	byID     map[string]int
+}
+
+func (m *Model) newToolIndex() *toolIndex {
 	metadata, _ := m.cfg.ProviderMetadata(m.formProvider())
+	byID := make(map[string]int, len(metadata.Tools))
+	for i := len(metadata.Tools) - 1; i >= 0; i-- {
+		byID[metadata.Tools[i].ID] = i // the first of equal IDs wins
+	}
+	return &toolIndex{metadata, byID}
+}
+
+func (m *Model) toolTextIn(index *toolIndex, id string) string {
+	metadata := index.metadata
 	if config.IsToolPrefix(id) {
 		return m.toolEntryLabel(m.formProvider(), id)
 	}
-	for _, tool := range metadata.Tools {
-		if tool.ID != id {
-			continue
-		}
+	if i, ok := index.byID[id]; ok {
+		tool := metadata.Tools[i]
 		lead := ""
 		if tool.Title != "" {
 			lead = tool.Title + "  "
@@ -2456,7 +2478,7 @@ func (m *Model) toolText(id string) string {
 				text += ")"
 			}
 		}
-		return text + m.blockNote(id)
+		return text + m.blockNote(index, id)
 	}
 	return id + "  " + tr(tFormNotRegistered)
 }
