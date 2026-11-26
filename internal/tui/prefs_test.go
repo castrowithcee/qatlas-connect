@@ -3,6 +3,7 @@ package tui
 import (
 	"io"
 	"os"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -10,7 +11,9 @@ import (
 	"github.com/charmbracelet/colorprofile"
 
 	"github.com/castrowithcee/qatlas-connect/internal/uiprefs"
+	"github.com/castrowithcee/qatlas-kit/i18n"
 	kittui "github.com/castrowithcee/qatlas-kit/tui"
+	kitprefs "github.com/castrowithcee/qatlas-kit/uiprefs"
 )
 
 // restoreRenderer puts the process-wide colour state back after a test that changes it.
@@ -127,5 +130,61 @@ func TestStartAreaSurvivesReordering(t *testing.T) {
 		if area(a).key() != k {
 			t.Errorf("area %d = %s, want %s", a+1, area(a).key(), k)
 		}
+	}
+}
+
+// writePrefs writes data as tui.yaml in a new directory and returns its path.
+func writePrefs(t *testing.T, data string) string {
+	t.Helper()
+	path := kitprefs.Path(t.TempDir())
+	if err := os.WriteFile(path, []byte(data), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	return path
+}
+
+// The files of earlier versions load under the schema of the editor without a warning.
+func TestPrefsOfEarlierVersionsLoadWithoutWarning(t *testing.T) {
+	for _, tc := range []struct {
+		name, file string
+		want       kitprefs.Prefs
+	}{
+		{"v2.0.0", "theme: dark\nstart: library\nicons: none\nlanguage: english\nmouse: true\n",
+			kitprefs.Prefs{Theme: uiprefs.ThemeQatlasDark, Start: "library", Icons: kitprefs.IconsUnicode,
+				Language: kitprefs.LanguageEnglish, MouseEnabled: true}},
+		{"v2.2.0 default", "theme: terminal\nstart: overview\nicons: unicode\nlanguage: english\nmouse: true\nformat: 2\n",
+			defaultPrefs()},
+		{"v2.2.0 changed", "theme: qatlas dark\nstart: overview\nicons: nerdfont\nlanguage: deutsch\nmouse: false\nformat: 2\n" +
+			"keys:\n  info: f3\n  save: f4\n",
+			kitprefs.Prefs{Theme: uiprefs.ThemeQatlasDark, Start: uiprefs.DefaultStart, Icons: kitprefs.IconsNerdFont,
+				Language: kitprefs.LanguageGerman, Keys: map[action]string{actInfo: "f3", actSave: "f4"}}},
+	} {
+		got, warnings := kitprefs.LoadWarnings(writePrefs(t, tc.file), PrefsSchema())
+		if !reflect.DeepEqual(got, tc.want) || len(warnings) != 0 {
+			t.Errorf("%s: %+v %v, want %+v and no warning", tc.name, got, warnings, tc.want)
+		}
+	}
+}
+
+// A warning of loading the preferences is shown in the language of the editor. A start view in another
+// spelling than the one the editor writes is a warning too.
+func TestPrefsWarningsAreInTheLanguageOfTheEditor(t *testing.T) {
+	for _, tc := range []struct{ file, english, german string }{
+		{"theme: purple\n", `theme "purple" is not one of`, `theme "purple" ist keiner von`},
+		{"start: nowhere\n", `start "nowhere" is not one of`, `start "nowhere" ist keiner von`},
+		{"start: Library\n", `start "Library" is not one of`, `start "Library" ist keiner von`},
+		{"keys:\n  save: x\n", "keys.save x: already the key of decline, using F2", "keys.save x: already the key of decline, verwendet wird F2"},
+	} {
+		path := writePrefs(t, tc.file)
+		_, warnings := kitprefs.LoadWarnings(path, PrefsSchema())
+		for lang, want := range map[i18n.Lang]string{i18n.English: "warning: " + path + ": " + tc.english, i18n.German: "Warnung: " + path + ": " + tc.german} {
+			useLanguage(t, lang)
+			if got := prefsWarningLine(warnings); !strings.HasPrefix(got, want) {
+				t.Errorf("%q in %s: %q, want it to start with %q", tc.file, lang, got, want)
+			}
+		}
+	}
+	if got := prefsWarningLine(nil); got != "" {
+		t.Errorf("without a warning: %q", got)
 	}
 }

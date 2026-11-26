@@ -3,6 +3,7 @@ package tui
 import (
 	"errors"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -12,6 +13,7 @@ import (
 
 	"github.com/castrowithcee/qatlas-connect/internal/uiprefs"
 	kittui "github.com/castrowithcee/qatlas-kit/tui"
+	kitprefs "github.com/castrowithcee/qatlas-kit/uiprefs"
 )
 
 // lockedVaultModel is an editor over an encrypted vault that is locked, with preferences stored at the
@@ -23,9 +25,9 @@ func lockedVaultModel(t *testing.T) (*Model, string) {
 	dir := filepath.Join(t.TempDir(), "qconnect")
 	mustNoError(t, newTestStore(t, filepath.Join(dir, "config.yaml")).Save(newTestConfig(t)))
 	m, _ := newEncryptedVaultModel(t, dir, "hunter2", false)
-	path := uiprefs.Path(dir)
-	m.prefs = uiprefs.Default()
-	m.savePrefs = func(p uiprefs.Prefs) error { return uiprefs.Save(path, p) }
+	path := kitprefs.Path(dir)
+	m.prefs = defaultPrefs()
+	m.savePrefs = func(p kitprefs.Prefs) error { return kitprefs.Save(path, p, PrefsSchema()) }
 	return m, path
 }
 
@@ -52,13 +54,13 @@ func TestGeneralSavesWithoutAdminSession(t *testing.T) {
 	if m.fail != "" || !strings.HasPrefix(m.status, "Saved") {
 		t.Fatalf("status %q fail %q, want it saved", m.status, m.fail)
 	}
-	got, warnings := uiprefs.Load(path)
-	want := uiprefs.Prefs{Theme: uiprefs.ThemeQatlasLight, Start: "library", Icons: uiprefs.IconsNerdFont,
-		Language: uiprefs.LanguageEnglish, Keys: uiprefs.DefaultKeys()}
-	if got != want || len(warnings) != 0 {
+	got, warnings := kitprefs.Load(path, PrefsSchema())
+	want := kitprefs.Prefs{Theme: uiprefs.ThemeQatlasLight, Start: "library", Icons: kitprefs.IconsNerdFont,
+		Language: kitprefs.LanguageEnglish, MouseEnabled: true}
+	if !reflect.DeepEqual(got, want) || len(warnings) != 0 {
 		t.Fatalf("stored = %+v %v, want %+v", got, warnings, want)
 	}
-	if m.prefs != want {
+	if !reflect.DeepEqual(m.prefs, want) {
 		t.Errorf("model prefs = %+v, want %+v", m.prefs, want)
 	}
 	if styles.Palette() != paletteOfTheme(uiprefs.ThemeQatlasLight, currentProfile(), nil) || !styles.filled {
@@ -81,7 +83,7 @@ func TestGeneralOffersTheThemes(t *testing.T) {
 	theme := m.fields[0]
 	if theme.label != themeLabel || strings.Join(theme.choices, ",") != strings.Join(themeSet.Names(), ",") ||
 		strings.Join(theme.choices[:3], ",") != "terminal,qatlas dark,qatlas light" ||
-		theme.choices[theme.index] != uiprefs.ThemeTerminal {
+		theme.choices[theme.index] != kittui.ThemeTerminal {
 		t.Errorf("theme row = %q %v at %d, want the registry on terminal, led by qatlas dark and qatlas light",
 			theme.label, theme.choices, theme.index)
 	}
@@ -97,7 +99,7 @@ func TestSavingTheTerminalThemeAsksForTheColours(t *testing.T) {
 	openSectionByName(t, m, sectionGeneral)
 	press(t, m, "left") // theme: terminal
 	cmd := m.saveGeneral(false)
-	if m.prefs.Theme != uiprefs.ThemeTerminal || cmd == nil {
+	if m.prefs.Theme != kittui.ThemeTerminal || cmd == nil {
 		t.Fatalf("theme %q, command %v; want terminal and the question to the terminal", m.prefs.Theme, cmd)
 	}
 	if _, ok := cmd().(tea.BatchMsg); !ok {
@@ -130,14 +132,14 @@ func TestGeneralWithThemeFieldFitsSmallTerminal(t *testing.T) {
 
 func TestGeneralSaveFailureIsReportedNotFatal(t *testing.T) {
 	m, _ := lockedVaultModel(t)
-	m.savePrefs = func(uiprefs.Prefs) error { return errors.New("disk full") }
+	m.savePrefs = func(kitprefs.Prefs) error { return errors.New("disk full") }
 	openSectionByName(t, m, sectionGeneral)
 	press(t, m, "right")
 	pump(t, m, "f2")
 	if !strings.Contains(m.fail, "disk full") || m.screen != screenForm {
 		t.Errorf("fail %q screen %v, want the error shown on the form", m.fail, m.screen)
 	}
-	if m.prefs != uiprefs.Default() {
+	if !reflect.DeepEqual(m.prefs, defaultPrefs()) {
 		t.Errorf("prefs = %+v after a failed save", m.prefs)
 	}
 }
@@ -154,7 +156,7 @@ func TestGeneralLeaveQuestionSavesWithoutAdminSession(t *testing.T) {
 	if m.screen != screenNav || m.screen == screenAdminAuth {
 		t.Fatalf("after saving from the leave question: screen %v, want the tab line", m.screen)
 	}
-	if got, _ := uiprefs.Load(path); got.Theme != uiprefs.ThemeQatlasLight {
+	if got, _ := kitprefs.Load(path, PrefsSchema()); got.Theme != uiprefs.ThemeQatlasLight {
 		t.Errorf("stored theme = %q, want qatlas light", got.Theme)
 	}
 }
@@ -255,14 +257,14 @@ func TestIconsKeepTheNameVisible(t *testing.T) {
 	m, _ := lockedVaultModel(t)
 	for _, width := range []int{40, 60, 100} {
 		m.Update(tea.WindowSizeMsg{Width: width, Height: 28})
-		m.prefs.Icons = uiprefs.IconsNone
+		m.prefs.Icons = kitprefs.IconsNone
 		plain := tabLine(m)
 		for _, id := range areaIcons {
 			if strings.Contains(plain, iconTable[id].unicode) || strings.Contains(plain, iconTable[id].nerd) {
 				t.Errorf("width %d: icons shown although the preference is none", width)
 			}
 		}
-		for _, value := range []string{uiprefs.IconsUnicode, uiprefs.IconsNerdFont} {
+		for _, value := range []string{kitprefs.IconsUnicode, kitprefs.IconsNerdFont} {
 			m.prefs.Icons = value
 			for _, s := range []section{sectionOverview, sectionConnections, sectionSettings()} {
 				m.section = s
@@ -340,10 +342,10 @@ func TestUpdatePageNamesRunningVersion(t *testing.T) {
 func TestIconsExplanationShowsTestCharactersAndFontHint(t *testing.T) {
 	eachLanguage(t, func(t *testing.T) {
 		m, _, _ := newModel(t)
-		f := choiceField(iconsLabel, []string{uiprefs.IconsUnicode, uiprefs.IconsNerdFont, uiprefs.IconsNone}, uiprefs.IconsUnicode)
+		f := choiceField(iconsLabel, []string{kitprefs.IconsUnicode, kitprefs.IconsNerdFont, kitprefs.IconsNone}, kitprefs.IconsUnicode)
 		for name, got := range map[string]string{
 			"detail": f.withDetail(iconsDetail()).detail,
-			"picker": m.pickerChoiceSubject(f, uiprefs.IconsNerdFont).long,
+			"picker": m.pickerChoiceSubject(f, kitprefs.IconsNerdFont).long,
 		} {
 			for _, icon := range nerdAreaGlyphs() {
 				if !strings.Contains(got, icon) {

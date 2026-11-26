@@ -1,11 +1,12 @@
 package tui
 
 import (
+	"os"
 	"strings"
 	"testing"
 
-	"github.com/castrowithcee/qatlas-connect/internal/uiprefs"
 	kittui "github.com/castrowithcee/qatlas-kit/tui"
+	kitprefs "github.com/castrowithcee/qatlas-kit/uiprefs"
 )
 
 // builtinThemeNames are the built-in schemes of the kit, offered after the terminal and the qatlas themes.
@@ -50,9 +51,13 @@ func TestBuiltinThemesYieldToNoColor(t *testing.T) {
 
 func TestUnknownSchemeNameFallsBackToTerminal(t *testing.T) {
 	for _, name := range []string{"dracula", "solarized dark", "Nord"} {
-		got, warning := knownTheme(name)
-		if got != uiprefs.ThemeTerminal || !strings.Contains(warning, name) {
-			t.Errorf("knownTheme(%q) = %q, %q; want terminal and a warning", name, got, warning)
+		path := kitprefs.Path(t.TempDir())
+		if err := os.WriteFile(path, []byte("theme: "+name+"\n"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		got, warnings := kitprefs.Load(path, PrefsSchema())
+		if got.Theme != kittui.ThemeTerminal || len(warnings) != 1 || !strings.Contains(warnings[0], name) {
+			t.Errorf("theme %q = %q, %v; want terminal and a warning", name, got.Theme, warnings)
 		}
 	}
 }
@@ -81,7 +86,7 @@ func TestBuiltinThemesSurviveSaveAndReload(t *testing.T) {
 			if m.fail != "" || !strings.HasPrefix(m.status, "Saved") {
 				t.Fatalf("status %q fail %q, want it saved", m.status, m.fail)
 			}
-			got, warnings := uiprefs.Load(path)
+			got, warnings := kitprefs.Load(path, PrefsSchema())
 			if got.Theme != name || len(warnings) != 0 {
 				t.Fatalf("stored theme = %q %v", got.Theme, warnings)
 			}

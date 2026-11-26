@@ -1,8 +1,8 @@
 package tui
 
 import (
-	"github.com/castrowithcee/qatlas-connect/internal/uiprefs"
 	kittui "github.com/castrowithcee/qatlas-kit/tui"
+	kitprefs "github.com/castrowithcee/qatlas-kit/uiprefs"
 )
 
 // iconID names the meaning of an icon. Every meaning has an entry of its own in iconTable, so no two things
@@ -71,11 +71,11 @@ func (m *Model) icon(id iconID) string {
 		return ""
 	}
 	switch m.prefs.Icons {
-	case uiprefs.IconsUnicode:
+	case kitprefs.IconsUnicode:
 		if utf8Terminal() {
 			return iconTable[id].unicode
 		}
-	case uiprefs.IconsNerdFont:
+	case kitprefs.IconsNerdFont:
 		if utf8Terminal() {
 			return iconTable[id].nerd
 		}
