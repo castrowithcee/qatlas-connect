@@ -76,4 +76,26 @@ jobs:
       - name: Vet
         run: go vet ./...
       - name: Test
+        if: runner.os != 'macOS'
         run: go test -count=1 -timeout 25m ./...
+      # Temporary timing output for macOS; removed before merge.
+      - name: Test with timings
+        if: runner.os == 'macOS'
+        run: |
+          sysctl -n hw.ncpu hw.memsize
+          out="$RUNNER_TEMP/test.json"
+          status=0
+          go test -count=1 -timeout 25m -json ./... > "$out" || status=$?
+          echo "--- package timeline (start end elapsed package)"
+          jq -rs 'map(select(.Package)) | group_by(.Package) | map({p: (.[0].Package | sub(".*/qatlas-connect"; ".")), s: (map(.Time) | min), e: (map(.Time) | max), el: (map(select(.Test == null and .Elapsed != null) | .Elapsed) | max)}) | sort_by(.e) | .[] | "\(.s[11:19]) \(.e[11:19]) \(.el) \(.p)"' "$out"
+          echo "--- slowest top-level tests"
+          jq -r 'select((.Action == "pass" or .Action == "fail") and .Test != null and (.Test | contains("/") | not)) | "\(.Elapsed)\t\(.Package | sub(".*/qatlas-connect"; "."))\t\(.Test)"' "$out" | sort -rn | head -60
+          echo "--- slowest internal/tui tests"
+          jq -r 'select((.Action == "pass" or .Action == "fail") and .Test != null and (.Package | endswith("/internal/tui"))) | "\(.Elapsed)\t\(.Test)"' "$out" | sort -rn | head -80
+          echo "--- internal/tui top-level test count and elapsed sum"
+          jq -rs 'map(select((.Action == "pass" or .Action == "fail") and .Test != null and (.Test | contains("/") | not) and (.Package | endswith("/internal/tui")))) | "\(length) \(map(.Elapsed) | add)"' "$out"
+          ps -Ao pid,lstart,etime,pcpu,comm | grep -i -E 'safari|qconnect' || true
+          if [ "$status" -ne 0 ]; then
+            jq -r 'select(.Action == "output") | .Output' "$out" | grep -E -- '--- FAIL|^FAIL|panic:' | head -80
+          fi
+          exit "$status"
