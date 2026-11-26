@@ -308,7 +308,8 @@ func TestFrameReadsWithoutColour(t *testing.T) {
 	if !strings.Contains(ansi.Strip(tabs), "[2 Library]") {
 		t.Errorf("tab line %q does not mark the active tab", tabs)
 	}
-	if plain := ansi.Strip(footer); !strings.Contains(plain, "? help") || !strings.Contains(plain, "/ search") {
+	// The list of services is empty, so its search key, which stands in the filter bar of the list, is left out.
+	if plain := ansi.Strip(footer); !strings.Contains(plain, "? help") || !strings.Contains(plain, "n new") || strings.Contains(plain, "/ search") {
 		t.Errorf("footer %q lacks its keys", footer)
 	}
 	if !strings.Contains(ansi.Strip(header), "●") {

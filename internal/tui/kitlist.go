@@ -94,13 +94,14 @@ func listSpec(s section) kit.ListSpec {
 		c.Title = catalogID(columnID(string(c.Title)), string(c.Title))
 	}
 	return kit.ListSpec{Columns: cols, Keys: mainListKeys, Search: kit.SearchByKey, Empty: tFormNothingConfiguredYet,
-		NoGroup: catalogID(wordID(noProviderGroup), noProviderGroup)}
+		NoGroup: catalogID(wordID(noProviderGroup), noProviderGroup), SearchInBar: groupedSection(s)}
 }
 
-// listFor is the list of section s, made on first use and anew in another language, whose texts it holds.
+// listFor is the list of section s, made on first use and anew in another language, whose texts it holds, as
+// its filter bar does.
 func (m *Model) listFor(s section) *kit.List {
 	if m.listLang != uiLang {
-		m.lists, m.listLang = nil, uiLang
+		m.lists, m.bars, m.listLang = nil, nil, uiLang
 	}
 	if l := m.lists[s]; l != nil {
 		return l
@@ -170,7 +171,7 @@ func (m *Model) syncList() {
 // resetList fills the list with the entries of the active section s and marks its first entry, below its
 // group row, without a filter.
 func (m *Model) resetList(s section) {
-	m.barFocus = 0
+	m.blurBar()
 	m.leaveDetail()
 	if s == sectionApprovals || s == sectionOverview {
 		// Agents add requests at any time, so a section that shows them reads the queue as it opens.
@@ -184,7 +185,7 @@ func (m *Model) resetList(s section) {
 // field of the filter bar, the notice below the rows nor the detail pane has it. Only then does a click on
 // the marked row open it.
 func (m *Model) rowsFocused() bool {
-	return m.screen == screenList && m.barFocus == 0 && !m.noticeFocused() && !m.detailFocused()
+	return m.screen == screenList && !m.barFocused() && !m.noticeFocused() && !m.detailFocused()
 }
 
 // marked is the marked row of the list: the name of an entry, or groupRow of the key of a group row.

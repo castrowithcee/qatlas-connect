@@ -100,10 +100,9 @@ func TestNoColorWithAnyValueDrawsWithoutColour(t *testing.T) {
 		m := sizedModel(groupModel(t), 100, 30)
 		openSectionByName(t, m, sectionConnections)
 		view := m.render()
-		for _, seq := range []string{"\x1b[3", "\x1b[4", "38;", "48;"} {
-			if strings.Contains(view, seq) {
-				t.Errorf("NO_COLOR=%s: the screen carries the colour sequence %q:\n%q", value, seq, view)
-			}
+		// Underline (4 alone) is an attribute: the search field of the filter bar is drawn underlined.
+		if hasColour(view) {
+			t.Errorf("NO_COLOR=%s: the screen carries a colour sequence:\n%q", value, view)
 		}
 		if !strings.Contains(view, "\x1b[1m") {
 			t.Errorf("NO_COLOR=%s: the screen lost its attributes:\n%q", value, view)
