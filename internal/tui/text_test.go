@@ -3,7 +3,6 @@ package tui
 import (
 	"fmt"
 	"regexp"
-	"runtime"
 	"sort"
 	"strings"
 	"testing"
@@ -11,9 +10,9 @@ import (
 	"charm.land/lipgloss/v2"
 
 	"github.com/castrowithcee/qatlas-connect/internal/helptopics"
-	"github.com/castrowithcee/qatlas-connect/internal/uiprefs"
 	"github.com/castrowithcee/qatlas-kit/i18n"
 	kit "github.com/castrowithcee/qatlas-kit/tui"
+	kitprefs "github.com/castrowithcee/qatlas-kit/uiprefs"
 )
 
 // useLanguage draws the editor in the given language until the test ends.
@@ -135,7 +134,7 @@ func TestCatalogsAreCompleteAndStandardHelpIsGerman(t *testing.T) {
 // sign in a key label stays a percent sign.
 func TestFooterInfoFollowsTheFocus(t *testing.T) {
 	keepKeys(t)
-	applyKeys(uiprefs.Keys{Info: "f3"})
+	applyKeys(map[action]string{actInfo: "f3"})
 	if got, want := footerResolve(translator(false), "{info} explain"), "i/F3 explain"; got != want {
 		t.Errorf("first key: %q, want %q", got, want)
 	}
@@ -145,23 +144,6 @@ func TestFooterInfoFollowsTheFocus(t *testing.T) {
 	rebind(t, actBack, "%")
 	if got := tr(tCmdCannot, "quit"); !strings.Contains(got, "%") || strings.Contains(got, "%!") {
 		t.Errorf("a percent sign in a key label broke the format: %q", got)
-	}
-}
-
-func TestLanguageOfPreference(t *testing.T) {
-	cases := map[string]i18n.Lang{
-		uiprefs.LanguageEnglish: i18n.English, uiprefs.LanguageGerman: i18n.German, "": i18n.English, "x": i18n.English,
-	}
-	for pref, want := range cases {
-		if got := languageOf(pref); got != want {
-			t.Errorf("languageOf(%q) = %q, want %q", pref, got, want)
-		}
-	}
-	t.Setenv("LC_ALL", "de_DE.UTF-8")
-	if runtime.GOOS != "windows" {
-		if got := languageOf(uiprefs.LanguageSystem); got != i18n.German {
-			t.Errorf("system with LC_ALL=de_DE.UTF-8 = %q, want German", got)
-		}
 	}
 }
 
@@ -189,7 +171,7 @@ func TestChoosingTheLanguageRebuildsTheScreen(t *testing.T) {
 	if strings.Contains(view, "General settings") {
 		t.Errorf("the screen still has English words:\n%s", view)
 	}
-	if m.prefs.Language != uiprefs.LanguageGerman {
+	if m.prefs.Language != kitprefs.LanguageGerman {
 		t.Errorf("prefs language = %q", m.prefs.Language)
 	}
 	// Back to English.

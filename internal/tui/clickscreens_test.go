@@ -8,7 +8,7 @@ import (
 	"testing"
 
 	"github.com/castrowithcee/qatlas-connect/internal/helptopics"
-	"github.com/castrowithcee/qatlas-connect/internal/uiprefs"
+	kitprefs "github.com/castrowithcee/qatlas-kit/uiprefs"
 )
 
 // helpTabClick clicks the tab of the help topic at index i and checks that the topic switched.
@@ -34,7 +34,7 @@ func TestClickOnAHelpTopicTabSwitchesTheTopicInTheOverlayAndTheWorkspace(t *test
 	}{{"overlay", 120, 40}, {"workspace", 50, 16}} {
 		t.Run(size.name, func(t *testing.T) {
 			m := sizedModel(groupModel(t), size.w, size.h)
-			m.prefs.Icons = uiprefs.IconsNone
+			m.prefs.Icons = kitprefs.IconsNone
 			m.openHelp()
 			if m.helpOverlay() != (size.name == "overlay") {
 				t.Fatalf("helpOverlay = %v at %dx%d", m.helpOverlay(), size.w, size.h)
@@ -49,7 +49,7 @@ func TestClickOnAHelpTopicTabSwitchesTheTopicInTheOverlayAndTheWorkspace(t *test
 func TestClickOnADateFieldFocusesItAndTypesNothing(t *testing.T) {
 	f := activityLog(t)
 	m := sizedModel(f.model(true, f.localToday()), 120, 40)
-	m.prefs.Icons = uiprefs.IconsNone
+	m.prefs.Icons = kitprefs.IconsNone
 	m.logs.mode = logModeRange
 	m.logs.focus = logFocusDate
 	m.openLogDateDialog()
@@ -75,7 +75,7 @@ func TestClickOnAFilterMarksItAndASecondClickChoosesIt(t *testing.T) {
 	f.append("mcp", "codex", "wiki.pages.get", "wiki", "success")
 	f.append("mcp", "claude-code", "wiki.pages.create", "wiki", "policy-denied")
 	m := sizedModel(f.model(true, f.localToday()), 120, 40)
-	m.prefs.Icons = uiprefs.IconsNone
+	m.prefs.Icons = kitprefs.IconsNone
 	press(t, m, "f")
 	m.render()
 	clickOn(t, m, "client")
@@ -102,7 +102,7 @@ func TestClickOnAFilterMarksItAndASecondClickChoosesIt(t *testing.T) {
 func TestClickOnATargetOfThePickerMarksItAndASecondClickTakesIt(t *testing.T) {
 	src := &listSource{list: pickPage(group("a"), group("b"), group("c"))}
 	m := pickerModel(t, src)
-	m.prefs.Icons = uiprefs.IconsNone
+	m.prefs.Icons = kitprefs.IconsNone
 	openPicker(t, m)
 	m.render()
 	clickOn(t, m, "Group b")
@@ -118,7 +118,7 @@ func TestClickOnATargetOfThePickerMarksItAndASecondClickTakesIt(t *testing.T) {
 func TestClickOnARowOfTheTargetBuilderMarksItAndASecondClickChoosesIt(t *testing.T) {
 	src := &listSource{list: pickPage(group("a"))}
 	m := pickerModel(t, src)
-	m.prefs.Icons = uiprefs.IconsNone
+	m.prefs.Icons = kitprefs.IconsNone
 	m.render()
 	if m.targetAdd == nil || m.targetAdd.kind >= 0 {
 		t.Fatalf("add menu = %+v", m.targetAdd)
@@ -136,7 +136,7 @@ func TestClickOnARowOfTheTargetBuilderMarksItAndASecondClickChoosesIt(t *testing
 func TestClickOnAnExportRowTicksOnlyOnTheMarkedOne(t *testing.T) {
 	v, _ := plainExportModel(t)
 	m := v.m
-	m.prefs.Icons = uiprefs.IconsNone
+	m.prefs.Icons = kitprefs.IconsNone
 	v.startExport("")
 	m.render()
 	clickOn(t, m, "connection  docs")
@@ -157,7 +157,7 @@ func TestClickOnAnExportRowTicksOnlyOnTheMarkedOne(t *testing.T) {
 func TestClickOnAnExportModeMarksItAndASecondClickChoosesIt(t *testing.T) {
 	v, _ := plainExportModel(t)
 	m := v.m
-	m.prefs.Icons = uiprefs.IconsNone
+	m.prefs.Icons = kitprefs.IconsNone
 	v.startExport("")
 	v.pump(" ", "enter")
 	if m.export.step != exportMode || m.export.secretsReason == "" {
@@ -178,7 +178,7 @@ func TestClickOnAnExportModeMarksItAndASecondClickChoosesIt(t *testing.T) {
 func TestClickOnAnExportModeNeedsTheAdminSessionLikeEnter(t *testing.T) {
 	v, _ := vaultExportModel(t)
 	m := v.m
-	m.prefs.Icons = uiprefs.IconsNone
+	m.prefs.Icons = kitprefs.IconsNone
 	v.startExport(testExportVaultPass)
 	v.pump(" ", "enter")
 	if m.export.step != exportMode || m.export.secretsReason != "" {
@@ -200,7 +200,7 @@ func TestClickOnAnExportModeNeedsTheAdminSessionLikeEnter(t *testing.T) {
 func TestClickOnAnImportModeMarksItAndASecondClickPreviews(t *testing.T) {
 	v := plainImportTarget(t)
 	m := v.m
-	m.prefs.Icons = uiprefs.IconsNone
+	m.prefs.Icons = kitprefs.IconsNone
 	path := importFixture(t, exportWithout)
 	v.startImport("")
 	v.typePath(path)
@@ -224,7 +224,7 @@ func TestClickOnAFindingMarksItAndASecondClickStartsIt(t *testing.T) {
 	s := newFindScene(t)
 	s.renameByHand(t, "credential", "reader", "reader2")
 	m := s.open(t)
-	m.prefs.Icons = uiprefs.IconsNone
+	m.prefs.Icons = kitprefs.IconsNone
 	openSectionByName(t, m, sectionCredentials)
 	m.openFindings()
 	if m.screen != screenFindings || len(m.findings.items) != 1 {
@@ -247,7 +247,7 @@ func TestClickOnAFindingMarksItAndASecondClickStartsIt(t *testing.T) {
 func TestClickOnAPathSuggestionMarksItAndASecondClickTakesIt(t *testing.T) {
 	v, _ := plainExportModel(t)
 	m := v.m
-	m.prefs.Icons = uiprefs.IconsNone
+	m.prefs.Icons = kitprefs.IconsNone
 	// Relative names keep the rows short: a suggestion that wraps over several lines is no click target.
 	dir := t.TempDir()
 	for _, name := range []string{"alpha", "abeta", "agamma"} {

@@ -13,7 +13,7 @@ import (
 	"github.com/castrowithcee/qatlas-connect/internal/config"
 	"github.com/castrowithcee/qatlas-connect/internal/provider/github"
 	"github.com/castrowithcee/qatlas-connect/internal/selftest"
-	"github.com/castrowithcee/qatlas-connect/internal/uiprefs"
+	kitprefs "github.com/castrowithcee/qatlas-kit/uiprefs"
 )
 
 // frameLines is the frame the editor draws now, without styling, one string per screen row.
@@ -695,9 +695,9 @@ func TestATooSmallTerminalIgnoresTheMouse(t *testing.T) {
 
 func TestSwitchedOffMouseDoesNothing(t *testing.T) {
 	m := sizedModel(groupModel(t), 120, 40)
-	m.prefs = uiprefs.Default()
-	m.prefs.Icons = uiprefs.IconsNone
-	m.prefs.MouseOff = true
+	m.prefs = defaultPrefs()
+	m.prefs.Icons = kitprefs.IconsNone
+	m.prefs.MouseEnabled = false
 	section := m.section
 	clickOn(t, m, "6 Settings")
 	if m.section != section {
@@ -712,7 +712,7 @@ func TestSwitchedOffMouseDoesNothing(t *testing.T) {
 	if mode := m.View().MouseMode; mode != tea.MouseModeNone {
 		t.Errorf("the view asks for mouse mode %v with the mouse off, want none", mode)
 	}
-	m.prefs.MouseOff = false
+	m.prefs.MouseEnabled = true
 	if mode := m.View().MouseMode; mode != tea.MouseModeCellMotion {
 		t.Errorf("the view asks for mouse mode %v with the mouse on, want cell motion", mode)
 	}
@@ -720,7 +720,7 @@ func TestSwitchedOffMouseDoesNothing(t *testing.T) {
 
 func TestTheMouseSettingAppliesAtOnce(t *testing.T) {
 	m, path := lockedVaultModel(t)
-	m.prefs.Icons = uiprefs.IconsNone
+	m.prefs.Icons = kitprefs.IconsNone
 	sizedModel(m, 100, 40)
 	openSectionByName(t, m, sectionGeneral)
 	focusField(t, m, mouseLabel)
@@ -736,7 +736,7 @@ func TestTheMouseSettingAppliesAtOnce(t *testing.T) {
 	if mode := m.View().MouseMode; mode != tea.MouseModeNone {
 		t.Errorf("after saving the view asks for mouse mode %v, want none", mode)
 	}
-	if got, _ := uiprefs.Load(path); got.MouseEnabled() {
+	if got, _ := kitprefs.Load(path, PrefsSchema()); got.MouseEnabled {
 		t.Error("tui.yaml still has the mouse on")
 	}
 	clickOn(t, m, "6 Settings")
@@ -753,7 +753,7 @@ func TestAFailedRestartKeepsTheMouseModeOfThePreference(t *testing.T) {
 	if mode := m.View().MouseMode; mode != tea.MouseModeCellMotion {
 		t.Errorf("after a failed restart with the mouse on the view asks for mouse mode %v", mode)
 	}
-	m.prefs.MouseOff = true
+	m.prefs.MouseEnabled = false
 	m.Update(restartFailedMsg{})
 	if mode := m.View().MouseMode; mode != tea.MouseModeNone {
 		t.Errorf("after a failed restart with the mouse off the view asks for mouse mode %v", mode)

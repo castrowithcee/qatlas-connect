@@ -4,8 +4,6 @@ import (
 	"testing"
 
 	tea "charm.land/bubbletea/v2"
-
-	"github.com/castrowithcee/qatlas-connect/internal/uiprefs"
 )
 
 // searchScreens opens each screen whose search line is always there, with the query of its line.
@@ -110,7 +108,7 @@ func TestHelpAndCommandStillOpenOnAnEmptySearchLine(t *testing.T) {
 // An own info key still opens the explanation on a search line.
 func TestInfoExtraKeyOpensTheExplanationOnASearchLine(t *testing.T) {
 	keepKeys(t)
-	applyKeys(uiprefs.Keys{Info: "f3"})
+	applyKeys(map[action]string{actInfo: "f3"})
 	m := connectionForm(t, helpPaneMinWidth-1)
 	focusField(t, m, accessLabel)
 	selectChoice(t, m, accessTools)

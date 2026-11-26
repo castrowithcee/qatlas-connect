@@ -10,7 +10,6 @@ import (
 	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
 
-	"github.com/castrowithcee/qatlas-connect/internal/uiprefs"
 	kittui "github.com/castrowithcee/qatlas-kit/tui"
 )
 
@@ -126,7 +125,7 @@ func TestDropdownReadsWithoutColour(t *testing.T) {
 	prior := styles
 	t.Cleanup(func() { setProfile(before); setTheme(prior) })
 	setProfile(kittui.ProfileMono)
-	applyTheme(uiprefs.ThemeTerminal)
+	applyTheme(kittui.ThemeTerminal)
 
 	m := newTableModel(t, 100)
 	openSectionByName(t, m, sectionConnections)
