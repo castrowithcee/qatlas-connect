@@ -268,6 +268,14 @@ func visualShots() []visualShot {
 			pump(t, m, " ", "down", "down", "down", "down", "down", "right", "down", " ", "down", " ")
 		}},
 		{"53-setup-summary", 150, 42, dark, false, visualSetupSummary},
+		{"56-value-picker", 150, 42, dark, false, func(t *testing.T, m *Model) {
+			openEntryForm(t, m, sectionConnections, "wiki-main")
+			focusField(t, m, accessLabel)
+			selectChoice(t, m, accessEffects)
+			focusField(t, m, effectsLabel)
+			pump(t, m, "enter")
+			pump(t, m, "down", "down", " ")
+		}},
 		{"54-template-picker", 150, 42, dark, false, func(t *testing.T, m *Model) {
 			openSectionByName(t, m, sectionConnections)
 			m.askSetupTemplate()

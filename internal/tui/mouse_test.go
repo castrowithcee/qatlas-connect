@@ -359,13 +359,13 @@ func TestClickOnAPickerValueMarksItAndASecondClickChoosesIt(t *testing.T) {
 	m.Update(tea.WindowSizeMsg{Width: 80, Height: 24})
 	openDefaultForm(t, m)
 	press(t, m, "/")
-	if m.screen != screenPicker {
+	if !valuePickerOpen(m) {
 		t.Fatalf("screen %v, want the picker", m.screen)
 	}
 	m.render()
 	clickOn(t, m, "conn-003")
-	if m.screen != screenPicker || m.picker.cursor != 3 {
-		t.Fatalf("first click: screen %v cursor %d, want the picker with row 3 marked", m.screen, m.picker.cursor)
+	if choice, _ := m.valuePick.selected(); !valuePickerOpen(m) || choice != "conn-003" {
+		t.Fatalf("first click: screen %v marked %q, want the picker with conn-003 marked", m.screen, choice)
 	}
 	clickOn(t, m, "conn-003")
 	if m.screen != screenForm || m.fieldValue("connection") != "conn-003" {
@@ -1138,7 +1138,9 @@ func TestTabClickWorksFromEveryLevel(t *testing.T) {
 	}
 }
 
-func TestTabClickFromAPickerKeepsUnsavedInputBehindTheQuestion(t *testing.T) {
+// The screen behind the picker takes no click: a click beside its frame acts as esc, on a changed form too, and
+// reaches no tab.
+func TestAClickBesideThePickerActsAsEscAndReachesNoTab(t *testing.T) {
 	open := func(typed bool) *Model {
 		m, _, _ := newModel(t)
 		seedConnections(t, m, numberedConnections(5)...)
@@ -1150,21 +1152,20 @@ func TestTabClickFromAPickerKeepsUnsavedInputBehindTheQuestion(t *testing.T) {
 			press(t, m, "n")
 			focusField(t, m, "connection")
 		}
-		press(t, m, "/")
-		if m.screen != screenPicker {
+		press(t, m, "/", "down")
+		if !valuePickerOpen(m) {
 			t.Fatalf("screen %v, want the picker", m.screen)
 		}
 		return m
 	}
-	m := open(false)
-	clickOn(t, m, "6 Settings")
-	if m.section.area() != areaSettings || m.screen != screenNav {
-		t.Errorf("an unchanged form: section %v screen %v, want the Settings tab line", m.section, m.screen)
-	}
-	m = open(true)
-	clickOn(t, m, "6 Settings")
-	if m.screen != screenLeave || m.section != sectionDefaults {
-		t.Errorf("a changed form: screen %v section %v, want the leave question over Defaults", m.screen, m.section)
+	for _, typed := range []bool{false, true} {
+		m := open(typed)
+		value := m.fieldValue("connection")
+		clickOn(t, m, "6 Settings")
+		if m.screen != screenForm || m.modal != nil || m.section != sectionDefaults || m.fieldValue("connection") != value {
+			t.Errorf("typed %v: screen %v section %v value %q, want the form unchanged without the picker", typed,
+				m.screen, m.section, m.fieldValue("connection"))
+		}
 	}
 }
 

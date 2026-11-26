@@ -11,15 +11,37 @@ import (
 // screen: it takes every key, click and notch of the wheel first, the screen under it takes none, and what it
 // answers runs through the function its opener gave.
 
-// showModal opens part over the current screen; done runs each action part answers with.
+// showModal opens part over the current screen, or over the open modal, which comes back when part closes;
+// done runs each action part answers with.
 func (m *Model) showModal(part kittui.Modal, done func(action) tea.Cmd) {
+	if m.modal != nil {
+		m.modalsUnder = append(m.modalsUnder, openModal{m.modal, m.modalDone})
+	}
 	m.modal, m.modalDone, m.modalTargets = part, done, nil
 }
 
 // questionTop is the first row a question may cover: the top line and the tab line stay in view.
 const questionTop = 2
 
-func (m *Model) closeModal() { m.modal, m.modalDone, m.modalTargets = nil, nil, nil }
+// closeModal closes the open modal and brings back the one it was opened over, if any.
+func (m *Model) closeModal() {
+	m.modal, m.modalDone, m.modalTargets = nil, nil, nil
+	if n := len(m.modalsUnder); n > 0 {
+		under := m.modalsUnder[n-1]
+		m.modal, m.modalDone, m.modalsUnder = under.part, under.done, m.modalsUnder[:n-1]
+	}
+}
+
+// dropModal takes part out of the modals under the open one, so it does not come back.
+func (m *Model) dropModal(part kittui.Modal) {
+	m.modalsUnder = slices.DeleteFunc(m.modalsUnder, func(o openModal) bool { return o.part == part })
+}
+
+// openModal is a modal with the function that runs its answers.
+type openModal struct {
+	part kittui.Modal
+	done func(action) tea.Cmd
+}
 
 // dialogExtras are the actions a dialog leaves to its opener: the hints behind its answers that open the
 // command line and the help over it, and F2, which a question may leave to the screen under it.
