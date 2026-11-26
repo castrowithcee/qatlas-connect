@@ -4,6 +4,7 @@ package main
 
 import (
 	"errors"
+	"fmt"
 	"io"
 	"os/exec"
 	"strings"
@@ -22,6 +23,18 @@ func killProcess(pid int) { _ = syscall.Kill(pid, syscall.SIGKILL) }
 // runAtTerminal runs the binary with a pseudo-terminal as its controlling terminal and standard streams,
 // types input once the passphrase prompt appeared, and returns everything it wrote there and its exit code.
 func runAtTerminal(t *testing.T, c *runner, input string, args ...string) (string, int) {
+	t.Helper()
+	out, code, _, err := runAtTerminalWithin(t, c, terminalRunLimit, input, args...)
+	if err != nil {
+		t.Fatalf("%v", err)
+	}
+	return out, code
+}
+
+// runAtTerminalWithin is runAtTerminal with a limit for the program to end after the input was typed. Past
+// it the program is killed, and the error carries what it wrote so far. pid is the program's process id.
+func runAtTerminalWithin(t *testing.T, c *runner, limit time.Duration, input string, args ...string) (
+	result string, code, pid int, err error) {
 	t.Helper()
 	master, slave := openPTY(t)
 	defer master.Close()
@@ -65,18 +78,32 @@ func runAtTerminal(t *testing.T, c *runner, input string, args ...string) (strin
 	if _, err := io.WriteString(master, input); err != nil {
 		t.Fatalf("typing at the terminal: %v", err)
 	}
-	err := cmd.Wait()
-	code := 0
+	exited := make(chan error, 1)
+	go func() { exited <- cmd.Wait() }()
+	var waitErr error
+	select {
+	case waitErr = <-exited:
+	case <-time.After(limit):
+		_ = cmd.Process.Kill()
+		<-exited
+		// Killing ends the terminal's last holder, so the reader returns with what was written.
+		select {
+		case <-done:
+		case <-time.After(5 * time.Second):
+		}
+		c.seen.WriteString(text())
+		return text(), -1, cmd.Process.Pid, fmt.Errorf("running %v did not end within %v: %q", args, limit, text())
+	}
 	var exit *exec.ExitError
-	if errors.As(err, &exit) {
+	if errors.As(waitErr, &exit) {
 		code = exit.ExitCode()
-	} else if err != nil {
-		t.Fatalf("running %v: %v", args, err)
+	} else if waitErr != nil {
+		t.Fatalf("running %v: %v", args, waitErr)
 	}
 	select {
 	case <-done:
 	case <-time.After(5 * time.Second):
 	}
 	c.seen.WriteString(text())
-	return text(), code
+	return text(), code, cmd.Process.Pid, nil
 }
