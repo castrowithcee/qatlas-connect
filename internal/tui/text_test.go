@@ -13,6 +13,7 @@ import (
 	"github.com/castrowithcee/qatlas-connect/internal/helptopics"
 	"github.com/castrowithcee/qatlas-connect/internal/uiprefs"
 	"github.com/castrowithcee/qatlas-kit/i18n"
+	kit "github.com/castrowithcee/qatlas-kit/tui"
 )
 
 // useLanguage draws the editor in the given language until the test ends.
@@ -105,8 +106,45 @@ func TestEnglishIsTheDefaultAndFallback(t *testing.T) {
 	if got := labelText("a label nobody translated"); got != "a label nobody translated" {
 		t.Errorf("an untranslated label = %q, want it as it is", got)
 	}
-	if got := footerText("x unknown · {quit} quit"); got != "x unknown · {quit} Ende" {
-		t.Errorf("footerText = %q", got)
+	if got := footerKeys("x unknown · {quit} quit"); got != "x unknown · q Ende" {
+		t.Errorf("footerKeys = %q", got)
+	}
+}
+
+// The catalogs of the editor are complete in English and German, and a standard action names itself in the
+// language of the editor through the kit's catalog.
+func TestCatalogsAreCompleteAndStandardHelpIsGerman(t *testing.T) {
+	if err := kit.CheckCatalogs(catalogs); err != nil {
+		t.Fatal(err)
+	}
+	for _, a := range kit.StandardActions() {
+		useLanguage(t, i18n.English)
+		english := tr(a.Help)
+		useLanguage(t, i18n.German)
+		if german := tr(a.Help); german == english || german == string(a.Help) {
+			t.Errorf("the help of %s is %q in German, English has %q", a.ID, german, english)
+		}
+	}
+	useLanguage(t, i18n.German)
+	if got := tr(kit.TextKeyClone); got != "Klonen" {
+		t.Errorf("the help of clone = %q", got)
+	}
+}
+
+// The info placeholder of a footer names the second info key where the first is typed text, and a percent
+// sign in a key label stays a percent sign.
+func TestFooterInfoFollowsTheFocus(t *testing.T) {
+	keepKeys(t)
+	applyKeys(uiprefs.Keys{Info: "f3"})
+	if got, want := footerResolve(translator(false), "{info} explain"), "i/F3 explain"; got != want {
+		t.Errorf("first key: %q, want %q", got, want)
+	}
+	if got, want := footerResolve(translator(true), "{info} explain"), "F3 explain"; got != want {
+		t.Errorf("extra key: %q, want %q", got, want)
+	}
+	rebind(t, actBack, "%")
+	if got := tr(tCmdCannot, "quit"); !strings.Contains(got, "%") || strings.Contains(got, "%!") {
+		t.Errorf("a percent sign in a key label broke the format: %q", got)
 	}
 }
 

@@ -76,7 +76,7 @@ func (m *Model) helpText() string {
 // screenKeyList lists every group of the key text of the screen the help was opened from, one per line, the
 // way the footer would show them with room enough.
 func (m *Model) screenKeyList() string {
-	text := keyPlaceholders(strings.ReplaceAll(footerText(m.helpKeysText), "{info}", m.infoLabel()))
+	text := m.footerKeys(m.helpKeysText)
 	var lines []string
 	seen := map[string]bool{}
 	for _, group := range strings.Split(text, " · ") {

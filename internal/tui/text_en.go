@@ -1097,7 +1097,7 @@ var textEN = map[textID]string{
 	tPickMarked:                                                    " · %d marked",
 	tPickLevel:                                                     "level: %s",
 	tPickTheAddressYouTypedMatched:                                 "the address you typed matched these entries",
-	tPickCtrlRReadsAgain:                                           "({reload} reads again)",
+	tPickReloadReadsAgain:                                          "({reload} reads again)",
 	tPickTheProviderListsNoEntry:                                   "(the provider lists no entry here)",
 	tPickNoLoadedEntryMatchesDown:                                  "No loaded entry matches %q; down reads more.",
 	tPickNoEntryMatches:                                            "No entry matches %q.",

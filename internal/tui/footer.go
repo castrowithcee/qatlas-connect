@@ -87,7 +87,7 @@ func isNavigation(key string) bool {
 // footerItems splits the key text of a screen into its groups and ranks them. A screen that names no keys
 // at all gets the help key.
 func (m *Model) footerItems(text string) []footerItem {
-	text = keyPlaceholders(strings.ReplaceAll(footerText(text), "{info}", m.infoLabel()))
+	text = m.footerKeys(text)
 	var items []footerItem
 	hasHelp := false
 	answering := m.questionScreen() || m.promptScreen()

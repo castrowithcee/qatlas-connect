@@ -504,7 +504,7 @@ func (m *Model) keyHintLines(text string) []string { return m.keyHintLinesWith(t
 
 // keyHintLinesWith is keyHintLines with each group drawn by style.
 func (m *Model) keyHintLinesWith(text string, style func(group string) string) []string {
-	text = keyPlaceholders(strings.ReplaceAll(footerText(text), "{info}", m.infoLabel()))
+	text = m.footerKeys(text)
 	width := m.usable(0)
 	var lines []string
 	var line string
