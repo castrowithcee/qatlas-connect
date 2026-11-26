@@ -24,6 +24,7 @@ import (
 	"github.com/castrowithcee/qatlas-connect/internal/invokelog"
 	"github.com/castrowithcee/qatlas-connect/internal/localfile"
 	"github.com/castrowithcee/qatlas-connect/internal/secret"
+	"github.com/castrowithcee/qatlas-kit/jsonschema"
 	"github.com/castrowithcee/qatlas-kit/output"
 	"github.com/castrowithcee/qatlas-kit/projectpath"
 	"github.com/castrowithcee/qatlas-kit/redact"
@@ -1214,7 +1215,7 @@ func (c *Core) Invoke(ctx context.Context, request InvokeRequest) (response Invo
 		return InvokeResponse{}, &InvalidProviderResponseError{Operation: descriptor.ID}
 	}
 	normalized = redactValue(c.redactor, normalized)
-	if err := validateValue(descriptor.OutputSchema, normalized, false); err != nil {
+	if err := validateOutput(descriptor.OutputSchema, normalized); err != nil {
 		return InvokeResponse{}, &InvalidProviderResponseError{Operation: descriptor.ID}
 	}
 	// Only what passed the output schema is compacted: empty values are dropped afterwards, for every
@@ -1800,4 +1801,16 @@ func sortedStrings(values []string) []string {
 	sorted := append([]string(nil), values...)
 	sort.Strings(sorted)
 	return sorted
+}
+
+// ValidateJSON checks raw against an input schema with the kit's strict mode; the kit names the first
+// violation by its path, such as "$.foo is not allowed".
+func ValidateJSON(schema, raw json.RawMessage) error {
+	return jsonschema.ValidateJSON(schema, raw)
+}
+
+// validateOutput checks a decoded provider response against an output schema. The kit's lenient mode does
+// not refuse a response for member counts, uniqueness, anyOf or schemas under additionalProperties.
+func validateOutput(schema json.RawMessage, value any) error {
+	return jsonschema.Validate(schema, value, jsonschema.Lenient)
 }

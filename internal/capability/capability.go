@@ -4,6 +4,7 @@
 package capability
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -14,6 +15,7 @@ import (
 	"github.com/castrowithcee/qatlas-connect/internal/config"
 	"github.com/castrowithcee/qatlas-connect/internal/provider"
 	"github.com/castrowithcee/qatlas-connect/internal/secret"
+	"github.com/castrowithcee/qatlas-kit/jsonschema"
 	"github.com/castrowithcee/qatlas-kit/redact"
 )
 
@@ -1062,13 +1064,19 @@ func vendorOf(provider string) string {
 	return vendor
 }
 
+// schemaChecker remembers the schemas found valid, so a schema text that many tools share is checked once.
+var schemaChecker jsonschema.Checker
+
 func validateSchema(kind, id string, schema json.RawMessage) error {
 	if !json.Valid(schema) {
 		return fmt.Errorf("operation %q: %s schema must be valid JSON", id, kind)
 	}
-	var object map[string]json.RawMessage
-	if err := json.Unmarshal(schema, &object); err != nil || object == nil {
+	// Valid JSON that starts with a brace is an object; decoding it would cost start time for every tool.
+	if trimmed := bytes.TrimLeft(schema, " \t\r\n"); len(trimmed) == 0 || trimmed[0] != '{' {
 		return fmt.Errorf("operation %q: %s schema must be a JSON object", id, kind)
+	}
+	if err := schemaChecker.CheckSchema(schema); err != nil {
+		return fmt.Errorf("operation %q: %s schema is invalid: %w", id, kind, err)
 	}
 	return nil
 }
