@@ -6,6 +6,7 @@ import (
 	"errors"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/castrowithcee/qatlas-connect/internal/invokelog"
 )
@@ -169,5 +170,62 @@ func TestRequestableOnIsMissingWhereNoDecisionOffersTheTool(t *testing.T) {
 	hit := hitOf(t, core, SearchRequest{}, "fake.pages.delete")
 	if hit.Reason == "" || hit.RequestableOn != "" {
 		t.Errorf("hit = %+v, want a reason and no requestable_on for outside-targets", hit)
+	}
+}
+
+func TestRequestableOnSkipsAnInactiveConnection(t *testing.T) {
+	core, _, _ := requestCore(t, []string{"alpha", "beta", "gamma"}, nil)
+	clockAt(core, limit.Add(time.Second))
+	off := core.all.Connections["alpha"]
+	off.Disabled = true
+	core.all.Connections["alpha"] = off
+	limitConnection(core, "beta")
+
+	if got := hitOf(t, core, SearchRequest{}, "fake.pages.delete").RequestableOn; got != "gamma" {
+		t.Errorf("requestable_on = %q, want the first active connection gamma", got)
+	}
+	for _, name := range []string{"alpha", "beta"} {
+		if hit := hitOf(t, core, SearchRequest{Connection: name}, "fake.pages.delete"); hit.RequestableOn != "" || hit.Reason == "" {
+			t.Errorf("filter %s: hit = %+v, want a reason and no requestable_on", name, hit)
+		}
+	}
+	if got := hitOf(t, core, SearchRequest{Connection: "gamma"}, "fake.pages.delete").RequestableOn; got != "gamma" {
+		t.Errorf("filter gamma: requestable_on = %q", got)
+	}
+}
+
+func TestRequestableOnIsMissingWhereOnlyInactiveConnectionsExist(t *testing.T) {
+	core, _, _ := requestCore(t, []string{"only"}, nil)
+	conn := core.all.Connections["only"]
+	conn.Disabled = true
+	core.all.Connections["only"] = conn
+	if hit := hitOf(t, core, SearchRequest{}, "fake.pages.delete"); hit.RequestableOn != "" || hit.Reason == "" {
+		t.Errorf("hit = %+v, want a reason and no requestable_on", hit)
+	}
+}
+
+// A named connection is never refused as disabled by RequestTools, whatever mix of connections exists.
+func TestRequestableOnNeverLeadsToConnectionDisabled(t *testing.T) {
+	for mask := 0; mask < 8; mask++ {
+		core, _, _ := requestCore(t, []string{"a", "b", "c"}, nil)
+		clockAt(core, limit.Add(time.Second))
+		for i, name := range []string{"a", "b", "c"} {
+			conn := core.all.Connections[name]
+			switch {
+			case mask&(1<<i) == 0:
+			case i == 1:
+				conn.ActiveUntil = limit.Format(time.RFC3339)
+			default:
+				conn.Disabled = true
+			}
+			core.all.Connections[name] = conn
+		}
+		on := hitOf(t, core, SearchRequest{}, "fake.pages.delete").RequestableOn
+		if on == "" {
+			continue
+		}
+		if _, err := core.RequestTools(ToolRequest{Connection: on, Tools: []string{"fake.pages.delete"}}); err != nil {
+			t.Errorf("mask %d: requestable_on %s: %v", mask, on, err)
+		}
 	}
 }

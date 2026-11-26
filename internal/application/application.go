@@ -170,9 +170,10 @@ type SearchRequest struct {
 // only where they differ from those the answer names once at its top. Reason is set only by a request with
 // All, on a tool the request's connections do not offer; a tool with a reason and no connections is offered
 // by none. RequestableOn is the connection to ask for such a tool: with a connection filter that connection,
-// otherwise the first connection of the tool's provider, in the order of 'qconnect connections', where the
-// request check accepts the tool; it is absent where none does, also for a blocked tool. The JSON encoding
-// leaves out the empty fields of each entry.
+// otherwise the first connection of the tool's provider, in the order of 'qconnect connections', that is active
+// and where the request check accepts the tool; a connection switched off or past its active_until never
+// counts. It is absent where none does, also for a blocked tool. The JSON encoding leaves out the empty fields
+// of each entry.
 type SearchHit struct {
 	ID          string            `json:"id"`
 	Title       string            `json:"title"`
@@ -441,7 +442,8 @@ func (c *Core) hits(request SearchRequest, descriptors []capability.Descriptor) 
 }
 
 // requestableOn names the connection a request for the tool can name: the filtered one, or else the first
-// of the provider's connections in this project, by name, that the request check accepts it on.
+// of the provider's connections in this project, by name, that is active and that the request check accepts
+// it on. A connection that RequestTools would refuse as disabled is never named.
 func (c *Core) requestableOn(request SearchRequest, d capability.Descriptor,
 	requestable func(string, config.ToolMetadata) bool) string {
 	names := c.connectionNames(d.Provider)
@@ -449,7 +451,7 @@ func (c *Core) requestableOn(request SearchRequest, d capability.Descriptor,
 		names = []string{request.Connection}
 	}
 	for _, name := range names {
-		if requestable(name, d.Tool()) {
+		if c.requestActive(name) && requestable(name, d.Tool()) {
 			return name
 		}
 	}
