@@ -893,7 +893,7 @@ const (
 	tPickMarked                              textID = "PickMarked"
 	tPickLevel                               textID = "PickLevel"
 	tPickTheAddressYouTypedMatched           textID = "PickTheAddressYouTypedMatched"
-	tPickCtrlRReadsAgain                     textID = "PickCtrlRReadsAgain"
+	tPickReloadReadsAgain                    textID = "PickReloadReadsAgain"
 	tPickTheProviderListsNoEntry             textID = "PickTheProviderListsNoEntry"
 	tPickNoLoadedEntryMatchesDown            textID = "PickNoLoadedEntryMatchesDown"
 	tPickNoEntryMatches                      textID = "PickNoEntryMatches"

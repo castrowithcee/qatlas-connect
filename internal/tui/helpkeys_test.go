@@ -57,7 +57,7 @@ func TestHelpListsEveryKeyGroupOfTheScreenItWasOpenedFrom(t *testing.T) {
 			t.Fatalf("the help does not start with the screen's keys:\n%s", strings.Join(lines, "\n"))
 		}
 		text := strings.Join(lines, "\n")
-		for _, group := range strings.Split(keyPlaceholders(strings.ReplaceAll(footerText(keys), "{info}", m.infoLabel())), " · ") {
+		for _, group := range strings.Split(m.footerKeys(keys), " · ") {
 			key, action, _ := strings.Cut(group, " ")
 			want := "- " + action + ": " + key
 			if action == "" {

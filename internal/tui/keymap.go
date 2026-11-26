@@ -3,7 +3,6 @@ package tui
 import (
 	"slices"
 	"strconv"
-	"strings"
 
 	tea "charm.land/bubbletea/v2"
 	kit "github.com/castrowithcee/qatlas-kit/tui"
@@ -281,21 +280,3 @@ func keyPress(name string) (tea.KeyPressMsg, bool) {
 // footerPlaceholder is the name a footer text uses for the keys of an action, e.g. "{save} save": the action
 // in braces, so every action of the table can be named and none by hand.
 func footerPlaceholder(a action) string { return "{" + string(a) + "}" }
-
-// footerKeys replaces the key placeholders of a footer text with the current key names, so a footer
-// follows the keymap while a screen-local key stays a plain literal in its text.
-func footerKeys(text string) string { return keyPlaceholders(footerText(text)) }
-
-// keyPlaceholders replaces the key placeholders of an already translated footer text. Translating comes
-// first because the catalog is keyed by the group with its placeholders.
-func keyPlaceholders(text string) string {
-	if !strings.Contains(text, "{") {
-		return text
-	}
-	for _, e := range keyTable {
-		if p := footerPlaceholder(e.ID); strings.Contains(text, p) {
-			text = strings.ReplaceAll(text, p, keyLabel(e.ID))
-		}
-	}
-	return text
-}

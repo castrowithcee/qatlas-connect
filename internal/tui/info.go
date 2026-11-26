@@ -245,14 +245,6 @@ func (m *Model) infoWorks() bool {
 	return m.infoReachable() || (infoExtraLabel() != "" && !m.infoOpen)
 }
 
-// infoLabel names the info keys that work right now: the extra key alone where the letter is typed text.
-func (m *Model) infoLabel() string {
-	if extra := infoExtraLabel(); extra != "" && !m.infoReachable() {
-		return extra
-	}
-	return keyLabel(actInfo)
-}
-
 // openInfo opens the explanation as an overlay and reports whether there was one to open.
 func (m *Model) openInfo() bool {
 	s := m.infoSubject()

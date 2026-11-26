@@ -715,7 +715,7 @@ func (m *Model) pickFrame() (string, string) {
 	}
 	switch {
 	case lv.err != "":
-		head.WriteString(m.boxText(styles.fail, "[!] "+lv.err+" "+tr(tPickCtrlRReadsAgain)))
+		head.WriteString(m.boxText(styles.fail, "[!] "+lv.err+" "+tr(tPickReloadReadsAgain)))
 	case lv.loading:
 		head.WriteString(m.boxText(styles.hint, tr(tLogLoading)))
 	case len(lv.list.all) == 0:
