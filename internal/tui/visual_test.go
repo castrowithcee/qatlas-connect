@@ -318,7 +318,7 @@ func visualShots() []visualShot {
 		}},
 		{"58-targets", 150, 42, dark, false, func(t *testing.T, m *Model) {
 			connections(t, m)
-			m.list.selectName("code-planning")
+			selectRow(m, "code-planning")
 			pump(t, m, "enter")
 			openTargetList(t, m)
 		}},

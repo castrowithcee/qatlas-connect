@@ -1,7 +1,6 @@
 package tui
 
 import (
-	"hash/fnv"
 	"strings"
 
 	"charm.land/lipgloss/v2"
@@ -261,20 +260,4 @@ func button(kind buttonKind, label string, focused bool) string {
 		style = style.Bold(true).Reverse(true)
 	}
 	return style.Render(text)
-}
-
-// brandColor is the stable brand colour of a provider name.
-func brandColor(name string) kittui.Color {
-	h := fnv.New32a()
-	h.Write([]byte(name))
-	return styles.Palette().Brand[h.Sum32()%uint32(len(styles.Palette().Brand))]
-}
-
-// providerMark is the square in the colour of the provider.
-func providerMark(name string) string {
-	style := lipgloss.NewStyle()
-	if c := brandColor(name); c != "" {
-		style = style.Foreground(lip(c))
-	}
-	return style.Render("■")
 }

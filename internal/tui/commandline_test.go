@@ -53,8 +53,8 @@ func TestColonStaysTextWhereTextIsTyped(t *testing.T) {
 	seedServices(t, m, "a-one")
 	m.screen = screenList
 	press(t, m, "/", ":")
-	if m.screen != screenList || m.list.query() != ":" {
-		t.Fatalf(": in the filter: screen %v query %q, want it as text", m.screen, m.list.query())
+	if m.screen != screenList || m.list.Query() != ":" {
+		t.Fatalf(": in the filter: screen %v query %q, want it as text", m.screen, m.list.Query())
 	}
 	press(t, m, "esc", "esc")
 
@@ -73,8 +73,8 @@ func TestSlashStillFiltersTheList(t *testing.T) {
 	m.screen = screenList
 	press(t, m, "/")
 	typeText(t, m, "two")
-	if !m.list.editing || m.list.query() != "two" {
-		t.Fatalf("/ = editing %v query %q, want the list filter", m.list.editing, m.list.query())
+	if !m.list.Searching() || m.list.Query() != "two" {
+		t.Fatalf("/ = editing %v query %q, want the list filter", m.list.Searching(), m.list.Query())
 	}
 }
 

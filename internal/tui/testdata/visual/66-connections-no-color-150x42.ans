@@ -4,22 +4,23 @@
 [1mConnections (7)[m                                                                       [2m1/7[m                                                             
                                                                                                                                                       
 ╔═[1m[m══════════════════════════════════════════════════════════════════════════════════════╗ [2m╭─[m[1m[m[2m─────────────────────────────────────────────────────────╮[m
-║    Group: Provider ▾      State: All ▾      Sort: Name ▾   [2m / search…                [m ║ [2m│[m [1mwiki-main[m                                       [1m●[m active [2m│[m
-║ [2m    NAME            STATE   SERVICE  EFFECTS             TOOLS  DESCRIPTION[m           ║ [2m│[m [2mbookstack[m                                                [2m│[m
-║   [2m▾ [m■ [1mbookstack[m[2m (1)[m                                                                   ║ [2m│[m                                                          [2m│[m
-║ [1;7m>[m[1;7m   wiki-main       [1mactive[m[1;7m  wiki     [2mread,create,update[m[1;7m  [2mall[m[1;7m    Team wiki, read and …[m ║ [2m│[m [1m[Overview][m [2m Details [m [2m Raw [m                               [2m│[m
-║   [2m▾ [m■ [1mgithub[m[2m (1)[m                                                                      ║ [2m│[m                                                          [2m│[m
-║     code-planning   [1mactive[m  code     [2mread[m                [2mall[m    Planning repositories ║ [2m│[m [2mProvider:     [mbookstack                                  [2m│[m
-║   [2m▾ [m■ [1mnextcloud[m[2m (1)[m                                                                   ║ [2m│[m [2mService:      [mwiki                                       [2m│[m
-║     cloud-files     [1mactive[m  cloud    [2mread,create,update[m  [2mall[m    Shared project files  ║ [2m│[m [2mBase URL:     [mhttps://wiki.example.invalid               [2m│[m
-║   [2m▾ [m■ [1mseatable.base[m[2m (1)[m                                                               ║ [2m│[m [2mCredential:   [mwiki-reader                                [2m│[m
-║     tables-ops      [1mactive[m  tables   [2mread[m                [2mall[m    Operations tables     ║ [2m│[m [2mState:        [mactive                                     [2m│[m
-║   [2m▾ [m■ [1mtelegram[m[2m (1)[m                                                                    ║ [2m│[m [2mEffects:      [mread,create,update                         [2m│[m
-║     alerts-bot      [1mactive[m  alerts   [2mread,create,update[m  [2mall[m    Notification channel  ║ [2m│[m [2mTools:        [mall                                        [2m│[m
-║   [2m▾ [m■ [1mtodoist[m[2m (1)[m                                                                     ║ [2m│[m [2mDescription:  [mTeam wiki, read and write                  [2m│[m
-║     tasks-personal  [1mactive[m  tasks    [2mread,create,update[m  [2mall[m    Personal task list    ║ [2m│[m                                                          [2m│[m
-║   [2m▾ [m■ [1mtwenty-crm[m[2m (1)[m                                                                  ║ [2m│[m                                                          [2m│[m
-║     crm-sales       [1mactive[m  crm      [2mread[m                [2mall[m    Sales pipeline        ║ [2m│[m                                                          [2m│[m
+║    Group: Provider ▾      State: All ▾      Sort: Name ▾                              ║ [2m│[m [1mwiki-main[m                                       [1m●[m active [2m│[m
+║       [1mNAME            STATE   SERVICE  EFFECTS             TOOLS  DESCRIPTION[m         ║ [2m│[m [2mbookstack[m                                                [2m│[m
+║       [2m───────────────────────────────────────────────────────────────────────────────[m ║ [2m│[m                                                          [2m│[m
+║   [2m▾[m ■ [1mbookstack[m[2m (1)[m                                                                   ║ [2m│[m [1m[Overview][m [2m Details [m [2m Raw [m                               [2m│[m
+║ [1;7m>[m[1;7m     wiki-main       [1mactive[m[1;7m  wiki     [2mread,create,update[m[1;7m  [2mall[m[1;7m    Team wiki, read an…[m ║ [2m│[m                                                          [2m│[m
+║   [2m▾[m ■ [1mgithub[m[2m (1)[m                                                                      ║ [2m│[m [2mProvider:     [mbookstack                                  [2m│[m
+║       code-planning   [1mactive[m  code     [2mread[m                [2mall[m    Planning repositor… ║ [2m│[m [2mService:      [mwiki                                       [2m│[m
+║   [2m▾[m ■ [1mnextcloud[m[2m (1)[m                                                                   ║ [2m│[m [2mBase URL:     [mhttps://wiki.example.invalid               [2m│[m
+║       cloud-files     [1mactive[m  cloud    [2mread,create,update[m  [2mall[m    Shared project fil… ║ [2m│[m [2mCredential:   [mwiki-reader                                [2m│[m
+║   [2m▾[m ■ [1mseatable.base[m[2m (1)[m                                                               ║ [2m│[m [2mState:        [mactive                                     [2m│[m
+║       tables-ops      [1mactive[m  tables   [2mread[m                [2mall[m    Operations tables   ║ [2m│[m [2mEffects:      [mread,create,update                         [2m│[m
+║   [2m▾[m ■ [1mtelegram[m[2m (1)[m                                                                    ║ [2m│[m [2mTools:        [mall                                        [2m│[m
+║       alerts-bot      [1mactive[m  alerts   [2mread,create,update[m  [2mall[m    Notification chann… ║ [2m│[m [2mDescription:  [mTeam wiki, read and write                  [2m│[m
+║   [2m▾[m ■ [1mtodoist[m[2m (1)[m                                                                     ║ [2m│[m                                                          [2m│[m
+║       tasks-personal  [1mactive[m  tasks    [2mread,create,update[m  [2mall[m    Personal task list  ║ [2m│[m                                                          [2m│[m
+║   [2m▾[m ■ [1mtwenty-crm[m[2m (1)[m                                                                  ║ [2m│[m                                                          [2m│[m
+║       crm-sales       [1mactive[m  crm      [2mread[m                [2mall[m    Sales pipeline      ║ [2m│[m                                                          [2m│[m
 ╚═══════════════════════════════════════════════════════════════════════════════════════╝ [2m╰──────────────────────────────────────────────────────────╯[m
                                                                                                                                                       
                                                                                                                                                       
@@ -37,6 +38,5 @@
                                                                                                                                                       
                                                                                                                                                       
                                                                                                                                                       
-                                                                                                                                                      
-[1m/[m [2mfilter[m  [1mn[m [2mnew[m  [1mC[m [2mclone[m  [1menter[m[1m/[m[1me[m [2medit/fold[m  [1mr[m [2mrename[m  [1md[m [2mdelete[m  [1mt[m [2mtest[m  [1mg[m [2msetup[m  [1m1-6[m[1m/[m[1mesc[m [2mareas[m  [1mctrl+l[m [2mlock vault[m  [1mc[m [2mcopy[m  [1mi[m [2minfo[m  [1m:[m [2mcmds[m  [1m?[m [2mhelp[m    
-[1mq[m [2mquit[m                                                                                                                               [2m←[m[2m/[m[2m→[m [2mfold[m  [2mtab[m [2mbar[m
+[1menter[m [2mchoose[m  [1m/[m [2msearch[m  [1mesc[m [2mback[m  [1mn[m [2mnew[m  [1mC[m [2mclone[m  [1me[m [2medit[m  [1mr[m [2mrename[m  [1md[m [2mdelete[m  [1mt[m [2mtest[m  [1mg[m [2msetup[m  [1m1-6[m [2mareas[m  [1mctrl+l[m [2mlock vault[m  [1mc[m [2mcopy[m  [1mi[m [2minfo[m  [1m:[m [2mcmds[m   
+[1m?[m [2mhelp[m  [1mq[m [2mquit[m                                                                                                         [2m↑[m [2mup[m  [2m↓[m [2mdown[m  [2m←[m[2m/[m[2m→[m [2mfold[m  [2mtab[m [2mbar[m

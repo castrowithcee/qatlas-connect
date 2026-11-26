@@ -140,7 +140,7 @@ func TestHandRenamedConnectionIsNoticedAndAdopted(t *testing.T) {
 
 	wantInView(t, m, "Approvals", "renames found in the vault: 1 renamed by hand", "this line (enter) reviews them")
 	openSectionByName(t, m, sectionConnections)
-	m.list.selectName("main")
+	selectRow(m, "main")
 	wantInView(t, m, "the entry", "connection main was renamed by hand from personal", "this line (enter) offers to adopt")
 
 	openFindingsLine(t, m)
@@ -225,7 +225,7 @@ func TestUnfinishedConnectionRenameIsNoticedAndFinished(t *testing.T) {
 
 	wantInView(t, m, "Approvals", "1 unfinished")
 	openSectionByName(t, m, sectionConnections)
-	m.list.selectName("main")
+	selectRow(m, "main")
 	wantInView(t, m, "the entry", "connection main has an unfinished rename to personal")
 
 	openFindingsLine(t, m)
@@ -259,7 +259,7 @@ func TestHandRenamedCredentialIsNoticedAndAdopted(t *testing.T) {
 	m := s.open(t)
 
 	openSectionByName(t, m, sectionCredentials)
-	m.list.selectName("reader2")
+	selectRow(m, "reader2")
 	wantInView(t, m, "the entry", "credential reader2 was renamed by hand from reader", "this line (enter) offers to adopt")
 	openFindingsLine(t, m)
 	wantInView(t, m, "the findings", "credential  reader -> reader2, renamed by hand")
@@ -296,7 +296,7 @@ func TestUnfinishedCredentialRenameIsFinishedOrPutBack(t *testing.T) {
 		s := stop(t)
 		m := s.open(t)
 		openSectionByName(t, m, sectionCredentials)
-		m.list.selectName("reader")
+		selectRow(m, "reader")
 		wantInView(t, m, "the entry", "credential reader has an unfinished rename to reader2")
 		openFindingsLine(t, m)
 		wantInView(t, m, "the findings", "credential  reader -> reader2, unfinished", "enter finish", "B put back")
@@ -319,7 +319,7 @@ func TestUnfinishedCredentialRenameIsFinishedOrPutBack(t *testing.T) {
 		s := stop(t)
 		m := s.open(t)
 		openSectionByName(t, m, sectionCredentials)
-		m.list.selectName("reader")
+		selectRow(m, "reader")
 		openFindingsLine(t, m)
 		pump(t, m, "B")
 		if m.screen != screenRename || m.rename == nil || !m.rename.plan.Revert {
@@ -379,7 +379,7 @@ func TestFindingsNeedTheAdminSession(t *testing.T) {
 	m := s.openWithoutAdmin(t)
 
 	openSectionByName(t, m, sectionConnections)
-	m.list.selectName("main")
+	selectRow(m, "main")
 	openFindingsLine(t, m)
 	if m.screen != screenFindings {
 		t.Fatalf("enter on the hint line = screen %v, want the findings (reading needs no admin session)", m.screen)

@@ -936,16 +936,14 @@ func TestTargetLabelsStandInTheListInsteadOfTheTarget(t *testing.T) {
 	mustNoError(t, m.cfg.SetConnection("bare", config.Connection{Service: "wiki", Credential: "reader",
 		Target: "repos/octo/d"}))
 	openSectionByName(t, m, sectionConnections)
-	m.list.setItems(m.entryNames(m.section))
 	view := screenOf(m)
 	if !strings.Contains(view, "Docs") || strings.Contains(view, "repos/octo/c") || !strings.Contains(view, "repos/octo/d") {
 		t.Fatalf("the TARGETS column is wrong:\n%s", view)
 	}
 	for _, query := range []string{"docs", "repos/octo/c", "frontend", "repos/octo/b"} {
-		m.list.input.SetValue(query)
-		m.list.refilter()
-		if len(m.list.matches) != 1 {
-			t.Errorf("filter %q shows %v, want one connection", query, m.list.matches)
+		m.list.SetFilter(query)
+		if len(shownEntries(m)) != 1 {
+			t.Errorf("filter %q shows %v, want one connection", query, listRowsOf(m))
 		}
 	}
 }

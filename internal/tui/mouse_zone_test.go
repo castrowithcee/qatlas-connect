@@ -157,7 +157,7 @@ func TestZoneClickNeverMakesText(t *testing.T) {
 			deliver(m, cmd)
 		}
 	}
-	if m.list.query() != "" || m.list.editing {
-		t.Errorf("a click typed: query %q editing %v", m.list.query(), m.list.editing)
+	if m.list.Query() != "" || m.list.Searching() {
+		t.Errorf("a click typed: query %q editing %v", m.list.Query(), m.list.Searching())
 	}
 }

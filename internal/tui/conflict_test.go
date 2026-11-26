@@ -149,7 +149,7 @@ func TestDeleteConflictKeepsTheOtherChangeAndRepeatSucceeds(t *testing.T) {
 			if _, ok := saved.Services["theirs"]; !ok {
 				t.Fatal("the other change was lost")
 			}
-			m.list.selectName("wiki")
+			selectRow(m, "wiki")
 			press(t, m, "d", "y")
 			if m.fail != "" {
 				t.Fatalf("repeating reported %q", m.fail)

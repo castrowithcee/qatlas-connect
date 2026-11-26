@@ -89,7 +89,7 @@ func TestClicksFollowTheTitleLine(t *testing.T) {
 	press(t, m, "esc")
 	m.render()
 	clickOn(t, m, "tracker-triage")
-	if got, _ := m.list.selected(); got != "tracker-triage" {
+	if got, _ := m.marked(); got != "tracker-triage" {
 		t.Errorf("a click on a row selected %q", got)
 	}
 }

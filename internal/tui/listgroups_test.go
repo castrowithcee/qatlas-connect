@@ -15,7 +15,7 @@ func groupModel(t *testing.T) *Model {
 	return m
 }
 
-func shownNames(m *Model) []string { return append([]string(nil), m.list.matches...) }
+func shownNames(m *Model) []string { return append([]string(nil), listRowsOf(m)...) }
 
 func TestListsAreGroupedByProvider(t *testing.T) {
 	m := groupModel(t)
@@ -50,7 +50,7 @@ func TestGroupsFoldAndUnfold(t *testing.T) {
 	m := groupModel(t)
 	openSectionByName(t, m, sectionConnections)
 	press(t, m, "up") // the group row of bookstack
-	if name, _ := m.list.selected(); name != groupRow("bookstack") {
+	if name, _ := m.marked(); name != groupRow("bookstack") {
 		t.Fatalf("cursor on %q, want the bookstack group row", name)
 	}
 	press(t, m, "left")
@@ -61,27 +61,27 @@ func TestGroupsFoldAndUnfold(t *testing.T) {
 		t.Errorf("a folded group must read as folded and hide its entries:\n%s", view)
 	}
 	press(t, m, "right")
-	if len(m.list.matches) != 5 {
-		t.Errorf("after right: %q", m.list.matches)
+	if len(listRowsOf(m)) != 5 {
+		t.Errorf("after right: %q", listRowsOf(m))
 	}
 	press(t, m, "enter")
-	if len(m.list.matches) != 4 || m.screen != screenList {
-		t.Errorf("enter on a group row folds it and opens no form: %q, screen %v", m.list.matches, m.screen)
+	if len(listRowsOf(m)) != 4 || m.screen != screenList {
+		t.Errorf("enter on a group row folds it and opens no form: %q, screen %v", listRowsOf(m), m.screen)
 	}
 	press(t, m, "enter")
-	if len(m.list.matches) != 5 {
-		t.Errorf("enter on a folded group row unfolds it: %q", m.list.matches)
+	if len(listRowsOf(m)) != 5 {
+		t.Errorf("enter on a folded group row unfolds it: %q", listRowsOf(m))
 	}
 	// Left on an entry folds its group; the cursor follows to the group row.
 	press(t, m, "down", "left")
-	if name, _ := m.list.selected(); name != groupRow("bookstack") || len(m.list.matches) != 4 {
-		t.Errorf("left on an entry: cursor %q, shown %q", name, m.list.matches)
+	if name, _ := m.marked(); name != groupRow("bookstack") || len(listRowsOf(m)) != 4 {
+		t.Errorf("left on an entry: cursor %q, shown %q", name, listRowsOf(m))
 	}
 	// The fold survives leaving and entering the section.
 	openSectionByName(t, m, sectionServices)
 	openSectionByName(t, m, sectionConnections)
-	if len(m.list.matches) != 4 {
-		t.Errorf("the fold is lost: %q", m.list.matches)
+	if len(listRowsOf(m)) != 4 {
+		t.Errorf("the fold is lost: %q", listRowsOf(m))
 	}
 }
 
@@ -111,7 +111,7 @@ func TestFilterOpensGroupsWithHits(t *testing.T) {
 	press(t, m, "up", "left") // fold bookstack
 	press(t, m, "/")
 	typeText(t, m, "wiki")
-	if got := strings.Join(m.list.matches, ","); got != groupRow("bookstack")+",wiki-docs" {
+	if got := strings.Join(listRowsOf(m), ","); got != groupRow("bookstack")+",wiki-docs" {
 		t.Errorf("filter shows %q, want the folded group open with its hit", got)
 	}
 	if view := screenOf(m); !strings.Contains(view, "▾ ■ bookstack (1)") || !strings.Contains(view, "1/1 (3 total)") {
@@ -121,12 +121,12 @@ func TestFilterOpensGroupsWithHits(t *testing.T) {
 	press(t, m, "esc")
 	press(t, m, "/")
 	typeText(t, m, "tracker")
-	if len(m.list.matches) != 3 {
-		t.Errorf("filter on the provider shows %q", m.list.matches)
+	if len(listRowsOf(m)) != 3 {
+		t.Errorf("filter on the provider shows %q", listRowsOf(m))
 	}
 	// Clearing the filter brings the fold state back.
 	press(t, m, "esc")
-	if got := strings.Join(m.list.matches, ","); got != groupRow("bookstack")+","+groupRow("tracker")+",tracker-issues,tracker-triage" {
+	if got := strings.Join(listRowsOf(m), ","); got != groupRow("bookstack")+","+groupRow("tracker")+",tracker-issues,tracker-triage" {
 		t.Errorf("after clearing: %q", got)
 	}
 }
@@ -176,13 +176,14 @@ func TestSelectionFollowsTheNameAfterASave(t *testing.T) {
 func TestACredentialWithoutProviderHasItsOwnGroup(t *testing.T) {
 	m := groupModel(t)
 	openSectionByName(t, m, sectionCredentials)
-	if m.groups.of["loose"] != "" || m.groups.of["wiki-reader"] != "bookstack" {
-		t.Errorf("groups = %v", m.groups.of)
+	of := m.providerOf(m.section)
+	if of("loose") != "" || of("wiki-reader") != "bookstack" {
+		t.Errorf("groups: loose %q, wiki-reader %q", of("loose"), of("wiki-reader"))
 	}
-	if got := m.groups.rowText(groupRow(""), true); got != "▾ ■ no provider (1)" {
-		t.Errorf("row = %q", got)
+	if view := screenOf(m); !strings.Contains(view, "▾ ■ no provider (1)") {
+		t.Errorf("no row of the group without provider:\n%s", view)
 	}
-	if m.list.matches[len(m.list.matches)-2] != groupRow("") {
-		t.Errorf("the group without provider is not last: %q", m.list.matches)
+	if listRowsOf(m)[len(listRowsOf(m))-2] != groupRow("") {
+		t.Errorf("the group without provider is not last: %q", listRowsOf(m))
 	}
 }

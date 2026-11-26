@@ -4,21 +4,21 @@
 [1mConnections (7)[m                                                              [2m1/7[m
                                                                                 
 #=[1m[m=============================================================================#
-#    Group: Provider v      State: All v      Sort: Name v   [2m / search~       [m #
-# [2m    NAME            STATE   SERVICE  EFFECTS             TOOLS  DESCRIPTION[m  #
-#   [2mv [m# [1mbookstack[m[2m (1)[m                                                          #
-# [1;7m>[m[1;7m   wiki-main       [1mactive[m[1;7m  wiki     [2mread,create,update[m[1;7m  [2mall[m[1;7m    Team wiki, ~[m #
-#   [2mv [m# [1mgithub[m[2m (1)[m                                                             #
-#     code-planning   [1mactive[m  code     [2mread[m                [2mall[m    Planning re~ #
-#   [2mv [m# [1mnextcloud[m[2m (1)[m                                                          #
-#     cloud-files     [1mactive[m  cloud    [2mread,create,update[m  [2mall[m    Shared proj~ #
-#   [2mv [m# [1mseatable.base[m[2m (1)[m                                                      #
-#     tables-ops      [1mactive[m  tables   [2mread[m                [2mall[m    Operations ~ #
-#   [2mv [m# [1mtelegram[m[2m (1)[m                                                           #
-#     alerts-bot      [1mactive[m  alerts   [2mread,create,update[m  [2mall[m    Notificatio~ #
-#   [2mv [m# [1mtodoist[m[2m (1)[m                                                            #
-#     tasks-personal  [1mactive[m  tasks    [2mread,create,update[m  [2mall[m    Personal ta~ #
-#   [2mv [m# [1mtwenty-crm[m[2m (1)[m                                                         #
+#    Group: Provider v      State: All v      Sort: Name v                     #
+#       [1mNAME            STATE   SERVICE  EFFECTS             DESCRIPTION[m       #
+#       [2m----------------------------------------------------------------------[m #
+#   [2mv[m # [1mbookstack[m[2m (1)[m                                                          #
+# [1;7m>[m[1;7m     wiki-main       [1mactive[m[1;7m  wiki     [2mread,create,update[m[1;7m  Team wiki, read ~[m #
+#   [2mv[m # [1mgithub[m[2m (1)[m                                                             #
+#       code-planning   [1mactive[m  code     [2mread[m                Planning reposit~ #
+#   [2mv[m # [1mnextcloud[m[2m (1)[m                                                          #
+#       cloud-files     [1mactive[m  cloud    [2mread,create,update[m  Shared project f~ #
+#   [2mv[m # [1mseatable.base[m[2m (1)[m                                                      #
+#       tables-ops      [1mactive[m  tables   [2mread[m                Operations tables #
+#   [2mv[m # [1mtelegram[m[2m (1)[m                                                           #
+#       alerts-bot      [1mactive[m  alerts   [2mread,create,update[m  Notification cha~ #
+#   [2mv[m # [1mtodoist[m[2m (1)[m                                                            #
+#       tasks-personal  [1mactive[m  tasks    [2mread,create,update[m  Personal task li~ #
 #==============================================================================#
-[1m/[m [2mfilter[m  [1mn[m [2mnew[m  [1mC[m [2mclone[m  [1menter[m[1m/[m[1me[m [2medit/fold[m  [1mr[m [2mrename[m  [1md[m [2mdelete[m  [1mt[m [2mtest[m  [1mg[m [2msetup[m
-[1m1-6[m[1m/[m[1mesc[m [2mareas[m  [1mctrl+l[m [2mlock vault[m  [1mc[m [2mcopy[m  [1mi[m [2minfo[m  [1m:[m [2mcmds[m  [1m?[m [2mhelp[m  [1mq[m [2mquit[m        
+[1menter[m [2mchoose[m  [1m/[m [2msearch[m  [1mesc[m [2mback[m  [1mn[m [2mnew[m  [1mC[m [2mclone[m  [1me[m [2medit[m  [1mr[m [2mrename[m  [1md[m [2mdelete[m    
+[1mt[m [2mtest[m  [1mg[m [2msetup[m  [1m1-6[m [2mareas[m  [1mctrl+l[m [2mlock vault[m  [1mi[m [2minfo[m  [1m:[m [2mcmds[m  [1m?[m [2mhelp[m  [1mq[m [2mquit[m   

@@ -49,7 +49,7 @@ func TestDropdownKeysOpenChooseAndCancel(t *testing.T) {
 		t.Fatalf("esc did not close the list unchanged: open %v flat %v bar %d", m.dd != nil, m.opts(sectionConnections).flat, m.barFocus)
 	}
 	press(t, m, "enter", "down", "enter")
-	if m.dd != nil || !m.opts(sectionConnections).flat || m.groups != nil {
+	if m.dd != nil || !m.opts(sectionConnections).flat || listGrouped(m) {
 		t.Fatalf("enter did not take None: open %v flat %v", m.dd != nil, m.opts(sectionConnections).flat)
 	}
 	press(t, m, "down")
@@ -61,27 +61,37 @@ func TestDropdownKeysOpenChooseAndCancel(t *testing.T) {
 	}
 }
 
-// The search field shows the placeholder while idle and the typed text afterwards.
+// The search field is the list's own, on the line below the filter bar: it opens with the search key, shows
+// the typed text behind it and keeps it after enter. The idle bar has none.
 func TestSearchFieldShowsPlaceholderAndText(t *testing.T) {
 	eachLanguage(t, func(t *testing.T) {
 		m := newTableModel(t, 100)
 		openSectionByName(t, m, sectionConnections)
-		want := tr(tSearchField)
-		if !strings.Contains(want, "…") || !strings.HasPrefix(want, "/ ") {
-			t.Fatalf("placeholder = %q", want)
+		want := translator(false).Lookup(kittui.TextSearchKey, keyLabel(actSearch))
+		searchLine := func() bool {
+			for _, line := range strings.Split(ansi.Strip(screenOf(m)), "\n") {
+				inner, framed := strings.CutPrefix(line, "║")
+				if framed && strings.HasPrefix(strings.TrimLeft(inner, " "), keyLabel(actSearch)) {
+					return true
+				}
+			}
+			return false
 		}
-		if line := ansi.Strip(m.barLine(m.listWidth())); !strings.Contains(line, want) {
-			t.Fatalf("the idle bar lacks %q: %q", want, line)
+		if line := ansi.Strip(m.barLine(m.listWidth())); strings.Contains(line, want) || searchLine() {
+			t.Fatalf("the idle list shows a search field: %q", line)
 		}
 		press(t, m, "/")
+		if !searchLine() {
+			t.Fatalf("the search key opens no search field:\n%s", ansi.Strip(screenOf(m)))
+		}
 		typeText(t, m, "wiki")
-		line := ansi.Strip(m.barLine(m.listWidth()))
-		if !strings.Contains(line, "/ wiki") || strings.Contains(line, want) {
-			t.Fatalf("the typed search is not in the field: %q", line)
+		view := ansi.Strip(screenOf(m))
+		if !strings.Contains(view, "/ wiki") || strings.Contains(view, want) {
+			t.Fatalf("the typed search is not in the field:\n%s", view)
 		}
 		press(t, m, "enter")
-		if line := ansi.Strip(m.barLine(m.listWidth())); !strings.Contains(line, "/ wiki") || !strings.Contains(line, "Provider ▾") {
-			t.Fatalf("the kept search vanished from the bar: %q", line)
+		if view := ansi.Strip(screenOf(m)); !strings.Contains(view, "/ wiki") || !strings.Contains(view, "Provider ▾") {
+			t.Fatalf("the kept search vanished:\n%s", view)
 		}
 	})
 }

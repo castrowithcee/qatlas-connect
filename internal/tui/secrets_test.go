@@ -85,7 +85,7 @@ func chooseStorage(t *testing.T, m *Model) {
 func editEntry(t *testing.T, m *Model, name string) {
 	t.Helper()
 	openSectionByName(t, m, sectionCredentials)
-	for i := 0; i <= len(m.list.all); i++ {
+	for i := 0; i <= len(listRowsOf(m)); i++ {
 		if got, _ := m.selected(); got == name {
 			pump(t, m, "enter")
 			return

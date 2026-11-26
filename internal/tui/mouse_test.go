@@ -176,14 +176,14 @@ func TestClickOnATabAsksBeforeUnsavedInputIsDropped(t *testing.T) {
 func TestClickOnAListRowOpensItAndOnAGroupFoldsIt(t *testing.T) {
 	m := sizedModel(groupModel(t), 120, 40)
 	openSectionByName(t, m, sectionServices)
-	before := len(m.list.matches)
+	before := len(listRowsOf(m))
 	clickOn(t, m, "▾ ■ tracker (1)")
-	if len(m.list.matches) != before-1 {
-		t.Fatalf("a click on a group row left %d rows, want %d", len(m.list.matches), before-1)
+	if len(listRowsOf(m)) != before-1 {
+		t.Fatalf("a click on a group row left %d rows, want %d", len(listRowsOf(m)), before-1)
 	}
 	clickOn(t, m, "▸ ■ tracker (1)")
-	if len(m.list.matches) != before {
-		t.Fatalf("a second click left %d rows, want %d", len(m.list.matches), before)
+	if len(listRowsOf(m)) != before {
+		t.Fatalf("a second click left %d rows, want %d", len(listRowsOf(m)), before)
 	}
 	clickOnRow(t, m, "wiki-main")
 	if m.screen != screenList || m.editing != "" || markedRow(m) != "wiki-main" {
@@ -196,7 +196,7 @@ func TestClickOnAListRowOpensItAndOnAGroupFoldsIt(t *testing.T) {
 }
 
 func markedRow(m *Model) string {
-	name, _ := m.list.selected()
+	name, _ := m.marked()
 	return name
 }
 
@@ -587,14 +587,14 @@ func TestClickOnAConfirmationAnswersWithTheUsualKey(t *testing.T) {
 func TestTheWheelScrollsAListAndAForm(t *testing.T) {
 	m := sizedModel(groupModel(t), 100, 40)
 	openSectionByName(t, m, sectionConnections)
-	before := m.list.cursor
+	before := listCursor(m)
 	wheelAt(t, m, 5, 10, tea.MouseWheelDown)
-	if want := before + 1; m.list.cursor != want {
-		t.Errorf("after the wheel down the cursor is %d, want %d", m.list.cursor, want)
+	if want := before + 1; listCursor(m) != want {
+		t.Errorf("after the wheel down the cursor is %d, want %d", listCursor(m), want)
 	}
 	wheelAt(t, m, 5, 10, tea.MouseWheelUp)
-	if m.list.cursor != before {
-		t.Errorf("after the wheel up the cursor is %d, want %d", m.list.cursor, before)
+	if listCursor(m) != before {
+		t.Errorf("after the wheel up the cursor is %d, want %d", listCursor(m), before)
 	}
 
 	clickOnRow(t, m, "wiki-docs")
@@ -681,15 +681,15 @@ func TestATooSmallTerminalIgnoresTheMouse(t *testing.T) {
 	if !m.tooSmall {
 		t.Fatalf("the Details tab with a long note fits the smallest terminal; the notice is not shown:\n%s", ansi.Strip(m.render()))
 	}
-	cursor, area, screen := m.list.cursor, m.section.area(), m.screen
+	cursor, area, screen := listCursor(m), m.section.area(), m.screen
 	for row := 0; row < minimumHeight; row++ {
 		for _, x := range []int{0, 3, 12, 30} {
 			clickAt(t, m, x, row)
 			wheelAt(t, m, x, row, tea.MouseWheelDown)
 		}
 	}
-	if m.list.cursor != cursor || m.section.area() != area || m.screen != screen {
-		t.Errorf("cursor %d area %v screen %v after clicks on the size notice", m.list.cursor, m.section.area(), m.screen)
+	if listCursor(m) != cursor || m.section.area() != area || m.screen != screen {
+		t.Errorf("cursor %d area %v screen %v after clicks on the size notice", listCursor(m), m.section.area(), m.screen)
 	}
 }
 
@@ -704,9 +704,9 @@ func TestSwitchedOffMouseDoesNothing(t *testing.T) {
 		t.Error("a click switched the area with the mouse off")
 	}
 	openSectionByName(t, m, sectionServices)
-	cursor := m.list.cursor
+	cursor := listCursor(m)
 	wheelAt(t, m, 5, 10, tea.MouseWheelDown)
-	if m.list.cursor != cursor {
+	if listCursor(m) != cursor {
 		t.Error("the wheel moved the list with the mouse off")
 	}
 	if mode := m.View().MouseMode; mode != tea.MouseModeNone {
@@ -882,11 +882,11 @@ func TestDialogButtonsWorkInTheFullScreenFallback(t *testing.T) {
 func TestTheWheelStopsAtTheEnds(t *testing.T) {
 	m := sizedModel(groupModel(t), 100, 40)
 	openSectionByName(t, m, sectionConnections)
-	last := len(m.list.matches) - 1
-	m.list.cursor = last
+	last := len(listRowsOf(m)) - 1
+	setListCursor(m, last)
 	wheelAt(t, m, 5, 10, tea.MouseWheelDown)
-	if m.list.cursor != last {
-		t.Errorf("the wheel down at the end of the list moved the cursor to %d", m.list.cursor)
+	if listCursor(m) != last {
+		t.Errorf("the wheel down at the end of the list moved the cursor to %d", listCursor(m))
 	}
 
 	clickOnRow(t, m, "wiki-docs")
