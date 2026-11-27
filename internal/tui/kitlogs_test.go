@@ -8,6 +8,7 @@ import (
 	"unicode"
 
 	"github.com/castrowithcee/qatlas-connect/internal/invokelog"
+	kittui "github.com/castrowithcee/qatlas-kit/tui"
 )
 
 // A value of the log with a control character or a terminal sequence reaches neither a cell, the search
@@ -83,5 +84,84 @@ func TestLogRowsPositionAndSelectionFollowTheList(t *testing.T) {
 	m.logs.applyFilters()
 	if id, _ := m.logs.list.Selected(); id != marked {
 		t.Errorf("the mark moved from row %q to %q while it is still shown", marked, id)
+	}
+}
+
+// callsOf adds the calls column of the lines of a summary list.
+func callsOf(t *testing.T, items []kittui.ListItem) int {
+	t.Helper()
+	sum := 0
+	for _, item := range items {
+		n, err := strconv.Atoi(item.Cells[0])
+		if err != nil {
+			t.Fatalf("calls %q: %v", item.Cells[0], err)
+		}
+		sum += n
+	}
+	return sum
+}
+
+// The counts of the summary are those of the rows shown: a search and a filter narrow them, and the
+// sessions list takes the same rows.
+func TestLogSummaryFollowsTheShownRows(t *testing.T) {
+	f := newLogFixture(t)
+	for _, result := range []string{"success", "denied", "success", "success", "denied"} {
+		f.append("mcp", "claude-code", "wiki.pages.list", "wiki", result)
+	}
+	m := sizedModel(f.model(false, f.localToday()), 140, 40)
+	total := len(m.logs.rows)
+	if got := callsOf(t, m.logStatItems()); got != total {
+		t.Fatalf("the summary counts %d calls of %d rows", got, total)
+	}
+	press(t, m, "/")
+	typeText(t, m, "denied")
+	press(t, m, "enter")
+	narrow := m.logs.shownCount()
+	if got := callsOf(t, m.logStatItems()); got != narrow || narrow >= total {
+		t.Errorf("with a search the summary counts %d calls of %d shown rows (of %d)", got, narrow, total)
+	}
+	press(t, m, "esc")
+	m.logs.filters[logFilterResult] = logResultOK
+	m.logs.applyFilters()
+	if got := callsOf(t, m.logStatItems()); got != m.logs.shownCount() {
+		t.Errorf("with a filter the summary counts %d calls of %d shown rows", got, m.logs.shownCount())
+	}
+}
+
+// A value of the log with a control character or a terminal sequence reaches neither a cell of the summary
+// nor of the sessions, nor the ID of a line, and the drawn screen shows no sequence.
+func TestLogSummaryHoldsNoControlCharacterFromTheLog(t *testing.T) {
+	m := sizedModel(groupModel(t), 140, 40)
+	entry := invokelog.Entry{Path: "mcp", Session: "ab\x1b]0;evil\x07cd", Operation: "tool\x07bell\x1b[2J",
+		Connection: "conn\x1b]52;c;ZXZpbA==\x07", Effect: "read", Result: "ok"}
+	lv := m.logs
+	lv.rows, lv.loaded = []logRow{m.logRowOf("2026-01-01", invokelog.LineResult{Parsed: true, Entry: entry}, false)}, true
+	lv.applyFilters()
+	m.screen, m.section = screenLogs, sectionLogs
+	for _, sessions := range []bool{false, true} {
+		lv.stats, lv.sessions = true, sessions
+		items := m.logStatItems()
+		if sessions {
+			items = m.logSessionItems()
+		}
+		if len(items) == 0 {
+			t.Fatalf("sessions %v: no line", sessions)
+		}
+		for _, item := range items {
+			if _, err := strconv.Atoi(string(item.ID)); err != nil {
+				t.Errorf("the ID %q is not an index", item.ID)
+			}
+			for _, cell := range item.Cells {
+				if strings.IndexFunc(cell, func(r rune) bool { return unicode.IsControl(r) || unicode.Is(unicode.Cf, r) }) >= 0 {
+					t.Errorf("sessions %v: %q holds a control character", sessions, cell)
+				}
+			}
+		}
+		view := m.render()
+		for _, raw := range []string{"\x07", "\x1b]", "\x1b[2J"} {
+			if strings.Contains(view, raw) {
+				t.Errorf("sessions %v: the screen holds %q from the log", sessions, raw)
+			}
+		}
 	}
 }

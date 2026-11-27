@@ -1172,12 +1172,19 @@ func clickLogRows(form string) []struct {
 } {
 	var mu sync.Mutex
 	logs := map[*testing.T]*logFixture{}
-	open := func(w, h int, search string) func(t *testing.T) *Model {
+	// The summary keys get a log of three tools in one MCP session, so each list has lines to move over.
+	open := func(w, h int, search string, keys ...string) func(t *testing.T) *Model {
 		return func(t *testing.T) *Model {
 			mu.Lock()
 			f := logs[t]
 			if f == nil {
 				f = activityLog(t)
+				if slices.Contains(keys, "M") || slices.Contains(keys, "s") {
+					f = newLogFixture(t)
+					for i := range 3 {
+						f.appendSession(sessionNew, "wiki.tool"+strconv.Itoa(i), "success", 10, 100)
+					}
+				}
 				logs[t] = f
 			}
 			mu.Unlock()
@@ -1189,6 +1196,7 @@ func clickLogRows(form string) []struct {
 				typeText(t, m, search)
 				press(t, m, "enter")
 			}
+			press(t, m, keys...)
 			m.render()
 			return m
 		}
@@ -1196,7 +1204,8 @@ func clickLogRows(form string) []struct {
 	return []struct {
 		name  string
 		build func(t *testing.T) *Model
-	}{{"log rows", open(140, 40, "")}, {"log rows with a search", open(80, 24, "wiki")}}
+	}{{"log rows", open(140, 40, "")}, {"log rows with a search", open(80, 24, "wiki")},
+		{"log summary", open(140, 40, "", "s")}, {"log sessions", open(80, 24, "", "M")}}
 }
 
 // assertLogRowTargetsClickAsKeys requires each target the list of the Logs drew to act as its keys while the
@@ -1205,8 +1214,12 @@ func clickLogRows(form string) []struct {
 func assertLogRowTargetsClickAsKeys(t *testing.T, build func(t *testing.T) *Model) {
 	t.Helper()
 	base := build(t)
-	shown := base.logs.list.Shown()
-	at, _ := base.logs.list.Selected()
+	list := base.logs.list
+	if base.logs.stats {
+		list = base.summaryList()
+	}
+	shown := list.Shown()
+	at, _ := list.Selected()
 	from := slices.Index(shown, at)
 	rows, search := 0, 0
 	for _, target := range base.listTargets {

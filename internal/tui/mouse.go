@@ -300,6 +300,10 @@ func (m *Model) wheel(event tea.Mouse, r kittui.MouseResult) tea.Cmd {
 	if m.section == sectionLogs && m.screen == screenLogs && r.Zone == kittui.ZoneRows {
 		// Over the rows of the log the wheel moves the mark and stops at the ends.
 		m.touchAdminSessionIfActive()
+		if m.logs.stats {
+			m.summaryList().Wheel(r.WheelSteps)
+			return nil
+		}
 		m.logs.list.Wheel(r.WheelSteps)
 		return nil
 	}
@@ -712,13 +716,17 @@ func (m *Model) logTabTargets(tabs []string, search string) []barSpec {
 // only takes the focus and marks.
 func (m *Model) clickLogRows(r kittui.MouseResult) tea.Cmd {
 	lv := m.logs
-	lv.list.SetFocused(m.screen == screenLogs && lv.focus == logFocusRows)
+	list := lv.list
+	if lv.stats {
+		list = m.summaryList()
+	}
+	list.SetFocused(m.screen == screenLogs && lv.focus == logFocusRows)
 	lead, ok := m.logBarGuard()
 	if !ok {
 		return lead
 	}
 	lv.setFocus(logFocusRows, false)
-	if open, _ := lv.list.Click(r); open != "" {
+	if open, _ := list.Click(r); open != "" {
 		return tea.Batch(lead, m.press(tea.KeyPressMsg{Code: tea.KeyEnter}))
 	}
 	return lead

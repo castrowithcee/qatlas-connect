@@ -852,7 +852,8 @@ func TestLogsSessionSummaryShowsAreasToolsAndEstimates(t *testing.T) {
 	for name, cells := range want {
 		var got []string
 		for _, l := range strings.Split(view, "\n") {
-			cell := strings.TrimSpace(strings.Trim(strings.TrimSpace(l), "│║"))
+			// The marked line starts with the mark of the list.
+			cell := strings.TrimPrefix(strings.TrimSpace(strings.Trim(strings.TrimSpace(l), "│║")), "> ")
 			if fields := strings.Fields(cell); strings.HasPrefix(cell, name+" ") && len(fields) >= 5 {
 				got = fields[len(fields)-5:]
 				break
@@ -897,18 +898,18 @@ func TestLogsSessionSummaryScrollsAndFitsNarrow(t *testing.T) {
 	press(t, m, "M")
 	view := m.render()
 	assertViewFits(t, view, 60, 18)
-	if !strings.Contains(view, "… ") || !strings.Contains(view, "more") || strings.Contains(view, "wiki.tool111") {
-		t.Fatalf("a long summary does not say what it leaves out:\n%s", view)
+	if strings.Contains(view, "wiki.tool111") {
+		t.Fatalf("a long summary shows its last line before it scrolls:\n%s", view)
 	}
 	press(t, m, "end")
 	view = m.render()
 	assertViewFits(t, view, 60, 18)
-	if !strings.Contains(view, "wiki.tool111") || strings.Contains(view, "more") {
+	if !strings.Contains(view, "wiki.tool111") {
 		t.Errorf("end does not scroll to the last line:\n%s", view)
 	}
 	press(t, m, "home")
-	if m.logs.scroll != 0 {
-		t.Errorf("home left scroll %d", m.logs.scroll)
+	if id, _ := m.summaryList().Selected(); id != "0" {
+		t.Errorf("home left the mark on line %q", id)
 	}
 	m.Update(tea.WindowSizeMsg{Width: 40, Height: minimumHeight})
 	assertViewFits(t, m.render(), 40, minimumHeight)

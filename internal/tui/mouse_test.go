@@ -688,7 +688,7 @@ func TestATooSmallTerminalIgnoresTheMouse(t *testing.T) {
 	m = sizedModel(heatModel(t, activityLog(t)), 40, minimumHeight)
 	m.setLogTab(logTabDetails)
 	// A note of several lines takes the rows the compact summary still needs.
-	m.status = strings.Repeat("a long note ", 12)
+	m.status = strings.Repeat("a long note ", 24)
 	m.render()
 	if !m.tooSmall {
 		t.Fatalf("the Details tab with a long note fits the smallest terminal; the notice is not shown:\n%s", ansi.Strip(m.render()))

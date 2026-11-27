@@ -678,7 +678,6 @@ const (
 	tLogEmptyDay                             textID = "LogEmptyDay"
 	tLogEmptyRange                           textID = "LogEmptyRange"
 	tLogEmptyAll                             textID = "LogEmptyAll"
-	tLogMore                                 textID = "LogMore"
 	tLogNoSession                            textID = "LogNoSession"
 	tLogSessionRow                           textID = "LogSessionRow"
 	tLogEntryFile                            textID = "LogEntryFile"

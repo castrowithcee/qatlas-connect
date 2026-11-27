@@ -110,7 +110,7 @@ func (m *Model) setLogTab(tab logTab) tea.Cmd {
 	case logTabActivity:
 		return m.setHeat(true)
 	case logTabDetails:
-		lv.stats, lv.sessions, lv.heat, lv.scroll = true, false, false, 0
+		lv.stats, lv.sessions, lv.heat = true, false, false
 	default:
 		lv.stats, lv.sessions, lv.heat = false, false, false
 	}
@@ -157,32 +157,6 @@ func logLabel(english string) string {
 		return tr(id)
 	}
 	return labelText(english)
-}
-
-// logColumnTitles draws the column titles of a table of the Logs section in the editor's language, in capitals.
-func logColumnTitles(columns []column) []column {
-	out := make([]column, len(columns))
-	for i, c := range columns {
-		c.title = strings.ToUpper(columnText(c.title))
-		out[i] = c
-	}
-	return out
-}
-
-// logStatColumns are the columns of the summary s shows. The count leads and is never cut; the sizes are
-// token estimates (invokelog.EstimateTokens), and the bytes and the missing counters go in a narrow terminal.
-var logStatColumns = []column{
-	{title: "calls"}, {title: "tool", flex: true}, {title: "connection", optional: true},
-	{title: "~tok"}, {title: "max"}, {title: "p50", optional: true}, {title: "p95"},
-	{title: "bytes", optional: true}, {title: "no size", optional: true},
-}
-
-// logSessionColumns are the columns of the MCP session summary. The first column holds the session, its
-// areas, and their tools as indented text; the byte split of a request and a response goes in a narrow
-// terminal before the total and the token estimate do.
-var logSessionColumns = []column{
-	{title: "session / area / tool"}, {title: "calls"}, {title: "req B", optional: true},
-	{title: "resp B", optional: true}, {title: "total B"}, {title: "~tokens"},
 }
 
 // maxLogText bounds one field of a log line on screen; a well-formed entry never comes close.
@@ -240,9 +214,11 @@ type logView struct {
 	framed bool
 	// compact says that the last frame left out the panel and the explanations, which the info key gives.
 	compact bool
-	// sessions makes the summary the one of the MCP sessions, scrolled down by scroll lines.
+	// sessions makes the summary the one of the MCP sessions. The two summaries are kit lists (see kitlogs.go).
 	sessions bool
-	scroll   int
+	// statList and sessionList are the two summaries, made anew when the language changes (summaryLang).
+	statList, sessionList *kit.List
+	summaryLang           i18n.Lang
 	// bar is the filter bar of the mode, the date and the filters; barTargets are its targets in the last
 	// frame, counted from the left of its line.
 	bar        *kit.FilterBar
@@ -622,7 +598,7 @@ func (m *Model) updateLogs(key tea.KeyPressMsg) tea.Cmd {
 		lv.stats, lv.sessions, lv.heat = !lv.stats, false, false
 	case keyIs(key, actSessions):
 		on := !(lv.stats && lv.sessions)
-		lv.stats, lv.sessions, lv.scroll, lv.heat = on, on, 0, false
+		lv.stats, lv.sessions, lv.heat = on, on, false
 	case keyIs(key, actEnter):
 		switch lv.focus {
 		case logFocusTabs:
@@ -640,8 +616,8 @@ func (m *Model) updateLogs(key tea.KeyPressMsg) tea.Cmd {
 		if lv.heat {
 			break
 		}
-		if lv.stats && lv.sessions {
-			m.scrollSessions(key)
+		if lv.stats {
+			m.summaryList().Update(key)
 			break
 		}
 		lv.list.Update(key)
@@ -713,11 +689,7 @@ func (m *Model) logsView() string {
 		return b.String()
 	}
 	if lv.stats && lv.loaded && lv.err == "" && lv.shownCount() > 0 {
-		if lv.sessions {
-			b.WriteString(m.logInside(m.sessionStatLines(m.logSessionStats(), room)))
-		} else {
-			b.WriteString(m.logInside(m.logStatLines(m.logStats(), room)))
-		}
+		m.writeLogList(&b, m.summaryList(), head, room)
 		m.zoneLogs(b.String())
 		b.WriteString(foot)
 		return b.String()
@@ -730,21 +702,26 @@ func (m *Model) logsView() string {
 	}
 	if lv.tab() == logTabTable && lv.loaded && lv.err == "" && len(lv.rows) > 0 {
 		lv.syncList()
-		lv.list.SetFocused(m.screen == screenLogs && lv.focus == logFocusRows)
-		view, targets := lv.list.View(styles.Styles, m.logRoom(), room)
-		lines := strings.Split(view, "\n")
-		// The list fills its height with blank lines; the panel closes below the last one it drew.
-		for len(lines) > 0 && strings.TrimSpace(ansi.Strip(lines[len(lines)-1])) == "" {
-			lines = lines[:len(lines)-1]
-		}
-		for _, line := range lines {
-			b.WriteString(m.logSide(line) + "\n")
-		}
-		m.addLogRowTargets(targets, head, len(lines))
+		m.writeLogList(&b, lv.list, head, room)
 	}
 	m.zoneLogs(b.String())
 	b.WriteString(foot)
 	return b.String()
+}
+
+// writeLogList draws a kit list of the Logs in the panel and registers its click targets. The list fills its
+// height with blank lines; the panel closes below the last line it drew.
+func (m *Model) writeLogList(b *strings.Builder, l *kit.List, head string, room int) {
+	l.SetFocused(m.screen == screenLogs && m.logs.focus == logFocusRows)
+	view, targets := l.View(styles.Styles, m.logRoom(), room)
+	lines := strings.Split(view, "\n")
+	for len(lines) > 0 && strings.TrimSpace(ansi.Strip(lines[len(lines)-1])) == "" {
+		lines = lines[:len(lines)-1]
+	}
+	for _, line := range lines {
+		b.WriteString(m.logSide(line) + "\n")
+	}
+	m.addLogRowTargets(targets, head, len(lines))
 }
 
 // zoneLogs registers the zones of the Logs screen, whose lines up to its foot are drawn: the panel with its
@@ -911,9 +888,6 @@ func (m *Model) logsFrame() (string, string) {
 			}
 			lines = append(lines, m.wrapped(style, text))
 		}
-		header := func(t table, l layout) string {
-			return styles.hint.Render(clipCells("  "+t.header(l), room))
-		}
 		switch {
 		case lv.err != "":
 			note(styles.fail, tr(tLogError, lv.err))
@@ -930,15 +904,10 @@ func (m *Model) logsFrame() (string, string) {
 			if !compact {
 				note(styles.hint, tr(tLogSessionsHelp))
 			}
-			if stats := m.logSessionStats(); len(stats.order) > 0 {
-				lines = append(lines, header(stats.table, stats.layout))
-			}
 		case lv.stats:
-			stats := m.logStats()
 			if !compact {
 				note(styles.hint, tr(tLogStatsHelp))
 			}
-			lines = append(lines, header(stats.table, stats.layout))
 		}
 		if framed {
 			for i, line := range lines {
@@ -993,8 +962,12 @@ func (m *Model) logsFrame() (string, string) {
 			return strings.Join(lines, "\n") + "\n", strings.TrimPrefix(keys, "\n") + m.notes()
 		}
 		foot := keys
-		if shown > 0 && focused && !lv.stats && !lv.heat {
-			lv.position = lv.list.Position()
+		if shown > 0 && focused && !lv.heat {
+			if lv.stats {
+				lv.position = m.summaryList().Position()
+			} else {
+				lv.position = lv.list.Position()
+			}
 		}
 		if lv.note != "" && lv.loaded && lv.hasUnchecked() {
 			foot = "\n" + m.wrapped(styles.hint, lv.note) + foot
@@ -1114,145 +1087,6 @@ func (lv *logView) shownEntries() []invokelog.Entry {
 		}
 	}
 	return entries
-}
-
-// logStats is the summary of the rows the filters and the search keep: the table with a row per group and
-// its layout for the workspace.
-type logStats struct {
-	table  table
-	layout layout
-	groups []invokelog.SizeGroup
-}
-
-func (m *Model) logStats() logStats {
-	lv := m.logs
-	entries := lv.shownEntries()
-	s := logStats{groups: invokelog.Summarize(entries), table: table{columns: logColumnTitles(logStatColumns), rows: map[string][]string{}}}
-	num := func(n int64) string { return strconv.FormatInt(n, 10) }
-	for i, g := range s.groups {
-		cells := []string{strconv.Itoa(g.Calls), m.logText(g.Operation), orDash(m.logText(g.Connection)),
-			num(invokelog.EstimateTokens(g.Bytes)), num(invokelog.EstimateTokens(g.Max)),
-			num(invokelog.EstimateTokens(g.P50)), num(invokelog.EstimateTokens(g.P95)), num(g.Bytes),
-			strconv.Itoa(g.NoCounter)}
-		if g.Counted() == 0 {
-			// No invoke of the group has a recorded size; that is not a size of 0.
-			for k := 3; k <= 7; k++ {
-				cells[k] = "-"
-			}
-		}
-		s.table.rows[strconv.Itoa(i)] = cells
-	}
-	_, width := m.fitIn(m.logRoom(), "  ")
-	s.layout = s.table.layout(width)
-	return s
-}
-
-// logStatLines draws the groups of s as many lines as fit in room; a last line says how many it left out.
-func (m *Model) logStatLines(s logStats, room int) string {
-	if len(s.groups) > room {
-		room = max(room-1, 0)
-	}
-	var b strings.Builder
-	for i := range s.groups {
-		if i == room {
-			b.WriteString(styles.hint.Render(tr(tLogMore, len(s.groups)-i)) + "\n")
-			break
-		}
-		b.WriteString(m.listRowIn(m.logRoom(), false, s.table.line(s.table.rows[strconv.Itoa(i)], s.layout)) + "\n")
-	}
-	return b.String()
-}
-
-// logSessionStats is the table of the MCP sessions among the rows the filters and the search keep: a line
-// for each session, its areas, and their tools, as the cells of the table, in the order of order.
-type logSessionStats struct {
-	table  table
-	layout layout
-	order  []string
-}
-
-func (m *Model) logSessionStats() logSessionStats {
-	lv := m.logs
-	entries := lv.shownEntries()
-	s := logSessionStats{table: table{columns: logColumnTitles(logSessionColumns), rows: map[string][]string{}}}
-	add := func(label string, t invokelog.ToolBytes) {
-		name := strconv.Itoa(len(s.order))
-		s.order = append(s.order, name)
-		s.table.rows[name] = []string{label, strconv.Itoa(t.Calls), strconv.FormatInt(t.ReqBytes, 10),
-			strconv.FormatInt(t.RespBytes, 10), strconv.FormatInt(t.Total(), 10),
-			strconv.FormatInt(invokelog.EstimateTokens(t.Total()), 10)}
-	}
-	for _, session := range invokelog.SummarizeSessions(entries) {
-		var sum invokelog.ToolBytes
-		for _, a := range session.Areas {
-			sum.Calls += a.Calls
-			sum.ReqBytes += a.ReqBytes
-			sum.RespBytes += a.RespBytes
-		}
-		add(tr(tLogSessionRow, m.logText(session.Session)), sum)
-		for _, a := range session.Areas {
-			add("  "+string(a.Area), a.ToolBytes)
-			for _, t := range a.Tools {
-				add("    "+orDash(m.logText(t.Operation)), t)
-			}
-		}
-	}
-	_, width := m.fitIn(m.logRoom(), "  ")
-	s.layout = s.table.layout(width)
-	return s
-}
-
-// sessionRoom is how many lines the session summary has room for between the frame of the Logs screen.
-func (m *Model) sessionRoom() int {
-	head, foot := m.logsFrame()
-	return m.height - strings.Count(head, "\n") - strings.Count(foot, "\n") - 1
-}
-
-// scrollSessions moves the shown part of the session summary; the view clamps it again for its own room.
-func (m *Model) scrollSessions(key tea.KeyPressMsg) {
-	lv := m.logs
-	room := max(m.sessionRoom()-1, 1)
-	last := max(len(m.logSessionStats().order)-room, 0)
-	by := 0
-	switch {
-	case keyIs(key, actUp):
-		by = -1
-	case keyIs(key, actDown):
-		by = 1
-	case keyIs(key, actPageUp):
-		by = -room
-	case keyIs(key, actPageDown):
-		by = room
-	}
-	switch {
-	case keyIs(key, actHome):
-		lv.scroll = 0
-	case keyIs(key, actEnd):
-		lv.scroll = last
-	default:
-		lv.scroll = min(max(lv.scroll+by, 0), last)
-	}
-}
-
-// sessionStatLines draws the lines of s from the scroll position as many as fit in room, or says that the
-// rows shown hold no MCP session; a last line says how many lines it left below.
-func (m *Model) sessionStatLines(s logSessionStats, room int) string {
-	if len(s.order) == 0 {
-		return render(lipgloss.NewStyle(), m.logRoom(), tr(tLogNoSession)) + "\n"
-	}
-	start := min(max(m.logs.scroll, 0), max(len(s.order)-1, 0))
-	if len(s.order)-start > room {
-		room = max(room-1, 0)
-	}
-	var b strings.Builder
-	for i := start; i < len(s.order); i++ {
-		if i-start == room {
-			b.WriteString(styles.hint.Render(tr(tLogMore, len(s.order)-i)) + "\n")
-			break
-		}
-		b.WriteString(m.listRowIn(m.logRoom(), false, s.table.line(s.table.rows[s.order[i]], s.layout)) + "\n")
-	}
-	return b.String()
 }
 
 // logDetailView shows every field of one entry, and its status with the reason.
