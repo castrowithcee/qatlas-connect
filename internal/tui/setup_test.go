@@ -31,7 +31,7 @@ func walkSetup(t *testing.T, m *Model, until int) {
 func walkSetupFrom(t *testing.T, m *Model, key string, until int) {
 	t.Helper()
 	press(t, m, key)
-	if m.wizard == nil || m.screen != screenProviders {
+	if m.wizard == nil || !choiceOpen(m, screenProviders) || m.fail != "" {
 		t.Fatalf("%s did not open the guided setup on its provider table: screen %v, error %q", key, m.screen, m.fail)
 	}
 	steps := []func(){
@@ -684,11 +684,11 @@ func TestNewInConnectionsKeepsTheTemplateQuestion(t *testing.T) {
 	openSectionByName(t, m, sectionConnections)
 	m.screen = screenList
 	press(t, m, "n")
-	if m.screen != screenTemplate || m.template == nil || !m.template.setup {
+	if !choiceOpen(m, screenTemplate) || !m.template.setup || m.fail != "" {
 		t.Fatalf("n: screen %v, want the template question of the setup", m.screen)
 	}
 	press(t, m, "enter")
-	if m.wizard == nil || m.screen != screenProviders {
+	if m.wizard == nil || !choiceOpen(m, screenProviders) || m.fail != "" {
 		t.Fatalf("empty: screen %v, want the setup's provider table", m.screen)
 	}
 }

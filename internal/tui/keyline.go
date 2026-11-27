@@ -21,7 +21,6 @@ const (
 	keysRequestChoice = "{up}/{down} choose · {enter} accept · {back} back · {command} cmds · {help} help"
 	keysCommandLine   = "type to search · {up}/{down} or {next} choose · {enter} run · {back} close"
 	keysLogDetail     = "{back} back · {area} section · {command} cmds · {help} help"
-	keysTemplateKind  = "{up}/{down} move · {enter} choose · {back} cancel · {command} cmds · {help} help"
 
 	keysExportSelect = "{up}/{down} move · {space} tick · {save} or {enter} next · {back} cancel · {command} cmds · {help} help"
 	keysExportMode   = "{up}/{down} move · {save} or {enter} choose · {back} back · {command} cmds · {help} help"
@@ -105,8 +104,6 @@ func (m *Model) workspaceKeys() string {
 		return m.logDetailKeys()
 	case screenPicker:
 		return m.pickerKeys()
-	case screenProviders:
-		return m.providerKeys()
 	case screenCommand:
 		return keysCommandLine
 	case screenSelftest:
@@ -114,11 +111,6 @@ func (m *Model) workspaceKeys() string {
 			return ""
 		}
 		return m.selftestKeys()
-	case screenVersions:
-		if m.versions == nil {
-			return ""
-		}
-		return m.versionKeys()
 	case screenTargets:
 		switch {
 		case m.targetPick != nil:
@@ -129,11 +121,6 @@ func (m *Model) workspaceKeys() string {
 		return m.targetKeys()
 	case screenPaths:
 		return m.pathKeys()
-	case screenTemplate:
-		if m.template == nil {
-			return ""
-		}
-		return m.templateKeys()
 	case screenFindings:
 		return m.findingsKeys()
 	case screenTransfer:

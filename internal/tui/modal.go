@@ -56,6 +56,14 @@ func (m *Model) screenBeneath(s screen) (screen, bool) {
 		}
 	case screenUpdate:
 		return m.updateFrom, true
+	case screenProviders:
+		return screenForm, true
+	case screenTemplate:
+		return m.templateFromScreen(), true
+	case screenVersions:
+		if m.versions != nil {
+			return m.versions.from, true
+		}
 	case screenRestart:
 		return m.restartBack, true
 	case screenRename:
