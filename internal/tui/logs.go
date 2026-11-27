@@ -27,6 +27,7 @@ import (
 	"github.com/castrowithcee/qatlas-connect/internal/invokelog"
 	"github.com/castrowithcee/qatlas-connect/internal/vault"
 	"github.com/castrowithcee/qatlas-connect/internal/vaultproc"
+	"github.com/castrowithcee/qatlas-kit/i18n"
 	kit "github.com/castrowithcee/qatlas-kit/tui"
 )
 
@@ -168,43 +169,6 @@ func logColumnTitles(columns []column) []column {
 	return out
 }
 
-// logColumns are the columns of the log table. The status leads and is never cut; the tool is the free
-// text; the duration goes first in a narrow terminal, then the size, the connection, and the client.
-var logColumns = []column{
-	{title: "status", tone: logStatusTone}, {title: "time", tone: toneDim}, {title: "way", tone: toneDim},
-	{title: "client", optional: true, tone: toneText}, {title: "tool", flex: true, tone: toneText},
-	{title: "connection", optional: true, tone: toneText}, {title: "result", tone: logResultTone},
-	{title: "resp.", optional: true, tone: toneDim}, {title: "dur.", optional: true, right: true, tone: toneText},
-}
-
-// logStatusTone colours the status of a row by what it says; the word stays in the cell. Unverified is the
-// normal state of an unsigned log, so its rows are dimmed and only the summary above them warns.
-func logStatusTone(cell string) lipgloss.Style {
-	for s := logVerified; s <= logAltered; s++ {
-		if cell == s.label() {
-			if s == logUnverified {
-				return styles.hint
-			}
-			return s.style()
-		}
-	}
-	return styles.cell
-}
-
-// logResultOK is the result cell of a call that went through.
-const logResultOK = "ok"
-
-// logResultTone colours the result of a call: ok in the success colour, anything but ok in the failure colour.
-func logResultTone(cell string) lipgloss.Style {
-	if cell == logResultOK {
-		return styles.ok
-	}
-	if cell == "-" || cell == "" {
-		return styles.hint
-	}
-	return styles.fail
-}
-
 // logStatColumns are the columns of the summary s shows. The count leads and is never cut; the sizes are
 // token estimates (invokelog.EstimateTokens), and the bytes and the missing counters go in a narrow terminal.
 var logStatColumns = []column{
@@ -263,13 +227,10 @@ type logView struct {
 	worst logStatus
 	// filters holds the value each filter keeps, "" for all.
 	filters [logFilterCount]string
-	// list holds the indexes of the rows the filters keep, as names, and the search over them.
-	list filterList
-	// table and its layout for layoutWidth are cached per load: laying out every row again on each frame
-	// would slow a long range down.
-	table       table
-	layout      layout
-	layoutWidth int
+	// list shows the rows the filters keep, by their index in rows, and holds the search over them; it is made
+	// anew when the language changed from listLang.
+	list     *kit.List
+	listLang i18n.Lang
 
 	// stats shows the summary of the shown rows instead of the rows themselves, heat the heatmap of their days;
 	// the tab says which (see tab).
@@ -293,24 +254,12 @@ type logView struct {
 func newLogView(now time.Time) *logView {
 	today := now.In(time.Local)
 	lv := &logView{
-		day:   today.Format(logDateLayout),
-		from:  today.AddDate(0, 0, -6).Format(logDateLayout),
-		to:    today.Format(logDateLayout),
-		table: table{columns: logColumns, rows: map[string][]string{}},
+		day:  today.Format(logDateLayout),
+		from: today.AddDate(0, 0, -6).Format(logDateLayout),
+		to:   today.Format(logDateLayout),
 	}
-	lv.list = newFilterList(lv.searchText)
-	lv.list.stops = true
-	lv.list.input.Placeholder = tr(tLogSearchPlaceholder)
+	lv.syncList()
 	return lv
-}
-
-// searchText is what / finds a row by: every cell of it and its effect.
-func (lv *logView) searchText(name string) string {
-	row := lv.row(name)
-	if row == nil {
-		return ""
-	}
-	return strings.Join(row.cells, " ") + " " + row.values[logFilterEffect]
 }
 
 func (lv *logView) row(name string) *logRow {
@@ -460,8 +409,6 @@ func (m *Model) handleLogsLoaded(msg logsLoadedMsg) tea.Cmd {
 		lv.note = m.redactor.Apply(msg.note)
 	}
 	lv.rows, lv.worst = nil, logVerified
-	lv.table = table{columns: logColumnTitles(logColumns), rows: map[string][]string{}}
-	lv.layoutWidth = -1
 	for _, day := range msg.days {
 		for _, line := range day.Lines {
 			// An undated line cannot be assigned to a local day. Keep it with its overlapping UTC
@@ -473,13 +420,12 @@ func (m *Model) handleLogsLoaded(msg logsLoadedMsg) tea.Cmd {
 			}
 			row := m.logRowOf(day.Date, line, msg.from != msg.to || msg.from == "")
 			lv.worst = max(lv.worst, row.status)
-			lv.table.rows[strconv.Itoa(len(lv.rows))] = row.cells
 			lv.rows = append(lv.rows, row)
 		}
 	}
 	span := [2]string{msg.from, msg.to}
 	if span != lv.span {
-		lv.list.cursor, lv.list.offset = 0, 0
+		lv.list.Reset()
 	}
 	lv.span = span
 	lv.applyFilters()
@@ -607,20 +553,8 @@ func (m *Model) logText(s string) string {
 
 // applyFilters shows the rows every filter keeps, in file order; the search then narrows them further.
 func (lv *logView) applyFilters() {
-	names := make([]string, 0, len(lv.rows))
-	for i, row := range lv.rows {
-		keep := true
-		for k, want := range lv.filters {
-			if want != "" && row.values[k] != want {
-				keep = false
-				break
-			}
-		}
-		if keep {
-			names = append(names, strconv.Itoa(i))
-		}
-	}
-	lv.list.setItems(names)
+	lv.syncList()
+	lv.fill()
 }
 
 // openLogs shows the Logs section with the rows in focus and loads the selected days anew.
@@ -649,7 +583,7 @@ func (m *Model) reloadShownLogs() tea.Cmd {
 // updateLogs handles the keys of the Logs screen and of its bar.
 func (m *Model) updateLogs(key tea.KeyPressMsg) tea.Cmd {
 	lv := m.logs
-	if lv.list.editing {
+	if lv.list.Searching() {
 		return m.updateLogSearch(key)
 	}
 	if lv.focus == logFocusBar {
@@ -668,8 +602,7 @@ func (m *Model) updateLogs(key tea.KeyPressMsg) tea.Cmd {
 			lv.stats, lv.sessions = false, false
 			return nil
 		}
-		if lv.list.query() != "" {
-			lv.list.clearFilter()
+		if _, cleared := lv.list.Act(actBack); cleared {
 			return nil
 		}
 		m.focusNav()
@@ -695,8 +628,8 @@ func (m *Model) updateLogs(key tea.KeyPressMsg) tea.Cmd {
 		case logFocusTabs:
 			lv.setFocus(logFocusRows, false)
 		case logFocusRows:
-			if row, ok := lv.list.selected(); ok && !lv.stats && !lv.heat {
-				lv.detail, _ = strconv.Atoi(row)
+			if i, ok := lv.markedRow(); ok && !lv.stats && !lv.heat {
+				lv.detail = i
 				lv.view.reset()
 				m.screen = screenLogDetail
 				m.clearMessages()
@@ -711,15 +644,7 @@ func (m *Model) updateLogs(key tea.KeyPressMsg) tea.Cmd {
 			m.scrollSessions(key)
 			break
 		}
-		switch {
-		case keyIs(key, actUp):
-			lv.list.move(-1)
-		case keyIs(key, actDown):
-			lv.list.move(1)
-		default:
-			start, end := m.logsWindow()
-			lv.list.page(key, start, end)
-		}
+		lv.list.Update(key)
 	case keyIs(key, actFilter):
 		if lv.focus != logFocusBar {
 			m.logBar()
@@ -727,7 +652,7 @@ func (m *Model) updateLogs(key tea.KeyPressMsg) tea.Cmd {
 		}
 	case keyIs(key, actSearch):
 		lv.setFocus(logFocusRows, false)
-		lv.list.startFilter()
+		lv.list.Act(actSearch)
 	}
 	return nil
 }
@@ -746,22 +671,11 @@ func (lv *logView) moveFocus(by int) {
 
 // updateLogSearch is the Logs screen while its search is typed; every printable key is search text.
 func (m *Model) updateLogSearch(key tea.KeyPressMsg) tea.Cmd {
-	lv := m.logs
-	switch {
-	case keyIs(key, actBack):
-		lv.list.clearFilter()
-	case keyIs(key, actEnter):
-		lv.list.stopFilter()
-	case keyIs(key, actUp):
-		lv.list.move(-1)
-	case keyIs(key, actDown):
-		lv.list.move(1)
-	case keyIs(key, actPageUp) || keyIs(key, actPageDown) || keyIs(key, actHome) || keyIs(key, actEnd):
-		start, end := m.logsWindow()
-		lv.list.page(key, start, end)
-	default:
-		return lv.list.updateFilter(key)
+	if content, ok := pasted(key); ok {
+		m.logs.list.Paste(content)
+		return nil
 	}
+	m.logs.list.Update(key)
 	return nil
 }
 
@@ -798,7 +712,7 @@ func (m *Model) logsView() string {
 		b.WriteString(foot)
 		return b.String()
 	}
-	if lv.stats && lv.loaded && lv.err == "" && len(lv.list.matches) > 0 {
+	if lv.stats && lv.loaded && lv.err == "" && lv.shownCount() > 0 {
 		if lv.sessions {
 			b.WriteString(m.logInside(m.sessionStatLines(m.logSessionStats(), room)))
 		} else {
@@ -808,18 +722,26 @@ func (m *Model) logsView() string {
 		b.WriteString(foot)
 		return b.String()
 	}
-	if lv.heat && lv.loaded && lv.err == "" && len(lv.list.matches) > 0 {
+	if lv.heat && lv.loaded && lv.err == "" && lv.shownCount() > 0 {
 		b.WriteString(m.logHeatLines(room))
 		m.zoneLogs(b.String())
 		b.WriteString(foot)
 		return b.String()
 	}
-	start, end := m.logsWindow()
-	l := m.logLayout()
-	for i := start; i < end; i++ {
-		b.WriteString(m.logRowLine(i, l) + "\n")
+	if lv.tab() == logTabTable && lv.loaded && lv.err == "" && len(lv.rows) > 0 {
+		lv.syncList()
+		lv.list.SetFocused(m.screen == screenLogs && lv.focus == logFocusRows)
+		view, targets := lv.list.View(styles.Styles, m.logRoom(), room)
+		lines := strings.Split(view, "\n")
+		// The list fills its height with blank lines; the panel closes below the last one it drew.
+		for len(lines) > 0 && strings.TrimSpace(ansi.Strip(lines[len(lines)-1])) == "" {
+			lines = lines[:len(lines)-1]
+		}
+		for _, line := range lines {
+			b.WriteString(m.logSide(line) + "\n")
+		}
+		m.addLogRowTargets(targets, head, len(lines))
 	}
-	m.hitLogs(head, start, end)
 	m.zoneLogs(b.String())
 	b.WriteString(foot)
 	return b.String()
@@ -896,23 +818,34 @@ func (m *Model) logInside(text string) string {
 	return strings.Join(lines, "\n") + "\n"
 }
 
-// logLayout lays the table out for the workspace, once per width and load.
-func (m *Model) logLayout() layout {
-	lv := m.logs
-	_, width := m.fitIn(m.logRoom(), "  ")
-	if lv.layoutWidth != width {
-		lv.layout, lv.layoutWidth = lv.table.layout(width), width
+// addLogRowTargets places the targets the list of the rows drew, from the first line below head, on the
+// screen: inside the frame of the panel where there is one, and cut to the lines the list drew.
+func (m *Model) addLogRowTargets(targets []kit.Target, head string, rows int) {
+	if m.backdrop || m.tooSmall {
+		return
 	}
-	return lv.layout
+	x, top := 0, m.hitTop(head)
+	if m.logs.framed {
+		x = 2
+	}
+	for _, t := range kit.OffsetTargets(targets, x, top) {
+		if t.Rect.Y >= top+rows {
+			continue
+		}
+		t.Rect.Height = min(t.Rect.Height, top+rows-t.Rect.Y)
+		m.listTargets = append(m.listTargets, t)
+	}
 }
 
-// logRowLine draws the shown row at index i. The marked row carries "> " and the full-width highlight while
-// the rows have the focus; the cells carry their own colours.
-func (m *Model) logRowLine(i int, l layout) string {
-	lv := m.logs
-	row := lv.row(lv.list.matches[i])
-	active := m.screen == screenLogs && lv.focus == logFocusRows && i == lv.list.cursor
-	return m.logSide(m.listRowIn(m.logRoom(), active, lv.table.line(row.cells, l)))
+// logSearchLine is the search line of the list for a tab that draws no rows, in width cells, or "" while the
+// search is neither typed nor kept. The list draws that line first in any room of two lines.
+func (lv *logView) logSearchLine(width int) string {
+	if !lv.list.Searching() && lv.list.Query() == "" {
+		return ""
+	}
+	view, _ := lv.list.View(styles.Styles, width, 2)
+	line, _, _ := strings.Cut(view, "\n")
+	return line
 }
 
 // logsFrame is everything of the Logs screen except its rows. The tab line carries the status of the chain;
@@ -950,19 +883,24 @@ func (m *Model) logsFrame() (string, string) {
 		line, lv.barTargets = b.View(styles.Styles, width)
 		filterRows, compactRows = []string{line}, []string{line}
 		var search string
-		if lv.list.editing || lv.list.query() != "" {
-			search = searchField(searchContent(&lv.list, width-2), width-2)
-			filterRows = append(filterRows, search)
-			// A compact frame keeps one line: the search while it is typed.
-			compactRows = []string{search}
+		if lv.list.Searching() || lv.list.Query() != "" {
 			lv.barTargets = nil
+			if lv.tab() == logTabTable {
+				// The list draws its search line above its rows, and a compact frame leaves the bar to it.
+				compactRows = nil
+			} else {
+				search = lv.logSearchLine(width)
+				filterRows = append(filterRows, search)
+				// A compact frame keeps one line: the search while it is typed.
+				compactRows = []string{search}
+			}
 		}
 		m.logBarSpecs = m.logTabTargets(tabsPlain, ansi.Strip(search))
 		return tabLine, filterRows, compactRows
 	}
 	rule := styles.quietBorder.Render(strings.Repeat("─", width))
 
-	shown := len(lv.list.matches)
+	shown := lv.shownCount()
 	// body is the lines between the top and the bottom of the panel, drawn for the room of its inside.
 	body := func(room int, framed, compact bool) []string {
 		var lines []string
@@ -983,7 +921,8 @@ func (m *Model) logsFrame() (string, string) {
 			note(styles.hint, tr(tLogReading))
 		case len(lv.rows) == 0:
 			note(lipgloss.NewStyle(), lv.emptyText())
-		case shown == 0:
+		case shown == 0 && lv.tab() != logTabTable:
+			// The list of the rows says it itself.
 			note(styles.hint, tr(tLogNoMatch))
 		case lv.heat:
 			// The heatmap has no table header.
@@ -1000,8 +939,6 @@ func (m *Model) logsFrame() (string, string) {
 				note(styles.hint, tr(tLogStatsHelp))
 			}
 			lines = append(lines, header(stats.table, stats.layout))
-		default:
-			lines = append(lines, header(lv.table, m.logLayout()))
 		}
 		if framed {
 			for i, line := range lines {
@@ -1057,7 +994,7 @@ func (m *Model) logsFrame() (string, string) {
 		}
 		foot := keys
 		if shown > 0 && focused && !lv.stats && !lv.heat {
-			lv.position = fmt.Sprintf("%d/%d · %d%%", lv.list.cursor+1, shown, (lv.list.cursor+1)*100/shown)
+			lv.position = lv.list.Position()
 		}
 		if lv.note != "" && lv.loaded && lv.hasUnchecked() {
 			foot = "\n" + m.wrapped(styles.hint, lv.note) + foot
@@ -1086,7 +1023,7 @@ func (m *Model) logPosition() string {
 // compactSubject is the explanation the compact frame left out of the summary tab, or none: the full frame
 // shows it only above a table, so it exists only where there are rows.
 func (lv *logView) compactSubject() infoSubject {
-	if !lv.compact || !lv.stats || lv.heat || !lv.loaded || lv.err != "" || len(lv.list.matches) == 0 {
+	if !lv.compact || !lv.stats || lv.heat || !lv.loaded || lv.err != "" || lv.shownCount() == 0 {
 		return infoSubject{}
 	}
 	help := tLogStatsHelp
@@ -1123,11 +1060,11 @@ func (m *Model) logKeys() string {
 	if m.screen != screenNav && m.usable(0) < 60 {
 		// The short form names the same keys with shorter words.
 		switch {
-		case lv.stats && lv.sessions && !lv.list.editing:
+		case lv.stats && lv.sessions && !lv.list.Searching():
 			return "{up}/{down} scroll · {sessions} or {summary} rows · {filter} filter · {search} search · {area} section · {command} cmds · {help} help · {quit} quit"
-		case lv.stats && !lv.list.editing:
+		case lv.stats && !lv.list.Searching():
 			return "{summary} rows · {filter} filter · {search} search · {area} section · {command} cmds · {help} help · {quit} quit"
-		case lv.list.editing:
+		case lv.list.Searching():
 			return "type to search · {up}/{down} move · {enter} keep · {back} clear"
 		case lv.focus == logFocusBar && lv.bar != nil && lv.bar.Open():
 			return "type to search · {up}/{down} move · {enter} choose · {back} close"
@@ -1135,21 +1072,21 @@ func (m *Model) logKeys() string {
 			return "{left}/{right} change · {enter} open · {next} next · {summary} summary · {sessions} MCP sessions · {search} search · {area} section · {back} back · {command} cmds · {help} help · {quit} quit"
 		case lv.focus == logFocusTabs:
 			return "{left}/{right} tab · {next} next · {filter} filter · {summary} summary · {sessions} MCP sessions · {search} search · {area} section · {back} back · {command} cmds · {help} help · {quit} quit"
-		case len(lv.list.matches) == 0 || lv.heat:
+		case lv.shownCount() == 0 || lv.heat:
 			return "{next} next · {filter} filter · {summary} summary · {sessions} MCP sessions · {search} search · {area} section · {back} back · {command} cmds · {help} help · {quit} quit"
 		}
 		return "{enter} detail · {next} next · {filter} filter · {summary} summary · {sessions} MCP sessions · {search} search · {area} section · {back} back · {command} cmds · {help} help · {quit} quit"
 	}
-	if lv.stats && lv.sessions && m.screen != screenNav && !lv.list.editing {
+	if lv.stats && lv.sessions && m.screen != screenNav && !lv.list.Searching() {
 		return "{up}/{down} scroll · {sessions} or {summary} or {back} back to the rows · {filter} filter · {search} search · {area} section · {command} cmds · {help} help · {quit} quit"
 	}
-	if lv.stats && m.screen != screenNav && !lv.list.editing {
+	if lv.stats && m.screen != screenNav && !lv.list.Searching() {
 		return "{summary} or {back} back to the rows · {filter} filter · {search} search · {area} section · {command} cmds · {help} help · {quit} quit"
 	}
 	switch {
 	case m.screen == screenNav:
 		return m.navKeys()
-	case lv.list.editing:
+	case lv.list.Searching():
 		return "type to search · {up}/{down} move · {enter} keep search · {back} clear search"
 	case lv.focus == logFocusBar && lv.bar != nil && lv.bar.Open():
 		return "type to search · {up}/{down} move · {enter} choose · {back} close"
@@ -1157,14 +1094,26 @@ func (m *Model) logKeys() string {
 		return "{left}/{right} change · {enter} open · {next} next field · {summary} summary · {sessions} MCP sessions · {search} search · {area} section · {back} back · {command} cmds · {help} help · {quit} quit"
 	case lv.focus == logFocusTabs:
 		return "{left}/{right} change tab · {next} next field · {filter} filter · {summary} summary · {sessions} MCP sessions · {search} search · {area} section · {back} back · {command} cmds · {help} help · {quit} quit"
-	case len(lv.list.matches) == 0 || lv.heat:
+	case lv.shownCount() == 0 || lv.heat:
 		return "{next} next field · {left}/{right} change · {filter} filter · {summary} summary · {sessions} MCP sessions · {search} search · {area} section · {back} back · {command} cmds · {help} help · {quit} quit"
 	}
 	keys := "{enter} details · {next} next field · {left}/{right} change · {filter} filter · {summary} summary · {sessions} MCP sessions · {search} search · {area} section · {back} back · {command} cmds · {help} help · {quit} quit"
-	if lv.list.query() != "" {
+	if lv.list.Query() != "" {
 		keys = strings.Replace(keys, "{back} back", "{back} clear search", 1)
 	}
 	return keys
+}
+
+// shownEntries are the parsed entries of the rows the filters and the search keep.
+func (lv *logView) shownEntries() []invokelog.Entry {
+	rows := lv.shownRows()
+	entries := make([]invokelog.Entry, 0, len(rows))
+	for _, row := range rows {
+		if row.line.Parsed {
+			entries = append(entries, row.line.Entry)
+		}
+	}
+	return entries
 }
 
 // logStats is the summary of the rows the filters and the search keep: the table with a row per group and
@@ -1177,12 +1126,7 @@ type logStats struct {
 
 func (m *Model) logStats() logStats {
 	lv := m.logs
-	entries := make([]invokelog.Entry, 0, len(lv.list.matches))
-	for _, name := range lv.list.matches {
-		if row := lv.row(name); row != nil && row.line.Parsed {
-			entries = append(entries, row.line.Entry)
-		}
-	}
+	entries := lv.shownEntries()
 	s := logStats{groups: invokelog.Summarize(entries), table: table{columns: logColumnTitles(logStatColumns), rows: map[string][]string{}}}
 	num := func(n int64) string { return strconv.FormatInt(n, 10) }
 	for i, g := range s.groups {
@@ -1229,12 +1173,7 @@ type logSessionStats struct {
 
 func (m *Model) logSessionStats() logSessionStats {
 	lv := m.logs
-	entries := make([]invokelog.Entry, 0, len(lv.list.matches))
-	for _, name := range lv.list.matches {
-		if row := lv.row(name); row != nil && row.line.Parsed {
-			entries = append(entries, row.line.Entry)
-		}
-	}
+	entries := lv.shownEntries()
 	s := logSessionStats{table: table{columns: logColumnTitles(logSessionColumns), rows: map[string][]string{}}}
 	add := func(label string, t invokelog.ToolBytes) {
 		name := strconv.Itoa(len(s.order))
@@ -1314,12 +1253,6 @@ func (m *Model) sessionStatLines(s logSessionStats, room int) string {
 		b.WriteString(m.listRowIn(m.logRoom(), false, s.table.line(s.table.rows[s.order[i]], s.layout)) + "\n")
 	}
 	return b.String()
-}
-
-// logsWindow is the range of shown rows that fits between the frame of the Logs screen; each row is one line.
-func (m *Model) logsWindow() (int, int) {
-	head, foot := m.logsFrame()
-	return m.windowIn(&m.logs.list, head, foot, func(int) string { return "" })
 }
 
 // logDetailView shows every field of one entry, and its status with the reason.
@@ -1463,6 +1396,3 @@ func (m *Model) logReason(line invokelog.LineResult) string {
 	}
 	return strings.Join(reasons, "; ")
 }
-
-// keepLogsScrollPosition is keepScrollPosition for the Logs screen.
-func (m *Model) keepLogsScrollPosition() { m.logs.list.offset, _ = m.logsWindow() }

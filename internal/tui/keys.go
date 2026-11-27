@@ -36,7 +36,7 @@ func (m *Model) typing() bool {
 	case screenTargets:
 		return m.targetEdit >= 0 || m.targetAdd != nil || m.targetPick != nil || m.labelEdit
 	case screenLogs:
-		return m.logs.list.editing || m.logs.bar != nil && m.logs.bar.Open()
+		return m.logs.list.Searching() || m.logs.bar != nil && m.logs.bar.Open()
 	}
 	return false
 }

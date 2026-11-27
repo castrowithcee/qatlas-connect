@@ -346,7 +346,7 @@ func TestLogDetailAndDialogsGoBackOnlyWithEsc(t *testing.T) {
 	press(t, m, "/")
 	typeText(t, m, "op")
 	press(t, m, "esc")
-	if m.screen != screenLogs || m.logs.list.editing || m.logs.list.query() != "" {
+	if m.screen != screenLogs || m.logs.list.Searching() || m.logs.list.Query() != "" {
 		t.Fatalf("esc did not clear the search at once: screen %v", m.screen)
 	}
 	press(t, m, "tab", "tab", "right")
