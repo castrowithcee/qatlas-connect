@@ -35,6 +35,8 @@ func (m *Model) typing() bool {
 		}
 	case screenTargets:
 		return m.targetEdit >= 0 || m.targetAdd != nil || m.targetPick != nil || m.labelEdit
+	case screenTransfer:
+		return m.export != nil && m.export.step == exportSelect && m.export.list.Searching()
 	case screenLogs:
 		return m.logs.list.editing || m.logs.bar != nil && m.logs.bar.Open()
 	}

@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	tea "charm.land/bubbletea/v2"
+	kittui "github.com/castrowithcee/qatlas-kit/tui"
 
 	"github.com/castrowithcee/qatlas-connect/internal/manage"
 )
@@ -46,10 +47,55 @@ func (f renameFinding) action() string {
 	return "adopt"
 }
 
-// findingsState is the open list of findings.
+// findingsState is the open list of findings. The ID of a row of list is its index in items, since a name
+// may hold what an ID may not.
 type findingsState struct {
-	items  []renameFinding
-	cursor int
+	items []renameFinding
+	list  *kittui.List
+}
+
+// selected is the marked finding.
+func (s *findingsState) selected() (renameFinding, bool) {
+	i, ok := chosen(s.list, len(s.items))
+	if !ok {
+		return renameFinding{}, false
+	}
+	return s.items[i], true
+}
+
+// findingsListFor is the kit list of items with the marked row at index at. The names are the vault's and
+// untrusted: they stand through logText. A finding without action is marked in the warning style.
+func (m *Model) findingsListFor(items []renameFinding, at int) (*kittui.List, error) {
+	list, err := kittui.NewList(kittui.ListSpec{Columns: []kittui.Column{{Title: columnID("KIND")}, {Title: columnID("NAME")},
+		{Title: columnID("NEW NAME")}, {Title: columnID("STATE"), Flex: true, Tone: func(cell string) kittui.TextStyle {
+			if cell == tr(tFindAmbiguous) {
+				return kittui.StyleWarn
+			}
+			return kittui.StyleText
+		}}}, Keys: listKeys(""), Search: kittui.SearchNone, Empty: tFindNone}, keymap, translator(false))
+	if err != nil {
+		return nil, err
+	}
+	rows := make([]kittui.ListItem, len(items))
+	for i, f := range items {
+		state := tr(tFindHand)
+		switch {
+		case f.ambiguous:
+			state = tr(tFindAmbiguous)
+		case f.leftover:
+			state = tr(tFindUnfinished)
+		}
+		to := m.logText(f.to)
+		if f.ambiguous {
+			to = ""
+		}
+		rows[i] = kittui.ListItem{ID: choiceID(i), Cells: []string{kindText(f.kind), m.logText(f.from), to, state}}
+	}
+	if err = list.SetItems(rows); err != nil {
+		return nil, err
+	}
+	list.Select(choiceID(at))
+	return list, nil
 }
 
 // findingsKind is the kind of entry the active section lists, "" for Approvals, which lists every kind.
@@ -169,7 +215,7 @@ func (m *Model) findingsNotice(finds []renameFinding) string {
 
 // findingNotice is the short hint at the entry a finding belongs to.
 func (m *Model) findingNotice(f renameFinding) string {
-	apply := m.redactor.Apply
+	apply := m.logText
 	switch {
 	case f.leftover:
 		return tr(tFindNoticeLeftover, kindText(f.kind), apply(f.from), apply(f.to))
@@ -177,21 +223,9 @@ func (m *Model) findingNotice(f renameFinding) string {
 	return tr(tFindNoticeHand, kindText(f.kind), apply(f.entry), apply(f.from))
 }
 
-// findingRow is the one line of a finding on the findings screen.
-func (m *Model) findingRow(f renameFinding) string {
-	apply := m.redactor.Apply
-	switch {
-	case f.ambiguous:
-		return tr(tFindRowAmbiguous, kindText(f.kind), apply(f.from))
-	case f.leftover:
-		return tr(tFindRowUnfinished, kindText(f.kind), apply(f.from), apply(f.to))
-	}
-	return tr(tFindRowHand, kindText(f.kind), apply(f.from), apply(f.to))
-}
-
 // findingDetail words what a finding is and what its action does, for the selected row.
 func (m *Model) findingDetail(f renameFinding) string {
-	apply := m.redactor.Apply
+	apply := m.logText
 	what := tr(tFindWhatApproval)
 	if f.kind == manage.RenameCredential {
 		what = tr(tFindWhatEntry)
@@ -234,16 +268,21 @@ func (m *Model) openFindings() tea.Cmd {
 		m.status = tr(tFindNone)
 		return nil
 	}
-	state := &findingsState{items: items}
+	at := 0
 	if name, ok := m.selected(); ok && m.section != sectionApprovals {
 		for i, f := range items {
 			if f.entry == name && f.kind == m.findingsKind() {
-				state.cursor = i
+				at = i
 				break
 			}
 		}
 	}
-	m.findings, m.screen = state, screenFindings
+	list, err := m.findingsListFor(items, at)
+	if err != nil {
+		m.fail = err.Error()
+		return nil
+	}
+	m.findings, m.screen = &findingsState{items: items, list: list}, screenFindings
 	return nil
 }
 
@@ -259,7 +298,17 @@ func (m *Model) reopenFindings() {
 		m.findings, m.screen = nil, screenList
 		return
 	}
-	state.items, state.cursor = items, min(state.cursor, len(items)-1)
+	at := 0
+	if _, ok := state.selected(); ok {
+		at, _ = chosen(state.list, len(state.items))
+	}
+	list, err := m.findingsListFor(items, min(at, len(items)-1))
+	if err != nil {
+		m.findings, m.screen = nil, screenList
+		m.fail = err.Error()
+		return
+	}
+	state.items, state.list = items, list
 	m.screen = screenFindings
 }
 
@@ -276,18 +325,12 @@ func (m *Model) updateFindings(key tea.KeyPressMsg) tea.Cmd {
 	switch {
 	case keyIs(key, actBack):
 		m.closeFindings()
-	case keyIs(key, actUp):
-		s.cursor = max(s.cursor-1, 0)
-	case keyIs(key, actDown):
-		s.cursor = min(s.cursor+1, len(s.items)-1)
-	case keyIs(key, actHome):
-		s.cursor = 0
-	case keyIs(key, actEnd):
-		s.cursor = len(s.items) - 1
 	case keyIs(key, actEnter):
 		return m.askFinding(false)
 	case keyIs(key, actRevert):
 		return m.askFinding(true)
+	default:
+		s.list.Update(key)
 	}
 	return nil
 }
@@ -295,9 +338,11 @@ func (m *Model) updateFindings(key tea.KeyPressMsg) tea.Cmd {
 // askFinding starts the action for the selected finding, once the admin session allows it: the dry run
 // comes first and nothing is written before it is confirmed. A finding without an action says why.
 func (m *Model) askFinding(revert bool) tea.Cmd {
-	f := m.findings.items[m.findings.cursor]
+	f, ok := m.findings.selected()
 	m.clearMessages()
 	switch {
+	case !ok:
+		return nil
 	case f.ambiguous:
 		m.status = tr(tFindAmbiguousStatus)
 		return nil
@@ -343,7 +388,10 @@ func (m *Model) findingsKeys() string {
 	if s == nil {
 		return ""
 	}
-	f := s.items[s.cursor]
+	f, ok := s.selected()
+	if !ok {
+		return keysBackOnly
+	}
 	keys := "{up}/{down} choose"
 	switch {
 	case f.canRevert():
@@ -361,26 +409,13 @@ func (m *Model) findingsView() string {
 		return ""
 	}
 	p := m.dialogPanelOf()
-	head := p.top(tr(tFindTitle), fmt.Sprintf("%d/%d", s.cursor+1, len(s.items))) + p.blank()
-	f := s.items[s.cursor]
-	foot := m.wrapped(styles.hint, m.findingDetail(f))
-	if p.framed {
-		foot = p.blank() + p.text(styles.hint, m.findingDetail(f)) + p.bottom()
-	}
-	foot += m.keyHint(m.findingsKeys()) + m.notes()
-	room := max(m.height-strings.Count(head, "\n")-strings.Count(foot, "\n")-1, 1)
-	start := max(min(s.cursor-room/2, len(s.items)-room), 0)
-	end := min(start+room, len(s.items))
-	rows := make([]string, 0, end-start)
-	row := func(i int) string { return p.row(i == s.cursor, m.findingRow(s.items[i])) }
-	for i := start; i < end; i++ {
-		rows = append(rows, row(i))
-	}
-	m.hitRows(m.hitTop(head), m.usable(0), start, end, row, func(i int) tea.Cmd {
-		if m.screen != screenFindings || m.findings != s || i >= len(s.items) {
-			return nil
+	head := p.top(tr(tFindTitle), s.list.Position()) + p.blank()
+	foot := ""
+	if f, ok := s.selected(); ok {
+		foot = m.wrapped(styles.hint, m.findingDetail(f))
+		if p.framed {
+			foot = p.blank() + p.text(styles.hint, m.findingDetail(f)) + p.bottom()
 		}
-		return markOrAct(&s.cursor, i, true, func() tea.Cmd { return m.press(tea.KeyPressMsg{Code: tea.KeyEnter}) })
-	})
-	return head + strings.Join(rows, "\n") + "\n" + foot
+	}
+	return m.workList(s.list, head, foot+m.keyHint(m.findingsKeys())+m.notes())
 }

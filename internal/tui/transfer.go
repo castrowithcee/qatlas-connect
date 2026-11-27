@@ -7,6 +7,7 @@ import (
 	"maps"
 	"path/filepath"
 	"slices"
+	"strconv"
 	"strings"
 
 	tea "charm.land/bubbletea/v2"
@@ -50,7 +51,6 @@ func exportModeRows() []string {
 }
 
 const (
-	exportAll      = "all"
 	exportDefaults = "defaults"
 	exportNotes    = "notes"
 	exportConnPref = "connection:"
@@ -64,13 +64,14 @@ type exportState struct {
 	step exportStep
 	// from is the screen the export was started from and returns to.
 	from screen
-	// rows lists what can be ticked; marks holds the ticks.
-	rows  filterList
-	marks map[string]bool
-	kind  exportKind
-	// modeCursor is the focused row of the mode step; secretsReason is why the rows with secrets are not
-	// possible ("" where they are), asked once when the step is entered because it reads the vault state.
-	modeCursor    int
+	// entries are the keys of what can be ticked; the ID of a row of list is its index there, since a name may
+	// hold what an ID may not. The ticks are the list's.
+	entries []string
+	list    *kittui.List
+	// mode is the list of the mode step; secretsReason is why the rows with secrets are not possible ("" where
+	// they are), asked once when the step is entered because it reads the vault state.
+	mode          *kittui.List
+	kind          exportKind
 	secretsReason string
 	// first is the first passphrase entry while it is typed again; passphrase is the confirmed one. Both
 	// only ever reach the core's ExportPassphrase and are cleared when the export ends.
@@ -102,7 +103,7 @@ func (m *Model) askExport() tea.Cmd {
 }
 
 func (m *Model) openExport() {
-	names := []string{exportAll, exportDefaults, exportNotes}
+	entries := []string{exportDefaults, exportNotes}
 	for _, kind := range []struct {
 		prefix string
 		keys   func() []string
@@ -112,25 +113,45 @@ func (m *Model) openExport() {
 		{exportCredPref, func() []string { return slices.Sorted(maps.Keys(m.cfg.Credentials)) }},
 	} {
 		for _, name := range kind.keys() {
-			names = append(names, kind.prefix+name)
+			entries = append(entries, kind.prefix+name)
 		}
 	}
-	rows := newFilterList(m.exportRowText)
-	rows.reset(names)
-	m.export = &exportState{from: m.screen, rows: rows, marks: map[string]bool{}}
+	list, err := m.exportList(entries)
+	if err != nil {
+		m.clearMessages()
+		m.fail = err.Error()
+		return
+	}
+	m.export = &exportState{from: m.screen, entries: entries, list: list}
 	m.screen = screenTransfer
 	m.clearMessages()
 }
 
-// exportRowText is the line of one tickable row.
-func (m *Model) exportRowText(key string) string {
+// exportList is the kit list of what can be ticked: a tick box and the row of all, the name first and the
+// kind beside it. The names are the configuration's and untrusted: they stand through logText.
+func (m *Model) exportList(entries []string) (*kittui.List, error) {
+	list, err := kittui.NewList(kittui.ListSpec{
+		Columns: []kittui.Column{{Title: columnID("NAME")}, {Title: columnID("KIND"), Dimmed: true}},
+		Keys:    listKeys(actSpace), Search: kittui.SearchByKey, Ticks: true, AllRow: true,
+		Empty: tFormNothingConfiguredYet}, keymap, translator(false))
+	if err != nil {
+		return nil, err
+	}
+	items := make([]kittui.ListItem, len(entries))
+	for i, key := range entries {
+		name, kind := m.exportRowText(key)
+		items[i] = kittui.ListItem{ID: choiceID(i), Cells: []string{name, kind}}
+	}
+	return list, list.SetItems(items)
+}
+
+// exportRowText is the name and the kind of one tickable row.
+func (m *Model) exportRowText(key string) (name, kind string) {
 	switch key {
-	case exportAll:
-		return tr(tExportRowAll)
 	case exportDefaults:
-		return tr(tExportRowDefaults)
+		return tr(tExportRowDefaults), ""
 	case exportNotes:
-		return tr(tExportRowNotes)
+		return tr(tExportRowNotes), ""
 	}
 	for _, p := range []struct {
 		prefix string
@@ -139,25 +160,26 @@ func (m *Model) exportRowText(key string) string {
 		{exportConnPref, tExportKindConnection}, {exportSvcPref, tExportKindService}, {exportCredPref, tExportKindCredential},
 	} {
 		if name, ok := strings.CutPrefix(key, p.prefix); ok {
-			return tr(p.label) + m.redactor.Apply(name)
+			return m.logText(name), strings.TrimSpace(tr(p.label))
 		}
 	}
-	return key
+	return m.logText(key), ""
 }
 
 // selection turns the ticks into the core's selection.
 func (e *exportState) selection() manage.ExportSelection {
-	sel := manage.ExportSelection{All: e.marks[exportAll], Defaults: e.marks[exportDefaults],
-		ProviderNotes: e.marks[exportNotes]}
-	if sel.All {
-		// All and named entries exclude each other in the core; everything includes what a name would take.
-		return sel
-	}
-	for _, key := range e.rows.all {
-		if !e.marks[key] {
+	var sel manage.ExportSelection
+	for _, id := range e.list.Ticked() {
+		i, err := strconv.Atoi(string(id))
+		if err != nil || i < 0 || i >= len(e.entries) {
 			continue
 		}
+		key := e.entries[i]
 		switch {
+		case key == exportDefaults:
+			sel.Defaults = true
+		case key == exportNotes:
+			sel.ProviderNotes = true
 		case strings.HasPrefix(key, exportConnPref):
 			sel.Connections = append(sel.Connections, strings.TrimPrefix(key, exportConnPref))
 		case strings.HasPrefix(key, exportSvcPref):
@@ -265,29 +287,22 @@ func (e *exportState) scroll(key tea.KeyPressMsg, height int) {
 
 func (m *Model) updateExportSelect(key tea.KeyPressMsg) tea.Cmd {
 	e := m.export
-	switch {
-	case keyIs(key, actUp):
-		e.rows.move(-1)
-	case keyIs(key, actDown):
-		e.rows.move(1)
-	case keyIs(key, actPageUp) || keyIs(key, actPageDown) || keyIs(key, actHome) || keyIs(key, actEnd):
-		start, end := m.exportRowWindow()
-		e.rows.page(key, start, end)
-	case keyIs(key, actSpace):
-		if name, ok := e.rows.selected(); ok {
-			e.marks[name] = !e.marks[name]
-		}
-	case keyIs(key, actEnter):
-		m.clearMessages()
-		sel := e.selection()
-		if !sel.All && !sel.Defaults && !sel.ProviderNotes &&
-			len(sel.Connections)+len(sel.Services)+len(sel.Credentials) == 0 {
-			m.fail = tr(tExportTickFirst)
-			return nil
-		}
-		e.modeCursor = 0
-		m.enterExportMode()
+	if e.list.Searching() {
+		// A filter being typed takes every key; enter keeps it.
+		e.list.Update(key)
+		return nil
 	}
+	if !keyIs(key, actEnter) {
+		e.list.Update(key)
+		return nil
+	}
+	m.clearMessages()
+	sel := e.selection()
+	if !sel.Defaults && !sel.ProviderNotes && len(sel.Connections)+len(sel.Services)+len(sel.Credentials) == 0 {
+		m.fail = tr(tExportTickFirst)
+		return nil
+	}
+	m.enterExportMode()
 	return nil
 }
 
@@ -296,6 +311,38 @@ func (m *Model) enterExportMode() {
 	e := m.export
 	e.step = exportMode
 	e.secretsReason = m.secretsUnavailable()
+	e.mode = m.exportModeList(e.secretsReason != "", e.mode)
+}
+
+// exportModeList is the kit list of the mode step on its first row, or on the marked one of before. A row
+// with secrets is dimmed and says it is not possible where secretsReason holds; choosing it only says why.
+func (m *Model) exportModeList(blocked bool, before *kittui.List) *kittui.List {
+	spec := kittui.ListSpec{Columns: []kittui.Column{{Title: columnID("MODE"), Tone: func(cell string) kittui.TextStyle {
+		if strings.HasSuffix(cell, tr(tExportNotPossible)) {
+			return kittui.StyleHint
+		}
+		return kittui.StyleText
+	}}}, Keys: listKeys(""), Search: kittui.SearchNone, Wrap: true, Empty: tFormNothingConfiguredYet}
+	list, err := kittui.NewList(spec, keymap, translator(false))
+	var items []kittui.ListItem
+	for i, row := range exportModeRows() {
+		if i > 0 && blocked {
+			row += tr(tExportNotPossible)
+		}
+		items = append(items, kittui.ListItem{ID: choiceID(i), Cells: []string{row}})
+	}
+	if err == nil {
+		err = list.SetItems(items)
+	}
+	if err != nil {
+		panic("the list of the export modes is invalid: " + err.Error())
+	}
+	if before != nil {
+		if id, ok := before.Selected(); ok {
+			list.Select(id)
+		}
+	}
+	return list
 }
 
 // askExportPassphrase shows the empty masked passphrase prompt.
@@ -308,13 +355,10 @@ func (m *Model) askExportPassphrase() {
 
 // ticked is the number of ticked rows.
 func (e *exportState) ticked() int {
-	n := 0
-	for _, on := range e.marks {
-		if on {
-			n++
-		}
+	if e.list == nil {
+		return 0
 	}
-	return n
+	return len(e.list.Ticked())
 }
 
 // dirty reports whether leaving now would drop ticks or answers; a written export loses nothing.
@@ -329,6 +373,11 @@ func (m *Model) exportBack() tea.Cmd {
 	m.clearMessages()
 	switch e.step {
 	case exportSelect:
+		if e.list.Searching() || e.list.Query() != "" {
+			// The first esc clears the filter.
+			e.list.Act(actBack)
+			return nil
+		}
 		if e.ticked() > 0 {
 			m.askLeave(false)
 			return nil
@@ -361,33 +410,33 @@ func (m *Model) exportBack() tea.Cmd {
 
 func (m *Model) updateExportMode(key tea.KeyPressMsg) tea.Cmd {
 	e := m.export
-	switch {
-	case keyIs(key, actUp):
-		e.modeCursor = wrap(e.modeCursor-1, len(exportModeRows()))
-	case keyIs(key, actDown):
-		e.modeCursor = wrap(e.modeCursor+1, len(exportModeRows()))
-	case keyIs(key, actEnter):
-		m.clearMessages()
-		e.kind = exportKind(e.modeCursor)
-		if e.kind == exportWithout {
-			m.askExportTarget()
-			return nil
-		}
-		if e.secretsReason = m.secretsUnavailable(); e.secretsReason != "" {
-			m.fail = e.secretsReason
-			return nil
-		}
-		// The secrets are read under this window's admin session, which the vault passphrase proves.
-		return m.requireAdmin(func() tea.Cmd {
-			if e.kind == exportUnencrypted {
-				e.step = exportPlainConfirm
-				return nil
-			}
-			m.askExportPassphrase()
-			return nil
-		})
+	if !keyIs(key, actEnter) {
+		e.mode.Update(key)
+		return nil
 	}
-	return nil
+	m.clearMessages()
+	i, ok := chosen(e.mode, len(exportModeRows()))
+	if !ok {
+		return nil
+	}
+	e.kind = exportKind(i)
+	if e.kind == exportWithout {
+		m.askExportTarget()
+		return nil
+	}
+	if e.secretsReason = m.secretsUnavailable(); e.secretsReason != "" {
+		m.fail = e.secretsReason
+		return nil
+	}
+	// The secrets are read under this window's admin session, which the vault passphrase proves.
+	return m.requireAdmin(func() tea.Cmd {
+		if e.kind == exportUnencrypted {
+			e.step = exportPlainConfirm
+			return nil
+		}
+		m.askExportPassphrase()
+		return nil
+	})
 }
 
 // transferAsk is the one-line dialog the export or the import is at, if it is at one.
@@ -635,35 +684,10 @@ func (m *Model) exportLines(res *manage.ExportResult, preview bool) []string {
 	return lines
 }
 
-// exportRowWindow is the range of tick rows that fit the screen.
-func (m *Model) exportRowWindow() (int, int) {
-	head, foot := m.exportSelectFrame()
-	return m.windowIn(&m.export.rows, head, foot, m.exportRow)
-}
-
-func (m *Model) exportRow(i int) string {
-	e := m.export
-	p := m.dialogPanelOf()
-	key := e.rows.matches[i]
-	box := "[ ] "
-	if e.marks[key] {
-		box = "[x] "
-	}
-	line := truncateCells(box+m.exportRowText(key), p.cells())
-	if e.marks[key] {
-		line = colourTick(line, styles.cell)
-	}
-	return p.tableRow(i == e.rows.cursor, line)
-}
-
 func (m *Model) exportSelectFrame() (string, string) {
 	p := m.dialogPanelOf()
-	head := p.top(tr(tExportSelectTitle), "") + p.text(styles.hint, tr(tExportSelectHint))
-	if m.export.marks[exportAll] {
-		head += p.text(styles.hint, tr(tExportAllTicked))
-	}
-	head += p.blank()
-	return head, p.closing() + m.keyHint(keysExportSelect) + m.notes()
+	head := p.top(tr(tExportSelectTitle), m.export.list.Position()) + p.text(styles.hint, tr(tExportSelectHint)) + p.blank()
+	return head, p.closing() + m.keyHint(m.exportKeys()) + m.notes()
 }
 
 // exportView draws the step the export is at.
@@ -682,55 +706,18 @@ func (m *Model) exportView() string {
 	switch e.step {
 	case exportSelect:
 		head, foot := m.exportSelectFrame()
-		var b strings.Builder
-		b.WriteString(head)
-		start, end := m.exportRowWindow()
-		for i := start; i < end; i++ {
-			b.WriteString(m.exportRow(i) + "\n")
-		}
-		e.rows.offset = start
-		m.hitRows(m.hitTop(head), m.usable(0), start, end, m.exportRow, func(i int) tea.Cmd {
-			if m.screen != screenTransfer || m.export != e || e.step != exportSelect || i >= len(e.rows.matches) {
-				return nil
-			}
-			return markOrAct(&e.rows.cursor, i, true, func() tea.Cmd {
-				return m.press(tea.KeyPressMsg{Code: tea.KeySpace, Text: " "})
-			})
-		})
-		return b.String() + foot
+		return m.workList(e.list, head, foot)
 	case exportMode:
-		reason := e.secretsReason
+		if e.mode == nil {
+			e.mode = m.exportModeList(e.secretsReason != "", nil)
+		}
 		p := m.dialogPanelOf()
-		var b strings.Builder
-		modeHead := p.top(tr(tExportSecretsTitle), "") + p.blank()
-		b.WriteString(modeHead)
-		for i, row := range exportModeRows() {
-			text := row
-			blocked := i > 0 && reason != ""
-			if !blocked {
-				// A row that cannot be chosen is no target: enter on it only says why.
-				m.hitRows(m.hitTop(modeHead)+i, m.usable(0), i, i+1, func(int) string { return "" }, func(i int) tea.Cmd {
-					if m.screen != screenTransfer || m.export != e || e.step != exportMode {
-						return nil
-					}
-					return markOrAct(&e.modeCursor, i, true, func() tea.Cmd { return m.press(tea.KeyPressMsg{Code: tea.KeyEnter}) })
-				})
-			}
-			if blocked {
-				text += tr(tExportNotPossible)
-			}
-			line := p.tableRow(i == e.modeCursor, truncateCells(text, p.cells()))
-			if blocked && i != e.modeCursor {
-				line = styles.hint.Render(line)
-			}
-			b.WriteString(line + "\n")
-		}
+		head := p.top(tr(tExportSecretsTitle), "") + p.blank()
 		note := p.hint(tr(tExportSecretsNote))
-		if reason != "" {
-			note = p.hint(reason)
+		if e.secretsReason != "" {
+			note = p.hint(e.secretsReason)
 		}
-		b.WriteString(p.blank() + note + p.bottom())
-		return b.String() + m.keyHint(keysExportMode) + m.notes()
+		return m.workList(e.mode, head, p.blank()+note+p.bottom()+m.keyHint(keysExportMode)+m.notes())
 	case exportPlainConfirm:
 		p := m.dialogPanelOf()
 		return p.top(tr(tExportPlainTitle), "") + p.blank() +
@@ -754,6 +741,8 @@ func (m *Model) exportKeys() string {
 	case e.step == exportPassphrase || e.step == exportTarget:
 		// The dialog names its keys.
 		return ""
+	case e.step == exportSelect && e.list.Searching():
+		return hintsText(e.list.Hints())
 	case e.step == exportSelect:
 		return keysExportSelect
 	case e.step == exportMode:

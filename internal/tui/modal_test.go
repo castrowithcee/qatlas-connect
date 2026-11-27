@@ -95,12 +95,10 @@ func TestModalBackgroundDoesNotChangeScrollState(t *testing.T) {
 	for i := range lines {
 		lines[i] = "line"
 	}
-	huge := 1 << 20
 	m.export = &exportState{step: exportPreview, from: screenList, lines: lines}
 	// A tiny area puts the position far below what the real one allows, so drawing would clamp it.
 	m.export.view.window(lines, 3, true)
 	last := m.export.view.offset()
-	m.export.rows.offset = huge
 	m.screen, m.leaveFrom = screenLeave, screenTransfer
 
 	view := m.render()
@@ -110,9 +108,8 @@ func TestModalBackgroundDoesNotChangeScrollState(t *testing.T) {
 	if !strings.Contains(view, "line") {
 		t.Errorf("the background export preview is not visible:\n%s", view)
 	}
-	if m.export.view.offset() != last || m.export.rows.offset != huge {
-		t.Errorf("drawing the background clamped the scroll state: offset %d, rows offset %d",
-			m.export.view.offset(), m.export.rows.offset)
+	if m.export.view.offset() != last {
+		t.Errorf("drawing the background clamped the scroll state: offset %d", m.export.view.offset())
 	}
 	if m.screen != screenLeave || m.width != m.termWidth {
 		t.Errorf("drawing the background left screen %v, width %d", m.screen, m.width)

@@ -21,7 +21,7 @@ const (
 	keysRequestChoice = "{up}/{down} choose · {enter} accept · {back} back · {command} cmds · {help} help"
 	keysLogDetail     = "{back} back · {area} section · {command} cmds · {help} help"
 
-	keysExportSelect = "{up}/{down} move · {space} tick · {save} or {enter} next · {back} cancel · {command} cmds · {help} help"
+	keysExportSelect = "{up}/{down} move · {space} tick · {search} filter · {save} or {enter} next · {back} cancel · {command} cmds · {help} help"
 	keysExportMode   = "{up}/{down} move · {save} or {enter} choose · {back} back · {command} cmds · {help} help"
 	keysExportPlain  = "{yes} write unencrypted · {no}/{back} back, nothing written · {command} cmds · {help} help"
 

@@ -123,7 +123,7 @@ func (v *exportViews) advance(step exportStep, kind exportKind, path string) {
 		}
 		switch s {
 		case exportSelect:
-			v.pump(" ", "enter")
+			v.pump("up", " ", "enter")
 		case exportMode:
 			for i := 0; i < int(kind); i++ {
 				v.pump("down")
@@ -174,14 +174,14 @@ func TestExportWithoutSecretsWritesTheFileAfterThePreview(t *testing.T) {
 	path = filepath.Join(dir, "out.yaml")
 	m := v.m
 	v.startExport("")
-	if view := screenOf(m); !strings.Contains(view, "everything") || !strings.Contains(view, "connection  docs") {
+	if view := screenOf(m); !strings.Contains(view, "all (") || !strings.Contains(view, "docs") || !strings.Contains(view, "connection") {
 		t.Fatalf("the selection does not list what can be taken:\n%s", view)
 	}
 	v.pump("enter")
 	if m.export.step != exportSelect || m.fail == "" {
 		t.Fatalf("enter on nothing ticked = step %v fail %q, want the selection with a reason", m.export.step, m.fail)
 	}
-	v.pump(" ", "enter")
+	v.pump("up", " ", "enter")
 	if view := screenOf(m); m.export.step != exportMode || !strings.Contains(view, "without secrets") {
 		t.Fatalf("the mode step is missing:\n%s", view)
 	}
@@ -227,7 +227,7 @@ func TestExportWithSecretsIsEncryptedAndAsksTheExportPassphraseTwice(t *testing.
 	v, path := vaultExportModel(t)
 	m := v.m
 	v.startExport(testExportVaultPass)
-	v.pump(" ", "enter", "down", "enter")
+	v.pump("up", " ", "enter", "down", "enter")
 	if m.export.step != exportPassphrase {
 		t.Fatalf("step = %v fail %q, want the export passphrase", m.export.step, m.fail)
 	}
@@ -283,7 +283,7 @@ func TestExportUnencryptedNeedsItsOwnConfirmationAndWarns(t *testing.T) {
 	v, path := vaultExportModel(t)
 	m := v.m
 	v.startExport(testExportVaultPass)
-	v.pump(" ", "enter", "down", "down", "enter")
+	v.pump("up", " ", "enter", "down", "down", "enter")
 	if m.export.step != exportPlainConfirm {
 		t.Fatalf("step = %v fail %q, want the plain text question", m.export.step, m.fail)
 	}
@@ -373,7 +373,7 @@ func TestEscOnTheFirstStepWithoutTicksCancelsAtOnce(t *testing.T) {
 		t.Fatalf("esc = screen %v status %q, want the list", m.screen, m.status)
 	}
 	v.startExport("")
-	v.pump(" ", " ", "esc")
+	v.pump("up", " ", " ", "esc")
 	if m.screen != screenList || m.export != nil {
 		t.Fatalf("esc with every tick removed = screen %v, want the list", m.screen)
 	}
@@ -386,7 +386,7 @@ func TestExportLeaveQuestionF2GoesOnAndCtrlCAsksOnADirtyExport(t *testing.T) {
 	v, path := plainExportModel(t)
 	m := v.m
 	v.startExport("")
-	v.pump(" ", "esc", "f2")
+	v.pump("up", " ", "esc", "f2")
 	if m.screen != screenTransfer || m.export.step != exportMode {
 		t.Fatalf("F2 on the question = screen %v, want the next step", m.screen)
 	}
@@ -419,7 +419,7 @@ func TestF2GoesOnLikeEnterOnEveryStepAndEnterConfirmsTheOneLineDialogs(t *testin
 	v, path := vaultExportModel(t)
 	m := v.m
 	v.startExport(testExportVaultPass)
-	v.pump(" ", "f2", "down", "f2")
+	v.pump("up", " ", "f2", "down", "f2")
 	if m.export.step != exportPassphrase {
 		t.Fatalf("step = %v, want the passphrase", m.export.step)
 	}
@@ -528,7 +528,7 @@ func TestExportWithSecretsNeedsAVaultPassphraseAndTheAdminSession(t *testing.T) 
 		v, path := plainExportModel(t)
 		m := v.m
 		v.startExport("")
-		v.pump(" ", "enter", "down", "enter")
+		v.pump("up", " ", "enter", "down", "enter")
 		if m.export.step != exportMode || !strings.Contains(m.fail, "no passphrase") {
 			t.Fatalf("with secrets = step %v fail %q, want it refused with the reason", m.export.step, m.fail)
 		}
@@ -547,7 +547,7 @@ func TestExportWithSecretsNeedsAVaultPassphraseAndTheAdminSession(t *testing.T) 
 		v, path := vaultExportModel(t)
 		m := v.m
 		v.startExport(testExportVaultPass)
-		v.pump(" ", "enter")
+		v.pump("up", " ", "enter")
 		m.endAdminSession()
 		v.pump("down", "enter")
 		if m.screen != screenAdminAuth || m.export.step != exportMode {
