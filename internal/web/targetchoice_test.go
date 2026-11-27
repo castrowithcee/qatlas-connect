@@ -244,7 +244,7 @@ func TestBuildPageTargetDialog(t *testing.T) {
 	for _, want := range []string{
 		`id="target-dialog"`, `data-csrf="` + csrf + `"`, `data-list-url="` + targetListPath + `"`,
 		`data-resolve-url="` + targetResolvePath + `"`, `data-multiple="true"`, `data-noun="book"`,
-		`data-kinds="[{&#34;name&#34;:&#34;shelf&#34;}]"`, `<script src="/static/js/target-dialog.js"></script>`,
+		`data-levels="{&#34;&#34;:[&#34;shelf&#34;]}"`, `<script src="/static/js/target-dialog.js"></script>`,
 	} {
 		if !strings.Contains(body, want) {
 			t.Fatalf("build page lacks %s in: %s", want, body)
@@ -284,7 +284,7 @@ func TestEmbeddedScriptsAreRestricted(t *testing.T) {
 	}
 }
 
-func TestBuildPageCarriesParentsAndTop(t *testing.T) {
+func TestBuildPageCarriesTheListedLevels(t *testing.T) {
 	old := bookMetadata.Target.Kinds
 	bookMetadata.Target.Kinds = []config.TargetKind{
 		{Name: "a", Forms: []string{"a/ID"}},
@@ -296,13 +296,13 @@ func TestBuildPageCarriesParentsAndTop(t *testing.T) {
 	cookie, _ := coupleAndApprove(t, s, nil)
 	s.svc = s.svc.WithTargetSource(bookTargetSource(nil, nil))
 	rec := s.request(t, http.MethodGet, "/connections/new?provider=book", s.addr, cookie, nil)
-	want := `data-kinds="[{&#34;name&#34;:&#34;a&#34;},{&#34;name&#34;:&#34;b&#34;,&#34;parents&#34;:[&#34;a&#34;,&#34;c&#34;],&#34;top&#34;:true},{&#34;name&#34;:&#34;c&#34;}]"`
+	want := `data-levels="{&#34;&#34;:[&#34;a&#34;,&#34;b&#34;,&#34;c&#34;],&#34;a&#34;:[&#34;b&#34;],&#34;c&#34;:[&#34;b&#34;]}"`
 	if body := rec.Body.String(); !strings.Contains(body, want) {
 		t.Fatalf("build page lacks %s in: %s", want, body)
 	}
 }
 
-func TestBuildPageMarksUnlistedKinds(t *testing.T) {
+func TestBuildPageListsNoUnlistedKind(t *testing.T) {
 	old := bookMetadata.Target.Kinds
 	bookMetadata.Target.Kinds = []config.TargetKind{{Name: "shelf", Forms: []string{"shelf/NAME"}, Unlisted: true}}
 	t.Cleanup(func() { bookMetadata.Target.Kinds = old })
@@ -312,9 +312,28 @@ func TestBuildPageMarksUnlistedKinds(t *testing.T) {
 	rec := s.request(t, http.MethodGet, "/connections/new?provider=book", s.addr, cookie, nil)
 	body := rec.Body.String()
 	for _, want := range []string{`id="target-dialog"`, `data-resolve-url="` + targetResolvePath + `"`,
-		`data-kinds="[{&#34;name&#34;:&#34;shelf&#34;,&#34;unlisted&#34;:true}]"`} {
+		`data-levels="{&#34;&#34;:[]}"`} {
 		if !strings.Contains(body, want) {
 			t.Fatalf("build page lacks %s in: %s", want, body)
+		}
+	}
+}
+
+// A kind listed from the connection's own target is offered on the top level once the page carries one.
+func TestBuildPageListsAKindOnceItsTargetIsThere(t *testing.T) {
+	old := bookMetadata.Target.Kinds
+	bookMetadata.Target.Kinds = []config.TargetKind{{Name: "shelf", Forms: []string{"shelf/NAME"}, TopNeeds: "shelf"}}
+	t.Cleanup(func() { bookMetadata.Target.Kinds = old })
+	s, _, _, _ := newConnectionTestServer(t, nil)
+	cookie, _ := coupleAndApprove(t, s, nil)
+	s.svc = s.svc.WithTargetSource(bookTargetSource(nil, nil))
+	for path, want := range map[string]string{
+		"/connections/new?provider=book":                      `data-levels="{&#34;&#34;:[]}"`,
+		"/connections/new?provider=book&targets=shelf%2Fhome": `data-levels="{&#34;&#34;:[&#34;shelf&#34;]}"`,
+	} {
+		rec := s.request(t, http.MethodGet, path, s.addr, cookie, nil)
+		if body := rec.Body.String(); !strings.Contains(body, want) {
+			t.Errorf("%s: build page lacks %s in: %s", path, want, body)
 		}
 	}
 }

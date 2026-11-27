@@ -154,31 +154,27 @@ func (s *Server) handleTargetResolve(w http.ResponseWriter, r *http.Request, pro
 	writeTargetJSON(w, http.StatusOK, targetResolveResponse{Entries: targetEntries(entries, metadata), Warning: warning})
 }
 
-// targetDialogData is what the build page hands the script's chooser: routes, the kinds and their parent
-// relation, and the CSRF value (as an attribute, never as a form field, since the build form submits by GET).
+// targetDialogData is what the build page hands the script's chooser: routes, the kinds the core offers a
+// list of on each level, and the CSRF value (as an attribute, never as a form field, since the build form
+// submits by GET).
 type targetDialogData struct {
 	CSRF, ListURL, ResolveURL, Script, Noun string
-	Kinds                                   string
+	Levels                                  string
 	Multiple                                bool
 }
 
-type targetKindJSON struct {
-	Name    string   `json:"name"`
-	Parents []string `json:"parents,omitempty"`
-	Nested  bool     `json:"nested,omitempty"`
-	Top     bool     `json:"top,omitempty"`
-	// Unlisted kinds have no list; the script offers no list when every kind is unlisted.
-	Unlisted bool `json:"unlisted,omitempty"`
-}
-
-func newTargetDialogData(t config.TargetMetadata, csrf string) *targetDialogData {
-	kinds := make([]targetKindJSON, 0, len(t.Kinds))
+// newTargetDialogData offers the levels of config.TargetMetadata.ListedKinds for the targets the page is built
+// with, as a JSON object from a parent kind ("" for the top level) to the kinds listed below its entries.
+func newTargetDialogData(t config.TargetMetadata, targets []string, csrf string) *targetDialogData {
+	levels := map[string][]string{"": append([]string{}, t.ListedKinds("", targets)...)}
 	for _, k := range t.Kinds {
-		kinds = append(kinds, targetKindJSON{Name: k.Name, Parents: k.Parents, Nested: k.Nested, Top: k.Top, Unlisted: k.Unlisted})
+		if kinds := t.ListedKinds(k.Name, targets); len(kinds) > 0 {
+			levels[k.Name] = kinds
+		}
 	}
-	b, _ := json.Marshal(kinds)
+	b, _ := json.Marshal(levels)
 	return &targetDialogData{
 		CSRF: csrf, ListURL: targetListPath, ResolveURL: targetResolvePath,
-		Script: scriptPrefix + "target-dialog.js", Noun: t.Label, Kinds: string(b), Multiple: t.Multiple,
+		Script: scriptPrefix + "target-dialog.js", Noun: t.Label, Levels: string(b), Multiple: t.Multiple,
 	}
 }

@@ -74,8 +74,9 @@ func TestTargetBrowserChecksDetectViolations(t *testing.T) {
 	}
 }
 
-// targetBrowserViolations lists the listed kinds of a provider that its browser refuses like a kind it does
-// not offer, each read under the same parent as the refusal it is compared with.
+// targetBrowserViolations lists the kinds a surface offers a list of (config.TargetMetadata.ListedKinds) that
+// the provider's browser refuses like a kind it does not offer, each read under the same parent as the refusal
+// it is compared with. The connection holds a target of every kind a TopNeeds names.
 func targetBrowserViolations(reg *capability.Registry, metadata config.ProviderMetadata) []string {
 	var violations []string
 	ctx, cancel := context.WithCancel(context.Background())
@@ -87,28 +88,44 @@ func targetBrowserViolations(reg *capability.Registry, metadata config.ProviderM
 			config.TargetListRequest{Kind: kind, Parent: parent})
 		return err
 	}
+	parents := map[string]string{"": ""}
 	for _, kind := range metadata.Target.Kinds {
-		if kind.Unlisted {
+		if len(kind.Forms) > 0 {
+			parents[kind.Name] = sampleTarget(kind)
+		}
+	}
+	for _, place := range append([]string{""}, kindNames(metadata.Target)...) {
+		parent, ok := parents[place]
+		if !ok {
 			continue
 		}
-		for _, parent := range browseParents(metadata.Target, kind) {
+		for _, kind := range metadata.Target.ListedKinds(place, resolved.Targets) {
 			refusal := read(unofferedKind, parent)
 			if refusal == nil {
 				violations = append(violations, fmt.Sprintf("provider %q lists the undeclared kind %q under %q",
 					metadata.ID, unofferedKind, parent))
 				continue
 			}
-			if err := read(kind.Name, parent); err != nil && err.Error() == refusal.Error() {
+			if err := read(kind, parent); err != nil && err.Error() == refusal.Error() {
 				violations = append(violations, fmt.Sprintf(
 					"provider %q kind %q under %q is answered like a kind it does not offer (%v); mark it Unlisted or list it",
-					metadata.ID, kind.Name, parent, err))
+					metadata.ID, kind, parent, err))
 			}
 		}
 	}
 	return violations
 }
 
-// browseConnection is a connection of the provider with every secret role set and its default address.
+func kindNames(target config.TargetMetadata) []string {
+	var names []string
+	for _, kind := range target.Kinds {
+		names = append(names, kind.Name)
+	}
+	return names
+}
+
+// browseConnection is a connection of the provider with every secret role set, its default address, its
+// wildcard and a target of every kind a TopNeeds names.
 func browseConnection(metadata config.ProviderMetadata) *config.Resolved {
 	values := map[string]string{}
 	for _, role := range metadata.SecretRoles {
@@ -120,32 +137,21 @@ func browseConnection(metadata config.ProviderMetadata) *config.Resolved {
 	if metadata.Target.Wildcard != "" {
 		resolved.Targets = []string{metadata.Target.Wildcard}
 	}
+	for _, kind := range metadata.Target.Kinds {
+		if needed, ok := metadata.Target.KindByName(kind.TopNeeds); ok && len(needed.Forms) > 0 {
+			resolved.Targets = append(resolved.Targets, sampleTarget(needed))
+		}
+	}
 	return resolved
 }
 
-// browseParents are the parents a surface reads the kind under: none at the top level, and one entry of
-// each parent kind, spelled in its first form with every placeholder filled.
-func browseParents(target config.TargetMetadata, kind config.TargetKind) []string {
-	var parents []string
-	if len(kind.Parents) == 0 || kind.Top {
-		parents = append(parents, "")
-	}
-	names := kind.Parents
-	if kind.Nested {
-		names = append(append([]string{}, names...), kind.Name)
-	}
-	for _, name := range names {
-		parent, ok := target.KindByName(name)
-		if !ok || len(parent.Forms) == 0 {
-			continue
+// sampleTarget is an entry of the kind, spelled in its first form with every placeholder filled.
+func sampleTarget(kind config.TargetKind) string {
+	segments := strings.Split(kind.Forms[0], "/")
+	for i, segment := range segments {
+		if config.Placeholder(segment) {
+			segments[i] = "1"
 		}
-		segments := strings.Split(parent.Forms[0], "/")
-		for i, segment := range segments {
-			if config.Placeholder(segment) {
-				segments[i] = "1"
-			}
-		}
-		parents = append(parents, strings.Join(segments, "/"))
 	}
-	return parents
+	return strings.Join(segments, "/")
 }

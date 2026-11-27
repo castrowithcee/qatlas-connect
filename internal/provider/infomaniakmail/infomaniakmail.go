@@ -438,6 +438,7 @@ func Register(reg *capability.Registry) error {
 				Name:        "mailbox",
 				Description: "the one mailbox this connection logs in to; required, exactly one",
 				Forms:       []string{"mailbox/ADDRESS"},
+				TopNeeds:    "mailbox",
 			}, {
 				Name:    "folder",
 				Parents: []string{"mailbox"},

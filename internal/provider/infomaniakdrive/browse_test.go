@@ -345,3 +345,18 @@ func TestFolderPathNeedsAUnambiguousChain(t *testing.T) {
 		t.Fatalf("page = %+v, %v", page, err)
 	}
 }
+
+// A drive is listed on the top level only from the connection's account; below an account always.
+func TestTheTopLevelDriveListWaitsForTheAccountTarget(t *testing.T) {
+	metadata, _ := registry(t).ProviderMetadata(Provider)
+	target := metadata.Target
+	if got := target.ListedKinds("", nil); !reflect.DeepEqual(got, []string{"account"}) {
+		t.Errorf("top level without an account = %q, want account", got)
+	}
+	if got := target.ListedKinds("", []string{"account/1001"}); !reflect.DeepEqual(got, []string{"account", "drive"}) {
+		t.Errorf("top level with an account = %q, want account and drive", got)
+	}
+	if got := target.ListedKinds("account", nil); !reflect.DeepEqual(got, []string{"drive"}) {
+		t.Errorf("below an account = %q, want drive", got)
+	}
+}

@@ -158,6 +158,10 @@ func (t TargetMetadata) knowsForm(form string) bool {
 // a surface offers no list for it, though entries of it can still come from a resolved web address. The zero
 // value is a listed kind.
 //
+// TopNeeds names a kind, this one or another, that the connection must hold a target of before a surface
+// offers the list of the kind at the top level: the provider lists that level from the connection's own
+// target, such as a mailbox it has no directory of. Empty lists the top level for any connection.
+//
 // ExcludeForms lists the forms of the kind that the provider reads as an exclusion (see Connection.Exclude): a
 // connection can take entries spelled in them out of what its targets reach. A form is listed only when it is
 // also one of Forms and the provider's exclusion parser takes it; a form left out, such as a bare kind that as a
@@ -171,6 +175,7 @@ type TargetKind struct {
 	Nested       bool
 	Top          bool
 	Unlisted     bool
+	TopNeeds     string
 	ExcludeForms []string
 }
 
@@ -225,12 +230,43 @@ func (t TargetMetadata) HasChildKind(name string) bool {
 	})
 }
 
+// ListedKinds names the kinds a surface offers a list of below an entry of the kind parent, or at the top
+// level for "", for a connection with these targets: the kinds of that place that are not Unlisted, and at
+// the top level only those whose TopNeeds one of the targets is a target of. A nested kind also sits below its
+// own entries.
+func (t TargetMetadata) ListedKinds(parent string, targets []string) []string {
+	var kinds []string
+	for _, kind := range t.Kinds {
+		switch {
+		case kind.Unlisted:
+			continue
+		case parent == "":
+			if len(kind.Parents) > 0 && !kind.Top || kind.TopNeeds != "" &&
+				!slices.ContainsFunc(targets, func(target string) bool { return t.ValidTarget(kind.TopNeeds, target) }) {
+				continue
+			}
+		case !slices.Contains(kind.Parents, parent) && !(kind.Nested && kind.Name == parent):
+			continue
+		}
+		kinds = append(kinds, kind.Name)
+	}
+	return kinds
+}
+
 // ValidateKindParents checks that every parent names a kind of its own provider and that the parents form no
-// cycle.
+// cycle, and that TopNeeds names a kind and is set only on a kind listed at the top level.
 func (t TargetMetadata) ValidateKindParents() error {
 	for _, kind := range t.Kinds {
 		if kind.Top && len(kind.Parents) == 0 {
 			return fmt.Errorf("target kind %q is top-level already and cannot set Top", kind.Name)
+		}
+		if kind.TopNeeds != "" {
+			if _, ok := t.KindByName(kind.TopNeeds); !ok {
+				return fmt.Errorf("target kind %q names unknown kind %q in TopNeeds", kind.Name, kind.TopNeeds)
+			}
+			if kind.Unlisted || len(kind.Parents) > 0 && !kind.Top {
+				return fmt.Errorf("target kind %q is not listed at the top level and cannot set TopNeeds", kind.Name)
+			}
 		}
 		for _, parent := range kind.Parents {
 			if _, ok := t.KindByName(parent); !ok {

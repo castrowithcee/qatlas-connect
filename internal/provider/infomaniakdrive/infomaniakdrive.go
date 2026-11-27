@@ -522,6 +522,7 @@ func Register(reg *capability.Registry) error {
 				Forms:        []string{"drive/DRIVE_ID"},
 				Parents:      []string{"account"},
 				Top:          true,
+				TopNeeds:     "account",
 				ExcludeForms: []string{"drive/DRIVE_ID"},
 			}, {
 				Name: "files",

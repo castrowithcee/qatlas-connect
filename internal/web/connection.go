@@ -476,7 +476,7 @@ func (s *Server) renderConnectionBuild(w http.ResponseWriter, cfg *config.Config
 		row.CanSwitch = row.Excluded || canExclude(metadata.Target, row.Target)
 	}
 	if s.svc != nil && s.svc.CanBrowseTargets(f.Provider) {
-		data.Dialog = newTargetDialogData(metadata.Target, s.csrfValue())
+		data.Dialog = newTargetDialogData(metadata.Target, splitTargetInput(f.Targets), s.csrfValue())
 	}
 	if choices := manage.ForwardChoices(cfg); len(choices) > 0 {
 		data.ForwardChoices = checkedOptions(choices, f.Forward)
