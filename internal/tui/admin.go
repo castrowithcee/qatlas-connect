@@ -12,17 +12,16 @@ import (
 	"errors"
 	"time"
 
-	"charm.land/bubbles/v2/textinput"
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/castrowithcee/qatlas-connect/internal/manage"
+	kittui "github.com/castrowithcee/qatlas-kit/tui"
 )
 
 // adminAuth is the masked admin passphrase dialog requireAdmin opens while it is waiting for one, and nil
 // otherwise. It never confirms a fresh passphrase twice, unlike vaultOffer: it only ever checks one that
 // already exists.
 type adminAuth struct {
-	input textinput.Model
 	// locked says whether the vault itself needs unlocking too ("Unlock vault to continue"), or is already
 	// unlocked in this process and only lacks a session ("Admin passphrase needed to save").
 	locked bool
@@ -81,36 +80,28 @@ func (m *Model) requireAdmin(action func() tea.Cmd) tea.Cmd {
 // wrong passphrase causes (see handleAdminVerified), so a retry never moves the fallback to the dialog
 // itself.
 func (m *Model) openAdminPrompt(locked bool, back screen, action func() tea.Cmd) {
-	in := newTextInput()
-	in.Prompt = ""
-	in.EchoMode = textinput.EchoPassword
-	in.Focus()
-
-	m.adminAuth = &adminAuth{input: in, locked: locked, back: back, action: action}
+	m.dropQuestion()
+	m.adminAuth = &adminAuth{locked: locked, back: back, action: action}
 	m.screen = screenAdminAuth
 	m.clearMessages()
 }
 
-// updateAdminAuth handles the masked entry of the admin passphrase dialog.
-func (m *Model) updateAdminAuth(key tea.KeyPressMsg) tea.Cmd {
+// answerAdminAuth answers the admin passphrase dialog.
+func (m *Model) answerAdminAuth(act action) tea.Cmd {
 	a := m.adminAuth
-	switch {
-	case keyIs(key, actBack):
-		back := a.back
-		a.input.Reset()
+	switch act {
+	case actBack:
 		m.adminAuth = nil
-		m.screen = back
+		m.screen = a.back
 		m.status = tr(tCancelled)
-		return nil
-	case keyIs(key, actEnter):
+	case actEnter:
 		if m.vaultBusy {
 			// The scrypt work of an earlier attempt on this very dialog is still running: starting a second
 			// one over it, on the same vault.Vault, would race it, the same reason every other vault check
 			// or write in this editor is guarded the same way (see vaultBusy's own comment).
 			return nil
 		}
-		typed := a.input.Value()
-		a.input.Reset()
+		typed := m.takeInput()
 		m.clearMessages()
 		if typed == "" {
 			m.fail = tr(tPassphraseEmpty)
@@ -118,10 +109,7 @@ func (m *Model) updateAdminAuth(key tea.KeyPressMsg) tea.Cmd {
 		}
 		return m.verifyAdminPassphrase(typed, a.locked, a.back, a.action)
 	}
-
-	var cmd tea.Cmd
-	a.input, cmd = a.input.Update(inputMsg(key))
-	return cmd
+	return nil
 }
 
 // verifyAdminPassphrase checks the typed passphrase, as a command so the scrypt work it does never runs on
@@ -171,19 +159,17 @@ func (m *Model) handleAdminVerified(msg adminVerifiedMsg) tea.Cmd {
 	return msg.action()
 }
 
-// adminAuthPrompt is the masked admin passphrase dialog, in the pattern of the masked vault passphrase
-// prompt (see vaultOfferPrompt): a title, the masked line, an explanation, and enter/esc.
-func (m *Model) adminAuthPrompt() promptDialog {
-	a := m.adminAuth
-	title := tr(tAdminTitleSave)
-	hint := m.adminSessionHint()
-	keys := "{enter} ok · {back} cancel, nothing saved"
-	if a.locked {
-		title = tr(tAdminTitleUnlock)
-		hint = tr(tAdminHintUnlock)
-		keys = "{enter} unlock · {back} cancel, nothing saved"
+// adminAuthAsk is the masked admin passphrase dialog, in the pattern of the masked vault passphrase prompt
+// (see vaultOfferAsk).
+func (m *Model) adminAuthAsk() ask {
+	q := ask{title: tAdminTitleSave, question: m.adminSessionHint(), input: true, masked: true, keep: actEnter,
+		answers: []kittui.Answer{{Action: actEnter, Label: hintLabelID("{enter} ok")},
+			{Action: actBack, Label: hintLabelID("{back} cancel, nothing saved")}}}
+	if m.adminAuth.locked {
+		q.title, q.question = tAdminTitleUnlock, tr(tAdminHintUnlock)
+		q.answers[0].Label = hintLabelID("{enter} unlock")
 	}
-	return promptDialog{title: title, input: m.inputLine("  ", a.input), field: true, hint: hint, keys: keys}
+	return q
 }
 
 // adminSessionHint says how long this window's admin session will stay open once the passphrase proves it,

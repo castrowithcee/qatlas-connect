@@ -11,13 +11,13 @@ import (
 	"strings"
 	"time"
 
-	"charm.land/bubbles/v2/textinput"
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/castrowithcee/qatlas-connect/internal/manage"
 	"github.com/castrowithcee/qatlas-connect/internal/secret"
 	"github.com/castrowithcee/qatlas-connect/internal/vault"
 	"github.com/castrowithcee/qatlas-connect/internal/vaultproc"
+	kittui "github.com/castrowithcee/qatlas-kit/tui"
 )
 
 // vaultTickInterval is how often the header's vault state is refreshed from a vault process, and this
@@ -236,39 +236,30 @@ func (m *Model) handleVaultLockKey() tea.Cmd {
 // window's admin session; back is the screen it returns to either way, whichever one 'ctrl+l' was pressed
 // from.
 type vaultUnlockPrompt struct {
-	input textinput.Model
-	back  screen
+	back screen
 }
 
 func (m *Model) openVaultUnlockPrompt(back screen) {
-	in := newTextInput()
-	in.Prompt = ""
-	in.EchoMode = textinput.EchoPassword
-	in.Focus()
-
-	m.vaultUnlock = &vaultUnlockPrompt{input: in, back: back}
+	m.dropQuestion()
+	m.vaultUnlock = &vaultUnlockPrompt{back: back}
 	m.screen = screenVaultUnlock
 	m.clearMessages()
 }
 
-// updateVaultUnlockPrompt handles the masked entry of the 'ctrl+l' unlock dialog.
-func (m *Model) updateVaultUnlockPrompt(key tea.KeyPressMsg) tea.Cmd {
+// answerVaultUnlock answers the 'ctrl+l' unlock dialog.
+func (m *Model) answerVaultUnlock(act action) tea.Cmd {
 	u := m.vaultUnlock
-	switch {
-	case keyIs(key, actBack):
-		back := u.back
-		u.input.Reset()
+	switch act {
+	case actBack:
 		m.vaultUnlock = nil
-		m.screen = back
+		m.screen = u.back
 		m.status = tr(tCancelled)
-		return nil
-	case keyIs(key, actEnter):
+	case actEnter:
 		if m.vaultBusy {
 			// The scrypt work of an earlier attempt on this very dialog is still running.
 			return nil
 		}
-		typed := u.input.Value()
-		u.input.Reset()
+		typed := m.takeInput()
 		m.clearMessages()
 		if typed == "" {
 			m.fail = tr(tPassphraseEmpty)
@@ -276,23 +267,21 @@ func (m *Model) updateVaultUnlockPrompt(key tea.KeyPressMsg) tea.Cmd {
 		}
 		return m.beginVaultUnlock(typed, u.back)
 	}
-	var cmd tea.Cmd
-	u.input, cmd = u.input.Update(inputMsg(key))
-	return cmd
+	return nil
 }
 
-// vaultUnlockPrompt is the masked 'ctrl+l' unlock dialog, in the pattern of every other masked
-// prompt this editor already shows (see adminAuthPrompt, vaultOfferPrompt): a title, the masked line, an
-// explanation, and enter/esc. The explanation is its own text (see vaultUnlockHint), not admin.go's
-// adminSessionHint: this dialog opens without a pending admin-gated action, so it reads as unlocking that
-// also starts admin mode, not the other way round.
-func (m *Model) vaultUnlockPrompt() promptDialog {
-	d := promptDialog{title: tr(tUnlockTitle), input: m.inputLine("  ", m.vaultUnlock.input), field: true,
-		hint: m.vaultUnlockHint(), keys: "{enter} unlock · {back} cancel"}
+// vaultUnlockAsk is the masked 'ctrl+l' unlock dialog, in the pattern of every other masked prompt this
+// editor shows (see adminAuthAsk, vaultOfferAsk). Its explanation is its own text (see vaultUnlockHint), not
+// admin.go's adminSessionHint: this dialog opens without a pending admin-gated action, so it reads as
+// unlocking that also starts admin mode, not the other way round.
+func (m *Model) vaultUnlockAsk() ask {
+	q := ask{title: tUnlockTitle, question: m.vaultUnlockHint(), input: true, masked: true, keep: actEnter,
+		answers: []kittui.Answer{{Action: actEnter, Label: hintLabelID("{enter} unlock")},
+			{Action: actBack, Label: hintLabelID("{back} cancel")}}}
 	if m.restartNote != "" {
-		d.notice = m.indented(m.restartNote)
+		q.details = []kittui.DialogLine{{Text: m.restartNote}}
 	}
-	return d
+	return q
 }
 
 // vaultUnlockHint explains what answering the 'ctrl+l' unlock dialog does besides unlocking the vault

@@ -240,13 +240,9 @@ func TestQuestionAndPromptFillTheWorkspaceInAPanel(t *testing.T) {
 
 	e := exportAt(exportTarget, exportWithout)(t)
 	e.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
-	d, ok := e.exportPrompt()
-	if !ok {
-		t.Fatal("the export has no file prompt")
+	view = ansi.Strip(e.render())
+	if !strings.Contains(roundFrame(view), "╭─ "+tr(tExportFileTitle)+" ") {
+		t.Errorf("the file dialog is not a panel under its title:\n%s", view)
 	}
-	view = ansi.Strip(e.promptView(d))
-	if !strings.Contains(view, "╭─ "+d.title+" ") {
-		t.Errorf("the prompt is not a panel under its title:\n%s", view)
-	}
-	checkFits(t, view, e.width, e.height)
+	checkFits(t, view, e.termWidth, e.termHeight)
 }

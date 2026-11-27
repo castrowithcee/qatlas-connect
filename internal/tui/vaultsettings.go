@@ -294,7 +294,7 @@ func (m *Model) cancelVaultPrompt() tea.Cmd {
 // startVaultEncrypt asks for a new passphrase, typed masked and twice, and turns encryption on with it.
 func (m *Model) startVaultEncrypt() tea.Cmd {
 	m.openVaultOffer(
-		tr(tVaultEncryptingTitle),
+		tVaultEncryptingTitle,
 		tr(tVaultEncryptingHint),
 		false, true,
 		func(offer vault.PassphraseFunc) tea.Cmd {
@@ -351,7 +351,7 @@ func approveOnEncrypt(store *config.Store, v *vault.Vault) string {
 // current passphrase is checked before anything else is asked.
 func (m *Model) startVaultChangePassphrase() tea.Cmd {
 	return m.startVaultCurrentPassphrase(
-		tr(tVaultCurrentTitle),
+		tVaultCurrentTitle,
 		tr(tVaultCurrentHintNew),
 		m.startVaultNewPassphrase,
 	)
@@ -361,10 +361,11 @@ func (m *Model) startVaultChangePassphrase() tea.Cmd {
 // for anything a wrong one would make pointless: a new passphrase typed twice, or the explicit confirmation
 // before turning encryption off. See startVaultCurrentPassphrase.
 type vaultPassphraseVerifiedMsg struct {
-	passphrase  string
-	err         error
-	title, hint string
-	next        func(passphrase string) tea.Cmd
+	passphrase string
+	err        error
+	title      textID
+	hint       string
+	next       func(passphrase string) tea.Cmd
 }
 
 // startVaultCurrentPassphrase asks for the vault's current passphrase and verifies it asynchronously, since
@@ -372,11 +373,11 @@ type vaultPassphraseVerifiedMsg struct {
 // error shown, instead of moving on to ask for a new passphrase or an explicit confirmation that would only
 // be typed for nothing; esc still cancels back to the vault form, unchanged, at any point. It is how
 // 'change passphrase' and 'turn off encryption' both start.
-func (m *Model) startVaultCurrentPassphrase(title, hint string, next func(string) tea.Cmd) tea.Cmd {
+func (m *Model) startVaultCurrentPassphrase(title textID, hint string, next func(string) tea.Cmd) tea.Cmd {
 	m.openVaultOffer(title, hint, false, false,
 		func(offer vault.PassphraseFunc) tea.Cmd {
 			current, _ := offer("")
-			// The offer's own prompt is gone the moment resume runs (see updateVaultOffer); the form is what
+			// The offer's own prompt is gone the moment resume runs (see answerVaultOffer); the form is what
 			// shows the check running, the same way it shows every other vault write in flight.
 			m.screen = screenForm
 			return m.verifyVaultPassphrase(current, title, hint, next)
@@ -389,7 +390,7 @@ func (m *Model) startVaultCurrentPassphrase(title, hint string, next func(string
 // verifyVaultPassphrase checks current against the vault's key.age, without unlocking or changing anything
 // else (see vault.Vault.VerifyPassphrase), as a command so the scrypt work it does never runs on the event
 // loop; vaultBusy blocks a second vault write, or another such offer, from starting before it is done.
-func (m *Model) verifyVaultPassphrase(current, title, hint string, next func(string) tea.Cmd) tea.Cmd {
+func (m *Model) verifyVaultPassphrase(current string, title textID, hint string, next func(string) tea.Cmd) tea.Cmd {
 	v := m.secrets.Vault()
 	if v == nil {
 		m.fail = tr(tVaultNone)
@@ -427,7 +428,7 @@ func (m *Model) handleVaultPassphraseVerified(msg vaultPassphraseVerifiedMsg) te
 
 func (m *Model) startVaultNewPassphrase(current string) tea.Cmd {
 	m.openVaultOffer(
-		tr(tVaultNewTitle),
+		tVaultNewTitle,
 		tr(tVaultNewHint),
 		false, true,
 		func(offer vault.PassphraseFunc) tea.Cmd {
@@ -467,7 +468,7 @@ func (m *Model) runVaultChangePassphrase(current, newPassphrase string) tea.Cmd 
 // why the current passphrase is checked before the confirmation is ever asked.
 func (m *Model) startVaultDecrypt() tea.Cmd {
 	return m.startVaultCurrentPassphrase(
-		tr(tVaultCurrentTitle),
+		tVaultCurrentTitle,
 		tr(tVaultCurrentHintOff),
 		func(current string) tea.Cmd {
 			m.decryptPassphrase = current

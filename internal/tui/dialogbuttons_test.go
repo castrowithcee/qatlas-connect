@@ -1,11 +1,12 @@
 package tui
 
 import (
+	"regexp"
 	"strings"
 	"testing"
 
+	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
-	"github.com/castrowithcee/qatlas-kit/i18n"
 	kittui "github.com/castrowithcee/qatlas-kit/tui"
 	"github.com/charmbracelet/x/ansi"
 )
@@ -74,8 +75,8 @@ func TestDialogsReadWithoutColour(t *testing.T) {
 	question := openDeleteQuestion(t)
 	input, _ := startServiceForm(t)
 	sizedModel(input, 100, 30)
-	input.screen, input.secretInput = screenSecret, maskedInput()
-	input.secretInput.SetValue("canary-secret")
+	input.screen, input.secretRole = screenSecret, "key"
+	input.Update(tea.PasteMsg{Content: "canary-secret"})
 	for name, m := range map[string]*Model{"question": question, "input": input} {
 		view := m.render()
 		for _, seq := range []string{"\x1b[3", "\x1b[4", "38;", "48;"} {
@@ -87,7 +88,7 @@ func TestDialogsReadWithoutColour(t *testing.T) {
 		if name == "question" && !strings.Contains(plain, "[ remove ]") {
 			t.Errorf("the question lacks its buttons:\n%s", plain)
 		}
-		if name == "input" && (!strings.Contains(plain, "> Store <") || strings.Contains(plain, "canary-secret")) {
+		if name == "input" && (!strings.Contains(plain, "[ enter store ]") || strings.Contains(plain, "canary-secret")) {
 			t.Errorf("the input dialog lacks its focused button or shows the secret:\n%s", plain)
 		}
 	}
@@ -101,15 +102,16 @@ func TestSecretFieldIsMaskedOnItsSurface(t *testing.T) {
 	useDarkColours()
 	m, _ := startServiceForm(t)
 	sizedModel(m, 100, 30)
-	m.screen, m.secretInput = screenSecret, maskedInput()
-	m.secretInput.SetValue("canary-secret")
+	m.screen, m.secretRole = screenSecret, "key"
+	m.Update(tea.PasteMsg{Content: "canary-secret"})
 	view := m.render()
-	surface := lipgloss.NewStyle().Background(lip(styles.Palette().Surface)).Render("x")
-	if !strings.Contains(view, surface[:strings.Index(surface, "x")]) {
+	surface := regexp.MustCompile(`48;2;\d+;\d+;\d+`).FindString(
+		lipgloss.NewStyle().Background(lip(styles.Palette().Surface)).Render("x"))
+	if surface == "" || !strings.Contains(view, surface) {
 		t.Errorf("the field has no surface:\n%s", view)
 	}
 	plain := ansi.Strip(view)
-	if strings.Contains(plain, "canary-secret") || !strings.Contains(plain, strings.Repeat("*", len("canary-secret"))) {
+	if strings.Contains(plain, "canary-secret") || !strings.Contains(plain, masked(len("canary-secret"))) {
 		t.Errorf("the field does not show the mask only:\n%s", plain)
 	}
 }
@@ -117,7 +119,7 @@ func TestSecretFieldIsMaskedOnItsSurface(t *testing.T) {
 // The passphrase dialog keeps fitting the smallest terminal, where it takes the whole workspace.
 func TestPassphraseDialogFitsTheSmallestTerminalWithButtonsInModals(t *testing.T) {
 	m, _ := startServiceForm(t)
-	m.screen, m.secretInput = screenSecret, maskedInput()
+	m.screen, m.secretRole = screenSecret, "key"
 	sizedModel(m, minimumWidth, minimumHeight)
 	view := m.render()
 	assertViewFits(t, view, minimumWidth, minimumHeight)
@@ -127,26 +129,5 @@ func TestPassphraseDialogFitsTheSmallestTerminalWithButtonsInModals(t *testing.T
 	sizedModel(m, minimumWidth, minimumHeight-1)
 	if !strings.Contains(m.render(), "Resize") {
 		t.Error("a terminal below the minimum does not ask for more room")
-	}
-}
-
-func TestDialogButtonsLabelAndFocusInBothLanguages(t *testing.T) {
-	m, _, _ := newModel(t)
-	cases := []struct {
-		lang  i18n.Lang
-		keys  string
-		label string
-	}{
-		{i18n.English, "{enter} or {back} close", "Close"},
-		{i18n.English, "{save} or {enter} next", "Next"},
-		{i18n.German, "{enter} or {back} close", "Schließen"},
-		{i18n.German, "{save} or {enter} next", "Weiter"},
-	}
-	for _, c := range cases {
-		useLanguage(t, c.lang)
-		buttons := m.dialogButtons(c.keys)
-		if len(buttons) != 1 || buttons[0].label != c.label || !buttons[0].focused {
-			t.Errorf("%s %q: buttons %+v, want one focused %q", c.lang, c.keys, buttons, c.label)
-		}
 	}
 }

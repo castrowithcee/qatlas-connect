@@ -519,10 +519,10 @@ type Model struct {
 	targetRemove      bool
 	// targetAdd is the menu that adds a target, with its builder, while it is open.
 	targetAdd *targetAdd
-	// pathList, pathInput, pathEdit and pathRemove do for the path list of a connection what the target
-	// fields above do for its targets (see paths.go).
+	// pathList, pathValue, pathEdit and pathRemove do for the path list of a connection what the target
+	// fields above do for its targets (see paths.go); pathValue is the path being typed.
 	pathList   filterList
-	pathInput  pathField
+	pathValue  string
 	pathEdit   int
 	pathRemove bool
 	// now is the clock the active-for row and the connection list read; nil means time.Now.
@@ -610,10 +610,9 @@ type Model struct {
 	writes int
 	// probeID guards the display refresh, guardID the answer a waiting type change needs. They are apart
 	// so an ordinary refresh cannot take that answer away.
-	probeID     int
-	guardID     int
-	secretInput textinput.Model
-	secretRole  string
+	probeID    int
+	guardID    int
+	secretRole string
 	// vaultOffer holds the passphrase offer that follows a vault's very first secret while it is open, and
 	// nil otherwise. vaultBusy is true while a vault write, or the offer that may lead to one, is in flight,
 	// so a second one cannot start before it is done.
@@ -736,12 +735,6 @@ type Model struct {
 	tooSmall bool
 	// footerLog, when set, collects the footer lines a dialog draws, to make its keys clickable.
 	footerLog *[]footerLine
-	// pathShown are the path suggestions drawn in this frame, until the lines they stand in are placed.
-	pathShown []pathRowsShown
-	// inModal is set while a dialog is drawn as a modal: its text then carries its buttons.
-	inModal bool
-	// inPanel is set while a question is drawn for the inside of a frame (see framedTitled).
-	inPanel bool
 	// screenKeys is the key text of the footer of the current screen, and screenPos the position in its list
 	// at the right end of the footer; layoutWorkspace takes both before the screen is drawn.
 	screenKeys, screenPos string
@@ -865,7 +858,6 @@ func New(svc *manage.Service, store *config.Store, tester Tester, secrets Secret
 	m.labelInput = textField("", "", false).input
 	m.pathList = newFilterList(func(path string) string { return path })
 	m.pathList.stops = true
-	m.pathInput = newPathField(pathDirectory)
 	m.logs = newLogView(time.Now())
 	m.refreshLogRetention()
 	m.RefreshAdminTimeout()
@@ -1079,10 +1071,6 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.dd != nil {
 			return m, m.updateDropdown(msg)
 		}
-		if m.testResultShown() {
-			m.testResultKey(msg)
-			return m, nil
-		}
 		if m.barOpen() {
 			return m, m.updateOpenBar(msg)
 		}
@@ -1118,12 +1106,6 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			cmd = m.updateForm(msg)
 		case screenConfirm:
 			cmd = m.updateConfirm(msg)
-		case screenSecret:
-			cmd = m.updateSecret(msg)
-		case screenVaultOffer:
-			cmd = m.updateVaultOffer(msg)
-		case screenAdminAuth:
-			cmd = m.updateAdminAuth(msg)
 		case screenPicker:
 			cmd = m.updatePicker(msg)
 		case screenProviders:
@@ -1136,8 +1118,6 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			cmd = m.updateTargets(msg)
 		case screenPaths:
 			cmd = m.updatePaths(msg)
-		case screenVaultUnlock:
-			cmd = m.updateVaultUnlockPrompt(msg)
 		case screenLogs:
 			cmd = m.updateLogs(msg)
 		case screenLogDetail:
@@ -1608,7 +1588,6 @@ func (m *Model) leaveScreen() tea.Cmd {
 	}
 	// A picker, table, prompt or question over a form steps back to the form, which keeps everything typed
 	// into it; nothing it was about is written.
-	m.secretInput.Reset()
 	m.confirmRole, m.pendingProfile = "", ""
 	if m.adminAuth != nil {
 		// The admin dialog returns to whatever screen requireAdmin was called from, not always the form; see
@@ -1852,7 +1831,6 @@ func (m *Model) discard() tea.Cmd {
 	case screenPaths:
 		if m.pathEdit >= 0 {
 			m.pathEdit = -1
-			m.pathInput.Blur()
 		} else {
 			m.screen = screenForm
 		}
@@ -4051,7 +4029,6 @@ func (m *Model) renderFrame() string {
 	m.hits, m.frameTabs, m.frameKeys, m.zones, m.listTargets, m.dialogBox, m.tooSmall = nil, nil, nil, nil, nil, hit{}, false
 	m.menuTargets, m.barTargets, m.modalTargets = nil, nil, nil
 	m.syncQuestion()
-	m.pathShown = nil
 	m.drawn = true
 	if m.dd != nil {
 		m.dd.placed = false
@@ -4069,20 +4046,10 @@ func (m *Model) renderFrame() string {
 	if view, ok := m.modalView(); ok {
 		return view
 	}
-	if m.promptScreen() {
-		// A dialog that has no room for a modal fills the workspace; its keys stand in the footer.
-		return m.frame(m.workspaceView())
-	}
 	if view, ok := m.barModalView(); ok {
 		return view
 	}
 	return m.overlayDropdown(m.frame(m.workspaceView()))
-}
-
-// promptScreen reports whether the current screen is a short input dialog or a connection test result.
-func (m *Model) promptScreen() bool {
-	_, ok := m.prompt()
-	return ok
 }
 
 // workspaceView is the current screen, or, when it cannot fit the workspace, what it needs and the way out
@@ -4090,10 +4057,6 @@ func (m *Model) promptScreen() bool {
 func (m *Model) workspaceView() string {
 	view := m.fittedEditorView()
 	if m.screen == screenLeave || m.viewFits(view) {
-		if !m.backdrop {
-			// Under a modal the suggestions belong to the dialog, which places them.
-			m.hitPathRows(strings.Split(view, "\n"), m.workspaceTop(), 0)
-		}
 		return view
 	}
 	m.tooSmall = true
@@ -4185,9 +4148,6 @@ func (m *Model) editorView() string {
 			b.WriteString("\n" + m.wrapped(styles.warning, tr(tFormRemoveTheField, m.shownLabel(m.fields[m.focus].label))) + "\n")
 		}
 		b.WriteString(m.keyHint(m.formScreenKeys()))
-	case screenSecret, screenVaultOffer, screenAdminAuth, screenVaultUnlock:
-		d, _ := m.prompt()
-		b.WriteString(m.promptScreenText(d))
 	case screenConfirm:
 		b.WriteString(m.confirmView())
 	case screenSummary:
@@ -4261,21 +4221,6 @@ func (m *Model) formScreenKeys() string {
 		}
 	}
 	return keys
-}
-
-// secretPrompt is the masked dialog for the secret of the credential role being edited.
-func (m *Model) secretPrompt() promptDialog {
-	where := tr(tFormOfThisMachine, secret.StoreLabel(platform))
-	if m.credentialType() == config.CredentialTypeVault {
-		where = tr(tFormTheVault)
-	}
-	return promptDialog{
-		title: tr(tFormSecretFor, m.editing, m.secretRole),
-		input: m.inputLine("  ", m.secretInput),
-		field: true,
-		hint:  tr(tFormMaskedGoesInto, where),
-		keys:  "{enter} store · {back} cancel",
-	}
 }
 
 // formKeys ends the key line of every form: F2 saves from every row and, in leaveKeys, esc is the way out
@@ -4756,12 +4701,7 @@ func fitInput(in textinput.Model, width int) textinput.Model {
 	return in
 }
 
-// inputLine draws in behind prefix on one line of the room the terminal leaves.
-func (m *Model) inputLine(prefix string, in textinput.Model) string {
-	return m.inputLineIn(m.usable(0), prefix, in)
-}
-
-// inputLineIn is inputLine within the first room cells of the workspace.
+// inputLineIn draws in behind prefix on one line within the first room cells of the workspace.
 func (m *Model) inputLineIn(room int, prefix string, in textinput.Model) string {
 	prefix, width := m.fitIn(room, prefix)
 	return prefix + inputView(fitInput(in, width))
@@ -5189,6 +5129,30 @@ func (m *Model) fieldWarning(f field) string {
 
 // testLine keeps the stable class visible and adds the next useful interpretation for a human.
 func (m *Model) testLine() string {
+	switch {
+	case m.testing:
+		return "\n" + m.wrapped(styles.hint, tr(tFormTestingEscCancels, m.testName))
+	case m.backdrop:
+		// The result stands in its own dialog (see testAsk) over this screen.
+		return ""
+	}
+	line, failed, guide := m.testResult()
+	switch {
+	case line == "":
+		return ""
+	case !failed:
+		return "\n" + m.wrapped(styles.ok, line)
+	}
+	line = "\n" + m.wrapped(styles.fail, line)
+	if guide != "" {
+		line += m.docText(m.testProvider())
+	}
+	return line
+}
+
+// testResult is the line of the finished connection test, whether it failed, and the address of the provider
+// guide where that guide helps with the failure; an empty line where no test has finished.
+func (m *Model) testResult() (line string, failed bool, guide string) {
 	providerName := tr(tFormTheProvider)
 	if connection, ok := m.cfg.Connections[m.testName]; ok {
 		if metadata, found := m.cfg.ProviderMetadata(m.cfg.Services[connection.Service].Provider); found {
@@ -5196,24 +5160,16 @@ func (m *Model) testLine() string {
 		}
 	}
 	switch {
-	case m.testing:
-		return "\n" + m.wrapped(styles.hint, tr(tFormTestingEscCancels, m.testName))
-	case m.backdrop:
-		// The result stands in its own dialog (see testPrompt) over this screen.
-		return ""
 	case m.testClass == provider.ClassOK:
-		return "\n" + m.wrapped(styles.ok,
-			tr(tFormOkOkAcceptedTheConnection, m.testName, providerName))
+		return tr(tFormOkOkAcceptedTheConnection, m.testName, providerName), false, ""
 	case m.testClass != "":
-		explanation := provider.Explain(m.testClass, providerName)
-		line := "\n" + m.wrapped(styles.fail,
-			tr(tFormFailed, m.testName, m.testClass, explanation))
+		line = tr(tFormFailed, m.testName, m.testClass, provider.Explain(m.testClass, providerName))
 		if failDocHelps(m.testClass) {
-			line += m.docText(m.testProvider())
+			guide = m.docURL(m.testProvider())
 		}
-		return line
+		return line, true, guide
 	}
-	return ""
+	return "", false, ""
 }
 
 // domainHint is the hint of the key row of a default.

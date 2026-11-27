@@ -361,7 +361,7 @@ func TestVaultUnlockPromptExplainsTheAdminSession(t *testing.T) {
 	openSectionByName(t, m, sectionServices)
 	pump(t, m, "ctrl+l")
 
-	view := screenOf(m)
+	view := askedText(m)
 	if !strings.Contains(view, "this also starts admin mode for this window, for as long as the vault settings say") {
 		t.Fatalf("unlock dialog = %q, want it to say it also starts admin mode", view)
 	}

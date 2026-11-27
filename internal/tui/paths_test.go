@@ -227,7 +227,7 @@ func TestTabCompletesDirectoriesOnly(t *testing.T) {
 		t.Fatalf("the start directory is not suggested:\n%s", view)
 	}
 	press(t, m, "tab")
-	if got := m.pathInput.Value(); got != root+sep {
+	if got := typedInput(m); got != root+sep {
 		t.Fatalf("tab on nothing typed gave %q, want the start directory", got)
 	}
 	typeText(t, m, "al")
@@ -238,8 +238,9 @@ func TestTabCompletesDirectoriesOnly(t *testing.T) {
 	if strings.Contains(view, "alfa.txt") || strings.Contains(view, ".alps") {
 		t.Fatalf("a file or a hidden directory is suggested:\n%s", view)
 	}
-	press(t, m, "down", "tab")
-	if got := m.pathInput.Value(); got != root+sep+"alpine"+sep {
+	// The first down marks the first suggestion, the second the next one.
+	press(t, m, "down", "down", "tab")
+	if got := typedInput(m); got != root+sep+"alpine"+sep {
 		t.Fatalf("down and tab gave %q, want the second directory", got)
 	}
 	press(t, m, "enter")
@@ -274,7 +275,7 @@ func TestTabCompletesFromTheHomeDirectory(t *testing.T) {
 		t.Fatalf("the home directories are not suggested:\n%s", view)
 	}
 	press(t, m, "tab")
-	if got := m.pathInput.Value(); got != "~"+s+"projects"+s {
+	if got := typedInput(m); got != "~"+s+"projects"+s {
 		t.Fatalf("tab gave %q", got)
 	}
 }

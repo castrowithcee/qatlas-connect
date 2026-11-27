@@ -16,13 +16,16 @@ func TestPassphraseDialogsFitMinimumSize(t *testing.T) {
 	noop := func() tea.Cmd { return nil }
 	cases := map[string]func(m *Model){
 		"first entry": func(m *Model) {
-			m.openVaultOffer("Set a passphrase for the vault?", vaultFirstSecretHint(), true, true, nil, nil)
+			m.openVaultOffer(tVaultOfferTitle, vaultFirstSecretHint(), true, true, nil, nil)
 		},
-		"confirmation":   func(m *Model) { m.openVaultOffer("x", "y", true, true, nil, nil); m.vaultOffer.confirming = true },
+		"confirmation": func(m *Model) {
+			m.openVaultOffer(tVaultOfferTitle, "y", true, true, nil, nil)
+			m.vaultOffer.confirming = true
+		},
 		"encrypt":        func(m *Model) { m.startVaultEncrypt() },
 		"new passphrase": func(m *Model) { m.startVaultNewPassphrase("old") },
 		"current": func(m *Model) {
-			m.startVaultCurrentPassphrase("Current vault passphrase", "typed masked", func(string) tea.Cmd { return nil })
+			m.startVaultCurrentPassphrase(tVaultCurrentTitle, "typed masked", func(string) tea.Cmd { return nil })
 		},
 		"admin":           func(m *Model) { m.openAdminPrompt(false, m.screen, noop) },
 		"admin locked":    func(m *Model) { m.openAdminPrompt(true, m.screen, noop) },
@@ -56,12 +59,11 @@ func TestTransferPassphraseDialogsFitMinimumSize(t *testing.T) {
 	cases := map[string]func(m *Model){
 		"export first entry": func(m *Model) {
 			m.openExport()
-			m.export.step, m.export.input = exportPassphrase, pathField{Model: maskedInput()}
+			m.export.step = exportPassphrase
 		},
 		"export confirmation": func(m *Model) {
 			m.openExport()
-			m.export.step, m.export.input = exportPassphrase, pathField{Model: maskedInput()}
-			m.export.confirming = true
+			m.export.step, m.export.confirming = exportPassphrase, true
 		},
 		"import": func(m *Model) {
 			m.openImport()

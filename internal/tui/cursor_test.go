@@ -121,21 +121,19 @@ func TestTheCursorStandsInTheCommandPalette(t *testing.T) {
 	}
 }
 
-func TestTheCursorStandsInAMaskedModalField(t *testing.T) {
+// A masked dialog draws the kit's mask for every typed character and its own cursor cell, so the terminal
+// cursor stays off.
+func TestAMaskedDialogDrawsTheMaskAndNoTerminalCursor(t *testing.T) {
 	m, _, _ := newModel(t)
 	m.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
 	m.openVaultUnlockPrompt(m.screen)
 	typeText(t, m, "pä日")
-	if _, ok := m.modalView(); !ok {
-		t.Skip("the dialog is not drawn as a modal here")
+	plain := ansi.Strip(m.render())
+	if strings.Contains(plain, "pä") || strings.Contains(plain, "日") || !strings.Contains(plain, masked(3)) {
+		t.Errorf("masked field shows the text or lacks three mask cells:\n%s", plain)
 	}
-	before, at := cursorAt(t, m)
-	mask := string(m.vaultUnlock.input.EchoCharacter)
-	if mask == "" || strings.Contains(before, "pä") || !strings.HasSuffix(before, strings.Repeat(mask, 3)) || at != " " {
-		t.Errorf("masked field: before %q, at %q, want three mask cells then a blank", before, at)
-	}
-	if left := ansi.StringWidth(before); left < 10 {
-		t.Errorf("cursor column %d does not include the modal's offset", left)
+	if c := m.View().Cursor; c != nil {
+		t.Errorf("the masked dialog sets the terminal cursor at %d,%d", c.X, c.Y)
 	}
 }
 

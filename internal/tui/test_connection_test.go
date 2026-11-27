@@ -74,7 +74,8 @@ func TestConnectionTestClasses(t *testing.T) {
 				t.Errorf("class = %q, want %q", m.testClass, want)
 			}
 			view := screenOf(m)
-			words := strings.Join(strings.Fields(view), " ")
+			// The result stands in a notice, whose frame breaks a long line.
+			words := strings.Join(strings.Fields(askedText(m)), " ")
 			if !strings.Contains(view, string(want)) {
 				t.Errorf("view = %q, want it to show %q", view, want)
 			}

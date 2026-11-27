@@ -3,6 +3,7 @@ package tui
 import (
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -10,6 +11,7 @@ import (
 
 	"github.com/castrowithcee/qatlas-connect/internal/config"
 	"github.com/castrowithcee/qatlas-connect/internal/helptopics"
+	kittui "github.com/castrowithcee/qatlas-kit/tui"
 )
 
 const (
@@ -184,9 +186,9 @@ func TestExportWithoutSecretsWritesTheFileAfterThePreview(t *testing.T) {
 		t.Fatalf("the mode step is missing:\n%s", view)
 	}
 	v.pump("enter")
-	if m.export.step != exportTarget || !strings.Contains(m.export.input.Value(), exportFileName) {
+	if m.export.step != exportTarget || !strings.Contains(typedInput(m), exportFileName) {
 		t.Fatalf("target step = %v value %q, want the suggestion in the start directory", m.export.step,
-			m.export.input.Value())
+			typedInput(m))
 	}
 	v.typePath(path)
 	v.pump("enter")
@@ -338,7 +340,7 @@ func TestEscGoesOneStepBackAndCancelsOnTheFirstWithoutAFile(t *testing.T) {
 				if m.screen != screenTransfer || m.export == nil || m.export.step != want {
 					t.Fatalf("esc = screen %v step %v, want step %v", m.screen, m.export, want)
 				}
-				if want == exportPassphrase && (m.export.input.Value() != "" || m.export.passphrase != "") {
+				if want == exportPassphrase && (typedInput(m) != "" || m.export.passphrase != "") {
 					t.Fatal("going back to the passphrase kept what was typed")
 				}
 			}
@@ -470,10 +472,16 @@ func TestExportFooterNamesHelpAndCommandsOnlyWhereTheyWork(t *testing.T) {
 			v.startExport(testExportVaultPass)
 			v.advance(tc.step, tc.kind, path)
 			named := strings.Contains(screenOf(m), "? help")
+			typed := func() string { return m.export.target }
+			if m.question != nil {
+				// A dialog names its keys itself; the frame behind it names only the help key.
+				named = slices.ContainsFunc(m.question.Hints(), func(h kittui.Hint) bool { return h.Action == actHelp })
+				typed = func() string { return typedInput(m) }
+			}
 			if named != m.helpReachable() {
 				t.Errorf("footer names ? help = %v, but it works = %v:\n%s", named, m.helpReachable(), screenOf(m))
 			}
-			before := m.export.input.Value()
+			before := typed()
 			v.pump("?")
 			if named {
 				if !helpOpen(m) {
@@ -484,7 +492,7 @@ func TestExportFooterNamesHelpAndCommandsOnlyWhereTheyWork(t *testing.T) {
 					t.Fatalf(": = screen %v, want the command line", m.screen)
 				}
 				v.pump("esc")
-			} else if m.screen != screenTransfer || m.export.input.Value() != before+"?" {
+			} else if m.screen != screenTransfer || typed() != before+"?" {
 				t.Fatalf("? = screen %v, want it typed", m.screen)
 			}
 			if m.screen != screenTransfer || m.export == nil || m.export.step != tc.step {
