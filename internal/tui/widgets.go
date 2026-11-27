@@ -148,54 +148,6 @@ func surfaceRow(text string, width int) string {
 	return lipgloss.NewStyle().Background(lip(styles.Palette().Surface)).Render(keepBackground(text, styles.Palette().Surface))
 }
 
-// accentFill is the surface of the tab that has the focus: bold base text on the accent colour. Without colour
-// it is the bold style of the plain tabs.
-func accentFill() lipgloss.Style {
-	p := styles.Palette()
-	if noColour() {
-		return styles.active
-	}
-	return lipgloss.NewStyle().Bold(true).Background(lip(p.Accent)).Foreground(lip(p.Base))
-}
-
-// tabStrip draws a row of tabs and returns the cells each takes, counted from the first cell of the row. The
-// active tab is a surface: the marked-row fill of the section lists, the accent fill while it has the focus;
-// the others are dimmed. Without colour the active tab stands in brackets, in reverse video while it has the
-// focus, so the colour is never the only mark. A word "|" is a separator, not a tab. Every tab takes the same
-// cells whether active or not.
-func tabStrip(words []string, active int, focused bool) (string, [][2]int) {
-	var b strings.Builder
-	spans := make([][2]int, 0, len(words))
-	x := 0
-	plain := noColour()
-	for i, word := range words {
-		text, style := " "+word+" ", styles.hint
-		switch {
-		case word == "|":
-			text = word
-		case i == active:
-			style = styles.activeRow
-			if plain {
-				text, style = "["+word+"]", styles.active
-			}
-			if focused {
-				style = accentFill()
-				if plain {
-					style = styles.activeRow
-				}
-			}
-		}
-		if i > 0 {
-			b.WriteString(" ")
-			x++
-		}
-		b.WriteString(style.Render(text))
-		spans = append(spans, [2]int{x, x + lipgloss.Width(text)})
-		x += lipgloss.Width(text)
-	}
-	return b.String(), spans
-}
-
 // card is a bordered figure: the label dimmed above a large value. Width is the total width in cells.
 func card(label, value string, width int) []string {
 	inner := max(width-4, 0)
