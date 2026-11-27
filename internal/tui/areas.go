@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	tea "charm.land/bubbletea/v2"
+	kittui "github.com/castrowithcee/qatlas-kit/tui"
 )
 
 // An area is a task the person came to do. It is the top level of the tab line; the section stays the
@@ -95,7 +96,7 @@ func (m *Model) hasSubTabs() bool { return len(areaSections[m.section.area()]) >
 // previewArea makes a the active area, on its first section, while the tab line keeps the focus.
 func (m *Model) previewArea(a area) tea.Cmd {
 	cmd := m.previewSection(areaSections[a][0])
-	m.navSub = false
+	m.navZone = kittui.ZoneTabs
 	return cmd
 }
 
