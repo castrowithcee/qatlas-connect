@@ -451,6 +451,7 @@ func Register(reg *capability.Registry) error {
 					"against the From address of each message, case-insensitively; can be excluded",
 				Forms:        []string{"sender/ADDRESS"},
 				ExcludeForms: []string{"sender/ADDRESS"},
+				Unlisted:     true,
 			}},
 			Validate:       validateTarget,
 			ValidateSet:    func(values []string) error { _, err := parseScope(values); return err },

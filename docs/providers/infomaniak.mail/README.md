@@ -8,7 +8,7 @@ description: >
 type: knowledge
 edit: shared
 created: 2026-10-01
-updated: 2026-10-28
+updated: 2026-11-27
 ---
 
 # Infomaniak Mail
@@ -141,7 +141,7 @@ folder list, unfiltered by folder and sender targets, 50 entries a page (at most
 `folder/PATH`, named by its last element with the ones above it as path (`Kunden.A` under `.` gives `A` at `/Kunden`;
 `/` at the top or without a delimiter). A folder with subfolders (by `\HasChildren` or another listed name below it)
 also gets `folder/PATH/*` right after it, and the names of both say whether the subfolders come with the folder or
-alone. It works on a draft connection and resolves no URL.
+alone. It works on a draft connection and resolves no URL. `sender` has no list: type `sender/ADDRESS`.
 
 ## Tools
 

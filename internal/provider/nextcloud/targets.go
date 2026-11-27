@@ -108,11 +108,13 @@ var targetKinds = []config.TargetKind{{
 	Name: kindAccount,
 	Description: "the account-wide and instance-wide reach of the identity: notifications, activity, search, " +
 		"directory, incoming shares, and the system tag catalog; optional, at most one",
-	Forms: []string{kindAccount},
+	Forms:    []string{kindAccount},
+	Unlisted: true,
 }, {
 	Name:        kindAdmin,
 	Description: "the provisioning reads of an administrator identity; only valid as the sole target of a connection",
 	Forms:       []string{kindAdmin},
+	Unlisted:    true,
 }}
 
 // isKind reports whether name is the first segment of a typed target.
