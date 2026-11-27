@@ -1,17 +1,6 @@
 package vault
 
-import (
-	"bytes"
-	"errors"
-	"fmt"
-	"time"
-
-	"github.com/castrowithcee/qatlas-connect/internal/invokelog"
-)
-
-// ErrNotUnlocked reports a vault that was not unlocked in this process, so there is nothing to take a
-// snapshot of.
-var ErrNotUnlocked = errors.New("the vault is not unlocked in this process")
+import "time"
 
 // Snapshot is what an unlocked vault holds, handed to the vault process that keeps it open for later
 // invocations: the vault's own key and the decrypted secrets, keyed by credential name and then by role.
@@ -37,48 +26,21 @@ type Snapshot struct {
 	MaxUnlock time.Duration `json:"max_unlock,omitempty"`
 }
 
-// Snapshot returns what this process unlocked, pending entries already merged in by Unlock. The maps are
-// new; the values in them are the strings the vault already holds, not copies of their bytes. It fails
-// with ErrNotUnlocked unless the vault was unlocked, or created encrypted, in this process.
+// Snapshot returns what this process unlocked, pending entries already merged in by Unlock. It fails with
+// ErrNotUnlocked unless the vault was unlocked, or created encrypted, in this process.
 func (v *Vault) Snapshot() (Snapshot, error) {
-	if !v.unlocked || v.identity == nil || v.doc == nil {
+	snap, err := v.kv.Snapshot()
+	if err != nil {
 		return Snapshot{}, ErrNotUnlocked
 	}
-	secrets := make(map[string]map[string]string, len(v.doc.Entries))
-	for _, entry := range v.doc.Entries {
-		roles := make(map[string]string, len(entry.Roles))
-		for role, value := range entry.Roles {
-			roles[role] = value
-		}
-		secrets[entry.Name] = roles
-	}
-	return Snapshot{Identity: v.identity.key.String(), Secrets: secrets, Bindings: v.doc.bindings()}, nil
-}
-
-// LogKey returns the invocation log key of a vault unlocked in this process, derived from its key (see
-// invokelog.DeriveKey), so this process signs the entries it writes itself while no vault process runs. It
-// fails with ErrNotUnlocked unless the vault was unlocked, or created encrypted, in this process. The key
-// is the caller's to clear.
-func (v *Vault) LogKey() (*invokelog.Key, error) {
-	if !v.unlocked || v.identity == nil {
-		return nil, ErrNotUnlocked
-	}
-	return invokelog.DeriveKey(v.identity.key)
-}
-
-// Recipient returns the public key an encrypted vault encrypts to, as age text, the content of its
-// recipient file. It needs no passphrase: the recipient is not secret. It fails with ErrNotEncrypted for a
-// vault without one.
-func (v *Vault) Recipient() (string, error) {
-	if v.identity != nil {
-		return v.identity.recipient.String(), nil
-	}
-	data, err := readFile(v.recipientPath())
+	defer clear(snap.Document)
+	doc, err := decodeDocument(v.secretsPath(), snap.Document)
 	if err != nil {
-		if isNotExist(err) {
-			return "", ErrNotEncrypted
-		}
-		return "", fmt.Errorf("cannot read %s: %w", v.recipientPath(), err)
+		return Snapshot{}, err
 	}
-	return string(bytes.TrimSpace(data)), nil
+	secrets := make(map[string]map[string]string, len(doc.Entries))
+	for _, entry := range doc.Entries {
+		secrets[entry.Name] = entry.Roles
+	}
+	return Snapshot{Identity: snap.Identity.String(), Secrets: secrets, Bindings: doc.bindings()}, nil
 }

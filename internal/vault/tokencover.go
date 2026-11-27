@@ -120,7 +120,7 @@ func (v *Vault) ApproveWithTokenConnections(value string, current []Scope, conne
 	var result TokenApproval
 	// The changes are decided on the document as it is on disk under the write lock, so an approval or a
 	// secret another process stored meanwhile is neither lost nor decided on from an older state.
-	_, err = v.update(v.identity, updateOpts{}, func(doc *document) (bool, error) {
+	_, _, err = v.update(func(doc *document) (bool, error) {
 		var written bool
 		result, written = approveWithToken(doc, token, tokens, current, connectionIDs, only, now)
 		return written, nil

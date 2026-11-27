@@ -4,12 +4,10 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
-	"errors"
 	"fmt"
-	"io/fs"
-	"os"
-	"path/filepath"
 	"time"
+
+	kitvault "github.com/castrowithcee/qatlas-kit/vault"
 )
 
 // Entry is one credential's secrets in the vault. Id is random and fixed for the life of the entry, so a
@@ -120,116 +118,24 @@ func newID() string {
 	return hex.EncodeToString(b)
 }
 
-// PermissionError reports a vault file or directory that other users can read. Like the plaintext
-// credential fallback, a vault is the one place secrets sit outside the system keyring, so a widened mode
-// is refused rather than ignored.
-type PermissionError struct {
-	Path string
-	Mode fs.FileMode
-	// Grantee is set on Windows, where access is governed by the file's ACL instead of its mode: the
-	// account, or the security identifier, the ACL lets reach the file besides its user.
-	Grantee string
-}
-
-func (e *PermissionError) Error() string {
-	if e.Grantee != "" {
-		return fmt.Sprintf("%s holds vault data but its ACL lets %s reach it; it is not read until it is "+
-			"private again: icacls \"%s\" /inheritance:r /grant:r \"%%USERNAME%%:F\"", e.Path, e.Grantee, e.Path)
-	}
-	return fmt.Sprintf("%s holds vault data but its mode is %04o; it is not read until it is private again: "+
-		"chmod 600 %s", e.Path, e.Mode.Perm(), e.Path)
-}
-
-// readFile reads path and checks its permissions first, the same order the plaintext fallback uses.
-func readFile(path string) ([]byte, error) {
-	info, err := statFile(path)
-	if err != nil {
-		return nil, err
-	}
-	if err := checkMode(path, info); err != nil {
-		return nil, err
-	}
-	return readWhole(path)
-}
-
-// writeFile replaces path atomically with mode 0600, creating its directory at 0700 if needed. It is used
-// for every file a vault writes: the document, the key, the recipient, and a pending entry.
-func writeFile(path string, data []byte) error {
-	target := path
-	if resolved, err := filepath.EvalSymlinks(target); err == nil {
-		target = resolved
-	}
-	dir := filepath.Dir(target)
-	if err := mkdirPrivate(dir); err != nil {
-		return fmt.Errorf("cannot create %s: %w", dir, err)
-	}
-
-	tmp, err := os.CreateTemp(dir, ".qatlas-vault-*.tmp")
-	if err != nil {
-		return fmt.Errorf("cannot write next to %s: %w", target, err)
-	}
-	name := tmp.Name()
-	moved := false
-	defer func() {
-		if !moved {
-			_ = os.Remove(name)
-		}
-	}()
-
-	if err := restrictFile(name); err != nil {
-		_ = tmp.Close()
-		return fmt.Errorf("cannot set the permissions of %s: %w", name, err)
-	}
-	if _, err := tmp.Write(data); err != nil {
-		_ = tmp.Close()
-		return fmt.Errorf("cannot write %s: %w", name, err)
-	}
-	if err := tmp.Sync(); err != nil {
-		_ = tmp.Close()
-		return fmt.Errorf("cannot write %s: %w", name, err)
-	}
-	if err := tmp.Close(); err != nil {
-		return fmt.Errorf("cannot write %s: %w", name, err)
-	}
-	if err := renameFile(name, target); err != nil {
-		return fmt.Errorf("cannot replace %s: %w", target, err)
-	}
-	moved = true
-	return nil
-}
-
-// loadPlain reads and decodes secrets.json. A missing file is an empty document, not an error: the vault
-// directory is created lazily, on the first Set.
-func loadPlainDocument(path string) (*document, error) {
-	data, err := readFile(path)
-	if err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			return newDocument(), nil
-		}
-		return nil, fmt.Errorf("cannot read %s: %w", path, err)
-	}
-	doc, err := decodeDocument(path, data)
-	if err != nil {
-		return nil, err
-	}
-	// Approvals in a plaintext document are never trusted, and never carried into an encrypted one.
-	doc.Approvals = nil
-	return doc, nil
-}
-
+// decodeDocument decodes a document the kit read from path and checked for its schema. Nothing, the
+// document of a vault without a document file, is an empty document. A document that does not decode wraps
+// the kit's ErrDamaged, one of another schema its ErrUnsupportedSchema, with the messages this package always
+// used.
 func decodeDocument(path string, data []byte) (*document, error) {
 	if len(data) == 0 {
 		return newDocument(), nil
 	}
 	var d document
 	if err := json.Unmarshal(data, &d); err != nil {
-		return nil, fmt.Errorf("cannot read %s: not a valid vault document", path)
+		return nil, &documentError{msg: fmt.Sprintf("cannot read %s: not a valid vault document", path),
+			err: kitvault.ErrDamaged}
 	}
 	// A document of a schema version this build does not know is refused rather than read or, worse,
 	// silently overwritten with the current schema on the next write.
 	if d.Schema != schemaVersion {
-		return nil, fmt.Errorf("cannot read %s: unsupported vault schema version %d, want %d",
-			path, d.Schema, schemaVersion)
+		return nil, &documentError{msg: fmt.Sprintf("cannot read %s: unsupported vault schema version %d, want %d",
+			path, d.Schema, schemaVersion), err: kitvault.ErrUnsupportedSchema}
 	}
 	if d.Entries == nil {
 		d.Entries = map[string]Entry{}
@@ -237,6 +143,21 @@ func decodeDocument(path string, data []byte) (*document, error) {
 	return &d, nil
 }
 
-func encodeDocument(d *document) ([]byte, error) {
-	return json.MarshalIndent(d, "", "  ")
+func encodeDocument(path string, d *document) ([]byte, error) {
+	data, err := json.MarshalIndent(d, "", "  ")
+	if err != nil {
+		return nil, fmt.Errorf("cannot encode %s: %w", path, err)
+	}
+	return data, nil
+}
+
+// withoutApprovals is the kit's switch filter: approvals bind connections only while the vault is
+// encrypted, so neither direction of a switch carries them over.
+func withoutApprovals(data []byte) ([]byte, error) {
+	doc, err := decodeDocument(plainFile, data)
+	if err != nil {
+		return nil, err
+	}
+	doc.Approvals = nil
+	return encodeDocument(plainFile, doc)
 }

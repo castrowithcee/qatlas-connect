@@ -48,7 +48,7 @@ func TestDefaultKeymapKeepsTheKnownKeys(t *testing.T) {
 		actSummary: "s", actFilter: "f", actRevert: "B", actSessions: "M", actLogs: "o", actClone: "C",
 		actTest: "t", actUpdate: "U", actWrite: "W", actDecline: "x", actBlock: "b", actTickAll: "a",
 		actRemoveField: "f8", actSuggestPrev: "ctrl+p", actSuggestNext: "ctrl+n", actNextKind: "ctrl+y",
-		actReload: "R", actArea: "1", actMenu: "m",
+		actReload: "R", actArea: "1", actMenu: "m", action(kit.ActionHelpF9): "f9",
 	}
 	if len(keyTable) != len(want) {
 		t.Fatalf("keymap has %d actions, want %d", len(keyTable), len(want))

@@ -277,17 +277,10 @@ func (d *document) bindings() Bindings {
 // unlockedDocument returns the document of an encrypted vault unlocked in this process. Approvals exist only
 // there: an unencrypted vault binds no connection, and a locked one cannot be read.
 func (v *Vault) unlockedDocument() (*document, error) {
-	if v.unlocked && v.doc != nil && v.identity != nil {
-		return v.doc, nil
-	}
-	state, err := v.State()
-	if err != nil {
+	if _, err := v.identity(); err != nil {
 		return nil, err
 	}
-	if state == StateLocked {
-		return nil, ErrNotUnlocked
-	}
-	return nil, ErrNotEncrypted
+	return v.load()
 }
 
 // Bindings returns the bindings of the vault unlocked in this process, for a vault process to check accesses
@@ -364,7 +357,7 @@ func (v *Vault) ApproveConnections(scopes []Scope, ids map[string]string) error 
 	if len(scopes) == 0 {
 		return nil
 	}
-	_, err := v.update(v.identity, updateOpts{}, func(doc *document) (bool, error) {
+	_, _, err := v.update(func(doc *document) (bool, error) {
 		now := time.Now().UTC()
 		approvals := make(map[string]Approval, len(scopes))
 		for _, scope := range scopes {
@@ -397,7 +390,7 @@ func (v *Vault) Revoke(connections []string) (int, error) {
 		return 0, err
 	}
 	removed := 0
-	_, err := v.update(v.identity, updateOpts{}, func(doc *document) (bool, error) {
+	_, _, err := v.update(func(doc *document) (bool, error) {
 		for _, name := range connections {
 			if _, ok := doc.Approvals[name]; ok {
 				delete(doc.Approvals, name)
@@ -428,7 +421,7 @@ func (v *Vault) CarryApproval(from, to, connectionID string) (carried bool, undo
 	if _, err := v.unlockedDocument(); err != nil {
 		return false, nil, err
 	}
-	w, err := v.update(v.identity, updateOpts{}, func(doc *document) (bool, error) {
+	undo, _, err = v.update(func(doc *document) (bool, error) {
 		if taken, ok := doc.Approvals[to]; ok && (taken.ConnectionID == "" || taken.ConnectionID != connectionID) {
 			return false, ErrApprovalTaken
 		}
@@ -446,5 +439,5 @@ func (v *Vault) CarryApproval(from, to, connectionID string) (carried bool, undo
 	if err != nil {
 		return false, nil, err
 	}
-	return carried, func() error { return v.undo(w) }, nil
+	return carried, undo, nil
 }

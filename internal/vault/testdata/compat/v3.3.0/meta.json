@@ -1,0 +1,56 @@
+{
+  "passphrase": "fixture-phrase",
+  "scopes": [
+    {
+      "connection": "conn-a",
+      "credential": "gh-a",
+      "provider": "prov-a",
+      "origin": "https://a.example",
+      "permissions": [
+        "read"
+      ],
+      "targets": [
+        "o/a"
+      ],
+      "tools": [
+        "t.list"
+      ]
+    },
+    {
+      "connection": "conn-f",
+      "credential": "gh-a",
+      "provider": "prov-a",
+      "origin": "https://a.example",
+      "permissions": [
+        "write",
+        "read"
+      ],
+      "targets": [
+        "o/b",
+        "o/a"
+      ],
+      "tools": null,
+      "exclude": [
+        "o/a/x"
+      ],
+      "paths": [
+        "/w/p"
+      ],
+      "files_read": [
+        "/w/in"
+      ],
+      "files_write": [
+        "/w/out"
+      ],
+      "forward": [
+        {
+          "name": "fw-b",
+          "fields": [
+            "user"
+          ]
+        }
+      ],
+      "active_until": "2099-01-01T00:00:00Z"
+    }
+  ]
+}
