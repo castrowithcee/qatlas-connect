@@ -58,7 +58,7 @@ func (m *Model) helpReachable() bool {
 			return m.targetPick.top().list.query() == ""
 		}
 		if m.targetAdd != nil {
-			return m.targetAdd.choices.query() == ""
+			return m.targetAdd.query() == ""
 		}
 	}
 	return !m.typing()

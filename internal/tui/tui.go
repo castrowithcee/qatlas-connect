@@ -496,7 +496,7 @@ type Model struct {
 	// targetList holds the entries of the focused target list while its screen is open; the row takes them
 	// over only when they are kept. targetEdit is the entry typed into targetInput: its index, the length of
 	// the list for a new one, or -1 while nothing is typed. targetRemove asks before the selected entry goes.
-	targetList  filterList
+	targetList  targetItems
 	targetInput textinput.Model
 	// targetLabels are the labels of the open target screen, labelInput the label being typed for the
 	// selected target while labelEdit is set. They reach the row only when the list is kept.
@@ -840,8 +840,6 @@ func New(svc *manage.Service, store *config.Store, tester Tester, secrets Secret
 	m.refreshRequests()
 	m.picker = newFilterList(m.choiceShown)
 	m.picker.input.Placeholder = tr(tLogSearchPlaceholder)
-	m.targetList = newFilterList(func(target string) string { return target + " " + m.targetLabels[target] })
-	m.targetList.stops = true
 	m.targetInput = textField("", "", false).input
 	m.labelInput = textField("", "", false).input
 	m.logs = newLogView(time.Now())
@@ -4838,11 +4836,6 @@ func (m *Model) keepScrollPosition() {
 			m.targetPick.top().list.offset, _ = m.pickWindow()
 			return
 		}
-		if m.targetAdd != nil {
-			m.targetAdd.choices.offset, _ = m.addWindow()
-			return
-		}
-		m.targetList.offset, _ = m.targetWindow()
 	}
 }
 

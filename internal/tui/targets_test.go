@@ -4,6 +4,7 @@ import (
 	"os"
 	"reflect"
 	"slices"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -72,7 +73,7 @@ func TestTheTargetListIsEditedEntryByEntry(t *testing.T) {
 	pressNew(t, m)
 	typeText(t, m, "gh")
 	openTargetList(t, m)
-	if view := screenOf(m); !strings.Contains(view, "(unrestricted)") {
+	if view := screenOf(m); !strings.Contains(view, "unrestricted") {
 		t.Fatalf("the empty list does not say what it means:\n%s", view)
 	}
 	addTarget(t, m, "repos/octo/a")
@@ -466,10 +467,26 @@ func knownTargetsModel(t *testing.T) (*Model, string, *capability.Registry) {
 // addRows are the rows the add menu or the builder shows now, as they read.
 func addRows(m *Model) []string {
 	var rows []string
-	for _, key := range m.targetAdd.choices.matches {
-		rows = append(rows, m.targetAdd.text[key])
+	for _, id := range m.targetAdd.choices.Shown() {
+		i, _ := strconv.Atoi(string(id))
+		rows = append(rows, m.targetAdd.text[m.targetAdd.rows[i]])
 	}
 	return rows
+}
+
+// addMarked is the position of the marked line among the shown ones, -1 where none is marked.
+func addMarked(m *Model) int {
+	id, ok := m.targetAdd.choices.Selected()
+	if !ok {
+		return -1
+	}
+	return slices.Index(m.targetAdd.choices.Shown(), id)
+}
+
+// targetCursor is the index of the marked target of the open target list.
+func targetCursor(m *Model) int {
+	_, at, _ := m.targetSelected()
+	return at
 }
 
 // pickRow moves to the first shown row of the add menu or the builder that contains text.
@@ -477,7 +494,7 @@ func pickRow(t *testing.T, m *Model, text string) {
 	t.Helper()
 	for i, row := range addRows(m) {
 		if strings.Contains(row, text) {
-			m.targetAdd.choices.cursor = i
+			m.targetAdd.choices.Select(m.targetAdd.choices.Shown()[i])
 			return
 		}
 	}
@@ -751,8 +768,8 @@ func TestAPatternNeedsAnExplicitChoice(t *testing.T) {
 
 	build(t, m, "project", "users", "=cli")
 	if rows := addRows(m); !reflect.DeepEqual(rows, []string{"(type a value, or choose a row)", "* (all)"}) ||
-		m.targetAdd.choices.cursor != 0 {
-		t.Fatalf("the number step offers %v on row %d", rows, m.targetAdd.choices.cursor)
+		addMarked(m) != 0 {
+		t.Fatalf("the number step offers %v on row %d", rows, addMarked(m))
 	}
 	press(t, m, "f2")
 	if m.targetAdd == nil || !strings.Contains(m.fail, "not complete yet: choose NUMBER or * (all)") {
@@ -772,7 +789,7 @@ func TestAPatternNeedsAnExplicitChoice(t *testing.T) {
 	press(t, m, "n")
 	pickRow(t, m, "new repository")
 	press(t, m, "enter", "enter")
-	if rows := addRows(m); rows[len(rows)-1] != "* (all)" || m.targetAdd.text[m.targetAdd.choices.matches[0]] != "a" {
+	if rows := addRows(m); rows[len(rows)-1] != "* (all)" || rows[0] != "a" {
 		t.Fatalf("the repository step offers %v", rows)
 	}
 	press(t, m, "f2")

@@ -127,6 +127,19 @@ func clickScreens() []struct {
 		{"export mode", func(t *testing.T) *Model {
 			return exportAfter(t, "up", " ", "enter")
 		}},
+		{"target list", func(t *testing.T) *Model {
+			m, _, _ := plainTargetsModel(t)
+			openConnection(t, m, "gh")
+			openTargetList(t, m)
+			return m
+		}},
+		{"target add menu", func(t *testing.T) *Model {
+			m, _, _ := knownTargetsModel(t)
+			openConnection(t, m, "gh-a")
+			openTargetList(t, m)
+			press(t, m, "n")
+			return m
+		}},
 		{"findings", func(t *testing.T) *Model {
 			s := newFindScene(t)
 			s.renameByHand(t, "credential", "reader", "reader2")

@@ -1,7 +1,6 @@
 package tui
 
 import (
-	"fmt"
 	"maps"
 	"slices"
 	"strings"
@@ -30,9 +29,10 @@ func (m *Model) targetMetadata() config.TargetMetadata {
 
 // openTargets opens the entries of the focused target list on its first target.
 func (m *Model) openTargets() {
-	m.targetList.reset(append([]string(nil), m.fields[m.focus].entries...))
 	m.targetLabels = maps.Clone(m.fields[m.focus].labels)
 	m.targetExcluded = cloneExcluded(m.fields[m.focus].excluded)
+	m.targetList = targetItems{all: append([]string(nil), m.fields[m.focus].entries...), list: m.newTargetList()}
+	m.showTargets(0)
 	m.targetAsExclusion = false
 	m.closePick()
 	m.targetEdit, m.targetRemove, m.targetAdd, m.labelEdit = -1, false, nil, false
@@ -112,7 +112,7 @@ func (m *Model) updateTargets(key tea.KeyPressMsg) tea.Cmd {
 		}
 		return nil
 	}
-	target, selected := m.targetList.selected()
+	target, at, selected := m.targetSelected()
 	switch {
 	case keyIs(key, actBack):
 		return m.leaveTargets()
@@ -132,7 +132,7 @@ func (m *Model) updateTargets(key tea.KeyPressMsg) tea.Cmd {
 			m.startAdd()
 			return nil
 		}
-		m.editTarget(m.targetList.cursor, target)
+		m.editTarget(at, target)
 	case keyIs(key, actSpace):
 		if selected {
 			m.toggleExcluded()
@@ -147,13 +147,8 @@ func (m *Model) updateTargets(key tea.KeyPressMsg) tea.Cmd {
 			m.targetRemove = true
 			m.clearMessages()
 		}
-	case keyIs(key, actUp):
-		m.targetList.move(-1)
-	case keyIs(key, actDown):
-		m.targetList.move(1)
-	case keyIs(key, actPageUp) || keyIs(key, actPageDown) || keyIs(key, actHome) || keyIs(key, actEnd):
-		start, end := m.targetWindow()
-		m.targetList.page(key, start, end)
+	default:
+		m.targetList.list.Update(vimArrow(key))
 	}
 	return nil
 }
@@ -197,7 +192,7 @@ func (m *Model) targetsPending() bool {
 	if m.targetPick != nil && len(m.targetPick.marks) > 0 {
 		return true
 	}
-	if a := m.targetAdd; a != nil && (a.kind >= 0 || a.choices.query() != "") {
+	if a := m.targetAdd; a != nil && (a.kind >= 0 || a.query() != "") {
 		return true
 	}
 	if m.targetEdit >= 0 && m.targetTyped() {
@@ -231,7 +226,7 @@ func (m *Model) stopLabel() {
 // takeLabel sets the typed label of the selected target, or removes it when nothing is typed. Whether a
 // label is acceptable is the core's to say when the form is saved.
 func (m *Model) takeLabel() {
-	target, ok := m.targetList.selected()
+	target, at, ok := m.targetSelected()
 	if ok {
 		if label := m.labelInput.Value(); label == "" {
 			delete(m.targetLabels, target)
@@ -241,6 +236,7 @@ func (m *Model) takeLabel() {
 			}
 			m.targetLabels[target] = label
 		}
+		m.showTargets(at)
 	}
 	m.stopLabel()
 }
@@ -319,8 +315,8 @@ func (m *Model) takeTarget() {
 		}
 		entries[m.targetEdit] = value
 	}
-	m.targetList.setItems(entries)
-	m.targetList.selectName(value)
+	m.targetList.all = entries
+	m.showTargets(slices.Index(entries, value))
 	m.targetEdit = -1
 	m.targetInput.Blur()
 	m.clearMessages()
@@ -328,7 +324,7 @@ func (m *Model) takeTarget() {
 
 // targetRemoveAsk asks before the selected target leaves the list.
 func (m *Model) targetRemoveAsk() ask {
-	target, _ := m.targetList.selected()
+	target, _, _ := m.targetSelected()
 	return ask{title: tAskRemoveTarget, question: tr(tTargetRemoveFromTheList, target), consequence: tr(tAskListEntryLeaves),
 		answers: yesNo("{yes} remove", "{no}/{back} keep"), keep: actNo, danger: actYes, save: true}
 }
@@ -353,14 +349,14 @@ func (m *Model) answerTargetRemove(act action) tea.Cmd {
 // removeTarget takes the selected target out of the list.
 func (m *Model) removeTarget() {
 	m.targetRemove = false
-	target, ok := m.targetList.selected()
+	target, i, ok := m.targetSelected()
 	if !ok {
 		return
 	}
-	i := m.targetList.cursor
 	entries := append(append([]string(nil), m.targetList.all[:i]...), m.targetList.all[i+1:]...)
 	delete(m.targetExcluded, target)
-	m.targetList.setItems(entries)
+	m.targetList.all = entries
+	m.showTargets(i)
 	m.status = tr(tPathRemoved, target)
 }
 
@@ -373,15 +369,12 @@ func (m *Model) targetsView() string {
 		return m.addView()
 	}
 	header, footer := m.targetFrame()
-	var b strings.Builder
-	b.WriteString(header)
-	start, end := m.windowIn(&m.targetList, header, footer, m.targetRow)
-	for i := start; i < end; i++ {
-		b.WriteString(m.targetRow(i) + "\n")
+	view := m.workList(m.targetList.list, header, footer)
+	if m.targetEdit >= 0 || m.labelEdit {
+		// A click on a row while a target or label is typed would move the selection that the label belongs to.
+		m.listTargets = nil
 	}
-	m.hitSelect(&m.targetList, screenTargets, header, start, end, m.targetRow)
-	b.WriteString(footer)
-	return b.String()
+	return view
 }
 
 // targetKeys is the key text of the target list screen: the list, or the target or label being typed.
@@ -411,23 +404,16 @@ func (m *Model) targetFrame() (string, string) {
 	p := m.dialogPanelOf()
 	metadata := m.targetMetadata()
 	total := len(m.targetList.all)
-	position := ""
-	if total > 0 {
-		position = fmt.Sprintf("%d/%d", m.targetList.cursor+1, total)
-	}
 	var head strings.Builder
-	head.WriteString(p.top(tr(tTargetTargets, metadata.Label), position))
+	head.WriteString(p.top(tr(tTargetTargets, metadata.Label), m.targetList.list.Position()))
 	head.WriteString(p.text(styles.hint, m.providerTargetHint(m.formProvider())))
 	head.WriteString(p.blank())
-	if total == 0 {
-		head.WriteString(p.text(styles.hint, "("+emptyTargets(metadata)+")"))
-	}
 
 	var foot strings.Builder
 	switch {
 	case m.labelEdit:
-		target, _ := m.targetList.selected()
-		foot.WriteString(p.blank() + p.text(styles.hint, tr(tTargetLabelForLeaveItEmpty, target)))
+		target, _, _ := m.targetSelected()
+		foot.WriteString(p.blank() + p.text(styles.hint, tr(tTargetLabelForLeaveItEmpty, m.logText(target))))
 		foot.WriteString(p.styled(m.inputLineIn(p.room, tr(tTargetLabel), m.labelInput)))
 	case m.targetEdit >= 0:
 		label := tr(tTargetNew2)
@@ -441,14 +427,4 @@ func (m *Model) targetFrame() (string, string) {
 	foot.WriteString(p.bottom())
 	foot.WriteString(m.keyHint(m.targetKeys()))
 	return head.String(), foot.String() + m.notes()
-}
-
-// targetRow draws the target at index i of the list.
-func (m *Model) targetRow(i int) string {
-	return m.dialogPanelOf().row(i == m.targetList.cursor, m.targetLine(m.targetList.matches[i], m.targetLabels, m.targetExcluded))
-}
-
-func (m *Model) targetWindow() (int, int) {
-	header, footer := m.targetFrame()
-	return m.windowIn(&m.targetList, header, footer, m.targetRow)
 }

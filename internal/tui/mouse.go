@@ -658,17 +658,6 @@ func (m *Model) hitInfoMark(text string, y, x0 int, act func() tea.Cmd) {
 	}
 }
 
-// hitSelect makes the rows of a windowed list of a screen clickable by choosing the row only; what enter would
-// do on it is left to the key.
-func (m *Model) hitSelect(l *filterList, on screen, header string, start, end int, row func(i int) string) {
-	m.hitRows(m.hitTop(header), m.usable(0), start, end, row, func(i int) tea.Cmd {
-		if m.screen == on && i < len(l.matches) {
-			l.cursor = i
-		}
-		return nil
-	})
-}
-
 // logBarGuard prepares a click on the bar or the rows of the Logs screen: it is allowed where the keys reach
 // them, and hands the focus to the screen first. It reports whether the click may go on, with the command the
 // focus brought along.

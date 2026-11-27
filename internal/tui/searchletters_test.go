@@ -46,7 +46,7 @@ func searchScreens(t *testing.T) map[string]func() (*Model, func() string) {
 		},
 		"target add menu": func() (*Model, func() string) {
 			m := pickerModel(t, &listSource{list: pickPage(group("a"))})
-			return m, func() string { return m.targetAdd.choices.query() }
+			return m, func() string { return m.targetAdd.query() }
 		},
 	}
 }

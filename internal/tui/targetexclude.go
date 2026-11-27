@@ -73,13 +73,14 @@ func (m *Model) reachableCount() int {
 
 // toggleExcluded switches the selected entry between reachable and excluded.
 func (m *Model) toggleExcluded() {
-	target, ok := m.targetList.selected()
+	target, at, ok := m.targetSelected()
 	if !ok || !m.excludeAvailable() {
 		return
 	}
 	m.clearMessages()
 	if m.targetExcluded[target] {
 		delete(m.targetExcluded, target)
+		m.showTargets(at)
 		m.status = tr(tTargetNowReachable, target)
 		return
 	}
@@ -91,6 +92,7 @@ func (m *Model) toggleExcluded() {
 		m.targetExcluded = map[string]bool{}
 	}
 	m.targetExcluded[target] = true
+	m.showTargets(at)
 	m.status = tr(tTargetNowExcluded, target)
 }
 

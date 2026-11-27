@@ -550,9 +550,9 @@ func TestAnAddressWithoutMatchKeepsTheInput(t *testing.T) {
 	src := &listSource{list: pickPage()}
 	m := pickerModel(t, src)
 	deliver(m, typeAddress(t, m, wikiURL))
-	if m.targetPick != nil || m.targetAdd == nil || m.targetAdd.choices.query() != wikiURL {
+	if m.targetPick != nil || m.targetAdd == nil || m.targetAdd.query() != wikiURL {
 		t.Fatalf("picker %v menu %v query %q, want the input kept in the menu", m.targetPick != nil,
-			m.targetAdd != nil, m.targetAdd.choices.query())
+			m.targetAdd != nil, m.targetAdd.query())
 	}
 	if !strings.Contains(m.fail, "found no entry") || strings.Contains(m.fail, "wiki.example") {
 		t.Errorf("message %q, want a clear one without the address", m.fail)
@@ -568,7 +568,7 @@ func TestAFailedAddressShowsCodeAndTextWithoutTheAddress(t *testing.T) {
 	if m.targetPick != nil || !strings.HasPrefix(m.fail, "auth: ") || strings.Contains(m.fail, "wiki.example") {
 		t.Fatalf("picker %v error %q, want code and text with the input kept", m.targetPick != nil, m.fail)
 	}
-	if m.targetAdd == nil || m.targetAdd.choices.query() != wikiURL {
+	if m.targetAdd == nil || m.targetAdd.query() != wikiURL {
 		t.Error("the typed address was lost")
 	}
 }
