@@ -199,11 +199,18 @@ func passphrasePrompt(t *testing.T) *Model {
 // A report split between two reads, with a pause after which the input reader gives up waiting for its rest,
 // makes no text at any point of the split.
 func TestSplitMouseReportsMakeNoTextInAField(t *testing.T) {
+	// The translators are built on first use; build them here, before the runs share them.
+	translator(false)
 	for name, open := range map[string]func(*testing.T) *Model{"form field": formWithTextField, "passphrase": passphrasePrompt} {
 		for _, report := range splitReports {
 			stream := strings.Repeat(report, 3)
 			for i := 0; i <= len(stream); i++ {
 				t.Run(fmt.Sprintf("%s/%q/%d", name, report, i), func(t *testing.T) {
+					// Each run waits out the reader's escape timer. A wheel event sets the process-wide
+					// wheelClamp, so only the other reports run side by side.
+					if !strings.HasPrefix(report, "\x1b[<6") {
+						t.Parallel()
+					}
 					m := open(t)
 					before := m.formState()
 					if m.screen == screenVaultUnlock {
