@@ -132,7 +132,7 @@ var textDE = map[textID]string{
 	tLanguageHint:                          "system folgt der Sprache des Geräts",
 	tLanguageDetail:                        "Die Sprache der eigenen Texte des Editors; eine Änderung gilt sofort. Begriffe wie Service, Credential und Connection bleiben, wie sie sind, Texte aus Core und Providern bleiben Englisch.",
 	tMouseHint:                             "aus überlässt die Maus dem Terminal",
-	tMouseDetail:                           "an: Klicks wählen Tabs, Zeilen, Felder und Schaltflächen, das Rad scrollt; aus: Das Terminal behält die Maus, Text lässt sich damit markieren. Bei an braucht das Markieren die Umschalttaste (macOS Terminal: fn, iTerm2: Option, VS Code auf macOS: Option-Klick). Eine Änderung gilt sofort.",
+	tMouseDetail:                           "an: Klicks wählen Tabs, Zeilen, Felder und Schaltflächen, das Rad scrollt, und Ziehen über Hilfe, Erklärung, Dialog oder Liste kopiert deren Text; aus: Das Terminal behält die Maus, Text lässt sich damit markieren. Bei an braucht das Markieren anderswo die Umschalttaste (macOS Terminal: fn, iTerm2: Option, VS Code auf macOS: Option-Klick). Eine Änderung gilt sofort.",
 	tNavigationHint:                        "wie Bereiche und ihre Teile erscheinen",
 	tNavigationDetail:                      "Reiter, die Voreinstellung, ist die Tab-Zeile mit der Optionsleiste des Bereichs; Pfadzeile nennt den aktuellen Ort in einer Zeile, Pfad im Kopf setzt diesen Pfad in die Kopfzeile, und Auswahl im Kopf zeigt den aktiven Bereich als Feld in der Kopfzeile über der Optionsleiste. Auf einem Pfad oder dem Feld öffnen Enter, ein Klick oder {menu} die Übersicht der Bereiche. Eine Änderung gilt sofort.",
 	tStatusDone:                            "fertig",

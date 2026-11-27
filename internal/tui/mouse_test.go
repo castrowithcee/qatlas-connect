@@ -64,10 +64,13 @@ func mouseEvent(x, y int, button tea.MouseButton) tea.MouseMsg {
 	return tea.MouseClickMsg(event)
 }
 
-// clickAt sends a left click the way a terminal would and delivers the commands it produces.
+// clickAt sends a left click the way a terminal would, the press and its release, and delivers the commands
+// they produce.
 func clickAt(t *testing.T, m *Model, x, y int) {
 	t.Helper()
 	_, cmd := m.Update(mouseEvent(x, y, tea.MouseLeft))
+	deliver(m, cmd)
+	_, cmd = m.Update(tea.MouseReleaseMsg{X: x, Y: y, Button: tea.MouseLeft})
 	deliver(m, cmd)
 }
 
