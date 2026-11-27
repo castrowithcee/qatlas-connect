@@ -98,7 +98,7 @@ func secondWayOf(a kit.Action, first action) kit.Action { a.SecondWayOf = first;
 // holds the keys only the help overlay knows; tab there steps through topics, not fields. Within the main
 // levels no two actions share a key; across them one key may mean different things only where the levels
 // never meet: the answers of a question (y, n, d) and the keys only the help overlay knows.
-var keyTable = slices.Concat(kit.StandardActions(), []kit.Action{
+var keyTable = slices.Concat(kit.StandardActions(), detailActions(), []kit.Action{
 
 	// The letter actions of Connect: each letter means one thing on every screen where nothing is typed.
 	row(actSetup, kit.LevelLetter, tKeyHelpSetup, "g"),
@@ -192,6 +192,20 @@ func keyLabel(a action) string { return keymap.Label(a) }
 func infoExtraLabel() string {
 	label, _ := keymap.Labels(kit.InputText).KeyLabel(actInfo)
 	return label
+}
+
+// detailActions are the actions of the kit's log and text views that the detail of a log entry reads: wrap,
+// the two match jumps and the line numbers. The others of both sets are left out, since reveal and test are
+// letters of Connect already and the rest is never read here.
+func detailActions() []kit.Action {
+	var out []kit.Action
+	for _, a := range slices.Concat(kit.LogViewActions(), kit.TextViewActions()) {
+		switch a.ID {
+		case kit.ActionLogWrap, kit.ActionLogNextMatch, kit.ActionLogPrevMatch, kit.ActionTextNumbers:
+			out = append(out, a)
+		}
+	}
+	return out
 }
 
 // tableKey is the first default key of an action of the table.

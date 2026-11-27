@@ -611,6 +611,12 @@ func TestEveryScreenControlHasATargetAndClicksAsItsKey(t *testing.T) {
 						assertLogRowTargetsClickAsKeys(t, rows.build)
 					})
 				}
+				for _, detail := range clickLogDetails(form) {
+					t.Run(detail.name, func(t *testing.T) {
+						t.Parallel()
+						assertLogDetailTargetsClickAsKeys(t, detail.build, detail.want)
+					})
+				}
 				for _, bar := range clickLogBars(form) {
 					if bar.popup && form != PrefsSchema().DefaultNavigation {
 						continue
@@ -1770,5 +1776,61 @@ func assertClickActsAsKey(t *testing.T, build func(t *testing.T) *Model, x, y in
 	clickAt(t, clicked, x, y)
 	if want, got := clickState(pressed), clickState(clicked); want != got {
 		t.Errorf("a click at (%d,%d) does not act as the keys %q:\nkey:\n%s\nclick:\n%s", x, y, keys, want, got)
+	}
+}
+
+// clickLogDetails are the detail of a log entry in the navigation form form, as drawn and with a kept search,
+// which adds the two jumps to its status row, with the actions whose buttons each must show.
+func clickLogDetails(form string) []struct {
+	name  string
+	build func(t *testing.T) *Model
+	want  []action
+} {
+	// The detail shows the time of the entry to the second, and every build writes its own log: one clock for
+	// all of them keeps the copy given the key and the copy given the click alike under load.
+	at := time.Now()
+	open := func(search string) func(t *testing.T) *Model {
+		return func(t *testing.T) *Model {
+			f := newLogFixture(t)
+			f.logger = f.logger.WithClock(func() time.Time { return at })
+			f.append("cli", "client", "wiki.pages.read", "wiki", "success")
+			m := f.model(false, f.localToday())
+			m.prefs.Navigation = form
+			m = sizedModel(m, 100, 30)
+			press(t, m, "down", "enter")
+			if search != "" {
+				press(t, m, "/")
+				typeText(t, m, search)
+				press(t, m, "enter")
+			}
+			m.render()
+			return m
+		}
+	}
+	base := []action{actSearch, kittui.ActionLogWrap, kittui.ActionTextNumbers}
+	return []struct {
+		name  string
+		build func(t *testing.T) *Model
+		want  []action
+	}{{"log detail", open(""), base},
+		{"log detail with a search", open("wiki"), append([]action{kittui.ActionLogNextMatch, kittui.ActionLogPrevMatch}, base...)}}
+}
+
+// assertLogDetailTargetsClickAsKeys requires each button of the detail of a log entry to act as its key, and
+// the wheel over its text to scroll it.
+func assertLogDetailTargetsClickAsKeys(t *testing.T, build func(t *testing.T) *Model, want []action) {
+	t.Helper()
+	var got []action
+	for _, target := range build(t).listTargets {
+		if target.Action == "" {
+			continue
+		}
+		got = append(got, target.Action)
+		assertClickActsAsKey(t, build, target.Rect.X+(target.Rect.Width-1)/2, target.Rect.Y, firstKey(t, target.Action))
+	}
+	slices.Sort(got)
+	slices.Sort(want)
+	if !slices.Equal(got, want) {
+		t.Errorf("the detail has the buttons %v, want %v", got, want)
 	}
 }

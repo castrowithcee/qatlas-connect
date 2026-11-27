@@ -228,6 +228,9 @@ func (m *Model) runTarget(r kittui.MouseResult, acts []func() tea.Cmd) tea.Cmd {
 	}
 	if r.Zone == kittui.ZoneRows {
 		m.touchAdminSessionIfActive()
+		if m.screen == screenLogDetail {
+			return m.clickLogDetail(r)
+		}
 		if m.section == sectionLogs && (m.screen == screenLogs || m.screen == screenNav) {
 			return m.clickLogRows(r)
 		}
@@ -248,7 +251,7 @@ func (m *Model) runTarget(r kittui.MouseResult, acts []func() tea.Cmd) tea.Cmd {
 // wheelScreens are the screens whose up and down keys move over rows; the wheel is those keys there.
 func (m *Model) wheelScreens() bool {
 	switch m.screen {
-	case screenList, screenForm, screenPicker, screenLogs, screenLogDetail,
+	case screenList, screenForm, screenPicker, screenLogs,
 		screenTargets, screenPaths, screenFindings:
 		return true
 	case screenTransfer:
@@ -263,7 +266,7 @@ func (m *Model) wheelScreens() bool {
 // rows. The steps of a transfer that ask for input or move over rows are not.
 func (m *Model) textScreen() bool {
 	switch m.screen {
-	case screenSelftest, screenLogDetail:
+	case screenSelftest:
 		return true
 	case screenConfirm:
 		return m.approvalDetail != "" || m.requestDetail != ""
@@ -296,6 +299,14 @@ func (m *Model) wheel(event tea.Mouse, r kittui.MouseResult) tea.Cmd {
 			pane.wheel(up)
 			return nil
 		}
+	}
+	if m.screen == screenLogDetail {
+		// The text of the entry scrolls by the kit's notch.
+		if tv := m.logDetailTextView(); tv != nil && r.Zone == kittui.ZoneRows {
+			m.touchAdminSessionIfActive()
+			tv.Wheel(r.WheelSteps)
+		}
+		return nil
 	}
 	if m.section == sectionLogs && m.screen == screenLogs && r.Zone == kittui.ZoneRows {
 		// Over the rows of the log the wheel moves the mark and stops at the ends.

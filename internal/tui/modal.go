@@ -90,9 +90,6 @@ func (m *Model) baseScreen() screen {
 // scrollViews are the scroll areas that drawing a view clamps as a side effect.
 func (m *Model) scrollViews() []*textScroll {
 	views := []*textScroll{&m.approval, &m.detailPane.view, &m.infoPane.view}
-	if m.logs != nil {
-		views = append(views, &m.logs.view)
-	}
 	if e := m.export; e != nil {
 		views = append(views, &e.view)
 	}

@@ -943,7 +943,7 @@ func TestLogDetailShowsTheRequestedTool(t *testing.T) {
 		t.Fatalf("enter = screen %v, want the detail", m.screen)
 	}
 	got := screenOf(m)
-	for _, want := range []string{logLabel("requested tool") + " ", "wiki.pages.delete", invokelog.OperationRequestCreate} {
+	for _, want := range []string{logLabel("requested tool") + ":", "wiki.pages.delete", invokelog.OperationRequestCreate} {
 		if !strings.Contains(got, want) {
 			t.Errorf("the detail lacks %q:\n%s", want, got)
 		}

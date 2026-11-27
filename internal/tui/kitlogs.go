@@ -2,6 +2,9 @@ package tui
 
 import (
 	"strconv"
+	"strings"
+
+	tea "charm.land/bubbletea/v2"
 
 	"github.com/castrowithcee/qatlas-connect/internal/invokelog"
 	kit "github.com/castrowithcee/qatlas-kit/tui"
@@ -221,4 +224,76 @@ func (m *Model) logSessionItems() []kit.ListItem {
 		}
 	}
 	return items
+}
+
+// The detail of an entry is the kit's TextView over logDetailText, the very text c copies: the heading, an
+// empty line and a label and value a line. The label is the key role. The text is foreign content, so the kit
+// escapes it, and every value was made safe by logText before it got here.
+
+// logDetailTextView is the view of the entry the detail shows, made and filled where there is none; nil when
+// no entry is open.
+func (m *Model) logDetailTextView() *kit.TextView {
+	lv := m.logs
+	if lv.detail < 0 || lv.detail >= len(lv.rows) {
+		return nil
+	}
+	if lv.text != nil && lv.textLang == uiLang {
+		return lv.text
+	}
+	// A long value wraps from the start, so nothing is cut.
+	tv, err := kit.NewTextView(kit.TextViewSpec{Wrap: true, Keys: kit.TextViewKeys{Up: actUp, Down: actDown,
+		PageUp: actPageUp, PageDown: actPageDown, First: actHome, Last: actEnd, Search: actSearch, Enter: actEnter,
+		Back: actBack, NextMatch: kit.ActionLogNextMatch, PrevMatch: kit.ActionLogPrevMatch,
+		Wrap: kit.ActionLogWrap, Numbers: kit.ActionTextNumbers}}, keymap, translator(false))
+	if err != nil {
+		panic("the detail of the Logs is invalid: " + err.Error())
+	}
+	row := lv.rows[lv.detail]
+	spans := make([][]kit.TextSpan, 2)
+	for _, f := range m.logDetailFields(row) {
+		spans = append(spans, []kit.TextSpan{{Start: 0, End: len(f.label) + 1, Role: kit.TextRoleKey}})
+	}
+	tv.SetText(m.logDetailText(row), spans)
+	lv.text, lv.textLang = tv, uiLang
+	return tv
+}
+
+// logDetailView draws the detail of one entry in the room the notes leave, and registers its click targets.
+func (m *Model) logDetailView() string {
+	tv := m.logDetailTextView()
+	if tv == nil {
+		return ""
+	}
+	view, targets := tv.View(styles.Styles, m.usable(0), max(m.height-strings.Count(m.notes(), "\n"), 1))
+	if !m.backdrop && !m.tooSmall {
+		m.listTargets = append(m.listTargets, kit.OffsetTargets(targets, 0, m.workspaceTop())...)
+	}
+	return view
+}
+
+// logDetailKeys is the key text of the detail screen: the keys of the text view, which are only enter and
+// back while its search is typed.
+func (m *Model) logDetailKeys() string {
+	tv := m.logDetailTextView()
+	if tv == nil {
+		return keysBackOnly
+	}
+	var groups []string
+	for _, h := range tv.Hints() {
+		if h.Action != actUp && h.Action != actDown {
+			groups = append(groups, footerPlaceholder(h.Action)+" "+tr(h.Label))
+		}
+	}
+	if tv.Searching() {
+		return strings.Join(groups, " · ")
+	}
+	return strings.Join(groups, " · ") + " · " + keysScroll + keysLogDetail
+}
+
+// clickLogDetail is a click on a target the detail drew: a button of its status row does what its key does.
+func (m *Model) clickLogDetail(r kit.MouseResult) tea.Cmd {
+	if tv := m.logDetailTextView(); tv != nil {
+		tv.Click(r)
+	}
+	return nil
 }

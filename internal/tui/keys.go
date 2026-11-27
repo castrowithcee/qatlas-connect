@@ -42,6 +42,8 @@ func (m *Model) typing() bool {
 		return m.export != nil && m.export.step == exportSelect && m.export.list.Searching()
 	case screenLogs:
 		return m.logs.list.Searching() || m.logs.bar != nil && m.logs.bar.Open()
+	case screenLogDetail:
+		return m.logs.text != nil && m.logs.text.Searching()
 	}
 	return false
 }
