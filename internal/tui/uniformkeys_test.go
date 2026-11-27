@@ -274,8 +274,8 @@ func TestQuestionMarkOpensTheHelpWhereNothingIsTyped(t *testing.T) {
 		openPathList(t, p)
 		helpRoundTrip(t, p, "the path list")
 		press(t, p, "n", "?")
-		if p.screen != screenPaths || !strings.Contains(p.pathInput.Value(), "?") {
-			t.Fatalf("? in the typed path: screen %v value %q, want it as text", p.screen, p.pathInput.Value())
+		if p.screen != screenPaths || !strings.Contains(typedInput(p), "?") {
+			t.Fatalf("? in the typed path: screen %v value %q, want it as text", p.screen, typedInput(p))
 		}
 	})
 

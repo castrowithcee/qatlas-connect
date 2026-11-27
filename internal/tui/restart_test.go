@@ -56,7 +56,7 @@ func TestTheNewEditorOpensTheUnlockDialogOnlyForAVaultLockedByTheUpdate(t *testi
 	if locked.screen != screenVaultUnlock {
 		t.Fatalf("screen = %v, want the unlock dialog", locked.screen)
 	}
-	if view := screenOf(locked); !strings.Contains(view, "Unlock vault") ||
+	if view := askedText(locked); !strings.Contains(locked.render(), "Unlock vault") ||
 		!strings.Contains(view, "updated from v0.4.0 to v0.5.0") {
 		t.Errorf("the dialog does not name the update:\n%s", view)
 	}

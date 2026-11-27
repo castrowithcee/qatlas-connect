@@ -13,6 +13,7 @@ import (
 	"github.com/castrowithcee/qatlas-connect/internal/config"
 	"github.com/castrowithcee/qatlas-connect/internal/provider/github"
 	"github.com/castrowithcee/qatlas-connect/internal/selftest"
+	kittui "github.com/castrowithcee/qatlas-kit/tui"
 	kitprefs "github.com/castrowithcee/qatlas-kit/uiprefs"
 )
 
@@ -617,18 +618,26 @@ func TestTheWheelScrollsAListAndAForm(t *testing.T) {
 func TestMouseEventsMakeNoCharacters(t *testing.T) {
 	m := sizedModel(groupModel(t), 120, 40)
 	m.openVaultUnlockPrompt(screenNav)
-	for _, p := range [][2]int{{0, 0}, {60, 10}, {60, 20}, {70, 21}} {
+	m.render()
+	// Inside the frame: the input line, the blank row under it, and the wheel over it.
+	var line kittui.Rect
+	for _, target := range m.modalTargets {
+		if target.Zone == kittui.ZoneForm {
+			line = target.Rect
+		}
+	}
+	for _, p := range [][2]int{{line.X + 1, line.Y}, {line.X + line.Width/2, line.Y}, {line.X + 1, line.Y + 1}} {
 		clickAt(t, m, p[0], p[1])
 	}
-	wheelAt(t, m, 60, 20, tea.MouseWheelDown)
-	if m.screen != screenVaultUnlock || m.vaultUnlock.input.Value() != "" {
-		t.Fatalf("screen %v, input %q; want the empty passphrase prompt", m.screen, m.vaultUnlock.input.Value())
+	wheelAt(t, m, line.X+1, line.Y, tea.MouseWheelDown)
+	if m.screen != screenVaultUnlock || typedInput(m) != "" {
+		t.Fatalf("screen %v, input %q; want the empty passphrase prompt", m.screen, typedInput(m))
 	}
 	// A letter button is not passed on where the screen reads text.
 	m.pressName("y")
 	m.pressName("d")
-	if m.vaultUnlock == nil || m.vaultUnlock.input.Value() != "" {
-		t.Errorf("a letter reached the passphrase: %q", m.vaultUnlock.input.Value())
+	if m.vaultUnlock == nil || typedInput(m) != "" {
+		t.Errorf("a letter reached the passphrase: %q", typedInput(m))
 	}
 	// The cancel button is a key that makes no character, and works.
 	clickOn(t, m, "esc")

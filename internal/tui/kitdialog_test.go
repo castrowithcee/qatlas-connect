@@ -7,6 +7,8 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"github.com/charmbracelet/x/ansi"
+
+	kittui "github.com/castrowithcee/qatlas-kit/tui"
 )
 
 // askedText is the text of the dialog of the question m asks, as it draws it in a workspace, and "" for none.
@@ -18,6 +20,17 @@ func askedText(m *Model) string {
 	view, _ := m.question.View(styles.Styles, 100, 40)
 	return ansi.Strip(view)
 }
+
+// typedInput is the text of the input of the open question, "" where none is open.
+func typedInput(m *Model) string {
+	if m.question == nil {
+		return ""
+	}
+	return m.question.Value()
+}
+
+// masked is how an input dialog draws n typed characters of a masked input.
+func masked(n int) string { return strings.Repeat(styles.Styles.Glyph(kittui.GlyphMask), n) }
 
 // dialogQuestions are the questions of clickDialogs over the screen, without the size of a terminal, and the
 // leave questions of the export and the import.

@@ -135,6 +135,9 @@ func afterResets(text, set string) string {
 	return strings.NewReplacer("\x1b[0m", "\x1b[0m"+set, "\x1b[m", "\x1b[m"+set).Replace(text)
 }
 
+// warnMark leads a warning.
+const warnMark = "⚠"
+
 // surfaceRow draws a finished input row as a field: cut or padded to width cells on the surface colour.
 // Without a colour the row is only padded.
 func surfaceRow(text string, width int) string {
@@ -221,43 +224,4 @@ func statusMark(kind statusKind, word string) string {
 		style = styles.warning
 	}
 	return style.Render("●") + " " + word
-}
-
-type buttonKind int
-
-const (
-	buttonNormal buttonKind = iota
-	buttonPrimary
-	buttonDanger
-)
-
-// button renders a label as a button. The focus shows as "> label <" and reverse video, so it reads without
-// colour; the primary and danger kinds are bold, and filled where there is colour.
-func button(kind buttonKind, label string, focused bool) string {
-	text := "[ " + label + " ]"
-	if focused {
-		text = "> " + label + " <"
-	}
-	style := lipgloss.NewStyle()
-	p := styles.Palette()
-	switch kind {
-	case buttonPrimary:
-		style = style.Bold(true)
-		if p.Accent != "" {
-			style = style.Background(lip(p.Accent)).Foreground(lip(p.Base))
-		}
-	case buttonDanger:
-		style = style.Bold(true)
-		if p.Fail != "" {
-			style = style.Background(lip(p.Fail)).Foreground(lip(p.Base))
-		}
-	default:
-		if p.Border != "" {
-			style = style.Foreground(lip(p.Text))
-		}
-	}
-	if focused {
-		style = style.Bold(true).Reverse(true)
-	}
-	return style.Render(text)
 }

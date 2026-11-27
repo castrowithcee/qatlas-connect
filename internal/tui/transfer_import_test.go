@@ -3,6 +3,7 @@ package tui
 import (
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -12,6 +13,7 @@ import (
 	"github.com/castrowithcee/qatlas-connect/internal/helptopics"
 	"github.com/castrowithcee/qatlas-connect/internal/manage"
 	"github.com/castrowithcee/qatlas-connect/internal/vault"
+	kittui "github.com/castrowithcee/qatlas-kit/tui"
 )
 
 const testImportWrongPass = "wrong-passphrase-canary"
@@ -316,7 +318,7 @@ func TestImportEncryptedFileAsksTheExportPassphrase(t *testing.T) {
 	}
 	v.pump("enter")
 	v.wantImportStep(importPassphrase)
-	if !strings.Contains(m.fail, "does not decrypt") || m.imp.passphrase != "" || m.imp.input.Value() != "" {
+	if !strings.Contains(m.fail, "does not decrypt") || m.imp.passphrase != "" || typedInput(m) != "" {
 		t.Fatalf("a wrong passphrase = fail %q, want it reported and asked again", m.fail)
 	}
 	v.pump("enter")
@@ -473,14 +475,14 @@ func TestImportEscGoesOneStepBackAndCancelsWithoutEffect(t *testing.T) {
 			for _, want := range tc.steps {
 				v.pump("esc")
 				v.wantImportStep(want)
-				if want == importPassphrase && (m.imp.input.Value() != "" || m.imp.passphrase != "") {
+				if want == importPassphrase && (typedInput(m) != "" || m.imp.passphrase != "") {
 					t.Fatal("going back to the passphrase kept what was typed")
 				}
 				if importedConnection(t, m, "docs") {
 					t.Fatal("going back changed the configuration")
 				}
 			}
-			if got := m.imp.input.Value(); got != path {
+			if got := typedInput(m); got != path {
 				t.Fatalf("back at the file = %q, want what was typed", got)
 			}
 			// A file name is typed: leaving the first step asks.
@@ -702,10 +704,16 @@ func TestImportFooterNamesHelpAndCommandsOnlyWhereTheyWork(t *testing.T) {
 			v.startImport("")
 			v.importTo(tc.step, path, true, 0)
 			named := strings.Contains(screenOf(m), "? help")
+			typed := func() string { return m.imp.path }
+			if m.question != nil {
+				// A dialog names its keys itself; the frame behind it names only the help key.
+				named = slices.ContainsFunc(m.question.Hints(), func(h kittui.Hint) bool { return h.Action == actHelp })
+				typed = func() string { return typedInput(m) }
+			}
 			if named != m.helpReachable() {
 				t.Errorf("footer names ? help = %v, but it works = %v:\n%s", named, m.helpReachable(), screenOf(m))
 			}
-			before := m.imp.input.Value()
+			before := typed()
 			v.pump("?")
 			if named {
 				if !helpOpen(m) {
@@ -716,7 +724,7 @@ func TestImportFooterNamesHelpAndCommandsOnlyWhereTheyWork(t *testing.T) {
 					t.Fatalf(": = screen %v, want the command line", m.screen)
 				}
 				v.pump("esc")
-			} else if m.screen != screenTransfer || m.imp.input.Value() != before+"?" {
+			} else if m.screen != screenTransfer || typed() != before+"?" {
 				t.Fatalf("? = screen %v, want it typed", m.screen)
 			}
 			v.wantImportStep(tc.step)
@@ -829,13 +837,13 @@ func TestImportFileQuestionSuggestsFilesAndRefusesAMissingOne(t *testing.T) {
 	if !strings.Contains(view, "~"+s+"inbox"+s) || !strings.Contains(view, "~"+s+"in-a.yaml") {
 		t.Fatalf("directories and files are not suggested:\n%s", view)
 	}
-	// A marked directory is entered, not taken as the file.
-	v.pump("down", "down", "enter")
-	if m.imp.step != importFile || m.fail != "" || m.imp.input.Value() != "~"+s+"inbox"+s {
-		t.Fatalf("value %q step %v fail %q, want the directory entered", m.imp.input.Value(), m.imp.step, m.fail)
+	// A marked directory is entered, not taken as the file; the first down marks the first suggestion.
+	v.pump("down", "enter")
+	if m.imp.step != importFile || m.fail != "" || typedInput(m) != "~"+s+"inbox"+s {
+		t.Fatalf("value %q step %v fail %q, want the directory entered", typedInput(m), m.imp.step, m.fail)
 	}
 	v.typePath("~" + s + "in")
-	v.pump("down", "enter")
+	v.pump("down", "down", "enter")
 	if want := filepath.Join(home, "in-a.yaml"); m.imp.path != want {
 		t.Fatalf("path = %q, want the marked file %q", m.imp.path, want)
 	}

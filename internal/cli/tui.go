@@ -131,7 +131,7 @@ func newTUICommand(opts *Options, reg *capability.Registry, buildVersion string)
 			"configuration limits it; the forms say so.\n\n" +
 			"While the vault is encrypted, the editor opens read-only: saving a form, deleting an entry,\n" +
 			"storing or removing a secret, and every action of Settings > Vault (6, see below) each ask for the vault's\n" +
-			"passphrase the first time, masked in a screen of their own, never on this terminal. Answering it\n" +
+			"passphrase the first time, masked in a dialog over the screen, never on this terminal. Answering it\n" +
 			"unlocks the vault where it was locked, and either way starts an admin session bound to this\n" +
 			"window: further managing actions run at once until the admin session timeout of the vault passes\n" +
 			"without a key press, after which the next one asks again; a timeout of 0s asks every time instead of\n" +

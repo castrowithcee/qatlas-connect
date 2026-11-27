@@ -9,15 +9,17 @@ import (
 	"github.com/charmbracelet/x/ansi"
 )
 
-// typing reports whether the current screen reads typed text right now. Letters are text there, so neither
-// the vim movement keys, ? nor : mean anything else.
+// typing reports whether the current screen reads typed text right now, as a dialog with an input does.
+// Letters are text there, so neither the vim movement keys, ? nor : mean anything else.
 func (m *Model) typing() bool {
 	if m.keyCapture {
 		return true
 	}
+	if q, ok := m.currentAsk(); ok && q.input {
+		return true
+	}
 	switch m.screen {
-	case screenCommand, screenSecret, screenVaultOffer, screenAdminAuth, screenVaultUnlock, screenPicker, screenProviders,
-		screenVersions:
+	case screenCommand, screenPicker, screenProviders, screenVersions:
 		return true
 	case screenList:
 		return m.list.Searching() || m.barValuesOpen()
@@ -31,12 +33,8 @@ func (m *Model) typing() bool {
 		}
 	case screenTargets:
 		return m.targetEdit >= 0 || m.targetAdd != nil || m.targetPick != nil || m.labelEdit
-	case screenPaths:
-		return m.pathEdit >= 0
 	case screenTemplate:
 		return m.template != nil && m.template.picking
-	case screenTransfer:
-		return m.exportTyping() || m.importTyping()
 	case screenLogs:
 		return m.logs.dialog != nil || m.logs.pick != nil || m.logs.list.editing
 	}

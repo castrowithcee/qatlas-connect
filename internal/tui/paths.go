@@ -9,6 +9,8 @@ import (
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/castrowithcee/qatlas-connect/internal/config"
+	"github.com/castrowithcee/qatlas-kit/projectpath"
+	kittui "github.com/castrowithcee/qatlas-kit/tui"
 )
 
 // The path list of a connection is edited in a screen of its own, opened from its row like the target list:
@@ -17,10 +19,8 @@ import (
 // it closes an unchanged list, cancels an unchanged entry, and asks about a changed list or a typed entry,
 // so no change is dropped silently.
 //
-// The line a path is typed into is a pathField, which has the keys of every path prompt: tab takes the
-// suggestion shown, and up/down switch between several. The suggestions are the subdirectories of what is
-// typed up to its last separator, never files; with nothing typed yet, the directory the TUI was started in
-// is the one suggestion. A path is checked by the rules of the core when it is taken, and the list as a
+// A path is typed into the kit's dialog, which suggests the subdirectories of what is typed up to its last
+// separator, never files; with nothing typed yet, the directory the TUI was started in is the one suggestion. A path is checked by the rules of the core when it is taken, and the list as a
 // whole when the form is saved. Whether the directory exists is not checked: a path is only resolved when a
 // call runs, and config validate warns about one that names nothing.
 
@@ -28,13 +28,12 @@ import (
 func (m *Model) openPaths() {
 	m.pathList.reset(append([]string(nil), m.fields[m.focus].entries...))
 	m.pathEdit, m.pathRemove = -1, false
-	m.pathInput.Blur()
 	m.screen = screenPaths
 	m.clearMessages()
 }
 
-// updatePaths handles the path list screen: the typed path first, then the list itself. Its remove question
-// is a dialog; see pathRemoveAsk.
+// updatePaths handles the path list screen. The typed path and the remove question are dialogs; see pathAsk
+// and pathRemoveAsk.
 func (m *Model) updatePaths(key tea.KeyPressMsg) tea.Cmd {
 	switch {
 	case keyIs(key, actSave):
@@ -48,25 +47,6 @@ func (m *Model) updatePaths(key tea.KeyPressMsg) tea.Cmd {
 		}
 		m.keepPaths()
 		return m.updateForm(key)
-	}
-	if m.pathEdit >= 0 {
-		switch {
-		case keyIs(key, actBack):
-			if m.pathTyped() {
-				m.askLeave(false)
-				return nil
-			}
-			m.pathEdit = -1
-			m.pathInput.Blur()
-			m.clearMessages()
-		case keyIs(key, actEnter):
-			if m.pathInput.accept() {
-				m.takePath()
-			}
-		default:
-			return m.pathInput.update(key)
-		}
-		return nil
 	}
 	path, selected := m.pathList.selected()
 	switch {
@@ -122,7 +102,7 @@ func (m *Model) pathTyped() bool {
 	if m.pathEdit < len(m.pathList.all) {
 		original = m.pathList.all[m.pathEdit]
 	}
-	return m.pathInput.Value() != original
+	return m.pathValue != original
 }
 
 // pathsPending reports whether closing the screen for good would lose a changed list or a typed path.
@@ -135,8 +115,8 @@ func (m *Model) pathsPending() bool {
 
 // editPath starts typing the path at index, or a new one at the end of the list.
 func (m *Model) editPath(index int, value string) {
-	m.pathEdit = index
-	m.pathInput.open(value, m.startDir)
+	m.dropQuestion()
+	m.pathEdit, m.pathValue = index, value
 	m.clearMessages()
 }
 
@@ -144,7 +124,7 @@ func (m *Model) editPath(index int, value string) {
 // name its directory yet. A refused path stays typed with the reason. A trailing separator, which every
 // suggestion ends in, is not kept.
 func (m *Model) takePath() {
-	value := strings.TrimSpace(m.pathInput.Value())
+	value := strings.TrimSpace(m.pathValue)
 	for len(value) > 1 && os.IsPathSeparator(value[len(value)-1]) {
 		value = value[:len(value)-1]
 	}
@@ -177,7 +157,6 @@ func (m *Model) takePath() {
 	m.pathList.setItems(entries)
 	m.pathList.selectName(value)
 	m.pathEdit = -1
-	m.pathInput.Blur()
 	m.clearMessages()
 }
 
@@ -235,16 +214,12 @@ func (m *Model) pathsView() string {
 }
 
 // pathFrame is everything of the path list screen except the paths: above them what the list does, below
-// them the path being typed with its suggestions, the keys and the notes.
+// them the keys and the notes.
 func (m *Model) pathFrame() (string, string) {
 	p := m.dialogPanelOf()
 	total := len(m.pathList.all)
-	title, hint, none := tr(tPathPaths), tr(tFormPathsHint), tr(tPathNoneEveryProject)
+	title, hint, none := tr(tPathPaths), m.pathHint(), tr(tPathNoneEveryProject)
 	if label := m.fields[m.focus].label; isFilesLabel(label) {
-		hint = tr(tFormFilesReadHint)
-		if label == filesWriteLabel {
-			hint = tr(tFormFilesWriteHint)
-		}
 		title = tr(tPathDirectoriesFor, labelText(label))
 		none = tr(tPathNoneReleased)
 	}
@@ -264,48 +239,67 @@ func (m *Model) pathFrame() (string, string) {
 	}
 
 	var foot strings.Builder
-	switch {
-	case m.pathEdit >= 0 && m.backdrop:
-		// The typed path stands in its own dialog (see pathPrompt) over this screen.
-	case m.pathEdit >= 0:
-		label := tr(tPathAddPath)
-		if m.pathEdit < total {
-			label = tr(tPathEditPath)
-		}
-		foot.WriteString(p.blank() + p.styled(m.pathLinesIn(p.room, label, &m.pathInput)))
-	}
 	foot.WriteString(p.bottom())
 	foot.WriteString(m.keyHint(m.pathKeys()))
 	return head.String(), foot.String() + m.notes()
 }
 
-// pathKeys is the key text of the path list screen: the list, or the path being typed.
+// pathKeys is the key text of the path list screen; the path being typed names its keys in its dialog.
 func (m *Model) pathKeys() string {
-	switch {
-	case m.pathEdit >= 0 && m.backdrop:
-		// The typed path stands in its own dialog (see pathPrompt) over this screen.
-	case m.pathEdit >= 0:
-		return pathKeys(&m.pathInput, "{enter} take · {save} save · {back} cancel entry")
+	if m.pathEdit >= 0 {
+		return ""
 	}
 	return "{new} new · {enter}/{edit} edit · {delete} remove · {up}/{down} move · {save} save · {back} close · {command} cmds · {help} help"
 }
 
-// pathPrompt is the dialog the path being added or edited is typed into.
-func (m *Model) pathPrompt() promptDialog {
-	noun := tr(tPathPath2)
-	if isFilesLabel(m.fields[m.focus].label) {
-		noun = tr(tPathDirectory2)
+// pathHint is what the paths of the focused list are for.
+func (m *Model) pathHint() string {
+	switch m.fields[m.focus].label {
+	case filesReadLabel:
+		return tr(tFormFilesReadHint)
+	case filesWriteLabel:
+		return tr(tFormFilesWriteHint)
 	}
-	title := tr(tPathAdd, noun)
-	if m.pathEdit < len(m.pathList.all) {
-		title = tr(tFormEdit, noun)
+	return tr(tFormPathsHint)
+}
+
+// pathAsk is the dialog the path being added or edited is typed into, with the directories that complete it.
+func (m *Model) pathAsk() ask {
+	title := tPathAddTitle
+	switch dir, edit := isFilesLabel(m.fields[m.focus].label), m.pathEdit < len(m.pathList.all); {
+	case dir && edit:
+		title = tPathEditDirTitle
+	case dir:
+		title = tPathAddDirTitle
+	case edit:
+		title = tPathEditTitle
 	}
-	return promptDialog{
-		title: title,
-		input: m.pathLines("  ", &m.pathInput),
-		field: true,
-		keys:  pathKeys(&m.pathInput, "{enter} take · {save} save · {back} cancel entry"),
+	return ask{title: title, question: m.pathHint(), input: true, value: m.pathValue,
+		suggest: projectpath.Directories, keep: actEnter,
+		answers: []kittui.Answer{{Action: actEnter, Label: hintLabelID("{enter} take")},
+			{Action: actSave, Label: hintLabelID("{save} save")},
+			{Action: actBack, Label: hintLabelID("{back} cancel entry")}}}
+}
+
+// answerPath answers the dialog of the typed path: enter takes it into the list, F2 takes it and saves as from
+// the list, and esc cancels the entry, asking first once something was typed. A path the rules refuse stays
+// typed with the reason.
+func (m *Model) answerPath(act action) tea.Cmd {
+	switch act {
+	case actEnter:
+		m.takePath()
+	case actSave:
+		save, _ := keyOf(actSave)
+		return m.updatePaths(save)
+	case actBack:
+		if m.pathTyped() {
+			m.askLeave(false)
+			return nil
+		}
+		m.pathEdit = -1
+		m.clearMessages()
 	}
+	return nil
 }
 
 // pathRow draws the path at index i of the list.

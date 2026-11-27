@@ -146,9 +146,6 @@ func (m *Model) workspaceKeys() string {
 			return ""
 		}
 		return m.formScreenKeys()
-	case screenSecret, screenVaultOffer, screenAdminAuth, screenVaultUnlock:
-		d, _ := m.prompt()
-		return d.keys
 	case screenConfirm:
 		return m.confirmKeys()
 	case screenSummary:
@@ -240,12 +237,11 @@ func hintLabelID(group string) textID { return textID("hint." + group) }
 
 // keyHints is a key text as the kit's hints. The groups keep their order: a group of several keys becomes
 // one hint per key, which Keymap.Hints folds into one group again by their shared label. The help group
-// stays at every width, a group at the right end is navigation, and the answers of a question stay. A screen
+// stays at every width and a group at the right end is navigation. A screen
 // that reads text names only keys it acts on before the text, so its hints name them while it types; the
 // help, command and info keys follow their own reach.
 func (m *Model) keyHints(text string) []kit.Hint {
 	t := translator(infoExtraLabel() != "" && !m.infoReachable())
-	answering := m.promptScreen()
 	typed := func(a action) bool {
 		switch a {
 		case actHelp, actCommand:
@@ -284,8 +280,6 @@ func (m *Model) keyHints(text string) []kit.Hint {
 			kind = kit.HintAlways
 		case right:
 			kind = kit.HintNavigation
-		case answering && rank != footerCommand && rank != footerQuit && rank != footerInfo:
-			kind = kit.HintAnswer
 		}
 		if len(actions) == 0 {
 			hints = append(hints, kit.Hint{Label: labelID, Priority: rank, Kind: kind})

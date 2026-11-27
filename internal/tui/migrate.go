@@ -87,7 +87,7 @@ func (m *Model) startVaultMigrate() tea.Cmd {
 
 	if m.vaultState() == vault.StateLocked {
 		return m.startVaultCurrentPassphrase(
-			tr(tMigratePassphraseTitle),
+			tMigratePassphraseTitle,
 			tr(tMigratePassphraseHint),
 			func(current string) tea.Cmd {
 				return m.planVaultMigrate(entries, func(string) (string, error) { return current, nil })
@@ -202,7 +202,7 @@ func (m *Model) beginVaultMigrateWrite() tea.Cmd {
 		return m.runVaultMigrateWrite(nil)
 	}
 	m.openVaultOffer(
-		tr(tVaultOfferTitle),
+		tVaultOfferTitle,
 		vaultFirstSecretHint(),
 		true, true,
 		func(offer vault.PassphraseFunc) tea.Cmd {

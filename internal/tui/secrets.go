@@ -6,13 +6,13 @@ import (
 	"runtime"
 	"strings"
 
-	"charm.land/bubbles/v2/textinput"
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/castrowithcee/qatlas-connect/internal/config"
 	"github.com/castrowithcee/qatlas-connect/internal/manage"
 	"github.com/castrowithcee/qatlas-connect/internal/secret"
 	"github.com/castrowithcee/qatlas-connect/internal/vault"
+	kittui "github.com/castrowithcee/qatlas-kit/tui"
 )
 
 // Secrets is what the editor needs from the credential resolver: it hands a secret in, it removes one, and
@@ -345,39 +345,43 @@ func (m *Model) handleWritten(msg writtenMsg) tea.Cmd {
 	}})
 }
 
-// askSecret opens the masked prompt for one role. The typed value lives in this one input and nowhere else
-// in the model, it is drawn masked, and it is dropped the moment the prompt closes.
+// askSecret opens the masked prompt for one role. The typed value lives in the input of its dialog and
+// nowhere else in the model, it is drawn masked, and it is dropped the moment the prompt closes.
 func (m *Model) askSecret(role string) {
-	in := newTextInput()
-	in.Prompt = ""
-	in.EchoMode = textinput.EchoPassword
-	in.Focus()
-
-	m.secretInput = in
+	m.dropQuestion()
 	m.secretRole = role
 	m.screen = screenSecret
 	m.clearMessages()
 }
 
-// updateSecret handles the masked prompt.
-func (m *Model) updateSecret(key tea.KeyPressMsg) tea.Cmd {
-	switch {
-	case keyIs(key, actBack):
-		m.secretInput.Reset()
+// secretAsk is the masked dialog for the secret of the credential role being edited.
+func (m *Model) secretAsk() ask {
+	where := tr(tFormOfThisMachine, secret.StoreLabel(platform))
+	if m.credentialType() == config.CredentialTypeVault {
+		where = tr(tFormTheVault)
+	}
+	return ask{title: tSecretTitle, question: tr(tFormSecretFor, m.editing, m.secretRole),
+		consequence: tr(tFormMaskedGoesInto, where), input: true, masked: true, keep: actEnter,
+		answers: []kittui.Answer{{Action: actEnter, Label: hintLabelID("{enter} store")},
+			{Action: actBack, Label: hintLabelID("{back} cancel")}}}
+}
+
+// answerSecret answers the masked prompt.
+func (m *Model) answerSecret(act action) tea.Cmd {
+	switch act {
+	case actBack:
 		m.screen = screenForm
 		m.status = tr(tCancelled)
-		return nil
-	case keyIs(key, actEnter):
-		value := m.secretInput.Value()
+	case actEnter:
 		// The value leaves the model in the same event that submitted it: from here on it exists only
 		// inside the closure requireAdmin may hold onto briefly, and then the command that hands it to the
 		// resolver.
-		m.secretInput.Reset()
-		m.screen = screenForm
+		value := m.takeInput()
 		if value == "" {
 			m.fail = tr(tSecretNothingWasTypedSoNothing)
 			return nil
 		}
+		m.screen = screenForm
 		// Storing a secret is a managing action: requireAdmin gates it behind this window's admin
 		// session first.
 		return m.requireAdmin(func() tea.Cmd {
@@ -387,10 +391,7 @@ func (m *Model) updateSecret(key tea.KeyPressMsg) tea.Cmd {
 			return m.storeSecret(m.editing, m.secretRole, value)
 		})
 	}
-
-	var cmd tea.Cmd
-	m.secretInput, cmd = m.secretInput.Update(inputMsg(key))
-	return cmd
+	return nil
 }
 
 // secretEntry is the credential entry a secret of the form is stored for: the saved one, with the storage
@@ -451,7 +452,7 @@ func (m *Model) removeSecret(credential, role string) tea.Cmd {
 }
 
 // vaultOffer is the state of a masked vault passphrase prompt, in the pattern of the masked secret prompt:
-// one input, reused for the entry and, while twice is set, for typing it again to confirm it.
+// one dialog, asking for the entry and, while twice is set, for typing it again to confirm it.
 //
 // It serves every masked passphrase prompt of the vault, not only the offer that follows a vault's very
 // first secret: optional and twice, set independently, cover the offer (empty accepted as "stay
@@ -462,7 +463,6 @@ func (m *Model) removeSecret(credential, role string) tea.Cmd {
 // prompt of its own, since the masked input already showed one. cancel is called on esc, before anything
 // reaches the vault; both return the command, if any, that continues whatever opened the prompt.
 type vaultOffer struct {
-	input      textinput.Model
 	first      string
 	confirming bool
 	// optional accepts an empty first entry as "no passphrase" instead of refusing it; only the offer that
@@ -473,22 +473,19 @@ type vaultOffer struct {
 	twice bool
 	// title and hint are the first entry's heading and explanation; the confirmation step always reads the
 	// same way, so it needs none of its own.
-	title, hint string
-	resume      func(offer vault.PassphraseFunc) tea.Cmd
-	cancel      func() tea.Cmd
+	title  textID
+	hint   string
+	resume func(offer vault.PassphraseFunc) tea.Cmd
+	cancel func() tea.Cmd
 }
 
 // openVaultOffer opens a masked passphrase prompt. It never touches the vault itself: resume decides what
 // happens once it is answered, so the same prompt serves a single role of the credential form, the several
 // roles a guided setup commits at once, and every vault settings action (see vaultsettings.go).
-func (m *Model) openVaultOffer(title, hint string, optional, twice bool,
+func (m *Model) openVaultOffer(title textID, hint string, optional, twice bool,
 	resume func(offer vault.PassphraseFunc) tea.Cmd, cancel func() tea.Cmd) {
-	in := newTextInput()
-	in.Prompt = ""
-	in.EchoMode = textinput.EchoPassword
-	in.Focus()
-
-	m.vaultOffer = &vaultOffer{input: in, optional: optional, twice: twice, title: title, hint: hint,
+	m.dropQuestion()
+	m.vaultOffer = &vaultOffer{optional: optional, twice: twice, title: title, hint: hint,
 		resume: resume, cancel: cancel}
 	m.screen = screenVaultOffer
 	m.clearMessages()
@@ -496,28 +493,25 @@ func (m *Model) openVaultOffer(title, hint string, optional, twice bool,
 
 // openVaultOfferFor is openVaultOffer for a caller that may not name the vault package: resume gets the offer
 // as a plain function, which converts to the core's passphrase function where it is handed on.
-func (m *Model) openVaultOfferFor(title, hint string, optional, twice bool,
+func (m *Model) openVaultOfferFor(title textID, hint string, optional, twice bool,
 	resume func(offer func(string) (string, error)) tea.Cmd, cancel func() tea.Cmd) {
 	m.openVaultOffer(title, hint, optional, twice,
 		func(offer vault.PassphraseFunc) tea.Cmd { return resume(offer) }, cancel)
 }
 
-// updateVaultOffer handles the masked entry of a vault passphrase prompt: the first time through it takes a
-// passphrase, and, while twice is set, the second time asks for the same one again to confirm it. A
-// mismatch is an error that leaves the prompt open, back at the first entry, rather than closing it or
-// writing anything.
-func (m *Model) updateVaultOffer(key tea.KeyPressMsg) tea.Cmd {
+// answerVaultOffer answers a vault passphrase prompt: the first time through it takes a passphrase, and,
+// while twice is set, the second time asks for the same one again to confirm it. A mismatch is an error that
+// leaves the prompt open, back at the first entry, rather than closing it or writing anything.
+func (m *Model) answerVaultOffer(act action) tea.Cmd {
 	o := m.vaultOffer
-	switch {
-	case keyIs(key, actBack):
+	switch act {
+	case actBack:
 		cancel := o.cancel
-		o.input.Reset()
 		o.first = ""
 		m.vaultOffer = nil
 		return cancel()
-	case keyIs(key, actEnter):
-		typed := o.input.Value()
-		o.input.Reset()
+	case actEnter:
+		typed := m.takeInput()
 		m.clearMessages()
 		if !o.confirming {
 			if typed == "" {
@@ -545,13 +539,11 @@ func (m *Model) updateVaultOffer(key tea.KeyPressMsg) tea.Cmd {
 			return nil
 		}
 		passphrase, resume := o.first, o.resume
+		o.first = ""
 		m.vaultOffer = nil
 		return resume(func(string) (string, error) { return passphrase, nil })
 	}
-
-	var cmd tea.Cmd
-	o.input, cmd = o.input.Update(inputMsg(key))
-	return cmd
+	return nil
 }
 
 // beginVaultSecret decides whether the role's secret would be the vault's very first: only then is a
@@ -571,7 +563,7 @@ func (m *Model) beginVaultSecret(credential, role, value string) tea.Cmd {
 		return m.writeVaultSecret(credential, role, value, nil)
 	}
 	m.openVaultOffer(
-		tr(tVaultOfferTitle),
+		tVaultOfferTitle,
 		vaultFirstSecretHint(),
 		true, true,
 		func(offer vault.PassphraseFunc) tea.Cmd {
@@ -638,18 +630,18 @@ func (m *Model) removeVaultSecret(credential, role string) tea.Cmd {
 // vaultFirstSecretHint explains the optional passphrase offer before the vault's very first secret.
 func vaultFirstSecretHint() string { return tr(tVaultFirstSecretHint) }
 
-// vaultOfferPrompt is a masked vault passphrase prompt, in the pattern of the masked secret prompt: a
-// title, the masked line, an explanation, and a footer of enter and esc. It has two shapes, the first entry
-// (title and hint of its own) and its confirmation (always worded the same way), told apart by
-// vaultOffer.confirming.
-func (m *Model) vaultOfferPrompt() promptDialog {
+// vaultOfferAsk is a masked vault passphrase prompt, in the pattern of the masked secret prompt. It has two
+// steps, the first entry (title and hint of its own) and its confirmation (always worded the same way), told
+// apart by vaultOffer.confirming; each starts empty.
+func (m *Model) vaultOfferAsk() ask {
 	o := m.vaultOffer
-	d := promptDialog{title: o.title, input: m.inputLine("  ", o.input), field: true, hint: o.hint,
-		keys: "{enter} ok · {back} cancel, nothing saved"}
+	q := ask{title: o.title, question: o.hint, input: true, masked: true, keep: actEnter,
+		answers: []kittui.Answer{{Action: actEnter, Label: hintLabelID("{enter} ok")},
+			{Action: actBack, Label: hintLabelID("{back} cancel, nothing saved")}}}
 	if o.confirming {
-		d.title, d.hint = tr(tVaultConfirmTitle), tr(tVaultConfirmHint)
+		q.title, q.question = tVaultConfirmTitle, tr(tVaultConfirmHint)
 	}
-	return d
+	return q
 }
 
 func joinSources(sources []secret.Source) string {

@@ -214,12 +214,12 @@ func TestSplitMouseReportsMakeNoTextInAField(t *testing.T) {
 					m := open(t)
 					before := m.formState()
 					if m.screen == screenVaultUnlock {
-						before = m.vaultUnlock.input.Value()
+						before = typedInput(m)
 					}
 					keys := runPaused(t, m, splitPause, stream[:i], stream[i:])
 					after := m.formState()
 					if m.screen == screenVaultUnlock {
-						after = m.vaultUnlock.input.Value()
+						after = typedInput(m)
 					}
 					if after != before {
 						t.Errorf("field %q -> %q after keys %q", before, after, keys)
@@ -283,7 +283,7 @@ func TestALoneEscapeStillLeavesAForm(t *testing.T) {
 
 func fieldValue(m *Model) string {
 	if m.screen == screenVaultUnlock {
-		return m.vaultUnlock.input.Value()
+		return typedInput(m)
 	}
 	return m.fields[m.focus].value()
 }

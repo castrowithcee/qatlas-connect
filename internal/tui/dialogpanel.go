@@ -127,17 +127,3 @@ func (p dialogPanel) closing() string {
 func (p dialogPanel) result(kind statusKind, word string) string {
 	return p.side(statusMark(kind, word)) + "\n"
 }
-
-// framedTitled draws a dialog that fills the workspace, built by build for the room inside the frame, in a
-// panel under title where the workspace has the room for one, and as build draws it elsewhere.
-func (m *Model) framedTitled(title string, build func() string) string {
-	if !m.tableFramed() {
-		return build()
-	}
-	width := m.width
-	m.width, m.inPanel = width-4, true
-	text := build()
-	m.width, m.inPanel = width, false
-	lines := append([]string{""}, strings.Split(strings.TrimRight(text, "\n"), "\n")...)
-	return strings.Join(panel(truncateCells(title, width-6), lines, width-4, len(lines), panelOpts{focused: true}), "\n") + "\n"
-}

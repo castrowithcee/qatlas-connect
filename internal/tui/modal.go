@@ -22,7 +22,10 @@ func (m *Model) screenBeneath(s screen) (screen, bool) {
 	case screenSecret:
 		return screenForm, true
 	case screenVaultOffer:
-		if m.wizard != nil && m.wizard.step == stepSummary {
+		switch {
+		case m.imp != nil:
+			return screenTransfer, true
+		case m.wizard != nil && m.wizard.step == stepSummary:
 			return screenSummary, true
 		}
 		return screenForm, true
@@ -37,7 +40,7 @@ func (m *Model) screenBeneath(s screen) (screen, bool) {
 	case screenTransfer:
 		// The import's dialogs stand over the screen it was started from; the export's over its own
 		// question (see exportView).
-		if _, ok := m.importPrompt(); ok {
+		if m.imp != nil && (m.imp.step == importFile || m.imp.step == importPassphrase) {
 			return m.imp.from, true
 		}
 	case screenCommand:
@@ -149,38 +152,22 @@ func (m *Model) renderAs(s screen, width int, render func()) {
 	render()
 }
 
-// modalView is the current question centred over its dimmed background, or false when the terminal is too
-// small for that and the question takes the whole workspace.
+// modalView is the command line centred over its dimmed background, or false when the terminal is too small
+// for that and the command line takes the whole workspace.
 func (m *Model) modalView() (string, bool) {
-	if m.termWidth < modalMinWidth || m.termHeight < modalMinHeight {
+	if m.screen != screenCommand || m.termWidth < modalMinWidth || m.termHeight < modalMinHeight {
 		return "", false
 	}
-	inner := min(modalMaxInner, m.termWidth-8)
-	var text string
+	inner := min(modalMaxInner-4, m.termWidth-8)
 	var footers []footerLine
-	m.footerLog, m.inModal = &footers, true
-	defer func() { m.footerLog, m.inModal = nil, false }()
+	m.footerLog = &footers
+	defer func() { m.footerLog = nil }()
 	var palette []string
 	var paletteIndex []int
-	title := ""
-	if m.screen == screenCommand {
-		inner = min(modalMaxInner-4, m.termWidth-8)
-		title = tr(tCmdHead)
-		m.renderAs(m.screen, inner, func() { palette, paletteIndex = m.paletteLines(inner, m.termHeight-4) })
-		text = strings.Join(palette, "\n")
-	} else {
-		ok := false
-		m.renderAs(m.screen, inner, func() {
-			var d promptDialog
-			if d, ok = m.prompt(); ok {
-				text = m.wrapped(styles.title, d.title) + "\n\n" + m.promptText(d, false) + m.promptNotes()
-			}
-		})
-		if !ok {
-			return "", false
-		}
-	}
-	m.footerLog, m.inModal = nil, false
+	title := tr(tCmdHead)
+	m.renderAs(m.screen, inner, func() { palette, paletteIndex = m.paletteLines(inner, m.termHeight-4) })
+	text := strings.Join(palette, "\n")
+	m.footerLog = nil
 	base := m.baseScreen()
 	if base == screenForm && m.fields == nil {
 		return "", false
@@ -203,7 +190,6 @@ func (m *Model) modalView() (string, bool) {
 	top, left := dialogOrigin(dialog, m.termWidth, m.termHeight)
 	m.markDialog(dialog, top, left)
 	m.hitDialog(lines, footers, top, left)
-	m.hitPathRows(lines, top+1, left+2)
 	for i, match := range paletteIndex {
 		if match >= 0 {
 			m.addHit(left+1, top+1+i, left+inner+3, top+2+i, func() tea.Cmd { return m.pickCommand(match) })

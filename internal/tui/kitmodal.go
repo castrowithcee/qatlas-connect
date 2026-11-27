@@ -47,12 +47,28 @@ type openModal struct {
 // command line and the help over it, and F2, which a question may leave to the screen under it.
 var dialogExtras = []action{actCommand, actHelp, actSave}
 
-// modalKey gives a key to the open modal; ctrl+c still quits.
+// modalKey gives a key to the open modal, and a paste whole to a modal that takes one; ctrl+c still quits.
+// Editing the input of a dialog drops the last error, as the dialog drops its own.
 func (m *Model) modalKey(msg tea.KeyPressMsg) tea.Cmd {
 	if keyIs(msg, actForceQuit) {
 		return m.interrupt()
 	}
-	act, handled := m.modal.Update(msg)
+	if q, ok := m.currentAsk(); ok && q.saveEnters && m.modal == m.question && keyIs(msg, actSave) {
+		if enter, ok := keyOf(actEnter); ok {
+			msg = enter
+		}
+	}
+	typed := m.modalText()
+	var act action
+	handled := true
+	if content, ok := pasted(msg); ok {
+		if p, ok := m.modal.(interface{ Paste(string) bool }); ok {
+			p.Paste(content)
+		}
+	} else {
+		act, handled = m.modal.Update(msg)
+	}
+	m.edited(typed)
 	if _, dialog := m.modal.(*kittui.Dialog); dialog && !handled {
 		for _, a := range dialogExtras {
 			if keyIs(msg, a) {
@@ -77,11 +93,30 @@ func (m *Model) modalMouse(msg tea.MouseMsg) tea.Cmd {
 		}
 		return nil
 	}
+	typed := m.modalText()
 	act, handled := m.modal.Click(r)
+	m.edited(typed)
 	if _, dialog := m.modal.(*kittui.Dialog); dialog && !handled && slices.Contains(dialogExtras, r.Action) {
 		act = r.Action
 	}
 	return m.modalAct(act)
+}
+
+// modalText is the text of the input of the open dialog, "" for any other modal.
+func (m *Model) modalText() string {
+	if d, ok := m.modal.(*kittui.Dialog); ok {
+		return d.Value()
+	}
+	return ""
+}
+
+// edited drops the last error once the input of the open dialog no longer holds typed, and keeps what an
+// unmasked input holds now.
+func (m *Model) edited(typed string) {
+	if m.modalText() != typed {
+		m.fail = ""
+		m.keepTyped()
+	}
 }
 
 func (m *Model) modalAct(act action) tea.Cmd {
@@ -99,10 +134,20 @@ func (m *Model) modalFrame() string {
 	if m.question != nil {
 		base = m.baseScreen()
 	}
+	if base == screenForm && m.fields == nil {
+		// A dialog over a form that is gone stands over an empty workspace.
+		base = m.screen
+	}
 	var screen string
 	m.renderAs(base, 0, func() {
 		m.backdrop = true
 		defer func() { m.backdrop = false }()
+		if d, ok := m.modal.(*kittui.Dialog); ok && d.Input() == kittui.InputText {
+			// A dialog with an input shows what runs and the last error itself.
+			fail, busy := m.fail, m.busy
+			m.fail, m.busy = "", ""
+			defer func() { m.fail, m.busy = fail, busy }()
+		}
 		screen = m.frame(m.workspaceView())
 	})
 	// A screen under the modal too large for the terminal leaves the modal its clicks.
