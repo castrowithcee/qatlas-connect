@@ -1473,8 +1473,8 @@ func (m *Model) leaveScreen() tea.Cmd {
 		switch lv := m.logs; {
 		case lv.bar != nil && lv.bar.Open():
 			lv.setFocus(logFocusRows, false)
-		case lv.list.editing:
-			lv.list.clearFilter()
+		case lv.list.Searching():
+			lv.list.Act(actBack)
 		default:
 			m.focusNav()
 		}
@@ -4827,7 +4827,7 @@ func (m *Model) keepScrollPosition() {
 		return
 	}
 	if m.section == sectionLogs && (m.screen == screenNav || m.screen == screenLogs) {
-		m.keepLogsScrollPosition()
+		// The list of the rows keeps its own scroll position.
 		return
 	}
 	switch m.screen {

@@ -266,12 +266,12 @@ func TestClickOnALogRowMarksItAndASecondClickOpensIt(t *testing.T) {
 	m.setLogTab(logTabTable)
 	m.render()
 	clickOn(t, m, activityStamp(4, 2))
-	if m.screen != screenLogs || m.logs.list.cursor != 2 {
-		t.Fatalf("first click: screen %v cursor %d, want the table with row 2 marked", m.screen, m.logs.list.cursor)
+	if m.screen != screenLogs || markedLogRow(m) != 2 {
+		t.Fatalf("first click: screen %v cursor %d, want the table with row 2 marked", m.screen, markedLogRow(m))
 	}
 	clickOn(t, m, activityStamp(4, 1))
-	if m.screen != screenLogs || m.logs.list.cursor != 1 {
-		t.Fatalf("click on another row: screen %v cursor %d, want only row 1 marked", m.screen, m.logs.list.cursor)
+	if m.screen != screenLogs || markedLogRow(m) != 1 {
+		t.Fatalf("click on another row: screen %v cursor %d, want only row 1 marked", m.screen, markedLogRow(m))
 	}
 	clickOn(t, m, activityStamp(4, 1))
 	if m.screen != screenLogDetail {
@@ -942,23 +942,23 @@ func TestTheWheelStopsAtTheEndsOfTheActivityTable(t *testing.T) {
 	m.screen = screenLogs
 	m.setLogTab(logTabTable)
 	m.render()
-	n := len(m.logs.list.matches)
+	n := len(m.logs.list.Shown())
 	if n < 2 {
 		t.Fatalf("the log shows %d rows", n)
 	}
-	m.logs.list.cursor = n - 1
+	m.logs.list.Select(m.logs.list.Shown()[n-1])
 	wheelAt(t, m, 20, 10, tea.MouseWheelDown)
-	if m.logs.list.cursor != n-1 {
-		t.Errorf("the wheel down at the end moved the cursor to %d", m.logs.list.cursor)
+	if markedLogRow(m) != n-1 {
+		t.Errorf("the wheel down at the end moved the cursor to %d", markedLogRow(m))
 	}
-	m.logs.list.cursor = 0
+	m.logs.list.Select(m.logs.list.Shown()[0])
 	wheelAt(t, m, 20, 10, tea.MouseWheelUp)
-	if m.logs.list.cursor != 0 {
-		t.Errorf("the wheel up at the top moved the cursor to %d", m.logs.list.cursor)
+	if markedLogRow(m) != 0 {
+		t.Errorf("the wheel up at the top moved the cursor to %d", markedLogRow(m))
 	}
 	wheelAt(t, m, 20, 10, tea.MouseWheelDown)
-	if m.logs.list.cursor != 1 {
-		t.Errorf("the wheel down moved the cursor to %d, want 1", m.logs.list.cursor)
+	if markedLogRow(m) != 1 {
+		t.Errorf("the wheel down moved the cursor to %d, want 1", markedLogRow(m))
 	}
 }
 
@@ -1394,4 +1394,13 @@ func backOutranksTheKeys(t *testing.T, deep string) {
 	if !keysGone {
 		t.Error("the banner never took the room of the keys before the button's")
 	}
+}
+
+// markedLogRow is the place of the marked row of the log table among the rows it shows, -1 for none.
+func markedLogRow(m *Model) int {
+	id, ok := m.logs.list.Selected()
+	if !ok {
+		return -1
+	}
+	return slices.Index(m.logs.list.Shown(), id)
 }

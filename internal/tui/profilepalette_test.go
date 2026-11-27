@@ -33,13 +33,19 @@ func TestLogStatusToneDimsOnlyUnverified(t *testing.T) {
 	restoreRenderer(t)
 	setProfile(kittui.ProfileTrueColor)
 	setTheme(darkTheme())
-	if got, want := colourOf(logStatusTone(logUnverified.label())), colourOf(styles.hint); got != want {
+	if got, want := toneColour(logStatusTone(logUnverified.label())), toneColour(kittui.StyleHint); got != want {
 		t.Errorf("unverified rows are %q, want the dimmed %q", got, want)
 	}
-	if got, want := colourOf(logStatusTone(logAltered.label())), colourOf(styles.fail); got != want {
+	if got, want := toneColour(logStatusTone(logAltered.label())), toneColour(kittui.StyleFail); got != want {
 		t.Errorf("altered rows are %q, want %q", got, want)
 	}
-	if got, want := colourOf(logStatusTone(logGap.label())), colourOf(styles.warning); got != want {
+	if got, want := toneColour(logStatusTone(logGap.label())), toneColour(kittui.StyleWarn); got != want {
 		t.Errorf("gap rows are %q, want %q", got, want)
 	}
+}
+
+// toneColour is the colour sequence a kit style puts before its text.
+func toneColour(tone kittui.TextStyle) string {
+	set := shown(styles.Styles.Render(tone, "x"))
+	return set[:strings.Index(set, "x")]
 }

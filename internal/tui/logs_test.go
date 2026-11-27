@@ -352,8 +352,8 @@ func TestLogsFilterAndSearch(t *testing.T) {
 	typeText(t, m, "denied")
 	press(t, m, "enter")
 	view = m.render()
-	if !strings.Contains(view, "/ denied") || len(m.logs.list.matches) != 1 ||
-		m.logs.row(m.logs.list.matches[0]).values[logFilterTool] != "wiki.pages.create" ||
+	if !strings.Contains(view, "/ denied") || len(m.logs.shownRows()) != 1 ||
+		m.logs.shownRows()[0].values[logFilterTool] != "wiki.pages.create" ||
 		!strings.Contains(view, "wiki.pages.cre") ||
 		strings.Contains(view, "wiki.pages.get") {
 		t.Fatalf("the search does not keep the denied entry alone:\n%s", view)

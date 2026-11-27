@@ -585,6 +585,12 @@ func TestEveryScreenControlHasATargetAndClicksAsItsKey(t *testing.T) {
 						assertLogDateTargetsClickAsKeys(t, date.build, date.calendar)
 					})
 				}
+				for _, rows := range clickLogRows(form) {
+					t.Run(rows.name, func(t *testing.T) {
+						t.Parallel()
+						assertLogRowTargetsClickAsKeys(t, rows.build)
+					})
+				}
 				for _, bar := range clickLogBars(form) {
 					if bar.popup && form != PrefsSchema().DefaultNavigation {
 						continue
@@ -1143,6 +1149,86 @@ func clickLogBars(form string) []struct {
 	}{{"log bar", open(180, 40), false}, {"log bar with values", open(180, 40, "f", "tab", "tab", "tab", "tab", "enter"), false},
 		{"log bar as a button", open(80, 24), false}, {"log bar modal", open(80, 24, "f", "enter"), true},
 		{"log bar modal in the workspace", open(40, 15, "f", "enter"), false}}
+}
+
+// clickLogRows are the rows of the Logs table in the navigation form form: as drawn, and with a kept search
+// whose line is a target of its own in a smaller terminal. The builds of one test share a log.
+func clickLogRows(form string) []struct {
+	name  string
+	build func(t *testing.T) *Model
+} {
+	var mu sync.Mutex
+	logs := map[*testing.T]*logFixture{}
+	open := func(w, h int, search string) func(t *testing.T) *Model {
+		return func(t *testing.T) *Model {
+			mu.Lock()
+			f := logs[t]
+			if f == nil {
+				f = activityLog(t)
+				logs[t] = f
+			}
+			mu.Unlock()
+			m := f.model(false, f.localToday())
+			m.prefs.Navigation = form
+			m = sizedModel(m, w, h)
+			if search != "" {
+				press(t, m, "/")
+				typeText(t, m, search)
+				press(t, m, "enter")
+			}
+			m.render()
+			return m
+		}
+	}
+	return []struct {
+		name  string
+		build func(t *testing.T) *Model
+	}{{"log rows", open(140, 40, "")}, {"log rows with a search", open(80, 24, "wiki")}}
+}
+
+// assertLogRowTargetsClickAsKeys requires each target the list of the Logs drew to act as its keys while the
+// rows have the focus: a row as the moves to it, and the marked row as enter, which opens its entry; the
+// search line as the search key.
+func assertLogRowTargetsClickAsKeys(t *testing.T, build func(t *testing.T) *Model) {
+	t.Helper()
+	base := build(t)
+	shown := base.logs.list.Shown()
+	at, _ := base.logs.list.Selected()
+	from := slices.Index(shown, at)
+	rows, search := 0, 0
+	for _, target := range base.listTargets {
+		x, y := target.Rect.X+(target.Rect.Width-1)/2, target.Rect.Y
+		var keys []string
+		switch {
+		case target.Item != "":
+			to := slices.Index(shown, kittui.ItemID(target.Item))
+			if to < 0 || from < 0 {
+				t.Errorf("the row target %q is no shown row", target.Item)
+				continue
+			}
+			rows++
+			move := firstKey(t, actDown)
+			if to < from {
+				move = firstKey(t, actUp)
+			}
+			keys = slices.Repeat([]string{move}, max(to-from, from-to))
+			if to == from {
+				keys = append(keys, firstKey(t, actEnter))
+			}
+		case target.Action == actSearch:
+			search++
+			keys = []string{firstKey(t, actSearch)}
+		default:
+			continue
+		}
+		assertClickActsAsKey(t, build, x, y, keys...)
+	}
+	if rows < 2 {
+		t.Errorf("%d row targets were tested", rows)
+	}
+	if want := base.logs.list.Query() != ""; (search > 0) != want {
+		t.Errorf("%d search line targets with query %q", search, base.logs.list.Query())
+	}
 }
 
 // assertLogBarTargetsClickAsKeys requires each target of the bar of the Logs to act as its keys from the rows:

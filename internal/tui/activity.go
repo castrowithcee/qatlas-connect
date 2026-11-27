@@ -159,11 +159,7 @@ func (m *Model) heatSpan() (from, to string) {
 // heatDays are the lines the filters and the search of the Logs section keep, in file order.
 func (lv *logView) heatDays() []invokelog.DayLines {
 	var out []invokelog.DayLines
-	for _, name := range lv.list.matches {
-		row := lv.row(name)
-		if row == nil {
-			continue
-		}
+	for _, row := range lv.shownRows() {
 		if n := len(out); n == 0 || out[n-1].Date != row.date {
 			out = append(out, invokelog.DayLines{Date: row.date})
 		}

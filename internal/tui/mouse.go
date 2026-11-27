@@ -228,6 +228,9 @@ func (m *Model) runTarget(r kittui.MouseResult, acts []func() tea.Cmd) tea.Cmd {
 	}
 	if r.Zone == kittui.ZoneRows {
 		m.touchAdminSessionIfActive()
+		if m.section == sectionLogs && (m.screen == screenLogs || m.screen == screenNav) {
+			return m.clickLogRows(r)
+		}
 		return m.clickList(r)
 	}
 	if r.Area != "" || r.Action != "" {
@@ -293,6 +296,12 @@ func (m *Model) wheel(event tea.Mouse, r kittui.MouseResult) tea.Cmd {
 			pane.wheel(up)
 			return nil
 		}
+	}
+	if m.section == sectionLogs && m.screen == screenLogs && r.Zone == kittui.ZoneRows {
+		// Over the rows of the log the wheel moves the mark and stops at the ends.
+		m.touchAdminSessionIfActive()
+		m.logs.list.Wheel(r.WheelSteps)
+		return nil
 	}
 	if m.screen == screenList && m.listSection() {
 		if r.Zone == kittui.ZoneRows {
@@ -665,7 +674,7 @@ func (m *Model) hitSelect(l *filterList, on screen, header string, start, end in
 // focus brought along.
 func (m *Model) logBarGuard() (tea.Cmd, bool) {
 	lv := m.logs
-	if m.section != sectionLogs || lv.list.editing {
+	if m.section != sectionLogs || lv.list.Searching() {
 		return nil, false
 	}
 	switch m.screen {
@@ -701,26 +710,29 @@ func (m *Model) logTabTargets(tabs []string, search string) []barSpec {
 	if search = strings.TrimSpace(search); search != "" {
 		specs = append(specs, barSpec{field: search, whole: guarded(func() tea.Cmd {
 			lv.setFocus(logFocusRows, false)
-			lv.list.startFilter()
+			lv.list.Act(actSearch)
 			return nil
 		})})
 	}
 	return specs
 }
 
-// hitLogs makes the rows of the Logs screen clickable: a click takes the focus to the row and marks it, and a
-// click on the marked row opens its entry, as enter does.
-func (m *Model) hitLogs(head string, start, end int) {
-	m.hitRows(m.hitTop(head), m.usable(0), start, end, func(int) string { return "" }, func(i int) tea.Cmd {
-		lv := m.logs
-		focused := m.screen == screenLogs && lv.focus == logFocusRows
-		lead, ok := m.logBarGuard()
-		if !ok || i >= len(lv.list.matches) {
-			return lead
-		}
-		lv.setFocus(logFocusRows, false)
-		return tea.Batch(lead, markOrAct(&lv.list.cursor, i, focused, func() tea.Cmd { return m.press(tea.KeyPressMsg{Code: tea.KeyEnter}) }))
-	})
+// clickLogRows is a click on a target the list of the Logs drew, as the keys reach it: it takes the focus to the
+// rows and hands the click to the list, which marks a row or starts the search. A click on the marked row
+// is a press of enter, so it meets every check the key meets; a click on a row without the focus on the rows
+// only takes the focus and marks.
+func (m *Model) clickLogRows(r kittui.MouseResult) tea.Cmd {
+	lv := m.logs
+	lv.list.SetFocused(m.screen == screenLogs && lv.focus == logFocusRows)
+	lead, ok := m.logBarGuard()
+	if !ok {
+		return lead
+	}
+	lv.setFocus(logFocusRows, false)
+	if open, _ := lv.list.Click(r); open != "" {
+		return tea.Batch(lead, m.press(tea.KeyPressMsg{Code: tea.KeyEnter}))
+	}
+	return lead
 }
 
 // clickSection is a click on a section of a form, in the list of sections or on its heading: the focus goes to

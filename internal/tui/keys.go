@@ -38,7 +38,7 @@ func (m *Model) typing() bool {
 	case screenTransfer:
 		return m.export != nil && m.export.step == exportSelect && m.export.list.Searching()
 	case screenLogs:
-		return m.logs.list.editing || m.logs.bar != nil && m.logs.bar.Open()
+		return m.logs.list.Searching() || m.logs.bar != nil && m.logs.bar.Open()
 	}
 	return false
 }

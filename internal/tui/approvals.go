@@ -660,7 +660,7 @@ func (m *Model) openApprovalLogs(name string) tea.Cmd {
 	lv.to = now.In(time.Local).Format(logDateLayout)
 	lv.filters = [logFilterCount]string{}
 	lv.filters[logFilterConnection] = m.logText(name)
-	lv.list.clearFilter()
+	lv.list.Act(actBack)
 	m.approvalDetail = ""
 	return m.openSection(sectionLogs)
 }
