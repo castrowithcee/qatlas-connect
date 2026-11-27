@@ -166,7 +166,9 @@ func runPaused(t *testing.T, model *Model, gap time.Duration, chunks ...string) 
 		if err != nil {
 			t.Fatalf("program: %v", err)
 		}
-	case <-time.After(10 * time.Second):
+	// The guard only catches a program that hangs; a loaded runner that runs other packages beside this one
+	// can take seconds for a few chunks.
+	case <-time.After(time.Minute):
 		p.Kill()
 		t.Fatal("the program did not end")
 	}
