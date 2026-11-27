@@ -338,6 +338,25 @@ func visualShots() []visualShot {
 			openTargetList(t, m)
 		}},
 		{"59-resize", 39, 12, dark, false, overview},
+		{"93-library-pathline", 150, 42, dark, false, visualNavigation(kitprefs.NavigationPathLine)},
+		{"94-library-pathline", 80, 24, dark, false, visualNavigation(kitprefs.NavigationPathLine)},
+		{"95-library-header", 150, 42, dark, false, visualNavigation(kitprefs.NavigationPathHeader)},
+		{"96-library-header", 80, 24, dark, false, visualNavigation(kitprefs.NavigationPathHeader)},
+		{"97-library-choice", 150, 42, dark, false, visualNavigation(kitprefs.NavigationHeaderChoice)},
+		{"98-library-choice", 80, 24, dark, false, visualNavigation(kitprefs.NavigationHeaderChoice)},
+		{"99-library-pathline-overview", 150, 42, dark, false, func(t *testing.T, m *Model) {
+			visualNavigation(kitprefs.NavigationPathLine)(t, m)
+			pump(t, m, "m")
+		}},
+	}
+}
+
+// visualNavigation shows the Credentials of the Library in the navigation form, with the focus on its line.
+func visualNavigation(form string) func(*testing.T, *Model) {
+	return func(t *testing.T, m *Model) {
+		openSectionByName(t, m, sectionCredentials)
+		pump(t, m, "shift+tab")
+		m.prefs.Navigation = form
 	}
 }
 

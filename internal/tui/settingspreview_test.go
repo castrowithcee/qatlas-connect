@@ -44,7 +44,7 @@ func TestSettingsPageFocusEntersTheFormAndEscReturns(t *testing.T) {
 		m, _ := lockedVaultModel(t)
 		previewPage(t, m, sectionGeneral)
 		// The first down only leaves the tab line for the option bar.
-		m.navSub = true
+		m.navZone = optionBar(true)
 		pump(t, m, key)
 		if m.screen != screenForm || m.section != sectionGeneral {
 			t.Fatalf("%s: screen %v section %v, want the General form", key, m.screen, m.section.title())
@@ -59,7 +59,7 @@ func TestSettingsPageFocusEntersTheFormAndEscReturns(t *testing.T) {
 func TestSettingsPageKeysStayOnTheNavigationUntilFocused(t *testing.T) {
 	m, _ := lockedVaultModel(t)
 	previewPage(t, m, sectionGeneral)
-	m.navSub = true
+	m.navZone = optionBar(true)
 	pump(t, m, "right")
 	if m.section != sectionVault || m.screen != screenNav {
 		t.Fatalf("right = %v on screen %v, want Vault previewed", m.section.title(), m.screen)
@@ -97,7 +97,7 @@ func TestSettingsPageClickOnTabAndField(t *testing.T) {
 func TestSettingsPageLeaveStillAsksAfterChange(t *testing.T) {
 	m, _ := lockedVaultModel(t)
 	previewPage(t, m, sectionGeneral)
-	m.navSub = true
+	m.navZone = optionBar(true)
 	pump(t, m, "enter")
 	press(t, m, "right")
 	pump(t, m, "esc")
@@ -116,7 +116,7 @@ func TestDefaultsStaysAList(t *testing.T) {
 	if m.pagePreview() || m.section.isPage() {
 		t.Errorf("Defaults is a settings page")
 	}
-	m.navSub = true
+	m.navZone = optionBar(true)
 	pump(t, m, "enter")
 	if m.screen != screenList {
 		t.Errorf("enter on Defaults = screen %v, want its list", m.screen)

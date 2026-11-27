@@ -17,6 +17,7 @@ const (
 	actInfo      action = kit.ActionInfo
 	actClone     action = kit.ActionClone
 	actReload    action = kit.ActionReload
+	actMenu      action = kit.ActionMenu
 	actSave      action = "save"
 	actHelp      action = "help"
 	actCommand   action = "command"
@@ -96,7 +97,7 @@ func secondWayOf(a kit.Action, first action) kit.Action { a.SecondWayOf = first;
 // holds the keys only the help overlay knows; tab there steps through topics, not fields. Within the main
 // levels no two actions share a key; across them one key may mean different things only where the levels
 // never meet: the answers of a question (y, n, d) and the keys only the help overlay knows.
-var keyTable = slices.Concat(standardActions(), []kit.Action{
+var keyTable = slices.Concat(kit.StandardActions(), []kit.Action{
 
 	// The letter actions of Connect: each letter means one thing on every screen where nothing is typed.
 	row(actSetup, kit.LevelLetter, tKeyHelpSetup, "g"),
@@ -144,12 +145,6 @@ var keyTable = slices.Concat(standardActions(), []kit.Action{
 	row(actNo, kit.LevelConfirm, tKeyHelpNo, "n"),
 	row(actDiscard, kit.LevelConfirm, tKeyHelpDiscard, "d"),
 })
-
-// standardActions are the kit's standard actions, taken as they are. The menu is left out: Connect has no
-// menu yet, and the kit allows leaving an action out.
-func standardActions() []kit.Action {
-	return slices.DeleteFunc(kit.StandardActions(), func(a kit.Action) bool { return a.ID == kit.ActionMenu })
-}
 
 // areaKeys are the digits that open the areas, one per area in the order of the tab line.
 func areaKeys() []string {
