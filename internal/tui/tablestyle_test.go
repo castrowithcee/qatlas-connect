@@ -107,7 +107,7 @@ func TestPickerAndProviderTableFitTheSmallestTerminal(t *testing.T) {
 	m.Update(tea.WindowSizeMsg{Width: 40, Height: smallestListHeight})
 	view := screenOf(m)
 	assertViewFits(t, view, 40, smallestListHeight+1)
-	if m.screen != screenPicker || !strings.Contains(view, "> conn-000") {
+	if !valuePickerOpen(m) || !strings.Contains(view, "> conn-000") {
 		t.Errorf("the picker at 40x%d:\n%s", smallestListHeight, view)
 	}
 

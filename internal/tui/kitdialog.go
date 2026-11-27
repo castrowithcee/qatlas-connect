@@ -132,6 +132,8 @@ func (m *Model) syncQuestion() {
 	if m.question != nil && key != m.questionKey {
 		if m.modal == m.question {
 			m.closeModal()
+		} else {
+			m.dropModal(m.question)
 		}
 		m.question, m.questionKey = nil, ""
 	}

@@ -963,6 +963,8 @@ const (
 	tFormTickedOf                            textID = "FormTickedOf"
 	tFormNoValueMatchesEscKeeps              textID = "FormNoValueMatchesEscKeeps"
 	tFormCurrent                             textID = "FormCurrent"
+	tFormChooseRow                           textID = "FormChooseRow"
+	tPickNoValue                             textID = "PickNoValue"
 	tFormNoServicesYetPressN                 textID = "FormNoServicesYetPressN"
 	tFormNoCredentialsYetPressN              textID = "FormNoCredentialsYetPressN"
 	tFormNoConnectionsYetPressN              textID = "FormNoConnectionsYetPressN"

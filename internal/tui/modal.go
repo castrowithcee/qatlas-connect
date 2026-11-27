@@ -46,6 +46,11 @@ func (m *Model) screenBeneath(s screen) (screen, bool) {
 		}
 	case screenLeave:
 		return m.leaveFrom, true
+	case screenPicker:
+		if m.valuePick != nil {
+			// The value picker waits for the leave question over the form.
+			return screenForm, true
+		}
 	case screenUpdate:
 		return m.updateFrom, true
 	case screenRestart:

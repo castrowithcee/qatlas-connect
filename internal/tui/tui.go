@@ -120,7 +120,8 @@ const (
 	// screenAdminAuth is the masked admin passphrase dialog requireAdmin opens over whatever screen a
 	// managing action was attempted from, gating it behind this window's admin session; see admin.go.
 	screenAdminAuth
-	// screenPicker is the searchable list of one choice row of the form, over the form it was opened from.
+	// screenPicker is the searchable list of a tool list row of the form, over the form it was opened from. A
+	// value picker (kitpicker.go) stands as it only while it waits for the leave question.
 	screenPicker
 	// screenSummary is the last step of the guided setup: what will be saved, and after saving, the test.
 	screenSummary
@@ -486,6 +487,8 @@ type Model struct {
 	// pickerMarks holds the ticks of a tool list or the effects while their picker is open, and is nil
 	// for a single choice. The row takes them over only when they are kept.
 	pickerMarks map[string]bool
+	// valuePick is the kit's list of values open for the focused row, nil while none is (see kitpicker.go).
+	valuePick *valuePicker
 	// pickerShown is the tools the picker of the blocked tools row lists while it is open.
 	pickerShown []string
 	// blockTicks and blockReleased cache, for the open tool picker, the ticked entries and which blocked
@@ -682,6 +685,8 @@ type Model struct {
 	// from; see kitdialog.go.
 	question    *kittui.Dialog
 	questionKey string
+	// modalsUnder are the modals the open one stands over, the last one right under it.
+	modalsUnder []openModal
 	// helpTopic is the topic the help showed when it last closed; it opens there again.
 	helpTopic string
 
@@ -1538,6 +1543,7 @@ func (m *Model) leaveScreen() tea.Cmd {
 	case screenLeave:
 		// Staying is the answer that loses nothing.
 		m.screen, m.leaveQuit = m.leaveFrom, false
+		m.resumeValuePicker()
 		return nil
 	case screenVaultUnlock:
 		m.screen = m.vaultUnlock.back
@@ -1663,6 +1669,10 @@ func (m *Model) askLeave(quit bool) {
 // interrupt is ctrl+c on every screen: it ends the program at once, unless that would lose unsaved
 // changes. A prompt over the form is closed first, so the question is asked, and answered, on the form.
 func (m *Model) interrupt() tea.Cmd {
+	if m.valuePick != nil && m.screen == screenForm {
+		// The leave question asks for the ticks of the value picker too.
+		m.suspendValuePicker()
+	}
 	if m.screen == screenLeave {
 		m.leaveQuit = true
 		return nil
@@ -1781,6 +1791,7 @@ func (m *Model) answerLeave(act action) tea.Cmd {
 	case actBack:
 		m.screen, m.leaveQuit = from, false
 		m.status = tr(tFormStillEditingNothingWasSaved)
+		m.resumeValuePicker()
 	case actDiscard:
 		if m.leaveQuit {
 			return m.quit()
@@ -1805,6 +1816,7 @@ func (m *Model) answerLeave(act action) tea.Cmd {
 			return m.updateTransfer(save)
 		case screenPicker:
 			m.keepPicker()
+			m.valuePick = nil
 		}
 		m.screen = screenForm
 		if m.wizard != nil {
@@ -1848,7 +1860,7 @@ func (m *Model) discard() tea.Cmd {
 		m.status = tr(tFormPathChangesDiscarded)
 		return nil
 	case screenPicker:
-		m.screen = screenForm
+		m.screen, m.valuePick = screenForm, nil
 		m.status = tr(tFormSelectionDiscardedTheRowIs)
 		return nil
 	case screenTransfer:
@@ -2082,6 +2094,10 @@ func (m *Model) choiceChanged(previous string) tea.Cmd {
 // ready for typing.
 func (m *Model) openPicker() {
 	f := m.fields[m.focus]
+	if valuePicked(f) {
+		m.openValuePicker()
+		return
+	}
 	blocking := f.kind == fieldToolList && f.label == blockedLabel
 	if blocking {
 		// The tools it can block are those the form does not offer now, so they are worked out on opening.
@@ -2137,8 +2153,8 @@ func (m *Model) openPicker() {
 	m.clearMessages()
 }
 
-// updatePicker handles the picker. Every printable key belongs to the filter; enter takes the selected
-// value and esc leaves the row as it was.
+// updatePicker handles the picker of a tool list. Every printable key belongs to the filter; enter keeps the
+// ticks, or takes the selected value, and esc leaves the row as it was.
 func (m *Model) updatePicker(key tea.KeyPressMsg) tea.Cmd {
 	// The ticks may change during the key, and the filter reads the cache while it does.
 	defer func() { m.blockTicks, m.blockReleased = nil, nil }()
@@ -4819,8 +4835,6 @@ func (m *Model) pickerFrame() (string, string) {
 		if m.pickerGroups == nil {
 			head.WriteString(m.boxText(styles.hint, tr(tFormTickedOf, ticked, total)))
 		}
-	} else {
-		head.WriteString(m.boxText(styles.hint, tr(tLogPickCurrent, m.choiceShown(f.value()))))
 	}
 	if shown == 0 {
 		head.WriteString(m.boxText(styles.hint, tr(tFormNoValueMatchesEscKeeps, m.picker.query())))
@@ -4875,11 +4889,6 @@ func (m *Model) pickerRowText(i int) string {
 			text += lead + styles.hint.Render(strings.TrimPrefix(rest, lead))
 		} else {
 			text += rest
-		}
-	default:
-		text = m.choiceShown(choice)
-		if choice == m.fields[m.focus].value() {
-			text += "  " + styles.ok.Render(tr(tFormCurrent))
 		}
 	}
 	mark := m.pickerMark(m.fields[m.focus], choice)

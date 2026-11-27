@@ -56,11 +56,11 @@ func TestEscClosesAPickerAndATargetListOneLevelAtATime(t *testing.T) {
 	openConnection(t, m, "gh")
 	focusField(t, m, effectsLabel)
 	press(t, m, "enter")
-	if m.screen != screenPicker {
+	if !valuePickerOpen(m) {
 		t.Fatalf("enter opened screen %v, want the picker", m.screen)
 	}
 	press(t, m, "esc")
-	if m.screen != screenForm {
+	if m.screen != screenForm || m.modal != nil {
 		t.Fatalf("esc on an unchanged picker left screen %v, want the form", m.screen)
 	}
 	openTargetList(t, m)
@@ -144,17 +144,21 @@ func TestTicksAndAHalfBuiltTargetAskTheSameQuestion(t *testing.T) {
 	focusField(t, m, effectsLabel)
 	press(t, m, "enter")
 	typeText(t, m, "create")
-	press(t, m, " ", "esc")
+	// The first esc clears the filter.
+	press(t, m, " ", "esc", "esc")
 	if view := screenOf(m); m.screen != screenLeave ||
 		!strings.Contains(flatText(view), "F2 save d discard esc/enter keep editing") {
 		t.Fatalf("changed ticks did not ask the common question: screen %v\n%s", m.screen, view)
 	}
+	if m.question == nil || len(m.modalsUnder) != 0 || m.baseScreen() != screenForm {
+		t.Fatalf("the question is not the one dialog over the form: base %v", m.baseScreen())
+	}
 	press(t, m, "esc")
-	if m.screen != screenPicker {
+	if !valuePickerOpen(m) || !m.pickerChanged() {
 		t.Fatalf("esc did not keep editing the ticks: screen %v", m.screen)
 	}
 	press(t, m, "esc", "d")
-	if m.screen != screenForm {
+	if m.screen != screenForm || m.modal != nil || m.valuePick != nil {
 		t.Fatalf("d left screen %v, want the form", m.screen)
 	}
 

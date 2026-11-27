@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"slices"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -505,6 +506,16 @@ func TestEveryScreenControlHasATargetAndClicksAsItsKey(t *testing.T) {
 				if form == PrefsSchema().DefaultNavigation {
 					t.Run("explanation", assertExplanationTargetsClickAsKeys)
 				}
+				// The picker turns the wheel too. Over the screen it hides the frame of the form, so it stands
+				// there in the default form alone; in the workspace it stands under the frame of every form.
+				for _, size := range [][2]int{{100, 40}, {minimumWidth, minimumHeight}} {
+					if size[0] > minimumWidth && form != PrefsSchema().DefaultNavigation {
+						continue
+					}
+					t.Run(fmt.Sprintf("value picker %dx%d", size[0], size[1]), func(t *testing.T) {
+						assertPickerTargetsClickAsKeys(t, form, size[0], size[1])
+					})
+				}
 				for _, dialog := range clickDialogs() {
 					build := func(t *testing.T) *Model {
 						m := dialog.build(t)
@@ -865,6 +876,79 @@ func assertExplanationTargetsClickAsKeys(t *testing.T) {
 	wheelEvent(t, wheeled, base.termWidth/2, base.termHeight/2, tea.MouseWheelDown)
 	if want, got := clickState(pressed), clickState(wheeled); want != got {
 		t.Errorf("a notch of the wheel does not act as three presses of down:\nkey:\n%s\nwheel:\n%s", want, got)
+	}
+}
+
+// assertPickerTargetsClickAsKeys requires each target of the picker of the effects, over the form or in the
+// workspace with its keys in the footer, to act as its key: a row as the moves to it, the marked row as enter,
+// a tick box as the moves and space, a button or a key as its key, and a click beside the frame as esc. A
+// click on the search line, which takes the typing anyway, changes nothing. A notch of the wheel over the rows
+// acts as down.
+func assertPickerTargetsClickAsKeys(t *testing.T, form string, width, height int) {
+	t.Helper()
+	build := func(t *testing.T) *Model {
+		m := connectionForm(t, 100)
+		m.prefs.Navigation = form
+		selectAccess(t, m, accessEffects)
+		focusField(t, m, effectsLabel)
+		press(t, m, "enter")
+		m.Update(tea.WindowSizeMsg{Width: width, Height: height})
+		m.render()
+		return m
+	}
+	base := build(t)
+	if !valuePickerOpen(base) {
+		t.Fatal("the picker is not open")
+	}
+	marked, _ := base.valuePick.list.Selected()
+	moves := func(item string) []string {
+		at, _ := strconv.Atoi(item)
+		from, _ := strconv.Atoi(string(marked))
+		if at < from {
+			return slices.Repeat([]string{firstKey(t, actUp)}, from-at)
+		}
+		return slices.Repeat([]string{firstKey(t, actDown)}, at-from)
+	}
+	seen := map[string]bool{}
+	for _, target := range base.modalTargets {
+		x, y := target.Rect.X+(target.Rect.Width-1)/2, target.Rect.Y
+		item, tick := strings.CutPrefix(target.Item, "\x00t")
+		switch {
+		case target.Zone == kittui.ZoneOutside:
+			seen["outside"] = true
+			assertClickActsAsKey(t, build, x, y+target.Rect.Height/2, firstKey(t, actBack))
+		case target.Action == actSearch:
+			seen["search"] = true
+			assertClickActsAsKey(t, build, x, y)
+		case tick:
+			seen["tick"] = true
+			assertClickActsAsKey(t, build, target.Rect.X+1, y, append(moves(item), firstKey(t, actSpace))...)
+		case target.Action == actEnter && item != "" && !strings.HasPrefix(item, "\x00"):
+			seen["row"] = true
+			keys := moves(item)
+			if item == string(marked) {
+				keys = []string{firstKey(t, actEnter)}
+			}
+			assertClickActsAsKey(t, build, x, y, keys...)
+		case target.Action != "":
+			seen[string(target.Action)] = true
+			assertClickActsAsKey(t, build, x, y, firstKey(t, target.Action))
+		}
+	}
+	for _, want := range []string{"row", "tick", "search", string(actEnter), string(actBack), string(actSpace)} {
+		if !seen[want] {
+			t.Errorf("the picker at %dx%d has no target %q: %v", width, height, want, seen)
+		}
+	}
+	if width > minimumWidth && !seen["outside"] {
+		t.Errorf("the screen beside the picker is no target")
+	}
+	pressed, wheeled := build(t), build(t)
+	press(t, pressed, firstKey(t, actDown))
+	_, y := cellOf(t, base, "create")
+	wheelEvent(t, wheeled, base.termWidth/2, y, tea.MouseWheelDown)
+	if want, got := clickState(pressed), clickState(wheeled); want != got {
+		t.Errorf("a notch of the wheel does not act as down:\nkey:\n%s\nwheel:\n%s", want, got)
 	}
 }
 
