@@ -1204,3 +1204,18 @@ const (
 	tRequestRemoveEmpty        textID = "RequestRemoveEmpty"
 	tRequestRemoved            textID = "RequestRemoved"
 )
+
+const (
+	tRequestKindCreate         textID = "RequestKindCreate"
+	tRequestTitleCreate        textID = "RequestTitleCreate"
+	tRequestLblWantedName      textID = "RequestLblWantedName"
+	tRequestLblProvider        textID = "RequestLblProvider"
+	tRequestLblTargets         textID = "RequestLblTargets"
+	tRequestNoTargets          textID = "RequestNoTargets"
+	tRequestToolsHeadingCreate textID = "RequestToolsHeadingCreate"
+	tRequestCreateNote         textID = "RequestCreateNote"
+	tRequestCreateProblem      textID = "RequestCreateProblem"
+	tRequestSetupStarted       textID = "RequestSetupStarted"
+	tRequestCreateClosed       textID = "RequestCreateClosed"
+	tRequestCreateNotClosed    textID = "RequestCreateNotClosed"
+)

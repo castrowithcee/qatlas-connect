@@ -22,6 +22,9 @@ type Env struct {
 	Config *config.Config
 	Tools  []Tool
 	Now    time.Time
+	// Redact, when set, is the core's redactor. A request to create a connection that it would change is
+	// refused as a whole instead of stored.
+	Redact func(string) string
 }
 
 // InvalidError reports a request that cannot be stored. It names the tools and why, never the reason text.

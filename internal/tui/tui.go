@@ -543,6 +543,8 @@ type Model struct {
 	requestTop    int
 	requestPage   int
 	requestChoice *requestChoice
+	// requestPrefill is what the open request to create a connection asks for; see requestcreate.go.
+	requestPrefill *manage.ConnectionPrefill
 	// approvalExpanded spells out the unchanged entries of a list change on the detail screen, which
 	// approval scrolls; both start over each time the screen opens.
 	approvalExpanded bool
@@ -973,6 +975,9 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, tea.Batch(m.vaultKeyTick(), vaultTick())
 	case requestDecisionMsg:
 		return m, m.handleRequestDecision(msg)
+	case requestClosedMsg:
+		m.handleRequestClosed(msg)
+		return m, nil
 	case updateCheckedMsg:
 		m.updateChecked(msg)
 		return m, nil
@@ -4195,7 +4200,7 @@ func (m *Model) formScreenKeys() string {
 		}
 	}
 	if m.wizard != nil {
-		keys = strings.Replace(keys, formKeys, setupKeys(m.wizard.step), 1)
+		keys = strings.Replace(keys, formKeys, setupKeys(m.wizard), 1)
 	}
 	if m.section == sectionTokens && m.wizard == nil {
 		// A token is created, not saved: it goes to the vault, never into the configuration.

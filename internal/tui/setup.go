@@ -56,7 +56,11 @@ type setup struct {
 	provider string
 	// template names the connection the setup started from, "" for one that started empty; see template.go.
 	template string
-	pages    [][]field
+	// request and create are the request to create a connection the setup started from, "" and nil
+	// otherwise; the request is closed once the setup saved. See requestcreate.go.
+	request string
+	create  *manage.ConnectionPrefill
+	pages   [][]field
 	// candidate and plan are what the access step left behind: the configuration to save, and what
 	// has to be written besides it.
 	candidate *config.Config
@@ -123,11 +127,14 @@ func (m *Model) setupShow(step int) {
 		if w.template != "" {
 			m.setupPrefill(step, w.pages[step])
 		}
+		if w.create != nil {
+			m.setupPrefillRequest(step, w.pages[step])
+		}
 	}
 	m.fields = w.pages[step]
 	m.sectionPinned = nil
 	m.screen = screenForm
-	if fresh && step == stepEffects && w.template == "" {
+	if fresh && step == stepEffects && w.template == "" && w.create == nil {
 		// The access of a new connection starts on the provider's recommended profile, ticked and
 		// visible; going back and forth keeps whatever was changed since.
 		m.applyRecommendedProfile()
@@ -274,7 +281,7 @@ func (m *Model) setupNext() {
 // setupBack returns to the previous step. Once saved there is nothing to go back to.
 func (m *Model) setupBack() {
 	w := m.wizard
-	if w.step == stepProvider || w.saving || w.saved != "" {
+	if w.step == w.first() || w.saving || w.saved != "" {
 		return
 	}
 	if w.step != stepSummary {
@@ -288,7 +295,7 @@ func (m *Model) setupBack() {
 // and cancels one that is not saved yet, asking first once a provider was chosen. Dropping the setup drops
 // every typed secret with it; nothing reached the file or a store.
 func (m *Model) setupEsc() tea.Cmd {
-	if w := m.wizard; w.step != stepProvider && !w.saving && w.saved == "" {
+	if w := m.wizard; w.step != w.first() && !w.saving && w.saved == "" {
 		m.setupBack()
 		return nil
 	}
@@ -567,7 +574,11 @@ func (m *Model) setupSaved(msg setupSavedMsg) tea.Cmd {
 		m.status += tr(tSetupPressTToTestIt)
 	}
 	// Where the secrets of a new credential now resolve from is what the lists and the next setup name.
-	return tea.Batch(sweep, m.refreshSources(m.keyringQueries()))
+	cmds := []tea.Cmd{sweep, m.refreshSources(m.keyringQueries())}
+	if w.request != "" {
+		cmds = append(cmds, m.closeCreated(w.request, msg.name))
+	}
+	return tea.Batch(cmds...)
 }
 
 // setupRebase rebuilds the setup's candidate on the configuration reloaded after a conflict, so the next
@@ -596,8 +607,16 @@ func (m *Model) setupStoreAdvice(err error) string {
 	return ""
 }
 
-func setupKeys(step int) string {
-	if step == stepProvider {
+// first is the step the setup cannot go back from: the provider, which a setup from a request has settled.
+func (w *setup) first() int {
+	if w.create != nil {
+		return stepService
+	}
+	return stepProvider
+}
+
+func setupKeys(w *setup) string {
+	if w.step == w.first() {
 		return "{save} next · {back} cancel setup"
 	}
 	return "{save} next · {back} back"

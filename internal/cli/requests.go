@@ -24,7 +24,11 @@ func newRequestsCommand(opts *Options, reg *capability.Registry) *cobra.Command 
 		Long: "Requests lists the open requests of agents for tools a connection does not offer: the request ID,\n" +
 			"the connection, the project it came from, when it expires, the reason the agent gave, and the\n" +
 			"requested tools grouped like the tool picker of 'qconnect tui'. A request to remove tools (made with\n" +
-			"'qconnect request --remove') shows kind remove-tools, any other kind add-tools. The reason is text of the agent: it\n" +
+			"'qconnect request --remove') shows kind remove-tools, any other kind add-tools. A request to create a\n" +
+			"connection (made with 'qconnect request --create-connection') shows kind create-connection with the\n" +
+			"provider, the wished name as connection, the targets and the tools; only 'decline' decides it here, and\n" +
+			"'approve' and 'block' refuse with invalid-request: the user accepts it in 'qconnect tui' by setting the\n" +
+			"connection up there. The reason is text of the agent: it\n" +
 			"is shortened and cleaned of known secrets and control characters, and it is never logged. Listing\n" +
 			"needs no terminal and reads no secret. A request expires after 14 days.\n\n" +
 			"'requests approve', 'requests decline', and 'requests block' decide the tools of one request. Each\n" +
@@ -77,6 +81,7 @@ type requestDocument struct {
 	Kind       string                 `json:"kind"`
 	Connection string                 `json:"connection"`
 	Provider   string                 `json:"provider"`
+	Targets    []string               `json:"targets,omitempty"`
 	Project    string                 `json:"project"`
 	ExpiresAt  string                 `json:"expires_at"`
 	Reason     string                 `json:"reason"`
@@ -95,7 +100,7 @@ func newRequestListDocument(open []application.OpenToolRequest) requestListDocum
 	doc := requestListDocument{Requests: []requestDocument{}}
 	for _, r := range open {
 		item := requestDocument{
-			ID: r.ID, Kind: string(r.Kind), Connection: r.Connection, Provider: r.Provider, Project: r.Project,
+			ID: r.ID, Kind: string(r.Kind), Connection: r.Connection, Provider: r.Provider, Targets: r.Targets, Project: r.Project,
 			ExpiresAt: r.ExpiresAt.UTC().Format("2006-01-02T15:04:05Z"), Reason: r.Reason,
 			Groups: []requestGroupDocument{},
 		}
@@ -212,6 +217,12 @@ func newRequestsDecisionCommand(opts *Options, reg *capability.Registry, action 
 			svc := manage.New(config.NewStore(path, reg), secrets, connlog.SurfaceCLI, opts.Redactor).
 				WithVaultProcessSupport(vaultProcessSupported).WithRequests(src)
 			selection := manage.RequestSelection{Request: args[0], Tools: tools}
+			if preview, err := svc.PreviewRequestDecision(selection); err != nil {
+				return requestFailure(err)
+			} else if preview.Kind == accessrequest.KindCreateConnection && action != manage.RequestDecline {
+				return &UsageError{&application.InvalidRequestError{Message: "a request to create a connection " +
+					"is accepted by setting the connection up in 'qconnect tui'; here it can only be declined"}}
+			}
 			if action == manage.RequestAccept {
 				if err := checkAcceptMode(svc, selection, mode); err != nil {
 					return err
@@ -374,7 +385,7 @@ func requestFailure(err error) error {
 			Message: refused.Message + "; 'qconnect requests' lists the open requests"}}
 	case manage.RequestCodeNeedsList:
 		return &UsageError{&application.InvalidRequestError{Message: refused.Message + " (--as tools)"}}
-	case manage.RequestCodeInvalid:
+	case manage.RequestCodeInvalid, manage.RequestCodeSetupInTUI:
 		return &UsageError{&application.InvalidRequestError{Message: refused.Message}}
 	}
 	return errors.New(refused.Message)

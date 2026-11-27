@@ -215,3 +215,68 @@ func TestToolRemovalRequestEndToEnd(t *testing.T) {
 		t.Error("a refused decision changed the configuration")
 	}
 }
+
+// TestConnectionCreateRequestEndToEnd drives the built binary: an agent asks over the CLI and over MCP that
+// the user set up a new connection, the request carries no credential and creates nothing, the list names
+// its kind, provider, name and tools, an unknown argument is refused, and without a person at a terminal
+// neither accepting nor declining decides anything.
+func TestConnectionCreateRequestEndToEnd(t *testing.T) {
+	if testing.Short() {
+		t.Skip("the acceptance run builds the binary")
+	}
+	c, dir := newRemovalRunner(t)
+	configPath := filepath.Join(dir, "config.yaml")
+	before, _ := os.ReadFile(configPath)
+
+	code, stdout, stderr := c.run(t, "request", "--create-connection", "--provider", "bookstack", "--name", "bookstack-admin",
+		"--reason", "synthetic-reason-5c2e", "bookstack.pages.get")
+	if code != 0 || stderr != "" || !strings.Contains(stdout, "status: open") || !strings.Contains(stdout, "create-connection") {
+		t.Fatalf("request --create-connection exit=%d stdout=%q stderr=%q", code, stdout, stderr)
+	}
+	mcpCall := func(id, arguments string) string {
+		return `{"jsonrpc":"2.0","id":"` + id + `","method":"tools/call","params":{` + mcpMeta +
+			`,"name":"invoke","arguments":{"operation":"qconnect.request","arguments":` + arguments + `}}}` + "\n"
+	}
+	code, stdout, stderr = c.runInput(t, mcpCall("request", `{"kind":"create-connection","provider":"bookstack","name":"bookstack-admin","tools":["bookstack.books.list"]}`), "mcp")
+	if responses := decodeMCP(t, stdout); code != 0 || stderr != "" || responses["request"].Result.IsError {
+		t.Fatalf("mcp exit=%d stderr=%q answers=%+v", code, stderr, responses)
+	}
+	// There is no field for a credential: the schema refuses it.
+	code, stdout, stderr = c.runInput(t, mcpCall("secret", `{"kind":"create-connection","provider":"bookstack","name":"other","tools":["bookstack.books.list"],"credential":"x"}`), "mcp")
+	if responses := decodeMCP(t, stdout); code != 0 || !responses["secret"].Result.IsError {
+		t.Fatalf("a credential argument was not refused: exit=%d stderr=%q answers=%+v", code, stderr, responses)
+	}
+
+	code, stdout, stderr = c.run(t, "requests", "--output", "json")
+	var list struct {
+		Requests []struct {
+			ID         string `json:"id"`
+			Kind       string `json:"kind"`
+			Provider   string `json:"provider"`
+			Connection string `json:"connection"`
+			Groups     []struct {
+				Tools []string `json:"tools"`
+			} `json:"groups"`
+		} `json:"requests"`
+	}
+	if err := json.Unmarshal([]byte(stdout), &list); code != 0 || err != nil || len(list.Requests) != 1 ||
+		list.Requests[0].Kind != "create-connection" || list.Requests[0].Provider != "bookstack" || list.Requests[0].Connection != "bookstack-admin" {
+		t.Fatalf("requests exit=%d stdout=%q stderr=%q err=%v", code, stdout, stderr, err)
+	}
+	var tools []string
+	for _, g := range list.Requests[0].Groups {
+		tools = append(tools, g.Tools...)
+	}
+	if strings.Join(tools, " ") != "bookstack.books.list bookstack.pages.get" {
+		t.Errorf("tools of the request = %v", tools)
+	}
+
+	for _, verb := range []string{"approve", "decline"} {
+		if code, _, stderr := c.run(t, "requests", verb, list.Requests[0].ID); code != 2 {
+			t.Errorf("%s without a terminal: exit=%d stderr=%q", verb, code, stderr)
+		}
+	}
+	if after, _ := os.ReadFile(configPath); string(after) != string(before) {
+		t.Error("a request or a refused decision changed the configuration")
+	}
+}

@@ -38,6 +38,13 @@ const (
 )
 
 // keysRequestRemoveBody is the key text of a request to remove tools, which is accepted or declined, never blocked.
+// keysRequestCreateBody is the key text of a request to create a connection: accepted by the setup or declined,
+// never blocked, and with no tool to tick. A request that no longer passes the core's check can only be declined.
+const (
+	keysRequestCreateBody        = "{up}/{down} move · {yes} accept · {decline} decline · {back} back · {command} cmds · {help} help"
+	keysRequestCreateDeclineBody = "{up}/{down} move · {decline} decline · {back} back · {command} cmds · {help} help"
+)
+
 const keysRequestRemoveBody = "{up}/{down} move · {space} tick · {tickall} all or none · {yes} accept · {decline} decline · {back} back · {command} cmds · {help} help"
 
 // screenKeyText is the key text the current screen puts in the footer, known before anything is drawn. A
@@ -175,6 +182,8 @@ func (m *Model) confirmKeys() string {
 		}
 		if r, _ := m.requestByID(m.requestDetail); removes(r) {
 			return keysRequestRemoveBody
+		} else if creates(r) {
+			return m.createKeys()
 		}
 		return keysRequestBody
 	case m.approvalDetail != "":

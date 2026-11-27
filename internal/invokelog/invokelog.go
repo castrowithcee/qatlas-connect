@@ -295,6 +295,18 @@ const (
 	OperationRequestRemoveDecline = "config.request.remove.decline"
 )
 
+// The same events for a request to create a connection. The entry carries the requested name as the
+// connection and one requested tool, and never the reason. Only a person in the TUI accepts such a request,
+// because the connection is set up there with its credential.
+const (
+	OperationRequestConnectionCreate = "config.request.connection.create"
+	OperationRequestConnectionExpire = "config.request.connection.expire"
+	OperationRequestConnectionDrop   = "config.request.connection.drop"
+
+	OperationRequestConnectionAccept  = "config.request.connection.accept"
+	OperationRequestConnectionDecline = "config.request.connection.decline"
+)
+
 // requestOperations maps each tool request operation to its effect and the paths it may carry.
 var requestOperations = map[string]struct {
 	effect string
@@ -313,6 +325,13 @@ var requestOperations = map[string]struct {
 
 	OperationRequestRemoveAccept:  {"update", []string{"tui", "cli"}},
 	OperationRequestRemoveDecline: {"update", []string{"tui", "cli"}},
+
+	OperationRequestConnectionCreate: {"create", []string{"cli", "mcp"}},
+	OperationRequestConnectionExpire: {"delete", []string{"cli", "mcp", "tui", "web"}},
+	OperationRequestConnectionDrop:   {"delete", []string{"cli", "mcp", "tui", "web"}},
+
+	OperationRequestConnectionAccept:  {"update", []string{"tui"}},
+	OperationRequestConnectionDecline: {"update", []string{"tui", "cli"}},
 }
 
 // IsRequestOperation reports whether operation is one of a tool request's events.
@@ -386,6 +405,8 @@ var managementOperations = map[string]bool{
 	OperationRequestBlock: true, OperationRequestExpire: true, OperationRequestDrop: true,
 	OperationRequestRemoveCreate: true, OperationRequestRemoveExpire: true, OperationRequestRemoveDrop: true,
 	OperationRequestRemoveAccept: true, OperationRequestRemoveDecline: true,
+	OperationRequestConnectionCreate: true, OperationRequestConnectionExpire: true, OperationRequestConnectionDrop: true,
+	OperationRequestConnectionAccept: true, OperationRequestConnectionDecline: true,
 }
 
 // consentOperations maps each consent operation to the effect it must carry.

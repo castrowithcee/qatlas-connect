@@ -57,6 +57,9 @@ func (m *Model) refreshRequests() {
 	m.requests = requests
 	if m.requestDetail != "" {
 		m.syncRequestTicks()
+		if r, ok := m.requestByID(m.requestDetail); ok {
+			m.loadPrefill(r)
+		}
 	}
 }
 
@@ -146,6 +149,9 @@ func (m *Model) requestCells(id string) []string {
 	if removes(r) {
 		kind = tr(tRequestKindRemove)
 	}
+	if creates(r) {
+		kind = tr(tRequestKindCreate)
+	}
 	return []string{m.logText(r.Connection), kind, strings.Join(parts, " · ")}
 }
 
@@ -197,6 +203,7 @@ func (m *Model) openRequest(id string) {
 		for _, e := range r.Entries {
 			m.requestTicks[e.Tool] = true
 		}
+		m.loadPrefill(r)
 	}
 	m.screen = screenConfirm
 	m.clearMessages()
@@ -204,7 +211,7 @@ func (m *Model) openRequest(id string) {
 
 // closeRequest leaves the detail for the list.
 func (m *Model) closeRequest() {
-	m.requestDetail, m.requestChoice, m.requestTicks = "", nil, nil
+	m.requestDetail, m.requestChoice, m.requestTicks, m.requestPrefill = "", nil, nil, nil
 	m.screen = screenList
 }
 
@@ -272,9 +279,9 @@ func (m *Model) updateRequestDetail(key tea.KeyPressMsg) tea.Cmd {
 		m.requestCursor = max(m.requestCursor-max(m.requestPage, 1), 0)
 	case keyIs(key, actPageDown):
 		m.requestCursor = min(m.requestCursor+max(m.requestPage, 1), max(len(rows)-1, 0))
-	case keyIs(key, actSpace):
+	case keyIs(key, actSpace) && !creates(r):
 		m.toggleRequestRow(r)
-	case keyIs(key, actTickAll):
+	case keyIs(key, actTickAll) && !creates(r):
 		all := len(m.tickedEntries(r)) == len(r.Entries)
 		for _, e := range r.Entries {
 			m.requestTicks[e.Tool] = !all
@@ -283,7 +290,7 @@ func (m *Model) updateRequestDetail(key tea.KeyPressMsg) tea.Cmd {
 		return m.acceptRequest(r)
 	case keyIs(key, actDecline):
 		return m.decideTicked(r, manage.RequestDecline)
-	case keyIs(key, actBlock) && !removes(r):
+	case keyIs(key, actBlock) && !removes(r) && !creates(r):
 		return m.decideTicked(r, manage.RequestBlock)
 	}
 	return nil
@@ -301,6 +308,10 @@ func (m *Model) selectionOf(r manage.OpenRequest) (manage.RequestSelection, bool
 
 // decideTicked declines or blocks the ticked tools.
 func (m *Model) decideTicked(r manage.OpenRequest, action manage.RequestAction) tea.Cmd {
+	if creates(r) {
+		// It is decided as a whole, with no tool selected.
+		return m.decideRequest(manage.RequestDecision{RequestSelection: manage.RequestSelection{Request: r.ID}, Action: action})
+	}
 	sel, ok := m.selectionOf(r)
 	if !ok {
 		return nil
@@ -311,6 +322,9 @@ func (m *Model) decideTicked(r manage.OpenRequest, action manage.RequestAction) 
 // acceptRequest accepts the ticked tools. A connection that offers its tools by effect first asks how, with
 // the consequence of each way as the core's preview names it.
 func (m *Model) acceptRequest(r manage.OpenRequest) tea.Cmd {
+	if creates(r) {
+		return m.acceptCreate(r)
+	}
 	sel, ok := m.selectionOf(r)
 	if !ok {
 		return nil
@@ -451,7 +465,12 @@ func (m *Model) requestFacts(r manage.OpenRequest) []styledFact {
 	add := func(label, value string) {
 		facts = append(facts, styledFact{detailFact: detailFact{label: label, value: value}})
 	}
-	add(tr(tRequestLblConnection), m.logText(r.Connection))
+	if creates(r) {
+		add(tr(tRequestLblWantedName), m.logText(r.Connection))
+		facts = append(facts, m.createFacts(r)...)
+	} else {
+		add(tr(tRequestLblConnection), m.logText(r.Connection))
+	}
 	if r.Project != "" {
 		add(tr(tRequestLblProject), m.logText(r.Project))
 	}
@@ -465,6 +484,9 @@ func (m *Model) requestFacts(r manage.OpenRequest) []styledFact {
 	if r.Reason != "" {
 		facts = append(facts, styledFact{detailFact: detailFact{value: tr(tRequestReasonNote)}, style: styles.warning})
 	}
+	if creates(r) {
+		facts = append(facts, styledFact{detailFact: detailFact{value: tr(tRequestCreateNote)}, style: styles.hint})
+	}
 	return facts
 }
 
@@ -473,7 +495,11 @@ func (m *Model) requestBodyView(r manage.OpenRequest) string {
 	inner, _ := m.detailInner()
 	facts := m.requestFacts(r)
 	lines := factLinesIn(facts, inner, factColumn(facts, inner), func(s string) string { return s })
-	lines = append(lines, "", styles.title.Render(tr(tRequestToolsHeading, len(m.tickedEntries(r)), len(r.Entries))))
+	heading := tr(tRequestToolsHeading, len(m.tickedEntries(r)), len(r.Entries))
+	if creates(r) {
+		heading = tr(tRequestToolsHeadingCreate, len(r.Entries))
+	}
+	lines = append(lines, "", styles.title.Render(heading))
 	first := len(lines)
 	for i, row := range m.requestRows(r) {
 		cursor := "  "
@@ -483,6 +509,9 @@ func (m *Model) requestBodyView(r manage.OpenRequest) string {
 		switch {
 		case row.heading != "":
 			lines = append(lines, cursor+styles.active.Render(row.heading)+styles.hint.Render(fmt.Sprintf(" (%d)", row.count)))
+		case creates(r):
+			// Nothing to tick: the request is decided as a whole.
+			lines = append(lines, "  "+cursor+"- "+m.toolEntryLabel(r.Provider, row.entry))
 		default:
 			lines = append(lines, "  "+cursor+tickBox(m.requestTicks[row.entry])+" "+m.toolEntryLabel(r.Provider, row.entry))
 		}
@@ -490,6 +519,9 @@ func (m *Model) requestBodyView(r manage.OpenRequest) string {
 	keys := keysRequestBody
 	if removes(r) {
 		keys = keysRequestRemoveBody
+	}
+	if creates(r) {
+		keys = m.createKeys()
 	}
 	room := m.height - m.detailChrome() - strings.Count(m.keyHint(keys), "\n") - 2
 	room = max(room, 1)
@@ -509,6 +541,9 @@ func (m *Model) requestBodyView(r manage.OpenRequest) string {
 	title := tr(tRequestTitle, m.logText(r.Connection))
 	if removes(r) {
 		title = tr(tRequestTitleRemove, m.logText(r.Connection))
+	}
+	if creates(r) {
+		title = tr(tRequestTitleCreate, m.logText(r.Connection))
 	}
 	return m.frameDetail(title, statusMark(statusWarn, tr(tStatusOpen)), lines[m.requestTop:end]) +
 		"\n" + m.keyHint(keys)
