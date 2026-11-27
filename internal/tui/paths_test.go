@@ -11,6 +11,7 @@ import (
 
 	"github.com/castrowithcee/qatlas-connect/internal/config"
 	"github.com/castrowithcee/qatlas-connect/internal/provider/github"
+	"github.com/castrowithcee/qatlas-kit/projectpath"
 )
 
 // openPathList moves to the paths row of the form and opens its list.
@@ -223,7 +224,9 @@ func TestTabCompletesDirectoriesOnly(t *testing.T) {
 	openConnection(t, m, "wiki")
 	openPathList(t, m)
 	press(t, m, "n")
-	if view := screenOf(m); !strings.Contains(view, root+sep) || !strings.Contains(view, "tab complete") {
+	// A suggestion row of the dialog is cut to its width, which a long temporary directory exceeds, so the
+	// suggestions are read through what tab takes and what the dialog is handed, not from the view.
+	if view := screenOf(m); !strings.Contains(view, "tab complete") {
 		t.Fatalf("the start directory is not suggested:\n%s", view)
 	}
 	press(t, m, "tab")
@@ -231,12 +234,12 @@ func TestTabCompletesDirectoriesOnly(t *testing.T) {
 		t.Fatalf("tab on nothing typed gave %q, want the start directory", got)
 	}
 	typeText(t, m, "al")
-	view := screenOf(m)
-	if !strings.Contains(view, root+sep+"alpha"+sep) || !strings.Contains(view, root+sep+"alpine"+sep) {
-		t.Fatalf("the directories are not suggested:\n%s", view)
+	var got []string
+	for _, s := range m.pathSuggestions(projectpath.Directories)(typedInput(m)) {
+		got = append(got, s.Text)
 	}
-	if strings.Contains(view, "alfa.txt") || strings.Contains(view, ".alps") {
-		t.Fatalf("a file or a hidden directory is suggested:\n%s", view)
+	if want := []string{root + sep + "alpha" + sep, root + sep + "alpine" + sep}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("suggestions %q, want only the two directories, without the file and the hidden one", got)
 	}
 	// The first down marks the first suggestion, the second the next one.
 	press(t, m, "down", "down", "tab")

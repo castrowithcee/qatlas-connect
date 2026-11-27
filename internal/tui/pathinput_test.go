@@ -133,3 +133,23 @@ func TestExportFileDialogKeepsOpenOnADirectory(t *testing.T) {
 		t.Fatalf("enter on the typed file = step %v target %q fail %q", m.export.step, m.export.target, m.fail)
 	}
 }
+
+// A directory reached through a symbolic link, such as the temporary directory of macOS, is suggested and taken
+// under the name that was typed; nothing resolves the link.
+func TestPathSuggestionsKeepASymlinkedDirectory(t *testing.T) {
+	root := t.TempDir()
+	treeOf(t, root, "real/alpha/")
+	link := filepath.Join(root, "link")
+	if err := os.Symlink(filepath.Join(root, "real"), link); err != nil {
+		t.Skipf("no symbolic link here: %v", err)
+	}
+	m := pathDialog(t)
+	sep := string(filepath.Separator)
+	got := m.pathSuggestions(projectpath.Directories)(link + sep)
+	if len(got) != 1 || got[0].Text != link+sep+"alpha"+sep {
+		t.Fatalf("suggestions below the link = %+v, want its directory under the link", got)
+	}
+	if abs := absolutePath(link + sep + "alpha"); abs != filepath.Join(link, "alpha") {
+		t.Errorf("absolutePath = %q, want the path through the link", abs)
+	}
+}
