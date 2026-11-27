@@ -16,6 +16,7 @@ import (
 
 	"github.com/castrowithcee/qatlas-connect/internal/invokelog"
 	"github.com/castrowithcee/qatlas-connect/internal/vault"
+	kittui "github.com/castrowithcee/qatlas-kit/tui"
 )
 
 const logPassphrase = "correct horse battery staple"
@@ -81,6 +82,12 @@ func (f *logFixture) localToday() string {
 }
 
 // edit rewrites the day file of day through change, which gets its lines.
+// wideModel is model at 180x30, wide enough for every field of the bar in one line, a range too.
+func (f *logFixture) wideModel(unlocked bool, day string) *Model {
+	f.t.Helper()
+	return sizedModel(f.model(unlocked, day), 180, 30)
+}
+
 func (f *logFixture) edit(day string, change func([][]byte) [][]byte) {
 	f.t.Helper()
 	path := filepath.Join(f.logsDir(), day+".jsonl")
@@ -142,12 +149,12 @@ func TestLogsSectionShowsTheDayVerified(t *testing.T) {
 	f := newLogFixture(t)
 	f.append("mcp", "codex", "wiki.pages.get", "wiki", "success")
 	f.append("cli", "", "wiki.pages.list", "wiki", "success")
-	m := f.model(true, f.localToday())
+	m := f.wideModel(true, f.localToday())
 
 	view := m.render()
 	for _, want := range []string{"[4 Activity]", "5 Access", "Mode: Day ▾", "Date: " + f.localToday() + " ▾",
 		"STATUS", "TIME", "WAY", "CLIENT", "TOOL", "CONNECTION", "RESULT", "DUR.", "codex", "MCP", "CLI",
-		"12ms", "Way: all ▾", "Client: all ▾", "Conn: all ▾", "Result: all ▾", "/ search…"} {
+		"12ms", "Way: all ▾", "Client: all ▾", "Conn: all ▾", "Result: all ▾"} {
 		if !strings.Contains(view, want) {
 			t.Errorf("view does not show %q:\n%s", want, view)
 		}
@@ -163,7 +170,7 @@ func TestLogsSectionShowsTheDayVerified(t *testing.T) {
 	if !strings.Contains(rowLine(t, view, "wiki.pages.get"), "> ") {
 		t.Errorf("the first row is not marked:\n%s", view)
 	}
-	assertViewFits(t, view, 120, 30)
+	assertViewFits(t, view, 180, 30)
 }
 
 // Without the log key, a line that carries a check value is unverified, never verified: the editor never
@@ -246,13 +253,13 @@ func TestLogsModeRangeAllAndAnEmptyDay(t *testing.T) {
 	mustNoError(t, os.Rename(filepath.Join(f.logsDir(), fileDay+".jsonl"), filepath.Join(f.logsDir(), "2020-01-02.jsonl")))
 	f.append("cli", "", "op.new", "wiki", "success")
 	today := f.localToday()
-	m := f.model(true, today)
+	m := f.wideModel(true, today)
 
 	if view := m.render(); !strings.Contains(view, "op.new") || strings.Contains(view, "op.old") {
 		t.Errorf("Day shows other days:\n%s", view)
 	}
 	press(t, m, "tab", "tab")
-	if m.logs.focus != logFocusMode || !strings.Contains(m.render(), ">  Mode:") {
+	if m.logs.focus != logFocusBar || !strings.Contains(m.render(), ">  Mode:") {
 		t.Fatalf("tab = focus %v, want the Mode field marked:\n%s", m.logs.focus, m.render())
 	}
 	pump(t, m, "right")
@@ -261,7 +268,7 @@ func TestLogsModeRangeAllAndAnEmptyDay(t *testing.T) {
 		t.Fatalf("right = mode %v, want Range:\n%s", m.logs.mode, m.render())
 	}
 	press(t, m, "tab", "enter")
-	if m.logs.dialog == nil || len(m.logs.dialog.inputs) != 2 {
+	if d := logDateForm(m); d == nil || len(d.Values()) != 2 {
 		t.Fatalf("enter on the range did not open the from/to dialog")
 	}
 	clearField(t, m)
@@ -269,21 +276,21 @@ func TestLogsModeRangeAllAndAnEmptyDay(t *testing.T) {
 	press(t, m, "tab")
 	clearField(t, m)
 	typeText(t, m, "2019-12-31")
-	press(t, m, "enter")
-	if m.logs.dialog == nil || m.logs.dialog.err == "" {
-		t.Fatalf("a range ending before it starts was taken")
+	press(t, m, "f2")
+	if d := logDateForm(m); d == nil || d.Focused() != logFieldTo || !strings.Contains(m.render(), tr(tLogDateOrder)) {
+		t.Fatalf("a range ending before it starts was taken:\n%s", m.render())
 	}
 	clearField(t, m)
 	typeText(t, m, today)
-	pump(t, m, "enter")
+	pump(t, m, "f2")
 	view := m.render()
-	if m.logs.dialog != nil || !strings.Contains(view, "Range: 2020-01-01.."+today+" ▾") ||
+	if logDateForm(m) != nil || !strings.Contains(view, "Range: 2020-01-01.."+today+" ▾") ||
 		!strings.Contains(view, today+" ") || !strings.Contains(view, "op.old") || !strings.Contains(view, "op.new") {
 		t.Fatalf("the range does not show both days with their dates:\n%s", view)
 	}
 	press(t, m, "shift+tab")
 	pump(t, m, "right")
-	if view := m.render(); !strings.Contains(view, "Mode: All ▾") || !strings.Contains(view, "(all recorded days)") ||
+	if view := m.render(); !strings.Contains(view, "Mode: All ▾") || strings.Contains(view, "Date:") ||
 		!strings.Contains(view, "op.old") {
 		t.Fatalf("All does not show every day:\n%s", view)
 	}
@@ -293,13 +300,13 @@ func TestLogsModeRangeAllAndAnEmptyDay(t *testing.T) {
 	press(t, m, "tab", "enter")
 	clearField(t, m)
 	typeText(t, m, "20-1-1")
-	press(t, m, "enter")
-	if m.logs.dialog == nil || !strings.Contains(m.render(), "YYYY-MM-DD") {
+	press(t, m, "f2")
+	if logDateForm(m) == nil || !strings.Contains(m.render(), "YYYY-MM-DD") || m.logs.day == "20-1-1" {
 		t.Fatalf("a malformed date was taken:\n%s", m.render())
 	}
 	clearField(t, m)
 	typeText(t, m, "2021-05-05")
-	pump(t, m, "enter")
+	pump(t, m, "f2")
 	view = m.render()
 	for _, want := range []string{"Date: 2021-05-05 ▾", "No entries for 2021-05-05.", "✓ verified"} {
 		if !strings.Contains(view, want) {
@@ -316,29 +323,28 @@ func TestLogsFilterAndSearch(t *testing.T) {
 	f.append("mcp", "codex", "wiki.pages.get", "wiki", "success")
 	f.append("mcp", "claude-code", "wiki.pages.create", "wiki", "policy-denied")
 	f.append("cli", "", "chat.send", "alerts", "success")
-	m := f.model(true, f.localToday())
+	m := f.wideModel(true, f.localToday())
 
 	press(t, m, "f")
-	if m.logs.pick == nil || !strings.Contains(m.render(), "Choose a filter") {
-		t.Fatalf("f did not open the filter dialog:\n%s", m.render())
+	if m.logs.focus != logFocusBar || m.logs.bar.Open() || !strings.Contains(m.render(), ">  Mode:") {
+		t.Fatalf("f did not move the focus to the bar:\n%s", m.render())
 	}
-	typeText(t, m, "client")
-	press(t, m, "enter")
-	if view := m.render(); !strings.Contains(view, "Filter by client") || !strings.Contains(view, "claude-code") {
+	// Mode, date, way, then the client.
+	press(t, m, "tab", "tab", "tab", "enter")
+	if view := m.render(); !m.logs.bar.Open() || !strings.Contains(view, "claude-code") || !strings.Contains(view, "codex") {
 		t.Fatalf("the client filter does not offer the clients:\n%s", view)
 	}
 	typeText(t, m, "codex")
 	press(t, m, "enter")
 	view := m.render()
-	if m.logs.pick != nil || !strings.Contains(view, "Client: codex ▾") || !strings.Contains(view, "wiki.pages.get") ||
+	if m.logs.bar.Open() || !strings.Contains(view, "Client: codex ▾") || !strings.Contains(view, "wiki.pages.get") ||
 		strings.Contains(view, "wiki.pages.create") || strings.Contains(view, "chat.send") {
 		t.Fatalf("the client filter does not keep codex alone:\n%s", view)
 	}
 
 	// Back to all clients, then search the text of the rows.
-	press(t, m, "f")
-	typeText(t, m, "client")
-	press(t, m, "enter", "home", "enter")
+	// The values are all, then "-" of the CLI entry, claude-code and codex.
+	press(t, m, "enter", "up", "up", "up", "enter")
 	if m.logs.filters[logFilterClient] != "" {
 		t.Fatalf("choosing all left the filter at %q", m.logs.filters[logFilterClient])
 	}
@@ -369,7 +375,7 @@ func TestLogsKeys(t *testing.T) {
 	m := f.model(true, f.localToday())
 
 	press(t, m, "v", "g")
-	if m.screen != screenLogs || m.logs.mode != logModeDay || m.logs.pick != nil || m.logs.dialog != nil {
+	if m.screen != screenLogs || m.logs.mode != logModeDay || m.logs.focus != logFocusRows || m.modal != nil {
 		t.Errorf("v/g changed the Logs screen: screen %v mode %v", m.screen, m.logs.mode)
 	}
 	press(t, m, "?")
@@ -435,7 +441,7 @@ func TestLogsNeverPrintControlCharactersOrSecrets(t *testing.T) {
 	}
 }
 
-// Below 80 columns the bar stands field by field and the duration is the first column to go.
+// Below the width of its fields the bar is one button, and the duration is the first column to go.
 func TestLogsNarrowLayout(t *testing.T) {
 	f := newLogFixture(t)
 	f.append("mcp", "claude-code", "github.issues.create", "github-ops", "success")
@@ -444,7 +450,7 @@ func TestLogsNarrowLayout(t *testing.T) {
 
 	view := m.render()
 	assertViewFits(t, view, 60, 20)
-	for _, want := range []string{"Mode: Day ▾", "Date: " + f.localToday() + " ▾", "✓ verified", "github.issues"} {
+	for _, want := range []string{"Filter (0)", "✓ verified", "github.issues"} {
 		if !strings.Contains(view, want) {
 			t.Errorf("narrow view does not show %q:\n%s", want, view)
 		}
@@ -736,7 +742,7 @@ func TestLogsSummaryFollowsFiltersAndShowsApproximations(t *testing.T) {
 		fl.Operation, fl.Connection, fl.RespBytes, fl.Result = c.op, c.conn, c.resp, c.result
 		mustNoError(t, f.logger.Append(fl))
 	}
-	m := f.model(true, f.localToday())
+	m := f.wideModel(true, f.localToday())
 
 	press(t, m, "s")
 	view := m.render()
@@ -752,10 +758,9 @@ func TestLogsSummaryFollowsFiltersAndShowsApproximations(t *testing.T) {
 		t.Errorf("the key line does not name s:\n%s", view)
 	}
 
-	// A filter narrows the summary; the filter logic itself is the rows' own.
-	press(t, m, "f")
-	typeText(t, m, "connection")
-	press(t, m, "enter")
+	// A filter narrows the summary; the filter logic itself is the rows' own. Mode, date, way, client, tool,
+	// then the connection.
+	press(t, m, "f", "tab", "tab", "tab", "tab", "tab", "enter")
 	typeText(t, m, "alerts")
 	press(t, m, "enter")
 	view = m.render()
@@ -817,7 +822,7 @@ func TestLogsSessionSummaryShowsAreasToolsAndEstimates(t *testing.T) {
 	f.appendSession(sessionNew, "wiki.pages.get", "success", 30, 3500)
 	f.appendSession(sessionNew, "", "invalid-request", 20, 60)
 	f.append("cli", "", "cli.only", "wiki", "success")
-	m := f.model(true, f.localToday())
+	m := f.wideModel(true, f.localToday())
 
 	press(t, m, "M")
 	view := m.render()
@@ -942,4 +947,10 @@ func TestLogDetailShowsTheRequestedTool(t *testing.T) {
 			t.Errorf("the detail lacks %q:\n%s", want, got)
 		}
 	}
+}
+
+// logDateForm is the date form open over the Logs, or nil.
+func logDateForm(m *Model) *kittui.Form {
+	f, _ := m.modal.(*kittui.Form)
+	return f
 }

@@ -157,17 +157,8 @@ func (m *Model) workspaceKeys() string {
 	return ""
 }
 
-// logsKeys is the key text of the Logs screen: its date and filter dialogs, or the table.
-func (m *Model) logsKeys() string {
-	lv := m.logs
-	switch {
-	case m.screen == screenLogs && lv.dialog != nil:
-		return logDateKeys(lv.dialog)
-	case m.screen == screenLogs && lv.pick != nil:
-		return m.logPickKeys()
-	}
-	return m.logKeys()
-}
+// logsKeys is the key text of the Logs screen.
+func (m *Model) logsKeys() string { return m.logKeys() }
 
 // confirmKeys is the key text of the three detail screens of screenConfirm; its questions are dialogs, which
 // name their own keys.

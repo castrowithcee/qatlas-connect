@@ -224,12 +224,13 @@ func newTUICommand(opts *Options, reg *capability.Registry, buildVersion string)
 			"s shows its value and hides it again, only there and only while the session lasts; d revokes it\n" +
 			"after asking, y confirms and n or esc keeps it. While the vault is unencrypted or locked, the section says so instead of a list.\n\n" +
 			"Activity (4) shows the invocation log, read only, the same log 'qconnect vault logs verify' checks. The\n" +
-			"bar on top reads Mode: Day, Range, or All and, for the first two, the date or the range of UTC\n" +
-			"days: tab moves the focus from the rows to the bar's fields and back, left/right change the\n" +
-			"mode, and enter or left/right on the date open a small dialog that takes one date, or from and\n" +
-			"to, as YYYY-MM-DD. The filter line names what f filters by: way, MCP client, tool, connection,\n" +
-			"effect, and result, each chosen in a picker among the values the shown days hold, all by\n" +
-			"default. / searches the text of the rows, enter keeps the search, and esc clears it. The table\n" +
+			"bar on top holds the mode (Day, Range, or All), for the first two the date or the range of local\n" +
+			"days, and the filters way, MCP client, tool, connection, effect, and result, each all by default\n" +
+			"or one of the values the shown days hold. f or tab moves the focus into the bar, tab runs through\n" +
+			"its fields, left/right change a value, and enter opens the list of values with a search; enter on\n" +
+			"the date opens a form that takes one date, or from and to, as YYYY-MM-DD, where enter opens a\n" +
+			"calendar and F2 applies. A terminal too narrow for the bar shows a Filter (n) button that opens\n" +
+			"every field. / searches the text of the rows, enter keeps the search, and esc clears it. The table\n" +
 			"shows status, time, way, client, tool, connection, result, and duration, leaving out the\n" +
 			"duration, then the connection, then the client where the terminal is narrow; enter opens every\n" +
 			"field of one entry, and esc returns. Every row and the bar, for everything the chosen days\n" +

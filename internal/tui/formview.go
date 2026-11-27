@@ -72,7 +72,7 @@ func selectable(f field) bool {
 // arrowed ends the first line of value in the dropdown arrow, at the right edge of a field of width cells.
 func arrowed(value string, width int) string {
 	text := truncateCells(strings.Split(value, "\n")[0], max(width-2, 1))
-	return padLine(text, max(width-2, 0)) + " " + dropdownArrow
+	return padLine(text, max(width-2, 0)) + " " + fieldArrow
 }
 
 // rowRoom is the room a value has beside the label of a row, inside its frame where it has one.

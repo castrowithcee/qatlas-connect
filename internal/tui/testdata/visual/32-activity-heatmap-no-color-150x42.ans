@@ -5,8 +5,7 @@
                                                                                                                                                       
 ╔═[1m[m═══════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════╗
 ║ > [2m Table [m [1;7m[Activity][m [2m Details [m                                                                                                        [1m? unverified[m ║
-║    Mode: All ▾     [2m(all recorded days)[m     Way: all ▾      Client: all ▾      Tool: all ▾      Conn: all ▾      Effect: all ▾      Result: all ▾   ║
-║                                                                                                                     [2m / search…                    [m ║
+║    Mode: All ▾      Way: all ▾      Client: all ▾      Tool: all ▾      Conn: all ▾      Effect: all ▾      Result: all ▾                          ║
 ║   Calls [1m180[m · success [1m70%[m · errors [1m54[m[2m · 2025-12-18 to 2026-03-18[m                                                                                   ║
 ║   [2m       Mon  Tue  Wed  Thu  Fri  Sat  Sun [m                                                                                                        ║
 ║   [2mDec 15 [m               ···· ···· ···· ····                                                                                                        ║
@@ -26,6 +25,7 @@
 ║   [2mless [m·· ░░ ▒▒ ▓▓ ██[2m more[m[2m (levels by quartile of the busy days)[m                                                                                   ║
 ║   [2m× outside retention · ✗ altered entries · … gap in the chain[m                                                                                     ║
 ╚════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════╝
+                                                                                                                                                      
                                                                                                                                                       
                                                                                                                                                       
                                                                                                                                                       

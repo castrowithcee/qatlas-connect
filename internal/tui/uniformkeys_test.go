@@ -493,7 +493,7 @@ func TestFootersNameTheHelpAndCommandsWhereTheyWork(t *testing.T) {
 func TestLeftOnTheActivityRowsDoesNotGoBack(t *testing.T) {
 	m := sizedModel(heatModel(t, activityLog(t)), 120, 40)
 	m.logs.heat = false
-	m.logs.focus = logFocusRows
+	m.logs.setFocus(logFocusRows, false)
 	m.screen = screenLogs
 	m.setLogTab(logTabTable)
 	press(t, m, "left")

@@ -93,6 +93,11 @@ func (m *Model) modalMouse(msg tea.MouseMsg) tea.Cmd {
 		}
 		return nil
 	}
+	if f, form := m.modal.(*kittui.Form); form && r.Item == "" && r.Action != "" {
+		// A form leaves the keys of its key line and of the footer to the application, as the kit's log view does.
+		act, _ := f.Act(r.Action)
+		return m.modalAct(act)
+	}
 	typed := m.modalText()
 	act, handled := m.modal.Click(r)
 	m.edited(typed)
