@@ -23,6 +23,7 @@ import (
 	"github.com/castrowithcee/qatlas-connect/internal/vault"
 	"github.com/castrowithcee/qatlas-connect/internal/web"
 	"github.com/castrowithcee/qatlas-kit/redact"
+	kitvault "github.com/castrowithcee/qatlas-kit/vault"
 )
 
 const webSyntheticSecret = "WEB_TEST_SYNTHETIC_SECRET_TOKEN"
@@ -188,7 +189,7 @@ func TestWebCommandAdminApprovalBrowserAndTerminal(t *testing.T) {
 		Redactor: red,
 		Input:    stdinR,
 		Secrets: secret.NewWith(os.Getenv, secret.NewMemoryStore(),
-			secret.NewFile(filepath.Join(dir, secret.FileName)), red).WithVault(vault.New(dir), vault.ReadPassphrase),
+			secret.NewFile(filepath.Join(dir, secret.FileName)), red).WithVault(vault.New(dir), kitvault.ReadPassphrase),
 	}
 
 	var stdout bytes.Buffer

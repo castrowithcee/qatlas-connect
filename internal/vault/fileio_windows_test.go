@@ -128,10 +128,7 @@ func TestWriteFailsCleanlyWhenFileStaysOpen(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	oldSleep := sleepFile
-	t.Cleanup(func() { sleepFile = oldSleep })
-	sleepFile = func(d time.Duration) { time.Sleep(d / 100) }
-
+	// The kit waits out its whole retry budget, under three seconds, before it gives up.
 	f := holdOpen(t, path)
 	setErr := v.Set("wiki-reader", "role-1", "synthetic-held-1", nil)
 	_ = f.Close()

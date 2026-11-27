@@ -3,6 +3,8 @@ package vault
 import (
 	"errors"
 	"sort"
+
+	kitvault "github.com/castrowithcee/qatlas-kit/vault"
 )
 
 // ErrEntryTaken reports a credential rename onto a name the vault already holds an entry, or a pending write,
@@ -34,25 +36,12 @@ type CredentialRename struct {
 // HasEntry reports whether the vault holds an entry for the credential name. It reads an unencrypted vault and
 // one unlocked in this process; a locked one fails with ErrNotUnlocked.
 func (v *Vault) HasEntry(name string) (bool, error) {
-	state, err := v.State()
+	doc, err := v.readDocument()
 	if err != nil {
 		return false, err
 	}
-	switch state {
-	case StateUnencrypted:
-		doc, err := loadPlainDocument(v.plainPath())
-		if err != nil {
-			return false, err
-		}
-		_, ok := doc.byName(name)
-		return ok, nil
-	case StateLocked:
-		return false, ErrNotUnlocked
-	case StateUnlocked:
-		_, ok := v.doc.byName(name)
-		return ok, nil
-	}
-	return false, nil
+	_, ok := doc.byName(name)
+	return ok, nil
 }
 
 // EntryCredentialIDs returns the config id each entry of the vault records, by entry name; "" for an entry
@@ -78,14 +67,12 @@ func (v *Vault) readDocument() (*document, error) {
 		return nil, err
 	}
 	switch state {
-	case StateUnencrypted:
-		return loadPlainDocument(v.plainPath())
+	case StateAbsent:
+		return newDocument(), nil
 	case StateLocked:
 		return nil, ErrNotUnlocked
-	case StateUnlocked:
-		return v.doc, nil
 	}
-	return newDocument(), nil
+	return v.load()
 }
 
 // Names is what a vault knows by name and config id, without any secret: the config id each entry records,
@@ -157,17 +144,19 @@ func (v *Vault) PendingWrites() (map[string]int, error) {
 	default:
 		return map[string]int{}, nil
 	}
-	names, err := v.pendingFiles()
+	counts := map[string]int{}
+	err = v.kv.ReadPending(func(pending []kitvault.Pending) error {
+		for _, p := range pending {
+			payload, err := decodePending(v.dir, p)
+			if err != nil {
+				return err
+			}
+			counts[payload.Name]++
+		}
+		return nil
+	})
 	if err != nil {
 		return nil, err
-	}
-	counts := map[string]int{}
-	for _, name := range names {
-		payload, _, err := v.readPending(v.identity, name)
-		if err != nil {
-			return nil, err
-		}
-		counts[payload.Name]++
 	}
 	return counts, nil
 }
@@ -192,7 +181,7 @@ func (v *Vault) RenameCredential(r CredentialRename) (carried []string, undo fun
 	case StateLocked:
 		return nil, nil, ErrNotUnlocked
 	case StateUnencrypted:
-		w, err := v.update(nil, updateOpts{}, func(doc *document) (bool, error) {
+		undo, _, err := v.update(func(doc *document) (bool, error) {
 			if r.Resume && !doc.resumable(r) {
 				return false, ErrEntryTaken
 			}
@@ -205,32 +194,29 @@ func (v *Vault) RenameCredential(r CredentialRename) (carried []string, undo fun
 		if err != nil {
 			return nil, nil, err
 		}
-		return nil, func() error { return v.undo(w) }, nil
+		return nil, undo, nil
 	case StateUnlocked:
 		return v.renameUnlocked(r)
 	}
 	return nil, unchanged, nil
 }
 
-// heldPending is one pending file a write merged: its path and its very bytes, for an undo.
-type heldPending struct {
-	path string
-	data []byte
-}
-
+// renameUnlocked renames in the vault unlocked in this process through the kit's Update: the document and the
+// removal of the merged pending entries are one change, and its undo puts back the document file and exactly
+// those entries, byte for byte, leaving every other pending entry, also one another process added, alone.
 func (v *Vault) renameUnlocked(r CredentialRename) ([]string, func() error, error) {
-	merged := 0
+	var carried []string
 	// Only the pending writes for the old name are merged, into the renamed entry; any other one stays
 	// pending. A pending write left for the old name would bring its secrets back under that name on the
-	// next unlock, so a write whose merged files cannot be removed is taken back.
-	pending := func(id *identity, doc *document) ([]heldPending, error) {
-		if r.Resume && !doc.resumable(r) {
-			return nil, ErrEntryTaken
+	// next unlock, so the kit takes the write back when it cannot remove the merged ones.
+	undo, _, err := v.updatePending(func(next *document, pending []kitvault.Pending) (bool, []string, error) {
+		if r.Resume && !next.resumable(r) {
+			return false, nil, ErrEntryTaken
 		}
-		if _, taken := doc.byName(r.To); taken && !r.Resume {
-			return nil, ErrEntryTaken
+		if _, taken := next.byName(r.To); taken && !r.Resume {
+			return false, nil, ErrEntryTaken
 		}
-		held, err := v.mergePendingWhere(id, doc, func(p *pendingPayload) (bool, error) {
+		merged, err := next.mergeEntries(v.dir, pending, func(p *pendingPayload) (bool, error) {
 			if p.Name == r.To {
 				return false, ErrEntryTaken
 			}
@@ -242,21 +228,22 @@ func (v *Vault) renameUnlocked(r CredentialRename) ([]string, func() error, erro
 			}
 			return true, nil
 		})
-		merged = len(held)
-		return held, err
-	}
-	var carried []string
-	w, err := v.update(v.identity, updateOpts{pending: pending, strict: true}, func(next *document) (bool, error) {
+		if err != nil {
+			return false, nil, err
+		}
+
 		before := next.bindings().IDs
 		renamed := r.Entry && next.renameEntry(r.From, r.To, r.CredentialID, r.mark())
 		after := next.bindings().IDs
+		carried = nil
 		for _, c := range r.Carry {
 			approval, ok := next.Approvals[c.Before.Connection]
 			own := before[c.Before.Credential]
 			if r.Resume && c.Before.Credential == r.From {
 				own = before[r.To]
 			}
-			if !ok || own == "" || !FingerprintMatches(approval.Fingerprint, c.Before, own) || after[c.After.Credential] == "" {
+			if !ok || own == "" || !FingerprintMatches(approval.Fingerprint, c.Before, own) ||
+				after[c.After.Credential] == "" {
 				continue
 			}
 			id := after[c.After.Credential]
@@ -267,12 +254,12 @@ func (v *Vault) renameUnlocked(r CredentialRename) ([]string, func() error, erro
 			carried = append(carried, c.After.Connection)
 		}
 		sort.Strings(carried)
-		return renamed || merged > 0 || len(carried) > 0, nil
+		return renamed || len(merged) > 0 || len(carried) > 0, merged, nil
 	})
 	if err != nil {
 		return nil, nil, err
 	}
-	return carried, func() error { return v.undo(w) }, nil
+	return carried, undo, nil
 }
 
 // clone returns a copy of d that shares no map with it.
@@ -332,7 +319,7 @@ func (v *Vault) ClearRenameMarker(name string) error {
 	case StateLocked:
 		return ErrNotUnlocked
 	case StateUnencrypted, StateUnlocked:
-		_, err := v.update(v.writeIdentity(state), updateOpts{}, func(doc *document) (bool, error) {
+		_, _, err := v.update(func(doc *document) (bool, error) {
 			return doc.clearMark(name), nil
 		})
 		return err

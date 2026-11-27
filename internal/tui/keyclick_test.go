@@ -135,6 +135,10 @@ var shownConfigPath = regexp.MustCompile(`\S*config\.yaml`)
 
 var shownID = regexp.MustCompile(`[0-9a-f]{5,}`)
 
+// shownClock is the time in the header of the Overview, which turns to the next minute between the key and
+// the click when they straddle it.
+var shownClock = regexp.MustCompile(`\b[0-2][0-9]:[0-5][0-9]\b`)
+
 // fixIDs gives every entry an id of its own derived from its kind and name, the same in every model of a test,
 // where a view shows the ids in full and a narrow one wraps them at any character.
 func fixIDs(t *testing.T, m *Model) {
@@ -165,6 +169,9 @@ func clickState(m *Model) string {
 	// Each model has its own temporary directory, and a shortened path shows only its end; a seeded entry
 	// has an ID of its own in every model, which a narrow row wraps.
 	view = shownConfigPath.ReplaceAllString(view, "<config>")
+	if m.section == sectionOverview {
+		view = shownClock.ReplaceAllString(view, "<time>")
+	}
 	view = shownID.ReplaceAllStringFunc(view, func(s string) string {
 		if strings.ContainsAny(s, "0123456789") {
 			return "<id>"

@@ -14,13 +14,14 @@ import (
 	"github.com/castrowithcee/qatlas-connect/internal/vault"
 	"github.com/castrowithcee/qatlas-connect/internal/vaultproc/vaultproctest"
 	"github.com/castrowithcee/qatlas-kit/redact"
+	kitvault "github.com/castrowithcee/qatlas-kit/vault"
 )
 
 // TestMain runs every test of this package as if a person ran it from an interactive terminal: almost
 // every test here exercises something other than the admin check itself, and a real terminal is not
 // something 'go test' can be relied on to have, in a developer's shell or in CI alike. The handful of tests
 // that exercise the admin check turn this back off for their own duration with withInteractive, the same
-// seam a real run leaves at vault.Interactive.
+// seam a real run leaves at kitvault.Interactive.
 //
 // It also keeps 'vault unlock' from starting a vault process: such a process is this test binary started
 // anew, which a test enables with withVaultProcess alone. The binary started that way runs as qconnect
@@ -172,7 +173,7 @@ func TestCredentialSetAsksTheVaultPassphraseEvenForAKeyringCredential(t *testing
 	store := secret.NewMemoryStore()
 	red := &redact.Redactor{}
 	opts := &Options{Redactor: red, Secrets: secret.NewWith(os.Getenv, store,
-		secret.NewFile(filepath.Join(dir, secret.FileName)), red).WithVault(vault.New(dir), vault.ReadPassphrase)}
+		secret.NewFile(filepath.Join(dir, secret.FileName)), red).WithVault(vault.New(dir), kitvault.ReadPassphrase)}
 
 	withInteractive(t, true)
 	withVaultPassphrase(t, sequencedPassphrases("wrong-passphrase"))

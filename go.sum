@@ -20,12 +20,10 @@ github.com/atotto/clipboard v0.1.4 h1:EH0zSVneZPSuFR11BlR9YppQTVDbh5+16AmcJi4g1z
 github.com/atotto/clipboard v0.1.4/go.mod h1:ZY9tmq7sm5xIbd9bOK4onWV4S6X0u6GY7Vn0Yu86PYI=
 github.com/aymanbagabas/go-udiff v0.4.1 h1:OEIrQ8maEeDBXQDoGCbbTTXYJMYRCRO1fnodZ12Gv5o=
 github.com/aymanbagabas/go-udiff v0.4.1/go.mod h1:0L9PGwj20lrtmEMeyw4WKJ/TMyDtvAoK9bf2u/mNo3w=
-github.com/castrowithcee/qatlas-kit v0.22.0 h1:E8S3Y4o9oUv/YvoyPFc5juV5qiMjcN5U0bZ/ExrKznM=
-github.com/castrowithcee/qatlas-kit v0.22.0/go.mod h1:bOhKmt9MoLuDUF+mQkV3r5XnGKKh2Tn0aOnIbLVSJUg=
-github.com/castrowithcee/qatlas-kit v0.24.0 h1:OJN7Nfi31Vvz0wEiO/f/3R/pg71s6ZTOX8VL69/7wwg=
-github.com/castrowithcee/qatlas-kit v0.24.0/go.mod h1:EavXPaER/a/mkxblLx7SM5P4kMvoisECccYHG+FuzWQ=
-github.com/castrowithcee/qatlas-kit v0.25.0 h1:xOb9sRfSKeVhnPCbNdybiZRRfrGjSbsIDFA2PqEDV3o=
-github.com/castrowithcee/qatlas-kit v0.25.0/go.mod h1:EavXPaER/a/mkxblLx7SM5P4kMvoisECccYHG+FuzWQ=
+github.com/castrowithcee/qatlas-kit v0.26.0 h1:5r/TKYcxYVgGaFMixlEWhoz/UmGhh0ljPDB9dqIHq0s=
+github.com/castrowithcee/qatlas-kit v0.26.0/go.mod h1:ss89Kt0LWZmT/vrC1b65nUrvz0iUGkFqWE4RKdrYNBU=
+github.com/charlievieth/fastwalk v1.0.14 h1:3Eh5uaFGwHZd8EGwTjJnSpBkfwfsak9h6ICgnWlhAyg=
+github.com/charlievieth/fastwalk v1.0.14/go.mod h1:diVcUreiU1aQ4/Wu3NbxxH4/KYdKpLDojrQ1Bb2KgNY=
 github.com/charmbracelet/colorprofile v0.4.3 h1:QPa1IWkYI+AOB+fE+mg/5/4HRMZcaXex9t5KX76i20Q=
 github.com/charmbracelet/colorprofile v0.4.3/go.mod h1:/zT4BhpD5aGFpqQQqw7a+VtHCzu+zrQtt1zhMt9mR4Q=
 github.com/charmbracelet/ultraviolet v0.0.0-20261008173134-6b8d4baf91b4 h1:hISLzUbwcvJbGoNR6A3L/TpguRRnACBmZOee8LcHLJw=

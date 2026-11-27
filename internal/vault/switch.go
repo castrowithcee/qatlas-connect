@@ -3,24 +3,18 @@ package vault
 import (
 	"errors"
 	"os"
+
+	kitvault "github.com/castrowithcee/qatlas-kit/vault"
 )
 
 // ErrAlreadyEncrypted reports that Encrypt was called on a vault that already is one.
 var ErrAlreadyEncrypted = errors.New("the vault is already encrypted")
 
-// ErrNotEncrypted reports that Decrypt, ChangePassphrase, or Recipient was called on a vault that has no
-// passphrase to change or remove, and no recipient.
-var ErrNotEncrypted = errors.New("the vault is not encrypted")
-
-// ErrEmptyPassphrase reports a passphrase of "", refused wherever an empty passphrase would silently turn
-// encryption off instead of switching it on or changing it.
-var ErrEmptyPassphrase = errors.New("a passphrase must not be empty")
-
 // Encrypt turns an absent or unencrypted vault into an encrypted one: it generates a fresh key pair, wraps
-// the private key with passphrase, and re-encrypts whatever document already exists, or an empty one for a
-// vault that did not exist yet. The plaintext document is removed only once the encrypted one was written
-// successfully. Called on a vault that is already encrypted, it changes nothing and reports
-// ErrAlreadyEncrypted; 'qconnect vault passphrase' is the way to change the passphrase of one.
+// the private key with passphrase, and encrypts whatever document already exists, or an empty one for a
+// vault that did not exist yet. The plaintext document is removed only once the encrypted one is complete.
+// Called on a vault that is already encrypted, it changes nothing and reports ErrAlreadyEncrypted; 'qconnect
+// vault passphrase' is the way to change the passphrase of one.
 func (v *Vault) Encrypt(passphrase string) error {
 	if passphrase == "" {
 		return ErrEmptyPassphrase
@@ -32,61 +26,31 @@ func (v *Vault) Encrypt(passphrase string) error {
 	switch state {
 	case StateLocked, StateUnlocked:
 		return ErrAlreadyEncrypted
-	}
-	release, err := v.lockWrites()
-	if err != nil {
-		return err
-	}
-	defer release()
-	if state, err = v.diskState(); err != nil {
-		return err
-	} else if state == StateLocked {
-		return ErrAlreadyEncrypted
-	}
-	v.journalSwitched()
-
-	doc := newDocument()
-	if state == StateUnencrypted {
-		doc, err = loadPlainDocument(v.plainPath())
+	case StateAbsent:
+		data, err := encodeDocument(v.secretsPath(), newDocument())
 		if err != nil {
 			return err
 		}
+		return v.kv.Create(passphrase, data)
 	}
+	return mapDocumentErr(v.kv.Encrypt(passphrase))
+}
 
-	id, err := generateIdentity()
+// requireEncrypted fails with ErrNotEncrypted for a vault that has no passphrase.
+func (v *Vault) requireEncrypted() error {
+	state, err := v.State()
 	if err != nil {
 		return err
 	}
-	keyData, err := encryptKey(id, passphrase)
-	if err != nil {
-		return err
+	if state != StateLocked && state != StateUnlocked {
+		return ErrNotEncrypted
 	}
-	if err := writeFile(v.recipientPath(), []byte(id.recipient.String()+"\n")); err != nil {
-		return err
-	}
-	if err := writeFile(v.keyPath(), keyData); err != nil {
-		return err
-	}
-	if err := v.writeSecrets(id, doc); err != nil {
-		return err
-	}
-
-	// The plaintext document is removed last, once its encrypted replacement is safely on disk.
-	if state == StateUnencrypted {
-		if err := os.Remove(v.plainPath()); err != nil && !isNotExist(err) {
-			return err
-		}
-	}
-
-	v.identity, v.doc, v.unlocked = id, doc, true
 	return nil
 }
 
-// ChangePassphrase re-encrypts the vault's key with a new passphrase, verifying the old one first. Nothing
-// else about the vault changes: the key pair, the recipient, and every stored secret stay exactly as they
-// were, so it touches only key.age. old is verified fresh against key.age on every call, never from a
-// passphrase cached earlier in the process, since a change of passphrase is exactly the moment that cache
-// must not be trusted blindly.
+// ChangePassphrase wraps the vault's key with a new passphrase after verifying the old one fresh against
+// key.age, never from a passphrase cached earlier in the process. The key pair, the recipient and every
+// stored secret stay as they were: only key.age changes.
 func (v *Vault) ChangePassphrase(oldPassphrase, newPassphrase string) error {
 	if newPassphrase == "" {
 		return ErrEmptyPassphrase
@@ -98,128 +62,54 @@ func (v *Vault) ChangePassphrase(oldPassphrase, newPassphrase string) error {
 	if state != StateLocked && state != StateUnlocked {
 		return ErrNotEncrypted
 	}
-	release, err := v.lockWrites()
-	if err != nil {
+	if err := v.kv.ChangePassphrase(oldPassphrase, newPassphrase); err != nil {
 		return err
 	}
-	defer release()
-	if state, err := v.diskState(); err != nil {
-		return err
-	} else if state != StateLocked {
-		return ErrNotEncrypted
-	}
-	v.journalSwitched()
-
-	id, err := v.decryptIdentity(oldPassphrase)
-	if err != nil {
-		return err
-	}
-	keyData, err := encryptKey(id, newPassphrase)
-	if err != nil {
-		return err
-	}
-	if err := writeFile(v.keyPath(), keyData); err != nil {
-		return err
-	}
-
-	// The key pair itself never changes, only its wrapping, so a process that already had the vault
-	// unlocked keeps working with the identity it cached, and takes the document as it is on disk now; a
-	// process that had not is left exactly as it was.
-	if v.unlocked {
-		v.identity = id
-		if doc, err := v.readSecrets(id.key); err == nil {
-			v.doc = doc
-		}
+	if state == StateUnlocked {
+		// The key pair stays, so this process keeps it and takes the document as it is on disk now: an
+		// update that changes nothing still holds what it read under the write lock.
+		_, _ = v.kv.Update(func([]byte, []kitvault.Pending) ([]byte, []string, error) {
+			return nil, nil, kitvault.ErrNoChange
+		})
 	}
 	return nil
 }
 
 // Decrypt turns an encrypted vault back into an unencrypted one, after merging every pending entry so
-// nothing queued while it was locked is lost. Its approvals, its agent tokens, and its settings are dropped. passphrase is verified fresh against key.age, the same way
-// ChangePassphrase verifies old. Called on a vault that is not encrypted, it changes nothing and reports
-// ErrNotEncrypted.
+// nothing queued while it was locked is lost. Its approvals, its agent tokens, and its settings are dropped.
+// passphrase is verified fresh against key.age. Called on a vault that is not encrypted, it changes nothing
+// and reports ErrNotEncrypted.
 func (v *Vault) Decrypt(passphrase string) error {
-	state, err := v.State()
-	if err != nil {
+	if err := v.requireEncrypted(); err != nil {
 		return err
 	}
-	if state != StateLocked && state != StateUnlocked {
-		return ErrNotEncrypted
-	}
-
-	release, err := v.lockWrites()
-	if err != nil {
-		return err
-	}
-	defer release()
-
-	// The passphrase is verified and the document read, with every pending entry merged, under the write
-	// lock; a wrong passphrase fails here before anything is written.
-	id, err := v.readIdentity(passphrase)
-	if err != nil {
-		return err
-	}
-	doc, consumed, err := v.openHeld(id)
-	if errors.Is(err, errSwitched) {
-		return ErrNotEncrypted
-	}
-	if err != nil {
-		return err
-	}
-	v.journalSwitched()
-
-	// Approvals bind connections only while the vault is encrypted; the plaintext document keeps none.
-	plain := *doc
-	plain.Approvals = nil
-	if err := v.writePlain(&plain); err != nil {
-		return err
-	}
-
-	// The encrypted files are removed only once the plaintext document they are replaced by was written
-	// successfully. Agent tokens go with them: without a passphrase nobody could manage one.
-	for _, path := range []string{v.tokensPath(), v.settingsPath(), v.secretsPath(), v.keyPath(), v.recipientPath()} {
-		if err := os.Remove(path); err != nil && !isNotExist(err) {
-			return err
+	// The kit refuses a vault without secrets.age, while this package always turned one into an empty
+	// unencrypted vault. The empty document is written under the write lock only while the file is still
+	// missing.
+	if _, err := os.Stat(v.secretsPath()); errors.Is(err, os.ErrNotExist) {
+		if _, err := v.kv.Unlock(passphrase); err != nil {
+			return mapDocumentErr(err)
+		}
+		_, err := v.kv.Update(func(data []byte, _ []kitvault.Pending) ([]byte, []string, error) {
+			if data != nil {
+				return nil, nil, kitvault.ErrNoChange
+			}
+			empty, err := encodeDocument(v.secretsPath(), newDocument())
+			return empty, nil, err
+		})
+		if err != nil {
+			return mapDocumentErr(err)
 		}
 	}
-	for _, p := range consumed {
-		_ = os.Remove(p.path)
-	}
-	_ = os.Remove(v.pendingPath())
-
-	v.identity, v.doc, v.unlocked = nil, nil, false
-	return nil
+	return mapDocumentErr(v.kv.Decrypt(passphrase))
 }
 
-// VerifyPassphrase checks passphrase against the vault's key.age and recipient without decrypting anything
-// else and without any side effect: no document is read, no pending entry is merged, and the process's own
-// cached identity, if any, is neither consulted nor replaced. It is how a caller can confirm a passphrase is
-// right before asking for anything that a wrong one would make pointless, such as a new passphrase typed
-// twice or an explicit confirmation, which ChangePassphrase and Decrypt only verify once they already have
-// both. Called on a vault that is not encrypted, it reports ErrNotEncrypted.
+// VerifyPassphrase checks passphrase against the vault's key.age and recipient without any side effect: no
+// document is read, no pending entry is merged, and what this process holds is neither consulted nor
+// replaced. Called on a vault that is not encrypted, it reports ErrNotEncrypted.
 func (v *Vault) VerifyPassphrase(passphrase string) error {
-	state, err := v.State()
-	if err != nil {
+	if err := v.requireEncrypted(); err != nil {
 		return err
 	}
-	if state != StateLocked && state != StateUnlocked {
-		return ErrNotEncrypted
-	}
-	_, err = v.decryptIdentity(passphrase)
-	return err
-}
-
-// decryptIdentity reads key.age and recipient fresh from disk and verifies passphrase against them, without
-// consulting or changing the process cache. It is how ChangePassphrase confirms the current passphrase
-// every time it is called, whether or not this process already had the vault unlocked.
-func (v *Vault) decryptIdentity(passphrase string) (*identity, error) {
-	keyData, err := readFile(v.keyPath())
-	if err != nil {
-		return nil, err
-	}
-	recipientPEM, err := readFile(v.recipientPath())
-	if err != nil {
-		return nil, err
-	}
-	return decryptKey(keyData, passphrase, recipientPEM)
+	return v.kv.VerifyPassphrase(passphrase)
 }

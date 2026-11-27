@@ -6,13 +6,14 @@ import (
 	"github.com/castrowithcee/qatlas-connect/internal/application"
 	"github.com/castrowithcee/qatlas-connect/internal/manage"
 	"github.com/castrowithcee/qatlas-connect/internal/vault"
+	kitvault "github.com/castrowithcee/qatlas-kit/vault"
 )
 
 // checkInteractive reports whether a person can be at this process's terminal. requireAdmin and
-// requireAdminTerminal call it instead of vault.Interactive directly, so a test can simulate a terminal's
-// presence, or its absence, without opening a real one. A real run always leaves it at vault.Interactive,
+// requireAdminTerminal call it instead of kitvault.Interactive directly, so a test can simulate a terminal's
+// presence, or its absence, without opening a real one. A real run always leaves it at kitvault.Interactive,
 // exactly the rule 'qconnect vault' itself uses for ReadPassphrase and ReadConfirm.
-var checkInteractive = vault.Interactive
+var checkInteractive = kitvault.Interactive
 
 // requireAdminTerminal is the half of the admin check that every CLI management command needs: a person
 // has to be at an interactive terminal, checked before the command reads a secret from standard input,

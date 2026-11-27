@@ -254,13 +254,13 @@ func TestDirAndFileModes(t *testing.T) {
 	}
 
 	info, err := os.Stat(v.Dir())
-	if err != nil || info.Mode().Perm() != dirMode {
-		t.Fatalf("vault directory mode = %v, %v, want %o", info, err, dirMode)
+	if err != nil || info.Mode().Perm() != 0o700 {
+		t.Fatalf("vault directory mode = %v, %v, want %o", info, err, 0o700)
 	}
 	for _, name := range []string{keyFile, recipientFile, secretsFile} {
 		info, err := os.Stat(filepath.Join(v.Dir(), name))
-		if err != nil || info.Mode().Perm() != fileMode {
-			t.Fatalf("%s mode = %v, %v, want %o", name, info, err, fileMode)
+		if err != nil || info.Mode().Perm() != 0o600 {
+			t.Fatalf("%s mode = %v, %v, want %o", name, info, err, 0o600)
 		}
 	}
 }
@@ -276,7 +276,7 @@ func TestUnsupportedSchemaVersionIsRejected(t *testing.T) {
 
 	path := filepath.Join(dir, DirName, plainFile)
 	future := `{"schema":2,"entries":{}}`
-	if err := os.WriteFile(path, []byte(future), fileMode); err != nil {
+	if err := os.WriteFile(path, []byte(future), 0o600); err != nil {
 		t.Fatalf("WriteFile() error = %v", err)
 	}
 

@@ -18,13 +18,14 @@ import (
 	"github.com/castrowithcee/qatlas-connect/internal/connlog"
 	"github.com/castrowithcee/qatlas-connect/internal/manage"
 	"github.com/castrowithcee/qatlas-connect/internal/secret"
-	"github.com/castrowithcee/qatlas-connect/internal/vault"
 	"github.com/castrowithcee/qatlas-kit/cobracli"
+	kitvault "github.com/castrowithcee/qatlas-kit/vault"
 )
 
 // readHiddenLine is the hidden terminal prompt a pasted redirect address is read with. It is a variable only
-// so a test can paste an address, or none, without a real terminal; a real run leaves it at vault.ReadHidden.
-var readHiddenLine = vault.ReadHidden
+// so a test can paste an address, or none, without a real terminal; a real run leaves it at the kit's
+// ReadHidden.
+var readHiddenLine = kitvault.ReadHidden
 
 func newConsentCommands(opts *Options, reg *capability.Registry) []*cobra.Command {
 	consent := &cobra.Command{
