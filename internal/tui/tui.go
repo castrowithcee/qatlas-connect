@@ -725,6 +725,8 @@ type Model struct {
 	drawn, verified bool
 	// tooSmall is set while the workspace is replaced by the size notice, which has nothing to click.
 	tooSmall bool
+	// selection is the text the mouse drags over in the parts of the kit; every key ends it.
+	selection kittui.TextSelection
 	// footerLog, when set, collects the footer lines a dialog draws, to make its keys clickable.
 	footerLog *[]footerLine
 	// screenKeys is the key text of the footer of the current screen, and screenPos the position in its list
@@ -1008,6 +1010,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.layoutWorkspace()
 		return m, nil
 	case tea.KeyPressMsg:
+		m.selection.Clear()
 		msg = legacyKey(msg)
 		if m.menu != nil && !m.terminalTooSmall() {
 			if keyIs(msg, actForceQuit) {

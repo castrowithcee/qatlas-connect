@@ -8,9 +8,10 @@ import (
 	"github.com/charmbracelet/x/ansi"
 )
 
-// The copy key hands text to the terminal as an OSC 52 sequence, which also reaches the local clipboard over
-// SSH. The terminal never confirms it, so the editor only says that it handed the text over. What is handed
-// over is built from the same safe text the screen draws, never from the raw data behind it.
+// The copy key and a drag over selectable text hand text to the terminal as an OSC 52 sequence, which also
+// reaches the local clipboard over SSH. The terminal never confirms it, so the editor only says that it handed
+// the text over. What is handed over is built from the same safe text the screen draws, never from the raw data
+// behind it.
 
 // copySource is where the copy key takes its text from right now, or nil when there is nothing to copy: the
 // open explanation, the entry of a log, the detail of an approval, the pane of the marked entry, or else the
@@ -94,7 +95,12 @@ func (m *Model) copyCurrent() tea.Cmd {
 	if source == nil {
 		return nil
 	}
-	text := m.copyClean(source())
+	return m.copyText(source())
+}
+
+// copyText hands text, made safe, to the terminal and says so; it is nil where nothing is left to copy.
+func (m *Model) copyText(text string) tea.Cmd {
+	text = m.copyClean(text)
 	if text == "" {
 		return nil
 	}

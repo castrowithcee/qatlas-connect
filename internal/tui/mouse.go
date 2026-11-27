@@ -74,21 +74,21 @@ const wheelText = 3
 // row to the first or the other way round, the keys keep their wraparound.
 var wheelClamp bool
 
-// updateMouse handles one mouse event. It acts only on a press of the left button and on the wheel; motion and
-// release do nothing. A terminal too small for the screen, an editor with the mouse switched off, and the
+// updateMouse handles one mouse event. A click acts on a press of the left button and the wheel scrolls;
+// motion and release only drag a selection of text, and the release of a press on selectable text without
+// motion is the click. A terminal too small for the screen, an editor with the mouse switched off, and the
 // capture of a new key take no mouse at all.
 func (m *Model) updateMouse(msg tea.MouseMsg) tea.Cmd {
 	switch msg.(type) {
 	case tea.MouseClickMsg, tea.MouseWheelMsg:
+	case tea.MouseMotionMsg, tea.MouseReleaseMsg:
+		if !m.selection.Holds() {
+			return nil
+		}
 	default:
 		return nil
 	}
-	event := msg.Mouse()
 	if m.quitting || !m.mouseEnabled() || m.terminalTooSmall() || m.keyCapture {
-		return nil
-	}
-	wheel := event.Button == tea.MouseWheelUp || event.Button == tea.MouseWheelDown
-	if !wheel && event.Button != tea.MouseLeft {
 		return nil
 	}
 	// The targets are those of the state the event meets: the frame drawn after the last message has them, and
@@ -96,31 +96,67 @@ func (m *Model) updateMouse(msg tea.MouseMsg) tea.Cmd {
 	if !m.drawn {
 		m.render()
 	}
-	// The frame fits (tooSmall is clear below), so the first key of the event skips the check of the size. What
-	// the event does leaves the frame stale.
-	m.verified = !m.tooSmall
-	defer func() { m.verified, m.drawn = false, false }()
 	if m.tooSmall {
+		m.verified, m.drawn = false, false
 		return nil
 	}
+	// The targets of the frame go through the kit map; the acts stay with the application, which runs the
+	// click as the key or the tab click it stands for.
+	targets, acts := m.shownTargets()
+	frame := kittui.NewMouseMap(targets, true)
+	// The selection reads every event first. A press on selectable text is held back, so a drag never acts as
+	// a click; the release without motion hands the press on as the click it was. Only the status of a copy
+	// changes what the frame shows.
+	if text, copied := m.selection.Mouse(frame, msg); copied {
+		m.drawn = false
+		return m.copyText(text)
+	}
+	if _, ok := msg.(tea.MouseClickMsg); ok && m.selection.Holds() {
+		return nil
+	}
+	if click, ok := m.selection.Replay(); ok {
+		msg = click
+	}
+	switch msg.(type) {
+	case tea.MouseClickMsg, tea.MouseWheelMsg:
+	default:
+		return nil
+	}
+	event := msg.Mouse()
+	wheel := event.Button == tea.MouseWheelUp || event.Button == tea.MouseWheelDown
+	if !wheel && event.Button != tea.MouseLeft {
+		return nil
+	}
+	// The frame fits, so the first key of the event skips the check of the size. What the event does leaves
+	// the frame stale.
+	m.verified = true
+	defer func() { m.verified, m.drawn = false, false }()
 	if m.menu != nil {
 		return m.clickMenu(msg)
 	}
 	if m.modal != nil {
 		return m.modalMouse(msg)
 	}
-	// The targets of the frame go through the kit map; the acts stay with the application, which runs the
-	// click as the key or the tab click it stands for.
+	r := frame.Handle(msg)
 	if wheel {
-		targets, _ := m.mouseTargets(false)
-		r := kittui.NewMouseMap(targets, true).Handle(msg)
 		if !r.Handled {
 			return nil
 		}
 		return m.wheel(event, r)
 	}
-	targets, acts := m.mouseTargets(false)
-	return m.runTarget(kittui.NewMouseMap(targets, true).Handle(msg), acts)
+	return m.runTarget(r, acts)
+}
+
+// shownTargets are the targets of the frame on screen: those of the overlay or the modal open over the
+// screen, which alone take the mouse then and keep their acts themselves, or else those of the screen.
+func (m *Model) shownTargets() ([]kittui.Target, []func() tea.Cmd) {
+	switch {
+	case m.menu != nil:
+		return m.menuTargets, nil
+	case m.modal != nil:
+		return m.modalTargets, nil
+	}
+	return m.mouseTargets(false)
 }
 
 // mouseTargets are the click targets of the frame drawn last: the kit frame's own and, bridged, those of the

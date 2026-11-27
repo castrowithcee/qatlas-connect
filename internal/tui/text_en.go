@@ -132,7 +132,7 @@ var textEN = map[textID]string{
 	tLanguageHint:                          "system follows the language of the device",
 	tLanguageDetail:                        "The language of the editor's own texts; a change applies at once. Terms such as service, credential and connection stay as they are, and texts of the core and the providers stay English.",
 	tMouseHint:                             "off leaves the mouse to the terminal",
-	tMouseDetail:                           "on: clicks choose tabs, rows, fields and buttons, and the wheel scrolls; off: the terminal keeps the mouse, so text can be selected with it. With it on, selecting text needs Shift (macOS Terminal: fn, iTerm2: Option, VS Code on macOS: Option-click). A change applies at once.",
+	tMouseDetail:                           "on: clicks choose tabs, rows, fields and buttons, the wheel scrolls, and a drag over the help, an explanation, a dialog or a list copies its text; off: the terminal keeps the mouse, so text can be selected with it. With it on, selecting text elsewhere needs Shift (macOS Terminal: fn, iTerm2: Option, VS Code on macOS: Option-click). A change applies at once.",
 	tNavigationHint:                        "how the areas and their parts are shown",
 	tNavigationDetail:                      "tabs, the default, is the tab line with the option bar of the area; pathline names the current place in one line, header puts that path in the header, and choice shows the active area as a field in the header above the option bar. On a path or the field, enter, a click or {menu} opens the overview of the areas. A change applies at once.",
 	tStatusDone:                            "done",
