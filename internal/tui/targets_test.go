@@ -367,7 +367,8 @@ func TestEscAsksBeforeDroppingTargetChanges(t *testing.T) {
 		!strings.Contains(view, "F2 save") {
 		t.Fatalf("esc on a changed list did not ask: screen %v\n%s", m.screen, view)
 	}
-	press(t, m, "y", "n", "s", "k", "enter", "backspace", "f3")
+	// enter is no stray key: it keeps editing, as esc does.
+	press(t, m, "y", "n", "s", "k", "backspace", "f3")
 	if m.screen != screenLeave {
 		t.Fatalf("a stray key answered the question: screen %v", m.screen)
 	}

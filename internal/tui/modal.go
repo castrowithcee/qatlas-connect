@@ -16,35 +16,6 @@ const (
 	modalMaxInner = 60
 )
 
-// questionScreen reports whether the current screen is a question the modal shows: the yes/no questions
-// and the leave question. Detail screens that share screenConfirm are not questions.
-func (m *Model) questionScreen() bool {
-	switch m.screen {
-	case screenLeave, screenUpdate, screenRestart:
-		return true
-	case screenRename:
-		return m.rename != nil && m.rename.plan != nil
-	case screenConfirm:
-		return m.approvalDetail == "" && m.tokenDetail == "" && m.requestDetail == ""
-	}
-	return false
-}
-
-// questionView is the text of the current question, without the notes that follow a full screen.
-func (m *Model) questionView() string {
-	switch m.screen {
-	case screenLeave:
-		return m.leaveView()
-	case screenUpdate:
-		return m.updateView()
-	case screenRestart:
-		return m.restartView()
-	case screenRename:
-		return m.questionText(m.renameQuestion())
-	}
-	return m.confirmView()
-}
-
 // screenBeneath is the screen a dialog stands over, and false for a screen that is none.
 func (m *Model) screenBeneath(s screen) (screen, bool) {
 	switch s {
@@ -86,6 +57,9 @@ func (m *Model) screenBeneath(s screen) (screen, bool) {
 		return screenList, true
 	case screenConfirm:
 		switch {
+		case m.tokenRevoke != "" && m.tokenDetail != "":
+			// The revoke question stands over the detail of its token.
+			return screenConfirm, true
 		case m.settingsTakeover != nil:
 			return m.settingsTakeoverBack, true
 		case m.vaultLockConfirm:
@@ -124,9 +98,6 @@ func (m *Model) scrollViews() []*textScroll {
 	}
 	if e := m.imp; e != nil {
 		views = append(views, &e.view)
-	}
-	if r := m.rename; r != nil {
-		views = append(views, &r.view)
 	}
 	if st := m.st; st != nil {
 		views = append(views, &st.view)
@@ -192,8 +163,6 @@ func (m *Model) modalView() (string, bool) {
 		title = tr(tCmdHead)
 		m.renderAs(m.screen, inner, func() { palette, paletteIndex = m.paletteLines(inner, m.termHeight-4) })
 		text = strings.Join(palette, "\n")
-	} else if m.questionScreen() {
-		m.renderAs(m.screen, inner, func() { text = m.questionView() })
 	} else {
 		ok := false
 		m.renderAs(m.screen, inner, func() {
@@ -212,12 +181,7 @@ func (m *Model) modalView() (string, bool) {
 		return "", false
 	}
 	lines := strings.Split(strings.TrimRight(text, "\n"), "\n")
-	room := m.termHeight - 4
-	if m.questionScreen() {
-		// A question leaves the top line and the tab line in view, so it never hides where it was asked.
-		room = m.termHeight - 6
-	}
-	if len(lines) > room {
+	if len(lines) > m.termHeight-4 {
 		return "", false
 	}
 	for i, line := range lines {
@@ -276,57 +240,23 @@ func dim(text string) string {
 	return styles.hint.Render(text)
 }
 
-// question is the one shape of every yes/no and leave question: the question itself, one sentence on what
-// follows from it, the detail lines the answer needs, and the key line as the last line. The modal and the
-// full-screen fallback draw the same text.
+// question is the shape of a question a detail screen asks in its own text: the question itself, one sentence
+// on what follows from it, the detail lines the answer needs, and the key line as the last line. The questions
+// that stand over a screen are the kit's dialogs; see kitdialog.go.
 type question struct {
 	title       string
 	consequence string
-	// warn draws the consequence as a warning.
-	warn bool
-	// danger draws the answer that destroys something (y or d) as the dangerous button.
-	danger bool
-	// labels name buttons by their key where the key line's words do not fit a button.
-	labels map[string]string
 	// details are finished lines (they may span several rows) between the consequence and the keys.
 	details []string
 	keys    string
 }
 
-// questionHeading is the question of a modal with the warning mark at its left.
-func (m *Model) questionHeading(title string) string {
-	lines := strings.Split(render(styles.title, m.usable(2), title), "\n")
-	for i, line := range lines {
-		lead := "  "
-		if i == 0 {
-			lead = styles.warning.Render(warnMark) + " "
-		}
-		lines[i] = lead + line
-	}
-	return strings.Join(lines, "\n")
-}
-
 func (m *Model) questionText(q question) string {
-	if m.probeKeys != nil {
-		*m.probeKeys = q.keys
-		return ""
-	}
-	style := styles.hint
-	if q.warn {
-		style = styles.warning
-	}
 	var b strings.Builder
-	if m.inModal || m.inPanel {
-		b.WriteString(m.questionHeading(q.title) + "\n\n")
-	} else {
-		b.WriteString(m.wrapped(styles.title, q.title) + "\n\n")
-	}
-	b.WriteString(m.indentedWith(style, q.consequence) + "\n")
+	b.WriteString(m.wrapped(styles.title, q.title) + "\n\n")
+	b.WriteString(m.indentedWith(styles.hint, q.consequence) + "\n")
 	for _, d := range q.details {
 		b.WriteString(strings.TrimRight(d, "\n") + "\n")
-	}
-	if m.inModal {
-		return m.withButtons(b.String(), q.keys, q.danger, q.labels)
 	}
 	b.WriteString(m.keyHint(q.keys))
 	return b.String()

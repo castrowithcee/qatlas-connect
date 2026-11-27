@@ -838,23 +838,19 @@ func (m *Model) reportLines(p dialogPanel, line string) []string {
 	return out
 }
 
-// exportLeaveView is the leave question over an unfinished export.
-func (m *Model) exportLeaveView() string {
+// exportLeaveAsk is the leave question over an unfinished export.
+func (m *Model) exportLeaveAsk() ask {
 	save := "{save} next step"
 	if m.export != nil && m.export.step == exportPreview {
 		save = "{save} write"
+	}
+	if m.export != nil && m.export.step == exportPlainConfirm {
+		// F2 does not answer the plain text question; only y does.
+		save = ""
 	}
 	title, discard, why := tr(tExportLeaveTitle), "{discard} discard", tr(tExportLeaveWhy)
 	if m.leaveQuit {
 		title, discard, why = tr(tExportQuitTitle), "{discard} discard and quit", tr(tTransferQuitWhy)
 	}
-	keys := save + " · " + discard + " · {back} keep editing · {command} cmds · {help} help"
-	if m.export != nil && m.export.step == exportPlainConfirm {
-		// F2 does not answer the plain text question; only y does.
-		keys = discard + " · {back} keep editing · {command} cmds · {help} help"
-	}
-	return m.questionText(question{title: title, consequence: why, danger: true,
-		details: []string{m.indentedWith(styles.warning, tr(tExportLeaveWarn)),
-			m.indented(tr(tTransferNothingWritten))},
-		keys: keys})
+	return m.leaveQuestion(title, why, tr(tExportLeaveWarn), tr(tTransferNothingWritten), save, discard)
 }

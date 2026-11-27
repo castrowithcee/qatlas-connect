@@ -131,8 +131,8 @@ func TestThePathListIsEditedEntryByEntry(t *testing.T) {
 	clearField(t, m)
 	typeText(t, m, second)
 	press(t, m, "enter", "up", "d")
-	if view := screenOf(m); !strings.Contains(view, "Remove \""+first+"\"") {
-		t.Fatalf("remove does not ask first:\n%s", view)
+	if q, _ := m.currentAsk(); m.question == nil || !strings.Contains(q.question, "Remove \""+first+"\"") {
+		t.Fatalf("remove does not ask first:\n%s", screenOf(m))
 	}
 	press(t, m, "n")
 	if len(m.pathList.all) != 2 {

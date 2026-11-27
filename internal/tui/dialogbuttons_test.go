@@ -26,23 +26,23 @@ func openDeleteQuestion(t *testing.T) *Model {
 
 func TestClickOnDeleteConfirmsTheQuestion(t *testing.T) {
 	m := openDeleteQuestion(t)
-	if view := ansi.Strip(m.render()); !strings.Contains(view, "[ Delete ]") || !strings.Contains(view, "[ Cancel ]") {
+	if view := ansi.Strip(m.render()); !strings.Contains(view, "[ remove ]") || !strings.Contains(view, "[ enter keep ]") {
 		t.Fatalf("the question shows no buttons:\n%s", view)
 	}
-	clickOn(t, m, "Delete ]")
+	clickOn(t, m, "remove ]")
 	if _, ok := m.cfg.Connections["docs"]; ok || m.screen == screenConfirm {
-		t.Fatalf("the click on Delete left the connection (screen %v)", m.screen)
+		t.Fatalf("the click on remove left the connection (screen %v)", m.screen)
 	}
 }
 
 func TestClickOnCancelCancelsTheQuestion(t *testing.T) {
 	m := openDeleteQuestion(t)
-	clickOn(t, m, "Cancel ]")
+	clickOn(t, m, "keep ]")
 	if m.screen != screenList || m.status != tr(tCancelled) {
-		t.Fatalf("screen %v status %q after the click on Cancel", m.screen, m.status)
+		t.Fatalf("screen %v status %q after the click on keep", m.screen, m.status)
 	}
 	if _, ok := m.cfg.Connections["docs"]; !ok {
-		t.Fatal("the click on Cancel deleted the connection")
+		t.Fatal("the click on keep deleted the connection")
 	}
 }
 
@@ -52,8 +52,8 @@ func TestOnlyDestructiveQuestionsHaveADangerButton(t *testing.T) {
 	setProfile(kittui.ProfileTrueColor)
 	t.Setenv("NO_COLOR", "")
 	useDarkColours()
-	danger := button(buttonDanger, "Delete", false)
-	fill := danger[:strings.Index(danger, "[ Delete")]
+	danger := styles.Button(kittui.ButtonDanger, "remove", false)
+	fill := danger[:strings.Index(danger, "[ remove")]
 
 	if view := openDeleteQuestion(t).render(); !strings.Contains(view, fill) {
 		t.Errorf("the delete question has no danger button:\n%s", view)
@@ -61,7 +61,7 @@ func TestOnlyDestructiveQuestionsHaveADangerButton(t *testing.T) {
 	m := openDeleteQuestion(t)
 	m.screen, m.vaultLockConfirm, m.vaultLockBack = screenConfirm, true, screenList
 	view := m.render()
-	if !strings.Contains(ansi.Strip(view), "[ Lock ]") || strings.Contains(view, fill) {
+	if !strings.Contains(ansi.Strip(view), "[ lock ]") || strings.Contains(view, fill) {
 		t.Errorf("the lock question is missing or has a danger button:\n%s", view)
 	}
 }
@@ -84,7 +84,7 @@ func TestDialogsReadWithoutColour(t *testing.T) {
 			}
 		}
 		plain := ansi.Strip(view)
-		if name == "question" && !strings.Contains(plain, "[ Delete ]") {
+		if name == "question" && !strings.Contains(plain, "[ remove ]") {
 			t.Errorf("the question lacks its buttons:\n%s", plain)
 		}
 		if name == "input" && (!strings.Contains(plain, "> Store <") || strings.Contains(plain, "canary-secret")) {
@@ -144,7 +144,7 @@ func TestDialogButtonsLabelAndFocusInBothLanguages(t *testing.T) {
 	}
 	for _, c := range cases {
 		useLanguage(t, c.lang)
-		buttons := m.dialogButtons(c.keys, false, nil)
+		buttons := m.dialogButtons(c.keys)
 		if len(buttons) != 1 || buttons[0].label != c.label || !buttons[0].focused {
 			t.Errorf("%s %q: buttons %+v, want one focused %q", c.lang, c.keys, buttons, c.label)
 		}

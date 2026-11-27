@@ -48,7 +48,7 @@ func (m *Model) promptText(d promptDialog, titled bool) string {
 		b.WriteString(m.indented(d.hint) + "\n")
 	}
 	if m.inModal {
-		return m.withButtons(b.String(), d.keys, false, nil)
+		return m.withButtons(b.String(), d.keys)
 	}
 	b.WriteString(m.keyHint(d.keys))
 	return b.String()

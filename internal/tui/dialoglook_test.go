@@ -232,11 +232,11 @@ func TestQuestionAndPromptFillTheWorkspaceInAPanel(t *testing.T) {
 	m := startedWith(t, newerRelease())
 	m.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
 	press(t, m, "U")
-	view := ansi.Strip(m.framedText(m.updateView))
-	if !strings.Contains(view, "╭") || !strings.Contains(view, warnMark+" Update qconnect to v0.5.0?") {
-		t.Errorf("the update question is not a panel with its mark:\n%s", view)
+	view := ansi.Strip(m.render())
+	if !strings.Contains(view, "Install update") || !strings.Contains(view, warnMark+" Update qconnect to v0.5.0?") {
+		t.Errorf("the update question is not a dialog with its title and mark:\n%s", view)
 	}
-	checkFits(t, view, m.width, m.height)
+	checkFits(t, view, m.termWidth, m.termHeight)
 
 	e := exportAt(exportTarget, exportWithout)(t)
 	e.Update(tea.WindowSizeMsg{Width: 100, Height: 30})

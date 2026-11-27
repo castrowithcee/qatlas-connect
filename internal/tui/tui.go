@@ -95,7 +95,7 @@ var sectionTitles = [sectionCount]textID{tSecServices, tSecCredentials, tSecConn
 
 // entry is what one entry of the section is called. Vault has no entries of its own; the name here is
 // never shown, because the vault form and its leave question are worded on their own (see editorView and
-// leaveView). Approvals never opens a "New ..." form either: its entries only ever come from Pending. Logs
+// leaveAsk). Approvals never opens a "New ..." form either: its entries only ever come from Pending. Logs
 // and Overview hold no list of named entries either.
 func (s section) entry() string {
 	name := [...]string{"service", "credential", "connection", "default", "vault setting", "approval", "agent token",
@@ -671,6 +671,10 @@ type Model struct {
 	modal        kittui.Modal
 	modalDone    func(action) tea.Cmd
 	modalTargets []kittui.Target
+	// question is the dialog of the question the current screen asks, and questionKey the ask it was built
+	// from; see kitdialog.go.
+	question    *kittui.Dialog
+	questionKey string
 	// helpTopic is the topic the help showed when it last closed; it opens there again.
 	helpTopic string
 
@@ -724,13 +728,11 @@ type Model struct {
 	pathShown []pathRowsShown
 	// inModal is set while a dialog is drawn as a modal: its text then carries its buttons.
 	inModal bool
-	// inPanel is set while a question is drawn for the inside of a frame (see framedText).
+	// inPanel is set while a question is drawn for the inside of a frame (see framedTitled).
 	inPanel bool
 	// screenKeys is the key text of the footer of the current screen, and screenPos the position in its list
 	// at the right end of the footer; layoutWorkspace takes both before the screen is drawn.
 	screenKeys, screenPos string
-	// probeKeys, while set, makes questionText hand over the keys of a question instead of drawing it.
-	probeKeys *string
 	// spec is the frame of the current screen without its workspace, and top the row its workspace starts in.
 	spec kittui.FrameSpec
 	top  int
@@ -895,6 +897,9 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	defer m.keepScrollPosition()
 	// Deferred last, so it runs first: the vault or admin state, and with it the header, may have changed.
 	defer m.layoutWorkspace()
+	// A question is shown before the message, which it takes, and after it, which may have asked it.
+	defer m.syncQuestion()
+	m.syncQuestion()
 	switch msg := msg.(type) {
 	case kittui.InputBatch:
 		var cmds []tea.Cmd
@@ -1103,14 +1108,8 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			cmd = m.updateProviderTable(msg)
 		case screenSummary:
 			cmd = m.updateSummary(msg)
-		case screenLeave:
-			cmd = m.updateLeave(msg)
-		case screenUpdate:
-			cmd = m.updateUpdateConfirm(msg)
 		case screenVersions:
 			cmd = m.updateVersions(msg)
-		case screenRestart:
-			cmd = m.updateRestartConfirm(msg)
 		case screenTargets:
 			cmd = m.updateTargets(msg)
 		case screenPaths:
@@ -1123,8 +1122,6 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			cmd = m.updateLogDetail(msg)
 		case screenTemplate:
 			cmd = m.updateTemplate(msg)
-		case screenRename:
-			cmd = m.updateRename(msg)
 		case screenFindings:
 			cmd = m.updateFindings(msg)
 		case screenCommand:
@@ -1758,35 +1755,37 @@ func (m *Model) formState() string {
 	return b.String()
 }
 
-// updateLeave answers the leave question. F2 saves, or goes on in the guided setup, d drops the input and
+// answerLeave answers the leave question. F2 saves, or goes on in the guided setup, d drops the input and
 // goes on, or ends the program after ctrl+c, and esc returns to where it came from unchanged. Nothing else
 // answers it, not even y or n, whose meaning would be a guess, so a stray key neither saves nor discards.
-func (m *Model) updateLeave(key tea.KeyPressMsg) tea.Cmd {
+func (m *Model) answerLeave(act action) tea.Cmd {
 	from := m.leaveFrom
-	switch {
-	case keyIs(key, actBack):
+	switch act {
+	case actBack:
 		m.screen, m.leaveQuit = from, false
 		m.status = tr(tFormStillEditingNothingWasSaved)
-	case keyIs(key, actDiscard):
+	case actDiscard:
 		if m.leaveQuit {
 			return m.quit()
 		}
 		return m.discard()
-	case keyIs(key, actSave):
+	case actSave:
 		m.leaveQuit = false
+		// The screen it came from saves as its own F2 does.
+		save, _ := keyOf(actSave)
 		switch from {
 		case screenTargets:
 			m.screen = from
-			return m.updateTargets(key)
+			return m.updateTargets(save)
 		case screenPaths:
 			m.screen = from
-			return m.updatePaths(key)
+			return m.updatePaths(save)
 		case screenSummary:
 			m.screen = from
 			return m.startSetupSave()
 		case screenTransfer:
 			m.screen = from
-			return m.updateTransfer(key)
+			return m.updateTransfer(save)
 		case screenPicker:
 			m.keepPicker()
 		}
@@ -2698,64 +2697,9 @@ func (m *Model) replaceEffectChoices(provider string) {
 	f.hint, f.detail = m.permissionHint(provider), m.permissionDetail(provider)
 }
 
+// updateConfirm handles the keys of the detail screens of screenConfirm; its questions are dialogs, answered
+// through answerConfirm.
 func (m *Model) updateConfirm(key tea.KeyPressMsg) tea.Cmd {
-	if m.settingsTakeover != nil {
-		switch {
-		case keyIs(key, actYes):
-			m.answerSettingsTakeover(true)
-		case keyIs(key, actNo) || keyIs(key, actBack):
-			m.answerSettingsTakeover(false)
-		}
-		return nil
-	}
-	if m.vaultLockConfirm {
-		switch {
-		case keyIs(key, actYes):
-			back := m.vaultLockBack
-			m.vaultLockConfirm, m.screen = false, back
-			return m.beginVaultLock()
-		case keyIs(key, actNo) || keyIs(key, actBack):
-			back := m.vaultLockBack
-			m.vaultLockConfirm, m.screen = false, back
-			m.status = tr(tCancelledUnlocked)
-		}
-		return nil
-	}
-	if m.decryptConfirm {
-		switch {
-		case keyIs(key, actYes):
-			passphrase := m.decryptPassphrase
-			m.decryptConfirm, m.decryptPassphrase, m.screen = false, "", screenForm
-			return m.runVaultDecrypt(passphrase)
-		case keyIs(key, actNo) || keyIs(key, actBack):
-			m.decryptConfirm, m.decryptPassphrase, m.screen = false, "", screenForm
-			m.status = tr(tCancelledEncrypted)
-		}
-		return nil
-	}
-	if m.migratePlanConfirm {
-		switch {
-		case keyIs(key, actYes):
-			m.migratePlanConfirm = false
-			return m.beginVaultMigrateWrite()
-		case keyIs(key, actNo) || keyIs(key, actBack):
-			m.migratePlanConfirm, m.migrate, m.screen = false, nil, screenForm
-			m.status = tr(tMigrateUntouched)
-		}
-		return nil
-	}
-	if m.migrateDeleteConfirm {
-		switch {
-		case keyIs(key, actYes):
-			m.migrateDeleteConfirm = false
-			return m.deleteLegacyCredentials()
-		case keyIs(key, actNo) || keyIs(key, actBack):
-			m.migrateDeleteConfirm, m.screen = false, screenForm
-			m.status = tr(tMigrateFileKept, m.migrateResult)
-			m.migrate, m.migrateResult = nil, ""
-		}
-		return nil
-	}
 	if cmd, ok := m.updateTokenScreens(key); ok {
 		return cmd
 	}
@@ -2777,57 +2721,104 @@ func (m *Model) updateConfirm(key tea.KeyPressMsg) tea.Cmd {
 		default:
 			m.approval.scroll(key, m.approvalPage)
 		}
-		return nil
 	}
-	if m.approveAllConfirm {
-		switch {
-		case keyIs(key, actYes):
-			m.approveAllConfirm, m.screen = false, screenList
-			return m.requireAdmin(m.approveAll)
-		case keyIs(key, actNo) || keyIs(key, actBack):
-			m.approveAllConfirm, m.screen = false, screenList
-			m.status = tr(tCancelled)
+	return nil
+}
+
+// answerConfirm runs the answer to the question of screenConfirm: y does what it asked, n and esc keep
+// everything as it is.
+func (m *Model) answerConfirm(act action) tea.Cmd {
+	yes := act == actYes
+	switch {
+	case m.settingsTakeover != nil:
+		m.answerSettingsTakeover(yes)
+		return nil
+	case m.vaultLockConfirm:
+		m.vaultLockConfirm, m.screen = false, m.vaultLockBack
+		if yes {
+			return m.beginVaultLock()
 		}
+		m.status = tr(tCancelledUnlocked)
 		return nil
-	}
-	if profile := m.pendingProfile; profile != "" {
-		switch {
-		case keyIs(key, actYes):
-			m.pendingProfile, m.screen = "", screenForm
+	case m.decryptConfirm:
+		passphrase := m.decryptPassphrase
+		m.decryptConfirm, m.decryptPassphrase, m.screen = false, "", screenForm
+		if yes {
+			return m.runVaultDecrypt(passphrase)
+		}
+		m.status = tr(tCancelledEncrypted)
+		return nil
+	case m.migratePlanConfirm:
+		m.migratePlanConfirm = false
+		if yes {
+			return m.beginVaultMigrateWrite()
+		}
+		m.migrate, m.screen = nil, screenForm
+		m.status = tr(tMigrateUntouched)
+		return nil
+	case m.migrateDeleteConfirm:
+		m.migrateDeleteConfirm = false
+		if yes {
+			return m.deleteLegacyCredentials()
+		}
+		m.screen = screenForm
+		m.status = tr(tMigrateFileKept, m.migrateResult)
+		m.migrate, m.migrateResult = nil, ""
+		return nil
+	case m.approveAllConfirm:
+		m.approveAllConfirm, m.screen = false, screenList
+		if yes {
+			return m.requireAdmin(m.approveAll)
+		}
+		m.status = tr(tCancelled)
+		return nil
+	case m.tokenRevoke != "":
+		name := m.tokenRevoke
+		m.tokenRevoke = ""
+		if yes {
+			m.tokenDetail, m.tokenReveal = "", false
+			m.screen = screenList
+			return m.requireAdmin(func() tea.Cmd { return m.revokeToken(name) })
+		}
+		// The question returns to where it was asked: the detail screen, or the list.
+		if m.tokenDetail == "" {
+			m.screen = screenList
+		}
+		m.status = tr(tTokenStays)
+		return nil
+	case m.pendingProfile != "":
+		profile := m.pendingProfile
+		m.pendingProfile, m.screen = "", screenForm
+		if yes {
 			m.applyProfile(profile)
 			m.status = tr(tFormProfileTickedReviewTheSelected, profile)
-		case keyIs(key, actNo) || keyIs(key, actBack):
-			m.pendingProfile, m.screen = "", screenForm
+		} else {
 			m.status = tr(tFormProfileNotAppliedTheTicks)
 		}
 		return nil
 	}
-	switch {
-	case keyIs(key, actYes):
-		// Deleting an entry, or a stored secret, is a managing action: requireAdmin gates the
-		// actual removal behind this window's admin session, run only once the confirmation itself is given.
-		if role := m.confirmRole; role != "" {
-			m.confirmRole = ""
-			m.screen = screenForm
-			return m.requireAdmin(func() tea.Cmd {
-				if m.credentialType() == config.CredentialTypeVault {
-					return m.removeVaultSecret(m.editing, role)
-				}
-				return m.removeSecret(m.editing, role)
-			})
-		}
+	role := m.confirmRole
+	m.confirmRole = ""
+	if role != "" {
+		m.screen = screenForm
+	} else {
 		m.screen = screenList
-		return m.requireAdmin(m.delete)
-	case keyIs(key, actNo) || keyIs(key, actBack):
-		if m.confirmRole != "" {
-			m.confirmRole = ""
-			m.screen = screenForm
-		} else {
-			m.screen = screenList
-		}
-		m.status = tr(tCancelled)
 	}
-	return nil
+	if !yes {
+		m.status = tr(tCancelled)
+		return nil
+	}
+	// Deleting an entry, or a stored secret, is a managing action: requireAdmin gates the actual removal
+	// behind this window's admin session, run only once the confirmation itself is given.
+	if role != "" {
+		return m.requireAdmin(func() tea.Cmd {
+			if m.credentialType() == config.CredentialTypeVault {
+				return m.removeVaultSecret(m.editing, role)
+			}
+			return m.removeSecret(m.editing, role)
+		})
+	}
+	return m.requireAdmin(m.delete)
 }
 
 // startTest runs the connection test for the selected connection.
@@ -4026,6 +4017,7 @@ func (m *Model) renderFrame() string {
 	}
 	m.hits, m.frameTabs, m.frameKeys, m.zones, m.listTargets, m.dialogBox, m.tooSmall = nil, nil, nil, nil, nil, hit{}, false
 	m.barTargets, m.modalTargets = nil, nil
+	m.syncQuestion()
 	m.pathShown = nil
 	m.drawn = true
 	if m.dd != nil {
@@ -4033,13 +4025,6 @@ func (m *Model) renderFrame() string {
 	}
 	m.layoutWorkspace()
 	if m.terminalTooSmall() {
-		if m.screen == screenLeave {
-			// With no frame there is no footer: the question keeps its keys.
-			var footers []footerLine
-			m.footerLog = &footers
-			defer func() { m.footerLog = nil }()
-			return m.boundKeepingKeys(m.leaveView(), m.termWidth, m.termHeight)
-		}
 		return m.resizeView()
 	}
 	if m.modal != nil {
@@ -4048,7 +4033,7 @@ func (m *Model) renderFrame() string {
 	if view, ok := m.modalView(); ok {
 		return view
 	}
-	if m.questionScreen() || m.promptScreen() {
+	if m.promptScreen() {
 		// A dialog that has no room for a modal fills the workspace; its keys stand in the footer.
 		return m.frame(m.workspaceView())
 	}
@@ -4105,12 +4090,8 @@ func (m *Model) editorView() string {
 		return m.commandLineView()
 	case screenSelftest:
 		return m.selftestView()
-	case screenUpdate:
-		return m.framedText(m.updateView) + m.notes()
 	case screenVersions:
 		return m.versionsView()
-	case screenRestart:
-		return m.framedText(m.restartView) + m.notes()
 	case screenTargets:
 		return m.targetsView()
 	case screenPaths:
@@ -4121,8 +4102,6 @@ func (m *Model) editorView() string {
 		return m.logDetailView() + m.notes()
 	case screenTemplate:
 		return m.templateView()
-	case screenRename:
-		return m.renameView()
 	case screenFindings:
 		return m.findingsView()
 	case screenTransfer:
@@ -4174,11 +4153,9 @@ func (m *Model) editorView() string {
 		d, _ := m.prompt()
 		b.WriteString(m.promptScreenText(d))
 	case screenConfirm:
-		b.WriteString(m.framedQuestion(m.confirmView))
+		b.WriteString(m.confirmView())
 	case screenSummary:
 		b.WriteString(m.summaryView())
-	case screenLeave:
-		b.WriteString(m.framedText(m.leaveView))
 	}
 
 	b.WriteString(m.notes())
@@ -4272,14 +4249,14 @@ const (
 	formKeys  = "{save} save · " + leaveKeys
 )
 
-// leaveView is the leave question. It names what would be lost and where the user was going, and offers
+// leaveAsk is the leave question. It names what would be lost and where the user was going, and offers
 // exactly the answers that apply.
-func (m *Model) leaveView() string {
+func (m *Model) leaveAsk() ask {
 	if m.leaveFrom == screenTransfer {
 		if m.imp != nil {
-			return m.importLeaveView()
+			return m.importLeaveAsk()
 		}
-		return m.exportLeaveView()
+		return m.exportLeaveAsk()
 	}
 	what := tr(tLeaveNew, m.section.entry())
 	where := tr(tLeaveWhereList, m.section.title())
@@ -4310,11 +4287,27 @@ func (m *Model) leaveView() string {
 		discard = "{discard} discard and quit"
 		why = tr(tLeaveQuitWhy)
 	}
-	return m.questionText(question{
-		title: title, consequence: why, danger: true,
-		details: []string{m.indentedWith(styles.warning, warning), m.indented(tr(tLeaveNothingWritten))},
-		keys:    save + " · " + discard + " · {back} keep editing · {command} cmds · {help} help",
-	})
+	return m.leaveQuestion(title, why, warning, tr(tLeaveNothingWritten), save, discard)
+}
+
+// leaveQuestion is a leave question: save, when it is not empty, discard, which destroys, and esc, which
+// keeps editing and is what enter gives.
+func (m *Model) leaveQuestion(question, consequence, warning, note, save, discard string) ask {
+	var answers []kittui.Answer
+	if save != "" {
+		answers = append(answers, kittui.Answer{Action: actSave, Label: hintLabelID(save)})
+	}
+	answers = append(answers, kittui.Answer{Action: actDiscard, Label: hintLabelID(discard)},
+		kittui.Answer{Action: actBack, Label: hintLabelID("{back} keep editing")})
+	return ask{
+		title:       tAskLeave,
+		question:    question,
+		consequence: consequence,
+		details:     []kittui.DialogLine{{Text: warning, Style: kittui.StyleWarn}, {Text: note}},
+		answers:     answers,
+		keep:        actBack,
+		danger:      actDiscard,
+	}
 }
 
 // leaveSubject names what a list, a picker or a builder would lose; it is empty for a form and a setup.
@@ -4931,12 +4924,9 @@ func (m *Model) terminalTooSmall() bool {
 	return m.termWidth < minimumWidth || m.termHeight < minimumHeight
 }
 
-// activeScreenTooSmall reports whether the current screen cannot be used at this size. The leave question
-// is always answerable: it is the one screen whose keys protect unsaved input.
+// activeScreenTooSmall reports whether the current screen cannot be used at this size. Below the smallest
+// terminal a question too gives way to the size hint, where only esc keeps editing and ctrl+c asks to quit.
 func (m *Model) activeScreenTooSmall() bool {
-	if m.screen == screenLeave {
-		return false
-	}
 	if m.terminalTooSmall() {
 		return true
 	}
@@ -5372,61 +5362,61 @@ func Run(opts Options) error {
 	return err
 }
 
-// profileConfirmView asks before a profile replaces ticks that were changed by hand or that belong to a
-// saved connection. It names exactly what the profile selects.
-func (m *Model) profileConfirmView() string {
+// profileAsk asks before a profile replaces ticks that were changed by hand or that belong to a saved
+// connection. It names exactly what the profile selects.
+func (m *Model) profileAsk() ask {
 	metadata, _ := m.cfg.ProviderMetadata(m.formProvider())
 	profile, _ := findProfile(metadata, m.pendingProfile)
-	return m.questionText(question{
-		title:       tr(tFormReplaceTheAccessAndTool, profile.ID),
+	return ask{
+		title:       tAskProfile,
+		question:    tr(tFormReplaceTheAccessAndTool, profile.ID),
 		consequence: tr(tFormEveryTickStaysChangeableAfterwards),
-		details:     []string{m.indented(profileText(metadata, profile))},
-		keys:        "{yes} replace the ticks · {no}/{back} keep them · {command} cmds · {help} help",
-	})
+		details:     []kittui.DialogLine{{Text: profileText(metadata, profile)}},
+		answers:     yesNo("{yes} replace the ticks", "{no}/{back} keep them"),
+		keep:        actNo,
+	}
 }
 
-// confirmView is the question of screenConfirm that the set flag or field selects, or the delete question.
-// It ends in the key line and carries no notes, so the same text serves the modal and the full screen.
-func (m *Model) confirmView() string {
+// confirmAsk is the question of screenConfirm that the set flag or field selects, or the delete question;
+// false while screenConfirm shows a detail screen instead.
+func (m *Model) confirmAsk() (ask, bool) {
 	switch {
 	case m.settingsTakeover != nil:
-		return m.settingsTakeoverView()
+		return m.settingsTakeoverAsk(), true
 	case m.vaultLockConfirm:
-		return m.vaultLockConfirmView()
+		return m.vaultLockAsk(), true
 	case m.decryptConfirm:
-		return m.questionText(question{
-			title:       tr(tDecryptTitle),
-			consequence: tr(tDecryptConsequence),
-			warn:        true,
-			keys:        "{yes} turn off · {no}/{back} keep it encrypted · {command} cmds · {help} help",
-		})
+		return ask{
+			title:        tAskDecrypt,
+			question:     tr(tDecryptTitle),
+			consequence:  tr(tDecryptConsequence),
+			irreversible: true,
+			answers:      yesNo("{yes} turn off", "{no}/{back} keep it encrypted"),
+			keep:         actNo,
+		}, true
 	case m.migratePlanConfirm:
-		return m.migratePlanView()
+		return m.migratePlanAsk(), true
 	case m.migrateDeleteConfirm:
-		return m.migrateResultView()
-	case m.requestDetail != "":
-		return m.requestDetailView()
-	case m.approvalDetail != "":
-		return m.approvalDetailView()
+		return m.migrateResultAsk(), true
+	case m.requestDetail != "", m.approvalDetail != "":
+		return ask{}, false
 	case m.approveAllConfirm:
-		return m.approveAllConfirmView()
+		return m.approveAllAsk(), true
 	case m.tokenRevoke != "":
-		return m.tokenRevokeView()
+		return m.tokenRevokeAsk(), true
 	case m.tokenDetail != "":
-		return m.tokenDetailView()
+		return ask{}, false
 	case m.pendingProfile != "":
-		return m.profileConfirmView()
+		return m.profileAsk(), true
 	}
-	const keys = "{yes} remove · {no}/{back} keep · {command} cmds · {help} help"
+	answers := yesNo("{yes} remove", "{no}/{back} keep")
 	if m.confirmRole != "" {
 		consequence := tr(tFormItIsRemovedFromThe)
 		if m.credentialType() != config.CredentialTypeVault {
 			consequence = tr(tFormItIsRemovedFromThe2)
 		}
-		return m.questionText(question{
-			title:       tr(tFormRemoveTheStoredSecretFor, m.editing, m.confirmRole),
-			consequence: consequence, keys: keys, danger: true,
-		})
+		return ask{title: tAskRemoveSecret, question: tr(tFormRemoveTheStoredSecretFor, m.editing, m.confirmRole),
+			consequence: consequence, answers: answers, keep: actNo, danger: actYes}, true
 	}
 	name, _ := m.selected()
 	credType := m.cfg.Credentials[name].Type
@@ -5437,6 +5427,20 @@ func (m *Model) confirmView() string {
 		(credType == config.CredentialTypeKeyring || credType == config.CredentialTypeVault) {
 		consequence = tr(tFormItsStoredSecretsAreNot)
 	}
-	return m.questionText(question{title: tr(tFormDelete, name), consequence: consequence, keys: keys, danger: true,
-		labels: map[string]string{keyLabel(actYes): tr(tButtonDelete), keyLabel(actNo): tr(tButtonCancel)}})
+	return ask{title: tAskDelete, question: tr(tFormDelete, name), consequence: consequence, answers: answers,
+		keep: actNo, danger: actYes}, true
+}
+
+// confirmView is the detail screen screenConfirm shows: a request, an approval or a token. Its questions are
+// dialogs over the screen beneath.
+func (m *Model) confirmView() string {
+	switch {
+	case m.requestDetail != "":
+		return m.requestDetailView()
+	case m.approvalDetail != "":
+		return m.approvalDetailView()
+	case m.tokenDetail != "":
+		return m.tokenDetailView()
+	}
+	return ""
 }

@@ -18,17 +18,16 @@ type dialogButton struct {
 	focused bool
 }
 
-// warnMark leads the heading of a question in a modal.
+// warnMark leads a question.
 const warnMark = "⚠"
 
 // buttonGap separates two buttons of a row.
 const buttonGap = "  "
 
 // dialogButtons reads the answers out of a key line: every group that names a key a button can press,
-// except the groups of the editor around the dialog (help, commands, navigation). With danger the groups
-// that answer with y or d are drawn as the dangerous kind. The group of enter is the focused one, so the
-// default answer shows without colour too; a question that enter does not answer has none.
-func (m *Model) dialogButtons(keys string, danger bool, labels map[string]string) []dialogButton {
+// except the groups of the editor around the dialog (help, commands, navigation). The group of enter is the
+// focused one, so the default answer shows without colour too; a dialog that enter does not answer has none.
+func (m *Model) dialogButtons(keys string) []dialogButton {
 	text := m.footerKeys(keys)
 	var buttons []dialogButton
 	seen := map[string]bool{}
@@ -41,19 +40,13 @@ func (m *Model) dialogButtons(keys string, danger bool, labels map[string]string
 			continue
 		}
 		seen[key] = true
-		label := labels[key]
-		if label == "" {
-			label = buttonLabel(group)
-		}
+		label := buttonLabel(group)
 		if label == "" {
 			label = key
 		}
 		kind := buttonPrimary
-		switch {
-		case rank == footerBack:
+		if rank == footerBack {
 			kind = buttonNormal
-		case danger && (key == keyLabel(actYes) || key == keyLabel(actDiscard)):
-			kind = buttonDanger
 		}
 		first, _, _ := strings.Cut(group, " ")
 		focused := first == keyLabel(actEnter) || strings.HasPrefix(group, first+tr(tFooterKeysOr)+keyLabel(actEnter)+" ")
@@ -115,8 +108,8 @@ func (m *Model) buttonRows(buttons []dialogButton) string {
 }
 
 // withButtons is the text of a modal dialog up to its key line, then its buttons and the key line.
-func (m *Model) withButtons(text, keys string, danger bool, labels map[string]string) string {
-	rows := m.buttonRows(m.dialogButtons(keys, danger, labels))
+func (m *Model) withButtons(text, keys string) string {
+	rows := m.buttonRows(m.dialogButtons(keys))
 	if rows != "" {
 		text += "\n" + rows + "\n"
 	}

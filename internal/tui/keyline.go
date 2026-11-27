@@ -111,12 +111,6 @@ func (m *Model) workspaceKeys() string {
 			return ""
 		}
 		return m.selftestKeys()
-	case screenUpdate:
-		return m.questionKeys(m.updateView)
-	case screenRestart:
-		return m.questionKeys(m.restartView)
-	case screenLeave:
-		return m.questionKeys(m.leaveView)
 	case screenVersions:
 		if m.versions == nil {
 			return ""
@@ -137,11 +131,6 @@ func (m *Model) workspaceKeys() string {
 			return ""
 		}
 		return m.templateKeys()
-	case screenRename:
-		if m.rename == nil || m.rename.plan == nil {
-			return ""
-		}
-		return m.renameQuestion().keys
 	case screenFindings:
 		return m.findingsKeys()
 	case screenTransfer:
@@ -180,10 +169,10 @@ func (m *Model) logsKeys() string {
 	return m.logKeys()
 }
 
-// confirmKeys is the key text of screenConfirm, which holds the questions and three detail screens.
+// confirmKeys is the key text of the three detail screens of screenConfirm; its questions are dialogs, which
+// name their own keys.
 func (m *Model) confirmKeys() string {
 	switch {
-	case m.settingsTakeover != nil, m.vaultLockConfirm, m.decryptConfirm, m.migratePlanConfirm, m.migrateDeleteConfirm:
 	case m.requestDetail != "":
 		if _, ok := m.requestByID(m.requestDetail); !ok {
 			return keysBackOnly
@@ -199,14 +188,13 @@ func (m *Model) confirmKeys() string {
 		return keysRequestBody
 	case m.approvalDetail != "":
 		return m.approvalDetailKeys()
-	case m.approveAllConfirm, m.tokenRevoke != "":
 	case m.tokenDetail != "":
 		if _, ok, unavailable := m.tokenByName(m.tokenDetail); !ok || unavailable != "" {
 			return keysBackOnly
 		}
 		return keysTokenDetail
 	}
-	return m.questionKeys(m.confirmView)
+	return ""
 }
 
 // approvalDetailKeys is the key text of the detail of an approval: a body taller than the room gains the
@@ -225,16 +213,6 @@ func (m *Model) approvalDetailKeys() string {
 	if lines > max(room, 1) {
 		return keysScroll + keys
 	}
-	return keys
-}
-
-// questionKeys is the key text of the question a view builds, without drawing it: questionText hands over
-// the keys of its question and stops there.
-func (m *Model) questionKeys(build func() string) string {
-	var keys string
-	m.probeKeys = &keys
-	defer func() { m.probeKeys = nil }()
-	build()
 	return keys
 }
 
@@ -264,7 +242,7 @@ func hintLabelID(group string) textID { return textID("hint." + group) }
 // help, command and info keys follow their own reach.
 func (m *Model) keyHints(text string) []kit.Hint {
 	t := translator(infoExtraLabel() != "" && !m.infoReachable())
-	answering := m.questionScreen() || m.promptScreen()
+	answering := m.promptScreen()
 	typed := func(a action) bool {
 		switch a {
 		case actHelp, actCommand:
