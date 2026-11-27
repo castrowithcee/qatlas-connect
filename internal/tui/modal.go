@@ -105,23 +105,9 @@ func (m *Model) scrollViews() []*textScroll {
 	return views
 }
 
-// scrollRefs are the offsets that drawing a view clamps as a side effect.
-func (m *Model) scrollRefs() []*int {
-	var refs []*int
-	if e := m.export; e != nil {
-		refs = append(refs, &e.rows.offset)
-	}
-	return refs
-}
-
 // renderAs draws with the given screen and, when width is positive, workspace width, and then restores
 // them together with every offset drawing clamps, so a view drawn only as a background changes no state.
 func (m *Model) renderAs(s screen, width int, render func()) {
-	refs := m.scrollRefs()
-	saved := make([]int, len(refs))
-	for i, ref := range refs {
-		saved[i] = *ref
-	}
 	views := m.scrollViews()
 	savedViews := make([]textScroll, len(views))
 	for i, v := range views {
@@ -132,9 +118,6 @@ func (m *Model) renderAs(s screen, width int, render func()) {
 		m.screen, m.width = screen, w
 		for i, v := range views {
 			*v = savedViews[i]
-		}
-		for i, ref := range refs {
-			*ref = saved[i]
 		}
 	}()
 	m.screen = s

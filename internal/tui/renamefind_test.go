@@ -115,6 +115,27 @@ func wantInView(t *testing.T, m *Model, what string, wants ...string) {
 	}
 }
 
+// wantRow requires one line of the view to hold the cells in this order, whatever the columns pad them with.
+func wantRow(t *testing.T, m *Model, cells ...string) {
+	t.Helper()
+	view := screenOf(m)
+	for _, line := range strings.Split(view, "\n") {
+		at, found := 0, true
+		for _, cell := range cells {
+			i := strings.Index(line[at:], cell)
+			if i < 0 {
+				found = false
+				break
+			}
+			at += i + len(cell)
+		}
+		if found {
+			return
+		}
+	}
+	t.Errorf("no line shows %q in this order:\n%s", cells, view)
+}
+
 // openFindingsLine reaches the hint line about the renames found, below the last row, and presses enter on it.
 func openFindingsLine(t *testing.T, m *Model) {
 	t.Helper()
@@ -147,7 +168,8 @@ func TestHandRenamedConnectionIsNoticedAndAdopted(t *testing.T) {
 	if m.screen != screenFindings {
 		t.Fatalf("enter on the hint line = screen %v, want the findings:\n%s", m.screen, screenOf(m))
 	}
-	wantInView(t, m, "the findings", "connection  personal -> main, renamed by hand", "enter adopt")
+	wantInView(t, m, "the findings", "enter adopt")
+	wantRow(t, m, "connection", "personal", "main", "renamed by hand")
 
 	press(t, m, "enter")
 	if m.screen != screenRename || m.rename == nil || m.rename.plan == nil || !m.rename.plan.Adopt {
@@ -229,7 +251,8 @@ func TestUnfinishedConnectionRenameIsNoticedAndFinished(t *testing.T) {
 	wantInView(t, m, "the entry", "connection main has an unfinished rename to personal")
 
 	openFindingsLine(t, m)
-	wantInView(t, m, "the findings", "connection  main -> personal, unfinished", "enter finish")
+	wantInView(t, m, "the findings", "enter finish")
+	wantRow(t, m, "connection", "main", "personal", "unfinished")
 	if strings.Contains(screenOf(m), "B put back") {
 		t.Error("a connection's rename is offered to be put back")
 	}
@@ -262,7 +285,7 @@ func TestHandRenamedCredentialIsNoticedAndAdopted(t *testing.T) {
 	selectRow(m, "reader2")
 	wantInView(t, m, "the entry", "credential reader2 was renamed by hand from reader", "this line (enter) offers to adopt")
 	openFindingsLine(t, m)
-	wantInView(t, m, "the findings", "credential  reader -> reader2, renamed by hand")
+	wantRow(t, m, "credential", "reader", "reader2", "renamed by hand")
 
 	pump(t, m, "enter")
 	wantInView(t, m, "the dry run", "Adopt the rename of credential reader to reader2?", "vault entry reader -> reader2")
@@ -299,7 +322,8 @@ func TestUnfinishedCredentialRenameIsFinishedOrPutBack(t *testing.T) {
 		selectRow(m, "reader")
 		wantInView(t, m, "the entry", "credential reader has an unfinished rename to reader2")
 		openFindingsLine(t, m)
-		wantInView(t, m, "the findings", "credential  reader -> reader2, unfinished", "enter finish", "B put back")
+		wantInView(t, m, "the findings", "enter finish", "B put back")
+		wantRow(t, m, "credential", "reader", "reader2", "unfinished")
 
 		pump(t, m, "enter")
 		wantInView(t, m, "the dry run", "Rename credential reader to reader2?", "resumes")
@@ -360,7 +384,8 @@ func TestAmbiguousFindingHasNoAction(t *testing.T) {
 	openSectionByName(t, m, sectionApprovals)
 	wantInView(t, m, "Approvals", "2 ambiguous")
 	openFindingsLine(t, m)
-	wantInView(t, m, "the findings", "connection  other, ambiguous", "no action here")
+	wantInView(t, m, "the findings", "no action here")
+	wantRow(t, m, "connection", "other", "ambiguous")
 	if strings.Contains(screenOf(m), "enter adopt") || strings.Contains(screenOf(m), "enter finish") {
 		t.Errorf("an ambiguous finding offers an action:\n%s", screenOf(m))
 	}

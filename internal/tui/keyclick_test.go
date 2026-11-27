@@ -118,7 +118,41 @@ func clickScreens() []struct {
 			press(t, m, "enter")
 			return m
 		}},
+		{"export selection", func(t *testing.T) *Model {
+			return exportAfter(t, "down", " ", "down")
+		}},
+		{"export selection filtered", func(t *testing.T) *Model {
+			return exportAfter(t, "/", "w", "i", "enter", "down", " ")
+		}},
+		{"export mode", func(t *testing.T) *Model {
+			return exportAfter(t, "up", " ", "enter")
+		}},
+		{"findings", func(t *testing.T) *Model {
+			s := newFindScene(t)
+			s.renameByHand(t, "credential", "reader", "reader2")
+			m := s.open(t)
+			sizedModel(m, 140, 40)
+			openSectionByName(t, m, sectionCredentials)
+			m.openFindings()
+			return m
+		}},
 	}
+}
+
+// exportAfter opens the export by the command line, with the keys in force, and presses keys on its selection.
+func exportAfter(t *testing.T, keys ...string) *Model {
+	t.Helper()
+	v, _ := plainExportModel(t)
+	// The file question shows the start directory, which would differ in every model.
+	v.m.startDir = filepath.Join(string(filepath.Separator), "start")
+	pump(t, v.m, firstKey(t, actCommand))
+	typeText(t, v.m, "export")
+	pump(t, v.m, "enter")
+	if v.m.screen != screenTransfer || v.m.export == nil {
+		t.Fatalf("the command export did not open the selection: screen %v", v.m.screen)
+	}
+	pump(t, v.m, keys...)
+	return v.m
 }
 
 // optionBar is the line of the navigation on the option bar, or with on false on the tab line.
@@ -473,6 +507,7 @@ func TestEveryScreenControlHasATargetAndClicksAsItsKey(t *testing.T) {
 							assertClickActsAsKey(t, build, x, y, firstKey(t, target.Action))
 						}
 						lists := assertListTargetsClickAsKeys(t, base, build)
+						lists.add(assertWorkListTargetsClickAsKeys(t, base, build))
 						countMu.Lock()
 						listTargets.add(lists)
 						countMu.Unlock()
@@ -608,7 +643,8 @@ func TestEveryScreenControlHasATargetAndClicksAsItsKey(t *testing.T) {
 	if backButtons.Load() == 0 || footerTargets.Load() == 0 {
 		t.Fatalf("back buttons %d, footer targets %d: the screens drew no such control", backButtons.Load(), footerTargets.Load())
 	}
-	if listTargets.rows == 0 || listTargets.groups == 0 || listTargets.search == 0 || listTargets.free == 0 {
+	if listTargets.rows == 0 || listTargets.groups == 0 || listTargets.search == 0 || listTargets.free == 0 ||
+		listTargets.ticks == 0 || listTargets.all == 0 {
 		t.Fatalf("list targets %+v: the lists drew no such target", listTargets)
 	}
 	if barTargets.fields == 0 || barTargets.values == 0 || barTargets.button == 0 || barTargets.modalFields == 0 ||
@@ -741,10 +777,11 @@ func assertBarTargetsClickAsKeys(t *testing.T, base *Model, build func(t *testin
 }
 
 // listTargetCount counts the targets of the lists by kind.
-type listTargetCount struct{ rows, groups, search, free int }
+type listTargetCount struct{ rows, groups, search, free, ticks, all int }
 
 func (c *listTargetCount) add(n listTargetCount) {
 	c.rows, c.groups, c.search, c.free = c.rows+n.rows, c.groups+n.groups, c.search+n.search, c.free+n.free
+	c.ticks, c.all = c.ticks+n.ticks, c.all+n.all
 }
 
 // assertListTargetsClickAsKeys clicks the middle of every target the list of a screen drew, while its rows
@@ -808,6 +845,70 @@ func assertListTargetsClickAsKeys(t *testing.T, base *Model, build func(t *testi
 				continue
 			}
 			n.free++
+		}
+		assertClickActsAsKey(t, build, x, y, keys...)
+	}
+	return n
+}
+
+// assertWorkListTargetsClickAsKeys is assertListTargetsClickAsKeys for the kit list a screen shows in the
+// workspace (the export questions, the findings): a row acts as the moves to it and, on the marked row, as
+// enter; a tick box or the row of all as the moves to the row and, for a box, the toggle key; the search line
+// as the search key.
+func assertWorkListTargetsClickAsKeys(t *testing.T, base *Model, build func(t *testing.T) *Model) listTargetCount {
+	t.Helper()
+	var n listTargetCount
+	list := base.workspaceList()
+	if list == nil || list.Searching() {
+		return n
+	}
+	const all, box = "\x00a", "\x00t"
+	var rows []string
+	for _, target := range base.listTargets {
+		if target.Item == all {
+			rows = append(rows, all)
+		}
+	}
+	for _, id := range list.Shown() {
+		rows = append(rows, string(id))
+	}
+	from := 0
+	if id, ok := list.Selected(); ok {
+		from = slices.Index(rows, string(id))
+	}
+	for _, target := range base.listTargets {
+		x, y := target.Rect.X+(target.Rect.Width-1)/2, target.Rect.Y
+		var keys []string
+		if target.Action == actSearch && target.Item == "" {
+			n.search++
+			assertClickActsAsKey(t, build, x, y, firstKey(t, actSearch))
+			continue
+		}
+		name, tick := strings.CutPrefix(target.Item, box)
+		if target.Item == "" {
+			continue
+		}
+		to := slices.Index(rows, name)
+		if to < 0 || from < 0 {
+			t.Errorf("the row target %q is no shown row of %q", name, rows)
+			continue
+		}
+		move := firstKey(t, actDown)
+		if to < from {
+			move = firstKey(t, actUp)
+		}
+		keys = slices.Repeat([]string{move}, max(to-from, from-to))
+		switch {
+		case tick:
+			n.ticks++
+			keys = append(keys, firstKey(t, actSpace))
+		case name == all:
+			n.all++
+		default:
+			n.rows++
+			if to == from {
+				keys = append(keys, firstKey(t, actEnter))
+			}
 		}
 		assertClickActsAsKey(t, build, x, y, keys...)
 	}

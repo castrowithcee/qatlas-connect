@@ -212,6 +212,10 @@ func (m *Model) wheelScreens() bool {
 	case screenList, screenForm, screenPicker, screenLogs, screenLogDetail,
 		screenTargets, screenPaths, screenFindings:
 		return true
+	case screenTransfer:
+		if m.workspaceList() != nil {
+			return true
+		}
 	}
 	return m.textScreen()
 }
@@ -520,6 +524,9 @@ func markOrAct(cursor *int, i int, focused bool, act func() tea.Cmd) tea.Cmd {
 func (m *Model) clickList(r kittui.MouseResult) tea.Cmd {
 	if m.screen == screenPaths {
 		return m.clickPaths(r)
+	}
+	if list := m.workspaceList(); list != nil {
+		return m.clickWorkList(list, r)
 	}
 	m.list.SetFocused(m.rowsFocused())
 	switch m.screen {

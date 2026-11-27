@@ -3,12 +3,14 @@ package tui
 import (
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 
 	"github.com/charmbracelet/x/ansi"
 
 	"github.com/castrowithcee/qatlas-connect/internal/helptopics"
+	kittui "github.com/castrowithcee/qatlas-kit/tui"
 	kitprefs "github.com/castrowithcee/qatlas-kit/uiprefs"
 )
 
@@ -128,25 +130,38 @@ func TestClickOnARowOfTheTargetBuilderMarksItAndASecondClickChoosesIt(t *testing
 	}
 }
 
-func TestClickOnAnExportRowTicksOnlyOnTheMarkedOne(t *testing.T) {
+func TestClickOnAnExportRowMarksItAndItsBoxTicksIt(t *testing.T) {
 	v, _ := plainExportModel(t)
 	m := v.m
 	m.prefs.Icons = kitprefs.IconsNone
 	v.startExport("")
 	m.render()
-	clickOn(t, m, "connection  docs")
+	clickOn(t, m, "docs")
 	e := m.export
-	if got, _ := e.rows.selected(); got == exportAll || e.ticked() != 0 {
-		t.Fatalf("first click: marked %q ticked %d, want the row marked and nothing ticked", got, e.ticked())
+	if id, _ := e.list.Selected(); e.entries[atoi(t, id)] != exportConnPref+"docs" || e.ticked() != 0 {
+		t.Fatalf("first click: marked %q ticked %d, want the row marked and nothing ticked", id, e.ticked())
 	}
-	clickOn(t, m, "connection  docs")
+	clickOn(t, m, "[ ] docs")
 	if e.ticked() != 1 || e.step != exportSelect {
-		t.Fatalf("click on the marked row: ticked %d step %v, want it ticked and the selection kept", e.ticked(), e.step)
+		t.Fatalf("click on the box: ticked %d step %v, want it ticked and the selection kept", e.ticked(), e.step)
 	}
-	clickOn(t, m, "connection  docs")
+	clickOn(t, m, "[x] docs")
 	if e.ticked() != 0 {
-		t.Fatalf("second click on the marked row ticked %d, want it unticked", e.ticked())
+		t.Fatalf("second click on the box ticked %d, want it unticked", e.ticked())
 	}
+	clickOn(t, m, "docs")
+	if m.fail != tr(tExportTickFirst) || e.step != exportSelect {
+		t.Fatalf("click on the marked row with nothing ticked: step %v fail %q, want enter's refusal", e.step, m.fail)
+	}
+}
+
+func atoi(t *testing.T, id kittui.ItemID) int {
+	t.Helper()
+	i, err := strconv.Atoi(string(id))
+	if err != nil {
+		t.Fatalf("the ID %q is no index", id)
+	}
+	return i
 }
 
 func TestClickOnAnExportModeMarksItAndASecondClickChoosesIt(t *testing.T) {
@@ -154,16 +169,21 @@ func TestClickOnAnExportModeMarksItAndASecondClickChoosesIt(t *testing.T) {
 	m := v.m
 	m.prefs.Icons = kitprefs.IconsNone
 	v.startExport("")
-	v.pump(" ", "enter")
+	v.pump("up", " ", "enter")
 	if m.export.step != exportMode || m.export.secretsReason == "" {
 		t.Fatalf("step %v reason %q, want the mode question with secrets unavailable", m.export.step, m.export.secretsReason)
 	}
 	m.render()
-	// A row that cannot be chosen is no target: the click falls through and marks nothing.
+	// A row that cannot be chosen marks like any, and choosing it only says why.
 	clickOn(t, m, "with secrets, encrypted")
-	if m.export.modeCursor != 0 {
-		t.Fatalf("click on a blocked row moved the mark to %d", m.export.modeCursor)
+	if i, _ := chosen(m.export.mode, 3); i != 1 {
+		t.Fatalf("click on a blocked row marked %d, want 1", i)
 	}
+	clickOn(t, m, "with secrets, encrypted")
+	if m.export.step != exportMode || m.fail != m.export.secretsReason {
+		t.Fatalf("choosing a blocked row: step %v fail %q, want the reason and no step", m.export.step, m.fail)
+	}
+	clickOn(t, m, "without secrets")
 	clickOn(t, m, "without secrets")
 	if m.export.step != exportTarget {
 		t.Fatalf("click on the marked mode: step %v, want the file question", m.export.step)
@@ -175,15 +195,15 @@ func TestClickOnAnExportModeNeedsTheAdminSessionLikeEnter(t *testing.T) {
 	m := v.m
 	m.prefs.Icons = kitprefs.IconsNone
 	v.startExport(testExportVaultPass)
-	v.pump(" ", "enter")
+	v.pump("up", " ", "enter")
 	if m.export.step != exportMode || m.export.secretsReason != "" {
 		t.Fatalf("step %v reason %q, want the mode question", m.export.step, m.export.secretsReason)
 	}
 	m.render()
 	row := "with secrets, encrypted"
 	clickOn(t, m, row)
-	if m.export.modeCursor != 1 || m.export.step != exportMode {
-		t.Fatalf("first click: cursor %d step %v, want only the mark", m.export.modeCursor, m.export.step)
+	if i, _ := chosen(m.export.mode, 3); i != 1 || m.export.step != exportMode {
+		t.Fatalf("first click: marked %d step %v, want only the mark", i, m.export.step)
 	}
 	m.endAdminSession()
 	clickOn(t, m, row)
@@ -226,14 +246,16 @@ func TestClickOnAFindingMarksItAndASecondClickStartsIt(t *testing.T) {
 		t.Fatalf("screen %v findings %+v, want the one hand rename", m.screen, m.findings)
 	}
 	// A second finding that has no action stands first, so the real one is not the marked row.
-	m.findings.items = append([]renameFinding{{kind: "connection", entry: "x", from: "x", to: "y", ambiguous: true}}, m.findings.items...)
-	m.findings.cursor = 0
+	items := append([]renameFinding{{kind: "connection", entry: "x", from: "x", to: "y", ambiguous: true}}, m.findings.items...)
+	list, err := m.findingsListFor(items, 0)
+	mustNoError(t, err)
+	m.findings.items, m.findings.list = items, list
 	m.render()
-	clickOn(t, m, "reader -> reader2")
-	if m.screen != screenFindings || m.findings.cursor != 1 {
-		t.Fatalf("first click: screen %v cursor %d, want finding 1 marked", m.screen, m.findings.cursor)
+	clickOn(t, m, "reader2")
+	if at, _ := chosen(m.findings.list, 2); m.screen != screenFindings || at != 1 {
+		t.Fatalf("first click: screen %v marked %d, want finding 1 marked", m.screen, at)
 	}
-	clickOn(t, m, "reader -> reader2")
+	clickOn(t, m, "reader2")
 	if m.screen != screenRename || m.rename == nil {
 		t.Fatalf("click on the marked finding: screen %v, want the dry run enter starts", m.screen)
 	}
@@ -252,7 +274,7 @@ func TestClickOnAPathSuggestionMarksItAndASecondClickTakesIt(t *testing.T) {
 	}
 	t.Chdir(dir)
 	v.startExport("")
-	v.pump(" ", "enter")
+	v.pump("up", " ", "enter")
 	v.pump("enter")
 	if m.export.step != exportTarget {
 		t.Fatalf("step %v, want the file question", m.export.step)

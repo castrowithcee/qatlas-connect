@@ -326,6 +326,14 @@ func visualShots() []visualShot {
 		}},
 		{"48-library-no-color", 150, 42, dark, true, func(t *testing.T, m *Model) { openSectionByName(t, m, sectionServices) }},
 		{"49-library-compact", 80, 24, dark, false, func(t *testing.T, m *Model) { openSectionByName(t, m, sectionServices) }},
+		{"26-export-select", 150, 42, dark, false, func(t *testing.T, m *Model) {
+			press(t, m, ":")
+			typeText(t, m, "export")
+			pump(t, m, "enter")
+			typeText(t, m, visualPassphrase)
+			pump(t, m, "enter")
+			press(t, m, "down", " ", "down", " ")
+		}},
 		{"55-export", 150, 42, dark, false, func(t *testing.T, m *Model) {
 			press(t, m, ":")
 			typeText(t, m, "export")
