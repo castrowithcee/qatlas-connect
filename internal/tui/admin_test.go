@@ -514,15 +514,15 @@ func TestAdminTimeoutZeroAsksAgainAfterVaultAction(t *testing.T) {
 	}
 }
 
-// A connection with a new service and a new credential, started with n in Connections, asks for the admin
+// A connection with a new service and a new credential, started with g in Connections, asks for the admin
 // passphrase once for the whole flow, at the summary's save, and writes all three entries then.
-func TestAdminSessionAsksOnceForNewInConnections(t *testing.T) {
+func TestAdminSessionAsksOnceForTheGuidedSetup(t *testing.T) {
 	dir := filepath.Join(t.TempDir(), "qconnect")
 	m, store := newEncryptedVaultModel(t, dir, "hunter2", true)
 	openSectionByName(t, m, sectionConnections)
 	m.screen = screenList
 
-	walkSetupFrom(t, m, "n", setupSteps-1)
+	walkSetupFrom(t, m, "g", setupSteps-1)
 	if m.screen != screenSummary || m.adminAuth != nil {
 		t.Fatalf("before the save: screen %v, admin dialog %v; the steps must not ask", m.screen, m.adminAuth)
 	}

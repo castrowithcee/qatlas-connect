@@ -42,7 +42,7 @@ func MCP() helptopics.Topic {
 const start = `Qatlas Connect reaches the services you already run through named connections. A first session takes a few minutes:
 
 1. Run 'qconnect' at a terminal ('qconnect tui' does the same). The editor opens on an empty configuration and writes nothing before the first save. ? in the editor shows these help topics.
-2. Press n in Connections (or g) for the guided setup: choose a provider, its service (the root URL of the instance), a credential (its secrets go to the system keyring, the vault, or environment variables), each reused or added right there, the scope, and the access (by effect or selected tools). The summary saves the connection.
+2. Press g for the guided setup (n in Connections opens the plain connection form instead): choose a provider, its service (the root URL of the instance), a credential (its secrets go to the system keyring, the vault, or environment variables), each reused or added right there, the scope, and the access (by effect or selected tools). The summary saves the connection.
 3. Test it: the summary offers the test right away, and t in the Connections list tests the selected connection again. [ok] means the provider accepted the connection.
 4. Find a tool and run it through the connection, for example with a BookStack connection:
 

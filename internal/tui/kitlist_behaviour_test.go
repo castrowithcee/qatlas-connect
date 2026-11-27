@@ -206,13 +206,13 @@ func TestEveryEmptyStateHasItsSentence(t *testing.T) {
 	m, _, _ := newModel(t)
 	sizedModel(m, 150, 42)
 	for s, id := range map[section]textID{sectionServices: tFormNoServicesYetPressN,
-		sectionCredentials: tFormNoCredentialsYetPressN, sectionConnections: tFormNoConnectionsYetPressN} {
+		sectionCredentials: tFormNoCredentialsYetPressN} {
 		openSectionByName(t, m, s)
 		if view := prose(screenOf(m)); !strings.Contains(view, flatText(tr(id))) {
 			t.Errorf("%v: the empty list lacks %q:\n%s", s, tr(id), view)
 		}
 	}
-	for _, s := range []section{sectionDefaults, sectionApprovals, sectionTokens} {
+	for _, s := range []section{sectionConnections, sectionDefaults, sectionApprovals, sectionTokens} {
 		openSectionByName(t, m, s)
 		if want := flatText(m.emptyHelp()); !strings.Contains(prose(screenOf(m)), want) {
 			t.Errorf("%v: the empty list lacks %q:\n%s", s, want, screenOf(m))

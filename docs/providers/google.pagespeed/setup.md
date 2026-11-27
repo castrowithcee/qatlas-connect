@@ -38,7 +38,7 @@ in the query of each request; Qatlas keeps that URL out of every message and log
 The guided setup does all of this for you:
 
 1. Run `qconnect tui`.
-2. In the Connections area, press `n` and follow the steps: provider `google.pagespeed`, the service, a
+2. In the Connections area, press `g` and follow the steps: provider `google.pagespeed`, the service, a
    credential, and the access.
 3. When the setup asks for the credential, choose where to keep it and paste the key as its `api_key` secret.
 

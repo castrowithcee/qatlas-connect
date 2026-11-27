@@ -203,11 +203,13 @@ func (v *viewSet) template() {
 	typeText(t, m, "zzzz")
 	v.see(m)
 	press(t, m, "esc")
-	// n in Connections is the guided setup; it asks for a template first.
-	m = formsBase(t, navWidth, navHeight)
-	openSectionByName(t, m, sectionConnections)
-	press(t, m, "n")
-	v.see(m)
+	// n in Connections asks for a template of the connection form, g for one of the guided setup.
+	for _, key := range []string{"n", "g"} {
+		m = formsBase(t, navWidth, navHeight)
+		openSectionByName(t, m, sectionConnections)
+		press(t, m, key)
+		v.see(m)
+	}
 }
 
 func (v *viewSet) setup() {

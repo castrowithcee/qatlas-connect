@@ -57,7 +57,7 @@ Settings that some tools depend on are made in BotFather as well:
 The guided setup does all of this for you:
 
 1. Run `qconnect tui`.
-2. In the Connections area, press `n` and follow the steps: provider `telegram`, the service, a credential, the
+2. In the Connections area, press `g` and follow the steps: provider `telegram`, the service, a credential, the
    scope (targets), and the access (by effect or by tools).
 3. When the setup asks for the credential, choose where to keep it and paste the token as its `bot-token` secret.
 

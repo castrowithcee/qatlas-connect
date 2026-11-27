@@ -165,7 +165,7 @@ The tool is outside the profile `read` for that reason, see [change history](cha
 The guided setup does most of this for you:
 
 1. Run `qconnect tui`.
-2. In the Connections area, press `n` and follow the steps: provider `google.analytics`, the service, a
+2. In the Connections area, press `g` and follow the steps: provider `google.analytics`, the service, a
    credential, and the access. Choose targets if the connection should reach only some accounts or properties.
 3. When the setup asks for the credential, choose where to keep it and give it the roles of your way above.
 

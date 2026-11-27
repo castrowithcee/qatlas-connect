@@ -64,7 +64,7 @@ tools that change data off connections that do not need them.
 The guided setup does all of this for you:
 
 1. Run `qconnect tui`.
-2. In the Connections area, press `n` and follow the steps: provider `infomaniak.chat`, the service, a credential,
+2. In the Connections area, press `g` and follow the steps: provider `infomaniak.chat`, the service, a credential,
    the scope (targets: one or more teams, optionally channels), and the access (by effect or by tools).
 3. When the setup asks for the credential, choose where to keep it and paste the token as its `token` secret.
 
