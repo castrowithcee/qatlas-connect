@@ -4,7 +4,7 @@
 // the values, asks, and reports.
 package tui
 
-import "strings"
+import kittui "github.com/castrowithcee/qatlas-kit/tui"
 
 // beginSettingsTakeover asks the question after a successful 'ctrl+l' unlock. A problem is a status
 // warning, never a failure of the unlock. With no value the vault can store nothing is asked and the old
@@ -52,15 +52,18 @@ func (m *Model) answerSettingsTakeover(yes bool) {
 	m.RefreshAdminTimeout()
 }
 
-func (m *Model) settingsTakeoverView() string {
-	var lines []string
+// settingsTakeoverAsk asks whether the vault takes over the old settings it is offered.
+func (m *Model) settingsTakeoverAsk() ask {
+	var lines []kittui.DialogLine
 	for _, o := range m.settingsTakeover.Offered {
-		lines = append(lines, m.indented(o.Field+": "+o.Value))
+		lines = append(lines, kittui.DialogLine{Text: o.Field + ": " + o.Value})
 	}
-	return m.questionText(question{
-		title:       tr(tTakeoverTitle),
+	return ask{
+		title:       tAskTakeover,
+		question:    tr(tTakeoverTitle),
 		consequence: tr(tTakeoverConsequence),
-		details:     []string{strings.Join(lines, "\n")},
-		keys:        "{yes} take over · {no}/{back} keep the vault's settings · {command} cmds · {help} help",
-	})
+		details:     lines,
+		answers:     yesNo("{yes} take over", "{no}/{back} keep the vault's settings"),
+		keep:        actNo,
+	}
 }

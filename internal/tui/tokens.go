@@ -371,25 +371,9 @@ func (m *Model) handleTokenAction(msg tokenActionMsg) tea.Cmd {
 	return cmd
 }
 
-// updateTokenScreens handles the keys of the token detail screen and of the revoke question, both standing
-// over the Tokens list like the Approvals detail does. It reports false when neither is open.
+// updateTokenScreens handles the keys of the token detail screen, which stands over the Tokens list like the
+// Approvals detail does. It reports false when it is not open.
 func (m *Model) updateTokenScreens(key tea.KeyPressMsg) (tea.Cmd, bool) {
-	if name := m.tokenRevoke; name != "" {
-		switch {
-		case keyIs(key, actYes):
-			m.tokenRevoke, m.tokenDetail, m.tokenReveal = "", "", false
-			m.screen = screenList
-			return m.requireAdmin(func() tea.Cmd { return m.revokeToken(name) }), true
-		case keyIs(key, actNo) || keyIs(key, actBack):
-			// The question returns to where it was asked: the detail screen, or the list.
-			m.tokenRevoke = ""
-			if m.tokenDetail == "" {
-				m.screen = screenList
-			}
-			m.status = tr(tTokenStays)
-		}
-		return nil, true
-	}
 	name := m.tokenDetail
 	if name == "" {
 		return nil, false
@@ -485,12 +469,14 @@ func (m *Model) tokenDetailView() string {
 	return m.frameDetail(heading, state, lines) + "\n" + m.keyHint(keysTokenDetail)
 }
 
-// tokenRevokeView draws the question asked before a token is revoked.
-func (m *Model) tokenRevokeView() string {
-	return m.questionText(question{
-		title:       tr(tTokenRevokeTitle, m.tokenRevoke),
+// tokenRevokeAsk is the question asked before a token is revoked.
+func (m *Model) tokenRevokeAsk() ask {
+	return ask{
+		title:       tAskRevoke,
+		question:    tr(tTokenRevokeTitle, m.tokenRevoke),
 		consequence: tr(tTokenRevokeConsequence),
-		danger:      true,
-		keys:        "{yes} revoke · {no}/{back} keep · {command} cmds · {help} help",
-	})
+		answers:     yesNo("{yes} revoke", "{no}/{back} keep"),
+		keep:        actNo,
+		danger:      actYes,
+	}
 }

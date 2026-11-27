@@ -1,6 +1,8 @@
 package tui
 
 import (
+	"slices"
+
 	tea "charm.land/bubbletea/v2"
 	kittui "github.com/castrowithcee/qatlas-kit/tui"
 )
@@ -14,14 +16,28 @@ func (m *Model) showModal(part kittui.Modal, done func(action) tea.Cmd) {
 	m.modal, m.modalDone, m.modalTargets = part, done, nil
 }
 
+// questionTop is the first row a question may cover: the top line and the tab line stay in view.
+const questionTop = 2
+
 func (m *Model) closeModal() { m.modal, m.modalDone, m.modalTargets = nil, nil, nil }
+
+// dialogExtras are the actions a dialog leaves to its opener: the hints behind its answers that open the
+// command line and the help over it, and F2, which a question may leave to the screen under it.
+var dialogExtras = []action{actCommand, actHelp, actSave}
 
 // modalKey gives a key to the open modal; ctrl+c still quits.
 func (m *Model) modalKey(msg tea.KeyPressMsg) tea.Cmd {
 	if keyIs(msg, actForceQuit) {
 		return m.interrupt()
 	}
-	act, _ := m.modal.Update(msg)
+	act, handled := m.modal.Update(msg)
+	if _, dialog := m.modal.(*kittui.Dialog); dialog && !handled {
+		for _, a := range dialogExtras {
+			if keyIs(msg, a) {
+				act = a
+			}
+		}
+	}
 	return m.modalAct(act)
 }
 
@@ -39,7 +55,10 @@ func (m *Model) modalMouse(msg tea.MouseMsg) tea.Cmd {
 		}
 		return nil
 	}
-	act, _ := m.modal.Click(r)
+	act, handled := m.modal.Click(r)
+	if _, dialog := m.modal.(*kittui.Dialog); dialog && !handled && slices.Contains(dialogExtras, r.Action) {
+		act = r.Action
+	}
 	return m.modalAct(act)
 }
 
@@ -50,20 +69,28 @@ func (m *Model) modalAct(act action) tea.Cmd {
 	return m.modalDone(act)
 }
 
-// modalFrame draws the open modal over the dimmed current screen where it fits, else in the workspace with
-// its keys in the footer, and keeps its targets: in the second case those of the footer too, while header and
-// tabs take no click.
+// modalFrame draws the open modal over the dimmed current screen, or the screen a question stands over, where
+// it fits, else in the workspace with its keys in the footer, and keeps its targets: in the second case those
+// of the footer too, while header and tabs take no click.
 func (m *Model) modalFrame() string {
+	base := m.screen
+	if m.question != nil {
+		base = m.baseScreen()
+	}
 	var screen string
-	m.renderAs(m.screen, 0, func() {
+	m.renderAs(base, 0, func() {
 		m.backdrop = true
 		defer func() { m.backdrop = false }()
 		screen = m.frame(m.workspaceView())
 	})
 	// A screen under the modal too large for the terminal leaves the modal its clicks.
 	m.tooSmall = false
-	view, targets, ok := m.modal.Overlay(styles.Styles, screen, m.termWidth, m.termHeight,
-		kittui.Rect{Width: m.termWidth, Height: m.termHeight})
+	area := kittui.Rect{Width: m.termWidth, Height: m.termHeight}
+	if _, question := m.modal.(*kittui.Dialog); question {
+		// A question leaves the top line and the tab line in view, so it never hides where it was asked.
+		area.Y, area.Height = questionTop, max(m.termHeight-questionTop, 0)
+	}
+	view, targets, ok := m.modal.Overlay(styles.Styles, screen, m.termWidth, m.termHeight, area)
 	if !ok {
 		spec := m.spec
 		spec.Footer, spec.Input, spec.Focus = m.modal.Hints(), kittui.InputNavigation, ""

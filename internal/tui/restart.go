@@ -9,7 +9,7 @@ import (
 	"unicode"
 
 	tea "charm.land/bubbletea/v2"
-	"charm.land/lipgloss/v2"
+	kittui "github.com/castrowithcee/qatlas-kit/tui"
 
 	"github.com/castrowithcee/qatlas-connect/internal/vault"
 )
@@ -201,27 +201,26 @@ func (*restartCommand) SetStdin(io.Reader)  {}
 func (*restartCommand) SetStdout(io.Writer) {}
 func (*restartCommand) SetStderr(io.Writer) {}
 
-// updateRestart answers the question that asks before a restart drops unsaved input. y restarts and drops
+// answerRestart answers the question that asks before a restart drops unsaved input. y restarts and drops
 // it; anything that keeps the editor leaves it as it was, on the old version.
-func (m *Model) updateRestartConfirm(key tea.KeyPressMsg) tea.Cmd {
-	switch {
-	case keyIs(key, actYes):
-		m.screen = m.restartBack
+func (m *Model) answerRestart(act action) tea.Cmd {
+	m.screen = m.restartBack
+	if act == actYes {
 		return m.restartNow()
-	case keyIs(key, actNo) || keyIs(key, actBack):
-		m.screen = m.restartBack
-		m.status = m.restartHint()
 	}
+	m.status = m.restartHint()
 	return nil
 }
 
-// restartView asks before the restart that would drop unsaved input.
-func (m *Model) restartView() string {
-	return m.questionText(question{
-		title:       tr(tRestartQuestion, m.updated),
+// restartAsk asks before the restart that would drop unsaved input.
+func (m *Model) restartAsk() ask {
+	return ask{
+		title:       tAskRestart,
+		question:    tr(tRestartQuestion, m.updated),
 		consequence: tr(tRestartConsequence),
-		danger:      true,
-		details:     []string{m.wrapped(lipgloss.NewStyle(), tr(tRestartDetail))},
-		keys:        "{yes} restart and discard · {no}/{back} not now · {command} cmds · {help} help",
-	})
+		details:     []kittui.DialogLine{{Text: tr(tRestartDetail)}},
+		answers:     yesNo("{yes} restart and discard", "{no}/{back} not now"),
+		keep:        actNo,
+		danger:      actYes,
+	}
 }

@@ -265,7 +265,7 @@ func TestHandRenamedCredentialIsNoticedAndAdopted(t *testing.T) {
 	wantInView(t, m, "the findings", "credential  reader -> reader2, renamed by hand")
 
 	pump(t, m, "enter")
-	wantInView(t, m, "the dry run", "Adopt the rename of credential reader to reader2?", "vault     entry reader -> reader2")
+	wantInView(t, m, "the dry run", "Adopt the rename of credential reader to reader2?", "vault entry reader -> reader2")
 	press(t, m, "esc")
 	if !s.hasEntry(t, "reader") || s.hasEntry(t, "reader2") {
 		t.Fatal("cancelling moved the vault entry")
@@ -325,7 +325,7 @@ func TestUnfinishedCredentialRenameIsFinishedOrPutBack(t *testing.T) {
 		if m.screen != screenRename || m.rename == nil || !m.rename.plan.Revert {
 			t.Fatalf("b = screen %v, want the dry run of putting back:\n%s", m.screen, screenOf(m))
 		}
-		wantInView(t, m, "the dry run", "Put credential reader back", "vault     entry reader2 -> reader",
+		wantInView(t, m, "the dry run", "Put credential reader back", "vault entry reader2 -> reader",
 			"config    not changed", "y put back")
 		press(t, m, "n")
 		if m.screen != screenFindings || !s.hasEntry(t, "reader2") || s.hasEntry(t, "reader") {

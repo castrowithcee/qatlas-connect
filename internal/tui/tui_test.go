@@ -861,14 +861,14 @@ func TestLeavingAChangedFormAsksFirst(t *testing.T) {
 		}
 		view := m.render()
 		for _, want := range []string{
-			"warning: unsaved changes", "F2 save", "d discard", "esc keep editing", "the Services list",
+			"warning: unsaved changes", "F2 save", "d discard", "keep editing", "the Services list",
 		} {
 			if !strings.Contains(view, want) {
 				t.Errorf("the leave question does not say %q:\n%s", want, view)
 			}
 		}
-		// Keys that are no answer change nothing.
-		press(t, m, "enter", "x", "2", "q", "n", "y", "s", "k", "f3", "backspace")
+		// Keys that are no answer change nothing; enter keeps editing as esc does.
+		press(t, m, "x", "2", "q", "n", "y", "s", "k", "f3", "backspace")
 		if m.screen != screenLeave || m.quitting {
 			t.Fatalf("a stray key answered the question: screen %v quitting %v", m.screen, m.quitting)
 		}
