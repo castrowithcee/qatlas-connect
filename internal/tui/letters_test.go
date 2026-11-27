@@ -261,18 +261,17 @@ func TestRReloadsThePickerListing(t *testing.T) {
 	m := pickerModel(t, src)
 	openPicker(t, m)
 	lv := m.targetPick.top()
-	lv.list.stopFilter()
 	before := len(src.reqs)
 	_, cmd := m.Update(tea.KeyPressMsg{Code: 'R', Text: "R"})
 	deliver(m, cmd)
 	if len(src.reqs) != before+1 {
 		t.Errorf("R made %d reads, want one more than %d", len(src.reqs), before)
 	}
-	lv.list.startFilter()
+	press(t, m, "/")
 	_, cmd = m.Update(tea.KeyPressMsg{Code: 'R', Text: "R"})
 	deliver(m, cmd)
-	if len(src.reqs) != before+1 || lv.list.query() != "R" {
-		t.Errorf("R in the filter: %d reads, query %q, want no read and the text R", len(src.reqs), lv.list.query())
+	if len(src.reqs) != before+1 || lv.query() != "R" {
+		t.Errorf("R in the filter: %d reads, query %q, want no read and the text R", len(src.reqs), lv.query())
 	}
 }
 

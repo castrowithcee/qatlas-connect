@@ -6,10 +6,9 @@ import (
 	"charm.land/lipgloss/v2"
 )
 
-// The picker screens (tool picker, target picker) draw their table like a
-// list: in a panel with the position in its top border and the search field as its first line. Where the
-// terminal is too small for the frame (see tableFramed) the same lines stand without it, so a small terminal
-// keeps its room. The helpers below return lines that end in a line feed, except boxBottom, which belongs in
+// The tool picker draws its table like a list: in a panel with the position in its top border and the search
+// field as its first line. Where the terminal is too small for the frame (see tableFramed) the same lines stand
+// without it, so a small terminal keeps its room. The helpers below return lines that end in a line feed, except boxBottom, which belongs in
 // front of the footer.
 
 // boxed reports whether a picker draws its table in a panel.
@@ -96,16 +95,4 @@ func tickBox(ticked bool) string {
 		return styles.ok.Render("[x]")
 	}
 	return "[ ]"
-}
-
-// colourTick colours the first ticked box of a drawn row and sets the style of the cell it stands in again
-// behind it.
-func colourTick(row string, cell lipgloss.Style) string {
-	i := strings.Index(row, "[x]")
-	if i < 0 {
-		return row
-	}
-	set := cell.Render("x")
-	set = set[:strings.Index(set, "x")]
-	return row[:i] + styles.ok.Render("[x]") + set + row[i+3:]
 }

@@ -34,7 +34,10 @@ func (m *Model) typing() bool {
 			return !f.readOnly
 		}
 	case screenTargets:
-		return m.targetEdit >= 0 || m.targetAdd != nil || m.targetPick != nil || m.labelEdit
+		if m.targetPick != nil {
+			return m.targetPick.top().list.Searching()
+		}
+		return m.targetEdit >= 0 || m.targetAdd != nil || m.labelEdit
 	case screenTransfer:
 		return m.export != nil && m.export.step == exportSelect && m.export.list.Searching()
 	case screenLogs:
@@ -55,7 +58,7 @@ func (m *Model) helpReachable() bool {
 		return m.payloadRemoveAsk
 	case screenTargets:
 		if m.targetPick != nil {
-			return m.targetPick.top().list.query() == ""
+			return !m.typing()
 		}
 		if m.targetAdd != nil {
 			return m.targetAdd.query() == ""

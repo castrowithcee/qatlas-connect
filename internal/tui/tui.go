@@ -4828,14 +4828,8 @@ func (m *Model) keepScrollPosition() {
 		// The list of the rows keeps its own scroll position.
 		return
 	}
-	switch m.screen {
-	case screenPicker:
+	if m.screen == screenPicker {
 		m.picker.offset, _ = m.pickerWindow()
-	case screenTargets:
-		if m.targetPick != nil {
-			m.targetPick.top().list.offset, _ = m.pickWindow()
-			return
-		}
 	}
 }
 

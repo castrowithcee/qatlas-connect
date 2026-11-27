@@ -3,7 +3,6 @@ package tui
 import (
 	"context"
 	"errors"
-	"fmt"
 	"slices"
 	"strings"
 	"time"
@@ -11,6 +10,7 @@ import (
 	"unicode/utf8"
 
 	tea "charm.land/bubbletea/v2"
+	kittui "github.com/castrowithcee/qatlas-kit/tui"
 
 	"github.com/castrowithcee/qatlas-connect/internal/config"
 	"github.com/castrowithcee/qatlas-connect/internal/manage"
@@ -18,14 +18,16 @@ import (
 
 // The target picker lets a person choose targets of a saved connection from the list its provider offers,
 // instead of looking an ID up. It opens from the add menu of the target list and works like a file dialog:
-// a search line above a table of the entries of one level, right opens the entry under the marker to the
-// level below, left goes back up. Every entry of every level is a target of its own kind, so a higher level
-// takes a whole area. What is picked is taken like a typed target (takeTarget), so the provider's check
+// a table of the entries of one level with a search behind the search key, right opens the entry under the
+// marker to the level below, left goes back up. Every entry of every level is a target of its own kind, so a
+// higher level takes a whole area. What is picked is taken like a typed target (takeTarget), so the provider's check
 // still decides. The provider's names and paths are untrusted text and are shown without control characters.
+// Each level is a kit list whose entry IDs are indexes; the marks live across levels and tick the entries of
+// the level shown.
 //
 // The core reads one page at a time (manage.Service.ListTargets); the picker reads off the event loop and
-// asks for the next page when the marker reaches the end. Where the provider searches itself, the search
-// text goes to it after a short pause; otherwise the loaded entries are filtered here.
+// asks for the next page when the marker reaches the last shown entry. Where the provider searches itself,
+// the search text goes to it after a short pause; otherwise the kit filters the loaded entries.
 
 // addPick is the row key prefix of the add menu that opens the picker on one top-level kind.
 const addPick = "pick:"
@@ -65,15 +67,12 @@ type pickLevel struct {
 	ki     int
 	parent string
 	// label is the parent as shown; empty on the top level.
-	label   string
-	entries map[string]*pickEntry
-	list    filterList
-	table   table
-	// laid is the layout of table for laidWidth cells, valid while laidRows entries are in the table.
-	laid      layout
-	laidWidth int
-	laidRows  int
-	next      string
+	label string
+	// entries are the loaded entries in the order they came; the index of one is its ID in list.
+	entries []*pickEntry
+	known   map[string]bool
+	list    *kittui.List
+	next    string
 	// server says that the provider applies the search text itself; sent is the text its entries are for.
 	server bool
 	sent   string
@@ -86,6 +85,9 @@ type pickLevel struct {
 }
 
 func (lv *pickLevel) kind() string { return lv.kinds[lv.ki] }
+
+// query is the search text of the level, without the blanks around it.
+func (lv *pickLevel) query() string { return strings.TrimSpace(lv.list.Query()) }
 
 // targetPick is the picker while it is open, over the add menu that opened it.
 type targetPick struct {
@@ -157,21 +159,26 @@ func (m *Model) pickKindsUnder(parent string) []string {
 func (m *Model) newPickLevel(p *targetPick, kinds []string, ki int, parent, label string) *pickLevel {
 	p.nextID++
 	lv := &pickLevel{id: p.nextID, kinds: kinds, ki: ki, parent: parent, label: label,
-		entries: map[string]*pickEntry{}}
-	lv.table = table{rows: map[string][]string{}, columns: []column{
-		{title: columnText("Name"), tone: toneText}, {title: columnText("Kind"), optional: true, tone: toneDim},
-		{title: "ID", tone: toneDim}, {title: columnText("Path"), optional: true, tone: toneDim},
-	}}
-	lv.list = newFilterList(func(target string) string {
-		return strings.Join(lv.entries[target].cells, " ")
-	})
-	lv.list.match = func(target, query string) bool {
-		// A searching provider has filtered already, and its idea of a match may differ from ours.
-		return lv.server || query == "" || strings.Contains(strings.ToLower(strings.Join(lv.entries[target].cells, " ")), query)
-	}
-	lv.list.startFilter()
+		known: map[string]bool{}, list: m.newPickList()}
 	return lv
 }
+
+// newPickList is the kit list of a level: name, kind, ID and path, with a tick box where the provider takes
+// several targets or they are taken as exclusions.
+func (m *Model) newPickList() *kittui.List {
+	list, err := kittui.NewList(kittui.ListSpec{Columns: []kittui.Column{{Title: columnID("Name")},
+		{Title: columnID("Kind"), Optional: true, Dimmed: true}, {Title: columnID("ID"), Dimmed: true},
+		{Title: columnID("Path"), Optional: true, Dimmed: true}},
+		Keys: listKeys(actSpace), Search: kittui.SearchByKey, Ticks: m.pickTicks(),
+		Empty: tPickTheProviderListsNoEntry}, keymap, translator(false))
+	if err != nil {
+		panic("the list of the target picker is invalid: " + err.Error())
+	}
+	return list
+}
+
+// pickTicks reports whether the picker marks several entries.
+func (m *Model) pickTicks() bool { return m.targetMetadata().Multiple || m.targetAsExclusion }
 
 // startPick opens the picker on a top-level kind and starts reading its first page.
 func (m *Model) startPick(kind string) tea.Cmd {
@@ -251,7 +258,7 @@ func (m *Model) pickRead(lv *pickLevel, cursor string, proof manage.AdminProof, 
 	}
 	query := ""
 	if lv.server {
-		query = lv.list.query()
+		query = lv.query()
 	}
 	if cursor == "" {
 		lv.sent = query
@@ -335,36 +342,55 @@ func (m *Model) pickLoaded(msg pickLoadedMsg) tea.Cmd {
 	}
 	lv.server = msg.page.ServerSearch
 	if msg.replace {
-		lv.entries = map[string]*pickEntry{}
-		lv.table.rows = map[string][]string{}
-		lv.list.all = nil
-		lv.list.cursor, lv.list.offset = 0, 0
+		lv.entries, lv.known = nil, map[string]bool{}
 	}
-	names := lv.list.all
 	for _, entry := range msg.page.Entries {
-		if _, dup := lv.entries[entry.Target]; dup {
+		if lv.known[entry.Target] {
 			continue
 		}
-		e := &pickEntry{entry: entry, cells: []string{m.pickText(entry.Name), m.pickText(entry.Kind),
-			m.pickText(entry.Target), m.pickText(entry.Path)}}
-		lv.entries[entry.Target] = e
-		lv.table.rows[entry.Target] = m.pickCells(e)
-		names = append(names, entry.Target)
+		lv.known[entry.Target] = true
+		lv.entries = append(lv.entries, &pickEntry{entry: entry, cells: []string{m.pickText(entry.Name),
+			m.pickText(entry.Kind), m.pickText(entry.Target), m.pickText(entry.Path)}})
 	}
 	lv.next = msg.page.Next
-	lv.list.setItems(names)
+	m.pickShow(lv)
+	if shown := lv.list.Shown(); msg.replace && len(shown) > 0 {
+		lv.list.Select(shown[0])
+	}
 	if p.url != "" {
 		return m.pickResolved(lv)
 	}
 	return m.pickSync(lv)
 }
 
+// pickShow hands the loaded entries of a level to its list and ticks the marked ones. The entries of a
+// searching provider match the text they were read for, which keeps them shown until its next answer.
+func (m *Model) pickShow(lv *pickLevel) {
+	items := make([]kittui.ListItem, len(lv.entries))
+	var ticked []kittui.ItemID
+	for i, e := range lv.entries {
+		items[i] = kittui.ListItem{ID: choiceID(i), Cells: e.cells}
+		if lv.server {
+			items[i].SearchText = lv.sent
+		}
+		if _, marked := m.targetPick.marks[e.entry.Target]; marked {
+			ticked = append(ticked, choiceID(i))
+		}
+	}
+	if err := lv.list.SetItems(items); err != nil {
+		panic("the entries of the target picker are invalid: " + err.Error())
+	}
+	if err := lv.list.SetTicked(ticked); err != nil {
+		panic("the marks of the target picker are invalid: " + err.Error())
+	}
+}
+
 // pickResolved acts on the entries a URL stood for: none keeps the typed input, one is taken like an entry
 // of the list, several are left to choose from.
 func (m *Model) pickResolved(lv *pickLevel) tea.Cmd {
 	var found []config.TargetEntry
-	for _, target := range lv.list.all {
-		found = append(found, lv.entries[target].entry)
+	for _, e := range lv.entries {
+		found = append(found, e.entry)
 	}
 	switch len(found) {
 	case 0:
@@ -391,7 +417,7 @@ func (m *Model) pickError(err error) string {
 // pickSync asks a searching provider for the search text as it stands now, once the level shows the entries
 // of another text.
 func (m *Model) pickSync(lv *pickLevel) tea.Cmd {
-	if lv != m.targetPick.top() || !lv.server || lv.list.query() == lv.sent {
+	if lv != m.targetPick.top() || !lv.server || lv.query() == lv.sent {
 		return nil
 	}
 	return m.pickLoad(lv, "")
@@ -409,10 +435,15 @@ func (m *Model) pickSearch(msg pickSearchMsg) tea.Cmd {
 	return m.pickSync(lv)
 }
 
-// pickMore reads the next page once the marker is on the last entry.
+// pickMore reads the next page once the marker is on the last shown entry, or nothing shows.
 func (m *Model) pickMore(lv *pickLevel) tea.Cmd {
-	if lv.next == "" || lv.loading || (len(lv.list.matches) > 0 && lv.list.cursor < len(lv.list.matches)-1) {
+	if lv.next == "" || lv.loading {
 		return nil
+	}
+	if shown := lv.list.Shown(); len(shown) > 0 {
+		if id, ok := lv.list.Selected(); !ok || id != shown[len(shown)-1] {
+			return nil
+		}
 	}
 	return m.pickLoad(lv, lv.next)
 }
@@ -437,22 +468,30 @@ func (m *Model) pickLabel(name string) string {
 	return s
 }
 
-// pickCells are the cells of an entry in the table; a list that takes several targets has a tick in front.
-func (m *Model) pickCells(e *pickEntry) []string {
-	cells := append([]string(nil), e.cells...)
-	if m.targetMetadata().Multiple {
-		cells[0] = "[ ] " + cells[0]
-	}
-	return cells
-}
-
-// updatePick handles the picker, which has two zones: the search line, where every printable key is text, and
-// the entries, where space ticks. tab and shift+tab change the zone; a printable key other than space
-// leads from the entries back into the search.
+// updatePick handles the picker. The level's list takes its keys first: it moves, ticks and, after the
+// search key, types the search, and esc clears a search before it goes a level up. enter takes the marks or
+// the entry under the marker, right opens that entry and left goes back up.
 func (m *Model) updatePick(key tea.KeyPressMsg) tea.Cmd {
 	p := m.targetPick
 	lv := p.top()
 	m.clearMessages()
+	switch {
+	case keyIs(key, actEnter) && !lv.list.Searching():
+		m.pickTake(true)
+		return nil
+	case keyIs(key, actNextKind):
+		return m.pickNextKind(lv)
+	}
+	before := lv.query()
+	if content, ok := pasted(key); ok {
+		if lv.list.Paste(content) {
+			return m.pickMoved(lv, before)
+		}
+		return nil
+	}
+	if _, handled := lv.list.Update(key); handled {
+		return m.pickMoved(lv, before)
+	}
 	switch {
 	case keyIs(key, actBack):
 		switch {
@@ -463,66 +502,61 @@ func (m *Model) updatePick(key tea.KeyPressMsg) tea.Cmd {
 		default:
 			m.closePick()
 		}
-	case keyIs(key, actEnter):
-		m.pickTake(true)
 	case keyIs(key, actRight):
 		return m.pickOpen(lv)
-	case keyIs(key, actNext) || keyIs(key, actPrev):
-		if lv.list.editing {
-			lv.list.stopFilter()
-		} else {
-			lv.list.startFilter()
+	case keyIs(key, actLeft):
+		return m.pickBack()
+	case keyIs(key, actSpace):
+		// The list has no tick boxes: the provider takes one target only.
+		if _, ok := lv.current(); ok {
+			m.fail = tr(tPickThisProviderTakesOneOnly, m.targetMetadata().Label)
 		}
-	case keyIs(key, actSpace) && !lv.list.editing:
-		m.pickMark(lv)
-	case keyIs(key, actSearch) && !lv.list.editing:
-		lv.list.startFilter()
-	case keyIs(key, actNextKind):
-		return m.pickNextKind(lv)
-	case keyIs(key, actReload) && !lv.list.editing:
+	case keyIs(key, actReload):
 		return m.pickLoad(lv, "")
-	case keyIs(key, actUp):
-		lv.list.move(-1)
-		return m.pickMore(lv)
-	case keyIs(key, actDown):
-		if lv.next != "" && len(lv.list.matches) > 0 && lv.list.cursor == len(lv.list.matches)-1 {
-			// The end is not a place to wrap from while more entries are coming.
-			return m.pickMore(lv)
-		}
-		lv.list.move(1)
-		return m.pickMore(lv)
-	case keyIs(key, actPageUp) || keyIs(key, actPageDown) || keyIs(key, actHome) || keyIs(key, actEnd):
-		start, end := m.pickWindow()
-		lv.list.page(key, start, end)
-		return m.pickMore(lv)
-	default:
-		if !lv.list.editing && key.Text != "" {
-			lv.list.startFilter()
-		}
-		before := lv.list.query()
-		cmd := lv.list.updateFilter(key)
-		if lv.list.query() == before {
-			return cmd
-		}
-		if lv.server {
-			lv.seq++
-			level, seq := lv.id, lv.seq
-			return tea.Batch(cmd, tea.Tick(pickDelay, func(time.Time) tea.Msg {
-				return pickSearchMsg{level: level, seq: seq}
-			}))
-		}
-		return tea.Batch(cmd, m.pickMore(lv))
 	}
 	return nil
 }
 
+// pickMoved follows a key or a click the level's list took: the ticks become marks, a changed search goes
+// to a searching provider after a pause, and the marker on the last shown entry reads the next page.
+func (m *Model) pickMoved(lv *pickLevel, before string) tea.Cmd {
+	m.pickTicked(lv)
+	if lv.server && lv.query() != before {
+		lv.seq++
+		level, seq := lv.id, lv.seq
+		return tea.Tick(pickDelay, func(time.Time) tea.Msg { return pickSearchMsg{level: level, seq: seq} })
+	}
+	return m.pickMore(lv)
+}
+
+// pickTicked takes the ticks of the level's entries into the marks, which hold the ticks of every level.
+func (m *Model) pickTicked(lv *pickLevel) {
+	p := m.targetPick
+	ticked := map[kittui.ItemID]bool{}
+	for _, id := range lv.list.Ticked() {
+		ticked[id] = true
+	}
+	for i, e := range lv.entries {
+		target := e.entry.Target
+		_, marked := p.marks[target]
+		switch on := ticked[choiceID(i)]; {
+		case on && !marked:
+			p.marks[target] = e.entry
+			p.markOrder = append(p.markOrder, target)
+		case !on && marked:
+			delete(p.marks, target)
+			p.markOrder = slices.DeleteFunc(p.markOrder, func(t string) bool { return t == target })
+		}
+	}
+}
+
 // current is the entry under the marker.
 func (lv *pickLevel) current() (*pickEntry, bool) {
-	target, ok := lv.list.selected()
+	i, ok := chosen(lv.list, len(lv.entries))
 	if !ok {
 		return nil, false
 	}
-	return lv.entries[target], true
+	return lv.entries[i], true
 }
 
 // pickOpen opens the entry under the marker to the level below it.
@@ -572,38 +606,9 @@ func (m *Model) pickNextKind(lv *pickLevel) tea.Cmd {
 		return nil
 	}
 	lv.ki = (lv.ki + 1) % len(lv.kinds)
-	lv.entries = map[string]*pickEntry{}
-	lv.table.rows = map[string][]string{}
+	lv.entries, lv.known, lv.list = nil, map[string]bool{}, m.newPickList()
 	lv.next, lv.server, lv.sent = "", false, ""
-	lv.list.reset(nil)
-	lv.list.startFilter()
 	return m.pickLoad(lv, "")
-}
-
-// pickMark ticks or unticks the entry under the marker, where the provider takes several targets.
-func (m *Model) pickMark(lv *pickLevel) {
-	e, ok := lv.current()
-	if !ok {
-		return
-	}
-	if !m.targetMetadata().Multiple && !m.targetAsExclusion {
-		m.fail = tr(tPickThisProviderTakesOneOnly, m.targetMetadata().Label)
-		return
-	}
-	p := m.targetPick
-	target := e.entry.Target
-	if _, marked := p.marks[target]; marked {
-		delete(p.marks, target)
-		for i, t := range p.markOrder {
-			if t == target {
-				p.markOrder = append(p.markOrder[:i], p.markOrder[i+1:]...)
-				break
-			}
-		}
-		return
-	}
-	p.marks[target] = e.entry
-	p.markOrder = append(p.markOrder, target)
 }
 
 // pickTake takes the marked entries, or the entry under the marker when none is marked and useCursor is
@@ -664,26 +669,45 @@ func (m *Model) takeEntries(picked []config.TargetEntry) bool {
 	return true
 }
 
-// position is where the marker stands among the entries, as the title shows it.
+// position is where the marker stands among the entries, as the title shows it; a "+" says more pages follow.
 func (lv *pickLevel) position() string {
-	total := len(lv.list.all)
-	if query := lv.list.query(); query != "" && !lv.server {
-		return tr(tPickLoaded, min(lv.list.cursor+1, len(lv.list.matches)), len(lv.list.matches), total)
+	pos := lv.list.Position()
+	if pos == "" {
+		pos = "0"
 	}
-	if total == 0 {
-		return "0"
-	}
-	more := ""
 	if lv.next != "" {
-		more = "+"
+		pos += "+"
 	}
-	return fmt.Sprintf("%d/%d%s", lv.list.cursor+1, total, more)
+	return pos
 }
 
-// pickFrame is everything of the picker except its rows.
+// pickNote sets the sentences of the level's list: its state while it loads or failed, and where no loaded
+// entry matches but more pages follow.
+func (m *Model) pickNote(lv *pickLevel) {
+	empty, note, warn := tr(tPickTheProviderListsNoEntry), "", false
+	switch {
+	case lv.err != "":
+		empty, note, warn = tr(tPickReloadReadsAgain), lv.err, true
+		if len(lv.entries) > 0 {
+			note += " " + tr(tPickReloadReadsAgain)
+		}
+	case lv.loading:
+		empty = tr(tLogLoading)
+		if len(lv.entries) > 0 {
+			note = tr(tLogLoading)
+		}
+	case len(lv.entries) > 0 && lv.next != "" && len(lv.list.Shown()) == 0:
+		note = tr(tPickNoLoadedEntryMatchesDown, lv.query())
+	}
+	lv.list.SetEmpty(empty)
+	lv.list.SetNote(note, warn)
+}
+
+// pickFrame is what stands above and below the list of the level.
 func (m *Model) pickFrame() (string, string) {
 	p := m.targetPick
 	lv := p.top()
+	panel := m.dialogPanelOf()
 	title := tr(tPickChooseFromTheList, lv.kind(), lv.position())
 	if p.url != "" {
 		title = tr(tPickEntriesFoundForTheAddress, lv.position())
@@ -694,8 +718,6 @@ func (m *Model) pickFrame() (string, string) {
 	if m.targetAsExclusion {
 		title += " · " + tr(tTargetTakenAsExclusionShort)
 	}
-	var head strings.Builder
-	head.WriteString(m.boxTop(title, ""))
 	var where []string
 	for i, level := range p.levels {
 		if i > 0 {
@@ -707,105 +729,44 @@ func (m *Model) pickFrame() (string, string) {
 	if p.url != "" {
 		level = tr(tPickTheAddressYouTypedMatched)
 	}
-	head.WriteString(m.boxText(styles.hint, level))
-	head.WriteString(m.boxSearch(&lv.list, tr(tLogPickSearch)))
-	_, width := m.fitIn(m.boxRoom(), "  ")
-	if len(lv.list.all) > 0 {
-		head.WriteString(m.boxLine(styles.hint.Render(clipCells("  "+lv.table.header(m.pickLayout(lv, width)), m.boxRoom()))))
-	}
-	switch {
-	case lv.err != "":
-		head.WriteString(m.boxText(styles.fail, "[!] "+lv.err+" "+tr(tPickReloadReadsAgain)))
-	case lv.loading:
-		head.WriteString(m.boxText(styles.hint, tr(tLogLoading)))
-	case len(lv.list.all) == 0:
-		head.WriteString(m.boxText(styles.hint, tr(tPickTheProviderListsNoEntry)))
-	case len(lv.list.matches) == 0 && lv.next != "":
-		head.WriteString(m.boxText(styles.hint, tr(tPickNoLoadedEntryMatchesDown, lv.list.query())))
-	case len(lv.list.matches) == 0:
-		head.WriteString(m.boxText(styles.hint, tr(tPickNoEntryMatches, lv.list.query())))
-	}
-
-	return head.String(), m.boxBottom() + m.keyHint(m.pickKeys()) + m.notes()
+	head := panel.top(title, "") + panel.text(styles.hint, level) + panel.blank()
+	return head, panel.closing() + m.keyHint(m.pickKeys()) + m.notes()
 }
 
-// pickKeys is the key text of the target picker, for the level it stands on.
+// pickKeys is the key text of the target picker, for the level it stands on; while a search is typed, the
+// list's own.
 func (m *Model) pickKeys() string {
 	p := m.targetPick
 	lv := p.top()
-	keys := "type to search · {up}/{down} move · {enter} take"
+	if lv.list.Searching() {
+		return hintsText(lv.list.Hints())
+	}
+	keys := "{up}/{down} move · {enter} take"
 	if _, ok := lv.current(); ok && p.url == "" && len(m.pickKindsUnder(lv.kind())) > 0 {
 		keys += " · {right} open"
 	}
-	if m.targetMetadata().Multiple {
-		if lv.list.editing {
-			keys += " · {next} entries"
-		} else {
-			keys += " · {space} tick · {next} search"
-		}
+	if m.pickTicks() {
+		keys += " · {space} tick"
 	}
+	keys += " · {search} search"
 	if len(lv.kinds) > 1 {
 		keys += " · {nextkind} next kind"
 	}
-	keys += " · {save} save · {back} "
-	if len(p.levels) > 1 {
-		keys += "level up"
-	} else {
-		keys += "close"
+	switch {
+	case lv.query() != "":
+		keys += " · {save} save · {back} clear filter"
+	case len(p.levels) > 1:
+		keys += " · {save} save · {back} level up"
+	default:
+		keys += " · {save} save · {back} close"
 	}
-	if lv.list.query() == "" {
-		keys += " · {command} cmds · {help} help"
-	}
-	return keys
+	return keys + " · {command} cmds · {help} help"
 }
 
-// pickLayout is the layout of the level's table for width cells, kept while the entries stay the same.
-func (m *Model) pickLayout(lv *pickLevel, width int) layout {
-	if lv.laidWidth != width || lv.laidRows != len(lv.table.rows) || lv.laid.widths == nil {
-		lv.laid, lv.laidWidth, lv.laidRows = lv.table.layout(width), width, len(lv.table.rows)
-	}
-	return lv.laid
-}
-
-// pickRow draws the shown entry at index i.
-func (m *Model) pickRow(i int) string {
-	p := m.targetPick
-	lv := p.top()
-	_, width := m.fitIn(m.boxRoom(), "  ")
-	e := lv.entries[lv.list.matches[i]]
-	cells := m.pickCells(e)
-	_, marked := p.marks[e.entry.Target]
-	if marked {
-		cells[0] = "[x]" + strings.TrimPrefix(cells[0], "[ ]")
-	}
-	line := lv.table.line(cells, m.pickLayout(lv, width))
-	if marked {
-		line = colourTick(line, styles.cell)
-	}
-	return m.boxRow(m.listRowIn(m.boxRoom(), i == lv.list.cursor, line))
-}
-
-func (m *Model) pickWindow() (int, int) {
-	header, footer := m.pickFrame()
-	return m.windowIn(&m.targetPick.top().list, header, footer, m.pickRow)
-}
-
-// pickView draws the picker like a list: its frame, and between them as many entries as fit.
+// pickView draws the picker: its frame around the list of the level shown.
 func (m *Model) pickView() string {
-	header, footer := m.pickFrame()
-	var b strings.Builder
-	b.WriteString(header)
-	start, end := m.pickWindow()
-	for i := start; i < end; i++ {
-		b.WriteString(m.pickRow(i) + "\n")
-	}
-	p := m.targetPick
-	m.hitRows(m.hitTop(header), m.usable(0), start, end, m.pickRow, func(i int) tea.Cmd {
-		if m.screen != screenTargets || m.targetPick != p || i >= len(p.top().list.matches) {
-			return nil
-		}
-		return markOrAct(&p.top().list.cursor, i, true, func() tea.Cmd { return m.press(tea.KeyPressMsg{Code: tea.KeyEnter}) })
-	})
-	b.WriteString(footer)
-	return b.String()
+	lv := m.targetPick.top()
+	m.pickNote(lv)
+	head, foot := m.pickFrame()
+	return m.workList(lv.list, head, foot)
 }

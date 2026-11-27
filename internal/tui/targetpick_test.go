@@ -6,11 +6,13 @@ import (
 	"path/filepath"
 	"reflect"
 	"slices"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
 
 	tea "charm.land/bubbletea/v2"
+	"github.com/charmbracelet/x/ansi"
 
 	"github.com/castrowithcee/qatlas-connect/internal/capability"
 	"github.com/castrowithcee/qatlas-connect/internal/config"
@@ -89,6 +91,12 @@ func pickerModelOn(t *testing.T, reg *capability.Registry, src *listSource, targ
 	old := pickDelay
 	pickDelay = time.Millisecond
 	t.Cleanup(func() { pickDelay = old })
+	return addMenuOn(t, reg, src, targets...)
+}
+
+// addMenuOn is pickerModelOn without the short pause, for tests that run side by side.
+func addMenuOn(t *testing.T, reg *capability.Registry, src *listSource, targets ...string) *Model {
+	t.Helper()
 	m, _ := toolsModel(t, reg, map[string]config.Connection{
 		"lst": {Service: "wiki", Credential: "reader", Targets: targets},
 	})
@@ -109,9 +117,23 @@ func openPicker(t *testing.T, m *Model) {
 	}
 }
 
+// pickShown are the targets the list of the level shows, in their order.
 func pickShown(m *Model) []string {
 	lv := m.targetPick.top()
-	return append([]string(nil), lv.list.matches...)
+	var targets []string
+	for _, id := range lv.list.Shown() {
+		i, _ := strconv.Atoi(string(id))
+		targets = append(targets, lv.entries[i].entry.Target)
+	}
+	return targets
+}
+
+// pickMarked is the target under the marker of the level.
+func pickMarked(m *Model) string {
+	if e, ok := m.targetPick.top().current(); ok {
+		return e.entry.Target
+	}
+	return ""
 }
 
 func pickPage(entries ...config.TargetEntry) func(config.TargetListRequest) (config.TargetPage, error) {
@@ -199,14 +221,18 @@ func TestThePickerLoadsAndFiltersLocally(t *testing.T) {
 		t.Fatalf("shown %v, want 3 entries", got)
 	}
 	view := screenOf(m)
-	for _, want := range []string{"Name", "Kind", "ID", "Path", "Group ab", "g/ab", "> "} {
+	for _, want := range []string{"NAME", "KIND", "ID", "PATH", "Group ab", "g/ab"} {
 		if !strings.Contains(view, want) {
 			t.Errorf("the picker does not show %q:\n%s", want, view)
 		}
 	}
-	pump(t, m, "b")
+	pump(t, m, "/", "b")
 	if got := pickShown(m); len(got) != 2 {
 		t.Fatalf("filter b shows %v, want 2 entries", got)
+	}
+	// The count of the title is the kit's count of the shown entries.
+	if view := screenOf(m); !strings.Contains(view, "1/2 (3 total)") {
+		t.Errorf("the title does not count the shown entries:\n%s", view)
 	}
 	if len(src.reqs) != 1 {
 		t.Fatalf("typing in a provider without search read again: %v", src.reqs)
@@ -240,12 +266,64 @@ func TestThePickerReadsTheNextPageAtTheEnd(t *testing.T) {
 	if len(src.reqs) != 2 || src.reqs[1].Cursor != "p2" {
 		t.Fatalf("reaching the end read %v, want the second page", src.reqs)
 	}
-	if got := pickShown(m); len(got) != 3 || m.targetPick.top().list.cursor != 1 {
-		t.Fatalf("shown %v cursor %d, want 3 entries and the marker kept", got, m.targetPick.top().list.cursor)
+	if got := pickShown(m); len(got) != 3 || pickMarked(m) != "g/b" {
+		t.Fatalf("shown %v marked %q, want 3 entries and the marker kept", got, pickMarked(m))
 	}
 	pump(t, m, "down", "down")
 	if len(src.reqs) != 2 {
 		t.Fatalf("a finished listing was read again: %v", src.reqs)
+	}
+}
+
+// With a filter, the last entry it shows is the end of the level: the marker reaching it reads the next page.
+func TestThePickerReadsTheNextPageAtTheLastFilteredEntry(t *testing.T) {
+	src := &listSource{list: func(req config.TargetListRequest) (config.TargetPage, error) {
+		if req.Cursor == "" {
+			return config.TargetPage{Entries: []config.TargetEntry{group("a"), group("b"), group("ab"), group("c")},
+				Next: "p2"}, nil
+		}
+		return config.TargetPage{Entries: []config.TargetEntry{group("ba")}}, nil
+	}}
+	m := pickerModel(t, src)
+	openPicker(t, m)
+	pump(t, m, "/", "a", "enter")
+	if got := pickShown(m); !slices.Equal(got, []string{"g/a", "g/ab"}) || len(src.reqs) != 1 {
+		t.Fatalf("filter a shows %v after %d reads, want g/a and g/ab and no second read", got, len(src.reqs))
+	}
+	pump(t, m, "down")
+	if len(src.reqs) != 2 || src.reqs[1].Cursor != "p2" {
+		t.Fatalf("the last filtered entry read %v, want the second page", src.reqs)
+	}
+	if got := pickShown(m); !slices.Equal(got, []string{"g/a", "g/ab", "g/ba"}) || pickMarked(m) != "g/ab" {
+		t.Fatalf("shown %v marked %q, want the new match and the marker kept", got, pickMarked(m))
+	}
+}
+
+// The marks hold across the levels: an entry ticked above stays ticked below and when the person comes back.
+func TestTheMarksStayAcrossTheLevels(t *testing.T) {
+	src := &listSource{list: func(req config.TargetListRequest) (config.TargetPage, error) {
+		if req.Kind == "item" {
+			return config.TargetPage{Entries: []config.TargetEntry{item(req.Parent, "1"), item(req.Parent, "2")}}, nil
+		}
+		return config.TargetPage{Entries: []config.TargetEntry{group("a"), group("b")}}, nil
+	}}
+	m := pickerModel(t, src)
+	openPicker(t, m)
+	pump(t, m, "space", "down", "right", "down", "space")
+	if got := m.targetPick.markOrder; !slices.Equal(got, []string{"g/a", "g/b/i/2"}) {
+		t.Fatalf("marks %v, want the group above and the item below", got)
+	}
+	pump(t, m, "left")
+	if got := m.targetPick.top().list.Ticked(); len(got) != 1 || pickShown(m)[0] != "g/a" || got[0] != "0" {
+		t.Fatalf("back on the first level ticks %v, want g/a", got)
+	}
+	pump(t, m, "right")
+	if got := m.targetPick.top().list.Ticked(); len(got) != 1 || got[0] != "1" {
+		t.Fatalf("the level read again ticks %v, want the item marked before", got)
+	}
+	pump(t, m, "enter")
+	if got := m.targetList.all; !slices.Equal(got, []string{"g/a", "g/b/i/2"}) {
+		t.Fatalf("taken %v, want the marks of both levels", got)
 	}
 }
 
@@ -261,6 +339,7 @@ func TestThePickerSearchesOnTheServerAfterAPause(t *testing.T) {
 	openPicker(t, m)
 
 	// Two keys, two pauses: only the pause after the last key reads, and with the whole text.
+	press(t, m, "/")
 	_, first := m.Update(keyMsg("z"))
 	_, second := m.Update(keyMsg("z"))
 	deliver(m, first)
@@ -287,6 +366,7 @@ func TestALateAnswerOfAReplacedReadChangesNothing(t *testing.T) {
 	m := pickerModel(t, src)
 	openPicker(t, m)
 	_, more := m.Update(keyMsg("down")) // reads page 2
+	press(t, m, "/")
 	_, search := m.Update(keyMsg("q"))
 	deliver(m, search) // the search starts and replaces the read in flight
 	stale := more()
@@ -305,7 +385,7 @@ func TestThePickerOpensALevelAndGoesBack(t *testing.T) {
 	}}
 	m := pickerModel(t, src)
 	openPicker(t, m)
-	pump(t, m, "down", "b") // second group, filtered to it
+	pump(t, m, "/", "b", "enter") // the second group, filtered to it
 	pump(t, m, "right")
 	last := src.reqs[len(src.reqs)-1]
 	if last.Kind != "item" || last.Parent != "g/b" {
@@ -318,12 +398,17 @@ func TestThePickerOpensALevelAndGoesBack(t *testing.T) {
 		}
 	}
 	pump(t, m, "left")
-	if len(m.targetPick.levels) != 2 {
-		t.Fatalf("left went up a level: %d levels", len(m.targetPick.levels))
+	if m.targetPick == nil || len(m.targetPick.levels) != 1 || m.targetPick.top().query() != "b" {
+		t.Fatalf("left did not return to the first level with its search")
 	}
+	pump(t, m, "right", "esc")
+	if m.targetPick == nil || len(m.targetPick.levels) != 1 {
+		t.Fatalf("esc did not go up a level")
+	}
+	// esc clears the search first and closes the picker after it.
 	pump(t, m, "esc")
-	if m.targetPick == nil || len(m.targetPick.levels) != 1 || m.targetPick.top().list.query() != "b" {
-		t.Fatalf("esc did not return to the first level with its search")
+	if m.targetPick == nil || m.targetPick.top().query() != "" {
+		t.Fatalf("esc did not clear the search first")
 	}
 	pump(t, m, "esc")
 	if m.targetPick != nil {
@@ -351,7 +436,7 @@ func TestSeveralEntriesCanBeMarkedAndTakenTogether(t *testing.T) {
 	src := &listSource{list: pickPage(group("a"), group("b"), group("c"))}
 	m := pickerModel(t, src, "g/a")
 	openPicker(t, m)
-	pump(t, m, "tab", "down", "space", "down", "space")
+	pump(t, m, "down", "space", "down", "space")
 	if view := screenOf(m); !strings.Contains(view, "[x] Group b") || !strings.Contains(view, "2 marked") {
 		t.Fatalf("marks not shown:\n%s", view)
 	}
@@ -363,7 +448,7 @@ func TestSeveralEntriesCanBeMarkedAndTakenTogether(t *testing.T) {
 	// An entry the list holds already is refused and nothing of the choice is taken.
 	m2 := pickerModel(t, src, "g/a")
 	openPicker(t, m2)
-	pump(t, m2, "tab", "space", "down", "space", "enter")
+	pump(t, m2, "space", "down", "space", "enter")
 	if m2.targetPick == nil || len(m2.targetList.all) != 1 || !strings.Contains(m2.fail, "already in the list") {
 		t.Fatalf("a refused choice: picker open %v list %v error %q", m2.targetPick != nil, m2.targetList.all, m2.fail)
 	}
@@ -392,11 +477,16 @@ func TestProviderTextIsShownAndStoredWithoutControlCharacters(t *testing.T) {
 	m := pickerModel(t, src)
 	openPicker(t, m)
 	hostile := config.TargetEntry{Target: "g/x", Kind: "group", Name: "Evil\x1b[2J\nName\u202e", Path: "p\x07ath"}
+	// A target with a control character never becomes an ID of the list, which names entries by index.
+	worse := config.TargetEntry{Target: "g/\x1b[31my", Kind: "group\x1b]0;t\x07", Name: "y"}
 	// The core drops such entries, so the answer is handed to the model directly.
 	m.targetPick.top().loading, m.targetPick.top().req = true, 99
-	m.Update(pickLoadedMsg{req: 99, replace: true, page: config.TargetPage{Entries: []config.TargetEntry{hostile}}})
-	view := screenOf(m)
-	for _, bad := range []string{"\x1b", "\x07", "\u202e"} {
+	m.Update(pickLoadedMsg{req: 99, replace: true, page: config.TargetPage{Entries: []config.TargetEntry{hostile, worse}}})
+	if got := pickShown(m); len(got) != 2 {
+		t.Fatalf("shown %q, want both entries", got)
+	}
+	view := m.render()
+	for _, bad := range []string{"\x1b[2J", "\x1b[31m", "\x1b]0", "\x07", "\u202e"} {
 		if strings.Contains(view, bad) {
 			t.Errorf("the view holds %q:\n%q", bad, view)
 		}
@@ -474,8 +564,25 @@ func TestTheNarrowPickerDropsTheLessImportantColumnsFirst(t *testing.T) {
 	if !strings.Contains(view, "g/alpha") {
 		t.Errorf("the ID column went before the others:\n%s", view)
 	}
-	if strings.Contains(view, "Path") {
+	if strings.Contains(view, "PATH") {
 		t.Errorf("the path column stayed on a narrow terminal:\n%s", view)
+	}
+}
+
+// The picker fits the sizes the editor supports with its marked entry, its search and its keys on screen.
+func TestThePickerFitsEverySize(t *testing.T) {
+	src := &listSource{list: pickPage(group("a"), group("b"), group("c"), group("d"), group("e"), group("f"))}
+	m := pickerModel(t, src)
+	openPicker(t, m)
+	pump(t, m, "space", "/", "g", "enter", "end")
+	for _, size := range [][2]int{{minimumWidth, minimumHeight}, {59, 19}, {80, 24}, {150, 42}} {
+		m.Update(tea.WindowSizeMsg{Width: size[0], Height: size[1]})
+		view := m.render()
+		assertViewFits(t, view, size[0], size[1])
+		plain := ansi.Strip(view)
+		if strings.Contains(plain, "Resize terminal") || !strings.Contains(plain, "Group f") || !strings.Contains(plain, "esc") {
+			t.Errorf("the picker at %dx%d:\n%s", size[0], size[1], plain)
+		}
 	}
 }
 
@@ -483,7 +590,7 @@ func TestF2InThePickerTakesTheMarksAndSaves(t *testing.T) {
 	src := &listSource{list: pickPage(group("a"), group("b"))}
 	m := pickerModel(t, src)
 	openPicker(t, m)
-	pump(t, m, "tab", "space", "f2")
+	pump(t, m, "space", "f2")
 	if m.targetPick != nil || m.fail != "" {
 		t.Fatalf("F2 left the picker open %v or failed: %q", m.targetPick != nil, m.fail)
 	}
@@ -540,7 +647,7 @@ func TestAnAddressWithSeveralMatchesOffersThemToChoose(t *testing.T) {
 	if m.status != "Nothing lies below this entry" || len(m.targetPick.levels) != 1 {
 		t.Errorf("an address result opened a level: %q", m.status)
 	}
-	pump(t, m, "tab", "space", "down", "space", "enter")
+	pump(t, m, "space", "down", "space", "enter")
 	if got := strings.Join(m.targetList.all, ","); got != "g/a,g/b" {
 		t.Fatalf("list %q, want both matches", got)
 	}
@@ -786,7 +893,6 @@ func pickInSetup(t *testing.T, m *Model, take ...string) {
 	focusField(t, m, targetsLabel)
 	press(t, m, "enter", "n")
 	openPicker(t, m)
-	press(t, m, "tab")
 	for range take {
 		press(t, m, "space", "down")
 	}
@@ -924,7 +1030,7 @@ func TestThePickerTakesListEntriesAsExclusions(t *testing.T) {
 	if view := screenOf(m); !strings.Contains(view, "as exclusions") {
 		t.Fatalf("the picker does not say it takes exclusions:\n%s", view)
 	}
-	pump(t, m, "tab", "space", "down", "space", "enter")
+	pump(t, m, "space", "down", "space", "enter")
 	if reach, out := exclusionState(m); !reflect.DeepEqual(reach, []string{"g/z"}) || !reflect.DeepEqual(out, []string{"g/a", "g/b"}) {
 		t.Fatalf("list %v / %v, error %q", reach, out, m.fail)
 	}
@@ -1013,21 +1119,13 @@ func TestTheNextKindKeySwitchesTheKind(t *testing.T) {
 	}
 }
 
-func TestTheTargetPickerTicksWithSpaceAndTabChangesTheZone(t *testing.T) {
+func TestTheTargetPickerTicksWithSpaceAndSearchesAfterTheSearchKey(t *testing.T) {
 	src := &listSource{list: pickPage(group("a"), group("b"))}
 	m := pickerModel(t, src)
 	openPicker(t, m)
 	lv := m.targetPick.top()
-	if !lv.list.editing {
-		t.Fatal("the picker does not open on the search")
-	}
-	pump(t, m, "space")
-	if len(m.targetPick.marks) != 0 || lv.list.input.Value() != " " {
-		t.Fatalf("space in the search ticked %v or was not typed: %q", m.targetPick.marks, lv.list.input.Value())
-	}
-	pump(t, m, "backspace", "tab")
-	if lv.list.editing {
-		t.Fatal("tab did not leave the search for the entries")
+	if lv.list.Searching() {
+		t.Fatal("the picker opens on the search")
 	}
 	pump(t, m, "space")
 	if len(m.targetPick.marks) != 1 {
@@ -1037,13 +1135,17 @@ func TestTheTargetPickerTicksWithSpaceAndTabChangesTheZone(t *testing.T) {
 	if len(m.targetPick.marks) != 0 {
 		t.Fatalf("a second space left marks %v", m.targetPick.marks)
 	}
-	pump(t, m, "shift+tab")
-	if !lv.list.editing {
-		t.Fatal("shift+tab did not return to the search")
+	pump(t, m, "x")
+	if lv.list.Searching() || lv.query() != "" {
+		t.Fatalf("a letter on the entries started the search: %q", lv.query())
 	}
-	pump(t, m, "tab", "x")
-	if !lv.list.editing || lv.list.input.Value() != "x" {
-		t.Fatalf("a letter on the entries did not lead into the search: %q", lv.list.input.Value())
+	pump(t, m, "/", "space", "x")
+	if len(m.targetPick.marks) != 0 || lv.list.Query() != " x" {
+		t.Fatalf("space in the search ticked %v or was not typed: %q", m.targetPick.marks, lv.list.Query())
+	}
+	m.Update(pasteKey("yz"))
+	if lv.list.Query() != " xyz" {
+		t.Fatalf("a paste into the search left %q", lv.list.Query())
 	}
 }
 
@@ -1051,7 +1153,7 @@ func TestEscInTheTargetPickerAsksBeforeDroppingTicks(t *testing.T) {
 	src := &listSource{list: pickPage(group("a"), group("b"))}
 	m := pickerModel(t, src)
 	openPicker(t, m)
-	pump(t, m, "tab", "space", "esc")
+	pump(t, m, "space", "esc")
 	if m.screen != screenLeave || m.targetPick == nil {
 		t.Fatalf("esc with ticks = screen %v, picker open %v, want the question", m.screen, m.targetPick != nil)
 	}
