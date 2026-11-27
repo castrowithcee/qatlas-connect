@@ -75,5 +75,11 @@ jobs:
           exit "$status"
       - name: Vet
         run: go vet ./...
+      # go test starts packages in the order given. The longest packages come last in ./..., and on a runner
+      # with few cores they would run nearly alone at the end; started first, they overlap with the rest.
+      # The job is bound by CPU, and the TUI tests allocate heavily; a larger heap target spends less of it on
+      # garbage collection.
       - name: Test
-        run: go test -count=1 -timeout 25m ./...
+        env:
+          GOGC: 200
+        run: go test -count=1 -timeout 25m ./internal/tui ./scripts ./internal/web ./...
