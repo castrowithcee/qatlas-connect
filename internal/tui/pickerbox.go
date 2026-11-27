@@ -6,7 +6,7 @@ import (
 	"charm.land/lipgloss/v2"
 )
 
-// The picker screens (value picker, provider table, target picker, template picker) draw their table like a
+// The picker screens (tool picker, target picker) draw their table like a
 // list: in a panel with the position in its top border and the search field as its first line. Where the
 // terminal is too small for the frame (see tableFramed) the same lines stand without it, so a small terminal
 // keeps its room. The helpers below return lines that end in a line feed, except boxBottom, which belongs in
@@ -96,11 +96,6 @@ func tickBox(ticked bool) string {
 		return styles.ok.Render("[x]")
 	}
 	return "[ ]"
-}
-
-// colourRadio colours the first selected radio mark of a drawn row in the tick colour.
-func colourRadio(row string) string {
-	return strings.Replace(row, "(*)", styles.ok.Render("(*)"), 1)
 }
 
 // colourTick colours the first ticked box of a drawn row and sets the style of the cell it stands in again

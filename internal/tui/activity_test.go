@@ -99,7 +99,7 @@ func heatModel(t *testing.T, f *logFixture) *Model {
 	m.logs.from = localDay(time.Now().AddDate(0, 0, -20))
 	m.logs.to = localDay(time.Now())
 	deliver(m, m.loadLogs())
-	m.logs.focus = logFocusTabs
+	m.logs.setFocus(logFocusTabs, false)
 	pump(t, m, "right")
 	if !m.logs.heat {
 		t.Fatalf("a = heat %v, want the heatmap", m.logs.heat)

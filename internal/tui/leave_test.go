@@ -326,7 +326,7 @@ func TestF3BackspaceAndQAreNotBackOrQuitInTheSetupAndForms(t *testing.T) {
 func TestLogDetailAndDialogsGoBackOnlyWithEsc(t *testing.T) {
 	f := newLogFixture(t)
 	f.append("cli", "", "op.one", "wiki", "success")
-	m := f.model(true, f.localToday())
+	m := f.wideModel(true, f.localToday())
 	press(t, m, "down", "enter")
 	if m.screen != screenLogDetail {
 		t.Fatalf("enter = screen %v, want the detail", m.screen)
@@ -351,12 +351,12 @@ func TestLogDetailAndDialogsGoBackOnlyWithEsc(t *testing.T) {
 	}
 	press(t, m, "tab", "tab", "right")
 	press(t, m, "tab", "enter")
-	if m.logs.dialog == nil {
+	if logDateForm(m) == nil {
 		t.Fatal("the date dialog did not open")
 	}
 	typeText(t, m, "x")
 	press(t, m, "esc")
-	if m.logs.dialog != nil || m.screen != screenLogs {
+	if m.modal != nil || m.screen != screenLogs {
 		t.Fatalf("esc did not close the date dialog without a question: screen %v", m.screen)
 	}
 	press(t, m, "q")

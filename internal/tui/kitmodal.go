@@ -93,6 +93,11 @@ func (m *Model) modalMouse(msg tea.MouseMsg) tea.Cmd {
 		}
 		return nil
 	}
+	if f, form := m.modal.(*kittui.Form); form && r.Item == "" && r.Action != "" {
+		// A form leaves the keys of its key line and of the footer to the application, as the kit's log view does.
+		act, _ := f.Act(r.Action)
+		return m.modalAct(act)
+	}
 	typed := m.modalText()
 	act, handled := m.modal.Click(r)
 	m.edited(typed)
@@ -130,7 +135,7 @@ func (m *Model) modalAct(act action) tea.Cmd {
 // it fits, else in the workspace with its keys in the footer, and keeps its targets: in the second case those
 // of the footer too, while header and tabs take no click.
 func (m *Model) modalFrame() string {
-	base := m.screen
+	base := m.underScreen()
 	if m.question != nil {
 		base = m.baseScreen()
 	}

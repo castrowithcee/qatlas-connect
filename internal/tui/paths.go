@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	tea "charm.land/bubbletea/v2"
+	"github.com/charmbracelet/x/ansi"
 
 	"github.com/castrowithcee/qatlas-connect/internal/config"
 	"github.com/castrowithcee/qatlas-kit/projectpath"
@@ -24,9 +25,59 @@ import (
 // whole when the form is saved. Whether the directory exists is not checked: a path is only resolved when a
 // call runs, and config validate warns about one that names nothing.
 
-// openPaths opens the entries of the focused path list on its first path.
+// pathChoice is the open path list: the paths as they stand, and the kit's list that shows them by the index
+// that is the entry ID.
+type pathChoice struct {
+	list *kittui.List
+	all  []string
+}
+
+// selected is the marked path.
+func (p *pathChoice) selected() (string, bool) {
+	i, ok := chosen(p.list, len(p.all))
+	if !ok {
+		return "", false
+	}
+	return p.all[i], true
+}
+
+// cursor is the index of the marked path.
+func (p *pathChoice) cursor() int {
+	i, _ := chosen(p.list, len(p.all))
+	return i
+}
+
+// set shows entries with the mark on the entry at index.
+func (p *pathChoice) set(entries []string, index int) {
+	items := make([]kittui.ListItem, len(entries))
+	for i, path := range entries {
+		items[i] = kittui.ListItem{ID: choiceID(i), Cells: []string{path}}
+	}
+	// The items have index IDs and one cell each, which SetItems accepts.
+	_ = p.list.SetItems(items)
+	p.all = entries
+	p.list.Select(choiceID(min(index, len(entries)-1)))
+}
+
+// pathListKeys are the keys the path list reads; its letters are the actions of the screen, so it has no search.
+var pathListKeys = kittui.ListKeys{Up: actUp, Down: actDown, PageUp: actPageUp, PageDown: actPageDown, First: actHome,
+	Last: actEnd, Left: actLeft, Right: actRight, Enter: actEnter, Back: actBack}
+
+// openPaths opens the entries of the focused path list on its first path. A path is a text of the
+// configuration; the kit draws its control characters as escapes.
 func (m *Model) openPaths() {
-	m.pathList.reset(append([]string(nil), m.fields[m.focus].entries...))
+	empty := tPathNoneEveryProject
+	if isFilesLabel(m.fields[m.focus].label) {
+		empty = tPathNoneReleased
+	}
+	list, err := kittui.NewList(kittui.ListSpec{Columns: []kittui.Column{{Title: columnID("Path")}},
+		Keys: pathListKeys, Search: kittui.SearchNone, Empty: empty}, keymap, translator(false))
+	if err != nil {
+		m.fail = err.Error()
+		return
+	}
+	m.pathList = &pathChoice{list: list}
+	m.pathList.set(append([]string(nil), m.fields[m.focus].entries...), 0)
 	m.pathEdit, m.pathRemove = -1, false
 	m.screen = screenPaths
 	m.clearMessages()
@@ -60,19 +111,14 @@ func (m *Model) updatePaths(key tea.KeyPressMsg) tea.Cmd {
 			m.editPath(len(m.pathList.all), "")
 			return nil
 		}
-		m.editPath(m.pathList.cursor, path)
+		m.editPath(m.pathList.cursor(), path)
 	case keyIs(key, actDelete):
 		if selected {
 			m.pathRemove = true
 			m.clearMessages()
 		}
-	case keyIs(key, actUp):
-		m.pathList.move(-1)
-	case keyIs(key, actDown):
-		m.pathList.move(1)
-	case keyIs(key, actPageUp) || keyIs(key, actPageDown) || keyIs(key, actHome) || keyIs(key, actEnd):
-		start, end := m.pathWindow()
-		m.pathList.page(key, start, end)
+	default:
+		m.pathList.list.Update(key)
 	}
 	return nil
 }
@@ -154,8 +200,8 @@ func (m *Model) takePath() {
 	} else {
 		entries[m.pathEdit] = value
 	}
-	m.pathList.setItems(entries)
-	m.pathList.selectName(value)
+	index := m.pathEdit
+	m.pathList.set(entries, index)
 	m.pathEdit = -1
 	m.clearMessages()
 }
@@ -193,55 +239,51 @@ func (m *Model) removePath() {
 	if !ok {
 		return
 	}
-	i := m.pathList.cursor
+	i := m.pathList.cursor()
 	entries := append(append([]string(nil), m.pathList.all[:i]...), m.pathList.all[i+1:]...)
-	m.pathList.setItems(entries)
+	m.pathList.set(entries, i)
 	m.status = tr(tPathRemoved, path)
 }
 
-// pathsView draws the path list screen: its frame, and between them as many paths as fit.
+// pathsView draws the path list screen: above the list what it does, the kit's list in the lines that are
+// left, and below them the keys and the notes.
 func (m *Model) pathsView() string {
-	header, footer := m.pathFrame()
-	var b strings.Builder
-	b.WriteString(header)
-	start, end := m.windowIn(&m.pathList, header, footer, m.pathRow)
-	for i := start; i < end; i++ {
-		b.WriteString(m.pathRow(i) + "\n")
-	}
-	m.hitSelect(&m.pathList, screenPaths, header, start, end, m.pathRow)
-	b.WriteString(footer)
-	return b.String()
-}
-
-// pathFrame is everything of the path list screen except the paths: above them what the list does, below
-// them the keys and the notes.
-func (m *Model) pathFrame() (string, string) {
 	p := m.dialogPanelOf()
-	total := len(m.pathList.all)
-	title, hint, none := tr(tPathPaths), m.pathHint(), tr(tPathNoneEveryProject)
+	title, hint := tr(tPathPaths), m.pathHint()
 	if label := m.fields[m.focus].label; isFilesLabel(label) {
 		title = tr(tPathDirectoriesFor, labelText(label))
-		none = tr(tPathNoneReleased)
 	}
 	if name := m.fieldValue("name"); name != "" {
 		title += tr(tPathOf, name)
 	}
-	position := ""
-	if total > 0 {
-		position = fmt.Sprintf("%d/%d", m.pathList.cursor+1, total)
+	header := p.top(title, m.pathList.list.Position()) + p.text(styles.hint, hint) + p.blank()
+	footer := p.bottom() + m.keyHint(m.pathKeys()) + m.notes()
+	height := m.height - strings.Count(header, "\n") - strings.Count(footer, "\n") - 1
+	view, targets := m.pathList.list.View(styles.Styles, p.room, max(height, 0))
+	lines := strings.Split(view, "\n")
+	// The list fills its height with blank lines; the frame closes below the last one it drew.
+	for len(lines) > 0 && strings.TrimSpace(ansi.Strip(lines[len(lines)-1])) == "" {
+		lines = lines[:len(lines)-1]
 	}
-	var head strings.Builder
-	head.WriteString(p.top(title, position))
-	head.WriteString(p.text(styles.hint, hint))
-	head.WriteString(p.blank())
-	if total == 0 {
-		head.WriteString(p.text(styles.hint, none))
+	var b strings.Builder
+	b.WriteString(header)
+	for _, line := range lines {
+		b.WriteString(p.side(line) + "\n")
 	}
+	m.addListTargets(targets, header, len(lines))
+	b.WriteString(footer)
+	return b.String()
+}
 
-	var foot strings.Builder
-	foot.WriteString(p.bottom())
-	foot.WriteString(m.keyHint(m.pathKeys()))
-	return head.String(), foot.String() + m.notes()
+// clickPaths is a click on the path list: it marks a path, and a click on the marked one acts as enter.
+func (m *Model) clickPaths(r kittui.MouseResult) tea.Cmd {
+	if r.Item == "" && r.Action == "" {
+		return nil
+	}
+	if open, _ := m.pathList.list.Click(r); open == "" {
+		return nil
+	}
+	return m.press(tea.KeyPressMsg{Code: tea.KeyEnter})
 }
 
 // pathKeys is the key text of the path list screen; the path being typed names its keys in its dialog.
@@ -300,14 +342,4 @@ func (m *Model) answerPath(act action) tea.Cmd {
 		m.clearMessages()
 	}
 	return nil
-}
-
-// pathRow draws the path at index i of the list.
-func (m *Model) pathRow(i int) string {
-	return m.dialogPanelOf().row(i == m.pathList.cursor, m.pathList.matches[i])
-}
-
-func (m *Model) pathWindow() (int, int) {
-	header, footer := m.pathFrame()
-	return m.windowIn(&m.pathList, header, footer, m.pathRow)
 }

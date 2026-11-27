@@ -3,6 +3,7 @@ package tui
 import (
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -257,7 +258,7 @@ func TestClickFromOutsideTheRowsOnTheMarkedRowOnlyMarks(t *testing.T) {
 func TestClickOnALogRowMarksItAndASecondClickOpensIt(t *testing.T) {
 	m := sizedModel(heatModel(t, activityLog(t)), 120, 40)
 	m.logs.heat = false
-	m.logs.focus = logFocusRows
+	m.logs.setFocus(logFocusRows, false)
 	m.screen = screenLogs
 	m.setLogTab(logTabTable)
 	m.render()
@@ -278,7 +279,7 @@ func TestClickOnALogRowMarksItAndASecondClickOpensIt(t *testing.T) {
 func TestClickFromTheTabLineOnTheMarkedLogRowOnlyMarks(t *testing.T) {
 	m := sizedModel(heatModel(t, activityLog(t)), 120, 40)
 	m.logs.heat = false
-	m.logs.focus = logFocusRows
+	m.logs.setFocus(logFocusRows, false)
 	m.screen = screenLogs
 	m.setLogTab(logTabTable)
 	m.render()
@@ -287,7 +288,7 @@ func TestClickFromTheTabLineOnTheMarkedLogRowOnlyMarks(t *testing.T) {
 	if m.screen != screenLogs || m.logs.focus != logFocusRows {
 		t.Fatalf("click from the tab line: screen %v focus %v, want the rows", m.screen, m.logs.focus)
 	}
-	m.logs.focus = logFocusTabs
+	m.logs.setFocus(logFocusTabs, false)
 	m.render()
 	clickOn(t, m, activityStamp(8, 0))
 	if m.screen != screenLogs || m.logs.focus != logFocusRows {
@@ -303,29 +304,30 @@ func TestClickOnATemplateRowMarksItAndASecondClickTakesIt(t *testing.T) {
 	m, _ := templateModel(t, "alpha", "beta", "gamma")
 	openSectionByName(t, m, sectionConnections)
 	m.screen = screenList
-	press(t, m, "n")
-	clickOn(t, m, "from")
+	press(t, m, "n", "down", "enter")
 	if m.template == nil || !m.template.picking {
 		t.Fatal("the list of entries did not open")
 	}
-	m.render()
-	clickOn(t, m, "beta")
+	beta, gamma := slices.Index(m.template.names, "beta"), slices.Index(m.template.names, "gamma")
+	clickChoice(t, m, beta)
 	if m.screen != screenTemplate || selectedTemplate(m) != "beta" {
 		t.Fatalf("first click: screen %v marked %q, want only beta marked", m.screen, selectedTemplate(m))
 	}
-	clickOn(t, m, "gamma")
+	clickChoice(t, m, gamma)
 	if m.screen != screenTemplate || selectedTemplate(m) != "gamma" {
 		t.Fatalf("click on another row: screen %v marked %q, want only gamma marked", m.screen, selectedTemplate(m))
 	}
-	clickOn(t, m, "gamma")
+	clickChoice(t, m, gamma)
 	if m.screen == screenTemplate {
 		t.Fatal("a click on the marked row left the list of entries open")
 	}
 }
 
 func selectedTemplate(m *Model) string {
-	name, _ := m.templateList.selected()
-	return name
+	if i, ok := chosen(m.template.list, len(m.template.names)); ok && m.template.picking {
+		return m.template.names[i]
+	}
+	return ""
 }
 
 func TestClickOnAProviderMarksItAndASecondClickChoosesIt(t *testing.T) {
@@ -333,17 +335,17 @@ func TestClickOnAProviderMarksItAndASecondClickChoosesIt(t *testing.T) {
 	openSectionByName(t, m, sectionServices)
 	pressNew(t, m)
 	clickOn(t, m, labelText(providerLabel))
-	if m.screen != screenProviders {
+	if !choiceOpen(m, screenProviders) {
 		t.Fatalf("the provider choice is screen %v here", m.screen)
 	}
 	m.render()
-	before, _ := m.providers.list.selected()
+	before := markedProvider(m)
 	x, y := cellOf(t, m, "Tracker")
 	clickAt(t, m, x, y)
-	if m.screen != screenProviders {
+	if !choiceOpen(m, screenProviders) {
 		t.Fatalf("first click: screen %v, want the table", m.screen)
 	}
-	marked, _ := m.providers.list.selected()
+	marked := markedProvider(m)
 	if marked == before && before != "tracker" {
 		t.Fatalf("the click did not mark the row: %q", marked)
 	}
@@ -768,15 +770,15 @@ func TestAFailedRestartKeepsTheMouseModeOfThePreference(t *testing.T) {
 }
 
 func TestClickOnALogRowAndTheBarOfTheLogs(t *testing.T) {
-	m := sizedModel(groupModel(t), 140, 40)
+	m := sizedModel(groupModel(t), 160, 40)
 	openSectionByName(t, m, sectionLogs)
 	clickOn(t, m, "Mode: Day")
-	if m.dd == nil || m.logs.mode != logModeDay {
-		t.Fatalf("the click on Mode did not open its list: mode %v", m.logs.mode)
+	if !m.logs.bar.Open() || m.logs.mode != logModeDay {
+		t.Fatalf("the click on Mode did not open its values: mode %v", m.logs.mode)
 	}
-	// A click on an entry of the list chooses it, as enter does.
-	clickOn(t, m, "  Range")
-	if m.dd != nil || m.logs.mode != logModeRange {
+	// A click on a value takes it, as enter does.
+	clickOn(t, m, "Range")
+	if m.logs.bar.Open() || m.logs.mode != logModeRange {
 		t.Errorf("mode = %v, want the range", m.logs.mode)
 	}
 }
@@ -828,11 +830,17 @@ func TestClickOnAnOptionOfTheTemplateQuestion(t *testing.T) {
 	if m.screen != screenTemplate || m.template == nil || m.template.picking {
 		t.Fatalf("screen %v, want the template question", m.screen)
 	}
+	// A click marks an option, and a click on the marked one takes it.
+	clickOn(t, m, "from")
+	if m.template == nil || m.template.picking {
+		t.Fatalf("a first click on the existing-entry option did more than mark it")
+	}
 	clickOn(t, m, "from")
 	if m.template == nil || !m.template.picking {
-		t.Fatalf("a click on the existing-entry option did not open the list of entries")
+		t.Fatalf("a click on the marked existing-entry option did not open the list of entries")
 	}
 	press(t, m, "esc")
+	clickOn(t, m, "empty")
 	clickOn(t, m, "empty")
 	if m.screen != screenForm || m.editing != "" {
 		t.Errorf("a click on the empty option: screen %v, want a new form", m.screen)
@@ -927,7 +935,7 @@ func TestTheWheelStopsAtTheEnds(t *testing.T) {
 func TestTheWheelStopsAtTheEndsOfTheActivityTable(t *testing.T) {
 	m := sizedModel(heatModel(t, activityLog(t)), 120, 40)
 	m.logs.heat = false
-	m.logs.focus = logFocusRows
+	m.logs.setFocus(logFocusRows, false)
 	m.screen = screenLogs
 	m.setLogTab(logTabTable)
 	m.render()
@@ -1000,11 +1008,12 @@ func backCases() []backCase {
 			return m
 		}, false},
 		{"entry form", cleanForm, true},
+		// The table stands as a modal over the form, which keeps its back button out of reach.
 		{"provider table", func(t *testing.T) *Model {
 			m := cleanForm(t)
 			clickOn(t, m, labelText(providerLabel))
 			return m
-		}, true},
+		}, false},
 		{"help in the workspace", func(t *testing.T) *Model {
 			m := sizedModel(groupModel(t), 43, 18)
 			openSectionByName(t, m, sectionServices)

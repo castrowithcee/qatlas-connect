@@ -163,13 +163,17 @@ func TestNewInCredentialsOffersBothKinds(t *testing.T) {
 	}
 }
 
-// A click on a row of the kind question chooses it, like enter on that row.
+// A click on a row of the kind question marks it, and a click on the marked row chooses it, like enter.
 func TestClickOnTheKindQuestionChoosesIt(t *testing.T) {
 	m, _, _, _, _ := newStoreModel(t)
 	sizedModel(m, 100, 30)
 	openSectionByName(t, m, sectionCredentials)
 	press(t, m, "n")
-	clickOn(t, m, "( ) payload secret")
+	clickChoice(t, m, 1)
+	if !choiceOpen(m, screenTemplate) {
+		t.Fatalf("a first click on payload secret left screen %v, want it only marked", m.screen)
+	}
+	clickChoice(t, m, 1)
 	if m.screen != screenForm || !slices.ContainsFunc(m.fields, func(f field) bool { return f.kind == fieldPayloadNew }) {
 		t.Fatalf("a click on payload secret = screen %v, want the payload form:\n%s", m.screen, screenOf(m))
 	}
@@ -322,10 +326,14 @@ func TestChangedFootersFitTheSmallestTerminalInBothLanguages(t *testing.T) {
 			assertViewFits(t, view, minimumWidth, minimumHeight)
 			lines := strings.Split(view, "\n")
 			footer := strings.Join(lines[len(lines)-footerRows(m):], "\n")
-			// The key row has no room for more than its own answer at this width.
+			// The key row has no room for more than its own answer at this width, and the kind question
+			// stands as the kit's list in the workspace, whose footer holds its keys in up to two lines.
 			want := keyLabel(actHelp)
-			if name == "key row" {
+			switch name {
+			case "key row":
 				want = keyLabel(actEnter)
+			case "kind question":
+				footer, want = strings.Join(lines[len(lines)-2:], "\n"), keyLabel(actEnter)
 			}
 			if !strings.Contains(footer, want) {
 				t.Errorf("%s (%s): the footer lost %q: %q", name, lang, want, footer)

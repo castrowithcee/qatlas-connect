@@ -3,7 +3,6 @@ package tui
 import (
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"testing"
 
@@ -72,56 +71,26 @@ func TestClickOnAHelpTopicTabSwitchesTheTopicInTheOverlayAndTheWorkspace(t *test
 	}
 }
 
-func TestClickOnADateFieldFocusesItAndTypesNothing(t *testing.T) {
-	f := activityLog(t)
-	m := sizedModel(f.model(true, f.localToday()), 120, 40)
-	m.prefs.Icons = kitprefs.IconsNone
-	m.logs.mode = logModeRange
-	m.logs.focus = logFocusDate
-	m.openLogDateDialog()
-	m.render()
-	if d := m.logs.dialog; d == nil || len(d.inputs) != 2 || d.focus != 0 {
-		t.Fatalf("dialog = %+v, want two fields with the first focused", d)
-	}
-	before := m.logs.dialog.inputs[1].Value()
-	_, y := cellOf(t, m, "from")
-	clickAt(t, m, 0, y+1)
-	d := m.logs.dialog
-	if d == nil || d.focus != 1 || !d.inputs[1].Focused() || d.inputs[0].Focused() || d.inputs[1].Value() != before {
-		t.Fatalf("click on the to field: dialog %+v, want it focused and unchanged", d)
-	}
-	clickAt(t, m, 0, y)
-	if d := m.logs.dialog; d == nil || d.focus != 0 || !d.inputs[0].Focused() || d.inputs[1].Focused() {
-		t.Fatalf("click on the from field: dialog %+v, want the first field focused", d)
-	}
-}
-
-func TestClickOnAFilterMarksItAndASecondClickChoosesIt(t *testing.T) {
+// A click on a filter of the bar opens its values, a second one closes them, and a click on a value takes it.
+func TestClickOnAFilterOpensItsValuesAndAClickOnAValueTakesIt(t *testing.T) {
 	f := newLogFixture(t)
 	f.append("mcp", "codex", "wiki.pages.get", "wiki", "success")
 	f.append("mcp", "claude-code", "wiki.pages.create", "wiki", "policy-denied")
-	m := sizedModel(f.model(true, f.localToday()), 120, 40)
+	m := sizedModel(f.model(true, f.localToday()), 180, 40)
 	m.prefs.Icons = kitprefs.IconsNone
-	press(t, m, "f")
 	m.render()
-	clickOn(t, m, "client")
-	if m.logs.pick == nil || m.logs.pick.filter != -1 {
-		t.Fatalf("first click: pick %+v, want the filters still open", m.logs.pick)
+	clickOn(t, m, "Client: all")
+	if m.logs.focus != logFocusBar || !m.logs.bar.Open() {
+		t.Fatalf("a click on the client filter did not open its values:\n%s", m.render())
 	}
-	if got, _ := m.logs.pick.list.selected(); got != strconv.Itoa(int(logFilterClient)) {
-		t.Fatalf("first click marked %q, want the client filter", got)
+	clickOn(t, m, "Client: all")
+	if m.logs.bar.Open() || m.logs.filters[logFilterClient] != "" {
+		t.Fatalf("a second click did not close the values unchanged: filters %v", m.logs.filters)
 	}
-	clickOn(t, m, "client")
-	if m.logs.pick == nil || m.logs.pick.filter != int(logFilterClient) {
-		t.Fatalf("click on the marked filter: pick %+v, want the values of the client filter", m.logs.pick)
-	}
+	clickOn(t, m, "Client: all")
 	clickOn(t, m, "claude-code")
-	if m.logs.pick == nil || m.logs.filters[logFilterClient] != "" {
-		t.Fatalf("first click on a value applied it: filters %v", m.logs.filters)
-	}
-	clickOn(t, m, "claude-code")
-	if m.logs.pick != nil || m.logs.filters[logFilterClient] != "claude-code" {
-		t.Fatalf("click on the marked value: pick %+v filters %v, want claude-code kept", m.logs.pick, m.logs.filters)
+	if m.logs.bar.Open() || m.logs.filters[logFilterClient] != "claude-code" {
+		t.Fatalf("a click on a value did not take it: filters %v", m.logs.filters)
 	}
 }
 

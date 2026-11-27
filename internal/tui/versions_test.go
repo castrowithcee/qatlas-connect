@@ -122,17 +122,22 @@ func TestTheVersionCommandListsTheChoosableVersions(t *testing.T) {
 			t.Errorf("the list does not say %q:\n%s", want, screenOf(m))
 		}
 	}
-	if tag, _ := m.versionList.selected(); tag != "v0.4.0" {
+	if tag := markedVersion(m); tag != "v0.4.0" {
 		t.Errorf("the cursor stands on %q, want the running version", tag)
 	}
 
 	// The list searches like the others, by tag and by mark.
 	typeText(t, m, "older")
-	if got := strings.Join(m.versionList.matches, ","); got != "v0.3.1,v0.3.0" {
+	if got := strings.Join(shownVersions(m), ","); got != "v0.3.1,v0.3.0" {
 		t.Errorf("searching older matches %q", got)
 	}
+	// The first esc clears the search, the second closes the list.
 	pump(t, m, "esc")
-	if m.screen != screenNav || m.versions != nil {
+	if !choiceOpen(m, screenVersions) || m.versions.list.Query() != "" {
+		t.Errorf("the first esc did not clear the search: screen %v", m.screen)
+	}
+	pump(t, m, "esc")
+	if m.screen != screenNav || m.versions != nil || m.modal != nil {
 		t.Errorf("esc did not close the list: screen %v", m.screen)
 	}
 }
@@ -160,7 +165,7 @@ func TestChoosingAPrereleaseAsksWithTheDirectionAndInstalls(t *testing.T) {
 	openVersionList(t, m)
 	typeText(t, m, "rc")
 	pump(t, m, "enter")
-	if m.screen != screenUpdate {
+	if m.screen != screenUpdate || m.question == nil || choiceOpen(m, screenVersions) {
 		t.Fatalf("enter did not ask: screen %v", m.screen)
 	}
 	view := boxText(screenOf(m))
@@ -176,7 +181,7 @@ func TestChoosingAPrereleaseAsksWithTheDirectionAndInstalls(t *testing.T) {
 
 	// n returns to the list and installs nothing.
 	pump(t, m, "n")
-	if m.screen != screenVersions || len(fake.installed) != 0 {
+	if !choiceOpen(m, screenVersions) || m.question != nil || len(fake.installed) != 0 {
 		t.Fatalf("n left screen %v with installations %v", m.screen, fake.installed)
 	}
 
@@ -431,7 +436,9 @@ func TestTheVersionListFitsASmallTerminal(t *testing.T) {
 		m.screen = screenNav
 		openVersionList(t, m)
 		assertViewFits(t, m.render(), size[0], size[1])
-		pump(t, m, "enter", "n")
+		pump(t, m, "up", "enter")
+		assertViewFits(t, m.render(), size[0], size[1])
+		pump(t, m, "n")
 		assertViewFits(t, m.render(), size[0], size[1])
 		pump(t, m, "esc")
 	}

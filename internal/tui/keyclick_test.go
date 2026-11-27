@@ -13,10 +13,12 @@ import (
 	"sync"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	tea "charm.land/bubbletea/v2"
 	"github.com/charmbracelet/x/ansi"
 
+	"github.com/castrowithcee/qatlas-connect/internal/config"
 	"github.com/castrowithcee/qatlas-connect/internal/helptopics"
 	"github.com/castrowithcee/qatlas-connect/internal/provider/github"
 	kithelp "github.com/castrowithcee/qatlas-kit/helptopics"
@@ -526,6 +528,43 @@ func TestEveryScreenControlHasATargetAndClicksAsItsKey(t *testing.T) {
 						assertPickerTargetsClickAsKeys(t, form, size[0], size[1])
 					})
 				}
+				// A popup covers the frame, so it is tested in the default form; the bar and the workspace stand
+				// below the frame of every form.
+				for _, date := range clickLogDates(form) {
+					if date.popup && form != PrefsSchema().DefaultNavigation {
+						continue
+					}
+					t.Run(date.name, func(t *testing.T) {
+						t.Parallel()
+						assertLogDateTargetsClickAsKeys(t, date.build, date.calendar)
+					})
+				}
+				for _, bar := range clickLogBars(form) {
+					if bar.popup && form != PrefsSchema().DefaultNavigation {
+						continue
+					}
+					t.Run(bar.name, func(t *testing.T) {
+						t.Parallel()
+						assertLogBarTargetsClickAsKeys(t, bar.build)
+					})
+				}
+				// The path list and the lists that are screens of their own turn the wheel too, so they run one
+				// after the other; the lists over the screen stand there in the default form alone.
+				for _, size := range [][2]int{{100, 40}, {minimumWidth, minimumHeight}} {
+					t.Run(fmt.Sprintf("path list %dx%d", size[0], size[1]), func(t *testing.T) {
+						assertPathTargetsClickAsKeys(t, form, size[0], size[1])
+					})
+				}
+				for _, list := range choiceLists() {
+					for _, size := range [][2]int{{100, 40}, {minimumWidth, minimumHeight}} {
+						if size[0] > minimumWidth && form != PrefsSchema().DefaultNavigation {
+							continue
+						}
+						t.Run(fmt.Sprintf("%s %dx%d", list.name, size[0], size[1]), func(t *testing.T) {
+							assertChoiceTargetsClickAsKeys(t, list.open, list.screen, list.search, form, size[0], size[1])
+						})
+					}
+				}
 				for _, dialog := range clickDialogs() {
 					build := func(t *testing.T) *Model {
 						m := dialog.build(t)
@@ -598,6 +637,10 @@ func barMoves(from, to int, down, up string) []string {
 func assertBarTargetsClickAsKeys(t *testing.T, base *Model, build func(t *testing.T) *Model) barTargetCount {
 	t.Helper()
 	var n barTargetCount
+	if base.section == sectionLogs {
+		// The bar of the Logs has fields of its own, which clickLogBars tests.
+		return n
+	}
 	focus := -1
 	if label := focusedBarField(base); label != "" {
 		focus = slices.IndexFunc(barKinds(base.section), func(k barKind) bool { l, _, _ := base.barField(k); return l == label })
@@ -843,6 +886,214 @@ func assertHelpTargetsClickAsKeys(t *testing.T, build func(t *testing.T) *Model,
 	}
 }
 
+// clickLogDates are the date form of the Logs over the screen, with its calendar open, and in the workspace,
+// whose keys stand in the footer, in the navigation form form. The builds of one test share a log, so each is
+// quick. popup marks a form over the screen.
+func clickLogDates(form string) []struct {
+	name            string
+	build           func(t *testing.T) *Model
+	calendar, popup bool
+} {
+	var mu sync.Mutex
+	logs := map[*testing.T]*logFixture{}
+	open := func(w, h int, calendar bool) func(t *testing.T) *Model {
+		return func(t *testing.T) *Model {
+			// The cases run side by side; each builds its log once.
+			mu.Lock()
+			f := logs[t]
+			if f == nil {
+				f = activityLog(t)
+				logs[t] = f
+			}
+			mu.Unlock()
+			m := f.model(false, f.localToday())
+			m.prefs.Navigation = form
+			m = sizedModel(m, w, h)
+			m.logs.mode, m.logs.from, m.logs.to = logModeRange, f.localToday(), f.localToday()
+			m.openLogDateDialog()
+			if calendar {
+				press(t, m, firstKey(t, actEnter))
+			}
+			m.render()
+			return m
+		}
+	}
+	return []struct {
+		name            string
+		build           func(t *testing.T) *Model
+		calendar, popup bool
+	}{{"log dates over the screen", open(140, 40, false), false, true}, {"log dates with the calendar", open(140, 40, true), true, true},
+		{"log dates in the workspace", open(59, 19, false), false, false}}
+}
+
+// assertLogDateTargetsClickAsKeys requires each target of the date form to act as its keys: a field as tab to
+// it and its calendar symbol then as enter, the marked day of the calendar and those beside it as the arrows to
+// it and enter, a click outside as back, and every other target as the key of its action. With the calendar
+// open, a click on anything but the calendar, the symbol of its field and the key line does nothing.
+func assertLogDateTargetsClickAsKeys(t *testing.T, build func(t *testing.T) *Model, calendar bool) {
+	t.Helper()
+	base := build(t)
+	form := logDateForm(base)
+	if form == nil {
+		t.Fatal("the date form is not open")
+	}
+	focused := string(form.Focused())
+	next := firstKey(t, actNext)
+	kinds := map[action]int{}
+	for _, target := range base.modalTargets {
+		x, y := target.Rect.X+(target.Rect.Width-1)/2, target.Rect.Y+(target.Rect.Height-1)/2
+		var keys []string
+		switch item := target.Item; {
+		case target.Zone == kittui.ZoneOutside:
+			keys = []string{firstKey(t, actBack)}
+		case strings.HasPrefix(item, "\x00F"):
+			if !calendar && strings.TrimPrefix(item, "\x00F") != focused {
+				keys = []string{next}
+			}
+		case strings.HasPrefix(item, "\x00C"):
+			own := strings.TrimPrefix(item, "\x00C") == focused
+			switch {
+			case calendar && own:
+				keys = []string{firstKey(t, actBack)}
+			case !calendar && own:
+				keys = []string{firstKey(t, actEnter)}
+			case !calendar:
+				keys = []string{next, firstKey(t, actEnter)}
+			}
+		case strings.HasPrefix(item, "\x00D"):
+			_, day, _ := strings.Cut(strings.TrimPrefix(item, "\x00D"), "\x00")
+			to, err := time.ParseInLocation(logDateLayout, day, time.Local)
+			mustNoError(t, err)
+			from := form.Values()[form.Focused()].Time
+			steps, arrow := int(to.Sub(from).Hours()/24+0.5), firstKey(t, actRight)
+			if to.Before(from) {
+				steps, arrow = int(from.Sub(to).Hours()/24+0.5), firstKey(t, actLeft)
+			}
+			if steps > 1 {
+				// The days next to the marked one stand for the others, which keeps the test short.
+				continue
+			}
+			keys = append(slices.Repeat([]string{arrow}, steps), firstKey(t, actEnter))
+		case calendar && strings.HasPrefix(item, "\x00B") && !strings.Contains(item[2:], "\x00"):
+			// A button of the form, not of the calendar.
+		case target.Action != "":
+			keys = []string{firstKey(t, target.Action)}
+		default:
+			continue
+		}
+		kinds[action(target.Item[:min(len(target.Item), 2)])+target.Action]++
+		assertClickActsAsKey(t, build, x, y, keys...)
+	}
+	// A field, its calendar symbol and the two buttons; or a day and the buttons of the calendar.
+	want := []action{"\x00F", "\x00C" + actEnter, "\x00B" + actSave, "\x00B" + actBack}
+	if calendar {
+		want = []action{"\x00D" + actEnter, "\x00B" + actPageUp, "\x00B" + actPageDown, "\x00B" + actHome}
+	}
+	for _, kind := range want {
+		if kinds[kind] == 0 {
+			t.Errorf("no target of kind %q; kinds %v", kind, kinds)
+		}
+	}
+}
+
+// clickLogBars are the bar of the Logs with its fields, with the values of the tool open, as the button of a
+// narrow terminal, and its modal over the screen and in the workspace, in the navigation form form. The builds
+// of one test share a log. popup marks the modal over the screen.
+func clickLogBars(form string) []struct {
+	name  string
+	build func(t *testing.T) *Model
+	popup bool
+} {
+	var mu sync.Mutex
+	logs := map[*testing.T]*logFixture{}
+	open := func(w, h int, keys ...string) func(t *testing.T) *Model {
+		return func(t *testing.T) *Model {
+			// The cases run side by side; each builds its log once.
+			mu.Lock()
+			f := logs[t]
+			if f == nil {
+				f = activityLog(t)
+				logs[t] = f
+			}
+			mu.Unlock()
+			m := f.model(false, f.localToday())
+			m.prefs.Navigation = form
+			m = sizedModel(m, w, h)
+			press(t, m, keys...)
+			m.render()
+			return m
+		}
+	}
+	return []struct {
+		name  string
+		build func(t *testing.T) *Model
+		popup bool
+	}{{"log bar", open(180, 40), false}, {"log bar with values", open(180, 40, "f", "tab", "tab", "tab", "tab", "enter"), false},
+		{"log bar as a button", open(80, 24), false}, {"log bar modal", open(80, 24, "f", "enter"), true},
+		{"log bar modal in the workspace", open(40, 15, "f", "enter"), false}}
+}
+
+// assertLogBarTargetsClickAsKeys requires each target of the bar of the Logs to act as its keys from the rows:
+// the bar as f, a field as f, tab to it and enter, the button as f and enter, a value of the open list as the
+// arrows to it and enter; in the modal a field as down to it, its value as down to it and right, and a key of
+// the key line or the footer as that key.
+func assertLogBarTargetsClickAsKeys(t *testing.T, build func(t *testing.T) *Model) {
+	t.Helper()
+	base := build(t)
+	bar := base.logs.bar
+	fields := bar.Fields()
+	at := func(id string) int {
+		return slices.IndexFunc(fields, func(f kittui.FilterField) bool { return string(f.ID) == id })
+	}
+	repeat := func(key string, n int) []string { return slices.Repeat([]string{key}, n) }
+	filter, next, enter, down := firstKey(t, actFilter), firstKey(t, actNext), firstKey(t, actEnter), firstKey(t, actDown)
+	targets := base.modalTargets
+	if base.modal == nil {
+		targets = base.barTargets
+	}
+	if len(targets) == 0 {
+		t.Fatal("the bar has no target")
+	}
+	// With the values open, only the values are tested; a field then opens its own values instead.
+	listOpen := base.modal == nil && bar.Open()
+	tested := 0
+	for _, target := range targets {
+		x, y := target.Rect.X+(target.Rect.Width-1)/2, target.Rect.Y
+		var keys []string
+		switch item := target.Item; {
+		case listOpen && !strings.HasPrefix(item, "\x00o"):
+			continue
+		case strings.HasPrefix(item, "\x00mf"):
+			keys = repeat(down, at(strings.TrimPrefix(item, "\x00mf")))
+		case strings.HasPrefix(item, "\x00mv"):
+			keys = append(repeat(down, at(strings.TrimPrefix(item, "\x00mv"))), firstKey(t, actRight))
+		case strings.HasPrefix(item, "\x00f"):
+			keys = append(append([]string{filter}, repeat(next, at(strings.TrimPrefix(item, "\x00f")))...), enter)
+		case item == "\x00b":
+			keys = []string{filter, enter}
+		case strings.HasPrefix(item, "\x00o"):
+			id, value, _ := strings.Cut(strings.TrimPrefix(item, "\x00o"), "\x00")
+			f := fields[at(id)]
+			j := slices.IndexFunc(f.Options, func(c kittui.Choice) bool { return string(c.ID) == value })
+			from := slices.IndexFunc(f.Options, func(c kittui.Choice) bool { return c.ID == f.Selected })
+			keys = append(repeat(down, j-from), enter)
+		case target.Action != "":
+			keys = []string{firstKey(t, target.Action)}
+		case item == "":
+			// The free area of the bar, at its right end beside the fields.
+			x, keys = target.Rect.X+target.Rect.Width-1, []string{filter}
+		default:
+			t.Errorf("the target %q is of no known kind", item)
+			continue
+		}
+		tested++
+		assertClickActsAsKey(t, build, x, y, keys...)
+	}
+	if tested < 2 {
+		t.Errorf("%d targets of the bar were tested", tested)
+	}
+}
+
 // clickExplanationURL is the address of the explanation of the click test.
 const clickExplanationURL = "https://example.org/explained"
 
@@ -972,6 +1223,169 @@ func assertPickerTargetsClickAsKeys(t *testing.T, form string, width, height int
 	press(t, pressed, firstKey(t, actDown))
 	_, y := cellOf(t, base, "create")
 	wheelEvent(t, wheeled, base.termWidth/2, y, tea.MouseWheelDown)
+	if want, got := clickState(pressed), clickState(wheeled); want != got {
+		t.Errorf("a notch of the wheel does not act as down:\nkey:\n%s\nwheel:\n%s", want, got)
+	}
+}
+
+// pathListModel is the path list of a connection with three paths, the second marked, at width by height.
+func pathListModel(t *testing.T, width, height int) *Model {
+	t.Helper()
+	m, _ := toolsModel(t, wikiRegistry(t), map[string]config.Connection{
+		"wiki": {Service: "wiki", Credential: "reader", Paths: []string{"~/a", "~/b", "~/c"}}})
+	sizedModel(m, 140, 40)
+	openEntryForm(t, m, sectionConnections, "wiki")
+	openPathList(t, m)
+	press(t, m, "down")
+	return sizedModel(m, width, height)
+}
+
+// assertPathTargetsClickAsKeys requires each row of the path list to act as its key, the moves to it and enter
+// on the marked one, which opens the dialog of its path, and the free area below the rows to do nothing. A
+// notch of the wheel over the rows acts as down.
+func assertPathTargetsClickAsKeys(t *testing.T, form string, width, height int) {
+	t.Helper()
+	build := func(t *testing.T) *Model {
+		m := pathListModel(t, width, height)
+		m.prefs.Navigation = form
+		m.render()
+		return m
+	}
+	base := build(t)
+	from := base.pathList.cursor()
+	rows := 0
+	var row kittui.Target
+	for _, target := range base.listTargets {
+		x, y := target.Rect.X+(target.Rect.Width-1)/2, target.Rect.Y
+		at, err := strconv.Atoi(target.Item)
+		if err != nil {
+			continue
+		}
+		rows, row = rows+1, target
+		keys := slices.Repeat([]string{firstKey(t, actDown)}, max(at-from, 0))
+		keys = append(keys, slices.Repeat([]string{firstKey(t, actUp)}, max(from-at, 0))...)
+		if at == from {
+			keys = []string{firstKey(t, actEnter)}
+		}
+		assertClickActsAsKey(t, build, x, y, keys...)
+	}
+	if rows != len(base.pathList.all) {
+		t.Fatalf("the path list at %dx%d has %d row targets for %d paths", width, height, rows, len(base.pathList.all))
+	}
+	pressed, wheeled := build(t), build(t)
+	press(t, pressed, firstKey(t, actDown))
+	wheelEvent(t, wheeled, row.Rect.X+row.Rect.Width/2, row.Rect.Y, tea.MouseWheelDown)
+	if want, got := clickState(pressed), clickState(wheeled); want != got {
+		t.Errorf("a notch of the wheel does not act as down:\nkey:\n%s\nwheel:\n%s", want, got)
+	}
+}
+
+// choiceLists open the lists that are screens of their own: the provider table, the template question, its
+// entries and the version list. search says whether the list has a search line.
+func choiceLists() []struct {
+	name   string
+	open   func(t *testing.T) *Model
+	screen screen
+	search bool
+} {
+	return []struct {
+		name   string
+		open   func(t *testing.T) *Model
+		screen screen
+		search bool
+	}{
+		{"provider table", func(t *testing.T) *Model {
+			m := sizedModel(groupModel(t), 100, 40)
+			openSectionByName(t, m, sectionServices)
+			pressNew(t, m)
+			focusField(t, m, providerLabel)
+			press(t, m, "enter")
+			return m
+		}, screenProviders, true},
+		{"template question", func(t *testing.T) *Model {
+			m, _ := templateModel(t, "alpha", "beta")
+			openSectionByName(t, m, sectionConnections)
+			m.screen = screenList
+			press(t, m, "n")
+			return m
+		}, screenTemplate, false},
+		{"template entries", func(t *testing.T) *Model {
+			m, _ := templateModel(t, "alpha", "beta")
+			openSectionByName(t, m, sectionConnections)
+			m.screen = screenList
+			press(t, m, "n", "down", "enter")
+			return m
+		}, screenTemplate, true},
+		{"version list", func(t *testing.T) *Model {
+			// The command line is reached by the key in force, which the rebound keys move.
+			m := startedVersions(t, choosable())
+			deliver(m, m.openVersions())
+			return m
+		}, screenVersions, true},
+	}
+}
+
+// assertChoiceTargetsClickAsKeys requires each target of a list that is a screen of its own, over the screen
+// it was opened from or in the workspace with its keys in the footer, to act as its key: a row as the moves
+// to it, the marked row as enter, a button or a key as its key, and a click beside the frame as esc. A click
+// on the search line, which takes the typing anyway, changes nothing. A notch of the wheel over the rows acts
+// as down.
+func assertChoiceTargetsClickAsKeys(t *testing.T, open func(t *testing.T) *Model, on screen, search bool, form string, width, height int) {
+	t.Helper()
+	build := func(t *testing.T) *Model {
+		m := open(t)
+		m.prefs.Navigation = form
+		m.Update(tea.WindowSizeMsg{Width: width, Height: height})
+		m.render()
+		return m
+	}
+	base := build(t)
+	if !choiceOpen(base, on) {
+		t.Fatalf("the list is not open: screen %v", base.screen)
+	}
+	list, _, _ := base.screenChoice()
+	marked, _ := list.Selected()
+	from, _ := strconv.Atoi(string(marked))
+	seen := map[string]bool{}
+	var row kittui.Target
+	for _, target := range base.modalTargets {
+		x, y := target.Rect.X+(target.Rect.Width-1)/2, target.Rect.Y
+		at, err := strconv.Atoi(target.Item)
+		switch {
+		case target.Zone == kittui.ZoneOutside:
+			seen["outside"] = true
+			assertClickActsAsKey(t, build, x, y+target.Rect.Height/2, firstKey(t, actBack))
+		case target.Action == actSearch:
+			seen["search"] = true
+			assertClickActsAsKey(t, build, x, y)
+		case err == nil:
+			seen["row"], row = true, target
+			keys := slices.Repeat([]string{firstKey(t, actDown)}, max(at-from, 0))
+			keys = append(keys, slices.Repeat([]string{firstKey(t, actUp)}, max(from-at, 0))...)
+			if at == from {
+				keys = []string{firstKey(t, actEnter)}
+			}
+			assertClickActsAsKey(t, build, x, y, keys...)
+		case target.Action != "":
+			seen[string(target.Action)] = true
+			assertClickActsAsKey(t, build, x, y, firstKey(t, target.Action))
+		}
+	}
+	want := []string{"row", string(actEnter), string(actBack)}
+	if search {
+		want = append(want, "search")
+	}
+	for _, w := range want {
+		if !seen[w] {
+			t.Errorf("the list at %dx%d has no target %q: %v", width, height, w, seen)
+		}
+	}
+	if width > minimumWidth && !seen["outside"] {
+		t.Errorf("the screen beside the list is no target")
+	}
+	pressed, wheeled := build(t), build(t)
+	press(t, pressed, firstKey(t, actDown))
+	wheelEvent(t, wheeled, row.Rect.X+row.Rect.Width/2, row.Rect.Y, tea.MouseWheelDown)
 	if want, got := clickState(pressed), clickState(wheeled); want != got {
 		t.Errorf("a notch of the wheel does not act as down:\nkey:\n%s\nwheel:\n%s", want, got)
 	}

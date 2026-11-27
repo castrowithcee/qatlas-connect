@@ -19,7 +19,7 @@ func (m *Model) typing() bool {
 		return true
 	}
 	switch m.screen {
-	case screenCommand, screenPicker, screenProviders, screenVersions:
+	case screenCommand, screenPicker:
 		return true
 	case screenList:
 		return m.list.Searching() || m.barValuesOpen()
@@ -33,10 +33,8 @@ func (m *Model) typing() bool {
 		}
 	case screenTargets:
 		return m.targetEdit >= 0 || m.targetAdd != nil || m.targetPick != nil || m.labelEdit
-	case screenTemplate:
-		return m.template != nil && m.template.picking
 	case screenLogs:
-		return m.logs.dialog != nil || m.logs.pick != nil || m.logs.list.editing
+		return m.logs.list.editing || m.logs.bar != nil && m.logs.bar.Open()
 	}
 	return false
 }
@@ -51,8 +49,6 @@ func (m *Model) helpReachable() bool {
 		return !m.typing() && !m.barOpen()
 	case screenForm:
 		return m.payloadRemoveAsk
-	case screenProviders:
-		return m.providers.list.query() == ""
 	case screenTargets:
 		if m.targetPick != nil {
 			return m.targetPick.top().list.query() == ""
@@ -60,13 +56,6 @@ func (m *Model) helpReachable() bool {
 		if m.targetAdd != nil {
 			return m.targetAdd.choices.query() == ""
 		}
-	case screenTemplate:
-		if m.template != nil && m.template.picking {
-			return m.templateList.query() == ""
-		}
-		return true
-	case screenVersions:
-		return m.versionList.query() == ""
 	}
 	return !m.typing()
 }

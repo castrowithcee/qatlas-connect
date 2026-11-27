@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"regexp"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -97,7 +98,8 @@ func formState(m *Model) []string {
 }
 
 // Every provider row, in each form and in the guided setup, opens the same table for one, eight and many
-// providers: the search line, the select marks, name and ID of every provider, and the full count.
+// providers: the search line, name and ID of every provider, and the provider in force marked and under the
+// cursor.
 func TestEveryProviderRowOpensTheSameTable(t *testing.T) {
 	for _, n := range []int{1, 8, 55} {
 		for _, form := range []string{"service", "credential", "connection", "setup"} {
@@ -131,18 +133,23 @@ func TestEveryProviderRowOpensTheSameTable(t *testing.T) {
 					}
 					press(t, m, "enter")
 				}
-				if m.screen != screenProviders {
+				if !choiceOpen(m, screenProviders) {
 					t.Fatalf("screen = %v, want the provider table", m.screen)
 				}
-				if got := len(m.providers.list.all); got != total {
+				if got := len(m.providers.ids); got != total {
 					t.Fatalf("the table offers %d providers, want %d", got, total)
 				}
+				if got, want := markedProvider(m), m.fieldValue(providerLabel); got != want {
+					t.Errorf("the cursor starts on %q, want the provider in force %q", got, want)
+				}
 				view := screenOf(m)
-				for _, want := range []string{"hoose provider", fmt.Sprintf("1/%d (%d total)", total, total),
-					"Type to search", "NAME", "ID", "current: ", "> (*) "} {
+				for _, want := range []string{"hoose provider", "Type to search", "NAME", "ID", "IN FORCE"} {
 					if !strings.Contains(view, want) {
 						t.Errorf("the table does not show %q:\n%s", want, view)
 					}
+				}
+				if !regexp.MustCompile(`> \S.* current`).MatchString(view) {
+					t.Errorf("the provider in force is not marked and under the cursor:\n%s", view)
 				}
 				for _, id := range m.cfg.Providers() {
 					metadata, _ := m.cfg.ProviderMetadata(id)
@@ -156,7 +163,7 @@ func TestEveryProviderRowOpensTheSameTable(t *testing.T) {
 }
 
 // The search looks at the name and the ID of every provider, ignores case, keeps the order of the table,
-// and gives the same answer every time.
+// and gives the same answer every time. The first esc clears the search, the second leaves the table.
 func TestTheProviderTableSearchesNameAndIDIgnoringCase(t *testing.T) {
 	var byID []string
 	for i := 40; i < 50; i++ {
@@ -185,13 +192,18 @@ func TestTheProviderTableSearchesNameAndIDIgnoringCase(t *testing.T) {
 		for round := 0; round < 2; round++ {
 			press(t, m, "enter")
 			typeText(t, m, c.query)
-			if got := m.providers.list.matches; !reflect.DeepEqual(got, c.want) {
+			if got := shownProviders(m); !reflect.DeepEqual(got, c.want) {
 				t.Errorf("search %q shows %v, want %v", c.query, got, c.want)
 			}
-			if view := screenOf(m); !strings.Contains(view, fmt.Sprintf("1/%d (%d total)", len(c.want), c.n)) {
-				t.Errorf("search %q does not count its matches:\n%s", c.query, view)
+			press(t, m, "esc")
+			if m.providers.list.Query() != "" || !choiceOpen(m, screenProviders) {
+				t.Fatalf("the first esc left search %q open %v, want the search cleared", m.providers.list.Query(),
+					choiceOpen(m, screenProviders))
 			}
 			press(t, m, "esc")
+			if m.modal != nil || m.screen != screenForm {
+				t.Fatalf("the second esc left screen %v, want the form", m.screen)
+			}
 		}
 	}
 }
@@ -220,7 +232,7 @@ func TestTheProviderTableTakesOnlyTheMarkedProvider(t *testing.T) {
 
 	press(t, m, "enter", "down")
 	typeText(t, m, "tele")
-	press(t, m, "esc")
+	press(t, m, "esc", "esc")
 	if m.screen != screenForm {
 		t.Fatalf("esc left screen %v, want the form", m.screen)
 	}
@@ -230,20 +242,21 @@ func TestTheProviderTableTakesOnlyTheMarkedProvider(t *testing.T) {
 
 	press(t, m, "enter")
 	typeText(t, m, "nothing-like-this")
-	if view := screenOf(m); !strings.Contains(view, "No provider matches") || !strings.Contains(view, "0/0 (2 total)") {
+	if view := screenOf(m); !strings.Contains(view, `No entry matches "nothing-like-this"`) {
 		t.Errorf("the empty table does not say so:\n%s", view)
 	}
 	press(t, m, "enter")
-	if m.screen != screenProviders {
+	if !choiceOpen(m, screenProviders) {
 		t.Fatalf("enter without a match left the table for screen %v", m.screen)
 	}
-	press(t, m, "esc")
+	press(t, m, "esc", "esc")
 	if got := formState(m); !reflect.DeepEqual(got, before) {
 		t.Fatalf("an empty enter changed the form:\n%v\nwant\n%v", got, before)
 	}
 
 	press(t, m, "enter", "home", "down")
-	if view := screenOf(m); !strings.Contains(view, "> ( ) Telegram") || !strings.Contains(view, "(*) BookStack") {
+	if view := screenOf(m); !regexp.MustCompile(`> Telegram +telegram +║`).MatchString(view) ||
+		!regexp.MustCompile(`BookStack +bookstack +current`).MatchString(view) {
 		t.Fatalf("the table does not mark the selection and the current provider apart:\n%s", view)
 	}
 	press(t, m, "enter")
@@ -291,7 +304,7 @@ func TestTheProviderTableUpdatesTheDefaultURLOfAService(t *testing.T) {
 
 	press(t, m, "enter")
 	typeText(t, m, "Telegram")
-	press(t, m, "esc")
+	press(t, m, "esc", "esc")
 	if got := m.fieldValue("base url"); got != before || m.fieldValue(providerLabel) != "bookstack" {
 		t.Fatalf("esc left provider %q and url %q, want bookstack and %q", m.fieldValue(providerLabel), got, before)
 	}
@@ -320,7 +333,7 @@ func TestTheProviderTableFitsASmallTerminal(t *testing.T) {
 			t.Fatalf("the table was replaced by the resize notice:\n%s", view)
 		}
 		assertViewFits(t, view, 40, minimumHeight)
-		for _, part := range []string{"search: ", "NAME", "> ", want} {
+		for _, part := range []string{"NAME", "> ", want} {
 			if !strings.Contains(view, part) {
 				t.Fatalf("%q is not on screen:\n%s", part, view)
 			}
@@ -336,7 +349,7 @@ func TestTheProviderTableFitsASmallTerminal(t *testing.T) {
 	press(t, m, "home")
 	check("p000")
 	press(t, m, "pgdown")
-	check(m.providers.list.matches[m.providers.list.cursor])
+	check(markedProvider(m))
 	typeText(t, m, "p05")
 	check("p050")
 	press(t, m, "home", "down", "enter")
@@ -347,7 +360,7 @@ func TestTheProviderTableFitsASmallTerminal(t *testing.T) {
 	m, _ = providerModel(t, providerRegistry(t, 55))
 	m.Update(tea.WindowSizeMsg{Width: 40, Height: minimumHeight})
 	press(t, m, "g")
-	if m.screen != screenProviders {
+	if !choiceOpen(m, screenProviders) {
 		t.Fatalf("the guided setup opened screen %v, want the provider table", m.screen)
 	}
 	check("p000")
@@ -361,15 +374,18 @@ func TestGuidedSetupChoosesItsProviderInTheTable(t *testing.T) {
 	m, path := providerModel(t, providerRegistry(t, 8))
 	m.Update(tea.WindowSizeMsg{Width: 80, Height: 40})
 	press(t, m, "g")
-	if m.screen != screenProviders {
+	if !choiceOpen(m, screenProviders) {
 		t.Fatalf("c opened screen %v, want the provider table", m.screen)
 	}
 	view := screenOf(m)
-	for _, want := range []string{"Setup step 1 of 6 · choose provider", "1/8 (8 total)", "Type to search", "NAME",
-		"> (*) BookStack", "( ) Telegram", "telegram"} {
+	for _, want := range []string{"Setup step 1 of 6 · choose provider", "Type to search", "NAME", "Telegram",
+		"telegram"} {
 		if !strings.Contains(view, want) {
 			t.Errorf("the setup table does not show %q:\n%s", want, view)
 		}
+	}
+	if !regexp.MustCompile(`> BookStack +bookstack +current`).MatchString(view) {
+		t.Errorf("the setup table does not start on the provider in force:\n%s", view)
 	}
 	if !strings.Contains(strings.Join(strings.Fields(view), " "), "enter next") {
 		t.Errorf("the setup table does not say that enter goes on:\n%s", view)
@@ -385,14 +401,20 @@ func TestGuidedSetupChoosesItsProviderInTheTable(t *testing.T) {
 	}
 
 	press(t, m, "esc")
-	if m.screen != screenProviders || !strings.Contains(screenOf(m), "> (*) Telegram") {
+	if !choiceOpen(m, screenProviders) || !regexp.MustCompile(`> Telegram +telegram +current`).MatchString(screenOf(m)) {
 		t.Fatalf("going back does not show the table on telegram: screen %v\n%s", m.screen, screenOf(m))
 	}
 	// A provider was taken, so leaving asks before it drops the setup.
 	press(t, m, "esc")
-	if m.screen != screenLeave {
+	if m.screen != screenLeave || m.question == nil || choiceOpen(m, screenProviders) {
 		t.Fatalf("esc did not ask before cancelling the setup: screen %v", m.screen)
 	}
+	// Staying returns to the table as it was.
+	press(t, m, "esc")
+	if !choiceOpen(m, screenProviders) || markedProvider(m) != "telegram" {
+		t.Fatalf("staying left screen %v, want the table on telegram", m.screen)
+	}
+	press(t, m, "esc")
 	press(t, m, "d")
 	if m.wizard != nil || m.screen != screenList {
 		t.Fatalf("esc did not cancel the setup: screen %v", m.screen)
@@ -434,7 +456,7 @@ func TestTheProviderTableShowsTodoistAndItsWildcardWarning(t *testing.T) {
 	press(t, m, "enter")
 	typeText(t, m, "todoist")
 	if view := screenOf(m); !strings.Contains(view, "Todoist") || !strings.Contains(view, " todoist") ||
-		!strings.Contains(view, "1/1 (8 total)") {
+		!slices.Equal(shownProviders(m), []string{"todoist"}) {
 		t.Fatalf("the table does not show Todoist with its ID:\n%s", view)
 	}
 	press(t, m, "enter")
@@ -475,19 +497,19 @@ func TestProviderTableRowsAreHighlightedFullWidthReadWithoutColourAndSearchByTyp
 		openProviderRow(t, m, sectionServices)
 		press(t, m, "enter")
 		m.Update(tea.WindowSizeMsg{Width: width, Height: 24})
-		if m.screen != screenProviders {
+		if !choiceOpen(m, screenProviders) {
 			t.Fatalf("width %d: enter did not open the provider table: screen %v", width, m.screen)
 		}
 		marked, alt := "p000", "p001"
 
-		setProfile(kittui.ProfileNone)
+		lookOf(kittui.ProfileNone)
 		if view := screenOf(m); !strings.Contains(view, "Type to search") {
 			t.Errorf("width %d: the empty provider table shows no 'Type to search' placeholder:\n%s", width, view)
 		}
 
-		setProfile(kittui.ProfileANSI16)
+		lookOf(kittui.ProfileANSI16)
 		coloured := screenOf(m)
-		assertViewFits(t, coloured, width, m.height+footerRows(m))
+		assertViewFits(t, coloured, width, m.termHeight)
 		if row := findRow(coloured, marked); !hasBackground(row) {
 			t.Errorf("width %d: the marked provider row shows no colour: %q\n%s", width, row, coloured)
 		}
@@ -495,9 +517,9 @@ func TestProviderTableRowsAreHighlightedFullWidthReadWithoutColourAndSearchByTyp
 			t.Errorf("width %d: the unmarked provider row carries colour, so it is not shaded: %q\n%s", width, row, coloured)
 		}
 
-		setProfile(kittui.ProfileNone)
+		lookOf(kittui.ProfileNone)
 		plain := screenOf(m)
-		assertViewFits(t, plain, width, m.height+footerRows(m))
+		assertViewFits(t, plain, width, m.termHeight)
 		if strings.Contains(plain, "\x1b") {
 			t.Errorf("width %d: NO_COLOR still emits escape sequences in the provider table:\n%s", width, plain)
 		}
@@ -506,8 +528,8 @@ func TestProviderTableRowsAreHighlightedFullWidthReadWithoutColourAndSearchByTyp
 		}
 
 		typeText(t, m, "p015")
-		if len(m.providers.list.matches) != 1 || m.providers.list.matches[0] != "p015" {
-			t.Errorf("width %d: typing does not filter the table to p015: %v", width, m.providers.list.matches)
+		if got := shownProviders(m); len(got) != 1 || got[0] != "p015" {
+			t.Errorf("width %d: typing does not filter the table to p015: %v", width, got)
 		}
 		if view := screenOf(m); !strings.Contains(view, "> ") || !strings.Contains(view, "p015") {
 			t.Errorf("width %d: the filtered table does not mark p015:\n%s", width, view)

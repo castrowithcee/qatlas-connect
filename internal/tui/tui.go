@@ -144,7 +144,7 @@ const (
 	// the unlock itself, the vault process handoff on Linux, macOS, and Windows, and starting this window's admin session. See
 	// vaultheader.go. The matching "Lock the vault now?" question reuses screenConfirm (vaultLockConfirm).
 	screenVaultUnlock
-	// screenLogs is the Logs section with the focus in its workspace, including its date and filter dialogs.
+	// screenLogs is the Logs section with the focus in its workspace, including the values of its bar.
 	// See logs.go.
 	screenLogs
 	// screenLogDetail shows every field of one log entry.
@@ -455,8 +455,6 @@ type Model struct {
 	// explanation pane beside a form.
 	detailPane paneScroll
 	infoPane   paneScroll
-	// dd is the open list of a dropdown field of a bar (see dropdown.go).
-	dd *dropdown
 
 	editing string
 	// copyFrom names the entry a new form was filled from. The form is still a new entry (editing stays
@@ -482,8 +480,6 @@ type Model struct {
 	// picker holds the values of the focused choice row while it is searched. The row itself changes only
 	// when a value is taken.
 	picker filterList
-	// templateList holds the entries of screenTemplate's picker.
-	templateList filterList
 	// pickerMarks holds the ticks of a tool list or the effects while their picker is open, and is nil
 	// for a single choice. The row takes them over only when they are kept.
 	pickerMarks map[string]bool
@@ -500,7 +496,7 @@ type Model struct {
 	// pickerEffects is set while the picker of the tool list is open; it holds the effect rows above the rest.
 	pickerEffects *toolEffects
 	// providers is the table of the focused provider row while it is open.
-	providers providerTable
+	providers *providerTable
 	// targetList holds the entries of the focused target list while its screen is open; the row takes them
 	// over only when they are kept. targetEdit is the entry typed into targetInput: its index, the length of
 	// the list for a new one, or -1 while nothing is typed. targetRemove asks before the selected entry goes.
@@ -521,7 +517,7 @@ type Model struct {
 	targetAdd *targetAdd
 	// pathList, pathValue, pathEdit and pathRemove do for the path list of a connection what the target
 	// fields above do for its targets (see paths.go); pathValue is the path being typed.
-	pathList   filterList
+	pathList   *pathChoice
 	pathValue  string
 	pathEdit   int
 	pathRemove bool
@@ -746,17 +742,16 @@ type Model struct {
 	formTop, formLeft, sectionListWidth int
 	// overviewHits are the cells of the Overview that select each of its items, in the order of the items.
 	overviewHits []overviewHit
-	// logBarSpecs are the fields of the bar of the Logs screen as the last frame drew them.
+	// logBarSpecs are the tabs and the search line of the Logs screen as the last frame drew them.
 	logBarSpecs []barSpec
 	// updateText is what the update question says an installation does, set when it opens.
 	updateText string
 	// updateTarget is the version a running installation puts in place, empty for the newest stable
-	// release. versions is the open version list with versionList as its rows, versionPending the question
-	// about a chosen version, versionsLoading whether the list is being looked up, and versionRestored the
-	// backup a rollback in flight restores.
+	// release. versions is the open version list, versionPending the question about a chosen version,
+	// versionsLoading whether the list is being looked up, and versionRestored the backup a rollback in flight
+	// restores.
 	updateTarget    string
 	versions        *versionChoice
-	versionList     filterList
 	versionPending  *versionPending
 	versionsLoading bool
 	versionRestored string
@@ -846,18 +841,11 @@ func New(svc *manage.Service, store *config.Store, tester Tester, secrets Secret
 	}
 	m.refreshRequests()
 	m.picker = newFilterList(m.choiceShown)
-	m.templateList = newFilterList(m.templateText)
-	m.templateList.input.Placeholder = tr(tLogSearchPlaceholder)
-	m.versionList = newFilterList(m.versionText)
-	m.versionList.stops = true
-	m.versionList.input.Placeholder = tr(tLogSearchPlaceholder)
 	m.picker.input.Placeholder = tr(tLogSearchPlaceholder)
 	m.targetList = newFilterList(func(target string) string { return target + " " + m.targetLabels[target] })
 	m.targetList.stops = true
 	m.targetInput = textField("", "", false).input
 	m.labelInput = textField("", "", false).input
-	m.pathList = newFilterList(func(path string) string { return path })
-	m.pathList.stops = true
 	m.logs = newLogView(time.Now())
 	m.refreshLogRetention()
 	m.RefreshAdminTimeout()
@@ -901,8 +889,12 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	defer m.keepScrollPosition()
 	// Deferred last, so it runs first: the vault or admin state, and with it the header, may have changed.
 	defer m.layoutWorkspace()
-	// A question is shown before the message, which it takes, and after it, which may have asked it.
+	// A question is shown before the message, which it takes, and after it, which may have asked it. A list
+	// that is a screen of its own opens or closes with its screen the same way, always before the question,
+	// which opens only where no modal stands.
 	defer m.syncQuestion()
+	defer m.syncChoice()
+	m.syncChoice()
 	m.syncQuestion()
 	switch msg := msg.(type) {
 	case kittui.InputBatch:
@@ -1068,9 +1060,6 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if keyIs(msg, actForceQuit) {
 			return m, m.interrupt()
 		}
-		if m.dd != nil {
-			return m, m.updateDropdown(msg)
-		}
 		if m.barOpen() {
 			return m, m.updateOpenBar(msg)
 		}
@@ -1108,12 +1097,8 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			cmd = m.updateConfirm(msg)
 		case screenPicker:
 			cmd = m.updatePicker(msg)
-		case screenProviders:
-			cmd = m.updateProviderTable(msg)
 		case screenSummary:
 			cmd = m.updateSummary(msg)
-		case screenVersions:
-			cmd = m.updateVersions(msg)
 		case screenTargets:
 			cmd = m.updateTargets(msg)
 		case screenPaths:
@@ -1122,8 +1107,6 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			cmd = m.updateLogs(msg)
 		case screenLogDetail:
 			cmd = m.updateLogDetail(msg)
-		case screenTemplate:
-			cmd = m.updateTemplate(msg)
 		case screenFindings:
 			cmd = m.updateFindings(msg)
 		case screenCommand:
@@ -1486,10 +1469,8 @@ func (m *Model) leaveScreen() tea.Cmd {
 	case screenLogs:
 		// A dialog or a typed search is left before the screen is, the way esc leaves them.
 		switch lv := m.logs; {
-		case lv.dialog != nil:
-			lv.dialog = nil
-		case lv.pick != nil:
-			lv.pick = nil
+		case lv.bar != nil && lv.bar.Open():
+			lv.setFocus(logFocusRows, false)
 		case lv.list.editing:
 			lv.list.clearFilter()
 		default:
@@ -4026,13 +4007,11 @@ func (m *Model) renderFrame() string {
 	if m.quitting {
 		return ""
 	}
+	m.syncChoice()
 	m.hits, m.frameTabs, m.frameKeys, m.zones, m.listTargets, m.dialogBox, m.tooSmall = nil, nil, nil, nil, nil, hit{}, false
 	m.menuTargets, m.barTargets, m.modalTargets = nil, nil, nil
 	m.syncQuestion()
 	m.drawn = true
-	if m.dd != nil {
-		m.dd.placed = false
-	}
 	m.layoutWorkspace()
 	if m.terminalTooSmall() {
 		return m.resizeView()
@@ -4049,7 +4028,7 @@ func (m *Model) renderFrame() string {
 	if view, ok := m.barModalView(); ok {
 		return view
 	}
-	return m.overlayDropdown(m.frame(m.workspaceView()))
+	return m.frame(m.workspaceView())
 }
 
 // workspaceView is the current screen, or, when it cannot fit the workspace, what it needs and the way out
@@ -4083,14 +4062,10 @@ func (m *Model) editorView() string {
 		return m.listView()
 	case screenPicker:
 		return m.pickerView()
-	case screenProviders:
-		return m.providerTableView()
 	case screenCommand:
 		return m.commandLineView()
 	case screenSelftest:
 		return m.selftestView()
-	case screenVersions:
-		return m.versionsView()
 	case screenTargets:
 		return m.targetsView()
 	case screenPaths:
@@ -4099,8 +4074,6 @@ func (m *Model) editorView() string {
 		return m.logsView()
 	case screenLogDetail:
 		return m.logDetailView() + m.notes()
-	case screenTemplate:
-		return m.templateView()
 	case screenFindings:
 		return m.findingsView()
 	case screenTransfer:
@@ -4866,14 +4839,6 @@ func (m *Model) keepScrollPosition() {
 	switch m.screen {
 	case screenPicker:
 		m.picker.offset, _ = m.pickerWindow()
-	case screenTemplate:
-		if m.template != nil && m.template.picking {
-			m.templateList.offset, _ = m.templateWindow()
-		}
-	case screenVersions:
-		m.versionList.offset, _ = m.versionWindow()
-	case screenProviders:
-		m.providers.list.offset, _ = m.providerTableWindow()
 	case screenTargets:
 		if m.targetPick != nil {
 			m.targetPick.top().list.offset, _ = m.pickWindow()
@@ -4884,8 +4849,6 @@ func (m *Model) keepScrollPosition() {
 			return
 		}
 		m.targetList.offset, _ = m.targetWindow()
-	case screenPaths:
-		m.pathList.offset, _ = m.pathWindow()
 	}
 }
 

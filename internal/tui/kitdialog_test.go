@@ -96,7 +96,8 @@ func TestEnterGivesTheKeepingAnswerOfEveryQuestion(t *testing.T) {
 				m.render()
 				pump(t, m, key)
 				states[key] = clickState(m)
-				if m.question != nil || m.modal != nil {
+				// The version question returns to its list, which stands as a modal of its own.
+				if m.question != nil || m.modal != nil && !choiceOpen(m, m.screen) {
 					t.Errorf("%s left the question open: screen %v", key, m.screen)
 				}
 			}

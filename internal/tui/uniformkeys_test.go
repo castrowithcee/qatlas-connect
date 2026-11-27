@@ -150,12 +150,12 @@ func TestVimKeysMoveLikeTheArrowsOnEveryKindOfScreen(t *testing.T) {
 		openEntryForm(t, p, sectionConnections, "wiki")
 		openPathList(t, p)
 		press(t, p, "j")
-		if p.pathList.cursor != 1 {
-			t.Fatalf("j = cursor %d, want 1", p.pathList.cursor)
+		if p.pathList.cursor() != 1 {
+			t.Fatalf("j = cursor %d, want 1", p.pathList.cursor())
 		}
 		press(t, p, "k", "l", "h")
-		if p.pathList.cursor != 0 || p.screen != screenPaths {
-			t.Fatalf("k, l, h = cursor %d screen %v, want the first path on the list", p.pathList.cursor, p.screen)
+		if p.pathList.cursor() != 0 || p.screen != screenPaths {
+			t.Fatalf("k, l, h = cursor %d screen %v, want the first path on the list", p.pathList.cursor(), p.screen)
 		}
 	})
 
@@ -188,26 +188,23 @@ func TestVimKeysMoveLikeTheArrowsOnEveryKindOfScreen(t *testing.T) {
 		if m.screen != screenTemplate {
 			t.Fatalf("n = screen %v, want the template question", m.screen)
 		}
-		press(t, m, "j")
-		if m.template.index != 1 {
-			t.Fatalf("j = index %d, want 1", m.template.index)
+		index := func() int {
+			i, _ := chosen(m.template.list, 2)
+			return i
 		}
-		press(t, m, "k")
-		if m.template.index != 0 {
-			t.Fatalf("k = index %d, want 0", m.template.index)
-		}
-		press(t, m, "end")
-		if m.template.index != 1 {
-			t.Fatalf("end = index %d, want 1", m.template.index)
-		}
-		press(t, m, "home")
-		if m.template.index != 0 {
-			t.Fatalf("home = index %d, want 0", m.template.index)
+		for _, step := range []struct {
+			key  string
+			want int
+		}{{"j", 1}, {"k", 0}, {"end", 1}, {"home", 0}} {
+			press(t, m, step.key)
+			if got := index(); got != step.want {
+				t.Fatalf("%s = index %d, want %d", step.key, got, step.want)
+			}
 		}
 		press(t, m, "j", "enter", "j", "k")
-		if !m.template.picking || m.templateList.query() != "jk" {
+		if !m.template.picking || m.template.list.Query() != "jk" {
 			t.Fatalf("picking = %v search = %q, want the letters as search text", m.template.picking,
-				m.templateList.query())
+				m.template.list.Query())
 		}
 	})
 
@@ -232,14 +229,14 @@ func TestQuestionMarkOpensTheHelpWhereNothingIsTyped(t *testing.T) {
 		pressNew(t, m)
 		focusField(t, m, providerLabel)
 		press(t, m, "enter")
-		if m.screen != screenProviders {
+		if !choiceOpen(m, screenProviders) {
 			t.Fatalf("screen = %v, want the provider table", m.screen)
 		}
-		helpRoundTrip(t, m, "the provider table")
-		press(t, m, "b", "?")
-		if m.screen != screenProviders || m.providers.list.query() != "b?" {
-			t.Fatalf("? with a search typed: screen %v search %q, want it as search text", m.screen,
-				m.providers.list.query())
+		// The table filters as typed, so ? is search text from the first character on.
+		press(t, m, "?", "b")
+		if !choiceOpen(m, screenProviders) || m.providers.list.Query() != "?b" {
+			t.Fatalf("? in the table: screen %v search %q, want it as search text", m.screen,
+				m.providers.list.Query())
 		}
 	})
 
@@ -295,15 +292,18 @@ func TestQuestionMarkOpensTheHelpWhereNothingIsTyped(t *testing.T) {
 		openSectionByName(t, m, sectionConnections)
 		m.screen = screenList
 		press(t, m, "n")
-		helpRoundTrip(t, m, "the template question")
+		// The question is the kit's list, whose keys are its own: ? opens nothing over it.
+		press(t, m, "?")
+		if helpOpen(m) || !choiceOpen(m, screenTemplate) {
+			t.Fatalf("? on the template question: help %v screen %v, want the question unchanged", helpOpen(m), m.screen)
+		}
 		press(t, m, "down", "enter")
 		if !m.template.picking {
 			t.Fatal("enter on the second row did not open the search")
 		}
-		helpRoundTrip(t, m, "the empty template search")
-		press(t, m, "g", "?")
-		if m.templateList.query() != "g?" {
-			t.Fatalf("search = %q, want ? as text once a search is typed", m.templateList.query())
+		press(t, m, "?", "g")
+		if m.template.list.Query() != "?g" {
+			t.Fatalf("search = %q, want ? as search text", m.template.list.Query())
 		}
 	})
 
@@ -471,12 +471,6 @@ func TestFootersNameTheHelpAndCommandsWhereTheyWork(t *testing.T) {
 	openPicker(t, pm)
 	want(pm, "the target picker", ": cmds", "? help", "enter take", "esc close")
 
-	tm, _ := templateModel(t)
-	openSectionByName(t, tm, sectionConnections)
-	tm.screen = screenList
-	press(t, tm, "n")
-	want(tm, "the template question", ": cmds", "? help")
-
 	sm, _, _, _, _ := newStoreModel(t)
 	walkSetup(t, sm, stepSummary)
 	want(sm, "the setup summary", ": cmds", "? help")
@@ -493,7 +487,7 @@ func TestFootersNameTheHelpAndCommandsWhereTheyWork(t *testing.T) {
 func TestLeftOnTheActivityRowsDoesNotGoBack(t *testing.T) {
 	m := sizedModel(heatModel(t, activityLog(t)), 120, 40)
 	m.logs.heat = false
-	m.logs.focus = logFocusRows
+	m.logs.setFocus(logFocusRows, false)
 	m.screen = screenLogs
 	m.setLogTab(logTabTable)
 	press(t, m, "left")

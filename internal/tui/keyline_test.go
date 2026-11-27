@@ -40,6 +40,7 @@ func keyLineScreens() []struct {
 			return m
 		}})
 	}
+	cases = append(cases, screenCase{"path list", func(t *testing.T) *Model { return pathListModel(t, 140, 40) }})
 	return cases
 }
 

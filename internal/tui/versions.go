@@ -62,8 +62,10 @@ type (
 // versionChoice is the open version list.
 type versionChoice struct {
 	// from is the screen the list returns to.
-	from    screen
-	entries map[string]selfupdate.Entry
+	from screen
+	// list shows entries by the index that is the entry ID.
+	list    *kittui.List
+	entries []selfupdate.Entry
 }
 
 // plain is the style of the running text of a question.
@@ -133,23 +135,27 @@ func (m *Model) versionsLoaded(msg versionsLoadedMsg) {
 		m.status = tr(tVersionsNone)
 		return
 	}
-	v := &versionChoice{from: msg.from, entries: map[string]selfupdate.Entry{}}
-	names := make([]string, 0, len(msg.entries))
-	for _, e := range msg.entries {
-		v.entries[e.Version] = e
-		names = append(names, e.Version)
-	}
-	m.versions = v
-	m.versionList.reset(names)
-	m.versionList.startFilter()
-	// The cursor starts on the running version, so newer and older ones are a step away either way.
-	for _, e := range msg.entries {
+	// The cursor starts on the running version, so newer and older ones are a step away either way. A tag
+	// comes from the network, so it is drawn through the log filter.
+	items := make([]kittui.ListItem, len(msg.entries))
+	current := 0
+	for i, e := range msg.entries {
 		if e.Current {
-			m.versionList.selectName(e.Version)
-			break
+			current = i
 		}
+		items[i] = kittui.ListItem{ID: choiceID(i), Cells: []string{m.logText(e.Version),
+			strings.Join(versionMarks(e), " · ")}}
 	}
+	list, err := newChoice(kittui.ListSpec{Columns: []kittui.Column{{Title: columnID("version")},
+		{Title: columnID("notes"), Dimmed: true}}, Search: kittui.SearchAsTyped, Empty: tVersionsNoMatch},
+		tr(tVersionsTitle), items, current, "{enter} choose", "{back} close")
+	if err != nil {
+		m.fail = err.Error()
+		return
+	}
+	m.versions = &versionChoice{from: msg.from, list: list, entries: msg.entries}
 	m.screen = screenVersions
+	m.syncChoice()
 }
 
 // closeVersions leaves the list.
@@ -158,7 +164,6 @@ func (m *Model) closeVersions() {
 		m.screen = m.versions.from
 	}
 	m.versions = nil
-	m.versionList.reset(nil)
 }
 
 // versionMarks are the words that tell a version apart in the list.
@@ -179,41 +184,20 @@ func versionMarks(e selfupdate.Entry) []string {
 	return marks
 }
 
-// versionText is what the list shows and searches of one version.
-func (m *Model) versionText(tag string) string {
-	if m.versions == nil {
-		return tag
-	}
-	e, ok := m.versions.entries[tag]
-	if !ok {
-		return tag
-	}
-	return tag + "  " + strings.Join(versionMarks(e), " · ")
-}
-
-func (m *Model) updateVersions(key tea.KeyPressMsg) tea.Cmd {
-	if m.versions == nil {
-		m.screen = screenNav
+// versionAnswer runs what the version list answers: enter asks about the marked version, which the list
+// itself never installs, and back closes the list.
+func (m *Model) versionAnswer(act action) tea.Cmd {
+	v := m.versions
+	if v == nil {
 		return nil
 	}
-	switch {
-	case keyIs(key, actBack):
-		m.closeVersions()
-	case keyIs(key, actEnter):
-		tag, ok := m.versionList.selected()
-		if !ok {
-			return nil
+	switch act {
+	case actEnter:
+		if i, ok := chosen(v.list, len(v.entries)); ok {
+			m.askVersion(v.entries[i])
 		}
-		m.askVersion(m.versions.entries[tag])
-	case keyIs(key, actUp):
-		m.versionList.move(-1)
-	case keyIs(key, actDown):
-		m.versionList.move(1)
-	case keyIs(key, actPageUp) || keyIs(key, actPageDown) || keyIs(key, actHome) || keyIs(key, actEnd):
-		start, end := m.versionWindow()
-		m.versionList.page(key, start, end)
-	default:
-		return m.versionList.updateFilter(key)
+	case actBack:
+		m.closeVersions()
 	}
 	return nil
 }
@@ -306,7 +290,6 @@ func (m *Model) answerVersion(act action) tea.Cmd {
 		m.versionPending = nil
 		m.screen = p.from
 		m.versions = nil
-		m.versionList.reset(nil)
 		m.status = tr(tVersionWaitConfirm, work)
 		return nil
 	}
@@ -316,7 +299,6 @@ func (m *Model) answerVersion(act action) tea.Cmd {
 		return m.installRollback(p.entry, p.plan, true)
 	}
 	m.versions = nil
-	m.versionList.reset(nil)
 	return m.installVersion(p.entry)
 }
 
@@ -327,7 +309,6 @@ func (m *Model) cancelVersionAsk() {
 	m.versionPending = nil
 	if p.plan != nil {
 		m.versions = nil
-		m.versionList.reset(nil)
 		m.screen = p.from
 		m.status = tr(tVersionRestoreDeclined)
 		return
@@ -396,56 +377,4 @@ func (m *Model) versionRestoredNote() string {
 		return ""
 	}
 	return tr(tVersionRestored, name)
-}
-
-func (m *Model) versionFrame() (string, string) {
-	l := &m.versionList
-	shown, total := len(l.matches), len(l.all)
-	var head strings.Builder
-	head.WriteString(m.boxTop(tr(tVersionsTitle, min(l.cursor+1, shown), total), ""))
-	head.WriteString(m.boxSearch(l, tr(tLogPickSearch)))
-	if shown == 0 {
-		head.WriteString(m.boxText(styles.hint, tr(tVersionsNoMatch, l.query())))
-	}
-	return head.String(), m.boxBottom() + m.keyHint(m.versionKeys()) + m.notes()
-}
-
-// versionKeys is the key text of the version list: the global keys give way to the filter while one is set.
-func (m *Model) versionKeys() string {
-	keys := "type to search · {up}/{down} move · {enter} choose · {back} close"
-	if m.versionList.query() == "" {
-		keys += " · {command} cmds · {help} help"
-	}
-	return keys
-}
-
-// versionRow is one version of the list: its tag, and the words that mark it dimmed.
-func (m *Model) versionRow(i int) string {
-	_, width := m.fitIn(m.boxRoom(), "  ")
-	text := truncateCells(m.versionList.text(m.versionList.matches[i]), width)
-	if head, rest, ok := strings.Cut(text, "  "); ok && i != m.versionList.cursor {
-		text = styles.cell.Render(head) + "  " + styles.hint.Render(rest)
-	}
-	return m.boxRow(m.listRowIn(m.boxRoom(), i == m.versionList.cursor, text))
-}
-
-func (m *Model) versionWindow() (int, int) {
-	header, footer := m.versionFrame()
-	return m.windowIn(&m.versionList, header, footer, m.versionRow)
-}
-
-func (m *Model) versionsView() string {
-	if m.versions == nil {
-		return ""
-	}
-	header, footer := m.versionFrame()
-	var b strings.Builder
-	b.WriteString(header)
-	start, end := m.versionWindow()
-	for i := start; i < end; i++ {
-		b.WriteString(m.versionRow(i) + "\n")
-	}
-	m.hitTable(&m.versionList, screenVersions, header, start, end, m.versionRow)
-	b.WriteString(footer)
-	return b.String()
 }

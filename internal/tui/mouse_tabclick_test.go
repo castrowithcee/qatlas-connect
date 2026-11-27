@@ -328,9 +328,10 @@ func TestTabClickInTheGuidedSetup(t *testing.T) {
 	if m.wizard == nil {
 		t.Fatalf("the setup did not start: %q", m.fail)
 	}
-	// Nothing chosen yet: the setup is left at once.
+	// Nothing chosen yet: the provider table stands over the setup, so a click on a tab is a click beside
+	// it, which acts as esc and leaves the setup at once.
 	clickOn(t, m, "6 Settings")
-	if m.wizard != nil || !atSettingsBar(m) {
+	if m.wizard != nil || m.screen == screenLeave || atSettingsBar(m) {
 		t.Errorf("a click in an untouched setup: wizard %v screen %v", m.wizard != nil, m.screen)
 	}
 

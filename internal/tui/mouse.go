@@ -123,13 +123,10 @@ func (m *Model) updateMouse(msg tea.MouseMsg) tea.Cmd {
 	if wheel {
 		targets, _ := m.mouseTargets(false)
 		r := kittui.NewMouseMap(targets, true).Handle(msg)
-		if !r.Handled || m.dd != nil {
+		if !r.Handled {
 			return nil
 		}
 		return m.wheel(event, r)
-	}
-	if m.dd != nil {
-		return m.clickDropdown(msg)
 	}
 	targets, acts := m.mouseTargets(false)
 	return m.runTarget(kittui.NewMouseMap(targets, true).Handle(msg), acts)
@@ -197,6 +194,9 @@ func targetIndex(r kittui.MouseResult) int {
 func (m *Model) runTarget(r kittui.MouseResult, acts []func() tea.Cmd) tea.Cmd {
 	if r.Zone == kittui.ZoneFilters {
 		m.touchAdminSessionIfActive()
+		if m.section == sectionLogs {
+			return m.clickLogBar(r)
+		}
 		return m.clickBar(r)
 	}
 	if r.Zone == kittui.ZoneRows {
@@ -218,8 +218,8 @@ func (m *Model) runTarget(r kittui.MouseResult, acts []func() tea.Cmd) tea.Cmd {
 // wheelScreens are the screens whose up and down keys move over rows; the wheel is those keys there.
 func (m *Model) wheelScreens() bool {
 	switch m.screen {
-	case screenList, screenForm, screenPicker, screenProviders, screenLogs, screenLogDetail,
-		screenTargets, screenPaths, screenTemplate, screenFindings, screenCommand, screenVersions:
+	case screenList, screenForm, screenPicker, screenLogs, screenLogDetail,
+		screenTargets, screenPaths, screenFindings, screenCommand:
 		return true
 	}
 	return m.textScreen()
@@ -384,7 +384,7 @@ const barLeaveSteps = 8
 // whose esc only returns to the tab line, and wherever a question, a dialog or an overlay is open and esc
 // answers that instead.
 func (m *Model) backShown() bool {
-	if m.backdrop || m.modal != nil || m.keyCapture || m.dd != nil {
+	if m.backdrop || m.modal != nil || m.keyCapture {
 		return false
 	}
 	if _, ok := keyPress(keyLabel(actBack)); !ok {
@@ -404,8 +404,6 @@ func (m *Model) backShown() bool {
 		return !m.targetRemove
 	case screenPaths:
 		return !m.pathRemove
-	case screenTemplate:
-		return m.template != nil
 	case screenTransfer:
 		// The questions about approving and deleting are answered with esc, not left; a write in flight
 		// ignores it.
@@ -416,7 +414,7 @@ func (m *Model) backShown() bool {
 	case screenSelftest:
 		// A running test is ended by esc; once it is ending, esc does nothing.
 		return m.st != nil && !m.st.cancelling
-	case screenPicker, screenProviders, screenLogDetail, screenFindings, screenVersions:
+	case screenPicker, screenLogDetail, screenFindings:
 		return true
 	}
 	return false
@@ -523,47 +521,22 @@ func (m *Model) zoneList(out, footer string) {
 	m.addZone(0, top, m.listWidth(), end, m.zoneRows)
 }
 
-// barSpec says where one field of an option bar stands in a drawn line and what it offers: its text, the width
-// of what stands before its alternatives, the alternatives with the active one drawn in brackets, and what
-// choosing the i-th does.
+// barSpec is a text of a drawn line and what a click on it does.
 type barSpec struct {
-	field  string
-	prefix int
-	values []string
-	active int
-	choose func(i int) tea.Cmd
-	// id names the field for the list that opens under it (see noteField); "" for a field with none.
-	id string
-	// whole, when set, makes the whole field one target; the field has no alternatives then.
+	field string
 	whole func() tea.Cmd
 }
 
-// hitBar makes the alternatives of the fields of a bar clickable. lines are the drawn rows of the bar from
-// screen row top on; a field is found by its text, so a bar that was shortened to a summary has no targets.
+// hitBar makes the texts of specs clickable where they stand in lines, the drawn rows from screen row top on.
 func (m *Model) hitBar(lines []string, top int, specs []barSpec) {
 	for _, spec := range specs {
 		for row, line := range lines {
 			plain := ansi.Strip(line)
-			at := strings.Index(plain, spec.field)
-			if at < 0 {
-				continue
+			if at := strings.Index(plain, spec.field); at >= 0 {
+				x := ansi.StringWidth(plain[:at])
+				m.addHit(x, top+row, x+ansi.StringWidth(spec.field), top+row+1, spec.whole)
+				break
 			}
-			x := ansi.StringWidth(plain[:at]) + spec.prefix
-			if spec.id != "" {
-				m.noteField(spec.id, x-spec.prefix, top+row)
-			}
-			if spec.whole != nil {
-				m.addHit(x-spec.prefix, top+row, x-spec.prefix+ansi.StringWidth(spec.field), top+row+1, spec.whole)
-			}
-			for i, value := range spec.values {
-				w := ansi.StringWidth(value)
-				if i == spec.active {
-					w += 2
-				}
-				m.addHit(x, top+row, x+w, top+row+1, func() tea.Cmd { return spec.choose(i) })
-				x += w + 1
-			}
-			break
 		}
 	}
 }
@@ -591,6 +564,9 @@ func markOrAct(cursor *int, i int, focused bool, act func() tea.Cmd) tea.Cmd {
 // the click to the list, which marks a row, folds a group or starts the search. A click on the marked entry
 // is a press of enter, so it meets every check the key meets. A filter being typed is kept.
 func (m *Model) clickList(r kittui.MouseResult) tea.Cmd {
+	if m.screen == screenPaths {
+		return m.clickPaths(r)
+	}
 	m.list.SetFocused(m.rowsFocused())
 	switch m.screen {
 	case screenNav:
@@ -676,17 +652,6 @@ func (m *Model) hitInfoMark(text string, y, x0 int, act func() tea.Cmd) {
 	}
 }
 
-// hitTable makes the rows of a windowed list of a screen clickable: a click marks a row, and a click on the
-// marked row is a press of enter on it.
-func (m *Model) hitTable(l *filterList, on screen, header string, start, end int, row func(i int) string) {
-	m.hitRows(m.hitTop(header), m.usable(0), start, end, row, func(i int) tea.Cmd {
-		if m.screen != on || i >= len(l.matches) {
-			return nil
-		}
-		return markOrAct(&l.cursor, i, true, func() tea.Cmd { return m.press(tea.KeyPressMsg{Code: tea.KeyEnter}) })
-	})
-}
-
 // hitSelect makes the rows of a windowed list of a screen clickable by choosing the row only; what enter would
 // do on it is left to the key.
 func (m *Model) hitSelect(l *filterList, on screen, header string, start, end int, row func(i int) string) {
@@ -703,7 +668,7 @@ func (m *Model) hitSelect(l *filterList, on screen, header string, start, end in
 // focus brought along.
 func (m *Model) logBarGuard() (tea.Cmd, bool) {
 	lv := m.logs
-	if m.section != sectionLogs || lv.dialog != nil || lv.pick != nil || lv.list.editing {
+	if m.section != sectionLogs || lv.list.editing {
 		return nil, false
 	}
 	switch m.screen {
@@ -716,10 +681,9 @@ func (m *Model) logBarGuard() (tea.Cmd, bool) {
 	return nil, false
 }
 
-// logBarTargets are the tabs, the fields of the filter line of the Logs screen, by their plain text: a click on a
-// tab shows it, on the mode opens its list, on the date the dialog enter opens, on a filter the picker of its
-// values, and on the search field starts the search, as the keys do.
-func (m *Model) logBarTargets(mode, date string, tabs []string, filters []string, search string) []barSpec {
+// logTabTargets are the tabs of the Logs screen and the search line under its bar, by their plain text: a click
+// on a tab shows it and on the search line starts the search, as the keys do.
+func (m *Model) logTabTargets(tabs []string, search string) []barSpec {
 	lv := m.logs
 	guarded := func(act func() tea.Cmd) func() tea.Cmd {
 		return func() tea.Cmd {
@@ -733,27 +697,13 @@ func (m *Model) logBarTargets(mode, date string, tabs []string, filters []string
 	var specs []barSpec
 	for i, text := range tabs {
 		specs = append(specs, barSpec{field: text, whole: guarded(func() tea.Cmd {
-			lv.focus = logFocusTabs
+			lv.setFocus(logFocusTabs, false)
 			return m.setLogTab(logTab(i))
 		})})
 	}
-	specs = append(specs, barSpec{field: mode, id: "logmode", whole: guarded(func() tea.Cmd { m.openLogBarDropdown(); return nil })})
-	if lv.mode != logModeAll {
-		specs = append(specs, barSpec{field: date, whole: guarded(func() tea.Cmd {
-			lv.focus = logFocusDate
-			m.openLogDateDialog()
-			return nil
-		})})
-	}
-	for k, text := range filters {
-		specs = append(specs, barSpec{field: text, whole: guarded(func() tea.Cmd {
-			m.openLogPick(k)
-			return nil
-		})})
-	}
-	if search != "" {
-		specs = append(specs, barSpec{field: strings.TrimRight(search, " "), whole: guarded(func() tea.Cmd {
-			lv.focus = logFocusRows
+	if search = strings.TrimSpace(search); search != "" {
+		specs = append(specs, barSpec{field: search, whole: guarded(func() tea.Cmd {
+			lv.setFocus(logFocusRows, false)
 			lv.list.startFilter()
 			return nil
 		})})
@@ -771,7 +721,7 @@ func (m *Model) hitLogs(head string, start, end int) {
 		if !ok || i >= len(lv.list.matches) {
 			return lead
 		}
-		lv.focus = logFocusRows
+		lv.setFocus(logFocusRows, false)
 		return tea.Batch(lead, markOrAct(&lv.list.cursor, i, focused, func() tea.Cmd { return m.press(tea.KeyPressMsg{Code: tea.KeyEnter}) }))
 	})
 }
