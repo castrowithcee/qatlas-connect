@@ -381,7 +381,7 @@ func newTUICommand(opts *Options, reg *capability.Registry, buildVersion string)
 
 // checkTerminal reports whether a bare 'qconnect' may open the editor: standard input and output must both be
 // terminals, since the editor reads keys from one and draws on the other. A test overrides it, like
-// checkInteractive; unlike vault.Interactive, one terminal stream is not enough.
+// checkInteractive; unlike kitvault.Interactive, one terminal stream is not enough.
 var checkTerminal = func() bool {
 	return term.IsTerminal(int(os.Stdin.Fd())) && term.IsTerminal(int(os.Stdout.Fd()))
 }

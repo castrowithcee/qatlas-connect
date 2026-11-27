@@ -10,6 +10,8 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"testing"
 
 	tea "charm.land/bubbletea/v2"
@@ -404,118 +406,125 @@ func answerActions(q ask) []action {
 // and the choice field, whose click is enter on them. The dialog answers the key line names are targets as
 // well. The keys come from the keymap, also after the preferences rebound some, in every navigation form.
 func TestEveryScreenControlHasATargetAndClicksAsItsKey(t *testing.T) {
-	backButtons, footerTargets := 0, 0
+	var backButtons, footerTargets atomic.Int32
 	var listTargets listTargetCount
 	var barTargets barTargetCount
+	var countMu sync.Mutex
+	// The translators are built lazily; the screens below read them side by side.
+	translator(false)
 	for _, form := range PrefsSchema().Navigations {
 		for _, binding := range []struct {
 			name string
 			keys map[action]string
 		}{{"default keys", nil}, {"rebound keys", map[action]string{actInfo: "f3", actSave: "f4", actHelp: "ctrl+x", actCommand: "f6", actLock: "ctrl+l"}}} {
-			for _, screen := range keyLineScreens() {
-				build := func(t *testing.T) *Model {
-					m := screen.build(t)
-					m.prefs.Navigation = form
-					return m
-				}
-				t.Run(form+"/"+binding.name+"/"+screen.name, func(t *testing.T) {
-					keepKeys(t)
-					applyKeys(binding.keys)
-					base := build(t)
-					base.render()
-					barTargets.add(assertBarTargetsClickAsKeys(t, base, build))
-					if base.modalShown() {
-						if len(base.frameKeys) > 0 {
-							t.Fatalf("the frame behind a modal has key targets: %+v", base.frameKeys)
-						}
-						return
+			// The screens of a form and binding run side by side: they only read the keymap, which stays bound
+			// until the last of them is done.
+			t.Run(form+"/"+binding.name, func(t *testing.T) {
+				keepKeys(t)
+				applyKeys(binding.keys)
+				for _, screen := range keyLineScreens() {
+					build := func(t *testing.T) *Model {
+						m := screen.build(t)
+						m.prefs.Navigation = form
+						return m
 					}
-					assertFrameControlsAreTargets(t, base)
-					for _, target := range base.frameKeys {
-						x, y := target.Rect.X+(target.Rect.Width-1)/2, target.Rect.Y
-						if target.Action == actBack && y == 0 {
-							backButtons++
+					t.Run(screen.name, func(t *testing.T) {
+						t.Parallel()
+						base := build(t)
+						base.render()
+						bars := assertBarTargetsClickAsKeys(t, base, build)
+						countMu.Lock()
+						barTargets.add(bars)
+						countMu.Unlock()
+						if base.modalShown() {
+							if len(base.frameKeys) > 0 {
+								t.Fatalf("the frame behind a modal has key targets: %+v", base.frameKeys)
+							}
+							return
 						}
-						if y > 0 {
-							footerTargets++
+						assertFrameControlsAreTargets(t, base)
+						for _, target := range base.frameKeys {
+							x, y := target.Rect.X+(target.Rect.Width-1)/2, target.Rect.Y
+							if target.Action == actBack && y == 0 {
+								backButtons.Add(1)
+							}
+							if y > 0 {
+								footerTargets.Add(1)
+							}
+							assertClickActsAsKey(t, build, x, y, firstKey(t, target.Action))
 						}
-						assertClickActsAsKey(t, build, x, y, firstKey(t, target.Action))
-					}
-					listTargets.add(assertListTargetsClickAsKeys(t, base, build))
-					if base.screen != screenNav || base.onOptionBar() {
-						return
-					}
-					// On the focused tab line the arrows reach a tab as its click does: the area opens there and the
-					// line keeps the focus; the sub-tabs lie one line down. On the path left and right choose its
-					// section and enter opens it, as on the choice field.
-					active := base.section.area()
-					for _, target := range base.frameTabs {
-						a, _ := areaByName(string(target.Area))
-						keys := slices.Repeat([]string{"right"}, (int(a)-int(active)+int(areaCount))%int(areaCount))
-						switch {
-						case target.Zone == kittui.ZonePath && target.Tab == "":
-							keys = []string{"left", "enter"}
-						case target.Zone == kittui.ZonePath:
-							keys = []string{"right", "enter"}
-						case target.Zone == kittui.ZoneTabs && base.navForm() == kittui.NavHeaderChoice:
-							keys = []string{"enter"}
-						case target.Tab != "":
-							at := slices.IndexFunc(areaSections[a], func(s section) bool { return s.key() == string(target.Tab) })
-							keys = append([]string{"down"}, slices.Repeat([]string{"right"}, at-base.section.index())...)
+						lists := assertListTargetsClickAsKeys(t, base, build)
+						countMu.Lock()
+						listTargets.add(lists)
+						countMu.Unlock()
+						if base.screen != screenNav || base.onOptionBar() {
+							return
 						}
-						assertClickActsAsKey(t, build, target.Rect.X+(target.Rect.Width-1)/2, target.Rect.Y, keys...)
+						// On the focused tab line the arrows reach a tab as its click does: the area opens there and the
+						// line keeps the focus; the sub-tabs lie one line down. On the path left and right choose its
+						// section and enter opens it, as on the choice field.
+						active := base.section.area()
+						for _, target := range base.frameTabs {
+							a, _ := areaByName(string(target.Area))
+							keys := slices.Repeat([]string{"right"}, (int(a)-int(active)+int(areaCount))%int(areaCount))
+							switch {
+							case target.Zone == kittui.ZonePath && target.Tab == "":
+								keys = []string{"left", "enter"}
+							case target.Zone == kittui.ZonePath:
+								keys = []string{"right", "enter"}
+							case target.Zone == kittui.ZoneTabs && base.navForm() == kittui.NavHeaderChoice:
+								keys = []string{"enter"}
+							case target.Tab != "":
+								at := slices.IndexFunc(areaSections[a], func(s section) bool { return s.key() == string(target.Tab) })
+								keys = append([]string{"down"}, slices.Repeat([]string{"right"}, at-base.section.index())...)
+							}
+							assertClickActsAsKey(t, build, target.Rect.X+(target.Rect.Width-1)/2, target.Rect.Y, keys...)
+						}
+					})
+				}
+				// The help and the explanation turn the wheel, which sets the process-wide wheelClamp, so they run
+				// before the screens and dialogs, which wait until this function returns.
+				for _, help := range clickHelps() {
+					build := func(t *testing.T) *Model {
+						m := help.build(t)
+						m.prefs.Navigation = form
+						// The targets of the open help come from the last drawing, which the form changes.
+						m.render()
+						return m
 					}
-				})
-			}
-			for _, help := range clickHelps() {
-				build := func(t *testing.T) *Model {
-					m := help.build(t)
-					m.prefs.Navigation = form
-					// The targets of the open help come from the last drawing, which the form changes.
-					m.render()
-					return m
+					t.Run(help.name, func(t *testing.T) {
+						assertHelpTargetsClickAsKeys(t, build, help.lists)
+					})
 				}
-				t.Run(form+"/"+binding.name+"/"+help.name, func(t *testing.T) {
-					keepKeys(t)
-					applyKeys(binding.keys)
-					assertHelpTargetsClickAsKeys(t, build, help.lists)
-				})
-			}
-			if form == PrefsSchema().DefaultNavigation {
-				t.Run(form+"/"+binding.name+"/explanation", func(t *testing.T) {
-					keepKeys(t)
-					applyKeys(binding.keys)
-					assertExplanationTargetsClickAsKeys(t)
-				})
-			}
-			// The frame of the form shows only behind the picker in the workspace, so the picker over the
-			// screen is tested in the default form alone.
-			for _, size := range [][2]int{{100, 40}, {minimumWidth, minimumHeight}} {
-				if size[0] > minimumWidth && form != PrefsSchema().DefaultNavigation {
-					continue
+				if form == PrefsSchema().DefaultNavigation {
+					t.Run("explanation", assertExplanationTargetsClickAsKeys)
 				}
-				t.Run(fmt.Sprintf("%s/%s/value picker %dx%d", form, binding.name, size[0], size[1]), func(t *testing.T) {
-					keepKeys(t)
-					applyKeys(binding.keys)
-					assertPickerTargetsClickAsKeys(t, form, size[0], size[1])
-				})
-			}
-			for _, dialog := range clickDialogs() {
-				build := func(t *testing.T) *Model {
-					m := dialog.build(t)
-					m.prefs.Navigation = form
-					return m
+				// The picker turns the wheel too. Over the screen it hides the frame of the form, so it stands
+				// there in the default form alone; in the workspace it stands under the frame of every form.
+				for _, size := range [][2]int{{100, 40}, {minimumWidth, minimumHeight}} {
+					if size[0] > minimumWidth && form != PrefsSchema().DefaultNavigation {
+						continue
+					}
+					t.Run(fmt.Sprintf("value picker %dx%d", size[0], size[1]), func(t *testing.T) {
+						assertPickerTargetsClickAsKeys(t, form, size[0], size[1])
+					})
 				}
-				t.Run(form+"/"+binding.name+"/"+dialog.name, func(t *testing.T) {
-					keepKeys(t)
-					applyKeys(binding.keys)
-					assertDialogTargetsClickAsKeys(t, build)
-				})
-			}
+				for _, dialog := range clickDialogs() {
+					build := func(t *testing.T) *Model {
+						m := dialog.build(t)
+						m.prefs.Navigation = form
+						return m
+					}
+					t.Run(dialog.name, func(t *testing.T) {
+						t.Parallel()
+						assertDialogTargetsClickAsKeys(t, build)
+					})
+				}
+			})
 		}
 	}
-	if backButtons == 0 || footerTargets == 0 {
-		t.Fatalf("back buttons %d, footer targets %d: the screens drew no such control", backButtons, footerTargets)
+	if backButtons.Load() == 0 || footerTargets.Load() == 0 {
+		t.Fatalf("back buttons %d, footer targets %d: the screens drew no such control", backButtons.Load(), footerTargets.Load())
 	}
 	if listTargets.rows == 0 || listTargets.groups == 0 || listTargets.search == 0 || listTargets.free == 0 {
 		t.Fatalf("list targets %+v: the lists drew no such target", listTargets)

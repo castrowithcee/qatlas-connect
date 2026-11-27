@@ -192,7 +192,7 @@ func TestEveryWriteKeepsATokenRotatedMeanwhile(t *testing.T) {
 			}
 		}},
 		{"checkpoint restore", true, true, func(t *testing.T, e *concEnv) func() error {
-			restore, _, err := e.a.Checkpoint()
+			restore, err := e.a.Checkpoint()
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -286,7 +286,7 @@ func TestUndoKeepsATokenRotatedSince(t *testing.T) {
 			if e.encrypted {
 				approveScopes(t, e.a, wikiScope())
 			}
-			restore, _, err := e.a.Checkpoint()
+			restore, err := e.a.Checkpoint()
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -323,6 +323,40 @@ func TestUndoKeepsATokenRotatedSince(t *testing.T) {
 			})
 		})
 	}
+}
+
+// A rotation this very vault value stores while its own checkpoint is open, as a token refresh during an
+// import does, stays when the checkpoint is restored, and the checkpoint's writes before and after it are
+// taken back.
+func TestRestoreKeepsARotationOfTheSameVault(t *testing.T) {
+	forms(t, true, true, func(t *testing.T, e *concEnv) {
+		restore, err := e.a.Checkpoint()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := e.a.Set("wiki-reader", "token", "synthetic-imported", nil); err != nil {
+			t.Fatal(err)
+		}
+		if current, replaced, err := e.a.ReplaceRole(rotCredential, rotRole, rotOld, rotNew); err != nil ||
+			!replaced || current != rotNew {
+			t.Fatalf("ReplaceRole() = %q, %v, %v", current, replaced, err)
+		}
+		if err := e.a.Set("wiki-reader", "user", "synthetic-user", nil); err != nil {
+			t.Fatal(err)
+		}
+		if err := restore(); err != nil {
+			t.Fatalf("restore = %v", err)
+		}
+		e.wantRotated(t, rotCredential)
+		reader := New(e.dir)
+		if got, _, _, err := reader.Get("wiki-reader", "token", offering(concPassphrase)); err != nil ||
+			got != "synthetic-token" {
+			t.Errorf("wiki-reader token = %q, %v after the restore, want its value from before", got, err)
+		}
+		if _, found, _, err := reader.Get("wiki-reader", "user", nil); err != nil || found {
+			t.Errorf("wiki-reader user = %v, %v after the restore, want it taken back", found, err)
+		}
+	})
 }
 
 // The undo of the vault's first write leaves a role that another process changed since.
