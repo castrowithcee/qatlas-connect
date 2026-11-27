@@ -1,6 +1,8 @@
 package tui
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -119,6 +121,30 @@ func clickScreens() []struct {
 var shownConfigPath = regexp.MustCompile(`\S*config\.yaml`)
 
 var shownID = regexp.MustCompile(`[0-9a-f]{5,}`)
+
+// fixIDs gives every entry an id of its own derived from its kind and name, the same in every model of a test,
+// where a view shows the ids in full and a narrow one wraps them at any character.
+func fixIDs(t *testing.T, m *Model) {
+	t.Helper()
+	id := func(kind, name string) string {
+		sum := sha256.Sum256([]byte(kind + "/" + name))
+		return hex.EncodeToString(sum[:16])
+	}
+	for name, s := range m.cfg.Services {
+		s.ID = id("service", name)
+		m.cfg.Services[name] = s
+	}
+	for name, c := range m.cfg.Credentials {
+		c.ID = id("credential", name)
+		m.cfg.Credentials[name] = c
+	}
+	for name, c := range m.cfg.Connections {
+		c.ID = id("connection", name)
+		m.cfg.Connections[name] = c
+	}
+	mustNoError(t, m.store.Save(m.cfg))
+	syncRevision(t, m)
+}
 
 func clickState(m *Model) string {
 	selected, _ := m.marked()
@@ -287,6 +313,7 @@ func questionCases() []struct {
 		{"rename question", func(t *testing.T) *Model {
 			m, _, _ := newModel(t)
 			seedConnections(t, m, "docs")
+			fixIDs(t, m)
 			startRename(t, m, sectionServices, "wiki", "handbook")
 			pump(t, m, firstKey(t, actSave))
 			if m.screen != screenRename {
