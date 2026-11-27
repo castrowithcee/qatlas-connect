@@ -6,6 +6,8 @@ import (
 	"strings"
 
 	tea "charm.land/bubbletea/v2"
+
+	"github.com/castrowithcee/qatlas-kit/projectpath"
 	kittui "github.com/castrowithcee/qatlas-kit/tui"
 )
 
@@ -28,6 +30,17 @@ type ask struct {
 	danger action
 	// save leaves F2 to the screen under the question, which saves from there as it does without it.
 	save bool
+	// input gives the dialog an input line, which masked hides; the answers read it with takeInput. The dialog
+	// stays open over its answer and closes once the screen asks it no more.
+	input, masked bool
+	// value is the text an unmasked input starts with; keepTyped hands every change of it back.
+	value string
+	// suggest offers the paths of this mode under the input, none where it is zero.
+	suggest projectpath.Mode
+	// saveEnters makes F2 go on as enter does, a marked suggestion included.
+	saveEnters bool
+	// notice makes the dialog a calm message, which a click beside it closes as enter does.
+	notice bool
 }
 
 // yesNo are the answers y and n, with esc answering as n does; yes and no are the key groups of the
@@ -49,9 +62,24 @@ func (m *Model) dialogOf(q ask) (*kittui.Dialog, error) {
 		}
 	}
 	var extra []kittui.Hint
-	if m.helpReachable() {
+	// Every key but the answers waits behind a notice.
+	if m.helpReachable() && !q.notice {
 		extra = []kittui.Hint{{Action: actCommand, Label: hintLabelID("{command} cmds"), Priority: footerCommand},
 			{Action: actHelp, Label: hintLabelID("{help} help"), Priority: footerHelp}}
+	}
+	keys := kittui.DialogKeys{Enter: actEnter, Up: actUp, Down: actDown, PageUp: actPageUp, PageDown: actPageDown,
+		First: actHome, Last: actEnd}
+	var input *kittui.DialogInput
+	if q.input {
+		input = &kittui.DialogInput{Masked: q.masked, Value: q.value}
+	}
+	if q.suggest != 0 && input != nil {
+		input.Suggest = m.pathSuggestions(q.suggest)
+		keys.Complete, keys.SuggestUp, keys.SuggestDown = actNext, actSuggestPrev, actSuggestNext
+	}
+	outside := actBack
+	if q.notice {
+		outside = q.keep
 	}
 	return kittui.NewDialog(kittui.DialogSpec{
 		Title:        q.title,
@@ -62,11 +90,25 @@ func (m *Model) dialogOf(q ask) (*kittui.Dialog, error) {
 		Answers:      q.answers,
 		Default:      q.keep,
 		Danger:       q.danger,
-		CloseOutside: actBack,
-		Keys: kittui.DialogKeys{Enter: actEnter, Up: actUp, Down: actDown, PageUp: actPageUp, PageDown: actPageDown,
-			First: actHome, Last: actEnd},
-		Extra: extra,
+		Notice:       q.notice,
+		CloseOutside: outside,
+		Input:        input,
+		Keys:         keys,
+		Extra:        extra,
 	}, keymap, translator(infoExtraLabel() != "" && !m.infoReachable()))
+}
+
+// pathSuggestions are the paths of mode that complete a typed text, from the directory the editor was started
+// in; a directory keeps a dialog that asks for a file open. The directories are read once per dialog.
+func (m *Model) pathSuggestions(mode projectpath.Mode) func(string) []kittui.Suggestion {
+	paths := projectpath.NewSuggester(mode, m.startDir, "")
+	return func(typed string) []kittui.Suggestion {
+		var out []kittui.Suggestion
+		for _, p := range paths.Suggest(typed) {
+			out = append(out, kittui.Suggestion{Text: p, Continues: mode == projectpath.Files && endsWithSeparator(p)})
+		}
+		return out
+	}
 }
 
 // currentAsk is the question the current screen asks, and false where it asks none.
@@ -85,13 +127,36 @@ func (m *Model) currentAsk() (ask, bool) {
 			return m.renameAsk(), true
 		}
 	case screenPaths:
-		if m.pathRemove {
+		switch {
+		case m.pathEdit >= 0:
+			return m.pathAsk(), true
+		case m.pathRemove:
 			return m.pathRemoveAsk(), true
 		}
 	case screenTargets:
 		if m.targetRemove {
 			return m.targetRemoveAsk(), true
 		}
+	case screenList, screenSummary:
+		if m.testResultShown() {
+			return m.testAsk(), true
+		}
+	case screenSecret:
+		return m.secretAsk(), true
+	case screenVaultOffer:
+		if m.vaultOffer != nil {
+			return m.vaultOfferAsk(), true
+		}
+	case screenAdminAuth:
+		if m.adminAuth != nil {
+			return m.adminAuthAsk(), true
+		}
+	case screenVaultUnlock:
+		if m.vaultUnlock != nil {
+			return m.vaultUnlockAsk(), true
+		}
+	case screenTransfer:
+		return m.transferAsk()
 	}
 	return ask{}, false
 }
@@ -110,9 +175,24 @@ func (m *Model) answerAsk(act action) tea.Cmd {
 	case screenRename:
 		return m.answerRename(act)
 	case screenPaths:
+		if m.pathEdit >= 0 {
+			return m.answerPath(act)
+		}
 		return m.answerPathRemove(act)
 	case screenTargets:
 		return m.answerTargetRemove(act)
+	case screenList, screenSummary:
+		return m.answerTest(act)
+	case screenSecret:
+		return m.answerSecret(act)
+	case screenVaultOffer:
+		return m.answerVaultOffer(act)
+	case screenAdminAuth:
+		return m.answerAdminAuth(act)
+	case screenVaultUnlock:
+		return m.answerVaultUnlock(act)
+	case screenTransfer:
+		return m.answerTransfer(act)
 	}
 	return nil
 }
@@ -122,23 +202,27 @@ func cancelAnswers(yes string) []kittui.Answer { return yesNo(yes, "{no}/{back} 
 
 // syncQuestion keeps the dialog of the question the current screen asks open: it opens it where no other
 // modal stands over the screen, builds it anew when the question changed, and closes it once the screen asks
-// it no more. The help keeps it under itself and shows it again when it closes.
+// it no more. The help keeps it under itself and shows it again when it closes. A dialog with an input shows
+// what runs and the last error inside itself.
 func (m *Model) syncQuestion() {
 	q, ok := m.currentAsk()
 	key := ""
 	if ok {
-		key = fmt.Sprintf("%v", q)
+		// The text an input starts with follows what is typed (see keepTyped), so it builds no dialog anew.
+		shape := q
+		shape.value = ""
+		key = fmt.Sprintf("%v", shape)
 	}
 	if m.question != nil && key != m.questionKey {
-		if m.modal == m.question {
-			m.closeModal()
-		}
-		m.question, m.questionKey = nil, ""
+		m.dropQuestion()
 	}
-	if !ok || m.modal != nil {
+	if !ok {
 		return
 	}
 	if m.question == nil {
+		if m.modal != nil {
+			return
+		}
 		d, err := m.dialogOf(q)
 		if err != nil {
 			// A question that cannot be drawn is answered as esc answers it, so it never holds the screen.
@@ -148,27 +232,95 @@ func (m *Model) syncQuestion() {
 		}
 		m.question, m.questionKey = d, key
 	}
-	m.showModal(m.question, m.answerQuestion)
+	if q.input {
+		m.question.SetMessage(m.inputNote())
+	}
+	if m.modal == nil {
+		m.showModal(m.question, m.answerQuestion)
+	}
 }
 
-// answerQuestion runs what the dialog of the question answered; the help and the command line open over it.
+// dropQuestion closes the dialog of the question and empties its input, so nothing typed outlives it and a
+// question asked again starts empty.
+func (m *Model) dropQuestion() {
+	if m.question == nil {
+		return
+	}
+	m.question.ClearInput()
+	if m.modal == m.question {
+		m.closeModal()
+	} else {
+		m.dropModal(m.question)
+	}
+	m.question, m.questionKey = nil, ""
+}
+
+// takeInput is the text of the input of the open question, which it empties: the value lives on only in what
+// its answer hands it to.
+func (m *Model) takeInput() string {
+	if m.question == nil {
+		return ""
+	}
+	typed := m.question.Value()
+	m.question.ClearInput()
+	return typed
+}
+
+// keepTyped hands the text of an unmasked input to the state of its screen, so a question asked over it, the
+// check for unsaved input and a dialog built anew start from what is typed. A masked input never leaves its
+// dialog.
+func (m *Model) keepTyped() {
+	q, ok := m.currentAsk()
+	if !ok || !q.input || q.masked || m.question == nil {
+		return
+	}
+	typed := m.question.Value()
+	switch {
+	case m.screen == screenPaths:
+		m.pathValue = typed
+	case m.screen == screenTransfer && m.imp != nil:
+		m.imp.path = typed
+	case m.screen == screenTransfer && m.export != nil:
+		m.export.target = typed
+	}
+}
+
+// inputNote is what an input dialog shows inside itself: the last error, else what still runs.
+func (m *Model) inputNote() *kittui.Message {
+	switch {
+	case m.fail != "":
+		return &kittui.Message{Kind: kittui.MessageError, Text: tr(tNoteError, m.redactor.Apply(m.fail))}
+	case m.busy != "":
+		return &kittui.Message{Kind: kittui.MessageBusy, Text: m.busy + " …"}
+	}
+	return nil
+}
+
+// answerQuestion runs what the dialog of the question answered; the help and the command line open over it
+// where the screen reaches them.
 func (m *Model) answerQuestion(act action) tea.Cmd {
+	q, _ := m.currentAsk()
 	switch act {
-	case actHelp:
-		m.openHelp()
-		return nil
-	case actCommand:
+	case actHelp, actCommand:
+		if !m.helpReachable() || q.notice {
+			return nil
+		}
+		if act == actHelp {
+			m.openHelp()
+			return nil
+		}
 		m.closeModal()
 		m.openCommandLine()
 		return nil
 	case actSave:
-		q, _ := m.currentAsk()
 		if !q.save && !slices.ContainsFunc(q.answers, func(a kittui.Answer) bool { return a.Action == actSave }) {
 			return nil
 		}
 	}
-	m.closeModal()
-	m.question, m.questionKey = nil, ""
+	if !q.input {
+		m.closeModal()
+		m.question, m.questionKey = nil, ""
+	}
 	cmd := m.answerAsk(act)
 	// As after any key of a screen, the profile row shows what the ticks now are.
 	if m.screen == screenForm {

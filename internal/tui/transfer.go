@@ -9,11 +9,12 @@ import (
 	"slices"
 	"strings"
 
-	"charm.land/bubbles/v2/textinput"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 
 	"github.com/castrowithcee/qatlas-connect/internal/manage"
+	"github.com/castrowithcee/qatlas-kit/projectpath"
+	kittui "github.com/castrowithcee/qatlas-kit/tui"
 )
 
 // Exporting the configuration is ':export'. The editor only asks what to take, how to protect the secrets,
@@ -71,8 +72,6 @@ type exportState struct {
 	// possible ("" where they are), asked once when the step is entered because it reads the vault state.
 	modeCursor    int
 	secretsReason string
-	// input is the masked passphrase on exportPassphrase and the file path on exportTarget.
-	input pathField
 	// first is the first passphrase entry while it is typed again; passphrase is the confirmed one. Both
 	// only ever reach the core's ExportPassphrase and are cleared when the export ends.
 	first, passphrase string
@@ -176,7 +175,6 @@ func (m *Model) closeExport() {
 	m.export = nil
 	m.screen = screenList
 	if e != nil {
-		e.input.Reset()
 		e.first, e.passphrase = "", ""
 		m.screen = e.from
 	}
@@ -226,8 +224,6 @@ func (m *Model) updateExport(key tea.KeyPressMsg) tea.Cmd {
 		return m.updateExportSelect(key)
 	case exportMode:
 		return m.updateExportMode(key)
-	case exportPassphrase:
-		return m.updateExportPassphrase(key)
 	case exportPlainConfirm:
 		switch {
 		case keyIs(key, actYes):
@@ -237,8 +233,11 @@ func (m *Model) updateExport(key tea.KeyPressMsg) tea.Cmd {
 			m.clearMessages()
 			e.step = exportMode
 		}
-	case exportTarget:
-		return m.updateExportTarget(key)
+	case exportPassphrase, exportTarget:
+		// Only F2 of the leave question reaches a one-line step here; its dialog takes every key itself.
+		if keyIs(key, actEnter) {
+			return m.answerTransfer(actEnter)
+		}
 	case exportPreview:
 		switch {
 		case keyIs(key, actSave):
@@ -302,8 +301,8 @@ func (m *Model) enterExportMode() {
 // askExportPassphrase shows the empty masked passphrase prompt.
 func (m *Model) askExportPassphrase() {
 	e := m.export
+	m.dropQuestion()
 	e.step = exportPassphrase
-	e.input = pathField{Model: maskedInput()}
 	e.first, e.passphrase, e.confirming = "", "", false
 }
 
@@ -338,14 +337,12 @@ func (m *Model) exportBack() tea.Cmd {
 	case exportMode:
 		e.step = exportSelect
 	case exportPassphrase:
-		e.input.Reset()
 		e.first, e.passphrase, e.confirming = "", "", false
 		m.enterExportMode()
 	case exportPlainConfirm:
 		m.enterExportMode()
 	case exportTarget:
-		e.target = strings.TrimSpace(e.input.Value())
-		e.input.Reset()
+		e.target = strings.TrimSpace(e.target)
 		switch e.kind {
 		case exportEncrypted:
 			m.askExportPassphrase()
@@ -393,23 +390,62 @@ func (m *Model) updateExportMode(key tea.KeyPressMsg) tea.Cmd {
 	return nil
 }
 
-// maskedInput is a focused one-line input that never echoes.
-func maskedInput() textinput.Model {
-	in := newTextInput()
-	in.Prompt = ""
-	in.EchoMode = textinput.EchoPassword
-	in.Focus()
-	return in
+// transferAsk is the one-line dialog the export or the import is at, if it is at one.
+func (m *Model) transferAsk() (ask, bool) {
+	switch {
+	case m.imp != nil:
+		switch m.imp.step {
+		case importFile:
+			return m.importFileAsk(), true
+		case importPassphrase:
+			return m.importPassphraseAsk(), true
+		}
+	case m.export != nil:
+		switch m.export.step {
+		case exportPassphrase:
+			return m.exportPassphraseAsk(), true
+		case exportTarget:
+			return m.exportTargetAsk(), true
+		}
+	}
+	return ask{}, false
 }
 
-// updateExportPassphrase takes the export passphrase twice; a difference asks again from the start.
-func (m *Model) updateExportPassphrase(key tea.KeyPressMsg) tea.Cmd {
-	e := m.export
-	if !keyIs(key, actEnter) {
-		return e.input.update(key)
+func (m *Model) answerTransfer(act action) tea.Cmd {
+	switch {
+	case m.imp != nil && m.imp.step == importFile:
+		return m.answerImportFile(act)
+	case m.imp != nil:
+		return m.answerImportPassphrase(act)
+	case m.export.step == exportTarget:
+		return m.answerExportTarget(act)
 	}
-	typed := e.input.Value()
-	e.input.Reset()
+	return m.answerExportPassphrase(act)
+}
+
+// exportPassphraseAsk is the masked dialog of the export passphrase, typed twice; F2 goes on like enter.
+func (m *Model) exportPassphraseAsk() ask {
+	q := ask{title: tExportPassTitle, question: tr(tExportPassHint), input: true, masked: true, keep: actEnter,
+		answers: []kittui.Answer{{Action: actEnter, Label: hintLabelID("{save} or {enter} ok")},
+			{Action: actSave, Label: hintLabelID("{save} or {enter} ok")},
+			{Action: actBack, Label: hintLabelID("{back} back, nothing written")}}}
+	if m.export.confirming {
+		q.title, q.question = tExportPassConfirmTitle, tr(tVaultConfirmHint)
+	}
+	return q
+}
+
+// answerExportPassphrase takes the export passphrase twice; a difference asks again from the start.
+func (m *Model) answerExportPassphrase(act action) tea.Cmd {
+	e := m.export
+	switch act {
+	case actBack:
+		return m.exportBack()
+	case actEnter, actSave:
+	default:
+		return nil
+	}
+	typed := m.takeInput()
 	m.clearMessages()
 	switch {
 	case !e.confirming && typed == "":
@@ -426,28 +462,38 @@ func (m *Model) updateExportPassphrase(key tea.KeyPressMsg) tea.Cmd {
 	return nil
 }
 
-// askExportTarget moves to the path prompt.
+// askExportTarget moves to the path prompt, with the file typed before or one in the start directory.
 func (m *Model) askExportTarget() {
 	e := m.export
+	m.dropQuestion()
 	e.step = exportTarget
-	value := e.target
-	if value == "" && m.startDir != "" {
-		value = filepath.Join(m.startDir, exportFileName)
+	if e.target == "" && m.startDir != "" {
+		e.target = filepath.Join(m.startDir, exportFileName)
 	}
-	e.input = newPathField(pathFile)
-	e.input.open(value, m.startDir)
 }
 
-func (m *Model) updateExportTarget(key tea.KeyPressMsg) tea.Cmd {
+// exportTargetAsk is the dialog of the file the export writes, with the files and directories that complete
+// it; F2 goes on like enter.
+func (m *Model) exportTargetAsk() ask {
+	return ask{title: tExportFileTitle, question: tr(tExportFileHint), input: true, value: m.export.target,
+		suggest: projectpath.Files, saveEnters: true, keep: actEnter,
+		answers: []kittui.Answer{{Action: actEnter, Label: hintLabelID("{save} or {enter} preview")},
+			{Action: actSave, Label: hintLabelID("{save} or {enter} preview")},
+			{Action: actBack, Label: hintLabelID("{back} back")}}}
+}
+
+// answerExportTarget previews the export to the typed file; esc goes one step back.
+func (m *Model) answerExportTarget(act action) tea.Cmd {
 	e := m.export
-	if !keyIs(key, actEnter) {
-		return e.input.update(key)
-	}
-	m.clearMessages()
-	if !e.input.accept() {
+	switch act {
+	case actBack:
+		return m.exportBack()
+	case actEnter, actSave:
+	default:
 		return nil
 	}
-	path := strings.TrimSpace(e.input.Value())
+	m.clearMessages()
+	path := strings.TrimSpace(e.target)
 	if path == "" {
 		m.fail = tr(tExportNameFile)
 		return nil
@@ -620,27 +666,18 @@ func (m *Model) exportSelectFrame() (string, string) {
 	return head, p.closing() + m.keyHint(keysExportSelect) + m.notes()
 }
 
-// exportTyping reports whether the export reads text now.
-func (m *Model) exportTyping() bool {
-	return m.export != nil && !m.export.writing &&
-		(m.export.step == exportPassphrase || m.export.step == exportTarget)
-}
-
 // exportView draws the step the export is at.
 func (m *Model) exportView() string {
 	e := m.export
 	if e == nil {
 		return ""
 	}
-	if d, ok := m.exportPrompt(); ok {
-		if m.backdrop {
-			// A dialog stands over the question that led to it.
-			saved := e.step
-			e.step = exportMode
-			defer func() { e.step = saved }()
-			return m.exportView()
-		}
-		return m.promptView(d)
+	if m.backdrop && (e.step == exportPassphrase || e.step == exportTarget) {
+		// A dialog stands over the question that led to it.
+		saved := e.step
+		e.step = exportMode
+		defer func() { e.step = saved }()
+		return m.exportView()
 	}
 	switch e.step {
 	case exportSelect:
@@ -713,10 +750,10 @@ func (m *Model) exportKeys() string {
 	if e == nil {
 		return ""
 	}
-	if d, ok := m.exportPrompt(); ok {
-		return d.keys
-	}
 	switch {
+	case e.step == exportPassphrase || e.step == exportTarget:
+		// The dialog names its keys.
+		return ""
 	case e.step == exportSelect:
 		return keysExportSelect
 	case e.step == exportMode:
@@ -729,37 +766,6 @@ func (m *Model) exportKeys() string {
 		return keysTransferDone
 	}
 	return keysTransferPreview
-}
-
-// exportPrompt is the one-line dialog the export is at, if it is at one.
-func (m *Model) exportPrompt() (promptDialog, bool) {
-	e := m.export
-	if e == nil {
-		return promptDialog{}, false
-	}
-	switch e.step {
-	case exportPassphrase:
-		d := promptDialog{
-			title: tr(tExportPassTitle),
-			input: m.inputLine("  ", e.input.Model),
-			field: true,
-			hint:  tr(tExportPassHint),
-			keys:  "{save} or {enter} ok · {back} back, nothing written",
-		}
-		if e.confirming {
-			d.title, d.hint = tr(tExportPassConfirmTitle), tr(tVaultConfirmHint)
-		}
-		return d, true
-	case exportTarget:
-		return promptDialog{
-			title: tr(tExportFileTitle),
-			input: m.pathLines("  ", &e.input),
-			field: true,
-			hint:  tr(tExportFileHint),
-			keys:  pathKeys(&e.input, "{save} or {enter} preview · {back} back"),
-		}, true
-	}
-	return promptDialog{}, false
 }
 
 // isWarningLine reports whether a line of a preview or result is a warning, which the label of the line says.

@@ -451,16 +451,14 @@ func TestTypedSecretIsMaskedAndLeavesTheModel(t *testing.T) {
 	if strings.Contains(view, canary) {
 		t.Errorf("the prompt shows the typed secret:\n%s", view)
 	}
-	if !strings.Contains(view, strings.Repeat("*", len(canary))) {
+	if !strings.Contains(view, masked(len(canary))) {
 		t.Errorf("the prompt does not mask what was typed:\n%s", view)
 	}
-	if got := m.secretInput.EchoMode; got != 1 {
-		t.Errorf("echo mode = %v, want the masked one", got)
-	}
+	dialog := m.question
 
 	pump(t, m, "enter")
 
-	if got := m.secretInput.Value(); got != "" {
+	if got := dialog.Value(); got != "" || m.question != nil {
 		t.Errorf("the model still holds the typed secret: %q", got)
 	}
 	for _, f := range m.fields {
@@ -485,12 +483,13 @@ func TestCancellingThePromptStoresNothing(t *testing.T) {
 	focusRole(t, m, "token-id")
 	press(t, m, "enter")
 	typeText(t, m, canary)
+	dialog := m.question
 	press(t, m, "esc")
 
 	if m.screen != screenForm {
 		t.Errorf("screen = %v, want to be back in the form", m.screen)
 	}
-	if got := m.secretInput.Value(); got != "" {
+	if got := dialog.Value(); got != "" || m.question != nil {
 		t.Errorf("the cancelled value is still in the model: %q", got)
 	}
 	source, _ := secrets.Status("reader", config.Credential{Type: config.CredentialTypeKeyring}, "token-id")

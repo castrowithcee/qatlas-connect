@@ -56,16 +56,15 @@ func TestWidgetsCloseTheirFrameAtEveryWidth(t *testing.T) {
 	}
 }
 
-func TestStatusMarkAndButtonWithoutColour(t *testing.T) {
+func TestStatusMarkWithoutColour(t *testing.T) {
 	withTheme(t, noColorTheme())
-	for _, s := range []string{statusMark(statusOK, "active"), statusMark(statusFail, "failed"),
-		button(buttonDanger, "Delete", true), button(buttonPrimary, "Save", false), button(buttonNormal, "Cancel", false)} {
+	for _, s := range []string{statusMark(statusOK, "active"), statusMark(statusFail, "failed")} {
 		if strings.Contains(s, "\x1b[3") || strings.Contains(s, "\x1b[4") || strings.Contains(s, "38;") || strings.Contains(s, "48;") {
 			t.Fatalf("colour sequence in %q", s)
 		}
 	}
-	if !strings.Contains(statusMark(statusOK, "active"), "active") || !strings.Contains(button(buttonDanger, "Delete", true), "> Delete <") {
-		t.Fatal("word or focus marker missing")
+	if !strings.Contains(statusMark(statusOK, "active"), "active") {
+		t.Fatal("word missing")
 	}
 }
 

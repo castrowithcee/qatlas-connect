@@ -13,6 +13,8 @@ import (
 
 	"github.com/castrowithcee/qatlas-connect/internal/config"
 	"github.com/castrowithcee/qatlas-connect/internal/manage"
+	"github.com/castrowithcee/qatlas-kit/projectpath"
+	kittui "github.com/castrowithcee/qatlas-kit/tui"
 )
 
 // Importing a file is ':import', on the same screen as the export. The editor only asks which file, its
@@ -63,8 +65,6 @@ type importState struct {
 	step importStep
 	// from is the screen the import was started from and returns to.
 	from screen
-	// input is the file path on importFile and the masked export passphrase on importPassphrase.
-	input pathField
 	// path is the file as asked for; passphrase is the typed export passphrase. It only ever reaches the
 	// core's passphrase function and is cleared when the import ends.
 	path, passphrase string
@@ -125,17 +125,16 @@ func (m *Model) openImport() {
 // askImportFile shows the path prompt, keeping what was typed.
 func (m *Model) askImportFile() {
 	e := m.imp
+	m.dropQuestion()
 	e.step = importFile
 	e.encrypted, e.passphrase = false, ""
-	e.input = newPathField(pathFile)
-	e.input.open(e.path, m.startDir)
 }
 
 // askImportPassphrase shows the empty masked export passphrase prompt.
 func (m *Model) askImportPassphrase() {
 	e := m.imp
+	m.dropQuestion()
 	e.step = importPassphrase
-	e.input = pathField{Model: maskedInput()}
 	e.passphrase = ""
 }
 
@@ -145,7 +144,6 @@ func (m *Model) closeImport() {
 	m.imp = nil
 	m.screen = screenList
 	if e != nil {
-		e.input.Reset()
 		e.passphrase, e.plan = "", nil
 		m.screen = e.from
 	}
@@ -162,7 +160,7 @@ func (e *importState) dirty() bool {
 	if e == nil || e.step >= importResult {
 		return false
 	}
-	return e.step != importFile || e.input.Value() != ""
+	return e.step != importFile || e.path != ""
 }
 
 func (m *Model) updateTransfer(key tea.KeyPressMsg) tea.Cmd {
@@ -192,10 +190,11 @@ func (m *Model) updateImport(key tea.KeyPressMsg) tea.Cmd {
 		}
 	}
 	switch e.step {
-	case importFile:
-		return m.updateImportFile(key)
-	case importPassphrase:
-		return m.updateImportPassphrase(key)
+	case importFile, importPassphrase:
+		// Only F2 of the leave question reaches a one-line step here; its dialog takes every key itself.
+		if keyIs(key, actEnter) {
+			return m.answerTransfer(actEnter)
+		}
 	case importMode:
 		return m.updateImportMode(key)
 	case importPreview:
@@ -241,13 +240,12 @@ func (m *Model) importBack() tea.Cmd {
 	m.clearMessages()
 	switch e.step {
 	case importFile:
-		if e.input.Value() != "" {
+		if e.path != "" {
 			m.askLeave(false)
 			return nil
 		}
 		m.cancelImport()
 	case importPassphrase:
-		e.input.Reset()
 		m.askImportFile()
 	case importMode:
 		if e.encrypted {
@@ -268,16 +266,31 @@ func (m *Model) importBack() tea.Cmd {
 	return nil
 }
 
-func (m *Model) updateImportFile(key tea.KeyPressMsg) tea.Cmd {
+// importFileAsk is the dialog of the file the import reads, with the files and directories that complete it;
+// F2 goes on like enter.
+func (m *Model) importFileAsk() ask {
+	return ask{title: tImportFileTitle, question: tr(tImportFileHint), input: true, value: m.imp.path,
+		suggest: projectpath.Files, saveEnters: true, keep: actEnter,
+		answers: []kittui.Answer{{Action: actEnter, Label: hintLabelID("{save} or {enter} next")},
+			{Action: actSave, Label: hintLabelID("{save} or {enter} next")},
+			{Action: actBack, Label: hintLabelID("{back} cancel, nothing imported")}}}
+}
+
+// answerImportFile reads the typed file to learn what it needs; no answer acts while it is read.
+func (m *Model) answerImportFile(act action) tea.Cmd {
 	e := m.imp
-	if !keyIs(key, actEnter) {
-		return e.input.update(key)
-	}
-	m.clearMessages()
-	if !e.input.accept() {
+	if e.working != "" {
 		return nil
 	}
-	path := strings.TrimSpace(e.input.Value())
+	switch act {
+	case actBack:
+		return m.importBack()
+	case actEnter, actSave:
+	default:
+		return nil
+	}
+	m.clearMessages()
+	path := strings.TrimSpace(e.path)
 	if path == "" {
 		m.fail = tr(tImportNameFile)
 		return nil
@@ -286,13 +299,30 @@ func (m *Model) updateImportFile(key tea.KeyPressMsg) tea.Cmd {
 	return m.planImport(manage.ImportModeCreate, planProbe)
 }
 
-func (m *Model) updateImportPassphrase(key tea.KeyPressMsg) tea.Cmd {
+// importPassphraseAsk is the masked dialog of the export passphrase of an encrypted file; F2 goes on like
+// enter.
+func (m *Model) importPassphraseAsk() ask {
+	return ask{title: tExportPassTitle, question: tr(tImportPassHint), input: true, masked: true, keep: actEnter,
+		answers: []kittui.Answer{{Action: actEnter, Label: hintLabelID("{save} or {enter} ok")},
+			{Action: actSave, Label: hintLabelID("{save} or {enter} ok")},
+			{Action: actBack, Label: hintLabelID("{back} back, nothing imported")}}}
+}
+
+// answerImportPassphrase takes the export passphrase and reads the file with it; no answer acts while the
+// file is read.
+func (m *Model) answerImportPassphrase(act action) tea.Cmd {
 	e := m.imp
-	if !keyIs(key, actEnter) {
-		return e.input.update(key)
+	if e.working != "" {
+		return nil
 	}
-	typed := e.input.Value()
-	e.input.Reset()
+	switch act {
+	case actBack:
+		return m.importBack()
+	case actEnter, actSave:
+	default:
+		return nil
+	}
+	typed := m.takeInput()
 	m.clearMessages()
 	if typed == "" {
 		m.fail = tr(tExportPassEmpty)
@@ -365,7 +395,6 @@ func (m *Model) handleImportPlanned(msg importPlannedMsg) tea.Cmd {
 		m.askImportPassphrase()
 	case msg.stage == planProbe && (msg.err == nil || existsErr):
 		// Readable; the mode decides the rest.
-		e.input.Reset()
 		e.step = importMode
 	case e.step == importPassphrase:
 		// Mostly a wrong passphrase, which the core words; the file was not read, so nothing changed.
@@ -454,7 +483,7 @@ func (m *Model) beginImportWrite() tea.Cmd {
 		}
 		if offerNeeded {
 			m.openVaultOfferFor(
-				tr(tVaultOfferTitle),
+				tVaultOfferTitle,
 				vaultFirstSecretHint(),
 				true, true,
 				func(offer func(string) (string, error)) tea.Cmd { m.screen = screenTransfer; return m.runImport(offer) },
@@ -679,21 +708,16 @@ func (m *Model) deleteImportSource(remove bool) {
 	e.step = importResult
 }
 
-// importTyping reports whether the import reads text now.
-func (m *Model) importTyping() bool {
-	return m.imp != nil && m.imp.working == "" && (m.imp.step == importFile || m.imp.step == importPassphrase)
-}
-
 // importView draws the step the import is at.
 func (m *Model) importView() string {
 	e := m.imp
 	if e == nil {
 		return ""
 	}
-	if d, ok := m.importPrompt(); ok {
-		return m.promptView(d)
-	}
 	switch e.step {
+	case importFile, importPassphrase:
+		// Its dialog stands over the screen the import was started from.
+		return ""
 	case importMode:
 		p := m.dialogPanelOf()
 		var b strings.Builder
@@ -726,43 +750,16 @@ func (m *Model) importView() string {
 		e.step == importResult || e.step == importApprove || e.step == importDelete)
 }
 
-// importPrompt is the one-line dialog the import is at, if it is at one.
-func (m *Model) importPrompt() (promptDialog, bool) {
-	e := m.imp
-	if e == nil {
-		return promptDialog{}, false
-	}
-	switch e.step {
-	case importFile:
-		return promptDialog{
-			title: tr(tImportFileTitle),
-			input: m.pathLines("  ", &e.input),
-			field: true,
-			hint:  tr(tImportFileHint),
-			keys:  m.importDialogKeys(pathKeys(&e.input, "{save} or {enter} next · {back} cancel, nothing imported")),
-		}, true
-	case importPassphrase:
-		return promptDialog{
-			title: tr(tExportPassTitle),
-			input: m.inputLine("  ", e.input.Model),
-			field: true,
-			hint:  tr(tImportPassHint),
-			keys:  m.importDialogKeys("{save} or {enter} ok · {back} back, nothing imported"),
-		}, true
-	}
-	return promptDialog{}, false
-}
-
 // importKeyText is the key text of the step the import is at.
 func (m *Model) importKeyText() string {
 	e := m.imp
 	if e == nil {
 		return ""
 	}
-	if d, ok := m.importPrompt(); ok {
-		return d.keys
-	}
 	switch {
+	case e.step == importFile || e.step == importPassphrase:
+		// The dialog names its keys.
+		return ""
 	case e.working != "":
 		return workingWait(e.working)
 	case e.step == importMode:

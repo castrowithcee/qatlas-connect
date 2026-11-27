@@ -505,7 +505,7 @@ func (m *Model) finishSetupSave() tea.Cmd {
 		return m.saveSetup(nil)
 	}
 	m.openVaultOffer(
-		tr(tVaultOfferTitle),
+		tVaultOfferTitle,
 		vaultFirstSecretHint(),
 		true, true,
 		func(offer vault.PassphraseFunc) tea.Cmd { return m.saveSetup(offer) },

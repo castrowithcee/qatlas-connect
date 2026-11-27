@@ -1021,10 +1021,12 @@ func TestTheScreenReadsWithoutColour(t *testing.T) {
 	if view := m.render(); !strings.Contains(view, "[failed] wiki: auth") {
 		t.Errorf("a failed test has no marker:\n%s", view)
 	}
-	m.fail = "something went wrong"
+	// The notes stand under the result of the test, which covers them.
+	m.testClass, m.fail = "", "something went wrong"
 	if view := m.render(); !strings.Contains(view, "error: something went wrong") {
 		t.Errorf("an error has no prefix:\n%s", view)
 	}
+	m.testClass = provider.ClassAuth
 	m.clearMessages()
 	press(t, m, "enter")
 	press(t, m, "enter")

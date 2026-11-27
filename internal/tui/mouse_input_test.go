@@ -197,29 +197,23 @@ func passphrasePrompt(t *testing.T) *Model {
 }
 
 // A report split between two reads, with a pause after which the input reader gives up waiting for its rest,
-// makes no text at any point of the split.
+// makes no text at any point of the split. The runs stay one after the other: side by side on a loaded runner
+// they overran the guard of runPaused.
 func TestSplitMouseReportsMakeNoTextInAField(t *testing.T) {
-	// The translators are built on first use; build them here, before the runs share them.
-	translator(false)
 	for name, open := range map[string]func(*testing.T) *Model{"form field": formWithTextField, "passphrase": passphrasePrompt} {
 		for _, report := range splitReports {
 			stream := strings.Repeat(report, 3)
 			for i := 0; i <= len(stream); i++ {
 				t.Run(fmt.Sprintf("%s/%q/%d", name, report, i), func(t *testing.T) {
-					// Each run waits out the reader's escape timer. A wheel event sets the process-wide
-					// wheelClamp, so only the other reports run side by side.
-					if !strings.HasPrefix(report, "\x1b[<6") {
-						t.Parallel()
-					}
 					m := open(t)
 					before := m.formState()
 					if m.screen == screenVaultUnlock {
-						before = m.vaultUnlock.input.Value()
+						before = typedInput(m)
 					}
 					keys := runPaused(t, m, splitPause, stream[:i], stream[i:])
 					after := m.formState()
 					if m.screen == screenVaultUnlock {
-						after = m.vaultUnlock.input.Value()
+						after = typedInput(m)
 					}
 					if after != before {
 						t.Errorf("field %q -> %q after keys %q", before, after, keys)
@@ -283,7 +277,7 @@ func TestALoneEscapeStillLeavesAForm(t *testing.T) {
 
 func fieldValue(m *Model) string {
 	if m.screen == screenVaultUnlock {
-		return m.vaultUnlock.input.Value()
+		return typedInput(m)
 	}
 	return m.fields[m.focus].value()
 }

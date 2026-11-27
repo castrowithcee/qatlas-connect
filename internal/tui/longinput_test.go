@@ -200,6 +200,9 @@ func TestLongInputStaysOneScrollingLine(t *testing.T) {
 					want := longMark
 					if c.masked {
 						want = "**"
+						if m.question != nil {
+							want = masked(2)
+						}
 						if strings.Contains(view, longMark) {
 							t.Errorf("the masked value reached the screen:\n%s", view)
 						}

@@ -97,7 +97,8 @@ func TestFailedTestLinksOnlyWhereTheGuideHelps(t *testing.T) {
 			m.width, m.height = 200, 40
 			runTest(t, m)
 			want := class == provider.ClassAuth || class == provider.ClassPermission
-			if got := strings.Contains(words(screenOf(m)), url); got != want {
+			// The result stands in a notice, whose frame would break the address.
+			if got := strings.Contains(words(askedText(m)), url); got != want {
 				t.Errorf("class %s: view shows the address = %v, want %v", class, got, want)
 			}
 		})

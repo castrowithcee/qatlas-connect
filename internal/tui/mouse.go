@@ -384,7 +384,7 @@ const barLeaveSteps = 8
 // whose esc only returns to the tab line, and wherever a question, a dialog or an overlay is open and esc
 // answers that instead.
 func (m *Model) backShown() bool {
-	if m.backdrop || m.modal != nil || m.keyCapture || m.dd != nil || m.testResultShown() {
+	if m.backdrop || m.modal != nil || m.keyCapture || m.dd != nil {
 		return false
 	}
 	if _, ok := keyPress(keyLabel(actBack)); !ok {
@@ -435,13 +435,13 @@ func (m *Model) pressBack() tea.Cmd {
 // leaveForBar prepares the screen for a click on the tab line or the option bar: it goes the way esc goes, one
 // level after the other, up to a screen the keys reach the bars from. A typed line ends and an overlay without
 // a question closes as esc ends them; the form or the guided setup is left as esc leaves it, and the question
-// esc raises on the way (unsaved input) is the end of the click. A question, a dialog that asks for a
-// passphrase, a connection test result, a save in flight and the capture of a key are never answered by a
-// click, so a click on a tab does nothing there. It reports whether the click may go on.
+// esc raises on the way (unsaved input) is the end of the click. A save in flight and the capture of a key
+// are never answered by a click, so a click on a tab does nothing there; over a dialog the tab takes no click
+// at all. It reports whether the click may go on.
 func (m *Model) leaveForBar() (cmd tea.Cmd, ok bool) {
 	var cmds []tea.Cmd
 	for range barLeaveSteps {
-		if m.barAsked() {
+		if m.keyCapture {
 			break
 		}
 		switch m.screen {
@@ -466,19 +466,6 @@ func (m *Model) leaveForBar() (cmd tea.Cmd, ok bool) {
 		cmds = append(cmds, m.pressBack())
 	}
 	return tea.Batch(cmds...), false
-}
-
-// barAsked reports whether a click on a tab must leave the screen as it is: a question or a dialog with a
-// passphrase is open, a connection test result waits, or a key is being captured.
-func (m *Model) barAsked() bool {
-	if m.keyCapture || m.testResultShown() {
-		return true
-	}
-	switch m.screen {
-	case screenSecret, screenVaultOffer, screenAdminAuth, screenVaultUnlock, screenLeave:
-		return true
-	}
-	return false
 }
 
 // clickArea is a click on an area of the tab line.

@@ -161,6 +161,9 @@ func (m *Model) pickerSubject() infoSubject {
 	}
 	f := m.fields[m.focus]
 	choice, ok := m.picker.selected()
+	if m.valuePick != nil {
+		choice, ok = m.valuePick.selected()
+	}
 	if !ok {
 		return infoSubject{title: labelText(f.label)}.withTerm(m.fieldTerm(f))
 	}

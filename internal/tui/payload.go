@@ -249,7 +249,7 @@ func (m *Model) savePayload() tea.Cmd {
 		return commit(nil)
 	}
 	m.openVaultOffer(
-		tr(tVaultOfferTitle),
+		tVaultOfferTitle,
 		vaultFirstSecretHint(),
 		true, true,
 		func(offer vault.PassphraseFunc) tea.Cmd { m.screen = screenForm; return commit(offer) },

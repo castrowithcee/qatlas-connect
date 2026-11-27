@@ -3,7 +3,6 @@ package tui
 import (
 	"fmt"
 	"os"
-	"reflect"
 	"strings"
 	"testing"
 
@@ -48,6 +47,20 @@ func openDefaultForm(t *testing.T, m *Model) {
 	focusField(t, m, "connection")
 }
 
+// valuePickerOpen reports whether the kit's list of values stands over the form.
+func valuePickerOpen(m *Model) bool {
+	return m.valuePick != nil && m.modal != nil && m.screen == screenForm
+}
+
+// pickerPosition is where the selection of the open value picker stands, by the rule of the kit's list.
+func pickerPosition(t *testing.T, m *Model) string {
+	t.Helper()
+	if !valuePickerOpen(m) {
+		t.Fatalf("no value picker is open: screen %v", m.screen)
+	}
+	return m.valuePick.list.Position()
+}
+
 // countingPress presses keys and returns how many it pressed, so a test can bound the effort of a choice.
 func countingPress(t *testing.T, m *Model, keys ...string) int {
 	t.Helper()
@@ -71,27 +84,30 @@ func TestThePickerReachesOneOfManyConnectionsDirectly(t *testing.T) {
 	}
 
 	keys := countingPress(t, m, "/")
-	if m.screen != screenPicker {
+	if !valuePickerOpen(m) {
 		t.Fatalf("/ on a choice row opened screen %v, want the picker", m.screen)
 	}
 	view := screenOf(m)
-	for _, want := range []string{"Choose connection", "1/60 (60 total)", "current: conn-000", "conn-000  (current)"} {
+	for _, want := range []string{"Choose connection", "> conn-000  current"} {
 		if !strings.Contains(view, want) {
 			t.Errorf("the picker does not show %q:\n%s", want, view)
 		}
 	}
+	if got := pickerPosition(t, m); got != "1/60" {
+		t.Errorf("position %q, want 1/60", got)
+	}
 	typeText(t, m, "047")
 	keys += 3
 	view = screenOf(m)
-	if !strings.Contains(view, "1/1 (60 total)") || !strings.Contains(view, "> conn-047") {
-		t.Errorf("the filtered picker does not select conn-047:\n%s", view)
+	if got := pickerPosition(t, m); got != "1/1 (60 total)" || !strings.Contains(view, "> conn-047") {
+		t.Errorf("the filtered picker at %q does not select conn-047:\n%s", got, view)
 	}
 	keys += countingPress(t, m, "enter")
 	if keys >= 10 {
 		t.Errorf("choosing took %d keys", keys)
 	}
-	if m.screen != screenForm {
-		t.Fatalf("enter left screen %v, want the form", m.screen)
+	if m.screen != screenForm || m.valuePick != nil || m.modal != nil {
+		t.Fatalf("enter left screen %v with the picker open, want the form", m.screen)
 	}
 	if got := m.fieldValue("connection"); got != "conn-047" {
 		t.Fatalf("connection = %q, want conn-047", got)
@@ -115,25 +131,23 @@ func TestThePickerFilterIgnoresCaseAndIsDeterministic(t *testing.T) {
 	m.Update(tea.WindowSizeMsg{Width: 80, Height: 24})
 	openDefaultForm(t, m)
 	// The row lists its values sorted, so the capitalised name comes first.
-	want := []string{"Wiki-Main", "wiki-archive"}
-
 	for _, query := range []string{"WIKI", "wiki", "WiKi"} {
 		press(t, m, "/")
 		typeText(t, m, query)
-		if got := m.picker.matches; !reflect.DeepEqual(got, want) {
-			t.Errorf("filter %q shows %v, want %v", query, got, want)
+		if got := pickerPosition(t, m); got != "1/2 (53 total)" {
+			t.Errorf("filter %q stands at %q, want 1/2 (53 total)", query, got)
 		}
 		view := screenOf(m)
-		if !strings.Contains(view, "Wiki-Main") || !strings.Contains(view, "wiki-archive") ||
-			strings.Contains(view, "chat") || strings.Contains(view, "conn-000") {
+		main, archive := strings.Index(view, "> Wiki-Main"), strings.Index(view, "wiki-archive")
+		if main < 0 || archive < main || strings.Contains(view, "chat") || strings.Contains(view, "conn-000") {
 			t.Errorf("filter %q draws the wrong values:\n%s", query, view)
 		}
-		press(t, m, "esc")
+		press(t, m, "esc", "esc")
 	}
 }
 
-// Escape leaves the row and every row that depends on it exactly as they were. Enter takes the one value
-// that is selected and shown, and a filter that matches nothing takes nothing.
+// Escape clears a typed filter first and then leaves the row and every row that depends on it exactly as they
+// were. Enter takes the one value that is selected and shown, and a filter that matches nothing takes nothing.
 func TestThePickerCancelsCompletelyAndTakesOnlyAShownValue(t *testing.T) {
 	m, _, _ := newModel(t)
 	seedConnections(t, m, numberedConnections(60)...)
@@ -148,7 +162,11 @@ func TestThePickerCancelsCompletelyAndTakesOnlyAShownValue(t *testing.T) {
 	press(t, m, "/", "down", "down", "down")
 	typeText(t, m, "conn-01")
 	press(t, m, "down", "esc")
-	if m.screen != screenForm {
+	if !valuePickerOpen(m) || m.valuePick.list.Query() != "" {
+		t.Fatalf("the first esc left screen %v, want the picker with its filter cleared", m.screen)
+	}
+	press(t, m, "esc")
+	if m.screen != screenForm || m.modal != nil {
 		t.Fatalf("esc left screen %v, want the form", m.screen)
 	}
 	if got := m.fieldValue("connection"); got != before {
@@ -161,14 +179,14 @@ func TestThePickerCancelsCompletelyAndTakesOnlyAShownValue(t *testing.T) {
 	// No match: enter keeps the picker open and changes nothing.
 	press(t, m, "/")
 	typeText(t, m, "nothing-like-this")
-	if view := screenOf(m); !strings.Contains(view, "No value matches") || !strings.Contains(view, "0/0 (60 total)") {
+	if view := screenOf(m); !strings.Contains(view, "No entry matches") || pickerPosition(t, m) != "0/0 (60 total)" {
 		t.Errorf("the empty picker does not say so:\n%s", view)
 	}
 	press(t, m, "enter")
-	if m.screen != screenPicker {
+	if !valuePickerOpen(m) {
 		t.Errorf("enter without a match left the picker for screen %v", m.screen)
 	}
-	press(t, m, "esc")
+	press(t, m, "esc", "esc")
 	if got := m.fieldValue("connection"); got != before {
 		t.Errorf("connection after an empty enter = %q, want %q unchanged", got, before)
 	}
@@ -176,7 +194,9 @@ func TestThePickerCancelsCompletelyAndTakesOnlyAShownValue(t *testing.T) {
 	// Enter takes the selected value among those shown, and only that one.
 	press(t, m, "/")
 	typeText(t, m, "conn-04")
-	press(t, m, "home", "down", "down")
+	// A page is what the frame drawn last showed.
+	screenOf(m)
+	press(t, m, "pgup", "down", "down")
 	view := screenOf(m)
 	if !strings.Contains(view, "> conn-042") || strings.Contains(view, "conn-050") {
 		t.Fatalf("the picker does not show the selection among the matches:\n%s", view)
@@ -214,7 +234,8 @@ func TestASmallChoiceKeepsLeftAndRight(t *testing.T) {
 }
 
 // The picker scrolls inside a small terminal like every list: the selection stays on screen and the resize
-// notice never replaces it. A terminal too small even for that leads back to the form, not out of it.
+// notice never replaces it. Up and down wrap round, the page keys stop at the ends. A terminal too small even
+// for that leads back to the form, not out of it.
 func TestThePickerFitsASmallTerminal(t *testing.T) {
 	m, _, _ := newModel(t)
 	names := numberedConnections(60)
@@ -249,10 +270,14 @@ func TestThePickerFitsASmallTerminal(t *testing.T) {
 	check(names[59])
 	press(t, m, "home")
 	check(names[0])
+	press(t, m, "pgup", "pgup", "pgup")
+	check(names[0])
+	press(t, m, "up")
+	check(names[59])
 	press(t, m, "pgdown")
-	check(m.picker.matches[m.picker.cursor])
-	press(t, m, "up", "up")
-	check(m.picker.matches[m.picker.cursor])
+	check(names[59])
+	press(t, m, "down")
+	check(names[0])
 
 	m.Update(tea.WindowSizeMsg{Width: 20, Height: 6})
 	press(t, m, "esc")
@@ -302,12 +327,11 @@ func TestEveryChoiceRowOpensOnEnterAndSlash(t *testing.T) {
 			value := m.fieldValue(row.label)
 
 			pump(t, m, key)
-			want := screenPicker
-			if row.label == providerLabel {
-				want = screenProviders
-			}
-			if m.screen != want {
-				t.Fatalf("%q on %v %s opened screen %v, want %v", key, row.section, row.label, m.screen, want)
+			switch {
+			case row.label == providerLabel && m.screen != screenProviders,
+				row.label == toolListLabel && m.screen != screenPicker,
+				row.label != providerLabel && row.label != toolListLabel && !valuePickerOpen(m):
+				t.Fatalf("%q on %v %s opened screen %v", key, row.section, row.label, m.screen)
 			}
 			if after, err := os.ReadFile(path); err != nil || string(after) != string(before) || m.fail != "" {
 				t.Fatalf("%q on %v %s wrote the file or failed: %v %q", key, row.section, row.label, err, m.fail)
@@ -357,11 +381,12 @@ func TestThePermissionsAreTickedInThePicker(t *testing.T) {
 		t.Fatalf("effects = %q, want read ticked", got)
 	}
 	press(t, m, "enter")
-	if view := screenOf(m); !strings.Contains(view, "[x] read") || !strings.Contains(flatText(view), "space tick enter keep") {
+	if view := flatText(screenOf(m)); !strings.Contains(view, "[x] read") || !strings.Contains(view, "enter keep") ||
+		!strings.Contains(view, "space toggle") {
 		t.Fatalf("the permissions picker does not show its ticks and keys:\n%s", view)
 	}
 	typeText(t, m, "create")
-	press(t, m, " ", "esc")
+	press(t, m, " ", "esc", "esc")
 	if m.screen != screenLeave || !strings.Contains(screenOf(m), "the ticks changed") {
 		t.Fatalf("esc dropped changed ticks without asking: screen %v", m.screen)
 	}
@@ -370,7 +395,7 @@ func TestThePermissionsAreTickedInThePicker(t *testing.T) {
 		t.Fatalf("discarding kept a tick: %q", got)
 	}
 	press(t, m, "enter", "esc")
-	if m.screen != screenForm {
+	if m.screen != screenForm || m.modal != nil {
 		t.Fatalf("esc on unchanged ticks asked: screen %v", m.screen)
 	}
 
@@ -403,11 +428,11 @@ func TestAChoiceRowDoesNotAdvanceTheSetup(t *testing.T) {
 	}
 	for _, key := range []string{"enter", "/"} {
 		press(t, m, key)
-		if m.screen != screenPicker || m.wizard.step != stepService {
+		if !valuePickerOpen(m) || m.wizard.step != stepService {
 			t.Fatalf("%q on the service row opened screen %v at step %d", key, m.screen, m.wizard.step)
 		}
 		press(t, m, "esc")
-		if m.screen != screenForm || m.wizard.step != stepService {
+		if m.screen != screenForm || m.modal != nil || m.wizard.step != stepService {
 			t.Fatalf("esc in the picker left screen %v at step %d", m.screen, m.wizard.step)
 		}
 	}
@@ -440,7 +465,7 @@ func TestPickerRowsAreHighlightedFullWidthReadWithoutColourAndSearchByTyping(t *
 		m.Update(tea.WindowSizeMsg{Width: width, Height: 24})
 		openDefaultForm(t, m)
 		press(t, m, "/")
-		if m.screen != screenPicker {
+		if !valuePickerOpen(m) {
 			t.Fatalf("width %d: / did not open the picker: screen %v", width, m.screen)
 		}
 		marked, alt := names[0], names[1]
@@ -452,7 +477,7 @@ func TestPickerRowsAreHighlightedFullWidthReadWithoutColourAndSearchByTyping(t *
 
 		setProfile(kittui.ProfileANSI16)
 		coloured := screenOf(m)
-		assertViewFits(t, coloured, width, m.height+footerRows(m))
+		assertViewFits(t, coloured, width, m.termHeight)
 		if row := findRow(coloured, marked); !strings.Contains(row, "\x1b[") {
 			t.Errorf("width %d: the marked picker row shows no colour: %q\n%s", width, row, coloured)
 		}
@@ -462,7 +487,7 @@ func TestPickerRowsAreHighlightedFullWidthReadWithoutColourAndSearchByTyping(t *
 
 		setProfile(kittui.ProfileNone)
 		plain := screenOf(m)
-		assertViewFits(t, plain, width, m.height+footerRows(m))
+		assertViewFits(t, plain, width, m.termHeight)
 		if strings.Contains(plain, "\x1b") {
 			t.Errorf("width %d: NO_COLOR still emits escape sequences in the picker:\n%s", width, plain)
 		}
@@ -471,8 +496,8 @@ func TestPickerRowsAreHighlightedFullWidthReadWithoutColourAndSearchByTyping(t *
 		}
 
 		typeText(t, m, "015")
-		if len(m.picker.matches) != 1 || m.picker.matches[0] != "conn-015" {
-			t.Errorf("width %d: typing does not filter the picker to conn-015: %v", width, m.picker.matches)
+		if got := pickerPosition(t, m); got != "1/1 (30 total)" {
+			t.Errorf("width %d: typing does not filter the picker to conn-015: %q", width, got)
 		}
 		if view := screenOf(m); !strings.Contains(view, "> conn-015") {
 			t.Errorf("width %d: the filtered picker does not mark conn-015:\n%s", width, view)

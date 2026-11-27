@@ -288,19 +288,18 @@ func TestClickOnAPathSuggestionMarksItAndASecondClickTakesIt(t *testing.T) {
 	if m.export.step != exportTarget {
 		t.Fatalf("step %v, want the file question", m.export.step)
 	}
-	p := &m.export.input
-	p.set("a")
-	m.render()
-	if len(p.matches) != 3 {
-		t.Fatalf("matches %v", p.matches)
+	v.typePath("a")
+	if view := askedText(m); !strings.Contains(view, "alpha") || !strings.Contains(view, "abeta") ||
+		!strings.Contains(view, "agamma") {
+		t.Fatalf("the three directories are not suggested:\n%s", view)
 	}
 	clickOn(t, m, "agamma")
-	if p.mark != 1 || !p.marked || p.Value() != "a" {
-		t.Fatalf("first click: mark %d marked %v value %q, want only the mark", p.mark, p.marked, p.Value())
+	if typedInput(m) != "a" {
+		t.Fatalf("first click: value %q, want only the mark", typedInput(m))
 	}
 	clickOn(t, m, "agamma")
-	if want := "agamma" + string(filepath.Separator); p.Value() != want {
-		t.Fatalf("click on the marked suggestion: value %q, want %q (tab completes)", p.Value(), want)
+	if want := "agamma" + string(filepath.Separator); typedInput(m) != want {
+		t.Fatalf("click on the marked suggestion: value %q, want %q (tab completes)", typedInput(m), want)
 	}
 	if m.export.step != exportTarget {
 		t.Fatalf("the click went on to step %v", m.export.step)

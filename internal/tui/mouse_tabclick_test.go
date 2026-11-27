@@ -64,7 +64,8 @@ func TestTabClickOverATypedFormAsks(t *testing.T) {
 	}
 }
 
-// An open question, a passphrase prompt and a key capture are answered by their keys alone.
+// An open question and a key capture are answered by their keys alone; a click outside a passphrase dialog
+// acts as esc, and none of them opens the tab.
 func TestTabClickDoesNothingWhileAsked(t *testing.T) {
 	m := sizedModel(groupModel(t), 160, 40)
 	openSectionByName(t, m, sectionServices)
@@ -90,8 +91,8 @@ func TestTabClickDoesNothingWhileAsked(t *testing.T) {
 		t.Fatalf("saving did not ask for the passphrase: screen %v", m.screen)
 	}
 	clickOn(t, m, "6 Settings")
-	if m.screen != screenAdminAuth || m.section != sectionServices {
-		t.Errorf("a click over a passphrase prompt: screen %v section %v", m.screen, m.section)
+	if m.screen != screenForm || m.section != sectionServices || m.status != tr(tCancelled) {
+		t.Errorf("a click beside a passphrase prompt: screen %v section %v status %q", m.screen, m.section, m.status)
 	}
 
 	m, _ = lockedVaultModel(t)

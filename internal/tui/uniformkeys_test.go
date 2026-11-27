@@ -274,8 +274,8 @@ func TestQuestionMarkOpensTheHelpWhereNothingIsTyped(t *testing.T) {
 		openPathList(t, p)
 		helpRoundTrip(t, p, "the path list")
 		press(t, p, "n", "?")
-		if p.screen != screenPaths || !strings.Contains(p.pathInput.Value(), "?") {
-			t.Fatalf("? in the typed path: screen %v value %q, want it as text", p.screen, p.pathInput.Value())
+		if p.screen != screenPaths || !strings.Contains(typedInput(p), "?") {
+			t.Fatalf("? in the typed path: screen %v value %q, want it as text", p.screen, typedInput(p))
 		}
 	})
 
@@ -345,12 +345,12 @@ func TestQuestionMarkOpensTheHelpWhereNothingIsTyped(t *testing.T) {
 		selectAccess(t, m, accessEffects)
 		focusField(t, m, effectsLabel)
 		press(t, m, "enter")
-		if m.screen != screenPicker {
+		if !valuePickerOpen(m) {
 			t.Fatalf("screen = %v, want the picker", m.screen)
 		}
 		press(t, m, "?")
-		if m.screen != screenPicker || m.picker.query() != "?" {
-			t.Fatalf("screen %v search %q, want ? as search text", m.screen, m.picker.query())
+		if !valuePickerOpen(m) || m.valuePick.list.Query() != "?" {
+			t.Fatalf("screen %v, want ? as search text", m.screen)
 		}
 	})
 

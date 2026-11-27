@@ -105,12 +105,6 @@ func TestNoColourProfilesKeepTheFocusReadable(t *testing.T) {
 					t.Errorf("the view lacks %q:\n%s", want, plain)
 				}
 			}
-			if got := stripSGR(button(buttonPrimary, "Store", true)); got != "> Store <" {
-				t.Errorf("focused button = %q, want %q", got, "> Store <")
-			}
-			if got := stripSGR(button(buttonPrimary, "Store", false)); got != "[ Store ]" {
-				t.Errorf("button = %q, want %q", got, "[ Store ]")
-			}
 			if h, _, c := frameChars(true); h != "═" || c[0] != "╔" {
 				t.Error("a focused frame is not double")
 			}

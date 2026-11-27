@@ -159,9 +159,8 @@ func TestCreatingATokenInTheTUI(t *testing.T) {
 		t.Errorf("the models row does not name its keys:\n%s", view)
 	}
 	press(t, m, "enter")
-	if m.screen != screenPicker || !slices.Equal(m.picker.all, []string{"personal"}) {
-		t.Fatalf("enter on models = screen %v choices %v, want the picker of vault connections",
-			m.screen, m.picker.all)
+	if !valuePickerOpen(m) || !slices.Equal(m.valuePick.choices, []string{"personal"}) {
+		t.Fatalf("enter on models = screen %v, want the picker of vault connections", m.screen)
 	}
 	press(t, m, " ", "enter")
 	if got := m.fieldValue(vorbilderLabel); got != "personal" {

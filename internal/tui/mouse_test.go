@@ -13,6 +13,7 @@ import (
 	"github.com/castrowithcee/qatlas-connect/internal/config"
 	"github.com/castrowithcee/qatlas-connect/internal/provider/github"
 	"github.com/castrowithcee/qatlas-connect/internal/selftest"
+	kittui "github.com/castrowithcee/qatlas-kit/tui"
 	kitprefs "github.com/castrowithcee/qatlas-kit/uiprefs"
 )
 
@@ -359,13 +360,13 @@ func TestClickOnAPickerValueMarksItAndASecondClickChoosesIt(t *testing.T) {
 	m.Update(tea.WindowSizeMsg{Width: 80, Height: 24})
 	openDefaultForm(t, m)
 	press(t, m, "/")
-	if m.screen != screenPicker {
+	if !valuePickerOpen(m) {
 		t.Fatalf("screen %v, want the picker", m.screen)
 	}
 	m.render()
 	clickOn(t, m, "conn-003")
-	if m.screen != screenPicker || m.picker.cursor != 3 {
-		t.Fatalf("first click: screen %v cursor %d, want the picker with row 3 marked", m.screen, m.picker.cursor)
+	if choice, _ := m.valuePick.selected(); !valuePickerOpen(m) || choice != "conn-003" {
+		t.Fatalf("first click: screen %v marked %q, want the picker with conn-003 marked", m.screen, choice)
 	}
 	clickOn(t, m, "conn-003")
 	if m.screen != screenForm || m.fieldValue("connection") != "conn-003" {
@@ -617,18 +618,26 @@ func TestTheWheelScrollsAListAndAForm(t *testing.T) {
 func TestMouseEventsMakeNoCharacters(t *testing.T) {
 	m := sizedModel(groupModel(t), 120, 40)
 	m.openVaultUnlockPrompt(screenNav)
-	for _, p := range [][2]int{{0, 0}, {60, 10}, {60, 20}, {70, 21}} {
+	m.render()
+	// Inside the frame: the input line, the blank row under it, and the wheel over it.
+	var line kittui.Rect
+	for _, target := range m.modalTargets {
+		if target.Zone == kittui.ZoneForm {
+			line = target.Rect
+		}
+	}
+	for _, p := range [][2]int{{line.X + 1, line.Y}, {line.X + line.Width/2, line.Y}, {line.X + 1, line.Y + 1}} {
 		clickAt(t, m, p[0], p[1])
 	}
-	wheelAt(t, m, 60, 20, tea.MouseWheelDown)
-	if m.screen != screenVaultUnlock || m.vaultUnlock.input.Value() != "" {
-		t.Fatalf("screen %v, input %q; want the empty passphrase prompt", m.screen, m.vaultUnlock.input.Value())
+	wheelAt(t, m, line.X+1, line.Y, tea.MouseWheelDown)
+	if m.screen != screenVaultUnlock || typedInput(m) != "" {
+		t.Fatalf("screen %v, input %q; want the empty passphrase prompt", m.screen, typedInput(m))
 	}
 	// A letter button is not passed on where the screen reads text.
 	m.pressName("y")
 	m.pressName("d")
-	if m.vaultUnlock == nil || m.vaultUnlock.input.Value() != "" {
-		t.Errorf("a letter reached the passphrase: %q", m.vaultUnlock.input.Value())
+	if m.vaultUnlock == nil || typedInput(m) != "" {
+		t.Errorf("a letter reached the passphrase: %q", typedInput(m))
 	}
 	// The cancel button is a key that makes no character, and works.
 	clickOn(t, m, "esc")
@@ -1138,7 +1147,9 @@ func TestTabClickWorksFromEveryLevel(t *testing.T) {
 	}
 }
 
-func TestTabClickFromAPickerKeepsUnsavedInputBehindTheQuestion(t *testing.T) {
+// The screen behind the picker takes no click: a click beside its frame acts as esc, on a changed form too, and
+// reaches no tab.
+func TestAClickBesideThePickerActsAsEscAndReachesNoTab(t *testing.T) {
 	open := func(typed bool) *Model {
 		m, _, _ := newModel(t)
 		seedConnections(t, m, numberedConnections(5)...)
@@ -1150,21 +1161,20 @@ func TestTabClickFromAPickerKeepsUnsavedInputBehindTheQuestion(t *testing.T) {
 			press(t, m, "n")
 			focusField(t, m, "connection")
 		}
-		press(t, m, "/")
-		if m.screen != screenPicker {
+		press(t, m, "/", "down")
+		if !valuePickerOpen(m) {
 			t.Fatalf("screen %v, want the picker", m.screen)
 		}
 		return m
 	}
-	m := open(false)
-	clickOn(t, m, "6 Settings")
-	if m.section.area() != areaSettings || m.screen != screenNav {
-		t.Errorf("an unchanged form: section %v screen %v, want the Settings tab line", m.section, m.screen)
-	}
-	m = open(true)
-	clickOn(t, m, "6 Settings")
-	if m.screen != screenLeave || m.section != sectionDefaults {
-		t.Errorf("a changed form: screen %v section %v, want the leave question over Defaults", m.screen, m.section)
+	for _, typed := range []bool{false, true} {
+		m := open(typed)
+		value := m.fieldValue("connection")
+		clickOn(t, m, "6 Settings")
+		if m.screen != screenForm || m.modal != nil || m.section != sectionDefaults || m.fieldValue("connection") != value {
+			t.Errorf("typed %v: screen %v section %v value %q, want the form unchanged without the picker", typed,
+				m.screen, m.section, m.fieldValue("connection"))
+		}
 	}
 }
 
