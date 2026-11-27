@@ -297,3 +297,12 @@ func (m *Model) clickLogDetail(r kit.MouseResult) tea.Cmd {
 	}
 	return nil
 }
+
+// listHintText is the keys of the rows as groups of a key text, with the labels of the kit's hints.
+func (lv *logView) listHintText() string {
+	var groups []string
+	for _, h := range lv.list.Hints() {
+		groups = append(groups, footerPlaceholder(h.Action)+" "+tr(h.Label))
+	}
+	return strings.Join(groups, " · ")
+}

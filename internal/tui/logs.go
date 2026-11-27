@@ -851,10 +851,10 @@ func (m *Model) logsFrame() (string, string) {
 	// bar draws the tab line, the filter bar and, while it is typed or holds a text, the search under the bar,
 	// for a room of width cells: inside the panel where there is one.
 	bar := func(width int) (tabLine, filterRows, compactRows []string) {
-		strip, spans := tabStrip(logTabWords(), int(lv.tab()), focused && lv.focus == logFocusTabs)
+		strip, spans := styles.TabStrip(logTabWords(), int(lv.tab()), focused && lv.focus == logFocusTabs)
 		tabsPlain := make([]string, len(spans))
 		for i, span := range spans {
-			tabsPlain[i] = ansi.Cut(ansi.Strip(strip), span[0], span[1])
+			tabsPlain[i] = ansi.Cut(ansi.Strip(strip), span.Start, span.End)
 		}
 		tabItem := barMarker(focused && lv.focus == logFocusTabs) + strip
 		if !lv.compactSubject().empty() {
@@ -1059,6 +1059,9 @@ func (m *Model) logKeys() string {
 		case lv.shownCount() == 0 || lv.heat:
 			return "{next} next · {filter} filter · {summary} summary · {sessions} MCP sessions · {search} search · {area} section · {back} back · {command} cmds · {help} help · {quit} quit"
 		}
+		if lv.list.Query() == "" {
+			return lv.listHintText() + " · {next} next · {filter} filter · {summary} summary · {sessions} MCP sessions · {area} section · {command} cmds · {help} help · {quit} quit"
+		}
 		return "{enter} detail · {next} next · {filter} filter · {summary} summary · {sessions} MCP sessions · {search} search · {area} section · {back} back · {command} cmds · {help} help · {quit} quit"
 	}
 	if lv.stats && lv.sessions && m.screen != screenNav && !lv.list.Searching() {
@@ -1081,11 +1084,11 @@ func (m *Model) logKeys() string {
 	case lv.shownCount() == 0 || lv.heat:
 		return "{next} next field · {left}/{right} change · {filter} filter · {summary} summary · {sessions} MCP sessions · {search} search · {area} section · {back} back · {command} cmds · {help} help · {quit} quit"
 	}
-	keys := "{enter} details · {next} next field · {left}/{right} change · {filter} filter · {summary} summary · {sessions} MCP sessions · {search} search · {area} section · {back} back · {command} cmds · {help} help · {quit} quit"
-	if lv.list.Query() != "" {
-		keys = strings.Replace(keys, "{back} back", "{back} clear search", 1)
+	if lv.list.Query() == "" {
+		// The rows lead with the keys of the list, with the kit's labels.
+		return lv.listHintText() + " · {next} next field · {left}/{right} change · {filter} filter · {summary} summary · {sessions} MCP sessions · {area} section · {command} cmds · {help} help · {quit} quit"
 	}
-	return keys
+	return "{enter} details · {next} next field · {left}/{right} change · {filter} filter · {summary} summary · {sessions} MCP sessions · {search} search · {area} section · {back} clear search · {command} cmds · {help} help · {quit} quit"
 }
 
 // shownEntries are the parsed entries of the rows the filters and the search keep.

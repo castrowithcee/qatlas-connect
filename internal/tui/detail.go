@@ -7,6 +7,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
+	kit "github.com/castrowithcee/qatlas-kit/tui"
 
 	"github.com/castrowithcee/qatlas-connect/internal/config"
 )
@@ -148,7 +149,7 @@ func (m *Model) withPane(lines []string, footer string, room, skip int) string {
 	m.detailPane.x0, m.detailPane.y0, m.detailPane.x1, m.detailPane.y1 = x, top, x+m.paneWidth(), top+len(panelLines)
 	m.addHit(x, top, x+m.paneWidth(), top+len(panelLines), func() tea.Cmd { return m.clickDetailTab(m.shownTab()) })
 	for tab, span := range spans {
-		m.addHit(x+2+span[0], top+1+tabRow, x+2+span[1], top+2+tabRow, func() tea.Cmd { return m.clickDetailTab(detailTab(tab)) })
+		m.addHit(x+2+span.Start, top+1+tabRow, x+2+span.End, top+2+tabRow, func() tea.Cmd { return m.clickDetailTab(detailTab(tab)) })
 	}
 	out := make([]string, 0, len(lines)+1)
 	for i, line := range lines {
@@ -169,7 +170,7 @@ func (m *Model) withPane(lines []string, footer string, room, skip int) string {
 // detailPanel is the pane of the entry name as a panel of the given total height: its name and state, its
 // provider, the tabs and the lines of the shown tab. It returns the lines, the line of the tabs inside them
 // (-1 where there are none) and the cells each tab takes, counted from the first cell of the content.
-func (m *Model) detailPanel(name string, height int) ([]string, int, [][2]int) {
+func (m *Model) detailPanel(name string, height int) ([]string, int, []kit.Span) {
 	pane := m.paneWidth()
 	inner := pane - 4
 	rows := max(height-2, 0)
@@ -177,7 +178,7 @@ func (m *Model) detailPanel(name string, height int) ([]string, int, [][2]int) {
 	focused := m.detailFocused()
 	var head []string
 	tabRow := -1
-	var spans [][2]int
+	var spans []kit.Span
 	if isGroupRow(name) {
 		head = []string{styles.title.Render(truncateCells(m.logText(m.groupTitle(name)), inner)), ""}
 	} else {
@@ -258,12 +259,12 @@ func (m *Model) detailMark(name string) string {
 
 // detailTabStrip draws the tabs of the pane, the shown one in brackets and highlighted, and returns the cells
 // each takes. Without colour the brackets still tell the shown tab.
-func detailTabStrip(active detailTab, focused bool) (string, [][2]int) {
+func detailTabStrip(active detailTab, focused bool) (string, []kit.Span) {
 	words := make([]string, tabCount)
 	for tab := range words {
 		words[tab] = wordText(tabWords[tab])
 	}
-	return tabStrip(words, int(active), focused)
+	return styles.TabStrip(words, int(active), focused)
 }
 
 // detailFact is one label and value of the pane; an empty label continues the one above.

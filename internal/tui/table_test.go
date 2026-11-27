@@ -205,6 +205,10 @@ func TestNarrowTablesCutTheLongTextsButNeverTheName(t *testing.T) {
 // The description gives way before any value that names something: at 119 columns every other cell of a
 // connection stays whole beside a long description, and at 80 columns the optional columns are left out,
 // from the right, before a name or a service is cut. The storage column falls back to its short labels.
+// flexFloor is the narrowest the kit's list cuts a free text column to before anything else of the row
+// gives way.
+const flexFloor = 12
+
 func TestTheFreeTextGivesWayFirst(t *testing.T) {
 	long := "handbook pages for onboarding new colleagues, read only, never anything written back"
 	for _, c := range []struct {
@@ -299,46 +303,6 @@ func TestAnEmptySectionShowsNoColumnNames(t *testing.T) {
 	openSectionByName(t, m, sectionServices)
 	if view := screenOf(m); strings.Contains(view, "BASE URL") || !strings.Contains(view, "No services yet") {
 		t.Errorf("the empty list:\n%s", view)
-	}
-}
-
-// The order in which a row gives way: the free text first, down to its floor; then the short labels; then
-// the optional columns, from the right; then the other values, the widest first and never below their
-// heading; and the name never. The free text gets whatever room is left.
-func TestTableLayoutPriority(t *testing.T) {
-	tab := table{
-		columns: []column{{title: "NAME"}, {title: "KIND", optional: true},
-			{title: "NOTE", optional: true, short: map[string]string{"a long label": "short"}},
-			{title: "ID"}, {title: "TEXT", flex: true}},
-		rows: map[string][]string{
-			"a-rather-long-name": {"a-rather-long-name", "kind-value", "a long label", "identifier-x",
-				"free text that gives way before the rest"},
-		},
-	}
-	for _, c := range []struct {
-		width int
-		want  []int
-		short bool
-		line  string
-	}{
-		{200, []int{18, 10, 12, 12, 40}, false,
-			"a-rather-long-name  kind-value  a long label  identifier-x  free text that gives way before the rest"},
-		{80, []int{18, 10, 12, 12, 20}, false,
-			"a-rather-long-name  kind-value  a long label  identifier-x  free text that give…"},
-		{70, []int{18, 10, 5, 12, 17}, true, "a-rather-long-name  kind-value  short  identifier-x  free text that g…"},
-		{55, []int{18, 0, 0, 12, 21}, true, "a-rather-long-name  identifier-x  free text that gives…"},
-		{40, []int{18, 0, 0, 6, 12}, true, "a-rather-long-name  ident…  free text t…"},
-		{30, []int{18, 0, 0, 2, 6}, true, "a-rather-long-name  i…  free …"},
-		{10, []int{18, 0, 0, 2, 4}, true, "a-rather-long-name  i…  fre…"},
-	} {
-		got := tab.layout(c.width)
-		if fmt.Sprint(got.widths) != fmt.Sprint(c.want) || got.short[2] != c.short {
-			t.Errorf("layout(%d) = %v, short %v; want %v, short %v", c.width, got.widths, got.short, c.want,
-				c.short)
-		}
-		if line := tab.line(tab.rows["a-rather-long-name"], got); line != c.line {
-			t.Errorf("line at %d = %q, want %q", c.width, line, c.line)
-		}
 	}
 }
 

@@ -105,9 +105,9 @@ Every other letter means one thing on every screen without a text line, and none
 - A approves everything open in Approvals.
 - On the detail of a tool request in Approvals, a ticks all tools or none, x declines the ticked tools, b blocks them, and y accepts them, while a request to remove tools has no b, and y asks once more what the connection then offers; space ticks one tool or a whole group.
 - V shows or hides a token's value in its detail.
-- s shows the summary of the Logs.
+- s shows the summary of the Logs, a list with a marked line that up, down, pgup, pgdown, home, and end move, and the position of it at the right end of the footer. s or esc goes back to the rows.
 - f moves the focus to the filter bar of a list and of the Logs. left and right change a field, enter opens its values with a search line that narrows them as you type, and where a narrow terminal has no room for the fields, one Filter (n) button opens them all at once.
-- M shows the MCP sessions of the Logs.
+- M shows the MCP sessions of the Logs the same way, as a list with a marked line. M or esc goes back to the rows.
 - In the detail of a log entry, / searches its text, enter keeps the search and esc clears it, then leaves. ] and [ jump to the next and previous match, w switches the wrapping of long lines (on at first), # the line numbers, and up, down, pgup, pgdown, home, and end scroll.
 - o opens Activity on an approval's connection.
 - c hands the full text of an open text or detail area (a log entry, the Raw tab, an explanation, an approval's detail) or, with none open, the name of the marked entry to the terminal for the clipboard. It hands over nothing but what is shown, no secret value and no control characters. It travels as an OSC 52 sequence, which also works over SSH but which the terminal does not confirm, and some terminals need it enabled (tmux needs set-clipboard on).
