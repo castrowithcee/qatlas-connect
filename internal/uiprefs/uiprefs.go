@@ -31,11 +31,15 @@ const formatVersion = 2
 // formerThemes are the values of the former colour scheme and the themes they stand for now.
 var formerThemes = map[string]string{"auto": kittui.ThemeTerminal, "light": ThemeQatlasLight, "dark": ThemeQatlasDark}
 
-// Schema is the schema of tui.yaml for the themes, the areas and the key table of the editor.
+// Schema is the schema of tui.yaml for the themes, the areas and the key table of the editor. It offers every
+// navigation form of the kit, the tab line by default.
 func Schema(themes, areas []string, keys *kittui.Keymap) kitprefs.Schema {
 	return kitprefs.Schema{
 		Themes: themes, Areas: areas, DefaultArea: DefaultStart, Keys: keys,
-		Rewrite: rewrite, WriteKeys: map[string]any{"format": formatVersion},
+		Navigations: []string{kitprefs.NavigationTabs, kitprefs.NavigationPathLine, kitprefs.NavigationPathHeader,
+			kitprefs.NavigationHeaderChoice},
+		DefaultNavigation: kitprefs.NavigationTabs,
+		Rewrite:           rewrite, WriteKeys: map[string]any{"format": formatVersion},
 	}
 }
 

@@ -42,8 +42,8 @@ func (m *Model) openTargets() {
 	m.clearMessages()
 }
 
-// updateTargets handles the target list screen: the typed target first, then the remove question, then
-// the list itself.
+// updateTargets handles the target list screen: the typed target first, then the list itself. Its remove
+// question is a dialog; see targetRemoveAsk.
 func (m *Model) updateTargets(key tea.KeyPressMsg) tea.Cmd {
 	switch {
 	case keyIs(key, actSave):
@@ -71,8 +71,6 @@ func (m *Model) updateTargets(key tea.KeyPressMsg) tea.Cmd {
 			m.takeLabel()
 		}
 		m.targetAsExclusion = false
-		// A remove question left unanswered keeps its target.
-		m.targetRemove = false
 		m.keepTargets()
 		return m.updateForm(key)
 	}
@@ -111,16 +109,6 @@ func (m *Model) updateTargets(key tea.KeyPressMsg) tea.Cmd {
 			var cmd tea.Cmd
 			m.targetInput, cmd = m.targetInput.Update(inputMsg(key))
 			return cmd
-		}
-		return nil
-	}
-	if m.targetRemove {
-		switch {
-		case keyIs(key, actYes):
-			m.removeTarget()
-		case keyIs(key, actNo) || keyIs(key, actBack):
-			m.targetRemove = false
-			m.status = tr(tTargetTargetKept)
 		}
 		return nil
 	}
@@ -338,6 +326,30 @@ func (m *Model) takeTarget() {
 	m.clearMessages()
 }
 
+// targetRemoveAsk asks before the selected target leaves the list.
+func (m *Model) targetRemoveAsk() ask {
+	target, _ := m.targetList.selected()
+	return ask{title: tAskRemoveTarget, question: tr(tTargetRemoveFromTheList, target), consequence: tr(tAskListEntryLeaves),
+		answers: yesNo("{yes} remove", "{no}/{back} keep"), keep: actNo, danger: actYes, save: true}
+}
+
+// answerTargetRemove answers the remove question: y takes the target out of the list, n and esc keep it, and
+// F2 keeps it and saves as from the list.
+func (m *Model) answerTargetRemove(act action) tea.Cmd {
+	switch act {
+	case actYes:
+		m.removeTarget()
+		return nil
+	case actSave:
+		m.targetRemove = false
+		save, _ := keyOf(actSave)
+		return m.updateTargets(save)
+	}
+	m.targetRemove = false
+	m.status = tr(tTargetTargetKept)
+	return nil
+}
+
 // removeTarget takes the selected target out of the list.
 func (m *Model) removeTarget() {
 	m.targetRemove = false
@@ -372,8 +384,7 @@ func (m *Model) targetsView() string {
 	return b.String()
 }
 
-// targetKeys is the key text of the target list screen: the list, the target or label being typed, or the
-// remove question.
+// targetKeys is the key text of the target list screen: the list, or the target or label being typed.
 func (m *Model) targetKeys() string {
 	save := "{save} save"
 	if m.wizard != nil {
@@ -383,8 +394,6 @@ func (m *Model) targetKeys() string {
 	switch {
 	case m.labelEdit, m.targetEdit >= 0:
 		return "{enter} take · " + save + " · {back} cancel entry"
-	case m.targetRemove:
-		return "{yes} remove · {no}/{back} keep · {command} cmds · {help} help"
 	}
 	rename, exclude := "{rename} rename · ", ""
 	if m.wizard != nil {
@@ -397,8 +406,7 @@ func (m *Model) targetKeys() string {
 }
 
 // targetFrame is everything of the target list screen except the targets: above them what one target is
-// and what the provider allows of the list, below them the target being typed or the remove question, the
-// keys and the notes.
+// and what the provider allows of the list, below them the target being typed, the keys and the notes.
 func (m *Model) targetFrame() (string, string) {
 	p := m.dialogPanelOf()
 	metadata := m.targetMetadata()
@@ -429,9 +437,6 @@ func (m *Model) targetFrame() (string, string) {
 			label = tr(tTargetNewExclusion)
 		}
 		foot.WriteString(p.blank() + p.styled(m.inputLineIn(p.room, label, m.targetInput)))
-	case m.targetRemove:
-		target, _ := m.targetList.selected()
-		foot.WriteString(p.blank() + p.text(styles.warning, warnMark+" "+tr(tTargetRemoveFromTheList, target)))
 	}
 	foot.WriteString(p.bottom())
 	foot.WriteString(m.keyHint(m.targetKeys()))

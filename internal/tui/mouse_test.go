@@ -116,8 +116,8 @@ func TestClickOnATabAndAPartOfTheOptionBar(t *testing.T) {
 	row := len([]string{headerLine(m)}) + 1
 	x := cellInRow(t, m, row, "Vault")
 	clickAt(t, m, x, row)
-	if m.section != sectionVault || !m.navSub {
-		t.Fatalf("after the click on Vault: section %v navSub %v", m.section, m.navSub)
+	if m.section != sectionVault || !m.onOptionBar() {
+		t.Fatalf("after the click on Vault: section %v option bar %v", m.section, m.onOptionBar())
 	}
 	clickOn(t, m, "3 Connections")
 	if m.section != sectionConnections {
@@ -145,7 +145,7 @@ func TestLibrarySubTabsAreTabsForKeyAndClick(t *testing.T) {
 				t.Errorf("%dx%d: NO_COLOR still emits escape sequences in the sub-tabs", size.w, size.h)
 			}
 			clickAt(t, m, cellInRow(t, m, row, "Credentials"), row)
-			if m.section != sectionCredentials || !m.navSub {
+			if m.section != sectionCredentials || !m.onOptionBar() {
 				t.Fatalf("%dx%d: the click on Credentials opened %v", size.w, size.h, m.section)
 			}
 			if line := ansi.Strip(frameLines(m)[row]); !strings.Contains(line, "[Credentials]") {
@@ -544,12 +544,12 @@ func TestClickOnAModalButtonAnswersTheQuestion(t *testing.T) {
 	if m.screen != screenLeave {
 		t.Fatalf("a click beside the dialog answered it")
 	}
-	clickOn(t, m, "esc keep editing")
+	clickOn(t, m, "keep editing ]")
 	if m.screen != screenForm || m.fields[0].value() != "draft" {
 		t.Fatalf("keep editing: screen %v name %q", m.screen, m.fields[0].value())
 	}
 	press(t, m, "esc")
-	clickOn(t, m, "d discard")
+	clickOn(t, m, "discard ]")
 	if m.screen == screenLeave || m.screen == screenForm {
 		t.Fatalf("discard left screen %v", m.screen)
 	}
@@ -738,7 +738,7 @@ func TestTheMouseSettingAppliesAtOnce(t *testing.T) {
 		t.Error("tui.yaml still has the mouse on")
 	}
 	clickOn(t, m, "6 Settings")
-	if m.screen == screenNav && m.navSub {
+	if m.screen == screenNav && m.onOptionBar() {
 		t.Error("a click after switching the mouse off acted")
 	}
 }
@@ -831,23 +831,20 @@ func TestClickOnAnOptionOfTheTemplateQuestion(t *testing.T) {
 }
 
 func TestDialogButtonsWorkInTheFullScreenFallback(t *testing.T) {
-	m := sizedModel(groupModel(t), 50, 16)
-	if m.termWidth >= modalMinWidth {
-		t.Fatal("the terminal has room for a modal")
-	}
+	m := sizedModel(groupModel(t), minimumWidth+3, 24)
 	openSectionByName(t, m, sectionServices)
 	pressNew(t, m)
 	typeText(t, m, "draft")
 	press(t, m, "esc")
-	if _, ok := m.modalView(); ok || m.screen != screenLeave {
-		t.Fatalf("screen %v: want the leave question without a modal", m.screen)
+	if view := m.render(); hasQuestionModal(view) || m.screen != screenLeave {
+		t.Fatalf("screen %v: want the leave question without a modal:\n%s", m.screen, view)
 	}
 	// The tab line is drawn, and does not answer or leave the question.
 	clickOn(t, m, "6")
 	if m.screen != screenLeave {
 		t.Fatalf("a click on a tab left the question: screen %v", m.screen)
 	}
-	clickOn(t, m, "esc keep")
+	clickOn(t, m, "keep editing")
 	if m.screen != screenForm || m.fields[0].value() != "draft" {
 		t.Fatalf("keep editing: screen %v name %q", m.screen, m.fields[0].value())
 	}

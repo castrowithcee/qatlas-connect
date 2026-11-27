@@ -26,6 +26,7 @@ func (m *Model) frameSpec() kit.FrameSpec {
 		Status:     append(m.kitMarks(), m.bannerMarks()...),
 		HeaderKeys: m.headerKeys(),
 		Areas:      m.kitAreas(), ActiveArea: active, ActiveTab: tab, ModeTab: mode,
+		Nav: m.navForm(), PathFocusArea: m.pathArea,
 		Focus: m.navFocus(), Input: m.inputFocus(),
 		Footer:   m.keyHints(m.screenKeys),
 		Position: m.screenPos,
@@ -38,13 +39,10 @@ func (m *Model) frameSpec() kit.FrameSpec {
 
 // navFocus is the line of the navigation that has the focus, if one has.
 func (m *Model) navFocus() kit.FocusZone {
-	switch {
-	case m.screen != screenNav:
+	if m.screen != screenNav {
 		return ""
-	case m.navSub:
-		return kit.ZoneSubtabs
 	}
-	return kit.ZoneTabs
+	return m.navLine()
 }
 
 // inputFocus is the input focus of the current screen: text where it reads typed text, so the hints name
@@ -127,19 +125,28 @@ func (m *Model) frame(workspace string) string {
 	return view
 }
 
-// clickFrame is the click on a target of the frame: a tab is the tab click, a key the press of its first key.
+// clickFrame is the click on a target of the frame: a tab is the tab click, a section of the path or the
+// choice field opens its overlay, a key the press of its first key.
 func (m *Model) clickFrame(r kit.MouseResult) tea.Cmd {
-	if r.Action != "" {
+	switch {
+	case r.Action != "":
 		return m.pressAction(r.Action)
+	case r.Zone == kit.ZonePath || r.Zone == kit.ZoneTabs && m.navForm() == kit.NavHeaderChoice:
+		return m.clickNavField(r)
 	}
+	return m.clickPlace(r.Area, r.Tab)
+}
+
+// clickPlace is the click on the tab of an area, or of one of its parts where tab names one.
+func (m *Model) clickPlace(id kit.AreaID, tab kit.TabID) tea.Cmd {
 	for a := area(0); a < areaCount; a++ {
-		if kit.AreaID(a.key()) != r.Area {
+		if kit.AreaID(a.key()) != id {
 			continue
 		}
-		if r.Tab == "" {
+		if tab == "" || len(areaSections[a]) < 2 {
 			return m.clickArea(a)
 		}
-		if i := slices.IndexFunc(areaSections[a], func(s section) bool { return kit.TabID(s.key()) == r.Tab }); i >= 0 {
+		if i := slices.IndexFunc(areaSections[a], func(s section) bool { return kit.TabID(s.key()) == tab }); i >= 0 {
 			return m.clickSubTab(areaSections[a][i])
 		}
 	}
@@ -161,14 +168,19 @@ func (m *Model) clickTab(msg tea.MouseMsg) (tea.Cmd, bool) {
 // it. The hint names the action only where its key acts in the input focus of the screen, so the key goes to
 // the screen as typed.
 func (m *Model) pressAction(a action) tea.Cmd {
-	keys := keymap.Keys(a)
-	if len(keys) == 0 {
-		return nil
-	}
-	key, ok := namedKey(keys[0])
+	key, ok := keyOf(a)
 	if !ok {
 		return nil
 	}
 	_, cmd := m.Update(key)
 	return cmd
+}
+
+// keyOf is the press of the first key bound to an action, false for an action without one.
+func keyOf(a action) (tea.KeyPressMsg, bool) {
+	keys := keymap.Keys(a)
+	if len(keys) == 0 {
+		return tea.KeyPressMsg{}, false
+	}
+	return namedKey(keys[0])
 }

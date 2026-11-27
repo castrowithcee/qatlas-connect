@@ -66,9 +66,32 @@ func TestFileOfV220LoadsWithoutWarning(t *testing.T) {
 		"keys:\n  info: f3\n  save: f4\n")
 	got, warnings = kitprefs.LoadWarnings(path, schema)
 	want := kitprefs.Prefs{Theme: ThemeQatlasDark, Start: DefaultStart, Icons: kitprefs.IconsNerdFont,
-		Language: kitprefs.LanguageGerman, Keys: map[kittui.ActionID]string{kittui.ActionInfo: "f3", kittui.ActionSave: "f4"}}
+		Language: kitprefs.LanguageGerman, Keys: map[kittui.ActionID]string{kittui.ActionInfo: "f3", kittui.ActionSave: "f4"},
+		Navigation: kitprefs.NavigationTabs}
 	if !reflect.DeepEqual(got, want) || len(warnings) != 0 {
 		t.Errorf("changed file = %+v %v; want %+v", got, warnings, want)
+	}
+}
+
+// Every navigation form loads without a warning; an unknown one warns and falls back to the tab line, which
+// is also what a file without the setting gets.
+func TestNavigationLoadsEachFormAndFallsBackToTabs(t *testing.T) {
+	schema := testSchema(t)
+	path := kitprefs.Path(t.TempDir())
+	for _, form := range []string{kitprefs.NavigationTabs, kitprefs.NavigationPathLine, kitprefs.NavigationPathHeader,
+		kitprefs.NavigationHeaderChoice} {
+		writeFile(t, path, "navigation: "+form+"\n")
+		if got, warnings := kitprefs.LoadWarnings(path, schema); got.Navigation != form || len(warnings) != 0 {
+			t.Errorf("navigation %s = %q %v; want it without a warning", form, got.Navigation, warnings)
+		}
+	}
+	writeFile(t, path, "navigation: sideways\n")
+	if got, warnings := kitprefs.LoadWarnings(path, schema); got.Navigation != kitprefs.NavigationTabs || len(warnings) != 1 {
+		t.Errorf("unknown navigation = %q %v; want tabs with one warning", got.Navigation, warnings)
+	}
+	writeFile(t, path, "theme: terminal\n")
+	if got, warnings := kitprefs.LoadWarnings(path, schema); got.Navigation != kitprefs.NavigationTabs || len(warnings) != 0 {
+		t.Errorf("no navigation = %q %v; want tabs without a warning", got.Navigation, warnings)
 	}
 }
 

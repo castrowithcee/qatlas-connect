@@ -10,9 +10,14 @@ import (
 // openHelp opens the help topics over the current screen. The first topic ends with the keys of that screen
 // and those of the global actions, as they are bound now.
 func (m *Model) openHelp() {
+	screen := m.keyHints(m.screenKeys)
+	if m.question != nil {
+		// Over a question the keys of the screen are its answers.
+		screen = m.question.Hints()
+	}
 	h, err := kittui.NewHelp(kittui.HelpSpec{
 		Topics: helptopics.All(),
-		Screen: m.keyHints(m.screenKeys),
+		Screen: screen,
 		Global: []action{actSave, actHelp, actCommand, actLock, actInfo},
 		Keys: kittui.HelpKeys{Left: actLeft, Right: actRight, Next: actTopicNext, Prev: actTopicPrev,
 			Up: actUp, Down: actDown, PageUp: actPageUp, PageDown: actPageDown, First: actHome, Last: actEnd,

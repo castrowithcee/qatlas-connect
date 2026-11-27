@@ -830,8 +830,8 @@ func (m *Model) importKeys(keys string) string {
 	return m.keyHint(m.importDialogKeys(keys))
 }
 
-// importLeaveView is the leave question over an unfinished import.
-func (m *Model) importLeaveView() string {
+// importLeaveAsk is the leave question over an unfinished import.
+func (m *Model) importLeaveAsk() ask {
 	save := "{save} next step"
 	if m.imp != nil && m.imp.step == importPreview {
 		save = "{save} write"
@@ -840,8 +840,5 @@ func (m *Model) importLeaveView() string {
 	if m.leaveQuit {
 		title, discard, why = tr(tImportQuitTitle), "{discard} discard and quit", tr(tTransferQuitWhy)
 	}
-	return m.questionText(question{title: title, consequence: why, danger: true,
-		details: []string{m.indentedWith(styles.warning, tr(tImportLeaveWarn)),
-			m.indented(tr(tTransferNothingWritten))},
-		keys: save + " · " + discard + " · {back} keep editing · {command} cmds · {help} help"})
+	return m.leaveQuestion(title, why, tr(tImportLeaveWarn), tr(tTransferNothingWritten), save, discard)
 }

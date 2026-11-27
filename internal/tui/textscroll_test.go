@@ -49,17 +49,6 @@ func TestTheWheelScrollsEveryTextAreaByThreeLines(t *testing.T) {
 			m.screen = screenSelftest
 			return m, &m.st.view
 		}, nil},
-		{"rename", func(t *testing.T) (*Model, *textScroll) {
-			m, _, _ := newModel(t)
-			seedConnections(t, m, "docs")
-			sizedModel(m, 100, 30)
-			startRename(t, m, sectionServices, "wiki", "handbook")
-			pump(t, m, "f2")
-			for i := 0; i < 60; i++ {
-				m.rename.plan.References = append(m.rename.plan.References, fmt.Sprintf("connections.c%02d.service", i))
-			}
-			return m, &m.rename.view
-		}, nil},
 	}
 	for _, a := range areas {
 		t.Run(a.name, func(t *testing.T) {

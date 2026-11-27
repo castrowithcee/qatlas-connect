@@ -1,7 +1,10 @@
 package tui
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
+	"os"
 	"path/filepath"
 	"regexp"
 	"slices"
@@ -12,6 +15,7 @@ import (
 	"github.com/charmbracelet/x/ansi"
 
 	"github.com/castrowithcee/qatlas-connect/internal/helptopics"
+	"github.com/castrowithcee/qatlas-connect/internal/provider/github"
 	kithelp "github.com/castrowithcee/qatlas-kit/helptopics"
 	kittui "github.com/castrowithcee/qatlas-kit/tui"
 )
@@ -28,7 +32,7 @@ func clickScreens() []struct {
 	}{
 		{"overview", func(t *testing.T) *Model {
 			m := sizedModel(groupModel(t), 140, 40)
-			m.screen, m.section, m.navSub = screenNav, sectionOverview, false
+			m.screen, m.section, m.navZone = screenNav, sectionOverview, optionBar(false)
 			return m
 		}},
 		{"connections list", func(t *testing.T) *Model {
@@ -112,146 +116,389 @@ func clickScreens() []struct {
 	}
 }
 
+// optionBar is the line of the navigation on the option bar, or with on false on the tab line.
+func optionBar(on bool) kittui.FocusZone {
+	if on {
+		return kittui.ZoneSubtabs
+	}
+	return kittui.ZoneTabs
+}
+
+// onOptionBar reports whether the navigation stands on the option bar of the area.
+func (m *Model) onOptionBar() bool { return m.navLine() == kittui.ZoneSubtabs }
+
 // state is what a key and a click must leave alike: the screen, the focus, the selection and the view. The
 // view names the configuration file, which every model of a test keeps in a directory of its own.
 var shownConfigPath = regexp.MustCompile(`\S*config\.yaml`)
 
+var shownID = regexp.MustCompile(`[0-9a-f]{5,}`)
+
+// fixIDs gives every entry an id of its own derived from its kind and name, the same in every model of a test,
+// where a view shows the ids in full and a narrow one wraps them at any character.
+func fixIDs(t *testing.T, m *Model) {
+	t.Helper()
+	id := func(kind, name string) string {
+		sum := sha256.Sum256([]byte(kind + "/" + name))
+		return hex.EncodeToString(sum[:16])
+	}
+	for name, s := range m.cfg.Services {
+		s.ID = id("service", name)
+		m.cfg.Services[name] = s
+	}
+	for name, c := range m.cfg.Credentials {
+		c.ID = id("credential", name)
+		m.cfg.Credentials[name] = c
+	}
+	for name, c := range m.cfg.Connections {
+		c.ID = id("connection", name)
+		m.cfg.Connections[name] = c
+	}
+	mustNoError(t, m.store.Save(m.cfg))
+	syncRevision(t, m)
+}
+
 func clickState(m *Model) string {
 	selected, _ := m.marked()
 	view := strings.ReplaceAll(m.render(), filepath.Dir(m.svc.Path()), "<dir>")
-	// Each model has its own temporary directory, and a shortened path shows only its end.
+	// Each model has its own temporary directory, and a shortened path shows only its end; a seeded entry
+	// has an ID of its own in every model, which a narrow row wraps.
 	view = shownConfigPath.ReplaceAllString(view, "<config>")
-	return fmt.Sprintf("screen %v section %v focus %d sub %v selected %q\n%s", m.screen, m.section, m.focus, m.navSub, selected, view)
+	view = shownID.ReplaceAllStringFunc(view, func(s string) string {
+		if strings.ContainsAny(s, "0123456789") {
+			return "<id>"
+		}
+		return s
+	})
+	return fmt.Sprintf("screen %v section %v focus %d line %v path area %v selected %q\n%s", m.screen, m.section, m.focus, m.navLine(), m.pathArea, selected, view)
 }
 
-// clickDialogs are the questions whose answers the key line names: the key line groups and the buttons drawn
-// from them are targets. buttons names the key of each button by its label.
+// clickDialogs are the questions of the kit's dialog, each over the screen and in the workspace of a terminal
+// too narrow for that, whose footer then holds the answers.
 func clickDialogs() []struct {
-	name    string
-	build   func(t *testing.T) *Model
-	buttons map[string]string
+	name  string
+	build func(t *testing.T) *Model
 } {
-	return []struct {
-		name    string
-		build   func(t *testing.T) *Model
-		buttons map[string]string
-	}{
+	type dialogCase = struct {
+		name  string
+		build func(t *testing.T) *Model
+	}
+	over := func(set func(m *Model)) func(t *testing.T) *Model {
+		return func(t *testing.T) *Model {
+			m := groupModel(t)
+			openSectionByName(t, m, sectionCredentials)
+			m.screen = screenConfirm
+			set(m)
+			return m
+		}
+	}
+	overForm := func(set func(m *Model)) func(t *testing.T) *Model {
+		return func(t *testing.T) *Model {
+			m, _ := startServiceForm(t)
+			m.screen = screenConfirm
+			set(m)
+			return m
+		}
+	}
+	var cases []dialogCase
+	for _, q := range append(questionCases(), []dialogCase{
 		{"delete question", func(t *testing.T) *Model {
-			m := sizedModel(groupModel(t), 140, 40)
+			m := groupModel(t)
 			openSectionByName(t, m, sectionCredentials)
 			press(t, m, keyLabel(actDelete))
 			if m.screen != screenConfirm {
 				t.Fatalf("screen %v, want the delete question", m.screen)
 			}
 			return m
-		}, map[string]string{"Delete": keyLabel(actYes), "Cancel": keyLabel(actNo)}},
+		}},
+		{"remove secret question", overForm(func(m *Model) { m.confirmRole, m.editing = "key", "reader" })},
+		{"lock question", over(func(m *Model) { m.vaultLockConfirm, m.vaultLockBack = true, screenList })},
+		{"encryption question", overForm(func(m *Model) { m.decryptConfirm = true })},
+		{"migrate question", overForm(func(m *Model) { m.migratePlanConfirm, m.migrate = true, &migratePlan{} })},
+		{"migrate delete question", overForm(func(m *Model) {
+			m.migrateDeleteConfirm, m.migrateResult = true, "2 entries were migrated"
+		})},
+		{"approve all question", over(func(m *Model) { m.approveAllConfirm = true })},
+		{"revoke question", over(func(m *Model) { m.tokenRevoke = "agent" })},
+		{"profile question", overForm(func(m *Model) { m.pendingProfile = "custom-profile" })},
+	}...) {
+		for _, size := range []struct {
+			name          string
+			width, height int
+		}{{"", 140, 40}, {" in the workspace", minimumWidth + 3, 24}} {
+			build := q.build
+			cases = append(cases, dialogCase{q.name + size.name, func(t *testing.T) *Model {
+				return sizedModel(build(t), size.width, size.height)
+			}})
+		}
 	}
+	return cases
+}
+
+// questionCases are the questions that stand over a screen other than screenConfirm.
+func questionCases() []struct {
+	name  string
+	build func(t *testing.T) *Model
+} {
+	return []struct {
+		name  string
+		build func(t *testing.T) *Model
+	}{
+		{"leave question", func(t *testing.T) *Model {
+			m, _ := startServiceForm(t)
+			press(t, m, "esc")
+			if m.screen != screenLeave {
+				t.Fatalf("screen %v, want the leave question", m.screen)
+			}
+			return m
+		}},
+		{"quit question", func(t *testing.T) *Model {
+			m, _ := startServiceForm(t)
+			press(t, m, "esc", "ctrl+c")
+			if m.screen != screenLeave || !m.leaveQuit {
+				t.Fatalf("screen %v, want the leave question to quit", m.screen)
+			}
+			return m
+		}},
+		{"update question", func(t *testing.T) *Model {
+			m := startedWith(t, newerRelease())
+			press(t, m, "U")
+			if m.screen != screenUpdate {
+				t.Fatalf("screen %v, want the update question", m.screen)
+			}
+			return m
+		}},
+		{"version question", func(t *testing.T) *Model {
+			m := startedVersions(t, choosable())
+			openVersions(t, m)
+			typeText(t, m, "rc")
+			pump(t, m, "enter")
+			if m.screen != screenUpdate || m.versionPending == nil {
+				t.Fatalf("screen %v, want the version question", m.screen)
+			}
+			return m
+		}},
+		{"restore question", func(t *testing.T) *Model {
+			fake := choosable()
+			rollbackWithBackup(fake)
+			m := startedVersions(t, fake)
+			openVersions(t, m)
+			typeText(t, m, "v0.3.1")
+			pump(t, m, "enter", "y")
+			if m.screen != screenUpdate || m.versionPending == nil || m.versionPending.plan == nil {
+				t.Fatalf("screen %v, want the restore question", m.screen)
+			}
+			return m
+		}},
+		{"restart question", func(t *testing.T) *Model {
+			m, _ := startServiceForm(t)
+			m.updated, m.restartBack, m.screen = "v0.5.0", screenForm, screenRestart
+			return m
+		}},
+		{"path remove question", func(t *testing.T) *Model {
+			m, _ := toolsModel(t, targetsRegistry(t, github.Register), nil)
+			openSectionByName(t, m, sectionConnections)
+			pressNew(t, m)
+			typeText(t, m, "gh")
+			focusField(t, m, pathsLabel)
+			press(t, m, "enter")
+			// One path for every model, so a key and a click start from the same list; under the root, whose
+			// few entries keep the suggestions quick.
+			root := filepath.VolumeName(os.TempDir()) + string(filepath.Separator)
+			addPath(t, m, filepath.Join(root, "qconnect-click-path"))
+			press(t, m, keyLabel(actDelete))
+			if m.screen != screenPaths || !m.pathRemove {
+				t.Fatalf("screen %v, want the remove question of the path list", m.screen)
+			}
+			return m
+		}},
+		{"target remove question", func(t *testing.T) *Model {
+			m, _, _ := plainTargetsModel(t)
+			openConnection(t, m, "gh")
+			openTargetList(t, m)
+			press(t, m, keyLabel(actDelete))
+			if m.screen != screenTargets || !m.targetRemove {
+				t.Fatalf("screen %v, want the remove question of the target list", m.screen)
+			}
+			return m
+		}},
+		{"rename question", func(t *testing.T) *Model {
+			m, _, _ := newModel(t)
+			seedConnections(t, m, "docs")
+			fixIDs(t, m)
+			startRename(t, m, sectionServices, "wiki", "handbook")
+			pump(t, m, firstKey(t, actSave))
+			if m.screen != screenRename {
+				t.Fatalf("screen %v, want the rename question", m.screen)
+			}
+			return m
+		}},
+	}
+}
+
+// openVersions opens the version list by the command line, with the keys in force.
+func openVersions(t *testing.T, m *Model) {
+	t.Helper()
+	pump(t, m, firstKey(t, actCommand))
+	typeText(t, m, "version")
+	pump(t, m, "enter")
+	if m.screen != screenVersions {
+		t.Fatalf("the command version did not open the list: screen %v", m.screen)
+	}
+}
+
+// assertDialogTargetsClickAsKeys requires each target of the dialog of a question to act as its key: the
+// buttons, the hints behind them and, in the workspace, the key groups of the footer. Over the screen a click
+// beside the frame acts as esc, or does nothing where the question destroys something.
+func assertDialogTargetsClickAsKeys(t *testing.T, build func(t *testing.T) *Model) {
+	t.Helper()
+	base := build(t)
+	base.render()
+	asked, _ := base.currentAsk()
+	if base.question == nil || base.modal != base.question {
+		t.Fatal("the question is no dialog")
+	}
+	var keys []action
+	outside := false
+	for _, target := range base.modalTargets {
+		x, y := target.Rect.X+(target.Rect.Width-1)/2, target.Rect.Y
+		switch {
+		case target.Action != "":
+			keys = append(keys, target.Action)
+			assertClickActsAsKey(t, build, x, y, firstKey(t, target.Action))
+		case target.Zone == kittui.ZoneOutside:
+			outside = true
+			assertClickActsAsKey(t, build, x, y+target.Rect.Height/2, firstKey(t, actBack))
+		}
+	}
+	// The hints of the command line and the help give way before the answers on a short line.
+	for _, a := range append([]action{actEnter}, answerActions(asked)...) {
+		if !slices.Contains(keys, a) {
+			t.Errorf("the key %q of the question is no target; targets: %q", a, keys)
+		}
+	}
+	if popup := base.termWidth-8 >= 36; popup {
+		danger := asked.danger != ""
+		if outside == danger {
+			t.Errorf("a click beside the question answers it %v, want %v", outside, !danger)
+		}
+		if danger {
+			// A click on the tab line behind a destructive question answers nothing.
+			assertClickActsAsKey(t, build, 2, 1)
+		}
+	}
+}
+
+// answerActions are the actions of the answers of q.
+func answerActions(q ask) []action {
+	var out []action
+	for _, a := range q.answers {
+		out = append(out, a.Action)
+	}
+	return out
 }
 
 // Every control of the frame is a target, and a click in its middle acts as the first key bound to its action,
 // with every question and check of the key: the back button and the keys of the header, every key group of
-// the footer, and the tabs, whose click on the tab line is the digit of the area. The dialog answers the key
-// line names are targets as well. The keys come from the keymap, also after the preferences rebound some.
+// the footer, and the tabs, whose click on the tab line is the digit of the area, and the sections of the path
+// and the choice field, whose click is enter on them. The dialog answers the key line names are targets as
+// well. The keys come from the keymap, also after the preferences rebound some, in every navigation form.
 func TestEveryScreenControlHasATargetAndClicksAsItsKey(t *testing.T) {
 	backButtons, footerTargets := 0, 0
 	var listTargets listTargetCount
 	var barTargets barTargetCount
-	for _, binding := range []struct {
-		name string
-		keys map[action]string
-	}{{"default keys", nil}, {"rebound keys", map[action]string{actInfo: "f3", actSave: "f4", actHelp: "ctrl+x", actCommand: "f6", actLock: "ctrl+l"}}} {
-		for _, screen := range frameScreens() {
-			t.Run(binding.name+"/"+screen.name, func(t *testing.T) {
-				keepKeys(t)
-				applyKeys(binding.keys)
-				base := screen.build(t)
-				base.render()
-				barTargets.add(assertBarTargetsClickAsKeys(t, base, screen.build))
-				if base.modalShown() {
-					if len(base.frameKeys) > 0 {
-						t.Fatalf("the frame behind a modal has key targets: %+v", base.frameKeys)
-					}
-					return
+	for _, form := range PrefsSchema().Navigations {
+		for _, binding := range []struct {
+			name string
+			keys map[action]string
+		}{{"default keys", nil}, {"rebound keys", map[action]string{actInfo: "f3", actSave: "f4", actHelp: "ctrl+x", actCommand: "f6", actLock: "ctrl+l"}}} {
+			for _, screen := range keyLineScreens() {
+				build := func(t *testing.T) *Model {
+					m := screen.build(t)
+					m.prefs.Navigation = form
+					return m
 				}
-				assertFrameControlsAreTargets(t, base)
-				for _, target := range base.frameKeys {
-					x, y := target.Rect.X+(target.Rect.Width-1)/2, target.Rect.Y
-					if target.Action == actBack && y == 0 {
-						backButtons++
-					}
-					if y > 0 {
-						footerTargets++
-					}
-					assertClickActsAsKey(t, screen.build, x, y, firstKey(t, target.Action))
-				}
-				listTargets.add(assertListTargetsClickAsKeys(t, base, screen.build))
-				if base.screen != screenNav || base.navSub {
-					return
-				}
-				// On the focused tab line the arrows reach a tab as its click does: the area opens there and the
-				// line keeps the focus; the sub-tabs lie one line down.
-				active := base.section.area()
-				for _, target := range base.frameTabs {
-					a, _ := areaByName(string(target.Area))
-					keys := slices.Repeat([]string{"right"}, (int(a)-int(active)+int(areaCount))%int(areaCount))
-					if target.Tab != "" {
-						at := slices.IndexFunc(areaSections[a], func(s section) bool { return s.key() == string(target.Tab) })
-						keys = append([]string{"down"}, slices.Repeat([]string{"right"}, at-base.section.index())...)
-					}
-					assertClickActsAsKey(t, screen.build, target.Rect.X+(target.Rect.Width-1)/2, target.Rect.Y, keys...)
-				}
-			})
-		}
-		for _, help := range clickHelps() {
-			t.Run(binding.name+"/"+help.name, func(t *testing.T) {
-				keepKeys(t)
-				applyKeys(binding.keys)
-				assertHelpTargetsClickAsKeys(t, help.build, help.lists)
-			})
-		}
-		t.Run(binding.name+"/explanation", func(t *testing.T) {
-			keepKeys(t)
-			applyKeys(binding.keys)
-			assertExplanationTargetsClickAsKeys(t)
-		})
-		for _, dialog := range clickDialogs() {
-			t.Run(binding.name+"/"+dialog.name, func(t *testing.T) {
-				keepKeys(t)
-				applyKeys(binding.keys)
-				base := dialog.build(t)
-				base.render()
-				lines := frameLines(base)
-				seen := map[string]bool{}
-				if len(base.hits) == 0 {
-					t.Fatal("the dialog has no target")
-				}
-				for _, h := range base.hits {
-					text := ansi.Cut(lines[h.y0], h.x0, h.x1)
-					key := footerKey(text)
-					if label, ok := strings.CutPrefix(strings.TrimSpace(text), "[ "); ok {
-						label = strings.TrimSpace(strings.TrimSuffix(strings.TrimSpace(label), "]"))
-						if key = dialog.buttons[label]; key == "" {
-							t.Errorf("the button %q is none of %v", label, dialog.buttons)
-							continue
+				t.Run(form+"/"+binding.name+"/"+screen.name, func(t *testing.T) {
+					keepKeys(t)
+					applyKeys(binding.keys)
+					base := build(t)
+					base.render()
+					barTargets.add(assertBarTargetsClickAsKeys(t, base, build))
+					if base.modalShown() {
+						if len(base.frameKeys) > 0 {
+							t.Fatalf("the frame behind a modal has key targets: %+v", base.frameKeys)
 						}
-						seen[label] = true
+						return
 					}
-					if key == "" {
-						t.Errorf("the target %q names no key", text)
-						continue
+					assertFrameControlsAreTargets(t, base)
+					for _, target := range base.frameKeys {
+						x, y := target.Rect.X+(target.Rect.Width-1)/2, target.Rect.Y
+						if target.Action == actBack && y == 0 {
+							backButtons++
+						}
+						if y > 0 {
+							footerTargets++
+						}
+						assertClickActsAsKey(t, build, x, y, firstKey(t, target.Action))
 					}
-					msg, ok := keyPress(key)
-					if !ok {
-						t.Fatalf("%q is no key a control may send", key)
+					listTargets.add(assertListTargetsClickAsKeys(t, base, build))
+					if base.screen != screenNav || base.onOptionBar() {
+						return
 					}
-					assertClickActsAsKey(t, dialog.build, (h.x0+h.x1-1)/2, (h.y0+h.y1-1)/2, kittui.KeyName(msg))
+					// On the focused tab line the arrows reach a tab as its click does: the area opens there and the
+					// line keeps the focus; the sub-tabs lie one line down. On the path left and right choose its
+					// section and enter opens it, as on the choice field.
+					active := base.section.area()
+					for _, target := range base.frameTabs {
+						a, _ := areaByName(string(target.Area))
+						keys := slices.Repeat([]string{"right"}, (int(a)-int(active)+int(areaCount))%int(areaCount))
+						switch {
+						case target.Zone == kittui.ZonePath && target.Tab == "":
+							keys = []string{"left", "enter"}
+						case target.Zone == kittui.ZonePath:
+							keys = []string{"right", "enter"}
+						case target.Zone == kittui.ZoneTabs && base.navForm() == kittui.NavHeaderChoice:
+							keys = []string{"enter"}
+						case target.Tab != "":
+							at := slices.IndexFunc(areaSections[a], func(s section) bool { return s.key() == string(target.Tab) })
+							keys = append([]string{"down"}, slices.Repeat([]string{"right"}, at-base.section.index())...)
+						}
+						assertClickActsAsKey(t, build, target.Rect.X+(target.Rect.Width-1)/2, target.Rect.Y, keys...)
+					}
+				})
+			}
+			for _, help := range clickHelps() {
+				build := func(t *testing.T) *Model {
+					m := help.build(t)
+					m.prefs.Navigation = form
+					// The targets of the open help come from the last drawing, which the form changes.
+					m.render()
+					return m
 				}
-				for label := range dialog.buttons {
-					if !seen[label] {
-						t.Errorf("the button %q has no target", label)
-					}
+				t.Run(form+"/"+binding.name+"/"+help.name, func(t *testing.T) {
+					keepKeys(t)
+					applyKeys(binding.keys)
+					assertHelpTargetsClickAsKeys(t, build, help.lists)
+				})
+			}
+			if form == PrefsSchema().DefaultNavigation {
+				t.Run(form+"/"+binding.name+"/explanation", func(t *testing.T) {
+					keepKeys(t)
+					applyKeys(binding.keys)
+					assertExplanationTargetsClickAsKeys(t)
+				})
+			}
+			for _, dialog := range clickDialogs() {
+				build := func(t *testing.T) *Model {
+					m := dialog.build(t)
+					m.prefs.Navigation = form
+					return m
 				}
-			})
+				t.Run(form+"/"+binding.name+"/"+dialog.name, func(t *testing.T) {
+					keepKeys(t)
+					applyKeys(binding.keys)
+					assertDialogTargetsClickAsKeys(t, build)
+				})
+			}
 		}
 	}
 	if backButtons == 0 || footerTargets == 0 {
@@ -603,28 +850,6 @@ func assertExplanationTargetsClickAsKeys(t *testing.T) {
 	}
 }
 
-// frameScreens are the screens of the key line test and the questions that fill the workspace of a terminal
-// too small for a modal, whose footer holds their answers.
-func frameScreens() []struct {
-	name  string
-	build func(t *testing.T) *Model
-} {
-	screens := keyLineScreens()
-	for _, s := range append([]struct {
-		name  string
-		build func(t *testing.T) *Model
-	}{}, screens...) {
-		if s.name == "leave question" || s.name == "delete question" {
-			build := s.build
-			screens = append(screens, struct {
-				name  string
-				build func(t *testing.T) *Model
-			}{s.name + " in the workspace", func(t *testing.T) *Model { return sizedModel(build(t), modalMinWidth-1, 24) }})
-		}
-	}
-	return screens
-}
-
 // firstKey is the name of the first key bound to an action, which a click on its hint stands for.
 func firstKey(t *testing.T, a action) string {
 	t.Helper()
@@ -678,6 +903,20 @@ func assertFrameControlsAreTargets(t *testing.T, m *Model) {
 				t.Errorf("the footer group %q has no target:\n%s", g.Text(), lines[y])
 			}
 		}
+	}
+	if m.navForm() != kittui.NavTabs {
+		// The path and the choice field name the current place alone, a short path only its last section, and
+		// the guided setup none.
+		fields := 0
+		for _, target := range m.frameTabs {
+			if target.Zone == kittui.ZonePath || target.Zone == kittui.ZoneTabs {
+				fields++
+			}
+		}
+		if (fields > 0) == (m.wizard != nil) || fields > 2 {
+			t.Errorf("%d targets of the path or the choice field:\n%s", fields, strings.Join(lines[:3], "\n"))
+		}
+		return
 	}
 	tabs := 0
 	for _, target := range m.frameTabs {

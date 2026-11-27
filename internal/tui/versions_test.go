@@ -165,7 +165,7 @@ func TestChoosingAPrereleaseAsksWithTheDirectionAndInstalls(t *testing.T) {
 	}
 	view := boxText(screenOf(m))
 	for _, want := range []string{"Install qconnect v0.6.0-rc.1?", "prerelease, newer than the running version v0.4.0",
-		"y install n/esc cancel"} {
+		"y install n/enter/esc cancel"} {
 		if !strings.Contains(view, want) {
 			t.Errorf("the question does not say %q:\n%s", want, screenOf(m))
 		}
@@ -203,7 +203,7 @@ func TestChoosingAnOlderVersionNamesTheLossAndTheVault(t *testing.T) {
 	openVersionList(t, m)
 	typeText(t, m, "v0.3.1")
 	pump(t, m, "enter")
-	view := boxText(screenOf(m))
+	view := flatText(askedText(m))
 	for _, want := range []string{"Install qconnect v0.3.1?", "Older than the running version v0.4.0",
 		"the fixes made since are missing", "The vault is locked first", "reads your configuration"} {
 		if !strings.Contains(view, want) {
@@ -262,7 +262,7 @@ func TestARollbackThatNeedsABackupAsksBeforeRestoring(t *testing.T) {
 	for _, want := range []string{"Restore a backup of the configuration for v0.3.1?",
 		"v0.3.1 does not read your current configuration", "config-20260102T030405Z.yaml from 2026-01-02 03:04 UTC",
 		"saves the current configuration as a new backup first",
-		"Changes made since then are missing in v0.3.1 but stay in that backup", "y restore and install n/esc cancel"} {
+		"Changes made since then are missing in v0.3.1 but stay in that backup", "y restore and install n/enter/esc cancel"} {
 		if !strings.Contains(view, want) {
 			t.Errorf("the question does not say %q:\n%s", want, screenOf(m))
 		}

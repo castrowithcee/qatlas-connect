@@ -33,8 +33,8 @@ func (m *Model) openPaths() {
 	m.clearMessages()
 }
 
-// updatePaths handles the path list screen: the typed path first, then the remove question, then the list
-// itself.
+// updatePaths handles the path list screen: the typed path first, then the list itself. Its remove question
+// is a dialog; see pathRemoveAsk.
 func (m *Model) updatePaths(key tea.KeyPressMsg) tea.Cmd {
 	switch {
 	case keyIs(key, actSave):
@@ -46,8 +46,6 @@ func (m *Model) updatePaths(key tea.KeyPressMsg) tea.Cmd {
 				return nil
 			}
 		}
-		// A remove question left unanswered keeps its path.
-		m.pathRemove = false
 		m.keepPaths()
 		return m.updateForm(key)
 	}
@@ -67,16 +65,6 @@ func (m *Model) updatePaths(key tea.KeyPressMsg) tea.Cmd {
 			}
 		default:
 			return m.pathInput.update(key)
-		}
-		return nil
-	}
-	if m.pathRemove {
-		switch {
-		case keyIs(key, actYes):
-			m.removePath()
-		case keyIs(key, actNo) || keyIs(key, actBack):
-			m.pathRemove = false
-			m.status = tr(tPathPathKept)
 		}
 		return nil
 	}
@@ -193,6 +181,32 @@ func (m *Model) takePath() {
 	m.clearMessages()
 }
 
+// pathRemoveAsk asks before the selected path leaves the list.
+func (m *Model) pathRemoveAsk() ask {
+	path, _ := m.pathList.selected()
+	// %q keeps control characters visible, but it would also double every backslash of a Windows path.
+	quoted := strings.ReplaceAll(fmt.Sprintf("%q", path), `\\`, `\`)
+	return ask{title: tAskRemovePath, question: tr(tPathRemoveFromTheList, quoted), consequence: tr(tAskListEntryLeaves),
+		answers: yesNo("{yes} remove", "{no}/{back} keep"), keep: actNo, danger: actYes, save: true}
+}
+
+// answerPathRemove answers the remove question: y takes the path out of the list, n and esc keep it, and F2
+// keeps it and saves as from the list.
+func (m *Model) answerPathRemove(act action) tea.Cmd {
+	switch act {
+	case actYes:
+		m.removePath()
+		return nil
+	case actSave:
+		m.pathRemove = false
+		save, _ := keyOf(actSave)
+		return m.updatePaths(save)
+	}
+	m.pathRemove = false
+	m.status = tr(tPathPathKept)
+	return nil
+}
+
 // removePath takes the selected path out of the list.
 func (m *Model) removePath() {
 	m.pathRemove = false
@@ -221,7 +235,7 @@ func (m *Model) pathsView() string {
 }
 
 // pathFrame is everything of the path list screen except the paths: above them what the list does, below
-// them the path being typed with its suggestions or the remove question, the keys and the notes.
+// them the path being typed with its suggestions, the keys and the notes.
 func (m *Model) pathFrame() (string, string) {
 	p := m.dialogPanelOf()
 	total := len(m.pathList.all)
@@ -259,26 +273,19 @@ func (m *Model) pathFrame() (string, string) {
 			label = tr(tPathEditPath)
 		}
 		foot.WriteString(p.blank() + p.styled(m.pathLinesIn(p.room, label, &m.pathInput)))
-	case m.pathRemove:
-		path, _ := m.pathList.selected()
-		// %q keeps control characters visible, but it would also double every backslash of a Windows path.
-		quoted := strings.ReplaceAll(fmt.Sprintf("%q", path), `\\`, `\`)
-		foot.WriteString(p.blank() + p.text(styles.warning, warnMark+" "+tr(tPathRemoveFromTheList, quoted)))
 	}
 	foot.WriteString(p.bottom())
 	foot.WriteString(m.keyHint(m.pathKeys()))
 	return head.String(), foot.String() + m.notes()
 }
 
-// pathKeys is the key text of the path list screen: the list, the path being typed, or the remove question.
+// pathKeys is the key text of the path list screen: the list, or the path being typed.
 func (m *Model) pathKeys() string {
 	switch {
 	case m.pathEdit >= 0 && m.backdrop:
 		// The typed path stands in its own dialog (see pathPrompt) over this screen.
 	case m.pathEdit >= 0:
 		return pathKeys(&m.pathInput, "{enter} take · {save} save · {back} cancel entry")
-	case m.pathRemove:
-		return "{yes} remove · {no}/{back} keep · {command} cmds · {help} help"
 	}
 	return "{new} new · {enter}/{edit} edit · {delete} remove · {up}/{down} move · {save} save · {back} close · {command} cmds · {help} help"
 }

@@ -13,6 +13,8 @@ import (
 	"strings"
 
 	tea "charm.land/bubbletea/v2"
+	kittui "github.com/castrowithcee/qatlas-kit/tui"
+	"github.com/charmbracelet/x/ansi"
 
 	"github.com/castrowithcee/qatlas-connect/internal/config"
 	"github.com/castrowithcee/qatlas-connect/internal/manage"
@@ -156,26 +158,29 @@ func migrateRows(plan []vaultmigrate.Entry) []string {
 	return rows
 }
 
-// migratePlanView is the overview a migrate action shows before anything is written: every credential and
+// migratePlanAsk is the overview a migrate action shows before anything is written: every credential and
 // role decided to move, never a value, which credentials would switch from keyring to vault, and which ones
 // could not be checked in the system keyring at all.
-func (m *Model) migratePlanView() string {
+func (m *Model) migratePlanAsk() ask {
 	p := m.migrate
-	q := question{
-		title:       tr(tMigrateTitle),
+	q := ask{
+		title:       tAskMigrate,
+		question:    tr(tMigrateTitle),
 		consequence: tr(tMigrateMoves, countNoun(len(p.plan))),
-		keys:        "{yes} migrate · {no}/{back} cancel, nothing is written · {command} cmds · {help} help",
+		answers:     yesNo("{yes} migrate", "{no}/{back} cancel, nothing is written"),
+		keep:        actNo,
 	}
 	for _, row := range migrateRows(p.plan) {
-		q.details = append(q.details, "    "+row)
+		q.details = append(q.details, kittui.DialogLine{Prefix: "  ", Text: row})
 	}
 	if len(p.switched) > 0 {
-		q.details = append(q.details, m.indented(tr(tMigrateSwitching, strings.Join(sortedCopy(p.switched), ", "))))
+		q.details = append(q.details, kittui.DialogLine{Text: tr(tMigrateSwitching, strings.Join(sortedCopy(p.switched), ", "))})
 	}
 	if len(p.storeUnsureFor) > 0 {
-		q.details = append(q.details, m.indentedWith(styles.warning, tr(tMigrateKeyringUnsure, strings.Join(sortedCopy(p.storeUnsureFor), ", "))))
+		q.details = append(q.details, kittui.DialogLine{Text: tr(tMigrateKeyringUnsure, strings.Join(sortedCopy(p.storeUnsureFor), ", ")),
+			Style: kittui.StyleWarn})
 	}
-	return m.questionText(q)
+	return q
 }
 
 // beginVaultMigrateWrite decides whether writing the confirmed plan would create the vault's very first
@@ -329,16 +334,18 @@ func (m *Model) handleVaultMigrateWritten(msg vaultMigrateWrittenMsg) tea.Cmd {
 	return nil
 }
 
-// migrateResultView is the combined result and delete question a migrate action ends on: what moved, what
+// migrateResultAsk is the combined result and delete question a migrate action ends on: what moved, what
 // switched, and any warning, followed by whether to delete credentials.yaml now.
-func (m *Model) migrateResultView() string {
-	return m.questionText(question{
-		title:       tr(tMigrateDeleteTitle),
+func (m *Model) migrateResultAsk() ask {
+	return ask{
+		title:       tAskMigrateDelete,
+		question:    tr(tMigrateDeleteTitle),
 		consequence: m.migrateResult,
-		danger:      true,
-		details:     []string{"  " + statusMark(statusOK, tr(tStatusDone))},
-		keys:        "{yes} delete · {no}/{back} keep the file · {command} cmds · {help} help",
-	})
+		details:     []kittui.DialogLine{{Text: ansi.Strip(statusMark(statusOK, tr(tStatusDone)))}},
+		answers:     yesNo("{yes} delete", "{no}/{back} keep the file"),
+		keep:        actNo,
+		danger:      actYes,
+	}
 }
 
 // deleteLegacyCredentials removes credentials.yaml once its migration is confirmed done, and reports the

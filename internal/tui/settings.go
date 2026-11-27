@@ -23,6 +23,7 @@ const (
 	iconsLabel = "icons"
 	langLabel  = "language"
 	mouseLabel = "mouse"
+	navLabel   = "navigation"
 )
 
 // Actions of the Transfer, Update and Self-test pages, run by a fieldVaultAction row.
@@ -119,6 +120,9 @@ func (m *Model) generalFields() []field {
 		choiceField(mouseLabel, []string{uiprefs.ChoiceMouseOn, uiprefs.ChoiceMouseOff}, mouse).
 			withHint(tr(tMouseHint)).
 			withDetail(tr(tMouseDetail)),
+		choiceField(navLabel, PrefsSchema().Navigations, prefs.Navigation).
+			withHint(tr(tNavigationHint)).
+			withDetail(tr(tNavigationDetail)),
 	}
 	return m.groupSections(append(fields, keyFields(prefs.Keys)...), -1)
 }
@@ -131,6 +135,7 @@ func (m *Model) saveGeneral(leave bool) tea.Cmd {
 	next := m.prefs
 	next.Theme, next.Start, next.Icons = m.fieldValue(themeLabel), m.fieldValue(startLabel), m.fieldValue(iconsLabel)
 	next.Language, next.MouseEnabled = m.fieldValue(langLabel), m.fieldValue(mouseLabel) != uiprefs.ChoiceMouseOff
+	next.Navigation = m.fieldValue(navLabel)
 	keys, errs := keymap.Resolve(m.keysOfForm())
 	if len(errs) > 0 {
 		m.status, m.fail = "", errs[0].Error()

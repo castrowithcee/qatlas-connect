@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	tea "charm.land/bubbletea/v2"
+	kittui "github.com/castrowithcee/qatlas-kit/tui"
 
 	"github.com/castrowithcee/qatlas-connect/internal/manage"
 )
@@ -19,8 +20,6 @@ import (
 type renameState struct {
 	kind, old string
 	plan      *manage.RenamePlan
-	// view scrolls a dry run longer than the screen.
-	view textScroll
 	// back is the screen a cancelled dry run returns to: the form it was asked from, screenFindings for a
 	// rename found in the vault (see renamefind.go).
 	back screen
@@ -152,20 +151,12 @@ func (m *Model) cancelRename() {
 	m.status = status
 }
 
-func (m *Model) updateRename(key tea.KeyPressMsg) tea.Cmd {
-	r := m.rename
-	if r == nil || r.plan == nil {
-		m.screen = screenList
-		return nil
-	}
-	switch {
-	case keyIs(key, actYes):
+// answerRename answers the dry run: y carries it out in this window's admin session, n and esc cancel it.
+func (m *Model) answerRename(act action) tea.Cmd {
+	if act == actYes {
 		return m.requireAdmin(m.runRename)
-	case keyIs(key, actNo) || keyIs(key, actBack):
-		m.cancelRename()
-	default:
-		r.view.scroll(key, halfPage(m.height))
 	}
+	m.cancelRename()
 	return nil
 }
 
@@ -414,28 +405,9 @@ func (m *Model) renameApprovalText(plan *manage.RenamePlan) string {
 	return tr(tRenameNotCarried, renameApprovalWord(plan.Approval), name)
 }
 
-// renameView draws the dry run with the question.
-func (m *Model) renameView() string {
-	r := m.rename
-	if r == nil || r.plan == nil {
-		return ""
-	}
-	// What does not fit scrolls between the sentence and the keys; the modal shows the whole plan or, when
-	// that is too tall, leaves the room to this full screen.
-	notes := m.notes()
-	text := m.framedText(func() string {
-		q := m.renameQuestion()
-		all := q.details
-		q.details = nil
-		room := max(m.height-strings.Count(m.questionText(q), "\n")-strings.Count(notes, "\n")-2-m.framedChrome(), 3)
-		q.details = r.view.window(all, room, false)
-		return m.questionText(q)
-	})
-	return text + notes
-}
-
-// renameQuestion is the dry run as a question; its details are every line of the plan, one row each.
-func (m *Model) renameQuestion() question {
+// renameAsk is the dry run as a question; its details are every line of the plan, which scroll where they
+// do not fit.
+func (m *Model) renameAsk() ask {
 	r := m.rename
 	apply := m.redactor.Apply
 	title, confirm := tr(tRenameQuestion, kindText(r.kind), apply(r.old), apply(r.plan.New)), "{yes} rename"
@@ -451,14 +423,13 @@ func (m *Model) renameQuestion() question {
 	if n := len(r.plan.LapsedTokens); n > 0 {
 		consequence += tr(tRenameLapsedTokens, n)
 	}
-	q := question{title: title, consequence: consequence,
-		keys: confirm + " · {no}/{back} cancel · {up}/{down} scroll · {command} cmds · {help} help"}
+	q := ask{title: tAskRename, question: title, consequence: consequence, answers: cancelAnswers(confirm), keep: actNo}
 	for _, line := range m.renameLines(r.plan) {
-		style := styles.hint
+		style := kittui.StyleHint
 		if strings.HasPrefix(line, tr(tRenameLabelWarning)) {
-			style = styles.warning
+			style = kittui.StyleWarn
 		}
-		q.details = append(q.details, strings.Split(m.wrapped(style, line), "\n")...)
+		q.details = append(q.details, kittui.DialogLine{Text: line, Style: style})
 	}
 	return q
 }
