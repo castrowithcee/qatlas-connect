@@ -42,7 +42,8 @@ func searchScreens(t *testing.T) map[string]func() (*Model, func() string) {
 		"target picker": func() (*Model, func() string) {
 			m := pickerModel(t, &listSource{list: pickPage(group("a"))})
 			openPicker(t, m)
-			return m, func() string { return m.targetPick.top().list.query() }
+			press(t, m, "/")
+			return m, func() string { return m.targetPick.top().query() }
 		},
 		"target add menu": func() (*Model, func() string) {
 			m := pickerModel(t, &listSource{list: pickPage(group("a"))})
@@ -78,8 +79,9 @@ func TestInfoAndCopyLettersAreTextOnEverySearchLine(t *testing.T) {
 	}
 }
 
-// ? and : keep acting on an empty search line, except in a kit list that filters as typed, which reads them as
-// text from the first character on.
+// ? and : keep acting on an empty search line, except in a kit list that filters as typed and in the search of
+// the target picker, a kit list searched after its search key, which read them as text from the first
+// character on.
 func TestHelpAndCommandStillOpenOnAnEmptySearchLine(t *testing.T) {
 	for name, open := range searchScreens(t) {
 		t.Run(name, func(t *testing.T) {
@@ -88,7 +90,7 @@ func TestHelpAndCommandStillOpenOnAnEmptySearchLine(t *testing.T) {
 				t.Skip("the tool picker never opened the help from its search line")
 			}
 			press(t, m, "?")
-			if m.modal != nil && !helpOpen(m) {
+			if (m.modal != nil || name == "target picker") && !helpOpen(m) {
 				if query() != "?" {
 					t.Fatalf("? in the kit list: query %q, want it typed", query())
 				}
@@ -104,7 +106,7 @@ func TestHelpAndCommandStillOpenOnAnEmptySearchLine(t *testing.T) {
 				t.Skip("the tool picker never opened the command line from its search line")
 			}
 			press(t, m, ":")
-			if m.modal != nil && !cmdlineOpen(m) {
+			if (m.modal != nil || name == "target picker") && !cmdlineOpen(m) {
 				if query() != ":" {
 					t.Fatalf(": in the kit list: query %q, want it typed", query())
 				}

@@ -103,7 +103,7 @@ func TestClickOnATargetOfThePickerMarksItAndASecondClickTakesIt(t *testing.T) {
 	openPicker(t, m)
 	m.render()
 	clickOn(t, m, "Group b")
-	if m.targetPick == nil || m.targetPick.top().list.cursor != 1 || len(m.targetList.all) != 0 {
+	if m.targetPick == nil || pickMarked(m) != "g/b" || len(m.targetList.all) != 0 {
 		t.Fatalf("first click: picker %v cursor, targets %v, want row 1 marked and nothing taken", m.targetPick, m.targetList.all)
 	}
 	clickOn(t, m, "Group b")

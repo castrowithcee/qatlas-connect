@@ -173,8 +173,8 @@ func TestVimKeysMoveLikeTheArrowsOnEveryKindOfScreen(t *testing.T) {
 	t.Run("target picker search", func(t *testing.T) {
 		m := pickerModel(t, &listSource{list: pickPage(group("a"), group("b"))})
 		openPicker(t, m)
-		press(t, m, "j", "k")
-		if got := m.targetPick.top().list.query(); got != "jk" {
+		press(t, m, "/", "j", "k")
+		if got := m.targetPick.top().query(); got != "jk" {
 			t.Fatalf("picker search = %q, want the letters as text", got)
 		}
 	})
@@ -280,10 +280,10 @@ func TestQuestionMarkOpensTheHelpWhereNothingIsTyped(t *testing.T) {
 		m := pickerModel(t, &listSource{list: pickPage(group("a"))})
 		openPicker(t, m)
 		helpRoundTrip(t, m, "the target picker")
-		press(t, m, "x", "?")
-		if m.screen != screenTargets || m.targetPick.top().list.query() != "x?" {
+		press(t, m, "/", "x", "?")
+		if m.screen != screenTargets || m.targetPick.top().query() != "x?" {
 			t.Fatalf("? with a search typed: screen %v search %q, want it as text", m.screen,
-				m.targetPick.top().list.query())
+				m.targetPick.top().query())
 		}
 	})
 
@@ -565,6 +565,6 @@ func TestTabNeverMeansBackOrTicking(t *testing.T) {
 	}
 	pump(t, m, "left")
 	if m.targetPick == nil || len(m.targetPick.levels) != 1 {
-		t.Fatal("left closed the picker or changed its level")
+		t.Fatal("left on the top level closed the picker or changed its level")
 	}
 }

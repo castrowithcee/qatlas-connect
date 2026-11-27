@@ -140,6 +140,13 @@ func clickScreens() []struct {
 			press(t, m, "n")
 			return m
 		}},
+		{"target picker", func(t *testing.T) *Model {
+			// A kept filter that every entry matches shows the search line beside the rows and their boxes.
+			m := addMenuOn(t, listerRegistry(t), &listSource{list: pickPage(group("a"), group("b"), group("c"))})
+			deliver(m, m.startPick("group"))
+			pump(t, m, "space", "/", "g", "enter")
+			return m
+		}},
 		{"findings", func(t *testing.T) *Model {
 			s := newFindScene(t)
 			s.renameByHand(t, "credential", "reader", "reader2")
