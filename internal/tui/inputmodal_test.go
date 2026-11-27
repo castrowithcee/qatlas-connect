@@ -143,7 +143,7 @@ func TestSecretAndOfferModals(t *testing.T) {
 // Every dialog fits the smallest terminal in the workspace, and stands over the screen once 36 cells of text
 // fit beside its frame.
 func TestPassphraseDialogsFitBothSizes(t *testing.T) {
-	for _, size := range []struct{ w, h int }{{minimumWidth, minimumHeight}, {modalMinWidth, modalMinHeight}} {
+	for _, size := range []struct{ w, h int }{{minimumWidth, minimumHeight}, {60, 20}} {
 		m, _ := newEncryptedVaultModel(t, filepath.Join(t.TempDir(), "qconnect"), "hunter2", false)
 		m.openAdminPrompt(true, m.screen, func() tea.Cmd { return nil })
 		typeText(t, m, strings.Repeat("x", 90))

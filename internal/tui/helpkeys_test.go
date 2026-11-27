@@ -110,12 +110,77 @@ func TestHelpFromTheCommandLineListsTheCoveredScreen(t *testing.T) {
 	want := m.screenKeys
 	press(t, m, ":")
 	m.render()
-	if m.screen != screenCommand || m.screenKeys == want {
-		t.Fatalf("the command line did not take over the footer: screen %v", m.screen)
+	if !cmdlineOpen(m) {
+		t.Fatalf("the command line did not open: screen %v", m.screen)
 	}
 	typeText(t, m, "help")
 	press(t, m, "enter")
 	if !helpOpen(m) || m.screenKeys != want {
 		t.Errorf("help from the command line lists %q on screen %v, want %q", m.screenKeys, m.screen, want)
+	}
+}
+
+// F9, the second way of the help, opens it wherever ? does and also from a text line, where it types nothing;
+// an input dialog keeps it. The help closes on it as on ?.
+func TestF9OpensTheHelpAlsoFromATextLine(t *testing.T) {
+	m := cmdModel(t)
+	seedServices(t, m, "a-one")
+	m.screen = screenList
+	press(t, m, "f9")
+	if !helpOpen(m) {
+		t.Fatal("f9 on a list does not open the help")
+	}
+	press(t, m, "f9")
+	if helpOpen(m) {
+		t.Fatal("f9 does not close the help")
+	}
+
+	press(t, m, "/")
+	typeText(t, m, "on")
+	press(t, m, "f9")
+	if !helpOpen(m) {
+		t.Fatal("f9 on the search line does not open the help")
+	}
+	press(t, m, "esc")
+	if m.list.Query() != "on" {
+		t.Errorf("the search line holds %q after the help, want %q", m.list.Query(), "on")
+	}
+	press(t, m, "esc", "esc")
+
+	addService(t, m, "wiki", "https://wiki.example.invalid")
+	openSectionByName(t, m, sectionServices)
+	pressNew(t, m)
+	typeText(t, m, "ab")
+	press(t, m, "f9")
+	if !helpOpen(m) {
+		t.Fatal("f9 in a text row of a form does not open the help")
+	}
+	press(t, m, "esc")
+	if m.screen != screenForm || m.fieldValue("name") != "ab" {
+		t.Errorf("f9 in a text row: screen %v name %q, want the form with %q", m.screen, m.fieldValue("name"), "ab")
+	}
+
+	m = cmdModel(t)
+	m.openVaultUnlockPrompt(m.screen)
+	press(t, m, "f9")
+	if helpOpen(m) || m.screen != screenVaultUnlock {
+		t.Errorf("f9 in the passphrase prompt: help %v screen %v, want the prompt", helpOpen(m), m.screen)
+	}
+}
+
+// Over a question F9 opens the help as ? does, and the question stays.
+func TestF9OpensTheHelpOverAQuestion(t *testing.T) {
+	m := sizedModel(groupModel(t), 140, 40)
+	openSectionByName(t, m, sectionCredentials)
+	press(t, m, keyLabel(actDelete))
+	m.render()
+	press(t, m, "f9")
+	if !helpOpen(m) {
+		t.Fatal("f9 does not open the help over the question")
+	}
+	press(t, m, "esc")
+	m.render()
+	if m.screen != screenConfirm || m.question == nil || m.modal != m.question {
+		t.Fatalf("closing the help left screen %v without the question", m.screen)
 	}
 }

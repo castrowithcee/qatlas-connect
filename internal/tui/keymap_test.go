@@ -82,11 +82,11 @@ func TestRebindingChangesFooterAndDispatchTogether(t *testing.T) {
 		t.Fatal("the old help key still opens the help")
 	}
 	press(t, m, ":")
-	if m.screen == screenCommand {
+	if cmdlineOpen(m) {
 		t.Fatal("the old command key still opens the command line")
 	}
 	m.Update(tea.KeyPressMsg{Code: tea.KeyF3})
-	if m.screen != screenCommand {
+	if !cmdlineOpen(m) {
 		t.Fatalf("the new command key left screen %v", m.screen)
 	}
 	press(t, m, "esc")
@@ -399,9 +399,9 @@ func TestVimLettersMoveOnlyWhereNothingIsTyped(t *testing.T) {
 	}
 	m, _, _ := newModel(t)
 	m.Update(tea.WindowSizeMsg{Width: 140, Height: 40})
-	m.screen = screenCommand
+	m.screen = screenSecret
 	if !m.typing() {
-		t.Fatal("the command line does not read text")
+		t.Fatal("the secret dialog does not read text")
 	}
 	if got := m.moveKey(k); keyIs(got, actUp) || got.String() != "k" {
 		t.Errorf("k became %q on a text screen", got.String())

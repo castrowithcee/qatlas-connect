@@ -210,7 +210,7 @@ func TestInputDialogsAnswerEnterEscAndTyping(t *testing.T) {
 			if m.fail != "" || strings.Contains(askedText(m), "error:") {
 				t.Errorf("typing kept the error %q:\n%s", m.fail, askedText(m))
 			}
-			if typedInput(m) != "q?:" || m.quitting || helpOpen(m) || m.screen == screenCommand {
+			if typedInput(m) != "q?:" || m.quitting || helpOpen(m) || cmdlineOpen(m) {
 				t.Errorf("letters did not stay text: %q, screen %v", typedInput(m), m.screen)
 			}
 			dialog := m.question

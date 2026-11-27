@@ -175,14 +175,6 @@ func TestBaseScreenOfEveryDialog(t *testing.T) {
 	}
 }
 
-func TestOverlayKeepsTheBackgroundReadableWithoutColour(t *testing.T) {
-	out := overlay("aaaaaaaaaa\nbbbbbbbbbb\ncccccccccc", []string{"[X]"}, 10, 3)
-	rows := strings.Split(ansi.Strip(out), "\n")
-	if rows[0] != "aaaaaaaaaa" || rows[1] != "bbb[X]bbbb" || rows[2] != "cccccccccc" {
-		t.Errorf("overlay = %q", rows)
-	}
-}
-
 // Every question reads question, one sentence on what follows, details, and the keys as its last line,
 // in the modal and in the full-screen fallback alike.
 func TestQuestionsReadQuestionConsequenceKeys(t *testing.T) {

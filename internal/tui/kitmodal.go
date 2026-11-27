@@ -71,7 +71,8 @@ func (m *Model) modalKey(msg tea.KeyPressMsg) tea.Cmd {
 	m.edited(typed)
 	if _, dialog := m.modal.(*kittui.Dialog); dialog && !handled {
 		for _, a := range dialogExtras {
-			if keyIs(msg, a) {
+			// The second way of the help opens it over a question as its first way does.
+			if keyIs(msg, a) || a == actHelp && keyIs(msg, actHelpF9) && !m.askingInput() {
 				act = a
 			}
 		}
@@ -166,6 +167,10 @@ func (m *Model) modalFrame() string {
 	if !ok {
 		spec := m.spec
 		spec.Footer, spec.Input, spec.Focus = m.modal.Hints(), kittui.InputNavigation, ""
+		// A modal that reads text names only the keys that act there.
+		if t, ok := m.modal.(interface{ Input() kittui.InputFocus }); ok {
+			spec.Input = t.Input()
+		}
 		spec.HeaderKeys, spec.Back, spec.Position = nil, nil, ""
 		frame := m.kitFrame()
 		room := frame.Workspace(spec)

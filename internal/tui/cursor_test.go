@@ -98,29 +98,6 @@ func TestTheCursorFollowsALongScrolledValue(t *testing.T) {
 	}
 }
 
-func TestTheCursorStandsInTheCommandPalette(t *testing.T) {
-	m := cmdModel(t)
-	press(t, m, ":")
-	if m.screen != screenCommand {
-		t.Fatalf("screen = %v, want the palette", m.screen)
-	}
-	// An empty field shows its placeholder with the cursor on the first cell behind the prompt.
-	before, at := cursorAt(t, m)
-	if !strings.HasSuffix(before, " : ") || at != "s" {
-		t.Errorf("empty palette: before %q, at %q, want the placeholder's first cell behind the prompt", before, at)
-	}
-	typeText(t, m, "ser")
-	before, at = cursorAt(t, m)
-	if !strings.HasSuffix(before, " : ser") || at != " " {
-		t.Errorf("palette with text: before %q, at %q", before, at)
-	}
-	press(t, m, "left")
-	_, at = cursorAt(t, m)
-	if at != "r" {
-		t.Errorf("palette after left: cell under the cursor = %q, want %q", at, "r")
-	}
-}
-
 // A masked dialog draws the kit's mask for every typed character and its own cursor cell, so the terminal
 // cursor stays off.
 func TestAMaskedDialogDrawsTheMaskAndNoTerminalCursor(t *testing.T) {

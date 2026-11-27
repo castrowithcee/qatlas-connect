@@ -104,13 +104,13 @@ func TestHelpAndCommandStillOpenOnAnEmptySearchLine(t *testing.T) {
 				t.Skip("the tool picker never opened the command line from its search line")
 			}
 			press(t, m, ":")
-			if m.modal != nil {
+			if m.modal != nil && !cmdlineOpen(m) {
 				if query() != ":" {
 					t.Fatalf(": in the kit list: query %q, want it typed", query())
 				}
 				return
 			}
-			if m.screen != screenCommand {
+			if !cmdlineOpen(m) {
 				t.Fatalf(": left screen %v, want the command line", m.screen)
 			}
 		})

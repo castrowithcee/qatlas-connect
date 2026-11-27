@@ -158,8 +158,6 @@ const (
 	screenFindings
 	// screenTransfer is the guided export or import of the configuration; see transfer.go.
 	screenTransfer
-	// screenCommand is the command line over the screen it was opened from; see commandline.go.
-	screenCommand
 	// screenSelftest shows a selftest from its start to its result; see selftest.go.
 	screenSelftest
 )
@@ -462,8 +460,6 @@ type Model struct {
 	copyFrom string
 	// template is the question or picker of screenTemplate while it is open.
 	template *templateChoice
-	// cmdline is the command line of screenCommand while it is open.
-	cmdline *commandLine
 	// selftest is how selftests run; st is the one on screen, selftestID numbers the runs. See selftest.go.
 	selftest   SelfTest
 	st         *selftestState
@@ -1063,7 +1059,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.barOpen() {
 			return m, m.updateOpenBar(msg)
 		}
-		if keyIs(msg, actHelp) && m.helpReachable() {
+		if keyIs(msg, actHelp) && m.helpReachable() || m.helpF9Pressed(msg) {
 			m.openHelp()
 			return m, nil
 		}
@@ -1109,8 +1105,6 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			cmd = m.updateLogDetail(msg)
 		case screenFindings:
 			cmd = m.updateFindings(msg)
-		case screenCommand:
-			cmd = m.updateCommandLine(msg)
 		case screenSelftest:
 			cmd = m.updateSelftest(msg)
 		case screenTransfer:
@@ -1510,9 +1504,6 @@ func (m *Model) leaveScreen() tea.Cmd {
 		m.screen = m.vaultUnlock.back
 		m.vaultUnlock = nil
 		m.status = tr(tCancelled)
-		return nil
-	case screenCommand:
-		m.closeCommandLine()
 		return nil
 	case screenSelftest:
 		return m.updateSelftest(tea.KeyPressMsg{Code: tea.KeyEscape})
@@ -4022,9 +4013,6 @@ func (m *Model) renderFrame() string {
 	if m.modal != nil {
 		return m.modalFrame()
 	}
-	if view, ok := m.modalView(); ok {
-		return view
-	}
 	if view, ok := m.barModalView(); ok {
 		return view
 	}
@@ -4062,8 +4050,6 @@ func (m *Model) editorView() string {
 		return m.listView()
 	case screenPicker:
 		return m.pickerView()
-	case screenCommand:
-		return m.commandLineView()
 	case screenSelftest:
 		return m.selftestView()
 	case screenTargets:
@@ -4863,9 +4849,6 @@ func (m *Model) activeScreenTooSmall() bool {
 		return true
 	}
 	if m.modal != nil {
-		return false
-	}
-	if _, ok := m.modalView(); ok {
 		return false
 	}
 	return !m.viewFits(m.fittedEditorView())

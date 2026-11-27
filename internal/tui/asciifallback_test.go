@@ -103,7 +103,11 @@ func TestASCIIScreensKeepWidth(t *testing.T) {
 				// Icons vanish without UTF-8 by design; the comparison is of the other symbols.
 				m.prefs.Icons = kitprefs.IconsNone
 				want := strings.Split(m.render(), "\n")
+				// The kit's parts read the character set from the styles, which a process resolves once; the
+				// cleanup runs after the environment is back.
+				t.Cleanup(func() { applyTheme(shot.theme) })
 				withoutUTF8(t, kind)
+				applyTheme(shot.theme)
 				got := strings.Split(m.render(), "\n")
 				if len(got) != len(want) {
 					t.Fatalf("%d lines, want %d", len(got), len(want))

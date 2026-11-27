@@ -515,6 +515,17 @@ func TestEveryScreenControlHasATargetAndClicksAsItsKey(t *testing.T) {
 						assertHelpTargetsClickAsKeys(t, build, help.lists)
 					})
 				}
+				// The command line turns the wheel as well. It stands over the screen in the default form, where it
+				// covers the frame, and falls back to the workspace in every form.
+				lines := [][2]int{{43, 30}}
+				if form == PrefsSchema().DefaultNavigation {
+					lines = append(lines, [2]int{140, 40})
+				}
+				for _, size := range lines {
+					t.Run(fmt.Sprintf("command line %dx%d", size[0], size[1]), func(t *testing.T) {
+						assertCommandLineTargetsClickAsKeys(t, form, size[0], size[1])
+					})
+				}
 				if form == PrefsSchema().DefaultNavigation {
 					t.Run("explanation", assertExplanationTargetsClickAsKeys)
 				}
@@ -1091,6 +1102,61 @@ func assertLogBarTargetsClickAsKeys(t *testing.T, build func(t *testing.T) *Mode
 	}
 	if tested < 2 {
 		t.Errorf("%d targets of the bar were tested", tested)
+	}
+}
+
+// assertCommandLineTargetsClickAsKeys requires each target of the command line opened by its key to act as
+// keys: a row as down up to that row and enter, a key of its key line or the footer as that key, and a click
+// outside its frame as the back key. A notch of the wheel down over the rows acts as down.
+func assertCommandLineTargetsClickAsKeys(t *testing.T, form string, w, h int) {
+	t.Helper()
+	build := func(t *testing.T) *Model {
+		m := sizedModel(groupModel(t), w, h)
+		m.prefs.Navigation = form
+		openSectionByName(t, m, sectionServices)
+		press(t, m, firstKey(t, actCommand))
+		m.render()
+		return m
+	}
+	base := build(t)
+	if base.commandLine() == nil {
+		t.Fatal("the command line is not open")
+	}
+	matches := base.commandLine().Matches()
+	rows, keys, outside := 0, map[action]bool{}, false
+	var row kittui.Target
+	for _, target := range base.modalTargets {
+		x, y := target.Rect.X+(target.Rect.Width-1)/2, target.Rect.Y
+		switch {
+		case target.Zone == kittui.ZoneRows:
+			i := slices.IndexFunc(matches, func(c kittui.Command) bool {
+				return c.Action == target.Action && c.Area == target.Area && c.Tab == target.Tab
+			})
+			if i < 0 {
+				t.Fatalf("the row target %+v is no match", target)
+			}
+			rows++
+			row = target
+			assertClickActsAsKey(t, build, x, y, append(slices.Repeat([]string{firstKey(t, actDown)}, i), firstKey(t, actEnter))...)
+		case target.Zone == kittui.ZoneOutside:
+			outside = true
+			assertClickActsAsKey(t, build, x, y+target.Rect.Height/2, firstKey(t, actBack))
+		case target.Action == actEnter || target.Action == actBack:
+			keys[target.Action] = true
+			assertClickActsAsKey(t, build, x, y, firstKey(t, target.Action))
+		}
+	}
+	if rows == 0 || !keys[actEnter] || !keys[actBack] {
+		t.Errorf("%d rows are targets, the keys %v", rows, keys)
+	}
+	if over := base.termWidth >= 44; outside != over {
+		t.Errorf("the screen outside the frame is a target %v, want %v", outside, over)
+	}
+	pressed, wheeled := build(t), build(t)
+	press(t, pressed, firstKey(t, actDown))
+	wheelEvent(t, wheeled, row.Rect.X+row.Rect.Width/2, row.Rect.Y, tea.MouseWheelDown)
+	if want, got := clickState(pressed), clickState(wheeled); want != got {
+		t.Errorf("a notch of the wheel over the rows does not act as down:\nkey:\n%s\nwheel:\n%s", want, got)
 	}
 }
 

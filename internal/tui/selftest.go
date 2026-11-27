@@ -82,7 +82,8 @@ func (m *Model) selftestCommands() []command {
 		name := sc.Name
 		list = append(list, command{
 			name:        "selftest " + name,
-			desc:        tr(tCmdSelftest, sc.Summary),
+			desc:        tCmdSelftest,
+			args:        []any{sc.Summary},
 			unavailable: func(m *Model) string { return m.selftestUnavailable() },
 			run:         func(m *Model) tea.Cmd { return m.startSelftest(name) },
 		})

@@ -1,13 +1,10 @@
 package tui
 
 import (
-	"fmt"
 	"regexp"
 	"sort"
 	"strings"
 	"testing"
-
-	"charm.land/lipgloss/v2"
 
 	"github.com/castrowithcee/qatlas-connect/internal/helptopics"
 	"github.com/castrowithcee/qatlas-kit/i18n"
@@ -205,7 +202,7 @@ func TestGermanFrameTexts(t *testing.T) {
 
 // Every Rahmen screen fits the terminal in German as it does in English.
 func TestFramesFitInGerman(t *testing.T) {
-	sizes := []struct{ w, h int }{{minimumWidth, minimumHeight}, {60, 16}, {modalMinWidth, modalMinHeight}, {80, 24}, {100, 30}, {140, 40}}
+	sizes := []struct{ w, h int }{{minimumWidth, minimumHeight}, {60, 16}, {60, 20}, {80, 24}, {100, 30}, {140, 40}}
 	eachLanguage(t, func(t *testing.T) {
 		for _, size := range sizes {
 			fresh := func() *Model {
@@ -235,14 +232,14 @@ func TestFramesFitInGerman(t *testing.T) {
 }
 
 // The open palette fits every size in both languages, shows the translated descriptions under the unchanged
-// names, and every description is one line at 80 columns.
+// names.
 func TestCommandPaletteFitsInGerman(t *testing.T) {
 	eachLanguage(t, func(t *testing.T) {
 		for _, size := range []struct{ w, h int }{{minimumWidth, minimumHeight}, {60, 16}, {80, 24}, {140, 40}} {
 			m := overviewModel(t, unencryptedVaultModel(t))
 			sizedModel(m, size.w, size.h)
 			press(t, m, ":")
-			if m.screen != screenCommand {
+			if !cmdlineOpen(m) {
 				t.Fatalf("':' opened screen %v", m.screen)
 			}
 			assertViewFits(t, m.render(), size.w, size.h)
@@ -251,21 +248,12 @@ func TestCommandPaletteFitsInGerman(t *testing.T) {
 		sizedModel(m, 80, 24)
 		press(t, m, ":")
 		view := m.render()
-		want, name := "Command Palette", "go overview"
+		want, name := "Commands", "go overview"
 		if uiLang == i18n.German {
-			want = "Befehlspalette"
+			want = "Befehle"
 		}
 		if !strings.Contains(view, want) || !strings.Contains(view, name) {
 			t.Errorf("the palette lacks %q or %q:\n%s", want, name, view)
-		}
-		_, room := m.fit("  ")
-		for _, c := range m.commands() {
-			if strings.HasPrefix(c.name, "selftest ") {
-				continue
-			}
-			if w := lipgloss.Width(fmt.Sprintf("%-14s %s", c.name, c.desc)); w > room {
-				t.Errorf("%q: the row is %d cells, want at most %d: %q", c.name, w, room, c.desc)
-			}
 		}
 	})
 }
