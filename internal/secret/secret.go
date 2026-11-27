@@ -42,6 +42,7 @@ import (
 	"github.com/castrowithcee/qatlas-connect/internal/vault"
 	"github.com/castrowithcee/qatlas-connect/internal/vaultproc"
 	"github.com/castrowithcee/qatlas-kit/redact"
+	kitvault "github.com/castrowithcee/qatlas-kit/vault"
 )
 
 // Source names the stage of the cascade that delivered a secret. The value is what a user sees, so it is
@@ -496,7 +497,7 @@ func New(dir string, red *redact.Redactor) (*Resolver, error) {
 	r := NewWith(os.Getenv, store, NewFile(filepath.Join(dir, FileName)), red)
 	r.process = vaultproc.Supported
 	r.lockDir = dir
-	return r.WithVault(vault.New(dir), vault.ReadPassphrase), nil
+	return r.WithVault(vault.New(dir), kitvault.ReadPassphrase), nil
 }
 
 // NewWith returns a resolver over an explicit environment, store, and fallback file. A nil file means the

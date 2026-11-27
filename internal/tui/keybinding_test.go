@@ -132,7 +132,7 @@ func TestSettingsRefusesKeysWithReason(t *testing.T) {
 		{"info key", "!", "acts on text lines"},
 		{"help key", "tab", "move between fields"},
 		{"command key", "5", "already the key of area"},
-		{"lock key", "f1", "terminals take"},
+		{"lock key", "f1", "reserved by IDEs and terminal applications"},
 		{"lock key", "!", "acts on text lines"},
 		{"save key", "space", "space and control characters"},
 		{"info key", "space", "space and control characters"},
@@ -230,7 +230,7 @@ func TestStoredKeyNamesReachTheEditorUnchanged(t *testing.T) {
 	}{
 		{"\x1bOQ", "f2", actSave}, {"\x1bOR", "f3", actSave}, {"\x1bOS", "f4", actSave},
 		{"\x1b[17~", "f6", actSave}, {"\x1b[18~", "f7", actSave},
-		{"\x1b[19~", "f8", ""}, {"\x1b[20~", "f9", actSave},
+		{"\x1b[19~", "f8", ""}, {"\x1b[20~", "f9", ""},
 		{"\x1b[25~", "f13", actSave}, {"\x1b[1;2P", "f13", actSave},
 		{"\x1b[1;2Q", "f14", actSave}, {"\x1b[1;2R", "f15", actSave},
 		{"\x1b[1;2S", "f16", actSave}, {"\x1b[15;2~", "f17", actSave},
@@ -243,8 +243,8 @@ func TestStoredKeyNamesReachTheEditorUnchanged(t *testing.T) {
 	var stream strings.Builder
 	var want []string
 	for _, k := range keys {
-		// ctrl+y belongs to the target picker, ctrl+r is free, and f8 to the payload form: they reach the editor by
-		// name, but no binding holds them.
+		// ctrl+y belongs to the target picker, ctrl+r is free, f8 to the payload form and f9 to the help as its
+		// second way: they reach the editor by name, but no binding holds them.
 		if _, err := keymap.CheckBinding(k.action, k.name, nil); err != nil && k.action != "" {
 			t.Errorf("%s is no key a binding may hold: %v", k.name, err)
 		}

@@ -1,10 +1,6 @@
 package vault
 
 import (
-	"crypto/hkdf"
-	"crypto/hmac"
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -12,6 +8,7 @@ import (
 	"time"
 
 	"filippo.io/age"
+	kitvault "github.com/castrowithcee/qatlas-kit/vault"
 )
 
 // settingsFile holds the vault's own settings, kept apart from secrets.age and tokens.age. It exists only
@@ -128,45 +125,30 @@ type settingsDocument struct {
 	MAC            string `json:"mac"`
 }
 
-func (v *Vault) settingsPath() string { return filepath.Join(v.dir, settingsFile) }
-
-// settingsMAC is the check value of a document: the hex HMAC-SHA256, keyed from key with settingsMACLabel,
-// of the schema version and its fields, one per line in fixed order with numbers in decimal. Schema 1 is
-// the version and the behaviour. Callers pass only a behaviour that parses, so it holds no line break.
-func settingsMAC(key *age.X25519Identity, doc settingsDocument) (string, error) {
-	return settingsMACWith(key, doc, settingsMACLabel)
-}
-
-func settingsMACWith(key *age.X25519Identity, doc settingsDocument, label string) (string, error) {
-	secret := []byte(key.String())
-	defer clear(secret)
-	macKey, err := hkdf.Key(sha256.New, secret, nil, label, sha256.Size)
-	if err != nil {
-		return "", errors.New("cannot derive the settings key")
-	}
-	defer clear(macKey)
-	h := hmac.New(sha256.New, macKey)
+// settingsMACInput is the input of the check value of a document: the schema version and its fields, one per
+// line in fixed order with numbers in decimal. Schema 1 is the version and the behaviour. Callers pass only a
+// behaviour that parses, so it holds no line break. An unknown schema has no input.
+func settingsMACInput(doc settingsDocument) ([]byte, bool) {
 	switch doc.Schema {
 	case 1:
-		fmt.Fprintf(h, "1\n%s", doc.UpdateHandover)
+		return fmt.Appendf(nil, "1\n%s", doc.UpdateHandover), true
 	case 2:
-		fmt.Fprintf(h, "2\n%s\n%d\n%d\n%d\n%d", doc.UpdateHandover, doc.IdleTimeoutNS, doc.AdminTimeoutNS,
-			doc.RetentionDays, doc.MaxUnlockNS)
-	default:
-		return "", errors.New("unknown settings schema")
+		return fmt.Appendf(nil, "2\n%s\n%d\n%d\n%d\n%d", doc.UpdateHandover, doc.IdleTimeoutNS, doc.AdminTimeoutNS,
+			doc.RetentionDays, doc.MaxUnlockNS), true
 	}
-	return hex.EncodeToString(h.Sum(nil)), nil
+	return nil, false
 }
 
-// settingsMACValid checks the document's MAC under the current label first and the legacy one as a
-// fallback. Both comparisons are constant-time and independent, so neither outcome leaks through timing.
+// settingsMACValid checks the document's check value under the current label and the legacy one. Both are
+// verified in constant time, and both always, so neither outcome leaks through timing.
 func settingsMACValid(key *age.X25519Identity, doc settingsDocument) bool {
-	for _, label := range []string{settingsMACLabel, legacySettingsMACLabel} {
-		if want, err := settingsMACWith(key, doc, label); err == nil && hmac.Equal([]byte(want), []byte(doc.MAC)) {
-			return true
-		}
+	input, ok := settingsMACInput(doc)
+	if !ok {
+		return false
 	}
-	return false
+	current := kitvault.VerifyMAC(key, settingsMACLabel, input, doc.MAC)
+	legacy := kitvault.VerifyMAC(key, legacySettingsMACLabel, input, doc.MAC)
+	return current == nil || legacy == nil
 }
 
 // ReadSettings returns the settings of the encrypted vault in dir, the vault directory itself as Dir
@@ -187,15 +169,14 @@ func readSettings(dir string, key *age.X25519Identity) (Settings, int, error) {
 	if key == nil {
 		return SafeSettings(), 0, ErrNotUnlocked
 	}
-	data, err := readFile(filepath.Join(dir, settingsFile))
+	// The sealed file is read with the key alone, so a damaged secrets document leaves the settings readable,
+	// and so does a missing recipient file: the check value below establishes that the vault wrote them.
+	plain, err := kitvault.ReadSealedWithIdentityOptions(options(dir), key, settingsFile,
+		kitvault.AllowMissingRecipient())
 	if err != nil {
 		if isNotExist(err) {
 			return DefaultSettings(), 0, nil
 		}
-		return SafeSettings(), 0, ErrSettingsUntrusted
-	}
-	plain, err := decryptFrom(data, key)
-	if err != nil {
 		return SafeSettings(), 0, ErrSettingsUntrusted
 	}
 	defer clear(plain)
@@ -231,20 +212,22 @@ func readSettings(dir string, key *age.X25519Identity) (Settings, int, error) {
 // maximum unlock duration. A missing file and a schema 1 file are not current. A file that is not trusted
 // fails with ErrSettingsUntrusted; without an unlocked vault the error is that of Settings.
 func (v *Vault) SettingsCurrent() (bool, error) {
-	if _, err := v.unlockedDocument(); err != nil {
+	key, err := v.identity()
+	if err != nil {
 		return false, err
 	}
-	_, schema, err := readSettings(v.dir, v.identity.key)
+	_, schema, err := readSettings(v.dir, key)
 	return schema == settingsSchemaVersion, err
 }
 
 // Settings returns the settings of the vault unlocked in this process, with the semantics of ReadSettings.
 // It fails with ErrNotUnlocked or ErrNotEncrypted where there is nothing to read.
 func (v *Vault) Settings() (Settings, error) {
-	if _, err := v.unlockedDocument(); err != nil {
+	key, err := v.identity()
+	if err != nil {
 		return SafeSettings(), err
 	}
-	return ReadSettings(v.dir, v.identity.key)
+	return ReadSettings(v.dir, key)
 }
 
 // EffectiveSettings are the settings in force for v, the one place that maps a vault's state to them: the
@@ -275,7 +258,8 @@ func (v *Vault) SetSettings(settings Settings) error {
 	if err := settings.Validate(); err != nil {
 		return err
 	}
-	if _, err := v.unlockedDocument(); err != nil {
+	key, err := v.identity()
+	if err != nil {
 		return err
 	}
 	doc := settingsDocument{
@@ -283,21 +267,18 @@ func (v *Vault) SetSettings(settings Settings) error {
 		IdleTimeoutNS: int64(settings.IdleTimeout), AdminTimeoutNS: int64(settings.AdminTimeout),
 		RetentionDays: settings.RetentionDays, MaxUnlockNS: int64(settings.MaxUnlock),
 	}
-	mac, err := settingsMAC(v.identity.key, doc)
+	input, _ := settingsMACInput(doc)
+	mac, err := kitvault.MAC(key, settingsMACLabel, input)
 	if err != nil {
 		return err
 	}
 	doc.MAC = mac
 	plain, err := json.MarshalIndent(doc, "", "  ")
 	if err != nil {
-		return fmt.Errorf("cannot encode %s: %w", v.settingsPath(), err)
+		return fmt.Errorf("cannot encode %s: %w", filepath.Join(v.dir, settingsFile), err)
 	}
 	defer clear(plain)
-	data, err := encryptTo(string(plain), v.identity.recipient)
-	if err != nil {
-		return err
-	}
-	return writeFile(v.settingsPath(), data)
+	return v.kv.WriteSealed(settingsFile, plain)
 }
 
 // ReadUpdateBehaviour returns the update behaviour of ReadSettings.

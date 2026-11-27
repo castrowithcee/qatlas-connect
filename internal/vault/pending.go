@@ -3,16 +3,15 @@ package vault
 import (
 	"encoding/json"
 	"fmt"
-	"os"
 	"path/filepath"
-	"sort"
-	"strings"
 	"time"
+
+	kitvault "github.com/castrowithcee/qatlas-kit/vault"
 )
 
-// pendingPayload is what a pending file decrypts to: the roles a locked Set added or changed for one
+// pendingPayload is what a pending entry decrypts to: the roles a locked Set added or changed for one
 // credential name. It carries no entry id: the id a merge assigns, or reuses, is decided by matching Name
-// against the vault's document, which is unreadable while the vault that wrote the pending file was locked.
+// against the vault's document, which is unreadable while the vault that wrote the pending entry was locked.
 // CredentialID is the config id of the credential and is merged like the roles.
 type pendingPayload struct {
 	Name         string            `json:"name"`
@@ -21,67 +20,81 @@ type pendingPayload struct {
 	Modified     time.Time         `json:"modified"`
 }
 
-// pendingFiles returns the *.age file names under pending, sorted, so a merge is deterministic. A missing
-// pending directory holds none.
-func (v *Vault) pendingFiles() ([]string, error) {
-	entries, err := os.ReadDir(v.pendingPath())
-	if err != nil {
-		if os.IsNotExist(err) {
-			return nil, nil
-		}
-		return nil, fmt.Errorf("cannot read %s: %w", v.pendingPath(), err)
-	}
-	var names []string
-	for _, e := range entries {
-		if !e.IsDir() && strings.HasSuffix(e.Name(), ".age") {
-			names = append(names, e.Name())
-		}
-	}
-	sort.Strings(names)
-	return names, nil
-}
-
-// addPending writes roles as a pending entry, encrypted to the vault's public recipient alone, so it needs no
-// passphrase. It is how Set stores a new or changed secret while the vault is locked; without roles it
-// carries only the credential id.
-func (v *Vault) addPending(name, credentialID string, roles map[string]string) (path string, err error) {
-	recipientPEM, err := readFile(v.recipientPath())
-	if err != nil {
-		return "", fmt.Errorf("cannot read %s: %w", v.recipientPath(), err)
-	}
+// addPending queues roles for name as a pending entry, encrypted to the vault's public recipient alone, so it
+// needs no passphrase. Without roles it carries only the credential id. It returns the entry's name.
+func (v *Vault) addPending(name, credentialID string, roles map[string]string) (string, error) {
 	payload := pendingPayload{Name: name, CredentialID: credentialID, Roles: roles, Modified: time.Now().UTC()}
 	plain, err := json.Marshal(payload)
 	if err != nil {
 		return "", fmt.Errorf("cannot encode the pending entry for %s: %w", name, err)
 	}
-	data, err := encryptToRecipient(string(plain), recipientPEM)
-	if err != nil {
-		return "", err
-	}
-	path = filepath.Join(v.pendingPath(), newID()+".age")
-	if err := writeFile(path, data); err != nil {
-		return "", err
-	}
-	v.journalPending(path)
-	return path, nil
+	defer clear(plain)
+	return v.kv.AddPending(plain)
 }
 
-// readPending decrypts the pending file name and returns its payload and its very bytes.
-func (v *Vault) readPending(id *identity, name string) (pendingPayload, []byte, error) {
-	path := filepath.Join(v.pendingPath(), name)
-	data, err := readFile(path)
-	if err != nil {
-		return pendingPayload{}, nil, fmt.Errorf("cannot read %s: %w", path, err)
-	}
-	plain, err := decryptFrom(data, id.key)
-	if err != nil {
-		return pendingPayload{}, nil, fmt.Errorf("cannot decrypt %s: %w", path, err)
-	}
+// decodePending decodes the pending entry name of the vault directory dir.
+func decodePending(dir string, p kitvault.Pending) (pendingPayload, error) {
 	var payload pendingPayload
-	if err := json.Unmarshal(plain, &payload); err != nil {
-		return pendingPayload{}, nil, fmt.Errorf("%s does not hold a valid pending entry", path)
+	if err := json.Unmarshal(p.Payload, &payload); err != nil {
+		return pendingPayload{}, fmt.Errorf("%s does not hold a valid pending entry",
+			filepath.Join(dir, pendingDir, p.Name))
 	}
-	return payload, data, nil
+	return payload, nil
+}
+
+// mergeFunc is the kit's merge of the vault directory dir: every pending entry is merged and counts as
+// merged.
+func mergeFunc(dir string) kitvault.MergeFunc {
+	return func(data []byte, pending []kitvault.Pending) ([]byte, []string, error) {
+		doc, err := decodeDocument(filepath.Join(dir, secretsFile), data)
+		if err != nil {
+			return nil, nil, err
+		}
+		done, err := doc.mergeEntries(dir, pending, nil)
+		if err != nil {
+			return nil, nil, err
+		}
+		// Every write of an encrypted document re-labels approvals granted under the legacy fingerprint.
+		doc.upgradeFingerprints()
+		merged, err := encodeDocument(filepath.Join(dir, secretsFile), doc)
+		if err != nil {
+			return nil, nil, err
+		}
+		return merged, done, nil
+	}
+}
+
+// mergeEntries merges the pending entries of the vault directory dir whose payload keep accepts into d, in
+// name order, a payload with only a credential id last, so it finds an entry a pending secret creates. keep
+// may rename the payload before it is merged, or refuse the merge with an error; a nil keep accepts every
+// entry. It returns the names of the entries it merged.
+func (d *document) mergeEntries(dir string, pending []kitvault.Pending, keep func(p *pendingPayload) (bool, error)) (
+	[]string, error) {
+	var done []string
+	var idsOnly []pendingPayload
+	for _, p := range pending {
+		payload, err := decodePending(dir, p)
+		if err != nil {
+			return nil, err
+		}
+		if keep != nil {
+			if ok, err := keep(&payload); err != nil {
+				return nil, err
+			} else if !ok {
+				continue
+			}
+		}
+		done = append(done, p.Name)
+		if len(payload.Roles) == 0 {
+			idsOnly = append(idsOnly, payload)
+			continue
+		}
+		d.mergePending(payload)
+	}
+	for _, payload := range idsOnly {
+		d.mergePending(payload)
+	}
+	return done, nil
 }
 
 // mergePending applies one pending payload to the document: an existing entry of the same name gets the

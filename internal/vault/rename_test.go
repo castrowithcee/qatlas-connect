@@ -85,13 +85,13 @@ func TestRenameCredentialRenamesTheEntryAndCarriesValidApprovals(t *testing.T) {
 	if held, _ := v.HasEntry("wiki-reader"); held {
 		t.Error("the old name still holds an entry")
 	}
-	if len(v.doc.Entries) != 1 {
-		t.Errorf("entries = %d, want the renamed one alone, nothing copied", len(v.doc.Entries))
+	if len(heldDocument(t, v).Entries) != 1 {
+		t.Errorf("entries = %d, want the renamed one alone, nothing copied", len(heldDocument(t, v).Entries))
 	}
 	if value, found, _, _ := v.Get("reader", "user", nil); !found || value != "synthetic-user" {
 		t.Error("the pending write for the old name was not merged into the entry")
 	}
-	if entry, _ := v.doc.byName("reader"); entry.CredentialID != "c0ffee" {
+	if entry, _ := heldDocument(t, v).byName("reader"); entry.CredentialID != "c0ffee" {
 		t.Errorf("credential id = %q", entry.CredentialID)
 	}
 	if err := v.CheckApproval(renamedScope(wikiScope(), "reader")); err != nil {

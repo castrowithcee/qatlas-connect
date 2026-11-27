@@ -1,14 +1,10 @@
 package vault
 
 import (
-	"bytes"
-	"crypto/hkdf"
-	"crypto/hmac"
 	"crypto/rand"
 	"crypto/sha256"
 	"crypto/subtle"
 	"encoding/base64"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -17,7 +13,7 @@ import (
 	"sort"
 	"time"
 
-	"filippo.io/age"
+	kitvault "github.com/castrowithcee/qatlas-kit/vault"
 )
 
 // tokensFile holds the agent tokens, the vault's second kind of content beside secrets.age. It exists only
@@ -107,53 +103,22 @@ func CheckTokenName(name string) error {
 
 func (v *Vault) tokensPath() string { return filepath.Join(v.dir, tokensFile) }
 
-// tokenKey derives the key that authenticates tokens.age from the vault's private key.
-func tokenKey(id *identity, label string) ([]byte, error) {
-	secret := []byte(id.key.String())
-	defer clear(secret)
-	key, err := hkdf.Key(sha256.New, secret, nil, label, sha256.Size)
-	if err != nil {
-		return nil, errors.New("cannot derive the agent token key")
-	}
-	return key, nil
-}
-
-// tokenMAC is the check value of tokens: the hex HMAC-SHA256, keyed with tokenKey, of their JSON encoding.
-func tokenMAC(id *identity, tokens []Token) (string, error) {
-	return tokenMACWith(id, tokens, tokenMACLabel)
-}
-
-func tokenMACWith(id *identity, tokens []Token, label string) (string, error) {
-	key, err := tokenKey(id, label)
-	if err != nil {
-		return "", err
-	}
-	defer clear(key)
-	data, err := json.Marshal(tokens)
-	if err != nil {
-		return "", err
-	}
-	defer clear(data)
-	h := hmac.New(sha256.New, key)
-	h.Write(data)
-	return hex.EncodeToString(h.Sum(nil)), nil
-}
-
-// loadTokens reads tokens.age with the identity of this vault. A missing file holds no token.
+// loadTokens reads tokens.age with the identity of this vault. A missing file holds no token. The check
+// value is verified under the current label and the legacy one, both in constant time and both always.
 func (v *Vault) loadTokens() ([]Token, error) {
-	if v.identity == nil {
+	key, err := v.kv.Identity()
+	if err != nil {
 		return nil, ErrNotUnlocked
 	}
-	data, err := readFile(v.tokensPath())
+	plain, err := v.kv.ReadSealed(tokensFile)
 	if err != nil {
-		if isNotExist(err) {
+		switch {
+		case isNotExist(err):
 			return nil, nil
+		case errors.Is(err, kitvault.ErrDamaged):
+			return nil, ErrTokensTampered
 		}
-		return nil, fmt.Errorf("cannot read %s: %w", v.tokensPath(), err)
-	}
-	plain, err := decryptFrom(data, v.identity.key)
-	if err != nil {
-		return nil, ErrTokensTampered
+		return nil, err
 	}
 	defer clear(plain)
 	var doc tokenDocument
@@ -164,15 +129,20 @@ func (v *Vault) loadTokens() ([]Token, error) {
 		return nil, fmt.Errorf("cannot read %s: unsupported token schema version %d, want %d",
 			v.tokensPath(), doc.Schema, tokenSchemaVersion)
 	}
-	// The current label is tried first; the legacy one is only a fallback for a file written before the
-	// rename. A failed key derivation is no verdict on the file, so it surfaces as its own error.
-	for _, label := range []string{tokenMACLabel, legacyTokenMACLabel} {
-		want, err := tokenMACWith(v.identity, doc.Tokens, label)
-		if err != nil {
+	data, err := json.Marshal(doc.Tokens)
+	if err != nil {
+		return nil, err
+	}
+	defer clear(data)
+	current := kitvault.VerifyMAC(key, tokenMACLabel, data, doc.MAC)
+	legacy := kitvault.VerifyMAC(key, legacyTokenMACLabel, data, doc.MAC)
+	if current == nil || legacy == nil {
+		return doc.Tokens, nil
+	}
+	// A failed key derivation is no verdict on the file, so it surfaces as its own error.
+	for _, err := range []error{current, legacy} {
+		if !errors.Is(err, kitvault.ErrMACMismatch) {
 			return nil, err
-		}
-		if hmac.Equal([]byte(want), []byte(doc.MAC)) {
-			return doc.Tokens, nil
 		}
 	}
 	return nil, ErrTokensTampered
@@ -180,13 +150,19 @@ func (v *Vault) loadTokens() ([]Token, error) {
 
 // writeTokens replaces tokens.age with tokens, authenticated for this vault.
 func (v *Vault) writeTokens(tokens []Token) error {
-	if v.identity == nil {
+	key, err := v.kv.Identity()
+	if err != nil {
 		return ErrNotUnlocked
 	}
 	if tokens == nil {
 		tokens = []Token{}
 	}
-	mac, err := tokenMAC(v.identity, tokens)
+	data, err := json.Marshal(tokens)
+	if err != nil {
+		return err
+	}
+	mac, err := kitvault.MAC(key, tokenMACLabel, data)
+	clear(data)
 	if err != nil {
 		return err
 	}
@@ -195,16 +171,12 @@ func (v *Vault) writeTokens(tokens []Token) error {
 		return fmt.Errorf("cannot encode %s: %w", v.tokensPath(), err)
 	}
 	defer clear(plain)
-	data, err := encryptTo(string(plain), v.identity.recipient)
-	if err != nil {
-		return err
-	}
-	return writeFile(v.tokensPath(), data)
+	return v.kv.WriteSealed(tokensFile, plain)
 }
 
 // tokensOf returns the tokens of the vault unlocked in this process, which only an encrypted one holds.
 func (v *Vault) tokensOf() ([]Token, error) {
-	if _, err := v.unlockedDocument(); err != nil {
+	if _, err := v.identity(); err != nil {
 		return nil, err
 	}
 	return v.loadTokens()
@@ -310,47 +282,4 @@ func matchToken(tokens []Token, value string) (Token, bool) {
 		return Token{}, false
 	}
 	return tokens[match], true
-}
-
-// OpenWithKey returns the encrypted vault in dir, the vault directory itself as Dir reports it, unlocked with
-// key, its own private key, the way a vault process holds it, without the passphrase. It reads secrets.age as
-// it is on disk now and leaves every pending entry where it is: a write of the document through the returned
-// vault merges them, as ReplaceRole does, and otherwise the next unlock with the passphrase does.
-func OpenWithKey(dir string, key *age.X25519Identity) (*Vault, error) {
-	if key == nil {
-		return nil, ErrNotUnlocked
-	}
-	v := &Vault{dir: dir}
-	recipientPEM, err := readFile(v.recipientPath())
-	if err != nil {
-		if isNotExist(err) {
-			return nil, ErrNotEncrypted
-		}
-		return nil, fmt.Errorf("cannot read %s: %w", v.recipientPath(), err)
-	}
-	recipient, err := age.ParseX25519Recipient(string(bytes.TrimSpace(recipientPEM)))
-	if err != nil {
-		return nil, fmt.Errorf("cannot read the vault recipient: %w", err)
-	}
-	if key.Recipient().String() != recipient.String() {
-		return nil, errors.New("the vault key and the vault recipient do not match")
-	}
-	id := &identity{key: key, recipient: recipient}
-	doc := newDocument()
-	if data, err := readFile(v.secretsPath()); err == nil {
-		plain, err := decryptFrom(data, key)
-		if err != nil {
-			return nil, fmt.Errorf("cannot decrypt %s: %w", v.secretsPath(), err)
-		}
-		decoded, err := decodeDocument(v.secretsPath(), plain)
-		clear(plain)
-		if err != nil {
-			return nil, err
-		}
-		doc = decoded
-	} else if !isNotExist(err) {
-		return nil, fmt.Errorf("cannot read %s: %w", v.secretsPath(), err)
-	}
-	v.identity, v.doc, v.unlocked = id, doc, true
-	return v, nil
 }
