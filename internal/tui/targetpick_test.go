@@ -1001,6 +1001,39 @@ func TestAnUnlistedKindOffersNoListButResolvesAnAddress(t *testing.T) {
 	}
 }
 
+// ownGroupRegistry is a provider that lists only the connection's own group, with the items below it.
+func ownGroupRegistry(t *testing.T) *capability.Registry {
+	t.Helper()
+	reg := capability.NewRegistry()
+	err := reg.RegisterProvider(config.ProviderMetadata{
+		ID: "lister", Name: "Lister",
+		Target: config.TargetMetadata{Label: "target", Multiple: true, Kinds: []config.TargetKind{
+			{Name: "group", Forms: []string{"g/NAME"}, TopNeeds: "group"},
+			{Name: "item", Forms: []string{"g/NAME/i/ID"}, Parents: []string{"group"}},
+		}},
+	}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return reg
+}
+
+func TestAKindListedFromOwnTargetsWaitsForOne(t *testing.T) {
+	src := &listSource{list: pickPage(group("a"))}
+	m := addMenuOn(t, ownGroupRegistry(t), src)
+	if rows := strings.Join(addRows(m), "|"); strings.Contains(rows, "provider's list") {
+		t.Fatalf("the add menu offers a list without a group target: %q", rows)
+	}
+	m = addMenuOn(t, ownGroupRegistry(t), src, "g/a")
+	openPicker(t, m)
+	if last := src.reqs[len(src.reqs)-1]; last.Kind != "group" || last.Parent != "" {
+		t.Fatalf("the picker read %+v, want the groups", last)
+	}
+	if got := m.pickKindsUnder("group"); !reflect.DeepEqual(got, []string{"item"}) {
+		t.Errorf("kinds below a group = %v, want item", got)
+	}
+}
+
 // excludableListerRegistry is the lister whose groups and items can be excluded.
 func excludableListerRegistry(t *testing.T) *capability.Registry {
 	t.Helper()

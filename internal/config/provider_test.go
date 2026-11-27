@@ -2,6 +2,7 @@ package config
 
 import (
 	"errors"
+	"slices"
 	"sort"
 	"strings"
 	"testing"
@@ -553,6 +554,56 @@ func TestValidateKindParentsWithSeveralParentsAndTop(t *testing.T) {
 	} {
 		if err := tc.target.ValidateKindParents(); (err == nil) != tc.ok {
 			t.Errorf("%s: ValidateKindParents() = %v, want ok %v", name, err, tc.ok)
+		}
+	}
+}
+
+func TestValidateKindParentsWithTopNeeds(t *testing.T) {
+	kinds := func(kind TargetKind) TargetMetadata {
+		return TargetMetadata{Kinds: []TargetKind{{Name: "a", Forms: []string{"a/ID"}}, kind}}
+	}
+	for name, tc := range map[string]struct {
+		target TargetMetadata
+		ok     bool
+	}{
+		"its own kind":     {kinds(TargetKind{Name: "c", Forms: []string{"c/ID"}, TopNeeds: "c"}), true},
+		"a parent kind":    {kinds(TargetKind{Name: "c", Forms: []string{"c/ID"}, Parents: []string{"a"}, Top: true, TopNeeds: "a"}), true},
+		"unknown kind":     {kinds(TargetKind{Name: "c", Forms: []string{"c/ID"}, TopNeeds: "zz"}), false},
+		"below only":       {kinds(TargetKind{Name: "c", Forms: []string{"c/ID"}, Parents: []string{"a"}, TopNeeds: "a"}), false},
+		"an unlisted kind": {kinds(TargetKind{Name: "c", Forms: []string{"c/ID"}, Unlisted: true, TopNeeds: "c"}), false},
+	} {
+		if err := tc.target.ValidateKindParents(); (err == nil) != tc.ok {
+			t.Errorf("%s: ValidateKindParents() = %v, want ok %v", name, err, tc.ok)
+		}
+	}
+}
+
+// ListedKinds offers a kind where its level puts it, never an unlisted one, and a kind with TopNeeds at the top
+// level only once a target of that kind is there.
+func TestListedKinds(t *testing.T) {
+	metadata := TargetMetadata{Kinds: []TargetKind{
+		{Name: "box", Forms: []string{"box/NAME"}, TopNeeds: "box"},
+		{Name: "account", Forms: []string{"account/ID"}},
+		{Name: "drive", Forms: []string{"drive/ID"}, Parents: []string{"account"}, Top: true, TopNeeds: "account"},
+		{Name: "folder", Forms: []string{"folder/PATH"}, Parents: []string{"box"}, Nested: true},
+		{Name: "sender", Forms: []string{"sender/ADDRESS"}, Unlisted: true},
+	}}
+	for name, tc := range map[string]struct {
+		parent  string
+		targets []string
+		want    []string
+	}{
+		"top without targets":    {"", nil, []string{"account"}},
+		"top with a box":         {"", []string{"box/a"}, []string{"box", "account"}},
+		"top with an account":    {"", []string{"account/1", "folder/x"}, []string{"account", "drive"}},
+		"a form of another kind": {"", []string{"drive/1"}, []string{"account"}},
+		"below a box":            {"box", nil, []string{"folder"}},
+		"below a folder":         {"folder", nil, []string{"folder"}},
+		"below an account":       {"account", nil, []string{"drive"}},
+		"below a leaf":           {"drive", []string{"account/1"}, nil},
+	} {
+		if got := metadata.ListedKinds(tc.parent, tc.targets); !slices.Equal(got, tc.want) {
+			t.Errorf("%s: ListedKinds(%q, %q) = %q, want %q", name, tc.parent, tc.targets, got, tc.want)
 		}
 	}
 }

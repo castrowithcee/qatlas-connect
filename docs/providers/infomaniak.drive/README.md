@@ -8,7 +8,7 @@ description: >
 type: knowledge
 edit: shared
 created: 2026-09-27
-updated: 2026-10-27
+updated: 2026-11-27
 ---
 
 # Infomaniak kDrive
@@ -115,11 +115,11 @@ accepted and may list drives of that account, not that every bound drive exists 
 
 ## Choosing targets
 
-The target picker offers `account` and `drive`, then `files` below a drive or below a folder: the entries directly
-inside, folders marked as having children, each with the path of the listed folder (`/` at the root; below a
+The target picker offers `account`, then `drive` below it, then `files` below a drive or below a folder: the entries
+directly inside, folders marked as having children, each with the path of the listed folder (`/` at the root; below a
 folder one extra read of that folder with its parents per page, no path if the chain is unclear). It works on a
-draft connection. A connection with exactly one `account` target lists the drives of that account directly,
-without loading the account list; with none or several, drives are chosen below an account. The account list
+draft connection. A connection with its `account` target also offers `drive` on the top level, the drives of that
+account, without loading the account list; without one, drives are chosen below an account. The account list
 reads the accounts endpoint; without the right for it, which [Set up Infomaniak kDrive](setup.md#drives-and-the-account)
 lists, the account ID or a kDrive URL is entered instead. Names are untrusted. Account and drive lists are paged
 by number, `files` by the folder cursor. It never searches on the server.

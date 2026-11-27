@@ -133,7 +133,7 @@ func (m *Model) pickSubject() (connection string, draft *manage.ConnectionDraft,
 	return "", &d, service != "" && credential != ""
 }
 
-// pickRoots are the kinds the picker can start on: those without a parent.
+// pickRoots are the kinds the picker can start on, those of the top level.
 func (m *Model) pickRoots() []string {
 	if _, _, ok := m.pickSubject(); !ok {
 		return nil
@@ -141,19 +141,17 @@ func (m *Model) pickRoots() []string {
 	return m.pickKindsUnder("")
 }
 
-// pickKindsUnder lists the kinds shown below an entry of the kind parent, or at the top for "". A nested kind
-// also sits below its own entries.
+// pickKindsUnder lists the kinds shown below an entry of the kind parent, or at the top for "", as the core
+// offers them for the targets of what the picker reads.
 func (m *Model) pickKindsUnder(parent string) []string {
-	var kinds []string
-	for _, kind := range m.targetMetadata().Kinds {
-		if kind.Unlisted {
-			continue
-		}
-		if parent == "" && (len(kind.Parents) == 0 || kind.Top) || slices.Contains(kind.Parents, parent) || parent != "" && kind.Nested && kind.Name == parent {
-			kinds = append(kinds, kind.Name)
-		}
+	var targets []string
+	switch connection, draft, _ := m.pickSubject(); {
+	case draft != nil:
+		targets = draft.Targets
+	case connection != "":
+		targets = m.cfg.Connections[connection].Targets
 	}
-	return kinds
+	return m.targetMetadata().ListedKinds(parent, targets)
 }
 
 func (m *Model) newPickLevel(p *targetPick, kinds []string, ki int, parent, label string) *pickLevel {

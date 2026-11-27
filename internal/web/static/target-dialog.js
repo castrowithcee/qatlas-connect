@@ -13,18 +13,18 @@
   if (!form || !targetsInput) {
     return;
   }
-  var kinds = [];
+  // listed maps a parent kind, "" for the top level, to the kinds the server offers a list of below it.
+  var listed = {};
   try {
-    kinds = JSON.parse(root.dataset.kinds || "[]");
+    listed = JSON.parse(root.dataset.levels || "{}") || {};
   } catch (e) {
     return;
   }
-  if (!kinds.length) {
-    return;
+  function listedUnder(kind) {
+    return Array.isArray(listed[kind]) ? listed[kind] : [];
   }
-  // A provider whose kinds are all unlisted has no list to choose from: the panel then only resolves a web
-  // address.
-  var hasList = kinds.some(function (k) { return !k.unlisted; });
+  // Without a list on the top level the panel only resolves a web address.
+  var hasList = listedUnder("").length > 0;
   var csrf = root.dataset.csrf || "";
   var listURL = root.dataset.listUrl;
   var resolveURL = root.dataset.resolveUrl;
@@ -135,15 +135,11 @@
   }
 
   function startTop() {
-    var names = kinds.filter(function (k) { return (!(k.parents && k.parents.length) || k.top) && !k.unlisted; }).map(function (k) { return k.name; });
+    var names = listedUnder("");
     levels = [{ title: "", kinds: names, kind: names[0], parent: "", entries: [], next: "", serverSearch: false, fixed: false }];
     marks.clear();
     render();
     reload(top());
-  }
-
-  function kindInfo(name) {
-    return kinds.find(function (k) { return k.name === name; });
   }
 
   // draft collects only the non-secret fields the server needs to rebuild the connection in setup.
@@ -294,9 +290,7 @@
   }
 
   function open(entry) {
-    var children = kinds.filter(function (k) {
-      return !k.unlisted && ((k.parents || []).indexOf(entry.kind) >= 0 || (k.nested && k.name === entry.kind));
-    }).map(function (k) { return k.name; });
+    var children = listedUnder(entry.kind);
     if (!children.length) {
       return;
     }

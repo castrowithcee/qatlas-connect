@@ -688,7 +688,7 @@ Type a passphrase, twice, to encrypt it instead.</p>
 <label for="targets">Targets</label>
 <input id="targets" type="text" name="targets" value="{{.Form.Targets}}" autocomplete="off">
 <p class="hint">{{.TargetHint}}</p>
-{{with .Dialog}}<div id="target-dialog" class="target-dialog" hidden data-csrf="{{.CSRF}}" data-list-url="{{.ListURL}}" data-resolve-url="{{.ResolveURL}}" data-kinds="{{.Kinds}}" data-multiple="{{.Multiple}}" data-noun="{{.Noun}}" data-excludes="{{$.Excludes}}"></div>
+{{with .Dialog}}<div id="target-dialog" class="target-dialog" hidden data-csrf="{{.CSRF}}" data-list-url="{{.ListURL}}" data-resolve-url="{{.ResolveURL}}" data-levels="{{.Levels}}" data-multiple="{{.Multiple}}" data-noun="{{.Noun}}" data-excludes="{{$.Excludes}}"></div>
 <script src="{{.Script}}"></script>{{end}}
 </div>
 {{if .Excludes}}<div class="field">

@@ -256,3 +256,22 @@ func TestFolderEntriesPassTheCoreFormCheck(t *testing.T) {
 		}
 	}
 }
+
+// A surface offers the mailbox list only once the connection holds its mailbox, since the list names only that
+// one; below it come the folders, and the senders never have a list but are typed.
+func TestTheMailboxListWaitsForTheMailboxTarget(t *testing.T) {
+	metadata, _ := registry(t).ProviderMetadata(Provider)
+	target := metadata.Target
+	if got := target.ListedKinds("", nil); len(got) != 0 {
+		t.Errorf("top level without a mailbox = %q, want no list", got)
+	}
+	if got := target.ListedKinds("", []string{"mailbox/user@example.test", "sender/a@example.test"}); !reflect.DeepEqual(got, []string{"mailbox"}) {
+		t.Errorf("top level with a mailbox = %q, want mailbox", got)
+	}
+	if got := target.ListedKinds("mailbox", nil); !reflect.DeepEqual(got, []string{"folder"}) {
+		t.Errorf("below the mailbox = %q, want folder", got)
+	}
+	if !target.ValidTarget("sender", "sender/a@example.test") {
+		t.Error("sender/ADDRESS is not a target to type")
+	}
+}

@@ -134,8 +134,8 @@ rest of the configuration stays usable.
 
 ## Choosing targets
 
-The target picker offers `mailbox`, then `folder` below it. The service lists no mailboxes: the `mailbox` level shows
-only the connection's own `mailbox/ADDRESS` target, without a request, and nothing if there is none. `folder` logs in
+The service lists no mailboxes, so the target picker offers `mailbox` only once the connection has its `mailbox/ADDRESS`
+target, and that level shows only this target, without a request. `folder` below it logs in
 with that address only; any other parent address is an invalid request before a secret is read. It reads the whole
 folder list, unfiltered by folder and sender targets, 50 entries a page (at most 500 folders). Each folder is
 `folder/PATH`, named by its last element with the ones above it as path (`Kunden.A` under `.` gives `A` at `/Kunden`;
