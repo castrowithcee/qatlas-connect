@@ -71,6 +71,8 @@ Areas and the tab line:
 - On the tab line left and right choose an area.
 - 1 to 6 open an area directly, on its first part, from the tab line, a list, or the Logs screen.
 - down moves from the tab line to the option bar and then, like enter or tab, into the list. tab or esc come back to the bar.
+- The navigation setting in General chooses another form. pathline puts one line with the area and its part in place of the tab line and the option bar, header puts that path in the header, and choice shows the active area as a field in the header above the option bar.
+- On the path left and right move between the area and the part. enter or a click on the area opens the overview of all areas with their parts, on the part the list of the parts, and on the field the list of the areas. A choice there acts as the click on its tab, and while such a list is open the screen behind it takes no key and no click.
 
 Moving:
 - The arrow keys move on every screen. h, j, k, and l do the same wherever no text is typed.
@@ -112,6 +114,7 @@ Every other letter means one thing on every screen without a text line, and none
 - space ticks. In an approval's detail it shows or hides the unchanged entries.
 - d deletes, removes, or revokes on every screen without text entry, and F8 does so on a payload field. On such a field the value row is a text line, where ctrl+d deletes the character to the right. All of these ask first, y confirms, and n or esc keeps; enter gives the answer marked with it, which never deletes, writes, or installs.
 - r renames the selected service, credential, or connection on its list, and edits the label of a target on the target list.
+- m opens the overview of the areas from the tab line, a list, or the Logs screen when the navigation is pathline, header, or choice. With tabs it does nothing.
 
 Mouse:
 - With the mouse on, a click does what the key for it does. It chooses a tab (from any level, going back the way esc does, with the same question about unsaved input), presses the keys of the header ([esc] back, [?] help, [:] cmd) and every key group of the footer at the bottom (a click on the words of a group presses its first key), chooses a part on the option bar, a row (the first click marks it, a click on the marked row opens or ticks it), a group (folds it), a field or section of a form, a value of an option bar (on a filter field it opens the list of values), a button of a dialog, or an (i) mark (opens its explanation).
@@ -127,6 +130,7 @@ General, the preferences of this device:
 - icons. unicode, the default, puts an emoji or symbol beside the area names and needs no special font. nerdfont uses Nerd Font icons instead, which show as boxes without a Nerd Font installed in the terminal (see nerdfonts.com). none shows no icons. A terminal without UTF-8 shows none whatever is chosen.
 - language. english, deutsch, or system, which follows the language of the device. A change applies at once and covers the editor's own texts, while guides, core messages, and provider texts stay English.
 - mouse. on or off. on is the default and takes effect at once.
+- navigation. tabs, the default, is the tab line with the option bar. pathline, header, and choice are the other forms described under Areas and the tab line. A change applies at once.
 
 Keys of the global actions:
 - Below the preferences, General lists the keys of the global actions save, help, command line, lock, and info. enter on a row and then pressing the new key binds it.

@@ -1065,6 +1065,8 @@ const (
 	tFormHelpTitle                           textID = "FormHelpTitle"
 	tMouseHint                               textID = "MouseHint"
 	tMouseDetail                             textID = "MouseDetail"
+	tNavigationHint                          textID = "NavigationHint"
+	tNavigationDetail                        textID = "NavigationDetail"
 	tStatusDone                              textID = "StatusDone"
 	tStatusDoneWarn                          textID = "StatusDoneWarn"
 	tStatusFailed                            textID = "StatusFailed"

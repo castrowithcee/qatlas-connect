@@ -56,7 +56,7 @@ func TestGeneralSavesWithoutAdminSession(t *testing.T) {
 	}
 	got, warnings := kitprefs.Load(path, PrefsSchema())
 	want := kitprefs.Prefs{Theme: uiprefs.ThemeQatlasLight, Start: "library", Icons: kitprefs.IconsNerdFont,
-		Language: kitprefs.LanguageEnglish, MouseEnabled: true}
+		Language: kitprefs.LanguageEnglish, MouseEnabled: true, Navigation: kitprefs.NavigationTabs}
 	if !reflect.DeepEqual(got, want) || len(warnings) != 0 {
 		t.Fatalf("stored = %+v %v, want %+v", got, warnings, want)
 	}
@@ -235,7 +235,7 @@ func TestSettingsSubTabsInOrderWithAdvancedBar(t *testing.T) {
 	if line := shown(subTabLine(m)); !strings.Contains(strings.Join(strings.Fields(line), " "), "[General] | Vault Defaults Transfer Update Self-test") {
 		t.Errorf("option bar = %q", line)
 	}
-	m.screen, m.navSub = screenNav, true
+	m.screen, m.navZone = screenNav, optionBar(true)
 	for _, s := range want[1:] {
 		pump(t, m, "right")
 		if m.section != s {

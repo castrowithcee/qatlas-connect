@@ -29,14 +29,14 @@ func TestVimKeysMoveLikeTheArrowsOnEveryKindOfScreen(t *testing.T) {
 		m, _, _ := newModel(t)
 		m.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
 		seedServices(t, m, "a-one", "b-two", "c-three")
-		m.screen, m.navSub = screenNav, true
+		m.screen, m.navZone = screenNav, optionBar(true)
 		press(t, m, "l")
 		if m.section != sectionCredentials || m.screen != screenNav {
 			t.Fatalf("l = section %v screen %v, want Credentials on the option bar", m.section, m.screen)
 		}
 		press(t, m, "h", "k")
-		if m.section != sectionServices || m.navSub {
-			t.Fatalf("h, k = section %v bar %v, want Services on the tab line", m.section, m.navSub)
+		if m.section != sectionServices || m.onOptionBar() {
+			t.Fatalf("h, k = section %v bar %v, want Services on the tab line", m.section, m.onOptionBar())
 		}
 		press(t, m, "end")
 		if m.section != sectionGeneral {

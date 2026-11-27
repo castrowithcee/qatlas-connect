@@ -112,6 +112,9 @@ func (m *Model) updateMouse(msg tea.MouseMsg) tea.Cmd {
 	if m.tooSmall {
 		return nil
 	}
+	if m.menu != nil {
+		return m.clickMenu(msg)
+	}
 	if m.modal != nil {
 		return m.modalMouse(msg)
 	}
@@ -494,7 +497,7 @@ func (m *Model) clickSubTab(s section) tea.Cmd {
 		return lead
 	}
 	cmd := m.previewSection(s)
-	m.navSub = true
+	m.navZone = kittui.ZoneSubtabs
 	return tea.Batch(lead, cmd)
 }
 

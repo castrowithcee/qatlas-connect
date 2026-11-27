@@ -234,7 +234,7 @@ func openSectionByName(t *testing.T, m *Model, s section) {
 		if m.screen == screenList {
 			pump(t, m, "shift+tab")
 		}
-		if m.screen != screenNav || !m.navSub {
+		if m.screen != screenNav || !m.onOptionBar() {
 			t.Fatalf("after the digit of %v: screen %v, section %v", s.area().title(), m.screen, m.section)
 		}
 		for i := 0; i < len(areaSections[s.area()]) && m.section != s; i++ {
@@ -411,7 +411,7 @@ func TestNavigation(t *testing.T) {
 	})
 
 	t.Run("left and right wrap in both directions and show each area at once", func(t *testing.T) {
-		m.screen, m.section, m.navSub = screenNav, sectionOverview, false
+		m.screen, m.section, m.navZone = screenNav, sectionOverview, optionBar(false)
 		press(t, m, "left")
 		if m.section != sectionGeneral || m.screen != screenNav {
 			t.Errorf("left = section %v screen %v, want Settings on the tab line", m.section, m.screen)
@@ -431,7 +431,7 @@ func TestNavigation(t *testing.T) {
 
 	t.Run("enter, down and tab hand the focus to the list and back", func(t *testing.T) {
 		for _, key := range []string{"enter", "down", "j", "tab"} {
-			m.screen, m.section, m.navSub = screenNav, sectionCredentials, true
+			m.screen, m.section, m.navZone = screenNav, sectionCredentials, optionBar(true)
 			press(t, m, key)
 			if m.screen != screenList || m.section != sectionCredentials {
 				t.Errorf("%q = screen %v section %v, want the Credentials list", key, m.screen, m.section)
@@ -448,7 +448,7 @@ func TestNavigation(t *testing.T) {
 	})
 
 	t.Run("escape on the tab line neither quits nor moves", func(t *testing.T) {
-		m.screen, m.section, m.navSub = screenNav, sectionConnections, false
+		m.screen, m.section, m.navZone = screenNav, sectionConnections, optionBar(false)
 		press(t, m, "esc", "esc")
 		if m.quitting || m.screen != screenNav || m.section != sectionConnections {
 			t.Errorf("esc on the tab line = quitting %v screen %v section %v", m.quitting, m.screen, m.section)
@@ -479,7 +479,7 @@ func TestNarrowNavigation(t *testing.T) {
 		t.Run(fmt.Sprintf("width=%d", width), func(t *testing.T) {
 			m, _, _ := newModel(t)
 			m.Update(tea.WindowSizeMsg{Width: width, Height: 24})
-			m.screen, m.section, m.navSub = screenNav, sectionOverview, false
+			m.screen, m.section, m.navZone = screenNav, sectionOverview, optionBar(false)
 			if width >= narrowWidth-1 && !strings.Contains(m.render(), "←/→ move") {
 				t.Errorf("footer does not name left/right:\n%s", m.render())
 			}
@@ -488,7 +488,7 @@ func TestNarrowNavigation(t *testing.T) {
 				t.Fatalf("left at the Overview = section %v screen %v, want Settings (wrapped back)", m.section, m.screen)
 			}
 			for _, key := range []string{"right", "l"} {
-				m.screen, m.section, m.navSub = screenNav, sectionGeneral, false
+				m.screen, m.section, m.navZone = screenNav, sectionGeneral, optionBar(false)
 				press(t, m, key)
 				if m.section != sectionOverview || m.screen != screenNav {
 					t.Errorf("%q at Settings = section %v screen %v, want the Overview (wrapped forward)",
@@ -496,45 +496,45 @@ func TestNarrowNavigation(t *testing.T) {
 				}
 			}
 			for _, key := range []string{"up", "k"} {
-				m.screen, m.section, m.navSub = screenNav, sectionServices, false
+				m.screen, m.section, m.navZone = screenNav, sectionServices, optionBar(false)
 				press(t, m, key)
-				if m.section != sectionServices || m.screen != screenNav || m.navSub {
+				if m.section != sectionServices || m.screen != screenNav || m.onOptionBar() {
 					t.Errorf("%q at the tab line = section %v screen %v, want no change", key, m.section, m.screen)
 				}
 			}
 			// The option bar sits between the tab line and the list, and its arrows wrap through the sub-tabs.
-			m.screen, m.section, m.navSub = screenNav, sectionServices, false
+			m.screen, m.section, m.navZone = screenNav, sectionServices, optionBar(false)
 			press(t, m, "down")
-			if !m.navSub || m.screen != screenNav {
-				t.Errorf("down at the tab line = screen %v option bar %v, want the option bar", m.screen, m.navSub)
+			if !m.onOptionBar() || m.screen != screenNav {
+				t.Errorf("down at the tab line = screen %v option bar %v, want the option bar", m.screen, m.onOptionBar())
 			}
 			for _, step := range []struct {
 				key  string
 				want section
 			}{{"right", sectionCredentials}, {"right", sectionServices}, {"left", sectionCredentials}} {
 				press(t, m, step.key)
-				if m.section != step.want || m.screen != screenNav || !m.navSub {
+				if m.section != step.want || m.screen != screenNav || !m.onOptionBar() {
 					t.Errorf("%q on the option bar = section %v screen %v, want %v", step.key, m.section, m.screen, step.want)
 				}
 			}
 			press(t, m, "up")
-			if m.navSub || m.section != sectionCredentials {
-				t.Errorf("up on the option bar = section %v bar %v, want the tab line", m.section, m.navSub)
+			if m.onOptionBar() || m.section != sectionCredentials {
+				t.Errorf("up on the option bar = section %v bar %v, want the tab line", m.section, m.onOptionBar())
 			}
 			for _, key := range []string{"down", "j", "enter", "tab"} {
-				m.screen, m.section, m.navSub = screenNav, sectionCredentials, true
+				m.screen, m.section, m.navZone = screenNav, sectionCredentials, optionBar(true)
 				press(t, m, key)
 				if m.screen != screenList || m.section != sectionCredentials {
 					t.Errorf("%q = screen %v section %v, want the Credentials list", key, m.screen, m.section)
 				}
 			}
 			// Vault and Logs have no list of their own; down/enter/tab open their own content area.
-			m.screen, m.section, m.navSub = screenNav, sectionVault, true
+			m.screen, m.section, m.navZone = screenNav, sectionVault, optionBar(true)
 			press(t, m, "down")
 			if m.screen != screenForm {
 				t.Errorf("down at Vault = screen %v, want the Vault form", m.screen)
 			}
-			m.screen, m.section, m.navSub = screenNav, sectionLogs, false
+			m.screen, m.section, m.navZone = screenNav, sectionLogs, optionBar(false)
 			press(t, m, "enter")
 			if m.screen != screenLogs {
 				t.Errorf("enter at Logs = screen %v, want the Logs screen", m.screen)

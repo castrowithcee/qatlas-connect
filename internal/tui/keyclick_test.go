@@ -1,6 +1,8 @@
 package tui
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -30,7 +32,7 @@ func clickScreens() []struct {
 	}{
 		{"overview", func(t *testing.T) *Model {
 			m := sizedModel(groupModel(t), 140, 40)
-			m.screen, m.section, m.navSub = screenNav, sectionOverview, false
+			m.screen, m.section, m.navZone = screenNav, sectionOverview, optionBar(false)
 			return m
 		}},
 		{"connections list", func(t *testing.T) *Model {
@@ -114,11 +116,46 @@ func clickScreens() []struct {
 	}
 }
 
+// optionBar is the line of the navigation on the option bar, or with on false on the tab line.
+func optionBar(on bool) kittui.FocusZone {
+	if on {
+		return kittui.ZoneSubtabs
+	}
+	return kittui.ZoneTabs
+}
+
+// onOptionBar reports whether the navigation stands on the option bar of the area.
+func (m *Model) onOptionBar() bool { return m.navLine() == kittui.ZoneSubtabs }
+
 // state is what a key and a click must leave alike: the screen, the focus, the selection and the view. The
 // view names the configuration file, which every model of a test keeps in a directory of its own.
 var shownConfigPath = regexp.MustCompile(`\S*config\.yaml`)
 
 var shownID = regexp.MustCompile(`[0-9a-f]{5,}`)
+
+// fixIDs gives every entry an id of its own derived from its kind and name, the same in every model of a test,
+// where a view shows the ids in full and a narrow one wraps them at any character.
+func fixIDs(t *testing.T, m *Model) {
+	t.Helper()
+	id := func(kind, name string) string {
+		sum := sha256.Sum256([]byte(kind + "/" + name))
+		return hex.EncodeToString(sum[:16])
+	}
+	for name, s := range m.cfg.Services {
+		s.ID = id("service", name)
+		m.cfg.Services[name] = s
+	}
+	for name, c := range m.cfg.Credentials {
+		c.ID = id("credential", name)
+		m.cfg.Credentials[name] = c
+	}
+	for name, c := range m.cfg.Connections {
+		c.ID = id("connection", name)
+		m.cfg.Connections[name] = c
+	}
+	mustNoError(t, m.store.Save(m.cfg))
+	syncRevision(t, m)
+}
 
 func clickState(m *Model) string {
 	selected, _ := m.marked()
@@ -132,7 +169,7 @@ func clickState(m *Model) string {
 		}
 		return s
 	})
-	return fmt.Sprintf("screen %v section %v focus %d sub %v selected %q\n%s", m.screen, m.section, m.focus, m.navSub, selected, view)
+	return fmt.Sprintf("screen %v section %v focus %d line %v path area %v selected %q\n%s", m.screen, m.section, m.focus, m.navLine(), m.pathArea, selected, view)
 }
 
 // clickDialogs are the questions of the kit's dialog, each over the screen and in the workspace of a terminal
@@ -287,6 +324,7 @@ func questionCases() []struct {
 		{"rename question", func(t *testing.T) *Model {
 			m, _, _ := newModel(t)
 			seedConnections(t, m, "docs")
+			fixIDs(t, m)
 			startRename(t, m, sectionServices, "wiki", "handbook")
 			pump(t, m, firstKey(t, actSave))
 			if m.screen != screenRename {
@@ -361,76 +399,106 @@ func answerActions(q ask) []action {
 
 // Every control of the frame is a target, and a click in its middle acts as the first key bound to its action,
 // with every question and check of the key: the back button and the keys of the header, every key group of
-// the footer, and the tabs, whose click on the tab line is the digit of the area. The dialog answers the key
-// line names are targets as well. The keys come from the keymap, also after the preferences rebound some.
+// the footer, and the tabs, whose click on the tab line is the digit of the area, and the sections of the path
+// and the choice field, whose click is enter on them. The dialog answers the key line names are targets as
+// well. The keys come from the keymap, also after the preferences rebound some, in every navigation form.
 func TestEveryScreenControlHasATargetAndClicksAsItsKey(t *testing.T) {
 	backButtons, footerTargets := 0, 0
 	var listTargets listTargetCount
 	var barTargets barTargetCount
-	for _, binding := range []struct {
-		name string
-		keys map[action]string
-	}{{"default keys", nil}, {"rebound keys", map[action]string{actInfo: "f3", actSave: "f4", actHelp: "ctrl+x", actCommand: "f6", actLock: "ctrl+l"}}} {
-		for _, screen := range keyLineScreens() {
-			t.Run(binding.name+"/"+screen.name, func(t *testing.T) {
-				keepKeys(t)
-				applyKeys(binding.keys)
-				base := screen.build(t)
-				base.render()
-				barTargets.add(assertBarTargetsClickAsKeys(t, base, screen.build))
-				if base.modalShown() {
-					if len(base.frameKeys) > 0 {
-						t.Fatalf("the frame behind a modal has key targets: %+v", base.frameKeys)
-					}
-					return
+	for _, form := range PrefsSchema().Navigations {
+		for _, binding := range []struct {
+			name string
+			keys map[action]string
+		}{{"default keys", nil}, {"rebound keys", map[action]string{actInfo: "f3", actSave: "f4", actHelp: "ctrl+x", actCommand: "f6", actLock: "ctrl+l"}}} {
+			for _, screen := range keyLineScreens() {
+				build := func(t *testing.T) *Model {
+					m := screen.build(t)
+					m.prefs.Navigation = form
+					return m
 				}
-				assertFrameControlsAreTargets(t, base)
-				for _, target := range base.frameKeys {
-					x, y := target.Rect.X+(target.Rect.Width-1)/2, target.Rect.Y
-					if target.Action == actBack && y == 0 {
-						backButtons++
+				t.Run(form+"/"+binding.name+"/"+screen.name, func(t *testing.T) {
+					keepKeys(t)
+					applyKeys(binding.keys)
+					base := build(t)
+					base.render()
+					barTargets.add(assertBarTargetsClickAsKeys(t, base, build))
+					if base.modalShown() {
+						if len(base.frameKeys) > 0 {
+							t.Fatalf("the frame behind a modal has key targets: %+v", base.frameKeys)
+						}
+						return
 					}
-					if y > 0 {
-						footerTargets++
+					assertFrameControlsAreTargets(t, base)
+					for _, target := range base.frameKeys {
+						x, y := target.Rect.X+(target.Rect.Width-1)/2, target.Rect.Y
+						if target.Action == actBack && y == 0 {
+							backButtons++
+						}
+						if y > 0 {
+							footerTargets++
+						}
+						assertClickActsAsKey(t, build, x, y, firstKey(t, target.Action))
 					}
-					assertClickActsAsKey(t, screen.build, x, y, firstKey(t, target.Action))
-				}
-				listTargets.add(assertListTargetsClickAsKeys(t, base, screen.build))
-				if base.screen != screenNav || base.navSub {
-					return
-				}
-				// On the focused tab line the arrows reach a tab as its click does: the area opens there and the
-				// line keeps the focus; the sub-tabs lie one line down.
-				active := base.section.area()
-				for _, target := range base.frameTabs {
-					a, _ := areaByName(string(target.Area))
-					keys := slices.Repeat([]string{"right"}, (int(a)-int(active)+int(areaCount))%int(areaCount))
-					if target.Tab != "" {
-						at := slices.IndexFunc(areaSections[a], func(s section) bool { return s.key() == string(target.Tab) })
-						keys = append([]string{"down"}, slices.Repeat([]string{"right"}, at-base.section.index())...)
+					listTargets.add(assertListTargetsClickAsKeys(t, base, build))
+					if base.screen != screenNav || base.onOptionBar() {
+						return
 					}
-					assertClickActsAsKey(t, screen.build, target.Rect.X+(target.Rect.Width-1)/2, target.Rect.Y, keys...)
+					// On the focused tab line the arrows reach a tab as its click does: the area opens there and the
+					// line keeps the focus; the sub-tabs lie one line down. On the path left and right choose its
+					// section and enter opens it, as on the choice field.
+					active := base.section.area()
+					for _, target := range base.frameTabs {
+						a, _ := areaByName(string(target.Area))
+						keys := slices.Repeat([]string{"right"}, (int(a)-int(active)+int(areaCount))%int(areaCount))
+						switch {
+						case target.Zone == kittui.ZonePath && target.Tab == "":
+							keys = []string{"left", "enter"}
+						case target.Zone == kittui.ZonePath:
+							keys = []string{"right", "enter"}
+						case target.Zone == kittui.ZoneTabs && base.navForm() == kittui.NavHeaderChoice:
+							keys = []string{"enter"}
+						case target.Tab != "":
+							at := slices.IndexFunc(areaSections[a], func(s section) bool { return s.key() == string(target.Tab) })
+							keys = append([]string{"down"}, slices.Repeat([]string{"right"}, at-base.section.index())...)
+						}
+						assertClickActsAsKey(t, build, target.Rect.X+(target.Rect.Width-1)/2, target.Rect.Y, keys...)
+					}
+				})
+			}
+			for _, help := range clickHelps() {
+				build := func(t *testing.T) *Model {
+					m := help.build(t)
+					m.prefs.Navigation = form
+					// The targets of the open help come from the last drawing, which the form changes.
+					m.render()
+					return m
 				}
-			})
-		}
-		for _, help := range clickHelps() {
-			t.Run(binding.name+"/"+help.name, func(t *testing.T) {
-				keepKeys(t)
-				applyKeys(binding.keys)
-				assertHelpTargetsClickAsKeys(t, help.build, help.lists)
-			})
-		}
-		t.Run(binding.name+"/explanation", func(t *testing.T) {
-			keepKeys(t)
-			applyKeys(binding.keys)
-			assertExplanationTargetsClickAsKeys(t)
-		})
-		for _, dialog := range clickDialogs() {
-			t.Run(binding.name+"/"+dialog.name, func(t *testing.T) {
-				keepKeys(t)
-				applyKeys(binding.keys)
-				assertDialogTargetsClickAsKeys(t, dialog.build)
-			})
+				t.Run(form+"/"+binding.name+"/"+help.name, func(t *testing.T) {
+					keepKeys(t)
+					applyKeys(binding.keys)
+					assertHelpTargetsClickAsKeys(t, build, help.lists)
+				})
+			}
+			if form == PrefsSchema().DefaultNavigation {
+				t.Run(form+"/"+binding.name+"/explanation", func(t *testing.T) {
+					keepKeys(t)
+					applyKeys(binding.keys)
+					assertExplanationTargetsClickAsKeys(t)
+				})
+			}
+			for _, dialog := range clickDialogs() {
+				build := func(t *testing.T) *Model {
+					m := dialog.build(t)
+					m.prefs.Navigation = form
+					return m
+				}
+				t.Run(form+"/"+binding.name+"/"+dialog.name, func(t *testing.T) {
+					keepKeys(t)
+					applyKeys(binding.keys)
+					assertDialogTargetsClickAsKeys(t, build)
+				})
+			}
 		}
 	}
 	if backButtons == 0 || footerTargets == 0 {
@@ -835,6 +903,20 @@ func assertFrameControlsAreTargets(t *testing.T, m *Model) {
 				t.Errorf("the footer group %q has no target:\n%s", g.Text(), lines[y])
 			}
 		}
+	}
+	if m.navForm() != kittui.NavTabs {
+		// The path and the choice field name the current place alone, a short path only its last section, and
+		// the guided setup none.
+		fields := 0
+		for _, target := range m.frameTabs {
+			if target.Zone == kittui.ZonePath || target.Zone == kittui.ZoneTabs {
+				fields++
+			}
+		}
+		if (fields > 0) == (m.wizard != nil) || fields > 2 {
+			t.Errorf("%d targets of the path or the choice field:\n%s", fields, strings.Join(lines[:3], "\n"))
+		}
+		return
 	}
 	tabs := 0
 	for _, target := range m.frameTabs {

@@ -150,13 +150,14 @@ func TestPrefsOfEarlierVersionsLoadWithoutWarning(t *testing.T) {
 	}{
 		{"v2.0.0", "theme: dark\nstart: library\nicons: none\nlanguage: english\nmouse: true\n",
 			kitprefs.Prefs{Theme: uiprefs.ThemeQatlasDark, Start: "library", Icons: kitprefs.IconsUnicode,
-				Language: kitprefs.LanguageEnglish, MouseEnabled: true}},
+				Language: kitprefs.LanguageEnglish, MouseEnabled: true, Navigation: kitprefs.NavigationTabs}},
 		{"v2.2.0 default", "theme: terminal\nstart: overview\nicons: unicode\nlanguage: english\nmouse: true\nformat: 2\n",
 			defaultPrefs()},
 		{"v2.2.0 changed", "theme: qatlas dark\nstart: overview\nicons: nerdfont\nlanguage: deutsch\nmouse: false\nformat: 2\n" +
 			"keys:\n  info: f3\n  save: f4\n",
 			kitprefs.Prefs{Theme: uiprefs.ThemeQatlasDark, Start: uiprefs.DefaultStart, Icons: kitprefs.IconsNerdFont,
-				Language: kitprefs.LanguageGerman, Keys: map[action]string{actInfo: "f3", actSave: "f4"}}},
+				Language: kitprefs.LanguageGerman, Keys: map[action]string{actInfo: "f3", actSave: "f4"},
+				Navigation: kitprefs.NavigationTabs}},
 	} {
 		got, warnings := kitprefs.LoadWarnings(writePrefs(t, tc.file), PrefsSchema())
 		if !reflect.DeepEqual(got, tc.want) || len(warnings) != 0 {
