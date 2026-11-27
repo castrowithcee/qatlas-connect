@@ -39,18 +39,18 @@ func TestLogDetailScrollsALongResult(t *testing.T) {
 				m.logs.detail = i
 			}
 		}
-		m.logs.view.reset()
+		m.logs.text = nil
 		m.screen = screenLogDetail
 	}
 	open("op.short")
-	if view := screenOf(m); hasPosition(view) || strings.Contains(view, "scroll") {
-		t.Fatalf("a short entry shows a position:\n%s", view)
+	if view := screenOf(m); !strings.Contains(view, "response") {
+		t.Fatalf("a short entry does not show every field:\n%s", view)
 	}
 	m.Update(tea.WindowSizeMsg{Width: 80, Height: 18})
 	open("op.long")
 	view := screenOf(m)
 	assertViewFits(t, view, 80, 18)
-	if !hasPosition(view) || strings.Contains(view, "response") || !strings.Contains(view, "↑/↓ scroll") {
+	if !hasPosition(view) || strings.Contains(view, "response") {
 		t.Fatalf("a long entry does not offer to scroll:\n%s", view)
 	}
 	press(t, m, "end")
@@ -59,15 +59,89 @@ func TestLogDetailScrollsALongResult(t *testing.T) {
 	if !strings.Contains(view, "response") {
 		t.Fatalf("end does not reach the last line:\n%s", view)
 	}
+	// The whole value is there, wrapped over its lines: the copy and the view hold the same characters.
 	press(t, m, "home")
-	press(t, m, "down")
-	if m.logs.view.offset() != 1 {
-		t.Errorf("down moved to %d, want 1", m.logs.view.offset())
+	if !strings.Contains(screenOf(m), longText(400)[:60]) {
+		t.Errorf("the start of the long result is not shown:\n%s", screenOf(m))
 	}
+	before := screenOf(m)
 	wheelAt(t, m, 20, 10, tea.MouseWheelDown)
-	if m.logs.view.offset() != 4 {
-		t.Errorf("a notch of the wheel moved to %d, want 4", m.logs.view.offset())
+	if screenOf(m) == before {
+		t.Errorf("a notch of the wheel did not scroll the detail")
 	}
+}
+
+// The detail of an entry searches its text, wraps and numbers its lines, jumps between matches and goes back
+// to the rows with esc, while the search is typed every key is text, and the copy is the text as it is drawn.
+func TestLogDetailSearchWrapAndEsc(t *testing.T) {
+	f := newLogFixture(t)
+	f.append("cli", "", "wiki.pages.read", "wiki", longText(200))
+	m := f.model(true, f.localToday())
+	m.Update(tea.WindowSizeMsg{Width: 60, Height: 30})
+	press(t, m, "down", "enter")
+	if m.screen != screenLogDetail {
+		t.Fatalf("enter = screen %v, want the detail", m.screen)
+	}
+	// A typed search takes the letters of the keys and the digits of the areas as text.
+	press(t, m, "/", "w", "c", "2")
+	if m.screen != screenLogDetail || !m.logs.text.Searching() || m.logs.text.Query() != "wc2" {
+		t.Fatalf("the typed search is %q on screen %v", m.logs.text.Query(), m.screen)
+	}
+	press(t, m, "esc")
+	if m.screen != screenLogDetail || m.logs.text.Query() != "" || m.logs.text.Searching() {
+		t.Fatalf("esc did not clear the search first")
+	}
+	press(t, m, "/")
+	typeText(t, m, "wiki")
+	press(t, m, "enter")
+	view := screenOf(m)
+	if m.logs.text.Query() != "wiki" || !strings.Contains(view, "wiki") {
+		t.Fatalf("the search is not kept:\n%s", view)
+	}
+	press(t, m, "]", "[")
+	if m.screen != screenLogDetail {
+		t.Fatalf("a jump left the detail: screen %v", m.screen)
+	}
+	wrapped, numbers := m.logs.text.Wrapping(), m.logs.text.LineNumbers()
+	press(t, m, "w", "#")
+	if m.logs.text.Wrapping() == wrapped || m.logs.text.LineNumbers() == numbers {
+		t.Errorf("w and # did not switch wrapping (%v) and numbers (%v)", m.logs.text.Wrapping(), m.logs.text.LineNumbers())
+	}
+	got, ok := pressCopy(m)
+	if !ok || got != m.logDetailText(m.logs.rows[m.logs.detail]) {
+		t.Errorf("c copied %q, want the text of the detail", got)
+	}
+	press(t, m, "esc", "esc")
+	if m.screen != screenLogs {
+		t.Fatalf("esc = screen %v, want the Logs screen", m.screen)
+	}
+}
+
+// A control character and a terminal sequence in the log reach neither the detail nor the copy, and a secret
+// of the run reaches neither.
+func TestLogDetailShowsNoControlCharacterOrSecret(t *testing.T) {
+	f := newLogFixture(t)
+	f.append("cli", "cli\x1b]0;title\x07", "op.one", "wiki", "boom canary-detail-secret \x1b[31mred\x00\u202e end")
+	m := f.model(true, f.localToday())
+	m.redactor.Add("canary-detail-secret")
+	m.Update(tea.WindowSizeMsg{Width: 100, Height: 40})
+	press(t, m, "down", "enter")
+	view := m.render()
+	copied, ok := pressCopy(m)
+	if !ok {
+		t.Fatal("c handed nothing over")
+	}
+	for name, text := range map[string]string{"view": view, "copy": copied} {
+		for _, bad := range []string{"\x1b[31m", "\x1b]0;", "\x07", "\x00", "\u202e", "canary-detail-secret"} {
+			if strings.Contains(text, bad) {
+				t.Errorf("the %s holds %q:\n%s", name, bad, text)
+			}
+		}
+		if !strings.Contains(text, "boom") || !strings.Contains(text, "[redacted]") {
+			t.Errorf("the %s lost the message or its redaction:\n%s", name, text)
+		}
+	}
+	noControl(t, "detail copy", copied)
 }
 
 // longRawModel is a table model whose connection has many targets, so its raw tab outgrows the pane.

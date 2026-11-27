@@ -192,8 +192,8 @@ func (m *Model) approvalDetailKeys() string {
 }
 
 var (
-	hintLead        = regexp.MustCompile(`^\{\w+\}((?:/|, | or | oder )\{\w+\})*`)
-	hintPlaceholder = regexp.MustCompile(`\{(\w+)\}`)
+	hintLead        = regexp.MustCompile(`^\{[\w.]+\}((?:/|, | or | oder )\{[\w.]+\})*`)
+	hintPlaceholder = regexp.MustCompile(`\{([\w.]+)\}`)
 )
 
 // hintParts splits the raw text of a key group into the actions its leading key placeholders name and the

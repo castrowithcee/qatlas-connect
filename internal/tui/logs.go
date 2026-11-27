@@ -173,9 +173,10 @@ type logRow struct {
 
 // logView is the state of the Logs section.
 type logView struct {
-	// view scrolls the detail screen of one entry; page is how many of its lines the last drawing showed.
-	view textScroll
-	page int
+	// text is the detail screen of one entry, made anew on opening an entry and when the language changes
+	// (textLang); the rows it shows are replaced by a load.
+	text     *kit.TextView
+	textLang i18n.Lang
 	// position is the place of the marked row among the shown ones, as the full frame of the table names it.
 	position string
 	mode     logMode
@@ -384,7 +385,7 @@ func (m *Model) handleLogsLoaded(msg logsLoadedMsg) tea.Cmd {
 	if msg.note != "" {
 		lv.note = m.redactor.Apply(msg.note)
 	}
-	lv.rows, lv.worst = nil, logVerified
+	lv.rows, lv.worst, lv.text = nil, logVerified, nil
 	for _, day := range msg.days {
 		for _, line := range day.Lines {
 			// An undated line cannot be assigned to a local day. Keep it with its overlapping UTC
@@ -606,7 +607,7 @@ func (m *Model) updateLogs(key tea.KeyPressMsg) tea.Cmd {
 		case logFocusRows:
 			if i, ok := lv.markedRow(); ok && !lv.stats && !lv.heat {
 				lv.detail = i
-				lv.view.reset()
+				lv.text = nil
 				m.screen = screenLogDetail
 				m.clearMessages()
 			}
@@ -655,16 +656,26 @@ func (m *Model) updateLogSearch(key tea.KeyPressMsg) tea.Cmd {
 	return nil
 }
 
-// updateLogDetail handles the detail screen of one entry.
+// updateLogDetail handles the detail screen of one entry. While its search is typed every key is text.
 func (m *Model) updateLogDetail(key tea.KeyPressMsg) tea.Cmd {
+	tv := m.logDetailTextView()
+	if tv != nil {
+		if content, ok := pasted(key); ok && tv.Paste(content) {
+			return nil
+		}
+		if tv.Searching() {
+			tv.Update(key)
+			return nil
+		}
+	}
 	if s, ok := sectionShortcut(key.String()); ok {
 		return m.openSection(s)
 	}
-	switch {
-	case keyIs(key, actBack):
+	if tv != nil && tv.Update(key) {
+		return nil
+	}
+	if keyIs(key, actBack) {
 		m.screen = screenLogs
-	default:
-		m.logs.view.scroll(key, m.logs.page)
 	}
 	return nil
 }
@@ -1087,59 +1098,6 @@ func (lv *logView) shownEntries() []invokelog.Entry {
 		}
 	}
 	return entries
-}
-
-// logDetailView shows every field of one entry, and its status with the reason.
-func (m *Model) logDetailView() string {
-	lv := m.logs
-	if lv.detail < 0 || lv.detail >= len(lv.rows) {
-		return m.keyHint(keysBackOnly)
-	}
-	head, lines := m.logDetailLayout(lv.rows[lv.detail])
-	keys := keysLogDetail
-	// The lines after the last field are the key line and the notes, and at least the empty line the view
-	// ends in.
-	tail := func(keys string) int { return strings.Count(m.keyHint(keys)+m.notes(), "\n") + 1 }
-	room := m.height - strings.Count(head, "\n") - tail(keys)
-	position := ""
-	if total := len(lines); total > room {
-		keys = keysScroll + keys
-		room = max(m.height-strings.Count(head, "\n")-tail(keys)-1, 1)
-		lv.page = room
-		lines = lv.view.window(lines, room, false)
-		position = m.wrapped(styles.hint, lv.view.position(total, room)) + "\n"
-	} else {
-		lv.view.reset()
-	}
-	return head + strings.Join(lines, "\n") + "\n" + position + m.keyHint(keys)
-}
-
-// logDetailLayout is the heading and the laid out fields of the detail screen of one entry. The fields are
-// laid out first and shown from the scroll position on, so a long message scrolls and nothing is cut.
-func (m *Model) logDetailLayout(row logRow) (string, []string) {
-	var b strings.Builder
-	head := m.wrapped(styles.title, m.logDetailTitle(row)) + "\n\n"
-	m.formCol = m.labelColumn(logLabel("status"), logLabel("UTC file"), logLabel("sequence"), logLabel("day"), logLabel("kind"),
-		logLabel("through"), logLabel("way"), logLabel("client"), logLabel("tool"), logLabel("connection"),
-		logLabel("effect"), logLabel("result"), logLabel("duration"), logLabel("request"), logLabel("response"))
-	defer func() { m.formCol = 0 }()
-	for _, f := range m.logDetailFields(row) {
-		b.WriteString(m.formRow(false, f.label, f.value) + "\n")
-	}
-	return head, strings.Split(strings.TrimSuffix(b.String(), "\n"), "\n")
-}
-
-// logDetailKeys is the key text of the detail screen: a text longer than the room gains the scroll keys.
-func (m *Model) logDetailKeys() string {
-	lv := m.logs
-	if lv.detail < 0 || lv.detail >= len(lv.rows) {
-		return keysBackOnly
-	}
-	head, lines := m.logDetailLayout(lv.rows[lv.detail])
-	if len(lines) > m.height-strings.Count(head, "\n")-strings.Count(m.notes(), "\n")-1 {
-		return keysScroll + keysLogDetail
-	}
-	return keysLogDetail
 }
 
 // logDetailTitle is the heading of the detail screen of one entry.

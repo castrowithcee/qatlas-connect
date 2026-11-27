@@ -248,6 +248,10 @@ func visualShots() []visualShot {
 		{"32-activity-heatmap-no-color", 150, 42, dark, true, activityHeatmap},
 		{"33-activity-table", 80, 24, dark, false, activityTable},
 		{"34-activity-heatmap", 80, 24, dark, false, activityHeatmap},
+		{"36-activity-entry", 150, 42, dark, false, func(t *testing.T, m *Model) {
+			activityTable(t, m)
+			pump(t, m, "down", "enter")
+		}},
 		{"35-activity-empty", 150, 42, dark, false, func(t *testing.T, m *Model) { pump(t, m, "4") }},
 		{"50-provider-picker", 150, 42, dark, false, func(t *testing.T, m *Model) {
 			openSectionByName(t, m, sectionConnections)
