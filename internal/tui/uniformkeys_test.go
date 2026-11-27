@@ -134,12 +134,12 @@ func TestVimKeysMoveLikeTheArrowsOnEveryKindOfScreen(t *testing.T) {
 		openEntryForm(t, m, sectionConnections, "gh-a")
 		openTargetList(t, m)
 		press(t, m, "j")
-		if m.targetList.cursor != 1 {
-			t.Fatalf("j = cursor %d, want 1", m.targetList.cursor)
+		if targetCursor(m) != 1 {
+			t.Fatalf("j = cursor %d, want 1", targetCursor(m))
 		}
 		press(t, m, "k", "l", "h")
-		if m.targetList.cursor != 0 || m.screen != screenTargets {
-			t.Fatalf("k, l, h = cursor %d screen %v, want the first target on the list", m.targetList.cursor, m.screen)
+		if targetCursor(m) != 0 || m.screen != screenTargets {
+			t.Fatalf("k, l, h = cursor %d screen %v, want the first target on the list", targetCursor(m), m.screen)
 		}
 		press(t, m, "esc")
 
@@ -165,7 +165,7 @@ func TestVimKeysMoveLikeTheArrowsOnEveryKindOfScreen(t *testing.T) {
 		openTargetList(t, m)
 		press(t, m, "n")
 		typeText(t, m, "jk")
-		if got := m.targetAdd.choices.query(); got != "jk" {
+		if got := m.targetAdd.query(); got != "jk" {
 			t.Fatalf("the add menu line = %q, want the letters as text", got)
 		}
 	})
@@ -256,8 +256,8 @@ func TestQuestionMarkOpensTheHelpWhereNothingIsTyped(t *testing.T) {
 		}
 		helpRoundTrip(t, m, "the add menu")
 		press(t, m, "x", "?")
-		if m.screen != screenTargets || m.targetAdd.choices.query() != "x?" {
-			t.Fatalf("? with a line typed: screen %v line %q, want it as text", m.screen, m.targetAdd.choices.query())
+		if m.screen != screenTargets || m.targetAdd.query() != "x?" {
+			t.Fatalf("? with a line typed: screen %v line %q, want it as text", m.screen, m.targetAdd.query())
 		}
 		press(t, m, "esc", "esc") // the leave question
 		m.screen = screenTargets

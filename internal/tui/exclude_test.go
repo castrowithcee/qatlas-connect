@@ -129,6 +129,20 @@ func exclusionState(m *Model) (reach, out []string) {
 	return reachableOf(m.targetList.all, m.targetExcluded), excludesOf(m.targetList.all, m.targetExcluded)
 }
 
+// rowHas reports whether one line of view holds every one of words.
+func rowHas(view string, words ...string) bool {
+	for _, line := range strings.Split(view, "\n") {
+		found := true
+		for _, w := range words {
+			found = found && strings.Contains(line, w)
+		}
+		if found {
+			return true
+		}
+	}
+	return false
+}
+
 func TestSpaceSwitchesATargetRowBetweenReachableAndExcluded(t *testing.T) {
 	m, path := toolsModel(t, excluderRegistry(t), map[string]config.Connection{"ex": {
 		Service: "wiki", Credential: "reader", Targets: []string{"repos/o/a", "repos/o/b", "repos/o/c"}}})
@@ -138,7 +152,7 @@ func TestSpaceSwitchesATargetRowBetweenReachableAndExcluded(t *testing.T) {
 		t.Fatalf("the footer does not name space:\n%s", screenOf(m))
 	}
 	press(t, m, "down", " ")
-	if !m.targetExcluded["repos/o/b"] || !strings.Contains(screenOf(m), "[excluded] repos/o/b") {
+	if !m.targetExcluded["repos/o/b"] || !rowHas(screenOf(m), "repos/o/b", "[excluded]") {
 		t.Fatalf("space did not exclude the row:\n%s", screenOf(m))
 	}
 	press(t, m, "r")

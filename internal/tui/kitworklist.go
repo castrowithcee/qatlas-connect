@@ -36,6 +36,11 @@ func (m *Model) workspaceList() *kittui.List {
 	switch {
 	case m.screen == screenFindings && m.findings != nil:
 		return m.findings.list
+	case m.screen == screenTargets && m.targetPick == nil && m.targetAdd != nil:
+		return m.targetAdd.choices
+	case m.screen == screenTargets && m.targetPick == nil && m.targetEdit < 0 && !m.labelEdit && !m.targetRemove &&
+		m.targetList.list != nil:
+		return m.targetList.list
 	case m.screen == screenTransfer && m.export != nil && m.export.step == exportSelect:
 		return m.export.list
 	case m.screen == screenTransfer && m.export != nil && m.export.step == exportMode:

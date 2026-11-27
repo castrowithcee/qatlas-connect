@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	tea "charm.land/bubbletea/v2"
+	kittui "github.com/castrowithcee/qatlas-kit/tui"
 
 	"github.com/castrowithcee/qatlas-connect/internal/config"
 )
@@ -32,8 +33,10 @@ const (
 
 // targetAdd is the add menu while it is open, and the builder once a kind was chosen in it.
 type targetAdd struct {
-	choices filterList
-	text    map[string]string
+	choices *kittui.List
+	// rows are the keys of the lines of choices, by index, and text what each shows.
+	rows []string
+	text map[string]string
 	// known are the targets other connections of the service use, with the connections that use them.
 	known map[string][]string
 	// kind is the chosen kind, or -1 in the menu. forms are the forms of the kind, split into segments,
@@ -92,9 +95,7 @@ func (m *Model) startAdd() {
 		m.editTarget(len(m.targetList.all), "")
 		return
 	}
-	a := &targetAdd{known: known, kind: -1, text: map[string]string{}}
-	a.choices = newFilterList(func(key string) string { return a.text[key] })
-	a.choices.startFilter()
+	a := &targetAdd{known: known, kind: -1, text: map[string]string{}, choices: newAddList()}
 	m.targetAdd = a
 	m.clearMessages()
 	m.refreshAdd()
@@ -104,7 +105,7 @@ func (m *Model) startAdd() {
 // comes first, so enter takes what was typed rather than a longer value that happens to contain it.
 func (m *Model) refreshAdd() {
 	a := m.targetAdd
-	query := a.choices.query()
+	query := a.query()
 	a.text = map[string]string{}
 	var rows []string
 	add := func(key, text string) {
@@ -182,10 +183,8 @@ func (m *Model) refreshAdd() {
 			a.text[addTyped] = tr(tTargetTypeAValueOrChoose)
 		}
 	}
-	a.choices.setItems(rows)
-	if exact == "" || !a.choices.selectName(exact) {
-		a.choices.cursor = 0
-	}
+	a.rows = rows
+	m.showAdd(exact)
 }
 
 // step is what the builder asks for next: the placeholders the remaining forms have at the next segment,
@@ -302,8 +301,7 @@ func (m *Model) startBuilder(kind int) {
 
 // resetAddLine empties the typed line of the add menu and shows the rows for it.
 func (m *Model) resetAddLine() {
-	m.targetAdd.choices.input.SetValue("")
-	m.targetAdd.choices.offset = 0
+	m.targetAdd.choices.SetFilter("")
 	m.refreshAdd()
 }
 
@@ -346,7 +344,7 @@ func (m *Model) finishAdd(target string) {
 // pickAdd acts on one row of the menu or the builder.
 func (m *Model) pickAdd(key string) {
 	a := m.targetAdd
-	query := a.choices.query()
+	query := a.query()
 	switch {
 	case key == addTyped && a.kind < 0:
 		if query == "" {
@@ -390,7 +388,7 @@ func (m *Model) saveAdd() bool {
 	a := m.targetAdd
 	if a.kind < 0 {
 		// The typed line is taken as typed; a filter that found a row is not a choice of that row.
-		if query := a.choices.query(); query != "" {
+		if query := a.query(); query != "" {
 			m.finishAdd(query)
 			return m.targetEdit < 0
 		}
@@ -399,7 +397,7 @@ func (m *Model) saveAdd() bool {
 	}
 	// Only a typed value completes a build here; a row that is merely selected is no choice, so a pattern
 	// such as * never reaches the list without enter or typing it.
-	if query := a.choices.query(); query != "" {
+	if query := a.query(); query != "" {
 		key := addTyped
 		if _, ok := a.text[addValue+query]; ok {
 			key = addValue + query
@@ -436,23 +434,32 @@ func (m *Model) addAsk() string {
 	return strings.Join(parts, tr(tTargetOr))
 }
 
-// updateAdd handles the menu and the builder. Every printable key belongs to the typed line.
+// updateAdd handles the menu and the builder. Every printable key belongs to the typed line, and the first
+// back clears it.
 func (m *Model) updateAdd(key tea.KeyPressMsg) tea.Cmd {
 	a := m.targetAdd
+	if content, ok := pasted(key); ok {
+		a.choices.Paste(content)
+		m.refreshAdd()
+		return nil
+	}
 	switch {
 	case keyIs(key, actBack):
 		switch {
+		case a.query() != "":
+			a.choices.Act(actBack)
+			m.refreshAdd()
 		case a.kind >= 0 && len(a.history) > 1:
 			m.stepBack()
-		case a.kind >= 0 || a.choices.query() != "":
-			// The first step of a build and a typed line each hold something that esc would drop.
+		case a.kind >= 0:
+			// The first step of a build holds something that esc would drop.
 			m.askLeave(false)
 		default:
 			m.targetAdd = nil
 			m.clearMessages()
 		}
 	case keyIs(key, actEnter):
-		if choice, ok := a.choices.selected(); ok {
+		if choice, ok := a.selected(); ok {
 			if kind, isPick := strings.CutPrefix(choice, addPick); isPick && a.kind < 0 {
 				return m.startPick(kind)
 			}
@@ -460,27 +467,19 @@ func (m *Model) updateAdd(key tea.KeyPressMsg) tea.Cmd {
 				m.setAsExclusion(!m.targetAsExclusion)
 				return nil
 			}
-			if choice == addTyped && a.kind < 0 && looksLikeURL(a.choices.query()) {
-				if cmd, ok := m.startResolve(strings.TrimSpace(a.choices.query())); ok {
+			if choice == addTyped && a.kind < 0 && looksLikeURL(a.query()) {
+				if cmd, ok := m.startResolve(a.query()); ok {
 					return cmd
 				}
 			}
 			m.pickAdd(choice)
 		}
-	case keyIs(key, actUp):
-		a.choices.move(-1)
-	case keyIs(key, actDown):
-		a.choices.move(1)
-	case keyIs(key, actPageUp) || keyIs(key, actPageDown) || keyIs(key, actHome) || keyIs(key, actEnd):
-		start, end := m.addWindow()
-		a.choices.page(key, start, end)
 	default:
-		before := a.choices.query()
-		cmd := a.choices.updateFilter(key)
-		if a.choices.query() != before {
+		before := a.choices.Query()
+		a.choices.Update(key)
+		if a.choices.Query() != before {
 			m.refreshAdd()
 		}
-		return cmd
 	}
 	return nil
 }
@@ -491,7 +490,6 @@ func (m *Model) addFrame() (string, string) {
 	a := m.targetAdd
 	metadata := m.targetMetadata()
 	var head strings.Builder
-	label := tr(tTargetFilterOrType)
 	if a.kind < 0 {
 		head.WriteString(p.top(tr(tTargetAddA, metadata.Label), ""))
 		hint := tr(tTargetBuildANewTargetStep)
@@ -512,14 +510,9 @@ func (m *Model) addFrame() (string, string) {
 			forms = append(forms, strings.Join(form, "/"))
 		}
 		head.WriteString(p.text(styles.hint, tr(tTargetSoFarForms, so, strings.Join(forms, ", "))))
-		label = tr(tTargetValue)
 	}
 	if m.targetAsExclusion {
 		head.WriteString(p.text(styles.warning, tr(tTargetTakenAsExclusion)))
-	}
-	head.WriteString(p.styled(m.searchLineIn(p.room, &a.choices, label)))
-	if len(a.choices.matches) == 0 {
-		head.WriteString(p.text(styles.hint, tr(tTargetNothingToChooseTypeA)))
 	}
 	return head.String(), p.bottom() + m.keyHint(m.addKeys()) + m.notes()
 }
@@ -538,38 +531,14 @@ func (m *Model) addKeys() string {
 			keys = "type a value or filter · {up}/{down} move · {enter} choose · " + save + " · {back} cancel entry"
 		}
 	}
-	if a.choices.query() == "" {
+	if a.query() == "" {
 		keys += " · {command} cmds · {help} help"
 	}
 	return keys
 }
 
-func (m *Model) addRow(i int) string {
-	a := m.targetAdd
-	return m.dialogPanelOf().row(i == a.choices.cursor, a.text[a.choices.matches[i]])
-}
-
-func (m *Model) addWindow() (int, int) {
-	header, footer := m.addFrame()
-	return m.windowIn(&m.targetAdd.choices, header, footer, m.addRow)
-}
-
 // addView draws the add menu or the builder.
 func (m *Model) addView() string {
 	header, footer := m.addFrame()
-	var b strings.Builder
-	b.WriteString(header)
-	start, end := m.addWindow()
-	for i := start; i < end; i++ {
-		b.WriteString(m.addRow(i) + "\n")
-	}
-	a := m.targetAdd
-	m.hitRows(m.hitTop(header), m.usable(0), start, end, m.addRow, func(i int) tea.Cmd {
-		if m.screen != screenTargets || m.targetAdd != a || i >= len(a.choices.matches) {
-			return nil
-		}
-		return markOrAct(&a.choices.cursor, i, true, func() tea.Cmd { return m.press(tea.KeyPressMsg{Code: tea.KeyEnter}) })
-	})
-	b.WriteString(footer)
-	return b.String()
+	return m.workList(m.targetAdd.choices, header, footer)
 }

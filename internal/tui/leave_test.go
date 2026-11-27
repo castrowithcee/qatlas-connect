@@ -89,17 +89,14 @@ func TestATypedTargetOrPathAsksBeforeItIsDropped(t *testing.T) {
 	}
 	press(t, m, "n")
 	typeText(t, m, "repos/octo/b")
+	// In the add menu the typed line is the filter of its list: the first esc clears it, the next closes the menu.
 	press(t, m, "esc")
-	if view := screenOf(m); m.screen != screenLeave || !strings.Contains(view, "typed target was not taken") {
-		t.Fatalf("esc on a typed target did not ask: screen %v\n%s", m.screen, view)
+	if m.screen != screenTargets || m.targetAdd == nil || m.targetAdd.query() != "" {
+		t.Fatalf("the first esc did not clear the typed line: screen %v", m.screen)
 	}
 	press(t, m, "esc")
-	if m.screen != screenTargets || m.targetAdd == nil || m.targetAdd.choices.query() != "repos/octo/b" {
-		t.Fatalf("esc did not return to the typed line: screen %v", m.screen)
-	}
-	press(t, m, "esc", "d")
 	if m.screen != screenTargets || m.targetAdd != nil || len(m.targetList.all) != 1 {
-		t.Fatalf("d did not drop the typed line: screen %v, targets %v", m.screen, m.targetList.all)
+		t.Fatalf("the second esc did not close the menu: screen %v, targets %v", m.screen, m.targetList.all)
 	}
 	press(t, m, "enter")
 	typeText(t, m, "x")
@@ -113,9 +110,9 @@ func TestATypedTargetOrPathAsksBeforeItIsDropped(t *testing.T) {
 	}
 	press(t, m, "n")
 	typeText(t, m, "repos/octo/b")
-	press(t, m, "esc", "f2")
+	press(t, m, "f2")
 	if m.fail != "" || m.screen != screenList {
-		t.Fatalf("F2 in the question did not take and save the target: screen %v, error %q", m.screen, m.fail)
+		t.Fatalf("F2 on the typed line did not take and save the target: screen %v, error %q", m.screen, m.fail)
 	}
 	if saved := savedConnection(t, m.store.Path(), reg, "gh"); len(saved.Targets) != 2 {
 		t.Fatalf("saved %q / %v, want both targets", saved.Target, saved.Targets)
