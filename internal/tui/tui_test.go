@@ -338,18 +338,19 @@ func selectAccess(t *testing.T, m *Model, mode string) {
 func chooseProvider(t *testing.T, m *Model, want string) {
 	t.Helper()
 	press(t, m, "enter")
-	if m.screen != screenProviders {
+	if !choiceOpen(m, screenProviders) {
 		t.Fatalf("enter on the provider row opened screen %v, want the provider table", m.screen)
 	}
 	press(t, m, "home")
-	for range m.providers.list.matches {
-		if id, _ := m.providers.list.selected(); id == want {
+	shown := shownProviders(m)
+	for range shown {
+		if markedProvider(m) == want {
 			press(t, m, "enter")
 			return
 		}
 		press(t, m, "down")
 	}
-	t.Fatalf("provider %q not in the table %v", want, m.providers.list.matches)
+	t.Fatalf("provider %q not in the table %v", want, shown)
 }
 
 // The whole MVP configuration flow works through key events alone.

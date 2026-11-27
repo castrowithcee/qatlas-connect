@@ -125,8 +125,6 @@ func (m *Model) infoSubject() infoSubject {
 			s.doc = m.docURL(f.value())
 		}
 		return s
-	case screenProviders:
-		return m.providerSubject()
 	case screenPicker:
 		return m.pickerSubject()
 	case screenTargets:
@@ -146,12 +144,12 @@ func (m *Model) infoSubject() infoSubject {
 
 // providerSubject explains the marked provider of the provider table.
 func (m *Model) providerSubject() infoSubject {
-	id, ok := m.providers.list.selected()
+	id, ok := m.providers.selected()
 	if !ok || id == "" {
 		return infoSubject{}
 	}
 	metadata, _ := m.cfg.ProviderMetadata(id)
-	return infoSubject{title: m.providers.name(id), long: metadata.Description, doc: m.docURL(id)}
+	return infoSubject{title: m.providerName(id), long: metadata.Description, doc: m.docURL(id)}
 }
 
 // pickerSubject explains the marked entry of the value picker.

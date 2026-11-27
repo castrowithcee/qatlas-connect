@@ -279,6 +279,17 @@ func visualShots() []visualShot {
 			m.askSetupTemplate()
 			pump(t, m, "down", "enter")
 		}},
+		{"25-path-list", 150, 42, dark, false, func(t *testing.T, m *Model) {
+			openEntryForm(t, m, sectionConnections, "wiki-main")
+			m.field(pathsLabel).entries = []string{"~/projects/handbook", "~/repos/wiki", "~/work/customer-a"}
+			focusField(t, m, pathsLabel)
+			pump(t, m, "enter", "down")
+		}},
+		{"43-version-list", 150, 42, dark, false, func(t *testing.T, m *Model) {
+			m.updater, m.version = choosable(), "v0.4.0"
+			openSectionByName(t, m, sectionUpdate)
+			pump(t, m, "down", "enter")
+		}},
 		{"24-connection-details-no-color", 150, 42, dark, true, func(t *testing.T, m *Model) {
 			connections(t, m)
 			pump(t, m, "down")

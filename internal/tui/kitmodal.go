@@ -135,7 +135,7 @@ func (m *Model) modalAct(act action) tea.Cmd {
 // it fits, else in the workspace with its keys in the footer, and keeps its targets: in the second case those
 // of the footer too, while header and tabs take no click.
 func (m *Model) modalFrame() string {
-	base := m.screen
+	base := m.underScreen()
 	if m.question != nil {
 		base = m.baseScreen()
 	}

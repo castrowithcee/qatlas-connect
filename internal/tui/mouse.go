@@ -218,8 +218,8 @@ func (m *Model) runTarget(r kittui.MouseResult, acts []func() tea.Cmd) tea.Cmd {
 // wheelScreens are the screens whose up and down keys move over rows; the wheel is those keys there.
 func (m *Model) wheelScreens() bool {
 	switch m.screen {
-	case screenList, screenForm, screenPicker, screenProviders, screenLogs, screenLogDetail,
-		screenTargets, screenPaths, screenTemplate, screenFindings, screenCommand, screenVersions:
+	case screenList, screenForm, screenPicker, screenLogs, screenLogDetail,
+		screenTargets, screenPaths, screenFindings, screenCommand:
 		return true
 	}
 	return m.textScreen()
@@ -404,8 +404,6 @@ func (m *Model) backShown() bool {
 		return !m.targetRemove
 	case screenPaths:
 		return !m.pathRemove
-	case screenTemplate:
-		return m.template != nil
 	case screenTransfer:
 		// The questions about approving and deleting are answered with esc, not left; a write in flight
 		// ignores it.
@@ -416,7 +414,7 @@ func (m *Model) backShown() bool {
 	case screenSelftest:
 		// A running test is ended by esc; once it is ending, esc does nothing.
 		return m.st != nil && !m.st.cancelling
-	case screenPicker, screenProviders, screenLogDetail, screenFindings, screenVersions:
+	case screenPicker, screenLogDetail, screenFindings:
 		return true
 	}
 	return false
@@ -566,6 +564,9 @@ func markOrAct(cursor *int, i int, focused bool, act func() tea.Cmd) tea.Cmd {
 // the click to the list, which marks a row, folds a group or starts the search. A click on the marked entry
 // is a press of enter, so it meets every check the key meets. A filter being typed is kept.
 func (m *Model) clickList(r kittui.MouseResult) tea.Cmd {
+	if m.screen == screenPaths {
+		return m.clickPaths(r)
+	}
 	m.list.SetFocused(m.rowsFocused())
 	switch m.screen {
 	case screenNav:
@@ -649,17 +650,6 @@ func (m *Model) hitInfoMark(text string, y, x0 int, act func() tea.Cmd) {
 		x := x0 + ansi.StringWidth(strings.TrimSuffix(plain, mark))
 		m.addHit(x, y+row, x+len(mark), y+row+1, act)
 	}
-}
-
-// hitTable makes the rows of a windowed list of a screen clickable: a click marks a row, and a click on the
-// marked row is a press of enter on it.
-func (m *Model) hitTable(l *filterList, on screen, header string, start, end int, row func(i int) string) {
-	m.hitRows(m.hitTop(header), m.usable(0), start, end, row, func(i int) tea.Cmd {
-		if m.screen != on || i >= len(l.matches) {
-			return nil
-		}
-		return markOrAct(&l.cursor, i, true, func() tea.Cmd { return m.press(tea.KeyPressMsg{Code: tea.KeyEnter}) })
-	})
 }
 
 // hitSelect makes the rows of a windowed list of a screen clickable by choosing the row only; what enter would

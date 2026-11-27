@@ -22,23 +22,22 @@ func searchScreens(t *testing.T) map[string]func() (*Model, func() string) {
 			m.Update(tea.WindowSizeMsg{Width: 80, Height: 60})
 			openProviderRow(t, m, sectionConnections)
 			press(t, m, "enter")
-			return m, func() string { return m.providers.list.query() }
+			return m, func() string { return m.providers.list.Query() }
 		},
 		"version list": func() (*Model, func() string) {
 			m := startedVersions(t, choosable())
 			openVersionList(t, m)
-			return m, func() string { return m.versionList.query() }
+			return m, func() string { return m.versions.list.Query() }
 		},
 		"template picker": func() (*Model, func() string) {
 			m, _ := templateModel(t, "alpha", "beta")
 			openSectionByName(t, m, sectionConnections)
 			m.screen = screenList
-			press(t, m, "n")
-			clickOn(t, m, "from")
+			press(t, m, "n", "down", "enter")
 			if m.template == nil || !m.template.picking {
 				t.Fatal("the template picker did not open")
 			}
-			return m, func() string { return m.templateList.query() }
+			return m, func() string { return m.template.list.Query() }
 		},
 		"target picker": func() (*Model, func() string) {
 			m := pickerModel(t, &listSource{list: pickPage(group("a"))})
@@ -57,7 +56,7 @@ func TestInfoAndCopyLettersAreTextOnEverySearchLine(t *testing.T) {
 	for name, open := range searchScreens(t) {
 		t.Run(name, func(t *testing.T) {
 			m, query := open()
-			if !m.typing() && name != "target add menu" && name != "template picker" {
+			if !m.typing() && m.modal == nil && name != "target add menu" {
 				t.Fatalf("screen %v does not read text", m.screen)
 			}
 			scr := m.screen
@@ -79,25 +78,38 @@ func TestInfoAndCopyLettersAreTextOnEverySearchLine(t *testing.T) {
 	}
 }
 
-// ? and : keep acting on an empty search line.
+// ? and : keep acting on an empty search line, except in a kit list that filters as typed, which reads them as
+// text from the first character on.
 func TestHelpAndCommandStillOpenOnAnEmptySearchLine(t *testing.T) {
 	for name, open := range searchScreens(t) {
 		t.Run(name, func(t *testing.T) {
-			m, _ := open()
+			m, query := open()
 			if name == "tool picker" {
 				t.Skip("the tool picker never opened the help from its search line")
 			}
 			press(t, m, "?")
+			if m.modal != nil && !helpOpen(m) {
+				if query() != "?" {
+					t.Fatalf("? in the kit list: query %q, want it typed", query())
+				}
+				return
+			}
 			if !helpOpen(m) {
 				t.Fatalf("? left screen %v, want the help", m.screen)
 			}
 		})
 		t.Run(name+" command", func(t *testing.T) {
-			m, _ := open()
+			m, query := open()
 			if name == "tool picker" {
 				t.Skip("the tool picker never opened the command line from its search line")
 			}
 			press(t, m, ":")
+			if m.modal != nil {
+				if query() != ":" {
+					t.Fatalf(": in the kit list: query %q, want it typed", query())
+				}
+				return
+			}
 			if m.screen != screenCommand {
 				t.Fatalf(": left screen %v, want the command line", m.screen)
 			}

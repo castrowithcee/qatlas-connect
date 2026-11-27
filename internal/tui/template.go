@@ -7,7 +7,7 @@ import (
 	"strings"
 
 	tea "charm.land/bubbletea/v2"
-	"charm.land/lipgloss/v2"
+	kittui "github.com/castrowithcee/qatlas-kit/tui"
 
 	"github.com/castrowithcee/qatlas-connect/internal/config"
 )
@@ -18,10 +18,7 @@ import (
 // submit). Secret values are never part of an entry, so none is ever copied; a credential copied from a
 // keyring or vault credential keeps only where its secrets are kept.
 
-// Rows of the template question.
-const ()
-
-// templateChoice is the state of screenTemplate: the question first, then the picker over the entries.
+// templateChoice is the state of screenTemplate: the question first, then the list of the entries.
 type templateChoice struct {
 	// from is the screen to return to when the question is cancelled or an admin dialog is cancelled.
 	from screen
@@ -29,12 +26,13 @@ type templateChoice struct {
 	setup bool
 	// picking is true once "from existing" was chosen and the entries are searched.
 	picking bool
-	// index is the row of the question: 0 for empty, 1 for from existing; in the kind question, 0 for a
-	// credential, 1 for a payload secret.
-	index int
 	// kind is true while the question is which kind of credential to create (see askKind); the template
 	// question of a credential follows an answer of credential.
 	kind bool
+	// list is the kit's list of the step shown: the question, or the entries, which names holds by the
+	// index that is the entry ID.
+	list  *kittui.List
+	names []string
 }
 
 // templateSection reports whether a section holds reusable entries that can be copied.
@@ -62,17 +60,84 @@ func (m *Model) templateOffered() bool {
 
 // askTemplate opens the template question of the active section, or of the guided setup.
 func (m *Model) askTemplate(setup bool) {
-	m.template = &templateChoice{from: m.screen, setup: setup}
-	m.templateList.reset(m.templateNames(setup))
-	m.screen = screenTemplate
-	m.clearMessages()
+	m.openTemplate(&templateChoice{from: m.screen, setup: setup})
 }
 
 // askKind opens the question behind n in Credentials: a credential or a payload secret.
 func (m *Model) askKind() {
-	m.template = &templateChoice{from: m.screen, kind: true}
-	m.screen = screenTemplate
+	m.openTemplate(&templateChoice{from: m.screen, kind: true})
+}
+
+func (m *Model) openTemplate(t *templateChoice) {
 	m.clearMessages()
+	if err := m.templateQuestion(t, 0); err != nil {
+		m.fail = err.Error()
+		return
+	}
+	m.template = t
+	m.screen = screenTemplate
+	m.syncChoice()
+}
+
+// templateQuestion puts the question of t in its list, a short menu on the answer at selected: empty or from
+// an existing entry, or, for the kind, a credential or a payload secret.
+func (m *Model) templateQuestion(t *templateChoice, selected int) error {
+	noun := entryWord("connection")
+	if !t.setup {
+		noun = m.section.entry()
+	}
+	title, column := tr(tLeaveNew, noun), columnID("template")
+	if t.setup {
+		title = tr(tTemplateGuidedSetup)
+	}
+	rows := []string{tr(tFormTemplateEmpty), tr(tFormTemplateExisting, noun)}
+	if t.kind {
+		title, column = tr(tTemplateKindTitle), columnID("Kind")
+		rows = []string{tr(tTemplateKindCredential), tr(tTemplateKindPayload)}
+	}
+	items := make([]kittui.ListItem, len(rows))
+	for i, row := range rows {
+		items[i] = kittui.ListItem{ID: choiceID(i), Cells: []string{row}}
+	}
+	list, err := newChoice(kittui.ListSpec{Columns: []kittui.Column{{Title: column}}, Search: kittui.SearchNone,
+		Wrap: true, Empty: tTemplateNoEntryMatchesEscGoes}, title, items, selected, "{enter} choose", "{back} cancel")
+	if err == nil {
+		t.list, t.picking, t.names = list, false, nil
+	}
+	return err
+}
+
+// templateEntries puts the entries to copy in the list of t, with the search typed at once. A name is a text
+// of the configuration, so it is drawn through the log filter.
+func (m *Model) templateEntries(t *templateChoice) error {
+	names := m.templateNames(t.setup)
+	noun, detail := m.section.entry(), columnID("details")
+	if t.setup {
+		noun, detail = entryWord("connection"), columnID("SERVICE")
+	}
+	items := make([]kittui.ListItem, len(names))
+	for i, name := range names {
+		var rest []string
+		search := name
+		if t.setup {
+			rest = []string{m.cfg.Connections[name].Service}
+		} else {
+			rest = m.cells(name)[1:]
+			if groupedSection(m.section) {
+				rest = append([]string{m.providerOf(m.section)(name)}, rest...)
+			}
+			search = m.describe(name)
+		}
+		items[i] = kittui.ListItem{ID: choiceID(i), Cells: []string{m.logText(name), m.logText(strings.Join(rest, columnGap))},
+			SearchText: m.logText(search)}
+	}
+	list, err := newChoice(kittui.ListSpec{Columns: []kittui.Column{{Title: columnID("NAME")},
+		{Title: detail, Flex: true, Dimmed: true}}, Search: kittui.SearchAsTyped, Wrap: true,
+		Empty: tTemplateNoEntryMatchesEscGoes}, tr(tTemplateNewFromExisting, noun), items, 0, "{enter} choose", "{back} back")
+	if err == nil {
+		t.list, t.picking, t.names = list, true, names
+	}
+	return err
 }
 
 // askSetupTemplate is g: the guided setup starts at once without a connection to copy, and otherwise asks
@@ -158,209 +223,61 @@ func (m *Model) copyNote() string {
 	return note
 }
 
-// templateText is what the picker searches and shows of one entry.
-func (m *Model) templateText(name string) string {
-	if m.template != nil && m.template.setup {
-		conn := m.cfg.Connections[name]
-		return name + "  " + conn.Service
-	}
-	return m.describe(name)
-}
-
-// templateNoun is the entry the question talks about.
-func (m *Model) templateNoun() string {
-	if m.template != nil && m.template.setup {
-		return entryWord("connection")
-	}
-	return m.section.entry()
-}
-
-func (m *Model) updateTemplate(key tea.KeyPressMsg) tea.Cmd {
+// templateAnswer runs what the list of screenTemplate answers. Enter on the question opens the form, the
+// entries or the template question of a credential; on an entry it fills the form of a new entry from it.
+// Back goes from the entries to the question and from the question to where it was asked.
+func (m *Model) templateAnswer(act action) tea.Cmd {
 	t := m.template
 	if t == nil {
-		m.screen = screenList
 		return nil
 	}
-	if !t.picking {
-		switch {
-		case keyIs(key, actBack):
-			m.template = nil
-			m.screen = t.from
-		case keyIs(key, actUp) || keyIs(key, actDown):
-			t.index = 1 - t.index
-		case keyIs(key, actPageUp) || keyIs(key, actHome):
-			t.index = 0
-		case keyIs(key, actPageDown) || keyIs(key, actEnd):
-			t.index = 1
-		case keyIs(key, actEnter) && t.kind:
-			if t.index == 1 {
-				m.template = nil
-				m.screen = t.from
-				return m.openPayloadNew()
-			}
-			if m.templateOffered() {
-				t.kind, t.index = false, 0
-				m.templateList.reset(m.templateNames(false))
-				return nil
-			}
-			m.template = nil
-			m.screen = t.from
-			return m.newEmptyEntry()
-		case keyIs(key, actEnter):
-			if t.index == 1 {
-				t.picking = true
-				m.templateList.reset(m.templateNames(t.setup))
-				m.templateList.startFilter()
-				return nil
-			}
-			m.template = nil
-			m.screen = t.from
-			if t.setup {
-				m.startSetup()
-				return nil
-			}
-			return m.newEmptyEntry()
-		}
-		return nil
-	}
-	switch {
-	case keyIs(key, actBack):
-		t.picking = false
-		m.templateList.stopFilter()
-	case keyIs(key, actEnter):
-		source, ok := m.templateList.selected()
-		if !ok {
-			return nil
-		}
+	leave := func() {
 		m.template = nil
 		m.screen = t.from
+	}
+	n := 2
+	if t.picking {
+		n = len(t.names)
+	}
+	at, ok := chosen(t.list, n)
+	var err error
+	switch {
+	case act == actBack && t.picking:
+		err = m.templateQuestion(t, 1)
+	case act == actBack:
+		leave()
+	case act != actEnter || !ok:
+	case t.picking:
+		leave()
 		if t.setup {
-			m.startSetupFrom(source)
+			m.startSetupFrom(t.names[at])
 			return nil
 		}
-		return m.openCopy(source)
-	case keyIs(key, actUp):
-		m.templateList.move(-1)
-	case keyIs(key, actDown):
-		m.templateList.move(1)
-	case keyIs(key, actPageUp) || keyIs(key, actPageDown) || keyIs(key, actHome) || keyIs(key, actEnd):
-		start, end := m.templateWindow()
-		m.templateList.page(key, start, end)
+		return m.openCopy(t.names[at])
+	case t.kind && at == 1:
+		leave()
+		return m.openPayloadNew()
+	case t.kind && m.templateOffered():
+		t.kind = false
+		err = m.templateQuestion(t, 0)
+	case t.kind:
+		leave()
+		return m.newEmptyEntry()
+	case at == 1:
+		err = m.templateEntries(t)
 	default:
-		return m.templateList.updateFilter(key)
+		leave()
+		if t.setup {
+			m.startSetup()
+			return nil
+		}
+		return m.newEmptyEntry()
+	}
+	if err != nil {
+		leave()
+		m.fail = err.Error()
 	}
 	return nil
-}
-
-func (m *Model) templateView() string {
-	if m.template == nil {
-		return ""
-	}
-	if m.template.picking {
-		header, footer := m.templateFrame()
-		var b strings.Builder
-		b.WriteString(header)
-		start, end := m.templateWindow()
-		for i := start; i < end; i++ {
-			b.WriteString(m.templateRow(i) + "\n")
-		}
-		m.hitTable(&m.templateList, screenTemplate, header, start, end, m.templateRow)
-		b.WriteString(footer)
-		return b.String()
-	}
-	var b strings.Builder
-	title := tr(tLeaveNew, m.templateNoun())
-	if m.template.setup {
-		title = tr(tTemplateGuidedSetup)
-	}
-	rows := []string{tr(tFormTemplateEmpty), tr(tFormTemplateExisting, m.templateNoun())}
-	if m.template.kind {
-		title = tr(tTemplateKindTitle)
-		rows = []string{tr(tTemplateKindCredential), tr(tTemplateKindPayload)}
-	}
-	if m.boxed() {
-		b.WriteString(m.boxTop(title, ""))
-	} else {
-		b.WriteString(m.wrapped(styles.title, title) + "\n\n")
-	}
-	for i, row := range rows {
-		mark, style := "( ) ", styles.hint
-		if i == m.template.index {
-			mark, style = "(*) ", styles.active
-		}
-		var text string
-		if m.boxed() {
-			_, width := m.fitIn(m.boxRoom(), "  ")
-			text = m.boxRow(m.listRowIn(m.boxRoom(), i == m.template.index, colourRadio(truncateCells(mark+row, width))))
-		} else {
-			text = m.indentedHanging(style, mark, row)
-		}
-		y, index := m.workspaceTop()+strings.Count(b.String(), "\n"), i
-		m.addHit(0, y, m.usable(0), y+strings.Count(text, "\n")+1, func() tea.Cmd {
-			if m.screen != screenTemplate || m.template == nil || m.template.picking {
-				return nil
-			}
-			m.template.index = index
-			return m.press(tea.KeyPressMsg{Code: tea.KeyEnter})
-		})
-		b.WriteString(text + "\n")
-	}
-	b.WriteString(m.boxBottom() + m.keyHint(keysTemplateKind) + m.notes())
-	return b.String()
-}
-
-// indentedHanging draws a row behind a two-space margin and its marker, wrapping under the text.
-func (m *Model) indentedHanging(style lipgloss.Style, marker, text string) string {
-	head, width := m.fit("  " + marker)
-	lines := strings.Split(render(style, width, text), "\n")
-	for i, l := range lines {
-		if i == 0 {
-			lines[i] = colourRadio(head) + l
-			continue
-		}
-		lines[i] = strings.Repeat(" ", len(head)) + l
-	}
-	return strings.Join(lines, "\n")
-}
-
-func (m *Model) templateFrame() (string, string) {
-	l := &m.templateList
-	shown, total := len(l.matches), len(l.all)
-	var head strings.Builder
-	head.WriteString(m.boxTop(tr(tTemplateNewFromExistingTotal,
-		m.templateNoun(), min(l.cursor+1, shown), shown, total), ""))
-	head.WriteString(m.boxSearch(l, tr(tLogPickSearch)))
-	if shown == 0 {
-		head.WriteString(m.boxText(styles.hint, tr(tTemplateNoEntryMatchesEscGoes, l.query())))
-	}
-	return head.String(), m.boxBottom() + m.keyHint(m.templateKeys()) + m.notes()
-}
-
-// templateKeys is the key text of the template screen: the picker of entries, or the choice of how to start.
-func (m *Model) templateKeys() string {
-	if m.template == nil || !m.template.picking {
-		return keysTemplateKind
-	}
-	keys := "type to search · {up}/{down} move · {enter} choose · {back} back"
-	if m.templateList.query() == "" {
-		keys += " · {command} cmds · {help} help"
-	}
-	return keys
-}
-
-// templateRow is one entry of the picker: its name, and what follows the name dimmed.
-func (m *Model) templateRow(i int) string {
-	_, width := m.fitIn(m.boxRoom(), "  ")
-	text := truncateCells(m.templateList.text(m.templateList.matches[i]), width)
-	if head, rest, ok := strings.Cut(text, "  "); ok && i != m.templateList.cursor {
-		text = styles.cell.Render(head) + "  " + styles.hint.Render(rest)
-	}
-	return m.boxRow(m.listRowIn(m.boxRoom(), i == m.templateList.cursor, text))
-}
-
-func (m *Model) templateWindow() (int, int) {
-	header, footer := m.templateFrame()
-	return m.windowIn(&m.templateList, header, footer, m.templateRow)
 }
 
 // startSetupFrom starts the guided setup past its provider step, on the provider of the named connection,

@@ -283,8 +283,8 @@ func TestNewAsksEmptyOrFromExistingWithSearch(t *testing.T) {
 		t.Fatalf("n: screen %v, want the question", m.screen)
 	}
 	view := screenOf(m)
-	for _, want := range []string{"Guided setup", "(*) empty", "( ) from existing connection…",
-		"↑/↓ move", "enter choose", "esc cancel"} {
+	for _, want := range []string{"Guided setup", "> empty", "from existing connection…", "↑ up  ↓ down",
+		"enter choose", "esc cancel"} {
 		if !strings.Contains(view, want) {
 			t.Errorf("the question does not show %q:\n%s", want, view)
 		}
@@ -306,14 +306,15 @@ func TestNewAsksEmptyOrFromExistingWithSearch(t *testing.T) {
 	if !m.template.picking {
 		t.Fatal("enter on from existing did not open the picker")
 	}
-	if view := screenOf(m); !strings.Contains(view, "4 total") || !strings.Contains(view, "Type to search") {
-		t.Errorf("the picker does not show its count and search:\n%s", view)
+	if view := screenOf(m); len(shownTemplates(m)) != 4 || !strings.Contains(view, "Type to search") {
+		t.Errorf("the picker does not show every entry and the search:\n%s", view)
 	}
 	typeText(t, m, "gam")
-	if !slices.Equal(m.templateList.matches, []string{"gamma"}) {
-		t.Fatalf("search gam matches %v, want [gamma]", m.templateList.matches)
+	if got := shownTemplates(m); !slices.Equal(got, []string{"gamma"}) {
+		t.Fatalf("search gam matches %v, want [gamma]", got)
 	}
-	press(t, m, "esc")
+	// The first esc clears the search, the second returns to the question.
+	press(t, m, "esc", "esc")
 	if m.screen != screenTemplate || m.template.picking {
 		t.Fatalf("esc in the picker: screen %v picking %v, want the question", m.screen, m.template.picking)
 	}

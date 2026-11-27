@@ -1,201 +1,110 @@
 package tui
 
 import (
-	"strings"
-
 	tea "charm.land/bubbletea/v2"
-	"charm.land/lipgloss/v2"
+	kittui "github.com/castrowithcee/qatlas-kit/tui"
 )
 
-// providerTable is how every provider row is chosen: a table of all the providers the row offers, with
-// their name and ID, and a search line that is always there. Whatever the number of providers, it is the
-// same table, opened the same way, so finding it takes no knowledge of a hidden key.
+// providerTable is how every provider row is chosen: the kit's list of all the providers the row offers, with
+// their name and ID, the one in force marked, and a search typed at once. Whatever the number of providers,
+// it is the same list, opened the same way, so finding it takes no knowledge of a hidden key.
 //
 // It holds no provider knowledge of its own: the rows are the values of the form row, and the names come
 // from the provider metadata the configuration core hands out.
 type providerTable struct {
-	list filterList
-	// names maps each offered provider ID to the name the reader knows it by.
-	names map[string]string
-	// current is the value of the form row while the table is open. It changes only when a row is taken.
-	current string
+	list *kittui.List
+	// ids are the offered provider IDs, by the index that is the entry ID: the empty choice is no ID.
+	ids []string
 }
 
-// open shows the given providers, selected on the current one, with the search ready for typing.
-func (t *providerTable) open(ids []string, names map[string]string, current string) {
-	t.names, t.current = names, current
-	t.list = newFilterList(t.text)
-	t.list.input.Placeholder = tr(tLogSearchPlaceholder)
-	t.list.reset(ids)
-	t.list.selectName(current)
-	t.list.startFilter()
+// selected is the marked provider.
+func (t *providerTable) selected() (string, bool) {
+	i, ok := chosen(t.list, len(t.ids))
+	if !ok {
+		return "", false
+	}
+	return t.ids[i], true
 }
 
-// name is how a provider reads: its name, or the empty value that a credential without a provider holds.
-func (t *providerTable) name(id string) string {
+// providerName is how a provider reads: its name, or the empty value that a credential without a provider
+// holds.
+func (m *Model) providerName(id string) string {
 	if id == "" {
 		return choiceText(id)
 	}
-	if name := t.names[id]; name != "" {
-		return name
+	if metadata, _ := m.cfg.ProviderMetadata(id); metadata.Name != "" {
+		return metadata.Name
 	}
 	return id
 }
 
-// text is what the search looks at for one provider: the name and the ID, the two columns the reader sees.
-func (t *providerTable) text(id string) string { return t.name(id) + " " + id }
-
-// columns splits width into the name and ID columns: the name column is as wide as the longest name as
-// long as the IDs keep room, and never narrower than half of what is left beside the marks.
-func (t *providerTable) columns(width int) (int, int) {
-	nameWidth, idWidth := lipgloss.Width(tr(tProviderNAME)), lipgloss.Width("ID")
-	for _, id := range t.list.all {
-		nameWidth = max(nameWidth, lipgloss.Width(t.name(id)))
-		idWidth = max(idWidth, lipgloss.Width(id))
-	}
-	room := max(width-lipgloss.Width("(*) ")-2, 2)
-	if nameWidth+idWidth > room {
-		nameWidth = max(room-idWidth, room/2)
-	}
-	return nameWidth, max(room-nameWidth, 1)
-}
-
-// header is the line that names the columns, aligned with the rows below it.
-func (t *providerTable) header(width int) string {
-	nameWidth, _ := t.columns(width)
-	return "    " + padLine(tr(tProviderNAME), nameWidth) + "  ID"
-}
-
-// row is one provider: whether the form row holds it now, its name and its ID, each cut to its column.
-func (t *providerTable) row(id string, width int) string {
-	nameWidth, idWidth := t.columns(width)
-	mark := "( ) "
-	if id == t.current {
-		mark = styles.ok.Render("(*)") + " "
-	}
-	ids := id
-	if id == "" {
-		ids = "-"
-	}
-	return mark + styles.cell.Render(padLine(truncateCells(t.name(id), nameWidth), nameWidth)) + "  " +
-		styles.hint.Render(truncateCells(ids, idWidth))
-}
-
-// openProviderTable opens the table of the focused provider row.
+// openProviderTable opens the table of the focused provider row on the provider in force. In the guided
+// setup the table is the whole provider step, so enter goes on to the next step and esc cancels the setup.
 func (m *Model) openProviderTable() {
 	f := m.fields[m.focus]
 	if len(f.choices) == 0 {
 		return
 	}
-	names := map[string]string{}
-	for _, id := range f.choices {
-		metadata, _ := m.cfg.ProviderMetadata(id)
-		names[id] = metadata.Name
+	columns := []kittui.Column{{Title: columnID("NAME")}, {Title: columnID("ID"), Dimmed: true},
+		{Title: columnID("in force"), Tone: func(string) kittui.TextStyle { return kittui.StyleOK }}}
+	items := make([]kittui.ListItem, len(f.choices))
+	current := 0
+	for i, id := range f.choices {
+		shown, mark := "-", ""
+		if id != "" {
+			shown = m.logText(id)
+		}
+		if id == f.value() {
+			current, mark = i, tr(tFormCurrent)
+		}
+		items[i] = kittui.ListItem{ID: choiceID(i), Cells: []string{m.logText(m.providerName(id)), shown, mark}}
 	}
-	m.providers.open(f.choices, names, f.value())
+	title, enter, back := tr(tProviderChooseProvider), "{enter} choose", "{back} cancel"
+	if w := m.wizard; w != nil {
+		title, enter, back = tr(tProviderSetupStepOfChooseProvider, w.step+1, setupSteps), "{enter} next", "{back} cancel setup"
+	}
+	list, err := newChoice(kittui.ListSpec{Columns: columns, Search: kittui.SearchAsTyped, Wrap: true,
+		Empty: tProviderNoProviderMatchesEscKeeps}, title, items, current, enter, back)
+	if err != nil {
+		m.fail = err.Error()
+		return
+	}
+	m.providers = &providerTable{list: list, ids: f.choices}
 	m.screen = screenProviders
 	m.clearMessages()
+	m.syncChoice()
 }
 
-// updateProviderTable handles the table. Every printable key belongs to the search; enter takes the
-// selected provider and esc leaves the row, and every row that depends on it, as it was. In the guided setup
-// the table is the whole provider step, so taking a provider goes on to the next step and esc cancels the
-// setup like on every other step.
-func (m *Model) updateProviderTable(key tea.KeyPressMsg) tea.Cmd {
-	switch {
-	case keyIs(key, actBack):
-		if m.wizard != nil {
-			return m.setupEsc()
-		}
-		m.screen = screenForm
-	case keyIs(key, actEnter):
-		id, ok := m.providers.list.selected()
+// providerAnswer runs what the table answers. Only enter changes the row, and with it every row that depends
+// on it; back leaves them as they were.
+func (m *Model) providerAnswer(act action) tea.Cmd {
+	if m.providers == nil {
+		return nil
+	}
+	switch act {
+	case actEnter:
+		id, ok := m.providers.selected()
 		if !ok {
-			// Nothing matches the search, so there is nothing to take.
 			return nil
 		}
-		m.screen = screenForm
+		m.providers, m.screen = nil, screenForm
 		cmd := m.choose(id)
 		if m.wizard != nil {
 			m.setupNext()
 		}
 		return cmd
-	case keyIs(key, actUp):
-		m.providers.list.move(-1)
-	case keyIs(key, actDown):
-		m.providers.list.move(1)
-	case keyIs(key, actPageUp) || keyIs(key, actPageDown) || keyIs(key, actHome) || keyIs(key, actEnd):
-		start, end := m.providerTableWindow()
-		m.providers.list.page(key, start, end)
-	default:
-		return m.providers.list.updateFilter(key)
+	case actBack:
+		if m.wizard != nil {
+			// The leave question it may ask returns to the table.
+			return m.setupEsc()
+		}
+		m.providers, m.screen = nil, screenForm
+	case actInfo:
+		if s := m.providerSubject(); !s.empty() {
+			m.openExplanation(s)
+		}
 	}
 	return nil
-}
-
-// providerTableView draws the table like a list: its frame, and between them as many providers as fit.
-func (m *Model) providerTableView() string {
-	header, footer := m.providerTableFrame()
-	var b strings.Builder
-	b.WriteString(header)
-	start, end := m.windowIn(&m.providers.list, header, footer, m.providerTableRow)
-	for i := start; i < end; i++ {
-		b.WriteString(m.providerTableRow(i) + "\n")
-	}
-	m.hitTable(&m.providers.list, screenProviders, header, start, end, m.providerTableRow)
-	b.WriteString(footer)
-	return b.String()
-}
-
-// providerKeys is the key text of the provider table: the setup names its next step.
-func (m *Model) providerKeys() string {
-	keys := "type to search · {up}/{down} move · {enter} choose · {back} cancel"
-	if m.wizard != nil {
-		keys = "type to search · {up}/{down} move · {enter} next · {back} cancel setup"
-	}
-	if m.providers.list.query() == "" {
-		keys += " · {command} cmds · {help} help"
-	}
-	return keys
-}
-
-// providerTableFrame is everything of the table except its rows: above them the position among the matches
-// and the total, the search line, the current provider and the column names; below them the keys and the
-// notes. Like the picker it leaves out the heading of the other screens, so the rows keep room in a small
-// terminal.
-func (m *Model) providerTableFrame() (string, string) {
-	t := &m.providers
-	shown, total := len(t.list.matches), len(t.list.all)
-	title := tr(tProviderChooseProvider)
-	if w := m.wizard; w != nil {
-		title = tr(tProviderSetupStepOfChooseProvider, w.step+1, setupSteps)
-	}
-	var head strings.Builder
-	head.WriteString(m.boxTop(title, tr(tPositionFiltered, min(t.list.cursor+1, shown), shown, total)))
-	head.WriteString(m.boxSearch(&t.list, tr(tLogPickSearch)))
-	current := t.name(t.current)
-	if t.current != "" {
-		current += " (" + t.current + ")"
-	}
-	head.WriteString(m.boxText(styles.hint, tr(tLogPickCurrent, current)))
-	_, width := m.fitIn(m.boxRoom(), "  ")
-	head.WriteString(m.boxLine(styles.hint.Render(clipCells("  "+t.header(width), m.boxRoom()))))
-	if shown == 0 {
-		head.WriteString(m.boxText(styles.hint, tr(tProviderNoProviderMatchesEscKeeps, t.list.query())))
-	}
-	return head.String(), m.boxBottom() + m.keyHint(m.providerKeys()) + m.notes()
-}
-
-// providerTableRow draws the shown provider at index i of the table.
-func (m *Model) providerTableRow(i int) string {
-	_, width := m.fitIn(m.boxRoom(), "  ")
-	return m.boxRow(m.listRowIn(m.boxRoom(), i == m.providers.list.cursor,
-		m.providers.row(m.providers.list.matches[i], width)))
-}
-
-func (m *Model) providerTableWindow() (int, int) {
-	header, footer := m.providerTableFrame()
-	return m.windowIn(&m.providers.list, header, footer, m.providerTableRow)
 }
 
 // providerValue is how a provider row of the form reads: the name and ID of the provider it holds, cut

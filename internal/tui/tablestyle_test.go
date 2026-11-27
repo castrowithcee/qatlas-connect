@@ -117,7 +117,7 @@ func TestPickerAndProviderTableFitTheSmallestTerminal(t *testing.T) {
 	pm.Update(tea.WindowSizeMsg{Width: 40, Height: smallestListHeight})
 	view = screenOf(pm)
 	assertViewFits(t, view, 40, smallestListHeight+1)
-	if pm.screen != screenProviders || !strings.Contains(view, "> (*) Provider 000") {
+	if !choiceOpen(pm, screenProviders) || !strings.Contains(view, "> Provider 000") {
 		t.Errorf("the provider table at 40x%d:\n%s", smallestListHeight, view)
 	}
 }

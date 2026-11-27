@@ -25,6 +25,10 @@ type listModal struct {
 }
 
 func (l listModal) Update(msg tea.KeyPressMsg) (action, bool) {
+	if l.Input() == kittui.InputNavigation {
+		// A list without a search line moves with the vim letters too, as every screen without text does.
+		msg = vimArrow(msg)
+	}
 	open, handled := l.List.Update(msg)
 	l.took(handled)
 	switch {
