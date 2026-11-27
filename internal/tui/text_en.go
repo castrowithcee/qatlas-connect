@@ -867,7 +867,6 @@ var textEN = map[textID]string{
 	tLogEmptyDay:                             "No entries for %s.",
 	tLogEmptyRange:                           "No entries from %s to %s.",
 	tLogEmptyAll:                             "No entries recorded yet.",
-	tLogMore:                                 "  … %d more",
 	tLogNoSession:                            "No MCP session among the entries shown: only the entries of a 'qconnect mcp' process carry a session, and a filter on a tool or a connection keeps only the exchanges that match it.",
 	tLogSessionRow:                           "session %s",
 	tLogEntryFile:                            "Log entry UTC file %s",

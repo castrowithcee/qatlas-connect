@@ -3,6 +3,7 @@ package tui
 import (
 	"strconv"
 
+	"github.com/castrowithcee/qatlas-connect/internal/invokelog"
 	kit "github.com/castrowithcee/qatlas-kit/tui"
 )
 
@@ -120,4 +121,104 @@ func (lv *logView) markedRow() (int, bool) {
 	}
 	i, err := strconv.Atoi(string(id))
 	return i, err == nil && i >= 0 && i < len(lv.rows)
+}
+
+// logStatColumns are the columns of the summary s shows. The count leads and is never cut; the sizes are
+// token estimates (invokelog.EstimateTokens), and the bytes and the missing counters go in a narrow terminal.
+var logStatColumns = []kit.Column{
+	{Title: columnID("calls"), Right: true}, {Title: columnID("tool"), Flex: true},
+	{Title: columnID("connection"), Optional: true}, {Title: columnID("~tok"), Right: true},
+	{Title: columnID("max"), Right: true}, {Title: columnID("p50"), Optional: true, Right: true},
+	{Title: columnID("p95"), Right: true}, {Title: columnID("bytes"), Optional: true, Right: true},
+	{Title: columnID("no size"), Optional: true, Right: true},
+}
+
+// logSessionColumns are the columns of the MCP session summary. The first column holds the session, its
+// areas, and their tools as indented text; the byte split of a request and a response goes in a narrow
+// terminal before the total and the token estimate do.
+var logSessionColumns = []kit.Column{
+	{Title: columnID("session / area / tool")}, {Title: columnID("calls"), Right: true},
+	{Title: columnID("req B"), Optional: true, Right: true}, {Title: columnID("resp B"), Optional: true, Right: true},
+	{Title: columnID("total B"), Right: true}, {Title: columnID("~tokens"), Right: true},
+}
+
+// newSummaryList is a list of the summary: a short read-only table that only moves its mark, with no search
+// (the search of the rows narrows what it counts), and empty is its sentence for no line. Enter and back are
+// named for the kit, as left and right are, but never reach the list: the screen handles them.
+func newSummaryList(columns []kit.Column, empty textID) *kit.List {
+	l, err := kit.NewList(kit.ListSpec{Columns: columns, Search: kit.SearchNone, Empty: empty,
+		Keys: kit.ListKeys{Up: actUp, Down: actDown, PageUp: actPageUp, PageDown: actPageDown, First: actHome,
+			Last: actEnd, Left: actLeft, Right: actRight, Enter: actEnter, Back: actBack}}, keymap, translator(false))
+	if err != nil {
+		panic("the summary of the Logs is invalid: " + err.Error())
+	}
+	return l
+}
+
+// summaryList is the list of the summary the tab shows, made anew where there is none or the language changed
+// and filled with the rows the filters and the search keep. A line stands for its index, never for a value of
+// the log.
+func (m *Model) summaryList() *kit.List {
+	lv := m.logs
+	if lv.statList == nil || lv.summaryLang != uiLang {
+		lv.statList, lv.sessionList, lv.summaryLang = newSummaryList(logStatColumns, tLogNoMatch),
+			newSummaryList(logSessionColumns, tLogNoSession), uiLang
+	}
+	l, items := lv.statList, m.logStatItems()
+	if lv.sessions {
+		l, items = lv.sessionList, m.logSessionItems()
+	}
+	if err := l.SetItems(items); err != nil {
+		// Never an entry the kit refused shown as if it were a line.
+		_ = l.SetItems(nil)
+	}
+	return l
+}
+
+// logStatItems are the groups of invokelog.Summarize over the shown rows, a line each.
+func (m *Model) logStatItems() []kit.ListItem {
+	groups := invokelog.Summarize(m.logs.shownEntries())
+	num := func(n int64) string { return strconv.FormatInt(n, 10) }
+	items := make([]kit.ListItem, 0, len(groups))
+	for i, g := range groups {
+		cells := []string{strconv.Itoa(g.Calls), m.logText(g.Operation), orDash(m.logText(g.Connection)),
+			num(invokelog.EstimateTokens(g.Bytes)), num(invokelog.EstimateTokens(g.Max)),
+			num(invokelog.EstimateTokens(g.P50)), num(invokelog.EstimateTokens(g.P95)), num(g.Bytes),
+			strconv.Itoa(g.NoCounter)}
+		if g.Counted() == 0 {
+			// No invoke of the group has a recorded size; that is not a size of 0.
+			for k := 3; k <= 7; k++ {
+				cells[k] = "-"
+			}
+		}
+		items = append(items, kit.ListItem{ID: kit.ItemID(strconv.Itoa(i)), Cells: cells})
+	}
+	return items
+}
+
+// logSessionItems are a line for each MCP session of the shown rows, its areas, and their tools, flat, with
+// the level shown as indent in the first cell.
+func (m *Model) logSessionItems() []kit.ListItem {
+	var items []kit.ListItem
+	add := func(label string, t invokelog.ToolBytes) {
+		items = append(items, kit.ListItem{ID: kit.ItemID(strconv.Itoa(len(items))), Cells: []string{label,
+			strconv.Itoa(t.Calls), strconv.FormatInt(t.ReqBytes, 10), strconv.FormatInt(t.RespBytes, 10),
+			strconv.FormatInt(t.Total(), 10), strconv.FormatInt(invokelog.EstimateTokens(t.Total()), 10)}})
+	}
+	for _, session := range invokelog.SummarizeSessions(m.logs.shownEntries()) {
+		var sum invokelog.ToolBytes
+		for _, a := range session.Areas {
+			sum.Calls += a.Calls
+			sum.ReqBytes += a.ReqBytes
+			sum.RespBytes += a.RespBytes
+		}
+		add(tr(tLogSessionRow, m.logText(session.Session)), sum)
+		for _, a := range session.Areas {
+			add("  "+m.logText(string(a.Area)), a.ToolBytes)
+			for _, t := range a.Tools {
+				add("    "+orDash(m.logText(t.Operation)), t)
+			}
+		}
+	}
+	return items
 }
