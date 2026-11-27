@@ -20,6 +20,7 @@ import (
 	"github.com/castrowithcee/qatlas-connect/internal/manage"
 	"github.com/castrowithcee/qatlas-connect/internal/vault"
 	"github.com/castrowithcee/qatlas-kit/redact"
+	kittui "github.com/castrowithcee/qatlas-kit/tui"
 )
 
 // approvalsReport is the Approvals section's data: which connections still need approval, right now, in an
@@ -341,22 +342,24 @@ func (m *Model) approvalRoom(keys string, lines int) int {
 	return max(room, 1)
 }
 
-// approveAllConfirmView draws the Approvals bulk-approval confirmation, with the count of what it would
+// approveAllAsk is the Approvals bulk-approval confirmation, with the count of what it would
 // approve and, where there is one, of the stale approvals it would also remove (see approveAll).
-func (m *Model) approveAllConfirmView() string {
+func (m *Model) approveAllAsk() ask {
 	report, _ := m.approvalsReport()
-	q := question{
-		title:       tr(tApproveAllTitle, len(report.Open)),
+	q := ask{
+		title:       tAskApproveAll,
+		question:    tr(tApproveAllTitle, len(report.Open)),
 		consequence: tr(tApproveAllConsequence),
-		keys:        "{yes} approve all · {no}/{back} cancel · {command} cmds · {help} help",
+		answers:     yesNo("{yes} approve all", "{no}/{back} cancel"),
+		keep:        actNo,
 	}
 	if stale := report.RevocableStale(); len(stale) > 0 {
-		q.details = append(q.details, m.indented(tr(tApproveAllStale, len(stale))))
+		q.details = append(q.details, kittui.DialogLine{Text: tr(tApproveAllStale, len(stale))})
 	}
 	if n := len(report.HandRenames); n > 0 {
-		q.details = append(q.details, m.indented(tr(tApproveAllHand, n)))
+		q.details = append(q.details, kittui.DialogLine{Text: tr(tApproveAllHand, n)})
 	}
-	return m.questionText(q)
+	return q
 }
 
 // approvalActionMsg carries the outcome of approveOne or approveAll back into the event loop: the Approvals

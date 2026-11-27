@@ -22,9 +22,6 @@ func keyLineScreens() []struct {
 	for _, c := range clickScreens() {
 		cases = append(cases, screenCase{c.name, c.build})
 	}
-	for _, c := range clickDialogs() {
-		cases = append(cases, screenCase{c.name, c.build})
-	}
 	for a := area(0); a < areaCount; a++ {
 		for _, s := range areaSections[a] {
 			cases = append(cases, screenCase{"section " + s.key(), func(t *testing.T) *Model {
@@ -43,16 +40,6 @@ func keyLineScreens() []struct {
 			return m
 		}})
 	}
-	cases = append(cases, screenCase{"leave question", func(t *testing.T) *Model {
-		m := sizedModel(groupModel(t), 140, 40)
-		openSectionByName(t, m, sectionConnections)
-		pressNew(t, m)
-		press(t, m, "x", "esc")
-		if m.screen != screenLeave {
-			t.Fatalf("screen %v, want the leave question", m.screen)
-		}
-		return m
-	}})
 	return cases
 }
 

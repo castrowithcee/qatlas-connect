@@ -1803,6 +1803,10 @@ func validateEnvName(name string) error {
 	return nil
 }
 
+// ValidateName checks a connection, service, credential or domain name against the rule every such name
+// follows. The error names the rule, never the value.
+func ValidateName(name string) error { return validateName(name) }
+
 func validateName(name string) error {
 	if name == "" {
 		return errors.New("must not be empty")

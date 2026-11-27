@@ -8,6 +8,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
+	kittui "github.com/castrowithcee/qatlas-kit/tui"
 
 	"github.com/castrowithcee/qatlas-connect/internal/selfupdate"
 )
@@ -108,23 +109,21 @@ func (m *Model) updateBlocker() string {
 	return ""
 }
 
-func (m *Model) updateUpdateConfirm(key tea.KeyPressMsg) tea.Cmd {
+// answerUpdate answers the update question: y installs, n and esc leave the version as it is.
+func (m *Model) answerUpdate(act action) tea.Cmd {
 	if m.versionPending != nil {
-		return m.updateVersionConfirm(key)
+		return m.answerVersion(act)
 	}
-	switch {
-	case keyIs(key, actYes):
-		m.screen = m.updateFrom
-		if work := m.updateBlocker(); work != "" {
-			m.status = tr(tUpdateWaitConfirm, work)
-			return nil
-		}
-		return m.startUpdate()
-	case keyIs(key, actNo) || keyIs(key, actBack):
-		m.screen = m.updateFrom
+	m.screen = m.updateFrom
+	if act != actYes {
 		m.status = tr(tUpdateNotInstalled)
+		return nil
 	}
-	return nil
+	if work := m.updateBlocker(); work != "" {
+		m.status = tr(tUpdateWaitConfirm, work)
+		return nil
+	}
+	return m.startUpdate()
 }
 
 // startUpdate installs the release in the background. The editor keeps working on the version it runs.
@@ -265,10 +264,10 @@ func (m *Model) updateBanner(room int) string {
 	return ""
 }
 
-// updateView asks before the installation.
-func (m *Model) updateView() string {
+// updateAsk asks before the installation.
+func (m *Model) updateAsk() ask {
 	if m.versionPending != nil {
-		return m.versionQuestionView()
+		return m.versionAsk()
 	}
 	after := tr(tUpdateAfterManual)
 	if m.restart != nil {
@@ -280,15 +279,17 @@ func (m *Model) updateView() string {
 	if i := strings.LastIndex(text, ". "); i >= 0 {
 		text, advice = text[:i+1], strings.TrimSpace(text[i+2:])
 	}
-	details := []string{m.wrapped(lipgloss.NewStyle(), text)}
+	details := []kittui.DialogLine{{Text: text}}
 	if advice != "" {
-		details = append(details, m.wrapped(lipgloss.NewStyle(), advice))
+		details = append(details, kittui.DialogLine{Text: advice})
 	}
-	details = append(details, "", m.wrapped(lipgloss.NewStyle(), after))
-	return m.questionText(question{
-		title:       tr(tUpdateQuestion, m.release.Latest),
+	details = append(details, kittui.DialogLine{}, kittui.DialogLine{Text: after})
+	return ask{
+		title:       tAskUpdate,
+		question:    tr(tUpdateQuestion, m.release.Latest),
 		consequence: tr(tUpdateConsequence),
 		details:     details,
-		keys:        "{yes} update · {no}/{back} cancel · {command} cmds · {help} help",
-	})
+		answers:     cancelAnswers("{yes} update"),
+		keep:        actNo,
+	}
 }

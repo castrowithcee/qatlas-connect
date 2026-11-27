@@ -61,10 +61,12 @@ func validate(d document) error {
 		switch {
 		case !idPattern.MatchString(r.ID) || seen[r.ID]:
 			return fmt.Errorf("request %d has no unique id", i+1)
-		case r.Kind != KindAddTools && r.Kind != KindRemoveTools:
+		case r.Kind != KindAddTools && r.Kind != KindRemoveTools && r.Kind != KindCreateConnection:
 			return fmt.Errorf("request %d has an unknown kind", i+1)
-		case r.ConnectionID == "" || len(r.Tools) == 0:
-			return fmt.Errorf("request %d names no connection or no tool", i+1)
+		case r.Kind == KindCreateConnection && (r.ConnectionID != "" || r.Connection == "" || r.Provider == "" || len(r.Tools) == 0):
+			return fmt.Errorf("request %d asks to create a connection without a provider, a name, or a tool, or names an existing one", i+1)
+		case r.Kind != KindCreateConnection && (r.ConnectionID == "" || len(r.Tools) == 0 || len(r.Targets) > 0):
+			return fmt.Errorf("request %d names no connection or no tool, or has targets", i+1)
 		case r.RequestedAt.IsZero() || r.ExpiresAt.IsZero():
 			return fmt.Errorf("request %d has no time", i+1)
 		}

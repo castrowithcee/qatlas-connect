@@ -488,13 +488,15 @@ func (m *Model) openVaultLockConfirm(back screen) {
 	m.clearMessages()
 }
 
-// vaultLockConfirmView draws the "Lock the vault now?" question.
-func (m *Model) vaultLockConfirmView() string {
-	return m.questionText(question{
-		title:       tr(tLockTitle),
+// vaultLockAsk is the "Lock the vault now?" question.
+func (m *Model) vaultLockAsk() ask {
+	return ask{
+		title:       tAskLock,
+		question:    tr(tLockTitle),
 		consequence: tr(tLockConsequence),
-		keys:        "{yes} lock · {no}/{back} stay unlocked · {command} cmds · {help} help",
-	})
+		answers:     yesNo("{yes} lock", "{no}/{back} stay unlocked"),
+		keep:        actNo,
+	}
 }
 
 // vaultLockedMsg carries the outcome of locking the vault back into the event loop.

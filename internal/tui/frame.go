@@ -161,14 +161,19 @@ func (m *Model) clickTab(msg tea.MouseMsg) (tea.Cmd, bool) {
 // it. The hint names the action only where its key acts in the input focus of the screen, so the key goes to
 // the screen as typed.
 func (m *Model) pressAction(a action) tea.Cmd {
-	keys := keymap.Keys(a)
-	if len(keys) == 0 {
-		return nil
-	}
-	key, ok := namedKey(keys[0])
+	key, ok := keyOf(a)
 	if !ok {
 		return nil
 	}
 	_, cmd := m.Update(key)
 	return cmd
+}
+
+// keyOf is the press of the first key bound to an action, false for an action without one.
+func keyOf(a action) (tea.KeyPressMsg, bool) {
+	keys := keymap.Keys(a)
+	if len(keys) == 0 {
+		return tea.KeyPressMsg{}, false
+	}
+	return namedKey(keys[0])
 }

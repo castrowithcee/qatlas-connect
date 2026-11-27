@@ -7,6 +7,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
+	kittui "github.com/castrowithcee/qatlas-kit/tui"
 
 	"github.com/castrowithcee/qatlas-connect/internal/selfupdate"
 )
@@ -244,12 +245,12 @@ func consequencesOf(question string) string {
 	return question
 }
 
-// versionQuestionView asks before the installation, or, for an older version whose configuration check
-// needs a backup, before the restore.
-func (m *Model) versionQuestionView() string {
+// versionAsk asks before the installation, or, for an older version whose configuration check needs a
+// backup, before the restore.
+func (m *Model) versionAsk() ask {
 	p := m.versionPending
 	if p.plan != nil {
-		return m.restoreQuestionView()
+		return m.restoreAsk()
 	}
 	e := p.entry
 	note := tr(tVersionNewerNote, m.runningVersion())
@@ -265,56 +266,58 @@ func (m *Model) versionQuestionView() string {
 	if m.restart != nil {
 		after = tr(tUpdateAfterRestart)
 	}
-	return m.questionText(question{
-		title:       tr(tVersionQuestion, e.Version),
-		consequence: note,
-		warn:        e.Older,
-		details: []string{m.wrapped(plain, strings.TrimSpace(m.updateText)), "",
-			m.wrapped(plain, after)},
-		keys: "{yes} install · {no}/{back} cancel · {command} cmds · {help} help",
-	})
+	return ask{
+		title:        tAskVersion,
+		question:     tr(tVersionQuestion, e.Version),
+		consequence:  note,
+		irreversible: e.Older,
+		details: []kittui.DialogLine{{Text: strings.TrimSpace(m.updateText)}, {},
+			{Text: after}},
+		answers: cancelAnswers("{yes} install"),
+		keep:    actNo,
+	}
 }
 
-// restoreQuestionView asks whether to restore the backup the older version reads.
-func (m *Model) restoreQuestionView() string {
+// restoreAsk asks whether to restore the backup the older version reads.
+func (m *Model) restoreAsk() ask {
 	p := m.versionPending
 	name, at, _ := p.plan.Backup()
 	version := p.entry.Version
-	return m.questionText(question{
-		title:       tr(tVersionRestoreQuestion, version),
-		consequence: tr(tVersionRestoreConsequence, version),
-		warn:        true,
-		details: []string{m.wrapped(plain, tr(tVersionRestoreOffer, name,
-			at.UTC().Format("2006-01-02 15:04 UTC"), version))},
-		keys: "{yes} restore and install · {no}/{back} cancel · {command} cmds · {help} help",
-	})
+	return ask{
+		title:        tAskRestore,
+		question:     tr(tVersionRestoreQuestion, version),
+		consequence:  tr(tVersionRestoreConsequence, version),
+		irreversible: true,
+		details: []kittui.DialogLine{{Text: tr(tVersionRestoreOffer, name,
+			at.UTC().Format("2006-01-02 15:04 UTC"), version)}},
+		answers: cancelAnswers("{yes} restore and install"),
+		keep:    actNo,
+	}
 }
 
-// updateVersionConfirm answers the question about a chosen version.
-func (m *Model) updateVersionConfirm(key tea.KeyPressMsg) tea.Cmd {
+// answerVersion answers the question about a chosen version.
+func (m *Model) answerVersion(act action) tea.Cmd {
 	p := m.versionPending
-	switch {
-	case keyIs(key, actYes):
-		if work := m.updateBlocker(); work != "" {
-			m.versionPending = nil
-			m.screen = p.from
-			m.versions = nil
-			m.versionList.reset(nil)
-			m.status = tr(tVersionWaitConfirm, work)
-			return nil
-		}
+	if act != actYes {
+		m.cancelVersionAsk()
+		return nil
+	}
+	if work := m.updateBlocker(); work != "" {
 		m.versionPending = nil
 		m.screen = p.from
-		if p.plan != nil {
-			return m.installRollback(p.entry, p.plan, true)
-		}
 		m.versions = nil
 		m.versionList.reset(nil)
-		return m.installVersion(p.entry)
-	case keyIs(key, actNo) || keyIs(key, actBack):
-		m.cancelVersionAsk()
+		m.status = tr(tVersionWaitConfirm, work)
+		return nil
 	}
-	return nil
+	m.versionPending = nil
+	m.screen = p.from
+	if p.plan != nil {
+		return m.installRollback(p.entry, p.plan, true)
+	}
+	m.versions = nil
+	m.versionList.reset(nil)
+	return m.installVersion(p.entry)
 }
 
 // cancelVersionAsk answers the question with no. Declining the installation returns to the list; declining

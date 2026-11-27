@@ -14,20 +14,27 @@ import (
 const OperationRequest = "qconnect.request"
 
 var requestInputSchema = json.RawMessage(fmt.Sprintf(`{"type":"object","properties":{`+
-	`"kind":{"type":"string","enum":["add-tools","remove-tools"],"default":"add-tools",`+
-	`"description":"add-tools asks for tools the connection does not offer; remove-tools asks that the connection stop offering tools it offers now"},`+
+	`"kind":{"type":"string","enum":["add-tools","remove-tools","create-connection"],"default":"add-tools",`+
+	`"description":"add-tools asks for tools the connection does not offer; remove-tools asks that the connection stop offering tools it offers now; create-connection asks the user to set up a new connection, which carries no credential"},`+
+	`"provider":{"type":"string","description":"Only for create-connection: the provider ID of the tools"},`+
+	`"name":{"type":"string","description":"Only for create-connection: the name you wish for the connection; the user may change it"},`+
+	`"targets":{"type":"array","items":{"type":"string"},"maxItems":%d,`+
+	`"description":"Only for create-connection: what the connection should be bound to, in the forms of the provider's targets; leave out when unsure"},`+
 	`"tools":{"type":"array","items":{"type":"string"},"minItems":1,"maxItems":%d,`+
-	`"description":"Tool IDs, or groups as prefixes of the form <provider>.<segment>.*, that the connection does not offer (add-tools) or offers (remove-tools); ask only for what the task needs"},`+
+	`"description":"Tool IDs, or groups as prefixes of the form <provider>.<segment>.*, that the connection does not offer (add-tools) or offers (remove-tools) or should offer (create-connection); ask only for what the task needs"},`+
 	`"reason":{"type":"string","description":"Why the task needs them, in a short sentence; the user reads it as untrusted text, and it is never logged"}},`+
-	`"required":["tools"],"additionalProperties":false}`, accessrequest.MaxTools))
+	`"required":["tools"],"additionalProperties":false}`, accessrequest.MaxTargets, accessrequest.MaxTools))
 
 var requestOutputSchema = json.RawMessage(`{"type":"object","properties":{` +
 	`"id":{"type":"string","description":"ID of the open request"},` +
-	`"kind":{"type":"string","enum":["add-tools","remove-tools"],"description":"The kind of the open request"},` +
-	`"connection":{"type":"string","description":"Name of the connection the request names"},` +
+	`"kind":{"type":"string","enum":["add-tools","remove-tools","create-connection"],"description":"The kind of the open request"},` +
+	`"connection":{"type":"string","description":"Name of the connection the request names, or the name wished for by create-connection"},` +
+	`"provider":{"type":"string","description":"Provider of a create-connection request"},` +
+	`"targets":{"type":"array","items":{"type":"string"},"description":"Every target the open create-connection request holds"},` +
 	`"tools":{"type":"array","items":{"type":"string"},"description":"Every tool the open request holds, an earlier request of the connection included"},` +
 	`"status":{"type":"string","enum":["open"],"description":"open: a person has not decided yet"},` +
-	`"expires_at":{"type":"string","description":"When the request lapses unless a person decides"}},` +
+	`"expires_at":{"type":"string","description":"When the request lapses unless a person decides"},` +
+	`"message":{"type":"string","description":"What to do next: stop and tell the user (create-connection only)"}},` +
 	`"required":["id","kind","connection","tools","status","expires_at"],"additionalProperties":false}`)
 
 // requestDescriptor is the fixed contract of OperationRequest. It belongs to no provider and no connection
@@ -36,7 +43,9 @@ func requestDescriptor() capability.Descriptor {
 	return capability.Descriptor{
 		ID: OperationRequest, Version: 1, Title: "Request tools",
 		Description: "Ask the user for tools the connection does not offer (kind add-tools, the default), or ask " +
-			"that a connection stop offering tools it offers now (kind remove-tools), for example to narrow it. " +
+			"that a connection stop offering tools it offers now (kind remove-tools), for example to narrow it, " +
+			"or ask the user to set up a new connection (kind create-connection, with provider, name, tools and " +
+			"optionally targets, and never a credential or secret: the user chooses those). " +
 			"A request changes nothing by itself: " +
 			"it stays open until the user decides, so stop and tell the user what you asked for, and look at the " +
 			"tools of the connection later to see whether they are offered.",
@@ -47,14 +56,20 @@ func requestDescriptor() capability.Descriptor {
 		},
 		InputSchema: requestInputSchema, OutputSchema: requestOutputSchema,
 		Arguments: []capability.Argument{
-			{Name: "kind", Description: "add-tools (default) or remove-tools"},
+			{Name: "kind", Description: "add-tools (default), remove-tools or create-connection"},
+			{Name: "provider", Description: "Provider ID, only for create-connection"},
+			{Name: "name", Description: "Wished connection name, only for create-connection"},
+			{Name: "targets", Description: "Wished targets, only for create-connection"},
 			{Name: "tools", Required: true, Description: "Tool IDs or <provider>.<segment>.* prefixes to request"},
 			{Name: "reason", Description: "Short reason for the user"},
 		},
 		Fields: []capability.Field{
 			{Name: "id", Description: "ID of the open request"},
-			{Name: "kind", Description: "add-tools or remove-tools"},
-			{Name: "connection", Description: "Name of the connection the request names"},
+			{Name: "kind", Description: "add-tools, remove-tools or create-connection"},
+			{Name: "connection", Description: "Name of the connection the request names, or the wished name"},
+			{Name: "provider", Description: "Provider of a create-connection request"},
+			{Name: "targets", Description: "Every target of the open create-connection request"},
+			{Name: "message", Description: "What to do next (create-connection only)"},
 			{Name: "tools", Description: "Every tool the open request holds"},
 			{Name: "status", Description: "open until the user decides"},
 			{Name: "expires_at", Description: "When the request lapses"},
@@ -65,6 +80,10 @@ func requestDescriptor() capability.Descriptor {
 		}, {
 			Description: "Ask that the connection stop offering a group of tools it offers",
 			Arguments:   json.RawMessage(`{"kind":"remove-tools","tools":["example.admin.*"],"reason":"The task needs no admin tools"}`),
+		}, {
+			Description: "Ask the user to set up a connection for admin tools, with no credential",
+			Arguments: json.RawMessage(`{"kind":"create-connection","provider":"example","name":"example-admin",` +
+				`"tools":["example.admin.*"],"reason":"The task needs admin tools no connection offers"}`),
 		}},
 	}
 }
@@ -103,15 +122,19 @@ func (c *Core) invokeRequest(request InvokeRequest) (InvokeResponse, error) {
 		return InvokeResponse{}, &InvalidRequestError{Message: err.Error()}
 	}
 	var arguments struct {
-		Kind   string   `json:"kind"`
-		Tools  []string `json:"tools"`
-		Reason string   `json:"reason"`
+		Kind     string   `json:"kind"`
+		Provider string   `json:"provider"`
+		Name     string   `json:"name"`
+		Targets  []string `json:"targets"`
+		Tools    []string `json:"tools"`
+		Reason   string   `json:"reason"`
 	}
 	if err := json.Unmarshal(request.Arguments, &arguments); err != nil {
 		return InvokeResponse{}, &InvalidRequestError{Message: "arguments do not satisfy the request contract"}
 	}
 	response, err := c.RequestTools(ToolRequest{
-		Kind: arguments.Kind, Connection: request.Connection, Tools: arguments.Tools, Reason: arguments.Reason,
+		Kind: arguments.Kind, Connection: request.Connection, Provider: arguments.Provider, Name: arguments.Name,
+		Targets: arguments.Targets, Tools: arguments.Tools, Reason: arguments.Reason,
 	})
 	if err != nil {
 		return InvokeResponse{}, err
@@ -120,5 +143,10 @@ func (c *Core) invokeRequest(request InvokeRequest) (InvokeResponse, error) {
 	if err != nil {
 		return InvokeResponse{}, fmt.Errorf("encode request response: %w", err)
 	}
-	return InvokeResponse{Operation: OperationRequest, Version: 1, Connection: response.Connection, Result: result}, nil
+	connection := response.Connection
+	if response.Kind == string(accessrequest.KindCreateConnection) {
+		// The wished name is no connection yet.
+		connection = ""
+	}
+	return InvokeResponse{Operation: OperationRequest, Version: 1, Connection: connection, Result: result}, nil
 }
