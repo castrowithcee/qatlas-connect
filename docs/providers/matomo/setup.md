@@ -45,7 +45,7 @@ from time to time; look for these names.
 The guided setup does all of this for you:
 
 1. Run `qconnect tui`.
-2. In the Connections area, press `n` and follow the steps: provider `matomo`, the service with its address, a
+2. In the Connections area, press `g` and follow the steps: provider `matomo`, the service with its address, a
    credential (choose where to keep it and paste the token as its `token` secret), the scope (websites), and the
    access (by effect or by tools).
 

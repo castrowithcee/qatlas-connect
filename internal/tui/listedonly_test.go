@@ -98,7 +98,7 @@ func TestGuidedSetupOfAListedOnlyProviderStartsWithoutTools(t *testing.T) {
 	m := guardedModel(t)
 	openSectionByName(t, m, sectionConnections)
 	m.screen = screenList
-	walkSetupFrom(t, m, "n", stepEffects)
+	walkSetupFrom(t, m, "g", stepEffects)
 	if m.wizard.step != stepEffects {
 		t.Fatalf("step = %d, want the access step", m.wizard.step)
 	}

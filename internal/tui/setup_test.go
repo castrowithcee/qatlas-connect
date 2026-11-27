@@ -638,16 +638,16 @@ func TestSetupAndEditorStoreAlike(t *testing.T) {
 	}
 }
 
-// n on the Connections list is the guided setup: a connection with a new service and a new credential comes
+// g on the Connections list is the guided setup: a connection with a new service and a new credential comes
 // out of one run, without a visit to the Library, and nothing is written before the summary's save.
-func TestNewInConnectionsRunsTheGuidedSetupWithNewServiceAndCredential(t *testing.T) {
+func TestGuidedSetupInConnectionsAddsServiceAndCredential(t *testing.T) {
 	m, store, path, _, mem := newStoreModel(t)
 	openSectionByName(t, m, sectionConnections)
 	m.screen = screenList
 	if len(m.cfg.Services) != 0 || len(m.cfg.Credentials) != 0 {
 		t.Fatal("the fixture is not empty")
 	}
-	walkSetupFrom(t, m, "n", setupSteps-1)
+	walkSetupFrom(t, m, "g", setupSteps-1)
 	if m.screen != screenSummary {
 		t.Fatalf("screen = %v, want the summary", m.screen)
 	}
@@ -678,18 +678,104 @@ func TestNewInConnectionsRunsTheGuidedSetupWithNewServiceAndCredential(t *testin
 	assertNoCanary(t, "the summary", screenOf(m))
 }
 
-// With connections present, n asks "empty or from existing" and an empty start still reaches the setup.
-func TestNewInConnectionsKeepsTheTemplateQuestion(t *testing.T) {
+// n in Connections is the connection form, as in the other sections: with connections present it asks
+// "empty or from existing" first, and neither answer starts the guided setup or leaves the Connections tab.
+func TestNewInConnectionsOpensTheConnectionForm(t *testing.T) {
 	m, _ := templateModel(t)
 	openSectionByName(t, m, sectionConnections)
 	m.screen = screenList
 	press(t, m, "n")
+	if !choiceOpen(m, screenTemplate) || m.template.setup || m.wizard != nil || m.fail != "" {
+		t.Fatalf("n: screen %v fail %q, want the template question of Connections", m.screen, m.fail)
+	}
+	assertConnectionsTab(t, m)
+	press(t, m, "enter")
+	if m.screen != screenForm || m.editing != "" || m.copyFrom != "" || m.wizard != nil {
+		t.Fatalf("empty: screen %v editing %q copyFrom %q, want the empty connection form", m.screen, m.editing, m.copyFrom)
+	}
+	assertConnectionsTab(t, m)
+	press(t, m, "esc")
+	if m.screen != screenList {
+		t.Fatalf("esc: screen %v, want the list", m.screen)
+	}
+	press(t, m, "n", "down", "enter", "enter")
+	if m.screen != screenForm || m.copyFrom != "github-ops" || m.fieldValue("name") != "github-ops-copy" || m.wizard != nil {
+		t.Fatalf("from existing: screen %v copyFrom %q name %q, want the form filled from github-ops", m.screen,
+			m.copyFrom, m.fieldValue("name"))
+	}
+	assertConnectionsTab(t, m)
+}
+
+// Without a connection to copy, n opens the empty connection form at once.
+func TestNewInConnectionsWithoutConnectionsOpensTheEmptyForm(t *testing.T) {
+	m, _, _, _, _ := newStoreModel(t)
+	addService(t, m, "wiki", "https://wiki.example.invalid")
+	addCredential(t, m, "reader", "WIKI_ID", "WIKI_SECRET")
+	openSectionByName(t, m, sectionConnections)
+	m.screen = screenList
+	press(t, m, "n")
+	if m.screen != screenForm || m.editing != "" || m.copyFrom != "" || m.wizard != nil || m.fail != "" {
+		t.Fatalf("n: screen %v fail %q, want the empty connection form", m.screen, m.fail)
+	}
+	assertConnectionsTab(t, m)
+}
+
+// Without a service or a credential n opens nothing and names what is missing and that g adds it, in the
+// empty list as well as after the key.
+func TestNewInConnectionsNamesTheMissingServiceOrCredential(t *testing.T) {
+	cases := map[string]struct {
+		service, credential bool
+		want                string
+	}{
+		"both":       {want: tr(tConnectionsNeedBoth, sectionServices.ref(), sectionCredentials.ref())},
+		"service":    {credential: true, want: tr(tConnectionsNeedService, sectionServices.ref())},
+		"credential": {service: true, want: tr(tConnectionsNeedCredential, sectionCredentials.ref())},
+	}
+	for name, c := range cases {
+		t.Run(name, func(t *testing.T) {
+			m, _, _, _, _ := newStoreModel(t)
+			if c.service {
+				addService(t, m, "wiki", "https://wiki.example.invalid")
+			}
+			if c.credential {
+				addCredential(t, m, "reader", "WIKI_ID", "WIKI_SECRET")
+			}
+			openSectionByName(t, m, sectionConnections)
+			if view := prose(screenOf(m)); !strings.Contains(view, flatText(c.want)) {
+				t.Errorf("the empty list lacks %q:\n%s", c.want, view)
+			}
+			m.screen = screenList
+			press(t, m, "n")
+			if m.screen != screenList || m.wizard != nil || m.fail != c.want {
+				t.Fatalf("n: screen %v fail %q, want the list and %q", m.screen, m.fail, c.want)
+			}
+		})
+	}
+}
+
+// g in Connections still starts the guided setup, with its own template question once connections exist.
+func TestSetupKeyInConnectionsStillStartsTheGuidedSetup(t *testing.T) {
+	m, _ := templateModel(t)
+	openSectionByName(t, m, sectionConnections)
+	m.screen = screenList
+	press(t, m, "g")
 	if !choiceOpen(m, screenTemplate) || !m.template.setup || m.fail != "" {
-		t.Fatalf("n: screen %v, want the template question of the setup", m.screen)
+		t.Fatalf("g: screen %v fail %q, want the template question of the setup", m.screen, m.fail)
 	}
 	press(t, m, "enter")
 	if m.wizard == nil || !choiceOpen(m, screenProviders) || m.fail != "" {
 		t.Fatalf("empty: screen %v, want the setup's provider table", m.screen)
+	}
+}
+
+// assertConnectionsTab checks that the tab line still shows Connections, not the guided setup.
+func assertConnectionsTab(t *testing.T, m *Model) {
+	t.Helper()
+	if m.section != sectionConnections {
+		t.Errorf("section = %v, want Connections", m.section)
+	}
+	if lines := frameLines(m); strings.Contains(strings.Join(lines[:2], "\n"), tr(tTabSetup)) {
+		t.Errorf("the tab line shows the setup:\n%s", strings.Join(lines[:2], "\n"))
 	}
 }
 
@@ -699,7 +785,7 @@ func TestCancellingAfterTheNewServiceWritesNothing(t *testing.T) {
 	m, _, path, _, mem := newStoreModel(t)
 	openSectionByName(t, m, sectionConnections)
 	m.screen = screenList
-	walkSetupFrom(t, m, "n", stepCredential)
+	walkSetupFrom(t, m, "g", stepCredential)
 	if m.wizard.step != stepCredential || m.wizard.plan.service != "wiki" {
 		t.Fatalf("step %d plan %+v, want the credential step after the new service", m.wizard.step, m.wizard.plan)
 	}
@@ -723,14 +809,14 @@ func TestCancellingAfterTheNewServiceWritesNothing(t *testing.T) {
 	assertNoStoredSecret(t, mem, filepath.Dir(path))
 }
 
-// n in Connections still reuses a configured service and credential.
-func TestNewInConnectionsReusesAConfiguredService(t *testing.T) {
+// The guided setup in Connections reuses a configured service and credential.
+func TestGuidedSetupInConnectionsReusesAConfiguredService(t *testing.T) {
 	m, store, _, _, _ := newStoreModel(t)
 	addService(t, m, "wiki", "https://wiki.example.invalid")
 	addCredential(t, m, "reader", "WIKI_ID", "WIKI_SECRET")
 	openSectionByName(t, m, sectionConnections)
 	m.screen = screenList
-	press(t, m, "n", "enter")
+	press(t, m, "g", "enter")
 	if m.fieldValue("service") != "wiki" {
 		t.Fatalf("service = %q, want the configured one first", m.fieldValue("service"))
 	}

@@ -49,7 +49,7 @@ Enterprise scopes, belong to a user whose role is limited.
 The guided setup does all of this for you:
 
 1. Run `qconnect tui`.
-2. In the Connections area, press `n` and follow the steps: provider `n8n`, the service with its address, a
+2. In the Connections area, press `g` and follow the steps: provider `n8n`, the service with its address, a
    credential, the scope (targets), and the access (by effect or by tools).
 3. When the setup asks for the credential, choose where to keep it and paste the key as its `api-key` secret.
 

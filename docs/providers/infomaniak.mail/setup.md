@@ -50,7 +50,7 @@ but a leaked password is not narrowed: it reaches the whole mailbox and can send
 The guided setup does all of this for you:
 
 1. Run `qconnect tui`.
-2. In the Connections area, press `n` and follow the steps: provider `infomaniak.mail`, the service, a credential,
+2. In the Connections area, press `g` and follow the steps: provider `infomaniak.mail`, the service, a credential,
    the scope (targets: the mailbox, optionally folders and senders), and the access (by effect or by tools).
 3. When the setup asks for the credential, choose where to keep it and enter the mailbox password as its `password`
    secret.

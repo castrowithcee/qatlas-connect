@@ -48,7 +48,7 @@ time; look for these names.
 The guided setup does all of this for you:
 
 1. Run `qconnect tui`.
-2. In the Connections area, press `n` and follow the steps: provider `penpot`, the service, a credential, the scope
+2. In the Connections area, press `g` and follow the steps: provider `penpot`, the service, a credential, the scope
    (teams, projects, and files as targets), and the access (by effect or by tools).
 3. When the setup asks for the credential, choose where to keep it and paste the token as its `access-token` secret.
 

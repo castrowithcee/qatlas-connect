@@ -57,6 +57,7 @@ func TestInfoExtraKeyWorksOnTextRowsAndFooters(t *testing.T) {
 	m.Update(tea.WindowSizeMsg{Width: 140, Height: 40})
 	applyKeys(map[action]string{actInfo: "f3"})
 	addService(t, m, "wiki", "https://wiki.example.invalid")
+	addCredential(t, m, "reader", "WIKI_ID", "WIKI_SECRET")
 	openSectionByName(t, m, sectionConnections)
 	pressNew(t, m)
 	if !m.typing() {

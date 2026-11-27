@@ -48,7 +48,7 @@ BookStack changes its pages from time to time; look for these names. The interfa
 The guided setup does all of this for you:
 
 1. Run `qconnect tui`.
-2. In the Connections area, press `n` and follow the steps: provider `bookstack`, the service with the instance
+2. In the Connections area, press `g` and follow the steps: provider `bookstack`, the service with the instance
    address, a credential, the scope (targets), and the access (by effect or by tools).
 3. When the setup asks for the credential, choose where to keep it and enter the two values as the secrets
    `token-id` and `token-secret`.

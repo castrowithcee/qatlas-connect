@@ -758,10 +758,9 @@ func TestDirectSectionKeys(t *testing.T) {
 		t.Fatalf("3 on the tab line = screen %v section %v", m.screen, m.section)
 	}
 	press(t, m, "n")
-	if m.screen != screenProviders || m.wizard == nil || m.fail != "" {
-		t.Errorf("new without prerequisites: screen %v error %q, want the guided setup", m.screen, m.fail)
+	if want := tr(tConnectionsNeedCredential, sectionCredentials.ref()); m.screen != screenList || m.wizard != nil || m.fail != want {
+		t.Errorf("new without a credential: screen %v error %q, want the list and %q", m.screen, m.fail, want)
 	}
-	press(t, m, "esc")
 
 	// The guided setup is one key away from the list and from the tab line, and a setup without a provider
 	// yet closes with one escape.
@@ -810,8 +809,8 @@ func TestRebuildWithoutADashboard(t *testing.T) {
 	typeText(t, m, "WIKI_ID")
 	step("tab")
 	typeText(t, m, "WIKI_SECRET")
-	// n in Connections is the guided setup; it reuses the service and the credential made above.
-	step("f2", "3", "n", "enter", "f2", "f2")
+	// g in Connections is the guided setup; it reuses the service and the credential made above.
+	step("f2", "3", "g", "enter", "f2", "f2")
 	clearField(t, m)
 	typeText(t, m, "wiki")
 	step("f2", "f2", "f2")
@@ -1918,14 +1917,14 @@ func TestDependentSectionsExplainWhatMustBeCreatedFirst(t *testing.T) {
 
 	openSectionByName(t, m, sectionConnections)
 	view := strings.Join(strings.Fields(screenOf(m)), " ")
-	if !strings.Contains(view, "Press n for the guided setup") {
-		t.Errorf("empty Connections does not point to the guided setup:\n%s", view)
+	if !strings.Contains(view, "needs a service and a credential") || !strings.Contains(view, "press g: the guided setup adds both") {
+		t.Errorf("empty Connections does not name what is missing and the guided setup:\n%s", view)
 	}
+	m.screen = screenList
 	press(t, m, "n")
-	if m.wizard == nil || m.screen != screenProviders || m.fail != "" {
-		t.Fatalf("n without a service and a credential: screen %v error %q, want the guided setup", m.screen, m.fail)
+	if m.wizard != nil || m.screen != screenList || !strings.Contains(m.fail, "press g") {
+		t.Fatalf("n without a service and a credential: screen %v error %q, want the list and the way to g", m.screen, m.fail)
 	}
-	press(t, m, "esc")
 
 	openSectionByName(t, m, sectionDefaults)
 	if view := strings.Join(strings.Fields(strings.NewReplacer("│", " ", "║", " ").Replace(screenOf(m))), " "); !strings.Contains(view, "Create a connection") ||

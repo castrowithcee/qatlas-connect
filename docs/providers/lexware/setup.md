@@ -45,7 +45,7 @@ Give a key only what a connection needs, and use a separate key for each Lexware
 The guided setup does all of this for you:
 
 1. Run `qconnect tui`.
-2. In the Connections area, press `n` and follow the steps: provider `lexware`, the service, a credential, the
+2. In the Connections area, press `g` and follow the steps: provider `lexware`, the service, a credential, the
    optional organization target, and the access (by effect or by tools).
 3. When the setup asks for the credential, choose where to keep it and paste the key as its `api-key` secret.
 

@@ -57,7 +57,7 @@ credential, so you can revoke each on its own.
 The guided setup does all of this for you:
 
 1. Run `qconnect tui`.
-2. In the Connections area, press `n` and follow the steps: provider `nextcloud`, the service (the instance
+2. In the Connections area, press `g` and follow the steps: provider `nextcloud`, the service (the instance
    address), a credential, the scope (targets), and the access (by effect or by tools).
 3. When the setup asks for the credential, choose where to keep it and enter the user ID as its `user-id` secret and
    the app password as its `app-password` secret.

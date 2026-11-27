@@ -1168,15 +1168,10 @@ func (m *Model) updateNav(key tea.KeyPressMsg) tea.Cmd {
 
 // newEntry is n from the tab line or a list: the form of a new entry of the active section, unless a missing
 // prerequisite blocks it. In Credentials it first asks for a credential or a payload secret. A new agent
-// token is a managing action from the start (see newToken). In Connections n is the guided setup, the same
-// flow as g, because it creates a missing service or credential on the way instead of sending the person to
-// the Library.
+// token is a managing action from the start (see newToken). The guided setup is g, not n, also in
+// Connections.
 func (m *Model) newEntry() tea.Cmd {
 	if m.section.isPage() {
-		return nil
-	}
-	if m.section == sectionConnections {
-		m.askSetupTemplate()
 		return nil
 	}
 	if reason := m.newEntryBlocked(); reason != "" {
@@ -1437,6 +1432,16 @@ func (m *Model) newEntryBlockedFor(s section) string {
 	case sectionDefaults:
 		if len(m.cfg.Connections) == 0 {
 			return tr(tDefaultsNeedConnection, int(sectionConnections.area())+1)
+		}
+	case sectionConnections:
+		// The connection form chooses from existing services and credentials; g adds them on the way.
+		switch noService, noCredential := len(m.cfg.Services) == 0, len(m.cfg.Credentials) == 0; {
+		case noService && noCredential:
+			return tr(tConnectionsNeedBoth, sectionServices.ref(), sectionCredentials.ref())
+		case noService:
+			return tr(tConnectionsNeedService, sectionServices.ref())
+		case noCredential:
+			return tr(tConnectionsNeedCredential, sectionCredentials.ref())
 		}
 	case sectionApprovals:
 		return tr(tApprovalsNothingToAdd)
@@ -4940,6 +4945,9 @@ func (m *Model) emptyHelp() string {
 	case sectionCredentials:
 		return tr(tFormNoCredentialsYetPressN)
 	case sectionConnections:
+		if reason := m.newEntryBlocked(); reason != "" {
+			return reason
+		}
 		return tr(tFormNoConnectionsYetPressN)
 	case sectionDefaults:
 		if reason := m.newEntryBlocked(); reason != "" {
